@@ -18,19 +18,5 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
     }
-
-    // Cache collections — read-only for authenticated users, write by admin SDK only
-    match /cache_shows/{docId} {
-      allow read: if request.auth != null;
-      allow write: if false;
-    }
-    match /cache_trending/{docId} {
-      allow read: if request.auth != null;
-      allow write: if false;
-    }
-    match /cache_seasons/{docId} {
-      allow read: if request.auth != null;
-      allow write: if false;
-    }
   }
 }
