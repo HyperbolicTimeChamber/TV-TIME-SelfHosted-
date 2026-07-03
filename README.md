@@ -20,10 +20,19 @@ A self-hosted TV Time clone for tracking TV shows and movies. Built with React N
 |-------|-----------|
 | Mobile App | Expo (React Native), TypeScript |
 | Navigation | React Navigation (bottom tabs, material top tabs, native stack) |
-| State | Zustand (auth, UI), TanStack React Query (server state) |
+| State | Zustand (auth, UI), TanStack React Query (server state, in-memory caching) |
 | Animations | React Native Reanimated, Gesture Handler |
-| Backend | Firebase (Auth, Firestore, Cloud Functions v2) |
-| API | TMDB API v3 (proxied through Cloud Functions) |
+| Backend | Firebase (Auth, Firestore) — Spark (free) plan |
+| API | TMDB API v3 (queried directly from the client) |
+
+## Architecture
+
+This app runs entirely on the Firebase **Spark (free) plan** — no Cloud Functions, no Blaze billing required.
+
+- **TMDB API calls** are made directly from the client. Each user provides their own TMDB API key during onboarding; it is stored in their Firestore user profile and never shared with other users.
+- **In-memory caching** is handled by TanStack React Query, eliminating the need for server-side cache collections.
+- **Stats** (episodes watched, total minutes, shows tracking) are updated via client-side batch writes directly to Firestore.
+- **No server-side code** — there are no Cloud Functions or Firestore triggers.
 
 ## Project Structure
 
@@ -37,14 +46,9 @@ TV-TIME-SelfHosted-/
 │       ├── navigation/           # Bottom tabs + stack navigators
 │       ├── hooks/                # Real-time listeners + React Query hooks
 │       ├── stores/               # Zustand (auth, UI)
-│       ├── services/             # Firestore CRUD + callable function wrappers
+│       ├── services/             # Firestore CRUD + TMDB client
 │       ├── types/                # TypeScript types
 │       └── theme/                # Colors, spacing, typography
-├── functions/                    # Firebase Cloud Functions
-│   └── src/
-│       ├── tmdb/                 # TMDB proxy endpoints (cached)
-│       ├── triggers/             # Firestore triggers (stats, watchlist)
-│       └── index.ts              # Export all functions
 ├── firebase.json
 ├── firestore.rules
 └── firestore.indexes.json
@@ -55,8 +59,8 @@ TV-TIME-SelfHosted-/
 - Node.js 18+
 - Expo CLI (`npm install -g expo-cli`)
 - Firebase CLI (`npm install -g firebase-tools`)
-- A Firebase project with Auth, Firestore, and Functions enabled
-- A [TMDB API key](https://www.themoviedb.org/settings/api)
+- A Firebase project with Auth and Firestore enabled (Spark plan is sufficient)
+- A [TMDB API key](https://www.themoviedb.org/settings/api) — each user provides their own during onboarding
 - For iOS: Xcode + CocoaPods
 - For Android: Android Studio + SDK
 
@@ -68,7 +72,6 @@ TV-TIME-SelfHosted-/
 git clone https://github.com/YOUR_USERNAME/TV-TIME-SelfHosted-.git
 cd TV-TIME-SelfHosted-
 cd app && npm install
-cd ../functions && npm install
 ```
 
 ### 2. Firebase Configuration
@@ -76,7 +79,7 @@ cd ../functions && npm install
 1. Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
 2. Enable **Authentication** (Google Sign-In provider)
 3. Enable **Cloud Firestore**
-4. Enable **Cloud Functions** (Blaze plan required)
+4. No Blaze plan or Cloud Functions required
 
 **Android:** Download `google-services.json` → place in `app/android/app/`
 
@@ -91,21 +94,18 @@ Update `.firebaserc` with your project ID:
 }
 ```
 
-### 3. TMDB API Key
+### 3. TMDB API Key (Per-User Onboarding)
 
-```bash
-firebase functions:secrets:set TMDB_API_KEY
-# Enter your TMDB API key when prompted
-```
+No environment variable or Firebase secret is needed. When a new user signs in for the first time, the app presents an onboarding screen asking them to enter their personal [TMDB API key](https://www.themoviedb.org/settings/api). The key is saved to their Firestore user profile (`users/{uid}/tmdbApiKey`) and used for all subsequent TMDB requests from that account.
 
 ### 4. Google Sign-In
 
 Update the `webClientId` in `app/App.tsx` with your OAuth 2.0 web client ID from the [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
 
-### 5. Deploy Functions & Rules
+### 5. Deploy Firestore Rules & Indexes
 
 ```bash
-firebase deploy --only functions,firestore
+firebase deploy --only firestore
 ```
 
 ### 6. Run the App
@@ -118,43 +118,19 @@ npx expo run:ios    # or run:android
 
 > **Note:** This app uses native modules (Firebase, Google Sign-In) and requires a dev build — Expo Go will not work.
 
-## Cloud Functions
-
-All TMDB API calls are proxied through Cloud Functions to keep the API key server-side. Responses are cached in Firestore to reduce API calls.
-
-| Function | Description | Cache TTL |
-|----------|-------------|-----------|
-| `searchMulti` | Search shows & movies | None (real-time) |
-| `getTrending` | Trending TV/movies | 1 hour |
-| `getShowDetails` | Show/movie details | 24 hours |
-| `getSeasonDetails` | Season episodes | 24 hours |
-| `getUpcomingEpisodes` | Upcoming for tracked shows | None |
-
-### Firestore Triggers
-
-| Trigger | Action |
-|---------|--------|
-| `onUserCreate` | Initialize user profile with empty stats |
-| `onEpisodeCreated/Deleted/Updated` | Update `stats.episodesWatched` and `stats.totalMinutes` |
-| `onWatchlistAdded/Removed` | Update `stats.showsTracking` |
-
 ## Security
 
 - All Firestore data is user-scoped — users can only read/write their own data
-- Cache collections are read-only for clients (written by Cloud Functions via Admin SDK)
-- All Cloud Functions require Firebase authentication
-- TMDB API key is stored as a Firebase secret, never exposed to the client
+- Each user's TMDB API key is stored in their own Firestore document, readable only by them (enforced by security rules)
+- No server-side secrets or Cloud Functions are used
 
 ## Scripts
 
 ```bash
-# From root
-npm run app:start          # Start Expo dev server
-npm run app:ios            # Run on iOS
-npm run app:android        # Run on Android
-npm run functions:build    # Build Cloud Functions
-npm run functions:serve    # Local emulator
-npm run functions:deploy   # Deploy to Firebase
+# From app/
+npm run start      # Start Expo dev server
+npm run ios        # Run on iOS
+npm run android    # Run on Android
 ```
 
 ## License
