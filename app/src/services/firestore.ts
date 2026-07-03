@@ -117,6 +117,25 @@ export async function markEpisodeWatched(
   await batch.commit();
 }
 
+export async function unmarkEpisodeWatched(
+  userId: string,
+  tmdbShowId: number,
+  season: number,
+  episode: number,
+  runtime: number
+) {
+  const docId = episodeDocId(tmdbShowId, season, episode);
+  const epRef = watchedEpisodesRef(userId).doc(docId);
+
+  const batch = db.batch();
+  batch.delete(epRef);
+  batch.update(userRef(userId), {
+    "stats.episodesWatched": firestore.FieldValue.increment(-1),
+    "stats.totalMinutes": firestore.FieldValue.increment(-runtime),
+  });
+  await batch.commit();
+}
+
 export async function startRewatch(userId: string, tmdbId: number) {
   await watchlistRef(userId)
     .doc(String(tmdbId))

@@ -39,7 +39,17 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   saveTmdbApiKey: async (userId: string, key: string) => {
-    await firestore().collection("users").doc(userId).set({ tmdbApiKey: key }, { merge: true });
+    const docRef = firestore().collection("users").doc(userId);
+    const doc = await docRef.get();
+    const updateData: Record<string, unknown> = { tmdbApiKey: key };
+    if (!doc.exists() || !doc.data()?.stats) {
+      updateData.stats = {
+        episodesWatched: 0,
+        showsTracking: 0,
+        totalMinutes: 0,
+      };
+    }
+    await docRef.set(updateData, { merge: true });
     set({ tmdbApiKey: key, tmdbApiKeyLoading: false });
   },
 
