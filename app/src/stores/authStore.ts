@@ -25,7 +25,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   setUser: (user) => set({ user, loading: false }),
   setLoading: (loading) => set({ loading }),
-  setTmdbApiKey: (key) => set({ tmdbApiKey: key }),
+  setTmdbApiKey: (key) => set({ tmdbApiKey: key, tmdbApiKeyLoading: false }),
 
   loadTmdbApiKey: async (userId: string) => {
     try {
@@ -39,8 +39,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   saveTmdbApiKey: async (userId: string, key: string) => {
-    await firestore().collection("users").doc(userId).update({ tmdbApiKey: key });
-    set({ tmdbApiKey: key });
+    await firestore().collection("users").doc(userId).set({ tmdbApiKey: key }, { merge: true });
+    set({ tmdbApiKey: key, tmdbApiKeyLoading: false });
   },
 
   signIn: async () => {
