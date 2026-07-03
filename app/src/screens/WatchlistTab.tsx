@@ -11,7 +11,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuthStore } from "../stores/authStore";
 import { useWatchlist } from "../hooks/useWatchlist";
 import { markEpisodeWatched, stopWatching } from "../services/firestore";
-import { getSeasonDetails } from "../services/functions";
+import { getSeasonDetails } from "../services/tmdb";
 import ShowCard from "../components/ShowCard";
 import { colors, spacing, typography } from "../theme";
 import { WatchlistItem, HomeStackParamList } from "../types";
@@ -20,6 +20,7 @@ type NavProp = NativeStackNavigationProp<HomeStackParamList, "HomeTabs">;
 
 export default function WatchlistTab() {
   const user = useAuthStore((s) => s.user);
+  const apiKey = useAuthStore((s) => s.tmdbApiKey)!;
   const { items, loading } = useWatchlist(user?.uid);
   const navigation = useNavigation<NavProp>();
 
@@ -45,6 +46,7 @@ export default function WatchlistTab() {
       if (!user?.uid || !item.nextEpisode) return;
 
       const seasonData = await getSeasonDetails(
+        apiKey,
         item.tmdbId,
         item.nextEpisode.season
       );
@@ -75,6 +77,7 @@ export default function WatchlistTab() {
       } else {
         try {
           const nextSeasonData = await getSeasonDetails(
+            apiKey,
             item.tmdbId,
             item.nextEpisode.season + 1
           );
@@ -105,7 +108,7 @@ export default function WatchlistTab() {
         isComplete
       );
     },
-    [user?.uid]
+    [user?.uid, apiKey]
   );
 
   const handleStopWatching = useCallback(

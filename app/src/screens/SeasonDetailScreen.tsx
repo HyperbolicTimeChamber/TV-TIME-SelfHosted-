@@ -14,7 +14,7 @@ import { useWatchedEpisodes } from "../hooks/useWatchedEpisodes";
 import { useWatchlist } from "../hooks/useWatchlist";
 import { useAuthStore } from "../stores/authStore";
 import { markEpisodeWatched } from "../services/firestore";
-import { getSeasonDetails as fetchSeason } from "../services/functions";
+import { getSeasonDetails as fetchSeason } from "../services/tmdb";
 import { colors, spacing, typography } from "../theme";
 import { HomeStackParamList, TMDBEpisode } from "../types";
 
@@ -24,6 +24,7 @@ export default function SeasonDetailScreen() {
   const route = useRoute<RouteParams>();
   const { tmdbId, seasonNumber } = route.params;
   const user = useAuthStore((s) => s.user);
+  const apiKey = useAuthStore((s) => s.tmdbApiKey)!;
   const { data: seasonData, isLoading } = useSeasonDetails(tmdbId, seasonNumber);
   const { episodes: watchedEps } = useWatchedEpisodes(user?.uid, tmdbId);
   const { items: watchlist } = useWatchlist(user?.uid);
@@ -62,7 +63,7 @@ export default function SeasonDetailScreen() {
         };
       } else {
         try {
-          const nextSeasonData = await fetchSeason(tmdbId, seasonNumber + 1);
+          const nextSeasonData = await fetchSeason(apiKey, tmdbId, seasonNumber + 1);
           const ns = nextSeasonData as { episodes: Array<{ episode_number: number }> };
           if (ns.episodes?.length > 0) {
             nextEpisode = { season: seasonNumber + 1, episode: 1 };

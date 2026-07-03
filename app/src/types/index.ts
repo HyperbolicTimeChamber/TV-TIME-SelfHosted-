@@ -15,6 +15,7 @@ export interface UserProfile {
   photoURL: string;
   createdAt: FirebaseFirestoreTypes.Timestamp;
   stats: UserStats;
+  tmdbApiKey: string;
 }
 
 export interface UserStats {
@@ -100,6 +101,7 @@ export interface UpcomingEpisode {
 // Navigation param types
 export type RootStackParamList = {
   Login: undefined;
+  ApiKeySetup: undefined;
   Main: undefined;
 };
 

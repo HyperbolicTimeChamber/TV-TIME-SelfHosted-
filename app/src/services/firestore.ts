@@ -29,23 +29,31 @@ export async function addToWatchlist(
   posterPath: string,
   firstEpisode?: { season: number; episode: number }
 ) {
-  await watchlistRef(userId)
-    .doc(String(tmdbId))
-    .set({
-      tmdbId,
-      mediaType,
-      title,
-      posterPath,
-      addedAt: firestore.FieldValue.serverTimestamp(),
-      lastWatchedAt: null,
-      status: "watching" as WatchStatus,
-      nextEpisode: firstEpisode || (mediaType === "tv" ? { season: 1, episode: 1 } : null),
-      rewatchCount: 0,
-    });
+  const batch = db.batch();
+  batch.set(watchlistRef(userId).doc(String(tmdbId)), {
+    tmdbId,
+    mediaType,
+    title,
+    posterPath,
+    addedAt: firestore.FieldValue.serverTimestamp(),
+    lastWatchedAt: null,
+    status: "watching" as WatchStatus,
+    nextEpisode: firstEpisode || (mediaType === "tv" ? { season: 1, episode: 1 } : null),
+    rewatchCount: 0,
+  });
+  batch.update(userRef(userId), {
+    "stats.showsTracking": firestore.FieldValue.increment(1),
+  });
+  await batch.commit();
 }
 
 export async function removeFromWatchlist(userId: string, tmdbId: number) {
-  await watchlistRef(userId).doc(String(tmdbId)).delete();
+  const batch = db.batch();
+  batch.delete(watchlistRef(userId).doc(String(tmdbId)));
+  batch.update(userRef(userId), {
+    "stats.showsTracking": firestore.FieldValue.increment(-1),
+  });
+  await batch.commit();
 }
 
 export async function stopWatching(userId: string, tmdbId: number, currentStatus: WatchStatus) {
@@ -72,13 +80,15 @@ export async function markEpisodeWatched(
   const epRef = watchedEpisodesRef(userId).doc(docId);
   const epDoc = await epRef.get();
 
+  const batch = db.batch();
+
   if (epDoc.exists()) {
-    await epRef.update({
+    batch.update(epRef, {
       watchCount: firestore.FieldValue.increment(1),
       lastWatchedAt: firestore.FieldValue.serverTimestamp(),
     });
   } else {
-    await epRef.set({
+    batch.set(epRef, {
       tmdbShowId,
       season,
       episode,
@@ -90,6 +100,11 @@ export async function markEpisodeWatched(
     });
   }
 
+  batch.update(userRef(userId), {
+    "stats.episodesWatched": firestore.FieldValue.increment(1),
+    "stats.totalMinutes": firestore.FieldValue.increment(runtime),
+  });
+
   const watchlistUpdate: Record<string, unknown> = {
     lastWatchedAt: firestore.FieldValue.serverTimestamp(),
     nextEpisode,
@@ -97,7 +112,28 @@ export async function markEpisodeWatched(
   if (isShowComplete) {
     watchlistUpdate.status = "completed";
   }
-  await watchlistRef(userId).doc(String(tmdbShowId)).update(watchlistUpdate);
+  batch.update(watchlistRef(userId).doc(String(tmdbShowId)), watchlistUpdate);
+
+  await batch.commit();
+}
+
+export async function unmarkEpisodeWatched(
+  userId: string,
+  tmdbShowId: number,
+  season: number,
+  episode: number,
+  runtime: number
+) {
+  const docId = episodeDocId(tmdbShowId, season, episode);
+  const epRef = watchedEpisodesRef(userId).doc(docId);
+
+  const batch = db.batch();
+  batch.delete(epRef);
+  batch.update(userRef(userId), {
+    "stats.episodesWatched": firestore.FieldValue.increment(-1),
+    "stats.totalMinutes": firestore.FieldValue.increment(-runtime),
+  });
+  await batch.commit();
 }
 
 export async function startRewatch(userId: string, tmdbId: number) {

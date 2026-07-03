@@ -1,11 +1,14 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { searchMulti } from "../services/functions";
+import { searchMulti } from "../services/tmdb";
+import { useAuthStore } from "../stores/authStore";
 import { TMDBShow } from "../types";
 
 export function useSearch(query: string) {
+  const apiKey = useAuthStore((s) => s.tmdbApiKey)!;
+
   return useInfiniteQuery({
     queryKey: ["search", query],
-    queryFn: ({ pageParam = 1 }) => searchMulti(query, pageParam),
+    queryFn: ({ pageParam = 1 }) => searchMulti(apiKey, query, pageParam),
     getNextPageParam: (lastPage) =>
       lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
     initialPageParam: 1,
