@@ -9,6 +9,7 @@ import auth from "@react-native-firebase/auth";
 import { useAuthStore } from "./src/stores/authStore";
 import { useUiStore } from "./src/stores/uiStore";
 import LoginScreen from "./src/screens/LoginScreen";
+import ApiKeySetupScreen from "./src/screens/ApiKeySetupScreen";
 import AppNavigator from "./src/navigation/AppNavigator";
 import OfflineOverlay from "./src/components/OfflineOverlay";
 import { colors } from "./src/theme";
@@ -25,15 +26,19 @@ const queryClient = new QueryClient({
 });
 
 function AppContent() {
-  const { user, loading, setUser } = useAuthStore();
+  const { user, loading, setUser, tmdbApiKey, tmdbApiKeyLoading, loadTmdbApiKey } =
+    useAuthStore();
   const setConnected = useUiStore((s) => s.setConnected);
 
   useEffect(() => {
     const unsubscribeAuth = auth().onAuthStateChanged((firebaseUser) => {
       setUser(firebaseUser);
+      if (firebaseUser) {
+        loadTmdbApiKey(firebaseUser.uid);
+      }
     });
     return unsubscribeAuth;
-  }, [setUser]);
+  }, [setUser, loadTmdbApiKey]);
 
   useEffect(() => {
     const unsubscribeNet = NetInfo.addEventListener((state) => {
@@ -52,6 +57,18 @@ function AppContent() {
 
   if (!user) {
     return <LoginScreen />;
+  }
+
+  if (tmdbApiKeyLoading) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!tmdbApiKey) {
+    return <ApiKeySetupScreen />;
   }
 
   return (
