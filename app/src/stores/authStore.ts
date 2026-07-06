@@ -13,7 +13,9 @@ interface AuthState {
   setTmdbApiKey: (key: string) => void;
   loadTmdbApiKey: (userId: string) => Promise<void>;
   saveTmdbApiKey: (userId: string, key: string) => Promise<void>;
-  signIn: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -53,7 +55,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ tmdbApiKey: key, tmdbApiKeyLoading: false });
   },
 
-  signIn: async () => {
+  signInWithGoogle: async () => {
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       const signInResult = await GoogleSignin.signIn();
@@ -63,14 +65,38 @@ export const useAuthStore = create<AuthState>((set) => ({
       const googleCredential = auth.GoogleAuthProvider.credential(idToken);
       await auth().signInWithCredential(googleCredential);
     } catch (error) {
-      console.error("Sign in error:", error);
+      console.error("Google sign in error:", error);
+      throw error;
+    }
+  },
+
+  signInWithEmail: async (email: string, password: string) => {
+    try {
+      await auth().signInWithEmailAndPassword(email, password);
+    } catch (error) {
+      console.error("Email sign in error:", error);
+      throw error;
+    }
+  },
+
+  signUpWithEmail: async (email: string, password: string) => {
+    try {
+      await auth().createUserWithEmailAndPassword(email, password);
+    } catch (error) {
+      console.error("Email sign up error:", error);
       throw error;
     }
   },
 
   signOut: async () => {
     try {
-      await GoogleSignin.revokeAccess();
+      const currentUser = auth().currentUser;
+      const isGoogleUser = currentUser?.providerData.some(
+        (p) => p.providerId === "google.com"
+      );
+      if (isGoogleUser) {
+        await GoogleSignin.revokeAccess().catch(() => {});
+      }
       await auth().signOut();
       set({ tmdbApiKey: null, tmdbApiKeyLoading: true });
     } catch (error) {
