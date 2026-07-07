@@ -3,11 +3,11 @@ import {
   View,
   Text,
   TextInput,
-  FlatList,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
+import { LegendList } from "@legendapp/list/react-native";
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -97,17 +97,19 @@ export default function SearchScreen() {
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
-        <FlatList
+        <LegendList
           data={displayData || []}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderItem}
           numColumns={3}
+          estimatedItemSize={200}
           columnWrapperStyle={styles.row}
           contentContainerStyle={styles.grid}
           onEndReached={() => {
             if (query && hasNextPage) fetchNextPage();
           }}
           onEndReachedThreshold={0.5}
+          recycleItems={false}
         />
       )}
     </View>

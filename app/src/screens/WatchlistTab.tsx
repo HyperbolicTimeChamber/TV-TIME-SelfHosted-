@@ -1,11 +1,11 @@
 import React, { useCallback, useMemo } from "react";
 import {
-  FlatList,
   View,
   Text,
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
+import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuthStore } from "../stores/authStore";
@@ -160,10 +160,11 @@ export default function WatchlistTab() {
   }
 
   return (
-    <FlatList
+    <LegendList
       data={sortedItems}
       keyExtractor={(item) => item.id}
       renderItem={renderItem}
+      estimatedItemSize={80}
       style={styles.list}
       contentContainerStyle={styles.listContent}
       ItemSeparatorComponent={() => <View style={styles.separator} />}

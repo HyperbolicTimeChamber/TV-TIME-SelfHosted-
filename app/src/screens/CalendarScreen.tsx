@@ -2,10 +2,10 @@ import React, { useMemo, useState, useCallback } from "react";
 import {
   View,
   Text,
-  FlatList,
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
+import { LegendList } from "@legendapp/list/react-native";
 import { Calendar, DateData } from "react-native-calendars";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -143,12 +143,13 @@ export default function CalendarScreen() {
           {selectedEpisodes.length === 0 ? (
             <Text style={styles.noEps}>No episodes on this day</Text>
           ) : (
-            <FlatList
+            <LegendList
               data={selectedEpisodes}
               keyExtractor={(item) =>
                 `${item.tmdbShowId}_${item.season}_${item.episode}`
               }
               renderItem={renderEpisode}
+              estimatedItemSize={80}
             />
           )}
         </View>
