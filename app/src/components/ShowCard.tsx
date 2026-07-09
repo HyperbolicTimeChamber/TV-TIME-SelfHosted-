@@ -13,6 +13,7 @@ import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 interface Props {
   item: WatchlistItem;
   isWatched?: boolean;
+  remainingEpisodes?: number | null;
   onSwipeLeft: () => Promise<void>;
   onSwipeRight: () => Promise<void>;
   onPress: () => void;
@@ -22,6 +23,7 @@ interface Props {
 export default memo(function ShowCard({
   item,
   isWatched,
+  remainingEpisodes,
   onSwipeLeft,
   onSwipeRight,
   onPress,
@@ -32,6 +34,10 @@ export default memo(function ShowCard({
     : item.mediaType === "movie"
       ? "Movie"
       : "";
+
+  const remainingLabel = remainingEpisodes != null && remainingEpisodes > 0
+    ? `+${remainingEpisodes} ep${remainingEpisodes > 1 ? "s" : ""} left`
+    : null;
 
   const swipeRef = useRef<SwipeableCardRef>(null);
 
@@ -77,7 +83,10 @@ export default memo(function ShowCard({
           <Text style={styles.title} numberOfLines={1}>
             {item.title}
           </Text>
-          <Text style={styles.episode}>{episodeLabel}</Text>
+          <Text style={styles.episode}>
+            {episodeLabel}
+            {remainingLabel ? <Text style={styles.remaining}> · {remainingLabel}</Text> : null}
+          </Text>
           {item.rewatchCount > 0 && (
             <Text style={styles.rewatch}>
               Rewatch #{item.rewatchCount}
@@ -126,6 +135,10 @@ const styles = StyleSheet.create({
   episode: {
     ...typography.caption,
     marginTop: spacing.xs,
+  },
+  remaining: {
+    color: colors.textMuted,
+    fontSize: 11,
   },
   rewatch: {
     ...typography.caption,

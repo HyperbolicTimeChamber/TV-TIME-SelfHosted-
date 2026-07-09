@@ -8,8 +8,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
-import { useRoute, useNavigation } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useRoute } from "@react-navigation/native";
 import { RouteProp } from "@react-navigation/native";
 import { useShowDetails } from "../hooks/useShowDetails";
 import { useWatchlist } from "../hooks/useWatchlist";
@@ -21,15 +20,14 @@ import {
   resumeRewatch,
   markMovieWatched,
 } from "../services/firestore";
+import SeasonDropdown from "../components/SeasonDropdown";
 import { colors, spacing, typography, posterSize } from "../theme";
-import { HomeStackParamList, TMDBSeason } from "../types";
+import { HomeStackParamList } from "../types";
 
 type RouteParams = RouteProp<HomeStackParamList, "ShowDetail">;
-type NavProp = NativeStackNavigationProp<HomeStackParamList, "ShowDetail">;
 
 export default function ShowDetailScreen() {
   const route = useRoute<RouteParams>();
-  const navigation = useNavigation<NavProp>();
   const { tmdbId, mediaType } = route.params;
   const user = useAuthStore((s) => s.user);
   const { data: show, isLoading } = useShowDetails(tmdbId, mediaType);
@@ -53,7 +51,9 @@ export default function ShowDetailScreen() {
       tmdbId,
       mediaType,
       title,
-      show.poster_path || ""
+      show.poster_path || "",
+      undefined,
+      show.number_of_episodes ?? undefined
     );
   }, [user?.uid, show, tmdbId, mediaType, title]);
 
@@ -79,16 +79,6 @@ export default function ShowDetailScreen() {
     await markMovieWatched(user.uid, tmdbId, show.runtime ?? 0);
   }, [user?.uid, show, tmdbId, title, watchlistItem]);
 
-  const handleSeasonPress = useCallback(
-    (season: TMDBSeason) => {
-      navigation.navigate("SeasonDetail", {
-        tmdbId,
-        seasonNumber: season.season_number,
-        showTitle: title,
-      });
-    },
-    [navigation, tmdbId, title]
-  );
 
   if (isLoading) {
     return (
@@ -191,29 +181,12 @@ export default function ShowDetailScreen() {
             {show.seasons
               .filter((s) => s.season_number > 0)
               .map((season) => (
-                <TouchableOpacity
+                <SeasonDropdown
                   key={season.id}
-                  style={styles.seasonRow}
-                  onPress={() => handleSeasonPress(season)}
-                >
-                  <Image
-                    source={{
-                      uri: `${posterSize.small}${season.poster_path || show.poster_path}`,
-                    }}
-                    style={styles.seasonPoster}
-                    contentFit="cover"
-                  />
-                  <View style={styles.seasonInfo}>
-                    <Text style={styles.seasonName}>{season.name}</Text>
-                    <Text style={styles.seasonMeta}>
-                      {season.episode_count} episodes
-                      {season.air_date
-                        ? ` · ${season.air_date.substring(0, 4)}`
-                        : ""}
-                    </Text>
-                  </View>
-                  <Text style={styles.chevron}>›</Text>
-                </TouchableOpacity>
+                  tmdbId={tmdbId}
+                  season={season}
+                  showPosterPath={show.poster_path}
+                />
               ))}
           </View>
         )}
@@ -282,33 +255,5 @@ const styles = StyleSheet.create({
     ...typography.title,
     fontSize: 18,
     marginBottom: spacing.md,
-  },
-  seasonRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  seasonPoster: {
-    width: 45,
-    height: 67,
-    borderRadius: 4,
-  },
-  seasonInfo: {
-    flex: 1,
-    marginLeft: spacing.md,
-  },
-  seasonName: {
-    ...typography.subtitle,
-    fontSize: 14,
-  },
-  seasonMeta: {
-    ...typography.caption,
-    marginTop: spacing.xs,
-  },
-  chevron: {
-    ...typography.title,
-    color: colors.textMuted,
   },
 });

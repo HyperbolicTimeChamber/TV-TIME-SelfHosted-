@@ -50,6 +50,14 @@ export default function WatchlistTab() {
     [items]
   );
 
+  const watchedCountByShow = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const ep of watchedEps) {
+      map.set(ep.tmdbShowId, (map.get(ep.tmdbShowId) || 0) + 1);
+    }
+    return map;
+  }, [watchedEps]);
+
   const sortedWatchedEps = useMemo(
     () =>
       [...watchedEps].sort((a, b) => {
@@ -221,9 +229,14 @@ export default function WatchlistTab() {
         );
       }
 
+      const watched = watchedCountByShow.get(item.item.tmdbId) || 0;
+      const total = item.item.totalEpisodes;
+      const remaining = total ? total - watched : null;
+
       return (
         <ShowCard
           item={item.item}
+          remainingEpisodes={remaining}
           onSwipeLeft={() => handleMarkWatched(item.item)}
           onSwipeRight={() => handleStopWatching(item.item)}
           onPress={() => handlePress(item.item.tmdbId, item.item.mediaType)}
@@ -231,7 +244,7 @@ export default function WatchlistTab() {
         />
       );
     },
-    [handleMarkWatched, handleStopWatching, handlePress]
+    [handleMarkWatched, handleStopWatching, handlePress, watchedCountByShow]
   );
 
   const listRef = useRef<FlatList>(null);

@@ -1,28 +1,42 @@
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
+  FlatList,
+  Modal,
 } from "react-native";
-import { LegendList } from "@legendapp/list/react-native";
 import { Calendar, DateData } from "react-native-calendars";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Image } from "expo-image";
 import { useAuthStore } from "../stores/authStore";
 import { useWatchlist } from "../hooks/useWatchlist";
-import { useUpcomingEpisodes } from "../hooks/useUpcomingEpisodes";
+import { useCalendarEpisodes } from "../hooks/useCalendarEpisodes";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { UpcomingEpisode, CalendarStackParamList } from "../types";
 
 type NavProp = NativeStackNavigationProp<CalendarStackParamList, "CalendarMain">;
+
+const YEAR_RANGE_START = 1950;
+const YEAR_RANGE_END = 2035;
+const YEARS = Array.from(
+  { length: YEAR_RANGE_END - YEAR_RANGE_START + 1 },
+  (_, i) => YEAR_RANGE_START + i
+);
 
 export default function CalendarScreen() {
   const user = useAuthStore((s) => s.user);
   const { items: watchlist } = useWatchlist(user?.uid);
   const navigation = useNavigation<NavProp>();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [yearModalVisible, setYearModalVisible] = useState(false);
+
+  const now = new Date();
+  const [currentYear, setCurrentYear] = useState(now.getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(now.getMonth() + 1);
+  const yearListRef = useRef<FlatList>(null);
 
   const tvShows = useMemo(
     () =>
@@ -34,7 +48,12 @@ export default function CalendarScreen() {
     [watchlist]
   );
 
-  const { data: episodes } = useUpcomingEpisodes(tvShows);
+  const { episodes, loadMonthEpisodes } = useCalendarEpisodes(tvShows);
+
+  // Load current month's episodes on mount
+  useEffect(() => {
+    loadMonthEpisodes(currentYear, currentMonth);
+  }, [tvShows.length]);
 
   const markedDates = useMemo(() => {
     const marks: Record<
@@ -77,6 +96,40 @@ export default function CalendarScreen() {
     setSelectedDate(day.dateString);
   }, []);
 
+  const handleMonthChange = useCallback((month: DateData) => {
+    setCurrentYear(month.year);
+    setCurrentMonth(month.month);
+    loadMonthEpisodes(month.year, month.month);
+  }, [loadMonthEpisodes]);
+
+  const calendarKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
+  const initialDate = `${currentYear}-${String(currentMonth).padStart(2, "0")}-01`;
+
+  const openYearModal = useCallback(() => {
+    setYearModalVisible(true);
+    setTimeout(() => {
+      const idx = YEARS.indexOf(currentYear);
+      if (idx >= 0) {
+        yearListRef.current?.scrollToIndex({
+          index: idx,
+          animated: false,
+          viewPosition: 0.4,
+        });
+      }
+    }, 100);
+  }, [currentYear]);
+
+  const selectYear = useCallback((year: number) => {
+    setCurrentYear(year);
+    setYearModalVisible(false);
+    loadMonthEpisodes(year, currentMonth);
+  }, [loadMonthEpisodes, currentMonth]);
+
+  const monthLabel = new Date(currentYear, currentMonth - 1).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+
   const renderEpisode = useCallback(
     ({ item }: { item: UpcomingEpisode }) => (
       <TouchableOpacity
@@ -113,8 +166,16 @@ export default function CalendarScreen() {
   return (
     <View style={styles.container}>
       <Calendar
+        key={calendarKey}
+        current={initialDate}
         onDayPress={handleDayPress}
+        onMonthChange={handleMonthChange}
         markedDates={markedDates}
+        renderHeader={() => (
+          <TouchableOpacity onPress={openYearModal}>
+            <Text style={styles.headerTitle}>{monthLabel}</Text>
+          </TouchableOpacity>
+        )}
         theme={{
           backgroundColor: colors.background,
           calendarBackground: colors.background,
@@ -141,17 +202,67 @@ export default function CalendarScreen() {
           {selectedEpisodes.length === 0 ? (
             <Text style={styles.noEps}>No episodes on this day</Text>
           ) : (
-            <LegendList
+            <FlatList
               data={selectedEpisodes}
               keyExtractor={(item) =>
                 `${item.tmdbShowId}_${item.season}_${item.episode}`
               }
               renderItem={renderEpisode}
-              estimatedItemSize={80}
             />
           )}
         </View>
       )}
+
+      {/* Year picker modal */}
+      <Modal
+        visible={yearModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setYearModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setYearModalVisible(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Year</Text>
+            <FlatList
+              ref={yearListRef}
+              data={YEARS}
+              keyExtractor={(item) => String(item)}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.yearItem,
+                    item === currentYear && styles.yearItemActive,
+                  ]}
+                  onPress={() => selectYear(item)}
+                >
+                  <Text
+                    style={[
+                      styles.yearItemText,
+                      item === currentYear && styles.yearItemTextActive,
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              getItemLayout={(_, index) => ({
+                length: 52,
+                offset: 52 * index,
+                index,
+              })}
+              onScrollToIndexFailed={() => {}}
+              showsVerticalScrollIndicator={false}
+              style={styles.yearList}
+              snapToInterval={52}
+              decelerationRate="fast"
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -160,6 +271,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  headerTitle: {
+    ...typography.title,
+    fontSize: 18,
+    textAlign: "center",
+    paddingVertical: spacing.sm,
   },
   episodeList: {
     flex: 1,
@@ -204,5 +321,46 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.xs,
     fontSize: 13,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    width: 200,
+    height: 350,
+    paddingVertical: spacing.lg,
+    alignItems: "center",
+  },
+  modalTitle: {
+    ...typography.subtitle,
+    marginBottom: spacing.md,
+  },
+  yearList: {
+    flex: 1,
+    width: "100%",
+  },
+  yearItem: {
+    height: 52,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  yearItemActive: {
+    backgroundColor: colors.primary,
+    marginHorizontal: spacing.lg,
+    borderRadius: 8,
+  },
+  yearItemText: {
+    ...typography.body,
+    fontSize: 18,
+    color: colors.textSecondary,
+  },
+  yearItemTextActive: {
+    color: colors.text,
+    fontWeight: "700",
   },
 });

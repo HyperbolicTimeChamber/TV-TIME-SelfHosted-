@@ -35,6 +35,7 @@ export interface WatchlistItem {
   status: WatchStatus;
   nextEpisode: { season: number; episode: number } | null;
   rewatchCount: number;
+  totalEpisodes: number | null;
 }
 
 export interface WatchedEpisode {

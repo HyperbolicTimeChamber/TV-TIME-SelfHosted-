@@ -27,7 +27,8 @@ export async function addToWatchlist(
   mediaType: MediaType,
   title: string,
   posterPath: string,
-  firstEpisode?: { season: number; episode: number }
+  firstEpisode?: { season: number; episode: number },
+  totalEpisodes?: number
 ) {
   const batch = db.batch();
   batch.set(watchlistRef(userId).doc(String(tmdbId)), {
@@ -40,6 +41,7 @@ export async function addToWatchlist(
     status: "watching" as WatchStatus,
     nextEpisode: firstEpisode || (mediaType === "tv" ? { season: 1, episode: 1 } : null),
     rewatchCount: 0,
+    totalEpisodes: totalEpisodes ?? null,
   });
   batch.update(userRef(userId), {
     "stats.showsTracking": firestore.FieldValue.increment(1),
