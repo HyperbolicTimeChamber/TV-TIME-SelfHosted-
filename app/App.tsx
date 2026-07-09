@@ -15,7 +15,9 @@ import OfflineOverlay from "./src/components/OfflineOverlay";
 import { colors } from "./src/theme";
 
 GoogleSignin.configure({
-  webClientId: process.env.EXPO_PUBLIC_WEB_CLIENT_ID,
+  webClientId: "805605757351-l3oi0shjpalvspqoq1reve1otviuqvnu.apps.googleusercontent.com",
+  offlineAccess: true,
+  forceCodeForRefreshToken: true,
 });
 
 const queryClient = new QueryClient({

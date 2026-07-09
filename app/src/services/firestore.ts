@@ -153,4 +153,22 @@ export async function resumeRewatch(userId: string, tmdbId: number) {
   });
 }
 
+export async function markMovieWatched(
+  userId: string,
+  tmdbId: number,
+  runtime: number
+) {
+  const batch = db.batch();
+  batch.update(watchlistRef(userId).doc(String(tmdbId)), {
+    status: "completed" as WatchStatus,
+    lastWatchedAt: firestore.FieldValue.serverTimestamp(),
+    nextEpisode: null,
+  });
+  batch.update(userRef(userId), {
+    "stats.episodesWatched": firestore.FieldValue.increment(1),
+    "stats.totalMinutes": firestore.FieldValue.increment(runtime),
+  });
+  await batch.commit();
+}
+
 export { db, watchlistRef, watchedEpisodesRef, userRef };

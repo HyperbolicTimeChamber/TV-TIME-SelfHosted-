@@ -1,11 +1,11 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useRef, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ActivityIndicator,
+  FlatList,
 } from "react-native";
-import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuthStore } from "../stores/authStore";
@@ -39,12 +39,20 @@ export default function UpcomingTab() {
     [watchlist]
   );
 
-  const { data: episodes, isLoading } = useUpcomingEpisodes(tvShowIds);
+  const {
+    data: episodes,
+    isLoading,
+    loadOlderEpisodes,
+    loadNewerEpisodes,
+    loadingOlder,
+    loadingNewer,
+  } = useUpcomingEpisodes(tvShowIds);
 
-  const listData: ListItem[] = useMemo(() => {
-    if (!episodes) return [];
+  const { listData, todayIndex } = useMemo(() => {
+    if (!episodes || episodes.length === 0)
+      return { listData: [] as ListItem[], todayIndex: 0 };
+
     const grouped = new Map<string, UpcomingEpisode[]>();
-
     for (const ep of episodes) {
       const existing = grouped.get(ep.airDate) || [];
       existing.push(ep);
@@ -52,13 +60,24 @@ export default function UpcomingTab() {
     }
 
     const result: ListItem[] = [];
+    const today = new Date().toISOString().split("T")[0];
+    let todayIdx = 0;
+    let foundToday = false;
+
     for (const [date, eps] of grouped) {
+      if (!foundToday && date >= today) {
+        todayIdx = result.length;
+        foundToday = true;
+      }
       result.push({ type: "header", date });
       for (const ep of eps) {
         result.push({ type: "episode", episode: ep });
       }
     }
-    return result;
+
+    if (!foundToday) todayIdx = result.length - 1;
+
+    return { listData: result, todayIndex: todayIdx };
   }, [episodes]);
 
   const watchlistMap = useMemo(() => {
@@ -105,9 +124,12 @@ export default function UpcomingTab() {
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
 
     if (date.getTime() === today.getTime()) return "Today";
     if (date.getTime() === tomorrow.getTime()) return "Tomorrow";
+    if (date.getTime() === yesterday.getTime()) return "Yesterday";
 
     return date.toLocaleDateString("en-US", {
       weekday: "long",
@@ -144,6 +166,40 @@ export default function UpcomingTab() {
     [handleMarkWatched, handleStopWatching, navigation]
   );
 
+  const listRef = useRef<FlatList>(null);
+  const didScrollToToday = useRef(false);
+
+  useEffect(() => {
+    if (listData.length > 0 && todayIndex > 0 && !didScrollToToday.current) {
+      didScrollToToday.current = true;
+      setTimeout(() => {
+        listRef.current?.scrollToIndex({
+          index: todayIndex,
+          animated: false,
+          viewPosition: 0,
+        });
+      }, 300);
+    }
+  }, [listData.length, todayIndex]);
+
+  const renderFooter = useCallback(() => {
+    if (!loadingNewer) return null;
+    return (
+      <View style={styles.loaderRow}>
+        <ActivityIndicator size="small" color={colors.primary} />
+      </View>
+    );
+  }, [loadingNewer]);
+
+  const renderHeader = useCallback(() => {
+    if (!loadingOlder) return null;
+    return (
+      <View style={styles.loaderRow}>
+        <ActivityIndicator size="small" color={colors.primary} />
+      </View>
+    );
+  }, [loadingOlder]);
+
   if (isLoading) {
     return (
       <View style={styles.center}>
@@ -161,17 +217,39 @@ export default function UpcomingTab() {
   }
 
   return (
-    <LegendList
+    <FlatList
+      ref={listRef}
       data={listData}
       keyExtractor={(item, index) =>
         item.type === "header"
           ? `header_${item.date}`
-          : `ep_${item.episode.tmdbShowId}_${item.episode.season}_${item.episode.episode}`
+          : `ep_${item.episode.tmdbShowId}_S${item.episode.season}E${item.episode.episode}`
       }
       renderItem={renderItem}
-      estimatedItemSize={70}
+      getItemLayout={(_, index) => ({
+        length: 70,
+        offset: 70 * index,
+        index,
+      })}
+      onScrollToIndexFailed={(info) => {
+        listRef.current?.scrollToOffset({
+          offset: info.averageItemLength * info.index,
+          animated: false,
+        });
+      }}
+      onScroll={(e) => {
+        if (e.nativeEvent.contentOffset.y < 100) {
+          loadOlderEpisodes();
+        }
+      }}
+      scrollEventThrottle={400}
+      onEndReached={loadNewerEpisodes}
+      onEndReachedThreshold={0.5}
+      ListHeaderComponent={renderHeader}
+      ListFooterComponent={renderFooter}
       style={styles.list}
       contentContainerStyle={styles.listContent}
+      maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
     />
   );
 }
@@ -205,5 +283,9 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     fontSize: 12,
     letterSpacing: 1,
+  },
+  loaderRow: {
+    paddingVertical: spacing.lg,
+    alignItems: "center",
   },
 });

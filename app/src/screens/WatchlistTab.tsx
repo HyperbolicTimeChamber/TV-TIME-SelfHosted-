@@ -1,11 +1,11 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useRef, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ActivityIndicator,
+  FlatList,
 } from "react-native";
-import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuthStore } from "../stores/authStore";
@@ -24,22 +24,30 @@ export default function WatchlistTab() {
   const { items, loading } = useWatchlist(user?.uid);
   const navigation = useNavigation<NavProp>();
 
-  const activeItems = useMemo(() => {
-    return items.filter(
-      (item) =>
+  const { completedItems, activeItems } = useMemo(() => {
+    const active: WatchlistItem[] = [];
+    const completed: WatchlistItem[] = [];
+    for (const item of items) {
+      if (
         item.status === "watching" ||
         item.status === "rewatching" ||
         item.status === "plan_to_watch"
-    );
+      ) {
+        active.push(item);
+      } else {
+        completed.push(item);
+      }
+    }
+    return { completedItems: completed, activeItems: active };
   }, [items]);
 
-  const sortedItems = useMemo(() => {
-    return [...activeItems].sort((a, b) => {
+  const sortByLastWatched = (list: WatchlistItem[]) =>
+    [...list].sort((a, b) => {
       const aTime = a.lastWatchedAt?.toMillis() || 0;
       const bTime = b.lastWatchedAt?.toMillis() || 0;
       return bTime - aTime;
     });
-  }, [activeItems]);
+
 
   const handleMarkWatched = useCallback(
     async (item: WatchlistItem) => {
@@ -129,18 +137,71 @@ export default function WatchlistTab() {
     [navigation]
   );
 
+  type ListItem =
+    | { type: "sectionHeader"; title: string }
+    | { type: "show"; item: WatchlistItem };
+
+  const listData: ListItem[] = useMemo(() => {
+    const result: ListItem[] = [];
+    const sortedCompleted = sortByLastWatched(completedItems);
+    const sortedActive = sortByLastWatched(activeItems);
+
+    if (sortedCompleted.length > 0) {
+      result.push({ type: "sectionHeader", title: "Previously Watched" });
+      for (const item of sortedCompleted) {
+        result.push({ type: "show", item });
+      }
+    }
+    if (sortedActive.length > 0) {
+      result.push({ type: "sectionHeader", title: "Currently Watching" });
+      for (const item of sortedActive) {
+        result.push({ type: "show", item });
+      }
+    }
+    return result;
+  }, [completedItems, activeItems]);
+
+  const activeHeaderIndex = useMemo(() => {
+    return listData.findIndex(
+      (d) => d.type === "sectionHeader" && d.title === "Currently Watching"
+    );
+  }, [listData]);
+
   const renderItem = useCallback(
-    ({ item }: { item: WatchlistItem }) => (
-      <ShowCard
-        item={item}
-        onSwipeLeft={() => handleMarkWatched(item)}
-        onSwipeRight={() => handleStopWatching(item)}
-        onPress={() => handlePress(item)}
-        onCheckmark={() => handleMarkWatched(item)}
-      />
-    ),
+    ({ item }: { item: ListItem }) => {
+      if (item.type === "sectionHeader") {
+        return (
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionHeaderText}>{item.title}</Text>
+          </View>
+        );
+      }
+      return (
+        <ShowCard
+          item={item.item}
+          onSwipeLeft={() => handleMarkWatched(item.item)}
+          onSwipeRight={() => handleStopWatching(item.item)}
+          onPress={() => handlePress(item.item)}
+          onCheckmark={() => handleMarkWatched(item.item)}
+        />
+      );
+    },
     [handleMarkWatched, handleStopWatching, handlePress]
   );
+
+  const listRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    if (listData.length > 0 && activeHeaderIndex > 0) {
+      setTimeout(() => {
+        listRef.current?.scrollToIndex({
+          index: activeHeaderIndex,
+          animated: false,
+          viewPosition: 0,
+        });
+      }, 300);
+    }
+  }, [listData.length, activeHeaderIndex]);
 
   if (loading) {
     return (
@@ -150,7 +211,7 @@ export default function WatchlistTab() {
     );
   }
 
-  if (sortedItems.length === 0) {
+  if (listData.length === 0) {
     return (
       <View style={styles.center}>
         <Text style={styles.empty}>No shows in your watchlist</Text>
@@ -160,14 +221,30 @@ export default function WatchlistTab() {
   }
 
   return (
-    <LegendList
-      data={sortedItems}
-      keyExtractor={(item) => item.id}
+    <FlatList
+      ref={listRef}
+      data={listData}
+      keyExtractor={(item, index) =>
+        item.type === "sectionHeader"
+          ? `section_${item.title}`
+          : `show_${item.item.id}`
+      }
       renderItem={renderItem}
-      estimatedItemSize={80}
+      getItemLayout={(_, index) => ({
+        length: 80,
+        offset: 80 * index,
+        index,
+      })}
+      onScrollToIndexFailed={(info) => {
+        listRef.current?.scrollToOffset({
+          offset: info.averageItemLength * info.index,
+          animated: false,
+        });
+      }}
+      ItemSeparatorComponent={() => <View style={styles.separator} />}
       style={styles.list}
       contentContainerStyle={styles.listContent}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
+      maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
     />
   );
 }
@@ -197,5 +274,17 @@ const styles = StyleSheet.create({
   separator: {
     height: 1,
     backgroundColor: colors.border,
+  },
+  sectionHeader: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.background,
+  },
+  sectionHeaderText: {
+    ...typography.subtitle,
+    color: colors.textSecondary,
+    textTransform: "uppercase",
+    fontSize: 12,
+    letterSpacing: 1,
   },
 });

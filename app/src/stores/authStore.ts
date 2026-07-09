@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import auth, { FirebaseAuthTypes } from "@react-native-firebase/auth";
+import auth, { FirebaseAuthTypes, GoogleAuthProvider, signInWithCredential, getAuth } from "@react-native-firebase/auth";
 import firestore from "@react-native-firebase/firestore";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 
@@ -57,13 +57,20 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   signInWithGoogle: async () => {
     try {
+      console.log("Step 1: checking play services");
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      console.log("Step 2: calling GoogleSignin.signIn()");
       const signInResult = await GoogleSignin.signIn();
+      console.log("Step 3: got result", JSON.stringify(signInResult));
       const idToken = signInResult.data?.idToken;
+      const serverAuthCode = signInResult.data?.serverAuthCode;
+      console.log("idToken:", !!idToken, "serverAuthCode:", !!serverAuthCode);
       if (!idToken) throw new Error("No ID token");
 
-      const googleCredential = auth.GoogleAuthProvider.credential(idToken);
-      await auth().signInWithCredential(googleCredential);
+      console.log("Step 4: creating Firebase credential");
+      const googleCredential = GoogleAuthProvider.credential(idToken, idToken);
+      await signInWithCredential(getAuth(), googleCredential);
+      console.log("Step 5: signed in");
     } catch (error) {
       console.error("Google sign in error:", error);
       throw error;

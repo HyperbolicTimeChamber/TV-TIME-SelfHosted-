@@ -55,30 +55,70 @@ export async function getSeasonDetails(
   return res.data as { episodes: TMDBEpisode[]; name: string; season_number: number };
 }
 
-export async function getUpcomingEpisodes(apiKey: string, tmdbIds: number[]) {
+export interface ShowSeasonInfo {
+  tmdbId: number;
+  showTitle: string;
+  posterPath: string | null;
+  currentSeason: number;
+  totalSeasons: number;
+}
+
+export async function getShowSeasonInfos(apiKey: string, tmdbIds: number[]): Promise<ShowSeasonInfo[]> {
   const results = await Promise.all(
     tmdbIds.map(async (id) => {
       try {
         const res = await tmdb(apiKey).get(`/tv/${id}`);
         const show = res.data;
-        if (!show.next_episode_to_air) return null;
-        const ep = show.next_episode_to_air;
+        const nextEp = show.next_episode_to_air;
+        const lastEp = show.last_episode_to_air;
+        const seasonNum = nextEp?.season_number ?? lastEp?.season_number;
+        if (!seasonNum) return null;
         return {
-          tmdbShowId: id,
+          tmdbId: id,
           showTitle: show.name,
           posterPath: show.poster_path,
-          season: ep.season_number,
-          episode: ep.episode_number,
-          episodeTitle: ep.name,
-          airDate: ep.air_date,
-          runtime: ep.runtime ?? null,
-        } as UpcomingEpisode;
+          currentSeason: seasonNum,
+          totalSeasons: show.number_of_seasons ?? seasonNum,
+        } as ShowSeasonInfo;
       } catch {
         return null;
       }
     })
   );
-  return { episodes: results.filter((e): e is UpcomingEpisode => e !== null) };
+  return results.filter((s): s is ShowSeasonInfo => s !== null);
+}
+
+export async function getSeasonEpisodes(
+  apiKey: string,
+  showInfo: ShowSeasonInfo,
+  seasonNum: number
+): Promise<UpcomingEpisode[]> {
+  try {
+    const res = await tmdb(apiKey).get(`/tv/${showInfo.tmdbId}/season/${seasonNum}`);
+    const episodes = res.data.episodes || [];
+    return episodes
+      .filter((ep: any) => ep.air_date)
+      .map((ep: any) => ({
+        tmdbShowId: showInfo.tmdbId,
+        showTitle: showInfo.showTitle,
+        posterPath: showInfo.posterPath,
+        season: ep.season_number,
+        episode: ep.episode_number,
+        episodeTitle: ep.name,
+        airDate: ep.air_date,
+        runtime: ep.runtime ?? null,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getUpcomingEpisodes(apiKey: string, tmdbIds: number[]) {
+  const infos = await getShowSeasonInfos(apiKey, tmdbIds);
+  const results = await Promise.all(
+    infos.map((info) => getSeasonEpisodes(apiKey, info, info.currentSeason))
+  );
+  return { episodes: results.flat(), showInfos: infos };
 }
 
 export async function validateApiKey(apiKey: string): Promise<boolean> {

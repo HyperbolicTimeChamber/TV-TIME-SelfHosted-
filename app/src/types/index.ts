@@ -64,6 +64,7 @@ export interface TMDBShow {
   number_of_seasons?: number;
   number_of_episodes?: number;
   status?: string;
+  runtime?: number;
   seasons?: TMDBSeason[];
 }
 

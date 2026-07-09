@@ -19,6 +19,7 @@ import {
   removeFromWatchlist,
   startRewatch,
   resumeRewatch,
+  markMovieWatched,
 } from "../services/firestore";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { HomeStackParamList, TMDBSeason } from "../types";
@@ -70,6 +71,14 @@ export default function ShowDetailScreen() {
     }
   }, [user?.uid, tmdbId, watchlistItem?.status]);
 
+  const handleMarkMovieWatched = useCallback(async () => {
+    if (!user?.uid || !show) return;
+    if (!watchlistItem) {
+      await addToWatchlist(user.uid, tmdbId, "movie", title, show.poster_path || "");
+    }
+    await markMovieWatched(user.uid, tmdbId, show.runtime ?? 0);
+  }, [user?.uid, show, tmdbId, title, watchlistItem]);
+
   const handleSeasonPress = useCallback(
     (season: TMDBSeason) => {
       navigation.navigate("SeasonDetail", {
@@ -117,14 +126,37 @@ export default function ShowDetailScreen() {
 
         <View style={styles.actions}>
           {!watchlistItem ? (
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={handleAddToWatchlist}
-            >
-              <Text style={styles.buttonText}>+ Add to Watchlist</Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={handleAddToWatchlist}
+              >
+                <Text style={styles.buttonText}>+ Add to Watchlist</Text>
+              </TouchableOpacity>
+              {mediaType === "movie" && (
+                <TouchableOpacity
+                  style={[styles.addButton, { backgroundColor: colors.watchedGreen }]}
+                  onPress={handleMarkMovieWatched}
+                >
+                  <Text style={styles.buttonText}>Watched</Text>
+                </TouchableOpacity>
+              )}
+            </>
           ) : (
             <>
+              {mediaType === "movie" && watchlistItem.status !== "completed" && (
+                <TouchableOpacity
+                  style={[styles.addButton, { backgroundColor: colors.watchedGreen }]}
+                  onPress={handleMarkMovieWatched}
+                >
+                  <Text style={styles.buttonText}>Mark as Watched</Text>
+                </TouchableOpacity>
+              )}
+              {mediaType === "movie" && watchlistItem.status === "completed" && (
+                <View style={[styles.addButton, { backgroundColor: colors.watchedGreen, opacity: 0.7 }]}>
+                  <Text style={styles.buttonText}>Watched ✓</Text>
+                </View>
+              )}
               {(watchlistItem.status === "completed" ||
                 watchlistItem.status === "paused_rewatch") && (
                 <TouchableOpacity

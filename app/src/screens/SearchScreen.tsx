@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,9 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSearch } from "../hooks/useSearch";
 import { useTrending } from "../hooks/useTrending";
+import { useWatchlist } from "../hooks/useWatchlist";
+import { useAuthStore } from "../stores/authStore";
+import { addToWatchlist } from "../services/firestore";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { TMDBShow, SearchStackParamList, MediaType } from "../types";
 
@@ -21,6 +24,30 @@ type NavProp = NativeStackNavigationProp<SearchStackParamList, "SearchMain">;
 export default function SearchScreen() {
   const [query, setQuery] = useState("");
   const navigation = useNavigation<NavProp>();
+  const user = useAuthStore((s) => s.user);
+  const { items: watchlist } = useWatchlist(user?.uid);
+
+  const watchlistIds = useMemo(
+    () => new Set(watchlist.map((w) => w.tmdbId)),
+    [watchlist]
+  );
+
+  const handleAddToWatchlist = useCallback(
+    async (item: TMDBShow) => {
+      if (!user?.uid) return;
+      const mediaType: MediaType =
+        item.media_type || (item.title ? "movie" : "tv");
+      const title = item.name || item.title || "";
+      await addToWatchlist(
+        user.uid,
+        item.id,
+        mediaType,
+        title,
+        item.poster_path || ""
+      );
+    },
+    [user?.uid]
+  );
 
   const {
     data: searchData,
@@ -53,6 +80,7 @@ export default function SearchScreen() {
         0,
         4
       );
+      const isInWatchlist = watchlistIds.has(item.id);
 
       return (
         <TouchableOpacity
@@ -65,14 +93,37 @@ export default function SearchScreen() {
             style={styles.poster}
             contentFit="cover"
           />
-          <Text style={styles.cardTitle} numberOfLines={2}>
-            {title}
-          </Text>
-          {year ? <Text style={styles.cardYear}>{year}</Text> : null}
+          <TouchableOpacity
+            style={[
+              styles.watchlistBadge,
+              isInWatchlist && styles.watchlistBadgeActive,
+            ]}
+            onPress={(e) => {
+              e.stopPropagation?.();
+              if (!isInWatchlist) handleAddToWatchlist(item);
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                styles.watchlistBadgeText,
+                isInWatchlist && styles.watchlistBadgeTextActive,
+              ]}
+            >
+              {isInWatchlist ? "✓" : "+"}
+            </Text>
+          </TouchableOpacity>
+          <View style={styles.banner}>
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              {title}
+            </Text>
+            {year ? <Text style={styles.cardYear}>{year}</Text> : null}
+          </View>
         </TouchableOpacity>
       );
     },
-    [handlePress]
+    [handlePress, watchlistIds, handleAddToWatchlist]
   );
 
   return (
@@ -101,6 +152,7 @@ export default function SearchScreen() {
           data={displayData || []}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderItem}
+          extraData={watchlistIds}
           numColumns={3}
           estimatedItemSize={200}
           columnWrapperStyle={styles.row}
@@ -142,17 +194,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   grid: {
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.xs,
   },
   row: {
-    justifyContent: "flex-start",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    marginBottom: spacing.sm,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    marginBottom: spacing.xs,
   },
   card: {
     flex: 1,
-    maxWidth: "32%",
+    overflow: "hidden",
+    borderRadius: 6,
   },
   poster: {
     aspectRatio: 2 / 3,
@@ -160,13 +212,48 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     width: "100%",
   },
+  banner: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
   cardTitle: {
     ...typography.caption,
     color: colors.text,
-    marginTop: spacing.xs,
   },
   cardYear: {
     ...typography.caption,
     fontSize: 11,
+  },
+  watchlistBadge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    borderColor: colors.text,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1,
+  },
+  watchlistBadgeActive: {
+    backgroundColor: colors.watchedGreen,
+    borderColor: colors.watchedGreen,
+  },
+  watchlistBadgeText: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: colors.text,
+    lineHeight: 18,
+  },
+  watchlistBadgeTextActive: {
+    fontSize: 14,
   },
 });
