@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useEffect } from "react";
+import React, { useCallback, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -51,43 +51,34 @@ export default function UpcomingTab() {
   const {
     data: episodes,
     isLoading,
-    loadOlderEpisodes,
     loadNewerEpisodes,
-    loadingOlder,
     loadingNewer,
   } = useUpcomingEpisodes(tvShows);
 
-  const { listData, todayIndex } = useMemo(() => {
-    if (!episodes || episodes.length === 0)
-      return { listData: [] as ListItem[], todayIndex: 0 };
+  const today = useMemo(() => new Date().toISOString().split("T")[0], []);
+
+  const listData = useMemo(() => {
+    if (!episodes || episodes.length === 0) return [] as ListItem[];
+
+    // Filter to today and future only
+    const futureEps = episodes.filter((ep) => ep.airDate >= today);
 
     const grouped = new Map<string, UpcomingEpisode[]>();
-    for (const ep of episodes) {
+    for (const ep of futureEps) {
       const existing = grouped.get(ep.airDate) || [];
       existing.push(ep);
       grouped.set(ep.airDate, existing);
     }
 
     const result: ListItem[] = [];
-    const today = new Date().toISOString().split("T")[0];
-    let todayIdx = 0;
-    let foundToday = false;
-
     for (const [date, eps] of grouped) {
-      if (!foundToday && date >= today) {
-        todayIdx = result.length;
-        foundToday = true;
-      }
       result.push({ type: "header", date });
       for (const ep of eps) {
         result.push({ type: "episode", episode: ep });
       }
     }
-
-    if (!foundToday) todayIdx = result.length - 1;
-
-    return { listData: result, todayIndex: todayIdx };
-  }, [episodes]);
+    return result;
+  }, [episodes, today]);
 
   const watchlistMap = useMemo(() => {
     const map = new Map<number, WatchlistItem>();
@@ -129,18 +120,15 @@ export default function UpcomingTab() {
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr + "T00:00:00");
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
 
-    if (date.getTime() === today.getTime()) return "Today";
+    if (date.getTime() === now.getTime()) return "Today";
     if (date.getTime() === tomorrow.getTime()) return "Tomorrow";
-    if (date.getTime() === yesterday.getTime()) return "Yesterday";
 
-    const sameYear = date.getFullYear() === today.getFullYear();
+    const sameYear = date.getFullYear() === now.getFullYear();
     return date.toLocaleDateString("en-US", {
       weekday: "long",
       month: "short",
@@ -183,25 +171,15 @@ export default function UpcomingTab() {
 
   const listRef = useRef<FlatList>(null);
 
-  const ListFooter = () => (
+  const renderFooter = useCallback(() => (
     <View style={styles.loaderRow}>
       {loadingNewer ? (
-        <ActivityIndicator size="small" color={colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       ) : (
         <View style={styles.loaderPlaceholder} />
       )}
     </View>
-  );
-
-  const ListHeader = () => (
-    <View style={styles.loaderRow}>
-      {loadingOlder ? (
-        <ActivityIndicator size="small" color={colors.primary} />
-      ) : (
-        <View style={styles.loaderPlaceholder} />
-      )}
-    </View>
-  );
+  ), [loadingNewer]);
 
   if (isLoading || watchlistLoading) {
     return (
@@ -223,41 +201,21 @@ export default function UpcomingTab() {
     <FlatList
       ref={listRef}
       data={listData}
-      keyExtractor={(item, index) =>
+      keyExtractor={(item) =>
         item.type === "header"
           ? `header_${item.date}`
           : `ep_${item.episode.tmdbShowId}_S${item.episode.season}E${item.episode.episode}`
       }
       renderItem={renderItem}
       extraData={watchedEps.length}
-      initialScrollIndex={todayIndex > 0 ? todayIndex : undefined}
-      getItemLayout={(_, index) => ({
-        length: 100,
-        offset: 100 * index,
-        index,
-      })}
-      onScrollToIndexFailed={(info) => {
-        listRef.current?.scrollToOffset({
-          offset: info.averageItemLength * info.index,
-          animated: false,
-        });
-      }}
-      onScroll={(e) => {
-        if (e.nativeEvent.contentOffset.y < 50) {
-          loadOlderEpisodes();
-        }
-      }}
-      scrollEventThrottle={2000}
       onEndReached={loadNewerEpisodes}
       onEndReachedThreshold={0.5}
-      ListHeaderComponent={ListHeader}
-      ListFooterComponent={ListFooter}
+      ListFooterComponent={renderFooter}
       maxToRenderPerBatch={10}
       windowSize={5}
       initialNumToRender={20}
       style={styles.list}
       contentContainerStyle={styles.listContent}
-      maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
     />
   );
 }
@@ -295,6 +253,7 @@ const styles = StyleSheet.create({
   loaderRow: {
     paddingVertical: spacing.xl,
     alignItems: "center",
+    backgroundColor: colors.background,
   },
   loaderPlaceholder: {
     height: 20,
