@@ -27,7 +27,8 @@ export async function addToWatchlist(
   mediaType: MediaType,
   title: string,
   posterPath: string,
-  firstEpisode?: { season: number; episode: number }
+  firstEpisode?: { season: number; episode: number },
+  totalEpisodes?: number
 ) {
   const batch = db.batch();
   batch.set(watchlistRef(userId).doc(String(tmdbId)), {
@@ -40,6 +41,7 @@ export async function addToWatchlist(
     status: "watching" as WatchStatus,
     nextEpisode: firstEpisode || (mediaType === "tv" ? { season: 1, episode: 1 } : null),
     rewatchCount: 0,
+    totalEpisodes: totalEpisodes ?? null,
   });
   batch.update(userRef(userId), {
     "stats.showsTracking": firestore.FieldValue.increment(1),
@@ -62,7 +64,9 @@ export async function stopWatching(userId: string, tmdbId: number, currentStatus
       status: "paused_rewatch" as WatchStatus,
     });
   } else {
-    await removeFromWatchlist(userId, tmdbId);
+    await watchlistRef(userId).doc(String(tmdbId)).update({
+      status: "completed" as WatchStatus,
+    });
   }
 }
 
@@ -151,6 +155,79 @@ export async function resumeRewatch(userId: string, tmdbId: number) {
   await watchlistRef(userId).doc(String(tmdbId)).update({
     status: "rewatching" as WatchStatus,
   });
+}
+
+// Episode schedule cache
+function episodeCacheRef(userId: string) {
+  return userRef(userId).collection("episodeCache");
+}
+
+function cacheDocId(tmdbId: number, seasonNum: number) {
+  return `${tmdbId}_S${String(seasonNum).padStart(2, "0")}`;
+}
+
+export interface CachedEpisode {
+  tmdbShowId: number;
+  showTitle: string;
+  posterPath: string | null;
+  season: number;
+  episode: number;
+  episodeTitle: string;
+  airDate: string;
+  runtime: number | null;
+}
+
+export interface CachedSeason {
+  tmdbId: number;
+  seasonNum: number;
+  episodes: CachedEpisode[];
+  cachedAt: number; // timestamp ms
+}
+
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+export async function getCachedSeason(
+  userId: string,
+  tmdbId: number,
+  seasonNum: number
+): Promise<CachedSeason | null> {
+  const doc = await episodeCacheRef(userId).doc(cacheDocId(tmdbId, seasonNum)).get();
+  if (!doc.exists()) return null;
+  const data = doc.data() as CachedSeason;
+  if (Date.now() - data.cachedAt > CACHE_TTL) return null;
+  return data;
+}
+
+export async function setCachedSeason(
+  userId: string,
+  tmdbId: number,
+  seasonNum: number,
+  episodes: CachedEpisode[]
+): Promise<void> {
+  await episodeCacheRef(userId).doc(cacheDocId(tmdbId, seasonNum)).set({
+    tmdbId,
+    seasonNum,
+    episodes,
+    cachedAt: Date.now(),
+  });
+}
+
+export async function markMovieWatched(
+  userId: string,
+  tmdbId: number,
+  runtime: number
+) {
+  const batch = db.batch();
+  batch.update(watchlistRef(userId).doc(String(tmdbId)), {
+    status: "completed" as WatchStatus,
+    lastWatchedAt: firestore.FieldValue.serverTimestamp(),
+    nextEpisode: null,
+  });
+  batch.update(userRef(userId), {
+    "stats.episodesWatched": firestore.FieldValue.increment(1),
+    "stats.totalMinutes": firestore.FieldValue.increment(runtime),
+  });
+  await batch.commit();
 }
 
 export { db, watchlistRef, watchedEpisodesRef, userRef };

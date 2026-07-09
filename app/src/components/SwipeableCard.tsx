@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from "react";
+import React, { useCallback, useRef, forwardRef, useImperativeHandle } from "react";
 import {
   View,
   Text,
@@ -35,19 +35,22 @@ const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.35;
 
 type SwipeState = "idle" | "swiped_left" | "swiped_right" | "loading" | "done";
 
+export interface SwipeableCardRef {
+  triggerSwipeLeft: () => void;
+}
+
 interface Props {
   children: React.ReactNode;
   onSwipeLeft: () => Promise<void>;
   onSwipeRight: () => Promise<void>;
   height?: number;
+  persistAfterSwipe?: boolean;
 }
 
-export default function SwipeableCard({
-  children,
-  onSwipeLeft,
-  onSwipeRight,
-  height = 100,
-}: Props) {
+export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
+  { children, onSwipeLeft, onSwipeRight, height = 100, persistAfterSwipe = false },
+  ref
+) {
   const translateX = useSharedValue(0);
   const [swipeState, setSwipeState] = React.useState<SwipeState>("idle");
   const [actionColor, setActionColor] = React.useState<string>(colors.watchedGreen);
@@ -69,10 +72,16 @@ export default function SwipeableCard({
         } else {
           await onSwipeRight();
         }
-        setSwipeState("done");
-        LayoutAnimation.configureNext(
-          LayoutAnimation.create(300, "easeInEaseOut", "opacity")
-        );
+        if (persistAfterSwipe) {
+          translateX.value = withTiming(0, { duration: 300 });
+          setSwipeState("idle");
+          isProcessing.current = false;
+        } else {
+          setSwipeState("done");
+          LayoutAnimation.configureNext(
+            LayoutAnimation.create(300, "easeInEaseOut", "opacity")
+          );
+        }
       } catch {
         translateX.value = withTiming(0, { duration: 300 });
         setSwipeState("idle");
@@ -81,6 +90,15 @@ export default function SwipeableCard({
     },
     [onSwipeLeft, onSwipeRight, translateX]
   );
+
+  useImperativeHandle(ref, () => ({
+    triggerSwipeLeft: () => {
+      if (swipeState !== "idle" || isProcessing.current) return;
+      translateX.value = withTiming(SCREEN_WIDTH, { duration: 300 }, () => {
+        runOnJS(handleSwipeComplete)("left");
+      });
+    },
+  }), [swipeState, handleSwipeComplete, translateX]);
 
   const panGesture = Gesture.Pan()
     .activeOffsetX([-10, 10])
@@ -170,7 +188,7 @@ export default function SwipeableCard({
       </GestureDetector>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {

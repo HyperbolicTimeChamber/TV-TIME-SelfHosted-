@@ -14,9 +14,10 @@ import AppNavigator from "./src/navigation/AppNavigator";
 import OfflineOverlay from "./src/components/OfflineOverlay";
 import { colors } from "./src/theme";
 
-// TODO: Replace with your web client ID from Firebase Console
 GoogleSignin.configure({
-  webClientId: "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com",
+  webClientId: "805605757351-l3oi0shjpalvspqoq1reve1otviuqvnu.apps.googleusercontent.com",
+  offlineAccess: true,
+  forceCodeForRefreshToken: true,
 });
 
 const queryClient = new QueryClient({

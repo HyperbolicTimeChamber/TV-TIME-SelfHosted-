@@ -35,6 +35,7 @@ export interface WatchlistItem {
   status: WatchStatus;
   nextEpisode: { season: number; episode: number } | null;
   rewatchCount: number;
+  totalEpisodes: number | null;
 }
 
 export interface WatchedEpisode {
@@ -64,6 +65,7 @@ export interface TMDBShow {
   number_of_seasons?: number;
   number_of_episodes?: number;
   status?: string;
+  runtime?: number;
   seasons?: TMDBSeason[];
 }
 

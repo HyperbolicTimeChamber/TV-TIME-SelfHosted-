@@ -43,9 +43,9 @@ export default function ProfileScreen() {
   };
 
   const handleSignOut = () => {
-    Alert.alert("Sign Out", "Are you sure?", [
+    Alert.alert("Log Out", "Are you sure?", [
       { text: "Cancel", style: "cancel" },
-      { text: "Sign Out", style: "destructive", onPress: signOut },
+      { text: "Log Out", style: "destructive", onPress: signOut },
     ]);
   };
 
@@ -175,7 +175,7 @@ export default function ProfileScreen() {
       )}
 
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-        <Text style={styles.signOutText}>Sign Out</Text>
+        <Text style={styles.signOutText}>Log Out</Text>
       </TouchableOpacity>
     </ScrollView>
   );

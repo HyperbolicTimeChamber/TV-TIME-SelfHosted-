@@ -1,16 +1,79 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getUpcomingEpisodes } from "../services/tmdb";
+import { getSeasonEpisodes, getShowSeasonInfos, ShowSeasonInfo, pooled } from "../services/tmdb";
 import { useAuthStore } from "../stores/authStore";
-import { UpcomingEpisode } from "../types";
+import { UpcomingEpisode, WatchlistItem } from "../types";
 
-export function useUpcomingEpisodes(tmdbIds: number[]) {
+export function useUpcomingEpisodes(tvShows: WatchlistItem[]) {
   const apiKey = useAuthStore((s) => s.tmdbApiKey)!;
+  const userId = useAuthStore((s) => s.user?.uid);
+  const [extraEpisodes, setExtraEpisodes] = useState<UpcomingEpisode[]>([]);
+  const [loadingNewer, setLoadingNewer] = useState(false);
+  const loadedSeasons = useRef(new Map<string, boolean>());
 
-  return useQuery({
+  const tmdbIds = useMemo(() => tvShows.map((s) => s.tmdbId), [tvShows]);
+
+  const { data, isLoading } = useQuery({
     queryKey: ["upcoming", tmdbIds],
-    queryFn: () => getUpcomingEpisodes(apiKey, tmdbIds),
+    queryFn: async () => {
+      const infos = await getShowSeasonInfos(apiKey, tmdbIds);
+      // Use TMDB's current season (from next_episode_to_air) — not user progress
+      // This ensures we fetch the season that actually has upcoming episodes
+      const seasonTasks = infos.map(
+        (info) => () => getSeasonEpisodes(apiKey, info, info.currentSeason, userId)
+      );
+      const results = await pooled(seasonTasks, 5);
+      return { episodes: results.flat(), showInfos: infos };
+    },
     staleTime: 60 * 60 * 1000,
     enabled: tmdbIds.length > 0,
-    select: (data) => data.episodes as UpcomingEpisode[],
   });
+
+  useEffect(() => {
+    setExtraEpisodes([]);
+    loadedSeasons.current.clear();
+  }, [tmdbIds.join(",")]);
+
+  const showInfos = data?.showInfos ?? [];
+
+  const allEpisodes = useMemo(() => {
+    const base = data?.episodes ?? [];
+    const all = [...base, ...extraEpisodes];
+    return all.sort((a, b) => a.airDate.localeCompare(b.airDate));
+  }, [data?.episodes, extraEpisodes]);
+
+  const loadNewerEpisodes = useCallback(async () => {
+    if (loadingNewer || showInfos.length === 0) return;
+    setLoadingNewer(true);
+    try {
+      const tasks: (() => Promise<UpcomingEpisode[]>)[] = [];
+      for (const info of showInfos) {
+        const showEps = allEpisodes.filter((e) => e.tmdbShowId === info.tmdbId);
+        const maxSeason = showEps.length > 0
+          ? Math.max(...showEps.map((e) => e.season))
+          : info.currentSeason;
+        const nextSeason = maxSeason + 1;
+        if (nextSeason > info.totalSeasons) continue;
+        const key = `${info.tmdbId}_${nextSeason}`;
+        if (loadedSeasons.current.has(key)) continue;
+        loadedSeasons.current.set(key, true);
+        tasks.push(() => getSeasonEpisodes(apiKey, info, nextSeason, userId));
+      }
+      if (tasks.length === 0) return;
+      const results = await pooled(tasks, 5);
+      const newEps = results.flat();
+      if (newEps.length > 0) {
+        setExtraEpisodes((prev) => [...prev, ...newEps]);
+      }
+    } finally {
+      setLoadingNewer(false);
+    }
+  }, [loadingNewer, showInfos, allEpisodes, apiKey, userId]);
+
+  return {
+    data: allEpisodes,
+    isLoading,
+    loadNewerEpisodes,
+    loadingNewer,
+  };
 }

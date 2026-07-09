@@ -1,12 +1,12 @@
 import React, { useMemo, useCallback } from "react";
 import {
-  FlatList,
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
+import { LegendList } from "@legendapp/list/react-native";
 import { useRoute } from "@react-navigation/native";
 import { RouteProp } from "@react-navigation/native";
 import { useSeasonDetails } from "../hooks/useSeasonDetails";
@@ -147,10 +147,11 @@ export default function SeasonDetailScreen() {
   }
 
   return (
-    <FlatList
+    <LegendList
       data={seasonData?.episodes || []}
       keyExtractor={(item) => String(item.episode_number)}
       renderItem={renderEpisode}
+      estimatedItemSize={60}
       style={styles.list}
       contentContainerStyle={styles.listContent}
       ItemSeparatorComponent={() => <View style={styles.separator} />}

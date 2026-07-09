@@ -1,35 +1,37 @@
 {
-  "expo": {
-    "name": "app",
-    "slug": "app",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.app",
-      "googleServicesFile": "./GoogleService-Info.plist"
-    },
-    "android": {
-      "googleServicesFile": "./google-services.json",
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.app"
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      "@react-native-firebase/app",
-      "@react-native-firebase/auth",
-      "@react-native-google-signin/google-signin",
-      "expo-image"
-    ]
-  }
+	"expo": {
+		"name": "Watchloom",
+		"slug": "watchloom",
+		"version": "1.0.0",
+		"orientation": "portrait",
+		"icon": "./assets/icon.png",
+		"userInterfaceStyle": "light",
+		"ios": {
+			"supportsTablet": true,
+			"bundleIdentifier": "com.tvtimerevived.app",
+			"googleServicesFile": "./GoogleService-Info.plist"
+		},
+		"android": {
+			"googleServicesFile": "./google-services.json",
+			"adaptiveIcon": {
+				"backgroundColor": "#000000",
+				"foregroundImage": "./assets/icon.png"
+			},
+			"predictiveBackGestureEnabled": false,
+			"package": "com.tvtimerevived.app"
+		},
+		"splash": {
+			"image": "./assets/splash.jpeg",
+			"resizeMode": "cover",
+			"backgroundColor": "#0D0D0D"
+		},
+		"web": {},
+		"plugins": [
+			"@react-native-firebase/app",
+			"@react-native-firebase/auth",
+			"@react-native-google-signin/google-signin",
+			"expo-image",
+			"./plugins/withModularHeaders"
+		]
+	}
 }
