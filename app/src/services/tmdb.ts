@@ -55,6 +55,19 @@ export async function getSeasonDetails(
   return res.data as { episodes: TMDBEpisode[]; name: string; season_number: number };
 }
 
+export async function pooled<T>(tasks: (() => Promise<T>)[], concurrency = 5): Promise<T[]> {
+  const results: T[] = [];
+  let i = 0;
+  async function next(): Promise<void> {
+    while (i < tasks.length) {
+      const idx = i++;
+      results[idx] = await tasks[idx]();
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, () => next()));
+  return results;
+}
+
 export interface ShowSeasonInfo {
   tmdbId: number;
   showTitle: string;
@@ -64,39 +77,48 @@ export interface ShowSeasonInfo {
 }
 
 export async function getShowSeasonInfos(apiKey: string, tmdbIds: number[]): Promise<ShowSeasonInfo[]> {
-  const results = await Promise.all(
-    tmdbIds.map(async (id) => {
-      try {
-        const res = await tmdb(apiKey).get(`/tv/${id}`);
-        const show = res.data;
-        const nextEp = show.next_episode_to_air;
-        const lastEp = show.last_episode_to_air;
-        const seasonNum = nextEp?.season_number ?? lastEp?.season_number;
-        if (!seasonNum) return null;
-        return {
-          tmdbId: id,
-          showTitle: show.name,
-          posterPath: show.poster_path,
-          currentSeason: seasonNum,
-          totalSeasons: show.number_of_seasons ?? seasonNum,
-        } as ShowSeasonInfo;
-      } catch {
-        return null;
-      }
-    })
-  );
+  const tasks = tmdbIds.map((id) => async (): Promise<ShowSeasonInfo | null> => {
+    try {
+      const res = await tmdb(apiKey).get(`/tv/${id}`);
+      const show = res.data;
+      const nextEp = show.next_episode_to_air;
+      const lastEp = show.last_episode_to_air;
+      const seasonNum = nextEp?.season_number ?? lastEp?.season_number;
+      if (!seasonNum) return null;
+      return {
+        tmdbId: id,
+        showTitle: show.name,
+        posterPath: show.poster_path,
+        currentSeason: seasonNum,
+        totalSeasons: show.number_of_seasons ?? seasonNum,
+      };
+    } catch {
+      return null;
+    }
+  });
+  const results = await pooled(tasks, 5);
   return results.filter((s): s is ShowSeasonInfo => s !== null);
 }
 
 export async function getSeasonEpisodes(
   apiKey: string,
   showInfo: ShowSeasonInfo,
-  seasonNum: number
+  seasonNum: number,
+  userId?: string
 ): Promise<UpcomingEpisode[]> {
+  // Check Firebase cache first
+  if (userId) {
+    try {
+      const { getCachedSeason } = await import("./firestore");
+      const cached = await getCachedSeason(userId, showInfo.tmdbId, seasonNum);
+      if (cached) return cached.episodes;
+    } catch {}
+  }
+
   try {
     const res = await tmdb(apiKey).get(`/tv/${showInfo.tmdbId}/season/${seasonNum}`);
     const episodes = res.data.episodes || [];
-    return episodes
+    const mapped: UpcomingEpisode[] = episodes
       .filter((ep: any) => ep.air_date)
       .map((ep: any) => ({
         tmdbShowId: showInfo.tmdbId,
@@ -108,6 +130,16 @@ export async function getSeasonEpisodes(
         airDate: ep.air_date,
         runtime: ep.runtime ?? null,
       }));
+
+    // Cache in Firebase
+    if (userId && mapped.length > 0) {
+      try {
+        const { setCachedSeason } = await import("./firestore");
+        await setCachedSeason(userId, showInfo.tmdbId, seasonNum, mapped);
+      } catch {}
+    }
+
+    return mapped;
   } catch {
     return [];
   }

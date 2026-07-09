@@ -11,6 +11,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuthStore } from "../stores/authStore";
 import { useWatchlist } from "../hooks/useWatchlist";
 import { useUpcomingEpisodes } from "../hooks/useUpcomingEpisodes";
+import { useWatchedEpisodes } from "../hooks/useWatchedEpisodes";
 import { markEpisodeWatched, stopWatching } from "../services/firestore";
 import EpisodeCard from "../components/EpisodeCard";
 import { colors, spacing, typography } from "../theme";
@@ -24,20 +25,28 @@ type ListItem =
 
 export default function UpcomingTab() {
   const user = useAuthStore((s) => s.user);
-  const { items: watchlist } = useWatchlist(user?.uid);
+  const { items: watchlist, loading: watchlistLoading } = useWatchlist(user?.uid);
   const navigation = useNavigation<NavProp>();
 
-  const tvShowIds = useMemo(
+  const tvShows = useMemo(
     () =>
-      watchlist
-        .filter(
-          (w) =>
-            w.mediaType === "tv" &&
-            (w.status === "watching" || w.status === "rewatching")
-        )
-        .map((w) => w.tmdbId),
+      watchlist.filter(
+        (w) =>
+          w.mediaType === "tv" &&
+          (w.status === "watching" || w.status === "rewatching")
+      ),
     [watchlist]
   );
+
+  const { episodes: watchedEps } = useWatchedEpisodes(user?.uid);
+  const watchedSetRef = useRef(new Set<string>());
+  watchedSetRef.current = useMemo(() => {
+    const set = new Set<string>();
+    for (const ep of watchedEps) {
+      set.add(`${ep.tmdbShowId}_S${ep.season}E${ep.episode}`);
+    }
+    return set;
+  }, [watchedEps]);
 
   const {
     data: episodes,
@@ -46,7 +55,7 @@ export default function UpcomingTab() {
     loadNewerEpisodes,
     loadingOlder,
     loadingNewer,
-  } = useUpcomingEpisodes(tvShowIds);
+  } = useUpcomingEpisodes(tvShows);
 
   const { listData, todayIndex } = useMemo(() => {
     if (!episodes || episodes.length === 0)
@@ -131,10 +140,12 @@ export default function UpcomingTab() {
     if (date.getTime() === tomorrow.getTime()) return "Tomorrow";
     if (date.getTime() === yesterday.getTime()) return "Yesterday";
 
+    const sameYear = date.getFullYear() === today.getFullYear();
     return date.toLocaleDateString("en-US", {
       weekday: "long",
       month: "short",
       day: "numeric",
+      ...(sameYear ? {} : { year: "numeric" }),
     });
   };
 
@@ -148,9 +159,13 @@ export default function UpcomingTab() {
         );
       }
 
+      const epKey = `${item.episode.tmdbShowId}_S${item.episode.season}E${item.episode.episode}`;
+      const isWatched = watchedSetRef.current.has(epKey);
+
       return (
         <EpisodeCard
           episode={item.episode}
+          isWatched={isWatched}
           onSwipeLeft={() => handleMarkWatched(item.episode)}
           onSwipeRight={() => handleStopWatching(item.episode)}
           onPress={() =>
@@ -167,40 +182,28 @@ export default function UpcomingTab() {
   );
 
   const listRef = useRef<FlatList>(null);
-  const didScrollToToday = useRef(false);
 
-  useEffect(() => {
-    if (listData.length > 0 && todayIndex > 0 && !didScrollToToday.current) {
-      didScrollToToday.current = true;
-      setTimeout(() => {
-        listRef.current?.scrollToIndex({
-          index: todayIndex,
-          animated: false,
-          viewPosition: 0,
-        });
-      }, 300);
-    }
-  }, [listData.length, todayIndex]);
-
-  const renderFooter = useCallback(() => {
-    if (!loadingNewer) return null;
-    return (
-      <View style={styles.loaderRow}>
+  const ListFooter = () => (
+    <View style={styles.loaderRow}>
+      {loadingNewer ? (
         <ActivityIndicator size="small" color={colors.primary} />
-      </View>
-    );
-  }, [loadingNewer]);
+      ) : (
+        <View style={styles.loaderPlaceholder} />
+      )}
+    </View>
+  );
 
-  const renderHeader = useCallback(() => {
-    if (!loadingOlder) return null;
-    return (
-      <View style={styles.loaderRow}>
+  const ListHeader = () => (
+    <View style={styles.loaderRow}>
+      {loadingOlder ? (
         <ActivityIndicator size="small" color={colors.primary} />
-      </View>
-    );
-  }, [loadingOlder]);
+      ) : (
+        <View style={styles.loaderPlaceholder} />
+      )}
+    </View>
+  );
 
-  if (isLoading) {
+  if (isLoading || watchlistLoading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -226,9 +229,11 @@ export default function UpcomingTab() {
           : `ep_${item.episode.tmdbShowId}_S${item.episode.season}E${item.episode.episode}`
       }
       renderItem={renderItem}
+      extraData={watchedEps.length}
+      initialScrollIndex={todayIndex > 0 ? todayIndex : undefined}
       getItemLayout={(_, index) => ({
-        length: 70,
-        offset: 70 * index,
+        length: 100,
+        offset: 100 * index,
         index,
       })}
       onScrollToIndexFailed={(info) => {
@@ -238,15 +243,18 @@ export default function UpcomingTab() {
         });
       }}
       onScroll={(e) => {
-        if (e.nativeEvent.contentOffset.y < 100) {
+        if (e.nativeEvent.contentOffset.y < 50) {
           loadOlderEpisodes();
         }
       }}
-      scrollEventThrottle={400}
+      scrollEventThrottle={2000}
       onEndReached={loadNewerEpisodes}
       onEndReachedThreshold={0.5}
-      ListHeaderComponent={renderHeader}
-      ListFooterComponent={renderFooter}
+      ListHeaderComponent={ListHeader}
+      ListFooterComponent={ListFooter}
+      maxToRenderPerBatch={10}
+      windowSize={5}
+      initialNumToRender={20}
       style={styles.list}
       contentContainerStyle={styles.listContent}
       maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
@@ -285,7 +293,10 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   loaderRow: {
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.xl,
     alignItems: "center",
+  },
+  loaderPlaceholder: {
+    height: 20,
   },
 });

@@ -62,7 +62,9 @@ export async function stopWatching(userId: string, tmdbId: number, currentStatus
       status: "paused_rewatch" as WatchStatus,
     });
   } else {
-    await removeFromWatchlist(userId, tmdbId);
+    await watchlistRef(userId).doc(String(tmdbId)).update({
+      status: "completed" as WatchStatus,
+    });
   }
 }
 
@@ -150,6 +152,61 @@ export async function startRewatch(userId: string, tmdbId: number) {
 export async function resumeRewatch(userId: string, tmdbId: number) {
   await watchlistRef(userId).doc(String(tmdbId)).update({
     status: "rewatching" as WatchStatus,
+  });
+}
+
+// Episode schedule cache
+function episodeCacheRef(userId: string) {
+  return userRef(userId).collection("episodeCache");
+}
+
+function cacheDocId(tmdbId: number, seasonNum: number) {
+  return `${tmdbId}_S${String(seasonNum).padStart(2, "0")}`;
+}
+
+export interface CachedEpisode {
+  tmdbShowId: number;
+  showTitle: string;
+  posterPath: string | null;
+  season: number;
+  episode: number;
+  episodeTitle: string;
+  airDate: string;
+  runtime: number | null;
+}
+
+export interface CachedSeason {
+  tmdbId: number;
+  seasonNum: number;
+  episodes: CachedEpisode[];
+  cachedAt: number; // timestamp ms
+}
+
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+export async function getCachedSeason(
+  userId: string,
+  tmdbId: number,
+  seasonNum: number
+): Promise<CachedSeason | null> {
+  const doc = await episodeCacheRef(userId).doc(cacheDocId(tmdbId, seasonNum)).get();
+  if (!doc.exists()) return null;
+  const data = doc.data() as CachedSeason;
+  if (Date.now() - data.cachedAt > CACHE_TTL) return null;
+  return data;
+}
+
+export async function setCachedSeason(
+  userId: string,
+  tmdbId: number,
+  seasonNum: number,
+  episodes: CachedEpisode[]
+): Promise<void> {
+  await episodeCacheRef(userId).doc(cacheDocId(tmdbId, seasonNum)).set({
+    tmdbId,
+    seasonNum,
+    episodes,
+    cachedAt: Date.now(),
   });
 }
 

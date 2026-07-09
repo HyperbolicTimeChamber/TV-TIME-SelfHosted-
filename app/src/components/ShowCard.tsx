@@ -1,4 +1,4 @@
-import React from "react";
+import React, { memo, useRef } from "react";
 import {
   View,
   Text,
@@ -8,18 +8,20 @@ import {
 import { Image } from "expo-image";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { WatchlistItem } from "../types";
-import SwipeableCard from "./SwipeableCard";
+import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 
 interface Props {
   item: WatchlistItem;
+  isWatched?: boolean;
   onSwipeLeft: () => Promise<void>;
   onSwipeRight: () => Promise<void>;
   onPress: () => void;
   onCheckmark: () => Promise<void>;
 }
 
-export default function ShowCard({
+export default memo(function ShowCard({
   item,
+  isWatched,
   onSwipeLeft,
   onSwipeRight,
   onPress,
@@ -31,8 +33,40 @@ export default function ShowCard({
       ? "Movie"
       : "";
 
+  const swipeRef = useRef<SwipeableCardRef>(null);
+
+  if (isWatched) {
+    return (
+      <TouchableOpacity
+        style={[styles.container, styles.watchedContainer]}
+        onPress={onPress}
+        activeOpacity={0.8}
+      >
+        <Image
+          source={{ uri: `${posterSize.small}${item.posterPath}` }}
+          style={[styles.poster, styles.watchedPoster]}
+          contentFit="cover"
+        />
+        <View style={styles.info}>
+          <Text style={[styles.title, styles.watchedText]} numberOfLines={1}>
+            {item.title}
+          </Text>
+          <Text style={[styles.episode, styles.watchedText]}>{episodeLabel}</Text>
+          {item.rewatchCount > 0 && (
+            <Text style={[styles.rewatch, styles.watchedText]}>
+              Rewatch #{item.rewatchCount}
+            </Text>
+          )}
+        </View>
+        <View style={styles.watchedBadge}>
+          <Text style={styles.watchedBadgeText}>✓</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
   return (
-    <SwipeableCard onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight}>
+    <SwipeableCard ref={swipeRef} onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} persistAfterSwipe>
       <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.8}>
         <Image
           source={{ uri: `${posterSize.small}${item.posterPath}` }}
@@ -52,7 +86,7 @@ export default function ShowCard({
         </View>
         <TouchableOpacity
           style={styles.checkmark}
-          onPress={onCheckmark}
+          onPress={() => swipeRef.current?.triggerSwipeLeft()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Text style={styles.checkmarkText}>✓</Text>
@@ -60,7 +94,7 @@ export default function ShowCard({
       </TouchableOpacity>
     </SwipeableCard>
   );
-}
+})
 
 const styles = StyleSheet.create({
   container: {
@@ -71,10 +105,16 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     backgroundColor: colors.surface,
   },
+  watchedContainer: {
+    opacity: 0.4,
+  },
   poster: {
     width: 55,
     height: 82,
     borderRadius: 4,
+  },
+  watchedPoster: {
+    opacity: 0.6,
   },
   info: {
     flex: 1,
@@ -92,6 +132,9 @@ const styles = StyleSheet.create({
     color: colors.accent,
     marginTop: spacing.xs,
   },
+  watchedText: {
+    color: colors.textMuted,
+  },
   checkmark: {
     width: 44,
     height: 44,
@@ -104,5 +147,19 @@ const styles = StyleSheet.create({
   checkmarkText: {
     fontSize: 18,
     color: colors.textMuted,
+  },
+  watchedBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.watchedGreen,
+    justifyContent: "center",
+    alignItems: "center",
+    opacity: 0.6,
+  },
+  watchedBadgeText: {
+    fontSize: 18,
+    color: colors.text,
+    fontWeight: "700",
   },
 });

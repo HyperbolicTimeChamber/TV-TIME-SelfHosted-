@@ -24,19 +24,17 @@ export default function CalendarScreen() {
   const navigation = useNavigation<NavProp>();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  const tvShowIds = useMemo(
+  const tvShows = useMemo(
     () =>
-      watchlist
-        .filter(
-          (w) =>
-            w.mediaType === "tv" &&
-            (w.status === "watching" || w.status === "rewatching")
-        )
-        .map((w) => w.tmdbId),
+      watchlist.filter(
+        (w) =>
+          w.mediaType === "tv" &&
+          (w.status === "watching" || w.status === "rewatching")
+      ),
     [watchlist]
   );
 
-  const { data: episodes } = useUpcomingEpisodes(tvShowIds);
+  const { data: episodes } = useUpcomingEpisodes(tvShows);
 
   const markedDates = useMemo(() => {
     const marks: Record<
