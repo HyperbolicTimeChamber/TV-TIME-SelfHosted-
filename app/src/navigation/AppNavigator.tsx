@@ -34,7 +34,7 @@ function HomeStackScreen() {
       <HomeStack.Screen
         name="HomeTabs"
         component={HomeScreen}
-        options={{ headerTitle: "TV Time" }}
+        options={{ headerTitle: "Watchloom" }}
       />
       <HomeStack.Screen
         name="ShowDetail"

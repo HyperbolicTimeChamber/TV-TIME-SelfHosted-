@@ -1,7 +1,7 @@
 {
 	"expo": {
-		"name": "TV Time Returns",
-		"slug": "tv-time-returns",
+		"name": "Watchloom",
+		"slug": "watchloom",
 		"version": "1.0.0",
 		"orientation": "portrait",
 		"icon": "./assets/icon.png",
@@ -25,9 +25,7 @@
 			"resizeMode": "cover",
 			"backgroundColor": "#0D0D0D"
 		},
-		"web": {
-			"favicon": "./assets/favicon.png"
-		},
+		"web": {},
 		"plugins": [
 			"@react-native-firebase/app",
 			"@react-native-firebase/auth",

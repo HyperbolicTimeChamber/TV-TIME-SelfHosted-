@@ -111,7 +111,7 @@ export default function LoginScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>TV Time</Text>
+        <Text style={styles.title}>Watchloom</Text>
         <Text style={styles.subtitle}>Track your shows & movies</Text>
 
         <View style={styles.form}>
