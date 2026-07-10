@@ -134,3 +134,8 @@ export type CalendarStackParamList = {
   CalendarMain: undefined;
   ShowDetail: { tmdbId: number; mediaType: MediaType };
 };
+
+export type ProfileStackParamList = {
+  ProfileMain: undefined;
+  ImportData: undefined;
+};

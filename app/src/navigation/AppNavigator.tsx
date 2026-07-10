@@ -9,11 +9,13 @@ import {
   HomeStackParamList,
   SearchStackParamList,
   CalendarStackParamList,
+  ProfileStackParamList,
 } from "../types";
 import HomeScreen from "../screens/HomeScreen";
 import SearchScreen from "../screens/SearchScreen";
 import CalendarScreen from "../screens/CalendarScreen";
 import ProfileScreen from "../screens/ProfileScreen";
+import ImportDataScreen from "../screens/ImportDataScreen";
 import ShowDetailScreen from "../screens/ShowDetailScreen";
 import SeasonDetailScreen from "../screens/SeasonDetailScreen";
 
@@ -21,6 +23,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 const SearchStack = createNativeStackNavigator<SearchStackParamList>();
 const CalendarStack = createNativeStackNavigator<CalendarStackParamList>();
+const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
 
 const stackScreenOptions = {
   headerStyle: { backgroundColor: colors.surface },
@@ -84,6 +87,23 @@ function CalendarStackScreen() {
   );
 }
 
+function ProfileStackScreen() {
+  return (
+    <ProfileStack.Navigator screenOptions={stackScreenOptions}>
+      <ProfileStack.Screen
+        name="ProfileMain"
+        component={ProfileScreen}
+        options={{ headerTitle: "Profile" }}
+      />
+      <ProfileStack.Screen
+        name="ImportData"
+        component={ImportDataScreen}
+        options={{ headerTitle: "Import Data" }}
+      />
+    </ProfileStack.Navigator>
+  );
+}
+
 export default function AppNavigator() {
   return (
     <NavigationContainer>
@@ -116,10 +136,8 @@ export default function AppNavigator() {
         <Tab.Screen name="Home" component={HomeStackScreen} />
         <Tab.Screen name="Search" component={SearchStackScreen} />
         <Tab.Screen name="Calendar" component={CalendarStackScreen} />
-        <Tab.Screen name="Profile" component={ProfileScreen} options={{
-          headerShown: true,
-          headerStyle: { backgroundColor: colors.surface },
-          headerTintColor: colors.text,
+        <Tab.Screen name="Profile" component={ProfileStackScreen} options={{
+          headerShown: false,
         }} />
       </Tab.Navigator>
     </NavigationContainer>

@@ -8,9 +8,11 @@ interface AuthState {
   loading: boolean;
   tmdbApiKey: string | null;
   tmdbApiKeyLoading: boolean;
+  hasSeenImport: boolean;
   setUser: (user: FirebaseAuthTypes.User | null) => void;
   setLoading: (loading: boolean) => void;
   setTmdbApiKey: (key: string) => void;
+  setHasSeenImport: (val: boolean) => void;
   loadTmdbApiKey: (userId: string) => Promise<void>;
   saveTmdbApiKey: (userId: string, key: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -24,10 +26,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   loading: true,
   tmdbApiKey: null,
   tmdbApiKeyLoading: true,
+  hasSeenImport: false,
 
   setUser: (user) => set({ user, loading: false }),
   setLoading: (loading) => set({ loading }),
   setTmdbApiKey: (key) => set({ tmdbApiKey: key, tmdbApiKeyLoading: false }),
+  setHasSeenImport: (val) => set({ hasSeenImport: val }),
 
   loadTmdbApiKey: async (userId: string) => {
     try {

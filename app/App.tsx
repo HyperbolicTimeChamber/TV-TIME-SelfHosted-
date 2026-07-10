@@ -10,6 +10,7 @@ import { useAuthStore } from "./src/stores/authStore";
 import { useUiStore } from "./src/stores/uiStore";
 import LoginScreen from "./src/screens/LoginScreen";
 import ApiKeySetupScreen from "./src/screens/ApiKeySetupScreen";
+import ImportDataScreen from "./src/screens/ImportDataScreen";
 import AppNavigator from "./src/navigation/AppNavigator";
 import OfflineOverlay from "./src/components/OfflineOverlay";
 import { colors } from "./src/theme";
@@ -27,7 +28,7 @@ const queryClient = new QueryClient({
 });
 
 function AppContent() {
-  const { user, loading, setUser, tmdbApiKey, tmdbApiKeyLoading, loadTmdbApiKey } =
+  const { user, loading, setUser, tmdbApiKey, tmdbApiKeyLoading, loadTmdbApiKey, hasSeenImport, setHasSeenImport } =
     useAuthStore();
   const setConnected = useUiStore((s) => s.setConnected);
 
@@ -70,6 +71,17 @@ function AppContent() {
 
   if (!tmdbApiKey) {
     return <ApiKeySetupScreen />;
+  }
+
+  if (!hasSeenImport) {
+    return (
+      <ImportDataScreen
+        navigation={{
+          navigate: () => setHasSeenImport(true),
+          goBack: () => setHasSeenImport(true),
+        }}
+      />
+    );
   }
 
   return (

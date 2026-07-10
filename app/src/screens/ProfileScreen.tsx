@@ -11,13 +11,17 @@ import {
   Platform,
 } from "react-native";
 import { Image } from "expo-image";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuthStore } from "../stores/authStore";
 import { useUserStats } from "../hooks/useUserStats";
 import { useWatchlist } from "../hooks/useWatchlist";
 import { validateApiKey } from "../services/tmdb";
 import { colors, spacing, typography, posterSize } from "../theme";
+import { ProfileStackParamList } from "../types";
 
 export default function ProfileScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
   const user = useAuthStore((s) => s.user);
   const signOut = useAuthStore((s) => s.signOut);
   const tmdbApiKey = useAuthStore((s) => s.tmdbApiKey);
@@ -174,6 +178,13 @@ export default function ProfileScreen() {
         </View>
       )}
 
+      <TouchableOpacity
+        style={styles.importButton}
+        onPress={() => navigation.navigate("ImportData")}
+      >
+        <Text style={styles.importText}>Import TV Time Data</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
         <Text style={styles.signOutText}>Log Out</Text>
       </TouchableOpacity>
@@ -304,6 +315,20 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.text,
     fontWeight: "600",
+  },
+  importButton: {
+    marginTop: spacing.xl,
+    marginHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  importText: {
+    ...typography.subtitle,
+    color: colors.accent,
   },
   signOutButton: {
     marginTop: spacing.xxl,
