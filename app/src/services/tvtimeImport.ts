@@ -183,6 +183,34 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function mapTMDBResults(
+  results: any[],
+  name: string,
+  mediaType: "tv" | "movie"
+): TMDBMatch[] {
+  const filtered = results.filter(
+    (r: any) => r.media_type === "tv" || r.media_type === "movie"
+  );
+  filtered.sort((a: any, b: any) => {
+    const aMatch = a.media_type === mediaType ? 0 : 1;
+    const bMatch = b.media_type === mediaType ? 0 : 1;
+    return aMatch - bMatch;
+  });
+  return filtered.map((r: any) => {
+    const mt = r.media_type as "tv" | "movie";
+    return {
+      tvTimeName: name,
+      tmdbId: r.id,
+      tmdbName: mt === "tv" ? r.name : r.title,
+      posterPath: r.poster_path,
+      mediaType: mt,
+      year: (mt === "tv" ? r.first_air_date : r.release_date || "").slice(0, 4),
+      overview: (r.overview || "").slice(0, 120),
+      totalEpisodes: r.number_of_episodes ?? null,
+    };
+  });
+}
+
 async function searchTMDB(
   apiKey: string,
   name: string,
@@ -192,24 +220,7 @@ async function searchTMDB(
     const res = await axios.get(`${TMDB_BASE}/search/multi`, {
       params: { api_key: apiKey, query: name, page: 1 },
     });
-    const allResults = (res.data.results || []) as any[];
-    // Prefer results matching expected type, fall back to any tv/movie results
-    const typed = allResults.filter((r: any) => r.media_type === mediaType);
-    const fallback = allResults.filter((r: any) => r.media_type === "tv" || r.media_type === "movie");
-    const results = (typed.length > 0 ? typed : fallback).slice(0, 5);
-    return results.map((r: any) => {
-      const mt = r.media_type as "tv" | "movie";
-      return {
-        tvTimeName: name,
-        tmdbId: r.id,
-        tmdbName: mt === "tv" ? r.name : r.title,
-        posterPath: r.poster_path,
-        mediaType: mt,
-        year: (mt === "tv" ? r.first_air_date : r.release_date || "").slice(0, 4),
-        overview: (r.overview || "").slice(0, 120),
-        totalEpisodes: r.number_of_episodes ?? null,
-      };
-    });
+    return mapTMDBResults(res.data.results || [], name, mediaType);
   } catch (err: any) {
     if (err?.response?.status === 429) {
       const retryAfter = parseInt(err.response.headers["retry-after"] || "10", 10);
@@ -217,6 +228,25 @@ async function searchTMDB(
       return searchTMDB(apiKey, name, mediaType);
     }
     return [];
+  }
+}
+
+export async function searchTMDBPage(
+  apiKey: string,
+  name: string,
+  mediaType: "tv" | "movie",
+  page: number
+): Promise<{ results: TMDBMatch[]; totalPages: number }> {
+  try {
+    const res = await axios.get(`${TMDB_BASE}/search/multi`, {
+      params: { api_key: apiKey, query: name, page },
+    });
+    return {
+      results: mapTMDBResults(res.data.results || [], name, mediaType),
+      totalPages: res.data.total_pages || 1,
+    };
+  } catch {
+    return { results: [], totalPages: 1 };
   }
 }
 

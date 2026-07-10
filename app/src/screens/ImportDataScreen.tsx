@@ -7,6 +7,7 @@ import {
   FlatList,
   StyleSheet,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -22,11 +23,13 @@ import {
   parseGdprZip,
   matchShowsAndMovies,
   importToFirestore,
+  searchTMDBPage,
   ParsedGdprData,
   TMDBMatch,
   AmbiguousMatch,
   ImportStats,
 } from "../services/tvtimeImport";
+import { LegendList } from "@legendapp/list/react-native";
 import { colors, spacing, typography, posterSize } from "../theme";
 
 type Phase =
@@ -107,7 +110,7 @@ function CandidateCard({
       )}
       <View style={styles.candidateInfo}>
         <View style={styles.candidateHeader}>
-          <Text style={styles.candidateName} numberOfLines={1}>
+          <Text style={styles.candidateName}>
             {item.tmdbName}
           </Text>
           <View
@@ -166,6 +169,12 @@ export default function ImportDataScreen({ navigation }: any) {
 
   // Existing watchlist tmdbIds (for duplicate detection)
   const existingIdsRef = useRef<Set<number>>(new Set());
+
+  // Disambiguation pagination
+  const [disambigCandidates, setDisambigCandidates] = useState<TMDBMatch[]>([]);
+  const disambigPageRef = useRef(1);
+  const disambigTotalPagesRef = useRef(1);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Import stats
   const [importStats, setImportStats] = useState<ImportStats | null>(null);
@@ -228,6 +237,41 @@ export default function ImportDataScreen({ navigation }: any) {
       setPhase("pick");
     }
   }, [tmdbApiKey, user]);
+
+  // Sync candidates when disambig index changes
+  useEffect(() => {
+    if (phase === "disambiguate" && ambiguous.length > 0 && disambigIndex < ambiguous.length) {
+      const current = ambiguous[disambigIndex];
+      setDisambigCandidates(current.candidates);
+      disambigPageRef.current = 1;
+      // We don't know totalPages from initial search, assume more exist
+      disambigTotalPagesRef.current = 99;
+    }
+  }, [phase, disambigIndex, ambiguous]);
+
+  const loadMoreCandidates = useCallback(async () => {
+    if (loadingMore || disambigPageRef.current >= disambigTotalPagesRef.current) return;
+    if (!tmdbApiKey || disambigIndex >= ambiguous.length) return;
+    setLoadingMore(true);
+    const current = ambiguous[disambigIndex];
+    const nextPage = disambigPageRef.current + 1;
+    const { results, totalPages } = await searchTMDBPage(
+      tmdbApiKey,
+      current.tvTimeName,
+      current.mediaType,
+      nextPage
+    );
+    disambigPageRef.current = nextPage;
+    disambigTotalPagesRef.current = totalPages;
+    if (results.length > 0) {
+      setDisambigCandidates((prev) => {
+        const existingIds = new Set(prev.map((c) => c.tmdbId));
+        const newResults = results.filter((r) => !existingIds.has(r.tmdbId));
+        return [...prev, ...newResults];
+      });
+    }
+    setLoadingMore(false);
+  }, [loadingMore, tmdbApiKey, disambigIndex, ambiguous]);
 
   // --- Phase 2.5: Disambiguation ---
   // Track actions per disambig index: { type: "pick", match } or { type: "skip" }
@@ -374,8 +418,8 @@ export default function ImportDataScreen({ navigation }: any) {
         <Text style={styles.desc}>
           Multiple matches found. Tap to select, long press for details:
         </Text>
-        <FlatList
-          data={current.candidates}
+        <LegendList
+          data={disambigCandidates}
           keyExtractor={(item) => String(item.tmdbId)}
           renderItem={({ item }) => (
             <CandidateCard
@@ -383,16 +427,33 @@ export default function ImportDataScreen({ navigation }: any) {
               onPress={() => handleDisambiguate(item)}
             />
           )}
+          onEndReached={loadMoreCandidates}
+          onEndReachedThreshold={0.5}
           ListFooterComponent={
-            <View>
-              <TouchableOpacity style={styles.skipButton} onPress={handleSkipDisambig}>
-                <Text style={styles.skipText}>Skip — don't import this</Text>
-              </TouchableOpacity>
-              {disambigIndex > 0 && (
-                <TouchableOpacity style={styles.skipButton} onPress={handleBackDisambig}>
-                  <Text style={styles.skipText}>← Go back</Text>
-                </TouchableOpacity>
+            <View style={{ paddingBottom: spacing.xl }}>
+              {loadingMore && (
+                <ActivityIndicator
+                  size="small"
+                  color={colors.primary}
+                  style={{ marginVertical: spacing.md }}
+                />
               )}
+              <View style={styles.disambigActions}>
+                <TouchableOpacity
+                  style={styles.disambigSkipBtn}
+                  onPress={handleSkipDisambig}
+                >
+                  <Text style={styles.disambigSkipText}>Skip</Text>
+                </TouchableOpacity>
+                {disambigIndex > 0 && (
+                  <TouchableOpacity
+                    style={styles.disambigBackBtn}
+                    onPress={handleBackDisambig}
+                  >
+                    <Text style={styles.disambigBackText}>← Back</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           }
         />
@@ -473,7 +534,7 @@ export default function ImportDataScreen({ navigation }: any) {
                     </View>
                   )}
                   <View style={styles.reviewInfo}>
-                    <Text style={styles.reviewName} numberOfLines={1}>
+                    <Text style={styles.reviewName}>
                       {item.tmdbName}
                     </Text>
                     <Text style={styles.reviewSub}>
@@ -799,5 +860,38 @@ const styles = StyleSheet.create({
   statLine: {
     ...typography.body,
     marginBottom: spacing.sm,
+  },
+  // Disambiguation action buttons
+  disambigActions: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: spacing.md,
+    marginTop: spacing.lg,
+  },
+  disambigSkipBtn: {
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  disambigSkipText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    fontWeight: "600",
+  },
+  disambigBackBtn: {
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  disambigBackText: {
+    ...typography.body,
+    color: colors.primary,
+    fontWeight: "600",
   },
 });
