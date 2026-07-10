@@ -546,6 +546,9 @@ export async function importToFirestore(
   let done = 0;
   let watchingCount = 0;
 
+  // Report total upfront so progress bar appears immediately
+  onProgress(0, totalOps);
+
   // Write in Firestore batches of 500
   const BATCH_LIMIT = 500;
   const allOps = [...watchlistOps, ...episodeOps];
@@ -561,7 +564,6 @@ export async function importToFirestore(
       } else {
         batch.set(op.ref, op.data);
         batchCount++;
-        // Count stats only for written ops
         if (op.data.mediaType === "tv" && op.data.status) {
           stats.showsImported++;
           if (op.data.status === "watching") watchingCount++;
@@ -571,6 +573,8 @@ export async function importToFirestore(
           stats.episodesImported++;
         }
       }
+      done++;
+      onProgress(done, totalOps);
     }
 
     if (batchCount > 0) {
@@ -585,8 +589,6 @@ export async function importToFirestore(
         }
       }
     }
-    done += chunk.length;
-    onProgress(done, totalOps);
   }
 
   await updateDoc(userRef, {
