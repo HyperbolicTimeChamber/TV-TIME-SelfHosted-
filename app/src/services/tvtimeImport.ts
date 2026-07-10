@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import Papa from "papaparse";
 import * as FileSystem from "expo-file-system";
+import axios from "axios";
 
 // --- Parsed types ---
 
@@ -134,4 +135,132 @@ export async function parseGdprZip(uri: string): Promise<ParsedGdprData> {
     rewatchedEpisodes: parseV2Episodes(v2Rows, "rewatch-episode-"),
     movies: parseV1Movies(v1Rows),
   };
+}
+
+// --- TMDB Matching ---
+
+export interface TMDBMatch {
+  tvTimeName: string;
+  tmdbId: number;
+  tmdbName: string;
+  posterPath: string | null;
+  mediaType: "tv" | "movie";
+  year: string;
+  overview: string;
+  totalEpisodes: number | null;
+}
+
+export interface AmbiguousMatch {
+  tvTimeName: string;
+  mediaType: "tv" | "movie";
+  candidates: TMDBMatch[];
+}
+
+export interface MatchResult {
+  matched: TMDBMatch[];
+  ambiguous: AmbiguousMatch[];
+  unmatched: string[];
+}
+
+const TMDB_BASE = "https://api.themoviedb.org/3";
+const BATCH_SIZE = 50;
+const BATCH_DELAY_MS = 1000;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function searchTMDB(
+  apiKey: string,
+  name: string,
+  mediaType: "tv" | "movie"
+): Promise<TMDBMatch[]> {
+  try {
+    const res = await axios.get(`${TMDB_BASE}/search/${mediaType}`, {
+      params: { api_key: apiKey, query: name, page: 1 },
+    });
+    const results = res.data.results || [];
+    return results.slice(0, 5).map((r: any) => ({
+      tvTimeName: name,
+      tmdbId: r.id,
+      tmdbName: mediaType === "tv" ? r.name : r.title,
+      posterPath: r.poster_path,
+      mediaType,
+      year: (mediaType === "tv" ? r.first_air_date : r.release_date || "").slice(0, 4),
+      overview: (r.overview || "").slice(0, 120),
+      totalEpisodes: r.number_of_episodes ?? null,
+    }));
+  } catch (err: any) {
+    if (err?.response?.status === 429) {
+      const retryAfter = parseInt(err.response.headers["retry-after"] || "10", 10);
+      await delay(retryAfter * 1000);
+      return searchTMDB(apiKey, name, mediaType);
+    }
+    return [];
+  }
+}
+
+interface MatchItem {
+  name: string;
+  mediaType: "tv" | "movie";
+}
+
+export async function matchShowsAndMovies(
+  apiKey: string,
+  shows: ParsedShow[],
+  movies: ParsedMovie[],
+  onProgress: (done: number, total: number) => void
+): Promise<MatchResult> {
+  // Deduplicate names
+  const showNames = [...new Set(shows.map((s) => s.name))];
+  const movieNames = [...new Set(movies.map((m) => m.name))];
+
+  const items: MatchItem[] = [
+    ...showNames.map((n) => ({ name: n, mediaType: "tv" as const })),
+    ...movieNames.map((n) => ({ name: n, mediaType: "movie" as const })),
+  ];
+
+  const matched: TMDBMatch[] = [];
+  const ambiguous: AmbiguousMatch[] = [];
+  const unmatched: string[] = [];
+
+  for (let i = 0; i < items.length; i += BATCH_SIZE) {
+    const batch = items.slice(i, i + BATCH_SIZE);
+    const results = await Promise.all(
+      batch.map((item) => searchTMDB(apiKey, item.name, item.mediaType))
+    );
+
+    for (let j = 0; j < batch.length; j++) {
+      const candidates = results[j];
+      const item = batch[j];
+      if (candidates.length === 0) {
+        unmatched.push(item.name);
+      } else if (candidates.length === 1) {
+        matched.push(candidates[0]);
+      } else {
+        // Check if first result is exact name match — auto-select
+        const exactMatch = candidates.find(
+          (c) => c.tmdbName.toLowerCase() === item.name.toLowerCase()
+        );
+        if (exactMatch) {
+          matched.push(exactMatch);
+        } else {
+          ambiguous.push({
+            tvTimeName: item.name,
+            mediaType: item.mediaType,
+            candidates,
+          });
+        }
+      }
+    }
+
+    onProgress(Math.min(i + BATCH_SIZE, items.length), items.length);
+
+    // Delay between batches (skip after last batch)
+    if (i + BATCH_SIZE < items.length) {
+      await delay(BATCH_DELAY_MS);
+    }
+  }
+
+  return { matched, ambiguous, unmatched };
 }
