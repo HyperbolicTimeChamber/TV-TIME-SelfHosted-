@@ -325,9 +325,6 @@ export async function importToFirestore(
   }
 
   // Build tvTimeId → TMDBMatch lookup for episodes
-  const showById = new Map<number, ParsedShow>();
-  for (const s of shows) showById.set(s.tvTimeId, s);
-
   const matchByTvTimeId = new Map<number, TMDBMatch>();
   for (const s of shows) {
     const match = matchByName.get(s.name);
@@ -335,7 +332,7 @@ export async function importToFirestore(
   }
 
   // Collect all operations as { ref, data } pairs
-  type WriteOp = { ref: FirebaseFirestoreTypes.DocumentReference; data: Record<string, any>; isNew: boolean };
+  type WriteOp = { ref: FirebaseFirestoreTypes.DocumentReference; data: Record<string, any> };
   const ops: WriteOp[] = [];
 
   // --- Watchlist: Shows ---
@@ -370,7 +367,6 @@ export async function importToFirestore(
         rewatchCount: show.rewatchCount,
         totalEpisodes: match.totalEpisodes ?? null,
       },
-      isNew: true,
     });
   }
 
@@ -395,11 +391,9 @@ export async function importToFirestore(
         nextEpisode: null,
         rewatchCount: 0,
         totalEpisodes: null,
+        runtimeMinutes: runtimeMin,
       },
-      isNew: true,
     });
-
-    stats.minutesImported += runtimeMin;
   }
 
   // --- Watched Episodes ---
@@ -460,7 +454,6 @@ export async function importToFirestore(
         runtime: 0,
         watchCount: ep.count,
       },
-      isNew: true,
     });
   }
 
@@ -468,10 +461,10 @@ export async function importToFirestore(
   const totalOps = ops.length;
   let done = 0;
 
-  // Check which docs already exist (batch get in chunks of 100)
+  // Check which docs already exist (sequential chunks of 10 to avoid hammering Firestore)
   const existingDocs = new Set<string>();
-  for (let i = 0; i < ops.length; i += 100) {
-    const chunk = ops.slice(i, i + 100);
+  for (let i = 0; i < ops.length; i += 10) {
+    const chunk = ops.slice(i, i + 10);
     const snapshots = await Promise.all(chunk.map((op) => op.ref.get()));
     for (const snap of snapshots) {
       if (snap.exists()) existingDocs.add(snap.ref.path);
@@ -493,8 +486,10 @@ export async function importToFirestore(
         batchCount++;
         // Count stats
         if (op.data.mediaType === "tv" && op.data.status) stats.showsImported++;
-        else if (op.data.mediaType === "movie") stats.moviesImported++;
-        else if (op.data.tmdbShowId && op.data.season !== undefined) stats.episodesImported++;
+        else if (op.data.mediaType === "movie") {
+          stats.moviesImported++;
+          stats.minutesImported += op.data.runtimeMinutes as number;
+        } else if (op.data.tmdbShowId && op.data.season !== undefined) stats.episodesImported++;
       }
     }
 
