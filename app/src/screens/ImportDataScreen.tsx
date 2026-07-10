@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   View,
   Text,
@@ -141,6 +142,7 @@ function CandidateCard({
 }
 
 export default function ImportDataScreen({ navigation }: any) {
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const tmdbApiKey = useAuthStore((s) => s.tmdbApiKey);
 
@@ -313,7 +315,7 @@ export default function ImportDataScreen({ navigation }: any) {
 
   if (phase === "pick") {
     return (
-      <View style={styles.centered}>
+      <View style={[styles.centered, { paddingTop: insets.top }]}>
         <Text style={styles.title}>Import TV Time Data</Text>
         <Text style={styles.desc}>
           Select your TV Time GDPR export (.zip) to import your watch history.
@@ -333,7 +335,7 @@ export default function ImportDataScreen({ navigation }: any) {
 
   if (phase === "matching") {
     return (
-      <View style={styles.centered}>
+      <View style={[styles.centered, { paddingTop: insets.top }]}>
         <Text style={styles.title}>{statusText}</Text>
         <View style={{ marginTop: spacing.md }}>
           <LoadingSpinner />
@@ -351,7 +353,7 @@ export default function ImportDataScreen({ navigation }: any) {
   if (phase === "disambiguate") {
     const current = ambiguous[disambigIndex];
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top + spacing.lg }]}>
         <Text style={styles.sectionTitle}>
           Resolve {disambigIndex + 1}/{ambiguous.length}: "{current.tvTimeName}"
         </Text>
@@ -396,7 +398,7 @@ export default function ImportDataScreen({ navigation }: any) {
       : 0;
 
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top + spacing.lg }]}>
         <FlatList
           data={[...showMatches, ...movieMatches]}
           keyExtractor={(item) => `${item.mediaType}-${item.tmdbId}`}
@@ -504,7 +506,7 @@ export default function ImportDataScreen({ navigation }: any) {
 
   if (phase === "importing") {
     return (
-      <View style={styles.centered}>
+      <View style={[styles.centered, { paddingTop: insets.top }]}>
         <Text style={styles.title}>{statusText}</Text>
         <View style={{ marginTop: spacing.md }}>
           <LoadingSpinner />
@@ -521,7 +523,7 @@ export default function ImportDataScreen({ navigation }: any) {
 
   // phase === "done"
   return (
-    <View style={styles.centered}>
+    <View style={[styles.centered, { paddingTop: insets.top }]}>
       <Text style={styles.title}>Import Complete!</Text>
       {importStats && (
         <View style={styles.statsBox}>
