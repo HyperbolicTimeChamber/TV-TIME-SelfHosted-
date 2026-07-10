@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import firestore from "@react-native-firebase/firestore";
+import {
+  getFirestore,
+  collection,
+  doc,
+  onSnapshot,
+} from "@react-native-firebase/firestore";
 import { WatchlistItem } from "../types";
 
 export function useWatchlist(userId: string | undefined) {
@@ -13,24 +18,24 @@ export function useWatchlist(userId: string | undefined) {
       return;
     }
 
-    const unsubscribe = firestore()
-      .collection("users")
-      .doc(userId)
-      .collection("watchlist")
-      .onSnapshot(
-        (snapshot) => {
-          const data = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as WatchlistItem[];
-          setItems(data);
-          setLoading(false);
-        },
-        (error) => {
-          console.error("Watchlist listener error:", error);
-          setLoading(false);
-        }
-      );
+    const db = getFirestore();
+    const colRef = collection(doc(db, "users", userId), "watchlist");
+
+    const unsubscribe = onSnapshot(
+      colRef,
+      (snapshot) => {
+        const data = snapshot.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        })) as WatchlistItem[];
+        setItems(data);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Watchlist listener error:", error);
+        setLoading(false);
+      }
+    );
 
     return unsubscribe;
   }, [userId]);

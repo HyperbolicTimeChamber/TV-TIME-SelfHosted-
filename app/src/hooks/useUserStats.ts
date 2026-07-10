@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import firestore from "@react-native-firebase/firestore";
+import {
+  getFirestore,
+  doc,
+  onSnapshot,
+} from "@react-native-firebase/firestore";
 import { UserStats } from "../types";
 
 const defaultStats: UserStats = {
@@ -19,22 +23,23 @@ export function useUserStats(userId: string | undefined) {
       return;
     }
 
-    const unsubscribe = firestore()
-      .collection("users")
-      .doc(userId)
-      .onSnapshot(
-        (doc) => {
-          if (doc.exists()) {
-            const data = doc.data();
-            setStats(data?.stats ?? defaultStats);
-          }
-          setLoading(false);
-        },
-        (error) => {
-          console.error("UserStats listener error:", error);
-          setLoading(false);
+    const db = getFirestore();
+    const docRef = doc(db, "users", userId);
+
+    const unsubscribe = onSnapshot(
+      docRef,
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          setStats(data?.stats ?? defaultStats);
         }
-      );
+        setLoading(false);
+      },
+      (error) => {
+        console.error("UserStats listener error:", error);
+        setLoading(false);
+      }
+    );
 
     return unsubscribe;
   }, [userId]);

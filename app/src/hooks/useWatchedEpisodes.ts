@@ -1,5 +1,18 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import firestore, { FirebaseFirestoreTypes } from "@react-native-firebase/firestore";
+import {
+  getFirestore,
+  collection,
+  doc,
+  query,
+  where,
+  orderBy,
+  limit,
+  startAfter,
+  getDocs,
+  onSnapshot,
+  QueryDocumentSnapshot,
+  Query,
+} from "@react-native-firebase/firestore";
 import { WatchedEpisode } from "../types";
 
 const PAGE_SIZE = 20;
@@ -12,19 +25,17 @@ export function useWatchedEpisodes(
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const lastDoc = useRef<FirebaseFirestoreTypes.QueryDocumentSnapshot | null>(null);
+  const lastDoc = useRef<QueryDocumentSnapshot | null>(null);
 
   const buildQuery = useCallback(() => {
-    let query: FirebaseFirestoreTypes.Query = firestore()
-      .collection("users")
-      .doc(userId!)
-      .collection("watchedEpisodes")
-      .orderBy("lastWatchedAt", "desc");
+    const db = getFirestore();
+    const colRef = collection(doc(db, "users", userId!), "watchedEpisodes");
 
+    const constraints = [orderBy("lastWatchedAt", "desc")];
     if (tmdbShowId !== undefined) {
-      query = query.where("tmdbShowId", "==", tmdbShowId);
+      constraints.push(where("tmdbShowId", "==", tmdbShowId) as any);
     }
-    return query;
+    return query(colRef, ...constraints);
   }, [userId, tmdbShowId]);
 
   // Initial load
@@ -39,24 +50,25 @@ export function useWatchedEpisodes(
     lastDoc.current = null;
     setHasMore(true);
 
-    const unsubscribe = buildQuery()
-      .limit(PAGE_SIZE)
-      .onSnapshot(
-        (snapshot) => {
-          const data = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as WatchedEpisode[];
-          setEpisodes(data);
-          setLoading(false);
-          setHasMore(snapshot.docs.length >= PAGE_SIZE);
-          lastDoc.current = snapshot.docs[snapshot.docs.length - 1] || null;
-        },
-        (error) => {
-          console.error("WatchedEpisodes listener error:", error);
-          setLoading(false);
-        }
-      );
+    const q = query(buildQuery() as Query, limit(PAGE_SIZE));
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const data = snapshot.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        })) as WatchedEpisode[];
+        setEpisodes(data);
+        setLoading(false);
+        setHasMore(snapshot.docs.length >= PAGE_SIZE);
+        lastDoc.current = snapshot.docs[snapshot.docs.length - 1] || null;
+      },
+      (error) => {
+        console.error("WatchedEpisodes listener error:", error);
+        setLoading(false);
+      }
+    );
 
     return unsubscribe;
   }, [userId, tmdbShowId, buildQuery]);
@@ -65,14 +77,16 @@ export function useWatchedEpisodes(
     if (!userId || !hasMore || loadingMore || !lastDoc.current) return;
     setLoadingMore(true);
     try {
-      const snapshot = await buildQuery()
-        .startAfter(lastDoc.current)
-        .limit(PAGE_SIZE)
-        .get();
+      const q = query(
+        buildQuery() as Query,
+        startAfter(lastDoc.current),
+        limit(PAGE_SIZE)
+      );
+      const snapshot = await getDocs(q);
 
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
+      const data = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
       })) as WatchedEpisode[];
 
       setEpisodes((prev) => [...prev, ...data]);

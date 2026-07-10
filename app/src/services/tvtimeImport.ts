@@ -1,8 +1,19 @@
 import JSZip from "jszip";
 import Papa from "papaparse";
-import * as FileSystem from "expo-file-system";
+import { File } from "expo-file-system";
 import axios from "axios";
-import firestore, { FirebaseFirestoreTypes } from "@react-native-firebase/firestore";
+import {
+  getFirestore,
+  collection,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  writeBatch,
+  increment,
+  Timestamp,
+  DocumentReference,
+} from "@react-native-firebase/firestore";
 import { WatchStatus } from "../types";
 
 // --- Parsed types ---
@@ -120,10 +131,9 @@ function parseV1Movies(rows: V1Row[]): ParsedMovie[] {
 }
 
 export async function parseGdprZip(uri: string): Promise<ParsedGdprData> {
-  const base64 = await FileSystem.readAsStringAsync(uri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-  const zip = await JSZip.loadAsync(base64, { base64: true });
+  const file = new File(uri);
+  const buffer = await file.arrayBuffer();
+  const zip = await JSZip.loadAsync(buffer);
 
   const v2Csv = await readCsvFromZip(zip, "tracking-prod-records-v2.csv");
   const v2Rows = parseCsv<V2Row>(v2Csv);
@@ -179,20 +189,27 @@ async function searchTMDB(
   mediaType: "tv" | "movie"
 ): Promise<TMDBMatch[]> {
   try {
-    const res = await axios.get(`${TMDB_BASE}/search/${mediaType}`, {
+    const res = await axios.get(`${TMDB_BASE}/search/multi`, {
       params: { api_key: apiKey, query: name, page: 1 },
     });
-    const results = res.data.results || [];
-    return results.slice(0, 5).map((r: any) => ({
-      tvTimeName: name,
-      tmdbId: r.id,
-      tmdbName: mediaType === "tv" ? r.name : r.title,
-      posterPath: r.poster_path,
-      mediaType,
-      year: (mediaType === "tv" ? r.first_air_date : r.release_date || "").slice(0, 4),
-      overview: (r.overview || "").slice(0, 120),
-      totalEpisodes: r.number_of_episodes ?? null,
-    }));
+    const allResults = (res.data.results || []) as any[];
+    // Prefer results matching expected type, fall back to any tv/movie results
+    const typed = allResults.filter((r: any) => r.media_type === mediaType);
+    const fallback = allResults.filter((r: any) => r.media_type === "tv" || r.media_type === "movie");
+    const results = (typed.length > 0 ? typed : fallback).slice(0, 5);
+    return results.map((r: any) => {
+      const mt = r.media_type as "tv" | "movie";
+      return {
+        tvTimeName: name,
+        tmdbId: r.id,
+        tmdbName: mt === "tv" ? r.name : r.title,
+        posterPath: r.poster_path,
+        mediaType: mt,
+        year: (mt === "tv" ? r.first_air_date : r.release_date || "").slice(0, 4),
+        overview: (r.overview || "").slice(0, 120),
+        totalEpisodes: r.number_of_episodes ?? null,
+      };
+    });
   } catch (err: any) {
     if (err?.response?.status === 429) {
       const retryAfter = parseInt(err.response.headers["retry-after"] || "10", 10);
@@ -267,9 +284,8 @@ export async function matchShowsAndMovies(
           });
         }
       }
+      onProgress(i + j + 1, items.length);
     }
-
-    onProgress(Math.min(i + BATCH_SIZE, items.length), items.length);
 
     // Delay between batches (skip after last batch)
     if (i + BATCH_SIZE < items.length) {
@@ -302,11 +318,11 @@ function deriveStatus(show: ParsedShow): WatchStatus {
   return "watching";
 }
 
-function parseTimestamp(dateStr: string | null): FirebaseFirestoreTypes.Timestamp | null {
+function parseTimestamp(dateStr: string | null): Timestamp | null {
   if (!dateStr || dateStr === "0001-01-01 00:00:00") return null;
   const ms = new Date(dateStr).getTime();
   if (isNaN(ms)) return null;
-  return firestore.Timestamp.fromMillis(ms);
+  return Timestamp.fromMillis(ms);
 }
 
 export async function importToFirestore(
@@ -318,10 +334,10 @@ export async function importToFirestore(
   movies: ParsedMovie[],
   onProgress: (done: number, total: number) => void
 ): Promise<ImportStats> {
-  const db = firestore();
-  const userRef = db.collection("users").doc(userId);
-  const watchlistRef = userRef.collection("watchlist");
-  const watchedEpRef = userRef.collection("watchedEpisodes");
+  const db = getFirestore();
+  const userRef = doc(db, "users", userId);
+  const watchlistCol = collection(userRef, "watchlist");
+  const watchedEpCol = collection(userRef, "watchedEpisodes");
 
   const stats: ImportStats = {
     showsImported: 0,
@@ -348,7 +364,7 @@ export async function importToFirestore(
   }
 
   // Collect all operations as { ref, data } pairs
-  type WriteOp = { ref: FirebaseFirestoreTypes.DocumentReference; data: Record<string, any> };
+  type WriteOp = { ref: DocumentReference; data: Record<string, any> };
   const ops: WriteOp[] = [];
 
   // --- Watchlist: Shows ---
@@ -360,11 +376,11 @@ export async function importToFirestore(
         : shows.find((s) => s.name === match.tvTimeName);
     if (!show) continue;
     const status = deriveStatus(show);
-    const addedAt = parseTimestamp(show.followedAt) || firestore.Timestamp.now();
+    const addedAt = parseTimestamp(show.followedAt) || Timestamp.now();
 
     // Find latest watched episode date for this show
     const showEps = watchedEpisodes.filter((e) => e.tvTimeShowId === show.tvTimeId);
-    let lastWatchedAt: FirebaseFirestoreTypes.Timestamp | null = null;
+    let lastWatchedAt: Timestamp | null = null;
     if (showEps.length > 0) {
       const latest = showEps.reduce((a, b) =>
         new Date(a.watchedAt) > new Date(b.watchedAt) ? a : b
@@ -373,7 +389,7 @@ export async function importToFirestore(
     }
 
     ops.push({
-      ref: watchlistRef.doc(String(match.tmdbId)),
+      ref: doc(watchlistCol, String(match.tmdbId)),
       data: {
         tmdbId: match.tmdbId,
         mediaType: "tv",
@@ -394,10 +410,10 @@ export async function importToFirestore(
   for (const match of selectedMovieMatches) {
     const movie = movies.find((m) => m.name === match.tvTimeName);
     if (!movie) continue;
-    const watchedAt = parseTimestamp(movie.watchedAt) || firestore.Timestamp.now();
+    const watchedAt = parseTimestamp(movie.watchedAt) || Timestamp.now();
 
     ops.push({
-      ref: watchlistRef.doc(String(match.tmdbId)),
+      ref: doc(watchlistCol, String(match.tmdbId)),
       data: {
         tmdbId: match.tmdbId,
         mediaType: "movie",
@@ -409,7 +425,6 @@ export async function importToFirestore(
         nextEpisode: null,
         rewatchCount: 0,
         totalEpisodes: null,
-        // runtimeMinutes intentionally omitted — tracked in stats only
       },
     });
   }
@@ -461,14 +476,14 @@ export async function importToFirestore(
 
   for (const [docId, ep] of epCountMap) {
     ops.push({
-      ref: watchedEpRef.doc(docId),
+      ref: doc(watchedEpCol, docId),
       data: {
         tmdbShowId: ep.tmdbShowId,
         season: ep.season,
         episode: ep.episode,
         episodeTitle: "",
-        watchedAt: parseTimestamp(ep.firstWatched) || firestore.Timestamp.now(),
-        lastWatchedAt: parseTimestamp(ep.lastWatched) || firestore.Timestamp.now(),
+        watchedAt: parseTimestamp(ep.firstWatched) || Timestamp.now(),
+        lastWatchedAt: parseTimestamp(ep.lastWatched) || Timestamp.now(),
         runtime: 0,
         watchCount: ep.count,
       },
@@ -493,7 +508,7 @@ export async function importToFirestore(
   const existingDocs = new Set<string>();
   for (let i = 0; i < watchlistOps.length; i += 10) {
     const chunk = watchlistOps.slice(i, i + 10);
-    const snapshots = await Promise.all(chunk.map((op) => op.ref.get()));
+    const snapshots = await Promise.all(chunk.map((op) => getDoc(op.ref)));
     for (const snap of snapshots) {
       if (snap.exists()) existingDocs.add(snap.ref.path);
     }
@@ -507,7 +522,7 @@ export async function importToFirestore(
   const BATCH_LIMIT = 500;
   const allOps = [...watchlistOps, ...episodeOps];
   for (let i = 0; i < allOps.length; i += BATCH_LIMIT) {
-    const batch = db.batch();
+    const batch = writeBatch(db);
     let batchCount = 0;
     const chunk = allOps.slice(i, i + BATCH_LIMIT);
 
@@ -546,10 +561,10 @@ export async function importToFirestore(
     onProgress(done, totalOps);
   }
 
-  await userRef.update({
-    "stats.episodesWatched": firestore.FieldValue.increment(stats.episodesImported + stats.moviesImported),
-    "stats.showsTracking": firestore.FieldValue.increment(watchingCount),
-    "stats.totalMinutes": firestore.FieldValue.increment(stats.minutesImported),
+  await updateDoc(userRef, {
+    "stats.episodesWatched": increment(stats.episodesImported + stats.moviesImported),
+    "stats.showsTracking": increment(watchingCount),
+    "stats.totalMinutes": increment(stats.minutesImported),
   });
 
   return stats;

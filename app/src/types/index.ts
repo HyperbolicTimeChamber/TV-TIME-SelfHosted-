@@ -1,4 +1,4 @@
-import { FirebaseFirestoreTypes } from "@react-native-firebase/firestore";
+import { Timestamp } from "@react-native-firebase/firestore";
 
 export type WatchStatus =
   | "watching"
@@ -13,7 +13,7 @@ export interface UserProfile {
   displayName: string;
   email: string;
   photoURL: string;
-  createdAt: FirebaseFirestoreTypes.Timestamp;
+  createdAt: Timestamp;
   stats: UserStats;
   tmdbApiKey: string;
 }
@@ -30,8 +30,8 @@ export interface WatchlistItem {
   mediaType: MediaType;
   title: string;
   posterPath: string;
-  addedAt: FirebaseFirestoreTypes.Timestamp;
-  lastWatchedAt: FirebaseFirestoreTypes.Timestamp | null;
+  addedAt: Timestamp;
+  lastWatchedAt: Timestamp | null;
   status: WatchStatus;
   nextEpisode: { season: number; episode: number } | null;
   rewatchCount: number;
@@ -44,8 +44,8 @@ export interface WatchedEpisode {
   season: number;
   episode: number;
   episodeTitle: string;
-  watchedAt: FirebaseFirestoreTypes.Timestamp;
-  lastWatchedAt: FirebaseFirestoreTypes.Timestamp;
+  watchedAt: Timestamp;
+  lastWatchedAt: Timestamp;
   runtime: number;
   watchCount: number;
 }

@@ -10,6 +10,12 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import * as DocumentPicker from "expo-document-picker";
+import {
+  getFirestore,
+  collection,
+  doc,
+  getDocs,
+} from "@react-native-firebase/firestore";
 import { useAuthStore } from "../stores/authStore";
 import {
   parseGdprZip,
@@ -29,6 +35,68 @@ type Phase =
   | "review"
   | "importing"
   | "done";
+
+function CandidateCard({
+  item,
+  onPress,
+}: {
+  item: TMDBMatch;
+  onPress: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <TouchableOpacity
+      style={styles.candidateRow}
+      onPress={onPress}
+      onLongPress={() => setExpanded((v) => !v)}
+    >
+      {item.posterPath ? (
+        <Image
+          source={{ uri: `${posterSize.small}${item.posterPath}` }}
+          style={styles.poster}
+          contentFit="cover"
+        />
+      ) : (
+        <View style={[styles.poster, styles.noPoster]}>
+          <Text style={styles.noPosterText}>?</Text>
+        </View>
+      )}
+      <View style={styles.candidateInfo}>
+        <View style={styles.candidateHeader}>
+          <Text style={styles.candidateName} numberOfLines={1}>
+            {item.tmdbName}
+          </Text>
+          <View
+            style={[
+              styles.typeBadge,
+              item.mediaType === "movie" && styles.typeBadgeMovie,
+            ]}
+          >
+            <Text style={styles.typeBadgeText}>
+              {item.mediaType === "tv" ? "TV" : "MOVIE"}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.candidateYear}>
+          {item.year || "N/A"}
+          {item.mediaType === "tv" && item.totalEpisodes
+            ? ` · ${item.totalEpisodes} episodes`
+            : ""}
+        </Text>
+        <Text
+          style={styles.candidateOverview}
+          numberOfLines={expanded ? undefined : 2}
+        >
+          {item.overview || "No description available"}
+        </Text>
+        {!expanded && (
+          <Text style={styles.expandHint}>Long press for full details</Text>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 export default function ImportDataScreen({ navigation }: any) {
   const user = useAuthStore((s) => s.user);
@@ -52,6 +120,9 @@ export default function ImportDataScreen({ navigation }: any) {
   // Review selections
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
+  // Existing watchlist tmdbIds (for duplicate detection)
+  const existingIdsRef = useRef<Set<number>>(new Set());
+
   // Import stats
   const [importStats, setImportStats] = useState<ImportStats | null>(null);
 
@@ -72,6 +143,16 @@ export default function ImportDataScreen({ navigation }: any) {
       const parsed = await parseGdprZip(uri);
       parsedRef.current = parsed;
 
+      // Fetch existing watchlist IDs to detect duplicates
+      if (user) {
+        const db = getFirestore();
+        const watchlistCol = collection(doc(db, "users", user.uid), "watchlist");
+        const snap = await getDocs(watchlistCol);
+        const ids = new Set<number>();
+        snap.docs.forEach((d) => ids.add(Number(d.id)));
+        existingIdsRef.current = ids;
+      }
+
       setStatusText("Matching with TMDB...");
       const matchResult = await matchShowsAndMovies(
         tmdbApiKey!,
@@ -88,15 +169,21 @@ export default function ImportDataScreen({ navigation }: any) {
         setDisambigIndex(0);
         setPhase("disambiguate");
       } else {
-        // Pre-select all matched
-        setSelected(new Set(matchResult.matched.map((m) => m.tvTimeName)));
+        // Pre-select all matched, except duplicates
+        const sel = new Set<string>();
+        for (const m of matchResult.matched) {
+          if (!existingIdsRef.current.has(m.tmdbId)) {
+            sel.add(`${m.mediaType}-${m.tmdbId}`);
+          }
+        }
+        setSelected(sel);
         setPhase("review");
       }
     } catch (err: any) {
       Alert.alert("Import Error", err.message || "Failed to parse zip file.");
       setPhase("pick");
     }
-  }, [tmdbApiKey]);
+  }, [tmdbApiKey, user]);
 
   // --- Phase 2.5: Disambiguation ---
   const handleDisambiguate = useCallback(
@@ -105,7 +192,14 @@ export default function ImportDataScreen({ navigation }: any) {
         const updated = [...prev, chosen];
         const nextIdx = disambigIndex + 1;
         if (nextIdx >= ambiguous.length) {
-          setSelected(new Set(updated.map((m) => m.tvTimeName)));
+          // Pre-select all matched, except duplicates
+          const sel = new Set<string>();
+          for (const m of updated) {
+            if (!existingIdsRef.current.has(m.tmdbId)) {
+              sel.add(`${m.mediaType}-${m.tmdbId}`);
+            }
+          }
+          setSelected(sel);
           setPhase("review");
         } else {
           setDisambigIndex(nextIdx);
@@ -117,18 +211,29 @@ export default function ImportDataScreen({ navigation }: any) {
   );
 
   const handleSkipDisambig = useCallback(() => {
-    const current = ambiguous[disambigIndex];
-    if (current.candidates.length > 0) {
-      handleDisambiguate(current.candidates[0]);
+    // Skip entirely — don't add this item
+    const nextIdx = disambigIndex + 1;
+    if (nextIdx >= ambiguous.length) {
+      // Pre-select all matched, except duplicates
+      const sel = new Set<string>();
+      for (const m of matched) {
+        if (!existingIdsRef.current.has(m.tmdbId)) {
+          sel.add(`${m.mediaType}-${m.tmdbId}`);
+        }
+      }
+      setSelected(sel);
+      setPhase("review");
+    } else {
+      setDisambigIndex(nextIdx);
     }
-  }, [disambigIndex, ambiguous, handleDisambiguate]);
+  }, [disambigIndex, ambiguous, matched]);
 
   // --- Phase 3: Review toggle ---
-  const toggleSelected = useCallback((tvTimeName: string) => {
+  const toggleSelected = useCallback((key: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(tvTimeName)) next.delete(tvTimeName);
-      else next.add(tvTimeName);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   }, []);
@@ -139,7 +244,9 @@ export default function ImportDataScreen({ navigation }: any) {
     setPhase("importing");
     setStatusText("Importing...");
 
-    const selectedMatches = matched.filter((m) => selected.has(m.tvTimeName));
+    const selectedMatches = matched.filter((m) =>
+      selected.has(`${m.mediaType}-${m.tmdbId}`)
+    );
     const parsed = parsedRef.current;
 
     try {
@@ -220,41 +327,20 @@ export default function ImportDataScreen({ navigation }: any) {
           Resolve {disambigIndex + 1}/{ambiguous.length}: "{current.tvTimeName}"
         </Text>
         <Text style={styles.desc}>
-          Multiple matches found. Pick the correct one:
+          Multiple matches found. Tap to select, long press for details:
         </Text>
         <FlatList
           data={current.candidates}
           keyExtractor={(item) => String(item.tmdbId)}
           renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.candidateRow}
+            <CandidateCard
+              item={item}
               onPress={() => handleDisambiguate(item)}
-            >
-              {item.posterPath ? (
-                <Image
-                  source={{ uri: `${posterSize.small}${item.posterPath}` }}
-                  style={styles.poster}
-                  contentFit="cover"
-                />
-              ) : (
-                <View style={[styles.poster, styles.noPoster]}>
-                  <Text style={styles.noPosterText}>?</Text>
-                </View>
-              )}
-              <View style={styles.candidateInfo}>
-                <Text style={styles.candidateName} numberOfLines={1}>
-                  {item.tmdbName}
-                </Text>
-                <Text style={styles.candidateYear}>{item.year || "N/A"}</Text>
-                <Text style={styles.candidateOverview} numberOfLines={2}>
-                  {item.overview}
-                </Text>
-              </View>
-            </TouchableOpacity>
+            />
           )}
           ListFooterComponent={
             <TouchableOpacity style={styles.skipButton} onPress={handleSkipDisambig}>
-              <Text style={styles.skipText}>Skip (use first result)</Text>
+              <Text style={styles.skipText}>Skip — don't import this</Text>
             </TouchableOpacity>
           }
         />
@@ -266,12 +352,17 @@ export default function ImportDataScreen({ navigation }: any) {
     const showMatches = matched.filter((m) => m.mediaType === "tv");
     const movieMatches = matched.filter((m) => m.mediaType === "movie");
     const selectedCount = selected.size;
+    const existingIds = existingIdsRef.current;
     const episodeCount = parsedRef.current
       ? parsedRef.current.watchedEpisodes.filter((e) => {
           const show = parsedRef.current!.shows.find(
             (s) => s.tvTimeId === e.tvTimeShowId
           );
-          return show && selected.has(show.name);
+          if (!show) return false;
+          const match = matched.find(
+            (m) => m.tvTimeName === show.name && m.mediaType === "tv"
+          );
+          return match && selected.has(`tv-${match.tmdbId}`);
         }).length
       : 0;
 
@@ -287,33 +378,34 @@ export default function ImportDataScreen({ navigation }: any) {
               </Text>
               {showMatches.length > 0 && (
                 <Text style={styles.subhead}>
-                  Shows ({showMatches.filter((m) => selected.has(m.tvTimeName)).length})
+                  Shows ({showMatches.filter((m) => selected.has(`tv-${m.tmdbId}`)).length})
                 </Text>
               )}
             </View>
           }
           renderItem={({ item, index }) => {
-            // Show "Movies" subheader at the transition point from shows to movies
+            const key = `${item.mediaType}-${item.tmdbId}`;
+            const isDuplicate = existingIds.has(item.tmdbId);
             const isFirstMovie = index === showMatches.length;
 
             return (
               <>
                 {isFirstMovie && showMatches.length > 0 && (
                   <Text style={styles.subhead}>
-                    Movies ({movieMatches.filter((m) => selected.has(m.tvTimeName)).length})
+                    Movies ({movieMatches.filter((m) => selected.has(`movie-${m.tmdbId}`)).length})
                   </Text>
                 )}
                 <TouchableOpacity
-                  style={styles.reviewRow}
-                  onPress={() => toggleSelected(item.tvTimeName)}
+                  style={[styles.reviewRow, isDuplicate && styles.reviewRowDuplicate]}
+                  onPress={() => toggleSelected(key)}
                 >
                   <View
                     style={[
                       styles.checkbox,
-                      selected.has(item.tvTimeName) && styles.checkboxChecked,
+                      selected.has(key) && styles.checkboxChecked,
                     ]}
                   >
-                    {selected.has(item.tvTimeName) && (
+                    {selected.has(key) && (
                       <Text style={styles.checkmark}>✓</Text>
                     )}
                   </View>
@@ -337,6 +429,9 @@ export default function ImportDataScreen({ navigation }: any) {
                         ? `"${item.tvTimeName}" → ${item.year}`
                         : item.year}
                     </Text>
+                    {isDuplicate && (
+                      <Text style={styles.duplicateBadge}>Already in watchlist</Text>
+                    )}
                   </View>
                 </TouchableOpacity>
               </>
@@ -366,8 +461,8 @@ export default function ImportDataScreen({ navigation }: any) {
                 disabled={selectedCount === 0}
               >
                 <Text style={styles.buttonText}>
-                  Import {showMatches.filter((m) => selected.has(m.tvTimeName)).length} shows,{" "}
-                  {movieMatches.filter((m) => selected.has(m.tvTimeName)).length} movies,{" "}
+                  Import {showMatches.filter((m) => selected.has(`tv-${m.tmdbId}`)).length} shows,{" "}
+                  {movieMatches.filter((m) => selected.has(`movie-${m.tmdbId}`)).length} movies,{" "}
                   {episodeCount} episodes
                 </Text>
               </TouchableOpacity>
@@ -538,6 +633,11 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
+  candidateHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
   poster: {
     width: 60,
     height: 90,
@@ -559,6 +659,7 @@ const styles = StyleSheet.create({
   },
   candidateName: {
     ...typography.subtitle,
+    flex: 1,
   },
   candidateYear: {
     ...typography.caption,
@@ -569,6 +670,26 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: spacing.xs,
   },
+  expandHint: {
+    ...typography.caption,
+    color: colors.primary,
+    marginTop: spacing.xs,
+    fontSize: 10,
+  },
+  typeBadge: {
+    backgroundColor: colors.primary,
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  typeBadgeMovie: {
+    backgroundColor: "#8B5CF6",
+  },
+  typeBadgeText: {
+    color: colors.text,
+    fontSize: 10,
+    fontWeight: "700",
+  },
   // Review
   reviewRow: {
     flexDirection: "row",
@@ -576,6 +697,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
+  },
+  reviewRowDuplicate: {
+    opacity: 0.5,
   },
   checkbox: {
     width: 24,
@@ -611,6 +735,12 @@ const styles = StyleSheet.create({
   },
   reviewSub: {
     ...typography.caption,
+    marginTop: 2,
+  },
+  duplicateBadge: {
+    ...typography.caption,
+    color: "#F59E0B",
+    fontWeight: "600",
     marginTop: 2,
   },
   unmatchedText: {

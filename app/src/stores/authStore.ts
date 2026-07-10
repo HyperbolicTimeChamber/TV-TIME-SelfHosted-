@@ -1,15 +1,28 @@
 import { create } from "zustand";
-import auth, { FirebaseAuthTypes, GoogleAuthProvider, signInWithCredential, getAuth } from "@react-native-firebase/auth";
-import firestore from "@react-native-firebase/firestore";
+import {
+  GoogleAuthProvider,
+  signInWithCredential,
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut,
+} from "@react-native-firebase/auth";
+import type { User } from "@react-native-firebase/auth";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+} from "@react-native-firebase/firestore";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 
 interface AuthState {
-  user: FirebaseAuthTypes.User | null;
+  user: User | null;
   loading: boolean;
   tmdbApiKey: string | null;
   tmdbApiKeyLoading: boolean;
   hasSeenImport: boolean;
-  setUser: (user: FirebaseAuthTypes.User | null) => void;
+  setUser: (user: User | null) => void;
   setLoading: (loading: boolean) => void;
   setTmdbApiKey: (key: string) => void;
   setHasSeenImport: (val: boolean) => void;
@@ -35,8 +48,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   loadTmdbApiKey: async (userId: string) => {
     try {
-      const doc = await firestore().collection("users").doc(userId).get();
-      const key = doc.data()?.tmdbApiKey || null;
+      const db = getFirestore();
+      const snap = await getDoc(doc(db, "users", userId));
+      const key = snap.data()?.tmdbApiKey || null;
       set({ tmdbApiKey: key, tmdbApiKeyLoading: false });
     } catch (error) {
       console.error("Failed to load TMDB API key:", error);
@@ -45,17 +59,18 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   saveTmdbApiKey: async (userId: string, key: string) => {
-    const docRef = firestore().collection("users").doc(userId);
-    const doc = await docRef.get();
+    const db = getFirestore();
+    const docRef = doc(db, "users", userId);
+    const snap = await getDoc(docRef);
     const updateData: Record<string, unknown> = { tmdbApiKey: key };
-    if (!doc.exists() || !doc.data()?.stats) {
+    if (!snap.exists() || !snap.data()?.stats) {
       updateData.stats = {
         episodesWatched: 0,
         showsTracking: 0,
         totalMinutes: 0,
       };
     }
-    await docRef.set(updateData, { merge: true });
+    await setDoc(docRef, updateData, { merge: true });
     set({ tmdbApiKey: key, tmdbApiKeyLoading: false });
   },
 
@@ -83,7 +98,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   signInWithEmail: async (email: string, password: string) => {
     try {
-      await auth().signInWithEmailAndPassword(email, password);
+      await signInWithEmailAndPassword(getAuth(), email, password);
     } catch (error) {
       console.error("Email sign in error:", error);
       throw error;
@@ -92,7 +107,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   signUpWithEmail: async (email: string, password: string) => {
     try {
-      await auth().createUserWithEmailAndPassword(email, password);
+      await createUserWithEmailAndPassword(getAuth(), email, password);
     } catch (error) {
       console.error("Email sign up error:", error);
       throw error;
@@ -101,14 +116,15 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   signOut: async () => {
     try {
-      const currentUser = auth().currentUser;
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
       const isGoogleUser = currentUser?.providerData.some(
         (p) => p.providerId === "google.com"
       );
       if (isGoogleUser) {
         await GoogleSignin.revokeAccess().catch(() => {});
       }
-      await auth().signOut();
+      await firebaseSignOut(auth);
       set({ tmdbApiKey: null, tmdbApiKeyLoading: true });
     } catch (error) {
       console.error("Sign out error:", error);

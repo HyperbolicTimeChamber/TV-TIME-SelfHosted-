@@ -5,7 +5,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import NetInfo from "@react-native-community/netinfo";
-import auth from "@react-native-firebase/auth";
+import { getAuth, onAuthStateChanged } from "@react-native-firebase/auth";
 import { useAuthStore } from "./src/stores/authStore";
 import { useUiStore } from "./src/stores/uiStore";
 import LoginScreen from "./src/screens/LoginScreen";
@@ -33,7 +33,7 @@ function AppContent() {
   const setConnected = useUiStore((s) => s.setConnected);
 
   useEffect(() => {
-    const unsubscribeAuth = auth().onAuthStateChanged((firebaseUser) => {
+    const unsubscribeAuth = onAuthStateChanged(getAuth(), (firebaseUser) => {
       setUser(firebaseUser);
       if (firebaseUser) {
         loadTmdbApiKey(firebaseUser.uid);
