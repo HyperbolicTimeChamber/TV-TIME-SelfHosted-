@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -35,6 +35,48 @@ type Phase =
   | "review"
   | "importing"
   | "done";
+
+function AnimatedCounter({ target, total }: { target: number; total: number }) {
+  const [display, setDisplay] = useState(0);
+  const frameRef = useRef<number | null>(null);
+  const startRef = useRef({ value: 0, time: 0 });
+
+  useEffect(() => {
+    if (target === display) return;
+    const from = display;
+    const duration = Math.min(900, Math.max(300, (target - from) * 20));
+    startRef.current = { value: from, time: Date.now() };
+
+    const tick = () => {
+      const elapsed = Date.now() - startRef.current.time;
+      const progress = Math.min(elapsed / duration, 1);
+      // ease-out
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(from + (target - from) * eased);
+      setDisplay(current);
+      if (progress < 1) {
+        frameRef.current = requestAnimationFrame(tick);
+      }
+    };
+    frameRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (frameRef.current) cancelAnimationFrame(frameRef.current);
+    };
+  }, [target]);
+
+  const pct = total > 0 ? (display / total) * 100 : 0;
+
+  return (
+    <>
+      <View style={[styles.progressBar, { marginTop: spacing.lg }]}>
+        <View style={[styles.progressFill, { width: `${pct}%` }]} />
+      </View>
+      <Text style={styles.progressText}>
+        {display} / {total}
+      </Text>
+    </>
+  );
+}
 
 function CandidateCard({
   item,
@@ -292,26 +334,16 @@ export default function ImportDataScreen({ navigation }: any) {
   if (phase === "matching") {
     return (
       <View style={styles.centered}>
-        <Text style={styles.warning}>Do not close the app during import</Text>
         <Text style={styles.title}>{statusText}</Text>
-        {progress.total > 0 && (
-          <>
-            <View style={styles.progressBar}>
-              <View
-                style={[
-                  styles.progressFill,
-                  { width: `${(progress.done / progress.total) * 100}%` },
-                ]}
-              />
-            </View>
-            <Text style={styles.progressText}>
-              {progress.done} / {progress.total}
-            </Text>
-          </>
-        )}
-        <View style={{ marginTop: spacing.lg }}>
+        <View style={{ marginTop: spacing.md }}>
           <LoadingSpinner />
         </View>
+        {progress.total > 0 && (
+          <AnimatedCounter target={progress.done} total={progress.total} />
+        )}
+        <Text style={[styles.warning, { marginTop: spacing.xl, marginBottom: 0 }]}>
+          Do not close the app during import
+        </Text>
       </View>
     );
   }
@@ -320,7 +352,6 @@ export default function ImportDataScreen({ navigation }: any) {
     const current = ambiguous[disambigIndex];
     return (
       <View style={styles.container}>
-        <Text style={styles.warning}>Do not close the app during import</Text>
         <Text style={styles.sectionTitle}>
           Resolve {disambigIndex + 1}/{ambiguous.length}: "{current.tvTimeName}"
         </Text>
@@ -474,26 +505,16 @@ export default function ImportDataScreen({ navigation }: any) {
   if (phase === "importing") {
     return (
       <View style={styles.centered}>
-        <Text style={styles.warning}>Do not close the app during import</Text>
         <Text style={styles.title}>{statusText}</Text>
-        {progress.total > 0 && (
-          <>
-            <View style={styles.progressBar}>
-              <View
-                style={[
-                  styles.progressFill,
-                  { width: `${(progress.done / progress.total) * 100}%` },
-                ]}
-              />
-            </View>
-            <Text style={styles.progressText}>
-              {progress.done} / {progress.total}
-            </Text>
-          </>
-        )}
-        <View style={{ marginTop: spacing.lg }}>
+        <View style={{ marginTop: spacing.md }}>
           <LoadingSpinner />
         </View>
+        {progress.total > 0 && (
+          <AnimatedCounter target={progress.done} total={progress.total} />
+        )}
+        <Text style={[styles.warning, { marginTop: spacing.xl, marginBottom: 0 }]}>
+          Do not close the app during import
+        </Text>
       </View>
     );
   }

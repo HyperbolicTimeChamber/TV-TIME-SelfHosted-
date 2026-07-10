@@ -261,7 +261,6 @@ export async function matchShowsAndMovies(
     for (let j = 0; j < batch.length; j++) {
       const candidates = results[j];
       const item = batch[j];
-      // Attach tvTimeId to every candidate so we can key by it later
       const taggedCandidates = candidates.map((c) =>
         item.tvTimeId !== undefined ? { ...c, tvTimeId: item.tvTimeId } : c
       );
@@ -270,7 +269,6 @@ export async function matchShowsAndMovies(
       } else if (taggedCandidates.length === 1) {
         matched.push(taggedCandidates[0]);
       } else {
-        // Check if first result is exact name match — auto-select
         const exactMatch = taggedCandidates.find(
           (c) => c.tmdbName.toLowerCase() === item.name.toLowerCase()
         );
@@ -284,10 +282,10 @@ export async function matchShowsAndMovies(
           });
         }
       }
-      onProgress(i + j + 1, items.length);
     }
 
-    // Delay between batches (skip after last batch)
+    onProgress(Math.min(i + BATCH_SIZE, items.length), items.length);
+
     if (i + BATCH_SIZE < items.length) {
       await delay(BATCH_DELAY_MS);
     }
