@@ -4,8 +4,8 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
 } from "react-native";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { LegendList } from "@legendapp/list/react-native";
 import { useRoute } from "@react-navigation/native";
 import { RouteProp } from "@react-navigation/native";
@@ -141,7 +141,7 @@ export default function SeasonDetailScreen() {
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <LoadingSpinner />
       </View>
     );
   }

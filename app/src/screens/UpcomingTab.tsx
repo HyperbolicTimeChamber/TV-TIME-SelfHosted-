@@ -3,9 +3,10 @@ import {
   View,
   Text,
   StyleSheet,
-  ActivityIndicator,
   FlatList,
+  ActivityIndicator,
 } from "react-native";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuthStore } from "../stores/authStore";
@@ -184,7 +185,7 @@ export default function UpcomingTab() {
   if (isLoading || watchlistLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <LoadingSpinner />
       </View>
     );
   }

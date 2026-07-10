@@ -5,10 +5,10 @@ import {
   TouchableOpacity,
   FlatList,
   StyleSheet,
-  ActivityIndicator,
   Alert,
 } from "react-native";
 import { Image } from "expo-image";
+import LoadingSpinner from "../components/LoadingSpinner";
 import * as DocumentPicker from "expo-document-picker";
 import {
   getFirestore,
@@ -309,11 +309,9 @@ export default function ImportDataScreen({ navigation }: any) {
             </Text>
           </>
         )}
-        <ActivityIndicator
-          color={colors.primary}
-          size="large"
-          style={{ marginTop: spacing.lg }}
-        />
+        <View style={{ marginTop: spacing.lg }}>
+          <LoadingSpinner />
+        </View>
       </View>
     );
   }
@@ -493,11 +491,9 @@ export default function ImportDataScreen({ navigation }: any) {
             </Text>
           </>
         )}
-        <ActivityIndicator
-          color={colors.primary}
-          size="large"
-          style={{ marginTop: spacing.lg }}
-        />
+        <View style={{ marginTop: spacing.lg }}>
+          <LoadingSpinner />
+        </View>
       </View>
     );
   }

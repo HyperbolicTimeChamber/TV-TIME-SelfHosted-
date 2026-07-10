@@ -5,9 +5,9 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { useRoute } from "@react-navigation/native";
 import { RouteProp } from "@react-navigation/native";
 import { useShowDetails } from "../hooks/useShowDetails";
@@ -83,7 +83,7 @@ export default function ShowDetailScreen() {
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <LoadingSpinner />
       </View>
     );
   }
