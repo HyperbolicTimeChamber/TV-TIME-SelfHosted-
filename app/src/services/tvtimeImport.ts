@@ -2,6 +2,8 @@ import JSZip from "jszip";
 import Papa from "papaparse";
 import * as FileSystem from "expo-file-system";
 import axios from "axios";
+import firestore, { FirebaseFirestoreTypes } from "@react-native-firebase/firestore";
+import { WatchStatus } from "../types";
 
 // --- Parsed types ---
 
@@ -263,4 +265,255 @@ export async function matchShowsAndMovies(
   }
 
   return { matched, ambiguous, unmatched };
+}
+
+// --- Firestore Import ---
+
+export interface ImportStats {
+  showsImported: number;
+  moviesImported: number;
+  episodesImported: number;
+  minutesImported: number;
+  skipped: number;
+}
+
+function episodeDocId(tmdbShowId: number, season: number, episode: number) {
+  const s = String(season).padStart(2, "0");
+  const e = String(episode).padStart(2, "0");
+  return `${tmdbShowId}_S${s}E${e}`;
+}
+
+function deriveStatus(show: ParsedShow): WatchStatus {
+  if (show.isArchived) return "completed";
+  if (show.isForLater) return "plan_to_watch";
+  return "watching";
+}
+
+function parseTimestamp(dateStr: string | null): FirebaseFirestoreTypes.Timestamp | null {
+  if (!dateStr || dateStr === "0001-01-01 00:00:00") return null;
+  const ms = new Date(dateStr).getTime();
+  if (isNaN(ms)) return null;
+  return firestore.Timestamp.fromMillis(ms);
+}
+
+export async function importToFirestore(
+  userId: string,
+  selectedMatches: TMDBMatch[],
+  shows: ParsedShow[],
+  watchedEpisodes: ParsedEpisode[],
+  rewatchedEpisodes: ParsedEpisode[],
+  movies: ParsedMovie[],
+  onProgress: (done: number, total: number) => void
+): Promise<ImportStats> {
+  const db = firestore();
+  const userRef = db.collection("users").doc(userId);
+  const watchlistRef = userRef.collection("watchlist");
+  const watchedEpRef = userRef.collection("watchedEpisodes");
+
+  const stats: ImportStats = {
+    showsImported: 0,
+    moviesImported: 0,
+    episodesImported: 0,
+    minutesImported: 0,
+    skipped: 0,
+  };
+
+  // Build tvTimeName → TMDBMatch lookup
+  const matchByName = new Map<string, TMDBMatch>();
+  for (const m of selectedMatches) {
+    matchByName.set(m.tvTimeName, m);
+  }
+
+  // Build tvTimeId → TMDBMatch lookup for episodes
+  const showById = new Map<number, ParsedShow>();
+  for (const s of shows) showById.set(s.tvTimeId, s);
+
+  const matchByTvTimeId = new Map<number, TMDBMatch>();
+  for (const s of shows) {
+    const match = matchByName.get(s.name);
+    if (match) matchByTvTimeId.set(s.tvTimeId, match);
+  }
+
+  // Collect all operations as { ref, data } pairs
+  type WriteOp = { ref: FirebaseFirestoreTypes.DocumentReference; data: Record<string, any>; isNew: boolean };
+  const ops: WriteOp[] = [];
+
+  // --- Watchlist: Shows ---
+  const selectedShowMatches = selectedMatches.filter((m) => m.mediaType === "tv");
+  for (const match of selectedShowMatches) {
+    const show = shows.find((s) => s.name === match.tvTimeName);
+    if (!show) continue;
+    const status = deriveStatus(show);
+    const addedAt = parseTimestamp(show.followedAt) || firestore.Timestamp.now();
+
+    // Find latest watched episode date for this show
+    const showEps = watchedEpisodes.filter((e) => e.tvTimeShowId === show.tvTimeId);
+    let lastWatchedAt: FirebaseFirestoreTypes.Timestamp | null = null;
+    if (showEps.length > 0) {
+      const latest = showEps.reduce((a, b) =>
+        new Date(a.watchedAt) > new Date(b.watchedAt) ? a : b
+      );
+      lastWatchedAt = parseTimestamp(latest.watchedAt);
+    }
+
+    ops.push({
+      ref: watchlistRef.doc(String(match.tmdbId)),
+      data: {
+        tmdbId: match.tmdbId,
+        mediaType: "tv",
+        title: match.tmdbName,
+        posterPath: match.posterPath || "",
+        addedAt,
+        lastWatchedAt,
+        status,
+        nextEpisode: null,
+        rewatchCount: show.rewatchCount,
+        totalEpisodes: match.totalEpisodes ?? null,
+      },
+      isNew: true,
+    });
+  }
+
+  // --- Watchlist: Movies ---
+  const selectedMovieMatches = selectedMatches.filter((m) => m.mediaType === "movie");
+  for (const match of selectedMovieMatches) {
+    const movie = movies.find((m) => m.name === match.tvTimeName);
+    if (!movie) continue;
+    const watchedAt = parseTimestamp(movie.watchedAt) || firestore.Timestamp.now();
+    const runtimeMin = Math.round(movie.runtimeSeconds / 60);
+
+    ops.push({
+      ref: watchlistRef.doc(String(match.tmdbId)),
+      data: {
+        tmdbId: match.tmdbId,
+        mediaType: "movie",
+        title: match.tmdbName,
+        posterPath: match.posterPath || "",
+        addedAt: watchedAt,
+        lastWatchedAt: watchedAt,
+        status: "completed" as WatchStatus,
+        nextEpisode: null,
+        rewatchCount: 0,
+        totalEpisodes: null,
+      },
+      isNew: true,
+    });
+
+    stats.minutesImported += runtimeMin;
+  }
+
+  // --- Watched Episodes ---
+  // Merge watch + rewatch into per-episode counts
+  const epCountMap = new Map<string, { season: number; episode: number; tmdbShowId: number; firstWatched: string; lastWatched: string; count: number }>();
+
+  for (const ep of watchedEpisodes) {
+    const match = matchByTvTimeId.get(ep.tvTimeShowId);
+    if (!match) continue;
+    const key = episodeDocId(match.tmdbId, ep.season, ep.episode);
+    const existing = epCountMap.get(key);
+    if (existing) {
+      existing.count++;
+      if (new Date(ep.watchedAt) < new Date(existing.firstWatched)) existing.firstWatched = ep.watchedAt;
+      if (new Date(ep.watchedAt) > new Date(existing.lastWatched)) existing.lastWatched = ep.watchedAt;
+    } else {
+      epCountMap.set(key, {
+        season: ep.season,
+        episode: ep.episode,
+        tmdbShowId: match.tmdbId,
+        firstWatched: ep.watchedAt,
+        lastWatched: ep.watchedAt,
+        count: 1,
+      });
+    }
+  }
+
+  for (const ep of rewatchedEpisodes) {
+    const match = matchByTvTimeId.get(ep.tvTimeShowId);
+    if (!match) continue;
+    const key = episodeDocId(match.tmdbId, ep.season, ep.episode);
+    const existing = epCountMap.get(key);
+    if (existing) {
+      existing.count++;
+      if (new Date(ep.watchedAt) > new Date(existing.lastWatched)) existing.lastWatched = ep.watchedAt;
+    } else {
+      epCountMap.set(key, {
+        season: ep.season,
+        episode: ep.episode,
+        tmdbShowId: match.tmdbId,
+        firstWatched: ep.watchedAt,
+        lastWatched: ep.watchedAt,
+        count: 1,
+      });
+    }
+  }
+
+  for (const [docId, ep] of epCountMap) {
+    ops.push({
+      ref: watchedEpRef.doc(docId),
+      data: {
+        tmdbShowId: ep.tmdbShowId,
+        season: ep.season,
+        episode: ep.episode,
+        episodeTitle: "",
+        watchedAt: parseTimestamp(ep.firstWatched) || firestore.Timestamp.now(),
+        lastWatchedAt: parseTimestamp(ep.lastWatched) || firestore.Timestamp.now(),
+        runtime: 0,
+        watchCount: ep.count,
+      },
+      isNew: true,
+    });
+  }
+
+  // --- Execute batched writes (skip existing docs) ---
+  const totalOps = ops.length;
+  let done = 0;
+
+  // Check which docs already exist (batch get in chunks of 100)
+  const existingDocs = new Set<string>();
+  for (let i = 0; i < ops.length; i += 100) {
+    const chunk = ops.slice(i, i + 100);
+    const snapshots = await Promise.all(chunk.map((op) => op.ref.get()));
+    for (const snap of snapshots) {
+      if (snap.exists()) existingDocs.add(snap.ref.path);
+    }
+  }
+
+  // Write in Firestore batches of 500
+  const BATCH_LIMIT = 500;
+  for (let i = 0; i < ops.length; i += BATCH_LIMIT) {
+    const batch = db.batch();
+    let batchCount = 0;
+    const chunk = ops.slice(i, i + BATCH_LIMIT);
+
+    for (const op of chunk) {
+      if (existingDocs.has(op.ref.path)) {
+        stats.skipped++;
+      } else {
+        batch.set(op.ref, op.data);
+        batchCount++;
+        // Count stats
+        if (op.data.mediaType === "tv" && op.data.status) stats.showsImported++;
+        else if (op.data.mediaType === "movie") stats.moviesImported++;
+        else if (op.data.tmdbShowId && op.data.season !== undefined) stats.episodesImported++;
+      }
+    }
+
+    if (batchCount > 0) await batch.commit();
+    done += chunk.length;
+    onProgress(done, totalOps);
+  }
+
+  // --- Update user stats ---
+  const watchingCount = selectedShowMatches.filter((m) => {
+    const show = shows.find((s) => s.name === m.tvTimeName);
+    return show && deriveStatus(show) === "watching";
+  }).length;
+
+  await userRef.update({
+    "stats.episodesWatched": firestore.FieldValue.increment(stats.episodesImported + stats.moviesImported),
+    "stats.showsTracking": firestore.FieldValue.increment(watchingCount),
+    "stats.totalMinutes": firestore.FieldValue.increment(stats.minutesImported),
+  });
+
+  return stats;
 }
