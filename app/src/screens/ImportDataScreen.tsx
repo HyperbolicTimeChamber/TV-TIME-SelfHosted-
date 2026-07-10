@@ -230,47 +230,61 @@ export default function ImportDataScreen({ navigation }: any) {
   }, [tmdbApiKey, user]);
 
   // --- Phase 2.5: Disambiguation ---
-  const handleDisambiguate = useCallback(
-    (chosen: TMDBMatch) => {
-      setMatched((prev) => {
-        const updated = [...prev, chosen];
-        const nextIdx = disambigIndex + 1;
-        if (nextIdx >= ambiguous.length) {
-          // Pre-select all matched, except duplicates
-          const sel = new Set<string>();
-          for (const m of updated) {
-            if (!existingIdsRef.current.has(m.tmdbId)) {
-              sel.add(`${m.mediaType}-${m.tmdbId}`);
-            }
-          }
-          setSelected(sel);
-          setPhase("review");
-        } else {
-          setDisambigIndex(nextIdx);
-        }
-        return updated;
-      });
-    },
-    [disambigIndex, ambiguous]
-  );
+  // Track actions per disambig index: { type: "pick", match } or { type: "skip" }
+  const disambigHistory = useRef<({ type: "pick"; match: TMDBMatch } | { type: "skip" })[]>([]);
 
-  const handleSkipDisambig = useCallback(() => {
-    // Skip entirely — don't add this item
-    const nextIdx = disambigIndex + 1;
-    if (nextIdx >= ambiguous.length) {
-      // Pre-select all matched, except duplicates
+  const finishDisambig = useCallback(
+    (currentMatched: TMDBMatch[]) => {
       const sel = new Set<string>();
-      for (const m of matched) {
+      for (const m of currentMatched) {
         if (!existingIdsRef.current.has(m.tmdbId)) {
           sel.add(`${m.mediaType}-${m.tmdbId}`);
         }
       }
       setSelected(sel);
       setPhase("review");
+    },
+    []
+  );
+
+  const handleDisambiguate = useCallback(
+    (chosen: TMDBMatch) => {
+      disambigHistory.current[disambigIndex] = { type: "pick", match: chosen };
+      setMatched((prev) => {
+        const updated = [...prev, chosen];
+        const nextIdx = disambigIndex + 1;
+        if (nextIdx >= ambiguous.length) {
+          finishDisambig(updated);
+        } else {
+          setDisambigIndex(nextIdx);
+        }
+        return updated;
+      });
+    },
+    [disambigIndex, ambiguous, finishDisambig]
+  );
+
+  const handleSkipDisambig = useCallback(() => {
+    disambigHistory.current[disambigIndex] = { type: "skip" };
+    const nextIdx = disambigIndex + 1;
+    if (nextIdx >= ambiguous.length) {
+      finishDisambig(matched);
     } else {
       setDisambigIndex(nextIdx);
     }
-  }, [disambigIndex, ambiguous, matched]);
+  }, [disambigIndex, ambiguous, matched, finishDisambig]);
+
+  const handleBackDisambig = useCallback(() => {
+    if (disambigIndex <= 0) return;
+    const prevIdx = disambigIndex - 1;
+    const prevAction = disambigHistory.current[prevIdx];
+    // If previous was a pick, remove it from matched
+    if (prevAction?.type === "pick") {
+      setMatched((prev) => prev.filter((m) => m !== prevAction.match));
+    }
+    disambigHistory.current.length = prevIdx;
+    setDisambigIndex(prevIdx);
+  }, [disambigIndex]);
 
   // --- Phase 3: Review toggle ---
   const toggleSelected = useCallback((key: string) => {
@@ -370,9 +384,16 @@ export default function ImportDataScreen({ navigation }: any) {
             />
           )}
           ListFooterComponent={
-            <TouchableOpacity style={styles.skipButton} onPress={handleSkipDisambig}>
-              <Text style={styles.skipText}>Skip — don't import this</Text>
-            </TouchableOpacity>
+            <View>
+              <TouchableOpacity style={styles.skipButton} onPress={handleSkipDisambig}>
+                <Text style={styles.skipText}>Skip — don't import this</Text>
+              </TouchableOpacity>
+              {disambigIndex > 0 && (
+                <TouchableOpacity style={styles.skipButton} onPress={handleBackDisambig}>
+                  <Text style={styles.skipText}>← Go back</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           }
         />
       </View>
