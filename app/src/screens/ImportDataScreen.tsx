@@ -7,7 +7,6 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  ScrollView,
 } from "react-native";
 import { Image } from "expo-image";
 import * as DocumentPicker from "expo-document-picker";
@@ -102,18 +101,19 @@ export default function ImportDataScreen({ navigation }: any) {
   // --- Phase 2.5: Disambiguation ---
   const handleDisambiguate = useCallback(
     (chosen: TMDBMatch) => {
-      setMatched((prev) => [...prev, chosen]);
-      const nextIdx = disambigIndex + 1;
-      if (nextIdx >= ambiguous.length) {
-        // All resolved — move to review
-        const allMatched = [...matched, chosen];
-        setSelected(new Set(allMatched.map((m) => m.tvTimeName)));
-        setPhase("review");
-      } else {
-        setDisambigIndex(nextIdx);
-      }
+      setMatched((prev) => {
+        const updated = [...prev, chosen];
+        const nextIdx = disambigIndex + 1;
+        if (nextIdx >= ambiguous.length) {
+          setSelected(new Set(updated.map((m) => m.tvTimeName)));
+          setPhase("review");
+        } else {
+          setDisambigIndex(nextIdx);
+        }
+        return updated;
+      });
     },
-    [disambigIndex, ambiguous, matched]
+    [disambigIndex, ambiguous]
   );
 
   const handleSkipDisambig = useCallback(() => {
