@@ -12,7 +12,6 @@ import {
   getFirestore,
   doc,
   getDoc,
-  setDoc,
 } from "@react-native-firebase/firestore";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 

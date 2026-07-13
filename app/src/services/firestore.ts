@@ -85,17 +85,7 @@ export async function removeFromTracking(
   tmdbId: number
 ): Promise<void> {
   const functions = getFunctions();
-
-  // Call removeShow CF (handles trackedBy + cleanup)
   await httpsCallable(functions, "removeShow")({ tmdbId });
-
-  // Delete local tracking doc + update stats
-  const batch = writeBatch(db);
-  batch.delete(doc(trackingRef(userId), String(tmdbId)));
-  batch.update(userRef(userId), {
-    "stats.showsTracking": increment(-1),
-  });
-  await batch.commit();
 }
 
 export async function stopWatching(userId: string, tmdbId: number, currentStatus: WatchStatus) {

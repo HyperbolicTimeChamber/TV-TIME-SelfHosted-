@@ -90,8 +90,22 @@ function AppContent() {
     return (
       <ImportDataScreen
         navigation={{
-          navigate: () => { useAuthStore.setState({ hasCompletedImport: true }); },
-          goBack: () => { useAuthStore.setState({ hasCompletedImport: true }); },
+          navigate: () => {
+            useAuthStore.setState({ hasCompletedImport: true });
+            const uid = useAuthStore.getState().user?.uid;
+            if (uid) {
+              const db = getFirestore();
+              updateDoc(doc(db, "users", uid), { hasCompletedImport: true });
+            }
+          },
+          goBack: () => {
+            useAuthStore.setState({ hasCompletedImport: true });
+            const uid = useAuthStore.getState().user?.uid;
+            if (uid) {
+              const db = getFirestore();
+              updateDoc(doc(db, "users", uid), { hasCompletedImport: true });
+            }
+          },
         }}
       />
     );

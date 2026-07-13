@@ -1,18 +1,5 @@
 // app/src/hooks/useVisibleTracking.ts
-import { useMemo } from "react";
-import { CatalogShow, TrackingItem } from "../types";
-
-interface EnrichedTrackingItem extends TrackingItem {
-  title: string;
-  posterPath: string | null;
-  totalEpisodes: number;
-  catalogShow: CatalogShow | null;
-}
-
-interface VisibleTrackingResult {
-  items: EnrichedTrackingItem[];
-  loading: boolean;
-}
+import { EnrichedTrackingItem } from "./useWatchlist";
 
 /**
  * Determines if a show should be visible in the "Currently Watching" list.

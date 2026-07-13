@@ -131,6 +131,26 @@ export const importMatches = onCall(
             episode: latest.episode + 1,
           };
 
+          // Check if latest episode is last in its season — advance to next season
+          const showDoc = await db.doc(`shows/${showId}`).get();
+          const showData = showDoc.data();
+          if (showData && showData.seasons) {
+            const currentSeason = showData.seasons.find(
+              (s: any) => s.seasonNumber === latest.season
+            );
+            if (currentSeason && latest.episode >= currentSeason.episodeCount) {
+              const nextSeasonNum = latest.season + 1;
+              const nextSeason = showData.seasons.find(
+                (s: any) => s.seasonNumber === nextSeasonNum
+              );
+              if (nextSeason) {
+                nextEpisode = { season: nextSeasonNum, episode: 1 };
+              } else {
+                nextEpisode = null; // No more seasons — show is complete
+              }
+            }
+          }
+
           const latestDate = new Date(latest.watchedAt);
           if (!isNaN(latestDate.getTime())) {
             lastWatchedAt = Timestamp.fromDate(latestDate);

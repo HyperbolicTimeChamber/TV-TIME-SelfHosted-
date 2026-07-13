@@ -84,7 +84,7 @@ export default function ImportDataScreen({ navigation }: any) {
 
       if (user) {
         const db = getFirestore();
-        const watchlistCol = collection(doc(db, "users", user.uid), "watchlist");
+        const watchlistCol = collection(doc(db, "users", user.uid), "tracking");
         const snap = await getDocs(watchlistCol);
         const ids = new Set<number>();
         snap.docs.forEach((d) => ids.add(Number(d.id)));
