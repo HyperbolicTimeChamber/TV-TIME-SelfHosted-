@@ -9,7 +9,8 @@ import {
   serverTimestamp,
   increment,
 } from "@react-native-firebase/firestore";
-import { WatchStatus, MediaType } from "../types";
+import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
+import { WatchStatus, MediaType, CatalogShow } from "../types";
 
 const db = getFirestore();
 
@@ -17,12 +18,16 @@ function userRef(userId: string) {
   return doc(db, "users", userId);
 }
 
-function watchlistRef(userId: string) {
-  return collection(doc(db, "users", userId), "watchlist");
+function trackingRef(userId: string) {
+  return collection(doc(db, "users", userId), "tracking");
 }
 
 function watchedEpisodesRef(userId: string) {
   return collection(doc(db, "users", userId), "watchedEpisodes");
+}
+
+function watchedMoviesRef(userId: string) {
+  return collection(doc(db, "users", userId), "watchedMovies");
 }
 
 function episodeDocId(tmdbShowId: number, season: number, episode: number) {
@@ -31,37 +36,62 @@ function episodeDocId(tmdbShowId: number, season: number, episode: number) {
   return `${tmdbShowId}_S${s}E${e}`;
 }
 
-export async function addToWatchlist(
+// --- Catalog (shared show data) ---
+
+export async function getCatalogShow(
+  tmdbId: number
+): Promise<CatalogShow | null> {
+  const showDoc = await getDoc(doc(db, "shows", String(tmdbId)));
+  if (!showDoc.exists()) return null;
+  return { id: showDoc.id, ...showDoc.data() } as unknown as CatalogShow;
+}
+
+// --- Tracking CRUD ---
+
+export async function addToTracking(
   userId: string,
   tmdbId: number,
-  mediaType: MediaType,
-  title: string,
-  posterPath: string,
-  firstEpisode?: { season: number; episode: number },
-  totalEpisodes?: number
-) {
-  const batch = writeBatch(db);
-  batch.set(doc(watchlistRef(userId), String(tmdbId)), {
+  mediaType: MediaType
+): Promise<void> {
+  const functions = getFunctions();
+  const now = serverTimestamp();
+
+  // Call addShow CF (handles catalog population)
+  await httpsCallable(functions, "addShow")({ tmdbId, mediaType });
+
+  // Create local tracking doc
+  const tRef = doc(trackingRef(userId), String(tmdbId));
+  await setDoc(tRef, {
     tmdbId,
     mediaType,
-    title,
-    posterPath,
-    addedAt: serverTimestamp(),
-    lastWatchedAt: null,
     status: "watching" as WatchStatus,
-    nextEpisode: firstEpisode || (mediaType === "tv" ? { season: 1, episode: 1 } : null),
+    nextEpisode: mediaType === "tv" ? { season: 1, episode: 1 } : null,
     rewatchCount: 0,
-    totalEpisodes: totalEpisodes ?? null,
+    addedAt: now,
+    lastWatchedAt: now,
+    priorityDate: now,
   });
+
+  // Update user stats
+  const batch = writeBatch(db);
   batch.update(userRef(userId), {
     "stats.showsTracking": increment(1),
   });
   await batch.commit();
 }
 
-export async function removeFromWatchlist(userId: string, tmdbId: number) {
+export async function removeFromTracking(
+  userId: string,
+  tmdbId: number
+): Promise<void> {
+  const functions = getFunctions();
+
+  // Call removeShow CF (handles trackedBy + cleanup)
+  await httpsCallable(functions, "removeShow")({ tmdbId });
+
+  // Delete local tracking doc + update stats
   const batch = writeBatch(db);
-  batch.delete(doc(watchlistRef(userId), String(tmdbId)));
+  batch.delete(doc(trackingRef(userId), String(tmdbId)));
   batch.update(userRef(userId), {
     "stats.showsTracking": increment(-1),
   });
@@ -70,11 +100,11 @@ export async function removeFromWatchlist(userId: string, tmdbId: number) {
 
 export async function stopWatching(userId: string, tmdbId: number, currentStatus: WatchStatus) {
   if (currentStatus === "rewatching") {
-    await updateDoc(doc(watchlistRef(userId), String(tmdbId)), {
+    await updateDoc(doc(trackingRef(userId), String(tmdbId)), {
       status: "paused_rewatch" as WatchStatus,
     });
   } else {
-    await updateDoc(doc(watchlistRef(userId), String(tmdbId)), {
+    await updateDoc(doc(trackingRef(userId), String(tmdbId)), {
       status: "completed" as WatchStatus,
     });
   }
@@ -119,14 +149,15 @@ export async function markEpisodeWatched(
     "stats.totalMinutes": increment(runtime),
   });
 
-  const watchlistUpdate: Record<string, unknown> = {
+  const trackingUpdate: Record<string, unknown> = {
     lastWatchedAt: serverTimestamp(),
+    priorityDate: serverTimestamp(),
     nextEpisode,
   };
   if (isShowComplete) {
-    watchlistUpdate.status = "completed";
+    trackingUpdate.status = "completed";
   }
-  batch.update(doc(watchlistRef(userId), String(tmdbShowId)), watchlistUpdate);
+  batch.update(doc(trackingRef(userId), String(tmdbShowId)), trackingUpdate);
 
   await batch.commit();
 }
@@ -151,72 +182,18 @@ export async function unmarkEpisodeWatched(
 }
 
 export async function startRewatch(userId: string, tmdbId: number) {
-  await updateDoc(doc(watchlistRef(userId), String(tmdbId)), {
+  await updateDoc(doc(trackingRef(userId), String(tmdbId)), {
     status: "rewatching" as WatchStatus,
     rewatchCount: increment(1),
     nextEpisode: { season: 1, episode: 1 },
     lastWatchedAt: serverTimestamp(),
+    priorityDate: serverTimestamp(),
   });
 }
 
 export async function resumeRewatch(userId: string, tmdbId: number) {
-  await updateDoc(doc(watchlistRef(userId), String(tmdbId)), {
+  await updateDoc(doc(trackingRef(userId), String(tmdbId)), {
     status: "rewatching" as WatchStatus,
-  });
-}
-
-// Episode schedule cache
-function episodeCacheRef(userId: string) {
-  return collection(doc(db, "users", userId), "episodeCache");
-}
-
-function cacheDocId(tmdbId: number, seasonNum: number) {
-  return `${tmdbId}_S${String(seasonNum).padStart(2, "0")}`;
-}
-
-export interface CachedEpisode {
-  tmdbShowId: number;
-  showTitle: string;
-  posterPath: string | null;
-  season: number;
-  episode: number;
-  episodeTitle: string;
-  airDate: string;
-  runtime: number | null;
-}
-
-export interface CachedSeason {
-  tmdbId: number;
-  seasonNum: number;
-  episodes: CachedEpisode[];
-  cachedAt: number; // timestamp ms
-}
-
-const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
-
-export async function getCachedSeason(
-  userId: string,
-  tmdbId: number,
-  seasonNum: number
-): Promise<CachedSeason | null> {
-  const snap = await getDoc(doc(episodeCacheRef(userId), cacheDocId(tmdbId, seasonNum)));
-  if (!snap.exists()) return null;
-  const data = snap.data() as CachedSeason;
-  if (Date.now() - data.cachedAt > CACHE_TTL) return null;
-  return data;
-}
-
-export async function setCachedSeason(
-  userId: string,
-  tmdbId: number,
-  seasonNum: number,
-  episodes: CachedEpisode[]
-): Promise<void> {
-  await setDoc(doc(episodeCacheRef(userId), cacheDocId(tmdbId, seasonNum)), {
-    tmdbId,
-    seasonNum,
-    episodes,
-    cachedAt: Date.now(),
   });
 }
 
@@ -224,18 +201,47 @@ export async function markMovieWatched(
   userId: string,
   tmdbId: number,
   runtime: number
-) {
+): Promise<void> {
   const batch = writeBatch(db);
-  batch.update(doc(watchlistRef(userId), String(tmdbId)), {
-    status: "completed" as WatchStatus,
-    lastWatchedAt: serverTimestamp(),
-    nextEpisode: null,
+  const movieRef = doc(watchedMoviesRef(userId), String(tmdbId));
+  const tRef = doc(trackingRef(userId), String(tmdbId));
+  const now = serverTimestamp();
+
+  // Check if already watched (for rewatch)
+  const movieDoc = await getDoc(movieRef);
+  if (movieDoc.exists()) {
+    batch.update(movieRef, {
+      watchCount: increment(1),
+      lastWatchedAt: now,
+    });
+  } else {
+    batch.set(movieRef, {
+      tmdbId,
+      watchCount: 1,
+      watchedAt: now,
+      lastWatchedAt: now,
+      runtime: runtime || 0,
+    });
+  }
+
+  batch.update(tRef, {
+    status: "completed",
+    lastWatchedAt: now,
+    priorityDate: now,
   });
+
   batch.update(userRef(userId), {
-    "stats.episodesWatched": increment(1),
-    "stats.totalMinutes": increment(runtime),
+    "stats.moviesWatched": increment(1),
+    "stats.totalMinutes": increment(Math.round(runtime / 60)),
   });
+
   await batch.commit();
 }
 
-export { db, watchlistRef, watchedEpisodesRef, userRef };
+// Keep backward-compatible aliases during transition
+/** @deprecated Use addToTracking */
+export const addToWatchlist = addToTracking as any;
+/** @deprecated Use removeFromTracking */
+export const removeFromWatchlist = removeFromTracking as any;
+
+export { db, trackingRef, trackingRef as watchlistRef, watchedEpisodesRef, watchedMoviesRef, userRef };
