@@ -319,6 +319,24 @@ Google Sign-In
 - **UI unchanged:** Calendar dots on air dates, tap date → episode list, year picker modal, swipe navigation
 - **Performance:** Faster — single Firestore read per show instead of TMDB API call + cache layer
 
+### Show/Movie Detail Screen
+
+**Before:** Fetched show details + season episodes from TMDB API directly (per-user key). SeasonDropdown made separate TMDB call per season.
+
+**After:** Two data sources depending on catalog state:
+
+- **Show in `shows/` catalog** (tracked by any user): Read from Firestore — all metadata + seasons/episodes inline in one doc read. SeasonDropdown reads episodes from `shows/` doc's inline `seasons` array (no TMDB call per season).
+- **Show not in catalog** (browsing from search, not yet tracked): Client calls TMDB directly using cached API key from `config/app`.
+
+**Changes:**
+- `useShowDetails` → check `shows/{tmdbId}` first, fallback to TMDB API for untracked shows
+- `SeasonDropdown` → read from `shows/` doc's `seasons` array instead of per-season TMDB calls
+- "Add to Watchlist" / "Watched" → calls `addShow` CF (populates catalog if not exists)
+- Next episode calculation → read from `shows/` doc instead of fetching next season from TMDB
+- Mark episode watched → unchanged (client-side Firestore write to `watchedEpisodes/` + `tracking/`)
+- **Performance win:** One Firestore doc read replaces N TMDB API calls (one per season)
+- **UI unchanged:** Backdrop image, metadata, overview, season dropdowns, episode checkmarks, rewatch badges
+
 ### Search
 
 **Before:** Client called TMDB `/search/multi` directly with per-user API key.
