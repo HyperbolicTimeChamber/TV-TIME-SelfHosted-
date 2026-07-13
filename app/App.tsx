@@ -70,8 +70,8 @@ function AppContent() {
     return (
       <ImportDataScreen
         navigation={{
-          navigate: () => {},
-          goBack: () => {},
+          navigate: () => { useAuthStore.setState({ hasCompletedImport: true }); },
+          goBack: () => { useAuthStore.setState({ hasCompletedImport: true }); },
         }}
       />
     );

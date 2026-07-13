@@ -69,7 +69,7 @@ export default function ShowDetailScreen() {
       await addToTracking(user.uid, tmdbId, "movie");
     }
     await markMovieWatched(user.uid, tmdbId, show.runtime ?? 0);
-  }, [user?.uid, show, tmdbId, title, watchlistItem]);
+  }, [user?.uid, show, tmdbId, watchlistItem]);
 
 
   if (isLoading) {

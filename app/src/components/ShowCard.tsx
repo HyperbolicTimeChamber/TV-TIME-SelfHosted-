@@ -7,7 +7,6 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { colors, spacing, typography, posterSize } from "../theme";
-import { TrackingItem } from "../types";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 
 interface ShowCardItem {
