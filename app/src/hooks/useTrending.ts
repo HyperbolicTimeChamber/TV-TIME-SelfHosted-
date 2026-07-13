@@ -4,7 +4,7 @@ import { useAuthStore } from "../stores/authStore";
 import { TMDBShow } from "../types";
 
 export function useTrending(mediaType: string = "tv") {
-  const apiKey = useAuthStore((s) => s.tmdbApiKey)!;
+  const apiKey = useAuthStore((s) => s.appTmdbApiKey)!;
 
   return useQuery({
     queryKey: ["trending", mediaType],

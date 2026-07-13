@@ -9,6 +9,7 @@ import { UserStats } from "../types";
 const defaultStats: UserStats = {
   episodesWatched: 0,
   showsTracking: 0,
+  moviesWatched: 0,
   totalMinutes: 0,
 };
 

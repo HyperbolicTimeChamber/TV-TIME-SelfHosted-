@@ -1,95 +1,79 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { getShowDetails, getSeasonEpisodes, pooled, ShowSeasonInfo } from "../services/tmdb";
-import { useAuthStore } from "../stores/authStore";
-import { UpcomingEpisode, WatchlistItem, TMDBShow } from "../types";
+import { useCallback, useMemo, useState } from "react";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+} from "@react-native-firebase/firestore";
+import { UpcomingEpisode, TrackingItem, CatalogShow } from "../types";
 
-export function useCalendarEpisodes(tvShows: WatchlistItem[]) {
-  const apiKey = useAuthStore((s) => s.tmdbApiKey)!;
-  const userId = useAuthStore((s) => s.user?.uid);
-  const [episodesByKey, setEpisodesByKey] = useState<Map<string, UpcomingEpisode[]>>(new Map());
+export function useCalendarEpisodes(tvShows: TrackingItem[]) {
+  const [episodesByMonth, setEpisodesByMonth] = useState<Map<string, UpcomingEpisode[]>>(new Map());
   const [loading, setLoading] = useState(false);
-  const loadedKeys = useRef(new Set<string>());
-
-  const tmdbIds = useMemo(() => tvShows.map((s) => s.tmdbId), [tvShows]);
-
-  // Fetch show details for all shows to get season air_dates
-  const { data: showDetails } = useQuery({
-    queryKey: ["calendarShows", tmdbIds],
-    queryFn: async () => {
-      const tasks = tmdbIds.map((id) => async () => {
-        try {
-          return await getShowDetails(apiKey, id, "tv");
-        } catch {
-          return null;
-        }
-      });
-      const results = await pooled(tasks, 5);
-      return results.filter((s): s is TMDBShow => s !== null);
-    },
-    staleTime: 24 * 60 * 60 * 1000,
-    enabled: tmdbIds.length > 0,
-  });
 
   const allEpisodes = useMemo(() => {
     const all: UpcomingEpisode[] = [];
-    for (const eps of episodesByKey.values()) {
+    for (const eps of episodesByMonth.values()) {
       all.push(...eps);
     }
     return all;
-  }, [episodesByKey]);
+  }, [episodesByMonth]);
 
   const loadMonthEpisodes = useCallback(
-    async (year: number, _month: number) => {
-      if (!showDetails || loading) return;
-
-      const tasks: (() => Promise<UpcomingEpisode[]>)[] = [];
-      const taskKeys: string[] = [];
-
-      for (const show of showDetails) {
-        if (!show.seasons) continue;
-
-        for (const season of show.seasons) {
-          if (season.season_number === 0) continue;
-          if (!season.air_date) continue;
-
-          const seasonYear = parseInt(season.air_date.substring(0, 4), 10);
-          // Load if season aired in viewed year or year before (episodes can span into next year)
-          if (seasonYear === year || seasonYear === year - 1) {
-            const key = `${show.id}_${season.season_number}`;
-            if (loadedKeys.current.has(key)) continue;
-            loadedKeys.current.add(key);
-
-            const info: ShowSeasonInfo = {
-              tmdbId: show.id,
-              showTitle: show.name || show.title || "",
-              posterPath: show.poster_path,
-              currentSeason: season.season_number,
-              totalSeasons: show.number_of_seasons ?? 1,
-            };
-            tasks.push(() => getSeasonEpisodes(apiKey, info, season.season_number, userId));
-            taskKeys.push(key);
-          }
-        }
-      }
-
-      if (tasks.length === 0) return;
+    async (year: number, month: number) => {
+      const monthKey = `${year}-${String(month).padStart(2, "0")}`;
+      if (episodesByMonth.has(monthKey)) return;
+      if (loading) return;
 
       setLoading(true);
       try {
-        const results = await pooled(tasks, 5);
-        setEpisodesByKey((prev) => {
-          const next = new Map(prev);
-          for (let i = 0; i < taskKeys.length; i++) {
-            next.set(taskKeys[i], results[i]);
+        const db = getFirestore();
+        const episodes: UpcomingEpisode[] = [];
+
+        for (const show of tvShows) {
+          if (show.mediaType !== "tv") continue;
+
+          try {
+            const showDoc = await getDoc(doc(db, "shows", String(show.tmdbId)));
+            if (!showDoc.exists()) continue;
+            const catalog = showDoc.data() as CatalogShow;
+
+            for (const season of catalog.seasons || []) {
+              if (season.seasonNumber === 0) continue;
+
+              for (const ep of season.episodes || []) {
+                if (!ep.airDate) continue;
+                const epYear = parseInt(ep.airDate.substring(0, 4), 10);
+                const epMonth = parseInt(ep.airDate.substring(5, 7), 10);
+
+                if (epYear === year && epMonth === month) {
+                  episodes.push({
+                    tmdbShowId: catalog.tmdbId ?? show.tmdbId,
+                    showTitle: catalog.title ?? `Show #${show.tmdbId}`,
+                    posterPath: catalog.posterPath ?? null,
+                    season: season.seasonNumber,
+                    episode: ep.episodeNumber,
+                    episodeTitle: ep.title,
+                    airDate: ep.airDate,
+                    runtime: ep.runtime ?? null,
+                  });
+                }
+              }
+            }
+          } catch {
+            // Skip shows that fail to load
           }
+        }
+
+        setEpisodesByMonth((prev) => {
+          const next = new Map(prev);
+          next.set(monthKey, episodes);
           return next;
         });
       } finally {
         setLoading(false);
       }
     },
-    [showDetails, apiKey, userId, loading]
+    [tvShows, episodesByMonth, loading]
   );
 
   return {

@@ -1,15 +1,24 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   getFirestore,
   collection,
   doc,
+  getDoc,
   onSnapshot,
 } from "@react-native-firebase/firestore";
-import { WatchlistItem } from "../types";
+import { TrackingItem, CatalogShow } from "../types";
+
+export interface EnrichedTrackingItem extends TrackingItem {
+  title: string;
+  posterPath: string | null;
+  totalEpisodes: number;
+  catalogShow: CatalogShow | null;
+}
 
 export function useWatchlist(userId: string | undefined) {
-  const [items, setItems] = useState<WatchlistItem[]>([]);
+  const [items, setItems] = useState<EnrichedTrackingItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const catalogCache = useRef<Map<string, CatalogShow | null>>(new Map());
 
   useEffect(() => {
     if (!userId) {
@@ -19,20 +28,49 @@ export function useWatchlist(userId: string | undefined) {
     }
 
     const db = getFirestore();
-    const colRef = collection(doc(db, "users", userId), "watchlist");
+    const colRef = collection(doc(db, "users", userId), "tracking");
 
     const unsubscribe = onSnapshot(
       colRef,
-      (snapshot) => {
-        const data = snapshot.docs.map((d) => ({
+      async (snapshot) => {
+        const trackingItems = snapshot.docs.map((d) => ({
           id: d.id,
           ...d.data(),
-        })) as WatchlistItem[];
-        setItems(data);
+        })) as TrackingItem[];
+
+        // Enrich with catalog data
+        const enriched = await Promise.all(
+          trackingItems.map(async (item): Promise<EnrichedTrackingItem> => {
+            const key = String(item.tmdbId);
+            let catalogShow = catalogCache.current.get(key);
+
+            if (catalogShow === undefined) {
+              try {
+                const showDoc = await getDoc(doc(db, "shows", key));
+                catalogShow = showDoc.exists()
+                  ? ({ id: showDoc.id, ...showDoc.data() } as unknown as CatalogShow)
+                  : null;
+              } catch {
+                catalogShow = null;
+              }
+              catalogCache.current.set(key, catalogShow);
+            }
+
+            return {
+              ...item,
+              title: catalogShow?.title ?? `Show #${item.tmdbId}`,
+              posterPath: catalogShow?.posterPath ?? null,
+              totalEpisodes: catalogShow?.totalEpisodes ?? 0,
+              catalogShow: catalogShow ?? null,
+            };
+          })
+        );
+
+        setItems(enriched);
         setLoading(false);
       },
       (error) => {
-        console.error("Watchlist listener error:", error);
+        console.error("Tracking listener error:", error);
         setLoading(false);
       }
     );

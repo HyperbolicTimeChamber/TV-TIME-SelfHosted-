@@ -4,7 +4,7 @@ import { useAuthStore } from "../stores/authStore";
 import { TMDBShow } from "../types";
 
 export function useSearch(query: string) {
-  const apiKey = useAuthStore((s) => s.tmdbApiKey)!;
+  const apiKey = useAuthStore((s) => s.appTmdbApiKey)!;
 
   return useInfiniteQuery({
     queryKey: ["search", query],

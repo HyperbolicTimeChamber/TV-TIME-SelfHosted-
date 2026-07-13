@@ -1,79 +1,61 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getSeasonEpisodes, getShowSeasonInfos, ShowSeasonInfo, pooled } from "../services/tmdb";
-import { useAuthStore } from "../stores/authStore";
-import { UpcomingEpisode, WatchlistItem } from "../types";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+} from "@react-native-firebase/firestore";
+import { UpcomingEpisode, TrackingItem, CatalogShow } from "../types";
 
-export function useUpcomingEpisodes(tvShows: WatchlistItem[]) {
-  const apiKey = useAuthStore((s) => s.tmdbApiKey)!;
-  const userId = useAuthStore((s) => s.user?.uid);
-  const [extraEpisodes, setExtraEpisodes] = useState<UpcomingEpisode[]>([]);
-  const [loadingNewer, setLoadingNewer] = useState(false);
-  const loadedSeasons = useRef(new Map<string, boolean>());
-
+export function useUpcomingEpisodes(tvShows: TrackingItem[]) {
   const tmdbIds = useMemo(() => tvShows.map((s) => s.tmdbId), [tvShows]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["upcoming", tmdbIds],
     queryFn: async () => {
-      const infos = await getShowSeasonInfos(apiKey, tmdbIds);
-      // Use TMDB's current season (from next_episode_to_air) — not user progress
-      // This ensures we fetch the season that actually has upcoming episodes
-      const seasonTasks = infos.map(
-        (info) => () => getSeasonEpisodes(apiKey, info, info.currentSeason, userId)
-      );
-      const results = await pooled(seasonTasks, 5);
-      return { episodes: results.flat(), showInfos: infos };
+      const db = getFirestore();
+      const today = new Date().toISOString().slice(0, 10);
+      const episodes: UpcomingEpisode[] = [];
+
+      for (const show of tvShows) {
+        if (show.mediaType !== "tv") continue;
+        try {
+          const showDoc = await getDoc(doc(db, "shows", String(show.tmdbId)));
+          if (!showDoc.exists()) continue;
+          const catalog = showDoc.data() as CatalogShow;
+
+          for (const season of catalog.seasons || []) {
+            if (season.seasonNumber === 0) continue;
+
+            for (const ep of season.episodes || []) {
+              if (!ep.airDate) continue;
+              if (ep.airDate >= today) {
+                episodes.push({
+                  tmdbShowId: catalog.tmdbId ?? show.tmdbId,
+                  showTitle: catalog.title ?? `Show #${show.tmdbId}`,
+                  posterPath: catalog.posterPath ?? null,
+                  season: season.seasonNumber,
+                  episode: ep.episodeNumber,
+                  episodeTitle: ep.title,
+                  airDate: ep.airDate,
+                  runtime: ep.runtime ?? null,
+                });
+              }
+            }
+          }
+        } catch {
+          // Skip shows that fail to load
+        }
+      }
+
+      return episodes.sort((a, b) => a.airDate.localeCompare(b.airDate));
     },
     staleTime: 60 * 60 * 1000,
     enabled: tmdbIds.length > 0,
   });
 
-  useEffect(() => {
-    setExtraEpisodes([]);
-    loadedSeasons.current.clear();
-  }, [tmdbIds.join(",")]);
-
-  const showInfos = data?.showInfos ?? [];
-
-  const allEpisodes = useMemo(() => {
-    const base = data?.episodes ?? [];
-    const all = [...base, ...extraEpisodes];
-    return all.sort((a, b) => a.airDate.localeCompare(b.airDate));
-  }, [data?.episodes, extraEpisodes]);
-
-  const loadNewerEpisodes = useCallback(async () => {
-    if (loadingNewer || showInfos.length === 0) return;
-    setLoadingNewer(true);
-    try {
-      const tasks: (() => Promise<UpcomingEpisode[]>)[] = [];
-      for (const info of showInfos) {
-        const showEps = allEpisodes.filter((e) => e.tmdbShowId === info.tmdbId);
-        const maxSeason = showEps.length > 0
-          ? Math.max(...showEps.map((e) => e.season))
-          : info.currentSeason;
-        const nextSeason = maxSeason + 1;
-        if (nextSeason > info.totalSeasons) continue;
-        const key = `${info.tmdbId}_${nextSeason}`;
-        if (loadedSeasons.current.has(key)) continue;
-        loadedSeasons.current.set(key, true);
-        tasks.push(() => getSeasonEpisodes(apiKey, info, nextSeason, userId));
-      }
-      if (tasks.length === 0) return;
-      const results = await pooled(tasks, 5);
-      const newEps = results.flat();
-      if (newEps.length > 0) {
-        setExtraEpisodes((prev) => [...prev, ...newEps]);
-      }
-    } finally {
-      setLoadingNewer(false);
-    }
-  }, [loadingNewer, showInfos, allEpisodes, apiKey, userId]);
-
   return {
-    data: allEpisodes,
+    data: data ?? [],
     isLoading,
-    loadNewerEpisodes,
-    loadingNewer,
   };
 }
