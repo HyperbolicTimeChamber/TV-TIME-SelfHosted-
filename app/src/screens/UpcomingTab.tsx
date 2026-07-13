@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  ActivityIndicator,
 } from "react-native";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { useNavigation } from "@react-navigation/native";
@@ -16,7 +15,7 @@ import { useWatchedEpisodes } from "../hooks/useWatchedEpisodes";
 import { markEpisodeWatched, stopWatching } from "../services/firestore";
 import EpisodeCard from "../components/EpisodeCard";
 import { colors, spacing, typography } from "../theme";
-import { UpcomingEpisode, HomeStackParamList, WatchlistItem } from "../types";
+import { UpcomingEpisode, HomeStackParamList, TrackingItem } from "../types";
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList, "HomeTabs">;
 
@@ -52,8 +51,6 @@ export default function UpcomingTab() {
   const {
     data: episodes,
     isLoading,
-    loadNewerEpisodes,
-    loadingNewer,
   } = useUpcomingEpisodes(tvShows);
 
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
@@ -82,7 +79,7 @@ export default function UpcomingTab() {
   }, [episodes, today]);
 
   const watchlistMap = useMemo(() => {
-    const map = new Map<number, WatchlistItem>();
+    const map = new Map<number, TrackingItem>();
     for (const w of watchlist) {
       map.set(w.tmdbId, w);
     }
@@ -174,13 +171,9 @@ export default function UpcomingTab() {
 
   const renderFooter = useCallback(() => (
     <View style={styles.loaderRow}>
-      {loadingNewer ? (
-        <ActivityIndicator size="large" color={colors.primary} />
-      ) : (
-        <View style={styles.loaderPlaceholder} />
-      )}
+      <View style={styles.loaderPlaceholder} />
     </View>
-  ), [loadingNewer]);
+  ), []);
 
   if (isLoading || watchlistLoading) {
     return (
@@ -209,7 +202,7 @@ export default function UpcomingTab() {
       }
       renderItem={renderItem}
       extraData={watchedEps.length}
-      onEndReached={loadNewerEpisodes}
+      onEndReached={() => {}}
       onEndReachedThreshold={0.5}
       ListFooterComponent={renderFooter}
       maxToRenderPerBatch={10}

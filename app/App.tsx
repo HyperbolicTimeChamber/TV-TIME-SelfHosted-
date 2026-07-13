@@ -10,7 +10,6 @@ import { getAuth, onAuthStateChanged } from "@react-native-firebase/auth";
 import { useAuthStore } from "./src/stores/authStore";
 import { useUiStore } from "./src/stores/uiStore";
 import LoginScreen from "./src/screens/LoginScreen";
-import ApiKeySetupScreen from "./src/screens/ApiKeySetupScreen";
 import ImportDataScreen from "./src/screens/ImportDataScreen";
 import AppNavigator from "./src/navigation/AppNavigator";
 import OfflineOverlay from "./src/components/OfflineOverlay";
@@ -29,19 +28,16 @@ const queryClient = new QueryClient({
 });
 
 function AppContent() {
-  const { user, loading, setUser, tmdbApiKey, tmdbApiKeyLoading, loadTmdbApiKey, hasSeenImport, setHasSeenImport } =
+  const { user, loading, setUser, appTmdbApiKey, appTmdbApiKeyLoading, hasCompletedImport } =
     useAuthStore();
   const setConnected = useUiStore((s) => s.setConnected);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(getAuth(), (firebaseUser) => {
       setUser(firebaseUser);
-      if (firebaseUser) {
-        loadTmdbApiKey(firebaseUser.uid);
-      }
     });
     return unsubscribeAuth;
-  }, [setUser, loadTmdbApiKey]);
+  }, [setUser]);
 
   useEffect(() => {
     const unsubscribeNet = NetInfo.addEventListener((state) => {
@@ -62,7 +58,7 @@ function AppContent() {
     return <LoginScreen />;
   }
 
-  if (tmdbApiKeyLoading) {
+  if (appTmdbApiKeyLoading) {
     return (
       <View style={styles.loading}>
         <LoadingSpinner />
@@ -70,16 +66,12 @@ function AppContent() {
     );
   }
 
-  if (!tmdbApiKey) {
-    return <ApiKeySetupScreen />;
-  }
-
-  if (!hasSeenImport) {
+  if (!hasCompletedImport) {
     return (
       <ImportDataScreen
         navigation={{
-          navigate: () => setHasSeenImport(true),
-          goBack: () => setHasSeenImport(true),
+          navigate: () => {},
+          goBack: () => {},
         }}
       />
     );

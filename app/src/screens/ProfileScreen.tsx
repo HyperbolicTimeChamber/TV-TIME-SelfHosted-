@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
@@ -6,9 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
-  TextInput,
-  ActivityIndicator,
-  Platform,
 } from "react-native";
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
@@ -16,7 +13,6 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuthStore } from "../stores/authStore";
 import { useUserStats } from "../hooks/useUserStats";
 import { useWatchlist } from "../hooks/useWatchlist";
-import { validateApiKey } from "../services/tmdb";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { ProfileStackParamList } from "../types";
 
@@ -24,14 +20,8 @@ export default function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
   const user = useAuthStore((s) => s.user);
   const signOut = useAuthStore((s) => s.signOut);
-  const tmdbApiKey = useAuthStore((s) => s.tmdbApiKey);
-  const saveTmdbApiKey = useAuthStore((s) => s.saveTmdbApiKey);
   const { stats } = useUserStats(user?.uid);
   const { items: watchlist } = useWatchlist(user?.uid);
-
-  const [editingKey, setEditingKey] = useState(false);
-  const [newKey, setNewKey] = useState("");
-  const [saving, setSaving] = useState(false);
 
   const completedShows = useMemo(
     () => watchlist.filter((w) => w.status === "completed"),
@@ -52,31 +42,6 @@ export default function ProfileScreen() {
       { text: "Log Out", style: "destructive", onPress: signOut },
     ]);
   };
-
-  const handleSaveKey = async () => {
-    const trimmed = newKey.trim();
-    if (!trimmed || !user) return;
-
-    setSaving(true);
-    try {
-      const valid = await validateApiKey(trimmed);
-      if (!valid) {
-        Alert.alert("Invalid API Key", "Could not validate this key with TMDB.");
-        return;
-      }
-      await saveTmdbApiKey(user.uid, trimmed);
-      setEditingKey(false);
-      setNewKey("");
-    } catch {
-      Alert.alert("Error", "Failed to save API key.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const maskedKey = tmdbApiKey
-    ? `${tmdbApiKey.slice(0, 4)}${"*".repeat(Math.max(0, tmdbApiKey.length - 8))}${tmdbApiKey.slice(-4)}`
-    : "Not set";
 
   return (
     <ScrollView style={styles.container}>
@@ -108,56 +73,15 @@ export default function ProfileScreen() {
           <Text style={styles.statLabel}>Tracking</Text>
         </View>
         <View style={styles.statBox}>
+          <Text style={styles.statNumber}>{stats.moviesWatched}</Text>
+          <Text style={styles.statLabel}>Movies</Text>
+        </View>
+        <View style={styles.statBox}>
           <Text style={styles.statNumber}>
             {formatTime(stats.totalMinutes)}
           </Text>
           <Text style={styles.statLabel}>Watch Time</Text>
         </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>TMDB API Key</Text>
-        {editingKey ? (
-          <View>
-            <TextInput
-              style={styles.input}
-              value={newKey}
-              onChangeText={setNewKey}
-              placeholder="Enter new TMDB API key"
-              placeholderTextColor={colors.textMuted}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!saving}
-            />
-            <View style={styles.keyActions}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => { setEditingKey(false); setNewKey(""); }}
-                disabled={saving}
-              >
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.saveButton, (!newKey.trim() || saving) && styles.buttonDisabled]}
-                onPress={handleSaveKey}
-                disabled={!newKey.trim() || saving}
-              >
-                {saving ? (
-                  <ActivityIndicator color={colors.text} size="small" />
-                ) : (
-                  <Text style={styles.saveText}>Save</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : (
-          <View style={styles.keyRow}>
-            <Text style={styles.keyValue}>{maskedKey}</Text>
-            <TouchableOpacity onPress={() => setEditingKey(true)}>
-              <Text style={styles.editText}>Edit</Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
 
       {completedShows.length > 0 && (
@@ -259,62 +183,6 @@ const styles = StyleSheet.create({
     width: 70,
     height: 105,
     borderRadius: 4,
-  },
-  keyRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  keyValue: {
-    ...typography.body,
-    color: colors.textSecondary,
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
-  },
-  editText: {
-    ...typography.body,
-    color: colors.accent,
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    color: colors.text,
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: spacing.md,
-  },
-  keyActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: spacing.md,
-  },
-  cancelButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
-  cancelText: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  saveButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 6,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xl,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  saveText: {
-    ...typography.body,
-    color: colors.text,
-    fontWeight: "600",
   },
   importButton: {
     marginTop: spacing.xl,

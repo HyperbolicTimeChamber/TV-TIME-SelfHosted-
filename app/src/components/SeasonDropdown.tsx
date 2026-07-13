@@ -24,7 +24,7 @@ interface Props {
 export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath }: Props) {
   const [expanded, setExpanded] = useState(false);
   const user = useAuthStore((s) => s.user);
-  const apiKey = useAuthStore((s) => s.tmdbApiKey)!;
+  const apiKey = useAuthStore((s) => s.appTmdbApiKey)!;
 
   const { data: seasonData, isLoading } = useSeasonDetails(
     tmdbId,

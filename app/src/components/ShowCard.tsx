@@ -7,11 +7,22 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { colors, spacing, typography, posterSize } from "../theme";
-import { WatchlistItem } from "../types";
+import { TrackingItem } from "../types";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 
+interface ShowCardItem {
+  tmdbId: number;
+  mediaType: "tv" | "movie";
+  status: string;
+  nextEpisode: { season: number; episode: number } | null;
+  rewatchCount: number;
+  title: string;
+  posterPath: string | null;
+  totalEpisodes?: number;
+}
+
 interface Props {
-  item: WatchlistItem;
+  item: ShowCardItem;
   isWatched?: boolean;
   remainingEpisodes?: number | null;
   onSwipeLeft: () => Promise<void>;

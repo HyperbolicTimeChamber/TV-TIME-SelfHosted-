@@ -15,7 +15,7 @@ import { useSearch } from "../hooks/useSearch";
 import { useTrending } from "../hooks/useTrending";
 import { useWatchlist } from "../hooks/useWatchlist";
 import { useAuthStore } from "../stores/authStore";
-import { addToWatchlist } from "../services/firestore";
+import { addToTracking } from "../services/firestore";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { TMDBShow, SearchStackParamList, MediaType } from "../types";
 
@@ -37,14 +37,7 @@ export default function SearchScreen() {
       if (!user?.uid) return;
       const mediaType: MediaType =
         item.media_type || (item.title ? "movie" : "tv");
-      const title = item.name || item.title || "";
-      await addToWatchlist(
-        user.uid,
-        item.id,
-        mediaType,
-        title,
-        item.poster_path || ""
-      );
+      await addToTracking(user.uid, item.id, mediaType);
     },
     [user?.uid]
   );

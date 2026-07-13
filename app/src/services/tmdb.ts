@@ -106,15 +106,6 @@ export async function getSeasonEpisodes(
   seasonNum: number,
   userId?: string
 ): Promise<UpcomingEpisode[]> {
-  // Check Firebase cache first
-  if (userId) {
-    try {
-      const { getCachedSeason } = await import("./firestore");
-      const cached = await getCachedSeason(userId, showInfo.tmdbId, seasonNum);
-      if (cached) return cached.episodes;
-    } catch {}
-  }
-
   try {
     const res = await tmdb(apiKey).get(`/tv/${showInfo.tmdbId}/season/${seasonNum}`);
     const episodes = res.data.episodes || [];
@@ -130,14 +121,6 @@ export async function getSeasonEpisodes(
         airDate: ep.air_date,
         runtime: ep.runtime ?? null,
       }));
-
-    // Cache in Firebase
-    if (userId && mapped.length > 0) {
-      try {
-        const { setCachedSeason } = await import("./firestore");
-        await setCachedSeason(userId, showInfo.tmdbId, seasonNum, mapped);
-      } catch {}
-    }
 
     return mapped;
   } catch {

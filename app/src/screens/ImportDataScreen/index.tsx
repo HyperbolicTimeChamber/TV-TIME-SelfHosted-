@@ -30,7 +30,7 @@ type Phase = "pick" | "matching" | "disambiguate" | "review" | "importing" | "do
 export default function ImportDataScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
-  const tmdbApiKey = useAuthStore((s) => s.tmdbApiKey);
+  const tmdbApiKey = useAuthStore((s) => s.appTmdbApiKey);
 
   const [phase, setPhase] = useState<Phase>("pick");
   const [progress, setProgress] = useState({ done: 0, total: 0 });

@@ -12,44 +12,32 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuthStore } from "../stores/authStore";
-import { useWatchlist } from "../hooks/useWatchlist";
+import { useWatchlist, EnrichedTrackingItem } from "../hooks/useWatchlist";
 import { useWatchedEpisodes } from "../hooks/useWatchedEpisodes";
-import { markEpisodeWatched, stopWatching } from "../services/firestore";
-import { getSeasonDetails } from "../services/tmdb";
+import { isShowVisible, sortByPriority } from "../hooks/useVisibleTracking";
+import { markEpisodeWatched, stopWatching, getCatalogShow } from "../services/firestore";
 import ShowCard from "../components/ShowCard";
 import { colors, spacing, typography, posterSize } from "../theme";
-import { WatchlistItem, WatchedEpisode, HomeStackParamList } from "../types";
+import { WatchedEpisode, HomeStackParamList } from "../types";
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList, "HomeTabs">;
 
 type ListItem =
   | { type: "sectionHeader"; title: string }
-  | { type: "show"; item: WatchlistItem }
-  | { type: "watchedEpisode"; episode: WatchedEpisode; show: WatchlistItem };
+  | { type: "show"; item: EnrichedTrackingItem }
+  | { type: "watchedEpisode"; episode: WatchedEpisode; show: EnrichedTrackingItem };
 
 export default function WatchlistTab() {
   const user = useAuthStore((s) => s.user);
-  const apiKey = useAuthStore((s) => s.tmdbApiKey)!;
   const { items, loading } = useWatchlist(user?.uid);
   const { episodes: watchedEps, loadMore, loadingMore } = useWatchedEpisodes(user?.uid);
   const navigation = useNavigation<NavProp>();
 
   const showMap = useMemo(() => {
-    const map = new Map<number, WatchlistItem>();
+    const map = new Map<number, EnrichedTrackingItem>();
     for (const item of items) map.set(item.tmdbId, item);
     return map;
   }, [items]);
-
-  const activeItems = useMemo(
-    () =>
-      items.filter(
-        (w) =>
-          w.status === "watching" ||
-          w.status === "rewatching" ||
-          w.status === "plan_to_watch"
-      ),
-    [items]
-  );
 
   const watchedCountByShow = useMemo(() => {
     const map = new Map<number, number>();
@@ -69,15 +57,13 @@ export default function WatchlistTab() {
     [watchedEps]
   );
 
-  const sortedActive = useMemo(
-    () =>
-      [...activeItems].sort((a, b) => {
-        const aTime = a.lastWatchedAt?.toMillis() || 0;
-        const bTime = b.lastWatchedAt?.toMillis() || 0;
-        return bTime - aTime;
-      }),
-    [activeItems]
-  );
+  const sortedActive = useMemo(() => {
+    const visible = items.filter((item) => {
+      const watched = watchedCountByShow.get(item.tmdbId) || 0;
+      return isShowVisible(item, watched);
+    });
+    return sortByPriority(visible);
+  }, [items, watchedCountByShow]);
 
   const listData: ListItem[] = useMemo(() => {
     const result: ListItem[] = [];
@@ -107,28 +93,18 @@ export default function WatchlistTab() {
   }, [listData]);
 
   const handleMarkWatched = useCallback(
-    async (item: WatchlistItem) => {
+    async (item: EnrichedTrackingItem) => {
       if (!user?.uid || !item.nextEpisode) return;
 
-      const seasonData = await getSeasonDetails(
-        apiKey,
-        item.tmdbId,
-        item.nextEpisode.season
+      const catalog = item.catalogShow ?? await getCatalogShow(item.tmdbId);
+      const catalogSeason = catalog?.seasons?.find(
+        (s) => s.seasonNumber === item.nextEpisode!.season
       );
-      const season = seasonData as {
-        episodes: Array<{
-          episode_number: number;
-          name: string;
-          runtime: number | null;
-          season_number: number;
-        }>;
-      };
-
-      const currentEp = season.episodes.find(
-        (e) => e.episode_number === item.nextEpisode!.episode
+      const catalogEp = catalogSeason?.episodes?.find(
+        (e) => e.episodeNumber === item.nextEpisode!.episode
       );
-      const nextEpInSeason = season.episodes.find(
-        (e) => e.episode_number === item.nextEpisode!.episode + 1
+      const nextEpInSeason = catalogSeason?.episodes?.find(
+        (e) => e.episodeNumber === item.nextEpisode!.episode + 1
       );
 
       let nextEpisode: { season: number; episode: number } | null = null;
@@ -137,27 +113,18 @@ export default function WatchlistTab() {
       if (nextEpInSeason) {
         nextEpisode = {
           season: item.nextEpisode.season,
-          episode: nextEpInSeason.episode_number,
+          episode: nextEpInSeason.episodeNumber,
         };
       } else {
-        try {
-          const nextSeasonData = await getSeasonDetails(
-            apiKey,
-            item.tmdbId,
-            item.nextEpisode.season + 1
-          );
-          const nextSeason = nextSeasonData as {
-            episodes: Array<{ episode_number: number }>;
+        const nextCatalogSeason = catalog?.seasons?.find(
+          (s) => s.seasonNumber === item.nextEpisode!.season + 1
+        );
+        if (nextCatalogSeason && nextCatalogSeason.episodes.length > 0) {
+          nextEpisode = {
+            season: item.nextEpisode.season + 1,
+            episode: 1,
           };
-          if (nextSeason.episodes && nextSeason.episodes.length > 0) {
-            nextEpisode = {
-              season: item.nextEpisode.season + 1,
-              episode: 1,
-            };
-          } else {
-            isComplete = true;
-          }
-        } catch {
+        } else {
           isComplete = true;
         }
       }
@@ -167,17 +134,17 @@ export default function WatchlistTab() {
         item.tmdbId,
         item.nextEpisode.season,
         item.nextEpisode.episode,
-        currentEp?.name || "",
-        currentEp?.runtime || 0,
+        catalogEp?.title || "",
+        catalogEp?.runtime || 0,
         nextEpisode,
         isComplete
       );
     },
-    [user?.uid, apiKey]
+    [user?.uid]
   );
 
   const handleStopWatching = useCallback(
-    async (item: WatchlistItem) => {
+    async (item: EnrichedTrackingItem) => {
       if (!user?.uid) return;
       await stopWatching(user.uid, item.tmdbId, item.status);
     },

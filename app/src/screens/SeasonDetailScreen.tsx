@@ -24,7 +24,7 @@ export default function SeasonDetailScreen() {
   const route = useRoute<RouteParams>();
   const { tmdbId, seasonNumber } = route.params;
   const user = useAuthStore((s) => s.user);
-  const apiKey = useAuthStore((s) => s.tmdbApiKey)!;
+  const apiKey = useAuthStore((s) => s.appTmdbApiKey)!;
   const { data: seasonData, isLoading } = useSeasonDetails(tmdbId, seasonNumber);
   const { episodes: watchedEps } = useWatchedEpisodes(user?.uid, tmdbId);
   const { items: watchlist } = useWatchlist(user?.uid);

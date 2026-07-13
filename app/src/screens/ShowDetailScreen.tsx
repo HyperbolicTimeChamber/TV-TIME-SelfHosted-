@@ -14,8 +14,8 @@ import { useShowDetails } from "../hooks/useShowDetails";
 import { useWatchlist } from "../hooks/useWatchlist";
 import { useAuthStore } from "../stores/authStore";
 import {
-  addToWatchlist,
-  removeFromWatchlist,
+  addToTracking,
+  removeFromTracking,
   startRewatch,
   resumeRewatch,
   markMovieWatched,
@@ -46,20 +46,12 @@ export default function ShowDetailScreen() {
 
   const handleAddToWatchlist = useCallback(async () => {
     if (!user?.uid || !show) return;
-    await addToWatchlist(
-      user.uid,
-      tmdbId,
-      mediaType,
-      title,
-      show.poster_path || "",
-      undefined,
-      show.number_of_episodes ?? undefined
-    );
-  }, [user?.uid, show, tmdbId, mediaType, title]);
+    await addToTracking(user.uid, tmdbId, mediaType);
+  }, [user?.uid, show, tmdbId, mediaType]);
 
   const handleRemove = useCallback(async () => {
     if (!user?.uid) return;
-    await removeFromWatchlist(user.uid, tmdbId);
+    await removeFromTracking(user.uid, tmdbId);
   }, [user?.uid, tmdbId]);
 
   const handleRewatch = useCallback(async () => {
@@ -74,7 +66,7 @@ export default function ShowDetailScreen() {
   const handleMarkMovieWatched = useCallback(async () => {
     if (!user?.uid || !show) return;
     if (!watchlistItem) {
-      await addToWatchlist(user.uid, tmdbId, "movie", title, show.poster_path || "");
+      await addToTracking(user.uid, tmdbId, "movie");
     }
     await markMovieWatched(user.uid, tmdbId, show.runtime ?? 0);
   }, [user?.uid, show, tmdbId, title, watchlistItem]);
