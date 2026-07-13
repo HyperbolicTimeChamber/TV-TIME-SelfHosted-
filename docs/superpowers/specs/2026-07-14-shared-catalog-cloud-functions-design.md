@@ -37,7 +37,6 @@
 | Function | Type | Purpose |
 |----------|------|---------|
 | `syncCatalog` | Scheduled (weekly) | Refresh `shows/` from TMDB, reactivate completed users if new content |
-| `searchTMDB` | HTTPS Callable | Proxy TMDB search, keeps API key server-side |
 | `addShow` | HTTPS Callable | Fetch TMDB data, create/update `shows/` doc, add to trackedBy |
 | `removeShow` | HTTPS Callable | Remove user from trackedBy, cleanup if zero trackers |
 | `importMatches` | HTTPS Callable | Batch write import data + FCM notification when done |
@@ -209,14 +208,7 @@ else:
 - **Config:** max instances = 5, timeout = 540s, memory = 256MB
 - **Large catalog handling:** If `shows/` collection exceeds ~200 docs, process in batches of 50 with Cloud Tasks to avoid timeout. Each batch fetches TMDB data, updates docs, then enqueues next batch.
 
-### 2. `searchTMDB` — HTTPS Callable
-
-- **Input:** `{ query: string, mediaType?: "tv" | "movie", page?: number }`
-- **Process:** Proxy request to TMDB `/search/multi` (or `/search/tv`, `/search/movie`)
-- **Returns:** TMDB search results
-- **Purpose:** Keeps app-level TMDB API key server-side
-
-### 3. `addShow` — HTTPS Callable
+### 2. `addShow` — HTTPS Callable
 
 - **Input:** `{ tmdbId: number, mediaType: "tv" | "movie" }`
 - **Process:**
@@ -226,7 +218,7 @@ else:
   4. Increment `trackedByCount`
 - **Returns:** Show data for client to use immediately
 
-### 4. `removeShow` — HTTPS Callable
+### 3. `removeShow` — HTTPS Callable
 
 - **Input:** `{ tmdbId: number }`
 - **Process:**
@@ -235,7 +227,7 @@ else:
   3. If `trackedByCount` drops to 0: delete `shows/{tmdbId}` doc
 - **Returns:** Success/failure
 
-### 5. `importMatches` — HTTPS Callable
+### 4. `importMatches` — HTTPS Callable
 
 - **Input:** `{ matches: [{ tmdbId, mediaType, watchedEpisodes, status }] }`
 - **Process:**
@@ -253,11 +245,20 @@ else:
 
 ### TMDB API Key
 
-Stored in Firebase Functions Secret Manager:
+**Two locations:**
+
+1. **Firebase Functions Secret Manager** (for Cloud Functions):
 ```bash
 firebase functions:secrets:set TMDB_API_KEY
 ```
 Accessed in functions via `process.env.TMDB_API_KEY`.
+
+2. **Firestore `config/app` doc** (for client-side search/browse):
+```
+config/app
+  tmdbApiKey: "your_key_here"
+```
+Client reads once on auth → caches in memory (Zustand store) → uses for all direct TMDB calls (search, trending, show browse). Key rotatable anytime by updating one Firestore doc. Set manually by project owner, not writable by users.
 
 ### FCM Setup
 
@@ -293,7 +294,7 @@ Google Sign-In
 
 ### Import Flow (Revised)
 
-1. **Client-side:** User picks GDPR zip → parse CSVs → TMDB search (via `searchTMDB` CF) → disambiguation UI
+1. **Client-side:** User picks GDPR zip → parse CSVs → TMDB search (direct, using cached API key) → disambiguation UI
 2. **Client sends final matches** to `importMatches` CF
 3. **App shows blocking loader** while CF processes
 4. **FCM push notification** when done (handles backgrounded app)
@@ -322,9 +323,9 @@ Google Sign-In
 
 **Before:** Client called TMDB `/search/multi` directly with per-user API key.
 
-**After:** Client calls `searchTMDB` Cloud Function (HTTPS callable proxy).
+**After:** Client calls TMDB directly using app-level key from Firestore `config/app.tmdbApiKey` (cached in memory on auth). No Cloud Function needed — avoids cold start latency.
 
-- **Search flow:** User types query → call `searchTMDB` CF → returns TMDB results → display in UI
+- **Search flow:** User types query → client calls TMDB `/search/multi` directly → instant results
 - **Add show flow:** User taps "+" on search result → call `addShow` CF → CF fetches full TMDB data, populates `shows/` catalog, adds user to `trackedBy` → client creates `tracking/` doc
 - **Show detail from search:** If show exists in `shows/` catalog → read from Firestore. If not yet tracked → call `addShow` CF on track action
 - **UI unchanged:** Same search tiles, translucent name banners, +/checkmark watchlist badge
@@ -337,6 +338,12 @@ Google Sign-In
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // App config — read-only for authenticated users (TMDB key, etc.)
+    match /config/{doc} {
+      allow read: if request.auth != null;
+      allow write: if false; // set manually by project owner
+    }
 
     // Shared catalog — read-only for authenticated users
     match /shows/{showId} {
