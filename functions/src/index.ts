@@ -4,3 +4,4 @@ initializeApp();
 
 export { addShow } from "./addShow";
 export { removeShow } from "./removeShow";
+export { importMatches } from "./importMatches";
