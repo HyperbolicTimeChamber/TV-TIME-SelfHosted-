@@ -306,6 +306,29 @@ Google Sign-In
 - Show metadata (title, poster) read from `shows/` catalog
 - Completed/caught-up shows hidden — reappear when new ep airs or sync finds new season
 
+### Calendar Tab
+
+**Before:** Client fetched show details + season episodes directly from TMDB API using per-user key, cached in per-user `episodeCache/` (24h TTL).
+
+**After:** Reads directly from shared `shows/{tmdbId}` catalog (already kept fresh by weekly `syncCatalog` cron).
+
+- **Data source:** User's `tracking/` docs (status: watching/rewatching) → read corresponding `shows/` docs → extract episodes from inline `seasons` array
+- **No more:** Per-user TMDB API calls, per-user `episodeCache/`, API key dependency
+- **Filtering:** Episodes filtered by `airDate` matching viewed month
+- **UI unchanged:** Calendar dots on air dates, tap date → episode list, year picker modal, swipe navigation
+- **Performance:** Faster — single Firestore read per show instead of TMDB API call + cache layer
+
+### Search
+
+**Before:** Client called TMDB `/search/multi` directly with per-user API key.
+
+**After:** Client calls `searchTMDB` Cloud Function (HTTPS callable proxy).
+
+- **Search flow:** User types query → call `searchTMDB` CF → returns TMDB results → display in UI
+- **Add show flow:** User taps "+" on search result → call `addShow` CF → CF fetches full TMDB data, populates `shows/` catalog, adds user to `trackedBy` → client creates `tracking/` doc
+- **Show detail from search:** If show exists in `shows/` catalog → read from Firestore. If not yet tracked → call `addShow` CF on track action
+- **UI unchanged:** Same search tiles, translucent name banners, +/checkmark watchlist badge
+
 ---
 
 ## Firestore Security Rules
