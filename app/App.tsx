@@ -7,6 +7,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import NetInfo from "@react-native-community/netinfo";
 import { getAuth, onAuthStateChanged } from "@react-native-firebase/auth";
+import messaging from "@react-native-firebase/messaging";
+import {
+  getFirestore,
+  doc,
+  updateDoc,
+} from "@react-native-firebase/firestore";
 import { useAuthStore } from "./src/stores/authStore";
 import { useUiStore } from "./src/stores/uiStore";
 import LoginScreen from "./src/screens/LoginScreen";
@@ -27,6 +33,17 @@ const queryClient = new QueryClient({
   },
 });
 
+async function registerFCMToken(userId: string) {
+  try {
+    await messaging().requestPermission();
+    const token = await messaging().getToken();
+    const db = getFirestore();
+    await updateDoc(doc(db, "users", userId), { fcmToken: token });
+  } catch (err) {
+    console.warn("FCM token registration failed:", err);
+  }
+}
+
 function AppContent() {
   const { user, loading, setUser, appTmdbApiKey, appTmdbApiKeyLoading, hasCompletedImport } =
     useAuthStore();
@@ -35,6 +52,9 @@ function AppContent() {
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(getAuth(), (firebaseUser) => {
       setUser(firebaseUser);
+      if (firebaseUser) {
+        registerFCMToken(firebaseUser.uid);
+      }
     });
     return unsubscribeAuth;
   }, [setUser]);

@@ -8,13 +8,14 @@ import {
   doc,
   getDocs,
 } from "@react-native-firebase/firestore";
+import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { useAuthStore } from "../../stores/authStore";
 import {
   parseGdprZip,
   matchShowsAndMovies,
-  importToFirestore,
   searchTMDBPage,
   ParsedGdprData,
+  ParsedShow,
   TMDBMatch,
   AmbiguousMatch,
   ImportStats,
@@ -202,34 +203,88 @@ export default function ImportDataScreen({ navigation }: any) {
     });
   }, []);
 
-  // --- Import ---
+  // --- Import via Cloud Function ---
   const handleImport = useCallback(async () => {
     if (!user || !parsedRef.current) return;
     setPhase("importing");
     setProgress({ done: 0, total: 0 });
-    setStatusText("Preparing import...");
+    setStatusText("Importing data...");
 
     const selectedMatches = matched.filter((m) =>
       selected.has(`${m.mediaType}-${m.tmdbId}`)
     );
     const parsed = parsedRef.current;
 
+    // Build show lookup by tvTimeId for status derivation
+    const showByTvTimeId = new Map<number, ParsedShow>();
+    for (const s of parsed.shows) {
+      showByTvTimeId.set(s.tvTimeId, s);
+    }
+
+    function deriveStatus(show: ParsedShow): string {
+      if (show.isArchived) return "completed";
+      if (show.isForLater) return "plan_to_watch";
+      return "watching";
+    }
+
+    // Transform matches to CF format
+    const cfMatches = selectedMatches.map((m) => {
+      if (m.mediaType === "tv") {
+        const show = m.tvTimeId !== undefined
+          ? showByTvTimeId.get(m.tvTimeId)
+          : parsed.shows.find((s) => s.name === m.tvTimeName);
+
+        // Collect watched episodes for this show
+        const showEps = m.tvTimeId !== undefined
+          ? parsed.watchedEpisodes.filter((e) => e.tvTimeShowId === m.tvTimeId)
+          : [];
+        const rewatchEps = m.tvTimeId !== undefined
+          ? parsed.rewatchedEpisodes.filter((e) => e.tvTimeShowId === m.tvTimeId)
+          : [];
+
+        return {
+          tmdbId: m.tmdbId,
+          mediaType: m.mediaType,
+          tmdbName: m.tmdbName,
+          posterPath: m.posterPath,
+          totalEpisodes: m.totalEpisodes,
+          status: show ? deriveStatus(show) : "watching",
+          followedAt: show?.followedAt || null,
+          rewatchCount: show?.rewatchCount || 0,
+          watchedEpisodes: showEps.map((e) => ({
+            season: e.season,
+            episode: e.episode,
+            watchedAt: e.watchedAt,
+          })),
+          rewatchedEpisodes: rewatchEps.map((e) => ({
+            season: e.season,
+            episode: e.episode,
+            watchedAt: e.watchedAt,
+          })),
+        };
+      } else {
+        const movie = parsed.movies.find((mv) => mv.name === m.tvTimeName);
+        return {
+          tmdbId: m.tmdbId,
+          mediaType: m.mediaType,
+          tmdbName: m.tmdbName,
+          posterPath: m.posterPath,
+          totalEpisodes: m.totalEpisodes,
+          status: "completed",
+          movieWatchedAt: movie?.watchedAt || null,
+          movieRuntime: movie ? Math.round(movie.runtimeSeconds / 60) : undefined,
+        };
+      }
+    });
+
     try {
-      const stats = await importToFirestore(
-        user.uid,
-        selectedMatches,
-        parsed.shows,
-        parsed.watchedEpisodes,
-        parsed.rewatchedEpisodes,
-        parsed.movies,
-        (done, total) => {
-          setProgress({ done, total });
-          if (done === 0) {
-            setStatusText(`Uploading ${total} items...`);
-          }
-        }
+      const functions = getFunctions();
+      const importFn = httpsCallable<{ matches: typeof cfMatches }, ImportStats>(
+        functions,
+        "importMatches"
       );
-      setImportStats(stats);
+      const result = await importFn({ matches: cfMatches });
+      setImportStats(result.data);
       setPhase("done");
     } catch (err: any) {
       Alert.alert("Import Error", err.message || "Failed to import data.");
