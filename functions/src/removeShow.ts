@@ -1,6 +1,6 @@
 // functions/src/removeShow.ts
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { removeFromTrackedBy } from "./utils";
 
 interface RemoveShowRequest {
@@ -19,7 +19,7 @@ export const removeShow = onCall(
     }
 
     const { tmdbId } = request.data as RemoveShowRequest;
-    if (!tmdbId) {
+    if (typeof tmdbId !== "number" || tmdbId <= 0) {
       throw new HttpsError("invalid-argument", "tmdbId required");
     }
 
@@ -33,12 +33,9 @@ export const removeShow = onCall(
 
     // Update stats
     const userRef = db.doc(`users/${uid}`);
-    const userDoc = await userRef.get();
-    if (userDoc.exists) {
-      const stats = userDoc.data()?.stats ?? {};
-      const showsTracking = Math.max(0, (stats.showsTracking ?? 1) - 1);
-      await userRef.update({ "stats.showsTracking": showsTracking });
-    }
+    await userRef.update({
+      "stats.showsTracking": FieldValue.increment(-1),
+    });
 
     // Remove from trackedBy, get remaining count
     const remainingCount = await removeFromTrackedBy(showId, uid);
