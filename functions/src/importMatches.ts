@@ -156,6 +156,11 @@ export const importMatches = onCall(
         });
       });
 
+      // Count any TV match as a show imported
+      if (match.mediaType === "tv") {
+        stats.showsImported++;
+      }
+
       // Create watched episode docs in chunks of 400 (well under the 500-op limit)
       if (match.mediaType === "tv" && match.watchedEpisodes) {
         const eps = match.watchedEpisodes;
@@ -182,7 +187,6 @@ export const importMatches = onCall(
           totalEpisodes += chunk.length;
           totalMinutes += chunk.reduce((s, e) => s + (e.runtime || 0), 0);
         }
-        stats.showsImported++;
       }
 
       // Create watched movie doc
@@ -202,7 +206,7 @@ export const importMatches = onCall(
           });
         });
         stats.moviesImported++;
-        totalMinutes += Math.round((match.movieRuntime || 0) / 60);
+        totalMinutes += match.movieRuntime || 0;
       }
     }
 
