@@ -25,7 +25,7 @@ export const addShow = onCall(
     }
 
     const { tmdbId, mediaType } = request.data as AddShowRequest;
-    if (!tmdbId || !mediaType) {
+    if (typeof tmdbId !== "number" || tmdbId <= 0 || !mediaType) {
       throw new HttpsError(
         "invalid-argument",
         "tmdbId and mediaType required"
@@ -37,25 +37,34 @@ export const addShow = onCall(
     const showRef = db.doc(`shows/${showId}`);
     const uid = request.auth.uid;
 
-    // Check if show already exists in catalog
-    const showDoc = await showRef.get();
-
-    if (showDoc.exists) {
-      // Add user to trackedBy
-      await addToTrackedBy(showId, uid);
-      return showDoc.data() as CatalogShow;
-    }
-
-    // Fetch from TMDB and create catalog entry
+    // Fetch from TMDB before the transaction so we don't hold a transaction
+    // open during a slow network call.
     const apiKey = tmdbApiKey.value();
     const showData = await fetchShowFromTMDB(apiKey, tmdbId, mediaType);
 
-    await showRef.set({
-      ...showData,
-      trackedBy: [uid],
-      trackedByCount: 1,
-      lastSyncedAt: FieldValue.serverTimestamp(),
+    // Atomically check-then-create to eliminate the race condition where two
+    // concurrent calls both read non-existent and both set.
+    let existedBeforeTransaction = false;
+
+    await db.runTransaction(async (tx) => {
+      const showDoc = await tx.get(showRef);
+
+      if (showDoc.exists) {
+        existedBeforeTransaction = true;
+        return; // will call addToTrackedBy outside the transaction
+      }
+
+      tx.set(showRef, {
+        ...showData,
+        trackedBy: [uid],
+        trackedByCount: 1,
+        lastSyncedAt: FieldValue.serverTimestamp(),
+      });
     });
+
+    if (existedBeforeTransaction) {
+      await addToTrackedBy(showId, uid);
+    }
 
     return showData;
   }
