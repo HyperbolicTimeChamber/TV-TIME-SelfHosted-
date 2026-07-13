@@ -224,7 +224,10 @@ else:
 - **Process:**
   1. Remove user UID from `trackedBy` array (or overflow)
   2. Decrement `trackedByCount`
-  3. If `trackedByCount` drops to 0: delete `shows/{tmdbId}` doc
+  3. Delete user's `tracking/{tmdbId}` doc only
+  4. **Do NOT delete** user's `watchedEpisodes/` or `watchedMovies/` docs — preserved so progress restores if user re-tracks the show
+  5. If `trackedByCount` drops to 0: delete `shows/{tmdbId}` doc
+- **On re-track:** `addShow` CF creates new `tracking/` doc. Client detects existing `watchedEpisodes/` → restores progress (nextEpisode, status) based on what's already watched
 - **Returns:** Success/failure
 
 ### 4. `importMatches` — HTTPS Callable
