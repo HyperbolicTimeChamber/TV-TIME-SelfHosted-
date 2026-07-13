@@ -9,33 +9,89 @@ export type WatchStatus =
 
 export type MediaType = "tv" | "movie";
 
+// --- Catalog Types (shared show data from shows/ collection) ---
+
+export interface CatalogEpisode {
+  episodeNumber: number;
+  title: string;
+  airDate: string | null;
+  runtime: number | null;
+}
+
+export interface CatalogSeason {
+  seasonNumber: number;
+  episodeCount: number;
+  airDate: string | null;
+  episodes: CatalogEpisode[];
+}
+
+export interface CatalogShow {
+  tmdbId: number;
+  mediaType: MediaType;
+  title: string;
+  posterPath: string | null;
+  backdropPath: string | null;
+  overview: string;
+  status: string;
+  totalSeasons: number;
+  totalEpisodes: number;
+  runtime: number | null;
+  voteAverage: number;
+  firstAirDate: string | null;
+  releaseDate: string | null;
+  seasons: CatalogSeason[];
+  trackedBy: string[];
+  trackedByCount: number;
+  lastSyncedAt: any; // Firestore Timestamp
+}
+
+// --- Per-User Tracking (replaces WatchlistItem) ---
+
+export interface TrackingItem {
+  id: string; // Firestore doc ID = tmdbId
+  tmdbId: number;
+  mediaType: MediaType;
+  status: WatchStatus;
+  nextEpisode: { season: number; episode: number } | null;
+  rewatchCount: number;
+  addedAt: any; // Firestore Timestamp
+  lastWatchedAt: any;
+  priorityDate: any; // Firestore Timestamp — denormalized sort key
+}
+
+// Keep alias during transition
+export type WatchlistItem = TrackingItem;
+
+// --- Watched Movie ---
+
+export interface WatchedMovie {
+  id: string;
+  tmdbId: number;
+  watchCount: number;
+  watchedAt: any;
+  lastWatchedAt: any;
+  runtime: number;
+}
+
+// --- User Profile ---
+
 export interface UserProfile {
   displayName: string;
   email: string;
   photoURL: string;
-  createdAt: Timestamp;
+  createdAt: any;
   stats: UserStats;
-  tmdbApiKey: string;
+  hasCompletedImport: boolean;
+  fcmToken?: string;
 }
+
+// --- User Stats ---
 
 export interface UserStats {
   episodesWatched: number;
   showsTracking: number;
+  moviesWatched: number;
   totalMinutes: number;
-}
-
-export interface WatchlistItem {
-  id: string; // Firestore doc ID = tmdbId as string
-  tmdbId: number;
-  mediaType: MediaType;
-  title: string;
-  posterPath: string;
-  addedAt: Timestamp;
-  lastWatchedAt: Timestamp | null;
-  status: WatchStatus;
-  nextEpisode: { season: number; episode: number } | null;
-  rewatchCount: number;
-  totalEpisodes: number | null;
 }
 
 export interface WatchedEpisode {
@@ -103,7 +159,7 @@ export interface UpcomingEpisode {
 // Navigation param types
 export type RootStackParamList = {
   Login: undefined;
-  ApiKeySetup: undefined;
+  ImportData: undefined;
   Main: undefined;
 };
 

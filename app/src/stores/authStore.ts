@@ -19,15 +19,13 @@ import { GoogleSignin } from "@react-native-google-signin/google-signin";
 interface AuthState {
   user: User | null;
   loading: boolean;
-  tmdbApiKey: string | null;
-  tmdbApiKeyLoading: boolean;
-  hasSeenImport: boolean;
+  appTmdbApiKey: string | null;
+  appTmdbApiKeyLoading: boolean;
+  hasCompletedImport: boolean;
   setUser: (user: User | null) => void;
   setLoading: (loading: boolean) => void;
-  setTmdbApiKey: (key: string) => void;
-  setHasSeenImport: (val: boolean) => void;
-  loadTmdbApiKey: (userId: string) => Promise<void>;
-  saveTmdbApiKey: (userId: string, key: string) => Promise<void>;
+  loadAppConfig: () => Promise<void>;
+  loadUserFlags: (userId: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
@@ -37,41 +35,47 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   loading: true,
-  tmdbApiKey: null,
-  tmdbApiKeyLoading: true,
-  hasSeenImport: false,
+  appTmdbApiKey: null,
+  appTmdbApiKeyLoading: true,
+  hasCompletedImport: false,
 
-  setUser: (user) => set({ user, loading: false }),
-  setLoading: (loading) => set({ loading }),
-  setTmdbApiKey: (key) => set({ tmdbApiKey: key, tmdbApiKeyLoading: false }),
-  setHasSeenImport: (val) => set({ hasSeenImport: val }),
-
-  loadTmdbApiKey: async (userId: string) => {
-    try {
-      const db = getFirestore();
-      const snap = await getDoc(doc(db, "users", userId));
-      const key = snap.data()?.tmdbApiKey || null;
-      set({ tmdbApiKey: key, tmdbApiKeyLoading: false });
-    } catch (error) {
-      console.error("Failed to load TMDB API key:", error);
-      set({ tmdbApiKeyLoading: false });
+  setUser: (user) => {
+    set({ user, loading: false });
+    if (user) {
+      const store = useAuthStore.getState();
+      store.loadAppConfig();
+      store.loadUserFlags(user.uid);
     }
   },
 
-  saveTmdbApiKey: async (userId: string, key: string) => {
-    const db = getFirestore();
-    const docRef = doc(db, "users", userId);
-    const snap = await getDoc(docRef);
-    const updateData: Record<string, unknown> = { tmdbApiKey: key };
-    if (!snap.exists() || !snap.data()?.stats) {
-      updateData.stats = {
-        episodesWatched: 0,
-        showsTracking: 0,
-        totalMinutes: 0,
-      };
+  setLoading: (loading) => set({ loading }),
+
+  loadAppConfig: async () => {
+    try {
+      const db = getFirestore();
+      const configDoc = await getDoc(doc(db, "config", "app"));
+      if (configDoc.exists()) {
+        set({ appTmdbApiKey: configDoc.data()?.tmdbApiKey ?? null });
+      }
+    } catch (error) {
+      console.error("Failed to load app config:", error);
+    } finally {
+      set({ appTmdbApiKeyLoading: false });
     }
-    await setDoc(docRef, updateData, { merge: true });
-    set({ tmdbApiKey: key, tmdbApiKeyLoading: false });
+  },
+
+  loadUserFlags: async (userId: string) => {
+    try {
+      const db = getFirestore();
+      const userDoc = await getDoc(doc(db, "users", userId));
+      if (userDoc.exists()) {
+        set({
+          hasCompletedImport: userDoc.data()?.hasCompletedImport ?? false,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to load user flags:", error);
+    }
   },
 
   signInWithGoogle: async () => {
@@ -125,7 +129,11 @@ export const useAuthStore = create<AuthState>((set) => ({
         await GoogleSignin.revokeAccess().catch(() => {});
       }
       await firebaseSignOut(auth);
-      set({ tmdbApiKey: null, tmdbApiKeyLoading: true });
+      set({
+        appTmdbApiKey: null,
+        appTmdbApiKeyLoading: true,
+        hasCompletedImport: false,
+      });
     } catch (error) {
       console.error("Sign out error:", error);
       throw error;
