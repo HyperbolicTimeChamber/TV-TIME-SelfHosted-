@@ -1,5 +1,6 @@
-import React, { useEffect } from "react";
-import { View, StyleSheet } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, StyleSheet, Animated } from "react-native";
+import { Image } from "expo-image";
 import LoadingSpinner from "./src/components/LoadingSpinner";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -11,7 +12,7 @@ import messaging from "@react-native-firebase/messaging";
 import {
   getFirestore,
   doc,
-  updateDoc,
+  setDoc,
 } from "@react-native-firebase/firestore";
 import { useAuthStore } from "./src/stores/authStore";
 import { useUiStore } from "./src/stores/uiStore";
@@ -38,7 +39,7 @@ async function registerFCMToken(userId: string) {
     await messaging().requestPermission();
     const token = await messaging().getToken();
     const db = getFirestore();
-    await updateDoc(doc(db, "users", userId), { fcmToken: token });
+    await setDoc(doc(db, "users", userId), { fcmToken: token }, { merge: true });
   } catch (err) {
     console.warn("FCM token registration failed:", err);
   }
@@ -119,12 +120,45 @@ function AppContent() {
   );
 }
 
+function AppSplash() {
+  const [visible, setVisible] = useState(true);
+  const [opacity] = useState(() => new Animated.Value(1));
+  const loading = useAuthStore((s) => s.loading);
+
+  useEffect(() => {
+    if (!loading) {
+      // Fade out after a short delay
+      const timer = setTimeout(() => {
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }).start(() => setVisible(false));
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, opacity]);
+
+  if (!visible) return null;
+
+  return (
+    <Animated.View style={[StyleSheet.absoluteFill, { opacity, zIndex: 999 }]}>
+      <Image
+        source={require("./assets/splash.jpeg")}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+      />
+    </Animated.View>
+  );
+}
+
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <AppContent />
+          <AppSplash />
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

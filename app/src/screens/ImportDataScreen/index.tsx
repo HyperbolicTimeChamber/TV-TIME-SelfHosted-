@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { Alert } from "react-native";
+import { Alert, View, Text, TouchableOpacity } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as DocumentPicker from "expo-document-picker";
 import {
@@ -18,15 +18,16 @@ import {
   ParsedShow,
   TMDBMatch,
   AmbiguousMatch,
-  ImportStats,
 } from "../../services/tvtimeImport";
+import LoadingSpinner from "../../components/LoadingSpinner";
+import { spacing } from "../../theme";
+import { importStyles as styles } from "./styles";
 import PickPhase from "./PickPhase";
 import ProgressPhase from "./ProgressPhase";
 import DisambiguatePhase from "./DisambiguatePhase";
 import ReviewPhase from "./ReviewPhase";
-import DonePhase from "./DonePhase";
 
-type Phase = "pick" | "matching" | "disambiguate" | "review" | "importing" | "done";
+type Phase = "pick" | "matching" | "disambiguate" | "review" | "importing";
 
 export default function ImportDataScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
@@ -44,7 +45,7 @@ export default function ImportDataScreen({ navigation }: any) {
   const [disambigIndex, setDisambigIndex] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const existingIdsRef = useRef<Set<number>>(new Set());
-  const [importStats, setImportStats] = useState<ImportStats | null>(null);
+
 
   // Disambiguation pagination
   const [disambigCandidates, setDisambigCandidates] = useState<TMDBMatch[]>([]);
@@ -204,93 +205,77 @@ export default function ImportDataScreen({ navigation }: any) {
   }, []);
 
   // --- Import via Cloud Function ---
-  const handleImport = useCallback(async () => {
+  const handleImport = useCallback(() => {
     if (!user || !parsedRef.current) return;
     setPhase("importing");
-    setProgress({ done: 0, total: 0 });
-    setStatusText("Importing data...");
 
-    const selectedMatches = matched.filter((m) =>
-      selected.has(`${m.mediaType}-${m.tmdbId}`)
-    );
-    const parsed = parsedRef.current;
 
-    // Build show lookup by tvTimeId for status derivation
-    const showByTvTimeId = new Map<number, ParsedShow>();
-    for (const s of parsed.shows) {
-      showByTvTimeId.set(s.tvTimeId, s);
-    }
-
-    function deriveStatus(show: ParsedShow): string {
-      if (show.isArchived) return "completed";
-      if (show.isForLater) return "plan_to_watch";
-      return "watching";
-    }
-
-    // Transform matches to CF format
-    const cfMatches = selectedMatches.map((m) => {
-      if (m.mediaType === "tv") {
-        const show = m.tvTimeId !== undefined
-          ? showByTvTimeId.get(m.tvTimeId)
-          : parsed.shows.find((s) => s.name === m.tvTimeName);
-
-        // Collect watched episodes for this show
-        const showEps = m.tvTimeId !== undefined
-          ? parsed.watchedEpisodes.filter((e) => e.tvTimeShowId === m.tvTimeId)
-          : [];
-        const rewatchEps = m.tvTimeId !== undefined
-          ? parsed.rewatchedEpisodes.filter((e) => e.tvTimeShowId === m.tvTimeId)
-          : [];
-
-        return {
-          tmdbId: m.tmdbId,
-          mediaType: m.mediaType,
-          tmdbName: m.tmdbName,
-          posterPath: m.posterPath,
-          totalEpisodes: m.totalEpisodes,
-          status: show ? deriveStatus(show) : "watching",
-          followedAt: show?.followedAt || null,
-          rewatchCount: show?.rewatchCount || 0,
-          watchedEpisodes: showEps.map((e) => ({
-            season: e.season,
-            episode: e.episode,
-            watchedAt: e.watchedAt,
-          })),
-          rewatchedEpisodes: rewatchEps.map((e) => ({
-            season: e.season,
-            episode: e.episode,
-            watchedAt: e.watchedAt,
-          })),
-        };
-      } else {
-        const movie = parsed.movies.find((mv) => mv.name === m.tvTimeName);
-        return {
-          tmdbId: m.tmdbId,
-          mediaType: m.mediaType,
-          tmdbName: m.tmdbName,
-          posterPath: m.posterPath,
-          totalEpisodes: m.totalEpisodes,
-          status: "completed",
-          movieWatchedAt: movie?.watchedAt || null,
-          movieRuntime: movie ? Math.round(movie.runtimeSeconds / 60) : undefined,
-        };
-      }
-    });
-
-    try {
-      const functions = getFunctions();
-      const importFn = httpsCallable<{ matches: typeof cfMatches }, ImportStats>(
-        functions,
-        "importMatches"
+    // Defer heavy work so React renders the importing screen first
+    setTimeout(async () => {
+      const parsed = parsedRef.current!;
+      const selectedMatches = matched.filter((m) =>
+        selected.has(`${m.mediaType}-${m.tmdbId}`)
       );
-      const result = await importFn({ matches: cfMatches });
-      setImportStats(result.data);
-      setPhase("done");
-    } catch (err: any) {
-      Alert.alert("Import Error", err.message || "Failed to import data.");
-      setPhase("review");
-    }
-  }, [user, matched, selected]);
+
+      const showByTvTimeId = new Map<number, ParsedShow>();
+      for (const s of parsed.shows) {
+        showByTvTimeId.set(s.tvTimeId, s);
+      }
+
+      function deriveStatus(show: ParsedShow): string {
+        if (show.isArchived) return "completed";
+        if (show.isForLater) return "plan_to_watch";
+        return "watching";
+      }
+
+      const cfMatches = selectedMatches.map((m) => {
+        if (m.mediaType === "tv") {
+          const show = m.tvTimeId !== undefined
+            ? showByTvTimeId.get(m.tvTimeId)
+            : parsed.shows.find((s) => s.name === m.tvTimeName);
+
+          const showEps = m.tvTimeId !== undefined
+            ? parsed.watchedEpisodes.filter((e) => e.tvTimeShowId === m.tvTimeId)
+            : [];
+          const rewatchEps = m.tvTimeId !== undefined
+            ? parsed.rewatchedEpisodes.filter((e) => e.tvTimeShowId === m.tvTimeId)
+            : [];
+
+          return {
+            tmdbId: m.tmdbId,
+            mediaType: m.mediaType,
+            status: show ? deriveStatus(show) : "watching",
+            watchedEpisodes: [...showEps, ...rewatchEps].map((e) => ({
+              season: e.season,
+              episode: e.episode,
+              watchedAt: e.watchedAt,
+            })),
+          };
+        } else {
+          const movie = parsed.movies.find((mv) => mv.name === m.tvTimeName);
+          return {
+            tmdbId: m.tmdbId,
+            mediaType: m.mediaType,
+            status: "completed" as const,
+            movieWatchedAt: movie?.watchedAt || null,
+            movieRuntime: movie ? Math.round(movie.runtimeSeconds / 60) : undefined,
+          };
+        }
+      });
+
+      const functions = getFunctions();
+      const importFn = httpsCallable(functions, "importMatches", { timeout: 3600000 });
+      try {
+        await importFn({ matches: cfMatches });
+      } catch (err: any) {
+        Alert.alert("Import Error", err.message || "Import failed.");
+        setPhase("review");
+        return;
+      }
+      // Mark import complete after CF succeeds
+      useAuthStore.setState({ hasCompletedImport: true });
+    }, 50);
+  }, [user, matched, selected, navigation]);
 
   // --- Render ---
   const insetTop = insets.top;
@@ -305,13 +290,31 @@ export default function ImportDataScreen({ navigation }: any) {
     );
   }
 
-  if (phase === "matching" || phase === "importing") {
+  if (phase === "matching") {
     return (
       <ProgressPhase
         insetTop={insetTop}
         statusText={statusText}
         progress={progress}
       />
+    );
+  }
+
+  if (phase === "importing") {
+    return (
+      <View style={[styles.centered, { paddingTop: insetTop }]}>
+        <Text style={styles.title}>Importing Your Data</Text>
+        <View style={{ marginTop: spacing.md }}>
+          <LoadingSpinner />
+        </View>
+        <Text style={[styles.desc, { marginTop: spacing.xl }]}>
+          This may take several minutes depending on how many shows you have.
+          Please do not close the app.
+        </Text>
+        <Text style={[styles.desc, { marginTop: spacing.sm }]}>
+          We'll notify you when it's done.
+        </Text>
+      </View>
     );
   }
 
@@ -324,6 +327,7 @@ export default function ImportDataScreen({ navigation }: any) {
         totalAmbiguous={ambiguous.length}
         candidates={disambigCandidates}
         loadingMore={loadingMore}
+        apiKey={tmdbApiKey!}
         onSelect={handleDisambiguate}
         onSkip={handleSkipDisambig}
         onBack={handleBackDisambig}
@@ -343,16 +347,6 @@ export default function ImportDataScreen({ navigation }: any) {
         parsed={parsedRef.current}
         onToggle={toggleSelected}
         onImport={handleImport}
-      />
-    );
-  }
-
-  if (phase === "done" && importStats) {
-    return (
-      <DonePhase
-        insetTop={insetTop}
-        stats={importStats}
-        onDone={() => navigation.navigate?.("Main") || navigation.goBack?.()}
       />
     );
   }

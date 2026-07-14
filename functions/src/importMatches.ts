@@ -1,20 +1,14 @@
 // functions/src/importMatches.ts
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { defineSecret } from "firebase-functions/params";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
-import { fetchShowFromTMDB, pooled } from "./tmdb";
+import { fetchShowFromTMDB, CatalogShow, pooled } from "./tmdb";
 import { addToTrackedBy } from "./utils";
-
-const tmdbApiKey = defineSecret("TMDB_API_KEY");
 
 interface ImportEpisode {
   season: number;
   episode: number;
-  episodeTitle: string;
   watchedAt: string;
-  runtime: number;
-  watchCount: number;
 }
 
 interface ImportMatch {
@@ -39,10 +33,9 @@ interface ImportStats {
 
 export const importMatches = onCall(
   {
-    secrets: [tmdbApiKey],
     maxInstances: 5,
-    timeoutSeconds: 540,
-    memory: "512MiB",
+    timeoutSeconds: 3600,
+    memory: "1GiB",
   },
   async (request): Promise<ImportStats> => {
     if (!request.auth) {
@@ -56,7 +49,11 @@ export const importMatches = onCall(
 
     const db = getFirestore();
     const uid = request.auth.uid;
-    const apiKey = tmdbApiKey.value();
+    const configDoc = await db.doc("config/app").get();
+    const apiKey = configDoc.data()?.tmdbApiKey;
+    if (!apiKey) {
+      throw new HttpsError("failed-precondition", "TMDB API key not configured");
+    }
     const stats: ImportStats = {
       showsImported: 0,
       moviesImported: 0,
@@ -64,18 +61,16 @@ export const importMatches = onCall(
       minutesImported: 0,
     };
 
-    // Fetch TMDB data for all matches concurrently, then populate catalog
-    // using the same transaction pattern as addShow (fetch outside tx,
-    // check-and-set inside tx) to avoid races when multiple users import
-    // the same show simultaneously.
+    // Fetch TMDB data for all matches and store catalog data for episode enrichment
+    const catalogMap = new Map<number, CatalogShow>();
+
     const catalogTasks = matches.map(
       (m) => async () => {
         const showId = String(m.tmdbId);
         const showRef = db.doc(`shows/${showId}`);
 
-        // Fetch TMDB data before the transaction to avoid holding it open
-        // during a slow network call.
         const showData = await fetchShowFromTMDB(apiKey, m.tmdbId, m.mediaType);
+        catalogMap.set(m.tmdbId, showData);
 
         let existedBeforeTransaction = false;
         await db.runTransaction(async (tx) => {
@@ -102,6 +97,24 @@ export const importMatches = onCall(
 
     await pooled(catalogTasks, 5);
 
+    // Helper: look up episode title + runtime from catalog data
+    function lookupEpisode(
+      tmdbId: number,
+      season: number,
+      episode: number
+    ): { title: string; runtime: number } {
+      const catalog = catalogMap.get(tmdbId);
+      if (!catalog) return { title: "", runtime: 0 };
+      const s = catalog.seasons.find((s) => s.seasonNumber === season);
+      if (!s) return { title: "", runtime: catalog.runtime || 0 };
+      const ep = s.episodes.find((e) => e.episodeNumber === episode);
+      if (!ep) return { title: "", runtime: catalog.runtime || 0 };
+      return {
+        title: ep.title || "",
+        runtime: ep.runtime || catalog.runtime || 0,
+      };
+    }
+
     // Build user tracking + watched data batch ops
     const batchOps: Array<() => Promise<void>> = [];
     let totalMinutes = 0;
@@ -110,6 +123,7 @@ export const importMatches = onCall(
     for (const match of matches) {
       const showId = String(match.tmdbId);
       const now = Timestamp.now();
+      const catalog = catalogMap.get(match.tmdbId);
 
       // Create tracking doc
       batchOps.push(async () => {
@@ -119,7 +133,6 @@ export const importMatches = onCall(
         let lastWatchedAt = now;
 
         if (match.mediaType === "tv" && match.watchedEpisodes?.length) {
-          // Find the latest watched episode by season then episode number
           const sorted = [...match.watchedEpisodes].sort((a, b) => {
             if (a.season !== b.season) return b.season - a.season;
             return b.episode - a.episode;
@@ -132,16 +145,14 @@ export const importMatches = onCall(
           };
 
           // Check if latest episode is last in its season — advance to next season
-          const showDoc = await db.doc(`shows/${showId}`).get();
-          const showData = showDoc.data();
-          if (showData && showData.seasons) {
-            const currentSeason = showData.seasons.find(
-              (s: any) => s.seasonNumber === latest.season
+          if (catalog && catalog.seasons) {
+            const currentSeason = catalog.seasons.find(
+              (s) => s.seasonNumber === latest.season
             );
             if (currentSeason && latest.episode >= currentSeason.episodeCount) {
               const nextSeasonNum = latest.season + 1;
-              const nextSeason = showData.seasons.find(
-                (s: any) => s.seasonNumber === nextSeasonNum
+              const nextSeason = catalog.seasons.find(
+                (s) => s.seasonNumber === nextSeasonNum
               );
               if (nextSeason) {
                 nextEpisode = { season: nextSeasonNum, episode: 1 };
@@ -176,12 +187,11 @@ export const importMatches = onCall(
         });
       });
 
-      // Count any TV match as a show imported
       if (match.mediaType === "tv") {
         stats.showsImported++;
       }
 
-      // Create watched episode docs in chunks of 400 (well under the 500-op limit)
+      // Create watched episode docs — enrich with TMDB title + runtime
       if (match.mediaType === "tv" && match.watchedEpisodes) {
         const eps = match.watchedEpisodes;
         for (let i = 0; i < eps.length; i += 400) {
@@ -189,28 +199,33 @@ export const importMatches = onCall(
           batchOps.push(async () => {
             const batch = db.batch();
             for (const ep of chunk) {
+              const info = lookupEpisode(match.tmdbId, ep.season, ep.episode);
               const epId = `${match.tmdbId}_S${String(ep.season).padStart(2, "0")}E${String(ep.episode).padStart(2, "0")}`;
               const epRef = db.doc(`users/${uid}/watchedEpisodes/${epId}`);
               batch.set(epRef, {
                 tmdbShowId: match.tmdbId,
                 season: ep.season,
                 episode: ep.episode,
-                episodeTitle: ep.episodeTitle,
-                watchCount: ep.watchCount || 1,
+                episodeTitle: info.title,
+                watchCount: 1,
                 watchedAt: Timestamp.fromDate(new Date(ep.watchedAt)),
                 lastWatchedAt: Timestamp.fromDate(new Date(ep.watchedAt)),
-                runtime: ep.runtime || 0,
+                runtime: info.runtime,
               });
             }
             await batch.commit();
           });
           totalEpisodes += chunk.length;
-          totalMinutes += chunk.reduce((s, e) => s + (e.runtime || 0), 0);
+          totalMinutes += chunk.reduce((s, e) => {
+            const info = lookupEpisode(match.tmdbId, e.season, e.episode);
+            return s + info.runtime;
+          }, 0);
         }
       }
 
       // Create watched movie doc
       if (match.mediaType === "movie") {
+        const movieRuntime = match.movieRuntime || catalog?.runtime || 0;
         batchOps.push(async () => {
           const movieRef = db.doc(`users/${uid}/watchedMovies/${showId}`);
           await movieRef.set({
@@ -222,11 +237,11 @@ export const importMatches = onCall(
             lastWatchedAt: match.movieWatchedAt
               ? Timestamp.fromDate(new Date(match.movieWatchedAt))
               : now,
-            runtime: match.movieRuntime || 0,
+            runtime: movieRuntime,
           });
         });
         stats.moviesImported++;
-        totalMinutes += match.movieRuntime || 0;
+        totalMinutes += movieRuntime;
       }
     }
 
