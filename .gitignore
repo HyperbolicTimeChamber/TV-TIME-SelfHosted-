@@ -33,3 +33,4 @@ GoogleService-Info.plist
 Thumbs.db
 
 .superpowersapp/firebase-debug.log
+app/firebase-debug.log
