@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
 	View,
 	Text,
@@ -38,6 +38,11 @@ export default function DisambiguatePhase({
 	onLoadMore,
 }: Props) {
 	const [showInfo, setShowInfo] = useState(disambigIndex === 0);
+	const listRef = useRef<any>(null);
+
+	useEffect(() => {
+		listRef.current?.scrollToOffset({ offset: 0, animated: false });
+	}, [disambigIndex]);
 
 	return (
 		<View style={[styles.container, { paddingTop: insetTop + spacing.lg }]}>
@@ -99,6 +104,7 @@ export default function DisambiguatePhase({
 
 			{/* List */}
 			<LegendList
+				ref={listRef}
 				data={candidates}
 				keyExtractor={(item) => String(item.tmdbId)}
 				renderItem={({ item }) => (

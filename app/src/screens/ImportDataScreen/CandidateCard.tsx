@@ -46,8 +46,11 @@ export default function CandidateCard({ item, onPress }: Props) {
         </View>
         <Text style={styles.candidateYear}>
           {item.year || "N/A"}
+          {item.mediaType === "tv" && item.totalSeasons
+            ? ` · ${item.totalSeasons} season${item.totalSeasons !== 1 ? "s" : ""}`
+            : ""}
           {item.mediaType === "tv" && item.totalEpisodes
-            ? ` · ${item.totalEpisodes} episodes`
+            ? ` · ${item.totalEpisodes} ep${item.totalEpisodes !== 1 ? "s" : ""}`
             : ""}
         </Text>
         <Text

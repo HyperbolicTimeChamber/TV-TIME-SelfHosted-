@@ -148,6 +148,7 @@ export interface TMDBMatch {
   year: string;
   overview: string;
   totalEpisodes: number | null;
+  totalSeasons: number | null;
 }
 
 export interface AmbiguousMatch {
@@ -194,6 +195,7 @@ function mapTMDBResults(
       year: (mt === "tv" ? r.first_air_date : r.release_date || "").slice(0, 4),
       overview: (r.overview || "").slice(0, 120),
       totalEpisodes: r.number_of_episodes ?? null,
+      totalSeasons: r.number_of_seasons ?? null,
     };
   });
 }
