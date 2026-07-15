@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Alert, Platform } from "react-native";
 import SpInAppUpdates, { IAUUpdateKind } from "sp-react-native-in-app-updates";
 import { useAuthStore } from "../stores/authStore";
@@ -22,24 +22,30 @@ const inAppUpdates = new SpInAppUpdates(false);
 export function useForceUpdate() {
   const minVersion = useAuthStore((s) => s.minVersion);
   const user = useAuthStore((s) => s.user);
+  const hasChecked = useRef(false);
 
   useEffect(() => {
-    if (Platform.OS !== "android" || !user) return;
+    if (Platform.OS !== "android" || !user || hasChecked.current) return;
 
     const checkUpdate = async () => {
       try {
         const result = await inAppUpdates.checkNeedsUpdate();
-        if (!result.shouldUpdate) return;
+        if (!result.shouldUpdate) {
+          hasChecked.current = true;
+          return;
+        }
 
         const forceImmediate =
           minVersion != null && compareVersions(appVersion, minVersion) < 0;
 
-        inAppUpdates.startUpdate({
+        await inAppUpdates.startUpdate({
           updateType: forceImmediate
             ? IAUUpdateKind.IMMEDIATE
             : IAUUpdateKind.FLEXIBLE,
         });
+        hasChecked.current = true;
       } catch (error) {
+        hasChecked.current = true;
         // Play Store not available (sideloaded) or other error
         if (minVersion != null && compareVersions(appVersion, minVersion) < 0) {
           Alert.alert(
