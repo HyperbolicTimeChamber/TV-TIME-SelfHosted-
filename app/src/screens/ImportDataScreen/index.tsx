@@ -9,6 +9,7 @@ import {
   getDocs,
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
+import { getMessaging, requestPermission } from "@react-native-firebase/messaging";
 import { useAuthStore } from "../../stores/authStore";
 import {
   parseGdprZip,
@@ -264,6 +265,13 @@ export default function ImportDataScreen({ navigation }: any) {
         }
       });
 
+      // Request notification permission before CF handoff
+      try {
+        await requestPermission(getMessaging());
+      } catch {
+        // User denied — import still works, just no notification
+      }
+
       const functions = getFunctions();
       const importFn = httpsCallable(functions, "importMatches", { timeout: 3600000 });
       try {
@@ -310,10 +318,10 @@ export default function ImportDataScreen({ navigation }: any) {
         </View>
         <Text style={[styles.desc, { marginTop: spacing.xl }]}>
           This may take several minutes depending on how many shows you have.
-          Please do not close the app.
+          You can leave the app now.
         </Text>
         <Text style={[styles.desc, { marginTop: spacing.sm }]}>
-          We'll notify you when it's done.
+          You'll be notified once the sync is complete.
         </Text>
       </View>
     );
