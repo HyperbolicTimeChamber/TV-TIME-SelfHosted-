@@ -12,6 +12,7 @@
       "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
+      "versionCode": 1,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0D0D0D",
