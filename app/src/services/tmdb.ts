@@ -55,6 +55,33 @@ export async function getSeasonDetails(
   return res.data as { episodes: TMDBEpisode[]; name: string; season_number: number };
 }
 
+export async function discoverTVByAirDate(
+  apiKey: string,
+  startDate: string,
+  endDate: string
+): Promise<number[]> {
+  const ids: number[] = [];
+  let page = 1;
+  let totalPages = 1;
+
+  while (page <= totalPages && page <= 5) {
+    const res = await tmdb(apiKey).get("/discover/tv", {
+      params: {
+        "air_date.gte": startDate,
+        "air_date.lte": endDate,
+        page,
+      },
+    });
+    for (const show of res.data.results) {
+      ids.push(show.id);
+    }
+    totalPages = res.data.total_pages;
+    page++;
+  }
+
+  return ids;
+}
+
 export async function pooled<T>(tasks: (() => Promise<T>)[], concurrency = 5): Promise<T[]> {
   const results: T[] = [];
   let i = 0;

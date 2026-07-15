@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Modal,
+  ActivityIndicator,
 } from "react-native";
 import { LegendList } from "@legendapp/list/react-native";
 import { Calendar, DateData } from "react-native-calendars";
@@ -12,7 +13,6 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Image } from "expo-image";
 import { useAuthStore } from "../stores/authStore";
-import { useWatchlist } from "../hooks/useWatchlist";
 import { useCalendarEpisodes } from "../hooks/useCalendarEpisodes";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { UpcomingEpisode, CalendarStackParamList } from "../types";
@@ -28,7 +28,6 @@ const YEARS = Array.from(
 
 export default function CalendarScreen() {
   const user = useAuthStore((s) => s.user);
-  const { items: watchlist } = useWatchlist(user?.uid);
   const navigation = useNavigation<NavProp>();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [yearModalVisible, setYearModalVisible] = useState(false);
@@ -38,22 +37,12 @@ export default function CalendarScreen() {
   const [currentMonth, setCurrentMonth] = useState(now.getMonth() + 1);
   const yearListRef = useRef<any>(null);
 
-  const tvShows = useMemo(
-    () =>
-      watchlist.filter(
-        (w) =>
-          w.mediaType === "tv" &&
-          (w.status === "watching" || w.status === "rewatching")
-      ),
-    [watchlist]
-  );
-
-  const { episodes, loadMonthEpisodes } = useCalendarEpisodes(tvShows);
+  const { episodes, loading: calendarLoading, loadMonthEpisodes } = useCalendarEpisodes(user?.uid);
 
   // Load current month's episodes on mount
   useEffect(() => {
     loadMonthEpisodes(currentYear, currentMonth);
-  }, [tvShows.length]);
+  }, [user?.uid]);
 
   const markedDates = useMemo(() => {
     const marks: Record<
@@ -190,6 +179,13 @@ export default function CalendarScreen() {
         }}
       />
 
+      {calendarLoading && (
+        <View style={styles.loaderRow}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={styles.loaderText}>Loading episodes...</Text>
+        </View>
+      )}
+
       {selectedDate && (
         <View style={styles.episodeList}>
           <Text style={styles.dateHeader}>
@@ -284,6 +280,17 @@ const styles = StyleSheet.create({
   noEps: {
     ...typography.caption,
     paddingHorizontal: spacing.lg,
+  },
+  loaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+  },
+  loaderText: {
+    ...typography.caption,
+    color: colors.textMuted,
   },
   episodeRow: {
     flexDirection: "row",
