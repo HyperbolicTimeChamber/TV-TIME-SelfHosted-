@@ -38,7 +38,7 @@ export default function DisambiguatePhase({
 	onSkip,
 	onBack,
 	onLoadMore,
-}: Props) {
+}: Readonly<Props>) {
 	const [showInfo, setShowInfo] = useState(disambigIndex === 0);
 	const listRef = useRef<any>(null);
 
@@ -82,8 +82,7 @@ export default function DisambiguatePhase({
 				</Text>
 				<TouchableOpacity
 					onPress={() => setShowInfo(true)}
-					style={{ flexShrink: 0 }}
-				>
+					style={{ flexShrink: 0 }}>
 					<Text style={styles.infoButton}>?</Text>
 				</TouchableOpacity>
 			</View>
@@ -110,7 +109,11 @@ export default function DisambiguatePhase({
 				data={candidates}
 				keyExtractor={(item) => String(item.tmdbId)}
 				renderItem={({ item }) => (
-					<CandidateCard item={item} apiKey={apiKey} onPress={() => onSelect(item)} />
+					<CandidateCard
+						item={item}
+						apiKey={apiKey}
+						onPress={() => onSelect(item)}
+					/>
 				)}
 				onEndReached={onLoadMore}
 				onEndReachedThreshold={0.5}
