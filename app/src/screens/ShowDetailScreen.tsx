@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -10,8 +10,12 @@ import { Image } from "expo-image";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { useRoute } from "@react-navigation/native";
 import { RouteProp } from "@react-navigation/native";
+import {
+  getFirestore,
+  doc,
+  onSnapshot,
+} from "@react-native-firebase/firestore";
 import { useShowDetails } from "../hooks/useShowDetails";
-import { useWatchlist } from "../hooks/useWatchlist";
 import { useAuthStore } from "../stores/authStore";
 import {
   addToTracking,
@@ -31,12 +35,22 @@ export default function ShowDetailScreen() {
   const { tmdbId, mediaType } = route.params;
   const user = useAuthStore((s) => s.user);
   const { data: show, isLoading } = useShowDetails(tmdbId, mediaType);
-  const { items: watchlist } = useWatchlist(user?.uid);
+  const [watchlistItem, setWatchlistItem] = useState<any>(null);
+  const [trackingLoading, setTrackingLoading] = useState(true);
 
-  const watchlistItem = useMemo(
-    () => watchlist.find((w) => w.tmdbId === tmdbId),
-    [watchlist, tmdbId]
-  );
+  useEffect(() => {
+    if (!user?.uid) {
+      setTrackingLoading(false);
+      return;
+    }
+    const db = getFirestore();
+    const trackingDoc = doc(db, "users", user.uid, "tracking", String(tmdbId));
+    const unsubscribe = onSnapshot(trackingDoc, (snap) => {
+      setWatchlistItem(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+      setTrackingLoading(false);
+    });
+    return unsubscribe;
+  }, [user?.uid, tmdbId]);
 
   const title = show?.name || show?.title || "";
   const year = (show?.first_air_date || show?.release_date || "").substring(
@@ -72,7 +86,7 @@ export default function ShowDetailScreen() {
   }, [user?.uid, show, tmdbId, watchlistItem]);
 
 
-  if (isLoading) {
+  if (isLoading || trackingLoading) {
     return (
       <View style={styles.center}>
         <LoadingSpinner />

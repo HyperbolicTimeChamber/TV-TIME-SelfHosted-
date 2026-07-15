@@ -268,7 +268,7 @@ export default function WatchlistTab() {
           tintColor={colors.primary}
           colors={[colors.primary]}
           progressBackgroundColor={colors.surface}
-          title="Loading older episodes..."
+          title="Pull to fetch older"
           titleColor={colors.textMuted}
         />
       }

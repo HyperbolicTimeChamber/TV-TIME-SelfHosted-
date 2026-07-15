@@ -14,7 +14,7 @@ import {
 } from "@react-native-firebase/firestore";
 import { TrackingItem, CatalogShow } from "../types";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 50;
 
 export interface EnrichedTrackingItem extends TrackingItem {
   title: string;

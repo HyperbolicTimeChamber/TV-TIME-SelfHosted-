@@ -164,21 +164,29 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
       <Animated.View
         style={[
           styles.revealCard,
+          styles.revealLeft,
           { height, backgroundColor: colors.watchedGreen },
           leftRevealOpacity,
         ]}
       >
-        <Text style={styles.revealText}>✓ Watched</Text>
+        <View style={styles.revealIcon}>
+          <Text style={styles.revealIconText}>✓</Text>
+        </View>
+        <Text style={styles.revealText}>Watched</Text>
       </Animated.View>
 
       <Animated.View
         style={[
           styles.revealCard,
+          styles.revealRight,
           { height, backgroundColor: colors.stopBlue },
           rightRevealOpacity,
         ]}
       >
-        <Text style={styles.revealText}>Stop Watching</Text>
+        <Text style={styles.revealText}>Stop</Text>
+        <View style={styles.revealIcon}>
+          <Text style={styles.revealIconText}>✕</Text>
+        </View>
       </Animated.View>
 
       <GestureDetector gesture={panGesture}>
@@ -206,9 +214,29 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
     gap: spacing.sm,
+    paddingHorizontal: spacing.xl,
     zIndex: 0,
+  },
+  revealLeft: {
+    justifyContent: "flex-start",
+  },
+  revealRight: {
+    justifyContent: "flex-end",
+  },
+  revealIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: colors.text,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  revealIconText: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: colors.text,
   },
   revealText: {
     ...typography.subtitle,
