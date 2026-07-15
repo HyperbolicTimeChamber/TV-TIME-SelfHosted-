@@ -15,6 +15,7 @@ import {
   setDoc,
 } from "@react-native-firebase/firestore";
 import { useAuthStore } from "./src/stores/authStore";
+import { useForceUpdate } from "./src/hooks/useForceUpdate";
 import { useUiStore } from "./src/stores/uiStore";
 import LoginScreen from "./src/screens/LoginScreen";
 import ImportDataScreen from "./src/screens/ImportDataScreen";
@@ -46,6 +47,7 @@ async function registerFCMToken(userId: string) {
 }
 
 function AppContent() {
+  useForceUpdate();
   const { user, loading, setUser, appTmdbApiKey, appTmdbApiKeyLoading, hasCompletedImport } =
     useAuthStore();
   const setConnected = useUiStore((s) => s.setConnected);

@@ -21,6 +21,7 @@ interface AuthState {
   appTmdbApiKey: string | null;
   appTmdbApiKeyLoading: boolean;
   hasCompletedImport: boolean;
+  minVersion: string | null;
   setUser: (user: User | null) => void;
   setLoading: (loading: boolean) => void;
   loadAppConfig: () => Promise<void>;
@@ -37,6 +38,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   appTmdbApiKey: null,
   appTmdbApiKeyLoading: true,
   hasCompletedImport: false,
+  minVersion: null,
 
   setUser: (user) => {
     set({ user, loading: false });
@@ -58,7 +60,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       const db = getFirestore();
       const configDoc = await getDoc(doc(db, "config", "app"));
       if (configDoc.exists()) {
-        set({ appTmdbApiKey: configDoc.data()?.tmdbApiKey ?? null });
+        const data = configDoc.data();
+        set({
+          appTmdbApiKey: data?.tmdbApiKey ?? null,
+          minVersion: data?.minVersion ?? null,
+        });
       }
     } catch (error) {
       console.error("Failed to load app config:", error);
@@ -137,6 +143,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         appTmdbApiKey: null,
         appTmdbApiKeyLoading: true,
         hasCompletedImport: false,
+        minVersion: null,
       });
     } catch (error) {
       console.error("Sign out error:", error);
