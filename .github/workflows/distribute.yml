@@ -35,7 +35,7 @@ jobs:
 
       # ── Google Services ──
       - name: Decode google-services.json
-        run: echo "$GOOGLE_SERVICES_JSON" > app/google-services.json
+        run: printenv GOOGLE_SERVICES_JSON > app/google-services.json
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
 
@@ -71,7 +71,7 @@ jobs:
 
       # ── Firebase Service Account ──
       - name: Write Firebase service account JSON
-        run: echo "$FIREBASE_SERVICE_ACCOUNT_JSON" > /tmp/firebase-sa.json
+        run: printenv FIREBASE_SERVICE_ACCOUNT_JSON > /tmp/firebase-sa.json
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
 
