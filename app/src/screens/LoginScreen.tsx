@@ -178,7 +178,7 @@ export default function LoginScreen() {
           disabled={busy}
         >
           {googleLoading ? (
-            <ActivityIndicator color="#333" />
+            <ActivityIndicator color={colors.text} />
           ) : (
             <View style={styles.googleButtonInner}>
               <GoogleLogo size={20} />
@@ -270,10 +270,12 @@ const styles = StyleSheet.create({
   googleButton: {
     width: "100%",
     maxWidth: 320,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.surface,
     paddingVertical: spacing.lg,
     borderRadius: 8,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   googleButtonInner: {
     flexDirection: "row",
@@ -283,7 +285,7 @@ const styles = StyleSheet.create({
   googleButtonText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#333333",
+    color: colors.text,
   },
   error: {
     ...typography.body,

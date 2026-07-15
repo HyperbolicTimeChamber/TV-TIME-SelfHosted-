@@ -10,7 +10,7 @@ interface RemoveShowRequest {
 export const removeShow = onCall(
   {
     maxInstances: 5,
-    timeoutSeconds: 30,
+    timeoutSeconds: 60,
     memory: "256MiB",
   },
   async (request): Promise<{ success: boolean }> => {

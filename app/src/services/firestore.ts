@@ -8,6 +8,7 @@ import {
   writeBatch,
   serverTimestamp,
   increment,
+  Timestamp,
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { WatchStatus, MediaType, CatalogShow } from "../types";
@@ -74,9 +75,9 @@ export async function addToTracking(
 
   // Update user stats
   const batch = writeBatch(db);
-  batch.update(userRef(userId), {
-    "stats.showsTracking": increment(1),
-  });
+  batch.set(userRef(userId), {
+    stats: { showsTracking: increment(1) },
+  }, { merge: true });
   await batch.commit();
 }
 
@@ -134,14 +135,17 @@ export async function markEpisodeWatched(
     });
   }
 
-  batch.update(userRef(userId), {
-    "stats.episodesWatched": increment(1),
-    "stats.totalMinutes": increment(runtime),
-  });
+  batch.set(userRef(userId), {
+    stats: {
+      episodesWatched: increment(1),
+      totalMinutes: increment(runtime),
+    },
+  }, { merge: true });
 
+  const now = Timestamp.now();
   const trackingUpdate: Record<string, unknown> = {
-    lastWatchedAt: serverTimestamp(),
-    priorityDate: serverTimestamp(),
+    lastWatchedAt: now,
+    priorityDate: now,
     nextEpisode,
   };
   if (isShowComplete) {
@@ -164,10 +168,12 @@ export async function unmarkEpisodeWatched(
 
   const batch = writeBatch(db);
   batch.delete(epRef);
-  batch.update(userRef(userId), {
-    "stats.episodesWatched": increment(-1),
-    "stats.totalMinutes": increment(-runtime),
-  });
+  batch.set(userRef(userId), {
+    stats: {
+      episodesWatched: increment(-1),
+      totalMinutes: increment(-runtime),
+    },
+  }, { merge: true });
   await batch.commit();
 }
 
@@ -220,10 +226,12 @@ export async function markMovieWatched(
     priorityDate: now,
   });
 
-  batch.update(userRef(userId), {
-    "stats.moviesWatched": increment(1),
-    "stats.totalMinutes": increment(Math.round(runtime / 60)),
-  });
+  batch.set(userRef(userId), {
+    stats: {
+      moviesWatched: increment(1),
+      totalMinutes: increment(Math.round(runtime / 60)),
+    },
+  }, { merge: true });
 
   await batch.commit();
 }

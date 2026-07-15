@@ -256,13 +256,18 @@ export const importMatches = onCall(
 
     // Update user stats and mark import complete atomically
     const userRef = db.doc(`users/${uid}`);
-    await userRef.update({
-      hasCompletedImport: true,
-      "stats.showsTracking": FieldValue.increment(stats.showsImported),
-      "stats.episodesWatched": FieldValue.increment(stats.episodesImported),
-      "stats.moviesWatched": FieldValue.increment(stats.moviesImported),
-      "stats.totalMinutes": FieldValue.increment(stats.minutesImported),
-    });
+    await userRef.set(
+      {
+        hasCompletedImport: true,
+        stats: {
+          showsTracking: FieldValue.increment(stats.showsImported),
+          episodesWatched: FieldValue.increment(stats.episodesImported),
+          moviesWatched: FieldValue.increment(stats.moviesImported),
+          totalMinutes: FieldValue.increment(stats.minutesImported),
+        },
+      },
+      { merge: true }
+    );
 
     // Send FCM push notification — non-fatal if it fails
     try {

@@ -3,68 +3,55 @@ import { EnrichedTrackingItem } from "./useWatchlist";
 
 /**
  * Determines if a show should be visible in the "Currently Watching" list.
+ * Uses nextEpisode from tracking doc (not watched episode counts) to determine
+ * if there are unwatched aired episodes.
  *
  * Visible when:
- * - status is watching/rewatching/plan_to_watch
- * - AND has unwatched episodes that have already aired
+ * - status is active AND nextEpisode has aired (unwatched content exists)
+ * - plan_to_watch (always visible)
  *
  * Hidden when:
- * - All aired eps watched + next ep not yet aired
- * - All aired eps watched + show ended (no more eps)
- * - status is completed
+ * - status is completed/paused_rewatch
+ * - nextEpisode is null (fully caught up / show ended)
+ * - nextEpisode hasn't aired yet (caught up, waiting for new ep)
  */
-export function isShowVisible(
-  item: EnrichedTrackingItem,
-  watchedEpisodeCount: number
-): boolean {
+export function isShowVisible(item: EnrichedTrackingItem): boolean {
   const activeStatuses = ["watching", "rewatching", "plan_to_watch"];
   if (!activeStatuses.includes(item.status)) return false;
 
-  // plan_to_watch with no watched eps — always visible
-  if (item.status === "plan_to_watch" && watchedEpisodeCount === 0) {
-    return true;
-  }
+  // plan_to_watch — always visible
+  if (item.status === "plan_to_watch") return true;
 
   const catalog = item.catalogShow;
+
+  // Movies — visible if active
   if (!catalog || catalog.mediaType === "movie") return true;
 
-  // Count aired episodes
+  // No nextEpisode means fully caught up or completed
+  const nextEp = item.nextEpisode;
+  if (!nextEp) return false;
+
+  // Check if nextEpisode has aired
   const today = new Date().toISOString().split("T")[0];
-  let airedEpCount = 0;
-  for (const season of catalog.seasons) {
-    for (const ep of season.episodes) {
-      if (ep.airDate && ep.airDate <= today) {
-        airedEpCount++;
-      }
-    }
-  }
-
-  // If all aired eps are watched, check if there's upcoming content
-  if (watchedEpisodeCount >= airedEpCount) {
-    // Check if any future episode exists
-    let hasFutureEp = false;
-    for (const season of catalog.seasons) {
-      for (const ep of season.episodes) {
-        if (ep.airDate && ep.airDate > today) {
-          hasFutureEp = true;
-          break;
-        }
-      }
-      if (hasFutureEp) break;
-    }
-
-    // All caught up — hide regardless of future eps
+  const season = catalog.seasons?.find((s) => s.seasonNumber === nextEp.season);
+  if (!season) {
+    // Season not in catalog — might not exist yet
     return false;
   }
 
-  // Has unwatched aired episodes — visible
-  return true;
+  const episode = season.episodes?.find((e) => e.episodeNumber === nextEp.episode);
+  if (!episode) {
+    // Episode not in catalog — might not exist yet
+    return false;
+  }
+
+  // Visible if the next episode has already aired
+  if (!episode.airDate) return false; // No air date = not aired yet
+  return episode.airDate <= today;
 }
 
 /**
  * Sort by priorityDate descending.
- * Items are already sorted by Firestore query if using orderBy,
- * but this handles client-side re-sort after visibility filtering.
  */
 export function sortByPriority(
   items: EnrichedTrackingItem[]

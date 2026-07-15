@@ -39,11 +39,10 @@ export default memo(function ShowCard({
   onPress,
   onCheckmark,
 }: Props) {
-  const episodeLabel = item.nextEpisode
-    ? `S${String(item.nextEpisode.season).padStart(2, "0")}E${String(item.nextEpisode.episode).padStart(2, "0")}`
-    : item.mediaType === "movie"
-      ? "Movie"
-      : "";
+  const ep = item.nextEpisode ?? (item.mediaType === "tv" ? { season: 1, episode: 1 } : null);
+  const episodeLabel = ep
+    ? `S${String(ep.season).padStart(2, "0")}E${String(ep.episode).padStart(2, "0")}`
+    : "Movie";
 
   const remainingLabel = remainingEpisodes != null && remainingEpisodes > 0
     ? `+${remainingEpisodes} ep${remainingEpisodes > 1 ? "s" : ""} left`

@@ -3,8 +3,8 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
 } from "react-native";
+import { LegendList } from "@legendapp/list/react-native";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -167,7 +167,7 @@ export default function UpcomingTab() {
     [handleMarkWatched, handleStopWatching, navigation]
   );
 
-  const listRef = useRef<FlatList>(null);
+  const listRef = useRef<any>(null);
 
   const renderFooter = useCallback(() => (
     <View style={styles.loaderRow}>
@@ -192,7 +192,7 @@ export default function UpcomingTab() {
   }
 
   return (
-    <FlatList
+    <LegendList
       ref={listRef}
       data={listData}
       keyExtractor={(item) =>
@@ -202,12 +202,7 @@ export default function UpcomingTab() {
       }
       renderItem={renderItem}
       extraData={watchedEps.length}
-      onEndReached={() => {}}
-      onEndReachedThreshold={0.5}
       ListFooterComponent={renderFooter}
-      maxToRenderPerBatch={10}
-      windowSize={5}
-      initialNumToRender={20}
       style={styles.list}
       contentContainerStyle={styles.listContent}
     />

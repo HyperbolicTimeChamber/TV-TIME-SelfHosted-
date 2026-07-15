@@ -50,6 +50,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   setLoading: (loading) => set({ loading }),
 
   loadAppConfig: async () => {
+    // Timeout fallback — don't block app forever
+    const timeout = setTimeout(() => {
+      set({ appTmdbApiKeyLoading: false });
+    }, 10000);
     try {
       const db = getFirestore();
       const configDoc = await getDoc(doc(db, "config", "app"));
@@ -59,6 +63,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (error) {
       console.error("Failed to load app config:", error);
     } finally {
+      clearTimeout(timeout);
       set({ appTmdbApiKeyLoading: false });
     }
   },

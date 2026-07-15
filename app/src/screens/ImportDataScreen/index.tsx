@@ -79,8 +79,9 @@ export default function ImportDataScreen({ navigation }: any) {
       setPhase("matching");
       setStatusText("Extracting data...");
 
-      const uri = result.assets[0].uri;
-      const parsed = await parseGdprZip(uri);
+      const asset = result.assets[0];
+      console.log("Import file:", asset.name, "size:", asset.size, "uri:", asset.uri);
+      const parsed = await parseGdprZip(asset.uri);
       parsedRef.current = parsed;
 
       if (user) {

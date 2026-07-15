@@ -4,9 +4,9 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  FlatList,
   Modal,
 } from "react-native";
+import { LegendList } from "@legendapp/list/react-native";
 import { Calendar, DateData } from "react-native-calendars";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -36,7 +36,7 @@ export default function CalendarScreen() {
   const now = new Date();
   const [currentYear, setCurrentYear] = useState(now.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(now.getMonth() + 1);
-  const yearListRef = useRef<FlatList>(null);
+  const yearListRef = useRef<any>(null);
 
   const tvShows = useMemo(
     () =>
@@ -202,7 +202,7 @@ export default function CalendarScreen() {
           {selectedEpisodes.length === 0 ? (
             <Text style={styles.noEps}>No episodes on this day</Text>
           ) : (
-            <FlatList
+            <LegendList
               data={selectedEpisodes}
               keyExtractor={(item) =>
                 `${item.tmdbShowId}_${item.season}_${item.episode}`
@@ -227,7 +227,7 @@ export default function CalendarScreen() {
         >
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Select Year</Text>
-            <FlatList
+            <LegendList
               ref={yearListRef}
               data={YEARS}
               keyExtractor={(item) => String(item)}
@@ -249,12 +249,6 @@ export default function CalendarScreen() {
                   </Text>
                 </TouchableOpacity>
               )}
-              getItemLayout={(_, index) => ({
-                length: 52,
-                offset: 52 * index,
-                index,
-              })}
-              onScrollToIndexFailed={() => {}}
               showsVerticalScrollIndicator={false}
               style={styles.yearList}
               snapToInterval={52}

@@ -51,11 +51,20 @@ function AppContent() {
   const setConnected = useUiStore((s) => s.setConnected);
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(getAuth(), (firebaseUser) => {
-      setUser(firebaseUser);
+    const unsubscribeAuth = onAuthStateChanged(getAuth(), async (firebaseUser) => {
       if (firebaseUser) {
+        // Verify user still exists by forcing token refresh
+        try {
+          await firebaseUser.reload();
+        } catch {
+          // User deleted server-side — sign out locally
+          await getAuth().signOut();
+          setUser(null);
+          return;
+        }
         registerFCMToken(firebaseUser.uid);
       }
+      setUser(firebaseUser);
     });
     return unsubscribeAuth;
   }, [setUser]);
@@ -88,25 +97,19 @@ function AppContent() {
   }
 
   if (!hasCompletedImport) {
+    const markImportDone = () => {
+      useAuthStore.setState({ hasCompletedImport: true });
+      const uid = useAuthStore.getState().user?.uid;
+      if (uid) {
+        const db = getFirestore();
+        setDoc(doc(db, "users", uid), { hasCompletedImport: true }, { merge: true }).catch(() => {});
+      }
+    };
     return (
       <ImportDataScreen
         navigation={{
-          navigate: () => {
-            useAuthStore.setState({ hasCompletedImport: true });
-            const uid = useAuthStore.getState().user?.uid;
-            if (uid) {
-              const db = getFirestore();
-              updateDoc(doc(db, "users", uid), { hasCompletedImport: true });
-            }
-          },
-          goBack: () => {
-            useAuthStore.setState({ hasCompletedImport: true });
-            const uid = useAuthStore.getState().user?.uid;
-            if (uid) {
-              const db = getFirestore();
-              updateDoc(doc(db, "users", uid), { hasCompletedImport: true });
-            }
-          },
+          navigate: markImportDone,
+          goBack: markImportDone,
         }}
       />
     );

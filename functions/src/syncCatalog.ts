@@ -12,7 +12,7 @@ export const syncCatalog = onSchedule(
     schedule: "0 3 * * 0", // Every Sunday 3:00 AM UTC
     secrets: [tmdbApiKey],
     maxInstances: 1,
-    timeoutSeconds: 540,
+    timeoutSeconds: 1800,
     memory: "512MiB",
     retryCount: 1,
   },
