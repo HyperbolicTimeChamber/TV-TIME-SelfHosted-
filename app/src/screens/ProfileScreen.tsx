@@ -19,6 +19,7 @@ import { ProfileStackParamList } from "../types";
 export default function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
   const user = useAuthStore((s) => s.user);
+  const hasCompletedImport = useAuthStore((s) => s.hasCompletedImport);
   const signOut = useAuthStore((s) => s.signOut);
   const { stats } = useUserStats(user?.uid);
   const { items: watchlist } = useWatchlist(user?.uid);
@@ -106,7 +107,7 @@ export default function ProfileScreen() {
         style={styles.importButton}
         onPress={() => navigation.navigate("ImportData")}
       >
-        <Text style={styles.importText}>Import TV Time Data</Text>
+        <Text style={styles.importText}>{hasCompletedImport ? "Re-sync TV Time Data" : "Import TV Time Data"}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
