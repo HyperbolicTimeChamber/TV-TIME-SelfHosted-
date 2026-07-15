@@ -82,6 +82,12 @@ jobs:
         run: npm ci
         working-directory: app
 
+      # ── Google Services ──
+      - name: Decode google-services.json
+        run: echo "$GOOGLE_SERVICES_JSON" > app/google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+
       # ── Expo Prebuild ──
       - name: Expo prebuild
         run: npx expo prebuild --platform android --clean
@@ -108,14 +114,15 @@ jobs:
 
       # ── Keystore ──
       - name: Decode keystore
-        run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > /tmp/release.keystore
+        run: echo "$KEYSTORE_BASE64" | base64 --decode > /tmp/release.keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
       # ── Service Account ──
       - name: Write Play service account JSON
-        run: echo '${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}' > /tmp/play-service-account.json
+        run: echo "$PLAY_SERVICE_ACCOUNT_JSON" > /tmp/play-service-account.json
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
 
       # ── Build + Deploy ──
       - name: Fastlane deploy
@@ -132,18 +139,26 @@ jobs:
       - name: Update Firestore minVersion
         if: github.event_name == 'push' && contains(github.event.head_commit.message, '[force-update]')
         run: |
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > /tmp/firebase-sa.json
+          NEW_VERSION="${{ steps.version.outputs.new_version }}"
+          if [ -z "$NEW_VERSION" ]; then
+            echo "ERROR: new_version is empty, skipping minVersion update"
+            exit 1
+          fi
+          echo "$FIREBASE_SERVICE_ACCOUNT_JSON" > /tmp/firebase-sa.json
           export GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa.json
-          npm install -g firebase-admin
+          npm install -g firebase-admin@13
           node -e "
             const admin = require('firebase-admin');
             admin.initializeApp();
             admin.firestore()
               .doc('config/app')
-              .update({ minVersion: '${{ steps.version.outputs.new_version }}' })
-              .then(() => { console.log('minVersion updated'); process.exit(0); })
+              .update({ minVersion: process.env.NEW_VERSION })
+              .then(() => { console.log('minVersion updated to ' + process.env.NEW_VERSION); process.exit(0); })
               .catch(e => { console.error(e); process.exit(1); });
           "
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          NEW_VERSION: ${{ steps.version.outputs.new_version }}
 
       # ── PR Comment ──
       - name: Comment on PR
