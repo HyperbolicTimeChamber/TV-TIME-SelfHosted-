@@ -4,6 +4,7 @@ import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 import { fetchShowFromTMDB, CatalogShow, pooled } from "./tmdb";
 import { addToTrackedBy } from "./utils";
+import { rebuildUserUpcoming } from "./syncCatalog";
 
 interface ImportEpisode {
   season: number;
@@ -268,6 +269,9 @@ export const importMatches = onCall(
       },
       { merge: true }
     );
+
+    // Build upcoming subcollection for this user
+    await rebuildUserUpcoming(db, uid);
 
     // Send FCM push notification — non-fatal if it fails
     try {

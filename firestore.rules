@@ -34,6 +34,11 @@ service cloud.firestore {
       match /watchedMovies/{movieId} {
         allow read, write: if request.auth.uid == userId;
       }
+
+      match /upcoming/{episodeId} {
+        allow read: if request.auth.uid == userId;
+        allow write: if false; // CF-only writes
+      }
     }
   }
 }

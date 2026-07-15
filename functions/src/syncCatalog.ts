@@ -92,6 +92,10 @@ export const syncCatalog = onSchedule(
       }
     }
 
+    // Rebuild upcoming subcollections for all users
+    console.log("Rebuilding upcoming episodes...");
+    await rebuildAllUsersUpcoming(db);
+
     console.log("Catalog sync complete");
   }
 );
@@ -141,4 +145,93 @@ async function reactivateCompletedUsers(
       console.error(`Failed to reactivate user ${uid}:`, err);
     }
   }
+}
+
+async function rebuildAllUsersUpcoming(
+  db: FirebaseFirestore.Firestore
+): Promise<void> {
+  // Get all users who have tracking data
+  const usersSnap = await db.collection("users").get();
+
+  for (const userDoc of usersSnap.docs) {
+    try {
+      await rebuildUserUpcoming(db, userDoc.id);
+    } catch (err) {
+      console.error(`Failed to rebuild upcoming for user ${userDoc.id}:`, err);
+    }
+  }
+}
+
+export async function rebuildUserUpcoming(
+  db: FirebaseFirestore.Firestore,
+  uid: string
+): Promise<void> {
+  const today = new Date().toISOString().slice(0, 10);
+  const upcomingCol = db.collection(`users/${uid}/upcoming`);
+
+  // Delete old upcoming docs
+  const oldDocs = await upcomingCol.get();
+  if (oldDocs.size > 0) {
+    for (let i = 0; i < oldDocs.docs.length; i += 400) {
+      const batch = db.batch();
+      const chunk = oldDocs.docs.slice(i, i + 400);
+      for (const d of chunk) batch.delete(d.ref);
+      await batch.commit();
+    }
+  }
+
+  // Get all active TV tracking docs
+  const trackingSnap = await db
+    .collection(`users/${uid}/tracking`)
+    .where("mediaType", "==", "tv")
+    .get();
+
+  const activeStatuses = ["watching", "rewatching"];
+  const activeShows = trackingSnap.docs.filter((d) =>
+    activeStatuses.includes(d.data().status)
+  );
+
+  if (activeShows.length === 0) return;
+
+  // Fetch catalog + build upcoming docs
+  const upcomingDocs: Array<{ id: string; data: Record<string, unknown> }> = [];
+
+  for (const trackDoc of activeShows) {
+    const showDoc = await db.doc(`shows/${trackDoc.id}`).get();
+    if (!showDoc.exists) continue;
+    const catalog = showDoc.data() as CatalogShow;
+
+    for (const season of catalog.seasons || []) {
+      if (season.seasonNumber === 0) continue;
+      for (const ep of season.episodes || []) {
+        if (!ep.airDate || ep.airDate < today) continue;
+        const epId = `${trackDoc.id}_S${String(season.seasonNumber).padStart(2, "0")}E${String(ep.episodeNumber).padStart(2, "0")}`;
+        upcomingDocs.push({
+          id: epId,
+          data: {
+            tmdbShowId: catalog.tmdbId ?? Number(trackDoc.id),
+            showTitle: catalog.title ?? "",
+            posterPath: catalog.posterPath ?? null,
+            season: season.seasonNumber,
+            episode: ep.episodeNumber,
+            episodeTitle: ep.title ?? "",
+            airDate: ep.airDate,
+            runtime: ep.runtime ?? null,
+          },
+        });
+      }
+    }
+  }
+
+  // Write in batches of 400
+  for (let i = 0; i < upcomingDocs.length; i += 400) {
+    const batch = db.batch();
+    const chunk = upcomingDocs.slice(i, i + 400);
+    for (const d of chunk) {
+      batch.set(upcomingCol.doc(d.id), d.data);
+    }
+    await batch.commit();
+  }
+
+  console.log(`Rebuilt ${upcomingDocs.length} upcoming episodes for user ${uid}`);
 }
