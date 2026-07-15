@@ -1,0 +1,160 @@
+name: Build & Deploy to Play Store
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-deploy:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      # ── Checkout ──
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      # ── Version Bump (push only) ──
+      - name: Detect bump flag
+        if: github.event_name == 'push'
+        id: bump
+        run: |
+          BUMP_FLAG=""
+          # Check PR labels from merge commit
+          PR_NUMBER=$(echo "${{ github.event.head_commit.message }}" | grep -oP '#\K[0-9]+' | head -1 || true)
+          if [ -n "$PR_NUMBER" ]; then
+            LABELS=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' 2>/dev/null || true)
+            if echo "$LABELS" | grep -q "bump:major"; then
+              BUMP_FLAG="--major"
+            elif echo "$LABELS" | grep -q "bump:minor"; then
+              BUMP_FLAG="--minor"
+            fi
+          fi
+          # Fallback to commit message flags
+          if [ -z "$BUMP_FLAG" ]; then
+            if echo "${{ github.event.head_commit.message }}" | grep -qi '\[major\]'; then
+              BUMP_FLAG="--major"
+            elif echo "${{ github.event.head_commit.message }}" | grep -qi '\[minor\]'; then
+              BUMP_FLAG="--minor"
+            fi
+          fi
+          echo "flag=$BUMP_FLAG" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump version
+        if: github.event_name == 'push'
+        id: version
+        run: |
+          chmod +x scripts/bump-version.sh
+          NEW_VERSION=$(./scripts/bump-version.sh ${{ steps.bump.outputs.flag }})
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Bumped to $NEW_VERSION"
+
+      - name: Commit version bump
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add app/app.json app/package.json
+          git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }} [skip ci]"
+          git push
+
+      # ── Node Setup + Cache ──
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: app
+
+      # ── Expo Prebuild ──
+      - name: Expo prebuild
+        run: npx expo prebuild --platform android --clean
+        working-directory: app
+
+      # ── Ruby + Fastlane Setup ──
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: app
+
+      # ── Gradle Cache ──
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('app/android/**/*.gradle*', 'app/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      # ── Keystore ──
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > /tmp/release.keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+
+      # ── Service Account ──
+      - name: Write Play service account JSON
+        run: echo '${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}' > /tmp/play-service-account.json
+
+      # ── Build + Deploy ──
+      - name: Fastlane deploy
+        run: bundle exec fastlane android deploy
+        working-directory: app
+        env:
+          KEYSTORE_PATH: /tmp/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          PLAY_SERVICE_ACCOUNT_JSON_PATH: /tmp/play-service-account.json
+
+      # ── Force Update (push only) ──
+      - name: Update Firestore minVersion
+        if: github.event_name == 'push' && contains(github.event.head_commit.message, '[force-update]')
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > /tmp/firebase-sa.json
+          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa.json
+          npm install -g firebase-admin
+          node -e "
+            const admin = require('firebase-admin');
+            admin.initializeApp();
+            admin.firestore()
+              .doc('config/app')
+              .update({ minVersion: '${{ steps.version.outputs.new_version }}' })
+              .then(() => { console.log('minVersion updated'); process.exit(0); })
+              .catch(e => { console.error(e); process.exit(1); });
+          "
+
+      # ── PR Comment ──
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const version = require('./app/app.json').expo.version;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Build deployed to internal testing. Version: **${version}**`
+            });
