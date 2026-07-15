@@ -126,6 +126,13 @@ jobs:
         env:
           PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
 
+      # ── Validate JSON secrets ──
+      - name: Validate JSON files
+        run: |
+          python3 -c "import json; json.load(open('app/google-services.json'))" || { echo "::error::google-services.json is malformed"; exit 1; }
+          python3 -c "import json; json.load(open('/tmp/play-service-account.json'))" || { echo "::error::Play service account JSON is malformed"; exit 1; }
+          echo "All JSON files valid"
+
       # ── Build + Deploy ──
       - name: Fastlane deploy
         run: bundle exec fastlane android deploy
