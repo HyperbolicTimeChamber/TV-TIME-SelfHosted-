@@ -8,7 +8,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import NetInfo from "@react-native-community/netinfo";
 import { getAuth, onAuthStateChanged } from "@react-native-firebase/auth";
-import messaging from "@react-native-firebase/messaging";
+import {
+  getMessaging,
+  getToken,
+  requestPermission,
+} from "@react-native-firebase/messaging";
 import {
   getFirestore,
   doc,
@@ -37,8 +41,9 @@ const queryClient = new QueryClient({
 
 async function registerFCMToken(userId: string) {
   try {
-    await messaging().requestPermission();
-    const token = await messaging().getToken();
+    const msg = getMessaging();
+    await requestPermission(msg);
+    const token = await getToken(msg);
     const db = getFirestore();
     await setDoc(doc(db, "users", userId), { fcmToken: token }, { merge: true });
   } catch (err) {
