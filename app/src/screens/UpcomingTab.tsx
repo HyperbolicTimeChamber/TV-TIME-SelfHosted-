@@ -3,19 +3,17 @@ import {
   View,
   Text,
   StyleSheet,
+  TouchableOpacity,
 } from "react-native";
 import { LegendList } from "@legendapp/list/react-native";
+import { Image } from "expo-image";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuthStore } from "../stores/authStore";
-import { useWatchlist } from "../hooks/useWatchlist";
 import { useUpcomingEpisodes } from "../hooks/useUpcomingEpisodes";
-import { useWatchedEpisodes } from "../hooks/useWatchedEpisodes";
-import { markEpisodeWatched, stopWatching } from "../services/firestore";
-import EpisodeCard from "../components/EpisodeCard";
-import { colors, spacing, typography } from "../theme";
-import { UpcomingEpisode, HomeStackParamList, TrackingItem } from "../types";
+import { colors, spacing, typography, posterSize } from "../theme";
+import { UpcomingEpisode, HomeStackParamList } from "../types";
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList, "HomeTabs">;
 
@@ -25,40 +23,20 @@ type ListItem =
 
 export default function UpcomingTab() {
   const user = useAuthStore((s) => s.user);
-  const { items: watchlist, loading: watchlistLoading } = useWatchlist(user?.uid);
   const navigation = useNavigation<NavProp>();
-
-  const tvShows = useMemo(
-    () =>
-      watchlist.filter(
-        (w) =>
-          w.mediaType === "tv" &&
-          (w.status === "watching" || w.status === "rewatching")
-      ),
-    [watchlist]
-  );
-
-  const { episodes: watchedEps } = useWatchedEpisodes(user?.uid);
-  const watchedSetRef = useRef(new Set<string>());
-  watchedSetRef.current = useMemo(() => {
-    const set = new Set<string>();
-    for (const ep of watchedEps) {
-      set.add(`${ep.tmdbShowId}_S${ep.season}E${ep.episode}`);
-    }
-    return set;
-  }, [watchedEps]);
 
   const {
     data: episodes,
     isLoading,
-  } = useUpcomingEpisodes(tvShows);
+    loadMore,
+    loadingMore,
+  } = useUpcomingEpisodes(user?.uid);
 
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
 
   const listData = useMemo(() => {
     if (!episodes || episodes.length === 0) return [] as ListItem[];
 
-    // Filter to today and future only
     const futureEps = episodes.filter((ep) => ep.airDate >= today);
 
     const grouped = new Map<string, UpcomingEpisode[]>();
@@ -77,44 +55,6 @@ export default function UpcomingTab() {
     }
     return result;
   }, [episodes, today]);
-
-  const watchlistMap = useMemo(() => {
-    const map = new Map<number, TrackingItem>();
-    for (const w of watchlist) {
-      map.set(w.tmdbId, w);
-    }
-    return map;
-  }, [watchlist]);
-
-  const handleMarkWatched = useCallback(
-    async (ep: UpcomingEpisode) => {
-      if (!user?.uid) return;
-      const wItem = watchlistMap.get(ep.tmdbShowId);
-      if (!wItem) return;
-
-      await markEpisodeWatched(
-        user.uid,
-        ep.tmdbShowId,
-        ep.season,
-        ep.episode,
-        ep.episodeTitle,
-        ep.runtime || 0,
-        { season: ep.season, episode: ep.episode + 1 },
-        false
-      );
-    },
-    [user?.uid, watchlistMap]
-  );
-
-  const handleStopWatching = useCallback(
-    async (ep: UpcomingEpisode) => {
-      if (!user?.uid) return;
-      const wItem = watchlistMap.get(ep.tmdbShowId);
-      if (!wItem) return;
-      await stopWatching(user.uid, ep.tmdbShowId, wItem.status);
-    },
-    [user?.uid, watchlistMap]
-  );
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr + "T00:00:00");
@@ -145,37 +85,49 @@ export default function UpcomingTab() {
         );
       }
 
-      const epKey = `${item.episode.tmdbShowId}_S${item.episode.season}E${item.episode.episode}`;
-      const isWatched = watchedSetRef.current.has(epKey);
+      const ep = item.episode;
+      const label = `S${String(ep.season).padStart(2, "0")}E${String(ep.episode).padStart(2, "0")}`;
 
       return (
-        <EpisodeCard
-          episode={item.episode}
-          isWatched={isWatched}
-          onSwipeLeft={() => handleMarkWatched(item.episode)}
-          onSwipeRight={() => handleStopWatching(item.episode)}
+        <TouchableOpacity
+          style={styles.episodeRow}
           onPress={() =>
             navigation.navigate("ShowDetail", {
-              tmdbId: item.episode.tmdbShowId,
+              tmdbId: ep.tmdbShowId,
               mediaType: "tv",
             })
           }
-          onCheckmark={() => handleMarkWatched(item.episode)}
-        />
+          activeOpacity={0.8}
+        >
+          {ep.posterPath ? (
+            <Image
+              source={{ uri: `${posterSize.small}${ep.posterPath}` }}
+              style={styles.poster}
+              contentFit="cover"
+            />
+          ) : (
+            <View style={[styles.poster, styles.noPoster]}>
+              <Text style={styles.noPosterText}>?</Text>
+            </View>
+          )}
+          <View style={styles.info}>
+            <Text style={styles.showTitle} numberOfLines={1}>
+              {ep.showTitle}
+            </Text>
+            <Text style={styles.epLabel}>{label}</Text>
+            <Text style={styles.epTitle} numberOfLines={1}>
+              {ep.episodeTitle}
+            </Text>
+          </View>
+        </TouchableOpacity>
       );
     },
-    [handleMarkWatched, handleStopWatching, navigation]
+    [navigation]
   );
 
   const listRef = useRef<any>(null);
 
-  const renderFooter = useCallback(() => (
-    <View style={styles.loaderRow}>
-      <View style={styles.loaderPlaceholder} />
-    </View>
-  ), []);
-
-  if (isLoading || watchlistLoading) {
+  if (isLoading) {
     return (
       <View style={styles.center}>
         <LoadingSpinner />
@@ -201,8 +153,15 @@ export default function UpcomingTab() {
           : `ep_${item.episode.tmdbShowId}_S${item.episode.season}E${item.episode.episode}`
       }
       renderItem={renderItem}
-      extraData={watchedEps.length}
-      ListFooterComponent={renderFooter}
+      onEndReached={loadMore}
+      onEndReachedThreshold={0.5}
+      ListFooterComponent={
+        loadingMore ? (
+          <View style={styles.loaderRow}>
+            <LoadingSpinner />
+          </View>
+        ) : null
+      }
       style={styles.list}
       contentContainerStyle={styles.listContent}
     />
@@ -239,12 +198,49 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1,
   },
+  episodeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  poster: {
+    width: 45,
+    height: 67,
+    borderRadius: 4,
+  },
+  noPoster: {
+    backgroundColor: colors.surfaceLight,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  noPosterText: {
+    ...typography.subtitle,
+    color: colors.textMuted,
+  },
+  info: {
+    flex: 1,
+    marginLeft: spacing.md,
+  },
+  showTitle: {
+    ...typography.subtitle,
+    fontSize: 14,
+  },
+  epLabel: {
+    ...typography.caption,
+    marginTop: spacing.xs,
+  },
+  epTitle: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    fontSize: 13,
+  },
   loaderRow: {
     paddingVertical: spacing.xl,
     alignItems: "center",
-    backgroundColor: colors.background,
-  },
-  loaderPlaceholder: {
-    height: 20,
   },
 });

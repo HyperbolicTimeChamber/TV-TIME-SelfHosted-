@@ -188,7 +188,7 @@ export default function ShowDetailScreen() {
               .filter((s) => s.season_number > 0)
               .map((season) => (
                 <SeasonDropdown
-                  key={season.id}
+                  key={season.season_number}
                   tmdbId={tmdbId}
                   season={season}
                   showPosterPath={show.poster_path}
