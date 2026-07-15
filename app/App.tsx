@@ -144,7 +144,7 @@ function AppSplash() {
           duration: 400,
           useNativeDriver: true,
         }).start(() => setVisible(false));
-      }, 300);
+      }, 1500);
       return () => clearTimeout(timer);
     }
   }, [loading, opacity]);
