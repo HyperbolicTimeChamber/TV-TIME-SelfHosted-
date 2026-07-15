@@ -28,4 +28,32 @@ platform :android do
       skip_upload_screenshots: true,
     )
   end
+
+  desc "Build release APK"
+  lane :build_apk do
+    gradle(
+      project_dir: "./android",
+      task: "assemble",
+      build_type: "Release",
+      properties: {
+        "android.injected.signing.store.file" => ENV["KEYSTORE_PATH"],
+        "android.injected.signing.store.password" => ENV["KEYSTORE_PASSWORD"],
+        "android.injected.signing.key.alias" => ENV["KEY_ALIAS"],
+        "android.injected.signing.key.password" => ENV["KEY_PASSWORD"],
+      }
+    )
+  end
+
+  desc "Build APK and distribute via Firebase App Distribution"
+  lane :distribute do
+    build_apk
+    firebase_app_distribution(
+      app: ENV["FIREBASE_APP_ID"],
+      service_credentials_file: ENV["FIREBASE_SERVICE_ACCOUNT_JSON_PATH"],
+      release_notes: ENV["RELEASE_NOTES"] || "Development build",
+      groups: ENV["FIREBASE_TESTER_GROUPS"] || "testers",
+      android_artifact_type: "APK",
+      android_artifact_path: "./android/app/build/outputs/apk/release/app-release.apk",
+    )
+  end
 end

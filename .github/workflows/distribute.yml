@@ -1,0 +1,99 @@
+name: Build & Distribute (Development)
+
+on:
+  push:
+    branches: [development]
+
+concurrency:
+  group: distribute-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  distribute:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      # ── Checkout ──
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Node Setup + Cache ──
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: app
+
+      # ── Google Services ──
+      - name: Decode google-services.json
+        run: echo "$GOOGLE_SERVICES_JSON" > app/google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+
+      # ── Expo Prebuild ──
+      - name: Expo prebuild
+        run: npx expo prebuild --platform android --clean
+        working-directory: app
+
+      # ── Ruby + Fastlane Setup ──
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: app
+
+      # ── Gradle Cache ──
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('app/android/**/*.gradle*', 'app/android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      # ── Keystore ──
+      - name: Decode keystore
+        run: echo "$KEYSTORE_BASE64" | base64 --decode > /tmp/release.keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+
+      # ── Firebase Service Account ──
+      - name: Write Firebase service account JSON
+        run: echo "$FIREBASE_SERVICE_ACCOUNT_JSON" > /tmp/firebase-sa.json
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+
+      # ── Extract release notes from commit ──
+      - name: Set release notes
+        id: notes
+        run: |
+          NOTES=$(git log -1 --pretty=format:"%s%n%n%b" | head -20)
+          # Escape for env var
+          NOTES="${NOTES//'%'/'%25'}"
+          NOTES="${NOTES//$'\n'/'%0A'}"
+          NOTES="${NOTES//$'\r'/'%0D'}"
+          echo "release_notes=$NOTES" >> "$GITHUB_OUTPUT"
+
+      # ── Build + Distribute ──
+      - name: Fastlane distribute
+        run: bundle exec fastlane android distribute
+        working-directory: app
+        env:
+          KEYSTORE_PATH: /tmp/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          FIREBASE_SERVICE_ACCOUNT_JSON_PATH: /tmp/firebase-sa.json
+          RELEASE_NOTES: ${{ steps.notes.outputs.release_notes }}
+          FIREBASE_TESTER_GROUPS: ${{ vars.FIREBASE_TESTER_GROUPS || 'testers' }}
