@@ -126,12 +126,24 @@ jobs:
         env:
           PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
 
-      # ── Validate JSON secrets ──
-      - name: Validate JSON files
+      # ── Validate secrets ──
+      - name: Validate required secrets
         run: |
-          python3 -c "import json; json.load(open('app/google-services.json'))" || { echo "::error::google-services.json is malformed"; exit 1; }
-          python3 -c "import json; json.load(open('/tmp/play-service-account.json'))" || { echo "::error::Play service account JSON is malformed"; exit 1; }
-          echo "All JSON files valid"
+          FAIL=0
+          # JSON files
+          python3 -c "import json; json.load(open('app/google-services.json'))" 2>/dev/null || { echo "::error::GOOGLE_SERVICES_JSON is missing or malformed"; FAIL=1; }
+          python3 -c "import json; json.load(open('/tmp/play-service-account.json'))" 2>/dev/null || { echo "::error::PLAY_SERVICE_ACCOUNT_JSON is missing or malformed"; FAIL=1; }
+          # Keystore
+          [ -s /tmp/release.keystore ] || { echo "::error::KEYSTORE_BASE64 is missing or empty"; FAIL=1; }
+          # String secrets
+          [ -n "$KEYSTORE_PASSWORD" ] || { echo "::error::KEYSTORE_PASSWORD is not set"; FAIL=1; }
+          [ -n "$KEY_ALIAS" ] || { echo "::error::KEY_ALIAS is not set"; FAIL=1; }
+          [ -n "$KEY_PASSWORD" ] || { echo "::error::KEY_PASSWORD is not set"; FAIL=1; }
+          [ $FAIL -eq 0 ] && echo "All secrets valid" || exit 1
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       # ── Build + Deploy ──
       - name: Fastlane deploy
