@@ -24,7 +24,7 @@ import {
   resumeRewatch,
   markMovieWatched,
 } from "../services";
-import { LoadingSpinner, SeasonDropdown } from "../components";
+import { ConfirmModal, LoadingSpinner, SeasonDropdown } from "../components";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { HomeStackParamList } from "../types";
 
@@ -38,6 +38,9 @@ export default function ShowDetailScreen() {
   const [watchlistItem, setWatchlistItem] = useState<any>(null);
   const [trackingLoading, setTrackingLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeModalVisible, setRemoveModalVisible] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.uid) {
@@ -72,15 +75,26 @@ export default function ShowDetailScreen() {
     }
   }, [user?.uid, show, tmdbId, mediaType, adding]);
 
-  const handleRemove = useCallback(async () => {
-    if (!user?.uid) return;
+  const handleRemove = useCallback(() => {
+    if (!user?.uid || removing) return;
+    setRemoveError(null);
+    setRemoveModalVisible(true);
+  }, [user?.uid, removing]);
+
+  const handleConfirmRemove = useCallback(async () => {
+    if (!user?.uid || removing) return;
+    setRemoving(true);
+    setRemoveError(null);
     try {
       await removeFromTracking(user.uid, tmdbId);
+      setRemoveModalVisible(false);
     } catch (err: any) {
       console.error("removeFromTracking failed:", err);
-      Alert.alert("Error", err.message || "Failed to remove from watchlist.");
+      setRemoveError(err.message || "Failed to remove. Please try again.");
+    } finally {
+      setRemoving(false);
     }
-  }, [user?.uid, tmdbId]);
+  }, [user?.uid, tmdbId, removing]);
 
   const handleRewatch = useCallback(async () => {
     if (!user?.uid) return;
@@ -204,12 +218,17 @@ export default function ShowDetailScreen() {
               )}
               <TouchableOpacity
                 style={[
-                  styles.addButton,
-                  { backgroundColor: colors.destructiveRed },
+                  styles.removeButton,
+                  removing && { opacity: 0.6 },
                 ]}
                 onPress={handleRemove}
+                disabled={removing}
               >
-                <Text style={styles.buttonText}>Remove</Text>
+                {removing ? (
+                  <ActivityIndicator size="small" color={colors.destructiveRed} />
+                ) : (
+                  <Text style={styles.removeButtonText}>Remove</Text>
+                )}
               </TouchableOpacity>
             </>
           )}
@@ -234,6 +253,20 @@ export default function ShowDetailScreen() {
           </View>
         )}
       </View>
+
+      <ConfirmModal
+        visible={removeModalVisible}
+        title={`Remove "${title}"?`}
+        hint="This will remove the show from your watchlist. Your watch history will be kept."
+        error={removeError}
+        confirmLabel="Remove"
+        loading={removing}
+        onConfirm={handleConfirmRemove}
+        onClose={() => {
+          setRemoveModalVisible(false);
+          setRemoveError(null);
+        }}
+      />
     </ScrollView>
   );
 }
@@ -284,6 +317,20 @@ const styles = StyleSheet.create({
     ...typography.subtitle,
     fontSize: 14,
     color: colors.text,
+  },
+  removeButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: 8,
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: colors.destructiveRed,
+    backgroundColor: "transparent",
+  },
+  removeButtonText: {
+    ...typography.subtitle,
+    fontSize: 14,
+    color: colors.destructiveRed,
   },
   overview: {
     ...typography.body,

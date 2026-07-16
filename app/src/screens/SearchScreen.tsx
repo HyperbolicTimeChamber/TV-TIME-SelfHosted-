@@ -8,7 +8,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { AnimatedModal, LoadingSpinner } from "../components";
+import { AnimatedModal, ConfirmModal, LoadingSpinner } from "../components";
 import { LegendList } from "@legendapp/list/react-native";
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
@@ -36,6 +36,9 @@ export default function SearchScreen() {
 
   const [addingIds, setAddingIds] = useState<Set<number>>(new Set());
   const [movieModal, setMovieModal] = useState<TMDBShow | null>(null);
+  const [removeModal, setRemoveModal] = useState<TMDBShow | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const watchlistIds = trackedIds;
 
@@ -78,25 +81,26 @@ export default function SearchScreen() {
   const handleRemoveFromWatchlist = useCallback(
     (item: TMDBShow) => {
       if (!user?.uid) return;
-      const title = item.name || item.title || "this show";
-      Alert.alert(
-        "Remove from Watchlist",
-        `Remove "${title}" from your watchlist?`,
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Remove",
-            style: "destructive",
-            onPress: () =>
-              withLoadingId(item.id, () =>
-                removeFromTracking(user.uid!, item.id)
-              ),
-          },
-        ]
-      );
+      setRemoveError(null);
+      setRemoveModal(item);
     },
-    [user?.uid, withLoadingId]
+    [user?.uid]
   );
+
+  const handleConfirmRemove = useCallback(async () => {
+    if (!user?.uid || !removeModal || removing) return;
+    setRemoving(true);
+    setRemoveError(null);
+    try {
+      await removeFromTracking(user.uid, removeModal.id);
+      setRemoveModal(null);
+    } catch (err: any) {
+      console.error("removeFromTracking failed:", err);
+      setRemoveError(err.message || "Failed to remove. Please try again.");
+    } finally {
+      setRemoving(false);
+    }
+  }, [user?.uid, removeModal, removing]);
 
   const handleMovieAddOnly = useCallback(async () => {
     if (!user?.uid || !movieModal) return;
@@ -301,6 +305,20 @@ export default function SearchScreen() {
           </TouchableOpacity>
         </View>
       </AnimatedModal>
+
+      <ConfirmModal
+        visible={!!removeModal}
+        title={`Remove "${removeModal?.name || removeModal?.title}"?`}
+        hint="This will remove the show from your watchlist. Your watch history will be kept."
+        error={removeError}
+        confirmLabel="Remove"
+        loading={removing}
+        onConfirm={handleConfirmRemove}
+        onClose={() => {
+          setRemoveModal(null);
+          setRemoveError(null);
+        }}
+      />
     </View>
   );
 }

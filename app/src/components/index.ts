@@ -1,4 +1,5 @@
 export { default as AnimatedModal } from './AnimatedModal';
+export { default as ConfirmModal } from './ConfirmModal';
 export { default as EpisodeCard } from './EpisodeCard';
 export { default as LoadingSpinner } from './LoadingSpinner';
 export { default as OfflineOverlay } from './OfflineOverlay';
