@@ -30,6 +30,7 @@ interface Props {
   onSwipeRight: () => Promise<void>;
   onPress: () => void;
   onCheckmark: () => Promise<void>;
+  onCheckmarkLongPress?: () => void;
 }
 
 export default memo(function ShowCard({
@@ -41,6 +42,7 @@ export default memo(function ShowCard({
   onSwipeRight,
   onPress,
   onCheckmark,
+  onCheckmarkLongPress,
 }: Props) {
   const ep = item.nextEpisode ?? (item.mediaType === "tv" ? { season: 1, episode: 1 } : null);
   const episodeLabel = ep
@@ -117,6 +119,7 @@ export default memo(function ShowCard({
         <TouchableOpacity
           style={styles.checkmark}
           onPress={() => swipeRef.current?.triggerSwipeLeft()}
+          onLongPress={onCheckmarkLongPress}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Text style={styles.checkmarkText}>✓</Text>

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect } from "react";
+import { useCallback, useRef, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,13 +7,21 @@ import {
   ActivityIndicator,
   RefreshControl,
   Dimensions,
+  Alert,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuthStore, useUiStore } from "../../../stores";
-import { LoadingSpinner, ShowCard } from "../../../components";
+import { LoadingSpinner, ShowCard, WatchActionSheet } from "../../../components";
+import type { WatchAction } from "../../../components";
+import {
+  markEpisodeWatched,
+  unmarkEpisodeWatched,
+  decrementEpisodeWatchCount,
+  getCatalogShow,
+} from "../../../services";
 import { colors, spacing, typography } from "../../../theme";
-import { HomeStackParamList } from "../../../types";
+import { HomeStackParamList, WatchedEpisode } from "../../../types";
 import { ListItem } from "./types";
 import { useWatchlistData } from "./useWatchlistData";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
@@ -51,6 +59,10 @@ export default function WatchlistTab() {
   const isLoading = loading;
   const setWatchlistLoading = useUiStore((s) => s.setWatchlistLoading);
 
+  // Action sheet state for previously watched episodes
+  const [sheetVisible, setSheetVisible] = useState(false);
+  const [sheetEpisode, setSheetEpisode] = useState<WatchedEpisode | null>(null);
+
   useEffect(() => {
     setWatchlistLoading(isLoading);
   }, [isLoading, setWatchlistLoading]);
@@ -74,6 +86,85 @@ export default function WatchlistTab() {
     [navigation],
   );
 
+  const handleWatchedCheckmark = useCallback((episode: WatchedEpisode) => {
+    setSheetEpisode(episode);
+    setSheetVisible(true);
+  }, []);
+
+  const handleSheetAction = useCallback(
+    async (action: WatchAction) => {
+      if (!user?.uid || !sheetEpisode) return;
+
+      try {
+        if (action === "rewatch") {
+          const catalog = await getCatalogShow(sheetEpisode.tmdbShowId);
+          const catalogSeason = catalog?.seasons?.find(
+            (s) => s.seasonNumber === sheetEpisode.season,
+          );
+          const catalogEp = catalogSeason?.episodes?.find(
+            (e) => e.episodeNumber === sheetEpisode.episode,
+          );
+          const nextEpInSeason = catalogSeason?.episodes?.find(
+            (e) => e.episodeNumber === sheetEpisode.episode + 1,
+          );
+
+          let nextEpisode: { season: number; episode: number } | null = null;
+          let isComplete = false;
+
+          if (nextEpInSeason) {
+            nextEpisode = {
+              season: sheetEpisode.season,
+              episode: nextEpInSeason.episodeNumber,
+            };
+          } else {
+            const nextCatalogSeason = catalog?.seasons?.find(
+              (s) => s.seasonNumber === sheetEpisode.season + 1,
+            );
+            if (nextCatalogSeason && nextCatalogSeason.episodes.length > 0) {
+              nextEpisode = { season: sheetEpisode.season + 1, episode: 1 };
+            } else {
+              isComplete = true;
+            }
+          }
+
+          await markEpisodeWatched(
+            user.uid,
+            sheetEpisode.tmdbShowId,
+            sheetEpisode.season,
+            sheetEpisode.episode,
+            catalogEp?.title || sheetEpisode.episodeTitle,
+            catalogEp?.runtime || sheetEpisode.runtime,
+            nextEpisode,
+            isComplete,
+          );
+        } else if (action === "not_watched") {
+          await unmarkEpisodeWatched(
+            user.uid,
+            sheetEpisode.tmdbShowId,
+            sheetEpisode.season,
+            sheetEpisode.episode,
+            sheetEpisode.runtime,
+          );
+        } else if (action === "watched_once_less") {
+          await decrementEpisodeWatchCount(
+            user.uid,
+            sheetEpisode.tmdbShowId,
+            sheetEpisode.season,
+            sheetEpisode.episode,
+            sheetEpisode.runtime,
+            sheetEpisode.watchCount,
+          );
+        }
+      } catch (err: any) {
+        console.error("Watch action failed:", err);
+        Alert.alert("Error", err.message || "Action failed.");
+      }
+
+      setSheetEpisode(null);
+    },
+    [user?.uid, sheetEpisode],
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: ListItem }) => {
       if (item.type === "sectionHeader") {
@@ -86,6 +177,7 @@ export default function WatchlistTab() {
             episode={item.episode}
             show={item.show}
             onPress={(id) => handlePress(id, "tv")}
+            onCheckmarkPress={handleWatchedCheckmark}
           />
         );
       }
@@ -106,7 +198,7 @@ export default function WatchlistTab() {
         />
       );
     },
-    [handleMarkWatched, handleStopWatching, handlePress, watchedCountByShow, updatingShows],
+    [handleMarkWatched, handleStopWatching, handlePress, watchedCountByShow, updatingShows, handleWatchedCheckmark],
   );
 
   if (isLoading) {
@@ -126,47 +218,63 @@ export default function WatchlistTab() {
     );
   }
 
+  const sheetLabel = sheetEpisode
+    ? `S${String(sheetEpisode.season).padStart(2, "0")}E${String(sheetEpisode.episode).padStart(2, "0")} - ${sheetEpisode.episodeTitle}`
+    : "";
+
   return (
-    <FlatList
-      ref={listRef}
-      data={listData}
-      keyExtractor={(item) => {
-        if (item.type === "sectionHeader") return `section_${item.title}`;
-        if (item.type === "watchedEpisode") return `watched_${item.episode.id}`;
-        return `show_${item.item.id}`;
-      }}
-      renderItem={renderItem}
-      maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
-      refreshControl={
-        hasMoreEps ? (
-          <RefreshControl
-            refreshing={loadingMoreEps}
-            onRefresh={loadMoreEps}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-            progressBackgroundColor={colors.surface}
-          />
-        ) : undefined
-      }
-      onEndReached={() => loadMoreTracking()}
-      onEndReachedThreshold={1.5}
-      ListFooterComponent={
-        loadingMoreTracking ? (
-          <View style={styles.loaderRow}>
-            <ActivityIndicator size="small" color={colors.primary} />
-          </View>
-        ) : null
-      }
-      ItemSeparatorComponent={SeparatorComponent}
-      removeClippedSubviews
-      maxToRenderPerBatch={15}
-      windowSize={7}
-      style={styles.list}
-      contentContainerStyle={[
-        styles.listContent,
-        { minHeight: screenHeight + prevWatchedOffset },
-      ]}
-    />
+    <>
+      <FlatList
+        ref={listRef}
+        data={listData}
+        keyExtractor={(item) => {
+          if (item.type === "sectionHeader") return `section_${item.title}`;
+          if (item.type === "watchedEpisode") return `watched_${item.episode.id}`;
+          return `show_${item.item.id}`;
+        }}
+        renderItem={renderItem}
+        maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
+        refreshControl={
+          hasMoreEps ? (
+            <RefreshControl
+              refreshing={loadingMoreEps}
+              onRefresh={loadMoreEps}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+              progressBackgroundColor={colors.surface}
+            />
+          ) : undefined
+        }
+        onEndReached={() => loadMoreTracking()}
+        onEndReachedThreshold={1.5}
+        ListFooterComponent={
+          loadingMoreTracking ? (
+            <View style={styles.loaderRow}>
+              <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+          ) : null
+        }
+        ItemSeparatorComponent={SeparatorComponent}
+        removeClippedSubviews
+        maxToRenderPerBatch={15}
+        windowSize={7}
+        style={styles.list}
+        contentContainerStyle={[
+          styles.listContent,
+          { minHeight: screenHeight + prevWatchedOffset },
+        ]}
+      />
+      <WatchActionSheet
+        visible={sheetVisible}
+        label={sheetLabel}
+        watchCount={sheetEpisode?.watchCount || 0}
+        onSelect={handleSheetAction}
+        onClose={() => {
+          setSheetVisible(false);
+          setSheetEpisode(null);
+        }}
+      />
+    </>
   );
 }
 

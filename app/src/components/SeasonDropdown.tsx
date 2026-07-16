@@ -8,10 +8,19 @@ import {
   Alert,
 } from "react-native";
 import { Image } from "expo-image";
-import { useQueryClient } from "@tanstack/react-query";
-import { useSeasonDetails, useWatchedEpisodes } from "../hooks";
+import { useSeasonDetails, useShowWatchedEpisodes } from "../hooks";
 import { useAuthStore } from "../stores";
-import { markEpisodeWatched, markSeasonWatchedCF, addToTracking, getSeasonDetails as fetchSeason } from "../services";
+import {
+  markEpisodeWatched,
+  markSeasonWatchedCF,
+  addToTracking,
+  unmarkEpisodeWatched,
+  decrementEpisodeWatchCount,
+  unmarkSeasonWatched,
+  decrementSeasonWatchCount,
+  getSeasonDetails as fetchSeason,
+} from "../services";
+import WatchActionSheet, { WatchAction } from "./WatchActionSheet";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { TMDBSeason, TMDBEpisode } from "../types";
 
@@ -28,28 +37,66 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
   const [markingSeason, setMarkingSeason] = useState(false);
   const user = useAuthStore((s) => s.user);
   const apiKey = useAuthStore((s) => s.appTmdbApiKey)!;
-  const queryClient = useQueryClient();
-
   const { data: seasonData, isLoading } = useSeasonDetails(
     tmdbId,
     season.season_number
   );
 
-  const { episodes: watchedEps, loading: watchedLoading } = useWatchedEpisodes(user?.uid, tmdbId);
+  const { episodes: watchedEps, loading: watchedLoading } = useShowWatchedEpisodes(user?.uid, tmdbId);
 
-  const watchedMap = new Map<number, number>();
+  // Action sheet state
+  const [sheetVisible, setSheetVisible] = useState(false);
+  const [sheetTarget, setSheetTarget] = useState<{
+    type: "episode";
+    ep: TMDBEpisode;
+    watchCount: number;
+  } | {
+    type: "season";
+    watchCount: number;
+  } | null>(null);
+
+  const watchedMap = new Map<number, { watchCount: number; runtime: number }>();
   for (const ep of watchedEps) {
     if (ep.season === season.season_number) {
-      watchedMap.set(ep.episode, ep.watchCount);
+      watchedMap.set(ep.episode, { watchCount: ep.watchCount, runtime: ep.runtime });
     }
   }
 
   const watchedCount = watchedMap.size;
   const episodes = seasonData?.episodes || [];
   const minWatchCount = episodes.length > 0
-    ? Math.min(...episodes.map((ep: TMDBEpisode) => watchedMap.get(ep.episode_number) || 0))
+    ? Math.min(...episodes.map((ep: TMDBEpisode) => watchedMap.get(ep.episode_number)?.watchCount || 0))
     : 0;
   const allWatched = episodes.length > 0 && minWatchCount > 0;
+
+  const getNextEpisodeInfo = useCallback(
+    async (afterSeason: number, afterEpisode?: number) => {
+      const eps = seasonData?.episodes || [];
+      if (afterEpisode !== undefined) {
+        const nextInSeason = eps.find(
+          (e: TMDBEpisode) => e.episode_number === afterEpisode + 1
+        );
+        if (nextInSeason) {
+          return {
+            nextEpisode: { season: afterSeason, episode: nextInSeason.episode_number },
+            isComplete: false,
+          };
+        }
+      }
+      try {
+        const nextSeasonData = await fetchSeason(apiKey, tmdbId, afterSeason + 1);
+        const ns = nextSeasonData as { episodes: Array<{ episode_number: number }> };
+        if (ns.episodes?.length > 0) {
+          return {
+            nextEpisode: { season: afterSeason + 1, episode: 1 },
+            isComplete: false,
+          };
+        }
+      } catch {}
+      return { nextEpisode: null, isComplete: true };
+    },
+    [seasonData, apiKey, tmdbId]
+  );
 
   const handleMarkSeasonWatched = useCallback(
     async () => {
@@ -63,20 +110,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
           await addToTracking(user.uid, tmdbId, "tv");
         }
 
-        // Determine next episode after this season
-        let nextAfterSeason: { season: number; episode: number } | null = null;
-        let showComplete = false;
-        try {
-          const nextSeasonData = await fetchSeason(apiKey, tmdbId, season.season_number + 1);
-          const ns = nextSeasonData as { episodes: Array<{ episode_number: number }> };
-          if (ns.episodes?.length > 0) {
-            nextAfterSeason = { season: season.season_number + 1, episode: 1 };
-          } else {
-            showComplete = true;
-          }
-        } catch {
-          showComplete = true;
-        }
+        const { nextEpisode, isComplete } = await getNextEpisodeInfo(season.season_number);
 
         await markSeasonWatchedCF(
           tmdbId,
@@ -86,13 +120,9 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
             name: ep.name,
             runtime: ep.runtime || 0,
           })),
-          nextAfterSeason,
-          showComplete,
+          nextEpisode,
+          isComplete,
         );
-
-        queryClient.invalidateQueries({
-          queryKey: ["watchedEpisodes", user.uid, tmdbId],
-        });
       } catch (err: any) {
         console.error("markSeasonWatched failed:", err);
         Alert.alert("Error", err.message || "Failed to mark season as watched.");
@@ -100,7 +130,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
         setMarkingSeason(false);
       }
     },
-    [user?.uid, markingSeason, seasonData, tmdbId, season.season_number, apiKey, queryClient, isTracked]
+    [user?.uid, markingSeason, seasonData, tmdbId, season.season_number, getNextEpisodeInfo, isTracked]
   );
 
   const handleMarkWatched = useCallback(
@@ -113,38 +143,10 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
           await addToTracking(user.uid, tmdbId, "tv");
         }
 
-        const episodes = seasonData?.episodes || [];
-        const nextEpInSeason = episodes.find(
-          (e: TMDBEpisode) => e.episode_number === ep.episode_number + 1
+        const { nextEpisode, isComplete } = await getNextEpisodeInfo(
+          season.season_number,
+          ep.episode_number
         );
-
-        let nextEpisode: { season: number; episode: number } | null = null;
-        let isComplete = false;
-
-        if (nextEpInSeason) {
-          nextEpisode = {
-            season: season.season_number,
-            episode: nextEpInSeason.episode_number,
-          };
-        } else {
-          try {
-            const nextSeasonData = await fetchSeason(
-              apiKey,
-              tmdbId,
-              season.season_number + 1
-            );
-            const ns = nextSeasonData as {
-              episodes: Array<{ episode_number: number }>;
-            };
-            if (ns.episodes?.length > 0) {
-              nextEpisode = { season: season.season_number + 1, episode: 1 };
-            } else {
-              isComplete = true;
-            }
-          } catch {
-            isComplete = true;
-          }
-        }
 
         await markEpisodeWatched(
           user.uid,
@@ -156,10 +158,6 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
           nextEpisode,
           isComplete
         );
-
-        queryClient.invalidateQueries({
-          queryKey: ["watchedEpisodes", user.uid, tmdbId],
-        });
       } catch (err: any) {
         console.error("markEpisodeWatched failed:", err);
         Alert.alert("Error", err.message || "Failed to mark episode as watched.");
@@ -167,8 +165,125 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
         setMarking(null);
       }
     },
-    [user?.uid, marking, seasonData, tmdbId, season.season_number, apiKey, queryClient, isTracked]
+    [user?.uid, marking, tmdbId, season.season_number, getNextEpisodeInfo, isTracked]
   );
+
+  const handleSheetAction = useCallback(
+    async (action: WatchAction) => {
+      if (!user?.uid || !sheetTarget) return;
+
+      try {
+        if (sheetTarget.type === "episode") {
+          const ep = sheetTarget.ep;
+          const watched = watchedMap.get(ep.episode_number);
+          if (action === "rewatch") {
+            await handleMarkWatched(ep);
+          } else if (action === "not_watched") {
+            await unmarkEpisodeWatched(
+              user.uid, tmdbId, season.season_number,
+              ep.episode_number, watched?.runtime || ep.runtime || 0
+            );
+          } else if (action === "watched_once_less") {
+            await decrementEpisodeWatchCount(
+              user.uid, tmdbId, season.season_number,
+              ep.episode_number, watched?.runtime || ep.runtime || 0,
+              watched?.watchCount || 1
+            );
+          }
+        } else if (sheetTarget.type === "season") {
+          if (action === "rewatch") {
+            await handleMarkSeasonWatched();
+          } else if (action === "not_watched") {
+            const toUnmark = (seasonData?.episodes || [])
+              .filter((ep: TMDBEpisode) => watchedMap.has(ep.episode_number))
+              .map((ep: TMDBEpisode) => ({
+                season: season.season_number,
+                episode: ep.episode_number,
+                runtime: watchedMap.get(ep.episode_number)!.runtime,
+              }));
+            if (toUnmark.length > 0) {
+              await unmarkSeasonWatched(user.uid, tmdbId, toUnmark);
+            }
+          } else if (action === "watched_once_less") {
+            const toDecrement = (seasonData?.episodes || [])
+              .filter((ep: TMDBEpisode) => {
+                const w = watchedMap.get(ep.episode_number);
+                return w && w.watchCount > 0;
+              })
+              .map((ep: TMDBEpisode) => {
+                const w = watchedMap.get(ep.episode_number)!;
+                return {
+                  season: season.season_number,
+                  episode: ep.episode_number,
+                  runtime: w.runtime,
+                  watchCount: w.watchCount,
+                };
+              });
+            if (toDecrement.length > 0) {
+              await decrementSeasonWatchCount(user.uid, tmdbId, toDecrement);
+            }
+          }
+        }
+      } catch (err: any) {
+        console.error("Watch action failed:", err);
+        Alert.alert("Error", err.message || "Action failed.");
+      }
+      setSheetTarget(null);
+    },
+    [user?.uid, sheetTarget, tmdbId, season.season_number, seasonData, watchedMap, handleMarkWatched, handleMarkSeasonWatched]
+  );
+
+  const handleEpisodePress = useCallback(
+    (ep: TMDBEpisode) => {
+      const count = watchedMap.get(ep.episode_number)?.watchCount || 0;
+      if (count > 0) {
+        // Already watched → rewatch directly
+        handleMarkWatched(ep);
+      } else {
+        // Not watched → mark watched
+        handleMarkWatched(ep);
+      }
+    },
+    [watchedMap, handleMarkWatched]
+  );
+
+  const handleEpisodeLongPress = useCallback(
+    (ep: TMDBEpisode) => {
+      const count = watchedMap.get(ep.episode_number)?.watchCount || 0;
+      if (count > 0) {
+        setSheetTarget({ type: "episode", ep, watchCount: count });
+        setSheetVisible(true);
+      }
+    },
+    [watchedMap]
+  );
+
+  const handleSeasonPress = useCallback(
+    (e: any) => {
+      e.stopPropagation?.();
+      if (allWatched) {
+        // Already fully watched → rewatch directly
+        handleMarkSeasonWatched();
+      } else {
+        handleMarkSeasonWatched();
+      }
+    },
+    [allWatched, handleMarkSeasonWatched]
+  );
+
+  const handleSeasonLongPress = useCallback(() => {
+    if (allWatched) {
+      setSheetTarget({ type: "season", watchCount: minWatchCount });
+      setSheetVisible(true);
+    }
+  }, [allWatched, minWatchCount]);
+
+  const sheetLabel =
+    sheetTarget?.type === "season"
+      ? `${season.name}`
+      : sheetTarget?.type === "episode"
+        ? `S${String(season.season_number).padStart(2, "0")}E${String(sheetTarget.ep.episode_number).padStart(2, "0")} - ${sheetTarget.ep.name}`
+        : "";
 
   return (
     <View>
@@ -201,10 +316,8 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
             allWatched && styles.seasonCheckmarkWatched,
             markingSeason && { opacity: 0.5 },
           ]}
-          onPress={(e) => {
-            e.stopPropagation?.();
-            handleMarkSeasonWatched();
-          }}
+          onPress={handleSeasonPress}
+          onLongPress={handleSeasonLongPress}
           disabled={markingSeason || marking !== null || watchedLoading}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
@@ -234,7 +347,8 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
             />
           ) : (
             (seasonData?.episodes || []).map((ep: TMDBEpisode) => {
-              const count = watchedMap.get(ep.episode_number) || 0;
+              const watched = watchedMap.get(ep.episode_number);
+              const count = watched?.watchCount || 0;
               const isWatched = count > 0;
 
               return (
@@ -263,7 +377,8 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
                       isWatched && styles.checkmarkWatched,
                       marking === ep.episode_number && { opacity: 0.5 },
                     ]}
-                    onPress={() => handleMarkWatched(ep)}
+                    onPress={() => handleEpisodePress(ep)}
+                    onLongPress={() => handleEpisodeLongPress(ep)}
                     disabled={marking !== null || markingSeason}
                   >
                     {marking === ep.episode_number ? (
@@ -285,6 +400,17 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
           )}
         </View>
       )}
+
+      <WatchActionSheet
+        visible={sheetVisible}
+        label={sheetLabel}
+        watchCount={sheetTarget?.watchCount || 0}
+        onSelect={handleSheetAction}
+        onClose={() => {
+          setSheetVisible(false);
+          setSheetTarget(null);
+        }}
+      />
     </View>
   );
 })

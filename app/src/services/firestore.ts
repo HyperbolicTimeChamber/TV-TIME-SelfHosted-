@@ -197,6 +197,94 @@ export async function unmarkEpisodeWatched(
   await batch.commit();
 }
 
+export async function decrementEpisodeWatchCount(
+  userId: string,
+  tmdbShowId: number,
+  season: number,
+  episode: number,
+  runtime: number,
+  currentWatchCount: number
+) {
+  const docId = episodeDocId(tmdbShowId, season, episode);
+  const epRef = doc(watchedEpisodesRef(userId), docId);
+  const batch = writeBatch(db);
+
+  if (currentWatchCount <= 1) {
+    batch.delete(epRef);
+  } else {
+    batch.update(epRef, {
+      watchCount: increment(-1),
+    });
+  }
+
+  batch.set(userRef(userId), {
+    stats: {
+      episodesWatched: increment(-1),
+      totalMinutes: increment(-runtime),
+    },
+  }, { merge: true });
+  await batch.commit();
+}
+
+export async function unmarkSeasonWatched(
+  userId: string,
+  tmdbShowId: number,
+  episodes: Array<{ season: number; episode: number; runtime: number }>
+) {
+  const batch = writeBatch(db);
+  let totalRuntime = 0;
+
+  for (const ep of episodes) {
+    const docId = episodeDocId(tmdbShowId, ep.season, ep.episode);
+    batch.delete(doc(watchedEpisodesRef(userId), docId));
+    totalRuntime += ep.runtime;
+  }
+
+  batch.set(userRef(userId), {
+    stats: {
+      episodesWatched: increment(-episodes.length),
+      totalMinutes: increment(-totalRuntime),
+    },
+  }, { merge: true });
+
+  await batch.commit();
+}
+
+export async function decrementSeasonWatchCount(
+  userId: string,
+  tmdbShowId: number,
+  episodes: Array<{ season: number; episode: number; runtime: number; watchCount: number }>
+) {
+  const batch = writeBatch(db);
+  let totalRuntime = 0;
+  let count = 0;
+
+  for (const ep of episodes) {
+    if (ep.watchCount <= 0) continue;
+    const docId = episodeDocId(tmdbShowId, ep.season, ep.episode);
+    const epRef = doc(watchedEpisodesRef(userId), docId);
+
+    if (ep.watchCount <= 1) {
+      batch.delete(epRef);
+    } else {
+      batch.update(epRef, { watchCount: increment(-1) });
+    }
+    totalRuntime += ep.runtime;
+    count++;
+  }
+
+  if (count > 0) {
+    batch.set(userRef(userId), {
+      stats: {
+        episodesWatched: increment(-count),
+        totalMinutes: increment(-totalRuntime),
+      },
+    }, { merge: true });
+  }
+
+  await batch.commit();
+}
+
 export async function startRewatch(userId: string, tmdbId: number) {
   await updateDoc(doc(trackingRef(userId), String(tmdbId)), {
     status: "rewatching" as WatchStatus,

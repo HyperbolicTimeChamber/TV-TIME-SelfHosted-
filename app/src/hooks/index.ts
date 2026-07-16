@@ -9,6 +9,7 @@ export { useUpcomingEpisodes } from "./useUpcomingEpisodes";
 export { useUserStats } from "./useUserStats";
 export { isShowVisible, sortByPriority } from "./useVisibleTracking";
 export { useTrackedIds } from "./useTrackedIds";
+export { useShowWatchedEpisodes } from "./useShowWatchedEpisodes";
 export { useWatchedEpisodes } from "./useWatchedEpisodes";
 export { useWatchedMovies } from "./useWatchedMovies";
 export type { EnrichedTrackingItem } from "./useWatchlist";
