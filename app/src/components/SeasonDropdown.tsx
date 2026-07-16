@@ -233,18 +233,94 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
     [user?.uid, sheetTarget, tmdbId, season.season_number, seasonData, watchedMap, handleMarkWatched, handleMarkSeasonWatched]
   );
 
+  const markEpisodeRange = useCallback(
+    async (fromEp: number, toEp: number) => {
+      if (!user?.uid) return;
+      const eps = seasonData?.episodes || [];
+      const epsToMark = eps.filter(
+        (e: TMDBEpisode) =>
+          e.episode_number >= fromEp &&
+          e.episode_number <= toEp &&
+          !watchedMap.has(e.episode_number)
+      );
+      if (epsToMark.length === 0) return;
+
+      setMarking(toEp);
+      try {
+        if (!isTracked) {
+          await addToTracking(user.uid, tmdbId, "tv");
+        }
+        for (const ep of epsToMark) {
+          const isLast = ep.episode_number === toEp;
+          const { nextEpisode, isComplete } = isLast
+            ? await getNextEpisodeInfo(season.season_number, ep.episode_number)
+            : { nextEpisode: null, isComplete: false };
+
+          await markEpisodeWatched(
+            user.uid,
+            tmdbId,
+            season.season_number,
+            ep.episode_number,
+            ep.name,
+            ep.runtime || 0,
+            nextEpisode,
+            isComplete,
+            !isLast, // skipTrackingUpdate for all except last
+          );
+        }
+      } catch (err: any) {
+        console.error("markEpisodeRange failed:", err);
+        Alert.alert("Error", err.message || "Failed to mark episodes.");
+      } finally {
+        setMarking(null);
+      }
+    },
+    [user?.uid, seasonData, watchedMap, isTracked, tmdbId, season.season_number, getNextEpisodeInfo]
+  );
+
   const handleEpisodePress = useCallback(
     (ep: TMDBEpisode) => {
       const count = watchedMap.get(ep.episode_number)?.watchCount || 0;
       if (count > 0) {
-        // Already watched → rewatch directly
         handleMarkWatched(ep);
+        return;
+      }
+
+      if (!isTracked) {
+        handleMarkWatched(ep);
+        return;
+      }
+
+      // Check for skipped unwatched episodes before this one
+      const eps = seasonData?.episodes || [];
+      const skipped = eps.filter(
+        (e: TMDBEpisode) =>
+          e.episode_number < ep.episode_number &&
+          !watchedMap.has(e.episode_number)
+      );
+
+      if (skipped.length > 0) {
+        const firstSkipped = skipped[0].episode_number;
+        Alert.alert(
+          "Skipped Episodes",
+          `Mark episodes ${firstSkipped}–${ep.episode_number} as watched?`,
+          [
+            {
+              text: "Just This One",
+              onPress: () => handleMarkWatched(ep),
+            },
+            {
+              text: "Mark All Previous",
+              onPress: () => markEpisodeRange(firstSkipped, ep.episode_number),
+            },
+            { text: "Cancel", style: "cancel" },
+          ]
+        );
       } else {
-        // Not watched → mark watched
         handleMarkWatched(ep);
       }
     },
-    [watchedMap, handleMarkWatched]
+    [watchedMap, handleMarkWatched, isTracked, seasonData, markEpisodeRange]
   );
 
   const handleEpisodeLongPress = useCallback(
