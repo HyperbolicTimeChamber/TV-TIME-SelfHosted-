@@ -1,0 +1,119 @@
+import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
+
+interface EpisodeInput {
+  episodeNumber: number;
+  name: string;
+  runtime: number;
+}
+
+interface MarkSeasonRequest {
+  tmdbId: number;
+  seasonNumber: number;
+  episodes: EpisodeInput[];
+  nextEpisode: { season: number; episode: number } | null;
+  isShowComplete: boolean;
+}
+
+function episodeDocId(tmdbId: number, season: number, episode: number): string {
+  const s = String(season).padStart(2, "0");
+  const e = String(episode).padStart(2, "0");
+  return `${tmdbId}_S${s}E${e}`;
+}
+
+export const markSeasonWatched = onCall(
+  {
+    maxInstances: 10,
+    timeoutSeconds: 30,
+    memory: "256MiB",
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be signed in.");
+    }
+
+    const uid = request.auth.uid;
+    const data = request.data as MarkSeasonRequest;
+    const { tmdbId, seasonNumber, episodes, nextEpisode, isShowComplete } = data;
+
+    if (!tmdbId || !seasonNumber || !episodes?.length) {
+      throw new HttpsError("invalid-argument", "Missing required fields.");
+    }
+
+    if (episodes.length > 100) {
+      throw new HttpsError("invalid-argument", "Too many episodes (max 100).");
+    }
+
+    const db = getFirestore();
+    const userDoc = db.doc(`users/${uid}`);
+    const trackingDoc = db.doc(`users/${uid}/tracking/${tmdbId}`);
+    const watchedCol = db.collection(`users/${uid}/watchedEpisodes`);
+
+    // Read all existing episode docs in parallel
+    const epRefs = episodes.map((ep) =>
+      watchedCol.doc(episodeDocId(tmdbId, seasonNumber, ep.episodeNumber))
+    );
+    const existingDocs = await db.getAll(...epRefs);
+
+    const batch = db.batch();
+    let totalRuntime = 0;
+    const now = Timestamp.now();
+
+    for (let i = 0; i < episodes.length; i++) {
+      const ep = episodes[i];
+      const ref = epRefs[i];
+      const existing = existingDocs[i];
+      totalRuntime += ep.runtime || 0;
+
+      if (existing.exists) {
+        batch.update(ref, {
+          watchCount: FieldValue.increment(1),
+          lastWatchedAt: now,
+        });
+      } else {
+        batch.set(ref, {
+          tmdbShowId: tmdbId,
+          season: seasonNumber,
+          episode: ep.episodeNumber,
+          episodeTitle: ep.name,
+          watchedAt: now,
+          lastWatchedAt: now,
+          runtime: ep.runtime || 0,
+          watchCount: 1,
+        });
+      }
+    }
+
+    // Update user stats
+    batch.set(
+      userDoc,
+      {
+        stats: {
+          episodesWatched: FieldValue.increment(episodes.length),
+          totalMinutes: FieldValue.increment(totalRuntime),
+        },
+      },
+      { merge: true }
+    );
+
+    // Update tracking doc
+    if (isShowComplete) {
+      batch.update(trackingDoc, {
+        lastWatchedAt: now,
+        priorityDate: now,
+        nextEpisode,
+        status: "completed",
+      });
+    } else {
+      batch.update(trackingDoc, {
+        lastWatchedAt: now,
+        priorityDate: now,
+        nextEpisode,
+      });
+    }
+
+    await batch.commit();
+
+    return { markedCount: episodes.length };
+  }
+);

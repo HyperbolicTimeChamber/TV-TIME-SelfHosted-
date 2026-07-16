@@ -126,7 +126,8 @@ export async function markEpisodeWatched(
   episodeTitle: string,
   runtime: number,
   nextEpisode: { season: number; episode: number } | null,
-  isShowComplete: boolean
+  isShowComplete: boolean,
+  skipTrackingUpdate: boolean = false
 ) {
   const docId = episodeDocId(tmdbShowId, season, episode);
   const epRef = doc(watchedEpisodesRef(userId), docId);
@@ -159,16 +160,18 @@ export async function markEpisodeWatched(
     },
   }, { merge: true });
 
-  const now = Timestamp.now();
-  const trackingUpdate: Record<string, unknown> = {
-    lastWatchedAt: now,
-    priorityDate: now,
-    nextEpisode,
-  };
-  if (isShowComplete) {
-    trackingUpdate.status = "completed";
+  if (!skipTrackingUpdate) {
+    const now = Timestamp.now();
+    const trackingUpdate: Record<string, unknown> = {
+      lastWatchedAt: now,
+      priorityDate: now,
+      nextEpisode,
+    };
+    if (isShowComplete) {
+      trackingUpdate.status = "completed";
+    }
+    batch.update(doc(trackingRef(userId), String(tmdbShowId)), trackingUpdate);
   }
-  batch.update(doc(trackingRef(userId), String(tmdbShowId)), trackingUpdate);
 
   await batch.commit();
 }
@@ -251,6 +254,29 @@ export async function markMovieWatched(
   }, { merge: true });
 
   await batch.commit();
+}
+
+// --- Season batch mark (Cloud Function) ---
+
+export async function markSeasonWatchedCF(
+  tmdbId: number,
+  seasonNumber: number,
+  episodes: Array<{ episodeNumber: number; name: string; runtime: number }>,
+  nextEpisode: { season: number; episode: number } | null,
+  isShowComplete: boolean
+): Promise<void> {
+  const functions = getFunctions();
+  try {
+    await httpsCallable(functions, "markSeasonWatched")({
+      tmdbId,
+      seasonNumber,
+      episodes,
+      nextEpisode,
+      isShowComplete,
+    });
+  } catch (err: any) {
+    throw new Error(getCallableErrorMessage(err));
+  }
 }
 
 // Keep backward-compatible aliases during transition

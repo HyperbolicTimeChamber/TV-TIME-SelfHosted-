@@ -40,6 +40,4 @@ app/fastlane/README.md
 .DS_Store
 Thumbs.db
 
-.superpowersapp/firebase-debug.log
-app/firebase-debug.log
-functions/firebase-debug.log
+firebase-debug.log

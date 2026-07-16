@@ -10,6 +10,7 @@ export {
   startRewatch,
   resumeRewatch,
   markMovieWatched,
+  markSeasonWatchedCF,
   addToWatchlist,
   removeFromWatchlist,
   db,

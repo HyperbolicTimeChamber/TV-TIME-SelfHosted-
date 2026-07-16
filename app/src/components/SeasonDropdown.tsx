@@ -11,7 +11,7 @@ import { Image } from "expo-image";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSeasonDetails, useWatchedEpisodes } from "../hooks";
 import { useAuthStore } from "../stores";
-import { markEpisodeWatched, addToTracking, getSeasonDetails as fetchSeason } from "../services";
+import { markEpisodeWatched, markSeasonWatchedCF, addToTracking, getSeasonDetails as fetchSeason } from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { TMDBSeason, TMDBEpisode } from "../types";
 
@@ -35,7 +35,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
     season.season_number
   );
 
-  const { episodes: watchedEps } = useWatchedEpisodes(user?.uid, tmdbId);
+  const { episodes: watchedEps, loading: watchedLoading } = useWatchedEpisodes(user?.uid, tmdbId);
 
   const watchedMap = new Map<number, number>();
   for (const ep of watchedEps) {
@@ -53,7 +53,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
 
   const handleMarkSeasonWatched = useCallback(
     async () => {
-      if (!user?.uid || markingSeason || marking !== null) return;
+      if (!user?.uid || markingSeason) return;
       const eps = seasonData?.episodes || [];
       if (eps.length === 0) return;
 
@@ -78,25 +78,17 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
           showComplete = true;
         }
 
-        for (let i = 0; i < eps.length; i++) {
-          const ep = eps[i];
-          const isLast = i === eps.length - 1;
-          const nextEpisode = isLast
-            ? nextAfterSeason
-            : { season: season.season_number, episode: eps[i + 1].episode_number };
-          const isComplete = isLast && showComplete;
-
-          await markEpisodeWatched(
-            user.uid,
-            tmdbId,
-            season.season_number,
-            ep.episode_number,
-            ep.name,
-            ep.runtime || 0,
-            nextEpisode,
-            isComplete,
-          );
-        }
+        await markSeasonWatchedCF(
+          tmdbId,
+          season.season_number,
+          eps.map((ep: TMDBEpisode) => ({
+            episodeNumber: ep.episode_number,
+            name: ep.name,
+            runtime: ep.runtime || 0,
+          })),
+          nextAfterSeason,
+          showComplete,
+        );
 
         queryClient.invalidateQueries({
           queryKey: ["watchedEpisodes", user.uid, tmdbId],
@@ -108,7 +100,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
         setMarkingSeason(false);
       }
     },
-    [user?.uid, markingSeason, marking, seasonData, tmdbId, season.season_number, apiKey, queryClient, isTracked]
+    [user?.uid, markingSeason, seasonData, tmdbId, season.season_number, apiKey, queryClient, isTracked]
   );
 
   const handleMarkWatched = useCallback(
@@ -193,10 +185,15 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
         />
         <View style={styles.seasonInfo}>
           <Text style={styles.seasonName}>{season.name}</Text>
-          <Text style={styles.seasonMeta}>
-            {watchedCount}/{season.episode_count} episodes
-            {season.air_date ? ` · ${season.air_date.substring(0, 4)}` : ""}
-          </Text>
+          <View style={styles.seasonMetaRow}>
+            {watchedLoading ? (
+              <ActivityIndicator size={10} color={colors.textMuted} style={{ marginRight: 4 }} />
+            ) : null}
+            <Text style={styles.seasonMeta}>
+              {watchedLoading ? "" : `${watchedCount}/`}{season.episode_count} episodes
+              {season.air_date ? ` · ${season.air_date.substring(0, 4)}` : ""}
+            </Text>
+          </View>
         </View>
         <TouchableOpacity
           style={[
@@ -208,7 +205,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
             e.stopPropagation?.();
             handleMarkSeasonWatched();
           }}
-          disabled={markingSeason || marking !== null}
+          disabled={markingSeason || marking !== null || watchedLoading}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           {markingSeason ? (
@@ -313,9 +310,13 @@ const styles = StyleSheet.create({
     ...typography.subtitle,
     fontSize: 14,
   },
+  seasonMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: spacing.xs,
+  },
   seasonMeta: {
     ...typography.caption,
-    marginTop: spacing.xs,
   },
   seasonCheckmark: {
     width: 34,
