@@ -1,9 +1,8 @@
 import React, { useEffect, useRef } from "react";
 import { View, Animated, Easing, StyleSheet } from "react-native";
+import { colors } from "../theme";
 
 const SIZE = 48;
-const COLOR_1 = "#fff";
-const COLOR_2 = "#ff3d00";
 
 const DOTS = [
   { r: 12, cx: 22, cy: 22 },
@@ -119,17 +118,17 @@ const styles = StyleSheet.create({
     width: SIZE,
     height: SIZE,
     borderRadius: SIZE / 2,
-    backgroundColor: COLOR_1,
+    backgroundColor: colors.spinnerWhite,
     overflow: "hidden",
   },
   dot: {
     position: "absolute",
-    backgroundColor: COLOR_2,
+    backgroundColor: colors.spinnerOrange,
   },
   hat: {
     width: SIZE / 2,
     height: SIZE / 4,
-    backgroundColor: COLOR_1,
+    backgroundColor: colors.spinnerWhite,
     borderTopLeftRadius: SIZE,
     borderTopRightRadius: SIZE,
     borderBottomLeftRadius: 0,

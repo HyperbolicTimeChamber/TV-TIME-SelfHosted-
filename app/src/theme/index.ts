@@ -11,7 +11,14 @@ export const colors = {
   stopBlue: "#3498DB",
   destructiveRed: "#E74C3C",
   border: "#333333",
+  moviePurple: "#8B5CF6",
+  warningAmber: "#F59E0B",
+  spinnerWhite: "#FFFFFF",
+  spinnerOrange: "#FF3D00",
   overlay: "rgba(0, 0, 0, 0.85)",
+  overlayLight: "rgba(0, 0, 0, 0.6)",
+  overlayMedium: "rgba(0, 0, 0, 0.7)",
+  badgeOverlay: "rgba(0, 0, 0, 0.5)",
 } as const;
 
 export const spacing = {

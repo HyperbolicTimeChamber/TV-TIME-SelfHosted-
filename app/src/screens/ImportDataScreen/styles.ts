@@ -144,7 +144,7 @@ export const importStyles = StyleSheet.create({
 		paddingVertical: 2,
 	},
 	typeBadgeMovie: {
-		backgroundColor: "#8B5CF6",
+		backgroundColor: colors.moviePurple,
 	},
 	typeBadgeText: {
 		color: colors.text,
@@ -200,7 +200,7 @@ export const importStyles = StyleSheet.create({
 	},
 	duplicateBadge: {
 		...typography.caption,
-		color: "#F59E0B",
+		color: colors.warningAmber,
 		fontWeight: "600",
 		marginTop: 2,
 	},
@@ -276,13 +276,6 @@ export const importStyles = StyleSheet.create({
 		backgroundColor: colors.background,
 	},
 	// Modal
-	modalOverlay: {
-		flex: 1,
-		backgroundColor: "rgba(0,0,0,0.7)",
-		justifyContent: "center",
-		alignItems: "center",
-		paddingHorizontal: spacing.xl,
-	},
 	modalContent: {
 		backgroundColor: colors.surface,
 		borderRadius: 16,

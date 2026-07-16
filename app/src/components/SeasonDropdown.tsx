@@ -5,11 +5,13 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Image } from "expo-image";
+import { useQueryClient } from "@tanstack/react-query";
 import { useSeasonDetails, useWatchedEpisodes } from "../hooks";
 import { useAuthStore } from "../stores";
-import { markEpisodeWatched, getSeasonDetails as fetchSeason } from "../services";
+import { markEpisodeWatched, addToTracking, getSeasonDetails as fetchSeason } from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { TMDBSeason, TMDBEpisode } from "../types";
 
@@ -17,12 +19,15 @@ interface Props {
   tmdbId: number;
   season: TMDBSeason;
   showPosterPath: string | null;
+  isTracked?: boolean;
 }
 
-export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath }: Props) {
+export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, isTracked }: Props) {
   const [expanded, setExpanded] = useState(false);
+  const [marking, setMarking] = useState<number | null>(null);
   const user = useAuthStore((s) => s.user);
   const apiKey = useAuthStore((s) => s.appTmdbApiKey)!;
+  const queryClient = useQueryClient();
 
   const { data: seasonData, isLoading } = useSeasonDetails(
     tmdbId,
@@ -42,53 +47,69 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath }: 
 
   const handleMarkWatched = useCallback(
     async (ep: TMDBEpisode) => {
-      if (!user?.uid) return;
+      if (!user?.uid || marking !== null) return;
+      setMarking(ep.episode_number);
 
-      const episodes = seasonData?.episodes || [];
-      const nextEpInSeason = episodes.find(
-        (e: TMDBEpisode) => e.episode_number === ep.episode_number + 1
-      );
+      try {
+        if (!isTracked) {
+          await addToTracking(user.uid, tmdbId, "tv");
+        }
 
-      let nextEpisode: { season: number; episode: number } | null = null;
-      let isComplete = false;
+        const episodes = seasonData?.episodes || [];
+        const nextEpInSeason = episodes.find(
+          (e: TMDBEpisode) => e.episode_number === ep.episode_number + 1
+        );
 
-      if (nextEpInSeason) {
-        nextEpisode = {
-          season: season.season_number,
-          episode: nextEpInSeason.episode_number,
-        };
-      } else {
-        try {
-          const nextSeasonData = await fetchSeason(
-            apiKey,
-            tmdbId,
-            season.season_number + 1
-          );
-          const ns = nextSeasonData as {
-            episodes: Array<{ episode_number: number }>;
+        let nextEpisode: { season: number; episode: number } | null = null;
+        let isComplete = false;
+
+        if (nextEpInSeason) {
+          nextEpisode = {
+            season: season.season_number,
+            episode: nextEpInSeason.episode_number,
           };
-          if (ns.episodes?.length > 0) {
-            nextEpisode = { season: season.season_number + 1, episode: 1 };
-          } else {
+        } else {
+          try {
+            const nextSeasonData = await fetchSeason(
+              apiKey,
+              tmdbId,
+              season.season_number + 1
+            );
+            const ns = nextSeasonData as {
+              episodes: Array<{ episode_number: number }>;
+            };
+            if (ns.episodes?.length > 0) {
+              nextEpisode = { season: season.season_number + 1, episode: 1 };
+            } else {
+              isComplete = true;
+            }
+          } catch {
             isComplete = true;
           }
-        } catch {
-          isComplete = true;
         }
-      }
 
-      await markEpisodeWatched(
-        user.uid,
-        tmdbId,
-        season.season_number,
-        ep.episode_number,
-        ep.name,
-        ep.runtime || 0,
-        nextEpisode,
-        isComplete
-      );
+        await markEpisodeWatched(
+          user.uid,
+          tmdbId,
+          season.season_number,
+          ep.episode_number,
+          ep.name,
+          ep.runtime || 0,
+          nextEpisode,
+          isComplete
+        );
+
+        queryClient.invalidateQueries({
+          queryKey: ["watchedEpisodes", user.uid, tmdbId],
+        });
+      } catch (err: any) {
+        console.error("markEpisodeWatched failed:", err);
+        Alert.alert("Error", err.message || "Failed to mark episode as watched.");
+      } finally {
+        setMarking(null);
+      }
     },
-    [user?.uid, seasonData, tmdbId, season.season_number, apiKey]
+    [user?.uid, marking, seasonData, tmdbId, season.season_number, apiKey, queryClient, isTracked]
   );
 
   return (
@@ -151,17 +172,23 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath }: 
                     style={[
                       styles.checkmark,
                       isWatched && styles.checkmarkWatched,
+                      marking === ep.episode_number && { opacity: 0.5 },
                     ]}
                     onPress={() => handleMarkWatched(ep)}
+                    disabled={marking !== null}
                   >
-                    <Text
-                      style={[
-                        styles.checkmarkText,
-                        isWatched && styles.checkmarkTextWatched,
-                      ]}
-                    >
-                      {isWatched ? count.toString() : "✓"}
-                    </Text>
+                    {marking === ep.episode_number ? (
+                      <ActivityIndicator size="small" color={colors.textMuted} />
+                    ) : (
+                      <Text
+                        style={[
+                          styles.checkmarkText,
+                          isWatched && styles.checkmarkTextWatched,
+                        ]}
+                      >
+                        {isWatched ? count.toString() : "✓"}
+                      </Text>
+                    )}
                   </TouchableOpacity>
                 </View>
               );

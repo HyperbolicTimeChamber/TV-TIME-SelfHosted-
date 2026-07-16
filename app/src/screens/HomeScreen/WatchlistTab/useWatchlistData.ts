@@ -7,7 +7,7 @@ import {
   isShowVisible,
   sortByPriority,
 } from "../../../hooks";
-import { markEpisodeWatched, stopWatching, getCatalogShow } from "../../../services";
+import { markEpisodeWatched, markMovieWatched, stopWatching, getCatalogShow } from "../../../services";
 import { ListItem } from "./types";
 
 export function useWatchlistData(userId: string | undefined) {
@@ -103,6 +103,14 @@ export function useWatchlistData(userId: string | undefined) {
   const handleMarkWatched = useCallback(
     async (item: EnrichedTrackingItem) => {
       if (!userId) return;
+
+      if (item.mediaType === "movie") {
+        setUpdatingShows((prev) => new Map(prev).set(item.tmdbId, "movie"));
+        const catalog = item.catalogShow ?? (await getCatalogShow(item.tmdbId));
+        await markMovieWatched(userId, item.tmdbId, catalog?.runtime ?? 0);
+        queryClient.invalidateQueries({ queryKey: ["watchedMovies", userId] });
+        return;
+      }
 
       const currentEp = item.nextEpisode ?? { season: 1, episode: 1 };
       const epKey = `${currentEp.season}-${currentEp.episode}`;

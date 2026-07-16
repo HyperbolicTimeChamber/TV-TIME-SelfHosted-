@@ -223,6 +223,7 @@ export default function ShowDetailScreen() {
                   tmdbId={tmdbId}
                   season={season}
                   showPosterPath={show.poster_path}
+                  isTracked={!!watchlistItem}
                 />
               ))}
           </View>

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -8,14 +8,14 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { LoadingSpinner } from "../components";
+import { AnimatedModal, LoadingSpinner } from "../components";
 import { LegendList } from "@legendapp/list/react-native";
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSearch, useTrending, useTrackedIds } from "../hooks";
 import { useAuthStore } from "../stores";
-import { addToTracking } from "../services";
+import { addToTracking, markMovieWatched } from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { TMDBShow, SearchStackParamList, MediaType } from "../types";
 
@@ -23,46 +23,88 @@ type NavProp = NativeStackNavigationProp<SearchStackParamList, "SearchMain">;
 
 export default function SearchScreen() {
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const inputRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 100);
+    return () => clearTimeout(timer);
+  }, [query]);
   const navigation = useNavigation<NavProp>();
   const user = useAuthStore((s) => s.user);
   const trackedIds = useTrackedIds(user?.uid);
 
   const [addingIds, setAddingIds] = useState<Set<number>>(new Set());
+  const [movieModal, setMovieModal] = useState<TMDBShow | null>(null);
 
   const watchlistIds = trackedIds;
+
+  const withLoadingId = useCallback(
+    async (id: number, fn: () => Promise<void>) => {
+      setAddingIds((prev) => new Set(prev).add(id));
+      try {
+        await fn();
+      } catch (err: any) {
+        Alert.alert("Error", err.message || "Failed to complete action.");
+      } finally {
+        setAddingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }
+    },
+    []
+  );
 
   const handleAddToWatchlist = useCallback(
     async (item: TMDBShow) => {
       if (!user?.uid) return;
       const mediaType: MediaType =
         item.media_type || (item.title ? "movie" : "tv");
-      setAddingIds((prev) => new Set(prev).add(item.id));
-      try {
-        await addToTracking(user.uid, item.id, mediaType);
-      } catch (err: any) {
-        Alert.alert("Error", err.message || "Failed to add to watchlist.");
-      } finally {
-        setAddingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(item.id);
-          return next;
-        });
+
+      if (mediaType === "movie") {
+        setMovieModal(item);
+        return;
       }
+
+      await withLoadingId(item.id, () =>
+        addToTracking(user.uid!, item.id, mediaType)
+      );
     },
-    [user?.uid]
+    [user?.uid, withLoadingId]
   );
+
+  const handleMovieAddOnly = useCallback(async () => {
+    if (!user?.uid || !movieModal) return;
+    const item = movieModal;
+    setMovieModal(null);
+    await withLoadingId(item.id, () =>
+      addToTracking(user.uid!, item.id, "movie")
+    );
+  }, [user?.uid, movieModal, withLoadingId]);
+
+  const handleMovieAddAndWatch = useCallback(async () => {
+    if (!user?.uid || !movieModal) return;
+    const item = movieModal;
+    setMovieModal(null);
+    await withLoadingId(item.id, async () => {
+      await addToTracking(user.uid!, item.id, "movie");
+      await markMovieWatched(user.uid!, item.id, (item as any).runtime ?? 0);
+    });
+  }, [user?.uid, movieModal, withLoadingId]);
 
   const {
     data: searchData,
     isLoading: searchLoading,
     fetchNextPage,
     hasNextPage,
-  } = useSearch(query);
+  } = useSearch(debouncedQuery);
 
   const { data: trending, isLoading: trendingLoading } = useTrending("tv");
 
-  const displayData = query.length > 0 ? searchData?.results : trending;
-  const isLoading = query.length > 0 ? searchLoading : trendingLoading;
+  const displayData = debouncedQuery.length > 0 ? searchData?.results : trending;
+  const isLoading = debouncedQuery.length > 0 ? searchLoading : trendingLoading;
 
   const handlePress = useCallback(
     (item: TMDBShow) => {
@@ -83,6 +125,8 @@ export default function SearchScreen() {
         0,
         4
       );
+      const mediaType: MediaType =
+        item.media_type || (item.title ? "movie" : "tv");
       const isInWatchlist = watchlistIds.has(item.id);
       const isAdding = addingIds.has(item.id);
 
@@ -124,9 +168,21 @@ export default function SearchScreen() {
             )}
           </TouchableOpacity>
           <View style={styles.banner}>
-            <Text style={styles.cardTitle} numberOfLines={1}>
-              {title}
-            </Text>
+            <View style={styles.bannerTop}>
+              <Text style={styles.cardTitle} numberOfLines={1}>
+                {title}
+              </Text>
+              <View
+                style={[
+                  styles.typeBadge,
+                  mediaType === "movie" && styles.typeBadgeMovie,
+                ]}
+              >
+                <Text style={styles.typeBadgeText}>
+                  {mediaType === "tv" ? "TV" : "MOVIE"}
+                </Text>
+              </View>
+            </View>
             {year ? <Text style={styles.cardYear}>{year}</Text> : null}
           </View>
         </TouchableOpacity>
@@ -137,16 +193,31 @@ export default function SearchScreen() {
 
   return (
     <View style={styles.container}>
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Search shows & movies..."
-        placeholderTextColor={colors.textMuted}
-        value={query}
-        onChangeText={setQuery}
-        autoCapitalize="none"
-        autoCorrect={false}
-        returnKeyType="search"
-      />
+      <View style={styles.searchRow}>
+        <TextInput
+          ref={inputRef}
+          style={styles.searchInput}
+          placeholder="Search shows & movies..."
+          placeholderTextColor={colors.textMuted}
+          value={query}
+          onChangeText={setQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="search"
+        />
+        {query.length > 0 && (
+          <TouchableOpacity
+            style={styles.clearButton}
+            onPress={() => {
+              setQuery("");
+              inputRef.current?.focus();
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.clearButtonText}>✕</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       {!query && (
         <Text style={styles.sectionTitle}>Trending</Text>
@@ -167,12 +238,41 @@ export default function SearchScreen() {
           columnWrapperStyle={styles.row}
           contentContainerStyle={styles.grid}
           onEndReached={() => {
-            if (query && hasNextPage) fetchNextPage();
+            if (debouncedQuery && hasNextPage) fetchNextPage();
           }}
           onEndReachedThreshold={0.5}
           recycleItems={false}
         />
       )}
+
+      <AnimatedModal
+        visible={!!movieModal}
+        onClose={() => setMovieModal(null)}
+      >
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>
+            {movieModal?.title || movieModal?.name}
+          </Text>
+          <TouchableOpacity
+            style={styles.modalButton}
+            onPress={handleMovieAddOnly}
+          >
+            <Text style={styles.modalButtonText}>Add to Watchlist</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modalButton, styles.modalButtonWatched]}
+            onPress={handleMovieAddAndWatch}
+          >
+            <Text style={styles.modalButtonText}>Add & Mark as Watched</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.modalCancel}
+            onPress={() => setMovieModal(null)}
+          >
+            <Text style={styles.modalCancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </AnimatedModal>
     </View>
   );
 }
@@ -182,15 +282,29 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  searchInput: {
-    ...typography.body,
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.surfaceLight,
-    color: colors.text,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
     marginHorizontal: spacing.lg,
     marginVertical: spacing.md,
     borderRadius: 8,
+  },
+  searchInput: {
+    ...typography.body,
+    flex: 1,
+    color: colors.text,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  clearButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  clearButtonText: {
+    color: colors.textMuted,
+    fontSize: 16,
+    fontWeight: "600",
   },
   sectionTitle: {
     ...typography.subtitle,
@@ -226,13 +340,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    backgroundColor: colors.overlayLight,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },
   cardTitle: {
     ...typography.caption,
     color: colors.text,
+    flexShrink: 1,
   },
   cardYear: {
     ...typography.caption,
@@ -247,7 +362,7 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     borderWidth: 2,
     borderColor: colors.text,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: colors.badgeOverlay,
     justifyContent: "center",
     alignItems: "center",
     zIndex: 1,
@@ -264,5 +379,61 @@ const styles = StyleSheet.create({
   },
   watchlistBadgeTextActive: {
     fontSize: 14,
+  },
+  bannerTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 4,
+  },
+  typeBadge: {
+    backgroundColor: colors.primary,
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    flexShrink: 0,
+  },
+  typeBadgeMovie: {
+    backgroundColor: colors.moviePurple,
+  },
+  typeBadgeText: {
+    color: colors.text,
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.lg,
+  },
+  modalTitle: {
+    ...typography.subtitle,
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: spacing.lg,
+  },
+  modalButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
+    borderRadius: 8,
+    alignItems: "center",
+    marginBottom: spacing.sm,
+  },
+  modalButtonWatched: {
+    backgroundColor: colors.watchedGreen,
+  },
+  modalButtonText: {
+    ...typography.subtitle,
+    fontSize: 14,
+    color: colors.text,
+  },
+  modalCancel: {
+    paddingVertical: spacing.sm,
+    alignItems: "center",
+    marginTop: spacing.xs,
+  },
+  modalCancelText: {
+    ...typography.caption,
+    color: colors.textMuted,
   },
 });

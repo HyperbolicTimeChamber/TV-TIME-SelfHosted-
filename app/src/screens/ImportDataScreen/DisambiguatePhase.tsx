@@ -4,9 +4,9 @@ import {
 	Text,
 	TouchableOpacity,
 	ActivityIndicator,
-	Modal,
 } from "react-native";
 import { LegendList } from "@legendapp/list/react-native";
+import { AnimatedModal } from "../../components";
 import CandidateCard from "./CandidateCard";
 import { TMDBMatch, AmbiguousMatch } from "../../services/tvtimeImport";
 import { colors, spacing } from "../../theme";
@@ -49,31 +49,27 @@ export default function DisambiguatePhase({
 	return (
 		<View style={[styles.container, { paddingTop: insetTop + spacing.lg }]}>
 			{/* Info modal */}
-			<Modal
+			<AnimatedModal
 				visible={showInfo}
-				transparent
-				animationType="fade"
-				onRequestClose={() => setShowInfo(false)}>
-				<View style={styles.modalOverlay}>
-					<View style={styles.modalContent}>
-						<Text style={styles.modalTitle}>Duplicate Results</Text>
-						<Text style={styles.modalBody}>
-							Some shows or movies from your TV Time export matched multiple
-							results on TMDB. This can happen when names are shared across
-							different shows, movies, remakes, or regional versions.
-						</Text>
-						<Text style={styles.modalBody}>
-							Pick the correct match for each one so your watch history imports
-							accurately. You can also skip any you don't want to import.
-						</Text>
-						<TouchableOpacity
-							style={styles.modalButton}
-							onPress={() => setShowInfo(false)}>
-							<Text style={styles.modalButtonText}>Resolve</Text>
-						</TouchableOpacity>
-					</View>
+				onClose={() => setShowInfo(false)}>
+				<View style={styles.modalContent}>
+					<Text style={styles.modalTitle}>Duplicate Results</Text>
+					<Text style={styles.modalBody}>
+						Some shows or movies from your TV Time export matched multiple
+						results on TMDB. This can happen when names are shared across
+						different shows, movies, remakes, or regional versions.
+					</Text>
+					<Text style={styles.modalBody}>
+						Pick the correct match for each one so your watch history imports
+						accurately. You can also skip any you don't want to import.
+					</Text>
+					<TouchableOpacity
+						style={styles.modalButton}
+						onPress={() => setShowInfo(false)}>
+						<Text style={styles.modalButtonText}>Resolve</Text>
+					</TouchableOpacity>
 				</View>
-			</Modal>
+			</AnimatedModal>
 
 			{/* Header */}
 			<View style={styles.disambigHeader}>

@@ -4,9 +4,9 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Modal,
   ActivityIndicator,
 } from "react-native";
+import { AnimatedModal } from "../components";
 import { LegendList } from "@legendapp/list/react-native";
 import { Calendar, DateData } from "react-native-calendars";
 import { useNavigation } from "@react-navigation/native";
@@ -210,49 +210,41 @@ export default function CalendarScreen() {
       )}
 
       {/* Year picker modal */}
-      <Modal
+      <AnimatedModal
         visible={yearModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setYearModalVisible(false)}
+        onClose={() => setYearModalVisible(false)}
       >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setYearModalVisible(false)}
-        >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Year</Text>
-            <LegendList
-              ref={yearListRef}
-              data={YEARS}
-              keyExtractor={(item) => String(item)}
-              renderItem={({ item }) => (
-                <TouchableOpacity
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Select Year</Text>
+          <LegendList
+            ref={yearListRef}
+            data={YEARS}
+            keyExtractor={(item) => String(item)}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.yearItem,
+                  item === currentYear && styles.yearItemActive,
+                ]}
+                onPress={() => selectYear(item)}
+              >
+                <Text
                   style={[
-                    styles.yearItem,
-                    item === currentYear && styles.yearItemActive,
+                    styles.yearItemText,
+                    item === currentYear && styles.yearItemTextActive,
                   ]}
-                  onPress={() => selectYear(item)}
                 >
-                  <Text
-                    style={[
-                      styles.yearItemText,
-                      item === currentYear && styles.yearItemTextActive,
-                    ]}
-                  >
-                    {item}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              showsVerticalScrollIndicator={false}
-              style={styles.yearList}
-              snapToInterval={52}
-              decelerationRate="fast"
-            />
-          </View>
-        </TouchableOpacity>
-      </Modal>
+                  {item}
+                </Text>
+              </TouchableOpacity>
+            )}
+            showsVerticalScrollIndicator={false}
+            style={styles.yearList}
+            snapToInterval={52}
+            decelerationRate="fast"
+          />
+        </View>
+      </AnimatedModal>
     </View>
   );
 }
@@ -322,12 +314,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.xs,
     fontSize: 13,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    justifyContent: "center",
-    alignItems: "center",
   },
   modalContent: {
     backgroundColor: colors.surface,
