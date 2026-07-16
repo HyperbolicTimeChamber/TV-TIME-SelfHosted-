@@ -17,9 +17,9 @@ import { useSearch, useTrending, useTrackedIds } from "../hooks";
 import { useAuthStore } from "../stores";
 import { addToTracking, removeFromTracking, markMovieWatched } from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
-import { TMDBShow, SearchStackParamList, MediaType } from "../types";
+import { TMDBShow, SearchStackParamList, MediaType, Route } from "../types";
 
-type NavProp = NativeStackNavigationProp<SearchStackParamList, "SearchMain">;
+type NavProp = NativeStackNavigationProp<SearchStackParamList, Route.SEARCH_MAIN>;
 
 export default function SearchScreen() {
   const [query, setQuery] = useState("");
@@ -137,7 +137,7 @@ export default function SearchScreen() {
     (item: TMDBShow) => {
       const mediaType: MediaType =
         item.media_type || (item.title ? MediaType.MOVIE : MediaType.TV);
-      navigation.navigate("ShowDetail", {
+      navigation.navigate(Route.SHOW_DETAIL, {
         tmdbId: item.id,
         mediaType,
       });

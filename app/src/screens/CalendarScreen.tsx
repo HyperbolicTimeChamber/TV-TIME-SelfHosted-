@@ -15,9 +15,9 @@ import { Image } from "expo-image";
 import { useAuthStore } from "../stores";
 import { useCalendarEpisodes } from "../hooks";
 import { colors, spacing, typography, posterSize } from "../theme";
-import { UpcomingEpisode, CalendarStackParamList } from "../types";
+import { UpcomingEpisode, CalendarStackParamList, Route, MediaType } from "../types";
 
-type NavProp = NativeStackNavigationProp<CalendarStackParamList, "CalendarMain">;
+type NavProp = NativeStackNavigationProp<CalendarStackParamList, Route.CALENDAR_MAIN>;
 
 const YEAR_RANGE_START = 1950;
 const YEAR_RANGE_END = 2035;
@@ -124,9 +124,9 @@ export default function CalendarScreen() {
       <TouchableOpacity
         style={styles.episodeRow}
         onPress={() =>
-          navigation.navigate("ShowDetail", {
+          navigation.navigate(Route.SHOW_DETAIL, {
             tmdbId: item.tmdbShowId,
-            mediaType: "tv",
+            mediaType: MediaType.TV,
           })
         }
       >

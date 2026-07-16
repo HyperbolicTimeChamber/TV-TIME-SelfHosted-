@@ -7,11 +7,11 @@ import { LoadingSpinner } from "../../../components";
 import { useAuthStore } from "../../../stores";
 import { useUpcomingEpisodes } from "../../../hooks";
 import { colors, spacing, typography } from "../../../theme";
-import { UpcomingEpisode, HomeStackParamList } from "../../../types";
+import { UpcomingEpisode, HomeStackParamList, Route, MediaType } from "../../../types";
 import DateHeader from "./DateHeader";
 import UpcomingEpisodeRow from "./UpcomingEpisodeRow";
 
-type NavProp = NativeStackNavigationProp<HomeStackParamList, "HomeTabs">;
+type NavProp = NativeStackNavigationProp<HomeStackParamList, Route.HOME_TABS>;
 
 type ListItem =
   | { type: "header"; date: string }
@@ -55,7 +55,7 @@ export default function UpcomingTab() {
 
   const handlePress = useCallback(
     (tmdbShowId: number) => {
-      navigation.navigate("ShowDetail", { tmdbId: tmdbShowId, mediaType: "tv" });
+      navigation.navigate(Route.SHOW_DETAIL, { tmdbId: tmdbShowId, mediaType: MediaType.TV });
     },
     [navigation],
   );

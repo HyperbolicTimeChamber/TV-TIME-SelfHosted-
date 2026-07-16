@@ -1,7 +1,7 @@
 import React from "react";
 import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
 import { colors } from "../../theme";
-import { HomeTopTabParamList } from "../../types";
+import { HomeTopTabParamList, Route } from "../../types";
 import { useUiStore } from "../../stores";
 import WatchlistTab from "./WatchlistTab";
 import UpcomingTab from "./UpcomingTab";
@@ -22,8 +22,8 @@ export default function HomeScreen() {
         swipeEnabled: !watchlistLoading,
       }}
     >
-      <TopTab.Screen name="Watchlist" component={WatchlistTab} />
-      <TopTab.Screen name="Upcoming" component={UpcomingTab} />
+      <TopTab.Screen name={Route.WATCHLIST} component={WatchlistTab} />
+      <TopTab.Screen name={Route.UPCOMING} component={UpcomingTab} />
     </TopTab.Navigator>
   );
 }

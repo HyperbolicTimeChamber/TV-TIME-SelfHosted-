@@ -1,108 +1,15 @@
 import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../theme";
-import {
-  MainTabParamList,
-  HomeStackParamList,
-  SearchStackParamList,
-  CalendarStackParamList,
-  ProfileStackParamList,
-} from "../types";
-import HomeScreen from "../screens/HomeScreen";
-import SearchScreen from "../screens/SearchScreen";
-import CalendarScreen from "../screens/CalendarScreen";
-import ProfileScreen from "../screens/ProfileScreen";
-import ImportDataScreen from "../screens/ImportDataScreen";
-import ShowDetailScreen from "../screens/ShowDetailScreen";
-import SeasonDetailScreen from "../screens/SeasonDetailScreen";
+import { MainTabParamList, Route } from "../types";
+import HomeStackScreen from "./HomeStackScreen";
+import SearchStackScreen from "./SearchStackScreen";
+import CalendarStackScreen from "./CalendarStackScreen";
+import ProfileStackScreen from "./ProfileStackScreen";
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
-const HomeStack = createNativeStackNavigator<HomeStackParamList>();
-const SearchStack = createNativeStackNavigator<SearchStackParamList>();
-const CalendarStack = createNativeStackNavigator<CalendarStackParamList>();
-const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
-
-const stackScreenOptions = {
-  headerStyle: { backgroundColor: colors.surface },
-  headerTintColor: colors.text,
-  headerTitleStyle: { fontWeight: "600" as const },
-};
-
-function HomeStackScreen() {
-  return (
-    <HomeStack.Navigator screenOptions={stackScreenOptions}>
-      <HomeStack.Screen
-        name="HomeTabs"
-        component={HomeScreen}
-        options={{ headerTitle: "Watchloom" }}
-      />
-      <HomeStack.Screen
-        name="ShowDetail"
-        component={ShowDetailScreen}
-        options={{ headerTitle: "" }}
-      />
-      <HomeStack.Screen
-        name="SeasonDetail"
-        component={SeasonDetailScreen}
-        options={({ route }) => ({ headerTitle: route.params.showTitle })}
-      />
-    </HomeStack.Navigator>
-  );
-}
-
-function SearchStackScreen() {
-  return (
-    <SearchStack.Navigator screenOptions={stackScreenOptions}>
-      <SearchStack.Screen
-        name="SearchMain"
-        component={SearchScreen}
-        options={{ headerTitle: "Search" }}
-      />
-      <SearchStack.Screen
-        name="ShowDetail"
-        component={ShowDetailScreen}
-        options={{ headerTitle: "" }}
-      />
-    </SearchStack.Navigator>
-  );
-}
-
-function CalendarStackScreen() {
-  return (
-    <CalendarStack.Navigator screenOptions={stackScreenOptions}>
-      <CalendarStack.Screen
-        name="CalendarMain"
-        component={CalendarScreen}
-        options={{ headerTitle: "Calendar" }}
-      />
-      <CalendarStack.Screen
-        name="ShowDetail"
-        component={ShowDetailScreen}
-        options={{ headerTitle: "" }}
-      />
-    </CalendarStack.Navigator>
-  );
-}
-
-function ProfileStackScreen() {
-  return (
-    <ProfileStack.Navigator screenOptions={stackScreenOptions}>
-      <ProfileStack.Screen
-        name="ProfileMain"
-        component={ProfileScreen}
-        options={{ headerTitle: "Profile" }}
-      />
-      <ProfileStack.Screen
-        name="ImportData"
-        component={ImportDataScreen}
-        options={{ headerTitle: "Import Data" }}
-      />
-    </ProfileStack.Navigator>
-  );
-}
 
 export default function AppNavigator() {
   return (
@@ -118,10 +25,10 @@ export default function AppNavigator() {
           tabBarInactiveTintColor: colors.textMuted,
           tabBarIcon: ({ color, size }) => {
             const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
-              Home: "home",
-              Search: "search",
-              Calendar: "calendar",
-              Profile: "person",
+              [Route.HOME]: "home",
+              [Route.SEARCH]: "search",
+              [Route.CALENDAR]: "calendar",
+              [Route.PROFILE]: "person",
             };
             return (
               <Ionicons
@@ -133,10 +40,10 @@ export default function AppNavigator() {
           },
         })}
       >
-        <Tab.Screen name="Home" component={HomeStackScreen} />
-        <Tab.Screen name="Search" component={SearchStackScreen} />
-        <Tab.Screen name="Calendar" component={CalendarStackScreen} />
-        <Tab.Screen name="Profile" component={ProfileStackScreen} options={{
+        <Tab.Screen name={Route.HOME} component={HomeStackScreen} />
+        <Tab.Screen name={Route.SEARCH} component={SearchStackScreen} />
+        <Tab.Screen name={Route.CALENDAR} component={CalendarStackScreen} />
+        <Tab.Screen name={Route.PROFILE} component={ProfileStackScreen} options={{
           headerShown: false,
         }} />
       </Tab.Navigator>

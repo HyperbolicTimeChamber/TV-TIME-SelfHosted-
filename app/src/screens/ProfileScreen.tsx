@@ -13,7 +13,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuthStore } from "../stores";
 import { useUserStats, useWatchlist } from "../hooks";
 import { colors, spacing, typography, posterSize } from "../theme";
-import { ProfileStackParamList, WatchStatus } from "../types";
+import { ProfileStackParamList, WatchStatus, Route } from "../types";
 
 export default function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
@@ -104,7 +104,7 @@ export default function ProfileScreen() {
 
       <TouchableOpacity
         style={styles.importButton}
-        onPress={() => navigation.navigate("ImportData")}
+        onPress={() => navigation.navigate(Route.IMPORT_DATA)}
       >
         <Text style={styles.importText}>{hasCompletedImport ? "Re-sync TV Time Data" : "Import TV Time Data"}</Text>
       </TouchableOpacity>

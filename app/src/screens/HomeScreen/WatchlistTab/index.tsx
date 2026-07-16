@@ -21,13 +21,13 @@ import {
   getCatalogShow,
 } from "../../../services";
 import { colors, spacing, typography } from "../../../theme";
-import { HomeStackParamList, WatchedEpisode, MediaType } from "../../../types";
+import { HomeStackParamList, WatchedEpisode, MediaType, Route } from "../../../types";
 import { ListItem } from "./types";
 import { useWatchlistData } from "./useWatchlistData";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
 import SectionHeader from "./SectionHeader";
 
-type NavProp = NativeStackNavigationProp<HomeStackParamList, "HomeTabs">;
+type NavProp = NativeStackNavigationProp<HomeStackParamList, Route.HOME_TABS>;
 
 const SeparatorComponent = () => (
   <View style={{ height: 1, backgroundColor: colors.border }} />
@@ -81,7 +81,7 @@ export default function WatchlistTab() {
 
   const handlePress = useCallback(
     (tmdbId: number, mediaType: MediaType) => {
-      navigation.navigate("ShowDetail", { tmdbId, mediaType });
+      navigation.navigate(Route.SHOW_DETAIL, { tmdbId, mediaType });
     },
     [navigation],
   );
