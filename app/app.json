@@ -10,7 +10,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.tvtimerevived.app",
       "buildNumber": "3",
-      "googleServicesFile": "./GoogleService-Info.plist"
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "UIBackgroundModes": ["remote-notification"]
+      }
     },
     "android": {
       "versionCode": 3,

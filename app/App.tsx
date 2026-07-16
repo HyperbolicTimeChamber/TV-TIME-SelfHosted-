@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, Animated } from "react-native";
+import { View, StyleSheet, Animated, Platform, PermissionsAndroid } from "react-native";
 import { Image } from "expo-image";
 import LoadingSpinner from "./src/components/LoadingSpinner";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -40,6 +40,15 @@ const queryClient = new QueryClient({
 
 async function registerFCMToken(userId: string) {
   try {
+    if (Platform.OS === "android" && Platform.Version >= 33) {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+      );
+      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+        console.warn("POST_NOTIFICATIONS permission denied");
+        return;
+      }
+    }
     const msg = getMessaging();
     await requestPermission(msg);
     const token = await getToken(msg);
