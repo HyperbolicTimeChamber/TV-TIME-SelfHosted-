@@ -22,7 +22,7 @@ import {
 } from "../services";
 import WatchActionSheet, { WatchAction } from "./WatchActionSheet";
 import { colors, spacing, typography, posterSize } from "../theme";
-import { TMDBSeason, TMDBEpisode } from "../types";
+import { TMDBSeason, TMDBEpisode, MediaType } from "../types";
 
 interface Props {
   tmdbId: number;
@@ -107,7 +107,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
       setMarkingSeason(true);
       try {
         if (!isTracked) {
-          await addToTracking(user.uid, tmdbId, "tv");
+          await addToTracking(user.uid, tmdbId, MediaType.TV);
         }
 
         const { nextEpisode, isComplete } = await getNextEpisodeInfo(season.season_number);
@@ -140,7 +140,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
 
       try {
         if (!isTracked) {
-          await addToTracking(user.uid, tmdbId, "tv");
+          await addToTracking(user.uid, tmdbId, MediaType.TV);
         }
 
         const { nextEpisode, isComplete } = await getNextEpisodeInfo(
@@ -248,7 +248,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
       setMarking(toEp);
       try {
         if (!isTracked) {
-          await addToTracking(user.uid, tmdbId, "tv");
+          await addToTracking(user.uid, tmdbId, MediaType.TV);
         }
         for (const ep of epsToMark) {
           const isLast = ep.episode_number === toEp;

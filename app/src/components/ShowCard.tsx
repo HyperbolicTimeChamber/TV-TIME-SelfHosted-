@@ -7,12 +7,13 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
+import { MediaType } from "../types";
 import { colors, spacing, typography, posterSize } from "../theme";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 
 interface ShowCardItem {
   tmdbId: number;
-  mediaType: "tv" | "movie";
+  mediaType: MediaType;
   status: string;
   nextEpisode: { season: number; episode: number } | null;
   rewatchCount: number;
@@ -44,7 +45,7 @@ export default memo(function ShowCard({
   onCheckmark,
   onCheckmarkLongPress,
 }: Props) {
-  const ep = item.nextEpisode ?? (item.mediaType === "tv" ? { season: 1, episode: 1 } : null);
+  const ep = item.nextEpisode ?? (item.mediaType === MediaType.TV ? { season: 1, episode: 1 } : null);
   const episodeLabel = ep
     ? `S${String(ep.season).padStart(2, "0")}E${String(ep.episode).padStart(2, "0")}`
     : "Movie";

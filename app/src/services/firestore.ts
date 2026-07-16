@@ -84,8 +84,8 @@ export async function addToTracking(
   await setDoc(tRef, {
     tmdbId,
     mediaType,
-    status: "watching" as WatchStatus,
-    nextEpisode: mediaType === "tv" ? { season: 1, episode: 1 } : null,
+    status: WatchStatus.WATCHING,
+    nextEpisode: mediaType === MediaType.TV ? { season: 1, episode: 1 } : null,
     rewatchCount: 0,
     addedAt: now,
     lastWatchedAt: now,
@@ -107,15 +107,17 @@ export async function removeFromTracking(
 }
 
 export async function stopWatching(userId: string, tmdbId: number, currentStatus: WatchStatus) {
-  if (currentStatus === "rewatching") {
-    await updateDoc(doc(trackingRef(userId), String(tmdbId)), {
-      status: "paused_rewatch" as WatchStatus,
-    });
+  let newStatus: WatchStatus;
+  if (currentStatus === WatchStatus.REWATCHING) {
+    newStatus = WatchStatus.PAUSED_REWATCH;
+  } else if (currentStatus === WatchStatus.WATCHING) {
+    newStatus = WatchStatus.PAUSED;
   } else {
-    await updateDoc(doc(trackingRef(userId), String(tmdbId)), {
-      status: "completed" as WatchStatus,
-    });
+    newStatus = WatchStatus.COMPLETED;
   }
+  await updateDoc(doc(trackingRef(userId), String(tmdbId)), {
+    status: newStatus,
+  });
 }
 
 export async function markEpisodeWatched(
@@ -168,7 +170,7 @@ export async function markEpisodeWatched(
       nextEpisode,
     };
     if (isShowComplete) {
-      trackingUpdate.status = "completed";
+      trackingUpdate.status = WatchStatus.COMPLETED;
     }
     batch.update(doc(trackingRef(userId), String(tmdbShowId)), trackingUpdate);
   }
@@ -287,7 +289,7 @@ export async function decrementSeasonWatchCount(
 
 export async function startRewatch(userId: string, tmdbId: number) {
   await updateDoc(doc(trackingRef(userId), String(tmdbId)), {
-    status: "rewatching" as WatchStatus,
+    status: WatchStatus.REWATCHING,
     rewatchCount: increment(1),
     nextEpisode: { season: 1, episode: 1 },
     lastWatchedAt: serverTimestamp(),
@@ -295,9 +297,15 @@ export async function startRewatch(userId: string, tmdbId: number) {
   });
 }
 
+export async function resumeWatching(userId: string, tmdbId: number) {
+  await updateDoc(doc(trackingRef(userId), String(tmdbId)), {
+    status: WatchStatus.WATCHING,
+  });
+}
+
 export async function resumeRewatch(userId: string, tmdbId: number) {
   await updateDoc(doc(trackingRef(userId), String(tmdbId)), {
-    status: "rewatching" as WatchStatus,
+    status: WatchStatus.REWATCHING,
   });
 }
 
@@ -329,7 +337,7 @@ export async function markMovieWatched(
   }
 
   batch.update(tRef, {
-    status: "completed",
+    status: WatchStatus.COMPLETED,
     lastWatchedAt: now,
     priorityDate: now,
   });

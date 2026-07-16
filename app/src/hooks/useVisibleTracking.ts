@@ -1,4 +1,5 @@
 // app/src/hooks/useVisibleTracking.ts
+import { WatchStatus, MediaType } from "../types";
 import { EnrichedTrackingItem } from "./useWatchlist";
 
 /**
@@ -16,16 +17,16 @@ import { EnrichedTrackingItem } from "./useWatchlist";
  * - nextEpisode hasn't aired yet (caught up, waiting for new ep)
  */
 export function isShowVisible(item: EnrichedTrackingItem): boolean {
-  const activeStatuses = ["watching", "rewatching", "plan_to_watch"];
+  const activeStatuses: WatchStatus[] = [WatchStatus.WATCHING, WatchStatus.REWATCHING, WatchStatus.PLAN_TO_WATCH];
   if (!activeStatuses.includes(item.status)) return false;
 
   // plan_to_watch — always visible
-  if (item.status === "plan_to_watch") return true;
+  if (item.status === WatchStatus.PLAN_TO_WATCH) return true;
 
   const catalog = item.catalogShow;
 
   // Movies — visible if active
-  if (!catalog || catalog.mediaType === "movie") return true;
+  if (!catalog || catalog.mediaType === MediaType.MOVIE) return true;
 
   // No nextEpisode means fully caught up or completed
   const nextEp = item.nextEpisode;

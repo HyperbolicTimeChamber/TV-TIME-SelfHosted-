@@ -13,7 +13,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuthStore } from "../stores";
 import { useUserStats, useWatchlist } from "../hooks";
 import { colors, spacing, typography, posterSize } from "../theme";
-import { ProfileStackParamList } from "../types";
+import { ProfileStackParamList, WatchStatus } from "../types";
 
 export default function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
@@ -24,7 +24,7 @@ export default function ProfileScreen() {
   const { items: watchlist } = useWatchlist(user?.uid);
 
   const completedShows = useMemo(
-    () => watchlist.filter((w) => w.status === "completed"),
+    () => watchlist.filter((w) => w.status === WatchStatus.COMPLETED),
     [watchlist]
   );
 

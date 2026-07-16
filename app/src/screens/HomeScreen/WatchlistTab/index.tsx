@@ -21,7 +21,7 @@ import {
   getCatalogShow,
 } from "../../../services";
 import { colors, spacing, typography } from "../../../theme";
-import { HomeStackParamList, WatchedEpisode } from "../../../types";
+import { HomeStackParamList, WatchedEpisode, MediaType } from "../../../types";
 import { ListItem } from "./types";
 import { useWatchlistData } from "./useWatchlistData";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
@@ -80,7 +80,7 @@ export default function WatchlistTab() {
   }, [isLoading, prevWatchedOffset]);
 
   const handlePress = useCallback(
-    (tmdbId: number, mediaType: "tv" | "movie") => {
+    (tmdbId: number, mediaType: MediaType) => {
       navigation.navigate("ShowDetail", { tmdbId, mediaType });
     },
     [navigation],
@@ -176,7 +176,7 @@ export default function WatchlistTab() {
           <WatchedEpisodeRow
             episode={item.episode}
             show={item.show}
-            onPress={(id) => handlePress(id, "tv")}
+            onPress={(id) => handlePress(id, MediaType.TV)}
             onCheckmarkPress={handleWatchedCheckmark}
           />
         );

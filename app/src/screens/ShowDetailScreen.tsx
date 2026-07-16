@@ -21,12 +21,13 @@ import {
   addToTracking,
   removeFromTracking,
   startRewatch,
+  resumeWatching,
   resumeRewatch,
   markMovieWatched,
 } from "../services";
 import { ConfirmModal, LoadingSpinner, SeasonDropdown } from "../components";
 import { colors, spacing, typography, posterSize } from "../theme";
-import { HomeStackParamList } from "../types";
+import { HomeStackParamList, WatchStatus, MediaType } from "../types";
 
 type RouteParams = RouteProp<HomeStackParamList, "ShowDetail">;
 
@@ -96,9 +97,11 @@ export default function ShowDetailScreen() {
     }
   }, [user?.uid, tmdbId, removing]);
 
-  const handleRewatch = useCallback(async () => {
+  const handleResumeOrRewatch = useCallback(async () => {
     if (!user?.uid) return;
-    if (watchlistItem?.status === "paused_rewatch") {
+    if (watchlistItem?.status === WatchStatus.PAUSED) {
+      await resumeWatching(user.uid, tmdbId);
+    } else if (watchlistItem?.status === WatchStatus.PAUSED_REWATCH) {
       await resumeRewatch(user.uid, tmdbId);
     } else {
       await startRewatch(user.uid, tmdbId);
@@ -110,7 +113,7 @@ export default function ShowDetailScreen() {
     setAdding(true);
     try {
       if (!watchlistItem) {
-        await addToTracking(user.uid, tmdbId, "movie");
+        await addToTracking(user.uid, tmdbId, MediaType.MOVIE);
       }
       await markMovieWatched(user.uid, tmdbId, show.runtime ?? 0);
     } catch (err: any) {
@@ -169,7 +172,7 @@ export default function ShowDetailScreen() {
                   <Text style={styles.buttonText}>+ Add to Watchlist</Text>
                 )}
               </TouchableOpacity>
-              {mediaType === "movie" && (
+              {mediaType === MediaType.MOVIE && (
                 <TouchableOpacity
                   style={[styles.addButton, { backgroundColor: colors.watchedGreen }, adding && { opacity: 0.6 }]}
                   onPress={handleMarkMovieWatched}
@@ -185,7 +188,7 @@ export default function ShowDetailScreen() {
             </>
           ) : (
             <>
-              {mediaType === "movie" && watchlistItem.status !== "completed" && (
+              {mediaType === MediaType.MOVIE && watchlistItem.status !== WatchStatus.COMPLETED && (
                 <TouchableOpacity
                   style={[styles.addButton, { backgroundColor: colors.watchedGreen }, adding && { opacity: 0.6 }]}
                   onPress={handleMarkMovieWatched}
@@ -198,21 +201,24 @@ export default function ShowDetailScreen() {
                   )}
                 </TouchableOpacity>
               )}
-              {mediaType === "movie" && watchlistItem.status === "completed" && (
+              {mediaType === MediaType.MOVIE && watchlistItem.status === WatchStatus.COMPLETED && (
                 <View style={[styles.addButton, { backgroundColor: colors.watchedGreen, opacity: 0.7 }]}>
                   <Text style={styles.buttonText}>Watched ✓</Text>
                 </View>
               )}
-              {(watchlistItem.status === "completed" ||
-                watchlistItem.status === "paused_rewatch") && (
+              {(watchlistItem.status === WatchStatus.COMPLETED ||
+                watchlistItem.status === WatchStatus.PAUSED ||
+                watchlistItem.status === WatchStatus.PAUSED_REWATCH) && (
                 <TouchableOpacity
                   style={[styles.addButton, { backgroundColor: colors.accent }]}
-                  onPress={handleRewatch}
+                  onPress={handleResumeOrRewatch}
                 >
                   <Text style={styles.buttonText}>
-                    {watchlistItem.status === "paused_rewatch"
-                      ? "Resume Rewatch"
-                      : "Rewatch"}
+                    {watchlistItem.status === WatchStatus.PAUSED
+                      ? "Resume"
+                      : watchlistItem.status === WatchStatus.PAUSED_REWATCH
+                        ? "Resume Rewatch"
+                        : "Rewatch"}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -236,7 +242,7 @@ export default function ShowDetailScreen() {
 
         <Text style={styles.overview}>{show.overview}</Text>
 
-        {mediaType === "tv" && show.seasons && (
+        {mediaType === MediaType.TV && show.seasons && (
           <View style={styles.seasonsSection}>
             <Text style={styles.sectionTitle}>Seasons</Text>
             {show.seasons

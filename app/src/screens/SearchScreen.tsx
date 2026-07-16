@@ -64,9 +64,9 @@ export default function SearchScreen() {
     async (item: TMDBShow) => {
       if (!user?.uid) return;
       const mediaType: MediaType =
-        item.media_type || (item.title ? "movie" : "tv");
+        item.media_type || (item.title ? MediaType.MOVIE : MediaType.TV);
 
-      if (mediaType === "movie") {
+      if (mediaType === MediaType.MOVIE) {
         setMovieModal(item);
         return;
       }
@@ -128,7 +128,7 @@ export default function SearchScreen() {
     hasNextPage,
   } = useSearch(debouncedQuery);
 
-  const { data: trending, isLoading: trendingLoading } = useTrending("tv");
+  const { data: trending, isLoading: trendingLoading } = useTrending(MediaType.TV);
 
   const displayData = debouncedQuery.length > 0 ? searchData?.results : trending;
   const isLoading = debouncedQuery.length > 0 ? searchLoading : trendingLoading;
@@ -136,7 +136,7 @@ export default function SearchScreen() {
   const handlePress = useCallback(
     (item: TMDBShow) => {
       const mediaType: MediaType =
-        item.media_type || (item.title ? "movie" : "tv");
+        item.media_type || (item.title ? MediaType.MOVIE : MediaType.TV);
       navigation.navigate("ShowDetail", {
         tmdbId: item.id,
         mediaType,
@@ -153,7 +153,7 @@ export default function SearchScreen() {
         4
       );
       const mediaType: MediaType =
-        item.media_type || (item.title ? "movie" : "tv");
+        item.media_type || (item.title ? MediaType.MOVIE : MediaType.TV);
       const isInWatchlist = watchlistIds.has(item.id);
       const isAdding = addingIds.has(item.id);
 
@@ -207,11 +207,11 @@ export default function SearchScreen() {
               <View
                 style={[
                   styles.typeBadge,
-                  mediaType === "movie" && styles.typeBadgeMovie,
+                  mediaType === MediaType.MOVIE && styles.typeBadgeMovie,
                 ]}
               >
                 <Text style={styles.typeBadgeText}>
-                  {mediaType === "tv" ? "TV" : "MOVIE"}
+                  {mediaType === MediaType.TV ? "TV" : "MOVIE"}
                 </Text>
               </View>
             </View>

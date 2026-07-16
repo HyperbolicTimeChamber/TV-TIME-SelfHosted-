@@ -8,6 +8,7 @@ import {
   sortByPriority,
 } from "../../../hooks";
 import { markEpisodeWatched, markMovieWatched, stopWatching, getCatalogShow } from "../../../services";
+import { MediaType } from "../../../types";
 import { ListItem } from "./types";
 
 export function useWatchlistData(userId: string | undefined) {
@@ -104,8 +105,8 @@ export function useWatchlistData(userId: string | undefined) {
     async (item: EnrichedTrackingItem) => {
       if (!userId) return;
 
-      if (item.mediaType === "movie") {
-        setUpdatingShows((prev) => new Map(prev).set(item.tmdbId, "movie"));
+      if (item.mediaType === MediaType.MOVIE) {
+        setUpdatingShows((prev) => new Map(prev).set(item.tmdbId, MediaType.MOVIE));
         const catalog = item.catalogShow ?? (await getCatalogShow(item.tmdbId));
         await markMovieWatched(userId, item.tmdbId, catalog?.runtime ?? 0);
         queryClient.invalidateQueries({ queryKey: ["watchedMovies", userId] });

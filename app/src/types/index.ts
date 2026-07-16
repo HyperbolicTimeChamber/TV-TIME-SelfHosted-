@@ -1,13 +1,18 @@
 import { Timestamp } from "@react-native-firebase/firestore";
 
-export type WatchStatus =
-  | "watching"
-  | "plan_to_watch"
-  | "completed"
-  | "rewatching"
-  | "paused_rewatch";
+export enum WatchStatus {
+  WATCHING = "watching",
+  PLAN_TO_WATCH = "plan_to_watch",
+  COMPLETED = "completed",
+  PAUSED = "paused",
+  REWATCHING = "rewatching",
+  PAUSED_REWATCH = "paused_rewatch",
+}
 
-export type MediaType = "tv" | "movie";
+export enum MediaType {
+  TV = "tv",
+  MOVIE = "movie",
+}
 
 // --- Catalog Types (shared show data from shows/ collection) ---
 
