@@ -29,9 +29,10 @@ interface Props {
   season: TMDBSeason;
   showPosterPath: string | null;
   isTracked?: boolean;
+  preloadedEpisodes?: TMDBEpisode[];
 }
 
-export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, isTracked }: Props) {
+export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, isTracked, preloadedEpisodes }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [marking, setMarking] = useState<number | null>(null);
   const [markingSeason, setMarkingSeason] = useState(false);
@@ -39,7 +40,8 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
   const apiKey = useAuthStore((s) => s.appTmdbApiKey)!;
   const { data: seasonData, isLoading } = useSeasonDetails(
     tmdbId,
-    season.season_number
+    season.season_number,
+    !preloadedEpisodes, // skip fetch if preloaded
   );
 
   const { episodes: watchedEps, loading: watchedLoading } = useShowWatchedEpisodes(user?.uid, tmdbId);
@@ -63,7 +65,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
   }
 
   const watchedCount = watchedMap.size;
-  const episodes = seasonData?.episodes || [];
+  const episodes = preloadedEpisodes ?? seasonData?.episodes ?? [];
   const minWatchCount = episodes.length > 0
     ? Math.min(...episodes.map((ep: TMDBEpisode) => watchedMap.get(ep.episode_number)?.watchCount || 0))
     : 0;
@@ -71,7 +73,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
 
   const getNextEpisodeInfo = useCallback(
     async (afterSeason: number, afterEpisode?: number) => {
-      const eps = seasonData?.episodes || [];
+      const eps = episodes;
       if (afterEpisode !== undefined) {
         const nextInSeason = eps.find(
           (e: TMDBEpisode) => e.episode_number === afterEpisode + 1
@@ -101,7 +103,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
   const handleMarkSeasonWatched = useCallback(
     async () => {
       if (!user?.uid || markingSeason) return;
-      const eps = seasonData?.episodes || [];
+      const eps = episodes;
       if (eps.length === 0) return;
 
       setMarkingSeason(true);
@@ -194,7 +196,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
           if (action === "rewatch") {
             await handleMarkSeasonWatched();
           } else if (action === "not_watched") {
-            const toUnmark = (seasonData?.episodes || [])
+            const toUnmark = (episodes)
               .filter((ep: TMDBEpisode) => watchedMap.has(ep.episode_number))
               .map((ep: TMDBEpisode) => ({
                 season: season.season_number,
@@ -205,7 +207,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
               await unmarkSeasonWatched(user.uid, tmdbId, toUnmark);
             }
           } else if (action === "watched_once_less") {
-            const toDecrement = (seasonData?.episodes || [])
+            const toDecrement = (episodes)
               .filter((ep: TMDBEpisode) => {
                 const w = watchedMap.get(ep.episode_number);
                 return w && w.watchCount > 0;
@@ -236,7 +238,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
   const markEpisodeRange = useCallback(
     async (fromEp: number, toEp: number) => {
       if (!user?.uid) return;
-      const eps = seasonData?.episodes || [];
+      const eps = episodes;
       const epsToMark = eps.filter(
         (e: TMDBEpisode) =>
           e.episode_number >= fromEp &&
@@ -292,7 +294,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
       }
 
       // Check for skipped unwatched episodes before this one
-      const eps = seasonData?.episodes || [];
+      const eps = episodes;
       const skipped = eps.filter(
         (e: TMDBEpisode) =>
           e.episode_number < ep.episode_number &&
@@ -422,7 +424,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
               style={styles.loader}
             />
           ) : (
-            (seasonData?.episodes || []).map((ep: TMDBEpisode) => {
+            (episodes).map((ep: TMDBEpisode) => {
               const watched = watchedMap.get(ep.episode_number);
               const count = watched?.watchCount || 0;
               const isWatched = count > 0;

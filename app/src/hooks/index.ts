@@ -5,7 +5,7 @@ export { useSearch } from "./useSearch";
 export { useSeasonDetails } from "./useSeasonDetails";
 export { useShowDetails } from "./useShowDetails";
 export { useTrending } from "./useTrending";
-export { useUpcomingEpisodes } from "./useUpcomingEpisodes";
+export { useUpcomingEpisodes, useInvalidateUpcoming } from "./useUpcomingEpisodes";
 export { useUserStats } from "./useUserStats";
 export { isShowVisible, sortByPriority } from "./useVisibleTracking";
 export { useTrackedIds } from "./useTrackedIds";

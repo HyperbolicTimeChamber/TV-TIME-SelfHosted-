@@ -13,7 +13,7 @@ import { LegendList } from "@legendapp/list/react-native";
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useSearch, useTrending, useTrackedIds } from "../hooks";
+import { useSearch, useTrending, useTrackedIds, useInvalidateUpcoming } from "../hooks";
 import { useAuthStore } from "../stores";
 import { addToTracking, removeFromTracking, markMovieWatched } from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
@@ -39,6 +39,7 @@ export default function SearchScreen() {
   const [removeModal, setRemoveModal] = useState<TMDBShow | null>(null);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  const invalidateUpcoming = useInvalidateUpcoming();
 
   const watchlistIds = trackedIds;
 
@@ -71,11 +72,12 @@ export default function SearchScreen() {
         return;
       }
 
-      await withLoadingId(item.id, () =>
-        addToTracking(user.uid!, item.id, mediaType)
-      );
+      await withLoadingId(item.id, async () => {
+        await addToTracking(user.uid!, item.id, mediaType);
+        invalidateUpcoming();
+      });
     },
-    [user?.uid, withLoadingId]
+    [user?.uid, withLoadingId, invalidateUpcoming]
   );
 
   const handleRemoveFromWatchlist = useCallback(
@@ -93,6 +95,7 @@ export default function SearchScreen() {
     setRemoveError(null);
     try {
       await removeFromTracking(user.uid, removeModal.id);
+      invalidateUpcoming();
       setRemoveModal(null);
     } catch (err: any) {
       console.error("removeFromTracking failed:", err);
@@ -107,7 +110,7 @@ export default function SearchScreen() {
     const item = movieModal;
     setMovieModal(null);
     await withLoadingId(item.id, () =>
-      addToTracking(user.uid!, item.id, "movie")
+      addToTracking(user.uid!, item.id, MediaType.MOVIE)
     );
   }, [user?.uid, movieModal, withLoadingId]);
 
@@ -116,7 +119,7 @@ export default function SearchScreen() {
     const item = movieModal;
     setMovieModal(null);
     await withLoadingId(item.id, async () => {
-      await addToTracking(user.uid!, item.id, "movie");
+      await addToTracking(user.uid!, item.id, MediaType.MOVIE);
       await markMovieWatched(user.uid!, item.id, (item as any).runtime ?? 0);
     });
   }, [user?.uid, movieModal, withLoadingId]);

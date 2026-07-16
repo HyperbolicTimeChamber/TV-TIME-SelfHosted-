@@ -96,6 +96,7 @@ export async function addToTracking(
   await setDoc(userRef(userId), {
     stats: { showsTracking: increment(1) },
   }, { merge: true });
+
 }
 
 export async function removeFromTracking(

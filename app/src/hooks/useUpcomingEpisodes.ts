@@ -1,91 +1,86 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useCallback } from "react";
 import {
   getFirestore,
   collection,
   doc,
+  getDoc,
+  getDocs,
   query,
   where,
-  orderBy,
-  limit,
-  startAfter,
-  getDocs,
-  QueryDocumentSnapshot,
 } from "@react-native-firebase/firestore";
-import { UpcomingEpisode } from "../types";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { UpcomingEpisode, CatalogShow } from "../types";
 
-const PAGE_SIZE = 20;
+const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
+
+async function fetchUpcoming(userId: string): Promise<UpcomingEpisode[]> {
+  const db = getFirestore();
+  const today = new Date().toISOString().slice(0, 10);
+
+  const trackingSnap = await getDocs(
+    query(
+      collection(doc(db, "users", userId), "tracking"),
+      where("mediaType", "==", "tv")
+    )
+  );
+  const trackedIds = trackingSnap.docs.map((d) => d.id);
+
+  if (trackedIds.length === 0) return [];
+
+  const catalogDocs = await Promise.all(
+    trackedIds.map((id) =>
+      getDoc(doc(db, "shows", id)).then((d) =>
+        d.exists() ? ({ ...d.data() } as unknown as CatalogShow) : null
+      )
+    )
+  );
+
+  const episodes: UpcomingEpisode[] = [];
+  for (const catalog of catalogDocs) {
+    if (!catalog) continue;
+    for (const season of catalog.seasons || []) {
+      if (season.seasonNumber === 0) continue;
+      for (const ep of season.episodes || []) {
+        if (!ep.airDate || ep.airDate < today) continue;
+        episodes.push({
+          tmdbShowId: catalog.tmdbId,
+          showTitle: catalog.title,
+          posterPath: catalog.posterPath,
+          season: season.seasonNumber,
+          episode: ep.episodeNumber,
+          episodeTitle: ep.title,
+          airDate: ep.airDate,
+          runtime: ep.runtime,
+        });
+      }
+    }
+  }
+
+  episodes.sort((a, b) => a.airDate.localeCompare(b.airDate));
+  return episodes;
+}
 
 export function useUpcomingEpisodes(userId: string | undefined) {
-  const [data, setData] = useState<UpcomingEpisode[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const lastDoc = useRef<QueryDocumentSnapshot | null>(null);
+  const { data, isLoading } = useQuery({
+    queryKey: ["upcomingEpisodes", userId],
+    queryFn: () => fetchUpcoming(userId!),
+    enabled: !!userId,
+    staleTime: ONE_WEEK,
+    gcTime: ONE_WEEK,
+  });
 
-  useEffect(() => {
-    if (!userId) {
-      setData([]);
-      setIsLoading(false);
-      setHasMore(false);
-      return;
-    }
+  return {
+    data: data ?? [],
+    isLoading,
+    loadMore: () => {},
+    loadingMore: false,
+    hasMore: false,
+  };
+}
 
-    const today = new Date().toISOString().slice(0, 10);
-    const db = getFirestore();
-    const upcomingCol = collection(doc(db, "users", userId), "upcoming");
-    const q = query(
-      upcomingCol,
-      where("airDate", ">=", today),
-      orderBy("airDate"),
-      limit(PAGE_SIZE)
-    );
-
-    getDocs(q).then((snap) => {
-      const eps = snap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      })) as UpcomingEpisode[];
-
-      setData(eps);
-      lastDoc.current = snap.docs[snap.docs.length - 1] || null;
-      setHasMore(snap.docs.length >= PAGE_SIZE);
-      setIsLoading(false);
-    }).catch((err) => {
-      console.error("Upcoming load error:", err);
-      setIsLoading(false);
-    });
-  }, [userId]);
-
-  const loadMore = useCallback(async () => {
-    if (!userId || !hasMore || loadingMore || !lastDoc.current) return;
-    setLoadingMore(true);
-
-    try {
-      const db = getFirestore();
-      const upcomingCol = collection(doc(db, "users", userId), "upcoming");
-      const q = query(
-        upcomingCol,
-        where("airDate", ">=", new Date().toISOString().slice(0, 10)),
-        orderBy("airDate"),
-        startAfter(lastDoc.current),
-        limit(PAGE_SIZE)
-      );
-
-      const snap = await getDocs(q);
-      const eps = snap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      })) as UpcomingEpisode[];
-
-      lastDoc.current = snap.docs[snap.docs.length - 1] || null;
-      setHasMore(snap.docs.length >= PAGE_SIZE);
-      setData((prev) => [...prev, ...eps]);
-    } catch (err) {
-      console.error("Upcoming loadMore error:", err);
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [userId, hasMore, loadingMore]);
-
-  return { data, isLoading, loadMore, loadingMore, hasMore };
+export function useInvalidateUpcoming() {
+  const queryClient = useQueryClient();
+  return useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["upcomingEpisodes"] });
+  }, [queryClient]);
 }

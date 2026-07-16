@@ -15,7 +15,7 @@ import {
   doc,
   onSnapshot,
 } from "@react-native-firebase/firestore";
-import { useShowDetails } from "../hooks";
+import { useShowDetails, useInvalidateUpcoming } from "../hooks";
 import { useAuthStore } from "../stores";
 import {
   addToTracking,
@@ -35,11 +35,12 @@ export default function ShowDetailScreen() {
   const route = useRoute<RouteParams>();
   const { tmdbId, mediaType } = route.params;
   const user = useAuthStore((s) => s.user);
-  const { data: show, isLoading } = useShowDetails(tmdbId, mediaType);
+  const { data: show, isLoading, episodesBySeason } = useShowDetails(tmdbId, mediaType);
   const [watchlistItem, setWatchlistItem] = useState<any>(null);
   const [trackingLoading, setTrackingLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const invalidateUpcoming = useInvalidateUpcoming();
   const [removeModalVisible, setRemoveModalVisible] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
 
@@ -68,13 +69,14 @@ export default function ShowDetailScreen() {
     setAdding(true);
     try {
       await addToTracking(user.uid, tmdbId, mediaType);
+      invalidateUpcoming();
     } catch (err: any) {
       console.error("addToTracking failed:", err);
       Alert.alert("Error", err.message || "Failed to add to watchlist.");
     } finally {
       setAdding(false);
     }
-  }, [user?.uid, show, tmdbId, mediaType, adding]);
+  }, [user?.uid, show, tmdbId, mediaType, adding, invalidateUpcoming]);
 
   const handleRemove = useCallback(() => {
     if (!user?.uid || removing) return;
@@ -88,6 +90,7 @@ export default function ShowDetailScreen() {
     setRemoveError(null);
     try {
       await removeFromTracking(user.uid, tmdbId);
+      invalidateUpcoming();
       setRemoveModalVisible(false);
     } catch (err: any) {
       console.error("removeFromTracking failed:", err);
@@ -95,7 +98,7 @@ export default function ShowDetailScreen() {
     } finally {
       setRemoving(false);
     }
-  }, [user?.uid, tmdbId, removing]);
+  }, [user?.uid, tmdbId, removing, invalidateUpcoming]);
 
   const handleResumeOrRewatch = useCallback(async () => {
     if (!user?.uid) return;
@@ -254,6 +257,7 @@ export default function ShowDetailScreen() {
                   season={season}
                   showPosterPath={show.poster_path}
                   isTracked={!!watchlistItem}
+                  preloadedEpisodes={episodesBySeason.get(season.season_number)}
                 />
               ))}
           </View>

@@ -4,7 +4,10 @@ import { Image } from "expo-image";
 import LoadingSpinner from "./src/components/LoadingSpinner";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import NetInfo from "@react-native-community/netinfo";
 import { getAuth, onAuthStateChanged, reload, signOut } from "@react-native-firebase/auth";
@@ -19,7 +22,7 @@ import {
   setDoc,
 } from "@react-native-firebase/firestore";
 import { useAuthStore, useUiStore } from "./src/stores";
-import { useForceUpdate } from "./src/hooks";
+import { useForceUpdate, useUpcomingEpisodes } from "./src/hooks";
 import LoginScreen from "./src/screens/LoginScreen";
 import ImportDataScreen from "./src/screens/ImportDataScreen";
 import AppNavigator from "./src/navigation/AppNavigator";
@@ -36,6 +39,11 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: { staleTime: 5 * 60 * 1000, retry: 2 },
   },
+});
+
+const asyncStoragePersister = createAsyncStoragePersister({
+  storage: AsyncStorage,
+  key: "tv-time-query-cache",
 });
 
 async function registerFCMToken(userId: string) {
@@ -63,6 +71,9 @@ function AppContent() {
   useForceUpdate();
   const { user, appTmdbApiKey, appTmdbApiKeyLoading, userFlagsLoading, hasCompletedImport } =
     useAuthStore();
+
+  // Prefetch upcoming episodes in background on app open
+  useUpcomingEpisodes(user?.uid);
 
   if (!user) {
     return <LoginScreen />;
@@ -164,10 +175,10 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
+        <PersistQueryClientProvider client={queryClient} persistOptions={{ persister: asyncStoragePersister, maxAge: 7 * 24 * 60 * 60 * 1000 }}>
           {splashDone ? <AppContent /> : <View style={styles.loading} />}
           {!splashDone && <AppSplash onHidden={onHidden} />}
-        </QueryClientProvider>
+        </PersistQueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
