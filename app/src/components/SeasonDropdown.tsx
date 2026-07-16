@@ -8,9 +8,8 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { useSeasonDetails, useWatchedEpisodes } from "../hooks";
-import { useAuthStore } from "../stores/authStore";
-import { markEpisodeWatched } from "../services/firestore";
-import { getSeasonDetails as fetchSeason } from "../services/tmdb";
+import { useAuthStore } from "../stores";
+import { markEpisodeWatched, getSeasonDetails as fetchSeason } from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { TMDBSeason, TMDBEpisode } from "../types";
 

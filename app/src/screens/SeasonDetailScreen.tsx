@@ -5,14 +5,12 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
-import LoadingSpinner from "../components/LoadingSpinner";
+import { LoadingSpinner } from "../components";
 import { LegendList } from "@legendapp/list/react-native";
-import { useRoute } from "@react-navigation/native";
-import { RouteProp } from "@react-navigation/native";
+import { useRoute, RouteProp } from "@react-navigation/native";
 import { useSeasonDetails, useWatchedEpisodes, useWatchlist } from "../hooks";
-import { useAuthStore } from "../stores/authStore";
-import { markEpisodeWatched } from "../services/firestore";
-import { getSeasonDetails as fetchSeason } from "../services/tmdb";
+import { useAuthStore } from "../stores";
+import { markEpisodeWatched, getSeasonDetails as fetchSeason } from "../services";
 import { colors, spacing, typography } from "../theme";
 import { HomeStackParamList, TMDBEpisode } from "../types";
 

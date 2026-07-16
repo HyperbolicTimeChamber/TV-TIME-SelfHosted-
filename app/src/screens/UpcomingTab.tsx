@@ -7,10 +7,10 @@ import {
 } from "react-native";
 import { LegendList } from "@legendapp/list/react-native";
 import { Image } from "expo-image";
-import LoadingSpinner from "../components/LoadingSpinner";
+import { LoadingSpinner } from "../components";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useAuthStore } from "../stores/authStore";
+import { useAuthStore } from "../stores";
 import { useUpcomingEpisodes } from "../hooks";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { UpcomingEpisode, HomeStackParamList } from "../types";

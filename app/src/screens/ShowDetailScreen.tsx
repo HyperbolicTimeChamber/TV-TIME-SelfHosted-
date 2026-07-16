@@ -9,24 +9,22 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
-import LoadingSpinner from "../components/LoadingSpinner";
-import { useRoute } from "@react-navigation/native";
-import { RouteProp } from "@react-navigation/native";
+import { useRoute, RouteProp } from "@react-navigation/native";
 import {
   getFirestore,
   doc,
   onSnapshot,
 } from "@react-native-firebase/firestore";
 import { useShowDetails } from "../hooks";
-import { useAuthStore } from "../stores/authStore";
+import { useAuthStore } from "../stores";
 import {
   addToTracking,
   removeFromTracking,
   startRewatch,
   resumeRewatch,
   markMovieWatched,
-} from "../services/firestore";
-import SeasonDropdown from "../components/SeasonDropdown";
+} from "../services";
+import { LoadingSpinner, SeasonDropdown } from "../components";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { HomeStackParamList } from "../types";
 

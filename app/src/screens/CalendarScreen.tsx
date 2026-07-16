@@ -12,7 +12,7 @@ import { Calendar, DateData } from "react-native-calendars";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Image } from "expo-image";
-import { useAuthStore } from "../stores/authStore";
+import { useAuthStore } from "../stores";
 import { useCalendarEpisodes } from "../hooks";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { UpcomingEpisode, CalendarStackParamList } from "../types";

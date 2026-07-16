@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { getSeasonDetails } from "../services/tmdb";
-import { getCatalogShow } from "../services/firestore";
-import { useAuthStore } from "../stores/authStore";
+import { getSeasonDetails, getCatalogShow } from "../services";
+import { useAuthStore } from "../stores";
 import { TMDBEpisode } from "../types";
 
 export function useSeasonDetails(tmdbId: number, seasonNumber: number) {

@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from "react-native";
 import { colors, spacing, typography } from "../theme";
-import { useAuthStore } from "../stores/authStore";
+import { useAuthStore } from "../stores";
 import GoogleLogo from "../../assets/GoogleLogo";
 import { getFirebaseAuthErrorMessage } from "../hooks";
 

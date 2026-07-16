@@ -8,14 +8,14 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import LoadingSpinner from "../components/LoadingSpinner";
+import { LoadingSpinner } from "../components";
 import { LegendList } from "@legendapp/list/react-native";
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSearch, useTrending, useWatchlist } from "../hooks";
-import { useAuthStore } from "../stores/authStore";
-import { addToTracking } from "../services/firestore";
+import { useAuthStore } from "../stores";
+import { addToTracking } from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { TMDBShow, SearchStackParamList, MediaType } from "../types";
 

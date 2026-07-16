@@ -10,7 +10,7 @@ import {
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useAuthStore } from "../stores/authStore";
+import { useAuthStore } from "../stores";
 import { useUserStats, useWatchlist } from "../hooks";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { ProfileStackParamList } from "../types";

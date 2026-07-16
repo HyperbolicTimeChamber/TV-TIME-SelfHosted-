@@ -18,13 +18,12 @@ import {
   doc,
   setDoc,
 } from "@react-native-firebase/firestore";
-import { useAuthStore } from "./src/stores/authStore";
+import { useAuthStore, useUiStore } from "./src/stores";
 import { useForceUpdate } from "./src/hooks";
-import { useUiStore } from "./src/stores/uiStore";
 import LoginScreen from "./src/screens/LoginScreen";
 import ImportDataScreen from "./src/screens/ImportDataScreen";
 import AppNavigator from "./src/navigation/AppNavigator";
-import OfflineOverlay from "./src/components/OfflineOverlay";
+import { OfflineOverlay } from "./src/components";
 import { colors } from "./src/theme";
 
 GoogleSignin.configure({
