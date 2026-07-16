@@ -3,6 +3,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { fetchShowFromTMDB, CatalogShow } from "./tmdb";
 import { addToTrackedBy } from "./utils";
+import { rebuildUserUpcoming } from "./syncCatalog";
 
 interface AddShowRequest {
   tmdbId: number;
@@ -76,6 +77,11 @@ export const addShow = onCall(
 
     if (existedBeforeTransaction) {
       await addToTrackedBy(showId, uid);
+    }
+
+    // Populate upcoming episodes for this user
+    if (mediaType === "tv") {
+      await rebuildUserUpcoming(db, uid);
     }
 
     return showData;

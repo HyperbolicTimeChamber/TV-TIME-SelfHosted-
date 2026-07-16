@@ -22,7 +22,6 @@ export function useUpcomingEpisodes(userId: string | undefined) {
   const [hasMore, setHasMore] = useState(true);
   const lastDoc = useRef<QueryDocumentSnapshot | null>(null);
 
-  // Initial load
   useEffect(() => {
     if (!userId) {
       setData([]);
