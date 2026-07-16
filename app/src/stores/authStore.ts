@@ -21,6 +21,7 @@ interface AuthState {
   appTmdbApiKey: string | null;
   appTmdbApiKeyLoading: boolean;
   hasCompletedImport: boolean;
+  userFlagsLoading: boolean;
   minVersion: string | null;
   setUser: (user: User | null) => void;
   setLoading: (loading: boolean) => void;
@@ -38,10 +39,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   appTmdbApiKey: null,
   appTmdbApiKeyLoading: true,
   hasCompletedImport: false,
+  userFlagsLoading: true,
   minVersion: null,
 
   setUser: (user) => {
-    set({ user, loading: false });
+    set({ user, loading: false, userFlagsLoading: !!user });
     if (user) {
       const store = useAuthStore.getState();
       store.loadAppConfig();
@@ -85,6 +87,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
     } catch (error) {
       console.error("Failed to load user flags:", error);
+    } finally {
+      set({ userFlagsLoading: false });
     }
   },
 

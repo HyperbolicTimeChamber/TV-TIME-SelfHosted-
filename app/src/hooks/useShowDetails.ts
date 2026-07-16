@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { getShowDetails } from "../services/tmdb";
-import { getCatalogShow } from "../services/firestore";
-import { useAuthStore } from "../stores/authStore";
+import { getShowDetails, getCatalogShow } from "../services";
+import { useAuthStore } from "../stores";
 import { TMDBShow, CatalogShow } from "../types";
 
 function catalogShowToTMDBShow(catalog: CatalogShow): TMDBShow {

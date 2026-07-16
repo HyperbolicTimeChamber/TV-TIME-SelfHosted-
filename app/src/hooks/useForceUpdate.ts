@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Alert, Platform } from "react-native";
 import SpInAppUpdates, { IAUUpdateKind } from "sp-react-native-in-app-updates";
-import { useAuthStore } from "../stores/authStore";
+import { useAuthStore } from "../stores";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { expo } = require("../../app.json");

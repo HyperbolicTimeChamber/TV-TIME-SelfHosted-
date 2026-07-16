@@ -1,0 +1,39 @@
+import { useEffect } from "react";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
+import {
+  getFirestore,
+  collection,
+  doc,
+  onSnapshot,
+} from "@react-native-firebase/firestore";
+
+export function useTrackedIds(userId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  // Seed cache with snapshot listener
+  useEffect(() => {
+    if (!userId) return;
+
+    const db = getFirestore();
+    const colRef = collection(doc(db, "users", userId), "tracking");
+
+    const unsubscribe = onSnapshot(colRef, (snapshot) => {
+      const tracked = new Set<number>();
+      for (const d of snapshot.docs) {
+        tracked.add(Number(d.id));
+      }
+      queryClient.setQueryData(["trackedIds", userId], tracked);
+    });
+
+    return unsubscribe;
+  }, [userId, queryClient]);
+
+  const { data: ids = new Set<number>() } = useQuery<Set<number>>({
+    queryKey: ["trackedIds", userId],
+    queryFn: () => new Set<number>(),
+    enabled: !!userId,
+    staleTime: Infinity,
+  });
+
+  return ids;
+}

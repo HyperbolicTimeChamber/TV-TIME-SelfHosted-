@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { getTrending } from "../services/tmdb";
-import { useAuthStore } from "../stores/authStore";
+import { getTrending } from "../services";
+import { useAuthStore } from "../stores";
 import { TMDBShow } from "../types";
 
 export function useTrending(mediaType: string = "tv") {

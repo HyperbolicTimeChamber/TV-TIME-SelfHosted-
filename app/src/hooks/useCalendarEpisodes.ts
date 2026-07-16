@@ -8,8 +8,8 @@ import {
   query,
   where,
 } from "@react-native-firebase/firestore";
-import { discoverTVByAirDate } from "../services/tmdb";
-import { useAuthStore } from "../stores/authStore";
+import { discoverTVByAirDate } from "../services";
+import { useAuthStore } from "../stores";
 import { UpcomingEpisode, CatalogShow } from "../types";
 
 export function useCalendarEpisodes(userId: string | undefined) {

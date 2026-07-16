@@ -1,11 +1,8 @@
 // functions/src/addShow.ts
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { defineSecret } from "firebase-functions/params";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { fetchShowFromTMDB, CatalogShow } from "./tmdb";
 import { addToTrackedBy } from "./utils";
-
-const tmdbApiKey = defineSecret("TMDB_API_KEY");
 
 interface AddShowRequest {
   tmdbId: number;
@@ -14,7 +11,6 @@ interface AddShowRequest {
 
 export const addShow = onCall(
   {
-    secrets: [tmdbApiKey],
     maxInstances: 5,
     timeoutSeconds: 60,
     memory: "256MiB",
@@ -37,10 +33,26 @@ export const addShow = onCall(
     const showRef = db.doc(`shows/${showId}`);
     const uid = request.auth.uid;
 
-    // Fetch from TMDB before the transaction so we don't hold a transaction
-    // open during a slow network call.
-    const apiKey = tmdbApiKey.value();
-    const showData = await fetchShowFromTMDB(apiKey, tmdbId, mediaType);
+    // Read TMDB key from Firestore config
+    const configDoc = await db.doc("config/app").get();
+    const apiKey = configDoc.data()?.tmdbApiKey;
+    console.log(`[addShow] API key length: ${apiKey?.length}, starts: ${apiKey?.substring(0, 6)}`);
+    if (!apiKey) {
+      throw new HttpsError("failed-precondition", "TMDB API key not configured");
+    }
+    let showData: CatalogShow;
+    try {
+      showData = await fetchShowFromTMDB(apiKey, tmdbId, mediaType);
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 401) {
+        throw new HttpsError("failed-precondition", "TMDB API key is invalid");
+      }
+      if (status === 404) {
+        throw new HttpsError("not-found", "Show not found on TMDB");
+      }
+      throw new HttpsError("unavailable", "Failed to fetch show data from TMDB");
+    }
 
     // Atomically check-then-create to eliminate the race condition where two
     // concurrent calls both read non-existent and both set.

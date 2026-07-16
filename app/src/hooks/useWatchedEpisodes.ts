@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useCallback } from "react";
 import {
   getFirestore,
   collection,
@@ -9,93 +9,73 @@ import {
   limit,
   startAfter,
   getDocs,
-  onSnapshot,
   QueryDocumentSnapshot,
-  Query,
 } from "@react-native-firebase/firestore";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { WatchedEpisode } from "../types";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 5;
+
+interface WatchedEpisodesPage {
+  episodes: WatchedEpisode[];
+  lastDoc: QueryDocumentSnapshot | null;
+}
 
 export function useWatchedEpisodes(
   userId: string | undefined,
   tmdbShowId?: number
 ) {
-  const [episodes, setEpisodes] = useState<WatchedEpisode[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const lastDoc = useRef<QueryDocumentSnapshot | null>(null);
+  const queryKey = ["watchedEpisodes", userId, tmdbShowId] as const;
 
-  const buildQuery = useCallback(() => {
-    const db = getFirestore();
-    const colRef = collection(doc(db, "users", userId!), "watchedEpisodes");
+  const {
+    data,
+    isLoading: loading,
+    fetchNextPage,
+    isFetchingNextPage: loadingMore,
+    hasNextPage,
+  } = useInfiniteQuery<WatchedEpisodesPage>({
+    queryKey,
+    queryFn: async ({ pageParam }) => {
+      const db = getFirestore();
+      const colRef = collection(doc(db, "users", userId!), "watchedEpisodes");
 
-    const constraints = [orderBy("lastWatchedAt", "desc")];
-    if (tmdbShowId !== undefined) {
-      constraints.push(where("tmdbShowId", "==", tmdbShowId) as any);
-    }
-    return query(colRef, ...constraints);
-  }, [userId, tmdbShowId]);
-
-  // Initial load
-  useEffect(() => {
-    if (!userId) {
-      setEpisodes([]);
-      setLoading(false);
-      setHasMore(false);
-      return;
-    }
-
-    lastDoc.current = null;
-    setHasMore(true);
-
-    const q = query(buildQuery() as Query, limit(PAGE_SIZE));
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const data = snapshot.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-        })) as WatchedEpisode[];
-        setEpisodes(data);
-        setLoading(false);
-        setHasMore(snapshot.docs.length >= PAGE_SIZE);
-        lastDoc.current = snapshot.docs[snapshot.docs.length - 1] || null;
-      },
-      (error) => {
-        console.error("WatchedEpisodes listener error:", error);
-        setLoading(false);
+      const constraints: any[] = [orderBy("lastWatchedAt", "desc")];
+      if (tmdbShowId !== undefined) {
+        constraints.push(where("tmdbShowId", "==", tmdbShowId));
       }
-    );
+      if (pageParam) {
+        constraints.push(startAfter(pageParam));
+      }
+      constraints.push(limit(PAGE_SIZE));
 
-    return unsubscribe;
-  }, [userId, tmdbShowId, buildQuery]);
+      const snapshot = await getDocs(query(colRef, ...constraints));
 
-  const loadMore = useCallback(async () => {
-    if (!userId || !hasMore || loadingMore || !lastDoc.current) return;
-    setLoadingMore(true);
-    try {
-      const q = query(
-        buildQuery() as Query,
-        startAfter(lastDoc.current),
-        limit(PAGE_SIZE)
-      );
-      const snapshot = await getDocs(q);
-
-      const data = snapshot.docs.map((d) => ({
+      const episodes = snapshot.docs.map((d) => ({
         id: d.id,
         ...d.data(),
       })) as WatchedEpisode[];
 
-      setEpisodes((prev) => [...prev, ...data]);
-      setHasMore(snapshot.docs.length >= PAGE_SIZE);
-      lastDoc.current = snapshot.docs[snapshot.docs.length - 1] || null;
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [userId, hasMore, loadingMore, buildQuery]);
+      console.log(`[WatchedEpisodes] Fetched ${episodes.length} eps, hasMore=${episodes.length >= PAGE_SIZE}`);
 
-  return { episodes, loading, loadMore, loadingMore, hasMore };
+      return {
+        episodes,
+        lastDoc: snapshot.docs[snapshot.docs.length - 1] || null,
+      };
+    },
+    initialPageParam: null as QueryDocumentSnapshot | null,
+    getNextPageParam: (lastPage) =>
+      lastPage.episodes.length >= PAGE_SIZE ? lastPage.lastDoc : undefined,
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const episodes = data?.pages.flatMap((p) => p.episodes) ?? [];
+
+  const loadMore = useCallback(() => {
+    if (hasNextPage && !loadingMore) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, loadingMore, fetchNextPage]);
+
+  return { episodes, loading, loadMore, loadingMore, hasMore: !!hasNextPage };
 }
