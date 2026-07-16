@@ -134,12 +134,13 @@ jobs:
       - name: Set release notes
         id: notes
         run: |
-          NOTES=$(git log -1 --pretty=format:"%s%n%n%b" | head -20)
-          # Escape for env var
-          NOTES="${NOTES//'%'/'%25'}"
-          NOTES="${NOTES//$'\n'/'%0A'}"
-          NOTES="${NOTES//$'\r'/'%0D'}"
-          echo "release_notes=$NOTES" >> "$GITHUB_OUTPUT"
+          {
+            echo "release_notes<<NOTES_EOF"
+            git log -1 --pretty=format:"%s"
+            echo ""
+            git log -1 --pretty=format:"%b" | grep -v "^Co-Authored-By" | head -10
+            echo "NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
 
       # ── Build + Distribute ──
       - name: Fastlane distribute
