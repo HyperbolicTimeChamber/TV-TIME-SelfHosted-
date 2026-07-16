@@ -72,6 +72,21 @@ jobs:
           git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }} [skip ci]"
           git push
 
+      - name: Sync version bump to development
+        if: github.event_name == 'push'
+        run: |
+          git fetch origin development
+          git checkout development
+          git checkout main -- app/app.json app/package.json
+          git add app/app.json app/package.json
+          if git diff --cached --quiet; then
+            echo "development already up to date"
+          else
+            git commit -m "chore: sync version ${{ steps.version.outputs.new_version }} from main [skip ci]"
+            git push origin development
+          fi
+          git checkout main
+
       # ── Node Setup + Cache ──
       - name: Setup Node
         uses: actions/setup-node@v5
