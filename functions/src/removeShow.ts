@@ -33,9 +33,9 @@ export const removeShow = onCall(
 
     // Update stats
     const userRef = db.doc(`users/${uid}`);
-    await userRef.update({
-      "stats.showsTracking": FieldValue.increment(-1),
-    });
+    await userRef.set({
+      stats: { showsTracking: FieldValue.increment(-1) },
+    }, { merge: true });
 
     // Remove from trackedBy, get remaining count
     const remainingCount = await removeFromTrackedBy(showId, uid);

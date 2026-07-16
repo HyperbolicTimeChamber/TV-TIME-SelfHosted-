@@ -74,7 +74,12 @@ export default function ShowDetailScreen() {
 
   const handleRemove = useCallback(async () => {
     if (!user?.uid) return;
-    await removeFromTracking(user.uid, tmdbId);
+    try {
+      await removeFromTracking(user.uid, tmdbId);
+    } catch (err: any) {
+      console.error("removeFromTracking failed:", err);
+      Alert.alert("Error", err.message || "Failed to remove from watchlist.");
+    }
   }, [user?.uid, tmdbId]);
 
   const handleRewatch = useCallback(async () => {

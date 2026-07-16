@@ -15,7 +15,7 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSearch, useTrending, useTrackedIds } from "../hooks";
 import { useAuthStore } from "../stores";
-import { addToTracking, markMovieWatched } from "../services";
+import { addToTracking, removeFromTracking, markMovieWatched } from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { TMDBShow, SearchStackParamList, MediaType } from "../types";
 
@@ -70,6 +70,29 @@ export default function SearchScreen() {
 
       await withLoadingId(item.id, () =>
         addToTracking(user.uid!, item.id, mediaType)
+      );
+    },
+    [user?.uid, withLoadingId]
+  );
+
+  const handleRemoveFromWatchlist = useCallback(
+    (item: TMDBShow) => {
+      if (!user?.uid) return;
+      const title = item.name || item.title || "this show";
+      Alert.alert(
+        "Remove from Watchlist",
+        `Remove "${title}" from your watchlist?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Remove",
+            style: "destructive",
+            onPress: () =>
+              withLoadingId(item.id, () =>
+                removeFromTracking(user.uid!, item.id)
+              ),
+          },
+        ]
       );
     },
     [user?.uid, withLoadingId]
@@ -148,7 +171,12 @@ export default function SearchScreen() {
             ]}
             onPress={(e) => {
               e.stopPropagation?.();
-              if (!isInWatchlist && !isAdding) handleAddToWatchlist(item);
+              if (isAdding) return;
+              if (isInWatchlist) {
+                handleRemoveFromWatchlist(item);
+              } else {
+                handleAddToWatchlist(item);
+              }
             }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             activeOpacity={0.7}
@@ -188,7 +216,7 @@ export default function SearchScreen() {
         </TouchableOpacity>
       );
     },
-    [handlePress, watchlistIds, handleAddToWatchlist, addingIds]
+    [handlePress, watchlistIds, handleAddToWatchlist, handleRemoveFromWatchlist, addingIds]
   );
 
   return (
