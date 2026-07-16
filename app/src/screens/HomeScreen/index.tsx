@@ -1,8 +1,8 @@
 import React from "react";
 import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
-import { colors } from "../theme";
-import { HomeTopTabParamList } from "../types";
-import { useUiStore } from "../stores";
+import { colors } from "../../theme";
+import { HomeTopTabParamList } from "../../types";
+import { useUiStore } from "../../stores";
 import WatchlistTab from "./WatchlistTab";
 import UpcomingTab from "./UpcomingTab";
 

@@ -93,11 +93,9 @@ export async function addToTracking(
   });
 
   // Update user stats
-  const batch = writeBatch(db);
-  batch.set(userRef(userId), {
+  await setDoc(userRef(userId), {
     stats: { showsTracking: increment(1) },
   }, { merge: true });
-  await batch.commit();
 }
 
 export async function removeFromTracking(

@@ -1,0 +1,136 @@
+import { useCallback, useMemo, useRef } from "react";
+import { View, Text, StyleSheet } from "react-native";
+import { LegendList } from "@legendapp/list/react-native";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { LoadingSpinner } from "../../../components";
+import { useAuthStore } from "../../../stores";
+import { useUpcomingEpisodes } from "../../../hooks";
+import { colors, spacing, typography } from "../../../theme";
+import { UpcomingEpisode, HomeStackParamList } from "../../../types";
+import DateHeader from "./DateHeader";
+import UpcomingEpisodeRow from "./UpcomingEpisodeRow";
+
+type NavProp = NativeStackNavigationProp<HomeStackParamList, "HomeTabs">;
+
+type ListItem =
+  | { type: "header"; date: string }
+  | { type: "episode"; episode: UpcomingEpisode };
+
+export default function UpcomingTab() {
+  const user = useAuthStore((s) => s.user);
+  const navigation = useNavigation<NavProp>();
+  const listRef = useRef<any>(null);
+
+  const {
+    data: episodes,
+    isLoading,
+    loadMore,
+    loadingMore,
+  } = useUpcomingEpisodes(user?.uid);
+
+  const today = useMemo(() => new Date().toISOString().split("T")[0], []);
+
+  const listData = useMemo(() => {
+    if (!episodes || episodes.length === 0) return [] as ListItem[];
+
+    const futureEps = episodes.filter((ep) => ep.airDate >= today);
+
+    const grouped = new Map<string, UpcomingEpisode[]>();
+    for (const ep of futureEps) {
+      const existing = grouped.get(ep.airDate) || [];
+      existing.push(ep);
+      grouped.set(ep.airDate, existing);
+    }
+
+    const result: ListItem[] = [];
+    for (const [date, eps] of grouped) {
+      result.push({ type: "header", date });
+      for (const ep of eps) {
+        result.push({ type: "episode", episode: ep });
+      }
+    }
+    return result;
+  }, [episodes, today]);
+
+  const handlePress = useCallback(
+    (tmdbShowId: number) => {
+      navigation.navigate("ShowDetail", { tmdbId: tmdbShowId, mediaType: "tv" });
+    },
+    [navigation],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: ListItem }) => {
+      if (item.type === "header") {
+        return <DateHeader date={item.date} />;
+      }
+      return <UpcomingEpisodeRow episode={item.episode} onPress={handlePress} />;
+    },
+    [handlePress],
+  );
+
+  if (isLoading) {
+    return (
+      <View style={styles.center}>
+        <LoadingSpinner />
+      </View>
+    );
+  }
+
+  if (listData.length === 0) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.empty}>No upcoming episodes</Text>
+      </View>
+    );
+  }
+
+  return (
+    <LegendList
+      ref={listRef}
+      data={listData}
+      keyExtractor={(item) =>
+        item.type === "header"
+          ? `header_${item.date}`
+          : `ep_${item.episode.tmdbShowId}_S${item.episode.season}E${item.episode.episode}`
+      }
+      renderItem={renderItem}
+      onEndReached={loadMore}
+      onEndReachedThreshold={0.5}
+      ListFooterComponent={
+        loadingMore ? (
+          <View style={styles.loaderRow}>
+            <LoadingSpinner />
+          </View>
+        ) : null
+      }
+      style={styles.list}
+      contentContainerStyle={styles.listContent}
+    />
+  );
+}
+
+const styles = StyleSheet.create({
+  list: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  listContent: {
+    paddingBottom: spacing.xl,
+  },
+  center: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  empty: {
+    ...typography.subtitle,
+    color: colors.textSecondary,
+  },
+  loaderRow: {
+    paddingVertical: spacing.xl,
+    alignItems: "center",
+  },
+});

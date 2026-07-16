@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import { LegendList } from "@legendapp/list/react-native";
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useSearch, useTrending, useWatchlist } from "../hooks";
+import { useSearch, useTrending, useTrackedIds } from "../hooks";
 import { useAuthStore } from "../stores";
 import { addToTracking } from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
@@ -25,14 +25,11 @@ export default function SearchScreen() {
   const [query, setQuery] = useState("");
   const navigation = useNavigation<NavProp>();
   const user = useAuthStore((s) => s.user);
-  const { items: watchlist } = useWatchlist(user?.uid);
+  const trackedIds = useTrackedIds(user?.uid);
 
   const [addingIds, setAddingIds] = useState<Set<number>>(new Set());
 
-  const watchlistIds = useMemo(
-    () => new Set(watchlist.map((w) => w.tmdbId)),
-    [watchlist]
-  );
+  const watchlistIds = trackedIds;
 
   const handleAddToWatchlist = useCallback(
     async (item: TMDBShow) => {

@@ -42,3 +42,4 @@ Thumbs.db
 
 .superpowersapp/firebase-debug.log
 app/firebase-debug.log
+functions/firebase-debug.log
