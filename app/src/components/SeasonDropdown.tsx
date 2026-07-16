@@ -25,6 +25,7 @@ interface Props {
 export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, isTracked }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [marking, setMarking] = useState<number | null>(null);
+  const [markingSeason, setMarkingSeason] = useState(false);
   const user = useAuthStore((s) => s.user);
   const apiKey = useAuthStore((s) => s.appTmdbApiKey)!;
   const queryClient = useQueryClient();
@@ -44,6 +45,71 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
   }
 
   const watchedCount = watchedMap.size;
+  const episodes = seasonData?.episodes || [];
+  const minWatchCount = episodes.length > 0
+    ? Math.min(...episodes.map((ep: TMDBEpisode) => watchedMap.get(ep.episode_number) || 0))
+    : 0;
+  const allWatched = episodes.length > 0 && minWatchCount > 0;
+
+  const handleMarkSeasonWatched = useCallback(
+    async () => {
+      if (!user?.uid || markingSeason || marking !== null) return;
+      const eps = seasonData?.episodes || [];
+      if (eps.length === 0) return;
+
+      setMarkingSeason(true);
+      try {
+        if (!isTracked) {
+          await addToTracking(user.uid, tmdbId, "tv");
+        }
+
+        // Determine next episode after this season
+        let nextAfterSeason: { season: number; episode: number } | null = null;
+        let showComplete = false;
+        try {
+          const nextSeasonData = await fetchSeason(apiKey, tmdbId, season.season_number + 1);
+          const ns = nextSeasonData as { episodes: Array<{ episode_number: number }> };
+          if (ns.episodes?.length > 0) {
+            nextAfterSeason = { season: season.season_number + 1, episode: 1 };
+          } else {
+            showComplete = true;
+          }
+        } catch {
+          showComplete = true;
+        }
+
+        for (let i = 0; i < eps.length; i++) {
+          const ep = eps[i];
+          const isLast = i === eps.length - 1;
+          const nextEpisode = isLast
+            ? nextAfterSeason
+            : { season: season.season_number, episode: eps[i + 1].episode_number };
+          const isComplete = isLast && showComplete;
+
+          await markEpisodeWatched(
+            user.uid,
+            tmdbId,
+            season.season_number,
+            ep.episode_number,
+            ep.name,
+            ep.runtime || 0,
+            nextEpisode,
+            isComplete,
+          );
+        }
+
+        queryClient.invalidateQueries({
+          queryKey: ["watchedEpisodes", user.uid, tmdbId],
+        });
+      } catch (err: any) {
+        console.error("markSeasonWatched failed:", err);
+        Alert.alert("Error", err.message || "Failed to mark season as watched.");
+      } finally {
+        setMarkingSeason(false);
+      }
+    },
+    [user?.uid, markingSeason, marking, seasonData, tmdbId, season.season_number, apiKey, queryClient, isTracked]
+  );
 
   const handleMarkWatched = useCallback(
     async (ep: TMDBEpisode) => {
@@ -132,6 +198,32 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
             {season.air_date ? ` · ${season.air_date.substring(0, 4)}` : ""}
           </Text>
         </View>
+        <TouchableOpacity
+          style={[
+            styles.seasonCheckmark,
+            allWatched && styles.seasonCheckmarkWatched,
+            markingSeason && { opacity: 0.5 },
+          ]}
+          onPress={(e) => {
+            e.stopPropagation?.();
+            handleMarkSeasonWatched();
+          }}
+          disabled={markingSeason || marking !== null}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          {markingSeason ? (
+            <ActivityIndicator size="small" color={allWatched ? colors.text : colors.textMuted} />
+          ) : (
+            <Text
+              style={[
+                styles.seasonCheckmarkText,
+                allWatched && styles.seasonCheckmarkTextWatched,
+              ]}
+            >
+              {allWatched ? minWatchCount.toString() : "✓"}
+            </Text>
+          )}
+        </TouchableOpacity>
         <Text style={styles.chevron}>{expanded ? "▾" : "›"}</Text>
       </TouchableOpacity>
 
@@ -175,7 +267,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
                       marking === ep.episode_number && { opacity: 0.5 },
                     ]}
                     onPress={() => handleMarkWatched(ep)}
-                    disabled={marking !== null}
+                    disabled={marking !== null || markingSeason}
                   >
                     {marking === ep.episode_number ? (
                       <ActivityIndicator size="small" color={colors.textMuted} />
@@ -224,6 +316,28 @@ const styles = StyleSheet.create({
   seasonMeta: {
     ...typography.caption,
     marginTop: spacing.xs,
+  },
+  seasonCheckmark: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 2,
+    borderColor: colors.textMuted,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: spacing.sm,
+  },
+  seasonCheckmarkWatched: {
+    backgroundColor: colors.watchedGreen,
+    borderColor: colors.watchedGreen,
+  },
+  seasonCheckmarkText: {
+    fontSize: 14,
+    color: colors.textMuted,
+  },
+  seasonCheckmarkTextWatched: {
+    color: colors.text,
+    fontWeight: "700",
   },
   chevron: {
     ...typography.title,
