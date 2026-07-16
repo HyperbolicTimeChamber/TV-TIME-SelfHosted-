@@ -11,8 +11,7 @@ import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuthStore } from "../stores/authStore";
-import { useUserStats } from "../hooks/useUserStats";
-import { useWatchlist } from "../hooks/useWatchlist";
+import { useUserStats, useWatchlist } from "../hooks";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { ProfileStackParamList } from "../types";
 

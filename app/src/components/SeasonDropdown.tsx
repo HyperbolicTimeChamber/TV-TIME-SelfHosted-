@@ -7,8 +7,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
-import { useSeasonDetails } from "../hooks/useSeasonDetails";
-import { useWatchedEpisodes } from "../hooks/useWatchedEpisodes";
+import { useSeasonDetails, useWatchedEpisodes } from "../hooks";
 import { useAuthStore } from "../stores/authStore";
 import { markEpisodeWatched } from "../services/firestore";
 import { getSeasonDetails as fetchSeason } from "../services/tmdb";

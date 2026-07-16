@@ -7,7 +7,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import NetInfo from "@react-native-community/netinfo";
-import { getAuth, onAuthStateChanged } from "@react-native-firebase/auth";
+import { getAuth, onAuthStateChanged, reload, signOut } from "@react-native-firebase/auth";
 import {
   getMessaging,
   getToken,
@@ -19,7 +19,7 @@ import {
   setDoc,
 } from "@react-native-firebase/firestore";
 import { useAuthStore } from "./src/stores/authStore";
-import { useForceUpdate } from "./src/hooks/useForceUpdate";
+import { useForceUpdate } from "./src/hooks";
 import { useUiStore } from "./src/stores/uiStore";
 import LoginScreen from "./src/screens/LoginScreen";
 import ImportDataScreen from "./src/screens/ImportDataScreen";
@@ -53,49 +53,14 @@ async function registerFCMToken(userId: string) {
 
 function AppContent() {
   useForceUpdate();
-  const { user, loading, setUser, appTmdbApiKey, appTmdbApiKeyLoading, hasCompletedImport } =
+  const { user, appTmdbApiKey, appTmdbApiKeyLoading, userFlagsLoading, hasCompletedImport } =
     useAuthStore();
-  const setConnected = useUiStore((s) => s.setConnected);
-
-  useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(getAuth(), async (firebaseUser) => {
-      if (firebaseUser) {
-        // Verify user still exists by forcing token refresh
-        try {
-          await firebaseUser.reload();
-        } catch {
-          // User deleted server-side — sign out locally
-          await getAuth().signOut();
-          setUser(null);
-          return;
-        }
-        registerFCMToken(firebaseUser.uid);
-      }
-      setUser(firebaseUser);
-    });
-    return unsubscribeAuth;
-  }, [setUser]);
-
-  useEffect(() => {
-    const unsubscribeNet = NetInfo.addEventListener((state) => {
-      setConnected(state.isConnected ?? false);
-    });
-    return unsubscribeNet;
-  }, [setConnected]);
-
-  if (loading) {
-    return (
-      <View style={styles.loading}>
-        <LoadingSpinner />
-      </View>
-    );
-  }
 
   if (!user) {
     return <LoginScreen />;
   }
 
-  if (appTmdbApiKeyLoading) {
+  if (appTmdbApiKeyLoading || userFlagsLoading) {
     return (
       <View style={styles.loading}>
         <LoadingSpinner />
@@ -130,26 +95,22 @@ function AppContent() {
   );
 }
 
-function AppSplash() {
-  const [visible, setVisible] = useState(true);
+function AppSplash({ onHidden }: { onHidden: () => void }) {
   const [opacity] = useState(() => new Animated.Value(1));
   const loading = useAuthStore((s) => s.loading);
 
   useEffect(() => {
     if (!loading) {
-      // Fade out after a short delay
       const timer = setTimeout(() => {
         Animated.timing(opacity, {
           toValue: 0,
           duration: 400,
           useNativeDriver: true,
-        }).start(() => setVisible(false));
-      }, 1500);
+        }).start(() => onHidden());
+      }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [loading, opacity]);
-
-  if (!visible) return null;
+  }, [loading, opacity, onHidden]);
 
   return (
     <Animated.View style={[StyleSheet.absoluteFill, { opacity, zIndex: 999 }]}>
@@ -163,12 +124,41 @@ function AppSplash() {
 }
 
 export default function App() {
+  const [splashDone, setSplashDone] = useState(false);
+  const onHidden = React.useCallback(() => setSplashDone(true), []);
+  const setUser = useAuthStore((s) => s.setUser);
+  const setConnected = useUiStore((s) => s.setConnected);
+
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(getAuth(), async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          await reload(firebaseUser);
+        } catch {
+          await signOut(getAuth());
+          setUser(null);
+          return;
+        }
+        registerFCMToken(firebaseUser.uid);
+      }
+      setUser(firebaseUser);
+    });
+    return unsubscribeAuth;
+  }, [setUser]);
+
+  useEffect(() => {
+    const unsubscribeNet = NetInfo.addEventListener((state) => {
+      setConnected(state.isConnected ?? false);
+    });
+    return unsubscribeNet;
+  }, [setConnected]);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <AppContent />
-          <AppSplash />
+          {splashDone ? <AppContent /> : <View style={styles.loading} />}
+          {!splashDone && <AppSplash onHidden={onHidden} />}
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

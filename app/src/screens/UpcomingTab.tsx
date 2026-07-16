@@ -11,7 +11,7 @@ import LoadingSpinner from "../components/LoadingSpinner";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuthStore } from "../stores/authStore";
-import { useUpcomingEpisodes } from "../hooks/useUpcomingEpisodes";
+import { useUpcomingEpisodes } from "../hooks";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { UpcomingEpisode, HomeStackParamList } from "../types";
 

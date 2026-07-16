@@ -4,6 +4,7 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
 import { colors, spacing, typography, posterSize } from "../theme";
@@ -23,6 +24,7 @@ interface ShowCardItem {
 interface Props {
   item: ShowCardItem;
   isWatched?: boolean;
+  isUpdating?: boolean;
   remainingEpisodes?: number | null;
   onSwipeLeft: () => Promise<void>;
   onSwipeRight: () => Promise<void>;
@@ -33,6 +35,7 @@ interface Props {
 export default memo(function ShowCard({
   item,
   isWatched,
+  isUpdating,
   remainingEpisodes,
   onSwipeLeft,
   onSwipeRight,
@@ -77,6 +80,15 @@ export default memo(function ShowCard({
           <Text style={styles.watchedBadgeText}>✓</Text>
         </View>
       </TouchableOpacity>
+    );
+  }
+
+  if (isUpdating) {
+    return (
+      <View style={styles.updatingContainer}>
+        <ActivityIndicator color={colors.text} size="small" />
+        <Text style={styles.updatingText}>Watched</Text>
+      </View>
     );
   }
 
@@ -183,5 +195,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.text,
     fontWeight: "700",
+  },
+  updatingContainer: {
+    height: 100,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    backgroundColor: colors.watchedGreen,
+  },
+  updatingText: {
+    ...typography.subtitle,
+    color: colors.text,
   },
 });

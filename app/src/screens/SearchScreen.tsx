@@ -5,15 +5,15 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { LegendList } from "@legendapp/list/react-native";
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useSearch } from "../hooks/useSearch";
-import { useTrending } from "../hooks/useTrending";
-import { useWatchlist } from "../hooks/useWatchlist";
+import { useSearch, useTrending, useWatchlist } from "../hooks";
 import { useAuthStore } from "../stores/authStore";
 import { addToTracking } from "../services/firestore";
 import { colors, spacing, typography, posterSize } from "../theme";
@@ -27,6 +27,8 @@ export default function SearchScreen() {
   const user = useAuthStore((s) => s.user);
   const { items: watchlist } = useWatchlist(user?.uid);
 
+  const [addingIds, setAddingIds] = useState<Set<number>>(new Set());
+
   const watchlistIds = useMemo(
     () => new Set(watchlist.map((w) => w.tmdbId)),
     [watchlist]
@@ -37,7 +39,18 @@ export default function SearchScreen() {
       if (!user?.uid) return;
       const mediaType: MediaType =
         item.media_type || (item.title ? "movie" : "tv");
-      await addToTracking(user.uid, item.id, mediaType);
+      setAddingIds((prev) => new Set(prev).add(item.id));
+      try {
+        await addToTracking(user.uid, item.id, mediaType);
+      } catch (err: any) {
+        Alert.alert("Error", err.message || "Failed to add to watchlist.");
+      } finally {
+        setAddingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(item.id);
+          return next;
+        });
+      }
     },
     [user?.uid]
   );
@@ -74,6 +87,7 @@ export default function SearchScreen() {
         4
       );
       const isInWatchlist = watchlistIds.has(item.id);
+      const isAdding = addingIds.has(item.id);
 
       return (
         <TouchableOpacity
@@ -93,19 +107,24 @@ export default function SearchScreen() {
             ]}
             onPress={(e) => {
               e.stopPropagation?.();
-              if (!isInWatchlist) handleAddToWatchlist(item);
+              if (!isInWatchlist && !isAdding) handleAddToWatchlist(item);
             }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             activeOpacity={0.7}
+            disabled={isAdding}
           >
-            <Text
-              style={[
-                styles.watchlistBadgeText,
-                isInWatchlist && styles.watchlistBadgeTextActive,
-              ]}
-            >
-              {isInWatchlist ? "✓" : "+"}
-            </Text>
+            {isAdding ? (
+              <ActivityIndicator size="small" color={colors.text} />
+            ) : (
+              <Text
+                style={[
+                  styles.watchlistBadgeText,
+                  isInWatchlist && styles.watchlistBadgeTextActive,
+                ]}
+              >
+                {isInWatchlist ? "✓" : "+"}
+              </Text>
+            )}
           </TouchableOpacity>
           <View style={styles.banner}>
             <Text style={styles.cardTitle} numberOfLines={1}>
@@ -116,7 +135,7 @@ export default function SearchScreen() {
         </TouchableOpacity>
       );
     },
-    [handlePress, watchlistIds, handleAddToWatchlist]
+    [handlePress, watchlistIds, handleAddToWatchlist, addingIds]
   );
 
   return (
@@ -145,7 +164,7 @@ export default function SearchScreen() {
           data={displayData || []}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderItem}
-          extraData={watchlistIds}
+          extraData={[watchlistIds, addingIds]}
           numColumns={3}
           estimatedItemSize={200}
           columnWrapperStyle={styles.row}

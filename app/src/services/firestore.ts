@@ -47,6 +47,21 @@ export async function getCatalogShow(
   return { id: showDoc.id, ...showDoc.data() } as unknown as CatalogShow;
 }
 
+// --- Error helpers ---
+
+function getCallableErrorMessage(err: any): string {
+  const code = err?.code;
+  const msg = err?.message;
+  if (code === "functions/not-found") return "Show not found on TMDB.";
+  if (code === "functions/failed-precondition") return msg || "Service misconfigured.";
+  if (code === "functions/unavailable") return "Could not reach TMDB. Try again later.";
+  if (code === "functions/unauthenticated") return "You must be signed in.";
+  if (code === "functions/invalid-argument") return msg || "Invalid request.";
+  return msg || "Something went wrong. Try again.";
+}
+
+export { getCallableErrorMessage };
+
 // --- Tracking CRUD ---
 
 export async function addToTracking(
@@ -58,7 +73,11 @@ export async function addToTracking(
   const now = serverTimestamp();
 
   // Call addShow CF (handles catalog population)
-  await httpsCallable(functions, "addShow")({ tmdbId, mediaType });
+  try {
+    await httpsCallable(functions, "addShow")({ tmdbId, mediaType });
+  } catch (err: any) {
+    throw new Error(getCallableErrorMessage(err));
+  }
 
   // Create local tracking doc
   const tRef = doc(trackingRef(userId), String(tmdbId));

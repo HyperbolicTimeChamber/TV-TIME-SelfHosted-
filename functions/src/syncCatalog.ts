@@ -1,16 +1,12 @@
 // functions/src/syncCatalog.ts
 import { onSchedule } from "firebase-functions/v2/scheduler";
-import { defineSecret } from "firebase-functions/params";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { fetchShowFromTMDB, pooled, CatalogShow } from "./tmdb";
 import { getAllTrackerUids } from "./utils";
 
-const tmdbApiKey = defineSecret("TMDB_API_KEY");
-
 export const syncCatalog = onSchedule(
   {
     schedule: "0 3 * * 0", // Every Sunday 3:00 AM UTC
-    secrets: [tmdbApiKey],
     maxInstances: 1,
     timeoutSeconds: 1800,
     memory: "512MiB",
@@ -18,7 +14,12 @@ export const syncCatalog = onSchedule(
   },
   async () => {
     const db = getFirestore();
-    const apiKey = tmdbApiKey.value();
+    const configDoc = await db.doc("config/app").get();
+    const apiKey = configDoc.data()?.tmdbApiKey;
+    if (!apiKey) {
+      console.error("TMDB API key not configured in config/app");
+      return;
+    }
 
     // Get all TV shows from catalog
     const showsSnap = await db

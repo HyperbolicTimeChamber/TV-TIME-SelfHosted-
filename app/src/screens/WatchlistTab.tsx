@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useEffect, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,15 +7,16 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Dimensions,
 } from "react-native";
 import { Image } from "expo-image";
 import LoadingSpinner from "../components/LoadingSpinner";
 import { useNavigation } from "@react-navigation/native";
+import { useQueryClient } from "@tanstack/react-query";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuthStore } from "../stores/authStore";
-import { useWatchlist, EnrichedTrackingItem } from "../hooks/useWatchlist";
-import { useWatchedEpisodes } from "../hooks/useWatchedEpisodes";
-import { isShowVisible, sortByPriority } from "../hooks/useVisibleTracking";
+import { useUiStore } from "../stores/uiStore";
+import { useWatchlist, EnrichedTrackingItem, useWatchedEpisodes, isShowVisible, sortByPriority } from "../hooks";
 import { markEpisodeWatched, stopWatching, getCatalogShow } from "../services/firestore";
 import ShowCard from "../components/ShowCard";
 import { colors, spacing, typography, posterSize } from "../theme";
@@ -31,8 +32,10 @@ type ListItem =
 export default function WatchlistTab() {
   const user = useAuthStore((s) => s.user);
   const { items, loading, loadMore: loadMoreTracking, loadingMore: loadingMoreTracking, hasMore: hasMoreTracking } = useWatchlist(user?.uid);
-  const { episodes: watchedEps, loadMore: loadMoreEps, loadingMore: loadingMoreEps } = useWatchedEpisodes(user?.uid);
+  const { episodes: watchedEps, loadMore: loadMoreEps, loadingMore: loadingMoreEps, hasMore: hasMoreEps } = useWatchedEpisodes(user?.uid);
   const navigation = useNavigation<NavProp>();
+  const queryClient = useQueryClient();
+  const [updatingShows, setUpdatingShows] = useState<Map<number, string>>(new Map());
 
   const showMap = useMemo(() => {
     const map = new Map<number, EnrichedTrackingItem>();
@@ -53,7 +56,7 @@ export default function WatchlistTab() {
       [...watchedEps].sort((a, b) => {
         const aTime = a.lastWatchedAt?.toMillis?.() || 0;
         const bTime = b.lastWatchedAt?.toMillis?.() || 0;
-        return aTime - bTime; // oldest first, most recent at bottom
+        return aTime - bTime; // oldest first, newest at bottom (near Currently Watching)
       }),
     [watchedEps]
   );
@@ -63,9 +66,19 @@ export default function WatchlistTab() {
     return sortByPriority(visible);
   }, [items]);
 
+  // Auto-load more if too few visible items
+  useEffect(() => {
+    if (!loading && hasMoreTracking && !loadingMoreTracking && sortedActive.length < 10 && items.length > 0) {
+      loadMoreTracking();
+    }
+  }, [loading, hasMoreTracking, loadingMoreTracking, sortedActive.length, items.length, loadMoreTracking]);
+
+  const watchedItemCount = useMemo(() => {
+    return sortedWatchedEps.filter((ep) => showMap.has(ep.tmdbShowId)).length;
+  }, [sortedWatchedEps, showMap]);
+
   const listData: ListItem[] = useMemo(() => {
     const result: ListItem[] = [];
-
     if (sortedWatchedEps.length > 0) {
       result.push({ type: "sectionHeader", title: "Previously Watched" });
       for (const ep of sortedWatchedEps) {
@@ -84,20 +97,27 @@ export default function WatchlistTab() {
     return result;
   }, [sortedWatchedEps, sortedActive, showMap]);
 
-  const activeHeaderIndex = useMemo(() => {
-    return listData.findIndex(
-      (d) => d.type === "sectionHeader" && d.title === "Currently Watching"
-    );
-  }, [listData]);
+  // Estimate height of Previously Watched section for initial scroll offset
+  // sectionHeader ~40px, each watched episode ~98px + 1px separator
+  const prevWatchedOffset = useMemo(() => {
+    if (watchedItemCount === 0) return 0;
+    return 40 + watchedItemCount * 99;
+  }, [watchedItemCount]);
+
+  const listRef = useRef<FlatList<ListItem>>(null);
+  const hasScrolledRef = useRef(false);
+
 
   const handleMarkWatched = useCallback(
     async (item: EnrichedTrackingItem) => {
       if (!user?.uid) return;
 
-      const catalog = item.catalogShow ?? await getCatalogShow(item.tmdbId);
-
       // If no nextEpisode set, default to S01E01
       const currentEp = item.nextEpisode ?? { season: 1, episode: 1 };
+      const epKey = `${currentEp.season}-${currentEp.episode}`;
+      setUpdatingShows((prev) => new Map(prev).set(item.tmdbId, epKey));
+
+      const catalog = item.catalogShow ?? await getCatalogShow(item.tmdbId);
 
       const catalogSeason = catalog?.seasons?.find(
         (s) => s.seasonNumber === currentEp.season
@@ -141,9 +161,29 @@ export default function WatchlistTab() {
         nextEpisode,
         isComplete
       );
+      queryClient.invalidateQueries({ queryKey: ["watchedEpisodes", user.uid] });
     },
-    [user?.uid]
+    [user?.uid, queryClient]
   );
+
+  // Clear updating state when nextEpisode actually changes
+  useEffect(() => {
+    if (updatingShows.size === 0) return;
+    setUpdatingShows((prev) => {
+      const next = new Map(prev);
+      for (const [tmdbId, markedEpKey] of prev) {
+        const item = items.find((i) => i.tmdbId === tmdbId);
+        if (!item) {
+          next.delete(tmdbId);
+        } else {
+          const ep = item.nextEpisode ?? { season: 1, episode: 1 };
+          const currentKey = `${ep.season}-${ep.episode}`;
+          if (currentKey !== markedEpKey) next.delete(tmdbId);
+        }
+      }
+      return next.size === prev.size ? prev : next;
+    });
+  }, [items, updatingShows]);
 
   const handleStopWatching = useCallback(
     async (item: EnrichedTrackingItem) => {
@@ -206,6 +246,7 @@ export default function WatchlistTab() {
       return (
         <ShowCard
           item={item.item}
+          isUpdating={updatingShows.has(item.item.tmdbId)}
           remainingEpisodes={remaining}
           onSwipeLeft={() => handleMarkWatched(item.item)}
           onSwipeRight={() => handleStopWatching(item.item)}
@@ -214,25 +255,29 @@ export default function WatchlistTab() {
         />
       );
     },
-    [handleMarkWatched, handleStopWatching, handlePress, watchedCountByShow]
+    [handleMarkWatched, handleStopWatching, handlePress, watchedCountByShow, updatingShows]
   );
 
-  const listRef = useRef<any>(null);
 
-  const hasScrolledRef = useRef(false);
+  const screenHeight = Dimensions.get("window").height;
+  const isLoading = loading;
+  const setWatchlistLoading = useUiStore((s) => s.setWatchlistLoading);
+
   useEffect(() => {
-    if (!hasScrolledRef.current && listData.length > 0 && activeHeaderIndex > 0) {
+    setWatchlistLoading(isLoading);
+  }, [isLoading, setWatchlistLoading]);
+
+  // Scroll past Previously Watched once list appears
+  useEffect(() => {
+    if (!hasScrolledRef.current && !isLoading && prevWatchedOffset > 0) {
       hasScrolledRef.current = true;
       setTimeout(() => {
-        listRef.current?.scrollToOffset({
-          offset: 80 * activeHeaderIndex,
-          animated: false,
-        });
+        listRef.current?.scrollToOffset({ offset: prevWatchedOffset, animated: false });
       }, 300);
     }
-  }, [listData.length, activeHeaderIndex]);
+  }, [isLoading, prevWatchedOffset]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <View style={styles.center}>
         <LoadingSpinner />
@@ -259,19 +304,20 @@ export default function WatchlistTab() {
         return `show_${item.item.id}`;
       }}
       renderItem={renderItem}
-      onEndReached={() => loadMoreTracking()}
-      onEndReachedThreshold={0.5}
+      maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
       refreshControl={
-        <RefreshControl
-          refreshing={loadingMoreEps}
-          onRefresh={loadMoreEps}
-          tintColor={colors.primary}
-          colors={[colors.primary]}
-          progressBackgroundColor={colors.surface}
-          title="Pull to fetch older"
-          titleColor={colors.textMuted}
-        />
+        hasMoreEps ? (
+          <RefreshControl
+            refreshing={loadingMoreEps}
+            onRefresh={loadMoreEps}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+            progressBackgroundColor={colors.surface}
+          />
+        ) : undefined
       }
+      onEndReached={() => loadMoreTracking()}
+      onEndReachedThreshold={1.5}
       ListFooterComponent={
         loadingMoreTracking ? (
           <View style={styles.loaderRow}>
@@ -284,7 +330,7 @@ export default function WatchlistTab() {
       maxToRenderPerBatch={15}
       windowSize={7}
       style={styles.list}
-      contentContainerStyle={styles.listContent}
+      contentContainerStyle={[styles.listContent, { minHeight: screenHeight + prevWatchedOffset }]}
     />
   );
 }

@@ -2,12 +2,15 @@ import React from "react";
 import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
 import { colors } from "../theme";
 import { HomeTopTabParamList } from "../types";
+import { useUiStore } from "../stores/uiStore";
 import WatchlistTab from "./WatchlistTab";
 import UpcomingTab from "./UpcomingTab";
 
 const TopTab = createMaterialTopTabNavigator<HomeTopTabParamList>();
 
 export default function HomeScreen() {
+  const watchlistLoading = useUiStore((s) => s.watchlistLoading);
+
   return (
     <TopTab.Navigator
       screenOptions={{
@@ -16,6 +19,7 @@ export default function HomeScreen() {
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarIndicatorStyle: { backgroundColor: colors.primary },
         tabBarLabelStyle: { fontWeight: "600", fontSize: 14 },
+        swipeEnabled: !watchlistLoading,
       }}
     >
       <TopTab.Screen name="Watchlist" component={WatchlistTab} />

@@ -5,6 +5,8 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
 import LoadingSpinner from "../components/LoadingSpinner";
@@ -15,7 +17,7 @@ import {
   doc,
   onSnapshot,
 } from "@react-native-firebase/firestore";
-import { useShowDetails } from "../hooks/useShowDetails";
+import { useShowDetails } from "../hooks";
 import { useAuthStore } from "../stores/authStore";
 import {
   addToTracking,
@@ -37,6 +39,7 @@ export default function ShowDetailScreen() {
   const { data: show, isLoading } = useShowDetails(tmdbId, mediaType);
   const [watchlistItem, setWatchlistItem] = useState<any>(null);
   const [trackingLoading, setTrackingLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     if (!user?.uid) {
@@ -59,9 +62,17 @@ export default function ShowDetailScreen() {
   );
 
   const handleAddToWatchlist = useCallback(async () => {
-    if (!user?.uid || !show) return;
-    await addToTracking(user.uid, tmdbId, mediaType);
-  }, [user?.uid, show, tmdbId, mediaType]);
+    if (!user?.uid || !show || adding) return;
+    setAdding(true);
+    try {
+      await addToTracking(user.uid, tmdbId, mediaType);
+    } catch (err: any) {
+      console.error("addToTracking failed:", err);
+      Alert.alert("Error", err.message || "Failed to add to watchlist.");
+    } finally {
+      setAdding(false);
+    }
+  }, [user?.uid, show, tmdbId, mediaType, adding]);
 
   const handleRemove = useCallback(async () => {
     if (!user?.uid) return;
@@ -78,12 +89,19 @@ export default function ShowDetailScreen() {
   }, [user?.uid, tmdbId, watchlistItem?.status]);
 
   const handleMarkMovieWatched = useCallback(async () => {
-    if (!user?.uid || !show) return;
-    if (!watchlistItem) {
-      await addToTracking(user.uid, tmdbId, "movie");
+    if (!user?.uid || !show || adding) return;
+    setAdding(true);
+    try {
+      if (!watchlistItem) {
+        await addToTracking(user.uid, tmdbId, "movie");
+      }
+      await markMovieWatched(user.uid, tmdbId, show.runtime ?? 0);
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to mark movie as watched.");
+    } finally {
+      setAdding(false);
     }
-    await markMovieWatched(user.uid, tmdbId, show.runtime ?? 0);
-  }, [user?.uid, show, tmdbId, watchlistItem]);
+  }, [user?.uid, show, tmdbId, watchlistItem, adding]);
 
 
   if (isLoading || trackingLoading) {
@@ -124,17 +142,27 @@ export default function ShowDetailScreen() {
           {!watchlistItem ? (
             <>
               <TouchableOpacity
-                style={styles.addButton}
+                style={[styles.addButton, adding && { opacity: 0.6 }]}
                 onPress={handleAddToWatchlist}
+                disabled={adding}
               >
-                <Text style={styles.buttonText}>+ Add to Watchlist</Text>
+                {adding ? (
+                  <ActivityIndicator size="small" color={colors.text} />
+                ) : (
+                  <Text style={styles.buttonText}>+ Add to Watchlist</Text>
+                )}
               </TouchableOpacity>
               {mediaType === "movie" && (
                 <TouchableOpacity
-                  style={[styles.addButton, { backgroundColor: colors.watchedGreen }]}
+                  style={[styles.addButton, { backgroundColor: colors.watchedGreen }, adding && { opacity: 0.6 }]}
                   onPress={handleMarkMovieWatched}
+                  disabled={adding}
                 >
-                  <Text style={styles.buttonText}>Watched</Text>
+                  {adding ? (
+                    <ActivityIndicator size="small" color={colors.text} />
+                  ) : (
+                    <Text style={styles.buttonText}>Watched</Text>
+                  )}
                 </TouchableOpacity>
               )}
             </>
@@ -142,10 +170,15 @@ export default function ShowDetailScreen() {
             <>
               {mediaType === "movie" && watchlistItem.status !== "completed" && (
                 <TouchableOpacity
-                  style={[styles.addButton, { backgroundColor: colors.watchedGreen }]}
+                  style={[styles.addButton, { backgroundColor: colors.watchedGreen }, adding && { opacity: 0.6 }]}
                   onPress={handleMarkMovieWatched}
+                  disabled={adding}
                 >
-                  <Text style={styles.buttonText}>Mark as Watched</Text>
+                  {adding ? (
+                    <ActivityIndicator size="small" color={colors.text} />
+                  ) : (
+                    <Text style={styles.buttonText}>Mark as Watched</Text>
+                  )}
                 </TouchableOpacity>
               )}
               {mediaType === "movie" && watchlistItem.status === "completed" && (
