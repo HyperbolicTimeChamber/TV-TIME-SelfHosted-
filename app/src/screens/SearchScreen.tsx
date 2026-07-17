@@ -13,7 +13,7 @@ import { LegendList } from "@legendapp/list/react-native";
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useSearch, useTrending, useTrackedIds, useInvalidateUpcoming } from "../hooks";
+import { useSearch, useTrending, useTrackedIds, useUpcomingMutations } from "../hooks";
 import { useAuthStore } from "../stores";
 import { addToTracking, removeFromTracking, markMovieWatched } from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
@@ -39,7 +39,7 @@ export default function SearchScreen() {
   const [removeModal, setRemoveModal] = useState<TMDBShow | null>(null);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
-  const invalidateUpcoming = useInvalidateUpcoming();
+  const { addShowToUpcoming, removeShowFromUpcoming } = useUpcomingMutations();
 
   const watchlistIds = trackedIds;
 
@@ -74,10 +74,10 @@ export default function SearchScreen() {
 
       await withLoadingId(item.id, async () => {
         await addToTracking(user.uid!, item.id, mediaType);
-        invalidateUpcoming();
+        addShowToUpcoming(item.id);
       });
     },
-    [user?.uid, withLoadingId, invalidateUpcoming]
+    [user?.uid, withLoadingId, addShowToUpcoming]
   );
 
   const handleRemoveFromWatchlist = useCallback(
@@ -95,7 +95,7 @@ export default function SearchScreen() {
     setRemoveError(null);
     try {
       await removeFromTracking(user.uid, removeModal.id);
-      invalidateUpcoming();
+      removeShowFromUpcoming(removeModal.id);
       setRemoveModal(null);
     } catch (err: any) {
       console.error("removeFromTracking failed:", err);

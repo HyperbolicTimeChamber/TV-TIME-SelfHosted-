@@ -35,16 +35,21 @@ GoogleSignin.configure({
   forceCodeForRefreshToken: true,
 });
 
+const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: { staleTime: 5 * 60 * 1000, retry: 2 },
   },
 });
 
+const PERSIST_PREFIXES = ["upcomingEpisodes", "catalog"];
+
 const asyncStoragePersister = createAsyncStoragePersister({
   storage: AsyncStorage,
-  key: "tv-time-query-cache",
+  key: "tv-time-cache",
 });
+
 
 async function registerFCMToken(userId: string) {
   try {
@@ -175,7 +180,19 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <PersistQueryClientProvider client={queryClient} persistOptions={{ persister: asyncStoragePersister, maxAge: 7 * 24 * 60 * 60 * 1000 }}>
+        <PersistQueryClientProvider
+          client={queryClient}
+          persistOptions={{
+            persister: asyncStoragePersister,
+            maxAge: ONE_WEEK,
+            dehydrateOptions: {
+              shouldDehydrateQuery: (q) => {
+                const key = q.queryKey[0] as string;
+                return PERSIST_PREFIXES.includes(key) && q.state.status === "success";
+              },
+            },
+          }}
+        >
           {splashDone ? <AppContent /> : <View style={styles.loading} />}
           {!splashDone && <AppSplash onHidden={onHidden} />}
         </PersistQueryClientProvider>

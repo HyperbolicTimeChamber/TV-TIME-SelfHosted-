@@ -30,5 +30,6 @@ export enum Route {
   SEARCH_MAIN = "SearchMain",
   CALENDAR_MAIN = "CalendarMain",
   PROFILE_MAIN = "ProfileMain",
+  SETTINGS = "Settings",
   IMPORT_DATA = "ImportData",
 }

@@ -2,6 +2,7 @@ import { useCallback, useRef, useEffect, useState } from "react";
 import {
   View,
   Text,
+  TouchableOpacity,
   StyleSheet,
   FlatList,
   ActivityIndicator,
@@ -9,8 +10,9 @@ import {
   Dimensions,
   Alert,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, CompositeNavigationProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { useAuthStore, useUiStore } from "../../../stores";
 import { LoadingSpinner, ShowCard, WatchActionSheet } from "../../../components";
 import type { WatchAction } from "../../../components";
@@ -21,13 +23,16 @@ import {
   getCatalogShow,
 } from "../../../services";
 import { colors, spacing, typography } from "../../../theme";
-import { HomeStackParamList, WatchedEpisode, MediaType, Route } from "../../../types";
+import { HomeStackParamList, MainTabParamList, WatchedEpisode, MediaType, Route } from "../../../types";
 import { ListItem } from "./types";
 import { useWatchlistData } from "./useWatchlistData";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
 import SectionHeader from "./SectionHeader";
 
-type NavProp = NativeStackNavigationProp<HomeStackParamList, Route.HOME_TABS>;
+type NavProp = CompositeNavigationProp<
+  NativeStackNavigationProp<HomeStackParamList, Route.HOME_TABS>,
+  BottomTabNavigationProp<MainTabParamList>
+>;
 
 const SeparatorComponent = () => (
   <View style={{ height: 1, backgroundColor: colors.border }} />
@@ -213,7 +218,12 @@ export default function WatchlistTab() {
     return (
       <View style={styles.center}>
         <Text style={styles.empty}>No shows in your watchlist</Text>
-        <Text style={styles.emptyHint}>Search to add shows</Text>
+        <TouchableOpacity
+          style={styles.addShowsButton}
+          onPress={() => navigation.navigate(Route.SEARCH)}
+        >
+          <Text style={styles.addShowsText}>+ Add Shows</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -296,9 +306,17 @@ const styles = StyleSheet.create({
     ...typography.subtitle,
     color: colors.textSecondary,
   },
-  emptyHint: {
-    ...typography.caption,
-    marginTop: spacing.sm,
+  addShowsButton: {
+    marginTop: spacing.lg,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: 8,
+  },
+  addShowsText: {
+    ...typography.subtitle,
+    fontSize: 14,
+    color: colors.text,
   },
   loaderRow: {
     paddingVertical: spacing.lg,

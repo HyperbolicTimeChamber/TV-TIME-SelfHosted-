@@ -36,5 +36,6 @@ export type CalendarStackParamList = {
 
 export type ProfileStackParamList = {
   ProfileMain: undefined;
+  Settings: undefined;
   ImportData: undefined;
 };

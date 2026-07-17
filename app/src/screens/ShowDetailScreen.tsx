@@ -15,7 +15,7 @@ import {
   doc,
   onSnapshot,
 } from "@react-native-firebase/firestore";
-import { useShowDetails, useInvalidateUpcoming } from "../hooks";
+import { useShowDetails, useUpcomingMutations } from "../hooks";
 import { useAuthStore } from "../stores";
 import {
   addToTracking,
@@ -40,7 +40,7 @@ export default function ShowDetailScreen() {
   const [trackingLoading, setTrackingLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState(false);
-  const invalidateUpcoming = useInvalidateUpcoming();
+  const { addShowToUpcoming, removeShowFromUpcoming } = useUpcomingMutations();
   const [removeModalVisible, setRemoveModalVisible] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
 
@@ -69,14 +69,14 @@ export default function ShowDetailScreen() {
     setAdding(true);
     try {
       await addToTracking(user.uid, tmdbId, mediaType);
-      invalidateUpcoming();
+      addShowToUpcoming(tmdbId);
     } catch (err: any) {
       console.error("addToTracking failed:", err);
       Alert.alert("Error", err.message || "Failed to add to watchlist.");
     } finally {
       setAdding(false);
     }
-  }, [user?.uid, show, tmdbId, mediaType, adding, invalidateUpcoming]);
+  }, [user?.uid, show, tmdbId, mediaType, adding, addShowToUpcoming]);
 
   const handleRemove = useCallback(() => {
     if (!user?.uid || removing) return;
@@ -90,7 +90,7 @@ export default function ShowDetailScreen() {
     setRemoveError(null);
     try {
       await removeFromTracking(user.uid, tmdbId);
-      invalidateUpcoming();
+      removeShowFromUpcoming(tmdbId);
       setRemoveModalVisible(false);
     } catch (err: any) {
       console.error("removeFromTracking failed:", err);
@@ -98,7 +98,7 @@ export default function ShowDetailScreen() {
     } finally {
       setRemoving(false);
     }
-  }, [user?.uid, tmdbId, removing, invalidateUpcoming]);
+  }, [user?.uid, tmdbId, removing, removeShowFromUpcoming]);
 
   const handleResumeOrRewatch = useCallback(async () => {
     if (!user?.uid) return;
