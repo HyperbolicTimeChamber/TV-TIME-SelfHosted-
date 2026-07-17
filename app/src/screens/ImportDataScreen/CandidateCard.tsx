@@ -3,14 +3,13 @@ import {
   View,
   Text,
   TouchableOpacity,
-  ActivityIndicator,
-  ScrollView,
 } from "react-native";
 import { Image } from "expo-image";
-import { AnimatedModal } from "../../components";
+import { ShowDrawer } from "../../components";
+import type { ShowDrawerData } from "../../components/ShowDrawer";
 import { TMDBMatch } from "../../services/tvtimeImport";
 import { getShowDetails } from "../../services/tmdb";
-import { colors, spacing, posterSize } from "../../theme";
+import { posterSize } from "../../theme";
 import { importStyles as styles } from "./styles";
 
 interface Props {
@@ -20,30 +19,49 @@ interface Props {
 }
 
 export default function CandidateCard({ item, apiKey, onPress }: Props) {
-  const [detailsVisible, setDetailsVisible] = useState(false);
-  const [details, setDetails] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const [drawerData, setDrawerData] = useState<ShowDrawerData | null>(null);
+  const [drawerLoading, setDrawerLoading] = useState(false);
 
   const handleLongPress = async () => {
-    setDetailsVisible(true);
-    if (!details) {
-      setLoading(true);
+    setDrawerVisible(true);
+    if (!drawerData) {
+      setDrawerLoading(true);
       try {
-        const data = await getShowDetails(apiKey, item.tmdbId, item.mediaType);
-        setDetails(data);
+        const data = await getShowDetails(apiKey, item.tmdbId, item.mediaType) as any;
+        const seasonCount = data?.number_of_seasons;
+        const episodeCount = data?.number_of_episodes;
+        const runtime = data?.runtime ?? data?.episode_run_time?.[0];
+        const genres = data?.genres?.map((g: any) => g.name).join(", ");
+        setDrawerData({
+          title: item.tmdbName,
+          posterPath: item.posterPath,
+          backdropPath: data?.backdrop_path ?? null,
+          overview: data?.overview || item.overview || null,
+          mediaType: item.mediaType,
+          year: item.year || null,
+          totalSeasons: seasonCount ?? item.totalSeasons,
+          totalEpisodes: episodeCount ?? item.totalEpisodes,
+          runtime: runtime ?? null,
+          status: data?.status ?? null,
+          genres: genres || null,
+        });
       } catch {
-        setDetails(null);
+        setDrawerData({
+          title: item.tmdbName,
+          posterPath: item.posterPath,
+          backdropPath: null,
+          overview: item.overview || null,
+          mediaType: item.mediaType,
+          year: item.year || null,
+          totalSeasons: item.totalSeasons,
+          totalEpisodes: item.totalEpisodes,
+        });
       } finally {
-        setLoading(false);
+        setDrawerLoading(false);
       }
     }
   };
-
-  const seasonCount = details?.number_of_seasons;
-  const episodeCount = details?.number_of_episodes;
-  const runtime = details?.runtime ?? details?.episode_run_time?.[0];
-  const genres = details?.genres?.map((g: any) => g.name).join(", ");
-  const status = details?.status;
 
   return (
     <>
@@ -85,80 +103,12 @@ export default function CandidateCard({ item, apiKey, onPress }: Props) {
         </View>
       </TouchableOpacity>
 
-      <AnimatedModal
-        visible={detailsVisible}
-        onClose={() => setDetailsVisible(false)}
-      >
-        <View style={[styles.modalContent, { maxHeight: "80%" }]}>
-          {loading ? (
-            <ActivityIndicator
-              size="large"
-              color={colors.primary}
-              style={{ marginVertical: spacing.xl }}
-            />
-          ) : (
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {item.posterPath && (
-                <Image
-                  source={{ uri: `${posterSize.medium}${item.posterPath}` }}
-                  style={{
-                    width: "100%",
-                    height: 200,
-                    borderRadius: 8,
-                    marginBottom: spacing.md,
-                  }}
-                  contentFit="cover"
-                />
-              )}
-              <View style={[styles.candidateHeader, { marginBottom: spacing.sm }]}>
-                <Text style={[styles.modalTitle, { flex: 1, marginBottom: 0 }]}>
-                  {item.tmdbName}
-                </Text>
-                <View
-                  style={[
-                    styles.typeBadge,
-                    item.mediaType === "movie" && styles.typeBadgeMovie,
-                  ]}
-                >
-                  <Text style={styles.typeBadgeText}>
-                    {item.mediaType === "tv" ? "TV" : "MOVIE"}
-                  </Text>
-                </View>
-              </View>
-
-              <Text style={styles.candidateYear}>
-                {item.year || "N/A"}
-                {seasonCount ? ` \u00b7 ${seasonCount} season${seasonCount !== 1 ? "s" : ""}` : ""}
-                {episodeCount ? ` \u00b7 ${episodeCount} episode${episodeCount !== 1 ? "s" : ""}` : ""}
-                {runtime ? ` \u00b7 ${runtime} min` : ""}
-              </Text>
-
-              {status && (
-                <Text style={[styles.candidateYear, { marginTop: 2 }]}>
-                  Status: {status}
-                </Text>
-              )}
-
-              {genres && (
-                <Text style={[styles.candidateYear, { marginTop: 2 }]}>
-                  {genres}
-                </Text>
-              )}
-
-              <Text style={[styles.modalBody, { marginTop: spacing.md }]}>
-                {details?.overview || item.overview || "No description available"}
-              </Text>
-            </ScrollView>
-          )}
-
-          <TouchableOpacity
-            style={styles.modalButton}
-            onPress={() => setDetailsVisible(false)}
-          >
-            <Text style={styles.modalButtonText}>Close</Text>
-          </TouchableOpacity>
-        </View>
-      </AnimatedModal>
+      <ShowDrawer
+        visible={drawerVisible}
+        show={drawerData}
+        loading={drawerLoading}
+        onClose={() => setDrawerVisible(false)}
+      />
     </>
   );
 }

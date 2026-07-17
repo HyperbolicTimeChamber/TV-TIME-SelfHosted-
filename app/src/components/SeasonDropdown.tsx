@@ -22,6 +22,7 @@ import {
 } from "../services";
 import WatchActionSheet, { WatchAction } from "./WatchActionSheet";
 import ConfirmModal from "./ConfirmModal";
+import CheckmarkButton from "./CheckmarkButton";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { TMDBSeason, TMDBEpisode, MediaType } from "../types";
 
@@ -398,8 +399,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
   );
 
   const handleSeasonPress = useCallback(
-    (e: any) => {
-      e.stopPropagation?.();
+    () => {
       if (allWatched) {
         // Already fully watched → rewatch directly
         handleMarkSeasonWatched();
@@ -449,32 +449,19 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
             </Text>
           </View>
         </View>
-        <TouchableOpacity
-          style={[
-            styles.seasonCheckmark,
-            allWatched && styles.seasonCheckmarkWatched,
-            partiallyWatched && styles.seasonCheckmarkPartial,
-            markingSeason && { opacity: 0.5 },
-          ]}
-          onPress={handleSeasonPress}
-          onLongPress={handleSeasonLongPress}
-          disabled={markingSeason || marking !== null || watchedLoading}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          {markingSeason ? (
-            <ActivityIndicator size="small" color={allWatched || partiallyWatched ? colors.text : colors.textMuted} />
-          ) : (
-            <Text
-              style={[
-                styles.seasonCheckmarkText,
-                allWatched && styles.seasonCheckmarkTextWatched,
-                partiallyWatched && styles.seasonCheckmarkTextPartial,
-              ]}
-            >
-              {allWatched ? minWatchCount.toString() : partiallyWatched ? `${watchedCount}` : "✓"}
-            </Text>
-          )}
-        </TouchableOpacity>
+        <View style={{ marginRight: spacing.sm }}>
+          <CheckmarkButton
+            size={30}
+            watched={allWatched}
+            loading={markingSeason}
+            label={allWatched ? `x${minWatchCount}` : partiallyWatched ? `${watchedCount}` : undefined}
+            labelColor={partiallyWatched ? colors.background : undefined}
+            backgroundColor={partiallyWatched ? colors.text : undefined}
+            onPress={handleSeasonPress}
+            onLongPress={handleSeasonLongPress}
+            disabled={marking !== null || watchedLoading}
+          />
+        </View>
         <Text style={styles.chevron}>{expanded ? "▾" : "›"}</Text>
       </TouchableOpacity>
 
@@ -512,29 +499,15 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
                       )}
                     </View>
                   </View>
-                  <TouchableOpacity
-                    style={[
-                      styles.checkmark,
-                      isWatched && styles.checkmarkWatched,
-                      marking === ep.episode_number && { opacity: 0.5 },
-                    ]}
+                  <CheckmarkButton
+                    size={28}
+                    watched={isWatched}
+                    loading={marking === ep.episode_number}
+                    label={isWatched ? `x${count}` : undefined}
                     onPress={() => handleEpisodePress(ep)}
                     onLongPress={() => handleEpisodeLongPress(ep)}
                     disabled={marking !== null || markingSeason}
-                  >
-                    {marking === ep.episode_number ? (
-                      <ActivityIndicator size="small" color={colors.textMuted} />
-                    ) : (
-                      <Text
-                        style={[
-                          styles.checkmarkText,
-                          isWatched && styles.checkmarkTextWatched,
-                        ]}
-                      >
-                        {isWatched ? count.toString() : "✓"}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
+                  />
                 </View>
               );
             })
@@ -600,36 +573,6 @@ const styles = StyleSheet.create({
   seasonMeta: {
     ...typography.caption,
   },
-  seasonCheckmark: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 2,
-    borderColor: colors.textMuted,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: spacing.sm,
-  },
-  seasonCheckmarkWatched: {
-    backgroundColor: colors.watchedGreen,
-    borderColor: colors.watchedGreen,
-  },
-  seasonCheckmarkPartial: {
-    borderColor: colors.watchedGreen,
-    backgroundColor: "transparent",
-  },
-  seasonCheckmarkText: {
-    fontSize: 14,
-    color: colors.textMuted,
-  },
-  seasonCheckmarkTextWatched: {
-    color: colors.text,
-    fontWeight: "700",
-  },
-  seasonCheckmarkTextPartial: {
-    color: colors.watchedGreen,
-    fontWeight: "700",
-  },
   chevron: {
     ...typography.title,
     color: colors.textMuted,
@@ -680,26 +623,5 @@ const styles = StyleSheet.create({
     color: colors.accent,
     marginTop: 2,
     fontSize: 11,
-  },
-  checkmark: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: colors.textMuted,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  checkmarkWatched: {
-    backgroundColor: colors.watchedGreen,
-    borderColor: colors.watchedGreen,
-  },
-  checkmarkText: {
-    fontSize: 14,
-    color: colors.textMuted,
-  },
-  checkmarkTextWatched: {
-    color: colors.text,
-    fontWeight: "700",
   },
 });

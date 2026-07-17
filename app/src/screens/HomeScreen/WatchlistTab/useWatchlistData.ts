@@ -13,7 +13,7 @@ import { MediaType } from "../../../types";
 import { ListItem } from "./types";
 
 const ACTIVE_CACHE_KEY = "watchlist_active_cache";
-const ACTIVE_CACHE_LIMIT = 20;
+const ACTIVE_CACHE_LIMIT = 100;
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -26,6 +26,7 @@ export function useWatchlistData(userId: string | undefined) {
     loadMore: loadMoreTracking,
     loadingMore: loadingMoreTracking,
     hasMore: hasMoreTracking,
+    removeItem,
   } = useWatchlist(userId);
 
   const {
@@ -228,8 +229,9 @@ export function useWatchlistData(userId: string | undefined) {
     async (item: EnrichedTrackingItem) => {
       if (!userId) return;
       await stopWatching(userId, item.tmdbId, item.status);
+      removeItem(item.tmdbId);
     },
-    [userId],
+    [userId, removeItem],
   );
 
   return {

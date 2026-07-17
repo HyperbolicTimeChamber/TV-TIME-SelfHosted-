@@ -1,7 +1,8 @@
-import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import React, { useRef } from "react";
+import { NavigationContainer, NavigationContainerRef } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
+import { CommonActions } from "@react-navigation/native";
 import { colors } from "../theme";
 import { MainTabParamList, Route } from "../types";
 import HomeStackScreen from "./HomeStackScreen";
@@ -12,8 +13,10 @@ import ProfileStackScreen from "./ProfileStackScreen";
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export default function AppNavigator() {
+  const navRef = useRef<NavigationContainerRef<MainTabParamList>>(null);
+
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navRef}>
       <Tab.Navigator
         screenOptions={({ route }) => ({
           headerShown: false,
@@ -40,9 +43,26 @@ export default function AppNavigator() {
           },
         })}
       >
-        <Tab.Screen name={Route.HOME} component={HomeStackScreen} />
-        <Tab.Screen name={Route.SEARCH} component={SearchStackScreen} />
+        <Tab.Screen
+          name={Route.HOME}
+          component={HomeStackScreen}
+          listeners={{
+            tabPress: (e) => {
+              e.preventDefault();
+              navRef.current?.dispatch(
+                CommonActions.navigate({
+                  name: Route.HOME,
+                  params: {
+                    screen: Route.HOME_TABS,
+                    params: { screen: Route.WATCHLIST },
+                  },
+                })
+              );
+            },
+          }}
+        />
         <Tab.Screen name={Route.CALENDAR} component={CalendarStackScreen} />
+        <Tab.Screen name={Route.SEARCH} component={SearchStackScreen} />
         <Tab.Screen name={Route.PROFILE} component={ProfileStackScreen} options={{
           headerShown: false,
         }} />

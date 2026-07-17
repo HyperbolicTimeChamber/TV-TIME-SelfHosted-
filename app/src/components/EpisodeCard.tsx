@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { UpcomingEpisode } from "../types";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
+import CheckmarkButton from "./CheckmarkButton";
 
 interface Props {
   episode: UpcomingEpisode;
@@ -46,9 +47,7 @@ export default memo(function EpisodeCard({
             {episode.episodeTitle}
           </Text>
         </View>
-        <View style={styles.watchedBadge}>
-          <Text style={styles.watchedBadgeText}>✓</Text>
-        </View>
+        <CheckmarkButton size={36} watched />
       </TouchableOpacity>
     );
   }
@@ -74,13 +73,10 @@ export default memo(function EpisodeCard({
             {episode.episodeTitle}
           </Text>
         </View>
-        <TouchableOpacity
-          style={styles.checkmark}
+        <CheckmarkButton
+          size={36}
           onPress={() => swipeRef.current?.triggerSwipeLeft()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={styles.checkmarkText}>✓</Text>
-        </TouchableOpacity>
+        />
       </TouchableOpacity>
     </SwipeableCard>
   );
@@ -124,32 +120,5 @@ const styles = StyleSheet.create({
   },
   watchedText: {
     color: colors.textMuted,
-  },
-  checkmark: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-    borderColor: colors.textMuted,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  checkmarkText: {
-    fontSize: 18,
-    color: colors.textMuted,
-  },
-  watchedBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.watchedGreen,
-    justifyContent: "center",
-    alignItems: "center",
-    opacity: 0.6,
-  },
-  watchedBadgeText: {
-    fontSize: 18,
-    color: colors.text,
-    fontWeight: "700",
   },
 });

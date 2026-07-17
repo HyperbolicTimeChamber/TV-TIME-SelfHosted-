@@ -189,5 +189,12 @@ export function useWatchlist(userId: string | undefined) {
     }
   }, [userId, hasMore, loadingMore]);
 
-  return { items, loading, loadMore, loadingMore, hasMore };
+  const removeItem = useCallback((tmdbId: number) => {
+    paginatedItems.current = paginatedItems.current.filter(
+      (p) => p.tmdbId !== tmdbId,
+    );
+    setItems((prev) => prev.filter((p) => p.tmdbId !== tmdbId));
+  }, []);
+
+  return { items, loading, loadMore, loadingMore, hasMore, removeItem };
 }

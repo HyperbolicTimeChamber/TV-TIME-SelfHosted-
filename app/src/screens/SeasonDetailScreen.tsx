@@ -5,7 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
-import { LoadingSpinner, ConfirmModal } from "../components";
+import { LoadingSpinner, ConfirmModal, CheckmarkButton } from "../components";
 import { LegendList } from "@legendapp/list/react-native";
 import { useRoute, RouteProp } from "@react-navigation/native";
 import { useSeasonDetails, useWatchedEpisodes, useWatchlist } from "../hooks";
@@ -157,22 +157,11 @@ export default function SeasonDetailScreen() {
               )}
             </View>
           </View>
-          <TouchableOpacity
-            style={[
-              styles.checkmark,
-              isWatched && styles.checkmarkWatched,
-            ]}
+          <CheckmarkButton
+            size={30}
+            watched={isWatched}
             onPress={() => handleMarkWatched(item)}
-          >
-            <Text
-              style={[
-                styles.checkmarkText,
-                isWatched && styles.checkmarkTextWatched,
-              ]}
-            >
-              ✓
-            </Text>
-          </TouchableOpacity>
+          />
         </View>
       );
     },
@@ -262,26 +251,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.accent,
     marginTop: spacing.xs,
-  },
-  checkmark: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 2,
-    borderColor: colors.textMuted,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  checkmarkWatched: {
-    backgroundColor: colors.watchedGreen,
-    borderColor: colors.watchedGreen,
-  },
-  checkmarkText: {
-    fontSize: 16,
-    color: colors.textMuted,
-  },
-  checkmarkTextWatched: {
-    color: colors.text,
   },
   separator: {
     height: 1,

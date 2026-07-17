@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Image } from "expo-image";
+import { CheckmarkButton } from "../../../components";
 import { colors, spacing, typography, posterSize } from "../../../theme";
 import { WatchedEpisode } from "../../../types";
 import { EnrichedTrackingItem } from "../../../hooks";
@@ -35,15 +36,12 @@ export default memo(function WatchedEpisodeRow({ episode, show, onPress, onCheck
           {episode.episodeTitle}
         </Text>
       </View>
-      <TouchableOpacity
-        style={styles.badge}
+      <CheckmarkButton
+        size={36}
+        watched
+        label={episode.watchCount > 1 ? `${episode.watchCount}` : undefined}
         onPress={() => onCheckmarkPress(episode)}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <Text style={styles.badgeText}>
-          {episode.watchCount > 1 ? episode.watchCount.toString() : "✓"}
-        </Text>
-      </TouchableOpacity>
+      />
     </TouchableOpacity>
   );
 });
@@ -86,19 +84,5 @@ const styles = StyleSheet.create({
   },
   watchedText: {
     color: colors.textMuted,
-  },
-  badge: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.watchedGreen,
-    justifyContent: "center",
-    alignItems: "center",
-    opacity: 0.6,
-  },
-  badgeText: {
-    fontSize: 18,
-    color: colors.text,
-    fontWeight: "700",
   },
 });
