@@ -12,9 +12,11 @@ import {
   startAfter,
   QueryDocumentSnapshot,
 } from "@react-native-firebase/firestore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { TrackingItem, CatalogShow } from "../types";
 
 const PAGE_SIZE = 50;
+const WATCHLIST_CACHE_KEY = "profile_watchlist_cache";
 
 export interface EnrichedTrackingItem extends TrackingItem {
   title: string;
@@ -65,6 +67,23 @@ export function useWatchlist(userId: string | undefined) {
   const paginationCursor = useRef<QueryDocumentSnapshot | null>(null);
   const firstPageLastDoc = useRef<QueryDocumentSnapshot | null>(null);
   const paginatedItems = useRef<EnrichedTrackingItem[]>([]);
+  const restoredCache = useRef(false);
+
+  // Restore cached watchlist on mount
+  useEffect(() => {
+    if (!userId || restoredCache.current) return;
+    AsyncStorage.getItem(WATCHLIST_CACHE_KEY).then((raw) => {
+      if (!raw) return;
+      try {
+        const cached = JSON.parse(raw);
+        if (cached.userId === userId && cached.items?.length > 0) {
+          setItems(cached.items);
+          setLoading(false);
+        }
+      } catch {}
+      restoredCache.current = true;
+    });
+  }, [userId]);
 
   // First page with real-time listener
   useEffect(() => {
@@ -101,7 +120,12 @@ export function useWatchlist(userId: string | undefined) {
         // Merge: first page (live) + paginated pages
         const firstPageIds = new Set(enriched.map((e) => e.id));
         const extra = paginatedItems.current.filter((p) => !firstPageIds.has(p.id));
-        setItems([...enriched, ...extra]);
+        const merged = [...enriched, ...extra];
+        setItems(merged);
+
+        // Cache first page (strip catalogShow to keep payload small)
+        const toCache = enriched.map(({ catalogShow, ...rest }) => rest);
+        AsyncStorage.setItem(WATCHLIST_CACHE_KEY, JSON.stringify({ userId, items: toCache })).catch(() => {});
 
         setHasMore(snapshot.docs.length >= PAGE_SIZE);
         setLoading(false);

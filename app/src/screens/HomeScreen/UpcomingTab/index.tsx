@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
-import { View, Text, FlatList, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
+import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LoadingSpinner } from "../../../components";
@@ -87,7 +88,7 @@ export default function UpcomingTab() {
 	}
 
 	return (
-		<FlatList
+		<LegendList
 			data={listData}
 			keyExtractor={(item) =>
 				item.type === "header"
@@ -95,9 +96,7 @@ export default function UpcomingTab() {
 					: `ep_${item.episode.tmdbShowId}_S${item.episode.season}E${item.episode.episode}`
 			}
 			renderItem={renderItem}
-			removeClippedSubviews
-			maxToRenderPerBatch={20}
-			windowSize={5}
+			recycleItems
 			style={styles.list}
 			contentContainerStyle={styles.listContent}
 		/>

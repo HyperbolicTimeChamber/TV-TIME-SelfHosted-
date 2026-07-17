@@ -1,5 +1,6 @@
 import { useMemo, useEffect, useCallback, useState, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   useWatchlist,
   EnrichedTrackingItem,
@@ -10,6 +11,13 @@ import {
 import { markEpisodeWatched, markMovieWatched, stopWatching, getCatalogShow } from "../../../services";
 import { MediaType } from "../../../types";
 import { ListItem } from "./types";
+
+const ACTIVE_CACHE_KEY = "watchlist_active_cache";
+const ACTIVE_CACHE_LIMIT = 20;
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export function useWatchlistData(userId: string | undefined) {
   const {
@@ -29,6 +37,23 @@ export function useWatchlistData(userId: string | undefined) {
 
   const queryClient = useQueryClient();
   const [updatingShows, setUpdatingShows] = useState<Map<number, string>>(new Map());
+  const [cachedActive, setCachedActive] = useState<EnrichedTrackingItem[] | null>(null);
+  const cacheRestored = useRef(false);
+
+  // Restore cached active items on mount (invalidate if not from today)
+  useEffect(() => {
+    if (!userId || cacheRestored.current) return;
+    AsyncStorage.getItem(ACTIVE_CACHE_KEY).then((raw) => {
+      if (!raw) { cacheRestored.current = true; return; }
+      try {
+        const cached = JSON.parse(raw);
+        if (cached.userId === userId && cached.date === todayStr() && cached.items?.length > 0) {
+          setCachedActive(cached.items);
+        }
+      } catch {}
+      cacheRestored.current = true;
+    });
+  }, [userId]);
 
   const showMap = useMemo(() => {
     const map = new Map<number, EnrichedTrackingItem>();
@@ -59,6 +84,23 @@ export function useWatchlistData(userId: string | undefined) {
     return sortByPriority(visible);
   }, [items]);
 
+  // Write cache when sortedActive updates from Firestore
+  useEffect(() => {
+    if (!userId || loading || sortedActive.length === 0) return;
+    const toCache = sortedActive.slice(0, ACTIVE_CACHE_LIMIT).map(({ catalogShow, ...rest }) => rest);
+    AsyncStorage.setItem(ACTIVE_CACHE_KEY, JSON.stringify({
+      userId,
+      date: todayStr(),
+      items: toCache,
+    })).catch(() => {});
+    // Clear cached fallback once real data is in
+    if (cachedActive) setCachedActive(null);
+  }, [userId, loading, sortedActive]);
+
+  // Use cached items while loading
+  const effectiveActive = loading && cachedActive ? cachedActive : sortedActive;
+  const effectiveLoading = loading && !cachedActive;
+
   // Auto-load more if too few visible items
   useEffect(() => {
     if (
@@ -87,14 +129,14 @@ export function useWatchlistData(userId: string | undefined) {
         }
       }
     }
-    if (sortedActive.length > 0) {
+    if (effectiveActive.length > 0) {
       result.push({ type: "sectionHeader", title: "Currently Watching" });
-      for (const item of sortedActive) {
+      for (const item of effectiveActive) {
         result.push({ type: "show", item });
       }
     }
     return result;
-  }, [sortedWatchedEps, sortedActive, showMap]);
+  }, [sortedWatchedEps, effectiveActive, showMap]);
 
   const prevWatchedOffset = useMemo(() => {
     if (watchedItemCount === 0) return 0;
@@ -192,7 +234,7 @@ export function useWatchlistData(userId: string | undefined) {
 
   return {
     listData,
-    loading,
+    loading: effectiveLoading,
     loadMoreTracking,
     loadingMoreTracking,
     loadMoreEps,
