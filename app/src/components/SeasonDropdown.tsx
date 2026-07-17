@@ -25,6 +25,12 @@ import ConfirmModal from "./ConfirmModal";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { TMDBSeason, TMDBEpisode, MediaType } from "../types";
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function formatDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-");
+  return `${parseInt(d, 10)} ${MONTHS[parseInt(m, 10) - 1]} ${y}`;
+}
+
 interface Props {
   tmdbId: number;
   season: TMDBSeason;
@@ -108,6 +114,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
     ? Math.min(...episodes.map((ep: TMDBEpisode) => watchedMap.get(ep.episode_number)?.watchCount || 0))
     : 0;
   const allWatched = episodes.length > 0 && minWatchCount > 0;
+  const partiallyWatched = watchedCount > 0 && !allWatched;
 
   const getNextEpisodeInfo = useCallback(
     async (afterSeason: number, afterEpisode?: number) => {
@@ -438,7 +445,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
             ) : null}
             <Text style={styles.seasonMeta}>
               {watchedLoading ? "" : `${watchedCount}/`}{season.episode_count} episodes
-              {season.air_date ? ` · ${season.air_date.substring(0, 4)}` : ""}
+              {season.air_date ? ` · ${formatDate(season.air_date)}` : ""}
             </Text>
           </View>
         </View>
@@ -446,6 +453,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
           style={[
             styles.seasonCheckmark,
             allWatched && styles.seasonCheckmarkWatched,
+            partiallyWatched && styles.seasonCheckmarkPartial,
             markingSeason && { opacity: 0.5 },
           ]}
           onPress={handleSeasonPress}
@@ -454,15 +462,16 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           {markingSeason ? (
-            <ActivityIndicator size="small" color={allWatched ? colors.text : colors.textMuted} />
+            <ActivityIndicator size="small" color={allWatched || partiallyWatched ? colors.text : colors.textMuted} />
           ) : (
             <Text
               style={[
                 styles.seasonCheckmarkText,
                 allWatched && styles.seasonCheckmarkTextWatched,
+                partiallyWatched && styles.seasonCheckmarkTextPartial,
               ]}
             >
-              {allWatched ? minWatchCount.toString() : "✓"}
+              {allWatched ? minWatchCount.toString() : partiallyWatched ? `${watchedCount}` : "✓"}
             </Text>
           )}
         </TouchableOpacity>
@@ -494,7 +503,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
                         {ep.name}
                       </Text>
                       {ep.air_date && (
-                        <Text style={styles.episodeMeta}>{ep.air_date}</Text>
+                        <Text style={styles.episodeMeta}>{formatDate(ep.air_date)}</Text>
                       )}
                       {count > 1 && (
                         <Text style={styles.rewatchBadge}>
@@ -605,12 +614,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.watchedGreen,
     borderColor: colors.watchedGreen,
   },
+  seasonCheckmarkPartial: {
+    borderColor: colors.watchedGreen,
+    backgroundColor: "transparent",
+  },
   seasonCheckmarkText: {
     fontSize: 14,
     color: colors.textMuted,
   },
   seasonCheckmarkTextWatched: {
     color: colors.text,
+    fontWeight: "700",
+  },
+  seasonCheckmarkTextPartial: {
+    color: colors.watchedGreen,
     fontWeight: "700",
   },
   chevron: {

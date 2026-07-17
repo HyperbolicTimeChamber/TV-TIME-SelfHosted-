@@ -14,6 +14,12 @@ import { markEpisodeWatched, addToTracking, getSeasonDetails as fetchSeason } fr
 import { colors, spacing, typography } from "../theme";
 import { HomeStackParamList, TMDBEpisode, MediaType } from "../types";
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function formatDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-");
+  return `${parseInt(d, 10)} ${MONTHS[parseInt(m, 10) - 1]} ${y}`;
+}
+
 type RouteParams = RouteProp<HomeStackParamList, "SeasonDetail">;
 
 export default function SeasonDetailScreen() {
@@ -142,7 +148,7 @@ export default function SeasonDetailScreen() {
                 {item.name}
               </Text>
               {item.air_date && (
-                <Text style={styles.episodeMeta}>{item.air_date}</Text>
+                <Text style={styles.episodeMeta}>{formatDate(item.air_date)}</Text>
               )}
               {watchedEp && watchedEp.watchCount > 1 && (
                 <Text style={styles.rewatchBadge}>
