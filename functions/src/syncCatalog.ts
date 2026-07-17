@@ -1,7 +1,7 @@
 // functions/src/syncCatalog.ts
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
-import { fetchShowFromTMDB, pooled, CatalogShow } from "./tmdb";
+import { fetchShowFromTMDB, fetchShowStatus, pooled, CatalogShow } from "./tmdb";
 import { getAllTrackerUids } from "./utils";
 
 export const syncCatalog = onSchedule(
@@ -29,12 +29,31 @@ export const syncCatalog = onSchedule(
 
     console.log(`Syncing ${showsSnap.size} TV shows`);
 
+    const ENDED_STATUSES = ["Ended", "Canceled"];
+    let skippedEnded = 0;
+
     const syncTasks = showsSnap.docs.map(
       (showDoc) => async () => {
         const oldData = showDoc.data() as CatalogShow & {
           trackedBy: string[];
           trackedByCount: number;
         };
+
+        // Ended/canceled: lightweight status check only (1 API call vs ~6)
+        if (ENDED_STATUSES.includes(oldData.status)) {
+          try {
+            const freshStatus = await fetchShowStatus(apiKey, oldData.tmdbId);
+            if (ENDED_STATUSES.includes(freshStatus)) {
+              skippedEnded++;
+              return;
+            }
+            // Show revived — fall through to full sync
+            console.log(`Show revived: ${oldData.title} (${oldData.status} → ${freshStatus})`);
+          } catch {
+            skippedEnded++;
+            return;
+          }
+        }
 
         try {
           const freshData = await fetchShowFromTMDB(
@@ -93,9 +112,24 @@ export const syncCatalog = onSchedule(
       }
     }
 
+    console.log(`Skipped ${skippedEnded} ended/canceled shows`);
+
+    // Build active shows index (non-ended TV shows)
+    const activeShowIds = showsSnap.docs
+      .filter((d) => !ENDED_STATUSES.includes((d.data() as CatalogShow).status))
+      .map((d) => d.id);
+    await db.doc("config/activeShows").set({ ids: activeShowIds });
+    console.log(`Active shows index: ${activeShowIds.length} shows`);
+
+    // Build catalog map from already-fetched data (zero extra reads)
+    const catalogMap = new Map<string, CatalogShow>();
+    for (const d of showsSnap.docs) {
+      catalogMap.set(d.id, d.data() as CatalogShow);
+    }
+
     // Rebuild upcoming subcollections for all users
     console.log("Rebuilding upcoming episodes...");
-    await rebuildAllUsersUpcoming(db);
+    await rebuildAllUsersUpcoming(db, catalogMap);
 
     console.log("Catalog sync complete");
   }
@@ -119,18 +153,26 @@ async function reactivateCompletedUsers(
     ? Timestamp.fromDate(new Date(newAirDate))
     : Timestamp.now();
 
-  for (const uid of allUids) {
-    try {
-      const trackingRef = db.doc(`users/${uid}/tracking/${showId}`);
-      const trackingDoc = await trackingRef.get();
+  if (allUids.length === 0) return;
 
-      if (!trackingDoc.exists) continue;
+  // Batch read tracking docs in chunks of 100
+  const trackingRefs = allUids.map((uid) => db.doc(`users/${uid}/tracking/${showId}`));
+  const trackingDocs: FirebaseFirestore.DocumentSnapshot[] = [];
+  for (let i = 0; i < trackingRefs.length; i += 500) {
+    const chunk = await db.getAll(...trackingRefs.slice(i, i + 500));
+    trackingDocs.push(...chunk);
+  }
 
-      const status = trackingDoc.data()?.status;
-      if (status !== "completed") continue;
+  // Batch write reactivations in chunks of 400
+  const toReactivate = trackingDocs.filter(
+    (d) => d.exists && d.data()?.status === "completed"
+  );
 
-      // Reactivate: set to watching with next episode pointing to new content
-      await trackingRef.update({
+  for (let i = 0; i < toReactivate.length; i += 400) {
+    const batch = db.batch();
+    const chunk = toReactivate.slice(i, i + 400);
+    for (const td of chunk) {
+      batch.update(td.ref, {
         status: "watching",
         nextEpisode: {
           season: lastSeason.seasonNumber,
@@ -138,25 +180,26 @@ async function reactivateCompletedUsers(
         },
         priorityDate: airDateTs,
       });
-
-      console.log(
-        `Reactivated user ${uid} for show ${freshData.title} S${lastSeason.seasonNumber}E${firstNewEp.episodeNumber}`
-      );
-    } catch (err) {
-      console.error(`Failed to reactivate user ${uid}:`, err);
     }
+    await batch.commit();
+  }
+
+  if (toReactivate.length > 0) {
+    console.log(
+      `Reactivated ${toReactivate.length} users for ${freshData.title} S${lastSeason.seasonNumber}E${firstNewEp.episodeNumber}`
+    );
   }
 }
 
 async function rebuildAllUsersUpcoming(
-  db: FirebaseFirestore.Firestore
+  db: FirebaseFirestore.Firestore,
+  catalogMap: Map<string, CatalogShow>
 ): Promise<void> {
-  // Get all users who have tracking data
   const usersSnap = await db.collection("users").get();
 
   for (const userDoc of usersSnap.docs) {
     try {
-      await rebuildUserUpcoming(db, userDoc.id);
+      await rebuildUserUpcoming(db, userDoc.id, catalogMap);
     } catch (err) {
       console.error(`Failed to rebuild upcoming for user ${userDoc.id}:`, err);
     }
@@ -165,10 +208,12 @@ async function rebuildAllUsersUpcoming(
 
 export async function rebuildUserUpcoming(
   db: FirebaseFirestore.Firestore,
-  uid: string
+  uid: string,
+  catalogMap?: Map<string, CatalogShow>
 ): Promise<void> {
   const today = new Date().toISOString().slice(0, 10);
   const upcomingCol = db.collection(`users/${uid}/upcoming`);
+  const ENDED_STATUSES = ["Ended", "Canceled"];
 
   // Delete old upcoming docs
   const oldDocs = await upcomingCol.get();
@@ -188,19 +233,51 @@ export async function rebuildUserUpcoming(
     .get();
 
   const activeStatuses = ["watching", "rewatching"];
-  const activeShows = trackingSnap.docs.filter((d) =>
+  let activeShows = trackingSnap.docs.filter((d) =>
     activeStatuses.includes(d.data().status)
   );
 
   if (activeShows.length === 0) return;
 
-  // Fetch catalog + build upcoming docs
+  // If no catalog map provided (standalone call), use index + getAll()
+  if (!catalogMap) {
+    let activeIndexDoc = await db.doc("config/activeShows").get();
+
+    // Build index if it doesn't exist yet
+    if (!activeIndexDoc.exists) {
+      const allShows = await db.collection("shows").where("mediaType", "==", "tv").get();
+      const ids = allShows.docs
+        .filter((d) => !ENDED_STATUSES.includes((d.data() as CatalogShow).status))
+        .map((d) => d.id);
+      await db.doc("config/activeShows").set({ ids });
+      activeIndexDoc = await db.doc("config/activeShows").get();
+    }
+
+    const activeIndex = new Set<string>(activeIndexDoc.data()?.ids ?? []);
+    activeShows = activeShows.filter((d) => activeIndex.has(d.id));
+
+    if (activeShows.length === 0) return;
+
+    // Batch read catalog docs in chunks of 100
+    const refs = activeShows.map((d) => db.doc(`shows/${d.id}`));
+    catalogMap = new Map<string, CatalogShow>();
+    for (let i = 0; i < refs.length; i += 500) {
+      const chunk = refs.slice(i, i + 500);
+      const catalogDocs = await db.getAll(...chunk);
+      for (const cd of catalogDocs) {
+        if (cd.exists) {
+          catalogMap.set(cd.id, cd.data() as CatalogShow);
+        }
+      }
+    }
+  }
+
+  // Build upcoming docs
   const upcomingDocs: Array<{ id: string; data: Record<string, unknown> }> = [];
 
   for (const trackDoc of activeShows) {
-    const showDoc = await db.doc(`shows/${trackDoc.id}`).get();
-    if (!showDoc.exists) continue;
-    const catalog = showDoc.data() as CatalogShow;
+    const catalog = catalogMap.get(trackDoc.id);
+    if (!catalog || ENDED_STATUSES.includes(catalog.status)) continue;
 
     for (const season of catalog.seasons || []) {
       if (season.seasonNumber === 0) continue;

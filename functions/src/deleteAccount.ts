@@ -30,21 +30,26 @@ export const deleteAccount = onCall(
 
     // Remove user from trackedBy on all shows they track
     const trackingSnap = await db.collection(`users/${uid}/tracking`).get();
-    for (const trackDoc of trackingSnap.docs) {
-      const showRef = db.doc(`shows/${trackDoc.id}`);
-      const showDoc = await showRef.get();
-      if (showDoc.exists) {
+    if (trackingSnap.size > 0) {
+      const showRefs = trackingSnap.docs.map((d) => db.doc(`shows/${d.id}`));
+      const showDocs: FirebaseFirestore.DocumentSnapshot[] = [];
+      for (let i = 0; i < showRefs.length; i += 500) {
+        const chunk = await db.getAll(...showRefs.slice(i, i + 500));
+        showDocs.push(...chunk);
+      }
+
+      for (const showDoc of showDocs) {
+        if (!showDoc.exists) continue;
         const trackedBy: string[] = showDoc.data()?.trackedBy || [];
-        const updated = trackedBy.filter((id) => id !== uid);
+        const updated = trackedBy.filter((id: string) => id !== uid);
         if (updated.length === 0) {
-          // No one tracks this show anymore — clean up
-          const overflowSnap = await showRef.collection("trackedByOverflow").get();
+          const overflowSnap = await showDoc.ref.collection("trackedByOverflow").get();
           const batch = db.batch();
           for (const d of overflowSnap.docs) batch.delete(d.ref);
-          batch.delete(showRef);
+          batch.delete(showDoc.ref);
           await batch.commit();
         } else {
-          await showRef.update({
+          await showDoc.ref.update({
             trackedBy: updated,
             trackedByCount: updated.length,
           });

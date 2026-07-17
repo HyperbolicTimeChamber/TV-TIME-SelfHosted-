@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
-import { View, Text, FlatList, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LoadingSpinner } from "../../../components";
@@ -24,7 +25,7 @@ type ListItem =
 export default function UpcomingTab() {
 	const user = useAuthStore((s) => s.user);
 	const navigation = useNavigation<NavProp>();
-	const { data: episodes, isLoading } = useUpcomingEpisodes(user?.uid);
+	const { data: episodes, isLoading, error, retry } = useUpcomingEpisodes(user?.uid);
 
 	const listData = useMemo(() => {
 		if (!episodes || episodes.length === 0) return [] as ListItem[];
@@ -78,6 +79,17 @@ export default function UpcomingTab() {
 		);
 	}
 
+	if (error) {
+		return (
+			<View style={styles.center}>
+				<Text style={styles.errorText}>{error}</Text>
+				<TouchableOpacity style={styles.retryButton} onPress={retry}>
+					<Text style={styles.retryText}>Retry</Text>
+				</TouchableOpacity>
+			</View>
+		);
+	}
+
 	if (listData.length === 0) {
 		return (
 			<View style={styles.center}>
@@ -87,7 +99,7 @@ export default function UpcomingTab() {
 	}
 
 	return (
-		<FlatList
+		<LegendList
 			data={listData}
 			keyExtractor={(item) =>
 				item.type === "header"
@@ -95,9 +107,7 @@ export default function UpcomingTab() {
 					: `ep_${item.episode.tmdbShowId}_S${item.episode.season}E${item.episode.episode}`
 			}
 			renderItem={renderItem}
-			removeClippedSubviews
-			maxToRenderPerBatch={20}
-			windowSize={5}
+			recycleItems
 			style={styles.list}
 			contentContainerStyle={styles.listContent}
 		/>
@@ -131,5 +141,21 @@ const styles = StyleSheet.create({
 	empty: {
 		...typography.subtitle,
 		color: colors.textSecondary,
+	},
+	errorText: {
+		...typography.subtitle,
+		color: colors.destructiveRed,
+	},
+	retryButton: {
+		marginTop: spacing.lg,
+		backgroundColor: colors.primary,
+		paddingHorizontal: spacing.xl,
+		paddingVertical: spacing.md,
+		borderRadius: 8,
+	},
+	retryText: {
+		...typography.subtitle,
+		fontSize: 14,
+		color: colors.text,
 	},
 });

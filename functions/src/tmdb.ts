@@ -112,6 +112,17 @@ async function fetchSeasonEpisodes(
   };
 }
 
+export async function fetchShowStatus(
+  apiKey: string,
+  tmdbId: number
+): Promise<string> {
+  const { data } = await axios.get<{ status: string }>(
+    `${TMDB_BASE}/tv/${tmdbId}`,
+    { params: { api_key: apiKey } }
+  );
+  return data.status ?? "Unknown";
+}
+
 export async function fetchShowFromTMDB(
   apiKey: string,
   tmdbId: number,

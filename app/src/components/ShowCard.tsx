@@ -1,4 +1,4 @@
-import React, { memo, useRef } from "react";
+import React, { memo, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -27,10 +27,10 @@ interface Props {
   isWatched?: boolean;
   isUpdating?: boolean;
   remainingEpisodes?: number | null;
-  onSwipeLeft: () => Promise<void>;
-  onSwipeRight: () => Promise<void>;
-  onPress: () => void;
-  onCheckmark: () => Promise<void>;
+  onSwipeLeft: (item: any) => Promise<void>;
+  onSwipeRight: (item: any) => Promise<void>;
+  onPress: (tmdbId: number, mediaType: MediaType) => void;
+  onCheckmark: (item: any) => Promise<void>;
   onCheckmarkLongPress?: () => void;
 }
 
@@ -56,11 +56,16 @@ export default memo(function ShowCard({
 
   const swipeRef = useRef<SwipeableCardRef>(null);
 
+  const handlePress = useCallback(() => onPress(item.tmdbId, item.mediaType), [onPress, item.tmdbId, item.mediaType]);
+  const handleSwipeLeft = useCallback(() => onSwipeLeft(item), [onSwipeLeft, item]);
+  const handleSwipeRight = useCallback(() => onSwipeRight(item), [onSwipeRight, item]);
+  const handleCheckmark = useCallback(() => onCheckmark(item), [onCheckmark, item]);
+
   if (isWatched) {
     return (
       <TouchableOpacity
         style={[styles.container, styles.watchedContainer]}
-        onPress={onPress}
+        onPress={handlePress}
         activeOpacity={0.8}
       >
         <Image
@@ -96,8 +101,8 @@ export default memo(function ShowCard({
   }
 
   return (
-    <SwipeableCard ref={swipeRef} onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} persistAfterSwipe>
-      <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.8}>
+    <SwipeableCard ref={swipeRef} onSwipeLeft={handleSwipeLeft} onSwipeRight={handleSwipeRight} persistAfterSwipe>
+      <TouchableOpacity style={styles.container} onPress={handlePress} activeOpacity={0.8}>
         <Image
           source={{ uri: `${posterSize.small}${item.posterPath}` }}
           style={styles.poster}

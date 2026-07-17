@@ -1,15 +1,15 @@
-import { useCallback, useRef, useEffect, useState } from "react";
+import { useCallback, useRef, useEffect, useState, useMemo } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  FlatList,
   ActivityIndicator,
   RefreshControl,
   Dimensions,
   Alert,
 } from "react-native";
+import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation, CompositeNavigationProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
@@ -29,14 +29,14 @@ import { useWatchlistData } from "./useWatchlistData";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
 import SectionHeader from "./SectionHeader";
 
+const SCREEN_HEIGHT = Dimensions.get("window").height;
+
 type NavProp = CompositeNavigationProp<
   NativeStackNavigationProp<HomeStackParamList, Route.HOME_TABS>,
   BottomTabNavigationProp<MainTabParamList>
 >;
 
-const SeparatorComponent = () => (
-  <View style={{ height: 1, backgroundColor: colors.border }} />
-);
+const SeparatorComponent = () => <View style={styles.separator} />;
 
 export default function WatchlistTab() {
   const user = useAuthStore((s) => s.user);
@@ -57,10 +57,9 @@ export default function WatchlistTab() {
     handleStopWatching,
   } = useWatchlistData(user?.uid);
 
-  const listRef = useRef<FlatList<ListItem>>(null);
+  const listRef = useRef<any>(null);
   const hasScrolledRef = useRef(false);
 
-  const screenHeight = Dimensions.get("window").height;
   const isLoading = loading;
   const setWatchlistLoading = useUiStore((s) => s.setWatchlistLoading);
 
@@ -170,6 +169,11 @@ export default function WatchlistTab() {
     [user?.uid, sheetEpisode],
   );
 
+  const handleTvPress = useCallback(
+    (id: number) => handlePress(id, MediaType.TV),
+    [handlePress],
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: ListItem }) => {
       if (item.type === "sectionHeader") {
@@ -181,7 +185,7 @@ export default function WatchlistTab() {
           <WatchedEpisodeRow
             episode={item.episode}
             show={item.show}
-            onPress={(id) => handlePress(id, MediaType.TV)}
+            onPress={handleTvPress}
             onCheckmarkPress={handleWatchedCheckmark}
           />
         );
@@ -196,14 +200,19 @@ export default function WatchlistTab() {
           item={item.item}
           isUpdating={updatingShows.has(item.item.tmdbId)}
           remainingEpisodes={remaining}
-          onSwipeLeft={() => handleMarkWatched(item.item)}
-          onSwipeRight={() => handleStopWatching(item.item)}
-          onPress={() => handlePress(item.item.tmdbId, item.item.mediaType)}
-          onCheckmark={() => handleMarkWatched(item.item)}
+          onSwipeLeft={handleMarkWatched}
+          onSwipeRight={handleStopWatching}
+          onPress={handlePress}
+          onCheckmark={handleMarkWatched}
         />
       );
     },
-    [handleMarkWatched, handleStopWatching, handlePress, watchedCountByShow, updatingShows, handleWatchedCheckmark],
+    [handleMarkWatched, handleStopWatching, handlePress, handleTvPress, watchedCountByShow, updatingShows, handleWatchedCheckmark],
+  );
+
+  const contentStyle = useMemo(
+    () => [styles.listContent, { minHeight: SCREEN_HEIGHT + prevWatchedOffset }],
+    [prevWatchedOffset],
   );
 
   if (isLoading) {
@@ -234,7 +243,7 @@ export default function WatchlistTab() {
 
   return (
     <>
-      <FlatList
+      <LegendList
         ref={listRef}
         data={listData}
         keyExtractor={(item) => {
@@ -243,7 +252,8 @@ export default function WatchlistTab() {
           return `show_${item.item.id}`;
         }}
         renderItem={renderItem}
-        maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
+        recycleItems
+        maintainVisibleContentPosition
         refreshControl={
           hasMoreEps ? (
             <RefreshControl
@@ -265,14 +275,8 @@ export default function WatchlistTab() {
           ) : null
         }
         ItemSeparatorComponent={SeparatorComponent}
-        removeClippedSubviews
-        maxToRenderPerBatch={15}
-        windowSize={7}
         style={styles.list}
-        contentContainerStyle={[
-          styles.listContent,
-          { minHeight: screenHeight + prevWatchedOffset },
-        ]}
+        contentContainerStyle={contentStyle}
       />
       <WatchActionSheet
         visible={sheetVisible}
@@ -321,5 +325,9 @@ const styles = StyleSheet.create({
   loaderRow: {
     paddingVertical: spacing.lg,
     alignItems: "center",
+  },
+  separator: {
+    height: 1,
+    backgroundColor: colors.border,
   },
 });

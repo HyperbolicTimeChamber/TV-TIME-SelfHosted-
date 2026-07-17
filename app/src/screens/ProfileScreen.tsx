@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
@@ -13,7 +14,6 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../stores";
 import { useUserStats, useWatchlist } from "../hooks";
-import { LoadingSpinner } from "../components";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { ProfileStackParamList, WatchStatus, Route } from "../types";
 
@@ -50,13 +50,16 @@ export default function ProfileScreen() {
     return `${minutes}m`;
   };
 
-  if (statsLoading || watchlistLoading) {
-    return (
-      <View style={styles.center}>
-        <LoadingSpinner />
-      </View>
-    );
-  }
+  const StatValue = ({ value, label }: { value: string | number; label: string }) => (
+    <View style={styles.statBox}>
+      {statsLoading ? (
+        <ActivityIndicator size="small" color={colors.primary} style={styles.statLoader} />
+      ) : (
+        <Text style={styles.statNumber}>{value}</Text>
+      )}
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
 
   return (
     <ScrollView style={styles.container}>
@@ -79,27 +82,17 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.statsRow}>
-        <View style={styles.statBox}>
-          <Text style={styles.statNumber}>{stats.episodesWatched}</Text>
-          <Text style={styles.statLabel}>Episodes</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statNumber}>{stats.showsTracking}</Text>
-          <Text style={styles.statLabel}>Tracking</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statNumber}>{stats.moviesWatched}</Text>
-          <Text style={styles.statLabel}>Movies</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statNumber}>
-            {formatTime(stats.totalMinutes)}
-          </Text>
-          <Text style={styles.statLabel}>Watch Time</Text>
-        </View>
+        <StatValue value={stats.episodesWatched} label="Episodes" />
+        <StatValue value={stats.showsTracking} label="Tracking" />
+        <StatValue value={stats.moviesWatched} label="Movies" />
+        <StatValue value={formatTime(stats.totalMinutes)} label="Watch Time" />
       </View>
 
-      {completedShows.length > 0 && (
+      {watchlistLoading ? (
+        <View style={styles.completedLoader}>
+          <ActivityIndicator size="small" color={colors.primary} />
+        </View>
+      ) : completedShows.length > 0 ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
             Completed ({completedShows.length})
@@ -115,7 +108,7 @@ export default function ProfileScreen() {
             ))}
           </View>
         </View>
-      )}
+      ) : null}
 
       <TouchableOpacity style={styles.signOutButton} onPress={() => {
         Alert.alert("Log Out", "Are you sure?", [
@@ -133,12 +126,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  center: {
-    flex: 1,
-    backgroundColor: colors.background,
-    justifyContent: "center",
-    alignItems: "center",
   },
   header: {
     alignItems: "center",
@@ -181,6 +168,9 @@ const styles = StyleSheet.create({
     ...typography.title,
     fontSize: 20,
   },
+  statLoader: {
+    height: 24,
+  },
   statLabel: {
     ...typography.caption,
     marginTop: spacing.xs,
@@ -202,6 +192,10 @@ const styles = StyleSheet.create({
     width: 70,
     height: 105,
     borderRadius: 4,
+  },
+  completedLoader: {
+    marginTop: spacing.xl,
+    alignItems: "center",
   },
   signOutButton: {
     marginTop: spacing.xxl,
