@@ -1,18 +1,18 @@
-import React, { useMemo, useCallback } from "react";
+import React, { useMemo, useCallback, useState, useRef } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
-import { LoadingSpinner } from "../components";
+import { LoadingSpinner, ConfirmModal } from "../components";
 import { LegendList } from "@legendapp/list/react-native";
 import { useRoute, RouteProp } from "@react-navigation/native";
 import { useSeasonDetails, useWatchedEpisodes, useWatchlist } from "../hooks";
 import { useAuthStore } from "../stores";
-import { markEpisodeWatched, getSeasonDetails as fetchSeason } from "../services";
+import { markEpisodeWatched, addToTracking, getSeasonDetails as fetchSeason } from "../services";
 import { colors, spacing, typography } from "../theme";
-import { HomeStackParamList, TMDBEpisode } from "../types";
+import { HomeStackParamList, TMDBEpisode, MediaType } from "../types";
 
 type RouteParams = RouteProp<HomeStackParamList, "SeasonDetail">;
 
@@ -30,6 +30,32 @@ export default function SeasonDetailScreen() {
     [watchlist, tmdbId]
   );
 
+  // Add-to-watchlist modal state
+  const [addModalVisible, setAddModalVisible] = useState(false);
+  const [addModalLoading, setAddModalLoading] = useState(false);
+  const [addModalError, setAddModalError] = useState<string | null>(null);
+  const pendingAction = useRef<(() => Promise<void>) | null>(null);
+
+  const handleAddAndMark = useCallback(
+    async () => {
+      if (!user?.uid) return;
+      setAddModalLoading(true);
+      setAddModalError(null);
+      try {
+        await addToTracking(user.uid, tmdbId, MediaType.TV);
+        setAddModalVisible(false);
+        const action = pendingAction.current;
+        pendingAction.current = null;
+        if (action) await action();
+      } catch (err: any) {
+        setAddModalError(err.message || "Failed to add to watchlist.");
+      } finally {
+        setAddModalLoading(false);
+      }
+    },
+    [user?.uid, tmdbId]
+  );
+
   const watchedSet = useMemo(() => {
     const set = new Set<string>();
     for (const ep of watchedEps) {
@@ -40,9 +66,9 @@ export default function SeasonDetailScreen() {
     return set;
   }, [watchedEps, seasonNumber]);
 
-  const handleMarkWatched = useCallback(
+  const doMarkWatched = useCallback(
     async (ep: TMDBEpisode) => {
-      if (!user?.uid || !watchlistItem) return;
+      if (!user?.uid) return;
 
       const episodes = seasonData?.episodes || [];
       const nextEpInSeason = episodes.find(
@@ -82,7 +108,20 @@ export default function SeasonDetailScreen() {
         isComplete
       );
     },
-    [user?.uid, watchlistItem, seasonData, tmdbId, seasonNumber]
+    [user?.uid, seasonData, tmdbId, seasonNumber, apiKey]
+  );
+
+  const handleMarkWatched = useCallback(
+    (ep: TMDBEpisode) => {
+      if (!watchlistItem) {
+        pendingAction.current = () => doMarkWatched(ep);
+        setAddModalError(null);
+        setAddModalVisible(true);
+        return;
+      }
+      doMarkWatched(ep);
+    },
+    [watchlistItem, doMarkWatched]
   );
 
   const renderEpisode = useCallback(
@@ -143,15 +182,32 @@ export default function SeasonDetailScreen() {
   }
 
   return (
-    <LegendList
-      data={seasonData?.episodes || []}
-      keyExtractor={(item) => String(item.episode_number)}
-      renderItem={renderEpisode}
-      estimatedItemSize={60}
-      style={styles.list}
-      contentContainerStyle={styles.listContent}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
-    />
+    <View style={styles.list}>
+      <LegendList
+        data={seasonData?.episodes || []}
+        keyExtractor={(item) => String(item.episode_number)}
+        renderItem={renderEpisode}
+        estimatedItemSize={60}
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+      />
+
+      <ConfirmModal
+        visible={addModalVisible}
+        title="Add to Watchlist?"
+        hint="This show isn't in your watchlist yet. Add it to mark episodes as watched."
+        error={addModalError}
+        confirmLabel="Add & Mark"
+        confirmColor={colors.primary}
+        loading={addModalLoading}
+        onConfirm={handleAddAndMark}
+        onClose={() => {
+          setAddModalVisible(false);
+          pendingAction.current = null;
+        }}
+      />
+    </View>
   );
 }
 

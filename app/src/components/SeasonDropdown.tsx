@@ -1,4 +1,4 @@
-import React, { memo, useState, useCallback } from "react";
+import React, { memo, useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import {
   getSeasonDetails as fetchSeason,
 } from "../services";
 import WatchActionSheet, { WatchAction } from "./WatchActionSheet";
+import ConfirmModal from "./ConfirmModal";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { TMDBSeason, TMDBEpisode, MediaType } from "../types";
 
@@ -45,6 +46,43 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
   );
 
   const { episodes: watchedEps, loading: watchedLoading } = useShowWatchedEpisodes(user?.uid, tmdbId);
+
+  // Add-to-watchlist modal state
+  const [addModalVisible, setAddModalVisible] = useState(false);
+  const [addModalLoading, setAddModalLoading] = useState(false);
+  const [addModalError, setAddModalError] = useState<string | null>(null);
+  const pendingAction = useRef<(() => Promise<void>) | null>(null);
+
+  const guardTracking = useCallback(
+    (action: () => Promise<void>): boolean => {
+      if (isTracked) return true;
+      pendingAction.current = action;
+      setAddModalError(null);
+      setAddModalVisible(true);
+      return false;
+    },
+    [isTracked]
+  );
+
+  const handleAddAndMark = useCallback(
+    async () => {
+      if (!user?.uid) return;
+      setAddModalLoading(true);
+      setAddModalError(null);
+      try {
+        await addToTracking(user.uid, tmdbId, MediaType.TV);
+        setAddModalVisible(false);
+        const action = pendingAction.current;
+        pendingAction.current = null;
+        if (action) await action();
+      } catch (err: any) {
+        setAddModalError(err.message || "Failed to add to watchlist.");
+      } finally {
+        setAddModalLoading(false);
+      }
+    },
+    [user?.uid, tmdbId]
+  );
 
   // Action sheet state
   const [sheetVisible, setSheetVisible] = useState(false);
@@ -100,7 +138,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
     [seasonData, apiKey, tmdbId]
   );
 
-  const handleMarkSeasonWatched = useCallback(
+  const doMarkSeasonWatched = useCallback(
     async () => {
       if (!user?.uid || markingSeason) return;
       const eps = episodes;
@@ -108,10 +146,6 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
 
       setMarkingSeason(true);
       try {
-        if (!isTracked) {
-          await addToTracking(user.uid, tmdbId, MediaType.TV);
-        }
-
         const { nextEpisode, isComplete } = await getNextEpisodeInfo(season.season_number);
 
         await markSeasonWatchedCF(
@@ -132,19 +166,24 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
         setMarkingSeason(false);
       }
     },
-    [user?.uid, markingSeason, seasonData, tmdbId, season.season_number, getNextEpisodeInfo, isTracked]
+    [user?.uid, markingSeason, seasonData, tmdbId, season.season_number, getNextEpisodeInfo]
   );
 
-  const handleMarkWatched = useCallback(
+  const handleMarkSeasonWatched = useCallback(
+    async () => {
+      if (guardTracking(doMarkSeasonWatched)) {
+        await doMarkSeasonWatched();
+      }
+    },
+    [guardTracking, doMarkSeasonWatched]
+  );
+
+  const doMarkEpisodeWatched = useCallback(
     async (ep: TMDBEpisode) => {
       if (!user?.uid || marking !== null) return;
       setMarking(ep.episode_number);
 
       try {
-        if (!isTracked) {
-          await addToTracking(user.uid, tmdbId, MediaType.TV);
-        }
-
         const { nextEpisode, isComplete } = await getNextEpisodeInfo(
           season.season_number,
           ep.episode_number
@@ -167,7 +206,16 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
         setMarking(null);
       }
     },
-    [user?.uid, marking, tmdbId, season.season_number, getNextEpisodeInfo, isTracked]
+    [user?.uid, marking, tmdbId, season.season_number, getNextEpisodeInfo]
+  );
+
+  const handleMarkWatched = useCallback(
+    async (ep: TMDBEpisode) => {
+      if (guardTracking(() => doMarkEpisodeWatched(ep))) {
+        await doMarkEpisodeWatched(ep);
+      }
+    },
+    [guardTracking, doMarkEpisodeWatched]
   );
 
   const handleSheetAction = useCallback(
@@ -235,7 +283,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
     [user?.uid, sheetTarget, tmdbId, season.season_number, seasonData, watchedMap, handleMarkWatched, handleMarkSeasonWatched]
   );
 
-  const markEpisodeRange = useCallback(
+  const doMarkEpisodeRange = useCallback(
     async (fromEp: number, toEp: number) => {
       if (!user?.uid) return;
       const eps = episodes;
@@ -249,9 +297,6 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
 
       setMarking(toEp);
       try {
-        if (!isTracked) {
-          await addToTracking(user.uid, tmdbId, MediaType.TV);
-        }
         for (const ep of epsToMark) {
           const isLast = ep.episode_number === toEp;
           const { nextEpisode, isComplete } = isLast
@@ -277,7 +322,16 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
         setMarking(null);
       }
     },
-    [user?.uid, seasonData, watchedMap, isTracked, tmdbId, season.season_number, getNextEpisodeInfo]
+    [user?.uid, seasonData, watchedMap, tmdbId, season.season_number, getNextEpisodeInfo]
+  );
+
+  const markEpisodeRange = useCallback(
+    async (fromEp: number, toEp: number) => {
+      if (guardTracking(() => doMarkEpisodeRange(fromEp, toEp))) {
+        await doMarkEpisodeRange(fromEp, toEp);
+      }
+    },
+    [guardTracking, doMarkEpisodeRange]
   );
 
   const handleEpisodePress = useCallback(
@@ -487,6 +541,21 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
         onClose={() => {
           setSheetVisible(false);
           setSheetTarget(null);
+        }}
+      />
+
+      <ConfirmModal
+        visible={addModalVisible}
+        title="Add to Watchlist?"
+        hint="This show isn't in your watchlist yet. Add it to mark episodes as watched."
+        error={addModalError}
+        confirmLabel="Add & Mark"
+        confirmColor={colors.primary}
+        loading={addModalLoading}
+        onConfirm={handleAddAndMark}
+        onClose={() => {
+          setAddModalVisible(false);
+          pendingAction.current = null;
         }}
       />
     </View>

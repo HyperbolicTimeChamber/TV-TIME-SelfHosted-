@@ -15,6 +15,7 @@ interface Props {
   hint?: string;
   error?: string | null;
   confirmLabel?: string;
+  confirmColor?: string;
   loading?: boolean;
   onConfirm: () => void;
   onClose: () => void;
@@ -26,6 +27,7 @@ export default function ConfirmModal({
   hint,
   error,
   confirmLabel = "Confirm",
+  confirmColor,
   loading = false,
   onConfirm,
   onClose,
@@ -42,7 +44,7 @@ export default function ConfirmModal({
         {hint ? <Text style={styles.hint}>{hint}</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <TouchableOpacity
-          style={[styles.confirmButton, loading && { opacity: 0.6 }]}
+          style={[styles.confirmButton, confirmColor && { backgroundColor: confirmColor }, loading && { opacity: 0.6 }]}
           onPress={onConfirm}
           disabled={loading}
         >
