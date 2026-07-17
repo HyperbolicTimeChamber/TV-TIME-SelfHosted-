@@ -3,9 +3,10 @@ import { getSeasonDetails, getCatalogShow } from "../services";
 import { useAuthStore } from "../stores";
 import { TMDBEpisode } from "../types";
 
-export function useSeasonDetails(tmdbId: number, seasonNumber: number) {
+export function useSeasonDetails(tmdbId: number, seasonNumber: number, enabled: boolean = true) {
   return useQuery({
     queryKey: ["season", tmdbId, seasonNumber],
+    enabled,
     queryFn: async () => {
       // Try catalog first
       const catalogShow = await getCatalogShow(tmdbId);

@@ -84,8 +84,8 @@ export async function addToTracking(
   await setDoc(tRef, {
     tmdbId,
     mediaType,
-    status: "watching" as WatchStatus,
-    nextEpisode: mediaType === "tv" ? { season: 1, episode: 1 } : null,
+    status: WatchStatus.WATCHING,
+    nextEpisode: mediaType === MediaType.TV ? { season: 1, episode: 1 } : null,
     rewatchCount: 0,
     addedAt: now,
     lastWatchedAt: now,
@@ -96,6 +96,7 @@ export async function addToTracking(
   await setDoc(userRef(userId), {
     stats: { showsTracking: increment(1) },
   }, { merge: true });
+
 }
 
 export async function removeFromTracking(
@@ -107,15 +108,17 @@ export async function removeFromTracking(
 }
 
 export async function stopWatching(userId: string, tmdbId: number, currentStatus: WatchStatus) {
-  if (currentStatus === "rewatching") {
-    await updateDoc(doc(trackingRef(userId), String(tmdbId)), {
-      status: "paused_rewatch" as WatchStatus,
-    });
+  let newStatus: WatchStatus;
+  if (currentStatus === WatchStatus.REWATCHING) {
+    newStatus = WatchStatus.PAUSED_REWATCH;
+  } else if (currentStatus === WatchStatus.WATCHING) {
+    newStatus = WatchStatus.PAUSED;
   } else {
-    await updateDoc(doc(trackingRef(userId), String(tmdbId)), {
-      status: "completed" as WatchStatus,
-    });
+    newStatus = WatchStatus.COMPLETED;
   }
+  await updateDoc(doc(trackingRef(userId), String(tmdbId)), {
+    status: newStatus,
+  });
 }
 
 export async function markEpisodeWatched(
@@ -126,7 +129,8 @@ export async function markEpisodeWatched(
   episodeTitle: string,
   runtime: number,
   nextEpisode: { season: number; episode: number } | null,
-  isShowComplete: boolean
+  isShowComplete: boolean,
+  skipTrackingUpdate: boolean = false
 ) {
   const docId = episodeDocId(tmdbShowId, season, episode);
   const epRef = doc(watchedEpisodesRef(userId), docId);
@@ -159,16 +163,18 @@ export async function markEpisodeWatched(
     },
   }, { merge: true });
 
-  const now = Timestamp.now();
-  const trackingUpdate: Record<string, unknown> = {
-    lastWatchedAt: now,
-    priorityDate: now,
-    nextEpisode,
-  };
-  if (isShowComplete) {
-    trackingUpdate.status = "completed";
+  if (!skipTrackingUpdate) {
+    const now = Timestamp.now();
+    const trackingUpdate: Record<string, unknown> = {
+      lastWatchedAt: now,
+      priorityDate: now,
+      nextEpisode,
+    };
+    if (isShowComplete) {
+      trackingUpdate.status = WatchStatus.COMPLETED;
+    }
+    batch.update(doc(trackingRef(userId), String(tmdbShowId)), trackingUpdate);
   }
-  batch.update(doc(trackingRef(userId), String(tmdbShowId)), trackingUpdate);
 
   await batch.commit();
 }
@@ -194,9 +200,97 @@ export async function unmarkEpisodeWatched(
   await batch.commit();
 }
 
+export async function decrementEpisodeWatchCount(
+  userId: string,
+  tmdbShowId: number,
+  season: number,
+  episode: number,
+  runtime: number,
+  currentWatchCount: number
+) {
+  const docId = episodeDocId(tmdbShowId, season, episode);
+  const epRef = doc(watchedEpisodesRef(userId), docId);
+  const batch = writeBatch(db);
+
+  if (currentWatchCount <= 1) {
+    batch.delete(epRef);
+  } else {
+    batch.update(epRef, {
+      watchCount: increment(-1),
+    });
+  }
+
+  batch.set(userRef(userId), {
+    stats: {
+      episodesWatched: increment(-1),
+      totalMinutes: increment(-runtime),
+    },
+  }, { merge: true });
+  await batch.commit();
+}
+
+export async function unmarkSeasonWatched(
+  userId: string,
+  tmdbShowId: number,
+  episodes: Array<{ season: number; episode: number; runtime: number }>
+) {
+  const batch = writeBatch(db);
+  let totalRuntime = 0;
+
+  for (const ep of episodes) {
+    const docId = episodeDocId(tmdbShowId, ep.season, ep.episode);
+    batch.delete(doc(watchedEpisodesRef(userId), docId));
+    totalRuntime += ep.runtime;
+  }
+
+  batch.set(userRef(userId), {
+    stats: {
+      episodesWatched: increment(-episodes.length),
+      totalMinutes: increment(-totalRuntime),
+    },
+  }, { merge: true });
+
+  await batch.commit();
+}
+
+export async function decrementSeasonWatchCount(
+  userId: string,
+  tmdbShowId: number,
+  episodes: Array<{ season: number; episode: number; runtime: number; watchCount: number }>
+) {
+  const batch = writeBatch(db);
+  let totalRuntime = 0;
+  let count = 0;
+
+  for (const ep of episodes) {
+    if (ep.watchCount <= 0) continue;
+    const docId = episodeDocId(tmdbShowId, ep.season, ep.episode);
+    const epRef = doc(watchedEpisodesRef(userId), docId);
+
+    if (ep.watchCount <= 1) {
+      batch.delete(epRef);
+    } else {
+      batch.update(epRef, { watchCount: increment(-1) });
+    }
+    totalRuntime += ep.runtime;
+    count++;
+  }
+
+  if (count > 0) {
+    batch.set(userRef(userId), {
+      stats: {
+        episodesWatched: increment(-count),
+        totalMinutes: increment(-totalRuntime),
+      },
+    }, { merge: true });
+  }
+
+  await batch.commit();
+}
+
 export async function startRewatch(userId: string, tmdbId: number) {
   await updateDoc(doc(trackingRef(userId), String(tmdbId)), {
-    status: "rewatching" as WatchStatus,
+    status: WatchStatus.REWATCHING,
     rewatchCount: increment(1),
     nextEpisode: { season: 1, episode: 1 },
     lastWatchedAt: serverTimestamp(),
@@ -204,9 +298,15 @@ export async function startRewatch(userId: string, tmdbId: number) {
   });
 }
 
+export async function resumeWatching(userId: string, tmdbId: number) {
+  await updateDoc(doc(trackingRef(userId), String(tmdbId)), {
+    status: WatchStatus.WATCHING,
+  });
+}
+
 export async function resumeRewatch(userId: string, tmdbId: number) {
   await updateDoc(doc(trackingRef(userId), String(tmdbId)), {
-    status: "rewatching" as WatchStatus,
+    status: WatchStatus.REWATCHING,
   });
 }
 
@@ -238,7 +338,7 @@ export async function markMovieWatched(
   }
 
   batch.update(tRef, {
-    status: "completed",
+    status: WatchStatus.COMPLETED,
     lastWatchedAt: now,
     priorityDate: now,
   });
@@ -251,6 +351,29 @@ export async function markMovieWatched(
   }, { merge: true });
 
   await batch.commit();
+}
+
+// --- Season batch mark (Cloud Function) ---
+
+export async function markSeasonWatchedCF(
+  tmdbId: number,
+  seasonNumber: number,
+  episodes: Array<{ episodeNumber: number; name: string; runtime: number }>,
+  nextEpisode: { season: number; episode: number } | null,
+  isShowComplete: boolean
+): Promise<void> {
+  const functions = getFunctions();
+  try {
+    await httpsCallable(functions, "markSeasonWatched")({
+      tmdbId,
+      seasonNumber,
+      episodes,
+      nextEpisode,
+      isShowComplete,
+    });
+  } catch (err: any) {
+    throw new Error(getCallableErrorMessage(err));
+  }
 }
 
 // Keep backward-compatible aliases during transition

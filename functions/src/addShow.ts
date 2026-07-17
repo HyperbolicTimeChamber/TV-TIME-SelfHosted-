@@ -3,6 +3,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { fetchShowFromTMDB, CatalogShow } from "./tmdb";
 import { addToTrackedBy } from "./utils";
+import { addShowToUpcoming } from "./syncCatalog";
 
 interface AddShowRequest {
   tmdbId: number;
@@ -12,7 +13,7 @@ interface AddShowRequest {
 export const addShow = onCall(
   {
     maxInstances: 5,
-    timeoutSeconds: 60,
+    timeoutSeconds: 120,
     memory: "256MiB",
   },
   async (request): Promise<CatalogShow> => {
@@ -76,6 +77,13 @@ export const addShow = onCall(
 
     if (existedBeforeTransaction) {
       await addToTrackedBy(showId, uid);
+    }
+
+    // Update upcoming subcollection (fire-and-forget, don't block response)
+    if (mediaType === "tv") {
+      addShowToUpcoming(db, uid, tmdbId).catch((err) =>
+        console.error("[addShow] upcoming update failed:", err)
+      );
     }
 
     return showData;

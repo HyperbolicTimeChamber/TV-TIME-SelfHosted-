@@ -111,6 +111,29 @@ export function useCalendarEpisodes(userId: string | undefined) {
           }
         }
 
+        // Also read from upcoming subcollection for this month
+        const upcomingCol = collection(doc(db, "users", userId), "upcoming");
+        const upcomingSnap = await getDocs(
+          query(
+            upcomingCol,
+            where("airDate", ">=", startDate),
+            where("airDate", "<=", endDate)
+          )
+        );
+
+        // Merge: dedup by show+season+episode
+        const seen = new Set(
+          episodes.map((e) => `${e.tmdbShowId}_S${e.season}E${e.episode}`)
+        );
+        for (const d of upcomingSnap.docs) {
+          const ep = d.data() as UpcomingEpisode;
+          const key = `${ep.tmdbShowId}_S${ep.season}E${ep.episode}`;
+          if (!seen.has(key)) {
+            episodes.push(ep);
+            seen.add(key);
+          }
+        }
+
         setEpisodesByMonth((prev) => {
           const next = new Map(prev);
           next.set(monthKey, episodes);

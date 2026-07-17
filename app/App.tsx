@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, Animated } from "react-native";
+import { View, StyleSheet, Animated, Platform, PermissionsAndroid } from "react-native";
 import { Image } from "expo-image";
 import LoadingSpinner from "./src/components/LoadingSpinner";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import NetInfo from "@react-native-community/netinfo";
 import { getAuth, onAuthStateChanged, reload, signOut } from "@react-native-firebase/auth";
@@ -19,7 +22,7 @@ import {
   setDoc,
 } from "@react-native-firebase/firestore";
 import { useAuthStore, useUiStore } from "./src/stores";
-import { useForceUpdate } from "./src/hooks";
+import { useForceUpdate, useUpcomingEpisodes } from "./src/hooks";
 import LoginScreen from "./src/screens/LoginScreen";
 import ImportDataScreen from "./src/screens/ImportDataScreen";
 import AppNavigator from "./src/navigation/AppNavigator";
@@ -32,14 +35,33 @@ GoogleSignin.configure({
   forceCodeForRefreshToken: true,
 });
 
+const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: { staleTime: 5 * 60 * 1000, retry: 2 },
   },
 });
 
+const PERSIST_PREFIXES = ["upcomingEpisodes", "catalog"];
+
+const asyncStoragePersister = createAsyncStoragePersister({
+  storage: AsyncStorage,
+  key: "tv-time-cache",
+});
+
+
 async function registerFCMToken(userId: string) {
   try {
+    if (Platform.OS === "android" && Platform.Version >= 33) {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+      );
+      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+        console.warn("POST_NOTIFICATIONS permission denied");
+        return;
+      }
+    }
     const msg = getMessaging();
     await requestPermission(msg);
     const token = await getToken(msg);
@@ -54,6 +76,9 @@ function AppContent() {
   useForceUpdate();
   const { user, appTmdbApiKey, appTmdbApiKeyLoading, userFlagsLoading, hasCompletedImport } =
     useAuthStore();
+
+  // Prefetch upcoming episodes in background on app open
+  useUpcomingEpisodes(user?.uid);
 
   if (!user) {
     return <LoginScreen />;
@@ -155,10 +180,22 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
+        <PersistQueryClientProvider
+          client={queryClient}
+          persistOptions={{
+            persister: asyncStoragePersister,
+            maxAge: ONE_WEEK,
+            dehydrateOptions: {
+              shouldDehydrateQuery: (q) => {
+                const key = q.queryKey[0] as string;
+                return PERSIST_PREFIXES.includes(key) && q.state.status === "success";
+              },
+            },
+          }}
+        >
           {splashDone ? <AppContent /> : <View style={styles.loading} />}
           {!splashDone && <AppSplash onHidden={onHidden} />}
-        </QueryClientProvider>
+        </PersistQueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

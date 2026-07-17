@@ -21,6 +21,7 @@ import {
   AmbiguousMatch,
 } from "../../services/tvtimeImport";
 import LoadingSpinner from "../../components/LoadingSpinner";
+import { WatchStatus, MediaType } from "../../types";
 import { spacing } from "../../theme";
 import { importStyles as styles } from "./styles";
 import PickPhase from "./PickPhase";
@@ -224,14 +225,14 @@ export default function ImportDataScreen({ navigation }: any) {
         showByTvTimeId.set(s.tvTimeId, s);
       }
 
-      function deriveStatus(show: ParsedShow): string {
-        if (show.isArchived) return "completed";
-        if (show.isForLater) return "plan_to_watch";
-        return "watching";
+      function deriveStatus(show: ParsedShow): WatchStatus {
+        if (show.isArchived) return WatchStatus.COMPLETED;
+        if (show.isForLater) return WatchStatus.PLAN_TO_WATCH;
+        return WatchStatus.WATCHING;
       }
 
       const cfMatches = selectedMatches.map((m) => {
-        if (m.mediaType === "tv") {
+        if (m.mediaType === MediaType.TV) {
           const show = m.tvTimeId !== undefined
             ? showByTvTimeId.get(m.tvTimeId)
             : parsed.shows.find((s) => s.name === m.tvTimeName);
@@ -246,7 +247,7 @@ export default function ImportDataScreen({ navigation }: any) {
           return {
             tmdbId: m.tmdbId,
             mediaType: m.mediaType,
-            status: show ? deriveStatus(show) : "watching",
+            status: show ? deriveStatus(show) : WatchStatus.WATCHING,
             watchedEpisodes: [...showEps, ...rewatchEps].map((e) => ({
               season: e.season,
               episode: e.episode,
@@ -258,7 +259,7 @@ export default function ImportDataScreen({ navigation }: any) {
           return {
             tmdbId: m.tmdbId,
             mediaType: m.mediaType,
-            status: "completed" as const,
+            status: WatchStatus.COMPLETED,
             movieWatchedAt: movie?.watchedAt || null,
             movieRuntime: movie ? Math.round(movie.runtimeSeconds / 60) : undefined,
           };

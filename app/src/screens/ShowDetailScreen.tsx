@@ -15,18 +15,19 @@ import {
   doc,
   onSnapshot,
 } from "@react-native-firebase/firestore";
-import { useShowDetails } from "../hooks";
+import { useShowDetails, useUpcomingMutations } from "../hooks";
 import { useAuthStore } from "../stores";
 import {
   addToTracking,
   removeFromTracking,
   startRewatch,
+  resumeWatching,
   resumeRewatch,
   markMovieWatched,
 } from "../services";
-import { LoadingSpinner, SeasonDropdown } from "../components";
+import { ConfirmModal, LoadingSpinner, SeasonDropdown } from "../components";
 import { colors, spacing, typography, posterSize } from "../theme";
-import { HomeStackParamList } from "../types";
+import { HomeStackParamList, WatchStatus, MediaType } from "../types";
 
 type RouteParams = RouteProp<HomeStackParamList, "ShowDetail">;
 
@@ -34,10 +35,14 @@ export default function ShowDetailScreen() {
   const route = useRoute<RouteParams>();
   const { tmdbId, mediaType } = route.params;
   const user = useAuthStore((s) => s.user);
-  const { data: show, isLoading } = useShowDetails(tmdbId, mediaType);
+  const { data: show, isLoading, episodesBySeason } = useShowDetails(tmdbId, mediaType);
   const [watchlistItem, setWatchlistItem] = useState<any>(null);
   const [trackingLoading, setTrackingLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const { addShowToUpcoming, removeShowFromUpcoming } = useUpcomingMutations();
+  const [removeModalVisible, setRemoveModalVisible] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.uid) {
@@ -64,22 +69,42 @@ export default function ShowDetailScreen() {
     setAdding(true);
     try {
       await addToTracking(user.uid, tmdbId, mediaType);
+      addShowToUpcoming(tmdbId);
     } catch (err: any) {
       console.error("addToTracking failed:", err);
       Alert.alert("Error", err.message || "Failed to add to watchlist.");
     } finally {
       setAdding(false);
     }
-  }, [user?.uid, show, tmdbId, mediaType, adding]);
+  }, [user?.uid, show, tmdbId, mediaType, adding, addShowToUpcoming]);
 
-  const handleRemove = useCallback(async () => {
-    if (!user?.uid) return;
-    await removeFromTracking(user.uid, tmdbId);
-  }, [user?.uid, tmdbId]);
+  const handleRemove = useCallback(() => {
+    if (!user?.uid || removing) return;
+    setRemoveError(null);
+    setRemoveModalVisible(true);
+  }, [user?.uid, removing]);
 
-  const handleRewatch = useCallback(async () => {
+  const handleConfirmRemove = useCallback(async () => {
+    if (!user?.uid || removing) return;
+    setRemoving(true);
+    setRemoveError(null);
+    try {
+      await removeFromTracking(user.uid, tmdbId);
+      removeShowFromUpcoming(tmdbId);
+      setRemoveModalVisible(false);
+    } catch (err: any) {
+      console.error("removeFromTracking failed:", err);
+      setRemoveError(err.message || "Failed to remove. Please try again.");
+    } finally {
+      setRemoving(false);
+    }
+  }, [user?.uid, tmdbId, removing, removeShowFromUpcoming]);
+
+  const handleResumeOrRewatch = useCallback(async () => {
     if (!user?.uid) return;
-    if (watchlistItem?.status === "paused_rewatch") {
+    if (watchlistItem?.status === WatchStatus.PAUSED) {
+      await resumeWatching(user.uid, tmdbId);
+    } else if (watchlistItem?.status === WatchStatus.PAUSED_REWATCH) {
       await resumeRewatch(user.uid, tmdbId);
     } else {
       await startRewatch(user.uid, tmdbId);
@@ -91,7 +116,7 @@ export default function ShowDetailScreen() {
     setAdding(true);
     try {
       if (!watchlistItem) {
-        await addToTracking(user.uid, tmdbId, "movie");
+        await addToTracking(user.uid, tmdbId, MediaType.MOVIE);
       }
       await markMovieWatched(user.uid, tmdbId, show.runtime ?? 0);
     } catch (err: any) {
@@ -150,7 +175,7 @@ export default function ShowDetailScreen() {
                   <Text style={styles.buttonText}>+ Add to Watchlist</Text>
                 )}
               </TouchableOpacity>
-              {mediaType === "movie" && (
+              {mediaType === MediaType.MOVIE && (
                 <TouchableOpacity
                   style={[styles.addButton, { backgroundColor: colors.watchedGreen }, adding && { opacity: 0.6 }]}
                   onPress={handleMarkMovieWatched}
@@ -166,7 +191,7 @@ export default function ShowDetailScreen() {
             </>
           ) : (
             <>
-              {mediaType === "movie" && watchlistItem.status !== "completed" && (
+              {mediaType === MediaType.MOVIE && watchlistItem.status !== WatchStatus.COMPLETED && (
                 <TouchableOpacity
                   style={[styles.addButton, { backgroundColor: colors.watchedGreen }, adding && { opacity: 0.6 }]}
                   onPress={handleMarkMovieWatched}
@@ -179,32 +204,40 @@ export default function ShowDetailScreen() {
                   )}
                 </TouchableOpacity>
               )}
-              {mediaType === "movie" && watchlistItem.status === "completed" && (
+              {mediaType === MediaType.MOVIE && watchlistItem.status === WatchStatus.COMPLETED && (
                 <View style={[styles.addButton, { backgroundColor: colors.watchedGreen, opacity: 0.7 }]}>
                   <Text style={styles.buttonText}>Watched ✓</Text>
                 </View>
               )}
-              {(watchlistItem.status === "completed" ||
-                watchlistItem.status === "paused_rewatch") && (
+              {(watchlistItem.status === WatchStatus.COMPLETED ||
+                watchlistItem.status === WatchStatus.PAUSED ||
+                watchlistItem.status === WatchStatus.PAUSED_REWATCH) && (
                 <TouchableOpacity
                   style={[styles.addButton, { backgroundColor: colors.accent }]}
-                  onPress={handleRewatch}
+                  onPress={handleResumeOrRewatch}
                 >
                   <Text style={styles.buttonText}>
-                    {watchlistItem.status === "paused_rewatch"
-                      ? "Resume Rewatch"
-                      : "Rewatch"}
+                    {watchlistItem.status === WatchStatus.PAUSED
+                      ? "Resume"
+                      : watchlistItem.status === WatchStatus.PAUSED_REWATCH
+                        ? "Resume Rewatch"
+                        : "Rewatch"}
                   </Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity
                 style={[
-                  styles.addButton,
-                  { backgroundColor: colors.destructiveRed },
+                  styles.removeButton,
+                  removing && { opacity: 0.6 },
                 ]}
                 onPress={handleRemove}
+                disabled={removing}
               >
-                <Text style={styles.buttonText}>Remove</Text>
+                {removing ? (
+                  <ActivityIndicator size="small" color={colors.destructiveRed} />
+                ) : (
+                  <Text style={styles.removeButtonText}>Remove</Text>
+                )}
               </TouchableOpacity>
             </>
           )}
@@ -212,7 +245,7 @@ export default function ShowDetailScreen() {
 
         <Text style={styles.overview}>{show.overview}</Text>
 
-        {mediaType === "tv" && show.seasons && (
+        {mediaType === MediaType.TV && show.seasons && (
           <View style={styles.seasonsSection}>
             <Text style={styles.sectionTitle}>Seasons</Text>
             {show.seasons
@@ -224,11 +257,26 @@ export default function ShowDetailScreen() {
                   season={season}
                   showPosterPath={show.poster_path}
                   isTracked={!!watchlistItem}
+                  preloadedEpisodes={episodesBySeason.get(season.season_number)}
                 />
               ))}
           </View>
         )}
       </View>
+
+      <ConfirmModal
+        visible={removeModalVisible}
+        title={`Remove "${title}"?`}
+        hint="This will remove the show from your watchlist. Your watch history will be kept."
+        error={removeError}
+        confirmLabel="Remove"
+        loading={removing}
+        onConfirm={handleConfirmRemove}
+        onClose={() => {
+          setRemoveModalVisible(false);
+          setRemoveError(null);
+        }}
+      />
     </ScrollView>
   );
 }
@@ -279,6 +327,20 @@ const styles = StyleSheet.create({
     ...typography.subtitle,
     fontSize: 14,
     color: colors.text,
+  },
+  removeButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: 8,
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: colors.destructiveRed,
+    backgroundColor: "transparent",
+  },
+  removeButtonText: {
+    ...typography.subtitle,
+    fontSize: 14,
+    color: colors.destructiveRed,
   },
   overview: {
     ...typography.body,

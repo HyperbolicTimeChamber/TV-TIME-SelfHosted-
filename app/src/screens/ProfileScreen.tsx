@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useLayoutEffect } from "react";
 import {
   View,
   Text,
@@ -10,21 +10,35 @@ import {
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../stores";
 import { useUserStats, useWatchlist } from "../hooks";
+import { LoadingSpinner } from "../components";
 import { colors, spacing, typography, posterSize } from "../theme";
-import { ProfileStackParamList } from "../types";
+import { ProfileStackParamList, WatchStatus, Route } from "../types";
 
 export default function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
   const user = useAuthStore((s) => s.user);
-  const hasCompletedImport = useAuthStore((s) => s.hasCompletedImport);
   const signOut = useAuthStore((s) => s.signOut);
-  const { stats } = useUserStats(user?.uid);
-  const { items: watchlist } = useWatchlist(user?.uid);
+  const { stats, loading: statsLoading } = useUserStats(user?.uid);
+  const { items: watchlist, loading: watchlistLoading } = useWatchlist(user?.uid);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => navigation.navigate(Route.SETTINGS)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="settings-outline" size={22} color={colors.text} />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   const completedShows = useMemo(
-    () => watchlist.filter((w) => w.status === "completed"),
+    () => watchlist.filter((w) => w.status === WatchStatus.COMPLETED),
     [watchlist]
   );
 
@@ -36,12 +50,13 @@ export default function ProfileScreen() {
     return `${minutes}m`;
   };
 
-  const handleSignOut = () => {
-    Alert.alert("Log Out", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Log Out", style: "destructive", onPress: signOut },
-    ]);
-  };
+  if (statsLoading || watchlistLoading) {
+    return (
+      <View style={styles.center}>
+        <LoadingSpinner />
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -102,14 +117,12 @@ export default function ProfileScreen() {
         </View>
       )}
 
-      <TouchableOpacity
-        style={styles.importButton}
-        onPress={() => navigation.navigate("ImportData")}
-      >
-        <Text style={styles.importText}>{hasCompletedImport ? "Re-sync TV Time Data" : "Import TV Time Data"}</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+      <TouchableOpacity style={styles.signOutButton} onPress={() => {
+        Alert.alert("Log Out", "Are you sure?", [
+          { text: "Cancel", style: "cancel" },
+          { text: "Log Out", style: "destructive", onPress: signOut },
+        ]);
+      }}>
         <Text style={styles.signOutText}>Log Out</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -120,6 +133,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  center: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: "center",
+    alignItems: "center",
   },
   header: {
     alignItems: "center",
@@ -183,20 +202,6 @@ const styles = StyleSheet.create({
     width: 70,
     height: 105,
     borderRadius: 4,
-  },
-  importButton: {
-    marginTop: spacing.xl,
-    marginHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  importText: {
-    ...typography.subtitle,
-    color: colors.accent,
   },
   signOutButton: {
     marginTop: spacing.xxl,

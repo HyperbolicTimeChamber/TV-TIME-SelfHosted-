@@ -2,17 +2,21 @@
   "expo": {
     "name": "Watchloom",
     "slug": "watchloom",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.tvtimerevived.app",
-      "googleServicesFile": "./GoogleService-Info.plist"
+      "buildNumber": "3",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "UIBackgroundModes": ["remote-notification"]
+      }
     },
     "android": {
-      "versionCode": 1,
+      "versionCode": 3,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0D0D0D",

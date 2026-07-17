@@ -9,9 +9,10 @@ interface Props {
   episode: WatchedEpisode;
   show: EnrichedTrackingItem;
   onPress: (tmdbShowId: number) => void;
+  onCheckmarkPress: (episode: WatchedEpisode) => void;
 }
 
-export default memo(function WatchedEpisodeRow({ episode, show, onPress }: Props) {
+export default memo(function WatchedEpisodeRow({ episode, show, onPress, onCheckmarkPress }: Props) {
   const label = `S${String(episode.season).padStart(2, "0")}E${String(episode.episode).padStart(2, "0")}`;
 
   return (
@@ -34,9 +35,15 @@ export default memo(function WatchedEpisodeRow({ episode, show, onPress }: Props
           {episode.episodeTitle}
         </Text>
       </View>
-      <View style={styles.badge}>
-        <Text style={styles.badgeText}>✓</Text>
-      </View>
+      <TouchableOpacity
+        style={styles.badge}
+        onPress={() => onCheckmarkPress(episode)}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Text style={styles.badgeText}>
+          {episode.watchCount > 1 ? episode.watchCount.toString() : "✓"}
+        </Text>
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 });

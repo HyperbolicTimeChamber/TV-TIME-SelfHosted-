@@ -1,10 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { getShowDetails, getCatalogShow } from "../services";
 import { useAuthStore } from "../stores";
-import { TMDBShow, CatalogShow } from "../types";
+import { TMDBShow, TMDBEpisode, CatalogShow } from "../types";
 
-function catalogShowToTMDBShow(catalog: CatalogShow): TMDBShow {
-  return {
+export interface ShowDetailsResult {
+  show: TMDBShow;
+  episodesBySeason: Map<number, TMDBEpisode[]>;
+}
+
+function catalogShowToResult(catalog: CatalogShow): ShowDetailsResult {
+  const episodesBySeason = new Map<number, TMDBEpisode[]>();
+
+  const show: TMDBShow = {
     id: catalog.tmdbId,
     name: catalog.mediaType === "tv" ? catalog.title : undefined,
     title: catalog.mediaType === "movie" ? catalog.title : undefined,
@@ -29,22 +36,46 @@ function catalogShowToTMDBShow(catalog: CatalogShow): TMDBShow {
       poster_path: catalog.posterPath,
     })),
   };
+
+  for (const s of catalog.seasons) {
+    episodesBySeason.set(
+      s.seasonNumber,
+      s.episodes.map((ep) => ({
+        id: 0,
+        episode_number: ep.episodeNumber,
+        season_number: s.seasonNumber,
+        name: ep.title,
+        overview: "",
+        air_date: ep.airDate,
+        runtime: ep.runtime,
+        still_path: null,
+      }))
+    );
+  }
+
+  return { show, episodesBySeason };
 }
 
 export function useShowDetails(tmdbId: number, mediaType: string = "tv") {
-  return useQuery({
+  const result = useQuery({
     queryKey: ["show", tmdbId, mediaType],
-    queryFn: async () => {
+    queryFn: async (): Promise<ShowDetailsResult> => {
       // Try catalog first
       const catalogShow = await getCatalogShow(tmdbId);
-      if (catalogShow) return catalogShowToTMDBShow(catalogShow);
+      if (catalogShow) return catalogShowToResult(catalogShow);
 
       // Fallback to TMDB
       const apiKey = useAuthStore.getState().appTmdbApiKey;
       if (!apiKey) throw new Error("No TMDB API key available");
-      return getShowDetails(apiKey, tmdbId, mediaType);
+      const show = await getShowDetails(apiKey, tmdbId, mediaType);
+      return { show, episodesBySeason: new Map() };
     },
     staleTime: 24 * 60 * 60 * 1000,
-    select: (data) => data as unknown as TMDBShow,
   });
+
+  return {
+    ...result,
+    data: result.data?.show as TMDBShow | undefined,
+    episodesBySeason: result.data?.episodesBySeason ?? new Map<number, TMDBEpisode[]>(),
+  };
 }

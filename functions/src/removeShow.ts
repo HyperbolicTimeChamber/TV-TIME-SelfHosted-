@@ -33,9 +33,20 @@ export const removeShow = onCall(
 
     // Update stats
     const userRef = db.doc(`users/${uid}`);
-    await userRef.update({
-      "stats.showsTracking": FieldValue.increment(-1),
-    });
+    await userRef.set({
+      stats: { showsTracking: FieldValue.increment(-1) },
+    }, { merge: true });
+
+    // Delete upcoming docs for this show
+    const upcomingSnap = await db
+      .collection(`users/${uid}/upcoming`)
+      .where("tmdbShowId", "==", tmdbId)
+      .get();
+    if (upcomingSnap.size > 0) {
+      const batch = db.batch();
+      for (const d of upcomingSnap.docs) batch.delete(d.ref);
+      await batch.commit();
+    }
 
     // Remove from trackedBy, get remaining count
     const remainingCount = await removeFromTrackedBy(showId, uid);

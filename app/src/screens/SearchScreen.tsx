@@ -8,18 +8,18 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { AnimatedModal, LoadingSpinner } from "../components";
+import { AnimatedModal, ConfirmModal, LoadingSpinner } from "../components";
 import { LegendList } from "@legendapp/list/react-native";
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useSearch, useTrending, useTrackedIds } from "../hooks";
+import { useSearch, useTrending, useTrackedIds, useUpcomingMutations } from "../hooks";
 import { useAuthStore } from "../stores";
-import { addToTracking, markMovieWatched } from "../services";
+import { addToTracking, removeFromTracking, markMovieWatched } from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
-import { TMDBShow, SearchStackParamList, MediaType } from "../types";
+import { TMDBShow, SearchStackParamList, MediaType, Route } from "../types";
 
-type NavProp = NativeStackNavigationProp<SearchStackParamList, "SearchMain">;
+type NavProp = NativeStackNavigationProp<SearchStackParamList, Route.SEARCH_MAIN>;
 
 export default function SearchScreen() {
   const [query, setQuery] = useState("");
@@ -36,6 +36,10 @@ export default function SearchScreen() {
 
   const [addingIds, setAddingIds] = useState<Set<number>>(new Set());
   const [movieModal, setMovieModal] = useState<TMDBShow | null>(null);
+  const [removeModal, setRemoveModal] = useState<TMDBShow | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const { addShowToUpcoming, removeShowFromUpcoming } = useUpcomingMutations();
 
   const watchlistIds = trackedIds;
 
@@ -61,26 +65,52 @@ export default function SearchScreen() {
     async (item: TMDBShow) => {
       if (!user?.uid) return;
       const mediaType: MediaType =
-        item.media_type || (item.title ? "movie" : "tv");
+        item.media_type || (item.title ? MediaType.MOVIE : MediaType.TV);
 
-      if (mediaType === "movie") {
+      if (mediaType === MediaType.MOVIE) {
         setMovieModal(item);
         return;
       }
 
-      await withLoadingId(item.id, () =>
-        addToTracking(user.uid!, item.id, mediaType)
-      );
+      await withLoadingId(item.id, async () => {
+        await addToTracking(user.uid!, item.id, mediaType);
+        addShowToUpcoming(item.id);
+      });
     },
-    [user?.uid, withLoadingId]
+    [user?.uid, withLoadingId, addShowToUpcoming]
   );
+
+  const handleRemoveFromWatchlist = useCallback(
+    (item: TMDBShow) => {
+      if (!user?.uid) return;
+      setRemoveError(null);
+      setRemoveModal(item);
+    },
+    [user?.uid]
+  );
+
+  const handleConfirmRemove = useCallback(async () => {
+    if (!user?.uid || !removeModal || removing) return;
+    setRemoving(true);
+    setRemoveError(null);
+    try {
+      await removeFromTracking(user.uid, removeModal.id);
+      removeShowFromUpcoming(removeModal.id);
+      setRemoveModal(null);
+    } catch (err: any) {
+      console.error("removeFromTracking failed:", err);
+      setRemoveError(err.message || "Failed to remove. Please try again.");
+    } finally {
+      setRemoving(false);
+    }
+  }, [user?.uid, removeModal, removing]);
 
   const handleMovieAddOnly = useCallback(async () => {
     if (!user?.uid || !movieModal) return;
     const item = movieModal;
     setMovieModal(null);
     await withLoadingId(item.id, () =>
-      addToTracking(user.uid!, item.id, "movie")
+      addToTracking(user.uid!, item.id, MediaType.MOVIE)
     );
   }, [user?.uid, movieModal, withLoadingId]);
 
@@ -89,7 +119,7 @@ export default function SearchScreen() {
     const item = movieModal;
     setMovieModal(null);
     await withLoadingId(item.id, async () => {
-      await addToTracking(user.uid!, item.id, "movie");
+      await addToTracking(user.uid!, item.id, MediaType.MOVIE);
       await markMovieWatched(user.uid!, item.id, (item as any).runtime ?? 0);
     });
   }, [user?.uid, movieModal, withLoadingId]);
@@ -101,7 +131,7 @@ export default function SearchScreen() {
     hasNextPage,
   } = useSearch(debouncedQuery);
 
-  const { data: trending, isLoading: trendingLoading } = useTrending("tv");
+  const { data: trending, isLoading: trendingLoading } = useTrending(MediaType.TV);
 
   const displayData = debouncedQuery.length > 0 ? searchData?.results : trending;
   const isLoading = debouncedQuery.length > 0 ? searchLoading : trendingLoading;
@@ -109,8 +139,8 @@ export default function SearchScreen() {
   const handlePress = useCallback(
     (item: TMDBShow) => {
       const mediaType: MediaType =
-        item.media_type || (item.title ? "movie" : "tv");
-      navigation.navigate("ShowDetail", {
+        item.media_type || (item.title ? MediaType.MOVIE : MediaType.TV);
+      navigation.navigate(Route.SHOW_DETAIL, {
         tmdbId: item.id,
         mediaType,
       });
@@ -126,7 +156,7 @@ export default function SearchScreen() {
         4
       );
       const mediaType: MediaType =
-        item.media_type || (item.title ? "movie" : "tv");
+        item.media_type || (item.title ? MediaType.MOVIE : MediaType.TV);
       const isInWatchlist = watchlistIds.has(item.id);
       const isAdding = addingIds.has(item.id);
 
@@ -148,7 +178,12 @@ export default function SearchScreen() {
             ]}
             onPress={(e) => {
               e.stopPropagation?.();
-              if (!isInWatchlist && !isAdding) handleAddToWatchlist(item);
+              if (isAdding) return;
+              if (isInWatchlist) {
+                handleRemoveFromWatchlist(item);
+              } else {
+                handleAddToWatchlist(item);
+              }
             }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             activeOpacity={0.7}
@@ -175,11 +210,11 @@ export default function SearchScreen() {
               <View
                 style={[
                   styles.typeBadge,
-                  mediaType === "movie" && styles.typeBadgeMovie,
+                  mediaType === MediaType.MOVIE && styles.typeBadgeMovie,
                 ]}
               >
                 <Text style={styles.typeBadgeText}>
-                  {mediaType === "tv" ? "TV" : "MOVIE"}
+                  {mediaType === MediaType.TV ? "TV" : "MOVIE"}
                 </Text>
               </View>
             </View>
@@ -188,7 +223,7 @@ export default function SearchScreen() {
         </TouchableOpacity>
       );
     },
-    [handlePress, watchlistIds, handleAddToWatchlist, addingIds]
+    [handlePress, watchlistIds, handleAddToWatchlist, handleRemoveFromWatchlist, addingIds]
   );
 
   return (
@@ -273,6 +308,20 @@ export default function SearchScreen() {
           </TouchableOpacity>
         </View>
       </AnimatedModal>
+
+      <ConfirmModal
+        visible={!!removeModal}
+        title={`Remove "${removeModal?.name || removeModal?.title}"?`}
+        hint="This will remove the show from your watchlist. Your watch history will be kept."
+        error={removeError}
+        confirmLabel="Remove"
+        loading={removing}
+        onConfirm={handleConfirmRemove}
+        onClose={() => {
+          setRemoveModal(null);
+          setRemoveError(null);
+        }}
+      />
     </View>
   );
 }
