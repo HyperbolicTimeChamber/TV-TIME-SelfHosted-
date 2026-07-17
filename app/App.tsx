@@ -22,7 +22,7 @@ import {
   setDoc,
 } from "@react-native-firebase/firestore";
 import { useAuthStore, useUiStore } from "./src/stores";
-import { useForceUpdate, useUpcomingEpisodes } from "./src/hooks";
+import { useForceUpdate } from "./src/hooks";
 import LoginScreen from "./src/screens/LoginScreen";
 import ImportDataScreen from "./src/screens/ImportDataScreen";
 import AppNavigator from "./src/navigation/AppNavigator";
@@ -76,9 +76,6 @@ function AppContent() {
   useForceUpdate();
   const { user, appTmdbApiKey, appTmdbApiKeyLoading, userFlagsLoading, hasCompletedImport } =
     useAuthStore();
-
-  // Prefetch upcoming episodes in background on app open
-  useUpcomingEpisodes(user?.uid);
 
   if (!user) {
     return <LoginScreen />;

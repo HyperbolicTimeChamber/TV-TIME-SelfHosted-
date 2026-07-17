@@ -1,113 +1,23 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import {
   getFirestore,
   collection,
   doc,
-  getDoc,
   getDocs,
   query,
   where,
 } from "@react-native-firebase/firestore";
+import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useQueryClient, QueryClient } from "@tanstack/react-query";
-import { UpcomingEpisode, CatalogShow, WatchStatus } from "../types";
+import { UpcomingEpisode } from "../types";
 
-const UPCOMING_BUILT_KEY = "upcoming_cache_built";
+const CACHE_KEY = "upcoming_episodes_cache";
+const BUILT_KEY = "upcoming_subcollection_built";
+const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 1 week
 
-async function isUpcomingBuilt(): Promise<boolean> {
-  return (await AsyncStorage.getItem(UPCOMING_BUILT_KEY)) === "true";
-}
-
-async function markUpcomingBuilt(): Promise<void> {
-  await AsyncStorage.setItem(UPCOMING_BUILT_KEY, "true");
-}
-
-const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
-const MAX_EPISODES = 1000;
-
-// Lightweight catalog shape — only fields needed for upcoming
-interface CatalogLite {
-  tmdbId: number;
-  title: string;
-  posterPath: string | null;
-  seasons: Array<{
-    seasonNumber: number;
-    episodes: Array<{ episodeNumber: number; title: string; airDate: string | null; runtime: number | null }>;
-  }>;
-}
-
-function toLite(catalog: CatalogShow): CatalogLite {
-  const today = new Date().toISOString().slice(0, 10);
-  return {
-    tmdbId: catalog.tmdbId,
-    title: catalog.title,
-    posterPath: catalog.posterPath,
-    seasons: catalog.seasons
-      .filter((s) => s.seasonNumber > 0)
-      .map((s) => ({
-        seasonNumber: s.seasonNumber,
-        episodes: s.episodes.filter((ep) => ep.airDate && ep.airDate >= today),
-      }))
-      .filter((s) => s.episodes.length > 0),
-  };
-}
-
-async function getCatalogCached(
-  queryClient: QueryClient,
-  db: ReturnType<typeof getFirestore>,
-  showId: string
-): Promise<CatalogLite | null> {
-  const cached = queryClient.getQueryData(["catalog", showId]) as CatalogLite | undefined;
-  if (cached) return cached;
-
-  const showDoc = await getDoc(doc(db, "shows", showId));
-  if (!showDoc.exists()) return null;
-
-  const full = { ...showDoc.data() } as unknown as CatalogShow;
-  const lite = toLite(full);
-  queryClient.setQueryData(["catalog", showId], lite);
-  queryClient.setQueryDefaults(["catalog", showId], { gcTime: ONE_WEEK, staleTime: ONE_WEEK });
-  return lite;
-}
-
-function extractAllEpisodes(catalogs: (CatalogLite | null)[]): UpcomingEpisode[] {
-  const today = new Date().toISOString().slice(0, 10);
-  const episodes: UpcomingEpisode[] = [];
-
-  for (const catalog of catalogs) {
-    if (!catalog) continue;
-    for (const season of catalog.seasons) {
-      for (const ep of season.episodes) {
-        if (!ep.airDate || ep.airDate < today) continue;
-        episodes.push({
-          tmdbShowId: catalog.tmdbId,
-          showTitle: catalog.title,
-          posterPath: catalog.posterPath,
-          season: season.seasonNumber,
-          episode: ep.episodeNumber,
-          episodeTitle: ep.title,
-          airDate: ep.airDate!,
-          runtime: ep.runtime,
-        });
-      }
-    }
-  }
-
-  episodes.sort((a, b) => a.airDate.localeCompare(b.airDate));
-
-  if (episodes.length > MAX_EPISODES) {
-    const cutoffDate = episodes[MAX_EPISODES - 1].airDate;
-    const lastIdx = episodes.findLastIndex((ep) => ep.airDate === cutoffDate);
-    return episodes.slice(0, lastIdx + 1);
-  }
-
-  return episodes;
-}
-
-// Direct cache mutation callbacks
 type MutateCallback = (fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[]) => void;
-let mutateListeners: Set<MutateCallback> = new Set();
-let invalidateListeners: Set<() => void> = new Set();
+const mutateListeners = new Set<MutateCallback>();
+const invalidateListeners = new Set<() => void>();
 
 function mutateCachedEpisodes(fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[]) {
   mutateListeners.forEach((cb) => cb(fn));
@@ -117,11 +27,15 @@ function triggerInvalidate() {
   invalidateListeners.forEach((fn) => fn());
 }
 
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function useUpcomingEpisodes(userId: string | undefined) {
-  const queryClient = useQueryClient();
   const [episodes, setEpisodes] = useState<UpcomingEpisode[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [trigger, setTrigger] = useState(0);
+  const cacheRestored = useRef(false);
 
   // Listen for invalidation
   useEffect(() => {
@@ -137,6 +51,24 @@ export function useUpcomingEpisodes(userId: string | undefined) {
     return () => { mutateListeners.delete(cb); };
   }, []);
 
+  // Restore from local cache on mount
+  useEffect(() => {
+    if (!userId || cacheRestored.current) return;
+    AsyncStorage.getItem(CACHE_KEY).then((raw) => {
+      if (!raw) { cacheRestored.current = true; return; }
+      try {
+        const cached = JSON.parse(raw);
+        const age = Date.now() - (cached.timestamp ?? 0);
+        if (cached.userId === userId && age < CACHE_MAX_AGE_MS && cached.episodes?.length > 0) {
+          setEpisodes(cached.episodes);
+          setIsLoading(false);
+        }
+      } catch {}
+      cacheRestored.current = true;
+    });
+  }, [userId]);
+
+  // Fetch from Firestore upcoming subcollection
   useEffect(() => {
     if (!userId) {
       setEpisodes([]);
@@ -145,118 +77,66 @@ export function useUpcomingEpisodes(userId: string | undefined) {
     }
 
     (async () => {
-      const built = await isUpcomingBuilt();
-      if (!built || episodes.length === 0) setIsLoading(true);
+      if (episodes.length === 0) setIsLoading(true);
 
       const db = getFirestore();
-      const today = new Date().toISOString().slice(0, 10);
-
-      // Fast path: try upcoming subcollection first
+      const today = todayStr();
       const upcomingCol = collection(doc(db, "users", userId), "upcoming");
-      const upcomingSnap = await getDocs(
-        query(upcomingCol, where("airDate", ">=", today))
-      );
+      let snap = await getDocs(query(upcomingCol, where("airDate", ">=", today)));
 
-      if (upcomingSnap.size > 0) {
-        const eps = upcomingSnap.docs
-          .map((d) => d.data() as UpcomingEpisode)
-          .sort((a, b) => a.airDate.localeCompare(b.airDate));
-        setEpisodes(eps);
-        setIsLoading(false);
-        if (!built) await markUpcomingBuilt();
-        return;
-      }
-
-      // Slow path: build from catalog (first time / subcollection empty)
-      const trackingSnap = await getDocs(
-        query(
-          collection(doc(db, "users", userId), "tracking"),
-          where("mediaType", "==", "tv"),
-          where("status", "in", [WatchStatus.WATCHING, WatchStatus.REWATCHING, WatchStatus.PLAN_TO_WATCH])
-        )
-      );
-      const trackedIds = trackingSnap.docs.map((d) => d.id);
-
-      if (trackedIds.length === 0) {
-        setEpisodes([]);
-        setIsLoading(false);
-        return;
-      }
-
-      // Stream: show episodes as each catalog resolves
-      const catalogs: (CatalogLite | null)[] = new Array(trackedIds.length).fill(null);
-      let shownFirst = false;
-
-      const promises = trackedIds.map((id, idx) =>
-        getCatalogCached(queryClient, db, id).then((catalog) => {
-          catalogs[idx] = catalog;
-          if (!catalog) return;
-
-          const all = extractAllEpisodes(catalogs);
-          setEpisodes(all);
-
-          if (!shownFirst) {
-            shownFirst = true;
-            setIsLoading(false);
+      // If empty, check if subcollection was ever built
+      if (snap.size === 0) {
+        const built = await AsyncStorage.getItem(BUILT_KEY);
+        if (built !== userId) {
+          // First time — call CF to populate subcollection
+          try {
+            await httpsCallable(getFunctions(), "rebuildUpcoming")({});
+            await AsyncStorage.setItem(BUILT_KEY, userId);
+            snap = await getDocs(query(upcomingCol, where("airDate", ">=", today)));
+          } catch (err) {
+            console.error("rebuildUpcoming CF failed:", err);
           }
-        })
-      );
+        }
+      }
 
-      await Promise.all(promises);
-      if (!shownFirst) setIsLoading(false);
-      await markUpcomingBuilt();
+      const eps = snap.docs
+        .map((d) => d.data() as UpcomingEpisode)
+        .sort((a, b) => a.airDate.localeCompare(b.airDate));
+
+      setEpisodes(eps);
+      setIsLoading(false);
+
+      // Cache locally
+      if (eps.length > 0) {
+        AsyncStorage.setItem(CACHE_KEY, JSON.stringify({
+          userId,
+          timestamp: Date.now(),
+          episodes: eps,
+        })).catch(() => {});
+      }
     })().catch((err) => {
       console.error("Upcoming fetch error:", err);
       setIsLoading(false);
     });
-  }, [userId, queryClient, trigger]);
+  }, [userId, trigger]);
 
   return { data: episodes, isLoading };
 }
 
 export function useUpcomingMutations() {
-  const queryClient = useQueryClient();
-
-  const addShowToUpcoming = useCallback((tmdbId: number) => {
-    const cached = queryClient.getQueryData(["catalog", String(tmdbId)]) as CatalogLite | undefined;
-    if (!cached) return;
-
-    const today = new Date().toISOString().slice(0, 10);
-    const newEps: UpcomingEpisode[] = [];
-    for (const season of cached.seasons) {
-      for (const ep of season.episodes) {
-        if (!ep.airDate || ep.airDate < today) continue;
-        newEps.push({
-          tmdbShowId: cached.tmdbId,
-          showTitle: cached.title,
-          posterPath: cached.posterPath,
-          season: season.seasonNumber,
-          episode: ep.episodeNumber,
-          episodeTitle: ep.title,
-          airDate: ep.airDate!,
-          runtime: ep.runtime,
-        });
-      }
-    }
-
-    if (newEps.length > 0) {
-      mutateCachedEpisodes((prev) => {
-        const merged = [...prev, ...newEps];
-        merged.sort((a, b) => a.airDate.localeCompare(b.airDate));
-        return merged;
-      });
-    }
-  }, [queryClient]);
+  const addShowToUpcoming = useCallback((_tmdbId: number) => {
+    // CF populates subcollection server-side; invalidate so next tab open refetches
+    triggerInvalidate();
+  }, []);
 
   const removeShowFromUpcoming = useCallback((tmdbId: number) => {
+    // Optimistic: remove from local state immediately
     mutateCachedEpisodes((prev) => prev.filter((ep) => ep.tmdbShowId !== tmdbId));
-    queryClient.removeQueries({ queryKey: ["catalog", String(tmdbId)] });
-  }, [queryClient]);
+  }, []);
 
   const invalidateUpcoming = useCallback(() => {
-    queryClient.removeQueries({ queryKey: ["catalog"] });
     triggerInvalidate();
-  }, [queryClient]);
+  }, []);
 
   return { addShowToUpcoming, removeShowFromUpcoming, invalidateUpcoming };
 }
