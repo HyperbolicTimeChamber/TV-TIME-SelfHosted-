@@ -155,34 +155,38 @@ async function reactivateCompletedUsers(
 
   if (allUids.length === 0) return;
 
-  // Batch read all tracking docs in one round-trip
+  // Batch read tracking docs in chunks of 100
   const trackingRefs = allUids.map((uid) => db.doc(`users/${uid}/tracking/${showId}`));
-  const trackingDocs = await db.getAll(...trackingRefs);
-
-  // Batch write all reactivations
-  const batch = db.batch();
-  let reactivated = 0;
-
-  for (let i = 0; i < trackingDocs.length; i++) {
-    const trackingDoc = trackingDocs[i];
-    if (!trackingDoc.exists) continue;
-    if (trackingDoc.data()?.status !== "completed") continue;
-
-    batch.update(trackingDoc.ref, {
-      status: "watching",
-      nextEpisode: {
-        season: lastSeason.seasonNumber,
-        episode: firstNewEp.episodeNumber,
-      },
-      priorityDate: airDateTs,
-    });
-    reactivated++;
+  const trackingDocs: FirebaseFirestore.DocumentSnapshot[] = [];
+  for (let i = 0; i < trackingRefs.length; i += 500) {
+    const chunk = await db.getAll(...trackingRefs.slice(i, i + 500));
+    trackingDocs.push(...chunk);
   }
 
-  if (reactivated > 0) {
+  // Batch write reactivations in chunks of 400
+  const toReactivate = trackingDocs.filter(
+    (d) => d.exists && d.data()?.status === "completed"
+  );
+
+  for (let i = 0; i < toReactivate.length; i += 400) {
+    const batch = db.batch();
+    const chunk = toReactivate.slice(i, i + 400);
+    for (const td of chunk) {
+      batch.update(td.ref, {
+        status: "watching",
+        nextEpisode: {
+          season: lastSeason.seasonNumber,
+          episode: firstNewEp.episodeNumber,
+        },
+        priorityDate: airDateTs,
+      });
+    }
     await batch.commit();
+  }
+
+  if (toReactivate.length > 0) {
     console.log(
-      `Reactivated ${reactivated} users for ${freshData.title} S${lastSeason.seasonNumber}E${firstNewEp.episodeNumber}`
+      `Reactivated ${toReactivate.length} users for ${freshData.title} S${lastSeason.seasonNumber}E${firstNewEp.episodeNumber}`
     );
   }
 }
@@ -254,13 +258,16 @@ export async function rebuildUserUpcoming(
 
     if (activeShows.length === 0) return;
 
-    // Batch read all catalog docs in one round-trip
+    // Batch read catalog docs in chunks of 100
     const refs = activeShows.map((d) => db.doc(`shows/${d.id}`));
-    const catalogDocs = await db.getAll(...refs);
     catalogMap = new Map<string, CatalogShow>();
-    for (const cd of catalogDocs) {
-      if (cd.exists) {
-        catalogMap.set(cd.id, cd.data() as CatalogShow);
+    for (let i = 0; i < refs.length; i += 500) {
+      const chunk = refs.slice(i, i + 500);
+      const catalogDocs = await db.getAll(...chunk);
+      for (const cd of catalogDocs) {
+        if (cd.exists) {
+          catalogMap.set(cd.id, cd.data() as CatalogShow);
+        }
       }
     }
   }

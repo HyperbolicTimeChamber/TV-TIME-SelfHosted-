@@ -34,6 +34,7 @@ function todayStr() {
 export function useUpcomingEpisodes(userId: string | undefined) {
   const [episodes, setEpisodes] = useState<UpcomingEpisode[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [trigger, setTrigger] = useState(0);
   const cacheRestored = useRef(false);
 
@@ -78,6 +79,7 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 
     (async () => {
       if (episodes.length === 0) setIsLoading(true);
+      setError(null);
 
       const db = getFirestore();
       const today = todayStr();
@@ -88,13 +90,15 @@ export function useUpcomingEpisodes(userId: string | undefined) {
       if (snap.size === 0) {
         const built = await AsyncStorage.getItem(BUILT_KEY);
         if (built !== userId) {
-          // First time — call CF to populate subcollection
           try {
             await httpsCallable(getFunctions(), "rebuildUpcoming")({});
             await AsyncStorage.setItem(BUILT_KEY, userId);
             snap = await getDocs(query(upcomingCol, where("airDate", ">=", today)));
           } catch (err) {
             console.error("rebuildUpcoming CF failed:", err);
+            setError("Failed to fetch upcoming episodes");
+            setIsLoading(false);
+            return;
           }
         }
       }
@@ -116,11 +120,14 @@ export function useUpcomingEpisodes(userId: string | undefined) {
       }
     })().catch((err) => {
       console.error("Upcoming fetch error:", err);
+      setError("Failed to fetch upcoming episodes");
       setIsLoading(false);
     });
   }, [userId, trigger]);
 
-  return { data: episodes, isLoading };
+  const retry = useCallback(() => setTrigger((t) => t + 1), []);
+
+  return { data: episodes, isLoading, error, retry };
 }
 
 export function useUpcomingMutations() {

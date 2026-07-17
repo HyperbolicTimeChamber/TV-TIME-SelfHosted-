@@ -32,7 +32,11 @@ export const deleteAccount = onCall(
     const trackingSnap = await db.collection(`users/${uid}/tracking`).get();
     if (trackingSnap.size > 0) {
       const showRefs = trackingSnap.docs.map((d) => db.doc(`shows/${d.id}`));
-      const showDocs = await db.getAll(...showRefs);
+      const showDocs: FirebaseFirestore.DocumentSnapshot[] = [];
+      for (let i = 0; i < showRefs.length; i += 500) {
+        const chunk = await db.getAll(...showRefs.slice(i, i + 500));
+        showDocs.push(...chunk);
+      }
 
       for (const showDoc of showDocs) {
         if (!showDoc.exists) continue;
