@@ -22,7 +22,7 @@ export function useWatchedMovies(userId?: string) {
     const db = getFirestore();
     const q = query(
       collection(db, "users", userId, "watchedMovies"),
-      orderBy("lastWatchedAt", "desc")
+      orderBy("lastWatchedAt", "desc"),
     );
 
     const unsub = onSnapshot(q, (snap) => {

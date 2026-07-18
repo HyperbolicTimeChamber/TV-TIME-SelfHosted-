@@ -23,7 +23,7 @@ export {
   watchedEpisodesRef,
   watchedMoviesRef,
   userRef,
-} from './firestore';
+} from "./firestore";
 
 // tmdb
 export {
@@ -33,7 +33,7 @@ export {
   getSeasonDetails,
   discoverTVByAirDate,
   pooled,
-} from './tmdb';
+} from "./tmdb";
 
 // tvtimeImport
 export type {
@@ -45,9 +45,9 @@ export type {
   AmbiguousMatch,
   MatchResult,
   ImportStats,
-} from './tvtimeImport';
+} from "./tvtimeImport";
 export {
   parseGdprZip,
   searchTMDBPage,
   matchShowsAndMovies,
-} from './tvtimeImport';
+} from "./tvtimeImport";

@@ -174,10 +174,10 @@ function delay(ms: number): Promise<void> {
 function mapTMDBResults(
   results: any[],
   name: string,
-  mediaType: "tv" | "movie"
+  mediaType: "tv" | "movie",
 ): TMDBMatch[] {
   const filtered = results.filter(
-    (r: any) => r.media_type === "tv" || r.media_type === "movie"
+    (r: any) => r.media_type === "tv" || r.media_type === "movie",
   );
   filtered.sort((a: any, b: any) => {
     const aMatch = a.media_type === mediaType ? 0 : 1;
@@ -203,7 +203,7 @@ function mapTMDBResults(
 async function searchTMDB(
   apiKey: string,
   name: string,
-  mediaType: "tv" | "movie"
+  mediaType: "tv" | "movie",
 ): Promise<TMDBMatch[]> {
   try {
     const res = await axios.get(`${TMDB_BASE}/search/multi`, {
@@ -212,7 +212,10 @@ async function searchTMDB(
     return mapTMDBResults(res.data.results || [], name, mediaType);
   } catch (err: any) {
     if (err?.response?.status === 429) {
-      const retryAfter = parseInt(err.response.headers["retry-after"] || "10", 10);
+      const retryAfter = parseInt(
+        err.response.headers["retry-after"] || "10",
+        10,
+      );
       await delay(retryAfter * 1000);
       return searchTMDB(apiKey, name, mediaType);
     }
@@ -224,7 +227,7 @@ export async function searchTMDBPage(
   apiKey: string,
   name: string,
   mediaType: "tv" | "movie",
-  page: number
+  page: number,
 ): Promise<{ results: TMDBMatch[]; totalPages: number }> {
   try {
     const res = await axios.get(`${TMDB_BASE}/search/multi`, {
@@ -248,7 +251,7 @@ export async function matchShowsAndMovies(
   apiKey: string,
   shows: ParsedShow[],
   movies: ParsedMovie[],
-  onProgress: (done: number, total: number) => void
+  onProgress: (done: number, total: number) => void,
 ): Promise<MatchResult> {
   // Deduplicate shows by tvTimeId so two shows with the same name each get their own TMDB search
   const seenShowIds = new Set<number>();
@@ -274,14 +277,14 @@ export async function matchShowsAndMovies(
   for (let i = 0; i < items.length; i += BATCH_SIZE) {
     const batch = items.slice(i, i + BATCH_SIZE);
     const results = await Promise.all(
-      batch.map((item) => searchTMDB(apiKey, item.name, item.mediaType))
+      batch.map((item) => searchTMDB(apiKey, item.name, item.mediaType)),
     );
 
     for (let j = 0; j < batch.length; j++) {
       const candidates = results[j];
       const item = batch[j];
       const taggedCandidates = candidates.map((c) =>
-        item.tvTimeId !== undefined ? { ...c, tvTimeId: item.tvTimeId } : c
+        item.tvTimeId !== undefined ? { ...c, tvTimeId: item.tvTimeId } : c,
       );
       if (taggedCandidates.length === 0) {
         unmatched.push(item.name);
@@ -289,7 +292,7 @@ export async function matchShowsAndMovies(
         matched.push(taggedCandidates[0]);
       } else {
         const exactMatch = taggedCandidates.find(
-          (c) => c.tmdbName.toLowerCase() === item.name.toLowerCase()
+          (c) => c.tmdbName.toLowerCase() === item.name.toLowerCase(),
         );
         if (exactMatch) {
           matched.push(exactMatch);

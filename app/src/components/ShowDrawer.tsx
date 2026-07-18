@@ -42,7 +42,13 @@ interface Props {
   onClose: () => void;
 }
 
-export default function ShowDrawer({ visible, show, loading, onGoToShow, onClose }: Props) {
+export default function ShowDrawer({
+  visible,
+  show,
+  loading,
+  onGoToShow,
+  onClose,
+}: Props) {
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
   useEffect(() => {
@@ -99,21 +105,34 @@ export default function ShowDrawer({ visible, show, loading, onGoToShow, onClose
 
   const metaParts: string[] = [];
   if (show?.year) metaParts.push(show.year);
-  if (show?.totalSeasons) metaParts.push(`${show.totalSeasons} season${show.totalSeasons !== 1 ? "s" : ""}`);
+  if (show?.totalSeasons)
+    metaParts.push(
+      `${show.totalSeasons} season${show.totalSeasons !== 1 ? "s" : ""}`,
+    );
   if (show?.totalEpisodes) metaParts.push(`${show.totalEpisodes} episodes`);
   if (show?.runtime) metaParts.push(`${show.runtime} min`);
   const metaLine = metaParts.join(" \u00b7 ");
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={handleClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      onRequestClose={handleClose}
+    >
       <View style={styles.overlay}>
-        <TouchableOpacity style={styles.overlayTouch} activeOpacity={1} onPress={handleClose} />
-        <Animated.View
-          style={[styles.drawer, { transform: [{ translateY }] }]}
-        >
+        <TouchableOpacity
+          style={styles.overlayTouch}
+          activeOpacity={1}
+          onPress={handleClose}
+        />
+        <Animated.View style={[styles.drawer, { transform: [{ translateY }] }]}>
           {loading ? (
             <>
-              <View {...panResponder.panHandlers} style={styles.handleAreaStatic}>
+              <View
+                {...panResponder.panHandlers}
+                style={styles.handleAreaStatic}
+              >
                 <View style={styles.handle} />
               </View>
               <ActivityIndicator
@@ -124,14 +143,23 @@ export default function ShowDrawer({ visible, show, loading, onGoToShow, onClose
             </>
           ) : show ? (
             <>
-              <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+              <ScrollView
+                style={styles.scroll}
+                showsVerticalScrollIndicator={false}
+              >
                 <View>
                   <Image
-                    source={{ uri: `${posterSize.large}${show.backdropPath || show.posterPath}` }}
+                    source={{
+                      uri: `${posterSize.large}${show.backdropPath || show.posterPath}`,
+                    }}
                     style={styles.backdrop}
                     contentFit="cover"
                   />
-                  <View {...panResponder.panHandlers} style={styles.handleArea} pointerEvents="box-only">
+                  <View
+                    {...panResponder.panHandlers}
+                    style={styles.handleArea}
+                    pointerEvents="box-only"
+                  >
                     <View style={styles.handle} />
                   </View>
                 </View>
@@ -139,21 +167,29 @@ export default function ShowDrawer({ visible, show, loading, onGoToShow, onClose
                   <View style={styles.titleRow}>
                     <Text style={styles.title}>{show.title}</Text>
                     {show.mediaType && (
-                      <View style={[
-                        styles.typeBadge,
-                        show.mediaType === "movie" && styles.typeBadgeMovie,
-                      ]}>
+                      <View
+                        style={[
+                          styles.typeBadge,
+                          show.mediaType === "movie" && styles.typeBadgeMovie,
+                        ]}
+                      >
                         <Text style={styles.typeBadgeText}>
                           {show.mediaType === "movie" ? "MOVIE" : "TV"}
                         </Text>
                       </View>
                     )}
                   </View>
-                  {metaLine ? <Text style={styles.meta}>{metaLine}</Text> : null}
+                  {metaLine ? (
+                    <Text style={styles.meta}>{metaLine}</Text>
+                  ) : null}
                   {show.genres ? (
                     <Text style={styles.meta}>{show.genres}</Text>
                   ) : (
-                    <SkeletonLine width="45%" height={11} style={{ marginTop: spacing.xs }} />
+                    <SkeletonLine
+                      width="45%"
+                      height={11}
+                      style={{ marginTop: spacing.xs }}
+                    />
                   )}
                   {show.overview ? (
                     <Text style={styles.overview}>{show.overview}</Text>
@@ -161,13 +197,19 @@ export default function ShowDrawer({ visible, show, loading, onGoToShow, onClose
                 </View>
               </ScrollView>
               {onGoToShow && (
-                <TouchableOpacity style={styles.goToShowButton} onPress={onGoToShow}>
+                <TouchableOpacity
+                  style={styles.goToShowButton}
+                  onPress={onGoToShow}
+                >
                   <Text style={styles.goToShowText}>
                     {show.mediaType === "movie" ? "Go to Movie" : "Go to Show"}
                   </Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={handleClose}
+              >
                 <Text style={styles.closeText}>Close</Text>
               </TouchableOpacity>
             </>

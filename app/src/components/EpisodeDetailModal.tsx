@@ -13,7 +13,20 @@ import { Image } from "expo-image";
 import AnimatedModal from "./AnimatedModal";
 import { colors, spacing, typography, TMDB_IMAGE_BASE } from "../theme";
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 function formatDate(dateStr: string): string {
   const [y, m, d] = dateStr.split("-");
   return `${Number.parseInt(d, 10)} ${MONTHS[Number.parseInt(m, 10) - 1]} ${y}`;
@@ -38,7 +51,13 @@ function useShimmer() {
   });
 }
 
-function Skeleton({ style, shimmer }: { style: any; shimmer: Animated.AnimatedInterpolation<number> }) {
+function Skeleton({
+  style,
+  shimmer,
+}: {
+  style: any;
+  shimmer: Animated.AnimatedInterpolation<number>;
+}) {
   return <Animated.View style={[style, { opacity: shimmer }]} />;
 }
 
@@ -98,7 +117,11 @@ export default function EpisodeDetailModal({
         )}
         <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
           {/* Show name pill */}
-          <TouchableOpacity style={styles.titlePill} onPress={onShowPress} disabled={!onShowPress}>
+          <TouchableOpacity
+            style={styles.titlePill}
+            onPress={onShowPress}
+            disabled={!onShowPress}
+          >
             <Text style={styles.titlePillText} numberOfLines={1}>
               {showTitle.toUpperCase()}
             </Text>
@@ -113,10 +136,13 @@ export default function EpisodeDetailModal({
 
           {/* Meta */}
           <View style={styles.metaRow}>
-            {airDate ? <Text style={styles.meta}>{formatDate(airDate)}</Text> : null}
+            {airDate ? (
+              <Text style={styles.meta}>{formatDate(airDate)}</Text>
+            ) : null}
             {runtime ? (
               <Text style={styles.meta}>
-                {airDate ? " · " : ""}{runtime} min
+                {airDate ? " · " : ""}
+                {runtime} min
               </Text>
             ) : null}
           </View>
@@ -125,7 +151,10 @@ export default function EpisodeDetailModal({
           {loadingDetails ? (
             <View style={styles.overviewSkeletonWrap}>
               <Skeleton style={styles.overviewSkeletonLine} shimmer={shimmer} />
-              <Skeleton style={styles.overviewSkeletonLineShort} shimmer={shimmer} />
+              <Skeleton
+                style={styles.overviewSkeletonLineShort}
+                shimmer={shimmer}
+              />
               <Skeleton style={styles.overviewSkeletonLine} shimmer={shimmer} />
             </View>
           ) : overview ? (

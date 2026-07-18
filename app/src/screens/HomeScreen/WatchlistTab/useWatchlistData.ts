@@ -8,7 +8,12 @@ import {
   isShowVisible,
   sortByPriority,
 } from "../../../hooks";
-import { markEpisodeWatched, markMovieWatched, stopWatching, getCatalogShow } from "../../../services";
+import {
+  markEpisodeWatched,
+  markMovieWatched,
+  stopWatching,
+  getCatalogShow,
+} from "../../../services";
 import { MediaType } from "../../../types";
 import { ListItem } from "./types";
 
@@ -37,18 +42,29 @@ export function useWatchlistData(userId: string | undefined) {
   } = useWatchedEpisodes(userId);
 
   const queryClient = useQueryClient();
-  const [updatingShows, setUpdatingShows] = useState<Map<number, string>>(new Map());
-  const [cachedActive, setCachedActive] = useState<EnrichedTrackingItem[] | null>(null);
+  const [updatingShows, setUpdatingShows] = useState<Map<number, string>>(
+    new Map(),
+  );
+  const [cachedActive, setCachedActive] = useState<
+    EnrichedTrackingItem[] | null
+  >(null);
   const cacheRestored = useRef(false);
 
   // Restore cached active items on mount (invalidate if not from today)
   useEffect(() => {
     if (!userId || cacheRestored.current) return;
     AsyncStorage.getItem(ACTIVE_CACHE_KEY).then((raw) => {
-      if (!raw) { cacheRestored.current = true; return; }
+      if (!raw) {
+        cacheRestored.current = true;
+        return;
+      }
       try {
         const cached = JSON.parse(raw);
-        if (cached.userId === userId && cached.date === todayStr() && cached.items?.length > 0) {
+        if (
+          cached.userId === userId &&
+          cached.date === todayStr() &&
+          cached.items?.length > 0
+        ) {
           setCachedActive(cached.items);
         }
       } catch {}
@@ -88,12 +104,17 @@ export function useWatchlistData(userId: string | undefined) {
   // Write cache when sortedActive updates from Firestore
   useEffect(() => {
     if (!userId || loading || sortedActive.length === 0) return;
-    const toCache = sortedActive.slice(0, ACTIVE_CACHE_LIMIT).map(({ catalogShow, ...rest }) => rest);
-    AsyncStorage.setItem(ACTIVE_CACHE_KEY, JSON.stringify({
-      userId,
-      date: todayStr(),
-      items: toCache,
-    })).catch(() => {});
+    const toCache = sortedActive
+      .slice(0, ACTIVE_CACHE_LIMIT)
+      .map(({ catalogShow, ...rest }) => rest);
+    AsyncStorage.setItem(
+      ACTIVE_CACHE_KEY,
+      JSON.stringify({
+        userId,
+        date: todayStr(),
+        items: toCache,
+      }),
+    ).catch(() => {});
     // Clear cached fallback once real data is in
     if (cachedActive) setCachedActive(null);
   }, [userId, loading, sortedActive]);
@@ -113,7 +134,14 @@ export function useWatchlistData(userId: string | undefined) {
     ) {
       loadMoreTracking();
     }
-  }, [loading, hasMoreTracking, loadingMoreTracking, sortedActive.length, items.length, loadMoreTracking]);
+  }, [
+    loading,
+    hasMoreTracking,
+    loadingMoreTracking,
+    sortedActive.length,
+    items.length,
+    loadMoreTracking,
+  ]);
 
   const watchedItemCount = useMemo(() => {
     return sortedWatchedEps.filter((ep) => showMap.has(ep.tmdbShowId)).length;
@@ -149,7 +177,9 @@ export function useWatchlistData(userId: string | undefined) {
       if (!userId) return;
 
       if (item.mediaType === MediaType.MOVIE) {
-        setUpdatingShows((prev) => new Map(prev).set(item.tmdbId, MediaType.MOVIE));
+        setUpdatingShows((prev) =>
+          new Map(prev).set(item.tmdbId, MediaType.MOVIE),
+        );
         const catalog = item.catalogShow ?? (await getCatalogShow(item.tmdbId));
         await markMovieWatched(userId, item.tmdbId, catalog?.runtime ?? 0);
         queryClient.invalidateQueries({ queryKey: ["watchedMovies", userId] });

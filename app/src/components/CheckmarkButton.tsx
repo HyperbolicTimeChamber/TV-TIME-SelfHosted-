@@ -1,4 +1,9 @@
-import { TouchableOpacity, Text, ActivityIndicator, StyleSheet } from "react-native";
+import {
+  TouchableOpacity,
+  Text,
+  ActivityIndicator,
+  StyleSheet,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../theme";
 
@@ -34,7 +39,12 @@ export default function CheckmarkButton({
     <TouchableOpacity
       style={[
         styles.base,
-        { width: size, height: size, borderRadius: size / 2, backgroundColor: bg },
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: bg,
+        },
         loading && { opacity: 0.5 },
       ]}
       onPress={onPress}
@@ -45,7 +55,11 @@ export default function CheckmarkButton({
       {loading ? (
         <ActivityIndicator size={iconSize} color={iconColor} />
       ) : label ? (
-        <Text style={[styles.label, { fontSize: size * 0.38, color: textColor }]}>{label}</Text>
+        <Text
+          style={[styles.label, { fontSize: size * 0.38, color: textColor }]}
+        >
+          {label}
+        </Text>
       ) : (
         <Ionicons name="checkmark" size={iconSize} color={iconColor} />
       )}

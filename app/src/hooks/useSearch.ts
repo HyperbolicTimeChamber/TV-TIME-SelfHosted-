@@ -3,12 +3,16 @@ import { searchMulti } from "../services";
 import { useAuthStore } from "../stores";
 import { TMDBShow } from "../types";
 
-export function useSearch(query: string, mediaType: "all" | "tv" | "movie" = "all") {
+export function useSearch(
+  query: string,
+  mediaType: "all" | "tv" | "movie" = "all",
+) {
   const apiKey = useAuthStore((s) => s.appTmdbApiKey)!;
 
   return useInfiniteQuery({
     queryKey: ["search", query, mediaType],
-    queryFn: ({ pageParam = 1 }) => searchMulti(apiKey, query, pageParam, mediaType),
+    queryFn: ({ pageParam = 1 }) =>
+      searchMulti(apiKey, query, pageParam, mediaType),
     getNextPageParam: (lastPage) =>
       lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
     initialPageParam: 1,

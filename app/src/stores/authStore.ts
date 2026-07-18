@@ -8,11 +8,7 @@ import {
   signOut as firebaseSignOut,
 } from "@react-native-firebase/auth";
 import type { User } from "@react-native-firebase/auth";
-import {
-  getFirestore,
-  doc,
-  getDoc,
-} from "@react-native-firebase/firestore";
+import { getFirestore, doc, getDoc } from "@react-native-firebase/firestore";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 
 interface AuthState {
@@ -95,7 +91,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   signInWithGoogle: async () => {
     try {
       console.log("Step 1: checking play services");
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      await GoogleSignin.hasPlayServices({
+        showPlayServicesUpdateDialog: true,
+      });
       console.log("Step 2: calling GoogleSignin.signIn()");
       const signInResult = await GoogleSignin.signIn();
       console.log("Step 3: got result", JSON.stringify(signInResult));
@@ -137,7 +135,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const auth = getAuth();
       const currentUser = auth.currentUser;
       const isGoogleUser = currentUser?.providerData.some(
-        (p) => p.providerId === "google.com"
+        (p) => p.providerId === "google.com",
       );
       if (isGoogleUser) {
         await GoogleSignin.revokeAccess().catch(() => {});

@@ -1,4 +1,9 @@
-import React, { useCallback, useRef, forwardRef, useImperativeHandle } from "react";
+import React, {
+  useCallback,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import {
   View,
   Text,
@@ -9,10 +14,7 @@ import {
   Platform,
   UIManager,
 } from "react-native";
-import {
-  Gesture,
-  GestureDetector,
-} from "react-native-gesture-handler";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -48,12 +50,20 @@ interface Props {
 }
 
 export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
-  { children, onSwipeLeft, onSwipeRight, height = 100, persistAfterSwipe = false },
-  ref
+  {
+    children,
+    onSwipeLeft,
+    onSwipeRight,
+    height = 100,
+    persistAfterSwipe = false,
+  },
+  ref,
 ) {
   const translateX = useSharedValue(0);
   const [swipeState, setSwipeState] = React.useState<SwipeState>("idle");
-  const [actionColor, setActionColor] = React.useState<string>(colors.watchedGreen);
+  const [actionColor, setActionColor] = React.useState<string>(
+    colors.watchedGreen,
+  );
   const isProcessing = useRef(false);
 
   const handleSwipeComplete = useCallback(
@@ -79,7 +89,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
         } else {
           setSwipeState("done");
           LayoutAnimation.configureNext(
-            LayoutAnimation.create(300, "easeInEaseOut", "opacity")
+            LayoutAnimation.create(300, "easeInEaseOut", "opacity"),
           );
         }
       } catch {
@@ -88,17 +98,21 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
         isProcessing.current = false;
       }
     },
-    [onSwipeLeft, onSwipeRight, translateX]
+    [onSwipeLeft, onSwipeRight, translateX],
   );
 
-  useImperativeHandle(ref, () => ({
-    triggerSwipeLeft: () => {
-      if (swipeState !== "idle" || isProcessing.current) return;
-      translateX.value = withTiming(SCREEN_WIDTH, { duration: 300 }, () => {
-        runOnJS(handleSwipeComplete)("left");
-      });
-    },
-  }), [swipeState, handleSwipeComplete, translateX]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      triggerSwipeLeft: () => {
+        if (swipeState !== "idle" || isProcessing.current) return;
+        translateX.value = withTiming(SCREEN_WIDTH, { duration: 300 }, () => {
+          runOnJS(handleSwipeComplete)("left");
+        });
+      },
+    }),
+    [swipeState, handleSwipeComplete, translateX],
+  );
 
   const panGesture = Gesture.Pan()
     .activeOffsetX([-10, 10])
@@ -131,7 +145,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
       translateX.value,
       [0, SWIPE_THRESHOLD],
       [0, 1],
-      Extrapolation.CLAMP
+      Extrapolation.CLAMP,
     ),
   }));
 
@@ -140,7 +154,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
       translateX.value,
       [-SWIPE_THRESHOLD, 0],
       [1, 0],
-      Extrapolation.CLAMP
+      Extrapolation.CLAMP,
     ),
   }));
 
@@ -150,7 +164,9 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 
   if (swipeState === "loading") {
     return (
-      <View style={[styles.revealCard, { height, backgroundColor: actionColor }]}>
+      <View
+        style={[styles.revealCard, { height, backgroundColor: actionColor }]}
+      >
         <ActivityIndicator color={colors.text} />
         <Text style={styles.revealText}>
           {actionColor === colors.watchedGreen ? "Watched" : "Stop Watching"}

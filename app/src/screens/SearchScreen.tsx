@@ -14,13 +14,25 @@ import { LegendList } from "@legendapp/list/react-native";
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useSearch, useTrending, useTrackedIds, useUpcomingMutations } from "../hooks";
+import {
+  useSearch,
+  useTrending,
+  useTrackedIds,
+  useUpcomingMutations,
+} from "../hooks";
 import { useAuthStore } from "../stores";
-import { addToTracking, removeFromTracking, markMovieWatched } from "../services";
+import {
+  addToTracking,
+  removeFromTracking,
+  markMovieWatched,
+} from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { TMDBShow, SearchStackParamList, MediaType, Route } from "../types";
 
-type NavProp = NativeStackNavigationProp<SearchStackParamList, Route.SEARCH_MAIN>;
+type NavProp = NativeStackNavigationProp<
+  SearchStackParamList,
+  Route.SEARCH_MAIN
+>;
 
 export default function SearchScreen() {
   const [query, setQuery] = useState("");
@@ -71,7 +83,7 @@ export default function SearchScreen() {
         });
       }
     },
-    []
+    [],
   );
 
   const handleAddToWatchlist = useCallback(
@@ -90,7 +102,7 @@ export default function SearchScreen() {
         addShowToUpcoming(item.id);
       });
     },
-    [user?.uid, withLoadingId, addShowToUpcoming]
+    [user?.uid, withLoadingId, addShowToUpcoming],
   );
 
   const handleRemoveFromWatchlist = useCallback(
@@ -99,7 +111,7 @@ export default function SearchScreen() {
       setRemoveError(null);
       setRemoveModal(item);
     },
-    [user?.uid]
+    [user?.uid],
   );
 
   const handleConfirmRemove = useCallback(async () => {
@@ -123,7 +135,7 @@ export default function SearchScreen() {
     const item = movieModal;
     setMovieModal(null);
     await withLoadingId(item.id, () =>
-      addToTracking(user.uid!, item.id, MediaType.MOVIE)
+      addToTracking(user.uid!, item.id, MediaType.MOVIE),
     );
   }, [user?.uid, movieModal, withLoadingId]);
 
@@ -152,7 +164,8 @@ export default function SearchScreen() {
     return mt === mediaFilter;
   });
 
-  const displayData = debouncedQuery.length > 0 ? searchData?.results : filteredTrending;
+  const displayData =
+    debouncedQuery.length > 0 ? searchData?.results : filteredTrending;
   const isLoading = debouncedQuery.length > 0 ? searchLoading : trendingLoading;
 
   const handlePress = useCallback(
@@ -164,7 +177,7 @@ export default function SearchScreen() {
         mediaType,
       });
     },
-    [navigation]
+    [navigation],
   );
 
   const renderItem = useCallback(
@@ -172,7 +185,7 @@ export default function SearchScreen() {
       const title = item.name || item.title || "";
       const year = (item.first_air_date || item.release_date || "").substring(
         0,
-        4
+        4,
       );
       const mediaType: MediaType =
         item.media_type || (item.title ? MediaType.MOVIE : MediaType.TV);
@@ -242,7 +255,13 @@ export default function SearchScreen() {
         </TouchableOpacity>
       );
     },
-    [handlePress, watchlistIds, handleAddToWatchlist, handleRemoveFromWatchlist, addingIds]
+    [
+      handlePress,
+      watchlistIds,
+      handleAddToWatchlist,
+      handleRemoveFromWatchlist,
+      addingIds,
+    ],
   );
 
   return (
@@ -277,19 +296,25 @@ export default function SearchScreen() {
         {(["all", "tv", "movie"] as const).map((type) => (
           <TouchableOpacity
             key={type}
-            style={[styles.filterTab, mediaFilter === type && styles.filterTabActive]}
+            style={[
+              styles.filterTab,
+              mediaFilter === type && styles.filterTabActive,
+            ]}
             onPress={() => setMediaFilter(type)}
           >
-            <Text style={[styles.filterTabText, mediaFilter === type && styles.filterTabTextActive]}>
+            <Text
+              style={[
+                styles.filterTabText,
+                mediaFilter === type && styles.filterTabTextActive,
+              ]}
+            >
               {type === "all" ? "All" : type === "tv" ? "TV" : "Movies"}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {!query && (
-        <Text style={styles.sectionTitle}>Trending</Text>
-      )}
+      {!query && <Text style={styles.sectionTitle}>Trending</Text>}
 
       {isLoading ? (
         <View style={styles.center}>
@@ -313,10 +338,7 @@ export default function SearchScreen() {
         />
       )}
 
-      <AnimatedModal
-        visible={!!movieModal}
-        onClose={() => setMovieModal(null)}
-      >
+      <AnimatedModal visible={!!movieModal} onClose={() => setMovieModal(null)}>
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>
             {movieModal?.title || movieModal?.name}

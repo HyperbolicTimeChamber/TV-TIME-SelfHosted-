@@ -40,7 +40,7 @@ function episodeDocId(tmdbShowId: number, season: number, episode: number) {
 // --- Catalog (shared show data) ---
 
 export async function getCatalogShow(
-  tmdbId: number
+  tmdbId: number,
 ): Promise<CatalogShow | null> {
   const showDoc = await getDoc(doc(db, "shows", String(tmdbId)));
   if (!showDoc.exists()) return null;
@@ -53,8 +53,10 @@ function getCallableErrorMessage(err: any): string {
   const code = err?.code;
   const msg = err?.message;
   if (code === "functions/not-found") return "Show not found on TMDB.";
-  if (code === "functions/failed-precondition") return msg || "Service misconfigured.";
-  if (code === "functions/unavailable") return "Could not reach TMDB. Try again later.";
+  if (code === "functions/failed-precondition")
+    return msg || "Service misconfigured.";
+  if (code === "functions/unavailable")
+    return "Could not reach TMDB. Try again later.";
   if (code === "functions/unauthenticated") return "You must be signed in.";
   if (code === "functions/invalid-argument") return msg || "Invalid request.";
   return msg || "Something went wrong. Try again.";
@@ -67,7 +69,7 @@ export { getCallableErrorMessage };
 export async function addToTracking(
   userId: string,
   tmdbId: number,
-  mediaType: MediaType
+  mediaType: MediaType,
 ): Promise<void> {
   const functions = getFunctions();
   const now = serverTimestamp();
@@ -94,21 +96,28 @@ export async function addToTracking(
   });
 
   // Update user stats
-  await setDoc(userRef(userId), {
-    stats: { showsTracking: increment(1) },
-  }, { merge: true });
-
+  await setDoc(
+    userRef(userId),
+    {
+      stats: { showsTracking: increment(1) },
+    },
+    { merge: true },
+  );
 }
 
 export async function removeFromTracking(
   userId: string,
-  tmdbId: number
+  tmdbId: number,
 ): Promise<void> {
   const functions = getFunctions();
   await httpsCallable(functions, "removeShow")({ tmdbId });
 }
 
-export async function stopWatching(userId: string, tmdbId: number, currentStatus: WatchStatus) {
+export async function stopWatching(
+  userId: string,
+  tmdbId: number,
+  currentStatus: WatchStatus,
+) {
   let newStatus: WatchStatus;
   if (currentStatus === WatchStatus.REWATCHING) {
     newStatus = WatchStatus.PAUSED_REWATCH;
@@ -158,12 +167,16 @@ export async function markEpisodeWatched(
     });
   }
 
-  batch.set(userRef(userId), {
-    stats: {
-      episodesWatched: increment(1),
-      totalMinutes: increment(runtime),
+  batch.set(
+    userRef(userId),
+    {
+      stats: {
+        episodesWatched: increment(1),
+        totalMinutes: increment(runtime),
+      },
     },
-  }, { merge: true });
+    { merge: true },
+  );
 
   if (!skipTrackingUpdate) {
     const now = Timestamp.now();
@@ -187,19 +200,23 @@ export async function unmarkEpisodeWatched(
   tmdbShowId: number,
   season: number,
   episode: number,
-  runtime: number
+  runtime: number,
 ) {
   const docId = episodeDocId(tmdbShowId, season, episode);
   const epRef = doc(watchedEpisodesRef(userId), docId);
 
   const batch = writeBatch(db);
   batch.delete(epRef);
-  batch.set(userRef(userId), {
-    stats: {
-      episodesWatched: increment(-1),
-      totalMinutes: increment(-runtime),
+  batch.set(
+    userRef(userId),
+    {
+      stats: {
+        episodesWatched: increment(-1),
+        totalMinutes: increment(-runtime),
+      },
     },
-  }, { merge: true });
+    { merge: true },
+  );
   await batch.commit();
 }
 
@@ -209,7 +226,7 @@ export async function decrementEpisodeWatchCount(
   season: number,
   episode: number,
   runtime: number,
-  currentWatchCount: number
+  currentWatchCount: number,
 ) {
   const docId = episodeDocId(tmdbShowId, season, episode);
   const epRef = doc(watchedEpisodesRef(userId), docId);
@@ -223,19 +240,23 @@ export async function decrementEpisodeWatchCount(
     });
   }
 
-  batch.set(userRef(userId), {
-    stats: {
-      episodesWatched: increment(-1),
-      totalMinutes: increment(-runtime),
+  batch.set(
+    userRef(userId),
+    {
+      stats: {
+        episodesWatched: increment(-1),
+        totalMinutes: increment(-runtime),
+      },
     },
-  }, { merge: true });
+    { merge: true },
+  );
   await batch.commit();
 }
 
 export async function unmarkSeasonWatched(
   userId: string,
   tmdbShowId: number,
-  episodes: Array<{ season: number; episode: number; runtime: number }>
+  episodes: Array<{ season: number; episode: number; runtime: number }>,
 ) {
   const batch = writeBatch(db);
   let totalRuntime = 0;
@@ -246,12 +267,16 @@ export async function unmarkSeasonWatched(
     totalRuntime += ep.runtime;
   }
 
-  batch.set(userRef(userId), {
-    stats: {
-      episodesWatched: increment(-episodes.length),
-      totalMinutes: increment(-totalRuntime),
+  batch.set(
+    userRef(userId),
+    {
+      stats: {
+        episodesWatched: increment(-episodes.length),
+        totalMinutes: increment(-totalRuntime),
+      },
     },
-  }, { merge: true });
+    { merge: true },
+  );
 
   await batch.commit();
 }
@@ -259,7 +284,12 @@ export async function unmarkSeasonWatched(
 export async function decrementSeasonWatchCount(
   userId: string,
   tmdbShowId: number,
-  episodes: Array<{ season: number; episode: number; runtime: number; watchCount: number }>
+  episodes: Array<{
+    season: number;
+    episode: number;
+    runtime: number;
+    watchCount: number;
+  }>,
 ) {
   const batch = writeBatch(db);
   let totalRuntime = 0;
@@ -280,12 +310,16 @@ export async function decrementSeasonWatchCount(
   }
 
   if (count > 0) {
-    batch.set(userRef(userId), {
-      stats: {
-        episodesWatched: increment(-count),
-        totalMinutes: increment(-totalRuntime),
+    batch.set(
+      userRef(userId),
+      {
+        stats: {
+          episodesWatched: increment(-count),
+          totalMinutes: increment(-totalRuntime),
+        },
       },
-    }, { merge: true });
+      { merge: true },
+    );
   }
 
   await batch.commit();
@@ -316,7 +350,7 @@ export async function resumeRewatch(userId: string, tmdbId: number) {
 export async function markMovieWatched(
   userId: string,
   tmdbId: number,
-  runtime: number
+  runtime: number,
 ): Promise<void> {
   const batch = writeBatch(db);
   const movieRef = doc(watchedMoviesRef(userId), String(tmdbId));
@@ -346,12 +380,16 @@ export async function markMovieWatched(
     priorityDate: now,
   });
 
-  batch.set(userRef(userId), {
-    stats: {
-      moviesWatched: increment(1),
-      totalMinutes: increment(Math.round(runtime / 60)),
+  batch.set(
+    userRef(userId),
+    {
+      stats: {
+        moviesWatched: increment(1),
+        totalMinutes: increment(Math.round(runtime / 60)),
+      },
     },
-  }, { merge: true });
+    { merge: true },
+  );
 
   await batch.commit();
 }
@@ -368,7 +406,10 @@ export async function markSeasonWatchedCF(
 ): Promise<void> {
   const functions = getFunctions();
   try {
-    await httpsCallable(functions, "markSeasonWatched")({
+    await httpsCallable(
+      functions,
+      "markSeasonWatched",
+    )({
       tmdbId,
       seasonNumber,
       episodes,
@@ -387,4 +428,11 @@ export const addToWatchlist = addToTracking as any;
 /** @deprecated Use removeFromTracking */
 export const removeFromWatchlist = removeFromTracking as any;
 
-export { db, trackingRef, trackingRef as watchlistRef, watchedEpisodesRef, watchedMoviesRef, userRef };
+export {
+  db,
+  trackingRef,
+  trackingRef as watchlistRef,
+  watchedEpisodesRef,
+  watchedMoviesRef,
+  userRef,
+};

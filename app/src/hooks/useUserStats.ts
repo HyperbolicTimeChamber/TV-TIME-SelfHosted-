@@ -54,14 +54,17 @@ export function useUserStats(userId: string | undefined) {
           const data = snap.data();
           const fresh = data?.stats ?? defaultStats;
           setStats(fresh);
-          AsyncStorage.setItem(CACHE_KEY, JSON.stringify({ userId, stats: fresh })).catch(() => {});
+          AsyncStorage.setItem(
+            CACHE_KEY,
+            JSON.stringify({ userId, stats: fresh }),
+          ).catch(() => {});
         }
         setLoading(false);
       },
       (error) => {
         console.error("UserStats listener error:", error);
         setLoading(false);
-      }
+      },
     );
 
     return unsubscribe;

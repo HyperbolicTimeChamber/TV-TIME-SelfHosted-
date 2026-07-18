@@ -3,7 +3,9 @@ const listeners = new Set<Listener>();
 
 export function onShowRemoved(listener: Listener) {
   listeners.add(listener);
-  return () => { listeners.delete(listener); };
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 export function emitShowRemoved(tmdbId: number) {

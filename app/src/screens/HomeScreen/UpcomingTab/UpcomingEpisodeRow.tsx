@@ -11,13 +11,20 @@ interface Props {
   onEpisodePress?: (episode: UpcomingEpisode) => void;
 }
 
-export default memo(function UpcomingEpisodeRow({ episode, onPress, onTitlePress, onEpisodePress }: Props) {
+export default memo(function UpcomingEpisodeRow({
+  episode,
+  onPress,
+  onTitlePress,
+  onEpisodePress,
+}: Props) {
   const label = `S${String(episode.season).padStart(2, "0")} | E${String(episode.episode).padStart(2, "0")}`;
 
   return (
     <TouchableOpacity
       style={styles.row}
-      onPress={() => onEpisodePress ? onEpisodePress(episode) : onPress(episode.tmdbShowId)}
+      onPress={() =>
+        onEpisodePress ? onEpisodePress(episode) : onPress(episode.tmdbShowId)
+      }
       activeOpacity={0.7}
     >
       {episode.posterPath ? (
@@ -34,7 +41,9 @@ export default memo(function UpcomingEpisodeRow({ episode, onPress, onTitlePress
       <View style={styles.info}>
         <TouchableOpacity
           style={styles.titleButton}
-          onPress={() => onTitlePress ? onTitlePress(episode) : onPress(episode.tmdbShowId)}
+          onPress={() =>
+            onTitlePress ? onTitlePress(episode) : onPress(episode.tmdbShowId)
+          }
           activeOpacity={0.7}
         >
           <Text style={styles.titleText} numberOfLines={1}>

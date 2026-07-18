@@ -17,7 +17,11 @@ import { EnrichedTrackingItem } from "./useWatchlist";
  * - nextEpisode hasn't aired yet (caught up, waiting for new ep)
  */
 export function isShowVisible(item: EnrichedTrackingItem): boolean {
-  const activeStatuses: WatchStatus[] = [WatchStatus.WATCHING, WatchStatus.REWATCHING, WatchStatus.PLAN_TO_WATCH];
+  const activeStatuses: WatchStatus[] = [
+    WatchStatus.WATCHING,
+    WatchStatus.REWATCHING,
+    WatchStatus.PLAN_TO_WATCH,
+  ];
   if (!activeStatuses.includes(item.status)) return false;
 
   // plan_to_watch — always visible
@@ -40,7 +44,9 @@ export function isShowVisible(item: EnrichedTrackingItem): boolean {
     return false;
   }
 
-  const episode = season.episodes?.find((e) => e.episodeNumber === nextEp.episode);
+  const episode = season.episodes?.find(
+    (e) => e.episodeNumber === nextEp.episode,
+  );
   if (!episode) {
     // Episode not in catalog — might not exist yet
     return false;
@@ -55,7 +61,7 @@ export function isShowVisible(item: EnrichedTrackingItem): boolean {
  * Sort by priorityDate descending.
  */
 export function sortByPriority(
-  items: EnrichedTrackingItem[]
+  items: EnrichedTrackingItem[],
 ): EnrichedTrackingItem[] {
   return [...items].sort((a, b) => {
     const aDate = a.priorityDate?.toMillis?.() ?? 0;

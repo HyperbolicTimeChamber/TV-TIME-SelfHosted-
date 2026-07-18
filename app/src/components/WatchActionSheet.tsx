@@ -64,15 +64,27 @@ export default function WatchActionSheet({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={dismiss}>
-      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={dismiss}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      onRequestClose={dismiss}
+    >
+      <TouchableOpacity
+        style={styles.overlay}
+        activeOpacity={1}
+        onPress={dismiss}
+      >
         <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
           <TouchableOpacity activeOpacity={1}>
             <View style={styles.handle} />
             <Text style={styles.title}>{label}</Text>
             <Text style={styles.subtitle}>Watched {watchCount}x</Text>
 
-            <TouchableOpacity style={styles.option} onPress={() => handleSelect("rewatch")}>
+            <TouchableOpacity
+              style={styles.option}
+              onPress={() => handleSelect("rewatch")}
+            >
               <Text style={styles.optionIcon}>🔄</Text>
               <View style={styles.optionContent}>
                 <Text style={styles.optionText}>Rewatch</Text>
@@ -81,7 +93,10 @@ export default function WatchActionSheet({
             </TouchableOpacity>
 
             {watchCount > 1 && (
-              <TouchableOpacity style={styles.option} onPress={() => handleSelect("watched_once_less")}>
+              <TouchableOpacity
+                style={styles.option}
+                onPress={() => handleSelect("watched_once_less")}
+              >
                 <Text style={styles.optionIcon}>−1</Text>
                 <View style={styles.optionContent}>
                   <Text style={styles.optionText}>Watched Once Less</Text>
@@ -98,7 +113,9 @@ export default function WatchActionSheet({
             >
               <Text style={styles.optionIcon}>✕</Text>
               <View style={styles.optionContent}>
-                <Text style={[styles.optionText, styles.destructiveText]}>Not Watched</Text>
+                <Text style={[styles.optionText, styles.destructiveText]}>
+                  Not Watched
+                </Text>
                 <Text style={styles.optionHint}>Remove all watch history</Text>
               </View>
             </TouchableOpacity>

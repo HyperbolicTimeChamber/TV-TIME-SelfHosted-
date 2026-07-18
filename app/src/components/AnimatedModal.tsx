@@ -74,14 +74,9 @@ export default function AnimatedModal({
         onPress={handleClose}
       >
         <Animated.View
-          style={[
-            styles.content,
-            { opacity, transform: [{ scale }] },
-          ]}
+          style={[styles.content, { opacity, transform: [{ scale }] }]}
         >
-          <TouchableOpacity activeOpacity={1}>
-            {children}
-          </TouchableOpacity>
+          <TouchableOpacity activeOpacity={1}>{children}</TouchableOpacity>
         </Animated.View>
       </TouchableOpacity>
     </Modal>

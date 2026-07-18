@@ -40,12 +40,18 @@ export default memo(function EpisodeCard({
         />
         <View style={styles.info}>
           <View style={[styles.titleButton, styles.titleButtonWatched]}>
-            <Text style={[styles.titleText, styles.watchedText]} numberOfLines={1}>
+            <Text
+              style={[styles.titleText, styles.watchedText]}
+              numberOfLines={1}
+            >
               {episode.showTitle.toUpperCase()}
             </Text>
           </View>
           <Text style={[styles.episodeLabel, styles.watchedText]}>{label}</Text>
-          <Text style={[styles.episodeTitle, styles.watchedText]} numberOfLines={1}>
+          <Text
+            style={[styles.episodeTitle, styles.watchedText]}
+            numberOfLines={1}
+          >
             {episode.episodeTitle}
           </Text>
         </View>
@@ -55,7 +61,12 @@ export default memo(function EpisodeCard({
   }
 
   return (
-    <SwipeableCard ref={swipeRef} onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} persistAfterSwipe>
+    <SwipeableCard
+      ref={swipeRef}
+      onSwipeLeft={onSwipeLeft}
+      onSwipeRight={onSwipeRight}
+      persistAfterSwipe
+    >
       <TouchableOpacity
         style={styles.container}
         onPress={onPress}
@@ -85,7 +96,7 @@ export default memo(function EpisodeCard({
       </TouchableOpacity>
     </SwipeableCard>
   );
-})
+});
 
 const styles = StyleSheet.create({
   container: {

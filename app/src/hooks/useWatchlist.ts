@@ -28,7 +28,7 @@ export interface EnrichedTrackingItem extends TrackingItem {
 
 async function enrichItems(
   trackingItems: TrackingItem[],
-  cache: Map<string, CatalogShow | null>
+  cache: Map<string, CatalogShow | null>,
 ): Promise<EnrichedTrackingItem[]> {
   const db = getFirestore();
   return Promise.all(
@@ -55,7 +55,7 @@ async function enrichItems(
         totalEpisodes: catalogShow?.totalEpisodes ?? 0,
         catalogShow: catalogShow ?? null,
       };
-    })
+    }),
   );
 }
 
@@ -113,7 +113,8 @@ export function useWatchlist(userId: string | undefined) {
         const enriched = await enrichItems(trackingItems, catalogCache.current);
 
         // Set pagination cursor from first page only if no pagination has happened yet
-        firstPageLastDoc.current = snapshot.docs[snapshot.docs.length - 1] || null;
+        firstPageLastDoc.current =
+          snapshot.docs[snapshot.docs.length - 1] || null;
         if (!paginationCursor.current) {
           paginationCursor.current = firstPageLastDoc.current;
         }
@@ -125,14 +126,16 @@ export function useWatchlist(userId: string | undefined) {
         );
 
         // If items were removed/modified, verify paginated items still exist
-        const hasRemovals = snapshot.docChanges().some((c) => c.type === "removed");
+        const hasRemovals = snapshot
+          .docChanges()
+          .some((c) => c.type === "removed");
         if (hasRemovals && paginatedItems.current.length > 0) {
           const checks = paginatedItems.current.map((p) =>
             getDoc(doc(db, "users", userId!, "tracking", String(p.tmdbId))),
           );
           const results = await Promise.all(checks);
-          paginatedItems.current = paginatedItems.current.filter(
-            (_, i) => results[i].exists(),
+          paginatedItems.current = paginatedItems.current.filter((_, i) =>
+            results[i].exists(),
           );
         }
 
@@ -141,7 +144,10 @@ export function useWatchlist(userId: string | undefined) {
 
         // Cache first page (strip catalogShow to keep payload small)
         const toCache = enriched.map(({ catalogShow, ...rest }) => rest);
-        AsyncStorage.setItem(WATCHLIST_CACHE_KEY, JSON.stringify({ userId, items: toCache })).catch(() => {});
+        AsyncStorage.setItem(
+          WATCHLIST_CACHE_KEY,
+          JSON.stringify({ userId, items: toCache }),
+        ).catch(() => {});
 
         setHasMore(snapshot.docs.length >= PAGE_SIZE);
         setLoading(false);
@@ -149,7 +155,7 @@ export function useWatchlist(userId: string | undefined) {
       (error) => {
         console.error("Tracking listener error:", error);
         setLoading(false);
-      }
+      },
     );
 
     return unsubscribe;
@@ -166,7 +172,7 @@ export function useWatchlist(userId: string | undefined) {
         colRef,
         orderBy("priorityDate", "desc"),
         startAfter(paginationCursor.current),
-        limit(PAGE_SIZE)
+        limit(PAGE_SIZE),
       );
 
       const snapshot = await getDocs(q);
@@ -205,21 +211,29 @@ export function useWatchlist(userId: string | undefined) {
     }
   }, [userId, hasMore, loadingMore]);
 
-  const removeItem = useCallback((tmdbId: number) => {
-    paginatedItems.current = paginatedItems.current.filter(
-      (p) => p.tmdbId !== tmdbId,
-    );
-    catalogCache.current.delete(String(tmdbId));
-    setItems((prev) => {
-      const updated = prev.filter((p) => p.tmdbId !== tmdbId);
-      // Update AsyncStorage cache
-      if (userId) {
-        const toCache = updated.slice(0, 50).map(({ catalogShow, ...rest }) => rest);
-        AsyncStorage.setItem(WATCHLIST_CACHE_KEY, JSON.stringify({ userId, items: toCache })).catch(() => {});
-      }
-      return updated;
-    });
-  }, [userId]);
+  const removeItem = useCallback(
+    (tmdbId: number) => {
+      paginatedItems.current = paginatedItems.current.filter(
+        (p) => p.tmdbId !== tmdbId,
+      );
+      catalogCache.current.delete(String(tmdbId));
+      setItems((prev) => {
+        const updated = prev.filter((p) => p.tmdbId !== tmdbId);
+        // Update AsyncStorage cache
+        if (userId) {
+          const toCache = updated
+            .slice(0, 50)
+            .map(({ catalogShow, ...rest }) => rest);
+          AsyncStorage.setItem(
+            WATCHLIST_CACHE_KEY,
+            JSON.stringify({ userId, items: toCache }),
+          ).catch(() => {});
+        }
+        return updated;
+      });
+    },
+    [userId],
+  );
 
   // Listen for external removal events (e.g. from ShowDetailScreen)
   useEffect(() => onShowRemoved(removeItem), [removeItem]);

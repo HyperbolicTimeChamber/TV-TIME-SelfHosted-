@@ -11,7 +11,11 @@ interface Props {
   progress: { done: number; total: number };
 }
 
-export default function ProgressPhase({ insetTop, statusText, progress }: Props) {
+export default function ProgressPhase({
+  insetTop,
+  statusText,
+  progress,
+}: Props) {
   return (
     <View style={[styles.centered, { paddingTop: insetTop }]}>
       <Text style={styles.title}>{statusText}</Text>
@@ -21,7 +25,9 @@ export default function ProgressPhase({ insetTop, statusText, progress }: Props)
       {progress.total > 0 && (
         <AnimatedCounter target={progress.done} total={progress.total} />
       )}
-      <Text style={[styles.warning, { marginTop: spacing.xl, marginBottom: 0 }]}>
+      <Text
+        style={[styles.warning, { marginTop: spacing.xl, marginBottom: 0 }]}
+      >
         Do not close the app during import
       </Text>
     </View>

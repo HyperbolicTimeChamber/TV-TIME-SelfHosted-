@@ -29,7 +29,20 @@ import EpisodeDetailModal from "./EpisodeDetailModal";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { TMDBSeason, TMDBEpisode, MediaType } from "../types";
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 function formatDate(dateStr: string): string {
   const [y, m, d] = dateStr.split("-");
   return `${parseInt(d, 10)} ${MONTHS[parseInt(m, 10) - 1]} ${y}`;
@@ -44,19 +57,32 @@ interface Props {
   preloadedEpisodes?: TMDBEpisode[];
 }
 
-export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPosterPath, isTracked, preloadedEpisodes }: Props) {
+export default memo(function SeasonDropdown({
+  tmdbId,
+  season,
+  showTitle,
+  showPosterPath,
+  isTracked,
+  preloadedEpisodes,
+}: Props) {
   const [expanded, setExpanded] = useState(false);
   const [marking, setMarking] = useState<number | null>(null);
   const [markingSeason, setMarkingSeason] = useState(false);
   const user = useAuthStore((s) => s.user);
   const apiKey = useAuthStore((s) => s.appTmdbApiKey)!;
-  const { data: seasonData, isLoading, imagesLoading, imagesData } = useSeasonDetails(
+  const {
+    data: seasonData,
+    isLoading,
+    imagesLoading,
+    imagesData,
+  } = useSeasonDetails(
     tmdbId,
     season.season_number,
     !preloadedEpisodes, // skip fetch if preloaded
   );
 
-  const { episodes: watchedEps, loading: watchedLoading } = useShowWatchedEpisodes(user?.uid, tmdbId);
+  const { episodes: watchedEps, loading: watchedLoading } =
+    useShowWatchedEpisodes(user?.uid, tmdbId);
 
   // Skipped episodes modal state
   const [skipModalVisible, setSkipModalVisible] = useState(false);
@@ -92,44 +118,48 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
       setAddModalVisible(true);
       return false;
     },
-    [isTracked]
+    [isTracked],
   );
 
-  const handleAddAndMark = useCallback(
-    async () => {
-      if (!user?.uid) return;
-      setAddModalLoading(true);
-      setAddModalError(null);
-      try {
-        await addToTracking(user.uid, tmdbId, MediaType.TV);
-        setAddModalVisible(false);
-        const action = pendingAction.current;
-        pendingAction.current = null;
-        if (action) await action();
-      } catch (err: any) {
-        setAddModalError(err.message || "Failed to add to watchlist.");
-      } finally {
-        setAddModalLoading(false);
-      }
-    },
-    [user?.uid, tmdbId]
-  );
+  const handleAddAndMark = useCallback(async () => {
+    if (!user?.uid) return;
+    setAddModalLoading(true);
+    setAddModalError(null);
+    try {
+      await addToTracking(user.uid, tmdbId, MediaType.TV);
+      setAddModalVisible(false);
+      const action = pendingAction.current;
+      pendingAction.current = null;
+      if (action) await action();
+    } catch (err: any) {
+      setAddModalError(err.message || "Failed to add to watchlist.");
+    } finally {
+      setAddModalLoading(false);
+    }
+  }, [user?.uid, tmdbId]);
 
   // Action sheet state
   const [sheetVisible, setSheetVisible] = useState(false);
-  const [sheetTarget, setSheetTarget] = useState<{
-    type: "episode";
-    ep: TMDBEpisode;
-    watchCount: number;
-  } | {
-    type: "season";
-    watchCount: number;
-  } | null>(null);
+  const [sheetTarget, setSheetTarget] = useState<
+    | {
+        type: "episode";
+        ep: TMDBEpisode;
+        watchCount: number;
+      }
+    | {
+        type: "season";
+        watchCount: number;
+      }
+    | null
+  >(null);
 
   const watchedMap = new Map<number, { watchCount: number; runtime: number }>();
   for (const ep of watchedEps) {
     if (ep.season === season.season_number) {
-      watchedMap.set(ep.episode, { watchCount: ep.watchCount, runtime: ep.runtime });
+      watchedMap.set(ep.episode, {
+        watchCount: ep.watchCount,
+        runtime: ep.runtime,
+      });
     }
   }
 
@@ -138,16 +168,26 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
   // Enrich with TMDB images if available
   const episodes = useMemo(() => {
     if (!imagesData?.episodes) return rawEpisodes;
-    const imgMap = new Map(imagesData.episodes.map((e) => [e.episode_number, e]));
+    const imgMap = new Map(
+      imagesData.episodes.map((e) => [e.episode_number, e]),
+    );
     return rawEpisodes.map((ep) => {
       if (ep.still_path) return ep;
       const tmdb = imgMap.get(ep.episode_number);
-      return tmdb ? { ...ep, still_path: tmdb.still_path, overview: tmdb.overview } : ep;
+      return tmdb
+        ? { ...ep, still_path: tmdb.still_path, overview: tmdb.overview }
+        : ep;
     });
   }, [rawEpisodes, imagesData]);
-  const minWatchCount = episodes.length > 0
-    ? Math.min(...episodes.map((ep: TMDBEpisode) => watchedMap.get(ep.episode_number)?.watchCount || 0))
-    : 0;
+  const minWatchCount =
+    episodes.length > 0
+      ? Math.min(
+          ...episodes.map(
+            (ep: TMDBEpisode) =>
+              watchedMap.get(ep.episode_number)?.watchCount || 0,
+          ),
+        )
+      : 0;
   const allWatched = episodes.length > 0 && minWatchCount > 0;
   const partiallyWatched = watchedCount > 0 && !allWatched;
 
@@ -156,19 +196,28 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
       const eps = episodes;
       if (afterEpisode !== undefined) {
         const nextInSeason = eps.find(
-          (e: TMDBEpisode) => e.episode_number === afterEpisode + 1
+          (e: TMDBEpisode) => e.episode_number === afterEpisode + 1,
         );
         if (nextInSeason) {
           return {
-            nextEpisode: { season: afterSeason, episode: nextInSeason.episode_number },
+            nextEpisode: {
+              season: afterSeason,
+              episode: nextInSeason.episode_number,
+            },
             nextEpisodeName: nextInSeason.name || null,
             isComplete: false,
           };
         }
       }
       try {
-        const nextSeasonData = await fetchSeason(apiKey, tmdbId, afterSeason + 1);
-        const ns = nextSeasonData as { episodes: Array<{ episode_number: number; name?: string }> };
+        const nextSeasonData = await fetchSeason(
+          apiKey,
+          tmdbId,
+          afterSeason + 1,
+        );
+        const ns = nextSeasonData as {
+          episodes: Array<{ episode_number: number; name?: string }>;
+        };
         if (ns.episodes?.length > 0) {
           return {
             nextEpisode: { season: afterSeason + 1, episode: 1 },
@@ -179,49 +228,51 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
       } catch {}
       return { nextEpisode: null, nextEpisodeName: null, isComplete: true };
     },
-    [seasonData, apiKey, tmdbId]
+    [seasonData, apiKey, tmdbId],
   );
 
-  const doMarkSeasonWatched = useCallback(
-    async () => {
-      if (!user?.uid || markingSeason) return;
-      const eps = episodes;
-      if (eps.length === 0) return;
+  const doMarkSeasonWatched = useCallback(async () => {
+    if (!user?.uid || markingSeason) return;
+    const eps = episodes;
+    if (eps.length === 0) return;
 
-      setMarkingSeason(true);
-      try {
-        const { nextEpisode, nextEpisodeName, isComplete } = await getNextEpisodeInfo(season.season_number);
+    setMarkingSeason(true);
+    try {
+      const { nextEpisode, nextEpisodeName, isComplete } =
+        await getNextEpisodeInfo(season.season_number);
 
-        await markSeasonWatchedCF(
-          tmdbId,
-          season.season_number,
-          eps.map((ep: TMDBEpisode) => ({
-            episodeNumber: ep.episode_number,
-            name: ep.name,
-            runtime: ep.runtime || 0,
-          })),
-          nextEpisode,
-          isComplete,
-          nextEpisodeName,
-        );
-      } catch (err: any) {
-        console.error("markSeasonWatched failed:", err);
-        Alert.alert("Error", err.message || "Failed to mark season as watched.");
-      } finally {
-        setMarkingSeason(false);
-      }
-    },
-    [user?.uid, markingSeason, seasonData, tmdbId, season.season_number, getNextEpisodeInfo]
-  );
+      await markSeasonWatchedCF(
+        tmdbId,
+        season.season_number,
+        eps.map((ep: TMDBEpisode) => ({
+          episodeNumber: ep.episode_number,
+          name: ep.name,
+          runtime: ep.runtime || 0,
+        })),
+        nextEpisode,
+        isComplete,
+        nextEpisodeName,
+      );
+    } catch (err: any) {
+      console.error("markSeasonWatched failed:", err);
+      Alert.alert("Error", err.message || "Failed to mark season as watched.");
+    } finally {
+      setMarkingSeason(false);
+    }
+  }, [
+    user?.uid,
+    markingSeason,
+    seasonData,
+    tmdbId,
+    season.season_number,
+    getNextEpisodeInfo,
+  ]);
 
-  const handleMarkSeasonWatched = useCallback(
-    async () => {
-      if (guardTracking(doMarkSeasonWatched)) {
-        await doMarkSeasonWatched();
-      }
-    },
-    [guardTracking, doMarkSeasonWatched]
-  );
+  const handleMarkSeasonWatched = useCallback(async () => {
+    if (guardTracking(doMarkSeasonWatched)) {
+      await doMarkSeasonWatched();
+    }
+  }, [guardTracking, doMarkSeasonWatched]);
 
   const doMarkEpisodeWatched = useCallback(
     async (ep: TMDBEpisode) => {
@@ -229,10 +280,8 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
       setMarking(ep.episode_number);
 
       try {
-        const { nextEpisode, nextEpisodeName, isComplete } = await getNextEpisodeInfo(
-          season.season_number,
-          ep.episode_number
-        );
+        const { nextEpisode, nextEpisodeName, isComplete } =
+          await getNextEpisodeInfo(season.season_number, ep.episode_number);
 
         await markEpisodeWatched(
           user.uid,
@@ -248,12 +297,15 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
         );
       } catch (err: any) {
         console.error("markEpisodeWatched failed:", err);
-        Alert.alert("Error", err.message || "Failed to mark episode as watched.");
+        Alert.alert(
+          "Error",
+          err.message || "Failed to mark episode as watched.",
+        );
       } finally {
         setMarking(null);
       }
     },
-    [user?.uid, marking, tmdbId, season.season_number, getNextEpisodeInfo]
+    [user?.uid, marking, tmdbId, season.season_number, getNextEpisodeInfo],
   );
 
   const handleMarkWatched = useCallback(
@@ -262,7 +314,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
         await doMarkEpisodeWatched(ep);
       }
     },
-    [guardTracking, doMarkEpisodeWatched]
+    [guardTracking, doMarkEpisodeWatched],
   );
 
   const handleSheetAction = useCallback(
@@ -277,21 +329,27 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
             await handleMarkWatched(ep);
           } else if (action === "not_watched") {
             await unmarkEpisodeWatched(
-              user.uid, tmdbId, season.season_number,
-              ep.episode_number, watched?.runtime || ep.runtime || 0
+              user.uid,
+              tmdbId,
+              season.season_number,
+              ep.episode_number,
+              watched?.runtime || ep.runtime || 0,
             );
           } else if (action === "watched_once_less") {
             await decrementEpisodeWatchCount(
-              user.uid, tmdbId, season.season_number,
-              ep.episode_number, watched?.runtime || ep.runtime || 0,
-              watched?.watchCount || 1
+              user.uid,
+              tmdbId,
+              season.season_number,
+              ep.episode_number,
+              watched?.runtime || ep.runtime || 0,
+              watched?.watchCount || 1,
             );
           }
         } else if (sheetTarget.type === "season") {
           if (action === "rewatch") {
             await handleMarkSeasonWatched();
           } else if (action === "not_watched") {
-            const toUnmark = (episodes)
+            const toUnmark = episodes
               .filter((ep: TMDBEpisode) => watchedMap.has(ep.episode_number))
               .map((ep: TMDBEpisode) => ({
                 season: season.season_number,
@@ -302,7 +360,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
               await unmarkSeasonWatched(user.uid, tmdbId, toUnmark);
             }
           } else if (action === "watched_once_less") {
-            const toDecrement = (episodes)
+            const toDecrement = episodes
               .filter((ep: TMDBEpisode) => {
                 const w = watchedMap.get(ep.episode_number);
                 return w && w.watchCount > 0;
@@ -327,7 +385,16 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
       }
       setSheetTarget(null);
     },
-    [user?.uid, sheetTarget, tmdbId, season.season_number, seasonData, watchedMap, handleMarkWatched, handleMarkSeasonWatched]
+    [
+      user?.uid,
+      sheetTarget,
+      tmdbId,
+      season.season_number,
+      seasonData,
+      watchedMap,
+      handleMarkWatched,
+      handleMarkSeasonWatched,
+    ],
   );
 
   const doMarkEpisodeRange = useCallback(
@@ -338,7 +405,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
         (e: TMDBEpisode) =>
           e.episode_number >= fromEp &&
           e.episode_number <= toEp &&
-          !watchedMap.has(e.episode_number)
+          !watchedMap.has(e.episode_number),
       );
       if (epsToMark.length === 0) return;
 
@@ -370,7 +437,14 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
         setMarking(null);
       }
     },
-    [user?.uid, seasonData, watchedMap, tmdbId, season.season_number, getNextEpisodeInfo]
+    [
+      user?.uid,
+      seasonData,
+      watchedMap,
+      tmdbId,
+      season.season_number,
+      getNextEpisodeInfo,
+    ],
   );
 
   const markEpisodeRange = useCallback(
@@ -379,7 +453,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
         await doMarkEpisodeRange(fromEp, toEp);
       }
     },
-    [guardTracking, doMarkEpisodeRange]
+    [guardTracking, doMarkEpisodeRange],
   );
 
   const handleEpisodePress = useCallback(
@@ -400,7 +474,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
       const skipped = eps.filter(
         (e: TMDBEpisode) =>
           e.episode_number < ep.episode_number &&
-          !watchedMap.has(e.episode_number)
+          !watchedMap.has(e.episode_number),
       );
 
       if (skipped.length > 0) {
@@ -413,7 +487,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
         handleMarkWatched(ep);
       }
     },
-    [watchedMap, handleMarkWatched, isTracked, seasonData, markEpisodeRange]
+    [watchedMap, handleMarkWatched, isTracked, seasonData, markEpisodeRange],
   );
 
   const handleEpisodeLongPress = useCallback(
@@ -430,20 +504,17 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
       });
       setEpInfoVisible(true);
     },
-    [showTitle, season.season_number]
+    [showTitle, season.season_number],
   );
 
-  const handleSeasonPress = useCallback(
-    () => {
-      if (allWatched) {
-        // Already fully watched → rewatch directly
-        handleMarkSeasonWatched();
-      } else {
-        handleMarkSeasonWatched();
-      }
-    },
-    [allWatched, handleMarkSeasonWatched]
-  );
+  const handleSeasonPress = useCallback(() => {
+    if (allWatched) {
+      // Already fully watched → rewatch directly
+      handleMarkSeasonWatched();
+    } else {
+      handleMarkSeasonWatched();
+    }
+  }, [allWatched, handleMarkSeasonWatched]);
 
   const handleSeasonLongPress = useCallback(() => {
     if (allWatched) {
@@ -476,10 +547,15 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
           <Text style={styles.seasonName}>{season.name}</Text>
           <View style={styles.seasonMetaRow}>
             {watchedLoading ? (
-              <ActivityIndicator size={10} color={colors.textMuted} style={{ marginRight: 4 }} />
+              <ActivityIndicator
+                size={10}
+                color={colors.textMuted}
+                style={{ marginRight: 4 }}
+              />
             ) : null}
             <Text style={styles.seasonMeta}>
-              {watchedLoading ? "" : `${watchedCount}/`}{season.episode_count} episodes
+              {watchedLoading ? "" : `${watchedCount}/`}
+              {season.episode_count} episodes
               {season.air_date ? ` · ${formatDate(season.air_date)}` : ""}
             </Text>
           </View>
@@ -489,7 +565,13 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
             size={30}
             watched={allWatched}
             loading={markingSeason}
-            label={allWatched ? `x${minWatchCount}` : partiallyWatched ? `${watchedCount}` : undefined}
+            label={
+              allWatched
+                ? `x${minWatchCount}`
+                : partiallyWatched
+                  ? `${watchedCount}`
+                  : undefined
+            }
             labelColor={partiallyWatched ? colors.background : undefined}
             backgroundColor={partiallyWatched ? colors.text : undefined}
             onPress={handleSeasonPress}
@@ -509,7 +591,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
               style={styles.loader}
             />
           ) : (
-            (episodes).map((ep: TMDBEpisode) => {
+            episodes.map((ep: TMDBEpisode) => {
               const watched = watchedMap.get(ep.episode_number);
               const count = watched?.watchCount || 0;
               const isWatched = count > 0;
@@ -528,7 +610,9 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
                         <SkeletonLine width={80} height={50} />
                       ) : ep.still_path ? (
                         <Image
-                          source={{ uri: `${posterSize.small}${ep.still_path}` }}
+                          source={{
+                            uri: `${posterSize.small}${ep.still_path}`,
+                          }}
                           style={styles.epThumb}
                           contentFit="cover"
                         />
@@ -546,7 +630,9 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
                         {ep.name}
                       </Text>
                       {ep.air_date && (
-                        <Text style={styles.episodeMeta}>{formatDate(ep.air_date)}</Text>
+                        <Text style={styles.episodeMeta}>
+                          {formatDate(ep.air_date)}
+                        </Text>
                       )}
                       {count > 1 && (
                         <Text style={styles.rewatchBadge}>
@@ -563,7 +649,11 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
                     onPress={() => handleEpisodePress(ep)}
                     onLongPress={() => {
                       if (isWatched) {
-                        setSheetTarget({ type: "episode", ep, watchCount: count });
+                        setSheetTarget({
+                          type: "episode",
+                          ep,
+                          watchCount: count,
+                        });
                         setSheetVisible(true);
                       }
                     }}
@@ -605,18 +695,25 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
       {skipModalData && (
         <AnimatedModal
           visible={skipModalVisible}
-          onClose={() => { setSkipModalVisible(false); setSkipModalData(null); }}
+          onClose={() => {
+            setSkipModalVisible(false);
+            setSkipModalData(null);
+          }}
         >
           <View style={styles.skipModalContent}>
             <Text style={styles.skipModalTitle}>Skipped Episodes</Text>
             <Text style={styles.skipModalHint}>
-              Mark episodes {skipModalData.firstSkipped}–{skipModalData.targetEp.episode_number} as watched?
+              Mark episodes {skipModalData.firstSkipped}–
+              {skipModalData.targetEp.episode_number} as watched?
             </Text>
             <TouchableOpacity
               style={styles.skipModalButton}
               onPress={() => {
                 setSkipModalVisible(false);
-                markEpisodeRange(skipModalData.firstSkipped, skipModalData.targetEp.episode_number);
+                markEpisodeRange(
+                  skipModalData.firstSkipped,
+                  skipModalData.targetEp.episode_number,
+                );
                 setSkipModalData(null);
               }}
             >
@@ -630,11 +727,16 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
                 setSkipModalData(null);
               }}
             >
-              <Text style={styles.skipModalButtonOutlineText}>Just This One</Text>
+              <Text style={styles.skipModalButtonOutlineText}>
+                Just This One
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.skipModalCancel}
-              onPress={() => { setSkipModalVisible(false); setSkipModalData(null); }}
+              onPress={() => {
+                setSkipModalVisible(false);
+                setSkipModalData(null);
+              }}
             >
               <Text style={styles.skipModalCancelText}>Cancel</Text>
             </TouchableOpacity>
@@ -661,7 +763,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPos
       )}
     </View>
   );
-})
+});
 
 const styles = StyleSheet.create({
   seasonRow: {

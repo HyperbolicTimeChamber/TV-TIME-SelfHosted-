@@ -23,7 +23,7 @@ interface WatchedEpisodesPage {
 
 export function useWatchedEpisodes(
   userId: string | undefined,
-  tmdbShowId?: number
+  tmdbShowId?: number,
 ) {
   const queryKey = ["watchedEpisodes", userId, tmdbShowId] as const;
 
@@ -55,7 +55,9 @@ export function useWatchedEpisodes(
         ...d.data(),
       })) as WatchedEpisode[];
 
-      console.log(`[WatchedEpisodes] Fetched ${episodes.length} eps, hasMore=${episodes.length >= PAGE_SIZE}`);
+      console.log(
+        `[WatchedEpisodes] Fetched ${episodes.length} eps, hasMore=${episodes.length >= PAGE_SIZE}`,
+      );
 
       return {
         episodes,

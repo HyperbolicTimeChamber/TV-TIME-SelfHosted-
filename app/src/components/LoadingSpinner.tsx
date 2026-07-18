@@ -22,7 +22,7 @@ export default function LoadingSpinner() {
         duration: 1000,
         easing: Easing.linear,
         useNativeDriver: true,
-      })
+      }),
     );
 
     const flix = Animated.loop(
@@ -56,7 +56,7 @@ export default function LoadingSpinner() {
           easing: Easing.ease,
           useNativeDriver: true,
         }),
-      ])
+      ]),
     );
 
     spin.start();

@@ -46,15 +46,29 @@ export default function ReviewPhase({
 
     const items: ListItem[] = [];
     if (shows.length > 0) {
-      items.push({ type: "sectionHeader", label: "Shows", key: "header-shows" });
-      for (const s of shows) items.push({ type: "match", match: s, key: `tv-${s.tmdbId}` });
+      items.push({
+        type: "sectionHeader",
+        label: "Shows",
+        key: "header-shows",
+      });
+      for (const s of shows)
+        items.push({ type: "match", match: s, key: `tv-${s.tmdbId}` });
     }
     if (movies.length > 0) {
-      items.push({ type: "sectionHeader", label: "Movies", key: "header-movies" });
-      for (const m of movies) items.push({ type: "match", match: m, key: `movie-${m.tmdbId}` });
+      items.push({
+        type: "sectionHeader",
+        label: "Movies",
+        key: "header-movies",
+      });
+      for (const m of movies)
+        items.push({ type: "match", match: m, key: `movie-${m.tmdbId}` });
     }
     if (unmatchedNames.length > 0) {
-      items.push({ type: "sectionHeader", label: `Unmatched (${unmatchedNames.length})`, key: "header-unmatched" });
+      items.push({
+        type: "sectionHeader",
+        label: `Unmatched (${unmatchedNames.length})`,
+        key: "header-unmatched",
+      });
       const seenNames = new Set<string>();
       for (const n of unmatchedNames) {
         const nKey = seenNames.has(n) ? `un-${n}-${seenNames.size}` : `un-${n}`;
@@ -66,19 +80,29 @@ export default function ReviewPhase({
   }, [matched, unmatchedNames]);
 
   const selectedShows = useMemo(
-    () => matched.filter((m) => m.mediaType === "tv" && selected.has(`tv-${m.tmdbId}`)).length,
-    [matched, selected]
+    () =>
+      matched.filter(
+        (m) => m.mediaType === "tv" && selected.has(`tv-${m.tmdbId}`),
+      ).length,
+    [matched, selected],
   );
 
   const selectedMovies = useMemo(
-    () => matched.filter((m) => m.mediaType === "movie" && selected.has(`movie-${m.tmdbId}`)).length,
-    [matched, selected]
+    () =>
+      matched.filter(
+        (m) => m.mediaType === "movie" && selected.has(`movie-${m.tmdbId}`),
+      ).length,
+    [matched, selected],
   );
 
   const episodeCount = useMemo(() => {
     const tvTimeIdToSelected = new Map<number, boolean>();
     for (const m of matched) {
-      if (m.mediaType === "tv" && m.tvTimeId !== undefined && selected.has(`tv-${m.tmdbId}`)) {
+      if (
+        m.mediaType === "tv" &&
+        m.tvTimeId !== undefined &&
+        selected.has(`tv-${m.tmdbId}`)
+      ) {
         tvTimeIdToSelected.set(m.tvTimeId, true);
       }
     }
@@ -136,7 +160,7 @@ export default function ReviewPhase({
         </TouchableOpacity>
       );
     },
-    [selected, existingIds, onToggle]
+    [selected, existingIds, onToggle],
   );
 
   return (
@@ -163,7 +187,8 @@ export default function ReviewPhase({
           disabled={selectedCount === 0}
         >
           <Text style={styles.buttonText}>
-            Import {selectedShows} shows, {selectedMovies} movies, {episodeCount} episodes
+            Import {selectedShows} shows, {selectedMovies} movies,{" "}
+            {episodeCount} episodes
           </Text>
         </TouchableOpacity>
       </View>

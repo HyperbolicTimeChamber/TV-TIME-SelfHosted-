@@ -13,7 +13,9 @@ import { useAuthStore } from "../stores";
 import { UpcomingEpisode, CatalogShow } from "../types";
 
 export function useCalendarEpisodes(userId: string | undefined) {
-  const [episodesByMonth, setEpisodesByMonth] = useState<Map<string, UpcomingEpisode[]>>(new Map());
+  const [episodesByMonth, setEpisodesByMonth] = useState<
+    Map<string, UpcomingEpisode[]>
+  >(new Map());
   const [loading, setLoading] = useState(false);
   const catalogCache = useRef<Map<string, CatalogShow | null>>(new Map());
   const trackedIds = useRef<Set<string> | null>(null);
@@ -26,13 +28,10 @@ export function useCalendarEpisodes(userId: string | undefined) {
     getDocs(
       query(
         collection(doc(db, "users", userId), "tracking"),
-        where("mediaType", "==", "tv")
-      )
+        where("mediaType", "==", "tv"),
+      ),
     ).then((snap) => {
-      trackedIds.current = new Set(
-        snap.docs
-          .map((d) => d.id)
-      );
+      trackedIds.current = new Set(snap.docs.map((d) => d.id));
     });
   }, [userId]);
 
@@ -68,7 +67,9 @@ export function useCalendarEpisodes(userId: string | undefined) {
         const airingIds = await discoverTVByAirDate(apiKey, startDate, endDate);
 
         // 2. Intersect with tracked shows
-        const matchedIds = airingIds.filter((id) => trackedIds.current!.has(String(id)));
+        const matchedIds = airingIds.filter((id) =>
+          trackedIds.current!.has(String(id)),
+        );
 
         // 3. Read only matched catalog docs
         const db = getFirestore();
@@ -86,7 +87,7 @@ export function useCalendarEpisodes(userId: string | undefined) {
               catalogCache.current.set(key, data);
               return data;
             });
-          })
+          }),
         );
 
         for (const catalog of docs) {
@@ -117,13 +118,13 @@ export function useCalendarEpisodes(userId: string | undefined) {
           query(
             upcomingCol,
             where("airDate", ">=", startDate),
-            where("airDate", "<=", endDate)
-          )
+            where("airDate", "<=", endDate),
+          ),
         );
 
         // Merge: dedup by show+season+episode
         const seen = new Set(
-          episodes.map((e) => `${e.tmdbShowId}_S${e.season}E${e.episode}`)
+          episodes.map((e) => `${e.tmdbShowId}_S${e.season}E${e.episode}`),
         );
         for (const d of upcomingSnap.docs) {
           const ep = d.data() as UpcomingEpisode;
@@ -143,7 +144,7 @@ export function useCalendarEpisodes(userId: string | undefined) {
         setLoading(false);
       }
     },
-    [userId, apiKey, episodesByMonth, loading]
+    [userId, apiKey, episodesByMonth, loading],
   );
 
   return {

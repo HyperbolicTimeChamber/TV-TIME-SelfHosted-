@@ -16,7 +16,7 @@ import { WatchedEpisode } from "../types";
  */
 export function useShowWatchedEpisodes(
   userId: string | undefined,
-  tmdbShowId: number
+  tmdbShowId: number,
 ) {
   const [episodes, setEpisodes] = useState<WatchedEpisode[]>([]);
   const [loading, setLoading] = useState(true);

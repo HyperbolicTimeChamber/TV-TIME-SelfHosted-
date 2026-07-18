@@ -1,4 +1,10 @@
-import React, { useMemo, useState, useCallback, useRef, useEffect } from "react";
+import React, {
+  useMemo,
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+} from "react";
 import {
   View,
   Text,
@@ -15,15 +21,23 @@ import { Image } from "expo-image";
 import { useAuthStore } from "../stores";
 import { useCalendarEpisodes } from "../hooks";
 import { colors, spacing, typography, posterSize } from "../theme";
-import { UpcomingEpisode, CalendarStackParamList, Route, MediaType } from "../types";
+import {
+  UpcomingEpisode,
+  CalendarStackParamList,
+  Route,
+  MediaType,
+} from "../types";
 
-type NavProp = NativeStackNavigationProp<CalendarStackParamList, Route.CALENDAR_MAIN>;
+type NavProp = NativeStackNavigationProp<
+  CalendarStackParamList,
+  Route.CALENDAR_MAIN
+>;
 
 const YEAR_RANGE_START = 1950;
 const YEAR_RANGE_END = 2035;
 const YEARS = Array.from(
   { length: YEAR_RANGE_END - YEAR_RANGE_START + 1 },
-  (_, i) => YEAR_RANGE_START + i
+  (_, i) => YEAR_RANGE_START + i,
 );
 
 export default function CalendarScreen() {
@@ -37,7 +51,11 @@ export default function CalendarScreen() {
   const [currentMonth, setCurrentMonth] = useState(now.getMonth() + 1);
   const yearListRef = useRef<any>(null);
 
-  const { episodes, loading: calendarLoading, loadMonthEpisodes } = useCalendarEpisodes(user?.uid);
+  const {
+    episodes,
+    loading: calendarLoading,
+    loadMonthEpisodes,
+  } = useCalendarEpisodes(user?.uid);
 
   // Load current month's episodes on mount
   useEffect(() => {
@@ -47,7 +65,12 @@ export default function CalendarScreen() {
   const markedDates = useMemo(() => {
     const marks: Record<
       string,
-      { marked: boolean; dotColor: string; selected?: boolean; selectedColor?: string }
+      {
+        marked: boolean;
+        dotColor: string;
+        selected?: boolean;
+        selectedColor?: string;
+      }
     > = {};
     if (!episodes) return marks;
 
@@ -85,11 +108,14 @@ export default function CalendarScreen() {
     setSelectedDate(day.dateString);
   }, []);
 
-  const handleMonthChange = useCallback((month: DateData) => {
-    setCurrentYear(month.year);
-    setCurrentMonth(month.month);
-    loadMonthEpisodes(month.year, month.month);
-  }, [loadMonthEpisodes]);
+  const handleMonthChange = useCallback(
+    (month: DateData) => {
+      setCurrentYear(month.year);
+      setCurrentMonth(month.month);
+      loadMonthEpisodes(month.year, month.month);
+    },
+    [loadMonthEpisodes],
+  );
 
   const calendarKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
   const initialDate = `${currentYear}-${String(currentMonth).padStart(2, "0")}-01`;
@@ -108,16 +134,22 @@ export default function CalendarScreen() {
     }, 100);
   }, [currentYear]);
 
-  const selectYear = useCallback((year: number) => {
-    setCurrentYear(year);
-    setYearModalVisible(false);
-    loadMonthEpisodes(year, currentMonth);
-  }, [loadMonthEpisodes, currentMonth]);
+  const selectYear = useCallback(
+    (year: number) => {
+      setCurrentYear(year);
+      setYearModalVisible(false);
+      loadMonthEpisodes(year, currentMonth);
+    },
+    [loadMonthEpisodes, currentMonth],
+  );
 
-  const monthLabel = new Date(currentYear, currentMonth - 1).toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
+  const monthLabel = new Date(currentYear, currentMonth - 1).toLocaleDateString(
+    "en-US",
+    {
+      month: "long",
+      year: "numeric",
+    },
+  );
 
   const renderEpisode = useCallback(
     ({ item }: { item: UpcomingEpisode }) => (
@@ -149,7 +181,7 @@ export default function CalendarScreen() {
         </View>
       </TouchableOpacity>
     ),
-    [navigation]
+    [navigation],
   );
 
   return (

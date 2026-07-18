@@ -1,9 +1,5 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-} from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
 import { Image } from "expo-image";
 import { ShowDrawer } from "../../components";
 import type { ShowDrawerData } from "../../components/ShowDrawer";
@@ -28,7 +24,11 @@ export default function CandidateCard({ item, apiKey, onPress }: Props) {
     if (!drawerData) {
       setDrawerLoading(true);
       try {
-        const data = await getShowDetails(apiKey, item.tmdbId, item.mediaType) as any;
+        const data = (await getShowDetails(
+          apiKey,
+          item.tmdbId,
+          item.mediaType,
+        )) as any;
         const seasonCount = data?.number_of_seasons;
         const episodeCount = data?.number_of_episodes;
         const runtime = data?.runtime ?? data?.episode_run_time?.[0];

@@ -1,5 +1,8 @@
 import React, { useRef } from "react";
-import { NavigationContainer, NavigationContainerRef } from "@react-navigation/native";
+import {
+  NavigationContainer,
+  NavigationContainerRef,
+} from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { CommonActions } from "@react-navigation/native";
@@ -56,7 +59,7 @@ export default function AppNavigator() {
                     screen: Route.HOME_TABS,
                     params: { screen: Route.WATCHLIST },
                   },
-                })
+                }),
               );
             },
           }}
@@ -72,14 +75,18 @@ export default function AppNavigator() {
                 CommonActions.navigate({
                   name: Route.SEARCH,
                   params: { screen: Route.SEARCH_MAIN },
-                })
+                }),
               );
             },
           }}
         />
-        <Tab.Screen name={Route.PROFILE} component={ProfileStackScreen} options={{
-          headerShown: false,
-        }} />
+        <Tab.Screen
+          name={Route.PROFILE}
+          component={ProfileStackScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
       </Tab.Navigator>
     </NavigationContainer>
   );

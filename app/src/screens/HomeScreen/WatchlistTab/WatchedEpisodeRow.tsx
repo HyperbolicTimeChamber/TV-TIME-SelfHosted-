@@ -13,7 +13,12 @@ interface Props {
   onCheckmarkPress: (episode: WatchedEpisode) => void;
 }
 
-export default memo(function WatchedEpisodeRow({ episode, show, onPress, onCheckmarkPress }: Props) {
+export default memo(function WatchedEpisodeRow({
+  episode,
+  show,
+  onPress,
+  onCheckmarkPress,
+}: Props) {
   const label = `S${String(episode.season).padStart(2, "0")} | E${String(episode.episode).padStart(2, "0")}`;
 
   return (

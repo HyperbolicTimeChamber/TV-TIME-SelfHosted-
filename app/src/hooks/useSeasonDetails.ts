@@ -3,7 +3,11 @@ import { getSeasonDetails, getCatalogShow } from "../services";
 import { useAuthStore } from "../stores";
 import { TMDBEpisode } from "../types";
 
-export function useSeasonDetails(tmdbId: number, seasonNumber: number, enabled: boolean = true) {
+export function useSeasonDetails(
+  tmdbId: number,
+  seasonNumber: number,
+  enabled: boolean = true,
+) {
   // Primary query: catalog data (fast, no images)
   const catalogQuery = useQuery({
     queryKey: ["season", tmdbId, seasonNumber],
@@ -12,7 +16,7 @@ export function useSeasonDetails(tmdbId: number, seasonNumber: number, enabled: 
       const catalogShow = await getCatalogShow(tmdbId);
       if (catalogShow) {
         const season = catalogShow.seasons.find(
-          (s) => s.seasonNumber === seasonNumber
+          (s) => s.seasonNumber === seasonNumber,
         );
         if (season) {
           return {
@@ -63,7 +67,9 @@ export function useSeasonDetails(tmdbId: number, seasonNumber: number, enabled: 
       ...data,
       episodes: data.episodes.map((ep) => {
         const tmdb = tmdbMap.get(ep.episode_number);
-        return tmdb ? { ...ep, still_path: tmdb.still_path, overview: tmdb.overview } : ep;
+        return tmdb
+          ? { ...ep, still_path: tmdb.still_path, overview: tmdb.overview }
+          : ep;
       }),
     };
   }

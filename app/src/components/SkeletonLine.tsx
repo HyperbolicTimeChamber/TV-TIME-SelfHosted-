@@ -51,7 +51,11 @@ interface Props {
   style?: ViewStyle;
 }
 
-export default function SkeletonLine({ width = "60%", height = 12, style }: Props) {
+export default function SkeletonLine({
+  width = "60%",
+  height = 12,
+  style,
+}: Props) {
   const shimmer = useSharedShimmer();
 
   return (
