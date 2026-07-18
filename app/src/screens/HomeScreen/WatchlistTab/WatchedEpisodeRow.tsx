@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Image } from "expo-image";
-import { CheckmarkButton } from "../../../components";
+import { CheckmarkButton, SwipeableCard } from "../../../components";
 import { colors, spacing, typography, posterSize } from "../../../theme";
 import { WatchedEpisode } from "../../../types";
 import { EnrichedTrackingItem } from "../../../hooks";
@@ -11,6 +11,8 @@ interface Props {
   show: EnrichedTrackingItem;
   onPress: (tmdbShowId: number) => void;
   onCheckmarkPress: (episode: WatchedEpisode) => void;
+  onSwipeLeft: (episode: WatchedEpisode) => Promise<void>;
+  onSwipeRight: (episode: WatchedEpisode) => Promise<void>;
 }
 
 export default memo(function WatchedEpisodeRow({
@@ -18,38 +20,48 @@ export default memo(function WatchedEpisodeRow({
   show,
   onPress,
   onCheckmarkPress,
+  onSwipeLeft,
+  onSwipeRight,
 }: Props) {
   const label = `S${String(episode.season).padStart(2, "0")} | E${String(episode.episode).padStart(2, "0")}`;
 
   return (
-    <TouchableOpacity
-      style={[styles.container, styles.watchedContainer]}
-      onPress={() => onPress(episode.tmdbShowId)}
-      activeOpacity={0.8}
+    <SwipeableCard
+      onSwipeLeft={() => onSwipeLeft(episode)}
+      onSwipeRight={() => onSwipeRight(episode)}
+      leftLabel="Rewatch"
+      rightLabel={episode.watchCount > 1 ? "−1" : "Unwatch"}
+      persistAfterSwipe={{ left: true, right: episode.watchCount > 1 }}
     >
-      <Image
-        source={{ uri: `${posterSize.small}${show.posterPath}` }}
-        style={[styles.poster, styles.watchedPoster]}
-        contentFit="cover"
-      />
-      <View style={styles.info}>
-        <View style={styles.titleButton}>
-          <Text style={styles.titleText} numberOfLines={1}>
-            {show.title.toUpperCase()}
+      <TouchableOpacity
+        style={[styles.container, styles.watchedContainer]}
+        onPress={() => onPress(episode.tmdbShowId)}
+        activeOpacity={0.8}
+      >
+        <Image
+          source={{ uri: `${posterSize.small}${show.posterPath}` }}
+          style={[styles.poster, styles.watchedPoster]}
+          contentFit="cover"
+        />
+        <View style={styles.info}>
+          <View style={styles.titleButton}>
+            <Text style={styles.titleText} numberOfLines={1}>
+              {show.title.toUpperCase()}
+            </Text>
+          </View>
+          <Text style={styles.episodeLabel}>{label}</Text>
+          <Text style={styles.episodeTitle} numberOfLines={1}>
+            {episode.episodeTitle}
           </Text>
         </View>
-        <Text style={styles.episodeLabel}>{label}</Text>
-        <Text style={styles.episodeTitle} numberOfLines={1}>
-          {episode.episodeTitle}
-        </Text>
-      </View>
-      <CheckmarkButton
-        size={36}
-        watched
-        label={episode.watchCount > 1 ? `${episode.watchCount}` : undefined}
-        onPress={() => onCheckmarkPress(episode)}
-      />
-    </TouchableOpacity>
+        <CheckmarkButton
+          size={36}
+          watched
+          label={episode.watchCount > 1 ? `${episode.watchCount}` : undefined}
+          onPress={() => onCheckmarkPress(episode)}
+        />
+      </TouchableOpacity>
+    </SwipeableCard>
   );
 });
 

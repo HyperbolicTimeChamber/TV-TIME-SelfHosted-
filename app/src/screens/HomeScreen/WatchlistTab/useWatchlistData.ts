@@ -159,7 +159,7 @@ export function useWatchlistData(userId: string | undefined) {
       }
     }
     if (effectiveActive.length > 0) {
-      result.push({ type: "sectionHeader", title: "Currently Watching" });
+      result.push({ type: "sectionHeader", title: "Watch Next" });
       for (const item of effectiveActive) {
         result.push({ type: "show", item });
       }

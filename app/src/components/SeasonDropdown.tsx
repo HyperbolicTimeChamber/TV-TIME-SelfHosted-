@@ -334,6 +334,7 @@ export default memo(function SeasonDropdown({
               season.season_number,
               ep.episode_number,
               watched?.runtime || ep.runtime || 0,
+              ep.name,
             );
           } else if (action === "watched_once_less") {
             await decrementEpisodeWatchCount(
@@ -343,6 +344,7 @@ export default memo(function SeasonDropdown({
               ep.episode_number,
               watched?.runtime || ep.runtime || 0,
               watched?.watchCount || 1,
+              ep.name,
             );
           }
         } else if (sheetTarget.type === "season") {
