@@ -14,6 +14,8 @@ import {
 import { Image } from "expo-image";
 import SkeletonLine from "./SkeletonLine";
 import { colors, spacing, typography, posterSize } from "../theme";
+import { MediaType } from "../enums";
+
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const DISMISS_THRESHOLD = 120;
 
@@ -23,7 +25,7 @@ export interface ShowDrawerData {
 	posterPath: string | null;
 	backdropPath: string | null;
 	overview: string | null;
-	mediaType?: "tv" | "movie" | string;
+	mediaType?: MediaType;
 	year?: string | null;
 	totalSeasons?: number | null;
 	totalEpisodes?: number | null;

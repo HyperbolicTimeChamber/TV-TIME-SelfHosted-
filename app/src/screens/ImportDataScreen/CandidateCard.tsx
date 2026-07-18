@@ -6,6 +6,7 @@ import type { ShowDrawerData } from "../../components/ShowDrawer";
 import { TMDBMatch } from "../../services/tvtimeImport";
 import { getShowDetails } from "../../services/tmdb";
 import { posterSize } from "../../theme";
+import { MediaType } from "../../enums";
 import { importStyles as styles } from "./styles";
 
 interface Props {
@@ -38,7 +39,7 @@ export default function CandidateCard({ item, apiKey, onPress }: Props) {
           posterPath: item.posterPath,
           backdropPath: data?.backdrop_path ?? null,
           overview: data?.overview || item.overview || null,
-          mediaType: item.mediaType,
+          mediaType: item.mediaType as MediaType,
           year: item.year || null,
           totalSeasons: seasonCount ?? item.totalSeasons,
           totalEpisodes: episodeCount ?? item.totalEpisodes,
@@ -52,7 +53,7 @@ export default function CandidateCard({ item, apiKey, onPress }: Props) {
           posterPath: item.posterPath,
           backdropPath: null,
           overview: item.overview || null,
-          mediaType: item.mediaType,
+          mediaType: item.mediaType as MediaType,
           year: item.year || null,
           totalSeasons: item.totalSeasons,
           totalEpisodes: item.totalEpisodes,
