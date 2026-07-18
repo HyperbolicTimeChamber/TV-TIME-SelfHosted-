@@ -33,7 +33,7 @@ jobs:
         run: |
           BUMP_FLAG=""
           # Check PR labels from merge commit
-          PR_NUMBER=$(echo "${{ github.event.head_commit.message }}" | grep -oP '#\K[0-9]+' | head -1 || true)
+          PR_NUMBER=$(echo "$MSG" | grep -oP '#\K[0-9]+' | head -1 || true)
           if [ -n "$PR_NUMBER" ]; then
             LABELS=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' 2>/dev/null || true)
             if echo "$LABELS" | grep -q "bump:major"; then
@@ -44,15 +44,16 @@ jobs:
           fi
           # Fallback to commit message flags
           if [ -z "$BUMP_FLAG" ]; then
-            if echo "${{ github.event.head_commit.message }}" | grep -qi '\[major\]'; then
+            if echo "$MSG" | grep -qi '\[major\]'; then
               BUMP_FLAG="--major"
-            elif echo "${{ github.event.head_commit.message }}" | grep -qi '\[minor\]'; then
+            elif echo "$MSG" | grep -qi '\[minor\]'; then
               BUMP_FLAG="--minor"
             fi
           fi
           echo "flag=$BUMP_FLAG" >> "$GITHUB_OUTPUT"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MSG: ${{ github.event.head_commit.message }}
 
       - name: Bump version
         if: github.event_name == 'push'
