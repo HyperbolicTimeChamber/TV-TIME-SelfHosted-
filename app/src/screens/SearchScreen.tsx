@@ -8,28 +8,53 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { AnimatedModal, ConfirmModal, LoadingSpinner } from "../components";
 import { LegendList } from "@legendapp/list/react-native";
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useSearch, useTrending, useTrackedIds, useUpcomingMutations } from "../hooks";
+import {
+  useSearch,
+  useTrending,
+  useTrackedIds,
+  useUpcomingMutations,
+} from "../hooks";
 import { useAuthStore } from "../stores";
-import { addToTracking, removeFromTracking, markMovieWatched } from "../services";
+import {
+  addToTracking,
+  removeFromTracking,
+  markMovieWatched,
+} from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { TMDBShow, SearchStackParamList, MediaType, Route } from "../types";
 
-type NavProp = NativeStackNavigationProp<SearchStackParamList, Route.SEARCH_MAIN>;
+type NavProp = NativeStackNavigationProp<
+  SearchStackParamList,
+  Route.SEARCH_MAIN
+>;
 
 export default function SearchScreen() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [mediaFilter, setMediaFilter] = useState<"all" | "tv" | "movie">("all");
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query), 100);
     return () => clearTimeout(timer);
   }, [query]);
+
+  // Clear search when leaving the tab
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setQuery("");
+        setDebouncedQuery("");
+        setMediaFilter("all");
+      };
+    }, []),
+  );
   const navigation = useNavigation<NavProp>();
   const user = useAuthStore((s) => s.user);
   const trackedIds = useTrackedIds(user?.uid);
@@ -58,7 +83,7 @@ export default function SearchScreen() {
         });
       }
     },
-    []
+    [],
   );
 
   const handleAddToWatchlist = useCallback(
@@ -77,7 +102,7 @@ export default function SearchScreen() {
         addShowToUpcoming(item.id);
       });
     },
-    [user?.uid, withLoadingId, addShowToUpcoming]
+    [user?.uid, withLoadingId, addShowToUpcoming],
   );
 
   const handleRemoveFromWatchlist = useCallback(
@@ -86,7 +111,7 @@ export default function SearchScreen() {
       setRemoveError(null);
       setRemoveModal(item);
     },
-    [user?.uid]
+    [user?.uid],
   );
 
   const handleConfirmRemove = useCallback(async () => {
@@ -110,7 +135,7 @@ export default function SearchScreen() {
     const item = movieModal;
     setMovieModal(null);
     await withLoadingId(item.id, () =>
-      addToTracking(user.uid!, item.id, MediaType.MOVIE)
+      addToTracking(user.uid!, item.id, MediaType.MOVIE),
     );
   }, [user?.uid, movieModal, withLoadingId]);
 
@@ -129,11 +154,18 @@ export default function SearchScreen() {
     isLoading: searchLoading,
     fetchNextPage,
     hasNextPage,
-  } = useSearch(debouncedQuery);
+  } = useSearch(debouncedQuery, mediaFilter);
 
-  const { data: trending, isLoading: trendingLoading } = useTrending(MediaType.TV);
+  const { data: trending, isLoading: trendingLoading } = useTrending("all");
 
-  const displayData = debouncedQuery.length > 0 ? searchData?.results : trending;
+  const filteredTrending = trending?.filter((item) => {
+    if (mediaFilter === "all") return true;
+    const mt = item.media_type || (item.title ? "movie" : "tv");
+    return mt === mediaFilter;
+  });
+
+  const displayData =
+    debouncedQuery.length > 0 ? searchData?.results : filteredTrending;
   const isLoading = debouncedQuery.length > 0 ? searchLoading : trendingLoading;
 
   const handlePress = useCallback(
@@ -145,7 +177,7 @@ export default function SearchScreen() {
         mediaType,
       });
     },
-    [navigation]
+    [navigation],
   );
 
   const renderItem = useCallback(
@@ -153,7 +185,7 @@ export default function SearchScreen() {
       const title = item.name || item.title || "";
       const year = (item.first_air_date || item.release_date || "").substring(
         0,
-        4
+        4,
       );
       const mediaType: MediaType =
         item.media_type || (item.title ? MediaType.MOVIE : MediaType.TV);
@@ -223,7 +255,13 @@ export default function SearchScreen() {
         </TouchableOpacity>
       );
     },
-    [handlePress, watchlistIds, handleAddToWatchlist, handleRemoveFromWatchlist, addingIds]
+    [
+      handlePress,
+      watchlistIds,
+      handleAddToWatchlist,
+      handleRemoveFromWatchlist,
+      addingIds,
+    ],
   );
 
   return (
@@ -254,9 +292,29 @@ export default function SearchScreen() {
         )}
       </View>
 
-      {!query && (
-        <Text style={styles.sectionTitle}>Trending</Text>
-      )}
+      <View style={styles.filterRow}>
+        {(["all", "tv", "movie"] as const).map((type) => (
+          <TouchableOpacity
+            key={type}
+            style={[
+              styles.filterTab,
+              mediaFilter === type && styles.filterTabActive,
+            ]}
+            onPress={() => setMediaFilter(type)}
+          >
+            <Text
+              style={[
+                styles.filterTabText,
+                mediaFilter === type && styles.filterTabTextActive,
+              ]}
+            >
+              {type === "all" ? "All" : type === "tv" ? "TV" : "Movies"}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {!query && <Text style={styles.sectionTitle}>Trending</Text>}
 
       {isLoading ? (
         <View style={styles.center}>
@@ -280,10 +338,7 @@ export default function SearchScreen() {
         />
       )}
 
-      <AnimatedModal
-        visible={!!movieModal}
-        onClose={() => setMovieModal(null)}
-      >
+      <AnimatedModal visible={!!movieModal} onClose={() => setMovieModal(null)}>
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>
             {movieModal?.title || movieModal?.name}
@@ -354,6 +409,29 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 16,
     fontWeight: "600",
+  },
+  filterRow: {
+    flexDirection: "row",
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  filterTab: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 16,
+    backgroundColor: colors.surfaceLight,
+  },
+  filterTabActive: {
+    backgroundColor: colors.primary,
+  },
+  filterTabText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontWeight: "600",
+  },
+  filterTabTextActive: {
+    color: colors.text,
   },
   sectionTitle: {
     ...typography.subtitle,

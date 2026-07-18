@@ -1,1 +1,1 @@
-export { default as getApp } from './firebase';
+export { default as getApp } from "./firebase";

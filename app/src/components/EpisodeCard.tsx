@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { UpcomingEpisode } from "../types";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
+import CheckmarkButton from "./CheckmarkButton";
 
 interface Props {
   episode: UpcomingEpisode;
@@ -22,7 +23,7 @@ export default memo(function EpisodeCard({
   onPress,
   onCheckmark,
 }: Props) {
-  const label = `S${String(episode.season).padStart(2, "0")}E${String(episode.episode).padStart(2, "0")}`;
+  const label = `S${String(episode.season).padStart(2, "0")} | E${String(episode.episode).padStart(2, "0")}`;
   const swipeRef = useRef<SwipeableCardRef>(null);
 
   if (isWatched) {
@@ -38,23 +39,34 @@ export default memo(function EpisodeCard({
           contentFit="cover"
         />
         <View style={styles.info}>
-          <Text style={[styles.showTitle, styles.watchedText]} numberOfLines={1}>
-            {episode.showTitle}
-          </Text>
+          <View style={[styles.titleButton, styles.titleButtonWatched]}>
+            <Text
+              style={[styles.titleText, styles.watchedText]}
+              numberOfLines={1}
+            >
+              {episode.showTitle.toUpperCase()}
+            </Text>
+          </View>
           <Text style={[styles.episodeLabel, styles.watchedText]}>{label}</Text>
-          <Text style={[styles.episodeTitle, styles.watchedText]} numberOfLines={1}>
+          <Text
+            style={[styles.episodeTitle, styles.watchedText]}
+            numberOfLines={1}
+          >
             {episode.episodeTitle}
           </Text>
         </View>
-        <View style={styles.watchedBadge}>
-          <Text style={styles.watchedBadgeText}>✓</Text>
-        </View>
+        <CheckmarkButton size={36} watched />
       </TouchableOpacity>
     );
   }
 
   return (
-    <SwipeableCard ref={swipeRef} onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} persistAfterSwipe>
+    <SwipeableCard
+      ref={swipeRef}
+      onSwipeLeft={onSwipeLeft}
+      onSwipeRight={onSwipeRight}
+      persistAfterSwipe
+    >
       <TouchableOpacity
         style={styles.container}
         onPress={onPress}
@@ -66,25 +78,25 @@ export default memo(function EpisodeCard({
           contentFit="cover"
         />
         <View style={styles.info}>
-          <Text style={styles.showTitle} numberOfLines={1}>
-            {episode.showTitle}
-          </Text>
-          <Text style={styles.episodeLabel}>{label}</Text>
+          <View style={styles.titleButton}>
+            <Text style={styles.titleText} numberOfLines={1}>
+              {episode.showTitle.toUpperCase()}
+            </Text>
+            <Text style={styles.titleArrow}>›</Text>
+          </View>
           <Text style={styles.episodeTitle} numberOfLines={1}>
             {episode.episodeTitle}
           </Text>
+          <Text style={styles.episodeLabel}>{label}</Text>
         </View>
-        <TouchableOpacity
-          style={styles.checkmark}
+        <CheckmarkButton
+          size={36}
           onPress={() => swipeRef.current?.triggerSwipeLeft()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={styles.checkmarkText}>✓</Text>
-        </TouchableOpacity>
+        />
       </TouchableOpacity>
     </SwipeableCard>
   );
-})
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -110,46 +122,47 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: spacing.md,
   },
-  showTitle: {
-    ...typography.subtitle,
+  titleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    borderWidth: 1.5,
+    borderColor: colors.text,
+    borderRadius: 14,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    marginBottom: spacing.sm,
+  },
+  titleButtonWatched: {
+    borderColor: colors.textMuted,
+  },
+  titleText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.text,
+    flexShrink: 1,
+    letterSpacing: 0.5,
+  },
+  titleArrow: {
+    fontSize: 11,
+    color: colors.text,
+    marginLeft: spacing.xs,
+    lineHeight: 13,
   },
   episodeLabel: {
-    ...typography.caption,
-    marginTop: spacing.xs,
+    ...typography.subtitle,
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.text,
+    letterSpacing: 1,
+    marginTop: 2,
   },
   episodeTitle: {
     ...typography.body,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
+    color: colors.text,
+    fontSize: 13,
   },
   watchedText: {
     color: colors.textMuted,
-  },
-  checkmark: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-    borderColor: colors.textMuted,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  checkmarkText: {
-    fontSize: 18,
-    color: colors.textMuted,
-  },
-  watchedBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.watchedGreen,
-    justifyContent: "center",
-    alignItems: "center",
-    opacity: 0.6,
-  },
-  watchedBadgeText: {
-    fontSize: 18,
-    color: colors.text,
-    fontWeight: "700",
   },
 });

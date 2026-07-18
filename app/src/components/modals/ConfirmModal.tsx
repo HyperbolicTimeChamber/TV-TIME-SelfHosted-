@@ -7,7 +7,7 @@ import {
   StyleSheet,
 } from "react-native";
 import AnimatedModal from "./AnimatedModal";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography } from "../../theme";
 
 interface Props {
   visible: boolean;
@@ -44,7 +44,11 @@ export default function ConfirmModal({
         {hint ? <Text style={styles.hint}>{hint}</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <TouchableOpacity
-          style={[styles.confirmButton, confirmColor && { backgroundColor: confirmColor }, loading && { opacity: 0.6 }]}
+          style={[
+            styles.confirmButton,
+            confirmColor && { backgroundColor: confirmColor },
+            loading && { opacity: 0.6 },
+          ]}
           onPress={onConfirm}
           disabled={loading}
         >

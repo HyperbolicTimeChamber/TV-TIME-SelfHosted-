@@ -15,11 +15,15 @@ const CACHE_KEY = "upcoming_episodes_cache";
 const BUILT_KEY = "upcoming_subcollection_built";
 const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 1 week
 
-type MutateCallback = (fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[]) => void;
+type MutateCallback = (
+  fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[],
+) => void;
 const mutateListeners = new Set<MutateCallback>();
 const invalidateListeners = new Set<() => void>();
 
-function mutateCachedEpisodes(fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[]) {
+function mutateCachedEpisodes(
+  fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[],
+) {
   mutateListeners.forEach((cb) => cb(fn));
 }
 
@@ -42,25 +46,36 @@ export function useUpcomingEpisodes(userId: string | undefined) {
   useEffect(() => {
     const listener = () => setTrigger((t) => t + 1);
     invalidateListeners.add(listener);
-    return () => { invalidateListeners.delete(listener); };
+    return () => {
+      invalidateListeners.delete(listener);
+    };
   }, []);
 
   // Listen for direct mutations
   useEffect(() => {
     const cb: MutateCallback = (fn) => setEpisodes((prev) => fn(prev));
     mutateListeners.add(cb);
-    return () => { mutateListeners.delete(cb); };
+    return () => {
+      mutateListeners.delete(cb);
+    };
   }, []);
 
   // Restore from local cache on mount
   useEffect(() => {
     if (!userId || cacheRestored.current) return;
     AsyncStorage.getItem(CACHE_KEY).then((raw) => {
-      if (!raw) { cacheRestored.current = true; return; }
+      if (!raw) {
+        cacheRestored.current = true;
+        return;
+      }
       try {
         const cached = JSON.parse(raw);
         const age = Date.now() - (cached.timestamp ?? 0);
-        if (cached.userId === userId && age < CACHE_MAX_AGE_MS && cached.episodes?.length > 0) {
+        if (
+          cached.userId === userId &&
+          age < CACHE_MAX_AGE_MS &&
+          cached.episodes?.length > 0
+        ) {
           setEpisodes(cached.episodes);
           setIsLoading(false);
         }
@@ -84,7 +99,9 @@ export function useUpcomingEpisodes(userId: string | undefined) {
       const db = getFirestore();
       const today = todayStr();
       const upcomingCol = collection(doc(db, "users", userId), "upcoming");
-      let snap = await getDocs(query(upcomingCol, where("airDate", ">=", today)));
+      let snap = await getDocs(
+        query(upcomingCol, where("airDate", ">=", today)),
+      );
 
       // If empty, check if subcollection was ever built
       if (snap.size === 0) {
@@ -93,7 +110,9 @@ export function useUpcomingEpisodes(userId: string | undefined) {
           try {
             await httpsCallable(getFunctions(), "rebuildUpcoming")({});
             await AsyncStorage.setItem(BUILT_KEY, userId);
-            snap = await getDocs(query(upcomingCol, where("airDate", ">=", today)));
+            snap = await getDocs(
+              query(upcomingCol, where("airDate", ">=", today)),
+            );
           } catch (err) {
             console.error("rebuildUpcoming CF failed:", err);
             setError("Failed to fetch upcoming episodes");
@@ -112,11 +131,14 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 
       // Cache locally
       if (eps.length > 0) {
-        AsyncStorage.setItem(CACHE_KEY, JSON.stringify({
-          userId,
-          timestamp: Date.now(),
-          episodes: eps,
-        })).catch(() => {});
+        AsyncStorage.setItem(
+          CACHE_KEY,
+          JSON.stringify({
+            userId,
+            timestamp: Date.now(),
+            episodes: eps,
+          }),
+        ).catch(() => {});
       }
     })().catch((err) => {
       console.error("Upcoming fetch error:", err);
@@ -138,7 +160,9 @@ export function useUpcomingMutations() {
 
   const removeShowFromUpcoming = useCallback((tmdbId: number) => {
     // Optimistic: remove from local state immediately
-    mutateCachedEpisodes((prev) => prev.filter((ep) => ep.tmdbShowId !== tmdbId));
+    mutateCachedEpisodes((prev) =>
+      prev.filter((ep) => ep.tmdbShowId !== tmdbId),
+    );
   }, []);
 
   const invalidateUpcoming = useCallback(() => {

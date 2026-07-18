@@ -9,7 +9,10 @@ import {
   getDocs,
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
-import { getMessaging, requestPermission } from "@react-native-firebase/messaging";
+import {
+  getMessaging,
+  requestPermission,
+} from "@react-native-firebase/messaging";
 import { useAuthStore } from "../../stores/authStore";
 import {
   parseGdprZip,
@@ -48,7 +51,6 @@ export default function ImportDataScreen({ navigation }: any) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const existingIdsRef = useRef<Set<number>>(new Set());
 
-
   // Disambiguation pagination
   const [disambigCandidates, setDisambigCandidates] = useState<TMDBMatch[]>([]);
   const disambigPageRef = useRef(1);
@@ -56,7 +58,9 @@ export default function ImportDataScreen({ navigation }: any) {
   const [loadingMore, setLoadingMore] = useState(false);
 
   // Disambiguation history for back navigation
-  const disambigHistory = useRef<({ type: "pick"; match: TMDBMatch } | { type: "skip" })[]>([]);
+  const disambigHistory = useRef<
+    ({ type: "pick"; match: TMDBMatch } | { type: "skip" })[]
+  >([]);
 
   // --- Helpers ---
   const buildSelection = useCallback((matches: TMDBMatch[]) => {
@@ -82,7 +86,14 @@ export default function ImportDataScreen({ navigation }: any) {
       setStatusText("Extracting data...");
 
       const asset = result.assets[0];
-      console.log("Import file:", asset.name, "size:", asset.size, "uri:", asset.uri);
+      console.log(
+        "Import file:",
+        asset.name,
+        "size:",
+        asset.size,
+        "uri:",
+        asset.uri,
+      );
       const parsed = await parseGdprZip(asset.uri);
       parsedRef.current = parsed;
 
@@ -100,7 +111,7 @@ export default function ImportDataScreen({ navigation }: any) {
         tmdbApiKey!,
         parsed.shows,
         parsed.movies,
-        (done, total) => setProgress({ done, total })
+        (done, total) => setProgress({ done, total }),
       );
 
       setMatched(matchResult.matched);
@@ -122,7 +133,11 @@ export default function ImportDataScreen({ navigation }: any) {
 
   // --- Sync candidates when disambig index changes ---
   useEffect(() => {
-    if (phase === "disambiguate" && ambiguous.length > 0 && disambigIndex < ambiguous.length) {
+    if (
+      phase === "disambiguate" &&
+      ambiguous.length > 0 &&
+      disambigIndex < ambiguous.length
+    ) {
       setDisambigCandidates(ambiguous[disambigIndex].candidates);
       disambigPageRef.current = 1;
       disambigTotalPagesRef.current = 99;
@@ -130,7 +145,8 @@ export default function ImportDataScreen({ navigation }: any) {
   }, [phase, disambigIndex, ambiguous]);
 
   const loadMoreCandidates = useCallback(async () => {
-    if (loadingMore || disambigPageRef.current >= disambigTotalPagesRef.current) return;
+    if (loadingMore || disambigPageRef.current >= disambigTotalPagesRef.current)
+      return;
     if (!tmdbApiKey || disambigIndex >= ambiguous.length) return;
     setLoadingMore(true);
     const current = ambiguous[disambigIndex];
@@ -139,7 +155,7 @@ export default function ImportDataScreen({ navigation }: any) {
       tmdbApiKey,
       current.tvTimeName,
       current.mediaType,
-      nextPage
+      nextPage,
     );
     disambigPageRef.current = nextPage;
     disambigTotalPagesRef.current = totalPages;
@@ -158,7 +174,7 @@ export default function ImportDataScreen({ navigation }: any) {
       setSelected(buildSelection(currentMatched));
       setPhase("review");
     },
-    [buildSelection]
+    [buildSelection],
   );
 
   const handleDisambiguate = useCallback(
@@ -174,7 +190,7 @@ export default function ImportDataScreen({ navigation }: any) {
         return updated;
       });
     },
-    [disambigIndex, ambiguous, finishDisambig]
+    [disambigIndex, ambiguous, finishDisambig],
   );
 
   const handleSkipDisambig = useCallback(() => {
@@ -212,12 +228,11 @@ export default function ImportDataScreen({ navigation }: any) {
     if (!user || !parsedRef.current) return;
     setPhase("importing");
 
-
     // Defer heavy work so React renders the importing screen first
     setTimeout(async () => {
       const parsed = parsedRef.current!;
       const selectedMatches = matched.filter((m) =>
-        selected.has(`${m.mediaType}-${m.tmdbId}`)
+        selected.has(`${m.mediaType}-${m.tmdbId}`),
       );
 
       const showByTvTimeId = new Map<number, ParsedShow>();
@@ -233,16 +248,23 @@ export default function ImportDataScreen({ navigation }: any) {
 
       const cfMatches = selectedMatches.map((m) => {
         if (m.mediaType === MediaType.TV) {
-          const show = m.tvTimeId !== undefined
-            ? showByTvTimeId.get(m.tvTimeId)
-            : parsed.shows.find((s) => s.name === m.tvTimeName);
+          const show =
+            m.tvTimeId !== undefined
+              ? showByTvTimeId.get(m.tvTimeId)
+              : parsed.shows.find((s) => s.name === m.tvTimeName);
 
-          const showEps = m.tvTimeId !== undefined
-            ? parsed.watchedEpisodes.filter((e) => e.tvTimeShowId === m.tvTimeId)
-            : [];
-          const rewatchEps = m.tvTimeId !== undefined
-            ? parsed.rewatchedEpisodes.filter((e) => e.tvTimeShowId === m.tvTimeId)
-            : [];
+          const showEps =
+            m.tvTimeId !== undefined
+              ? parsed.watchedEpisodes.filter(
+                  (e) => e.tvTimeShowId === m.tvTimeId,
+                )
+              : [];
+          const rewatchEps =
+            m.tvTimeId !== undefined
+              ? parsed.rewatchedEpisodes.filter(
+                  (e) => e.tvTimeShowId === m.tvTimeId,
+                )
+              : [];
 
           return {
             tmdbId: m.tmdbId,
@@ -261,7 +283,9 @@ export default function ImportDataScreen({ navigation }: any) {
             mediaType: m.mediaType,
             status: WatchStatus.COMPLETED,
             movieWatchedAt: movie?.watchedAt || null,
-            movieRuntime: movie ? Math.round(movie.runtimeSeconds / 60) : undefined,
+            movieRuntime: movie
+              ? Math.round(movie.runtimeSeconds / 60)
+              : undefined,
           };
         }
       });
@@ -274,7 +298,9 @@ export default function ImportDataScreen({ navigation }: any) {
       }
 
       const functions = getFunctions();
-      const importFn = httpsCallable(functions, "importMatches", { timeout: 3600000 });
+      const importFn = httpsCallable(functions, "importMatches", {
+        timeout: 3600000,
+      });
       try {
         await importFn({ matches: cfMatches });
       } catch (err: any) {

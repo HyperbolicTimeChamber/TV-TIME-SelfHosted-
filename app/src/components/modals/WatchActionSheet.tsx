@@ -5,10 +5,11 @@ import {
   TouchableOpacity,
   Modal,
   Animated,
+  PanResponder,
   StyleSheet,
   Dimensions,
 } from "react-native";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography } from "../../theme";
 
 export type WatchAction = "rewatch" | "not_watched" | "watched_once_less";
 
@@ -52,6 +53,29 @@ export default function WatchActionSheet({
     }).start(() => onClose());
   };
 
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gs) =>
+        gs.dy > 8 && Math.abs(gs.dy) > Math.abs(gs.dx),
+      onPanResponderMove: (_, gs) => {
+        if (gs.dy > 0) translateY.setValue(gs.dy);
+      },
+      onPanResponderRelease: (_, gs) => {
+        if (gs.dy > 80 || gs.vy > 0.5) {
+          dismiss();
+        } else {
+          Animated.spring(translateY, {
+            toValue: 0,
+            damping: 20,
+            stiffness: 200,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    }),
+  ).current;
+
   const handleSelect = (action: WatchAction) => {
     Animated.timing(translateY, {
       toValue: SCREEN_HEIGHT,
@@ -64,15 +88,30 @@ export default function WatchActionSheet({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={dismiss}>
-      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={dismiss}>
-        <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      onRequestClose={dismiss}
+    >
+      <TouchableOpacity
+        style={styles.overlay}
+        activeOpacity={1}
+        onPress={dismiss}
+      >
+        <Animated.View
+          style={[styles.sheet, { transform: [{ translateY }] }]}
+          {...panResponder.panHandlers}
+        >
           <TouchableOpacity activeOpacity={1}>
             <View style={styles.handle} />
             <Text style={styles.title}>{label}</Text>
             <Text style={styles.subtitle}>Watched {watchCount}x</Text>
 
-            <TouchableOpacity style={styles.option} onPress={() => handleSelect("rewatch")}>
+            <TouchableOpacity
+              style={styles.option}
+              onPress={() => handleSelect("rewatch")}
+            >
               <Text style={styles.optionIcon}>🔄</Text>
               <View style={styles.optionContent}>
                 <Text style={styles.optionText}>Rewatch</Text>
@@ -81,7 +120,10 @@ export default function WatchActionSheet({
             </TouchableOpacity>
 
             {watchCount > 1 && (
-              <TouchableOpacity style={styles.option} onPress={() => handleSelect("watched_once_less")}>
+              <TouchableOpacity
+                style={styles.option}
+                onPress={() => handleSelect("watched_once_less")}
+              >
                 <Text style={styles.optionIcon}>−1</Text>
                 <View style={styles.optionContent}>
                   <Text style={styles.optionText}>Watched Once Less</Text>
@@ -98,7 +140,9 @@ export default function WatchActionSheet({
             >
               <Text style={styles.optionIcon}>✕</Text>
               <View style={styles.optionContent}>
-                <Text style={[styles.optionText, styles.destructiveText]}>Not Watched</Text>
+                <Text style={[styles.optionText, styles.destructiveText]}>
+                  Not Watched
+                </Text>
                 <Text style={styles.optionHint}>Remove all watch history</Text>
               </View>
             </TouchableOpacity>

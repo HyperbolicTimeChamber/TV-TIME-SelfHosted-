@@ -10,8 +10,19 @@ function tmdb(apiKey: string) {
   });
 }
 
-export async function searchMulti(apiKey: string, query: string, page: number = 1) {
-  const res = await tmdb(apiKey).get("/search/multi", {
+export async function searchMulti(
+  apiKey: string,
+  query: string,
+  page: number = 1,
+  mediaType?: "all" | "tv" | "movie",
+) {
+  const endpoint =
+    mediaType === "tv"
+      ? "/search/tv"
+      : mediaType === "movie"
+        ? "/search/movie"
+        : "/search/multi";
+  const res = await tmdb(apiKey).get(endpoint, {
     params: { query, page },
   });
   return {
@@ -25,7 +36,7 @@ export async function searchMulti(apiKey: string, query: string, page: number = 
 export async function getTrending(
   apiKey: string,
   mediaType: string = "tv",
-  timeWindow: string = "week"
+  timeWindow: string = "week",
 ) {
   const res = await tmdb(apiKey).get(`/trending/${mediaType}/${timeWindow}`);
   return {
@@ -38,7 +49,7 @@ export async function getTrending(
 export async function getShowDetails(
   apiKey: string,
   tmdbId: number,
-  mediaType: string = "tv"
+  mediaType: string = "tv",
 ) {
   const res = await tmdb(apiKey).get(`/${mediaType}/${tmdbId}`, {
     params: { append_to_response: "credits,similar" },
@@ -49,16 +60,20 @@ export async function getShowDetails(
 export async function getSeasonDetails(
   apiKey: string,
   tmdbId: number,
-  seasonNumber: number
+  seasonNumber: number,
 ) {
   const res = await tmdb(apiKey).get(`/tv/${tmdbId}/season/${seasonNumber}`);
-  return res.data as { episodes: TMDBEpisode[]; name: string; season_number: number };
+  return res.data as {
+    episodes: TMDBEpisode[];
+    name: string;
+    season_number: number;
+  };
 }
 
 export async function discoverTVByAirDate(
   apiKey: string,
   startDate: string,
-  endDate: string
+  endDate: string,
 ): Promise<number[]> {
   const ids: number[] = [];
   let page = 1;
@@ -82,7 +97,10 @@ export async function discoverTVByAirDate(
   return ids;
 }
 
-export async function pooled<T>(tasks: (() => Promise<T>)[], concurrency = 5): Promise<T[]> {
+export async function pooled<T>(
+  tasks: (() => Promise<T>)[],
+  concurrency = 5,
+): Promise<T[]> {
   const results: T[] = [];
   let i = 0;
   async function next(): Promise<void> {
@@ -91,7 +109,8 @@ export async function pooled<T>(tasks: (() => Promise<T>)[], concurrency = 5): P
       results[idx] = await tasks[idx]();
     }
   }
-  await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, () => next()));
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, tasks.length) }, () => next()),
+  );
   return results;
 }
-

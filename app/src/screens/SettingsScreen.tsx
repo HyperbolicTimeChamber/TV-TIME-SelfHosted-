@@ -17,7 +17,8 @@ import { colors, spacing, typography } from "../theme";
 import { ProfileStackParamList, Route } from "../types";
 
 export default function SettingsScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
   const user = useAuthStore((s) => s.user);
   const hasCompletedImport = useAuthStore((s) => s.hasCompletedImport);
   const signOut = useAuthStore((s) => s.signOut);
@@ -59,7 +60,7 @@ export default function SettingsScreen() {
             }
           },
         },
-      ]
+      ],
     );
   }, [signOut]);
 
@@ -72,7 +73,9 @@ export default function SettingsScreen() {
           onPress={() => navigation.navigate(Route.IMPORT_DATA)}
         >
           <Text style={styles.rowText}>
-            {hasCompletedImport ? "Re-sync TV Time Data" : "Import TV Time Data"}
+            {hasCompletedImport
+              ? "Re-sync TV Time Data"
+              : "Import TV Time Data"}
           </Text>
         </TouchableOpacity>
       </View>

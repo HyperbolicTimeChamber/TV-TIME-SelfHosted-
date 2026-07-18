@@ -10,20 +10,38 @@ import {
   Alert,
 } from "react-native";
 import { LegendList } from "@legendapp/list/react-native";
-import { useNavigation, CompositeNavigationProp } from "@react-navigation/native";
+import {
+  useNavigation,
+  CompositeNavigationProp,
+} from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { useAuthStore, useUiStore } from "../../../stores";
-import { LoadingSpinner, ShowCard, WatchActionSheet } from "../../../components";
+import {
+  LoadingSpinner,
+  ShowCard,
+  WatchActionSheet,
+  EpisodeDetailModal,
+  ShowDrawer,
+} from "../../../components";
 import type { WatchAction } from "../../../components";
 import {
   markEpisodeWatched,
   unmarkEpisodeWatched,
   decrementEpisodeWatchCount,
   getCatalogShow,
+  getSeasonDetails,
+  getShowDetails,
 } from "../../../services";
 import { colors, spacing, typography } from "../../../theme";
-import { HomeStackParamList, MainTabParamList, WatchedEpisode, MediaType, Route } from "../../../types";
+import {
+  HomeStackParamList,
+  MainTabParamList,
+  WatchedEpisode,
+  MediaType,
+  Route,
+} from "../../../types";
+import type { ShowDrawerData } from "../../../components/ShowDrawer";
 import { ListItem } from "./types";
 import { useWatchlistData } from "./useWatchlistData";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
@@ -67,6 +85,27 @@ export default function WatchlistTab() {
   const [sheetVisible, setSheetVisible] = useState(false);
   const [sheetEpisode, setSheetEpisode] = useState<WatchedEpisode | null>(null);
 
+  // Episode detail modal state
+  const [epModalVisible, setEpModalVisible] = useState(false);
+  const [epModalData, setEpModalData] = useState<{
+    showTitle: string;
+    season: number;
+    episode: number;
+    episodeTitle: string | null;
+    overview: string | null;
+    stillPath: string | null;
+    airDate: string | null;
+    runtime: number | null;
+    tmdbId: number;
+  } | null>(null);
+  const [epModalLoading, setEpModalLoading] = useState(false);
+  const [epModalMarking, setEpModalMarking] = useState(false);
+
+  // Show drawer state
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const [drawerShow, setDrawerShow] = useState<ShowDrawerData | null>(null);
+  const [drawerLoading, setDrawerLoading] = useState(false);
+
   useEffect(() => {
     setWatchlistLoading(isLoading);
   }, [isLoading, setWatchlistLoading]);
@@ -83,12 +122,136 @@ export default function WatchlistTab() {
     }
   }, [isLoading, prevWatchedOffset]);
 
-  const handlePress = useCallback(
+  const handleNavigateToShow = useCallback(
     (tmdbId: number, mediaType: MediaType) => {
       navigation.navigate(Route.SHOW_DETAIL, { tmdbId, mediaType });
     },
     [navigation],
   );
+
+  const handleCardPress = useCallback(
+    async (tmdbId: number, _mediaType: MediaType) => {
+      const listItem = listData.find(
+        (li) => li.type === "show" && li.item.tmdbId === tmdbId,
+      );
+      if (!listItem || listItem.type !== "show") return;
+      const item = listItem.item;
+      const ep = item.nextEpisode;
+      if (!ep) return;
+
+      const catalogSeason = item.catalogShow?.seasons?.find(
+        (s) => s.seasonNumber === ep.season,
+      );
+      const catalogEp = catalogSeason?.episodes?.find(
+        (e) => e.episodeNumber === ep.episode,
+      );
+      const hasFullData = !!(catalogEp?.overview && catalogEp?.stillPath);
+      setEpModalData({
+        showTitle: item.title,
+        season: ep.season,
+        episode: ep.episode,
+        episodeTitle: catalogEp?.title ?? null,
+        overview: catalogEp?.overview || null,
+        stillPath: catalogEp?.stillPath ?? null,
+        airDate: catalogEp?.airDate ?? null,
+        runtime: catalogEp?.runtime ?? null,
+        tmdbId,
+      });
+      setEpModalLoading(!hasFullData);
+      setEpModalMarking(false);
+      setEpModalVisible(true);
+
+      // Only fetch TMDB if catalog lacks overview/image
+      if (!hasFullData) {
+        const apiKey = useAuthStore.getState().appTmdbApiKey;
+        if (apiKey)
+          try {
+            const seasonData = await getSeasonDetails(
+              apiKey,
+              tmdbId,
+              ep.season,
+            );
+            const tmdbEp = seasonData.episodes?.find(
+              (e) => e.episode_number === ep.episode,
+            );
+            if (tmdbEp) {
+              setEpModalData((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      overview: tmdbEp.overview || null,
+                      stillPath: tmdbEp.still_path || null,
+                      episodeTitle: tmdbEp.name || prev.episodeTitle,
+                      airDate: tmdbEp.air_date || prev.airDate,
+                      runtime: tmdbEp.runtime || prev.runtime,
+                    }
+                  : null,
+              );
+            }
+          } catch {}
+        setEpModalLoading(false);
+      }
+    },
+    [listData],
+  );
+
+  const handleEpModalMarkWatched = useCallback(async () => {
+    if (!epModalData) return;
+    const listItem = listData.find(
+      (li) => li.type === "show" && li.item.tmdbId === epModalData.tmdbId,
+    );
+    if (!listItem || listItem.type !== "show") return;
+    setEpModalMarking(true);
+    try {
+      await handleMarkWatched(listItem.item);
+      setEpModalVisible(false);
+      setEpModalData(null);
+    } catch {}
+    setEpModalMarking(false);
+  }, [epModalData, listData, handleMarkWatched]);
+
+  const handleEpModalShowPress = useCallback(() => {
+    if (!epModalData) return;
+    setEpModalVisible(false);
+    setEpModalData(null);
+    handleNavigateToShow(epModalData.tmdbId, MediaType.TV);
+  }, [epModalData, handleNavigateToShow]);
+
+  const handleTitlePress = useCallback(async (item: any) => {
+    const cat = item.catalogShow;
+    if (!cat) return;
+    setDrawerShow({
+      tmdbId: cat.tmdbId,
+      title: cat.title,
+      posterPath: cat.posterPath,
+      backdropPath: cat.backdropPath,
+      overview: cat.overview,
+      mediaType: cat.mediaType,
+      year:
+        (cat.firstAirDate || cat.releaseDate || "")?.substring(0, 4) || null,
+      totalSeasons: cat.totalSeasons,
+      totalEpisodes: cat.totalEpisodes,
+      runtime: cat.runtime,
+      voteAverage: cat.voteAverage,
+    });
+    setDrawerVisible(true);
+
+    // Fetch genres from TMDB
+    const apiKey = useAuthStore.getState().appTmdbApiKey;
+    if (apiKey) {
+      try {
+        const data = (await getShowDetails(
+          apiKey,
+          cat.tmdbId,
+          cat.mediaType,
+        )) as any;
+        const genres = data?.genres?.map((g: any) => g.name).join(", ");
+        if (genres) {
+          setDrawerShow((prev) => (prev ? { ...prev, genres } : null));
+        }
+      } catch {}
+    }
+  }, []);
 
   const handleWatchedCheckmark = useCallback((episode: WatchedEpisode) => {
     setSheetEpisode(episode);
@@ -170,8 +333,8 @@ export default function WatchlistTab() {
   );
 
   const handleTvPress = useCallback(
-    (id: number) => handlePress(id, MediaType.TV),
-    [handlePress],
+    (id: number) => handleNavigateToShow(id, MediaType.TV),
+    [handleNavigateToShow],
   );
 
   const renderItem = useCallback(
@@ -191,27 +354,66 @@ export default function WatchlistTab() {
         );
       }
 
-      const watched = watchedCountByShow.get(item.item.tmdbId) || 0;
-      const total = item.item.totalEpisodes;
-      const remaining = total ? total - watched : null;
+      const nextEp = item.item.nextEpisode;
+      const catalog = item.item.catalogShow;
+      let remaining: number | null = null;
+      if (nextEp && catalog?.seasons) {
+        let count = 0;
+        for (const s of catalog.seasons) {
+          if (s.seasonNumber < nextEp.season) continue;
+          for (const e of s.episodes) {
+            if (
+              s.seasonNumber === nextEp.season &&
+              e.episodeNumber < nextEp.episode
+            )
+              continue;
+            count++;
+          }
+        }
+        remaining = count > 0 ? count : null;
+      }
+
+      const catalogSeason = nextEp
+        ? catalog?.seasons?.find((s) => s.seasonNumber === nextEp.season)
+        : undefined;
+      const catalogEp = catalogSeason?.episodes?.find(
+        (e) => e.episodeNumber === nextEp!.episode,
+      );
+      const enrichedItem = {
+        ...item.item,
+        nextEpisodeName: item.item.nextEpisodeName || catalogEp?.title || null,
+      };
 
       return (
         <ShowCard
-          item={item.item}
+          item={enrichedItem}
           isUpdating={updatingShows.has(item.item.tmdbId)}
           remainingEpisodes={remaining}
           onSwipeLeft={handleMarkWatched}
           onSwipeRight={handleStopWatching}
-          onPress={handlePress}
+          onPress={handleCardPress}
+          onTitlePress={handleTitlePress}
           onCheckmark={handleMarkWatched}
         />
       );
     },
-    [handleMarkWatched, handleStopWatching, handlePress, handleTvPress, watchedCountByShow, updatingShows, handleWatchedCheckmark],
+    [
+      handleMarkWatched,
+      handleStopWatching,
+      handleCardPress,
+      handleTitlePress,
+      handleTvPress,
+      watchedCountByShow,
+      updatingShows,
+      handleWatchedCheckmark,
+    ],
   );
 
   const contentStyle = useMemo(
-    () => [styles.listContent, { minHeight: SCREEN_HEIGHT + prevWatchedOffset }],
+    () => [
+      styles.listContent,
+      { minHeight: SCREEN_HEIGHT + prevWatchedOffset },
+    ],
     [prevWatchedOffset],
   );
 
@@ -248,7 +450,8 @@ export default function WatchlistTab() {
         data={listData}
         keyExtractor={(item) => {
           if (item.type === "sectionHeader") return `section_${item.title}`;
-          if (item.type === "watchedEpisode") return `watched_${item.episode.id}`;
+          if (item.type === "watchedEpisode")
+            return `watched_${item.episode.id}`;
           return `show_${item.item.id}`;
         }}
         renderItem={renderItem}
@@ -286,6 +489,49 @@ export default function WatchlistTab() {
         onClose={() => {
           setSheetVisible(false);
           setSheetEpisode(null);
+        }}
+      />
+      {epModalData && (
+        <EpisodeDetailModal
+          visible={epModalVisible}
+          showTitle={epModalData.showTitle}
+          season={epModalData.season}
+          episode={epModalData.episode}
+          episodeTitle={epModalData.episodeTitle}
+          overview={epModalData.overview}
+          stillPath={epModalData.stillPath}
+          airDate={epModalData.airDate}
+          runtime={epModalData.runtime}
+          loadingDetails={epModalLoading}
+          markingWatched={epModalMarking}
+          onMarkWatched={handleEpModalMarkWatched}
+          onShowPress={handleEpModalShowPress}
+          onClose={() => {
+            setEpModalVisible(false);
+            setEpModalData(null);
+          }}
+        />
+      )}
+      <ShowDrawer
+        visible={drawerVisible}
+        show={drawerShow}
+        onGoToShow={
+          drawerShow?.tmdbId
+            ? () => {
+                const id = drawerShow.tmdbId!;
+                const mt =
+                  drawerShow.mediaType === "movie"
+                    ? MediaType.MOVIE
+                    : MediaType.TV;
+                setDrawerVisible(false);
+                setDrawerShow(null);
+                handleNavigateToShow(id, mt);
+              }
+            : undefined
+        }
+        onClose={() => {
+          setDrawerVisible(false);
+          setDrawerShow(null);
         }}
       />
     </>

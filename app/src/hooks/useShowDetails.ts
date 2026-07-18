@@ -45,11 +45,11 @@ function catalogShowToResult(catalog: CatalogShow): ShowDetailsResult {
         episode_number: ep.episodeNumber,
         season_number: s.seasonNumber,
         name: ep.title,
-        overview: "",
+        overview: ep.overview ?? "",
         air_date: ep.airDate,
         runtime: ep.runtime,
-        still_path: null,
-      }))
+        still_path: ep.stillPath ?? null,
+      })),
     );
   }
 
@@ -76,6 +76,7 @@ export function useShowDetails(tmdbId: number, mediaType: string = "tv") {
   return {
     ...result,
     data: result.data?.show as TMDBShow | undefined,
-    episodesBySeason: result.data?.episodesBySeason ?? new Map<number, TMDBEpisode[]>(),
+    episodesBySeason:
+      result.data?.episodesBySeason ?? new Map<number, TMDBEpisode[]>(),
   };
 }

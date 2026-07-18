@@ -26,6 +26,7 @@ import {
   markMovieWatched,
 } from "../services";
 import { ConfirmModal, LoadingSpinner, SeasonDropdown } from "../components";
+import { emitShowRemoved } from "../utils/watchlistEvents";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { HomeStackParamList, WatchStatus, MediaType } from "../types";
 
@@ -35,7 +36,11 @@ export default function ShowDetailScreen() {
   const route = useRoute<RouteParams>();
   const { tmdbId, mediaType } = route.params;
   const user = useAuthStore((s) => s.user);
-  const { data: show, isLoading, episodesBySeason } = useShowDetails(tmdbId, mediaType);
+  const {
+    data: show,
+    isLoading,
+    episodesBySeason,
+  } = useShowDetails(tmdbId, mediaType);
   const [watchlistItem, setWatchlistItem] = useState<any>(null);
   const [trackingLoading, setTrackingLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -61,7 +66,7 @@ export default function ShowDetailScreen() {
   const title = show?.name || show?.title || "";
   const year = (show?.first_air_date || show?.release_date || "").substring(
     0,
-    4
+    4,
   );
 
   const handleAddToWatchlist = useCallback(async () => {
@@ -91,6 +96,7 @@ export default function ShowDetailScreen() {
     try {
       await removeFromTracking(user.uid, tmdbId);
       removeShowFromUpcoming(tmdbId);
+      emitShowRemoved(tmdbId);
       setRemoveModalVisible(false);
     } catch (err: any) {
       console.error("removeFromTracking failed:", err);
@@ -126,7 +132,6 @@ export default function ShowDetailScreen() {
     }
   }, [user?.uid, show, tmdbId, watchlistItem, adding]);
 
-
   if (isLoading || trackingLoading) {
     return (
       <View style={styles.center}>
@@ -146,7 +151,9 @@ export default function ShowDetailScreen() {
   return (
     <ScrollView style={styles.container}>
       <Image
-        source={{ uri: `${posterSize.large}${show.backdrop_path || show.poster_path}` }}
+        source={{
+          uri: `${posterSize.large}${show.backdrop_path || show.poster_path}`,
+        }}
         style={styles.backdrop}
         contentFit="cover"
       />
@@ -177,7 +184,11 @@ export default function ShowDetailScreen() {
               </TouchableOpacity>
               {mediaType === MediaType.MOVIE && (
                 <TouchableOpacity
-                  style={[styles.addButton, { backgroundColor: colors.watchedGreen }, adding && { opacity: 0.6 }]}
+                  style={[
+                    styles.addButton,
+                    { backgroundColor: colors.watchedGreen },
+                    adding && { opacity: 0.6 },
+                  ]}
                   onPress={handleMarkMovieWatched}
                   disabled={adding}
                 >
@@ -191,24 +202,35 @@ export default function ShowDetailScreen() {
             </>
           ) : (
             <>
-              {mediaType === MediaType.MOVIE && watchlistItem.status !== WatchStatus.COMPLETED && (
-                <TouchableOpacity
-                  style={[styles.addButton, { backgroundColor: colors.watchedGreen }, adding && { opacity: 0.6 }]}
-                  onPress={handleMarkMovieWatched}
-                  disabled={adding}
-                >
-                  {adding ? (
-                    <ActivityIndicator size="small" color={colors.text} />
-                  ) : (
-                    <Text style={styles.buttonText}>Mark as Watched</Text>
-                  )}
-                </TouchableOpacity>
-              )}
-              {mediaType === MediaType.MOVIE && watchlistItem.status === WatchStatus.COMPLETED && (
-                <View style={[styles.addButton, { backgroundColor: colors.watchedGreen, opacity: 0.7 }]}>
-                  <Text style={styles.buttonText}>Watched ✓</Text>
-                </View>
-              )}
+              {mediaType === MediaType.MOVIE &&
+                watchlistItem.status !== WatchStatus.COMPLETED && (
+                  <TouchableOpacity
+                    style={[
+                      styles.addButton,
+                      { backgroundColor: colors.watchedGreen },
+                      adding && { opacity: 0.6 },
+                    ]}
+                    onPress={handleMarkMovieWatched}
+                    disabled={adding}
+                  >
+                    {adding ? (
+                      <ActivityIndicator size="small" color={colors.text} />
+                    ) : (
+                      <Text style={styles.buttonText}>Mark as Watched</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+              {mediaType === MediaType.MOVIE &&
+                watchlistItem.status === WatchStatus.COMPLETED && (
+                  <View
+                    style={[
+                      styles.addButton,
+                      { backgroundColor: colors.watchedGreen, opacity: 0.7 },
+                    ]}
+                  >
+                    <Text style={styles.buttonText}>Watched ✓</Text>
+                  </View>
+                )}
               {(watchlistItem.status === WatchStatus.COMPLETED ||
                 watchlistItem.status === WatchStatus.PAUSED ||
                 watchlistItem.status === WatchStatus.PAUSED_REWATCH) && (
@@ -226,15 +248,15 @@ export default function ShowDetailScreen() {
                 </TouchableOpacity>
               )}
               <TouchableOpacity
-                style={[
-                  styles.removeButton,
-                  removing && { opacity: 0.6 },
-                ]}
+                style={[styles.removeButton, removing && { opacity: 0.6 }]}
                 onPress={handleRemove}
                 disabled={removing}
               >
                 {removing ? (
-                  <ActivityIndicator size="small" color={colors.destructiveRed} />
+                  <ActivityIndicator
+                    size="small"
+                    color={colors.destructiveRed}
+                  />
                 ) : (
                   <Text style={styles.removeButtonText}>Remove</Text>
                 )}
@@ -255,6 +277,7 @@ export default function ShowDetailScreen() {
                   key={season.season_number}
                   tmdbId={tmdbId}
                   season={season}
+                  showTitle={title}
                   showPosterPath={show.poster_path}
                   isTracked={!!watchlistItem}
                   preloadedEpisodes={episodesBySeason.get(season.season_number)}

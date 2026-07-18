@@ -3,8 +3,10 @@ import { MediaType } from "../enums";
 export interface CatalogEpisode {
   episodeNumber: number;
   title: string;
+  overview: string;
   airDate: string | null;
   runtime: number | null;
+  stillPath: string | null;
 }
 
 export interface CatalogSeason {

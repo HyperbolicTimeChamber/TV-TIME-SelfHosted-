@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Image } from "expo-image";
+import { CheckmarkButton } from "../../../components";
 import { colors, spacing, typography, posterSize } from "../../../theme";
 import { WatchedEpisode } from "../../../types";
 import { EnrichedTrackingItem } from "../../../hooks";
@@ -12,8 +13,13 @@ interface Props {
   onCheckmarkPress: (episode: WatchedEpisode) => void;
 }
 
-export default memo(function WatchedEpisodeRow({ episode, show, onPress, onCheckmarkPress }: Props) {
-  const label = `S${String(episode.season).padStart(2, "0")}E${String(episode.episode).padStart(2, "0")}`;
+export default memo(function WatchedEpisodeRow({
+  episode,
+  show,
+  onPress,
+  onCheckmarkPress,
+}: Props) {
+  const label = `S${String(episode.season).padStart(2, "0")} | E${String(episode.episode).padStart(2, "0")}`;
 
   return (
     <TouchableOpacity
@@ -27,23 +33,22 @@ export default memo(function WatchedEpisodeRow({ episode, show, onPress, onCheck
         contentFit="cover"
       />
       <View style={styles.info}>
-        <Text style={[styles.showTitle, styles.watchedText]} numberOfLines={1}>
-          {show.title}
-        </Text>
-        <Text style={[styles.label, styles.watchedText]}>{label}</Text>
-        <Text style={[styles.epTitle, styles.watchedText]} numberOfLines={1}>
+        <View style={styles.titleButton}>
+          <Text style={styles.titleText} numberOfLines={1}>
+            {show.title.toUpperCase()}
+          </Text>
+        </View>
+        <Text style={styles.episodeLabel}>{label}</Text>
+        <Text style={styles.episodeTitle} numberOfLines={1}>
           {episode.episodeTitle}
         </Text>
       </View>
-      <TouchableOpacity
-        style={styles.badge}
+      <CheckmarkButton
+        size={36}
+        watched
+        label={episode.watchCount > 1 ? `${episode.watchCount}` : undefined}
         onPress={() => onCheckmarkPress(episode)}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <Text style={styles.badgeText}>
-          {episode.watchCount > 1 ? episode.watchCount.toString() : "✓"}
-        </Text>
-      </TouchableOpacity>
+      />
     </TouchableOpacity>
   );
 });
@@ -72,33 +77,35 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: spacing.md,
   },
-  showTitle: {
-    ...typography.subtitle,
-  },
-  label: {
-    ...typography.caption,
-    marginTop: spacing.xs,
-  },
-  epTitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  watchedText: {
-    color: colors.textMuted,
-  },
-  badge: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.watchedGreen,
-    justifyContent: "center",
+  titleButton: {
+    flexDirection: "row",
     alignItems: "center",
-    opacity: 0.6,
+    alignSelf: "flex-start",
+    borderWidth: 1.5,
+    borderColor: colors.textMuted,
+    borderRadius: 14,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    marginBottom: spacing.sm,
   },
-  badgeText: {
-    fontSize: 18,
-    color: colors.text,
+  titleText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.textMuted,
+    flexShrink: 1,
+    letterSpacing: 0.5,
+  },
+  episodeLabel: {
+    ...typography.subtitle,
+    fontSize: 16,
     fontWeight: "700",
+    color: colors.textMuted,
+    letterSpacing: 1,
+    marginTop: 2,
+  },
+  episodeTitle: {
+    ...typography.body,
+    color: colors.textMuted,
+    fontSize: 13,
   },
 });

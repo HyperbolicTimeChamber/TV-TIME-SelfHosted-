@@ -18,11 +18,14 @@ import { colors, spacing, typography, posterSize } from "../theme";
 import { ProfileStackParamList, WatchStatus, Route } from "../types";
 
 export default function ProfileScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
   const user = useAuthStore((s) => s.user);
   const signOut = useAuthStore((s) => s.signOut);
   const { stats, loading: statsLoading } = useUserStats(user?.uid);
-  const { items: watchlist, loading: watchlistLoading } = useWatchlist(user?.uid);
+  const { items: watchlist, loading: watchlistLoading } = useWatchlist(
+    user?.uid,
+  );
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -39,7 +42,7 @@ export default function ProfileScreen() {
 
   const completedShows = useMemo(
     () => watchlist.filter((w) => w.status === WatchStatus.COMPLETED),
-    [watchlist]
+    [watchlist],
   );
 
   const formatTime = (minutes: number) => {
@@ -50,10 +53,20 @@ export default function ProfileScreen() {
     return `${minutes}m`;
   };
 
-  const StatValue = ({ value, label }: { value: string | number; label: string }) => (
+  const StatValue = ({
+    value,
+    label,
+  }: {
+    value: string | number;
+    label: string;
+  }) => (
     <View style={styles.statBox}>
       {statsLoading ? (
-        <ActivityIndicator size="small" color={colors.primary} style={styles.statLoader} />
+        <ActivityIndicator
+          size="small"
+          color={colors.primary}
+          style={styles.statLoader}
+        />
       ) : (
         <Text style={styles.statNumber}>{value}</Text>
       )}
@@ -110,12 +123,15 @@ export default function ProfileScreen() {
         </View>
       ) : null}
 
-      <TouchableOpacity style={styles.signOutButton} onPress={() => {
-        Alert.alert("Log Out", "Are you sure?", [
-          { text: "Cancel", style: "cancel" },
-          { text: "Log Out", style: "destructive", onPress: signOut },
-        ]);
-      }}>
+      <TouchableOpacity
+        style={styles.signOutButton}
+        onPress={() => {
+          Alert.alert("Log Out", "Are you sure?", [
+            { text: "Cancel", style: "cancel" },
+            { text: "Log Out", style: "destructive", onPress: signOut },
+          ]);
+        }}
+      >
         <Text style={styles.signOutText}>Log Out</Text>
       </TouchableOpacity>
     </ScrollView>

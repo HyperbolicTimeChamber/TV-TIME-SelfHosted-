@@ -1,18 +1,36 @@
 import React, { useMemo, useCallback, useState, useRef } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-} from "react-native";
-import { LoadingSpinner, ConfirmModal } from "../components";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { LoadingSpinner, ConfirmModal, CheckmarkButton } from "../components";
 import { LegendList } from "@legendapp/list/react-native";
 import { useRoute, RouteProp } from "@react-navigation/native";
 import { useSeasonDetails, useWatchedEpisodes, useWatchlist } from "../hooks";
 import { useAuthStore } from "../stores";
-import { markEpisodeWatched, addToTracking, getSeasonDetails as fetchSeason } from "../services";
+import {
+  markEpisodeWatched,
+  addToTracking,
+  getSeasonDetails as fetchSeason,
+} from "../services";
 import { colors, spacing, typography } from "../theme";
 import { HomeStackParamList, TMDBEpisode, MediaType } from "../types";
+
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+function formatDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-");
+  return `${parseInt(d, 10)} ${MONTHS[parseInt(m, 10) - 1]} ${y}`;
+}
 
 type RouteParams = RouteProp<HomeStackParamList, "SeasonDetail">;
 
@@ -21,14 +39,19 @@ export default function SeasonDetailScreen() {
   const { tmdbId, seasonNumber } = route.params;
   const user = useAuthStore((s) => s.user);
   const apiKey = useAuthStore((s) => s.appTmdbApiKey)!;
-  const { data: seasonData, isLoading } = useSeasonDetails(tmdbId, seasonNumber);
+  const { data: seasonData, isLoading } = useSeasonDetails(
+    tmdbId,
+    seasonNumber,
+  );
   const { episodes: watchedEps } = useWatchedEpisodes(user?.uid, tmdbId);
   const { items: watchlist } = useWatchlist(user?.uid);
 
   const watchlistItem = useMemo(
     () => watchlist.find((w) => w.tmdbId === tmdbId),
-    [watchlist, tmdbId]
+    [watchlist, tmdbId],
   );
+
+  const [marking, setMarking] = useState<number | null>(null);
 
   // Add-to-watchlist modal state
   const [addModalVisible, setAddModalVisible] = useState(false);
@@ -36,25 +59,22 @@ export default function SeasonDetailScreen() {
   const [addModalError, setAddModalError] = useState<string | null>(null);
   const pendingAction = useRef<(() => Promise<void>) | null>(null);
 
-  const handleAddAndMark = useCallback(
-    async () => {
-      if (!user?.uid) return;
-      setAddModalLoading(true);
-      setAddModalError(null);
-      try {
-        await addToTracking(user.uid, tmdbId, MediaType.TV);
-        setAddModalVisible(false);
-        const action = pendingAction.current;
-        pendingAction.current = null;
-        if (action) await action();
-      } catch (err: any) {
-        setAddModalError(err.message || "Failed to add to watchlist.");
-      } finally {
-        setAddModalLoading(false);
-      }
-    },
-    [user?.uid, tmdbId]
-  );
+  const handleAddAndMark = useCallback(async () => {
+    if (!user?.uid) return;
+    setAddModalLoading(true);
+    setAddModalError(null);
+    try {
+      await addToTracking(user.uid, tmdbId, MediaType.TV);
+      setAddModalVisible(false);
+      const action = pendingAction.current;
+      pendingAction.current = null;
+      if (action) await action();
+    } catch (err: any) {
+      setAddModalError(err.message || "Failed to add to watchlist.");
+    } finally {
+      setAddModalLoading(false);
+    }
+  }, [user?.uid, tmdbId]);
 
   const watchedSet = useMemo(() => {
     const set = new Set<string>();
@@ -68,47 +88,65 @@ export default function SeasonDetailScreen() {
 
   const doMarkWatched = useCallback(
     async (ep: TMDBEpisode) => {
-      if (!user?.uid) return;
+      if (!user?.uid || marking !== null) return;
 
-      const episodes = seasonData?.episodes || [];
-      const nextEpInSeason = episodes.find(
-        (e: TMDBEpisode) => e.episode_number === ep.episode_number + 1
-      );
+      setMarking(ep.episode_number);
+      try {
+        const episodes = seasonData?.episodes || [];
+        const nextEpInSeason = episodes.find(
+          (e: TMDBEpisode) => e.episode_number === ep.episode_number + 1,
+        );
 
-      let nextEpisode: { season: number; episode: number } | null = null;
-      let isComplete = false;
+        let nextEpisode: { season: number; episode: number } | null = null;
+        let nextEpName: string | null = null;
+        let isComplete = false;
 
-      if (nextEpInSeason) {
-        nextEpisode = {
-          season: seasonNumber,
-          episode: nextEpInSeason.episode_number,
-        };
-      } else {
-        try {
-          const nextSeasonData = await fetchSeason(apiKey, tmdbId, seasonNumber + 1);
-          const ns = nextSeasonData as { episodes: Array<{ episode_number: number }> };
-          if (ns.episodes?.length > 0) {
-            nextEpisode = { season: seasonNumber + 1, episode: 1 };
-          } else {
+        if (nextEpInSeason) {
+          nextEpisode = {
+            season: seasonNumber,
+            episode: nextEpInSeason.episode_number,
+          };
+          nextEpName = nextEpInSeason.name || null;
+        } else {
+          try {
+            const nextSeasonData = await fetchSeason(
+              apiKey,
+              tmdbId,
+              seasonNumber + 1,
+            );
+            const ns = nextSeasonData as {
+              episodes: Array<{ episode_number: number; name?: string }>;
+            };
+            if (ns.episodes?.length > 0) {
+              nextEpisode = { season: seasonNumber + 1, episode: 1 };
+              nextEpName = ns.episodes[0].name || null;
+            } else {
+              isComplete = true;
+            }
+          } catch {
             isComplete = true;
           }
-        } catch {
-          isComplete = true;
         }
-      }
 
-      await markEpisodeWatched(
-        user.uid,
-        tmdbId,
-        seasonNumber,
-        ep.episode_number,
-        ep.name,
-        ep.runtime || 0,
-        nextEpisode,
-        isComplete
-      );
+        await markEpisodeWatched(
+          user.uid,
+          tmdbId,
+          seasonNumber,
+          ep.episode_number,
+          ep.name,
+          ep.runtime || 0,
+          nextEpisode,
+          isComplete,
+          false,
+          nextEpName,
+        );
+      } catch (err: any) {
+        console.error("markEpisodeWatched failed:", err);
+      } finally {
+        setMarking(null);
+      }
     },
-    [user?.uid, seasonData, tmdbId, seasonNumber, apiKey]
+    [user?.uid, marking, seasonData, tmdbId, seasonNumber, apiKey],
   );
 
   const handleMarkWatched = useCallback(
@@ -121,14 +159,16 @@ export default function SeasonDetailScreen() {
       }
       doMarkWatched(ep);
     },
-    [watchlistItem, doMarkWatched]
+    [watchlistItem, doMarkWatched],
   );
 
   const renderEpisode = useCallback(
     ({ item }: { item: TMDBEpisode }) => {
-      const isWatched = watchedSet.has(`${seasonNumber}_${item.episode_number}`);
+      const isWatched = watchedSet.has(
+        `${seasonNumber}_${item.episode_number}`,
+      );
       const watchedEp = watchedEps.find(
-        (e) => e.season === seasonNumber && e.episode === item.episode_number
+        (e) => e.season === seasonNumber && e.episode === item.episode_number,
       );
 
       return (
@@ -142,7 +182,9 @@ export default function SeasonDetailScreen() {
                 {item.name}
               </Text>
               {item.air_date && (
-                <Text style={styles.episodeMeta}>{item.air_date}</Text>
+                <Text style={styles.episodeMeta}>
+                  {formatDate(item.air_date)}
+                </Text>
               )}
               {watchedEp && watchedEp.watchCount > 1 && (
                 <Text style={styles.rewatchBadge}>
@@ -151,26 +193,17 @@ export default function SeasonDetailScreen() {
               )}
             </View>
           </View>
-          <TouchableOpacity
-            style={[
-              styles.checkmark,
-              isWatched && styles.checkmarkWatched,
-            ]}
+          <CheckmarkButton
+            size={30}
+            watched={isWatched}
+            loading={marking === item.episode_number}
+            disabled={marking !== null}
             onPress={() => handleMarkWatched(item)}
-          >
-            <Text
-              style={[
-                styles.checkmarkText,
-                isWatched && styles.checkmarkTextWatched,
-              ]}
-            >
-              ✓
-            </Text>
-          </TouchableOpacity>
+          />
         </View>
       );
     },
-    [watchedSet, watchedEps, seasonNumber, handleMarkWatched]
+    [watchedSet, watchedEps, seasonNumber, handleMarkWatched, marking],
   );
 
   if (isLoading) {
@@ -256,26 +289,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.accent,
     marginTop: spacing.xs,
-  },
-  checkmark: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 2,
-    borderColor: colors.textMuted,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  checkmarkWatched: {
-    backgroundColor: colors.watchedGreen,
-    borderColor: colors.watchedGreen,
-  },
-  checkmarkText: {
-    fontSize: 16,
-    color: colors.textMuted,
-  },
-  checkmarkTextWatched: {
-    color: colors.text,
   },
   separator: {
     height: 1,
