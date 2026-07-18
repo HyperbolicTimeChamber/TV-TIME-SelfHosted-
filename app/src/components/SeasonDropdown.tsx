@@ -20,12 +20,12 @@ import {
   decrementSeasonWatchCount,
   getSeasonDetails as fetchSeason,
 } from "../services";
-import AnimatedModal from "./AnimatedModal";
-import WatchActionSheet, { WatchAction } from "./WatchActionSheet";
-import ConfirmModal from "./ConfirmModal";
+import AnimatedModal from "./modals/AnimatedModal";
+import WatchActionSheet, { WatchAction } from "./modals/WatchActionSheet";
+import ConfirmModal from "./modals/ConfirmModal";
 import CheckmarkButton from "./CheckmarkButton";
 import SkeletonLine from "./SkeletonLine";
-import EpisodeDetailModal from "./EpisodeDetailModal";
+import EpisodeDetailModal from "./modals/EpisodeDetailModal";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { TMDBSeason, TMDBEpisode, MediaType } from "../types";
 
@@ -458,6 +458,45 @@ export default memo(function SeasonDropdown({
 
   const handleEpisodePress = useCallback(
     (ep: TMDBEpisode) => {
+      setEpInfoData({
+        showTitle,
+        season: season.season_number,
+        episode: ep.episode_number,
+        episodeTitle: ep.name || null,
+        overview: ep.overview || null,
+        stillPath: ep.still_path || null,
+        airDate: ep.air_date || null,
+        runtime: ep.runtime || null,
+      });
+      setEpInfoVisible(true);
+    },
+    [showTitle, season.season_number],
+  );
+
+  const handleEpisodeLongPress = useCallback(
+    (ep: TMDBEpisode) => {
+      const count = watchedMap.get(ep.episode_number)?.watchCount || 0;
+      if (count > 0) {
+        setSheetTarget({ type: "episode", ep, watchCount: count });
+        setSheetVisible(true);
+      }
+    },
+    [watchedMap],
+  );
+
+  const handleRewatchBadgePress = useCallback(
+    (ep: TMDBEpisode) => {
+      const count = watchedMap.get(ep.episode_number)?.watchCount || 0;
+      if (count > 0) {
+        setSheetTarget({ type: "episode", ep, watchCount: count });
+        setSheetVisible(true);
+      }
+    },
+    [watchedMap],
+  );
+
+  const handleCheckmarkPress = useCallback(
+    (ep: TMDBEpisode) => {
       const count = watchedMap.get(ep.episode_number)?.watchCount || 0;
       if (count > 0) {
         handleMarkWatched(ep);
@@ -487,24 +526,7 @@ export default memo(function SeasonDropdown({
         handleMarkWatched(ep);
       }
     },
-    [watchedMap, handleMarkWatched, isTracked, seasonData, markEpisodeRange],
-  );
-
-  const handleEpisodeLongPress = useCallback(
-    (ep: TMDBEpisode) => {
-      setEpInfoData({
-        showTitle,
-        season: season.season_number,
-        episode: ep.episode_number,
-        episodeTitle: ep.name || null,
-        overview: ep.overview || null,
-        stillPath: ep.still_path || null,
-        airDate: ep.air_date || null,
-        runtime: ep.runtime || null,
-      });
-      setEpInfoVisible(true);
-    },
-    [showTitle, season.season_number],
+    [watchedMap, handleMarkWatched, isTracked, episodes],
   );
 
   const handleSeasonPress = useCallback(() => {
@@ -602,6 +624,7 @@ export default memo(function SeasonDropdown({
                 <View key={ep.episode_number} style={styles.episodeRow}>
                   <TouchableOpacity
                     style={styles.episodeInfo}
+                    onPress={() => handleEpisodePress(ep)}
                     onLongPress={() => handleEpisodeLongPress(ep)}
                     activeOpacity={0.7}
                   >
@@ -635,9 +658,14 @@ export default memo(function SeasonDropdown({
                         </Text>
                       )}
                       {count > 1 && (
-                        <Text style={styles.rewatchBadge}>
-                          Watched {count}x
-                        </Text>
+                        <TouchableOpacity
+                          onPress={() => handleRewatchBadgePress(ep)}
+                          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                        >
+                          <Text style={styles.rewatchBadge}>
+                            Watched {count}x
+                          </Text>
+                        </TouchableOpacity>
                       )}
                     </View>
                   </TouchableOpacity>
@@ -646,7 +674,7 @@ export default memo(function SeasonDropdown({
                     watched={isWatched}
                     loading={marking === ep.episode_number}
                     label={isWatched ? `x${count}` : undefined}
-                    onPress={() => handleEpisodePress(ep)}
+                    onPress={() => handleCheckmarkPress(ep)}
                     onLongPress={() => {
                       if (isWatched) {
                         setSheetTarget({

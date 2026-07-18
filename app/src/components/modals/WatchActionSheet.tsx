@@ -5,10 +5,11 @@ import {
   TouchableOpacity,
   Modal,
   Animated,
+  PanResponder,
   StyleSheet,
   Dimensions,
 } from "react-native";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography } from "../../theme";
 
 export type WatchAction = "rewatch" | "not_watched" | "watched_once_less";
 
@@ -52,6 +53,29 @@ export default function WatchActionSheet({
     }).start(() => onClose());
   };
 
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gs) =>
+        gs.dy > 8 && Math.abs(gs.dy) > Math.abs(gs.dx),
+      onPanResponderMove: (_, gs) => {
+        if (gs.dy > 0) translateY.setValue(gs.dy);
+      },
+      onPanResponderRelease: (_, gs) => {
+        if (gs.dy > 80 || gs.vy > 0.5) {
+          dismiss();
+        } else {
+          Animated.spring(translateY, {
+            toValue: 0,
+            damping: 20,
+            stiffness: 200,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    }),
+  ).current;
+
   const handleSelect = (action: WatchAction) => {
     Animated.timing(translateY, {
       toValue: SCREEN_HEIGHT,
@@ -75,7 +99,10 @@ export default function WatchActionSheet({
         activeOpacity={1}
         onPress={dismiss}
       >
-        <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
+        <Animated.View
+          style={[styles.sheet, { transform: [{ translateY }] }]}
+          {...panResponder.panHandlers}
+        >
           <TouchableOpacity activeOpacity={1}>
             <View style={styles.handle} />
             <Text style={styles.title}>{label}</Text>

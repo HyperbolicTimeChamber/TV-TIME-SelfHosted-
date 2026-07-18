@@ -7,7 +7,7 @@ import {
   StyleSheet,
 } from "react-native";
 import AnimatedModal from "./AnimatedModal";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography } from "../../theme";
 
 interface Props {
   visible: boolean;

@@ -64,7 +64,21 @@ export default function AppNavigator() {
             },
           }}
         />
-        <Tab.Screen name={Route.CALENDAR} component={CalendarStackScreen} />
+        <Tab.Screen
+          name={Route.CALENDAR}
+          component={CalendarStackScreen}
+          listeners={{
+            tabPress: (e) => {
+              e.preventDefault();
+              navRef.current?.dispatch(
+                CommonActions.navigate({
+                  name: Route.CALENDAR,
+                  params: { screen: Route.CALENDAR_MAIN },
+                }),
+              );
+            },
+          }}
+        />
         <Tab.Screen
           name={Route.SEARCH}
           component={SearchStackScreen}
@@ -85,6 +99,17 @@ export default function AppNavigator() {
           component={ProfileStackScreen}
           options={{
             headerShown: false,
+          }}
+          listeners={{
+            tabPress: (e) => {
+              e.preventDefault();
+              navRef.current?.dispatch(
+                CommonActions.navigate({
+                  name: Route.PROFILE,
+                  params: { screen: Route.PROFILE_MAIN },
+                }),
+              );
+            },
           }}
         />
       </Tab.Navigator>

@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import AnimatedModal from "./AnimatedModal";
-import { colors, spacing, typography, TMDB_IMAGE_BASE } from "../theme";
+import { colors, spacing, typography, TMDB_IMAGE_BASE } from "../../theme";
 
 const MONTHS = [
   "Jan",
