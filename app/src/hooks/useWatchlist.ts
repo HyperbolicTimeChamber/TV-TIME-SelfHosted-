@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import { onShowRemoved } from "../utils/watchlistEvents";
 import {
   getFirestore,
   collection,
@@ -119,8 +120,23 @@ export function useWatchlist(userId: string | undefined) {
 
         // Merge: first page (live) + paginated pages
         const firstPageIds = new Set(enriched.map((e) => e.id));
-        const extra = paginatedItems.current.filter((p) => !firstPageIds.has(p.id));
-        const merged = [...enriched, ...extra];
+        paginatedItems.current = paginatedItems.current.filter(
+          (p) => !firstPageIds.has(p.id),
+        );
+
+        // If items were removed/modified, verify paginated items still exist
+        const hasRemovals = snapshot.docChanges().some((c) => c.type === "removed");
+        if (hasRemovals && paginatedItems.current.length > 0) {
+          const checks = paginatedItems.current.map((p) =>
+            getDoc(doc(db, "users", userId!, "tracking", String(p.tmdbId))),
+          );
+          const results = await Promise.all(checks);
+          paginatedItems.current = paginatedItems.current.filter(
+            (_, i) => results[i].exists(),
+          );
+        }
+
+        const merged = [...enriched, ...paginatedItems.current];
         setItems(merged);
 
         // Cache first page (strip catalogShow to keep payload small)
@@ -193,8 +209,20 @@ export function useWatchlist(userId: string | undefined) {
     paginatedItems.current = paginatedItems.current.filter(
       (p) => p.tmdbId !== tmdbId,
     );
-    setItems((prev) => prev.filter((p) => p.tmdbId !== tmdbId));
-  }, []);
+    catalogCache.current.delete(String(tmdbId));
+    setItems((prev) => {
+      const updated = prev.filter((p) => p.tmdbId !== tmdbId);
+      // Update AsyncStorage cache
+      if (userId) {
+        const toCache = updated.slice(0, 50).map(({ catalogShow, ...rest }) => rest);
+        AsyncStorage.setItem(WATCHLIST_CACHE_KEY, JSON.stringify({ userId, items: toCache })).catch(() => {});
+      }
+      return updated;
+    });
+  }, [userId]);
+
+  // Listen for external removal events (e.g. from ShowDetailScreen)
+  useEffect(() => onShowRemoved(removeItem), [removeItem]);
 
   return { items, loading, loadMore, loadingMore, hasMore, removeItem };
 }

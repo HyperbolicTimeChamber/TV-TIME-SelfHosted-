@@ -1,4 +1,4 @@
-import React, { memo, useState, useCallback, useRef } from "react";
+import React, { memo, useState, useCallback, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -20,9 +20,12 @@ import {
   decrementSeasonWatchCount,
   getSeasonDetails as fetchSeason,
 } from "../services";
+import AnimatedModal from "./AnimatedModal";
 import WatchActionSheet, { WatchAction } from "./WatchActionSheet";
 import ConfirmModal from "./ConfirmModal";
 import CheckmarkButton from "./CheckmarkButton";
+import SkeletonLine from "./SkeletonLine";
+import EpisodeDetailModal from "./EpisodeDetailModal";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { TMDBSeason, TMDBEpisode, MediaType } from "../types";
 
@@ -35,24 +38,45 @@ function formatDate(dateStr: string): string {
 interface Props {
   tmdbId: number;
   season: TMDBSeason;
+  showTitle: string;
   showPosterPath: string | null;
   isTracked?: boolean;
   preloadedEpisodes?: TMDBEpisode[];
 }
 
-export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, isTracked, preloadedEpisodes }: Props) {
+export default memo(function SeasonDropdown({ tmdbId, season, showTitle, showPosterPath, isTracked, preloadedEpisodes }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [marking, setMarking] = useState<number | null>(null);
   const [markingSeason, setMarkingSeason] = useState(false);
   const user = useAuthStore((s) => s.user);
   const apiKey = useAuthStore((s) => s.appTmdbApiKey)!;
-  const { data: seasonData, isLoading } = useSeasonDetails(
+  const { data: seasonData, isLoading, imagesLoading, imagesData } = useSeasonDetails(
     tmdbId,
     season.season_number,
     !preloadedEpisodes, // skip fetch if preloaded
   );
 
   const { episodes: watchedEps, loading: watchedLoading } = useShowWatchedEpisodes(user?.uid, tmdbId);
+
+  // Skipped episodes modal state
+  const [skipModalVisible, setSkipModalVisible] = useState(false);
+  const [skipModalData, setSkipModalData] = useState<{
+    firstSkipped: number;
+    targetEp: TMDBEpisode;
+  } | null>(null);
+
+  // Episode info modal state
+  const [epInfoVisible, setEpInfoVisible] = useState(false);
+  const [epInfoData, setEpInfoData] = useState<{
+    showTitle: string;
+    season: number;
+    episode: number;
+    episodeTitle: string | null;
+    overview: string | null;
+    stillPath: string | null;
+    airDate: string | null;
+    runtime: number | null;
+  } | null>(null);
 
   // Add-to-watchlist modal state
   const [addModalVisible, setAddModalVisible] = useState(false);
@@ -110,7 +134,17 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
   }
 
   const watchedCount = watchedMap.size;
-  const episodes = preloadedEpisodes ?? seasonData?.episodes ?? [];
+  const rawEpisodes = preloadedEpisodes ?? seasonData?.episodes ?? [];
+  // Enrich with TMDB images if available
+  const episodes = useMemo(() => {
+    if (!imagesData?.episodes) return rawEpisodes;
+    const imgMap = new Map(imagesData.episodes.map((e) => [e.episode_number, e]));
+    return rawEpisodes.map((ep) => {
+      if (ep.still_path) return ep;
+      const tmdb = imgMap.get(ep.episode_number);
+      return tmdb ? { ...ep, still_path: tmdb.still_path, overview: tmdb.overview } : ep;
+    });
+  }, [rawEpisodes, imagesData]);
   const minWatchCount = episodes.length > 0
     ? Math.min(...episodes.map((ep: TMDBEpisode) => watchedMap.get(ep.episode_number)?.watchCount || 0))
     : 0;
@@ -127,21 +161,23 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
         if (nextInSeason) {
           return {
             nextEpisode: { season: afterSeason, episode: nextInSeason.episode_number },
+            nextEpisodeName: nextInSeason.name || null,
             isComplete: false,
           };
         }
       }
       try {
         const nextSeasonData = await fetchSeason(apiKey, tmdbId, afterSeason + 1);
-        const ns = nextSeasonData as { episodes: Array<{ episode_number: number }> };
+        const ns = nextSeasonData as { episodes: Array<{ episode_number: number; name?: string }> };
         if (ns.episodes?.length > 0) {
           return {
             nextEpisode: { season: afterSeason + 1, episode: 1 },
+            nextEpisodeName: ns.episodes[0].name || null,
             isComplete: false,
           };
         }
       } catch {}
-      return { nextEpisode: null, isComplete: true };
+      return { nextEpisode: null, nextEpisodeName: null, isComplete: true };
     },
     [seasonData, apiKey, tmdbId]
   );
@@ -154,7 +190,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
 
       setMarkingSeason(true);
       try {
-        const { nextEpisode, isComplete } = await getNextEpisodeInfo(season.season_number);
+        const { nextEpisode, nextEpisodeName, isComplete } = await getNextEpisodeInfo(season.season_number);
 
         await markSeasonWatchedCF(
           tmdbId,
@@ -166,6 +202,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
           })),
           nextEpisode,
           isComplete,
+          nextEpisodeName,
         );
       } catch (err: any) {
         console.error("markSeasonWatched failed:", err);
@@ -192,7 +229,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
       setMarking(ep.episode_number);
 
       try {
-        const { nextEpisode, isComplete } = await getNextEpisodeInfo(
+        const { nextEpisode, nextEpisodeName, isComplete } = await getNextEpisodeInfo(
           season.season_number,
           ep.episode_number
         );
@@ -205,7 +242,9 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
           ep.name,
           ep.runtime || 0,
           nextEpisode,
-          isComplete
+          isComplete,
+          false,
+          nextEpisodeName,
         );
       } catch (err: any) {
         console.error("markEpisodeWatched failed:", err);
@@ -307,9 +346,9 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
       try {
         for (const ep of epsToMark) {
           const isLast = ep.episode_number === toEp;
-          const { nextEpisode, isComplete } = isLast
+          const { nextEpisode, nextEpisodeName, isComplete } = isLast
             ? await getNextEpisodeInfo(season.season_number, ep.episode_number)
-            : { nextEpisode: null, isComplete: false };
+            : { nextEpisode: null, nextEpisodeName: null, isComplete: false };
 
           await markEpisodeWatched(
             user.uid,
@@ -321,6 +360,7 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
             nextEpisode,
             isComplete,
             !isLast, // skipTrackingUpdate for all except last
+            nextEpisodeName,
           );
         }
       } catch (err: any) {
@@ -364,22 +404,11 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
       );
 
       if (skipped.length > 0) {
-        const firstSkipped = skipped[0].episode_number;
-        Alert.alert(
-          "Skipped Episodes",
-          `Mark episodes ${firstSkipped}–${ep.episode_number} as watched?`,
-          [
-            {
-              text: "Just This One",
-              onPress: () => handleMarkWatched(ep),
-            },
-            {
-              text: "Mark All Previous",
-              onPress: () => markEpisodeRange(firstSkipped, ep.episode_number),
-            },
-            { text: "Cancel", style: "cancel" },
-          ]
-        );
+        setSkipModalData({
+          firstSkipped: skipped[0].episode_number,
+          targetEp: ep,
+        });
+        setSkipModalVisible(true);
       } else {
         handleMarkWatched(ep);
       }
@@ -389,13 +418,19 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
 
   const handleEpisodeLongPress = useCallback(
     (ep: TMDBEpisode) => {
-      const count = watchedMap.get(ep.episode_number)?.watchCount || 0;
-      if (count > 0) {
-        setSheetTarget({ type: "episode", ep, watchCount: count });
-        setSheetVisible(true);
-      }
+      setEpInfoData({
+        showTitle,
+        season: season.season_number,
+        episode: ep.episode_number,
+        episodeTitle: ep.name || null,
+        overview: ep.overview || null,
+        stillPath: ep.still_path || null,
+        airDate: ep.air_date || null,
+        runtime: ep.runtime || null,
+      });
+      setEpInfoVisible(true);
     },
-    [watchedMap]
+    [showTitle, season.season_number]
   );
 
   const handleSeasonPress = useCallback(
@@ -479,13 +514,34 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
               const count = watched?.watchCount || 0;
               const isWatched = count > 0;
 
+              const epLabel = `S${String(season.season_number).padStart(2, "0")}E${String(ep.episode_number).padStart(2, "0")}`;
+
               return (
                 <View key={ep.episode_number} style={styles.episodeRow}>
-                  <View style={styles.episodeInfo}>
-                    <Text style={styles.episodeNumber}>
-                      E{String(ep.episode_number).padStart(2, "0")}
-                    </Text>
+                  <TouchableOpacity
+                    style={styles.episodeInfo}
+                    onLongPress={() => handleEpisodeLongPress(ep)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.epThumbWrap}>
+                      {imagesLoading ? (
+                        <SkeletonLine width={80} height={50} />
+                      ) : ep.still_path ? (
+                        <Image
+                          source={{ uri: `${posterSize.small}${ep.still_path}` }}
+                          style={styles.epThumb}
+                          contentFit="cover"
+                        />
+                      ) : (
+                        <View style={styles.epThumbPlaceholder}>
+                          <Text style={styles.epThumbText}>
+                            E{String(ep.episode_number).padStart(2, "0")}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                     <View style={styles.episodeText}>
+                      <Text style={styles.epLabel}>{epLabel}</Text>
                       <Text style={styles.episodeName} numberOfLines={1}>
                         {ep.name}
                       </Text>
@@ -498,14 +554,19 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
                         </Text>
                       )}
                     </View>
-                  </View>
+                  </TouchableOpacity>
                   <CheckmarkButton
                     size={28}
                     watched={isWatched}
                     loading={marking === ep.episode_number}
                     label={isWatched ? `x${count}` : undefined}
                     onPress={() => handleEpisodePress(ep)}
-                    onLongPress={() => handleEpisodeLongPress(ep)}
+                    onLongPress={() => {
+                      if (isWatched) {
+                        setSheetTarget({ type: "episode", ep, watchCount: count });
+                        setSheetVisible(true);
+                      }
+                    }}
                     disabled={marking !== null || markingSeason}
                   />
                 </View>
@@ -540,6 +601,64 @@ export default memo(function SeasonDropdown({ tmdbId, season, showPosterPath, is
           pendingAction.current = null;
         }}
       />
+
+      {skipModalData && (
+        <AnimatedModal
+          visible={skipModalVisible}
+          onClose={() => { setSkipModalVisible(false); setSkipModalData(null); }}
+        >
+          <View style={styles.skipModalContent}>
+            <Text style={styles.skipModalTitle}>Skipped Episodes</Text>
+            <Text style={styles.skipModalHint}>
+              Mark episodes {skipModalData.firstSkipped}–{skipModalData.targetEp.episode_number} as watched?
+            </Text>
+            <TouchableOpacity
+              style={styles.skipModalButton}
+              onPress={() => {
+                setSkipModalVisible(false);
+                markEpisodeRange(skipModalData.firstSkipped, skipModalData.targetEp.episode_number);
+                setSkipModalData(null);
+              }}
+            >
+              <Text style={styles.skipModalButtonText}>Mark All Previous</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.skipModalButtonOutline}
+              onPress={() => {
+                setSkipModalVisible(false);
+                handleMarkWatched(skipModalData.targetEp);
+                setSkipModalData(null);
+              }}
+            >
+              <Text style={styles.skipModalButtonOutlineText}>Just This One</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.skipModalCancel}
+              onPress={() => { setSkipModalVisible(false); setSkipModalData(null); }}
+            >
+              <Text style={styles.skipModalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </AnimatedModal>
+      )}
+
+      {epInfoData && (
+        <EpisodeDetailModal
+          visible={epInfoVisible}
+          showTitle={epInfoData.showTitle}
+          season={epInfoData.season}
+          episode={epInfoData.episode}
+          episodeTitle={epInfoData.episodeTitle}
+          overview={epInfoData.overview}
+          stillPath={epInfoData.stillPath}
+          airDate={epInfoData.airDate}
+          runtime={epInfoData.runtime}
+          onClose={() => {
+            setEpInfoVisible(false);
+            setEpInfoData(null);
+          }}
+        />
+      )}
     </View>
   );
 })
@@ -589,8 +708,7 @@ const styles = StyleSheet.create({
   episodeRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingRight: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
@@ -599,15 +717,37 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  episodeNumber: {
-    ...typography.subtitle,
+  epThumbWrap: {
+    width: 80,
+    height: 50,
+    marginRight: spacing.md,
+  },
+  epThumb: {
+    width: 80,
+    height: 50,
+  },
+  epThumbPlaceholder: {
+    width: 80,
+    height: 50,
+    backgroundColor: colors.surfaceLight,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  epThumbText: {
+    fontSize: 11,
+    fontWeight: "600",
     color: colors.textMuted,
-    width: 35,
-    fontSize: 13,
   },
   episodeText: {
     flex: 1,
     marginLeft: spacing.sm,
+  },
+  epLabel: {
+    ...typography.caption,
+    fontSize: 10,
+    color: colors.textMuted,
+    letterSpacing: 0.5,
+    marginBottom: 1,
   },
   episodeName: {
     ...typography.body,
@@ -623,5 +763,55 @@ const styles = StyleSheet.create({
     color: colors.accent,
     marginTop: 2,
     fontSize: 11,
+  },
+  skipModalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.lg,
+  },
+  skipModalTitle: {
+    ...typography.subtitle,
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: spacing.sm,
+  },
+  skipModalHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginBottom: spacing.lg,
+  },
+  skipModalButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  skipModalButtonText: {
+    ...typography.subtitle,
+    fontSize: 14,
+    color: colors.text,
+  },
+  skipModalButtonOutline: {
+    paddingVertical: spacing.md,
+    borderRadius: 8,
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: colors.text,
+    marginTop: spacing.sm,
+  },
+  skipModalButtonOutlineText: {
+    ...typography.subtitle,
+    fontSize: 14,
+    color: colors.text,
+  },
+  skipModalCancel: {
+    paddingVertical: spacing.sm,
+    alignItems: "center",
+    marginTop: spacing.sm,
+  },
+  skipModalCancelText: {
+    ...typography.caption,
+    color: colors.textMuted,
   },
 });

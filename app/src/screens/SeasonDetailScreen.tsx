@@ -36,6 +36,8 @@ export default function SeasonDetailScreen() {
     [watchlist, tmdbId]
   );
 
+  const [marking, setMarking] = useState<number | null>(null);
+
   // Add-to-watchlist modal state
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [addModalLoading, setAddModalLoading] = useState(false);
@@ -74,47 +76,59 @@ export default function SeasonDetailScreen() {
 
   const doMarkWatched = useCallback(
     async (ep: TMDBEpisode) => {
-      if (!user?.uid) return;
+      if (!user?.uid || marking !== null) return;
 
-      const episodes = seasonData?.episodes || [];
-      const nextEpInSeason = episodes.find(
-        (e: TMDBEpisode) => e.episode_number === ep.episode_number + 1
-      );
+      setMarking(ep.episode_number);
+      try {
+        const episodes = seasonData?.episodes || [];
+        const nextEpInSeason = episodes.find(
+          (e: TMDBEpisode) => e.episode_number === ep.episode_number + 1
+        );
 
-      let nextEpisode: { season: number; episode: number } | null = null;
-      let isComplete = false;
+        let nextEpisode: { season: number; episode: number } | null = null;
+        let nextEpName: string | null = null;
+        let isComplete = false;
 
-      if (nextEpInSeason) {
-        nextEpisode = {
-          season: seasonNumber,
-          episode: nextEpInSeason.episode_number,
-        };
-      } else {
-        try {
-          const nextSeasonData = await fetchSeason(apiKey, tmdbId, seasonNumber + 1);
-          const ns = nextSeasonData as { episodes: Array<{ episode_number: number }> };
-          if (ns.episodes?.length > 0) {
-            nextEpisode = { season: seasonNumber + 1, episode: 1 };
-          } else {
+        if (nextEpInSeason) {
+          nextEpisode = {
+            season: seasonNumber,
+            episode: nextEpInSeason.episode_number,
+          };
+          nextEpName = nextEpInSeason.name || null;
+        } else {
+          try {
+            const nextSeasonData = await fetchSeason(apiKey, tmdbId, seasonNumber + 1);
+            const ns = nextSeasonData as { episodes: Array<{ episode_number: number; name?: string }> };
+            if (ns.episodes?.length > 0) {
+              nextEpisode = { season: seasonNumber + 1, episode: 1 };
+              nextEpName = ns.episodes[0].name || null;
+            } else {
+              isComplete = true;
+            }
+          } catch {
             isComplete = true;
           }
-        } catch {
-          isComplete = true;
         }
-      }
 
-      await markEpisodeWatched(
-        user.uid,
-        tmdbId,
-        seasonNumber,
-        ep.episode_number,
-        ep.name,
-        ep.runtime || 0,
-        nextEpisode,
-        isComplete
-      );
+        await markEpisodeWatched(
+          user.uid,
+          tmdbId,
+          seasonNumber,
+          ep.episode_number,
+          ep.name,
+          ep.runtime || 0,
+          nextEpisode,
+          isComplete,
+          false,
+          nextEpName,
+        );
+      } catch (err: any) {
+        console.error("markEpisodeWatched failed:", err);
+      } finally {
+        setMarking(null);
+      }
     },
-    [user?.uid, seasonData, tmdbId, seasonNumber, apiKey]
+    [user?.uid, marking, seasonData, tmdbId, seasonNumber, apiKey]
   );
 
   const handleMarkWatched = useCallback(
@@ -160,12 +174,14 @@ export default function SeasonDetailScreen() {
           <CheckmarkButton
             size={30}
             watched={isWatched}
+            loading={marking === item.episode_number}
+            disabled={marking !== null}
             onPress={() => handleMarkWatched(item)}
           />
         </View>
       );
     },
-    [watchedSet, watchedEps, seasonNumber, handleMarkWatched]
+    [watchedSet, watchedEps, seasonNumber, handleMarkWatched, marking]
   );
 
   if (isLoading) {

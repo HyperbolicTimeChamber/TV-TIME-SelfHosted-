@@ -12,12 +12,14 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
+import SkeletonLine from "./SkeletonLine";
 import { colors, spacing, typography, posterSize } from "../theme";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 const DISMISS_THRESHOLD = 120;
 
 export interface ShowDrawerData {
+  tmdbId?: number;
   title: string;
   posterPath: string | null;
   backdropPath: string | null;
@@ -36,10 +38,11 @@ interface Props {
   visible: boolean;
   show: ShowDrawerData | null;
   loading?: boolean;
+  onGoToShow?: () => void;
   onClose: () => void;
 }
 
-export default function ShowDrawer({ visible, show, loading, onClose }: Props) {
+export default function ShowDrawer({ visible, show, loading, onGoToShow, onClose }: Props) {
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
   useEffect(() => {
@@ -149,12 +152,21 @@ export default function ShowDrawer({ visible, show, loading, onClose }: Props) {
                   {metaLine ? <Text style={styles.meta}>{metaLine}</Text> : null}
                   {show.genres ? (
                     <Text style={styles.meta}>{show.genres}</Text>
-                  ) : null}
+                  ) : (
+                    <SkeletonLine width="45%" height={11} style={{ marginTop: spacing.xs }} />
+                  )}
                   {show.overview ? (
                     <Text style={styles.overview}>{show.overview}</Text>
                   ) : null}
                 </View>
               </ScrollView>
+              {onGoToShow && (
+                <TouchableOpacity style={styles.goToShowButton} onPress={onGoToShow}>
+                  <Text style={styles.goToShowText}>
+                    {show.mediaType === "movie" ? "Go to Movie" : "Go to Show"}
+                  </Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
                 <Text style={styles.closeText}>Close</Text>
               </TouchableOpacity>
@@ -207,6 +219,8 @@ const styles = StyleSheet.create({
   backdrop: {
     width: "100%",
     height: 200,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   content: {
     padding: spacing.lg,
@@ -247,6 +261,19 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.md,
     lineHeight: 22,
+  },
+  goToShowButton: {
+    alignItems: "center",
+    paddingVertical: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
+  },
+  goToShowText: {
+    ...typography.subtitle,
+    fontSize: 14,
+    color: colors.text,
   },
   closeButton: {
     alignItems: "center",

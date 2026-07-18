@@ -130,24 +130,26 @@ export default function WatchlistTab() {
       const catalogEp = catalogSeason?.episodes?.find(
         (e) => e.episodeNumber === ep.episode,
       );
+      const hasFullData = !!(catalogEp?.overview && catalogEp?.stillPath);
       setEpModalData({
         showTitle: item.title,
         season: ep.season,
         episode: ep.episode,
         episodeTitle: catalogEp?.title ?? null,
-        overview: null,
-        stillPath: null,
+        overview: catalogEp?.overview || null,
+        stillPath: catalogEp?.stillPath ?? null,
         airDate: catalogEp?.airDate ?? null,
         runtime: catalogEp?.runtime ?? null,
         tmdbId,
       });
-      setEpModalLoading(true);
+      setEpModalLoading(!hasFullData);
       setEpModalMarking(false);
       setEpModalVisible(true);
 
-      const apiKey = useAuthStore.getState().appTmdbApiKey;
-      if (apiKey) {
-        try {
+      // Only fetch TMDB if catalog lacks overview/image
+      if (!hasFullData) {
+        const apiKey = useAuthStore.getState().appTmdbApiKey;
+        if (apiKey) try {
           const seasonData = await getSeasonDetails(apiKey, tmdbId, ep.season);
           const tmdbEp = seasonData.episodes?.find(
             (e) => e.episode_number === ep.episode,
@@ -163,8 +165,8 @@ export default function WatchlistTab() {
             } : null);
           }
         } catch {}
+        setEpModalLoading(false);
       }
-      setEpModalLoading(false);
     },
     [listData],
   );
@@ -199,6 +201,7 @@ export default function WatchlistTab() {
       const cat = item.catalogShow;
       if (!cat) return;
       setDrawerShow({
+        tmdbId: cat.tmdbId,
         title: cat.title,
         posterPath: cat.posterPath,
         backdropPath: cat.backdropPath,
@@ -351,7 +354,7 @@ export default function WatchlistTab() {
       );
       const enrichedItem = {
         ...item.item,
-        nextEpisodeName: catalogEp?.title ?? null,
+        nextEpisodeName: item.item.nextEpisodeName || catalogEp?.title || null,
       };
 
       return (
@@ -472,6 +475,13 @@ export default function WatchlistTab() {
       <ShowDrawer
         visible={drawerVisible}
         show={drawerShow}
+        onGoToShow={drawerShow?.tmdbId ? () => {
+          const id = drawerShow.tmdbId!;
+          const mt = drawerShow.mediaType === "movie" ? MediaType.MOVIE : MediaType.TV;
+          setDrawerVisible(false);
+          setDrawerShow(null);
+          handleNavigateToShow(id, mt);
+        } : undefined}
         onClose={() => {
           setDrawerVisible(false);
           setDrawerShow(null);

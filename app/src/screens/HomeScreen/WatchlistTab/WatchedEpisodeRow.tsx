@@ -14,7 +14,7 @@ interface Props {
 }
 
 export default memo(function WatchedEpisodeRow({ episode, show, onPress, onCheckmarkPress }: Props) {
-  const label = `S${String(episode.season).padStart(2, "0")}E${String(episode.episode).padStart(2, "0")}`;
+  const label = `S${String(episode.season).padStart(2, "0")} | E${String(episode.episode).padStart(2, "0")}`;
 
   return (
     <TouchableOpacity
@@ -28,11 +28,13 @@ export default memo(function WatchedEpisodeRow({ episode, show, onPress, onCheck
         contentFit="cover"
       />
       <View style={styles.info}>
-        <Text style={[styles.showTitle, styles.watchedText]} numberOfLines={1}>
-          {show.title}
-        </Text>
-        <Text style={[styles.label, styles.watchedText]}>{label}</Text>
-        <Text style={[styles.epTitle, styles.watchedText]} numberOfLines={1}>
+        <View style={styles.titleButton}>
+          <Text style={styles.titleText} numberOfLines={1}>
+            {show.title.toUpperCase()}
+          </Text>
+        </View>
+        <Text style={styles.episodeLabel}>{label}</Text>
+        <Text style={styles.episodeTitle} numberOfLines={1}>
           {episode.episodeTitle}
         </Text>
       </View>
@@ -70,19 +72,35 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: spacing.md,
   },
-  showTitle: {
-    ...typography.subtitle,
+  titleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    borderWidth: 1.5,
+    borderColor: colors.textMuted,
+    borderRadius: 14,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    marginBottom: spacing.sm,
   },
-  label: {
-    ...typography.caption,
-    marginTop: spacing.xs,
-  },
-  epTitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  watchedText: {
+  titleText: {
+    fontSize: 11,
+    fontWeight: "600",
     color: colors.textMuted,
+    flexShrink: 1,
+    letterSpacing: 0.5,
+  },
+  episodeLabel: {
+    ...typography.subtitle,
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.textMuted,
+    letterSpacing: 1,
+    marginTop: 2,
+  },
+  episodeTitle: {
+    ...typography.body,
+    color: colors.textMuted,
+    fontSize: 13,
   },
 });

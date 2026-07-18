@@ -5,8 +5,10 @@ const TMDB_BASE = "https://api.themoviedb.org/3";
 interface TMDBEpisode {
   episode_number: number;
   name: string;
+  overview: string;
   air_date: string | null;
   runtime: number | null;
+  still_path: string | null;
 }
 
 interface TMDBSeasonDetail {
@@ -40,8 +42,10 @@ interface TMDBShowDetail {
 export interface CatalogEpisode {
   episodeNumber: number;
   title: string;
+  overview: string;
   airDate: string | null;
   runtime: number | null;
+  stillPath: string | null;
 }
 
 export interface CatalogSeason {
@@ -106,8 +110,10 @@ async function fetchSeasonEpisodes(
     episodes: data.episodes.map((ep) => ({
       episodeNumber: ep.episode_number,
       title: ep.name,
+      overview: ep.overview ?? "",
       airDate: ep.air_date,
       runtime: ep.runtime,
+      stillPath: ep.still_path ?? null,
     })),
   };
 }

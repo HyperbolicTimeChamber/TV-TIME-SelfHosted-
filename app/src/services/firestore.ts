@@ -86,6 +86,7 @@ export async function addToTracking(
     mediaType,
     status: WatchStatus.WATCHING,
     nextEpisode: mediaType === MediaType.TV ? { season: 1, episode: 1 } : null,
+    nextEpisodeName: null,
     rewatchCount: 0,
     addedAt: now,
     lastWatchedAt: now,
@@ -130,7 +131,8 @@ export async function markEpisodeWatched(
   runtime: number,
   nextEpisode: { season: number; episode: number } | null,
   isShowComplete: boolean,
-  skipTrackingUpdate: boolean = false
+  skipTrackingUpdate: boolean = false,
+  nextEpisodeName: string | null = null,
 ) {
   const docId = episodeDocId(tmdbShowId, season, episode);
   const epRef = doc(watchedEpisodesRef(userId), docId);
@@ -169,6 +171,7 @@ export async function markEpisodeWatched(
       lastWatchedAt: now,
       priorityDate: now,
       nextEpisode,
+      nextEpisodeName,
     };
     if (isShowComplete) {
       trackingUpdate.status = WatchStatus.COMPLETED;
@@ -360,7 +363,8 @@ export async function markSeasonWatchedCF(
   seasonNumber: number,
   episodes: Array<{ episodeNumber: number; name: string; runtime: number }>,
   nextEpisode: { season: number; episode: number } | null,
-  isShowComplete: boolean
+  isShowComplete: boolean,
+  nextEpisodeName: string | null = null,
 ): Promise<void> {
   const functions = getFunctions();
   try {
@@ -369,6 +373,7 @@ export async function markSeasonWatchedCF(
       seasonNumber,
       episodes,
       nextEpisode,
+      nextEpisodeName,
       isShowComplete,
     });
   } catch (err: any) {

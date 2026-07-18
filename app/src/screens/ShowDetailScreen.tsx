@@ -26,6 +26,7 @@ import {
   markMovieWatched,
 } from "../services";
 import { ConfirmModal, LoadingSpinner, SeasonDropdown } from "../components";
+import { emitShowRemoved } from "../utils/watchlistEvents";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { HomeStackParamList, WatchStatus, MediaType } from "../types";
 
@@ -91,6 +92,7 @@ export default function ShowDetailScreen() {
     try {
       await removeFromTracking(user.uid, tmdbId);
       removeShowFromUpcoming(tmdbId);
+      emitShowRemoved(tmdbId);
       setRemoveModalVisible(false);
     } catch (err: any) {
       console.error("removeFromTracking failed:", err);
@@ -255,6 +257,7 @@ export default function ShowDetailScreen() {
                   key={season.season_number}
                   tmdbId={tmdbId}
                   season={season}
+                  showTitle={title}
                   showPosterPath={show.poster_path}
                   isTracked={!!watchlistItem}
                   preloadedEpisodes={episodesBySeason.get(season.season_number)}

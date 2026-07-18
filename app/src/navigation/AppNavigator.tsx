@@ -62,7 +62,21 @@ export default function AppNavigator() {
           }}
         />
         <Tab.Screen name={Route.CALENDAR} component={CalendarStackScreen} />
-        <Tab.Screen name={Route.SEARCH} component={SearchStackScreen} />
+        <Tab.Screen
+          name={Route.SEARCH}
+          component={SearchStackScreen}
+          listeners={{
+            tabPress: (e) => {
+              e.preventDefault();
+              navRef.current?.dispatch(
+                CommonActions.navigate({
+                  name: Route.SEARCH,
+                  params: { screen: Route.SEARCH_MAIN },
+                })
+              );
+            },
+          }}
+        />
         <Tab.Screen name={Route.PROFILE} component={ProfileStackScreen} options={{
           headerShown: false,
         }} />

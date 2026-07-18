@@ -12,6 +12,7 @@ interface MarkSeasonRequest {
   seasonNumber: number;
   episodes: EpisodeInput[];
   nextEpisode: { season: number; episode: number } | null;
+  nextEpisodeName: string | null;
   isShowComplete: boolean;
 }
 
@@ -34,7 +35,7 @@ export const markSeasonWatched = onCall(
 
     const uid = request.auth.uid;
     const data = request.data as MarkSeasonRequest;
-    const { tmdbId, seasonNumber, episodes, nextEpisode, isShowComplete } = data;
+    const { tmdbId, seasonNumber, episodes, nextEpisode, nextEpisodeName, isShowComplete } = data;
 
     if (!tmdbId || !seasonNumber || !episodes?.length) {
       throw new HttpsError("invalid-argument", "Missing required fields.");
@@ -102,6 +103,7 @@ export const markSeasonWatched = onCall(
         lastWatchedAt: now,
         priorityDate: now,
         nextEpisode,
+        nextEpisodeName: nextEpisodeName ?? null,
         status: "completed",
       });
     } else {
@@ -109,6 +111,7 @@ export const markSeasonWatched = onCall(
         lastWatchedAt: now,
         priorityDate: now,
         nextEpisode,
+        nextEpisodeName: nextEpisodeName ?? null,
       });
     }
 

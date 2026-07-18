@@ -173,6 +173,7 @@ export function useWatchlistData(userId: string | undefined) {
       );
 
       let nextEpisode: { season: number; episode: number } | null = null;
+      let nextEpisodeName: string | null = null;
       let isComplete = false;
 
       if (nextEpInSeason) {
@@ -180,12 +181,14 @@ export function useWatchlistData(userId: string | undefined) {
           season: currentEp.season,
           episode: nextEpInSeason.episodeNumber,
         };
+        nextEpisodeName = nextEpInSeason.title || null;
       } else {
         const nextCatalogSeason = catalog?.seasons?.find(
           (s) => s.seasonNumber === currentEp.season + 1,
         );
         if (nextCatalogSeason && nextCatalogSeason.episodes.length > 0) {
           nextEpisode = { season: currentEp.season + 1, episode: 1 };
+          nextEpisodeName = nextCatalogSeason.episodes[0].title || null;
         } else {
           isComplete = true;
         }
@@ -200,6 +203,8 @@ export function useWatchlistData(userId: string | undefined) {
         catalogEp?.runtime || 0,
         nextEpisode,
         isComplete,
+        false,
+        nextEpisodeName,
       );
       queryClient.invalidateQueries({ queryKey: ["watchedEpisodes", userId] });
     },
@@ -235,6 +240,7 @@ export function useWatchlistData(userId: string | undefined) {
   );
 
   return {
+    removeItem,
     listData,
     loading: effectiveLoading,
     loadMoreTracking,

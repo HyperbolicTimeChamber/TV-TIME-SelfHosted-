@@ -89,7 +89,13 @@ export default function EpisodeDetailModal({
             style={styles.still}
             contentFit="cover"
           />
-        ) : null}
+        ) : (
+          <View style={styles.stillPlaceholder}>
+            <Text style={styles.stillPlaceholderText}>
+              E{String(episode).padStart(2, "0")}
+            </Text>
+          </View>
+        )}
         <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
           {/* Show name pill */}
           <TouchableOpacity style={styles.titlePill} onPress={onShowPress} disabled={!onShowPress}>
@@ -159,6 +165,19 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 160,
     backgroundColor: colors.border,
+  },
+  stillPlaceholder: {
+    width: "100%",
+    height: 160,
+    backgroundColor: colors.surfaceLight,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  stillPlaceholderText: {
+    fontSize: 40,
+    fontWeight: "700",
+    color: colors.textMuted,
+    letterSpacing: 2,
   },
   scroll: {
     flexGrow: 1,

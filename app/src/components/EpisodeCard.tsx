@@ -23,7 +23,7 @@ export default memo(function EpisodeCard({
   onPress,
   onCheckmark,
 }: Props) {
-  const label = `S${String(episode.season).padStart(2, "0")}E${String(episode.episode).padStart(2, "0")}`;
+  const label = `S${String(episode.season).padStart(2, "0")} | E${String(episode.episode).padStart(2, "0")}`;
   const swipeRef = useRef<SwipeableCardRef>(null);
 
   if (isWatched) {
@@ -39,9 +39,11 @@ export default memo(function EpisodeCard({
           contentFit="cover"
         />
         <View style={styles.info}>
-          <Text style={[styles.showTitle, styles.watchedText]} numberOfLines={1}>
-            {episode.showTitle}
-          </Text>
+          <View style={[styles.titleButton, styles.titleButtonWatched]}>
+            <Text style={[styles.titleText, styles.watchedText]} numberOfLines={1}>
+              {episode.showTitle.toUpperCase()}
+            </Text>
+          </View>
           <Text style={[styles.episodeLabel, styles.watchedText]}>{label}</Text>
           <Text style={[styles.episodeTitle, styles.watchedText]} numberOfLines={1}>
             {episode.episodeTitle}
@@ -65,13 +67,16 @@ export default memo(function EpisodeCard({
           contentFit="cover"
         />
         <View style={styles.info}>
-          <Text style={styles.showTitle} numberOfLines={1}>
-            {episode.showTitle}
-          </Text>
-          <Text style={styles.episodeLabel}>{label}</Text>
+          <View style={styles.titleButton}>
+            <Text style={styles.titleText} numberOfLines={1}>
+              {episode.showTitle.toUpperCase()}
+            </Text>
+            <Text style={styles.titleArrow}>›</Text>
+          </View>
           <Text style={styles.episodeTitle} numberOfLines={1}>
             {episode.episodeTitle}
           </Text>
+          <Text style={styles.episodeLabel}>{label}</Text>
         </View>
         <CheckmarkButton
           size={36}
@@ -106,17 +111,45 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: spacing.md,
   },
-  showTitle: {
-    ...typography.subtitle,
+  titleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    borderWidth: 1.5,
+    borderColor: colors.text,
+    borderRadius: 14,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    marginBottom: spacing.sm,
+  },
+  titleButtonWatched: {
+    borderColor: colors.textMuted,
+  },
+  titleText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.text,
+    flexShrink: 1,
+    letterSpacing: 0.5,
+  },
+  titleArrow: {
+    fontSize: 11,
+    color: colors.text,
+    marginLeft: spacing.xs,
+    lineHeight: 13,
   },
   episodeLabel: {
-    ...typography.caption,
-    marginTop: spacing.xs,
+    ...typography.subtitle,
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.text,
+    letterSpacing: 1,
+    marginTop: 2,
   },
   episodeTitle: {
     ...typography.body,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
+    color: colors.text,
+    fontSize: 13,
   },
   watchedText: {
     color: colors.textMuted,

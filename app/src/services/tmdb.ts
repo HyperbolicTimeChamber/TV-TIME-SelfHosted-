@@ -10,8 +10,18 @@ function tmdb(apiKey: string) {
   });
 }
 
-export async function searchMulti(apiKey: string, query: string, page: number = 1) {
-  const res = await tmdb(apiKey).get("/search/multi", {
+export async function searchMulti(
+  apiKey: string,
+  query: string,
+  page: number = 1,
+  mediaType?: "all" | "tv" | "movie",
+) {
+  const endpoint = mediaType === "tv"
+    ? "/search/tv"
+    : mediaType === "movie"
+      ? "/search/movie"
+      : "/search/multi";
+  const res = await tmdb(apiKey).get(endpoint, {
     params: { query, page },
   });
   return {

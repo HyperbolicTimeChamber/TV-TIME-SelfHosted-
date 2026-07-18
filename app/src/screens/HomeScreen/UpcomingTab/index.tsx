@@ -1,11 +1,13 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { LoadingSpinner } from "../../../components";
+import { LoadingSpinner, EpisodeDetailModal, ShowDrawer } from "../../../components";
+import type { ShowDrawerData } from "../../../components/ShowDrawer";
 import { useAuthStore } from "../../../stores";
 import { useUpcomingEpisodes } from "../../../hooks";
+import { getCatalogShow, getShowDetails, getSeasonDetails } from "../../../services";
 import { colors, spacing, typography } from "../../../theme";
 import {
 	UpcomingEpisode,
@@ -27,6 +29,24 @@ export default function UpcomingTab() {
 	const navigation = useNavigation<NavProp>();
 	const { data: episodes, isLoading, error, retry } = useUpcomingEpisodes(user?.uid);
 
+	// Episode detail modal
+	const [epModalVisible, setEpModalVisible] = useState(false);
+	const [epModalData, setEpModalData] = useState<{
+		showTitle: string;
+		season: number;
+		episode: number;
+		episodeTitle: string | null;
+		overview: string | null;
+		stillPath: string | null;
+		airDate: string | null;
+		runtime: number | null;
+	} | null>(null);
+	const [epModalLoading, setEpModalLoading] = useState(false);
+
+	// Show drawer
+	const [drawerVisible, setDrawerVisible] = useState(false);
+	const [drawerShow, setDrawerShow] = useState<ShowDrawerData | null>(null);
+
 	const listData = useMemo(() => {
 		if (!episodes || episodes.length === 0) return [] as ListItem[];
 
@@ -47,7 +67,7 @@ export default function UpcomingTab() {
 		return result;
 	}, [episodes]);
 
-	const handlePress = useCallback(
+	const handleNavigateToShow = useCallback(
 		(tmdbShowId: number) => {
 			navigation.navigate(Route.SHOW_DETAIL, {
 				tmdbId: tmdbShowId,
@@ -57,16 +77,101 @@ export default function UpcomingTab() {
 		[navigation],
 	);
 
+	const handleEpisodePress = useCallback(
+		async (ep: UpcomingEpisode) => {
+			setEpModalData({
+				showTitle: ep.showTitle,
+				season: ep.season,
+				episode: ep.episode,
+				episodeTitle: ep.episodeTitle,
+				overview: null,
+				stillPath: null,
+				airDate: ep.airDate,
+				runtime: ep.runtime,
+			});
+			setEpModalLoading(true);
+			setEpModalVisible(true);
+
+			const apiKey = useAuthStore.getState().appTmdbApiKey;
+			if (apiKey) {
+				try {
+					const seasonData = await getSeasonDetails(apiKey, ep.tmdbShowId, ep.season);
+					const tmdbEp = seasonData.episodes?.find(
+						(e) => e.episode_number === ep.episode,
+					);
+					if (tmdbEp) {
+						setEpModalData((prev) => prev ? {
+							...prev,
+							overview: tmdbEp.overview || null,
+							stillPath: tmdbEp.still_path || null,
+						} : null);
+					}
+				} catch {}
+			}
+			setEpModalLoading(false);
+		},
+		[],
+	);
+
+	const handleTitlePress = useCallback(
+		async (ep: UpcomingEpisode) => {
+			const catalog = await getCatalogShow(ep.tmdbShowId);
+			if (catalog) {
+				setDrawerShow({
+					tmdbId: catalog.tmdbId,
+					title: catalog.title,
+					posterPath: catalog.posterPath,
+					backdropPath: catalog.backdropPath,
+					overview: catalog.overview,
+					mediaType: catalog.mediaType,
+					year: (catalog.firstAirDate || "")?.substring(0, 4) || null,
+					totalSeasons: catalog.totalSeasons,
+					totalEpisodes: catalog.totalEpisodes,
+					runtime: catalog.runtime,
+					voteAverage: catalog.voteAverage,
+				});
+				setDrawerVisible(true);
+
+				const apiKey = useAuthStore.getState().appTmdbApiKey;
+				if (apiKey) {
+					try {
+						const data = await getShowDetails(apiKey, catalog.tmdbId, catalog.mediaType) as any;
+						const genres = data?.genres?.map((g: any) => g.name).join(", ");
+						if (genres) {
+							setDrawerShow((prev) => prev ? { ...prev, genres } : null);
+						}
+					} catch {}
+				}
+			}
+		},
+		[],
+	);
+
+	const handleEpModalShowPress = useCallback(() => {
+		if (!epModalData) return;
+		const ep = episodes?.find(
+			(e) => e.season === epModalData.season && e.episode === epModalData.episode,
+		);
+		setEpModalVisible(false);
+		setEpModalData(null);
+		if (ep) handleNavigateToShow(ep.tmdbShowId);
+	}, [epModalData, episodes, handleNavigateToShow]);
+
 	const renderItem = useCallback(
 		({ item }: { item: ListItem }) => {
 			if (item.type === "header") {
 				return <DateHeader date={item.date} />;
 			}
 			return (
-				<UpcomingEpisodeRow episode={item.episode} onPress={handlePress} />
+				<UpcomingEpisodeRow
+					episode={item.episode}
+					onPress={handleNavigateToShow}
+					onTitlePress={handleTitlePress}
+					onEpisodePress={handleEpisodePress}
+				/>
 			);
 		},
-		[handlePress],
+		[handleNavigateToShow, handleTitlePress, handleEpisodePress],
 	);
 
 	if (isLoading) {
@@ -99,18 +204,55 @@ export default function UpcomingTab() {
 	}
 
 	return (
-		<LegendList
-			data={listData}
-			keyExtractor={(item) =>
-				item.type === "header"
-					? `header_${item.date}`
-					: `ep_${item.episode.tmdbShowId}_S${item.episode.season}E${item.episode.episode}`
-			}
-			renderItem={renderItem}
-			recycleItems
-			style={styles.list}
-			contentContainerStyle={styles.listContent}
-		/>
+		<>
+			<LegendList
+				data={listData}
+				keyExtractor={(item) =>
+					item.type === "header"
+						? `header_${item.date}`
+						: `ep_${item.episode.tmdbShowId}_S${item.episode.season}E${item.episode.episode}`
+				}
+				renderItem={renderItem}
+				recycleItems
+				style={styles.list}
+				contentContainerStyle={styles.listContent}
+			/>
+
+			{epModalData && (
+				<EpisodeDetailModal
+					visible={epModalVisible}
+					showTitle={epModalData.showTitle}
+					season={epModalData.season}
+					episode={epModalData.episode}
+					episodeTitle={epModalData.episodeTitle}
+					overview={epModalData.overview}
+					stillPath={epModalData.stillPath}
+					airDate={epModalData.airDate}
+					runtime={epModalData.runtime}
+					loadingDetails={epModalLoading}
+					onShowPress={handleEpModalShowPress}
+					onClose={() => {
+						setEpModalVisible(false);
+						setEpModalData(null);
+					}}
+				/>
+			)}
+
+			<ShowDrawer
+				visible={drawerVisible}
+				show={drawerShow}
+				onGoToShow={drawerShow?.tmdbId ? () => {
+					const id = drawerShow.tmdbId!;
+					setDrawerVisible(false);
+					setDrawerShow(null);
+					handleNavigateToShow(id);
+				} : undefined}
+				onClose={() => {
+					setDrawerVisible(false);
+					setDrawerShow(null);
+				}}
+			/>
+		</>
 	);
 }
 

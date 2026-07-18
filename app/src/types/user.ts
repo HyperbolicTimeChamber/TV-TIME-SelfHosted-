@@ -7,6 +7,7 @@ export interface TrackingItem {
   mediaType: MediaType;
   status: WatchStatus;
   nextEpisode: { season: number; episode: number } | null;
+  nextEpisodeName: string | null;
   rewatchCount: number;
   addedAt: any; // Firestore Timestamp
   lastWatchedAt: any;

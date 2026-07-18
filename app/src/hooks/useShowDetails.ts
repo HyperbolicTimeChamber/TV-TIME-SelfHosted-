@@ -45,10 +45,10 @@ function catalogShowToResult(catalog: CatalogShow): ShowDetailsResult {
         episode_number: ep.episodeNumber,
         season_number: s.seasonNumber,
         name: ep.title,
-        overview: "",
+        overview: ep.overview ?? "",
         air_date: ep.airDate,
         runtime: ep.runtime,
-        still_path: null,
+        still_path: ep.stillPath ?? null,
       }))
     );
   }
