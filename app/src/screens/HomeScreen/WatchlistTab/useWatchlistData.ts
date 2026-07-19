@@ -5,6 +5,7 @@ import {
   useWatchlist,
   EnrichedTrackingItem,
   useWatchedEpisodes,
+  useWatchedMovies,
   isShowVisible,
   sortByPriority,
   useUpcomingMutations,
@@ -14,7 +15,7 @@ import {
   markMovieWatched,
   stopWatching,
 } from "../../../services";
-import { MediaType, CacheKey, WatchedEpisode, QueryKey } from "../../../types";
+import { MediaType, CacheKey, WatchedEpisode, WatchedMovie, QueryKey } from "../../../types";
 import { ListItem } from "./types";
 
 const ACTIVE_CACHE_LIMIT = 100;
@@ -115,7 +116,8 @@ export type CardItem = ReturnType<typeof buildCardItem>;
 export type CacheableListItem =
   | { type: "sectionHeader"; title: string }
   | { type: "show"; card: CardItem }
-  | { type: "watchedEpisode"; episode: WatchedEpisode; showTitle: string; posterPath: string | null; tmdbId: number };
+  | { type: "watchedEpisode"; episode: WatchedEpisode; showTitle: string; posterPath: string | null; tmdbId: number }
+  | { type: "watchedMovie"; movie: WatchedMovie; showTitle: string; posterPath: string | null; tmdbId: number };
 
 export function useWatchlistData(userId: string | undefined) {
   const {
@@ -133,6 +135,7 @@ export function useWatchlistData(userId: string | undefined) {
     loadingMore: loadingMoreEps,
     hasMore: hasMoreEps,
   } = useWatchedEpisodes(userId);
+  const { movies: watchedMovies } = useWatchedMovies(userId);
 
   const queryClient = useQueryClient();
   const { mutateCachedUpcoming, rollbackUpcoming } = useUpcomingMutations();
@@ -203,11 +206,31 @@ export function useWatchlistData(userId: string | undefined) {
 
   // --- Build the display list with all fields baked in ---
   const today = todayStr();
+  // Recent watched movies (only show most recent 5)
+  const recentWatchedMovies = useMemo(() => {
+    return watchedMovies
+      .filter((m) => showMap.has(m.tmdbId))
+      .slice(0, 5);
+  }, [watchedMovies, showMap]);
+
   const liveList: CacheableListItem[] = useMemo(() => {
     if (loading) return [];
     const result: CacheableListItem[] = [];
-    if (sortedWatchedEps.length > 0) {
+    const hasPrevWatched = sortedWatchedEps.length > 0 || recentWatchedMovies.length > 0;
+    if (hasPrevWatched) {
       result.push({ type: "sectionHeader", title: "Previously Watched" });
+      for (const movie of recentWatchedMovies) {
+        const show = showMap.get(movie.tmdbId);
+        if (show) {
+          result.push({
+            type: "watchedMovie",
+            movie,
+            showTitle: show.title,
+            posterPath: show.posterPath,
+            tmdbId: show.tmdbId,
+          });
+        }
+      }
       for (const ep of sortedWatchedEps) {
         const show = showMap.get(ep.tmdbShowId);
         if (show) {
@@ -228,7 +251,7 @@ export function useWatchlistData(userId: string | undefined) {
       }
     }
     return result;
-  }, [loading, sortedWatchedEps, sortedActive, showMap, today]);
+  }, [loading, sortedWatchedEps, recentWatchedMovies, sortedActive, showMap, today]);
 
   // --- Persist list cache when live data updates ---
   useEffect(() => {
@@ -290,6 +313,19 @@ export function useWatchlistData(userId: string | undefined) {
   const listData: ListItem[] = useMemo(() => {
     return displayList.map((item) => {
       if (item.type === "sectionHeader") return item;
+      if (item.type === "watchedMovie") {
+        const show = showMap.get(item.tmdbId);
+        return {
+          type: "watchedMovie" as const,
+          movie: item.movie,
+          show: show ?? ({
+            tmdbId: item.tmdbId,
+            title: item.showTitle,
+            posterPath: item.posterPath,
+            mediaType: MediaType.MOVIE,
+          } as EnrichedTrackingItem),
+        };
+      }
       if (item.type === "watchedEpisode") {
         const show = showMap.get(item.tmdbId);
         return {

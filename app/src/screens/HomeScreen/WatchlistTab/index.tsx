@@ -424,6 +424,24 @@ export default function WatchlistTab() {
         return <SectionHeader title={item.title} />;
       }
 
+      if (item.type === "watchedMovie") {
+        return (
+          <ShowCard
+            item={{
+              ...item.show,
+              nextEpisode: null,
+              mediaType: MediaType.MOVIE,
+              rewatchCount: Math.max(0, (item.movie.watchCount || 1) - 1),
+            } as any}
+            isWatched
+            onSwipeLeft={async () => {}}
+            onSwipeRight={async () => {}}
+            onPress={(id) => handleNavigateToShow(id, MediaType.MOVIE)}
+            onCheckmark={async () => {}}
+          />
+        );
+      }
+
       if (item.type === "watchedEpisode") {
         return (
           <WatchedEpisodeRow
@@ -506,6 +524,8 @@ export default function WatchlistTab() {
         data={listData}
         keyExtractor={(item) => {
           if (item.type === "sectionHeader") return `section_${item.title}`;
+          if (item.type === "watchedMovie")
+            return `movie_${item.movie.id}`;
           if (item.type === "watchedEpisode")
             return `watched_${item.episode.id}`;
           return `show_${item.item.id}`;
