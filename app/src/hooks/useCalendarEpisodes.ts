@@ -18,6 +18,7 @@ const MAX_CACHED_MONTHS = 12;
 
 interface CalendarCache {
   months: Record<string, UpcomingEpisode[]>;
+  syncDate?: string | null;
 }
 
 async function loadCalendarCache(): Promise<CalendarCache> {
@@ -57,10 +58,34 @@ export function useCalendarEpisodes(userId: string | undefined) {
   // Load persisted cache + tracked IDs on mount
   useEffect(() => {
     if (!userId) return;
+    const db = getFirestore();
+    const trackingCol = collection(doc(db, "users", userId), "tracking");
 
-    // Load calendar cache
-    loadCalendarCache().then((cache) => {
+    // Load all in parallel: cache, config sync date, tracked IDs
+    Promise.all([
+      loadCalendarCache(),
+      getDoc(doc(db, "config", "app")).catch(() => null),
+      getDocs(query(trackingCol, where("mediaType", "==", MediaType.TV))),
+      getDocs(query(trackingCol, where("mediaType", "==", MediaType.MOVIE))),
+    ]).then(([cache, configSnap, tvSnap, movieSnap]) => {
+      // Tracked IDs
+      trackedIds.current = new Set(tvSnap.docs.map((d) => d.id));
+      trackedMovieIds.current = new Set(movieSnap.docs.map((d) => d.id));
+
+      // Check sync date — invalidate cache if backend synced since
+      const serverSync = configSnap?.data?.()?.lastCatalogSync;
+      const serverSyncStr = serverSync?.toDate?.()?.toISOString?.() || null;
+
+      if (serverSyncStr && cache.syncDate && serverSyncStr !== cache.syncDate) {
+        // Backend synced — clear cached months
+        cache.months = {};
+        cache.syncDate = serverSyncStr;
+        saveCalendarCache(cache);
+      }
+
       calendarCacheRef.current = cache;
+      if (serverSyncStr) calendarCacheRef.current.syncDate = serverSyncStr;
+
       const restored = new Map<string, UpcomingEpisode[]>();
       for (const [key, eps] of Object.entries(cache.months)) {
         restored.set(key, eps);
@@ -68,16 +93,6 @@ export function useCalendarEpisodes(userId: string | undefined) {
       if (restored.size > 0) setEpisodesByMonth(restored);
       cacheLoaded.current = true;
     });
-
-    // Load tracked IDs (TV + movies)
-    const db = getFirestore();
-    const trackingCol = collection(doc(db, "users", userId), "tracking");
-    getDocs(query(trackingCol, where("mediaType", "==", MediaType.TV))).then(
-      (snap) => { trackedIds.current = new Set(snap.docs.map((d) => d.id)); },
-    );
-    getDocs(query(trackingCol, where("mediaType", "==", MediaType.MOVIE))).then(
-      (snap) => { trackedMovieIds.current = new Set(snap.docs.map((d) => d.id)); },
-    );
   }, [userId]);
 
   const allEpisodes = useMemo(() => {
@@ -104,13 +119,25 @@ export function useCalendarEpisodes(userId: string | undefined) {
         const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
         const lastDay = new Date(year, month, 0).getDate();
         const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-
-        // 1. Discover TV shows airing this month from TMDB
-        const airingIds = await discoverTVByAirDate(apiKey, startDate, endDate);
-        const matchedIds = airingIds.filter((id) => trackedIds.current!.has(String(id)));
-
-        // 2. Read matched catalog docs for episode details
         const db = getFirestore();
+
+        // Run all fetches in parallel
+        const [airingIds, movieResults, upcomingSnap] = await Promise.all([
+          discoverTVByAirDate(apiKey, startDate, endDate),
+          trackedMovieIds.current?.size
+            ? discoverMoviesByReleaseDate(apiKey, startDate, endDate)
+            : Promise.resolve([]),
+          getDocs(
+            query(
+              collection(doc(db, "users", userId), "upcoming"),
+              where("airDate", ">=", startDate),
+              where("airDate", "<=", endDate),
+            ),
+          ),
+        ]);
+
+        // TV: intersect discover results with tracked IDs → read catalog docs in parallel
+        const matchedIds = airingIds.filter((id) => trackedIds.current!.has(String(id)));
         const episodes: UpcomingEpisode[] = [];
         const catalogDocs = await Promise.all(
           matchedIds.map((id) =>
@@ -140,14 +167,7 @@ export function useCalendarEpisodes(userId: string | undefined) {
           }
         }
 
-        // 3. Merge with upcoming subcollection
-        const upcomingSnap = await getDocs(
-          query(
-            collection(doc(db, "users", userId), "upcoming"),
-            where("airDate", ">=", startDate),
-            where("airDate", "<=", endDate),
-          ),
-        );
+        // Merge upcoming subcollection (already fetched in parallel)
         const seen = new Set(
           episodes.map((e) => `${e.tmdbShowId}_S${e.season}E${e.episode}`),
         );
@@ -157,26 +177,23 @@ export function useCalendarEpisodes(userId: string | undefined) {
           if (!seen.has(key)) { episodes.push(ep); seen.add(key); }
         }
 
-        // 4. Discover movies releasing this month from TMDB → intersect with tracked
-        if (trackedMovieIds.current && trackedMovieIds.current.size > 0) {
-          const discoverMovies = await discoverMoviesByReleaseDate(apiKey, startDate, endDate);
-          for (const movie of discoverMovies) {
-            if (!trackedMovieIds.current.has(String(movie.id))) continue;
-            const movieKey = `movie_${movie.id}`;
-            if (seen.has(movieKey)) continue;
-            episodes.push({
-              tmdbShowId: movie.id,
-              showTitle: movie.title,
-              posterPath: movie.poster_path,
-              season: 0,
-              episode: 0,
-              episodeTitle: movie.title,
-              airDate: movie.release_date,
-              runtime: null,
-              mediaType: MediaType.MOVIE,
-            });
-            seen.add(movieKey);
-          }
+        // Movies: intersect discover results with tracked IDs (already fetched in parallel)
+        for (const movie of movieResults) {
+          if (!trackedMovieIds.current?.has(String(movie.id))) continue;
+          const movieKey = `movie_${movie.id}`;
+          if (seen.has(movieKey)) continue;
+          episodes.push({
+            tmdbShowId: movie.id,
+            showTitle: movie.title,
+            posterPath: movie.poster_path,
+            season: 0,
+            episode: 0,
+            episodeTitle: movie.title,
+            airDate: movie.release_date,
+            runtime: null,
+            mediaType: MediaType.MOVIE,
+          });
+          seen.add(movieKey);
         }
 
         // Update state + persist to cache
