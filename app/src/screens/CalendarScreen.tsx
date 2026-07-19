@@ -234,13 +234,11 @@ export default function CalendarScreen() {
         }}
       />
 
-      {calendarLoading && (
+      {calendarLoading ? (
         <View style={styles.loaderCenter}>
           <LoadingSpinner />
         </View>
-      )}
-
-      {selectedDate && (
+      ) : selectedDate && (
         <View style={styles.episodeList}>
           <Text style={styles.dateHeader}>
             {new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", {
