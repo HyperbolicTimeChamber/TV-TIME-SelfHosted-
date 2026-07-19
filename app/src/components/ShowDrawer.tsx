@@ -1,16 +1,20 @@
-import { useCallback, useMemo, useRef, useEffect } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import {
 	View,
 	Text,
 	TouchableOpacity,
 	StyleSheet,
+	Modal,
 	ActivityIndicator,
+	Dimensions,
 } from "react-native";
 import { Image } from "expo-image";
-import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop } from "@gorhom/bottom-sheet";
+import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import SkeletonLine from "./SkeletonLine";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { MediaType } from "../enums";
+
+const SCREEN_HEIGHT = Dimensions.get("window").height;
 
 export interface ShowDrawerData {
 	tmdbId?: number;
@@ -43,32 +47,17 @@ export default function ShowDrawer({
 	onGoToShow,
 	onClose,
 }: Readonly<Props>) {
-	const bottomSheetRef = useRef<BottomSheetModal>(null);
-	const snapPoints = useMemo(() => ["85%"], []);
+	const bottomSheetRef = useRef<BottomSheet>(null);
+	const snapPoints = useMemo(() => [SCREEN_HEIGHT * 0.85], []);
 
-	useEffect(() => {
-		if (visible && (show || loading)) {
-			bottomSheetRef.current?.present();
-		} else {
-			bottomSheetRef.current?.dismiss();
-		}
-	}, [visible, show, loading]);
-
-	const handleDismiss = useCallback(() => {
-		onClose();
-	}, [onClose]);
-
-	const renderBackdrop = useCallback(
-		(props: any) => (
-			<BottomSheetBackdrop
-				{...props}
-				disappearsOnIndex={-1}
-				appearsOnIndex={0}
-				pressBehavior="close"
-			/>
-		),
-		[],
+	const handleSheetChanges = useCallback(
+		(index: number) => {
+			if (index === -1) onClose();
+		},
+		[onClose],
 	);
+
+	if (!visible) return null;
 
 	const metaParts: string[] = [];
 	if (show?.year) metaParts.push(show.year);
@@ -81,83 +70,104 @@ export default function ShowDrawer({
 	const metaLine = metaParts.join(" \u00b7 ");
 
 	return (
-		<BottomSheetModal
-			ref={bottomSheetRef}
-			snapPoints={snapPoints}
-			onDismiss={handleDismiss}
-			backdropComponent={renderBackdrop}
-			enablePanDownToClose
-			backgroundStyle={styles.background}
-			handleIndicatorStyle={styles.handleIndicator}
+		<Modal
+			visible={visible}
+			transparent
+			animationType="none"
+			onRequestClose={onClose}
 		>
-			{loading ? (
-				<View style={styles.loadingContainer}>
-					<ActivityIndicator
-						size="large"
-						color={colors.primary}
-					/>
-				</View>
-			) : show ? (
-				<>
-					<BottomSheetScrollView
-						style={styles.scroll}
-						showsVerticalScrollIndicator={false}
-					>
-						<Image
-							source={{
-								uri: `${posterSize.large}${show.backdropPath || show.posterPath}`,
-							}}
-							style={styles.backdrop}
-							contentFit="cover"
-						/>
-						<View style={styles.content}>
-							<View style={styles.titleRow}>
-								<Text style={styles.title}>{show.title}</Text>
-								{show.mediaType && (
-									<View
-										style={[
-											styles.typeBadge,
-											show.mediaType === "movie" && styles.typeBadgeMovie,
-										]}>
-										<Text style={styles.typeBadgeText}>
-											{show.mediaType === "movie" ? "MOVIE" : "TV"}
-										</Text>
-									</View>
-								)}
-							</View>
-							{metaLine ? (
-								<Text style={styles.meta}>{metaLine}</Text>
-							) : null}
-							{show.genres ? (
-								<Text style={styles.meta}>{show.genres}</Text>
-							) : (
-								<SkeletonLine
-									width="45%"
-									height={11}
-									style={{ marginTop: spacing.xs }}
-								/>
-							)}
-							{show.overview ? (
-								<Text style={styles.overview}>{show.overview}</Text>
-							) : null}
+			<View style={styles.overlay}>
+				<TouchableOpacity
+					style={styles.backdrop}
+					activeOpacity={1}
+					onPress={onClose}
+				/>
+				<BottomSheet
+					ref={bottomSheetRef}
+					index={0}
+					snapPoints={snapPoints}
+					onChange={handleSheetChanges}
+					enablePanDownToClose
+					backgroundStyle={styles.background}
+					handleIndicatorStyle={styles.handleIndicator}
+				>
+					{loading ? (
+						<View style={styles.loadingContainer}>
+							<ActivityIndicator
+								size="large"
+								color={colors.primary}
+							/>
 						</View>
-					</BottomSheetScrollView>
-					{onGoToShow && (
-						<TouchableOpacity
-							style={styles.goToShowButton}
-							onPress={onGoToShow}>
-							<Text style={styles.goToShowText}>
-								{show.mediaType === "movie" ? "Go to Movie" : "Go to Show"}
-							</Text>
-						</TouchableOpacity>
-					)}
-				</>
-			) : null}
-		</BottomSheetModal>
+					) : show ? (
+						<>
+							<BottomSheetScrollView
+								style={styles.scroll}
+								showsVerticalScrollIndicator={false}
+							>
+								<Image
+									source={{
+										uri: `${posterSize.large}${show.backdropPath || show.posterPath}`,
+									}}
+									style={styles.backdropImage}
+									contentFit="cover"
+								/>
+								<View style={styles.content}>
+									<View style={styles.titleRow}>
+										<Text style={styles.title}>{show.title}</Text>
+										{show.mediaType && (
+											<View
+												style={[
+													styles.typeBadge,
+													show.mediaType === "movie" && styles.typeBadgeMovie,
+												]}>
+												<Text style={styles.typeBadgeText}>
+													{show.mediaType === "movie" ? "MOVIE" : "TV"}
+												</Text>
+											</View>
+										)}
+									</View>
+									{metaLine ? (
+										<Text style={styles.meta}>{metaLine}</Text>
+									) : null}
+									{show.genres ? (
+										<Text style={styles.meta}>{show.genres}</Text>
+									) : (
+										<SkeletonLine
+											width="45%"
+											height={11}
+											style={{ marginTop: spacing.xs }}
+										/>
+									)}
+									{show.overview ? (
+										<Text style={styles.overview}>{show.overview}</Text>
+									) : null}
+								</View>
+							</BottomSheetScrollView>
+							{onGoToShow && (
+								<TouchableOpacity
+									style={styles.goToShowButton}
+									onPress={onGoToShow}>
+									<Text style={styles.goToShowText}>
+										{show.mediaType === "movie" ? "Go to Movie" : "Go to Show"}
+									</Text>
+								</TouchableOpacity>
+							)}
+						</>
+					) : null}
+				</BottomSheet>
+			</View>
+		</Modal>
 	);
 }
 
 const styles = StyleSheet.create({
+	overlay: {
+		flex: 1,
+	},
+	backdrop: {
+		...(StyleSheet.absoluteFill as object),
+		backgroundColor: colors.overlayMedium,
+	},
 	background: {
 		backgroundColor: colors.surface,
 	},
@@ -174,7 +184,7 @@ const styles = StyleSheet.create({
 	scroll: {
 		flex: 1,
 	},
-	backdrop: {
+	backdropImage: {
 		width: "100%",
 		height: 200,
 	},
