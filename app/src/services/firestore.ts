@@ -99,7 +99,9 @@ export async function addToTracking(
   const showRef = doc(db, "shows", showId);
 
   // Fast path: check if catalog doc already exists
+  const t0 = Date.now();
   const catalogDoc = await getDoc(showRef);
+  console.log(`[addToTracking] getDoc: ${Date.now() - t0}ms, exists=${catalogDoc?.exists?.()}`);
 
   if (catalogDoc?.exists?.()) {
     // Catalog exists — skip CF, create tracking doc directly
@@ -154,11 +156,14 @@ export async function addToTracking(
       { stats: { showsTracking: increment(1) } },
       { merge: true },
     );
+    const t1 = Date.now();
     await batch.commit();
+    console.log(`[addToTracking] fast path batch: ${Date.now() - t1}ms, total: ${Date.now() - t0}ms`);
     return;
   }
 
   // Slow path: catalog doesn't exist — call CF to fetch from TMDB
+  console.log(`[addToTracking] slow path — calling CF`);
   try {
     await httpsCallable(getFunctions(), "addShow")({ tmdbId, mediaType });
   } catch (err: any) {
