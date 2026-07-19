@@ -7,7 +7,7 @@ import {
 	ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
-import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from "@gorhom/bottom-sheet";
+import { BottomSheetModal, BottomSheetScrollView, BottomSheetBackdrop } from "@gorhom/bottom-sheet";
 import SkeletonLine from "./SkeletonLine";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { MediaType } from "../enums";
@@ -43,24 +43,20 @@ export default function ShowDrawer({
 	onGoToShow,
 	onClose,
 }: Readonly<Props>) {
-	const bottomSheetRef = useRef<BottomSheet>(null);
+	const bottomSheetRef = useRef<BottomSheetModal>(null);
 	const snapPoints = useMemo(() => ["85%"], []);
 
 	useEffect(() => {
-		if (visible) {
-			// Small delay to ensure BottomSheet is mounted
-			requestAnimationFrame(() => bottomSheetRef.current?.expand());
+		if (visible && (show || loading)) {
+			bottomSheetRef.current?.present();
 		} else {
-			bottomSheetRef.current?.close();
+			bottomSheetRef.current?.dismiss();
 		}
-	}, [visible]);
+	}, [visible, show, loading]);
 
-	const handleSheetChanges = useCallback(
-		(index: number) => {
-			if (index === -1 && visible) onClose();
-		},
-		[onClose, visible],
-	);
+	const handleDismiss = useCallback(() => {
+		onClose();
+	}, [onClose]);
 
 	const renderBackdrop = useCallback(
 		(props: any) => (
@@ -85,11 +81,10 @@ export default function ShowDrawer({
 	const metaLine = metaParts.join(" \u00b7 ");
 
 	return (
-		<BottomSheet
+		<BottomSheetModal
 			ref={bottomSheetRef}
-			index={-1}
 			snapPoints={snapPoints}
-			onChange={handleSheetChanges}
+			onDismiss={handleDismiss}
 			backdropComponent={renderBackdrop}
 			enablePanDownToClose
 			backgroundStyle={styles.background}
@@ -158,7 +153,7 @@ export default function ShowDrawer({
 					)}
 				</>
 			) : null}
-		</BottomSheet>
+		</BottomSheetModal>
 	);
 }
 

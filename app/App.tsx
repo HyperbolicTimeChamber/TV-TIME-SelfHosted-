@@ -3,6 +3,7 @@ import { View, StyleSheet, Animated, Platform, PermissionsAndroid, Alert } from 
 import { Image } from "expo-image";
 import LoadingSpinner from "./src/components/LoadingSpinner";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
@@ -198,8 +199,10 @@ export default function App() {
             },
           }}
         >
-          {splashDone ? <AppContent /> : <View style={styles.loading} />}
-          {!splashDone && <AppSplash onHidden={onHidden} />}
+          <BottomSheetModalProvider>
+            {splashDone ? <AppContent /> : <View style={styles.loading} />}
+            {!splashDone && <AppSplash onHidden={onHidden} />}
+          </BottomSheetModalProvider>
         </PersistQueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
