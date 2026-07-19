@@ -10,9 +10,9 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
 } from "react-native";
-import { AnimatedModal } from "../components";
+import { useFocusEffect } from "@react-navigation/native";
+import { AnimatedModal, LoadingSpinner } from "../components";
 import { LegendList } from "@legendapp/list/react-native";
 import { Calendar, DateData } from "react-native-calendars";
 import { useNavigation } from "@react-navigation/native";
@@ -61,6 +61,16 @@ export default function CalendarScreen() {
   useEffect(() => {
     loadMonthEpisodes(currentYear, currentMonth);
   }, [user?.uid]);
+
+  // Reset to current month when tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      const today = new Date();
+      setCurrentYear(today.getFullYear());
+      setCurrentMonth(today.getMonth() + 1);
+      setSelectedDate(null);
+    }, []),
+  );
 
   const markedDates = useMemo(() => {
     const marks: Record<
@@ -223,8 +233,8 @@ export default function CalendarScreen() {
       />
 
       {calendarLoading && (
-        <View style={styles.loaderRow}>
-          <ActivityIndicator size="small" color={colors.primary} />
+        <View style={styles.loaderCenter}>
+          <LoadingSpinner />
         </View>
       )}
 
@@ -315,12 +325,11 @@ const styles = StyleSheet.create({
     ...typography.caption,
     paddingHorizontal: spacing.lg,
   },
-  loaderRow: {
-    flexDirection: "row",
+  loaderCenter: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.xl,
   },
   loaderText: {
     ...typography.caption,
