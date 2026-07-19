@@ -183,7 +183,8 @@ const styles = StyleSheet.create({
 		paddingVertical: spacing.xxl,
 	},
 	scroll: {
-		flex: 1,
+		flexGrow: 0,
+		flexShrink: 1,
 	},
 	backdropImage: {
 		width: "100%",
