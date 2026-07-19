@@ -428,7 +428,7 @@ export default function SearchScreen() {
       ) : (
         <LegendList
           data={displayData || []}
-          keyExtractor={(item) => String(item.id)}
+          keyExtractor={(item) => `${item.media_type || "x"}_${item.id}`}
           renderItem={renderItem}
           extraData={[watchlistIds, addingIds]}
           numColumns={3}
