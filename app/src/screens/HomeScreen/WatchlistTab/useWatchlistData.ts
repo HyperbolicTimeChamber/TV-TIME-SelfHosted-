@@ -207,13 +207,13 @@ export function useWatchlistData(userId: string | undefined) {
       if (!showMap.has(ep.tmdbShowId)) continue;
       items.push({ kind: "episode", ep, time: ep.lastWatchedAt?.toMillis?.() || 0 });
     }
-    for (const movie of watchedMovies.slice(0, 5)) {
+    for (const movie of watchedMovies) {
       if (!showMap.has(movie.tmdbId)) continue;
       items.push({ kind: "movie", movie, time: movie.lastWatchedAt?.toMillis?.() || 0 });
     }
-    // Sort ascending — oldest first, latest at bottom
-    items.sort((a, b) => a.time - b.time);
-    return items;
+    // Sort descending to pick top 5, then reverse for display (oldest first, latest at bottom)
+    items.sort((a, b) => b.time - a.time);
+    return items.slice(0, 5).reverse();
   }, [watchedEps, watchedMovies, showMap]);
 
   const liveList: CacheableListItem[] = useMemo(() => {
