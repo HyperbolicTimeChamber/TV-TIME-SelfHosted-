@@ -143,16 +143,16 @@ export default function ShowDrawer({
 										<Text style={styles.overview}>{show.overview}</Text>
 									) : null}
 								</View>
+								{onGoToShow && (
+									<TouchableOpacity
+										style={styles.goToShowButton}
+										onPress={onGoToShow}>
+										<Text style={styles.goToShowText}>
+											{show.mediaType === "movie" ? "Go to Movie" : "Go to Show"}
+										</Text>
+									</TouchableOpacity>
+								)}
 							</BottomSheetScrollView>
-							{onGoToShow && (
-								<TouchableOpacity
-									style={styles.goToShowButton}
-									onPress={onGoToShow}>
-									<Text style={styles.goToShowText}>
-										{show.mediaType === "movie" ? "Go to Movie" : "Go to Show"}
-									</Text>
-								</TouchableOpacity>
-							)}
 						</>
 					) : null}
 				</BottomSheet>
