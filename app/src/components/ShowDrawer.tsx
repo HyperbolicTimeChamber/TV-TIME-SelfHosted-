@@ -49,7 +49,7 @@ export default function ShowDrawer({
 	onClose,
 }: Readonly<Props>) {
 	const bottomSheetRef = useRef<BottomSheet>(null);
-	const snapPoints = useMemo(() => [SCREEN_HEIGHT * 0.85], []);
+	const maxHeight = SCREEN_HEIGHT * 0.85;
 
 	const handleSheetChanges = useCallback(
 		(index: number) => {
@@ -86,7 +86,8 @@ export default function ShowDrawer({
 				<BottomSheet
 					ref={bottomSheetRef}
 					index={0}
-					snapPoints={snapPoints}
+					enableDynamicSizing
+					maxDynamicContentSize={maxHeight}
 					onChange={handleSheetChanges}
 					enablePanDownToClose
 					animateOnMount={false}
