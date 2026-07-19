@@ -78,6 +78,7 @@ export default function ShowDrawer({
 
 	const panResponder = useRef(
 		PanResponder.create({
+			onStartShouldSetPanResponder: () => true,
 			onMoveShouldSetPanResponder: (_, g) => g.dy > 10,
 			onPanResponderMove: (_, g) => {
 				if (g.dy > 0) translateY.setValue(g.dy);
