@@ -1,4 +1,5 @@
 import { useCallback, useRef, useEffect, useState, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   View,
   Text,
@@ -58,6 +59,7 @@ const SeparatorComponent = () => <View style={styles.separator} />;
 
 export default function WatchlistTab() {
   const user = useAuthStore((s) => s.user);
+  const queryClient = useQueryClient();
   const navigation = useNavigation<NavProp>();
 
   const {
@@ -258,6 +260,82 @@ export default function WatchlistTab() {
     setSheetVisible(true);
   }, []);
 
+  const handleWatchedSwipeLeft = useCallback(
+    async (episode: WatchedEpisode) => {
+      if (!user?.uid) return;
+      const catalog = await getCatalogShow(episode.tmdbShowId);
+      const catalogSeason = catalog?.seasons?.find(
+        (s) => s.seasonNumber === episode.season,
+      );
+      const catalogEp = catalogSeason?.episodes?.find(
+        (e) => e.episodeNumber === episode.episode,
+      );
+      const nextEpInSeason = catalogSeason?.episodes?.find(
+        (e) => e.episodeNumber === episode.episode + 1,
+      );
+
+      let nextEpisode: { season: number; episode: number } | null = null;
+      let isComplete = false;
+
+      if (nextEpInSeason) {
+        nextEpisode = {
+          season: episode.season,
+          episode: nextEpInSeason.episodeNumber,
+        };
+      } else {
+        const nextCatalogSeason = catalog?.seasons?.find(
+          (s) => s.seasonNumber === episode.season + 1,
+        );
+        if (nextCatalogSeason && nextCatalogSeason.episodes.length > 0) {
+          nextEpisode = { season: episode.season + 1, episode: 1 };
+        } else {
+          isComplete = true;
+        }
+      }
+
+      await markEpisodeWatched(
+        user.uid,
+        episode.tmdbShowId,
+        episode.season,
+        episode.episode,
+        catalogEp?.title || episode.episodeTitle,
+        catalogEp?.runtime || episode.runtime,
+        nextEpisode,
+        isComplete,
+      );
+      queryClient.invalidateQueries({ queryKey: ["watchedEpisodes", user.uid] });
+    },
+    [user?.uid, queryClient],
+  );
+
+  const handleWatchedSwipeRight = useCallback(
+    async (episode: WatchedEpisode) => {
+      if (!user?.uid) return;
+      if (episode.watchCount > 1) {
+        await decrementEpisodeWatchCount(
+          user.uid,
+          episode.tmdbShowId,
+          episode.season,
+          episode.episode,
+          episode.runtime,
+          episode.watchCount,
+          episode.episodeTitle,
+        );
+      } else {
+        await unmarkEpisodeWatched(
+          user.uid,
+          episode.tmdbShowId,
+          episode.season,
+          episode.episode,
+          episode.runtime,
+          episode.episodeTitle,
+        );
+      }
+      queryClient.invalidateQueries({ queryKey: ["watchedEpisodes", user.uid] });
+    },
+    [user?.uid, queryClient],
+  );
+
   const handleSheetAction = useCallback(
     async (action: WatchAction) => {
       if (!user?.uid || !sheetEpisode) return;
@@ -311,6 +389,7 @@ export default function WatchlistTab() {
             sheetEpisode.season,
             sheetEpisode.episode,
             sheetEpisode.runtime,
+            sheetEpisode.episodeTitle,
           );
         } else if (action === "watched_once_less") {
           await decrementEpisodeWatchCount(
@@ -320,6 +399,7 @@ export default function WatchlistTab() {
             sheetEpisode.episode,
             sheetEpisode.runtime,
             sheetEpisode.watchCount,
+            sheetEpisode.episodeTitle,
           );
         }
       } catch (err: any) {
@@ -350,6 +430,8 @@ export default function WatchlistTab() {
             show={item.show}
             onPress={handleTvPress}
             onCheckmarkPress={handleWatchedCheckmark}
+            onSwipeLeft={handleWatchedSwipeLeft}
+            onSwipeRight={handleWatchedSwipeRight}
           />
         );
       }
@@ -358,16 +440,18 @@ export default function WatchlistTab() {
       const catalog = item.item.catalogShow;
       let remaining: number | null = null;
       if (nextEp && catalog?.seasons) {
+        const todayStr = new Date().toISOString().split("T")[0];
         let count = 0;
         for (const s of catalog.seasons) {
           if (s.seasonNumber < nextEp.season) continue;
           for (const e of s.episodes) {
             if (
               s.seasonNumber === nextEp.season &&
-              e.episodeNumber < nextEp.episode
+              e.episodeNumber <= nextEp.episode
             )
               continue;
-            count++;
+            // Only count aired episodes
+            if (e.airDate && e.airDate <= todayStr) count++;
           }
         }
         remaining = count > 0 ? count : null;
@@ -382,6 +466,8 @@ export default function WatchlistTab() {
       const enrichedItem = {
         ...item.item,
         nextEpisodeName: item.item.nextEpisodeName || catalogEp?.title || null,
+        nextEpisodeAirDate: catalogEp?.airDate ?? null,
+        releaseDate: item.item.catalogShow?.releaseDate ?? null,
       };
 
       return (
@@ -406,6 +492,8 @@ export default function WatchlistTab() {
       watchedCountByShow,
       updatingShows,
       handleWatchedCheckmark,
+      handleWatchedSwipeLeft,
+      handleWatchedSwipeRight,
     ],
   );
 

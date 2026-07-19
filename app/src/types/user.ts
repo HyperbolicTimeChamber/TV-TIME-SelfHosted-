@@ -12,6 +12,7 @@ export interface TrackingItem {
   addedAt: any; // Firestore Timestamp
   lastWatchedAt: any;
   priorityDate: any; // Firestore Timestamp — denormalized sort key
+  releaseDate?: string | null; // ISO date for movies
 }
 
 export type WatchlistItem = TrackingItem;

@@ -14,10 +14,9 @@ import {
   QueryDocumentSnapshot,
 } from "@react-native-firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { TrackingItem, CatalogShow } from "../types";
+import { TrackingItem, CatalogShow, CacheKey } from "../types";
 
 const PAGE_SIZE = 50;
-const WATCHLIST_CACHE_KEY = "profile_watchlist_cache";
 
 export interface EnrichedTrackingItem extends TrackingItem {
   title: string;
@@ -73,7 +72,7 @@ export function useWatchlist(userId: string | undefined) {
   // Restore cached watchlist on mount
   useEffect(() => {
     if (!userId || restoredCache.current) return;
-    AsyncStorage.getItem(WATCHLIST_CACHE_KEY).then((raw) => {
+    AsyncStorage.getItem(CacheKey.WATCHLIST_PROFILE).then((raw) => {
       if (!raw) return;
       try {
         const cached = JSON.parse(raw);
@@ -145,7 +144,7 @@ export function useWatchlist(userId: string | undefined) {
         // Cache first page (strip catalogShow to keep payload small)
         const toCache = enriched.map(({ catalogShow, ...rest }) => rest);
         AsyncStorage.setItem(
-          WATCHLIST_CACHE_KEY,
+          CacheKey.WATCHLIST_PROFILE,
           JSON.stringify({ userId, items: toCache }),
         ).catch(() => {});
 
@@ -225,7 +224,7 @@ export function useWatchlist(userId: string | undefined) {
             .slice(0, 50)
             .map(({ catalogShow, ...rest }) => rest);
           AsyncStorage.setItem(
-            WATCHLIST_CACHE_KEY,
+            CacheKey.WATCHLIST_PROFILE,
             JSON.stringify({ userId, items: toCache }),
           ).catch(() => {});
         }

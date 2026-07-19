@@ -14,10 +14,9 @@ import {
   stopWatching,
   getCatalogShow,
 } from "../../../services";
-import { MediaType } from "../../../types";
+import { MediaType, CacheKey } from "../../../types";
 import { ListItem } from "./types";
 
-const ACTIVE_CACHE_KEY = "watchlist_active_cache";
 const ACTIVE_CACHE_LIMIT = 100;
 
 function todayStr() {
@@ -53,7 +52,7 @@ export function useWatchlistData(userId: string | undefined) {
   // Restore cached active items on mount (invalidate if not from today)
   useEffect(() => {
     if (!userId || cacheRestored.current) return;
-    AsyncStorage.getItem(ACTIVE_CACHE_KEY).then((raw) => {
+    AsyncStorage.getItem(CacheKey.WATCHLIST_ACTIVE).then((raw) => {
       if (!raw) {
         cacheRestored.current = true;
         return;
@@ -108,7 +107,7 @@ export function useWatchlistData(userId: string | undefined) {
       .slice(0, ACTIVE_CACHE_LIMIT)
       .map(({ catalogShow, ...rest }) => rest);
     AsyncStorage.setItem(
-      ACTIVE_CACHE_KEY,
+      CacheKey.WATCHLIST_ACTIVE,
       JSON.stringify({
         userId,
         date: todayStr(),
@@ -159,7 +158,7 @@ export function useWatchlistData(userId: string | undefined) {
       }
     }
     if (effectiveActive.length > 0) {
-      result.push({ type: "sectionHeader", title: "Currently Watching" });
+      result.push({ type: "sectionHeader", title: "What's Up Next" });
       for (const item of effectiveActive) {
         result.push({ type: "show", item });
       }
@@ -224,6 +223,18 @@ export function useWatchlistData(userId: string | undefined) {
         }
       }
 
+      // Get air date of next episode for priority scheduling
+      let nextEpisodeAirDate: string | null = null;
+      if (nextEpisode) {
+        const nextSeason = catalog?.seasons?.find(
+          (s) => s.seasonNumber === nextEpisode.season,
+        );
+        const nextEp = nextSeason?.episodes?.find(
+          (e) => e.episodeNumber === nextEpisode.episode,
+        );
+        nextEpisodeAirDate = nextEp?.airDate ?? null;
+      }
+
       await markEpisodeWatched(
         userId,
         item.tmdbId,
@@ -235,6 +246,7 @@ export function useWatchlistData(userId: string | undefined) {
         isComplete,
         false,
         nextEpisodeName,
+        nextEpisodeAirDate,
       );
       queryClient.invalidateQueries({ queryKey: ["watchedEpisodes", userId] });
     },

@@ -5,7 +5,7 @@ import {
   onSnapshot,
 } from "@react-native-firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { UserStats } from "../types";
+import { UserStats, CacheKey } from "../types";
 
 const defaultStats: UserStats = {
   episodesWatched: 0,
@@ -13,8 +13,6 @@ const defaultStats: UserStats = {
   moviesWatched: 0,
   totalMinutes: 0,
 };
-
-const CACHE_KEY = "profile_stats_cache";
 
 export function useUserStats(userId: string | undefined) {
   const [stats, setStats] = useState<UserStats>(defaultStats);
@@ -24,7 +22,7 @@ export function useUserStats(userId: string | undefined) {
   // Restore cached stats on mount
   useEffect(() => {
     if (!userId || restoredCache.current) return;
-    AsyncStorage.getItem(CACHE_KEY).then((raw) => {
+    AsyncStorage.getItem(CacheKey.USER_STATS).then((raw) => {
       if (!raw) return;
       try {
         const cached = JSON.parse(raw);
@@ -55,7 +53,7 @@ export function useUserStats(userId: string | undefined) {
           const fresh = data?.stats ?? defaultStats;
           setStats(fresh);
           AsyncStorage.setItem(
-            CACHE_KEY,
+            CacheKey.USER_STATS,
             JSON.stringify({ userId, stats: fresh }),
           ).catch(() => {});
         }

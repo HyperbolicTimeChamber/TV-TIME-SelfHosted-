@@ -9,10 +9,7 @@ import {
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { UpcomingEpisode } from "../types";
-
-const CACHE_KEY = "upcoming_episodes_cache";
-const BUILT_KEY = "upcoming_subcollection_built";
+import { UpcomingEpisode, CacheKey } from "../types";
 const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 1 week
 
 type MutateCallback = (
@@ -63,7 +60,7 @@ export function useUpcomingEpisodes(userId: string | undefined) {
   // Restore from local cache on mount
   useEffect(() => {
     if (!userId || cacheRestored.current) return;
-    AsyncStorage.getItem(CACHE_KEY).then((raw) => {
+    AsyncStorage.getItem(CacheKey.UPCOMING_EPISODES).then((raw) => {
       if (!raw) {
         cacheRestored.current = true;
         return;
@@ -105,11 +102,11 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 
       // If empty, check if subcollection was ever built
       if (snap.size === 0) {
-        const built = await AsyncStorage.getItem(BUILT_KEY);
+        const built = await AsyncStorage.getItem(CacheKey.UPCOMING_BUILT);
         if (built !== userId) {
           try {
             await httpsCallable(getFunctions(), "rebuildUpcoming")({});
-            await AsyncStorage.setItem(BUILT_KEY, userId);
+            await AsyncStorage.setItem(CacheKey.UPCOMING_BUILT, userId);
             snap = await getDocs(
               query(upcomingCol, where("airDate", ">=", today)),
             );
@@ -122,7 +119,7 @@ export function useUpcomingEpisodes(userId: string | undefined) {
         }
       }
 
-      const eps = snap.docs
+      const eps: UpcomingEpisode[] = snap.docs
         .map((d) => d.data() as UpcomingEpisode)
         .sort((a, b) => a.airDate.localeCompare(b.airDate));
 
@@ -132,7 +129,7 @@ export function useUpcomingEpisodes(userId: string | undefined) {
       // Cache locally
       if (eps.length > 0) {
         AsyncStorage.setItem(
-          CACHE_KEY,
+          CacheKey.UPCOMING_EPISODES,
           JSON.stringify({
             userId,
             timestamp: Date.now(),

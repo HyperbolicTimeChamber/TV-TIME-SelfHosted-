@@ -16,3 +16,7 @@ export { default as ShowCard } from "./ShowCard";
 export { default as SkeletonLine } from "./SkeletonLine";
 export { default as SwipeableCard } from "./SwipeableCard";
 export type { SwipeableCardRef } from "./SwipeableCard";
+export {
+  UnreleasedMovieModal,
+  shouldShowUnreleasedModal,
+} from "./UnreleasedMovieModal";

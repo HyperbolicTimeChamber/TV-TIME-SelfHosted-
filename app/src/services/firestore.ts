@@ -70,15 +70,24 @@ export async function addToTracking(
   userId: string,
   tmdbId: number,
   mediaType: MediaType,
+  releaseDate?: string | null,
 ): Promise<void> {
   const functions = getFunctions();
-  const now = serverTimestamp();
 
   // Call addShow CF (handles catalog population)
   try {
     await httpsCallable(functions, "addShow")({ tmdbId, mediaType });
   } catch (err: any) {
     throw new Error(getCallableErrorMessage(err));
+  }
+
+  // Determine priorityDate: use releaseDate if movie is unreleased
+  let priorityDate: any = serverTimestamp();
+  if (mediaType === MediaType.MOVIE && releaseDate) {
+    const releaseDateMs = new Date(releaseDate).getTime();
+    if (releaseDateMs > Date.now()) {
+      priorityDate = Timestamp.fromMillis(releaseDateMs);
+    }
   }
 
   // Create local tracking doc
@@ -90,9 +99,10 @@ export async function addToTracking(
     nextEpisode: mediaType === MediaType.TV ? { season: 1, episode: 1 } : null,
     nextEpisodeName: null,
     rewatchCount: 0,
-    addedAt: now,
-    lastWatchedAt: now,
-    priorityDate: now,
+    addedAt: serverTimestamp(),
+    lastWatchedAt: serverTimestamp(),
+    priorityDate,
+    ...(mediaType === MediaType.MOVIE && releaseDate ? { releaseDate } : {}),
   });
 
   // Update user stats
@@ -142,6 +152,7 @@ export async function markEpisodeWatched(
   isShowComplete: boolean,
   skipTrackingUpdate: boolean = false,
   nextEpisodeName: string | null = null,
+  nextEpisodeAirDate: string | null = null,
 ) {
   const docId = episodeDocId(tmdbShowId, season, episode);
   const epRef = doc(watchedEpisodesRef(userId), docId);
@@ -180,9 +191,18 @@ export async function markEpisodeWatched(
 
   if (!skipTrackingUpdate) {
     const now = Timestamp.now();
+    // If next episode hasn't aired yet, use its airDate as priorityDate
+    // so it sorts to top when it becomes visible
+    let effectivePriority: typeof now = now;
+    if (nextEpisode && nextEpisodeAirDate) {
+      const airDateMs = new Date(nextEpisodeAirDate).getTime();
+      if (airDateMs > now.toMillis()) {
+        effectivePriority = Timestamp.fromMillis(airDateMs);
+      }
+    }
     const trackingUpdate: Record<string, unknown> = {
       lastWatchedAt: now,
-      priorityDate: now,
+      priorityDate: effectivePriority,
       nextEpisode,
       nextEpisodeName,
     };
@@ -201,6 +221,7 @@ export async function unmarkEpisodeWatched(
   season: number,
   episode: number,
   runtime: number,
+  episodeName?: string | null,
 ) {
   const docId = episodeDocId(tmdbShowId, season, episode);
   const epRef = doc(watchedEpisodesRef(userId), docId);
@@ -217,6 +238,13 @@ export async function unmarkEpisodeWatched(
     },
     { merge: true },
   );
+  // Update tracking to point to this now-unwatched episode
+  batch.update(doc(trackingRef(userId), String(tmdbShowId)), {
+    nextEpisode: { season, episode },
+    nextEpisodeName: episodeName || null,
+    status: WatchStatus.WATCHING,
+    priorityDate: Timestamp.now(),
+  });
   await batch.commit();
 }
 
@@ -227,12 +255,14 @@ export async function decrementEpisodeWatchCount(
   episode: number,
   runtime: number,
   currentWatchCount: number,
+  episodeName?: string | null,
 ) {
   const docId = episodeDocId(tmdbShowId, season, episode);
   const epRef = doc(watchedEpisodesRef(userId), docId);
   const batch = writeBatch(db);
 
-  if (currentWatchCount <= 1) {
+  const willDelete = currentWatchCount <= 1;
+  if (willDelete) {
     batch.delete(epRef);
   } else {
     batch.update(epRef, {
@@ -250,6 +280,17 @@ export async function decrementEpisodeWatchCount(
     },
     { merge: true },
   );
+
+  // When fully unwatched, update tracking to point back to this episode
+  if (willDelete) {
+    batch.update(doc(trackingRef(userId), String(tmdbShowId)), {
+      nextEpisode: { season, episode },
+      nextEpisodeName: episodeName || null,
+      status: WatchStatus.WATCHING,
+      priorityDate: Timestamp.now(),
+    });
+  }
+
   await batch.commit();
 }
 

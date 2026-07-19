@@ -24,20 +24,32 @@ export function isShowVisible(item: EnrichedTrackingItem): boolean {
   ];
   if (!activeStatuses.includes(item.status)) return false;
 
-  // plan_to_watch — always visible
-  if (item.status === WatchStatus.PLAN_TO_WATCH) return true;
-
   const catalog = item.catalogShow;
 
-  // Movies — visible if active
-  if (!catalog || catalog.mediaType === MediaType.MOVIE) return true;
+  const today = new Date().toISOString().split("T")[0];
+
+  // plan_to_watch — visible unless unreleased movie
+  if (item.status === WatchStatus.PLAN_TO_WATCH) {
+    const rd = item.releaseDate ?? catalog?.releaseDate;
+    if (item.mediaType === MediaType.MOVIE && rd && rd > today) return false;
+    return true;
+  }
+
+  // Movies — visible only if released (use tracking doc releaseDate first, fallback to catalog)
+  if (item.mediaType === MediaType.MOVIE) {
+    const rd = item.releaseDate ?? catalog?.releaseDate;
+    if (rd && rd > today) return false;
+    return true;
+  }
+
+  // No catalog data — hide until loaded
+  if (!catalog) return false;
 
   // No nextEpisode means fully caught up or completed
   const nextEp = item.nextEpisode;
   if (!nextEp) return false;
 
   // Check if nextEpisode has aired
-  const today = new Date().toISOString().split("T")[0];
   const season = catalog.seasons?.find((s) => s.seasonNumber === nextEp.season);
   if (!season) {
     // Season not in catalog — might not exist yet
@@ -58,14 +70,48 @@ export function isShowVisible(item: EnrichedTrackingItem): boolean {
 }
 
 /**
- * Sort by priorityDate descending.
+ * Get the air date of the next episode from the catalog data.
+ * Returns ISO date string or null.
+ */
+function getNextEpisodeAirDate(item: EnrichedTrackingItem): string | null {
+  if (!item.nextEpisode || !item.catalogShow) return null;
+  const season = item.catalogShow.seasons?.find(
+    (s) => s.seasonNumber === item.nextEpisode!.season,
+  );
+  if (!season) return null;
+  const episode = season.episodes?.find(
+    (e) => e.episodeNumber === item.nextEpisode!.episode,
+  );
+  return episode?.airDate ?? null;
+}
+
+/**
+ * Get the effective sort timestamp for an item.
+ * Uses max(priorityDate, nextEpisodeAirDate or releaseDate).
+ */
+function getEffectivePriority(item: EnrichedTrackingItem): number {
+  const priorityMs = item.priorityDate?.toMillis?.() ?? 0;
+
+  let contentDateMs = 0;
+  if (item.catalogShow?.mediaType === MediaType.MOVIE) {
+    const rd = item.catalogShow.releaseDate;
+    if (rd) contentDateMs = new Date(rd).getTime();
+  } else {
+    const airDate = getNextEpisodeAirDate(item);
+    if (airDate) contentDateMs = new Date(airDate).getTime();
+  }
+
+  return Math.max(priorityMs, contentDateMs);
+}
+
+/**
+ * Sort by effective priority descending.
+ * Effective priority = max(priorityDate, nextEpisode.airDate or releaseDate)
  */
 export function sortByPriority(
   items: EnrichedTrackingItem[],
 ): EnrichedTrackingItem[] {
   return [...items].sort((a, b) => {
-    const aDate = a.priorityDate?.toMillis?.() ?? 0;
-    const bDate = b.priorityDate?.toMillis?.() ?? 0;
-    return bDate - aDate;
+    return getEffectivePriority(b) - getEffectivePriority(a);
   });
 }

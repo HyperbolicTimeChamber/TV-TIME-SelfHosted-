@@ -9,7 +9,13 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { AnimatedModal, ConfirmModal, LoadingSpinner } from "../components";
+import {
+  AnimatedModal,
+  ConfirmModal,
+  LoadingSpinner,
+  UnreleasedMovieModal,
+  shouldShowUnreleasedModal,
+} from "../components";
 import { LegendList } from "@legendapp/list/react-native";
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
@@ -64,6 +70,9 @@ export default function SearchScreen() {
   const [removeModal, setRemoveModal] = useState<TMDBShow | null>(null);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  const [unreleasedModal, setUnreleasedModal] = useState<{
+    title: string;
+  } | null>(null);
   const { addShowToUpcoming, removeShowFromUpcoming } = useUpcomingMutations();
 
   const watchlistIds = trackedIds;
@@ -93,6 +102,25 @@ export default function SearchScreen() {
         item.media_type || (item.title ? MediaType.MOVIE : MediaType.TV);
 
       if (mediaType === MediaType.MOVIE) {
+        const releaseDate = item.release_date || null;
+        const today = new Date().toISOString().split("T")[0];
+        const isUnreleased = releaseDate && releaseDate > today;
+
+        if (isUnreleased) {
+          // Run modal check and add in parallel
+          const addPromise = withLoadingId(item.id, () =>
+            addToTracking(user.uid!, item.id, MediaType.MOVIE, releaseDate),
+          );
+          shouldShowUnreleasedModal(user.uid!).then((shouldShow) => {
+            if (shouldShow) {
+              setUnreleasedModal({ title: item.title || item.name || "" });
+            }
+          });
+          await addPromise;
+          return;
+        }
+
+        // Released movie — show add/add+watch modal
         setMovieModal(item);
         return;
       }
@@ -367,7 +395,7 @@ export default function SearchScreen() {
       <ConfirmModal
         visible={!!removeModal}
         title={`Remove "${removeModal?.name || removeModal?.title}"?`}
-        hint="This will remove the show from your watchlist. Your watch history will be kept."
+        hint="This will remove it from your watchlist. Your watch history will be kept."
         error={removeError}
         confirmLabel="Remove"
         loading={removing}
@@ -376,6 +404,12 @@ export default function SearchScreen() {
           setRemoveModal(null);
           setRemoveError(null);
         }}
+      />
+
+      <UnreleasedMovieModal
+        visible={!!unreleasedModal}
+        onClose={() => setUnreleasedModal(null)}
+        movieTitle={unreleasedModal?.title ?? ""}
       />
     </View>
   );

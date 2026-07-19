@@ -25,7 +25,13 @@ import {
   resumeRewatch,
   markMovieWatched,
 } from "../services";
-import { ConfirmModal, LoadingSpinner, SeasonDropdown } from "../components";
+import {
+  ConfirmModal,
+  LoadingSpinner,
+  SeasonDropdown,
+  UnreleasedMovieModal,
+  shouldShowUnreleasedModal,
+} from "../components";
 import { emitShowRemoved } from "../utils/watchlistEvents";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { HomeStackParamList, WatchStatus, MediaType } from "../types";
@@ -48,6 +54,9 @@ export default function ShowDetailScreen() {
   const { addShowToUpcoming, removeShowFromUpcoming } = useUpcomingMutations();
   const [removeModalVisible, setRemoveModalVisible] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  const [unreleasedModal, setUnreleasedModal] = useState<{
+    title: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!user?.uid) {
@@ -73,8 +82,28 @@ export default function ShowDetailScreen() {
     if (!user?.uid || !show || adding) return;
     setAdding(true);
     try {
-      await addToTracking(user.uid, tmdbId, mediaType);
-      addShowToUpcoming(tmdbId);
+      const releaseDate = show.release_date || null;
+      const today = new Date().toISOString().split("T")[0];
+      const isUnreleased =
+        mediaType === MediaType.MOVIE && releaseDate && releaseDate > today;
+
+      if (isUnreleased) {
+        shouldShowUnreleasedModal(user.uid).then((shouldShow) => {
+          if (shouldShow) {
+            setUnreleasedModal({ title: show.title || show.name || "" });
+          }
+        });
+      }
+
+      await addToTracking(
+        user.uid,
+        tmdbId,
+        mediaType,
+        isUnreleased ? releaseDate : null,
+      );
+      if (!isUnreleased) {
+        addShowToUpcoming(tmdbId);
+      }
     } catch (err: any) {
       console.error("addToTracking failed:", err);
       Alert.alert("Error", err.message || "Failed to add to watchlist.");
@@ -290,7 +319,7 @@ export default function ShowDetailScreen() {
       <ConfirmModal
         visible={removeModalVisible}
         title={`Remove "${title}"?`}
-        hint="This will remove the show from your watchlist. Your watch history will be kept."
+        hint="This will remove it from your watchlist. Your watch history will be kept."
         error={removeError}
         confirmLabel="Remove"
         loading={removing}
@@ -299,6 +328,12 @@ export default function ShowDetailScreen() {
           setRemoveModalVisible(false);
           setRemoveError(null);
         }}
+      />
+
+      <UnreleasedMovieModal
+        visible={!!unreleasedModal}
+        onClose={() => setUnreleasedModal(null)}
+        movieTitle={unreleasedModal?.title ?? ""}
       />
     </ScrollView>
   );

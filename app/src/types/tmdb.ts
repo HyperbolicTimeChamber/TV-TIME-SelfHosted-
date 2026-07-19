@@ -48,4 +48,5 @@ export interface UpcomingEpisode {
   episodeTitle: string;
   airDate: string;
   runtime: number | null;
+  mediaType?: MediaType;
 }

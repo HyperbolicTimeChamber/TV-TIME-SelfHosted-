@@ -10,7 +10,7 @@ import {
 } from "@react-native-firebase/firestore";
 import { discoverTVByAirDate } from "../services";
 import { useAuthStore } from "../stores";
-import { UpcomingEpisode, CatalogShow } from "../types";
+import { UpcomingEpisode, CatalogShow, MediaType } from "../types";
 
 export function useCalendarEpisodes(userId: string | undefined) {
   const [episodesByMonth, setEpisodesByMonth] = useState<
@@ -28,7 +28,7 @@ export function useCalendarEpisodes(userId: string | undefined) {
     getDocs(
       query(
         collection(doc(db, "users", userId), "tracking"),
-        where("mediaType", "==", "tv"),
+        where("mediaType", "==", MediaType.TV),
       ),
     ).then((snap) => {
       trackedIds.current = new Set(snap.docs.map((d) => d.id));
