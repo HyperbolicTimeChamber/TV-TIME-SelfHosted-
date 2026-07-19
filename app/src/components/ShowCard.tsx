@@ -13,6 +13,13 @@ import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton from "./CheckmarkButton";
 import SkeletonLine from "./SkeletonLine";
 
+const FRESH_TAG = {
+	NEW: "NEW",
+	JUST_AIRED: "JUST AIRED",
+} as const;
+
+const JUST_AIRED_WINDOW_DAYS = 7;
+
 interface ShowCardItem {
 	tmdbId: number;
 	mediaType: MediaType;
@@ -77,7 +84,7 @@ export default memo(function ShowCard({
 		if (item.mediaType !== MediaType.MOVIE || !item.releaseDate) return false;
 		const releaseMs = new Date(item.releaseDate).getTime();
 		const todayMs = new Date(today).getTime();
-		const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+		const sevenDaysMs = JUST_AIRED_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 		return releaseMs <= todayMs && todayMs - releaseMs <= sevenDaysMs;
 	})();
 
@@ -188,7 +195,7 @@ export default memo(function ShowCard({
 							</View>
 							{isJustAired && (
 								<View style={styles.freshTag}>
-									<Text style={styles.freshTagText}>JUST AIRED</Text>
+									<Text style={styles.freshTagText}>{FRESH_TAG.JUST_AIRED}</Text>
 								</View>
 							)}
 						</View>
@@ -199,7 +206,7 @@ export default memo(function ShowCard({
 								<Text style={styles.remaining}> {remainingLabel}</Text>
 							) : null}
 							{isNewEpisode && (
-								<Text style={styles.freshTagInline}> NEW</Text>
+								<Text style={styles.freshTagInline}> {FRESH_TAG.NEW}</Text>
 							)}
 						</Text>
 					)}
