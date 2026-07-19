@@ -21,18 +21,37 @@ export function useCalendarEpisodes(userId: string | undefined) {
   const trackedIds = useRef<Set<string> | null>(null);
   const apiKey = useAuthStore((s) => s.appTmdbApiKey);
 
-  // Load all tracked TV show IDs once
+  const movieDocs = useRef<Array<{ tmdbId: number; releaseDate: string; title?: string; posterPath?: string | null }>>([]);
+
+  // Load all tracked TV show IDs + movie release dates once
   useEffect(() => {
     if (!userId) return;
     const db = getFirestore();
-    getDocs(
-      query(
-        collection(doc(db, "users", userId), "tracking"),
-        where("mediaType", "==", MediaType.TV),
-      ),
-    ).then((snap) => {
-      trackedIds.current = new Set(snap.docs.map((d) => d.id));
-    });
+    const trackingCol = collection(doc(db, "users", userId), "tracking");
+
+    // TV shows
+    getDocs(query(trackingCol, where("mediaType", "==", MediaType.TV))).then(
+      (snap) => {
+        trackedIds.current = new Set(snap.docs.map((d) => d.id));
+      },
+    );
+
+    // Movies with release dates
+    getDocs(query(trackingCol, where("mediaType", "==", MediaType.MOVIE))).then(
+      (snap) => {
+        movieDocs.current = snap.docs
+          .map((d) => {
+            const data = d.data() as any;
+            return {
+              tmdbId: data.tmdbId,
+              releaseDate: data.releaseDate || null,
+              title: data.title,
+              posterPath: data.posterPath,
+            };
+          })
+          .filter((m) => m.releaseDate);
+      },
+    );
   }, [userId]);
 
   const allEpisodes = useMemo(() => {
@@ -132,6 +151,35 @@ export function useCalendarEpisodes(userId: string | undefined) {
           if (!seen.has(key)) {
             episodes.push(ep);
             seen.add(key);
+          }
+        }
+
+        // Add tracked movies releasing this month
+        for (const movie of movieDocs.current) {
+          if (movie.releaseDate >= startDate && movie.releaseDate <= endDate) {
+            const movieKey = `movie_${movie.tmdbId}`;
+            if (!seen.has(movieKey)) {
+              let title = movie.title || `Movie #${movie.tmdbId}`;
+              let posterPath = movie.posterPath || null;
+              // Try catalog for better data
+              const cached = catalogCache.current.get(String(movie.tmdbId));
+              if (cached) {
+                title = cached.title || title;
+                posterPath = cached.posterPath || posterPath;
+              }
+              episodes.push({
+                tmdbShowId: movie.tmdbId,
+                showTitle: title,
+                posterPath,
+                season: 0,
+                episode: 0,
+                episodeTitle: title,
+                airDate: movie.releaseDate,
+                runtime: null,
+                mediaType: MediaType.MOVIE,
+              });
+              seen.add(movieKey);
+            }
           }
         }
 
