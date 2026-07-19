@@ -10,7 +10,6 @@ import {
   serverTimestamp,
   increment,
   Timestamp,
-  arrayUnion,
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { WatchStatus, MediaType, CatalogShow } from "../types";
@@ -102,14 +101,9 @@ export async function addToTracking(
   const catalogDoc = await getDoc(showRef);
 
   if (catalogDoc.exists()) {
-    // Catalog exists — skip CF, just update trackedBy client-side
+    // Catalog exists — skip CF, create tracking doc directly
+    // trackedBy update skipped (shows/ is CF-only write); CF handles it on slow path
     const catalogData = catalogDoc.data() as any;
-
-    // Add user to trackedBy
-    await updateDoc(showRef, {
-      trackedBy: arrayUnion(userId),
-      trackedByCount: increment(1),
-    });
 
     // Get ep1 info for TV shows
     let nextEpisodeName: string | null = null;
