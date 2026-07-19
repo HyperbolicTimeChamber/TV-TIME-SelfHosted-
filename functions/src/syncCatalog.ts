@@ -131,6 +131,12 @@ export const syncCatalog = onSchedule(
     console.log("Rebuilding upcoming episodes...");
     await rebuildAllUsersUpcoming(db, catalogMap);
 
+    // Write sync timestamp to config/app so clients know when to rehydrate
+    await db.doc("config/app").set(
+      { lastCatalogSync: FieldValue.serverTimestamp() },
+      { merge: true },
+    );
+
     console.log("Catalog sync complete");
   }
 );
