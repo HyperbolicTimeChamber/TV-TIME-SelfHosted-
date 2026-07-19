@@ -8,7 +8,6 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
 import {
   AnimatedModal,
   ConfirmModal,
@@ -64,17 +63,19 @@ export default function SearchScreen() {
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Clear search when leaving the tab
-  useFocusEffect(
-    useCallback(() => {
-      return () => {
-        setQuery("");
-        setDebouncedQuery("");
-        setMediaFilter("all");
-      };
-    }, []),
-  );
   const navigation = useNavigation<NavProp>();
+
+  // Clear search only when leaving the search tab (not on stack push)
+  useEffect(() => {
+    const parent = navigation.getParent();
+    if (!parent) return;
+    const unsub = parent.addListener("blur", () => {
+      setQuery("");
+      setDebouncedQuery("");
+      setMediaFilter("all");
+    });
+    return unsub;
+  }, [navigation]);
   const user = useAuthStore((s) => s.user);
   const trackedIds = useTrackedIds(user?.uid);
 
