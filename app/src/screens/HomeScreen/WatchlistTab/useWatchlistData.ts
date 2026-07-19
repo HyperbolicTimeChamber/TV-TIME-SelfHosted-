@@ -263,11 +263,15 @@ export function useWatchlistData(userId: string | undefined) {
     async (item: EnrichedTrackingItem) => {
       if (!userId) return;
 
+      // Prefer the live enriched item (has catalogShow from listener)
+      // over the cached display item (catalogShow stripped)
+      const liveItem = showMap.get(item.tmdbId);
+      const catalog = liveItem?.catalogShow ?? item.catalogShow ?? (await getCatalogShow(item.tmdbId));
+
       if (item.mediaType === MediaType.MOVIE) {
         setUpdatingShows((prev) =>
           new Map(prev).set(item.tmdbId, MediaType.MOVIE),
         );
-        const catalog = item.catalogShow ?? (await getCatalogShow(item.tmdbId));
         await markMovieWatched(userId, item.tmdbId, catalog?.runtime ?? 0);
         queryClient.invalidateQueries({ queryKey: ["watchedMovies", userId] });
         return;
@@ -276,8 +280,6 @@ export function useWatchlistData(userId: string | undefined) {
       const currentEp = item.nextEpisode ?? { season: 1, episode: 1 };
       const epKey = `${currentEp.season}-${currentEp.episode}`;
       setUpdatingShows((prev) => new Map(prev).set(item.tmdbId, epKey));
-
-      const catalog = item.catalogShow ?? (await getCatalogShow(item.tmdbId));
 
       const catalogSeason = catalog?.seasons?.find(
         (s) => s.seasonNumber === currentEp.season,
@@ -348,33 +350,17 @@ export function useWatchlistData(userId: string | undefined) {
           nextEpisodeAirDate,
         );
 
-        queryClient.setQueryData(
-          ["watchedEpisodes", userId],
-          (old: any) => {
-            if (!old) return old;
-            const newEp: Partial<WatchedEpisode> = {
-              id: `${item.tmdbId}_S${String(currentEp.season).padStart(2, "0")}E${String(currentEp.episode).padStart(2, "0")}`,
-              tmdbShowId: item.tmdbId,
-              season: currentEp.season,
-              episode: currentEp.episode,
-              episodeTitle: catalogEp?.title || "",
-              runtime: catalogEp?.runtime || 0,
-              watchCount: 1,
-            };
-            if (old.pages) {
-              const pages = [...old.pages];
-              pages[0] = { ...pages[0], docs: [newEp, ...(pages[0].docs || [])] };
-              return { ...old, pages };
-            }
-            return old;
-          },
-        );
+        // Invalidate watchedEpisodes to refresh Previously Watched section
+        // Key has 3 elements: ["watchedEpisodes", userId, undefined]
+        queryClient.invalidateQueries({
+          queryKey: ["watchedEpisodes", userId],
+        });
       } catch (err) {
         rollbackUpcoming(upcomingSnapshot);
         throw err;
       }
     },
-    [userId, queryClient, mutateCachedUpcoming, rollbackUpcoming],
+    [userId, queryClient, showMap, mutateCachedUpcoming, rollbackUpcoming],
   );
 
   // Clear updating state when data changes
