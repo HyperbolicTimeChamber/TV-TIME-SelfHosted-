@@ -100,6 +100,7 @@ export default function ShowDetailScreen() {
         tmdbId,
         mediaType,
         isUnreleased ? releaseDate : null,
+        { title: show.title || show.name || "", posterPath: show.poster_path || null },
       );
       if (isUnreleased && releaseDate) {
         addShowToUpcoming(tmdbId, {
@@ -163,7 +164,7 @@ export default function ShowDetailScreen() {
     setAdding(true);
     try {
       if (!watchlistItem) {
-        await addToTracking(user.uid, tmdbId, MediaType.MOVIE);
+        await addToTracking(user.uid, tmdbId, MediaType.MOVIE, undefined, { title: show.title || show.name || "", posterPath: show.poster_path || null });
       }
       await markMovieWatched(user.uid, tmdbId, show.runtime ?? 0);
     } catch (err: any) {

@@ -48,8 +48,8 @@ async function enrichItems(
 
       return {
         ...item,
-        title: catalogShow?.title ?? `Show #${item.tmdbId}`,
-        posterPath: catalogShow?.posterPath ?? null,
+        title: catalogShow?.title ?? (item as any).title ?? `Show #${item.tmdbId}`,
+        posterPath: catalogShow?.posterPath ?? (item as any).posterPath ?? null,
         totalEpisodes: catalogShow?.totalEpisodes ?? 0,
         catalogShow: catalogShow ?? null,
       };

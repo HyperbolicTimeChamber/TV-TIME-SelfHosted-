@@ -93,6 +93,7 @@ export async function addToTracking(
   tmdbId: number,
   mediaType: MediaType,
   releaseDate?: string | null,
+  meta?: { title?: string; posterPath?: string | null },
 ): Promise<void> {
   const showId = String(tmdbId);
   const showRef = doc(db, "shows", showId);
@@ -120,6 +121,8 @@ export async function addToTracking(
     lastWatchedAt: now,
     priorityDate,
     ...(mediaType === MediaType.MOVIE ? { releaseDate: releaseDate || null } : {}),
+    ...(meta?.title ? { title: meta.title } : {}),
+    ...(meta?.posterPath ? { posterPath: meta.posterPath } : {}),
   });
   batch.set(
     userRef(userId),

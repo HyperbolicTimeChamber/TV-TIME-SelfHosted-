@@ -128,7 +128,7 @@ export default function SearchScreen() {
         if (isUnreleased) {
           // Run modal check and add in parallel
           const addPromise = withLoadingId(item.id, () =>
-            addToTracking(user.uid!, item.id, MediaType.MOVIE, releaseDate),
+            addToTracking(user.uid!, item.id, MediaType.MOVIE, releaseDate, { title: item.title || item.name || "", posterPath: item.poster_path || null }),
           );
           shouldShowUnreleasedModal(user.uid!).then((shouldShow) => {
             if (shouldShow) {
@@ -183,7 +183,7 @@ export default function SearchScreen() {
       }
 
       await withLoadingId(item.id, async () => {
-        await addToTracking(user.uid!, item.id, mediaType);
+        await addToTracking(user.uid!, item.id, mediaType, undefined, { title: item.title || item.name || "", posterPath: item.poster_path || null });
         addShowToUpcoming(item.id);
       });
     },
@@ -220,7 +220,7 @@ export default function SearchScreen() {
     const item = movieModal;
     setMovieModal(null);
     await withLoadingId(item.id, () =>
-      addToTracking(user.uid!, item.id, MediaType.MOVIE),
+      addToTracking(user.uid!, item.id, MediaType.MOVIE, undefined, { title: item.title || item.name || "", posterPath: item.poster_path || null }),
     );
   }, [user?.uid, movieModal, withLoadingId]);
 
@@ -229,7 +229,7 @@ export default function SearchScreen() {
     const item = movieModal;
     setMovieModal(null);
     await withLoadingId(item.id, async () => {
-      await addToTracking(user.uid!, item.id, MediaType.MOVIE);
+      await addToTracking(user.uid!, item.id, MediaType.MOVIE, undefined, { title: item.title || item.name || "", posterPath: item.poster_path || null });
       await markMovieWatched(user.uid!, item.id, (item as any).runtime ?? 0);
     });
   }, [user?.uid, movieModal, withLoadingId]);
@@ -239,7 +239,7 @@ export default function SearchScreen() {
     const { item, nextEp, nextEpName, nextEpAirDate } = resumeModal;
     setResumeModal(null);
     await withLoadingId(item.id, async () => {
-      await addToTracking(user.uid!, item.id, MediaType.TV);
+      await addToTracking(user.uid!, item.id, MediaType.TV, undefined, { title: item.title || item.name || "", posterPath: item.poster_path || null });
       // Update tracking doc to resume position
       const db = getFirestore();
       await updateDoc(doc(db, "users", user.uid!, "tracking", String(item.id)), {
@@ -256,7 +256,7 @@ export default function SearchScreen() {
     const item = resumeModal.item;
     setResumeModal(null);
     await withLoadingId(item.id, async () => {
-      await addToTracking(user.uid!, item.id, MediaType.TV);
+      await addToTracking(user.uid!, item.id, MediaType.TV, undefined, { title: item.title || item.name || "", posterPath: item.poster_path || null });
       addShowToUpcoming(item.id);
     });
   }, [user?.uid, resumeModal, withLoadingId, addShowToUpcoming]);
