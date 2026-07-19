@@ -9,7 +9,8 @@ import {
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { UpcomingEpisode, CacheKey } from "../types";
+import { UpcomingEpisode, CacheKey, MediaType } from "../types";
+import { getCatalogShow } from "../services";
 const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 1 week
 
 type MutateCallback = (
@@ -119,14 +120,51 @@ export function useUpcomingEpisodes(userId: string | undefined) {
         }
       }
 
-      const eps: UpcomingEpisode[] = snap.docs
-        .map((d) => d.data() as UpcomingEpisode)
-        .sort((a, b) => a.airDate.localeCompare(b.airDate));
+      const tvEps: UpcomingEpisode[] = snap.docs
+        .map((d) => d.data() as UpcomingEpisode);
+
+      // Also fetch tracked movies with future release dates
+      const trackingCol = collection(doc(db, "users", userId), "tracking");
+      const movieSnap = await getDocs(
+        query(
+          trackingCol,
+          where("mediaType", "==", "movie"),
+          where("releaseDate", ">", today),
+        ),
+      );
+      const movieEps: UpcomingEpisode[] = [];
+      for (const d of movieSnap.docs) {
+        const data = d.data() as any;
+        let title = `Movie #${data.tmdbId}`;
+        let posterPath: string | null = null;
+        try {
+          const catalog = await getCatalogShow(data.tmdbId);
+          if (catalog) {
+            title = catalog.title;
+            posterPath = catalog.posterPath ?? null;
+          }
+        } catch {}
+        movieEps.push({
+          tmdbShowId: data.tmdbId,
+          showTitle: title,
+          posterPath,
+          season: 0,
+          episode: 0,
+          episodeTitle: title,
+          airDate: data.releaseDate,
+          runtime: null,
+          mediaType: MediaType.MOVIE,
+        });
+      }
+
+      const eps = [...tvEps, ...movieEps].sort((a, b) =>
+        a.airDate.localeCompare(b.airDate),
+      );
 
       setEpisodes(eps);
       setIsLoading(false);
 
-      // Cache locally
+      // Cache locally (includes movies)
       if (eps.length > 0) {
         AsyncStorage.setItem(
           CacheKey.UPCOMING_EPISODES,
