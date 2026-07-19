@@ -139,6 +139,8 @@ export function useWatchlistData(userId: string | undefined) {
   const [updatingShows, setUpdatingShows] = useState<Map<number, string>>(
     new Map(),
   );
+  // Optimistic card patches applied after Firestore write, before listener re-enriches
+  const [optimisticCards, setOptimisticCards] = useState<Map<number, Partial<CardItem>>>(new Map());
 
   // --- Cache: store and restore the display list directly ---
   const [cachedList, setCachedList] = useState<CacheableListItem[] | null>(null);
@@ -247,8 +249,42 @@ export function useWatchlistData(userId: string | undefined) {
   }, [userId, loading, liveList]);
 
   // --- Effective display: cached until live data ready ---
-  const displayList = cachedList && liveList.length === 0 ? cachedList : liveList;
+  const rawDisplayList = cachedList && liveList.length === 0 ? cachedList : liveList;
   const effectiveLoading = loading && !cachedList;
+
+  // Apply optimistic card patches
+  const displayList = useMemo(() => {
+    if (optimisticCards.size === 0) return rawDisplayList;
+    return rawDisplayList.map((item) => {
+      if (item.type !== "show") return item;
+      const patch = optimisticCards.get(item.card.tmdbId);
+      if (!patch) return item;
+      return { ...item, card: { ...item.card, ...patch } };
+    });
+  }, [rawDisplayList, optimisticCards]);
+
+  // Clear optimistic patches when listener provides matching data
+  useEffect(() => {
+    if (optimisticCards.size === 0 || loading) return;
+    setOptimisticCards((prev) => {
+      const next = new Map(prev);
+      for (const [tmdbId, patch] of prev) {
+        const liveItem = items.find((i) => i.tmdbId === tmdbId);
+        if (!liveItem) { next.delete(tmdbId); continue; }
+        // Patch applied — listener has caught up when nextEpisode matches
+        const patchEp = patch.nextEpisode;
+        const liveEp = liveItem.nextEpisode;
+        if (
+          patchEp && liveEp &&
+          patchEp.season === liveEp.season &&
+          patchEp.episode === liveEp.episode
+        ) {
+          next.delete(tmdbId);
+        }
+      }
+      return next.size === prev.size ? prev : next;
+    });
+  }, [items, optimisticCards, loading]);
 
   // --- Convert to ListItem for backward compat with renderItem ---
   const listData: ListItem[] = useMemo(() => {
@@ -338,27 +374,60 @@ export function useWatchlistData(userId: string | undefined) {
         ),
       );
 
-      // Fire Firestore write — don't await, let UI update first
-      markEpisodeWatched(
-        userId,
-        item.tmdbId,
-        currentEp.season,
-        currentEp.episode,
-        epTitle,
-        epRuntime,
-        nextEpisode,
-        isComplete,
-        false,
-        nextEpisodeName,
-        nextEpisodeAirDate,
-      ).then(() => {
+      try {
+        await markEpisodeWatched(
+          userId,
+          item.tmdbId,
+          currentEp.season,
+          currentEp.episode,
+          epTitle,
+          epRuntime,
+          nextEpisode,
+          isComplete,
+          false,
+          nextEpisodeName,
+          nextEpisodeAirDate,
+        );
+
+        // Optimistic UI: apply nextNext as new next immediately
+        if (nextEpisode) {
+          setOptimisticCards((prev) => {
+            const next = new Map(prev);
+            next.set(item.tmdbId, {
+              nextEpisode,
+              nextEpisodeName,
+              nextEpisodeAirDate,
+              nextEpisodeRuntime: card.nextNextEpisodeRuntime ?? 0,
+              // nextNext will be null until listener re-enriches
+              nextNextEpisode: null,
+              nextNextEpisodeName: null,
+              nextNextEpisodeAirDate: null,
+              nextNextEpisodeRuntime: 0,
+              isLastEpisode: false,
+            } as Partial<CardItem>);
+            return next;
+          });
+        }
+
+        // Clear updating spinner — card now shows new episode
+        setUpdatingShows((prev) => {
+          const next = new Map(prev);
+          next.delete(item.tmdbId);
+          return next;
+        });
+
         queryClient.invalidateQueries({
           queryKey: [QueryKey.WATCHED_EPISODES, userId],
         });
-      }).catch((err) => {
+      } catch (err) {
         rollbackUpcoming(upcomingSnapshot);
+        setUpdatingShows((prev) => {
+          const next = new Map(prev);
+          next.delete(item.tmdbId);
+          return next;
+        });
         console.error("markEpisodeWatched failed:", err);
-      });
+      }
     },
     [userId, queryClient, mutateCachedUpcoming, rollbackUpcoming],
   );
