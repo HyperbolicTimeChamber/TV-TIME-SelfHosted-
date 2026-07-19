@@ -10,8 +10,7 @@ import {
 import { AnimatedModal } from "./modals";
 import { colors, spacing, typography } from "../theme";
 import { useAuthStore } from "../stores";
-
-const STORAGE_KEY = "hideUnreleasedMovieModal";
+import { CacheKey } from "../types";
 
 interface Props {
   visible: boolean;
@@ -25,7 +24,7 @@ export function UnreleasedMovieModal({ visible, onClose, movieTitle }: Props) {
 
   const handleOk = async () => {
     if (dontShowAgain && user?.uid) {
-      await AsyncStorage.setItem(STORAGE_KEY, "true");
+      await AsyncStorage.setItem(CacheKey.HIDE_UNRELEASED_MODAL, "true");
       const db = getFirestore();
       updateDoc(doc(db, "users", user.uid), {
         hideUnreleasedMovieModal: true,
@@ -67,7 +66,7 @@ export async function shouldShowUnreleasedModal(
   userId: string,
 ): Promise<boolean> {
   // Check cache first
-  const cached = await AsyncStorage.getItem(STORAGE_KEY);
+  const cached = await AsyncStorage.getItem(CacheKey.HIDE_UNRELEASED_MODAL);
   if (cached === "true") return false;
 
   // Fallback to Firestore
@@ -76,7 +75,7 @@ export async function shouldShowUnreleasedModal(
     const userDoc = await getDoc(doc(db, "users", userId));
     const hide = userDoc.data()?.hideUnreleasedMovieModal === true;
     if (hide) {
-      await AsyncStorage.setItem(STORAGE_KEY, "true");
+      await AsyncStorage.setItem(CacheKey.HIDE_UNRELEASED_MODAL, "true");
       return false;
     }
   } catch {}

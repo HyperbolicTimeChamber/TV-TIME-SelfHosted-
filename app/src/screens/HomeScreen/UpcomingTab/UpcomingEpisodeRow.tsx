@@ -2,7 +2,7 @@ import { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { colors, spacing, typography, posterSize } from "../../../theme";
-import { UpcomingEpisode } from "../../../types";
+import { UpcomingEpisode, MediaType } from "../../../types";
 
 interface Props {
   episode: UpcomingEpisode;
@@ -17,7 +17,7 @@ export default memo(function UpcomingEpisodeRow({
   onTitlePress,
   onEpisodePress,
 }: Props) {
-  const isMovie = episode.mediaType === "movie";
+  const isMovie = episode.mediaType === MediaType.MOVIE;
   const label = isMovie
     ? "MOVIE"
     : `S${String(episode.season).padStart(2, "0")} | E${String(episode.episode).padStart(2, "0")}`;

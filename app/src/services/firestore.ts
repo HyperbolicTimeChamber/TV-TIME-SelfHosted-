@@ -102,6 +102,7 @@ export async function addToTracking(
     addedAt: serverTimestamp(),
     lastWatchedAt: serverTimestamp(),
     priorityDate,
+    ...(mediaType === MediaType.MOVIE && releaseDate ? { releaseDate } : {}),
   });
 
   // Update user stats

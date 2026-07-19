@@ -26,23 +26,19 @@ export function isShowVisible(item: EnrichedTrackingItem): boolean {
 
   const catalog = item.catalogShow;
 
+  const today = new Date().toISOString().split("T")[0];
+
   // plan_to_watch — visible unless unreleased movie
   if (item.status === WatchStatus.PLAN_TO_WATCH) {
-    if (catalog?.mediaType === MediaType.MOVIE && catalog.releaseDate) {
-      const today = new Date().toISOString().split("T")[0];
-      if (catalog.releaseDate > today) return false;
-    }
+    const rd = item.releaseDate ?? catalog?.releaseDate;
+    if (item.mediaType === MediaType.MOVIE && rd && rd > today) return false;
     return true;
   }
 
-  // Movies — visible only if released and not completed
-  if (item.mediaType === MediaType.MOVIE || catalog?.mediaType === MediaType.MOVIE) {
-    if (!catalog) return false; // No catalog data yet — hide until loaded
-    const today = new Date().toISOString().split("T")[0];
-    const releaseDate = catalog.releaseDate;
-    // Hide if not yet released
-    if (releaseDate && releaseDate > today) return false;
-    // Visible if released (status already filtered to active above)
+  // Movies — visible only if released (use tracking doc releaseDate first, fallback to catalog)
+  if (item.mediaType === MediaType.MOVIE) {
+    const rd = item.releaseDate ?? catalog?.releaseDate;
+    if (rd && rd > today) return false;
     return true;
   }
 
@@ -54,7 +50,6 @@ export function isShowVisible(item: EnrichedTrackingItem): boolean {
   if (!nextEp) return false;
 
   // Check if nextEpisode has aired
-  const today = new Date().toISOString().split("T")[0];
   const season = catalog.seasons?.find((s) => s.seasonNumber === nextEp.season);
   if (!season) {
     // Season not in catalog — might not exist yet

@@ -19,6 +19,15 @@ export enum FreshTag {
 
 export const JUST_AIRED_WINDOW_DAYS = 7;
 
+export enum CacheKey {
+  WATCHLIST_PROFILE = "profile_watchlist_cache",
+  WATCHLIST_ACTIVE = "watchlist_active_cache",
+  UPCOMING_EPISODES = "upcoming_episodes_cache",
+  UPCOMING_BUILT = "upcoming_subcollection_built",
+  USER_STATS = "profile_stats_cache",
+  HIDE_UNRELEASED_MODAL = "hideUnreleasedMovieModal",
+}
+
 export enum Route {
   // Main tabs
   HOME = "Home",

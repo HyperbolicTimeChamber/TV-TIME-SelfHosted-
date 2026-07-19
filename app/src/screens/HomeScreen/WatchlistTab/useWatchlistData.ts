@@ -14,10 +14,9 @@ import {
   stopWatching,
   getCatalogShow,
 } from "../../../services";
-import { MediaType } from "../../../types";
+import { MediaType, CacheKey } from "../../../types";
 import { ListItem } from "./types";
 
-const ACTIVE_CACHE_KEY = "watchlist_active_cache";
 const ACTIVE_CACHE_LIMIT = 100;
 
 function todayStr() {
@@ -53,7 +52,7 @@ export function useWatchlistData(userId: string | undefined) {
   // Restore cached active items on mount (invalidate if not from today)
   useEffect(() => {
     if (!userId || cacheRestored.current) return;
-    AsyncStorage.getItem(ACTIVE_CACHE_KEY).then((raw) => {
+    AsyncStorage.getItem(CacheKey.WATCHLIST_ACTIVE).then((raw) => {
       if (!raw) {
         cacheRestored.current = true;
         return;
@@ -108,7 +107,7 @@ export function useWatchlistData(userId: string | undefined) {
       .slice(0, ACTIVE_CACHE_LIMIT)
       .map(({ catalogShow, ...rest }) => rest);
     AsyncStorage.setItem(
-      ACTIVE_CACHE_KEY,
+      CacheKey.WATCHLIST_ACTIVE,
       JSON.stringify({
         userId,
         date: todayStr(),
