@@ -8,6 +8,7 @@ import {
 	ActivityIndicator,
 	Dimensions,
 } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Image } from "expo-image";
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import SkeletonLine from "./SkeletonLine";
@@ -76,7 +77,7 @@ export default function ShowDrawer({
 			animationType="none"
 			onRequestClose={onClose}
 		>
-			<View style={styles.overlay}>
+			<GestureHandlerRootView style={styles.overlay}>
 				<TouchableOpacity
 					style={styles.backdrop}
 					activeOpacity={1}
@@ -155,7 +156,7 @@ export default function ShowDrawer({
 						</>
 					) : null}
 				</BottomSheet>
-			</View>
+			</GestureHandlerRootView>
 		</Modal>
 	);
 }
