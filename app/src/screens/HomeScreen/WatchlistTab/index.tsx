@@ -405,6 +405,7 @@ export default function WatchlistTab() {
             sheetEpisode.episodeTitle,
           );
         }
+        queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_EPISODES, user.uid] });
       } catch (err: any) {
         console.error("Watch action failed:", err);
         Alert.alert("Error", err.message || "Action failed.");
@@ -412,7 +413,7 @@ export default function WatchlistTab() {
 
       setSheetEpisode(null);
     },
-    [user?.uid, sheetEpisode],
+    [user?.uid, sheetEpisode, queryClient],
   );
 
   const handleTvPress = useCallback(
