@@ -37,7 +37,6 @@ import {
   removeFromTracking,
   markMovieWatched,
   getHighestWatchedEpisode,
-  getCatalogShow,
 } from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { TMDBShow, SearchStackParamList, MediaType, Route } from "../types";
@@ -155,34 +154,16 @@ export default function SearchScreen() {
         return;
       }
 
-      // Check for existing watch history (re-add case)
-      const highestEp = await getHighestWatchedEpisode(user.uid!, item.id);
-      if (highestEp) {
-        // Show resume modal
-        const catalog = await getCatalogShow(item.id);
-        let nextEp: { season: number; episode: number } = { season: highestEp.season, episode: highestEp.episode + 1 };
-        let nextEpName: string | null = null;
-        let nextEpAirDate: string | null = null;
-        if (catalog) {
-          const catalogSeason = catalog.seasons?.find((s) => s.seasonNumber === highestEp.season);
-          const nextInSeason = catalogSeason?.episodes?.find((e) => e.episodeNumber === highestEp.episode + 1);
-          if (nextInSeason) {
-            nextEpName = nextInSeason.title || null;
-            nextEpAirDate = nextInSeason.airDate || null;
-          } else {
-            const nextCatalogSeason = catalog.seasons?.find((s) => s.seasonNumber === highestEp.season + 1);
-            if (nextCatalogSeason && nextCatalogSeason.episodes.length > 0) {
-              nextEp = { season: highestEp.season + 1, episode: 1 };
-              nextEpName = nextCatalogSeason.episodes[0].title || null;
-              nextEpAirDate = nextCatalogSeason.episodes[0].airDate || null;
-            }
-          }
-        }
-        setResumeModal({ item, highestEp, nextEp, nextEpName, nextEpAirDate });
-        return;
-      }
-
+      // Show spinner during resume check
       await withLoadingId(item.id, async () => {
+        // Check for existing watch history (re-add case)
+        const highestEp = await getHighestWatchedEpisode(user.uid!, item.id);
+        if (highestEp) {
+          const nextEp = { season: highestEp.season, episode: highestEp.episode + 1 };
+          setResumeModal({ item, highestEp, nextEp, nextEpName: null, nextEpAirDate: null });
+          return;
+        }
+
         await addToTracking(user.uid!, item.id, mediaType, undefined, { title: item.title || item.name || "", posterPath: item.poster_path || null });
         addShowToUpcoming(item.id);
       });

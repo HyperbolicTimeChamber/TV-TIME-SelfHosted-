@@ -4,6 +4,8 @@ import {
   doc,
   getDoc,
   getDocs,
+  query,
+  where,
   setDoc,
   updateDoc,
   writeBatch,
@@ -53,11 +55,13 @@ export async function getHighestWatchedEpisode(
   tmdbShowId: number,
 ): Promise<{ season: number; episode: number } | null> {
   const epCol = watchedEpisodesRef(userId);
-  const snap = await getDocs(epCol);
+  // Query only episodes for this show instead of reading ALL episodes
+  const snap = await getDocs(
+    query(epCol, where("tmdbShowId", "==", tmdbShowId)),
+  );
   let highest: { season: number; episode: number } | null = null;
   for (const d of snap.docs) {
     const data = d.data();
-    if (data.tmdbShowId !== tmdbShowId) continue;
     if (
       !highest ||
       data.season > highest.season ||
