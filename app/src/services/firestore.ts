@@ -441,22 +441,16 @@ export async function markMovieWatched(
   const tRef = doc(trackingRef(userId), String(tmdbId));
   const now = serverTimestamp();
 
-  // Check if already watched (for rewatch)
-  const movieDoc = await getDoc(movieRef);
-  if (movieDoc.exists()) {
-    batch.update(movieRef, {
-      watchCount: increment(1),
-      lastWatchedAt: now,
-    });
-  } else {
-    batch.set(movieRef, {
+  batch.set(
+    movieRef,
+    {
       tmdbId,
-      watchCount: 1,
-      watchedAt: now,
       lastWatchedAt: now,
       runtime: runtime || 0,
-    });
-  }
+      watchCount: increment(1),
+    },
+    { merge: true },
+  );
 
   batch.update(tRef, {
     status: WatchStatus.COMPLETED,
