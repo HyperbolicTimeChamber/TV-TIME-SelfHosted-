@@ -29,6 +29,17 @@ export enum CacheKey {
 	IMPORT_IN_PROGRESS = "import_in_progress",
 }
 
+export enum QueryKey {
+	WATCHED_EPISODES = "watchedEpisodes",
+	WATCHED_MOVIES = "watchedMovies",
+	TRACKED_IDS = "trackedIds",
+	SHOW = "show",
+	SEASON = "season",
+	SEASON_IMAGES = "seasonImages",
+	SEARCH = "search",
+	TRENDING = "trending",
+}
+
 export enum Route {
 	// Main tabs
 	HOME = "Home",

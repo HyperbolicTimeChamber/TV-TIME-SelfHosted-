@@ -28,7 +28,7 @@ import CheckmarkButton from "./CheckmarkButton";
 import SkeletonLine from "./SkeletonLine";
 import EpisodeDetailModal from "./modals/EpisodeDetailModal";
 import { colors, spacing, typography, posterSize } from "../theme";
-import { TMDBSeason, TMDBEpisode, MediaType } from "../types";
+import { TMDBSeason, TMDBEpisode, MediaType, QueryKey } from "../types";
 
 const MONTHS = [
   "Jan",
@@ -259,7 +259,7 @@ export default memo(function SeasonDropdown({
         nextEpisodeName,
         nextEpisodeAirDate,
       );
-      queryClient.invalidateQueries({ queryKey: ["watchedEpisodes", user.uid] });
+      queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_EPISODES, user.uid] });
     } catch (err: any) {
       console.error("markSeasonWatched failed:", err);
       Alert.alert("Error", err.message || "Failed to mark season as watched.");
@@ -315,7 +315,7 @@ export default memo(function SeasonDropdown({
           nextEpisodeName,
           nextEpisodeAirDate,
         );
-        queryClient.invalidateQueries({ queryKey: ["watchedEpisodes", user.uid] });
+        queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_EPISODES, user.uid] });
       } catch (err: any) {
         rollbackUpcoming(snapshot);
         console.error("markEpisodeWatched failed:", err);
@@ -403,7 +403,7 @@ export default memo(function SeasonDropdown({
             }
           }
         }
-        queryClient.invalidateQueries({ queryKey: ["watchedEpisodes", user.uid] });
+        queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_EPISODES, user.uid] });
       } catch (err: any) {
         console.error("Watch action failed:", err);
         Alert.alert("Error", err.message || "Action failed.");
@@ -457,7 +457,7 @@ export default memo(function SeasonDropdown({
             nextEpisodeAirDate,
           );
         }
-        queryClient.invalidateQueries({ queryKey: ["watchedEpisodes", user.uid] });
+        queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_EPISODES, user.uid] });
       } catch (err: any) {
         console.error("markEpisodeRange failed:", err);
         Alert.alert("Error", err.message || "Failed to mark episodes.");

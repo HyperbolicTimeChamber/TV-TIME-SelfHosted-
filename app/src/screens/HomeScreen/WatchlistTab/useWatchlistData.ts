@@ -15,7 +15,7 @@ import {
   stopWatching,
   getCatalogShow,
 } from "../../../services";
-import { MediaType, CacheKey, WatchedEpisode } from "../../../types";
+import { MediaType, CacheKey, WatchedEpisode, QueryKey } from "../../../types";
 import { ListItem } from "./types";
 
 const ACTIVE_CACHE_LIMIT = 100;
@@ -273,7 +273,7 @@ export function useWatchlistData(userId: string | undefined) {
           new Map(prev).set(item.tmdbId, MediaType.MOVIE),
         );
         await markMovieWatched(userId, item.tmdbId, catalog?.runtime ?? 0);
-        queryClient.invalidateQueries({ queryKey: ["watchedMovies", userId] });
+        queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_MOVIES, userId] });
         return;
       }
 
@@ -353,7 +353,7 @@ export function useWatchlistData(userId: string | undefined) {
         // Invalidate watchedEpisodes to refresh Previously Watched section
         // Key has 3 elements: ["watchedEpisodes", userId, undefined]
         queryClient.invalidateQueries({
-          queryKey: ["watchedEpisodes", userId],
+          queryKey: [QueryKey.WATCHED_EPISODES, userId],
         });
       } catch (err) {
         rollbackUpcoming(upcomingSnapshot);

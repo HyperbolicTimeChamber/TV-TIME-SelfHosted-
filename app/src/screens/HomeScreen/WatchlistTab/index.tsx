@@ -41,6 +41,7 @@ import {
   WatchedEpisode,
   MediaType,
   Route,
+  QueryKey,
 } from "../../../types";
 import type { ShowDrawerData } from "../../../components/ShowDrawer";
 import { ListItem } from "./types";
@@ -303,7 +304,7 @@ export default function WatchlistTab() {
         nextEpisode,
         isComplete,
       );
-      queryClient.invalidateQueries({ queryKey: ["watchedEpisodes", user.uid] });
+      queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_EPISODES, user.uid] });
     },
     [user?.uid, queryClient],
   );
@@ -331,7 +332,7 @@ export default function WatchlistTab() {
           episode.episodeTitle,
         );
       }
-      queryClient.invalidateQueries({ queryKey: ["watchedEpisodes", user.uid] });
+      queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_EPISODES, user.uid] });
     },
     [user?.uid, queryClient],
   );

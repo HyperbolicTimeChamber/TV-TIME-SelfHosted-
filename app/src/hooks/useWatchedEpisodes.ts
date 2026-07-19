@@ -12,7 +12,7 @@ import {
   QueryDocumentSnapshot,
 } from "@react-native-firebase/firestore";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { WatchedEpisode } from "../types";
+import { WatchedEpisode, QueryKey } from "../types";
 
 const PAGE_SIZE = 5;
 
@@ -25,7 +25,7 @@ export function useWatchedEpisodes(
   userId: string | undefined,
   tmdbShowId?: number,
 ) {
-  const queryKey = ["watchedEpisodes", userId, tmdbShowId] as const;
+  const queryKey = [QueryKey.WATCHED_EPISODES, userId, tmdbShowId] as const;
 
   const {
     data,
