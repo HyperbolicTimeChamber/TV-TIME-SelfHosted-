@@ -43,7 +43,9 @@ const YEARS = Array.from(
 export default function CalendarScreen() {
   const user = useAuthStore((s) => s.user);
   const navigation = useNavigation<NavProp>();
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(
+    new Date().toISOString().slice(0, 10),
+  );
   const [yearModalVisible, setYearModalVisible] = useState(false);
 
   const now = new Date();
@@ -68,7 +70,7 @@ export default function CalendarScreen() {
       const today = new Date();
       setCurrentYear(today.getFullYear());
       setCurrentMonth(today.getMonth() + 1);
-      setSelectedDate(null);
+      setSelectedDate(today.toISOString().slice(0, 10));
     }, []),
   );
 
