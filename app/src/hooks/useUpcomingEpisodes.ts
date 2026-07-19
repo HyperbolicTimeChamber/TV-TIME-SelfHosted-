@@ -103,7 +103,7 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 
   // Check if backend has synced since our cache → refetch if so
   useEffect(() => {
-    if (!userId || !cacheRestored.current) return;
+    if (!userId) return;
 
     (async () => {
       // Read lastCatalogSync from config/app

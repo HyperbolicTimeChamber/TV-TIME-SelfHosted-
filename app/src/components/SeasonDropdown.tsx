@@ -105,6 +105,7 @@ export default memo(function SeasonDropdown({
     stillPath: string | null;
     airDate: string | null;
     runtime: number | null;
+    showPosterPath: string | null;
   } | null>(null);
 
   // Add-to-watchlist modal state
@@ -495,6 +496,7 @@ export default memo(function SeasonDropdown({
         stillPath: ep.still_path || null,
         airDate: ep.air_date || null,
         runtime: ep.runtime || null,
+        showPosterPath,
       });
       setEpInfoVisible(true);
     },
@@ -809,6 +811,7 @@ export default memo(function SeasonDropdown({
           episodeTitle={epInfoData.episodeTitle}
           overview={epInfoData.overview}
           stillPath={epInfoData.stillPath}
+          showPosterPath={epInfoData.showPosterPath}
           airDate={epInfoData.airDate}
           runtime={epInfoData.runtime}
           onClose={() => {

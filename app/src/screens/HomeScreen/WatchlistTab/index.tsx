@@ -100,6 +100,7 @@ export default function WatchlistTab() {
     airDate: string | null;
     runtime: number | null;
     tmdbId: number;
+    showPosterPath: string | null;
   } | null>(null);
   const [epModalLoading, setEpModalLoading] = useState(false);
   const [epModalMarking, setEpModalMarking] = useState(false);
@@ -159,6 +160,7 @@ export default function WatchlistTab() {
         airDate: catalogEp?.airDate ?? null,
         runtime: catalogEp?.runtime ?? null,
         tmdbId,
+        showPosterPath: item.posterPath ?? null,
       });
       setEpModalLoading(!hasFullData);
       setEpModalMarking(false);
@@ -576,6 +578,7 @@ export default function WatchlistTab() {
           episodeTitle={epModalData.episodeTitle}
           overview={epModalData.overview}
           stillPath={epModalData.stillPath}
+          showPosterPath={epModalData.showPosterPath}
           airDate={epModalData.airDate}
           runtime={epModalData.runtime}
           loadingDetails={epModalLoading}
