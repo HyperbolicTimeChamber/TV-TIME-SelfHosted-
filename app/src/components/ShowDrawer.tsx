@@ -74,7 +74,7 @@ export default function ShowDrawer({
 		<Modal
 			visible={visible}
 			transparent
-			animationType="none"
+			animationType="slide"
 			onRequestClose={onClose}
 		>
 			<GestureHandlerRootView style={styles.overlay}>
@@ -89,6 +89,7 @@ export default function ShowDrawer({
 					snapPoints={snapPoints}
 					onChange={handleSheetChanges}
 					enablePanDownToClose
+					animateOnMount={false}
 					backgroundStyle={styles.background}
 					handleIndicatorStyle={styles.handleIndicator}
 				>
