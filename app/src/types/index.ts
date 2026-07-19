@@ -1,4 +1,4 @@
-export { WatchStatus, MediaType, Route } from "../enums";
+export { WatchStatus, MediaType, Route, FreshTag, JUST_AIRED_WINDOW_DAYS } from "../enums";
 export type { CatalogEpisode, CatalogSeason, CatalogShow } from "./catalog";
 export type {
   TrackingItem,

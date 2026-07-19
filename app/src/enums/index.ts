@@ -12,6 +12,13 @@ export enum MediaType {
   MOVIE = "movie",
 }
 
+export enum FreshTag {
+  NEW = "NEW",
+  JUST_AIRED = "JUST AIRED",
+}
+
+export const JUST_AIRED_WINDOW_DAYS = 7;
+
 export enum Route {
   // Main tabs
   HOME = "Home",

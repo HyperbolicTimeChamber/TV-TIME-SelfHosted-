@@ -7,18 +7,11 @@ import {
 	ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
-import { MediaType } from "../types";
+import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS } from "../types";
 import { colors, spacing, typography, posterSize } from "../theme";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton from "./CheckmarkButton";
 import SkeletonLine from "./SkeletonLine";
-
-const FRESH_TAG = {
-	NEW: "NEW",
-	JUST_AIRED: "JUST AIRED",
-} as const;
-
-const JUST_AIRED_WINDOW_DAYS = 7;
 
 interface ShowCardItem {
 	tmdbId: number;
@@ -195,7 +188,7 @@ export default memo(function ShowCard({
 							</View>
 							{isJustAired && (
 								<View style={styles.freshTag}>
-									<Text style={styles.freshTagText}>{FRESH_TAG.JUST_AIRED}</Text>
+									<Text style={styles.freshTagText}>{FreshTag.JUST_AIRED}</Text>
 								</View>
 							)}
 						</View>
@@ -206,7 +199,7 @@ export default memo(function ShowCard({
 								<Text style={styles.remaining}> {remainingLabel}</Text>
 							) : null}
 							{isNewEpisode && (
-								<Text style={styles.freshTagInline}> {FRESH_TAG.NEW}</Text>
+								<Text style={styles.freshTagInline}> {FreshTag.NEW}</Text>
 							)}
 						</Text>
 					)}
@@ -343,7 +336,7 @@ const styles = StyleSheet.create({
 	freshTagText: {
 		fontSize: 9,
 		fontWeight: "700",
-		color: "#1A1A1A",
+		color: colors.surface,
 		letterSpacing: 0.5,
 	},
 	freshTagInline: {
