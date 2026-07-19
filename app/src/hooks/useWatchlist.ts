@@ -186,6 +186,17 @@ export function useWatchlist(userId: string | undefined) {
           JSON.stringify({ userId, items: toCache }),
         ).catch(() => {});
 
+        // Prune catalog cache: keep only currently tracked shows
+        const trackedIds = new Set(merged.map((m) => String(m.tmdbId)));
+        let pruned = false;
+        for (const key of catalogCache.current.keys()) {
+          if (!trackedIds.has(key)) {
+            catalogCache.current.delete(key);
+            pruned = true;
+          }
+        }
+        if (pruned) saveCatalogCache(catalogCache.current);
+
         setHasMore(snapshot.docs.length >= PAGE_SIZE);
         setLoading(false);
       },
@@ -254,6 +265,7 @@ export function useWatchlist(userId: string | undefined) {
         (p) => p.tmdbId !== tmdbId,
       );
       catalogCache.current.delete(String(tmdbId));
+      saveCatalogCache(catalogCache.current);
       setItems((prev) => {
         const updated = prev.filter((p) => p.tmdbId !== tmdbId);
         // Update AsyncStorage cache
