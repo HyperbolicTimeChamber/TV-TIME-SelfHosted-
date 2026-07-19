@@ -316,7 +316,7 @@ export default function ShowDetailScreen() {
       <ConfirmModal
         visible={removeModalVisible}
         title={`Remove "${title}"?`}
-        hint="This will remove the show from your watchlist. Your watch history will be kept."
+        hint="This will remove it from your watchlist. Your watch history will be kept."
         error={removeError}
         confirmLabel="Remove"
         loading={removing}
