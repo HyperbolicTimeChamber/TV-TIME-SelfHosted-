@@ -195,12 +195,12 @@ export default memo(function ShowCard({
 					) : (
 						<Text style={styles.episode}>
 							{episodeLabel}
-							{isNewEpisode && (
-								<Text style={styles.freshTagInline}> NEW</Text>
-							)}
 							{remainingLabel ? (
 								<Text style={styles.remaining}> {remainingLabel}</Text>
 							) : null}
+							{isNewEpisode && (
+								<Text style={styles.freshTagInline}> NEW</Text>
+							)}
 						</Text>
 					)}
 					{item.rewatchCount > 0 && (

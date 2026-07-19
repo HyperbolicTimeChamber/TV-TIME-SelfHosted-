@@ -440,6 +440,7 @@ export default function WatchlistTab() {
       const catalog = item.item.catalogShow;
       let remaining: number | null = null;
       if (nextEp && catalog?.seasons) {
+        const todayStr = new Date().toISOString().split("T")[0];
         let count = 0;
         for (const s of catalog.seasons) {
           if (s.seasonNumber < nextEp.season) continue;
@@ -449,7 +450,8 @@ export default function WatchlistTab() {
               e.episodeNumber < nextEp.episode
             )
               continue;
-            count++;
+            // Only count aired episodes
+            if (e.airDate && e.airDate <= todayStr) count++;
           }
         }
         remaining = count > 0 ? count : null;
