@@ -24,10 +24,16 @@ export function isShowVisible(item: EnrichedTrackingItem): boolean {
   ];
   if (!activeStatuses.includes(item.status)) return false;
 
-  // plan_to_watch — always visible
-  if (item.status === WatchStatus.PLAN_TO_WATCH) return true;
-
   const catalog = item.catalogShow;
+
+  // plan_to_watch — visible unless unreleased movie
+  if (item.status === WatchStatus.PLAN_TO_WATCH) {
+    if (catalog?.mediaType === MediaType.MOVIE && catalog.releaseDate) {
+      const today = new Date().toISOString().split("T")[0];
+      if (catalog.releaseDate > today) return false;
+    }
+    return true;
+  }
 
   // Movies — visible only if released and not completed
   if (!catalog || catalog.mediaType === MediaType.MOVIE) {
