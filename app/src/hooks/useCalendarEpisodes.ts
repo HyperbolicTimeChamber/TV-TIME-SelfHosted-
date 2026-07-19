@@ -135,6 +135,42 @@ export function useCalendarEpisodes(userId: string | undefined) {
           }
         }
 
+        // Also fetch tracked movies releasing this month
+        const movieTrackingSnap = await getDocs(
+          query(
+            collection(doc(db, "users", userId), "tracking"),
+            where("mediaType", "==", "movie"),
+          ),
+        );
+        for (const d of movieTrackingSnap.docs) {
+          const mKey = d.id;
+          let catalog: CatalogShow | null = catalogCache.current.get(mKey) ?? null;
+          if (!catalogCache.current.has(mKey)) {
+            const catalogDoc = await getDoc(doc(db, "shows", mKey));
+            catalog = catalogDoc.exists()
+              ? ({ id: catalogDoc.id, ...catalogDoc.data() } as unknown as CatalogShow)
+              : null;
+            catalogCache.current.set(mKey, catalog);
+          }
+          if (catalog?.releaseDate && catalog.releaseDate >= startDate && catalog.releaseDate <= endDate) {
+            const movieKey = `${catalog.tmdbId}_movie`;
+            if (!seen.has(movieKey)) {
+              episodes.push({
+                tmdbShowId: catalog.tmdbId,
+                showTitle: catalog.title ?? "",
+                posterPath: catalog.posterPath ?? null,
+                season: 0,
+                episode: 0,
+                episodeTitle: catalog.title ?? "",
+                airDate: catalog.releaseDate,
+                runtime: catalog.runtime ?? null,
+                mediaType: "movie",
+              });
+              seen.add(movieKey);
+            }
+          }
+        }
+
         setEpisodesByMonth((prev) => {
           const next = new Map(prev);
           next.set(monthKey, episodes);

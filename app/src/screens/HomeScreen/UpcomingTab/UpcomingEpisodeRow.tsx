@@ -17,7 +17,10 @@ export default memo(function UpcomingEpisodeRow({
   onTitlePress,
   onEpisodePress,
 }: Props) {
-  const label = `S${String(episode.season).padStart(2, "0")} | E${String(episode.episode).padStart(2, "0")}`;
+  const isMovie = episode.mediaType === "movie";
+  const label = isMovie
+    ? "MOVIE"
+    : `S${String(episode.season).padStart(2, "0")} | E${String(episode.episode).padStart(2, "0")}`;
 
   return (
     <TouchableOpacity
