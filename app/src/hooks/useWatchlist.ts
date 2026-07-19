@@ -37,7 +37,7 @@ async function enrichItems(
       if (catalogShow === undefined) {
         try {
           const showDoc = await getDoc(doc(db, "shows", key));
-          catalogShow = showDoc.exists()
+          catalogShow = showDoc?.exists?.()
             ? ({ id: showDoc.id, ...showDoc.data() } as unknown as CatalogShow)
             : null;
         } catch {
@@ -107,14 +107,16 @@ export function useWatchlist(userId: string | undefined) {
         const hasRemovals = snapshot
           .docChanges()
           .some((c) => c.type === "removed");
-        if (hasRemovals && paginatedItems.current.length > 0) {
-          const checks = paginatedItems.current.map((p) =>
-            getDoc(doc(db, "users", userId!, "tracking", String(p.tmdbId))),
-          );
-          const results = await Promise.all(checks);
-          paginatedItems.current = paginatedItems.current.filter((_, i) =>
-            results[i].exists(),
-          );
+        if (hasRemovals && paginatedItems.current.length > 0 && userId) {
+          try {
+            const checks = paginatedItems.current.map((p) =>
+              getDoc(doc(db, "users", userId!, "tracking", String(p.tmdbId))),
+            );
+            const results = await Promise.all(checks);
+            paginatedItems.current = paginatedItems.current.filter(
+              (_, i) => results[i]?.exists?.() ?? false,
+            );
+          } catch {}
         }
 
         const merged = [...enriched, ...paginatedItems.current];

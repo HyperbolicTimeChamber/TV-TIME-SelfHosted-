@@ -101,7 +101,7 @@ export async function addToTracking(
   // Fast path: check if catalog doc already exists
   const catalogDoc = await getDoc(showRef);
 
-  if (catalogDoc.exists()) {
+  if (catalogDoc?.exists?.()) {
     // Catalog exists — skip CF, create tracking doc directly
     const catalogData = catalogDoc.data() as any;
 
