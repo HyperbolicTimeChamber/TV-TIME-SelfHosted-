@@ -10,7 +10,6 @@ import {
   serverTimestamp,
   increment,
   Timestamp,
-  arrayUnion,
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { WatchStatus, MediaType, CatalogShow } from "../types";
@@ -97,98 +96,8 @@ export async function addToTracking(
 ): Promise<void> {
   const showId = String(tmdbId);
   const showRef = doc(db, "shows", showId);
-
-  // Fast path: check if catalog doc already exists
-  const t0 = Date.now();
-  const catalogDoc = await getDoc(showRef);
-  console.log(`[addToTracking] getDoc: ${Date.now() - t0}ms, exists=${catalogDoc?.exists?.()}`);
-
-  if (catalogDoc?.exists?.()) {
-    // Catalog exists — skip CF, create tracking doc directly
-    const catalogData = catalogDoc.data() as any;
-
-    // Update trackedBy (fire-and-forget, don't block)
-    updateDoc(showRef, {
-      trackedBy: arrayUnion(userId),
-      trackedByCount: increment(1),
-    }).catch(() => {});
-
-    // Get ep1 info for TV shows
-    let nextEpisodeName: string | null = null;
-    let nextEpisodeAirDate: string | null = null;
-    if (mediaType === MediaType.TV) {
-      const s1 = catalogData?.seasons?.find((s: any) => s.seasonNumber === 1);
-      const ep1 = s1?.episodes?.find((e: any) => e.episodeNumber === 1);
-      if (ep1) {
-        nextEpisodeName = ep1.title || null;
-        nextEpisodeAirDate = ep1.airDate || null;
-      }
-    }
-
-    // Use Timestamp.now() — serverTimestamp() resolves as null in pending
-    // writes, causing onSnapshot orderBy(priorityDate) to miss the doc
-    const now = Timestamp.now();
-    let priorityDate = now;
-    if (mediaType === MediaType.MOVIE && releaseDate) {
-      const releaseDateMs = new Date(releaseDate).getTime();
-      if (releaseDateMs > now.toMillis()) {
-        priorityDate = Timestamp.fromMillis(releaseDateMs);
-      }
-    }
-
-    // Batch tracking doc + stats
-    const batch = writeBatch(db);
-    batch.set(doc(trackingRef(userId), showId), {
-      tmdbId,
-      mediaType,
-      status: WatchStatus.WATCHING,
-      nextEpisode: mediaType === MediaType.TV ? { season: 1, episode: 1 } : null,
-      nextEpisodeName,
-      nextEpisodeAirDate,
-      rewatchCount: 0,
-      addedAt: now,
-      lastWatchedAt: now,
-      priorityDate,
-      ...(mediaType === MediaType.MOVIE ? { releaseDate: releaseDate || catalogData?.releaseDate || null } : {}),
-    });
-    batch.set(
-      userRef(userId),
-      { stats: { showsTracking: increment(1) } },
-      { merge: true },
-    );
-    const t1 = Date.now();
-    await batch.commit();
-    console.log(`[addToTracking] fast path batch: ${Date.now() - t1}ms, total: ${Date.now() - t0}ms`);
-    return;
-  }
-
-  // Slow path: catalog doesn't exist — call CF to fetch from TMDB
-  console.log(`[addToTracking] slow path — calling CF`);
-  try {
-    await httpsCallable(getFunctions(), "addShow")({ tmdbId, mediaType });
-  } catch (err: any) {
-    throw new Error(getCallableErrorMessage(err));
-  }
-
-  // After CF, catalog doc now exists — read ep1 info
-  let nextEpisodeName: string | null = null;
-  let nextEpisodeAirDate: string | null = null;
-  if (mediaType === MediaType.TV) {
-    try {
-      const newCatalog = await getDoc(showRef);
-      if (newCatalog.exists()) {
-        const data = newCatalog.data() as any;
-        const s1 = data?.seasons?.find((s: any) => s.seasonNumber === 1);
-        const ep1 = s1?.episodes?.find((e: any) => e.episodeNumber === 1);
-        if (ep1) {
-          nextEpisodeName = ep1.title || null;
-          nextEpisodeAirDate = ep1.airDate || null;
-        }
-      }
-    } catch {}
-  }
-
   const now = Timestamp.now();
+
   let priorityDate = now;
   if (mediaType === MediaType.MOVIE && releaseDate) {
     const releaseDateMs = new Date(releaseDate).getTime();
@@ -197,14 +106,15 @@ export async function addToTracking(
     }
   }
 
+  // Write tracking doc immediately — no catalog read needed
   const batch = writeBatch(db);
   batch.set(doc(trackingRef(userId), showId), {
     tmdbId,
     mediaType,
     status: WatchStatus.WATCHING,
     nextEpisode: mediaType === MediaType.TV ? { season: 1, episode: 1 } : null,
-    nextEpisodeName,
-    nextEpisodeAirDate,
+    nextEpisodeName: null, // Enriched by listener after CF populates catalog
+    nextEpisodeAirDate: null,
     rewatchCount: 0,
     addedAt: now,
     lastWatchedAt: now,
@@ -217,6 +127,11 @@ export async function addToTracking(
     { merge: true },
   );
   await batch.commit();
+
+  // Background: ensure catalog exists + update trackedBy (don't block UI)
+  httpsCallable(getFunctions(), "addShow")({ tmdbId, mediaType }).catch(
+    (err: any) => console.error("[addToTracking] addShow CF failed:", err),
+  );
 }
 
 export async function removeFromTracking(
