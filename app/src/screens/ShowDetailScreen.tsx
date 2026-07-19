@@ -101,7 +101,19 @@ export default function ShowDetailScreen() {
         mediaType,
         isUnreleased ? releaseDate : null,
       );
-      {
+      if (isUnreleased && releaseDate) {
+        addShowToUpcoming(tmdbId, {
+          tmdbShowId: tmdbId,
+          showTitle: show.title || show.name || "",
+          posterPath: show.poster_path || null,
+          season: 0,
+          episode: 0,
+          episodeTitle: show.title || show.name || "",
+          airDate: releaseDate,
+          runtime: null,
+          mediaType: MediaType.MOVIE,
+        });
+      } else {
         addShowToUpcoming(tmdbId);
       }
     } catch (err: any) {

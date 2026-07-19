@@ -136,7 +136,17 @@ export default function SearchScreen() {
             }
           });
           await addPromise;
-          addShowToUpcoming(item.id);
+          addShowToUpcoming(item.id, {
+            tmdbShowId: item.id,
+            showTitle: item.title || item.name || "",
+            posterPath: item.poster_path || null,
+            season: 0,
+            episode: 0,
+            episodeTitle: item.title || item.name || "",
+            airDate: releaseDate!,
+            runtime: null,
+            mediaType: MediaType.MOVIE,
+          });
           return;
         }
 

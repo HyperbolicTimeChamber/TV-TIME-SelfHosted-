@@ -216,9 +216,18 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 let lastSnapshot: UpcomingEpisode[] | null = null;
 
 export function useUpcomingMutations() {
-  const addShowToUpcoming = useCallback((_tmdbId: number) => {
-    // CF populates subcollection server-side; invalidate so next tab open refetches
-    triggerInvalidate();
+  /** Add an item to upcoming locally (TV eps added server-side by CF, movies added here) */
+  const addShowToUpcoming = useCallback((tmdbId: number, item?: UpcomingEpisode) => {
+    if (item) {
+      // Add directly to local state + cache (e.g. unreleased movie)
+      mutateCachedEpisodes((prev) => {
+        if (prev.some((ep) => ep.tmdbShowId === tmdbId && ep.airDate === item.airDate)) return prev;
+        return [...prev, item].sort((a, b) => a.airDate.localeCompare(b.airDate));
+      });
+    } else {
+      // TV show — CF populates subcollection, need refetch to pick it up
+      triggerInvalidate();
+    }
   }, []);
 
   const removeShowFromUpcoming = useCallback((tmdbId: number) => {
