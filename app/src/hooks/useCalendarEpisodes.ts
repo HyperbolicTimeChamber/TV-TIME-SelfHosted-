@@ -121,19 +121,12 @@ export function useCalendarEpisodes(userId: string | undefined) {
         const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
         const db = getFirestore();
 
-        // Run all fetches in parallel
-        const [airingIds, movieResults, upcomingSnap] = await Promise.all([
+        // Run TV + movie discover in parallel
+        const [airingIds, movieResults] = await Promise.all([
           discoverTVByAirDate(apiKey, startDate, endDate),
           trackedMovieIds.current?.size
             ? discoverMoviesByReleaseDate(apiKey, startDate, endDate)
             : Promise.resolve([]),
-          getDocs(
-            query(
-              collection(doc(db, "users", userId), "upcoming"),
-              where("airDate", ">=", startDate),
-              where("airDate", "<=", endDate),
-            ),
-          ),
         ]);
 
         // TV: intersect discover results with tracked IDs → read catalog docs in parallel
@@ -167,17 +160,10 @@ export function useCalendarEpisodes(userId: string | undefined) {
           }
         }
 
-        // Merge upcoming subcollection (already fetched in parallel)
+        // Movies: intersect discover results with tracked IDs
         const seen = new Set(
           episodes.map((e) => `${e.tmdbShowId}_S${e.season}E${e.episode}`),
         );
-        for (const d of upcomingSnap.docs) {
-          const ep = d.data() as UpcomingEpisode;
-          const key = `${ep.tmdbShowId}_S${ep.season}E${ep.episode}`;
-          if (!seen.has(key)) { episodes.push(ep); seen.add(key); }
-        }
-
-        // Movies: intersect discover results with tracked IDs (already fetched in parallel)
         for (const movie of movieResults) {
           if (!trackedMovieIds.current?.has(String(movie.id))) continue;
           const movieKey = `movie_${movie.id}`;
