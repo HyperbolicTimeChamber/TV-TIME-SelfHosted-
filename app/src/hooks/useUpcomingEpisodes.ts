@@ -162,10 +162,14 @@ export function useUpcomingEpisodes(userId: string | undefined) {
           query(trackingCol, where("mediaType", "==", "movie")),
         );
         const movieEps: UpcomingEpisode[] = [];
+        console.log(`[Upcoming] Found ${movieSnap.docs.length} tracked movies, today=${today}`);
         for (const d of movieSnap.docs) {
           const data = d.data() as any;
-          // Client-side filter: only future release dates
-          if (!data.releaseDate || data.releaseDate <= today) continue;
+          // Handle releaseDate as string or Timestamp
+          let rd = data.releaseDate;
+          if (rd?.toDate) rd = rd.toDate().toISOString().slice(0, 10);
+          console.log(`[Upcoming] Movie ${data.tmdbId}: releaseDate=${rd}`);
+          if (!rd || rd <= today) continue;
           let title = `Movie #${data.tmdbId}`;
           let posterPath: string | null = null;
           try {
@@ -191,6 +195,7 @@ export function useUpcomingEpisodes(userId: string | undefined) {
         const eps = [...tvEps, ...movieEps].sort((a, b) =>
           a.airDate.localeCompare(b.airDate),
         );
+        console.log(`[Upcoming] Final: ${tvEps.length} TV eps + ${movieEps.length} movies = ${eps.length} total`);
 
         const newSyncDate = serverSyncStr || new Date().toISOString();
         cachedSyncDate.current = newSyncDate;
