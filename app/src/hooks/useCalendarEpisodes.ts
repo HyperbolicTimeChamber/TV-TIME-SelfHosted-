@@ -159,14 +159,27 @@ export function useCalendarEpisodes(userId: string | undefined) {
           if (movie.releaseDate >= startDate && movie.releaseDate <= endDate) {
             const movieKey = `movie_${movie.tmdbId}`;
             if (!seen.has(movieKey)) {
-              let title = movie.title || `Movie #${movie.tmdbId}`;
+              let title = movie.title || null;
               let posterPath = movie.posterPath || null;
-              // Try catalog for better data
-              const cached = catalogCache.current.get(String(movie.tmdbId));
-              if (cached) {
-                title = cached.title || title;
-                posterPath = cached.posterPath || posterPath;
+              // Fetch catalog if title missing
+              const key = String(movie.tmdbId);
+              let cached = catalogCache.current.get(key);
+              if (cached === undefined) {
+                try {
+                  const d = await getDoc(doc(db, "shows", key));
+                  cached = d.exists?.()
+                    ? ({ id: d.id, ...d.data() } as unknown as CatalogShow)
+                    : null;
+                  catalogCache.current.set(key, cached);
+                } catch {
+                  cached = null;
+                }
               }
+              if (cached) {
+                title = title || cached.title || null;
+                posterPath = posterPath || cached.posterPath || null;
+              }
+              title = title || `Movie #${movie.tmdbId}`;
               episodes.push({
                 tmdbShowId: movie.tmdbId,
                 showTitle: title,

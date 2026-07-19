@@ -225,7 +225,6 @@ export default function CalendarScreen() {
       {calendarLoading && (
         <View style={styles.loaderRow}>
           <ActivityIndicator size="small" color={colors.primary} />
-          <Text style={styles.loaderText}>Loading episodes...</Text>
         </View>
       )}
 
