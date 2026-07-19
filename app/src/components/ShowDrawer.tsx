@@ -48,7 +48,8 @@ export default function ShowDrawer({
 
 	useEffect(() => {
 		if (visible) {
-			bottomSheetRef.current?.expand();
+			// Small delay to ensure BottomSheet is mounted
+			requestAnimationFrame(() => bottomSheetRef.current?.expand());
 		} else {
 			bottomSheetRef.current?.close();
 		}
@@ -56,9 +57,9 @@ export default function ShowDrawer({
 
 	const handleSheetChanges = useCallback(
 		(index: number) => {
-			if (index === -1) onClose();
+			if (index === -1 && visible) onClose();
 		},
-		[onClose],
+		[onClose, visible],
 	);
 
 	const renderBackdrop = useCallback(
@@ -72,8 +73,6 @@ export default function ShowDrawer({
 		),
 		[],
 	);
-
-	if (!show && !loading) return null;
 
 	const metaParts: string[] = [];
 	if (show?.year) metaParts.push(show.year);
