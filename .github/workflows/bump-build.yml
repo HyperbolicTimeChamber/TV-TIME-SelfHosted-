@@ -1,0 +1,37 @@
+name: Bump Build Number
+
+on:
+  push:
+    branches: [development]
+
+concurrency:
+  group: bump-build
+  cancel-in-progress: true
+
+jobs:
+  bump:
+    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, 'chore: bump build')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
+
+      - name: Bump build number
+        run: |
+          chmod +x scripts/bump-version.sh
+          NEW_BUILD=$(./scripts/bump-version.sh --build-only)
+          echo "Bumped to $NEW_BUILD"
+
+      - name: Commit & push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add app/app.json
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: bump build number [skip ci]"
+          git push
