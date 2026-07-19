@@ -32,10 +32,10 @@ jobs:
         id: bump
         run: |
           BUMP_FLAG=""
-          # Read commit message safely from git (avoids shell injection from ${{ }})
-          MSG="$(git log -1 --format=%B)"
+          # Write commit message to file to avoid shell expansion of special chars
+          git log -1 --format=%B > /tmp/commit_msg.txt
           # Check PR labels from merge commit
-          PR_NUMBER=$(echo "$MSG" | grep -oP '#\K[0-9]+' | head -1 || true)
+          PR_NUMBER=$(grep -oP '#\K[0-9]+' /tmp/commit_msg.txt | head -1 || true)
           if [ -n "$PR_NUMBER" ]; then
             LABELS=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' 2>/dev/null || true)
             if echo "$LABELS" | grep -q "bump:major"; then
@@ -46,9 +46,9 @@ jobs:
           fi
           # Fallback to commit message flags
           if [ -z "$BUMP_FLAG" ]; then
-            if echo "$MSG" | grep -qi '\[major\]'; then
+            if grep -qi '\[major\]' /tmp/commit_msg.txt; then
               BUMP_FLAG="--major"
-            elif echo "$MSG" | grep -qi '\[minor\]'; then
+            elif grep -qi '\[minor\]' /tmp/commit_msg.txt; then
               BUMP_FLAG="--minor"
             fi
           fi
