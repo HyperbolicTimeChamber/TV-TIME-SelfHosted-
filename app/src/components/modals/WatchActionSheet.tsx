@@ -147,9 +147,6 @@ export default function WatchActionSheet({
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.cancelButton} onPress={dismiss}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
           </TouchableOpacity>
         </Animated.View>
       </TouchableOpacity>
@@ -219,17 +216,5 @@ const styles = StyleSheet.create({
   destructiveOption: {},
   destructiveText: {
     color: colors.destructiveRed,
-  },
-  cancelButton: {
-    marginTop: spacing.md,
-    paddingVertical: spacing.md,
-    borderRadius: 8,
-    backgroundColor: colors.background,
-    alignItems: "center",
-  },
-  cancelText: {
-    ...typography.subtitle,
-    fontSize: 15,
-    color: colors.textSecondary,
   },
 });
