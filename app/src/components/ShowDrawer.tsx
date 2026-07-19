@@ -74,7 +74,7 @@ export default function ShowDrawer({
 		<Modal
 			visible={visible}
 			transparent
-			animationType="slide"
+			animationType="fade"
 			onRequestClose={onClose}
 		>
 			<GestureHandlerRootView style={styles.overlay}>
@@ -92,6 +92,7 @@ export default function ShowDrawer({
 					animateOnMount={false}
 					backgroundStyle={styles.background}
 					handleIndicatorStyle={styles.handleIndicator}
+					handleStyle={styles.handleContainer}
 				>
 					{loading ? (
 						<View style={styles.loadingContainer}>
@@ -172,6 +173,14 @@ const styles = StyleSheet.create({
 	},
 	background: {
 		backgroundColor: colors.surface,
+	},
+	handleContainer: {
+		position: "absolute",
+		top: 0,
+		left: 0,
+		right: 0,
+		zIndex: 1,
+		paddingVertical: spacing.sm,
 	},
 	handleIndicator: {
 		backgroundColor: "rgba(255, 255, 255, 0.6)",
