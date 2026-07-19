@@ -73,10 +73,10 @@ export default function ShowDetailScreen() {
   }, [user?.uid, tmdbId]);
 
   const title = show?.name || show?.title || "";
-  const year = (show?.first_air_date || show?.release_date || "").substring(
-    0,
-    4,
-  );
+  const rawDate = show?.first_air_date || show?.release_date || "";
+  const year = mediaType === MediaType.MOVIE && rawDate.length >= 10
+    ? new Date(rawDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+    : rawDate.substring(0, 4);
 
   const handleAddToWatchlist = useCallback(async () => {
     if (!user?.uid || !show || adding) return;

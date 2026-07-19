@@ -156,17 +156,16 @@ export function useUpcomingEpisodes(userId: string | undefined) {
           .map((d) => d.data() as UpcomingEpisode);
 
         // Fetch tracked movies with future release dates
+        // Single-field query to avoid composite index requirement
         const trackingCol = collection(doc(db, "users", userId), "tracking");
         const movieSnap = await getDocs(
-          query(
-            trackingCol,
-            where("mediaType", "==", "movie"),
-            where("releaseDate", ">", today),
-          ),
+          query(trackingCol, where("mediaType", "==", "movie")),
         );
         const movieEps: UpcomingEpisode[] = [];
         for (const d of movieSnap.docs) {
           const data = d.data() as any;
+          // Client-side filter: only future release dates
+          if (!data.releaseDate || data.releaseDate <= today) continue;
           let title = `Movie #${data.tmdbId}`;
           let posterPath: string | null = null;
           try {
