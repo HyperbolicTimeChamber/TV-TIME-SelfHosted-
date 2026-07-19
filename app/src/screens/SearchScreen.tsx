@@ -120,7 +120,7 @@ export default function SearchScreen() {
     async (item: TMDBShow) => {
       if (!user?.uid) return;
       const mediaType: MediaType =
-        item.media_type || (item.title ? MediaType.MOVIE : MediaType.TV);
+        item.media_type || (item.first_air_date || (item.name && !item.title) ? MediaType.TV : MediaType.MOVIE);
 
       if (mediaType === MediaType.MOVIE) {
         const releaseDate = item.release_date || null;
@@ -271,7 +271,8 @@ export default function SearchScreen() {
   const handlePress = useCallback(
     (item: TMDBShow) => {
       const mediaType: MediaType =
-        item.media_type || (item.title ? MediaType.MOVIE : MediaType.TV);
+        item.media_type ||
+        (item.first_air_date || (item.name && !item.title) ? MediaType.TV : MediaType.MOVIE);
       navigation.navigate(Route.SHOW_DETAIL, {
         tmdbId: item.id,
         mediaType,
@@ -288,7 +289,7 @@ export default function SearchScreen() {
         4,
       );
       const mediaType: MediaType =
-        item.media_type || (item.title ? MediaType.MOVIE : MediaType.TV);
+        item.media_type || (item.first_air_date || (item.name && !item.title) ? MediaType.TV : MediaType.MOVIE);
       const isInWatchlist = watchlistIds.has(item.id);
       const isAdding = addingIds.has(item.id);
 
