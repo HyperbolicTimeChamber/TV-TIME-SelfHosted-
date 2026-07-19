@@ -13,11 +13,9 @@ import {
   startAfter,
   QueryDocumentSnapshot,
 } from "@react-native-firebase/firestore";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { TrackingItem, CatalogShow, CacheKey } from "../types";
+import { TrackingItem, CatalogShow } from "../types";
 
 const PAGE_SIZE = 50;
-const CATALOG_CACHE_KEY = "catalog_cache";
 
 export interface EnrichedTrackingItem extends TrackingItem {
   title: string;
@@ -26,55 +24,12 @@ export interface EnrichedTrackingItem extends TrackingItem {
   catalogShow: CatalogShow | null;
 }
 
-/** Lightweight catalog entry for persistence (no seasons/episodes) */
-interface CatalogCacheEntry {
-  title: string;
-  posterPath: string | null;
-  totalEpisodes: number;
-  releaseDate?: string | null;
-  mediaType?: string;
-}
-
-/** Strip heavy fields for persistence */
-function toCacheEntry(show: CatalogShow): CatalogCacheEntry {
-  return {
-    title: show.title,
-    posterPath: show.posterPath ?? null,
-    totalEpisodes: show.totalEpisodes ?? 0,
-    releaseDate: show.releaseDate ?? null,
-    mediaType: show.mediaType,
-  };
-}
-
-/** Persist lightweight catalog cache to AsyncStorage */
-async function saveCatalogCache(cache: Map<string, CatalogShow | null>) {
-  const obj: Record<string, CatalogCacheEntry | null> = {};
-  for (const [k, v] of cache) obj[k] = v ? toCacheEntry(v) : null;
-  await AsyncStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify(obj)).catch(() => {});
-}
-
-/** Restore catalog cache from AsyncStorage (lightweight entries) */
-async function loadCatalogCache(): Promise<Map<string, CatalogShow | null>> {
-  try {
-    const raw = await AsyncStorage.getItem(CATALOG_CACHE_KEY);
-    if (!raw) return new Map();
-    const obj = JSON.parse(raw) as Record<string, CatalogCacheEntry | null>;
-    // Restore as partial CatalogShow (enough for enrichment)
-    return new Map(
-      Object.entries(obj).map(([k, v]) => [k, v as unknown as CatalogShow | null]),
-    );
-  } catch {
-    return new Map();
-  }
-}
-
 async function enrichItems(
   trackingItems: TrackingItem[],
   cache: Map<string, CatalogShow | null>,
 ): Promise<EnrichedTrackingItem[]> {
   const db = getFirestore();
-  let cacheUpdated = false;
-  const results = await Promise.all(
+  return Promise.all(
     trackingItems.map(async (item): Promise<EnrichedTrackingItem> => {
       const key = String(item.tmdbId);
       let catalogShow = cache.get(key);
@@ -89,7 +44,6 @@ async function enrichItems(
           catalogShow = null;
         }
         cache.set(key, catalogShow);
-        cacheUpdated = true;
       }
 
       return {
@@ -101,11 +55,6 @@ async function enrichItems(
       };
     }),
   );
-
-  // Persist catalog cache if new entries were fetched
-  if (cacheUpdated) saveCatalogCache(cache);
-
-  return results;
 }
 
 export function useWatchlist(userId: string | undefined) {
@@ -114,37 +63,9 @@ export function useWatchlist(userId: string | undefined) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const catalogCache = useRef<Map<string, CatalogShow | null>>(new Map());
-  const catalogCacheLoaded = useRef(false);
   const paginationCursor = useRef<QueryDocumentSnapshot | null>(null);
   const firstPageLastDoc = useRef<QueryDocumentSnapshot | null>(null);
   const paginatedItems = useRef<EnrichedTrackingItem[]>([]);
-  const restoredCache = useRef(false);
-
-  // Load persisted catalog cache on mount
-  useEffect(() => {
-    if (catalogCacheLoaded.current) return;
-    loadCatalogCache().then((cached) => {
-      if (cached.size > 0) catalogCache.current = cached;
-      catalogCacheLoaded.current = true;
-    });
-  }, []);
-
-  // Restore cached watchlist on mount
-  useEffect(() => {
-    if (!userId || restoredCache.current) return;
-    AsyncStorage.getItem(CacheKey.WATCHLIST_PROFILE).then((raw) => {
-      if (!raw) return;
-      try {
-        const cached = JSON.parse(raw);
-        if (cached.userId === userId && cached.items?.length > 0) {
-          setItems(cached.items);
-          // Don't set loading=false here — profile cache lacks catalogShow
-          // WATCHLIST_ACTIVE cache handles display until Firestore enriches
-        }
-      } catch {}
-      restoredCache.current = true;
-    });
-  }, [userId]);
 
   // First page with real-time listener
   useEffect(() => {
@@ -172,20 +93,17 @@ export function useWatchlist(userId: string | undefined) {
 
         const enriched = await enrichItems(trackingItems, catalogCache.current);
 
-        // Set pagination cursor from first page only if no pagination has happened yet
         firstPageLastDoc.current =
           snapshot.docs[snapshot.docs.length - 1] || null;
         if (!paginationCursor.current) {
           paginationCursor.current = firstPageLastDoc.current;
         }
 
-        // Merge: first page (live) + paginated pages
         const firstPageIds = new Set(enriched.map((e) => e.id));
         paginatedItems.current = paginatedItems.current.filter(
           (p) => !firstPageIds.has(p.id),
         );
 
-        // If items were removed/modified, verify paginated items still exist
         const hasRemovals = snapshot
           .docChanges()
           .some((c) => c.type === "removed");
@@ -201,25 +119,6 @@ export function useWatchlist(userId: string | undefined) {
 
         const merged = [...enriched, ...paginatedItems.current];
         setItems(merged);
-
-        // Cache first page (strip catalogShow to keep payload small)
-        const toCache = enriched.map(({ catalogShow, ...rest }) => rest);
-        AsyncStorage.setItem(
-          CacheKey.WATCHLIST_PROFILE,
-          JSON.stringify({ userId, items: toCache }),
-        ).catch(() => {});
-
-        // Prune catalog cache: keep only currently tracked shows
-        const trackedIds = new Set(merged.map((m) => String(m.tmdbId)));
-        let pruned = false;
-        for (const key of catalogCache.current.keys()) {
-          if (!trackedIds.has(key)) {
-            catalogCache.current.delete(key);
-            pruned = true;
-          }
-        }
-        if (pruned) saveCatalogCache(catalogCache.current);
-
         setHasMore(snapshot.docs.length >= PAGE_SIZE);
         setLoading(false);
       },
@@ -259,15 +158,12 @@ export function useWatchlist(userId: string | undefined) {
 
       const enriched = await enrichItems(trackingItems, catalogCache.current);
 
-      // Update pagination cursor to last doc of this page
       paginationCursor.current = snapshot.docs[snapshot.docs.length - 1];
 
-      // Append to paginated items ref
       const existingIds = new Set(paginatedItems.current.map((p) => p.id));
       const newItems = enriched.filter((e) => !existingIds.has(e.id));
       paginatedItems.current = [...paginatedItems.current, ...newItems];
 
-      // Update state
       setItems((prev) => {
         const prevIds = new Set(prev.map((p) => p.id));
         const toAdd = newItems.filter((e) => !prevIds.has(e.id));
@@ -288,23 +184,9 @@ export function useWatchlist(userId: string | undefined) {
         (p) => p.tmdbId !== tmdbId,
       );
       catalogCache.current.delete(String(tmdbId));
-      saveCatalogCache(catalogCache.current);
-      setItems((prev) => {
-        const updated = prev.filter((p) => p.tmdbId !== tmdbId);
-        // Update AsyncStorage cache
-        if (userId) {
-          const toCache = updated
-            .slice(0, 50)
-            .map(({ catalogShow, ...rest }) => rest);
-          AsyncStorage.setItem(
-            CacheKey.WATCHLIST_PROFILE,
-            JSON.stringify({ userId, items: toCache }),
-          ).catch(() => {});
-        }
-        return updated;
-      });
+      setItems((prev) => prev.filter((p) => p.tmdbId !== tmdbId));
     },
-    [userId],
+    [],
   );
 
   // Listen for external removal events (e.g. from ShowDetailScreen)

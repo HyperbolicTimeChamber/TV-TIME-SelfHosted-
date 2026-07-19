@@ -436,45 +436,12 @@ export default function WatchlistTab() {
         );
       }
 
-      const nextEp = item.item.nextEpisode;
-      const catalog = item.item.catalogShow;
-      let remaining: number | null = null;
-      if (nextEp && catalog?.seasons) {
-        const todayStr = new Date().toISOString().split("T")[0];
-        let count = 0;
-        for (const s of catalog.seasons) {
-          if (s.seasonNumber < nextEp.season) continue;
-          for (const e of s.episodes) {
-            if (
-              s.seasonNumber === nextEp.season &&
-              e.episodeNumber <= nextEp.episode
-            )
-              continue;
-            // Only count aired episodes
-            if (e.airDate && e.airDate <= todayStr) count++;
-          }
-        }
-        remaining = count > 0 ? count : null;
-      }
-
-      const catalogSeason = nextEp
-        ? catalog?.seasons?.find((s) => s.seasonNumber === nextEp.season)
-        : undefined;
-      const catalogEp = catalogSeason?.episodes?.find(
-        (e) => e.episodeNumber === nextEp!.episode,
-      );
-      const enrichedItem = {
-        ...item.item,
-        nextEpisodeName: item.item.nextEpisodeName || catalogEp?.title || null,
-        nextEpisodeAirDate: catalogEp?.airDate ?? null,
-        releaseDate: item.item.catalogShow?.releaseDate ?? null,
-      };
-
+      // All fields pre-computed in useWatchlistData — no catalog lookup needed
       return (
         <ShowCard
-          item={enrichedItem}
+          item={item.item}
           isUpdating={updatingShows.has(item.item.tmdbId)}
-          remainingEpisodes={remaining}
+          remainingEpisodes={(item.item as any).remaining ?? null}
           onSwipeLeft={handleMarkWatched}
           onSwipeRight={handleStopWatching}
           onPress={handleCardPress}

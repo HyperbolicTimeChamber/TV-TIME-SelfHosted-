@@ -24,6 +24,58 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** Compute remaining aired episodes after nextEp */
+function computeRemaining(
+  item: EnrichedTrackingItem,
+  today: string,
+): number | null {
+  const nextEp = item.nextEpisode;
+  const catalog = item.catalogShow;
+  if (!nextEp || !catalog?.seasons) return null;
+  let count = 0;
+  for (const s of catalog.seasons) {
+    if (s.seasonNumber < nextEp.season) continue;
+    for (const e of s.episodes) {
+      if (
+        s.seasonNumber === nextEp.season &&
+        e.episodeNumber <= nextEp.episode
+      )
+        continue;
+      if (e.airDate && e.airDate <= today) count++;
+    }
+  }
+  return count > 0 ? count : null;
+}
+
+/** Build a flat card item with all computed fields baked in */
+function buildCardItem(item: EnrichedTrackingItem, today: string) {
+  const nextEp = item.nextEpisode;
+  const catalog = item.catalogShow;
+  const catalogSeason = nextEp
+    ? catalog?.seasons?.find((s) => s.seasonNumber === nextEp.season)
+    : undefined;
+  const catalogEp = catalogSeason?.episodes?.find(
+    (e) => e.episodeNumber === nextEp?.episode,
+  );
+
+  return {
+    ...item,
+    nextEpisodeName: item.nextEpisodeName || catalogEp?.title || null,
+    nextEpisodeAirDate: item.nextEpisodeAirDate ?? catalogEp?.airDate ?? null,
+    releaseDate: item.releaseDate ?? catalog?.releaseDate ?? null,
+    remaining: computeRemaining(item, today),
+    // Strip catalogShow from cached version — not needed for display
+  };
+}
+
+export type CardItem = ReturnType<typeof buildCardItem>;
+
+/** Serializable list item for caching */
+export type CacheableListItem =
+  | { type: "sectionHeader"; title: string }
+  | { type: "show"; card: CardItem }
+  | { type: "watchedEpisode"; episode: WatchedEpisode; showTitle: string; posterPath: string | null; tmdbId: number };
+
 export function useWatchlistData(userId: string | undefined) {
   const {
     items,
@@ -46,13 +98,12 @@ export function useWatchlistData(userId: string | undefined) {
   const [updatingShows, setUpdatingShows] = useState<Map<number, string>>(
     new Map(),
   );
-  const [cachedActive, setCachedActive] = useState<
-    EnrichedTrackingItem[] | null
-  >(null);
+
+  // --- Cache: store and restore the display list directly ---
+  const [cachedList, setCachedList] = useState<CacheableListItem[] | null>(null);
   const cacheRestored = useRef(false);
   const cachedActiveCount = useRef(0);
 
-  // Restore cached active items on mount (invalidate if not from today)
   useEffect(() => {
     if (!userId || cacheRestored.current) return;
     AsyncStorage.getItem(CacheKey.WATCHLIST_ACTIVE).then((raw) => {
@@ -65,16 +116,19 @@ export function useWatchlistData(userId: string | undefined) {
         if (
           cached.userId === userId &&
           cached.date === todayStr() &&
-          cached.items?.length > 0
+          cached.list?.length > 0
         ) {
-          setCachedActive(cached.items);
-          cachedActiveCount.current = cached.items.length;
+          setCachedList(cached.list);
+          cachedActiveCount.current = cached.list.filter(
+            (i: any) => i.type === "show",
+          ).length;
         }
       } catch {}
       cacheRestored.current = true;
     });
   }, [userId]);
 
+  // --- Computed data from Firestore ---
   const showMap = useMemo(() => {
     const map = new Map<number, EnrichedTrackingItem>();
     for (const item of items) map.set(item.tmdbId, item);
@@ -104,29 +158,78 @@ export function useWatchlistData(userId: string | undefined) {
     return sortByPriority(visible);
   }, [items]);
 
-  // Write cache when sortedActive updates from Firestore
+  // --- Build the display list with all fields baked in ---
+  const today = todayStr();
+  const liveList: CacheableListItem[] = useMemo(() => {
+    if (loading) return [];
+    const result: CacheableListItem[] = [];
+    if (sortedWatchedEps.length > 0) {
+      result.push({ type: "sectionHeader", title: "Previously Watched" });
+      for (const ep of sortedWatchedEps) {
+        const show = showMap.get(ep.tmdbShowId);
+        if (show) {
+          result.push({
+            type: "watchedEpisode",
+            episode: ep,
+            showTitle: show.title,
+            posterPath: show.posterPath,
+            tmdbId: show.tmdbId,
+          });
+        }
+      }
+    }
+    if (sortedActive.length > 0) {
+      result.push({ type: "sectionHeader", title: "What's Up Next" });
+      for (const item of sortedActive.slice(0, ACTIVE_CACHE_LIMIT)) {
+        result.push({ type: "show", card: buildCardItem(item, today) });
+      }
+    }
+    return result;
+  }, [loading, sortedWatchedEps, sortedActive, showMap, today]);
+
+  // --- Persist list cache when live data updates ---
   useEffect(() => {
-    if (!userId || loading || sortedActive.length === 0) return;
-    const toCache = sortedActive
-      .slice(0, ACTIVE_CACHE_LIMIT)
-      .map(({ catalogShow, ...rest }) => rest);
+    if (!userId || loading || liveList.length === 0) return;
+    // Strip catalogShow from cards before caching
+    const toCache = liveList.map((item) => {
+      if (item.type === "show") {
+        const { catalogShow, ...rest } = item.card;
+        return { type: "show" as const, card: rest };
+      }
+      return item;
+    });
     AsyncStorage.setItem(
       CacheKey.WATCHLIST_ACTIVE,
-      JSON.stringify({
-        userId,
-        date: todayStr(),
-        items: toCache,
-      }),
+      JSON.stringify({ userId, date: todayStr(), list: toCache }),
     ).catch(() => {});
-    // Clear cached fallback once real data is in
-    if (cachedActive) setCachedActive(null);
-  }, [userId, loading, sortedActive]);
+    if (cachedList) setCachedList(null);
+  }, [userId, loading, liveList]);
 
-  // Use cached items while loading
-  const effectiveActive = loading && cachedActive ? cachedActive : sortedActive;
-  const effectiveLoading = loading && !cachedActive;
+  // --- Effective display: cached until live data ready ---
+  const displayList = cachedList && liveList.length === 0 ? cachedList : liveList;
+  const effectiveLoading = loading && !cachedList;
 
-  // Auto-load more if fewer visible items than previously cached (min 10)
+  // --- Convert to ListItem for backward compat with renderItem ---
+  const listData: ListItem[] = useMemo(() => {
+    return displayList.map((item) => {
+      if (item.type === "sectionHeader") return item;
+      if (item.type === "watchedEpisode") {
+        const show = showMap.get(item.tmdbId);
+        return {
+          type: "watchedEpisode" as const,
+          episode: item.episode,
+          show: show ?? ({
+            tmdbId: item.tmdbId,
+            title: item.showTitle,
+            posterPath: item.posterPath,
+          } as EnrichedTrackingItem),
+        };
+      }
+      return { type: "show" as const, item: item.card as unknown as EnrichedTrackingItem };
+    });
+  }, [displayList, showMap]);
+
+  // --- Auto-load more if fewer visible items than cached ---
   useEffect(() => {
     const target = Math.max(10, cachedActiveCount.current);
     if (
@@ -150,26 +253,6 @@ export function useWatchlistData(userId: string | undefined) {
   const watchedItemCount = useMemo(() => {
     return sortedWatchedEps.filter((ep) => showMap.has(ep.tmdbShowId)).length;
   }, [sortedWatchedEps, showMap]);
-
-  const listData: ListItem[] = useMemo(() => {
-    const result: ListItem[] = [];
-    if (sortedWatchedEps.length > 0) {
-      result.push({ type: "sectionHeader", title: "Previously Watched" });
-      for (const ep of sortedWatchedEps) {
-        const show = showMap.get(ep.tmdbShowId);
-        if (show) {
-          result.push({ type: "watchedEpisode", episode: ep, show });
-        }
-      }
-    }
-    if (effectiveActive.length > 0) {
-      result.push({ type: "sectionHeader", title: "What's Up Next" });
-      for (const item of effectiveActive) {
-        result.push({ type: "show", item });
-      }
-    }
-    return result;
-  }, [sortedWatchedEps, effectiveActive, showMap]);
 
   const prevWatchedOffset = useMemo(() => {
     if (watchedItemCount === 0) return 0;
@@ -228,7 +311,6 @@ export function useWatchlistData(userId: string | undefined) {
         }
       }
 
-      // Get air date of next episode for priority scheduling
       let nextEpisodeAirDate: string | null = null;
       if (nextEpisode) {
         const nextSeason = catalog?.seasons?.find(
@@ -240,7 +322,6 @@ export function useWatchlistData(userId: string | undefined) {
         nextEpisodeAirDate = nextEp?.airDate ?? null;
       }
 
-      // Optimistically update upcoming: remove watched episode
       const upcomingSnapshot = mutateCachedUpcoming((prev) =>
         prev.filter(
           (ep) =>
@@ -267,7 +348,6 @@ export function useWatchlistData(userId: string | undefined) {
           nextEpisodeAirDate,
         );
 
-        // Optimistically add watched episode to query cache
         queryClient.setQueryData(
           ["watchedEpisodes", userId],
           (old: any) => {
@@ -281,7 +361,6 @@ export function useWatchlistData(userId: string | undefined) {
               runtime: catalogEp?.runtime || 0,
               watchCount: 1,
             };
-            // For infinite query structure
             if (old.pages) {
               const pages = [...old.pages];
               pages[0] = { ...pages[0], docs: [newEp, ...(pages[0].docs || [])] };
@@ -291,7 +370,6 @@ export function useWatchlistData(userId: string | undefined) {
           },
         );
       } catch (err) {
-        // Rollback upcoming on failure
         rollbackUpcoming(upcomingSnapshot);
         throw err;
       }
@@ -299,7 +377,7 @@ export function useWatchlistData(userId: string | undefined) {
     [userId, queryClient, mutateCachedUpcoming, rollbackUpcoming],
   );
 
-  // Clear updating state when data changes (nextEpisode moves or movie completes)
+  // Clear updating state when data changes
   useEffect(() => {
     if (updatingShows.size === 0) return;
     setUpdatingShows((prev) => {
@@ -309,7 +387,6 @@ export function useWatchlistData(userId: string | undefined) {
         if (!item) {
           next.delete(tmdbId);
         } else if (markedEpKey === MediaType.MOVIE) {
-          // Movie: clear when status changes to completed
           if (item.status === "completed") next.delete(tmdbId);
         } else {
           const ep = item.nextEpisode ?? { season: 1, episode: 1 };
