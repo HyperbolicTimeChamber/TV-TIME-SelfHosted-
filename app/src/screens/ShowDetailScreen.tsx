@@ -88,10 +88,11 @@ export default function ShowDetailScreen() {
         mediaType === MediaType.MOVIE && releaseDate && releaseDate > today;
 
       if (isUnreleased) {
-        const shouldShow = await shouldShowUnreleasedModal(user.uid);
-        if (shouldShow) {
-          setUnreleasedModal({ title: show.title || show.name || "" });
-        }
+        shouldShowUnreleasedModal(user.uid).then((shouldShow) => {
+          if (shouldShow) {
+            setUnreleasedModal({ title: show.title || show.name || "" });
+          }
+        });
       }
 
       await addToTracking(

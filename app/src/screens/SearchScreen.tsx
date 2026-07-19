@@ -107,14 +107,16 @@ export default function SearchScreen() {
         const isUnreleased = releaseDate && releaseDate > today;
 
         if (isUnreleased) {
-          // Show modal immediately while adding in background
-          const shouldShow = await shouldShowUnreleasedModal(user.uid!);
-          if (shouldShow) {
-            setUnreleasedModal({ title: item.title || item.name || "" });
-          }
-          withLoadingId(item.id, () =>
+          // Run modal check and add in parallel
+          const addPromise = withLoadingId(item.id, () =>
             addToTracking(user.uid!, item.id, MediaType.MOVIE, releaseDate),
           );
+          shouldShowUnreleasedModal(user.uid!).then((shouldShow) => {
+            if (shouldShow) {
+              setUnreleasedModal({ title: item.title || item.name || "" });
+            }
+          });
+          await addPromise;
           return;
         }
 
