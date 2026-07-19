@@ -86,8 +86,11 @@ export async function shouldShowUnreleasedModal(
 
 const styles = StyleSheet.create({
   content: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
     padding: spacing.xl,
     alignItems: "center",
+    marginHorizontal: spacing.lg,
   },
   title: {
     ...typography.title,
