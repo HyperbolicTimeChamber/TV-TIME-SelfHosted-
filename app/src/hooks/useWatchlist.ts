@@ -17,6 +17,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { TrackingItem, CatalogShow, CacheKey } from "../types";
 
 const PAGE_SIZE = 50;
+const CATALOG_CACHE_KEY = "catalog_cache";
 
 export interface EnrichedTrackingItem extends TrackingItem {
   title: string;
@@ -25,12 +26,32 @@ export interface EnrichedTrackingItem extends TrackingItem {
   catalogShow: CatalogShow | null;
 }
 
+/** Persist catalog cache to AsyncStorage */
+async function saveCatalogCache(cache: Map<string, CatalogShow | null>) {
+  const obj: Record<string, CatalogShow | null> = {};
+  for (const [k, v] of cache) obj[k] = v;
+  await AsyncStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify(obj)).catch(() => {});
+}
+
+/** Restore catalog cache from AsyncStorage */
+async function loadCatalogCache(): Promise<Map<string, CatalogShow | null>> {
+  try {
+    const raw = await AsyncStorage.getItem(CATALOG_CACHE_KEY);
+    if (!raw) return new Map();
+    const obj = JSON.parse(raw) as Record<string, CatalogShow | null>;
+    return new Map(Object.entries(obj));
+  } catch {
+    return new Map();
+  }
+}
+
 async function enrichItems(
   trackingItems: TrackingItem[],
   cache: Map<string, CatalogShow | null>,
 ): Promise<EnrichedTrackingItem[]> {
   const db = getFirestore();
-  return Promise.all(
+  let cacheUpdated = false;
+  const results = await Promise.all(
     trackingItems.map(async (item): Promise<EnrichedTrackingItem> => {
       const key = String(item.tmdbId);
       let catalogShow = cache.get(key);
@@ -45,6 +66,7 @@ async function enrichItems(
           catalogShow = null;
         }
         cache.set(key, catalogShow);
+        cacheUpdated = true;
       }
 
       return {
@@ -56,6 +78,11 @@ async function enrichItems(
       };
     }),
   );
+
+  // Persist catalog cache if new entries were fetched
+  if (cacheUpdated) saveCatalogCache(cache);
+
+  return results;
 }
 
 export function useWatchlist(userId: string | undefined) {
@@ -64,10 +91,20 @@ export function useWatchlist(userId: string | undefined) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const catalogCache = useRef<Map<string, CatalogShow | null>>(new Map());
+  const catalogCacheLoaded = useRef(false);
   const paginationCursor = useRef<QueryDocumentSnapshot | null>(null);
   const firstPageLastDoc = useRef<QueryDocumentSnapshot | null>(null);
   const paginatedItems = useRef<EnrichedTrackingItem[]>([]);
   const restoredCache = useRef(false);
+
+  // Load persisted catalog cache on mount
+  useEffect(() => {
+    if (catalogCacheLoaded.current) return;
+    loadCatalogCache().then((cached) => {
+      if (cached.size > 0) catalogCache.current = cached;
+      catalogCacheLoaded.current = true;
+    });
+  }, []);
 
   // Restore cached watchlist on mount
   useEffect(() => {
