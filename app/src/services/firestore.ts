@@ -171,8 +171,21 @@ export async function removeFromTracking(
   userId: string,
   tmdbId: number,
 ): Promise<void> {
-  const functions = getFunctions();
-  await httpsCallable(functions, "removeShow")({ tmdbId });
+  // Delete tracking doc + decrement stats immediately
+  const showId = String(tmdbId);
+  const batch = writeBatch(db);
+  batch.delete(doc(trackingRef(userId), showId));
+  batch.set(
+    userRef(userId),
+    { stats: { showsTracking: increment(-1) } },
+    { merge: true },
+  );
+  await batch.commit();
+
+  // Background: update trackedBy on catalog doc (CF handles cleanup)
+  httpsCallable(getFunctions(), "removeShow")({ tmdbId }).catch(
+    (err: any) => console.error("[removeFromTracking] removeShow CF failed:", err),
+  );
 }
 
 export async function stopWatching(
