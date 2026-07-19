@@ -200,6 +200,8 @@ const styles = StyleSheet.create({
 	backdropImage: {
 		width: "100%",
 		height: 200,
+		borderTopLeftRadius: 16,
+		borderTopRightRadius: 16,
 	},
 	content: {
 		padding: spacing.lg,
