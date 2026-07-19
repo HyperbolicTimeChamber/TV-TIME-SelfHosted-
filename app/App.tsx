@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, Animated, Platform, PermissionsAndroid } from "react-native";
+import { View, StyleSheet, Animated, Platform, PermissionsAndroid, Alert } from "react-native";
 import { Image } from "expo-image";
 import LoadingSpinner from "./src/components/LoadingSpinner";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -76,6 +76,14 @@ function AppContent() {
   useForceUpdate();
   const { user, appTmdbApiKey, appTmdbApiKeyLoading, userFlagsLoading, hasCompletedImport } =
     useAuthStore();
+
+  // Listen for background add failures (CF rollback)
+  useEffect(() => {
+    const { onAddTrackingError } = require("./src/services/firestore");
+    return onAddTrackingError((_tmdbId: number, title: string) => {
+      Alert.alert("Failed to Add", `"${title}" could not be added. Please try again.`);
+    });
+  }, []);
 
   if (!user) {
     return <LoginScreen />;

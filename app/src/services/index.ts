@@ -24,6 +24,7 @@ export {
   watchedEpisodesRef,
   watchedMoviesRef,
   userRef,
+  onAddTrackingError,
 } from "./firestore";
 
 // tmdb

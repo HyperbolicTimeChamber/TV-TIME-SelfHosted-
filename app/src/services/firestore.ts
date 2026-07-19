@@ -131,17 +131,36 @@ export async function addToTracking(
   );
   await batch.commit();
 
-  // Background: ensure catalog exists + update trackedBy (don't block UI)
+  // Background: ensure catalog exists + update trackedBy
+  // If CF fails after retry → rollback tracking doc + call onError
+  const tRef = doc(trackingRef(userId), showId);
   const callAddShow = () =>
     httpsCallable(getFunctions(), "addShow")({ tmdbId, mediaType });
-  callAddShow().catch(() => {
-    // Retry once after 3s
-    setTimeout(() => {
-      callAddShow().catch((err: any) =>
-        console.error("[addToTracking] addShow CF failed after retry:", err),
+  callAddShow().catch(() =>
+    callAddShow().catch(async () => {
+      // Both attempts failed — undo the local add
+      const rollback = writeBatch(db);
+      rollback.delete(tRef);
+      rollback.set(
+        userRef(userId),
+        { stats: { showsTracking: increment(-1) } },
+        { merge: true },
       );
-    }, 3000);
-  });
+      await rollback.commit().catch(() => {});
+      // Emit error for UI to pick up
+      addTrackingErrorListeners.forEach((fn) =>
+        fn(tmdbId, meta?.title || `Show #${tmdbId}`),
+      );
+    }),
+  );
+}
+
+// Error listeners for background CF failures
+type AddTrackingErrorCallback = (tmdbId: number, title: string) => void;
+const addTrackingErrorListeners = new Set<AddTrackingErrorCallback>();
+export function onAddTrackingError(cb: AddTrackingErrorCallback): () => void {
+  addTrackingErrorListeners.add(cb);
+  return () => addTrackingErrorListeners.delete(cb);
 }
 
 export async function removeFromTracking(
