@@ -76,11 +76,9 @@ export default function ShowDrawer({
 		}).start(() => onCloseRef.current());
 	};
 
-	const scrollOffset = useRef(0);
 	const panResponder = useRef(
 		PanResponder.create({
-			onMoveShouldSetPanResponderCapture: (_, g) =>
-				g.dy > 10 && scrollOffset.current <= 0,
+			onMoveShouldSetPanResponder: (_, g) => g.dy > 10,
 			onPanResponderMove: (_, g) => {
 				if (g.dy > 0) translateY.setValue(g.dy);
 			},
@@ -128,11 +126,12 @@ export default function ShowDrawer({
 					onPress={handleClose}
 				/>
 				<Animated.View
-					{...panResponder.panHandlers}
 					style={[styles.drawer, { transform: [{ translateY }] }]}>
 					{loading ? (
 						<>
-							<View style={styles.handleAreaStatic}>
+							<View
+								{...panResponder.panHandlers}
+								style={styles.handleAreaStatic}>
 								<View style={styles.handle} />
 							</View>
 							<ActivityIndicator
@@ -143,25 +142,22 @@ export default function ShowDrawer({
 						</>
 					) : show ? (
 						<>
+							{/* Drag zone: backdrop + handle — outside ScrollView */}
+							<View {...panResponder.panHandlers}>
+								<Image
+									source={{
+										uri: `${posterSize.large}${show.backdropPath || show.posterPath}`,
+									}}
+									style={styles.backdrop}
+									contentFit="cover"
+								/>
+								<View style={styles.handleArea}>
+									<View style={styles.handle} />
+								</View>
+							</View>
 							<ScrollView
 								style={styles.scroll}
-								showsVerticalScrollIndicator={false}
-								scrollEventThrottle={16}
-								onScroll={(e) => {
-									scrollOffset.current = e.nativeEvent.contentOffset.y;
-								}}>
-								<View>
-									<Image
-										source={{
-											uri: `${posterSize.large}${show.backdropPath || show.posterPath}`,
-										}}
-										style={styles.backdrop}
-										contentFit="cover"
-									/>
-									<View style={styles.handleArea}>
-										<View style={styles.handle} />
-									</View>
-								</View>
+								showsVerticalScrollIndicator={false}>
 								<View style={styles.content}>
 									<View style={styles.titleRow}>
 										<Text style={styles.title}>{show.title}</Text>
