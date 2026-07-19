@@ -464,6 +464,8 @@ export default function WatchlistTab() {
       const enrichedItem = {
         ...item.item,
         nextEpisodeName: item.item.nextEpisodeName || catalogEp?.title || null,
+        nextEpisodeAirDate: catalogEp?.airDate ?? null,
+        releaseDate: item.item.catalogShow?.releaseDate ?? null,
       };
 
       return (

@@ -23,6 +23,8 @@ interface ShowCardItem {
 	title: string;
 	posterPath: string | null;
 	totalEpisodes?: number;
+	nextEpisodeAirDate?: string | null;
+	releaseDate?: string | null;
 }
 
 interface Props {
@@ -61,6 +63,23 @@ export default memo(function ShowCard({
 		remainingEpisodes != null && remainingEpisodes > 0
 			? `+${remainingEpisodes} ep${remainingEpisodes > 1 ? "s" : ""} left`
 			: null;
+
+	const today = new Date().toISOString().split("T")[0];
+
+	// "NEW" tag: TV episode aired today
+	const isNewEpisode =
+		item.mediaType === MediaType.TV &&
+		item.nextEpisodeAirDate &&
+		item.nextEpisodeAirDate === today;
+
+	// "JUST AIRED" tag: movie released within last 7 days
+	const isJustAired = (() => {
+		if (item.mediaType !== MediaType.MOVIE || !item.releaseDate) return false;
+		const releaseMs = new Date(item.releaseDate).getTime();
+		const todayMs = new Date(today).getTime();
+		const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+		return releaseMs <= todayMs && todayMs - releaseMs <= sevenDaysMs;
+	})();
 
 	const swipeRef = useRef<SwipeableCardRef>(null);
 
@@ -163,12 +182,22 @@ export default memo(function ShowCard({
 						<SkeletonLine width="55%" height={11} />
 					) : null}
 					{item.mediaType === MediaType.MOVIE ? (
-						<View style={styles.movieBadge}>
-							<Text style={styles.movieBadgeText}>MOVIE</Text>
+						<View style={styles.movieRow}>
+							<View style={styles.movieBadge}>
+								<Text style={styles.movieBadgeText}>MOVIE</Text>
+							</View>
+							{isJustAired && (
+								<View style={styles.freshTag}>
+									<Text style={styles.freshTagText}>JUST AIRED</Text>
+								</View>
+							)}
 						</View>
 					) : (
 						<Text style={styles.episode}>
 							{episodeLabel}
+							{isNewEpisode && (
+								<Text style={styles.freshTagInline}> NEW</Text>
+							)}
 							{remainingLabel ? (
 								<Text style={styles.remaining}> {remainingLabel}</Text>
 							) : null}
@@ -291,5 +320,28 @@ const styles = StyleSheet.create({
 	updatingText: {
 		...typography.subtitle,
 		color: colors.text,
+	},
+	movieRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.sm,
+		marginTop: 2,
+	},
+	freshTag: {
+		backgroundColor: colors.warningAmber,
+		paddingHorizontal: spacing.sm,
+		paddingVertical: 1,
+		borderRadius: 4,
+	},
+	freshTagText: {
+		fontSize: 9,
+		fontWeight: "700",
+		color: "#1A1A1A",
+		letterSpacing: 0.5,
+	},
+	freshTagInline: {
+		fontSize: 12,
+		fontWeight: "700",
+		color: colors.warningAmber,
 	},
 });
