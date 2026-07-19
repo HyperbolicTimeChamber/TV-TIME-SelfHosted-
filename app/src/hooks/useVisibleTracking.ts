@@ -50,7 +50,7 @@ export function isShowVisible(item: EnrichedTrackingItem): boolean {
 
   // Fallback to catalog if nextEpisodeAirDate not yet populated
   const catalog = item.catalogShow;
-  if (!catalog) return false;
+  if (!catalog) return true; // No catalog yet (CF still running) — show anyway
 
   const season = catalog.seasons?.find((s) => s.seasonNumber === nextEp.season);
   if (!season) return false;

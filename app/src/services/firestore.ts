@@ -132,9 +132,16 @@ export async function addToTracking(
   await batch.commit();
 
   // Background: ensure catalog exists + update trackedBy (don't block UI)
-  httpsCallable(getFunctions(), "addShow")({ tmdbId, mediaType }).catch(
-    (err: any) => console.error("[addToTracking] addShow CF failed:", err),
-  );
+  const callAddShow = () =>
+    httpsCallable(getFunctions(), "addShow")({ tmdbId, mediaType });
+  callAddShow().catch(() => {
+    // Retry once after 3s
+    setTimeout(() => {
+      callAddShow().catch((err: any) =>
+        console.error("[addToTracking] addShow CF failed after retry:", err),
+      );
+    }, 3000);
+  });
 }
 
 export async function removeFromTracking(
