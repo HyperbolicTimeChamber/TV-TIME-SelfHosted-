@@ -455,12 +455,7 @@ export function useWatchlistData(userId: string | undefined) {
           });
         }
 
-        // Clear updating spinner — card now shows new episode
-        setUpdatingShows((prev) => {
-          const next = new Map(prev);
-          next.delete(item.tmdbId);
-          return next;
-        });
+        // Spinner cleared by useEffect when listener confirms nextEpisode changed
 
         queryClient.invalidateQueries({
           queryKey: [QueryKey.WATCHED_EPISODES, userId],
