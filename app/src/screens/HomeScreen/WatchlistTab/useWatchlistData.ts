@@ -224,6 +224,18 @@ export function useWatchlistData(userId: string | undefined) {
         }
       }
 
+      // Get air date of next episode for priority scheduling
+      let nextEpisodeAirDate: string | null = null;
+      if (nextEpisode) {
+        const nextSeason = catalog?.seasons?.find(
+          (s) => s.seasonNumber === nextEpisode.season,
+        );
+        const nextEp = nextSeason?.episodes?.find(
+          (e) => e.episodeNumber === nextEpisode.episode,
+        );
+        nextEpisodeAirDate = nextEp?.airDate ?? null;
+      }
+
       await markEpisodeWatched(
         userId,
         item.tmdbId,
@@ -235,6 +247,7 @@ export function useWatchlistData(userId: string | undefined) {
         isComplete,
         false,
         nextEpisodeName,
+        nextEpisodeAirDate,
       );
       queryClient.invalidateQueries({ queryKey: ["watchedEpisodes", userId] });
     },

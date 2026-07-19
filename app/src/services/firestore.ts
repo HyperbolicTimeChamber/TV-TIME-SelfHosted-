@@ -142,6 +142,7 @@ export async function markEpisodeWatched(
   isShowComplete: boolean,
   skipTrackingUpdate: boolean = false,
   nextEpisodeName: string | null = null,
+  nextEpisodeAirDate: string | null = null,
 ) {
   const docId = episodeDocId(tmdbShowId, season, episode);
   const epRef = doc(watchedEpisodesRef(userId), docId);
@@ -180,9 +181,18 @@ export async function markEpisodeWatched(
 
   if (!skipTrackingUpdate) {
     const now = Timestamp.now();
+    // If next episode hasn't aired yet, use its airDate as priorityDate
+    // so it sorts to top when it becomes visible
+    let effectivePriority: typeof now = now;
+    if (nextEpisode && nextEpisodeAirDate) {
+      const airDateMs = new Date(nextEpisodeAirDate).getTime();
+      if (airDateMs > now.toMillis()) {
+        effectivePriority = Timestamp.fromMillis(airDateMs);
+      }
+    }
     const trackingUpdate: Record<string, unknown> = {
       lastWatchedAt: now,
-      priorityDate: now,
+      priorityDate: effectivePriority,
       nextEpisode,
       nextEpisodeName,
     };
