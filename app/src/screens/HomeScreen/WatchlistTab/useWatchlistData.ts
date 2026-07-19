@@ -189,16 +189,6 @@ export function useWatchlistData(userId: string | undefined) {
     return map;
   }, [watchedEps]);
 
-  const sortedWatchedEps = useMemo(
-    () =>
-      [...watchedEps].sort((a, b) => {
-        const aTime = a.lastWatchedAt?.toMillis?.() || 0;
-        const bTime = b.lastWatchedAt?.toMillis?.() || 0;
-        return aTime - bTime;
-      }),
-    [watchedEps],
-  );
-
   const sortedActive = useMemo(() => {
     const visible = items.filter((item) => isShowVisible(item));
     return sortByPriority(visible);
@@ -206,41 +196,54 @@ export function useWatchlistData(userId: string | undefined) {
 
   // --- Build the display list with all fields baked in ---
   const today = todayStr();
-  // Recent watched movies (only show most recent 5)
-  const recentWatchedMovies = useMemo(() => {
-    return watchedMovies
-      .filter((m) => showMap.has(m.tmdbId))
-      .slice(0, 5);
-  }, [watchedMovies, showMap]);
+  // Merge watched episodes + movies, sorted by lastWatchedAt ascending (latest at bottom)
+  const prevWatchedItems = useMemo(() => {
+    type PrevItem =
+      | { kind: "episode"; ep: WatchedEpisode; time: number }
+      | { kind: "movie"; movie: WatchedMovie; time: number };
+
+    const items: PrevItem[] = [];
+    for (const ep of watchedEps) {
+      if (!showMap.has(ep.tmdbShowId)) continue;
+      items.push({ kind: "episode", ep, time: ep.lastWatchedAt?.toMillis?.() || 0 });
+    }
+    for (const movie of watchedMovies.slice(0, 5)) {
+      if (!showMap.has(movie.tmdbId)) continue;
+      items.push({ kind: "movie", movie, time: movie.lastWatchedAt?.toMillis?.() || 0 });
+    }
+    // Sort ascending — oldest first, latest at bottom
+    items.sort((a, b) => a.time - b.time);
+    return items;
+  }, [watchedEps, watchedMovies, showMap]);
 
   const liveList: CacheableListItem[] = useMemo(() => {
     if (loading) return [];
     const result: CacheableListItem[] = [];
-    const hasPrevWatched = sortedWatchedEps.length > 0 || recentWatchedMovies.length > 0;
-    if (hasPrevWatched) {
+    if (prevWatchedItems.length > 0) {
       result.push({ type: "sectionHeader", title: "Previously Watched" });
-      for (const movie of recentWatchedMovies) {
-        const show = showMap.get(movie.tmdbId);
-        if (show) {
-          result.push({
-            type: "watchedMovie",
-            movie,
-            showTitle: show.title,
-            posterPath: show.posterPath,
-            tmdbId: show.tmdbId,
-          });
-        }
-      }
-      for (const ep of sortedWatchedEps) {
-        const show = showMap.get(ep.tmdbShowId);
-        if (show) {
-          result.push({
-            type: "watchedEpisode",
-            episode: ep,
-            showTitle: show.title,
-            posterPath: show.posterPath,
-            tmdbId: show.tmdbId,
-          });
+      for (const item of prevWatchedItems) {
+        if (item.kind === "movie") {
+          const show = showMap.get(item.movie.tmdbId);
+          if (show) {
+            result.push({
+              type: "watchedMovie",
+              movie: item.movie,
+              showTitle: show.title,
+              posterPath: show.posterPath,
+              tmdbId: show.tmdbId,
+            });
+          }
+        } else {
+          const show = showMap.get(item.ep.tmdbShowId);
+          if (show) {
+            result.push({
+              type: "watchedEpisode",
+              episode: item.ep,
+              showTitle: show.title,
+              posterPath: show.posterPath,
+              tmdbId: show.tmdbId,
+            });
+          }
         }
       }
     }
@@ -251,7 +254,7 @@ export function useWatchlistData(userId: string | undefined) {
       }
     }
     return result;
-  }, [loading, sortedWatchedEps, recentWatchedMovies, sortedActive, showMap, today]);
+  }, [loading, prevWatchedItems, sortedActive, showMap, today]);
 
   // --- Persist list cache when live data updates ---
   useEffect(() => {
@@ -363,9 +366,7 @@ export function useWatchlistData(userId: string | undefined) {
     loadMoreTracking,
   ]);
 
-  const watchedItemCount = useMemo(() => {
-    return sortedWatchedEps.filter((ep) => showMap.has(ep.tmdbShowId)).length;
-  }, [sortedWatchedEps, showMap]);
+  const watchedItemCount = prevWatchedItems.length;
 
   const prevWatchedOffset = useMemo(() => {
     if (watchedItemCount === 0) return 0;
