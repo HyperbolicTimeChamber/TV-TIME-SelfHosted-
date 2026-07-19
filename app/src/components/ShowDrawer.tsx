@@ -1,23 +1,16 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useMemo, useRef, useEffect } from "react";
 import {
 	View,
 	Text,
 	TouchableOpacity,
-	ScrollView,
-	Modal,
-	Animated,
-	PanResponder,
 	StyleSheet,
-	Dimensions,
 	ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
+import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from "@gorhom/bottom-sheet";
 import SkeletonLine from "./SkeletonLine";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { MediaType } from "../enums";
-
-const SCREEN_HEIGHT = Dimensions.get("window").height;
-const DISMISS_THRESHOLD = 120;
 
 export interface ShowDrawerData {
 	tmdbId?: number;
@@ -50,60 +43,35 @@ export default function ShowDrawer({
 	onGoToShow,
 	onClose,
 }: Readonly<Props>) {
-	const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+	const bottomSheetRef = useRef<BottomSheet>(null);
+	const snapPoints = useMemo(() => ["85%"], []);
 
 	useEffect(() => {
 		if (visible) {
-			Animated.spring(translateY, {
-				toValue: 0,
-				damping: 20,
-				stiffness: 200,
-				useNativeDriver: true,
-			}).start();
+			bottomSheetRef.current?.expand();
 		} else {
-			translateY.setValue(SCREEN_HEIGHT);
+			bottomSheetRef.current?.close();
 		}
-	}, [visible, translateY]);
+	}, [visible]);
 
-	const onCloseRef = useRef(onClose);
-	onCloseRef.current = onClose;
+	const handleSheetChanges = useCallback(
+		(index: number) => {
+			if (index === -1) onClose();
+		},
+		[onClose],
+	);
 
-	const handleClose = () => {
-		Animated.timing(translateY, {
-			toValue: SCREEN_HEIGHT,
-			duration: 250,
-			useNativeDriver: true,
-		}).start(() => onCloseRef.current());
-	};
-
-	const panResponder = useRef(
-		PanResponder.create({
-			onStartShouldSetPanResponder: () => false,
-			onMoveShouldSetPanResponder: (_, g) =>
-				g.dy > 5 && Math.abs(g.dy) > Math.abs(g.dx),
-			onMoveShouldSetPanResponderCapture: (_, g) =>
-				g.dy > 5 && Math.abs(g.dy) > Math.abs(g.dx),
-			onPanResponderMove: (_, g) => {
-				if (g.dy >= 0) translateY.setValue(g.dy);
-			},
-			onPanResponderRelease: (_, g) => {
-				if (g.dy > DISMISS_THRESHOLD || g.vy > 0.5) {
-					Animated.timing(translateY, {
-						toValue: SCREEN_HEIGHT,
-						duration: 250,
-						useNativeDriver: true,
-					}).start(() => onCloseRef.current());
-				} else {
-					Animated.spring(translateY, {
-						toValue: 0,
-						damping: 20,
-						stiffness: 200,
-						useNativeDriver: true,
-					}).start();
-				}
-			},
-		}),
-	).current;
+	const renderBackdrop = useCallback(
+		(props: any) => (
+			<BottomSheetBackdrop
+				{...props}
+				disappearsOnIndex={-1}
+				appearsOnIndex={0}
+				pressBehavior="close"
+			/>
+		),
+		[],
+	);
 
 	if (!show && !loading) return null;
 
@@ -118,142 +86,103 @@ export default function ShowDrawer({
 	const metaLine = metaParts.join(" \u00b7 ");
 
 	return (
-		<Modal
-			visible={visible}
-			transparent
-			animationType="none"
-			onRequestClose={handleClose}>
-			<View style={styles.overlay}>
-				<TouchableOpacity
-					style={styles.overlayTouch}
-					activeOpacity={1}
-					onPress={handleClose}
-				/>
-				<Animated.View
-					style={[styles.drawer, { transform: [{ translateY }] }]}>
-					{loading ? (
-						<>
-							<View
-								{...panResponder.panHandlers}
-								style={styles.handleAreaStatic}>
-								<View style={styles.handle} />
-							</View>
-							<ActivityIndicator
-								size="large"
-								color={colors.primary}
-								style={{ marginVertical: spacing.xxl }}
-							/>
-						</>
-					) : show ? (
-						<>
-							{/* Drag zone: backdrop + handle — outside ScrollView */}
-							<View {...panResponder.panHandlers}>
-								<Image
-									source={{
-										uri: `${posterSize.large}${show.backdropPath || show.posterPath}`,
-									}}
-									style={styles.backdrop}
-									contentFit="cover"
-								/>
-								<View style={styles.handleArea}>
-									<View style={styles.handle} />
-								</View>
-							</View>
-							<ScrollView
-								style={styles.scroll}
-								showsVerticalScrollIndicator={false}>
-								<View style={styles.content}>
-									<View style={styles.titleRow}>
-										<Text style={styles.title}>{show.title}</Text>
-										{show.mediaType && (
-											<View
-												style={[
-													styles.typeBadge,
-													show.mediaType === "movie" && styles.typeBadgeMovie,
-												]}>
-												<Text style={styles.typeBadgeText}>
-													{show.mediaType === "movie" ? "MOVIE" : "TV"}
-												</Text>
-											</View>
-										)}
+		<BottomSheet
+			ref={bottomSheetRef}
+			index={-1}
+			snapPoints={snapPoints}
+			onChange={handleSheetChanges}
+			backdropComponent={renderBackdrop}
+			enablePanDownToClose
+			backgroundStyle={styles.background}
+			handleIndicatorStyle={styles.handleIndicator}
+		>
+			{loading ? (
+				<View style={styles.loadingContainer}>
+					<ActivityIndicator
+						size="large"
+						color={colors.primary}
+					/>
+				</View>
+			) : show ? (
+				<>
+					<BottomSheetScrollView
+						style={styles.scroll}
+						showsVerticalScrollIndicator={false}
+					>
+						<Image
+							source={{
+								uri: `${posterSize.large}${show.backdropPath || show.posterPath}`,
+							}}
+							style={styles.backdrop}
+							contentFit="cover"
+						/>
+						<View style={styles.content}>
+							<View style={styles.titleRow}>
+								<Text style={styles.title}>{show.title}</Text>
+								{show.mediaType && (
+									<View
+										style={[
+											styles.typeBadge,
+											show.mediaType === "movie" && styles.typeBadgeMovie,
+										]}>
+										<Text style={styles.typeBadgeText}>
+											{show.mediaType === "movie" ? "MOVIE" : "TV"}
+										</Text>
 									</View>
-									{metaLine ? (
-										<Text style={styles.meta}>{metaLine}</Text>
-									) : null}
-									{show.genres ? (
-										<Text style={styles.meta}>{show.genres}</Text>
-									) : (
-										<SkeletonLine
-											width="45%"
-											height={11}
-											style={{ marginTop: spacing.xs }}
-										/>
-									)}
-									{show.overview ? (
-										<Text style={styles.overview}>{show.overview}</Text>
-									) : null}
-								</View>
-							</ScrollView>
-							{onGoToShow && (
-								<TouchableOpacity
-									style={styles.goToShowButton}
-									onPress={onGoToShow}>
-									<Text style={styles.goToShowText}>
-										{show.mediaType === "movie" ? "Go to Movie" : "Go to Show"}
-									</Text>
-								</TouchableOpacity>
+								)}
+							</View>
+							{metaLine ? (
+								<Text style={styles.meta}>{metaLine}</Text>
+							) : null}
+							{show.genres ? (
+								<Text style={styles.meta}>{show.genres}</Text>
+							) : (
+								<SkeletonLine
+									width="45%"
+									height={11}
+									style={{ marginTop: spacing.xs }}
+								/>
 							)}
-						</>
-					) : null}
-				</Animated.View>
-			</View>
-		</Modal>
+							{show.overview ? (
+								<Text style={styles.overview}>{show.overview}</Text>
+							) : null}
+						</View>
+					</BottomSheetScrollView>
+					{onGoToShow && (
+						<TouchableOpacity
+							style={styles.goToShowButton}
+							onPress={onGoToShow}>
+							<Text style={styles.goToShowText}>
+								{show.mediaType === "movie" ? "Go to Movie" : "Go to Show"}
+							</Text>
+						</TouchableOpacity>
+					)}
+				</>
+			) : null}
+		</BottomSheet>
 	);
 }
 
 const styles = StyleSheet.create({
-	overlay: {
-		flex: 1,
-		backgroundColor: colors.overlayMedium,
-		justifyContent: "flex-end",
-	},
-	overlayTouch: {
-		flex: 1,
-	},
-	drawer: {
+	background: {
 		backgroundColor: colors.surface,
-		borderTopLeftRadius: 16,
-		borderTopRightRadius: 16,
-		maxHeight: SCREEN_HEIGHT * 0.85,
-		paddingBottom: spacing.xl,
 	},
-	handleArea: {
-		position: "absolute",
-		top: 0,
-		left: 0,
-		right: 0,
-		paddingVertical: spacing.sm,
-		alignItems: "center",
-		zIndex: 1,
-	},
-	handleAreaStatic: {
-		paddingVertical: spacing.sm,
-		alignItems: "center",
-	},
-	handle: {
-		width: 40,
-		height: 4,
-		borderRadius: 2,
+	handleIndicator: {
 		backgroundColor: "rgba(255, 255, 255, 0.6)",
+		width: 40,
+	},
+	loadingContainer: {
+		flex: 1,
+		justifyContent: "center",
+		alignItems: "center",
+		paddingVertical: spacing.xxl,
 	},
 	scroll: {
-		flexGrow: 0,
+		flex: 1,
 	},
 	backdrop: {
 		width: "100%",
 		height: 200,
-		borderTopLeftRadius: 16,
-		borderTopRightRadius: 16,
 	},
 	content: {
 		padding: spacing.lg,
@@ -299,7 +228,7 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		paddingVertical: spacing.md,
 		marginHorizontal: spacing.lg,
-		marginBottom: spacing.sm,
+		marginBottom: spacing.xl,
 		borderRadius: 8,
 		backgroundColor: colors.primary,
 	},
