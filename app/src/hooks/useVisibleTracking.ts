@@ -29,8 +29,16 @@ export function isShowVisible(item: EnrichedTrackingItem): boolean {
 
   const catalog = item.catalogShow;
 
-  // Movies — visible if active
-  if (!catalog || catalog.mediaType === MediaType.MOVIE) return true;
+  // Movies — visible only if released and not completed
+  if (!catalog || catalog.mediaType === MediaType.MOVIE) {
+    if (!catalog) return true; // No catalog data — show it
+    const today = new Date().toISOString().split("T")[0];
+    const releaseDate = catalog.releaseDate;
+    // Hide if not yet released
+    if (releaseDate && releaseDate > today) return false;
+    // Visible if released (status already filtered to active above)
+    return true;
+  }
 
   // No nextEpisode means fully caught up or completed
   const nextEp = item.nextEpisode;
