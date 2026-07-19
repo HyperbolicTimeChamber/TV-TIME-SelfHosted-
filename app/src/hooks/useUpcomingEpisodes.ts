@@ -46,7 +46,7 @@ export function useUpcomingEpisodes(userId: string | undefined) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [forceRefetch, setForceRefetch] = useState(0);
-  const cacheRestored = useRef(false);
+  const [cacheReady, setCacheReady] = useState(false);
   const cachedSyncDate = useRef<string | null>(null);
 
   // Listen for invalidation (force refetch)
@@ -72,17 +72,16 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 
   // Restore from cache on mount + prune past episodes
   useEffect(() => {
-    if (!userId || cacheRestored.current) return;
+    if (!userId || cacheReady) return;
     AsyncStorage.getItem(CacheKey.UPCOMING_EPISODES).then((raw) => {
       if (!raw) {
-        cacheRestored.current = true;
+        setCacheReady(true);
         return;
       }
       try {
         const cached = JSON.parse(raw);
         if (cached.userId === userId && cached.episodes?.length > 0) {
           const today = todayStr();
-          // Prune episodes/movies from past days
           const pruned = (cached.episodes as UpcomingEpisode[]).filter(
             (ep) => ep.airDate >= today,
           );
@@ -90,20 +89,19 @@ export function useUpcomingEpisodes(userId: string | undefined) {
           if (pruned.length > 0) {
             setEpisodes(pruned);
             setIsLoading(false);
-            // Persist pruned version
             if (pruned.length !== cached.episodes.length) {
               persistCache(userId, pruned, cached.syncDate || "");
             }
           }
         }
       } catch {}
-      cacheRestored.current = true;
+      setCacheReady(true);
     });
-  }, [userId]);
+  }, [userId, cacheReady]);
 
   // Check if backend has synced since our cache → refetch if so
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !cacheReady) return;
 
     (async () => {
       // Read lastCatalogSync from config/app
@@ -116,10 +114,10 @@ export function useUpcomingEpisodes(userId: string | undefined) {
         if (
           serverSyncStr &&
           cachedSyncDate.current &&
-          serverSyncStr === cachedSyncDate.current &&
-          episodes.length > 0
+          serverSyncStr === cachedSyncDate.current
         ) {
           // Cache is fresh — no refetch needed
+          setIsLoading(false);
           return;
         }
 
@@ -204,7 +202,7 @@ export function useUpcomingEpisodes(userId: string | undefined) {
         setIsLoading(false);
       }
     })();
-  }, [userId, forceRefetch]);
+  }, [userId, cacheReady, forceRefetch]);
 
   const retry = useCallback(() => setForceRefetch((t) => t + 1), []);
 
