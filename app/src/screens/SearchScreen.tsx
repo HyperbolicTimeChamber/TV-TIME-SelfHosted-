@@ -136,6 +136,7 @@ export default function SearchScreen() {
             }
           });
           await addPromise;
+          addShowToUpcoming(item.id);
           return;
         }
 

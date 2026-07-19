@@ -101,7 +101,7 @@ export default function ShowDetailScreen() {
         mediaType,
         isUnreleased ? releaseDate : null,
       );
-      if (!isUnreleased) {
+      {
         addShowToUpcoming(tmdbId);
       }
     } catch (err: any) {
