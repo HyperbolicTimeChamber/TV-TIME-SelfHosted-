@@ -447,7 +447,7 @@ export default function WatchlistTab() {
           for (const e of s.episodes) {
             if (
               s.seasonNumber === nextEp.season &&
-              e.episodeNumber < nextEp.episode
+              e.episodeNumber <= nextEp.episode
             )
               continue;
             // Only count aired episodes
