@@ -13,7 +13,6 @@ import {
   markEpisodeWatched,
   markMovieWatched,
   stopWatching,
-  getCatalogShow,
 } from "../../../services";
 import { MediaType, CacheKey, WatchedEpisode, QueryKey } from "../../../types";
 import { ListItem } from "./types";
@@ -47,24 +46,66 @@ function computeRemaining(
   return count > 0 ? count : null;
 }
 
+/** Find the episode after a given one in catalog */
+function findNextEpisodeInCatalog(
+  catalog: any,
+  season: number,
+  episode: number,
+): { season: number; episode: number; title: string | null; airDate: string | null; runtime: number } | null {
+  const catalogSeason = catalog?.seasons?.find((s: any) => s.seasonNumber === season);
+  const nextInSeason = catalogSeason?.episodes?.find((e: any) => e.episodeNumber === episode + 1);
+  if (nextInSeason) {
+    return {
+      season,
+      episode: nextInSeason.episodeNumber,
+      title: nextInSeason.title || null,
+      airDate: nextInSeason.airDate || null,
+      runtime: nextInSeason.runtime || 0,
+    };
+  }
+  const nextCatalogSeason = catalog?.seasons?.find((s: any) => s.seasonNumber === season + 1);
+  if (nextCatalogSeason?.episodes?.length > 0) {
+    const ep = nextCatalogSeason.episodes[0];
+    return {
+      season: season + 1,
+      episode: ep.episodeNumber ?? 1,
+      title: ep.title || null,
+      airDate: ep.airDate || null,
+      runtime: ep.runtime || 0,
+    };
+  }
+  return null;
+}
+
 /** Build a flat card item with all computed fields baked in */
 function buildCardItem(item: EnrichedTrackingItem, today: string) {
   const nextEp = item.nextEpisode;
   const catalog = item.catalogShow;
   const catalogSeason = nextEp
-    ? catalog?.seasons?.find((s) => s.seasonNumber === nextEp.season)
+    ? catalog?.seasons?.find((s: any) => s.seasonNumber === nextEp.season)
     : undefined;
   const catalogEp = catalogSeason?.episodes?.find(
-    (e) => e.episodeNumber === nextEp?.episode,
+    (e: any) => e.episodeNumber === nextEp?.episode,
   );
+
+  // Compute nextNext episode (what comes after the current next)
+  const nextNext = nextEp && catalog
+    ? findNextEpisodeInCatalog(catalog, nextEp.season, nextEp.episode)
+    : null;
 
   return {
     ...item,
     nextEpisodeName: item.nextEpisodeName || catalogEp?.title || null,
     nextEpisodeAirDate: item.nextEpisodeAirDate ?? catalogEp?.airDate ?? null,
+    nextEpisodeRuntime: catalogEp?.runtime || 0,
     releaseDate: item.releaseDate ?? catalog?.releaseDate ?? null,
     remaining: computeRemaining(item, today),
-    // Strip catalogShow from cached version — not needed for display
+    // Pre-computed next-next for optimistic mark watched
+    nextNextEpisode: nextNext ? { season: nextNext.season, episode: nextNext.episode } : null,
+    nextNextEpisodeName: nextNext?.title ?? null,
+    nextNextEpisodeAirDate: nextNext?.airDate ?? null,
+    nextNextEpisodeRuntime: nextNext?.runtime ?? 0,
+    isLastEpisode: nextEp != null && !nextNext,
   };
 }
 
@@ -262,17 +303,13 @@ export function useWatchlistData(userId: string | undefined) {
   const handleMarkWatched = useCallback(
     async (item: EnrichedTrackingItem) => {
       if (!userId) return;
-
-      // Prefer the live enriched item (has catalogShow from listener)
-      // over the cached display item (catalogShow stripped)
-      const liveItem = showMap.get(item.tmdbId);
-      const catalog = liveItem?.catalogShow ?? item.catalogShow ?? (await getCatalogShow(item.tmdbId));
+      const card = item as any as CardItem;
 
       if (item.mediaType === MediaType.MOVIE) {
         setUpdatingShows((prev) =>
           new Map(prev).set(item.tmdbId, MediaType.MOVIE),
         );
-        await markMovieWatched(userId, item.tmdbId, catalog?.runtime ?? 0);
+        await markMovieWatched(userId, item.tmdbId, card.nextEpisodeRuntime ?? 0);
         queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_MOVIES, userId] });
         return;
       }
@@ -281,49 +318,15 @@ export function useWatchlistData(userId: string | undefined) {
       const epKey = `${currentEp.season}-${currentEp.episode}`;
       setUpdatingShows((prev) => new Map(prev).set(item.tmdbId, epKey));
 
-      const catalogSeason = catalog?.seasons?.find(
-        (s) => s.seasonNumber === currentEp.season,
-      );
-      const catalogEp = catalogSeason?.episodes?.find(
-        (e) => e.episodeNumber === currentEp.episode,
-      );
-      const nextEpInSeason = catalogSeason?.episodes?.find(
-        (e) => e.episodeNumber === currentEp.episode + 1,
-      );
+      // Read pre-computed fields from card — no catalog fetch needed
+      const epTitle = card.nextEpisodeName || "";
+      const epRuntime = card.nextEpisodeRuntime || 0;
+      const nextEpisode = card.nextNextEpisode ?? null;
+      const nextEpisodeName = card.nextNextEpisodeName ?? null;
+      const nextEpisodeAirDate = card.nextNextEpisodeAirDate ?? null;
+      const isComplete = card.isLastEpisode ?? false;
 
-      let nextEpisode: { season: number; episode: number } | null = null;
-      let nextEpisodeName: string | null = null;
-      let isComplete = false;
-
-      if (nextEpInSeason) {
-        nextEpisode = {
-          season: currentEp.season,
-          episode: nextEpInSeason.episodeNumber,
-        };
-        nextEpisodeName = nextEpInSeason.title || null;
-      } else {
-        const nextCatalogSeason = catalog?.seasons?.find(
-          (s) => s.seasonNumber === currentEp.season + 1,
-        );
-        if (nextCatalogSeason && nextCatalogSeason.episodes.length > 0) {
-          nextEpisode = { season: currentEp.season + 1, episode: 1 };
-          nextEpisodeName = nextCatalogSeason.episodes[0].title || null;
-        } else {
-          isComplete = true;
-        }
-      }
-
-      let nextEpisodeAirDate: string | null = null;
-      if (nextEpisode) {
-        const nextSeason = catalog?.seasons?.find(
-          (s) => s.seasonNumber === nextEpisode.season,
-        );
-        const nextEp = nextSeason?.episodes?.find(
-          (e) => e.episodeNumber === nextEpisode.episode,
-        );
-        nextEpisodeAirDate = nextEp?.airDate ?? null;
-      }
-
+      // Optimistic upcoming update
       const upcomingSnapshot = mutateCachedUpcoming((prev) =>
         prev.filter(
           (ep) =>
@@ -335,32 +338,29 @@ export function useWatchlistData(userId: string | undefined) {
         ),
       );
 
-      try {
-        await markEpisodeWatched(
-          userId,
-          item.tmdbId,
-          currentEp.season,
-          currentEp.episode,
-          catalogEp?.title || "",
-          catalogEp?.runtime || 0,
-          nextEpisode,
-          isComplete,
-          false,
-          nextEpisodeName,
-          nextEpisodeAirDate,
-        );
-
-        // Invalidate watchedEpisodes to refresh Previously Watched section
-        // Key has 3 elements: ["watchedEpisodes", userId, undefined]
+      // Fire Firestore write — don't await, let UI update first
+      markEpisodeWatched(
+        userId,
+        item.tmdbId,
+        currentEp.season,
+        currentEp.episode,
+        epTitle,
+        epRuntime,
+        nextEpisode,
+        isComplete,
+        false,
+        nextEpisodeName,
+        nextEpisodeAirDate,
+      ).then(() => {
         queryClient.invalidateQueries({
           queryKey: [QueryKey.WATCHED_EPISODES, userId],
         });
-      } catch (err) {
+      }).catch((err) => {
         rollbackUpcoming(upcomingSnapshot);
-        throw err;
-      }
+        console.error("markEpisodeWatched failed:", err);
+      });
     },
-    [userId, queryClient, showMap, mutateCachedUpcoming, rollbackUpcoming],
+    [userId, queryClient, mutateCachedUpcoming, rollbackUpcoming],
   );
 
   // Clear updating state when data changes
