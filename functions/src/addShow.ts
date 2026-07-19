@@ -34,10 +34,24 @@ export const addShow = onCall(
     const showRef = db.doc(`shows/${showId}`);
     const uid = request.auth.uid;
 
-    // Read TMDB key from Firestore config
+    // Fast path: if catalog doc already exists, just add to trackedBy
+    const existingDoc = await showRef.get();
+    if (existingDoc.exists) {
+      await addToTrackedBy(showId, uid);
+
+      // Update upcoming subcollection (fire-and-forget)
+      if (mediaType === "tv") {
+        addShowToUpcoming(db, uid, tmdbId).catch((err) =>
+          console.error("[addShow] upcoming update failed:", err)
+        );
+      }
+
+      return existingDoc.data() as CatalogShow;
+    }
+
+    // Slow path: fetch from TMDB and create catalog doc
     const configDoc = await db.doc("config/app").get();
     const apiKey = configDoc.data()?.tmdbApiKey;
-    console.log(`[addShow] API key length: ${apiKey?.length}, starts: ${apiKey?.substring(0, 6)}`);
     if (!apiKey) {
       throw new HttpsError("failed-precondition", "TMDB API key not configured");
     }
@@ -55,16 +69,12 @@ export const addShow = onCall(
       throw new HttpsError("unavailable", "Failed to fetch show data from TMDB");
     }
 
-    // Atomically check-then-create to eliminate the race condition where two
-    // concurrent calls both read non-existent and both set.
-    let existedBeforeTransaction = false;
-
+    // Atomically check-then-create (handles race if two users add simultaneously)
     await db.runTransaction(async (tx) => {
       const showDoc = await tx.get(showRef);
 
       if (showDoc.exists) {
-        existedBeforeTransaction = true;
-        return; // will call addToTrackedBy outside the transaction
+        return; // another call created it first
       }
 
       tx.set(showRef, {
@@ -75,7 +85,10 @@ export const addShow = onCall(
       });
     });
 
-    if (existedBeforeTransaction) {
+    // If doc existed from race, still add to trackedBy
+    const afterDoc = await showRef.get();
+    const data = afterDoc.data();
+    if (data && !(data.trackedBy || []).includes(uid)) {
       await addToTrackedBy(showId, uid);
     }
 
