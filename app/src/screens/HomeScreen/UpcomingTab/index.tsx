@@ -1,8 +1,16 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import {
+  getFirestore,
+  collection,
+  doc,
+  onSnapshot,
+  query,
+  where,
+} from "@react-native-firebase/firestore";
 import {
   LoadingSpinner,
   EpisodeDetailModal,
@@ -42,6 +50,56 @@ export default function UpcomingTab() {
     retry,
   } = useUpcomingEpisodes(user?.uid);
 
+  // Tracked movies with future release dates
+  const [upcomingMovies, setUpcomingMovies] = useState<UpcomingEpisode[]>([]);
+  useEffect(() => {
+    if (!user?.uid) return;
+    const db = getFirestore();
+    const today = new Date().toISOString().slice(0, 10);
+    const trackingCol = collection(doc(db, "users", user.uid), "tracking");
+    const q = query(
+      trackingCol,
+      where("mediaType", "==", "movie"),
+      where("releaseDate", ">", today),
+    );
+    const unsub = onSnapshot(q, async (snap) => {
+      const movies: UpcomingEpisode[] = [];
+      for (const d of snap.docs) {
+        const data = d.data() as any;
+        // Get title/poster from catalog
+        let title = `Movie #${data.tmdbId}`;
+        let posterPath: string | null = null;
+        try {
+          const catalog = await getCatalogShow(data.tmdbId);
+          if (catalog) {
+            title = catalog.title;
+            posterPath = catalog.posterPath ?? null;
+          }
+        } catch {}
+        movies.push({
+          tmdbShowId: data.tmdbId,
+          showTitle: title,
+          posterPath,
+          season: 0,
+          episode: 0,
+          episodeTitle: title,
+          airDate: data.releaseDate,
+          runtime: null,
+          mediaType: MediaType.MOVIE,
+        });
+      }
+      setUpcomingMovies(movies);
+    });
+    return unsub;
+  }, [user?.uid]);
+
+  // Merge episodes + upcoming movies
+  const allUpcoming = useMemo(() => {
+    const merged = [...(episodes || []), ...upcomingMovies];
+    merged.sort((a, b) => a.airDate.localeCompare(b.airDate));
+    return merged;
+  }, [episodes, upcomingMovies]);
+
   // Episode detail modal
   const [epModalVisible, setEpModalVisible] = useState(false);
   const [epModalData, setEpModalData] = useState<{
@@ -61,10 +119,10 @@ export default function UpcomingTab() {
   const [drawerShow, setDrawerShow] = useState<ShowDrawerData | null>(null);
 
   const listData = useMemo(() => {
-    if (!episodes || episodes.length === 0) return [] as ListItem[];
+    if (allUpcoming.length === 0) return [] as ListItem[];
 
     const grouped = new Map<string, UpcomingEpisode[]>();
-    for (const ep of episodes) {
+    for (const ep of allUpcoming) {
       const existing = grouped.get(ep.airDate) || [];
       existing.push(ep);
       grouped.set(ep.airDate, existing);
