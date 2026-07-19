@@ -78,7 +78,8 @@ export function useWatchlist(userId: string | undefined) {
         const cached = JSON.parse(raw);
         if (cached.userId === userId && cached.items?.length > 0) {
           setItems(cached.items);
-          setLoading(false);
+          // Don't set loading=false here — profile cache lacks catalogShow
+          // WATCHLIST_ACTIVE cache handles display until Firestore enriches
         }
       } catch {}
       restoredCache.current = true;
