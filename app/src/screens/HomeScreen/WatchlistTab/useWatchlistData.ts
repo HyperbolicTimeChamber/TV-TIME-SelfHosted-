@@ -382,7 +382,16 @@ export function useWatchlistData(userId: string | undefined) {
         setUpdatingShows((prev) =>
           new Map(prev).set(item.tmdbId, MediaType.MOVIE),
         );
-        await markMovieWatched(userId, item.tmdbId, card.nextEpisodeRuntime ?? 0);
+        try {
+          await markMovieWatched(userId, item.tmdbId, card.nextEpisodeRuntime ?? 0);
+        } finally {
+          setUpdatingShows((prev) => {
+            const next = new Map(prev);
+            next.delete(item.tmdbId);
+            return next;
+          });
+        }
+        // Refresh in background — don't block UI
         queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_MOVIES, userId] });
         return;
       }
