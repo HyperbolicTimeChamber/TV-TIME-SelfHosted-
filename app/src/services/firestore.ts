@@ -147,7 +147,7 @@ export async function addToTracking(
       addedAt: now,
       lastWatchedAt: now,
       priorityDate,
-      ...(mediaType === MediaType.MOVIE && releaseDate ? { releaseDate } : {}),
+      ...(mediaType === MediaType.MOVIE ? { releaseDate: releaseDate || catalogData?.releaseDate || null } : {}),
     });
     batch.set(
       userRef(userId),
@@ -204,7 +204,7 @@ export async function addToTracking(
     addedAt: now,
     lastWatchedAt: now,
     priorityDate,
-    ...(mediaType === MediaType.MOVIE && releaseDate ? { releaseDate } : {}),
+    ...(mediaType === MediaType.MOVIE ? { releaseDate: releaseDate || null } : {}),
   });
   batch.set(
     userRef(userId),

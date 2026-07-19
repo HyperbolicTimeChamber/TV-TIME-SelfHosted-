@@ -156,20 +156,15 @@ export function useUpcomingEpisodes(userId: string | undefined) {
           .map((d) => d.data() as UpcomingEpisode);
 
         // Fetch tracked movies with future release dates
-        // Single-field query to avoid composite index requirement
+        // Query only docs that have releaseDate field set (avoids reading all 1000+ movies)
         const trackingCol = collection(doc(db, "users", userId), "tracking");
         const movieSnap = await getDocs(
-          query(trackingCol, where("mediaType", "==", "movie")),
+          query(trackingCol, where("releaseDate", ">", today)),
         );
         const movieEps: UpcomingEpisode[] = [];
-        console.log(`[Upcoming] Found ${movieSnap.docs.length} tracked movies, today=${today}`);
         for (const d of movieSnap.docs) {
           const data = d.data() as any;
-          // Handle releaseDate as string or Timestamp
-          let rd = data.releaseDate;
-          if (rd?.toDate) rd = rd.toDate().toISOString().slice(0, 10);
-          console.log(`[Upcoming] Movie ${data.tmdbId}: releaseDate=${rd}`);
-          if (!rd || rd <= today) continue;
+          if (data.mediaType !== "movie") continue; // skip TV shows that somehow have releaseDate
           let title = `Movie #${data.tmdbId}`;
           let posterPath: string | null = null;
           try {
@@ -195,7 +190,6 @@ export function useUpcomingEpisodes(userId: string | undefined) {
         const eps = [...tvEps, ...movieEps].sort((a, b) =>
           a.airDate.localeCompare(b.airDate),
         );
-        console.log(`[Upcoming] Final: ${tvEps.length} TV eps + ${movieEps.length} movies = ${eps.length} total`);
 
         const newSyncDate = serverSyncStr || new Date().toISOString();
         cachedSyncDate.current = newSyncDate;
