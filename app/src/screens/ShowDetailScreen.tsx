@@ -15,7 +15,7 @@ import {
   doc,
   onSnapshot,
 } from "@react-native-firebase/firestore";
-import { useShowDetails, useUpcomingMutations } from "../hooks";
+import { useShowDetails, useUpcomingMutations, removeShowFromCalendarGlobal } from "../hooks";
 import { useAuthStore } from "../stores";
 import {
   addToTracking,
@@ -138,6 +138,7 @@ export default function ShowDetailScreen() {
     try {
       await removeFromTracking(user.uid, tmdbId);
       removeShowFromUpcoming(tmdbId);
+      removeShowFromCalendarGlobal(tmdbId);
       emitShowRemoved(tmdbId);
       setRemoveModalVisible(false);
     } catch (err: any) {

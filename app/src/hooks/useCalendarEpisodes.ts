@@ -44,6 +44,20 @@ async function saveCalendarCache(cache: CalendarCache) {
   await AsyncStorage.setItem(CALENDAR_CACHE_KEY, JSON.stringify(cache)).catch(() => {});
 }
 
+// Global mutation listeners (cross-screen)
+type CalendarRemoveCallback = (tmdbId: number) => void;
+type CalendarAddMovieCallback = (movie: UpcomingEpisode) => void;
+const removeListeners = new Set<CalendarRemoveCallback>();
+const addMovieListeners = new Set<CalendarAddMovieCallback>();
+
+export function removeShowFromCalendarGlobal(tmdbId: number) {
+  removeListeners.forEach((fn) => fn(tmdbId));
+}
+
+export function addMovieToCalendarGlobal(movie: UpcomingEpisode) {
+  addMovieListeners.forEach((fn) => fn(movie));
+}
+
 export function useCalendarEpisodes(userId: string | undefined) {
   const [episodesByMonth, setEpisodesByMonth] = useState<
     Map<string, UpcomingEpisode[]>
@@ -197,5 +211,74 @@ export function useCalendarEpisodes(userId: string | undefined) {
     [userId, apiKey, episodesByMonth, loading],
   );
 
-  return { episodes: allEpisodes, loading, loadMonthEpisodes };
+  const removeShowFromCalendar = useCallback(
+    (tmdbId: number) => {
+      setEpisodesByMonth((prev) => {
+        const next = new Map(prev);
+        let changed = false;
+        for (const [key, eps] of next) {
+          const filtered = eps.filter((e) => e.tmdbShowId !== tmdbId);
+          if (filtered.length !== eps.length) {
+            next.set(key, filtered);
+            calendarCacheRef.current.months[key] = filtered;
+            changed = true;
+          }
+        }
+        if (changed) saveCalendarCache(calendarCacheRef.current);
+        return changed ? next : prev;
+      });
+    },
+    [],
+  );
+
+  const addMovieToCalendar = useCallback(
+    (movie: UpcomingEpisode) => {
+      const monthKey = movie.airDate.slice(0, 7); // "2026-07"
+      setEpisodesByMonth((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(monthKey);
+        if (!existing) return prev; // month not cached, will be fetched when viewed
+        if (existing.some((e) => e.tmdbShowId === movie.tmdbShowId)) return prev;
+        const updated = [...existing, movie].sort((a, b) => a.airDate.localeCompare(b.airDate));
+        next.set(monthKey, updated);
+        calendarCacheRef.current.months[monthKey] = updated;
+        saveCalendarCache(calendarCacheRef.current);
+        return next;
+      });
+    },
+    [],
+  );
+
+  const invalidateMonth = useCallback(
+    (year: number, month: number) => {
+      const monthKey = `${year}-${String(month).padStart(2, "0")}`;
+      setEpisodesByMonth((prev) => {
+        const next = new Map(prev);
+        next.delete(monthKey);
+        delete calendarCacheRef.current.months[monthKey];
+        saveCalendarCache(calendarCacheRef.current);
+        return next;
+      });
+    },
+    [],
+  );
+
+  // Listen for cross-screen mutations
+  useEffect(() => {
+    removeListeners.add(removeShowFromCalendar);
+    addMovieListeners.add(addMovieToCalendar);
+    return () => {
+      removeListeners.delete(removeShowFromCalendar);
+      addMovieListeners.delete(addMovieToCalendar);
+    };
+  }, [removeShowFromCalendar, addMovieToCalendar]);
+
+  return {
+    episodes: allEpisodes,
+    loading,
+    loadMonthEpisodes,
+    removeShowFromCalendar,
+    addMovieToCalendar,
+    invalidateMonth,
+  };
 }

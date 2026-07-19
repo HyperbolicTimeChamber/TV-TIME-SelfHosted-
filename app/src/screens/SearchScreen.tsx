@@ -25,6 +25,8 @@ import {
   useTrending,
   useTrackedIds,
   useUpcomingMutations,
+  removeShowFromCalendarGlobal,
+  addMovieToCalendarGlobal,
 } from "../hooks";
 import {
   getFirestore,
@@ -135,7 +137,7 @@ export default function SearchScreen() {
             }
           });
           await addPromise;
-          addShowToUpcoming(item.id, {
+          const movieEp = {
             tmdbShowId: item.id,
             showTitle: item.title || item.name || "",
             posterPath: item.poster_path || null,
@@ -145,7 +147,9 @@ export default function SearchScreen() {
             airDate: releaseDate!,
             runtime: null,
             mediaType: MediaType.MOVIE,
-          });
+          };
+          addShowToUpcoming(item.id, movieEp);
+          addMovieToCalendarGlobal(movieEp);
           return;
         }
 
@@ -187,6 +191,7 @@ export default function SearchScreen() {
     try {
       await removeFromTracking(user.uid, removeModal.id);
       removeShowFromUpcoming(removeModal.id);
+      removeShowFromCalendarGlobal(removeModal.id);
       setRemoveModal(null);
     } catch (err: any) {
       console.error("removeFromTracking failed:", err);
