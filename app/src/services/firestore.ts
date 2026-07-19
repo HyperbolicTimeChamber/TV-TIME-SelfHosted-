@@ -123,11 +123,13 @@ export async function addToTracking(
       }
     }
 
-    // Determine priorityDate
-    let priorityDate: any = serverTimestamp();
+    // Use Timestamp.now() — serverTimestamp() resolves as null in pending
+    // writes, causing onSnapshot orderBy(priorityDate) to miss the doc
+    const now = Timestamp.now();
+    let priorityDate = now;
     if (mediaType === MediaType.MOVIE && releaseDate) {
       const releaseDateMs = new Date(releaseDate).getTime();
-      if (releaseDateMs > Date.now()) {
+      if (releaseDateMs > now.toMillis()) {
         priorityDate = Timestamp.fromMillis(releaseDateMs);
       }
     }
@@ -142,8 +144,8 @@ export async function addToTracking(
       nextEpisodeName,
       nextEpisodeAirDate,
       rewatchCount: 0,
-      addedAt: serverTimestamp(),
-      lastWatchedAt: serverTimestamp(),
+      addedAt: now,
+      lastWatchedAt: now,
       priorityDate,
       ...(mediaType === MediaType.MOVIE && releaseDate ? { releaseDate } : {}),
     });
@@ -181,10 +183,11 @@ export async function addToTracking(
     } catch {}
   }
 
-  let priorityDate: any = serverTimestamp();
+  const now = Timestamp.now();
+  let priorityDate = now;
   if (mediaType === MediaType.MOVIE && releaseDate) {
     const releaseDateMs = new Date(releaseDate).getTime();
-    if (releaseDateMs > Date.now()) {
+    if (releaseDateMs > now.toMillis()) {
       priorityDate = Timestamp.fromMillis(releaseDateMs);
     }
   }
@@ -198,8 +201,8 @@ export async function addToTracking(
     nextEpisodeName,
     nextEpisodeAirDate,
     rewatchCount: 0,
-    addedAt: serverTimestamp(),
-    lastWatchedAt: serverTimestamp(),
+    addedAt: now,
+    lastWatchedAt: now,
     priorityDate,
     ...(mediaType === MediaType.MOVIE && releaseDate ? { releaseDate } : {}),
   });
