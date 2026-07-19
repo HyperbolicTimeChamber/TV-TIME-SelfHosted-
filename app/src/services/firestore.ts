@@ -197,27 +197,24 @@ export async function markEpisodeWatched(
 ) {
   const docId = episodeDocId(tmdbShowId, season, episode);
   const epRef = doc(watchedEpisodesRef(userId), docId);
-  const epDoc = await getDoc(epRef);
 
   const batch = writeBatch(db);
 
-  if (epDoc.exists()) {
-    batch.update(epRef, {
-      watchCount: increment(1),
-      lastWatchedAt: serverTimestamp(),
-    });
-  } else {
-    batch.set(epRef, {
+  // No pre-read needed. increment(1) handles both create (0+1=1) and update.
+  // watchedAt only matters for "first watched" — acceptable to update on rewatch.
+  batch.set(
+    epRef,
+    {
       tmdbShowId,
       season,
       episode,
       episodeTitle,
-      watchedAt: serverTimestamp(),
       lastWatchedAt: serverTimestamp(),
       runtime,
-      watchCount: 1,
-    });
-  }
+      watchCount: increment(1),
+    },
+    { merge: true },
+  );
 
   batch.set(
     userRef(userId),
