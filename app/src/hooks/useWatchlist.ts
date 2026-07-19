@@ -26,20 +26,43 @@ export interface EnrichedTrackingItem extends TrackingItem {
   catalogShow: CatalogShow | null;
 }
 
-/** Persist catalog cache to AsyncStorage */
+/** Lightweight catalog entry for persistence (no seasons/episodes) */
+interface CatalogCacheEntry {
+  title: string;
+  posterPath: string | null;
+  totalEpisodes: number;
+  releaseDate?: string | null;
+  mediaType?: string;
+}
+
+/** Strip heavy fields for persistence */
+function toCacheEntry(show: CatalogShow): CatalogCacheEntry {
+  return {
+    title: show.title,
+    posterPath: show.posterPath ?? null,
+    totalEpisodes: show.totalEpisodes ?? 0,
+    releaseDate: show.releaseDate ?? null,
+    mediaType: show.mediaType,
+  };
+}
+
+/** Persist lightweight catalog cache to AsyncStorage */
 async function saveCatalogCache(cache: Map<string, CatalogShow | null>) {
-  const obj: Record<string, CatalogShow | null> = {};
-  for (const [k, v] of cache) obj[k] = v;
+  const obj: Record<string, CatalogCacheEntry | null> = {};
+  for (const [k, v] of cache) obj[k] = v ? toCacheEntry(v) : null;
   await AsyncStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify(obj)).catch(() => {});
 }
 
-/** Restore catalog cache from AsyncStorage */
+/** Restore catalog cache from AsyncStorage (lightweight entries) */
 async function loadCatalogCache(): Promise<Map<string, CatalogShow | null>> {
   try {
     const raw = await AsyncStorage.getItem(CATALOG_CACHE_KEY);
     if (!raw) return new Map();
-    const obj = JSON.parse(raw) as Record<string, CatalogShow | null>;
-    return new Map(Object.entries(obj));
+    const obj = JSON.parse(raw) as Record<string, CatalogCacheEntry | null>;
+    // Restore as partial CatalogShow (enough for enrichment)
+    return new Map(
+      Object.entries(obj).map(([k, v]) => [k, v as unknown as CatalogShow | null]),
+    );
   } catch {
     return new Map();
   }
