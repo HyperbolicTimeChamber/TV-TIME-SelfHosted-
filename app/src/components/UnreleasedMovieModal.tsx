@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   button: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.primary,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xxl,
     borderRadius: 8,
