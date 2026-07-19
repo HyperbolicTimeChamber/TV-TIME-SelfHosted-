@@ -107,21 +107,14 @@ export default function SearchScreen() {
         const isUnreleased = releaseDate && releaseDate > today;
 
         if (isUnreleased) {
-          // Unreleased movie — add directly, no "add & mark watched" prompt
-          await withLoadingId(item.id, async () => {
-            await addToTracking(
-              user.uid!,
-              item.id,
-              MediaType.MOVIE,
-              releaseDate,
-            );
-            addShowToUpcoming(item.id);
-          });
-          // Show info modal if not suppressed
+          // Show modal immediately while adding in background
           const shouldShow = await shouldShowUnreleasedModal(user.uid!);
           if (shouldShow) {
             setUnreleasedModal({ title: item.title || item.name || "" });
           }
+          withLoadingId(item.id, () =>
+            addToTracking(user.uid!, item.id, MediaType.MOVIE, releaseDate),
+          );
           return;
         }
 

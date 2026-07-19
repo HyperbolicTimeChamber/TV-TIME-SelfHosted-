@@ -3,14 +3,13 @@ import {
   getFirestore,
   collection,
   doc,
-  getDoc,
   getDocs,
   query,
   where,
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { UpcomingEpisode, CatalogShow, MediaType, CacheKey } from "../types";
+import { UpcomingEpisode, CacheKey } from "../types";
 const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 1 week
 
 type MutateCallback = (
@@ -121,35 +120,8 @@ export function useUpcomingEpisodes(userId: string | undefined) {
       }
 
       const eps: UpcomingEpisode[] = snap.docs
-        .map((d) => ({ ...d.data(), mediaType: MediaType.TV } as UpcomingEpisode));
-
-      // Also fetch tracked movies with future release dates
-      const movieTrackingSnap = await getDocs(
-        query(
-          collection(doc(db, "users", userId), "tracking"),
-          where("mediaType", "==", MediaType.MOVIE),
-        ),
-      );
-      for (const d of movieTrackingSnap.docs) {
-        const catalogDoc = await getDoc(doc(db, "shows", d.id));
-        if (!catalogDoc.exists()) continue;
-        const catalog = catalogDoc.data() as CatalogShow;
-        if (catalog.releaseDate && catalog.releaseDate >= today) {
-          eps.push({
-            tmdbShowId: Number(d.id),
-            showTitle: catalog.title ?? "",
-            posterPath: catalog.posterPath ?? null,
-            season: 0,
-            episode: 0,
-            episodeTitle: catalog.title ?? "",
-            airDate: catalog.releaseDate,
-            runtime: catalog.runtime ?? null,
-            mediaType: MediaType.MOVIE,
-          });
-        }
-      }
-
-      eps.sort((a, b) => a.airDate.localeCompare(b.airDate));
+        .map((d) => d.data() as UpcomingEpisode)
+        .sort((a, b) => a.airDate.localeCompare(b.airDate));
 
       setEpisodes(eps);
       setIsLoading(false);

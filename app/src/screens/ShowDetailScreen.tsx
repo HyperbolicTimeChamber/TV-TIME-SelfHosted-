@@ -87,19 +87,21 @@ export default function ShowDetailScreen() {
       const isUnreleased =
         mediaType === MediaType.MOVIE && releaseDate && releaseDate > today;
 
+      if (isUnreleased) {
+        const shouldShow = await shouldShowUnreleasedModal(user.uid);
+        if (shouldShow) {
+          setUnreleasedModal({ title: show.title || show.name || "" });
+        }
+      }
+
       await addToTracking(
         user.uid,
         tmdbId,
         mediaType,
         isUnreleased ? releaseDate : null,
       );
-      addShowToUpcoming(tmdbId);
-
-      if (isUnreleased) {
-        const shouldShow = await shouldShowUnreleasedModal(user.uid);
-        if (shouldShow) {
-          setUnreleasedModal({ title: show.title || show.name || "" });
-        }
+      if (!isUnreleased) {
+        addShowToUpcoming(tmdbId);
       }
     } catch (err: any) {
       console.error("addToTracking failed:", err);

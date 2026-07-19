@@ -39,7 +39,7 @@ export function UnreleasedMovieModal({ visible, onClose, movieTitle }: Props) {
         <Text style={styles.title}>Added to Watchlist</Text>
         <Text style={styles.body}>
           {movieTitle} hasn't released yet. It will appear on your watchlist
-          when it airs. Check the Upcoming or Calendar tab to confirm.
+          when it airs.
         </Text>
         <TouchableOpacity
           style={styles.checkbox}
