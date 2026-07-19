@@ -130,9 +130,10 @@ export async function addToTracking(
     } catch {}
   }
 
-  // Create local tracking doc
+  // Batch tracking doc + user stats in single write
+  const batch = writeBatch(db);
   const tRef = doc(trackingRef(userId), String(tmdbId));
-  await setDoc(tRef, {
+  batch.set(tRef, {
     tmdbId,
     mediaType,
     status: WatchStatus.WATCHING,
@@ -145,15 +146,12 @@ export async function addToTracking(
     priorityDate,
     ...(mediaType === MediaType.MOVIE && releaseDate ? { releaseDate } : {}),
   });
-
-  // Update user stats
-  await setDoc(
+  batch.set(
     userRef(userId),
-    {
-      stats: { showsTracking: increment(1) },
-    },
+    { stats: { showsTracking: increment(1) } },
     { merge: true },
   );
+  await batch.commit();
 }
 
 export async function removeFromTracking(
