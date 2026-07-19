@@ -34,6 +34,7 @@ export {
   getShowDetails,
   getSeasonDetails,
   discoverTVByAirDate,
+  discoverMoviesByReleaseDate,
   pooled,
 } from "./tmdb";
 

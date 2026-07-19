@@ -9,7 +9,7 @@ import {
   where,
 } from "@react-native-firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { discoverTVByAirDate, getShowDetails } from "../services";
+import { discoverTVByAirDate, discoverMoviesByReleaseDate } from "../services";
 import { useAuthStore } from "../stores";
 import { UpcomingEpisode, CatalogShow, MediaType } from "../types";
 
@@ -49,7 +49,7 @@ export function useCalendarEpisodes(userId: string | undefined) {
   >(new Map());
   const [loading, setLoading] = useState(false);
   const trackedIds = useRef<Set<string> | null>(null);
-  const movieDocs = useRef<Array<{ tmdbId: number; releaseDate: string; title?: string; posterPath?: string | null }>>([]);
+  const trackedMovieIds = useRef<Set<string> | null>(null);
   const calendarCacheRef = useRef<CalendarCache>({ months: {} });
   const cacheLoaded = useRef(false);
   const apiKey = useAuthStore((s) => s.appTmdbApiKey);
@@ -61,7 +61,6 @@ export function useCalendarEpisodes(userId: string | undefined) {
     // Load calendar cache
     loadCalendarCache().then((cache) => {
       calendarCacheRef.current = cache;
-      // Restore cached months into state
       const restored = new Map<string, UpcomingEpisode[]>();
       for (const [key, eps] of Object.entries(cache.months)) {
         restored.set(key, eps);
@@ -70,21 +69,14 @@ export function useCalendarEpisodes(userId: string | undefined) {
       cacheLoaded.current = true;
     });
 
-    // Load tracked IDs
+    // Load tracked IDs (TV + movies)
     const db = getFirestore();
     const trackingCol = collection(doc(db, "users", userId), "tracking");
     getDocs(query(trackingCol, where("mediaType", "==", MediaType.TV))).then(
       (snap) => { trackedIds.current = new Set(snap.docs.map((d) => d.id)); },
     );
     getDocs(query(trackingCol, where("mediaType", "==", MediaType.MOVIE))).then(
-      (snap) => {
-        movieDocs.current = snap.docs
-          .map((d) => {
-            const data = d.data() as any;
-            return { tmdbId: data.tmdbId, releaseDate: data.releaseDate || null, title: data.title, posterPath: data.posterPath };
-          })
-          .filter((m) => m.releaseDate);
-      },
+      (snap) => { trackedMovieIds.current = new Set(snap.docs.map((d) => d.id)); },
     );
   }, [userId]);
 
@@ -165,35 +157,26 @@ export function useCalendarEpisodes(userId: string | undefined) {
           if (!seen.has(key)) { episodes.push(ep); seen.add(key); }
         }
 
-        // 4. Add tracked movies releasing this month — fetch title from TMDB if missing
-        for (const movie of movieDocs.current) {
-          if (movie.releaseDate < startDate || movie.releaseDate > endDate) continue;
-          const movieKey = `movie_${movie.tmdbId}`;
-          if (seen.has(movieKey)) continue;
-
-          let title = movie.title || null;
-          let posterPath = movie.posterPath || null;
-          if (!title) {
-            try {
-              const details = await getShowDetails(apiKey, movie.tmdbId, "movie");
-              title = details.title || details.name || null;
-              posterPath = details.poster_path || posterPath;
-            } catch {}
+        // 4. Discover movies releasing this month from TMDB → intersect with tracked
+        if (trackedMovieIds.current && trackedMovieIds.current.size > 0) {
+          const discoverMovies = await discoverMoviesByReleaseDate(apiKey, startDate, endDate);
+          for (const movie of discoverMovies) {
+            if (!trackedMovieIds.current.has(String(movie.id))) continue;
+            const movieKey = `movie_${movie.id}`;
+            if (seen.has(movieKey)) continue;
+            episodes.push({
+              tmdbShowId: movie.id,
+              showTitle: movie.title,
+              posterPath: movie.poster_path,
+              season: 0,
+              episode: 0,
+              episodeTitle: movie.title,
+              airDate: movie.release_date,
+              runtime: null,
+              mediaType: MediaType.MOVIE,
+            });
+            seen.add(movieKey);
           }
-          title = title || `Movie #${movie.tmdbId}`;
-
-          episodes.push({
-            tmdbShowId: movie.tmdbId,
-            showTitle: title,
-            posterPath,
-            season: 0,
-            episode: 0,
-            episodeTitle: title,
-            airDate: movie.releaseDate,
-            runtime: null,
-            mediaType: MediaType.MOVIE,
-          });
-          seen.add(movieKey);
         }
 
         // Update state + persist to cache
