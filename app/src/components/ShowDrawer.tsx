@@ -76,9 +76,11 @@ export default function ShowDrawer({
 		}).start(() => onCloseRef.current());
 	};
 
+	const scrollOffset = useRef(0);
 	const panResponder = useRef(
 		PanResponder.create({
-			onMoveShouldSetPanResponder: (_, g) => g.dy > 10,
+			onMoveShouldSetPanResponderCapture: (_, g) =>
+				g.dy > 10 && scrollOffset.current <= 0,
 			onPanResponderMove: (_, g) => {
 				if (g.dy > 0) translateY.setValue(g.dy);
 			},
@@ -143,7 +145,11 @@ export default function ShowDrawer({
 						<>
 							<ScrollView
 								style={styles.scroll}
-								showsVerticalScrollIndicator={false}>
+								showsVerticalScrollIndicator={false}
+								scrollEventThrottle={16}
+								onScroll={(e) => {
+									scrollOffset.current = e.nativeEvent.contentOffset.y;
+								}}>
 								<View>
 									<Image
 										source={{
