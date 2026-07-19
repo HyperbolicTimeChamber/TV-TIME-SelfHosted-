@@ -78,10 +78,13 @@ export default function ShowDrawer({
 
 	const panResponder = useRef(
 		PanResponder.create({
-			onStartShouldSetPanResponder: () => true,
-			onMoveShouldSetPanResponder: (_, g) => g.dy > 10,
+			onStartShouldSetPanResponder: () => false,
+			onMoveShouldSetPanResponder: (_, g) =>
+				g.dy > 5 && Math.abs(g.dy) > Math.abs(g.dx),
+			onMoveShouldSetPanResponderCapture: (_, g) =>
+				g.dy > 5 && Math.abs(g.dy) > Math.abs(g.dx),
 			onPanResponderMove: (_, g) => {
-				if (g.dy > 0) translateY.setValue(g.dy);
+				if (g.dy >= 0) translateY.setValue(g.dy);
 			},
 			onPanResponderRelease: (_, g) => {
 				if (g.dy > DISMISS_THRESHOLD || g.vy > 0.5) {
