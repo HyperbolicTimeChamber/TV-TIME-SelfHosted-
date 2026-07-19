@@ -10,6 +10,7 @@ import {
   serverTimestamp,
   increment,
   Timestamp,
+  arrayUnion,
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { WatchStatus, MediaType, CatalogShow } from "../types";
@@ -94,33 +95,83 @@ export async function addToTracking(
   mediaType: MediaType,
   releaseDate?: string | null,
 ): Promise<void> {
-  const functions = getFunctions();
+  const showId = String(tmdbId);
+  const showRef = doc(db, "shows", showId);
 
-  // Call addShow CF (handles catalog population)
+  // Fast path: check if catalog doc already exists
+  const catalogDoc = await getDoc(showRef);
+
+  if (catalogDoc.exists()) {
+    // Catalog exists — skip CF, just update trackedBy client-side
+    const catalogData = catalogDoc.data() as any;
+
+    // Add user to trackedBy
+    await updateDoc(showRef, {
+      trackedBy: arrayUnion(userId),
+      trackedByCount: increment(1),
+    });
+
+    // Get ep1 info for TV shows
+    let nextEpisodeName: string | null = null;
+    let nextEpisodeAirDate: string | null = null;
+    if (mediaType === MediaType.TV) {
+      const s1 = catalogData?.seasons?.find((s: any) => s.seasonNumber === 1);
+      const ep1 = s1?.episodes?.find((e: any) => e.episodeNumber === 1);
+      if (ep1) {
+        nextEpisodeName = ep1.title || null;
+        nextEpisodeAirDate = ep1.airDate || null;
+      }
+    }
+
+    // Determine priorityDate
+    let priorityDate: any = serverTimestamp();
+    if (mediaType === MediaType.MOVIE && releaseDate) {
+      const releaseDateMs = new Date(releaseDate).getTime();
+      if (releaseDateMs > Date.now()) {
+        priorityDate = Timestamp.fromMillis(releaseDateMs);
+      }
+    }
+
+    // Batch tracking doc + stats
+    const batch = writeBatch(db);
+    batch.set(doc(trackingRef(userId), showId), {
+      tmdbId,
+      mediaType,
+      status: WatchStatus.WATCHING,
+      nextEpisode: mediaType === MediaType.TV ? { season: 1, episode: 1 } : null,
+      nextEpisodeName,
+      nextEpisodeAirDate,
+      rewatchCount: 0,
+      addedAt: serverTimestamp(),
+      lastWatchedAt: serverTimestamp(),
+      priorityDate,
+      ...(mediaType === MediaType.MOVIE && releaseDate ? { releaseDate } : {}),
+    });
+    batch.set(
+      userRef(userId),
+      { stats: { showsTracking: increment(1) } },
+      { merge: true },
+    );
+    await batch.commit();
+    return;
+  }
+
+  // Slow path: catalog doesn't exist — call CF to fetch from TMDB
   try {
-    await httpsCallable(functions, "addShow")({ tmdbId, mediaType });
+    await httpsCallable(getFunctions(), "addShow")({ tmdbId, mediaType });
   } catch (err: any) {
     throw new Error(getCallableErrorMessage(err));
   }
 
-  // Determine priorityDate: use releaseDate if movie is unreleased
-  let priorityDate: any = serverTimestamp();
-  if (mediaType === MediaType.MOVIE && releaseDate) {
-    const releaseDateMs = new Date(releaseDate).getTime();
-    if (releaseDateMs > Date.now()) {
-      priorityDate = Timestamp.fromMillis(releaseDateMs);
-    }
-  }
-
-  // For TV shows, fetch episode 1 name from catalog
+  // After CF, catalog doc now exists — read ep1 info
   let nextEpisodeName: string | null = null;
   let nextEpisodeAirDate: string | null = null;
   if (mediaType === MediaType.TV) {
     try {
-      const catalogDoc = await getDoc(doc(db, "shows", String(tmdbId)));
-      if (catalogDoc.exists()) {
-        const catalogData = catalogDoc.data() as any;
-        const s1 = catalogData?.seasons?.find((s: any) => s.seasonNumber === 1);
+      const newCatalog = await getDoc(showRef);
+      if (newCatalog.exists()) {
+        const data = newCatalog.data() as any;
+        const s1 = data?.seasons?.find((s: any) => s.seasonNumber === 1);
         const ep1 = s1?.episodes?.find((e: any) => e.episodeNumber === 1);
         if (ep1) {
           nextEpisodeName = ep1.title || null;
@@ -130,10 +181,16 @@ export async function addToTracking(
     } catch {}
   }
 
-  // Batch tracking doc + user stats in single write
+  let priorityDate: any = serverTimestamp();
+  if (mediaType === MediaType.MOVIE && releaseDate) {
+    const releaseDateMs = new Date(releaseDate).getTime();
+    if (releaseDateMs > Date.now()) {
+      priorityDate = Timestamp.fromMillis(releaseDateMs);
+    }
+  }
+
   const batch = writeBatch(db);
-  const tRef = doc(trackingRef(userId), String(tmdbId));
-  batch.set(tRef, {
+  batch.set(doc(trackingRef(userId), showId), {
     tmdbId,
     mediaType,
     status: WatchStatus.WATCHING,
