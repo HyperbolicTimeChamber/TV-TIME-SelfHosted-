@@ -70,15 +70,24 @@ export async function addToTracking(
   userId: string,
   tmdbId: number,
   mediaType: MediaType,
+  releaseDate?: string | null,
 ): Promise<void> {
   const functions = getFunctions();
-  const now = serverTimestamp();
 
   // Call addShow CF (handles catalog population)
   try {
     await httpsCallable(functions, "addShow")({ tmdbId, mediaType });
   } catch (err: any) {
     throw new Error(getCallableErrorMessage(err));
+  }
+
+  // Determine priorityDate: use releaseDate if movie is unreleased
+  let priorityDate: any = serverTimestamp();
+  if (mediaType === MediaType.MOVIE && releaseDate) {
+    const releaseDateMs = new Date(releaseDate).getTime();
+    if (releaseDateMs > Date.now()) {
+      priorityDate = Timestamp.fromMillis(releaseDateMs);
+    }
   }
 
   // Create local tracking doc
@@ -90,9 +99,9 @@ export async function addToTracking(
     nextEpisode: mediaType === MediaType.TV ? { season: 1, episode: 1 } : null,
     nextEpisodeName: null,
     rewatchCount: 0,
-    addedAt: now,
-    lastWatchedAt: now,
-    priorityDate: now,
+    addedAt: serverTimestamp(),
+    lastWatchedAt: serverTimestamp(),
+    priorityDate,
   });
 
   // Update user stats
