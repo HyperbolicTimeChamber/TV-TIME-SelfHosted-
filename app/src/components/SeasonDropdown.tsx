@@ -8,7 +8,8 @@ import {
   Alert,
 } from "react-native";
 import { Image } from "expo-image";
-import { useSeasonDetails, useShowWatchedEpisodes } from "../hooks";
+import { useQueryClient } from "@tanstack/react-query";
+import { useSeasonDetails, useShowWatchedEpisodes, useUpcomingMutations } from "../hooks";
 import { useAuthStore } from "../stores";
 import {
   markEpisodeWatched,
@@ -69,6 +70,8 @@ export default memo(function SeasonDropdown({
   const [marking, setMarking] = useState<number | null>(null);
   const [markingSeason, setMarkingSeason] = useState(false);
   const user = useAuthStore((s) => s.user);
+  const queryClient = useQueryClient();
+  const { mutateCachedUpcoming, rollbackUpcoming } = useUpcomingMutations();
   const apiKey = useAuthStore((s) => s.appTmdbApiKey)!;
   const {
     data: seasonData,
@@ -205,6 +208,7 @@ export default memo(function SeasonDropdown({
               episode: nextInSeason.episode_number,
             },
             nextEpisodeName: nextInSeason.name || null,
+            nextEpisodeAirDate: nextInSeason.air_date || null,
             isComplete: false,
           };
         }
@@ -216,17 +220,18 @@ export default memo(function SeasonDropdown({
           afterSeason + 1,
         );
         const ns = nextSeasonData as {
-          episodes: Array<{ episode_number: number; name?: string }>;
+          episodes: Array<{ episode_number: number; name?: string; air_date?: string }>;
         };
         if (ns.episodes?.length > 0) {
           return {
             nextEpisode: { season: afterSeason + 1, episode: 1 },
             nextEpisodeName: ns.episodes[0].name || null,
+            nextEpisodeAirDate: ns.episodes[0].air_date || null,
             isComplete: false,
           };
         }
       } catch {}
-      return { nextEpisode: null, nextEpisodeName: null, isComplete: true };
+      return { nextEpisode: null, nextEpisodeName: null, nextEpisodeAirDate: null, isComplete: true };
     },
     [seasonData, apiKey, tmdbId],
   );
@@ -238,7 +243,7 @@ export default memo(function SeasonDropdown({
 
     setMarkingSeason(true);
     try {
-      const { nextEpisode, nextEpisodeName, isComplete } =
+      const { nextEpisode, nextEpisodeName, nextEpisodeAirDate, isComplete } =
         await getNextEpisodeInfo(season.season_number);
 
       await markSeasonWatchedCF(
@@ -252,7 +257,9 @@ export default memo(function SeasonDropdown({
         nextEpisode,
         isComplete,
         nextEpisodeName,
+        nextEpisodeAirDate,
       );
+      queryClient.invalidateQueries({ queryKey: ["watchedEpisodes", user.uid] });
     } catch (err: any) {
       console.error("markSeasonWatched failed:", err);
       Alert.alert("Error", err.message || "Failed to mark season as watched.");
@@ -279,8 +286,20 @@ export default memo(function SeasonDropdown({
       if (!user?.uid || marking !== null) return;
       setMarking(ep.episode_number);
 
+      // Optimistic upcoming update
+      const snapshot = mutateCachedUpcoming((prev) =>
+        prev.filter(
+          (e) =>
+            !(
+              e.tmdbShowId === tmdbId &&
+              e.season === season.season_number &&
+              e.episode === ep.episode_number
+            ),
+        ),
+      );
+
       try {
-        const { nextEpisode, nextEpisodeName, isComplete } =
+        const { nextEpisode, nextEpisodeName, nextEpisodeAirDate, isComplete } =
           await getNextEpisodeInfo(season.season_number, ep.episode_number);
 
         await markEpisodeWatched(
@@ -294,8 +313,11 @@ export default memo(function SeasonDropdown({
           isComplete,
           false,
           nextEpisodeName,
+          nextEpisodeAirDate,
         );
+        queryClient.invalidateQueries({ queryKey: ["watchedEpisodes", user.uid] });
       } catch (err: any) {
+        rollbackUpcoming(snapshot);
         console.error("markEpisodeWatched failed:", err);
         Alert.alert(
           "Error",
@@ -305,7 +327,7 @@ export default memo(function SeasonDropdown({
         setMarking(null);
       }
     },
-    [user?.uid, marking, tmdbId, season.season_number, getNextEpisodeInfo],
+    [user?.uid, marking, tmdbId, season.season_number, getNextEpisodeInfo, queryClient, mutateCachedUpcoming, rollbackUpcoming],
   );
 
   const handleMarkWatched = useCallback(
@@ -381,6 +403,7 @@ export default memo(function SeasonDropdown({
             }
           }
         }
+        queryClient.invalidateQueries({ queryKey: ["watchedEpisodes", user.uid] });
       } catch (err: any) {
         console.error("Watch action failed:", err);
         Alert.alert("Error", err.message || "Action failed.");
@@ -396,6 +419,7 @@ export default memo(function SeasonDropdown({
       watchedMap,
       handleMarkWatched,
       handleMarkSeasonWatched,
+      queryClient,
     ],
   );
 
@@ -415,9 +439,9 @@ export default memo(function SeasonDropdown({
       try {
         for (const ep of epsToMark) {
           const isLast = ep.episode_number === toEp;
-          const { nextEpisode, nextEpisodeName, isComplete } = isLast
+          const { nextEpisode, nextEpisodeName, nextEpisodeAirDate, isComplete } = isLast
             ? await getNextEpisodeInfo(season.season_number, ep.episode_number)
-            : { nextEpisode: null, nextEpisodeName: null, isComplete: false };
+            : { nextEpisode: null, nextEpisodeName: null, nextEpisodeAirDate: null, isComplete: false };
 
           await markEpisodeWatched(
             user.uid,
@@ -430,8 +454,10 @@ export default memo(function SeasonDropdown({
             isComplete,
             !isLast, // skipTrackingUpdate for all except last
             nextEpisodeName,
+            nextEpisodeAirDate,
           );
         }
+        queryClient.invalidateQueries({ queryKey: ["watchedEpisodes", user.uid] });
       } catch (err: any) {
         console.error("markEpisodeRange failed:", err);
         Alert.alert("Error", err.message || "Failed to mark episodes.");

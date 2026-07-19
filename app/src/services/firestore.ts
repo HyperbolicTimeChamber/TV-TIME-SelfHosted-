@@ -3,6 +3,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   setDoc,
   updateDoc,
   writeBatch,
@@ -45,6 +46,27 @@ export async function getCatalogShow(
   const showDoc = await getDoc(doc(db, "shows", String(tmdbId)));
   if (!showDoc.exists()) return null;
   return { id: showDoc.id, ...showDoc.data() } as unknown as CatalogShow;
+}
+
+export async function getHighestWatchedEpisode(
+  userId: string,
+  tmdbShowId: number,
+): Promise<{ season: number; episode: number } | null> {
+  const epCol = watchedEpisodesRef(userId);
+  const snap = await getDocs(epCol);
+  let highest: { season: number; episode: number } | null = null;
+  for (const d of snap.docs) {
+    const data = d.data();
+    if (data.tmdbShowId !== tmdbShowId) continue;
+    if (
+      !highest ||
+      data.season > highest.season ||
+      (data.season === highest.season && data.episode > highest.episode)
+    ) {
+      highest = { season: data.season, episode: data.episode };
+    }
+  }
+  return highest;
 }
 
 // --- Error helpers ---
@@ -90,6 +112,24 @@ export async function addToTracking(
     }
   }
 
+  // For TV shows, fetch episode 1 name from catalog
+  let nextEpisodeName: string | null = null;
+  let nextEpisodeAirDate: string | null = null;
+  if (mediaType === MediaType.TV) {
+    try {
+      const catalogDoc = await getDoc(doc(db, "shows", String(tmdbId)));
+      if (catalogDoc.exists()) {
+        const catalogData = catalogDoc.data() as any;
+        const s1 = catalogData?.seasons?.find((s: any) => s.seasonNumber === 1);
+        const ep1 = s1?.episodes?.find((e: any) => e.episodeNumber === 1);
+        if (ep1) {
+          nextEpisodeName = ep1.title || null;
+          nextEpisodeAirDate = ep1.airDate || null;
+        }
+      }
+    } catch {}
+  }
+
   // Create local tracking doc
   const tRef = doc(trackingRef(userId), String(tmdbId));
   await setDoc(tRef, {
@@ -97,7 +137,8 @@ export async function addToTracking(
     mediaType,
     status: WatchStatus.WATCHING,
     nextEpisode: mediaType === MediaType.TV ? { season: 1, episode: 1 } : null,
-    nextEpisodeName: null,
+    nextEpisodeName,
+    nextEpisodeAirDate,
     rewatchCount: 0,
     addedAt: serverTimestamp(),
     lastWatchedAt: serverTimestamp(),
@@ -205,6 +246,7 @@ export async function markEpisodeWatched(
       priorityDate: effectivePriority,
       nextEpisode,
       nextEpisodeName,
+      nextEpisodeAirDate: nextEpisodeAirDate ?? null,
     };
     if (isShowComplete) {
       trackingUpdate.status = WatchStatus.COMPLETED;
@@ -222,6 +264,7 @@ export async function unmarkEpisodeWatched(
   episode: number,
   runtime: number,
   episodeName?: string | null,
+  nextEpisodeAirDate?: string | null,
 ) {
   const docId = episodeDocId(tmdbShowId, season, episode);
   const epRef = doc(watchedEpisodesRef(userId), docId);
@@ -242,6 +285,7 @@ export async function unmarkEpisodeWatched(
   batch.update(doc(trackingRef(userId), String(tmdbShowId)), {
     nextEpisode: { season, episode },
     nextEpisodeName: episodeName || null,
+    nextEpisodeAirDate: nextEpisodeAirDate || null,
     status: WatchStatus.WATCHING,
     priorityDate: Timestamp.now(),
   });
@@ -256,6 +300,7 @@ export async function decrementEpisodeWatchCount(
   runtime: number,
   currentWatchCount: number,
   episodeName?: string | null,
+  nextEpisodeAirDate?: string | null,
 ) {
   const docId = episodeDocId(tmdbShowId, season, episode);
   const epRef = doc(watchedEpisodesRef(userId), docId);
@@ -286,6 +331,7 @@ export async function decrementEpisodeWatchCount(
     batch.update(doc(trackingRef(userId), String(tmdbShowId)), {
       nextEpisode: { season, episode },
       nextEpisodeName: episodeName || null,
+      nextEpisodeAirDate: nextEpisodeAirDate || null,
       status: WatchStatus.WATCHING,
       priorityDate: Timestamp.now(),
     });
@@ -444,6 +490,7 @@ export async function markSeasonWatchedCF(
   nextEpisode: { season: number; episode: number } | null,
   isShowComplete: boolean,
   nextEpisodeName: string | null = null,
+  nextEpisodeAirDate: string | null = null,
 ): Promise<void> {
   const functions = getFunctions();
   try {
@@ -456,6 +503,7 @@ export async function markSeasonWatchedCF(
       episodes,
       nextEpisode,
       nextEpisodeName,
+      nextEpisodeAirDate,
       isShowComplete,
     });
   } catch (err: any) {

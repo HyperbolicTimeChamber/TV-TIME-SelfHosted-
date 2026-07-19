@@ -149,6 +149,9 @@ export function useUpcomingEpisodes(userId: string | undefined) {
   return { data: episodes, isLoading, error, retry };
 }
 
+// Snapshot holder for optimistic rollbacks
+let lastSnapshot: UpcomingEpisode[] | null = null;
+
 export function useUpcomingMutations() {
   const addShowToUpcoming = useCallback((_tmdbId: number) => {
     // CF populates subcollection server-side; invalidate so next tab open refetches
@@ -166,5 +169,33 @@ export function useUpcomingMutations() {
     triggerInvalidate();
   }, []);
 
-  return { addShowToUpcoming, removeShowFromUpcoming, invalidateUpcoming };
+  /** Optimistic mutation with snapshot for rollback. Returns prev state. */
+  const mutateCachedUpcoming = useCallback(
+    (fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[]): UpcomingEpisode[] => {
+      let snapshot: UpcomingEpisode[] = [];
+      mutateCachedEpisodes((prev) => {
+        snapshot = prev;
+        lastSnapshot = prev;
+        return fn(prev);
+      });
+      return snapshot;
+    },
+    [],
+  );
+
+  /** Rollback to a previous snapshot */
+  const rollbackUpcoming = useCallback(
+    (snapshot: UpcomingEpisode[]) => {
+      mutateCachedEpisodes(() => snapshot);
+    },
+    [],
+  );
+
+  return {
+    addShowToUpcoming,
+    removeShowFromUpcoming,
+    invalidateUpcoming,
+    mutateCachedUpcoming,
+    rollbackUpcoming,
+  };
 }

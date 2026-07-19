@@ -26,11 +26,18 @@ import {
   useTrackedIds,
   useUpcomingMutations,
 } from "../hooks";
+import {
+  getFirestore,
+  doc,
+  updateDoc,
+} from "@react-native-firebase/firestore";
 import { useAuthStore } from "../stores";
 import {
   addToTracking,
   removeFromTracking,
   markMovieWatched,
+  getHighestWatchedEpisode,
+  getCatalogShow,
 } from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { TMDBShow, SearchStackParamList, MediaType, Route } from "../types";
@@ -44,10 +51,15 @@ export default function SearchScreen() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [mediaFilter, setMediaFilter] = useState<"all" | "tv" | "movie">("all");
+  const [typingLoading, setTypingLoading] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query), 100);
+    if (query.length > 0) setTypingLoading(true);
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query);
+      setTypingLoading(false);
+    }, 300);
     return () => clearTimeout(timer);
   }, [query]);
 
@@ -72,6 +84,13 @@ export default function SearchScreen() {
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [unreleasedModal, setUnreleasedModal] = useState<{
     title: string;
+  } | null>(null);
+  const [resumeModal, setResumeModal] = useState<{
+    item: TMDBShow;
+    highestEp: { season: number; episode: number };
+    nextEp: { season: number; episode: number };
+    nextEpName: string | null;
+    nextEpAirDate: string | null;
   } | null>(null);
   const { addShowToUpcoming, removeShowFromUpcoming } = useUpcomingMutations();
 
@@ -122,6 +141,33 @@ export default function SearchScreen() {
 
         // Released movie — show add/add+watch modal
         setMovieModal(item);
+        return;
+      }
+
+      // Check for existing watch history (re-add case)
+      const highestEp = await getHighestWatchedEpisode(user.uid!, item.id);
+      if (highestEp) {
+        // Show resume modal
+        const catalog = await getCatalogShow(item.id);
+        let nextEp: { season: number; episode: number } = { season: highestEp.season, episode: highestEp.episode + 1 };
+        let nextEpName: string | null = null;
+        let nextEpAirDate: string | null = null;
+        if (catalog) {
+          const catalogSeason = catalog.seasons?.find((s) => s.seasonNumber === highestEp.season);
+          const nextInSeason = catalogSeason?.episodes?.find((e) => e.episodeNumber === highestEp.episode + 1);
+          if (nextInSeason) {
+            nextEpName = nextInSeason.title || null;
+            nextEpAirDate = nextInSeason.airDate || null;
+          } else {
+            const nextCatalogSeason = catalog.seasons?.find((s) => s.seasonNumber === highestEp.season + 1);
+            if (nextCatalogSeason && nextCatalogSeason.episodes.length > 0) {
+              nextEp = { season: highestEp.season + 1, episode: 1 };
+              nextEpName = nextCatalogSeason.episodes[0].title || null;
+              nextEpAirDate = nextCatalogSeason.episodes[0].airDate || null;
+            }
+          }
+        }
+        setResumeModal({ item, highestEp, nextEp, nextEpName, nextEpAirDate });
         return;
       }
 
@@ -177,6 +223,33 @@ export default function SearchScreen() {
     });
   }, [user?.uid, movieModal, withLoadingId]);
 
+  const handleResumeFromWhere = useCallback(async () => {
+    if (!user?.uid || !resumeModal) return;
+    const { item, nextEp, nextEpName, nextEpAirDate } = resumeModal;
+    setResumeModal(null);
+    await withLoadingId(item.id, async () => {
+      await addToTracking(user.uid!, item.id, MediaType.TV);
+      // Update tracking doc to resume position
+      const db = getFirestore();
+      await updateDoc(doc(db, "users", user.uid!, "tracking", String(item.id)), {
+        nextEpisode: nextEp,
+        nextEpisodeName: nextEpName,
+        nextEpisodeAirDate: nextEpAirDate,
+      });
+      addShowToUpcoming(item.id);
+    });
+  }, [user?.uid, resumeModal, withLoadingId, addShowToUpcoming]);
+
+  const handleStartFresh = useCallback(async () => {
+    if (!user?.uid || !resumeModal) return;
+    const item = resumeModal.item;
+    setResumeModal(null);
+    await withLoadingId(item.id, async () => {
+      await addToTracking(user.uid!, item.id, MediaType.TV);
+      addShowToUpcoming(item.id);
+    });
+  }, [user?.uid, resumeModal, withLoadingId, addShowToUpcoming]);
+
   const {
     data: searchData,
     isLoading: searchLoading,
@@ -194,7 +267,8 @@ export default function SearchScreen() {
 
   const displayData =
     debouncedQuery.length > 0 ? searchData?.results : filteredTrending;
-  const isLoading = debouncedQuery.length > 0 ? searchLoading : trendingLoading;
+  const isLoading =
+    typingLoading || (debouncedQuery.length > 0 ? searchLoading : trendingLoading);
 
   const handlePress = useCallback(
     (item: TMDBShow) => {
@@ -348,6 +422,10 @@ export default function SearchScreen() {
         <View style={styles.center}>
           <LoadingSpinner />
         </View>
+      ) : !isLoading && debouncedQuery.length > 0 && (!displayData || displayData.length === 0) ? (
+        <View style={styles.center}>
+          <Text style={styles.emptyText}>No results found</Text>
+        </View>
       ) : (
         <LegendList
           data={displayData || []}
@@ -411,6 +489,37 @@ export default function SearchScreen() {
         onClose={() => setUnreleasedModal(null)}
         movieTitle={unreleasedModal?.title ?? ""}
       />
+
+      <AnimatedModal visible={!!resumeModal} onClose={() => setResumeModal(null)}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>
+            {resumeModal?.item?.name || resumeModal?.item?.title}
+          </Text>
+          <Text style={[styles.modalCancelText, { marginBottom: spacing.lg, textAlign: "center" }]}>
+            You've previously watched up to S{String(resumeModal?.highestEp?.season).padStart(2, "0")}E{String(resumeModal?.highestEp?.episode).padStart(2, "0")}
+          </Text>
+          <TouchableOpacity
+            style={styles.modalButton}
+            onPress={handleResumeFromWhere}
+          >
+            <Text style={styles.modalButtonText}>
+              Resume from S{String(resumeModal?.nextEp?.season).padStart(2, "0")}E{String(resumeModal?.nextEp?.episode).padStart(2, "0")}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modalButton, { backgroundColor: colors.surfaceLight }]}
+            onPress={handleStartFresh}
+          >
+            <Text style={styles.modalButtonText}>Start from Beginning</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.modalCancel}
+            onPress={() => setResumeModal(null)}
+          >
+            <Text style={styles.modalCancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </AnimatedModal>
     </View>
   );
 }
@@ -596,5 +705,9 @@ const styles = StyleSheet.create({
   modalCancelText: {
     ...typography.caption,
     color: colors.textMuted,
+  },
+  emptyText: {
+    ...typography.subtitle,
+    color: colors.textSecondary,
   },
 });

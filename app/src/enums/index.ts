@@ -26,6 +26,7 @@ export enum CacheKey {
   UPCOMING_BUILT = "upcoming_subcollection_built",
   USER_STATS = "profile_stats_cache",
   HIDE_UNRELEASED_MODAL = "hideUnreleasedMovieModal",
+  IMPORT_IN_PROGRESS = "import_in_progress",
 }
 
 export enum Route {

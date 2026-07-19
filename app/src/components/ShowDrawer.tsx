@@ -78,8 +78,7 @@ export default function ShowDrawer({
 
 	const panResponder = useRef(
 		PanResponder.create({
-			onStartShouldSetPanResponder: () => true,
-			onMoveShouldSetPanResponder: (_, g) => g.dy > 5,
+			onMoveShouldSetPanResponder: (_, g) => g.dy > 10,
 			onPanResponderMove: (_, g) => {
 				if (g.dy > 0) translateY.setValue(g.dy);
 			},
@@ -126,12 +125,12 @@ export default function ShowDrawer({
 					activeOpacity={1}
 					onPress={handleClose}
 				/>
-				<Animated.View style={[styles.drawer, { transform: [{ translateY }] }]}>
+				<Animated.View
+					{...panResponder.panHandlers}
+					style={[styles.drawer, { transform: [{ translateY }] }]}>
 					{loading ? (
 						<>
-							<View
-								{...panResponder.panHandlers}
-								style={styles.handleAreaStatic}>
+							<View style={styles.handleAreaStatic}>
 								<View style={styles.handle} />
 							</View>
 							<ActivityIndicator
@@ -153,10 +152,7 @@ export default function ShowDrawer({
 										style={styles.backdrop}
 										contentFit="cover"
 									/>
-									<View
-										{...panResponder.panHandlers}
-										style={styles.handleArea}
-										pointerEvents="box-only">
+									<View style={styles.handleArea}>
 										<View style={styles.handle} />
 									</View>
 								</View>
@@ -201,11 +197,6 @@ export default function ShowDrawer({
 									</Text>
 								</TouchableOpacity>
 							)}
-							<TouchableOpacity
-								style={styles.closeButton}
-								onPress={handleClose}>
-								<Text style={styles.closeText}>Close</Text>
-							</TouchableOpacity>
 						</>
 					) : null}
 				</Animated.View>
@@ -310,17 +301,5 @@ const styles = StyleSheet.create({
 		...typography.subtitle,
 		fontSize: 14,
 		color: colors.text,
-	},
-	closeButton: {
-		alignItems: "center",
-		paddingVertical: spacing.md,
-		marginHorizontal: spacing.lg,
-		borderRadius: 8,
-		backgroundColor: colors.surfaceLight,
-	},
-	closeText: {
-		...typography.subtitle,
-		fontSize: 14,
-		color: colors.textSecondary,
 	},
 });

@@ -1,6 +1,7 @@
 // firestore
 export {
   getCatalogShow,
+  getHighestWatchedEpisode,
   getCallableErrorMessage,
   addToTracking,
   removeFromTracking,
