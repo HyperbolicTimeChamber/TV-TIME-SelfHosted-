@@ -127,6 +127,13 @@ export const importMatches = onCall(
       };
     }
 
+    // Pre-read existing tracking docs to avoid double-counting on re-import
+    const existingTrackingIds = new Set<string>();
+    const trackingSnap = await db.collection(`users/${uid}/tracking`).get();
+    for (const d of trackingSnap.docs) {
+      existingTrackingIds.add(d.id);
+    }
+
     // Build user tracking + watched data batch ops
     const batchOps: Array<() => Promise<void>> = [];
     let totalMinutes = 0;
@@ -199,7 +206,7 @@ export const importMatches = onCall(
         });
       });
 
-      if (match.mediaType === MediaType.TV) {
+      if (match.mediaType === MediaType.TV && !existingTrackingIds.has(showId)) {
         stats.showsImported++;
       }
 
@@ -252,7 +259,9 @@ export const importMatches = onCall(
             runtime: movieRuntime,
           });
         });
-        stats.moviesImported++;
+        if (!existingTrackingIds.has(showId)) {
+          stats.moviesImported++;
+        }
         totalMinutes += movieRuntime;
       }
     }

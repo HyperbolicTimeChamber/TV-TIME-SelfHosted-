@@ -127,7 +127,8 @@ function buildCardItem(item: EnrichedTrackingItem, today: string) {
     nextNextEpisodeName: nextNext?.title ?? null,
     nextNextEpisodeAirDate: nextNext?.airDate ?? null,
     nextNextEpisodeRuntime: nextNext?.runtime ?? 0,
-    isLastEpisode: nextEp != null && !nextNext,
+    // Only mark as last episode if catalog is available to confirm — prevents premature COMPLETED
+    isLastEpisode: nextEp != null && catalog != null && !nextNext,
   };
 }
 
@@ -234,11 +235,13 @@ export function useWatchlistData(userId: string | undefined) {
 
   const {
     episodes: watchedEps,
+    loading: watchedEpsLoading,
     loadMore: loadMoreEps,
     loadingMore: loadingMoreEps,
     hasMore: hasMoreEps,
   } = useWatchedEpisodes(userId);
-  const { movies: watchedMovies } = useWatchedMovies(userId);
+  const { movies: watchedMovies, loading: watchedMoviesLoading } =
+    useWatchedMovies(userId);
 
   const queryClient = useQueryClient();
   const { mutateCachedUpcoming, rollbackUpcoming, removeShowFromUpcoming } =
@@ -350,8 +353,10 @@ export function useWatchlistData(userId: string | undefined) {
     return items.slice(0, 5).reverse();
   }, [watchedEps, watchedMovies, showMap]);
 
+  const allLoading = loading || watchedEpsLoading || watchedMoviesLoading;
+
   const liveList: CacheableListItem[] = useMemo(() => {
-    if (loading) return [];
+    if (allLoading) return [];
     const result: CacheableListItem[] = [];
     if (prevWatchedItems.length > 0) {
       result.push({ type: "sectionHeader", title: "Previously Watched" });
@@ -388,11 +393,11 @@ export function useWatchlistData(userId: string | undefined) {
       }
     }
     return result;
-  }, [loading, prevWatchedItems, sortedActive, showMap, today]);
+  }, [allLoading, prevWatchedItems, sortedActive, showMap, today]);
 
   // --- Persist list cache when live data updates ---
   useEffect(() => {
-    if (!userId || loading || liveList.length === 0) return;
+    if (!userId || allLoading || liveList.length === 0) return;
     // Strip catalogShow from cards before caching
     const toCache = liveList.map((item) => {
       if (item.type === "show") {
@@ -406,12 +411,12 @@ export function useWatchlistData(userId: string | undefined) {
       JSON.stringify({ userId, date: todayStr(), list: toCache }),
     ).catch(() => {});
     if (cachedList) setCachedList(null);
-  }, [userId, loading, liveList]);
+  }, [userId, allLoading, liveList]);
 
   // --- Effective display: cached until live data ready ---
   const rawDisplayList =
     cachedList && liveList.length === 0 ? cachedList : liveList;
-  const effectiveLoading = reordering || (loading && !cachedList);
+  const effectiveLoading = reordering || (allLoading && !cachedList);
 
   // Apply optimistic card patches
   const displayList = useMemo(() => {
@@ -512,12 +517,15 @@ export function useWatchlistData(userId: string | undefined) {
     loadMoreTracking,
   ]);
 
-  const watchedItemCount = prevWatchedItems.length;
-
+  // Derive offset from actual display list (works with cache + live data)
   const prevWatchedOffset = useMemo(() => {
-    if (watchedItemCount === 0) return 0;
-    return 40 + watchedItemCount * 99;
-  }, [watchedItemCount]);
+    const watchedCount = displayList.filter(
+      (i) => i.type === "watchedEpisode" || i.type === "watchedMovie",
+    ).length;
+    if (watchedCount === 0) return 0;
+    // sectionHeader (40) + watchedCount items (99 each)
+    return 40 + watchedCount * 99;
+  }, [displayList]);
 
   const handleMarkWatched = useCallback(
     async (item: EnrichedTrackingItem) => {

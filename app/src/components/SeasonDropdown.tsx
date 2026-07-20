@@ -86,6 +86,7 @@ export default memo(function SeasonDropdown({
     tmdbId,
     season.season_number,
     !preloadedEpisodes, // skip fetch if preloaded
+    expanded, // only fetch TMDB images when dropdown open
   );
 
   const { episodes: watchedEps, loading: watchedLoading } =

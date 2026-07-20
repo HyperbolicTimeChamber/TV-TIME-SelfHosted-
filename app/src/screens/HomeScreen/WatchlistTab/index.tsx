@@ -90,7 +90,6 @@ export default function WatchlistTab() {
   } = useWatchlistData(user?.uid);
 
   const listRef = useRef<any>(null);
-  const hasScrolledRef = useRef(false);
 
   const isLoading = loading;
   const setWatchlistLoading = useUiStore((s) => s.setWatchlistLoading);
@@ -124,16 +123,17 @@ export default function WatchlistTab() {
     setWatchlistLoading(isLoading);
   }, [isLoading, setWatchlistLoading]);
 
-  // Scroll past "Previously Watched" to "What's Up Next" on first render
+  // Show Previously Watched briefly, then scroll to What's Up Next
+  const hasScrolledRef = useRef(false);
   useEffect(() => {
     if (!hasScrolledRef.current && !isLoading && prevWatchedOffset > 0) {
       hasScrolledRef.current = true;
-      requestAnimationFrame(() => {
+      setTimeout(() => {
         listRef.current?.scrollToOffset({
           offset: prevWatchedOffset,
-          animated: false,
+          animated: true,
         });
-      });
+      }, 400);
     }
   }, [isLoading, prevWatchedOffset]);
 
@@ -277,7 +277,7 @@ export default function WatchlistTab() {
   const handleWatchedSwipeLeft = useCallback(
     async (episode: WatchedEpisode) => {
       if (!user?.uid) return;
-      const catalog = await getCatalogShow(episode.tmdbShowId, "tv");
+      const catalog = await getCatalogShow(episode.tmdbShowId, MediaType.TV);
       const catalogSeason = catalog?.seasons?.find(
         (s) => s.seasonNumber === episode.season,
       );
@@ -360,7 +360,7 @@ export default function WatchlistTab() {
 
       try {
         if (action === "rewatch") {
-          const catalog = await getCatalogShow(sheetEpisode.tmdbShowId, "tv");
+          const catalog = await getCatalogShow(sheetEpisode.tmdbShowId, MediaType.TV);
           const catalogSeason = catalog?.seasons?.find(
             (s) => s.seasonNumber === sheetEpisode.season,
           );
@@ -553,7 +553,6 @@ export default function WatchlistTab() {
         }}
         renderItem={renderItem}
         recycleItems
-        maintainVisibleContentPosition
         drawDistance={SCREEN_HEIGHT * 2}
         estimatedItemSize={99}
         refreshControl={

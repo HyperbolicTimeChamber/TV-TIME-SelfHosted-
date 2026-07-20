@@ -162,7 +162,7 @@ export function useCalendarEpisodes(userId: string | undefined) {
         const episodes: UpcomingEpisode[] = [];
         const catalogDocs = await Promise.all(
           matchedIds.map((id) =>
-            getDoc(doc(db, "shows", showDocId(id, "tv")))
+            getDoc(doc(db, "shows", showDocId(id, MediaType.TV)))
               .then((d) =>
                 d.exists?.() ? (d.data() as any as CatalogShow) : null,
               )
