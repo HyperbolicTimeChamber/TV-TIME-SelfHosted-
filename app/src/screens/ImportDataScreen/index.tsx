@@ -116,7 +116,7 @@ export default function ImportDataScreen({ navigation }: any) {
         const watchlistCol = collection(doc(db, "users", user.uid), "tracking");
         const snap = await getDocs(watchlistCol);
         const ids = new Set<number>();
-        snap.docs.forEach((d) => ids.add(Number(d.id)));
+        snap.docs.forEach((d) => ids.add(Number(d.id.replace(/^(tv|movie)_/, ""))));
         existingIdsRef.current = ids;
       }
 
