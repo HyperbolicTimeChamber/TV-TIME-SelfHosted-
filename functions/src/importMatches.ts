@@ -44,6 +44,7 @@ export const importMatches = onCall(
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Must be signed in");
     }
+    if (request.data?.warmup) return { showsImported: 0, moviesImported: 0, episodesImported: 0, minutesImported: 0 };
 
     const { matches } = request.data as ImportRequest;
     if (!matches?.length) {

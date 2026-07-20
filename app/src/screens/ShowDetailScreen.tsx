@@ -25,6 +25,7 @@ import {
   resumeRewatch,
   markMovieWatched,
 } from "../services";
+import { warmupShowDetailCFs } from "../services/warmup";
 import {
   ConfirmModal,
   LoadingSpinner,
@@ -43,6 +44,8 @@ export default function ShowDetailScreen() {
   const route = useRoute<RouteParams>();
   const { tmdbId, mediaType } = route.params;
   const user = useAuthStore((s) => s.user);
+
+  useEffect(() => { warmupShowDetailCFs(); }, []);
   const {
     data: show,
     isLoading,

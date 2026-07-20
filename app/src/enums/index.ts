@@ -47,6 +47,14 @@ export enum DocChangeType {
 	REMOVED = "removed",
 }
 
+export enum CloudFunction {
+	ADD_SHOW = "addShow",
+	REMOVE_SHOW = "removeShow",
+	MARK_SEASON_WATCHED = "markSeasonWatched",
+	IMPORT_MATCHES = "importMatches",
+	REBUILD_UPCOMING = "rebuildUpcoming",
+}
+
 export enum Route {
 	// Main tabs
 	HOME = "Home",

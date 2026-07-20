@@ -16,7 +16,7 @@ import {
   Timestamp,
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
-import { WatchStatus, MediaType, CatalogShow } from "../types";
+import { WatchStatus, MediaType, CloudFunction, CatalogShow } from "../types";
 import { showDocId } from "../utils/docId";
 
 const db = getFirestore();
@@ -144,7 +144,7 @@ export async function addToTracking(
   // If CF fails after retry → rollback tracking doc + call onError
   const tRef = doc(trackingRef(userId), docId);
   const callAddShow = () =>
-    httpsCallable(getFunctions(), "addShow")({ tmdbId, mediaType });
+    httpsCallable(getFunctions(), CloudFunction.ADD_SHOW)({ tmdbId, mediaType });
   callAddShow().catch(() =>
     callAddShow().catch(async () => {
       // Both attempts failed — undo the local add
@@ -189,7 +189,7 @@ export async function removeFromTracking(
   await batch.commit();
 
   // Background: update trackedBy on catalog doc (CF handles cleanup)
-  httpsCallable(getFunctions(), "removeShow")({ tmdbId, mediaType }).catch(
+  httpsCallable(getFunctions(), CloudFunction.REMOVE_SHOW)({ tmdbId, mediaType }).catch(
     (err: any) => console.error("[removeFromTracking] removeShow CF failed:", err),
   );
 }
@@ -241,7 +241,6 @@ export async function markEpisodeWatched(
   const epRef = doc(watchedEpisodesRef(userId), docId);
 
   await runTransaction(db, async (tx) => {
-    // Guard: check if already watched on another device
     const existing = await tx.get(epRef);
     const isRewatch = existing.exists();
 
@@ -259,7 +258,6 @@ export async function markEpisodeWatched(
       { merge: true },
     );
 
-    // Only increment stats if this is a new watch (prevents cross-device double-count)
     if (!isRewatch) {
       tx.set(
         userRef(userId),
@@ -554,7 +552,7 @@ export async function markSeasonWatchedCF(
   try {
     await httpsCallable(
       functions,
-      "markSeasonWatched",
+      CloudFunction.MARK_SEASON_WATCHED,
     )({
       tmdbId,
       seasonNumber,

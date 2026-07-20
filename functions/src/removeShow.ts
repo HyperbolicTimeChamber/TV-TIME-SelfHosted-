@@ -20,6 +20,7 @@ export const removeShow = onCall(
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Must be signed in");
     }
+    if (request.data?.warmup) return { success: true };
 
     const { tmdbId, mediaType } = request.data as RemoveShowRequest;
     if (typeof tmdbId !== "number" || tmdbId <= 0 || !mediaType) {

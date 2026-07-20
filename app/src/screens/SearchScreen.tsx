@@ -41,6 +41,7 @@ import {
 } from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { showDocId } from "../utils/docId";
+import { warmupSearchCFs } from "../services/warmup";
 import { TMDBShow, SearchStackParamList, MediaType, Route } from "../types";
 
 type NavProp = NativeStackNavigationProp<
@@ -75,6 +76,9 @@ export default function SearchScreen() {
   }, []);
 
   const navigation = useNavigation<NavProp>();
+
+  // Warm up CFs on first visit
+  useEffect(() => { warmupSearchCFs(); }, []);
 
   // Clear search when leaving the search tab
   useEffect(() => {

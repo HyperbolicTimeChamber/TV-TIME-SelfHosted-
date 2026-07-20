@@ -44,6 +44,7 @@ import {
   QueryKey,
 } from "../../../types";
 import type { ShowDrawerData } from "../../../components/ShowDrawer";
+import { warmupWatchlistCFs, warmupFirestoreWrite } from "../../../services/warmup";
 import { ListItem } from "./types";
 import { useWatchlistData } from "./useWatchlistData";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
@@ -64,6 +65,11 @@ export default function WatchlistTab() {
   const user = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
   const navigation = useNavigation<NavProp>();
+
+  useEffect(() => {
+    warmupWatchlistCFs();
+    if (user?.uid) warmupFirestoreWrite(user.uid);
+  }, [user?.uid]);
 
   const {
     listData,

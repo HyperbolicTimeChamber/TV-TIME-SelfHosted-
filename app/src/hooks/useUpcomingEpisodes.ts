@@ -10,7 +10,7 @@ import {
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { UpcomingEpisode, CacheKey, MediaType } from "../types";
+import { UpcomingEpisode, CacheKey, CloudFunction, MediaType } from "../types";
 import { getCatalogShow } from "../services";
 
 type MutateCallback = (
@@ -136,7 +136,7 @@ export function useUpcomingEpisodes(userId: string | undefined) {
           const built = await AsyncStorage.getItem(CacheKey.UPCOMING_BUILT);
           if (built !== userId) {
             try {
-              await httpsCallable(getFunctions(), "rebuildUpcoming")({});
+              await httpsCallable(getFunctions(), CloudFunction.REBUILD_UPCOMING)({});
               await AsyncStorage.setItem(CacheKey.UPCOMING_BUILT, userId);
               snap = await getDocs(
                 query(upcomingCol, where("airDate", ">=", today)),

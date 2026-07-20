@@ -35,6 +35,7 @@ export const markSeasonWatched = onCall(
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Must be signed in.");
     }
+    if (request.data?.warmup) return { markedCount: 0 };
 
     const uid = request.auth.uid;
     const data = request.data as MarkSeasonRequest;

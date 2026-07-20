@@ -22,6 +22,7 @@ export const addShow = onCall(
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Must be signed in");
     }
+    if (request.data?.warmup) return {} as CatalogShow;
 
     const { tmdbId, mediaType } = request.data as AddShowRequest;
     if (typeof tmdbId !== "number" || tmdbId <= 0 || !mediaType) {
