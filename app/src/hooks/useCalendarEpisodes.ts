@@ -83,9 +83,9 @@ export function useCalendarEpisodes(userId: string | undefined) {
       getDocs(query(trackingCol, where("mediaType", "==", MediaType.TV))),
       getDocs(query(trackingCol, where("mediaType", "==", MediaType.MOVIE))),
     ]).then(([cache, configSnap, tvSnap, movieSnap]) => {
-      // Tracked IDs
-      trackedIds.current = new Set(tvSnap.docs.map((d) => d.id));
-      trackedMovieIds.current = new Set(movieSnap.docs.map((d) => d.id));
+      // Tracked IDs — strip prefix to match TMDB numeric IDs
+      trackedIds.current = new Set(tvSnap.docs.map((d) => d.id.replace(/^(tv|movie)_/, "")));
+      trackedMovieIds.current = new Set(movieSnap.docs.map((d) => d.id.replace(/^(tv|movie)_/, "")));
 
       // Check sync date — invalidate cache if backend synced since
       const serverSync = configSnap?.data?.()?.lastCatalogSync;
