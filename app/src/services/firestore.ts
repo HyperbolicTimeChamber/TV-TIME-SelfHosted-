@@ -7,7 +7,6 @@ import {
   deleteDoc,
   query,
   where,
-  setDoc,
   updateDoc,
   writeBatch,
   runTransaction,
@@ -105,7 +104,6 @@ export async function addToTracking(
   meta?: { title?: string; posterPath?: string | null },
 ): Promise<void> {
   const docId = showDocId(tmdbId, mediaType === MediaType.TV ? "tv" : "movie");
-  const showRef = doc(db, "shows", docId);
   const now = Timestamp.now();
 
   let priorityDate = now;

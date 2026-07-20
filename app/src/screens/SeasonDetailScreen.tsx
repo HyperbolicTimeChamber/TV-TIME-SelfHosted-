@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback, useState, useRef } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { LoadingSpinner, ConfirmModal, CheckmarkButton } from "../components";
 import { LegendList } from "@legendapp/list/react-native";
 import { useRoute, RouteProp } from "@react-navigation/native";

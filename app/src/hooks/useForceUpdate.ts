@@ -3,7 +3,7 @@ import { Alert, Platform } from "react-native";
 import SpInAppUpdates, { IAUUpdateKind } from "sp-react-native-in-app-updates";
 import { useAuthStore } from "../stores";
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+ 
 const { expo } = require("../../app.json");
 const appVersion: string = expo.version;
 
@@ -44,7 +44,7 @@ export function useForceUpdate() {
             : IAUUpdateKind.FLEXIBLE,
         });
         hasChecked.current = true;
-      } catch (error) {
+      } catch {
         hasChecked.current = true;
         // Play Store not available (sideloaded) or other error
         if (minVersion != null && compareVersions(appVersion, minVersion) < 0) {

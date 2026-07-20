@@ -396,7 +396,7 @@ export function useWatchlistData(userId: string | undefined) {
     // Strip catalogShow from cards before caching
     const toCache = liveList.map((item) => {
       if (item.type === "show") {
-        const { catalogShow, ...rest } = item.card;
+        const { catalogShow: _catalogShow, ...rest } = item.card;
         return { type: "show" as const, card: rest };
       }
       return item;

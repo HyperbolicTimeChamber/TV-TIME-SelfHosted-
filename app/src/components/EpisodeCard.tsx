@@ -21,7 +21,7 @@ export default memo(function EpisodeCard({
   onSwipeLeft,
   onSwipeRight,
   onPress,
-  onCheckmark,
+  onCheckmark: _onCheckmark,
 }: Props) {
   const label = `S${String(episode.season).padStart(2, "0")} | E${String(episode.episode).padStart(2, "0")}`;
   const swipeRef = useRef<SwipeableCardRef>(null);
