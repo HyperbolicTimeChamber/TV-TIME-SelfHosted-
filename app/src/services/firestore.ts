@@ -4,17 +4,19 @@ import {
   doc,
   getDoc,
   getDocs,
+  deleteDoc,
   query,
   where,
   setDoc,
   updateDoc,
   writeBatch,
+  runTransaction,
   serverTimestamp,
   increment,
   Timestamp,
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
-import { WatchStatus, MediaType, CatalogShow } from "../types";
+import { WatchStatus, MediaType, CloudFunction, CatalogShow } from "../types";
 import { showDocId } from "../utils/docId";
 
 const db = getFirestore();
@@ -127,7 +129,9 @@ export async function addToTracking(
     addedAt: now,
     lastWatchedAt: now,
     priorityDate,
-    ...(mediaType === MediaType.MOVIE ? { releaseDate: releaseDate || null } : {}),
+    ...(mediaType === MediaType.MOVIE
+      ? { releaseDate: releaseDate || null }
+      : {}),
     ...(meta?.title ? { title: meta.title } : {}),
     ...(meta?.posterPath ? { posterPath: meta.posterPath } : {}),
   });
@@ -142,7 +146,10 @@ export async function addToTracking(
   // If CF fails after retry → rollback tracking doc + call onError
   const tRef = doc(trackingRef(userId), docId);
   const callAddShow = () =>
-    httpsCallable(getFunctions(), "addShow")({ tmdbId, mediaType });
+    httpsCallable(
+      getFunctions(),
+      CloudFunction.ADD_SHOW,
+    )({ tmdbId, mediaType });
   callAddShow().catch(() =>
     callAddShow().catch(async () => {
       // Both attempts failed — undo the local add
@@ -187,8 +194,11 @@ export async function removeFromTracking(
   await batch.commit();
 
   // Background: update trackedBy on catalog doc (CF handles cleanup)
-  httpsCallable(getFunctions(), "removeShow")({ tmdbId, mediaType }).catch(
-    (err: any) => console.error("[removeFromTracking] removeShow CF failed:", err),
+  httpsCallable(
+    getFunctions(),
+    CloudFunction.REMOVE_SHOW,
+  )({ tmdbId, mediaType }).catch((err: any) =>
+    console.error("[removeFromTracking] removeShow CF failed:", err),
   );
 }
 
@@ -210,6 +220,16 @@ export async function stopWatching(
   await updateDoc(doc(trackingRef(userId), docId), {
     status: newStatus,
   });
+
+  // Clean upcoming subcollection for this show (fire-and-forget)
+  const upcomingCol = collection(doc(db, "users", userId), "upcoming");
+  getDocs(query(upcomingCol, where("tmdbShowId", "==", tmdbId)))
+    .then(async (snap) => {
+      for (const d of snap.docs) {
+        await deleteDoc(d.ref);
+      }
+    })
+    .catch(() => {});
 }
 
 export async function markEpisodeWatched(
@@ -228,60 +248,62 @@ export async function markEpisodeWatched(
   const docId = episodeDocId(tmdbShowId, season, episode);
   const epRef = doc(watchedEpisodesRef(userId), docId);
 
-  const batch = writeBatch(db);
+  await runTransaction(db, async (tx) => {
+    const existing = await tx.get(epRef);
+    const isRewatch = existing.exists();
 
-  // No pre-read needed. increment(1) handles both create (0+1=1) and update.
-  // watchedAt only matters for "first watched" — acceptable to update on rewatch.
-  batch.set(
-    epRef,
-    {
-      tmdbShowId,
-      season,
-      episode,
-      episodeTitle,
-      lastWatchedAt: serverTimestamp(),
-      runtime,
-      watchCount: increment(1),
-    },
-    { merge: true },
-  );
-
-  batch.set(
-    userRef(userId),
-    {
-      stats: {
-        episodesWatched: increment(1),
-        totalMinutes: increment(runtime),
+    tx.set(
+      epRef,
+      {
+        tmdbShowId,
+        season,
+        episode,
+        episodeTitle,
+        lastWatchedAt: serverTimestamp(),
+        runtime,
+        watchCount: increment(1),
       },
-    },
-    { merge: true },
-  );
+      { merge: true },
+    );
 
-  if (!skipTrackingUpdate) {
-    const now = Timestamp.now();
-    // If next episode hasn't aired yet, use its airDate as priorityDate
-    // so it sorts to top when it becomes visible
-    let effectivePriority: typeof now = now;
-    if (nextEpisode && nextEpisodeAirDate) {
-      const airDateMs = new Date(nextEpisodeAirDate).getTime();
-      if (airDateMs > now.toMillis()) {
-        effectivePriority = Timestamp.fromMillis(airDateMs);
+    if (!isRewatch) {
+      tx.set(
+        userRef(userId),
+        {
+          stats: {
+            episodesWatched: increment(1),
+            totalMinutes: increment(runtime),
+          },
+        },
+        { merge: true },
+      );
+    }
+
+    if (!skipTrackingUpdate) {
+      const now = Timestamp.now();
+      let effectivePriority: typeof now = now;
+      if (nextEpisode && nextEpisodeAirDate) {
+        const airDateMs = new Date(nextEpisodeAirDate).getTime();
+        if (airDateMs > now.toMillis()) {
+          effectivePriority = Timestamp.fromMillis(airDateMs);
+        }
       }
+      const trackingUpdate: Record<string, unknown> = {
+        lastWatchedAt: now,
+        priorityDate: effectivePriority,
+        nextEpisode,
+        nextEpisodeName,
+        nextEpisodeAirDate: nextEpisodeAirDate ?? null,
+      };
+      if (isShowComplete) {
+        trackingUpdate.status = WatchStatus.COMPLETED;
+      }
+      tx.update(
+        doc(trackingRef(userId), showDocId(tmdbShowId, "tv")),
+        trackingUpdate,
+      );
     }
-    const trackingUpdate: Record<string, unknown> = {
-      lastWatchedAt: now,
-      priorityDate: effectivePriority,
-      nextEpisode,
-      nextEpisodeName,
-      nextEpisodeAirDate: nextEpisodeAirDate ?? null,
-    };
-    if (isShowComplete) {
-      trackingUpdate.status = WatchStatus.COMPLETED;
-    }
-    batch.update(doc(trackingRef(userId), showDocId(tmdbShowId, "tv")), trackingUpdate);
-  }
-
-  await batch.commit();
+  });
 }
 
 export async function unmarkEpisodeWatched(
@@ -391,6 +413,17 @@ export async function unmarkSeasonWatched(
     },
     { merge: true },
   );
+
+  // Reset tracking to first episode of the unmarked season
+  const firstEp = episodes.reduce(
+    (min, ep) => (ep.episode < min.episode ? ep : min),
+    episodes[0],
+  );
+  batch.update(doc(trackingRef(userId), showDocId(tmdbShowId, "tv")), {
+    nextEpisode: { season: firstEp.season, episode: firstEp.episode },
+    status: WatchStatus.WATCHING,
+    priorityDate: Timestamp.now(),
+  });
 
   await batch.commit();
 }
@@ -532,7 +565,7 @@ export async function markSeasonWatchedCF(
   try {
     await httpsCallable(
       functions,
-      "markSeasonWatched",
+      CloudFunction.MARK_SEASON_WATCHED,
     )({
       tmdbId,
       seasonNumber,

@@ -6,6 +6,7 @@ import { fetchShowFromTMDB, CatalogShow, pooled } from "./tmdb";
 import { addToTrackedBy } from "./utils";
 import { rebuildUserUpcoming } from "./syncCatalog";
 import { showDocId } from "./docId";
+import { MediaType, WatchStatus } from "./enums";
 
 interface ImportEpisode {
   season: number;
@@ -15,8 +16,9 @@ interface ImportEpisode {
 
 interface ImportMatch {
   tmdbId: number;
-  mediaType: "tv" | "movie";
-  status: "watching" | "completed" | "plan_to_watch";
+  mediaType: MediaType;
+  status:
+    WatchStatus.WATCHING | WatchStatus.COMPLETED | WatchStatus.PLAN_TO_WATCH;
   watchedEpisodes?: ImportEpisode[];
   movieRuntime?: number;
   movieWatchedAt?: string;
@@ -43,6 +45,13 @@ export const importMatches = onCall(
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Must be signed in");
     }
+    if (request.data?.warmup)
+      return {
+        showsImported: 0,
+        moviesImported: 0,
+        episodesImported: 0,
+        minutesImported: 0,
+      };
 
     const { matches } = request.data as ImportRequest;
     if (!matches?.length) {
@@ -54,7 +63,10 @@ export const importMatches = onCall(
     const configDoc = await db.doc("config/app").get();
     const apiKey = configDoc.data()?.tmdbApiKey;
     if (!apiKey) {
-      throw new HttpsError("failed-precondition", "TMDB API key not configured");
+      throw new HttpsError(
+        "failed-precondition",
+        "TMDB API key not configured",
+      );
     }
     const stats: ImportStats = {
       showsImported: 0,
@@ -66,36 +78,34 @@ export const importMatches = onCall(
     // Fetch TMDB data for all matches and store catalog data for episode enrichment
     const catalogMap = new Map<number, CatalogShow>();
 
-    const catalogTasks = matches.map(
-      (m) => async () => {
-        const showId = showDocId(m.tmdbId, m.mediaType);
-        const showRef = db.doc(`shows/${showId}`);
+    const catalogTasks = matches.map((m) => async () => {
+      const showId = showDocId(m.tmdbId, m.mediaType);
+      const showRef = db.doc(`shows/${showId}`);
 
-        const showData = await fetchShowFromTMDB(apiKey, m.tmdbId, m.mediaType);
-        catalogMap.set(m.tmdbId, showData);
+      const showData = await fetchShowFromTMDB(apiKey, m.tmdbId, m.mediaType);
+      catalogMap.set(m.tmdbId, showData);
 
-        let existedBeforeTransaction = false;
-        await db.runTransaction(async (tx) => {
-          const showDoc = await tx.get(showRef);
-          if (showDoc.exists) {
-            existedBeforeTransaction = true;
-            return;
-          }
-          tx.set(showRef, {
-            ...showData,
-            trackedBy: [uid],
-            trackedByCount: 1,
-            lastSyncedAt: FieldValue.serverTimestamp(),
-          });
-        });
-
-        if (existedBeforeTransaction) {
-          await addToTrackedBy(showId, uid);
+      let existedBeforeTransaction = false;
+      await db.runTransaction(async (tx) => {
+        const showDoc = await tx.get(showRef);
+        if (showDoc.exists) {
+          existedBeforeTransaction = true;
+          return;
         }
+        tx.set(showRef, {
+          ...showData,
+          trackedBy: [uid],
+          trackedByCount: 1,
+          lastSyncedAt: FieldValue.serverTimestamp(),
+        });
+      });
 
-        return m;
+      if (existedBeforeTransaction) {
+        await addToTrackedBy(showId, uid);
       }
-    );
+
+      return m;
+    });
 
     await pooled(catalogTasks, 5);
 
@@ -103,7 +113,7 @@ export const importMatches = onCall(
     function lookupEpisode(
       tmdbId: number,
       season: number,
-      episode: number
+      episode: number,
     ): { title: string; runtime: number } {
       const catalog = catalogMap.get(tmdbId);
       if (!catalog) return { title: "", runtime: 0 };
@@ -134,7 +144,7 @@ export const importMatches = onCall(
         let nextEpisode: { season: number; episode: number } | null = null;
         let lastWatchedAt = now;
 
-        if (match.mediaType === "tv" && match.watchedEpisodes?.length) {
+        if (match.mediaType === MediaType.TV && match.watchedEpisodes?.length) {
           const sorted = [...match.watchedEpisodes].sort((a, b) => {
             if (a.season !== b.season) return b.season - a.season;
             return b.episode - a.episode;
@@ -149,12 +159,12 @@ export const importMatches = onCall(
           // Check if latest episode is last in its season — advance to next season
           if (catalog && catalog.seasons) {
             const currentSeason = catalog.seasons.find(
-              (s) => s.seasonNumber === latest.season
+              (s) => s.seasonNumber === latest.season,
             );
             if (currentSeason && latest.episode >= currentSeason.episodeCount) {
               const nextSeasonNum = latest.season + 1;
               const nextSeason = catalog.seasons.find(
-                (s) => s.seasonNumber === nextSeasonNum
+                (s) => s.seasonNumber === nextSeasonNum,
               );
               if (nextSeason) {
                 nextEpisode = { season: nextSeasonNum, episode: 1 };
@@ -170,7 +180,7 @@ export const importMatches = onCall(
           }
         }
 
-        if (match.mediaType === "movie" && match.movieWatchedAt) {
+        if (match.mediaType === MediaType.MOVIE && match.movieWatchedAt) {
           const d = new Date(match.movieWatchedAt);
           if (!isNaN(d.getTime())) {
             lastWatchedAt = Timestamp.fromDate(d);
@@ -189,12 +199,12 @@ export const importMatches = onCall(
         });
       });
 
-      if (match.mediaType === "tv") {
+      if (match.mediaType === MediaType.TV) {
         stats.showsImported++;
       }
 
       // Create watched episode docs — enrich with TMDB title + runtime
-      if (match.mediaType === "tv" && match.watchedEpisodes) {
+      if (match.mediaType === MediaType.TV && match.watchedEpisodes) {
         const eps = match.watchedEpisodes;
         for (let i = 0; i < eps.length; i += 400) {
           const chunk = eps.slice(i, i + 400);
@@ -226,7 +236,7 @@ export const importMatches = onCall(
       }
 
       // Create watched movie doc
-      if (match.mediaType === "movie") {
+      if (match.mediaType === MediaType.MOVIE) {
         const movieRuntime = match.movieRuntime || catalog?.runtime || 0;
         batchOps.push(async () => {
           const movieRef = db.doc(`users/${uid}/watchedMovies/${showId}`);
@@ -250,7 +260,7 @@ export const importMatches = onCall(
     // Execute batch ops with concurrency limit of 10
     await pooled(
       batchOps.map((op) => () => op()),
-      10
+      10,
     );
 
     stats.episodesImported = totalEpisodes;
@@ -268,7 +278,7 @@ export const importMatches = onCall(
           totalMinutes: FieldValue.increment(stats.minutesImported),
         },
       },
-      { merge: true }
+      { merge: true },
     );
 
     // Build upcoming subcollection for this user
@@ -296,5 +306,5 @@ export const importMatches = onCall(
     }
 
     return stats;
-  }
+  },
 );

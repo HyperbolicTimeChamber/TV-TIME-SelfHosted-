@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { showDocId } from "./docId";
+import { WatchStatus, MediaType } from "./enums";
 
 interface EpisodeInput {
   episodeNumber: number;
@@ -34,10 +35,19 @@ export const markSeasonWatched = onCall(
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Must be signed in.");
     }
+    if (request.data?.warmup) return { markedCount: 0 };
 
     const uid = request.auth.uid;
     const data = request.data as MarkSeasonRequest;
-    const { tmdbId, seasonNumber, episodes, nextEpisode, nextEpisodeName, nextEpisodeAirDate, isShowComplete } = data;
+    const {
+      tmdbId,
+      seasonNumber,
+      episodes,
+      nextEpisode,
+      nextEpisodeName,
+      nextEpisodeAirDate,
+      isShowComplete,
+    } = data;
 
     if (!tmdbId || !seasonNumber || !episodes?.length) {
       throw new HttpsError("invalid-argument", "Missing required fields.");
@@ -49,12 +59,14 @@ export const markSeasonWatched = onCall(
 
     const db = getFirestore();
     const userDoc = db.doc(`users/${uid}`);
-    const trackingDoc = db.doc(`users/${uid}/tracking/${showDocId(tmdbId, "tv")}`);
+    const trackingDoc = db.doc(
+      `users/${uid}/tracking/${showDocId(tmdbId, MediaType.TV)}`,
+    );
     const watchedCol = db.collection(`users/${uid}/watchedEpisodes`);
 
     // Read all existing episode docs in parallel
     const epRefs = episodes.map((ep) =>
-      watchedCol.doc(episodeDocId(tmdbId, seasonNumber, ep.episodeNumber))
+      watchedCol.doc(episodeDocId(tmdbId, seasonNumber, ep.episodeNumber)),
     );
     const existingDocs = await db.getAll(...epRefs);
 
@@ -96,7 +108,7 @@ export const markSeasonWatched = onCall(
           totalMinutes: FieldValue.increment(totalRuntime),
         },
       },
-      { merge: true }
+      { merge: true },
     );
 
     // Update tracking doc
@@ -109,27 +121,20 @@ export const markSeasonWatched = onCall(
       }
     }
 
+    const trackingUpdate: Record<string, unknown> = {
+      lastWatchedAt: now,
+      priorityDate: effectivePriority,
+      nextEpisode,
+      nextEpisodeName: nextEpisodeName ?? null,
+      nextEpisodeAirDate: nextEpisodeAirDate ?? null,
+    };
     if (isShowComplete) {
-      batch.update(trackingDoc, {
-        lastWatchedAt: now,
-        priorityDate: effectivePriority,
-        nextEpisode,
-        nextEpisodeName: nextEpisodeName ?? null,
-        nextEpisodeAirDate: nextEpisodeAirDate ?? null,
-        status: "completed",
-      });
-    } else {
-      batch.update(trackingDoc, {
-        lastWatchedAt: now,
-        priorityDate: effectivePriority,
-        nextEpisode,
-        nextEpisodeName: nextEpisodeName ?? null,
-        nextEpisodeAirDate: nextEpisodeAirDate ?? null,
-      });
+      trackingUpdate.status = WatchStatus.COMPLETED;
     }
+    batch.set(trackingDoc, trackingUpdate, { merge: true });
 
     await batch.commit();
 
     return { markedCount: episodes.length };
-  }
+  },
 );

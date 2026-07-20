@@ -16,5 +16,5 @@ export const rebuildUpcoming = onCall(
     const db = getFirestore();
     await rebuildUserUpcoming(db, request.auth.uid);
     return { success: true };
-  }
+  },
 );

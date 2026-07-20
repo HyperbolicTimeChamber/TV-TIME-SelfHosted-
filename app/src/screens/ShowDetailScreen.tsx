@@ -15,7 +15,11 @@ import {
   doc,
   onSnapshot,
 } from "@react-native-firebase/firestore";
-import { useShowDetails, useUpcomingMutations, removeShowFromCalendarGlobal } from "../hooks";
+import {
+  useShowDetails,
+  useUpcomingMutations,
+  removeShowFromCalendarGlobal,
+} from "../hooks";
 import { useAuthStore } from "../stores";
 import {
   addToTracking,
@@ -25,6 +29,7 @@ import {
   resumeRewatch,
   markMovieWatched,
 } from "../services";
+import { warmupShowDetailCFs } from "../services/warmup";
 import {
   ConfirmModal,
   LoadingSpinner,
@@ -43,6 +48,10 @@ export default function ShowDetailScreen() {
   const route = useRoute<RouteParams>();
   const { tmdbId, mediaType } = route.params;
   const user = useAuthStore((s) => s.user);
+
+  useEffect(() => {
+    warmupShowDetailCFs();
+  }, []);
   const {
     data: show,
     isLoading,
@@ -67,7 +76,13 @@ export default function ShowDetailScreen() {
       return;
     }
     const db = getFirestore();
-    const trackingDoc = doc(db, "users", user.uid, "tracking", showDocId(tmdbId, mediaType === MediaType.MOVIE ? "movie" : "tv"));
+    const trackingDoc = doc(
+      db,
+      "users",
+      user.uid,
+      "tracking",
+      showDocId(tmdbId, mediaType === MediaType.MOVIE ? "movie" : "tv"),
+    );
     const unsubscribe = onSnapshot(trackingDoc, (snap) => {
       setWatchlistItem(snap.exists() ? { id: snap.id, ...snap.data() } : null);
       setTrackingLoading(false);
@@ -77,9 +92,14 @@ export default function ShowDetailScreen() {
 
   const title = show?.name || show?.title || "";
   const rawDate = show?.first_air_date || show?.release_date || "";
-  const year = mediaType === MediaType.MOVIE && rawDate.length >= 10
-    ? new Date(rawDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
-    : rawDate.substring(0, 4);
+  const year =
+    mediaType === MediaType.MOVIE && rawDate.length >= 10
+      ? new Date(rawDate).toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        })
+      : rawDate.substring(0, 4);
 
   const handleAddToWatchlist = useCallback(async () => {
     if (!user?.uid || !show || adding) return;
@@ -103,7 +123,10 @@ export default function ShowDetailScreen() {
         tmdbId,
         mediaType,
         isUnreleased ? releaseDate : null,
-        { title: show.title || show.name || "", posterPath: show.poster_path || null },
+        {
+          title: show.title || show.name || "",
+          posterPath: show.poster_path || null,
+        },
       );
       if (isUnreleased && releaseDate) {
         addShowToUpcoming(tmdbId, {
@@ -168,7 +191,10 @@ export default function ShowDetailScreen() {
     setAdding(true);
     try {
       if (!watchlistItem) {
-        await addToTracking(user.uid, tmdbId, MediaType.MOVIE, undefined, { title: show.title || show.name || "", posterPath: show.poster_path || null });
+        await addToTracking(user.uid, tmdbId, MediaType.MOVIE, undefined, {
+          title: show.title || show.name || "",
+          posterPath: show.poster_path || null,
+        });
       }
       await markMovieWatched(user.uid, tmdbId, show.runtime ?? 0);
     } catch (err: any) {
@@ -190,7 +216,9 @@ export default function ShowDetailScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>
-          {isError ? (error as any)?.message || "Failed to load show" : "Show not found"}
+          {isError
+            ? (error as any)?.message || "Failed to load show"
+            : "Show not found"}
         </Text>
       </View>
     );

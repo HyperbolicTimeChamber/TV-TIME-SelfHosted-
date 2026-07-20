@@ -1,4 +1,5 @@
 import axios from "axios";
+import { MediaType } from "./enums";
 
 const TMDB_BASE = "https://api.themoviedb.org/3";
 
@@ -57,7 +58,7 @@ export interface CatalogSeason {
 
 export interface CatalogShow {
   tmdbId: number;
-  mediaType: "tv" | "movie";
+  mediaType: MediaType;
   title: string;
   posterPath: string | null;
   backdropPath: string | null;
@@ -74,7 +75,7 @@ export interface CatalogShow {
 
 export async function pooled<T>(
   tasks: (() => Promise<T>)[],
-  concurrency = 5
+  concurrency = 5,
 ): Promise<T[]> {
   const results: T[] = [];
   let index = 0;
@@ -88,7 +89,7 @@ export async function pooled<T>(
 
   const workers = Array.from(
     { length: Math.min(concurrency, tasks.length) },
-    () => worker()
+    () => worker(),
   );
   await Promise.all(workers);
   return results;
@@ -97,11 +98,11 @@ export async function pooled<T>(
 async function fetchSeasonEpisodes(
   apiKey: string,
   tmdbId: number,
-  seasonNumber: number
+  seasonNumber: number,
 ): Promise<CatalogSeason> {
   const { data } = await axios.get<TMDBSeasonDetail>(
     `${TMDB_BASE}/tv/${tmdbId}/season/${seasonNumber}`,
-    { params: { api_key: apiKey } }
+    { params: { api_key: apiKey } },
   );
   return {
     seasonNumber: data.season_number,
@@ -120,11 +121,11 @@ async function fetchSeasonEpisodes(
 
 export async function fetchShowStatus(
   apiKey: string,
-  tmdbId: number
+  tmdbId: number,
 ): Promise<string> {
   const { data } = await axios.get<{ status: string }>(
     `${TMDB_BASE}/tv/${tmdbId}`,
-    { params: { api_key: apiKey } }
+    { params: { api_key: apiKey } },
   );
   return data.status ?? "Unknown";
 }
@@ -132,10 +133,10 @@ export async function fetchShowStatus(
 export async function fetchShowFromTMDB(
   apiKey: string,
   tmdbId: number,
-  mediaType: "tv" | "movie"
+  mediaType: MediaType,
 ): Promise<CatalogShow> {
   const endpoint =
-    mediaType === "tv"
+    mediaType === MediaType.TV
       ? `${TMDB_BASE}/tv/${tmdbId}`
       : `${TMDB_BASE}/movie/${tmdbId}`;
 
@@ -147,13 +148,13 @@ export async function fetchShowFromTMDB(
   let totalEpisodes = data.number_of_episodes ?? 0;
   let totalSeasons = data.number_of_seasons ?? 0;
 
-  if (mediaType === "tv" && data.seasons) {
+  if (mediaType === MediaType.TV && data.seasons) {
     const seasonNumbers = data.seasons
       .filter((s) => s.season_number > 0)
       .map((s) => s.season_number);
 
     const tasks = seasonNumbers.map(
-      (num) => () => fetchSeasonEpisodes(apiKey, tmdbId, num)
+      (num) => () => fetchSeasonEpisodes(apiKey, tmdbId, num),
     );
     seasons = await pooled(tasks, 5);
     totalEpisodes = seasons.reduce((sum, s) => sum + s.episodeCount, 0);
@@ -161,9 +162,9 @@ export async function fetchShowFromTMDB(
   }
 
   const avgRuntime =
-    mediaType === "movie"
-      ? data.runtime ?? null
-      : data.episode_run_time?.[0] ?? null;
+    mediaType === MediaType.MOVIE
+      ? (data.runtime ?? null)
+      : (data.episode_run_time?.[0] ?? null);
 
   return {
     tmdbId,

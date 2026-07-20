@@ -44,6 +44,10 @@ import {
   QueryKey,
 } from "../../../types";
 import type { ShowDrawerData } from "../../../components/ShowDrawer";
+import {
+  warmupWatchlistCFs,
+  warmupFirestoreWrite,
+} from "../../../services/warmup";
 import { ListItem } from "./types";
 import { useWatchlistData } from "./useWatchlistData";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
@@ -57,11 +61,18 @@ type NavProp = CompositeNavigationProp<
 >;
 
 const SeparatorComponent = () => <View style={styles.separator} />;
+const NOOP_ASYNC = async () => {};
+const NOOP_CHECKMARK = async () => {};
 
 export default function WatchlistTab() {
   const user = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
   const navigation = useNavigation<NavProp>();
+
+  useEffect(() => {
+    warmupWatchlistCFs();
+    if (user?.uid) warmupFirestoreWrite(user.uid);
+  }, [user?.uid]);
 
   const {
     listData,
@@ -114,15 +125,16 @@ export default function WatchlistTab() {
     setWatchlistLoading(isLoading);
   }, [isLoading, setWatchlistLoading]);
 
+  // Scroll past "Previously Watched" to "What's Up Next" on first render
   useEffect(() => {
     if (!hasScrolledRef.current && !isLoading && prevWatchedOffset > 0) {
       hasScrolledRef.current = true;
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         listRef.current?.scrollToOffset({
           offset: prevWatchedOffset,
           animated: false,
         });
-      }, 300);
+      });
     }
   }, [isLoading, prevWatchedOffset]);
 
@@ -306,7 +318,9 @@ export default function WatchlistTab() {
         nextEpisode,
         isComplete,
       );
-      queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_EPISODES, user.uid] });
+      queryClient.invalidateQueries({
+        queryKey: [QueryKey.WATCHED_EPISODES, user.uid],
+      });
     },
     [user?.uid, queryClient],
   );
@@ -334,7 +348,9 @@ export default function WatchlistTab() {
           episode.episodeTitle,
         );
       }
-      queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_EPISODES, user.uid] });
+      queryClient.invalidateQueries({
+        queryKey: [QueryKey.WATCHED_EPISODES, user.uid],
+      });
     },
     [user?.uid, queryClient],
   );
@@ -405,7 +421,9 @@ export default function WatchlistTab() {
             sheetEpisode.episodeTitle,
           );
         }
-        queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_EPISODES, user.uid] });
+        queryClient.invalidateQueries({
+          queryKey: [QueryKey.WATCHED_EPISODES, user.uid],
+        });
       } catch (err: any) {
         console.error("Watch action failed:", err);
         Alert.alert("Error", err.message || "Action failed.");
@@ -430,17 +448,19 @@ export default function WatchlistTab() {
       if (item.type === "watchedMovie") {
         return (
           <ShowCard
-            item={{
-              ...item.show,
-              nextEpisode: null,
-              mediaType: MediaType.MOVIE,
-              rewatchCount: Math.max(0, (item.movie.watchCount || 1) - 1),
-            } as any}
+            item={
+              {
+                ...item.show,
+                nextEpisode: null,
+                mediaType: MediaType.MOVIE,
+                rewatchCount: Math.max(0, (item.movie.watchCount || 1) - 1),
+              } as any
+            }
             isWatched
-            onSwipeLeft={async () => {}}
-            onSwipeRight={async () => {}}
+            onSwipeLeft={NOOP_ASYNC}
+            onSwipeRight={NOOP_ASYNC}
             onPress={(id) => handleNavigateToShow(id, MediaType.MOVIE)}
-            onCheckmark={async () => {}}
+            onCheckmark={NOOP_CHECKMARK}
           />
         );
       }
@@ -527,8 +547,7 @@ export default function WatchlistTab() {
         data={listData}
         keyExtractor={(item) => {
           if (item.type === "sectionHeader") return `section_${item.title}`;
-          if (item.type === "watchedMovie")
-            return `movie_${item.movie.id}`;
+          if (item.type === "watchedMovie") return `movie_${item.movie.id}`;
           if (item.type === "watchedEpisode")
             return `watched_${item.episode.id}`;
           return `show_${item.item.id}`;
@@ -536,6 +555,8 @@ export default function WatchlistTab() {
         renderItem={renderItem}
         recycleItems
         maintainVisibleContentPosition
+        drawDistance={SCREEN_HEIGHT * 2}
+        estimatedItemSize={99}
         refreshControl={
           hasMoreEps ? (
             <RefreshControl

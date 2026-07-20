@@ -69,6 +69,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 ) {
   const translateX = useSharedValue(0);
   const [swipeState, setSwipeState] = React.useState<SwipeState>("idle");
+  const [showReveal, setShowReveal] = React.useState(false);
   const [actionColor, setActionColor] = React.useState<string>(
     colors.watchedGreen,
   );
@@ -92,13 +93,12 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 
       const persist = persistRef.current;
       const shouldPersist =
-        typeof persist === "object"
-          ? persist[direction]
-          : !!persist;
+        typeof persist === "object" ? persist[direction] : !!persist;
 
       if (shouldPersist) {
         // Keep card off-screen, show colored reveal underneath while loading
-        const color = direction === "left" ? leftColorRef.current : rightColorRef.current;
+        const color =
+          direction === "left" ? leftColorRef.current : rightColorRef.current;
         setActionColor(color);
         setPersistingLoad(true);
         setSwipeState("loading");
@@ -114,12 +114,14 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
         // Reset silently without animation — list re-render handles the update
         translateX.value = 0;
         setPersistingLoad(false);
+        setShowReveal(false);
         setSwipeState("idle");
         isProcessing.current = false;
         return;
       }
 
-      const color = direction === "left" ? leftColorRef.current : rightColorRef.current;
+      const color =
+        direction === "left" ? leftColorRef.current : rightColorRef.current;
       setActionColor(color);
       setSwipeState("loading");
 
@@ -137,6 +139,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
         console.error("SwipeableCard action failed:", err);
         translateX.value = withTiming(0, { duration: 300 });
         setSwipeState("idle");
+        setShowReveal(false);
         isProcessing.current = false;
       }
     },
@@ -148,6 +151,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
     () => ({
       triggerSwipeLeft: () => {
         if (swipeState !== "idle" || isProcessing.current) return;
+        setShowReveal(true);
         translateX.value = withTiming(SCREEN_WIDTH, { duration: 300 }, () => {
           runOnJS(handleSwipeComplete)("left");
         });
@@ -158,6 +162,9 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 
   const panGesture = Gesture.Pan()
     .activeOffsetX([-10, 10])
+    .onStart(() => {
+      runOnJS(setShowReveal)(true);
+    })
     .onUpdate((event) => {
       if (swipeState !== "idle") return;
       translateX.value = event.translationX;
@@ -175,6 +182,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
         });
       } else {
         translateX.value = withTiming(0, { duration: 200 });
+        runOnJS(setShowReveal)(false);
       }
     });
 
@@ -219,55 +227,59 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 
   return (
     <View style={{ height, overflow: "hidden" }}>
-      <Animated.View
-        style={[
-          styles.revealCard,
-          styles.revealLeft,
-          { height, backgroundColor: leftColor },
-          swipeState === "loading" && actionColor === leftColor
-            ? { opacity: 1 }
-            : leftRevealOpacity,
-        ]}
-      >
-        {swipeState === "loading" && actionColor === leftColor ? (
-          <>
-            <ActivityIndicator color={colors.text} />
-            <Text style={styles.revealText}>{leftLabel}</Text>
-          </>
-        ) : (
-          <>
-            <View style={styles.revealIcon}>
-              <Text style={styles.revealIconText}>✓</Text>
-            </View>
-            <Text style={styles.revealText}>{leftLabel}</Text>
-          </>
-        )}
-      </Animated.View>
+      {showReveal && (
+        <>
+          <Animated.View
+            style={[
+              styles.revealCard,
+              styles.revealLeft,
+              { height, backgroundColor: leftColor },
+              swipeState === "loading" && actionColor === leftColor
+                ? { opacity: 1 }
+                : leftRevealOpacity,
+            ]}
+          >
+            {swipeState === "loading" && actionColor === leftColor ? (
+              <>
+                <ActivityIndicator color={colors.text} />
+                <Text style={styles.revealText}>{leftLabel}</Text>
+              </>
+            ) : (
+              <>
+                <View style={styles.revealIcon}>
+                  <Text style={styles.revealIconText}>✓</Text>
+                </View>
+                <Text style={styles.revealText}>{leftLabel}</Text>
+              </>
+            )}
+          </Animated.View>
 
-      <Animated.View
-        style={[
-          styles.revealCard,
-          styles.revealRight,
-          { height, backgroundColor: rightColor },
-          swipeState === "loading" && actionColor === rightColor
-            ? { opacity: 1 }
-            : rightRevealOpacity,
-        ]}
-      >
-        {swipeState === "loading" && actionColor === rightColor ? (
-          <>
-            <ActivityIndicator color={colors.text} />
-            <Text style={styles.revealText}>{rightLabel}</Text>
-          </>
-        ) : (
-          <>
-            <Text style={styles.revealText}>{rightLabel}</Text>
-            <View style={styles.revealIcon}>
-              <Text style={styles.revealIconText}>✕</Text>
-            </View>
-          </>
-        )}
-      </Animated.View>
+          <Animated.View
+            style={[
+              styles.revealCard,
+              styles.revealRight,
+              { height, backgroundColor: rightColor },
+              swipeState === "loading" && actionColor === rightColor
+                ? { opacity: 1 }
+                : rightRevealOpacity,
+            ]}
+          >
+            {swipeState === "loading" && actionColor === rightColor ? (
+              <>
+                <ActivityIndicator color={colors.text} />
+                <Text style={styles.revealText}>{rightLabel}</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.revealText}>{rightLabel}</Text>
+                <View style={styles.revealIcon}>
+                  <Text style={styles.revealIconText}>✕</Text>
+                </View>
+              </>
+            )}
+          </Animated.View>
+        </>
+      )}
 
       <GestureDetector gesture={panGesture}>
         <Animated.View style={[styles.card, { height }, cardStyle]}>
