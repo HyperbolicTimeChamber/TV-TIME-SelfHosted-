@@ -1,4 +1,5 @@
 import { useMemo, useEffect, useCallback, useState, useRef } from "react";
+import { Alert } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -460,7 +461,7 @@ export function useWatchlistData(userId: string | undefined) {
         queryClient.invalidateQueries({
           queryKey: [QueryKey.WATCHED_EPISODES, userId],
         });
-      } catch (err) {
+      } catch (err: any) {
         rollbackUpcoming(upcomingSnapshot);
         setUpdatingShows((prev) => {
           const next = new Map(prev);
@@ -468,10 +469,20 @@ export function useWatchlistData(userId: string | undefined) {
           return next;
         });
         console.error("markEpisodeWatched failed:", err);
+        Alert.alert("Error", err.message || "Failed to mark as watched.");
       }
     },
     [userId, queryClient, mutateCachedUpcoming, rollbackUpcoming],
   );
+
+  // Safety timeout: clear stuck spinners after 15s
+  useEffect(() => {
+    if (updatingShows.size === 0) return;
+    const timeout = setTimeout(() => {
+      setUpdatingShows((prev) => (prev.size > 0 ? new Map() : prev));
+    }, 15000);
+    return () => clearTimeout(timeout);
+  }, [updatingShows]);
 
   // Clear updating state when data changes
   useEffect(() => {
