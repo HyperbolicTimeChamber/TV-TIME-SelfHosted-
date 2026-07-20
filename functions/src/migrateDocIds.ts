@@ -11,6 +11,7 @@ export const migrateDocIds = onCall(
       throw new HttpsError("unauthenticated", "Must be signed in");
 
     const db = getFirestore();
+    // eslint-disable-next-line no-useless-assignment
     let showsMigrated = 0;
     let trackingMigrated = 0;
 
