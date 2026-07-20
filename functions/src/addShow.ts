@@ -26,10 +26,7 @@ export const addShow = onCall(
 
     const { tmdbId, mediaType } = request.data as AddShowRequest;
     if (typeof tmdbId !== "number" || tmdbId <= 0 || !mediaType) {
-      throw new HttpsError(
-        "invalid-argument",
-        "tmdbId and mediaType required"
-      );
+      throw new HttpsError("invalid-argument", "tmdbId and mediaType required");
     }
 
     const db = getFirestore();
@@ -45,7 +42,7 @@ export const addShow = onCall(
       // Update upcoming subcollection (fire-and-forget)
       if (mediaType === MediaType.TV) {
         addShowToUpcoming(db, uid, tmdbId, MediaType.TV).catch((err) =>
-          console.error("[addShow] upcoming update failed:", err)
+          console.error("[addShow] upcoming update failed:", err),
         );
       }
 
@@ -56,7 +53,10 @@ export const addShow = onCall(
     const configDoc = await db.doc("config/app").get();
     const apiKey = configDoc.data()?.tmdbApiKey;
     if (!apiKey) {
-      throw new HttpsError("failed-precondition", "TMDB API key not configured");
+      throw new HttpsError(
+        "failed-precondition",
+        "TMDB API key not configured",
+      );
     }
     let showData: CatalogShow;
     try {
@@ -69,7 +69,10 @@ export const addShow = onCall(
       if (status === 404) {
         throw new HttpsError("not-found", "Show not found on TMDB");
       }
-      throw new HttpsError("unavailable", "Failed to fetch show data from TMDB");
+      throw new HttpsError(
+        "unavailable",
+        "Failed to fetch show data from TMDB",
+      );
     }
 
     // Atomically check-then-create (handles race if two users add simultaneously)
@@ -98,10 +101,10 @@ export const addShow = onCall(
     // Update upcoming subcollection (fire-and-forget, don't block response)
     if (mediaType === MediaType.TV) {
       addShowToUpcoming(db, uid, tmdbId).catch((err) =>
-        console.error("[addShow] upcoming update failed:", err)
+        console.error("[addShow] upcoming update failed:", err),
       );
     }
 
     return showData;
-  }
+  },
 );

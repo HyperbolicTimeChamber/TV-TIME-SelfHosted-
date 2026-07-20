@@ -5,12 +5,7 @@ import React, {
   useRef,
   useEffect,
 } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-} from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { AnimatedModal, LoadingSpinner } from "../components";
 import { LegendList } from "@legendapp/list/react-native";
@@ -250,27 +245,32 @@ export default function CalendarScreen() {
           <LoadingSpinner />
           <Text style={styles.loaderText}>Checking your calendar...</Text>
         </View>
-      ) : selectedDate && (
-        <View style={styles.episodeList}>
-          <Text style={styles.dateHeader}>
-            {new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-            })}
-          </Text>
-          {selectedEpisodes.length === 0 ? (
-            <Text style={styles.noEps}>No episodes on this day</Text>
-          ) : (
-            <LegendList
-              data={selectedEpisodes}
-              keyExtractor={(item) =>
-                `${item.tmdbShowId}_${item.season}_${item.episode}`
-              }
-              renderItem={renderEpisode}
-            />
-          )}
-        </View>
+      ) : (
+        selectedDate && (
+          <View style={styles.episodeList}>
+            <Text style={styles.dateHeader}>
+              {new Date(selectedDate + "T00:00:00").toLocaleDateString(
+                "en-US",
+                {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                },
+              )}
+            </Text>
+            {selectedEpisodes.length === 0 ? (
+              <Text style={styles.noEps}>No episodes on this day</Text>
+            ) : (
+              <LegendList
+                data={selectedEpisodes}
+                keyExtractor={(item) =>
+                  `${item.tmdbShowId}_${item.season}_${item.episode}`
+                }
+                renderItem={renderEpisode}
+              />
+            )}
+          </View>
+        )
       )}
 
       {/* Year picker modal */}

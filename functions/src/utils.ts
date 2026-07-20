@@ -4,7 +4,7 @@ const TRACKED_BY_LIMIT = 1000;
 
 export async function addToTrackedBy(
   showId: string,
-  uid: string
+  uid: string,
 ): Promise<void> {
   const db = getFirestore();
   const showRef = db.doc(`shows/${showId}`);
@@ -24,7 +24,7 @@ export async function addToTrackedBy(
     } else {
       // Overflow: find or create overflow chunk
       const overflowSnap = await tx.get(
-        showRef.collection("trackedByOverflow")
+        showRef.collection("trackedByOverflow"),
       );
       let placed = false;
       for (const chunk of overflowSnap.docs) {
@@ -37,9 +37,7 @@ export async function addToTrackedBy(
         }
       }
       if (!placed) {
-        const newChunkRef = showRef
-          .collection("trackedByOverflow")
-          .doc();
+        const newChunkRef = showRef.collection("trackedByOverflow").doc();
         tx.set(newChunkRef, { uids: [uid] });
         tx.update(showRef, { trackedByCount: FieldValue.increment(1) });
       }
@@ -49,7 +47,7 @@ export async function addToTrackedBy(
 
 export async function removeFromTrackedBy(
   showId: string,
-  uid: string
+  uid: string,
 ): Promise<number> {
   const db = getFirestore();
   const showRef = db.doc(`shows/${showId}`);
@@ -70,9 +68,7 @@ export async function removeFromTrackedBy(
     }
 
     // Check overflow chunks
-    const overflowSnap = await tx.get(
-      showRef.collection("trackedByOverflow")
-    );
+    const overflowSnap = await tx.get(showRef.collection("trackedByOverflow"));
     for (const chunk of overflowSnap.docs) {
       const uids: string[] = chunk.data().uids ?? [];
       if (uids.includes(uid)) {
@@ -86,9 +82,7 @@ export async function removeFromTrackedBy(
   });
 }
 
-export async function getAllTrackerUids(
-  showId: string
-): Promise<string[]> {
+export async function getAllTrackerUids(showId: string): Promise<string[]> {
   const db = getFirestore();
   const showRef = db.doc(`shows/${showId}`);
   const showDoc = await showRef.get();
@@ -96,9 +90,7 @@ export async function getAllTrackerUids(
 
   const trackedBy: string[] = showDoc.data()?.trackedBy ?? [];
 
-  const overflowSnap = await showRef
-    .collection("trackedByOverflow")
-    .get();
+  const overflowSnap = await showRef.collection("trackedByOverflow").get();
   for (const chunk of overflowSnap.docs) {
     trackedBy.push(...(chunk.data().uids ?? []));
   }

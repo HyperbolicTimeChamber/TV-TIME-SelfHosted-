@@ -22,7 +22,7 @@ export const testFCM = onCall(
     if (!fcmToken) {
       throw new HttpsError(
         "failed-precondition",
-        "No FCM token found. Enable notifications first."
+        "No FCM token found. Enable notifications first.",
       );
     }
 
@@ -40,5 +40,5 @@ export const testFCM = onCall(
 
     console.log(`[testFCM] Sent test notification to user ${uid}`);
     return { success: true };
-  }
+  },
 );

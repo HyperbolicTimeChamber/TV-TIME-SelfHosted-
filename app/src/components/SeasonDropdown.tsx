@@ -9,7 +9,11 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { useQueryClient } from "@tanstack/react-query";
-import { useSeasonDetails, useShowWatchedEpisodes, useUpcomingMutations } from "../hooks";
+import {
+  useSeasonDetails,
+  useShowWatchedEpisodes,
+  useUpcomingMutations,
+} from "../hooks";
 import { useAuthStore } from "../stores";
 import {
   markEpisodeWatched,
@@ -221,7 +225,11 @@ export default memo(function SeasonDropdown({
           afterSeason + 1,
         );
         const ns = nextSeasonData as {
-          episodes: Array<{ episode_number: number; name?: string; air_date?: string }>;
+          episodes: Array<{
+            episode_number: number;
+            name?: string;
+            air_date?: string;
+          }>;
         };
         if (ns.episodes?.length > 0) {
           return {
@@ -232,7 +240,12 @@ export default memo(function SeasonDropdown({
           };
         }
       } catch {}
-      return { nextEpisode: null, nextEpisodeName: null, nextEpisodeAirDate: null, isComplete: true };
+      return {
+        nextEpisode: null,
+        nextEpisodeName: null,
+        nextEpisodeAirDate: null,
+        isComplete: true,
+      };
     },
     [seasonData, apiKey, tmdbId],
   );
@@ -260,7 +273,9 @@ export default memo(function SeasonDropdown({
         nextEpisodeName,
         nextEpisodeAirDate,
       );
-      queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_EPISODES, user.uid] });
+      queryClient.invalidateQueries({
+        queryKey: [QueryKey.WATCHED_EPISODES, user.uid],
+      });
     } catch (err: any) {
       console.error("markSeasonWatched failed:", err);
       Alert.alert("Error", err.message || "Failed to mark season as watched.");
@@ -316,7 +331,9 @@ export default memo(function SeasonDropdown({
           nextEpisodeName,
           nextEpisodeAirDate,
         );
-        queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_EPISODES, user.uid] });
+        queryClient.invalidateQueries({
+          queryKey: [QueryKey.WATCHED_EPISODES, user.uid],
+        });
       } catch (err: any) {
         rollbackUpcoming(snapshot);
         console.error("markEpisodeWatched failed:", err);
@@ -328,7 +345,16 @@ export default memo(function SeasonDropdown({
         setMarking(null);
       }
     },
-    [user?.uid, marking, tmdbId, season.season_number, getNextEpisodeInfo, queryClient, mutateCachedUpcoming, rollbackUpcoming],
+    [
+      user?.uid,
+      marking,
+      tmdbId,
+      season.season_number,
+      getNextEpisodeInfo,
+      queryClient,
+      mutateCachedUpcoming,
+      rollbackUpcoming,
+    ],
   );
 
   const handleMarkWatched = useCallback(
@@ -404,7 +430,9 @@ export default memo(function SeasonDropdown({
             }
           }
         }
-        queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_EPISODES, user.uid] });
+        queryClient.invalidateQueries({
+          queryKey: [QueryKey.WATCHED_EPISODES, user.uid],
+        });
       } catch (err: any) {
         console.error("Watch action failed:", err);
         Alert.alert("Error", err.message || "Action failed.");
@@ -440,9 +468,19 @@ export default memo(function SeasonDropdown({
       try {
         for (const ep of epsToMark) {
           const isLast = ep.episode_number === toEp;
-          const { nextEpisode, nextEpisodeName, nextEpisodeAirDate, isComplete } = isLast
+          const {
+            nextEpisode,
+            nextEpisodeName,
+            nextEpisodeAirDate,
+            isComplete,
+          } = isLast
             ? await getNextEpisodeInfo(season.season_number, ep.episode_number)
-            : { nextEpisode: null, nextEpisodeName: null, nextEpisodeAirDate: null, isComplete: false };
+            : {
+                nextEpisode: null,
+                nextEpisodeName: null,
+                nextEpisodeAirDate: null,
+                isComplete: false,
+              };
 
           await markEpisodeWatched(
             user.uid,
@@ -458,7 +496,9 @@ export default memo(function SeasonDropdown({
             nextEpisodeAirDate,
           );
         }
-        queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_EPISODES, user.uid] });
+        queryClient.invalidateQueries({
+          queryKey: [QueryKey.WATCHED_EPISODES, user.uid],
+        });
       } catch (err: any) {
         console.error("markEpisodeRange failed:", err);
         Alert.alert("Error", err.message || "Failed to mark episodes.");

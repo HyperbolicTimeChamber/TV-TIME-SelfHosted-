@@ -1,5 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+} from "react-native";
 import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -136,7 +142,10 @@ export default function UpcomingTab() {
   }, []);
 
   const handleTitlePress = useCallback(async (ep: UpcomingEpisode) => {
-    const catalog = await getCatalogShow(ep.tmdbShowId, ep.mediaType === MediaType.MOVIE ? "movie" : "tv");
+    const catalog = await getCatalogShow(
+      ep.tmdbShowId,
+      ep.mediaType === MediaType.MOVIE ? "movie" : "tv",
+    );
     if (catalog) {
       setDrawerShow({
         tmdbId: catalog.tmdbId,

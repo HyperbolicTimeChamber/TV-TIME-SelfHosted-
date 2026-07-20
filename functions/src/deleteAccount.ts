@@ -17,7 +17,12 @@ export const deleteAccount = onCall(
     const db = getFirestore();
 
     // Delete all subcollections under user doc
-    const subcollections = ["tracking", "watchedEpisodes", "watchedMovies", "upcoming"];
+    const subcollections = [
+      "tracking",
+      "watchedEpisodes",
+      "watchedMovies",
+      "upcoming",
+    ];
     for (const sub of subcollections) {
       const snap = await db.collection(`users/${uid}/${sub}`).get();
       for (let i = 0; i < snap.docs.length; i += 400) {
@@ -43,7 +48,9 @@ export const deleteAccount = onCall(
         const trackedBy: string[] = showDoc.data()?.trackedBy || [];
         const updated = trackedBy.filter((id: string) => id !== uid);
         if (updated.length === 0) {
-          const overflowSnap = await showDoc.ref.collection("trackedByOverflow").get();
+          const overflowSnap = await showDoc.ref
+            .collection("trackedByOverflow")
+            .get();
           const batch = db.batch();
           for (const d of overflowSnap.docs) batch.delete(d.ref);
           batch.delete(showDoc.ref);
@@ -65,5 +72,5 @@ export const deleteAccount = onCall(
 
     console.log(`[deleteAccount] Deleted user ${uid} and all data`);
     return { success: true };
-  }
+  },
 );

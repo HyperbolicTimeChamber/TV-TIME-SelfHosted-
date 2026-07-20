@@ -30,7 +30,9 @@ export interface EnrichedTrackingItem extends TrackingItem {
 function persistCatalogCache(cache: Map<string, CatalogShow | null>) {
   const obj: Record<string, CatalogShow | null> = {};
   for (const [key, val] of cache) obj[key] = val;
-  AsyncStorage.setItem(CacheKey.CATALOG_CACHE, JSON.stringify(obj)).catch(() => {});
+  AsyncStorage.setItem(CacheKey.CATALOG_CACHE, JSON.stringify(obj)).catch(
+    () => {},
+  );
 }
 
 /** Restore catalog cache from AsyncStorage */
@@ -72,7 +74,8 @@ async function enrichItems(
 
       return {
         ...item,
-        title: catalogShow?.title ?? (item as any).title ?? `Show #${item.tmdbId}`,
+        title:
+          catalogShow?.title ?? (item as any).title ?? `Show #${item.tmdbId}`,
         posterPath: catalogShow?.posterPath ?? (item as any).posterPath ?? null,
         totalEpisodes: catalogShow?.totalEpisodes ?? 0,
         catalogShow: catalogShow ?? null,
@@ -147,71 +150,87 @@ export function useWatchlist(userId: string | undefined) {
     );
 
     async function processSnapshot(snapshot: any) {
-        const trackingItems = snapshot.docs.map((d: any) => ({
-          id: d.id,
-          ...d.data(),
-        })) as TrackingItem[];
+      const trackingItems = snapshot.docs.map((d: any) => ({
+        id: d.id,
+        ...d.data(),
+      })) as TrackingItem[];
 
-        // Only enrich changed/added items — reuse previous for unchanged
-        const changedIds = new Set(
-          snapshot.docChanges().map((c: any) => c.doc.id),
+      // Only enrich changed/added items — reuse previous for unchanged
+      const changedIds = new Set(
+        snapshot.docChanges().map((c: any) => c.doc.id),
+      );
+      const isInitial = prevEnrichedMap.size === 0;
+
+      let enriched: EnrichedTrackingItem[];
+      if (isInitial || changedIds.size === trackingItems.length) {
+        // Initial load or full refresh
+        enriched = await enrichItems(trackingItems, catalogCache.current);
+      } else {
+        // Incremental: only enrich changed items
+        const toEnrich = trackingItems.filter((t) => changedIds.has(t.id));
+        const freshlyEnriched = await enrichItems(
+          toEnrich,
+          catalogCache.current,
         );
-        const isInitial = prevEnrichedMap.size === 0;
+        const freshMap = new Map(freshlyEnriched.map((e) => [e.id, e]));
 
-        let enriched: EnrichedTrackingItem[];
-        if (isInitial || changedIds.size === trackingItems.length) {
-          // Initial load or full refresh
-          enriched = await enrichItems(trackingItems, catalogCache.current);
-        } else {
-          // Incremental: only enrich changed items
-          const toEnrich = trackingItems.filter((t) => changedIds.has(t.id));
-          const freshlyEnriched = await enrichItems(toEnrich, catalogCache.current);
-          const freshMap = new Map(freshlyEnriched.map((e) => [e.id, e]));
-
-          enriched = trackingItems.map((t) =>
-            freshMap.get(t.id) ?? prevEnrichedMap.get(t.id) ?? {
+        enriched = trackingItems.map(
+          (t) =>
+            freshMap.get(t.id) ??
+            prevEnrichedMap.get(t.id) ?? {
               ...t,
               title: `Show #${t.tmdbId}`,
               posterPath: null,
               totalEpisodes: 0,
               catalogShow: null,
             },
-          );
-        }
-
-        // Update prev map for next snapshot
-        prevEnrichedMap = new Map(enriched.map((e) => [e.id, e]));
-
-        firstPageLastDoc.current =
-          snapshot.docs[snapshot.docs.length - 1] || null;
-        if (!paginationCursor.current) {
-          paginationCursor.current = firstPageLastDoc.current;
-        }
-
-        const firstPageIds = new Set(enriched.map((e) => e.id));
-        paginatedItems.current = paginatedItems.current.filter(
-          (p) => !firstPageIds.has(p.id),
         );
+      }
 
-        const hasRemovals = snapshot
-          .docChanges()
-          .some((c: any) => c.type === DocChangeType.REMOVED);
-        if (hasRemovals && paginatedItems.current.length > 0 && userId) {
-          try {
-            const checks = paginatedItems.current.map((p) =>
-              getDoc(doc(db, "users", userId!, "tracking", showDocId(p.tmdbId, (p as any).mediaType === "movie" ? "movie" : "tv"))),
-            );
-            const results = await Promise.all(checks);
-            paginatedItems.current = paginatedItems.current.filter(
-              (_, i) => results[i]?.exists?.() ?? false,
-            );
-          } catch {}
-        }
+      // Update prev map for next snapshot
+      prevEnrichedMap = new Map(enriched.map((e) => [e.id, e]));
 
-        const merged = [...enriched, ...paginatedItems.current];
-        setItems(merged);
-        setHasMore(snapshot.docs.length >= PAGE_SIZE);
-        setLoading(false);
+      firstPageLastDoc.current =
+        snapshot.docs[snapshot.docs.length - 1] || null;
+      if (!paginationCursor.current) {
+        paginationCursor.current = firstPageLastDoc.current;
+      }
+
+      const firstPageIds = new Set(enriched.map((e) => e.id));
+      paginatedItems.current = paginatedItems.current.filter(
+        (p) => !firstPageIds.has(p.id),
+      );
+
+      const hasRemovals = snapshot
+        .docChanges()
+        .some((c: any) => c.type === DocChangeType.REMOVED);
+      if (hasRemovals && paginatedItems.current.length > 0 && userId) {
+        try {
+          const checks = paginatedItems.current.map((p) =>
+            getDoc(
+              doc(
+                db,
+                "users",
+                userId!,
+                "tracking",
+                showDocId(
+                  p.tmdbId,
+                  (p as any).mediaType === "movie" ? "movie" : "tv",
+                ),
+              ),
+            ),
+          );
+          const results = await Promise.all(checks);
+          paginatedItems.current = paginatedItems.current.filter(
+            (_, i) => results[i]?.exists?.() ?? false,
+          );
+        } catch {}
+      }
+
+      const merged = [...enriched, ...paginatedItems.current];
+      setItems(merged);
+      setHasMore(snapshot.docs.length >= PAGE_SIZE);
+      setLoading(false);
     }
 
     return unsubscribe;
@@ -264,17 +283,14 @@ export function useWatchlist(userId: string | undefined) {
     }
   }, [userId, hasMore, loadingMore]);
 
-  const removeItem = useCallback(
-    (tmdbId: number) => {
-      paginatedItems.current = paginatedItems.current.filter(
-        (p) => p.tmdbId !== tmdbId,
-      );
-      catalogCache.current.delete(showDocId(tmdbId, "tv"));
-      catalogCache.current.delete(showDocId(tmdbId, "movie"));
-      setItems((prev) => prev.filter((p) => p.tmdbId !== tmdbId));
-    },
-    [],
-  );
+  const removeItem = useCallback((tmdbId: number) => {
+    paginatedItems.current = paginatedItems.current.filter(
+      (p) => p.tmdbId !== tmdbId,
+    );
+    catalogCache.current.delete(showDocId(tmdbId, "tv"));
+    catalogCache.current.delete(showDocId(tmdbId, "movie"));
+    setItems((prev) => prev.filter((p) => p.tmdbId !== tmdbId));
+  }, []);
 
   // Listen for external removal events (e.g. from ShowDetailScreen)
   useEffect(() => onShowRemoved(removeItem), [removeItem]);

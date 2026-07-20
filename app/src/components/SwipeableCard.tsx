@@ -93,13 +93,12 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 
       const persist = persistRef.current;
       const shouldPersist =
-        typeof persist === "object"
-          ? persist[direction]
-          : !!persist;
+        typeof persist === "object" ? persist[direction] : !!persist;
 
       if (shouldPersist) {
         // Keep card off-screen, show colored reveal underneath while loading
-        const color = direction === "left" ? leftColorRef.current : rightColorRef.current;
+        const color =
+          direction === "left" ? leftColorRef.current : rightColorRef.current;
         setActionColor(color);
         setPersistingLoad(true);
         setSwipeState("loading");
@@ -121,7 +120,8 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
         return;
       }
 
-      const color = direction === "left" ? leftColorRef.current : rightColorRef.current;
+      const color =
+        direction === "left" ? leftColorRef.current : rightColorRef.current;
       setActionColor(color);
       setSwipeState("loading");
 

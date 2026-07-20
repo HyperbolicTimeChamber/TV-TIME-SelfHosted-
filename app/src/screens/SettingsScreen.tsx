@@ -82,7 +82,7 @@ export default function SettingsScreen() {
       </View>
 
       {__DEV__ && (
-      <View style={styles.section}>
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Debug</Text>
           <TouchableOpacity
             style={styles.row}
@@ -101,9 +101,16 @@ export default function SettingsScreen() {
               if (migrating) return;
               setMigrating(true);
               try {
-                const result = await httpsCallable(getFunctions(), "migrateDocIds", { timeout: 3600000 })({});
+                const result = await httpsCallable(
+                  getFunctions(),
+                  "migrateDocIds",
+                  { timeout: 3600000 },
+                )({});
                 const data = result.data as any;
-                Alert.alert("Migration Done", `Shows: ${data.showsMigrated}, Tracking: ${data.trackingMigrated}`);
+                Alert.alert(
+                  "Migration Done",
+                  `Shows: ${data.showsMigrated}, Tracking: ${data.trackingMigrated}`,
+                );
               } catch (err: any) {
                 Alert.alert("Error", err.message || "Migration failed.");
               } finally {

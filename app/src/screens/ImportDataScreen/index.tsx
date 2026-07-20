@@ -41,7 +41,9 @@ export default function ImportDataScreen({ navigation }: any) {
   const user = useAuthStore((s) => s.user);
   const tmdbApiKey = useAuthStore((s) => s.appTmdbApiKey);
 
-  useEffect(() => { warmupImportCFs(); }, []);
+  useEffect(() => {
+    warmupImportCFs();
+  }, []);
 
   const [phase, setPhase] = useState<Phase>("pick");
   const [progress, setProgress] = useState({ done: 0, total: 0 });
@@ -72,7 +74,10 @@ export default function ImportDataScreen({ navigation }: any) {
       if (!raw) return;
       try {
         const data = JSON.parse(raw);
-        if (data.userId === user?.uid && !useAuthStore.getState().hasCompletedImport) {
+        if (
+          data.userId === user?.uid &&
+          !useAuthStore.getState().hasCompletedImport
+        ) {
           setPhase("importing");
         }
       } catch {}
@@ -119,7 +124,9 @@ export default function ImportDataScreen({ navigation }: any) {
         const watchlistCol = collection(doc(db, "users", user.uid), "tracking");
         const snap = await getDocs(watchlistCol);
         const ids = new Set<number>();
-        snap.docs.forEach((d) => ids.add(Number(d.id.replace(/^(tv|movie)_/, ""))));
+        snap.docs.forEach((d) =>
+          ids.add(Number(d.id.replace(/^(tv|movie)_/, ""))),
+        );
         existingIdsRef.current = ids;
       }
 

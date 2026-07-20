@@ -37,9 +37,12 @@ export const removeShow = onCall(
 
     // Update stats
     const userRef = db.doc(`users/${uid}`);
-    await userRef.set({
-      stats: { showsTracking: FieldValue.increment(-1) },
-    }, { merge: true });
+    await userRef.set(
+      {
+        stats: { showsTracking: FieldValue.increment(-1) },
+      },
+      { merge: true },
+    );
 
     // Delete upcoming docs for this show
     const upcomingSnap = await db
@@ -58,9 +61,7 @@ export const removeShow = onCall(
     // If no one tracks it, delete the show doc + overflow subcollection
     if (remainingCount <= 0) {
       const showRef = db.doc(`shows/${showId}`);
-      const overflowSnap = await showRef
-        .collection("trackedByOverflow")
-        .get();
+      const overflowSnap = await showRef.collection("trackedByOverflow").get();
       const batch = db.batch();
       for (const doc of overflowSnap.docs) {
         batch.delete(doc.ref);
@@ -70,5 +71,5 @@ export const removeShow = onCall(
     }
 
     return { success: true };
-  }
+  },
 );

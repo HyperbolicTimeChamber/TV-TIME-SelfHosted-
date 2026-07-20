@@ -75,7 +75,7 @@ export interface CatalogShow {
 
 export async function pooled<T>(
   tasks: (() => Promise<T>)[],
-  concurrency = 5
+  concurrency = 5,
 ): Promise<T[]> {
   const results: T[] = [];
   let index = 0;
@@ -89,7 +89,7 @@ export async function pooled<T>(
 
   const workers = Array.from(
     { length: Math.min(concurrency, tasks.length) },
-    () => worker()
+    () => worker(),
   );
   await Promise.all(workers);
   return results;
@@ -98,11 +98,11 @@ export async function pooled<T>(
 async function fetchSeasonEpisodes(
   apiKey: string,
   tmdbId: number,
-  seasonNumber: number
+  seasonNumber: number,
 ): Promise<CatalogSeason> {
   const { data } = await axios.get<TMDBSeasonDetail>(
     `${TMDB_BASE}/tv/${tmdbId}/season/${seasonNumber}`,
-    { params: { api_key: apiKey } }
+    { params: { api_key: apiKey } },
   );
   return {
     seasonNumber: data.season_number,
@@ -121,11 +121,11 @@ async function fetchSeasonEpisodes(
 
 export async function fetchShowStatus(
   apiKey: string,
-  tmdbId: number
+  tmdbId: number,
 ): Promise<string> {
   const { data } = await axios.get<{ status: string }>(
     `${TMDB_BASE}/tv/${tmdbId}`,
-    { params: { api_key: apiKey } }
+    { params: { api_key: apiKey } },
   );
   return data.status ?? "Unknown";
 }
@@ -133,7 +133,7 @@ export async function fetchShowStatus(
 export async function fetchShowFromTMDB(
   apiKey: string,
   tmdbId: number,
-  mediaType: MediaType
+  mediaType: MediaType,
 ): Promise<CatalogShow> {
   const endpoint =
     mediaType === MediaType.TV
@@ -154,7 +154,7 @@ export async function fetchShowFromTMDB(
       .map((s) => s.season_number);
 
     const tasks = seasonNumbers.map(
-      (num) => () => fetchSeasonEpisodes(apiKey, tmdbId, num)
+      (num) => () => fetchSeasonEpisodes(apiKey, tmdbId, num),
     );
     seasons = await pooled(tasks, 5);
     totalEpisodes = seasons.reduce((sum, s) => sum + s.episodeCount, 0);
@@ -163,8 +163,8 @@ export async function fetchShowFromTMDB(
 
   const avgRuntime =
     mediaType === MediaType.MOVIE
-      ? data.runtime ?? null
-      : data.episode_run_time?.[0] ?? null;
+      ? (data.runtime ?? null)
+      : (data.episode_run_time?.[0] ?? null);
 
   return {
     tmdbId,

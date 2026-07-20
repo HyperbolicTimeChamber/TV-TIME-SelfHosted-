@@ -44,7 +44,10 @@ import {
   QueryKey,
 } from "../../../types";
 import type { ShowDrawerData } from "../../../components/ShowDrawer";
-import { warmupWatchlistCFs, warmupFirestoreWrite } from "../../../services/warmup";
+import {
+  warmupWatchlistCFs,
+  warmupFirestoreWrite,
+} from "../../../services/warmup";
 import { ListItem } from "./types";
 import { useWatchlistData } from "./useWatchlistData";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
@@ -315,7 +318,9 @@ export default function WatchlistTab() {
         nextEpisode,
         isComplete,
       );
-      queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_EPISODES, user.uid] });
+      queryClient.invalidateQueries({
+        queryKey: [QueryKey.WATCHED_EPISODES, user.uid],
+      });
     },
     [user?.uid, queryClient],
   );
@@ -343,7 +348,9 @@ export default function WatchlistTab() {
           episode.episodeTitle,
         );
       }
-      queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_EPISODES, user.uid] });
+      queryClient.invalidateQueries({
+        queryKey: [QueryKey.WATCHED_EPISODES, user.uid],
+      });
     },
     [user?.uid, queryClient],
   );
@@ -414,7 +421,9 @@ export default function WatchlistTab() {
             sheetEpisode.episodeTitle,
           );
         }
-        queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_EPISODES, user.uid] });
+        queryClient.invalidateQueries({
+          queryKey: [QueryKey.WATCHED_EPISODES, user.uid],
+        });
       } catch (err: any) {
         console.error("Watch action failed:", err);
         Alert.alert("Error", err.message || "Action failed.");
@@ -439,12 +448,14 @@ export default function WatchlistTab() {
       if (item.type === "watchedMovie") {
         return (
           <ShowCard
-            item={{
-              ...item.show,
-              nextEpisode: null,
-              mediaType: MediaType.MOVIE,
-              rewatchCount: Math.max(0, (item.movie.watchCount || 1) - 1),
-            } as any}
+            item={
+              {
+                ...item.show,
+                nextEpisode: null,
+                mediaType: MediaType.MOVIE,
+                rewatchCount: Math.max(0, (item.movie.watchCount || 1) - 1),
+              } as any
+            }
             isWatched
             onSwipeLeft={NOOP_ASYNC}
             onSwipeRight={NOOP_ASYNC}
@@ -536,8 +547,7 @@ export default function WatchlistTab() {
         data={listData}
         keyExtractor={(item) => {
           if (item.type === "sectionHeader") return `section_${item.title}`;
-          if (item.type === "watchedMovie")
-            return `movie_${item.movie.id}`;
+          if (item.type === "watchedMovie") return `movie_${item.movie.id}`;
           if (item.type === "watchedEpisode")
             return `watched_${item.episode.id}`;
           return `show_${item.item.id}`;

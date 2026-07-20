@@ -7,7 +7,8 @@ import { MediaType } from "./enums";
 export const migrateDocIds = onCall(
   { maxInstances: 1, timeoutSeconds: 3600, memory: "1GiB" },
   async (request) => {
-    if (!request.auth) throw new HttpsError("unauthenticated", "Must be signed in");
+    if (!request.auth)
+      throw new HttpsError("unauthenticated", "Must be signed in");
 
     const db = getFirestore();
     let showsMigrated = 0;
@@ -16,7 +17,10 @@ export const migrateDocIds = onCall(
     // Helper: commit batches of 500 ops (Firestore limit)
     async function batchMigrate(
       docs: FirebaseFirestore.QueryDocumentSnapshot[],
-      pathFn: (oldId: string, newId: string) => { oldPath: string; newPath: string },
+      pathFn: (
+        oldId: string,
+        newId: string,
+      ) => { oldPath: string; newPath: string },
     ) {
       let batch = db.batch();
       let ops = 0;
@@ -63,18 +67,27 @@ export const migrateDocIds = onCall(
     console.log("Migrating tracking docs...");
     const usersSnap = await db.collection("users").get();
     for (const userDoc of usersSnap.docs) {
-      const trackingSnap = await db.collection(`users/${userDoc.id}/tracking`).get();
-      const userMigrated = await batchMigrate(trackingSnap.docs, (oldId, newId) => ({
-        oldPath: `users/${userDoc.id}/tracking/${oldId}`,
-        newPath: `users/${userDoc.id}/tracking/${newId}`,
-      }));
+      const trackingSnap = await db
+        .collection(`users/${userDoc.id}/tracking`)
+        .get();
+      const userMigrated = await batchMigrate(
+        trackingSnap.docs,
+        (oldId, newId) => ({
+          oldPath: `users/${userDoc.id}/tracking/${oldId}`,
+          newPath: `users/${userDoc.id}/tracking/${newId}`,
+        }),
+      );
       trackingMigrated += userMigrated;
       if (userMigrated > 0) {
-        console.log(`User ${userDoc.id}: migrated ${userMigrated} tracking docs`);
+        console.log(
+          `User ${userDoc.id}: migrated ${userMigrated} tracking docs`,
+        );
       }
     }
 
-    console.log(`Migration complete: ${showsMigrated} shows, ${trackingMigrated} tracking`);
+    console.log(
+      `Migration complete: ${showsMigrated} shows, ${trackingMigrated} tracking`,
+    );
     return { showsMigrated, trackingMigrated };
-  }
+  },
 );

@@ -8,21 +8,33 @@ import {
 } from "@react-native-firebase/firestore";
 
 const functions = getFunctions();
-const warmedUp = new Set<string>();
+
+/** CF idle timeout — 15 minutes */
+const CF_IDLE_MS = 15 * 60 * 1000;
+
+/** Track last warmup time per CF */
+const lastWarmedAt = new Map<string, number>();
 
 function warmup(name: string) {
-  if (warmedUp.has(name)) return;
-  warmedUp.add(name);
+  const now = Date.now();
+  const last = lastWarmedAt.get(name) ?? 0;
+  if (now - last < CF_IDLE_MS) return;
+  lastWarmedAt.set(name, now);
   httpsCallable(functions, name)({ warmup: true }).catch(() => {});
 }
 
 /** Warm Firestore write channel with a lightweight user doc update */
-let writeWarmed = false;
+let lastWriteWarmup = 0;
 export function warmupFirestoreWrite(userId: string) {
-  if (writeWarmed) return;
-  writeWarmed = true;
+  const now = Date.now();
+  if (now - lastWriteWarmup < CF_IDLE_MS) return;
+  lastWriteWarmup = now;
   const db = getFirestore();
-  setDoc(doc(db, "users", userId), { lastAppOpen: serverTimestamp() }, { merge: true }).catch(() => {});
+  setDoc(
+    doc(db, "users", userId),
+    { lastAppOpen: serverTimestamp() },
+    { merge: true },
+  ).catch(() => {});
 }
 
 /** Warm CFs used on Watchlist: removeShow (stop watching) */

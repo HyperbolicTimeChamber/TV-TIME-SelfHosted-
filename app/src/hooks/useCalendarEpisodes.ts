@@ -42,7 +42,9 @@ async function saveCalendarCache(cache: CalendarCache) {
       if (key !== currentKey) delete cache.months[key];
     }
   }
-  await AsyncStorage.setItem(CALENDAR_CACHE_KEY, JSON.stringify(cache)).catch(() => {});
+  await AsyncStorage.setItem(CALENDAR_CACHE_KEY, JSON.stringify(cache)).catch(
+    () => {},
+  );
 }
 
 // Global mutation listeners (cross-screen)
@@ -84,8 +86,12 @@ export function useCalendarEpisodes(userId: string | undefined) {
       getDocs(query(trackingCol, where("mediaType", "==", MediaType.MOVIE))),
     ]).then(([cache, configSnap, tvSnap, movieSnap]) => {
       // Tracked IDs — strip prefix to match TMDB numeric IDs
-      trackedIds.current = new Set(tvSnap.docs.map((d) => d.id.replace(/^(tv|movie)_/, "")));
-      trackedMovieIds.current = new Set(movieSnap.docs.map((d) => d.id.replace(/^(tv|movie)_/, "")));
+      trackedIds.current = new Set(
+        tvSnap.docs.map((d) => d.id.replace(/^(tv|movie)_/, "")),
+      );
+      trackedMovieIds.current = new Set(
+        movieSnap.docs.map((d) => d.id.replace(/^(tv|movie)_/, "")),
+      );
 
       // Check sync date — invalidate cache if backend synced since
       const serverSync = configSnap?.data?.()?.lastCatalogSync;
@@ -150,13 +156,17 @@ export function useCalendarEpisodes(userId: string | undefined) {
         ]);
 
         // TV: intersect discover results with tracked IDs → read catalog docs in parallel
-        const matchedIds = airingIds.filter((id) => trackedIds.current!.has(String(id)));
+        const matchedIds = airingIds.filter((id) =>
+          trackedIds.current!.has(String(id)),
+        );
         const episodes: UpcomingEpisode[] = [];
         const catalogDocs = await Promise.all(
           matchedIds.map((id) =>
-            getDoc(doc(db, "shows", showDocId(id, "tv"))).then((d) =>
-              d.exists?.() ? (d.data() as any as CatalogShow) : null,
-            ).catch(() => null),
+            getDoc(doc(db, "shows", showDocId(id, "tv")))
+              .then((d) =>
+                d.exists?.() ? (d.data() as any as CatalogShow) : null,
+              )
+              .catch(() => null),
           ),
         );
 
@@ -165,7 +175,8 @@ export function useCalendarEpisodes(userId: string | undefined) {
           for (const season of catalog.seasons || []) {
             if (season.seasonNumber === 0) continue;
             for (const ep of season.episodes || []) {
-              if (!ep.airDate || ep.airDate < startDate || ep.airDate > endDate) continue;
+              if (!ep.airDate || ep.airDate < startDate || ep.airDate > endDate)
+                continue;
               episodes.push({
                 tmdbShowId: catalog.tmdbId ?? 0,
                 showTitle: catalog.title ?? "",
@@ -217,57 +228,50 @@ export function useCalendarEpisodes(userId: string | undefined) {
     [userId, apiKey, episodesByMonth, loading],
   );
 
-  const removeShowFromCalendar = useCallback(
-    (tmdbId: number) => {
-      setEpisodesByMonth((prev) => {
-        const next = new Map(prev);
-        let changed = false;
-        for (const [key, eps] of next) {
-          const filtered = eps.filter((e) => e.tmdbShowId !== tmdbId);
-          if (filtered.length !== eps.length) {
-            next.set(key, filtered);
-            calendarCacheRef.current.months[key] = filtered;
-            changed = true;
-          }
+  const removeShowFromCalendar = useCallback((tmdbId: number) => {
+    setEpisodesByMonth((prev) => {
+      const next = new Map(prev);
+      let changed = false;
+      for (const [key, eps] of next) {
+        const filtered = eps.filter((e) => e.tmdbShowId !== tmdbId);
+        if (filtered.length !== eps.length) {
+          next.set(key, filtered);
+          calendarCacheRef.current.months[key] = filtered;
+          changed = true;
         }
-        if (changed) saveCalendarCache(calendarCacheRef.current);
-        return changed ? next : prev;
-      });
-    },
-    [],
-  );
+      }
+      if (changed) saveCalendarCache(calendarCacheRef.current);
+      return changed ? next : prev;
+    });
+  }, []);
 
-  const addMovieToCalendar = useCallback(
-    (movie: UpcomingEpisode) => {
-      const monthKey = movie.airDate.slice(0, 7); // "2026-07"
-      setEpisodesByMonth((prev) => {
-        const next = new Map(prev);
-        const existing = next.get(monthKey);
-        if (!existing) return prev; // month not cached, will be fetched when viewed
-        if (existing.some((e) => e.tmdbShowId === movie.tmdbShowId)) return prev;
-        const updated = [...existing, movie].sort((a, b) => a.airDate.localeCompare(b.airDate));
-        next.set(monthKey, updated);
-        calendarCacheRef.current.months[monthKey] = updated;
-        saveCalendarCache(calendarCacheRef.current);
-        return next;
-      });
-    },
-    [],
-  );
+  const addMovieToCalendar = useCallback((movie: UpcomingEpisode) => {
+    const monthKey = movie.airDate.slice(0, 7); // "2026-07"
+    setEpisodesByMonth((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(monthKey);
+      if (!existing) return prev; // month not cached, will be fetched when viewed
+      if (existing.some((e) => e.tmdbShowId === movie.tmdbShowId)) return prev;
+      const updated = [...existing, movie].sort((a, b) =>
+        a.airDate.localeCompare(b.airDate),
+      );
+      next.set(monthKey, updated);
+      calendarCacheRef.current.months[monthKey] = updated;
+      saveCalendarCache(calendarCacheRef.current);
+      return next;
+    });
+  }, []);
 
-  const invalidateMonth = useCallback(
-    (year: number, month: number) => {
-      const monthKey = `${year}-${String(month).padStart(2, "0")}`;
-      setEpisodesByMonth((prev) => {
-        const next = new Map(prev);
-        next.delete(monthKey);
-        delete calendarCacheRef.current.months[monthKey];
-        saveCalendarCache(calendarCacheRef.current);
-        return next;
-      });
-    },
-    [],
-  );
+  const invalidateMonth = useCallback((year: number, month: number) => {
+    const monthKey = `${year}-${String(month).padStart(2, "0")}`;
+    setEpisodesByMonth((prev) => {
+      const next = new Map(prev);
+      next.delete(monthKey);
+      delete calendarCacheRef.current.months[monthKey];
+      saveCalendarCache(calendarCacheRef.current);
+      return next;
+    });
+  }, []);
 
   // Listen for cross-screen mutations
   useEffect(() => {

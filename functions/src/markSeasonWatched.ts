@@ -39,7 +39,15 @@ export const markSeasonWatched = onCall(
 
     const uid = request.auth.uid;
     const data = request.data as MarkSeasonRequest;
-    const { tmdbId, seasonNumber, episodes, nextEpisode, nextEpisodeName, nextEpisodeAirDate, isShowComplete } = data;
+    const {
+      tmdbId,
+      seasonNumber,
+      episodes,
+      nextEpisode,
+      nextEpisodeName,
+      nextEpisodeAirDate,
+      isShowComplete,
+    } = data;
 
     if (!tmdbId || !seasonNumber || !episodes?.length) {
       throw new HttpsError("invalid-argument", "Missing required fields.");
@@ -51,12 +59,14 @@ export const markSeasonWatched = onCall(
 
     const db = getFirestore();
     const userDoc = db.doc(`users/${uid}`);
-    const trackingDoc = db.doc(`users/${uid}/tracking/${showDocId(tmdbId, MediaType.TV)}`);
+    const trackingDoc = db.doc(
+      `users/${uid}/tracking/${showDocId(tmdbId, MediaType.TV)}`,
+    );
     const watchedCol = db.collection(`users/${uid}/watchedEpisodes`);
 
     // Read all existing episode docs in parallel
     const epRefs = episodes.map((ep) =>
-      watchedCol.doc(episodeDocId(tmdbId, seasonNumber, ep.episodeNumber))
+      watchedCol.doc(episodeDocId(tmdbId, seasonNumber, ep.episodeNumber)),
     );
     const existingDocs = await db.getAll(...epRefs);
 
@@ -98,7 +108,7 @@ export const markSeasonWatched = onCall(
           totalMinutes: FieldValue.increment(totalRuntime),
         },
       },
-      { merge: true }
+      { merge: true },
     );
 
     // Update tracking doc
@@ -126,5 +136,5 @@ export const markSeasonWatched = onCall(
     await batch.commit();
 
     return { markedCount: episodes.length };
-  }
+  },
 );

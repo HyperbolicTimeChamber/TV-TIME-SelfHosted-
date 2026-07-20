@@ -129,7 +129,9 @@ export async function addToTracking(
     addedAt: now,
     lastWatchedAt: now,
     priorityDate,
-    ...(mediaType === MediaType.MOVIE ? { releaseDate: releaseDate || null } : {}),
+    ...(mediaType === MediaType.MOVIE
+      ? { releaseDate: releaseDate || null }
+      : {}),
     ...(meta?.title ? { title: meta.title } : {}),
     ...(meta?.posterPath ? { posterPath: meta.posterPath } : {}),
   });
@@ -144,7 +146,10 @@ export async function addToTracking(
   // If CF fails after retry → rollback tracking doc + call onError
   const tRef = doc(trackingRef(userId), docId);
   const callAddShow = () =>
-    httpsCallable(getFunctions(), CloudFunction.ADD_SHOW)({ tmdbId, mediaType });
+    httpsCallable(
+      getFunctions(),
+      CloudFunction.ADD_SHOW,
+    )({ tmdbId, mediaType });
   callAddShow().catch(() =>
     callAddShow().catch(async () => {
       // Both attempts failed — undo the local add
@@ -189,8 +194,11 @@ export async function removeFromTracking(
   await batch.commit();
 
   // Background: update trackedBy on catalog doc (CF handles cleanup)
-  httpsCallable(getFunctions(), CloudFunction.REMOVE_SHOW)({ tmdbId, mediaType }).catch(
-    (err: any) => console.error("[removeFromTracking] removeShow CF failed:", err),
+  httpsCallable(
+    getFunctions(),
+    CloudFunction.REMOVE_SHOW,
+  )({ tmdbId, mediaType }).catch((err: any) =>
+    console.error("[removeFromTracking] removeShow CF failed:", err),
   );
 }
 
@@ -290,7 +298,10 @@ export async function markEpisodeWatched(
       if (isShowComplete) {
         trackingUpdate.status = WatchStatus.COMPLETED;
       }
-      tx.update(doc(trackingRef(userId), showDocId(tmdbShowId, "tv")), trackingUpdate);
+      tx.update(
+        doc(trackingRef(userId), showDocId(tmdbShowId, "tv")),
+        trackingUpdate,
+      );
     }
   });
 }
@@ -404,8 +415,10 @@ export async function unmarkSeasonWatched(
   );
 
   // Reset tracking to first episode of the unmarked season
-  const firstEp = episodes.reduce((min, ep) =>
-    ep.episode < min.episode ? ep : min, episodes[0]);
+  const firstEp = episodes.reduce(
+    (min, ep) => (ep.episode < min.episode ? ep : min),
+    episodes[0],
+  );
   batch.update(doc(trackingRef(userId), showDocId(tmdbShowId, "tv")), {
     nextEpisode: { season: firstEp.season, episode: firstEp.episode },
     status: WatchStatus.WATCHING,

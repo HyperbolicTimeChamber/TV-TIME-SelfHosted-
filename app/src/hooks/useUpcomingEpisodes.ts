@@ -34,7 +34,11 @@ function todayStr() {
 }
 
 /** Persist upcoming cache with mutations applied */
-function persistCache(userId: string, episodes: UpcomingEpisode[], syncDate: string) {
+function persistCache(
+  userId: string,
+  episodes: UpcomingEpisode[],
+  syncDate: string,
+) {
   AsyncStorage.setItem(
     CacheKey.UPCOMING_EPISODES,
     JSON.stringify({ userId, syncDate, episodes }),
@@ -53,7 +57,9 @@ export function useUpcomingEpisodes(userId: string | undefined) {
   useEffect(() => {
     const listener = () => setForceRefetch((t) => t + 1);
     invalidateListeners.add(listener);
-    return () => { invalidateListeners.delete(listener); };
+    return () => {
+      invalidateListeners.delete(listener);
+    };
   }, []);
 
   // Listen for direct mutations — update state AND persist to cache
@@ -67,7 +73,9 @@ export function useUpcomingEpisodes(userId: string | undefined) {
         return updated;
       });
     mutateListeners.add(cb);
-    return () => { mutateListeners.delete(cb); };
+    return () => {
+      mutateListeners.delete(cb);
+    };
   }, [userId]);
 
   // Restore from cache on mount + prune past episodes
@@ -136,7 +144,10 @@ export function useUpcomingEpisodes(userId: string | undefined) {
           const built = await AsyncStorage.getItem(CacheKey.UPCOMING_BUILT);
           if (built !== userId) {
             try {
-              await httpsCallable(getFunctions(), CloudFunction.REBUILD_UPCOMING)({});
+              await httpsCallable(
+                getFunctions(),
+                CloudFunction.REBUILD_UPCOMING,
+              )({});
               await AsyncStorage.setItem(CacheKey.UPCOMING_BUILT, userId);
               snap = await getDocs(
                 query(upcomingCol, where("airDate", ">=", today)),
@@ -150,8 +161,9 @@ export function useUpcomingEpisodes(userId: string | undefined) {
           }
         }
 
-        const tvEps: UpcomingEpisode[] = snap.docs
-          .map((d) => d.data() as UpcomingEpisode);
+        const tvEps: UpcomingEpisode[] = snap.docs.map(
+          (d) => d.data() as UpcomingEpisode,
+        );
 
         // Fetch tracked movies with future release dates
         // Query only docs that have releaseDate field set (avoids reading all 1000+ movies)
@@ -214,18 +226,28 @@ let lastSnapshot: UpcomingEpisode[] | null = null;
 
 export function useUpcomingMutations() {
   /** Add an item to upcoming locally (TV eps added server-side by CF, movies added here) */
-  const addShowToUpcoming = useCallback((tmdbId: number, item?: UpcomingEpisode) => {
-    if (item) {
-      // Add directly to local state + cache (e.g. unreleased movie)
-      mutateCachedEpisodes((prev) => {
-        if (prev.some((ep) => ep.tmdbShowId === tmdbId && ep.airDate === item.airDate)) return prev;
-        return [...prev, item].sort((a, b) => a.airDate.localeCompare(b.airDate));
-      });
-    } else {
-      // TV show — CF populates subcollection, need refetch to pick it up
-      triggerInvalidate();
-    }
-  }, []);
+  const addShowToUpcoming = useCallback(
+    (tmdbId: number, item?: UpcomingEpisode) => {
+      if (item) {
+        // Add directly to local state + cache (e.g. unreleased movie)
+        mutateCachedEpisodes((prev) => {
+          if (
+            prev.some(
+              (ep) => ep.tmdbShowId === tmdbId && ep.airDate === item.airDate,
+            )
+          )
+            return prev;
+          return [...prev, item].sort((a, b) =>
+            a.airDate.localeCompare(b.airDate),
+          );
+        });
+      } else {
+        // TV show — CF populates subcollection, need refetch to pick it up
+        triggerInvalidate();
+      }
+    },
+    [],
+  );
 
   const removeShowFromUpcoming = useCallback((tmdbId: number) => {
     // Optimistic: remove from local state + cache immediately
@@ -253,12 +275,9 @@ export function useUpcomingMutations() {
   );
 
   /** Rollback to a previous snapshot */
-  const rollbackUpcoming = useCallback(
-    (snapshot: UpcomingEpisode[]) => {
-      mutateCachedEpisodes(() => snapshot);
-    },
-    [],
-  );
+  const rollbackUpcoming = useCallback((snapshot: UpcomingEpisode[]) => {
+    mutateCachedEpisodes(() => snapshot);
+  }, []);
 
   return {
     addShowToUpcoming,

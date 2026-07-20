@@ -146,7 +146,6 @@ export default function WatchActionSheet({
                 <Text style={styles.optionHint}>Remove all watch history</Text>
               </View>
             </TouchableOpacity>
-
           </TouchableOpacity>
         </Animated.View>
       </TouchableOpacity>

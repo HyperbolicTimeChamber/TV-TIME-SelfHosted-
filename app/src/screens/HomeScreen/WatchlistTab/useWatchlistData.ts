@@ -17,7 +17,14 @@ import {
   stopWatching,
 } from "../../../services";
 import { removeShowFromCalendarGlobal } from "../../../hooks/useCalendarEpisodes";
-import { MediaType, CacheKey, WatchStatus, WatchedEpisode, WatchedMovie, QueryKey } from "../../../types";
+import {
+  MediaType,
+  CacheKey,
+  WatchStatus,
+  WatchedEpisode,
+  WatchedMovie,
+  QueryKey,
+} from "../../../types";
 import { ListItem } from "./types";
 
 const ACTIVE_CACHE_LIMIT = 100;
@@ -38,10 +45,7 @@ function computeRemaining(
   for (const s of catalog.seasons) {
     if (s.seasonNumber < nextEp.season) continue;
     for (const e of s.episodes) {
-      if (
-        s.seasonNumber === nextEp.season &&
-        e.episodeNumber <= nextEp.episode
-      )
+      if (s.seasonNumber === nextEp.season && e.episodeNumber <= nextEp.episode)
         continue;
       if (e.airDate && e.airDate <= today) count++;
     }
@@ -54,9 +58,19 @@ function findNextEpisodeInCatalog(
   catalog: any,
   season: number,
   episode: number,
-): { season: number; episode: number; title: string | null; airDate: string | null; runtime: number } | null {
-  const catalogSeason = catalog?.seasons?.find((s: any) => s.seasonNumber === season);
-  const nextInSeason = catalogSeason?.episodes?.find((e: any) => e.episodeNumber === episode + 1);
+): {
+  season: number;
+  episode: number;
+  title: string | null;
+  airDate: string | null;
+  runtime: number;
+} | null {
+  const catalogSeason = catalog?.seasons?.find(
+    (s: any) => s.seasonNumber === season,
+  );
+  const nextInSeason = catalogSeason?.episodes?.find(
+    (e: any) => e.episodeNumber === episode + 1,
+  );
   if (nextInSeason) {
     return {
       season,
@@ -66,7 +80,9 @@ function findNextEpisodeInCatalog(
       runtime: nextInSeason.runtime || 0,
     };
   }
-  const nextCatalogSeason = catalog?.seasons?.find((s: any) => s.seasonNumber === season + 1);
+  const nextCatalogSeason = catalog?.seasons?.find(
+    (s: any) => s.seasonNumber === season + 1,
+  );
   if (nextCatalogSeason?.episodes?.length > 0) {
     const ep = nextCatalogSeason.episodes[0];
     return {
@@ -92,9 +108,10 @@ function buildCardItem(item: EnrichedTrackingItem, today: string) {
   );
 
   // Compute nextNext episode (what comes after the current next)
-  const nextNext = nextEp && catalog
-    ? findNextEpisodeInCatalog(catalog, nextEp.season, nextEp.episode)
-    : null;
+  const nextNext =
+    nextEp && catalog
+      ? findNextEpisodeInCatalog(catalog, nextEp.season, nextEp.episode)
+      : null;
 
   return {
     ...item,
@@ -104,7 +121,9 @@ function buildCardItem(item: EnrichedTrackingItem, today: string) {
     releaseDate: item.releaseDate ?? catalog?.releaseDate ?? null,
     remaining: computeRemaining(item, today),
     // Pre-computed next-next for optimistic mark watched
-    nextNextEpisode: nextNext ? { season: nextNext.season, episode: nextNext.episode } : null,
+    nextNextEpisode: nextNext
+      ? { season: nextNext.season, episode: nextNext.episode }
+      : null,
     nextNextEpisodeName: nextNext?.title ?? null,
     nextNextEpisodeAirDate: nextNext?.airDate ?? null,
     nextNextEpisodeRuntime: nextNext?.runtime ?? 0,
@@ -120,7 +139,10 @@ export type CardItem = ReturnType<typeof buildCardItem>;
  * Recalc `remaining` only for promoted cards.
  * Works for any gap duration (1 day or 3 weeks).
  */
-function reorderCachedList(list: CacheableListItem[], today: string): CacheableListItem[] {
+function reorderCachedList(
+  list: CacheableListItem[],
+  today: string,
+): CacheableListItem[] {
   // Separate sections
   const prevWatchedHeader = list.find(
     (i) => i.type === "sectionHeader" && i.title === "Previously Watched",
@@ -131,7 +153,10 @@ function reorderCachedList(list: CacheableListItem[], today: string): CacheableL
   const prevWatched = list.filter(
     (i) => i.type === "watchedEpisode" || i.type === "watchedMovie",
   );
-  const showCards = list.filter((i) => i.type === "show") as Array<{ type: "show"; card: any }>;
+  const showCards = list.filter((i) => i.type === "show") as Array<{
+    type: "show";
+    card: any;
+  }>;
 
   // Partition into promoted (newly airable) vs rest
   const promoted: typeof showCards = [];
@@ -170,7 +195,9 @@ function reorderCachedList(list: CacheableListItem[], today: string): CacheableL
   }
   const allShows = [...promoted, ...rest];
   if (allShows.length > 0) {
-    result.push(upNextHeader ?? { type: "sectionHeader", title: "What's Up Next" });
+    result.push(
+      upNextHeader ?? { type: "sectionHeader", title: "What's Up Next" },
+    );
     result.push(...allShows);
   }
   return result;
@@ -180,8 +207,20 @@ function reorderCachedList(list: CacheableListItem[], today: string): CacheableL
 export type CacheableListItem =
   | { type: "sectionHeader"; title: string }
   | { type: "show"; card: CardItem }
-  | { type: "watchedEpisode"; episode: WatchedEpisode; showTitle: string; posterPath: string | null; tmdbId: number }
-  | { type: "watchedMovie"; movie: WatchedMovie; showTitle: string; posterPath: string | null; tmdbId: number };
+  | {
+      type: "watchedEpisode";
+      episode: WatchedEpisode;
+      showTitle: string;
+      posterPath: string | null;
+      tmdbId: number;
+    }
+  | {
+      type: "watchedMovie";
+      movie: WatchedMovie;
+      showTitle: string;
+      posterPath: string | null;
+      tmdbId: number;
+    };
 
 export function useWatchlistData(userId: string | undefined) {
   const {
@@ -202,15 +241,20 @@ export function useWatchlistData(userId: string | undefined) {
   const { movies: watchedMovies } = useWatchedMovies(userId);
 
   const queryClient = useQueryClient();
-  const { mutateCachedUpcoming, rollbackUpcoming, removeShowFromUpcoming } = useUpcomingMutations();
+  const { mutateCachedUpcoming, rollbackUpcoming, removeShowFromUpcoming } =
+    useUpcomingMutations();
   const [updatingShows, setUpdatingShows] = useState<Map<number, string>>(
     new Map(),
   );
   // Optimistic card patches applied after Firestore write, before listener re-enriches
-  const [optimisticCards, setOptimisticCards] = useState<Map<number, Partial<CardItem>>>(new Map());
+  const [optimisticCards, setOptimisticCards] = useState<
+    Map<number, Partial<CardItem>>
+  >(new Map());
 
   // --- Cache: store and restore the display list directly ---
-  const [cachedList, setCachedList] = useState<CacheableListItem[] | null>(null);
+  const [cachedList, setCachedList] = useState<CacheableListItem[] | null>(
+    null,
+  );
   const [reordering, setReordering] = useState(false);
   const cacheRestored = useRef(false);
   const cachedActiveCount = useRef(0);
@@ -287,11 +331,19 @@ export function useWatchlistData(userId: string | undefined) {
     const items: PrevItem[] = [];
     for (const ep of watchedEps) {
       if (!showMap.has(ep.tmdbShowId)) continue;
-      items.push({ kind: "episode", ep, time: ep.lastWatchedAt?.toMillis?.() || 0 });
+      items.push({
+        kind: "episode",
+        ep,
+        time: ep.lastWatchedAt?.toMillis?.() || 0,
+      });
     }
     for (const movie of watchedMovies) {
       if (!showMap.has(movie.tmdbId)) continue;
-      items.push({ kind: "movie", movie, time: movie.lastWatchedAt?.toMillis?.() || 0 });
+      items.push({
+        kind: "movie",
+        movie,
+        time: movie.lastWatchedAt?.toMillis?.() || 0,
+      });
     }
     // Sort descending to pick top 5, then reverse for display (oldest first, latest at bottom)
     items.sort((a, b) => b.time - a.time);
@@ -357,7 +409,8 @@ export function useWatchlistData(userId: string | undefined) {
   }, [userId, loading, liveList]);
 
   // --- Effective display: cached until live data ready ---
-  const rawDisplayList = cachedList && liveList.length === 0 ? cachedList : liveList;
+  const rawDisplayList =
+    cachedList && liveList.length === 0 ? cachedList : liveList;
   const effectiveLoading = reordering || (loading && !cachedList);
 
   // Apply optimistic card patches
@@ -378,12 +431,16 @@ export function useWatchlistData(userId: string | undefined) {
       const next = new Map(prev);
       for (const [tmdbId, patch] of prev) {
         const liveItem = items.find((i) => i.tmdbId === tmdbId);
-        if (!liveItem) { next.delete(tmdbId); continue; }
+        if (!liveItem) {
+          next.delete(tmdbId);
+          continue;
+        }
         // Patch applied — listener has caught up when nextEpisode matches
         const patchEp = patch.nextEpisode;
         const liveEp = liveItem.nextEpisode;
         if (
-          patchEp && liveEp &&
+          patchEp &&
+          liveEp &&
           patchEp.season === liveEp.season &&
           patchEp.episode === liveEp.episode
         ) {
@@ -403,12 +460,14 @@ export function useWatchlistData(userId: string | undefined) {
         return {
           type: "watchedMovie" as const,
           movie: item.movie,
-          show: show ?? ({
-            tmdbId: item.tmdbId,
-            title: item.showTitle,
-            posterPath: item.posterPath,
-            mediaType: MediaType.MOVIE,
-          } as EnrichedTrackingItem),
+          show:
+            show ??
+            ({
+              tmdbId: item.tmdbId,
+              title: item.showTitle,
+              posterPath: item.posterPath,
+              mediaType: MediaType.MOVIE,
+            } as EnrichedTrackingItem),
         };
       }
       if (item.type === "watchedEpisode") {
@@ -416,14 +475,19 @@ export function useWatchlistData(userId: string | undefined) {
         return {
           type: "watchedEpisode" as const,
           episode: item.episode,
-          show: show ?? ({
-            tmdbId: item.tmdbId,
-            title: item.showTitle,
-            posterPath: item.posterPath,
-          } as EnrichedTrackingItem),
+          show:
+            show ??
+            ({
+              tmdbId: item.tmdbId,
+              title: item.showTitle,
+              posterPath: item.posterPath,
+            } as EnrichedTrackingItem),
         };
       }
-      return { type: "show" as const, item: item.card as unknown as EnrichedTrackingItem };
+      return {
+        type: "show" as const,
+        item: item.card as unknown as EnrichedTrackingItem,
+      };
     });
   }, [displayList, showMap]);
 
@@ -465,7 +529,11 @@ export function useWatchlistData(userId: string | undefined) {
           new Map(prev).set(item.tmdbId, MediaType.MOVIE),
         );
         try {
-          await markMovieWatched(userId, item.tmdbId, card.nextEpisodeRuntime ?? 0);
+          await markMovieWatched(
+            userId,
+            item.tmdbId,
+            card.nextEpisodeRuntime ?? 0,
+          );
         } finally {
           setUpdatingShows((prev) => {
             const next = new Map(prev);
@@ -474,7 +542,9 @@ export function useWatchlistData(userId: string | undefined) {
           });
         }
         // Refresh in background — don't block UI
-        queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_MOVIES, userId] });
+        queryClient.invalidateQueries({
+          queryKey: [QueryKey.WATCHED_MOVIES, userId],
+        });
         return;
       }
 
