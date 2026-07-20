@@ -114,9 +114,14 @@ export async function addToTracking(
     }
   }
 
+  // Check if already tracked to avoid double-counting
+  const tRef = doc(trackingRef(userId), docId);
+  const existingDoc = await getDoc(tRef);
+  const alreadyTracked = existingDoc.exists;
+
   // Write tracking doc immediately — no catalog read needed
   const batch = writeBatch(db);
-  batch.set(doc(trackingRef(userId), docId), {
+  batch.set(tRef, {
     tmdbId,
     mediaType,
     status: WatchStatus.WATCHING,
@@ -133,16 +138,17 @@ export async function addToTracking(
     ...(meta?.title ? { title: meta.title } : {}),
     ...(meta?.posterPath ? { posterPath: meta.posterPath } : {}),
   });
-  batch.set(
-    userRef(userId),
-    { stats: { showsTracking: increment(1) } },
-    { merge: true },
-  );
+  if (!alreadyTracked) {
+    batch.set(
+      userRef(userId),
+      { stats: { showsTracking: increment(1) } },
+      { merge: true },
+    );
+  }
   await batch.commit();
 
   // Background: ensure catalog exists + update trackedBy
   // If CF fails after retry → rollback tracking doc + call onError
-  const tRef = doc(trackingRef(userId), docId);
   const callAddShow = () =>
     httpsCallable(
       getFunctions(),
@@ -153,11 +159,13 @@ export async function addToTracking(
       // Both attempts failed — undo the local add
       const rollback = writeBatch(db);
       rollback.delete(tRef);
-      rollback.set(
-        userRef(userId),
-        { stats: { showsTracking: increment(-1) } },
-        { merge: true },
-      );
+      if (!alreadyTracked) {
+        rollback.set(
+          userRef(userId),
+          { stats: { showsTracking: increment(-1) } },
+          { merge: true },
+        );
+      }
       await rollback.commit().catch(() => {});
       // Emit error for UI to pick up
       addTrackingErrorListeners.forEach((fn) =>
