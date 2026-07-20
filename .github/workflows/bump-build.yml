@@ -12,6 +12,9 @@ concurrency:
   group: bump-build
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   bump:
     if: |
