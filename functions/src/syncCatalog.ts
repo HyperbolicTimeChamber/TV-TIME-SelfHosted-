@@ -3,6 +3,7 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { fetchShowFromTMDB, fetchShowStatus, pooled, CatalogShow } from "./tmdb";
 import { getAllTrackerUids } from "./utils";
+import { showDocId, parseTmdbId } from "./docId";
 
 export const syncCatalog = onSchedule(
   {
@@ -293,7 +294,7 @@ export async function rebuildUserUpcoming(
         upcomingDocs.push({
           id: epId,
           data: {
-            tmdbShowId: catalog.tmdbId ?? Number(trackDoc.id),
+            tmdbShowId: catalog.tmdbId ?? parseTmdbId(trackDoc.id).tmdbId,
             showTitle: catalog.title ?? "",
             posterPath: catalog.posterPath ?? null,
             season: season.seasonNumber,
@@ -323,10 +324,11 @@ export async function rebuildUserUpcoming(
 export async function addShowToUpcoming(
   db: FirebaseFirestore.Firestore,
   uid: string,
-  tmdbId: number
+  tmdbId: number,
+  mediaType: "tv" | "movie" = "tv"
 ): Promise<void> {
   const today = new Date().toISOString().slice(0, 10);
-  const showId = String(tmdbId);
+  const showId = showDocId(tmdbId, mediaType);
   const showDoc = await db.doc(`shows/${showId}`).get();
   if (!showDoc.exists) return;
 

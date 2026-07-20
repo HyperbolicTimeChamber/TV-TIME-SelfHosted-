@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
+import { showDocId } from "./docId";
 
 interface EpisodeInput {
   episodeNumber: number;
@@ -48,7 +49,7 @@ export const markSeasonWatched = onCall(
 
     const db = getFirestore();
     const userDoc = db.doc(`users/${uid}`);
-    const trackingDoc = db.doc(`users/${uid}/tracking/${tmdbId}`);
+    const trackingDoc = db.doc(`users/${uid}/tracking/${showDocId(tmdbId, "tv")}`);
     const watchedCol = db.collection(`users/${uid}/watchedEpisodes`);
 
     // Read all existing episode docs in parallel
