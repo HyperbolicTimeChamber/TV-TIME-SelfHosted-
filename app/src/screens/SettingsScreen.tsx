@@ -81,8 +81,8 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </View>
 
-      {__DEV__ && (
-        <View style={styles.section}>
+      {/* TODO: Remove after migration */}
+      <View style={styles.section}>
           <Text style={styles.sectionTitle}>Debug</Text>
           <TouchableOpacity
             style={styles.row}
@@ -119,7 +119,6 @@ export default function SettingsScreen() {
             )}
           </TouchableOpacity>
         </View>
-      )}
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Account</Text>

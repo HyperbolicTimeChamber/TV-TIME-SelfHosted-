@@ -4,7 +4,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { showDocId } from "./docId";
 
 export const migrateDocIds = onCall(
-  { maxInstances: 1, timeoutSeconds: 540, memory: "512MiB" },
+  { maxInstances: 1, timeoutSeconds: 3600, memory: "1GiB" },
   async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "Must be signed in");
 
@@ -12,45 +12,68 @@ export const migrateDocIds = onCall(
     let showsMigrated = 0;
     let trackingMigrated = 0;
 
-    // 1. Migrate shows/ collection
-    const showsSnap = await db.collection("shows").get();
-    for (const showDoc of showsSnap.docs) {
-      const oldId = showDoc.id;
-      if (oldId.startsWith("tv_") || oldId.startsWith("movie_")) continue;
+    // Helper: commit batches of 500 ops (Firestore limit)
+    async function batchMigrate(
+      docs: FirebaseFirestore.QueryDocumentSnapshot[],
+      pathFn: (oldId: string, newId: string) => { oldPath: string; newPath: string },
+    ) {
+      let batch = db.batch();
+      let ops = 0;
+      let migrated = 0;
 
-      const data = showDoc.data();
-      const mediaType = data.mediaType || "tv";
-      const tmdbId = data.tmdbId || Number(oldId);
-      const newId = showDocId(tmdbId, mediaType);
-
-      if (oldId === newId) continue;
-
-      await db.doc(`shows/${newId}`).set(data);
-      await db.doc(`shows/${oldId}`).delete();
-      showsMigrated++;
-    }
-
-    // 2. Migrate tracking/ subcollections for all users
-    const usersSnap = await db.collection("users").get();
-    for (const userDoc of usersSnap.docs) {
-      const trackingSnap = await db.collection(`users/${userDoc.id}/tracking`).get();
-      for (const trackDoc of trackingSnap.docs) {
-        const oldId = trackDoc.id;
+      for (const d of docs) {
+        const oldId = d.id;
         if (oldId.startsWith("tv_") || oldId.startsWith("movie_")) continue;
 
-        const data = trackDoc.data();
+        const data = d.data();
         const mediaType = data.mediaType || "tv";
         const tmdbId = data.tmdbId || Number(oldId);
         const newId = showDocId(tmdbId, mediaType);
-
         if (oldId === newId) continue;
 
-        await db.doc(`users/${userDoc.id}/tracking/${newId}`).set(data);
-        await db.doc(`users/${userDoc.id}/tracking/${oldId}`).delete();
-        trackingMigrated++;
+        const { oldPath, newPath } = pathFn(oldId, newId);
+        batch.set(db.doc(newPath), data);
+        batch.delete(db.doc(oldPath));
+        ops += 2;
+        migrated++;
+
+        if (ops >= 498) {
+          await batch.commit();
+          batch = db.batch();
+          ops = 0;
+        }
+      }
+
+      if (ops > 0) await batch.commit();
+      return migrated;
+    }
+
+    // 1. Migrate shows/ collection
+    console.log("Migrating shows...");
+    const showsSnap = await db.collection("shows").get();
+    console.log(`Found ${showsSnap.size} shows`);
+    showsMigrated = await batchMigrate(showsSnap.docs, (oldId, newId) => ({
+      oldPath: `shows/${oldId}`,
+      newPath: `shows/${newId}`,
+    }));
+    console.log(`Migrated ${showsMigrated} shows`);
+
+    // 2. Migrate tracking/ subcollections for all users
+    console.log("Migrating tracking docs...");
+    const usersSnap = await db.collection("users").get();
+    for (const userDoc of usersSnap.docs) {
+      const trackingSnap = await db.collection(`users/${userDoc.id}/tracking`).get();
+      const userMigrated = await batchMigrate(trackingSnap.docs, (oldId, newId) => ({
+        oldPath: `users/${userDoc.id}/tracking/${oldId}`,
+        newPath: `users/${userDoc.id}/tracking/${newId}`,
+      }));
+      trackingMigrated += userMigrated;
+      if (userMigrated > 0) {
+        console.log(`User ${userDoc.id}: migrated ${userMigrated} tracking docs`);
       }
     }
 
+    console.log(`Migration complete: ${showsMigrated} shows, ${trackingMigrated} tracking`);
     return { showsMigrated, trackingMigrated };
   }
 );
