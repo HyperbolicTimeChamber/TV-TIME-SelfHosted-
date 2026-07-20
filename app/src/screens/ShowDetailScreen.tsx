@@ -33,6 +33,7 @@ import {
   shouldShowUnreleasedModal,
 } from "../components";
 import { emitShowRemoved } from "../utils/watchlistEvents";
+import { showDocId } from "../utils/docId";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { HomeStackParamList, WatchStatus, MediaType } from "../types";
 
@@ -64,7 +65,7 @@ export default function ShowDetailScreen() {
       return;
     }
     const db = getFirestore();
-    const trackingDoc = doc(db, "users", user.uid, "tracking", String(tmdbId));
+    const trackingDoc = doc(db, "users", user.uid, "tracking", showDocId(tmdbId, mediaType === MediaType.MOVIE ? "movie" : "tv"));
     const unsubscribe = onSnapshot(trackingDoc, (snap) => {
       setWatchlistItem(snap.exists() ? { id: snap.id, ...snap.data() } : null);
       setTrackingLoading(false);
@@ -136,7 +137,7 @@ export default function ShowDetailScreen() {
     setRemoving(true);
     setRemoveError(null);
     try {
-      await removeFromTracking(user.uid, tmdbId);
+      await removeFromTracking(user.uid, tmdbId, mediaType);
       removeShowFromUpcoming(tmdbId);
       removeShowFromCalendarGlobal(tmdbId);
       emitShowRemoved(tmdbId);
@@ -152,11 +153,11 @@ export default function ShowDetailScreen() {
   const handleResumeOrRewatch = useCallback(async () => {
     if (!user?.uid) return;
     if (watchlistItem?.status === WatchStatus.PAUSED) {
-      await resumeWatching(user.uid, tmdbId);
+      await resumeWatching(user.uid, tmdbId, mediaType);
     } else if (watchlistItem?.status === WatchStatus.PAUSED_REWATCH) {
-      await resumeRewatch(user.uid, tmdbId);
+      await resumeRewatch(user.uid, tmdbId, mediaType);
     } else {
-      await startRewatch(user.uid, tmdbId);
+      await startRewatch(user.uid, tmdbId, mediaType);
     }
   }, [user?.uid, tmdbId, watchlistItem?.status]);
 

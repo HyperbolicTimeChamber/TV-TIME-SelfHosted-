@@ -14,6 +14,7 @@ import {
   QueryDocumentSnapshot,
 } from "@react-native-firebase/firestore";
 import { TrackingItem, CatalogShow } from "../types";
+import { showDocId } from "../utils/docId";
 
 const PAGE_SIZE = 50;
 
@@ -31,7 +32,8 @@ async function enrichItems(
   const db = getFirestore();
   return Promise.all(
     trackingItems.map(async (item): Promise<EnrichedTrackingItem> => {
-      const key = String(item.tmdbId);
+      const mt = (item as any).mediaType === "movie" ? "movie" : "tv";
+      const key = showDocId(item.tmdbId, mt);
       let catalogShow = cache.get(key);
 
       if (catalogShow === undefined) {
@@ -110,7 +112,7 @@ export function useWatchlist(userId: string | undefined) {
         if (hasRemovals && paginatedItems.current.length > 0 && userId) {
           try {
             const checks = paginatedItems.current.map((p) =>
-              getDoc(doc(db, "users", userId!, "tracking", String(p.tmdbId))),
+              getDoc(doc(db, "users", userId!, "tracking", showDocId(p.tmdbId, (p as any).mediaType === "movie" ? "movie" : "tv"))),
             );
             const results = await Promise.all(checks);
             paginatedItems.current = paginatedItems.current.filter(
@@ -185,7 +187,8 @@ export function useWatchlist(userId: string | undefined) {
       paginatedItems.current = paginatedItems.current.filter(
         (p) => p.tmdbId !== tmdbId,
       );
-      catalogCache.current.delete(String(tmdbId));
+      catalogCache.current.delete(showDocId(tmdbId, "tv"));
+      catalogCache.current.delete(showDocId(tmdbId, "movie"));
       setItems((prev) => prev.filter((p) => p.tmdbId !== tmdbId));
     },
     [],

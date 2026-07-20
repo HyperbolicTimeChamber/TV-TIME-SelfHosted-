@@ -134,7 +134,7 @@ export default function UpcomingTab() {
   }, []);
 
   const handleTitlePress = useCallback(async (ep: UpcomingEpisode) => {
-    const catalog = await getCatalogShow(ep.tmdbShowId);
+    const catalog = await getCatalogShow(ep.tmdbShowId, ep.mediaType === MediaType.MOVIE ? "movie" : "tv");
     if (catalog) {
       setDrawerShow({
         tmdbId: catalog.tmdbId,

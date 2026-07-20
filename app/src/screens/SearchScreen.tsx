@@ -40,6 +40,7 @@ import {
   getHighestWatchedEpisode,
 } from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
+import { showDocId } from "../utils/docId";
 import { TMDBShow, SearchStackParamList, MediaType, Route } from "../types";
 
 type NavProp = NativeStackNavigationProp<
@@ -190,7 +191,10 @@ export default function SearchScreen() {
     setRemoving(true);
     setRemoveError(null);
     try {
-      await removeFromTracking(user.uid, removeModal.id);
+      const removeMediaType: MediaType =
+        removeModal.media_type ||
+        (removeModal.first_air_date || (removeModal.name && !removeModal.title) ? MediaType.TV : MediaType.MOVIE);
+      await removeFromTracking(user.uid, removeModal.id, removeMediaType);
       removeShowFromUpcoming(removeModal.id);
       removeShowFromCalendarGlobal(removeModal.id);
       setRemoveModal(null);
@@ -229,7 +233,7 @@ export default function SearchScreen() {
       await addToTracking(user.uid!, item.id, MediaType.TV, undefined, { title: item.title || item.name || "", posterPath: item.poster_path || null });
       // Update tracking doc to resume position
       const db = getFirestore();
-      await updateDoc(doc(db, "users", user.uid!, "tracking", String(item.id)), {
+      await updateDoc(doc(db, "users", user.uid!, "tracking", showDocId(item.id, MediaType.TV)), {
         nextEpisode: nextEp,
         nextEpisodeName: nextEpName,
         nextEpisodeAirDate: nextEpAirDate,

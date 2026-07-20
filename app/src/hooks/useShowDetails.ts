@@ -61,7 +61,7 @@ export function useShowDetails(tmdbId: number, mediaType: string = "tv") {
     queryKey: [QueryKey.SHOW, tmdbId, mediaType],
     queryFn: async (): Promise<ShowDetailsResult> => {
       // Try catalog first
-      const catalogShow = await getCatalogShow(tmdbId);
+      const catalogShow = await getCatalogShow(tmdbId, mediaType as "tv" | "movie");
       if (catalogShow) return catalogShowToResult(catalogShow);
 
       // Fallback to TMDB

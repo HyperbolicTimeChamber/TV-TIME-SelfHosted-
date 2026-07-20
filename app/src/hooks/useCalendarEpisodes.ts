@@ -12,6 +12,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { discoverTVByAirDate, discoverMoviesByReleaseDate } from "../services";
 import { useAuthStore } from "../stores";
 import { UpcomingEpisode, CatalogShow, MediaType } from "../types";
+import { showDocId } from "../utils/docId";
 
 const CALENDAR_CACHE_KEY = "calendar_months";
 const MAX_CACHED_MONTHS = 12;
@@ -148,7 +149,7 @@ export function useCalendarEpisodes(userId: string | undefined) {
         const episodes: UpcomingEpisode[] = [];
         const catalogDocs = await Promise.all(
           matchedIds.map((id) =>
-            getDoc(doc(db, "shows", String(id))).then((d) =>
+            getDoc(doc(db, "shows", showDocId(id, "tv"))).then((d) =>
               d.exists?.() ? (d.data() as any as CatalogShow) : null,
             ).catch(() => null),
           ),

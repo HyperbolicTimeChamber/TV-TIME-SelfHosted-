@@ -13,7 +13,7 @@ export function useSeasonDetails(
     queryKey: [QueryKey.SEASON, tmdbId, seasonNumber],
     enabled,
     queryFn: async () => {
-      const catalogShow = await getCatalogShow(tmdbId);
+      const catalogShow = await getCatalogShow(tmdbId, "tv");
       if (catalogShow) {
         const season = catalogShow.seasons.find(
           (s) => s.seasonNumber === seasonNumber,

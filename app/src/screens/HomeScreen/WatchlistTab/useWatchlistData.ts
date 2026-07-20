@@ -497,7 +497,7 @@ export function useWatchlistData(userId: string | undefined) {
   const handleStopWatching = useCallback(
     async (item: EnrichedTrackingItem) => {
       if (!userId) return;
-      await stopWatching(userId, item.tmdbId, item.status);
+      await stopWatching(userId, item.tmdbId, item.status, item.mediaType);
       removeItem(item.tmdbId);
     },
     [userId, removeItem],

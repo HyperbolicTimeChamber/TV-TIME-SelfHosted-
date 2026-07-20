@@ -15,6 +15,7 @@ import {
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { WatchStatus, MediaType, CatalogShow } from "../types";
+import { showDocId } from "../utils/docId";
 
 const db = getFirestore();
 
@@ -44,8 +45,10 @@ function episodeDocId(tmdbShowId: number, season: number, episode: number) {
 
 export async function getCatalogShow(
   tmdbId: number,
+  mediaType: MediaType | "tv" | "movie" = MediaType.TV,
 ): Promise<CatalogShow | null> {
-  const showDoc = await getDoc(doc(db, "shows", String(tmdbId)));
+  const docId = showDocId(tmdbId, mediaType === MediaType.TV ? "tv" : "movie");
+  const showDoc = await getDoc(doc(db, "shows", docId));
   if (!showDoc.exists()) return null;
   return { id: showDoc.id, ...showDoc.data() } as unknown as CatalogShow;
 }
@@ -99,8 +102,8 @@ export async function addToTracking(
   releaseDate?: string | null,
   meta?: { title?: string; posterPath?: string | null },
 ): Promise<void> {
-  const showId = String(tmdbId);
-  const showRef = doc(db, "shows", showId);
+  const docId = showDocId(tmdbId, mediaType === MediaType.TV ? "tv" : "movie");
+  const showRef = doc(db, "shows", docId);
   const now = Timestamp.now();
 
   let priorityDate = now;
@@ -113,7 +116,7 @@ export async function addToTracking(
 
   // Write tracking doc immediately — no catalog read needed
   const batch = writeBatch(db);
-  batch.set(doc(trackingRef(userId), showId), {
+  batch.set(doc(trackingRef(userId), docId), {
     tmdbId,
     mediaType,
     status: WatchStatus.WATCHING,
@@ -137,7 +140,7 @@ export async function addToTracking(
 
   // Background: ensure catalog exists + update trackedBy
   // If CF fails after retry → rollback tracking doc + call onError
-  const tRef = doc(trackingRef(userId), showId);
+  const tRef = doc(trackingRef(userId), docId);
   const callAddShow = () =>
     httpsCallable(getFunctions(), "addShow")({ tmdbId, mediaType });
   callAddShow().catch(() =>
@@ -170,11 +173,12 @@ export function onAddTrackingError(cb: AddTrackingErrorCallback): () => void {
 export async function removeFromTracking(
   userId: string,
   tmdbId: number,
+  mediaType: MediaType | "tv" | "movie",
 ): Promise<void> {
   // Delete tracking doc + decrement stats immediately
-  const showId = String(tmdbId);
+  const docId = showDocId(tmdbId, mediaType === MediaType.TV ? "tv" : "movie");
   const batch = writeBatch(db);
-  batch.delete(doc(trackingRef(userId), showId));
+  batch.delete(doc(trackingRef(userId), docId));
   batch.set(
     userRef(userId),
     { stats: { showsTracking: increment(-1) } },
@@ -183,7 +187,7 @@ export async function removeFromTracking(
   await batch.commit();
 
   // Background: update trackedBy on catalog doc (CF handles cleanup)
-  httpsCallable(getFunctions(), "removeShow")({ tmdbId }).catch(
+  httpsCallable(getFunctions(), "removeShow")({ tmdbId, mediaType }).catch(
     (err: any) => console.error("[removeFromTracking] removeShow CF failed:", err),
   );
 }
@@ -192,6 +196,7 @@ export async function stopWatching(
   userId: string,
   tmdbId: number,
   currentStatus: WatchStatus,
+  mediaType: MediaType | "tv" | "movie",
 ) {
   let newStatus: WatchStatus;
   if (currentStatus === WatchStatus.REWATCHING) {
@@ -201,7 +206,8 @@ export async function stopWatching(
   } else {
     newStatus = WatchStatus.COMPLETED;
   }
-  await updateDoc(doc(trackingRef(userId), String(tmdbId)), {
+  const docId = showDocId(tmdbId, mediaType === MediaType.TV ? "tv" : "movie");
+  await updateDoc(doc(trackingRef(userId), docId), {
     status: newStatus,
   });
 }
@@ -272,7 +278,7 @@ export async function markEpisodeWatched(
     if (isShowComplete) {
       trackingUpdate.status = WatchStatus.COMPLETED;
     }
-    batch.update(doc(trackingRef(userId), String(tmdbShowId)), trackingUpdate);
+    batch.update(doc(trackingRef(userId), showDocId(tmdbShowId, "tv")), trackingUpdate);
   }
 
   await batch.commit();
@@ -303,7 +309,7 @@ export async function unmarkEpisodeWatched(
     { merge: true },
   );
   // Update tracking to point to this now-unwatched episode
-  batch.update(doc(trackingRef(userId), String(tmdbShowId)), {
+  batch.update(doc(trackingRef(userId), showDocId(tmdbShowId, "tv")), {
     nextEpisode: { season, episode },
     nextEpisodeName: episodeName || null,
     nextEpisodeAirDate: nextEpisodeAirDate || null,
@@ -349,7 +355,7 @@ export async function decrementEpisodeWatchCount(
 
   // When fully unwatched, update tracking to point back to this episode
   if (willDelete) {
-    batch.update(doc(trackingRef(userId), String(tmdbShowId)), {
+    batch.update(doc(trackingRef(userId), showDocId(tmdbShowId, "tv")), {
       nextEpisode: { season, episode },
       nextEpisodeName: episodeName || null,
       nextEpisodeAirDate: nextEpisodeAirDate || null,
@@ -433,8 +439,13 @@ export async function decrementSeasonWatchCount(
   await batch.commit();
 }
 
-export async function startRewatch(userId: string, tmdbId: number) {
-  await updateDoc(doc(trackingRef(userId), String(tmdbId)), {
+export async function startRewatch(
+  userId: string,
+  tmdbId: number,
+  mediaType: MediaType | "tv" | "movie",
+) {
+  const docId = showDocId(tmdbId, mediaType === MediaType.TV ? "tv" : "movie");
+  await updateDoc(doc(trackingRef(userId), docId), {
     status: WatchStatus.REWATCHING,
     rewatchCount: increment(1),
     nextEpisode: { season: 1, episode: 1 },
@@ -443,14 +454,24 @@ export async function startRewatch(userId: string, tmdbId: number) {
   });
 }
 
-export async function resumeWatching(userId: string, tmdbId: number) {
-  await updateDoc(doc(trackingRef(userId), String(tmdbId)), {
+export async function resumeWatching(
+  userId: string,
+  tmdbId: number,
+  mediaType: MediaType | "tv" | "movie",
+) {
+  const docId = showDocId(tmdbId, mediaType === MediaType.TV ? "tv" : "movie");
+  await updateDoc(doc(trackingRef(userId), docId), {
     status: WatchStatus.WATCHING,
   });
 }
 
-export async function resumeRewatch(userId: string, tmdbId: number) {
-  await updateDoc(doc(trackingRef(userId), String(tmdbId)), {
+export async function resumeRewatch(
+  userId: string,
+  tmdbId: number,
+  mediaType: MediaType | "tv" | "movie",
+) {
+  const docId = showDocId(tmdbId, mediaType === MediaType.TV ? "tv" : "movie");
+  await updateDoc(doc(trackingRef(userId), docId), {
     status: WatchStatus.REWATCHING,
   });
 }
@@ -462,7 +483,7 @@ export async function markMovieWatched(
 ): Promise<void> {
   const batch = writeBatch(db);
   const movieRef = doc(watchedMoviesRef(userId), String(tmdbId));
-  const tRef = doc(trackingRef(userId), String(tmdbId));
+  const tRef = doc(trackingRef(userId), showDocId(tmdbId, "movie"));
   const now = serverTimestamp();
 
   batch.set(

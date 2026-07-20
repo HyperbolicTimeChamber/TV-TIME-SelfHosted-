@@ -166,7 +166,7 @@ export function useUpcomingEpisodes(userId: string | undefined) {
           let title = `Movie #${data.tmdbId}`;
           let posterPath: string | null = null;
           try {
-            const catalog = await getCatalogShow(data.tmdbId);
+            const catalog = await getCatalogShow(data.tmdbId, "movie");
             if (catalog) {
               title = catalog.title;
               posterPath = catalog.posterPath ?? null;
