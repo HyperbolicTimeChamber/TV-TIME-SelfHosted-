@@ -90,7 +90,6 @@ export default function WatchlistTab() {
   } = useWatchlistData(user?.uid);
 
   const listRef = useRef<any>(null);
-  const hasScrolledRef = useRef(false);
 
   const isLoading = loading;
   const setWatchlistLoading = useUiStore((s) => s.setWatchlistLoading);
@@ -124,18 +123,11 @@ export default function WatchlistTab() {
     setWatchlistLoading(isLoading);
   }, [isLoading, setWatchlistLoading]);
 
-  // Scroll past "Previously Watched" to "What's Up Next" on first render
-  useEffect(() => {
-    if (!hasScrolledRef.current && !isLoading && prevWatchedOffset > 0) {
-      hasScrolledRef.current = true;
-      requestAnimationFrame(() => {
-        listRef.current?.scrollToOffset({
-          offset: prevWatchedOffset,
-          animated: false,
-        });
-      });
-    }
-  }, [isLoading, prevWatchedOffset]);
+  // Track initial offset for LegendList's initialScrollOffset (no manual scroll needed)
+  const initialOffsetRef = useRef<number | null>(null);
+  if (initialOffsetRef.current === null && prevWatchedOffset > 0) {
+    initialOffsetRef.current = prevWatchedOffset;
+  }
 
   const handleNavigateToShow = useCallback(
     (tmdbId: number, mediaType: MediaType) => {
@@ -553,7 +545,7 @@ export default function WatchlistTab() {
         }}
         renderItem={renderItem}
         recycleItems
-        maintainVisibleContentPosition
+        initialScrollOffset={initialOffsetRef.current ?? undefined}
         drawDistance={SCREEN_HEIGHT * 2}
         estimatedItemSize={99}
         refreshControl={

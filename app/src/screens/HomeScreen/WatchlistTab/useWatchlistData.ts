@@ -512,12 +512,15 @@ export function useWatchlistData(userId: string | undefined) {
     loadMoreTracking,
   ]);
 
-  const watchedItemCount = prevWatchedItems.length;
-
+  // Derive offset from actual display list (works with cache + live data)
   const prevWatchedOffset = useMemo(() => {
-    if (watchedItemCount === 0) return 0;
-    return 40 + watchedItemCount * 99;
-  }, [watchedItemCount]);
+    const watchedCount = displayList.filter(
+      (i) => i.type === "watchedEpisode" || i.type === "watchedMovie",
+    ).length;
+    if (watchedCount === 0) return 0;
+    // sectionHeader (40) + watchedCount items (99 each)
+    return 40 + watchedCount * 99;
+  }, [displayList]);
 
   const handleMarkWatched = useCallback(
     async (item: EnrichedTrackingItem) => {
