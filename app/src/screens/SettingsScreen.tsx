@@ -101,7 +101,7 @@ export default function SettingsScreen() {
               if (migrating) return;
               setMigrating(true);
               try {
-                const result = await httpsCallable(getFunctions(), "migrateDocIds")({});
+                const result = await httpsCallable(getFunctions(), "migrateDocIds", { timeout: 3600000 })({});
                 const data = result.data as any;
                 Alert.alert("Migration Done", `Shows: ${data.showsMigrated}, Tracking: ${data.trackingMigrated}`);
               } catch (err: any) {
