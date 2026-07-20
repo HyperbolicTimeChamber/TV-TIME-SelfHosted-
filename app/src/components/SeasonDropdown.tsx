@@ -71,7 +71,7 @@ export default memo(function SeasonDropdown({
   preloadedEpisodes,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const [marking, setMarking] = useState<number | null>(null);
+  const [markingEps, setMarkingEps] = useState<Set<number>>(new Set());
   const [markingSeason, setMarkingSeason] = useState(false);
   const user = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
@@ -299,8 +299,8 @@ export default memo(function SeasonDropdown({
 
   const doMarkEpisodeWatched = useCallback(
     async (ep: TMDBEpisode) => {
-      if (!user?.uid || marking !== null) return;
-      setMarking(ep.episode_number);
+      if (!user?.uid || markingEps.size > 0) return;
+      setMarkingEps(new Set([ep.episode_number]));
 
       // Optimistic upcoming update
       const snapshot = mutateCachedUpcoming((prev) =>
@@ -342,12 +342,12 @@ export default memo(function SeasonDropdown({
           err.message || "Failed to mark episode as watched.",
         );
       } finally {
-        setMarking(null);
+        setMarkingEps(new Set());
       }
     },
     [
       user?.uid,
-      marking,
+      markingEps,
       tmdbId,
       season.season_number,
       getNextEpisodeInfo,
@@ -464,7 +464,7 @@ export default memo(function SeasonDropdown({
       );
       if (epsToMark.length === 0) return;
 
-      setMarking(toEp);
+      setMarkingEps(new Set(epsToMark.map((e: TMDBEpisode) => e.episode_number)));
       try {
         for (const ep of epsToMark) {
           const isLast = ep.episode_number === toEp;
@@ -503,7 +503,7 @@ export default memo(function SeasonDropdown({
         console.error("markEpisodeRange failed:", err);
         Alert.alert("Error", err.message || "Failed to mark episodes.");
       } finally {
-        setMarking(null);
+        setMarkingEps(new Set());
       }
     },
     [
@@ -668,7 +668,7 @@ export default memo(function SeasonDropdown({
             backgroundColor={partiallyWatched ? colors.text : undefined}
             onPress={handleSeasonPress}
             onLongPress={handleSeasonLongPress}
-            disabled={marking !== null || watchedLoading}
+            disabled={markingEps.size > 0 || watchedLoading}
           />
         </View>
         <Text style={styles.chevron}>{expanded ? "▾" : "›"}</Text>
@@ -742,7 +742,7 @@ export default memo(function SeasonDropdown({
                   <CheckmarkButton
                     size={28}
                     watched={isWatched}
-                    loading={marking === ep.episode_number}
+                    loading={markingEps.has(ep.episode_number)}
                     label={isWatched ? `x${count}` : undefined}
                     onPress={() => handleCheckmarkPress(ep)}
                     onLongPress={() => {
@@ -755,7 +755,7 @@ export default memo(function SeasonDropdown({
                         setSheetVisible(true);
                       }
                     }}
-                    disabled={marking !== null || markingSeason}
+                    disabled={markingEps.size > 0 || markingSeason}
                   />
                 </View>
               );

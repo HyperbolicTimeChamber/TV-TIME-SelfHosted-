@@ -78,7 +78,7 @@ export default function DisambiguatePhase({
         </TouchableOpacity>
       </View>
       <View style={styles.expectedRow}>
-        <Text style={styles.expectedLabel}>Expected </Text>
+        <Text style={styles.expectedLabel}>Type: </Text>
         <View
           style={[
             styles.typeBadge,

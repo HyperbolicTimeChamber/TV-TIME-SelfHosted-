@@ -176,28 +176,62 @@ function mapTMDBResults(
   name: string,
   mediaType: "tv" | "movie",
 ): TMDBMatch[] {
-  const filtered = results.filter(
-    (r: any) => r.media_type === "tv" || r.media_type === "movie",
-  );
-  filtered.sort((a: any, b: any) => {
-    const aMatch = a.media_type === mediaType ? 0 : 1;
-    const bMatch = b.media_type === mediaType ? 0 : 1;
-    return aMatch - bMatch;
-  });
-  return filtered.map((r: any) => {
-    const mt = r.media_type as "tv" | "movie";
+  return results.map((r: any) => {
+    const mt = (r.media_type || mediaType) as "tv" | "movie";
     return {
       tvTimeName: name,
       tmdbId: r.id,
       tmdbName: mt === "tv" ? r.name : r.title,
       posterPath: r.poster_path,
       mediaType: mt,
-      year: (mt === "tv" ? r.first_air_date : r.release_date || "").slice(0, 4),
+      year: (mt === "tv" ? r.first_air_date : r.release_date || "").slice(
+        0,
+        4,
+      ),
       overview: (r.overview || "").slice(0, 120),
       totalEpisodes: r.number_of_episodes ?? null,
       totalSeasons: r.number_of_seasons ?? null,
     };
   });
+}
+
+async function findByTvdbId(
+  apiKey: string,
+  tvdbId: number,
+  name: string,
+): Promise<TMDBMatch | null> {
+  try {
+    const res = await axios.get(`${TMDB_BASE}/find/${tvdbId}`, {
+      params: { api_key: apiKey, external_source: "tvdb_id" },
+    });
+    const tvResults = res.data.tv_results || [];
+    if (tvResults.length > 0) {
+      const r = tvResults[0];
+      return {
+        tvTimeName: name,
+        tvTimeId: tvdbId,
+        tmdbId: r.id,
+        tmdbName: r.name,
+        posterPath: r.poster_path,
+        mediaType: "tv",
+        year: (r.first_air_date || "").slice(0, 4),
+        overview: (r.overview || "").slice(0, 120),
+        totalEpisodes: r.number_of_episodes ?? null,
+        totalSeasons: r.number_of_seasons ?? null,
+      };
+    }
+    return null;
+  } catch (err: any) {
+    if (err?.response?.status === 429) {
+      const retryAfter = parseInt(
+        err.response.headers["retry-after"] || "10",
+        10,
+      );
+      await delay(retryAfter * 1000);
+      return findByTvdbId(apiKey, tvdbId, name);
+    }
+    return null;
+  }
 }
 
 async function searchTMDB(
@@ -206,10 +240,15 @@ async function searchTMDB(
   mediaType: "tv" | "movie",
 ): Promise<TMDBMatch[]> {
   try {
-    const res = await axios.get(`${TMDB_BASE}/search/multi`, {
+    const endpoint = `${TMDB_BASE}/search/${mediaType}`;
+    const res = await axios.get(endpoint, {
       params: { api_key: apiKey, query: name, page: 1 },
     });
-    return mapTMDBResults(res.data.results || [], name, mediaType);
+    const results = (res.data.results || []).map((r: any) => ({
+      ...r,
+      media_type: mediaType,
+    }));
+    return mapTMDBResults(results, name, mediaType);
   } catch (err: any) {
     if (err?.response?.status === 429) {
       const retryAfter = parseInt(
@@ -230,11 +269,16 @@ export async function searchTMDBPage(
   page: number,
 ): Promise<{ results: TMDBMatch[]; totalPages: number }> {
   try {
-    const res = await axios.get(`${TMDB_BASE}/search/multi`, {
+    const endpoint = `${TMDB_BASE}/search/${mediaType}`;
+    const res = await axios.get(endpoint, {
       params: { api_key: apiKey, query: name, page },
     });
+    const results = (res.data.results || []).map((r: any) => ({
+      ...r,
+      media_type: mediaType,
+    }));
     return {
-      results: mapTMDBResults(res.data.results || [], name, mediaType),
+      results: mapTMDBResults(results, name, mediaType),
       totalPages: res.data.total_pages || 1,
     };
   } catch {
@@ -276,13 +320,35 @@ export async function matchShowsAndMovies(
 
   for (let i = 0; i < items.length; i += BATCH_SIZE) {
     const batch = items.slice(i, i + BATCH_SIZE);
+
+    // Try TVDB ID lookup first for TV shows, name search for movies + fallback
     const results = await Promise.all(
-      batch.map((item) => searchTMDB(apiKey, item.name, item.mediaType)),
+      batch.map(async (item) => {
+        // TV shows: try exact TVDB ID match first
+        if (item.mediaType === "tv" && item.tvTimeId) {
+          const tvdbMatch = await findByTvdbId(
+            apiKey,
+            item.tvTimeId,
+            item.name,
+          );
+          if (tvdbMatch) return { exact: tvdbMatch };
+        }
+        // Fallback: name search
+        const candidates = await searchTMDB(apiKey, item.name, item.mediaType);
+        return { candidates };
+      }),
     );
 
     for (let j = 0; j < batch.length; j++) {
-      const candidates = results[j];
+      const result = results[j];
       const item = batch[j];
+
+      if ("exact" in result && result.exact) {
+        matched.push(result.exact);
+        continue;
+      }
+
+      const candidates = result.candidates ?? [];
       const taggedCandidates = candidates.map((c) =>
         item.tvTimeId !== undefined ? { ...c, tvTimeId: item.tvTimeId } : c,
       );
