@@ -85,6 +85,8 @@ export function useWatchlist(userId: string | undefined) {
     paginatedItems.current = [];
     paginationCursor.current = null;
 
+    let prevEnrichedMap = new Map<string, EnrichedTrackingItem>();
+
     const unsubscribe = onSnapshot(
       q,
       async (snapshot) => {
@@ -93,7 +95,35 @@ export function useWatchlist(userId: string | undefined) {
           ...d.data(),
         })) as TrackingItem[];
 
-        const enriched = await enrichItems(trackingItems, catalogCache.current);
+        // Only enrich changed/added items — reuse previous for unchanged
+        const changedIds = new Set(
+          snapshot.docChanges().map((c) => c.doc.id),
+        );
+        const isInitial = prevEnrichedMap.size === 0;
+
+        let enriched: EnrichedTrackingItem[];
+        if (isInitial || changedIds.size === trackingItems.length) {
+          // Initial load or full refresh
+          enriched = await enrichItems(trackingItems, catalogCache.current);
+        } else {
+          // Incremental: only enrich changed items
+          const toEnrich = trackingItems.filter((t) => changedIds.has(t.id));
+          const freshlyEnriched = await enrichItems(toEnrich, catalogCache.current);
+          const freshMap = new Map(freshlyEnriched.map((e) => [e.id, e]));
+
+          enriched = trackingItems.map((t) =>
+            freshMap.get(t.id) ?? prevEnrichedMap.get(t.id) ?? {
+              ...t,
+              title: `Show #${t.tmdbId}`,
+              posterPath: null,
+              totalEpisodes: 0,
+              catalogShow: null,
+            },
+          );
+        }
+
+        // Update prev map for next snapshot
+        prevEnrichedMap = new Map(enriched.map((e) => [e.id, e]));
 
         firstPageLastDoc.current =
           snapshot.docs[snapshot.docs.length - 1] || null;
