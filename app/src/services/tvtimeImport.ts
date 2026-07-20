@@ -184,10 +184,7 @@ function mapTMDBResults(
       tmdbName: mt === "tv" ? r.name : r.title,
       posterPath: r.poster_path,
       mediaType: mt,
-      year: (mt === "tv" ? r.first_air_date : r.release_date || "").slice(
-        0,
-        4,
-      ),
+      year: (mt === "tv" ? r.first_air_date : r.release_date || "").slice(0, 4),
       overview: (r.overview || "").slice(0, 120),
       totalEpisodes: r.number_of_episodes ?? null,
       totalSeasons: r.number_of_seasons ?? null,

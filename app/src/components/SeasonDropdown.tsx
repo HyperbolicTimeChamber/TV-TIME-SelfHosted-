@@ -464,7 +464,9 @@ export default memo(function SeasonDropdown({
       );
       if (epsToMark.length === 0) return;
 
-      setMarkingEps(new Set(epsToMark.map((e: TMDBEpisode) => e.episode_number)));
+      setMarkingEps(
+        new Set(epsToMark.map((e: TMDBEpisode) => e.episode_number)),
+      );
       try {
         for (const ep of epsToMark) {
           const isLast = ep.episode_number === toEp;
