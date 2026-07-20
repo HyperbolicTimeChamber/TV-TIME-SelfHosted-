@@ -21,7 +21,9 @@ export function useTrackedIds(userId: string | undefined) {
     const unsubscribe = onSnapshot(colRef, (snapshot) => {
       const tracked = new Set<number>();
       for (const d of snapshot.docs) {
-        tracked.add(Number(d.id));
+        // Handle prefixed IDs: "tv_12345" → 12345
+        const raw = d.id.replace(/^(tv|movie)_/, "");
+        tracked.add(Number(raw));
       }
       queryClient.setQueryData([QueryKey.TRACKED_IDS, userId], tracked);
     });
