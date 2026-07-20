@@ -1,4 +1,5 @@
 import axios from "axios";
+import { MediaType } from "./enums";
 
 const TMDB_BASE = "https://api.themoviedb.org/3";
 
@@ -57,7 +58,7 @@ export interface CatalogSeason {
 
 export interface CatalogShow {
   tmdbId: number;
-  mediaType: "tv" | "movie";
+  mediaType: MediaType;
   title: string;
   posterPath: string | null;
   backdropPath: string | null;
@@ -132,10 +133,10 @@ export async function fetchShowStatus(
 export async function fetchShowFromTMDB(
   apiKey: string,
   tmdbId: number,
-  mediaType: "tv" | "movie"
+  mediaType: MediaType
 ): Promise<CatalogShow> {
   const endpoint =
-    mediaType === "tv"
+    mediaType === MediaType.TV
       ? `${TMDB_BASE}/tv/${tmdbId}`
       : `${TMDB_BASE}/movie/${tmdbId}`;
 
@@ -147,7 +148,7 @@ export async function fetchShowFromTMDB(
   let totalEpisodes = data.number_of_episodes ?? 0;
   let totalSeasons = data.number_of_seasons ?? 0;
 
-  if (mediaType === "tv" && data.seasons) {
+  if (mediaType === MediaType.TV && data.seasons) {
     const seasonNumbers = data.seasons
       .filter((s) => s.season_number > 0)
       .map((s) => s.season_number);
@@ -161,7 +162,7 @@ export async function fetchShowFromTMDB(
   }
 
   const avgRuntime =
-    mediaType === "movie"
+    mediaType === MediaType.MOVIE
       ? data.runtime ?? null
       : data.episode_run_time?.[0] ?? null;
 

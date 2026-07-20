@@ -5,10 +5,11 @@ import { fetchShowFromTMDB, CatalogShow } from "./tmdb";
 import { addToTrackedBy } from "./utils";
 import { addShowToUpcoming } from "./syncCatalog";
 import { showDocId } from "./docId";
+import { MediaType } from "./enums";
 
 interface AddShowRequest {
   tmdbId: number;
-  mediaType: "tv" | "movie";
+  mediaType: MediaType;
 }
 
 export const addShow = onCall(
@@ -41,8 +42,8 @@ export const addShow = onCall(
       await addToTrackedBy(showId, uid);
 
       // Update upcoming subcollection (fire-and-forget)
-      if (mediaType === "tv") {
-        addShowToUpcoming(db, uid, tmdbId, "tv").catch((err) =>
+      if (mediaType === MediaType.TV) {
+        addShowToUpcoming(db, uid, tmdbId, MediaType.TV).catch((err) =>
           console.error("[addShow] upcoming update failed:", err)
         );
       }
@@ -94,7 +95,7 @@ export const addShow = onCall(
     }
 
     // Update upcoming subcollection (fire-and-forget, don't block response)
-    if (mediaType === "tv") {
+    if (mediaType === MediaType.TV) {
       addShowToUpcoming(db, uid, tmdbId).catch((err) =>
         console.error("[addShow] upcoming update failed:", err)
       );

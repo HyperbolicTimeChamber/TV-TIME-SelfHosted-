@@ -4,6 +4,7 @@ import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { fetchShowFromTMDB, fetchShowStatus, pooled, CatalogShow } from "./tmdb";
 import { getAllTrackerUids } from "./utils";
 import { showDocId, parseTmdbId } from "./docId";
+import { WatchStatus, MediaType } from "./enums";
 
 export const syncCatalog = onSchedule(
   {
@@ -25,7 +26,7 @@ export const syncCatalog = onSchedule(
     // Get all TV shows from catalog
     const showsSnap = await db
       .collection("shows")
-      .where("mediaType", "==", "tv")
+      .where("mediaType", "==", MediaType.TV)
       .get();
 
     console.log(`Syncing ${showsSnap.size} TV shows`);
@@ -60,7 +61,7 @@ export const syncCatalog = onSchedule(
           const freshData = await fetchShowFromTMDB(
             apiKey,
             oldData.tmdbId,
-            "tv"
+            MediaType.TV
           );
 
           const oldEpCount = oldData.totalEpisodes ?? 0;
@@ -172,7 +173,7 @@ async function reactivateCompletedUsers(
 
   // Batch write reactivations in chunks of 400
   const toReactivate = trackingDocs.filter(
-    (d) => d.exists && d.data()?.status === "completed"
+    (d) => d.exists && d.data()?.status === WatchStatus.COMPLETED
   );
 
   for (let i = 0; i < toReactivate.length; i += 400) {
@@ -180,7 +181,7 @@ async function reactivateCompletedUsers(
     const chunk = toReactivate.slice(i, i + 400);
     for (const td of chunk) {
       batch.update(td.ref, {
-        status: "watching",
+        status: WatchStatus.WATCHING,
         nextEpisode: {
           season: lastSeason.seasonNumber,
           episode: firstNewEp.episodeNumber,
@@ -238,10 +239,10 @@ export async function rebuildUserUpcoming(
   // Get all active TV tracking docs
   const trackingSnap = await db
     .collection(`users/${uid}/tracking`)
-    .where("mediaType", "==", "tv")
+    .where("mediaType", "==", MediaType.TV)
     .get();
 
-  const activeStatuses = ["watching", "rewatching"];
+  const activeStatuses = [WatchStatus.WATCHING, WatchStatus.REWATCHING];
   let activeShows = trackingSnap.docs.filter((d) =>
     activeStatuses.includes(d.data().status)
   );
@@ -254,7 +255,7 @@ export async function rebuildUserUpcoming(
 
     // Build index if it doesn't exist yet
     if (!activeIndexDoc.exists) {
-      const allShows = await db.collection("shows").where("mediaType", "==", "tv").get();
+      const allShows = await db.collection("shows").where("mediaType", "==", MediaType.TV).get();
       const ids = allShows.docs
         .filter((d) => !ENDED_STATUSES.includes((d.data() as CatalogShow).status))
         .map((d) => d.id);
@@ -327,7 +328,7 @@ export async function addShowToUpcoming(
   db: FirebaseFirestore.Firestore,
   uid: string,
   tmdbId: number,
-  mediaType: "tv" | "movie" = "tv"
+  mediaType: MediaType = MediaType.TV
 ): Promise<void> {
   const today = new Date().toISOString().slice(0, 10);
   const showId = showDocId(tmdbId, mediaType);

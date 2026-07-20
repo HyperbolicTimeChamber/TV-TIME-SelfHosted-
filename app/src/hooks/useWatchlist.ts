@@ -14,7 +14,7 @@ import {
   startAfter,
   QueryDocumentSnapshot,
 } from "@react-native-firebase/firestore";
-import { TrackingItem, CatalogShow, CacheKey } from "../types";
+import { TrackingItem, CatalogShow, CacheKey, DocChangeType } from "../types";
 import { showDocId } from "../utils/docId";
 
 const PAGE_SIZE = 50;
@@ -195,7 +195,7 @@ export function useWatchlist(userId: string | undefined) {
 
         const hasRemovals = snapshot
           .docChanges()
-          .some((c: any) => c.type === "removed");
+          .some((c: any) => c.type === DocChangeType.REMOVED);
         if (hasRemovals && paginatedItems.current.length > 0 && userId) {
           try {
             const checks = paginatedItems.current.map((p) =>

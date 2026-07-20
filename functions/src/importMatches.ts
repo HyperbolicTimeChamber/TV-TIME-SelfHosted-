@@ -6,6 +6,7 @@ import { fetchShowFromTMDB, CatalogShow, pooled } from "./tmdb";
 import { addToTrackedBy } from "./utils";
 import { rebuildUserUpcoming } from "./syncCatalog";
 import { showDocId } from "./docId";
+import { MediaType, WatchStatus } from "./enums";
 
 interface ImportEpisode {
   season: number;
@@ -15,8 +16,8 @@ interface ImportEpisode {
 
 interface ImportMatch {
   tmdbId: number;
-  mediaType: "tv" | "movie";
-  status: "watching" | "completed" | "plan_to_watch";
+  mediaType: MediaType;
+  status: WatchStatus.WATCHING | WatchStatus.COMPLETED | WatchStatus.PLAN_TO_WATCH;
   watchedEpisodes?: ImportEpisode[];
   movieRuntime?: number;
   movieWatchedAt?: string;
@@ -134,7 +135,7 @@ export const importMatches = onCall(
         let nextEpisode: { season: number; episode: number } | null = null;
         let lastWatchedAt = now;
 
-        if (match.mediaType === "tv" && match.watchedEpisodes?.length) {
+        if (match.mediaType === MediaType.TV && match.watchedEpisodes?.length) {
           const sorted = [...match.watchedEpisodes].sort((a, b) => {
             if (a.season !== b.season) return b.season - a.season;
             return b.episode - a.episode;
@@ -170,7 +171,7 @@ export const importMatches = onCall(
           }
         }
 
-        if (match.mediaType === "movie" && match.movieWatchedAt) {
+        if (match.mediaType === MediaType.MOVIE && match.movieWatchedAt) {
           const d = new Date(match.movieWatchedAt);
           if (!isNaN(d.getTime())) {
             lastWatchedAt = Timestamp.fromDate(d);
@@ -189,12 +190,12 @@ export const importMatches = onCall(
         });
       });
 
-      if (match.mediaType === "tv") {
+      if (match.mediaType === MediaType.TV) {
         stats.showsImported++;
       }
 
       // Create watched episode docs — enrich with TMDB title + runtime
-      if (match.mediaType === "tv" && match.watchedEpisodes) {
+      if (match.mediaType === MediaType.TV && match.watchedEpisodes) {
         const eps = match.watchedEpisodes;
         for (let i = 0; i < eps.length; i += 400) {
           const chunk = eps.slice(i, i + 400);
@@ -226,7 +227,7 @@ export const importMatches = onCall(
       }
 
       // Create watched movie doc
-      if (match.mediaType === "movie") {
+      if (match.mediaType === MediaType.MOVIE) {
         const movieRuntime = match.movieRuntime || catalog?.runtime || 0;
         batchOps.push(async () => {
           const movieRef = db.doc(`users/${uid}/watchedMovies/${showId}`);

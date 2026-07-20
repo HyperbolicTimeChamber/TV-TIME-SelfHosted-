@@ -3,10 +3,11 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { removeFromTrackedBy } from "./utils";
 import { showDocId } from "./docId";
+import { MediaType } from "./enums";
 
 interface RemoveShowRequest {
   tmdbId: number;
-  mediaType: "tv" | "movie";
+  mediaType: MediaType;
 }
 
 export const removeShow = onCall(

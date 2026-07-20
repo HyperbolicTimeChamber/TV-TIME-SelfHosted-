@@ -17,7 +17,7 @@ import {
   stopWatching,
 } from "../../../services";
 import { removeShowFromCalendarGlobal } from "../../../hooks/useCalendarEpisodes";
-import { MediaType, CacheKey, WatchedEpisode, WatchedMovie, QueryKey } from "../../../types";
+import { MediaType, CacheKey, WatchStatus, WatchedEpisode, WatchedMovie, QueryKey } from "../../../types";
 import { ListItem } from "./types";
 
 const ACTIVE_CACHE_LIMIT = 100;
@@ -575,7 +575,7 @@ export function useWatchlistData(userId: string | undefined) {
         if (!item) {
           next.delete(tmdbId);
         } else if (markedEpKey === MediaType.MOVIE) {
-          if (item.status === "completed") next.delete(tmdbId);
+          if (item.status === WatchStatus.COMPLETED) next.delete(tmdbId);
         } else {
           const ep = item.nextEpisode ?? { season: 1, episode: 1 };
           const currentKey = `${ep.season}-${ep.episode}`;

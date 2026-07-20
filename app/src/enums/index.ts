@@ -41,6 +41,12 @@ export enum QueryKey {
 	TRENDING = "trending",
 }
 
+export enum DocChangeType {
+	ADDED = "added",
+	MODIFIED = "modified",
+	REMOVED = "removed",
+}
+
 export enum Route {
 	// Main tabs
 	HOME = "Home",

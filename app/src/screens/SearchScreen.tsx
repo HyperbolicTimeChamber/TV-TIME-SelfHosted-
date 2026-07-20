@@ -55,6 +55,9 @@ export default function SearchScreen() {
   const [typingLoading, setTypingLoading] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
+  const queryRef = useRef(query);
+  queryRef.current = query;
+
   useEffect(() => {
     if (query.length > 0) setTypingLoading(true);
     const timer = setTimeout(() => {
@@ -64,34 +67,34 @@ export default function SearchScreen() {
     return () => clearTimeout(timer);
   }, [query]);
 
+  const resetSearch = useCallback(() => {
+    setQuery("");
+    setDebouncedQuery("");
+    setMediaFilter("all");
+    setTypingLoading(false);
+  }, []);
+
   const navigation = useNavigation<NavProp>();
 
   // Clear search when leaving the search tab
   useEffect(() => {
     const parent = navigation.getParent();
     if (!parent) return;
-    const unsub = parent.addListener("blur", () => {
-      setQuery("");
-      setDebouncedQuery("");
-      setMediaFilter("all");
-    });
+    const unsub = parent.addListener("blur", resetSearch);
     return unsub;
-  }, [navigation]);
+  }, [navigation, resetSearch]);
 
-  // Clear search when pressing search tab while already on it
+  // Tab press while already on search → fresh reset
   useEffect(() => {
     const parent = navigation.getParent();
     if (!parent) return;
     const unsub = (parent as any).addListener("tabPress", () => {
-      if (query.length > 0) {
-        setQuery("");
-        setDebouncedQuery("");
-        setMediaFilter("all");
-        inputRef.current?.focus();
+      if (queryRef.current.length > 0) {
+        resetSearch();
       }
     });
     return unsub;
-  }, [navigation, query]);
+  }, [navigation, resetSearch]);
   const user = useAuthStore((s) => s.user);
   const trackedIds = useTrackedIds(user?.uid);
 

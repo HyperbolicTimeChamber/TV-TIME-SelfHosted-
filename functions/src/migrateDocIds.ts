@@ -2,6 +2,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore } from "firebase-admin/firestore";
 import { showDocId } from "./docId";
+import { MediaType } from "./enums";
 
 export const migrateDocIds = onCall(
   { maxInstances: 1, timeoutSeconds: 3600, memory: "1GiB" },
@@ -26,7 +27,7 @@ export const migrateDocIds = onCall(
         if (oldId.startsWith("tv_") || oldId.startsWith("movie_")) continue;
 
         const data = d.data();
-        const mediaType = data.mediaType || "tv";
+        const mediaType = data.mediaType || MediaType.TV;
         const tmdbId = data.tmdbId || Number(oldId);
         const newId = showDocId(tmdbId, mediaType);
         if (oldId === newId) continue;

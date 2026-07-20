@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { showDocId } from "./docId";
+import { WatchStatus, MediaType } from "./enums";
 
 interface EpisodeInput {
   episodeNumber: number;
@@ -49,7 +50,7 @@ export const markSeasonWatched = onCall(
 
     const db = getFirestore();
     const userDoc = db.doc(`users/${uid}`);
-    const trackingDoc = db.doc(`users/${uid}/tracking/${showDocId(tmdbId, "tv")}`);
+    const trackingDoc = db.doc(`users/${uid}/tracking/${showDocId(tmdbId, MediaType.TV)}`);
     const watchedCol = db.collection(`users/${uid}/watchedEpisodes`);
 
     // Read all existing episode docs in parallel
@@ -117,7 +118,7 @@ export const markSeasonWatched = onCall(
       nextEpisodeAirDate: nextEpisodeAirDate ?? null,
     };
     if (isShowComplete) {
-      trackingUpdate.status = "completed";
+      trackingUpdate.status = WatchStatus.COMPLETED;
     }
     batch.set(trackingDoc, trackingUpdate, { merge: true });
 
