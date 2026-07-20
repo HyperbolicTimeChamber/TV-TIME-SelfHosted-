@@ -119,7 +119,6 @@ export default function WatchlistTab() {
   // Show drawer state
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [drawerShow, setDrawerShow] = useState<ShowDrawerData | null>(null);
-  const [drawerLoading, setDrawerLoading] = useState(false);
 
   useEffect(() => {
     setWatchlistLoading(isLoading);

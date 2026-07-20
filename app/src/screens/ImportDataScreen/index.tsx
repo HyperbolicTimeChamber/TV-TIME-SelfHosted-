@@ -108,14 +108,6 @@ export default function ImportDataScreen({ navigation }: any) {
       setStatusText("Extracting data...");
 
       const asset = result.assets[0];
-      console.log(
-        "Import file:",
-        asset.name,
-        "size:",
-        asset.size,
-        "uri:",
-        asset.uri,
-      );
       const parsed = await parseGdprZip(asset.uri);
       parsedRef.current = parsed;
 

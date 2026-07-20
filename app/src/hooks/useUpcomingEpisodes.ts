@@ -222,7 +222,7 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 }
 
 // Snapshot holder for optimistic rollbacks
-let lastSnapshot: UpcomingEpisode[] | null = null;
+let _lastSnapshot: UpcomingEpisode[] | null = null;
 
 export function useUpcomingMutations() {
   /** Add an item to upcoming locally (TV eps added server-side by CF, movies added here) */
@@ -266,7 +266,7 @@ export function useUpcomingMutations() {
       let snapshot: UpcomingEpisode[] = [];
       mutateCachedEpisodes((prev) => {
         snapshot = prev;
-        lastSnapshot = prev;
+        _lastSnapshot = prev;
         return fn(prev);
       });
       return snapshot;

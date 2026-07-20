@@ -53,7 +53,7 @@ export default memo(function ShowCard({
   onSwipeRight,
   onPress,
   onTitlePress,
-  onCheckmark,
+  onCheckmark: _onCheckmark,
   onCheckmarkLongPress,
 }: Props) {
   const ep =

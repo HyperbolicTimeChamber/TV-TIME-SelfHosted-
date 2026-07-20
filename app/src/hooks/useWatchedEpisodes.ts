@@ -55,9 +55,6 @@ export function useWatchedEpisodes(
         ...d.data(),
       })) as WatchedEpisode[];
 
-      console.log(
-        `[WatchedEpisodes] Fetched ${episodes.length} eps, hasMore=${episodes.length >= PAGE_SIZE}`,
-      );
 
       return {
         episodes,
