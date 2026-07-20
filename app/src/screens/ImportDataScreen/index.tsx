@@ -24,7 +24,8 @@ import {
   AmbiguousMatch,
 } from "../../services/tvtimeImport";
 import LoadingSpinner from "../../components/LoadingSpinner";
-import { WatchStatus, MediaType } from "../../types";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { WatchStatus, MediaType, CacheKey } from "../../types";
 import { spacing } from "../../theme";
 import { importStyles as styles } from "./styles";
 import PickPhase from "./PickPhase";
@@ -61,6 +62,19 @@ export default function ImportDataScreen({ navigation }: any) {
   const disambigHistory = useRef<
     ({ type: "pick"; match: TMDBMatch } | { type: "skip" })[]
   >([]);
+
+  // Restore import state on mount
+  useEffect(() => {
+    AsyncStorage.getItem(CacheKey.IMPORT_IN_PROGRESS).then((raw) => {
+      if (!raw) return;
+      try {
+        const data = JSON.parse(raw);
+        if (data.userId === user?.uid && !useAuthStore.getState().hasCompletedImport) {
+          setPhase("importing");
+        }
+      } catch {}
+    });
+  }, [user?.uid]);
 
   // --- Helpers ---
   const buildSelection = useCallback((matches: TMDBMatch[]) => {
@@ -102,7 +116,7 @@ export default function ImportDataScreen({ navigation }: any) {
         const watchlistCol = collection(doc(db, "users", user.uid), "tracking");
         const snap = await getDocs(watchlistCol);
         const ids = new Set<number>();
-        snap.docs.forEach((d) => ids.add(Number(d.id)));
+        snap.docs.forEach((d) => ids.add(Number(d.id.replace(/^(tv|movie)_/, ""))));
         existingIdsRef.current = ids;
       }
 
@@ -297,6 +311,11 @@ export default function ImportDataScreen({ navigation }: any) {
         // User denied — import still works, just no notification
       }
 
+      await AsyncStorage.setItem(
+        CacheKey.IMPORT_IN_PROGRESS,
+        JSON.stringify({ userId: user!.uid, startedAt: Date.now() }),
+      );
+
       const functions = getFunctions();
       const importFn = httpsCallable(functions, "importMatches", {
         timeout: 3600000,
@@ -304,11 +323,13 @@ export default function ImportDataScreen({ navigation }: any) {
       try {
         await importFn({ matches: cfMatches });
       } catch (err: any) {
+        await AsyncStorage.removeItem(CacheKey.IMPORT_IN_PROGRESS);
         Alert.alert("Import Error", err.message || "Import failed.");
         setPhase("review");
         return;
       }
       // Mark import complete after CF succeeds
+      await AsyncStorage.removeItem(CacheKey.IMPORT_IN_PROGRESS);
       useAuthStore.setState({ hasCompletedImport: true });
     }, 50);
   }, [user, matched, selected, navigation]);
@@ -337,6 +358,42 @@ export default function ImportDataScreen({ navigation }: any) {
   }
 
   if (phase === "importing") {
+    const handleCheckStatus = async () => {
+      if (!user?.uid) return;
+      const db = getFirestore();
+      const trackingCol = collection(doc(db, "users", user.uid), "tracking");
+      const snap = await getDocs(trackingCol);
+      if (snap.size > 0) {
+        await AsyncStorage.removeItem(CacheKey.IMPORT_IN_PROGRESS);
+        useAuthStore.setState({ hasCompletedImport: true });
+      } else {
+        // Check if it's been too long (30 min)
+        const raw = await AsyncStorage.getItem(CacheKey.IMPORT_IN_PROGRESS);
+        if (raw) {
+          const data = JSON.parse(raw);
+          const elapsed = Date.now() - (data.startedAt || 0);
+          if (elapsed > 30 * 60 * 1000) {
+            Alert.alert(
+              "Import May Have Failed",
+              "The import has been running for over 30 minutes. Would you like to retry?",
+              [
+                { text: "Keep Waiting", style: "cancel" },
+                {
+                  text: "Retry",
+                  onPress: async () => {
+                    await AsyncStorage.removeItem(CacheKey.IMPORT_IN_PROGRESS);
+                    setPhase("pick");
+                  },
+                },
+              ],
+            );
+          } else {
+            Alert.alert("Still Importing", "Please wait a bit longer.");
+          }
+        }
+      }
+    };
+
     return (
       <View style={[styles.centered, { paddingTop: insetTop }]}>
         <Text style={styles.title}>Importing Your Data</Text>
@@ -350,6 +407,20 @@ export default function ImportDataScreen({ navigation }: any) {
         <Text style={[styles.desc, { marginTop: spacing.sm }]}>
           You'll be notified once the sync is complete.
         </Text>
+        <TouchableOpacity
+          style={{
+            marginTop: spacing.xl,
+            backgroundColor: "#333",
+            paddingHorizontal: spacing.xl,
+            paddingVertical: spacing.md,
+            borderRadius: 8,
+          }}
+          onPress={handleCheckStatus}
+        >
+          <Text style={[styles.desc, { marginTop: 0, color: "#fff" }]}>
+            Check Status
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   }

@@ -13,8 +13,8 @@ import {
   startAfter,
   QueryDocumentSnapshot,
 } from "@react-native-firebase/firestore";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { TrackingItem, CatalogShow, CacheKey } from "../types";
+import { TrackingItem, CatalogShow } from "../types";
+import { showDocId } from "../utils/docId";
 
 const PAGE_SIZE = 50;
 
@@ -32,13 +32,14 @@ async function enrichItems(
   const db = getFirestore();
   return Promise.all(
     trackingItems.map(async (item): Promise<EnrichedTrackingItem> => {
-      const key = String(item.tmdbId);
+      const mt = (item as any).mediaType === "movie" ? "movie" : "tv";
+      const key = showDocId(item.tmdbId, mt);
       let catalogShow = cache.get(key);
 
       if (catalogShow === undefined) {
         try {
           const showDoc = await getDoc(doc(db, "shows", key));
-          catalogShow = showDoc.exists()
+          catalogShow = showDoc?.exists?.()
             ? ({ id: showDoc.id, ...showDoc.data() } as unknown as CatalogShow)
             : null;
         } catch {
@@ -49,8 +50,8 @@ async function enrichItems(
 
       return {
         ...item,
-        title: catalogShow?.title ?? `Show #${item.tmdbId}`,
-        posterPath: catalogShow?.posterPath ?? null,
+        title: catalogShow?.title ?? (item as any).title ?? `Show #${item.tmdbId}`,
+        posterPath: catalogShow?.posterPath ?? (item as any).posterPath ?? null,
         totalEpisodes: catalogShow?.totalEpisodes ?? 0,
         catalogShow: catalogShow ?? null,
       };
@@ -67,23 +68,6 @@ export function useWatchlist(userId: string | undefined) {
   const paginationCursor = useRef<QueryDocumentSnapshot | null>(null);
   const firstPageLastDoc = useRef<QueryDocumentSnapshot | null>(null);
   const paginatedItems = useRef<EnrichedTrackingItem[]>([]);
-  const restoredCache = useRef(false);
-
-  // Restore cached watchlist on mount
-  useEffect(() => {
-    if (!userId || restoredCache.current) return;
-    AsyncStorage.getItem(CacheKey.WATCHLIST_PROFILE).then((raw) => {
-      if (!raw) return;
-      try {
-        const cached = JSON.parse(raw);
-        if (cached.userId === userId && cached.items?.length > 0) {
-          setItems(cached.items);
-          setLoading(false);
-        }
-      } catch {}
-      restoredCache.current = true;
-    });
-  }, [userId]);
 
   // First page with real-time listener
   useEffect(() => {
@@ -101,6 +85,8 @@ export function useWatchlist(userId: string | undefined) {
     paginatedItems.current = [];
     paginationCursor.current = null;
 
+    let prevEnrichedMap = new Map<string, EnrichedTrackingItem>();
+
     const unsubscribe = onSnapshot(
       q,
       async (snapshot) => {
@@ -109,45 +95,64 @@ export function useWatchlist(userId: string | undefined) {
           ...d.data(),
         })) as TrackingItem[];
 
-        const enriched = await enrichItems(trackingItems, catalogCache.current);
+        // Only enrich changed/added items — reuse previous for unchanged
+        const changedIds = new Set(
+          snapshot.docChanges().map((c) => c.doc.id),
+        );
+        const isInitial = prevEnrichedMap.size === 0;
 
-        // Set pagination cursor from first page only if no pagination has happened yet
+        let enriched: EnrichedTrackingItem[];
+        if (isInitial || changedIds.size === trackingItems.length) {
+          // Initial load or full refresh
+          enriched = await enrichItems(trackingItems, catalogCache.current);
+        } else {
+          // Incremental: only enrich changed items
+          const toEnrich = trackingItems.filter((t) => changedIds.has(t.id));
+          const freshlyEnriched = await enrichItems(toEnrich, catalogCache.current);
+          const freshMap = new Map(freshlyEnriched.map((e) => [e.id, e]));
+
+          enriched = trackingItems.map((t) =>
+            freshMap.get(t.id) ?? prevEnrichedMap.get(t.id) ?? {
+              ...t,
+              title: `Show #${t.tmdbId}`,
+              posterPath: null,
+              totalEpisodes: 0,
+              catalogShow: null,
+            },
+          );
+        }
+
+        // Update prev map for next snapshot
+        prevEnrichedMap = new Map(enriched.map((e) => [e.id, e]));
+
         firstPageLastDoc.current =
           snapshot.docs[snapshot.docs.length - 1] || null;
         if (!paginationCursor.current) {
           paginationCursor.current = firstPageLastDoc.current;
         }
 
-        // Merge: first page (live) + paginated pages
         const firstPageIds = new Set(enriched.map((e) => e.id));
         paginatedItems.current = paginatedItems.current.filter(
           (p) => !firstPageIds.has(p.id),
         );
 
-        // If items were removed/modified, verify paginated items still exist
         const hasRemovals = snapshot
           .docChanges()
           .some((c) => c.type === "removed");
-        if (hasRemovals && paginatedItems.current.length > 0) {
-          const checks = paginatedItems.current.map((p) =>
-            getDoc(doc(db, "users", userId!, "tracking", String(p.tmdbId))),
-          );
-          const results = await Promise.all(checks);
-          paginatedItems.current = paginatedItems.current.filter((_, i) =>
-            results[i].exists(),
-          );
+        if (hasRemovals && paginatedItems.current.length > 0 && userId) {
+          try {
+            const checks = paginatedItems.current.map((p) =>
+              getDoc(doc(db, "users", userId!, "tracking", showDocId(p.tmdbId, (p as any).mediaType === "movie" ? "movie" : "tv"))),
+            );
+            const results = await Promise.all(checks);
+            paginatedItems.current = paginatedItems.current.filter(
+              (_, i) => results[i]?.exists?.() ?? false,
+            );
+          } catch {}
         }
 
         const merged = [...enriched, ...paginatedItems.current];
         setItems(merged);
-
-        // Cache first page (strip catalogShow to keep payload small)
-        const toCache = enriched.map(({ catalogShow, ...rest }) => rest);
-        AsyncStorage.setItem(
-          CacheKey.WATCHLIST_PROFILE,
-          JSON.stringify({ userId, items: toCache }),
-        ).catch(() => {});
-
         setHasMore(snapshot.docs.length >= PAGE_SIZE);
         setLoading(false);
       },
@@ -187,15 +192,12 @@ export function useWatchlist(userId: string | undefined) {
 
       const enriched = await enrichItems(trackingItems, catalogCache.current);
 
-      // Update pagination cursor to last doc of this page
       paginationCursor.current = snapshot.docs[snapshot.docs.length - 1];
 
-      // Append to paginated items ref
       const existingIds = new Set(paginatedItems.current.map((p) => p.id));
       const newItems = enriched.filter((e) => !existingIds.has(e.id));
       paginatedItems.current = [...paginatedItems.current, ...newItems];
 
-      // Update state
       setItems((prev) => {
         const prevIds = new Set(prev.map((p) => p.id));
         const toAdd = newItems.filter((e) => !prevIds.has(e.id));
@@ -215,23 +217,11 @@ export function useWatchlist(userId: string | undefined) {
       paginatedItems.current = paginatedItems.current.filter(
         (p) => p.tmdbId !== tmdbId,
       );
-      catalogCache.current.delete(String(tmdbId));
-      setItems((prev) => {
-        const updated = prev.filter((p) => p.tmdbId !== tmdbId);
-        // Update AsyncStorage cache
-        if (userId) {
-          const toCache = updated
-            .slice(0, 50)
-            .map(({ catalogShow, ...rest }) => rest);
-          AsyncStorage.setItem(
-            CacheKey.WATCHLIST_PROFILE,
-            JSON.stringify({ userId, items: toCache }),
-          ).catch(() => {});
-        }
-        return updated;
-      });
+      catalogCache.current.delete(showDocId(tmdbId, "tv"));
+      catalogCache.current.delete(showDocId(tmdbId, "movie"));
+      setItems((prev) => prev.filter((p) => p.tmdbId !== tmdbId));
     },
-    [userId],
+    [],
   );
 
   // Listen for external removal events (e.g. from ShowDetailScreen)

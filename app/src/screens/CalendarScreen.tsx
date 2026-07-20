@@ -10,9 +10,9 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
 } from "react-native";
-import { AnimatedModal } from "../components";
+import { useFocusEffect } from "@react-navigation/native";
+import { AnimatedModal, LoadingSpinner } from "../components";
 import { LegendList } from "@legendapp/list/react-native";
 import { Calendar, DateData } from "react-native-calendars";
 import { useNavigation } from "@react-navigation/native";
@@ -43,7 +43,9 @@ const YEARS = Array.from(
 export default function CalendarScreen() {
   const user = useAuthStore((s) => s.user);
   const navigation = useNavigation<NavProp>();
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(
+    new Date().toISOString().slice(0, 10),
+  );
   const [yearModalVisible, setYearModalVisible] = useState(false);
 
   const now = new Date();
@@ -61,6 +63,16 @@ export default function CalendarScreen() {
   useEffect(() => {
     loadMonthEpisodes(currentYear, currentMonth);
   }, [user?.uid]);
+
+  // Reset to current month when tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      const today = new Date();
+      setCurrentYear(today.getFullYear());
+      setCurrentMonth(today.getMonth() + 1);
+      setSelectedDate(today.toISOString().slice(0, 10));
+    }, []),
+  );
 
   const markedDates = useMemo(() => {
     const marks: Record<
@@ -152,35 +164,46 @@ export default function CalendarScreen() {
   );
 
   const renderEpisode = useCallback(
-    ({ item }: { item: UpcomingEpisode }) => (
-      <TouchableOpacity
-        style={styles.episodeRow}
-        onPress={() =>
-          navigation.navigate(Route.SHOW_DETAIL, {
-            tmdbId: item.tmdbShowId,
-            mediaType: MediaType.TV,
-          })
-        }
-      >
-        <Image
-          source={{ uri: `${posterSize.small}${item.posterPath}` }}
-          style={styles.poster}
-          contentFit="cover"
-        />
-        <View style={styles.epInfo}>
-          <Text style={styles.showTitle} numberOfLines={1}>
-            {item.showTitle}
-          </Text>
-          <Text style={styles.epLabel}>
-            S{String(item.season).padStart(2, "0")}E
-            {String(item.episode).padStart(2, "0")}
-          </Text>
-          <Text style={styles.epTitle} numberOfLines={1}>
-            {item.episodeTitle}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    ),
+    ({ item }: { item: UpcomingEpisode }) => {
+      const isMovie = item.mediaType === MediaType.MOVIE;
+      return (
+        <TouchableOpacity
+          style={styles.episodeRow}
+          onPress={() =>
+            navigation.navigate(Route.SHOW_DETAIL, {
+              tmdbId: item.tmdbShowId,
+              mediaType: isMovie ? MediaType.MOVIE : MediaType.TV,
+            })
+          }
+        >
+          <Image
+            source={{ uri: `${posterSize.small}${item.posterPath}` }}
+            style={styles.poster}
+            contentFit="cover"
+          />
+          <View style={styles.epInfo}>
+            <Text style={styles.showTitle} numberOfLines={1}>
+              {item.showTitle}
+            </Text>
+            {isMovie ? (
+              <View style={styles.movieBadge}>
+                <Text style={styles.movieBadgeText}>MOVIE</Text>
+              </View>
+            ) : (
+              <Text style={styles.epLabel}>
+                S{String(item.season).padStart(2, "0")}E
+                {String(item.episode).padStart(2, "0")}
+              </Text>
+            )}
+            {!isMovie && (
+              <Text style={styles.epTitle} numberOfLines={1}>
+                {item.episodeTitle}
+              </Text>
+            )}
+          </View>
+        </TouchableOpacity>
+      );
+    },
     [navigation],
   );
 
@@ -211,14 +234,11 @@ export default function CalendarScreen() {
         }}
       />
 
-      {calendarLoading && (
-        <View style={styles.loaderRow}>
-          <ActivityIndicator size="small" color={colors.primary} />
-          <Text style={styles.loaderText}>Loading episodes...</Text>
+      {calendarLoading ? (
+        <View style={styles.loaderCenter}>
+          <LoadingSpinner />
         </View>
-      )}
-
-      {selectedDate && (
+      ) : selectedDate && (
         <View style={styles.episodeList}>
           <Text style={styles.dateHeader}>
             {new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", {
@@ -305,12 +325,11 @@ const styles = StyleSheet.create({
     ...typography.caption,
     paddingHorizontal: spacing.lg,
   },
-  loaderRow: {
-    flexDirection: "row",
+  loaderCenter: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.xl,
   },
   loaderText: {
     ...typography.caption,
@@ -340,6 +359,20 @@ const styles = StyleSheet.create({
   epLabel: {
     ...typography.caption,
     marginTop: spacing.xs,
+  },
+  movieBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.moviePurple,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: spacing.xs,
+  },
+  movieBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.text,
+    letterSpacing: 0.5,
   },
   epTitle: {
     ...typography.body,

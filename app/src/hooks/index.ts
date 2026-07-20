@@ -1,5 +1,9 @@
 export { getFirebaseAuthErrorMessage } from "./getFirebaseAuthErrorMessage";
-export { useCalendarEpisodes } from "./useCalendarEpisodes";
+export {
+  useCalendarEpisodes,
+  removeShowFromCalendarGlobal,
+  addMovieToCalendarGlobal,
+} from "./useCalendarEpisodes";
 export { useForceUpdate } from "./useForceUpdate";
 export { useSearch } from "./useSearch";
 export { useSeasonDetails } from "./useSeasonDetails";

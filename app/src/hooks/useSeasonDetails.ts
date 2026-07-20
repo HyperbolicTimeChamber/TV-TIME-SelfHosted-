@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getSeasonDetails, getCatalogShow } from "../services";
 import { useAuthStore } from "../stores";
-import { TMDBEpisode } from "../types";
+import { TMDBEpisode, QueryKey } from "../types";
 
 export function useSeasonDetails(
   tmdbId: number,
@@ -10,10 +10,10 @@ export function useSeasonDetails(
 ) {
   // Primary query: catalog data (fast, no images)
   const catalogQuery = useQuery({
-    queryKey: ["season", tmdbId, seasonNumber],
+    queryKey: [QueryKey.SEASON, tmdbId, seasonNumber],
     enabled,
     queryFn: async () => {
-      const catalogShow = await getCatalogShow(tmdbId);
+      const catalogShow = await getCatalogShow(tmdbId, "tv");
       if (catalogShow) {
         const season = catalogShow.seasons.find(
           (s) => s.seasonNumber === seasonNumber,
@@ -48,7 +48,7 @@ export function useSeasonDetails(
   // Secondary query: TMDB images — runs when catalog data lacks still_path
   // This also covers preloaded episodes case
   const imagesQuery = useQuery({
-    queryKey: ["seasonImages", tmdbId, seasonNumber],
+    queryKey: [QueryKey.SEASON_IMAGES, tmdbId, seasonNumber],
     enabled: true,
     queryFn: async () => {
       const apiKey = useAuthStore.getState().appTmdbApiKey;

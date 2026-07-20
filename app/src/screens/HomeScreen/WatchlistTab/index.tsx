@@ -41,6 +41,7 @@ import {
   WatchedEpisode,
   MediaType,
   Route,
+  QueryKey,
 } from "../../../types";
 import type { ShowDrawerData } from "../../../components/ShowDrawer";
 import { ListItem } from "./types";
@@ -99,6 +100,7 @@ export default function WatchlistTab() {
     airDate: string | null;
     runtime: number | null;
     tmdbId: number;
+    showPosterPath: string | null;
   } | null>(null);
   const [epModalLoading, setEpModalLoading] = useState(false);
   const [epModalMarking, setEpModalMarking] = useState(false);
@@ -158,6 +160,7 @@ export default function WatchlistTab() {
         airDate: catalogEp?.airDate ?? null,
         runtime: catalogEp?.runtime ?? null,
         tmdbId,
+        showPosterPath: item.posterPath ?? null,
       });
       setEpModalLoading(!hasFullData);
       setEpModalMarking(false);
@@ -263,7 +266,7 @@ export default function WatchlistTab() {
   const handleWatchedSwipeLeft = useCallback(
     async (episode: WatchedEpisode) => {
       if (!user?.uid) return;
-      const catalog = await getCatalogShow(episode.tmdbShowId);
+      const catalog = await getCatalogShow(episode.tmdbShowId, "tv");
       const catalogSeason = catalog?.seasons?.find(
         (s) => s.seasonNumber === episode.season,
       );
@@ -303,7 +306,7 @@ export default function WatchlistTab() {
         nextEpisode,
         isComplete,
       );
-      queryClient.invalidateQueries({ queryKey: ["watchedEpisodes", user.uid] });
+      queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_EPISODES, user.uid] });
     },
     [user?.uid, queryClient],
   );
@@ -331,7 +334,7 @@ export default function WatchlistTab() {
           episode.episodeTitle,
         );
       }
-      queryClient.invalidateQueries({ queryKey: ["watchedEpisodes", user.uid] });
+      queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_EPISODES, user.uid] });
     },
     [user?.uid, queryClient],
   );
@@ -342,7 +345,7 @@ export default function WatchlistTab() {
 
       try {
         if (action === "rewatch") {
-          const catalog = await getCatalogShow(sheetEpisode.tmdbShowId);
+          const catalog = await getCatalogShow(sheetEpisode.tmdbShowId, "tv");
           const catalogSeason = catalog?.seasons?.find(
             (s) => s.seasonNumber === sheetEpisode.season,
           );
@@ -402,6 +405,7 @@ export default function WatchlistTab() {
             sheetEpisode.episodeTitle,
           );
         }
+        queryClient.invalidateQueries({ queryKey: [QueryKey.WATCHED_EPISODES, user.uid] });
       } catch (err: any) {
         console.error("Watch action failed:", err);
         Alert.alert("Error", err.message || "Action failed.");
@@ -409,7 +413,7 @@ export default function WatchlistTab() {
 
       setSheetEpisode(null);
     },
-    [user?.uid, sheetEpisode],
+    [user?.uid, sheetEpisode, queryClient],
   );
 
   const handleTvPress = useCallback(
@@ -421,6 +425,24 @@ export default function WatchlistTab() {
     ({ item }: { item: ListItem }) => {
       if (item.type === "sectionHeader") {
         return <SectionHeader title={item.title} />;
+      }
+
+      if (item.type === "watchedMovie") {
+        return (
+          <ShowCard
+            item={{
+              ...item.show,
+              nextEpisode: null,
+              mediaType: MediaType.MOVIE,
+              rewatchCount: Math.max(0, (item.movie.watchCount || 1) - 1),
+            } as any}
+            isWatched
+            onSwipeLeft={async () => {}}
+            onSwipeRight={async () => {}}
+            onPress={(id) => handleNavigateToShow(id, MediaType.MOVIE)}
+            onCheckmark={async () => {}}
+          />
+        );
       }
 
       if (item.type === "watchedEpisode") {
@@ -436,45 +458,12 @@ export default function WatchlistTab() {
         );
       }
 
-      const nextEp = item.item.nextEpisode;
-      const catalog = item.item.catalogShow;
-      let remaining: number | null = null;
-      if (nextEp && catalog?.seasons) {
-        const todayStr = new Date().toISOString().split("T")[0];
-        let count = 0;
-        for (const s of catalog.seasons) {
-          if (s.seasonNumber < nextEp.season) continue;
-          for (const e of s.episodes) {
-            if (
-              s.seasonNumber === nextEp.season &&
-              e.episodeNumber <= nextEp.episode
-            )
-              continue;
-            // Only count aired episodes
-            if (e.airDate && e.airDate <= todayStr) count++;
-          }
-        }
-        remaining = count > 0 ? count : null;
-      }
-
-      const catalogSeason = nextEp
-        ? catalog?.seasons?.find((s) => s.seasonNumber === nextEp.season)
-        : undefined;
-      const catalogEp = catalogSeason?.episodes?.find(
-        (e) => e.episodeNumber === nextEp!.episode,
-      );
-      const enrichedItem = {
-        ...item.item,
-        nextEpisodeName: item.item.nextEpisodeName || catalogEp?.title || null,
-        nextEpisodeAirDate: catalogEp?.airDate ?? null,
-        releaseDate: item.item.catalogShow?.releaseDate ?? null,
-      };
-
+      // All fields pre-computed in useWatchlistData — no catalog lookup needed
       return (
         <ShowCard
-          item={enrichedItem}
+          item={item.item}
           isUpdating={updatingShows.has(item.item.tmdbId)}
-          remainingEpisodes={remaining}
+          remainingEpisodes={(item.item as any).remaining ?? null}
           onSwipeLeft={handleMarkWatched}
           onSwipeRight={handleStopWatching}
           onPress={handleCardPress}
@@ -538,6 +527,8 @@ export default function WatchlistTab() {
         data={listData}
         keyExtractor={(item) => {
           if (item.type === "sectionHeader") return `section_${item.title}`;
+          if (item.type === "watchedMovie")
+            return `movie_${item.movie.id}`;
           if (item.type === "watchedEpisode")
             return `watched_${item.episode.id}`;
           return `show_${item.item.id}`;
@@ -588,6 +579,7 @@ export default function WatchlistTab() {
           episodeTitle={epModalData.episodeTitle}
           overview={epModalData.overview}
           stillPath={epModalData.stillPath}
+          showPosterPath={epModalData.showPosterPath}
           airDate={epModalData.airDate}
           runtime={epModalData.runtime}
           loadingDetails={epModalLoading}

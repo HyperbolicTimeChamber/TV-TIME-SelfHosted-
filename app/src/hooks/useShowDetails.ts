@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getShowDetails, getCatalogShow } from "../services";
 import { useAuthStore } from "../stores";
-import { TMDBShow, TMDBEpisode, CatalogShow } from "../types";
+import { TMDBShow, TMDBEpisode, CatalogShow, QueryKey } from "../types";
 
 export interface ShowDetailsResult {
   show: TMDBShow;
@@ -58,10 +58,10 @@ function catalogShowToResult(catalog: CatalogShow): ShowDetailsResult {
 
 export function useShowDetails(tmdbId: number, mediaType: string = "tv") {
   const result = useQuery({
-    queryKey: ["show", tmdbId, mediaType],
+    queryKey: [QueryKey.SHOW, tmdbId, mediaType],
     queryFn: async (): Promise<ShowDetailsResult> => {
       // Try catalog first
-      const catalogShow = await getCatalogShow(tmdbId);
+      const catalogShow = await getCatalogShow(tmdbId, mediaType as "tv" | "movie");
       if (catalogShow) return catalogShowToResult(catalogShow);
 
       // Fallback to TMDB

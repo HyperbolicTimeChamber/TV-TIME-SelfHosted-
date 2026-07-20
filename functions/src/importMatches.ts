@@ -5,6 +5,7 @@ import { getMessaging } from "firebase-admin/messaging";
 import { fetchShowFromTMDB, CatalogShow, pooled } from "./tmdb";
 import { addToTrackedBy } from "./utils";
 import { rebuildUserUpcoming } from "./syncCatalog";
+import { showDocId } from "./docId";
 
 interface ImportEpisode {
   season: number;
@@ -67,7 +68,7 @@ export const importMatches = onCall(
 
     const catalogTasks = matches.map(
       (m) => async () => {
-        const showId = String(m.tmdbId);
+        const showId = showDocId(m.tmdbId, m.mediaType);
         const showRef = db.doc(`shows/${showId}`);
 
         const showData = await fetchShowFromTMDB(apiKey, m.tmdbId, m.mediaType);
@@ -122,7 +123,7 @@ export const importMatches = onCall(
     let totalEpisodes = 0;
 
     for (const match of matches) {
-      const showId = String(match.tmdbId);
+      const showId = showDocId(match.tmdbId, match.mediaType);
       const now = Timestamp.now();
       const catalog = catalogMap.get(match.tmdbId);
 

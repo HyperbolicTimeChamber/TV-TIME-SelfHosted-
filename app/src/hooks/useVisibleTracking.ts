@@ -24,48 +24,41 @@ export function isShowVisible(item: EnrichedTrackingItem): boolean {
   ];
   if (!activeStatuses.includes(item.status)) return false;
 
-  const catalog = item.catalogShow;
-
   const today = new Date().toISOString().split("T")[0];
 
   // plan_to_watch — visible unless unreleased movie
   if (item.status === WatchStatus.PLAN_TO_WATCH) {
-    const rd = item.releaseDate ?? catalog?.releaseDate;
+    const rd = item.releaseDate ?? item.catalogShow?.releaseDate;
     if (item.mediaType === MediaType.MOVIE && rd && rd > today) return false;
     return true;
   }
 
   // Movies — visible only if released (use tracking doc releaseDate first, fallback to catalog)
   if (item.mediaType === MediaType.MOVIE) {
-    const rd = item.releaseDate ?? catalog?.releaseDate;
+    const rd = item.releaseDate ?? item.catalogShow?.releaseDate;
     if (rd && rd > today) return false;
     return true;
   }
-
-  // No catalog data — hide until loaded
-  if (!catalog) return false;
 
   // No nextEpisode means fully caught up or completed
   const nextEp = item.nextEpisode;
   if (!nextEp) return false;
 
-  // Check if nextEpisode has aired
+  // Use local nextEpisodeAirDate from tracking doc (no catalog dependency)
+  const airDate = item.nextEpisodeAirDate;
+  if (airDate) return airDate <= today;
+
+  // Fallback to catalog if nextEpisodeAirDate not yet populated
+  const catalog = item.catalogShow;
+  if (!catalog) return true; // Show until catalog arrives or add gets rolled back
+
   const season = catalog.seasons?.find((s) => s.seasonNumber === nextEp.season);
-  if (!season) {
-    // Season not in catalog — might not exist yet
-    return false;
-  }
+  if (!season) return false;
 
   const episode = season.episodes?.find(
     (e) => e.episodeNumber === nextEp.episode,
   );
-  if (!episode) {
-    // Episode not in catalog — might not exist yet
-    return false;
-  }
-
-  // Visible if the next episode has already aired
-  if (!episode.airDate) return false; // No air date = not aired yet
+  if (!episode?.airDate) return false;
   return episode.airDate <= today;
 }
 
@@ -74,6 +67,9 @@ export function isShowVisible(item: EnrichedTrackingItem): boolean {
  * Returns ISO date string or null.
  */
 function getNextEpisodeAirDate(item: EnrichedTrackingItem): string | null {
+  // Prefer local field from tracking doc
+  if (item.nextEpisodeAirDate) return item.nextEpisodeAirDate;
+  // Fallback to catalog
   if (!item.nextEpisode || !item.catalogShow) return null;
   const season = item.catalogShow.seasons?.find(
     (s) => s.seasonNumber === item.nextEpisode!.season,

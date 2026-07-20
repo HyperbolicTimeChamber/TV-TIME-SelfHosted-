@@ -8,7 +8,6 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
 import {
   AnimatedModal,
   ConfirmModal,
@@ -25,14 +24,23 @@ import {
   useTrending,
   useTrackedIds,
   useUpcomingMutations,
+  removeShowFromCalendarGlobal,
+  addMovieToCalendarGlobal,
 } from "../hooks";
+import {
+  getFirestore,
+  doc,
+  updateDoc,
+} from "@react-native-firebase/firestore";
 import { useAuthStore } from "../stores";
 import {
   addToTracking,
   removeFromTracking,
   markMovieWatched,
+  getHighestWatchedEpisode,
 } from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
+import { showDocId } from "../utils/docId";
 import { TMDBShow, SearchStackParamList, MediaType, Route } from "../types";
 
 type NavProp = NativeStackNavigationProp<
@@ -44,24 +52,31 @@ export default function SearchScreen() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [mediaFilter, setMediaFilter] = useState<"all" | "tv" | "movie">("all");
+  const [typingLoading, setTypingLoading] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query), 100);
+    if (query.length > 0) setTypingLoading(true);
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query);
+      setTypingLoading(false);
+    }, 300);
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Clear search when leaving the tab
-  useFocusEffect(
-    useCallback(() => {
-      return () => {
-        setQuery("");
-        setDebouncedQuery("");
-        setMediaFilter("all");
-      };
-    }, []),
-  );
   const navigation = useNavigation<NavProp>();
+
+  // Clear search only when leaving the search tab (not on stack push)
+  useEffect(() => {
+    const parent = navigation.getParent();
+    if (!parent) return;
+    const unsub = parent.addListener("blur", () => {
+      setQuery("");
+      setDebouncedQuery("");
+      setMediaFilter("all");
+    });
+    return unsub;
+  }, [navigation]);
   const user = useAuthStore((s) => s.user);
   const trackedIds = useTrackedIds(user?.uid);
 
@@ -72,6 +87,13 @@ export default function SearchScreen() {
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [unreleasedModal, setUnreleasedModal] = useState<{
     title: string;
+  } | null>(null);
+  const [resumeModal, setResumeModal] = useState<{
+    item: TMDBShow;
+    highestEp: { season: number; episode: number };
+    nextEp: { season: number; episode: number };
+    nextEpName: string | null;
+    nextEpAirDate: string | null;
   } | null>(null);
   const { addShowToUpcoming, removeShowFromUpcoming } = useUpcomingMutations();
 
@@ -99,7 +121,7 @@ export default function SearchScreen() {
     async (item: TMDBShow) => {
       if (!user?.uid) return;
       const mediaType: MediaType =
-        item.media_type || (item.title ? MediaType.MOVIE : MediaType.TV);
+        item.media_type || (item.first_air_date || (item.name && !item.title) ? MediaType.TV : MediaType.MOVIE);
 
       if (mediaType === MediaType.MOVIE) {
         const releaseDate = item.release_date || null;
@@ -109,7 +131,7 @@ export default function SearchScreen() {
         if (isUnreleased) {
           // Run modal check and add in parallel
           const addPromise = withLoadingId(item.id, () =>
-            addToTracking(user.uid!, item.id, MediaType.MOVIE, releaseDate),
+            addToTracking(user.uid!, item.id, MediaType.MOVIE, releaseDate, { title: item.title || item.name || "", posterPath: item.poster_path || null }),
           );
           shouldShowUnreleasedModal(user.uid!).then((shouldShow) => {
             if (shouldShow) {
@@ -117,6 +139,19 @@ export default function SearchScreen() {
             }
           });
           await addPromise;
+          const movieEp = {
+            tmdbShowId: item.id,
+            showTitle: item.title || item.name || "",
+            posterPath: item.poster_path || null,
+            season: 0,
+            episode: 0,
+            episodeTitle: item.title || item.name || "",
+            airDate: releaseDate!,
+            runtime: null,
+            mediaType: MediaType.MOVIE,
+          };
+          addShowToUpcoming(item.id, movieEp);
+          addMovieToCalendarGlobal(movieEp);
           return;
         }
 
@@ -125,8 +160,17 @@ export default function SearchScreen() {
         return;
       }
 
+      // Show spinner during resume check
       await withLoadingId(item.id, async () => {
-        await addToTracking(user.uid!, item.id, mediaType);
+        // Check for existing watch history (re-add case)
+        const highestEp = await getHighestWatchedEpisode(user.uid!, item.id);
+        if (highestEp) {
+          const nextEp = { season: highestEp.season, episode: highestEp.episode + 1 };
+          setResumeModal({ item, highestEp, nextEp, nextEpName: null, nextEpAirDate: null });
+          return;
+        }
+
+        await addToTracking(user.uid!, item.id, mediaType, undefined, { title: item.title || item.name || "", posterPath: item.poster_path || null });
         addShowToUpcoming(item.id);
       });
     },
@@ -147,8 +191,12 @@ export default function SearchScreen() {
     setRemoving(true);
     setRemoveError(null);
     try {
-      await removeFromTracking(user.uid, removeModal.id);
+      const removeMediaType: MediaType =
+        removeModal.media_type ||
+        (removeModal.first_air_date || (removeModal.name && !removeModal.title) ? MediaType.TV : MediaType.MOVIE);
+      await removeFromTracking(user.uid, removeModal.id, removeMediaType);
       removeShowFromUpcoming(removeModal.id);
+      removeShowFromCalendarGlobal(removeModal.id);
       setRemoveModal(null);
     } catch (err: any) {
       console.error("removeFromTracking failed:", err);
@@ -163,7 +211,7 @@ export default function SearchScreen() {
     const item = movieModal;
     setMovieModal(null);
     await withLoadingId(item.id, () =>
-      addToTracking(user.uid!, item.id, MediaType.MOVIE),
+      addToTracking(user.uid!, item.id, MediaType.MOVIE, undefined, { title: item.title || item.name || "", posterPath: item.poster_path || null }),
     );
   }, [user?.uid, movieModal, withLoadingId]);
 
@@ -172,10 +220,37 @@ export default function SearchScreen() {
     const item = movieModal;
     setMovieModal(null);
     await withLoadingId(item.id, async () => {
-      await addToTracking(user.uid!, item.id, MediaType.MOVIE);
+      await addToTracking(user.uid!, item.id, MediaType.MOVIE, undefined, { title: item.title || item.name || "", posterPath: item.poster_path || null });
       await markMovieWatched(user.uid!, item.id, (item as any).runtime ?? 0);
     });
   }, [user?.uid, movieModal, withLoadingId]);
+
+  const handleResumeFromWhere = useCallback(async () => {
+    if (!user?.uid || !resumeModal) return;
+    const { item, nextEp, nextEpName, nextEpAirDate } = resumeModal;
+    setResumeModal(null);
+    await withLoadingId(item.id, async () => {
+      await addToTracking(user.uid!, item.id, MediaType.TV, undefined, { title: item.title || item.name || "", posterPath: item.poster_path || null });
+      // Update tracking doc to resume position
+      const db = getFirestore();
+      await updateDoc(doc(db, "users", user.uid!, "tracking", showDocId(item.id, MediaType.TV)), {
+        nextEpisode: nextEp,
+        nextEpisodeName: nextEpName,
+        nextEpisodeAirDate: nextEpAirDate,
+      });
+      addShowToUpcoming(item.id);
+    });
+  }, [user?.uid, resumeModal, withLoadingId, addShowToUpcoming]);
+
+  const handleStartFresh = useCallback(async () => {
+    if (!user?.uid || !resumeModal) return;
+    const item = resumeModal.item;
+    setResumeModal(null);
+    await withLoadingId(item.id, async () => {
+      await addToTracking(user.uid!, item.id, MediaType.TV, undefined, { title: item.title || item.name || "", posterPath: item.poster_path || null });
+      addShowToUpcoming(item.id);
+    });
+  }, [user?.uid, resumeModal, withLoadingId, addShowToUpcoming]);
 
   const {
     data: searchData,
@@ -194,12 +269,14 @@ export default function SearchScreen() {
 
   const displayData =
     debouncedQuery.length > 0 ? searchData?.results : filteredTrending;
-  const isLoading = debouncedQuery.length > 0 ? searchLoading : trendingLoading;
+  const isLoading =
+    typingLoading || (debouncedQuery.length > 0 ? searchLoading : trendingLoading);
 
   const handlePress = useCallback(
     (item: TMDBShow) => {
       const mediaType: MediaType =
-        item.media_type || (item.title ? MediaType.MOVIE : MediaType.TV);
+        item.media_type ||
+        (item.first_air_date || (item.name && !item.title) ? MediaType.TV : MediaType.MOVIE);
       navigation.navigate(Route.SHOW_DETAIL, {
         tmdbId: item.id,
         mediaType,
@@ -216,7 +293,7 @@ export default function SearchScreen() {
         4,
       );
       const mediaType: MediaType =
-        item.media_type || (item.title ? MediaType.MOVIE : MediaType.TV);
+        item.media_type || (item.first_air_date || (item.name && !item.title) ? MediaType.TV : MediaType.MOVIE);
       const isInWatchlist = watchlistIds.has(item.id);
       const isAdding = addingIds.has(item.id);
 
@@ -348,10 +425,14 @@ export default function SearchScreen() {
         <View style={styles.center}>
           <LoadingSpinner />
         </View>
+      ) : !isLoading && debouncedQuery.length > 0 && (!displayData || displayData.length === 0) ? (
+        <View style={styles.center}>
+          <Text style={styles.emptyText}>No results found</Text>
+        </View>
       ) : (
         <LegendList
           data={displayData || []}
-          keyExtractor={(item) => String(item.id)}
+          keyExtractor={(item) => `${item.media_type || "x"}_${item.id}`}
           renderItem={renderItem}
           extraData={[watchlistIds, addingIds]}
           numColumns={3}
@@ -411,6 +492,37 @@ export default function SearchScreen() {
         onClose={() => setUnreleasedModal(null)}
         movieTitle={unreleasedModal?.title ?? ""}
       />
+
+      <AnimatedModal visible={!!resumeModal} onClose={() => setResumeModal(null)}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>
+            {resumeModal?.item?.name || resumeModal?.item?.title}
+          </Text>
+          <Text style={[styles.modalCancelText, { marginBottom: spacing.lg, textAlign: "center" }]}>
+            You've previously watched up to S{String(resumeModal?.highestEp?.season).padStart(2, "0")}E{String(resumeModal?.highestEp?.episode).padStart(2, "0")}
+          </Text>
+          <TouchableOpacity
+            style={styles.modalButton}
+            onPress={handleResumeFromWhere}
+          >
+            <Text style={styles.modalButtonText}>
+              Resume from S{String(resumeModal?.nextEp?.season).padStart(2, "0")}E{String(resumeModal?.nextEp?.episode).padStart(2, "0")}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modalButton, { backgroundColor: colors.surfaceLight }]}
+            onPress={handleStartFresh}
+          >
+            <Text style={styles.modalButtonText}>Start from Beginning</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.modalCancel}
+            onPress={() => setResumeModal(null)}
+          >
+            <Text style={styles.modalCancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </AnimatedModal>
     </View>
   );
 }
@@ -596,5 +708,9 @@ const styles = StyleSheet.create({
   modalCancelText: {
     ...typography.caption,
     color: colors.textMuted,
+  },
+  emptyText: {
+    ...typography.subtitle,
+    color: colors.textSecondary,
   },
 });

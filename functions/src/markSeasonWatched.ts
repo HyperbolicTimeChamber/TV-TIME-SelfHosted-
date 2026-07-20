@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
+import { showDocId } from "./docId";
 
 interface EpisodeInput {
   episodeNumber: number;
@@ -13,6 +14,7 @@ interface MarkSeasonRequest {
   episodes: EpisodeInput[];
   nextEpisode: { season: number; episode: number } | null;
   nextEpisodeName: string | null;
+  nextEpisodeAirDate: string | null;
   isShowComplete: boolean;
 }
 
@@ -35,7 +37,7 @@ export const markSeasonWatched = onCall(
 
     const uid = request.auth.uid;
     const data = request.data as MarkSeasonRequest;
-    const { tmdbId, seasonNumber, episodes, nextEpisode, nextEpisodeName, isShowComplete } = data;
+    const { tmdbId, seasonNumber, episodes, nextEpisode, nextEpisodeName, nextEpisodeAirDate, isShowComplete } = data;
 
     if (!tmdbId || !seasonNumber || !episodes?.length) {
       throw new HttpsError("invalid-argument", "Missing required fields.");
@@ -47,7 +49,7 @@ export const markSeasonWatched = onCall(
 
     const db = getFirestore();
     const userDoc = db.doc(`users/${uid}`);
-    const trackingDoc = db.doc(`users/${uid}/tracking/${tmdbId}`);
+    const trackingDoc = db.doc(`users/${uid}/tracking/${showDocId(tmdbId, "tv")}`);
     const watchedCol = db.collection(`users/${uid}/watchedEpisodes`);
 
     // Read all existing episode docs in parallel
@@ -98,20 +100,31 @@ export const markSeasonWatched = onCall(
     );
 
     // Update tracking doc
+    // If next episode hasn't aired yet, use its airDate as priorityDate
+    let effectivePriority = now;
+    if (nextEpisode && nextEpisodeAirDate) {
+      const airDateMs = new Date(nextEpisodeAirDate).getTime();
+      if (airDateMs > now.toMillis()) {
+        effectivePriority = Timestamp.fromMillis(airDateMs);
+      }
+    }
+
     if (isShowComplete) {
       batch.update(trackingDoc, {
         lastWatchedAt: now,
-        priorityDate: now,
+        priorityDate: effectivePriority,
         nextEpisode,
         nextEpisodeName: nextEpisodeName ?? null,
+        nextEpisodeAirDate: nextEpisodeAirDate ?? null,
         status: "completed",
       });
     } else {
       batch.update(trackingDoc, {
         lastWatchedAt: now,
-        priorityDate: now,
+        priorityDate: effectivePriority,
         nextEpisode,
         nextEpisodeName: nextEpisodeName ?? null,
+        nextEpisodeAirDate: nextEpisodeAirDate ?? null,
       });
     }
 

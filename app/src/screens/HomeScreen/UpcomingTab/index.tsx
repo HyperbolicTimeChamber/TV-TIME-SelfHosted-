@@ -53,6 +53,7 @@ export default function UpcomingTab() {
     stillPath: string | null;
     airDate: string | null;
     runtime: number | null;
+    showPosterPath: string | null;
   } | null>(null);
   const [epModalLoading, setEpModalLoading] = useState(false);
 
@@ -100,6 +101,7 @@ export default function UpcomingTab() {
       stillPath: null,
       airDate: ep.airDate,
       runtime: ep.runtime,
+      showPosterPath: ep.posterPath ?? null,
     });
     setEpModalLoading(true);
     setEpModalVisible(true);
@@ -132,7 +134,7 @@ export default function UpcomingTab() {
   }, []);
 
   const handleTitlePress = useCallback(async (ep: UpcomingEpisode) => {
-    const catalog = await getCatalogShow(ep.tmdbShowId);
+    const catalog = await getCatalogShow(ep.tmdbShowId, ep.mediaType === MediaType.MOVIE ? "movie" : "tv");
     if (catalog) {
       setDrawerShow({
         tmdbId: catalog.tmdbId,
@@ -247,6 +249,7 @@ export default function UpcomingTab() {
           episodeTitle={epModalData.episodeTitle}
           overview={epModalData.overview}
           stillPath={epModalData.stillPath}
+          showPosterPath={epModalData.showPosterPath}
           airDate={epModalData.airDate}
           runtime={epModalData.runtime}
           loadingDetails={epModalLoading}

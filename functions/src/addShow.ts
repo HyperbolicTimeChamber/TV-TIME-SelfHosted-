@@ -4,6 +4,7 @@ import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { fetchShowFromTMDB, CatalogShow } from "./tmdb";
 import { addToTrackedBy } from "./utils";
 import { addShowToUpcoming } from "./syncCatalog";
+import { showDocId } from "./docId";
 
 interface AddShowRequest {
   tmdbId: number;
@@ -30,7 +31,7 @@ export const addShow = onCall(
     }
 
     const db = getFirestore();
-    const showId = String(tmdbId);
+    const showId = showDocId(tmdbId, mediaType);
     const showRef = db.doc(`shows/${showId}`);
     const uid = request.auth.uid;
 
@@ -41,7 +42,7 @@ export const addShow = onCall(
 
       // Update upcoming subcollection (fire-and-forget)
       if (mediaType === "tv") {
-        addShowToUpcoming(db, uid, tmdbId).catch((err) =>
+        addShowToUpcoming(db, uid, tmdbId, "tv").catch((err) =>
           console.error("[addShow] upcoming update failed:", err)
         );
       }

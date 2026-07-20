@@ -2,9 +2,11 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { removeFromTrackedBy } from "./utils";
+import { showDocId } from "./docId";
 
 interface RemoveShowRequest {
   tmdbId: number;
+  mediaType: "tv" | "movie";
 }
 
 export const removeShow = onCall(
@@ -18,14 +20,14 @@ export const removeShow = onCall(
       throw new HttpsError("unauthenticated", "Must be signed in");
     }
 
-    const { tmdbId } = request.data as RemoveShowRequest;
-    if (typeof tmdbId !== "number" || tmdbId <= 0) {
-      throw new HttpsError("invalid-argument", "tmdbId required");
+    const { tmdbId, mediaType } = request.data as RemoveShowRequest;
+    if (typeof tmdbId !== "number" || tmdbId <= 0 || !mediaType) {
+      throw new HttpsError("invalid-argument", "tmdbId and mediaType required");
     }
 
     const db = getFirestore();
     const uid = request.auth.uid;
-    const showId = String(tmdbId);
+    const showId = showDocId(tmdbId, mediaType);
 
     // Remove user's tracking doc (keep watchedEpisodes + watchedMovies)
     const trackingRef = db.doc(`users/${uid}/tracking/${showId}`);

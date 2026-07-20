@@ -10,3 +10,4 @@ export { markSeasonWatched } from "./markSeasonWatched";
 export { testFCM } from "./testFCM";
 export { deleteAccount } from "./deleteAccount";
 export { rebuildUpcoming } from "./rebuildUpcoming";
+export { migrateDocIds } from "./migrateDocIds";

@@ -1,6 +1,7 @@
 // firestore
 export {
   getCatalogShow,
+  getHighestWatchedEpisode,
   getCallableErrorMessage,
   addToTracking,
   removeFromTracking,
@@ -23,6 +24,7 @@ export {
   watchedEpisodesRef,
   watchedMoviesRef,
   userRef,
+  onAddTrackingError,
 } from "./firestore";
 
 // tmdb
@@ -32,6 +34,7 @@ export {
   getShowDetails,
   getSeasonDetails,
   discoverTVByAirDate,
+  discoverMoviesByReleaseDate,
   pooled,
 } from "./tmdb";
 

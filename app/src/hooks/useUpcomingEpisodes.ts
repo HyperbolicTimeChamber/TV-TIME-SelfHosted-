@@ -3,14 +3,15 @@ import {
   getFirestore,
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
   where,
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { UpcomingEpisode, CacheKey } from "../types";
-const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 1 week
+import { UpcomingEpisode, CacheKey, MediaType } from "../types";
+import { getCatalogShow } from "../services";
 
 type MutateCallback = (
   fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[],
@@ -32,131 +33,202 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** Persist upcoming cache with mutations applied */
+function persistCache(userId: string, episodes: UpcomingEpisode[], syncDate: string) {
+  AsyncStorage.setItem(
+    CacheKey.UPCOMING_EPISODES,
+    JSON.stringify({ userId, syncDate, episodes }),
+  ).catch(() => {});
+}
+
 export function useUpcomingEpisodes(userId: string | undefined) {
   const [episodes, setEpisodes] = useState<UpcomingEpisode[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [trigger, setTrigger] = useState(0);
-  const cacheRestored = useRef(false);
+  const [forceRefetch, setForceRefetch] = useState(0);
+  const [cacheReady, setCacheReady] = useState(false);
+  const cachedSyncDate = useRef<string | null>(null);
 
-  // Listen for invalidation
+  // Listen for invalidation (force refetch)
   useEffect(() => {
-    const listener = () => setTrigger((t) => t + 1);
+    const listener = () => setForceRefetch((t) => t + 1);
     invalidateListeners.add(listener);
-    return () => {
-      invalidateListeners.delete(listener);
-    };
+    return () => { invalidateListeners.delete(listener); };
   }, []);
 
-  // Listen for direct mutations
+  // Listen for direct mutations — update state AND persist to cache
   useEffect(() => {
-    const cb: MutateCallback = (fn) => setEpisodes((prev) => fn(prev));
+    const cb: MutateCallback = (fn) =>
+      setEpisodes((prev) => {
+        const updated = fn(prev);
+        if (userId && cachedSyncDate.current) {
+          persistCache(userId, updated, cachedSyncDate.current);
+        }
+        return updated;
+      });
     mutateListeners.add(cb);
-    return () => {
-      mutateListeners.delete(cb);
-    };
-  }, []);
+    return () => { mutateListeners.delete(cb); };
+  }, [userId]);
 
-  // Restore from local cache on mount
+  // Restore from cache on mount + prune past episodes
   useEffect(() => {
-    if (!userId || cacheRestored.current) return;
+    if (!userId || cacheReady) return;
     AsyncStorage.getItem(CacheKey.UPCOMING_EPISODES).then((raw) => {
       if (!raw) {
-        cacheRestored.current = true;
+        setCacheReady(true);
         return;
       }
       try {
         const cached = JSON.parse(raw);
-        const age = Date.now() - (cached.timestamp ?? 0);
-        if (
-          cached.userId === userId &&
-          age < CACHE_MAX_AGE_MS &&
-          cached.episodes?.length > 0
-        ) {
-          setEpisodes(cached.episodes);
-          setIsLoading(false);
-        }
-      } catch {}
-      cacheRestored.current = true;
-    });
-  }, [userId]);
-
-  // Fetch from Firestore upcoming subcollection
-  useEffect(() => {
-    if (!userId) {
-      setEpisodes([]);
-      setIsLoading(false);
-      return;
-    }
-
-    (async () => {
-      if (episodes.length === 0) setIsLoading(true);
-      setError(null);
-
-      const db = getFirestore();
-      const today = todayStr();
-      const upcomingCol = collection(doc(db, "users", userId), "upcoming");
-      let snap = await getDocs(
-        query(upcomingCol, where("airDate", ">=", today)),
-      );
-
-      // If empty, check if subcollection was ever built
-      if (snap.size === 0) {
-        const built = await AsyncStorage.getItem(CacheKey.UPCOMING_BUILT);
-        if (built !== userId) {
-          try {
-            await httpsCallable(getFunctions(), "rebuildUpcoming")({});
-            await AsyncStorage.setItem(CacheKey.UPCOMING_BUILT, userId);
-            snap = await getDocs(
-              query(upcomingCol, where("airDate", ">=", today)),
-            );
-          } catch (err) {
-            console.error("rebuildUpcoming CF failed:", err);
-            setError("Failed to fetch upcoming episodes");
+        if (cached.userId === userId && cached.episodes?.length > 0) {
+          const today = todayStr();
+          const pruned = (cached.episodes as UpcomingEpisode[]).filter(
+            (ep) => ep.airDate >= today,
+          );
+          cachedSyncDate.current = cached.syncDate || null;
+          if (pruned.length > 0) {
+            setEpisodes(pruned);
             setIsLoading(false);
-            return;
+            if (pruned.length !== cached.episodes.length) {
+              persistCache(userId, pruned, cached.syncDate || "");
+            }
           }
         }
-      }
-
-      const eps: UpcomingEpisode[] = snap.docs
-        .map((d) => d.data() as UpcomingEpisode)
-        .sort((a, b) => a.airDate.localeCompare(b.airDate));
-
-      setEpisodes(eps);
-      setIsLoading(false);
-
-      // Cache locally
-      if (eps.length > 0) {
-        AsyncStorage.setItem(
-          CacheKey.UPCOMING_EPISODES,
-          JSON.stringify({
-            userId,
-            timestamp: Date.now(),
-            episodes: eps,
-          }),
-        ).catch(() => {});
-      }
-    })().catch((err) => {
-      console.error("Upcoming fetch error:", err);
-      setError("Failed to fetch upcoming episodes");
-      setIsLoading(false);
+      } catch {}
+      setCacheReady(true);
     });
-  }, [userId, trigger]);
+  }, [userId, cacheReady]);
 
-  const retry = useCallback(() => setTrigger((t) => t + 1), []);
+  // Check if backend has synced since our cache → refetch if so
+  useEffect(() => {
+    if (!userId || !cacheReady) return;
+
+    (async () => {
+      // Read lastCatalogSync from config/app
+      const db = getFirestore();
+      try {
+        const configDoc = await getDoc(doc(db, "config", "app"));
+        const serverSync = configDoc.data()?.lastCatalogSync;
+        const serverSyncStr = serverSync?.toDate?.()?.toISOString?.() || null;
+
+        if (
+          serverSyncStr &&
+          cachedSyncDate.current &&
+          serverSyncStr === cachedSyncDate.current
+        ) {
+          // Cache is fresh — no refetch needed
+          setIsLoading(false);
+          return;
+        }
+
+        // Cache is stale or missing — fetch from Firestore
+        if (episodes.length === 0) setIsLoading(true);
+        setError(null);
+
+        const today = todayStr();
+        const upcomingCol = collection(doc(db, "users", userId), "upcoming");
+        let snap = await getDocs(
+          query(upcomingCol, where("airDate", ">=", today)),
+        );
+
+        // If empty, check if subcollection was ever built
+        if (snap.size === 0) {
+          const built = await AsyncStorage.getItem(CacheKey.UPCOMING_BUILT);
+          if (built !== userId) {
+            try {
+              await httpsCallable(getFunctions(), "rebuildUpcoming")({});
+              await AsyncStorage.setItem(CacheKey.UPCOMING_BUILT, userId);
+              snap = await getDocs(
+                query(upcomingCol, where("airDate", ">=", today)),
+              );
+            } catch (err) {
+              console.error("rebuildUpcoming CF failed:", err);
+              setError("Failed to fetch upcoming episodes");
+              setIsLoading(false);
+              return;
+            }
+          }
+        }
+
+        const tvEps: UpcomingEpisode[] = snap.docs
+          .map((d) => d.data() as UpcomingEpisode);
+
+        // Fetch tracked movies with future release dates
+        // Query only docs that have releaseDate field set (avoids reading all 1000+ movies)
+        const trackingCol = collection(doc(db, "users", userId), "tracking");
+        const movieSnap = await getDocs(
+          query(trackingCol, where("releaseDate", ">", today)),
+        );
+        const movieEps: UpcomingEpisode[] = [];
+        for (const d of movieSnap.docs) {
+          const data = d.data() as any;
+          if (data.mediaType !== "movie") continue; // skip TV shows that somehow have releaseDate
+          let title = `Movie #${data.tmdbId}`;
+          let posterPath: string | null = null;
+          try {
+            const catalog = await getCatalogShow(data.tmdbId, "movie");
+            if (catalog) {
+              title = catalog.title;
+              posterPath = catalog.posterPath ?? null;
+            }
+          } catch {}
+          movieEps.push({
+            tmdbShowId: data.tmdbId,
+            showTitle: title,
+            posterPath,
+            season: 0,
+            episode: 0,
+            episodeTitle: title,
+            airDate: data.releaseDate,
+            runtime: null,
+            mediaType: MediaType.MOVIE,
+          });
+        }
+
+        const eps = [...tvEps, ...movieEps].sort((a, b) =>
+          a.airDate.localeCompare(b.airDate),
+        );
+
+        const newSyncDate = serverSyncStr || new Date().toISOString();
+        cachedSyncDate.current = newSyncDate;
+        setEpisodes(eps);
+        setIsLoading(false);
+
+        // Cache with sync date
+        persistCache(userId, eps, newSyncDate);
+      } catch (err) {
+        console.error("Upcoming fetch error:", err);
+        setError("Failed to fetch upcoming episodes");
+        setIsLoading(false);
+      }
+    })();
+  }, [userId, cacheReady, forceRefetch]);
+
+  const retry = useCallback(() => setForceRefetch((t) => t + 1), []);
 
   return { data: episodes, isLoading, error, retry };
 }
 
+// Snapshot holder for optimistic rollbacks
+let lastSnapshot: UpcomingEpisode[] | null = null;
+
 export function useUpcomingMutations() {
-  const addShowToUpcoming = useCallback((_tmdbId: number) => {
-    // CF populates subcollection server-side; invalidate so next tab open refetches
-    triggerInvalidate();
+  /** Add an item to upcoming locally (TV eps added server-side by CF, movies added here) */
+  const addShowToUpcoming = useCallback((tmdbId: number, item?: UpcomingEpisode) => {
+    if (item) {
+      // Add directly to local state + cache (e.g. unreleased movie)
+      mutateCachedEpisodes((prev) => {
+        if (prev.some((ep) => ep.tmdbShowId === tmdbId && ep.airDate === item.airDate)) return prev;
+        return [...prev, item].sort((a, b) => a.airDate.localeCompare(b.airDate));
+      });
+    } else {
+      // TV show — CF populates subcollection, need refetch to pick it up
+      triggerInvalidate();
+    }
   }, []);
 
   const removeShowFromUpcoming = useCallback((tmdbId: number) => {
-    // Optimistic: remove from local state immediately
+    // Optimistic: remove from local state + cache immediately
     mutateCachedEpisodes((prev) =>
       prev.filter((ep) => ep.tmdbShowId !== tmdbId),
     );
@@ -166,5 +238,33 @@ export function useUpcomingMutations() {
     triggerInvalidate();
   }, []);
 
-  return { addShowToUpcoming, removeShowFromUpcoming, invalidateUpcoming };
+  /** Optimistic mutation with snapshot for rollback. Returns prev state. */
+  const mutateCachedUpcoming = useCallback(
+    (fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[]): UpcomingEpisode[] => {
+      let snapshot: UpcomingEpisode[] = [];
+      mutateCachedEpisodes((prev) => {
+        snapshot = prev;
+        lastSnapshot = prev;
+        return fn(prev);
+      });
+      return snapshot;
+    },
+    [],
+  );
+
+  /** Rollback to a previous snapshot */
+  const rollbackUpcoming = useCallback(
+    (snapshot: UpcomingEpisode[]) => {
+      mutateCachedEpisodes(() => snapshot);
+    },
+    [],
+  );
+
+  return {
+    addShowToUpcoming,
+    removeShowFromUpcoming,
+    invalidateUpcoming,
+    mutateCachedUpcoming,
+    rollbackUpcoming,
+  };
 }

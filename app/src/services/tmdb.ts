@@ -97,6 +97,45 @@ export async function discoverTVByAirDate(
   return ids;
 }
 
+export interface DiscoverMovie {
+  id: number;
+  title: string;
+  poster_path: string | null;
+  release_date: string;
+}
+
+export async function discoverMoviesByReleaseDate(
+  apiKey: string,
+  startDate: string,
+  endDate: string,
+): Promise<DiscoverMovie[]> {
+  const movies: DiscoverMovie[] = [];
+  let page = 1;
+  let totalPages = 1;
+
+  while (page <= totalPages && page <= 5) {
+    const res = await tmdb(apiKey).get("/discover/movie", {
+      params: {
+        "primary_release_date.gte": startDate,
+        "primary_release_date.lte": endDate,
+        page,
+      },
+    });
+    for (const m of res.data.results) {
+      movies.push({
+        id: m.id,
+        title: m.title,
+        poster_path: m.poster_path,
+        release_date: m.release_date,
+      });
+    }
+    totalPages = res.data.total_pages;
+    page++;
+  }
+
+  return movies;
+}
+
 export async function pooled<T>(
   tasks: (() => Promise<T>)[],
   concurrency = 5,

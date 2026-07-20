@@ -15,7 +15,7 @@ import {
   doc,
   onSnapshot,
 } from "@react-native-firebase/firestore";
-import { useShowDetails, useUpcomingMutations } from "../hooks";
+import { useShowDetails, useUpcomingMutations, removeShowFromCalendarGlobal } from "../hooks";
 import { useAuthStore } from "../stores";
 import {
   addToTracking,
@@ -33,6 +33,7 @@ import {
   shouldShowUnreleasedModal,
 } from "../components";
 import { emitShowRemoved } from "../utils/watchlistEvents";
+import { showDocId } from "../utils/docId";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { HomeStackParamList, WatchStatus, MediaType } from "../types";
 
@@ -45,6 +46,8 @@ export default function ShowDetailScreen() {
   const {
     data: show,
     isLoading,
+    isError,
+    error,
     episodesBySeason,
   } = useShowDetails(tmdbId, mediaType);
   const [watchlistItem, setWatchlistItem] = useState<any>(null);
@@ -64,7 +67,7 @@ export default function ShowDetailScreen() {
       return;
     }
     const db = getFirestore();
-    const trackingDoc = doc(db, "users", user.uid, "tracking", String(tmdbId));
+    const trackingDoc = doc(db, "users", user.uid, "tracking", showDocId(tmdbId, mediaType === MediaType.MOVIE ? "movie" : "tv"));
     const unsubscribe = onSnapshot(trackingDoc, (snap) => {
       setWatchlistItem(snap.exists() ? { id: snap.id, ...snap.data() } : null);
       setTrackingLoading(false);
@@ -73,10 +76,10 @@ export default function ShowDetailScreen() {
   }, [user?.uid, tmdbId]);
 
   const title = show?.name || show?.title || "";
-  const year = (show?.first_air_date || show?.release_date || "").substring(
-    0,
-    4,
-  );
+  const rawDate = show?.first_air_date || show?.release_date || "";
+  const year = mediaType === MediaType.MOVIE && rawDate.length >= 10
+    ? new Date(rawDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+    : rawDate.substring(0, 4);
 
   const handleAddToWatchlist = useCallback(async () => {
     if (!user?.uid || !show || adding) return;
@@ -100,8 +103,21 @@ export default function ShowDetailScreen() {
         tmdbId,
         mediaType,
         isUnreleased ? releaseDate : null,
+        { title: show.title || show.name || "", posterPath: show.poster_path || null },
       );
-      if (!isUnreleased) {
+      if (isUnreleased && releaseDate) {
+        addShowToUpcoming(tmdbId, {
+          tmdbShowId: tmdbId,
+          showTitle: show.title || show.name || "",
+          posterPath: show.poster_path || null,
+          season: 0,
+          episode: 0,
+          episodeTitle: show.title || show.name || "",
+          airDate: releaseDate,
+          runtime: null,
+          mediaType: MediaType.MOVIE,
+        });
+      } else {
         addShowToUpcoming(tmdbId);
       }
     } catch (err: any) {
@@ -123,8 +139,9 @@ export default function ShowDetailScreen() {
     setRemoving(true);
     setRemoveError(null);
     try {
-      await removeFromTracking(user.uid, tmdbId);
+      await removeFromTracking(user.uid, tmdbId, mediaType);
       removeShowFromUpcoming(tmdbId);
+      removeShowFromCalendarGlobal(tmdbId);
       emitShowRemoved(tmdbId);
       setRemoveModalVisible(false);
     } catch (err: any) {
@@ -138,11 +155,11 @@ export default function ShowDetailScreen() {
   const handleResumeOrRewatch = useCallback(async () => {
     if (!user?.uid) return;
     if (watchlistItem?.status === WatchStatus.PAUSED) {
-      await resumeWatching(user.uid, tmdbId);
+      await resumeWatching(user.uid, tmdbId, mediaType);
     } else if (watchlistItem?.status === WatchStatus.PAUSED_REWATCH) {
-      await resumeRewatch(user.uid, tmdbId);
+      await resumeRewatch(user.uid, tmdbId, mediaType);
     } else {
-      await startRewatch(user.uid, tmdbId);
+      await startRewatch(user.uid, tmdbId, mediaType);
     }
   }, [user?.uid, tmdbId, watchlistItem?.status]);
 
@@ -151,7 +168,7 @@ export default function ShowDetailScreen() {
     setAdding(true);
     try {
       if (!watchlistItem) {
-        await addToTracking(user.uid, tmdbId, MediaType.MOVIE);
+        await addToTracking(user.uid, tmdbId, MediaType.MOVIE, undefined, { title: show.title || show.name || "", posterPath: show.poster_path || null });
       }
       await markMovieWatched(user.uid, tmdbId, show.runtime ?? 0);
     } catch (err: any) {
@@ -169,10 +186,12 @@ export default function ShowDetailScreen() {
     );
   }
 
-  if (!show) {
+  if (isError || !show) {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorText}>Failed to load show</Text>
+        <Text style={styles.errorText}>
+          {isError ? (error as any)?.message || "Failed to load show" : "Show not found"}
+        </Text>
       </View>
     );
   }

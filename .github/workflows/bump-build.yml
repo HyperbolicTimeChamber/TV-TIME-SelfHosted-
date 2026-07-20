@@ -1,0 +1,45 @@
+name: Bump Build Number
+
+on:
+  push:
+    branches: [development]
+  workflow_run:
+    workflows: ["Build & Deploy to Play Store"]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: bump-build
+  cancel-in-progress: true
+
+jobs:
+  bump:
+    if: |
+      !contains(github.event.head_commit.message || '', '[skip ci]') &&
+      !contains(github.event.head_commit.message || '', 'chore: bump build') &&
+      (github.event_name == 'push' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && 'main' || github.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
+
+      - name: Bump build number
+        run: |
+          chmod +x scripts/bump-version.sh
+          NEW_BUILD=$(./scripts/bump-version.sh --build-only)
+          echo "Bumped to $NEW_BUILD"
+
+      - name: Commit & push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add app/app.json
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: bump build number [skip ci]"
+          git push

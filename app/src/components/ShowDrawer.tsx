@@ -1,23 +1,21 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import {
 	View,
 	Text,
 	TouchableOpacity,
-	ScrollView,
-	Modal,
-	Animated,
-	PanResponder,
 	StyleSheet,
-	Dimensions,
+	Modal,
 	ActivityIndicator,
+	Dimensions,
 } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Image } from "expo-image";
+import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import SkeletonLine from "./SkeletonLine";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { MediaType } from "../enums";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
-const DISMISS_THRESHOLD = 120;
 
 export interface ShowDrawerData {
 	tmdbId?: number;
@@ -50,59 +48,17 @@ export default function ShowDrawer({
 	onGoToShow,
 	onClose,
 }: Readonly<Props>) {
-	const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+	const bottomSheetRef = useRef<BottomSheet>(null);
+	const maxHeight = SCREEN_HEIGHT * 0.85;
 
-	useEffect(() => {
-		if (visible) {
-			Animated.spring(translateY, {
-				toValue: 0,
-				damping: 20,
-				stiffness: 200,
-				useNativeDriver: true,
-			}).start();
-		} else {
-			translateY.setValue(SCREEN_HEIGHT);
-		}
-	}, [visible, translateY]);
+	const handleSheetChanges = useCallback(
+		(index: number) => {
+			if (index === -1) onClose();
+		},
+		[onClose],
+	);
 
-	const onCloseRef = useRef(onClose);
-	onCloseRef.current = onClose;
-
-	const handleClose = () => {
-		Animated.timing(translateY, {
-			toValue: SCREEN_HEIGHT,
-			duration: 250,
-			useNativeDriver: true,
-		}).start(() => onCloseRef.current());
-	};
-
-	const panResponder = useRef(
-		PanResponder.create({
-			onStartShouldSetPanResponder: () => true,
-			onMoveShouldSetPanResponder: (_, g) => g.dy > 5,
-			onPanResponderMove: (_, g) => {
-				if (g.dy > 0) translateY.setValue(g.dy);
-			},
-			onPanResponderRelease: (_, g) => {
-				if (g.dy > DISMISS_THRESHOLD || g.vy > 0.5) {
-					Animated.timing(translateY, {
-						toValue: SCREEN_HEIGHT,
-						duration: 250,
-						useNativeDriver: true,
-					}).start(() => onCloseRef.current());
-				} else {
-					Animated.spring(translateY, {
-						toValue: 0,
-						damping: 20,
-						stiffness: 200,
-						useNativeDriver: true,
-					}).start();
-				}
-			},
-		}),
-	).current;
-
-	if (!show && !loading) return null;
+	if (!visible) return null;
 
 	const metaParts: string[] = [];
 	if (show?.year) metaParts.push(show.year);
@@ -118,48 +74,47 @@ export default function ShowDrawer({
 		<Modal
 			visible={visible}
 			transparent
-			animationType="none"
-			onRequestClose={handleClose}>
-			<View style={styles.overlay}>
+			animationType="fade"
+			onRequestClose={onClose}
+		>
+			<GestureHandlerRootView style={styles.overlay}>
 				<TouchableOpacity
-					style={styles.overlayTouch}
+					style={styles.backdrop}
 					activeOpacity={1}
-					onPress={handleClose}
+					onPress={onClose}
 				/>
-				<Animated.View style={[styles.drawer, { transform: [{ translateY }] }]}>
+				<BottomSheet
+					ref={bottomSheetRef}
+					index={0}
+					enableDynamicSizing
+					maxDynamicContentSize={maxHeight}
+					onChange={handleSheetChanges}
+					enablePanDownToClose
+					animateOnMount={false}
+					backgroundStyle={styles.background}
+					handleIndicatorStyle={styles.handleIndicator}
+					handleStyle={styles.handleContainer}
+				>
 					{loading ? (
-						<>
-							<View
-								{...panResponder.panHandlers}
-								style={styles.handleAreaStatic}>
-								<View style={styles.handle} />
-							</View>
+						<View style={styles.loadingContainer}>
 							<ActivityIndicator
 								size="large"
 								color={colors.primary}
-								style={{ marginVertical: spacing.xxl }}
 							/>
-						</>
+						</View>
 					) : show ? (
 						<>
-							<ScrollView
+							<BottomSheetScrollView
 								style={styles.scroll}
-								showsVerticalScrollIndicator={false}>
-								<View>
-									<Image
-										source={{
-											uri: `${posterSize.large}${show.backdropPath || show.posterPath}`,
-										}}
-										style={styles.backdrop}
-										contentFit="cover"
-									/>
-									<View
-										{...panResponder.panHandlers}
-										style={styles.handleArea}
-										pointerEvents="box-only">
-										<View style={styles.handle} />
-									</View>
-								</View>
+								showsVerticalScrollIndicator={false}
+							>
+								<Image
+									source={{
+										uri: `${posterSize.large}${show.backdropPath || show.posterPath}`,
+									}}
+									style={styles.backdropImage}
+									contentFit="cover"
+								/>
 								<View style={styles.content}>
 									<View style={styles.titleRow}>
 										<Text style={styles.title}>{show.title}</Text>
@@ -191,25 +146,20 @@ export default function ShowDrawer({
 										<Text style={styles.overview}>{show.overview}</Text>
 									) : null}
 								</View>
-							</ScrollView>
-							{onGoToShow && (
-								<TouchableOpacity
-									style={styles.goToShowButton}
-									onPress={onGoToShow}>
-									<Text style={styles.goToShowText}>
-										{show.mediaType === "movie" ? "Go to Movie" : "Go to Show"}
-									</Text>
-								</TouchableOpacity>
-							)}
-							<TouchableOpacity
-								style={styles.closeButton}
-								onPress={handleClose}>
-								<Text style={styles.closeText}>Close</Text>
-							</TouchableOpacity>
+								{onGoToShow && (
+									<TouchableOpacity
+										style={styles.goToShowButton}
+										onPress={onGoToShow}>
+										<Text style={styles.goToShowText}>
+											{show.mediaType === "movie" ? "Go to Movie" : "Go to Show"}
+										</Text>
+									</TouchableOpacity>
+								)}
+							</BottomSheetScrollView>
 						</>
 					) : null}
-				</Animated.View>
-			</View>
+				</BottomSheet>
+			</GestureHandlerRootView>
 		</Modal>
 	);
 }
@@ -217,42 +167,37 @@ export default function ShowDrawer({
 const styles = StyleSheet.create({
 	overlay: {
 		flex: 1,
+	},
+	backdrop: {
+		...(StyleSheet.absoluteFill as object),
 		backgroundColor: colors.overlayMedium,
-		justifyContent: "flex-end",
 	},
-	overlayTouch: {
-		flex: 1,
-	},
-	drawer: {
+	background: {
 		backgroundColor: colors.surface,
-		borderTopLeftRadius: 16,
-		borderTopRightRadius: 16,
-		maxHeight: SCREEN_HEIGHT * 0.85,
-		paddingBottom: spacing.xl,
 	},
-	handleArea: {
+	handleContainer: {
 		position: "absolute",
 		top: 0,
 		left: 0,
 		right: 0,
-		paddingVertical: spacing.sm,
-		alignItems: "center",
 		zIndex: 1,
-	},
-	handleAreaStatic: {
 		paddingVertical: spacing.sm,
-		alignItems: "center",
 	},
-	handle: {
-		width: 40,
-		height: 4,
-		borderRadius: 2,
+	handleIndicator: {
 		backgroundColor: "rgba(255, 255, 255, 0.6)",
+		width: 40,
+	},
+	loadingContainer: {
+		flex: 1,
+		justifyContent: "center",
+		alignItems: "center",
+		paddingVertical: spacing.xxl,
 	},
 	scroll: {
 		flexGrow: 0,
+		flexShrink: 1,
 	},
-	backdrop: {
+	backdropImage: {
 		width: "100%",
 		height: 200,
 		borderTopLeftRadius: 16,
@@ -302,7 +247,7 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		paddingVertical: spacing.md,
 		marginHorizontal: spacing.lg,
-		marginBottom: spacing.sm,
+		marginBottom: spacing.xl,
 		borderRadius: 8,
 		backgroundColor: colors.primary,
 	},
@@ -310,17 +255,5 @@ const styles = StyleSheet.create({
 		...typography.subtitle,
 		fontSize: 14,
 		color: colors.text,
-	},
-	closeButton: {
-		alignItems: "center",
-		paddingVertical: spacing.md,
-		marginHorizontal: spacing.lg,
-		borderRadius: 8,
-		backgroundColor: colors.surfaceLight,
-	},
-	closeText: {
-		...typography.subtitle,
-		fontSize: 14,
-		color: colors.textSecondary,
 	},
 });
