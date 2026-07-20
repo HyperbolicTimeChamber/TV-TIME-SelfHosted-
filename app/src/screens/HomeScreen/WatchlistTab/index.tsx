@@ -123,11 +123,19 @@ export default function WatchlistTab() {
     setWatchlistLoading(isLoading);
   }, [isLoading, setWatchlistLoading]);
 
-  // Track initial offset for LegendList's initialScrollOffset (no manual scroll needed)
-  const initialOffsetRef = useRef<number | null>(null);
-  if (initialOffsetRef.current === null && prevWatchedOffset > 0) {
-    initialOffsetRef.current = prevWatchedOffset;
-  }
+  // Show Previously Watched briefly, then scroll to What's Up Next
+  const hasScrolledRef = useRef(false);
+  useEffect(() => {
+    if (!hasScrolledRef.current && !isLoading && prevWatchedOffset > 0) {
+      hasScrolledRef.current = true;
+      setTimeout(() => {
+        listRef.current?.scrollToOffset({
+          offset: prevWatchedOffset,
+          animated: true,
+        });
+      }, 400);
+    }
+  }, [isLoading, prevWatchedOffset]);
 
   const handleNavigateToShow = useCallback(
     (tmdbId: number, mediaType: MediaType) => {
@@ -545,7 +553,6 @@ export default function WatchlistTab() {
         }}
         renderItem={renderItem}
         recycleItems
-        initialScrollOffset={initialOffsetRef.current ?? undefined}
         drawDistance={SCREEN_HEIGHT * 2}
         estimatedItemSize={99}
         refreshControl={
