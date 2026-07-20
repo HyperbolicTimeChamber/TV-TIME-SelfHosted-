@@ -66,7 +66,7 @@ export default function SearchScreen() {
 
   const navigation = useNavigation<NavProp>();
 
-  // Clear search only when leaving the search tab (not on stack push)
+  // Clear search when leaving the search tab
   useEffect(() => {
     const parent = navigation.getParent();
     if (!parent) return;
@@ -77,6 +77,21 @@ export default function SearchScreen() {
     });
     return unsub;
   }, [navigation]);
+
+  // Clear search when pressing search tab while already on it
+  useEffect(() => {
+    const parent = navigation.getParent();
+    if (!parent) return;
+    const unsub = (parent as any).addListener("tabPress", () => {
+      if (query.length > 0) {
+        setQuery("");
+        setDebouncedQuery("");
+        setMediaFilter("all");
+        inputRef.current?.focus();
+      }
+    });
+    return unsub;
+  }, [navigation, query]);
   const user = useAuthStore((s) => s.user);
   const trackedIds = useTrackedIds(user?.uid);
 

@@ -4,11 +4,13 @@ import {
   doc,
   getDoc,
   getDocs,
+  deleteDoc,
   query,
   where,
   setDoc,
   updateDoc,
   writeBatch,
+  runTransaction,
   serverTimestamp,
   increment,
   Timestamp,
@@ -210,6 +212,16 @@ export async function stopWatching(
   await updateDoc(doc(trackingRef(userId), docId), {
     status: newStatus,
   });
+
+  // Clean upcoming subcollection for this show (fire-and-forget)
+  const upcomingCol = collection(doc(db, "users", userId), "upcoming");
+  getDocs(query(upcomingCol, where("tmdbShowId", "==", tmdbId)))
+    .then(async (snap) => {
+      for (const d of snap.docs) {
+        await deleteDoc(d.ref);
+      }
+    })
+    .catch(() => {});
 }
 
 export async function markEpisodeWatched(
@@ -228,60 +240,61 @@ export async function markEpisodeWatched(
   const docId = episodeDocId(tmdbShowId, season, episode);
   const epRef = doc(watchedEpisodesRef(userId), docId);
 
-  const batch = writeBatch(db);
+  await runTransaction(db, async (tx) => {
+    // Guard: check if already watched on another device
+    const existing = await tx.get(epRef);
+    const isRewatch = existing.exists();
 
-  // No pre-read needed. increment(1) handles both create (0+1=1) and update.
-  // watchedAt only matters for "first watched" — acceptable to update on rewatch.
-  batch.set(
-    epRef,
-    {
-      tmdbShowId,
-      season,
-      episode,
-      episodeTitle,
-      lastWatchedAt: serverTimestamp(),
-      runtime,
-      watchCount: increment(1),
-    },
-    { merge: true },
-  );
-
-  batch.set(
-    userRef(userId),
-    {
-      stats: {
-        episodesWatched: increment(1),
-        totalMinutes: increment(runtime),
+    tx.set(
+      epRef,
+      {
+        tmdbShowId,
+        season,
+        episode,
+        episodeTitle,
+        lastWatchedAt: serverTimestamp(),
+        runtime,
+        watchCount: increment(1),
       },
-    },
-    { merge: true },
-  );
+      { merge: true },
+    );
 
-  if (!skipTrackingUpdate) {
-    const now = Timestamp.now();
-    // If next episode hasn't aired yet, use its airDate as priorityDate
-    // so it sorts to top when it becomes visible
-    let effectivePriority: typeof now = now;
-    if (nextEpisode && nextEpisodeAirDate) {
-      const airDateMs = new Date(nextEpisodeAirDate).getTime();
-      if (airDateMs > now.toMillis()) {
-        effectivePriority = Timestamp.fromMillis(airDateMs);
+    // Only increment stats if this is a new watch (prevents cross-device double-count)
+    if (!isRewatch) {
+      tx.set(
+        userRef(userId),
+        {
+          stats: {
+            episodesWatched: increment(1),
+            totalMinutes: increment(runtime),
+          },
+        },
+        { merge: true },
+      );
+    }
+
+    if (!skipTrackingUpdate) {
+      const now = Timestamp.now();
+      let effectivePriority: typeof now = now;
+      if (nextEpisode && nextEpisodeAirDate) {
+        const airDateMs = new Date(nextEpisodeAirDate).getTime();
+        if (airDateMs > now.toMillis()) {
+          effectivePriority = Timestamp.fromMillis(airDateMs);
+        }
       }
+      const trackingUpdate: Record<string, unknown> = {
+        lastWatchedAt: now,
+        priorityDate: effectivePriority,
+        nextEpisode,
+        nextEpisodeName,
+        nextEpisodeAirDate: nextEpisodeAirDate ?? null,
+      };
+      if (isShowComplete) {
+        trackingUpdate.status = WatchStatus.COMPLETED;
+      }
+      tx.update(doc(trackingRef(userId), showDocId(tmdbShowId, "tv")), trackingUpdate);
     }
-    const trackingUpdate: Record<string, unknown> = {
-      lastWatchedAt: now,
-      priorityDate: effectivePriority,
-      nextEpisode,
-      nextEpisodeName,
-      nextEpisodeAirDate: nextEpisodeAirDate ?? null,
-    };
-    if (isShowComplete) {
-      trackingUpdate.status = WatchStatus.COMPLETED;
-    }
-    batch.update(doc(trackingRef(userId), showDocId(tmdbShowId, "tv")), trackingUpdate);
-  }
-
-  await batch.commit();
+  });
 }
 
 export async function unmarkEpisodeWatched(
@@ -391,6 +404,15 @@ export async function unmarkSeasonWatched(
     },
     { merge: true },
   );
+
+  // Reset tracking to first episode of the unmarked season
+  const firstEp = episodes.reduce((min, ep) =>
+    ep.episode < min.episode ? ep : min, episodes[0]);
+  batch.update(doc(trackingRef(userId), showDocId(tmdbShowId, "tv")), {
+    nextEpisode: { season: firstEp.season, episode: firstEp.episode },
+    status: WatchStatus.WATCHING,
+    priorityDate: Timestamp.now(),
+  });
 
   await batch.commit();
 }

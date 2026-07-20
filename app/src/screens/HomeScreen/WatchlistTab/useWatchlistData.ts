@@ -16,6 +16,7 @@ import {
   markMovieWatched,
   stopWatching,
 } from "../../../services";
+import { removeShowFromCalendarGlobal } from "../../../hooks/useCalendarEpisodes";
 import { MediaType, CacheKey, WatchedEpisode, WatchedMovie, QueryKey } from "../../../types";
 import { ListItem } from "./types";
 
@@ -113,6 +114,68 @@ function buildCardItem(item: EnrichedTrackingItem, today: string) {
 
 export type CardItem = ReturnType<typeof buildCardItem>;
 
+/**
+ * Daily reorder: re-evaluate cached cards for newly-airable episodes.
+ * Cards whose nextEpisodeAirDate is now <= today get promoted to top.
+ * Recalc `remaining` only for promoted cards.
+ * Works for any gap duration (1 day or 3 weeks).
+ */
+function reorderCachedList(list: CacheableListItem[], today: string): CacheableListItem[] {
+  // Separate sections
+  const prevWatchedHeader = list.find(
+    (i) => i.type === "sectionHeader" && i.title === "Previously Watched",
+  );
+  const upNextHeader = list.find(
+    (i) => i.type === "sectionHeader" && i.title === "What's Up Next",
+  );
+  const prevWatched = list.filter(
+    (i) => i.type === "watchedEpisode" || i.type === "watchedMovie",
+  );
+  const showCards = list.filter((i) => i.type === "show") as Array<{ type: "show"; card: any }>;
+
+  // Partition into promoted (newly airable) vs rest
+  const promoted: typeof showCards = [];
+  const rest: typeof showCards = [];
+
+  for (const item of showCards) {
+    const card = item.card;
+    const airDate = card.nextEpisodeAirDate;
+    // Card is promotable if it has an airDate that's now past/today
+    // and wasn't already visible (was future when cached)
+    // Simple heuristic: if airDate <= today, ensure it's at the top
+    if (airDate && airDate <= today && card.nextEpisode) {
+      // Recalc remaining for promoted cards (approximate — full recalc on live data)
+      // We don't have catalog in cache, so just null out remaining (will be filled by listener)
+      promoted.push({
+        ...item,
+        card: { ...card, remaining: null },
+      });
+    } else {
+      rest.push(item);
+    }
+  }
+
+  // Sort promoted by airDate desc (most recent first)
+  promoted.sort((a, b) => {
+    const dateA = a.card.nextEpisodeAirDate || "";
+    const dateB = b.card.nextEpisodeAirDate || "";
+    return dateB.localeCompare(dateA);
+  });
+
+  // Rebuild list
+  const result: CacheableListItem[] = [];
+  if (prevWatchedHeader && prevWatched.length > 0) {
+    result.push(prevWatchedHeader);
+    result.push(...prevWatched);
+  }
+  const allShows = [...promoted, ...rest];
+  if (allShows.length > 0) {
+    result.push(upNextHeader ?? { type: "sectionHeader", title: "What's Up Next" });
+    result.push(...allShows);
+  }
+  return result;
+}
+
 /** Serializable list item for caching */
 export type CacheableListItem =
   | { type: "sectionHeader"; title: string }
@@ -139,7 +202,7 @@ export function useWatchlistData(userId: string | undefined) {
   const { movies: watchedMovies } = useWatchedMovies(userId);
 
   const queryClient = useQueryClient();
-  const { mutateCachedUpcoming, rollbackUpcoming } = useUpcomingMutations();
+  const { mutateCachedUpcoming, rollbackUpcoming, removeShowFromUpcoming } = useUpcomingMutations();
   const [updatingShows, setUpdatingShows] = useState<Map<number, string>>(
     new Map(),
   );
@@ -148,6 +211,7 @@ export function useWatchlistData(userId: string | undefined) {
 
   // --- Cache: store and restore the display list directly ---
   const [cachedList, setCachedList] = useState<CacheableListItem[] | null>(null);
+  const [reordering, setReordering] = useState(false);
   const cacheRestored = useRef(false);
   const cachedActiveCount = useRef(0);
 
@@ -160,15 +224,32 @@ export function useWatchlistData(userId: string | undefined) {
       }
       try {
         const cached = JSON.parse(raw);
-        if (
-          cached.userId === userId &&
-          cached.date === todayStr() &&
-          cached.list?.length > 0
-        ) {
+        if (cached.userId !== userId || !cached.list?.length) {
+          cacheRestored.current = true;
+          return;
+        }
+
+        const today = todayStr();
+        if (cached.date === today) {
+          // Same day — use cache as-is
           setCachedList(cached.list);
           cachedActiveCount.current = cached.list.filter(
             (i: any) => i.type === "show",
           ).length;
+        } else {
+          // Different day — reorder: promote newly-airable shows to top
+          setReordering(true);
+          const reordered = reorderCachedList(cached.list, today);
+          setCachedList(reordered);
+          cachedActiveCount.current = reordered.filter(
+            (i: any) => i.type === "show",
+          ).length;
+          // Persist with today's date
+          AsyncStorage.setItem(
+            CacheKey.WATCHLIST_ACTIVE,
+            JSON.stringify({ userId, date: today, list: reordered }),
+          ).catch(() => {});
+          setReordering(false);
         }
       } catch {}
       cacheRestored.current = true;
@@ -277,7 +358,7 @@ export function useWatchlistData(userId: string | undefined) {
 
   // --- Effective display: cached until live data ready ---
   const rawDisplayList = cachedList && liveList.length === 0 ? cachedList : liveList;
-  const effectiveLoading = loading && !cachedList;
+  const effectiveLoading = reordering || (loading && !cachedList);
 
   // Apply optimistic card patches
   const displayList = useMemo(() => {
@@ -510,8 +591,11 @@ export function useWatchlistData(userId: string | undefined) {
       if (!userId) return;
       await stopWatching(userId, item.tmdbId, item.status, item.mediaType);
       removeItem(item.tmdbId);
+      // Clean upcoming + calendar caches
+      removeShowFromUpcoming(item.tmdbId);
+      removeShowFromCalendarGlobal(item.tmdbId);
     },
-    [userId, removeItem],
+    [userId, removeItem, removeShowFromUpcoming],
   );
 
   return {

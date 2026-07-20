@@ -114,15 +114,16 @@ export default function WatchlistTab() {
     setWatchlistLoading(isLoading);
   }, [isLoading, setWatchlistLoading]);
 
+  // Scroll past "Previously Watched" to "What's Up Next" on first render
   useEffect(() => {
     if (!hasScrolledRef.current && !isLoading && prevWatchedOffset > 0) {
       hasScrolledRef.current = true;
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         listRef.current?.scrollToOffset({
           offset: prevWatchedOffset,
           animated: false,
         });
-      }, 300);
+      });
     }
   }, [isLoading, prevWatchedOffset]);
 

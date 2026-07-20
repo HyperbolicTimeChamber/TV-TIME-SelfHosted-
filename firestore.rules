@@ -46,7 +46,8 @@ service cloud.firestore {
 
       match /upcoming/{episodeId} {
         allow read: if request.auth.uid == userId;
-        allow write: if false; // CF-only writes
+        allow create, update: if false; // CF-only writes
+        allow delete: if request.auth.uid == userId;
       }
     }
   }

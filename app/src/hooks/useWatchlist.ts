@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { onShowRemoved } from "../utils/watchlistEvents";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   getFirestore,
   collection,
@@ -13,7 +14,7 @@ import {
   startAfter,
   QueryDocumentSnapshot,
 } from "@react-native-firebase/firestore";
-import { TrackingItem, CatalogShow } from "../types";
+import { TrackingItem, CatalogShow, CacheKey } from "../types";
 import { showDocId } from "../utils/docId";
 
 const PAGE_SIZE = 50;
@@ -25,12 +26,32 @@ export interface EnrichedTrackingItem extends TrackingItem {
   catalogShow: CatalogShow | null;
 }
 
+/** Persist catalog cache to AsyncStorage */
+function persistCatalogCache(cache: Map<string, CatalogShow | null>) {
+  const obj: Record<string, CatalogShow | null> = {};
+  for (const [key, val] of cache) obj[key] = val;
+  AsyncStorage.setItem(CacheKey.CATALOG_CACHE, JSON.stringify(obj)).catch(() => {});
+}
+
+/** Restore catalog cache from AsyncStorage */
+async function restoreCatalogCache(): Promise<Map<string, CatalogShow | null>> {
+  try {
+    const raw = await AsyncStorage.getItem(CacheKey.CATALOG_CACHE);
+    if (!raw) return new Map();
+    const obj = JSON.parse(raw) as Record<string, CatalogShow | null>;
+    return new Map(Object.entries(obj));
+  } catch {
+    return new Map();
+  }
+}
+
 async function enrichItems(
   trackingItems: TrackingItem[],
   cache: Map<string, CatalogShow | null>,
 ): Promise<EnrichedTrackingItem[]> {
   const db = getFirestore();
-  return Promise.all(
+  let cacheUpdated = false;
+  const enriched = await Promise.all(
     trackingItems.map(async (item): Promise<EnrichedTrackingItem> => {
       const mt = (item as any).mediaType === "movie" ? "movie" : "tv";
       const key = showDocId(item.tmdbId, mt);
@@ -46,6 +67,7 @@ async function enrichItems(
           catalogShow = null;
         }
         cache.set(key, catalogShow);
+        cacheUpdated = true;
       }
 
       return {
@@ -57,6 +79,9 @@ async function enrichItems(
       };
     }),
   );
+
+  if (cacheUpdated) persistCatalogCache(cache);
+  return enriched;
 }
 
 export function useWatchlist(userId: string | undefined) {
@@ -65,9 +90,27 @@ export function useWatchlist(userId: string | undefined) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const catalogCache = useRef<Map<string, CatalogShow | null>>(new Map());
+  const catalogCacheRestored = useRef(false);
   const paginationCursor = useRef<QueryDocumentSnapshot | null>(null);
   const firstPageLastDoc = useRef<QueryDocumentSnapshot | null>(null);
   const paginatedItems = useRef<EnrichedTrackingItem[]>([]);
+  // Queue snapshots received before catalog cache is restored
+  const pendingSnapshot = useRef<any>(null);
+
+  // Restore persisted catalog cache on mount
+  useEffect(() => {
+    restoreCatalogCache().then((restored) => {
+      if (restored.size > 0) {
+        catalogCache.current = restored;
+      }
+      catalogCacheRestored.current = true;
+      // Process any snapshot that arrived while restoring
+      if (pendingSnapshot.current) {
+        pendingSnapshot.current();
+        pendingSnapshot.current = null;
+      }
+    });
+  }, []);
 
   // First page with real-time listener
   useEffect(() => {
@@ -90,14 +133,28 @@ export function useWatchlist(userId: string | undefined) {
     const unsubscribe = onSnapshot(
       q,
       async (snapshot) => {
-        const trackingItems = snapshot.docs.map((d) => ({
+        // Wait for catalog cache restoration before processing
+        if (!catalogCacheRestored.current) {
+          pendingSnapshot.current = () => processSnapshot(snapshot);
+          return;
+        }
+        await processSnapshot(snapshot);
+      },
+      (error) => {
+        console.error("Tracking listener error:", error);
+        setLoading(false);
+      },
+    );
+
+    async function processSnapshot(snapshot: any) {
+        const trackingItems = snapshot.docs.map((d: any) => ({
           id: d.id,
           ...d.data(),
         })) as TrackingItem[];
 
         // Only enrich changed/added items — reuse previous for unchanged
         const changedIds = new Set(
-          snapshot.docChanges().map((c) => c.doc.id),
+          snapshot.docChanges().map((c: any) => c.doc.id),
         );
         const isInitial = prevEnrichedMap.size === 0;
 
@@ -138,7 +195,7 @@ export function useWatchlist(userId: string | undefined) {
 
         const hasRemovals = snapshot
           .docChanges()
-          .some((c) => c.type === "removed");
+          .some((c: any) => c.type === "removed");
         if (hasRemovals && paginatedItems.current.length > 0 && userId) {
           try {
             const checks = paginatedItems.current.map((p) =>
@@ -155,12 +212,7 @@ export function useWatchlist(userId: string | undefined) {
         setItems(merged);
         setHasMore(snapshot.docs.length >= PAGE_SIZE);
         setLoading(false);
-      },
-      (error) => {
-        console.error("Tracking listener error:", error);
-        setLoading(false);
-      },
-    );
+    }
 
     return unsubscribe;
   }, [userId]);

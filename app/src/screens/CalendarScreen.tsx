@@ -125,8 +125,18 @@ export default function CalendarScreen() {
       setCurrentYear(month.year);
       setCurrentMonth(month.month);
       loadMonthEpisodes(month.year, month.month);
+
+      // Auto-select same day in new month, clamped to last day
+      if (selectedDate) {
+        const prevDay = parseInt(selectedDate.split("-")[2], 10);
+        const lastDay = new Date(month.year, month.month, 0).getDate();
+        const day = Math.min(prevDay, lastDay);
+        setSelectedDate(
+          `${month.year}-${String(month.month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+        );
+      }
     },
-    [loadMonthEpisodes],
+    [loadMonthEpisodes, selectedDate],
   );
 
   const calendarKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
@@ -237,6 +247,7 @@ export default function CalendarScreen() {
       {calendarLoading ? (
         <View style={styles.loaderCenter}>
           <LoadingSpinner />
+          <Text style={styles.loaderText}>Checking your calendar...</Text>
         </View>
       ) : selectedDate && (
         <View style={styles.episodeList}>
@@ -334,6 +345,7 @@ const styles = StyleSheet.create({
   loaderText: {
     ...typography.caption,
     color: colors.textMuted,
+    marginTop: spacing.md,
   },
   episodeRow: {
     flexDirection: "row",

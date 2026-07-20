@@ -185,6 +185,8 @@ async function reactivateCompletedUsers(
           season: lastSeason.seasonNumber,
           episode: firstNewEp.episodeNumber,
         },
+        nextEpisodeAirDate: newAirDate ?? null,
+        nextEpisodeName: firstNewEp.title ?? null,
         priorityDate: airDateTs,
       });
     }

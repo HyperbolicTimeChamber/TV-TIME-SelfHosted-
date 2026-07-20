@@ -27,6 +27,7 @@ export enum CacheKey {
 	USER_STATS = "profile_stats_cache",
 	HIDE_UNRELEASED_MODAL = "hideUnreleasedMovieModal",
 	IMPORT_IN_PROGRESS = "import_in_progress",
+	CATALOG_CACHE = "catalog_cache_v1",
 }
 
 export enum QueryKey {

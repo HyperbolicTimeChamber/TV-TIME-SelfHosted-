@@ -109,24 +109,17 @@ export const markSeasonWatched = onCall(
       }
     }
 
+    const trackingUpdate: Record<string, unknown> = {
+      lastWatchedAt: now,
+      priorityDate: effectivePriority,
+      nextEpisode,
+      nextEpisodeName: nextEpisodeName ?? null,
+      nextEpisodeAirDate: nextEpisodeAirDate ?? null,
+    };
     if (isShowComplete) {
-      batch.update(trackingDoc, {
-        lastWatchedAt: now,
-        priorityDate: effectivePriority,
-        nextEpisode,
-        nextEpisodeName: nextEpisodeName ?? null,
-        nextEpisodeAirDate: nextEpisodeAirDate ?? null,
-        status: "completed",
-      });
-    } else {
-      batch.update(trackingDoc, {
-        lastWatchedAt: now,
-        priorityDate: effectivePriority,
-        nextEpisode,
-        nextEpisodeName: nextEpisodeName ?? null,
-        nextEpisodeAirDate: nextEpisodeAirDate ?? null,
-      });
+      trackingUpdate.status = "completed";
     }
+    batch.set(trackingDoc, trackingUpdate, { merge: true });
 
     await batch.commit();
 

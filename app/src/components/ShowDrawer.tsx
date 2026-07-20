@@ -74,9 +74,8 @@ export default function ShowDrawer({
 		<Modal
 			visible={visible}
 			transparent
-			animationType="fade"
-			onRequestClose={onClose}
-		>
+			animationType="slide"
+			onRequestClose={onClose}>
 			<GestureHandlerRootView style={styles.overlay}>
 				<TouchableOpacity
 					style={styles.backdrop}
@@ -90,24 +89,19 @@ export default function ShowDrawer({
 					maxDynamicContentSize={maxHeight}
 					onChange={handleSheetChanges}
 					enablePanDownToClose
-					animateOnMount={false}
+					animateOnMount
 					backgroundStyle={styles.background}
 					handleIndicatorStyle={styles.handleIndicator}
-					handleStyle={styles.handleContainer}
-				>
+					handleStyle={styles.handleContainer}>
 					{loading ? (
 						<View style={styles.loadingContainer}>
-							<ActivityIndicator
-								size="large"
-								color={colors.primary}
-							/>
+							<ActivityIndicator size="large" color={colors.primary} />
 						</View>
 					) : show ? (
 						<>
 							<BottomSheetScrollView
 								style={styles.scroll}
-								showsVerticalScrollIndicator={false}
-							>
+								showsVerticalScrollIndicator={false}>
 								<Image
 									source={{
 										uri: `${posterSize.large}${show.backdropPath || show.posterPath}`,
@@ -151,7 +145,9 @@ export default function ShowDrawer({
 										style={styles.goToShowButton}
 										onPress={onGoToShow}>
 										<Text style={styles.goToShowText}>
-											{show.mediaType === "movie" ? "Go to Movie" : "Go to Show"}
+											{show.mediaType === "movie"
+												? "Go to Movie"
+												: "Go to Show"}
 										</Text>
 									</TouchableOpacity>
 								)}

@@ -63,7 +63,7 @@ export function useCalendarEpisodes(userId: string | undefined) {
   const [episodesByMonth, setEpisodesByMonth] = useState<
     Map<string, UpcomingEpisode[]>
   >(new Map());
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const trackedIds = useRef<Set<string> | null>(null);
   const trackedMovieIds = useRef<Set<string> | null>(null);
   const calendarCacheRef = useRef<CalendarCache>({ months: {} });
@@ -105,7 +105,10 @@ export function useCalendarEpisodes(userId: string | undefined) {
       for (const [key, eps] of Object.entries(cache.months)) {
         restored.set(key, eps);
       }
-      if (restored.size > 0) setEpisodesByMonth(restored);
+      if (restored.size > 0) {
+        setEpisodesByMonth(restored);
+        setLoading(false);
+      }
       cacheLoaded.current = true;
     });
   }, [userId]);
@@ -120,8 +123,10 @@ export function useCalendarEpisodes(userId: string | undefined) {
     async (year: number, month: number) => {
       if (!userId || !apiKey) return;
       const monthKey = `${year}-${String(month).padStart(2, "0")}`;
-      if (episodesByMonth.has(monthKey)) return;
-      if (loading) return;
+      if (episodesByMonth.has(monthKey)) {
+        setLoading(false);
+        return;
+      }
 
       // Wait for tracked IDs
       if (!trackedIds.current) {
