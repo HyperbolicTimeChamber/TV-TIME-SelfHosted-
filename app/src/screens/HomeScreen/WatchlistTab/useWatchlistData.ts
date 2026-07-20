@@ -127,7 +127,8 @@ function buildCardItem(item: EnrichedTrackingItem, today: string) {
     nextNextEpisodeName: nextNext?.title ?? null,
     nextNextEpisodeAirDate: nextNext?.airDate ?? null,
     nextNextEpisodeRuntime: nextNext?.runtime ?? 0,
-    isLastEpisode: nextEp != null && !nextNext,
+    // Only mark as last episode if catalog is available to confirm — prevents premature COMPLETED
+    isLastEpisode: nextEp != null && catalog != null && !nextNext,
   };
 }
 

@@ -14,6 +14,7 @@ import {
   getFirestore,
   doc,
   onSnapshot,
+  updateDoc,
 } from "@react-native-firebase/firestore";
 import {
   useShowDetails,
@@ -76,15 +77,30 @@ export default function ShowDetailScreen() {
       return;
     }
     const db = getFirestore();
-    const trackingDoc = doc(
+    const trackingDocRef = doc(
       db,
       "users",
       user.uid,
       "tracking",
-      showDocId(tmdbId, mediaType === MediaType.MOVIE ? "movie" : "tv"),
+      showDocId(tmdbId, mediaType),
     );
-    const unsubscribe = onSnapshot(trackingDoc, (snap) => {
-      setWatchlistItem(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+    const unsubscribe = onSnapshot(trackingDocRef, (snap) => {
+      if (snap.exists()) {
+        const data: any = { id: snap.id, ...snap.data() };
+        // Auto-fix: TV show stuck as WATCHING with no nextEpisode → COMPLETED
+        if (
+          mediaType === MediaType.TV &&
+          data.status === WatchStatus.WATCHING &&
+          !data.nextEpisode
+        ) {
+          updateDoc(trackingDocRef, { status: WatchStatus.COMPLETED }).catch(
+            () => {},
+          );
+        }
+        setWatchlistItem(data);
+      } else {
+        setWatchlistItem(null);
+      }
       setTrackingLoading(false);
     });
     return unsubscribe;
@@ -118,6 +134,12 @@ export default function ShowDetailScreen() {
         });
       }
 
+      // Get first episode info for TV shows
+      const firstEp =
+        mediaType === MediaType.TV
+          ? episodesBySeason.get(1)?.[0]
+          : undefined;
+
       await addToTracking(
         user.uid,
         tmdbId,
@@ -126,6 +148,8 @@ export default function ShowDetailScreen() {
         {
           title: show.title || show.name || "",
           posterPath: show.poster_path || null,
+          nextEpisodeName: firstEp?.name || null,
+          nextEpisodeAirDate: firstEp?.air_date || null,
         },
       );
       if (isUnreleased && releaseDate) {
@@ -149,7 +173,7 @@ export default function ShowDetailScreen() {
     } finally {
       setAdding(false);
     }
-  }, [user?.uid, show, tmdbId, mediaType, adding, addShowToUpcoming]);
+  }, [user?.uid, show, tmdbId, mediaType, adding, addShowToUpcoming, episodesBySeason]);
 
   const handleRemove = useCallback(() => {
     if (!user?.uid || removing) return;
@@ -309,7 +333,10 @@ export default function ShowDetailScreen() {
                 )}
               {(watchlistItem.status === WatchStatus.COMPLETED ||
                 watchlistItem.status === WatchStatus.PAUSED ||
-                watchlistItem.status === WatchStatus.PAUSED_REWATCH) && (
+                watchlistItem.status === WatchStatus.PAUSED_REWATCH ||
+                (watchlistItem.status === WatchStatus.WATCHING &&
+                  mediaType === MediaType.TV &&
+                  !watchlistItem.nextEpisode)) && (
                 <TouchableOpacity
                   style={[styles.addButton, { backgroundColor: colors.accent }]}
                   onPress={handleResumeOrRewatch}

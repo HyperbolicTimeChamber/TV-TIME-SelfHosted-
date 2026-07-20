@@ -1,19 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 import { getSeasonDetails, getCatalogShow } from "../services";
 import { useAuthStore } from "../stores";
-import { TMDBEpisode, QueryKey } from "../types";
+import { TMDBEpisode, QueryKey, MediaType } from "../types";
 
 export function useSeasonDetails(
   tmdbId: number,
   seasonNumber: number,
   enabled: boolean = true,
+  fetchImages: boolean = false,
 ) {
   // Primary query: catalog data (fast, no images)
   const catalogQuery = useQuery({
     queryKey: [QueryKey.SEASON, tmdbId, seasonNumber],
     enabled,
     queryFn: async () => {
-      const catalogShow = await getCatalogShow(tmdbId, "tv");
+      const catalogShow = await getCatalogShow(tmdbId, MediaType.TV);
       if (catalogShow) {
         const season = catalogShow.seasons.find(
           (s) => s.seasonNumber === seasonNumber,
@@ -45,11 +46,10 @@ export function useSeasonDetails(
     staleTime: 24 * 60 * 60 * 1000,
   });
 
-  // Secondary query: TMDB images — runs when catalog data lacks still_path
-  // This also covers preloaded episodes case
+  // Secondary query: TMDB images — lazy, only when dropdown expanded
   const imagesQuery = useQuery({
     queryKey: [QueryKey.SEASON_IMAGES, tmdbId, seasonNumber],
-    enabled: true,
+    enabled: fetchImages,
     queryFn: async () => {
       const apiKey = useAuthStore.getState().appTmdbApiKey;
       if (!apiKey) throw new Error("No TMDB API key available");

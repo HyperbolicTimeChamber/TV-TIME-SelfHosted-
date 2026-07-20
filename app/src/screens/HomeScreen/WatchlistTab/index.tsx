@@ -277,7 +277,7 @@ export default function WatchlistTab() {
   const handleWatchedSwipeLeft = useCallback(
     async (episode: WatchedEpisode) => {
       if (!user?.uid) return;
-      const catalog = await getCatalogShow(episode.tmdbShowId, "tv");
+      const catalog = await getCatalogShow(episode.tmdbShowId, MediaType.TV);
       const catalogSeason = catalog?.seasons?.find(
         (s) => s.seasonNumber === episode.season,
       );
@@ -360,7 +360,7 @@ export default function WatchlistTab() {
 
       try {
         if (action === "rewatch") {
-          const catalog = await getCatalogShow(sheetEpisode.tmdbShowId, "tv");
+          const catalog = await getCatalogShow(sheetEpisode.tmdbShowId, MediaType.TV);
           const catalogSeason = catalog?.seasons?.find(
             (s) => s.seasonNumber === sheetEpisode.season,
           );

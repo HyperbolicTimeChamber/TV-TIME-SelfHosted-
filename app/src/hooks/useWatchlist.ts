@@ -14,7 +14,7 @@ import {
   startAfter,
   QueryDocumentSnapshot,
 } from "@react-native-firebase/firestore";
-import { TrackingItem, CatalogShow, CacheKey, DocChangeType } from "../types";
+import { TrackingItem, CatalogShow, CacheKey, DocChangeType, MediaType } from "../types";
 import { showDocId } from "../utils/docId";
 
 const PAGE_SIZE = 50;
@@ -26,10 +26,12 @@ export interface EnrichedTrackingItem extends TrackingItem {
   catalogShow: CatalogShow | null;
 }
 
-/** Persist catalog cache to AsyncStorage */
+/** Persist catalog cache to AsyncStorage (skip null entries — they represent missing docs that may appear later) */
 function persistCatalogCache(cache: Map<string, CatalogShow | null>) {
-  const obj: Record<string, CatalogShow | null> = {};
-  for (const [key, val] of cache) obj[key] = val;
+  const obj: Record<string, CatalogShow> = {};
+  for (const [key, val] of cache) {
+    if (val != null) obj[key] = val;
+  }
   AsyncStorage.setItem(CacheKey.CATALOG_CACHE, JSON.stringify(obj)).catch(
     () => {},
   );
@@ -55,11 +57,11 @@ async function enrichItems(
   let cacheUpdated = false;
   const enriched = await Promise.all(
     trackingItems.map(async (item): Promise<EnrichedTrackingItem> => {
-      const mt = (item as any).mediaType === "movie" ? "movie" : "tv";
+      const mt = (item as any).mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV;
       const key = showDocId(item.tmdbId, mt);
-      let catalogShow = cache.get(key);
+      let catalogShow: CatalogShow | null = cache.get(key) ?? null;
 
-      if (catalogShow === undefined) {
+      if (!catalogShow) {
         try {
           const showDoc = await getDoc(doc(db, "shows", key));
           catalogShow = showDoc?.exists?.()
@@ -87,12 +89,23 @@ async function enrichItems(
   return enriched;
 }
 
+// Module-level catalog cache shared across hooks
+let sharedCatalogCache: Map<string, CatalogShow | null> = new Map();
+
+/** Get a catalog show from the in-memory cache (no Firestore read) */
+export function getCachedCatalogShow(
+  tmdbId: number,
+  mediaType: MediaType,
+): CatalogShow | null {
+  return sharedCatalogCache.get(showDocId(tmdbId, mediaType)) ?? null;
+}
+
 export function useWatchlist(userId: string | undefined) {
   const [items, setItems] = useState<EnrichedTrackingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const catalogCache = useRef<Map<string, CatalogShow | null>>(new Map());
+  const catalogCache = useRef<Map<string, CatalogShow | null>>(sharedCatalogCache);
   const catalogCacheRestored = useRef(false);
   const paginationCursor = useRef<QueryDocumentSnapshot | null>(null);
   const firstPageLastDoc = useRef<QueryDocumentSnapshot | null>(null);
@@ -105,6 +118,7 @@ export function useWatchlist(userId: string | undefined) {
     restoreCatalogCache().then((restored) => {
       if (restored.size > 0) {
         catalogCache.current = restored;
+        sharedCatalogCache = restored;
       }
       catalogCacheRestored.current = true;
       // Process any snapshot that arrived while restoring
@@ -215,7 +229,7 @@ export function useWatchlist(userId: string | undefined) {
                 "tracking",
                 showDocId(
                   p.tmdbId,
-                  (p as any).mediaType === "movie" ? "movie" : "tv",
+                  (p as any).mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV,
                 ),
               ),
             ),
@@ -287,8 +301,8 @@ export function useWatchlist(userId: string | undefined) {
     paginatedItems.current = paginatedItems.current.filter(
       (p) => p.tmdbId !== tmdbId,
     );
-    catalogCache.current.delete(showDocId(tmdbId, "tv"));
-    catalogCache.current.delete(showDocId(tmdbId, "movie"));
+    catalogCache.current.delete(showDocId(tmdbId, MediaType.TV));
+    catalogCache.current.delete(showDocId(tmdbId, MediaType.MOVIE));
     setItems((prev) => prev.filter((p) => p.tmdbId !== tmdbId));
   }, []);
 
