@@ -57,6 +57,8 @@ type NavProp = CompositeNavigationProp<
 >;
 
 const SeparatorComponent = () => <View style={styles.separator} />;
+const NOOP_ASYNC = async () => {};
+const NOOP_CHECKMARK = async () => {};
 
 export default function WatchlistTab() {
   const user = useAuthStore((s) => s.user);
@@ -438,10 +440,10 @@ export default function WatchlistTab() {
               rewatchCount: Math.max(0, (item.movie.watchCount || 1) - 1),
             } as any}
             isWatched
-            onSwipeLeft={async () => {}}
-            onSwipeRight={async () => {}}
+            onSwipeLeft={NOOP_ASYNC}
+            onSwipeRight={NOOP_ASYNC}
             onPress={(id) => handleNavigateToShow(id, MediaType.MOVIE)}
-            onCheckmark={async () => {}}
+            onCheckmark={NOOP_CHECKMARK}
           />
         );
       }
@@ -537,6 +539,8 @@ export default function WatchlistTab() {
         renderItem={renderItem}
         recycleItems
         maintainVisibleContentPosition
+        drawDistance={SCREEN_HEIGHT * 2}
+        estimatedItemSize={99}
         refreshControl={
           hasMoreEps ? (
             <RefreshControl

@@ -96,6 +96,7 @@ export default function CalendarScreen() {
     if (selectedDate && marks[selectedDate]) {
       marks[selectedDate] = {
         ...marks[selectedDate],
+        dotColor: colors.background,
         selected: true,
         selectedColor: colors.primary,
       };

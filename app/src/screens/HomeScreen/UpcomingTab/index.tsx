@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
 import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -25,6 +25,8 @@ import {
 } from "../../../types";
 import DateHeader from "./DateHeader";
 import UpcomingEpisodeRow from "./UpcomingEpisodeRow";
+
+const SCREEN_HEIGHT = Dimensions.get("window").height;
 
 type NavProp = NativeStackNavigationProp<HomeStackParamList, Route.HOME_TABS>;
 
@@ -236,6 +238,8 @@ export default function UpcomingTab() {
         }
         renderItem={renderItem}
         recycleItems
+        drawDistance={SCREEN_HEIGHT * 2}
+        estimatedItemSize={72}
         style={styles.list}
         contentContainerStyle={styles.listContent}
       />

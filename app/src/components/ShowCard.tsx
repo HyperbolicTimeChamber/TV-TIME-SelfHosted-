@@ -13,6 +13,10 @@ import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton from "./CheckmarkButton";
 import SkeletonLine from "./SkeletonLine";
 
+// Computed once per app session — avoids Date allocation per card per render
+const TODAY = new Date().toISOString().split("T")[0];
+const TODAY_MS = new Date(TODAY).getTime();
+
 interface ShowCardItem {
 	tmdbId: number;
 	mediaType: MediaType;
@@ -64,19 +68,17 @@ export default memo(function ShowCard({
 			? `+${remainingEpisodes} ep${remainingEpisodes > 1 ? "s" : ""} left`
 			: null;
 
-	const today = new Date().toISOString().split("T")[0];
-
 	// "NEW" tag: TV episode aired today
 	const isNewEpisode =
 		item.mediaType === MediaType.TV &&
 		item.nextEpisodeAirDate &&
-		item.nextEpisodeAirDate === today;
+		item.nextEpisodeAirDate === TODAY;
 
 	// "JUST AIRED" tag: movie released within last 7 days
 	const isJustAired = (() => {
 		if (item.mediaType !== MediaType.MOVIE || !item.releaseDate) return false;
 		const releaseMs = new Date(item.releaseDate).getTime();
-		const todayMs = new Date(today).getTime();
+		const todayMs = TODAY_MS;
 		const sevenDaysMs = JUST_AIRED_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 		return releaseMs <= todayMs && todayMs - releaseMs <= sevenDaysMs;
 	})();

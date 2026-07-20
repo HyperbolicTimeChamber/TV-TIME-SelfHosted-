@@ -98,61 +98,59 @@ export default function ShowDrawer({
 							<ActivityIndicator size="large" color={colors.primary} />
 						</View>
 					) : show ? (
-						<>
-							<BottomSheetScrollView
-								style={styles.scroll}
-								showsVerticalScrollIndicator={false}>
-								<Image
-									source={{
-										uri: `${posterSize.large}${show.backdropPath || show.posterPath}`,
-									}}
-									style={styles.backdropImage}
-									contentFit="cover"
-								/>
-								<View style={styles.content}>
-									<View style={styles.titleRow}>
-										<Text style={styles.title}>{show.title}</Text>
-										{show.mediaType && (
-											<View
-												style={[
-													styles.typeBadge,
-													show.mediaType === "movie" && styles.typeBadgeMovie,
-												]}>
-												<Text style={styles.typeBadgeText}>
-													{show.mediaType === "movie" ? "MOVIE" : "TV"}
-												</Text>
-											</View>
-										)}
-									</View>
-									{metaLine ? (
-										<Text style={styles.meta}>{metaLine}</Text>
-									) : null}
-									{show.genres ? (
-										<Text style={styles.meta}>{show.genres}</Text>
-									) : (
-										<SkeletonLine
-											width="45%"
-											height={11}
-											style={{ marginTop: spacing.xs }}
-										/>
+						<BottomSheetScrollView
+							style={styles.scroll}
+							showsVerticalScrollIndicator={false}>
+							<Image
+								source={{
+									uri: `${posterSize.large}${show.backdropPath || show.posterPath}`,
+								}}
+								style={styles.backdropImage}
+								contentFit="cover"
+							/>
+							<View style={styles.content}>
+								<View style={styles.titleRow}>
+									<Text style={styles.title}>{show.title}</Text>
+									{show.mediaType && (
+										<View
+											style={[
+												styles.typeBadge,
+												show.mediaType === "movie" && styles.typeBadgeMovie,
+											]}>
+											<Text style={styles.typeBadgeText}>
+												{show.mediaType === "movie" ? "MOVIE" : "TV"}
+											</Text>
+										</View>
 									)}
-									{show.overview ? (
-										<Text style={styles.overview}>{show.overview}</Text>
-									) : null}
 								</View>
-								{onGoToShow && (
-									<TouchableOpacity
-										style={styles.goToShowButton}
-										onPress={onGoToShow}>
-										<Text style={styles.goToShowText}>
-											{show.mediaType === "movie"
-												? "Go to Movie"
-												: "Go to Show"}
-										</Text>
-									</TouchableOpacity>
+								{metaLine ? (
+									<Text style={styles.meta}>{metaLine}</Text>
+								) : null}
+								{show.genres ? (
+									<Text style={styles.meta}>{show.genres}</Text>
+								) : (
+									<SkeletonLine
+										width="45%"
+										height={11}
+										style={{ marginTop: spacing.xs }}
+									/>
 								)}
-							</BottomSheetScrollView>
-						</>
+								{show.overview ? (
+									<Text style={styles.overview}>{show.overview}</Text>
+								) : null}
+							</View>
+							{onGoToShow && (
+								<TouchableOpacity
+									style={styles.goToShowButton}
+									onPress={onGoToShow}>
+									<Text style={styles.goToShowText}>
+										{show.mediaType === "movie"
+											? "Go to Movie"
+											: "Go to Show"}
+									</Text>
+								</TouchableOpacity>
+							)}
+						</BottomSheetScrollView>
 					) : null}
 				</BottomSheet>
 			</GestureHandlerRootView>
