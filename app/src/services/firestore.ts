@@ -576,7 +576,7 @@ export async function markSeasonWatchedCF(
       isShowComplete,
     });
   } catch (err: any) {
-    throw new Error(getCallableErrorMessage(err));
+    throw new Error(getCallableErrorMessage(err), { cause: err });
   }
 }
 

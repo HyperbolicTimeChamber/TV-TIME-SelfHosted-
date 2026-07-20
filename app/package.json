@@ -45,9 +45,13 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/papaparse": "^5.5.2",
     "@types/react": "~19.2.2",
-    "typescript": "~6.0.3"
+    "eslint": "^10.7.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.65.0"
   },
   "scripts": {
     "start": "expo start",
