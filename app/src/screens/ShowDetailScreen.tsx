@@ -46,6 +46,8 @@ export default function ShowDetailScreen() {
   const {
     data: show,
     isLoading,
+    isError,
+    error,
     episodesBySeason,
   } = useShowDetails(tmdbId, mediaType);
   const [watchlistItem, setWatchlistItem] = useState<any>(null);
@@ -184,10 +186,12 @@ export default function ShowDetailScreen() {
     );
   }
 
-  if (!show) {
+  if (isError || !show) {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorText}>Failed to load show</Text>
+        <Text style={styles.errorText}>
+          {isError ? (error as any)?.message || "Failed to load show" : "Show not found"}
+        </Text>
       </View>
     );
   }
