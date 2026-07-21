@@ -1,41 +1,94 @@
-import { useState, useEffect } from "react";
+import { useCallback } from "react";
 import {
   getFirestore,
   collection,
-  onSnapshot,
+  doc,
   query,
   orderBy,
+  limit,
+  startAfter,
+  getDocs,
+  QueryDocumentSnapshot,
 } from "@react-native-firebase/firestore";
-import { WatchedMovie } from "../types";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { WatchedMovie, QueryKey } from "../types";
+
+const PAGE_SIZE = 5;
+
+interface WatchedMoviesPage {
+  movies: WatchedMovie[];
+  lastDoc: QueryDocumentSnapshot | null;
+}
 
 export function useWatchedMovies(userId?: string) {
-  const [movies, setMovies] = useState<WatchedMovie[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryKey = [QueryKey.WATCHED_MOVIES, userId] as const;
 
-  useEffect(() => {
-    if (!userId) {
-      setMovies([]);
-      setLoading(false);
-      return;
-    }
+  const {
+    data,
+    isLoading: loading,
+    fetchNextPage,
+    isFetchingNextPage: loadingMore,
+    hasNextPage,
+  } = useInfiniteQuery<WatchedMoviesPage>({
+    queryKey,
+    queryFn: async ({ pageParam }) => {
+      const db = getFirestore();
+      const colRef = collection(doc(db, "users", userId!), "watchedMovies");
 
-    const db = getFirestore();
-    const q = query(
-      collection(db, "users", userId, "watchedMovies"),
-      orderBy("lastWatchedAt", "desc"),
-    );
+      const constraints: any[] = [orderBy("lastWatchedAt", "desc")];
+      if (pageParam) {
+        constraints.push(startAfter(pageParam));
+      }
+      constraints.push(limit(PAGE_SIZE));
 
-    const unsub = onSnapshot(q, (snap) => {
-      const items = snap.docs.map((d) => ({
+      const snapshot = await getDocs(query(colRef, ...constraints));
+
+      const movies = snapshot.docs.map((d) => ({
         id: d.id,
         ...d.data(),
       })) as WatchedMovie[];
-      setMovies(items);
-      setLoading(false);
-    });
 
-    return unsub;
-  }, [userId]);
+      return {
+        movies,
+        lastDoc: snapshot.docs[snapshot.docs.length - 1] || null,
+      };
+    },
+    initialPageParam: null as QueryDocumentSnapshot | null,
+    getNextPageParam: (lastPage) =>
+      lastPage.movies.length >= PAGE_SIZE ? lastPage.lastDoc : undefined,
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+  });
 
-  return { movies, loading };
+  const movies = data?.pages.flatMap((p) => p.movies) ?? [];
+
+  const loadMore = useCallback(() => {
+    if (hasNextPage && !loadingMore) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, loadingMore, fetchNextPage]);
+
+  return { movies, loading, loadMore, loadingMore, hasMore: !!hasNextPage };
+}
+
+/** Insert a watched movie into the query cache (no Firestore refetch). */
+export function insertWatchedMovieCache(
+  queryClient: { setQueryData: (key: any, updater: any) => void },
+  userId: string,
+  movie: WatchedMovie,
+) {
+  queryClient.setQueryData(
+    [QueryKey.WATCHED_MOVIES, userId],
+    (old: any) => {
+      if (!old?.pages) return old;
+      const firstPage = old.pages[0];
+      return {
+        ...old,
+        pages: [
+          { ...firstPage, movies: [movie, ...firstPage.movies] },
+          ...old.pages.slice(1),
+        ],
+      };
+    },
+  );
 }

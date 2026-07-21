@@ -1,12 +1,15 @@
 import { useMemo, useEffect, useCallback, useState, useRef } from "react";
 import { Alert } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
+import { Timestamp } from "@react-native-firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   useWatchlist,
   EnrichedTrackingItem,
   useWatchedEpisodes,
   useWatchedMovies,
+  insertWatchedEpisodeCache,
+  insertWatchedMovieCache,
   isShowVisible,
   sortByPriority,
   useUpcomingMutations,
@@ -244,8 +247,13 @@ export function useWatchlistData(userId: string | undefined) {
     loadingMore: loadingMoreEps,
     hasMore: hasMoreEps,
   } = useWatchedEpisodes(userId);
-  const { movies: watchedMovies, loading: watchedMoviesLoading } =
-    useWatchedMovies(userId);
+  const {
+    movies: watchedMovies,
+    loading: watchedMoviesLoading,
+    loadMore: loadMoreMovies,
+    loadingMore: loadingMoreMovies,
+    hasMore: hasMoreMovies,
+  } = useWatchedMovies(userId);
 
   const queryClient = useQueryClient();
   const { mutateCachedUpcoming, rollbackUpcoming, removeShowFromUpcoming } =
@@ -337,41 +345,78 @@ export function useWatchlistData(userId: string | undefined) {
     | { kind: MediaType.TV; ep: WatchedEpisode; time: number }
     | { kind: MediaType.MOVIE; movie: WatchedMovie; time: number };
 
-  const allPrevItems = useMemo(() => {
-    const items: PrevItem[] = [];
+  // Merge-sort display: only show items whose chronological position is
+  // confirmed. An item is safe to show if the OTHER type has a fetched item
+  // older than it (proving nothing is missing in the gap), or if that type's
+  // pages are exhausted.
+  const safePrevItems = useMemo(() => {
+    const epItems: PrevItem[] = [];
     for (const ep of watchedEps) {
-      if (!showMap.has(ep.tmdbShowId)) continue;
-      items.push({
+      epItems.push({
         kind: MediaType.TV,
         ep,
         time: ep.lastWatchedAt?.toMillis?.() || 0,
       });
     }
+    const movieItems: PrevItem[] = [];
     for (const movie of watchedMovies) {
-      if (!showMap.has(movie.tmdbId)) continue;
-      items.push({
+      movieItems.push({
         kind: MediaType.MOVIE,
         movie,
         time: movie.lastWatchedAt?.toMillis?.() || 0,
       });
     }
-    items.sort((a, b) => b.time - a.time);
-    return items;
-  }, [watchedEps, watchedMovies, showMap]);
+
+    // If one type is empty and fully loaded, show all of the other
+    if (epItems.length === 0 && !hasMoreEps) return movieItems;
+    if (movieItems.length === 0 && !hasMoreMovies) return epItems;
+    // If one type is empty but has more pages, can't show anything from the other
+    // (gaps might exist) — show nothing until pull loads data
+    if (epItems.length === 0 || movieItems.length === 0) return [];
+
+    // Both have items — compute safe cutoff.
+    // An ep is safe if any movie has time <= ep.time (a movie exists at or after it),
+    // OR episodes are on last page (!hasMoreEps).
+    // A movie is safe if any episode has time <= movie.time, OR !hasMoreMovies.
+    const oldestEpTime = epItems[epItems.length - 1].time;
+    const oldestMovieTime = movieItems[movieItems.length - 1].time;
+
+    // Safe cutoff: items newer than max(oldestEp, oldestMovie) are guaranteed
+    // correct. Beyond that, the lagging type might have unfetched items.
+    // Exception: if the lagging type has no more pages, no cutoff needed.
+    let cutoff = -Infinity;
+    if (hasMoreEps && hasMoreMovies) {
+      cutoff = Math.max(oldestEpTime, oldestMovieTime);
+    } else if (hasMoreEps) {
+      // All movies loaded — eps are the constraint
+      cutoff = oldestEpTime;
+    } else if (hasMoreMovies) {
+      // All eps loaded — movies are the constraint
+      cutoff = oldestMovieTime;
+    }
+    // else: both fully loaded, no cutoff
+
+    return [...epItems, ...movieItems]
+      .filter((item) => item.time >= cutoff)
+      .sort((a, b) => a.time - b.time); // ascending: oldest first, newest last
+  }, [watchedEps, watchedMovies, showMap, hasMoreEps, hasMoreMovies]);
 
   // Cached tier: 5 most recent (persisted). Volatile tier: older pulled items (clears on restart).
+  // safePrevItems is ascending → last 5 = newest (cached), everything before = volatile (older)
   const cachedPrevWatched = useMemo(
-    () => allPrevItems.slice(0, PREV_WATCHED_CACHE_SIZE),
-    [allPrevItems],
+    () => safePrevItems.slice(-PREV_WATCHED_CACHE_SIZE),
+    [safePrevItems],
   );
   const volatilePrevWatched = useMemo(
-    () => allPrevItems.slice(PREV_WATCHED_CACHE_SIZE),
-    [allPrevItems],
+    () => safePrevItems.length > PREV_WATCHED_CACHE_SIZE
+      ? safePrevItems.slice(0, safePrevItems.length - PREV_WATCHED_CACHE_SIZE)
+      : [],
+    [safePrevItems],
   );
 
-  // Display: oldest first → latest at bottom (volatile older items above cached recent items)
+  // Already ascending — volatile (older) then cached (newer), newest at bottom
   const prevWatchedItems = useMemo(
-    () => [...volatilePrevWatched.slice().reverse(), ...cachedPrevWatched.slice().reverse()],
+    () => [...volatilePrevWatched, ...cachedPrevWatched],
     [volatilePrevWatched, cachedPrevWatched],
   );
 
@@ -385,26 +430,22 @@ export function useWatchlistData(userId: string | undefined) {
       for (const item of prevWatchedItems) {
         if (item.kind === MediaType.MOVIE) {
           const show = showMap.get(item.movie.tmdbId);
-          if (show) {
-            result.push({
-              type: "watchedMovie",
-              movie: item.movie,
-              showTitle: show.title,
-              posterPath: show.posterPath,
-              tmdbId: show.tmdbId,
-            });
-          }
+          result.push({
+            type: "watchedMovie",
+            movie: item.movie,
+            showTitle: show?.title ?? (item.movie as any).title ?? "",
+            posterPath: show?.posterPath ?? (item.movie as any).posterPath ?? null,
+            tmdbId: item.movie.tmdbId,
+          });
         } else {
           const show = showMap.get(item.ep.tmdbShowId);
-          if (show) {
-            result.push({
-              type: "watchedEpisode",
-              episode: item.ep,
-              showTitle: show.title,
-              posterPath: show.posterPath,
-              tmdbId: show.tmdbId,
-            });
-          }
+          result.push({
+            type: "watchedEpisode",
+            episode: item.ep,
+            showTitle: show?.title ?? "",
+            posterPath: show?.posterPath ?? null,
+            tmdbId: item.ep.tmdbShowId,
+          });
         }
       }
     }
@@ -452,6 +493,7 @@ export function useWatchlistData(userId: string | undefined) {
     ).catch(() => {});
     if (cachedList) setCachedList(null);
   }, [userId, allLoading, liveList]);
+
 
   // --- Effective display: cached until live data ready ---
   const rawDisplayList =
@@ -589,10 +631,18 @@ export function useWatchlistData(userId: string | undefined) {
             return next;
           });
         }
-        // Refresh in background — don't block UI
-        queryClient.invalidateQueries({
-          queryKey: [QueryKey.WATCHED_MOVIES, userId],
-        });
+        // Post-success: insert into query cache directly (no refetch)
+        const movieNow = Timestamp.now();
+        insertWatchedMovieCache(queryClient, userId, {
+          id: `${item.tmdbId}_watched`,
+          tmdbId: item.tmdbId,
+          watchedAt: movieNow,
+          lastWatchedAt: movieNow,
+          runtime: card.nextEpisodeRuntime ?? 0,
+          watchCount: 1,
+          title: item.title,
+          posterPath: item.posterPath,
+        } as any);
         return;
       }
 
@@ -657,8 +707,18 @@ export function useWatchlistData(userId: string | undefined) {
 
         // Spinner cleared by useEffect when listener confirms nextEpisode changed
 
-        queryClient.invalidateQueries({
-          queryKey: [QueryKey.WATCHED_EPISODES, userId],
+        // Post-success: insert into query cache directly (no refetch)
+        const epNow = Timestamp.now();
+        insertWatchedEpisodeCache(queryClient, userId, {
+          id: `${item.tmdbId}_S${String(currentEp.season).padStart(2, "0")}E${String(currentEp.episode).padStart(2, "0")}`,
+          tmdbShowId: item.tmdbId,
+          season: currentEp.season,
+          episode: currentEp.episode,
+          episodeTitle: epTitle,
+          runtime: epRuntime,
+          lastWatchedAt: epNow,
+          watchedAt: epNow,
+          watchCount: 1,
         });
       } catch (err: any) {
         rollbackUpcoming(upcomingSnapshot);
@@ -716,15 +776,23 @@ export function useWatchlistData(userId: string | undefined) {
     [userId, removeItem, removeShowFromUpcoming],
   );
 
+  // Pull-to-refresh: load next page of both, catch-up effect handles the rest
+  const hasMorePrevWatched = hasMoreEps || hasMoreMovies;
+  const loadingMorePrevWatched = loadingMoreEps || loadingMoreMovies;
+  const loadMorePrevWatched = useCallback(() => {
+    if (hasMoreEps) loadMoreEps();
+    if (hasMoreMovies) loadMoreMovies();
+  }, [hasMoreEps, loadMoreEps, hasMoreMovies, loadMoreMovies]);
+
   return {
     removeItem,
     listData,
     loading: effectiveLoading,
     loadMoreTracking,
     loadingMoreTracking,
-    loadMoreEps,
-    loadingMoreEps,
-    hasMoreEps,
+    loadMorePrevWatched,
+    loadingMorePrevWatched,
+    hasMorePrevWatched,
     prevWatchedOffset,
     watchedCountByShow,
     updatingShows,

@@ -225,26 +225,25 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 let _lastSnapshot: UpcomingEpisode[] | null = null;
 
 export function useUpcomingMutations() {
-  /** Add an item to upcoming locally (TV eps added server-side by CF, movies added here) */
+  /** Add items to upcoming cache locally. Accepts single item or array. */
   const addShowToUpcoming = useCallback(
-    (tmdbId: number, item?: UpcomingEpisode) => {
-      if (item) {
-        // Add directly to local state + cache (e.g. unreleased movie)
-        mutateCachedEpisodes((prev) => {
-          if (
-            prev.some(
-              (ep) => ep.tmdbShowId === tmdbId && ep.airDate === item.airDate,
-            )
-          )
-            return prev;
-          return [...prev, item].sort((a, b) =>
-            a.airDate.localeCompare(b.airDate),
-          );
-        });
-      } else {
-        // TV show — CF populates subcollection, need refetch to pick it up
-        triggerInvalidate();
-      }
+    (tmdbId: number, items?: UpcomingEpisode | UpcomingEpisode[]) => {
+      if (!items) return;
+      const toAdd = Array.isArray(items) ? items : [items];
+      if (toAdd.length === 0) return;
+      mutateCachedEpisodes((prev) => {
+        const existing = new Set(
+          prev.map((ep) => `${ep.tmdbShowId}_${ep.season}_${ep.episode}`),
+        );
+        const newItems = toAdd.filter(
+          (item) =>
+            !existing.has(`${item.tmdbShowId}_${item.season}_${item.episode}`),
+        );
+        if (newItems.length === 0) return prev;
+        return [...prev, ...newItems].sort((a, b) =>
+          a.airDate.localeCompare(b.airDate),
+        );
+      });
     },
     [],
   );

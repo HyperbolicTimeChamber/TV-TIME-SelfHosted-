@@ -78,3 +78,87 @@ export function useWatchedEpisodes(
 
   return { episodes, loading, loadMore, loadingMore, hasMore: !!hasNextPage };
 }
+
+/** Insert a watched episode into the query cache (no Firestore refetch). */
+export function insertWatchedEpisodeCache(
+  queryClient: { setQueryData: (key: any, updater: any) => void },
+  userId: string,
+  ep: WatchedEpisode,
+) {
+  queryClient.setQueryData(
+    [QueryKey.WATCHED_EPISODES, userId, undefined],
+    (old: any) => {
+      if (!old?.pages) return old;
+      const firstPage = old.pages[0];
+      return {
+        ...old,
+        pages: [
+          { ...firstPage, episodes: [ep, ...firstPage.episodes] },
+          ...old.pages.slice(1),
+        ],
+      };
+    },
+  );
+}
+
+/** Remove or decrement a watched episode in the query cache. */
+export function removeWatchedEpisodeCache(
+  queryClient: { setQueryData: (key: any, updater: any) => void },
+  userId: string,
+  tmdbShowId: number,
+  season: number,
+  episode: number,
+  decrement?: boolean,
+) {
+  queryClient.setQueryData(
+    [QueryKey.WATCHED_EPISODES, userId, undefined],
+    (old: any) => {
+      if (!old?.pages) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page: any) => ({
+          ...page,
+          episodes: decrement
+            ? page.episodes.map((ep: WatchedEpisode) =>
+                ep.tmdbShowId === tmdbShowId &&
+                ep.season === season &&
+                ep.episode === episode
+                  ? { ...ep, watchCount: (ep.watchCount || 1) - 1 }
+                  : ep,
+              )
+            : page.episodes.filter(
+                (ep: WatchedEpisode) =>
+                  !(
+                    ep.tmdbShowId === tmdbShowId &&
+                    ep.season === season &&
+                    ep.episode === episode
+                  ),
+              ),
+        })),
+      };
+    },
+  );
+  // Also update show-specific query if cached
+  queryClient.setQueryData(
+    [QueryKey.WATCHED_EPISODES, userId, tmdbShowId],
+    (old: any) => {
+      if (!old?.pages) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page: any) => ({
+          ...page,
+          episodes: decrement
+            ? page.episodes.map((ep: WatchedEpisode) =>
+                ep.season === season && ep.episode === episode
+                  ? { ...ep, watchCount: (ep.watchCount || 1) - 1 }
+                  : ep,
+              )
+            : page.episodes.filter(
+                (ep: WatchedEpisode) =>
+                  !(ep.season === season && ep.episode === episode),
+              ),
+        })),
+      };
+    },
+  );
+}

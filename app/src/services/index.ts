@@ -15,6 +15,7 @@ export {
   resumeWatching,
   resumeRewatch,
   markMovieWatched,
+  addAndMarkMovieWatched,
   markSeasonWatchedCF,
   addToWatchlist,
   removeFromWatchlist,

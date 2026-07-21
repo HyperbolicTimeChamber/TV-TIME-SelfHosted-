@@ -15,7 +15,7 @@ export const syncCatalog = onSchedule(
   {
     schedule: "0 3 * * 0", // Every Sunday 3:00 AM UTC
     maxInstances: 1,
-    timeoutSeconds: 1800,
+    timeoutSeconds: 540,
     memory: "512MiB",
     retryCount: 1,
   },
@@ -393,9 +393,9 @@ async function cleanOrphanedEpisodes(
 
     const seasonMap = maxEpByShowSeason.get(showDocKey)!;
     const maxEp = seasonMap.get(season);
-    if (maxEp === undefined) continue; // season not in catalog, leave alone
 
-    if (episode > maxEp) {
+    // Orphan if: season no longer exists in catalog, OR episode number exceeds catalog count
+    if (maxEp === undefined || episode > maxEp) {
       orphans.push(wd.ref);
       orphanRuntime += data.runtime || 0;
     }

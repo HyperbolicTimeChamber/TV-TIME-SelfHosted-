@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase-admin/app";
 
-initializeApp();
+initializeApp(); // Node 22 runtime
 
 export { addShow } from "./addShow";
 export { removeShow } from "./removeShow";

@@ -27,18 +27,20 @@ import {
   removeShowFromCalendarGlobal,
   addMovieToCalendarGlobal,
 } from "../hooks";
-import { getFirestore, doc, updateDoc } from "@react-native-firebase/firestore";
+import { getFirestore, doc, updateDoc, Timestamp } from "@react-native-firebase/firestore";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../stores";
 import {
   addToTracking,
   removeFromTracking,
   markMovieWatched,
+  addAndMarkMovieWatched,
   getHighestWatchedEpisode,
 } from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { showDocId } from "../utils/docId";
 import { warmupSearchCFs } from "../services/warmup";
-import { TMDBShow, SearchStackParamList, MediaType, Route } from "../types";
+import { TMDBShow, SearchStackParamList, MediaType, Route, QueryKey, WatchedMovie } from "../types";
 
 type NavProp = NativeStackNavigationProp<
   SearchStackParamList,
@@ -98,6 +100,7 @@ export default function SearchScreen() {
     return unsub;
   }, [navigation, resetSearch]);
   const user = useAuthStore((s) => s.user);
+  const queryClient = useQueryClient();
   const trackedIds = useTrackedIds(user?.uid);
 
   const [addingIds, setAddingIds] = useState<Set<number>>(new Set());
@@ -263,13 +266,38 @@ export default function SearchScreen() {
     const item = movieModal;
     setMovieModal(null);
     await withLoadingId(item.id, async () => {
-      await addToTracking(user.uid!, item.id, MediaType.MOVIE, undefined, {
+      await addAndMarkMovieWatched(user.uid!, item.id, (item as any).runtime ?? 0, {
         title: item.title || item.name || "",
         posterPath: item.poster_path || null,
       });
-      await markMovieWatched(user.uid!, item.id, (item as any).runtime ?? 0);
+      // Update query cache directly — no refetch
+      const now = Timestamp.now();
+      queryClient.setQueryData<any>(
+        [QueryKey.WATCHED_MOVIES, user.uid!],
+        (old: any) => {
+          if (!old?.pages) return old;
+          const newMovie = {
+            id: `${item.id}_watched`,
+            tmdbId: item.id,
+            watchedAt: now,
+            lastWatchedAt: now,
+            runtime: (item as any).runtime ?? 0,
+            watchCount: 1,
+            title: item.title || item.name || "",
+            posterPath: item.poster_path || null,
+          } as WatchedMovie;
+          const firstPage = old.pages[0];
+          return {
+            ...old,
+            pages: [
+              { ...firstPage, movies: [newMovie, ...firstPage.movies] },
+              ...old.pages.slice(1),
+            ],
+          };
+        },
+      );
     });
-  }, [user?.uid, movieModal, withLoadingId]);
+  }, [user?.uid, movieModal, withLoadingId, queryClient]);
 
   const handleResumeFromWhere = useCallback(async () => {
     if (!user?.uid || !resumeModal) return;
