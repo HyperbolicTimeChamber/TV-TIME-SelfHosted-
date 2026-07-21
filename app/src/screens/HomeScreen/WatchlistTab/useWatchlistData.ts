@@ -338,7 +338,7 @@ export function useWatchlistData(userId: string | undefined) {
   // --- Build the display list with all fields baked in ---
   const today = todayStr();
 
-  const PREV_WATCHED_CACHE_SIZE = 5;
+  const PREV_WATCHED_CACHE_SIZE = 10;
 
   // All watched items sorted descending (most recent first)
   type PrevItem =
@@ -401,18 +401,26 @@ export function useWatchlistData(userId: string | undefined) {
       .sort((a, b) => a.time - b.time); // ascending: oldest first, newest last
   }, [watchedEps, watchedMovies, showMap, hasMoreEps, hasMoreMovies]);
 
-  // Cached tier: 5 most recent (persisted). Volatile tier: older pulled items (clears on restart).
-  // safePrevItems is ascending → last 5 = newest (cached), everything before = volatile (older)
+  // Cached tier: 10 most recent (persisted). Volatile tier: older pulled items (clears on restart).
+  // safePrevItems is ascending → last N = newest (cached), everything before = volatile (older)
+  // Volatile is capped so marking eps outside watchlist tab doesn't grow the list unbounded.
+  // Cap grows by 20 each pull-to-refresh.
+  const VOLATILE_PAGE = 10;
+  const [volatileCap, setVolatileCap] = useState(VOLATILE_PAGE);
+  const MAX_VOLATILE = volatileCap;
   const cachedPrevWatched = useMemo(
     () => safePrevItems.slice(-PREV_WATCHED_CACHE_SIZE),
     [safePrevItems],
   );
-  const volatilePrevWatched = useMemo(
-    () => safePrevItems.length > PREV_WATCHED_CACHE_SIZE
-      ? safePrevItems.slice(0, safePrevItems.length - PREV_WATCHED_CACHE_SIZE)
-      : [],
-    [safePrevItems],
-  );
+  const volatilePrevWatched = useMemo(() => {
+    if (safePrevItems.length <= PREV_WATCHED_CACHE_SIZE) return [];
+    const all = safePrevItems.slice(
+      0,
+      safePrevItems.length - PREV_WATCHED_CACHE_SIZE,
+    );
+    // Keep only the most recent MAX_VOLATILE volatile items (tail = newest)
+    return all.length > MAX_VOLATILE ? all.slice(-MAX_VOLATILE) : all;
+  }, [safePrevItems]);
 
   // Already ascending — volatile (older) then cached (newer), newest at bottom
   const prevWatchedItems = useMemo(
@@ -434,7 +442,8 @@ export function useWatchlistData(userId: string | undefined) {
             type: "watchedMovie",
             movie: item.movie,
             showTitle: show?.title ?? (item.movie as any).title ?? "",
-            posterPath: show?.posterPath ?? (item.movie as any).posterPath ?? null,
+            posterPath:
+              show?.posterPath ?? (item.movie as any).posterPath ?? null,
             tmdbId: item.movie.tmdbId,
           });
         } else {
@@ -462,14 +471,12 @@ export function useWatchlistData(userId: string | undefined) {
   useEffect(() => {
     if (!userId || allLoading || liveList.length === 0) return;
 
-    // Build cache-only list: 5 most recent watched + up to 100 show cards
+    // Build cache list: 5 most recent watched + up to 100 show cards
     const cacheList: CacheableListItem[] = [];
     // Add only cached prev watched items (5 most recent)
     const cachedWatchedItems = liveList.filter(
       (i) => i.type === "watchedEpisode" || i.type === "watchedMovie",
     );
-    // volatile items are beyond the first PREV_WATCHED_CACHE_SIZE when sorted newest-last
-    // liveList has them oldest-first, so the LAST 5 are the cached ones
     const cachedOnly = cachedWatchedItems.slice(-PREV_WATCHED_CACHE_SIZE);
     if (cachedOnly.length > 0) {
       cacheList.push({ type: "sectionHeader", title: "Previously Watched" });
@@ -494,10 +501,15 @@ export function useWatchlistData(userId: string | undefined) {
     if (cachedList) setCachedList(null);
   }, [userId, allLoading, liveList]);
 
+  // --- Effective display: blend cached shows + live previously watched ---
+  const rawDisplayList = useMemo(() => {
+    if (!cachedList) return liveList;
+    if (liveList.length === 0) return cachedList;
 
-  // --- Effective display: cached until live data ready ---
-  const rawDisplayList =
-    cachedList && liveList.length === 0 ? cachedList : liveList;
+    // Live ready — merge: use live Previously Watched + prefer live show cards
+    // but keep cached shows as fallback if live has fewer (pagination not loaded yet)
+    return liveList;
+  }, [cachedList, liveList]);
   const effectiveLoading = reordering || (allLoading && !cachedList);
 
   // Apply optimistic card patches
@@ -780,9 +792,12 @@ export function useWatchlistData(userId: string | undefined) {
   const hasMorePrevWatched = hasMoreEps || hasMoreMovies;
   const loadingMorePrevWatched = loadingMoreEps || loadingMoreMovies;
   const loadMorePrevWatched = useCallback(() => {
+    if (volatilePrevWatched.length >= volatileCap) {
+      setVolatileCap((c) => c + VOLATILE_PAGE);
+    }
     if (hasMoreEps) loadMoreEps();
     if (hasMoreMovies) loadMoreMovies();
-  }, [hasMoreEps, loadMoreEps, hasMoreMovies, loadMoreMovies]);
+  }, [hasMoreEps, loadMoreEps, hasMoreMovies, loadMoreMovies, volatilePrevWatched.length, volatileCap]);
 
   return {
     removeItem,

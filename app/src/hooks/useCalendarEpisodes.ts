@@ -1,18 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getFirestore,
-  collection,
   doc,
   getDoc,
-  getDocs,
-  query,
-  where,
 } from "@react-native-firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { discoverTVByAirDate, discoverMoviesByReleaseDate } from "../services";
 import { useAuthStore } from "../stores";
-import { UpcomingEpisode, CatalogShow, MediaType } from "../types";
-import { showDocId } from "../utils/docId";
+import { UpcomingEpisode, CatalogShow, MediaType, QueryKey } from "../types";
+import { getCachedCatalogShow } from "./useWatchlist";
+import { useQueryClient } from "@tanstack/react-query";
 
 const CALENDAR_CACHE_KEY = "calendar_months";
 const MAX_CACHED_MONTHS = 12;
@@ -71,34 +68,42 @@ export function useCalendarEpisodes(userId: string | undefined) {
   const calendarCacheRef = useRef<CalendarCache>({ months: {} });
   const cacheLoaded = useRef(false);
   const apiKey = useAuthStore((s) => s.appTmdbApiKey);
+  const queryClient = useQueryClient();
 
-  // Load persisted cache + tracked IDs on mount
+  // Load persisted cache + derive tracked IDs from React Query cache (no Firestore reads)
   useEffect(() => {
     if (!userId) return;
-    const db = getFirestore();
-    const trackingCol = collection(doc(db, "users", userId), "tracking");
 
-    // Load all in parallel: cache, config sync date, tracked IDs
+    // Load calendar cache + config sync date in parallel
+    // Config read is 1 doc — needed for cache invalidation
+    const db = getFirestore();
     Promise.all([
       loadCalendarCache(),
       getDoc(doc(db, "config", "app")).catch(() => null),
-      getDocs(query(trackingCol, where("mediaType", "==", MediaType.TV))),
-      getDocs(query(trackingCol, where("mediaType", "==", MediaType.MOVIE))),
-    ]).then(([cache, configSnap, tvSnap, movieSnap]) => {
-      // Tracked IDs — strip prefix to match TMDB numeric IDs
-      trackedIds.current = new Set(
-        tvSnap.docs.map((d) => d.id.replace(/^(tv|movie)_/, "")),
-      );
-      trackedMovieIds.current = new Set(
-        movieSnap.docs.map((d) => d.id.replace(/^(tv|movie)_/, "")),
-      );
+    ]).then(([cache, configSnap]) => {
+      // Derive tracked IDs from TRACKED_IDS query cache (set by useTrackedIds — no Firestore read)
+      const allTracked =
+        queryClient.getQueryData<Set<number>>([QueryKey.TRACKED_IDS, userId]) ??
+        new Set<number>();
+      // Split TV vs movie using shared catalog cache
+      const tvIds = new Set<string>();
+      const movieIds = new Set<string>();
+      for (const id of allTracked) {
+        const movieCatalog = getCachedCatalogShow(id, MediaType.MOVIE);
+        if (movieCatalog) {
+          movieIds.add(String(id));
+        } else {
+          tvIds.add(String(id));
+        }
+      }
+      trackedIds.current = tvIds;
+      trackedMovieIds.current = movieIds;
 
       // Check sync date — invalidate cache if backend synced since
       const serverSync = configSnap?.data?.()?.lastCatalogSync;
       const serverSyncStr = serverSync?.toDate?.()?.toISOString?.() || null;
 
       if (serverSyncStr && cache.syncDate && serverSyncStr !== cache.syncDate) {
-        // Backend synced — clear cached months
         cache.months = {};
         cache.syncDate = serverSyncStr;
         saveCalendarCache(cache);
@@ -145,7 +150,6 @@ export function useCalendarEpisodes(userId: string | undefined) {
         const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
         const lastDay = new Date(year, month, 0).getDate();
         const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-        const db = getFirestore();
 
         // Run TV + movie discover in parallel
         const [airingIds, movieResults] = await Promise.all([
@@ -155,19 +159,13 @@ export function useCalendarEpisodes(userId: string | undefined) {
             : Promise.resolve([]),
         ]);
 
-        // TV: intersect discover results with tracked IDs → read catalog docs in parallel
+        // TV: intersect discover results with tracked IDs → use shared catalog cache (no Firestore reads)
         const matchedIds = airingIds.filter((id) =>
           trackedIds.current!.has(String(id)),
         );
         const episodes: UpcomingEpisode[] = [];
-        const catalogDocs = await Promise.all(
-          matchedIds.map((id) =>
-            getDoc(doc(db, "shows", showDocId(id, MediaType.TV)))
-              .then((d) =>
-                d.exists?.() ? (d.data() as any as CatalogShow) : null,
-              )
-              .catch(() => null),
-          ),
+        const catalogDocs: (CatalogShow | null)[] = matchedIds.map(
+          (id) => getCachedCatalogShow(id, MediaType.TV),
         );
 
         for (const catalog of catalogDocs) {

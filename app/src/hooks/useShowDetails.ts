@@ -2,7 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { getShowDetails, getCatalogShow } from "../services";
 import { getCachedCatalogShow } from "./useWatchlist";
 import { useAuthStore } from "../stores";
-import { TMDBShow, TMDBEpisode, CatalogShow, QueryKey, MediaType } from "../types";
+import {
+  TMDBShow,
+  TMDBEpisode,
+  CatalogShow,
+  QueryKey,
+  MediaType,
+} from "../types";
 
 export interface ShowDetailsResult {
   show: TMDBShow;
@@ -57,22 +63,19 @@ function catalogShowToResult(catalog: CatalogShow): ShowDetailsResult {
   return { show, episodesBySeason };
 }
 
-export function useShowDetails(tmdbId: number, mediaType: MediaType = MediaType.TV) {
+export function useShowDetails(
+  tmdbId: number,
+  mediaType: MediaType = MediaType.TV,
+) {
   const result = useQuery({
     queryKey: [QueryKey.SHOW, tmdbId, mediaType],
     queryFn: async (): Promise<ShowDetailsResult> => {
       // Try in-memory cache first (instant, no Firestore read)
-      const cached = getCachedCatalogShow(
-        tmdbId,
-        mediaType,
-      );
+      const cached = getCachedCatalogShow(tmdbId, mediaType);
       if (cached) return catalogShowToResult(cached);
 
       // Fallback to Firestore catalog doc
-      const catalogShow = await getCatalogShow(
-        tmdbId,
-        mediaType,
-      );
+      const catalogShow = await getCatalogShow(tmdbId, mediaType);
       if (catalogShow) return catalogShowToResult(catalogShow);
 
       // Fallback to TMDB

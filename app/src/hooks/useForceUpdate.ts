@@ -3,7 +3,6 @@ import { Alert, Platform } from "react-native";
 import SpInAppUpdates, { IAUUpdateKind } from "sp-react-native-in-app-updates";
 import { useAuthStore } from "../stores";
 
- 
 const { expo } = require("../../app.json");
 const appVersion: string = expo.version;
 

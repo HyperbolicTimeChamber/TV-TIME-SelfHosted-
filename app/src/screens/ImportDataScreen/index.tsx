@@ -18,11 +18,13 @@ import {
   parseGdprZip,
   matchShowsAndMovies,
   searchTMDBPage,
+  validateEpisodesAgainstCatalog,
   ParsedGdprData,
   ParsedShow,
   TMDBMatch,
   AmbiguousMatch,
 } from "../../services/tvtimeImport";
+import { getCachedCatalogShow } from "../../hooks/useWatchlist";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WatchStatus, MediaType, CacheKey, CloudFunction } from "../../types";
@@ -104,6 +106,11 @@ export default function ImportDataScreen({ navigation }: any) {
       });
       if (result.canceled || !result.assets?.[0]) return;
 
+      // Request notification permission upfront (needed for import completion notification)
+      try {
+        await requestPermission(getMessaging());
+      } catch {}
+
       setPhase("matching");
       setStatusText("Extracting data...");
 
@@ -122,7 +129,7 @@ export default function ImportDataScreen({ navigation }: any) {
         existingIdsRef.current = ids;
       }
 
-      setStatusText("Matching with TMDB...");
+      setStatusText("Importing from TV Time...");
       const matchResult = await matchShowsAndMovies(
         tmdbApiKey!,
         parsed.shows,
@@ -282,11 +289,24 @@ export default function ImportDataScreen({ navigation }: any) {
                 )
               : [];
 
+          const rawEps = [...showEps, ...rewatchEps].map((e) => ({
+            season: e.season,
+            episode: e.episode,
+            episodeName: e.episodeName,
+            watchedAt: e.watchedAt,
+          }));
+
+          // Validate episodes against local catalog — remap orphans by name, drop unmatched
+          const catalog = getCachedCatalogShow(m.tmdbId, MediaType.TV);
+          const validatedEps = catalog?.seasons?.length
+            ? validateEpisodesAgainstCatalog(rawEps, catalog)
+            : rawEps;
+
           return {
             tmdbId: m.tmdbId,
             mediaType: m.mediaType,
             status: show ? deriveStatus(show) : WatchStatus.WATCHING,
-            watchedEpisodes: [...showEps, ...rewatchEps].map((e) => ({
+            watchedEpisodes: validatedEps.map((e) => ({
               season: e.season,
               episode: e.episode,
               watchedAt: e.watchedAt,
@@ -305,13 +325,6 @@ export default function ImportDataScreen({ navigation }: any) {
           };
         }
       });
-
-      // Request notification permission before CF handoff
-      try {
-        await requestPermission(getMessaging());
-      } catch {
-        // User denied — import still works, just no notification
-      }
 
       await AsyncStorage.setItem(
         CacheKey.IMPORT_IN_PROGRESS,
@@ -360,45 +373,9 @@ export default function ImportDataScreen({ navigation }: any) {
   }
 
   if (phase === "importing") {
-    const handleCheckStatus = async () => {
-      if (!user?.uid) return;
-      const db = getFirestore();
-      const trackingCol = collection(doc(db, "users", user.uid), "tracking");
-      const snap = await getDocs(trackingCol);
-      if (snap.size > 0) {
-        await AsyncStorage.removeItem(CacheKey.IMPORT_IN_PROGRESS);
-        useAuthStore.setState({ hasCompletedImport: true });
-      } else {
-        // Check if it's been too long (30 min)
-        const raw = await AsyncStorage.getItem(CacheKey.IMPORT_IN_PROGRESS);
-        if (raw) {
-          const data = JSON.parse(raw);
-          const elapsed = Date.now() - (data.startedAt || 0);
-          if (elapsed > 30 * 60 * 1000) {
-            Alert.alert(
-              "Import May Have Failed",
-              "The import has been running for over 30 minutes. Would you like to retry?",
-              [
-                { text: "Keep Waiting", style: "cancel" },
-                {
-                  text: "Retry",
-                  onPress: async () => {
-                    await AsyncStorage.removeItem(CacheKey.IMPORT_IN_PROGRESS);
-                    setPhase("pick");
-                  },
-                },
-              ],
-            );
-          } else {
-            Alert.alert("Still Importing", "Please wait a bit longer.");
-          }
-        }
-      }
-    };
-
     return (
       <View style={[styles.centered, { paddingTop: insetTop }]}>
-        <Text style={styles.title}>Importing Your Data</Text>
+        <Text style={styles.title}>Importing from TV Time</Text>
         <View style={{ marginTop: spacing.md }}>
           <LoadingSpinner />
         </View>
@@ -407,22 +384,8 @@ export default function ImportDataScreen({ navigation }: any) {
           You can leave the app now.
         </Text>
         <Text style={[styles.desc, { marginTop: spacing.sm }]}>
-          You'll be notified once the sync is complete.
+          You'll be notified once the import is complete.
         </Text>
-        <TouchableOpacity
-          style={{
-            marginTop: spacing.xl,
-            backgroundColor: "#333",
-            paddingHorizontal: spacing.xl,
-            paddingVertical: spacing.md,
-            borderRadius: 8,
-          }}
-          onPress={handleCheckStatus}
-        >
-          <Text style={[styles.desc, { marginTop: 0, color: "#fff" }]}>
-            Check Status
-          </Text>
-        </TouchableOpacity>
       </View>
     );
   }
@@ -456,6 +419,14 @@ export default function ImportDataScreen({ navigation }: any) {
         parsed={parsedRef.current}
         onToggle={toggleSelected}
         onImport={handleImport}
+        onBack={() => {
+          if (ambiguous.length > 0) {
+            setDisambigIndex(ambiguous.length - 1);
+            setPhase("disambiguate");
+          } else {
+            setPhase("pick");
+          }
+        }}
       />
     );
   }

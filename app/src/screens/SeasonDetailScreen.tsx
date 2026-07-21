@@ -3,7 +3,12 @@ import { View, Text, StyleSheet } from "react-native";
 import { LoadingSpinner, ConfirmModal, CheckmarkButton } from "../components";
 import { LegendList } from "@legendapp/list/react-native";
 import { useRoute, RouteProp } from "@react-navigation/native";
-import { useSeasonDetails, useWatchedEpisodes, useWatchlist, insertWatchedEpisodeCache } from "../hooks";
+import {
+  useSeasonDetails,
+  useWatchedEpisodes,
+  useWatchlist,
+  insertWatchedEpisodeCache,
+} from "../hooks";
 import { useAuthStore } from "../stores";
 import { useQueryClient } from "@tanstack/react-query";
 import { Timestamp } from "@react-native-firebase/firestore";

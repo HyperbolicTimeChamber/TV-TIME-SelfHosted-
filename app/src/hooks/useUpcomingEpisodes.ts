@@ -11,7 +11,7 @@ import {
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { UpcomingEpisode, CacheKey, CloudFunction, MediaType } from "../types";
-import { getCatalogShow } from "../services";
+import { getCachedCatalogShow } from "./useWatchlist";
 
 type MutateCallback = (
   fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[],
@@ -175,15 +175,10 @@ export function useUpcomingEpisodes(userId: string | undefined) {
         for (const d of movieSnap.docs) {
           const data = d.data() as any;
           if (data.mediaType !== "movie") continue; // skip TV shows that somehow have releaseDate
-          let title = `Movie #${data.tmdbId}`;
-          let posterPath: string | null = null;
-          try {
-            const catalog = await getCatalogShow(data.tmdbId, MediaType.MOVIE);
-            if (catalog) {
-              title = catalog.title;
-              posterPath = catalog.posterPath ?? null;
-            }
-          } catch {}
+          // Use shared catalog cache — no Firestore read
+          const catalog = getCachedCatalogShow(data.tmdbId, MediaType.MOVIE);
+          const title = catalog?.title ?? `Movie #${data.tmdbId}`;
+          const posterPath = catalog?.posterPath ?? null;
           movieEps.push({
             tmdbShowId: data.tmdbId,
             showTitle: title,

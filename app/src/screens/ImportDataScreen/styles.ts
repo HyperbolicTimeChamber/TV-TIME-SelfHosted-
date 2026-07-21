@@ -225,6 +225,16 @@ export const importStyles = StyleSheet.create({
     borderTopColor: colors.border,
     backgroundColor: colors.background,
   },
+  backButton: {
+    paddingVertical: spacing.md,
+    alignItems: "center",
+    marginBottom: spacing.sm,
+  },
+  backButtonText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    fontWeight: "600",
+  },
   statLine: {
     ...typography.body,
     marginBottom: spacing.sm,

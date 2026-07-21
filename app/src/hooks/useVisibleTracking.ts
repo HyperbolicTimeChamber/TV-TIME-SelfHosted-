@@ -26,17 +26,21 @@ export function isShowVisible(item: EnrichedTrackingItem): boolean {
 
   const today = new Date().toISOString().split("T")[0];
 
-  // plan_to_watch — visible unless unreleased movie
+  // plan_to_watch — visible unless movie without release date or unreleased
   if (item.status === WatchStatus.PLAN_TO_WATCH) {
-    const rd = item.releaseDate ?? item.catalogShow?.releaseDate;
-    if (item.mediaType === MediaType.MOVIE && rd && rd > today) return false;
+    if (item.mediaType === MediaType.MOVIE) {
+      const rd = item.releaseDate ?? item.catalogShow?.releaseDate;
+      if (!rd) return false; // No release date → hide
+      if (rd > today) return false; // Unreleased → hide
+    }
     return true;
   }
 
-  // Movies — visible only if released (use tracking doc releaseDate first, fallback to catalog)
+  // Movies — visible only if released with a known date
   if (item.mediaType === MediaType.MOVIE) {
     const rd = item.releaseDate ?? item.catalogShow?.releaseDate;
-    if (rd && rd > today) return false;
+    if (!rd) return false; // No release date → hide from watchlist
+    if (rd > today) return false; // Unreleased → hide
     return true;
   }
 

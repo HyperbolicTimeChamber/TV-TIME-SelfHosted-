@@ -20,6 +20,7 @@ export interface ParsedEpisode {
   showName: string;
   season: number;
   episode: number;
+  episodeName: string | null;
   watchedAt: string;
 }
 
@@ -44,6 +45,7 @@ interface V2Row {
   s_id: string;
   season_number: string;
   episode_number: string;
+  episode_name?: string;
   created_at: string;
   series_name: string;
   is_archived: string;
@@ -101,6 +103,7 @@ function parseV2Episodes(rows: V2Row[], prefix: string): ParsedEpisode[] {
       showName: r.series_name,
       season: parseInt(r.season_number, 10),
       episode: parseInt(r.episode_number, 10),
+      episodeName: r.episode_name || null,
       watchedAt: r.created_at,
     }));
 }
@@ -377,6 +380,63 @@ export async function matchShowsAndMovies(
   }
 
   return { matched, ambiguous, unmatched };
+}
+
+// --- Episode validation against catalog ---
+
+interface CatalogSeason {
+  seasonNumber: number;
+  episodes: Array<{
+    episodeNumber: number;
+    title: string;
+  }>;
+}
+
+interface CatalogForValidation {
+  seasons: CatalogSeason[];
+}
+
+/**
+ * Validate and remap episodes against catalog data.
+ * If season/episode exists in catalog → keep as-is.
+ * If not → search by episode name across all seasons.
+ * If name match found → remap to correct season/episode.
+ * If no match → drop the episode.
+ */
+export function validateEpisodesAgainstCatalog(
+  episodes: Array<{ season: number; episode: number; episodeName?: string | null; watchedAt: string }>,
+  catalog: CatalogForValidation,
+): Array<{ season: number; episode: number; watchedAt: string }> {
+  // Build lookup: season → episode set
+  const epLookup = new Map<number, Set<number>>();
+  for (const s of catalog.seasons) {
+    epLookup.set(s.seasonNumber, new Set(s.episodes.map((e) => e.episodeNumber)));
+  }
+
+  return episodes
+    .map((ep) => {
+      // Check if episode exists at given position
+      const seasonEps = epLookup.get(ep.season);
+      if (seasonEps?.has(ep.episode)) {
+        return { season: ep.season, episode: ep.episode, watchedAt: ep.watchedAt };
+      }
+
+      // Episode not found — try name search across all seasons
+      if (ep.episodeName) {
+        const normalizedName = ep.episodeName.toLowerCase().trim();
+        for (const s of catalog.seasons) {
+          for (const e of s.episodes) {
+            if (e.title.toLowerCase().trim() === normalizedName) {
+              return { season: s.seasonNumber, episode: e.episodeNumber, watchedAt: ep.watchedAt };
+            }
+          }
+        }
+      }
+
+      // No match found → drop
+      return null;
+    })
+    .filter((ep): ep is NonNullable<typeof ep> => ep !== null);
 }
 
 // --- Import Stats (returned by importMatches Cloud Function) ---

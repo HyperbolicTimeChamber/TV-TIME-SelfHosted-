@@ -49,7 +49,10 @@ import {
   warmupFirestoreWrite,
 } from "../../../services/warmup";
 import { Timestamp } from "@react-native-firebase/firestore";
-import { insertWatchedEpisodeCache, removeWatchedEpisodeCache } from "../../../hooks";
+import {
+  insertWatchedEpisodeCache,
+  removeWatchedEpisodeCache,
+} from "../../../hooks";
 import { ListItem } from "./types";
 import { useWatchlistData } from "./useWatchlistData";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
@@ -125,11 +128,13 @@ export default function WatchlistTab() {
     setWatchlistLoading(isLoading);
   }, [isLoading, setWatchlistLoading]);
 
-  // Show Previously Watched briefly, then scroll to What's Up Next
-  const hasScrolledRef = useRef(false);
+  // Scroll to "What's Up Next" once on first load — lock offset to prevent jump on live data arrival
+  const initialScrollDone = useRef(false);
+  const lockedOffset = useRef(0);
   useEffect(() => {
-    if (!hasScrolledRef.current && !isLoading && prevWatchedOffset > 0) {
-      hasScrolledRef.current = true;
+    if (!initialScrollDone.current && !isLoading && prevWatchedOffset > 0) {
+      initialScrollDone.current = true;
+      lockedOffset.current = prevWatchedOffset;
       setTimeout(() => {
         listRef.current?.scrollToOffset({
           offset: prevWatchedOffset,
@@ -138,6 +143,23 @@ export default function WatchlistTab() {
       }, 400);
     }
   }, [isLoading, prevWatchedOffset]);
+
+  // Re-scroll on every tab focus (not just first load)
+  useEffect(() => {
+    const parent = navigation.getParent();
+    if (!parent) return;
+    const unsub = parent.addListener("focus", () => {
+      if (prevWatchedOffset > 0) {
+        setTimeout(() => {
+          listRef.current?.scrollToOffset({
+            offset: prevWatchedOffset,
+            animated: true,
+          });
+        }, 100);
+      }
+    });
+    return unsub;
+  }, [navigation, prevWatchedOffset]);
 
   const handleNavigateToShow = useCallback(
     (tmdbId: number, mediaType: MediaType) => {
@@ -359,8 +381,11 @@ export default function WatchlistTab() {
         );
       }
       removeWatchedEpisodeCache(
-        queryClient, user.uid,
-        episode.tmdbShowId, episode.season, episode.episode,
+        queryClient,
+        user.uid,
+        episode.tmdbShowId,
+        episode.season,
+        episode.episode,
         episode.watchCount > 1,
       );
     },
@@ -373,7 +398,10 @@ export default function WatchlistTab() {
 
       try {
         if (action === "rewatch") {
-          const catalog = await getCatalogShow(sheetEpisode.tmdbShowId, MediaType.TV);
+          const catalog = await getCatalogShow(
+            sheetEpisode.tmdbShowId,
+            MediaType.TV,
+          );
           const catalogSeason = catalog?.seasons?.find(
             (s) => s.seasonNumber === sheetEpisode.season,
           );
@@ -448,8 +476,11 @@ export default function WatchlistTab() {
           });
         } else {
           removeWatchedEpisodeCache(
-            queryClient, user.uid,
-            sheetEpisode.tmdbShowId, sheetEpisode.season, sheetEpisode.episode,
+            queryClient,
+            user.uid,
+            sheetEpisode.tmdbShowId,
+            sheetEpisode.season,
+            sheetEpisode.episode,
             action === "watched_once_less",
           );
         }
@@ -535,12 +566,15 @@ export default function WatchlistTab() {
     ],
   );
 
+  const stableOffset = initialScrollDone.current
+    ? lockedOffset.current
+    : prevWatchedOffset;
   const contentStyle = useMemo(
     () => [
       styles.listContent,
-      { minHeight: SCREEN_HEIGHT + prevWatchedOffset },
+      { minHeight: SCREEN_HEIGHT + stableOffset },
     ],
-    [prevWatchedOffset],
+    [stableOffset],
   );
 
   if (isLoading) {
@@ -606,6 +640,7 @@ export default function WatchlistTab() {
           ) : null
         }
         ItemSeparatorComponent={SeparatorComponent}
+        maintainVisibleContentPosition={{ data: true, size: true }}
         style={styles.list}
         contentContainerStyle={contentStyle}
       />

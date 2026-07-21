@@ -192,8 +192,8 @@ export default memo(function SeasonDropdown({
   }, [rawEpisodes, imagesData]);
   // Only count watched episodes that exist in the current season's episode list
   // (filters out orphans from TMDB/TVDB season restructuring)
-  const watchedCount = episodes.filter(
-    (ep: TMDBEpisode) => watchedMap.has(ep.episode_number),
+  const watchedCount = episodes.filter((ep: TMDBEpisode) =>
+    watchedMap.has(ep.episode_number),
   ).length;
   const minWatchCount =
     episodes.length > 0
@@ -463,23 +463,49 @@ export default memo(function SeasonDropdown({
           const ep = sheetTarget.ep;
           const watched = watchedMap.get(ep.episode_number);
           if (action === "not_watched") {
-            removeWatchedEpisodeCache(queryClient, user.uid, tmdbId, season.season_number, ep.episode_number);
+            removeWatchedEpisodeCache(
+              queryClient,
+              user.uid,
+              tmdbId,
+              season.season_number,
+              ep.episode_number,
+            );
           } else if (action === "watched_once_less") {
-            removeWatchedEpisodeCache(queryClient, user.uid, tmdbId, season.season_number, ep.episode_number, true);
+            removeWatchedEpisodeCache(
+              queryClient,
+              user.uid,
+              tmdbId,
+              season.season_number,
+              ep.episode_number,
+              true,
+            );
           }
           // "rewatch" handled by handleMarkWatched → doMarkEpisodeWatched
         } else if (sheetTarget.type === "season") {
           if (action === "not_watched") {
             for (const ep of episodes) {
               if (watchedMap.has(ep.episode_number)) {
-                removeWatchedEpisodeCache(queryClient, user.uid, tmdbId, season.season_number, ep.episode_number);
+                removeWatchedEpisodeCache(
+                  queryClient,
+                  user.uid,
+                  tmdbId,
+                  season.season_number,
+                  ep.episode_number,
+                );
               }
             }
           } else if (action === "watched_once_less") {
             for (const ep of episodes) {
               const w = watchedMap.get(ep.episode_number);
               if (w && w.watchCount > 0) {
-                removeWatchedEpisodeCache(queryClient, user.uid, tmdbId, season.season_number, ep.episode_number, true);
+                removeWatchedEpisodeCache(
+                  queryClient,
+                  user.uid,
+                  tmdbId,
+                  season.season_number,
+                  ep.episode_number,
+                  true,
+                );
               }
             }
           }
@@ -520,36 +546,24 @@ export default memo(function SeasonDropdown({
         new Set(epsToMark.map((e: TMDBEpisode) => e.episode_number)),
       );
       try {
-        for (const ep of epsToMark) {
-          const isLast = ep.episode_number === toEp;
-          const {
-            nextEpisode,
-            nextEpisodeName,
-            nextEpisodeAirDate,
-            isComplete,
-          } = isLast
-            ? await getNextEpisodeInfo(season.season_number, ep.episode_number)
-            : {
-                nextEpisode: null,
-                nextEpisodeName: null,
-                nextEpisodeAirDate: null,
-                isComplete: false,
-              };
+        // Use batch CF instead of sequential individual marks — survives backgrounding
+        const { nextEpisode, nextEpisodeName, nextEpisodeAirDate, isComplete } =
+          await getNextEpisodeInfo(season.season_number, toEp);
 
-          await markEpisodeWatched(
-            user.uid,
-            tmdbId,
-            season.season_number,
-            ep.episode_number,
-            ep.name,
-            ep.runtime || 0,
-            nextEpisode,
-            isComplete,
-            !isLast, // skipTrackingUpdate for all except last
-            nextEpisodeName,
-            nextEpisodeAirDate,
-          );
-        }
+        await markSeasonWatchedCF(
+          tmdbId,
+          season.season_number,
+          epsToMark.map((ep: TMDBEpisode) => ({
+            episodeNumber: ep.episode_number,
+            name: ep.name,
+            runtime: ep.runtime || 0,
+          })),
+          nextEpisode,
+          isComplete,
+          nextEpisodeName,
+          nextEpisodeAirDate,
+        );
+
         const now = Timestamp.now();
         for (const ep of epsToMark) {
           insertWatchedEpisodeCache(queryClient, user.uid, {
@@ -721,7 +735,7 @@ export default memo(function SeasonDropdown({
           <CheckmarkButton
             size={30}
             watched={allWatched}
-            loading={markingSeason}
+            loading={markingSeason || markingEps.size > 0}
             label={
               allWatched
                 ? `x${minWatchCount}`
@@ -807,7 +821,7 @@ export default memo(function SeasonDropdown({
                   <CheckmarkButton
                     size={28}
                     watched={isWatched}
-                    loading={markingEps.has(ep.episode_number)}
+                    loading={markingEps.has(ep.episode_number) || markingSeason}
                     label={isWatched ? `x${count}` : undefined}
                     onPress={() => handleCheckmarkPress(ep)}
                     onLongPress={() => {
