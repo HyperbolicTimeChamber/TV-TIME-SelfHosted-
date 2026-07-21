@@ -41,7 +41,7 @@ import {
 import { emitShowRemoved } from "../utils/watchlistEvents";
 import { showDocId } from "../utils/docId";
 import { colors, spacing, typography, posterSize } from "../theme";
-import { HomeStackParamList, WatchStatus, MediaType } from "../types";
+import { HomeStackParamList, WatchStatus, MediaType, UpcomingEpisode } from "../types";
 
 type RouteParams = RouteProp<HomeStackParamList, "ShowDetail">;
 
@@ -152,20 +152,43 @@ export default function ShowDetailScreen() {
           nextEpisodeAirDate: firstEp?.air_date || null,
         },
       );
+      const title = show.title || show.name || "";
+      const poster = show.poster_path || null;
       if (isUnreleased && releaseDate) {
         addShowToUpcoming(tmdbId, {
           tmdbShowId: tmdbId,
-          showTitle: show.title || show.name || "",
-          posterPath: show.poster_path || null,
+          showTitle: title,
+          posterPath: poster,
           season: 0,
           episode: 0,
-          episodeTitle: show.title || show.name || "",
+          episodeTitle: title,
           airDate: releaseDate,
           runtime: null,
           mediaType: MediaType.MOVIE,
         });
-      } else {
-        addShowToUpcoming(tmdbId);
+      } else if (mediaType === MediaType.TV) {
+        const upcomingEps: UpcomingEpisode[] = [];
+        for (const [seasonNum, eps] of episodesBySeason) {
+          if (seasonNum === 0) continue;
+          for (const ep of eps) {
+            if (ep.air_date && ep.air_date >= today) {
+              upcomingEps.push({
+                tmdbShowId: tmdbId,
+                showTitle: title,
+                posterPath: poster,
+                season: seasonNum,
+                episode: ep.episode_number,
+                episodeTitle: ep.name || "",
+                airDate: ep.air_date,
+                runtime: ep.runtime ?? null,
+                mediaType: MediaType.TV,
+              });
+            }
+          }
+        }
+        if (upcomingEps.length > 0) {
+          addShowToUpcoming(tmdbId, upcomingEps);
+        }
       }
     } catch (err: any) {
       console.error("addToTracking failed:", err);

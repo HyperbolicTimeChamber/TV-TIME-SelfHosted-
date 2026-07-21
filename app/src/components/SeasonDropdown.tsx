@@ -172,7 +172,6 @@ export default memo(function SeasonDropdown({
     }
   }
 
-  const watchedCount = watchedMap.size;
   const rawEpisodes = preloadedEpisodes ?? seasonData?.episodes ?? [];
   // Enrich with TMDB images if available
   const episodes = useMemo(() => {
@@ -188,6 +187,11 @@ export default memo(function SeasonDropdown({
         : ep;
     });
   }, [rawEpisodes, imagesData]);
+  // Only count watched episodes that exist in the current season's episode list
+  // (filters out orphans from TMDB/TVDB season restructuring)
+  const watchedCount = episodes.filter(
+    (ep: TMDBEpisode) => watchedMap.has(ep.episode_number),
+  ).length;
   const minWatchCount =
     episodes.length > 0
       ? Math.min(

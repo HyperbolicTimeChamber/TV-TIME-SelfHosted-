@@ -393,9 +393,9 @@ async function cleanOrphanedEpisodes(
 
     const seasonMap = maxEpByShowSeason.get(showDocKey)!;
     const maxEp = seasonMap.get(season);
-    if (maxEp === undefined) continue; // season not in catalog, leave alone
 
-    if (episode > maxEp) {
+    // Orphan if: season no longer exists in catalog, OR episode number exceeds catalog count
+    if (maxEp === undefined || episode > maxEp) {
       orphans.push(wd.ref);
       orphanRuntime += data.runtime || 0;
     }
