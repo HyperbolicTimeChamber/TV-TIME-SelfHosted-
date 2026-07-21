@@ -1,6 +1,7 @@
 import { useMemo, useEffect, useCallback, useState, useRef } from "react";
 import { Alert } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
+import { Timestamp } from "@react-native-firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   useWatchlist,
@@ -639,10 +640,12 @@ export function useWatchlistData(userId: string | undefined) {
           [QueryKey.WATCHED_MOVIES, userId],
           (old: any) => {
             if (!old?.pages) return old;
+            const now = Timestamp.now();
             const newMovie: WatchedMovie = {
               id: `${item.tmdbId}_watched`,
               tmdbId: item.tmdbId,
-              lastWatchedAt: Timestamp.now(),
+              watchedAt: now,
+              lastWatchedAt: now,
               runtime: card.nextEpisodeRuntime ?? 0,
               watchCount: 1,
             };
