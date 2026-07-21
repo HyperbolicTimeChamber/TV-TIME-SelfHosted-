@@ -588,6 +588,62 @@ export async function markMovieWatched(
   await batch.commit();
 }
 
+/** Add movie to tracking + mark as watched in one batch (1 write round-trip). */
+export async function addAndMarkMovieWatched(
+  userId: string,
+  tmdbId: number,
+  runtime: number,
+  meta?: { title?: string; posterPath?: string | null },
+): Promise<void> {
+  const docId = showDocId(tmdbId, MediaType.MOVIE);
+  const tRef = doc(trackingRef(userId), docId);
+  const movieRef = doc(watchedMoviesRef(userId), String(tmdbId));
+  const now = Timestamp.now();
+
+  const existingDoc = await getDoc(tRef);
+  const alreadyTracked = existingDoc.exists;
+
+  const batch = writeBatch(db);
+  batch.set(tRef, {
+    tmdbId,
+    mediaType: MediaType.MOVIE,
+    status: WatchStatus.COMPLETED,
+    nextEpisode: null,
+    nextEpisodeName: null,
+    nextEpisodeAirDate: null,
+    rewatchCount: 0,
+    addedAt: now,
+    lastWatchedAt: now,
+    priorityDate: now,
+    releaseDate: null,
+    ...(meta?.title ? { title: meta.title } : {}),
+    ...(meta?.posterPath ? { posterPath: meta.posterPath } : {}),
+  });
+  batch.set(
+    movieRef,
+    { tmdbId, lastWatchedAt: now, runtime: runtime || 0, watchCount: increment(1) },
+    { merge: true },
+  );
+  batch.set(
+    userRef(userId),
+    {
+      stats: {
+        ...(!alreadyTracked ? { showsTracking: increment(1) } : {}),
+        moviesWatched: increment(1),
+        totalMinutes: increment(Math.round(runtime / 60)),
+      },
+    },
+    { merge: true },
+  );
+  await batch.commit();
+
+  // Background: ensure catalog exists
+  httpsCallable(
+    getFunctions(),
+    CloudFunction.ADD_SHOW,
+  )({ tmdbId, mediaType: MediaType.MOVIE }).catch(() => {});
+}
+
 // --- Season batch mark (Cloud Function) ---
 
 export async function markSeasonWatchedCF(

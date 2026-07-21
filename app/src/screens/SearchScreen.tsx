@@ -34,6 +34,7 @@ import {
   addToTracking,
   removeFromTracking,
   markMovieWatched,
+  addAndMarkMovieWatched,
   getHighestWatchedEpisode,
 } from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
@@ -265,25 +266,26 @@ export default function SearchScreen() {
     const item = movieModal;
     setMovieModal(null);
     await withLoadingId(item.id, async () => {
-      await addToTracking(user.uid!, item.id, MediaType.MOVIE, undefined, {
+      await addAndMarkMovieWatched(user.uid!, item.id, (item as any).runtime ?? 0, {
         title: item.title || item.name || "",
         posterPath: item.poster_path || null,
       });
-      await markMovieWatched(user.uid!, item.id, (item as any).runtime ?? 0);
       // Update query cache directly — no refetch
       const now = Timestamp.now();
       queryClient.setQueryData<any>(
         [QueryKey.WATCHED_MOVIES, user.uid!],
         (old: any) => {
           if (!old?.pages) return old;
-          const newMovie: WatchedMovie = {
+          const newMovie = {
             id: `${item.id}_watched`,
             tmdbId: item.id,
             watchedAt: now,
             lastWatchedAt: now,
             runtime: (item as any).runtime ?? 0,
             watchCount: 1,
-          };
+            title: item.title || item.name || "",
+            posterPath: item.poster_path || null,
+          } as WatchedMovie;
           const firstPage = old.pages[0];
           return {
             ...old,

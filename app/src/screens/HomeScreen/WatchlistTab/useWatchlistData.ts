@@ -352,7 +352,6 @@ export function useWatchlistData(userId: string | undefined) {
   const safePrevItems = useMemo(() => {
     const epItems: PrevItem[] = [];
     for (const ep of watchedEps) {
-      if (!showMap.has(ep.tmdbShowId)) continue;
       epItems.push({
         kind: MediaType.TV,
         ep,
@@ -361,7 +360,6 @@ export function useWatchlistData(userId: string | undefined) {
     }
     const movieItems: PrevItem[] = [];
     for (const movie of watchedMovies) {
-      if (!showMap.has(movie.tmdbId)) continue;
       movieItems.push({
         kind: MediaType.MOVIE,
         movie,
@@ -432,26 +430,22 @@ export function useWatchlistData(userId: string | undefined) {
       for (const item of prevWatchedItems) {
         if (item.kind === MediaType.MOVIE) {
           const show = showMap.get(item.movie.tmdbId);
-          if (show) {
-            result.push({
-              type: "watchedMovie",
-              movie: item.movie,
-              showTitle: show.title,
-              posterPath: show.posterPath,
-              tmdbId: show.tmdbId,
-            });
-          }
+          result.push({
+            type: "watchedMovie",
+            movie: item.movie,
+            showTitle: show?.title ?? (item.movie as any).title ?? "",
+            posterPath: show?.posterPath ?? (item.movie as any).posterPath ?? null,
+            tmdbId: item.movie.tmdbId,
+          });
         } else {
           const show = showMap.get(item.ep.tmdbShowId);
-          if (show) {
-            result.push({
-              type: "watchedEpisode",
-              episode: item.ep,
-              showTitle: show.title,
-              posterPath: show.posterPath,
-              tmdbId: show.tmdbId,
-            });
-          }
+          result.push({
+            type: "watchedEpisode",
+            episode: item.ep,
+            showTitle: show?.title ?? "",
+            posterPath: show?.posterPath ?? null,
+            tmdbId: item.ep.tmdbShowId,
+          });
         }
       }
     }
@@ -646,7 +640,9 @@ export function useWatchlistData(userId: string | undefined) {
           lastWatchedAt: movieNow,
           runtime: card.nextEpisodeRuntime ?? 0,
           watchCount: 1,
-        });
+          title: item.title,
+          posterPath: item.posterPath,
+        } as any);
         return;
       }
 

@@ -29,6 +29,7 @@ import {
   resumeWatching,
   resumeRewatch,
   markMovieWatched,
+  addAndMarkMovieWatched,
 } from "../services";
 import { warmupShowDetailCFs } from "../services/warmup";
 import {
@@ -241,26 +242,29 @@ export default function ShowDetailScreen() {
     setAdding(true);
     try {
       if (!watchlistItem) {
-        await addToTracking(user.uid, tmdbId, MediaType.MOVIE, undefined, {
+        await addAndMarkMovieWatched(user.uid, tmdbId, show.runtime ?? 0, {
           title: show.title || show.name || "",
           posterPath: show.poster_path || null,
         });
+      } else {
+        await markMovieWatched(user.uid, tmdbId, show.runtime ?? 0);
       }
-      await markMovieWatched(user.uid, tmdbId, show.runtime ?? 0);
       // Update query cache directly — no refetch
       const now = Timestamp.now();
       queryClient.setQueryData<any>(
         [QueryKey.WATCHED_MOVIES, user.uid],
         (old: any) => {
           if (!old?.pages) return old;
-          const newMovie: WatchedMovie = {
+          const newMovie = {
             id: `${tmdbId}_watched`,
             tmdbId,
             watchedAt: now,
             lastWatchedAt: now,
             runtime: show.runtime ?? 0,
             watchCount: 1,
-          };
+            title: show.title || show.name || "",
+            posterPath: show.poster_path || null,
+          } as WatchedMovie;
           const firstPage = old.pages[0];
           return {
             ...old,
