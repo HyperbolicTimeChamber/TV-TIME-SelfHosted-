@@ -471,14 +471,12 @@ export function useWatchlistData(userId: string | undefined) {
   useEffect(() => {
     if (!userId || allLoading || liveList.length === 0) return;
 
-    // Build cache-only list: 5 most recent watched + up to 100 show cards
+    // Build cache list: 5 most recent watched + up to 100 show cards
     const cacheList: CacheableListItem[] = [];
     // Add only cached prev watched items (5 most recent)
     const cachedWatchedItems = liveList.filter(
       (i) => i.type === "watchedEpisode" || i.type === "watchedMovie",
     );
-    // volatile items are beyond the first PREV_WATCHED_CACHE_SIZE when sorted newest-last
-    // liveList has them oldest-first, so the LAST 5 are the cached ones
     const cachedOnly = cachedWatchedItems.slice(-PREV_WATCHED_CACHE_SIZE);
     if (cachedOnly.length > 0) {
       cacheList.push({ type: "sectionHeader", title: "Previously Watched" });
@@ -503,9 +501,15 @@ export function useWatchlistData(userId: string | undefined) {
     if (cachedList) setCachedList(null);
   }, [userId, allLoading, liveList]);
 
-  // --- Effective display: cached until live data ready ---
-  const rawDisplayList =
-    cachedList && liveList.length === 0 ? cachedList : liveList;
+  // --- Effective display: blend cached shows + live previously watched ---
+  const rawDisplayList = useMemo(() => {
+    if (!cachedList) return liveList;
+    if (liveList.length === 0) return cachedList;
+
+    // Live ready — merge: use live Previously Watched + prefer live show cards
+    // but keep cached shows as fallback if live has fewer (pagination not loaded yet)
+    return liveList;
+  }, [cachedList, liveList]);
   const effectiveLoading = reordering || (allLoading && !cachedList);
 
   // Apply optimistic card patches

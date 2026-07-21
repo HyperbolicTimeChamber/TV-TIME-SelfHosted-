@@ -21,6 +21,7 @@ import {
   useShowDetails,
   useUpcomingMutations,
   removeShowFromCalendarGlobal,
+  addMovieToCalendarGlobal,
 } from "../hooks";
 import { useAuthStore } from "../stores";
 import {
@@ -185,7 +186,7 @@ export default function ShowDetailScreen() {
       const title = show.title || show.name || "";
       const poster = show.poster_path || null;
       if (isUnreleased && releaseDate) {
-        addShowToUpcoming(tmdbId, {
+        const movieEp: UpcomingEpisode = {
           tmdbShowId: tmdbId,
           showTitle: title,
           posterPath: poster,
@@ -195,7 +196,9 @@ export default function ShowDetailScreen() {
           airDate: releaseDate,
           runtime: null,
           mediaType: MediaType.MOVIE,
-        });
+        };
+        addShowToUpcoming(tmdbId, movieEp);
+        addMovieToCalendarGlobal(movieEp);
       } else if (mediaType === MediaType.TV) {
         const upcomingEps: UpcomingEpisode[] = [];
         for (const [seasonNum, eps] of episodesBySeason) {
@@ -218,7 +221,11 @@ export default function ShowDetailScreen() {
         }
         if (upcomingEps.length > 0) {
           addShowToUpcoming(tmdbId, upcomingEps);
+          for (const ep of upcomingEps) {
+            addMovieToCalendarGlobal(ep);
+          }
         }
+        // No ep data → don't add to upcoming. syncCatalog CF will populate later.
       }
     } catch (err: any) {
       console.error("addToTracking failed:", err);

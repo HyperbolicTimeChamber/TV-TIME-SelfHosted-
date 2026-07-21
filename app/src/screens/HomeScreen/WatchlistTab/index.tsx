@@ -128,11 +128,13 @@ export default function WatchlistTab() {
     setWatchlistLoading(isLoading);
   }, [isLoading, setWatchlistLoading]);
 
-  // Scroll to "What's Up Next" on every tab visit
+  // Scroll to "What's Up Next" once on first load — lock offset to prevent jump on live data arrival
   const initialScrollDone = useRef(false);
+  const lockedOffset = useRef(0);
   useEffect(() => {
     if (!initialScrollDone.current && !isLoading && prevWatchedOffset > 0) {
       initialScrollDone.current = true;
+      lockedOffset.current = prevWatchedOffset;
       setTimeout(() => {
         listRef.current?.scrollToOffset({
           offset: prevWatchedOffset,
@@ -564,12 +566,15 @@ export default function WatchlistTab() {
     ],
   );
 
+  const stableOffset = initialScrollDone.current
+    ? lockedOffset.current
+    : prevWatchedOffset;
   const contentStyle = useMemo(
     () => [
       styles.listContent,
-      { minHeight: SCREEN_HEIGHT + prevWatchedOffset },
+      { minHeight: SCREEN_HEIGHT + stableOffset },
     ],
-    [prevWatchedOffset],
+    [stableOffset],
   );
 
   if (isLoading) {
@@ -635,6 +640,7 @@ export default function WatchlistTab() {
           ) : null
         }
         ItemSeparatorComponent={SeparatorComponent}
+        maintainVisibleContentPosition={{ data: true, size: true }}
         style={styles.list}
         contentContainerStyle={contentStyle}
       />

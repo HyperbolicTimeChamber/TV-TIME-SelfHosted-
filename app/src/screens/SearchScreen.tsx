@@ -68,16 +68,20 @@ type NavProp = NativeStackNavigationProp<
   Route.SEARCH_MAIN
 >;
 
-/** Fetch first episode info from local catalog cache or TMDB. 0 Firestore reads. */
-async function fetchFirstEpisodeInfo(
-  tmdbId: number,
-  apiKey: string | null,
-): Promise<{
+interface EpInfo {
   name: string | null;
   airDate: string | null;
   runtime: number | null;
   catalog: CatalogShow | null;
-}> {
+  /** All TMDB episodes from season 1 (when no catalog) */
+  tmdbEpisodes: Array<{ season: number; episode: number; name: string; airDate: string | null; runtime: number | null }>;
+}
+
+/** Fetch episode info from local catalog cache or TMDB. 0 Firestore reads. */
+async function fetchFirstEpisodeInfo(
+  tmdbId: number,
+  apiKey: string | null,
+): Promise<EpInfo> {
   // Try shared catalog cache first (0 Firestore reads)
   const cached = getCachedCatalogShow(tmdbId, MediaType.TV);
   if (cached?.seasons?.length) {
@@ -89,27 +93,34 @@ async function fetchFirstEpisodeInfo(
         airDate: ep1.airDate || null,
         runtime: ep1.runtime || null,
         catalog: cached,
+        tmdbEpisodes: [],
       };
     }
   }
 
-  // Fallback: TMDB season 1 (0 Firestore reads)
+  // Fallback: TMDB season 1 — return ALL episodes (0 Firestore reads)
   if (apiKey) {
     try {
       const season = await getSeasonDetails(apiKey, tmdbId, 1);
-      const ep1 = season?.episodes?.find((e) => e.episode_number === 1);
-      if (ep1) {
-        return {
-          name: ep1.name || null,
-          airDate: ep1.air_date || null,
-          runtime: ep1.runtime || null,
-          catalog: null,
-        };
-      }
+      const eps = season?.episodes ?? [];
+      const ep1 = eps.find((e) => e.episode_number === 1);
+      return {
+        name: ep1?.name || null,
+        airDate: ep1?.air_date || null,
+        runtime: ep1?.runtime || null,
+        catalog: null,
+        tmdbEpisodes: eps.map((e) => ({
+          season: 1,
+          episode: e.episode_number,
+          name: e.name || "",
+          airDate: e.air_date || null,
+          runtime: e.runtime ?? null,
+        })),
+      };
     } catch {}
   }
 
-  return { name: null, airDate: null, runtime: null, catalog: null };
+  return { name: null, airDate: null, runtime: null, catalog: null, tmdbEpisodes: [] };
 }
 
 /** Build an EnrichedTrackingItem for optimistic watchlist insert */
@@ -147,15 +158,14 @@ function buildOptimisticItem(
 
 export default function SearchScreen() {
   const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [submittedQuery, setSubmittedQuery] = useState("");
   const [mediaFilter, setMediaFilter] = useState<"all" | "tv" | "movie">("all");
-  const [typingLoading, setTypingLoading] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const [inputFocused, setInputFocused] = useState(false);
 
-  // Search history — persisted, max 100
+  // Search history — persisted, 10KB byte limit (~530 terms), no duplicates, FIFO eviction
   const HISTORY_KEY = "search_history";
-  const MAX_HISTORY = 100;
+  const MAX_BYTES = 10240;
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
 
   useEffect(() => {
@@ -165,47 +175,48 @@ export default function SearchScreen() {
   }, []);
 
   const addToHistory = useCallback((term: string) => {
-    const trimmed = term.trim();
+    const trimmed = term.trim().toLowerCase();
     if (!trimmed || trimmed.length < 2) return;
     setSearchHistory((prev) => {
-      const filtered = prev.filter((h) => h !== trimmed);
-      const next = [trimmed, ...filtered].slice(0, MAX_HISTORY);
+      // Remove duplicate (case-insensitive)
+      const filtered = prev.filter((h) => h.toLowerCase() !== trimmed);
+      let next = [trimmed, ...filtered];
+      // Evict oldest until under byte limit
+      while (JSON.stringify(next).length > MAX_BYTES && next.length > 1) {
+        next.pop();
+      }
       AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(next)).catch(() => {});
       return next;
     });
   }, []);
 
-  const filteredHistory = useMemo(() => {
+  // Suggestions: current query as top item + matching history
+  const suggestions = useMemo(() => {
     if (!query || query.length < 1) return [];
     const lower = query.toLowerCase();
-    return searchHistory.filter((h) => h.toLowerCase().includes(lower)).slice(0, 8);
+    const history = searchHistory
+      .filter((h) => h.toLowerCase().includes(lower) && h.toLowerCase() !== lower)
+      .slice(0, 7);
+    return [query, ...history];
   }, [query, searchHistory]);
 
-  const showHistory = inputFocused && query.length > 0 && filteredHistory.length > 0 && !debouncedQuery;
+  const submitSearch = useCallback((term: string) => {
+    const trimmed = term.trim();
+    if (!trimmed) return;
+    setQuery(trimmed);
+    setSubmittedQuery(trimmed);
+    setInputFocused(false);
+    inputRef.current?.blur();
+    addToHistory(trimmed);
+  }, [addToHistory]);
 
   const queryRef = useRef(query);
   queryRef.current = query;
 
-  useEffect(() => {
-    if (query.length === 0) {
-      setDebouncedQuery("");
-      setTypingLoading(false);
-      return;
-    }
-    setTypingLoading(true);
-    const timer = setTimeout(() => {
-      setDebouncedQuery(query);
-      setTypingLoading(false);
-      addToHistory(query);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [query]);
-
   const resetSearch = useCallback(() => {
     setQuery("");
-    setDebouncedQuery("");
+    setSubmittedQuery("");
     setMediaFilter("all");
-    setTypingLoading(false);
   }, []);
 
   const navigation = useNavigation<NavProp>();
@@ -398,18 +409,55 @@ export default function SearchScreen() {
           ),
         );
 
-        // Build upcoming episode if we have air date
-        if (epInfo.airDate) {
-          addShowToUpcoming(item.id, {
-            tmdbShowId: item.id,
-            showTitle: title,
-            posterPath: poster,
-            season: 1,
-            episode: 1,
-            episodeTitle: epInfo.name || "",
-            airDate: epInfo.airDate,
-            runtime: epInfo.runtime,
-          });
+        // Build upcoming episodes — all future eps from catalog or TMDB season data
+        const todayLocal = new Date().toISOString().split("T")[0];
+        const upcomingEps: UpcomingEpisode[] = [];
+
+        if (epInfo.catalog?.seasons?.length) {
+          // Full catalog — add all future episodes across all seasons
+          for (const s of epInfo.catalog.seasons) {
+            if (s.seasonNumber === 0) continue;
+            for (const ep of s.episodes) {
+              if (ep.airDate && ep.airDate >= todayLocal) {
+                upcomingEps.push({
+                  tmdbShowId: item.id,
+                  showTitle: title,
+                  posterPath: poster,
+                  season: s.seasonNumber,
+                  episode: ep.episodeNumber,
+                  episodeTitle: ep.title || "",
+                  airDate: ep.airDate,
+                  runtime: ep.runtime ?? null,
+                  mediaType: MediaType.TV,
+                });
+              }
+            }
+          }
+        } else if (epInfo.tmdbEpisodes.length > 0) {
+          // No catalog but TMDB returned season 1 episodes — add all future ones
+          for (const ep of epInfo.tmdbEpisodes) {
+            if (ep.airDate && ep.airDate >= todayLocal) {
+              upcomingEps.push({
+                tmdbShowId: item.id,
+                showTitle: title,
+                posterPath: poster,
+                season: ep.season,
+                episode: ep.episode,
+                episodeTitle: ep.name || title,
+                airDate: ep.airDate,
+                runtime: ep.runtime ?? null,
+                mediaType: MediaType.TV,
+              });
+            }
+          }
+        }
+        // No ep data at all → skip. syncCatalog CF will populate later.
+
+        if (upcomingEps.length > 0) {
+          addShowToUpcoming(item.id, upcomingEps);
+          for (const ep of upcomingEps) {
+            addMovieToCalendarGlobal(ep);
+          }
         }
       });
     },
@@ -610,17 +658,51 @@ export default function SearchScreen() {
         ),
       );
 
-      if (epInfo.airDate) {
-        addShowToUpcoming(item.id, {
-          tmdbShowId: item.id,
-          showTitle: title,
-          posterPath: poster,
-          season: 1,
-          episode: 1,
-          episodeTitle: epInfo.name || "",
-          airDate: epInfo.airDate,
-          runtime: epInfo.runtime,
-        });
+      const todayFresh = new Date().toISOString().split("T")[0];
+      const freshUpcomingEps: UpcomingEpisode[] = [];
+
+      if (epInfo.catalog?.seasons?.length) {
+        for (const s of epInfo.catalog.seasons) {
+          if (s.seasonNumber === 0) continue;
+          for (const ep of s.episodes) {
+            if (ep.airDate && ep.airDate >= todayFresh) {
+              freshUpcomingEps.push({
+                tmdbShowId: item.id,
+                showTitle: title,
+                posterPath: poster,
+                season: s.seasonNumber,
+                episode: ep.episodeNumber,
+                episodeTitle: ep.title || "",
+                airDate: ep.airDate,
+                runtime: ep.runtime ?? null,
+                mediaType: MediaType.TV,
+              });
+            }
+          }
+        }
+      } else if (epInfo.tmdbEpisodes.length > 0) {
+        for (const ep of epInfo.tmdbEpisodes) {
+          if (ep.airDate && ep.airDate >= todayFresh) {
+            freshUpcomingEps.push({
+              tmdbShowId: item.id,
+              showTitle: title,
+              posterPath: poster,
+              season: ep.season,
+              episode: ep.episode,
+              episodeTitle: ep.name || title,
+              airDate: ep.airDate,
+              runtime: ep.runtime ?? null,
+              mediaType: MediaType.TV,
+            });
+          }
+        }
+      }
+
+      if (freshUpcomingEps.length > 0) {
+        addShowToUpcoming(item.id, freshUpcomingEps);
+        for (const ep of freshUpcomingEps) {
+          addMovieToCalendarGlobal(ep);
+        }
       }
     });
   }, [user?.uid, apiKey, resumeModal, withLoadingId, addShowToUpcoming]);
@@ -630,7 +712,7 @@ export default function SearchScreen() {
     isLoading: searchLoading,
     fetchNextPage,
     hasNextPage,
-  } = useSearch(debouncedQuery, mediaFilter);
+  } = useSearch(submittedQuery, mediaFilter);
 
   const { data: trending, isLoading: trendingLoading } = useTrending("all");
 
@@ -641,10 +723,12 @@ export default function SearchScreen() {
   });
 
   const displayData =
-    debouncedQuery.length > 0 ? searchData?.results : filteredTrending;
+    submittedQuery.length > 0 ? searchData?.results : filteredTrending;
   const isLoading =
-    typingLoading ||
-    (debouncedQuery.length > 0 ? searchLoading : trendingLoading);
+    submittedQuery.length > 0 ? searchLoading : trendingLoading;
+
+  // Show suggestions when typing + focused, hide when results are showing
+  const showSuggestions = inputFocused && query.length > 0 && suggestions.length > 0;
 
   const handlePress = useCallback(
     (item: TMDBShow) => {
@@ -757,9 +841,13 @@ export default function SearchScreen() {
           placeholder="Search shows & movies..."
           placeholderTextColor={colors.textMuted}
           value={query}
-          onChangeText={setQuery}
+          onChangeText={(text) => {
+            setQuery(text);
+            if (text.length === 0) setSubmittedQuery("");
+          }}
           onFocus={() => setInputFocused(true)}
-          onBlur={() => setTimeout(() => setInputFocused(false), 150)}
+          onBlur={() => setTimeout(() => setInputFocused(false), 200)}
+          onSubmitEditing={() => submitSearch(query)}
           autoCapitalize="none"
           autoCorrect={false}
           returnKeyType="search"
@@ -769,6 +857,7 @@ export default function SearchScreen() {
             style={styles.clearButton}
             onPress={() => {
               setQuery("");
+              setSubmittedQuery("");
               inputRef.current?.focus();
             }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -778,20 +867,40 @@ export default function SearchScreen() {
         )}
       </View>
 
-      {showHistory && (
-        <View style={styles.historyDropdown}>
-          <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 200 }}>
-            {filteredHistory.map((term) => (
-              <TouchableOpacity
-                key={term}
-                style={styles.historyItem}
-                onPress={() => {
-                  setQuery(term);
-                  setInputFocused(false);
-                  inputRef.current?.blur();
-                }}
+      {!showSuggestions && (
+        <View style={styles.filterRow}>
+          {(["all", "tv", "movie"] as const).map((type) => (
+            <TouchableOpacity
+              key={type}
+              style={[
+                styles.filterTab,
+                mediaFilter === type && styles.filterTabActive,
+              ]}
+              onPress={() => setMediaFilter(type)}
+            >
+              <Text
+                style={[
+                  styles.filterTabText,
+                  mediaFilter === type && styles.filterTabTextActive,
+                ]}
               >
-                <Text style={styles.historyIcon}>↻</Text>
+                {type === "all" ? "All" : type === "tv" ? "TV" : "Movies"}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {showSuggestions && (
+        <View style={styles.historyDropdown}>
+          <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 240 }}>
+            {suggestions.map((term, idx) => (
+              <TouchableOpacity
+                key={`${term}_${idx}`}
+                style={styles.historyItem}
+                onPress={() => submitSearch(term)}
+              >
+                <Text style={styles.historyIcon}>{idx === 0 ? "🔍" : "↻"}</Text>
                 <Text style={styles.historyText} numberOfLines={1}>{term}</Text>
               </TouchableOpacity>
             ))}
@@ -799,36 +908,14 @@ export default function SearchScreen() {
         </View>
       )}
 
-      <View style={styles.filterRow}>
-        {(["all", "tv", "movie"] as const).map((type) => (
-          <TouchableOpacity
-            key={type}
-            style={[
-              styles.filterTab,
-              mediaFilter === type && styles.filterTabActive,
-            ]}
-            onPress={() => setMediaFilter(type)}
-          >
-            <Text
-              style={[
-                styles.filterTabText,
-                mediaFilter === type && styles.filterTabTextActive,
-              ]}
-            >
-              {type === "all" ? "All" : type === "tv" ? "TV" : "Movies"}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      {!submittedQuery && !showSuggestions && <Text style={styles.sectionTitle}>Trending</Text>}
 
-      {!query && <Text style={styles.sectionTitle}>Trending</Text>}
-
-      {isLoading ? (
+      {showSuggestions ? null : isLoading ? (
         <View style={styles.center}>
           <LoadingSpinner />
         </View>
       ) : !isLoading &&
-        debouncedQuery.length > 0 &&
+        submittedQuery.length > 0 &&
         (!displayData || displayData.length === 0) ? (
         <View style={styles.center}>
           <Text style={styles.emptyText}>No results found</Text>
@@ -844,7 +931,7 @@ export default function SearchScreen() {
           columnWrapperStyle={styles.row}
           contentContainerStyle={styles.grid}
           onEndReached={() => {
-            if (debouncedQuery && hasNextPage) fetchNextPage();
+            if (submittedQuery && hasNextPage) fetchNextPage();
           }}
           onEndReachedThreshold={0.5}
           recycleItems={false}
