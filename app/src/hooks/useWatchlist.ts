@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { onShowRemoved } from "../utils/watchlistEvents";
+import { onShowRemoved, onShowAdded } from "../utils/watchlistEvents";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   getFirestore,
@@ -110,7 +110,21 @@ export function getCachedCatalogShow(
 }
 
 export function useWatchlist(userId: string | undefined) {
-  const [items, setItems] = useState<EnrichedTrackingItem[]>([]);
+  const [items, _setItems] = useState<EnrichedTrackingItem[]>([]);
+  const setItems = useCallback(
+    (
+      update:
+        | EnrichedTrackingItem[]
+        | ((prev: EnrichedTrackingItem[]) => EnrichedTrackingItem[]),
+    ) => {
+      _setItems((prev) => {
+        const next = typeof update === "function" ? update(prev) : update;
+        itemsRef.current = new Map(next.map((i) => [i.id, i]));
+        return next;
+      });
+    },
+    [],
+  );
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -122,6 +136,8 @@ export function useWatchlist(userId: string | undefined) {
   const paginatedItems = useRef<EnrichedTrackingItem[]>([]);
   // Queue snapshots received before catalog cache is restored
   const pendingSnapshot = useRef<any>(null);
+  // Track current items for optimistic field preservation
+  const itemsRef = useRef<Map<string, EnrichedTrackingItem>>(new Map());
 
   // Restore persisted catalog cache on mount
   useEffect(() => {
@@ -209,6 +225,22 @@ export function useWatchlist(userId: string | undefined) {
               catalogShow: null,
             },
         );
+      }
+
+      // Preserve optimistic catalogShow from emitShowAdded when listener
+      // fires before CF creates the catalog doc
+      for (let idx = 0; idx < enriched.length; idx++) {
+        const e = enriched[idx];
+        if (e.catalogShow) continue;
+        const cur = itemsRef.current.get(e.id);
+        if (!cur?.catalogShow) continue;
+        enriched[idx] = {
+          ...e,
+          catalogShow: cur.catalogShow,
+          title: cur.title || e.title,
+          posterPath: cur.posterPath ?? e.posterPath,
+          totalEpisodes: cur.totalEpisodes || e.totalEpisodes,
+        };
       }
 
       // Update prev map for next snapshot
@@ -318,8 +350,77 @@ export function useWatchlist(userId: string | undefined) {
     setItems((prev) => prev.filter((p) => p.tmdbId !== tmdbId));
   }, []);
 
+  const insertItem = useCallback((item: EnrichedTrackingItem) => {
+    // Update catalog cache if we have catalog data
+    if (item.catalogShow) {
+      const mt =
+        item.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV;
+      catalogCache.current.set(showDocId(item.tmdbId, mt), item.catalogShow);
+      sharedCatalogCache = catalogCache.current;
+      persistCatalogCache(catalogCache.current);
+    }
+    setItems((prev) => {
+      // Don't duplicate
+      if (prev.some((p) => p.tmdbId === item.tmdbId)) return prev;
+      return [item, ...prev];
+    });
+  }, []);
+
   // Listen for external removal events (e.g. from ShowDetailScreen)
   useEffect(() => onShowRemoved(removeItem), [removeItem]);
+  // Listen for external add events (e.g. from SearchScreen)
+  useEffect(() => onShowAdded(insertItem), [insertItem]);
+
+  // Self-heal: re-fetch catalog for items missing it (CF may not have finished)
+  const healingRef = useRef(new Set<number>());
+  useEffect(() => {
+    if (loading || items.length === 0) return;
+    const missing = items.filter(
+      (i) => !i.catalogShow && !healingRef.current.has(i.tmdbId),
+    );
+    if (missing.length === 0) return;
+
+    // Mark as healing to avoid duplicate fetches
+    for (const m of missing) healingRef.current.add(m.tmdbId);
+
+    const timer = setTimeout(async () => {
+      const db = getFirestore();
+      const updates: EnrichedTrackingItem[] = [];
+      for (const item of missing) {
+        const mt =
+          item.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV;
+        const key = showDocId(item.tmdbId, mt);
+        try {
+          const showDoc = await getDoc(doc(db, "shows", key));
+          if (showDoc?.exists?.()) {
+            const catalog = {
+              id: showDoc.id,
+              ...showDoc.data(),
+            } as unknown as CatalogShow;
+            catalogCache.current.set(key, catalog);
+            updates.push({
+              ...item,
+              title: catalog.title || item.title,
+              posterPath: catalog.posterPath ?? item.posterPath,
+              totalEpisodes: catalog.totalEpisodes ?? 0,
+              catalogShow: catalog,
+            });
+          }
+        } catch {}
+        healingRef.current.delete(item.tmdbId);
+      }
+      if (updates.length > 0) {
+        sharedCatalogCache = catalogCache.current;
+        persistCatalogCache(catalogCache.current);
+        setItems((prev) => {
+          const updateMap = new Map(updates.map((u) => [u.tmdbId, u]));
+          return prev.map((p) => updateMap.get(p.tmdbId) ?? p);
+        });
+      }
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [loading, items]);
 
   return { items, loading, loadMore, loadingMore, hasMore, removeItem };
 }

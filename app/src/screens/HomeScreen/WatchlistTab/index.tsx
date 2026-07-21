@@ -128,11 +128,11 @@ export default function WatchlistTab() {
     setWatchlistLoading(isLoading);
   }, [isLoading, setWatchlistLoading]);
 
-  // Show Previously Watched briefly, then scroll to What's Up Next
-  const hasScrolledRef = useRef(false);
+  // Scroll to "What's Up Next" on every tab visit
+  const initialScrollDone = useRef(false);
   useEffect(() => {
-    if (!hasScrolledRef.current && !isLoading && prevWatchedOffset > 0) {
-      hasScrolledRef.current = true;
+    if (!initialScrollDone.current && !isLoading && prevWatchedOffset > 0) {
+      initialScrollDone.current = true;
       setTimeout(() => {
         listRef.current?.scrollToOffset({
           offset: prevWatchedOffset,
@@ -141,6 +141,23 @@ export default function WatchlistTab() {
       }, 400);
     }
   }, [isLoading, prevWatchedOffset]);
+
+  // Re-scroll on every tab focus (not just first load)
+  useEffect(() => {
+    const parent = navigation.getParent();
+    if (!parent) return;
+    const unsub = parent.addListener("focus", () => {
+      if (prevWatchedOffset > 0) {
+        setTimeout(() => {
+          listRef.current?.scrollToOffset({
+            offset: prevWatchedOffset,
+            animated: true,
+          });
+        }, 100);
+      }
+    });
+    return unsub;
+  }, [navigation, prevWatchedOffset]);
 
   const handleNavigateToShow = useCallback(
     (tmdbId: number, mediaType: MediaType) => {

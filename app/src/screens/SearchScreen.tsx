@@ -41,10 +41,14 @@ import {
   markMovieWatched,
   addAndMarkMovieWatched,
   getHighestWatchedEpisode,
+  getCatalogShow,
+  getSeasonDetails,
 } from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { showDocId } from "../utils/docId";
 import { warmupSearchCFs } from "../services/warmup";
+import { emitShowAdded } from "../utils/watchlistEvents";
+import type { EnrichedTrackingItem } from "../hooks/useWatchlist";
 import {
   TMDBShow,
   SearchStackParamList,
@@ -52,12 +56,94 @@ import {
   Route,
   QueryKey,
   WatchedMovie,
+  WatchStatus,
+  UpcomingEpisode,
+  CatalogShow,
 } from "../types";
 
 type NavProp = NativeStackNavigationProp<
   SearchStackParamList,
   Route.SEARCH_MAIN
 >;
+
+/** Fetch first episode info from catalog or TMDB. Returns ep name, airDate, and catalog if found. */
+async function fetchFirstEpisodeInfo(
+  tmdbId: number,
+  apiKey: string | null,
+): Promise<{
+  name: string | null;
+  airDate: string | null;
+  runtime: number | null;
+  catalog: CatalogShow | null;
+}> {
+  // Try catalog first (0–1 Firestore read)
+  try {
+    const catalog = await getCatalogShow(tmdbId, MediaType.TV);
+    if (catalog?.seasons?.length) {
+      const s1 = catalog.seasons.find((s) => s.seasonNumber === 1);
+      const ep1 = s1?.episodes?.find((e) => e.episodeNumber === 1);
+      if (ep1) {
+        return {
+          name: ep1.title || null,
+          airDate: ep1.airDate || null,
+          runtime: ep1.runtime || null,
+          catalog,
+        };
+      }
+    }
+  } catch {}
+
+  // Fallback: TMDB season 1
+  if (apiKey) {
+    try {
+      const season = await getSeasonDetails(apiKey, tmdbId, 1);
+      const ep1 = season?.episodes?.find((e) => e.episode_number === 1);
+      if (ep1) {
+        return {
+          name: ep1.name || null,
+          airDate: ep1.air_date || null,
+          runtime: ep1.runtime || null,
+          catalog: null,
+        };
+      }
+    } catch {}
+  }
+
+  return { name: null, airDate: null, runtime: null, catalog: null };
+}
+
+/** Build an EnrichedTrackingItem for optimistic watchlist insert */
+function buildOptimisticItem(
+  tmdbId: number,
+  mediaType: MediaType,
+  title: string,
+  posterPath: string | null,
+  nextEpisode: { season: number; episode: number } | null,
+  nextEpisodeName: string | null,
+  nextEpisodeAirDate: string | null,
+  catalog: CatalogShow | null,
+  releaseDate?: string | null,
+): EnrichedTrackingItem {
+  const now = Timestamp.now();
+  return {
+    id: showDocId(tmdbId, mediaType),
+    tmdbId,
+    mediaType,
+    status: WatchStatus.WATCHING,
+    nextEpisode,
+    nextEpisodeName,
+    nextEpisodeAirDate,
+    rewatchCount: 0,
+    addedAt: now,
+    lastWatchedAt: now,
+    priorityDate: now,
+    releaseDate: releaseDate ?? null,
+    title,
+    posterPath,
+    totalEpisodes: catalog?.totalEpisodes ?? 0,
+    catalogShow: catalog,
+  };
+}
 
 export default function SearchScreen() {
   const [query, setQuery] = useState("");
@@ -92,26 +178,40 @@ export default function SearchScreen() {
     warmupSearchCFs();
   }, []);
 
-  // Clear search when leaving the search tab
+  // Only reset search on re-tap of search tab (not on initial switch to it)
+  const isFocusedRef = useRef(false);
   useEffect(() => {
     const parent = navigation.getParent();
     if (!parent) return;
-    const unsub = parent.addListener("blur", resetSearch);
-    return unsub;
-  }, [navigation, resetSearch]);
+    const unsubFocus = parent.addListener("focus", () => {
+      isFocusedRef.current = true;
+    });
+    const unsubBlur = parent.addListener("blur", () => {
+      isFocusedRef.current = false;
+    });
+    // Set initial state
+    isFocusedRef.current = (parent as any).isFocused?.() ?? false;
+    return () => {
+      unsubFocus();
+      unsubBlur();
+    };
+  }, [navigation]);
 
-  // Tab press while already on search → fresh reset
   useEffect(() => {
     const parent = navigation.getParent();
     if (!parent) return;
     const unsub = (parent as any).addListener("tabPress", () => {
-      if (queryRef.current.length > 0) {
+      if (!isFocusedRef.current) return; // switching TO search, not re-tap
+      if (navigation.canGoBack()) {
+        navigation.popToTop();
+      } else if (queryRef.current.length > 0) {
         resetSearch();
       }
     });
     return unsub;
   }, [navigation, resetSearch]);
   const user = useAuthStore((s) => s.user);
+  const apiKey = useAuthStore((s) => s.appTmdbApiKey);
   const queryClient = useQueryClient();
   const trackedIds = useTrackedIds(user?.uid);
 
@@ -193,6 +293,19 @@ export default function SearchScreen() {
           };
           addShowToUpcoming(item.id, movieEp);
           addMovieToCalendarGlobal(movieEp);
+          emitShowAdded(
+            buildOptimisticItem(
+              item.id,
+              MediaType.MOVIE,
+              item.title || item.name || "",
+              item.poster_path || null,
+              null,
+              null,
+              null,
+              null,
+              releaseDate,
+            ),
+          );
           return;
         }
 
@@ -220,14 +333,49 @@ export default function SearchScreen() {
           return;
         }
 
+        const title = item.title || item.name || "";
+        const poster = item.poster_path || null;
+
+        // Fetch ep info first so tracking doc has it from the start
+        const epInfo = await fetchFirstEpisodeInfo(item.id, apiKey);
+
         await addToTracking(user.uid!, item.id, mediaType, undefined, {
-          title: item.title || item.name || "",
-          posterPath: item.poster_path || null,
+          title,
+          posterPath: poster,
+          nextEpisodeName: epInfo.name,
+          nextEpisodeAirDate: epInfo.airDate,
         });
-        addShowToUpcoming(item.id);
+
+        // Optimistic insert into watchlist
+        emitShowAdded(
+          buildOptimisticItem(
+            item.id,
+            MediaType.TV,
+            title,
+            poster,
+            { season: 1, episode: 1 },
+            epInfo.name,
+            epInfo.airDate,
+            epInfo.catalog,
+          ),
+        );
+
+        // Build upcoming episode if we have air date
+        if (epInfo.airDate) {
+          addShowToUpcoming(item.id, {
+            tmdbShowId: item.id,
+            showTitle: title,
+            posterPath: poster,
+            season: 1,
+            episode: 1,
+            episodeTitle: epInfo.name || "",
+            airDate: epInfo.airDate,
+            runtime: epInfo.runtime,
+          });
+        }
       });
     },
-    [user?.uid, withLoadingId, addShowToUpcoming],
+    [user?.uid, apiKey, withLoadingId, addShowToUpcoming],
   );
 
   const handleRemoveFromWatchlist = useCallback(
@@ -265,12 +413,27 @@ export default function SearchScreen() {
     if (!user?.uid || !movieModal) return;
     const item = movieModal;
     setMovieModal(null);
-    await withLoadingId(item.id, () =>
-      addToTracking(user.uid!, item.id, MediaType.MOVIE, undefined, {
-        title: item.title || item.name || "",
-        posterPath: item.poster_path || null,
-      }),
-    );
+    await withLoadingId(item.id, async () => {
+      const title = item.title || item.name || "";
+      const poster = item.poster_path || null;
+      await addToTracking(user.uid!, item.id, MediaType.MOVIE, undefined, {
+        title,
+        posterPath: poster,
+      });
+      emitShowAdded(
+        buildOptimisticItem(
+          item.id,
+          MediaType.MOVIE,
+          title,
+          poster,
+          null,
+          null,
+          null,
+          null,
+          item.release_date || null,
+        ),
+      );
+    });
   }, [user?.uid, movieModal, withLoadingId]);
 
   const handleMovieAddAndWatch = useCallback(async () => {
@@ -321,11 +484,16 @@ export default function SearchScreen() {
     const { item, nextEp, nextEpName, nextEpAirDate } = resumeModal;
     setResumeModal(null);
     await withLoadingId(item.id, async () => {
+      const title = item.title || item.name || "";
+      const poster = item.poster_path || null;
+
       await addToTracking(user.uid!, item.id, MediaType.TV, undefined, {
-        title: item.title || item.name || "",
-        posterPath: item.poster_path || null,
+        title,
+        posterPath: poster,
+        nextEpisodeName: nextEpName,
+        nextEpisodeAirDate: nextEpAirDate,
       });
-      // Update tracking doc to resume position
+      // Update tracking doc to resume position (nextEpisode override)
       const db = getFirestore();
       await updateDoc(
         doc(
@@ -341,7 +509,38 @@ export default function SearchScreen() {
           nextEpisodeAirDate: nextEpAirDate,
         },
       );
-      addShowToUpcoming(item.id);
+
+      // Fetch catalog for enrichment (best-effort)
+      let catalog: CatalogShow | null = null;
+      try {
+        catalog = await getCatalogShow(item.id, MediaType.TV);
+      } catch {}
+
+      emitShowAdded(
+        buildOptimisticItem(
+          item.id,
+          MediaType.TV,
+          title,
+          poster,
+          nextEp,
+          nextEpName,
+          nextEpAirDate,
+          catalog,
+        ),
+      );
+
+      if (nextEpAirDate) {
+        addShowToUpcoming(item.id, {
+          tmdbShowId: item.id,
+          showTitle: title,
+          posterPath: poster,
+          season: nextEp.season,
+          episode: nextEp.episode,
+          episodeTitle: nextEpName || "",
+          airDate: nextEpAirDate,
+          runtime: null,
+        });
+      }
     });
   }, [user?.uid, resumeModal, withLoadingId, addShowToUpcoming]);
 
@@ -350,13 +549,45 @@ export default function SearchScreen() {
     const item = resumeModal.item;
     setResumeModal(null);
     await withLoadingId(item.id, async () => {
+      const title = item.title || item.name || "";
+      const poster = item.poster_path || null;
+
+      const epInfo = await fetchFirstEpisodeInfo(item.id, apiKey);
+
       await addToTracking(user.uid!, item.id, MediaType.TV, undefined, {
-        title: item.title || item.name || "",
-        posterPath: item.poster_path || null,
+        title,
+        posterPath: poster,
+        nextEpisodeName: epInfo.name,
+        nextEpisodeAirDate: epInfo.airDate,
       });
-      addShowToUpcoming(item.id);
+
+      emitShowAdded(
+        buildOptimisticItem(
+          item.id,
+          MediaType.TV,
+          title,
+          poster,
+          { season: 1, episode: 1 },
+          epInfo.name,
+          epInfo.airDate,
+          epInfo.catalog,
+        ),
+      );
+
+      if (epInfo.airDate) {
+        addShowToUpcoming(item.id, {
+          tmdbShowId: item.id,
+          showTitle: title,
+          posterPath: poster,
+          season: 1,
+          episode: 1,
+          episodeTitle: epInfo.name || "",
+          airDate: epInfo.airDate,
+          runtime: epInfo.runtime,
+        });
+      }
     });
-  }, [user?.uid, resumeModal, withLoadingId, addShowToUpcoming]);
+  }, [user?.uid, apiKey, resumeModal, withLoadingId, addShowToUpcoming]);
 
   const {
     data: searchData,
