@@ -70,3 +70,25 @@ export function useWatchedMovies(userId?: string) {
 
   return { movies, loading, loadMore, loadingMore, hasMore: !!hasNextPage };
 }
+
+/** Insert a watched movie into the query cache (no Firestore refetch). */
+export function insertWatchedMovieCache(
+  queryClient: { setQueryData: (key: any, updater: any) => void },
+  userId: string,
+  movie: WatchedMovie,
+) {
+  queryClient.setQueryData(
+    [QueryKey.WATCHED_MOVIES, userId],
+    (old: any) => {
+      if (!old?.pages) return old;
+      const firstPage = old.pages[0];
+      return {
+        ...old,
+        pages: [
+          { ...firstPage, movies: [movie, ...firstPage.movies] },
+          ...old.pages.slice(1),
+        ],
+      };
+    },
+  );
+}

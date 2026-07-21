@@ -41,7 +41,9 @@ import {
 import { emitShowRemoved } from "../utils/watchlistEvents";
 import { showDocId } from "../utils/docId";
 import { colors, spacing, typography, posterSize } from "../theme";
-import { HomeStackParamList, WatchStatus, MediaType, UpcomingEpisode } from "../types";
+import { HomeStackParamList, WatchStatus, MediaType, UpcomingEpisode, QueryKey, WatchedMovie } from "../types";
+import { useQueryClient } from "@tanstack/react-query";
+import { Timestamp } from "@react-native-firebase/firestore";
 
 type RouteParams = RouteProp<HomeStackParamList, "ShowDetail">;
 
@@ -65,6 +67,7 @@ export default function ShowDetailScreen() {
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState(false);
   const { addShowToUpcoming, removeShowFromUpcoming } = useUpcomingMutations();
+  const queryClient = useQueryClient();
   const [removeModalVisible, setRemoveModalVisible] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [unreleasedModal, setUnreleasedModal] = useState<{
@@ -244,12 +247,36 @@ export default function ShowDetailScreen() {
         });
       }
       await markMovieWatched(user.uid, tmdbId, show.runtime ?? 0);
+      // Update query cache directly — no refetch
+      const now = Timestamp.now();
+      queryClient.setQueryData<any>(
+        [QueryKey.WATCHED_MOVIES, user.uid],
+        (old: any) => {
+          if (!old?.pages) return old;
+          const newMovie: WatchedMovie = {
+            id: `${tmdbId}_watched`,
+            tmdbId,
+            watchedAt: now,
+            lastWatchedAt: now,
+            runtime: show.runtime ?? 0,
+            watchCount: 1,
+          };
+          const firstPage = old.pages[0];
+          return {
+            ...old,
+            pages: [
+              { ...firstPage, movies: [newMovie, ...firstPage.movies] },
+              ...old.pages.slice(1),
+            ],
+          };
+        },
+      );
     } catch (err: any) {
       Alert.alert("Error", err.message || "Failed to mark movie as watched.");
     } finally {
       setAdding(false);
     }
-  }, [user?.uid, show, tmdbId, watchlistItem, adding]);
+  }, [user?.uid, show, tmdbId, watchlistItem, adding, queryClient]);
 
   if (isLoading || trackingLoading) {
     return (

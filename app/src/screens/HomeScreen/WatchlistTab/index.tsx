@@ -48,6 +48,8 @@ import {
   warmupWatchlistCFs,
   warmupFirestoreWrite,
 } from "../../../services/warmup";
+import { Timestamp } from "@react-native-firebase/firestore";
+import { insertWatchedEpisodeCache, removeWatchedEpisodeCache } from "../../../hooks";
 import { ListItem } from "./types";
 import { useWatchlistData } from "./useWatchlistData";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
@@ -317,8 +319,17 @@ export default function WatchlistTab() {
         nextEpisode,
         isComplete,
       );
-      queryClient.invalidateQueries({
-        queryKey: [QueryKey.WATCHED_EPISODES, user.uid],
+      const now = Timestamp.now();
+      insertWatchedEpisodeCache(queryClient, user.uid, {
+        id: `${episode.tmdbShowId}_S${String(episode.season).padStart(2, "0")}E${String(episode.episode).padStart(2, "0")}`,
+        tmdbShowId: episode.tmdbShowId,
+        season: episode.season,
+        episode: episode.episode,
+        episodeTitle: catalogEp?.title || episode.episodeTitle,
+        runtime: catalogEp?.runtime || episode.runtime,
+        lastWatchedAt: now,
+        watchedAt: now,
+        watchCount: (episode.watchCount || 0) + 1,
       });
     },
     [user?.uid, queryClient],
@@ -347,9 +358,11 @@ export default function WatchlistTab() {
           episode.episodeTitle,
         );
       }
-      queryClient.invalidateQueries({
-        queryKey: [QueryKey.WATCHED_EPISODES, user.uid],
-      });
+      removeWatchedEpisodeCache(
+        queryClient, user.uid,
+        episode.tmdbShowId, episode.season, episode.episode,
+        episode.watchCount > 1,
+      );
     },
     [user?.uid, queryClient],
   );
@@ -420,9 +433,26 @@ export default function WatchlistTab() {
             sheetEpisode.episodeTitle,
           );
         }
-        queryClient.invalidateQueries({
-          queryKey: [QueryKey.WATCHED_EPISODES, user.uid],
-        });
+        if (action === "rewatch") {
+          const now = Timestamp.now();
+          insertWatchedEpisodeCache(queryClient, user.uid, {
+            id: `${sheetEpisode.tmdbShowId}_S${String(sheetEpisode.season).padStart(2, "0")}E${String(sheetEpisode.episode).padStart(2, "0")}`,
+            tmdbShowId: sheetEpisode.tmdbShowId,
+            season: sheetEpisode.season,
+            episode: sheetEpisode.episode,
+            episodeTitle: sheetEpisode.episodeTitle,
+            runtime: sheetEpisode.runtime,
+            lastWatchedAt: now,
+            watchedAt: now,
+            watchCount: (sheetEpisode.watchCount || 0) + 1,
+          });
+        } else {
+          removeWatchedEpisodeCache(
+            queryClient, user.uid,
+            sheetEpisode.tmdbShowId, sheetEpisode.season, sheetEpisode.episode,
+            action === "watched_once_less",
+          );
+        }
       } catch (err: any) {
         console.error("Watch action failed:", err);
         Alert.alert("Error", err.message || "Action failed.");

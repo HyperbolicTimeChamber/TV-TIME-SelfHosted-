@@ -13,6 +13,8 @@ import {
   useSeasonDetails,
   useShowWatchedEpisodes,
   useUpcomingMutations,
+  insertWatchedEpisodeCache,
+  removeWatchedEpisodeCache,
 } from "../hooks";
 import { useAuthStore } from "../stores";
 import {
@@ -25,6 +27,7 @@ import {
   decrementSeasonWatchCount,
   getSeasonDetails as fetchSeason,
 } from "../services";
+import { Timestamp } from "@react-native-firebase/firestore";
 import AnimatedModal from "./modals/AnimatedModal";
 import WatchActionSheet, { WatchAction } from "./modals/WatchActionSheet";
 import ConfirmModal from "./modals/ConfirmModal";
@@ -278,9 +281,20 @@ export default memo(function SeasonDropdown({
         nextEpisodeName,
         nextEpisodeAirDate,
       );
-      queryClient.invalidateQueries({
-        queryKey: [QueryKey.WATCHED_EPISODES, user.uid],
-      });
+      const now = Timestamp.now();
+      for (const ep of eps) {
+        insertWatchedEpisodeCache(queryClient, user.uid, {
+          id: `${tmdbId}_S${String(season.season_number).padStart(2, "0")}E${String(ep.episode_number).padStart(2, "0")}`,
+          tmdbShowId: tmdbId,
+          season: season.season_number,
+          episode: ep.episode_number,
+          episodeTitle: ep.name,
+          runtime: ep.runtime || 0,
+          lastWatchedAt: now,
+          watchedAt: now,
+          watchCount: 1,
+        });
+      }
     } catch (err: any) {
       console.error("markSeasonWatched failed:", err);
       Alert.alert("Error", err.message || "Failed to mark season as watched.");
@@ -336,8 +350,17 @@ export default memo(function SeasonDropdown({
           nextEpisodeName,
           nextEpisodeAirDate,
         );
-        queryClient.invalidateQueries({
-          queryKey: [QueryKey.WATCHED_EPISODES, user.uid],
+        const now = Timestamp.now();
+        insertWatchedEpisodeCache(queryClient, user.uid, {
+          id: `${tmdbId}_S${String(season.season_number).padStart(2, "0")}E${String(ep.episode_number).padStart(2, "0")}`,
+          tmdbShowId: tmdbId,
+          season: season.season_number,
+          episode: ep.episode_number,
+          episodeTitle: ep.name,
+          runtime: ep.runtime || 0,
+          lastWatchedAt: now,
+          watchedAt: now,
+          watchCount: 1,
         });
       } catch (err: any) {
         rollbackUpcoming(snapshot);
@@ -435,9 +458,33 @@ export default memo(function SeasonDropdown({
             }
           }
         }
-        queryClient.invalidateQueries({
-          queryKey: [QueryKey.WATCHED_EPISODES, user.uid],
-        });
+        // Update query cache locally
+        if (sheetTarget.type === "episode") {
+          const ep = sheetTarget.ep;
+          const watched = watchedMap.get(ep.episode_number);
+          if (action === "not_watched") {
+            removeWatchedEpisodeCache(queryClient, user.uid, tmdbId, season.season_number, ep.episode_number);
+          } else if (action === "watched_once_less") {
+            removeWatchedEpisodeCache(queryClient, user.uid, tmdbId, season.season_number, ep.episode_number, true);
+          }
+          // "rewatch" handled by handleMarkWatched → doMarkEpisodeWatched
+        } else if (sheetTarget.type === "season") {
+          if (action === "not_watched") {
+            for (const ep of episodes) {
+              if (watchedMap.has(ep.episode_number)) {
+                removeWatchedEpisodeCache(queryClient, user.uid, tmdbId, season.season_number, ep.episode_number);
+              }
+            }
+          } else if (action === "watched_once_less") {
+            for (const ep of episodes) {
+              const w = watchedMap.get(ep.episode_number);
+              if (w && w.watchCount > 0) {
+                removeWatchedEpisodeCache(queryClient, user.uid, tmdbId, season.season_number, ep.episode_number, true);
+              }
+            }
+          }
+          // "rewatch" handled by handleMarkSeasonWatched → doMarkSeasonWatched
+        }
       } catch (err: any) {
         console.error("Watch action failed:", err);
         Alert.alert("Error", err.message || "Action failed.");
@@ -503,9 +550,20 @@ export default memo(function SeasonDropdown({
             nextEpisodeAirDate,
           );
         }
-        queryClient.invalidateQueries({
-          queryKey: [QueryKey.WATCHED_EPISODES, user.uid],
-        });
+        const now = Timestamp.now();
+        for (const ep of epsToMark) {
+          insertWatchedEpisodeCache(queryClient, user.uid, {
+            id: `${tmdbId}_S${String(season.season_number).padStart(2, "0")}E${String(ep.episode_number).padStart(2, "0")}`,
+            tmdbShowId: tmdbId,
+            season: season.season_number,
+            episode: ep.episode_number,
+            episodeTitle: ep.name,
+            runtime: ep.runtime || 0,
+            lastWatchedAt: now,
+            watchedAt: now,
+            watchCount: 1,
+          });
+        }
       } catch (err: any) {
         console.error("markEpisodeRange failed:", err);
         Alert.alert("Error", err.message || "Failed to mark episodes.");

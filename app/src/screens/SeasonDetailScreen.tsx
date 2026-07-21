@@ -3,8 +3,10 @@ import { View, Text, StyleSheet } from "react-native";
 import { LoadingSpinner, ConfirmModal, CheckmarkButton } from "../components";
 import { LegendList } from "@legendapp/list/react-native";
 import { useRoute, RouteProp } from "@react-navigation/native";
-import { useSeasonDetails, useWatchedEpisodes, useWatchlist } from "../hooks";
+import { useSeasonDetails, useWatchedEpisodes, useWatchlist, insertWatchedEpisodeCache } from "../hooks";
 import { useAuthStore } from "../stores";
+import { useQueryClient } from "@tanstack/react-query";
+import { Timestamp } from "@react-native-firebase/firestore";
 import {
   markEpisodeWatched,
   addToTracking,
@@ -38,6 +40,7 @@ export default function SeasonDetailScreen() {
   const route = useRoute<RouteParams>();
   const { tmdbId, seasonNumber } = route.params;
   const user = useAuthStore((s) => s.user);
+  const queryClient = useQueryClient();
   const apiKey = useAuthStore((s) => s.appTmdbApiKey)!;
   const { data: seasonData, isLoading } = useSeasonDetails(
     tmdbId,
@@ -140,6 +143,18 @@ export default function SeasonDetailScreen() {
           false,
           nextEpName,
         );
+        const now = Timestamp.now();
+        insertWatchedEpisodeCache(queryClient, user.uid, {
+          id: `${tmdbId}_S${String(seasonNumber).padStart(2, "0")}E${String(ep.episode_number).padStart(2, "0")}`,
+          tmdbShowId: tmdbId,
+          season: seasonNumber,
+          episode: ep.episode_number,
+          episodeTitle: ep.name,
+          runtime: ep.runtime || 0,
+          lastWatchedAt: now,
+          watchedAt: now,
+          watchCount: 1,
+        });
       } catch (err: any) {
         console.error("markEpisodeWatched failed:", err);
       } finally {

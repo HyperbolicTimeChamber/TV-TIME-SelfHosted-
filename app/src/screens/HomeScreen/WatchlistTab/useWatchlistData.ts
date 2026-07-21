@@ -8,6 +8,8 @@ import {
   EnrichedTrackingItem,
   useWatchedEpisodes,
   useWatchedMovies,
+  insertWatchedEpisodeCache,
+  insertWatchedMovieCache,
   isShowVisible,
   sortByPriority,
   useUpcomingMutations,
@@ -636,29 +638,15 @@ export function useWatchlistData(userId: string | undefined) {
           });
         }
         // Post-success: insert into query cache directly (no refetch)
-        queryClient.setQueryData<any>(
-          [QueryKey.WATCHED_MOVIES, userId],
-          (old: any) => {
-            if (!old?.pages) return old;
-            const now = Timestamp.now();
-            const newMovie: WatchedMovie = {
-              id: `${item.tmdbId}_watched`,
-              tmdbId: item.tmdbId,
-              watchedAt: now,
-              lastWatchedAt: now,
-              runtime: card.nextEpisodeRuntime ?? 0,
-              watchCount: 1,
-            };
-            const firstPage = old.pages[0];
-            return {
-              ...old,
-              pages: [
-                { ...firstPage, movies: [newMovie, ...firstPage.movies] },
-                ...old.pages.slice(1),
-              ],
-            };
-          },
-        );
+        const movieNow = Timestamp.now();
+        insertWatchedMovieCache(queryClient, userId, {
+          id: `${item.tmdbId}_watched`,
+          tmdbId: item.tmdbId,
+          watchedAt: movieNow,
+          lastWatchedAt: movieNow,
+          runtime: card.nextEpisodeRuntime ?? 0,
+          watchCount: 1,
+        });
         return;
       }
 
@@ -724,32 +712,18 @@ export function useWatchlistData(userId: string | undefined) {
         // Spinner cleared by useEffect when listener confirms nextEpisode changed
 
         // Post-success: insert into query cache directly (no refetch)
-        const now = Timestamp.now();
-        queryClient.setQueryData<any>(
-          [QueryKey.WATCHED_EPISODES, userId, undefined],
-          (old: any) => {
-            if (!old?.pages) return old;
-            const newEp: WatchedEpisode = {
-              id: `${item.tmdbId}_S${String(currentEp.season).padStart(2, "0")}E${String(currentEp.episode).padStart(2, "0")}`,
-              tmdbShowId: item.tmdbId,
-              season: currentEp.season,
-              episode: currentEp.episode,
-              episodeTitle: epTitle,
-              runtime: epRuntime,
-              lastWatchedAt: now,
-              watchedAt: now,
-              watchCount: 1,
-            };
-            const firstPage = old.pages[0];
-            return {
-              ...old,
-              pages: [
-                { ...firstPage, episodes: [newEp, ...firstPage.episodes] },
-                ...old.pages.slice(1),
-              ],
-            };
-          },
-        );
+        const epNow = Timestamp.now();
+        insertWatchedEpisodeCache(queryClient, userId, {
+          id: `${item.tmdbId}_S${String(currentEp.season).padStart(2, "0")}E${String(currentEp.episode).padStart(2, "0")}`,
+          tmdbShowId: item.tmdbId,
+          season: currentEp.season,
+          episode: currentEp.episode,
+          episodeTitle: epTitle,
+          runtime: epRuntime,
+          lastWatchedAt: epNow,
+          watchedAt: epNow,
+          watchCount: 1,
+        });
       } catch (err: any) {
         rollbackUpcoming(upcomingSnapshot);
         setUpdatingShows((prev) => {
