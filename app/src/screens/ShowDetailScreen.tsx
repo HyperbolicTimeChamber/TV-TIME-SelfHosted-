@@ -13,6 +13,7 @@ import { useRoute, RouteProp } from "@react-navigation/native";
 import {
   getFirestore,
   doc,
+  getDoc,
   onSnapshot,
   updateDoc,
 } from "@react-native-firebase/firestore";
@@ -95,26 +96,46 @@ export default function ShowDetailScreen() {
       "tracking",
       showDocId(tmdbId, mediaType),
     );
+
+    // One-time read + listener for real-time updates after add/remove
+    let cancelled = false;
+    getDoc(trackingDocRef)
+      .then((snap) => {
+        if (cancelled) return;
+        if (snap.exists()) {
+          const data: any = { id: snap.id, ...snap.data() };
+          if (
+            mediaType === MediaType.TV &&
+            data.status === WatchStatus.WATCHING &&
+            !data.nextEpisode
+          ) {
+            updateDoc(trackingDocRef, { status: WatchStatus.COMPLETED }).catch(
+              () => {},
+            );
+          }
+          setWatchlistItem(data);
+        } else {
+          setWatchlistItem(null);
+        }
+        setTrackingLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) setTrackingLoading(false);
+      });
+
+    // Listener for live updates (add/remove while on screen)
     const unsubscribe = onSnapshot(trackingDocRef, (snap) => {
       if (snap.exists()) {
-        const data: any = { id: snap.id, ...snap.data() };
-        // Auto-fix: TV show stuck as WATCHING with no nextEpisode → COMPLETED
-        if (
-          mediaType === MediaType.TV &&
-          data.status === WatchStatus.WATCHING &&
-          !data.nextEpisode
-        ) {
-          updateDoc(trackingDocRef, { status: WatchStatus.COMPLETED }).catch(
-            () => {},
-          );
-        }
-        setWatchlistItem(data);
+        setWatchlistItem({ id: snap.id, ...snap.data() });
       } else {
         setWatchlistItem(null);
       }
-      setTrackingLoading(false);
     });
-    return unsubscribe;
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [user?.uid, tmdbId]);
 
   const title = show?.name || show?.title || "";

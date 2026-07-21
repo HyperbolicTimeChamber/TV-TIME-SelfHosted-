@@ -22,6 +22,8 @@ import {
   MediaType,
 } from "../types";
 import { showDocId } from "../utils/docId";
+import { useAuthStore } from "../stores";
+import { getShowDetails } from "../services/tmdb";
 
 const PAGE_SIZE = 50;
 
@@ -257,32 +259,17 @@ export function useWatchlist(userId: string | undefined) {
         (p) => !firstPageIds.has(p.id),
       );
 
-      const hasRemovals = snapshot
-        .docChanges()
-        .some((c: any) => c.type === DocChangeType.REMOVED);
-      if (hasRemovals && paginatedItems.current.length > 0 && userId) {
-        try {
-          const checks = paginatedItems.current.map((p) =>
-            getDoc(
-              doc(
-                db,
-                "users",
-                userId!,
-                "tracking",
-                showDocId(
-                  p.tmdbId,
-                  (p as any).mediaType === MediaType.MOVIE
-                    ? MediaType.MOVIE
-                    : MediaType.TV,
-                ),
-              ),
-            ),
-          );
-          const results = await Promise.all(checks);
-          paginatedItems.current = paginatedItems.current.filter(
-            (_, i) => results[i]?.exists?.() ?? false,
-          );
-        } catch {}
+      // Removals in first page: filter paginated items locally (no Firestore reads)
+      const removedIds = new Set(
+        snapshot
+          .docChanges()
+          .filter((c: any) => c.type === DocChangeType.REMOVED)
+          .map((c: any) => c.doc.id),
+      );
+      if (removedIds.size > 0) {
+        paginatedItems.current = paginatedItems.current.filter(
+          (p) => !removedIds.has(p.id),
+        );
       }
 
       const merged = [...enriched, ...paginatedItems.current];
@@ -371,7 +358,8 @@ export function useWatchlist(userId: string | undefined) {
   // Listen for external add events (e.g. from SearchScreen)
   useEffect(() => onShowAdded(insertItem), [insertItem]);
 
-  // Self-heal: re-fetch catalog for items missing it (CF may not have finished)
+  // Self-heal: fetch from TMDB for items with null catalogShow (edge case —
+  // CF hasn't created catalog doc yet). Uses TMDB API instead of Firestore.
   const healingRef = useRef(new Set<number>());
   useEffect(() => {
     if (loading || items.length === 0) return;
@@ -384,18 +372,24 @@ export function useWatchlist(userId: string | undefined) {
     for (const m of missing) healingRef.current.add(m.tmdbId);
 
     const timer = setTimeout(async () => {
-      const db = getFirestore();
+      const apiKey = useAuthStore.getState().appTmdbApiKey;
+      if (!apiKey) return;
       const updates: EnrichedTrackingItem[] = [];
       for (const item of missing) {
         const mt =
           item.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV;
         const key = showDocId(item.tmdbId, mt);
         try {
-          const showDoc = await getDoc(doc(db, "shows", key));
-          if (showDoc?.exists?.()) {
-            const catalog = {
-              id: showDoc.id,
-              ...showDoc.data(),
+          const details = await getShowDetails(apiKey, item.tmdbId, mt);
+          if (details) {
+            const catalog: CatalogShow = {
+              id: key,
+              tmdbId: item.tmdbId,
+              title: details.title || details.name || "",
+              posterPath: details.poster_path ?? null,
+              totalEpisodes:
+                (details as any).number_of_episodes ?? 0,
+              mediaType: mt,
             } as unknown as CatalogShow;
             catalogCache.current.set(key, catalog);
             updates.push({

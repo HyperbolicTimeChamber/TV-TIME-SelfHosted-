@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,9 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   AnimatedModal,
   ConfirmModal,
@@ -41,14 +43,14 @@ import {
   markMovieWatched,
   addAndMarkMovieWatched,
   getHighestWatchedEpisode,
-  getCatalogShow,
   getSeasonDetails,
 } from "../services";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { showDocId } from "../utils/docId";
 import { warmupSearchCFs } from "../services/warmup";
-import { emitShowAdded } from "../utils/watchlistEvents";
+import { emitShowAdded, emitShowRemoved } from "../utils/watchlistEvents";
 import type { EnrichedTrackingItem } from "../hooks/useWatchlist";
+import { getCachedCatalogShow } from "../hooks/useWatchlist";
 import {
   TMDBShow,
   SearchStackParamList,
@@ -66,7 +68,7 @@ type NavProp = NativeStackNavigationProp<
   Route.SEARCH_MAIN
 >;
 
-/** Fetch first episode info from catalog or TMDB. Returns ep name, airDate, and catalog if found. */
+/** Fetch first episode info from local catalog cache or TMDB. 0 Firestore reads. */
 async function fetchFirstEpisodeInfo(
   tmdbId: number,
   apiKey: string | null,
@@ -76,24 +78,22 @@ async function fetchFirstEpisodeInfo(
   runtime: number | null;
   catalog: CatalogShow | null;
 }> {
-  // Try catalog first (0–1 Firestore read)
-  try {
-    const catalog = await getCatalogShow(tmdbId, MediaType.TV);
-    if (catalog?.seasons?.length) {
-      const s1 = catalog.seasons.find((s) => s.seasonNumber === 1);
-      const ep1 = s1?.episodes?.find((e) => e.episodeNumber === 1);
-      if (ep1) {
-        return {
-          name: ep1.title || null,
-          airDate: ep1.airDate || null,
-          runtime: ep1.runtime || null,
-          catalog,
-        };
-      }
+  // Try shared catalog cache first (0 Firestore reads)
+  const cached = getCachedCatalogShow(tmdbId, MediaType.TV);
+  if (cached?.seasons?.length) {
+    const s1 = cached.seasons.find((s) => s.seasonNumber === 1);
+    const ep1 = s1?.episodes?.find((e) => e.episodeNumber === 1);
+    if (ep1) {
+      return {
+        name: ep1.title || null,
+        airDate: ep1.airDate || null,
+        runtime: ep1.runtime || null,
+        catalog: cached,
+      };
     }
-  } catch {}
+  }
 
-  // Fallback: TMDB season 1
+  // Fallback: TMDB season 1 (0 Firestore reads)
   if (apiKey) {
     try {
       const season = await getSeasonDetails(apiKey, tmdbId, 1);
@@ -151,6 +151,37 @@ export default function SearchScreen() {
   const [mediaFilter, setMediaFilter] = useState<"all" | "tv" | "movie">("all");
   const [typingLoading, setTypingLoading] = useState(false);
   const inputRef = useRef<TextInput>(null);
+  const [inputFocused, setInputFocused] = useState(false);
+
+  // Search history — persisted, max 100
+  const HISTORY_KEY = "search_history";
+  const MAX_HISTORY = 100;
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+
+  useEffect(() => {
+    AsyncStorage.getItem(HISTORY_KEY).then((raw) => {
+      if (raw) setSearchHistory(JSON.parse(raw));
+    });
+  }, []);
+
+  const addToHistory = useCallback((term: string) => {
+    const trimmed = term.trim();
+    if (!trimmed || trimmed.length < 2) return;
+    setSearchHistory((prev) => {
+      const filtered = prev.filter((h) => h !== trimmed);
+      const next = [trimmed, ...filtered].slice(0, MAX_HISTORY);
+      AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  const filteredHistory = useMemo(() => {
+    if (!query || query.length < 1) return [];
+    const lower = query.toLowerCase();
+    return searchHistory.filter((h) => h.toLowerCase().includes(lower)).slice(0, 8);
+  }, [query, searchHistory]);
+
+  const showHistory = inputFocused && query.length > 0 && filteredHistory.length > 0 && !debouncedQuery;
 
   const queryRef = useRef(query);
   queryRef.current = query;
@@ -165,6 +196,7 @@ export default function SearchScreen() {
     const timer = setTimeout(() => {
       setDebouncedQuery(query);
       setTypingLoading(false);
+      addToHistory(query);
     }, 300);
     return () => clearTimeout(timer);
   }, [query]);
@@ -406,6 +438,7 @@ export default function SearchScreen() {
       await removeFromTracking(user.uid, removeModal.id, removeMediaType);
       removeShowFromUpcoming(removeModal.id);
       removeShowFromCalendarGlobal(removeModal.id);
+      emitShowRemoved(removeModal.id);
       setRemoveModal(null);
     } catch (err: any) {
       console.error("removeFromTracking failed:", err);
@@ -516,11 +549,8 @@ export default function SearchScreen() {
         },
       );
 
-      // Fetch catalog for enrichment (best-effort)
-      let catalog: CatalogShow | null = null;
-      try {
-        catalog = await getCatalogShow(item.id, MediaType.TV);
-      } catch {}
+      // Use cached catalog for enrichment (0 Firestore reads)
+      const catalog = getCachedCatalogShow(item.id, MediaType.TV);
 
       emitShowAdded(
         buildOptimisticItem(
@@ -728,6 +758,8 @@ export default function SearchScreen() {
           placeholderTextColor={colors.textMuted}
           value={query}
           onChangeText={setQuery}
+          onFocus={() => setInputFocused(true)}
+          onBlur={() => setTimeout(() => setInputFocused(false), 150)}
           autoCapitalize="none"
           autoCorrect={false}
           returnKeyType="search"
@@ -745,6 +777,27 @@ export default function SearchScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      {showHistory && (
+        <View style={styles.historyDropdown}>
+          <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 200 }}>
+            {filteredHistory.map((term) => (
+              <TouchableOpacity
+                key={term}
+                style={styles.historyItem}
+                onPress={() => {
+                  setQuery(term);
+                  setInputFocused(false);
+                  inputRef.current?.blur();
+                }}
+              >
+                <Text style={styles.historyIcon}>↻</Text>
+                <Text style={styles.historyText} numberOfLines={1}>{term}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       <View style={styles.filterRow}>
         {(["all", "tv", "movie"] as const).map((type) => (
@@ -1078,5 +1131,29 @@ const styles = StyleSheet.create({
   emptyText: {
     ...typography.subtitle,
     color: colors.textSecondary,
+  },
+  historyDropdown: {
+    marginHorizontal: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    marginBottom: spacing.sm,
+  },
+  historyItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  historyIcon: {
+    color: colors.textMuted,
+    fontSize: 14,
+    marginRight: spacing.sm,
+  },
+  historyText: {
+    ...typography.body,
+    color: colors.text,
+    flex: 1,
   },
 });

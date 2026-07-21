@@ -84,6 +84,7 @@ export function insertWatchedEpisodeCache(
   userId: string,
   ep: WatchedEpisode,
 ) {
+  // Update paginated "all episodes" cache
   queryClient.setQueryData(
     [QueryKey.WATCHED_EPISODES, userId, undefined],
     (old: any) => {
@@ -96,6 +97,25 @@ export function insertWatchedEpisodeCache(
           ...old.pages.slice(1),
         ],
       };
+    },
+  );
+  // Update show-specific flat cache (used by useShowWatchedEpisodes)
+  queryClient.setQueryData(
+    [QueryKey.WATCHED_EPISODES, userId, ep.tmdbShowId],
+    (old: any) => {
+      if (!Array.isArray(old)) return [ep];
+      const exists = old.some(
+        (e: WatchedEpisode) =>
+          e.season === ep.season && e.episode === ep.episode,
+      );
+      if (exists) {
+        return old.map((e: WatchedEpisode) =>
+          e.season === ep.season && e.episode === ep.episode
+            ? { ...e, watchCount: (e.watchCount || 0) + 1, lastWatchedAt: ep.lastWatchedAt }
+            : e,
+        );
+      }
+      return [ep, ...old];
     },
   );
 }
@@ -137,27 +157,21 @@ export function removeWatchedEpisodeCache(
       };
     },
   );
-  // Also update show-specific query if cached
+  // Also update show-specific flat cache (used by useShowWatchedEpisodes)
   queryClient.setQueryData(
     [QueryKey.WATCHED_EPISODES, userId, tmdbShowId],
     (old: any) => {
-      if (!old?.pages) return old;
-      return {
-        ...old,
-        pages: old.pages.map((page: any) => ({
-          ...page,
-          episodes: decrement
-            ? page.episodes.map((ep: WatchedEpisode) =>
-                ep.season === season && ep.episode === episode
-                  ? { ...ep, watchCount: (ep.watchCount || 1) - 1 }
-                  : ep,
-              )
-            : page.episodes.filter(
-                (ep: WatchedEpisode) =>
-                  !(ep.season === season && ep.episode === episode),
-              ),
-        })),
-      };
+      if (!Array.isArray(old)) return old;
+      return decrement
+        ? old.map((ep: WatchedEpisode) =>
+            ep.season === season && ep.episode === episode
+              ? { ...ep, watchCount: (ep.watchCount || 1) - 1 }
+              : ep,
+          )
+        : old.filter(
+            (ep: WatchedEpisode) =>
+              !(ep.season === season && ep.episode === episode),
+          );
     },
   );
 }

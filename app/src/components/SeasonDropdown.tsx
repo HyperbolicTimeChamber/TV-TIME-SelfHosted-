@@ -546,36 +546,24 @@ export default memo(function SeasonDropdown({
         new Set(epsToMark.map((e: TMDBEpisode) => e.episode_number)),
       );
       try {
-        for (const ep of epsToMark) {
-          const isLast = ep.episode_number === toEp;
-          const {
-            nextEpisode,
-            nextEpisodeName,
-            nextEpisodeAirDate,
-            isComplete,
-          } = isLast
-            ? await getNextEpisodeInfo(season.season_number, ep.episode_number)
-            : {
-                nextEpisode: null,
-                nextEpisodeName: null,
-                nextEpisodeAirDate: null,
-                isComplete: false,
-              };
+        // Use batch CF instead of sequential individual marks — survives backgrounding
+        const { nextEpisode, nextEpisodeName, nextEpisodeAirDate, isComplete } =
+          await getNextEpisodeInfo(season.season_number, toEp);
 
-          await markEpisodeWatched(
-            user.uid,
-            tmdbId,
-            season.season_number,
-            ep.episode_number,
-            ep.name,
-            ep.runtime || 0,
-            nextEpisode,
-            isComplete,
-            !isLast, // skipTrackingUpdate for all except last
-            nextEpisodeName,
-            nextEpisodeAirDate,
-          );
-        }
+        await markSeasonWatchedCF(
+          tmdbId,
+          season.season_number,
+          epsToMark.map((ep: TMDBEpisode) => ({
+            episodeNumber: ep.episode_number,
+            name: ep.name,
+            runtime: ep.runtime || 0,
+          })),
+          nextEpisode,
+          isComplete,
+          nextEpisodeName,
+          nextEpisodeAirDate,
+        );
+
         const now = Timestamp.now();
         for (const ep of epsToMark) {
           insertWatchedEpisodeCache(queryClient, user.uid, {
@@ -747,7 +735,7 @@ export default memo(function SeasonDropdown({
           <CheckmarkButton
             size={30}
             watched={allWatched}
-            loading={markingSeason}
+            loading={markingSeason || markingEps.size > 0}
             label={
               allWatched
                 ? `x${minWatchCount}`
@@ -833,7 +821,7 @@ export default memo(function SeasonDropdown({
                   <CheckmarkButton
                     size={28}
                     watched={isWatched}
-                    loading={markingEps.has(ep.episode_number)}
+                    loading={markingEps.has(ep.episode_number) || markingSeason}
                     label={isWatched ? `x${count}` : undefined}
                     onPress={() => handleCheckmarkPress(ep)}
                     onLongPress={() => {

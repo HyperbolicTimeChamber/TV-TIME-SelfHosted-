@@ -661,19 +661,41 @@ export async function markSeasonWatchedCF(
   nextEpisodeAirDate: string | null = null,
 ): Promise<void> {
   const functions = getFunctions();
+  const BATCH_SIZE = 100;
+
   try {
-    await httpsCallable(
-      functions,
-      CloudFunction.MARK_SEASON_WATCHED,
-    )({
-      tmdbId,
-      seasonNumber,
-      episodes,
-      nextEpisode,
-      nextEpisodeName,
-      nextEpisodeAirDate,
-      isShowComplete,
-    });
+    if (episodes.length <= BATCH_SIZE) {
+      await httpsCallable(
+        functions,
+        CloudFunction.MARK_SEASON_WATCHED,
+      )({
+        tmdbId,
+        seasonNumber,
+        episodes,
+        nextEpisode,
+        nextEpisodeName,
+        nextEpisodeAirDate,
+        isShowComplete,
+      });
+    } else {
+      // Batch into chunks of 100 — only last chunk updates tracking doc
+      for (let i = 0; i < episodes.length; i += BATCH_SIZE) {
+        const chunk = episodes.slice(i, i + BATCH_SIZE);
+        const isLastChunk = i + BATCH_SIZE >= episodes.length;
+        await httpsCallable(
+          functions,
+          CloudFunction.MARK_SEASON_WATCHED,
+        )({
+          tmdbId,
+          seasonNumber,
+          episodes: chunk,
+          nextEpisode: isLastChunk ? nextEpisode : null,
+          nextEpisodeName: isLastChunk ? nextEpisodeName : null,
+          nextEpisodeAirDate: isLastChunk ? nextEpisodeAirDate : null,
+          isShowComplete: isLastChunk ? isShowComplete : false,
+        });
+      }
+    }
   } catch (err: any) {
     throw new Error(getCallableErrorMessage(err), { cause: err });
   }

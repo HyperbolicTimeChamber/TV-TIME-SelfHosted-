@@ -15,6 +15,7 @@ interface Props {
   parsed: ParsedGdprData;
   onToggle: (key: string) => void;
   onImport: () => void;
+  onBack?: () => void;
 }
 
 type ListItem =
@@ -31,6 +32,7 @@ export default function ReviewPhase({
   parsed,
   onToggle,
   onImport,
+  onBack,
 }: Props) {
   const listData = useMemo(() => {
     const seen = new Set<string>();
@@ -178,6 +180,11 @@ export default function ReviewPhase({
       />
 
       <View style={styles.reviewFooter}>
+        {onBack && (
+          <TouchableOpacity style={styles.backButton} onPress={onBack}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           style={[
             styles.primaryButton,
