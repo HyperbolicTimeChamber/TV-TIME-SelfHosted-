@@ -342,13 +342,17 @@ export async function unmarkEpisodeWatched(
     { merge: true },
   );
   // Update tracking to point to this now-unwatched episode
-  batch.update(doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)), {
-    nextEpisode: { season, episode },
-    nextEpisodeName: episodeName || null,
-    nextEpisodeAirDate: nextEpisodeAirDate || null,
-    status: WatchStatus.WATCHING,
-    priorityDate: Timestamp.now(),
-  });
+  batch.set(
+    doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)),
+    {
+      nextEpisode: { season, episode },
+      nextEpisodeName: episodeName || null,
+      nextEpisodeAirDate: nextEpisodeAirDate || null,
+      status: WatchStatus.WATCHING,
+      priorityDate: Timestamp.now(),
+    },
+    { merge: true },
+  );
   await batch.commit();
 }
 
@@ -388,13 +392,17 @@ export async function decrementEpisodeWatchCount(
 
   // When fully unwatched, update tracking to point back to this episode
   if (willDelete) {
-    batch.update(doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)), {
-      nextEpisode: { season, episode },
-      nextEpisodeName: episodeName || null,
-      nextEpisodeAirDate: nextEpisodeAirDate || null,
-      status: WatchStatus.WATCHING,
-      priorityDate: Timestamp.now(),
-    });
+    batch.set(
+      doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)),
+      {
+        nextEpisode: { season, episode },
+        nextEpisodeName: episodeName || null,
+        nextEpisodeAirDate: nextEpisodeAirDate || null,
+        status: WatchStatus.WATCHING,
+        priorityDate: Timestamp.now(),
+      },
+      { merge: true },
+    );
   }
 
   await batch.commit();
@@ -405,20 +413,35 @@ export async function unmarkSeasonWatched(
   tmdbShowId: number,
   episodes: Array<{ season: number; episode: number; runtime: number }>,
 ) {
+  const seasonNumber = episodes[0]?.season;
+  if (seasonNumber == null) return;
+
+  // Query ALL watchedEpisode docs for this show+season (catches orphans beyond TMDB count)
+  const allSeasonDocs = await getDocs(
+    query(
+      watchedEpisodesRef(userId),
+      where("tmdbShowId", "==", tmdbShowId),
+      where("season", "==", seasonNumber),
+    ),
+  );
+
   const batch = writeBatch(db);
   let totalRuntime = 0;
+  let deleteCount = 0;
 
-  for (const ep of episodes) {
-    const docId = episodeDocId(tmdbShowId, ep.season, ep.episode);
-    batch.delete(doc(watchedEpisodesRef(userId), docId));
-    totalRuntime += ep.runtime;
+  for (const d of allSeasonDocs.docs) {
+    batch.delete(d.ref);
+    totalRuntime += d.data().runtime || 0;
+    deleteCount++;
   }
+
+  if (deleteCount === 0) return;
 
   batch.set(
     userRef(userId),
     {
       stats: {
-        episodesWatched: increment(-episodes.length),
+        episodesWatched: increment(-deleteCount),
         totalMinutes: increment(-totalRuntime),
       },
     },
@@ -430,11 +453,15 @@ export async function unmarkSeasonWatched(
     (min, ep) => (ep.episode < min.episode ? ep : min),
     episodes[0],
   );
-  batch.update(doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)), {
-    nextEpisode: { season: firstEp.season, episode: firstEp.episode },
-    status: WatchStatus.WATCHING,
-    priorityDate: Timestamp.now(),
-  });
+  batch.set(
+    doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)),
+    {
+      nextEpisode: { season: firstEp.season, episode: firstEp.episode },
+      status: WatchStatus.WATCHING,
+      priorityDate: Timestamp.now(),
+    },
+    { merge: true },
+  );
 
   await batch.commit();
 }

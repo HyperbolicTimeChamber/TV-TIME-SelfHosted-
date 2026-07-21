@@ -30,7 +30,11 @@ function triggerInvalidate() {
 }
 
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 /** Persist upcoming cache with mutations applied */
@@ -139,25 +143,21 @@ export function useUpcomingEpisodes(userId: string | undefined) {
           query(upcomingCol, where("airDate", ">=", today)),
         );
 
-        // If empty, check if subcollection was ever built
+        // If empty, rebuild upcoming subcollection via CF
         if (snap.size === 0) {
-          const built = await AsyncStorage.getItem(CacheKey.UPCOMING_BUILT);
-          if (built !== userId) {
-            try {
-              await httpsCallable(
-                getFunctions(),
-                CloudFunction.REBUILD_UPCOMING,
-              )({});
-              await AsyncStorage.setItem(CacheKey.UPCOMING_BUILT, userId);
-              snap = await getDocs(
-                query(upcomingCol, where("airDate", ">=", today)),
-              );
-            } catch (err) {
-              console.error("rebuildUpcoming CF failed:", err);
-              setError("Failed to fetch upcoming episodes");
-              setIsLoading(false);
-              return;
-            }
+          try {
+            await httpsCallable(
+              getFunctions(),
+              CloudFunction.REBUILD_UPCOMING,
+            )({});
+            snap = await getDocs(
+              query(upcomingCol, where("airDate", ">=", today)),
+            );
+          } catch (err) {
+            console.error("rebuildUpcoming CF failed:", err);
+            setError("Failed to fetch upcoming episodes");
+            setIsLoading(false);
+            return;
           }
         }
 

@@ -30,7 +30,11 @@ import { ListItem } from "./types";
 const ACTIVE_CACHE_LIMIT = 100;
 
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 /** Compute remaining aired episodes after nextEp */
@@ -325,17 +329,20 @@ export function useWatchlistData(userId: string | undefined) {
 
   // --- Build the display list with all fields baked in ---
   const today = todayStr();
-  // Merge watched episodes + movies, sorted by lastWatchedAt ascending (latest at bottom)
-  const prevWatchedItems = useMemo(() => {
-    type PrevItem =
-      | { kind: "episode"; ep: WatchedEpisode; time: number }
-      | { kind: "movie"; movie: WatchedMovie; time: number };
 
+  const PREV_WATCHED_CACHE_SIZE = 5;
+
+  // All watched items sorted descending (most recent first)
+  type PrevItem =
+    | { kind: MediaType.TV; ep: WatchedEpisode; time: number }
+    | { kind: MediaType.MOVIE; movie: WatchedMovie; time: number };
+
+  const allPrevItems = useMemo(() => {
     const items: PrevItem[] = [];
     for (const ep of watchedEps) {
       if (!showMap.has(ep.tmdbShowId)) continue;
       items.push({
-        kind: "episode",
+        kind: MediaType.TV,
         ep,
         time: ep.lastWatchedAt?.toMillis?.() || 0,
       });
@@ -343,15 +350,30 @@ export function useWatchlistData(userId: string | undefined) {
     for (const movie of watchedMovies) {
       if (!showMap.has(movie.tmdbId)) continue;
       items.push({
-        kind: "movie",
+        kind: MediaType.MOVIE,
         movie,
         time: movie.lastWatchedAt?.toMillis?.() || 0,
       });
     }
-    // Sort descending to pick top 5, then reverse for display (oldest first, latest at bottom)
     items.sort((a, b) => b.time - a.time);
-    return items.slice(0, 5).reverse();
+    return items;
   }, [watchedEps, watchedMovies, showMap]);
+
+  // Cached tier: 5 most recent (persisted). Volatile tier: older pulled items (clears on restart).
+  const cachedPrevWatched = useMemo(
+    () => allPrevItems.slice(0, PREV_WATCHED_CACHE_SIZE),
+    [allPrevItems],
+  );
+  const volatilePrevWatched = useMemo(
+    () => allPrevItems.slice(PREV_WATCHED_CACHE_SIZE),
+    [allPrevItems],
+  );
+
+  // Display: oldest first → latest at bottom (volatile older items above cached recent items)
+  const prevWatchedItems = useMemo(
+    () => [...volatilePrevWatched.slice().reverse(), ...cachedPrevWatched.slice().reverse()],
+    [volatilePrevWatched, cachedPrevWatched],
+  );
 
   const allLoading = loading || watchedEpsLoading || watchedMoviesLoading;
 
@@ -361,7 +383,7 @@ export function useWatchlistData(userId: string | undefined) {
     if (prevWatchedItems.length > 0) {
       result.push({ type: "sectionHeader", title: "Previously Watched" });
       for (const item of prevWatchedItems) {
-        if (item.kind === "movie") {
+        if (item.kind === MediaType.MOVIE) {
           const show = showMap.get(item.movie.tmdbId);
           if (show) {
             result.push({
@@ -395,20 +417,38 @@ export function useWatchlistData(userId: string | undefined) {
     return result;
   }, [allLoading, prevWatchedItems, sortedActive, showMap, today]);
 
-  // --- Persist list cache when live data updates ---
+  // --- Persist list cache when live data updates (only cached tier, not volatile) ---
   useEffect(() => {
     if (!userId || allLoading || liveList.length === 0) return;
-    // Strip catalogShow from cards before caching
-    const toCache = liveList.map((item) => {
-      if (item.type === "show") {
-        const { catalogShow: _catalogShow, ...rest } = item.card;
-        return { type: "show" as const, card: rest };
+
+    // Build cache-only list: 5 most recent watched + up to 100 show cards
+    const cacheList: CacheableListItem[] = [];
+    // Add only cached prev watched items (5 most recent)
+    const cachedWatchedItems = liveList.filter(
+      (i) => i.type === "watchedEpisode" || i.type === "watchedMovie",
+    );
+    // volatile items are beyond the first PREV_WATCHED_CACHE_SIZE when sorted newest-last
+    // liveList has them oldest-first, so the LAST 5 are the cached ones
+    const cachedOnly = cachedWatchedItems.slice(-PREV_WATCHED_CACHE_SIZE);
+    if (cachedOnly.length > 0) {
+      cacheList.push({ type: "sectionHeader", title: "Previously Watched" });
+      cacheList.push(...cachedOnly);
+    }
+    // Add show cards (strip catalogShow)
+    const showItems = liveList.filter((i) => i.type === "show");
+    if (showItems.length > 0) {
+      cacheList.push({ type: "sectionHeader", title: "What's Up Next" });
+      for (const item of showItems) {
+        if (item.type === "show") {
+          const { catalogShow: _catalogShow, ...rest } = item.card;
+          cacheList.push({ type: "show" as const, card: rest as CardItem });
+        }
       }
-      return item;
-    });
+    }
+
     AsyncStorage.setItem(
       CacheKey.WATCHLIST_ACTIVE,
-      JSON.stringify({ userId, date: todayStr(), list: toCache }),
+      JSON.stringify({ userId, date: todayStr(), list: cacheList }),
     ).catch(() => {});
     if (cachedList) setCachedList(null);
   }, [userId, allLoading, liveList]);

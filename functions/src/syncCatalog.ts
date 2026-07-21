@@ -227,16 +227,9 @@ export async function rebuildUserUpcoming(
   const upcomingCol = db.collection(`users/${uid}/upcoming`);
   const ENDED_STATUSES = ["Ended", "Canceled"];
 
-  // Delete old upcoming docs
+  // Read old upcoming docs (delete stale ones AFTER writing new ones)
   const oldDocs = await upcomingCol.get();
-  if (oldDocs.size > 0) {
-    for (let i = 0; i < oldDocs.docs.length; i += 400) {
-      const batch = db.batch();
-      const chunk = oldDocs.docs.slice(i, i + 400);
-      for (const d of chunk) batch.delete(d.ref);
-      await batch.commit();
-    }
-  }
+  // oldDocs used below to identify stale entries after writing new ones
 
   // Get all active TV tracking docs
   const trackingSnap = await db
@@ -318,18 +311,120 @@ export async function rebuildUserUpcoming(
     }
   }
 
-  // Write in batches of 400
+  // Write new docs first (safe: if this fails, old docs still exist)
+  const newDocIds = new Set<string>();
   for (let i = 0; i < upcomingDocs.length; i += 400) {
     const batch = db.batch();
     const chunk = upcomingDocs.slice(i, i + 400);
     for (const d of chunk) {
       batch.set(upcomingCol.doc(d.id), d.data);
+      newDocIds.add(d.id);
+    }
+    await batch.commit();
+  }
+
+  // Delete stale docs that aren't in the new set
+  const staleIds = oldDocs.docs.filter((d) => !newDocIds.has(d.id));
+  for (let i = 0; i < staleIds.length; i += 400) {
+    const batch = db.batch();
+    const chunk = staleIds.slice(i, i + 400);
+    for (const d of chunk) batch.delete(d.ref);
+    await batch.commit();
+  }
+
+  console.log(
+    `Rebuilt ${upcomingDocs.length} upcoming episodes for user ${uid} (removed ${staleIds.length} stale)`,
+  );
+
+  // Clean orphaned watchedEpisode docs (episode numbers beyond catalog)
+  await cleanOrphanedEpisodes(db, uid, activeShows, catalogMap);
+}
+
+/**
+ * Delete watchedEpisode docs whose episode numbers exceed the catalog's
+ * episode count for that season (orphans from TMDB/TVDB numbering changes).
+ */
+async function cleanOrphanedEpisodes(
+  db: FirebaseFirestore.Firestore,
+  uid: string,
+  trackingDocs: FirebaseFirestore.QueryDocumentSnapshot[],
+  catalogMap: Map<string, CatalogShow>,
+): Promise<void> {
+  // Build set of valid season episode counts per show
+  const maxEpByShowSeason = new Map<string, Map<number, number>>();
+  for (const td of trackingDocs) {
+    const catalog = catalogMap.get(td.id);
+    if (!catalog?.seasons) continue;
+    const seasonMap = new Map<number, number>();
+    for (const s of catalog.seasons) {
+      if (s.seasonNumber === 0) continue;
+      seasonMap.set(s.seasonNumber, s.episodes?.length ?? 0);
+    }
+    maxEpByShowSeason.set(td.id, seasonMap);
+  }
+
+  if (maxEpByShowSeason.size === 0) return;
+
+  // Read all watchedEpisodes for this user
+  const watchedSnap = await db
+    .collection(`users/${uid}/watchedEpisodes`)
+    .get();
+
+  const orphans: FirebaseFirestore.DocumentReference[] = [];
+  let orphanRuntime = 0;
+
+  for (const wd of watchedSnap.docs) {
+    const data = wd.data();
+    const tmdbShowId = data.tmdbShowId;
+    const season = data.season;
+    const episode = data.episode;
+    if (!tmdbShowId || !season || !episode) continue;
+
+    // Find matching catalog entry by tmdbId
+    let showDocKey: string | undefined;
+    for (const [key] of maxEpByShowSeason) {
+      const parsed = parseTmdbId(key);
+      if (parsed.tmdbId === tmdbShowId) {
+        showDocKey = key;
+        break;
+      }
+    }
+    if (!showDocKey) continue;
+
+    const seasonMap = maxEpByShowSeason.get(showDocKey)!;
+    const maxEp = seasonMap.get(season);
+    if (maxEp === undefined) continue; // season not in catalog, leave alone
+
+    if (episode > maxEp) {
+      orphans.push(wd.ref);
+      orphanRuntime += data.runtime || 0;
+    }
+  }
+
+  if (orphans.length === 0) return;
+
+  // Delete orphans in batches + adjust stats
+  for (let i = 0; i < orphans.length; i += 400) {
+    const batch = db.batch();
+    const chunk = orphans.slice(i, i + 400);
+    for (const ref of chunk) batch.delete(ref);
+    if (i === 0) {
+      batch.set(
+        db.doc(`users/${uid}`),
+        {
+          stats: {
+            episodesWatched: FieldValue.increment(-orphans.length),
+            totalMinutes: FieldValue.increment(-orphanRuntime),
+          },
+        },
+        { merge: true },
+      );
     }
     await batch.commit();
   }
 
   console.log(
-    `Rebuilt ${upcomingDocs.length} upcoming episodes for user ${uid}`,
+    `Cleaned ${orphans.length} orphaned watchedEpisode docs for user ${uid}`,
   );
 }
 
