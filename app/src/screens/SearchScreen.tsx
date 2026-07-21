@@ -156,7 +156,12 @@ export default function SearchScreen() {
   queryRef.current = query;
 
   useEffect(() => {
-    if (query.length > 0) setTypingLoading(true);
+    if (query.length === 0) {
+      setDebouncedQuery("");
+      setTypingLoading(false);
+      return;
+    }
+    setTypingLoading(true);
     const timer = setTimeout(() => {
       setDebouncedQuery(query);
       setTypingLoading(false);
@@ -202,7 +207,8 @@ export default function SearchScreen() {
     if (!parent) return;
     const unsub = (parent as any).addListener("tabPress", () => {
       if (!isFocusedRef.current) return; // switching TO search, not re-tap
-      if (navigation.canGoBack()) {
+      const state = navigation.getState();
+      if (state && state.routes.length > 1) {
         navigation.popToTop();
       } else if (queryRef.current.length > 0) {
         resetSearch();
