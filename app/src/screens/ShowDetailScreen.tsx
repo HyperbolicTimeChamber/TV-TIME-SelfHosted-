@@ -41,7 +41,7 @@ import {
   UnreleasedMovieModal,
   shouldShowUnreleasedModal,
 } from "../components";
-import { emitShowRemoved } from "../utils/watchlistEvents";
+import { emitShowAdded, emitShowRemoved } from "../utils/watchlistEvents";
 import { showDocId } from "../utils/docId";
 import { colors, spacing, typography, posterSize } from "../theme";
 import {
@@ -185,6 +185,25 @@ export default function ShowDetailScreen() {
       );
       const title = show.title || show.name || "";
       const poster = show.poster_path || null;
+      const now = Timestamp.now();
+      emitShowAdded({
+        id: showDocId(tmdbId, mediaType),
+        tmdbId,
+        mediaType,
+        status: WatchStatus.WATCHING,
+        nextEpisode: mediaType === MediaType.TV ? { season: 1, episode: 1 } : null,
+        nextEpisodeName: firstEp?.name || null,
+        nextEpisodeAirDate: firstEp?.air_date || null,
+        rewatchCount: 0,
+        addedAt: now,
+        lastWatchedAt: now,
+        priorityDate: now,
+        releaseDate: releaseDate ?? null,
+        title,
+        posterPath: poster,
+        totalEpisodes: 0,
+        catalogShow: null,
+      });
       if (isUnreleased && releaseDate) {
         const movieEp: UpcomingEpisode = {
           tmdbShowId: tmdbId,

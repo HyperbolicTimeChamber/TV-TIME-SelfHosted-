@@ -897,7 +897,7 @@ export default function SearchScreen() {
             {suggestions.map((term, idx) => (
               <TouchableOpacity
                 key={`${term}_${idx}`}
-                style={styles.historyItem}
+                style={[styles.historyItem, idx === suggestions.length - 1 && { borderBottomWidth: 0 }]}
                 onPress={() => submitSearch(term)}
               >
                 <Text style={styles.historyIcon}>{idx === 0 ? "🔍" : "↻"}</Text>
