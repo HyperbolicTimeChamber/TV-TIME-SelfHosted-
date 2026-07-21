@@ -42,7 +42,14 @@ import {
 import { emitShowRemoved } from "../utils/watchlistEvents";
 import { showDocId } from "../utils/docId";
 import { colors, spacing, typography, posterSize } from "../theme";
-import { HomeStackParamList, WatchStatus, MediaType, UpcomingEpisode, QueryKey, WatchedMovie } from "../types";
+import {
+  HomeStackParamList,
+  WatchStatus,
+  MediaType,
+  UpcomingEpisode,
+  QueryKey,
+  WatchedMovie,
+} from "../types";
 import { useQueryClient } from "@tanstack/react-query";
 import { Timestamp } from "@react-native-firebase/firestore";
 
@@ -140,9 +147,7 @@ export default function ShowDetailScreen() {
 
       // Get first episode info for TV shows
       const firstEp =
-        mediaType === MediaType.TV
-          ? episodesBySeason.get(1)?.[0]
-          : undefined;
+        mediaType === MediaType.TV ? episodesBySeason.get(1)?.[0] : undefined;
 
       await addToTracking(
         user.uid,
@@ -200,7 +205,15 @@ export default function ShowDetailScreen() {
     } finally {
       setAdding(false);
     }
-  }, [user?.uid, show, tmdbId, mediaType, adding, addShowToUpcoming, episodesBySeason]);
+  }, [
+    user?.uid,
+    show,
+    tmdbId,
+    mediaType,
+    adding,
+    addShowToUpcoming,
+    episodesBySeason,
+  ]);
 
   const handleRemove = useCallback(() => {
     if (!user?.uid || removing) return;

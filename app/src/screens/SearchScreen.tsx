@@ -27,7 +27,12 @@ import {
   removeShowFromCalendarGlobal,
   addMovieToCalendarGlobal,
 } from "../hooks";
-import { getFirestore, doc, updateDoc, Timestamp } from "@react-native-firebase/firestore";
+import {
+  getFirestore,
+  doc,
+  updateDoc,
+  Timestamp,
+} from "@react-native-firebase/firestore";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../stores";
 import {
@@ -40,7 +45,14 @@ import {
 import { colors, spacing, typography, posterSize } from "../theme";
 import { showDocId } from "../utils/docId";
 import { warmupSearchCFs } from "../services/warmup";
-import { TMDBShow, SearchStackParamList, MediaType, Route, QueryKey, WatchedMovie } from "../types";
+import {
+  TMDBShow,
+  SearchStackParamList,
+  MediaType,
+  Route,
+  QueryKey,
+  WatchedMovie,
+} from "../types";
 
 type NavProp = NativeStackNavigationProp<
   SearchStackParamList,
@@ -266,10 +278,15 @@ export default function SearchScreen() {
     const item = movieModal;
     setMovieModal(null);
     await withLoadingId(item.id, async () => {
-      await addAndMarkMovieWatched(user.uid!, item.id, (item as any).runtime ?? 0, {
-        title: item.title || item.name || "",
-        posterPath: item.poster_path || null,
-      });
+      await addAndMarkMovieWatched(
+        user.uid!,
+        item.id,
+        (item as any).runtime ?? 0,
+        {
+          title: item.title || item.name || "",
+          posterPath: item.poster_path || null,
+        },
+      );
       // Update query cache directly — no refetch
       const now = Timestamp.now();
       queryClient.setQueryData<any>(

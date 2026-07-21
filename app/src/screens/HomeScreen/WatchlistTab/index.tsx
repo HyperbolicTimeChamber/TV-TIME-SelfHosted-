@@ -49,7 +49,10 @@ import {
   warmupFirestoreWrite,
 } from "../../../services/warmup";
 import { Timestamp } from "@react-native-firebase/firestore";
-import { insertWatchedEpisodeCache, removeWatchedEpisodeCache } from "../../../hooks";
+import {
+  insertWatchedEpisodeCache,
+  removeWatchedEpisodeCache,
+} from "../../../hooks";
 import { ListItem } from "./types";
 import { useWatchlistData } from "./useWatchlistData";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
@@ -359,8 +362,11 @@ export default function WatchlistTab() {
         );
       }
       removeWatchedEpisodeCache(
-        queryClient, user.uid,
-        episode.tmdbShowId, episode.season, episode.episode,
+        queryClient,
+        user.uid,
+        episode.tmdbShowId,
+        episode.season,
+        episode.episode,
         episode.watchCount > 1,
       );
     },
@@ -373,7 +379,10 @@ export default function WatchlistTab() {
 
       try {
         if (action === "rewatch") {
-          const catalog = await getCatalogShow(sheetEpisode.tmdbShowId, MediaType.TV);
+          const catalog = await getCatalogShow(
+            sheetEpisode.tmdbShowId,
+            MediaType.TV,
+          );
           const catalogSeason = catalog?.seasons?.find(
             (s) => s.seasonNumber === sheetEpisode.season,
           );
@@ -448,8 +457,11 @@ export default function WatchlistTab() {
           });
         } else {
           removeWatchedEpisodeCache(
-            queryClient, user.uid,
-            sheetEpisode.tmdbShowId, sheetEpisode.season, sheetEpisode.episode,
+            queryClient,
+            user.uid,
+            sheetEpisode.tmdbShowId,
+            sheetEpisode.season,
+            sheetEpisode.episode,
             action === "watched_once_less",
           );
         }

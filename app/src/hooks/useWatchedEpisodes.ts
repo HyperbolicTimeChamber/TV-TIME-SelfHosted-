@@ -55,7 +55,6 @@ export function useWatchedEpisodes(
         ...d.data(),
       })) as WatchedEpisode[];
 
-
       return {
         episodes,
         lastDoc: snapshot.docs[snapshot.docs.length - 1] || null,

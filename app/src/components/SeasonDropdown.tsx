@@ -192,8 +192,8 @@ export default memo(function SeasonDropdown({
   }, [rawEpisodes, imagesData]);
   // Only count watched episodes that exist in the current season's episode list
   // (filters out orphans from TMDB/TVDB season restructuring)
-  const watchedCount = episodes.filter(
-    (ep: TMDBEpisode) => watchedMap.has(ep.episode_number),
+  const watchedCount = episodes.filter((ep: TMDBEpisode) =>
+    watchedMap.has(ep.episode_number),
   ).length;
   const minWatchCount =
     episodes.length > 0
@@ -463,23 +463,49 @@ export default memo(function SeasonDropdown({
           const ep = sheetTarget.ep;
           const watched = watchedMap.get(ep.episode_number);
           if (action === "not_watched") {
-            removeWatchedEpisodeCache(queryClient, user.uid, tmdbId, season.season_number, ep.episode_number);
+            removeWatchedEpisodeCache(
+              queryClient,
+              user.uid,
+              tmdbId,
+              season.season_number,
+              ep.episode_number,
+            );
           } else if (action === "watched_once_less") {
-            removeWatchedEpisodeCache(queryClient, user.uid, tmdbId, season.season_number, ep.episode_number, true);
+            removeWatchedEpisodeCache(
+              queryClient,
+              user.uid,
+              tmdbId,
+              season.season_number,
+              ep.episode_number,
+              true,
+            );
           }
           // "rewatch" handled by handleMarkWatched → doMarkEpisodeWatched
         } else if (sheetTarget.type === "season") {
           if (action === "not_watched") {
             for (const ep of episodes) {
               if (watchedMap.has(ep.episode_number)) {
-                removeWatchedEpisodeCache(queryClient, user.uid, tmdbId, season.season_number, ep.episode_number);
+                removeWatchedEpisodeCache(
+                  queryClient,
+                  user.uid,
+                  tmdbId,
+                  season.season_number,
+                  ep.episode_number,
+                );
               }
             }
           } else if (action === "watched_once_less") {
             for (const ep of episodes) {
               const w = watchedMap.get(ep.episode_number);
               if (w && w.watchCount > 0) {
-                removeWatchedEpisodeCache(queryClient, user.uid, tmdbId, season.season_number, ep.episode_number, true);
+                removeWatchedEpisodeCache(
+                  queryClient,
+                  user.uid,
+                  tmdbId,
+                  season.season_number,
+                  ep.episode_number,
+                  true,
+                );
               }
             }
           }

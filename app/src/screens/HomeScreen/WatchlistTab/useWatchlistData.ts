@@ -408,9 +408,10 @@ export function useWatchlistData(userId: string | undefined) {
     [safePrevItems],
   );
   const volatilePrevWatched = useMemo(
-    () => safePrevItems.length > PREV_WATCHED_CACHE_SIZE
-      ? safePrevItems.slice(0, safePrevItems.length - PREV_WATCHED_CACHE_SIZE)
-      : [],
+    () =>
+      safePrevItems.length > PREV_WATCHED_CACHE_SIZE
+        ? safePrevItems.slice(0, safePrevItems.length - PREV_WATCHED_CACHE_SIZE)
+        : [],
     [safePrevItems],
   );
 
@@ -434,7 +435,8 @@ export function useWatchlistData(userId: string | undefined) {
             type: "watchedMovie",
             movie: item.movie,
             showTitle: show?.title ?? (item.movie as any).title ?? "",
-            posterPath: show?.posterPath ?? (item.movie as any).posterPath ?? null,
+            posterPath:
+              show?.posterPath ?? (item.movie as any).posterPath ?? null,
             tmdbId: item.movie.tmdbId,
           });
         } else {
@@ -493,7 +495,6 @@ export function useWatchlistData(userId: string | undefined) {
     ).catch(() => {});
     if (cachedList) setCachedList(null);
   }, [userId, allLoading, liveList]);
-
 
   // --- Effective display: cached until live data ready ---
   const rawDisplayList =

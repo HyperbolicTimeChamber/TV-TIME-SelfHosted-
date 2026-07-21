@@ -14,7 +14,13 @@ import {
   startAfter,
   QueryDocumentSnapshot,
 } from "@react-native-firebase/firestore";
-import { TrackingItem, CatalogShow, CacheKey, DocChangeType, MediaType } from "../types";
+import {
+  TrackingItem,
+  CatalogShow,
+  CacheKey,
+  DocChangeType,
+  MediaType,
+} from "../types";
 import { showDocId } from "../utils/docId";
 
 const PAGE_SIZE = 50;
@@ -57,7 +63,10 @@ async function enrichItems(
   let cacheUpdated = false;
   const enriched = await Promise.all(
     trackingItems.map(async (item): Promise<EnrichedTrackingItem> => {
-      const mt = (item as any).mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV;
+      const mt =
+        (item as any).mediaType === MediaType.MOVIE
+          ? MediaType.MOVIE
+          : MediaType.TV;
       const key = showDocId(item.tmdbId, mt);
       let catalogShow: CatalogShow | null = cache.get(key) ?? null;
 
@@ -105,7 +114,8 @@ export function useWatchlist(userId: string | undefined) {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const catalogCache = useRef<Map<string, CatalogShow | null>>(sharedCatalogCache);
+  const catalogCache =
+    useRef<Map<string, CatalogShow | null>>(sharedCatalogCache);
   const catalogCacheRestored = useRef(false);
   const paginationCursor = useRef<QueryDocumentSnapshot | null>(null);
   const firstPageLastDoc = useRef<QueryDocumentSnapshot | null>(null);
@@ -229,7 +239,9 @@ export function useWatchlist(userId: string | undefined) {
                 "tracking",
                 showDocId(
                   p.tmdbId,
-                  (p as any).mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV,
+                  (p as any).mediaType === MediaType.MOVIE
+                    ? MediaType.MOVIE
+                    : MediaType.TV,
                 ),
               ),
             ),

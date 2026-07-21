@@ -77,18 +77,15 @@ export function insertWatchedMovieCache(
   userId: string,
   movie: WatchedMovie,
 ) {
-  queryClient.setQueryData(
-    [QueryKey.WATCHED_MOVIES, userId],
-    (old: any) => {
-      if (!old?.pages) return old;
-      const firstPage = old.pages[0];
-      return {
-        ...old,
-        pages: [
-          { ...firstPage, movies: [movie, ...firstPage.movies] },
-          ...old.pages.slice(1),
-        ],
-      };
-    },
-  );
+  queryClient.setQueryData([QueryKey.WATCHED_MOVIES, userId], (old: any) => {
+    if (!old?.pages) return old;
+    const firstPage = old.pages[0];
+    return {
+      ...old,
+      pages: [
+        { ...firstPage, movies: [movie, ...firstPage.movies] },
+        ...old.pages.slice(1),
+      ],
+    };
+  });
 }

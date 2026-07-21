@@ -621,7 +621,12 @@ export async function addAndMarkMovieWatched(
   });
   batch.set(
     movieRef,
-    { tmdbId, lastWatchedAt: now, runtime: runtime || 0, watchCount: increment(1) },
+    {
+      tmdbId,
+      lastWatchedAt: now,
+      runtime: runtime || 0,
+      watchCount: increment(1),
+    },
     { merge: true },
   );
   batch.set(

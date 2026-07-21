@@ -17,7 +17,11 @@ export { useUserStats } from "./useUserStats";
 export { isShowVisible, sortByPriority } from "./useVisibleTracking";
 export { useTrackedIds } from "./useTrackedIds";
 export { useShowWatchedEpisodes } from "./useShowWatchedEpisodes";
-export { useWatchedEpisodes, insertWatchedEpisodeCache, removeWatchedEpisodeCache } from "./useWatchedEpisodes";
+export {
+  useWatchedEpisodes,
+  insertWatchedEpisodeCache,
+  removeWatchedEpisodeCache,
+} from "./useWatchedEpisodes";
 export { useWatchedMovies, insertWatchedMovieCache } from "./useWatchedMovies";
 export type { EnrichedTrackingItem } from "./useWatchlist";
 export { useWatchlist, getCachedCatalogShow } from "./useWatchlist";
