@@ -244,8 +244,13 @@ export function useWatchlistData(userId: string | undefined) {
     loadingMore: loadingMoreEps,
     hasMore: hasMoreEps,
   } = useWatchedEpisodes(userId);
-  const { movies: watchedMovies, loading: watchedMoviesLoading } =
-    useWatchedMovies(userId);
+  const {
+    movies: watchedMovies,
+    loading: watchedMoviesLoading,
+    loadMore: loadMoreMovies,
+    loadingMore: loadingMoreMovies,
+    hasMore: hasMoreMovies,
+  } = useWatchedMovies(userId);
 
   const queryClient = useQueryClient();
   const { mutateCachedUpcoming, rollbackUpcoming, removeShowFromUpcoming } =
@@ -716,15 +721,23 @@ export function useWatchlistData(userId: string | undefined) {
     [userId, removeItem, removeShowFromUpcoming],
   );
 
+  // Combined load-more for previously watched (episodes + movies)
+  const hasMorePrevWatched = hasMoreEps || hasMoreMovies;
+  const loadingMorePrevWatched = loadingMoreEps || loadingMoreMovies;
+  const loadMorePrevWatched = useCallback(() => {
+    if (hasMoreEps) loadMoreEps();
+    if (hasMoreMovies) loadMoreMovies();
+  }, [hasMoreEps, loadMoreEps, hasMoreMovies, loadMoreMovies]);
+
   return {
     removeItem,
     listData,
     loading: effectiveLoading,
     loadMoreTracking,
     loadingMoreTracking,
-    loadMoreEps,
-    loadingMoreEps,
-    hasMoreEps,
+    loadMorePrevWatched,
+    loadingMorePrevWatched,
+    hasMorePrevWatched,
     prevWatchedOffset,
     watchedCountByShow,
     updatingShows,

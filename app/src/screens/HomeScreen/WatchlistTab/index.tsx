@@ -79,9 +79,9 @@ export default function WatchlistTab() {
     loading,
     loadMoreTracking,
     loadingMoreTracking,
-    loadMoreEps,
-    loadingMoreEps,
-    hasMoreEps,
+    loadMorePrevWatched,
+    loadingMorePrevWatched,
+    hasMorePrevWatched,
     prevWatchedOffset,
     watchedCountByShow,
     updatingShows,
@@ -556,10 +556,10 @@ export default function WatchlistTab() {
         drawDistance={SCREEN_HEIGHT * 2}
         estimatedItemSize={99}
         refreshControl={
-          hasMoreEps ? (
+          hasMorePrevWatched ? (
             <RefreshControl
-              refreshing={loadingMoreEps}
-              onRefresh={loadMoreEps}
+              refreshing={loadingMorePrevWatched}
+              onRefresh={loadMorePrevWatched}
               tintColor={colors.primary}
               colors={[colors.primary]}
               progressBackgroundColor={colors.surface}

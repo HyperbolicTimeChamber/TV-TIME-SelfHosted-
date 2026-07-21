@@ -15,7 +15,7 @@ export const syncCatalog = onSchedule(
   {
     schedule: "0 3 * * 0", // Every Sunday 3:00 AM UTC
     maxInstances: 1,
-    timeoutSeconds: 1800,
+    timeoutSeconds: 540,
     memory: "512MiB",
     retryCount: 1,
   },
