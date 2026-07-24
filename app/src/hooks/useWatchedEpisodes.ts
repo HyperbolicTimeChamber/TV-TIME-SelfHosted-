@@ -1,87 +1,177 @@
-import { useEffect, useState, useCallback, useRef } from "react";
-import firestore, { FirebaseFirestoreTypes } from "@react-native-firebase/firestore";
-import { WatchedEpisode } from "../types";
+import { useCallback } from "react";
+import {
+  getFirestore,
+  collection,
+  doc,
+  query,
+  where,
+  orderBy,
+  limit,
+  startAfter,
+  getDocs,
+  QueryDocumentSnapshot,
+} from "@react-native-firebase/firestore";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { WatchedEpisode, QueryKey } from "../types";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 5;
+
+interface WatchedEpisodesPage {
+  episodes: WatchedEpisode[];
+  lastDoc: QueryDocumentSnapshot | null;
+}
 
 export function useWatchedEpisodes(
   userId: string | undefined,
-  tmdbShowId?: number
+  tmdbShowId?: number,
 ) {
-  const [episodes, setEpisodes] = useState<WatchedEpisode[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const lastDoc = useRef<FirebaseFirestoreTypes.QueryDocumentSnapshot | null>(null);
+  const queryKey = [QueryKey.WATCHED_EPISODES, userId, tmdbShowId] as const;
 
-  const buildQuery = useCallback(() => {
-    let query: FirebaseFirestoreTypes.Query = firestore()
-      .collection("users")
-      .doc(userId!)
-      .collection("watchedEpisodes")
-      .orderBy("lastWatchedAt", "desc");
+  const {
+    data,
+    isLoading: loading,
+    fetchNextPage,
+    isFetchingNextPage: loadingMore,
+    hasNextPage,
+  } = useInfiniteQuery<WatchedEpisodesPage>({
+    queryKey,
+    queryFn: async ({ pageParam }) => {
+      const db = getFirestore();
+      const colRef = collection(doc(db, "users", userId!), "watchedEpisodes");
 
-    if (tmdbShowId !== undefined) {
-      query = query.where("tmdbShowId", "==", tmdbShowId);
-    }
-    return query;
-  }, [userId, tmdbShowId]);
+      const constraints: any[] = [orderBy("lastWatchedAt", "desc")];
+      if (tmdbShowId !== undefined) {
+        constraints.push(where("tmdbShowId", "==", tmdbShowId));
+      }
+      if (pageParam) {
+        constraints.push(startAfter(pageParam));
+      }
+      constraints.push(limit(PAGE_SIZE));
 
-  // Initial load
-  useEffect(() => {
-    if (!userId) {
-      setEpisodes([]);
-      setLoading(false);
-      setHasMore(false);
-      return;
-    }
+      const snapshot = await getDocs(query(colRef, ...constraints));
 
-    lastDoc.current = null;
-    setHasMore(true);
-
-    const unsubscribe = buildQuery()
-      .limit(PAGE_SIZE)
-      .onSnapshot(
-        (snapshot) => {
-          const data = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as WatchedEpisode[];
-          setEpisodes(data);
-          setLoading(false);
-          setHasMore(snapshot.docs.length >= PAGE_SIZE);
-          lastDoc.current = snapshot.docs[snapshot.docs.length - 1] || null;
-        },
-        (error) => {
-          console.error("WatchedEpisodes listener error:", error);
-          setLoading(false);
-        }
-      );
-
-    return unsubscribe;
-  }, [userId, tmdbShowId, buildQuery]);
-
-  const loadMore = useCallback(async () => {
-    if (!userId || !hasMore || loadingMore || !lastDoc.current) return;
-    setLoadingMore(true);
-    try {
-      const snapshot = await buildQuery()
-        .startAfter(lastDoc.current)
-        .limit(PAGE_SIZE)
-        .get();
-
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
+      const episodes = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
       })) as WatchedEpisode[];
 
-      setEpisodes((prev) => [...prev, ...data]);
-      setHasMore(snapshot.docs.length >= PAGE_SIZE);
-      lastDoc.current = snapshot.docs[snapshot.docs.length - 1] || null;
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [userId, hasMore, loadingMore, buildQuery]);
+      return {
+        episodes,
+        lastDoc: snapshot.docs[snapshot.docs.length - 1] || null,
+      };
+    },
+    initialPageParam: null as QueryDocumentSnapshot | null,
+    getNextPageParam: (lastPage) =>
+      lastPage.episodes.length >= PAGE_SIZE ? lastPage.lastDoc : undefined,
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+  });
 
-  return { episodes, loading, loadMore, loadingMore, hasMore };
+  const episodes = data?.pages.flatMap((p) => p.episodes) ?? [];
+
+  const loadMore = useCallback(() => {
+    if (hasNextPage && !loadingMore) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, loadingMore, fetchNextPage]);
+
+  return { episodes, loading, loadMore, loadingMore, hasMore: !!hasNextPage };
+}
+
+/** Insert a watched episode into the query cache (no Firestore refetch). */
+export function insertWatchedEpisodeCache(
+  queryClient: { setQueryData: (key: any, updater: any) => void },
+  userId: string,
+  ep: WatchedEpisode,
+) {
+  // Update paginated "all episodes" cache
+  queryClient.setQueryData(
+    [QueryKey.WATCHED_EPISODES, userId, undefined],
+    (old: any) => {
+      if (!old?.pages) return old;
+      const firstPage = old.pages[0];
+      return {
+        ...old,
+        pages: [
+          { ...firstPage, episodes: [ep, ...firstPage.episodes] },
+          ...old.pages.slice(1),
+        ],
+      };
+    },
+  );
+  // Update show-specific flat cache (used by useShowWatchedEpisodes)
+  queryClient.setQueryData(
+    [QueryKey.WATCHED_EPISODES, userId, ep.tmdbShowId],
+    (old: any) => {
+      if (!Array.isArray(old)) return [ep];
+      const exists = old.some(
+        (e: WatchedEpisode) =>
+          e.season === ep.season && e.episode === ep.episode,
+      );
+      if (exists) {
+        return old.map((e: WatchedEpisode) =>
+          e.season === ep.season && e.episode === ep.episode
+            ? { ...e, watchCount: (e.watchCount || 0) + 1, lastWatchedAt: ep.lastWatchedAt }
+            : e,
+        );
+      }
+      return [ep, ...old];
+    },
+  );
+}
+
+/** Remove or decrement a watched episode in the query cache. */
+export function removeWatchedEpisodeCache(
+  queryClient: { setQueryData: (key: any, updater: any) => void },
+  userId: string,
+  tmdbShowId: number,
+  season: number,
+  episode: number,
+  decrement?: boolean,
+) {
+  queryClient.setQueryData(
+    [QueryKey.WATCHED_EPISODES, userId, undefined],
+    (old: any) => {
+      if (!old?.pages) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page: any) => ({
+          ...page,
+          episodes: decrement
+            ? page.episodes.map((ep: WatchedEpisode) =>
+                ep.tmdbShowId === tmdbShowId &&
+                ep.season === season &&
+                ep.episode === episode
+                  ? { ...ep, watchCount: (ep.watchCount || 1) - 1 }
+                  : ep,
+              )
+            : page.episodes.filter(
+                (ep: WatchedEpisode) =>
+                  !(
+                    ep.tmdbShowId === tmdbShowId &&
+                    ep.season === season &&
+                    ep.episode === episode
+                  ),
+              ),
+        })),
+      };
+    },
+  );
+  // Also update show-specific flat cache (used by useShowWatchedEpisodes)
+  queryClient.setQueryData(
+    [QueryKey.WATCHED_EPISODES, userId, tmdbShowId],
+    (old: any) => {
+      if (!Array.isArray(old)) return old;
+      return decrement
+        ? old.map((ep: WatchedEpisode) =>
+            ep.season === season && ep.episode === episode
+              ? { ...ep, watchCount: (ep.watchCount || 1) - 1 }
+              : ep,
+          )
+        : old.filter(
+            (ep: WatchedEpisode) =>
+              !(ep.season === season && ep.episode === episode),
+          );
+    },
+  );
 }

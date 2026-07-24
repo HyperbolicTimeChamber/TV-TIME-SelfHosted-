@@ -1,11 +1,11 @@
 {
   "indexes": [
     {
-      "collectionGroup": "watchlist",
+      "collectionGroup": "tracking",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "lastWatchedAt", "order": "DESCENDING" }
+        { "fieldPath": "priorityDate", "order": "DESCENDING" }
       ]
     }
   ],

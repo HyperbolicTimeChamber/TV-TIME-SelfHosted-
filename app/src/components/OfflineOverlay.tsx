@@ -1,14 +1,8 @@
 import React from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Modal,
-} from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Modal } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
 import { colors, spacing, typography } from "../theme";
-import { useUiStore } from "../stores/uiStore";
+import { useUiStore } from "../stores";
 
 export default function OfflineOverlay() {
   const isConnected = useUiStore((s) => s.isConnected);

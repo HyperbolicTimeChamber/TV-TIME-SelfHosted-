@@ -17,6 +17,14 @@ functions/lib/
 google-services.json
 GoogleService-Info.plist
 
+# Fastlane
+app/fastlane/report.xml
+app/fastlane/README.md
+
+# Keystore
+*.keystore
+*.jks
+
 # Environment
 .env
 .env.local
@@ -32,4 +40,4 @@ GoogleService-Info.plist
 .DS_Store
 Thumbs.db
 
-.superpowers
+firebase-debug.log

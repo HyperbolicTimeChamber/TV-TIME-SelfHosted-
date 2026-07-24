@@ -1,64 +1,83 @@
-import React, { useMemo, useState, useCallback, useRef, useEffect } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  FlatList,
-  Modal,
-} from "react-native";
+import React, {
+  useMemo,
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+} from "react";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { AnimatedModal, LoadingSpinner } from "../components";
+import { LegendList } from "@legendapp/list/react-native";
 import { Calendar, DateData } from "react-native-calendars";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Image } from "expo-image";
-import { useAuthStore } from "../stores/authStore";
-import { useWatchlist } from "../hooks/useWatchlist";
-import { useCalendarEpisodes } from "../hooks/useCalendarEpisodes";
+import { useAuthStore } from "../stores";
+import { useCalendarEpisodes } from "../hooks";
 import { colors, spacing, typography, posterSize } from "../theme";
-import { UpcomingEpisode, CalendarStackParamList } from "../types";
+import {
+  UpcomingEpisode,
+  CalendarStackParamList,
+  Route,
+  MediaType,
+} from "../types";
 
-type NavProp = NativeStackNavigationProp<CalendarStackParamList, "CalendarMain">;
+type NavProp = NativeStackNavigationProp<
+  CalendarStackParamList,
+  Route.CALENDAR_MAIN
+>;
 
 const YEAR_RANGE_START = 1950;
 const YEAR_RANGE_END = 2035;
 const YEARS = Array.from(
   { length: YEAR_RANGE_END - YEAR_RANGE_START + 1 },
-  (_, i) => YEAR_RANGE_START + i
+  (_, i) => YEAR_RANGE_START + i,
 );
 
 export default function CalendarScreen() {
   const user = useAuthStore((s) => s.user);
-  const { items: watchlist } = useWatchlist(user?.uid);
   const navigation = useNavigation<NavProp>();
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(
+    new Date().toISOString().slice(0, 10),
+  );
   const [yearModalVisible, setYearModalVisible] = useState(false);
 
   const now = new Date();
   const [currentYear, setCurrentYear] = useState(now.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(now.getMonth() + 1);
-  const yearListRef = useRef<FlatList>(null);
+  const yearListRef = useRef<any>(null);
 
-  const tvShows = useMemo(
-    () =>
-      watchlist.filter(
-        (w) =>
-          w.mediaType === "tv" &&
-          (w.status === "watching" || w.status === "rewatching")
-      ),
-    [watchlist]
-  );
-
-  const { episodes, loadMonthEpisodes } = useCalendarEpisodes(tvShows);
+  const {
+    episodes,
+    loading: calendarLoading,
+    loadMonthEpisodes,
+  } = useCalendarEpisodes(user?.uid);
 
   // Load current month's episodes on mount
   useEffect(() => {
     loadMonthEpisodes(currentYear, currentMonth);
-  }, [tvShows.length]);
+  }, [user?.uid]);
+
+  // Reset to current month when tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      const today = new Date();
+      setCurrentYear(today.getFullYear());
+      setCurrentMonth(today.getMonth() + 1);
+      setSelectedDate(today.toISOString().slice(0, 10));
+    }, []),
+  );
 
   const markedDates = useMemo(() => {
     const marks: Record<
       string,
-      { marked: boolean; dotColor: string; selected?: boolean; selectedColor?: string }
+      {
+        marked: boolean;
+        dotColor: string;
+        selected?: boolean;
+        selectedColor?: string;
+      }
     > = {};
     if (!episodes) return marks;
 
@@ -72,6 +91,7 @@ export default function CalendarScreen() {
     if (selectedDate && marks[selectedDate]) {
       marks[selectedDate] = {
         ...marks[selectedDate],
+        dotColor: colors.background,
         selected: true,
         selectedColor: colors.primary,
       };
@@ -96,11 +116,24 @@ export default function CalendarScreen() {
     setSelectedDate(day.dateString);
   }, []);
 
-  const handleMonthChange = useCallback((month: DateData) => {
-    setCurrentYear(month.year);
-    setCurrentMonth(month.month);
-    loadMonthEpisodes(month.year, month.month);
-  }, [loadMonthEpisodes]);
+  const handleMonthChange = useCallback(
+    (month: DateData) => {
+      setCurrentYear(month.year);
+      setCurrentMonth(month.month);
+      loadMonthEpisodes(month.year, month.month);
+
+      // Auto-select same day in new month, clamped to last day
+      if (selectedDate) {
+        const prevDay = parseInt(selectedDate.split("-")[2], 10);
+        const lastDay = new Date(month.year, month.month, 0).getDate();
+        const day = Math.min(prevDay, lastDay);
+        setSelectedDate(
+          `${month.year}-${String(month.month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+        );
+      }
+    },
+    [loadMonthEpisodes, selectedDate],
+  );
 
   const calendarKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
   const initialDate = `${currentYear}-${String(currentMonth).padStart(2, "0")}-01`;
@@ -119,48 +152,65 @@ export default function CalendarScreen() {
     }, 100);
   }, [currentYear]);
 
-  const selectYear = useCallback((year: number) => {
-    setCurrentYear(year);
-    setYearModalVisible(false);
-    loadMonthEpisodes(year, currentMonth);
-  }, [loadMonthEpisodes, currentMonth]);
+  const selectYear = useCallback(
+    (year: number) => {
+      setCurrentYear(year);
+      setYearModalVisible(false);
+      loadMonthEpisodes(year, currentMonth);
+    },
+    [loadMonthEpisodes, currentMonth],
+  );
 
-  const monthLabel = new Date(currentYear, currentMonth - 1).toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
+  const monthLabel = new Date(currentYear, currentMonth - 1).toLocaleDateString(
+    "en-US",
+    {
+      month: "long",
+      year: "numeric",
+    },
+  );
 
   const renderEpisode = useCallback(
-    ({ item }: { item: UpcomingEpisode }) => (
-      <TouchableOpacity
-        style={styles.episodeRow}
-        onPress={() =>
-          navigation.navigate("ShowDetail", {
-            tmdbId: item.tmdbShowId,
-            mediaType: "tv",
-          })
-        }
-      >
-        <Image
-          source={{ uri: `${posterSize.small}${item.posterPath}` }}
-          style={styles.poster}
-          contentFit="cover"
-        />
-        <View style={styles.epInfo}>
-          <Text style={styles.showTitle} numberOfLines={1}>
-            {item.showTitle}
-          </Text>
-          <Text style={styles.epLabel}>
-            S{String(item.season).padStart(2, "0")}E
-            {String(item.episode).padStart(2, "0")}
-          </Text>
-          <Text style={styles.epTitle} numberOfLines={1}>
-            {item.episodeTitle}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    ),
-    [navigation]
+    ({ item }: { item: UpcomingEpisode }) => {
+      const isMovie = item.mediaType === MediaType.MOVIE;
+      return (
+        <TouchableOpacity
+          style={styles.episodeRow}
+          onPress={() =>
+            navigation.navigate(Route.SHOW_DETAIL, {
+              tmdbId: item.tmdbShowId,
+              mediaType: isMovie ? MediaType.MOVIE : MediaType.TV,
+            })
+          }
+        >
+          <Image
+            source={{ uri: `${posterSize.small}${item.posterPath}` }}
+            style={styles.poster}
+            contentFit="cover"
+          />
+          <View style={styles.epInfo}>
+            <Text style={styles.showTitle} numberOfLines={1}>
+              {item.showTitle}
+            </Text>
+            {isMovie ? (
+              <View style={styles.movieBadge}>
+                <Text style={styles.movieBadgeText}>MOVIE</Text>
+              </View>
+            ) : (
+              <Text style={styles.epLabel}>
+                S{String(item.season).padStart(2, "0")}E
+                {String(item.episode).padStart(2, "0")}
+              </Text>
+            )}
+            {!isMovie && (
+              <Text style={styles.epTitle} numberOfLines={1}>
+                {item.episodeTitle}
+              </Text>
+            )}
+          </View>
+        </TouchableOpacity>
+      );
+    },
+    [navigation],
   );
 
   return (
@@ -190,79 +240,75 @@ export default function CalendarScreen() {
         }}
       />
 
-      {selectedDate && (
-        <View style={styles.episodeList}>
-          <Text style={styles.dateHeader}>
-            {new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-            })}
-          </Text>
-          {selectedEpisodes.length === 0 ? (
-            <Text style={styles.noEps}>No episodes on this day</Text>
-          ) : (
-            <FlatList
-              data={selectedEpisodes}
-              keyExtractor={(item) =>
-                `${item.tmdbShowId}_${item.season}_${item.episode}`
-              }
-              renderItem={renderEpisode}
-            />
-          )}
+      {calendarLoading ? (
+        <View style={styles.loaderCenter}>
+          <LoadingSpinner />
+          <Text style={styles.loaderText}>Checking your calendar...</Text>
         </View>
+      ) : (
+        selectedDate && (
+          <View style={styles.episodeList}>
+            <Text style={styles.dateHeader}>
+              {new Date(selectedDate + "T00:00:00").toLocaleDateString(
+                "en-US",
+                {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                },
+              )}
+            </Text>
+            {selectedEpisodes.length === 0 ? (
+              <Text style={styles.noEps}>No episodes on this day</Text>
+            ) : (
+              <LegendList
+                data={selectedEpisodes}
+                keyExtractor={(item) =>
+                  `${item.tmdbShowId}_${item.season}_${item.episode}`
+                }
+                renderItem={renderEpisode}
+              />
+            )}
+          </View>
+        )
       )}
 
       {/* Year picker modal */}
-      <Modal
+      <AnimatedModal
         visible={yearModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setYearModalVisible(false)}
+        onClose={() => setYearModalVisible(false)}
       >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setYearModalVisible(false)}
-        >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Year</Text>
-            <FlatList
-              ref={yearListRef}
-              data={YEARS}
-              keyExtractor={(item) => String(item)}
-              renderItem={({ item }) => (
-                <TouchableOpacity
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Select Year</Text>
+          <LegendList
+            ref={yearListRef}
+            data={YEARS}
+            keyExtractor={(item) => String(item)}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.yearItem,
+                  item === currentYear && styles.yearItemActive,
+                ]}
+                onPress={() => selectYear(item)}
+              >
+                <Text
                   style={[
-                    styles.yearItem,
-                    item === currentYear && styles.yearItemActive,
+                    styles.yearItemText,
+                    item === currentYear && styles.yearItemTextActive,
                   ]}
-                  onPress={() => selectYear(item)}
                 >
-                  <Text
-                    style={[
-                      styles.yearItemText,
-                      item === currentYear && styles.yearItemTextActive,
-                    ]}
-                  >
-                    {item}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              getItemLayout={(_, index) => ({
-                length: 52,
-                offset: 52 * index,
-                index,
-              })}
-              onScrollToIndexFailed={() => {}}
-              showsVerticalScrollIndicator={false}
-              style={styles.yearList}
-              snapToInterval={52}
-              decelerationRate="fast"
-            />
-          </View>
-        </TouchableOpacity>
-      </Modal>
+                  {item}
+                </Text>
+              </TouchableOpacity>
+            )}
+            showsVerticalScrollIndicator={false}
+            style={styles.yearList}
+            snapToInterval={52}
+            decelerationRate="fast"
+          />
+        </View>
+      </AnimatedModal>
     </View>
   );
 }
@@ -291,6 +337,17 @@ const styles = StyleSheet.create({
     ...typography.caption,
     paddingHorizontal: spacing.lg,
   },
+  loaderCenter: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.xl,
+  },
+  loaderText: {
+    ...typography.caption,
+    color: colors.textMuted,
+    marginTop: spacing.md,
+  },
   episodeRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -316,17 +373,25 @@ const styles = StyleSheet.create({
     ...typography.caption,
     marginTop: spacing.xs,
   },
+  movieBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.moviePurple,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: spacing.xs,
+  },
+  movieBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.text,
+    letterSpacing: 0.5,
+  },
   epTitle: {
     ...typography.body,
     color: colors.textSecondary,
     marginTop: spacing.xs,
     fontSize: 13,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    justifyContent: "center",
-    alignItems: "center",
   },
   modalContent: {
     backgroundColor: colors.surface,

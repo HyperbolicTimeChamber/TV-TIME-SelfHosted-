@@ -1,37 +1,46 @@
 {
-	"expo": {
-		"name": "Watchloom",
-		"slug": "watchloom",
-		"version": "1.0.0",
-		"orientation": "portrait",
-		"icon": "./assets/icon.png",
-		"userInterfaceStyle": "light",
-		"ios": {
-			"supportsTablet": true,
-			"bundleIdentifier": "com.tvtimerevived.app",
-			"googleServicesFile": "./GoogleService-Info.plist"
-		},
-		"android": {
-			"googleServicesFile": "./google-services.json",
-			"adaptiveIcon": {
-				"backgroundColor": "#000000",
-				"foregroundImage": "./assets/icon.png"
-			},
-			"predictiveBackGestureEnabled": false,
-			"package": "com.tvtimerevived.app"
-		},
-		"splash": {
-			"image": "./assets/splash.jpeg",
-			"resizeMode": "cover",
-			"backgroundColor": "#0D0D0D"
-		},
-		"web": {},
-		"plugins": [
-			"@react-native-firebase/app",
-			"@react-native-firebase/auth",
-			"@react-native-google-signin/google-signin",
-			"expo-image",
-			"./plugins/withModularHeaders"
-		]
-	}
+  "expo": {
+    "name": "Watchloom",
+    "slug": "watchloom",
+    "version": "1.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tvtimerevived.app",
+      "buildNumber": "11",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "UIBackgroundModes": ["remote-notification"]
+      }
+    },
+    "android": {
+      "versionCode": 11,
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "backgroundColor": "#0D0D0D",
+        "foregroundImage": "./assets/icon-foreground.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.tvtimerevived.app"
+    },
+    "web": {},
+    "plugins": [
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      "@react-native-firebase/messaging",
+      "@react-native-google-signin/google-signin",
+      "expo-image",
+      "./plugins/withModularHeaders",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon.png",
+          "imageWidth": 150,
+          "backgroundColor": "#0D0D0D"
+        }
+      ]
+    ]
+  }
 }

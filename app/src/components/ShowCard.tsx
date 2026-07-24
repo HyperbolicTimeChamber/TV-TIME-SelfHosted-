@@ -1,51 +1,115 @@
-import React, { memo, useRef } from "react";
+import React, { memo, useRef, useCallback } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
+import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS } from "../types";
 import { colors, spacing, typography, posterSize } from "../theme";
-import { WatchlistItem } from "../types";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
+import CheckmarkButton from "./CheckmarkButton";
+import SkeletonLine from "./SkeletonLine";
+
+// Computed once per app session — avoids Date allocation per card per render
+const TODAY = new Date().toISOString().split("T")[0];
+const TODAY_MS = new Date(TODAY).getTime();
+
+interface ShowCardItem {
+  tmdbId: number;
+  mediaType: MediaType;
+  status: string;
+  nextEpisode: { season: number; episode: number } | null;
+  nextEpisodeName?: string | null;
+  rewatchCount: number;
+  title: string;
+  posterPath: string | null;
+  totalEpisodes?: number;
+  nextEpisodeAirDate?: string | null;
+  releaseDate?: string | null;
+}
 
 interface Props {
-  item: WatchlistItem;
+  item: ShowCardItem;
   isWatched?: boolean;
+  isUpdating?: boolean;
   remainingEpisodes?: number | null;
-  onSwipeLeft: () => Promise<void>;
-  onSwipeRight: () => Promise<void>;
-  onPress: () => void;
-  onCheckmark: () => Promise<void>;
+  onSwipeLeft: (item: any) => Promise<void>;
+  onSwipeRight: (item: any) => Promise<void>;
+  onPress: (tmdbId: number, mediaType: MediaType) => void;
+  onTitlePress?: (item: any) => void;
+  onCheckmark: (item: any) => Promise<void>;
+  onCheckmarkLongPress?: () => void;
 }
 
 export default memo(function ShowCard({
   item,
   isWatched,
+  isUpdating,
   remainingEpisodes,
   onSwipeLeft,
   onSwipeRight,
   onPress,
-  onCheckmark,
+  onTitlePress,
+  onCheckmark: _onCheckmark,
+  onCheckmarkLongPress,
 }: Props) {
-  const episodeLabel = item.nextEpisode
-    ? `S${String(item.nextEpisode.season).padStart(2, "0")}E${String(item.nextEpisode.episode).padStart(2, "0")}`
-    : item.mediaType === "movie"
-      ? "Movie"
-      : "";
+  const ep =
+    item.nextEpisode ??
+    (item.mediaType === MediaType.TV ? { season: 1, episode: 1 } : null);
+  const episodeLabel = ep
+    ? `S${String(ep.season).padStart(2, "0")} | E${String(ep.episode).padStart(2, "0")}`
+    : "Movie";
 
-  const remainingLabel = remainingEpisodes != null && remainingEpisodes > 0
-    ? `+${remainingEpisodes} ep${remainingEpisodes > 1 ? "s" : ""} left`
-    : null;
+  const remainingLabel =
+    remainingEpisodes != null && remainingEpisodes > 0
+      ? `+${remainingEpisodes} ep${remainingEpisodes > 1 ? "s" : ""} left`
+      : null;
+
+  // "NEW" tag: TV episode aired today
+  const isNewEpisode =
+    item.mediaType === MediaType.TV &&
+    item.nextEpisodeAirDate &&
+    item.nextEpisodeAirDate === TODAY;
+
+  // "JUST AIRED" tag: movie released within last 7 days
+  const isJustAired = (() => {
+    if (item.mediaType !== MediaType.MOVIE || !item.releaseDate) return false;
+    const releaseMs = new Date(item.releaseDate).getTime();
+    const todayMs = TODAY_MS;
+    const sevenDaysMs = JUST_AIRED_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+    return releaseMs <= todayMs && todayMs - releaseMs <= sevenDaysMs;
+  })();
 
   const swipeRef = useRef<SwipeableCardRef>(null);
+
+  const handlePress = useCallback(() => {
+    if (item.mediaType === MediaType.MOVIE && onTitlePress) {
+      onTitlePress(item);
+    } else {
+      onPress(item.tmdbId, item.mediaType);
+    }
+  }, [onPress, onTitlePress, item]);
+  const handleTitlePress = useCallback(
+    () => onTitlePress?.(item),
+    [onTitlePress, item],
+  );
+  const handleSwipeLeft = useCallback(
+    () => onSwipeLeft(item),
+    [onSwipeLeft, item],
+  );
+  const handleSwipeRight = useCallback(
+    () => onSwipeRight(item),
+    [onSwipeRight, item],
+  );
 
   if (isWatched) {
     return (
       <TouchableOpacity
         style={[styles.container, styles.watchedContainer]}
-        onPress={onPress}
+        onPress={handlePress}
         activeOpacity={0.8}
       >
         <Image
@@ -54,56 +118,111 @@ export default memo(function ShowCard({
           contentFit="cover"
         />
         <View style={styles.info}>
-          <Text style={[styles.title, styles.watchedText]} numberOfLines={1}>
+          <Text
+            style={[styles.watchedTitle, styles.watchedText]}
+            numberOfLines={1}
+          >
             {item.title}
           </Text>
-          <Text style={[styles.episode, styles.watchedText]}>{episodeLabel}</Text>
+          {item.mediaType === MediaType.MOVIE ? (
+            <View style={[styles.movieBadge, { opacity: 0.6 }]}>
+              <Text style={styles.movieBadgeText}>MOVIE</Text>
+            </View>
+          ) : (
+            <Text style={[styles.episode, styles.watchedText]}>
+              {episodeLabel}
+            </Text>
+          )}
           {item.rewatchCount > 0 && (
             <Text style={[styles.rewatch, styles.watchedText]}>
               Rewatch #{item.rewatchCount}
             </Text>
           )}
         </View>
-        <View style={styles.watchedBadge}>
-          <Text style={styles.watchedBadgeText}>✓</Text>
-        </View>
+        <CheckmarkButton size={36} watched />
       </TouchableOpacity>
     );
   }
 
+  if (isUpdating) {
+    return (
+      <View style={styles.updatingContainer}>
+        <ActivityIndicator color={colors.text} size="small" />
+        <Text style={styles.updatingText}>Watched</Text>
+      </View>
+    );
+  }
+
   return (
-    <SwipeableCard ref={swipeRef} onSwipeLeft={onSwipeLeft} onSwipeRight={onSwipeRight} persistAfterSwipe>
-      <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.8}>
+    <SwipeableCard
+      ref={swipeRef}
+      onSwipeLeft={handleSwipeLeft}
+      onSwipeRight={handleSwipeRight}
+      persistAfterSwipe
+    >
+      <TouchableOpacity
+        style={styles.container}
+        onPress={handlePress}
+        activeOpacity={0.8}
+      >
         <Image
           source={{ uri: `${posterSize.small}${item.posterPath}` }}
           style={styles.poster}
           contentFit="cover"
         />
         <View style={styles.info}>
-          <Text style={styles.title} numberOfLines={1}>
-            {item.title}
-          </Text>
-          <Text style={styles.episode}>
-            {episodeLabel}
-            {remainingLabel ? <Text style={styles.remaining}> · {remainingLabel}</Text> : null}
-          </Text>
-          {item.rewatchCount > 0 && (
-            <Text style={styles.rewatch}>
-              Rewatch #{item.rewatchCount}
+          <TouchableOpacity
+            style={styles.titleButton}
+            onPress={handleTitlePress}
+            disabled={!onTitlePress}
+          >
+            <Text style={styles.titleText} numberOfLines={1}>
+              {item.title.toUpperCase()}
+            </Text>
+            {onTitlePress && <Text style={styles.titleArrow}>›</Text>}
+          </TouchableOpacity>
+          {item.nextEpisodeName ? (
+            <Text style={styles.episodeName} numberOfLines={1}>
+              {item.nextEpisodeName}
+            </Text>
+          ) : item.mediaType === MediaType.TV ? (
+            <SkeletonLine width="55%" height={11} />
+          ) : null}
+          {item.mediaType === MediaType.MOVIE ? (
+            <View style={styles.movieRow}>
+              <View style={styles.movieBadge}>
+                <Text style={styles.movieBadgeText}>MOVIE</Text>
+              </View>
+              {isJustAired && (
+                <View style={styles.freshTag}>
+                  <Text style={styles.freshTagText}>{FreshTag.JUST_AIRED}</Text>
+                </View>
+              )}
+            </View>
+          ) : (
+            <Text style={styles.episode}>
+              {episodeLabel}
+              {remainingLabel ? (
+                <Text style={styles.remaining}> {remainingLabel}</Text>
+              ) : null}
+              {isNewEpisode && (
+                <Text style={styles.freshTagInline}> {FreshTag.NEW}</Text>
+              )}
             </Text>
           )}
+          {item.rewatchCount > 0 && (
+            <Text style={styles.rewatch}>Rewatch #{item.rewatchCount}</Text>
+          )}
         </View>
-        <TouchableOpacity
-          style={styles.checkmark}
+        <CheckmarkButton
+          size={36}
           onPress={() => swipeRef.current?.triggerSwipeLeft()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={styles.checkmarkText}>✓</Text>
-        </TouchableOpacity>
+          onLongPress={onCheckmarkLongPress}
+        />
       </TouchableOpacity>
     </SwipeableCard>
   );
-})
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -128,13 +247,59 @@ const styles = StyleSheet.create({
   info: {
     flex: 1,
     marginLeft: spacing.md,
+    marginRight: spacing.sm,
   },
-  title: {
-    ...typography.subtitle,
+  titleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    borderWidth: 1.5,
+    borderColor: colors.text,
+    borderRadius: 14,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    marginBottom: spacing.sm,
+  },
+  titleText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.text,
+    flexShrink: 1,
+    letterSpacing: 0.5,
+  },
+  titleArrow: {
+    fontSize: 11,
+    color: colors.text,
+    marginLeft: spacing.xs,
+    lineHeight: 13,
   },
   episode: {
-    ...typography.caption,
-    marginTop: spacing.xs,
+    ...typography.subtitle,
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.text,
+    letterSpacing: 1,
+    marginTop: 2,
+  },
+  episodeName: {
+    ...typography.body,
+    color: colors.text,
+    marginTop: 2,
+    fontSize: 13,
+  },
+  movieBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.moviePurple,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 2,
+  },
+  movieBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.text,
+    letterSpacing: 0.5,
   },
   remaining: {
     color: colors.textMuted,
@@ -145,34 +310,45 @@ const styles = StyleSheet.create({
     color: colors.accent,
     marginTop: spacing.xs,
   },
+  watchedTitle: {
+    ...typography.subtitle,
+  },
   watchedText: {
     color: colors.textMuted,
   },
-  checkmark: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-    borderColor: colors.textMuted,
-    justifyContent: "center",
+  updatingContainer: {
+    height: 100,
+    flexDirection: "row",
     alignItems: "center",
-  },
-  checkmarkText: {
-    fontSize: 18,
-    color: colors.textMuted,
-  },
-  watchedBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    justifyContent: "center",
+    gap: spacing.sm,
     backgroundColor: colors.watchedGreen,
-    justifyContent: "center",
-    alignItems: "center",
-    opacity: 0.6,
   },
-  watchedBadgeText: {
-    fontSize: 18,
+  updatingText: {
+    ...typography.subtitle,
     color: colors.text,
+  },
+  movieRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: 2,
+  },
+  freshTag: {
+    backgroundColor: colors.warningAmber,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  freshTagText: {
+    fontSize: 9,
     fontWeight: "700",
+    color: colors.surface,
+    letterSpacing: 0.5,
+  },
+  freshTagInline: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.warningAmber,
   },
 });
