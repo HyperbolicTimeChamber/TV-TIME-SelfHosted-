@@ -47,6 +47,7 @@ export interface CatalogEpisode {
   airDate: string | null;
   runtime: number | null;
   stillPath: string | null;
+  isSeasonFinale?: boolean;
 }
 
 export interface CatalogSeason {
@@ -108,13 +109,14 @@ async function fetchSeasonEpisodes(
     seasonNumber: data.season_number,
     episodeCount: data.episodes.length,
     airDate: data.air_date,
-    episodes: data.episodes.map((ep) => ({
+    episodes: data.episodes.map((ep, _idx, arr) => ({
       episodeNumber: ep.episode_number,
       title: ep.name,
       overview: ep.overview ?? "",
       airDate: ep.air_date,
       runtime: ep.runtime,
       stillPath: ep.still_path ?? null,
+      isSeasonFinale: ep.episode_number === arr.length,
     })),
   };
 }

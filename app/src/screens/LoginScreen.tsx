@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView,
 } from "react-native";
+import { Image } from "expo-image";
 import { colors, spacing, typography } from "../theme";
 import { useAuthStore } from "../stores";
 import GoogleLogo from "../../assets/GoogleLogo";
@@ -68,7 +69,11 @@ export default function LoginScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Watchloom</Text>
+        <Image
+          source={require("../../assets/icon-foreground.original.png")}
+          style={styles.logo}
+          contentFit="contain"
+        />
         <Text style={styles.subtitle}>Track your shows & movies</Text>
 
         <View style={styles.form}>
@@ -161,9 +166,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: spacing.xl,
   },
-  title: {
-    ...typography.title,
-    fontSize: 40,
+  logo: {
+    width: 120,
+    height: 120,
     marginBottom: spacing.sm,
   },
   subtitle: {

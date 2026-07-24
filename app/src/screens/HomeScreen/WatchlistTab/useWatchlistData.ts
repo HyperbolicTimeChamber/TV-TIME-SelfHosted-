@@ -136,6 +136,11 @@ function buildCardItem(item: EnrichedTrackingItem, today: string) {
     nextNextEpisodeRuntime: nextNext?.runtime ?? 0,
     // Only mark as last episode if catalog is available to confirm — prevents premature COMPLETED
     isLastEpisode: nextEp != null && catalog != null && !nextNext,
+    isSeasonFinale:
+      catalogEp?.isSeasonFinale ??
+      (catalogEp && catalogSeason
+        ? catalogEp.episodeNumber === catalogSeason.episodeCount
+        : false),
   };
 }
 
@@ -712,6 +717,7 @@ export function useWatchlistData(userId: string | undefined) {
               nextNextEpisodeAirDate: null,
               nextNextEpisodeRuntime: 0,
               isLastEpisode: false,
+              isSeasonFinale: false,
             } as Partial<CardItem>);
             return next;
           });

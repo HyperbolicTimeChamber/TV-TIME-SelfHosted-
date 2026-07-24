@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
-import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS } from "../types";
+import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS, WatchStatus } from "../types";
 import { colors, spacing, typography, posterSize } from "../theme";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton from "./CheckmarkButton";
@@ -28,7 +28,9 @@ interface ShowCardItem {
   posterPath: string | null;
   totalEpisodes?: number;
   nextEpisodeAirDate?: string | null;
+  nextNextEpisodeAirDate?: string | null;
   releaseDate?: string | null;
+  isSeasonFinale?: boolean;
 }
 
 interface Props {
@@ -82,6 +84,21 @@ export default memo(function ShowCard({
     const sevenDaysMs = JUST_AIRED_WINDOW_DAYS * 24 * 60 * 60 * 1000;
     return releaseMs <= todayMs && todayMs - releaseMs <= sevenDaysMs;
   })();
+
+  // Last aired: episode has aired and no subsequent episode has aired yet
+  const isLastAired =
+    item.mediaType === MediaType.TV &&
+    item.nextEpisodeAirDate &&
+    item.nextEpisodeAirDate <= TODAY &&
+    (!item.nextNextEpisodeAirDate || item.nextNextEpisodeAirDate > TODAY);
+
+  // "FINALE" tag: season finale + no more episodes released after
+  const isFinale =
+    item.isSeasonFinale && isLastAired;
+
+  // "LATEST" tag: last aired episode, not NEW, not FINALE
+  const isLatest =
+    isLastAired && !isNewEpisode && !isFinale;
 
   const swipeRef = useRef<SwipeableCardRef>(null);
 
@@ -205,9 +222,13 @@ export default memo(function ShowCard({
               {remainingLabel ? (
                 <Text style={styles.remaining}> {remainingLabel}</Text>
               ) : null}
-              {isNewEpisode && (
+              {isFinale ? (
+                <Text style={styles.freshTagInline}> {FreshTag.FINALE}</Text>
+              ) : isNewEpisode ? (
                 <Text style={styles.freshTagInline}> {FreshTag.NEW}</Text>
-              )}
+              ) : isLatest ? (
+                <Text style={styles.latestTagInline}> {FreshTag.LATEST}</Text>
+              ) : null}
             </Text>
           )}
           {item.rewatchCount > 0 && (
@@ -350,5 +371,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: colors.warningAmber,
+  },
+  latestTagInline: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.accent,
   },
 });

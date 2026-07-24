@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   getFirestore,
   collection,
@@ -19,10 +19,29 @@ import { WatchedEpisode, QueryKey } from "../types";
 export function useShowWatchedEpisodes(
   userId: string | undefined,
   tmdbShowId: number,
+  externalRefreshKey: number = 0,
 ) {
   const queryClient = useQueryClient();
   const [episodes, setEpisodes] = useState<WatchedEpisode[]>([]);
   const [loading, setLoading] = useState(true);
+  const [internalRefreshKey, setInternalRefreshKey] = useState(0);
+  const refreshKey = internalRefreshKey + externalRefreshKey;
+
+  const fetchFromFirestore = useCallback(async (uid: string) => {
+    const db = getFirestore();
+    const colRef = collection(doc(db, "users", uid), "watchedEpisodes");
+    const q = query(colRef, where("tmdbShowId", "==", tmdbShowId));
+    const snapshot = await getDocs(q);
+    const eps = snapshot.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    })) as WatchedEpisode[];
+    queryClient.setQueryData(
+      [QueryKey.WATCHED_EPISODES, uid, tmdbShowId],
+      eps,
+    );
+    return eps;
+  }, [tmdbShowId, queryClient]);
 
   useEffect(() => {
     if (!userId) {
@@ -31,38 +50,32 @@ export function useShowWatchedEpisodes(
       return;
     }
 
-    // Check React Query cache first
-    const cached = queryClient.getQueryData<WatchedEpisode[]>([
-      QueryKey.WATCHED_EPISODES,
-      userId,
-      tmdbShowId,
-    ]);
-    if (cached) {
-      setEpisodes(cached);
-      setLoading(false);
-      return;
+    // Check React Query cache first (skip on manual refresh)
+    if (refreshKey === 0) {
+      const cached = queryClient.getQueryData<WatchedEpisode[]>([
+        QueryKey.WATCHED_EPISODES,
+        userId,
+        tmdbShowId,
+      ]);
+      if (cached) {
+        setEpisodes(cached);
+        setLoading(false);
+        return;
+      }
     }
 
-    // One-time Firestore read
-    const db = getFirestore();
-    const colRef = collection(doc(db, "users", userId), "watchedEpisodes");
-    const q = query(colRef, where("tmdbShowId", "==", tmdbShowId));
-
-    getDocs(q).then((snapshot) => {
-      const eps = snapshot.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      })) as WatchedEpisode[];
-      queryClient.setQueryData(
-        [QueryKey.WATCHED_EPISODES, userId, tmdbShowId],
-        eps,
-      );
+    setLoading(true);
+    fetchFromFirestore(userId).then((eps) => {
       setEpisodes(eps);
       setLoading(false);
     }).catch(() => {
       setLoading(false);
     });
-  }, [userId, tmdbShowId, queryClient]);
+  }, [userId, tmdbShowId, queryClient, refreshKey, fetchFromFirestore]);
+
+  const refetch = useCallback(() => {
+    setInternalRefreshKey((k) => k + 1);
+  }, []);
 
   // Subscribe to React Query cache updates (from insertWatchedEpisodeCache etc.)
   useEffect(() => {
@@ -81,5 +94,5 @@ export function useShowWatchedEpisodes(
     return unsub;
   }, [userId, tmdbShowId, queryClient]);
 
-  return { episodes, loading };
+  return { episodes, loading, refetch };
 }
