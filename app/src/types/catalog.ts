@@ -7,6 +7,7 @@ export interface CatalogEpisode {
   airDate: string | null;
   runtime: number | null;
   stillPath: string | null;
+  isSeasonFinale?: boolean;
 }
 
 export interface CatalogSeason {

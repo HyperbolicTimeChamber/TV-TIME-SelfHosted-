@@ -7,6 +7,7 @@ import {
 	StyleSheet,
 	Alert,
 	ActivityIndicator,
+	RefreshControl,
 } from "react-native";
 import { Image } from "expo-image";
 import { useRoute, RouteProp } from "@react-navigation/native";
@@ -78,6 +79,8 @@ export default function ShowDetailScreen() {
 	const [removing, setRemoving] = useState(false);
 	const { addShowToUpcoming, removeShowFromUpcoming } = useUpcomingMutations();
 	const queryClient = useQueryClient();
+	const [refreshing, setRefreshing] = useState(false);
+	const [refreshKey, setRefreshKey] = useState(0);
 	const [removeModalVisible, setRemoveModalVisible] = useState(false);
 	const [removeError, setRemoveError] = useState<string | null>(null);
 	const [unreleasedModal, setUnreleasedModal] = useState<{
@@ -138,6 +141,14 @@ export default function ShowDetailScreen() {
 			unsubscribe();
 		};
 	}, [user?.uid, tmdbId]);
+
+	const handleRefresh = useCallback(async () => {
+		setRefreshing(true);
+		setRefreshKey((k) => k + 1);
+		// Brief delay so the spinner is visible
+		await new Promise((r) => setTimeout(r, 400));
+		setRefreshing(false);
+	}, []);
 
 	const title = show?.name || show?.title || "";
 	const rawDate = show?.first_air_date || show?.release_date || "";
@@ -364,7 +375,17 @@ export default function ShowDetailScreen() {
 	}
 
 	return (
-		<ScrollView style={styles.container}>
+		<ScrollView
+		style={styles.container}
+		refreshControl={
+			<RefreshControl
+				refreshing={refreshing}
+				onRefresh={handleRefresh}
+				tintColor={colors.text}
+				colors={[colors.accent]}
+			/>
+		}
+	>
 			<Image
 				source={{
 					uri: `${posterSize.large}${show.backdrop_path || show.poster_path}`,
@@ -493,6 +514,7 @@ export default function ShowDetailScreen() {
 									showPosterPath={show.poster_path}
 									isTracked={!!watchlistItem}
 									preloadedEpisodes={episodesBySeason.get(season.season_number)}
+									refreshKey={refreshKey}
 								/>
 							))}
 					</View>

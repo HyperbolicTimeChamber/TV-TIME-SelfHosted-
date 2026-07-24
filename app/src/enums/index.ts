@@ -15,6 +15,8 @@ export enum MediaType {
 export enum FreshTag {
   NEW = "NEW",
   JUST_AIRED = "RECENT RELEASE",
+  FINALE = "FINALE",
+  LATEST = "LATEST",
 }
 
 export const JUST_AIRED_WINDOW_DAYS = 7;

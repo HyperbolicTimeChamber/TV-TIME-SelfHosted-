@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  BackHandler,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -19,7 +20,7 @@ import {
 } from "../components";
 import { LegendList } from "@legendapp/list/react-native";
 import { Image } from "expo-image";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
   useSearch,
@@ -190,9 +191,9 @@ export default function SearchScreen() {
     });
   }, []);
 
-  // Suggestions: current query as top item + matching history
+  // Suggestions: full history when empty, filtered when typing
   const suggestions = useMemo(() => {
-    if (!query || query.length < 1) return [];
+    if (!query || query.length < 1) return searchHistory.slice(0, 10);
     const lower = query.toLowerCase();
     const history = searchHistory
       .filter((h) => h.toLowerCase().includes(lower) && h.toLowerCase() !== lower)
@@ -259,6 +260,24 @@ export default function SearchScreen() {
     });
     return unsub;
   }, [navigation, resetSearch]);
+
+  // Back button: clear search → trending instead of leaving screen
+  const submittedQueryRef = useRef(submittedQuery);
+  submittedQueryRef.current = submittedQuery;
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+        if (submittedQueryRef.current || queryRef.current) {
+          resetSearch();
+          inputRef.current?.blur();
+          return true;
+        }
+        return false;
+      });
+      return () => sub.remove();
+    }, [resetSearch]),
+  );
+
   const user = useAuthStore((s) => s.user);
   const apiKey = useAuthStore((s) => s.appTmdbApiKey);
   const queryClient = useQueryClient();
@@ -727,8 +746,8 @@ export default function SearchScreen() {
   const isLoading =
     submittedQuery.length > 0 ? searchLoading : trendingLoading;
 
-  // Show suggestions when typing + focused, hide when results are showing
-  const showSuggestions = inputFocused && query.length > 0 && suggestions.length > 0;
+  // Show suggestions when focused (full history if empty, filtered if typing)
+  const showSuggestions = inputFocused && suggestions.length > 0;
 
   const handlePress = useCallback(
     (item: TMDBShow) => {
@@ -900,7 +919,7 @@ export default function SearchScreen() {
                 style={[styles.historyItem, idx === suggestions.length - 1 && { borderBottomWidth: 0 }]}
                 onPress={() => submitSearch(term)}
               >
-                <Text style={styles.historyIcon}>{idx === 0 ? "🔍" : "↻"}</Text>
+                <Text style={styles.historyIcon}>{query.length > 0 && idx === 0 ? "🔍" : "↻"}</Text>
                 <Text style={styles.historyText} numberOfLines={1}>{term}</Text>
               </TouchableOpacity>
             ))}
