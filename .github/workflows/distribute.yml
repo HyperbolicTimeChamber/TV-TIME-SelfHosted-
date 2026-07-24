@@ -155,3 +155,31 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT_JSON_PATH: /tmp/firebase-sa.json
           RELEASE_NOTES: ${{ steps.notes.outputs.release_notes }}
           FIREBASE_TESTER_GROUPS: ${{ vars.FIREBASE_TESTER_GROUPS || 'testers' }}
+
+      # ── GitHub Release with APK ──
+      - name: Find APK
+        id: apk
+        run: |
+          APK_PATH=$(find app/android/app/build/outputs/apk -name "*.apk" | head -1)
+          echo "path=$APK_PATH" >> "$GITHUB_OUTPUT"
+          echo "Found APK: $APK_PATH"
+
+      - name: Get version
+        id: app_version
+        run: |
+          VERSION=$(node -p "require('./app/app.json').expo.version")
+          BUILD=$(node -p "require('./app/app.json').expo.android.versionCode")
+          echo "tag=v${VERSION}+${BUILD}" >> "$GITHUB_OUTPUT"
+          echo "name=v${VERSION} (build ${BUILD})" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.app_version.outputs.tag }}
+          name: ${{ steps.app_version.outputs.name }}
+          body: ${{ steps.notes.outputs.release_notes }}
+          files: ${{ steps.apk.outputs.path }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
