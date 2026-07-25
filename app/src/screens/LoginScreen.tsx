@@ -71,7 +71,7 @@ export default function LoginScreen() {
 					style={styles.logo}
 					contentFit="contain"
 				/>
-				<Text style={styles.subtitle}>Track your shows & movies</Text>
+				<Text style={styles.subtitle}>Track What You Watch</Text>
 
 				<View style={styles.form}>
 					<TextInput
