@@ -482,7 +482,7 @@ export default function WatchlistTab() {
 								...item.show,
 								nextEpisode: null,
 								mediaType: MediaType.MOVIE,
-								rewatchCount: Math.max(0, (item.movie.watchCount || 1) - 1),
+								rewatchCount: item.show.rewatchCount ?? 0,
 							} as any
 						}
 						isWatched

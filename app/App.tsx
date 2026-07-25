@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { View, StyleSheet, Platform, PermissionsAndroid, Alert } from "react-native";
 import { Image } from "expo-image";
+import * as SplashScreen from "expo-splash-screen";
 import LoadingSpinner from "./src/components/LoadingSpinner";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -20,6 +21,9 @@ import ImportDataScreen from "./src/screens/ImportDataScreen";
 import AppNavigator from "./src/navigation/AppNavigator";
 import { OfflineOverlay } from "./src/components";
 import { colors } from "./src/theme";
+
+// Keep native splash visible until auth resolves
+SplashScreen.preventAutoHideAsync();
 
 GoogleSignin.configure({
 	webClientId: "805605757351-l3oi0shjpalvspqoq1reve1otviuqvnu.apps.googleusercontent.com",
@@ -76,16 +80,14 @@ function AppContent() {
 		});
 	}, []);
 
+	useEffect(() => {
+		if (!loading) {
+			SplashScreen.hideAsync();
+		}
+	}, [loading]);
+
 	if (loading) {
-		return (
-			<View style={styles.loading}>
-				<Image
-					source={require("./assets/icon-foreground.original.png")}
-					style={styles.splashLogo}
-					contentFit="contain"
-				/>
-			</View>
-		);
+		return null;
 	}
 
 	if (!user) {
@@ -158,7 +160,7 @@ export default function App() {
 	}, [setConnected]);
 
 	return (
-		<GestureHandlerRootView style={{ flex: 1 }}>
+		<GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
 			<SafeAreaProvider>
 				<PersistQueryClientProvider
 					client={queryClient}
