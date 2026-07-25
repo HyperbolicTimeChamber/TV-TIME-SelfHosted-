@@ -48,6 +48,7 @@ export const styles = StyleSheet.create({
 	},
 	grid: {
 		paddingHorizontal: spacing.sm,
+		paddingTop: spacing.sm,
 	},
 	row: {
 		gap: spacing.sm,

@@ -568,25 +568,23 @@ export default function SearchScreen() {
 				onLayout={onHeaderLayout}
 				style={[styles.headerBlock, { transform: [{ translateY: headerTranslateY }] }]}
 			>
-				{!submittedQuery && (
-					<TouchableOpacity
-						style={styles.searchBarRow}
-						onPress={openSearchInput}
-						activeOpacity={0.7}
-					>
-						<View style={styles.searchRow}>
-							<Ionicons
-								name="search"
-								size={18}
-								color={colors.textMuted}
-								style={styles.searchIcon}
-							/>
-							<Text style={[styles.searchInput, { color: colors.textMuted }]} numberOfLines={1}>
-								Search shows & movies
-							</Text>
-						</View>
-					</TouchableOpacity>
-				)}
+				<TouchableOpacity
+					style={styles.searchBarRow}
+					onPress={openSearchInput}
+					activeOpacity={0.7}
+				>
+					<View style={styles.searchRow}>
+						<Ionicons
+							name="search"
+							size={18}
+							color={colors.textMuted}
+							style={styles.searchIcon}
+						/>
+						<Text style={[styles.searchInput, { color: colors.textMuted }]} numberOfLines={1}>
+							{submittedQuery || "Search shows & movies"}
+						</Text>
+					</View>
+				</TouchableOpacity>
 
 				<SlidingTabs
 					tabs={[
@@ -618,7 +616,7 @@ export default function SearchScreen() {
 					renderItem={renderItem}
 					extraData={[trackedIds, addingIds]}
 					numColumns={2}
-					estimatedItemSize={280}
+					estimatedItemSize={140}
 					columnWrapperStyle={styles.row}
 					onScroll={handleScroll}
 					scrollEventThrottle={16}

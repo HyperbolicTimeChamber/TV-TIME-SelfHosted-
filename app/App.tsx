@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { View, StyleSheet, Platform, PermissionsAndroid, Alert } from "react-native";
+import { Image } from "expo-image";
 import LoadingSpinner from "./src/components/LoadingSpinner";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -64,7 +65,7 @@ async function registerFCMToken(userId: string) {
 
 function AppContent() {
 	useForceUpdate();
-	const { user, appTmdbApiKey, appTmdbApiKeyLoading, userFlagsLoading, hasCompletedImport } =
+	const { user, loading, appTmdbApiKey, appTmdbApiKeyLoading, userFlagsLoading, hasCompletedImport } =
 		useAuthStore();
 
 	// Listen for background add failures (CF rollback)
@@ -74,6 +75,18 @@ function AppContent() {
 			Alert.alert("Failed to Add", `"${title}" could not be added. Please try again.`);
 		});
 	}, []);
+
+	if (loading) {
+		return (
+			<View style={styles.loading}>
+				<Image
+					source={require("./assets/icon-foreground.original.png")}
+					style={styles.splashLogo}
+					contentFit="contain"
+				/>
+			</View>
+		);
+	}
 
 	if (!user) {
 		return <LoginScreen />;
@@ -173,5 +186,9 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.background,
 		justifyContent: "center",
 		alignItems: "center",
+	},
+	splashLogo: {
+		width: 120,
+		height: 120,
 	},
 });
