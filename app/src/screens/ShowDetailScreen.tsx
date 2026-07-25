@@ -512,6 +512,7 @@ export default function ShowDetailScreen() {
 									season={season}
 									showTitle={title}
 									showPosterPath={show.poster_path}
+									showBackdropPath={show.backdrop_path || null}
 									isTracked={!!watchlistItem}
 									preloadedEpisodes={episodesBySeason.get(season.season_number)}
 									refreshKey={refreshKey}

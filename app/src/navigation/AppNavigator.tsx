@@ -2,6 +2,7 @@ import React, { useRef } from "react";
 import {
   NavigationContainer,
   NavigationContainerRef,
+  getFocusedRouteNameFromRoute,
 } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,6 +16,12 @@ import ProfileStackScreen from "./ProfileStackScreen";
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
+function shouldHideTabBar(route: any): boolean {
+  const routeName = getFocusedRouteNameFromRoute(route);
+  if (routeName === Route.SHOW_DETAIL || routeName === Route.SEASON_DETAIL) return true;
+  return false;
+}
+
 export default function AppNavigator() {
   const navRef = useRef<NavigationContainerRef<MainTabParamList>>(null);
 
@@ -23,10 +30,12 @@ export default function AppNavigator() {
       <Tab.Navigator
         screenOptions={({ route }) => ({
           headerShown: false,
-          tabBarStyle: {
-            backgroundColor: colors.surface,
-            borderTopColor: colors.border,
-          },
+          tabBarStyle: shouldHideTabBar(route)
+            ? { display: "none" as const }
+            : {
+                backgroundColor: colors.surface,
+                borderTopColor: colors.border,
+              },
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.textMuted,
           tabBarIcon: ({ color, size }) => {

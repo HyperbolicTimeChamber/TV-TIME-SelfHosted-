@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { View, StyleSheet, Animated, Platform, PermissionsAndroid, Alert } from "react-native";
-import { Image } from "expo-image";
+import React, { useEffect } from "react";
+import { View, StyleSheet, Platform, PermissionsAndroid, Alert } from "react-native";
 import LoadingSpinner from "./src/components/LoadingSpinner";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -124,37 +123,7 @@ function AppContent() {
   );
 }
 
-function AppSplash({ onHidden }: { onHidden: () => void }) {
-  const [opacity] = useState(() => new Animated.Value(1));
-  const loading = useAuthStore((s) => s.loading);
-
-  useEffect(() => {
-    if (!loading) {
-      const timer = setTimeout(() => {
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: true,
-        }).start(() => onHidden());
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [loading, opacity, onHidden]);
-
-  return (
-    <Animated.View style={[StyleSheet.absoluteFill, { opacity, zIndex: 999 }]}>
-      <Image
-        source={require("./assets/splash.jpeg")}
-        style={StyleSheet.absoluteFill}
-        contentFit="cover"
-      />
-    </Animated.View>
-  );
-}
-
 export default function App() {
-  const [splashDone, setSplashDone] = useState(false);
-  const onHidden = React.useCallback(() => setSplashDone(true), []);
   const setUser = useAuthStore((s) => s.setUser);
   const setConnected = useUiStore((s) => s.setConnected);
 
@@ -198,8 +167,7 @@ export default function App() {
             },
           }}
         >
-          {splashDone ? <AppContent /> : <View style={styles.loading} />}
-          {!splashDone && <AppSplash onHidden={onHidden} />}
+          <AppContent />
         </PersistQueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

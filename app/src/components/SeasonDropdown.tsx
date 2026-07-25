@@ -61,6 +61,7 @@ interface Props {
   season: TMDBSeason;
   showTitle: string;
   showPosterPath: string | null;
+  showBackdropPath?: string | null;
   isTracked?: boolean;
   preloadedEpisodes?: TMDBEpisode[];
   refreshKey?: number;
@@ -71,6 +72,7 @@ export default memo(function SeasonDropdown({
   season,
   showTitle,
   showPosterPath,
+  showBackdropPath,
   isTracked,
   preloadedEpisodes,
   refreshKey,
@@ -116,6 +118,7 @@ export default memo(function SeasonDropdown({
     airDate: string | null;
     runtime: number | null;
     showPosterPath: string | null;
+    showBackdropPath: string | null;
   } | null>(null);
 
   // Add-to-watchlist modal state
@@ -618,6 +621,7 @@ export default memo(function SeasonDropdown({
         airDate: ep.air_date || null,
         runtime: ep.runtime || null,
         showPosterPath,
+        showBackdropPath: showBackdropPath ?? null,
       });
       setEpInfoVisible(true);
     },
@@ -932,6 +936,7 @@ export default memo(function SeasonDropdown({
           episodeTitle={epInfoData.episodeTitle}
           overview={epInfoData.overview}
           stillPath={epInfoData.stillPath}
+          showBackdropPath={epInfoData.showBackdropPath}
           showPosterPath={epInfoData.showPosterPath}
           airDate={epInfoData.airDate}
           runtime={epInfoData.runtime}

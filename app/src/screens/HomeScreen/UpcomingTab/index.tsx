@@ -17,6 +17,7 @@ import {
 import type { ShowDrawerData } from "../../../components/ShowDrawer";
 import { useAuthStore } from "../../../stores";
 import { useUpcomingEpisodes } from "../../../hooks";
+import { getCachedCatalogShow } from "../../../hooks/useWatchlist";
 import {
   getCatalogShow,
   getShowDetails,
@@ -62,6 +63,7 @@ export default function UpcomingTab() {
     airDate: string | null;
     runtime: number | null;
     showPosterPath: string | null;
+    showBackdropPath: string | null;
   } | null>(null);
   const [epModalLoading, setEpModalLoading] = useState(false);
 
@@ -100,6 +102,10 @@ export default function UpcomingTab() {
   );
 
   const handleEpisodePress = useCallback(async (ep: UpcomingEpisode) => {
+    const catalog = getCachedCatalogShow(
+      ep.tmdbShowId,
+      ep.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV,
+    );
     setEpModalData({
       showTitle: ep.showTitle,
       season: ep.season,
@@ -110,6 +116,7 @@ export default function UpcomingTab() {
       airDate: ep.airDate,
       runtime: ep.runtime,
       showPosterPath: ep.posterPath ?? null,
+      showBackdropPath: catalog?.backdropPath ?? null,
     });
     setEpModalLoading(true);
     setEpModalVisible(true);
@@ -262,6 +269,7 @@ export default function UpcomingTab() {
           episodeTitle={epModalData.episodeTitle}
           overview={epModalData.overview}
           stillPath={epModalData.stillPath}
+          showBackdropPath={epModalData.showBackdropPath}
           showPosterPath={epModalData.showPosterPath}
           airDate={epModalData.airDate}
           runtime={epModalData.runtime}

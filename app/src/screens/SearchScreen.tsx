@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -105,18 +105,51 @@ async function fetchFirstEpisodeInfo(
       const season = await getSeasonDetails(apiKey, tmdbId, 1);
       const eps = season?.episodes ?? [];
       const ep1 = eps.find((e) => e.episode_number === 1);
+      const tmdbEpisodes = eps.map((e) => ({
+        season: 1,
+        episode: e.episode_number,
+        name: e.name || "",
+        airDate: e.air_date || null,
+        runtime: e.runtime ?? null,
+      }));
+      // Build minimal catalog so optimistic item has nextNext data
+      const minimalCatalog: CatalogShow = {
+        tmdbId,
+        mediaType: MediaType.TV,
+        title: "",
+        posterPath: null,
+        backdropPath: null,
+        overview: "",
+        status: "",
+        totalSeasons: 1,
+        totalEpisodes: eps.length,
+        runtime: null,
+        voteAverage: 0,
+        firstAirDate: null,
+        releaseDate: null,
+        seasons: [{
+          seasonNumber: 1,
+          episodeCount: eps.length,
+          airDate: (season as any)?.air_date || null,
+          episodes: eps.map((e) => ({
+            episodeNumber: e.episode_number,
+            title: e.name || "",
+            overview: e.overview || "",
+            airDate: e.air_date || null,
+            runtime: e.runtime ?? null,
+            stillPath: e.still_path || null,
+          })),
+        }],
+        trackedBy: [],
+        trackedByCount: 0,
+        lastSyncedAt: null,
+      };
       return {
         name: ep1?.name || null,
         airDate: ep1?.air_date || null,
         runtime: ep1?.runtime || null,
-        catalog: null,
-        tmdbEpisodes: eps.map((e) => ({
-          season: 1,
-          episode: e.episode_number,
-          name: e.name || "",
-          airDate: e.air_date || null,
-          runtime: e.runtime ?? null,
-        })),
+        catalog: minimalCatalog,
+        tmdbEpisodes,
       };
     } catch {}
   }
@@ -162,7 +195,6 @@ export default function SearchScreen() {
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [mediaFilter, setMediaFilter] = useState<"all" | "tv" | "movie">("all");
   const inputRef = useRef<TextInput>(null);
-  const [inputFocused, setInputFocused] = useState(false);
 
   // Search history — persisted, 10KB byte limit (~530 terms), no duplicates, FIFO eviction
   const HISTORY_KEY = "search_history";
@@ -191,22 +223,11 @@ export default function SearchScreen() {
     });
   }, []);
 
-  // Suggestions: full history when empty, filtered when typing
-  const suggestions = useMemo(() => {
-    if (!query || query.length < 1) return searchHistory.slice(0, 10);
-    const lower = query.toLowerCase();
-    const history = searchHistory
-      .filter((h) => h.toLowerCase().includes(lower) && h.toLowerCase() !== lower)
-      .slice(0, 7);
-    return [query, ...history];
-  }, [query, searchHistory]);
-
   const submitSearch = useCallback((term: string) => {
     const trimmed = term.trim();
     if (!trimmed) return;
     setQuery(trimmed);
     setSubmittedQuery(trimmed);
-    setInputFocused(false);
     inputRef.current?.blur();
     addToHistory(trimmed);
   }, [addToHistory]);
@@ -746,9 +767,6 @@ export default function SearchScreen() {
   const isLoading =
     submittedQuery.length > 0 ? searchLoading : trendingLoading;
 
-  // Show suggestions when focused (full history if empty, filtered if typing)
-  const showSuggestions = inputFocused && suggestions.length > 0;
-
   const handlePress = useCallback(
     (item: TMDBShow) => {
       const mediaType: MediaType =
@@ -854,6 +872,18 @@ export default function SearchScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.searchRow}>
+        {submittedQuery.length > 0 && (
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => {
+              resetSearch();
+              inputRef.current?.blur();
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.backButtonText}>‹</Text>
+          </TouchableOpacity>
+        )}
         <TextInput
           ref={inputRef}
           style={styles.searchInput}
@@ -864,8 +894,6 @@ export default function SearchScreen() {
             setQuery(text);
             if (text.length === 0) setSubmittedQuery("");
           }}
-          onFocus={() => setInputFocused(true)}
-          onBlur={() => setTimeout(() => setInputFocused(false), 200)}
           onSubmitEditing={() => submitSearch(query)}
           autoCapitalize="none"
           autoCorrect={false}
@@ -886,40 +914,49 @@ export default function SearchScreen() {
         )}
       </View>
 
-      {!showSuggestions && (
-        <View style={styles.filterRow}>
-          {(["all", "tv", "movie"] as const).map((type) => (
-            <TouchableOpacity
-              key={type}
+      <View style={styles.filterRow}>
+        {(["all", "tv", "movie"] as const).map((type) => (
+          <TouchableOpacity
+            key={type}
+            style={[
+              styles.filterTab,
+              mediaFilter === type && styles.filterTabActive,
+            ]}
+            onPress={() => setMediaFilter(type)}
+          >
+            <Text
               style={[
-                styles.filterTab,
-                mediaFilter === type && styles.filterTabActive,
+                styles.filterTabText,
+                mediaFilter === type && styles.filterTabTextActive,
               ]}
-              onPress={() => setMediaFilter(type)}
             >
-              <Text
-                style={[
-                  styles.filterTabText,
-                  mediaFilter === type && styles.filterTabTextActive,
-                ]}
-              >
-                {type === "all" ? "All" : type === "tv" ? "TV" : "Movies"}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
+              {type === "all" ? "All" : type === "tv" ? "TV" : "Movies"}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-      {showSuggestions && (
-        <View style={styles.historyDropdown}>
-          <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 240 }}>
-            {suggestions.map((term, idx) => (
+      {!submittedQuery && searchHistory.length > 0 && (
+        <View style={styles.historySection}>
+          <View style={styles.historyHeader}>
+            <Text style={styles.sectionTitle}>Recent</Text>
+            <TouchableOpacity
+              onPress={() => {
+                setSearchHistory([]);
+                AsyncStorage.removeItem(HISTORY_KEY).catch(() => {});
+              }}
+            >
+              <Text style={styles.historyClearText}>Clear All</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView keyboardShouldPersistTaps="handled">
+            {searchHistory.map((term, idx) => (
               <TouchableOpacity
                 key={`${term}_${idx}`}
-                style={[styles.historyItem, idx === suggestions.length - 1 && { borderBottomWidth: 0 }]}
+                style={styles.historyItem}
                 onPress={() => submitSearch(term)}
               >
-                <Text style={styles.historyIcon}>{query.length > 0 && idx === 0 ? "🔍" : "↻"}</Text>
+                <Text style={styles.historyIcon}>{"↻"}</Text>
                 <Text style={styles.historyText} numberOfLines={1}>{term}</Text>
               </TouchableOpacity>
             ))}
@@ -927,9 +964,9 @@ export default function SearchScreen() {
         </View>
       )}
 
-      {!submittedQuery && !showSuggestions && <Text style={styles.sectionTitle}>Trending</Text>}
+      {!submittedQuery && searchHistory.length === 0 && <Text style={styles.sectionTitle}>Trending</Text>}
 
-      {showSuggestions ? null : isLoading ? (
+      {!submittedQuery && searchHistory.length > 0 ? null : isLoading ? (
         <View style={styles.center}>
           <LoadingSpinner />
         </View>
@@ -945,8 +982,8 @@ export default function SearchScreen() {
           keyExtractor={(item) => `${item.media_type || "x"}_${item.id}`}
           renderItem={renderItem}
           extraData={[watchlistIds, addingIds]}
-          numColumns={3}
-          estimatedItemSize={200}
+          numColumns={2}
+          estimatedItemSize={280}
           columnWrapperStyle={styles.row}
           contentContainerStyle={styles.grid}
           onEndReached={() => {
@@ -1064,6 +1101,16 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     marginVertical: spacing.md,
     borderRadius: 8,
+  },
+  backButton: {
+    paddingLeft: spacing.md,
+    paddingRight: spacing.xs,
+    paddingVertical: spacing.sm,
+  },
+  backButtonText: {
+    color: colors.text,
+    fontSize: 24,
+    fontWeight: "600",
   },
   searchInput: {
     ...typography.body,
@@ -1238,11 +1285,19 @@ const styles = StyleSheet.create({
     ...typography.subtitle,
     color: colors.textSecondary,
   },
-  historyDropdown: {
+  historySection: {
+    flex: 1,
     marginHorizontal: spacing.lg,
-    backgroundColor: colors.surface,
-    borderRadius: 8,
+  },
+  historyHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: spacing.sm,
+  },
+  historyClearText: {
+    ...typography.caption,
+    color: colors.primary,
   },
   historyItem: {
     flexDirection: "row",

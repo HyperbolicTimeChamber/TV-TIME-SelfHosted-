@@ -69,6 +69,7 @@ interface Props {
   episodeTitle: string | null;
   overview: string | null;
   stillPath: string | null;
+  showBackdropPath?: string | null;
   showPosterPath?: string | null;
   airDate: string | null;
   runtime: number | null;
@@ -87,6 +88,7 @@ export default function EpisodeDetailModal({
   episodeTitle,
   overview,
   stillPath,
+  showBackdropPath,
   showPosterPath,
   airDate,
   runtime,
@@ -107,6 +109,12 @@ export default function EpisodeDetailModal({
         ) : stillPath ? (
           <Image
             source={{ uri: `${TMDB_IMAGE_BASE}/w500${stillPath}` }}
+            style={styles.still}
+            contentFit="cover"
+          />
+        ) : showBackdropPath ? (
+          <Image
+            source={{ uri: `${TMDB_IMAGE_BASE}/w500${showBackdropPath}` }}
             style={styles.still}
             contentFit="cover"
           />

@@ -32,15 +32,7 @@
       "@react-native-firebase/messaging",
       "@react-native-google-signin/google-signin",
       "expo-image",
-      "./plugins/withModularHeaders",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/icon.png",
-          "imageWidth": 150,
-          "backgroundColor": "#0D0D0D"
-        }
-      ]
+      "./plugins/withModularHeaders"
     ]
   }
 }

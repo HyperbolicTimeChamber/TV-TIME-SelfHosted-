@@ -17,6 +17,7 @@ export interface ShowDetailsResult {
 
 function catalogShowToResult(catalog: CatalogShow): ShowDetailsResult {
   const episodesBySeason = new Map<number, TMDBEpisode[]>();
+  const seasons = catalog.seasons ?? [];
 
   const show: TMDBShow = {
     id: catalog.tmdbId,
@@ -34,7 +35,7 @@ function catalogShowToResult(catalog: CatalogShow): ShowDetailsResult {
     number_of_episodes: catalog.totalEpisodes,
     status: catalog.status,
     runtime: catalog.runtime ?? undefined,
-    seasons: catalog.seasons.map((s) => ({
+    seasons: seasons.map((s) => ({
       id: 0,
       season_number: s.seasonNumber,
       name: `Season ${s.seasonNumber}`,
@@ -44,7 +45,7 @@ function catalogShowToResult(catalog: CatalogShow): ShowDetailsResult {
     })),
   };
 
-  for (const s of catalog.seasons) {
+  for (const s of seasons) {
     episodesBySeason.set(
       s.seasonNumber,
       s.episodes.map((ep) => ({
@@ -70,13 +71,17 @@ export function useShowDetails(
   const result = useQuery({
     queryKey: [QueryKey.SHOW, tmdbId, mediaType],
     queryFn: async (): Promise<ShowDetailsResult> => {
+      const hasSeasonsData = (c: CatalogShow) =>
+        mediaType !== MediaType.TV || (c.seasons?.length ?? 0) > 0;
+
       // Try in-memory cache first (instant, no Firestore read)
       const cached = getCachedCatalogShow(tmdbId, mediaType);
-      if (cached) return catalogShowToResult(cached);
+      if (cached && hasSeasonsData(cached)) return catalogShowToResult(cached);
 
       // Fallback to Firestore catalog doc
       const catalogShow = await getCatalogShow(tmdbId, mediaType);
-      if (catalogShow) return catalogShowToResult(catalogShow);
+      if (catalogShow && hasSeasonsData(catalogShow))
+        return catalogShowToResult(catalogShow);
 
       // Fallback to TMDB
       const apiKey = useAuthStore.getState().appTmdbApiKey;
