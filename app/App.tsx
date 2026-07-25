@@ -160,7 +160,7 @@ export default function App() {
 	}, [setConnected]);
 
 	return (
-		<GestureHandlerRootView style={{ flex: 1 }}>
+		<GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
 			<SafeAreaProvider>
 				<PersistQueryClientProvider
 					client={queryClient}
