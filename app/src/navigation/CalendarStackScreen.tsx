@@ -8,18 +8,18 @@ import ShowDetailScreen from "../screens/ShowDetailScreen";
 const CalendarStack = createNativeStackNavigator<CalendarStackParamList>();
 
 export default function CalendarStackScreen() {
-  return (
-    <CalendarStack.Navigator screenOptions={stackScreenOptions}>
-      <CalendarStack.Screen
-        name={Route.CALENDAR_MAIN}
-        component={CalendarScreen}
-        options={{ headerTitle: "Calendar" }}
-      />
-      <CalendarStack.Screen
-        name={Route.SHOW_DETAIL}
-        component={ShowDetailScreen}
-        options={{ headerTitle: "" }}
-      />
-    </CalendarStack.Navigator>
-  );
+	return (
+		<CalendarStack.Navigator screenOptions={stackScreenOptions}>
+			<CalendarStack.Screen
+				name={Route.CALENDAR_MAIN}
+				component={CalendarScreen}
+				options={{ headerTitle: "Calendar" }}
+			/>
+			<CalendarStack.Screen
+				name={Route.SHOW_DETAIL}
+				component={ShowDetailScreen}
+				options={{ headerTitle: "" }}
+			/>
+		</CalendarStack.Navigator>
+	);
 }
