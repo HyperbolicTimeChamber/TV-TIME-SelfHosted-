@@ -14,7 +14,7 @@ interface Props {
 	onRemove: (item: TMDBShow) => void;
 }
 
-function SearchCard({ item, isInWatchlist, isAdding, onPress, onAdd, onRemove }: Props) {
+function SearchCard({ item, isInWatchlist, isAdding, onPress, onAdd, onRemove }: Readonly<Props>) {
 	const title = item.name || item.title || "";
 	const year = (item.first_air_date || item.release_date || "").substring(0, 4);
 	const mediaType: MediaType =
