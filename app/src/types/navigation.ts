@@ -26,6 +26,8 @@ export type HomeStackParamList = {
 
 export type SearchStackParamList = {
   SearchMain: undefined;
+  SearchInput: { currentQuery?: string } | undefined;
+  SearchResults: { query: string };
   ShowDetail: { tmdbId: number; mediaType: MediaType };
 };
 

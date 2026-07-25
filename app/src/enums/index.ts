@@ -12,6 +12,12 @@ export enum MediaType {
   MOVIE = "movie",
 }
 
+export enum MediaFilter {
+  ALL = "all",
+  TV = "tv",
+  MOVIE = "movie",
+}
+
 export enum FreshTag {
   NEW = "NEW",
   JUST_AIRED = "RECENT RELEASE",
@@ -73,6 +79,8 @@ export enum Route {
   SHOW_DETAIL = "ShowDetail",
   SEASON_DETAIL = "SeasonDetail",
   SEARCH_MAIN = "SearchMain",
+  SEARCH_INPUT = "SearchInput",
+  SEARCH_RESULTS = "SearchResults",
   CALENDAR_MAIN = "CalendarMain",
   PROFILE_MAIN = "ProfileMain",
   SETTINGS = "Settings",

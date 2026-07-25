@@ -46,6 +46,27 @@ export async function getTrending(
   };
 }
 
+export async function searchSuggestions(
+  apiKey: string,
+  query: string,
+): Promise<string[]> {
+  const res = await tmdb(apiKey).get("/search/multi", {
+    params: { query, page: 1 },
+  });
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const item of res.data.results) {
+    const name = (item.name || item.title || "").trim();
+    const lower = name.toLowerCase();
+    if (name && !seen.has(lower)) {
+      seen.add(lower);
+      names.push(name);
+    }
+    if (names.length >= 8) break;
+  }
+  return names;
+}
+
 export async function getShowDetails(
   apiKey: string,
   tmdbId: number,

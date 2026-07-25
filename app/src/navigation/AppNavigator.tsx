@@ -18,7 +18,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 
 function shouldHideTabBar(route: any): boolean {
   const routeName = getFocusedRouteNameFromRoute(route);
-  if (routeName === Route.SHOW_DETAIL || routeName === Route.SEASON_DETAIL) return true;
+  if (routeName === Route.SHOW_DETAIL || routeName === Route.SEASON_DETAIL || routeName === Route.SEARCH_INPUT || routeName === Route.SEARCH_RESULTS) return true;
   return false;
 }
 

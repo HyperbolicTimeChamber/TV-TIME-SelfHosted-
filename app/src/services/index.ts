@@ -31,6 +31,7 @@ export {
 // tmdb
 export {
   searchMulti,
+  searchSuggestions,
   getTrending,
   getShowDetails,
   getSeasonDetails,

@@ -1,6 +1,7 @@
 export {
   WatchStatus,
   MediaType,
+  MediaFilter,
   Route,
   FreshTag,
   JUST_AIRED_WINDOW_DAYS,
