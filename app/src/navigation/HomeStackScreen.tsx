@@ -9,23 +9,23 @@ import SeasonDetailScreen from "../screens/SeasonDetailScreen";
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 
 export default function HomeStackScreen() {
-  return (
-    <HomeStack.Navigator screenOptions={stackScreenOptions}>
-      <HomeStack.Screen
-        name={Route.HOME_TABS}
-        component={HomeScreen}
-        options={{ headerTitle: "Watchloom" }}
-      />
-      <HomeStack.Screen
-        name={Route.SHOW_DETAIL}
-        component={ShowDetailScreen}
-        options={{ headerTitle: "" }}
-      />
-      <HomeStack.Screen
-        name={Route.SEASON_DETAIL}
-        component={SeasonDetailScreen}
-        options={({ route }) => ({ headerTitle: route.params.showTitle })}
-      />
-    </HomeStack.Navigator>
-  );
+	return (
+		<HomeStack.Navigator screenOptions={stackScreenOptions}>
+			<HomeStack.Screen
+				name={Route.HOME_TABS}
+				component={HomeScreen}
+				options={{ headerTitle: "Watchloom" }}
+			/>
+			<HomeStack.Screen
+				name={Route.SHOW_DETAIL}
+				component={ShowDetailScreen}
+				options={{ headerTitle: "" }}
+			/>
+			<HomeStack.Screen
+				name={Route.SEASON_DETAIL}
+				component={SeasonDetailScreen}
+				options={({ route }) => ({ headerTitle: route.params.showTitle })}
+			/>
+		</HomeStack.Navigator>
+	);
 }

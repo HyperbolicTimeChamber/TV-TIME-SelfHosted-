@@ -1,8 +1,8 @@
 import React, { useRef } from "react";
 import {
-  NavigationContainer,
-  NavigationContainerRef,
-  getFocusedRouteNameFromRoute,
+	NavigationContainer,
+	NavigationContainerRef,
+	getFocusedRouteNameFromRoute,
 } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,111 +17,111 @@ import ProfileStackScreen from "./ProfileStackScreen";
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 function shouldHideTabBar(route: any): boolean {
-  const routeName = getFocusedRouteNameFromRoute(route);
-  if (routeName === Route.SHOW_DETAIL || routeName === Route.SEASON_DETAIL || routeName === Route.SEARCH_INPUT || routeName === Route.SEARCH_RESULTS) return true;
-  return false;
+	const routeName = getFocusedRouteNameFromRoute(route);
+	if (
+		routeName === Route.SHOW_DETAIL ||
+		routeName === Route.SEASON_DETAIL ||
+		routeName === Route.SEARCH_INPUT ||
+		routeName === Route.SEARCH_RESULTS
+	)
+		return true;
+	return false;
 }
 
 export default function AppNavigator() {
-  const navRef = useRef<NavigationContainerRef<MainTabParamList>>(null);
+	const navRef = useRef<NavigationContainerRef<MainTabParamList>>(null);
 
-  return (
-    <NavigationContainer ref={navRef}>
-      <Tab.Navigator
-        screenOptions={({ route }) => ({
-          headerShown: false,
-          tabBarStyle: shouldHideTabBar(route)
-            ? { display: "none" as const }
-            : {
-                backgroundColor: colors.surface,
-                borderTopColor: colors.border,
-              },
-          tabBarActiveTintColor: colors.primary,
-          tabBarInactiveTintColor: colors.textMuted,
-          tabBarIcon: ({ color, size }) => {
-            const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
-              [Route.HOME]: "home",
-              [Route.SEARCH]: "search",
-              [Route.CALENDAR]: "calendar",
-              [Route.PROFILE]: "person",
-            };
-            return (
-              <Ionicons
-                name={icons[route.name] || "ellipse"}
-                size={size}
-                color={color}
-              />
-            );
-          },
-        })}
-      >
-        <Tab.Screen
-          name={Route.HOME}
-          component={HomeStackScreen}
-          listeners={{
-            tabPress: (e) => {
-              e.preventDefault();
-              navRef.current?.dispatch(
-                CommonActions.navigate({
-                  name: Route.HOME,
-                  params: {
-                    screen: Route.HOME_TABS,
-                    params: { screen: Route.WATCHLIST },
-                  },
-                }),
-              );
-            },
-          }}
-        />
-        <Tab.Screen
-          name={Route.CALENDAR}
-          component={CalendarStackScreen}
-          listeners={{
-            tabPress: (e) => {
-              e.preventDefault();
-              navRef.current?.dispatch(
-                CommonActions.navigate({
-                  name: Route.CALENDAR,
-                  params: { screen: Route.CALENDAR_MAIN },
-                }),
-              );
-            },
-          }}
-        />
-        <Tab.Screen
-          name={Route.SEARCH}
-          component={SearchStackScreen}
-          listeners={{
-            tabPress: (e) => {
-              e.preventDefault();
-              navRef.current?.dispatch(
-                CommonActions.navigate({
-                  name: Route.SEARCH,
-                  params: { screen: Route.SEARCH_MAIN },
-                }),
-              );
-            },
-          }}
-        />
-        <Tab.Screen
-          name={Route.PROFILE}
-          component={ProfileStackScreen}
-          options={{
-            headerShown: false,
-          }}
-          listeners={{
-            tabPress: (e) => {
-              e.preventDefault();
-              navRef.current?.dispatch(
-                CommonActions.navigate({
-                  name: Route.PROFILE,
-                  params: { screen: Route.PROFILE_MAIN },
-                }),
-              );
-            },
-          }}
-        />
-      </Tab.Navigator>
-    </NavigationContainer>
-  );
+	return (
+		<NavigationContainer ref={navRef}>
+			<Tab.Navigator
+				screenOptions={({ route }) => ({
+					headerShown: false,
+					tabBarStyle: shouldHideTabBar(route)
+						? { display: "none" as const }
+						: {
+								backgroundColor: colors.surface,
+								borderTopColor: colors.border,
+							},
+					tabBarActiveTintColor: colors.primary,
+					tabBarInactiveTintColor: colors.textMuted,
+					tabBarIcon: ({ color, size }) => {
+						const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
+							[Route.HOME]: "home",
+							[Route.SEARCH]: "search",
+							[Route.CALENDAR]: "calendar",
+							[Route.PROFILE]: "person",
+						};
+						return <Ionicons name={icons[route.name] || "ellipse"} size={size} color={color} />;
+					},
+				})}
+			>
+				<Tab.Screen
+					name={Route.HOME}
+					component={HomeStackScreen}
+					listeners={{
+						tabPress: (e) => {
+							e.preventDefault();
+							navRef.current?.dispatch(
+								CommonActions.navigate({
+									name: Route.HOME,
+									params: {
+										screen: Route.HOME_TABS,
+										params: { screen: Route.WATCHLIST },
+									},
+								}),
+							);
+						},
+					}}
+				/>
+				<Tab.Screen
+					name={Route.CALENDAR}
+					component={CalendarStackScreen}
+					listeners={{
+						tabPress: (e) => {
+							e.preventDefault();
+							navRef.current?.dispatch(
+								CommonActions.navigate({
+									name: Route.CALENDAR,
+									params: { screen: Route.CALENDAR_MAIN },
+								}),
+							);
+						},
+					}}
+				/>
+				<Tab.Screen
+					name={Route.SEARCH}
+					component={SearchStackScreen}
+					listeners={{
+						tabPress: (e) => {
+							e.preventDefault();
+							navRef.current?.dispatch(
+								CommonActions.navigate({
+									name: Route.SEARCH,
+									params: { screen: Route.SEARCH_MAIN },
+								}),
+							);
+						},
+					}}
+				/>
+				<Tab.Screen
+					name={Route.PROFILE}
+					component={ProfileStackScreen}
+					options={{
+						headerShown: false,
+					}}
+					listeners={{
+						tabPress: (e) => {
+							e.preventDefault();
+							navRef.current?.dispatch(
+								CommonActions.navigate({
+									name: Route.PROFILE,
+									params: { screen: Route.PROFILE_MAIN },
+								}),
+							);
+						},
+					}}
+				/>
+			</Tab.Navigator>
+		</NavigationContainer>
+	);
 }

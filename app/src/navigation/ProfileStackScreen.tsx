@@ -9,23 +9,23 @@ import ImportDataScreen from "../screens/ImportDataScreen";
 const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
 
 export default function ProfileStackScreen() {
-  return (
-    <ProfileStack.Navigator screenOptions={stackScreenOptions}>
-      <ProfileStack.Screen
-        name={Route.PROFILE_MAIN}
-        component={ProfileScreen}
-        options={{ headerTitle: "Profile" }}
-      />
-      <ProfileStack.Screen
-        name={Route.SETTINGS}
-        component={SettingsScreen}
-        options={{ headerTitle: "Settings" }}
-      />
-      <ProfileStack.Screen
-        name={Route.IMPORT_DATA}
-        component={ImportDataScreen}
-        options={{ headerTitle: "Import Data" }}
-      />
-    </ProfileStack.Navigator>
-  );
+	return (
+		<ProfileStack.Navigator screenOptions={stackScreenOptions}>
+			<ProfileStack.Screen
+				name={Route.PROFILE_MAIN}
+				component={ProfileScreen}
+				options={{ headerTitle: "Profile" }}
+			/>
+			<ProfileStack.Screen
+				name={Route.SETTINGS}
+				component={SettingsScreen}
+				options={{ headerTitle: "Settings" }}
+			/>
+			<ProfileStack.Screen
+				name={Route.IMPORT_DATA}
+				component={ImportDataScreen}
+				options={{ headerTitle: "Import Data" }}
+			/>
+		</ProfileStack.Navigator>
+	);
 }

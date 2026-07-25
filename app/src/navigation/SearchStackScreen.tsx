@@ -13,50 +13,50 @@ import ShowDetailScreen from "../screens/ShowDetailScreen";
 const SearchStack = createNativeStackNavigator<SearchStackParamList>();
 
 function BackToMain() {
-  const navigation = useNavigation<any>();
-  return (
-    <TouchableOpacity
-      onPress={() => navigation.navigate(Route.SEARCH_MAIN)}
-      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      style={{ marginRight: 4 }}
-    >
-      <Ionicons name="arrow-back" size={24} color={colors.text} />
-    </TouchableOpacity>
-  );
+	const navigation = useNavigation<any>();
+	return (
+		<TouchableOpacity
+			onPress={() => navigation.navigate(Route.SEARCH_MAIN)}
+			hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+			style={{ marginRight: 4 }}
+		>
+			<Ionicons name="arrow-back" size={24} color={colors.text} />
+		</TouchableOpacity>
+	);
 }
 
 export default function SearchStackScreen() {
-  return (
-    <SearchStack.Navigator screenOptions={stackScreenOptions}>
-      <SearchStack.Screen
-        name={Route.SEARCH_MAIN}
-        component={SearchScreen}
-        options={{ headerTitle: "Search", headerBackVisible: false }}
-      />
-      <SearchStack.Screen
-        name={Route.SEARCH_INPUT}
-        component={SearchInputScreen}
-        options={{
-          headerTitle: "Search",
-          headerBackVisible: false,
-          headerLeft: () => <BackToMain />,
-          animation: "fade",
-        }}
-      />
-      <SearchStack.Screen
-        name={Route.SEARCH_RESULTS}
-        component={SearchScreen}
-        options={{
-          headerTitle: "Search",
-          headerBackVisible: false,
-          headerLeft: () => <BackToMain />,
-        }}
-      />
-      <SearchStack.Screen
-        name={Route.SHOW_DETAIL}
-        component={ShowDetailScreen}
-        options={{ headerTitle: "" }}
-      />
-    </SearchStack.Navigator>
-  );
+	return (
+		<SearchStack.Navigator screenOptions={stackScreenOptions}>
+			<SearchStack.Screen
+				name={Route.SEARCH_MAIN}
+				component={SearchScreen}
+				options={{ headerTitle: "Search", headerBackVisible: false }}
+			/>
+			<SearchStack.Screen
+				name={Route.SEARCH_INPUT}
+				component={SearchInputScreen}
+				options={{
+					headerTitle: "Search",
+					headerBackVisible: false,
+					headerLeft: () => <BackToMain />,
+					animation: "fade",
+				}}
+			/>
+			<SearchStack.Screen
+				name={Route.SEARCH_RESULTS}
+				component={SearchScreen}
+				options={{
+					headerTitle: "Search",
+					headerBackVisible: false,
+					headerLeft: () => <BackToMain />,
+				}}
+			/>
+			<SearchStack.Screen
+				name={Route.SHOW_DETAIL}
+				component={ShowDetailScreen}
+				options={{ headerTitle: "" }}
+			/>
+		</SearchStack.Navigator>
+	);
 }
