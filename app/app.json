@@ -38,6 +38,14 @@
       "@react-native-firebase/messaging",
       "@react-native-google-signin/google-signin",
       "expo-image",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0D0D0D",
+          "image": "./assets/icon-foreground.original.png",
+          "imageWidth": 120
+        }
+      ],
       "./plugins/withModularHeaders"
     ]
   }

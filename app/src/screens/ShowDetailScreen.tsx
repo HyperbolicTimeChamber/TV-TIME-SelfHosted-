@@ -282,10 +282,31 @@ export default function ShowDetailScreen() {
 		if (!user?.uid || !show || adding) return;
 		setAdding(true);
 		try {
+			const movieTitle = show.title || show.name || "";
+			const moviePoster = show.poster_path || null;
 			if (!watchlistItem) {
 				await addAndMarkMovieWatched(user.uid, tmdbId, show.runtime ?? 0, {
-					title: show.title || show.name || "",
-					posterPath: show.poster_path || null,
+					title: movieTitle,
+					posterPath: moviePoster,
+				});
+				// Notify trackedIds so search card shows ✓
+				emitShowAdded({
+					id: showDocId(tmdbId, MediaType.MOVIE),
+					tmdbId,
+					mediaType: MediaType.MOVIE,
+					status: WatchStatus.COMPLETED,
+					nextEpisode: null,
+					nextEpisodeName: null,
+					nextEpisodeAirDate: null,
+					rewatchCount: 0,
+					addedAt: Timestamp.now(),
+					lastWatchedAt: Timestamp.now(),
+					priorityDate: Timestamp.now(),
+					releaseDate: show.release_date ?? null,
+					title: movieTitle,
+					posterPath: moviePoster,
+					totalEpisodes: 0,
+					catalogShow: null,
 				});
 			} else {
 				await markMovieWatched(user.uid, tmdbId, show.runtime ?? 0);
@@ -301,8 +322,8 @@ export default function ShowDetailScreen() {
 					lastWatchedAt: now,
 					runtime: show.runtime ?? 0,
 					watchCount: 1,
-					title: show.title || show.name || "",
-					posterPath: show.poster_path || null,
+					title: movieTitle,
+					posterPath: moviePoster,
 				} as WatchedMovie;
 				const firstPage = old.pages[0];
 				return {
