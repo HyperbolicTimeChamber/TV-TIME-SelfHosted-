@@ -9,6 +9,7 @@ import {
 	insertWatchedEpisodeCache,
 	removeWatchedEpisodeCache,
 	incrementDailyWatch,
+	decrementDailyWatch,
 } from "../hooks";
 import { useAuthStore } from "../stores";
 import {
@@ -380,6 +381,7 @@ export default memo(function SeasonDropdown({
 							watched?.runtime || ep.runtime || 0,
 							ep.name,
 						);
+						decrementDailyWatch("episode");
 					} else if (action === "watched_once_less") {
 						await decrementEpisodeWatchCount(
 							user.uid,
@@ -390,6 +392,7 @@ export default memo(function SeasonDropdown({
 							watched?.watchCount || 1,
 							ep.name,
 						);
+						decrementDailyWatch("episode");
 					}
 				} else if (sheetTarget.type === "season") {
 					if (action === "rewatch") {

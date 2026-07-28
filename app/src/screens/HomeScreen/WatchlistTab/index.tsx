@@ -27,6 +27,9 @@ import {
 	markEpisodeWatched,
 	unmarkEpisodeWatched,
 	decrementEpisodeWatchCount,
+	markMovieWatched,
+	unmarkMovieWatched,
+	decrementMovieWatchCount,
 	getCatalogShow,
 	getSeasonDetails,
 	getShowDetails,
@@ -36,6 +39,7 @@ import {
 	HomeStackParamList,
 	MainTabParamList,
 	WatchedEpisode,
+	WatchedMovie,
 	MediaType,
 	Route,
 	QueryKey,
@@ -43,7 +47,7 @@ import {
 import type { ShowDrawerData } from "../../../components/ShowDrawer";
 import { warmupWatchlistCFs, warmupFirestoreWrite } from "../../../services/warmup";
 import { Timestamp } from "@react-native-firebase/firestore";
-import { insertWatchedEpisodeCache, removeWatchedEpisodeCache, incrementDailyWatch } from "../../../hooks";
+import { insertWatchedEpisodeCache, removeWatchedEpisodeCache, insertWatchedMovieCache, incrementDailyWatch, decrementDailyWatch } from "../../../hooks";
 import { ListItem } from "./types";
 import { useWatchlistData } from "./useWatchlistData";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
@@ -93,6 +97,11 @@ export default function WatchlistTab() {
 	// Action sheet state for previously watched episodes
 	const [sheetVisible, setSheetVisible] = useState(false);
 	const [sheetEpisode, setSheetEpisode] = useState<WatchedEpisode | null>(null);
+
+	// Action sheet state for previously watched movies
+	const [movieSheetVisible, setMovieSheetVisible] = useState(false);
+	const [sheetMovie, setSheetMovie] = useState<WatchedMovie | null>(null);
+	const [sheetMovieTitle, setSheetMovieTitle] = useState("");
 
 	// Episode detail modal state
 	const [epModalVisible, setEpModalVisible] = useState(false);
@@ -361,6 +370,7 @@ export default function WatchlistTab() {
 				episode.episode,
 				episode.watchCount > 1,
 			);
+			decrementDailyWatch("episode");
 		},
 		[user?.uid, queryClient],
 	);
@@ -421,6 +431,7 @@ export default function WatchlistTab() {
 						sheetEpisode.runtime,
 						sheetEpisode.episodeTitle,
 					);
+					decrementDailyWatch("episode");
 				} else if (action === "watched_once_less") {
 					await decrementEpisodeWatchCount(
 						user.uid,
@@ -431,6 +442,7 @@ export default function WatchlistTab() {
 						sheetEpisode.watchCount,
 						sheetEpisode.episodeTitle,
 					);
+					decrementDailyWatch("episode");
 				}
 				if (action === "rewatch") {
 					const now = Timestamp.now();
@@ -465,6 +477,126 @@ export default function WatchlistTab() {
 		[user?.uid, sheetEpisode, queryClient],
 	);
 
+	// --- Watched movie handlers ---
+	const handleMovieCheckmark = useCallback((movie: WatchedMovie, title: string) => {
+		setSheetMovie(movie);
+		setSheetMovieTitle(title);
+		setMovieSheetVisible(true);
+	}, []);
+
+	const handleMovieSwipeLeft = useCallback(
+		async (movie: WatchedMovie) => {
+			if (!user?.uid) return;
+			await markMovieWatched(user.uid, movie.tmdbId, movie.runtime ?? 0);
+			insertWatchedMovieCache(queryClient, user.uid, {
+				...movie,
+				watchCount: (movie.watchCount || 0) + 1,
+				lastWatchedAt: Timestamp.now(),
+			});
+			incrementDailyWatch("movie");
+		},
+		[user?.uid, queryClient],
+	);
+
+	const handleMovieSwipeRight = useCallback(
+		async (movie: WatchedMovie) => {
+			if (!user?.uid) return;
+			if (movie.watchCount > 1) {
+				await decrementMovieWatchCount(user.uid, movie.tmdbId, movie.runtime ?? 0, movie.watchCount);
+				queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
+					if (!old?.pages) return old;
+					return {
+						...old,
+						pages: old.pages.map((p: any) => ({
+							...p,
+							movies: p.movies.map((m: any) =>
+								m.tmdbId === movie.tmdbId ? { ...m, watchCount: (m.watchCount || 1) - 1 } : m,
+							),
+						})),
+					};
+				});
+			} else {
+				await unmarkMovieWatched(user.uid, movie.tmdbId, movie.runtime ?? 0);
+				queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
+					if (!old?.pages) return old;
+					return {
+						...old,
+						pages: old.pages.map((p: any) => ({
+							...p,
+							movies: p.movies.filter((m: any) => m.tmdbId !== movie.tmdbId),
+						})),
+					};
+				});
+			}
+			decrementDailyWatch("movie");
+		},
+		[user?.uid, queryClient],
+	);
+
+	const handleMovieSheetAction = useCallback(
+		async (action: WatchAction) => {
+			if (!user?.uid || !sheetMovie) return;
+			try {
+				if (action === "rewatch") {
+					await markMovieWatched(user.uid, sheetMovie.tmdbId, sheetMovie.runtime ?? 0);
+					insertWatchedMovieCache(queryClient, user.uid, {
+						...sheetMovie,
+						watchCount: (sheetMovie.watchCount || 0) + 1,
+						lastWatchedAt: Timestamp.now(),
+					});
+					incrementDailyWatch("movie");
+				} else if (action === "watched_once_less") {
+					if (sheetMovie.watchCount <= 1) {
+						await unmarkMovieWatched(user.uid, sheetMovie.tmdbId, sheetMovie.runtime ?? 0);
+						queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
+							if (!old?.pages) return old;
+							return {
+								...old,
+								pages: old.pages.map((p: any) => ({
+									...p,
+									movies: p.movies.filter((m: any) => m.tmdbId !== sheetMovie.tmdbId),
+								})),
+							};
+						});
+					} else {
+						await decrementMovieWatchCount(user.uid, sheetMovie.tmdbId, sheetMovie.runtime ?? 0, sheetMovie.watchCount);
+						queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
+							if (!old?.pages) return old;
+							return {
+								...old,
+								pages: old.pages.map((p: any) => ({
+									...p,
+									movies: p.movies.map((m: any) =>
+										m.tmdbId === sheetMovie.tmdbId ? { ...m, watchCount: (m.watchCount || 1) - 1 } : m,
+									),
+								})),
+							};
+						});
+					}
+					decrementDailyWatch("movie");
+				} else if (action === "not_watched") {
+					await unmarkMovieWatched(user.uid, sheetMovie.tmdbId, sheetMovie.runtime ?? 0);
+					queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
+						if (!old?.pages) return old;
+						return {
+							...old,
+							pages: old.pages.map((p: any) => ({
+								...p,
+								movies: p.movies.filter((m: any) => m.tmdbId !== sheetMovie.tmdbId),
+							})),
+						};
+					});
+					decrementDailyWatch("movie");
+				}
+			} catch (err: any) {
+				console.error("Movie action failed:", err);
+				Alert.alert("Error", err.message || "Action failed.");
+			}
+			setSheetMovie(null);
+		},
+		[user?.uid, sheetMovie, queryClient],
+	);
+
 	const handleTvPress = useCallback(
 		(id: number) => handleNavigateToShow(id, MediaType.TV),
 		[handleNavigateToShow],
@@ -488,10 +620,11 @@ export default function WatchlistTab() {
 							} as any
 						}
 						isWatched
-						onSwipeLeft={NOOP_ASYNC}
-						onSwipeRight={NOOP_ASYNC}
+						watchCount={item.movie.watchCount ?? 0}
+						onSwipeLeft={() => handleMovieSwipeLeft(item.movie)}
+						onSwipeRight={() => handleMovieSwipeRight(item.movie)}
 						onPress={(id) => handleNavigateToShow(id, MediaType.MOVIE)}
-						onCheckmark={NOOP_CHECKMARK}
+						onCheckmark={async () => handleMovieCheckmark(item.movie, item.show.title)}
 					/>
 				);
 			}
@@ -534,6 +667,9 @@ export default function WatchlistTab() {
 			handleWatchedCheckmark,
 			handleWatchedSwipeLeft,
 			handleWatchedSwipeRight,
+			handleMovieCheckmark,
+			handleMovieSwipeLeft,
+			handleMovieSwipeRight,
 		],
 	);
 
@@ -617,6 +753,16 @@ export default function WatchlistTab() {
 				onClose={() => {
 					setSheetVisible(false);
 					setSheetEpisode(null);
+				}}
+			/>
+			<WatchActionSheet
+				visible={movieSheetVisible}
+				label={sheetMovieTitle || "Movie"}
+				watchCount={sheetMovie?.watchCount || 0}
+				onSelect={handleMovieSheetAction}
+				onClose={() => {
+					setMovieSheetVisible(false);
+					setSheetMovie(null);
 				}}
 			/>
 			{epModalData && (

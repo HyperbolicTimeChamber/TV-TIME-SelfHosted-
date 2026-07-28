@@ -9,6 +9,7 @@ import {
 	Dimensions,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import SkeletonLine from "./SkeletonLine";
@@ -49,6 +50,7 @@ export default function ShowDrawer({
 	onClose,
 }: Readonly<Props>) {
 	const bottomSheetRef = useRef<BottomSheet>(null);
+	const insets = useSafeAreaInsets();
 	const maxHeight = SCREEN_HEIGHT * 0.85;
 
 	const handleSheetChanges = useCallback(
@@ -122,7 +124,7 @@ export default function ShowDrawer({
 								{show.overview ? <Text style={styles.overview}>{show.overview}</Text> : null}
 							</View>
 							{onGoToShow && (
-								<TouchableOpacity style={styles.goToShowButton} onPress={onGoToShow}>
+								<TouchableOpacity style={[styles.goToShowButton, { marginBottom: Math.max(spacing.xl, insets.bottom + 8) }]} onPress={onGoToShow}>
 									<Text style={styles.goToShowText}>
 										{show.mediaType === "movie" ? "Go to Movie" : "Go to Show"}
 									</Text>
@@ -219,7 +221,7 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		paddingVertical: spacing.md,
 		marginHorizontal: spacing.lg,
-		marginBottom: spacing.xl,
+		marginBottom: spacing.xl, // also receives dynamic paddingBottom for safe area
 		borderRadius: 8,
 		backgroundColor: colors.primary,
 	},

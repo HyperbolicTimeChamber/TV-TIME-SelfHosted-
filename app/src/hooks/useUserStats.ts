@@ -46,7 +46,13 @@ export function useUserStats(userId: string | undefined) {
 			(snap) => {
 				if (snap.exists()) {
 					const data = snap.data();
-					const fresh = data?.stats ?? defaultStats;
+					const raw = data?.stats;
+					const fresh: UserStats = {
+						episodesWatched: Math.max(0, raw?.episodesWatched ?? 0),
+						showsTracking: Math.max(0, raw?.showsTracking ?? 0),
+						moviesWatched: Math.max(0, raw?.moviesWatched ?? 0),
+						totalMinutes: Math.max(0, raw?.totalMinutes ?? 0),
+					};
 					setStats(fresh);
 					AsyncStorage.setItem(CacheKey.USER_STATS, JSON.stringify({ userId, stats: fresh })).catch(
 						() => {},

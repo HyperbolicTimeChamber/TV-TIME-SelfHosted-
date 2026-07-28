@@ -9,6 +9,7 @@ import {
 	StyleSheet,
 	Dimensions,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, spacing, typography } from "../../theme";
 
 export type WatchAction = "rewatch" | "not_watched" | "watched_once_less";
@@ -24,6 +25,7 @@ interface Props {
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
 export default function WatchActionSheet({ visible, label, watchCount, onSelect, onClose }: Props) {
+	const insets = useSafeAreaInsets();
 	const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
 	useEffect(() => {
@@ -84,7 +86,7 @@ export default function WatchActionSheet({ visible, label, watchCount, onSelect,
 		<Modal visible={visible} transparent animationType="none" onRequestClose={dismiss}>
 			<TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={dismiss}>
 				<Animated.View
-					style={[styles.sheet, { transform: [{ translateY }] }]}
+					style={[styles.sheet, { paddingBottom: Math.max(34, insets.bottom + 16), transform: [{ translateY }] }]}
 					{...panResponder.panHandlers}
 				>
 					<TouchableOpacity activeOpacity={1}>
@@ -100,29 +102,37 @@ export default function WatchActionSheet({ visible, label, watchCount, onSelect,
 							</View>
 						</TouchableOpacity>
 
+						<TouchableOpacity
+							style={styles.option}
+							onPress={() => handleSelect("watched_once_less")}
+						>
+							<Text style={styles.optionIcon}>−1</Text>
+							<View style={styles.optionContent}>
+								<Text style={styles.optionText}>
+									{watchCount > 1 ? "Watched Once Less" : "Mark Unwatched"}
+								</Text>
+								<Text style={styles.optionHint}>
+									{watchCount > 1
+										? `Reduce to ${watchCount - 1}x`
+										: "Remove from watched"}
+								</Text>
+							</View>
+						</TouchableOpacity>
+
 						{watchCount > 1 && (
 							<TouchableOpacity
-								style={styles.option}
-								onPress={() => handleSelect("watched_once_less")}
+								style={[styles.option, styles.destructiveOption]}
+								onPress={() => handleSelect("not_watched")}
 							>
-								<Text style={styles.optionIcon}>−1</Text>
+								<Text style={styles.optionIcon}>✕</Text>
 								<View style={styles.optionContent}>
-									<Text style={styles.optionText}>Watched Once Less</Text>
-									<Text style={styles.optionHint}>Reduce to {watchCount - 1}x</Text>
+									<Text style={[styles.optionText, styles.destructiveText]}>
+										Not Watched
+									</Text>
+									<Text style={styles.optionHint}>Remove all watch history</Text>
 								</View>
 							</TouchableOpacity>
 						)}
-
-						<TouchableOpacity
-							style={[styles.option, styles.destructiveOption]}
-							onPress={() => handleSelect("not_watched")}
-						>
-							<Text style={styles.optionIcon}>✕</Text>
-							<View style={styles.optionContent}>
-								<Text style={[styles.optionText, styles.destructiveText]}>Not Watched</Text>
-								<Text style={styles.optionHint}>Remove all watch history</Text>
-							</View>
-						</TouchableOpacity>
 					</TouchableOpacity>
 				</Animated.View>
 			</TouchableOpacity>
@@ -140,7 +150,7 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.surface,
 		borderTopLeftRadius: 16,
 		borderTopRightRadius: 16,
-		paddingBottom: 34,
+		paddingBottom: 34, // overridden dynamically with safe area insets
 		paddingHorizontal: spacing.lg,
 	},
 	handle: {

@@ -18,6 +18,7 @@ import {
 	removeShowFromCalendarGlobal,
 	addMovieToCalendarGlobal,
 	incrementDailyWatch,
+	decrementDailyWatch,
 } from "../../hooks";
 import { useAuthStore } from "../../stores";
 import {
@@ -41,7 +42,7 @@ import {
 	WatchActionSheet,
 } from "../../components";
 import type { WatchAction } from "../../components";
-import { emitShowAdded, emitShowRemoved } from "../../utils/watchlistEvents";
+import { emitShowAdded, emitShowRemoved, emitShowCompleted } from "../../utils/watchlistEvents";
 import { showDocId } from "../../utils/docId";
 import { colors, spacing, typography, posterSize } from "../../theme";
 import {
@@ -78,7 +79,7 @@ export default function ShowDetailScreen() {
 	const [removing, setRemoving] = useState(false);
 	const { addShowToUpcoming, removeShowFromUpcoming } = useUpcomingMutations();
 	const queryClient = useQueryClient();
-	const movieWatchCount = (() => {
+	const [movieWatchCount, setMovieWatchCount] = useState(() => {
 		if (mediaType !== MediaType.MOVIE || !user?.uid) return 0;
 		const cached = queryClient.getQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid]);
 		if (!cached?.pages) return 0;
@@ -86,7 +87,7 @@ export default function ShowDetailScreen() {
 			.flatMap((p: any) => p.movies)
 			.find((m: any) => m.tmdbId === tmdbId);
 		return found?.watchCount ?? 0;
-	})();
+	});
 	const [movieSheetVisible, setMovieSheetVisible] = useState(false);
 	const [refreshing, setRefreshing] = useState(false);
 	const [refreshKey, setRefreshKey] = useState(0);
@@ -335,7 +336,15 @@ export default function ShowDetailScreen() {
 					pages: [{ ...firstPage, movies: [newMovie, ...firstPage.movies] }, ...old.pages.slice(1)],
 				};
 			});
+			setMovieWatchCount((c: number) => c + 1);
 			incrementDailyWatch("movie");
+			emitShowCompleted({
+				tmdbId,
+				mediaType: MediaType.MOVIE,
+				title: movieTitle,
+				posterPath: moviePoster,
+				genres: [],
+			});
 		} catch (err: any) {
 			Alert.alert("Error", err.message || "Failed to mark movie as watched.");
 		} finally {
@@ -365,8 +374,21 @@ export default function ShowDetailScreen() {
 			if (action === "rewatch") {
 				await handleMarkMovieWatched();
 			} else if (action === "watched_once_less") {
-				if (movieWatchCount > 1) {
-					await decrementMovieWatchCount(user.uid, tmdbId, runtime, movieWatchCount);
+				await decrementMovieWatchCount(user.uid, tmdbId, runtime, movieWatchCount);
+				if (movieWatchCount <= 1) {
+					// Fully unwatched — remove from cache
+					queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
+						if (!old?.pages) return old;
+						return {
+							...old,
+							pages: old.pages.map((p: any) => ({
+								...p,
+								movies: p.movies.filter((m: any) => m.tmdbId !== tmdbId),
+							})),
+						};
+					});
+					setMovieWatchCount(0);
+				} else {
 					queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
 						if (!old?.pages) return old;
 						return {
@@ -379,7 +401,9 @@ export default function ShowDetailScreen() {
 							})),
 						};
 					});
+					setMovieWatchCount((c: number) => c - 1);
 				}
+				decrementDailyWatch("movie");
 			} else if (action === "not_watched") {
 				await unmarkMovieWatched(user.uid, tmdbId, runtime);
 				queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
@@ -392,6 +416,8 @@ export default function ShowDetailScreen() {
 						})),
 					};
 				});
+				setMovieWatchCount(0);
+				decrementDailyWatch("movie");
 			}
 		},
 		[user?.uid, show, tmdbId, movieWatchCount, queryClient, handleMarkMovieWatched],
@@ -500,7 +526,9 @@ export default function ShowDetailScreen() {
 								<View
 									style={[styles.addButton, { backgroundColor: colors.watchedGreen, opacity: 0.7 }]}
 								>
-									<Text style={styles.buttonText}>Watched ✓</Text>
+									<Text style={styles.buttonText}>
+										Watched{movieWatchCount > 0 ? ` ${movieWatchCount}x` : ""} ✓
+									</Text>
 								</View>
 							)}
 							{(watchlistItem.status === WatchStatus.COMPLETED ||
@@ -523,9 +551,7 @@ export default function ShowDetailScreen() {
 											? "Resume"
 											: watchlistItem.status === WatchStatus.PAUSED_REWATCH
 												? "Resume Rewatch"
-												: mediaType === MediaType.MOVIE && movieWatchCount > 0
-													? `Rewatch (${movieWatchCount})`
-													: "Rewatch"}
+												: "Rewatch"}
 									</Text>
 								</TouchableOpacity>
 							)}
