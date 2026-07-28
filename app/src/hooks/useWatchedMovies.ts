@@ -78,7 +78,9 @@ export function insertWatchedMovieCache(
 	movie: WatchedMovie,
 ) {
 	queryClient.setQueryData([QueryKey.WATCHED_MOVIES, userId], (old: any) => {
-		if (!old?.pages) return old;
+		if (!old?.pages) {
+			return { pages: [{ movies: [movie], lastDoc: null }], pageParams: [null] };
+		}
 		// Check if movie already exists in any page
 		const exists = old.pages.some((p: any) =>
 			p.movies.some((m: WatchedMovie) => m.tmdbId === movie.tmdbId),
