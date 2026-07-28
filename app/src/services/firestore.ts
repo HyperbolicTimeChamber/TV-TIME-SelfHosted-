@@ -547,6 +547,53 @@ export async function markMovieWatched(
 	await batch.commit();
 }
 
+export async function decrementMovieWatchCount(
+	userId: string,
+	tmdbId: number,
+	runtime: number,
+	currentCount: number,
+): Promise<void> {
+	const batch = writeBatch(db);
+	const movieRef = doc(watchedMoviesRef(userId), String(tmdbId));
+
+	batch.update(movieRef, { watchCount: increment(-1) });
+	batch.set(
+		userRef(userId),
+		{
+			stats: {
+				moviesWatched: increment(-1),
+				totalMinutes: increment(-Math.round(runtime / 60)),
+			},
+		},
+		{ merge: true },
+	);
+
+	await batch.commit();
+}
+
+export async function unmarkMovieWatched(
+	userId: string,
+	tmdbId: number,
+	runtime: number,
+): Promise<void> {
+	const batch = writeBatch(db);
+	const movieRef = doc(watchedMoviesRef(userId), String(tmdbId));
+
+	batch.delete(movieRef);
+	batch.set(
+		userRef(userId),
+		{
+			stats: {
+				moviesWatched: increment(-1),
+				totalMinutes: increment(-Math.round(runtime / 60)),
+			},
+		},
+		{ merge: true },
+	);
+
+	await batch.commit();
+}
+
 /** Add movie to tracking + mark as watched in one batch (1 write round-trip). */
 export async function addAndMarkMovieWatched(
 	userId: string,
