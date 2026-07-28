@@ -56,6 +56,12 @@ export default function ProfileScreen() {
 		});
 	}, [navigation]);
 
+	const formatCount = (n: number) => {
+		if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+		if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
+		return `${n}`;
+	};
+
 	const formatTime = (minutes: number) => {
 		const hours = Math.floor(minutes / 60);
 		const days = Math.floor(hours / 24);
@@ -174,13 +180,13 @@ export default function ProfileScreen() {
 				<View style={styles.statsGrid}>
 				<View style={styles.statsRow}>
 					<StatCard
-						value={stats.episodesWatched}
+						value={formatCount(stats.episodesWatched)}
 						label="Episodes"
 						flex={3}
 						backdrop={cardImages.episodeBackdrop}
 					/>
 					<StatCard
-						value={stats.moviesWatched}
+						value={formatCount(stats.moviesWatched)}
 						label="Movies"
 						flex={2}
 						backdrop={cardImages.movieBackdrop}
@@ -188,7 +194,7 @@ export default function ProfileScreen() {
 				</View>
 				<View style={styles.statsRow}>
 					<CollageCard
-						value={stats.showsTracking}
+						value={formatCount(stats.showsTracking)}
 						label="Tracking"
 						flex={2}
 						backdrops={cardImages.trackingBackdrops}
