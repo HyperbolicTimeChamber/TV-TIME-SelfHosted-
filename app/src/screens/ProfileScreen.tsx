@@ -77,46 +77,54 @@ export default function ProfileScreen() {
 		label,
 		flex,
 		backdrop,
+		align = "left",
 	}: {
 		value: string | number;
 		label: string;
 		flex: number;
 		backdrop?: string | null;
-	}) => (
-		<View style={[styles.statCard, { flex }]}>
-			{backdrop && (
-				<Image
-					source={{ uri: `${backdropSize.medium}${backdrop}` }}
-					style={StyleSheet.absoluteFill}
-					contentFit="cover"
-					blurRadius={BLUR_RADIUS}
-				/>
-			)}
-			{backdrop && <View style={[StyleSheet.absoluteFill, styles.statCardOverlay]} />}
-			<Text style={styles.statLabel}>{label}</Text>
-			{statsLoading ? (
-				<ActivityIndicator size="small" color={colors.primary} style={styles.statLoader} />
-			) : (
-				<Text style={styles.statNumber}>{value}</Text>
-			)}
-		</View>
-	);
+		align?: "left" | "right";
+	}) => {
+		const side = align === "right" ? "flex-end" : "flex-start";
+		return (
+			<View style={[styles.statCard, { flex, alignItems: side }]}>
+				{backdrop && (
+					<Image
+						source={{ uri: `${backdropSize.medium}${backdrop}` }}
+						style={StyleSheet.absoluteFill}
+						contentFit="cover"
+						blurRadius={BLUR_RADIUS}
+					/>
+				)}
+				{backdrop && <View style={[StyleSheet.absoluteFill, styles.statCardOverlay]} />}
+				<Text style={styles.statLabel}>{label}</Text>
+				{statsLoading ? (
+					<ActivityIndicator size="small" color={colors.primary} style={styles.statLoader} />
+				) : (
+					<Text style={styles.statNumber}>{value}</Text>
+				)}
+			</View>
+		);
+	};
 
 	const CollageCard = ({
 		value,
 		label,
 		flex,
 		backdrops = [],
+		align = "left",
 	}: {
 		value: string | number;
 		label: string;
 		flex: number;
 		backdrops?: string[];
+		align?: "left" | "right";
 	}) => {
+		const side = align === "right" ? "flex-end" : "flex-start";
 		const count = backdrops.length;
 
 		return (
-			<View style={[styles.statCard, { flex }]}>
+			<View style={[styles.statCard, { flex, alignItems: side }]}>
 				{count > 0 && (
 					<View style={[StyleSheet.absoluteFill, styles.collageContainer]}>
 						{backdrops.map((b, i) => {
@@ -163,49 +171,54 @@ export default function ProfileScreen() {
 	return (
 		<ScrollView style={styles.container}>
 			<View style={styles.profileSection}>
+				<View style={styles.statsGrid}>
+					<View style={styles.statsRow}>
+						<StatCard
+							value={formatCount(stats.episodesWatched)}
+							label="Episodes"
+							flex={3}
+							backdrop={cardImages.episodeBackdrop}
+							align="left"
+						/>
+						<StatCard
+							value={formatCount(stats.moviesWatched)}
+							label="Movies"
+							flex={2}
+							backdrop={cardImages.movieBackdrop}
+							align="right"
+						/>
+					</View>
+					<View style={styles.statsRow}>
+						<CollageCard
+							value={formatCount(stats.showsTracking)}
+							label="Tracking"
+							flex={2}
+							backdrops={cardImages.trackingBackdrops}
+							align="left"
+						/>
+						<CollageCard
+							value={formatTime(stats.totalMinutes)}
+							label="Watch Time"
+							flex={3}
+							backdrops={cardImages.watchTimeBackdrops}
+							align="right"
+						/>
+					</View>
+					<View style={styles.avatarOverlay}>
+						{user?.photoURL ? (
+							<Image source={{ uri: user.photoURL }} style={styles.avatar} contentFit="cover" />
+						) : (
+							<View style={[styles.avatar, styles.avatarPlaceholder]}>
+								<Text style={styles.avatarText}>
+									{(user?.displayName || "?")[0].toUpperCase()}
+								</Text>
+							</View>
+						)}
+					</View>
+				</View>
 				<View style={styles.header}>
-					{user?.photoURL ? (
-						<Image source={{ uri: user.photoURL }} style={styles.avatar} contentFit="cover" />
-					) : (
-						<View style={[styles.avatar, styles.avatarPlaceholder]}>
-							<Text style={styles.avatarText}>
-								{(user?.displayName || "?")[0].toUpperCase()}
-							</Text>
-						</View>
-					)}
 					<Text style={styles.name}>{user?.displayName || "User"}</Text>
 					<Text style={styles.email}>{user?.email}</Text>
-				</View>
-
-				<View style={styles.statsGrid}>
-				<View style={styles.statsRow}>
-					<StatCard
-						value={formatCount(stats.episodesWatched)}
-						label="Episodes"
-						flex={3}
-						backdrop={cardImages.episodeBackdrop}
-					/>
-					<StatCard
-						value={formatCount(stats.moviesWatched)}
-						label="Movies"
-						flex={2}
-						backdrop={cardImages.movieBackdrop}
-					/>
-				</View>
-				<View style={styles.statsRow}>
-					<CollageCard
-						value={formatCount(stats.showsTracking)}
-						label="Tracking"
-						flex={2}
-						backdrops={cardImages.trackingBackdrops}
-					/>
-					<CollageCard
-						value={formatTime(stats.totalMinutes)}
-						label="Watch Time"
-						flex={3}
-						backdrops={cardImages.watchTimeBackdrops}
-					/>
-				</View>
 				</View>
 			</View>
 
@@ -266,17 +279,30 @@ const styles = StyleSheet.create({
 	},
 	profileSection: {
 		marginHorizontal: spacing.lg,
+		paddingTop: spacing.xl,
 	},
 	header: {
 		alignItems: "center",
-		zIndex: 2,
-		paddingTop: spacing.xl,
-		marginBottom: -40,
+		marginTop: spacing.sm,
+		marginBottom: spacing.md,
+	},
+	avatarOverlay: {
+		position: "absolute",
+		top: 0,
+		bottom: 0,
+		left: 0,
+		right: 0,
+		justifyContent: "center",
+		alignItems: "center",
+		zIndex: 3,
+		pointerEvents: "none",
 	},
 	avatar: {
-		width: 80,
-		height: 80,
-		borderRadius: 40,
+		width: 100,
+		height: 100,
+		borderRadius: 50,
+		borderWidth: 3,
+		borderColor: colors.background,
 	},
 	avatarPlaceholder: {
 		backgroundColor: colors.surfaceLight,
@@ -297,7 +323,6 @@ const styles = StyleSheet.create({
 	},
 	statsGrid: {
 		gap: spacing.sm,
-		paddingTop: 50,
 	},
 	statsRow: {
 		flexDirection: "row",
@@ -346,13 +371,11 @@ const styles = StyleSheet.create({
 	},
 	statLoader: {
 		height: 38,
-		alignSelf: "flex-start",
 	},
 	statLabel: {
 		...typography.caption,
 		color: colors.text,
 		backgroundColor: "rgba(0, 0, 0, 0.5)",
-		alignSelf: "flex-start",
 		paddingHorizontal: spacing.sm,
 		paddingVertical: spacing.xs / 2,
 		borderRadius: 10,
