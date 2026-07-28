@@ -1,4 +1,4 @@
-import React, { useMemo, useLayoutEffect } from "react";
+import React, { useLayoutEffect, useCallback } from "react";
 import {
 	View,
 	Text,
@@ -9,13 +9,20 @@ import {
 	ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
+import { FlatList } from "react-native";
 import { useAuthStore } from "../stores";
-import { useUserStats, useWatchlist, useWeeklyActivity, useProfileCardImages } from "../hooks";
+import {
+	useUserStats,
+	useWatchlist,
+	useWeeklyActivity,
+	useProfileCardImages,
+	useCompletedShows,
+} from "../hooks";
 import { colors, spacing, typography, posterSize, backdropSize } from "../theme";
-import { ProfileStackParamList, WatchStatus, Route } from "../types";
+import { ProfileStackParamList, Route } from "../types";
 import WeeklyChart from "../components/WeeklyChart";
 
 const BLUR_RADIUS = 0.5;
@@ -25,9 +32,16 @@ export default function ProfileScreen() {
 	const user = useAuthStore((s) => s.user);
 	const signOut = useAuthStore((s) => s.signOut);
 	const { stats, loading: statsLoading } = useUserStats(user?.uid);
-	const { items: watchlist, loading: watchlistLoading } = useWatchlist(user?.uid);
-	const { chartData } = useWeeklyActivity();
+	const { items: watchlist } = useWatchlist(user?.uid);
+	const { chartData, refresh: refreshChart } = useWeeklyActivity();
+
+	useFocusEffect(
+		useCallback(() => {
+			refreshChart();
+		}, [refreshChart]),
+	);
 	const cardImages = useProfileCardImages(watchlist);
+	const { sections: completedSections, loading: completedLoading } = useCompletedShows(user?.uid);
 
 	useLayoutEffect(() => {
 		navigation.setOptions({
@@ -41,11 +55,6 @@ export default function ProfileScreen() {
 			),
 		});
 	}, [navigation]);
-
-	const completedShows = useMemo(
-		() => watchlist.filter((w) => w.status === WatchStatus.COMPLETED),
-		[watchlist],
-	);
 
 	const formatTime = (minutes: number) => {
 		const hours = Math.floor(minutes / 60);
@@ -147,19 +156,22 @@ export default function ProfileScreen() {
 
 	return (
 		<ScrollView style={styles.container}>
-			<View style={styles.header}>
-				{user?.photoURL ? (
-					<Image source={{ uri: user.photoURL }} style={styles.avatar} contentFit="cover" />
-				) : (
-					<View style={[styles.avatar, styles.avatarPlaceholder]}>
-						<Text style={styles.avatarText}>{(user?.displayName || "?")[0].toUpperCase()}</Text>
-					</View>
-				)}
-				<Text style={styles.name}>{user?.displayName || "User"}</Text>
-				<Text style={styles.email}>{user?.email}</Text>
-			</View>
+			<View style={styles.profileSection}>
+				<View style={styles.header}>
+					{user?.photoURL ? (
+						<Image source={{ uri: user.photoURL }} style={styles.avatar} contentFit="cover" />
+					) : (
+						<View style={[styles.avatar, styles.avatarPlaceholder]}>
+							<Text style={styles.avatarText}>
+								{(user?.displayName || "?")[0].toUpperCase()}
+							</Text>
+						</View>
+					)}
+					<Text style={styles.name}>{user?.displayName || "User"}</Text>
+					<Text style={styles.email}>{user?.email}</Text>
+				</View>
 
-			<View style={styles.statsGrid}>
+				<View style={styles.statsGrid}>
 				<View style={styles.statsRow}>
 					<StatCard
 						value={stats.episodesWatched}
@@ -188,27 +200,41 @@ export default function ProfileScreen() {
 						backdrops={cardImages.watchTimeBackdrops}
 					/>
 				</View>
+				</View>
 			</View>
 
 			<WeeklyChart data={chartData} />
 
-			{watchlistLoading ? (
+			{completedLoading ? (
 				<View style={styles.completedLoader}>
 					<ActivityIndicator size="small" color={colors.primary} />
 				</View>
-			) : completedShows.length > 0 ? (
+			) : completedSections.length > 0 ? (
 				<View style={styles.section}>
-					<Text style={styles.sectionTitle}>Completed ({completedShows.length})</Text>
-					<View style={styles.completedGrid}>
-						{completedShows.map((show) => (
-							<Image
-								key={show.id}
-								source={{ uri: `${posterSize.small}${show.posterPath}` }}
-								style={styles.completedPoster}
-								contentFit="cover"
+					<Text style={styles.sectionTitle}>Recently Completed</Text>
+					{completedSections.map((section) => (
+						<View key={section.title} style={styles.genreSection}>
+							<Text style={styles.genreTitle}>{section.title}</Text>
+							<FlatList
+								horizontal
+								data={section.items}
+								keyExtractor={(item) => `${item.tmdbId}`}
+								showsHorizontalScrollIndicator={false}
+								renderItem={({ item }) => (
+									<Image
+										source={
+											item.posterPath
+												? { uri: `${posterSize.small}${item.posterPath}` }
+												: undefined
+										}
+										style={styles.completedPoster}
+										contentFit="cover"
+									/>
+								)}
+								ItemSeparatorComponent={() => <View style={{ width: spacing.sm }} />}
 							/>
-						))}
-					</View>
+						</View>
+					))}
 				</View>
 			) : null}
 
@@ -232,9 +258,14 @@ const styles = StyleSheet.create({
 		flex: 1,
 		backgroundColor: colors.background,
 	},
+	profileSection: {
+		marginHorizontal: spacing.lg,
+	},
 	header: {
 		alignItems: "center",
-		paddingVertical: spacing.xxl,
+		zIndex: 2,
+		paddingTop: spacing.xl,
+		marginBottom: -40,
 	},
 	avatar: {
 		width: 80,
@@ -259,8 +290,8 @@ const styles = StyleSheet.create({
 		marginTop: spacing.xs,
 	},
 	statsGrid: {
-		marginHorizontal: spacing.lg,
 		gap: spacing.sm,
+		paddingTop: 50,
 	},
 	statsRow: {
 		flexDirection: "row",
@@ -329,15 +360,18 @@ const styles = StyleSheet.create({
 		...typography.subtitle,
 		marginBottom: spacing.md,
 	},
-	completedGrid: {
-		flexDirection: "row",
-		flexWrap: "wrap",
-		gap: spacing.sm,
+	genreSection: {
+		marginBottom: spacing.lg,
+	},
+	genreTitle: {
+		...typography.caption,
+		color: colors.text,
+		marginBottom: spacing.sm,
 	},
 	completedPoster: {
-		width: 70,
-		height: 105,
-		borderRadius: 4,
+		width: 80,
+		height: 120,
+		borderRadius: 6,
 	},
 	completedLoader: {
 		marginTop: spacing.xl,

@@ -38,6 +38,7 @@ export enum CacheKey {
 	CATALOG_CACHE = "catalog_cache_v1",
 	PROFILE_CARD_IMAGES = "profile_card_images_v1",
 	WEEKLY_ACTIVITY = "weekly_activity_v1",
+	COMPLETED_SECTIONS = "completed_sections_v1",
 }
 
 export enum QueryKey {

@@ -13,48 +13,39 @@ interface Props {
 	data: DayData[];
 }
 
-const CHART_HEIGHT = 100;
-const BAR_WIDTH = 20;
-const GAP = 4;
+const CHART_HEIGHT = 120;
+const BAR_WIDTH = 16;
+const BAR_GAP = 3;
+const PAIR_WIDTH = BAR_WIDTH * 2 + BAR_GAP;
 
 export default function WeeklyChart({ data }: Readonly<Props>) {
-	const maxVal = Math.max(1, ...data.map((d) => d.episodes + d.movies));
+	const maxEp = Math.max(0, ...data.map((d) => d.episodes));
+	const maxMov = Math.max(0, ...data.map((d) => d.movies));
+	const maxVal = Math.max(1, maxEp, maxMov);
 
 	return (
 		<View style={styles.container}>
 			<Text style={styles.title}>This Week</Text>
 			<View style={styles.chartRow}>
 				{data.map((day) => {
-					const total = day.episodes + day.movies;
-					const totalH = (total / maxVal) * CHART_HEIGHT;
-					const movieH = (day.movies / maxVal) * CHART_HEIGHT;
-					const epH = totalH - movieH;
+					const epH = (day.episodes / maxVal) * CHART_HEIGHT;
+					const movH = (day.movies / maxVal) * CHART_HEIGHT;
 
 					return (
 						<View key={day.label} style={styles.barGroup}>
-							<View style={styles.barContainer}>
-								<Svg width={BAR_WIDTH} height={CHART_HEIGHT}>
-									{epH > 0 && (
+							<View style={styles.barPair}>
+								<Svg width={PAIR_WIDTH} height={CHART_HEIGHT}>
+									{/* Episodes bar (solid) */}
+									{epH > 0 ? (
 										<Rect
 											x={0}
-											y={CHART_HEIGHT - totalH}
+											y={CHART_HEIGHT - epH}
 											width={BAR_WIDTH}
 											height={epH}
 											rx={4}
 											fill={colors.primary}
 										/>
-									)}
-									{movieH > 0 && (
-										<Rect
-											x={0}
-											y={CHART_HEIGHT - movieH}
-											width={BAR_WIDTH}
-											height={movieH}
-											rx={4}
-											fill={colors.moviePurple}
-										/>
-									)}
-									{total === 0 && (
+									) : (
 										<Rect
 											x={0}
 											y={CHART_HEIGHT - 3}
@@ -64,21 +55,75 @@ export default function WeeklyChart({ data }: Readonly<Props>) {
 											fill={colors.surfaceLight}
 										/>
 									)}
+
+									{/* Movies bar (solid) */}
+									{movH > 0 ? (
+										<Rect
+											x={BAR_WIDTH + BAR_GAP}
+											y={CHART_HEIGHT - movH}
+											width={BAR_WIDTH}
+											height={movH}
+											rx={4}
+											fill={colors.moviePurple}
+										/>
+									) : (
+										<Rect
+											x={BAR_WIDTH + BAR_GAP}
+											y={CHART_HEIGHT - 3}
+											width={BAR_WIDTH}
+											height={3}
+											rx={1.5}
+											fill={colors.surfaceLight}
+										/>
+									)}
 								</Svg>
+
+								{/* Count labels above bars */}
+								{day.episodes > 0 && (
+									<Text
+										style={[
+											styles.countLabel,
+											{
+												position: "absolute",
+												bottom: epH + 2,
+												left: 0,
+												width: BAR_WIDTH,
+											},
+										]}
+									>
+										{day.episodes}
+									</Text>
+								)}
+								{day.movies > 0 && (
+									<Text
+										style={[
+											styles.countLabel,
+											{
+												position: "absolute",
+												bottom: movH + 2,
+												left: BAR_WIDTH + BAR_GAP,
+												width: BAR_WIDTH,
+											},
+										]}
+									>
+										{day.movies}
+									</Text>
+								)}
 							</View>
 							<Text style={styles.dayLabel}>{day.label}</Text>
-							{total > 0 && <Text style={styles.countLabel}>{total}</Text>}
 						</View>
 					);
 				})}
 			</View>
 			<View style={styles.legend}>
 				<View style={styles.legendItem}>
-					<View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
+					<View style={[styles.legendSwatch, { backgroundColor: colors.primary }]} />
 					<Text style={styles.legendText}>Episodes</Text>
 				</View>
 				<View style={styles.legendItem}>
-					<View style={[styles.legendDot, { backgroundColor: colors.moviePurple }]} />
+					<View
+						style={[styles.legendSwatch, { backgroundColor: colors.moviePurple }]}
+					/>
 					<Text style={styles.legendText}>Movies</Text>
 				</View>
 			</View>
@@ -107,8 +152,9 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		flex: 1,
 	},
-	barContainer: {
+	barPair: {
 		height: CHART_HEIGHT,
+		width: PAIR_WIDTH,
 		justifyContent: "flex-end",
 	},
 	dayLabel: {
@@ -118,8 +164,9 @@ const styles = StyleSheet.create({
 	},
 	countLabel: {
 		...typography.caption,
-		fontSize: 10,
+		fontSize: 9,
 		color: colors.text,
+		textAlign: "center",
 	},
 	legend: {
 		flexDirection: "row",
@@ -131,10 +178,10 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		gap: spacing.xs,
 	},
-	legendDot: {
-		width: 8,
-		height: 8,
-		borderRadius: 4,
+	legendSwatch: {
+		width: 12,
+		height: 12,
+		borderRadius: 2,
 	},
 	legendText: {
 		...typography.caption,
