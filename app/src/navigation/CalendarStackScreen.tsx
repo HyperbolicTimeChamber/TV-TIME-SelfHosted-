@@ -3,7 +3,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { CalendarStackParamList, Route } from "../types";
 import { stackScreenOptions } from "./screenOptions";
 import CalendarScreen from "../screens/CalendarScreen";
-import ShowDetailScreen from "../screens/ShowDetailScreen";
+import ShowDetailScreen from "../screens/DetailScreens/ShowDetailScreen";
 
 const CalendarStack = createNativeStackNavigator<CalendarStackParamList>();
 

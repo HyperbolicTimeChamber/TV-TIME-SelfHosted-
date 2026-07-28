@@ -18,8 +18,8 @@ import {
 	removeShowFromCalendarGlobal,
 	addMovieToCalendarGlobal,
 	incrementDailyWatch,
-} from "../hooks";
-import { useAuthStore } from "../stores";
+} from "../../hooks";
+import { useAuthStore } from "../../stores";
 import {
 	addToTracking,
 	removeFromTracking,
@@ -28,18 +28,18 @@ import {
 	resumeRewatch,
 	markMovieWatched,
 	addAndMarkMovieWatched,
-} from "../services";
-import { warmupShowDetailCFs } from "../services/warmup";
+} from "../../services";
+import { warmupShowDetailCFs } from "../../services/warmup";
 import {
 	ConfirmModal,
 	LoadingSpinner,
 	SeasonDropdown,
 	UnreleasedMovieModal,
 	shouldShowUnreleasedModal,
-} from "../components";
-import { emitShowAdded, emitShowRemoved } from "../utils/watchlistEvents";
-import { showDocId } from "../utils/docId";
-import { colors, spacing, typography, posterSize } from "../theme";
+} from "../../components";
+import { emitShowAdded, emitShowRemoved } from "../../utils/watchlistEvents";
+import { showDocId } from "../../utils/docId";
+import { colors, spacing, typography, posterSize } from "../../theme";
 import {
 	HomeStackParamList,
 	WatchStatus,
@@ -47,7 +47,7 @@ import {
 	UpcomingEpisode,
 	QueryKey,
 	WatchedMovie,
-} from "../types";
+} from "../../types";
 import { useQueryClient } from "@tanstack/react-query";
 import { Timestamp } from "@react-native-firebase/firestore";
 

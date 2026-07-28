@@ -133,7 +133,7 @@ export default function WeeklyChart({ data }: Readonly<Props>) {
 
 const styles = StyleSheet.create({
 	container: {
-		backgroundColor: colors.surface,
+		backgroundColor: "transparent",
 		borderRadius: 12,
 		padding: spacing.lg,
 		marginHorizontal: spacing.lg,

@@ -4,10 +4,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useAuthStore } from "../stores";
-import { searchSuggestions } from "../services";
-import { colors, spacing, typography } from "../theme";
-import { SearchStackParamList, Route } from "../types";
+import { useAuthStore } from "../../stores";
+import { searchSuggestions } from "../../services";
+import { colors, spacing, typography } from "../../theme";
+import { SearchStackParamList, Route } from "../../types";
 
 type NavProp = NativeStackNavigationProp<SearchStackParamList, Route.SEARCH_INPUT>;
 type RoutePropType = RouteProp<SearchStackParamList, Route.SEARCH_INPUT>;

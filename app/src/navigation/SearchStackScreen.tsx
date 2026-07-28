@@ -7,8 +7,8 @@ import { stackScreenOptions } from "./screenOptions";
 import { colors } from "../theme";
 import { useNavigation } from "@react-navigation/native";
 import SearchScreen from "../screens/SearchScreen";
-import SearchInputScreen from "../screens/SearchInputScreen";
-import ShowDetailScreen from "../screens/ShowDetailScreen";
+import SearchInputScreen from "../screens/SearchScreen/SearchInputScreen";
+import ShowDetailScreen from "../screens/DetailScreens/ShowDetailScreen";
 
 const SearchStack = createNativeStackNavigator<SearchStackParamList>();
 
