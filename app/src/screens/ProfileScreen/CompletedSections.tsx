@@ -35,9 +35,7 @@ export default function CompletedSections({ sections, loading }: Readonly<Props>
 						renderItem={({ item }) => (
 							<Image
 								source={
-									item.posterPath
-										? { uri: `${posterSize.small}${item.posterPath}` }
-										: undefined
+									item.posterPath ? { uri: `${posterSize.small}${item.posterPath}` } : undefined
 								}
 								style={styles.completedPoster}
 								contentFit="cover"

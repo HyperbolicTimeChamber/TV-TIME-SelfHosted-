@@ -58,7 +58,8 @@ export function useProfileCardImages(watchlist: EnrichedTrackingItem[]) {
 
 		const tvShows = watchlist.filter((w) => w.mediaType === MediaType.TV && getBackdrop(w));
 		const movies = watchlist.filter(
-			(w) => w.mediaType === MediaType.MOVIE && w.status === WatchStatus.COMPLETED && getBackdrop(w),
+			(w) =>
+				w.mediaType === MediaType.MOVIE && w.status === WatchStatus.COMPLETED && getBackdrop(w),
 		);
 		const allWithPosters = watchlist.filter((w) => w.posterPath);
 

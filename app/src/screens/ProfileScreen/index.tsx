@@ -44,7 +44,11 @@ export default function ProfileScreen() {
 	const { items: watchlist } = useWatchlist(user?.uid);
 	const { chartData, refresh: refreshChart } = useWeeklyActivity();
 	const cardImages = useProfileCardImages(watchlist);
-	const { sections: completedSections, loading: completedLoading, refetch: refetchCompleted } = useCompletedShows(user?.uid);
+	const {
+		sections: completedSections,
+		loading: completedLoading,
+		refetch: refetchCompleted,
+	} = useCompletedShows(user?.uid);
 	const [refreshing, setRefreshing] = useState(false);
 
 	useFocusEffect(
@@ -130,9 +134,7 @@ export default function ProfileScreen() {
 							<Image source={{ uri: user.photoURL }} style={styles.avatar} contentFit="cover" />
 						) : (
 							<View style={[styles.avatar, styles.avatarPlaceholder]}>
-								<Text style={styles.avatarText}>
-									{(user?.displayName || "?")[0].toUpperCase()}
-								</Text>
+								<Text style={styles.avatarText}>{(user?.displayName || "?")[0].toUpperCase()}</Text>
 							</View>
 						)}
 					</View>

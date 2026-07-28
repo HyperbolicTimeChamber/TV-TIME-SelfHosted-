@@ -46,9 +46,7 @@ function buildSections(items: CompletedItem[]): CompletedSection[] {
 
 	if (!hasGenres) {
 		// No genres yet — simple TV Shows section
-		const sorted = tvShows
-			.sort((a, b) => b.completedAt - a.completedAt)
-			.slice(0, SECTION_LIMIT);
+		const sorted = tvShows.sort((a, b) => b.completedAt - a.completedAt).slice(0, SECTION_LIMIT);
 		if (sorted.length > 0) {
 			sections.push({ title: "TV Shows", items: sorted });
 		}
@@ -63,13 +61,12 @@ function buildSections(items: CompletedItem[]): CompletedSection[] {
 			}
 		}
 
-		const sortedGenres = [...genreMap.entries()]
-			.sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+		const sortedGenres = [...genreMap.entries()].sort(
+			(a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]),
+		);
 
 		for (const [genre, shows] of sortedGenres) {
-			const sorted = shows
-				.sort((a, b) => b.completedAt - a.completedAt)
-				.slice(0, SECTION_LIMIT);
+			const sorted = shows.sort((a, b) => b.completedAt - a.completedAt).slice(0, SECTION_LIMIT);
 			sections.push({ title: genre, items: sorted });
 		}
 	}
@@ -130,10 +127,9 @@ export function useCompletedShows(userId: string | undefined) {
 			setSections(buildSections(items));
 			setLoading(false);
 
-			AsyncStorage.setItem(
-				CacheKey.COMPLETED_SECTIONS,
-				JSON.stringify({ userId, items }),
-			).catch(() => {});
+			AsyncStorage.setItem(CacheKey.COMPLETED_SECTIONS, JSON.stringify({ userId, items })).catch(
+				() => {},
+			);
 		})();
 	}, [userId]);
 
@@ -196,10 +192,9 @@ export function useCompletedShows(userId: string | undefined) {
 
 		setSections(buildSections(items));
 
-		AsyncStorage.setItem(
-			CacheKey.COMPLETED_SECTIONS,
-			JSON.stringify({ userId, items }),
-		).catch(() => {});
+		AsyncStorage.setItem(CacheKey.COMPLETED_SECTIONS, JSON.stringify({ userId, items })).catch(
+			() => {},
+		);
 	}, [userId]);
 
 	return { sections, loading, addCompletedItem, refetch };

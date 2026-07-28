@@ -47,7 +47,13 @@ import {
 import type { ShowDrawerData } from "../../../components/ShowDrawer";
 import { warmupWatchlistCFs, warmupFirestoreWrite } from "../../../services/warmup";
 import { Timestamp } from "@react-native-firebase/firestore";
-import { insertWatchedEpisodeCache, removeWatchedEpisodeCache, insertWatchedMovieCache, incrementDailyWatch, decrementDailyWatch } from "../../../hooks";
+import {
+	insertWatchedEpisodeCache,
+	removeWatchedEpisodeCache,
+	insertWatchedMovieCache,
+	incrementDailyWatch,
+	decrementDailyWatch,
+} from "../../../hooks";
 import { ListItem } from "./types";
 import { useWatchlistData } from "./useWatchlistData";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
@@ -502,7 +508,12 @@ export default function WatchlistTab() {
 		async (movie: WatchedMovie) => {
 			if (!user?.uid) return;
 			if (movie.watchCount > 1) {
-				await decrementMovieWatchCount(user.uid, movie.tmdbId, movie.runtime ?? 0, movie.watchCount);
+				await decrementMovieWatchCount(
+					user.uid,
+					movie.tmdbId,
+					movie.runtime ?? 0,
+					movie.watchCount,
+				);
 				queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
 					if (!old?.pages) return old;
 					return {
@@ -559,7 +570,12 @@ export default function WatchlistTab() {
 							};
 						});
 					} else {
-						await decrementMovieWatchCount(user.uid, sheetMovie.tmdbId, sheetMovie.runtime ?? 0, sheetMovie.watchCount);
+						await decrementMovieWatchCount(
+							user.uid,
+							sheetMovie.tmdbId,
+							sheetMovie.runtime ?? 0,
+							sheetMovie.watchCount,
+						);
 						queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
 							if (!old?.pages) return old;
 							return {
@@ -567,7 +583,9 @@ export default function WatchlistTab() {
 								pages: old.pages.map((p: any) => ({
 									...p,
 									movies: p.movies.map((m: any) =>
-										m.tmdbId === sheetMovie.tmdbId ? { ...m, watchCount: (m.watchCount || 1) - 1 } : m,
+										m.tmdbId === sheetMovie.tmdbId
+											? { ...m, watchCount: (m.watchCount || 1) - 1 }
+											: m,
 									),
 								})),
 							};

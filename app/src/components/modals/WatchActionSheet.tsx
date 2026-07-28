@@ -86,7 +86,10 @@ export default function WatchActionSheet({ visible, label, watchCount, onSelect,
 		<Modal visible={visible} transparent animationType="none" onRequestClose={dismiss}>
 			<TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={dismiss}>
 				<Animated.View
-					style={[styles.sheet, { paddingBottom: Math.max(34, insets.bottom + 16), transform: [{ translateY }] }]}
+					style={[
+						styles.sheet,
+						{ paddingBottom: Math.max(34, insets.bottom + 16), transform: [{ translateY }] },
+					]}
 					{...panResponder.panHandlers}
 				>
 					<TouchableOpacity activeOpacity={1}>
@@ -112,9 +115,7 @@ export default function WatchActionSheet({ visible, label, watchCount, onSelect,
 									{watchCount > 1 ? "Watched Once Less" : "Mark Unwatched"}
 								</Text>
 								<Text style={styles.optionHint}>
-									{watchCount > 1
-										? `Reduce to ${watchCount - 1}x`
-										: "Remove from watched"}
+									{watchCount > 1 ? `Reduce to ${watchCount - 1}x` : "Remove from watched"}
 								</Text>
 							</View>
 						</TouchableOpacity>
@@ -126,9 +127,7 @@ export default function WatchActionSheet({ visible, label, watchCount, onSelect,
 							>
 								<Text style={styles.optionIcon}>✕</Text>
 								<View style={styles.optionContent}>
-									<Text style={[styles.optionText, styles.destructiveText]}>
-										Not Watched
-									</Text>
+									<Text style={[styles.optionText, styles.destructiveText]}>Not Watched</Text>
 									<Text style={styles.optionHint}>Remove all watch history</Text>
 								</View>
 							</TouchableOpacity>

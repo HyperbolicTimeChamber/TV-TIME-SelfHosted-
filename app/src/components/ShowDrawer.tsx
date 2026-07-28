@@ -124,7 +124,13 @@ export default function ShowDrawer({
 								{show.overview ? <Text style={styles.overview}>{show.overview}</Text> : null}
 							</View>
 							{onGoToShow && (
-								<TouchableOpacity style={[styles.goToShowButton, { marginBottom: Math.max(spacing.xl, insets.bottom + 8) }]} onPress={onGoToShow}>
+								<TouchableOpacity
+									style={[
+										styles.goToShowButton,
+										{ marginBottom: Math.max(spacing.xl, insets.bottom + 8) },
+									]}
+									onPress={onGoToShow}
+								>
 									<Text style={styles.goToShowText}>
 										{show.mediaType === "movie" ? "Go to Movie" : "Go to Show"}
 									</Text>

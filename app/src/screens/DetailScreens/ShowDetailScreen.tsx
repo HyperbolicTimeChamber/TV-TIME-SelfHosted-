@@ -83,9 +83,7 @@ export default function ShowDetailScreen() {
 		if (mediaType !== MediaType.MOVIE || !user?.uid) return 0;
 		const cached = queryClient.getQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid]);
 		if (!cached?.pages) return 0;
-		const found = cached.pages
-			.flatMap((p: any) => p.movies)
-			.find((m: any) => m.tmdbId === tmdbId);
+		const found = cached.pages.flatMap((p: any) => p.movies).find((m: any) => m.tmdbId === tmdbId);
 		return found?.watchCount ?? 0;
 	});
 	const [movieSheetVisible, setMovieSheetVisible] = useState(false);

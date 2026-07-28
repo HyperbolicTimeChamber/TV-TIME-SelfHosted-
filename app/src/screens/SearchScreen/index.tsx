@@ -604,18 +604,9 @@ export default function SearchScreen() {
 				onLayout={onHeaderLayout}
 				style={[styles.headerBlock, { transform: [{ translateY: headerTranslateY }] }]}
 			>
-				<TouchableOpacity
-					style={styles.searchBarRow}
-					onPress={openSearchInput}
-					activeOpacity={0.7}
-				>
+				<TouchableOpacity style={styles.searchBarRow} onPress={openSearchInput} activeOpacity={0.7}>
 					<View style={styles.searchRow}>
-						<Ionicons
-							name="search"
-							size={18}
-							color={colors.textMuted}
-							style={styles.searchIcon}
-						/>
+						<Ionicons name="search" size={18} color={colors.textMuted} style={styles.searchIcon} />
 						<Text style={[styles.searchInput, { color: colors.textMuted }]} numberOfLines={1}>
 							{submittedQuery || "Search shows & movies"}
 						</Text>
