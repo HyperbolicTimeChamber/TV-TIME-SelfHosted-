@@ -62,11 +62,7 @@ export default memo(function EpisodeCard({
 			persistAfterSwipe
 		>
 			<TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.8}>
-				<PosterImage
-					posterPath={episode.posterPath}
-					mediaType="tv"
-					style={styles.poster}
-				/>
+				<PosterImage posterPath={episode.posterPath} mediaType="tv" style={styles.poster} />
 				<View style={styles.info}>
 					<View style={styles.titleButton}>
 						<Text style={styles.titleText} numberOfLines={1}>
