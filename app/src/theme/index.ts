@@ -47,3 +47,8 @@ export const posterSize = {
 	medium: `${TMDB_IMAGE_BASE}/w342`,
 	large: `${TMDB_IMAGE_BASE}/w500`,
 } as const;
+
+export const backdropSize = {
+	small: `${TMDB_IMAGE_BASE}/w300`,
+	medium: `${TMDB_IMAGE_BASE}/w780`,
+} as const;

@@ -33,6 +33,7 @@ interface TMDBShowDetail {
   first_air_date?: string;
   release_date?: string;
   vote_average: number;
+  genres?: Array<{ id: number; name: string }>;
   seasons?: Array<{
     season_number: number;
     episode_count: number;
@@ -72,6 +73,7 @@ export interface CatalogShow {
   firstAirDate: string | null;
   releaseDate: string | null;
   seasons: CatalogSeason[];
+  genres: string[];
 }
 
 export async function pooled<T>(
@@ -183,5 +185,6 @@ export async function fetchShowFromTMDB(
     firstAirDate: data.first_air_date ?? null,
     releaseDate: data.release_date ?? null,
     seasons,
+    genres: (data.genres ?? []).map((g) => g.name),
   };
 }

@@ -13,6 +13,7 @@ import {
 	isShowVisible,
 	sortByPriority,
 	useUpcomingMutations,
+	incrementDailyWatch,
 } from "../../../hooks";
 import { markEpisodeWatched, markMovieWatched, stopWatching } from "../../../services";
 import { removeShowFromCalendarGlobal } from "../../../hooks/useCalendarEpisodes";
@@ -608,6 +609,7 @@ export function useWatchlistData(userId: string | undefined) {
 					title: item.title,
 					posterPath: item.posterPath,
 				} as any);
+				incrementDailyWatch("movie");
 				return;
 			}
 
@@ -686,6 +688,7 @@ export function useWatchlistData(userId: string | undefined) {
 					watchedAt: epNow,
 					watchCount: 1,
 				});
+				incrementDailyWatch("episode");
 			} catch (err: any) {
 				rollbackUpcoming(upcomingSnapshot);
 				setUpdatingShows((prev) => {

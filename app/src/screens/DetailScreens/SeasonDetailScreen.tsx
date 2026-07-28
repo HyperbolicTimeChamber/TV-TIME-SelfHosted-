@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useState, useRef } from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { LoadingSpinner, ConfirmModal, CheckmarkButton } from "../components";
+import { LoadingSpinner, ConfirmModal, CheckmarkButton } from "../../components";
 import { LegendList } from "@legendapp/list/react-native";
 import { useRoute, RouteProp } from "@react-navigation/native";
 import {
@@ -8,13 +8,14 @@ import {
 	useWatchedEpisodes,
 	useWatchlist,
 	insertWatchedEpisodeCache,
-} from "../hooks";
-import { useAuthStore } from "../stores";
+	incrementDailyWatch,
+} from "../../hooks";
+import { useAuthStore } from "../../stores";
 import { useQueryClient } from "@tanstack/react-query";
 import { Timestamp } from "@react-native-firebase/firestore";
-import { markEpisodeWatched, addToTracking, getSeasonDetails as fetchSeason } from "../services";
-import { colors, spacing, typography } from "../theme";
-import { HomeStackParamList, TMDBEpisode, MediaType } from "../types";
+import { markEpisodeWatched, addToTracking, getSeasonDetails as fetchSeason } from "../../services";
+import { colors, spacing, typography } from "../../theme";
+import { HomeStackParamList, TMDBEpisode, MediaType } from "../../types";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function formatDate(dateStr: string): string {
@@ -136,6 +137,7 @@ export default function SeasonDetailScreen() {
 					watchedAt: now,
 					watchCount: 1,
 				});
+				incrementDailyWatch("episode");
 			} catch (err: any) {
 				console.error("markEpisodeWatched failed:", err);
 			} finally {

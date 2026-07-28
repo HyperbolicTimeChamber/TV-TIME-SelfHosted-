@@ -3,7 +3,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { ProfileStackParamList, Route } from "../types";
 import { stackScreenOptions } from "./screenOptions";
 import ProfileScreen from "../screens/ProfileScreen";
-import SettingsScreen from "../screens/SettingsScreen";
+import SettingsScreen from "../screens/ProfileScreen/SettingsScreen";
 import ImportDataScreen from "../screens/ImportDataScreen";
 
 const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();

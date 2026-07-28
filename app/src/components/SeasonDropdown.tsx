@@ -8,6 +8,7 @@ import {
 	useUpcomingMutations,
 	insertWatchedEpisodeCache,
 	removeWatchedEpisodeCache,
+	incrementDailyWatch,
 } from "../hooks";
 import { useAuthStore } from "../stores";
 import {
@@ -330,6 +331,7 @@ export default memo(function SeasonDropdown({
 					watchedAt: now,
 					watchCount: 1,
 				});
+				incrementDailyWatch("episode");
 			} catch (err: any) {
 				rollbackUpcoming(snapshot);
 				console.error("markEpisodeWatched failed:", err);

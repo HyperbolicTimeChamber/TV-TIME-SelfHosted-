@@ -32,6 +32,7 @@ export interface CatalogShow {
 	firstAirDate: string | null;
 	releaseDate: string | null;
 	seasons: CatalogSeason[];
+	genres?: string[];
 	trackedBy: string[];
 	trackedByCount: number;
 	lastSyncedAt: any; // Firestore Timestamp

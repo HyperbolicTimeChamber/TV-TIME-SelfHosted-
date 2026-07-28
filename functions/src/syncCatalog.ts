@@ -86,6 +86,7 @@ export const syncCatalog = onSchedule(
           runtime: freshData.runtime,
           voteAverage: freshData.voteAverage,
           seasons: freshData.seasons,
+          genres: freshData.genres,
           lastSyncedAt: FieldValue.serverTimestamp(),
         });
 

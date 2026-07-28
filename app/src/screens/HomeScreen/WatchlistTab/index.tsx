@@ -43,7 +43,7 @@ import {
 import type { ShowDrawerData } from "../../../components/ShowDrawer";
 import { warmupWatchlistCFs, warmupFirestoreWrite } from "../../../services/warmup";
 import { Timestamp } from "@react-native-firebase/firestore";
-import { insertWatchedEpisodeCache, removeWatchedEpisodeCache } from "../../../hooks";
+import { insertWatchedEpisodeCache, removeWatchedEpisodeCache, incrementDailyWatch } from "../../../hooks";
 import { ListItem } from "./types";
 import { useWatchlistData } from "./useWatchlistData";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
@@ -325,6 +325,7 @@ export default function WatchlistTab() {
 				watchedAt: now,
 				watchCount: (episode.watchCount || 0) + 1,
 			});
+			incrementDailyWatch("episode");
 		},
 		[user?.uid, queryClient],
 	);
@@ -410,6 +411,7 @@ export default function WatchlistTab() {
 						nextEpisode,
 						isComplete,
 					);
+					incrementDailyWatch("episode");
 				} else if (action === "not_watched") {
 					await unmarkEpisodeWatched(
 						user.uid,

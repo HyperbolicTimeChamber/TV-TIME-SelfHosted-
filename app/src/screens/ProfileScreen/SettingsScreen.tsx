@@ -12,9 +12,9 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
-import { useAuthStore } from "../stores";
-import { colors, spacing, typography } from "../theme";
-import { ProfileStackParamList, Route } from "../types";
+import { useAuthStore } from "../../stores";
+import { colors, spacing, typography } from "../../theme";
+import { ProfileStackParamList, Route } from "../../types";
 
 export default function SettingsScreen() {
 	const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();

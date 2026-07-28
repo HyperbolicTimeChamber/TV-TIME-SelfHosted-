@@ -17,8 +17,9 @@ import {
 	useUpcomingMutations,
 	removeShowFromCalendarGlobal,
 	addMovieToCalendarGlobal,
-} from "../hooks";
-import { useAuthStore } from "../stores";
+	incrementDailyWatch,
+} from "../../hooks";
+import { useAuthStore } from "../../stores";
 import {
 	addToTracking,
 	removeFromTracking,
@@ -26,19 +27,23 @@ import {
 	resumeWatching,
 	resumeRewatch,
 	markMovieWatched,
+	decrementMovieWatchCount,
+	unmarkMovieWatched,
 	addAndMarkMovieWatched,
-} from "../services";
-import { warmupShowDetailCFs } from "../services/warmup";
+} from "../../services";
+import { warmupShowDetailCFs } from "../../services/warmup";
 import {
 	ConfirmModal,
 	LoadingSpinner,
 	SeasonDropdown,
 	UnreleasedMovieModal,
 	shouldShowUnreleasedModal,
-} from "../components";
-import { emitShowAdded, emitShowRemoved } from "../utils/watchlistEvents";
-import { showDocId } from "../utils/docId";
-import { colors, spacing, typography, posterSize } from "../theme";
+	WatchActionSheet,
+} from "../../components";
+import type { WatchAction } from "../../components";
+import { emitShowAdded, emitShowRemoved } from "../../utils/watchlistEvents";
+import { showDocId } from "../../utils/docId";
+import { colors, spacing, typography, posterSize } from "../../theme";
 import {
 	HomeStackParamList,
 	WatchStatus,
@@ -46,7 +51,7 @@ import {
 	UpcomingEpisode,
 	QueryKey,
 	WatchedMovie,
-} from "../types";
+} from "../../types";
 import { useQueryClient } from "@tanstack/react-query";
 import { Timestamp } from "@react-native-firebase/firestore";
 
@@ -73,6 +78,16 @@ export default function ShowDetailScreen() {
 	const [removing, setRemoving] = useState(false);
 	const { addShowToUpcoming, removeShowFromUpcoming } = useUpcomingMutations();
 	const queryClient = useQueryClient();
+	const movieWatchCount = (() => {
+		if (mediaType !== MediaType.MOVIE || !user?.uid) return 0;
+		const cached = queryClient.getQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid]);
+		if (!cached?.pages) return 0;
+		const found = cached.pages
+			.flatMap((p: any) => p.movies)
+			.find((m: any) => m.tmdbId === tmdbId);
+		return found?.watchCount ?? 0;
+	})();
+	const [movieSheetVisible, setMovieSheetVisible] = useState(false);
 	const [refreshing, setRefreshing] = useState(false);
 	const [refreshKey, setRefreshKey] = useState(0);
 	const [removeModalVisible, setRemoveModalVisible] = useState(false);
@@ -267,17 +282,6 @@ export default function ShowDetailScreen() {
 		}
 	}, [user?.uid, tmdbId, removing, removeShowFromUpcoming]);
 
-	const handleResumeOrRewatch = useCallback(async () => {
-		if (!user?.uid) return;
-		if (watchlistItem?.status === WatchStatus.PAUSED) {
-			await resumeWatching(user.uid, tmdbId, mediaType);
-		} else if (watchlistItem?.status === WatchStatus.PAUSED_REWATCH) {
-			await resumeRewatch(user.uid, tmdbId, mediaType);
-		} else {
-			await startRewatch(user.uid, tmdbId, mediaType);
-		}
-	}, [user?.uid, tmdbId, watchlistItem?.status]);
-
 	const handleMarkMovieWatched = useCallback(async () => {
 		if (!user?.uid || !show || adding) return;
 		setAdding(true);
@@ -331,12 +335,67 @@ export default function ShowDetailScreen() {
 					pages: [{ ...firstPage, movies: [newMovie, ...firstPage.movies] }, ...old.pages.slice(1)],
 				};
 			});
+			incrementDailyWatch("movie");
 		} catch (err: any) {
 			Alert.alert("Error", err.message || "Failed to mark movie as watched.");
 		} finally {
 			setAdding(false);
 		}
 	}, [user?.uid, show, tmdbId, watchlistItem, adding, queryClient]);
+
+	const handleResumeOrRewatch = useCallback(async () => {
+		if (!user?.uid) return;
+		if (mediaType === MediaType.MOVIE && watchlistItem?.status === WatchStatus.COMPLETED) {
+			await handleMarkMovieWatched();
+			return;
+		}
+		if (watchlistItem?.status === WatchStatus.PAUSED) {
+			await resumeWatching(user.uid, tmdbId, mediaType);
+		} else if (watchlistItem?.status === WatchStatus.PAUSED_REWATCH) {
+			await resumeRewatch(user.uid, tmdbId, mediaType);
+		} else {
+			await startRewatch(user.uid, tmdbId, mediaType);
+		}
+	}, [user?.uid, tmdbId, watchlistItem?.status, mediaType, handleMarkMovieWatched]);
+
+	const handleMovieSheetAction = useCallback(
+		async (action: WatchAction) => {
+			if (!user?.uid || !show) return;
+			const runtime = show.runtime ?? 0;
+			if (action === "rewatch") {
+				await handleMarkMovieWatched();
+			} else if (action === "watched_once_less") {
+				if (movieWatchCount > 1) {
+					await decrementMovieWatchCount(user.uid, tmdbId, runtime, movieWatchCount);
+					queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
+						if (!old?.pages) return old;
+						return {
+							...old,
+							pages: old.pages.map((p: any) => ({
+								...p,
+								movies: p.movies.map((m: any) =>
+									m.tmdbId === tmdbId ? { ...m, watchCount: (m.watchCount || 1) - 1 } : m,
+								),
+							})),
+						};
+					});
+				}
+			} else if (action === "not_watched") {
+				await unmarkMovieWatched(user.uid, tmdbId, runtime);
+				queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
+					if (!old?.pages) return old;
+					return {
+						...old,
+						pages: old.pages.map((p: any) => ({
+							...p,
+							movies: p.movies.filter((m: any) => m.tmdbId !== tmdbId),
+						})),
+					};
+				});
+			}
+		},
+		[user?.uid, show, tmdbId, movieWatchCount, queryClient, handleMarkMovieWatched],
+	);
 
 	if (isLoading || trackingLoading) {
 		return (
@@ -453,13 +512,20 @@ export default function ShowDetailScreen() {
 								<TouchableOpacity
 									style={[styles.addButton, { backgroundColor: colors.accent }]}
 									onPress={handleResumeOrRewatch}
+									onLongPress={
+										mediaType === MediaType.MOVIE && movieWatchCount > 0
+											? () => setMovieSheetVisible(true)
+											: undefined
+									}
 								>
 									<Text style={styles.buttonText}>
 										{watchlistItem.status === WatchStatus.PAUSED
 											? "Resume"
 											: watchlistItem.status === WatchStatus.PAUSED_REWATCH
 												? "Resume Rewatch"
-												: "Rewatch"}
+												: mediaType === MediaType.MOVIE && movieWatchCount > 0
+													? `Rewatch (${movieWatchCount})`
+													: "Rewatch"}
 									</Text>
 								</TouchableOpacity>
 							)}
@@ -520,6 +586,14 @@ export default function ShowDetailScreen() {
 				visible={!!unreleasedModal}
 				onClose={() => setUnreleasedModal(null)}
 				movieTitle={unreleasedModal?.title ?? ""}
+			/>
+
+			<WatchActionSheet
+				visible={movieSheetVisible}
+				label={show?.title || show?.name || "Movie"}
+				watchCount={movieWatchCount}
+				onSelect={handleMovieSheetAction}
+				onClose={() => setMovieSheetVisible(false)}
 			/>
 		</ScrollView>
 	);
