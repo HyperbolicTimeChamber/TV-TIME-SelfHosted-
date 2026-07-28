@@ -17,6 +17,7 @@ import {
 	useUpcomingMutations,
 	removeShowFromCalendarGlobal,
 	addMovieToCalendarGlobal,
+	incrementDailyWatch,
 } from "../hooks";
 import { useAuthStore } from "../stores";
 import {
@@ -331,6 +332,7 @@ export default function ShowDetailScreen() {
 					pages: [{ ...firstPage, movies: [newMovie, ...firstPage.movies] }, ...old.pages.slice(1)],
 				};
 			});
+			incrementDailyWatch("movie");
 		} catch (err: any) {
 			Alert.alert("Error", err.message || "Failed to mark movie as watched.");
 		} finally {

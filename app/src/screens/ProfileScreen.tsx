@@ -13,9 +13,12 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../stores";
-import { useUserStats, useWatchlist } from "../hooks";
-import { colors, spacing, typography, posterSize } from "../theme";
+import { useUserStats, useWatchlist, useWeeklyActivity, useProfileCardImages } from "../hooks";
+import { colors, spacing, typography, posterSize, backdropSize } from "../theme";
 import { ProfileStackParamList, WatchStatus, Route } from "../types";
+import WeeklyChart from "../components/WeeklyChart";
+
+const BLUR_RADIUS = 0.5;
 
 export default function ProfileScreen() {
 	const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
@@ -23,6 +26,8 @@ export default function ProfileScreen() {
 	const signOut = useAuthStore((s) => s.signOut);
 	const { stats, loading: statsLoading } = useUserStats(user?.uid);
 	const { items: watchlist, loading: watchlistLoading } = useWatchlist(user?.uid);
+	const { chartData } = useWeeklyActivity();
+	const cardImages = useProfileCardImages(watchlist);
 
 	useLayoutEffect(() => {
 		navigation.setOptions({
@@ -45,21 +50,100 @@ export default function ProfileScreen() {
 	const formatTime = (minutes: number) => {
 		const hours = Math.floor(minutes / 60);
 		const days = Math.floor(hours / 24);
+		const years = Math.floor(days / 365);
+		if (years > 0) return `${years}y ${days % 365}d`;
 		if (days > 0) return `${days}d ${hours % 24}h`;
 		if (hours > 0) return `${hours}h ${minutes % 60}m`;
 		return `${minutes}m`;
 	};
 
-	const StatValue = ({ value, label }: { value: string | number; label: string }) => (
-		<View style={styles.statBox}>
+	const StatCard = ({
+		value,
+		label,
+		flex,
+		backdrop,
+	}: {
+		value: string | number;
+		label: string;
+		flex: number;
+		backdrop?: string | null;
+	}) => (
+		<View style={[styles.statCard, { flex }]}>
+			{backdrop && (
+				<Image
+					source={{ uri: `${backdropSize.medium}${backdrop}` }}
+					style={StyleSheet.absoluteFill}
+					contentFit="cover"
+					blurRadius={BLUR_RADIUS}
+				/>
+			)}
+			{backdrop && <View style={[StyleSheet.absoluteFill, styles.statCardOverlay]} />}
+			<Text style={styles.statLabel}>{label}</Text>
 			{statsLoading ? (
 				<ActivityIndicator size="small" color={colors.primary} style={styles.statLoader} />
 			) : (
 				<Text style={styles.statNumber}>{value}</Text>
 			)}
-			<Text style={styles.statLabel}>{label}</Text>
 		</View>
 	);
+
+	const CollageCard = ({
+		value,
+		label,
+		flex,
+		backdrops = [],
+	}: {
+		value: string | number;
+		label: string;
+		flex: number;
+		backdrops?: string[];
+	}) => {
+		const count = backdrops.length;
+
+		return (
+			<View style={[styles.statCard, { flex }]}>
+				{count > 0 && (
+					<View style={[StyleSheet.absoluteFill, styles.collageContainer]}>
+						{backdrops.map((b, i) => {
+							const overlap = 15;
+							const sliceW = 100 / count + overlap;
+							const sliceLeft = (100 / count) * i - overlap / 2;
+							return (
+								<View
+									key={i}
+									style={[
+										styles.collageSlice,
+										{
+											left: `${sliceLeft}%` as any,
+											width: `${sliceW}%` as any,
+											zIndex: count - i,
+										},
+									]}
+								>
+									<Image
+										source={{ uri: `${backdropSize.small}${b}` }}
+										style={styles.slantedImage}
+										contentFit="cover"
+										blurRadius={BLUR_RADIUS}
+									/>
+									{i > 0 && <View style={styles.slantedEdge} />}
+								</View>
+							);
+						})}
+					</View>
+				)}
+				{count > 0 && (
+					<View style={[StyleSheet.absoluteFill, styles.statCardOverlay]} />
+				)}
+				<Text style={styles.statLabel}>{label}</Text>
+				{statsLoading ? (
+					<ActivityIndicator size="small" color={colors.primary} style={styles.statLoader} />
+				) : (
+					<Text style={styles.statNumber}>{value}</Text>
+				)}
+			</View>
+		);
+	};
 
 	return (
 		<ScrollView style={styles.container}>
@@ -75,12 +159,38 @@ export default function ProfileScreen() {
 				<Text style={styles.email}>{user?.email}</Text>
 			</View>
 
-			<View style={styles.statsRow}>
-				<StatValue value={stats.episodesWatched} label="Episodes" />
-				<StatValue value={stats.showsTracking} label="Tracking" />
-				<StatValue value={stats.moviesWatched} label="Movies" />
-				<StatValue value={formatTime(stats.totalMinutes)} label="Watch Time" />
+			<View style={styles.statsGrid}>
+				<View style={styles.statsRow}>
+					<StatCard
+						value={stats.episodesWatched}
+						label="Episodes"
+						flex={3}
+						backdrop={cardImages.episodeBackdrop}
+					/>
+					<StatCard
+						value={stats.moviesWatched}
+						label="Movies"
+						flex={2}
+						backdrop={cardImages.movieBackdrop}
+					/>
+				</View>
+				<View style={styles.statsRow}>
+					<CollageCard
+						value={stats.showsTracking}
+						label="Tracking"
+						flex={2}
+						backdrops={cardImages.trackingBackdrops}
+					/>
+					<CollageCard
+						value={formatTime(stats.totalMinutes)}
+						label="Watch Time"
+						flex={3}
+						backdrops={cardImages.watchTimeBackdrops}
+					/>
+				</View>
 			</View>
+
+			<WeeklyChart data={chartData} />
 
 			{watchlistLoading ? (
 				<View style={styles.completedLoader}>
@@ -148,27 +258,68 @@ const styles = StyleSheet.create({
 		...typography.caption,
 		marginTop: spacing.xs,
 	},
+	statsGrid: {
+		marginHorizontal: spacing.lg,
+		gap: spacing.sm,
+	},
 	statsRow: {
 		flexDirection: "row",
-		justifyContent: "space-around",
-		paddingVertical: spacing.lg,
-		marginHorizontal: spacing.lg,
+		gap: spacing.sm,
+	},
+	statCard: {
 		backgroundColor: colors.surface,
 		borderRadius: 12,
+		padding: spacing.lg,
+		justifyContent: "space-between",
+		minHeight: 100,
+		overflow: "hidden",
 	},
-	statBox: {
-		alignItems: "center",
+	statCardOverlay: {
+		backgroundColor: "rgba(0, 0, 0, 0.55)",
+	},
+	collageContainer: {
+		flexDirection: "row",
+		overflow: "hidden",
+	},
+	collageSlice: {
+		position: "absolute",
+		top: 0,
+		bottom: 0,
+	},
+	slantedImage: {
+		position: "absolute",
+		top: 0,
+		left: 0,
+		right: 0,
+		bottom: 0,
+	},
+	slantedEdge: {
+		position: "absolute",
+		left: -12,
+		top: -30,
+		bottom: -30,
+		width: 24,
+		backgroundColor: colors.surface,
+		transform: [{ rotate: "12deg" }],
+		zIndex: 2,
 	},
 	statNumber: {
 		...typography.title,
-		fontSize: 20,
+		fontSize: 32,
 	},
 	statLoader: {
-		height: 24,
+		height: 38,
+		alignSelf: "flex-start",
 	},
 	statLabel: {
 		...typography.caption,
-		marginTop: spacing.xs,
+		color: colors.text,
+		backgroundColor: "rgba(0, 0, 0, 0.5)",
+		alignSelf: "flex-start",
+		paddingHorizontal: spacing.sm,
+		paddingVertical: spacing.xs / 2,
+		borderRadius: 10,
+		overflow: "hidden",
 	},
 	section: {
 		marginTop: spacing.xl,

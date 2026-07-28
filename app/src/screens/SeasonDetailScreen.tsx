@@ -8,6 +8,7 @@ import {
 	useWatchedEpisodes,
 	useWatchlist,
 	insertWatchedEpisodeCache,
+	incrementDailyWatch,
 } from "../hooks";
 import { useAuthStore } from "../stores";
 import { useQueryClient } from "@tanstack/react-query";
@@ -136,6 +137,7 @@ export default function SeasonDetailScreen() {
 					watchedAt: now,
 					watchCount: 1,
 				});
+				incrementDailyWatch("episode");
 			} catch (err: any) {
 				console.error("markEpisodeWatched failed:", err);
 			} finally {

@@ -36,6 +36,8 @@ export enum CacheKey {
 	HIDE_UNRELEASED_MODAL = "hideUnreleasedMovieModal",
 	IMPORT_IN_PROGRESS = "import_in_progress",
 	CATALOG_CACHE = "catalog_cache_v1",
+	PROFILE_CARD_IMAGES = "profile_card_images_v1",
+	WEEKLY_ACTIVITY = "weekly_activity_v1",
 }
 
 export enum QueryKey {

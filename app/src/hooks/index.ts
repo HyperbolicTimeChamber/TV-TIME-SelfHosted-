@@ -22,3 +22,5 @@ export {
 export { useWatchedMovies, insertWatchedMovieCache } from "./useWatchedMovies";
 export type { EnrichedTrackingItem } from "./useWatchlist";
 export { useWatchlist, getCachedCatalogShow } from "./useWatchlist";
+export { useWeeklyActivity, incrementDailyWatch } from "./useWeeklyActivity";
+export { useProfileCardImages } from "./useProfileCardImages";
