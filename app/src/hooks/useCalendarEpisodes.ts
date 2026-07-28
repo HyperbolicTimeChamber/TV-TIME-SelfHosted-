@@ -29,7 +29,9 @@ async function saveCalendarCache(cache: CalendarCache) {
 	// Prune to MAX_CACHED_MONTHS most recent, never evict current month
 	const now = new Date();
 	const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-	const keys = Object.keys(cache.months).sort().reverse();
+	const keys = Object.keys(cache.months)
+		.sort((a, b) => a.localeCompare(b))
+		.reverse();
 	if (keys.length > MAX_CACHED_MONTHS) {
 		for (const key of keys.slice(MAX_CACHED_MONTHS)) {
 			if (key !== currentKey) delete cache.months[key];

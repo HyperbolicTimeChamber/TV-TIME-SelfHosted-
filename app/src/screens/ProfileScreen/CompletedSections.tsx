@@ -1,16 +1,18 @@
 import React from "react";
-import { View, Text, FlatList, ActivityIndicator } from "react-native";
-import { Image } from "expo-image";
-import { colors, spacing, posterSize } from "../../theme";
+import { View, Text, FlatList, ActivityIndicator, TouchableOpacity } from "react-native";
+import { colors, spacing } from "../../theme";
+import { MediaType } from "../../types";
+import PosterImage from "../../components/PosterImage";
 import { styles } from "./styles";
 import type { CompletedSection } from "../../hooks/useCompletedShows";
 
 interface Props {
 	sections: CompletedSection[];
 	loading: boolean;
+	onItemPress?: (tmdbId: number, mediaType: MediaType) => void;
 }
 
-export default function CompletedSections({ sections, loading }: Readonly<Props>) {
+export default function CompletedSections({ sections, loading, onItemPress }: Readonly<Props>) {
 	if (loading) {
 		return (
 			<View style={styles.completedLoader}>
@@ -33,15 +35,18 @@ export default function CompletedSections({ sections, loading }: Readonly<Props>
 						keyExtractor={(item) => `${item.tmdbId}`}
 						showsHorizontalScrollIndicator={false}
 						renderItem={({ item }) => (
-							<Image
-								source={
-									item.posterPath
-										? { uri: `${posterSize.small}${item.posterPath}` }
-										: undefined
-								}
-								style={styles.completedPoster}
-								contentFit="cover"
-							/>
+							<TouchableOpacity
+								activeOpacity={0.7}
+								onPress={() => onItemPress?.(item.tmdbId, item.mediaType)}
+								disabled={!onItemPress}
+							>
+								<PosterImage
+									posterPath={item.posterPath}
+									mediaType={item.mediaType}
+									style={styles.completedPoster}
+									title={!item.posterPath ? item.title : undefined}
+								/>
+							</TouchableOpacity>
 						)}
 						ItemSeparatorComponent={() => <View style={{ width: spacing.sm }} />}
 					/>

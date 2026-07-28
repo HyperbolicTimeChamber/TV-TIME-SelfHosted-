@@ -12,6 +12,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
+import { getAuth, sendPasswordResetEmail } from "@react-native-firebase/auth";
 import { useAuthStore } from "../../stores";
 import { colors, spacing, typography } from "../../theme";
 import { ProfileStackParamList, Route } from "../../types";
@@ -19,10 +20,24 @@ import { ProfileStackParamList, Route } from "../../types";
 export default function SettingsScreen() {
 	const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
 	const hasCompletedImport = useAuthStore((s) => s.hasCompletedImport);
+	const user = useAuthStore((s) => s.user);
 	const signOut = useAuthStore((s) => s.signOut);
 	const [testingFCM, setTestingFCM] = useState(false);
 	const [migrating, setMigrating] = useState(false);
 	const [deletingAccount, setDeletingAccount] = useState(false);
+
+	const isEmailUser = user?.providerData?.some((p) => p.providerId === "password") ?? false;
+
+	const handleChangePassword = useCallback(async () => {
+		const email = user?.email;
+		if (!email) return;
+		try {
+			await sendPasswordResetEmail(getAuth(), email);
+			Alert.alert("Reset Email Sent", "Check your inbox for a password reset link.");
+		} catch {
+			Alert.alert("Error", "Failed to send reset email. Try again later.");
+		}
+	}, [user?.email]);
 
 	const handleTestFCM = useCallback(async () => {
 		if (testingFCM) return;
@@ -117,6 +132,11 @@ export default function SettingsScreen() {
 
 			<View style={styles.section}>
 				<Text style={styles.sectionTitle}>Account</Text>
+				{isEmailUser && (
+					<TouchableOpacity style={styles.row} onPress={handleChangePassword}>
+						<Text style={styles.rowText}>Change Password</Text>
+					</TouchableOpacity>
+				)}
 				<TouchableOpacity
 					style={styles.row}
 					onPress={handleDeleteAccount}

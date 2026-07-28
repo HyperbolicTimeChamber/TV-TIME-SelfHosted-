@@ -1,8 +1,8 @@
 import { memo } from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
-import { Image } from "expo-image";
-import { colors, posterSize } from "../../theme";
+import { colors } from "../../theme";
 import { TMDBShow, MediaType } from "../../types";
+import PosterImage from "../../components/PosterImage";
 import { styles } from "./styles";
 
 interface Props {
@@ -23,10 +23,11 @@ function SearchCard({ item, isInWatchlist, isAdding, onPress, onAdd, onRemove }:
 
 	return (
 		<TouchableOpacity style={styles.card} onPress={() => onPress(item)} activeOpacity={0.7}>
-			<Image
-				source={{ uri: `${posterSize.medium}${item.poster_path}` }}
+			<PosterImage
+				posterPath={item.poster_path}
+				mediaType={mediaType}
+				size="medium"
 				style={styles.poster}
-				contentFit="cover"
 			/>
 			<TouchableOpacity
 				style={[styles.watchlistBadge, isInWatchlist && styles.watchlistBadgeActive]}

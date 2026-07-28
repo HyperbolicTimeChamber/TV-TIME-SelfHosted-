@@ -9,9 +9,11 @@ import {
 	KeyboardAvoidingView,
 	Platform,
 	ScrollView,
+	Alert,
 } from "react-native";
 import { Image } from "expo-image";
 import { colors, spacing, typography } from "../theme";
+import { getAuth, sendPasswordResetEmail } from "@react-native-firebase/auth";
 import { useAuthStore } from "../stores";
 import GoogleLogo from "../../assets/GoogleLogo";
 import { getFirebaseAuthErrorMessage } from "../hooks";
@@ -55,6 +57,24 @@ export default function LoginScreen() {
 			setError(e instanceof Error ? e.message : "Google sign in failed");
 		} finally {
 			setGoogleLoading(false);
+		}
+	};
+
+	const handleForgotPassword = async () => {
+		if (!email.trim()) {
+			setError("Enter your email address first.");
+			return;
+		}
+		setLoading(true);
+		setError(null);
+		try {
+			await sendPasswordResetEmail(getAuth(), email.trim());
+			Alert.alert("Reset Email Sent", "Check your inbox for a password reset link.");
+		} catch (e: unknown) {
+			const code = (e as { code?: string }).code ?? "";
+			setError(getFirebaseAuthErrorMessage(code));
+		} finally {
+			setLoading(false);
 		}
 	};
 
@@ -119,6 +139,12 @@ export default function LoginScreen() {
 							{isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
 						</Text>
 					</TouchableOpacity>
+
+					{!isSignUp && (
+						<TouchableOpacity onPress={handleForgotPassword} disabled={busy}>
+							<Text style={styles.forgotText}>Forgot Password?</Text>
+						</TouchableOpacity>
+					)}
 				</View>
 
 				<View style={styles.dividerRow}>
@@ -205,6 +231,12 @@ const styles = StyleSheet.create({
 		...typography.body,
 		color: colors.accent,
 		marginTop: spacing.lg,
+	},
+	forgotText: {
+		...typography.body,
+		color: colors.textMuted,
+		marginTop: spacing.md,
+		fontSize: 14,
 	},
 	dividerRow: {
 		flexDirection: "row",

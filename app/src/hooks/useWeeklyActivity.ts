@@ -61,6 +61,18 @@ export async function incrementDailyWatch(type: "episode" | "movie"): Promise<vo
 	await saveWeeklyData(data);
 }
 
+/** Call after unwatch to reduce today's count. */
+export async function decrementDailyWatch(type: "episode" | "movie"): Promise<void> {
+	const data = await loadWeeklyData();
+	const today = todayStr();
+	const day = data[today];
+	if (!day) return;
+	if (type === "episode") day.episodes = Math.max(0, day.episodes - 1);
+	else day.movies = Math.max(0, day.movies - 1);
+	data[today] = day;
+	await saveWeeklyData(data);
+}
+
 export function useWeeklyActivity() {
 	const [weeklyData, setWeeklyData] = useState<WeeklyData>({});
 	const [loading, setLoading] = useState(true);

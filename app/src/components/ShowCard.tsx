@@ -1,11 +1,11 @@
 import React, { memo, useRef, useCallback } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
-import { Image } from "expo-image";
-import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS, WatchStatus } from "../types";
-import { colors, spacing, typography, posterSize } from "../theme";
+import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS } from "../types";
+import { colors, spacing, typography } from "../theme";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton from "./CheckmarkButton";
 import SkeletonLine from "./SkeletonLine";
+import PosterImage from "./PosterImage";
 
 // Computed once per app session — avoids Date allocation per card per render
 const TODAY = new Date().toISOString().split("T")[0];
@@ -30,6 +30,7 @@ interface ShowCardItem {
 interface Props {
 	item: ShowCardItem;
 	isWatched?: boolean;
+	watchCount?: number;
 	isUpdating?: boolean;
 	remainingEpisodes?: number | null;
 	onSwipeLeft: (item: any) => Promise<void>;
@@ -43,6 +44,7 @@ interface Props {
 export default memo(function ShowCard({
 	item,
 	isWatched,
+	watchCount,
 	isUpdating,
 	remainingEpisodes,
 	onSwipeLeft,
@@ -103,34 +105,48 @@ export default memo(function ShowCard({
 	const handleSwipeRight = useCallback(() => onSwipeRight(item), [onSwipeRight, item]);
 
 	if (isWatched) {
+		const wc = watchCount ?? 0;
 		return (
-			<TouchableOpacity
-				style={[styles.container, styles.watchedContainer]}
-				onPress={handlePress}
-				activeOpacity={0.8}
+			<SwipeableCard
+				onSwipeLeft={handleSwipeLeft}
+				onSwipeRight={handleSwipeRight}
+				leftLabel="Rewatch"
+				rightLabel={wc > 1 ? "−1" : "Unwatch"}
+				persistAfterSwipe={{ left: true, right: wc > 1 }}
 			>
-				<Image
-					source={{ uri: `${posterSize.small}${item.posterPath}` }}
-					style={[styles.poster, styles.watchedPoster]}
-					contentFit="cover"
-				/>
-				<View style={styles.info}>
-					<Text style={[styles.watchedTitle, styles.watchedText]} numberOfLines={1}>
-						{item.title}
-					</Text>
-					{item.mediaType === MediaType.MOVIE ? (
-						<View style={[styles.movieBadge, { opacity: 0.6 }]}>
-							<Text style={styles.movieBadgeText}>MOVIE</Text>
-						</View>
-					) : (
-						<Text style={[styles.episode, styles.watchedText]}>{episodeLabel}</Text>
-					)}
-					{item.rewatchCount > 0 && (
-						<Text style={[styles.rewatch, styles.watchedText]}>Rewatch #{item.rewatchCount}</Text>
-					)}
-				</View>
-				<CheckmarkButton size={36} watched />
-			</TouchableOpacity>
+				<TouchableOpacity
+					style={[styles.container, styles.watchedContainer]}
+					onPress={handlePress}
+					activeOpacity={0.8}
+				>
+					<PosterImage
+						posterPath={item.posterPath}
+						mediaType={item.mediaType}
+						style={[styles.poster, styles.watchedPoster]}
+					/>
+					<View style={styles.info}>
+						<Text style={[styles.watchedTitle, styles.watchedText]} numberOfLines={1}>
+							{item.title}
+						</Text>
+						{item.mediaType === MediaType.MOVIE ? (
+							<View style={[styles.movieBadge, { opacity: 0.6 }]}>
+								<Text style={styles.movieBadgeText}>MOVIE</Text>
+							</View>
+						) : (
+							<Text style={[styles.episode, styles.watchedText]}>{episodeLabel}</Text>
+						)}
+						{item.rewatchCount > 0 && (
+							<Text style={[styles.rewatch, styles.watchedText]}>Rewatch #{item.rewatchCount}</Text>
+						)}
+					</View>
+					<CheckmarkButton
+						size={36}
+						watched
+						label={wc > 1 ? `${wc}` : undefined}
+						onPress={() => _onCheckmark(item)}
+					/>
+				</TouchableOpacity>
+			</SwipeableCard>
 		);
 	}
 
@@ -151,10 +167,10 @@ export default memo(function ShowCard({
 			persistAfterSwipe
 		>
 			<TouchableOpacity style={styles.container} onPress={handlePress} activeOpacity={0.8}>
-				<Image
-					source={{ uri: `${posterSize.small}${item.posterPath}` }}
+				<PosterImage
+					posterPath={item.posterPath}
+					mediaType={item.mediaType}
 					style={styles.poster}
-					contentFit="cover"
 				/>
 				<View style={styles.info}>
 					<TouchableOpacity

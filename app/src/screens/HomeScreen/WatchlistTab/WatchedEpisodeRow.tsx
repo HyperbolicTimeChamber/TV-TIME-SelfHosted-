@@ -1,8 +1,8 @@
 import { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { Image } from "expo-image";
 import { CheckmarkButton, SwipeableCard } from "../../../components";
-import { colors, spacing, typography, posterSize } from "../../../theme";
+import PosterImage from "../../../components/PosterImage";
+import { colors, spacing, typography } from "../../../theme";
 import { WatchedEpisode } from "../../../types";
 import { EnrichedTrackingItem } from "../../../hooks";
 
@@ -38,10 +38,10 @@ export default memo(function WatchedEpisodeRow({
 				onPress={() => onPress(episode.tmdbShowId)}
 				activeOpacity={0.8}
 			>
-				<Image
-					source={{ uri: `${posterSize.small}${show.posterPath}` }}
+				<PosterImage
+					posterPath={show.posterPath}
+					mediaType="tv"
 					style={[styles.poster, styles.watchedPoster]}
-					contentFit="cover"
 				/>
 				<View style={styles.info}>
 					<View style={styles.titleButton}>

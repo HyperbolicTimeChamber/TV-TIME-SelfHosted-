@@ -10,6 +10,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CacheKey, WatchStatus, MediaType } from "../types";
 import { getCachedCatalogShow } from "./useWatchlist";
+import { onShowCompleted } from "../utils/watchlistEvents";
 
 export interface CompletedItem {
 	tmdbId: number;
@@ -45,9 +46,7 @@ function buildSections(items: CompletedItem[]): CompletedSection[] {
 
 	if (!hasGenres) {
 		// No genres yet — simple TV Shows section
-		const sorted = tvShows
-			.sort((a, b) => b.completedAt - a.completedAt)
-			.slice(0, SECTION_LIMIT);
+		const sorted = tvShows.sort((a, b) => b.completedAt - a.completedAt).slice(0, SECTION_LIMIT);
 		if (sorted.length > 0) {
 			sections.push({ title: "TV Shows", items: sorted });
 		}
@@ -62,13 +61,12 @@ function buildSections(items: CompletedItem[]): CompletedSection[] {
 			}
 		}
 
-		const sortedGenres = [...genreMap.entries()]
-			.sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+		const sortedGenres = [...genreMap.entries()].sort(
+			(a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]),
+		);
 
 		for (const [genre, shows] of sortedGenres) {
-			const sorted = shows
-				.sort((a, b) => b.completedAt - a.completedAt)
-				.slice(0, SECTION_LIMIT);
+			const sorted = shows.sort((a, b) => b.completedAt - a.completedAt).slice(0, SECTION_LIMIT);
 			sections.push({ title: genre, items: sorted });
 		}
 	}
@@ -129,10 +127,9 @@ export function useCompletedShows(userId: string | undefined) {
 			setSections(buildSections(items));
 			setLoading(false);
 
-			AsyncStorage.setItem(
-				CacheKey.COMPLETED_SECTIONS,
-				JSON.stringify({ userId, items }),
-			).catch(() => {});
+			AsyncStorage.setItem(CacheKey.COMPLETED_SECTIONS, JSON.stringify({ userId, items })).catch(
+				() => {},
+			);
 		})();
 	}, [userId]);
 
@@ -156,7 +153,51 @@ export function useCompletedShows(userId: string | undefined) {
 		[userId],
 	);
 
-	return { sections, loading, addCompletedItem };
+	// Listen for live completed events
+	useEffect(() => {
+		return onShowCompleted((event) => {
+			addCompletedItem({
+				tmdbId: event.tmdbId,
+				mediaType: event.mediaType as MediaType,
+				title: event.title,
+				posterPath: event.posterPath,
+				genres: event.genres,
+				completedAt: Date.now(),
+			});
+		});
+	}, [addCompletedItem]);
+
+	const refetch = useCallback(async () => {
+		if (!userId) return;
+		const db = getFirestore();
+		const trackingRef = collection(doc(db, "users", userId), "tracking");
+		const q = query(trackingRef, where("status", "==", WatchStatus.COMPLETED));
+		const snap = await getDocs(q);
+
+		const items: CompletedItem[] = snap.docs.map((d) => {
+			const data = d.data();
+			const tmdbId = data.tmdbId as number;
+			const mediaType = (data.mediaType as MediaType) ?? MediaType.TV;
+			const catalog = getCachedCatalogShow(tmdbId, mediaType);
+
+			return {
+				tmdbId,
+				mediaType,
+				title: catalog?.title ?? `Show ${tmdbId}`,
+				posterPath: catalog?.posterPath ?? null,
+				genres: catalog?.genres ?? [],
+				completedAt: data.lastWatchedAt?.toMillis?.() ?? 0,
+			};
+		});
+
+		setSections(buildSections(items));
+
+		AsyncStorage.setItem(CacheKey.COMPLETED_SECTIONS, JSON.stringify({ userId, items })).catch(
+			() => {},
+		);
+	}, [userId]);
+
+	return { sections, loading, addCompletedItem, refetch };
 }
 
 function extractAllItems(sections: CompletedSection[]): CompletedItem[] {

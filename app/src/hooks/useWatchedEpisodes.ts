@@ -83,7 +83,9 @@ export function insertWatchedEpisodeCache(
 ) {
 	// Update paginated "all episodes" cache
 	queryClient.setQueryData([QueryKey.WATCHED_EPISODES, userId, undefined], (old: any) => {
-		if (!old?.pages) return old;
+		if (!old?.pages) {
+			return { pages: [{ episodes: [ep], lastDoc: null }], pageParams: [null] };
+		}
 		const firstPage = old.pages[0];
 		return {
 			...old,

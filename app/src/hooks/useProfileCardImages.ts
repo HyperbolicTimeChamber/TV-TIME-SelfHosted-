@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { CacheKey, MediaType } from "../types";
+import { CacheKey, MediaType, WatchStatus } from "../types";
 import { EnrichedTrackingItem } from "./useWatchlist";
 
 export interface ProfileCardImages {
@@ -57,7 +57,10 @@ export function useProfileCardImages(watchlist: EnrichedTrackingItem[]) {
 		if (watchlist.length === 0) return;
 
 		const tvShows = watchlist.filter((w) => w.mediaType === MediaType.TV && getBackdrop(w));
-		const movies = watchlist.filter((w) => w.mediaType === MediaType.MOVIE && getBackdrop(w));
+		const movies = watchlist.filter(
+			(w) =>
+				w.mediaType === MediaType.MOVIE && w.status === WatchStatus.COMPLETED && getBackdrop(w),
+		);
 		const allWithPosters = watchlist.filter((w) => w.posterPath);
 
 		const latestTV = [...tvShows].sort((a, b) => {

@@ -9,6 +9,7 @@ import {
 	insertWatchedEpisodeCache,
 	removeWatchedEpisodeCache,
 	incrementDailyWatch,
+	decrementDailyWatch,
 } from "../hooks";
 import { useAuthStore } from "../stores";
 import {
@@ -29,7 +30,7 @@ import CheckmarkButton from "./CheckmarkButton";
 import SkeletonLine from "./SkeletonLine";
 import EpisodeDetailModal from "./modals/EpisodeDetailModal";
 import { colors, spacing, typography, posterSize } from "../theme";
-import { TMDBSeason, TMDBEpisode, MediaType, QueryKey } from "../types";
+import { TMDBSeason, TMDBEpisode, MediaType } from "../types";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function formatDate(dateStr: string): string {
@@ -380,6 +381,7 @@ export default memo(function SeasonDropdown({
 							watched?.runtime || ep.runtime || 0,
 							ep.name,
 						);
+						decrementDailyWatch("episode");
 					} else if (action === "watched_once_less") {
 						await decrementEpisodeWatchCount(
 							user.uid,
@@ -390,6 +392,7 @@ export default memo(function SeasonDropdown({
 							watched?.watchCount || 1,
 							ep.name,
 						);
+						decrementDailyWatch("episode");
 					}
 				} else if (sheetTarget.type === "season") {
 					if (action === "rewatch") {
@@ -428,7 +431,6 @@ export default memo(function SeasonDropdown({
 				// Update query cache locally
 				if (sheetTarget.type === "episode") {
 					const ep = sheetTarget.ep;
-					const watched = watchedMap.get(ep.episode_number);
 					if (action === "not_watched") {
 						removeWatchedEpisodeCache(
 							queryClient,

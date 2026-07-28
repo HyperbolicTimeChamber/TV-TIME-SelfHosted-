@@ -71,14 +71,34 @@ export function useWatchedMovies(userId?: string) {
 	return { movies, loading, loadMore, loadingMore, hasMore: !!hasNextPage };
 }
 
-/** Insert a watched movie into the query cache (no Firestore refetch). */
+/** Insert or update a watched movie in the query cache (no Firestore refetch). */
 export function insertWatchedMovieCache(
 	queryClient: { setQueryData: (key: any, updater: any) => void },
 	userId: string,
 	movie: WatchedMovie,
 ) {
 	queryClient.setQueryData([QueryKey.WATCHED_MOVIES, userId], (old: any) => {
-		if (!old?.pages) return old;
+		if (!old?.pages) {
+			return { pages: [{ movies: [movie], lastDoc: null }], pageParams: [null] };
+		}
+		// Check if movie already exists in any page
+		const exists = old.pages.some((p: any) =>
+			p.movies.some((m: WatchedMovie) => m.tmdbId === movie.tmdbId),
+		);
+		if (exists) {
+			// Update existing entry (increment count, update timestamp)
+			return {
+				...old,
+				pages: old.pages.map((p: any) => ({
+					...p,
+					movies: p.movies.map((m: WatchedMovie) =>
+						m.tmdbId === movie.tmdbId
+							? { ...m, watchCount: (m.watchCount || 0) + 1, lastWatchedAt: movie.lastWatchedAt }
+							: m,
+					),
+				})),
+			};
+		}
 		const firstPage = old.pages[0];
 		return {
 			...old,

@@ -118,7 +118,7 @@ export async function addToTracking(
 	// Check if already tracked to avoid double-counting
 	const tRef = doc(trackingRef(userId), docId);
 	const existingDoc = await getDoc(tRef);
-	const alreadyTracked = existingDoc.exists;
+	const alreadyTracked = existingDoc.exists();
 
 	// Write tracking doc immediately — no catalog read needed
 	const batch = writeBatch(db);
@@ -269,16 +269,9 @@ export async function markEpisodeWatched(
 
 		if (!skipTrackingUpdate) {
 			const now = Timestamp.now();
-			let effectivePriority: typeof now = now;
-			if (nextEpisode && nextEpisodeAirDate) {
-				const airDateMs = new Date(nextEpisodeAirDate).getTime();
-				if (airDateMs > now.toMillis()) {
-					effectivePriority = Timestamp.fromMillis(airDateMs);
-				}
-			}
 			const trackingUpdate: Record<string, unknown> = {
 				lastWatchedAt: now,
-				priorityDate: effectivePriority,
+				priorityDate: now,
 				nextEpisode,
 				nextEpisodeName,
 				nextEpisodeAirDate: nextEpisodeAirDate ?? null,
@@ -556,7 +549,12 @@ export async function decrementMovieWatchCount(
 	const batch = writeBatch(db);
 	const movieRef = doc(watchedMoviesRef(userId), String(tmdbId));
 
-	batch.update(movieRef, { watchCount: increment(-1) });
+	const willDelete = currentCount <= 1;
+	if (willDelete) {
+		batch.delete(movieRef);
+	} else {
+		batch.update(movieRef, { watchCount: increment(-1) });
+	}
 	batch.set(
 		userRef(userId),
 		{
@@ -567,6 +565,17 @@ export async function decrementMovieWatchCount(
 		},
 		{ merge: true },
 	);
+	// When fully unwatched, revert tracking status
+	if (willDelete) {
+		batch.set(
+			doc(trackingRef(userId), showDocId(tmdbId, MediaType.MOVIE)),
+			{
+				status: WatchStatus.WATCHING,
+				priorityDate: Timestamp.now(),
+			},
+			{ merge: true },
+		);
+	}
 
 	await batch.commit();
 }
@@ -590,6 +599,15 @@ export async function unmarkMovieWatched(
 		},
 		{ merge: true },
 	);
+	// Revert tracking status so UI shows "Mark as Watched" instead of "Watched ✓"
+	batch.set(
+		doc(trackingRef(userId), showDocId(tmdbId, MediaType.MOVIE)),
+		{
+			status: WatchStatus.WATCHING,
+			priorityDate: Timestamp.now(),
+		},
+		{ merge: true },
+	);
 
 	await batch.commit();
 }
@@ -607,7 +625,7 @@ export async function addAndMarkMovieWatched(
 	const now = Timestamp.now();
 
 	const existingDoc = await getDoc(tRef);
-	const alreadyTracked = existingDoc.exists;
+	const alreadyTracked = existingDoc.exists();
 
 	const batch = writeBatch(db);
 	batch.set(tRef, {

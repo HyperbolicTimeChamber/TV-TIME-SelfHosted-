@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { View, Text, TouchableOpacity, Alert, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LoadingSpinner, shouldShowUnreleasedModal } from "../../components";
@@ -13,6 +13,7 @@ import {
 	useUpcomingMutations,
 	removeShowFromCalendarGlobal,
 	addMovieToCalendarGlobal,
+	incrementDailyWatch,
 } from "../../hooks";
 import { getFirestore, doc, updateDoc, Timestamp } from "@react-native-firebase/firestore";
 import { useQueryClient } from "@tanstack/react-query";
@@ -26,7 +27,7 @@ import {
 import { colors } from "../../theme";
 import { showDocId } from "../../utils/docId";
 import { warmupSearchCFs } from "../../services/warmup";
-import { emitShowAdded, emitShowRemoved } from "../../utils/watchlistEvents";
+import { emitShowAdded, emitShowRemoved, emitShowCompleted } from "../../utils/watchlistEvents";
 import { getCachedCatalogShow } from "../../hooks/useWatchlist";
 import {
 	TMDBShow,
@@ -35,6 +36,7 @@ import {
 	MediaFilter,
 	Route,
 	QueryKey,
+	WatchStatus,
 	WatchedMovie,
 	UpcomingEpisode,
 } from "../../types";
@@ -376,11 +378,27 @@ export default function SearchScreen() {
 		const item = movieModal;
 		setMovieModal(null);
 		await withLoadingId(item.id, async () => {
+			const movieTitle = item.title || item.name || "";
+			const moviePoster = item.poster_path || null;
 			await addAndMarkMovieWatched(user.uid!, item.id, (item as any).runtime ?? 0, {
-				title: item.title || item.name || "",
-				posterPath: item.poster_path || null,
+				title: movieTitle,
+				posterPath: moviePoster,
 			});
 			const now = Timestamp.now();
+			emitShowAdded({
+				...buildOptimisticItem(
+					item.id,
+					MediaType.MOVIE,
+					movieTitle,
+					moviePoster,
+					null,
+					null,
+					null,
+					null,
+					item.release_date || null,
+				),
+				status: WatchStatus.COMPLETED,
+			});
 			queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid!], (old: any) => {
 				if (!old?.pages) return old;
 				const newMovie = {
@@ -390,14 +408,22 @@ export default function SearchScreen() {
 					lastWatchedAt: now,
 					runtime: (item as any).runtime ?? 0,
 					watchCount: 1,
-					title: item.title || item.name || "",
-					posterPath: item.poster_path || null,
+					title: movieTitle,
+					posterPath: moviePoster,
 				} as WatchedMovie;
 				const firstPage = old.pages[0];
 				return {
 					...old,
 					pages: [{ ...firstPage, movies: [newMovie, ...firstPage.movies] }, ...old.pages.slice(1)],
 				};
+			});
+			incrementDailyWatch("movie");
+			emitShowCompleted({
+				tmdbId: item.id,
+				mediaType: MediaType.MOVIE,
+				title: movieTitle,
+				posterPath: moviePoster,
+				genres: [],
 			});
 		});
 	}, [user?.uid, movieModal, withLoadingId, queryClient]);
@@ -535,8 +561,18 @@ export default function SearchScreen() {
 		return mt === mediaFilter;
 	});
 
-	const displayData = submittedQuery.length > 0 ? searchData?.results : filteredTrending;
+	const rawDisplayData = submittedQuery.length > 0 ? searchData?.results : filteredTrending;
 	const isLoading = submittedQuery.length > 0 ? searchLoading : trendingLoading;
+
+	// Augment data with tracked/adding state so LegendList re-renders items when these change
+	const displayData = useMemo(() => {
+		if (!rawDisplayData) return rawDisplayData;
+		return rawDisplayData.map((item) => ({
+			...item,
+			_tracked: trackedIds.has(item.id),
+			_adding: addingIds.has(item.id),
+		}));
+	}, [rawDisplayData, trackedIds, addingIds]);
 
 	const handlePress = useCallback(
 		(item: TMDBShow) => {
@@ -549,17 +585,17 @@ export default function SearchScreen() {
 	);
 
 	const renderItem = useCallback(
-		({ item }: { item: TMDBShow }) => (
+		({ item }: { item: TMDBShow & { _tracked?: boolean; _adding?: boolean } }) => (
 			<SearchCard
 				item={item}
-				isInWatchlist={trackedIds.has(item.id)}
-				isAdding={addingIds.has(item.id)}
+				isInWatchlist={!!item._tracked}
+				isAdding={!!item._adding}
 				onPress={handlePress}
 				onAdd={handleAddToWatchlist}
 				onRemove={handleRemoveFromWatchlist}
 			/>
 		),
-		[handlePress, trackedIds, handleAddToWatchlist, handleRemoveFromWatchlist, addingIds],
+		[handlePress, handleAddToWatchlist, handleRemoveFromWatchlist],
 	);
 
 	return (
@@ -568,18 +604,9 @@ export default function SearchScreen() {
 				onLayout={onHeaderLayout}
 				style={[styles.headerBlock, { transform: [{ translateY: headerTranslateY }] }]}
 			>
-				<TouchableOpacity
-					style={styles.searchBarRow}
-					onPress={openSearchInput}
-					activeOpacity={0.7}
-				>
+				<TouchableOpacity style={styles.searchBarRow} onPress={openSearchInput} activeOpacity={0.7}>
 					<View style={styles.searchRow}>
-						<Ionicons
-							name="search"
-							size={18}
-							color={colors.textMuted}
-							style={styles.searchIcon}
-						/>
+						<Ionicons name="search" size={18} color={colors.textMuted} style={styles.searchIcon} />
 						<Text style={[styles.searchInput, { color: colors.textMuted }]} numberOfLines={1}>
 							{submittedQuery || "Search shows & movies"}
 						</Text>
@@ -614,7 +641,6 @@ export default function SearchScreen() {
 					data={displayData || []}
 					keyExtractor={(item) => `${item.media_type || "x"}_${item.id}`}
 					renderItem={renderItem}
-					extraData={[trackedIds, addingIds]}
 					numColumns={2}
 					estimatedItemSize={140}
 					columnWrapperStyle={styles.row}

@@ -95,7 +95,12 @@ export default function CollageCard({
 				) : (
 					<View style={[StyleSheet.absoluteFill, local.gridContainer]}>
 						{posters.map((p, i) => {
-							const cols = posters.length <= 2 ? posters.length : posters.length <= 5 ? Math.ceil(posters.length / 2) : 3;
+							const cols =
+								posters.length <= 2
+									? posters.length
+									: posters.length <= 5
+										? Math.ceil(posters.length / 2)
+										: 3;
 							const rows = Math.ceil(posters.length / cols);
 							return (
 								<Image

@@ -13,7 +13,7 @@ import {
 	useCompletedShows,
 } from "../../hooks";
 import { colors } from "../../theme";
-import { ProfileStackParamList, Route } from "../../types";
+import { ProfileStackParamList, Route, MediaType } from "../../types";
 import WeeklyChart from "../../components/WeeklyChart";
 import StatCard from "./StatCard";
 import CollageCard from "./CollageCard";
@@ -50,6 +50,13 @@ export default function ProfileScreen() {
 		useCallback(() => {
 			refreshChart();
 		}, [refreshChart]),
+	);
+
+	const handleCompletedItemPress = useCallback(
+		(tmdbId: number, mediaType: MediaType) => {
+			navigation.navigate(Route.SHOW_DETAIL, { tmdbId, mediaType });
+		},
+		[navigation],
 	);
 
 	useLayoutEffect(() => {
@@ -108,14 +115,15 @@ export default function ProfileScreen() {
 						/>
 					</View>
 					<View style={styles.avatarOverlay}>
-						{user?.photoURL ? (
-							<Image source={{ uri: user.photoURL }} style={styles.avatar} contentFit="cover" />
-						) : (
-							<View style={[styles.avatar, styles.avatarPlaceholder]}>
-								<Text style={styles.avatarText}>
-									{(user?.displayName || "?")[0].toUpperCase()}
-								</Text>
-							</View>
+						<View style={[styles.avatar, styles.avatarPlaceholder]}>
+							<Ionicons name="person" size={40} color={colors.textMuted} />
+						</View>
+						{user?.photoURL && (
+							<Image
+								source={{ uri: user.photoURL }}
+								style={[styles.avatar, { position: "absolute" }]}
+								contentFit="cover"
+							/>
 						)}
 					</View>
 				</View>
@@ -127,7 +135,11 @@ export default function ProfileScreen() {
 
 			<WeeklyChart data={chartData} />
 
-			<CompletedSections sections={completedSections} loading={completedLoading} />
+			<CompletedSections
+				sections={completedSections}
+				loading={completedLoading}
+				onItemPress={handleCompletedItemPress}
+			/>
 
 			<TouchableOpacity
 				style={styles.signOutButton}

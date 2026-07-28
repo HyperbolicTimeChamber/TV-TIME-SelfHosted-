@@ -28,3 +28,26 @@ export function onShowAdded(listener: AddedListener) {
 export function emitShowAdded(item: EnrichedTrackingItem) {
 	for (const listener of addedListeners) listener(item);
 }
+
+// --- Show/movie completed event (for recently completed section) ---
+export interface CompletedEvent {
+	tmdbId: number;
+	mediaType: string;
+	title: string;
+	posterPath: string | null;
+	genres: string[];
+}
+
+type CompletedListener = (item: CompletedEvent) => void;
+const completedListeners = new Set<CompletedListener>();
+
+export function onShowCompleted(listener: CompletedListener) {
+	completedListeners.add(listener);
+	return () => {
+		completedListeners.delete(listener);
+	};
+}
+
+export function emitShowCompleted(item: CompletedEvent) {
+	for (const listener of completedListeners) listener(item);
+}

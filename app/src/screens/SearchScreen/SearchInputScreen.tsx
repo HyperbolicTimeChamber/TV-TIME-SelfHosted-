@@ -60,7 +60,7 @@ export default function SearchInputScreen() {
 		if (!trimmed || trimmed.length < 2) return;
 		setSearchHistory((prev) => {
 			const filtered = prev.filter((h) => h.toLowerCase() !== trimmed);
-			let next = [trimmed, ...filtered];
+			const next = [trimmed, ...filtered];
 			while (JSON.stringify(next).length > MAX_BYTES && next.length > 1) {
 				next.pop();
 			}

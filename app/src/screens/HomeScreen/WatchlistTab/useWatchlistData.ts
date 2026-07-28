@@ -17,13 +17,13 @@ import {
 } from "../../../hooks";
 import { markEpisodeWatched, markMovieWatched, stopWatching } from "../../../services";
 import { removeShowFromCalendarGlobal } from "../../../hooks/useCalendarEpisodes";
+import { emitShowCompleted } from "../../../utils/watchlistEvents";
 import {
 	MediaType,
 	CacheKey,
 	WatchStatus,
 	WatchedEpisode,
 	WatchedMovie,
-	QueryKey,
 } from "../../../types";
 import { ListItem } from "./types";
 
@@ -610,6 +610,13 @@ export function useWatchlistData(userId: string | undefined) {
 					posterPath: item.posterPath,
 				} as any);
 				incrementDailyWatch("movie");
+				emitShowCompleted({
+					tmdbId: item.tmdbId,
+					mediaType: MediaType.MOVIE,
+					title: item.title,
+					posterPath: item.posterPath,
+					genres: item.catalogShow?.genres ?? [],
+				});
 				return;
 			}
 
@@ -689,6 +696,15 @@ export function useWatchlistData(userId: string | undefined) {
 					watchCount: 1,
 				});
 				incrementDailyWatch("episode");
+				if (isComplete) {
+					emitShowCompleted({
+						tmdbId: item.tmdbId,
+						mediaType: MediaType.TV,
+						title: item.title,
+						posterPath: item.posterPath,
+						genres: item.catalogShow?.genres ?? [],
+					});
+				}
 			} catch (err: any) {
 				rollbackUpcoming(upcomingSnapshot);
 				setUpdatingShows((prev) => {
