@@ -25,7 +25,7 @@ export default function WeeklyChart({ data }: Readonly<Props>) {
 
 	return (
 		<View style={styles.container}>
-			<Text style={styles.title}>This Week</Text>
+			<Text style={styles.title}>Watch Statistics</Text>
 			<View style={styles.chartRow}>
 				{data.map((day) => {
 					const epH = (day.episodes / maxVal) * CHART_HEIGHT;

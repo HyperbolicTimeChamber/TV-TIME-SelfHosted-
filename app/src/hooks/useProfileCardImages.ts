@@ -6,15 +6,20 @@ import { EnrichedTrackingItem } from "./useWatchlist";
 export interface ProfileCardImages {
 	episodeBackdrop: string | null;
 	movieBackdrop: string | null;
-	trackingBackdrops: string[];
-	watchTimeBackdrops: string[];
+	trackingPosters: string[];
+	watchTimePosters: string[];
 }
 
-const COLLAGE_COUNT = 4;
+const COLLAGE_COUNT = 16;
 
-function pickRandom<T>(arr: T[], count: number): T[] {
-	const shuffled = [...arr].sort(() => Math.random() - 0.5);
-	return shuffled.slice(0, count);
+function pickRandom<T>(arr: T[], count: number, allowRepeat = false): T[] {
+	if (arr.length === 0) return [];
+	if (allowRepeat) {
+		const tiled: T[] = [];
+		while (tiled.length < count) tiled.push(...arr);
+		return tiled.sort(() => Math.random() - 0.5).slice(0, count);
+	}
+	return [...arr].sort(() => Math.random() - 0.5).slice(0, count);
 }
 
 function getBackdrop(item: EnrichedTrackingItem): string | null {
@@ -25,12 +30,11 @@ export function useProfileCardImages(watchlist: EnrichedTrackingItem[]) {
 	const [images, setImages] = useState<ProfileCardImages>({
 		episodeBackdrop: null,
 		movieBackdrop: null,
-		trackingBackdrops: [],
-		watchTimeBackdrops: [],
+		trackingPosters: [],
+		watchTimePosters: [],
 	});
 	const restoredCache = useRef(false);
 
-	// Restore cache on mount
 	useEffect(() => {
 		if (restoredCache.current) return;
 		AsyncStorage.getItem(CacheKey.PROFILE_CARD_IMAGES).then((raw) => {
@@ -40,8 +44,8 @@ export function useProfileCardImages(watchlist: EnrichedTrackingItem[]) {
 					setImages({
 						episodeBackdrop: parsed.episodeBackdrop ?? null,
 						movieBackdrop: parsed.movieBackdrop ?? null,
-						trackingBackdrops: parsed.trackingBackdrops ?? [],
-						watchTimeBackdrops: parsed.watchTimeBackdrops ?? [],
+						trackingPosters: parsed.trackingPosters ?? [],
+						watchTimePosters: parsed.watchTimePosters ?? [],
 					});
 				} catch {}
 			}
@@ -49,42 +53,35 @@ export function useProfileCardImages(watchlist: EnrichedTrackingItem[]) {
 		});
 	}, []);
 
-	// Update when watchlist data arrives
 	useEffect(() => {
 		if (watchlist.length === 0) return;
 
-		const tvShows = watchlist.filter(
-			(w) => w.mediaType === MediaType.TV && getBackdrop(w),
-		);
-		const movies = watchlist.filter(
-			(w) => w.mediaType === MediaType.MOVIE && getBackdrop(w),
-		);
-		const allWithBackdrops = watchlist.filter((w) => getBackdrop(w));
+		const tvShows = watchlist.filter((w) => w.mediaType === MediaType.TV && getBackdrop(w));
+		const movies = watchlist.filter((w) => w.mediaType === MediaType.MOVIE && getBackdrop(w));
+		const allWithPosters = watchlist.filter((w) => w.posterPath);
 
-		// Latest watched TV show (sorted by lastWatchedAt desc)
 		const latestTV = [...tvShows].sort((a, b) => {
 			const aTime = a.lastWatchedAt?.toMillis?.() ?? 0;
 			const bTime = b.lastWatchedAt?.toMillis?.() ?? 0;
 			return bTime - aTime;
 		})[0];
 
-		// Latest watched movie
 		const latestMovie = [...movies].sort((a, b) => {
 			const aTime = a.lastWatchedAt?.toMillis?.() ?? 0;
 			const bTime = b.lastWatchedAt?.toMillis?.() ?? 0;
 			return bTime - aTime;
 		})[0];
 
-		// Two separate random sets for tracking vs watch time
-		const allPaths = allWithBackdrops.map((w) => getBackdrop(w)!);
-		const trackingBackdrops = pickRandom(allPaths, COLLAGE_COUNT);
-		const watchTimeBackdrops = pickRandom(allPaths, COLLAGE_COUNT);
+		const allPosterPaths = allWithPosters.map((w) => w.posterPath!);
+		const useScatter = allPosterPaths.length >= 10;
+		const trackingPosters = pickRandom(allPosterPaths, COLLAGE_COUNT, useScatter);
+		const watchTimePosters = pickRandom(allPosterPaths, COLLAGE_COUNT, useScatter);
 
 		const updated: ProfileCardImages = {
 			episodeBackdrop: getBackdrop(latestTV) ?? null,
 			movieBackdrop: getBackdrop(latestMovie) ?? null,
-			trackingBackdrops,
-			watchTimeBackdrops,
+			trackingPosters,
+			watchTimePosters,
 		};
 
 		setImages(updated);
