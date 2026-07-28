@@ -25,12 +25,12 @@ function GlowBar({
 	color,
 	height,
 	chartH,
-}: {
+}: Readonly<{
 	id: string;
 	color: string;
 	height: number;
 	chartH: number;
-}) {
+}>) {
 	if (height <= 0) return null;
 	const y = chartH - height;
 	return (

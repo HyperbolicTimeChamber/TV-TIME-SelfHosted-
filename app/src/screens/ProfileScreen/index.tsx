@@ -130,12 +130,15 @@ export default function ProfileScreen() {
 						/>
 					</View>
 					<View style={styles.avatarOverlay}>
-						{user?.photoURL ? (
-							<Image source={{ uri: user.photoURL }} style={styles.avatar} contentFit="cover" />
-						) : (
-							<View style={[styles.avatar, styles.avatarPlaceholder]}>
-								<Text style={styles.avatarText}>{(user?.displayName || "?")[0].toUpperCase()}</Text>
-							</View>
+						<View style={[styles.avatar, styles.avatarPlaceholder]}>
+							<Ionicons name="person" size={40} color={colors.textMuted} />
+						</View>
+						{user?.photoURL && (
+							<Image
+								source={{ uri: user.photoURL }}
+								style={[styles.avatar, { position: "absolute" }]}
+								contentFit="cover"
+							/>
 						)}
 					</View>
 				</View>
