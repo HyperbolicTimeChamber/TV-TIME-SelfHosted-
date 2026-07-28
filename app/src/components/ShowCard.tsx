@@ -1,6 +1,6 @@
 import React, { memo, useRef, useCallback } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
-import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS, WatchStatus } from "../types";
+import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS } from "../types";
 import { colors, spacing, typography } from "../theme";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton from "./CheckmarkButton";

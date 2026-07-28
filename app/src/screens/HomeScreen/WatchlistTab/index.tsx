@@ -67,8 +67,6 @@ type NavProp = CompositeNavigationProp<
 >;
 
 const SeparatorComponent = () => <View style={styles.separator} />;
-const NOOP_ASYNC = async () => {};
-const NOOP_CHECKMARK = async () => {};
 
 export default function WatchlistTab() {
 	const user = useAuthStore((s) => s.user);

@@ -24,7 +24,6 @@ import {
 	WatchStatus,
 	WatchedEpisode,
 	WatchedMovie,
-	QueryKey,
 } from "../../../types";
 import { ListItem } from "./types";
 
