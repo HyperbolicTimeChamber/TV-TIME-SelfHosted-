@@ -17,7 +17,7 @@ import {
 import { TrackingItem, CatalogShow, CacheKey, DocChangeType, MediaType } from "../types";
 import { showDocId } from "../utils/docId";
 import { useAuthStore } from "../stores";
-import { getShowDetails } from "../services/tmdb";
+import { getShowDetails, getSeasonDetails } from "../services/tmdb";
 
 const PAGE_SIZE = 50;
 
@@ -347,24 +347,72 @@ export function useWatchlist(userId: string | undefined) {
 				const key = showDocId(item.tmdbId, mt);
 				try {
 					const details = await getShowDetails(apiKey, item.tmdbId, mt);
-					if (details) {
-						const catalog: CatalogShow = {
-							id: key,
-							tmdbId: item.tmdbId,
-							title: details.title || details.name || "",
-							posterPath: details.poster_path ?? null,
-							totalEpisodes: (details as any).number_of_episodes ?? 0,
-							mediaType: mt,
-						} as unknown as CatalogShow;
-						catalogCache.current.set(key, catalog);
-						updates.push({
-							...item,
-							title: catalog.title || item.title,
-							posterPath: catalog.posterPath ?? item.posterPath,
-							totalEpisodes: catalog.totalEpisodes ?? 0,
-							catalogShow: catalog,
-						});
+					if (!details) continue;
+
+					const genres: string[] =
+						(details as any).genres?.map((g: any) => g.name).filter(Boolean) ?? [];
+					const totalSeasons = (details as any).number_of_seasons ?? 0;
+					const totalEpisodes = (details as any).number_of_episodes ?? 0;
+
+					// Fetch season details for TV shows
+					const seasons: CatalogShow["seasons"] = [];
+					if (mt === MediaType.TV && totalSeasons > 0) {
+						const seasonNumbers: number[] =
+							(details as any).seasons
+								?.map((s: any) => s.season_number as number)
+								.filter((n: number) => n > 0) ?? [];
+						for (const sn of seasonNumbers) {
+							try {
+								const sd = await getSeasonDetails(apiKey, item.tmdbId, sn);
+								if (sd?.episodes) {
+									const eps = sd.episodes;
+									seasons.push({
+										seasonNumber: sn,
+										episodeCount: eps.length,
+										airDate: (sd as any).air_date ?? null,
+										episodes: eps.map((e, idx) => ({
+											episodeNumber: e.episode_number,
+											title: e.name || "",
+											overview: e.overview || "",
+											airDate: e.air_date || null,
+											runtime: e.runtime ?? null,
+											stillPath: e.still_path || null,
+											isSeasonFinale: idx === eps.length - 1,
+										})),
+									});
+								}
+							} catch {}
+						}
 					}
+
+					const catalog: CatalogShow = {
+						tmdbId: item.tmdbId,
+						mediaType: mt,
+						title: details.title || details.name || "",
+						posterPath: details.poster_path ?? null,
+						backdropPath: details.backdrop_path ?? null,
+						overview: details.overview ?? "",
+						status: (details as any).status ?? "",
+						totalSeasons,
+						totalEpisodes,
+						runtime: (details as any).runtime ?? null,
+						voteAverage: details.vote_average ?? 0,
+						firstAirDate: details.first_air_date ?? null,
+						releaseDate: details.release_date ?? null,
+						seasons,
+						genres,
+						trackedBy: [],
+						trackedByCount: 0,
+						lastSyncedAt: null,
+					};
+					catalogCache.current.set(key, catalog);
+					updates.push({
+						...item,
+						title: catalog.title || item.title,
+						posterPath: catalog.posterPath ?? item.posterPath,
+						totalEpisodes: catalog.totalEpisodes ?? 0,
+						catalogShow: catalog,
+					});
 				} catch {}
 				healingRef.current.delete(item.tmdbId);
 			}
