@@ -1,5 +1,5 @@
-import React, { useLayoutEffect, useCallback, useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView, Alert, RefreshControl } from "react-native";
+import React, { useLayoutEffect, useCallback } from "react";
+import { View, Text, TouchableOpacity, ScrollView, Alert } from "react-native";
 import { Image } from "expo-image";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -13,7 +13,7 @@ import {
 	useCompletedShows,
 } from "../../hooks";
 import { colors } from "../../theme";
-import { ProfileStackParamList, Route } from "../../types";
+import { ProfileStackParamList, Route, MediaType } from "../../types";
 import WeeklyChart from "../../components/WeeklyChart";
 import StatCard from "./StatCard";
 import CollageCard from "./CollageCard";
@@ -44,12 +44,7 @@ export default function ProfileScreen() {
 	const { items: watchlist } = useWatchlist(user?.uid);
 	const { chartData, refresh: refreshChart } = useWeeklyActivity();
 	const cardImages = useProfileCardImages(watchlist);
-	const {
-		sections: completedSections,
-		loading: completedLoading,
-		refetch: refetchCompleted,
-	} = useCompletedShows(user?.uid);
-	const [refreshing, setRefreshing] = useState(false);
+	const { sections: completedSections, loading: completedLoading } = useCompletedShows(user?.uid);
 
 	useFocusEffect(
 		useCallback(() => {
@@ -57,12 +52,12 @@ export default function ProfileScreen() {
 		}, [refreshChart]),
 	);
 
-	const handleRefresh = useCallback(async () => {
-		setRefreshing(true);
-		refreshChart();
-		await refetchCompleted();
-		setRefreshing(false);
-	}, [refreshChart, refetchCompleted]);
+	const handleCompletedItemPress = useCallback(
+		(tmdbId: number, mediaType: MediaType) => {
+			navigation.navigate(Route.SHOW_DETAIL, { tmdbId, mediaType });
+		},
+		[navigation],
+	);
 
 	useLayoutEffect(() => {
 		navigation.setOptions({
@@ -78,17 +73,7 @@ export default function ProfileScreen() {
 	}, [navigation]);
 
 	return (
-		<ScrollView
-			style={styles.container}
-			refreshControl={
-				<RefreshControl
-					refreshing={refreshing}
-					onRefresh={handleRefresh}
-					tintColor={colors.text}
-					colors={[colors.accent]}
-				/>
-			}
-		>
+		<ScrollView style={styles.container}>
 			<View style={styles.profileSection}>
 				<View style={styles.statsGrid}>
 					<View style={styles.statsRow}>
@@ -150,7 +135,11 @@ export default function ProfileScreen() {
 
 			<WeeklyChart data={chartData} />
 
-			<CompletedSections sections={completedSections} loading={completedLoading} />
+			<CompletedSections
+				sections={completedSections}
+				loading={completedLoading}
+				onItemPress={handleCompletedItemPress}
+			/>
 
 			<TouchableOpacity
 				style={styles.signOutButton}

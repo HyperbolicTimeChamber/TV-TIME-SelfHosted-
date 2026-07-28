@@ -5,6 +5,7 @@ import { stackScreenOptions } from "./screenOptions";
 import ProfileScreen from "../screens/ProfileScreen";
 import SettingsScreen from "../screens/ProfileScreen/SettingsScreen";
 import ImportDataScreen from "../screens/ImportDataScreen";
+import ShowDetailScreen from "../screens/DetailScreens/ShowDetailScreen";
 
 const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
 
@@ -25,6 +26,11 @@ export default function ProfileStackScreen() {
 				name={Route.IMPORT_DATA}
 				component={ImportDataScreen}
 				options={{ headerTitle: "Import Data" }}
+			/>
+			<ProfileStack.Screen
+				name={Route.SHOW_DETAIL}
+				component={ShowDetailScreen}
+				options={{ headerTitle: "" }}
 			/>
 		</ProfileStack.Navigator>
 	);

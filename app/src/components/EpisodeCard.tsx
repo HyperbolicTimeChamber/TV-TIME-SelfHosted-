@@ -1,7 +1,7 @@
 import React, { memo, useRef } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { Image } from "expo-image";
-import { colors, spacing, typography, posterSize } from "../theme";
+import { colors, spacing, typography } from "../theme";
+import PosterImage from "./PosterImage";
 import { UpcomingEpisode } from "../types";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton from "./CheckmarkButton";
@@ -33,10 +33,10 @@ export default memo(function EpisodeCard({
 				onPress={onPress}
 				activeOpacity={0.8}
 			>
-				<Image
-					source={{ uri: `${posterSize.small}${episode.posterPath}` }}
+				<PosterImage
+					posterPath={episode.posterPath}
+					mediaType="tv"
 					style={[styles.poster, styles.watchedPoster]}
-					contentFit="cover"
 				/>
 				<View style={styles.info}>
 					<View style={[styles.titleButton, styles.titleButtonWatched]}>
@@ -62,10 +62,10 @@ export default memo(function EpisodeCard({
 			persistAfterSwipe
 		>
 			<TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.8}>
-				<Image
-					source={{ uri: `${posterSize.small}${episode.posterPath}` }}
+				<PosterImage
+					posterPath={episode.posterPath}
+					mediaType="tv"
 					style={styles.poster}
-					contentFit="cover"
 				/>
 				<View style={styles.info}>
 					<View style={styles.titleButton}>

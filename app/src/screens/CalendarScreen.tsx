@@ -6,10 +6,10 @@ import { LegendList } from "@legendapp/list/react-native";
 import { Calendar, DateData } from "react-native-calendars";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Image } from "expo-image";
 import { useAuthStore } from "../stores";
 import { useCalendarEpisodes } from "../hooks";
-import { colors, spacing, typography, posterSize } from "../theme";
+import PosterImage from "../components/PosterImage";
+import { colors, spacing, typography } from "../theme";
 import { UpcomingEpisode, CalendarStackParamList, Route, MediaType } from "../types";
 
 type NavProp = NativeStackNavigationProp<CalendarStackParamList, Route.CALENDAR_MAIN>;
@@ -161,10 +161,10 @@ export default function CalendarScreen() {
 						})
 					}
 				>
-					<Image
-						source={{ uri: `${posterSize.small}${item.posterPath}` }}
+					<PosterImage
+						posterPath={item.posterPath}
+						mediaType={item.mediaType}
 						style={styles.poster}
-						contentFit="cover"
 					/>
 					<View style={styles.epInfo}>
 						<Text style={styles.showTitle} numberOfLines={1}>

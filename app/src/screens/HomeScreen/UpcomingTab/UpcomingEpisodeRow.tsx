@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { Image } from "expo-image";
-import { colors, spacing, typography, posterSize } from "../../../theme";
+import { colors, spacing, typography } from "../../../theme";
+import PosterImage from "../../../components/PosterImage";
 import { UpcomingEpisode, MediaType } from "../../../types";
 
 interface Props {
@@ -28,17 +28,11 @@ export default memo(function UpcomingEpisodeRow({
 			onPress={() => (onEpisodePress ? onEpisodePress(episode) : onPress(episode.tmdbShowId))}
 			activeOpacity={0.7}
 		>
-			{episode.posterPath ? (
-				<Image
-					source={{ uri: `${posterSize.small}${episode.posterPath}` }}
-					style={styles.poster}
-					contentFit="cover"
-				/>
-			) : (
-				<View style={[styles.poster, styles.noPoster]}>
-					<Text style={styles.noPosterText}>?</Text>
-				</View>
-			)}
+			<PosterImage
+				posterPath={episode.posterPath}
+				mediaType={episode.mediaType}
+				style={styles.poster}
+			/>
 			<View style={styles.info}>
 				<TouchableOpacity
 					style={styles.titleButton}

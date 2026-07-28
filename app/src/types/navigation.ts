@@ -40,4 +40,5 @@ export type ProfileStackParamList = {
 	ProfileMain: undefined;
 	Settings: undefined;
 	ImportData: undefined;
+	ShowDetail: { tmdbId: number; mediaType: MediaType };
 };

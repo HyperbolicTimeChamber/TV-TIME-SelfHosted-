@@ -451,13 +451,16 @@ export default function ShowDetailScreen() {
 				/>
 			}
 		>
-			<Image
-				source={{
-					uri: `${posterSize.large}${show.backdrop_path || show.poster_path}`,
-				}}
-				style={styles.backdrop}
-				contentFit="cover"
-			/>
+			<View style={styles.backdrop}>
+				<View style={[StyleSheet.absoluteFill, styles.backdropSkeleton]} />
+				<Image
+					source={{
+						uri: `${posterSize.large}${show.backdrop_path || show.poster_path}`,
+					}}
+					style={StyleSheet.absoluteFill}
+					contentFit="cover"
+				/>
+			</View>
 
 			<View style={styles.content}>
 				<Text style={styles.title}>{title}</Text>
@@ -641,6 +644,10 @@ const styles = StyleSheet.create({
 	backdrop: {
 		width: "100%",
 		height: 220,
+		overflow: "hidden",
+	},
+	backdropSkeleton: {
+		backgroundColor: colors.surfaceLight,
 	},
 	content: {
 		padding: spacing.lg,

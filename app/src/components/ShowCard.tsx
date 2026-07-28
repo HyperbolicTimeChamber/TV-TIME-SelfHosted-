@@ -1,11 +1,11 @@
 import React, { memo, useRef, useCallback } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
-import { Image } from "expo-image";
 import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS, WatchStatus } from "../types";
-import { colors, spacing, typography, posterSize } from "../theme";
+import { colors, spacing, typography } from "../theme";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton from "./CheckmarkButton";
 import SkeletonLine from "./SkeletonLine";
+import PosterImage from "./PosterImage";
 
 // Computed once per app session — avoids Date allocation per card per render
 const TODAY = new Date().toISOString().split("T")[0];
@@ -119,10 +119,10 @@ export default memo(function ShowCard({
 					onPress={handlePress}
 					activeOpacity={0.8}
 				>
-					<Image
-						source={{ uri: `${posterSize.small}${item.posterPath}` }}
+					<PosterImage
+						posterPath={item.posterPath}
+						mediaType={item.mediaType}
 						style={[styles.poster, styles.watchedPoster]}
-						contentFit="cover"
 					/>
 					<View style={styles.info}>
 						<Text style={[styles.watchedTitle, styles.watchedText]} numberOfLines={1}>
@@ -167,10 +167,10 @@ export default memo(function ShowCard({
 			persistAfterSwipe
 		>
 			<TouchableOpacity style={styles.container} onPress={handlePress} activeOpacity={0.8}>
-				<Image
-					source={{ uri: `${posterSize.small}${item.posterPath}` }}
+				<PosterImage
+					posterPath={item.posterPath}
+					mediaType={item.mediaType}
 					style={styles.poster}
-					contentFit="cover"
 				/>
 				<View style={styles.info}>
 					<TouchableOpacity
