@@ -269,16 +269,9 @@ export async function markEpisodeWatched(
 
 		if (!skipTrackingUpdate) {
 			const now = Timestamp.now();
-			let effectivePriority: typeof now = now;
-			if (nextEpisode && nextEpisodeAirDate) {
-				const airDateMs = new Date(nextEpisodeAirDate).getTime();
-				if (airDateMs > now.toMillis()) {
-					effectivePriority = Timestamp.fromMillis(airDateMs);
-				}
-			}
 			const trackingUpdate: Record<string, unknown> = {
 				lastWatchedAt: now,
-				priorityDate: effectivePriority,
+				priorityDate: now,
 				nextEpisode,
 				nextEpisodeName,
 				nextEpisodeAirDate: nextEpisodeAirDate ?? null,

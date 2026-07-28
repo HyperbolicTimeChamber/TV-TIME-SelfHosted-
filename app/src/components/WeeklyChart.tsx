@@ -1,13 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import Svg, {
-	Defs,
-	LinearGradient,
-	RadialGradient,
-	Stop,
-	Rect,
-	Ellipse,
-} from "react-native-svg";
+import Svg, { Defs, LinearGradient, RadialGradient, Stop, Rect, Ellipse } from "react-native-svg";
 import { colors, spacing, typography } from "../theme";
 
 interface DayData {
@@ -87,10 +80,14 @@ export default function WeeklyChart({ data }: Readonly<Props>) {
 	const maxEp = Math.max(0, ...data.map((d) => d.episodes));
 	const maxMov = Math.max(0, ...data.map((d) => d.movies));
 	const maxVal = Math.max(1, maxEp, maxMov);
+	const hasData = data.some((d) => d.episodes > 0 || d.movies > 0);
 
 	return (
 		<View style={styles.container}>
 			<Text style={styles.title}>Watch Statistics</Text>
+			{!hasData && (
+				<Text style={styles.emptyText}>Your Weekly Watch Data will appear here Shortly</Text>
+			)}
 			<View style={styles.chartRow}>
 				{data.map((day) => {
 					const epH = (day.episodes / maxVal) * CHART_HEIGHT;
@@ -111,7 +108,13 @@ export default function WeeklyChart({ data }: Readonly<Props>) {
 											<Stop offset="0.8" stopColor={colors.primary} stopOpacity="0.95" />
 											<Stop offset="1" stopColor={colors.primary} stopOpacity="1" />
 										</LinearGradient>
-										<RadialGradient id={`ep_${day.label}_radial`} cx="50%" cy="30%" rx="50%" ry="50%">
+										<RadialGradient
+											id={`ep_${day.label}_radial`}
+											cx="50%"
+											cy="30%"
+											rx="50%"
+											ry="50%"
+										>
 											<Stop offset="0" stopColor={colors.primary} stopOpacity="0.5" />
 											<Stop offset="1" stopColor={colors.primary} stopOpacity="0" />
 										</RadialGradient>
@@ -121,7 +124,13 @@ export default function WeeklyChart({ data }: Readonly<Props>) {
 											<Stop offset="0.8" stopColor={colors.moviePurple} stopOpacity="0.95" />
 											<Stop offset="1" stopColor={colors.moviePurple} stopOpacity="1" />
 										</LinearGradient>
-										<RadialGradient id={`mov_${day.label}_radial`} cx="50%" cy="30%" rx="50%" ry="50%">
+										<RadialGradient
+											id={`mov_${day.label}_radial`}
+											cx="50%"
+											cy="30%"
+											rx="50%"
+											ry="50%"
+										>
 											<Stop offset="0" stopColor={colors.moviePurple} stopOpacity="0.5" />
 											<Stop offset="1" stopColor={colors.moviePurple} stopOpacity="0" />
 										</RadialGradient>
@@ -129,16 +138,36 @@ export default function WeeklyChart({ data }: Readonly<Props>) {
 
 									{/* Back bar */}
 									{epBehind ? (
-										<GlowBar id={`ep_${day.label}`} color={colors.primary} height={epH} chartH={CHART_HEIGHT} />
+										<GlowBar
+											id={`ep_${day.label}`}
+											color={colors.primary}
+											height={epH}
+											chartH={CHART_HEIGHT}
+										/>
 									) : (
-										<GlowBar id={`mov_${day.label}`} color={colors.moviePurple} height={movH} chartH={CHART_HEIGHT} />
+										<GlowBar
+											id={`mov_${day.label}`}
+											color={colors.moviePurple}
+											height={movH}
+											chartH={CHART_HEIGHT}
+										/>
 									)}
 
 									{/* Front bar */}
 									{epBehind ? (
-										<GlowBar id={`mov_${day.label}`} color={colors.moviePurple} height={movH} chartH={CHART_HEIGHT} />
+										<GlowBar
+											id={`mov_${day.label}`}
+											color={colors.moviePurple}
+											height={movH}
+											chartH={CHART_HEIGHT}
+										/>
 									) : (
-										<GlowBar id={`ep_${day.label}`} color={colors.primary} height={epH} chartH={CHART_HEIGHT} />
+										<GlowBar
+											id={`ep_${day.label}`}
+											color={colors.primary}
+											height={epH}
+											chartH={CHART_HEIGHT}
+										/>
 									)}
 
 									{total === 0 && (
@@ -183,7 +212,8 @@ export default function WeeklyChart({ data }: Readonly<Props>) {
 											styles.countLabel,
 											{
 												position: "absolute",
-												bottom: GLOW_HEIGHT + movH + (Math.abs(movH - epH) < 16 && epH > 0 ? 20 : 6),
+												bottom:
+													GLOW_HEIGHT + movH + (Math.abs(movH - epH) < 16 && epH > 0 ? 20 : 6),
 												left: 0,
 												width: SVG_W,
 											},
@@ -237,6 +267,11 @@ const styles = StyleSheet.create({
 		height: TOTAL_HEIGHT,
 		width: SVG_W,
 		justifyContent: "flex-end",
+	},
+	emptyText: {
+		...typography.caption,
+		textAlign: "center",
+		marginBottom: spacing.md,
 	},
 	dayLabel: {
 		...typography.caption,
