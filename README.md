@@ -2,6 +2,22 @@
 
 A self-hosted TV Time clone for tracking TV shows and movies. Built with React Native (Expo) and Firebase — your data stays on your own Firebase project.
 
+## Install
+
+### Android
+Download from [Google Play Store](https://play.google.com/store/apps/details?id=com.tvtimerevived.app) or grab the APK from [Releases](https://github.com/HyperbolicTimeChamber/TV-TIME-SelfHosted-/releases).
+
+### iOS (via AltStore)
+1. Install [AltStore](https://altstore.io) on your iPhone (requires [AltServer](https://altstore.io) on a Mac or PC)
+2. Open AltStore → Sources → Add Source
+3. Paste this URL:
+   ```
+   https://raw.githubusercontent.com/HyperbolicTimeChamber/TV-TIME-SelfHosted-/main/altstore-source.json
+   ```
+4. Find **Watchloom** and tap Install
+
+> Free Apple ID apps refresh every 7 days — AltStore handles this automatically when AltServer is running.
+
 ## Features
 
 - **Show & Movie Tracking** — Add shows to your watchlist, mark episodes as watched with swipe gestures or tap

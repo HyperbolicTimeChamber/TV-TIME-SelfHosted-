@@ -28,14 +28,33 @@ function shouldHideTabBar(route: any): boolean {
 	return false;
 }
 
+const navTheme = {
+	dark: true,
+	colors: {
+		primary: colors.primary,
+		background: colors.background,
+		card: colors.surface,
+		text: colors.text,
+		border: colors.border,
+		notification: colors.primary,
+	},
+	fonts: {
+		regular: { fontFamily: "System", fontWeight: "400" as const },
+		medium: { fontFamily: "System", fontWeight: "500" as const },
+		bold: { fontFamily: "System", fontWeight: "700" as const },
+		heavy: { fontFamily: "System", fontWeight: "900" as const },
+	},
+};
+
 export default function AppNavigator() {
 	const navRef = useRef<NavigationContainerRef<MainTabParamList>>(null);
 
 	return (
-		<NavigationContainer ref={navRef}>
+		<NavigationContainer ref={navRef} theme={navTheme}>
 			<Tab.Navigator
 				screenOptions={({ route }) => ({
 					headerShown: false,
+					sceneStyle: { backgroundColor: colors.background },
 					tabBarStyle: shouldHideTabBar(route)
 						? { display: "none" as const }
 						: {

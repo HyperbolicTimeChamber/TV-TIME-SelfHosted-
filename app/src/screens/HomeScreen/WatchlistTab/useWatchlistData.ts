@@ -21,6 +21,7 @@ import { emitShowCompleted } from "../../../utils/watchlistEvents";
 import {
 	MediaType,
 	CacheKey,
+	QueryKey,
 	WatchStatus,
 	WatchedEpisode,
 	WatchedMovie,
@@ -590,14 +591,25 @@ export function useWatchlistData(userId: string | undefined) {
 				setUpdatingShows((prev) => new Map(prev).set(item.tmdbId, MediaType.MOVIE));
 				try {
 					await markMovieWatched(userId, item.tmdbId, card.nextEpisodeRuntime ?? 0);
-				} finally {
+				} catch (err: any) {
+					// Clear on failure so movie reappears in What's Up Next
 					setUpdatingShows((prev) => {
 						const next = new Map(prev);
 						next.delete(item.tmdbId);
 						return next;
 					});
+					console.error("markMovieWatched failed:", err);
+					Alert.alert("Error", err.message || "Failed to mark as watched.");
+					return;
 				}
-				// Post-success: insert into query cache directly (no refetch)
+				// Keep updatingShows entry — spinner stays on card until listener
+				// confirms status → COMPLETED (useEffect below clears it).
+				// Cancel in-flight fetch only if data already loaded (avoids hiding
+				// pre-existing movies). If still loading, the fetch will include our
+				// movie since the batch already committed to Firestore.
+				if (queryClient.getQueryData([QueryKey.WATCHED_MOVIES, userId])) {
+					queryClient.cancelQueries({ queryKey: [QueryKey.WATCHED_MOVIES, userId] });
+				}
 				const movieNow = Timestamp.now();
 				insertWatchedMovieCache(queryClient, userId, {
 					id: `${item.tmdbId}_watched`,
@@ -683,6 +695,9 @@ export function useWatchlistData(userId: string | undefined) {
 				// Spinner cleared by useEffect when listener confirms nextEpisode changed
 
 				// Post-success: insert into query cache directly (no refetch)
+				if (queryClient.getQueryData([QueryKey.WATCHED_EPISODES, userId, undefined])) {
+					queryClient.cancelQueries({ queryKey: [QueryKey.WATCHED_EPISODES, userId, undefined] });
+				}
 				const epNow = Timestamp.now();
 				insertWatchedEpisodeCache(queryClient, userId, {
 					id: `${item.tmdbId}_S${String(currentEp.season).padStart(2, "0")}E${String(currentEp.episode).padStart(2, "0")}`,

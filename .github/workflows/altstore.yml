@@ -1,0 +1,180 @@
+name: Build iOS & Publish to AltStore
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: altstore-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-ios:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    steps:
+      # ── Checkout ──
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      # ── Node Setup ──
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: app
+
+      # ── Google Services (iOS) ──
+      - name: Decode GoogleService-Info.plist
+        run: printenv GOOGLE_SERVICES_INFO_PLIST > app/GoogleService-Info.plist
+        env:
+          GOOGLE_SERVICES_INFO_PLIST: ${{ secrets.GOOGLE_SERVICES_INFO_PLIST }}
+
+      # ── Expo Prebuild ──
+      - name: Expo prebuild (iOS)
+        run: npx expo prebuild --platform ios --clean
+        working-directory: app
+
+      # ── Select Xcode ──
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+
+      # ── CocoaPods Cache ──
+      - name: Cache CocoaPods
+        uses: actions/cache@v5
+        with:
+          path: app/ios/Pods
+          key: pods-${{ runner.os }}-${{ hashFiles('app/ios/Podfile.lock') }}
+          restore-keys: pods-${{ runner.os }}-
+
+      - name: Install CocoaPods
+        run: pod install
+        working-directory: app/ios
+
+      # ── Build unsigned IPA ──
+      - name: Build unsigned IPA
+        run: |
+          SCHEME="Watchloom"
+          ARCHIVE_PATH="$RUNNER_TEMP/Watchloom.xcarchive"
+          IPA_DIR="$RUNNER_TEMP/ipa"
+
+          xcodebuild archive \
+            -workspace ios/Watchloom.xcworkspace \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -archivePath "$ARCHIVE_PATH" \
+            -destination "generic/platform=iOS" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            | xcbeautify || true
+
+          # Package .app into .ipa manually (no signing needed for AltStore)
+          mkdir -p "$IPA_DIR/Payload"
+          cp -r "$ARCHIVE_PATH/Products/Applications/Watchloom.app" "$IPA_DIR/Payload/"
+          cd "$IPA_DIR"
+          zip -r "$RUNNER_TEMP/Watchloom.ipa" Payload
+          echo "IPA built at $RUNNER_TEMP/Watchloom.ipa"
+          ls -lh "$RUNNER_TEMP/Watchloom.ipa"
+        working-directory: app
+
+      # ── Extract version info ──
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(node -e "console.log(require('./app/app.json').expo.version)")
+          BUILD=$(node -e "console.log(require('./app/app.json').expo.ios.buildNumber)")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          echo "tag=ios-v${VERSION}-${BUILD}" >> "$GITHUB_OUTPUT"
+
+      # ── Upload IPA to GitHub Release ──
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "iOS v${{ steps.version.outputs.version }} (${{ steps.version.outputs.build }})"
+          body: |
+            iOS build for AltStore sideloading.
+
+            **Install via AltStore:**
+            1. Install [AltStore](https://altstore.io) on your iPhone
+            2. Add source: `https://raw.githubusercontent.com/${{ github.repository }}/main/altstore-source.json`
+            3. Find "Watchloom" and tap Install
+
+            **Or manual install:**
+            1. Download `Watchloom.ipa` below
+            2. Open in AltStore or sideload with AltServer
+          files: ${{ runner.temp }}/Watchloom.ipa
+          draft: false
+          prerelease: false
+
+      # ── Update AltStore source JSON ──
+      - name: Update AltStore source
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BUILD="${{ steps.version.outputs.build }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          REPO="${{ github.repository }}"
+          DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          IPA_SIZE=$(stat -f%z "$RUNNER_TEMP/Watchloom.ipa" 2>/dev/null || stat -c%s "$RUNNER_TEMP/Watchloom.ipa")
+          DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG}/Watchloom.ipa"
+          COMMIT_MSG=$(git log -1 --pretty=format:"%s")
+
+          cat > altstore-source.json << ALTEOF
+          {
+            "name": "Watchloom",
+            "identifier": "com.tvtimerevived.altstore",
+            "subtitle": "Track What You Watch",
+            "description": "Self-hosted TV Time alternative. Track TV shows and movies.",
+            "iconURL": "https://raw.githubusercontent.com/${REPO}/main/app/assets/icon.png",
+            "headerURL": "https://raw.githubusercontent.com/${REPO}/main/app/assets/icon.png",
+            "website": "https://github.com/${REPO}",
+            "apps": [
+              {
+                "name": "Watchloom",
+                "bundleIdentifier": "com.tvtimerevived.app",
+                "developerName": "Watchloom",
+                "subtitle": "Track What You Watch",
+                "localizedDescription": "Self-hosted TV Time alternative. Track your TV shows and movies with a beautiful, privacy-focused app.",
+                "iconURL": "https://raw.githubusercontent.com/${REPO}/main/app/assets/icon.png",
+                "tintColor": "E50914",
+                "category": "entertainment",
+                "screenshots": [],
+                "versions": [
+                  {
+                    "version": "${VERSION}",
+                    "buildVersion": "${BUILD}",
+                    "date": "${DATE}",
+                    "localizedDescription": "${COMMIT_MSG}",
+                    "downloadURL": "${DOWNLOAD_URL}",
+                    "size": ${IPA_SIZE},
+                    "minOSVersion": "16.0"
+                  }
+                ]
+              }
+            ],
+            "news": []
+          }
+          ALTEOF
+
+      - name: Commit AltStore source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add altstore-source.json
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: update altstore source v${{ steps.version.outputs.version }} [skip ci]"
+          git push

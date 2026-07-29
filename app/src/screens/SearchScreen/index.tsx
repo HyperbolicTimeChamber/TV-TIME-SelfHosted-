@@ -77,6 +77,7 @@ export default function SearchScreen() {
 	const contentPaddingTop = useRef(new Animated.Value(0)).current;
 	const lastScrollY = useRef(0);
 	const headerVisible = useRef(true);
+	const animating = useRef(false);
 
 	const onHeaderLayout = useCallback(
 		(e: any) => {
@@ -92,9 +93,11 @@ export default function SearchScreen() {
 			const dy = y - lastScrollY.current;
 			lastScrollY.current = y;
 			const h = headerHeight.current;
+			if (animating.current) return;
 
-			if (dy > 5 && headerVisible.current && y > 50) {
+			if (dy > 10 && headerVisible.current && y > 50) {
 				headerVisible.current = false;
+				animating.current = true;
 				Animated.parallel([
 					Animated.timing(headerTranslateY, {
 						toValue: -h,
@@ -106,9 +109,12 @@ export default function SearchScreen() {
 						duration: 200,
 						useNativeDriver: false,
 					}),
-				]).start();
-			} else if (dy < -5 && !headerVisible.current) {
+				]).start(() => {
+					animating.current = false;
+				});
+			} else if (dy < -10 && !headerVisible.current) {
 				headerVisible.current = true;
+				animating.current = true;
 				Animated.parallel([
 					Animated.timing(headerTranslateY, {
 						toValue: 0,
@@ -120,7 +126,9 @@ export default function SearchScreen() {
 						duration: 200,
 						useNativeDriver: false,
 					}),
-				]).start();
+				]).start(() => {
+					animating.current = false;
+				});
 			}
 		},
 		[headerTranslateY, contentPaddingTop],
