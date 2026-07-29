@@ -2,7 +2,7 @@ name: Build iOS & Publish to AltStore
 
 on:
   push:
-    branches: [main]
+    branches: [development]
 
 concurrency:
   group: altstore-${{ github.ref }}
