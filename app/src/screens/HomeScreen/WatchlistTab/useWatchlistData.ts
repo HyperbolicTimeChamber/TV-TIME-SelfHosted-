@@ -604,8 +604,12 @@ export function useWatchlistData(userId: string | undefined) {
 				}
 				// Keep updatingShows entry — spinner stays on card until listener
 				// confirms status → COMPLETED (useEffect below clears it).
-				// Cancel in-flight fetch to prevent it from overwriting our cache insert
-				queryClient.cancelQueries({ queryKey: [QueryKey.WATCHED_MOVIES, userId] });
+				// Cancel in-flight fetch only if data already loaded (avoids hiding
+				// pre-existing movies). If still loading, the fetch will include our
+				// movie since the batch already committed to Firestore.
+				if (queryClient.getQueryData([QueryKey.WATCHED_MOVIES, userId])) {
+					queryClient.cancelQueries({ queryKey: [QueryKey.WATCHED_MOVIES, userId] });
+				}
 				const movieNow = Timestamp.now();
 				insertWatchedMovieCache(queryClient, userId, {
 					id: `${item.tmdbId}_watched`,
@@ -691,8 +695,9 @@ export function useWatchlistData(userId: string | undefined) {
 				// Spinner cleared by useEffect when listener confirms nextEpisode changed
 
 				// Post-success: insert into query cache directly (no refetch)
-				// Cancel in-flight fetch to prevent it from overwriting our cache insert
-				queryClient.cancelQueries({ queryKey: [QueryKey.WATCHED_EPISODES, userId, undefined] });
+				if (queryClient.getQueryData([QueryKey.WATCHED_EPISODES, userId, undefined])) {
+					queryClient.cancelQueries({ queryKey: [QueryKey.WATCHED_EPISODES, userId, undefined] });
+				}
 				const epNow = Timestamp.now();
 				insertWatchedEpisodeCache(queryClient, userId, {
 					id: `${item.tmdbId}_S${String(currentEp.season).padStart(2, "0")}E${String(currentEp.episode).padStart(2, "0")}`,

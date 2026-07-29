@@ -80,7 +80,11 @@ export const importMatches = onCall(
     const catalogMap = new Map<number, CatalogShow>();
     const showIds = matches.map((m) => showDocId(m.tmdbId, m.mediaType));
     const showRefs = showIds.map((id) => db.doc(`shows/${id}`));
-    const existingDocs = await db.getAll(...showRefs);
+    const existingDocs: FirebaseFirestore.DocumentSnapshot[] = [];
+    for (let i = 0; i < showRefs.length; i += 500) {
+      const chunk = await db.getAll(...showRefs.slice(i, i + 500));
+      existingDocs.push(...chunk);
+    }
 
     const existingCatalog = new Map<string, CatalogShow>();
     for (let i = 0; i < existingDocs.length; i++) {

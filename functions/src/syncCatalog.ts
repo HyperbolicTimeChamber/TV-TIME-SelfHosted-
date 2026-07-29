@@ -142,11 +142,12 @@ export const syncCatalog = onSchedule(
     console.log(`Skipped ${skippedEnded} ended/canceled shows`);
 
     // Batch write all catalog updates (500 per batch max)
+    // Use set+merge instead of update — safe if doc was deleted mid-sync
     for (let i = 0; i < pendingWrites.length; i += 500) {
       const writeBatch = db.batch();
       const chunk = pendingWrites.slice(i, i + 500);
       for (const { ref, data } of chunk) {
-        writeBatch.update(ref, data);
+        writeBatch.set(ref, data, { merge: true });
       }
       await writeBatch.commit();
     }
@@ -225,12 +226,12 @@ export const syncCatalog = onSchedule(
           });
         }
 
-        // Batch write all reactivations
+        // Batch write all reactivations (set+merge: safe if tracking doc deleted)
         for (let i = 0; i < reactivationWrites.length; i += 500) {
           const writeBatch = db.batch();
           const chunk = reactivationWrites.slice(i, i + 500);
           for (const { ref, data } of chunk) {
-            writeBatch.update(ref, data);
+            writeBatch.set(ref, data, { merge: true });
           }
           await writeBatch.commit();
         }
