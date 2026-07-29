@@ -1,5 +1,5 @@
 import axios from "axios";
-import { MediaType } from "../shared/enums";
+import { MediaType, TMDB_BASE } from "../shared/enums";
 import { CatalogShow, CatalogSeason, TMDBSeasonDetail, TMDBShowDetail } from "../shared/types";
 
 export { CatalogShow, CatalogSeason };
@@ -9,8 +9,6 @@ export type {
 	TMDBSeasonDetail,
 	TMDBShowDetail,
 } from "../shared/types";
-
-const TMDB_BASE = "https://api.themoviedb.org/3";
 
 export async function pooled<T>(tasks: (() => Promise<T>)[], concurrency = 5): Promise<T[]> {
 	const results: T[] = [];

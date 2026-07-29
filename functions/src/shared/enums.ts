@@ -18,3 +18,16 @@ export enum ShowStatus {
 }
 
 export const ENDED_STATUSES: string[] = [ShowStatus.ENDED, ShowStatus.CANCELED];
+
+export const TMDB_BASE = "https://api.themoviedb.org/3";
+
+export enum TmdbProxyAction {
+	SEARCH = "search",
+	SUGGESTIONS = "suggestions",
+	TRENDING = "trending",
+	SHOW_DETAILS = "showDetails",
+	SEASON_DETAILS = "seasonDetails",
+	DISCOVER_TV = "discoverTV",
+	DISCOVER_MOVIES = "discoverMovies",
+	FIND_BY_TVDB_ID = "findByTvdbId",
+}
