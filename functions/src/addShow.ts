@@ -12,6 +12,20 @@ interface AddShowRequest {
   mediaType: MediaType;
 }
 
+// Cache API key in module scope — survives across invocations on same instance
+let cachedApiKey: string | null = null;
+
+async function getTmdbApiKey(): Promise<string> {
+  if (cachedApiKey) return cachedApiKey;
+  const configDoc = await getFirestore().doc("config/app").get();
+  const key = configDoc.data()?.tmdbApiKey;
+  if (!key) {
+    throw new HttpsError("failed-precondition", "TMDB API key not configured");
+  }
+  cachedApiKey = key;
+  return key;
+}
+
 export const addShow = onCall(
   {
     maxInstances: 5,
@@ -50,20 +64,14 @@ export const addShow = onCall(
     }
 
     // Slow path: fetch from TMDB and create catalog doc
-    const configDoc = await db.doc("config/app").get();
-    const apiKey = configDoc.data()?.tmdbApiKey;
-    if (!apiKey) {
-      throw new HttpsError(
-        "failed-precondition",
-        "TMDB API key not configured",
-      );
-    }
+    const apiKey = await getTmdbApiKey();
     let showData: CatalogShow;
     try {
       showData = await fetchShowFromTMDB(apiKey, tmdbId, mediaType);
     } catch (err: any) {
       const status = err?.response?.status;
       if (status === 401) {
+        cachedApiKey = null; // Invalidate stale key
         throw new HttpsError("failed-precondition", "TMDB API key is invalid");
       }
       if (status === 404) {
@@ -76,6 +84,7 @@ export const addShow = onCall(
     }
 
     // Atomically check-then-create (handles race if two users add simultaneously)
+    let created = false;
     await db.runTransaction(async (tx) => {
       const showDoc = await tx.get(showRef);
 
@@ -89,12 +98,11 @@ export const addShow = onCall(
         trackedByCount: 1,
         lastSyncedAt: FieldValue.serverTimestamp(),
       });
+      created = true;
     });
 
-    // If doc existed from race, still add to trackedBy
-    const afterDoc = await showRef.get();
-    const data = afterDoc.data();
-    if (data && !(data.trackedBy || []).includes(uid)) {
+    // Only need addToTrackedBy if we lost the race (another call created the doc)
+    if (!created) {
       await addToTrackedBy(showId, uid);
     }
 
