@@ -69,7 +69,7 @@ async function registerFCMToken(userId: string) {
 
 function AppContent() {
 	useForceUpdate();
-	const { user, loading, appTmdbApiKey, appTmdbApiKeyLoading, userFlagsLoading, hasCompletedImport } =
+	const { user, loading, userFlagsLoading, hasCompletedImport } =
 		useAuthStore();
 
 	// Listen for background add failures (CF rollback)
@@ -94,7 +94,7 @@ function AppContent() {
 		return <LoginScreen />;
 	}
 
-	if (appTmdbApiKeyLoading || userFlagsLoading) {
+	if (userFlagsLoading) {
 		return (
 			<View style={styles.loading}>
 				<LoadingSpinner />

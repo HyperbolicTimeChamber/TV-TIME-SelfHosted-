@@ -14,7 +14,6 @@ interface Props {
 	totalAmbiguous: number;
 	candidates: TMDBMatch[];
 	loadingMore: boolean;
-	apiKey: string;
 	onSelect: (match: TMDBMatch) => void;
 	onSkip: () => void;
 	onBack: () => void;
@@ -28,7 +27,6 @@ export default function DisambiguatePhase({
 	totalAmbiguous,
 	candidates,
 	loadingMore,
-	apiKey,
 	onSelect,
 	onSkip,
 	onBack,
@@ -85,7 +83,7 @@ export default function DisambiguatePhase({
 				data={candidates}
 				keyExtractor={(item) => String(item.tmdbId)}
 				renderItem={({ item }) => (
-					<CandidateCard item={item} apiKey={apiKey} onPress={() => onSelect(item)} />
+					<CandidateCard item={item} onPress={() => onSelect(item)} />
 				)}
 				onEndReached={onLoadMore}
 				onEndReachedThreshold={0.5}

@@ -4,7 +4,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useAuthStore } from "../../stores";
 import { searchSuggestions } from "../../services";
 import { colors, spacing, typography } from "../../theme";
 import { SearchStackParamList, Route } from "../../types";
@@ -22,7 +21,6 @@ export default function SearchInputScreen() {
 	const [query, setQuery] = useState(route.params?.currentQuery || "");
 	const [searchHistory, setSearchHistory] = useState<string[]>([]);
 	const [tmdbSuggestions, setTmdbSuggestions] = useState<string[]>([]);
-	const apiKey = useAuthStore((s) => s.appTmdbApiKey);
 
 	useEffect(() => {
 		AsyncStorage.getItem(HISTORY_KEY).then((raw) => {
@@ -43,17 +41,17 @@ export default function SearchInputScreen() {
 	// Debounced TMDB suggestions
 	useEffect(() => {
 		const trimmed = query.trim();
-		if (trimmed.length < 2 || !apiKey) {
+		if (trimmed.length < 2) {
 			setTmdbSuggestions([]);
 			return;
 		}
 		const timer = setTimeout(() => {
-			searchSuggestions(apiKey, trimmed)
+			searchSuggestions(trimmed)
 				.then(setTmdbSuggestions)
 				.catch(() => setTmdbSuggestions([]));
 		}, 200);
 		return () => clearTimeout(timer);
-	}, [query, apiKey]);
+	}, [query]);
 
 	const addToHistory = useCallback((term: string) => {
 		const trimmed = term.trim().toLowerCase();

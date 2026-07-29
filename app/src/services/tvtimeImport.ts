@@ -1,7 +1,7 @@
 import JSZip from "jszip";
 import Papa from "papaparse";
 import { File } from "expo-file-system";
-import axios from "axios";
+import { searchMulti, findByTvdbId as proxyFindByTvdbId } from "./tmdb";
 
 // --- Parsed types ---
 
@@ -166,7 +166,7 @@ export interface MatchResult {
 	unmatched: string[];
 }
 
-const TMDB_BASE = "https://api.themoviedb.org/3";
+
 const BATCH_SIZE = 50;
 const BATCH_DELAY_MS = 1000;
 
@@ -192,15 +192,12 @@ function mapTMDBResults(results: any[], name: string, mediaType: "tv" | "movie")
 }
 
 async function findByTvdbId(
-	apiKey: string,
 	tvdbId: number,
 	name: string,
 ): Promise<TMDBMatch | null> {
 	try {
-		const res = await axios.get(`${TMDB_BASE}/find/${tvdbId}`, {
-			params: { api_key: apiKey, external_source: "tvdb_id" },
-		});
-		const tvResults = res.data.tv_results || [];
+		const res = await proxyFindByTvdbId(tvdbId);
+		const tvResults = res.tvResults || [];
 		if (tvResults.length > 0) {
 			const r = tvResults[0];
 			return {
@@ -217,59 +214,41 @@ async function findByTvdbId(
 			};
 		}
 		return null;
-	} catch (err: any) {
-		if (err?.response?.status === 429) {
-			const retryAfter = parseInt(err.response.headers["retry-after"] || "10", 10);
-			await delay(retryAfter * 1000);
-			return findByTvdbId(apiKey, tvdbId, name);
-		}
+	} catch {
 		return null;
 	}
 }
 
 async function searchTMDB(
-	apiKey: string,
 	name: string,
 	mediaType: "tv" | "movie",
 ): Promise<TMDBMatch[]> {
 	try {
-		const endpoint = `${TMDB_BASE}/search/${mediaType}`;
-		const res = await axios.get(endpoint, {
-			params: { api_key: apiKey, query: name, page: 1 },
-		});
-		const results = (res.data.results || []).map((r: any) => ({
+		const res = await searchMulti(name, 1, mediaType);
+		const results = (res.results || []).map((r: any) => ({
 			...r,
 			media_type: mediaType,
 		}));
 		return mapTMDBResults(results, name, mediaType);
-	} catch (err: any) {
-		if (err?.response?.status === 429) {
-			const retryAfter = parseInt(err.response.headers["retry-after"] || "10", 10);
-			await delay(retryAfter * 1000);
-			return searchTMDB(apiKey, name, mediaType);
-		}
+	} catch {
 		return [];
 	}
 }
 
 export async function searchTMDBPage(
-	apiKey: string,
 	name: string,
 	mediaType: "tv" | "movie",
 	page: number,
 ): Promise<{ results: TMDBMatch[]; totalPages: number }> {
 	try {
-		const endpoint = `${TMDB_BASE}/search/${mediaType}`;
-		const res = await axios.get(endpoint, {
-			params: { api_key: apiKey, query: name, page },
-		});
-		const results = (res.data.results || []).map((r: any) => ({
+		const res = await searchMulti(name, page, mediaType);
+		const results = (res.results || []).map((r: any) => ({
 			...r,
 			media_type: mediaType,
 		}));
 		return {
 			results: mapTMDBResults(results, name, mediaType),
-			totalPages: res.data.total_pages || 1,
+			totalPages: res.totalPages || 1,
 		};
 	} catch {
 		return { results: [], totalPages: 1 };
@@ -282,7 +261,6 @@ interface MatchItem {
 }
 
 export async function matchShowsAndMovies(
-	apiKey: string,
 	shows: ParsedShow[],
 	movies: ParsedMovie[],
 	onProgress: (done: number, total: number) => void,
@@ -316,11 +294,11 @@ export async function matchShowsAndMovies(
 			batch.map(async (item) => {
 				// TV shows: try exact TVDB ID match first
 				if (item.mediaType === "tv" && item.tvTimeId) {
-					const tvdbMatch = await findByTvdbId(apiKey, item.tvTimeId, item.name);
+					const tvdbMatch = await findByTvdbId(item.tvTimeId, item.name);
 					if (tvdbMatch) return { exact: tvdbMatch };
 				}
 				// Fallback: name search
-				const candidates = await searchTMDB(apiKey, item.name, item.mediaType);
+				const candidates = await searchTMDB(item.name, item.mediaType);
 				return { candidates };
 			}),
 		);

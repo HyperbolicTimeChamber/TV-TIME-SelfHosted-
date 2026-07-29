@@ -33,7 +33,6 @@ type Phase = "pick" | "matching" | "disambiguate" | "review" | "importing";
 export default function ImportDataScreen({ navigation }: any) {
 	const insets = useSafeAreaInsets();
 	const user = useAuthStore((s) => s.user);
-	const tmdbApiKey = useAuthStore((s) => s.appTmdbApiKey);
 
 	useEffect(() => {
 		warmupImportCFs();
@@ -116,10 +115,9 @@ export default function ImportDataScreen({ navigation }: any) {
 
 			setStatusText("Importing from TV Time...");
 			const matchResult = await matchShowsAndMovies(
-				tmdbApiKey!,
 				parsed.shows,
 				parsed.movies,
-				(done, total) => setProgress({ done, total }),
+				(done: number, total: number) => setProgress({ done, total }),
 			);
 
 			setMatched(matchResult.matched);
@@ -137,7 +135,7 @@ export default function ImportDataScreen({ navigation }: any) {
 			Alert.alert("Import Error", err.message || "Failed to parse zip file.");
 			setPhase("pick");
 		}
-	}, [tmdbApiKey, user, buildSelection]);
+	}, [user, buildSelection]);
 
 	// --- Sync candidates when disambig index changes ---
 	useEffect(() => {
@@ -150,12 +148,11 @@ export default function ImportDataScreen({ navigation }: any) {
 
 	const loadMoreCandidates = useCallback(async () => {
 		if (loadingMore || disambigPageRef.current >= disambigTotalPagesRef.current) return;
-		if (!tmdbApiKey || disambigIndex >= ambiguous.length) return;
+		if (disambigIndex >= ambiguous.length) return;
 		setLoadingMore(true);
 		const current = ambiguous[disambigIndex];
 		const nextPage = disambigPageRef.current + 1;
 		const { results, totalPages } = await searchTMDBPage(
-			tmdbApiKey,
 			current.tvTimeName,
 			current.mediaType,
 			nextPage,
@@ -169,7 +166,7 @@ export default function ImportDataScreen({ navigation }: any) {
 			});
 		}
 		setLoadingMore(false);
-	}, [loadingMore, tmdbApiKey, disambigIndex, ambiguous]);
+	}, [loadingMore, disambigIndex, ambiguous]);
 
 	// --- Disambiguation handlers ---
 	const finishDisambig = useCallback(
@@ -365,7 +362,6 @@ export default function ImportDataScreen({ navigation }: any) {
 				totalAmbiguous={ambiguous.length}
 				candidates={disambigCandidates}
 				loadingMore={loadingMore}
-				apiKey={tmdbApiKey!}
 				onSelect={handleDisambiguate}
 				onSkip={handleSkipDisambig}
 				onBack={handleBackDisambig}

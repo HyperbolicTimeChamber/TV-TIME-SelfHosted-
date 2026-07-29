@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { getSeasonDetails, getCatalogShow } from "../services";
-import { useAuthStore } from "../stores";
 import { TMDBEpisode, QueryKey, MediaType } from "../types";
 
 export function useSeasonDetails(
@@ -36,9 +35,7 @@ export function useSeasonDetails(
 				}
 			}
 
-			const apiKey = useAuthStore.getState().appTmdbApiKey;
-			if (!apiKey) throw new Error("No TMDB API key available");
-			const data = await getSeasonDetails(apiKey, tmdbId, seasonNumber);
+			const data = await getSeasonDetails(tmdbId, seasonNumber);
 			return { ...data, fromCatalog: false };
 		},
 		staleTime: 24 * 60 * 60 * 1000,
@@ -49,9 +46,7 @@ export function useSeasonDetails(
 		queryKey: [QueryKey.SEASON_IMAGES, tmdbId, seasonNumber],
 		enabled: fetchImages,
 		queryFn: async () => {
-			const apiKey = useAuthStore.getState().appTmdbApiKey;
-			if (!apiKey) throw new Error("No TMDB API key available");
-			return getSeasonDetails(apiKey, tmdbId, seasonNumber);
+			return getSeasonDetails(tmdbId, seasonNumber);
 		},
 		staleTime: 24 * 60 * 60 * 1000,
 	});

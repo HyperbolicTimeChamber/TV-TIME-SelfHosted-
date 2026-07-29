@@ -9,6 +9,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuthStore } from "../stores";
 import { useCalendarEpisodes } from "../hooks";
 import PosterImage from "../components/PosterImage";
+import { warmupCalendarCFs } from "../services/warmup";
 import { colors, spacing, typography } from "../theme";
 import { UpcomingEpisode, CalendarStackParamList, Route, MediaType } from "../types";
 
@@ -24,6 +25,10 @@ const YEARS = Array.from(
 export default function CalendarScreen() {
 	const user = useAuthStore((s) => s.user);
 	const navigation = useNavigation<NavProp>();
+
+	useEffect(() => {
+		warmupCalendarCFs();
+	}, []);
 	const [selectedDate, setSelectedDate] = useState<string | null>(
 		new Date().toISOString().slice(0, 10),
 	);

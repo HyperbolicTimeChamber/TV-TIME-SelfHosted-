@@ -16,7 +16,6 @@ import {
 } from "@react-native-firebase/firestore";
 import { TrackingItem, CatalogShow, CacheKey, DocChangeType, MediaType } from "../types";
 import { showDocId } from "../utils/docId";
-import { useAuthStore } from "../stores";
 import { getShowDetails, getSeasonDetails } from "../services/tmdb";
 
 const PAGE_SIZE = 50;
@@ -339,14 +338,12 @@ export function useWatchlist(userId: string | undefined) {
 		for (const m of missing) healingRef.current.add(m.tmdbId);
 
 		const timer = setTimeout(async () => {
-			const apiKey = useAuthStore.getState().appTmdbApiKey;
-			if (!apiKey) return;
 			const updates: EnrichedTrackingItem[] = [];
 			for (const item of missing) {
 				const mt = item.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV;
 				const key = showDocId(item.tmdbId, mt);
 				try {
-					const details = await getShowDetails(apiKey, item.tmdbId, mt);
+					const details = await getShowDetails(item.tmdbId, mt);
 					if (!details) continue;
 
 					const genres: string[] =
@@ -363,7 +360,7 @@ export function useWatchlist(userId: string | undefined) {
 								.filter((n: number) => n > 0) ?? [];
 						for (const sn of seasonNumbers) {
 							try {
-								const sd = await getSeasonDetails(apiKey, item.tmdbId, sn);
+								const sd = await getSeasonDetails(item.tmdbId, sn);
 								if (sd?.episodes) {
 									const eps = sd.episodes;
 									seasons.push({

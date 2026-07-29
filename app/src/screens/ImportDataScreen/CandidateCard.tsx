@@ -11,11 +11,10 @@ import { importStyles as styles } from "./styles";
 
 interface Props {
 	item: TMDBMatch;
-	apiKey: string;
 	onPress: () => void;
 }
 
-export default function CandidateCard({ item, apiKey, onPress }: Props) {
+export default function CandidateCard({ item, onPress }: Props) {
 	const [drawerVisible, setDrawerVisible] = useState(false);
 	const [drawerData, setDrawerData] = useState<ShowDrawerData | null>(null);
 	const [drawerLoading, setDrawerLoading] = useState(false);
@@ -25,7 +24,7 @@ export default function CandidateCard({ item, apiKey, onPress }: Props) {
 		if (!drawerData) {
 			setDrawerLoading(true);
 			try {
-				const data = (await getShowDetails(apiKey, item.tmdbId, item.mediaType)) as any;
+				const data = (await getShowDetails(item.tmdbId, item.mediaType)) as any;
 				const seasonCount = data?.number_of_seasons;
 				const episodeCount = data?.number_of_episodes;
 				const runtime = data?.runtime ?? data?.episode_run_time?.[0];

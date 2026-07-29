@@ -1,106 +1,64 @@
-import axios from "axios";
+import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { TMDBShow, TMDBEpisode } from "../types";
+import { CloudFunction } from "../enums";
 
-const TMDB_BASE = "https://api.themoviedb.org/3";
+const proxy = httpsCallable(getFunctions(), CloudFunction.TMDB_PROXY);
 
-function tmdb(apiKey: string) {
-	return axios.create({
-		baseURL: TMDB_BASE,
-		params: { api_key: apiKey },
-	});
+async function call(data: Record<string, unknown>) {
+	const res = await proxy(data);
+	return res.data as Record<string, any>;
+}
+
+/** Warmup the proxy CF (call on screen mount) */
+export function warmupTmdbProxy() {
+	proxy({ warmup: true }).catch(() => {});
 }
 
 export async function searchMulti(
-	apiKey: string,
 	query: string,
 	page: number = 1,
 	mediaType?: "all" | "tv" | "movie",
 ) {
-	const endpoint =
-		mediaType === "tv" ? "/search/tv" : mediaType === "movie" ? "/search/movie" : "/search/multi";
-	const res = await tmdb(apiKey).get(endpoint, {
-		params: { query, page },
-	});
+	const data = await call({ action: "search", query, page, mediaType });
 	return {
-		results: res.data.results as TMDBShow[],
-		page: res.data.page as number,
-		totalPages: res.data.total_pages as number,
-		totalResults: res.data.total_results as number,
+		results: data.results as TMDBShow[],
+		page: data.page as number,
+		totalPages: data.totalPages as number,
+		totalResults: data.totalResults as number,
 	};
 }
 
-export async function getTrending(
-	apiKey: string,
-	mediaType: string = "tv",
-	timeWindow: string = "week",
-) {
-	const res = await tmdb(apiKey).get(`/trending/${mediaType}/${timeWindow}`);
+export async function getTrending(mediaType: string = "tv", timeWindow: string = "week") {
+	const data = await call({ action: "trending", mediaType, timeWindow });
 	return {
-		results: res.data.results as TMDBShow[],
-		page: res.data.page as number,
-		totalPages: res.data.total_pages as number,
+		results: data.results as TMDBShow[],
+		page: data.page as number,
+		totalPages: data.totalPages as number,
 	};
 }
 
-export async function searchSuggestions(apiKey: string, query: string): Promise<string[]> {
-	const res = await tmdb(apiKey).get("/search/multi", {
-		params: { query, page: 1 },
-	});
-	const seen = new Set<string>();
-	const names: string[] = [];
-	for (const item of res.data.results) {
-		const name = (item.name || item.title || "").trim();
-		const lower = name.toLowerCase();
-		if (name && !seen.has(lower)) {
-			seen.add(lower);
-			names.push(name);
-		}
-		if (names.length >= 8) break;
-	}
-	return names;
+export async function searchSuggestions(query: string): Promise<string[]> {
+	const data = await call({ action: "suggestions", query });
+	return data.names as string[];
 }
 
-export async function getShowDetails(apiKey: string, tmdbId: number, mediaType: string = "tv") {
-	const res = await tmdb(apiKey).get(`/${mediaType}/${tmdbId}`, {
-		params: { append_to_response: "credits,similar" },
-	});
-	return res.data as TMDBShow;
+export async function getShowDetails(tmdbId: number, mediaType: string = "tv") {
+	const data = await call({ action: "showDetails", tmdbId, mediaType });
+	return data as unknown as TMDBShow;
 }
 
-export async function getSeasonDetails(apiKey: string, tmdbId: number, seasonNumber: number) {
-	const res = await tmdb(apiKey).get(`/tv/${tmdbId}/season/${seasonNumber}`);
-	return res.data as {
+export async function getSeasonDetails(tmdbId: number, seasonNumber: number) {
+	const data = await call({ action: "seasonDetails", tmdbId, seasonNumber });
+	return data as unknown as {
 		episodes: TMDBEpisode[];
 		name: string;
 		season_number: number;
 	};
 }
 
-export async function discoverTVByAirDate(
-	apiKey: string,
-	startDate: string,
-	endDate: string,
-): Promise<number[]> {
-	const ids: number[] = [];
-	let page = 1;
-	let totalPages = 1;
-
-	while (page <= totalPages && page <= 5) {
-		const res = await tmdb(apiKey).get("/discover/tv", {
-			params: {
-				"air_date.gte": startDate,
-				"air_date.lte": endDate,
-				page,
-			},
-		});
-		for (const show of res.data.results) {
-			ids.push(show.id);
-		}
-		totalPages = res.data.total_pages;
-		page++;
-	}
-
-	return ids;
+export async function discoverTVByAirDate(startDate: string, endDate: string): Promise<number[]> {
+	const data = await call({ action: "discoverTV", startDate, endDate });
+	return data.ids as number[];
 }
 
 export interface DiscoverMovie {
@@ -111,35 +69,19 @@ export interface DiscoverMovie {
 }
 
 export async function discoverMoviesByReleaseDate(
-	apiKey: string,
 	startDate: string,
 	endDate: string,
 ): Promise<DiscoverMovie[]> {
-	const movies: DiscoverMovie[] = [];
-	let page = 1;
-	let totalPages = 1;
+	const data = await call({ action: "discoverMovies", startDate, endDate });
+	return data.movies as DiscoverMovie[];
+}
 
-	while (page <= totalPages && page <= 5) {
-		const res = await tmdb(apiKey).get("/discover/movie", {
-			params: {
-				"primary_release_date.gte": startDate,
-				"primary_release_date.lte": endDate,
-				page,
-			},
-		});
-		for (const m of res.data.results) {
-			movies.push({
-				id: m.id,
-				title: m.title,
-				poster_path: m.poster_path,
-				release_date: m.release_date,
-			});
-		}
-		totalPages = res.data.total_pages;
-		page++;
-	}
-
-	return movies;
+export async function findByTvdbId(tvdbId: number) {
+	const data = await call({ action: "findByTvdbId", tvdbId });
+	return {
+		tvResults: data.tvResults as any[],
+		movieResults: data.movieResults as any[],
+	};
 }
 
 export async function pooled<T>(tasks: (() => Promise<T>)[], concurrency = 5): Promise<T[]> {

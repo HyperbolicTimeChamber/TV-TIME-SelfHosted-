@@ -65,7 +65,6 @@ export default memo(function SeasonDropdown({
 	const user = useAuthStore((s) => s.user);
 	const queryClient = useQueryClient();
 	const { mutateCachedUpcoming, rollbackUpcoming } = useUpcomingMutations();
-	const apiKey = useAuthStore((s) => s.appTmdbApiKey)!;
 	const {
 		data: seasonData,
 		isLoading,
@@ -208,7 +207,7 @@ export default memo(function SeasonDropdown({
 				}
 			}
 			try {
-				const nextSeasonData = await fetchSeason(apiKey, tmdbId, afterSeason + 1);
+				const nextSeasonData = await fetchSeason(tmdbId, afterSeason + 1);
 				const ns = nextSeasonData as {
 					episodes: Array<{
 						episode_number: number;
@@ -232,7 +231,7 @@ export default memo(function SeasonDropdown({
 				isComplete: true,
 			};
 		},
-		[seasonData, apiKey, tmdbId],
+		[seasonData, tmdbId],
 	);
 
 	const doMarkSeasonWatched = useCallback(async () => {

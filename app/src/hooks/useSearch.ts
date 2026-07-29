@@ -1,14 +1,11 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { searchMulti } from "../services";
-import { useAuthStore } from "../stores";
 import { TMDBShow, QueryKey } from "../types";
 
 export function useSearch(query: string, mediaType: "all" | "tv" | "movie" = "all") {
-	const apiKey = useAuthStore((s) => s.appTmdbApiKey)!;
-
 	return useInfiniteQuery({
 		queryKey: [QueryKey.SEARCH, query, mediaType],
-		queryFn: ({ pageParam = 1 }) => searchMulti(apiKey, query, pageParam, mediaType),
+		queryFn: ({ pageParam = 1 }) => searchMulti(query, pageParam, mediaType),
 		getNextPageParam: (lastPage) =>
 			lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
 		initialPageParam: 1,

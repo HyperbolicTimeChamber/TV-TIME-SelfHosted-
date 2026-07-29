@@ -95,24 +95,21 @@ export default function UpcomingTab() {
 		setEpModalLoading(true);
 		setEpModalVisible(true);
 
-		const apiKey = useAuthStore.getState().appTmdbApiKey;
-		if (apiKey) {
-			try {
-				const seasonData = await getSeasonDetails(apiKey, ep.tmdbShowId, ep.season);
-				const tmdbEp = seasonData.episodes?.find((e) => e.episode_number === ep.episode);
-				if (tmdbEp) {
-					setEpModalData((prev) =>
-						prev
-							? {
-									...prev,
-									overview: tmdbEp.overview || null,
-									stillPath: tmdbEp.still_path || null,
-								}
-							: null,
-					);
-				}
-			} catch {}
-		}
+		try {
+			const seasonData = await getSeasonDetails(ep.tmdbShowId, ep.season);
+			const tmdbEp = seasonData.episodes?.find((e) => e.episode_number === ep.episode);
+			if (tmdbEp) {
+				setEpModalData((prev) =>
+					prev
+						? {
+								...prev,
+								overview: tmdbEp.overview || null,
+								stillPath: tmdbEp.still_path || null,
+							}
+						: null,
+				);
+			}
+		} catch {}
 		setEpModalLoading(false);
 	}, []);
 
@@ -137,16 +134,13 @@ export default function UpcomingTab() {
 			});
 			setDrawerVisible(true);
 
-			const apiKey = useAuthStore.getState().appTmdbApiKey;
-			if (apiKey) {
-				try {
-					const data = (await getShowDetails(apiKey, catalog.tmdbId, catalog.mediaType)) as any;
-					const genres = data?.genres?.map((g: any) => g.name).join(", ");
-					if (genres) {
-						setDrawerShow((prev) => (prev ? { ...prev, genres } : null));
-					}
-				} catch {}
-			}
+			try {
+				const data = (await getShowDetails(catalog.tmdbId, catalog.mediaType)) as any;
+				const genres = data?.genres?.map((g: any) => g.name).join(", ");
+				if (genres) {
+					setDrawerShow((prev) => (prev ? { ...prev, genres } : null));
+				}
+			} catch {}
 		}
 	}, []);
 

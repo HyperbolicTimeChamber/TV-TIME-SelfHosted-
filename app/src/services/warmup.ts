@@ -30,15 +30,17 @@ export function warmupFirestoreWrite(userId: string) {
 	);
 }
 
-/** Warm CFs used on Watchlist: removeShow (stop watching) */
+/** Warm CFs used on Watchlist: removeShow, tmdbProxy (heal) */
 export function warmupWatchlistCFs() {
 	warmup(CloudFunction.REMOVE_SHOW);
+	warmup(CloudFunction.TMDB_PROXY);
 }
 
-/** Warm CFs used on Search/ShowDetail: add, remove */
+/** Warm CFs used on Search/ShowDetail: add, remove, tmdbProxy */
 export function warmupSearchCFs() {
 	warmup(CloudFunction.ADD_SHOW);
 	warmup(CloudFunction.REMOVE_SHOW);
+	warmup(CloudFunction.TMDB_PROXY);
 }
 
 /** Warm CFs used on ShowDetail seasons: markSeasonWatched */
@@ -46,7 +48,13 @@ export function warmupShowDetailCFs() {
 	warmup(CloudFunction.MARK_SEASON_WATCHED);
 }
 
+/** Warm CFs used on Calendar: tmdbProxy (discover) */
+export function warmupCalendarCFs() {
+	warmup(CloudFunction.TMDB_PROXY);
+}
+
 /** Warm CFs used on Import screen */
 export function warmupImportCFs() {
 	warmup(CloudFunction.IMPORT_MATCHES);
+	warmup(CloudFunction.TMDB_PROXY);
 }

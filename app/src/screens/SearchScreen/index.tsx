@@ -141,7 +141,6 @@ export default function SearchScreen() {
 	}, [navigation, submittedQuery]);
 
 	const user = useAuthStore((s) => s.user);
-	const apiKey = useAuthStore((s) => s.appTmdbApiKey);
 	const queryClient = useQueryClient();
 	const trackedIds = useTrackedIds(user?.uid);
 
@@ -250,7 +249,7 @@ export default function SearchScreen() {
 
 				const title = item.title || item.name || "";
 				const poster = item.poster_path || null;
-				const epInfo = await fetchFirstEpisodeInfo(item.id, apiKey);
+				const epInfo = await fetchFirstEpisodeInfo(item.id);
 
 				await addToTracking(user.uid!, item.id, mediaType, undefined, {
 					title,
@@ -320,7 +319,7 @@ export default function SearchScreen() {
 				}
 			});
 		},
-		[user?.uid, apiKey, withLoadingId, addShowToUpcoming],
+		[user?.uid, withLoadingId, addShowToUpcoming],
 	);
 
 	const handleRemoveFromWatchlist = useCallback(
@@ -490,7 +489,7 @@ export default function SearchScreen() {
 		await withLoadingId(item.id, async () => {
 			const title = item.title || item.name || "";
 			const poster = item.poster_path || null;
-			const epInfo = await fetchFirstEpisodeInfo(item.id, apiKey);
+			const epInfo = await fetchFirstEpisodeInfo(item.id);
 			await addToTracking(user.uid!, item.id, MediaType.TV, undefined, {
 				title,
 				posterPath: poster,
@@ -552,7 +551,7 @@ export default function SearchScreen() {
 				for (const ep of freshEps) addMovieToCalendarGlobal(ep);
 			}
 		});
-	}, [user?.uid, apiKey, resumeModal, withLoadingId, addShowToUpcoming]);
+	}, [user?.uid, resumeModal, withLoadingId, addShowToUpcoming]);
 
 	const {
 		data: searchData,

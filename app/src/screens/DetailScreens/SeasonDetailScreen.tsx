@@ -30,7 +30,6 @@ export default function SeasonDetailScreen() {
 	const { tmdbId, seasonNumber } = route.params;
 	const user = useAuthStore((s) => s.user);
 	const queryClient = useQueryClient();
-	const apiKey = useAuthStore((s) => s.appTmdbApiKey)!;
 	const { data: seasonData, isLoading } = useSeasonDetails(tmdbId, seasonNumber);
 	const { episodes: watchedEps } = useWatchedEpisodes(user?.uid, tmdbId);
 	const { items: watchlist } = useWatchlist(user?.uid);
@@ -98,7 +97,7 @@ export default function SeasonDetailScreen() {
 					nextEpName = nextEpInSeason.name || null;
 				} else {
 					try {
-						const nextSeasonData = await fetchSeason(apiKey, tmdbId, seasonNumber + 1);
+						const nextSeasonData = await fetchSeason(tmdbId, seasonNumber + 1);
 						const ns = nextSeasonData as {
 							episodes: Array<{ episode_number: number; name?: string }>;
 						};
@@ -144,7 +143,7 @@ export default function SeasonDetailScreen() {
 				setMarking(null);
 			}
 		},
-		[user?.uid, marking, seasonData, tmdbId, seasonNumber, apiKey],
+		[user?.uid, marking, seasonData, tmdbId, seasonNumber],
 	);
 
 	const handleMarkWatched = useCallback(

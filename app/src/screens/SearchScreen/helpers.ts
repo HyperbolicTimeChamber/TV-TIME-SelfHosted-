@@ -22,7 +22,6 @@ export interface EpInfo {
 /** Fetch episode info from local catalog cache or TMDB. 0 Firestore reads. */
 export async function fetchFirstEpisodeInfo(
 	tmdbId: number,
-	apiKey: string | null,
 ): Promise<EpInfo> {
 	const cached = getCachedCatalogShow(tmdbId, MediaType.TV);
 	if (cached?.seasons?.length) {
@@ -39,60 +38,58 @@ export async function fetchFirstEpisodeInfo(
 		}
 	}
 
-	if (apiKey) {
-		try {
-			const season = await getSeasonDetails(apiKey, tmdbId, 1);
-			const eps = season?.episodes ?? [];
-			const ep1 = eps.find((e) => e.episode_number === 1);
-			const tmdbEpisodes = eps.map((e) => ({
-				season: 1,
-				episode: e.episode_number,
-				name: e.name || "",
-				airDate: e.air_date || null,
-				runtime: e.runtime ?? null,
-			}));
-			const minimalCatalog: CatalogShow = {
-				tmdbId,
-				mediaType: MediaType.TV,
-				title: "",
-				posterPath: null,
-				backdropPath: null,
-				overview: "",
-				status: "",
-				totalSeasons: 1,
-				totalEpisodes: eps.length,
-				runtime: null,
-				voteAverage: 0,
-				firstAirDate: null,
-				releaseDate: null,
-				seasons: [
-					{
-						seasonNumber: 1,
-						episodeCount: eps.length,
-						airDate: (season as any)?.air_date || null,
-						episodes: eps.map((e) => ({
-							episodeNumber: e.episode_number,
-							title: e.name || "",
-							overview: e.overview || "",
-							airDate: e.air_date || null,
-							runtime: e.runtime ?? null,
-							stillPath: e.still_path || null,
-						})),
-					},
-				],
-				trackedBy: [],
-				trackedByCount: 0,
-				lastSyncedAt: null,
-			};
-			return {
-				name: ep1?.name || null,
-				airDate: ep1?.air_date || null,
-				runtime: ep1?.runtime || null,
-				catalog: minimalCatalog,
-				tmdbEpisodes,
-			};
-		} catch {}
-	}
+	try {
+		const season = await getSeasonDetails(tmdbId, 1);
+		const eps = season?.episodes ?? [];
+		const ep1 = eps.find((e) => e.episode_number === 1);
+		const tmdbEpisodes = eps.map((e) => ({
+			season: 1,
+			episode: e.episode_number,
+			name: e.name || "",
+			airDate: e.air_date || null,
+			runtime: e.runtime ?? null,
+		}));
+		const minimalCatalog: CatalogShow = {
+			tmdbId,
+			mediaType: MediaType.TV,
+			title: "",
+			posterPath: null,
+			backdropPath: null,
+			overview: "",
+			status: "",
+			totalSeasons: 1,
+			totalEpisodes: eps.length,
+			runtime: null,
+			voteAverage: 0,
+			firstAirDate: null,
+			releaseDate: null,
+			seasons: [
+				{
+					seasonNumber: 1,
+					episodeCount: eps.length,
+					airDate: (season as any)?.air_date || null,
+					episodes: eps.map((e) => ({
+						episodeNumber: e.episode_number,
+						title: e.name || "",
+						overview: e.overview || "",
+						airDate: e.air_date || null,
+						runtime: e.runtime ?? null,
+						stillPath: e.still_path || null,
+					})),
+				},
+			],
+			trackedBy: [],
+			trackedByCount: 0,
+			lastSyncedAt: null,
+		};
+		return {
+			name: ep1?.name || null,
+			airDate: ep1?.air_date || null,
+			runtime: ep1?.runtime || null,
+			catalog: minimalCatalog,
+			tmdbEpisodes,
+		};
+	} catch {}
 
 	return { name: null, airDate: null, runtime: null, catalog: null, tmdbEpisodes: [] };
 }

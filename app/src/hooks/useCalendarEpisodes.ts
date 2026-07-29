@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getFirestore, doc, getDoc } from "@react-native-firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { discoverTVByAirDate, discoverMoviesByReleaseDate } from "../services";
-import { useAuthStore } from "../stores";
 import { UpcomingEpisode, CatalogShow, MediaType, QueryKey } from "../types";
 import { getCachedCatalogShow } from "./useWatchlist";
 import { useQueryClient } from "@tanstack/react-query";
@@ -61,7 +60,6 @@ export function useCalendarEpisodes(userId: string | undefined) {
 	const trackedMovieIds = useRef<Set<string> | null>(null);
 	const calendarCacheRef = useRef<CalendarCache>({ months: {} });
 	const cacheLoaded = useRef(false);
-	const apiKey = useAuthStore((s) => s.appTmdbApiKey);
 	const queryClient = useQueryClient();
 
 	// Load persisted cache + derive tracked IDs from React Query cache (no Firestore reads)
@@ -125,7 +123,7 @@ export function useCalendarEpisodes(userId: string | undefined) {
 
 	const loadMonthEpisodes = useCallback(
 		async (year: number, month: number) => {
-			if (!userId || !apiKey) return;
+			if (!userId) return;
 			const monthKey = `${year}-${String(month).padStart(2, "0")}`;
 			if (episodesByMonth.has(monthKey)) {
 				setLoading(false);
@@ -146,9 +144,9 @@ export function useCalendarEpisodes(userId: string | undefined) {
 
 				// Run TV + movie discover in parallel
 				const [airingIds, movieResults] = await Promise.all([
-					discoverTVByAirDate(apiKey, startDate, endDate),
+					discoverTVByAirDate(startDate, endDate),
 					trackedMovieIds.current?.size
-						? discoverMoviesByReleaseDate(apiKey, startDate, endDate)
+						? discoverMoviesByReleaseDate(startDate, endDate)
 						: Promise.resolve([]),
 				]);
 
@@ -211,7 +209,7 @@ export function useCalendarEpisodes(userId: string | undefined) {
 				setLoading(false);
 			}
 		},
-		[userId, apiKey, episodesByMonth, loading],
+		[userId, episodesByMonth, loading],
 	);
 
 	const removeShowFromCalendar = useCallback((tmdbId: number) => {

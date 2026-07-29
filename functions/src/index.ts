@@ -11,3 +11,4 @@ export { testFCM } from "./testFCM";
 export { deleteAccount } from "./deleteAccount";
 export { rebuildUpcoming } from "./rebuildUpcoming";
 export { migrateDocIds } from "./migrateDocIds";
+export { tmdbProxy } from "./tmdbProxy";

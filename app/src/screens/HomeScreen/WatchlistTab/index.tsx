@@ -203,26 +203,24 @@ export default function WatchlistTab() {
 
 			// Only fetch TMDB if catalog lacks overview/image
 			if (!hasFullData) {
-				const apiKey = useAuthStore.getState().appTmdbApiKey;
-				if (apiKey)
-					try {
-						const seasonData = await getSeasonDetails(apiKey, tmdbId, ep.season);
-						const tmdbEp = seasonData.episodes?.find((e) => e.episode_number === ep.episode);
-						if (tmdbEp) {
-							setEpModalData((prev) =>
-								prev
-									? {
-											...prev,
-											overview: tmdbEp.overview || null,
-											stillPath: tmdbEp.still_path || null,
-											episodeTitle: tmdbEp.name || prev.episodeTitle,
-											airDate: tmdbEp.air_date || prev.airDate,
-											runtime: tmdbEp.runtime || prev.runtime,
-										}
-									: null,
-							);
-						}
-					} catch {}
+				try {
+					const seasonData = await getSeasonDetails(tmdbId, ep.season);
+					const tmdbEp = seasonData.episodes?.find((e) => e.episode_number === ep.episode);
+					if (tmdbEp) {
+						setEpModalData((prev) =>
+							prev
+								? {
+										...prev,
+										overview: tmdbEp.overview || null,
+										stillPath: tmdbEp.still_path || null,
+										episodeTitle: tmdbEp.name || prev.episodeTitle,
+										airDate: tmdbEp.air_date || prev.airDate,
+										runtime: tmdbEp.runtime || prev.runtime,
+									}
+								: null,
+						);
+					}
+				} catch {}
 				setEpModalLoading(false);
 			}
 		},
@@ -270,16 +268,13 @@ export default function WatchlistTab() {
 		setDrawerVisible(true);
 
 		// Fetch genres from TMDB
-		const apiKey = useAuthStore.getState().appTmdbApiKey;
-		if (apiKey) {
-			try {
-				const data = (await getShowDetails(apiKey, cat.tmdbId, cat.mediaType)) as any;
-				const genres = data?.genres?.map((g: any) => g.name).join(", ");
-				if (genres) {
-					setDrawerShow((prev) => (prev ? { ...prev, genres } : null));
-				}
-			} catch {}
-		}
+		try {
+			const data = (await getShowDetails(cat.tmdbId, cat.mediaType)) as any;
+			const genres = data?.genres?.map((g: any) => g.name).join(", ");
+			if (genres) {
+				setDrawerShow((prev) => (prev ? { ...prev, genres } : null));
+			}
+		} catch {}
 	}, []);
 
 	const handleWatchedCheckmark = useCallback((episode: WatchedEpisode) => {

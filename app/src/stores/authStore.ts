@@ -14,8 +14,6 @@ import { GoogleSignin } from "@react-native-google-signin/google-signin";
 interface AuthState {
 	user: User | null;
 	loading: boolean;
-	appTmdbApiKey: string | null;
-	appTmdbApiKeyLoading: boolean;
 	hasCompletedImport: boolean;
 	userFlagsLoading: boolean;
 	minVersion: string | null;
@@ -32,8 +30,6 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => ({
 	user: null,
 	loading: true,
-	appTmdbApiKey: null,
-	appTmdbApiKeyLoading: true,
 	hasCompletedImport: false,
 	userFlagsLoading: true,
 	minVersion: null,
@@ -50,25 +46,15 @@ export const useAuthStore = create<AuthState>((set) => ({
 	setLoading: (loading) => set({ loading }),
 
 	loadAppConfig: async () => {
-		// Timeout fallback — don't block app forever
-		const timeout = setTimeout(() => {
-			set({ appTmdbApiKeyLoading: false });
-		}, 10000);
 		try {
 			const db = getFirestore();
 			const configDoc = await getDoc(doc(db, "config", "app"));
 			if (configDoc.exists()) {
 				const data = configDoc.data();
-				set({
-					appTmdbApiKey: data?.tmdbApiKey ?? null,
-					minVersion: data?.minVersion ?? null,
-				});
+				set({ minVersion: data?.minVersion ?? null });
 			}
 		} catch (error) {
 			console.error("Failed to load app config:", error);
-		} finally {
-			clearTimeout(timeout);
-			set({ appTmdbApiKeyLoading: false });
 		}
 	},
 
@@ -133,8 +119,6 @@ export const useAuthStore = create<AuthState>((set) => ({
 			}
 			await firebaseSignOut(auth);
 			set({
-				appTmdbApiKey: null,
-				appTmdbApiKeyLoading: true,
 				hasCompletedImport: false,
 				minVersion: null,
 			});

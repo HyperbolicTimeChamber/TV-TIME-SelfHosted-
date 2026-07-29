@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { getShowDetails, getCatalogShow } from "../services";
 import { getCachedCatalogShow } from "./useWatchlist";
-import { useAuthStore } from "../stores";
 import { TMDBShow, TMDBEpisode, CatalogShow, QueryKey, MediaType } from "../types";
 
 export interface ShowDetailsResult {
@@ -74,9 +73,7 @@ export function useShowDetails(tmdbId: number, mediaType: MediaType = MediaType.
 			if (catalogShow && hasSeasonsData(catalogShow)) return catalogShowToResult(catalogShow);
 
 			// Fallback to TMDB
-			const apiKey = useAuthStore.getState().appTmdbApiKey;
-			if (!apiKey) throw new Error("No TMDB API key available");
-			const show = await getShowDetails(apiKey, tmdbId, mediaType);
+			const show = await getShowDetails(tmdbId, mediaType);
 			return { show, episodesBySeason: new Map() };
 		},
 		staleTime: 24 * 60 * 60 * 1000,

@@ -39,6 +39,7 @@ export enum CacheKey {
 	PROFILE_CARD_IMAGES = "profile_card_images_v1",
 	WEEKLY_ACTIVITY = "weekly_activity_v1",
 	COMPLETED_SECTIONS = "completed_sections_v1",
+	TRENDING_CACHE = "trending_cache_v1",
 }
 
 export enum QueryKey {
@@ -64,6 +65,7 @@ export enum CloudFunction {
 	MARK_SEASON_WATCHED = "markSeasonWatched",
 	IMPORT_MATCHES = "importMatches",
 	REBUILD_UPCOMING = "rebuildUpcoming",
+	TMDB_PROXY = "tmdbProxy",
 }
 
 export enum Route {
