@@ -16,25 +16,10 @@ export const deleteAccount = onCall(
     const uid = request.auth.uid;
     const db = getFirestore();
 
-    // Delete all subcollections under user doc
-    const subcollections = [
-      "tracking",
-      "watchedEpisodes",
-      "watchedMovies",
-      "upcoming",
-    ];
-    for (const sub of subcollections) {
-      const snap = await db.collection(`users/${uid}/${sub}`).get();
-      for (let i = 0; i < snap.docs.length; i += 400) {
-        const batch = db.batch();
-        const chunk = snap.docs.slice(i, i + 400);
-        for (const doc of chunk) batch.delete(doc.ref);
-        await batch.commit();
-      }
-    }
-
-    // Remove user from trackedBy on all shows they track
+    // Read tracking FIRST (before deleting) to clean up trackedBy on shows
     const trackingSnap = await db.collection(`users/${uid}/tracking`).get();
+
+    // Remove user from trackedBy on all tracked shows
     if (trackingSnap.size > 0) {
       const showRefs = trackingSnap.docs.map((d) => db.doc(`shows/${d.id}`));
       const showDocs: FirebaseFirestore.DocumentSnapshot[] = [];
@@ -43,31 +28,55 @@ export const deleteAccount = onCall(
         showDocs.push(...chunk);
       }
 
+      // Batch update/delete shows
+      const updateBatch = db.batch();
+      const toDeleteWithOverflow: FirebaseFirestore.DocumentReference[] = [];
       for (const showDoc of showDocs) {
         if (!showDoc.exists) continue;
         const trackedBy: string[] = showDoc.data()?.trackedBy || [];
         const updated = trackedBy.filter((id: string) => id !== uid);
         if (updated.length === 0) {
-          const overflowSnap = await showDoc.ref
-            .collection("trackedByOverflow")
-            .get();
-          const batch = db.batch();
-          for (const d of overflowSnap.docs) batch.delete(d.ref);
-          batch.delete(showDoc.ref);
-          await batch.commit();
+          toDeleteWithOverflow.push(showDoc.ref);
         } else {
-          await showDoc.ref.update({
+          updateBatch.update(showDoc.ref, {
             trackedBy: updated,
             trackedByCount: updated.length,
           });
         }
       }
+      await updateBatch.commit();
+
+      // Delete orphaned shows + their overflow subcollections
+      for (const ref of toDeleteWithOverflow) {
+        const overflowSnap = await ref.collection("trackedByOverflow").get();
+        const delBatch = db.batch();
+        for (const d of overflowSnap.docs) delBatch.delete(d.ref);
+        delBatch.delete(ref);
+        await delBatch.commit();
+      }
     }
 
-    // Delete user document
-    await db.doc(`users/${uid}`).delete();
+    // Delete all subcollections in parallel
+    const subcollections = [
+      "tracking",
+      "watchedEpisodes",
+      "watchedMovies",
+      "upcoming",
+    ];
+    await Promise.all(
+      subcollections.map(async (sub) => {
+        const snap = await db.collection(`users/${uid}/${sub}`).get();
+        for (let i = 0; i < snap.docs.length; i += 400) {
+          const batch = db.batch();
+          const chunk = snap.docs.slice(i, i + 400);
+          for (const doc of chunk) batch.delete(doc.ref);
+          await batch.commit();
+        }
+      }),
+    );
 
-    // Delete Firebase Auth user
+    // Delete user document + Firebase Auth user
+    await db.doc(`users/${uid}`).delete();
     await getAuth().deleteUser(uid);
 
     console.log(`[deleteAccount] Deleted user ${uid} and all data`);

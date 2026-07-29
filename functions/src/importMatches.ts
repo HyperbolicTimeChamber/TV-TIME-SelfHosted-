@@ -76,32 +76,49 @@ export const importMatches = onCall(
       minutesImported: 0,
     };
 
-    // Fetch TMDB data for all matches and store catalog data for episode enrichment
+    // Batch-check which catalog docs already exist (skip TMDB for those)
     const catalogMap = new Map<number, CatalogShow>();
+    const showIds = matches.map((m) => showDocId(m.tmdbId, m.mediaType));
+    const showRefs = showIds.map((id) => db.doc(`shows/${id}`));
+    const existingDocs = await db.getAll(...showRefs);
+
+    const existingCatalog = new Map<string, CatalogShow>();
+    for (let i = 0; i < existingDocs.length; i++) {
+      if (existingDocs[i].exists) {
+        existingCatalog.set(showIds[i], existingDocs[i].data() as CatalogShow);
+      }
+    }
 
     const catalogTasks = matches.map((m) => async () => {
       const showId = showDocId(m.tmdbId, m.mediaType);
       const showRef = db.doc(`shows/${showId}`);
 
+      // Fast path: catalog exists — use it, just add to trackedBy
+      const existing = existingCatalog.get(showId);
+      if (existing) {
+        catalogMap.set(m.tmdbId, existing);
+        await addToTrackedBy(showId, uid);
+        return m;
+      }
+
+      // Slow path: fetch from TMDB and create catalog doc
       const showData = await fetchShowFromTMDB(apiKey, m.tmdbId, m.mediaType);
       catalogMap.set(m.tmdbId, showData);
 
-      let existedBeforeTransaction = false;
+      let created = false;
       await db.runTransaction(async (tx) => {
         const showDoc = await tx.get(showRef);
-        if (showDoc.exists) {
-          existedBeforeTransaction = true;
-          return;
-        }
+        if (showDoc.exists) return;
         tx.set(showRef, {
           ...showData,
           trackedBy: [uid],
           trackedByCount: 1,
           lastSyncedAt: FieldValue.serverTimestamp(),
         });
+        created = true;
       });
 
-      if (existedBeforeTransaction) {
+      if (!created) {
         await addToTrackedBy(showId, uid);
       }
 
@@ -214,12 +231,16 @@ export const importMatches = onCall(
       // Create watched episode docs — enrich with TMDB title + runtime
       if (match.mediaType === MediaType.TV && match.watchedEpisodes) {
         const eps = match.watchedEpisodes;
-        for (let i = 0; i < eps.length; i += 400) {
-          const chunk = eps.slice(i, i + 400);
+        // Pre-compute episode info once (used for both batch write and runtime counting)
+        const epInfos = eps.map((ep) => ({
+          ep,
+          info: lookupEpisode(match.tmdbId, ep.season, ep.episode),
+        }));
+        for (let i = 0; i < epInfos.length; i += 400) {
+          const chunk = epInfos.slice(i, i + 400);
           batchOps.push(async () => {
             const batch = db.batch();
-            for (const ep of chunk) {
-              const info = lookupEpisode(match.tmdbId, ep.season, ep.episode);
+            for (const { ep, info } of chunk) {
               const epId = `${match.tmdbId}_S${String(ep.season).padStart(2, "0")}E${String(ep.episode).padStart(2, "0")}`;
               const epRef = db.doc(`users/${uid}/watchedEpisodes/${epId}`);
               batch.set(epRef, {
@@ -236,10 +257,7 @@ export const importMatches = onCall(
             await batch.commit();
           });
           totalEpisodes += chunk.length;
-          totalMinutes += chunk.reduce((s, e) => {
-            const info = lookupEpisode(match.tmdbId, e.season, e.episode);
-            return s + info.runtime;
-          }, 0);
+          totalMinutes += chunk.reduce((s, { info }) => s + info.runtime, 0);
         }
       }
 

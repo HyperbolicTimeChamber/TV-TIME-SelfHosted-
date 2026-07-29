@@ -293,15 +293,14 @@ export async function rebuildUserUpcoming(
   const upcomingCol = db.collection(`users/${uid}/upcoming`);
   const ENDED_STATUSES = ["Ended", "Canceled"];
 
-  // Read old upcoming docs (delete stale ones AFTER writing new ones)
-  const oldDocs = await upcomingCol.get();
-  // oldDocs used below to identify stale entries after writing new ones
-
-  // Get all active TV tracking docs
-  const trackingSnap = await db
-    .collection(`users/${uid}/tracking`)
-    .where("mediaType", "==", MediaType.TV)
-    .get();
+  // Read old upcoming + active tracking in parallel (independent queries)
+  const [oldDocs, trackingSnap] = await Promise.all([
+    upcomingCol.get(),
+    db
+      .collection(`users/${uid}/tracking`)
+      .where("mediaType", "==", MediaType.TV)
+      .get(),
+  ]);
 
   const activeStatuses = [WatchStatus.WATCHING, WatchStatus.REWATCHING];
   let activeShows = trackingSnap.docs.filter((d) =>
@@ -312,24 +311,26 @@ export async function rebuildUserUpcoming(
 
   // If no catalog map provided (standalone call), use index + getAll()
   if (!catalogMap) {
-    let activeIndexDoc = await db.doc("config/activeShows").get();
+    const activeIndexDoc = await db.doc("config/activeShows").get();
 
-    // Build index if it doesn't exist yet
-    if (!activeIndexDoc.exists) {
+    let activeIds: string[];
+    if (activeIndexDoc.exists) {
+      activeIds = activeIndexDoc.data()?.ids ?? [];
+    } else {
+      // Build index if it doesn't exist yet
       const allShows = await db
         .collection("shows")
         .where("mediaType", "==", MediaType.TV)
         .get();
-      const ids = allShows.docs
+      activeIds = allShows.docs
         .filter(
           (d) => !ENDED_STATUSES.includes((d.data() as CatalogShow).status),
         )
         .map((d) => d.id);
-      await db.doc("config/activeShows").set({ ids });
-      activeIndexDoc = await db.doc("config/activeShows").get();
+      await db.doc("config/activeShows").set({ ids: activeIds });
     }
 
-    const activeIndex = new Set<string>(activeIndexDoc.data()?.ids ?? []);
+    const activeIndex = new Set<string>(activeIds);
     activeShows = activeShows.filter((d) => activeIndex.has(d.id));
 
     if (activeShows.length === 0) return;
