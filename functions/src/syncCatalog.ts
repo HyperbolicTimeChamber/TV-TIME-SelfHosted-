@@ -7,7 +7,7 @@ import {
   pooled,
   CatalogShow,
 } from "./tmdb";
-import { getAllTrackerUids } from "./utils";
+import { getTmdbApiKey } from "./utils";
 import { showDocId, parseTmdbId } from "./docId";
 import { WatchStatus, MediaType } from "./enums";
 
@@ -21,9 +21,10 @@ export const syncCatalog = onSchedule(
   },
   async () => {
     const db = getFirestore();
-    const configDoc = await db.doc("config/app").get();
-    const apiKey = configDoc.data()?.tmdbApiKey;
-    if (!apiKey) {
+    let apiKey: string;
+    try {
+      apiKey = await getTmdbApiKey();
+    } catch {
       console.error("TMDB API key not configured in config/app");
       return;
     }
@@ -38,6 +39,20 @@ export const syncCatalog = onSchedule(
 
     const ENDED_STATUSES = ["Ended", "Canceled"];
     let skippedEnded = 0;
+    // Accumulate fresh catalog data during sync — used for upcoming rebuild
+    const freshCatalogMap = new Map<string, CatalogShow>();
+    let hasEpisodeRemovals = false;
+
+    // Pending catalog writes + reactivations (batched after TMDB fetch loop)
+    const pendingWrites: Array<{
+      ref: FirebaseFirestore.DocumentReference;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: Record<string, any>;
+    }> = [];
+    const pendingReactivations: Array<{
+      showId: string;
+      freshData: CatalogShow;
+    }> = [];
 
     const syncTasks = showsSnap.docs.map((showDoc) => async () => {
       const oldData = showDoc.data() as CatalogShow & {
@@ -50,6 +65,7 @@ export const syncCatalog = onSchedule(
         try {
           const freshStatus = await fetchShowStatus(apiKey, oldData.tmdbId);
           if (ENDED_STATUSES.includes(freshStatus)) {
+            freshCatalogMap.set(showDoc.id, oldData);
             skippedEnded++;
             return;
           }
@@ -58,6 +74,7 @@ export const syncCatalog = onSchedule(
             `Show revived: ${oldData.title} (${oldData.status} → ${freshStatus})`,
           );
         } catch {
+          freshCatalogMap.set(showDoc.id, oldData);
           skippedEnded++;
           return;
         }
@@ -73,31 +90,37 @@ export const syncCatalog = onSchedule(
         const oldEpCount = oldData.totalEpisodes ?? 0;
         const newEpCount = freshData.totalEpisodes ?? 0;
         const hasNewContent = newEpCount > oldEpCount;
+        if (newEpCount < oldEpCount) hasEpisodeRemovals = true;
 
-        // Update catalog doc
-        await showDoc.ref.update({
-          title: freshData.title,
-          posterPath: freshData.posterPath,
-          backdropPath: freshData.backdropPath,
-          overview: freshData.overview,
-          status: freshData.status,
-          totalSeasons: freshData.totalSeasons,
-          totalEpisodes: freshData.totalEpisodes,
-          runtime: freshData.runtime,
-          voteAverage: freshData.voteAverage,
-          seasons: freshData.seasons,
-          genres: freshData.genres,
-          lastSyncedAt: FieldValue.serverTimestamp(),
+        // Queue catalog update (batched after all TMDB fetches)
+        pendingWrites.push({
+          ref: showDoc.ref,
+          data: {
+            title: freshData.title,
+            posterPath: freshData.posterPath,
+            backdropPath: freshData.backdropPath,
+            overview: freshData.overview,
+            status: freshData.status,
+            totalSeasons: freshData.totalSeasons,
+            totalEpisodes: freshData.totalEpisodes,
+            runtime: freshData.runtime,
+            voteAverage: freshData.voteAverage,
+            seasons: freshData.seasons,
+            genres: freshData.genres,
+            lastSyncedAt: FieldValue.serverTimestamp(),
+          },
         });
 
-        // If new content found, reactivate completed users
+        freshCatalogMap.set(showDoc.id, freshData);
+
         if (hasNewContent) {
           console.log(
             `New content for ${freshData.title}: ${oldEpCount} → ${newEpCount} episodes`,
           );
-          await reactivateCompletedUsers(db, showDoc.id, freshData);
+          pendingReactivations.push({ showId: showDoc.id, freshData });
         }
       } catch (err) {
+        freshCatalogMap.set(showDoc.id, oldData);
         console.error(
           `Failed to sync show ${oldData.tmdbId} (${oldData.title}):`,
           err,
@@ -105,10 +128,10 @@ export const syncCatalog = onSchedule(
       }
     });
 
-    // Process in batches of 50 to avoid TMDB rate limits
+    // Fetch from TMDB in batches of 50 (rate-limited, 5 concurrent)
     for (let i = 0; i < syncTasks.length; i += 50) {
-      const batch = syncTasks.slice(i, i + 50);
-      await pooled(batch, 5);
+      const chunk = syncTasks.slice(i, i + 50);
+      await pooled(chunk, 5);
 
       // Brief pause between batches to respect rate limits
       if (i + 50 < syncTasks.length) {
@@ -118,22 +141,121 @@ export const syncCatalog = onSchedule(
 
     console.log(`Skipped ${skippedEnded} ended/canceled shows`);
 
-    // Build active shows index (non-ended TV shows)
-    const activeShowIds = showsSnap.docs
-      .filter((d) => !ENDED_STATUSES.includes((d.data() as CatalogShow).status))
-      .map((d) => d.id);
+    // Batch write all catalog updates (500 per batch max)
+    for (let i = 0; i < pendingWrites.length; i += 500) {
+      const writeBatch = db.batch();
+      const chunk = pendingWrites.slice(i, i + 500);
+      for (const { ref, data } of chunk) {
+        writeBatch.update(ref, data);
+      }
+      await writeBatch.commit();
+    }
+    console.log(`Updated ${pendingWrites.length} catalog docs`);
+
+    // Reactivate completed users for shows with new content (batched)
+    if (pendingReactivations.length > 0) {
+      // Build map of showId → trackedBy from already-loaded snapshot (0 extra reads)
+      const showTrackers = new Map<string, string[]>();
+      for (const d of showsSnap.docs) {
+        showTrackers.set(d.id, d.data().trackedBy ?? []);
+      }
+
+      // Collect all tracking refs to read across all shows
+      const reactivationItems: Array<{
+        ref: FirebaseFirestore.DocumentReference;
+        showId: string;
+        freshData: CatalogShow;
+      }> = [];
+
+      for (const { showId, freshData } of pendingReactivations) {
+        const lastSeason = freshData.seasons[freshData.seasons.length - 1];
+        const firstNewEp = lastSeason?.episodes[0];
+        if (!firstNewEp) continue;
+
+        const uids = showTrackers.get(showId) ?? [];
+        for (const uid of uids) {
+          reactivationItems.push({
+            ref: db.doc(`users/${uid}/tracking/${showId}`),
+            showId,
+            freshData,
+          });
+        }
+      }
+
+      if (reactivationItems.length > 0) {
+        // Batch read all tracking docs
+        const allTrackingDocs: FirebaseFirestore.DocumentSnapshot[] = [];
+        for (let i = 0; i < reactivationItems.length; i += 500) {
+          const chunk = reactivationItems.slice(i, i + 500);
+          const docs = await db.getAll(...chunk.map((r) => r.ref));
+          allTrackingDocs.push(...docs);
+        }
+
+        // Collect writes for COMPLETED users
+        const reactivationWrites: Array<{
+          ref: FirebaseFirestore.DocumentReference;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          data: Record<string, any>;
+        }> = [];
+
+        for (let i = 0; i < allTrackingDocs.length; i++) {
+          const td = allTrackingDocs[i];
+          if (!td.exists || td.data()?.status !== WatchStatus.COMPLETED) continue;
+
+          const { freshData } = reactivationItems[i];
+          const lastSeason = freshData.seasons[freshData.seasons.length - 1];
+          const firstNewEp = lastSeason.episodes[0];
+          const newAirDate = firstNewEp.airDate;
+          const airDateTs = newAirDate
+            ? Timestamp.fromDate(new Date(newAirDate))
+            : Timestamp.now();
+
+          reactivationWrites.push({
+            ref: td.ref,
+            data: {
+              status: WatchStatus.WATCHING,
+              nextEpisode: {
+                season: lastSeason.seasonNumber,
+                episode: firstNewEp.episodeNumber,
+              },
+              nextEpisodeAirDate: newAirDate ?? null,
+              nextEpisodeName: firstNewEp.title ?? null,
+              priorityDate: airDateTs,
+            },
+          });
+        }
+
+        // Batch write all reactivations
+        for (let i = 0; i < reactivationWrites.length; i += 500) {
+          const writeBatch = db.batch();
+          const chunk = reactivationWrites.slice(i, i + 500);
+          for (const { ref, data } of chunk) {
+            writeBatch.update(ref, data);
+          }
+          await writeBatch.commit();
+        }
+
+        if (reactivationWrites.length > 0) {
+          console.log(
+            `Reactivated ${reactivationWrites.length} users across ${pendingReactivations.length} shows`,
+          );
+        }
+      }
+    }
+
+    // Build active shows index from fresh data (reflects status changes from sync)
+    const activeShowIds: string[] = [];
+    for (const [id, catalog] of freshCatalogMap) {
+      if (!ENDED_STATUSES.includes(catalog.status)) {
+        activeShowIds.push(id);
+      }
+    }
     await db.doc("config/activeShows").set({ ids: activeShowIds });
     console.log(`Active shows index: ${activeShowIds.length} shows`);
 
-    // Build catalog map from already-fetched data (zero extra reads)
-    const catalogMap = new Map<string, CatalogShow>();
-    for (const d of showsSnap.docs) {
-      catalogMap.set(d.id, d.data() as CatalogShow);
-    }
-
-    // Rebuild upcoming subcollections for all users
+    // Rebuild upcoming subcollections using fresh catalog data (zero extra reads)
     console.log("Rebuilding upcoming episodes...");
-    await rebuildAllUsersUpcoming(db, catalogMap);
+    await rebuildAllUsersUpcoming(db, freshCatalogMap, !hasEpisodeRemovals);
 
     // Write sync timestamp to config/app so clients know when to rehydrate
     await db
@@ -144,75 +266,17 @@ export const syncCatalog = onSchedule(
   },
 );
 
-async function reactivateCompletedUsers(
-  db: FirebaseFirestore.Firestore,
-  showId: string,
-  freshData: CatalogShow,
-): Promise<void> {
-  const allUids = await getAllTrackerUids(showId);
-
-  // Find the first new episode (first ep in the newest season not in old data)
-  const lastSeason = freshData.seasons[freshData.seasons.length - 1];
-  const firstNewEp = lastSeason?.episodes[0];
-
-  if (!firstNewEp) return;
-
-  const newAirDate = firstNewEp.airDate;
-  const airDateTs = newAirDate
-    ? Timestamp.fromDate(new Date(newAirDate))
-    : Timestamp.now();
-
-  if (allUids.length === 0) return;
-
-  // Batch read tracking docs in chunks of 100
-  const trackingRefs = allUids.map((uid) =>
-    db.doc(`users/${uid}/tracking/${showId}`),
-  );
-  const trackingDocs: FirebaseFirestore.DocumentSnapshot[] = [];
-  for (let i = 0; i < trackingRefs.length; i += 500) {
-    const chunk = await db.getAll(...trackingRefs.slice(i, i + 500));
-    trackingDocs.push(...chunk);
-  }
-
-  // Batch write reactivations in chunks of 400
-  const toReactivate = trackingDocs.filter(
-    (d) => d.exists && d.data()?.status === WatchStatus.COMPLETED,
-  );
-
-  for (let i = 0; i < toReactivate.length; i += 400) {
-    const batch = db.batch();
-    const chunk = toReactivate.slice(i, i + 400);
-    for (const td of chunk) {
-      batch.update(td.ref, {
-        status: WatchStatus.WATCHING,
-        nextEpisode: {
-          season: lastSeason.seasonNumber,
-          episode: firstNewEp.episodeNumber,
-        },
-        nextEpisodeAirDate: newAirDate ?? null,
-        nextEpisodeName: firstNewEp.title ?? null,
-        priorityDate: airDateTs,
-      });
-    }
-    await batch.commit();
-  }
-
-  if (toReactivate.length > 0) {
-    console.log(
-      `Reactivated ${toReactivate.length} users for ${freshData.title} S${lastSeason.seasonNumber}E${firstNewEp.episodeNumber}`,
-    );
-  }
-}
 
 async function rebuildAllUsersUpcoming(
   db: FirebaseFirestore.Firestore,
   catalogMap: Map<string, CatalogShow>,
+  skipOrphanCleanup: boolean,
 ): Promise<void> {
   const usersSnap = await db.collection("users").get();
 
   for (const userDoc of usersSnap.docs) {
     try {
-      await rebuildUserUpcoming(db, userDoc.id, catalogMap);
+      await rebuildUserUpcoming(db, userDoc.id, catalogMap, skipOrphanCleanup);
     } catch (err) {
       console.error(`Failed to rebuild upcoming for user ${userDoc.id}:`, err);
     }
@@ -223,6 +287,7 @@ export async function rebuildUserUpcoming(
   db: FirebaseFirestore.Firestore,
   uid: string,
   catalogMap?: Map<string, CatalogShow>,
+  skipOrphanCleanup = false,
 ): Promise<void> {
   const today = new Date().toISOString().slice(0, 10);
   const upcomingCol = db.collection(`users/${uid}/upcoming`);
@@ -337,8 +402,10 @@ export async function rebuildUserUpcoming(
     `Rebuilt ${upcomingDocs.length} upcoming episodes for user ${uid} (removed ${staleIds.length} stale)`,
   );
 
-  // Clean orphaned watchedEpisode docs (episode numbers beyond catalog)
-  await cleanOrphanedEpisodes(db, uid, activeShows, catalogMap);
+  // Clean orphaned watchedEpisode docs only when episodes were removed from catalog
+  if (!skipOrphanCleanup) {
+    await cleanOrphanedEpisodes(db, uid, activeShows, catalogMap);
+  }
 }
 
 /**
@@ -371,6 +438,13 @@ async function cleanOrphanedEpisodes(
     .collection(`users/${uid}/watchedEpisodes`)
     .get();
 
+  // Pre-build tmdbId → showDocKey lookup (O(S) once instead of O(W×S) scans)
+  const tmdbIdToKey = new Map<number, string>();
+  for (const [key] of maxEpByShowSeason) {
+    const parsed = parseTmdbId(key);
+    tmdbIdToKey.set(parsed.tmdbId, key);
+  }
+
   const orphans: FirebaseFirestore.DocumentReference[] = [];
   let orphanRuntime = 0;
 
@@ -381,15 +455,7 @@ async function cleanOrphanedEpisodes(
     const episode = data.episode;
     if (!tmdbShowId || !season || !episode) continue;
 
-    // Find matching catalog entry by tmdbId
-    let showDocKey: string | undefined;
-    for (const [key] of maxEpByShowSeason) {
-      const parsed = parseTmdbId(key);
-      if (parsed.tmdbId === tmdbShowId) {
-        showDocKey = key;
-        break;
-      }
-    }
+    const showDocKey = tmdbIdToKey.get(tmdbShowId);
     if (!showDocKey) continue;
 
     const seasonMap = maxEpByShowSeason.get(showDocKey)!;

@@ -2,7 +2,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { fetchShowFromTMDB, CatalogShow } from "./tmdb";
-import { addToTrackedBy } from "./utils";
+import { addToTrackedBy, getTmdbApiKey, invalidateApiKeyCache } from "./utils";
 import { addShowToUpcoming } from "./syncCatalog";
 import { showDocId } from "./docId";
 import { MediaType } from "./enums";
@@ -10,20 +10,6 @@ import { MediaType } from "./enums";
 interface AddShowRequest {
   tmdbId: number;
   mediaType: MediaType;
-}
-
-// Cache API key in module scope — survives across invocations on same instance
-let cachedApiKey: string | null = null;
-
-async function getTmdbApiKey(): Promise<string> {
-  if (cachedApiKey) return cachedApiKey;
-  const configDoc = await getFirestore().doc("config/app").get();
-  const key = configDoc.data()?.tmdbApiKey;
-  if (!key) {
-    throw new HttpsError("failed-precondition", "TMDB API key not configured");
-  }
-  cachedApiKey = key;
-  return key;
 }
 
 export const addShow = onCall(
@@ -71,7 +57,7 @@ export const addShow = onCall(
     } catch (err: any) {
       const status = err?.response?.status;
       if (status === 401) {
-        cachedApiKey = null; // Invalidate stale key
+        invalidateApiKeyCache();
         throw new HttpsError("failed-precondition", "TMDB API key is invalid");
       }
       if (status === 404) {

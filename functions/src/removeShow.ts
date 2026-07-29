@@ -31,18 +31,17 @@ export const removeShow = onCall(
     const uid = request.auth.uid;
     const showId = showDocId(tmdbId, mediaType);
 
-    // Remove user's tracking doc (keep watchedEpisodes + watchedMovies)
+    // Remove tracking doc + decrement stats in one batch
     const trackingRef = db.doc(`users/${uid}/tracking/${showId}`);
-    await trackingRef.delete();
-
-    // Update stats
     const userRef = db.doc(`users/${uid}`);
-    await userRef.set(
-      {
-        stats: { showsTracking: FieldValue.increment(-1) },
-      },
+    const userBatch = db.batch();
+    userBatch.delete(trackingRef);
+    userBatch.set(
+      userRef,
+      { stats: { showsTracking: FieldValue.increment(-1) } },
       { merge: true },
     );
+    await userBatch.commit();
 
     // Delete upcoming docs for this show
     const upcomingSnap = await db

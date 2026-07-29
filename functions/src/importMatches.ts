@@ -3,7 +3,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 import { fetchShowFromTMDB, CatalogShow, pooled } from "./tmdb";
-import { addToTrackedBy } from "./utils";
+import { addToTrackedBy, getTmdbApiKey } from "./utils";
 import { rebuildUserUpcoming } from "./syncCatalog";
 import { showDocId } from "./docId";
 import { MediaType, WatchStatus } from "./enums";
@@ -60,9 +60,10 @@ export const importMatches = onCall(
 
     const db = getFirestore();
     const uid = request.auth.uid;
-    const configDoc = await db.doc("config/app").get();
-    const apiKey = configDoc.data()?.tmdbApiKey;
-    if (!apiKey) {
+    let apiKey: string;
+    try {
+      apiKey = await getTmdbApiKey();
+    } catch {
       throw new HttpsError(
         "failed-precondition",
         "TMDB API key not configured",
