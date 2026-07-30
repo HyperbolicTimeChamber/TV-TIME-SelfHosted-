@@ -520,11 +520,15 @@ export async function markMovieWatched(
 		{ merge: true },
 	);
 
-	batch.update(tRef, {
-		status: WatchStatus.COMPLETED,
-		lastWatchedAt: now,
-		priorityDate: now,
-	});
+	batch.set(
+		tRef,
+		{
+			status: WatchStatus.COMPLETED,
+			lastWatchedAt: now,
+			priorityDate: now,
+		},
+		{ merge: true },
+	);
 
 	batch.set(
 		userRef(userId),
