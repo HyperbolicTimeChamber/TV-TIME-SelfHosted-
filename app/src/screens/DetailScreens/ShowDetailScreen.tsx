@@ -2,11 +2,13 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
 	View,
 	Text,
-	ScrollView,
+	Animated,
 	TouchableOpacity,
 	StyleSheet,
 	Alert,
 	ActivityIndicator,
+	NativeScrollEvent,
+	NativeSyntheticEvent,
 } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -70,6 +72,11 @@ export default function ShowDetailScreen() {
 	const navigation = useNavigation();
 	const insets = useSafeAreaInsets();
 	const BACKDROP_HEIGHT = 350;
+	const [imageTranslateY, setImageTranslateY] = useState(0);
+	const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+		const y = e.nativeEvent.contentOffset.y;
+		setImageTranslateY(Math.min(y * 0.4, BACKDROP_HEIGHT * 0.5));
+	}, []);
 
 	useEffect(() => {
 		warmupShowDetailCFs();
@@ -465,8 +472,10 @@ export default function ShowDetailScreen() {
 				<Ionicons name="share-outline" size={22} color={colors.text} />
 			</TouchableOpacity> */}
 
-			<ScrollView
+			<Animated.ScrollView
 				contentContainerStyle={{ paddingBottom: spacing.xxl + Math.max(insets.bottom, 48) }}
+				onScroll={handleScroll}
+				scrollEventThrottle={16}
 			>
 				{/* Backdrop */}
 				<View style={[styles.backdrop, { height: BACKDROP_HEIGHT }]}>
@@ -477,7 +486,7 @@ export default function ShowDetailScreen() {
 								? `${backdropSize.medium}${show.backdrop_path}`
 								: `${posterSize.large}${show.poster_path}`,
 						}}
-						style={StyleSheet.absoluteFill}
+						style={[StyleSheet.absoluteFill, { transform: [{ translateY: imageTranslateY }] }]}
 						contentFit="cover"
 						transition={300}
 					/>
@@ -486,10 +495,10 @@ export default function ShowDetailScreen() {
 				{/* Content overlaps backdrop — gradient fades image into island */}
 				<LinearGradient
 					colors={["transparent", "rgba(13,13,13,0.7)", colors.background]}
-					locations={[0, 0.5, 0.8]}
+					locations={[0, 0.6, 0.9]}
 					style={[styles.gradientIsland, { marginTop: -280 }]}
 				>
-					<BlurView intensity={40} tint="dark" style={styles.island}>
+					<BlurView intensity={15} tint="light" style={styles.island}>
 						<Text style={styles.islandTitle}>{title}</Text>
 						<Text style={styles.islandMeta}>
 							{year}
@@ -648,7 +657,7 @@ export default function ShowDetailScreen() {
 						</View>
 					)}
 				</View>
-			</ScrollView>
+			</Animated.ScrollView>
 
 			<ConfirmModal
 				visible={removeModalVisible}
@@ -731,7 +740,7 @@ const styles = StyleSheet.create({
 		paddingBottom: spacing.md,
 	},
 	island: {
-		backgroundColor: "rgba(255,255,255,0.08)",
+		backgroundColor: "rgba(0,0,0,0.25)",
 		borderRadius: 20,
 		paddingHorizontal: spacing.lg,
 		paddingVertical: spacing.lg,
@@ -796,12 +805,15 @@ const styles = StyleSheet.create({
 		...typography.body,
 		color: colors.textSecondary,
 		lineHeight: 22,
+		textAlign: "justify",
+		paddingHorizontal: spacing.sm,
 	},
 	creditsSection: {
 		marginTop: spacing.xl,
 		flexDirection: "row",
 		flexWrap: "wrap",
 		gap: spacing.lg,
+		paddingHorizontal: spacing.sm,
 	},
 	creditBlock: {
 		minWidth: 100,
@@ -814,7 +826,7 @@ const styles = StyleSheet.create({
 	},
 	creditNames: {
 		...typography.body,
-		color: colors.text,
+		color: colors.textSecondary,
 	},
 	seasonsSection: {
 		marginTop: spacing.xl,
