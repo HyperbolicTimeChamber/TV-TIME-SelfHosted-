@@ -192,11 +192,11 @@ export default memo(function ShowCard({
 					) : null}
 					{item.mediaType === MediaType.MOVIE ? (
 						<View style={styles.movieRow}>
-							<View style={styles.movieBadge}>
+							<View style={[styles.movieBadge, isJustAired && styles.mergedLeft]}>
 								<Text style={styles.movieBadgeText}>MOVIE</Text>
 							</View>
 							{isJustAired && (
-								<View style={styles.freshTag}>
+								<View style={[styles.freshTag, styles.mergedRight]}>
 									<Text style={styles.freshTagText}>{FreshTag.JUST_AIRED}</Text>
 								</View>
 							)}
@@ -335,7 +335,6 @@ const styles = StyleSheet.create({
 	movieRow: {
 		flexDirection: "row",
 		alignItems: "center",
-		gap: spacing.sm,
 		marginTop: 2,
 	},
 	freshTag: {
@@ -359,5 +358,13 @@ const styles = StyleSheet.create({
 		fontSize: 12,
 		fontWeight: "700",
 		color: colors.accent,
+	},
+	mergedLeft: {
+		borderTopRightRadius: 0,
+		borderBottomRightRadius: 0,
+	},
+	mergedRight: {
+		borderTopLeftRadius: 0,
+		borderBottomLeftRadius: 0,
 	},
 });
