@@ -36,6 +36,9 @@ export interface TMDBShowDetail {
 		episode_count: number;
 		air_date: string | null;
 	}>;
+	credits?: {
+		crew: Array<{ job: string; department: string; name: string }>;
+	};
 }
 
 export interface CatalogEpisode {
@@ -71,6 +74,11 @@ export interface CatalogShow {
 	releaseDate: string | null;
 	seasons: CatalogSeason[];
 	genres: string[];
+	credits?: {
+		directors: string[];
+		writers: string[];
+		producers: string[];
+	};
 }
 
 // Import types

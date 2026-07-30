@@ -192,13 +192,16 @@ export default memo(function ShowCard({
 					) : null}
 					{item.mediaType === MediaType.MOVIE ? (
 						<View style={styles.movieRow}>
-							<View style={[styles.movieBadge, isJustAired && styles.mergedLeft]}>
+							<View style={[styles.movieBadge, isJustAired && styles.movieBadgeMerged]}>
 								<Text style={styles.movieBadgeText}>MOVIE</Text>
 							</View>
 							{isJustAired && (
-								<View style={[styles.freshTag, styles.mergedRight]}>
-									<Text style={styles.freshTagText}>{FreshTag.JUST_AIRED}</Text>
-								</View>
+								<>
+									<View style={styles.slantArrow} />
+									<View style={styles.freshTag}>
+										<Text style={styles.freshTagText}>{FreshTag.JUST_AIRED}</Text>
+									</View>
+								</>
 							)}
 						</View>
 					) : (
@@ -297,7 +300,12 @@ const styles = StyleSheet.create({
 		paddingHorizontal: spacing.sm,
 		paddingVertical: 2,
 		borderRadius: 4,
-		marginTop: 2,
+		justifyContent: "center",
+		zIndex: 1,
+	},
+	movieBadgeMerged: {
+		borderTopRightRadius: 0,
+		borderBottomRightRadius: 0,
 	},
 	movieBadgeText: {
 		fontSize: 10,
@@ -334,17 +342,29 @@ const styles = StyleSheet.create({
 	},
 	movieRow: {
 		flexDirection: "row",
-		alignItems: "center",
+		alignItems: "stretch",
 		marginTop: 2,
+	},
+	slantArrow: {
+		width: 0,
+		height: 0,
+		alignSelf: "center",
+		borderTopWidth: 9,
+		borderTopColor: colors.warningAmber,
+		borderBottomWidth: 9,
+		borderBottomColor: colors.warningAmber,
+		borderLeftWidth: 5,
+		borderLeftColor: colors.moviePurple,
 	},
 	freshTag: {
 		backgroundColor: colors.warningAmber,
 		paddingHorizontal: spacing.sm,
-		paddingVertical: 1,
-		borderRadius: 4,
+		borderTopRightRadius: 4,
+		borderBottomRightRadius: 4,
+		justifyContent: "center",
 	},
 	freshTagText: {
-		fontSize: 9,
+		fontSize: 10,
 		fontWeight: "700",
 		color: colors.surface,
 		letterSpacing: 0.5,
@@ -358,13 +378,5 @@ const styles = StyleSheet.create({
 		fontSize: 12,
 		fontWeight: "700",
 		color: colors.accent,
-	},
-	mergedLeft: {
-		borderTopRightRadius: 0,
-		borderBottomRightRadius: 0,
-	},
-	mergedRight: {
-		borderTopLeftRadius: 0,
-		borderBottomLeftRadius: 0,
 	},
 });

@@ -1,5 +1,5 @@
 import React, { memo, useState, useCallback, useRef, useMemo } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, LayoutAnimation, UIManager, Platform } from "react-native";
 import { Image } from "expo-image";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -31,6 +31,10 @@ import SkeletonLine from "./SkeletonLine";
 import EpisodeDetailModal from "./modals/EpisodeDetailModal";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { TMDBSeason, TMDBEpisode, MediaType } from "../types";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+	UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function formatDate(dateStr: string): string {
@@ -663,7 +667,10 @@ export default memo(function SeasonDropdown({
 
 	return (
 		<View>
-			<TouchableOpacity style={styles.seasonRow} onPress={() => setExpanded(!expanded)}>
+			<TouchableOpacity style={styles.seasonRow} onPress={() => {
+				LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+				setExpanded(!expanded);
+			}}>
 				<Image
 					source={{
 						uri: `${posterSize.small}${season.poster_path || showPosterPath}`,

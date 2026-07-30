@@ -17,6 +17,9 @@ export interface TMDBShow {
 	status?: string;
 	runtime?: number;
 	seasons?: TMDBSeason[];
+	credits?: {
+		crew: Array<{ job: string; department: string; name: string }>;
+	};
 }
 
 export interface TMDBSeason {

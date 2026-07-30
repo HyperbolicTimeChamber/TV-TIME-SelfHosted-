@@ -30,7 +30,7 @@ export default function ProfileStackScreen() {
 			<ProfileStack.Screen
 				name={Route.SHOW_DETAIL}
 				component={ShowDetailScreen}
-				options={{ headerTitle: "" }}
+				options={{ headerShown: false }}
 			/>
 		</ProfileStack.Navigator>
 	);

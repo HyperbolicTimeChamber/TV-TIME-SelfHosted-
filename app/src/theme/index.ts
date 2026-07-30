@@ -7,7 +7,7 @@ export const colors = {
 	text: "#FFFFFF",
 	textSecondary: "#A0A0A0",
 	textMuted: "#666666",
-	watchedGreen: "#2ECC71",
+	watchedGreen: "#00A800",
 	stopBlue: "#3498DB",
 	destructiveRed: "#E74C3C",
 	border: "#333333",
@@ -31,7 +31,7 @@ export const spacing = {
 } as const;
 
 export const typography = {
-	title: { fontSize: 22, fontWeight: "700" as const, color: colors.text },
+	title: { fontSize: 22, fontWeight: "600" as const, color: colors.text },
 	subtitle: { fontSize: 16, fontWeight: "600" as const, color: colors.text },
 	body: { fontSize: 14, fontWeight: "400" as const, color: colors.text },
 	caption: {
