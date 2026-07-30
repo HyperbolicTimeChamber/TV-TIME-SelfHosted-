@@ -1,9 +1,12 @@
-import React from "react";
-import { View, StyleSheet } from "react-native";
+import React, { useState } from "react";
+import { View, Animated, StyleSheet, Dimensions } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
-import { colors, spacing, backdropSize, posterSize } from "../../theme";
+import { useSharedShimmer } from "../../components/SkeletonLine";
+import { colors, spacing } from "../../theme";
+import { tmdbBackdropUri, tmdbPosterUri } from "../../hooks/useTmdbImage";
+
+const SCREEN_WIDTH = Dimensions.get("window").width;
 
 const BACKDROP_HEIGHT = 350;
 
@@ -19,20 +22,27 @@ export default function DetailBackdrop({
 	posterPath,
 	imageTranslateY,
 	children,
-}: Props) {
+}: Readonly<Props>) {
+	const shimmer = useSharedShimmer();
+	const [imageLoaded, setImageLoaded] = useState(false);
 	return (
 		<>
 			<View style={[styles.backdrop, { height: BACKDROP_HEIGHT }]}>
-				<View style={[StyleSheet.absoluteFill, styles.backdropSkeleton]} />
+				{!imageLoaded && (
+					<Animated.View
+						style={[StyleSheet.absoluteFill, styles.backdropSkeleton, { opacity: shimmer }]}
+					/>
+				)}
 				<Image
 					source={{
 						uri: backdropPath
-							? `${backdropSize.medium}${backdropPath}`
-							: `${posterSize.large}${posterPath}`,
+							? tmdbBackdropUri(backdropPath, SCREEN_WIDTH)
+							: tmdbPosterUri(posterPath!, SCREEN_WIDTH),
 					}}
 					style={[StyleSheet.absoluteFill, { transform: [{ translateY: imageTranslateY }] }]}
 					contentFit="cover"
 					transition={300}
+					onLoad={() => setImageLoaded(true)}
 				/>
 			</View>
 

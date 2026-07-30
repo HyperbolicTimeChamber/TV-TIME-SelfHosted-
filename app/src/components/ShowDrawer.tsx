@@ -1,8 +1,9 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
 	View,
 	Text,
 	TouchableOpacity,
+	Animated,
 	StyleSheet,
 	Modal,
 	ActivityIndicator,
@@ -12,11 +13,13 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
-import SkeletonLine from "./SkeletonLine";
+import SkeletonLine, { useSharedShimmer } from "./SkeletonLine";
 import { LinearGradient } from "expo-linear-gradient";
-import { colors, spacing, typography, posterSize, backdropSize } from "../theme";
+import { colors, spacing, typography } from "../theme";
+import { tmdbBackdropUri, tmdbPosterUri } from "../hooks/useTmdbImage";
 import { MediaType } from "../enums";
 
+const SCREEN_WIDTH = Dimensions.get("window").width;
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
 export interface ShowDrawerData {
@@ -52,7 +55,9 @@ export default function ShowDrawer({
 }: Readonly<Props>) {
 	const bottomSheetRef = useRef<BottomSheet>(null);
 	const insets = useSafeAreaInsets();
+	const shimmer = useSharedShimmer();
 	const maxHeight = SCREEN_HEIGHT * 0.85;
+	const [imageLoaded, setImageLoaded] = useState(false);
 
 	const handleSheetChanges = useCallback(
 		(index: number) => {
@@ -94,15 +99,19 @@ export default function ShowDrawer({
 					) : show ? (
 						<BottomSheetScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
 							<View style={styles.imageContainer}>
+								{!imageLoaded && (
+									<Animated.View style={[styles.imageSkeleton, { opacity: shimmer }]} />
+								)}
 								<Image
 									source={{
 										uri: show.backdropPath
-											? `${backdropSize.medium}${show.backdropPath}`
-											: `${posterSize.large}${show.posterPath}`,
+											? tmdbBackdropUri(show.backdropPath, SCREEN_WIDTH)
+											: tmdbPosterUri(show.posterPath!, SCREEN_WIDTH),
 									}}
 									style={styles.backdropImage}
 									contentFit="cover"
 									transition={300}
+									onLoad={() => setImageLoaded(true)}
 								/>
 								<LinearGradient
 									colors={["transparent", colors.surface]}
@@ -193,6 +202,10 @@ const styles = StyleSheet.create({
 		borderTopRightRadius: 16,
 		overflow: "hidden",
 	},
+	imageSkeleton: {
+		...(StyleSheet.absoluteFill as object),
+		backgroundColor: colors.surfaceLight,
+	},
 	backdropImage: {
 		width: "100%",
 		height: "100%",
@@ -249,7 +262,7 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		paddingVertical: spacing.md,
 		marginHorizontal: spacing.lg,
-		marginBottom: spacing.xl, // also receives dynamic paddingBottom for safe area
+		marginBottom: spacing.xl,
 		borderRadius: 8,
 		backgroundColor: colors.primary,
 	},

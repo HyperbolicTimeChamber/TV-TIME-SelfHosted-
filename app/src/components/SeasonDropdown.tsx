@@ -60,7 +60,6 @@ interface Props {
 	showBackdropPath?: string | null;
 	isTracked?: boolean;
 	preloadedEpisodes?: TMDBEpisode[];
-	refreshKey?: number;
 }
 
 export default memo(function SeasonDropdown({
@@ -71,7 +70,6 @@ export default memo(function SeasonDropdown({
 	showBackdropPath,
 	isTracked,
 	preloadedEpisodes,
-	refreshKey,
 }: Props) {
 	const [expanded, setExpanded] = useState(false);
 	const [markingEps, setMarkingEps] = useState<Set<number>>(new Set());
@@ -94,7 +92,6 @@ export default memo(function SeasonDropdown({
 	const { episodes: watchedEps, loading: watchedLoading } = useShowWatchedEpisodes(
 		user?.uid,
 		tmdbId,
-		refreshKey,
 	);
 
 	// Skipped episodes modal state
