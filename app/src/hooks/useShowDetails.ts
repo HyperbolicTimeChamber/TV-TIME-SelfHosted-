@@ -88,11 +88,32 @@ export function useShowDetails(tmdbId: number, mediaType: MediaType = MediaType.
 
 			// Try in-memory cache first (instant, no Firestore read)
 			const cached = getCachedCatalogShow(tmdbId, mediaType);
-			if (cached && hasSeasonsData(cached)) return catalogShowToResult(cached);
+			if (cached && hasSeasonsData(cached)) {
+				const result = catalogShowToResult(cached);
+				// Movie without credits in catalog → fetch from TMDB
+				if (mediaType === MediaType.MOVIE && !cached.credits) {
+					const apiKey = useAuthStore.getState().appTmdbApiKey;
+					if (apiKey) {
+						const tmdbShow = await getShowDetails(apiKey, tmdbId, mediaType);
+						if (tmdbShow.credits) result.show.credits = tmdbShow.credits;
+					}
+				}
+				return result;
+			}
 
 			// Fallback to Firestore catalog doc
 			const catalogShow = await getCatalogShow(tmdbId, mediaType);
-			if (catalogShow && hasSeasonsData(catalogShow)) return catalogShowToResult(catalogShow);
+			if (catalogShow && hasSeasonsData(catalogShow)) {
+				const result = catalogShowToResult(catalogShow);
+				if (mediaType === MediaType.MOVIE && !catalogShow.credits) {
+					const apiKey = useAuthStore.getState().appTmdbApiKey;
+					if (apiKey) {
+						const tmdbShow = await getShowDetails(apiKey, tmdbId, mediaType);
+						if (tmdbShow.credits) result.show.credits = tmdbShow.credits;
+					}
+				}
+				return result;
+			}
 
 			// Fallback to TMDB
 			const apiKey = useAuthStore.getState().appTmdbApiKey;

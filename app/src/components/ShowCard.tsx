@@ -295,6 +295,7 @@ const styles = StyleSheet.create({
 		fontSize: 13,
 	},
 	movieBadge: {
+		alignSelf: "flex-start",
 		backgroundColor: colors.moviePurple,
 		paddingHorizontal: spacing.sm,
 		paddingVertical: 2,
