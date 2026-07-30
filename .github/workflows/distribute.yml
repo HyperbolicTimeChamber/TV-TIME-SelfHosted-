@@ -31,10 +31,10 @@ jobs:
         id: bump
         run: |
           BUMP_FLAG=""
-          MSG="${{ github.event.head_commit.message }}"
-          if echo "$MSG" | grep -qi '\[major\]'; then
+          git log -1 --format=%B > /tmp/commit_msg.txt
+          if grep -qi '\[major\]' /tmp/commit_msg.txt; then
             BUMP_FLAG="--major"
-          elif echo "$MSG" | grep -qi '\[minor\]'; then
+          elif grep -qi '\[minor\]' /tmp/commit_msg.txt; then
             BUMP_FLAG="--minor"
           fi
           echo "flag=$BUMP_FLAG" >> "$GITHUB_OUTPUT"
