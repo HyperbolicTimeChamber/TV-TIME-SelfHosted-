@@ -56,38 +56,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Bump version
+      - name: Bump version (local only)
         if: github.event_name == 'push'
         id: version
         run: |
           chmod +x scripts/bump-version.sh
           NEW_VERSION=$(./scripts/bump-version.sh ${{ steps.bump.outputs.flag }})
           echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "Bumped to $NEW_VERSION"
-
-      - name: Commit version bump
-        if: github.event_name == 'push'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add app/app.json app/package.json
-          git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }} [skip ci]"
-          git push
-
-      - name: Sync version bump to development
-        if: github.event_name == 'push'
-        run: |
-          git fetch origin development
-          git checkout development
-          git checkout main -- app/app.json app/package.json
-          git add app/app.json app/package.json
-          if git diff --cached --quiet; then
-            echo "development already up to date"
-          else
-            git commit -m "chore: sync version ${{ steps.version.outputs.new_version }} from main [skip ci]"
-            git push origin development
-          fi
-          git checkout main
+          echo "Bumped to $NEW_VERSION (will commit after successful build)"
 
       # ── Node Setup + Cache ──
       - name: Setup Node
@@ -197,6 +173,32 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
           NEW_VERSION: ${{ steps.version.outputs.new_version }}
+
+      # ── Commit version bump (only after successful build) ──
+      - name: Commit version bump
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add app/app.json app/package.json
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }} [skip ci]"
+          git push
+
+      - name: Sync version bump to development
+        if: github.event_name == 'push'
+        run: |
+          git fetch origin development
+          git checkout development
+          git checkout main -- app/app.json app/package.json
+          git add app/app.json app/package.json
+          if git diff --cached --quiet; then
+            echo "development already up to date"
+          else
+            git commit -m "chore: sync version ${{ steps.version.outputs.new_version }} from main [skip ci]"
+            git push origin development
+          fi
+          git checkout main
 
       # ── PR Comment ──
       - name: Comment on PR
