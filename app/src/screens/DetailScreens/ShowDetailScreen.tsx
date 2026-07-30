@@ -732,9 +732,9 @@ const styles = StyleSheet.create({
 	},
 	island: {
 		backgroundColor: "rgba(255,255,255,0.08)",
-		borderRadius: 12,
+		borderRadius: 20,
 		paddingHorizontal: spacing.lg,
-		paddingVertical: spacing.md,
+		paddingVertical: spacing.lg,
 		overflow: "hidden",
 	},
 	islandTitle: {
