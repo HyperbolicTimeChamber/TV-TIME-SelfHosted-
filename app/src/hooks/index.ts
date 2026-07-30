@@ -26,3 +26,11 @@ export { useWeeklyActivity, incrementDailyWatch, decrementDailyWatch } from "./u
 export { useProfileCardImages } from "./useProfileCardImages";
 export { useCompletedShows } from "./useCompletedShows";
 export type { CompletedItem } from "./useCompletedShows";
+export {
+	getTmdbPosterSize,
+	getTmdbBackdropSize,
+	getTmdbStillSize,
+	tmdbPosterUri,
+	tmdbBackdropUri,
+	tmdbStillUri,
+} from "./useTmdbImage";
