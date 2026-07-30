@@ -33,4 +33,9 @@ export interface CatalogShow {
 	releaseDate: string | null;
 	seasons: CatalogSeason[];
 	genres: string[];
+	credits?: {
+		directors: string[];
+		writers: string[];
+		producers: string[];
+	};
 }

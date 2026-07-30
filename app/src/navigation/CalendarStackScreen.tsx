@@ -18,7 +18,7 @@ export default function CalendarStackScreen() {
 			<CalendarStack.Screen
 				name={Route.SHOW_DETAIL}
 				component={ShowDetailScreen}
-				options={{ headerTitle: "" }}
+				options={{ headerShown: false }}
 			/>
 		</CalendarStack.Navigator>
 	);

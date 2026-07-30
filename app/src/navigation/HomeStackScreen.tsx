@@ -19,7 +19,7 @@ export default function HomeStackScreen() {
 			<HomeStack.Screen
 				name={Route.SHOW_DETAIL}
 				component={ShowDetailScreen}
-				options={{ headerTitle: "" }}
+				options={{ headerShown: false }}
 			/>
 			<HomeStack.Screen
 				name={Route.SEASON_DETAIL}

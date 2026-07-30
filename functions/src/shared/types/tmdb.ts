@@ -34,4 +34,7 @@ export interface TMDBShowDetail {
 		episode_count: number;
 		air_date: string | null;
 	}>;
+	credits?: {
+		crew: Array<{ job: string; department: string; name: string }>;
+	};
 }

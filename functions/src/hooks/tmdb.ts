@@ -67,7 +67,10 @@ export async function fetchShowFromTMDB(
 		mediaType === MediaType.TV ? `${TMDB_BASE}/tv/${tmdbId}` : `${TMDB_BASE}/movie/${tmdbId}`;
 
 	const { data } = await axios.get<TMDBShowDetail>(endpoint, {
-		params: { api_key: apiKey },
+		params: {
+			api_key: apiKey,
+			...(mediaType === MediaType.MOVIE && { append_to_response: "credits" }),
+		},
 	});
 
 	let seasons: CatalogSeason[] = [];
@@ -104,5 +107,21 @@ export async function fetchShowFromTMDB(
 		releaseDate: data.release_date ?? null,
 		seasons,
 		genres: (data.genres ?? []).map((g) => g.name),
+		...(mediaType === MediaType.MOVIE && data.credits?.crew
+			? {
+					credits: {
+						directors: data.credits.crew
+							.filter((c) => c.job === "Director")
+							.map((c) => c.name),
+						writers: data.credits.crew
+							.filter((c) => c.department === "Writing")
+							.map((c) => c.name),
+						producers: data.credits.crew
+							.filter((c) => c.job === "Producer")
+							.map((c) => c.name)
+							.slice(0, 3),
+					},
+				}
+			: {}),
 	};
 }

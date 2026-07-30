@@ -13,7 +13,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import SkeletonLine from "./SkeletonLine";
-import { colors, spacing, typography, posterSize } from "../theme";
+import { LinearGradient } from "expo-linear-gradient";
+import { colors, spacing, typography, posterSize, backdropSize } from "../theme";
 import { MediaType } from "../enums";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
@@ -92,16 +93,31 @@ export default function ShowDrawer({
 						</View>
 					) : show ? (
 						<BottomSheetScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-							<Image
-								source={{
-									uri: `${posterSize.large}${show.backdropPath || show.posterPath}`,
-								}}
-								style={styles.backdropImage}
-								contentFit="cover"
-							/>
+							<View style={styles.imageContainer}>
+								<Image
+									source={{
+										uri: show.backdropPath
+											? `${backdropSize.medium}${show.backdropPath}`
+											: `${posterSize.large}${show.posterPath}`,
+									}}
+									style={styles.backdropImage}
+									contentFit="cover"
+									transition={300}
+								/>
+								<LinearGradient
+									colors={["transparent", colors.surface]}
+									style={styles.imageGradient}
+								/>
+							</View>
 							<View style={styles.content}>
-								<View style={styles.titleRow}>
-									<Text style={styles.title}>{show.title}</Text>
+								<Text style={styles.title}>{show.title}</Text>
+								{metaLine ? <Text style={styles.meta}>{metaLine}</Text> : null}
+								<View style={styles.genreRow}>
+									{show.genres ? (
+										<Text style={[styles.meta, { flex: 1 }]}>{show.genres}</Text>
+									) : (
+										<SkeletonLine width="45%" height={11} style={{ marginTop: spacing.xs }} />
+									)}
 									{show.mediaType && (
 										<View
 											style={[
@@ -115,12 +131,6 @@ export default function ShowDrawer({
 										</View>
 									)}
 								</View>
-								{metaLine ? <Text style={styles.meta}>{metaLine}</Text> : null}
-								{show.genres ? (
-									<Text style={styles.meta}>{show.genres}</Text>
-								) : (
-									<SkeletonLine width="45%" height={11} style={{ marginTop: spacing.xs }} />
-								)}
 								{show.overview ? <Text style={styles.overview}>{show.overview}</Text> : null}
 							</View>
 							{onGoToShow && (
@@ -177,24 +187,36 @@ const styles = StyleSheet.create({
 		flexGrow: 0,
 		flexShrink: 1,
 	},
-	backdropImage: {
-		width: "100%",
+	imageContainer: {
 		height: 200,
 		borderTopLeftRadius: 16,
 		borderTopRightRadius: 16,
+		overflow: "hidden",
+	},
+	backdropImage: {
+		width: "100%",
+		height: "100%",
+	},
+	imageGradient: {
+		position: "absolute",
+		bottom: 0,
+		left: 0,
+		right: 0,
+		height: 140,
 	},
 	content: {
 		padding: spacing.lg,
-	},
-	titleRow: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: spacing.sm,
+		marginTop: -60,
 	},
 	title: {
 		...typography.title,
 		fontSize: 22,
-		flex: 1,
+	},
+	genreRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.sm,
+		marginTop: spacing.xs,
 	},
 	typeBadge: {
 		backgroundColor: colors.primary,
@@ -214,7 +236,7 @@ const styles = StyleSheet.create({
 	},
 	meta: {
 		...typography.caption,
-		color: colors.textSecondary,
+		color: colors.text,
 		marginTop: spacing.xs,
 	},
 	overview: {
