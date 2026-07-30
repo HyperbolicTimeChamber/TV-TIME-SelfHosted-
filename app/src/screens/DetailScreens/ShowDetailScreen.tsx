@@ -482,16 +482,6 @@ export default function ShowDetailScreen() {
 					imageTranslateY={imageTranslateY}
 				>
 					<Text style={styles.islandTitle}>{title}</Text>
-					<Text style={styles.islandMeta}>
-						{year}
-						{mediaType === MediaType.TV && show.number_of_seasons
-							? ` \u00b7 ${show.number_of_seasons} Season${show.number_of_seasons > 1 ? "s" : ""}`
-							: ""}
-						{mediaType === MediaType.MOVIE && show.runtime
-							? ` \u00b7 ${Math.floor(show.runtime / 60)}h ${show.runtime % 60}m`
-							: ""}
-						{show.vote_average ? ` \u00b7 \u2605 ${show.vote_average.toFixed(1)}` : ""}
-					</Text>
 
 					<ActionPills
 						mediaType={mediaType}
@@ -508,14 +498,20 @@ export default function ShowDetailScreen() {
 				</DetailBackdrop>
 
 				<View style={styles.content}>
+					<Text style={styles.islandMeta}>
+						{year}
+						{mediaType === MediaType.TV && show.number_of_seasons
+							? ` \u00b7 ${show.number_of_seasons} Season${show.number_of_seasons > 1 ? "s" : ""}`
+							: ""}
+						{mediaType === MediaType.MOVIE && show.runtime
+							? ` \u00b7 ${Math.floor(show.runtime / 60)}h ${show.runtime % 60}m`
+							: ""}
+						{show.vote_average ? ` \u00b7 \u2605 ${show.vote_average.toFixed(1)}` : ""}
+					</Text>
 					<Text style={styles.overview}>{show.overview}</Text>
 
 					{mediaType === MediaType.MOVIE && (
-						<DetailCredits
-							directors={directors}
-							writers={writers}
-							producers={producers}
-						/>
+						<DetailCredits directors={directors} writers={writers} producers={producers} />
 					)}
 
 					{mediaType === MediaType.TV && show.seasons && (
@@ -616,12 +612,14 @@ const styles = StyleSheet.create({
 	},
 	islandMeta: {
 		...typography.caption,
-		marginTop: spacing.xs,
+		paddingHorizontal: spacing.sm,
+		color: colors.text,
+		marginBottom: spacing.sm,
 	},
 	content: {
 		backgroundColor: colors.background,
 		paddingHorizontal: spacing.lg,
-		paddingTop: spacing.sm,
+		paddingTop: spacing.xs,
 	},
 	overview: {
 		...typography.body,

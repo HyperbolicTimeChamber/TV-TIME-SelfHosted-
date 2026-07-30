@@ -110,8 +110,14 @@ export default function ShowDrawer({
 								/>
 							</View>
 							<View style={styles.content}>
-								<View style={styles.titleRow}>
-									<Text style={styles.title}>{show.title}</Text>
+								<Text style={styles.title}>{show.title}</Text>
+								{metaLine ? <Text style={styles.meta}>{metaLine}</Text> : null}
+								<View style={styles.genreRow}>
+									{show.genres ? (
+										<Text style={[styles.meta, { flex: 1 }]}>{show.genres}</Text>
+									) : (
+										<SkeletonLine width="45%" height={11} style={{ marginTop: spacing.xs }} />
+									)}
 									{show.mediaType && (
 										<View
 											style={[
@@ -125,12 +131,6 @@ export default function ShowDrawer({
 										</View>
 									)}
 								</View>
-								{metaLine ? <Text style={styles.meta}>{metaLine}</Text> : null}
-								{show.genres ? (
-									<Text style={styles.meta}>{show.genres}</Text>
-								) : (
-									<SkeletonLine width="45%" height={11} style={{ marginTop: spacing.xs }} />
-								)}
 								{show.overview ? <Text style={styles.overview}>{show.overview}</Text> : null}
 							</View>
 							{onGoToShow && (
@@ -202,21 +202,21 @@ const styles = StyleSheet.create({
 		bottom: 0,
 		left: 0,
 		right: 0,
-		height: 80,
+		height: 140,
 	},
 	content: {
 		padding: spacing.lg,
-		marginTop: -40,
-	},
-	titleRow: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: spacing.sm,
+		marginTop: -60,
 	},
 	title: {
 		...typography.title,
 		fontSize: 22,
-		flex: 1,
+	},
+	genreRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.sm,
+		marginTop: spacing.xs,
 	},
 	typeBadge: {
 		backgroundColor: colors.primary,
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
 	},
 	meta: {
 		...typography.caption,
-		color: colors.textSecondary,
+		color: colors.text,
 		marginTop: spacing.xs,
 	},
 	overview: {

@@ -14,7 +14,12 @@ interface Props {
 	children: React.ReactNode;
 }
 
-export default function DetailBackdrop({ backdropPath, posterPath, imageTranslateY, children }: Props) {
+export default function DetailBackdrop({
+	backdropPath,
+	posterPath,
+	imageTranslateY,
+	children,
+}: Props) {
 	return (
 		<>
 			<View style={[styles.backdrop, { height: BACKDROP_HEIGHT }]}>
@@ -36,9 +41,7 @@ export default function DetailBackdrop({ backdropPath, posterPath, imageTranslat
 				locations={[0, 0.6, 0.9]}
 				style={[styles.gradientIsland, { marginTop: -280 }]}
 			>
-				<BlurView intensity={15} tint="light" style={styles.island}>
-					{children}
-				</BlurView>
+				<View style={styles.island}>{children}</View>
 			</LinearGradient>
 		</>
 	);
@@ -52,15 +55,14 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.surfaceLight,
 	},
 	gradientIsland: {
-		paddingHorizontal: spacing.lg,
-		paddingTop: 180,
-		paddingBottom: spacing.md,
+		paddingHorizontal: spacing.sm,
+		paddingTop: 200,
+		paddingBottom: spacing.sm,
 	},
 	island: {
-		backgroundColor: "rgba(0,0,0,0.25)",
 		borderRadius: 20,
-		paddingHorizontal: spacing.lg,
-		paddingVertical: spacing.lg,
+		paddingHorizontal: spacing.md,
+		paddingVertical: spacing.md,
 		overflow: "hidden",
 	},
 });

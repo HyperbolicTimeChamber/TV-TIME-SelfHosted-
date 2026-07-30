@@ -27,7 +27,7 @@ export default function ActionPills({
 	onResumeOrRewatch,
 	onRemove,
 	onMovieSheetOpen,
-}: Props) {
+}: Readonly<Props>) {
 	return (
 		<View style={styles.pillRow}>
 			{!watchlistItem ? (
@@ -59,28 +59,26 @@ export default function ActionPills({
 				</>
 			) : (
 				<>
-					{mediaType === MediaType.MOVIE &&
-						watchlistItem.status !== WatchStatus.COMPLETED && (
-							<TouchableOpacity
-								style={[styles.pill, styles.pillWatched, adding && styles.pillDisabled]}
-								onPress={onMarkMovieWatched}
-								disabled={adding}
-							>
-								{adding ? (
-									<ActivityIndicator size="small" color={colors.text} />
-								) : (
-									<Text style={styles.pillText}>Mark as Watched</Text>
-								)}
-							</TouchableOpacity>
-						)}
-					{mediaType === MediaType.MOVIE &&
-						watchlistItem.status === WatchStatus.COMPLETED && (
-							<View style={[styles.pill, styles.pillWatched, { opacity: 0.7 }]}>
-								<Text style={styles.pillText}>
-									Watched{movieWatchCount > 0 ? ` ${movieWatchCount}x` : ""} {"\u2713"}
-								</Text>
-							</View>
-						)}
+					{mediaType === MediaType.MOVIE && watchlistItem.status !== WatchStatus.COMPLETED && (
+						<TouchableOpacity
+							style={[styles.pill, styles.pillWatched, adding && styles.pillDisabled]}
+							onPress={onMarkMovieWatched}
+							disabled={adding}
+						>
+							{adding ? (
+								<ActivityIndicator size="small" color={colors.text} />
+							) : (
+								<Text style={styles.pillText}>Mark as Watched</Text>
+							)}
+						</TouchableOpacity>
+					)}
+					{mediaType === MediaType.MOVIE && watchlistItem.status === WatchStatus.COMPLETED && (
+						<View style={[styles.pill, styles.pillWatched, { opacity: 0.7 }]}>
+							<Text style={styles.pillText}>
+								Watched{movieWatchCount > 0 ? ` ${movieWatchCount}x` : ""} {"\u2713"}
+							</Text>
+						</View>
+					)}
 					{(watchlistItem.status === WatchStatus.COMPLETED ||
 						watchlistItem.status === WatchStatus.PAUSED ||
 						watchlistItem.status === WatchStatus.PAUSED_REWATCH ||
@@ -91,9 +89,7 @@ export default function ActionPills({
 							style={[styles.pill, styles.pillAccent]}
 							onPress={onResumeOrRewatch}
 							onLongPress={
-								mediaType === MediaType.MOVIE && movieWatchCount > 0
-									? onMovieSheetOpen
-									: undefined
+								mediaType === MediaType.MOVIE && movieWatchCount > 0 ? onMovieSheetOpen : undefined
 							}
 						>
 							<Text style={styles.pillText}>
@@ -127,14 +123,14 @@ const styles = StyleSheet.create({
 		flexDirection: "row",
 		flexWrap: "wrap",
 		gap: spacing.sm,
-		marginTop: spacing.md,
+		marginTop: spacing.lg,
 	},
 	pill: {
 		flex: 1,
 		minWidth: 100,
-		paddingVertical: spacing.sm,
+		paddingVertical: spacing.md,
 		paddingHorizontal: spacing.md,
-		borderRadius: 20,
+		borderRadius: 15,
 		alignItems: "center",
 		justifyContent: "center",
 	},
@@ -148,9 +144,7 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.accent,
 	},
 	pillRemove: {
-		backgroundColor: "transparent",
-		borderWidth: 1.5,
-		borderColor: colors.destructiveRed,
+		backgroundColor: colors.destructiveRed,
 	},
 	pillDisabled: {
 		opacity: 0.6,
@@ -163,6 +157,6 @@ const styles = StyleSheet.create({
 	pillRemoveText: {
 		...typography.subtitle,
 		fontSize: 13,
-		color: colors.destructiveRed,
+		color: colors.text,
 	},
 });
