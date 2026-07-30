@@ -55,7 +55,7 @@ export default function SearchStackScreen() {
 			<SearchStack.Screen
 				name={Route.SHOW_DETAIL}
 				component={ShowDetailScreen}
-				options={{ headerTitle: "" }}
+				options={{ headerShown: false }}
 			/>
 		</SearchStack.Navigator>
 	);
