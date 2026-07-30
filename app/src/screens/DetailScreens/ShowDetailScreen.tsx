@@ -2,14 +2,17 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
 	View,
 	Text,
-	ScrollView,
 	TouchableOpacity,
 	StyleSheet,
 	Alert,
 	ActivityIndicator,
-	RefreshControl,
+	Animated,
 } from "react-native";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
 import { useRoute, RouteProp } from "@react-navigation/native";
 import { getFirestore, doc, getDoc, onSnapshot, updateDoc } from "@react-native-firebase/firestore";
 import {
@@ -63,6 +66,11 @@ export default function ShowDetailScreen() {
 	const { tmdbId, mediaType } = route.params;
 	const user = useAuthStore((s) => s.user);
 
+	const navigation = useNavigation();
+	const insets = useSafeAreaInsets();
+	const scrollY = React.useRef(new Animated.Value(0)).current;
+	const BACKDROP_HEIGHT = 350;
+
 	useEffect(() => {
 		warmupShowDetailCFs();
 	}, []);
@@ -87,7 +95,6 @@ export default function ShowDetailScreen() {
 		return found?.watchCount ?? 0;
 	});
 	const [movieSheetVisible, setMovieSheetVisible] = useState(false);
-	const [refreshing, setRefreshing] = useState(false);
 	const [refreshKey, setRefreshKey] = useState(0);
 	const [removeModalVisible, setRemoveModalVisible] = useState(false);
 	const [removeError, setRemoveError] = useState<string | null>(null);
@@ -142,14 +149,6 @@ export default function ShowDetailScreen() {
 		};
 	}, [user?.uid, tmdbId]);
 
-	const handleRefresh = useCallback(async () => {
-		setRefreshing(true);
-		setRefreshKey((k) => k + 1);
-		// Brief delay so the spinner is visible
-		await new Promise((r) => setTimeout(r, 400));
-		setRefreshing(false);
-	}, []);
-
 	const title = show?.name || show?.title || "";
 	const rawDate = show?.first_air_date || show?.release_date || "";
 	const year =
@@ -160,6 +159,10 @@ export default function ShowDetailScreen() {
 					year: "numeric",
 				})
 			: rawDate.substring(0, 4);
+
+	const directors = show?.credits?.crew?.filter((c) => c.job === "Director").map((c) => c.name) ?? [];
+	const writers = show?.credits?.crew?.filter((c) => c.department === "Writing").map((c) => c.name) ?? [];
+	const producers = show?.credits?.crew?.filter((c) => c.job === "Producer").map((c) => c.name) ?? [];
 
 	const handleAddToWatchlist = useCallback(async () => {
 		if (!user?.uid || !show || adding) return;
@@ -440,18 +443,25 @@ export default function ShowDetailScreen() {
 	}
 
 	return (
-		<ScrollView
-			style={styles.container}
-			refreshControl={
-				<RefreshControl
-					refreshing={refreshing}
-					onRefresh={handleRefresh}
-					tintColor={colors.text}
-					colors={[colors.accent]}
-				/>
-			}
-		>
-			<View style={styles.backdrop}>
+		<View style={styles.container}>
+			{/* Fixed parallax backdrop */}
+			<Animated.View
+				style={[
+					styles.backdrop,
+					{
+						height: BACKDROP_HEIGHT,
+						transform: [
+							{
+								translateY: scrollY.interpolate({
+									inputRange: [0, BACKDROP_HEIGHT],
+									outputRange: [0, BACKDROP_HEIGHT * 0.5],
+									extrapolate: "clamp",
+								}),
+							},
+						],
+					},
+				]}
+			>
 				<View style={[StyleSheet.absoluteFill, styles.backdropSkeleton]} />
 				<Image
 					source={{
@@ -460,140 +470,202 @@ export default function ShowDetailScreen() {
 					style={StyleSheet.absoluteFill}
 					contentFit="cover"
 				/>
-			</View>
+			</Animated.View>
 
-			<View style={styles.content}>
-				<Text style={styles.title}>{title}</Text>
-				<Text style={styles.meta}>
-					{year}
-					{show.number_of_seasons
-						? ` · ${show.number_of_seasons} Season${show.number_of_seasons > 1 ? "s" : ""}`
-						: ""}
-					{show.vote_average ? ` · ★ ${show.vote_average.toFixed(1)}` : ""}
-				</Text>
+			{/* Floating back button */}
+			<TouchableOpacity
+				style={[styles.backButton, { top: insets.top + 8 }]}
+				onPress={() => navigation.goBack()}
+				hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+			>
+				<Ionicons name="chevron-back" size={24} color={colors.text} />
+			</TouchableOpacity>
 
-				<View style={styles.actions}>
-					{!watchlistItem ? (
-						<>
-							<TouchableOpacity
-								style={[styles.addButton, adding && { opacity: 0.6 }]}
-								onPress={handleAddToWatchlist}
-								disabled={adding}
-							>
-								{adding ? (
-									<ActivityIndicator size="small" color={colors.text} />
-								) : (
-									<Text style={styles.buttonText}>+ Add to Watchlist</Text>
-								)}
-							</TouchableOpacity>
-							{mediaType === MediaType.MOVIE && (
-								<TouchableOpacity
-									style={[
-										styles.addButton,
-										{ backgroundColor: colors.watchedGreen },
-										adding && { opacity: 0.6 },
-									]}
-									onPress={handleMarkMovieWatched}
-									disabled={adding}
-								>
-									{adding ? (
-										<ActivityIndicator size="small" color={colors.text} />
-									) : (
-										<Text style={styles.buttonText}>Watched</Text>
-									)}
-								</TouchableOpacity>
-							)}
-						</>
-					) : (
-						<>
-							{mediaType === MediaType.MOVIE && watchlistItem.status !== WatchStatus.COMPLETED && (
-								<TouchableOpacity
-									style={[
-										styles.addButton,
-										{ backgroundColor: colors.watchedGreen },
-										adding && { opacity: 0.6 },
-									]}
-									onPress={handleMarkMovieWatched}
-									disabled={adding}
-								>
-									{adding ? (
-										<ActivityIndicator size="small" color={colors.text} />
-									) : (
-										<Text style={styles.buttonText}>Mark as Watched</Text>
-									)}
-								</TouchableOpacity>
-							)}
-							{mediaType === MediaType.MOVIE && watchlistItem.status === WatchStatus.COMPLETED && (
-								<View
-									style={[styles.addButton, { backgroundColor: colors.watchedGreen, opacity: 0.7 }]}
-								>
-									<Text style={styles.buttonText}>
-										Watched{movieWatchCount > 0 ? ` ${movieWatchCount}x` : ""} ✓
-									</Text>
-								</View>
-							)}
-							{(watchlistItem.status === WatchStatus.COMPLETED ||
-								watchlistItem.status === WatchStatus.PAUSED ||
-								watchlistItem.status === WatchStatus.PAUSED_REWATCH ||
-								(watchlistItem.status === WatchStatus.WATCHING &&
-									mediaType === MediaType.TV &&
-									!watchlistItem.nextEpisode)) && (
-								<TouchableOpacity
-									style={[styles.addButton, { backgroundColor: colors.accent }]}
-									onPress={handleResumeOrRewatch}
-									onLongPress={
-										mediaType === MediaType.MOVIE && movieWatchCount > 0
-											? () => setMovieSheetVisible(true)
-											: undefined
-									}
-								>
-									<Text style={styles.buttonText}>
-										{watchlistItem.status === WatchStatus.PAUSED
-											? "Resume"
-											: watchlistItem.status === WatchStatus.PAUSED_REWATCH
-												? "Resume Rewatch"
-												: "Rewatch"}
-									</Text>
-								</TouchableOpacity>
-							)}
-							<TouchableOpacity
-								style={[styles.removeButton, removing && { opacity: 0.6 }]}
-								onPress={handleRemove}
-								disabled={removing}
-							>
-								{removing ? (
-									<ActivityIndicator size="small" color={colors.destructiveRed} />
-								) : (
-									<Text style={styles.removeButtonText}>Remove</Text>
-								)}
-							</TouchableOpacity>
-						</>
-					)}
+			{/* Share button - commented out for later */}
+			{/* <TouchableOpacity
+				style={[styles.shareButton, { top: insets.top + 8 }]}
+				onPress={() => {}}
+				hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+			>
+				<Ionicons name="share-outline" size={22} color={colors.text} />
+			</TouchableOpacity> */}
+
+			{/* Scrollable content */}
+			<Animated.ScrollView
+				style={StyleSheet.absoluteFill}
+				contentContainerStyle={{ paddingBottom: spacing.xxl }}
+				onScroll={Animated.event(
+					[{ nativeEvent: { contentOffset: { y: scrollY } } }],
+					{ useNativeDriver: true },
+				)}
+				scrollEventThrottle={16}
+			>
+				{/* Spacer to push content below backdrop */}
+				<View style={{ height: BACKDROP_HEIGHT - 100 }} />
+
+				{/* Translucent island */}
+				<View style={styles.island}>
+					<Text style={styles.islandTitle}>{title}</Text>
+					<Text style={styles.islandMeta}>
+						{year}
+						{mediaType === MediaType.TV && show.number_of_seasons
+							? ` \u00b7 ${show.number_of_seasons} Season${show.number_of_seasons > 1 ? "s" : ""}`
+							: ""}
+						{mediaType === MediaType.MOVIE && show.runtime
+							? ` \u00b7 ${Math.floor(show.runtime / 60)}h ${show.runtime % 60}m`
+							: ""}
+						{show.vote_average ? ` \u00b7 \u2605 ${show.vote_average.toFixed(1)}` : ""}
+					</Text>
 				</View>
 
-				<Text style={styles.overview}>{show.overview}</Text>
+				{/* Gradient fade from image to content */}
+				<LinearGradient
+					colors={["transparent", colors.background]}
+					style={styles.gradientFade}
+				/>
 
-				{mediaType === MediaType.TV && show.seasons && (
-					<View style={styles.seasonsSection}>
-						<Text style={styles.sectionTitle}>Seasons</Text>
-						{show.seasons
-							.filter((s) => s.season_number > 0)
-							?.map((season) => (
-								<SeasonDropdown
-									key={season.season_number}
-									tmdbId={tmdbId}
-									season={season}
-									showTitle={title}
-									showPosterPath={show.poster_path}
-									showBackdropPath={show.backdrop_path || null}
-									isTracked={!!watchlistItem}
-									preloadedEpisodes={episodesBySeason.get(season.season_number)}
-									refreshKey={refreshKey}
-								/>
-							))}
+				{/* Content area */}
+				<View style={styles.content}>
+					{/* Action pills */}
+					<View style={styles.pillRow}>
+						{!watchlistItem ? (
+							<>
+								<TouchableOpacity
+									style={[styles.pill, styles.pillPrimary, adding && styles.pillDisabled]}
+									onPress={handleAddToWatchlist}
+									disabled={adding}
+								>
+									{adding ? (
+										<ActivityIndicator size="small" color={colors.text} />
+									) : (
+										<Text style={styles.pillText}>+ Add to Watchlist</Text>
+									)}
+								</TouchableOpacity>
+								{mediaType === MediaType.MOVIE && (
+									<TouchableOpacity
+										style={[styles.pill, styles.pillWatched, adding && styles.pillDisabled]}
+										onPress={handleMarkMovieWatched}
+										disabled={adding}
+									>
+										{adding ? (
+											<ActivityIndicator size="small" color={colors.text} />
+										) : (
+											<Text style={styles.pillText}>Watched</Text>
+										)}
+									</TouchableOpacity>
+								)}
+							</>
+						) : (
+							<>
+								{mediaType === MediaType.MOVIE && watchlistItem.status !== WatchStatus.COMPLETED && (
+									<TouchableOpacity
+										style={[styles.pill, styles.pillWatched, adding && styles.pillDisabled]}
+										onPress={handleMarkMovieWatched}
+										disabled={adding}
+									>
+										{adding ? (
+											<ActivityIndicator size="small" color={colors.text} />
+										) : (
+											<Text style={styles.pillText}>Mark as Watched</Text>
+										)}
+									</TouchableOpacity>
+								)}
+								{mediaType === MediaType.MOVIE && watchlistItem.status === WatchStatus.COMPLETED && (
+									<View style={[styles.pill, styles.pillWatched, { opacity: 0.7 }]}>
+										<Text style={styles.pillText}>
+											Watched{movieWatchCount > 0 ? ` ${movieWatchCount}x` : ""} {"\u2713"}
+										</Text>
+									</View>
+								)}
+								{(watchlistItem.status === WatchStatus.COMPLETED ||
+									watchlistItem.status === WatchStatus.PAUSED ||
+									watchlistItem.status === WatchStatus.PAUSED_REWATCH ||
+									(watchlistItem.status === WatchStatus.WATCHING &&
+										mediaType === MediaType.TV &&
+										!watchlistItem.nextEpisode)) && (
+									<TouchableOpacity
+										style={[styles.pill, styles.pillAccent]}
+										onPress={handleResumeOrRewatch}
+										onLongPress={
+											mediaType === MediaType.MOVIE && movieWatchCount > 0
+												? () => setMovieSheetVisible(true)
+												: undefined
+										}
+									>
+										<Text style={styles.pillText}>
+											{watchlistItem.status === WatchStatus.PAUSED
+												? "Resume"
+												: watchlistItem.status === WatchStatus.PAUSED_REWATCH
+													? "Resume Rewatch"
+													: "Rewatch"}
+										</Text>
+									</TouchableOpacity>
+								)}
+								<TouchableOpacity
+									style={[styles.pill, styles.pillRemove, removing && styles.pillDisabled]}
+									onPress={handleRemove}
+									disabled={removing}
+								>
+									{removing ? (
+										<ActivityIndicator size="small" color={colors.destructiveRed} />
+									) : (
+										<Text style={styles.pillRemoveText}>Remove</Text>
+									)}
+								</TouchableOpacity>
+							</>
+						)}
 					</View>
-				)}
-			</View>
+
+					{/* Overview */}
+					<Text style={styles.overview}>{show.overview}</Text>
+
+					{/* Credits — movies only */}
+					{mediaType === MediaType.MOVIE && (directors.length > 0 || writers.length > 0 || producers.length > 0) && (
+						<View style={styles.creditsSection}>
+							{directors.length > 0 && (
+								<View style={styles.creditBlock}>
+									<Text style={styles.creditLabel}>Director</Text>
+									<Text style={styles.creditNames}>{directors.join(", ")}</Text>
+								</View>
+							)}
+							{writers.length > 0 && (
+								<View style={styles.creditBlock}>
+									<Text style={styles.creditLabel}>Screenplay</Text>
+									<Text style={styles.creditNames}>{writers.join(", ")}</Text>
+								</View>
+							)}
+							{producers.length > 0 && (
+								<View style={styles.creditBlock}>
+									<Text style={styles.creditLabel}>Production</Text>
+									<Text style={styles.creditNames}>{producers.join(", ")}</Text>
+								</View>
+							)}
+						</View>
+					)}
+
+					{/* Seasons — TV only */}
+					{mediaType === MediaType.TV && show.seasons && (
+						<View style={styles.seasonsSection}>
+							<Text style={styles.sectionTitle}>Seasons</Text>
+							{show.seasons
+								.filter((s) => s.season_number > 0)
+								?.map((season) => (
+									<SeasonDropdown
+										key={season.season_number}
+										tmdbId={tmdbId}
+										season={season}
+										showTitle={title}
+										showPosterPath={show.poster_path}
+										showBackdropPath={show.backdrop_path || null}
+										isTracked={!!watchlistItem}
+										preloadedEpisodes={episodesBySeason.get(season.season_number)}
+										refreshKey={refreshKey}
+									/>
+								))}
+						</View>
+					)}
+				</View>
+			</Animated.ScrollView>
 
 			<ConfirmModal
 				visible={removeModalVisible}
@@ -622,7 +694,7 @@ export default function ShowDetailScreen() {
 				onSelect={handleMovieSheetAction}
 				onClose={() => setMovieSheetVisible(false)}
 			/>
-		</ScrollView>
+		</View>
 	);
 }
 
@@ -642,60 +714,126 @@ const styles = StyleSheet.create({
 		color: colors.textSecondary,
 	},
 	backdrop: {
-		width: "100%",
-		height: 220,
+		position: "absolute",
+		top: 0,
+		left: 0,
+		right: 0,
 		overflow: "hidden",
 	},
 	backdropSkeleton: {
 		backgroundColor: colors.surfaceLight,
 	},
-	content: {
-		padding: spacing.lg,
+	backButton: {
+		position: "absolute",
+		left: 16,
+		zIndex: 10,
+		width: 36,
+		height: 36,
+		borderRadius: 18,
+		backgroundColor: colors.badgeOverlay,
+		alignItems: "center",
+		justifyContent: "center",
 	},
-	title: {
+	shareButton: {
+		position: "absolute",
+		right: 16,
+		zIndex: 10,
+		width: 36,
+		height: 36,
+		borderRadius: 18,
+		backgroundColor: colors.badgeOverlay,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	island: {
+		marginHorizontal: spacing.lg,
+		backgroundColor: "rgba(0,0,0,0.55)",
+		borderRadius: 12,
+		paddingHorizontal: spacing.lg,
+		paddingVertical: spacing.md,
+	},
+	islandTitle: {
 		...typography.title,
 		fontSize: 24,
 	},
-	meta: {
+	islandMeta: {
 		...typography.caption,
 		marginTop: spacing.xs,
 	},
-	actions: {
+	gradientFade: {
+		height: 60,
+		marginTop: -1,
+	},
+	content: {
+		backgroundColor: colors.background,
+		paddingHorizontal: spacing.lg,
+		paddingTop: spacing.sm,
+	},
+	pillRow: {
 		flexDirection: "row",
+		flexWrap: "wrap",
 		gap: spacing.sm,
-		marginTop: spacing.lg,
+		marginBottom: spacing.lg,
 	},
-	addButton: {
+	pill: {
 		flex: 1,
+		minWidth: 100,
+		paddingVertical: spacing.sm,
+		paddingHorizontal: spacing.md,
+		borderRadius: 20,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	pillPrimary: {
 		backgroundColor: colors.primary,
-		paddingVertical: spacing.md,
-		borderRadius: 8,
-		alignItems: "center",
 	},
-	buttonText: {
-		...typography.subtitle,
-		fontSize: 14,
-		color: colors.text,
+	pillWatched: {
+		backgroundColor: colors.watchedGreen,
 	},
-	removeButton: {
-		flex: 1,
-		paddingVertical: spacing.md,
-		borderRadius: 8,
-		alignItems: "center",
+	pillAccent: {
+		backgroundColor: colors.accent,
+	},
+	pillRemove: {
+		backgroundColor: "transparent",
 		borderWidth: 1.5,
 		borderColor: colors.destructiveRed,
-		backgroundColor: "transparent",
 	},
-	removeButtonText: {
+	pillDisabled: {
+		opacity: 0.6,
+	},
+	pillText: {
 		...typography.subtitle,
-		fontSize: 14,
+		fontSize: 13,
+		color: colors.text,
+	},
+	pillRemoveText: {
+		...typography.subtitle,
+		fontSize: 13,
 		color: colors.destructiveRed,
 	},
 	overview: {
 		...typography.body,
 		color: colors.textSecondary,
-		marginTop: spacing.lg,
 		lineHeight: 22,
+	},
+	creditsSection: {
+		marginTop: spacing.xl,
+		flexDirection: "row",
+		flexWrap: "wrap",
+		gap: spacing.lg,
+	},
+	creditBlock: {
+		minWidth: 100,
+	},
+	creditLabel: {
+		...typography.subtitle,
+		fontSize: 14,
+		color: colors.accent,
+		marginBottom: spacing.xs,
+	},
+	creditNames: {
+		...typography.body,
+		color: colors.text,
 	},
 	seasonsSection: {
 		marginTop: spacing.xl,
