@@ -49,15 +49,9 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
 
-      # ── CocoaPods Cache ──
-      - name: Cache CocoaPods
-        uses: actions/cache@v5
-        with:
-          path: app/ios/Pods
-          key: pods-${{ runner.os }}-${{ hashFiles('app/ios/Podfile.lock') }}
-
+      # ── CocoaPods (no cache — prebuild --clean invalidates Pods) ──
       - name: Install CocoaPods
-        run: pod install
+        run: pod install --repo-update
         working-directory: app/ios
 
       # ── Build unsigned IPA ──
