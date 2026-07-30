@@ -6,17 +6,16 @@ import {
 	TouchableOpacity,
 	StyleSheet,
 	Alert,
-	ActivityIndicator,
 	NativeScrollEvent,
 	NativeSyntheticEvent,
 } from "react-native";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRoute, RouteProp } from "@react-navigation/native";
+import DetailBackdrop from "./DetailBackdrop";
+import ActionPills from "./ActionPills";
+import DetailCredits from "./DetailCredits";
 import { getFirestore, doc, getDoc, onSnapshot, updateDoc } from "@react-native-firebase/firestore";
 import {
 	useShowDetails,
@@ -50,7 +49,7 @@ import {
 import type { WatchAction } from "../../components";
 import { emitShowAdded, emitShowRemoved, emitShowCompleted } from "../../utils/watchlistEvents";
 import { showDocId } from "../../utils/docId";
-import { colors, spacing, typography, posterSize, backdropSize } from "../../theme";
+import { colors, spacing, typography } from "../../theme";
 import {
 	HomeStackParamList,
 	WatchStatus,
@@ -477,165 +476,48 @@ export default function ShowDetailScreen() {
 				onScroll={handleScroll}
 				scrollEventThrottle={16}
 			>
-				{/* Backdrop */}
-				<View style={[styles.backdrop, { height: BACKDROP_HEIGHT }]}>
-					<View style={[StyleSheet.absoluteFill, styles.backdropSkeleton]} />
-					<Image
-						source={{
-							uri: show.backdrop_path
-								? `${backdropSize.medium}${show.backdrop_path}`
-								: `${posterSize.large}${show.poster_path}`,
-						}}
-						style={[StyleSheet.absoluteFill, { transform: [{ translateY: imageTranslateY }] }]}
-						contentFit="cover"
-						transition={300}
-					/>
-				</View>
-
-				{/* Content overlaps backdrop — gradient fades image into island */}
-				<LinearGradient
-					colors={["transparent", "rgba(13,13,13,0.7)", colors.background]}
-					locations={[0, 0.6, 0.9]}
-					style={[styles.gradientIsland, { marginTop: -280 }]}
+				<DetailBackdrop
+					backdropPath={show.backdrop_path}
+					posterPath={show.poster_path}
+					imageTranslateY={imageTranslateY}
 				>
-					<BlurView intensity={15} tint="light" style={styles.island}>
-						<Text style={styles.islandTitle}>{title}</Text>
-						<Text style={styles.islandMeta}>
-							{year}
-							{mediaType === MediaType.TV && show.number_of_seasons
-								? ` \u00b7 ${show.number_of_seasons} Season${show.number_of_seasons > 1 ? "s" : ""}`
-								: ""}
-							{mediaType === MediaType.MOVIE && show.runtime
-								? ` \u00b7 ${Math.floor(show.runtime / 60)}h ${show.runtime % 60}m`
-								: ""}
-							{show.vote_average ? ` \u00b7 \u2605 ${show.vote_average.toFixed(1)}` : ""}
-						</Text>
+					<Text style={styles.islandTitle}>{title}</Text>
+					<Text style={styles.islandMeta}>
+						{year}
+						{mediaType === MediaType.TV && show.number_of_seasons
+							? ` \u00b7 ${show.number_of_seasons} Season${show.number_of_seasons > 1 ? "s" : ""}`
+							: ""}
+						{mediaType === MediaType.MOVIE && show.runtime
+							? ` \u00b7 ${Math.floor(show.runtime / 60)}h ${show.runtime % 60}m`
+							: ""}
+						{show.vote_average ? ` \u00b7 \u2605 ${show.vote_average.toFixed(1)}` : ""}
+					</Text>
 
-						{/* Action pills */}
-						<View style={styles.pillRow}>
-							{!watchlistItem ? (
-								<>
-									<TouchableOpacity
-										style={[styles.pill, styles.pillPrimary, adding && styles.pillDisabled]}
-										onPress={handleAddToWatchlist}
-										disabled={adding}
-									>
-										{adding ? (
-											<ActivityIndicator size="small" color={colors.text} />
-										) : (
-											<Text style={styles.pillText}>+ Add to Watchlist</Text>
-										)}
-									</TouchableOpacity>
-									{mediaType === MediaType.MOVIE && (
-										<TouchableOpacity
-											style={[styles.pill, styles.pillWatched, adding && styles.pillDisabled]}
-											onPress={handleMarkMovieWatched}
-											disabled={adding}
-										>
-											{adding ? (
-												<ActivityIndicator size="small" color={colors.text} />
-											) : (
-												<Text style={styles.pillText}>Watched</Text>
-											)}
-										</TouchableOpacity>
-									)}
-								</>
-							) : (
-								<>
-									{mediaType === MediaType.MOVIE &&
-										watchlistItem.status !== WatchStatus.COMPLETED && (
-											<TouchableOpacity
-												style={[styles.pill, styles.pillWatched, adding && styles.pillDisabled]}
-												onPress={handleMarkMovieWatched}
-												disabled={adding}
-											>
-												{adding ? (
-													<ActivityIndicator size="small" color={colors.text} />
-												) : (
-													<Text style={styles.pillText}>Mark as Watched</Text>
-												)}
-											</TouchableOpacity>
-										)}
-									{mediaType === MediaType.MOVIE &&
-										watchlistItem.status === WatchStatus.COMPLETED && (
-											<View style={[styles.pill, styles.pillWatched, { opacity: 0.7 }]}>
-												<Text style={styles.pillText}>
-													Watched{movieWatchCount > 0 ? ` ${movieWatchCount}x` : ""} {"\u2713"}
-												</Text>
-											</View>
-										)}
-									{(watchlistItem.status === WatchStatus.COMPLETED ||
-										watchlistItem.status === WatchStatus.PAUSED ||
-										watchlistItem.status === WatchStatus.PAUSED_REWATCH ||
-										(watchlistItem.status === WatchStatus.WATCHING &&
-											mediaType === MediaType.TV &&
-											!watchlistItem.nextEpisode)) && (
-										<TouchableOpacity
-											style={[styles.pill, styles.pillAccent]}
-											onPress={handleResumeOrRewatch}
-											onLongPress={
-												mediaType === MediaType.MOVIE && movieWatchCount > 0
-													? () => setMovieSheetVisible(true)
-													: undefined
-											}
-										>
-											<Text style={styles.pillText}>
-												{watchlistItem.status === WatchStatus.PAUSED
-													? "Resume"
-													: watchlistItem.status === WatchStatus.PAUSED_REWATCH
-														? "Resume Rewatch"
-														: "Rewatch"}
-											</Text>
-										</TouchableOpacity>
-									)}
-									<TouchableOpacity
-										style={[styles.pill, styles.pillRemove, removing && styles.pillDisabled]}
-										onPress={handleRemove}
-										disabled={removing}
-									>
-										{removing ? (
-											<ActivityIndicator size="small" color={colors.destructiveRed} />
-										) : (
-											<Text style={styles.pillRemoveText}>Remove</Text>
-										)}
-									</TouchableOpacity>
-								</>
-							)}
-						</View>
-					</BlurView>
-				</LinearGradient>
+					<ActionPills
+						mediaType={mediaType}
+						watchlistItem={watchlistItem}
+						adding={adding}
+						removing={removing}
+						movieWatchCount={movieWatchCount}
+						onAddToWatchlist={handleAddToWatchlist}
+						onMarkMovieWatched={handleMarkMovieWatched}
+						onResumeOrRewatch={handleResumeOrRewatch}
+						onRemove={handleRemove}
+						onMovieSheetOpen={() => setMovieSheetVisible(true)}
+					/>
+				</DetailBackdrop>
 
-				{/* Content area */}
 				<View style={styles.content}>
-					{/* Overview */}
 					<Text style={styles.overview}>{show.overview}</Text>
 
-					{/* Credits — movies only */}
-					{mediaType === MediaType.MOVIE &&
-						(directors.length > 0 || writers.length > 0 || producers.length > 0) && (
-							<View style={styles.creditsSection}>
-								{directors.length > 0 && (
-									<View style={styles.creditBlock}>
-										<Text style={styles.creditLabel}>Director</Text>
-										<Text style={styles.creditNames}>{directors.join(", ")}</Text>
-									</View>
-								)}
-								{writers.length > 0 && (
-									<View style={styles.creditBlock}>
-										<Text style={styles.creditLabel}>Screenplay</Text>
-										<Text style={styles.creditNames}>{writers.join(", ")}</Text>
-									</View>
-								)}
-								{producers.length > 0 && (
-									<View style={styles.creditBlock}>
-										<Text style={styles.creditLabel}>Production</Text>
-										<Text style={styles.creditNames}>{producers.join(", ")}</Text>
-									</View>
-								)}
-							</View>
-						)}
+					{mediaType === MediaType.MOVIE && (
+						<DetailCredits
+							directors={directors}
+							writers={writers}
+							producers={producers}
+						/>
+					)}
 
-					{/* Seasons — TV only */}
 					{mediaType === MediaType.TV && show.seasons && (
 						<View style={styles.seasonsSection}>
 							<Text style={styles.sectionTitle}>Seasons</Text>
@@ -705,12 +587,6 @@ const styles = StyleSheet.create({
 		...typography.body,
 		color: colors.textSecondary,
 	},
-	backdrop: {
-		overflow: "hidden",
-	},
-	backdropSkeleton: {
-		backgroundColor: colors.surfaceLight,
-	},
 	backButton: {
 		position: "absolute",
 		left: 16,
@@ -734,18 +610,6 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 	},
-	gradientIsland: {
-		paddingHorizontal: spacing.lg,
-		paddingTop: 180,
-		paddingBottom: spacing.md,
-	},
-	island: {
-		backgroundColor: "rgba(0,0,0,0.25)",
-		borderRadius: 20,
-		paddingHorizontal: spacing.lg,
-		paddingVertical: spacing.lg,
-		overflow: "hidden",
-	},
 	islandTitle: {
 		...typography.title,
 		fontSize: 24,
@@ -759,74 +623,12 @@ const styles = StyleSheet.create({
 		paddingHorizontal: spacing.lg,
 		paddingTop: spacing.sm,
 	},
-	pillRow: {
-		flexDirection: "row",
-		flexWrap: "wrap",
-		gap: spacing.sm,
-		marginTop: spacing.md,
-	},
-	pill: {
-		flex: 1,
-		minWidth: 100,
-		paddingVertical: spacing.sm,
-		paddingHorizontal: spacing.md,
-		borderRadius: 20,
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	pillPrimary: {
-		backgroundColor: colors.primary,
-	},
-	pillWatched: {
-		backgroundColor: colors.watchedGreen,
-	},
-	pillAccent: {
-		backgroundColor: colors.accent,
-	},
-	pillRemove: {
-		backgroundColor: "transparent",
-		borderWidth: 1.5,
-		borderColor: colors.destructiveRed,
-	},
-	pillDisabled: {
-		opacity: 0.6,
-	},
-	pillText: {
-		...typography.subtitle,
-		fontSize: 13,
-		color: colors.text,
-	},
-	pillRemoveText: {
-		...typography.subtitle,
-		fontSize: 13,
-		color: colors.destructiveRed,
-	},
 	overview: {
 		...typography.body,
 		color: colors.textSecondary,
 		lineHeight: 22,
 		textAlign: "justify",
 		paddingHorizontal: spacing.sm,
-	},
-	creditsSection: {
-		marginTop: spacing.xl,
-		flexDirection: "row",
-		flexWrap: "wrap",
-		gap: spacing.lg,
-		paddingHorizontal: spacing.sm,
-	},
-	creditBlock: {
-		minWidth: 100,
-	},
-	creditLabel: {
-		...typography.subtitle,
-		fontSize: 14,
-		color: colors.primary,
-		marginBottom: spacing.xs,
-	},
-	creditNames: {
-		...typography.body,
-		color: colors.textSecondary,
 	},
 	seasonsSection: {
 		marginTop: spacing.xl,

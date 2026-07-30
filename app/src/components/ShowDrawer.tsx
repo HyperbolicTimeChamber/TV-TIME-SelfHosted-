@@ -13,7 +13,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import SkeletonLine from "./SkeletonLine";
-import { colors, spacing, typography, posterSize } from "../theme";
+import { LinearGradient } from "expo-linear-gradient";
+import { colors, spacing, typography, posterSize, backdropSize } from "../theme";
 import { MediaType } from "../enums";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
@@ -92,13 +93,22 @@ export default function ShowDrawer({
 						</View>
 					) : show ? (
 						<BottomSheetScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-							<Image
-								source={{
-									uri: `${posterSize.large}${show.backdropPath || show.posterPath}`,
-								}}
-								style={styles.backdropImage}
-								contentFit="cover"
-							/>
+							<View style={styles.imageContainer}>
+								<Image
+									source={{
+										uri: show.backdropPath
+											? `${backdropSize.medium}${show.backdropPath}`
+											: `${posterSize.large}${show.posterPath}`,
+									}}
+									style={styles.backdropImage}
+									contentFit="cover"
+									transition={300}
+								/>
+								<LinearGradient
+									colors={["transparent", colors.surface]}
+									style={styles.imageGradient}
+								/>
+							</View>
 							<View style={styles.content}>
 								<View style={styles.titleRow}>
 									<Text style={styles.title}>{show.title}</Text>
@@ -177,14 +187,26 @@ const styles = StyleSheet.create({
 		flexGrow: 0,
 		flexShrink: 1,
 	},
-	backdropImage: {
-		width: "100%",
+	imageContainer: {
 		height: 200,
 		borderTopLeftRadius: 16,
 		borderTopRightRadius: 16,
+		overflow: "hidden",
+	},
+	backdropImage: {
+		width: "100%",
+		height: "100%",
+	},
+	imageGradient: {
+		position: "absolute",
+		bottom: 0,
+		left: 0,
+		right: 0,
+		height: 80,
 	},
 	content: {
 		padding: spacing.lg,
+		marginTop: -40,
 	},
 	titleRow: {
 		flexDirection: "row",
