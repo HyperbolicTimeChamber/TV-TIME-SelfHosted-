@@ -22,7 +22,7 @@ export default function DetailBackdrop({
 	posterPath,
 	imageTranslateY,
 	children,
-}: Props) {
+}: Readonly<Props>) {
 	const shimmer = useSharedShimmer();
 	const [imageLoaded, setImageLoaded] = useState(false);
 	return (

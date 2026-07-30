@@ -19,13 +19,11 @@ import { WatchedEpisode, QueryKey } from "../types";
 export function useShowWatchedEpisodes(
 	userId: string | undefined,
 	tmdbShowId: number,
-	externalRefreshKey: number = 0,
 ) {
 	const queryClient = useQueryClient();
 	const [episodes, setEpisodes] = useState<WatchedEpisode[]>([]);
 	const [loading, setLoading] = useState(true);
-	const [internalRefreshKey, setInternalRefreshKey] = useState(0);
-	const refreshKey = internalRefreshKey + externalRefreshKey;
+	const [refreshKey, setRefreshKey] = useState(0);
 
 	const fetchFromFirestore = useCallback(
 		async (uid: string) => {
@@ -76,7 +74,7 @@ export function useShowWatchedEpisodes(
 	}, [userId, tmdbShowId, queryClient, refreshKey, fetchFromFirestore]);
 
 	const refetch = useCallback(() => {
-		setInternalRefreshKey((k) => k + 1);
+		setRefreshKey((k) => k + 1);
 	}, []);
 
 	// Subscribe to React Query cache updates (from insertWatchedEpisodeCache etc.)
