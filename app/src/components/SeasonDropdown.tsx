@@ -1,5 +1,15 @@
 import React, { memo, useState, useCallback, useRef, useMemo } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, LayoutAnimation, UIManager, Platform } from "react-native";
+import {
+	View,
+	Text,
+	TouchableOpacity,
+	StyleSheet,
+	ActivityIndicator,
+	Alert,
+	LayoutAnimation,
+	UIManager,
+	Platform,
+} from "react-native";
 import { Image } from "expo-image";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -667,10 +677,13 @@ export default memo(function SeasonDropdown({
 
 	return (
 		<View>
-			<TouchableOpacity style={styles.seasonRow} onPress={() => {
-				LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-				setExpanded(!expanded);
-			}}>
+			<TouchableOpacity
+				style={styles.seasonRow}
+				onPress={() => {
+					LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+					setExpanded(!expanded);
+				}}
+			>
 				<Image
 					source={{
 						uri: `${posterSize.small}${season.poster_path || showPosterPath}`,
