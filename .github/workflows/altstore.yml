@@ -54,6 +54,23 @@ jobs:
         run: pod install --repo-update
         working-directory: app/ios
 
+      - name: Fix gRPC modulemap
+        run: |
+          MODULEMAP="ios/Pods/Headers/Private/grpc/gRPC-Core.modulemap"
+          if [ ! -f "$MODULEMAP" ]; then
+            echo "gRPC-Core.modulemap missing — creating from pod target support files"
+            SOURCE="ios/Pods/Target Support Files/gRPC-Core/gRPC-Core.modulemap"
+            if [ -f "$SOURCE" ]; then
+              mkdir -p "$(dirname "$MODULEMAP")"
+              cp "$SOURCE" "$MODULEMAP"
+            else
+              echo "::warning::gRPC-Core.modulemap source not found, creating minimal modulemap"
+              mkdir -p "$(dirname "$MODULEMAP")"
+              printf 'module grpc {\n}\n' > "$MODULEMAP"
+            fi
+          fi
+        working-directory: app
+
       # ── Build unsigned IPA ──
       - name: Build unsigned IPA
         run: |
