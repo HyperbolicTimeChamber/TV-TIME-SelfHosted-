@@ -73,6 +73,7 @@ export async function fetchCatalogUpdates(
 					voteAverage: freshData.voteAverage,
 					seasons: freshData.seasons,
 					genres: freshData.genres,
+					...(freshData.credits ? { credits: freshData.credits } : {}),
 					lastSyncedAt: FieldValue.serverTimestamp(),
 				},
 			});
