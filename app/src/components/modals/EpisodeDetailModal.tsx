@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useState } from "react";
 import {
 	View,
 	Text,
@@ -10,42 +10,18 @@ import {
 	Dimensions,
 } from "react-native";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import AnimatedModal from "./AnimatedModal";
-import { colors, spacing, typography, TMDB_IMAGE_BASE } from "../../theme";
+import { useSharedShimmer } from "../SkeletonLine";
+import { colors, spacing, typography } from "../../theme";
+import { tmdbStillUri, tmdbBackdropUri, tmdbPosterUri } from "../../hooks/useTmdbImage";
+
+const MODAL_WIDTH = Math.min(Dimensions.get("window").width * 0.8, 320);
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function formatDate(dateStr: string): string {
 	const [y, m, d] = dateStr.split("-");
 	return `${Number.parseInt(d, 10)} ${MONTHS[Number.parseInt(m, 10) - 1]} ${y}`;
-}
-
-function useShimmer() {
-	const anim = useRef(new Animated.Value(0)).current;
-	useEffect(() => {
-		const loop = Animated.loop(
-			Animated.timing(anim, {
-				toValue: 1,
-				duration: 1200,
-				useNativeDriver: true,
-			}),
-		);
-		loop.start();
-		return () => loop.stop();
-	}, [anim]);
-	return anim.interpolate({
-		inputRange: [0, 0.5, 1],
-		outputRange: [0.3, 0.6, 0.3],
-	});
-}
-
-function Skeleton({
-	style,
-	shimmer,
-}: {
-	style: any;
-	shimmer: Animated.AnimatedInterpolation<number>;
-}) {
-	return <Animated.View style={[style, { opacity: shimmer }]} />;
 }
 
 interface Props {
@@ -86,36 +62,49 @@ export default function EpisodeDetailModal({
 	onClose,
 }: Props) {
 	const label = `S${String(season).padStart(2, "0")} | E${String(episode).padStart(2, "0")}`;
-	const shimmer = useShimmer();
+	const shimmer = useSharedShimmer();
+	const [imageLoaded, setImageLoaded] = useState(false);
 
 	return (
 		<AnimatedModal visible={visible} onClose={onClose}>
 			<View style={styles.content}>
-				{loadingDetails ? (
-					<Skeleton style={styles.stillSkeleton} shimmer={shimmer} />
-				) : stillPath ? (
-					<Image
-						source={{ uri: `${TMDB_IMAGE_BASE}/w500${stillPath}` }}
-						style={styles.still}
-						contentFit="cover"
-					/>
-				) : showBackdropPath ? (
-					<Image
-						source={{ uri: `${TMDB_IMAGE_BASE}/w500${showBackdropPath}` }}
-						style={styles.still}
-						contentFit="cover"
-					/>
-				) : showPosterPath ? (
-					<Image
-						source={{ uri: `${TMDB_IMAGE_BASE}/w500${showPosterPath}` }}
-						style={styles.still}
-						contentFit="cover"
-					/>
-				) : (
-					<View style={styles.stillPlaceholder}>
-						<Text style={styles.stillPlaceholderText}>E{String(episode).padStart(2, "0")}</Text>
-					</View>
-				)}
+				<View style={styles.imageContainer}>
+					{!imageLoaded && (
+						<Animated.View style={[styles.imageSkeleton, { opacity: shimmer }]} />
+					)}
+					{loadingDetails ? (
+						<Animated.View style={[styles.still, { opacity: shimmer, backgroundColor: colors.border }]} />
+					) : stillPath ? (
+						<Image
+							source={{ uri: tmdbStillUri(stillPath, MODAL_WIDTH) }}
+							style={styles.still}
+							contentFit="cover"
+							transition={300}
+							onLoad={() => setImageLoaded(true)}
+						/>
+					) : showBackdropPath ? (
+						<Image
+							source={{ uri: tmdbBackdropUri(showBackdropPath, MODAL_WIDTH) }}
+							style={styles.still}
+							contentFit="cover"
+							transition={300}
+							onLoad={() => setImageLoaded(true)}
+						/>
+					) : showPosterPath ? (
+						<Image
+							source={{ uri: tmdbPosterUri(showPosterPath, MODAL_WIDTH) }}
+							style={styles.still}
+							contentFit="cover"
+							transition={300}
+							onLoad={() => setImageLoaded(true)}
+						/>
+					) : (
+						<View style={styles.stillPlaceholder}>
+							<Text style={styles.stillPlaceholderText}>E{String(episode).padStart(2, "0")}</Text>
+						</View>
+					)}
+					<LinearGradient colors={["transparent", colors.surface]} style={styles.imageGradient} />
+				</View>
 				<ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
 					{/* Show name pill */}
 					<TouchableOpacity style={styles.titlePill} onPress={onShowPress} disabled={!onShowPress}>
@@ -143,9 +132,9 @@ export default function EpisodeDetailModal({
 					{/* Description */}
 					{loadingDetails ? (
 						<View style={styles.overviewSkeletonWrap}>
-							<Skeleton style={styles.overviewSkeletonLine} shimmer={shimmer} />
-							<Skeleton style={styles.overviewSkeletonLineShort} shimmer={shimmer} />
-							<Skeleton style={styles.overviewSkeletonLine} shimmer={shimmer} />
+							<Animated.View style={[styles.overviewSkeletonLine, { opacity: shimmer }]} />
+							<Animated.View style={[styles.overviewSkeletonLineShort, { opacity: shimmer }]} />
+							<Animated.View style={[styles.overviewSkeletonLine, { opacity: shimmer }]} />
 						</View>
 					) : overview ? (
 						<Text style={styles.overview}>{overview}</Text>
@@ -176,14 +165,23 @@ const styles = StyleSheet.create({
 		overflow: "hidden",
 		maxHeight: Dimensions.get("window").height * 0.8,
 	},
+	imageContainer: {
+		height: 160,
+	},
+	imageSkeleton: {
+		...(StyleSheet.absoluteFill as object),
+		backgroundColor: colors.surfaceLight,
+	},
 	still: {
 		width: "100%",
 		height: 160,
 	},
-	stillSkeleton: {
-		width: "100%",
-		height: 160,
-		backgroundColor: colors.border,
+	imageGradient: {
+		position: "absolute",
+		bottom: 0,
+		left: 0,
+		right: 0,
+		height: 80,
 	},
 	stillPlaceholder: {
 		width: "100%",
@@ -202,6 +200,7 @@ const styles = StyleSheet.create({
 		flexGrow: 1,
 		flexShrink: 1,
 		padding: spacing.lg,
+		marginTop: -24,
 	},
 	titlePill: {
 		flexDirection: "row",

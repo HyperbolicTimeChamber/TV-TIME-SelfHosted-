@@ -14,7 +14,7 @@ function getSharedAnim() {
 	return sharedAnim;
 }
 
-function useSharedShimmer() {
+export function useSharedShimmer() {
 	const anim = getSharedAnim();
 
 	useEffect(() => {
