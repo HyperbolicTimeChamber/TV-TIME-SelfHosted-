@@ -29,6 +29,27 @@ function catalogShowToResult(catalog: CatalogShow): ShowDetailsResult {
 		number_of_episodes: catalog.totalEpisodes,
 		status: catalog.status,
 		runtime: catalog.runtime ?? undefined,
+		credits: catalog.credits
+			? {
+					crew: [
+						...catalog.credits.directors.map((name) => ({
+							job: "Director",
+							department: "Directing",
+							name,
+						})),
+						...catalog.credits.writers.map((name) => ({
+							job: "Writer",
+							department: "Writing",
+							name,
+						})),
+						...catalog.credits.producers.map((name) => ({
+							job: "Producer",
+							department: "Production",
+							name,
+						})),
+					],
+				}
+			: undefined,
 		seasons: seasons.map((s) => ({
 			id: 0,
 			season_number: s.seasonNumber,
