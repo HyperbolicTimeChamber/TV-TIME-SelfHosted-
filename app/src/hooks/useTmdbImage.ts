@@ -34,7 +34,7 @@ export function getTmdbStillSize(layoutWidth: number): StillSize {
 	const px = toPhysicalPx(layoutWidth);
 	if (px <= 92) return "w92";
 	if (px <= 185) return "w185";
-	if (px <= 300) return "w300";
+	if (px <= 500) return "w300";
 	return "original";
 }
 
