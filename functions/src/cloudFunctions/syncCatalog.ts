@@ -8,6 +8,7 @@ import {
 	batchWriteCatalog,
 	reactivateCompletedUsers,
 } from "../hooks/syncCatalog";
+import { fetchShowFromTMDB, pooled } from "../hooks/tmdb";
 import { MediaType, ENDED_STATUSES } from "../shared/enums";
 
 export const syncCatalog = onSchedule(
@@ -47,6 +48,38 @@ export const syncCatalog = onSchedule(
 
 		// Phase 4: Reactivate completed users
 		await reactivateCompletedUsers(db, showsSnap, pendingReactivations);
+
+		// Phase 4b: Sync movie metadata (credits, genres, poster, etc.)
+		const moviesSnap = await db.collection("shows").where("mediaType", "==", MediaType.MOVIE).get();
+		if (moviesSnap.size > 0) {
+			console.log(`Syncing ${moviesSnap.size} movies`);
+			const movieTasks = moviesSnap.docs.map((movieDoc) => async () => {
+				const oldData = movieDoc.data();
+				try {
+					const fresh = await fetchShowFromTMDB(apiKey, oldData.tmdbId, MediaType.MOVIE);
+					await movieDoc.ref.set(
+						{
+							title: fresh.title,
+							posterPath: fresh.posterPath,
+							backdropPath: fresh.backdropPath,
+							overview: fresh.overview,
+							status: fresh.status,
+							runtime: fresh.runtime,
+							voteAverage: fresh.voteAverage,
+							releaseDate: fresh.releaseDate,
+							genres: fresh.genres,
+							...(fresh.credits ? { credits: fresh.credits } : {}),
+							lastSyncedAt: FieldValue.serverTimestamp(),
+						},
+						{ merge: true },
+					);
+				} catch (err) {
+					console.error(`Failed to sync movie ${oldData.tmdbId} (${oldData.title}):`, err);
+				}
+			});
+			await pooled(movieTasks, 5);
+			console.log(`Movie sync complete: ${moviesSnap.size} movies`);
+		}
 
 		// Phase 5: Build active shows index
 		const activeShowIds: string[] = [];

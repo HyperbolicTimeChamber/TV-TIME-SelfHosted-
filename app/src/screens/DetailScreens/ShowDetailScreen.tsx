@@ -106,7 +106,7 @@ export default function ShowDetailScreen() {
 		return found?.watchCount ?? 0;
 	});
 	const [movieSheetVisible, setMovieSheetVisible] = useState(false);
-const [removeModalVisible, setRemoveModalVisible] = useState(false);
+	const [removeModalVisible, setRemoveModalVisible] = useState(false);
 	const [removeError, setRemoveError] = useState<string | null>(null);
 	const [unreleasedModal, setUnreleasedModal] = useState<{
 		title: string;
