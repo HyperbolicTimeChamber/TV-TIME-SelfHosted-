@@ -61,8 +61,6 @@ export default memo(function ShowCard({
 		? `S${String(ep.season).padStart(2, "0")} | E${String(ep.episode).padStart(2, "0")}`
 		: "Movie";
 
-	const movieYear = item.releaseDate?.substring(0, 4) || null;
-
 	const remainingLabel =
 		remainingEpisodes != null && remainingEpisodes > 0
 			? `+${remainingEpisodes} ep${remainingEpisodes > 1 ? "s" : ""} left`
@@ -131,18 +129,31 @@ export default memo(function ShowCard({
 						<Text style={[styles.watchedTitle, styles.watchedText]} numberOfLines={1}>
 							{item.title}
 						</Text>
-						{item.mediaType === MediaType.MOVIE && item.director && (
-							<Text style={[styles.episodeName, styles.watchedText]} numberOfLines={1}>
-								{item.director}
-							</Text>
-						)}
 						{item.mediaType === MediaType.MOVIE ? (
-							<View style={styles.movieYearRow}>
-								{movieYear && <Text style={[styles.movieYearText, styles.watchedText]}>{movieYear}</Text>}
-								<View style={[styles.movieBadge, { opacity: 0.6 }]}>
-									<Text style={styles.movieBadgeText}>MOVIE</Text>
+							<>
+								<View style={[styles.movieMetaRow, { opacity: 0.6 }]}>
+									<View style={styles.movieBadgeGroup}>
+										<View style={styles.movieBadgeMerged}>
+											<Text style={styles.movieBadgeText}>MOVIE</Text>
+										</View>
+										{item.releaseDate && (
+											<>
+												<View style={styles.slantArrow} />
+												<View style={styles.freshTag}>
+													<Text style={styles.freshTagText}>
+														{item.releaseDate.substring(0, 4)}
+													</Text>
+												</View>
+											</>
+										)}
+									</View>
 								</View>
-							</View>
+								{item.director && (
+									<Text style={[styles.episodeName, styles.watchedText]} numberOfLines={1}>
+										{item.director}
+									</Text>
+								)}
+							</>
 						) : (
 							<Text style={[styles.episode, styles.watchedText]}>{episodeLabel}</Text>
 						)}
@@ -196,13 +207,7 @@ export default memo(function ShowCard({
 						</Text>
 						{onTitlePress && <Text style={styles.titleArrow}>›</Text>}
 					</TouchableOpacity>
-					{item.mediaType === MediaType.MOVIE && item.director ? (
-						<Text style={styles.episodeName} numberOfLines={1}>
-							{item.director}
-						</Text>
-					) : item.mediaType === MediaType.MOVIE ? (
-						<SkeletonLine width="40%" height={11} />
-					) : item.nextEpisodeName ? (
+					{item.nextEpisodeName && item.mediaType === MediaType.TV ? (
 						<Text style={styles.episodeName} numberOfLines={1}>
 							{item.nextEpisodeName}
 						</Text>
@@ -210,22 +215,28 @@ export default memo(function ShowCard({
 						<SkeletonLine width="55%" height={11} />
 					) : null}
 					{item.mediaType === MediaType.MOVIE ? (
-						<View style={styles.movieYearRow}>
-							{movieYear && <Text style={styles.movieYearText}>{movieYear}</Text>}
-							<View style={styles.movieRow}>
-								<View style={[styles.movieBadge, isJustAired && styles.movieBadgeMerged]}>
-									<Text style={styles.movieBadgeText}>MOVIE</Text>
+						<>
+							<View style={styles.movieMetaRow}>
+								<View style={styles.movieBadgeGroup}>
+									<View style={styles.movieBadgeMerged}>
+										<Text style={styles.movieBadgeText}>MOVIE</Text>
+									</View>
+									<View style={styles.slantArrow} />
+									<View style={styles.freshTag}>
+										<Text style={styles.freshTagText}>
+											{isJustAired
+												? FreshTag.JUST_AIRED
+												: (item.releaseDate?.substring(0, 4) ?? "")}
+										</Text>
+									</View>
 								</View>
-								{isJustAired && (
-									<>
-										<View style={styles.slantArrow} />
-										<View style={styles.freshTag}>
-											<Text style={styles.freshTagText}>{FreshTag.JUST_AIRED}</Text>
-										</View>
-									</>
-								)}
 							</View>
-						</View>
+							{item.director && (
+								<Text style={styles.episodeName} numberOfLines={1}>
+									{item.director}
+								</Text>
+							)}
+						</>
 					) : (
 						<Text style={styles.episode}>
 							{episodeLabel}
@@ -321,6 +332,10 @@ const styles = StyleSheet.create({
 		fontSize: 13,
 		paddingHorizontal: spacing.sm,
 	},
+	movieBadgeGroup: {
+		flexDirection: "row",
+		alignItems: "stretch",
+	},
 	movieBadge: {
 		alignSelf: "flex-start",
 		backgroundColor: colors.moviePurple,
@@ -329,9 +344,13 @@ const styles = StyleSheet.create({
 		borderRadius: 4,
 		justifyContent: "center",
 		zIndex: 1,
-		marginTop: spacing.xs,
 	},
 	movieBadgeMerged: {
+		backgroundColor: colors.moviePurple,
+		paddingHorizontal: spacing.sm,
+		paddingVertical: 2,
+		borderRadius: 4,
+		justifyContent: "center",
 		borderTopRightRadius: 0,
 		borderBottomRightRadius: 0,
 	},
@@ -369,15 +388,9 @@ const styles = StyleSheet.create({
 		...typography.subtitle,
 		color: colors.text,
 	},
-	movieRow: {
-		flexDirection: "row",
-		alignItems: "stretch",
-		marginTop: 2,
-	},
 	slantArrow: {
 		width: 0,
 		height: 0,
-		alignSelf: "center",
 		borderTopWidth: 9,
 		borderTopColor: colors.warningAmber,
 		borderBottomWidth: 9,
@@ -408,19 +421,11 @@ const styles = StyleSheet.create({
 		fontWeight: "700",
 		color: colors.accent,
 	},
-	movieYearRow: {
+	movieMetaRow: {
 		flexDirection: "row",
 		alignItems: "center",
-		marginTop: spacing.xs,
-		gap: spacing.sm,
-		paddingHorizontal: spacing.sm,
-	},
-	movieYearText: {
-		...typography.subtitle,
-		fontSize: 16,
-		fontWeight: "700",
-		color: colors.text,
-		letterSpacing: 1,
+		marginTop: spacing.sm,
+		paddingLeft: spacing.sm,
 	},
 	checkmarkWrap: {
 		alignSelf: "center",

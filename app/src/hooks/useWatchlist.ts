@@ -18,19 +18,6 @@ import { TrackingItem, CatalogShow, CacheKey, DocChangeType, MediaType } from ".
 import { showDocId } from "../utils/docId";
 import { useAuthStore } from "../stores";
 import { getShowDetails, getSeasonDetails } from "../services/tmdb";
-import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
-
-async function getShowDetailsViaProxy(tmdbId: number, mediaType: string) {
-	const fn = httpsCallable(getFunctions(), "tmdbProxy");
-	const res = await fn({ action: "showDetails", tmdbId, mediaType });
-	return res.data as any;
-}
-
-async function getSeasonDetailsViaProxy(tmdbId: number, seasonNumber: number) {
-	const fn = httpsCallable(getFunctions(), "tmdbProxy");
-	const res = await fn({ action: "seasonDetails", tmdbId, seasonNumber });
-	return res.data as any;
-}
 
 const PAGE_SIZE = 50;
 
@@ -357,12 +344,44 @@ export function useWatchlist(userId: string | undefined) {
 		for (const m of missing) healingRef.current.add(m.tmdbId);
 
 		const timer = setTimeout(async () => {
+			const apiKey = useAuthStore.getState().appTmdbApiKey;
 			const updates: EnrichedTrackingItem[] = [];
 			for (const item of missing) {
 				const mt = item.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV;
 				const key = showDocId(item.tmdbId, mt);
 				try {
-					const details = await getShowDetailsViaProxy(item.tmdbId, mt);
+					// Movie with catalog but missing credits → fetch via same axios path as search
+					if (item.catalogShow && mt === MediaType.MOVIE) {
+						const emptyCredits = { directors: [], writers: [], producers: [] };
+						if (!apiKey) {
+							const updatedCatalog = { ...item.catalogShow, credits: emptyCredits };
+							catalogCache.current.set(key, updatedCatalog);
+							updates.push({ ...item, catalogShow: updatedCatalog });
+							healingRef.current.delete(item.tmdbId);
+							continue;
+						}
+						const details = await getShowDetails(apiKey, item.tmdbId, MediaType.MOVIE);
+						const crew = (details as any)?.credits?.crew;
+						const credits = crew
+							? {
+									directors: crew.filter((c: any) => c.job === "Director").map((c: any) => c.name),
+									writers: crew.filter((c: any) => c.department === "Writing").map((c: any) => c.name),
+									producers: crew
+										.filter((c: any) => c.job === "Producer")
+										.map((c: any) => c.name)
+										.slice(0, 3),
+								}
+							: emptyCredits;
+						const updatedCatalog = { ...item.catalogShow, credits };
+						catalogCache.current.set(key, updatedCatalog);
+						updates.push({ ...item, catalogShow: updatedCatalog });
+						healingRef.current.delete(item.tmdbId);
+						continue;
+					}
+
+					// Full heal for items with no catalogShow at all
+					if (!apiKey) { healingRef.current.delete(item.tmdbId); continue; }
+					const details = await getShowDetails(apiKey, item.tmdbId, mt);
 					if (!details) continue;
 
 					const genres: string[] =
@@ -370,7 +389,6 @@ export function useWatchlist(userId: string | undefined) {
 					const totalSeasons = (details as any).number_of_seasons ?? 0;
 					const totalEpisodes = (details as any).number_of_episodes ?? 0;
 
-					// Fetch season details for TV shows
 					const seasons: CatalogShow["seasons"] = [];
 					if (mt === MediaType.TV && totalSeasons > 0) {
 						const seasonNumbers: number[] =
@@ -379,14 +397,14 @@ export function useWatchlist(userId: string | undefined) {
 								.filter((n: number) => n > 0) ?? [];
 						for (const sn of seasonNumbers) {
 							try {
-								const sd = await getSeasonDetailsViaProxy(item.tmdbId, sn);
+								const sd = await getSeasonDetails(apiKey, item.tmdbId, sn);
 								if (sd?.episodes) {
 									const eps = sd.episodes;
 									seasons.push({
 										seasonNumber: sn,
 										episodeCount: eps.length,
 										airDate: (sd as any).air_date ?? null,
-										episodes: eps.map((e: any, idx: number) => ({
+										episodes: eps.map((e, idx) => ({
 											episodeNumber: e.episode_number,
 											title: e.name || "",
 											overview: e.overview || "",
