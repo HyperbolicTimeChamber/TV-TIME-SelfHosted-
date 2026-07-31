@@ -49,10 +49,10 @@ export default memo(function WatchedEpisodeRow({
 							{show.title.toUpperCase()}
 						</Text>
 					</View>
-					<Text style={styles.episodeLabel}>{label}</Text>
 					<Text style={styles.episodeTitle} numberOfLines={1}>
 						{episode.episodeTitle}
 					</Text>
+					<Text style={styles.episodeLabel}>{label}</Text>
 				</View>
 				<CheckmarkButton
 					size={36}
@@ -114,10 +114,12 @@ const styles = StyleSheet.create({
 		color: colors.textMuted,
 		letterSpacing: 1,
 		marginTop: 2,
+		paddingHorizontal: spacing.sm,
 	},
 	episodeTitle: {
 		...typography.body,
 		color: colors.textMuted,
 		fontSize: 13,
+		paddingHorizontal: spacing.sm,
 	},
 });

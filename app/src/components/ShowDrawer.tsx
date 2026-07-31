@@ -122,11 +122,11 @@ export default function ShowDrawer({
 								<Text style={styles.title}>{show.title}</Text>
 								{metaLine ? <Text style={styles.meta}>{metaLine}</Text> : null}
 								<View style={styles.genreRow}>
-									{show.genres ? (
-										<Text style={[styles.meta, { flex: 1 }]}>{show.genres}</Text>
-									) : (
+									{show.genres == null ? (
 										<SkeletonLine width="45%" height={11} style={{ marginTop: spacing.xs }} />
-									)}
+									) : show.genres ? (
+										<Text style={[styles.meta, { flex: 1 }]}>{show.genres}</Text>
+									) : null}
 									{show.mediaType && (
 										<View
 											style={[

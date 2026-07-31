@@ -252,6 +252,7 @@ export default function WatchlistTab() {
 	const handleTitlePress = useCallback(async (item: any) => {
 		const cat = item.catalogShow;
 		if (!cat) return;
+		const catalogGenres = cat.genres?.length ? cat.genres.join(", ") : null;
 		setDrawerShow({
 			tmdbId: cat.tmdbId,
 			title: cat.title,
@@ -264,17 +265,20 @@ export default function WatchlistTab() {
 			totalEpisodes: cat.totalEpisodes,
 			runtime: cat.runtime,
 			voteAverage: cat.voteAverage,
+			genres: catalogGenres,
 		});
 		setDrawerVisible(true);
 
-		// Fetch genres from TMDB
-		try {
-			const data = (await getShowDetails(cat.tmdbId, cat.mediaType)) as any;
-			const genres = data?.genres?.map((g: any) => g.name).join(", ");
-			if (genres) {
+		// Fetch genres from TMDB only if catalog lacks them
+		if (!catalogGenres) {
+			try {
+				const data = (await getShowDetails(cat.tmdbId, cat.mediaType)) as any;
+				const genres = data?.genres?.map((g: any) => g.name).join(", ") || "";
 				setDrawerShow((prev) => (prev ? { ...prev, genres } : null));
+			} catch {
+				setDrawerShow((prev) => (prev ? { ...prev, genres: "" } : null));
 			}
-		} catch {}
+		}
 	}, []);
 
 	const handleWatchedCheckmark = useCallback((episode: WatchedEpisode) => {
@@ -628,6 +632,7 @@ export default function WatchlistTab() {
 								nextEpisode: null,
 								mediaType: MediaType.MOVIE,
 								rewatchCount: item.show.rewatchCount ?? 0,
+								director: item.show.catalogShow?.credits?.directors?.[0] ?? null,
 							} as any
 						}
 						isWatched
