@@ -24,6 +24,7 @@ interface ShowCardItem {
 	nextEpisodeAirDate?: string | null;
 	nextNextEpisodeAirDate?: string | null;
 	releaseDate?: string | null;
+	director?: string | null;
 	isSeasonFinale?: boolean;
 }
 
@@ -59,6 +60,8 @@ export default memo(function ShowCard({
 	const episodeLabel = ep
 		? `S${String(ep.season).padStart(2, "0")} | E${String(ep.episode).padStart(2, "0")}`
 		: "Movie";
+
+	const movieYear = item.releaseDate?.substring(0, 4) || null;
 
 	const remainingLabel =
 		remainingEpisodes != null && remainingEpisodes > 0
@@ -128,9 +131,17 @@ export default memo(function ShowCard({
 						<Text style={[styles.watchedTitle, styles.watchedText]} numberOfLines={1}>
 							{item.title}
 						</Text>
+						{item.mediaType === MediaType.MOVIE && item.director && (
+							<Text style={[styles.episodeName, styles.watchedText]} numberOfLines={1}>
+								{item.director}
+							</Text>
+						)}
 						{item.mediaType === MediaType.MOVIE ? (
-							<View style={[styles.movieBadge, { opacity: 0.6 }]}>
-								<Text style={styles.movieBadgeText}>MOVIE</Text>
+							<View style={styles.movieYearRow}>
+								{movieYear && <Text style={[styles.movieYearText, styles.watchedText]}>{movieYear}</Text>}
+								<View style={[styles.movieBadge, { opacity: 0.6 }]}>
+									<Text style={styles.movieBadgeText}>MOVIE</Text>
+								</View>
 							</View>
 						) : (
 							<Text style={[styles.episode, styles.watchedText]}>{episodeLabel}</Text>
@@ -139,12 +150,14 @@ export default memo(function ShowCard({
 							<Text style={[styles.rewatch, styles.watchedText]}>Rewatch #{item.rewatchCount}</Text>
 						)}
 					</View>
-					<CheckmarkButton
-						size={36}
-						watched
-						label={wc > 1 ? `${wc}` : undefined}
-						onPress={() => _onCheckmark(item)}
-					/>
+					<View style={styles.checkmarkWrap}>
+						<CheckmarkButton
+							size={36}
+							watched
+							label={wc > 1 ? `${wc}` : undefined}
+							onPress={() => _onCheckmark(item)}
+						/>
+					</View>
 				</TouchableOpacity>
 			</SwipeableCard>
 		);
@@ -183,7 +196,11 @@ export default memo(function ShowCard({
 						</Text>
 						{onTitlePress && <Text style={styles.titleArrow}>›</Text>}
 					</TouchableOpacity>
-					{item.nextEpisodeName ? (
+					{item.mediaType === MediaType.MOVIE && item.director ? (
+						<Text style={styles.episodeName} numberOfLines={1}>
+							{item.director}
+						</Text>
+					) : item.nextEpisodeName ? (
 						<Text style={styles.episodeName} numberOfLines={1}>
 							{item.nextEpisodeName}
 						</Text>
@@ -191,18 +208,21 @@ export default memo(function ShowCard({
 						<SkeletonLine width="55%" height={11} />
 					) : null}
 					{item.mediaType === MediaType.MOVIE ? (
-						<View style={styles.movieRow}>
-							<View style={[styles.movieBadge, isJustAired && styles.movieBadgeMerged]}>
-								<Text style={styles.movieBadgeText}>MOVIE</Text>
+						<View style={styles.movieYearRow}>
+							{movieYear && <Text style={styles.movieYearText}>{movieYear}</Text>}
+							<View style={styles.movieRow}>
+								<View style={[styles.movieBadge, isJustAired && styles.movieBadgeMerged]}>
+									<Text style={styles.movieBadgeText}>MOVIE</Text>
+								</View>
+								{isJustAired && (
+									<>
+										<View style={styles.slantArrow} />
+										<View style={styles.freshTag}>
+											<Text style={styles.freshTagText}>{FreshTag.JUST_AIRED}</Text>
+										</View>
+									</>
+								)}
 							</View>
-							{isJustAired && (
-								<>
-									<View style={styles.slantArrow} />
-									<View style={styles.freshTag}>
-										<Text style={styles.freshTagText}>{FreshTag.JUST_AIRED}</Text>
-									</View>
-								</>
-							)}
 						</View>
 					) : (
 						<Text style={styles.episode}>
@@ -221,11 +241,13 @@ export default memo(function ShowCard({
 						<Text style={styles.rewatch}>Rewatch #{item.rewatchCount}</Text>
 					)}
 				</View>
-				<CheckmarkButton
-					size={36}
-					onPress={() => swipeRef.current?.triggerSwipeLeft()}
-					onLongPress={onCheckmarkLongPress}
-				/>
+				<View style={styles.checkmarkWrap}>
+					<CheckmarkButton
+						size={36}
+						onPress={() => swipeRef.current?.triggerSwipeLeft()}
+						onLongPress={onCheckmarkLongPress}
+					/>
+				</View>
 			</TouchableOpacity>
 		</SwipeableCard>
 	);
@@ -235,7 +257,7 @@ const styles = StyleSheet.create({
 	container: {
 		flex: 1,
 		flexDirection: "row",
-		alignItems: "center",
+		alignItems: "flex-start",
 		paddingHorizontal: spacing.lg,
 		paddingVertical: spacing.sm,
 		backgroundColor: colors.surface,
@@ -255,6 +277,7 @@ const styles = StyleSheet.create({
 		flex: 1,
 		marginLeft: spacing.md,
 		marginRight: spacing.sm,
+		paddingTop: spacing.xs,
 	},
 	titleButton: {
 		flexDirection: "row",
@@ -287,12 +310,14 @@ const styles = StyleSheet.create({
 		color: colors.text,
 		letterSpacing: 1,
 		marginTop: 2,
+		paddingHorizontal: spacing.sm,
 	},
 	episodeName: {
 		...typography.body,
 		color: colors.text,
 		marginTop: 2,
 		fontSize: 13,
+		paddingHorizontal: spacing.sm,
 	},
 	movieBadge: {
 		alignSelf: "flex-start",
@@ -302,6 +327,7 @@ const styles = StyleSheet.create({
 		borderRadius: 4,
 		justifyContent: "center",
 		zIndex: 1,
+		marginTop: spacing.xs,
 	},
 	movieBadgeMerged: {
 		borderTopRightRadius: 0,
@@ -321,6 +347,7 @@ const styles = StyleSheet.create({
 		...typography.caption,
 		color: colors.accent,
 		marginTop: spacing.xs,
+		paddingHorizontal: spacing.sm,
 	},
 	watchedTitle: {
 		...typography.subtitle,
@@ -378,5 +405,22 @@ const styles = StyleSheet.create({
 		fontSize: 12,
 		fontWeight: "700",
 		color: colors.accent,
+	},
+	movieYearRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		marginTop: 2,
+		gap: spacing.sm,
+		paddingHorizontal: spacing.sm,
+	},
+	movieYearText: {
+		...typography.subtitle,
+		fontSize: 16,
+		fontWeight: "700",
+		color: colors.text,
+		letterSpacing: 1,
+	},
+	checkmarkWrap: {
+		alignSelf: "center",
 	},
 });
