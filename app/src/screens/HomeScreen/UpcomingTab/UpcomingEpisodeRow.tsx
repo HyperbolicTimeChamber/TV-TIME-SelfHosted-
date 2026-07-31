@@ -44,6 +44,9 @@ export default memo(function UpcomingEpisodeRow({
 					</Text>
 					<Text style={styles.titleArrow}>›</Text>
 				</TouchableOpacity>
+				<Text style={styles.epTitle} numberOfLines={1}>
+					{episode.episodeTitle}
+				</Text>
 				{isMovie ? (
 					<View style={styles.movieBadge}>
 						<Text style={styles.movieBadgeText}>MOVIE</Text>
@@ -51,9 +54,6 @@ export default memo(function UpcomingEpisodeRow({
 				) : (
 					<Text style={styles.epLabel}>{label}</Text>
 				)}
-				<Text style={styles.epTitle} numberOfLines={1}>
-					{episode.episodeTitle}
-				</Text>
 			</View>
 		</TouchableOpacity>
 	);
@@ -117,6 +117,7 @@ const styles = StyleSheet.create({
 		fontWeight: "700",
 		color: colors.text,
 		letterSpacing: 1,
+		paddingHorizontal: spacing.sm,
 	},
 	movieBadge: {
 		alignSelf: "flex-start",
@@ -124,6 +125,7 @@ const styles = StyleSheet.create({
 		paddingHorizontal: spacing.sm,
 		paddingVertical: 2,
 		borderRadius: 4,
+		marginLeft: spacing.sm,
 	},
 	movieBadgeText: {
 		fontSize: 10,
@@ -136,5 +138,6 @@ const styles = StyleSheet.create({
 		color: colors.text,
 		marginTop: 2,
 		fontSize: 13,
+		paddingHorizontal: spacing.sm,
 	},
 });

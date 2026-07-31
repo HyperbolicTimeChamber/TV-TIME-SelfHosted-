@@ -332,7 +332,12 @@ export function useWatchlist(userId: string | undefined) {
 	const healingRef = useRef(new Set<number>());
 	useEffect(() => {
 		if (loading || items.length === 0) return;
-		const missing = items.filter((i) => !i.catalogShow && !healingRef.current.has(i.tmdbId));
+		const missing = items.filter(
+			(i) =>
+				!healingRef.current.has(i.tmdbId) &&
+				(!i.catalogShow ||
+					(i.mediaType === MediaType.MOVIE && !i.catalogShow.credits)),
+		);
 		if (missing.length === 0) return;
 
 		// Mark as healing to avoid duplicate fetches
@@ -340,12 +345,42 @@ export function useWatchlist(userId: string | undefined) {
 
 		const timer = setTimeout(async () => {
 			const apiKey = useAuthStore.getState().appTmdbApiKey;
-			if (!apiKey) return;
 			const updates: EnrichedTrackingItem[] = [];
 			for (const item of missing) {
 				const mt = item.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV;
 				const key = showDocId(item.tmdbId, mt);
 				try {
+					// Movie with catalog but missing credits → fetch via same axios path as search
+					if (item.catalogShow && mt === MediaType.MOVIE) {
+						const emptyCredits = { directors: [], writers: [], producers: [] };
+						if (!apiKey) {
+							const updatedCatalog = { ...item.catalogShow, credits: emptyCredits };
+							catalogCache.current.set(key, updatedCatalog);
+							updates.push({ ...item, catalogShow: updatedCatalog });
+							healingRef.current.delete(item.tmdbId);
+							continue;
+						}
+						const details = await getShowDetails(apiKey, item.tmdbId, MediaType.MOVIE);
+						const crew = (details as any)?.credits?.crew;
+						const credits = crew
+							? {
+									directors: crew.filter((c: any) => c.job === "Director").map((c: any) => c.name),
+									writers: crew.filter((c: any) => c.department === "Writing").map((c: any) => c.name),
+									producers: crew
+										.filter((c: any) => c.job === "Producer")
+										.map((c: any) => c.name)
+										.slice(0, 3),
+								}
+							: emptyCredits;
+						const updatedCatalog = { ...item.catalogShow, credits };
+						catalogCache.current.set(key, updatedCatalog);
+						updates.push({ ...item, catalogShow: updatedCatalog });
+						healingRef.current.delete(item.tmdbId);
+						continue;
+					}
+
+					// Full heal for items with no catalogShow at all
+					if (!apiKey) { healingRef.current.delete(item.tmdbId); continue; }
 					const details = await getShowDetails(apiKey, item.tmdbId, mt);
 					if (!details) continue;
 
@@ -354,7 +389,6 @@ export function useWatchlist(userId: string | undefined) {
 					const totalSeasons = (details as any).number_of_seasons ?? 0;
 					const totalEpisodes = (details as any).number_of_episodes ?? 0;
 
-					// Fetch season details for TV shows
 					const seasons: CatalogShow["seasons"] = [];
 					if (mt === MediaType.TV && totalSeasons > 0) {
 						const seasonNumbers: number[] =
@@ -385,6 +419,19 @@ export function useWatchlist(userId: string | undefined) {
 						}
 					}
 
+					const crew = (details as any).credits?.crew;
+					const credits =
+						mt === MediaType.MOVIE && crew
+							? {
+									directors: crew.filter((c: any) => c.job === "Director").map((c: any) => c.name),
+									writers: crew.filter((c: any) => c.department === "Writing").map((c: any) => c.name),
+									producers: crew
+										.filter((c: any) => c.job === "Producer")
+										.map((c: any) => c.name)
+										.slice(0, 3),
+								}
+							: undefined;
+
 					const catalog: CatalogShow = {
 						tmdbId: item.tmdbId,
 						mediaType: mt,
@@ -401,6 +448,7 @@ export function useWatchlist(userId: string | undefined) {
 						releaseDate: details.release_date ?? null,
 						seasons,
 						genres,
+						...(credits ? { credits } : {}),
 						trackedBy: [],
 						trackedByCount: 0,
 						lastSyncedAt: null,

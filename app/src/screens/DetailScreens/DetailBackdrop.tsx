@@ -22,7 +22,7 @@ export default function DetailBackdrop({
 	posterPath,
 	imageTranslateY,
 	children,
-}: Props) {
+}: Readonly<Props>) {
 	const shimmer = useSharedShimmer();
 	const [imageLoaded, setImageLoaded] = useState(false);
 	return (
@@ -48,7 +48,7 @@ export default function DetailBackdrop({
 
 			<LinearGradient
 				colors={["transparent", "rgba(13,13,13,0.7)", colors.background]}
-				locations={[0, 0.6, 0.9]}
+				locations={[0, 0.5, 0.8]}
 				style={[styles.gradientIsland, { marginTop: -280 }]}
 			>
 				<View style={styles.island}>{children}</View>

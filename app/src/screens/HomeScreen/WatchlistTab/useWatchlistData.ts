@@ -110,6 +110,7 @@ function buildCardItem(item: EnrichedTrackingItem, today: string) {
 		nextEpisodeAirDate: item.nextEpisodeAirDate ?? catalogEp?.airDate ?? null,
 		nextEpisodeRuntime: catalogEp?.runtime || 0,
 		releaseDate: item.releaseDate ?? catalog?.releaseDate ?? null,
+		director: catalog?.credits?.directors?.[0] ?? null,
 		remaining: computeRemaining(item, today),
 		// Pre-computed next-next for optimistic mark watched
 		nextNextEpisode: nextNext ? { season: nextNext.season, episode: nextNext.episode } : null,

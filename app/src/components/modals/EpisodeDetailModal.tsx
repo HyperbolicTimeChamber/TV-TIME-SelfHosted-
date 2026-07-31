@@ -60,7 +60,7 @@ export default function EpisodeDetailModal({
 	onMarkWatched,
 	onShowPress,
 	onClose,
-}: Props) {
+}: Readonly<Props>) {
 	const label = `S${String(season).padStart(2, "0")} | E${String(episode).padStart(2, "0")}`;
 	const shimmer = useSharedShimmer();
 	const [imageLoaded, setImageLoaded] = useState(false);
@@ -69,11 +69,11 @@ export default function EpisodeDetailModal({
 		<AnimatedModal visible={visible} onClose={onClose}>
 			<View style={styles.content}>
 				<View style={styles.imageContainer}>
-					{!imageLoaded && (
-						<Animated.View style={[styles.imageSkeleton, { opacity: shimmer }]} />
-					)}
+					{!imageLoaded && <Animated.View style={[styles.imageSkeleton, { opacity: shimmer }]} />}
 					{loadingDetails ? (
-						<Animated.View style={[styles.still, { opacity: shimmer, backgroundColor: colors.border }]} />
+						<Animated.View
+							style={[styles.still, { opacity: shimmer, backgroundColor: colors.border }]}
+						/>
 					) : stillPath ? (
 						<Image
 							source={{ uri: tmdbStillUri(stillPath, MODAL_WIDTH) }}
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
 		flexGrow: 1,
 		flexShrink: 1,
 		padding: spacing.lg,
-		marginTop: -24,
+		marginTop: -50,
 	},
 	titlePill: {
 		flexDirection: "row",
@@ -231,16 +231,19 @@ const styles = StyleSheet.create({
 		fontWeight: "700",
 		color: colors.text,
 		letterSpacing: 1,
+		paddingHorizontal: spacing.sm,
 	},
 	episodeTitle: {
 		...typography.title,
 		color: colors.text,
 		marginBottom: spacing.xs,
 		fontSize: 18,
+		paddingHorizontal: spacing.sm,
 	},
 	metaRow: {
 		flexDirection: "row",
 		marginTop: spacing.md,
+		paddingHorizontal: spacing.sm,
 	},
 	meta: {
 		...typography.caption,
@@ -249,6 +252,7 @@ const styles = StyleSheet.create({
 	overviewSkeletonWrap: {
 		marginTop: spacing.md,
 		gap: spacing.sm,
+		paddingHorizontal: spacing.sm,
 	},
 	overviewSkeletonLine: {
 		height: 12,
@@ -267,6 +271,8 @@ const styles = StyleSheet.create({
 		marginTop: spacing.md,
 		lineHeight: 20,
 		fontSize: 13,
+		paddingHorizontal: spacing.sm,
+		textAlign: "justify",
 	},
 	watchButton: {
 		backgroundColor: colors.watchedGreen,

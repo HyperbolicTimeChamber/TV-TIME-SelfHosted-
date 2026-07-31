@@ -10,13 +10,19 @@ import {
 	NativeSyntheticEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRoute, RouteProp } from "@react-navigation/native";
 import DetailBackdrop from "./DetailBackdrop";
 import ActionPills from "./ActionPills";
 import DetailCredits from "./DetailCredits";
-import { getFirestore, doc, getDoc, onSnapshot, updateDoc } from "@react-native-firebase/firestore";
+import {
+	getFirestore,
+	doc,
+	getDoc,
+	onSnapshot,
+	updateDoc,
+	Timestamp,
+} from "@react-native-firebase/firestore";
 import {
 	useShowDetails,
 	useUpcomingMutations,
@@ -59,7 +65,6 @@ import {
 	WatchedMovie,
 } from "../../types";
 import { useQueryClient } from "@tanstack/react-query";
-import { Timestamp } from "@react-native-firebase/firestore";
 
 type RouteParams = RouteProp<HomeStackParamList, "ShowDetail">;
 
@@ -101,7 +106,6 @@ export default function ShowDetailScreen() {
 		return found?.watchCount ?? 0;
 	});
 	const [movieSheetVisible, setMovieSheetVisible] = useState(false);
-	const [refreshKey, setRefreshKey] = useState(0);
 	const [removeModalVisible, setRemoveModalVisible] = useState(false);
 	const [removeError, setRemoveError] = useState<string | null>(null);
 	const [unreleasedModal, setUnreleasedModal] = useState<{
@@ -529,7 +533,6 @@ export default function ShowDetailScreen() {
 										showBackdropPath={show.backdrop_path || null}
 										isTracked={!!watchlistItem}
 										preloadedEpisodes={episodesBySeason.get(season.season_number)}
-										refreshKey={refreshKey}
 									/>
 								))}
 						</View>

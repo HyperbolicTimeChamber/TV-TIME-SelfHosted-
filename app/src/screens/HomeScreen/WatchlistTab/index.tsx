@@ -254,6 +254,7 @@ export default function WatchlistTab() {
 	const handleTitlePress = useCallback(async (item: any) => {
 		const cat = item.catalogShow;
 		if (!cat) return;
+		const catalogGenres = cat.genres?.length ? cat.genres.join(", ") : null;
 		setDrawerShow({
 			tmdbId: cat.tmdbId,
 			title: cat.title,
@@ -266,6 +267,7 @@ export default function WatchlistTab() {
 			totalEpisodes: cat.totalEpisodes,
 			runtime: cat.runtime,
 			voteAverage: cat.voteAverage,
+			genres: catalogGenres,
 		});
 		setDrawerVisible(true);
 
@@ -633,6 +635,7 @@ export default function WatchlistTab() {
 								nextEpisode: null,
 								mediaType: MediaType.MOVIE,
 								rewatchCount: item.show.rewatchCount ?? 0,
+								director: item.show.catalogShow?.credits?.directors?.[0] ?? null,
 							} as any
 						}
 						isWatched
