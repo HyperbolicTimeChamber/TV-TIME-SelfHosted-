@@ -18,6 +18,19 @@ import { TrackingItem, CatalogShow, CacheKey, DocChangeType, MediaType } from ".
 import { showDocId } from "../utils/docId";
 import { useAuthStore } from "../stores";
 import { getShowDetails, getSeasonDetails } from "../services/tmdb";
+import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
+
+async function getShowDetailsViaProxy(tmdbId: number, mediaType: string) {
+	const fn = httpsCallable(getFunctions(), "tmdbProxy");
+	const res = await fn({ action: "showDetails", tmdbId, mediaType });
+	return res.data as any;
+}
+
+async function getSeasonDetailsViaProxy(tmdbId: number, seasonNumber: number) {
+	const fn = httpsCallable(getFunctions(), "tmdbProxy");
+	const res = await fn({ action: "seasonDetails", tmdbId, seasonNumber });
+	return res.data as any;
+}
 
 const PAGE_SIZE = 50;
 
@@ -332,21 +345,24 @@ export function useWatchlist(userId: string | undefined) {
 	const healingRef = useRef(new Set<number>());
 	useEffect(() => {
 		if (loading || items.length === 0) return;
-		const missing = items.filter((i) => !i.catalogShow && !healingRef.current.has(i.tmdbId));
+		const missing = items.filter(
+			(i) =>
+				!healingRef.current.has(i.tmdbId) &&
+				(!i.catalogShow ||
+					(i.mediaType === MediaType.MOVIE && !i.catalogShow.credits)),
+		);
 		if (missing.length === 0) return;
 
 		// Mark as healing to avoid duplicate fetches
 		for (const m of missing) healingRef.current.add(m.tmdbId);
 
 		const timer = setTimeout(async () => {
-			const apiKey = useAuthStore.getState().appTmdbApiKey;
-			if (!apiKey) return;
 			const updates: EnrichedTrackingItem[] = [];
 			for (const item of missing) {
 				const mt = item.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV;
 				const key = showDocId(item.tmdbId, mt);
 				try {
-					const details = await getShowDetails(apiKey, item.tmdbId, mt);
+					const details = await getShowDetailsViaProxy(item.tmdbId, mt);
 					if (!details) continue;
 
 					const genres: string[] =
@@ -363,14 +379,14 @@ export function useWatchlist(userId: string | undefined) {
 								.filter((n: number) => n > 0) ?? [];
 						for (const sn of seasonNumbers) {
 							try {
-								const sd = await getSeasonDetails(apiKey, item.tmdbId, sn);
+								const sd = await getSeasonDetailsViaProxy(item.tmdbId, sn);
 								if (sd?.episodes) {
 									const eps = sd.episodes;
 									seasons.push({
 										seasonNumber: sn,
 										episodeCount: eps.length,
 										airDate: (sd as any).air_date ?? null,
-										episodes: eps.map((e, idx) => ({
+										episodes: eps.map((e: any, idx: number) => ({
 											episodeNumber: e.episode_number,
 											title: e.name || "",
 											overview: e.overview || "",
@@ -384,6 +400,19 @@ export function useWatchlist(userId: string | undefined) {
 							} catch {}
 						}
 					}
+
+					const crew = (details as any).credits?.crew;
+					const credits =
+						mt === MediaType.MOVIE && crew
+							? {
+									directors: crew.filter((c: any) => c.job === "Director").map((c: any) => c.name),
+									writers: crew.filter((c: any) => c.department === "Writing").map((c: any) => c.name),
+									producers: crew
+										.filter((c: any) => c.job === "Producer")
+										.map((c: any) => c.name)
+										.slice(0, 3),
+								}
+							: undefined;
 
 					const catalog: CatalogShow = {
 						tmdbId: item.tmdbId,
@@ -401,6 +430,7 @@ export function useWatchlist(userId: string | undefined) {
 						releaseDate: details.release_date ?? null,
 						seasons,
 						genres,
+						...(credits ? { credits } : {}),
 						trackedBy: [],
 						trackedByCount: 0,
 						lastSyncedAt: null,

@@ -200,6 +200,8 @@ export default memo(function ShowCard({
 						<Text style={styles.episodeName} numberOfLines={1}>
 							{item.director}
 						</Text>
+					) : item.mediaType === MediaType.MOVIE ? (
+						<SkeletonLine width="40%" height={11} />
 					) : item.nextEpisodeName ? (
 						<Text style={styles.episodeName} numberOfLines={1}>
 							{item.nextEpisodeName}
@@ -409,7 +411,7 @@ const styles = StyleSheet.create({
 	movieYearRow: {
 		flexDirection: "row",
 		alignItems: "center",
-		marginTop: 2,
+		marginTop: spacing.xs,
 		gap: spacing.sm,
 		paddingHorizontal: spacing.sm,
 	},
