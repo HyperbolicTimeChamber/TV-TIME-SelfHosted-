@@ -502,6 +502,13 @@ export default function EpisodeDetailModal({
 						style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}
 					/>
 				</View>
+				{enrichedEps.length > 1 && (
+					<View style={styles.dotRow}>
+						{activeIndex > 0 && <View style={styles.dot} />}
+						<View style={[styles.dot, styles.dotActive]} />
+						{activeIndex < enrichedEps.length - 1 && <View style={styles.dot} />}
+					</View>
+				)}
 			</GestureHandlerRootView>
 			{confirmVisible && (
 				<AnimatedModal
@@ -711,6 +718,27 @@ const styles = StyleSheet.create({
 		...typography.subtitle,
 		fontSize: 14,
 		color: colors.text,
+	},
+	dotRow: {
+		flexDirection: "row",
+		justifyContent: "center",
+		alignItems: "center",
+		gap: 6,
+		marginTop: spacing.sm,
+	},
+	dot: {
+		width: 6,
+		height: 6,
+		borderRadius: 3,
+		backgroundColor: colors.textMuted,
+		opacity: 0.4,
+	},
+	dotActive: {
+		width: 8,
+		height: 8,
+		borderRadius: 4,
+		opacity: 1,
+		backgroundColor: colors.text,
 	},
 	skeletonBody: {
 		padding: spacing.lg,
