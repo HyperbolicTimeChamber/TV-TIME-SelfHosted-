@@ -3,6 +3,7 @@ import {
 	View,
 	Text,
 	ScrollView,
+	FlatList,
 	TouchableOpacity,
 	Pressable,
 	Animated,
@@ -11,8 +12,6 @@ import {
 	ActivityIndicator,
 	Dimensions,
 } from "react-native";
-import { Carousel } from "react-native-reanimated-carousel";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import AnimatedModal from "./AnimatedModal";
@@ -22,8 +21,10 @@ import { colors, spacing, typography } from "../../theme";
 import { tmdbStillUri, tmdbBackdropUri, tmdbPosterUri } from "../../hooks/useTmdbImage";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
-const CARD_WIDTH = Math.min(SCREEN_WIDTH * 0.72, 290);
-const CARD_GAP = 10;
+const CARD_WIDTH = SCREEN_WIDTH * 0.7;
+const CARD_GAP = 12;
+const SNAP_INTERVAL = CARD_WIDTH + CARD_GAP;
+const SIDE_PADDING = (SCREEN_WIDTH - CARD_WIDTH) / 2;
 const CARD_HEIGHT = Math.min(Dimensions.get("window").height * 0.55, 460);
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -222,7 +223,7 @@ export default function EpisodeDetailModal({
 	onClose,
 	onLoadEpisodeDetails,
 }: Readonly<Props>) {
-	const carouselRef = useRef<any>(null);
+	const carouselRef = useRef<FlatList>(null);
 	const [localWatched, setLocalWatched] = useState(watchedKeys);
 	// Enriched episode data — items updated in-place when details load
 	const [enrichedEps, setEnrichedEps] = useState<(CarouselEpisode & { loaded?: boolean })[]>(() =>
@@ -486,25 +487,49 @@ export default function EpisodeDetailModal({
 		? `E${String(currentNextEpisode?.episode ?? 1).padStart(2, "0")}–E${String(confirmTarget.episode).padStart(2, "0")}`
 		: "";
 
+	const getItemLayout = useCallback(
+		(_: any, index: number) => ({
+			length: SNAP_INTERVAL,
+			offset: SNAP_INTERVAL * index,
+			index,
+		}),
+		[],
+	);
+
+	const onViewableItemsChanged = useRef(
+		({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+			if (viewableItems.length > 0 && viewableItems[0].index != null) {
+				handleSnap(viewableItems[0].index);
+			}
+		},
+	).current;
+
+	const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
+
 	return (
 		<Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-			<GestureHandlerRootView style={styles.modalOverlay}>
+			<View style={styles.modalOverlay}>
 				<Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-				<Carousel
-						ref={carouselRef}
-						data={enrichedEps}
-						renderItem={({ item, index }) => renderItem({ item, index })}
-						itemSize={CARD_WIDTH + CARD_GAP}
-						defaultIndex={initialIndex}
-						scrollEnabled={scrollEnabled}
-						loop={false}
-						onSnapToItem={handleSnap}
-						renderWindowSize={3}
-						style={{
-						width: SCREEN_WIDTH,
-						height: CARD_HEIGHT,
+				<FlatList
+					ref={carouselRef}
+					data={enrichedEps}
+					renderItem={renderItem}
+					keyExtractor={(item) => epKey(item.season, item.episode)}
+					horizontal
+					snapToInterval={SNAP_INTERVAL}
+					decelerationRate="fast"
+					scrollEnabled={scrollEnabled}
+					showsHorizontalScrollIndicator={false}
+					initialScrollIndex={initialIndex}
+					getItemLayout={getItemLayout}
+					onViewableItemsChanged={onViewableItemsChanged}
+					viewabilityConfig={viewabilityConfig}
+					contentContainerStyle={{
+						gap: CARD_GAP,
+						paddingHorizontal: SIDE_PADDING,
 					}}
-					/>
+					style={{ flexGrow: 0 }}
+				/>
 				{enrichedEps.length > 1 && (
 					<View style={styles.dotRow}>
 						{activeIndex > 0 && <View style={styles.dot} />}
@@ -512,7 +537,7 @@ export default function EpisodeDetailModal({
 						{activeIndex < enrichedEps.length - 1 && <View style={styles.dot} />}
 					</View>
 				)}
-			</GestureHandlerRootView>
+			</View>
 			{confirmVisible && (
 				<AnimatedModal
 					visible={confirmVisible}
@@ -574,8 +599,7 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 	},
 	cardWrapper: {
-		width: CARD_WIDTH + CARD_GAP,
-		paddingHorizontal: CARD_GAP / 2,
+		width: CARD_WIDTH,
 	},
 	cardContent: {
 		width: CARD_WIDTH,
