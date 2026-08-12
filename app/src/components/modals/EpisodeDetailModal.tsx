@@ -26,6 +26,10 @@ function formatDate(dateStr: string): string {
 	return `${Number.parseInt(d, 10)} ${MONTHS[Number.parseInt(m, 10) - 1]} ${y}`;
 }
 
+function epKey(s: number, e: number): string {
+	return `S${String(s).padStart(2, "0")}E${String(e).padStart(2, "0")}`;
+}
+
 export interface CarouselEpisode {
 	season: number;
 	episode: number;
@@ -227,10 +231,6 @@ export default function EpisodeDetailModal({
 		setLocalWatched(watchedKeys);
 	}, [watchedKeys]);
 
-	// Key helper
-	const epKey = (s: number, e: number) =>
-		`S${String(s).padStart(2, "0")}E${String(e).padStart(2, "0")}`;
-
 	// Initialize loaded episodes from the episodes array (catalog data)
 	useEffect(() => {
 		if (!visible) return;
@@ -383,25 +383,28 @@ export default function EpisodeDetailModal({
 		const key = epKey(confirmTarget.season, confirmTarget.episode);
 		setMarkingKey(key);
 
-		await onMarkWatchedThrough(tmdbId, confirmTarget.season, confirmTarget.episode);
+		try {
+			await onMarkWatchedThrough(tmdbId, confirmTarget.season, confirmTarget.episode);
 
-		// Optimistically mark all eps up through target as watched
-		setLocalWatched((prev) => {
-			const next = new Set(prev);
-			for (const ep of episodes) {
-				if (
-					ep.season < confirmTarget.season ||
-					(ep.season === confirmTarget.season && ep.episode <= confirmTarget.episode)
-				) {
-					next.add(epKey(ep.season, ep.episode));
+			// Optimistically mark all eps up through target as watched
+			setLocalWatched((prev) => {
+				const next = new Set(prev);
+				for (const ep of episodes) {
+					if (
+						ep.season < confirmTarget.season ||
+						(ep.season === confirmTarget.season && ep.episode <= confirmTarget.episode)
+					) {
+						next.add(epKey(ep.season, ep.episode));
+					}
 				}
-			}
-			return next;
-		});
-		setMarkingKey(null);
-		setConfirmLoading(false);
-		setConfirmVisible(false);
-		setConfirmTarget(null);
+				return next;
+			});
+		} finally {
+			setMarkingKey(null);
+			setConfirmLoading(false);
+			setConfirmVisible(false);
+			setConfirmTarget(null);
+		}
 	}, [confirmTarget, tmdbId, episodes, onMarkWatchedThrough]);
 
 	// Decline backfill — mark only target
@@ -411,10 +414,13 @@ export default function EpisodeDetailModal({
 		const key = epKey(confirmTarget.season, confirmTarget.episode);
 		setMarkingKey(key);
 
-		await onMarkWatched(tmdbId, confirmTarget.season, confirmTarget.episode);
-		setLocalWatched((prev) => new Set(prev).add(key));
-		setMarkingKey(null);
-		setConfirmTarget(null);
+		try {
+			await onMarkWatched(tmdbId, confirmTarget.season, confirmTarget.episode);
+			setLocalWatched((prev) => new Set(prev).add(key));
+		} finally {
+			setMarkingKey(null);
+			setConfirmTarget(null);
+		}
 	}, [confirmTarget, tmdbId, onMarkWatched]);
 
 	const getItemLayout = useCallback(
