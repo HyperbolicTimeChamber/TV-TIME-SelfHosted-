@@ -22,6 +22,8 @@ import { colors, spacing, typography } from "../../theme";
 import { tmdbStillUri, tmdbBackdropUri, tmdbPosterUri } from "../../hooks/useTmdbImage";
 
 const CARD_WIDTH = Math.min(Dimensions.get("window").width * 0.8, 320);
+const CARD_GAP = 12;
+const ITEM_WIDTH = CARD_WIDTH + CARD_GAP;
 const CARD_HEIGHT = Math.min(Dimensions.get("window").height * 0.55, 460);
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -434,7 +436,7 @@ export default function EpisodeDetailModal({
 			const isWatched = localWatched.has(key);
 
 			return (
-				<View style={{ width: CARD_WIDTH }}>
+				<View style={styles.cardWrapper}>
 					<EpisodeCard
 						ep={item}
 						showTitle={showTitle}
@@ -493,13 +495,13 @@ export default function EpisodeDetailModal({
 						ref={carouselRef}
 						data={enrichedEps}
 						renderItem={({ item, index }) => renderItem({ item, index })}
-						itemSize={CARD_WIDTH}
+						itemSize={ITEM_WIDTH}
 						defaultIndex={initialIndex}
 						scrollEnabled={scrollEnabled}
 						loop={false}
 						onSnapToItem={handleSnap}
 						renderWindowSize={3}
-						style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}
+						style={{ width: ITEM_WIDTH, height: CARD_HEIGHT }}
 					/>
 				</View>
 				{enrichedEps.length > 1 && (
@@ -571,8 +573,12 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 	},
 	carouselContainer: {
-		width: CARD_WIDTH,
+		width: ITEM_WIDTH,
 		height: CARD_HEIGHT,
+	},
+	cardWrapper: {
+		width: ITEM_WIDTH,
+		paddingHorizontal: CARD_GAP / 2,
 	},
 	cardContent: {
 		width: CARD_WIDTH,
