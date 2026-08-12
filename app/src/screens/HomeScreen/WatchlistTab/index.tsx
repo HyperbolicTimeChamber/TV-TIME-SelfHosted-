@@ -122,6 +122,7 @@ export default function WatchlistTab() {
 		watchedKeys: Set<string>;
 		currentNextEpisode: { season: number; episode: number } | null;
 	} | null>(null);
+	const epModalTmdbIdRef = useRef<number | null>(null);
 
 	// Show drawer state
 	const [drawerVisible, setDrawerVisible] = useState(false);
@@ -223,6 +224,7 @@ export default function WatchlistTab() {
 				}
 			}
 
+			epModalTmdbIdRef.current = tmdbId;
 			setEpModalData({
 				tmdbId,
 				showTitle: item.title,
@@ -240,10 +242,11 @@ export default function WatchlistTab() {
 
 	const handleLoadEpisodeDetails = useCallback(
 		async (season: number): Promise<CarouselEpisode[] | null> => {
+			const tmdbId = epModalTmdbIdRef.current;
 			const apiKey = useAuthStore.getState().appTmdbApiKey;
-			if (!apiKey || !epModalData) return null;
+			if (!apiKey || !tmdbId) return null;
 			try {
-				const seasonData = await getSeasonDetails(apiKey, epModalData.tmdbId, season);
+				const seasonData = await getSeasonDetails(apiKey, tmdbId, season);
 				return seasonData.episodes.map((e) => ({
 					season: e.season_number ?? season,
 					episode: e.episode_number,
@@ -255,7 +258,7 @@ export default function WatchlistTab() {
 				}));
 			} catch {
 				// Firestore fallback
-				const catalog = await getCatalogShow(epModalData.tmdbId, MediaType.TV);
+				const catalog = await getCatalogShow(tmdbId, MediaType.TV);
 				const catSeason = catalog?.seasons?.find((s) => s.seasonNumber === season);
 				if (catSeason) {
 					return catSeason.episodes.map((e) => ({
@@ -271,7 +274,7 @@ export default function WatchlistTab() {
 				return null;
 			}
 		},
-		[epModalData],
+		[],
 	);
 
 	const handleEpModalShowPress = useCallback(() => {

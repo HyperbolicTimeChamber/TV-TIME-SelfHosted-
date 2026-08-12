@@ -807,7 +807,7 @@ export function useWatchlistData(userId: string | undefined) {
 				);
 			}
 
-			// Insert all into watched cache
+			// Insert all into watched cache + update daily counter
 			const now = Timestamp.now();
 			for (const ep of epsToMark) {
 				insertWatchedEpisodeCache(queryClient, userId, {
@@ -821,6 +821,7 @@ export function useWatchlistData(userId: string | undefined) {
 					watchedAt: now,
 					watchCount: 1,
 				});
+				incrementDailyWatch("episode");
 			}
 		},
 		[userId, items, queryClient],
