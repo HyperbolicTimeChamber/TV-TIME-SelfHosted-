@@ -8,8 +8,8 @@ import {
 	StyleSheet,
 	ActivityIndicator,
 	Dimensions,
-	FlatList,
 } from "react-native";
+import { Carousel } from "react-native-reanimated-carousel";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import AnimatedModal from "./AnimatedModal";
@@ -19,6 +19,7 @@ import { colors, spacing, typography } from "../../theme";
 import { tmdbStillUri, tmdbBackdropUri, tmdbPosterUri } from "../../hooks/useTmdbImage";
 
 const CARD_WIDTH = Math.min(Dimensions.get("window").width * 0.8, 320);
+const CARD_HEIGHT = Dimensions.get("window").height * 0.7;
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function formatDate(dateStr: string): string {
@@ -214,7 +215,7 @@ export default function EpisodeDetailModal({
 	onClose,
 	onLoadEpisodeDetails,
 }: Readonly<Props>) {
-	const flatListRef = useRef<FlatList>(null);
+	const carouselRef = useRef<any>(null);
 	const [localWatched, setLocalWatched] = useState(watchedKeys);
 	const [loadedEps, setLoadedEps] = useState<Map<string, CarouselEpisode>>(new Map());
 	const [scrollEnabled, setScrollEnabled] = useState(true);
@@ -294,17 +295,6 @@ export default function EpisodeDetailModal({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 		[episodes, loadedEps, onLoadEpisodeDetails],
 	);
-
-	// On viewable change
-	const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
-		if (viewableItems.length > 0) {
-			const idx = viewableItems[0].index;
-			if (idx !== null) {
-				setActiveIndex(idx);
-			}
-		}
-	}).current;
-	const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
 
 	// Load when active index changes
 	useEffect(() => {
@@ -423,17 +413,8 @@ export default function EpisodeDetailModal({
 		}
 	}, [confirmTarget, tmdbId, onMarkWatched]);
 
-	const getItemLayout = useCallback(
-		(_: ArrayLike<CarouselEpisode> | null | undefined, index: number) => ({
-			length: CARD_WIDTH,
-			offset: CARD_WIDTH * index,
-			index,
-		}),
-		[],
-	);
-
 	const renderItem = useCallback(
-		({ item }: { item: CarouselEpisode }) => {
+		({ item, index }: { item: CarouselEpisode; index: number }) => {
 			const key = epKey(item.season, item.episode);
 			const isWatched = localWatched.has(key);
 			const isLoaded = loadedEps.has(key);
@@ -494,19 +475,17 @@ export default function EpisodeDetailModal({
 	return (
 		<AnimatedModal visible={visible} onClose={onClose}>
 			<View style={styles.carouselContainer}>
-				<FlatList
-					ref={flatListRef}
+				<Carousel
+					ref={carouselRef}
 					data={episodes}
-					renderItem={renderItem}
-					keyExtractor={(item) => epKey(item.season, item.episode)}
-					horizontal
-					pagingEnabled
+					renderItem={({ item, index }) => renderItem({ item, index })}
+					itemSize={CARD_WIDTH}
+					defaultIndex={initialIndex}
 					scrollEnabled={scrollEnabled}
-					showsHorizontalScrollIndicator={false}
-					initialScrollIndex={initialIndex}
-					getItemLayout={getItemLayout}
-					onViewableItemsChanged={onViewableItemsChanged}
-					viewabilityConfig={viewabilityConfig}
+					loop={false}
+					onSnapToItem={setActiveIndex}
+					renderWindowSize={3}
+					style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}
 				/>
 			</View>
 			{confirmVisible && (
@@ -565,10 +544,10 @@ export default function EpisodeDetailModal({
 const styles = StyleSheet.create({
 	carouselContainer: {
 		width: CARD_WIDTH,
+		height: CARD_HEIGHT,
 		backgroundColor: colors.surface,
 		borderRadius: 12,
 		overflow: "hidden",
-		maxHeight: Dimensions.get("window").height * 0.8,
 	},
 	cardContent: {
 		width: CARD_WIDTH,
