@@ -17,6 +17,15 @@ import {
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { WatchStatus, MediaType, CloudFunction, CatalogShow } from "../types";
 import { showDocId } from "../utils/docId";
+import { trackApi } from "./analytics";
+
+/** Tracked Cloud Function call */
+function callCF<T = any>(name: string, data: any): Promise<T> {
+	return trackApi("cloud_function", name, async () => {
+		const result = await httpsCallable(getFunctions(), name)(data);
+		return result.data as T;
+	});
+}
 
 const db = getFirestore();
 
@@ -48,18 +57,20 @@ export async function getCatalogShow(
 	tmdbId: number,
 	mediaType: MediaType = MediaType.TV,
 ): Promise<CatalogShow | null> {
-	const docId = showDocId(tmdbId, mediaType);
-	const showDoc = await getDoc(doc(db, "shows", docId));
-	if (!showDoc.exists()) return null;
-	return { id: showDoc.id, ...showDoc.data() } as unknown as CatalogShow;
+	return trackApi("firestore", "getCatalogShow", async () => {
+		const docId = showDocId(tmdbId, mediaType);
+		const showDoc = await getDoc(doc(db, "shows", docId));
+		if (!showDoc.exists()) return null;
+		return { id: showDoc.id, ...showDoc.data() } as unknown as CatalogShow;
+	});
 }
 
 export async function getHighestWatchedEpisode(
 	userId: string,
 	tmdbShowId: number,
 ): Promise<{ season: number; episode: number } | null> {
+	return trackApi("firestore", "getHighestWatchedEpisode", async () => {
 	const epCol = watchedEpisodesRef(userId);
-	// Query only episodes for this show instead of reading ALL episodes
 	const snap = await getDocs(query(epCol, where("tmdbShowId", "==", tmdbShowId)));
 	let highest: { season: number; episode: number } | null = null;
 	for (const d of snap.docs) {
@@ -73,6 +84,7 @@ export async function getHighestWatchedEpisode(
 		}
 	}
 	return highest;
+	});
 }
 
 // --- Error helpers ---
@@ -145,7 +157,7 @@ export async function addToTracking(
 	// Background: ensure catalog exists + update trackedBy
 	// If CF fails after retry → rollback tracking doc + call onError
 	const callAddShow = () =>
-		httpsCallable(getFunctions(), CloudFunction.ADD_SHOW)({ tmdbId, mediaType });
+		callCF(CloudFunction.ADD_SHOW, { tmdbId, mediaType });
 	callAddShow().catch(() =>
 		callAddShow().catch(async () => {
 			// Both attempts failed — undo the local add
@@ -182,10 +194,7 @@ export async function removeFromTracking(
 	await batch.commit();
 
 	// Background: update trackedBy on catalog doc (CF handles cleanup)
-	httpsCallable(
-		getFunctions(),
-		CloudFunction.REMOVE_SHOW,
-	)({ tmdbId, mediaType }).catch((err: any) =>
+	callCF(CloudFunction.REMOVE_SHOW, { tmdbId, mediaType }).catch((err: any) =>
 		console.error("[removeFromTracking] removeShow CF failed:", err),
 	);
 }
@@ -671,10 +680,7 @@ export async function addAndMarkMovieWatched(
 	await batch.commit();
 
 	// Background: ensure catalog exists
-	httpsCallable(
-		getFunctions(),
-		CloudFunction.ADD_SHOW,
-	)({ tmdbId, mediaType: MediaType.MOVIE }).catch(() => {});
+	callCF(CloudFunction.ADD_SHOW, { tmdbId, mediaType: MediaType.MOVIE }).catch(() => {});
 }
 
 // --- Season batch mark (Cloud Function) ---
@@ -688,15 +694,11 @@ export async function markSeasonWatchedCF(
 	nextEpisodeName: string | null = null,
 	nextEpisodeAirDate: string | null = null,
 ): Promise<void> {
-	const functions = getFunctions();
 	const BATCH_SIZE = 100;
 
 	try {
 		if (episodes.length <= BATCH_SIZE) {
-			await httpsCallable(
-				functions,
-				CloudFunction.MARK_SEASON_WATCHED,
-			)({
+			await callCF(CloudFunction.MARK_SEASON_WATCHED, {
 				tmdbId,
 				seasonNumber,
 				episodes,
@@ -710,10 +712,7 @@ export async function markSeasonWatchedCF(
 			for (let i = 0; i < episodes.length; i += BATCH_SIZE) {
 				const chunk = episodes.slice(i, i + BATCH_SIZE);
 				const isLastChunk = i + BATCH_SIZE >= episodes.length;
-				await httpsCallable(
-					functions,
-					CloudFunction.MARK_SEASON_WATCHED,
-				)({
+				await callCF(CloudFunction.MARK_SEASON_WATCHED, {
 					tmdbId,
 					seasonNumber,
 					episodes: chunk,
