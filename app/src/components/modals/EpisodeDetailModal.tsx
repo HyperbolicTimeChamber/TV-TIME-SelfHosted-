@@ -13,7 +13,7 @@ import {
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import AnimatedModal from "./AnimatedModal";
-import ConfirmModal from "./ConfirmModal";
+
 import { useSharedShimmer } from "../SkeletonLine";
 import { colors, spacing, typography } from "../../theme";
 import { tmdbStillUri, tmdbBackdropUri, tmdbPosterUri } from "../../hooks/useTmdbImage";
@@ -313,7 +313,7 @@ export default function EpisodeDetailModal({
 		const key = epKey(ep.season, ep.episode);
 		if (!loadedEps.has(key)) {
 			setScrollEnabled(false);
-			loadAround(activeIndex).then(() => setScrollEnabled(true));
+			loadAround(activeIndex).finally(() => setScrollEnabled(true));
 		} else {
 			loadAround(activeIndex);
 		}
@@ -509,18 +509,51 @@ export default function EpisodeDetailModal({
 					viewabilityConfig={viewabilityConfig}
 				/>
 			</View>
-			<ConfirmModal
-				visible={confirmVisible}
-				title="Mark Previous Episodes?"
-				hint={`Mark episodes ${confirmLabel} as watched?`}
-				confirmLabel="Mark All"
-				confirmColor={colors.watchedGreen}
-				loading={confirmLoading}
-				onConfirm={handleConfirmBackfill}
-				onClose={() => {
-					handleDeclineBackfill();
-				}}
-			/>
+			{confirmVisible && (
+				<AnimatedModal
+					visible={confirmVisible}
+					onClose={() => {
+						setConfirmVisible(false);
+						setConfirmTarget(null);
+					}}
+				>
+					<View style={styles.backfillContent}>
+						<Text style={styles.backfillTitle}>Mark Previous Episodes?</Text>
+						<Text style={styles.backfillHint}>
+							Mark episodes {confirmLabel} as watched?
+						</Text>
+						<TouchableOpacity
+							style={[styles.backfillButton, { backgroundColor: colors.watchedGreen }, confirmLoading && { opacity: 0.6 }]}
+							onPress={handleConfirmBackfill}
+							disabled={confirmLoading}
+						>
+							{confirmLoading ? (
+								<ActivityIndicator size="small" color={colors.text} />
+							) : (
+								<Text style={styles.backfillButtonText}>Mark All</Text>
+							)}
+						</TouchableOpacity>
+						<TouchableOpacity
+							style={[styles.backfillButtonOutline, confirmLoading && { opacity: 0.6 }]}
+							onPress={handleDeclineBackfill}
+							disabled={confirmLoading}
+						>
+							<Text style={styles.backfillButtonOutlineText}>Just This One</Text>
+						</TouchableOpacity>
+						{!confirmLoading && (
+							<TouchableOpacity
+								style={styles.backfillCancel}
+								onPress={() => {
+									setConfirmVisible(false);
+									setConfirmTarget(null);
+								}}
+							>
+								<Text style={styles.backfillCancelText}>Cancel</Text>
+							</TouchableOpacity>
+						)}
+					</View>
+				</AnimatedModal>
+			)}
 		</AnimatedModal>
 	);
 }
@@ -695,5 +728,54 @@ const styles = StyleSheet.create({
 		width: "70%",
 		borderRadius: 4,
 		backgroundColor: colors.border,
+	},
+	backfillContent: {
+		backgroundColor: colors.surface,
+		borderRadius: 12,
+		padding: spacing.lg,
+	},
+	backfillTitle: {
+		...typography.subtitle,
+		fontSize: 16,
+		textAlign: "center",
+		marginBottom: spacing.sm,
+	},
+	backfillHint: {
+		...typography.caption,
+		color: colors.textSecondary,
+		textAlign: "center",
+		marginBottom: spacing.lg,
+	},
+	backfillButton: {
+		paddingVertical: spacing.md,
+		borderRadius: 8,
+		alignItems: "center",
+	},
+	backfillButtonText: {
+		...typography.subtitle,
+		fontSize: 14,
+		color: colors.text,
+	},
+	backfillButtonOutline: {
+		paddingVertical: spacing.md,
+		borderRadius: 8,
+		alignItems: "center",
+		borderWidth: 1.5,
+		borderColor: colors.text,
+		marginTop: spacing.sm,
+	},
+	backfillButtonOutlineText: {
+		...typography.subtitle,
+		fontSize: 14,
+		color: colors.text,
+	},
+	backfillCancel: {
+		paddingVertical: spacing.sm,
+		alignItems: "center",
+		marginTop: spacing.sm,
+	},
+	backfillCancelText: {
+		...typography.caption,
+		color: colors.textMuted,
 	},
 });
