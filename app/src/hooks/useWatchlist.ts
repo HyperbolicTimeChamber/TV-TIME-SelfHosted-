@@ -72,6 +72,22 @@ async function enrichItems(
 				}
 				cache.set(key, catalogShow);
 				cacheUpdated = true;
+			} else if (mt === MediaType.TV && item.nextEpisode) {
+				// Re-read from Firestore if cached catalog is missing episode data
+				// for the current nextEpisode (stale AsyncStorage cache)
+				const ne = item.nextEpisode;
+				const season = catalogShow.seasons?.find((s) => s.seasonNumber === ne.season);
+				const ep = season?.episodes?.find((e) => e.episodeNumber === ne.episode);
+				if (!ep?.title) {
+					try {
+						const showDoc = await getDoc(doc(db, "shows", key));
+						if (showDoc?.exists?.()) {
+							catalogShow = { id: showDoc.id, ...showDoc.data() } as unknown as CatalogShow;
+							cache.set(key, catalogShow);
+							cacheUpdated = true;
+						}
+					} catch {}
+				}
 			}
 
 			return {
@@ -302,8 +318,7 @@ export function useWatchlist(userId: string | undefined) {
 
 	const removeItem = useCallback((tmdbId: number) => {
 		paginatedItems.current = paginatedItems.current.filter((p) => p.tmdbId !== tmdbId);
-		catalogCache.current.delete(showDocId(tmdbId, MediaType.TV));
-		catalogCache.current.delete(showDocId(tmdbId, MediaType.MOVIE));
+		// Keep catalog cache — shared metadata used by previously watched items
 		setItems((prev) => prev.filter((p) => p.tmdbId !== tmdbId));
 	}, []);
 

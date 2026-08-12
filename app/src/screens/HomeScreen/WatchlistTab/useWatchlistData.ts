@@ -6,6 +6,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
 	useWatchlist,
 	EnrichedTrackingItem,
+	getCachedCatalogShow,
 	useWatchedEpisodes,
 	useWatchedMovies,
 	insertWatchedEpisodeCache,
@@ -401,20 +402,22 @@ export function useWatchlistData(userId: string | undefined) {
 			for (const item of prevWatchedItems) {
 				if (item.kind === MediaType.MOVIE) {
 					const show = showMap.get(item.movie.tmdbId);
+					const cat = show ? null : getCachedCatalogShow(item.movie.tmdbId, MediaType.MOVIE);
 					result.push({
 						type: "watchedMovie",
 						movie: item.movie,
-						showTitle: show?.title ?? (item.movie as any).title ?? "",
-						posterPath: show?.posterPath ?? (item.movie as any).posterPath ?? null,
+						showTitle: show?.title ?? cat?.title ?? (item.movie as any).title ?? "",
+						posterPath: show?.posterPath ?? cat?.posterPath ?? (item.movie as any).posterPath ?? null,
 						tmdbId: item.movie.tmdbId,
 					});
 				} else {
 					const show = showMap.get(item.ep.tmdbShowId);
+					const cat = show ? null : getCachedCatalogShow(item.ep.tmdbShowId, MediaType.TV);
 					result.push({
 						type: "watchedEpisode",
 						episode: item.ep,
-						showTitle: show?.title ?? "",
-						posterPath: show?.posterPath ?? null,
+						showTitle: show?.title ?? cat?.title ?? "",
+						posterPath: show?.posterPath ?? cat?.posterPath ?? null,
 						tmdbId: item.ep.tmdbShowId,
 					});
 				}

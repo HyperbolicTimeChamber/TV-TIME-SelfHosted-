@@ -81,50 +81,73 @@ export default function SeasonDetailScreen() {
 
 			setMarking(ep.episode_number);
 			try {
-				const episodes = seasonData?.episodes || [];
-				const nextEpInSeason = episodes.find(
-					(e: TMDBEpisode) => e.episode_number === ep.episode_number + 1,
-				);
+				// Check if this is a missed/skipped episode (before current tracking pointer)
+				const currentNext = watchlistItem?.nextEpisode;
+				const isBeforeCurrent =
+					currentNext &&
+					(seasonNumber < currentNext.season ||
+						(seasonNumber === currentNext.season &&
+							ep.episode_number < currentNext.episode));
 
-				let nextEpisode: { season: number; episode: number } | null = null;
-				let nextEpName: string | null = null;
-				let isComplete = false;
-
-				if (nextEpInSeason) {
-					nextEpisode = {
-						season: seasonNumber,
-						episode: nextEpInSeason.episode_number,
-					};
-					nextEpName = nextEpInSeason.name || null;
+				if (isBeforeCurrent) {
+					// Missed episode — record it without moving the tracking pointer
+					await markEpisodeWatched(
+						user.uid,
+						tmdbId,
+						seasonNumber,
+						ep.episode_number,
+						ep.name,
+						ep.runtime || 0,
+						currentNext,
+						false,
+						true, // skipTrackingUpdate
+					);
 				} else {
-					try {
-						const nextSeasonData = await fetchSeason(apiKey, tmdbId, seasonNumber + 1);
-						const ns = nextSeasonData as {
-							episodes: Array<{ episode_number: number; name?: string }>;
+					const episodes = seasonData?.episodes || [];
+					const nextEpInSeason = episodes.find(
+						(e: TMDBEpisode) => e.episode_number === ep.episode_number + 1,
+					);
+
+					let nextEpisode: { season: number; episode: number } | null = null;
+					let nextEpName: string | null = null;
+					let isComplete = false;
+
+					if (nextEpInSeason) {
+						nextEpisode = {
+							season: seasonNumber,
+							episode: nextEpInSeason.episode_number,
 						};
-						if (ns.episodes?.length > 0) {
-							nextEpisode = { season: seasonNumber + 1, episode: 1 };
-							nextEpName = ns.episodes[0].name || null;
-						} else {
+						nextEpName = nextEpInSeason.name || null;
+					} else {
+						try {
+							const nextSeasonData = await fetchSeason(apiKey, tmdbId, seasonNumber + 1);
+							const ns = nextSeasonData as {
+								episodes: Array<{ episode_number: number; name?: string }>;
+							};
+							if (ns.episodes?.length > 0) {
+								nextEpisode = { season: seasonNumber + 1, episode: 1 };
+								nextEpName = ns.episodes[0].name || null;
+							} else {
+								isComplete = true;
+							}
+						} catch {
 							isComplete = true;
 						}
-					} catch {
-						isComplete = true;
 					}
-				}
 
-				await markEpisodeWatched(
-					user.uid,
-					tmdbId,
-					seasonNumber,
-					ep.episode_number,
-					ep.name,
-					ep.runtime || 0,
-					nextEpisode,
-					isComplete,
-					false,
-					nextEpName,
-				);
+					await markEpisodeWatched(
+						user.uid,
+						tmdbId,
+						seasonNumber,
+						ep.episode_number,
+						ep.name,
+						ep.runtime || 0,
+						nextEpisode,
+						isComplete,
+						false,
+						nextEpName,
+					);
+				}
 				const now = Timestamp.now();
 				insertWatchedEpisodeCache(queryClient, user.uid, {
 					id: `${tmdbId}_S${String(seasonNumber).padStart(2, "0")}E${String(ep.episode_number).padStart(2, "0")}`,
@@ -144,7 +167,7 @@ export default function SeasonDetailScreen() {
 				setMarking(null);
 			}
 		},
-		[user?.uid, marking, seasonData, tmdbId, seasonNumber, apiKey],
+		[user?.uid, marking, seasonData, tmdbId, seasonNumber, apiKey, watchlistItem],
 	);
 
 	const handleMarkWatched = useCallback(

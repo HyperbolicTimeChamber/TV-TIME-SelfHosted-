@@ -34,6 +34,8 @@ export default function CompletedSections({ sections, loading, onItemPress }: Re
 						data={section.items}
 						keyExtractor={(item) => `${item.tmdbId}`}
 						showsHorizontalScrollIndicator={false}
+						style={{ marginHorizontal: -spacing.lg }}
+						contentContainerStyle={{ paddingHorizontal: spacing.lg }}
 						renderItem={({ item }) => (
 							<TouchableOpacity
 								activeOpacity={0.7}
