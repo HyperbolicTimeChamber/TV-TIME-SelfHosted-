@@ -164,7 +164,7 @@ export default function ShowDetailScreen() {
 	const year =
 		mediaType === MediaType.MOVIE && rawDate.length >= 10
 			? new Date(rawDate).toLocaleDateString("en-US", {
-					month: "long",
+					month: "short",
 					day: "numeric",
 					year: "numeric",
 				})
@@ -502,16 +502,54 @@ export default function ShowDetailScreen() {
 				</DetailBackdrop>
 
 				<View style={styles.content}>
-					<Text style={styles.islandMeta}>
-						{year}
-						{mediaType === MediaType.TV && show.number_of_seasons
-							? ` \u00b7 ${show.number_of_seasons} Season${show.number_of_seasons > 1 ? "s" : ""}`
-							: ""}
-						{mediaType === MediaType.MOVIE && show.runtime
-							? ` \u00b7 ${Math.floor(show.runtime / 60)}h ${show.runtime % 60}m`
-							: ""}
-						{show.vote_average ? ` \u00b7 \u2605 ${show.vote_average.toFixed(1)}` : ""}
-					</Text>
+					<View style={styles.statsBar}>
+						{mediaType === MediaType.MOVIE && show.runtime ? (
+							<>
+								<View style={styles.statItem}>
+									<Text style={styles.statValue}>
+										{Math.floor(show.runtime / 60)}h {show.runtime % 60}m
+									</Text>
+									<Text style={styles.statLabel}>RUNTIME</Text>
+								</View>
+								<View style={styles.statDivider} />
+							</>
+						) : null}
+						<View style={styles.statItem}>
+							<Text style={styles.statValue}>{year || "—"}</Text>
+							<Text style={styles.statLabel}>
+								{mediaType === MediaType.MOVIE ? "RELEASED" : "YEAR"}
+							</Text>
+						</View>
+						{mediaType === MediaType.TV && show.number_of_seasons ? (
+							<>
+								<View style={styles.statDivider} />
+								<View style={styles.statItem}>
+									<Text style={styles.statValue}>{show.number_of_seasons}</Text>
+									<Text style={styles.statLabel}>
+										{show.number_of_seasons > 1 ? "SEASONS" : "SEASON"}
+									</Text>
+								</View>
+							</>
+						) : null}
+						{mediaType === MediaType.TV && show.number_of_episodes ? (
+							<>
+								<View style={styles.statDivider} />
+								<View style={styles.statItem}>
+									<Text style={styles.statValue}>{show.number_of_episodes}</Text>
+									<Text style={styles.statLabel}>EPISODES</Text>
+								</View>
+							</>
+						) : null}
+						{show.vote_average ? (
+							<>
+								<View style={styles.statDivider} />
+								<View style={styles.statItem}>
+									<Text style={styles.statValue}>{show.vote_average.toFixed(1)}</Text>
+									<Text style={styles.statLabel}>RATING</Text>
+								</View>
+							</>
+						) : null}
+					</View>
 					<Text style={styles.overview}>{show.overview}</Text>
 
 					{mediaType === MediaType.MOVIE && (
@@ -613,11 +651,38 @@ const styles = StyleSheet.create({
 		...typography.title,
 		fontSize: 24,
 	},
-	islandMeta: {
-		...typography.caption,
-		paddingHorizontal: spacing.sm,
+	statsBar: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-evenly",
+		backgroundColor: colors.surface,
+		borderRadius: 12,
+		paddingVertical: spacing.md,
+		paddingHorizontal: spacing.md,
+		marginBottom: spacing.lg,
+	},
+	statItem: {
+		alignItems: "center",
+		justifyContent: "center",
+		paddingHorizontal: spacing.md,
+	},
+	statValue: {
+		...typography.subtitle,
+		fontSize: 18,
+		fontWeight: "700",
 		color: colors.text,
-		marginBottom: spacing.sm,
+	},
+	statLabel: {
+		...typography.caption,
+		fontSize: 9,
+		color: colors.textMuted,
+		marginTop: 2,
+		letterSpacing: 1,
+	},
+	statDivider: {
+		width: 1,
+		height: 28,
+		backgroundColor: colors.border,
 	},
 	content: {
 		backgroundColor: colors.background,

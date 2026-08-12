@@ -52,18 +52,24 @@ function buildSections(items: CompletedItem[]): CompletedSection[] {
 		}
 	} else {
 		const genreMap = new Map<string, CompletedItem[]>();
+		const placed = new Set<number>();
 		for (const show of tvShows) {
 			const genres = show.genres.length > 0 ? show.genres : ["Other"];
+			// Only place each show in its first genre to avoid duplicates
 			for (const genre of genres) {
+				if (placed.has(show.tmdbId)) break;
 				const list = genreMap.get(genre) ?? [];
 				list.push(show);
 				genreMap.set(genre, list);
+				placed.add(show.tmdbId);
 			}
 		}
 
-		const sortedGenres = [...genreMap.entries()].sort(
-			(a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]),
-		);
+		const sortedGenres = [...genreMap.entries()].sort((a, b) => {
+			if (a[0] === "Other") return 1;
+			if (b[0] === "Other") return -1;
+			return b[1].length - a[1].length || a[0].localeCompare(b[0]);
+		});
 
 		for (const [genre, shows] of sortedGenres) {
 			const sorted = shows.sort((a, b) => b.completedAt - a.completedAt).slice(0, SECTION_LIMIT);

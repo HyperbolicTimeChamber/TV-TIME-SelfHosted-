@@ -4,7 +4,7 @@ import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS } from "../types";
 import { colors, spacing, typography } from "../theme";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton from "./CheckmarkButton";
-import SkeletonLine from "./SkeletonLine";
+
 import PosterImage from "./PosterImage";
 
 // Computed once per app session — avoids Date allocation per card per render
@@ -211,8 +211,6 @@ export default memo(function ShowCard({
 						<Text style={styles.episodeName} numberOfLines={1}>
 							{item.nextEpisodeName}
 						</Text>
-					) : item.mediaType === MediaType.TV ? (
-						<SkeletonLine width="55%" height={11} />
 					) : null}
 					{item.mediaType === MediaType.MOVIE ? (
 						<>
