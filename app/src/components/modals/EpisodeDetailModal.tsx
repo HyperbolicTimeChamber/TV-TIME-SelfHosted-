@@ -734,7 +734,7 @@ const styles = StyleSheet.create({
 	},
 	rewatchButton: {
 		flex: 1,
-		backgroundColor: colors.primary,
+		backgroundColor: colors.stopBlue,
 		paddingVertical: spacing.md,
 		borderRadius: 8,
 		alignItems: "center",
