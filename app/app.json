@@ -31,12 +31,17 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.tvtimerevived.app"
     },
+    "notification": {
+      "icon": "./assets/notification-icon.png",
+      "color": "#E50914"
+    },
     "web": {},
     "plugins": [
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
       "@react-native-firebase/messaging",
       "@react-native-firebase/analytics",
+      "@react-native-firebase/crashlytics",
       "@react-native-google-signin/google-signin",
       "expo-image",
       [

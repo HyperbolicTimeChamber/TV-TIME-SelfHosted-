@@ -1,7 +1,15 @@
 import React, { useEffect } from "react";
-import { View, StyleSheet, Platform, PermissionsAndroid, Alert } from "react-native";
+import { View, StyleSheet, Platform, PermissionsAndroid, Alert, ErrorUtils } from "react-native";
 import { Image } from "expo-image";
 import * as SplashScreen from "expo-splash-screen";
+import crashlytics from "@react-native-firebase/crashlytics";
+
+// Report uncaught JS errors to Crashlytics
+const originalHandler = ErrorUtils.getGlobalHandler();
+ErrorUtils.setGlobalHandler((error, isFatal) => {
+	crashlytics().recordError(error);
+	originalHandler(error, isFatal);
+});
 import LoadingSpinner from "./src/components/LoadingSpinner";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -146,6 +154,9 @@ export default function App() {
 					return;
 				}
 				registerFCMToken(firebaseUser.uid);
+				crashlytics().setUserId(firebaseUser.uid);
+			} else {
+				crashlytics().setUserId("");
 			}
 			setUser(firebaseUser);
 		});
