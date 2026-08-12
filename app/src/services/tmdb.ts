@@ -1,13 +1,44 @@
 import axios from "axios";
 import { TMDBShow, TMDBEpisode } from "../types";
+import { logApiCall } from "./analytics";
 
 const TMDB_BASE = "https://api.themoviedb.org/3";
 
 function tmdb(apiKey: string) {
-	return axios.create({
+	const instance = axios.create({
 		baseURL: TMDB_BASE,
 		params: { api_key: apiKey },
 	});
+	instance.interceptors.request.use((config) => {
+		(config as any)._startTime = Date.now();
+		return config;
+	});
+	instance.interceptors.response.use(
+		(response) => {
+			const start = (response.config as any)._startTime ?? Date.now();
+			const path = response.config.url?.replace(TMDB_BASE, "") ?? "";
+			logApiCall({
+				api_type: "tmdb",
+				method: path,
+				success: true,
+				duration_ms: Date.now() - start,
+			});
+			return response;
+		},
+		(error) => {
+			const start = (error.config as any)?._startTime ?? Date.now();
+			const path = error.config?.url?.replace(TMDB_BASE, "") ?? "";
+			logApiCall({
+				api_type: "tmdb",
+				method: path,
+				success: false,
+				duration_ms: Date.now() - start,
+				error: error?.message,
+			});
+			return Promise.reject(error);
+		},
+	);
+	return instance;
 }
 
 export async function searchMulti(

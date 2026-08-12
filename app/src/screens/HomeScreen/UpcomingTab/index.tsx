@@ -35,7 +35,7 @@ export default function UpcomingTab() {
 		showBackdropPath: string | null;
 		episodes: CarouselEpisode[];
 		initialIndex: number;
-		watchedKeys: Set<string>;
+		watchedKeys: Map<string, number>;
 		currentNextEpisode: null;
 	} | null>(null);
 
@@ -96,7 +96,7 @@ export default function UpcomingTab() {
 			showBackdropPath: catalog?.backdropPath ?? null,
 			episodes: [carouselEp],
 			initialIndex: 0,
-			watchedKeys: new Set(),
+			watchedKeys: new Map(),
 			currentNextEpisode: null,
 		});
 		setEpModalVisible(true);

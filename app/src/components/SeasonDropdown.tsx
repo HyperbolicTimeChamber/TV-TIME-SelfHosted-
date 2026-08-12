@@ -112,7 +112,7 @@ export default memo(function SeasonDropdown({
 		showBackdropPath: string | null;
 		episodes: CarouselEpisode[];
 		initialIndex: number;
-		watchedKeys: Set<string>;
+		watchedKeys: Map<string, number>;
 		currentNextEpisode: { season: number; episode: number } | null;
 	} | null>(null);
 
@@ -590,9 +590,12 @@ export default memo(function SeasonDropdown({
 				}));
 
 			const idx = carouselEps.findIndex((e) => e.episode === ep.episode_number);
-			const wKeys = new Set<string>();
-			for (const [epNum] of watchedMap) {
-				wKeys.add(`S${String(season.season_number).padStart(2, "0")}E${String(epNum).padStart(2, "0")}`);
+			const wKeys = new Map<string, number>();
+			for (const [epNum, data] of watchedMap) {
+				wKeys.set(
+					`S${String(season.season_number).padStart(2, "0")}E${String(epNum).padStart(2, "0")}`,
+					data.watchCount,
+				);
 			}
 
 			setEpInfoData({

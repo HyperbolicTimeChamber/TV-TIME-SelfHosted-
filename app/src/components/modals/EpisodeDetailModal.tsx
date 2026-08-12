@@ -3,6 +3,7 @@ import {
 	View,
 	Text,
 	ScrollView,
+	FlatList,
 	TouchableOpacity,
 	Pressable,
 	Animated,
@@ -11,8 +12,6 @@ import {
 	ActivityIndicator,
 	Dimensions,
 } from "react-native";
-import { Carousel } from "react-native-reanimated-carousel";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import AnimatedModal from "./AnimatedModal";
@@ -21,7 +20,11 @@ import { useSharedShimmer } from "../SkeletonLine";
 import { colors, spacing, typography } from "../../theme";
 import { tmdbStillUri, tmdbBackdropUri, tmdbPosterUri } from "../../hooks/useTmdbImage";
 
-const CARD_WIDTH = Math.min(Dimensions.get("window").width * 0.8, 320);
+const SCREEN_WIDTH = Dimensions.get("window").width;
+const CARD_WIDTH = SCREEN_WIDTH * 0.7;
+const CARD_GAP = 12;
+const SNAP_INTERVAL = CARD_WIDTH + CARD_GAP;
+const SIDE_PADDING = (SCREEN_WIDTH - CARD_WIDTH) / 2;
 const CARD_HEIGHT = Math.min(Dimensions.get("window").height * 0.55, 460);
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -52,7 +55,7 @@ interface Props {
 	showBackdropPath: string | null;
 	episodes: CarouselEpisode[];
 	initialIndex: number;
-	watchedKeys: Set<string>;
+	watchedKeys: Map<string, number>;
 	currentNextEpisode: { season: number; episode: number } | null;
 	onMarkWatched: (tmdbId: number, season: number, episode: number) => Promise<void>;
 	onMarkWatchedThrough: (tmdbId: number, season: number, episode: number) => Promise<void>;
@@ -72,6 +75,7 @@ const EpisodeCard = memo(function EpisodeCard({
 	showPosterPath,
 	showBackdropPath,
 	isWatched,
+	watchCount,
 	isLoaded,
 	isMarking,
 	onMarkWatched,
@@ -84,6 +88,7 @@ const EpisodeCard = memo(function EpisodeCard({
 	showPosterPath: string | null;
 	showBackdropPath: string | null;
 	isWatched: boolean;
+	watchCount: number;
 	isLoaded: boolean;
 	isMarking: boolean;
 	onMarkWatched: () => void;
@@ -171,14 +176,21 @@ const EpisodeCard = memo(function EpisodeCard({
 			{/* Button row */}
 			{isWatched ? (
 				<View style={styles.watchedButtonRow}>
-					<TouchableOpacity style={styles.unwatchButton} onPress={onUnwatch} disabled={isMarking}>
+					<TouchableOpacity style={[styles.unwatchButton, isMarking && { opacity: 0.6 }]} onPress={onUnwatch} disabled={isMarking}>
 						<Text style={styles.unwatchButtonText}>Unwatch</Text>
 					</TouchableOpacity>
-					<TouchableOpacity style={styles.rewatchButton} onPress={onRewatch} disabled={isMarking}>
+					<TouchableOpacity style={[styles.rewatchButton, isMarking && { opacity: 0.6 }]} onPress={onRewatch} disabled={isMarking}>
 						{isMarking ? (
 							<ActivityIndicator size="small" color={colors.text} />
 						) : (
-							<Text style={styles.rewatchButtonText}>Rewatch</Text>
+							<View style={styles.buttonInner}>
+								<Text style={styles.rewatchButtonText}>Rewatch</Text>
+								{watchCount > 1 && (
+									<View style={styles.buttonBadge}>
+										<Text style={[styles.buttonBadgeText, { color: colors.stopBlue }]}>{watchCount}</Text>
+									</View>
+								)}
+							</View>
 						)}
 					</TouchableOpacity>
 				</View>
@@ -220,8 +232,8 @@ export default function EpisodeDetailModal({
 	onClose,
 	onLoadEpisodeDetails,
 }: Readonly<Props>) {
-	const carouselRef = useRef<any>(null);
-	const [localWatched, setLocalWatched] = useState(watchedKeys);
+	const carouselRef = useRef<FlatList>(null);
+	const [localWatched, setLocalWatched] = useState<Map<string, number>>(watchedKeys);
 	// Enriched episode data — items updated in-place when details load
 	const [enrichedEps, setEnrichedEps] = useState<(CarouselEpisode & { loaded?: boolean })[]>(() =>
 		episodes.map((ep) => ({
@@ -333,7 +345,7 @@ export default function EpisodeDetailModal({
 				// No pointer — just mark
 				setMarkingKey(key);
 				onMarkWatched(tmdbId, ep.season, ep.episode).finally(() => {
-					setLocalWatched((prev) => new Set(prev).add(key));
+					setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
 					setMarkingKey(null);
 				});
 				return;
@@ -350,7 +362,7 @@ export default function EpisodeDetailModal({
 				// Current next or behind — mark directly
 				setMarkingKey(key);
 				onMarkWatched(tmdbId, ep.season, ep.episode).finally(() => {
-					setLocalWatched((prev) => new Set(prev).add(key));
+					setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
 					setMarkingKey(null);
 				});
 			} else {
@@ -372,7 +384,7 @@ export default function EpisodeDetailModal({
 				} else {
 					setMarkingKey(key);
 					onMarkWatched(tmdbId, ep.season, ep.episode).finally(() => {
-						setLocalWatched((prev) => new Set(prev).add(key));
+						setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
 						setMarkingKey(null);
 					});
 				}
@@ -393,13 +405,14 @@ export default function EpisodeDetailModal({
 
 			// Optimistically mark all eps up through target as watched
 			setLocalWatched((prev) => {
-				const next = new Set(prev);
+				const next = new Map(prev);
 				for (const ep of episodes) {
 					if (
 						ep.season < confirmTarget.season ||
 						(ep.season === confirmTarget.season && ep.episode <= confirmTarget.episode)
 					) {
-						next.add(epKey(ep.season, ep.episode));
+						const k = epKey(ep.season, ep.episode);
+						if (!next.has(k)) next.set(k, 1);
 					}
 				}
 				return next;
@@ -421,7 +434,7 @@ export default function EpisodeDetailModal({
 
 		try {
 			await onMarkWatched(tmdbId, confirmTarget.season, confirmTarget.episode);
-			setLocalWatched((prev) => new Set(prev).add(key));
+			setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
 		} finally {
 			setMarkingKey(null);
 			setConfirmTarget(null);
@@ -431,16 +444,18 @@ export default function EpisodeDetailModal({
 	const renderItem = useCallback(
 		({ item }: { item: CarouselEpisode & { loaded?: boolean }; index: number }) => {
 			const key = epKey(item.season, item.episode);
-			const isWatched = localWatched.has(key);
+			const wc = localWatched.get(key) ?? 0;
+			const isWatched = wc > 0;
 
 			return (
-				<View style={{ width: CARD_WIDTH }}>
+				<View style={styles.cardWrapper}>
 					<EpisodeCard
 						ep={item}
 						showTitle={showTitle}
 						showPosterPath={showPosterPath}
 						showBackdropPath={showBackdropPath}
 						isWatched={isWatched}
+						watchCount={wc}
 						isLoaded={!!item.loaded}
 						isMarking={markingKey === key}
 						onMarkWatched={() => handleMark(item)}
@@ -448,8 +463,13 @@ export default function EpisodeDetailModal({
 							setMarkingKey(key);
 							onUnmarkWatched(tmdbId, item.season, item.episode).finally(() => {
 								setLocalWatched((prev) => {
-									const n = new Set(prev);
-									n.delete(key);
+									const n = new Map(prev);
+									const count = n.get(key) ?? 1;
+									if (count <= 1) {
+										n.delete(key);
+									} else {
+										n.set(key, count - 1);
+									}
 									return n;
 								});
 								setMarkingKey(null);
@@ -457,9 +477,10 @@ export default function EpisodeDetailModal({
 						}}
 						onRewatch={() => {
 							setMarkingKey(key);
-							onMarkWatched(tmdbId, item.season, item.episode).finally(() =>
-								setMarkingKey(null),
-							);
+							onMarkWatched(tmdbId, item.season, item.episode).finally(() => {
+								setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
+								setMarkingKey(null);
+							});
 						}}
 						onShowPress={onShowPress}
 					/>
@@ -484,24 +505,49 @@ export default function EpisodeDetailModal({
 		? `E${String(currentNextEpisode?.episode ?? 1).padStart(2, "0")}–E${String(confirmTarget.episode).padStart(2, "0")}`
 		: "";
 
+	const getItemLayout = useCallback(
+		(_: any, index: number) => ({
+			length: SNAP_INTERVAL,
+			offset: SNAP_INTERVAL * index,
+			index,
+		}),
+		[],
+	);
+
+	const onViewableItemsChanged = useRef(
+		({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+			if (viewableItems.length > 0 && viewableItems[0].index != null) {
+				handleSnap(viewableItems[0].index);
+			}
+		},
+	).current;
+
+	const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
+
 	return (
 		<Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-			<GestureHandlerRootView style={styles.modalOverlay}>
+			<View style={styles.modalOverlay}>
 				<Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-				<View style={styles.carouselContainer}>
-					<Carousel
-						ref={carouselRef}
-						data={enrichedEps}
-						renderItem={({ item, index }) => renderItem({ item, index })}
-						itemSize={CARD_WIDTH}
-						defaultIndex={initialIndex}
-						scrollEnabled={scrollEnabled}
-						loop={false}
-						onSnapToItem={handleSnap}
-						renderWindowSize={3}
-						style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}
-					/>
-				</View>
+				<FlatList
+					ref={carouselRef}
+					data={enrichedEps}
+					renderItem={renderItem}
+					keyExtractor={(item) => epKey(item.season, item.episode)}
+					horizontal
+					snapToInterval={SNAP_INTERVAL}
+					decelerationRate="fast"
+					scrollEnabled={scrollEnabled}
+					showsHorizontalScrollIndicator={false}
+					initialScrollIndex={initialIndex}
+					getItemLayout={getItemLayout}
+					onViewableItemsChanged={onViewableItemsChanged}
+					viewabilityConfig={viewabilityConfig}
+					contentContainerStyle={{
+						gap: CARD_GAP,
+						paddingHorizontal: SIDE_PADDING,
+					}}
+					style={{ flexGrow: 0 }}
+				/>
 				{enrichedEps.length > 1 && (
 					<View style={styles.dotRow}>
 						{activeIndex > 0 && <View style={styles.dot} />}
@@ -509,7 +555,7 @@ export default function EpisodeDetailModal({
 						{activeIndex < enrichedEps.length - 1 && <View style={styles.dot} />}
 					</View>
 				)}
-			</GestureHandlerRootView>
+			</View>
 			{confirmVisible && (
 				<AnimatedModal
 					visible={confirmVisible}
@@ -570,17 +616,15 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		alignItems: "center",
 	},
-	carouselContainer: {
+	cardWrapper: {
 		width: CARD_WIDTH,
-		height: CARD_HEIGHT,
-		backgroundColor: colors.surface,
-		borderRadius: 12,
-		overflow: "hidden",
 	},
 	cardContent: {
 		width: CARD_WIDTH,
 		height: CARD_HEIGHT,
 		backgroundColor: colors.surface,
+		borderRadius: 12,
+		overflow: "hidden",
 	},
 	imageContainer: {
 		height: 160,
@@ -699,17 +743,16 @@ const styles = StyleSheet.create({
 		paddingVertical: spacing.md,
 		borderRadius: 8,
 		alignItems: "center",
-		borderWidth: 1.5,
-		borderColor: colors.textMuted,
+		backgroundColor: colors.destructiveRed,
 	},
 	unwatchButtonText: {
 		...typography.subtitle,
 		fontSize: 14,
-		color: colors.textMuted,
+		color: colors.text,
 	},
 	rewatchButton: {
 		flex: 1,
-		backgroundColor: colors.watchedGreen,
+		backgroundColor: colors.stopBlue,
 		paddingVertical: spacing.md,
 		borderRadius: 8,
 		alignItems: "center",
@@ -718,6 +761,23 @@ const styles = StyleSheet.create({
 		...typography.subtitle,
 		fontSize: 14,
 		color: colors.text,
+	},
+	buttonInner: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.sm,
+	},
+	buttonBadge: {
+		width: 22,
+		height: 22,
+		borderRadius: 11,
+		backgroundColor: colors.text,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	buttonBadgeText: {
+		fontSize: 11,
+		fontWeight: "700",
 	},
 	dotRow: {
 		flexDirection: "row",

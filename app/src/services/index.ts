@@ -54,3 +54,6 @@ export type {
 	ImportStats,
 } from "./tvtimeImport";
 export { parseGdprZip, searchTMDBPage, matchShowsAndMovies } from "./tvtimeImport";
+
+// analytics
+export { trackApi, logApiCall } from "./analytics";

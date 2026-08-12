@@ -86,6 +86,20 @@ export function insertWatchedEpisodeCache(
 		if (!old?.pages) {
 			return { pages: [{ episodes: [ep], lastDoc: null }], pageParams: [null] };
 		}
+		// Check if episode already exists in any page — update instead of duplicate
+		let found = false;
+		const updatedPages = old.pages.map((page: any) => ({
+			...page,
+			episodes: page.episodes.map((e: WatchedEpisode) => {
+				if (e.tmdbShowId === ep.tmdbShowId && e.season === ep.season && e.episode === ep.episode) {
+					found = true;
+					return { ...e, watchCount: (e.watchCount || 0) + 1, lastWatchedAt: ep.lastWatchedAt };
+				}
+				return e;
+			}),
+		}));
+		if (found) return { ...old, pages: updatedPages };
+		// New episode — prepend to first page
 		const firstPage = old.pages[0];
 		return {
 			...old,
