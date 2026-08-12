@@ -15,8 +15,16 @@ import {
 	sortByPriority,
 	useUpcomingMutations,
 	incrementDailyWatch,
+	removeWatchedEpisodeCache,
+	decrementDailyWatch,
 } from "../../../hooks";
-import { markEpisodeWatched, markMovieWatched, stopWatching } from "../../../services";
+import {
+	markEpisodeWatched,
+	markMovieWatched,
+	markSeasonWatchedCF,
+	unmarkEpisodeWatched,
+	stopWatching,
+} from "../../../services";
 import { removeShowFromCalendarGlobal } from "../../../hooks/useCalendarEpisodes";
 import { emitShowCompleted } from "../../../utils/watchlistEvents";
 import {
@@ -738,6 +746,161 @@ export function useWatchlistData(userId: string | undefined) {
 		[userId, queryClient, mutateCachedUpcoming, rollbackUpcoming],
 	);
 
+	const handleMarkWatchedThrough = useCallback(
+		async (tmdbId: number, targetSeason: number, targetEpisode: number) => {
+			if (!userId) return;
+			const item = items.find((i) => i.tmdbId === tmdbId);
+			if (!item || !item.catalogShow) return;
+
+			const currentNext = item.nextEpisode ?? { season: 1, episode: 1 };
+			const catalog = item.catalogShow;
+
+			// Collect all episodes from currentNext through target
+			const epsToMark: Array<{ season: number; episodeNumber: number; name: string; runtime: number }> = [];
+			for (const s of catalog.seasons ?? []) {
+				for (const e of s.episodes) {
+					const isAfterStart =
+						s.seasonNumber > currentNext.season ||
+						(s.seasonNumber === currentNext.season && e.episodeNumber >= currentNext.episode);
+					const isBeforeEnd =
+						s.seasonNumber < targetSeason ||
+						(s.seasonNumber === targetSeason && e.episodeNumber <= targetEpisode);
+					if (isAfterStart && isBeforeEnd) {
+						epsToMark.push({
+							season: s.seasonNumber,
+							episodeNumber: e.episodeNumber,
+							name: e.title || "",
+							runtime: e.runtime || 0,
+						});
+					}
+				}
+			}
+
+			if (epsToMark.length === 0) return;
+
+			// Find what comes after the target episode
+			const nextAfterTarget = findNextEpisodeInCatalog(catalog, targetSeason, targetEpisode);
+			const nextEpisode = nextAfterTarget ? { season: nextAfterTarget.season, episode: nextAfterTarget.episode } : null;
+			const isComplete = !nextAfterTarget;
+
+			// Group by season for markSeasonWatchedCF
+			const bySeason = new Map<number, typeof epsToMark>();
+			for (const ep of epsToMark) {
+				const list = bySeason.get(ep.season) ?? [];
+				list.push(ep);
+				bySeason.set(ep.season, list);
+			}
+
+			// Mark each season batch — only last batch updates tracking doc
+			const seasonEntries = [...bySeason.entries()];
+			for (let i = 0; i < seasonEntries.length; i++) {
+				const [sn, eps] = seasonEntries[i];
+				const isLast = i === seasonEntries.length - 1;
+				await markSeasonWatchedCF(
+					tmdbId,
+					sn,
+					eps.map((e) => ({ episodeNumber: e.episodeNumber, name: e.name, runtime: e.runtime })),
+					isLast ? nextEpisode : null,
+					isLast ? isComplete : false,
+					isLast ? (nextAfterTarget?.title ?? null) : null,
+					isLast ? (nextAfterTarget?.airDate ?? null) : null,
+				);
+			}
+
+			// Insert all into watched cache
+			const now = Timestamp.now();
+			for (const ep of epsToMark) {
+				insertWatchedEpisodeCache(queryClient, userId, {
+					id: `${tmdbId}_S${String(ep.season).padStart(2, "0")}E${String(ep.episodeNumber).padStart(2, "0")}`,
+					tmdbShowId: tmdbId,
+					season: ep.season,
+					episode: ep.episodeNumber,
+					episodeTitle: ep.name,
+					runtime: ep.runtime,
+					lastWatchedAt: now,
+					watchedAt: now,
+					watchCount: 1,
+				});
+			}
+		},
+		[userId, items, queryClient],
+	);
+
+	const handleUnmarkEpisode = useCallback(
+		async (tmdbId: number, season: number, episode: number) => {
+			if (!userId) return;
+			const item = items.find((i) => i.tmdbId === tmdbId);
+			const catalog = item?.catalogShow;
+			const catalogSeason = catalog?.seasons?.find((s) => s.seasonNumber === season);
+			const catalogEp = catalogSeason?.episodes?.find((e) => e.episodeNumber === episode);
+
+			await unmarkEpisodeWatched(
+				userId,
+				tmdbId,
+				season,
+				episode,
+				catalogEp?.runtime || 0,
+				catalogEp?.title || null,
+				catalogEp?.airDate || null,
+			);
+			removeWatchedEpisodeCache(queryClient, userId, tmdbId, season, episode);
+			decrementDailyWatch("episode");
+		},
+		[userId, items, queryClient],
+	);
+
+	const handleCarouselMarkWatched = useCallback(
+		async (tmdbId: number, season: number, episode: number) => {
+			if (!userId) return;
+			const item = items.find((i) => i.tmdbId === tmdbId);
+			if (!item) return;
+			const catalog = item.catalogShow;
+			const catalogSeason = catalog?.seasons?.find((s) => s.seasonNumber === season);
+			const catalogEp = catalogSeason?.episodes?.find((e) => e.episodeNumber === episode);
+			const currentNext = item.nextEpisode ?? { season: 1, episode: 1 };
+
+			// Only advance pointer if this is the current next episode
+			const isCurrentNext = currentNext.season === season && currentNext.episode === episode;
+			const skipTracking = !isCurrentNext;
+
+			const nextInCatalog =
+				isCurrentNext && catalog ? findNextEpisodeInCatalog(catalog, season, episode) : null;
+
+			await markEpisodeWatched(
+				userId,
+				tmdbId,
+				season,
+				episode,
+				catalogEp?.title || "",
+				catalogEp?.runtime || 0,
+				isCurrentNext
+					? nextInCatalog
+						? { season: nextInCatalog.season, episode: nextInCatalog.episode }
+						: null
+					: currentNext,
+				isCurrentNext && !nextInCatalog,
+				skipTracking,
+				nextInCatalog?.title ?? null,
+				nextInCatalog?.airDate ?? null,
+			);
+
+			const now = Timestamp.now();
+			insertWatchedEpisodeCache(queryClient, userId, {
+				id: `${tmdbId}_S${String(season).padStart(2, "0")}E${String(episode).padStart(2, "0")}`,
+				tmdbShowId: tmdbId,
+				season,
+				episode,
+				episodeTitle: catalogEp?.title || "",
+				runtime: catalogEp?.runtime || 0,
+				lastWatchedAt: now,
+				watchedAt: now,
+				watchCount: 1,
+			});
+			incrementDailyWatch("episode");
+		},
+		[userId, items, queryClient],
+	);
+
 	// Safety timeout: clear stuck spinners after 15s
 	useEffect(() => {
 		if (updatingShows.size === 0) return;
@@ -812,5 +975,8 @@ export function useWatchlistData(userId: string | undefined) {
 		updatingShows,
 		handleMarkWatched,
 		handleStopWatching,
+		handleMarkWatchedThrough,
+		handleUnmarkEpisode,
+		handleCarouselMarkWatched,
 	};
 }

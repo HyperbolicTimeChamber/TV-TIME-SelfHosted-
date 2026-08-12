@@ -22,7 +22,7 @@ import {
 	EpisodeDetailModal,
 	ShowDrawer,
 } from "../../../components";
-import type { WatchAction } from "../../../components";
+import type { WatchAction, CarouselEpisode } from "../../../components";
 import {
 	markEpisodeWatched,
 	unmarkEpisodeWatched,
@@ -91,6 +91,9 @@ export default function WatchlistTab() {
 		updatingShows,
 		handleMarkWatched,
 		handleStopWatching,
+		handleMarkWatchedThrough,
+		handleUnmarkEpisode,
+		handleCarouselMarkWatched,
 	} = useWatchlistData(user?.uid);
 
 	const listRef = useRef<any>(null);
@@ -110,20 +113,15 @@ export default function WatchlistTab() {
 	// Episode detail modal state
 	const [epModalVisible, setEpModalVisible] = useState(false);
 	const [epModalData, setEpModalData] = useState<{
-		showTitle: string;
-		season: number;
-		episode: number;
-		episodeTitle: string | null;
-		overview: string | null;
-		stillPath: string | null;
-		airDate: string | null;
-		runtime: number | null;
 		tmdbId: number;
+		showTitle: string;
 		showPosterPath: string | null;
 		showBackdropPath: string | null;
+		episodes: CarouselEpisode[];
+		initialIndex: number;
+		watchedKeys: Set<string>;
+		currentNextEpisode: { season: number; episode: number } | null;
 	} | null>(null);
-	const [epModalLoading, setEpModalLoading] = useState(false);
-	const [epModalMarking, setEpModalMarking] = useState(false);
 
 	// Show drawer state
 	const [drawerVisible, setDrawerVisible] = useState(false);
@@ -181,68 +179,100 @@ export default function WatchlistTab() {
 			const ep = item.nextEpisode;
 			if (!ep) return;
 
-			const catalogSeason = item.catalogShow?.seasons?.find((s) => s.seasonNumber === ep.season);
-			const catalogEp = catalogSeason?.episodes?.find((e) => e.episodeNumber === ep.episode);
-			const hasFullData = !!(catalogEp?.overview && catalogEp?.stillPath);
-			setEpModalData({
-				showTitle: item.title,
-				season: ep.season,
-				episode: ep.episode,
-				episodeTitle: catalogEp?.title ?? null,
-				overview: catalogEp?.overview || null,
-				stillPath: catalogEp?.stillPath ?? null,
-				airDate: catalogEp?.airDate ?? null,
-				runtime: catalogEp?.runtime ?? null,
-				tmdbId,
-				showPosterPath: item.posterPath ?? null,
-				showBackdropPath: item.catalogShow?.backdropPath ?? null,
-			});
-			setEpModalLoading(!hasFullData);
-			setEpModalMarking(false);
-			setEpModalVisible(true);
+			const catalog = item.catalogShow;
+			const today = new Date().toISOString().split("T")[0];
 
-			// Only fetch TMDB if catalog lacks overview/image
-			if (!hasFullData) {
-				const apiKey = useAuthStore.getState().appTmdbApiKey;
-				if (apiKey)
-					try {
-						const seasonData = await getSeasonDetails(apiKey, tmdbId, ep.season);
-						const tmdbEp = seasonData.episodes?.find((e) => e.episode_number === ep.episode);
-						if (tmdbEp) {
-							setEpModalData((prev) =>
-								prev
-									? {
-											...prev,
-											overview: tmdbEp.overview || null,
-											stillPath: tmdbEp.still_path || null,
-											episodeTitle: tmdbEp.name || prev.episodeTitle,
-											airDate: tmdbEp.air_date || prev.airDate,
-											runtime: tmdbEp.runtime || prev.runtime,
-										}
-									: null,
-							);
+			// Build flat episode list from catalog — all released episodes
+			const allEps: CarouselEpisode[] = [];
+			if (catalog?.seasons) {
+				for (const s of catalog.seasons) {
+					if (s.seasonNumber === 0) continue;
+					for (const e of s.episodes) {
+						if (!e.airDate || e.airDate <= today) {
+							allEps.push({
+								season: s.seasonNumber,
+								episode: e.episodeNumber,
+								title: e.title || null,
+								airDate: e.airDate || null,
+								runtime: e.runtime || null,
+								stillPath: e.stillPath || null,
+								overview: e.overview || null,
+							});
 						}
-					} catch {}
-				setEpModalLoading(false);
+					}
+				}
 			}
+
+			if (allEps.length === 0) return;
+
+			// Find initial index
+			const initialIdx = allEps.findIndex(
+				(e) => e.season === ep.season && e.episode === ep.episode,
+			);
+
+			// Build watched keys from query cache
+			const wKeys = new Set<string>();
+			const cachedWatched = queryClient.getQueryData<any>([QueryKey.WATCHED_EPISODES, user?.uid, undefined]);
+			if (cachedWatched?.pages) {
+				for (const page of cachedWatched.pages) {
+					for (const we of page.episodes ?? []) {
+						if (we.tmdbShowId === tmdbId) {
+							wKeys.add(`S${String(we.season).padStart(2, "0")}E${String(we.episode).padStart(2, "0")}`);
+						}
+					}
+				}
+			}
+
+			setEpModalData({
+				tmdbId,
+				showTitle: item.title,
+				showPosterPath: item.posterPath ?? null,
+				showBackdropPath: catalog?.backdropPath ?? null,
+				episodes: allEps,
+				initialIndex: Math.max(0, initialIdx),
+				watchedKeys: wKeys,
+				currentNextEpisode: ep,
+			});
+			setEpModalVisible(true);
 		},
-		[listData],
+		[listData, user?.uid, queryClient],
 	);
 
-	const handleEpModalMarkWatched = useCallback(async () => {
-		if (!epModalData) return;
-		const listItem = listData.find(
-			(li) => li.type === "show" && li.item.tmdbId === epModalData.tmdbId,
-		);
-		if (!listItem || listItem.type !== "show") return;
-		setEpModalMarking(true);
-		try {
-			await handleMarkWatched(listItem.item);
-			setEpModalVisible(false);
-			setEpModalData(null);
-		} catch {}
-		setEpModalMarking(false);
-	}, [epModalData, listData, handleMarkWatched]);
+	const handleLoadEpisodeDetails = useCallback(
+		async (season: number): Promise<CarouselEpisode[] | null> => {
+			const apiKey = useAuthStore.getState().appTmdbApiKey;
+			if (!apiKey || !epModalData) return null;
+			try {
+				const seasonData = await getSeasonDetails(apiKey, epModalData.tmdbId, season);
+				return seasonData.episodes.map((e) => ({
+					season: e.season_number ?? season,
+					episode: e.episode_number,
+					title: e.name || null,
+					airDate: e.air_date || null,
+					runtime: e.runtime || null,
+					stillPath: e.still_path || null,
+					overview: e.overview || null,
+				}));
+			} catch {
+				// Firestore fallback
+				const catalog = await getCatalogShow(epModalData.tmdbId, MediaType.TV);
+				const catSeason = catalog?.seasons?.find((s) => s.seasonNumber === season);
+				if (catSeason) {
+					return catSeason.episodes.map((e) => ({
+						season: catSeason.seasonNumber,
+						episode: e.episodeNumber,
+						title: e.title || null,
+						airDate: e.airDate || null,
+						runtime: e.runtime || null,
+						stillPath: e.stillPath || null,
+						overview: e.overview || null,
+					}));
+				}
+				return null;
+			}
+		},
+		[epModalData],
+	);
 
 	const handleEpModalShowPress = useCallback(() => {
 		if (!epModalData) return;
@@ -787,24 +817,23 @@ export default function WatchlistTab() {
 			{epModalData && (
 				<EpisodeDetailModal
 					visible={epModalVisible}
+					tmdbId={epModalData.tmdbId}
 					showTitle={epModalData.showTitle}
-					season={epModalData.season}
-					episode={epModalData.episode}
-					episodeTitle={epModalData.episodeTitle}
-					overview={epModalData.overview}
-					stillPath={epModalData.stillPath}
-					showBackdropPath={epModalData.showBackdropPath}
 					showPosterPath={epModalData.showPosterPath}
-					airDate={epModalData.airDate}
-					runtime={epModalData.runtime}
-					loadingDetails={epModalLoading}
-					markingWatched={epModalMarking}
-					onMarkWatched={handleEpModalMarkWatched}
+					showBackdropPath={epModalData.showBackdropPath}
+					episodes={epModalData.episodes}
+					initialIndex={epModalData.initialIndex}
+					watchedKeys={epModalData.watchedKeys}
+					currentNextEpisode={epModalData.currentNextEpisode}
+					onMarkWatched={handleCarouselMarkWatched}
+					onMarkWatchedThrough={handleMarkWatchedThrough}
+					onUnmarkWatched={handleUnmarkEpisode}
 					onShowPress={handleEpModalShowPress}
 					onClose={() => {
 						setEpModalVisible(false);
 						setEpModalData(null);
 					}}
+					onLoadEpisodeDetails={handleLoadEpisodeDetails}
 				/>
 			)}
 			<ShowDrawer
