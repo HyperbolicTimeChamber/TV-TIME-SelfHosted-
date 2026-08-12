@@ -221,6 +221,9 @@ export default function EpisodeDetailModal({
 	const carouselRef = useRef<any>(null);
 	const [localWatched, setLocalWatched] = useState(watchedKeys);
 	const [loadedEps, setLoadedEps] = useState<Map<string, CarouselEpisode>>(new Map());
+	const loadedEpsRef = useRef(loadedEps);
+	loadedEpsRef.current = loadedEps;
+	const loadingSeasons = useRef(new Set<number>());
 	const [scrollEnabled, setScrollEnabled] = useState(true);
 	const [markingKey, setMarkingKey] = useState<string | null>(null);
 	const [activeIndex, setActiveIndex] = useState(initialIndex);
@@ -255,48 +258,54 @@ export default function EpisodeDetailModal({
 	// Load details for episodes near the active index
 	const loadAround = useCallback(
 		async (index: number) => {
+			const current = loadedEpsRef.current;
 			const toLoad: number[] = [];
 			for (let i = index; i <= Math.min(index + 2, episodes.length - 1); i++) {
 				const ep = episodes[i];
 				const key = epKey(ep.season, ep.episode);
-				if (!loadedEps.has(key) && !(ep.overview && ep.stillPath)) {
+				if (!current.has(key) && !(ep.overview && ep.stillPath)) {
 					toLoad.push(i);
 				}
 			}
 			if (toLoad.length === 0) return;
 
-			// Group by season — one fetch per season
+			// Group by season — one fetch per season, skip already-fetching
 			const seasonNums = new Set(toLoad.map((i) => episodes[i].season));
 			for (const sn of seasonNums) {
-				let seasonEps: CarouselEpisode[] | null = null;
-				if (onLoadEpisodeDetails) {
-					seasonEps = await onLoadEpisodeDetails(sn);
-				}
-				if (seasonEps) {
-					setLoadedEps((prev) => {
-						const next = new Map(prev);
-						for (const ep of seasonEps!) {
-							next.set(epKey(ep.season, ep.episode), ep);
-						}
-						return next;
-					});
-				} else {
-					// Fallback: mark catalog-only eps as loaded (no overview/still)
-					setLoadedEps((prev) => {
-						const next = new Map(prev);
-						for (const i of toLoad) {
-							const ep = episodes[i];
-							if (ep.season === sn) {
+				if (loadingSeasons.current.has(sn)) continue;
+				loadingSeasons.current.add(sn);
+				try {
+					let seasonEps: CarouselEpisode[] | null = null;
+					if (onLoadEpisodeDetails) {
+						seasonEps = await onLoadEpisodeDetails(sn);
+					}
+					if (seasonEps) {
+						setLoadedEps((prev) => {
+							const next = new Map(prev);
+							for (const ep of seasonEps!) {
 								next.set(epKey(ep.season, ep.episode), ep);
 							}
-						}
-						return next;
-					});
+							return next;
+						});
+					} else {
+						// Fallback: mark catalog-only eps as loaded
+						setLoadedEps((prev) => {
+							const next = new Map(prev);
+							for (const i of toLoad) {
+								const ep = episodes[i];
+								if (ep.season === sn) {
+									next.set(epKey(ep.season, ep.episode), ep);
+								}
+							}
+							return next;
+						});
+					}
+				} finally {
+					loadingSeasons.current.delete(sn);
 				}
 			}
 		},
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-		[episodes, loadedEps, onLoadEpisodeDetails],
+		[episodes, onLoadEpisodeDetails],
 	);
 
 	// Load when active index changes
@@ -304,14 +313,13 @@ export default function EpisodeDetailModal({
 		const ep = episodes[activeIndex];
 		if (!ep) return;
 		const key = epKey(ep.season, ep.episode);
-		if (!loadedEps.has(key)) {
+		if (!loadedEpsRef.current.has(key)) {
 			setScrollEnabled(false);
 			loadAround(activeIndex).finally(() => setScrollEnabled(true));
 		} else {
 			loadAround(activeIndex);
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [activeIndex]);
+	}, [activeIndex, loadAround]);
 
 	// Handle mark watched with backfill check
 	const handleMark = useCallback(
@@ -680,19 +688,20 @@ const styles = StyleSheet.create({
 	},
 	unwatchButton: {
 		flex: 1,
-		backgroundColor: colors.destructiveRed,
 		paddingVertical: spacing.md,
 		borderRadius: 8,
 		alignItems: "center",
+		borderWidth: 1.5,
+		borderColor: colors.textMuted,
 	},
 	unwatchButtonText: {
 		...typography.subtitle,
 		fontSize: 14,
-		color: colors.text,
+		color: colors.textMuted,
 	},
 	rewatchButton: {
 		flex: 1,
-		backgroundColor: colors.primary,
+		backgroundColor: colors.watchedGreen,
 		paddingVertical: spacing.md,
 		borderRadius: 8,
 		alignItems: "center",
