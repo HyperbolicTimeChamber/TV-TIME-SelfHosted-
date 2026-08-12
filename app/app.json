@@ -31,10 +31,6 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.tvtimerevived.app"
     },
-    "notification": {
-      "icon": "./assets/notification-icon.png",
-      "color": "#E50914"
-    },
     "web": {},
     "plugins": [
       "@react-native-firebase/app",
@@ -52,7 +48,14 @@
           "imageWidth": 120
         }
       ],
-      "./plugins/withModularHeaders"
+      "./plugins/withModularHeaders",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#E50914"
+        }
+      ]
     ]
   }
 }
