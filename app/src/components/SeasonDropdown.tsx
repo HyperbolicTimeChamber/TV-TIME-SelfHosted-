@@ -39,6 +39,7 @@ import ConfirmModal from "./modals/ConfirmModal";
 import CheckmarkButton from "./CheckmarkButton";
 import SkeletonLine from "./SkeletonLine";
 import EpisodeDetailModal from "./modals/EpisodeDetailModal";
+import type { CarouselEpisode } from "./modals/EpisodeDetailModal";
 import { colors, spacing, typography, posterSize } from "../theme";
 import { TMDBSeason, TMDBEpisode, MediaType } from "../types";
 
@@ -105,16 +106,14 @@ export default memo(function SeasonDropdown({
 	// Episode info modal state
 	const [epInfoVisible, setEpInfoVisible] = useState(false);
 	const [epInfoData, setEpInfoData] = useState<{
+		tmdbId: number;
 		showTitle: string;
-		season: number;
-		episode: number;
-		episodeTitle: string | null;
-		overview: string | null;
-		stillPath: string | null;
-		airDate: string | null;
-		runtime: number | null;
 		showPosterPath: string | null;
 		showBackdropPath: string | null;
+		episodes: CarouselEpisode[];
+		initialIndex: number;
+		watchedKeys: Set<string>;
+		currentNextEpisode: { season: number; episode: number } | null;
 	} | null>(null);
 
 	// Add-to-watchlist modal state
@@ -577,21 +576,75 @@ export default memo(function SeasonDropdown({
 
 	const handleEpisodePress = useCallback(
 		(ep: TMDBEpisode) => {
+			const today = new Date().toISOString().split("T")[0];
+			const carouselEps: CarouselEpisode[] = episodes
+				.filter((e: TMDBEpisode) => !e.air_date || e.air_date <= today)
+				.map((e: TMDBEpisode) => ({
+					season: season.season_number,
+					episode: e.episode_number,
+					title: e.name || null,
+					airDate: e.air_date || null,
+					runtime: e.runtime || null,
+					stillPath: e.still_path || null,
+					overview: e.overview || null,
+				}));
+
+			const idx = carouselEps.findIndex((e) => e.episode === ep.episode_number);
+			const wKeys = new Set<string>();
+			for (const [epNum] of watchedMap) {
+				wKeys.add(`S${String(season.season_number).padStart(2, "0")}E${String(epNum).padStart(2, "0")}`);
+			}
+
 			setEpInfoData({
+				tmdbId,
 				showTitle,
-				season: season.season_number,
-				episode: ep.episode_number,
-				episodeTitle: ep.name || null,
-				overview: ep.overview || null,
-				stillPath: ep.still_path || null,
-				airDate: ep.air_date || null,
-				runtime: ep.runtime || null,
 				showPosterPath,
 				showBackdropPath: showBackdropPath ?? null,
+				episodes: carouselEps,
+				initialIndex: Math.max(0, idx),
+				watchedKeys: wKeys,
+				currentNextEpisode: null,
 			});
 			setEpInfoVisible(true);
 		},
-		[showTitle, season.season_number],
+		[showTitle, season.season_number, episodes, watchedMap, tmdbId, showPosterPath, showBackdropPath],
+	);
+
+	const handleCarouselMark = useCallback(
+		async (_tmdbId: number, _season: number, episode: number) => {
+			const ep = episodes.find((e: TMDBEpisode) => e.episode_number === episode);
+			if (ep) await doMarkEpisodeWatched(ep);
+		},
+		[episodes, doMarkEpisodeWatched],
+	);
+
+	const handleCarouselMarkThrough = useCallback(
+		async (_tmdbId: number, _season: number, episode: number) => {
+			const firstUnwatched = episodes.find((e: TMDBEpisode) => !watchedMap.has(e.episode_number));
+			if (firstUnwatched) {
+				await doMarkEpisodeRange(firstUnwatched.episode_number, episode);
+			}
+		},
+		[episodes, watchedMap, doMarkEpisodeRange],
+	);
+
+	const handleCarouselUnmark = useCallback(
+		async (_tmdbId: number, _season: number, episode: number) => {
+			if (!user?.uid) return;
+			const watched = watchedMap.get(episode);
+			const ep = episodes.find((e: TMDBEpisode) => e.episode_number === episode);
+			await unmarkEpisodeWatched(
+				user.uid,
+				tmdbId,
+				season.season_number,
+				episode,
+				watched?.runtime || ep?.runtime || 0,
+				ep?.name || null,
+			);
+			removeWatchedEpisodeCache(queryClient, user.uid, tmdbId, season.season_number, episode);
+			decrementDailyWatch("episode");
+		},
+		[user?.uid, tmdbId, season.season_number, watchedMap, episodes, queryClient],
 	);
 
 	const handleEpisodeLongPress = useCallback(
@@ -877,16 +930,17 @@ export default memo(function SeasonDropdown({
 			{epInfoData && (
 				<EpisodeDetailModal
 					visible={epInfoVisible}
+					tmdbId={epInfoData.tmdbId}
 					showTitle={epInfoData.showTitle}
-					season={epInfoData.season}
-					episode={epInfoData.episode}
-					episodeTitle={epInfoData.episodeTitle}
-					overview={epInfoData.overview}
-					stillPath={epInfoData.stillPath}
-					showBackdropPath={epInfoData.showBackdropPath}
 					showPosterPath={epInfoData.showPosterPath}
-					airDate={epInfoData.airDate}
-					runtime={epInfoData.runtime}
+					showBackdropPath={epInfoData.showBackdropPath}
+					episodes={epInfoData.episodes}
+					initialIndex={epInfoData.initialIndex}
+					watchedKeys={epInfoData.watchedKeys}
+					currentNextEpisode={epInfoData.currentNextEpisode}
+					onMarkWatched={handleCarouselMark}
+					onMarkWatchedThrough={handleCarouselMarkThrough}
+					onUnmarkWatched={handleCarouselUnmark}
 					onClose={() => {
 						setEpInfoVisible(false);
 						setEpInfoData(null);
