@@ -490,8 +490,7 @@ export default function EpisodeDetailModal({
 		<Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
 			<GestureHandlerRootView style={styles.modalOverlay}>
 				<Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-				<View style={styles.carouselContainer}>
-					<Carousel
+				<Carousel
 						ref={carouselRef}
 						data={enrichedEps}
 						renderItem={({ item, index }) => renderItem({ item, index })}
@@ -501,9 +500,8 @@ export default function EpisodeDetailModal({
 						loop={false}
 						onSnapToItem={handleSnap}
 						renderWindowSize={3}
-						style={{ width: ITEM_WIDTH, height: CARD_HEIGHT }}
+						style={{ width: Dimensions.get("window").width, height: CARD_HEIGHT }}
 					/>
-				</View>
 				{enrichedEps.length > 1 && (
 					<View style={styles.dotRow}>
 						{activeIndex > 0 && <View style={styles.dot} />}
