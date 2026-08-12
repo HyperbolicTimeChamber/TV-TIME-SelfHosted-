@@ -5,6 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LoadingSpinner, EpisodeDetailModal, ShowDrawer } from "../../../components";
 import type { ShowDrawerData } from "../../../components/ShowDrawer";
+import type { CarouselEpisode } from "../../../components";
 import { useAuthStore } from "../../../stores";
 import { useUpcomingEpisodes } from "../../../hooks";
 import { getCachedCatalogShow } from "../../../hooks/useWatchlist";
@@ -28,18 +29,15 @@ export default function UpcomingTab() {
 	// Episode detail modal
 	const [epModalVisible, setEpModalVisible] = useState(false);
 	const [epModalData, setEpModalData] = useState<{
+		tmdbId: number;
 		showTitle: string;
-		season: number;
-		episode: number;
-		episodeTitle: string | null;
-		overview: string | null;
-		stillPath: string | null;
-		airDate: string | null;
-		runtime: number | null;
 		showPosterPath: string | null;
 		showBackdropPath: string | null;
+		episodes: CarouselEpisode[];
+		initialIndex: number;
+		watchedKeys: Set<string>;
+		currentNextEpisode: null;
 	} | null>(null);
-	const [epModalLoading, setEpModalLoading] = useState(false);
 
 	// Show drawer
 	const [drawerVisible, setDrawerVisible] = useState(false);
@@ -80,19 +78,27 @@ export default function UpcomingTab() {
 			ep.tmdbShowId,
 			ep.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV,
 		);
-		setEpModalData({
-			showTitle: ep.showTitle,
+
+		const carouselEp: CarouselEpisode = {
 			season: ep.season,
 			episode: ep.episode,
-			episodeTitle: ep.episodeTitle,
-			overview: null,
-			stillPath: null,
+			title: ep.episodeTitle,
 			airDate: ep.airDate,
 			runtime: ep.runtime,
+			stillPath: null,
+			overview: null,
+		};
+
+		setEpModalData({
+			tmdbId: ep.tmdbShowId,
+			showTitle: ep.showTitle,
 			showPosterPath: ep.posterPath ?? null,
 			showBackdropPath: catalog?.backdropPath ?? null,
+			episodes: [carouselEp],
+			initialIndex: 0,
+			watchedKeys: new Set(),
+			currentNextEpisode: null,
 		});
-		setEpModalLoading(true);
 		setEpModalVisible(true);
 
 		const apiKey = useAuthStore.getState().appTmdbApiKey;
@@ -105,15 +111,18 @@ export default function UpcomingTab() {
 						prev
 							? {
 									...prev,
-									overview: tmdbEp.overview || null,
-									stillPath: tmdbEp.still_path || null,
+									episodes: [{
+										...prev.episodes[0],
+										overview: tmdbEp.overview || null,
+										stillPath: tmdbEp.still_path || null,
+										title: tmdbEp.name || prev.episodes[0].title,
+									}],
 								}
 							: null,
 					);
 				}
 			} catch {}
 		}
-		setEpModalLoading(false);
 	}, []);
 
 	const handleTitlePress = useCallback(async (ep: UpcomingEpisode) => {
@@ -151,14 +160,14 @@ export default function UpcomingTab() {
 	}, []);
 
 	const handleEpModalShowPress = useCallback(() => {
-		if (!epModalData) return;
-		const ep = episodes?.find(
-			(e) => e.season === epModalData.season && e.episode === epModalData.episode,
-		);
+		if (!epModalData || !epModalData.episodes[0]) return;
+		const ep = epModalData.episodes[0];
 		setEpModalVisible(false);
 		setEpModalData(null);
-		if (ep) handleNavigateToShow(ep.tmdbShowId);
-	}, [epModalData, episodes, handleNavigateToShow]);
+		handleNavigateToShow(epModalData.tmdbId);
+	}, [epModalData, handleNavigateToShow]);
+
+	const noopMark = useCallback(async () => {}, []);
 
 	const renderItem = useCallback(
 		({ item }: { item: ListItem }) => {
@@ -226,17 +235,17 @@ export default function UpcomingTab() {
 			{epModalData && (
 				<EpisodeDetailModal
 					visible={epModalVisible}
+					tmdbId={epModalData.tmdbId}
 					showTitle={epModalData.showTitle}
-					season={epModalData.season}
-					episode={epModalData.episode}
-					episodeTitle={epModalData.episodeTitle}
-					overview={epModalData.overview}
-					stillPath={epModalData.stillPath}
-					showBackdropPath={epModalData.showBackdropPath}
 					showPosterPath={epModalData.showPosterPath}
-					airDate={epModalData.airDate}
-					runtime={epModalData.runtime}
-					loadingDetails={epModalLoading}
+					showBackdropPath={epModalData.showBackdropPath}
+					episodes={epModalData.episodes}
+					initialIndex={epModalData.initialIndex}
+					watchedKeys={epModalData.watchedKeys}
+					currentNextEpisode={epModalData.currentNextEpisode}
+					onMarkWatched={noopMark}
+					onMarkWatchedThrough={noopMark}
+					onUnmarkWatched={noopMark}
 					onShowPress={handleEpModalShowPress}
 					onClose={() => {
 						setEpModalVisible(false);
