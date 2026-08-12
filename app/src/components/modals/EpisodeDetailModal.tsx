@@ -573,14 +573,13 @@ const styles = StyleSheet.create({
 	carouselContainer: {
 		width: CARD_WIDTH,
 		height: CARD_HEIGHT,
-		backgroundColor: colors.surface,
-		borderRadius: 12,
-		overflow: "hidden",
 	},
 	cardContent: {
 		width: CARD_WIDTH,
 		height: CARD_HEIGHT,
 		backgroundColor: colors.surface,
+		borderRadius: 12,
+		overflow: "hidden",
 	},
 	imageContainer: {
 		height: 160,
