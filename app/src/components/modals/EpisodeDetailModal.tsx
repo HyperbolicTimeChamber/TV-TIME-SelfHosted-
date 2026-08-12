@@ -98,8 +98,10 @@ const EpisodeCard = memo(function EpisodeCard({
 	if (!isLoaded) {
 		return (
 			<View style={styles.cardContent}>
-				<Animated.View style={[styles.still, { opacity: shimmer, backgroundColor: colors.border }]} />
-				<View style={styles.scroll}>
+				<Animated.View
+					style={[styles.imageContainer, { opacity: shimmer, backgroundColor: colors.surfaceLight }]}
+				/>
+				<View style={styles.skeletonBody}>
 					<Animated.View style={[styles.skeletonTitle, { opacity: shimmer }]} />
 					<Animated.View style={[styles.skeletonLine, { opacity: shimmer }]} />
 					<Animated.View style={[styles.skeletonLineShort, { opacity: shimmer }]} />
@@ -308,18 +310,28 @@ export default function EpisodeDetailModal({
 		[episodes, onLoadEpisodeDetails],
 	);
 
-	// Load when active index changes
+	// Called directly by Carousel onSnapToItem
+	const handleSnap = useCallback(
+		(index: number) => {
+			setActiveIndex(index);
+			const ep = episodes[index];
+			if (!ep) return;
+			const key = epKey(ep.season, ep.episode);
+			if (!loadedEpsRef.current.has(key)) {
+				setScrollEnabled(false);
+				loadAround(index).finally(() => setScrollEnabled(true));
+			} else {
+				loadAround(index);
+			}
+		},
+		[episodes, loadAround],
+	);
+
+	// Initial load on mount
 	useEffect(() => {
-		const ep = episodes[activeIndex];
-		if (!ep) return;
-		const key = epKey(ep.season, ep.episode);
-		if (!loadedEpsRef.current.has(key)) {
-			setScrollEnabled(false);
-			loadAround(activeIndex).finally(() => setScrollEnabled(true));
-		} else {
-			loadAround(activeIndex);
-		}
-	}, [activeIndex, loadAround]);
+		if (visible) loadAround(initialIndex);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [visible]);
 
 	// Handle mark watched with backfill check
 	const handleMark = useCallback(
@@ -496,7 +508,7 @@ export default function EpisodeDetailModal({
 						defaultIndex={initialIndex}
 						scrollEnabled={scrollEnabled}
 						loop={false}
-						onSnapToItem={setActiveIndex}
+						onSnapToItem={handleSnap}
 						renderWindowSize={3}
 						style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}
 					/>
@@ -710,6 +722,10 @@ const styles = StyleSheet.create({
 		...typography.subtitle,
 		fontSize: 14,
 		color: colors.text,
+	},
+	skeletonBody: {
+		padding: spacing.lg,
+		gap: spacing.sm,
 	},
 	skeletonTitle: {
 		height: 16,
