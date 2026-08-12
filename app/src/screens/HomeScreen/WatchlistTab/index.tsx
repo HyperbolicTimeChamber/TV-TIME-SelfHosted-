@@ -213,12 +213,21 @@ export default function WatchlistTab() {
 
 			// Build watched keys from query cache
 			const wKeys = new Set<string>();
-			const cachedWatched = queryClient.getQueryData<any>([QueryKey.WATCHED_EPISODES, user?.uid, undefined]);
-			if (cachedWatched?.pages) {
-				for (const page of cachedWatched.pages) {
-					for (const we of page.episodes ?? []) {
-						if (we.tmdbShowId === tmdbId) {
-							wKeys.add(`S${String(we.season).padStart(2, "0")}E${String(we.episode).padStart(2, "0")}`);
+			// Use show-specific flat cache (all eps for this show, no pagination)
+			const showWatched = queryClient.getQueryData<any[]>([QueryKey.WATCHED_EPISODES, user?.uid, tmdbId]);
+			if (showWatched) {
+				for (const we of showWatched) {
+					wKeys.add(`S${String(we.season).padStart(2, "0")}E${String(we.episode).padStart(2, "0")}`);
+				}
+			} else {
+				// Fallback to paginated global cache
+				const cachedWatched = queryClient.getQueryData<any>([QueryKey.WATCHED_EPISODES, user?.uid, undefined]);
+				if (cachedWatched?.pages) {
+					for (const page of cachedWatched.pages) {
+						for (const we of page.episodes ?? []) {
+							if (we.tmdbShowId === tmdbId) {
+								wKeys.add(`S${String(we.season).padStart(2, "0")}E${String(we.episode).padStart(2, "0")}`);
+							}
 						}
 					}
 				}
