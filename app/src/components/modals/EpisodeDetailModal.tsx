@@ -222,9 +222,13 @@ export default function EpisodeDetailModal({
 }: Readonly<Props>) {
 	const carouselRef = useRef<any>(null);
 	const [localWatched, setLocalWatched] = useState(watchedKeys);
-	const [loadedEps, setLoadedEps] = useState<Map<string, CarouselEpisode>>(new Map());
-	const loadedEpsRef = useRef(loadedEps);
-	loadedEpsRef.current = loadedEps;
+	// Enriched episode data — items updated in-place when details load
+	const [enrichedEps, setEnrichedEps] = useState<(CarouselEpisode & { loaded?: boolean })[]>(() =>
+		episodes.map((ep) => ({
+			...ep,
+			loaded: !!(ep.overview && ep.stillPath),
+		})),
+	);
 	const loadingSeasons = useRef(new Set<number>());
 	const [scrollEnabled, setScrollEnabled] = useState(true);
 	const [markingKey, setMarkingKey] = useState<string | null>(null);
@@ -240,96 +244,84 @@ export default function EpisodeDetailModal({
 		setLocalWatched(watchedKeys);
 	}, [watchedKeys]);
 
-	// Initialize loaded episodes from the episodes array (catalog data)
+	// Reset when modal opens with new data
 	useEffect(() => {
 		if (!visible) return;
-		const map = new Map<string, CarouselEpisode>();
-		const start = Math.max(0, initialIndex);
-		const end = Math.min(episodes.length, start + 3);
-		for (let i = start; i < end; i++) {
-			const ep = episodes[i];
-			if (ep.overview || ep.stillPath) {
-				map.set(epKey(ep.season, ep.episode), ep);
-			}
-		}
-		setLoadedEps(map);
+		setEnrichedEps(
+			episodes.map((ep) => ({
+				...ep,
+				loaded: !!(ep.overview && ep.stillPath),
+			})),
+		);
 		setActiveIndex(initialIndex);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [visible]);
+	}, [visible, episodes, initialIndex]);
 
-	// Load details for episodes near the active index
-	const loadAround = useCallback(
-		async (index: number) => {
-			const current = loadedEpsRef.current;
-			const toLoad: number[] = [];
-			for (let i = index; i <= Math.min(index + 2, episodes.length - 1); i++) {
-				const ep = episodes[i];
-				const key = epKey(ep.season, ep.episode);
-				if (!current.has(key) && !(ep.overview && ep.stillPath)) {
-					toLoad.push(i);
+	// Fetch details for a season and enrich the array
+	const fetchSeason = useCallback(
+		async (seasonNum: number) => {
+			if (loadingSeasons.current.has(seasonNum)) return;
+			loadingSeasons.current.add(seasonNum);
+			try {
+				let seasonEps: CarouselEpisode[] | null = null;
+				if (onLoadEpisodeDetails) {
+					seasonEps = await onLoadEpisodeDetails(seasonNum);
 				}
-			}
-			if (toLoad.length === 0) return;
-
-			// Group by season — one fetch per season, skip already-fetching
-			const seasonNums = new Set(toLoad.map((i) => episodes[i].season));
-			for (const sn of seasonNums) {
-				if (loadingSeasons.current.has(sn)) continue;
-				loadingSeasons.current.add(sn);
-				try {
-					let seasonEps: CarouselEpisode[] | null = null;
-					if (onLoadEpisodeDetails) {
-						seasonEps = await onLoadEpisodeDetails(sn);
+				const detailMap = new Map<string, CarouselEpisode>();
+				if (seasonEps) {
+					for (const ep of seasonEps) {
+						detailMap.set(epKey(ep.season, ep.episode), ep);
 					}
-					if (seasonEps) {
-						setLoadedEps((prev) => {
-							const next = new Map(prev);
-							for (const ep of seasonEps!) {
-								next.set(epKey(ep.season, ep.episode), ep);
-							}
-							return next;
-						});
-					} else {
-						// Fallback: mark catalog-only eps as loaded
-						setLoadedEps((prev) => {
-							const next = new Map(prev);
-							for (const i of toLoad) {
-								const ep = episodes[i];
-								if (ep.season === sn) {
-									next.set(epKey(ep.season, ep.episode), ep);
-								}
-							}
-							return next;
-						});
-					}
-				} finally {
-					loadingSeasons.current.delete(sn);
 				}
+				setEnrichedEps((prev) =>
+					prev.map((ep) => {
+						if (ep.season !== seasonNum || ep.loaded) return ep;
+						const detail = detailMap.get(epKey(ep.season, ep.episode));
+						return detail
+							? { ...detail, loaded: true }
+							: { ...ep, loaded: true }; // mark loaded even without detail
+					}),
+				);
+			} finally {
+				loadingSeasons.current.delete(seasonNum);
 			}
 		},
-		[episodes, onLoadEpisodeDetails],
+		[onLoadEpisodeDetails],
 	);
 
 	// Called directly by Carousel onSnapToItem
 	const handleSnap = useCallback(
 		(index: number) => {
 			setActiveIndex(index);
-			const ep = episodes[index];
-			if (!ep) return;
-			const key = epKey(ep.season, ep.episode);
-			if (!loadedEpsRef.current.has(key)) {
-				setScrollEnabled(false);
-				loadAround(index).finally(() => setScrollEnabled(true));
-			} else {
-				loadAround(index);
+			// Fetch seasons for visible window
+			const seasonsToFetch = new Set<number>();
+			for (let i = index; i <= Math.min(index + 2, enrichedEps.length - 1); i++) {
+				const ep = enrichedEps[i];
+				if (ep && !ep.loaded) {
+					seasonsToFetch.add(ep.season);
+				}
+			}
+			for (const sn of seasonsToFetch) {
+				fetchSeason(sn);
 			}
 		},
-		[episodes, loadAround],
+		[enrichedEps, fetchSeason],
 	);
 
 	// Initial load on mount
 	useEffect(() => {
-		if (visible) loadAround(initialIndex);
+		if (!visible) return;
+		const seasonsToFetch = new Set<number>();
+		const start = Math.max(0, initialIndex);
+		const end = Math.min(episodes.length, start + 3);
+		for (let i = start; i < end; i++) {
+			const ep = episodes[i];
+			if (!(ep.overview && ep.stillPath)) {
+				seasonsToFetch.add(ep.season);
+			}
+		}
+		for (const sn of seasonsToFetch) {
+			fetchSeason(sn);
+		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [visible]);
 
@@ -437,23 +429,21 @@ export default function EpisodeDetailModal({
 	}, [confirmTarget, tmdbId, onMarkWatched]);
 
 	const renderItem = useCallback(
-		({ item, index }: { item: CarouselEpisode; index: number }) => {
+		({ item }: { item: CarouselEpisode & { loaded?: boolean }; index: number }) => {
 			const key = epKey(item.season, item.episode);
 			const isWatched = localWatched.has(key);
-			const isLoaded = loadedEps.has(key);
-			const resolvedEp = loadedEps.get(key) ?? item;
 
 			return (
 				<View style={{ width: CARD_WIDTH }}>
 					<EpisodeCard
-						ep={resolvedEp}
+						ep={item}
 						showTitle={showTitle}
 						showPosterPath={showPosterPath}
 						showBackdropPath={showBackdropPath}
 						isWatched={isWatched}
-						isLoaded={isLoaded}
+						isLoaded={!!item.loaded}
 						isMarking={markingKey === key}
-						onMarkWatched={() => handleMark(resolvedEp)}
+						onMarkWatched={() => handleMark(item)}
 						onUnwatch={() => {
 							setMarkingKey(key);
 							onUnmarkWatched(tmdbId, item.season, item.episode).finally(() => {
@@ -478,7 +468,6 @@ export default function EpisodeDetailModal({
 		},
 		[
 			localWatched,
-			loadedEps,
 			markingKey,
 			handleMark,
 			showTitle,
@@ -502,7 +491,7 @@ export default function EpisodeDetailModal({
 				<View style={styles.carouselContainer}>
 					<Carousel
 						ref={carouselRef}
-						data={episodes}
+						data={enrichedEps}
 						renderItem={({ item, index }) => renderItem({ item, index })}
 						itemSize={CARD_WIDTH}
 						defaultIndex={initialIndex}
