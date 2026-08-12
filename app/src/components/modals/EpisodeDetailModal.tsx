@@ -501,7 +501,11 @@ export default function EpisodeDetailModal({
 						loop={false}
 						onSnapToItem={handleSnap}
 						renderWindowSize={3}
-						style={{ width: SCREEN_WIDTH, height: CARD_HEIGHT }}
+						style={{
+						width: SCREEN_WIDTH,
+						height: CARD_HEIGHT,
+						paddingLeft: (SCREEN_WIDTH - ITEM_WIDTH) / 2,
+					}}
 					/>
 				{enrichedEps.length > 1 && (
 					<View style={styles.dotRow}>
