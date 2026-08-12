@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Modal, View, TouchableOpacity, Animated, StyleSheet, ModalProps } from "react-native";
+import { Modal, View, Pressable, Animated, StyleSheet, ModalProps } from "react-native";
 import { colors } from "../../theme";
 
 interface Props extends Pick<ModalProps, "onRequestClose"> {
@@ -57,11 +57,11 @@ export default function AnimatedModal({ visible, onClose, onRequestClose, childr
 			animationType="none"
 			onRequestClose={onRequestClose ?? handleClose}
 		>
-			<TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={handleClose}>
+			<Pressable style={styles.overlay} onPress={handleClose}>
 				<Animated.View style={[styles.content, { opacity, transform: [{ scale }] }]}>
-					<View onStartShouldSetResponder={() => true}>{children}</View>
+					<Pressable onPress={() => {}}>{children}</Pressable>
 				</Animated.View>
-			</TouchableOpacity>
+			</Pressable>
 		</Modal>
 	);
 }

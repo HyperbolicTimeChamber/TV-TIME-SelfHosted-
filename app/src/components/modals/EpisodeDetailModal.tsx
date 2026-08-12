@@ -20,7 +20,7 @@ import { colors, spacing, typography } from "../../theme";
 import { tmdbStillUri, tmdbBackdropUri, tmdbPosterUri } from "../../hooks/useTmdbImage";
 
 const CARD_WIDTH = Math.min(Dimensions.get("window").width * 0.8, 320);
-const CARD_HEIGHT = Math.min(Dimensions.get("window").height * 0.65, 520);
+const CARD_HEIGHT = Math.min(Dimensions.get("window").height * 0.55, 460);
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function formatDate(dateStr: string): string {
