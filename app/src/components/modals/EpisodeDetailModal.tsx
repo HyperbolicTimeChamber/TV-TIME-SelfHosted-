@@ -10,6 +10,7 @@ import {
 	Dimensions,
 } from "react-native";
 import { Carousel } from "react-native-reanimated-carousel";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import AnimatedModal from "./AnimatedModal";
@@ -19,7 +20,7 @@ import { colors, spacing, typography } from "../../theme";
 import { tmdbStillUri, tmdbBackdropUri, tmdbPosterUri } from "../../hooks/useTmdbImage";
 
 const CARD_WIDTH = Math.min(Dimensions.get("window").width * 0.8, 320);
-const CARD_HEIGHT = Dimensions.get("window").height * 0.7;
+const CARD_HEIGHT = Math.min(Dimensions.get("window").height * 0.65, 520);
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function formatDate(dateStr: string): string {
@@ -474,7 +475,7 @@ export default function EpisodeDetailModal({
 
 	return (
 		<AnimatedModal visible={visible} onClose={onClose}>
-			<View style={styles.carouselContainer}>
+			<GestureHandlerRootView style={styles.carouselContainer}>
 				<Carousel
 					ref={carouselRef}
 					data={episodes}
@@ -487,7 +488,7 @@ export default function EpisodeDetailModal({
 					renderWindowSize={3}
 					style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}
 				/>
-			</View>
+			</GestureHandlerRootView>
 			{confirmVisible && (
 				<AnimatedModal
 					visible={confirmVisible}
@@ -551,6 +552,7 @@ const styles = StyleSheet.create({
 	},
 	cardContent: {
 		width: CARD_WIDTH,
+		height: CARD_HEIGHT,
 		backgroundColor: colors.surface,
 	},
 	imageContainer: {
