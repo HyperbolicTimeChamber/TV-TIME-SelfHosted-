@@ -55,7 +55,7 @@ interface Props {
 	showBackdropPath: string | null;
 	episodes: CarouselEpisode[];
 	initialIndex: number;
-	watchedKeys: Set<string>;
+	watchedKeys: Map<string, number>;
 	currentNextEpisode: { season: number; episode: number } | null;
 	onMarkWatched: (tmdbId: number, season: number, episode: number) => Promise<void>;
 	onMarkWatchedThrough: (tmdbId: number, season: number, episode: number) => Promise<void>;
@@ -75,6 +75,7 @@ const EpisodeCard = memo(function EpisodeCard({
 	showPosterPath,
 	showBackdropPath,
 	isWatched,
+	watchCount,
 	isLoaded,
 	isMarking,
 	onMarkWatched,
@@ -87,6 +88,7 @@ const EpisodeCard = memo(function EpisodeCard({
 	showPosterPath: string | null;
 	showBackdropPath: string | null;
 	isWatched: boolean;
+	watchCount: number;
 	isLoaded: boolean;
 	isMarking: boolean;
 	onMarkWatched: () => void;
@@ -174,14 +176,18 @@ const EpisodeCard = memo(function EpisodeCard({
 			{/* Button row */}
 			{isWatched ? (
 				<View style={styles.watchedButtonRow}>
-					<TouchableOpacity style={styles.unwatchButton} onPress={onUnwatch} disabled={isMarking}>
-						<Text style={styles.unwatchButtonText}>Unwatch</Text>
+					<TouchableOpacity style={[styles.unwatchButton, isMarking && { opacity: 0.6 }]} onPress={onUnwatch} disabled={isMarking}>
+						<Text style={styles.unwatchButtonText}>
+							{watchCount > 1 ? `−1 (${watchCount - 1})` : "Unwatch"}
+						</Text>
 					</TouchableOpacity>
-					<TouchableOpacity style={styles.rewatchButton} onPress={onRewatch} disabled={isMarking}>
+					<TouchableOpacity style={[styles.rewatchButton, isMarking && { opacity: 0.6 }]} onPress={onRewatch} disabled={isMarking}>
 						{isMarking ? (
 							<ActivityIndicator size="small" color={colors.text} />
 						) : (
-							<Text style={styles.rewatchButtonText}>Rewatch</Text>
+							<Text style={styles.rewatchButtonText}>
+								Rewatch{watchCount > 0 ? ` (${watchCount + 1})` : ""}
+							</Text>
 						)}
 					</TouchableOpacity>
 				</View>
@@ -224,7 +230,7 @@ export default function EpisodeDetailModal({
 	onLoadEpisodeDetails,
 }: Readonly<Props>) {
 	const carouselRef = useRef<FlatList>(null);
-	const [localWatched, setLocalWatched] = useState(watchedKeys);
+	const [localWatched, setLocalWatched] = useState<Map<string, number>>(watchedKeys);
 	// Enriched episode data — items updated in-place when details load
 	const [enrichedEps, setEnrichedEps] = useState<(CarouselEpisode & { loaded?: boolean })[]>(() =>
 		episodes.map((ep) => ({
@@ -336,7 +342,7 @@ export default function EpisodeDetailModal({
 				// No pointer — just mark
 				setMarkingKey(key);
 				onMarkWatched(tmdbId, ep.season, ep.episode).finally(() => {
-					setLocalWatched((prev) => new Set(prev).add(key));
+					setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
 					setMarkingKey(null);
 				});
 				return;
@@ -353,7 +359,7 @@ export default function EpisodeDetailModal({
 				// Current next or behind — mark directly
 				setMarkingKey(key);
 				onMarkWatched(tmdbId, ep.season, ep.episode).finally(() => {
-					setLocalWatched((prev) => new Set(prev).add(key));
+					setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
 					setMarkingKey(null);
 				});
 			} else {
@@ -375,7 +381,7 @@ export default function EpisodeDetailModal({
 				} else {
 					setMarkingKey(key);
 					onMarkWatched(tmdbId, ep.season, ep.episode).finally(() => {
-						setLocalWatched((prev) => new Set(prev).add(key));
+						setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
 						setMarkingKey(null);
 					});
 				}
@@ -396,13 +402,14 @@ export default function EpisodeDetailModal({
 
 			// Optimistically mark all eps up through target as watched
 			setLocalWatched((prev) => {
-				const next = new Set(prev);
+				const next = new Map(prev);
 				for (const ep of episodes) {
 					if (
 						ep.season < confirmTarget.season ||
 						(ep.season === confirmTarget.season && ep.episode <= confirmTarget.episode)
 					) {
-						next.add(epKey(ep.season, ep.episode));
+						const k = epKey(ep.season, ep.episode);
+						if (!next.has(k)) next.set(k, 1);
 					}
 				}
 				return next;
@@ -424,7 +431,7 @@ export default function EpisodeDetailModal({
 
 		try {
 			await onMarkWatched(tmdbId, confirmTarget.season, confirmTarget.episode);
-			setLocalWatched((prev) => new Set(prev).add(key));
+			setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
 		} finally {
 			setMarkingKey(null);
 			setConfirmTarget(null);
@@ -434,7 +441,8 @@ export default function EpisodeDetailModal({
 	const renderItem = useCallback(
 		({ item }: { item: CarouselEpisode & { loaded?: boolean }; index: number }) => {
 			const key = epKey(item.season, item.episode);
-			const isWatched = localWatched.has(key);
+			const wc = localWatched.get(key) ?? 0;
+			const isWatched = wc > 0;
 
 			return (
 				<View style={styles.cardWrapper}>
@@ -444,6 +452,7 @@ export default function EpisodeDetailModal({
 						showPosterPath={showPosterPath}
 						showBackdropPath={showBackdropPath}
 						isWatched={isWatched}
+						watchCount={wc}
 						isLoaded={!!item.loaded}
 						isMarking={markingKey === key}
 						onMarkWatched={() => handleMark(item)}
@@ -451,8 +460,13 @@ export default function EpisodeDetailModal({
 							setMarkingKey(key);
 							onUnmarkWatched(tmdbId, item.season, item.episode).finally(() => {
 								setLocalWatched((prev) => {
-									const n = new Set(prev);
-									n.delete(key);
+									const n = new Map(prev);
+									const count = n.get(key) ?? 1;
+									if (count <= 1) {
+										n.delete(key);
+									} else {
+										n.set(key, count - 1);
+									}
 									return n;
 								});
 								setMarkingKey(null);

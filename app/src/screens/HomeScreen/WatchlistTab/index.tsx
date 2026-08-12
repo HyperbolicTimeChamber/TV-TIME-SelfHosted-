@@ -119,7 +119,7 @@ export default function WatchlistTab() {
 		showBackdropPath: string | null;
 		episodes: CarouselEpisode[];
 		initialIndex: number;
-		watchedKeys: Set<string>;
+		watchedKeys: Map<string, number>;
 		currentNextEpisode: { season: number; episode: number } | null;
 	} | null>(null);
 	const epModalTmdbIdRef = useRef<number | null>(null);
@@ -212,12 +212,15 @@ export default function WatchlistTab() {
 			);
 
 			// Build watched keys from query cache
-			const wKeys = new Set<string>();
+			const wKeys = new Map<string, number>();
 			// Use show-specific flat cache (all eps for this show, no pagination)
 			const showWatched = queryClient.getQueryData<any[]>([QueryKey.WATCHED_EPISODES, user?.uid, tmdbId]);
 			if (showWatched) {
 				for (const we of showWatched) {
-					wKeys.add(`S${String(we.season).padStart(2, "0")}E${String(we.episode).padStart(2, "0")}`);
+					wKeys.set(
+						`S${String(we.season).padStart(2, "0")}E${String(we.episode).padStart(2, "0")}`,
+						we.watchCount ?? 1,
+					);
 				}
 			} else {
 				// Fallback to paginated global cache
@@ -226,7 +229,10 @@ export default function WatchlistTab() {
 					for (const page of cachedWatched.pages) {
 						for (const we of page.episodes ?? []) {
 							if (we.tmdbShowId === tmdbId) {
-								wKeys.add(`S${String(we.season).padStart(2, "0")}E${String(we.episode).padStart(2, "0")}`);
+								wKeys.set(
+									`S${String(we.season).padStart(2, "0")}E${String(we.episode).padStart(2, "0")}`,
+									we.watchCount ?? 1,
+								);
 							}
 						}
 					}
