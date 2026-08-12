@@ -4,7 +4,9 @@ import {
 	Text,
 	ScrollView,
 	TouchableOpacity,
+	Pressable,
 	Animated,
+	Modal,
 	StyleSheet,
 	ActivityIndicator,
 	Dimensions,
@@ -474,20 +476,23 @@ export default function EpisodeDetailModal({
 		: "";
 
 	return (
-		<AnimatedModal visible={visible} onClose={onClose}>
-			<GestureHandlerRootView style={styles.carouselContainer}>
-				<Carousel
-					ref={carouselRef}
-					data={episodes}
-					renderItem={({ item, index }) => renderItem({ item, index })}
-					itemSize={CARD_WIDTH}
-					defaultIndex={initialIndex}
-					scrollEnabled={scrollEnabled}
-					loop={false}
-					onSnapToItem={setActiveIndex}
-					renderWindowSize={3}
-					style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}
-				/>
+		<Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+			<GestureHandlerRootView style={styles.modalOverlay}>
+				<Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+				<View style={styles.carouselContainer}>
+					<Carousel
+						ref={carouselRef}
+						data={episodes}
+						renderItem={({ item, index }) => renderItem({ item, index })}
+						itemSize={CARD_WIDTH}
+						defaultIndex={initialIndex}
+						scrollEnabled={scrollEnabled}
+						loop={false}
+						onSnapToItem={setActiveIndex}
+						renderWindowSize={3}
+						style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}
+					/>
+				</View>
 			</GestureHandlerRootView>
 			{confirmVisible && (
 				<AnimatedModal
@@ -534,7 +539,7 @@ export default function EpisodeDetailModal({
 					</View>
 				</AnimatedModal>
 			)}
-		</AnimatedModal>
+		</Modal>
 	);
 }
 
@@ -543,6 +548,12 @@ export default function EpisodeDetailModal({
 // ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
+	modalOverlay: {
+		flex: 1,
+		backgroundColor: colors.overlayMedium,
+		justifyContent: "center",
+		alignItems: "center",
+	},
 	carouselContainer: {
 		width: CARD_WIDTH,
 		height: CARD_HEIGHT,
