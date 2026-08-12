@@ -21,8 +21,9 @@ import { useSharedShimmer } from "../SkeletonLine";
 import { colors, spacing, typography } from "../../theme";
 import { tmdbStillUri, tmdbBackdropUri, tmdbPosterUri } from "../../hooks/useTmdbImage";
 
-const CARD_WIDTH = Math.min(Dimensions.get("window").width * 0.8, 320);
-const CARD_GAP = 12;
+const SCREEN_WIDTH = Dimensions.get("window").width;
+const CARD_WIDTH = Math.min(SCREEN_WIDTH * 0.75, 300);
+const CARD_GAP = 10;
 const ITEM_WIDTH = CARD_WIDTH + CARD_GAP;
 const CARD_HEIGHT = Math.min(Dimensions.get("window").height * 0.55, 460);
 
@@ -500,7 +501,7 @@ export default function EpisodeDetailModal({
 						loop={false}
 						onSnapToItem={handleSnap}
 						renderWindowSize={3}
-						style={{ width: Dimensions.get("window").width, height: CARD_HEIGHT }}
+						style={{ width: SCREEN_WIDTH, height: CARD_HEIGHT }}
 					/>
 				{enrichedEps.length > 1 && (
 					<View style={styles.dotRow}>
