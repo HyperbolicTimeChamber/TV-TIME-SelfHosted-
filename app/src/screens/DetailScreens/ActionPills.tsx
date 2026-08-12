@@ -74,9 +74,16 @@ export default function ActionPills({
 					)}
 					{mediaType === MediaType.MOVIE && watchlistItem.status === WatchStatus.COMPLETED && (
 						<View style={[styles.pill, styles.pillWatched, { opacity: 0.7 }]}>
-							<Text style={styles.pillText}>
-								Watched{movieWatchCount > 0 ? ` ${movieWatchCount}x` : ""} {"\u2713"}
-							</Text>
+							<View style={styles.pillInner}>
+								<Text style={styles.pillText}>Watched {"\u2713"}</Text>
+								{movieWatchCount > 1 && (
+									<View style={styles.pillBadge}>
+										<Text style={[styles.pillBadgeText, { color: colors.watchedGreen }]}>
+											{movieWatchCount}
+										</Text>
+									</View>
+								)}
+							</View>
 						</View>
 					)}
 					{(watchlistItem.status === WatchStatus.COMPLETED ||
@@ -158,5 +165,22 @@ const styles = StyleSheet.create({
 		...typography.subtitle,
 		fontSize: 13,
 		color: colors.text,
+	},
+	pillInner: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.sm,
+	},
+	pillBadge: {
+		width: 20,
+		height: 20,
+		borderRadius: 10,
+		backgroundColor: colors.text,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	pillBadgeText: {
+		fontSize: 11,
+		fontWeight: "700",
 	},
 });

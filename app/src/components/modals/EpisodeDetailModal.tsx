@@ -177,17 +177,20 @@ const EpisodeCard = memo(function EpisodeCard({
 			{isWatched ? (
 				<View style={styles.watchedButtonRow}>
 					<TouchableOpacity style={[styles.unwatchButton, isMarking && { opacity: 0.6 }]} onPress={onUnwatch} disabled={isMarking}>
-						<Text style={styles.unwatchButtonText}>
-							{watchCount > 1 ? `−1 (${watchCount - 1})` : "Unwatch"}
-						</Text>
+						<Text style={styles.unwatchButtonText}>Unwatch</Text>
 					</TouchableOpacity>
 					<TouchableOpacity style={[styles.rewatchButton, isMarking && { opacity: 0.6 }]} onPress={onRewatch} disabled={isMarking}>
 						{isMarking ? (
 							<ActivityIndicator size="small" color={colors.text} />
 						) : (
-							<Text style={styles.rewatchButtonText}>
-								Rewatch{watchCount > 0 ? ` (${watchCount + 1})` : ""}
-							</Text>
+							<View style={styles.buttonInner}>
+								<Text style={styles.rewatchButtonText}>Rewatch</Text>
+								{watchCount > 1 && (
+									<View style={styles.buttonBadge}>
+										<Text style={[styles.buttonBadgeText, { color: colors.stopBlue }]}>{watchCount}</Text>
+									</View>
+								)}
+							</View>
 						)}
 					</TouchableOpacity>
 				</View>
@@ -474,9 +477,10 @@ export default function EpisodeDetailModal({
 						}}
 						onRewatch={() => {
 							setMarkingKey(key);
-							onMarkWatched(tmdbId, item.season, item.episode).finally(() =>
-								setMarkingKey(null),
-							);
+							onMarkWatched(tmdbId, item.season, item.episode).finally(() => {
+								setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
+								setMarkingKey(null);
+							});
 						}}
 						onShowPress={onShowPress}
 					/>
@@ -757,6 +761,23 @@ const styles = StyleSheet.create({
 		...typography.subtitle,
 		fontSize: 14,
 		color: colors.text,
+	},
+	buttonInner: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.sm,
+	},
+	buttonBadge: {
+		width: 22,
+		height: 22,
+		borderRadius: 11,
+		backgroundColor: colors.text,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	buttonBadgeText: {
+		fontSize: 11,
+		fontWeight: "700",
 	},
 	dotRow: {
 		flexDirection: "row",

@@ -46,7 +46,15 @@ import {
 } from "../../../types";
 import type { ShowDrawerData } from "../../../components/ShowDrawer";
 import { warmupWatchlistCFs, warmupFirestoreWrite } from "../../../services/warmup";
-import { Timestamp } from "@react-native-firebase/firestore";
+import {
+	Timestamp,
+	getFirestore,
+	collection,
+	doc,
+	query,
+	where,
+	getDocs,
+} from "@react-native-firebase/firestore";
 import {
 	insertWatchedEpisodeCache,
 	removeWatchedEpisodeCache,
@@ -212,31 +220,22 @@ export default function WatchlistTab() {
 			);
 
 			// Build watched keys from query cache
+			// Fetch ALL watched episodes for this show (complete + correct counts)
+			let showWatched = queryClient.getQueryData<WatchedEpisode[]>([QueryKey.WATCHED_EPISODES, user?.uid, tmdbId]);
+			if (!showWatched) {
+				const db = getFirestore();
+				const colRef = collection(doc(db, "users", user!.uid), "watchedEpisodes");
+				const q = query(colRef, where("tmdbShowId", "==", tmdbId));
+				const snap = await getDocs(q);
+				showWatched = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as WatchedEpisode[];
+				queryClient.setQueryData([QueryKey.WATCHED_EPISODES, user!.uid, tmdbId], showWatched);
+			}
 			const wKeys = new Map<string, number>();
-			// Use show-specific flat cache (all eps for this show, no pagination)
-			const showWatched = queryClient.getQueryData<any[]>([QueryKey.WATCHED_EPISODES, user?.uid, tmdbId]);
-			if (showWatched) {
-				for (const we of showWatched) {
-					wKeys.set(
-						`S${String(we.season).padStart(2, "0")}E${String(we.episode).padStart(2, "0")}`,
-						we.watchCount ?? 1,
-					);
-				}
-			} else {
-				// Fallback to paginated global cache
-				const cachedWatched = queryClient.getQueryData<any>([QueryKey.WATCHED_EPISODES, user?.uid, undefined]);
-				if (cachedWatched?.pages) {
-					for (const page of cachedWatched.pages) {
-						for (const we of page.episodes ?? []) {
-							if (we.tmdbShowId === tmdbId) {
-								wKeys.set(
-									`S${String(we.season).padStart(2, "0")}E${String(we.episode).padStart(2, "0")}`,
-									we.watchCount ?? 1,
-								);
-							}
-						}
-					}
-				}
+			for (const we of showWatched) {
+				wKeys.set(
+					`S${String(we.season).padStart(2, "0")}E${String(we.episode).padStart(2, "0")}`,
+					we.watchCount ?? 1,
+				);
 			}
 
 			epModalTmdbIdRef.current = tmdbId;
