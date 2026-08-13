@@ -21,11 +21,12 @@ import { colors, spacing, typography } from "../../theme";
 import { tmdbStillUri, tmdbBackdropUri, tmdbPosterUri } from "../../hooks/useTmdbImage";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
-const CARD_WIDTH = SCREEN_WIDTH * 0.7;
+const CARD_WIDTH = SCREEN_WIDTH * 0.82;
 const CARD_GAP = 12;
 const SNAP_INTERVAL = CARD_WIDTH + CARD_GAP;
 const SIDE_PADDING = (SCREEN_WIDTH - CARD_WIDTH) / 2;
 const CARD_HEIGHT = Math.min(Dimensions.get("window").height * 0.55, 460);
+const IMAGE_HEIGHT = 180;
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function formatDate(dateStr: string): string {
@@ -104,7 +105,10 @@ const EpisodeCard = memo(function EpisodeCard({
 		return (
 			<View style={styles.cardContent}>
 				<Animated.View
-					style={[styles.imageContainer, { opacity: shimmer, backgroundColor: colors.surfaceLight }]}
+					style={[
+						styles.imageContainer,
+						{ opacity: shimmer, backgroundColor: colors.surfaceLight },
+					]}
 				/>
 				<View style={styles.skeletonBody}>
 					<Animated.View style={[styles.skeletonTitle, { opacity: shimmer }]} />
@@ -152,7 +156,7 @@ const EpisodeCard = memo(function EpisodeCard({
 				<LinearGradient colors={["transparent", colors.surface]} style={styles.imageGradient} />
 			</View>
 
-			<ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+			<View style={styles.metaSection}>
 				<TouchableOpacity style={styles.titlePill} onPress={onShowPress} disabled={!onShowPress}>
 					<Text style={styles.titlePillText} numberOfLines={1}>
 						{showTitle.toUpperCase()}
@@ -161,33 +165,47 @@ const EpisodeCard = memo(function EpisodeCard({
 				</TouchableOpacity>
 				{ep.title ? <Text style={styles.episodeTitle}>{ep.title}</Text> : null}
 				<Text style={styles.label}>{label}</Text>
-				<View style={styles.metaRow}>
-					{ep.airDate ? <Text style={styles.meta}>{formatDate(ep.airDate)}</Text> : null}
-					{ep.runtime ? (
-						<Text style={styles.meta}>
-							{ep.airDate ? " · " : ""}
-							{ep.runtime} min
-						</Text>
-					) : null}
-				</View>
-				{ep.overview ? <Text style={styles.overview}>{ep.overview}</Text> : null}
-			</ScrollView>
+			</View>
+			<View style={styles.overviewContainer}>
+				<ScrollView showsVerticalScrollIndicator={false}>
+					<View style={styles.metaRow}>
+						{ep.airDate ? <Text style={styles.meta}>{formatDate(ep.airDate)}</Text> : null}
+						{ep.runtime ? (
+							<Text style={styles.meta}>
+								{ep.airDate ? " · " : ""}
+								{ep.runtime} min
+							</Text>
+						) : null}
+					</View>
+					{ep.overview ? <Text style={styles.overview}>{ep.overview}</Text> : null}
+				</ScrollView>
+			</View>
 
 			{/* Button row */}
 			{isWatched ? (
 				<View style={styles.watchedButtonRow}>
-					<TouchableOpacity style={[styles.unwatchButton, isMarking && { opacity: 0.6 }]} onPress={onUnwatch} disabled={isMarking}>
-						<Text style={styles.unwatchButtonText}>Unwatch</Text>
+					<TouchableOpacity
+						style={[styles.unwatchButton, isMarking && { opacity: 0.6 }]}
+						onPress={onUnwatch}
+						disabled={isMarking}
+					>
+						<Text style={styles.actionButtonText}>Unwatch</Text>
 					</TouchableOpacity>
-					<TouchableOpacity style={[styles.rewatchButton, isMarking && { opacity: 0.6 }]} onPress={onRewatch} disabled={isMarking}>
+					<TouchableOpacity
+						style={[styles.rewatchButton, isMarking && { opacity: 0.6 }]}
+						onPress={onRewatch}
+						disabled={isMarking}
+					>
 						{isMarking ? (
 							<ActivityIndicator size="small" color={colors.text} />
 						) : (
 							<View style={styles.buttonInner}>
-								<Text style={styles.rewatchButtonText}>Rewatch</Text>
+								<Text style={styles.actionButtonText}>Rewatch</Text>
 								{watchCount > 1 && (
 									<View style={styles.buttonBadge}>
-										<Text style={[styles.buttonBadgeText, { color: colors.stopBlue }]}>{watchCount}</Text>
+										<Text style={[styles.buttonBadgeText, { color: colors.stopBlue }]}>
+											{watchCount}
+										</Text>
 									</View>
 								)}
 							</View>
@@ -203,7 +221,7 @@ const EpisodeCard = memo(function EpisodeCard({
 					{isMarking ? (
 						<ActivityIndicator size="small" color={colors.text} />
 					) : (
-						<Text style={styles.watchButtonText}>Mark as Watched</Text>
+						<Text style={styles.actionButtonText}>Mark as Watched</Text>
 					)}
 				</TouchableOpacity>
 			)}
@@ -235,10 +253,11 @@ export default function EpisodeDetailModal({
 	const carouselRef = useRef<FlatList>(null);
 	const [localWatched, setLocalWatched] = useState<Map<string, number>>(watchedKeys);
 	// Enriched episode data — items updated in-place when details load
+	const noLoader = !onLoadEpisodeDetails;
 	const [enrichedEps, setEnrichedEps] = useState<(CarouselEpisode & { loaded?: boolean })[]>(() =>
 		episodes.map((ep) => ({
 			...ep,
-			loaded: !!(ep.overview && ep.stillPath),
+			loaded: noLoader || !!(ep.overview && ep.stillPath),
 		})),
 	);
 	const loadingSeasons = useRef(new Set<number>());
@@ -249,7 +268,9 @@ export default function EpisodeDetailModal({
 	// Backfill confirm modal
 	const [confirmVisible, setConfirmVisible] = useState(false);
 	const [confirmLoading, setConfirmLoading] = useState(false);
-	const [confirmTarget, setConfirmTarget] = useState<{ season: number; episode: number } | null>(null);
+	const [confirmTarget, setConfirmTarget] = useState<{ season: number; episode: number } | null>(
+		null,
+	);
 
 	// Sync watched keys from parent
 	useEffect(() => {
@@ -262,11 +283,11 @@ export default function EpisodeDetailModal({
 		setEnrichedEps(
 			episodes.map((ep) => ({
 				...ep,
-				loaded: !!(ep.overview && ep.stillPath),
+				loaded: noLoader || !!(ep.overview && ep.stillPath),
 			})),
 		);
 		setActiveIndex(initialIndex);
-	}, [visible, episodes, initialIndex]);
+	}, [visible, episodes, initialIndex, noLoader]);
 
 	// Fetch details for a season and enrich the array
 	const fetchSeason = useCallback(
@@ -288,9 +309,7 @@ export default function EpisodeDetailModal({
 					prev.map((ep) => {
 						if (ep.season !== seasonNum || ep.loaded) return ep;
 						const detail = detailMap.get(epKey(ep.season, ep.episode));
-						return detail
-							? { ...detail, loaded: true }
-							: { ...ep, loaded: true }; // mark loaded even without detail
+						return detail ? { ...detail, loaded: true } : { ...ep, loaded: true }; // mark loaded even without detail
 					}),
 				);
 			} finally {
@@ -373,8 +392,7 @@ export default function EpisodeDetailModal({
 						(e.season > currentNextEpisode.season ||
 							(e.season === currentNextEpisode.season &&
 								e.episode >= currentNextEpisode.episode)) &&
-						(e.season < ep.season ||
-							(e.season === ep.season && e.episode < ep.episode));
+						(e.season < ep.season || (e.season === ep.season && e.episode < ep.episode));
 					return isBetween && !localWatched.has(eKey);
 				});
 
@@ -448,7 +466,7 @@ export default function EpisodeDetailModal({
 			const isWatched = wc > 0;
 
 			return (
-				<View style={styles.cardWrapper}>
+				<Pressable style={styles.cardWrapper} onPress={() => {}}>
 					<EpisodeCard
 						ep={item}
 						showTitle={showTitle}
@@ -484,7 +502,7 @@ export default function EpisodeDetailModal({
 						}}
 						onShowPress={onShowPress}
 					/>
-				</View>
+				</Pressable>
 			);
 		},
 		[
@@ -526,8 +544,7 @@ export default function EpisodeDetailModal({
 
 	return (
 		<Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-			<View style={styles.modalOverlay}>
-				<Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+			<Pressable style={styles.modalOverlay} onPress={onClose}>
 				<FlatList
 					ref={carouselRef}
 					data={enrichedEps}
@@ -555,7 +572,7 @@ export default function EpisodeDetailModal({
 						{activeIndex < enrichedEps.length - 1 && <View style={styles.dot} />}
 					</View>
 				)}
-			</View>
+			</Pressable>
 			{confirmVisible && (
 				<AnimatedModal
 					visible={confirmVisible}
@@ -566,11 +583,13 @@ export default function EpisodeDetailModal({
 				>
 					<View style={styles.backfillContent}>
 						<Text style={styles.backfillTitle}>Mark Previous Episodes?</Text>
-						<Text style={styles.backfillHint}>
-							Mark episodes {confirmLabel} as watched?
-						</Text>
+						<Text style={styles.backfillHint}>Mark episodes {confirmLabel} as watched?</Text>
 						<TouchableOpacity
-							style={[styles.backfillButton, { backgroundColor: colors.watchedGreen }, confirmLoading && { opacity: 0.6 }]}
+							style={[
+								styles.backfillButton,
+								{ backgroundColor: colors.watchedGreen },
+								confirmLoading && { opacity: 0.6 },
+							]}
 							onPress={handleConfirmBackfill}
 							disabled={confirmLoading}
 						>
@@ -627,7 +646,7 @@ const styles = StyleSheet.create({
 		overflow: "hidden",
 	},
 	imageContainer: {
-		height: 160,
+		height: IMAGE_HEIGHT,
 	},
 	imageSkeleton: {
 		...(StyleSheet.absoluteFill as object),
@@ -635,18 +654,18 @@ const styles = StyleSheet.create({
 	},
 	still: {
 		width: "100%",
-		height: 160,
+		height: IMAGE_HEIGHT,
 	},
 	imageGradient: {
 		position: "absolute",
-		bottom: 0,
+		bottom: -1,
 		left: 0,
 		right: 0,
-		height: 80,
+		height: 100,
 	},
 	stillPlaceholder: {
 		width: "100%",
-		height: 160,
+		height: IMAGE_HEIGHT,
 		backgroundColor: colors.surfaceLight,
 		justifyContent: "center",
 		alignItems: "center",
@@ -657,11 +676,14 @@ const styles = StyleSheet.create({
 		color: colors.textMuted,
 		letterSpacing: 2,
 	},
-	scroll: {
+	metaSection: {
+		paddingHorizontal: spacing.lg,
+		marginTop: -65,
+	},
+	overviewContainer: {
 		flexGrow: 1,
 		flexShrink: 1,
-		padding: spacing.lg,
-		marginTop: -50,
+		marginHorizontal: spacing.lg,
 	},
 	titlePill: {
 		flexDirection: "row",
@@ -704,7 +726,6 @@ const styles = StyleSheet.create({
 	metaRow: {
 		flexDirection: "row",
 		marginTop: spacing.md,
-		paddingHorizontal: spacing.sm,
 	},
 	meta: {
 		...typography.caption,
@@ -713,10 +734,9 @@ const styles = StyleSheet.create({
 	overview: {
 		...typography.body,
 		color: colors.textSecondary,
-		marginTop: spacing.md,
+		marginTop: spacing.sm,
 		lineHeight: 20,
 		fontSize: 13,
-		paddingHorizontal: spacing.sm,
 		textAlign: "justify",
 	},
 	watchButton: {
@@ -727,7 +747,7 @@ const styles = StyleSheet.create({
 		borderRadius: 8,
 		alignItems: "center",
 	},
-	watchButtonText: {
+	actionButtonText: {
 		...typography.subtitle,
 		fontSize: 14,
 		color: colors.text,
@@ -745,22 +765,12 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		backgroundColor: colors.destructiveRed,
 	},
-	unwatchButtonText: {
-		...typography.subtitle,
-		fontSize: 14,
-		color: colors.text,
-	},
 	rewatchButton: {
 		flex: 1,
 		backgroundColor: colors.stopBlue,
 		paddingVertical: spacing.md,
 		borderRadius: 8,
 		alignItems: "center",
-	},
-	rewatchButtonText: {
-		...typography.subtitle,
-		fontSize: 14,
-		color: colors.text,
 	},
 	buttonInner: {
 		flexDirection: "row",
