@@ -1,15 +1,18 @@
 import React, { useEffect } from "react";
-import { View, StyleSheet, Platform, PermissionsAndroid, Alert, ErrorUtils } from "react-native";
+import { View, StyleSheet, Platform, PermissionsAndroid, Alert } from "react-native";
 import { Image } from "expo-image";
 import * as SplashScreen from "expo-splash-screen";
 import crashlytics from "@react-native-firebase/crashlytics";
 
 // Report uncaught JS errors to Crashlytics
-const originalHandler = ErrorUtils.getGlobalHandler();
-ErrorUtils.setGlobalHandler((error, isFatal) => {
-	crashlytics().recordError(error);
-	originalHandler(error, isFatal);
-});
+const RNErrorUtils = (global as any).ErrorUtils;
+if (RNErrorUtils) {
+	const originalHandler = RNErrorUtils.getGlobalHandler();
+	RNErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
+		crashlytics().recordError(error);
+		originalHandler(error, isFatal);
+	});
+}
 import LoadingSpinner from "./src/components/LoadingSpinner";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";

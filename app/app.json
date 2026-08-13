@@ -55,7 +55,8 @@
           "icon": "./assets/notification-icon.png",
           "color": "#E50914"
         }
-      ]
+      ],
+      "./plugins/withNotificationColorFix"
     ]
   }
 }
