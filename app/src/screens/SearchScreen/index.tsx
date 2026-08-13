@@ -612,24 +612,26 @@ export default function SearchScreen() {
 				onLayout={onHeaderLayout}
 				style={[styles.headerBlock, { transform: [{ translateY: headerTranslateY }] }]}
 			>
-				<TouchableOpacity style={styles.searchBarRow} onPress={openSearchInput} activeOpacity={0.7}>
-					<View style={styles.searchRow}>
-						<Ionicons name="search" size={18} color={colors.textMuted} style={styles.searchIcon} />
-						<Text style={[styles.searchInput, { color: colors.textMuted }]} numberOfLines={1}>
-							{submittedQuery || "Search shows & movies"}
-						</Text>
-					</View>
-				</TouchableOpacity>
+				<View style={styles.headerCard}>
+					<TouchableOpacity style={styles.searchBarRow} onPress={openSearchInput} activeOpacity={0.7}>
+						<View style={styles.searchRow}>
+							<Ionicons name="search" size={18} color={colors.textMuted} style={styles.searchIcon} />
+							<Text style={[styles.searchInput, { color: colors.textMuted }]} numberOfLines={1}>
+								{submittedQuery || "Search shows & movies"}
+							</Text>
+						</View>
+					</TouchableOpacity>
 
-				<SlidingTabs
-					tabs={[
-						{ key: MediaFilter.ALL, label: "All" },
-						{ key: MediaFilter.TV, label: "TV" },
-						{ key: MediaFilter.MOVIE, label: "Movies" },
-					]}
-					activeKey={mediaFilter}
-					onTabPress={(key) => setMediaFilter(key as MediaFilter)}
-				/>
+					<SlidingTabs
+						tabs={[
+							{ key: MediaFilter.ALL, label: "All" },
+							{ key: MediaFilter.TV, label: "TV" },
+							{ key: MediaFilter.MOVIE, label: "Movies" },
+						]}
+						activeKey={mediaFilter}
+						onTabPress={(key) => setMediaFilter(key as MediaFilter)}
+					/>
+				</View>
 			</Animated.View>
 
 			<Animated.View style={{ paddingTop: contentPaddingTop }}>

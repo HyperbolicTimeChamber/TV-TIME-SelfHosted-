@@ -19,11 +19,15 @@ export const styles = StyleSheet.create({
 		alignItems: "center",
 		gap: spacing.sm,
 	},
+	headerCard: {
+		backgroundColor: colors.surface,
+		borderRadius: 12,
+		marginHorizontal: spacing.md,
+		overflow: "hidden",
+	},
 	searchRow: {
-		flex: 1,
 		flexDirection: "row",
 		alignItems: "center",
-		backgroundColor: colors.surface,
 	},
 	searchIcon: {
 		marginLeft: spacing.md,
