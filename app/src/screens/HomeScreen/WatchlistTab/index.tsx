@@ -4,7 +4,6 @@ import {
 	View,
 	Text,
 	TouchableOpacity,
-	StyleSheet,
 	ActivityIndicator,
 	RefreshControl,
 	Dimensions,
@@ -34,7 +33,7 @@ import {
 	getSeasonDetails,
 	getShowDetails,
 } from "../../../services";
-import { colors, spacing, typography } from "../../../theme";
+import { colors } from "../../../theme";
 import {
 	HomeStackParamList,
 	MainTabParamList,
@@ -62,7 +61,8 @@ import {
 	incrementDailyWatch,
 	decrementDailyWatch,
 } from "../../../hooks";
-import { ListItem } from "./types";
+import type { WatchlistListItem } from "../../../types/watchlist";
+import { styles } from "./styles";
 import { useWatchlistData } from "./useWatchlistData";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
 import SectionHeader from "./SectionHeader";
@@ -221,7 +221,11 @@ export default function WatchlistTab() {
 
 			// Build watched keys from query cache
 			// Fetch ALL watched episodes for this show (complete + correct counts)
-			let showWatched = queryClient.getQueryData<WatchedEpisode[]>([QueryKey.WATCHED_EPISODES, user?.uid, tmdbId]);
+			let showWatched = queryClient.getQueryData<WatchedEpisode[]>([
+				QueryKey.WATCHED_EPISODES,
+				user?.uid,
+				tmdbId,
+			]);
 			if (!showWatched) {
 				const db = getFirestore();
 				const colRef = collection(doc(db, "users", user!.uid), "watchedEpisodes");
@@ -668,7 +672,7 @@ export default function WatchlistTab() {
 	);
 
 	const renderItem = useCallback(
-		({ item }: { item: ListItem }) => {
+		({ item }: { item: WatchlistListItem }) => {
 			if (item.type === "sectionHeader") {
 				return <SectionHeader title={item.title} />;
 			}
@@ -745,6 +749,14 @@ export default function WatchlistTab() {
 		[stableOffset],
 	);
 
+	const stickyIndices = useMemo(
+		() => listData.reduce<number[]>((acc, item, i) => {
+			if (item.type === "sectionHeader") acc.push(i);
+			return acc;
+		}, []),
+		[listData],
+	);
+
 	if (isLoading) {
 		return (
 			<View style={styles.center}>
@@ -785,7 +797,8 @@ export default function WatchlistTab() {
 				renderItem={renderItem}
 				recycleItems
 				drawDistance={SCREEN_HEIGHT * 2}
-				estimatedItemSize={99}
+				estimatedItemSize={148}
+				stickyHeaderIndices={stickyIndices}
 				refreshControl={
 					hasMorePrevWatched ? (
 						<RefreshControl
@@ -875,43 +888,3 @@ export default function WatchlistTab() {
 		</>
 	);
 }
-
-const styles = StyleSheet.create({
-	list: {
-		flex: 1,
-		backgroundColor: colors.background,
-	},
-	listContent: {
-		paddingVertical: spacing.sm,
-	},
-	center: {
-		flex: 1,
-		backgroundColor: colors.background,
-		justifyContent: "center",
-		alignItems: "center",
-	},
-	empty: {
-		...typography.subtitle,
-		color: colors.textSecondary,
-	},
-	addShowsButton: {
-		marginTop: spacing.lg,
-		backgroundColor: colors.primary,
-		paddingHorizontal: spacing.xl,
-		paddingVertical: spacing.md,
-		borderRadius: 8,
-	},
-	addShowsText: {
-		...typography.subtitle,
-		fontSize: 14,
-		color: colors.text,
-	},
-	loaderRow: {
-		paddingVertical: spacing.lg,
-		alignItems: "center",
-	},
-	separator: {
-		height: 1,
-		backgroundColor: colors.border,
-	},
-});

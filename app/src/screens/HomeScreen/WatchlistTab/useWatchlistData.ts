@@ -35,7 +35,7 @@ import {
 	WatchedEpisode,
 	WatchedMovie,
 } from "../../../types";
-import { ListItem } from "./types";
+import type { WatchlistListItem } from "../../../types/watchlist";
 
 const ACTIVE_CACHE_LIMIT = 100;
 
@@ -142,7 +142,7 @@ export type CardItem = ReturnType<typeof buildCardItem>;
  * Recalc `remaining` only for promoted cards.
  * Works for any gap duration (1 day or 3 weeks).
  */
-function reorderCachedList(list: CacheableListItem[], today: string): CacheableListItem[] {
+function reorderCachedList(list: CacheableWatchlistListItem[], today: string): CacheableWatchlistListItem[] {
 	// Separate sections
 	const prevWatchedHeader = list.find(
 		(i) => i.type === "sectionHeader" && i.title === "Previously Watched",
@@ -184,7 +184,7 @@ function reorderCachedList(list: CacheableListItem[], today: string): CacheableL
 	});
 
 	// Rebuild list
-	const result: CacheableListItem[] = [];
+	const result: CacheableWatchlistListItem[] = [];
 	if (prevWatchedHeader && prevWatched.length > 0) {
 		result.push(prevWatchedHeader);
 		result.push(...prevWatched);
@@ -198,7 +198,7 @@ function reorderCachedList(list: CacheableListItem[], today: string): CacheableL
 }
 
 /** Serializable list item for caching */
-export type CacheableListItem =
+export type CacheableWatchlistListItem =
 	| { type: "sectionHeader"; title: string }
 	| { type: "show"; card: CardItem }
 	| {
@@ -248,7 +248,7 @@ export function useWatchlistData(userId: string | undefined) {
 	const [optimisticCards, setOptimisticCards] = useState<Map<number, Partial<CardItem>>>(new Map());
 
 	// --- Cache: store and restore the display list directly ---
-	const [cachedList, setCachedList] = useState<CacheableListItem[] | null>(null);
+	const [cachedList, setCachedList] = useState<CacheableWatchlistListItem[] | null>(null);
 	const [reordering, setReordering] = useState(false);
 	const cacheRestored = useRef(false);
 	const cachedActiveCount = useRef(0);
@@ -402,9 +402,9 @@ export function useWatchlistData(userId: string | undefined) {
 
 	const allLoading = loading || watchedEpsLoading || watchedMoviesLoading;
 
-	const liveList: CacheableListItem[] = useMemo(() => {
+	const liveList: CacheableWatchlistListItem[] = useMemo(() => {
 		if (allLoading) return [];
-		const result: CacheableListItem[] = [];
+		const result: CacheableWatchlistListItem[] = [];
 		if (prevWatchedItems.length > 0) {
 			result.push({ type: "sectionHeader", title: "Previously Watched" });
 			for (const item of prevWatchedItems) {
@@ -445,7 +445,7 @@ export function useWatchlistData(userId: string | undefined) {
 		if (!userId || allLoading || liveList.length === 0) return;
 
 		// Build cache list: 5 most recent watched + up to 100 show cards
-		const cacheList: CacheableListItem[] = [];
+		const cacheList: CacheableWatchlistListItem[] = [];
 		// Add only cached prev watched items (5 most recent)
 		const cachedWatchedItems = liveList.filter(
 			(i) => i.type === "watchedEpisode" || i.type === "watchedMovie",
@@ -523,8 +523,8 @@ export function useWatchlistData(userId: string | undefined) {
 		});
 	}, [items, optimisticCards, loading]);
 
-	// --- Convert to ListItem for backward compat with renderItem ---
-	const listData: ListItem[] = useMemo(() => {
+	// --- Convert to WatchlistListItem for backward compat with renderItem ---
+	const listData: WatchlistListItem[] = useMemo(() => {
 		return displayList.map((item) => {
 			if (item.type === "sectionHeader") return item;
 			if (item.type === "watchedMovie") {

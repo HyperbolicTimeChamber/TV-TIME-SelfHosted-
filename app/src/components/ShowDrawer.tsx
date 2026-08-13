@@ -114,7 +114,7 @@ export default function ShowDrawer({
 									onLoad={() => setImageLoaded(true)}
 								/>
 								<LinearGradient
-									colors={["transparent", colors.surface]}
+									colors={["transparent", colors.background]}
 									style={styles.imageGradient}
 								/>
 							</View>
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.overlayMedium,
 	},
 	background: {
-		backgroundColor: colors.surface,
+		backgroundColor: colors.background,
 	},
 	handleContainer: {
 		position: "absolute",

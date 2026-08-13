@@ -33,7 +33,7 @@ const navTheme = {
 	colors: {
 		primary: colors.primary,
 		background: colors.background,
-		card: colors.surface,
+		card: colors.background,
 		text: colors.text,
 		border: colors.border,
 		notification: colors.primary,
@@ -58,7 +58,7 @@ export default function AppNavigator() {
 					tabBarStyle: shouldHideTabBar(route)
 						? { display: "none" as const }
 						: {
-								backgroundColor: colors.surface,
+								backgroundColor: colors.background,
 								borderTopColor: colors.border,
 							},
 					tabBarActiveTintColor: colors.primary,

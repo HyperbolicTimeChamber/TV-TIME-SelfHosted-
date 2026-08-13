@@ -93,7 +93,7 @@ export const EpisodeCard = memo(function EpisodeCard({
 						<Text style={styles.stillPlaceholderText}>E{String(ep.episode).padStart(2, "0")}</Text>
 					</View>
 				)}
-				<LinearGradient colors={["transparent", colors.surface]} style={styles.imageGradient} />
+				<LinearGradient colors={["transparent", colors.background]} style={styles.imageGradient} />
 			</View>
 
 			<View style={styles.metaSection}>

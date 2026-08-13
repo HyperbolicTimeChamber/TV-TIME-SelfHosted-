@@ -4,6 +4,8 @@ import { colors, spacing, typography } from "../../../theme";
 import PosterImage from "../../../components/PosterImage";
 import { UpcomingEpisode, MediaType } from "../../../types";
 
+const POSTER_WIDTH = 100;
+
 interface Props {
 	episode: UpcomingEpisode;
 	onPress: (tmdbShowId: number) => void;
@@ -35,7 +37,7 @@ export default memo(function UpcomingEpisodeRow({
 			/>
 			<View style={styles.info}>
 				<TouchableOpacity
-					style={styles.titleButton}
+					style={styles.titlePill}
 					onPress={() => (onTitlePress ? onTitlePress(episode) : onPress(episode.tmdbShowId))}
 					activeOpacity={0.7}
 				>
@@ -44,15 +46,19 @@ export default memo(function UpcomingEpisodeRow({
 					</Text>
 					<Text style={styles.titleArrow}>›</Text>
 				</TouchableOpacity>
-				<Text style={styles.epTitle} numberOfLines={1}>
-					{episode.episodeTitle}
-				</Text>
 				{isMovie ? (
 					<View style={styles.movieBadge}>
 						<Text style={styles.movieBadgeText}>MOVIE</Text>
 					</View>
 				) : (
-					<Text style={styles.epLabel}>{label}</Text>
+					<>
+						<Text style={styles.epLabel}>{label}</Text>
+						{episode.episodeTitle ? (
+							<Text style={styles.epTitle} numberOfLines={1}>
+								{episode.episodeTitle}
+							</Text>
+						) : null}
+					</>
 				)}
 			</View>
 		</TouchableOpacity>
@@ -62,32 +68,26 @@ export default memo(function UpcomingEpisodeRow({
 const styles = StyleSheet.create({
 	row: {
 		flexDirection: "row",
-		alignItems: "center",
-		paddingHorizontal: spacing.lg,
-		paddingVertical: spacing.sm,
-		backgroundColor: colors.surface,
-		borderBottomWidth: 1,
-		borderBottomColor: colors.border,
+		backgroundColor: colors.background,
+		borderRadius: 8,
+		overflow: "hidden",
+		marginHorizontal: spacing.md,
+		marginBottom: spacing.sm,
+		minHeight: POSTER_WIDTH,
 	},
 	poster: {
-		width: 45,
-		height: 67,
-		borderRadius: 4,
-	},
-	noPoster: {
-		backgroundColor: colors.surfaceLight,
-		justifyContent: "center",
-		alignItems: "center",
-	},
-	noPosterText: {
-		...typography.subtitle,
-		color: colors.textMuted,
+		width: POSTER_WIDTH,
+		minHeight: POSTER_WIDTH,
+		alignSelf: "stretch",
 	},
 	info: {
 		flex: 1,
-		marginLeft: spacing.md,
+		justifyContent: "center",
+		paddingVertical: spacing.sm,
+		paddingLeft: spacing.md,
+		paddingRight: spacing.xs,
 	},
-	titleButton: {
+	titlePill: {
 		flexDirection: "row",
 		alignItems: "center",
 		alignSelf: "flex-start",
@@ -96,7 +96,8 @@ const styles = StyleSheet.create({
 		borderRadius: 14,
 		paddingHorizontal: spacing.sm,
 		paddingVertical: 2,
-		marginBottom: spacing.sm,
+		marginBottom: spacing.md,
+		maxWidth: "90%",
 	},
 	titleText: {
 		fontSize: 11,
@@ -117,7 +118,12 @@ const styles = StyleSheet.create({
 		fontWeight: "700",
 		color: colors.text,
 		letterSpacing: 1,
-		paddingHorizontal: spacing.sm,
+	},
+	epTitle: {
+		...typography.body,
+		color: colors.textSecondary,
+		marginTop: 2,
+		fontSize: 13,
 	},
 	movieBadge: {
 		alignSelf: "flex-start",
@@ -125,19 +131,11 @@ const styles = StyleSheet.create({
 		paddingHorizontal: spacing.sm,
 		paddingVertical: 2,
 		borderRadius: 4,
-		marginLeft: spacing.sm,
 	},
 	movieBadgeText: {
 		fontSize: 10,
 		fontWeight: "700",
 		color: colors.text,
 		letterSpacing: 0.5,
-	},
-	epTitle: {
-		...typography.body,
-		color: colors.text,
-		marginTop: 2,
-		fontSize: 13,
-		paddingHorizontal: spacing.sm,
 	},
 });

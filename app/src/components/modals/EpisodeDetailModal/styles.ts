@@ -15,7 +15,7 @@ export const styles = StyleSheet.create({
 	cardContent: {
 		width: CARD_WIDTH,
 		height: CARD_HEIGHT,
-		backgroundColor: colors.surface,
+		backgroundColor: colors.background,
 		borderRadius: 12,
 		overflow: "hidden",
 	},
@@ -208,7 +208,7 @@ export const styles = StyleSheet.create({
 		backgroundColor: colors.border,
 	},
 	backfillContent: {
-		backgroundColor: colors.surface,
+		backgroundColor: colors.background,
 		borderRadius: 12,
 		padding: spacing.lg,
 	},

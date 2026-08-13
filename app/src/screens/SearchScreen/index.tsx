@@ -63,7 +63,7 @@ export default function SearchScreen() {
 			if (!submittedQuery) {
 				navigation.getParent()?.setOptions({
 					tabBarStyle: {
-						backgroundColor: colors.surface,
+						backgroundColor: colors.background,
 						borderTopColor: colors.border,
 					},
 				});

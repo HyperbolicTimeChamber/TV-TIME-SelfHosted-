@@ -30,3 +30,4 @@ export type {
 	ProfileStackParamList,
 } from "./navigation";
 export type { CarouselEpisode, EnrichedEpisode, EpisodeDetailModalProps } from "./episodeCarousel";
+export type { WatchlistListItem } from "./watchlist";
