@@ -29,3 +29,4 @@ export type {
 	CalendarStackParamList,
 	ProfileStackParamList,
 } from "./navigation";
+export type { CarouselEpisode, EnrichedEpisode, EpisodeDetailModalProps } from "./episodeCarousel";
