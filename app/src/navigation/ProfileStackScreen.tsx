@@ -15,7 +15,7 @@ export default function ProfileStackScreen() {
 			<ProfileStack.Screen
 				name={Route.PROFILE_MAIN}
 				component={ProfileScreen}
-				options={{ headerTitle: "Profile" }}
+				options={{ headerShown: false }}
 			/>
 			<ProfileStack.Screen
 				name={Route.SETTINGS}

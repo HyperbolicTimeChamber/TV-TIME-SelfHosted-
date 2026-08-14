@@ -372,13 +372,14 @@ const styles = StyleSheet.create({
 		color: colors.textMuted,
 	},
 	updatingContainer: {
-		height: 80,
+		minHeight: POSTER_WIDTH,
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "center",
 		gap: spacing.sm,
 		backgroundColor: colors.watchedGreen,
 		borderRadius: 8,
+		marginHorizontal: spacing.md,
 	},
 	updatingText: {
 		...typography.subtitle,

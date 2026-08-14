@@ -1,5 +1,6 @@
 import React, { useLayoutEffect, useCallback } from "react";
 import { View, Text, TouchableOpacity, ScrollView, Alert } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -37,6 +38,7 @@ function formatTime(minutes: number) {
 }
 
 export default function ProfileScreen() {
+	const { top } = useSafeAreaInsets();
 	const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
 	const user = useAuthStore((s) => s.user);
 	const signOut = useAuthStore((s) => s.signOut);
@@ -73,7 +75,7 @@ export default function ProfileScreen() {
 	}, [navigation]);
 
 	return (
-		<ScrollView style={styles.container}>
+		<ScrollView style={[styles.container, { paddingTop: top }]}>
 			<View style={styles.profileSection}>
 				<View style={styles.statsGrid}>
 					<View style={styles.statsRow}>
@@ -129,9 +131,18 @@ export default function ProfileScreen() {
 				</View>
 				<View style={styles.header}>
 					<Text style={styles.name}>{user?.displayName || "User"}</Text>
-					<Text style={styles.email}>{user?.email}</Text>
+					<Text style={styles.email} numberOfLines={1}>{user?.email}</Text>
 				</View>
 			</View>
+
+			<TouchableOpacity
+				style={styles.settingsButton}
+				onPress={() => navigation.navigate(Route.SETTINGS)}
+				activeOpacity={0.7}
+			>
+				<Ionicons name="settings-sharp" size={18} color={colors.text} />
+				<Text style={styles.settingsButtonText}>Settings</Text>
+			</TouchableOpacity>
 
 			<WeeklyChart data={chartData} />
 

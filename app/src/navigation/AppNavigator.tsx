@@ -22,7 +22,9 @@ function shouldHideTabBar(route: any): boolean {
 		routeName === Route.SHOW_DETAIL ||
 		routeName === Route.SEASON_DETAIL ||
 		routeName === Route.SEARCH_INPUT ||
-		routeName === Route.SEARCH_RESULTS
+		routeName === Route.SEARCH_RESULTS ||
+		routeName === Route.SETTINGS ||
+		routeName === Route.IMPORT_DATA
 	)
 		return true;
 	return false;
@@ -125,9 +127,6 @@ export default function AppNavigator() {
 				<Tab.Screen
 					name={Route.PROFILE}
 					component={ProfileStackScreen}
-					options={{
-						headerShown: false,
-					}}
 					listeners={{
 						tabPress: (e) => {
 							e.preventDefault();

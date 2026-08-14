@@ -58,6 +58,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 	ref,
 ) {
 	const translateX = useSharedValue(0);
+	const [cardHeight, setCardHeight] = React.useState(0);
 	const [swipeState, setSwipeState] = React.useState<SwipeState>("idle");
 	const [showReveal, setShowReveal] = React.useState(false);
 	const [actionColor, setActionColor] = React.useState<string>(colors.watchedGreen);
@@ -187,7 +188,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 
 	if (swipeState === "loading" && !persistingLoad) {
 		return (
-			<View style={[styles.loadingReveal, { backgroundColor: actionColor }]}>
+			<View style={[styles.wrapper, styles.loadingReveal, { backgroundColor: actionColor, height: cardHeight || undefined }]}>
 				<ActivityIndicator color={colors.text} />
 				<Text style={styles.revealText}>{actionColor === leftColor ? leftLabel : rightLabel}</Text>
 			</View>
@@ -195,7 +196,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 	}
 
 	return (
-		<View style={styles.wrapper}>
+		<View style={styles.wrapper} onLayout={(e) => { const h = e.nativeEvent.layout.height; if (h > 0 && h !== cardHeight) setCardHeight(h); }}>
 			{showReveal && (
 				<>
 					<Animated.View
@@ -274,7 +275,6 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 		gap: spacing.sm,
-		paddingVertical: spacing.lg,
 		paddingHorizontal: spacing.xl,
 	},
 	revealCard: {
