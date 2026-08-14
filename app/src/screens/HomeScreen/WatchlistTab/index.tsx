@@ -796,7 +796,7 @@ export default function WatchlistTab() {
 				renderItem={renderItem}
 				recycleItems
 				drawDistance={SCREEN_HEIGHT * 2}
-				estimatedItemSize={148}
+				estimatedItemSize={110}
 				stickyHeaderIndices={stickyIndices}
 				refreshControl={
 					hasMorePrevWatched ? (

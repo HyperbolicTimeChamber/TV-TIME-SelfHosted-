@@ -235,7 +235,7 @@ export default function UpcomingTab() {
 				renderItem={renderItem}
 				recycleItems
 				drawDistance={SCREEN_HEIGHT * 2}
-				estimatedItemSize={110}
+				estimatedItemSize={100}
 				stickyHeaderIndices={stickyIndices}
 				style={styles.list}
 				contentContainerStyle={styles.listContent}

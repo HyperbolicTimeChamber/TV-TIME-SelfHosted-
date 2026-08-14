@@ -2,7 +2,7 @@ import React from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation, CommonActions } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { colors } from "../theme";
 import { Route } from "../types";
 
@@ -31,22 +31,9 @@ export default function CustomTabBar({ activeTab }: Props) {
 						style={styles.tab}
 						onPress={() => {
 							if (tab.route === Route.HOME) {
-								navigation.dispatch(
-									CommonActions.navigate({
-										name: Route.HOME,
-										params: {
-											screen: Route.HOME_TABS,
-											params: { screen: Route.WATCHLIST },
-										},
-									}),
-								);
+								navigation.navigate(Route.HOME);
 							} else {
-								navigation.dispatch(
-									CommonActions.navigate({
-										name: Route.SWIPE_TABS,
-										params: { screen: tab.route },
-									}),
-								);
+								navigation.navigate(Route.SWIPE_TABS, { screen: tab.route });
 							}
 						}}
 						activeOpacity={0.7}

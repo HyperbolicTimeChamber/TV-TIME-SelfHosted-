@@ -176,7 +176,7 @@ export default function SwipeTabsScreen() {
 				};
 			}}
 		>
-			<SwipeTab.Screen name={Route.HOME} component={HomeDummy} />
+			<SwipeTab.Screen name={Route.HOME} component={HomeDummy} options={{ lazy: false }} />
 			<SwipeTab.Screen name={Route.CALENDAR} component={CalendarStackScreen} />
 			<SwipeTab.Screen name={Route.SEARCH} component={SearchStackScreen} />
 			<SwipeTab.Screen name={Route.PROFILE} component={ProfileStackScreen} />

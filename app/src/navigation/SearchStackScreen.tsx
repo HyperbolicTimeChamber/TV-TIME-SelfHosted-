@@ -31,26 +31,17 @@ export default function SearchStackScreen() {
 			<SearchStack.Screen
 				name={Route.SEARCH_MAIN}
 				component={SearchScreen}
-				options={{ headerTitle: "Search", headerBackVisible: false }}
+				options={{ headerShown: false }}
 			/>
 			<SearchStack.Screen
 				name={Route.SEARCH_INPUT}
 				component={SearchInputScreen}
-				options={{
-					headerTitle: "Search",
-					headerBackVisible: false,
-					headerLeft: () => <BackToMain />,
-					animation: "fade",
-				}}
+				options={{ headerShown: false, animation: "fade" }}
 			/>
 			<SearchStack.Screen
 				name={Route.SEARCH_RESULTS}
 				component={SearchScreen}
-				options={{
-					headerTitle: "Search",
-					headerBackVisible: false,
-					headerLeft: () => <BackToMain />,
-				}}
+				options={{ headerShown: false }}
 			/>
 			<SearchStack.Screen
 				name={Route.SHOW_DETAIL}
