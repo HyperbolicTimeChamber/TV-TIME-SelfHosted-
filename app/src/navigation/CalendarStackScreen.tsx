@@ -13,7 +13,7 @@ export default function CalendarStackScreen() {
 			<CalendarStack.Screen
 				name={Route.CALENDAR_MAIN}
 				component={CalendarScreen}
-				options={{ headerTitle: "Calendar" }}
+				options={{ headerShown: false }}
 			/>
 			<CalendarStack.Screen
 				name={Route.SHOW_DETAIL}
