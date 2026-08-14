@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { Alert, View, Text, TouchableOpacity } from "react-native";
+import { Alert, View, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as DocumentPicker from "expo-document-picker";
 import { getFirestore, collection, doc, getDocs } from "@react-native-firebase/firestore";
