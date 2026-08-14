@@ -3,7 +3,8 @@ import { View, Text, TouchableOpacity } from "react-native";
 import { LegendList } from "@legendapp/list/react-native";
 import { Image } from "expo-image";
 import { TMDBMatch, ParsedGdprData } from "../../services/tvtimeImport";
-import { spacing, posterSize } from "../../theme";
+import { spacing } from "../../theme";
+import { tmdbPosterUri } from "../../hooks/useTmdbImage";
 import { importStyles as styles } from "./styles";
 
 interface Props {
@@ -128,7 +129,7 @@ export default function ReviewPhase({
 					</View>
 					{m.posterPath ? (
 						<Image
-							source={{ uri: `${posterSize.small}${m.posterPath}` }}
+							source={{ uri: tmdbPosterUri(m.posterPath, 40) }}
 							style={styles.posterSmall}
 							contentFit="cover"
 						/>

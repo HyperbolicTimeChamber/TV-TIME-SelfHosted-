@@ -24,7 +24,6 @@ export default function HomeScreen() {
 					textTransform: "uppercase",
 					letterSpacing: 1,
 				},
-				swipeEnabled: false,
 			}}
 		>
 			<TopTab.Screen
@@ -32,7 +31,11 @@ export default function HomeScreen() {
 				component={WatchlistTab}
 				options={{ tabBarLabel: "Watch List", swipeEnabled: false }}
 			/>
-			<TopTab.Screen name={Route.UPCOMING} component={UpcomingTab} />
+			<TopTab.Screen
+				name={Route.UPCOMING}
+				component={UpcomingTab}
+				options={{ swipeEnabled: true }}
+			/>
 		</TopTab.Navigator>
 	);
 }

@@ -4,7 +4,8 @@ import {
 	View,
 	Text,
 	TouchableOpacity,
-	ActivityIndicator,
+	Animated,
+	StyleSheet,
 	RefreshControl,
 	Dimensions,
 	Alert,
@@ -32,7 +33,7 @@ import {
 	getSeasonDetails,
 	getShowDetails,
 } from "../../../services";
-import { colors } from "../../../theme";
+import { colors, spacing } from "../../../theme";
 import {
 	HomeStackParamList,
 	MainStackParamList,
@@ -43,6 +44,7 @@ import {
 	QueryKey,
 } from "../../../types";
 import type { ShowDrawerData } from "../../../components/ShowDrawer";
+import { useSharedShimmer } from "../../../components/SkeletonLine";
 import { warmupWatchlistCFs, warmupFirestoreWrite } from "../../../services/warmup";
 import {
 	Timestamp,
@@ -74,6 +76,32 @@ type NavProp = CompositeNavigationProp<
 >;
 
 const SeparatorComponent = () => <View style={styles.separator} />;
+
+const POSTER_WIDTH = 100;
+
+function SkeletonFooter() {
+	const shimmer = useSharedShimmer();
+	return (
+		<View style={skeletonStyles.container}>
+			{[0, 1, 2].map((i) => (
+				<Animated.View key={i} style={[skeletonStyles.card, { opacity: shimmer }]} />
+			))}
+		</View>
+	);
+}
+
+const skeletonStyles = StyleSheet.create({
+	container: {
+		gap: spacing.sm,
+		paddingTop: spacing.sm,
+		paddingHorizontal: spacing.sm,
+	},
+	card: {
+		minHeight: POSTER_WIDTH,
+		borderRadius: 8,
+		backgroundColor: colors.border,
+	},
+});
 
 export default function WatchlistTab() {
 	const user = useAuthStore((s) => s.user);
@@ -812,13 +840,7 @@ export default function WatchlistTab() {
 				}
 				onEndReached={() => loadMoreTracking()}
 				onEndReachedThreshold={1.5}
-				ListFooterComponent={
-					loadingMoreTracking ? (
-						<View style={styles.loaderRow}>
-							<ActivityIndicator size="small" color={colors.primary} />
-						</View>
-					) : null
-				}
+				ListFooterComponent={loadingMoreTracking ? <SkeletonFooter /> : null}
 				ItemSeparatorComponent={SeparatorComponent}
 				maintainVisibleContentPosition={{ data: true, size: true }}
 				style={styles.list}

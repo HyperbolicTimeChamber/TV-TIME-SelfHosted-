@@ -40,7 +40,8 @@ import CheckmarkButton from "./CheckmarkButton";
 import SkeletonLine from "./SkeletonLine";
 import EpisodeDetailModal from "./modals/EpisodeDetailModal";
 import type { CarouselEpisode } from "./modals/EpisodeDetailModal";
-import { colors, spacing, typography, posterSize } from "../theme";
+import { colors, spacing, typography } from "../theme";
+import { tmdbPosterUri, tmdbStillUri } from "../hooks/useTmdbImage";
 import { TMDBSeason, TMDBEpisode, MediaType } from "../types";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -747,7 +748,7 @@ export default memo(function SeasonDropdown({
 			>
 				<Image
 					source={{
-						uri: `${posterSize.small}${season.poster_path || showPosterPath}`,
+						uri: tmdbPosterUri(season.poster_path || showPosterPath || "", 45),
 					}}
 					style={styles.seasonPoster}
 					contentFit="cover"
@@ -809,7 +810,7 @@ export default memo(function SeasonDropdown({
 											) : ep.still_path ? (
 												<Image
 													source={{
-														uri: `${posterSize.small}${ep.still_path}`,
+														uri: tmdbStillUri(ep.still_path, 80),
 													}}
 													style={styles.epThumb}
 													contentFit="cover"

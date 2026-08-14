@@ -1,7 +1,8 @@
 import React from "react";
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator, Dimensions } from "react-native";
 import { Image } from "expo-image";
-import { colors, backdropSize } from "../../theme";
+import { colors } from "../../theme";
+import { tmdbBackdropUri } from "../../hooks/useTmdbImage";
 import { styles, BLUR_RADIUS } from "./styles";
 
 interface Props {
@@ -26,7 +27,7 @@ export default function StatCard({
 		<View style={[styles.statCard, { flex, alignItems: side }]}>
 			{backdrop && (
 				<Image
-					source={{ uri: `${backdropSize.medium}${backdrop}` }}
+					source={{ uri: tmdbBackdropUri(backdrop, Dimensions.get("window").width / 2) }}
 					style={StyleSheet.absoluteFill}
 					contentFit="cover"
 					blurRadius={BLUR_RADIUS}
