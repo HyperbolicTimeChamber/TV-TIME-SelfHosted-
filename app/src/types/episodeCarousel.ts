@@ -28,4 +28,5 @@ export interface EpisodeDetailModalProps {
 	onShowPress?: () => void;
 	onClose: () => void;
 	onLoadEpisodeDetails?: (season: number) => Promise<CarouselEpisode[] | null>;
+	onIndexChange?: (index: number, total: number) => void;
 }

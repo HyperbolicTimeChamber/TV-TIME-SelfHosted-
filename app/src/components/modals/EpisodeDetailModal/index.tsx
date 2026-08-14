@@ -30,6 +30,7 @@ export default function EpisodeDetailModal({
 	onShowPress,
 	onClose,
 	onLoadEpisodeDetails,
+	onIndexChange,
 }: Readonly<EpisodeDetailModalProps>) {
 	const carouselRef = useRef<FlatList>(null);
 	const [localWatched, setLocalWatched] = useState<Map<string, number>>(watchedKeys);
@@ -101,6 +102,7 @@ export default function EpisodeDetailModal({
 	const handleSnap = useCallback(
 		(index: number) => {
 			setActiveIndex(index);
+			onIndexChange?.(index, enrichedEps.length);
 			const seasonsToFetch = new Set<number>();
 			for (let i = index; i <= Math.min(index + 2, enrichedEps.length - 1); i++) {
 				const ep = enrichedEps[i];
@@ -112,7 +114,7 @@ export default function EpisodeDetailModal({
 				fetchSeason(sn);
 			}
 		},
-		[enrichedEps, fetchSeason],
+		[enrichedEps, fetchSeason, onIndexChange],
 	);
 
 	useEffect(() => {
@@ -322,6 +324,7 @@ export default function EpisodeDetailModal({
 					keyExtractor={(item: CarouselEpisode) => epKey(item.season, item.episode)}
 					horizontal
 					snapToInterval={SNAP_INTERVAL}
+					snapToAlignment="start"
 					decelerationRate="fast"
 					scrollEnabled={scrollEnabled}
 					showsHorizontalScrollIndicator={false}
@@ -334,9 +337,10 @@ export default function EpisodeDetailModal({
 					})}
 					scrollEventThrottle={16}
 					contentContainerStyle={{
-						gap: CARD_GAP,
 						paddingHorizontal: SIDE_PADDING,
 					}}
+					windowSize={5}
+					maxToRenderPerBatch={3}
 					style={{ flexGrow: 0 }}
 				/>
 				{enrichedEps.length > 1 && (
