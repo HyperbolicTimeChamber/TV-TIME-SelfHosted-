@@ -171,7 +171,7 @@ export default function SwipeTabsScreen() {
 				const childRoute = getFocusedRouteNameFromRoute(route);
 				const onDetail = childRoute != null && DETAIL_ROUTES.has(childRoute as Route);
 				return {
-					lazy: false,
+					lazy: true,
 					swipeEnabled: !onDetail,
 				};
 			}}
