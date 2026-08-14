@@ -1,4 +1,3 @@
-import React from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
 import { colors } from "../../theme";

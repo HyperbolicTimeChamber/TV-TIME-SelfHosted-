@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LoadingSpinner, shouldShowUnreleasedModal } from "../../components";
 import SlidingTabs from "../../components/SlidingTabs";
 import { LegendList } from "@legendapp/list/react-native";
-import { useNavigation, useRoute, useFocusEffect, RouteProp } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
 	useSearch,
@@ -58,18 +58,6 @@ export default function SearchScreen() {
 		warmupSearchCFs();
 	}, []);
 
-	useFocusEffect(
-		useCallback(() => {
-			if (!submittedQuery) {
-				navigation.getParent()?.setOptions({
-					tabBarStyle: {
-						backgroundColor: colors.background,
-						borderTopColor: colors.border,
-					},
-				});
-			}
-		}, [submittedQuery, navigation]),
-	);
 
 	// Collapsible header
 	const headerHeight = useRef(0);

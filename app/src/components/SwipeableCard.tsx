@@ -188,7 +188,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 
 	if (swipeState === "loading" && !persistingLoad) {
 		return (
-			<View style={[styles.wrapper, styles.loadingReveal, { backgroundColor: actionColor, height: cardHeight || undefined }]}>
+			<View style={[styles.wrapper, styles.loadingReveal, { backgroundColor: actionColor, minHeight: cardHeight || 100 }]}>
 				<ActivityIndicator color={colors.text} />
 				<Text style={styles.revealText}>{actionColor === leftColor ? leftLabel : rightLabel}</Text>
 			</View>
@@ -202,11 +202,10 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 					<Animated.View
 						style={[
 							styles.revealCard,
-							styles.revealLeft,
-							{ backgroundColor: leftColor },
 							swipeState === "loading" && actionColor === leftColor
-								? { opacity: 1 }
-								: leftRevealOpacity,
+								? { opacity: 1, justifyContent: "center" as const }
+								: [styles.revealLeft, leftRevealOpacity],
+							{ backgroundColor: leftColor },
 						]}
 					>
 						{swipeState === "loading" && actionColor === leftColor ? (
@@ -227,11 +226,10 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 					<Animated.View
 						style={[
 							styles.revealCard,
-							styles.revealRight,
-							{ backgroundColor: rightColor },
 							swipeState === "loading" && actionColor === rightColor
-								? { opacity: 1 }
-								: rightRevealOpacity,
+								? { opacity: 1, justifyContent: "center" as const }
+								: [styles.revealRight, rightRevealOpacity],
+							{ backgroundColor: rightColor },
 						]}
 					>
 						{swipeState === "loading" && actionColor === rightColor ? (

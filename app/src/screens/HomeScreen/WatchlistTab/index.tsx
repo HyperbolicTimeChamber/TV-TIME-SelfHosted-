@@ -12,7 +12,6 @@ import {
 import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation, CompositeNavigationProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { useAuthStore, useUiStore } from "../../../stores";
 import {
 	LoadingSpinner,
@@ -36,7 +35,7 @@ import {
 import { colors } from "../../../theme";
 import {
 	HomeStackParamList,
-	MainTabParamList,
+	MainStackParamList,
 	WatchedEpisode,
 	WatchedMovie,
 	MediaType,
@@ -71,7 +70,7 @@ const SCREEN_HEIGHT = Dimensions.get("window").height;
 
 type NavProp = CompositeNavigationProp<
 	NativeStackNavigationProp<HomeStackParamList, Route.HOME_TABS>,
-	BottomTabNavigationProp<MainTabParamList>
+	NativeStackNavigationProp<MainStackParamList>
 >;
 
 const SeparatorComponent = () => <View style={styles.separator} />;
@@ -771,7 +770,7 @@ export default function WatchlistTab() {
 				<Text style={styles.empty}>No shows in your watchlist</Text>
 				<TouchableOpacity
 					style={styles.addShowsButton}
-					onPress={() => navigation.navigate(Route.SEARCH)}
+					onPress={() => navigation.navigate(Route.SWIPE_TABS, { screen: Route.SEARCH })}
 				>
 					<Text style={styles.addShowsText}>+ Add Shows</Text>
 				</TouchableOpacity>

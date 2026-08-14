@@ -20,7 +20,7 @@ export default function ProfileStackScreen() {
 			<ProfileStack.Screen
 				name={Route.SETTINGS}
 				component={SettingsScreen}
-				options={{ headerTitle: "Settings" }}
+				options={{ headerShown: false }}
 			/>
 			<ProfileStack.Screen
 				name={Route.IMPORT_DATA}
