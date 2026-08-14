@@ -63,6 +63,15 @@ export default function UpcomingTab() {
 		return result;
 	}, [episodes]);
 
+	const stickyIndices = useMemo(
+		() =>
+			listData.reduce<number[]>((acc, item, i) => {
+				if (item.type === "header") acc.push(i);
+				return acc;
+			}, []),
+		[listData],
+	);
+
 	const handleNavigateToShow = useCallback(
 		(tmdbShowId: number) => {
 			navigation.navigate(Route.SHOW_DETAIL, {
@@ -111,12 +120,14 @@ export default function UpcomingTab() {
 						prev
 							? {
 									...prev,
-									episodes: [{
-										...prev.episodes[0],
-										overview: tmdbEp.overview || null,
-										stillPath: tmdbEp.still_path || null,
-										title: tmdbEp.name || prev.episodes[0].title,
-									}],
+									episodes: [
+										{
+											...prev.episodes[0],
+											overview: tmdbEp.overview || null,
+											stillPath: tmdbEp.still_path || null,
+											title: tmdbEp.name || prev.episodes[0].title,
+										},
+									],
 								}
 							: null,
 					);
@@ -161,7 +172,6 @@ export default function UpcomingTab() {
 
 	const handleEpModalShowPress = useCallback(() => {
 		if (!epModalData || !epModalData.episodes[0]) return;
-		const ep = epModalData.episodes[0];
 		setEpModalVisible(false);
 		setEpModalData(null);
 		handleNavigateToShow(epModalData.tmdbId);
@@ -227,7 +237,8 @@ export default function UpcomingTab() {
 				renderItem={renderItem}
 				recycleItems
 				drawDistance={SCREEN_HEIGHT * 2}
-				estimatedItemSize={72}
+				estimatedItemSize={100}
+				stickyHeaderIndices={stickyIndices}
 				style={styles.list}
 				contentContainerStyle={styles.listContent}
 			/>
@@ -279,14 +290,14 @@ export default function UpcomingTab() {
 const styles = StyleSheet.create({
 	list: {
 		flex: 1,
-		backgroundColor: colors.background,
+		backgroundColor: colors.surface,
 	},
 	listContent: {
 		paddingBottom: spacing.xl,
 	},
 	center: {
 		flex: 1,
-		backgroundColor: colors.background,
+		backgroundColor: colors.surface,
 		justifyContent: "center",
 		alignItems: "center",
 	},

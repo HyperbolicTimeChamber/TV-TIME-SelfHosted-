@@ -24,8 +24,12 @@ export type {
 	RootStackParamList,
 	MainTabParamList,
 	HomeTopTabParamList,
+	MainStackParamList,
 	HomeStackParamList,
+	SwipeTabParamList,
 	SearchStackParamList,
 	CalendarStackParamList,
 	ProfileStackParamList,
 } from "./navigation";
+export type { CarouselEpisode, EnrichedEpisode, EpisodeDetailModalProps } from "./episodeCarousel";
+export type { WatchlistListItem } from "./watchlist";

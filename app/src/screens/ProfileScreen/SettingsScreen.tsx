@@ -8,7 +8,8 @@ import {
 	Alert,
 	ActivityIndicator,
 } from "react-native";
-
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
@@ -18,6 +19,7 @@ import { colors, spacing, typography } from "../../theme";
 import { ProfileStackParamList, Route } from "../../types";
 
 export default function SettingsScreen() {
+	const { top } = useSafeAreaInsets();
 	const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
 	const hasCompletedImport = useAuthStore((s) => s.hasCompletedImport);
 	const user = useAuthStore((s) => s.user);
@@ -79,7 +81,18 @@ export default function SettingsScreen() {
 	}, [signOut]);
 
 	return (
-		<ScrollView style={styles.container}>
+		<ScrollView style={[styles.container, { paddingTop: top }]}>
+			<View style={styles.headerRow}>
+				<TouchableOpacity
+					style={styles.backButton}
+					onPress={() => navigation.goBack()}
+					hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+				>
+					<Ionicons name="chevron-back" size={26} color={colors.text} />
+				</TouchableOpacity>
+				<Text style={styles.headerTitle}>Settings</Text>
+				<View style={styles.backButton} />
+			</View>
 			<View style={styles.section}>
 				<Text style={styles.sectionTitle}>Data</Text>
 				<TouchableOpacity style={styles.row} onPress={() => navigation.navigate(Route.IMPORT_DATA)}>
@@ -157,6 +170,26 @@ const styles = StyleSheet.create({
 	container: {
 		flex: 1,
 		backgroundColor: colors.background,
+	},
+	headerRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		paddingHorizontal: spacing.sm,
+		paddingVertical: spacing.sm,
+	},
+	backButton: {
+		width: 44,
+		height: 44,
+		borderRadius: 22,
+		backgroundColor: colors.surface,
+		justifyContent: "center",
+		alignItems: "center",
+	},
+	headerTitle: {
+		...typography.title,
+		flex: 1,
+		textAlign: "center",
+		fontSize: 18,
 	},
 	section: {
 		marginTop: spacing.lg,

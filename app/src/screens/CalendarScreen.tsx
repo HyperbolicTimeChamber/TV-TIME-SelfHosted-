@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { AnimatedModal, LoadingSpinner } from "../components";
 import { LegendList } from "@legendapp/list/react-native";
@@ -22,6 +23,7 @@ const YEARS = Array.from(
 );
 
 export default function CalendarScreen() {
+	const { top } = useSafeAreaInsets();
 	const user = useAuthStore((s) => s.user);
 	const navigation = useNavigation<NavProp>();
 	const [selectedDate, setSelectedDate] = useState<string | null>(
@@ -192,7 +194,7 @@ export default function CalendarScreen() {
 	);
 
 	return (
-		<View style={styles.container}>
+		<View style={[styles.container, { paddingTop: top }]}>
 			<Calendar
 				key={calendarKey}
 				current={initialDate}

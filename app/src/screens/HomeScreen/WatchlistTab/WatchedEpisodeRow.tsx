@@ -34,62 +34,61 @@ export default memo(function WatchedEpisodeRow({
 			persistAfterSwipe={{ left: true, right: episode.watchCount > 1 }}
 		>
 			<TouchableOpacity
-				style={[styles.container, styles.watchedContainer]}
+				style={styles.container}
 				onPress={() => onPress(episode.tmdbShowId)}
 				activeOpacity={0.8}
 			>
-				<PosterImage
-					posterPath={show.posterPath}
-					mediaType="tv"
-					style={[styles.poster, styles.watchedPoster]}
-				/>
+				<PosterImage posterPath={show.posterPath} mediaType="tv" style={styles.poster} />
 				<View style={styles.info}>
-					<View style={styles.titleButton}>
+					<View style={styles.titlePill}>
 						<Text style={styles.titleText} numberOfLines={1}>
 							{show.title.toUpperCase()}
 						</Text>
 					</View>
-					<Text style={styles.episodeTitle} numberOfLines={1}>
-						{episode.episodeTitle}
-					</Text>
 					<Text style={styles.episodeLabel}>{label}</Text>
+					{episode.episodeTitle ? (
+						<Text style={styles.episodeTitle} numberOfLines={1}>
+							{episode.episodeTitle}
+						</Text>
+					) : null}
 				</View>
-				<CheckmarkButton
-					size={36}
-					watched
-					label={episode.watchCount > 1 ? `${episode.watchCount}` : undefined}
-					onPress={() => onCheckmarkPress(episode)}
-				/>
+				<View style={styles.checkmarkWrap}>
+					<CheckmarkButton
+						size={38}
+						watched
+						label={episode.watchCount > 1 ? `${episode.watchCount}` : undefined}
+						onPress={() => onCheckmarkPress(episode)}
+					/>
+				</View>
 			</TouchableOpacity>
 		</SwipeableCard>
 	);
 });
 
+const POSTER_WIDTH = 100;
+
 const styles = StyleSheet.create({
 	container: {
-		flex: 1,
 		flexDirection: "row",
-		alignItems: "center",
-		paddingHorizontal: spacing.lg,
-		paddingVertical: spacing.sm,
-		backgroundColor: colors.surface,
-	},
-	watchedContainer: {
-		opacity: 0.4,
+		backgroundColor: colors.background,
+		borderRadius: 8,
+		overflow: "hidden",
+		opacity: 0.5,
+		minHeight: POSTER_WIDTH,
 	},
 	poster: {
-		width: 55,
-		height: 82,
-		borderRadius: 4,
-	},
-	watchedPoster: {
+		width: POSTER_WIDTH,
+		alignSelf: "stretch",
 		opacity: 0.6,
 	},
 	info: {
 		flex: 1,
-		marginLeft: spacing.md,
+		justifyContent: "center",
+		paddingVertical: spacing.sm,
+		paddingLeft: spacing.md,
+		paddingRight: spacing.xs,
 	},
-	titleButton: {
+	titlePill: {
 		flexDirection: "row",
 		alignItems: "center",
 		alignSelf: "flex-start",
@@ -99,6 +98,7 @@ const styles = StyleSheet.create({
 		paddingHorizontal: spacing.sm,
 		paddingVertical: 2,
 		marginBottom: spacing.sm,
+		maxWidth: "90%",
 	},
 	titleText: {
 		fontSize: 11,
@@ -113,13 +113,15 @@ const styles = StyleSheet.create({
 		fontWeight: "700",
 		color: colors.textMuted,
 		letterSpacing: 1,
-		marginTop: 2,
-		paddingHorizontal: spacing.sm,
 	},
 	episodeTitle: {
 		...typography.body,
 		color: colors.textMuted,
 		fontSize: 13,
-		paddingHorizontal: spacing.sm,
+		marginTop: 2,
+	},
+	checkmarkWrap: {
+		alignSelf: "center",
+		paddingRight: spacing.md,
 	},
 });

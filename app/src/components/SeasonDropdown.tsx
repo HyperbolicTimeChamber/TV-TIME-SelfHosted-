@@ -610,7 +610,15 @@ export default memo(function SeasonDropdown({
 			});
 			setEpInfoVisible(true);
 		},
-		[showTitle, season.season_number, episodes, watchedMap, tmdbId, showPosterPath, showBackdropPath],
+		[
+			showTitle,
+			season.season_number,
+			episodes,
+			watchedMap,
+			tmdbId,
+			showPosterPath,
+			showBackdropPath,
+		],
 	);
 
 	const handleCarouselMark = useCallback(

@@ -1,10 +1,11 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { View, Text, TouchableOpacity, Alert, Animated } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LoadingSpinner, shouldShowUnreleasedModal } from "../../components";
 import SlidingTabs from "../../components/SlidingTabs";
 import { LegendList } from "@legendapp/list/react-native";
-import { useNavigation, useRoute, useFocusEffect, RouteProp } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
 	useSearch,
@@ -48,6 +49,7 @@ import { styles } from "./styles";
 type NavProp = NativeStackNavigationProp<SearchStackParamList, Route.SEARCH_MAIN>;
 
 export default function SearchScreen() {
+	const { top } = useSafeAreaInsets();
 	const navigation = useNavigation<NavProp>();
 	const route =
 		useRoute<RouteProp<SearchStackParamList, Route.SEARCH_MAIN | Route.SEARCH_RESULTS>>();
@@ -57,19 +59,6 @@ export default function SearchScreen() {
 	useEffect(() => {
 		warmupSearchCFs();
 	}, []);
-
-	useFocusEffect(
-		useCallback(() => {
-			if (!submittedQuery) {
-				navigation.getParent()?.setOptions({
-					tabBarStyle: {
-						backgroundColor: colors.surface,
-						borderTopColor: colors.border,
-					},
-				});
-			}
-		}, [submittedQuery, navigation]),
-	);
 
 	// Collapsible header
 	const headerHeight = useRef(0);
@@ -610,26 +599,47 @@ export default function SearchScreen() {
 		<View style={styles.container}>
 			<Animated.View
 				onLayout={onHeaderLayout}
-				style={[styles.headerBlock, { transform: [{ translateY: headerTranslateY }] }]}
+				style={[
+					styles.headerBlock,
+					{ paddingTop: top, transform: [{ translateY: headerTranslateY }] },
+				]}
 			>
-				<TouchableOpacity style={styles.searchBarRow} onPress={openSearchInput} activeOpacity={0.7}>
-					<View style={styles.searchRow}>
-						<Ionicons name="search" size={18} color={colors.textMuted} style={styles.searchIcon} />
-						<Text style={[styles.searchInput, { color: colors.textMuted }]} numberOfLines={1}>
-							{submittedQuery || "Search shows & movies"}
-						</Text>
+				<View style={styles.headerCard}>
+					<View style={styles.searchBarRow}>
+						{submittedQuery ? (
+							<TouchableOpacity
+								style={styles.backButton}
+								onPress={() => navigation.navigate(Route.SEARCH_MAIN)}
+								activeOpacity={0.7}
+							>
+								<Ionicons name="chevron-back" size={24} color={colors.text} />
+							</TouchableOpacity>
+						) : (
+							<View style={styles.searchIconWrap}>
+								<Ionicons name="search" size={18} color={colors.textMuted} />
+							</View>
+						)}
+						<TouchableOpacity
+							style={styles.searchRow}
+							onPress={openSearchInput}
+							activeOpacity={0.7}
+						>
+							<Text style={[styles.searchInput, { color: colors.textMuted }]} numberOfLines={1}>
+								{submittedQuery || "Search shows & movies"}
+							</Text>
+						</TouchableOpacity>
 					</View>
-				</TouchableOpacity>
 
-				<SlidingTabs
-					tabs={[
-						{ key: MediaFilter.ALL, label: "All" },
-						{ key: MediaFilter.TV, label: "TV" },
-						{ key: MediaFilter.MOVIE, label: "Movies" },
-					]}
-					activeKey={mediaFilter}
-					onTabPress={(key) => setMediaFilter(key as MediaFilter)}
-				/>
+					<SlidingTabs
+						tabs={[
+							{ key: MediaFilter.ALL, label: "All" },
+							{ key: MediaFilter.TV, label: "TV" },
+							{ key: MediaFilter.MOVIE, label: "Movies" },
+						]}
+						activeKey={mediaFilter}
+						onTabPress={(key) => setMediaFilter(key as MediaFilter)}
+					/>
+				</View>
 			</Animated.View>
 
 			<Animated.View style={{ paddingTop: contentPaddingTop }}>

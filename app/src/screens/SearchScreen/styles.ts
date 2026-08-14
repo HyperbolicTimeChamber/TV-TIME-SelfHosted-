@@ -16,17 +16,30 @@ export const styles = StyleSheet.create({
 	},
 	searchBarRow: {
 		flexDirection: "row",
+		alignItems: "stretch",
+	},
+	headerCard: {
+		backgroundColor: colors.surface,
+		borderRadius: 12,
+		marginHorizontal: spacing.md,
+		marginTop: spacing.md,
+		overflow: "hidden",
+	},
+	backButton: {
+		width: 44,
+		justifyContent: "center",
 		alignItems: "center",
-		gap: spacing.sm,
+		backgroundColor: colors.surfaceLight,
+	},
+	searchIconWrap: {
+		width: 44,
+		justifyContent: "center",
+		alignItems: "center",
 	},
 	searchRow: {
 		flex: 1,
 		flexDirection: "row",
 		alignItems: "center",
-		backgroundColor: colors.surface,
-	},
-	searchIcon: {
-		marginLeft: spacing.md,
 	},
 	searchInput: {
 		...typography.body,
@@ -47,7 +60,7 @@ export const styles = StyleSheet.create({
 		alignItems: "center" as const,
 	},
 	grid: {
-		paddingHorizontal: spacing.sm,
+		paddingHorizontal: spacing.lg,
 		paddingTop: spacing.sm,
 	},
 	row: {

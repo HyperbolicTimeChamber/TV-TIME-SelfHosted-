@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -16,6 +17,7 @@ const HISTORY_KEY = "search_history";
 const MAX_BYTES = 10240;
 
 export default function SearchInputScreen() {
+	const { top } = useSafeAreaInsets();
 	const navigation = useNavigation<NavProp>();
 	const route = useRoute<RoutePropType>();
 	const inputRef = useRef<TextInput>(null);
@@ -79,10 +81,6 @@ export default function SearchInputScreen() {
 		[navigation, addToHistory],
 	);
 
-	const handleBack = useCallback(() => {
-		navigation.navigate(Route.SEARCH_MAIN);
-	}, [navigation]);
-
 	const handleClearHistory = useCallback(() => {
 		setSearchHistory([]);
 		AsyncStorage.removeItem(HISTORY_KEY).catch(() => {});
@@ -107,10 +105,16 @@ export default function SearchInputScreen() {
 		: [];
 
 	return (
-		<View style={styles.container}>
+		<View style={[styles.container, { paddingTop: top }]}>
 			<View style={styles.searchBarRow}>
+				<TouchableOpacity
+					style={styles.backButton}
+					onPress={() => navigation.navigate(Route.SEARCH_MAIN)}
+					hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+				>
+					<Ionicons name="chevron-back" size={26} color={colors.text} />
+				</TouchableOpacity>
 				<View style={styles.searchRow}>
-					<Ionicons name="search" size={18} color={colors.textMuted} style={styles.searchIcon} />
 					<TextInput
 						ref={inputRef}
 						style={styles.searchInput}
@@ -189,16 +193,25 @@ const styles = StyleSheet.create({
 	},
 	searchBarRow: {
 		flexDirection: "row",
-		alignItems: "center",
-		marginHorizontal: spacing.lg,
+		alignItems: "stretch",
+		marginHorizontal: spacing.md,
 		marginVertical: spacing.md,
+	},
+	backButton: {
+		width: 44,
+		justifyContent: "center",
+		alignItems: "center",
+		backgroundColor: colors.surfaceLight,
+		borderTopLeftRadius: 8,
+		borderBottomLeftRadius: 8,
 	},
 	searchRow: {
 		flex: 1,
 		flexDirection: "row",
 		alignItems: "center",
-		backgroundColor: colors.surfaceLight,
-		borderRadius: 8,
+		backgroundColor: colors.surface,
+		borderTopRightRadius: 8,
+		borderBottomRightRadius: 8,
 	},
 	searchIcon: {
 		marginLeft: spacing.md,

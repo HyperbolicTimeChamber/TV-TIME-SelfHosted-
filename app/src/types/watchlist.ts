@@ -1,7 +1,7 @@
-import { EnrichedTrackingItem } from "../../../hooks";
-import { WatchedEpisode, WatchedMovie } from "../../../types";
+import { EnrichedTrackingItem } from "../hooks";
+import { WatchedEpisode, WatchedMovie } from "./user";
 
-export type ListItem =
+export type WatchlistListItem =
 	| { type: "sectionHeader"; title: string }
 	| { type: "show"; item: EnrichedTrackingItem }
 	| {

@@ -77,6 +77,9 @@ export enum Route {
 	WATCHLIST = "Watchlist",
 	UPCOMING = "Upcoming",
 
+	// Root stack
+	SWIPE_TABS = "SwipeTabs",
+
 	// Stack screens
 	HOME_TABS = "HomeTabs",
 	SHOW_DETAIL = "ShowDetail",

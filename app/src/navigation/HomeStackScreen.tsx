@@ -14,7 +14,7 @@ export default function HomeStackScreen() {
 			<HomeStack.Screen
 				name={Route.HOME_TABS}
 				component={HomeScreen}
-				options={{ headerTitle: "Watchloom" }}
+				options={{ headerShown: false }}
 			/>
 			<HomeStack.Screen
 				name={Route.SHOW_DETAIL}

@@ -37,7 +37,6 @@ interface Props {
 	children: React.ReactNode;
 	onSwipeLeft: () => Promise<void>;
 	onSwipeRight: () => Promise<void>;
-	height?: number;
 	persistAfterSwipe?: boolean | { left: boolean; right: boolean };
 	leftLabel?: string;
 	rightLabel?: string;
@@ -50,7 +49,6 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		children,
 		onSwipeLeft,
 		onSwipeRight,
-		height = 100,
 		persistAfterSwipe = false,
 		leftLabel = "Watched",
 		rightLabel = "Stop",
@@ -60,6 +58,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 	ref,
 ) {
 	const translateX = useSharedValue(0);
+	const [cardHeight, setCardHeight] = React.useState(0);
 	const [swipeState, setSwipeState] = React.useState<SwipeState>("idle");
 	const [showReveal, setShowReveal] = React.useState(false);
 	const [actionColor, setActionColor] = React.useState<string>(colors.watchedGreen);
@@ -189,7 +188,13 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 
 	if (swipeState === "loading" && !persistingLoad) {
 		return (
-			<View style={[styles.revealCard, { height, backgroundColor: actionColor }]}>
+			<View
+				style={[
+					styles.wrapper,
+					styles.loadingReveal,
+					{ backgroundColor: actionColor, minHeight: cardHeight || 100 },
+				]}
+			>
 				<ActivityIndicator color={colors.text} />
 				<Text style={styles.revealText}>{actionColor === leftColor ? leftLabel : rightLabel}</Text>
 			</View>
@@ -197,17 +202,22 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 	}
 
 	return (
-		<View style={{ height, overflow: "hidden" }}>
+		<View
+			style={styles.wrapper}
+			onLayout={(e) => {
+				const h = e.nativeEvent.layout.height;
+				if (h > 0 && h !== cardHeight) setCardHeight(h);
+			}}
+		>
 			{showReveal && (
 				<>
 					<Animated.View
 						style={[
 							styles.revealCard,
-							styles.revealLeft,
-							{ height, backgroundColor: leftColor },
 							swipeState === "loading" && actionColor === leftColor
-								? { opacity: 1 }
-								: leftRevealOpacity,
+								? { opacity: 1, justifyContent: "center" as const }
+								: [styles.revealLeft, leftRevealOpacity],
+							{ backgroundColor: leftColor },
 						]}
 					>
 						{swipeState === "loading" && actionColor === leftColor ? (
@@ -228,11 +238,10 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 					<Animated.View
 						style={[
 							styles.revealCard,
-							styles.revealRight,
-							{ height, backgroundColor: rightColor },
 							swipeState === "loading" && actionColor === rightColor
-								? { opacity: 1 }
-								: rightRevealOpacity,
+								? { opacity: 1, justifyContent: "center" as const }
+								: [styles.revealRight, rightRevealOpacity],
+							{ backgroundColor: rightColor },
 						]}
 					>
 						{swipeState === "loading" && actionColor === rightColor ? (
@@ -253,26 +262,31 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 			)}
 
 			<GestureDetector gesture={panGesture}>
-				<Animated.View style={[styles.card, { height }, cardStyle]}>{children}</Animated.View>
+				<Animated.View style={[styles.card, cardStyle]}>{children}</Animated.View>
 			</GestureDetector>
 		</View>
 	);
 });
 
 const styles = StyleSheet.create({
+	wrapper: {
+		overflow: "hidden",
+		borderRadius: 8,
+		marginHorizontal: spacing.md,
+	},
 	card: {
-		position: "absolute",
-		top: 0,
-		left: 0,
-		right: 0,
-		backgroundColor: colors.surface,
+		backgroundColor: colors.background,
 		zIndex: 1,
 	},
+	loadingReveal: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		gap: spacing.sm,
+		paddingHorizontal: spacing.xl,
+	},
 	revealCard: {
-		position: "absolute",
-		top: 0,
-		left: 0,
-		right: 0,
+		...(StyleSheet.absoluteFill as object),
 		flexDirection: "row",
 		alignItems: "center",
 		gap: spacing.sm,

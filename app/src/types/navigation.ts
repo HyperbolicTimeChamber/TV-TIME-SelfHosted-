@@ -6,10 +6,22 @@ export type RootStackParamList = {
 	Main: undefined;
 };
 
+export type MainStackParamList = {
+	Home: undefined;
+	SwipeTabs: { screen?: string } | undefined;
+};
+
 export type MainTabParamList = {
 	Home: undefined;
 	Search: undefined;
 	Calendar: undefined;
+	Profile: undefined;
+};
+
+export type SwipeTabParamList = {
+	Home: undefined;
+	Calendar: undefined;
+	Search: undefined;
 	Profile: undefined;
 };
 

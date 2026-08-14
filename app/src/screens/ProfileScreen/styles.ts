@@ -22,6 +22,23 @@ export const styles = StyleSheet.create({
 		paddingVertical: spacing.xs,
 		borderRadius: 16,
 		overflow: "hidden",
+		maxWidth: "70%",
+	},
+	settingsButton: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		gap: spacing.xs,
+		backgroundColor: colors.primary,
+		paddingVertical: spacing.lg,
+		borderRadius: 8,
+		marginTop: spacing.xl,
+		marginHorizontal: spacing.lg,
+	},
+	settingsButtonText: {
+		...typography.subtitle,
+		fontSize: 14,
+		color: colors.text,
 	},
 	avatarOverlay: {
 		position: "absolute",

@@ -62,9 +62,7 @@ export default memo(function ShowCard({
 		: "Movie";
 
 	const remainingLabel =
-		remainingEpisodes != null && remainingEpisodes > 0
-			? `+${remainingEpisodes} ep${remainingEpisodes > 1 ? "s" : ""} left`
-			: null;
+		remainingEpisodes != null && remainingEpisodes > 0 ? `+${remainingEpisodes}` : null;
 
 	// "NEW" tag: TV episode aired today
 	const isNewEpisode =
@@ -115,20 +113,18 @@ export default memo(function ShowCard({
 				rightLabel={wc > 1 ? "−1" : "Unwatch"}
 				persistAfterSwipe={{ left: true, right: wc > 1 }}
 			>
-				<TouchableOpacity
-					style={[styles.container, styles.watchedContainer]}
-					onPress={handlePress}
-					activeOpacity={0.8}
-				>
+				<TouchableOpacity style={styles.container} onPress={handlePress} activeOpacity={0.8}>
 					<PosterImage
 						posterPath={item.posterPath}
 						mediaType={item.mediaType}
 						style={[styles.poster, styles.watchedPoster]}
 					/>
 					<View style={styles.info}>
-						<Text style={[styles.watchedTitle, styles.watchedText]} numberOfLines={1}>
-							{item.title}
-						</Text>
+						<View style={[styles.titlePill, styles.watchedTitlePill]}>
+							<Text style={[styles.titleText, styles.watchedMuted]} numberOfLines={1}>
+								{item.title.toUpperCase()}
+							</Text>
+						</View>
 						{item.mediaType === MediaType.MOVIE ? (
 							<>
 								<View style={[styles.movieMetaRow, { opacity: 0.6 }]}>
@@ -149,21 +145,23 @@ export default memo(function ShowCard({
 									</View>
 								</View>
 								{item.director && (
-									<Text style={[styles.episodeName, styles.watchedText]} numberOfLines={1}>
+									<Text style={[styles.episodeName, styles.watchedMuted]} numberOfLines={1}>
 										{item.director}
 									</Text>
 								)}
 							</>
 						) : (
-							<Text style={[styles.episode, styles.watchedText]}>{episodeLabel}</Text>
+							<Text style={[styles.episode, styles.watchedMuted]}>{episodeLabel}</Text>
 						)}
 						{item.rewatchCount > 0 && (
-							<Text style={[styles.rewatch, styles.watchedText]}>Rewatch #{item.rewatchCount}</Text>
+							<Text style={[styles.rewatch, styles.watchedMuted]}>
+								Rewatch #{item.rewatchCount}
+							</Text>
 						)}
 					</View>
 					<View style={styles.checkmarkWrap}>
 						<CheckmarkButton
-							size={36}
+							size={38}
 							watched
 							label={wc > 1 ? `${wc}` : undefined}
 							onPress={() => _onCheckmark(item)}
@@ -198,7 +196,7 @@ export default memo(function ShowCard({
 				/>
 				<View style={styles.info}>
 					<TouchableOpacity
-						style={styles.titleButton}
+						style={styles.titlePill}
 						onPress={handleTitlePress}
 						disabled={!onTitlePress}
 					>
@@ -207,11 +205,6 @@ export default memo(function ShowCard({
 						</Text>
 						{onTitlePress && <Text style={styles.titleArrow}>›</Text>}
 					</TouchableOpacity>
-					{item.nextEpisodeName && item.mediaType === MediaType.TV ? (
-						<Text style={styles.episodeName} numberOfLines={1}>
-							{item.nextEpisodeName}
-						</Text>
-					) : null}
 					{item.mediaType === MediaType.MOVIE ? (
 						<>
 							<View style={styles.movieMetaRow}>
@@ -236,17 +229,32 @@ export default memo(function ShowCard({
 							)}
 						</>
 					) : (
-						<Text style={styles.episode}>
-							{episodeLabel}
-							{remainingLabel ? <Text style={styles.remaining}> {remainingLabel}</Text> : null}
-							{isFinale ? (
-								<Text style={styles.freshTagInline}> {FreshTag.FINALE}</Text>
-							) : isNewEpisode ? (
-								<Text style={styles.freshTagInline}> {FreshTag.NEW}</Text>
-							) : isLatest ? (
-								<Text style={styles.latestTagInline}> {FreshTag.LATEST}</Text>
+						<>
+							<Text style={styles.episode}>
+								{episodeLabel}
+								{remainingLabel ? <Text style={styles.remaining}> {remainingLabel}</Text> : null}
+							</Text>
+							{item.nextEpisodeName ? (
+								<Text style={styles.episodeName} numberOfLines={1}>
+									{item.nextEpisodeName}
+								</Text>
 							) : null}
-						</Text>
+							{isFinale ? (
+								<View style={styles.tagBadge}>
+									<Text style={styles.tagBadgeText}>{FreshTag.FINALE}</Text>
+								</View>
+							) : isNewEpisode ? (
+								<View style={styles.tagBadge}>
+									<Text style={styles.tagBadgeText}>{FreshTag.NEW}</Text>
+								</View>
+							) : isLatest ? (
+								<View style={[styles.tagBadge, styles.latestBadge]}>
+									<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
+										{FreshTag.LATEST}
+									</Text>
+								</View>
+							) : null}
+						</>
 					)}
 					{item.rewatchCount > 0 && (
 						<Text style={styles.rewatch}>Rewatch #{item.rewatchCount}</Text>
@@ -254,7 +262,7 @@ export default memo(function ShowCard({
 				</View>
 				<View style={styles.checkmarkWrap}>
 					<CheckmarkButton
-						size={36}
+						size={38}
 						onPress={() => swipeRef.current?.triggerSwipeLeft()}
 						onLongPress={onCheckmarkLongPress}
 					/>
@@ -264,33 +272,31 @@ export default memo(function ShowCard({
 	);
 });
 
+const POSTER_WIDTH = 100;
+
 const styles = StyleSheet.create({
 	container: {
-		flex: 1,
 		flexDirection: "row",
-		alignItems: "flex-start",
-		paddingHorizontal: spacing.lg,
-		paddingVertical: spacing.sm,
-		backgroundColor: colors.surface,
-	},
-	watchedContainer: {
-		opacity: 0.4,
+		backgroundColor: colors.background,
+		borderRadius: 8,
+		overflow: "hidden",
+		minHeight: POSTER_WIDTH,
 	},
 	poster: {
-		width: 55,
-		height: 82,
-		borderRadius: 4,
+		width: POSTER_WIDTH,
+		alignSelf: "stretch",
 	},
 	watchedPoster: {
-		opacity: 0.6,
+		opacity: 0.5,
 	},
 	info: {
 		flex: 1,
-		marginLeft: spacing.md,
-		marginRight: spacing.sm,
-		paddingTop: spacing.xs,
+		justifyContent: "center",
+		paddingVertical: spacing.sm,
+		paddingLeft: spacing.md,
+		paddingRight: spacing.xs,
 	},
-	titleButton: {
+	titlePill: {
 		flexDirection: "row",
 		alignItems: "center",
 		alignSelf: "flex-start",
@@ -299,7 +305,11 @@ const styles = StyleSheet.create({
 		borderRadius: 14,
 		paddingHorizontal: spacing.sm,
 		paddingVertical: 2,
-		marginBottom: spacing.sm,
+		marginBottom: spacing.md,
+		maxWidth: "90%",
+	},
+	watchedTitlePill: {
+		borderColor: colors.textMuted,
 	},
 	titleText: {
 		fontSize: 11,
@@ -320,28 +330,16 @@ const styles = StyleSheet.create({
 		fontWeight: "700",
 		color: colors.text,
 		letterSpacing: 1,
-		marginTop: 2,
-		paddingHorizontal: spacing.sm,
 	},
 	episodeName: {
 		...typography.body,
-		color: colors.text,
+		color: colors.textSecondary,
 		marginTop: 2,
 		fontSize: 13,
-		paddingHorizontal: spacing.sm,
 	},
 	movieBadgeGroup: {
 		flexDirection: "row",
 		alignItems: "stretch",
-	},
-	movieBadge: {
-		alignSelf: "flex-start",
-		backgroundColor: colors.moviePurple,
-		paddingHorizontal: spacing.sm,
-		paddingVertical: 2,
-		borderRadius: 4,
-		justifyContent: "center",
-		zIndex: 1,
 	},
 	movieBadgeMerged: {
 		backgroundColor: colors.moviePurple,
@@ -360,27 +358,26 @@ const styles = StyleSheet.create({
 	},
 	remaining: {
 		color: colors.textMuted,
-		fontSize: 11,
+		fontSize: 12,
+		fontWeight: "400",
 	},
 	rewatch: {
 		...typography.caption,
 		color: colors.accent,
 		marginTop: spacing.xs,
-		paddingHorizontal: spacing.sm,
 	},
-	watchedTitle: {
-		...typography.subtitle,
-	},
-	watchedText: {
+	watchedMuted: {
 		color: colors.textMuted,
 	},
 	updatingContainer: {
-		height: 100,
+		minHeight: POSTER_WIDTH,
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "center",
 		gap: spacing.sm,
 		backgroundColor: colors.watchedGreen,
+		borderRadius: 8,
+		marginHorizontal: spacing.md,
 	},
 	updatingText: {
 		...typography.subtitle,
@@ -409,23 +406,35 @@ const styles = StyleSheet.create({
 		color: colors.surface,
 		letterSpacing: 0.5,
 	},
-	freshTagInline: {
-		fontSize: 12,
-		fontWeight: "700",
-		color: colors.warningAmber,
+	tagBadge: {
+		alignSelf: "flex-start",
+		backgroundColor: colors.warningAmber,
+		paddingHorizontal: spacing.sm,
+		paddingVertical: 2,
+		borderRadius: 4,
+		marginTop: spacing.sm,
 	},
-	latestTagInline: {
-		fontSize: 12,
+	tagBadgeText: {
+		fontSize: 10,
 		fontWeight: "700",
+		color: colors.surface,
+		letterSpacing: 0.5,
+	},
+	latestBadge: {
+		backgroundColor: "transparent",
+		borderWidth: 1,
+		borderColor: colors.accent,
+	},
+	latestBadgeText: {
 		color: colors.accent,
 	},
 	movieMetaRow: {
 		flexDirection: "row",
 		alignItems: "center",
-		marginTop: spacing.sm,
-		paddingLeft: spacing.sm,
+		marginTop: spacing.xs,
 	},
 	checkmarkWrap: {
 		alignSelf: "center",
+		paddingRight: spacing.md,
 	},
 });

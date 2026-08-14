@@ -20,7 +20,7 @@ function BackToMain() {
 			hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
 			style={{ marginRight: 4 }}
 		>
-			<Ionicons name="arrow-back" size={24} color={colors.text} />
+			<Ionicons name="chevron-back" size={26} color={colors.text} />
 		</TouchableOpacity>
 	);
 }
@@ -31,26 +31,17 @@ export default function SearchStackScreen() {
 			<SearchStack.Screen
 				name={Route.SEARCH_MAIN}
 				component={SearchScreen}
-				options={{ headerTitle: "Search", headerBackVisible: false }}
+				options={{ headerShown: false }}
 			/>
 			<SearchStack.Screen
 				name={Route.SEARCH_INPUT}
 				component={SearchInputScreen}
-				options={{
-					headerTitle: "Search",
-					headerBackVisible: false,
-					headerLeft: () => <BackToMain />,
-					animation: "fade",
-				}}
+				options={{ headerShown: false, animation: "fade" }}
 			/>
 			<SearchStack.Screen
 				name={Route.SEARCH_RESULTS}
 				component={SearchScreen}
-				options={{
-					headerTitle: "Search",
-					headerBackVisible: false,
-					headerLeft: () => <BackToMain />,
-				}}
+				options={{ headerShown: false }}
 			/>
 			<SearchStack.Screen
 				name={Route.SHOW_DETAIL}
