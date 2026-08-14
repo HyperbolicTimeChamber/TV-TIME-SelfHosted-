@@ -1,10 +1,10 @@
 import { Dimensions, Animated, FlatList } from "react-native";
 
 export const SCREEN_WIDTH = Dimensions.get("window").width;
-export const CARD_WIDTH = SCREEN_WIDTH * 0.82;
+export const CARD_WIDTH = Math.round(SCREEN_WIDTH * 0.82);
 export const CARD_GAP = 1;
 export const SNAP_INTERVAL = CARD_WIDTH + CARD_GAP;
-export const SIDE_PADDING = (SCREEN_WIDTH - CARD_WIDTH) / 2;
+export const SIDE_PADDING = Math.round((SCREEN_WIDTH - CARD_WIDTH) / 2);
 export const CARD_HEIGHT = Math.min(Dimensions.get("window").height * 0.55, 460);
 export const IMAGE_HEIGHT = 180;
 

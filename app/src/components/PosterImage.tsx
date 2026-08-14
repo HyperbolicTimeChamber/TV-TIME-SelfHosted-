@@ -2,13 +2,15 @@ import React from "react";
 import { View, Text, StyleSheet, StyleProp, ViewStyle } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, posterSize, typography } from "../theme";
+import { colors, typography } from "../theme";
+import { tmdbPosterUri } from "../hooks/useTmdbImage";
 import { MediaType } from "../enums";
+
+const POSTER_WIDTH = 100;
 
 interface Props {
 	posterPath: string | null | undefined;
 	mediaType?: MediaType | string;
-	size?: "small" | "medium";
 	style?: StyleProp<ViewStyle>;
 	contentFit?: "cover" | "contain";
 	title?: string;
@@ -17,19 +19,17 @@ interface Props {
 export default function PosterImage({
 	posterPath,
 	mediaType,
-	size = "small",
 	style,
 	contentFit = "cover",
 	title,
 }: Props) {
-	const base = size === "medium" ? posterSize.medium : posterSize.small;
-
 	if (posterPath) {
 		return (
 			<Image
-				source={{ uri: `${base}${posterPath}` }}
+				source={{ uri: tmdbPosterUri(posterPath, POSTER_WIDTH) }}
 				style={style as any}
 				contentFit={contentFit}
+				recyclingKey={posterPath}
 			/>
 		);
 	}

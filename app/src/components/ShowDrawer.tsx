@@ -140,7 +140,15 @@ export default function ShowDrawer({
 										</View>
 									)}
 								</View>
-								{show.overview ? <Text style={styles.overview}>{show.overview}</Text> : null}
+								{show.overview === null ? (
+									<View style={styles.overviewSkeleton}>
+										<SkeletonLine width="100%" height={14} />
+										<SkeletonLine width="95%" height={14} style={{ marginTop: spacing.xs }} />
+										<SkeletonLine width="60%" height={14} style={{ marginTop: spacing.xs }} />
+									</View>
+								) : show.overview ? (
+									<Text style={styles.overview}>{show.overview}</Text>
+								) : null}
 							</View>
 							{onGoToShow && (
 								<TouchableOpacity
@@ -251,6 +259,9 @@ const styles = StyleSheet.create({
 		...typography.caption,
 		color: colors.text,
 		marginTop: spacing.xs,
+	},
+	overviewSkeleton: {
+		marginTop: spacing.md,
 	},
 	overview: {
 		...typography.body,

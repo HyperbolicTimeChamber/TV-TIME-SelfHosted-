@@ -26,7 +26,6 @@ function SearchCard({ item, isInWatchlist, isAdding, onPress, onAdd, onRemove }:
 			<PosterImage
 				posterPath={item.poster_path}
 				mediaType={mediaType}
-				size="medium"
 				style={styles.poster}
 			/>
 			<TouchableOpacity

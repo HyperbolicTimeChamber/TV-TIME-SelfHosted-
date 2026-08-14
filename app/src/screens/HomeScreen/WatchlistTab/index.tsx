@@ -4,7 +4,8 @@ import {
 	View,
 	Text,
 	TouchableOpacity,
-	ActivityIndicator,
+	Animated,
+	StyleSheet,
 	RefreshControl,
 	Dimensions,
 	Alert,
@@ -32,7 +33,7 @@ import {
 	getSeasonDetails,
 	getShowDetails,
 } from "../../../services";
-import { colors } from "../../../theme";
+import { colors, spacing } from "../../../theme";
 import {
 	HomeStackParamList,
 	MainStackParamList,
@@ -43,6 +44,7 @@ import {
 	QueryKey,
 } from "../../../types";
 import type { ShowDrawerData } from "../../../components/ShowDrawer";
+import { useSharedShimmer } from "../../../components/SkeletonLine";
 import { warmupWatchlistCFs, warmupFirestoreWrite } from "../../../services/warmup";
 import {
 	Timestamp,
@@ -74,6 +76,32 @@ type NavProp = CompositeNavigationProp<
 >;
 
 const SeparatorComponent = () => <View style={styles.separator} />;
+
+const POSTER_WIDTH = 100;
+
+function SkeletonFooter() {
+	const shimmer = useSharedShimmer();
+	return (
+		<View style={skeletonStyles.container}>
+			{[0, 1, 2].map((i) => (
+				<Animated.View key={i} style={[skeletonStyles.card, { opacity: shimmer }]} />
+			))}
+		</View>
+	);
+}
+
+const skeletonStyles = StyleSheet.create({
+	container: {
+		gap: spacing.sm,
+		paddingTop: spacing.sm,
+		paddingHorizontal: spacing.sm,
+	},
+	card: {
+		minHeight: POSTER_WIDTH,
+		borderRadius: 8,
+		backgroundColor: colors.border,
+	},
+});
 
 export default function WatchlistTab() {
 	const user = useAuthStore((s) => s.user);
@@ -130,7 +158,6 @@ export default function WatchlistTab() {
 		currentNextEpisode: { season: number; episode: number } | null;
 	} | null>(null);
 	const epModalTmdbIdRef = useRef<number | null>(null);
-
 	// Show drawer state
 	const [drawerVisible, setDrawerVisible] = useState(false);
 	const [drawerShow, setDrawerShow] = useState<ShowDrawerData | null>(null);
@@ -213,10 +240,23 @@ export default function WatchlistTab() {
 
 			if (allEps.length === 0) return;
 
-			// Find initial index
-			const initialIdx = allEps.findIndex(
-				(e) => e.season === ep.season && e.episode === ep.episode,
+			// Find current episode index
+			const rawIdx = Math.max(
+				0,
+				allEps.findIndex((e) => e.season === ep.season && e.episode === ep.episode),
 			);
+
+			// Window to max 50 episodes around current
+			const MAX_WINDOW = 50;
+			let carouselEps = allEps;
+			let initialIdx = rawIdx;
+			if (allEps.length > MAX_WINDOW) {
+				const half = Math.floor(MAX_WINDOW / 2);
+				const start = Math.max(0, rawIdx - half);
+				const end = Math.min(allEps.length, start + MAX_WINDOW);
+				carouselEps = allEps.slice(start, end);
+				initialIdx = rawIdx - start;
+			}
 
 			// Build watched keys from query cache
 			// Fetch ALL watched episodes for this show (complete + correct counts)
@@ -247,8 +287,8 @@ export default function WatchlistTab() {
 				showTitle: item.title,
 				showPosterPath: item.posterPath ?? null,
 				showBackdropPath: catalog?.backdropPath ?? null,
-				episodes: allEps,
-				initialIndex: Math.max(0, initialIdx),
+				episodes: carouselEps,
+				initialIndex: initialIdx,
 				watchedKeys: wKeys,
 				currentNextEpisode: ep,
 			});
@@ -812,13 +852,7 @@ export default function WatchlistTab() {
 				}
 				onEndReached={() => loadMoreTracking()}
 				onEndReachedThreshold={1.5}
-				ListFooterComponent={
-					loadingMoreTracking ? (
-						<View style={styles.loaderRow}>
-							<ActivityIndicator size="small" color={colors.primary} />
-						</View>
-					) : null
-				}
+				ListFooterComponent={loadingMoreTracking ? <SkeletonFooter /> : null}
 				ItemSeparatorComponent={SeparatorComponent}
 				maintainVisibleContentPosition={{ data: true, size: true }}
 				style={styles.list}

@@ -5,7 +5,7 @@ import { ShowDrawer } from "../../components";
 import type { ShowDrawerData } from "../../components/ShowDrawer";
 import { TMDBMatch } from "../../services/tvtimeImport";
 import { getShowDetails } from "../../services/tmdb";
-import { posterSize } from "../../theme";
+import { tmdbPosterUri } from "../../hooks/useTmdbImage";
 import { MediaType } from "../../enums";
 import { importStyles as styles } from "./styles";
 
@@ -65,7 +65,7 @@ export default function CandidateCard({ item, apiKey, onPress }: Props) {
 			<TouchableOpacity style={styles.candidateRow} onPress={onPress} onLongPress={handleLongPress}>
 				{item.posterPath ? (
 					<Image
-						source={{ uri: `${posterSize.small}${item.posterPath}` }}
+						source={{ uri: tmdbPosterUri(item.posterPath, 60) }}
 						style={styles.poster}
 						contentFit="cover"
 					/>

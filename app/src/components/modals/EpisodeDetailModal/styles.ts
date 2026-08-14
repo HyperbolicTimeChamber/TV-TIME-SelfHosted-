@@ -1,6 +1,6 @@
 import { StyleSheet } from "react-native";
 import { colors, spacing, typography } from "../../../theme";
-import { CARD_WIDTH, CARD_HEIGHT, IMAGE_HEIGHT } from "./constants";
+import { CARD_WIDTH, CARD_HEIGHT, CARD_GAP, IMAGE_HEIGHT } from "./constants";
 
 export const styles = StyleSheet.create({
 	modalOverlay: {
@@ -11,6 +11,7 @@ export const styles = StyleSheet.create({
 	},
 	cardWrapper: {
 		width: CARD_WIDTH,
+		marginRight: CARD_GAP,
 	},
 	cardContent: {
 		width: CARD_WIDTH,

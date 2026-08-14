@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
 import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation } from "@react-navigation/native";
@@ -82,7 +82,9 @@ export default function UpcomingTab() {
 		[navigation],
 	);
 
-	const handleEpisodePress = useCallback(async (ep: UpcomingEpisode) => {
+	const epModalTmdbIdRef = useRef<number | null>(null);
+
+	const handleEpisodePress = useCallback((ep: UpcomingEpisode) => {
 		const catalog = getCachedCatalogShow(
 			ep.tmdbShowId,
 			ep.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV,
@@ -98,6 +100,7 @@ export default function UpcomingTab() {
 			overview: null,
 		};
 
+		epModalTmdbIdRef.current = ep.tmdbShowId;
 		setEpModalData({
 			tmdbId: ep.tmdbShowId,
 			showTitle: ep.showTitle,
@@ -109,32 +112,46 @@ export default function UpcomingTab() {
 			currentNextEpisode: null,
 		});
 		setEpModalVisible(true);
-
-		const apiKey = useAuthStore.getState().appTmdbApiKey;
-		if (apiKey) {
-			try {
-				const seasonData = await getSeasonDetails(apiKey, ep.tmdbShowId, ep.season);
-				const tmdbEp = seasonData.episodes?.find((e) => e.episode_number === ep.episode);
-				if (tmdbEp) {
-					setEpModalData((prev) =>
-						prev
-							? {
-									...prev,
-									episodes: [
-										{
-											...prev.episodes[0],
-											overview: tmdbEp.overview || null,
-											stillPath: tmdbEp.still_path || null,
-											title: tmdbEp.name || prev.episodes[0].title,
-										},
-									],
-								}
-							: null,
-					);
-				}
-			} catch {}
-		}
 	}, []);
+
+	const handleLoadEpisodeDetails = useCallback(
+		async (season: number): Promise<CarouselEpisode[] | null> => {
+			const tmdbId = epModalTmdbIdRef.current;
+			const apiKey = useAuthStore.getState().appTmdbApiKey;
+			if (!apiKey || !tmdbId) return null;
+			try {
+				const seasonData = await getSeasonDetails(apiKey, tmdbId, season);
+				return seasonData.episodes.map((e) => ({
+					season: e.season_number ?? season,
+					episode: e.episode_number,
+					title: e.name || null,
+					airDate: e.air_date || null,
+					runtime: e.runtime || null,
+					stillPath: e.still_path || null,
+					overview: e.overview || null,
+				}));
+			} catch {
+				const catalog = await getCatalogShow(
+					tmdbId,
+					MediaType.TV,
+				);
+				const catSeason = catalog?.seasons?.find((s) => s.seasonNumber === season);
+				if (catSeason) {
+					return catSeason.episodes.map((e) => ({
+						season: catSeason.seasonNumber,
+						episode: e.episodeNumber,
+						title: e.title || null,
+						airDate: e.airDate || null,
+						runtime: e.runtime || null,
+						stillPath: e.stillPath || null,
+						overview: e.overview || null,
+					}));
+				}
+				return null;
+			}
+		},
+		[],
+	);
 
 	const handleTitlePress = useCallback(async (ep: UpcomingEpisode) => {
 		const catalog = await getCatalogShow(
@@ -147,7 +164,7 @@ export default function UpcomingTab() {
 				title: catalog.title,
 				posterPath: catalog.posterPath,
 				backdropPath: catalog.backdropPath,
-				overview: catalog.overview,
+				overview: catalog.overview || null,
 				mediaType: catalog.mediaType,
 				year: (catalog.firstAirDate || "")?.substring(0, 4) || null,
 				totalSeasons: catalog.totalSeasons,
@@ -162,10 +179,23 @@ export default function UpcomingTab() {
 				try {
 					const data = (await getShowDetails(apiKey, catalog.tmdbId, catalog.mediaType)) as any;
 					const genres = data?.genres?.map((g: any) => g.name).join(", ");
-					if (genres) {
-						setDrawerShow((prev) => (prev ? { ...prev, genres } : null));
-					}
-				} catch {}
+					const overview = data?.overview || "";
+					setDrawerShow((prev) =>
+						prev
+							? {
+									...prev,
+									...(genres && { genres }),
+									overview: overview || prev.overview || "",
+								}
+							: null,
+					);
+				} catch {
+					setDrawerShow((prev) => (prev ? { ...prev, overview: prev.overview || "" } : null));
+				}
+			} else {
+				setDrawerShow((prev) =>
+					prev ? { ...prev, overview: prev.overview || "" } : null,
+				);
 			}
 		}
 	}, []);
@@ -257,6 +287,7 @@ export default function UpcomingTab() {
 					onMarkWatched={noopMark}
 					onMarkWatchedThrough={noopMark}
 					onUnmarkWatched={noopMark}
+					onLoadEpisodeDetails={handleLoadEpisodeDetails}
 					onShowPress={handleEpModalShowPress}
 					onClose={() => {
 						setEpModalVisible(false);

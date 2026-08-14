@@ -19,12 +19,11 @@ export default function HomeScreen() {
 				tabBarInactiveTintColor: colors.textSecondary,
 				tabBarIndicatorStyle: { backgroundColor: colors.primary },
 				tabBarLabelStyle: {
-					fontWeight: "700",
+					fontWeight: "900",
 					fontSize: 16,
 					textTransform: "uppercase",
 					letterSpacing: 1,
 				},
-				swipeEnabled: false,
 			}}
 		>
 			<TopTab.Screen
@@ -32,7 +31,11 @@ export default function HomeScreen() {
 				component={WatchlistTab}
 				options={{ tabBarLabel: "Watch List", swipeEnabled: false }}
 			/>
-			<TopTab.Screen name={Route.UPCOMING} component={UpcomingTab} />
+			<TopTab.Screen
+				name={Route.UPCOMING}
+				component={UpcomingTab}
+				options={{ swipeEnabled: true }}
+			/>
 		</TopTab.Navigator>
 	);
 }

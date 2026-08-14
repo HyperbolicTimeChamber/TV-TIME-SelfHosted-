@@ -1,7 +1,8 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
-import { colors, posterSize } from "../../theme";
+import { colors } from "../../theme";
+import { tmdbPosterUri } from "../../hooks/useTmdbImage";
 import { styles, BLUR_RADIUS } from "./styles";
 
 const POSTER_W = 55;
@@ -77,7 +78,7 @@ export default function CollageCard({
 							return (
 								<Image
 									key={i}
-									source={{ uri: `${posterSize.small}${p}` }}
+									source={{ uri: tmdbPosterUri(p, POSTER_W) }}
 									style={[
 										local.scatterPoster,
 										{
@@ -105,7 +106,7 @@ export default function CollageCard({
 							return (
 								<Image
 									key={i}
-									source={{ uri: `${posterSize.small}${p}` }}
+									source={{ uri: tmdbPosterUri(p, POSTER_W) }}
 									style={{ width: `${100 / cols}%` as any, height: `${100 / rows}%` as any }}
 									contentFit="cover"
 									blurRadius={BLUR_RADIUS}

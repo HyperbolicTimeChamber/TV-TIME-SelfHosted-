@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Keyboard } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
@@ -75,6 +75,7 @@ export default function SearchInputScreen() {
 		(term: string) => {
 			const trimmed = term.trim();
 			if (!trimmed) return;
+			Keyboard.dismiss();
 			addToHistory(trimmed);
 			navigation.replace(Route.SEARCH_RESULTS, { query: trimmed });
 		},
@@ -109,7 +110,10 @@ export default function SearchInputScreen() {
 			<View style={styles.searchBarRow}>
 				<TouchableOpacity
 					style={styles.backButton}
-					onPress={() => navigation.navigate(Route.SEARCH_MAIN)}
+					onPress={() => {
+						Keyboard.dismiss();
+						navigation.navigate(Route.SEARCH_MAIN);
+					}}
 					hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
 				>
 					<Ionicons name="chevron-back" size={26} color={colors.text} />
@@ -118,7 +122,7 @@ export default function SearchInputScreen() {
 					<TextInput
 						ref={inputRef}
 						style={styles.searchInput}
-						placeholder="Search shows & movies..."
+						placeholder="Search Shows & Movies..."
 						placeholderTextColor={colors.textMuted}
 						value={query}
 						onChangeText={setQuery}
