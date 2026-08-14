@@ -86,8 +86,7 @@ export default function SeasonDetailScreen() {
 				const isBeforeCurrent =
 					currentNext &&
 					(seasonNumber < currentNext.season ||
-						(seasonNumber === currentNext.season &&
-							ep.episode_number < currentNext.episode));
+						(seasonNumber === currentNext.season && ep.episode_number < currentNext.episode));
 
 				if (isBeforeCurrent) {
 					// Missed episode — record it without moving the tracking pointer

@@ -6,7 +6,11 @@ import { styles } from "./styles";
 import { Card3DWrapper } from "./Card3DWrapper";
 import { EpisodeCard } from "./EpisodeCard";
 import { BackfillModal } from "./BackfillModal";
-import type { CarouselEpisode, EnrichedEpisode, EpisodeDetailModalProps } from "../../../types/episodeCarousel";
+import type {
+	CarouselEpisode,
+	EnrichedEpisode,
+	EpisodeDetailModalProps,
+} from "../../../types/episodeCarousel";
 
 export type { CarouselEpisode } from "../../../types/episodeCarousel";
 
@@ -260,9 +264,7 @@ export default function EpisodeDetailModal({
 							onRewatch={() => {
 								setMarkingKey(key);
 								onMarkWatched(tmdbId, item.season, item.episode).finally(() => {
-									setLocalWatched((prev) =>
-										new Map(prev).set(key, (prev.get(key) ?? 0) + 1),
-									);
+									setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
 									setMarkingKey(null);
 								});
 							}}

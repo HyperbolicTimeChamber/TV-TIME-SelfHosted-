@@ -80,8 +80,14 @@ async function registerFCMToken(userId: string) {
 
 function AppContent() {
 	useForceUpdate();
-	const { user, loading, appTmdbApiKey, appTmdbApiKeyLoading, userFlagsLoading, hasCompletedImport } =
-		useAuthStore();
+	const {
+		user,
+		loading,
+		appTmdbApiKey,
+		appTmdbApiKeyLoading,
+		userFlagsLoading,
+		hasCompletedImport,
+	} = useAuthStore();
 
 	// Listen for background add failures (CF rollback)
 	useEffect(() => {

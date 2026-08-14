@@ -70,20 +70,20 @@ export async function getHighestWatchedEpisode(
 	tmdbShowId: number,
 ): Promise<{ season: number; episode: number } | null> {
 	return trackApi("firestore", "getHighestWatchedEpisode", async () => {
-	const epCol = watchedEpisodesRef(userId);
-	const snap = await getDocs(query(epCol, where("tmdbShowId", "==", tmdbShowId)));
-	let highest: { season: number; episode: number } | null = null;
-	for (const d of snap.docs) {
-		const data = d.data();
-		if (
-			!highest ||
-			data.season > highest.season ||
-			(data.season === highest.season && data.episode > highest.episode)
-		) {
-			highest = { season: data.season, episode: data.episode };
+		const epCol = watchedEpisodesRef(userId);
+		const snap = await getDocs(query(epCol, where("tmdbShowId", "==", tmdbShowId)));
+		let highest: { season: number; episode: number } | null = null;
+		for (const d of snap.docs) {
+			const data = d.data();
+			if (
+				!highest ||
+				data.season > highest.season ||
+				(data.season === highest.season && data.episode > highest.episode)
+			) {
+				highest = { season: data.season, episode: data.episode };
+			}
 		}
-	}
-	return highest;
+		return highest;
 	});
 }
 
@@ -156,8 +156,7 @@ export async function addToTracking(
 
 	// Background: ensure catalog exists + update trackedBy
 	// If CF fails after retry → rollback tracking doc + call onError
-	const callAddShow = () =>
-		callCF(CloudFunction.ADD_SHOW, { tmdbId, mediaType });
+	const callAddShow = () => callCF(CloudFunction.ADD_SHOW, { tmdbId, mediaType });
 	callAddShow().catch(() =>
 		callAddShow().catch(async () => {
 			// Both attempts failed — undo the local add

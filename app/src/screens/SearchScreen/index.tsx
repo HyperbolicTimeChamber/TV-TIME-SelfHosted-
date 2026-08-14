@@ -60,7 +60,6 @@ export default function SearchScreen() {
 		warmupSearchCFs();
 	}, []);
 
-
 	// Collapsible header
 	const headerHeight = useRef(0);
 	const headerTranslateY = useRef(new Animated.Value(0)).current;
@@ -600,7 +599,10 @@ export default function SearchScreen() {
 		<View style={styles.container}>
 			<Animated.View
 				onLayout={onHeaderLayout}
-				style={[styles.headerBlock, { paddingTop: top, transform: [{ translateY: headerTranslateY }] }]}
+				style={[
+					styles.headerBlock,
+					{ paddingTop: top, transform: [{ translateY: headerTranslateY }] },
+				]}
 			>
 				<View style={styles.headerCard}>
 					<View style={styles.searchBarRow}>
@@ -617,7 +619,11 @@ export default function SearchScreen() {
 								<Ionicons name="search" size={18} color={colors.textMuted} />
 							</View>
 						)}
-						<TouchableOpacity style={styles.searchRow} onPress={openSearchInput} activeOpacity={0.7}>
+						<TouchableOpacity
+							style={styles.searchRow}
+							onPress={openSearchInput}
+							activeOpacity={0.7}
+						>
 							<Text style={[styles.searchInput, { color: colors.textMuted }]} numberOfLines={1}>
 								{submittedQuery || "Search shows & movies"}
 							</Text>

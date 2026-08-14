@@ -38,11 +38,7 @@ export default memo(function WatchedEpisodeRow({
 				onPress={() => onPress(episode.tmdbShowId)}
 				activeOpacity={0.8}
 			>
-				<PosterImage
-					posterPath={show.posterPath}
-					mediaType="tv"
-					style={styles.poster}
-				/>
+				<PosterImage posterPath={show.posterPath} mediaType="tv" style={styles.poster} />
 				<View style={styles.info}>
 					<View style={styles.titlePill}>
 						<Text style={styles.titleText} numberOfLines={1}>

@@ -131,7 +131,9 @@ export default function ProfileScreen() {
 				</View>
 				<View style={styles.header}>
 					<Text style={styles.name}>{user?.displayName || "User"}</Text>
-					<Text style={styles.email} numberOfLines={1}>{user?.email}</Text>
+					<Text style={styles.email} numberOfLines={1}>
+						{user?.email}
+					</Text>
 				</View>
 			</View>
 

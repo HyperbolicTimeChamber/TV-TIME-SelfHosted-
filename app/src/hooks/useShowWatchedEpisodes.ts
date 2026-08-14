@@ -16,10 +16,7 @@ import { WatchedEpisode, QueryKey } from "../types";
  * Local mutations (insertWatchedEpisodeCache / removeWatchedEpisodeCache)
  * update the same query key → UI stays in sync without a real-time listener.
  */
-export function useShowWatchedEpisodes(
-	userId: string | undefined,
-	tmdbShowId: number,
-) {
+export function useShowWatchedEpisodes(userId: string | undefined, tmdbShowId: number) {
 	const queryClient = useQueryClient();
 	const [episodes, setEpisodes] = useState<WatchedEpisode[]>([]);
 	const [loading, setLoading] = useState(true);

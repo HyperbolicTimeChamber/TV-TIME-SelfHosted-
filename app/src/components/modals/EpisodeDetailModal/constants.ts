@@ -12,7 +12,9 @@ export const SIDE_SCALE = 0.88;
 export const SIDE_ROTATE = "12deg";
 export const SIDE_OPACITY = 1;
 
-export const AnimatedFlatList = Animated.createAnimatedComponent(FlatList) as unknown as typeof FlatList;
+export const AnimatedFlatList = Animated.createAnimatedComponent(
+	FlatList,
+) as unknown as typeof FlatList;
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 

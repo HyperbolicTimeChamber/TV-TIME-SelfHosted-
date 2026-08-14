@@ -350,8 +350,7 @@ export function useWatchlist(userId: string | undefined) {
 		const missing = items.filter(
 			(i) =>
 				!healingRef.current.has(i.tmdbId) &&
-				(!i.catalogShow ||
-					(i.mediaType === MediaType.MOVIE && !i.catalogShow.credits)),
+				(!i.catalogShow || (i.mediaType === MediaType.MOVIE && !i.catalogShow.credits)),
 		);
 		if (missing.length === 0) return;
 
@@ -380,7 +379,9 @@ export function useWatchlist(userId: string | undefined) {
 						const credits = crew
 							? {
 									directors: crew.filter((c: any) => c.job === "Director").map((c: any) => c.name),
-									writers: crew.filter((c: any) => c.department === "Writing").map((c: any) => c.name),
+									writers: crew
+										.filter((c: any) => c.department === "Writing")
+										.map((c: any) => c.name),
 									producers: crew
 										.filter((c: any) => c.job === "Producer")
 										.map((c: any) => c.name)
@@ -395,7 +396,10 @@ export function useWatchlist(userId: string | undefined) {
 					}
 
 					// Full heal for items with no catalogShow at all
-					if (!apiKey) { healingRef.current.delete(item.tmdbId); continue; }
+					if (!apiKey) {
+						healingRef.current.delete(item.tmdbId);
+						continue;
+					}
 					const details = await getShowDetails(apiKey, item.tmdbId, mt);
 					if (!details) continue;
 
@@ -439,7 +443,9 @@ export function useWatchlist(userId: string | undefined) {
 						mt === MediaType.MOVIE && crew
 							? {
 									directors: crew.filter((c: any) => c.job === "Director").map((c: any) => c.name),
-									writers: crew.filter((c: any) => c.department === "Writing").map((c: any) => c.name),
+									writers: crew
+										.filter((c: any) => c.department === "Writing")
+										.map((c: any) => c.name),
 									producers: crew
 										.filter((c: any) => c.job === "Producer")
 										.map((c: any) => c.name)

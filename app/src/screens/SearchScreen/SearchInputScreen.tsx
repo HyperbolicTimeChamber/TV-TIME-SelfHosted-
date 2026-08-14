@@ -81,10 +81,6 @@ export default function SearchInputScreen() {
 		[navigation, addToHistory],
 	);
 
-	const handleBack = useCallback(() => {
-		navigation.navigate(Route.SEARCH_MAIN);
-	}, [navigation]);
-
 	const handleClearHistory = useCallback(() => {
 		setSearchHistory([]);
 		AsyncStorage.removeItem(HISTORY_KEY).catch(() => {});

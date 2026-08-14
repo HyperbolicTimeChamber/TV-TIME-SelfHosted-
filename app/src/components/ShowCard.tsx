@@ -62,9 +62,7 @@ export default memo(function ShowCard({
 		: "Movie";
 
 	const remainingLabel =
-		remainingEpisodes != null && remainingEpisodes > 0
-			? `+${remainingEpisodes}`
-			: null;
+		remainingEpisodes != null && remainingEpisodes > 0 ? `+${remainingEpisodes}` : null;
 
 	// "NEW" tag: TV episode aired today
 	const isNewEpisode =
@@ -115,11 +113,7 @@ export default memo(function ShowCard({
 				rightLabel={wc > 1 ? "−1" : "Unwatch"}
 				persistAfterSwipe={{ left: true, right: wc > 1 }}
 			>
-				<TouchableOpacity
-					style={styles.container}
-					onPress={handlePress}
-					activeOpacity={0.8}
-				>
+				<TouchableOpacity style={styles.container} onPress={handlePress} activeOpacity={0.8}>
 					<PosterImage
 						posterPath={item.posterPath}
 						mediaType={item.mediaType}
@@ -160,7 +154,9 @@ export default memo(function ShowCard({
 							<Text style={[styles.episode, styles.watchedMuted]}>{episodeLabel}</Text>
 						)}
 						{item.rewatchCount > 0 && (
-							<Text style={[styles.rewatch, styles.watchedMuted]}>Rewatch #{item.rewatchCount}</Text>
+							<Text style={[styles.rewatch, styles.watchedMuted]}>
+								Rewatch #{item.rewatchCount}
+							</Text>
 						)}
 					</View>
 					<View style={styles.checkmarkWrap}>
@@ -253,7 +249,9 @@ export default memo(function ShowCard({
 								</View>
 							) : isLatest ? (
 								<View style={[styles.tagBadge, styles.latestBadge]}>
-									<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>{FreshTag.LATEST}</Text>
+									<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
+										{FreshTag.LATEST}
+									</Text>
 								</View>
 							) : null}
 						</>

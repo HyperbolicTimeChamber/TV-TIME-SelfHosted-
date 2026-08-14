@@ -749,10 +749,11 @@ export default function WatchlistTab() {
 	);
 
 	const stickyIndices = useMemo(
-		() => listData.reduce<number[]>((acc, item, i) => {
-			if (item.type === "sectionHeader") acc.push(i);
-			return acc;
-		}, []),
+		() =>
+			listData.reduce<number[]>((acc, item, i) => {
+				if (item.type === "sectionHeader") acc.push(i);
+				return acc;
+			}, []),
 		[listData],
 	);
 

@@ -15,9 +15,7 @@ export default function HomeWithTabBar() {
 		return nestedState.routes[nestedState.index ?? 0]?.name;
 	});
 
-	const hideTabBar =
-		childRoute === Route.SHOW_DETAIL ||
-		childRoute === Route.SEASON_DETAIL;
+	const hideTabBar = childRoute === Route.SHOW_DETAIL || childRoute === Route.SEASON_DETAIL;
 
 	return (
 		<View style={styles.container}>

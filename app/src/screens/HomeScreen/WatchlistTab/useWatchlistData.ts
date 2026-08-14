@@ -142,7 +142,10 @@ export type CardItem = ReturnType<typeof buildCardItem>;
  * Recalc `remaining` only for promoted cards.
  * Works for any gap duration (1 day or 3 weeks).
  */
-function reorderCachedList(list: CacheableWatchlistListItem[], today: string): CacheableWatchlistListItem[] {
+function reorderCachedList(
+	list: CacheableWatchlistListItem[],
+	today: string,
+): CacheableWatchlistListItem[] {
 	// Separate sections
 	const prevWatchedHeader = list.find(
 		(i) => i.type === "sectionHeader" && i.title === "Previously Watched",
@@ -415,7 +418,8 @@ export function useWatchlistData(userId: string | undefined) {
 						type: "watchedMovie",
 						movie: item.movie,
 						showTitle: show?.title ?? cat?.title ?? (item.movie as any).title ?? "",
-						posterPath: show?.posterPath ?? cat?.posterPath ?? (item.movie as any).posterPath ?? null,
+						posterPath:
+							show?.posterPath ?? cat?.posterPath ?? (item.movie as any).posterPath ?? null,
 						tmdbId: item.movie.tmdbId,
 					});
 				} else {
@@ -756,7 +760,12 @@ export function useWatchlistData(userId: string | undefined) {
 			const catalog = item.catalogShow;
 
 			// Collect all episodes from currentNext through target
-			const epsToMark: Array<{ season: number; episodeNumber: number; name: string; runtime: number }> = [];
+			const epsToMark: Array<{
+				season: number;
+				episodeNumber: number;
+				name: string;
+				runtime: number;
+			}> = [];
 			for (const s of catalog.seasons ?? []) {
 				for (const e of s.episodes) {
 					const isAfterStart =
@@ -780,7 +789,9 @@ export function useWatchlistData(userId: string | undefined) {
 
 			// Find what comes after the target episode
 			const nextAfterTarget = findNextEpisodeInCatalog(catalog, targetSeason, targetEpisode);
-			const nextEpisode = nextAfterTarget ? { season: nextAfterTarget.season, episode: nextAfterTarget.episode } : null;
+			const nextEpisode = nextAfterTarget
+				? { season: nextAfterTarget.season, episode: nextAfterTarget.episode }
+				: null;
 			const isComplete = !nextAfterTarget;
 
 			// Group by season for markSeasonWatchedCF

@@ -1,5 +1,12 @@
 import { memo, useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, Animated, ActivityIndicator } from "react-native";
+import {
+	View,
+	Text,
+	ScrollView,
+	TouchableOpacity,
+	Animated,
+	ActivityIndicator,
+} from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 

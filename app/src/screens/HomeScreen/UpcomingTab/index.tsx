@@ -64,10 +64,11 @@ export default function UpcomingTab() {
 	}, [episodes]);
 
 	const stickyIndices = useMemo(
-		() => listData.reduce<number[]>((acc, item, i) => {
-			if (item.type === "header") acc.push(i);
-			return acc;
-		}, []),
+		() =>
+			listData.reduce<number[]>((acc, item, i) => {
+				if (item.type === "header") acc.push(i);
+				return acc;
+			}, []),
 		[listData],
 	);
 
@@ -119,12 +120,14 @@ export default function UpcomingTab() {
 						prev
 							? {
 									...prev,
-									episodes: [{
-										...prev.episodes[0],
-										overview: tmdbEp.overview || null,
-										stillPath: tmdbEp.still_path || null,
-										title: tmdbEp.name || prev.episodes[0].title,
-									}],
+									episodes: [
+										{
+											...prev.episodes[0],
+											overview: tmdbEp.overview || null,
+											stillPath: tmdbEp.still_path || null,
+											title: tmdbEp.name || prev.episodes[0].title,
+										},
+									],
 								}
 							: null,
 					);
@@ -169,7 +172,6 @@ export default function UpcomingTab() {
 
 	const handleEpModalShowPress = useCallback(() => {
 		if (!epModalData || !epModalData.episodes[0]) return;
-		const ep = epModalData.episodes[0];
 		setEpModalVisible(false);
 		setEpModalData(null);
 		handleNavigateToShow(epModalData.tmdbId);

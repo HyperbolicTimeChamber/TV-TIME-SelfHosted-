@@ -188,7 +188,13 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 
 	if (swipeState === "loading" && !persistingLoad) {
 		return (
-			<View style={[styles.wrapper, styles.loadingReveal, { backgroundColor: actionColor, minHeight: cardHeight || 100 }]}>
+			<View
+				style={[
+					styles.wrapper,
+					styles.loadingReveal,
+					{ backgroundColor: actionColor, minHeight: cardHeight || 100 },
+				]}
+			>
 				<ActivityIndicator color={colors.text} />
 				<Text style={styles.revealText}>{actionColor === leftColor ? leftLabel : rightLabel}</Text>
 			</View>
@@ -196,7 +202,13 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 	}
 
 	return (
-		<View style={styles.wrapper} onLayout={(e) => { const h = e.nativeEvent.layout.height; if (h > 0 && h !== cardHeight) setCardHeight(h); }}>
+		<View
+			style={styles.wrapper}
+			onLayout={(e) => {
+				const h = e.nativeEvent.layout.height;
+				if (h > 0 && h !== cardHeight) setCardHeight(h);
+			}}
+		>
 			{showReveal && (
 				<>
 					<Animated.View
@@ -250,9 +262,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 			)}
 
 			<GestureDetector gesture={panGesture}>
-				<Animated.View style={[styles.card, cardStyle]}>
-					{children}
-				</Animated.View>
+				<Animated.View style={[styles.card, cardStyle]}>{children}</Animated.View>
 			</GestureDetector>
 		</View>
 	);
