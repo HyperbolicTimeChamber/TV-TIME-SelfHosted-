@@ -19,7 +19,7 @@ export default function HomeScreen() {
 				tabBarInactiveTintColor: colors.textSecondary,
 				tabBarIndicatorStyle: { backgroundColor: colors.primary },
 				tabBarLabelStyle: {
-					fontWeight: "700",
+					fontWeight: "900",
 					fontSize: 16,
 					textTransform: "uppercase",
 					letterSpacing: 1,

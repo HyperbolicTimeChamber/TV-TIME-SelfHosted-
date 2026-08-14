@@ -31,7 +31,10 @@ export default function CustomTabBar({ activeTab }: Props) {
 						style={styles.tab}
 						onPress={() => {
 							if (tab.route === Route.HOME) {
-								navigation.navigate(Route.HOME);
+								navigation.navigate(Route.HOME, {
+									screen: Route.HOME_TABS,
+									params: { screen: Route.WATCHLIST },
+								});
 							} else {
 								navigation.navigate(Route.SWIPE_TABS, { screen: tab.route });
 							}

@@ -33,6 +33,7 @@ export default memo(function UpcomingEpisodeRow({
 			<PosterImage
 				posterPath={episode.posterPath}
 				mediaType={episode.mediaType}
+				size="medium"
 				style={styles.poster}
 			/>
 			<View style={styles.info}>
