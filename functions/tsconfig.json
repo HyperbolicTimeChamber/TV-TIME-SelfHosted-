@@ -9,7 +9,8 @@
     "target": "es2022",
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "rootDir": "src"
   },
   "compileOnSave": true,
   "include": ["src"]

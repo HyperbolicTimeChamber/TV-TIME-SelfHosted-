@@ -1,118 +1,44 @@
-import React, { useRef } from "react";
-import {
-  NavigationContainer,
-  NavigationContainerRef,
-} from "@react-navigation/native";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { Ionicons } from "@expo/vector-icons";
-import { CommonActions } from "@react-navigation/native";
+import React from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { colors } from "../theme";
-import { MainTabParamList, Route } from "../types";
-import HomeStackScreen from "./HomeStackScreen";
-import SearchStackScreen from "./SearchStackScreen";
-import CalendarStackScreen from "./CalendarStackScreen";
-import ProfileStackScreen from "./ProfileStackScreen";
+import { MainStackParamList, Route } from "../types";
+import HomeWithTabBar from "./HomeWithTabBar";
+import SwipeTabsScreen from "./SwipeTabsScreen";
 
-const Tab = createBottomTabNavigator<MainTabParamList>();
+const Stack = createNativeStackNavigator<MainStackParamList>();
+
+const navTheme = {
+	dark: true,
+	colors: {
+		primary: colors.primary,
+		background: colors.background,
+		card: colors.background,
+		text: colors.text,
+		border: colors.border,
+		notification: colors.primary,
+	},
+	fonts: {
+		regular: { fontFamily: "System", fontWeight: "400" as const },
+		medium: { fontFamily: "System", fontWeight: "500" as const },
+		bold: { fontFamily: "System", fontWeight: "700" as const },
+		heavy: { fontFamily: "System", fontWeight: "900" as const },
+	},
+};
 
 export default function AppNavigator() {
-  const navRef = useRef<NavigationContainerRef<MainTabParamList>>(null);
-
-  return (
-    <NavigationContainer ref={navRef}>
-      <Tab.Navigator
-        screenOptions={({ route }) => ({
-          headerShown: false,
-          tabBarStyle: {
-            backgroundColor: colors.surface,
-            borderTopColor: colors.border,
-          },
-          tabBarActiveTintColor: colors.primary,
-          tabBarInactiveTintColor: colors.textMuted,
-          tabBarIcon: ({ color, size }) => {
-            const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
-              [Route.HOME]: "home",
-              [Route.SEARCH]: "search",
-              [Route.CALENDAR]: "calendar",
-              [Route.PROFILE]: "person",
-            };
-            return (
-              <Ionicons
-                name={icons[route.name] || "ellipse"}
-                size={size}
-                color={color}
-              />
-            );
-          },
-        })}
-      >
-        <Tab.Screen
-          name={Route.HOME}
-          component={HomeStackScreen}
-          listeners={{
-            tabPress: (e) => {
-              e.preventDefault();
-              navRef.current?.dispatch(
-                CommonActions.navigate({
-                  name: Route.HOME,
-                  params: {
-                    screen: Route.HOME_TABS,
-                    params: { screen: Route.WATCHLIST },
-                  },
-                }),
-              );
-            },
-          }}
-        />
-        <Tab.Screen
-          name={Route.CALENDAR}
-          component={CalendarStackScreen}
-          listeners={{
-            tabPress: (e) => {
-              e.preventDefault();
-              navRef.current?.dispatch(
-                CommonActions.navigate({
-                  name: Route.CALENDAR,
-                  params: { screen: Route.CALENDAR_MAIN },
-                }),
-              );
-            },
-          }}
-        />
-        <Tab.Screen
-          name={Route.SEARCH}
-          component={SearchStackScreen}
-          listeners={{
-            tabPress: (e) => {
-              e.preventDefault();
-              navRef.current?.dispatch(
-                CommonActions.navigate({
-                  name: Route.SEARCH,
-                  params: { screen: Route.SEARCH_MAIN },
-                }),
-              );
-            },
-          }}
-        />
-        <Tab.Screen
-          name={Route.PROFILE}
-          component={ProfileStackScreen}
-          options={{
-            headerShown: false,
-          }}
-          listeners={{
-            tabPress: (e) => {
-              e.preventDefault();
-              navRef.current?.dispatch(
-                CommonActions.navigate({
-                  name: Route.PROFILE,
-                  params: { screen: Route.PROFILE_MAIN },
-                }),
-              );
-            },
-          }}
-        />
-      </Tab.Navigator>
-    </NavigationContainer>
-  );
+	return (
+		<NavigationContainer theme={navTheme}>
+			<Stack.Navigator
+				screenOptions={{
+					headerShown: false,
+					animation: "none",
+					contentStyle: { backgroundColor: colors.background },
+				}}
+			>
+				<Stack.Screen name={Route.HOME} component={HomeWithTabBar} />
+				<Stack.Screen name={Route.SWIPE_TABS} component={SwipeTabsScreen} />
+			</Stack.Navigator>
+		</NavigationContainer>
+	);
 }

@@ -1,12 +1,9 @@
 name: Bump Build Number
 
 on:
-  push:
-    branches: [development]
   workflow_run:
-    workflows: ["Build & Deploy to Play Store"]
+    workflows: ["Build & Distribute (Development)", "Build & Deploy to Play Store"]
     types: [completed]
-    branches: [main]
 
 concurrency:
   group: bump-build
@@ -17,10 +14,7 @@ permissions:
 
 jobs:
   bump:
-    if: |
-      !contains(github.event.head_commit.message || '', '[skip ci]') &&
-      !contains(github.event.head_commit.message || '', 'chore: bump build') &&
-      (github.event_name == 'push' || github.event.workflow_run.conclusion == 'success')
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -28,7 +22,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.event_name == 'workflow_run' && 'main' || github.ref }}
+          ref: ${{ github.event.workflow_run.head_branch }}
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 1
 
