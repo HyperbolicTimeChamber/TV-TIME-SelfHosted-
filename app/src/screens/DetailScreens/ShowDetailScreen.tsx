@@ -22,7 +22,6 @@ import {
 	doc,
 	getDoc,
 	onSnapshot,
-	updateDoc,
 	Timestamp,
 } from "@react-native-firebase/firestore";
 import {
@@ -128,15 +127,7 @@ export default function ShowDetailScreen() {
 			.then((snap) => {
 				if (cancelled) return;
 				if (snap.exists()) {
-					const data: any = { id: snap.id, ...snap.data() };
-					if (
-						mediaType === MediaType.TV &&
-						data.status === WatchStatus.WATCHING &&
-						!data.nextEpisode
-					) {
-						updateDoc(trackingDocRef, { status: WatchStatus.COMPLETED }).catch(() => {});
-					}
-					setWatchlistItem(data);
+					setWatchlistItem({ id: snap.id, ...snap.data() });
 				} else {
 					setWatchlistItem(null);
 				}

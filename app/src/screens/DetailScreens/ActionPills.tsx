@@ -88,10 +88,7 @@ export default function ActionPills({
 					)}
 					{(watchlistItem.status === WatchStatus.COMPLETED ||
 						watchlistItem.status === WatchStatus.PAUSED ||
-						watchlistItem.status === WatchStatus.PAUSED_REWATCH ||
-						(watchlistItem.status === WatchStatus.WATCHING &&
-							mediaType === MediaType.TV &&
-							!watchlistItem.nextEpisode)) && (
+						watchlistItem.status === WatchStatus.PAUSED_REWATCH) && (
 						<TouchableOpacity
 							style={[styles.pill, styles.pillAccent]}
 							onPress={onResumeOrRewatch}
