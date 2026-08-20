@@ -27,7 +27,6 @@ import {
 } from "../../services";
 import { colors } from "../../theme";
 import { showDocId } from "../../utils/docId";
-import { warmupSearchCFs } from "../../services/warmup";
 import { emitShowAdded, emitShowRemoved, emitShowCompleted } from "../../utils/watchlistEvents";
 import { getCachedCatalogShow } from "../../hooks/useWatchlist";
 import {
@@ -55,10 +54,6 @@ export default function SearchScreen() {
 		useRoute<RouteProp<SearchStackParamList, Route.SEARCH_MAIN | Route.SEARCH_RESULTS>>();
 	const submittedQuery = (route.params as any)?.query || "";
 	const [mediaFilter, setMediaFilter] = useState<MediaFilter>(MediaFilter.ALL);
-
-	useEffect(() => {
-		warmupSearchCFs();
-	}, []);
 
 	// Collapsible header
 	const headerHeight = useRef(0);
@@ -625,7 +620,7 @@ export default function SearchScreen() {
 							activeOpacity={0.7}
 						>
 							<Text style={[styles.searchInput, { color: colors.textMuted }]} numberOfLines={1}>
-								{submittedQuery || "Search shows & movies"}
+								{submittedQuery || "Search Shows & Movies"}
 							</Text>
 						</TouchableOpacity>
 					</View>

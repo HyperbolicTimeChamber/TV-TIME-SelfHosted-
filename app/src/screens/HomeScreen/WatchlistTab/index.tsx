@@ -45,7 +45,7 @@ import {
 } from "../../../types";
 import type { ShowDrawerData } from "../../../components/ShowDrawer";
 import { useSharedShimmer } from "../../../components/SkeletonLine";
-import { warmupWatchlistCFs, warmupFirestoreWrite } from "../../../services/warmup";
+import { warmupFirestoreWrite } from "../../../services/warmup";
 import {
 	Timestamp,
 	getFirestore,
@@ -109,7 +109,6 @@ export default function WatchlistTab() {
 	const navigation = useNavigation<NavProp>();
 
 	useEffect(() => {
-		warmupWatchlistCFs();
 		if (user?.uid) warmupFirestoreWrite(user.uid);
 	}, [user?.uid]);
 

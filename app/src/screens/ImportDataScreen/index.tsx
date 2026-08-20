@@ -21,7 +21,6 @@ import LoadingSpinner from "../../components/LoadingSpinner";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { WatchStatus, MediaType, CacheKey, CloudFunction } from "../../types";
 import { spacing } from "../../theme";
-import { warmupImportCFs } from "../../services/warmup";
 import { importStyles as styles } from "./styles";
 import PickPhase from "./PickPhase";
 import ProgressPhase from "./ProgressPhase";
@@ -34,10 +33,6 @@ export default function ImportDataScreen({ navigation }: any) {
 	const insets = useSafeAreaInsets();
 	const user = useAuthStore((s) => s.user);
 	const tmdbApiKey = useAuthStore((s) => s.appTmdbApiKey);
-
-	useEffect(() => {
-		warmupImportCFs();
-	}, []);
 
 	const [phase, setPhase] = useState<Phase>("pick");
 	const [progress, setProgress] = useState({ done: 0, total: 0 });

@@ -1,8 +1,9 @@
 import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, LinkingOptions } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { colors } from "../theme";
 import { MainStackParamList, Route } from "../types";
+import { MediaType } from "../enums";
 import HomeWithTabBar from "./HomeWithTabBar";
 import SwipeTabsScreen from "./SwipeTabsScreen";
 
@@ -26,9 +27,29 @@ const navTheme = {
 	},
 };
 
+const linking: LinkingOptions<MainStackParamList> = {
+	prefixes: ["watchloom://"],
+	config: {
+		screens: {
+			[Route.HOME]: {
+				screens: {
+					[Route.SHOW_DETAIL]: {
+						path: "show/:mediaType/:tmdbId",
+						parse: {
+							tmdbId: Number,
+							mediaType: (val: string) =>
+								val === "movie" ? MediaType.MOVIE : MediaType.TV,
+						},
+					},
+				},
+			},
+		},
+	},
+};
+
 export default function AppNavigator() {
 	return (
-		<NavigationContainer theme={navTheme}>
+		<NavigationContainer theme={navTheme} linking={linking}>
 			<Stack.Navigator
 				screenOptions={{
 					headerShown: false,
