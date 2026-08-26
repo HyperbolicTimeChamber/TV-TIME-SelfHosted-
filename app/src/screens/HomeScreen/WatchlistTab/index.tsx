@@ -45,7 +45,7 @@ import {
 } from "../../../types";
 import type { ShowDrawerData } from "../../../components/ShowDrawer";
 import { useSharedShimmer } from "../../../components/SkeletonLine";
-import { warmupWatchlistCFs, warmupFirestoreWrite } from "../../../services/warmup";
+import { warmupFirestoreWrite } from "../../../services/warmup";
 import {
 	Timestamp,
 	getFirestore,
@@ -67,6 +67,7 @@ import { styles } from "./styles";
 import { useWatchlistData } from "./useWatchlistData";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
 import SectionHeader from "./SectionHeader";
+import { todayStr } from "../../../utils/todayStr";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
@@ -109,7 +110,6 @@ export default function WatchlistTab() {
 	const navigation = useNavigation<NavProp>();
 
 	useEffect(() => {
-		warmupWatchlistCFs();
 		if (user?.uid) warmupFirestoreWrite(user.uid);
 	}, [user?.uid]);
 
@@ -166,38 +166,35 @@ export default function WatchlistTab() {
 		setWatchlistLoading(isLoading);
 	}, [isLoading, setWatchlistLoading]);
 
-	// Scroll to "What's Up Next" once on first load — lock offset to prevent jump on live data arrival
+	// Scroll to "What's Up Next" header on first load
 	const initialScrollDone = useRef(false);
-	const lockedOffset = useRef(0);
+	const scrollToUpNext = useCallback(() => {
+		const idx = listData.findIndex(
+			(i) => i.type === "sectionHeader" && i.title === "What's Up Next",
+		);
+		if (idx > 0) {
+			listRef.current?.scrollToIndex({ index: idx, animated: true, viewOffset: 0 });
+		}
+	}, [listData]);
+
 	useEffect(() => {
 		if (!initialScrollDone.current && !isLoading && prevWatchedOffset > 0) {
 			initialScrollDone.current = true;
-			lockedOffset.current = prevWatchedOffset;
-			setTimeout(() => {
-				listRef.current?.scrollToOffset({
-					offset: prevWatchedOffset,
-					animated: true,
-				});
-			}, 400);
+			setTimeout(scrollToUpNext, 400);
 		}
-	}, [isLoading, prevWatchedOffset]);
+	}, [isLoading, prevWatchedOffset, scrollToUpNext]);
 
-	// Re-scroll on every tab focus (not just first load)
+	// Re-scroll on every tab focus
 	useEffect(() => {
 		const parent = navigation.getParent();
 		if (!parent) return;
 		const unsub = parent.addListener("focus", () => {
 			if (prevWatchedOffset > 0) {
-				setTimeout(() => {
-					listRef.current?.scrollToOffset({
-						offset: prevWatchedOffset,
-						animated: true,
-					});
-				}, 100);
+				setTimeout(scrollToUpNext, 100);
 			}
 		});
 		return unsub;
-	}, [navigation, prevWatchedOffset]);
+	}, [navigation, prevWatchedOffset, scrollToUpNext]);
 
 	const handleNavigateToShow = useCallback(
 		(tmdbId: number, mediaType: MediaType) => {
@@ -215,7 +212,7 @@ export default function WatchlistTab() {
 			if (!ep) return;
 
 			const catalog = item.catalogShow;
-			const today = new Date().toISOString().split("T")[0];
+			const today = todayStr();
 
 			// Build flat episode list from catalog — all released episodes
 			const allEps: CarouselEpisode[] = [];
@@ -782,10 +779,9 @@ export default function WatchlistTab() {
 		],
 	);
 
-	const stableOffset = initialScrollDone.current ? lockedOffset.current : prevWatchedOffset;
 	const contentStyle = useMemo(
-		() => [styles.listContent, { minHeight: SCREEN_HEIGHT + stableOffset }],
-		[stableOffset],
+		() => [styles.listContent, { minHeight: SCREEN_HEIGHT + prevWatchedOffset }],
+		[prevWatchedOffset],
 	);
 
 	const stickyIndices = useMemo(

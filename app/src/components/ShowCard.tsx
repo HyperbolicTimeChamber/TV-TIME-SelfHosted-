@@ -6,9 +6,10 @@ import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton from "./CheckmarkButton";
 
 import PosterImage from "./PosterImage";
+import { todayStr } from "../utils/todayStr";
 
 // Computed once per app session — avoids Date allocation per card per render
-const TODAY = new Date().toISOString().split("T")[0];
+const TODAY = todayStr();
 const TODAY_MS = new Date(TODAY).getTime();
 
 interface ShowCardItem {

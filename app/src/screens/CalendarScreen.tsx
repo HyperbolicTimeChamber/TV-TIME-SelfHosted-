@@ -12,6 +12,7 @@ import { useCalendarEpisodes } from "../hooks";
 import PosterImage from "../components/PosterImage";
 import { colors, spacing, typography } from "../theme";
 import { UpcomingEpisode, CalendarStackParamList, Route, MediaType } from "../types";
+import { todayStr } from "../utils/todayStr";
 
 type NavProp = NativeStackNavigationProp<CalendarStackParamList, Route.CALENDAR_MAIN>;
 
@@ -27,7 +28,7 @@ export default function CalendarScreen() {
 	const user = useAuthStore((s) => s.user);
 	const navigation = useNavigation<NavProp>();
 	const [selectedDate, setSelectedDate] = useState<string | null>(
-		new Date().toISOString().slice(0, 10),
+		todayStr(),
 	);
 	const [yearModalVisible, setYearModalVisible] = useState(false);
 
@@ -49,7 +50,7 @@ export default function CalendarScreen() {
 			const today = new Date();
 			setCurrentYear(today.getFullYear());
 			setCurrentMonth(today.getMonth() + 1);
-			setSelectedDate(today.toISOString().slice(0, 10));
+			setSelectedDate(todayStr());
 		}, []),
 	);
 

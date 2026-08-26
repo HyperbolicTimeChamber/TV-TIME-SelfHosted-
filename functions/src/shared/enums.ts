@@ -18,3 +18,5 @@ export enum ShowStatus {
 }
 
 export const ENDED_STATUSES: string[] = [ShowStatus.ENDED, ShowStatus.CANCELED];
+
+export const LYNKILY_BASE = "https://lynkily.com/api/v1";

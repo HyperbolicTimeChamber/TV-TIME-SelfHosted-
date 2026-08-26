@@ -64,6 +64,7 @@ export enum CloudFunction {
 	MARK_SEASON_WATCHED = "markSeasonWatched",
 	IMPORT_MATCHES = "importMatches",
 	REBUILD_UPCOMING = "rebuildUpcoming",
+	CREATE_DEEP_LINK = "createDeepLink",
 }
 
 export enum Route {

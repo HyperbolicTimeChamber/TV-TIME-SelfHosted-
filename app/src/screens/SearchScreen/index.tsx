@@ -27,8 +27,8 @@ import {
 } from "../../services";
 import { colors } from "../../theme";
 import { showDocId } from "../../utils/docId";
-import { warmupSearchCFs } from "../../services/warmup";
 import { emitShowAdded, emitShowRemoved, emitShowCompleted } from "../../utils/watchlistEvents";
+import { todayStr } from "../../utils/todayStr";
 import { getCachedCatalogShow } from "../../hooks/useWatchlist";
 import {
 	TMDBShow,
@@ -55,10 +55,6 @@ export default function SearchScreen() {
 		useRoute<RouteProp<SearchStackParamList, Route.SEARCH_MAIN | Route.SEARCH_RESULTS>>();
 	const submittedQuery = (route.params as any)?.query || "";
 	const [mediaFilter, setMediaFilter] = useState<MediaFilter>(MediaFilter.ALL);
-
-	useEffect(() => {
-		warmupSearchCFs();
-	}, []);
 
 	// Collapsible header
 	const headerHeight = useRef(0);
@@ -175,7 +171,7 @@ export default function SearchScreen() {
 
 			if (mediaType === MediaType.MOVIE) {
 				const releaseDate = item.release_date || null;
-				const today = new Date().toISOString().split("T")[0];
+				const today = todayStr();
 				const isUnreleased = releaseDate && releaseDate > today;
 
 				if (isUnreleased) {
@@ -261,7 +257,7 @@ export default function SearchScreen() {
 					),
 				);
 
-				const todayLocal = new Date().toISOString().split("T")[0];
+				const todayLocal = todayStr();
 				const upcomingEps: UpcomingEpisode[] = [];
 
 				if (epInfo.catalog?.seasons?.length) {
@@ -498,7 +494,7 @@ export default function SearchScreen() {
 					epInfo.catalog,
 				),
 			);
-			const todayFresh = new Date().toISOString().split("T")[0];
+			const todayFresh = todayStr();
 			const freshEps: UpcomingEpisode[] = [];
 			if (epInfo.catalog?.seasons?.length) {
 				for (const s of epInfo.catalog.seasons) {
@@ -625,7 +621,7 @@ export default function SearchScreen() {
 							activeOpacity={0.7}
 						>
 							<Text style={[styles.searchInput, { color: colors.textMuted }]} numberOfLines={1}>
-								{submittedQuery || "Search shows & movies"}
+								{submittedQuery || "Search Shows & Movies"}
 							</Text>
 						</TouchableOpacity>
 					</View>
