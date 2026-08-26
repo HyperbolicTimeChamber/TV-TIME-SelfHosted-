@@ -12,6 +12,7 @@ import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { UpcomingEpisode, CacheKey, CloudFunction, MediaType } from "../types";
 import { getCachedCatalogShow } from "./useWatchlist";
+import { todayStr } from "../utils/todayStr";
 
 type MutateCallback = (fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[]) => void;
 const mutateListeners = new Set<MutateCallback>();
@@ -23,14 +24,6 @@ function mutateCachedEpisodes(fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[]
 
 function triggerInvalidate() {
 	invalidateListeners.forEach((fn) => fn());
-}
-
-function todayStr() {
-	const d = new Date();
-	const y = d.getFullYear();
-	const m = String(d.getMonth() + 1).padStart(2, "0");
-	const day = String(d.getDate()).padStart(2, "0");
-	return `${y}-${m}-${day}`;
 }
 
 /** Persist upcoming cache with mutations applied */

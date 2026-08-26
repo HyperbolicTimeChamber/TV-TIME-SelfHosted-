@@ -1,6 +1,7 @@
 // app/src/hooks/useVisibleTracking.ts
 import { WatchStatus, MediaType } from "../types";
 import { EnrichedTrackingItem } from "./useWatchlist";
+import { todayStr } from "../utils/todayStr";
 
 /**
  * Determines if a show should be visible in the "Currently Watching" list.
@@ -24,7 +25,7 @@ export function isShowVisible(item: EnrichedTrackingItem): boolean {
 	];
 	if (!activeStatuses.includes(item.status)) return false;
 
-	const today = new Date().toISOString().split("T")[0];
+	const today = todayStr();
 
 	// plan_to_watch — visible unless movie without release date or unreleased
 	if (item.status === WatchStatus.PLAN_TO_WATCH) {

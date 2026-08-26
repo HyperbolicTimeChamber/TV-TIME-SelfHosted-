@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useCallback } from "react";
-import { View, Text, TouchableOpacity, ScrollView, Alert } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, Alert, PixelRatio } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -20,6 +20,12 @@ import StatCard from "./StatCard";
 import CollageCard from "./CollageCard";
 import CompletedSections from "./CompletedSections";
 import { styles } from "./styles";
+
+/** Replace Google profile photo size param with screen-aware resolution */
+function scaledPhotoURL(url: string, layoutSize: number): string {
+	const px = Math.ceil(layoutSize * PixelRatio.get());
+	return url.replace(/=s\d+-c/, `=s${px}-c`);
+}
 
 function formatCount(n: number) {
 	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
@@ -122,7 +128,7 @@ export default function ProfileScreen() {
 						</View>
 						{user?.photoURL && (
 							<Image
-								source={{ uri: user.photoURL }}
+								source={{ uri: scaledPhotoURL(user.photoURL, 100) }}
 								style={[styles.avatar, { position: "absolute" }]}
 								contentFit="cover"
 							/>

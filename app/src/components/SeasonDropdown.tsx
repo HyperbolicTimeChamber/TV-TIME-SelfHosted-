@@ -42,6 +42,7 @@ import EpisodeDetailModal from "./modals/EpisodeDetailModal";
 import type { CarouselEpisode } from "./modals/EpisodeDetailModal";
 import { colors, spacing, typography } from "../theme";
 import { tmdbPosterUri, tmdbStillUri } from "../hooks/useTmdbImage";
+import { todayStr } from "../utils/todayStr";
 import { TMDBSeason, TMDBEpisode, MediaType } from "../types";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -577,7 +578,7 @@ export default memo(function SeasonDropdown({
 
 	const handleEpisodePress = useCallback(
 		(ep: TMDBEpisode) => {
-			const today = new Date().toISOString().split("T")[0];
+			const today = todayStr();
 			const carouselEps: CarouselEpisode[] = episodes
 				.filter((e: TMDBEpisode) => !e.air_date || e.air_date <= today)
 				.map((e: TMDBEpisode) => ({

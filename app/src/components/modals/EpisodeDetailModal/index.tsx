@@ -326,6 +326,7 @@ export default function EpisodeDetailModal({
 					snapToInterval={SNAP_INTERVAL}
 					snapToAlignment="start"
 					decelerationRate="fast"
+					disableIntervalMomentum
 					scrollEnabled={scrollEnabled}
 					showsHorizontalScrollIndicator={false}
 					initialScrollIndex={initialIndex}

@@ -55,6 +55,7 @@ import {
 import type { WatchAction } from "../../components";
 import { emitShowAdded, emitShowRemoved, emitShowCompleted } from "../../utils/watchlistEvents";
 import { showDocId } from "../../utils/docId";
+import { todayStr } from "../../utils/todayStr";
 import { colors, spacing, typography } from "../../theme";
 import {
 	HomeStackParamList,
@@ -156,7 +157,7 @@ export default function ShowDetailScreen() {
 	const rawDate = show?.first_air_date || show?.release_date || "";
 	const year =
 		mediaType === MediaType.MOVIE && rawDate.length >= 10
-			? new Date(rawDate).toLocaleDateString("en-US", {
+			? new Date(rawDate + "T00:00:00").toLocaleDateString("en-US", {
 					month: "short",
 					day: "numeric",
 					year: "numeric",
@@ -175,7 +176,7 @@ export default function ShowDetailScreen() {
 		setAdding(true);
 		try {
 			const releaseDate = show.release_date || null;
-			const today = new Date().toISOString().split("T")[0];
+			const today = todayStr();
 			const isUnreleased = mediaType === MediaType.MOVIE && releaseDate && releaseDate > today;
 
 			if (isUnreleased) {

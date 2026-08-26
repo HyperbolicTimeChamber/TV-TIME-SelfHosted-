@@ -36,16 +36,9 @@ import {
 	WatchedMovie,
 } from "../../../types";
 import type { WatchlistListItem } from "../../../types/watchlist";
+import { todayStr } from "../../../utils/todayStr";
 
 const ACTIVE_CACHE_LIMIT = 100;
-
-function todayStr() {
-	const d = new Date();
-	const y = d.getFullYear();
-	const m = String(d.getMonth() + 1).padStart(2, "0");
-	const day = String(d.getDate()).padStart(2, "0");
-	return `${y}-${m}-${day}`;
-}
 
 /** Compute remaining aired episodes after nextEp */
 function computeRemaining(item: EnrichedTrackingItem, today: string): number | null {
