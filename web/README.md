@@ -1,32 +1,53 @@
-# React + TypeScript + Vite
+# Watchloom Web
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Web version of the Watchloom mobile app — same features, responsive (phone
+browsers look and feel like the app; desktop gets a side rail and wider grids).
+Live at https://watchloom-app.web.app.
 
-Currently, two official plugins are available:
+Stack: Vite · React · TypeScript · Redux Toolkit · antd · Motion · React Router ·
+TanStack Query (same persisted-cache strategy as the app) · Firebase JS SDK.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Shared code with the app
 
-## React Compiler
+The web imports the mobile app's platform-neutral logic straight from
+`../app/src` (`@app/*`): hooks, services, utils, types, enums, theme and the
+screen logic hooks (`useSearchActions`, `useShowDetailActions`,
+`useSeasonActions`, `useWatchlistScreen`, `useUpcomingScreen`,
+`useCalendarScreen`, `useImportData`). `vite.config.ts` swaps React Native
+modules for web shims in `src/platform/`:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| App import | Web shim |
+| --- | --- |
+| `@react-native-firebase/firestore` / `functions` / `analytics` | Firebase JS SDK |
+| `@react-native-async-storage/async-storage` | `localStorage` |
+| `react-native` (`Alert`, `Platform`, `PixelRatio`) | antd notifications / browser APIs |
+| `app/src/stores` (zustand) | Redux-backed `useAuthStore` / `useUiStore` |
 
-## Expanding the Oxlint configuration
+**Put new logic in the app's hooks/services so both platforms get it; only UI is per-platform.**
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+## Logged out
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+Search and show pages work without an account (read-only — no add/mark
+buttons). TMDB calls go through the `tmdbProxy` Cloud Function at
+`/api/tmdb/**` (allowlisted endpoints, CDN-cached, rate-limited, App Check).
+
+## Scripts
+
+```bash
+npm run dev        # local dev (.env.local), /api/tmdb proxied to the live site
+npm test           # vitest
+npm run build      # typecheck + production build
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Env (`.env.local` locally, CI writes `.env.production` from repo Variables)
+
+`VITE_FIREBASE_*` (public web config), `VITE_WEB_BASE_URL`, `VITE_TMDB_API_BASE`,
+`VITE_TMDB_PROXY_BASE=/api/tmdb`, optional `VITE_RECAPTCHA_SITE_KEY` (App Check).
+
+## Deploy
+
+`.github/workflows/web-deploy.yml` runs on pushes to `development` that touch
+`web/`, `app/src/`, `firebase.json` or the workflow: tests → build →
+`assetlinks.json` (Android App Links, from the release keystore) → Firebase Hosting.
+Share links `/show/{tv|movie}/{id}` are served by the `sharePreview` function
+with Open Graph tags, then load the app.
