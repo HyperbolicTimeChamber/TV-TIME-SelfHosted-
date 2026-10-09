@@ -193,3 +193,9 @@ test("unreleased show without catalog or air date stays off the watchlist", () =
 		false,
 	);
 });
+
+test("share URLs point at the web show page", async () => {
+	const { showShareUrl } = await import("../src/utils");
+	assert.equal(showShareUrl(MediaType.TV, 1399), "https://tv-time-returns.web.app/show/tv/1399");
+	assert.equal(showShareUrl(MediaType.MOVIE, 550), "https://tv-time-returns.web.app/show/movie/550");
+});

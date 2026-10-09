@@ -73,7 +73,6 @@ export enum CloudFunction {
 	MARK_SEASON_WATCHED = "markSeasonWatched",
 	IMPORT_MATCHES = "importMatches",
 	REBUILD_UPCOMING = "rebuildUpcoming",
-	CREATE_DEEP_LINK = "createDeepLink",
 }
 
 export enum Route {
@@ -102,3 +101,6 @@ export enum Route {
 	SETTINGS = "Settings",
 	IMPORT_DATA = "ImportData",
 }
+
+/** Public web app — share links + App Links / Universal Links domain */
+export const WEB_BASE_URL = "https://tv-time-returns.web.app";

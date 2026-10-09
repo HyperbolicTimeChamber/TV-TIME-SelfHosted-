@@ -7,7 +7,6 @@ import {
 	StyleSheet,
 	Alert,
 	Share,
-	ActivityIndicator,
 	NativeScrollEvent,
 	NativeSyntheticEvent,
 } from "react-native";
@@ -55,19 +54,17 @@ import {
 	emitShowCompleted,
 	showDocId,
 	todayStr,
+	showShareUrl,
 } from "../../utils";
 import { colors, spacing, typography } from "../../theme";
 import {
 	HomeStackParamList,
 	WatchStatus,
 	MediaType,
-	CloudFunction,
 	UpcomingEpisode,
 	QueryKey,
 	WatchedMovie,
 } from "../../types";
-import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
-import { trackApi } from "../../services/analytics";
 import { useQueryClient } from "@tanstack/react-query";
 
 type RouteParams = RouteProp<HomeStackParamList, "ShowDetail">;
@@ -81,7 +78,6 @@ export default function ShowDetailScreen() {
 	const insets = useSafeAreaInsets();
 	const BACKDROP_HEIGHT = 350;
 	const [imageTranslateY, setImageTranslateY] = useState(0);
-	const [sharingLink, setSharingLink] = useState(false);
 	const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
 		const y = e.nativeEvent.contentOffset.y;
 		setImageTranslateY(Math.min(y * 0.4, BACKDROP_HEIGHT * 0.5));
@@ -487,44 +483,15 @@ export default function ShowDetailScreen() {
 
 			<TouchableOpacity
 				style={[styles.shareButton, { top: insets.top + 8 }]}
-				disabled={sharingLink}
-				onPress={async () => {
-					setSharingLink(true);
-					try {
-						const data = await trackApi(
-							"cloud_function",
-							CloudFunction.CREATE_DEEP_LINK,
-							async () => {
-								const res = await httpsCallable<
-									{ tmdbId: number; mediaType: string; title: string },
-									{ shortUrl: string }
-								>(
-									getFunctions(),
-									CloudFunction.CREATE_DEEP_LINK,
-								)({
-									tmdbId,
-									mediaType,
-									title,
-								});
-								return res.data;
-							},
-						);
-						await Share.share({
-							message: `Check out ${title}\n${data.shortUrl}`,
-						});
-					} catch (e: any) {
-						Alert.alert("Share failed", e.message);
-					} finally {
-						setSharingLink(false);
-					}
+				onPress={() => {
+					// Web URL: opens the app if installed (App/Universal Links), else the web show page
+					Share.share({
+						message: `Check out ${title}\n${showShareUrl(mediaType, tmdbId)}`,
+					}).catch((e: any) => Alert.alert("Share failed", e.message));
 				}}
 				hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
 			>
-				{sharingLink ? (
-					<ActivityIndicator size="small" color={colors.text} />
-				) : (
-					<Ionicons name="share-social-outline" size={26} color={colors.text} />
-				)}
+				<Ionicons name="share-social-outline" size={26} color={colors.text} />
 			</TouchableOpacity>
 
 			<Animated.ScrollView
