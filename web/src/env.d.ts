@@ -11,6 +11,8 @@ interface ImportMetaEnv {
 	readonly VITE_WEB_BASE_URL: string;
 	readonly VITE_TMDB_API_BASE: string;
 	readonly VITE_TMDB_PROXY_BASE: string;
+	/** reCAPTCHA v3 site key registered with Firebase App Check (optional) */
+	readonly VITE_RECAPTCHA_SITE_KEY?: string;
 }
 
 interface ImportMeta {

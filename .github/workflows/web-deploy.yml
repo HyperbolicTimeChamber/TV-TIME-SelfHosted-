@@ -51,6 +51,7 @@ jobs:
             echo "VITE_WEB_BASE_URL=${{ vars.WEB_BASE_URL }}"
             echo "VITE_TMDB_API_BASE=${{ vars.TMDB_API_BASE }}"
             echo "VITE_TMDB_PROXY_BASE=/api/tmdb"
+            echo "VITE_RECAPTCHA_SITE_KEY=${{ vars.VITE_RECAPTCHA_SITE_KEY }}"
           } > .env.production
 
       # ── Tests (fail fast) ──
