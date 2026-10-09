@@ -51,6 +51,13 @@
         }
       },
       {
+        "source": "/show/**",
+        "function": {
+          "functionId": "sharePreview",
+          "region": "us-central1"
+        }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
