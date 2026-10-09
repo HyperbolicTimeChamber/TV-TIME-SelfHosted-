@@ -21,6 +21,8 @@
 			"@react-native-firebase/firestore": ["./src/platform/firestore.ts"],
 			"@react-native-firebase/functions": ["./src/platform/functions.ts"],
 			"@react-native-firebase/analytics": ["./src/platform/analytics.ts"],
+			"@react-native-firebase/auth": ["./src/platform/auth.ts"],
+			"@react-native-google-signin/google-signin": ["./src/platform/googleSignin.ts"],
 			"@react-native-async-storage/async-storage": ["./src/platform/asyncStorage.ts"],
 			"react-native": ["./src/platform/reactNative.ts"],
 			"expo-file-system": ["./src/platform/expoFileSystem.ts"],

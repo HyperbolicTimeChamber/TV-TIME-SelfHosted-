@@ -15,6 +15,8 @@ const nativeModuleShims: Record<string, string> = {
 	"@react-native-firebase/firestore": `${PLATFORM}/firestore.ts`,
 	"@react-native-firebase/functions": `${PLATFORM}/functions.ts`,
 	"@react-native-firebase/analytics": `${PLATFORM}/analytics.ts`,
+	"@react-native-firebase/auth": `${PLATFORM}/auth.ts`,
+	"@react-native-google-signin/google-signin": `${PLATFORM}/googleSignin.ts`,
 	"@react-native-async-storage/async-storage": `${PLATFORM}/asyncStorage.ts`,
 	"react-native": `${PLATFORM}/reactNative.ts`,
 	"expo-file-system": `${PLATFORM}/expoFileSystem.ts`,
@@ -56,6 +58,10 @@ export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, import.meta.dirname, "VITE_");
 	return {
 		plugins: [appOverrides(), react()],
+		// Transform every file — including shared ../app/src — with the web tsconfig.
+		// Otherwise Vite picks app/tsconfig.json, which extends "expo/tsconfig.base"
+		// and fails in CI where app/node_modules isn't installed.
+		tsconfig: "./tsconfig.app.json",
 		resolve: {
 			alias: {
 				"@app": APP_SRC,
