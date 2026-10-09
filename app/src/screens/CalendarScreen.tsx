@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useRef, useEffect } from "react";
+import { useCallback, useRef } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -7,115 +7,40 @@ import { LegendList } from "@legendapp/list/react-native";
 import { Calendar, DateData } from "react-native-calendars";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useAuthStore } from "../stores";
-import { useCalendarEpisodes } from "../hooks";
 import PosterImage from "../components/PosterImage";
 import { colors, spacing, typography } from "../theme";
 import { UpcomingEpisode, CalendarStackParamList, Route, MediaType } from "../types";
-import { todayStr } from "../utils";
+import { useCalendarScreen, YEARS } from "./useCalendarScreen";
 
 type NavProp = NativeStackNavigationProp<CalendarStackParamList, Route.CALENDAR_MAIN>;
 
-const YEAR_RANGE_START = 1950;
-const YEAR_RANGE_END = 2035;
-const YEARS = Array.from(
-	{ length: YEAR_RANGE_END - YEAR_RANGE_START + 1 },
-	(_, i) => YEAR_RANGE_START + i,
-);
-
 export default function CalendarScreen() {
 	const { top } = useSafeAreaInsets();
-	const user = useAuthStore((s) => s.user);
 	const navigation = useNavigation<NavProp>();
-	const [selectedDate, setSelectedDate] = useState<string | null>(todayStr());
-	const [yearModalVisible, setYearModalVisible] = useState(false);
-
-	const now = new Date();
-	const [currentYear, setCurrentYear] = useState(now.getFullYear());
-	const [currentMonth, setCurrentMonth] = useState(now.getMonth() + 1);
 	const yearListRef = useRef<any>(null);
-
-	const { episodes, loading: calendarLoading, loadMonthEpisodes } = useCalendarEpisodes(user?.uid);
-
-	// Load current month's episodes on mount
-	useEffect(() => {
-		loadMonthEpisodes(currentYear, currentMonth);
-	}, [user?.uid]);
+	const {
+		loading: calendarLoading,
+		selectedDate,
+		currentYear,
+		currentMonth,
+		yearModalVisible,
+		setYearModalVisible,
+		resetToToday,
+		markedDates,
+		selectedEpisodes,
+		handleDayPress: selectDay,
+		handleMonthChange: changeMonth,
+		selectYear,
+		monthLabel,
+	} = useCalendarScreen();
 
 	// Reset to current month when tab is focused
-	useFocusEffect(
-		useCallback(() => {
-			const today = new Date();
-			setCurrentYear(today.getFullYear());
-			setCurrentMonth(today.getMonth() + 1);
-			setSelectedDate(todayStr());
-		}, []),
-	);
+	useFocusEffect(resetToToday);
 
-	const markedDates = useMemo(() => {
-		const marks: Record<
-			string,
-			{
-				marked: boolean;
-				dotColor: string;
-				selected?: boolean;
-				selectedColor?: string;
-			}
-		> = {};
-		if (!episodes) return marks;
-
-		for (const ep of episodes) {
-			marks[ep.airDate] = {
-				marked: true,
-				dotColor: colors.primary,
-			};
-		}
-
-		if (selectedDate && marks[selectedDate]) {
-			marks[selectedDate] = {
-				...marks[selectedDate],
-				dotColor: colors.background,
-				selected: true,
-				selectedColor: colors.primary,
-			};
-		} else if (selectedDate) {
-			marks[selectedDate] = {
-				marked: false,
-				dotColor: colors.primary,
-				selected: true,
-				selectedColor: colors.surfaceLight,
-			};
-		}
-
-		return marks;
-	}, [episodes, selectedDate]);
-
-	const selectedEpisodes = useMemo(() => {
-		if (!selectedDate || !episodes) return [];
-		return episodes.filter((ep) => ep.airDate === selectedDate);
-	}, [episodes, selectedDate]);
-
-	const handleDayPress = useCallback((day: DateData) => {
-		setSelectedDate(day.dateString);
-	}, []);
-
+	const handleDayPress = useCallback((day: DateData) => selectDay(day.dateString), [selectDay]);
 	const handleMonthChange = useCallback(
-		(month: DateData) => {
-			setCurrentYear(month.year);
-			setCurrentMonth(month.month);
-			loadMonthEpisodes(month.year, month.month);
-
-			// Auto-select same day in new month, clamped to last day
-			if (selectedDate) {
-				const prevDay = parseInt(selectedDate.split("-")[2], 10);
-				const lastDay = new Date(month.year, month.month, 0).getDate();
-				const day = Math.min(prevDay, lastDay);
-				setSelectedDate(
-					`${month.year}-${String(month.month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
-				);
-			}
-		},
-		[loadMonthEpisodes, selectedDate],
+		(month: DateData) => changeMonth(month.year, month.month),
+		[changeMonth],
 	);
 
 	const calendarKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
@@ -133,21 +58,7 @@ export default function CalendarScreen() {
 				});
 			}
 		}, 100);
-	}, [currentYear]);
-
-	const selectYear = useCallback(
-		(year: number) => {
-			setCurrentYear(year);
-			setYearModalVisible(false);
-			loadMonthEpisodes(year, currentMonth);
-		},
-		[loadMonthEpisodes, currentMonth],
-	);
-
-	const monthLabel = new Date(currentYear, currentMonth - 1).toLocaleDateString("en-US", {
-		month: "long",
-		year: "numeric",
-	});
+	}, [currentYear, setYearModalVisible]);
 
 	const renderEpisode = useCallback(
 		({ item }: { item: UpcomingEpisode }) => {

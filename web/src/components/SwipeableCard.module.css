@@ -1,0 +1,59 @@
+.wrapper {
+	position: relative;
+	overflow: hidden;
+	border-radius: 8px;
+	margin: 0 12px;
+}
+
+.card {
+	position: relative;
+	z-index: 1;
+	background: var(--bg);
+	touch-action: pan-y;
+}
+
+.reveal {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 0 24px;
+}
+
+.revealLeft {
+	justify-content: flex-start;
+}
+
+.revealRight {
+	justify-content: flex-end;
+}
+
+.loading {
+	min-height: 100px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 0 24px;
+	position: absolute;
+	inset: 0;
+}
+
+.revealText {
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--text);
+}
+
+.revealIcon {
+	width: 32px;
+	height: 32px;
+	border-radius: 16px;
+	border: 2px solid var(--text);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: 700;
+	color: var(--text);
+}

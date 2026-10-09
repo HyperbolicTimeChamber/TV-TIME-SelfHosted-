@@ -3,8 +3,17 @@ name: Build & Deploy to Play Store
 on:
   push:
     branches: [main]
+    # Only build the mobile app when the mobile app (or this workflow) changed
+    paths:
+      - "app/**"
+      - "functions/**"
+      - ".github/workflows/deploy.yml"
   pull_request:
     branches: [main]
+    paths:
+      - "app/**"
+      - "functions/**"
+      - ".github/workflows/deploy.yml"
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -97,6 +106,14 @@ jobs:
         run: printenv GOOGLE_SERVICES_JSON > app/google-services.json
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+
+      # ── App env (app/.env is gitignored; values live in repo Secrets) ──
+      - name: Write app .env
+        run: |
+          {
+            echo "EXPO_PUBLIC_WEB_BASE_URL=${{ secrets.WEB_BASE_URL }}"
+            echo "EXPO_PUBLIC_TMDB_API_BASE=${{ secrets.TMDB_API_BASE }}"
+          } > app/.env
 
       # ── Expo Prebuild ──
       - name: Expo prebuild

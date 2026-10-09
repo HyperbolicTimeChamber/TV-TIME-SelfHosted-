@@ -1,14 +1,30 @@
 import axios from "axios";
 import { TMDBShow, TMDBEpisode } from "../types";
 import { logApiCall } from "./analytics";
+import { TMDB_API_BASE as TMDB_BASE, TMDB_PROXY_BASE, TMDB_PROXY_KEY } from "../enums";
 
-const TMDB_BASE = "https://api.themoviedb.org/3";
+/** Extra headers for proxy requests (web registers its App Check token here) */
+type HeaderProvider = () => Promise<Record<string, string>>;
+let proxyHeaders: HeaderProvider | null = null;
+export function setTmdbProxyHeaders(provider: HeaderProvider | null) {
+	proxyHeaders = provider;
+}
 
 function tmdb(apiKey: string) {
+	// Logged-out web visitors have no key: same paths, served by the tmdbProxy CF
+	const viaProxy = apiKey === TMDB_PROXY_KEY;
 	const instance = axios.create({
-		baseURL: TMDB_BASE,
-		params: { api_key: apiKey },
+		baseURL: viaProxy ? TMDB_PROXY_BASE : TMDB_BASE,
+		params: viaProxy ? {} : { api_key: apiKey },
 	});
+	if (viaProxy && proxyHeaders) {
+		const provider = proxyHeaders;
+		instance.interceptors.request.use(async (config) => {
+			const extra = await provider().catch(() => ({}));
+			for (const [k, v] of Object.entries(extra)) config.headers.set(k, v);
+			return config;
+		});
+	}
 	instance.interceptors.request.use((config) => {
 		(config as any)._startTime = Date.now();
 		return config;

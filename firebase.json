@@ -14,13 +14,73 @@
         "firebase-debug.log",
         "firebase-debug.*.log",
         "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run build"
       ]
     }
   ],
   "emulators": {
-    "firestore": { "port": 8080 },
-    "auth": { "port": 9099 },
-    "functions": { "port": 5001 },
-    "ui": { "enabled": true }
+    "firestore": {
+      "port": 8080
+    },
+    "auth": {
+      "port": 9099
+    },
+    "functions": {
+      "port": 5001
+    },
+    "ui": {
+      "enabled": true
+    }
+  },
+  "hosting": {
+    "site": "watchloom-app",
+    "public": "web/dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/api/tmdb/**",
+        "function": {
+          "functionId": "tmdbProxy",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "/show/**",
+        "function": {
+          "functionId": "sharePreview",
+          "region": "us-central1"
+        }
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "/assets/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
+      },
+      {
+        "source": "/index.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      }
+    ]
   }
 }

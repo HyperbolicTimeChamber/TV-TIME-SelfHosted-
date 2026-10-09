@@ -11,4 +11,5 @@ export { testFCM } from "./cloudFunctions/testFCM";
 export { deleteAccount } from "./cloudFunctions/deleteAccount";
 export { rebuildUpcoming } from "./cloudFunctions/rebuildUpcoming";
 export { migrateDocIds } from "./cloudFunctions/migrateDocIds";
-export { createDeepLink } from "./cloudFunctions/createDeepLink";
+export { tmdbProxy } from "./cloudFunctions/tmdbProxy";
+export { sharePreview } from "./cloudFunctions/sharePreview";

@@ -3,6 +3,11 @@ name: Build & Distribute (Development)
 on:
   push:
     branches: [development]
+    # Only build the mobile app when the mobile app (or this workflow) changed
+    paths:
+      - "app/**"
+      - "functions/**"
+      - ".github/workflows/distribute.yml"
 
 concurrency:
   group: distribute-${{ github.ref }}
@@ -54,17 +59,40 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: app/package-lock.json
+          cache-dependency-path: |
+            app/package-lock.json
+            functions/package-lock.json
 
       - name: Install dependencies
         run: npm ci
         working-directory: app
+
+      # ── Tests (fail fast before the slow build) ──
+      - name: Run app tests
+        run: npm test
+        working-directory: app
+
+      - name: Install functions dependencies
+        run: npm ci
+        working-directory: functions
+
+      - name: Run functions tests
+        run: npm test
+        working-directory: functions
 
       # ── Google Services ──
       - name: Decode google-services.json
         run: printenv GOOGLE_SERVICES_JSON > app/google-services.json
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+
+      # ── App env (app/.env is gitignored; values live in repo Secrets) ──
+      - name: Write app .env
+        run: |
+          {
+            echo "EXPO_PUBLIC_WEB_BASE_URL=${{ secrets.WEB_BASE_URL }}"
+            echo "EXPO_PUBLIC_TMDB_API_BASE=${{ secrets.TMDB_API_BASE }}"
+          } > app/.env
 
       # ── Expo Prebuild ──
       - name: Expo prebuild

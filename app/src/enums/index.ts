@@ -73,7 +73,6 @@ export enum CloudFunction {
 	MARK_SEASON_WATCHED = "markSeasonWatched",
 	IMPORT_MATCHES = "importMatches",
 	REBUILD_UPCOMING = "rebuildUpcoming",
-	CREATE_DEEP_LINK = "createDeepLink",
 }
 
 export enum Route {
@@ -102,3 +101,13 @@ export enum Route {
 	SETTINGS = "Settings",
 	IMPORT_DATA = "ImportData",
 }
+
+// Base URLs come from app/.env (EXPO_PUBLIC_* is inlined at build time; CI writes the file)
+/** Public web app — share links + App Links / Universal Links domain */
+export const WEB_BASE_URL = process.env.EXPO_PUBLIC_WEB_BASE_URL ?? "";
+/** TMDB REST API base */
+export const TMDB_API_BASE = process.env.EXPO_PUBLIC_TMDB_API_BASE ?? "";
+/** Web only: tmdbProxy CF path for logged-out visitors (unset on mobile) */
+export const TMDB_PROXY_BASE = process.env.EXPO_PUBLIC_TMDB_PROXY_BASE ?? "";
+/** Stand-in "API key" meaning: no key — route TMDB calls through TMDB_PROXY_BASE */
+export const TMDB_PROXY_KEY = "__tmdb_proxy__";
