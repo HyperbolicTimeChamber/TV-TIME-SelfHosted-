@@ -33,3 +33,4 @@ export type {
 } from "./navigation";
 export type { CarouselEpisode, EnrichedEpisode, EpisodeDetailModalProps } from "./episodeCarousel";
 export type { WatchlistListItem } from "./watchlist";
+export type { WatchAction } from "./watchAction";

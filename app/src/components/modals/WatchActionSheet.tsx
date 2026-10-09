@@ -12,7 +12,9 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, spacing, typography } from "../../theme";
 
-export type WatchAction = "rewatch" | "not_watched" | "watched_once_less";
+import type { WatchAction } from "../../types/watchAction";
+
+export type { WatchAction };
 
 interface Props {
 	visible: boolean;
