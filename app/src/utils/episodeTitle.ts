@@ -5,9 +5,7 @@ export function isGenericEpisodeTitle(title: string | null | undefined): boolean
 }
 
 /** Prefer a real title over a placeholder, whichever source has it */
-export function pickEpisodeTitle(
-	...titles: Array<string | null | undefined>
-): string | null {
+export function pickEpisodeTitle(...titles: Array<string | null | undefined>): string | null {
 	const real = titles.find((t) => !isGenericEpisodeTitle(t));
 	return real ?? titles.find((t) => !!t) ?? null;
 }

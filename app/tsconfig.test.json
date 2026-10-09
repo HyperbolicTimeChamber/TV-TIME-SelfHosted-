@@ -1,0 +1,18 @@
+{
+	"compilerOptions": {
+		"module": "commonjs",
+		"moduleResolution": "node10",
+		"ignoreDeprecations": "6.0",
+		"target": "es2022",
+		"lib": ["es2022"],
+		"strict": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"jsx": "react-native",
+		"types": ["node"],
+		"rootDir": ".",
+		"outDir": ".test-build",
+		"noEmit": false
+	},
+	"include": ["tests/**/*.ts"]
+}

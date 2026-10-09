@@ -105,9 +105,15 @@ export default function LoginScreen() {
 				<Text style={styles.subtitle}>Track What You Watch</Text>
 
 				<View style={styles.form}>
+					{isSignUp && (
+						<Text style={styles.hintText}>
+							Don't want to share your email? Pick a username instead (3–20 characters: letters,
+							numbers, _ or .). Note: username accounts can't reset a forgotten password.
+						</Text>
+					)}
 					<TextInput
 						style={styles.input}
-						placeholder="Email or username"
+						placeholder={isSignUp ? "Email or pick a username" : "Email or username"}
 						placeholderTextColor={colors.textMuted}
 						keyboardType="email-address"
 						autoCapitalize="none"
@@ -237,6 +243,12 @@ const styles = StyleSheet.create({
 	},
 	buttonDisabled: {
 		opacity: 0.6,
+	},
+	hintText: {
+		...typography.caption,
+		color: colors.textMuted,
+		textAlign: "center",
+		marginBottom: spacing.md,
 	},
 	toggleText: {
 		...typography.body,

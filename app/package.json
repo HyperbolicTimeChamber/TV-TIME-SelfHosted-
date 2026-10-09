@@ -65,7 +65,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"App.tsx\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"App.tsx\""
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"App.tsx\"",
+    "test": "rm -rf .test-build && tsc -p tsconfig.test.json && node --test .test-build/tests/*.test.js"
   },
   "private": true
 }

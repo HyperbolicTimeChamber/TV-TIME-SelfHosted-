@@ -63,7 +63,10 @@ export function titlesFromCatalog(
 }
 
 /** Replace placeholder titles; returns same array ref when nothing changed */
-export function applyTitles(prev: UpcomingEpisode[], titles: Map<string, string>): UpcomingEpisode[] {
+export function applyTitles(
+	prev: UpcomingEpisode[],
+	titles: Map<string, string>,
+): UpcomingEpisode[] {
 	let changed = false;
 	const next = prev.map((ep) => {
 		const t = titles.get(upcomingEpKey(ep));

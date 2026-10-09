@@ -85,9 +85,7 @@ export function useShowDetails(tmdbId: number, mediaType: MediaType = MediaType.
 		queryFn: async (): Promise<ShowDetailsResult> => {
 			// Partial/untitled catalogs (search stand-ins) render a blank screen — skip them
 			const hasSeasonsData = (c: CatalogShow) =>
-				!c.partial &&
-				!!c.title &&
-				(mediaType !== MediaType.TV || (c.seasons?.length ?? 0) > 0);
+				!c.partial && !!c.title && (mediaType !== MediaType.TV || (c.seasons?.length ?? 0) > 0);
 
 			// Try in-memory cache first (instant, no Firestore read)
 			const cached = getCachedCatalogShow(tmdbId, mediaType);

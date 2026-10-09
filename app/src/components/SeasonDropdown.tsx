@@ -42,7 +42,7 @@ import EpisodeDetailModal from "./modals/EpisodeDetailModal";
 import type { CarouselEpisode } from "./modals/EpisodeDetailModal";
 import { colors, spacing, typography } from "../theme";
 import { tmdbPosterUri, tmdbStillUri } from "../hooks/useTmdbImage";
-import { todayStr, computeTrackingAdvance, epKey, EpisodeRef } from "../utils";
+import { todayStr, computeTrackingAdvance, computeJumpFrom, epKey, EpisodeRef } from "../utils";
 import { TMDBSeason, TMDBEpisode, MediaType, WatchStatus } from "../types";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -243,12 +243,9 @@ export default memo(function SeasonDropdown({
 		[episodes, episodesBySeason, season.season_number, apiKey, tmdbId],
 	);
 
-	/**
-	 * Resolve how marking `markedEps` (this season) affects the tracking doc.
-	 * Pointer only moves when the mark continues an unbroken watch run — see computeTrackingAdvance.
-	 */
-	const resolveTrackingWrite = useCallback(
-		async (markedEps: number[]): Promise<TrackingWrite> => {
+	/** Watch order, post-mark counts and tracking state for the advance rules */
+	const buildAdvanceInputs = useCallback(
+		(markedEps: number[]) => {
 			const sn = season.season_number;
 			const layout =
 				seasonLayout && seasonLayout.length > 0
@@ -258,7 +255,13 @@ export default memo(function SeasonDropdown({
 			for (const l of layout) {
 				const eps = l.season === sn ? episodes : episodesBySeason?.get(l.season);
 				if (eps && eps.length > 0) {
-					for (const e of eps) order.push({ season: l.season, episode: e.episode_number });
+					for (const e of eps) {
+						order.push({
+							season: l.season,
+							episode: e.episode_number,
+							airDate: e.air_date ?? null,
+						});
+					}
 				} else {
 					for (let i = 1; i <= l.episodeCount; i++) order.push({ season: l.season, episode: i });
 				}
@@ -273,12 +276,32 @@ export default memo(function SeasonDropdown({
 				status: WatchStatus.WATCHING,
 				nextEpisode: { season: 1, episode: 1 },
 			};
-			const adv = computeTrackingAdvance(
-				order,
-				counts,
-				markedEps.map((n) => ({ season: sn, episode: n })),
-				tracking,
-			);
+			const marked = markedEps.map((n) => ({ season: sn, episode: n }));
+			return { order, counts, marked, tracking };
+		},
+		[season.season_number, seasonLayout, episodes, episodesBySeason, watchedEps, trackingItem],
+	);
+
+	/** Would marking this single episode move the watchlist pointer on its own? */
+	const willAdvance = useCallback(
+		(epNumber: number) => {
+			const { order, counts, marked, tracking } = buildAdvanceInputs([epNumber]);
+			return computeTrackingAdvance(order, counts, marked, tracking, todayStr()).advance;
+		},
+		[buildAdvanceInputs],
+	);
+
+	/**
+	 * Resolve how marking `markedEps` (this season) affects the tracking doc.
+	 * Pointer only moves when the mark continues an unbroken watch run — see computeTrackingAdvance.
+	 * `jump` = user explicitly chose to (re)watch from this episode.
+	 */
+	const resolveTrackingWrite = useCallback(
+		async (markedEps: number[], jump = false): Promise<TrackingWrite> => {
+			const { order, counts, marked, tracking } = buildAdvanceInputs(markedEps);
+			const adv = jump
+				? computeJumpFrom(order, counts, marked, tracking)
+				: computeTrackingAdvance(order, counts, marked, tracking, todayStr());
 
 			if (!adv.advance) {
 				// Fallback values keep pointer intact on CF versions that ignore skipTracking
@@ -304,15 +327,7 @@ export default memo(function SeasonDropdown({
 				incrementRewatch: adv.incrementRewatch,
 			};
 		},
-		[
-			season.season_number,
-			seasonLayout,
-			episodes,
-			episodesBySeason,
-			watchedEps,
-			trackingItem,
-			lookupEpisode,
-		],
+		[buildAdvanceInputs, trackingItem, lookupEpisode],
 	);
 
 	const doMarkSeasonWatched = useCallback(async () => {
@@ -367,7 +382,7 @@ export default memo(function SeasonDropdown({
 	}, [guardTracking, doMarkSeasonWatched]);
 
 	const doMarkEpisodeWatched = useCallback(
-		async (ep: TMDBEpisode) => {
+		async (ep: TMDBEpisode, jump = false) => {
 			if (!user?.uid || markingEps.size > 0) return;
 			setMarkingEps(new Set([ep.episode_number]));
 
@@ -384,7 +399,7 @@ export default memo(function SeasonDropdown({
 			);
 
 			try {
-				const tw = await resolveTrackingWrite([ep.episode_number]);
+				const tw = await resolveTrackingWrite([ep.episode_number], jump);
 
 				await markEpisodeWatched(
 					user.uid,
@@ -434,12 +449,28 @@ export default memo(function SeasonDropdown({
 	);
 
 	const handleMarkWatched = useCallback(
-		async (ep: TMDBEpisode) => {
-			if (guardTracking(() => doMarkEpisodeWatched(ep))) {
-				await doMarkEpisodeWatched(ep);
+		async (ep: TMDBEpisode, jump = false) => {
+			if (guardTracking(() => doMarkEpisodeWatched(ep, jump))) {
+				await doMarkEpisodeWatched(ep, jump);
 			}
 		},
 		[guardTracking, doMarkEpisodeWatched],
+	);
+
+	// "Watch/rewatch from here?" — asked when a mark wouldn't move the watchlist
+	const [jumpModal, setJumpModal] = useState<{ ep: TMDBEpisode; rewatch: boolean } | null>(null);
+
+	/** Mark directly if it continues the watch flow, else ask whether to jump the watchlist here */
+	const markOrAskJump = useCallback(
+		(ep: TMDBEpisode) => {
+			if (!isTracked || willAdvance(ep.episode_number)) {
+				handleMarkWatched(ep);
+				return;
+			}
+			const count = watchedMap.get(ep.episode_number)?.watchCount || 0;
+			setJumpModal({ ep, rewatch: count > 0 });
+		},
+		[isTracked, willAdvance, handleMarkWatched, watchedMap],
 	);
 
 	const handleSheetAction = useCallback(
@@ -451,7 +482,7 @@ export default memo(function SeasonDropdown({
 					const ep = sheetTarget.ep;
 					const watched = watchedMap.get(ep.episode_number);
 					if (action === "rewatch") {
-						await handleMarkWatched(ep);
+						markOrAskJump(ep);
 					} else if (action === "not_watched") {
 						await unmarkEpisodeWatched(
 							user.uid,
@@ -573,7 +604,7 @@ export default memo(function SeasonDropdown({
 			season.season_number,
 			seasonData,
 			watchedMap,
-			handleMarkWatched,
+			markOrAskJump,
 			handleMarkSeasonWatched,
 			queryClient,
 		],
@@ -754,35 +785,28 @@ export default memo(function SeasonDropdown({
 
 	const handleCheckmarkPress = useCallback(
 		(ep: TMDBEpisode) => {
-			const count = watchedMap.get(ep.episode_number)?.watchCount || 0;
-			if (count > 0) {
-				handleMarkWatched(ep);
-				return;
-			}
-
 			if (!isTracked) {
 				handleMarkWatched(ep);
 				return;
 			}
 
-			// Check for skipped unwatched episodes before this one
-			const eps = episodes;
-			const skipped = eps.filter(
-				(e: TMDBEpisode) =>
-					e.episode_number < ep.episode_number && !watchedMap.has(e.episode_number),
-			);
-
-			if (skipped.length > 0) {
-				setSkipModalData({
-					firstSkipped: skipped[0].episode_number,
-					targetEp: ep,
-				});
-				setSkipModalVisible(true);
-			} else {
-				handleMarkWatched(ep);
+			// First watch with unwatched earlier episodes in this season → "mark previous?" first.
+			// "Just This One" then falls through to the "watch from here?" question.
+			const count = watchedMap.get(ep.episode_number)?.watchCount || 0;
+			if (count === 0) {
+				const skipped = episodes.filter(
+					(e: TMDBEpisode) =>
+						e.episode_number < ep.episode_number && !watchedMap.has(e.episode_number),
+				);
+				if (skipped.length > 0) {
+					setSkipModalData({ firstSkipped: skipped[0].episode_number, targetEp: ep });
+					setSkipModalVisible(true);
+					return;
+				}
 			}
+			markOrAskJump(ep);
 		},
-		[watchedMap, handleMarkWatched, isTracked, episodes],
+		[watchedMap, handleMarkWatched, isTracked, episodes, markOrAskJump],
 	);
 
 	const handleSeasonPress = useCallback(() => {
@@ -991,7 +1015,7 @@ export default memo(function SeasonDropdown({
 							style={styles.skipModalButtonOutline}
 							onPress={() => {
 								setSkipModalVisible(false);
-								handleMarkWatched(skipModalData.targetEp);
+								markOrAskJump(skipModalData.targetEp);
 								setSkipModalData(null);
 							}}
 						>
@@ -1004,6 +1028,46 @@ export default memo(function SeasonDropdown({
 								setSkipModalData(null);
 							}}
 						>
+							<Text style={styles.skipModalCancelText}>Cancel</Text>
+						</TouchableOpacity>
+					</View>
+				</AnimatedModal>
+			)}
+
+			{jumpModal && (
+				<AnimatedModal visible={!!jumpModal} onClose={() => setJumpModal(null)}>
+					<View style={styles.skipModalContent}>
+						<Text style={styles.skipModalTitle}>
+							{jumpModal.rewatch ? "Start a Rewatch?" : "Watch From Here?"}
+						</Text>
+						<Text style={styles.skipModalHint}>
+							{jumpModal.rewatch
+								? `Rewatch from E${jumpModal.ep.episode_number}? Your watchlist will continue from the next episode.`
+								: `Continue watching from E${jumpModal.ep.episode_number}? Your watchlist will move to the next episode.`}
+						</Text>
+						<TouchableOpacity
+							style={styles.skipModalButton}
+							onPress={() => {
+								const { ep } = jumpModal;
+								setJumpModal(null);
+								handleMarkWatched(ep, true);
+							}}
+						>
+							<Text style={styles.skipModalButtonText}>
+								{jumpModal.rewatch ? "Rewatch From Here" : "Watch From Here"}
+							</Text>
+						</TouchableOpacity>
+						<TouchableOpacity
+							style={styles.skipModalButtonOutline}
+							onPress={() => {
+								const { ep } = jumpModal;
+								setJumpModal(null);
+								handleMarkWatched(ep);
+							}}
+						>
+							<Text style={styles.skipModalButtonOutlineText}>Just Mark It</Text>
+						</TouchableOpacity>
+						<TouchableOpacity style={styles.skipModalCancel} onPress={() => setJumpModal(null)}>
 							<Text style={styles.skipModalCancelText}>Cancel</Text>
 						</TouchableOpacity>
 					</View>

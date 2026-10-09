@@ -3,7 +3,8 @@ import type { CatalogShow } from "../types/catalog";
 import { isGenericEpisodeTitle } from "./episodeTitle";
 
 /**
- * Catalog data lookup order everywhere: local cache → Firestore → TMDB.
+ * Catalog data lookup order for tracked shows: local cache → Firestore → TMDB.
+ * Exception: search / trending / search results go straight to TMDB (no Firestore).
  * These pure helpers decide when a cached entry is too stale/incomplete to use.
  */
 
