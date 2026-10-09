@@ -43,7 +43,8 @@ import type { CarouselEpisode } from "./modals/EpisodeDetailModal";
 import { colors, spacing, typography } from "../theme";
 import { tmdbPosterUri, tmdbStillUri } from "../hooks/useTmdbImage";
 import { todayStr } from "../utils/todayStr";
-import { TMDBSeason, TMDBEpisode, MediaType } from "../types";
+import { TMDBSeason, TMDBEpisode, MediaType, WatchStatus } from "../types";
+import { computeTrackingAdvance, epKey, EpisodeRef } from "../utils/trackingAdvance";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
 	UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -63,6 +64,27 @@ interface Props {
 	showBackdropPath?: string | null;
 	isTracked?: boolean;
 	preloadedEpisodes?: TMDBEpisode[];
+	/** Current tracking doc (status + pointer) — drives whether marks move the watchlist */
+	trackingItem?: {
+		status?: WatchStatus;
+		nextEpisode?: EpisodeRef | null;
+		nextEpisodeName?: string | null;
+		nextEpisodeAirDate?: string | null;
+	} | null;
+	/** All regular seasons of the show, in order */
+	seasonLayout?: Array<{ season: number; episodeCount: number }>;
+	/** Episodes of other seasons when known (catalog) */
+	episodesBySeason?: Map<number, TMDBEpisode[]>;
+}
+
+interface TrackingWrite {
+	advance: boolean;
+	nextEpisode: EpisodeRef | null;
+	nextEpisodeName: string | null;
+	nextEpisodeAirDate: string | null;
+	isComplete: boolean;
+	status?: WatchStatus;
+	incrementRewatch: boolean;
 }
 
 export default memo(function SeasonDropdown({
@@ -73,6 +95,9 @@ export default memo(function SeasonDropdown({
 	showBackdropPath,
 	isTracked,
 	preloadedEpisodes,
+	trackingItem,
+	seasonLayout,
+	episodesBySeason,
 }: Props) {
 	const [expanded, setExpanded] = useState(false);
 	const [markingEps, setMarkingEps] = useState<Set<number>>(new Set());
@@ -202,49 +227,85 @@ export default memo(function SeasonDropdown({
 	const allWatched = episodes.length > 0 && minWatchCount > 0;
 	const partiallyWatched = watchedCount > 0 && !allWatched;
 
-	const getNextEpisodeInfo = useCallback(
-		async (afterSeason: number, afterEpisode?: number) => {
-			const eps = episodes;
-			if (afterEpisode !== undefined) {
-				const nextInSeason = eps.find((e: TMDBEpisode) => e.episode_number === afterEpisode + 1);
-				if (nextInSeason) {
-					return {
-						nextEpisode: {
-							season: afterSeason,
-							episode: nextInSeason.episode_number,
-						},
-						nextEpisodeName: nextInSeason.name || null,
-						nextEpisodeAirDate: nextInSeason.air_date || null,
-						isComplete: false,
-					};
+	/** Look up name/air date of an episode (local season → catalog → TMDB) */
+	const lookupEpisode = useCallback(
+		async (ref: EpisodeRef): Promise<{ name: string | null; airDate: string | null }> => {
+			const local =
+				ref.season === season.season_number ? episodes : episodesBySeason?.get(ref.season);
+			let ep = local?.find((e: TMDBEpisode) => e.episode_number === ref.episode);
+			if (!ep && apiKey) {
+				try {
+					const sd = await fetchSeason(apiKey, tmdbId, ref.season);
+					ep = sd.episodes?.find((e) => e.episode_number === ref.episode);
+				} catch {}
+			}
+			return { name: ep?.name || null, airDate: ep?.air_date || null };
+		},
+		[episodes, episodesBySeason, season.season_number, apiKey, tmdbId],
+	);
+
+	/**
+	 * Resolve how marking `markedEps` (this season) affects the tracking doc.
+	 * Pointer only moves when the mark continues an unbroken watch run — see computeTrackingAdvance.
+	 */
+	const resolveTrackingWrite = useCallback(
+		async (markedEps: number[]): Promise<TrackingWrite> => {
+			const sn = season.season_number;
+			const layout =
+				seasonLayout && seasonLayout.length > 0
+					? [...seasonLayout].filter((l) => l.season > 0).sort((a, b) => a.season - b.season)
+					: [{ season: sn, episodeCount: episodes.length }];
+			const order: EpisodeRef[] = [];
+			for (const l of layout) {
+				const eps = l.season === sn ? episodes : episodesBySeason?.get(l.season);
+				if (eps && eps.length > 0) {
+					for (const e of eps) order.push({ season: l.season, episode: e.episode_number });
+				} else {
+					for (let i = 1; i <= l.episodeCount; i++) order.push({ season: l.season, episode: i });
 				}
 			}
-			try {
-				const nextSeasonData = await fetchSeason(apiKey, tmdbId, afterSeason + 1);
-				const ns = nextSeasonData as {
-					episodes: Array<{
-						episode_number: number;
-						name?: string;
-						air_date?: string;
-					}>;
+
+			const counts = new Map<string, number>();
+			for (const w of watchedEps) counts.set(epKey(w.season, w.episode), w.watchCount || 0);
+			for (const n of markedEps) counts.set(epKey(sn, n), (counts.get(epKey(sn, n)) ?? 0) + 1);
+
+			// Just added via guardTracking → fresh tracking doc
+			const tracking = trackingItem ?? {
+				status: WatchStatus.WATCHING,
+				nextEpisode: { season: 1, episode: 1 },
+			};
+			const adv = computeTrackingAdvance(
+				order,
+				counts,
+				markedEps.map((n) => ({ season: sn, episode: n })),
+				tracking,
+			);
+
+			if (!adv.advance) {
+				// Fallback values keep pointer intact on CF versions that ignore skipTracking
+				return {
+					advance: false,
+					nextEpisode: tracking.nextEpisode ?? null,
+					nextEpisodeName: trackingItem?.nextEpisodeName ?? null,
+					nextEpisodeAirDate: trackingItem?.nextEpisodeAirDate ?? null,
+					isComplete: false,
+					incrementRewatch: false,
 				};
-				if (ns.episodes?.length > 0) {
-					return {
-						nextEpisode: { season: afterSeason + 1, episode: 1 },
-						nextEpisodeName: ns.episodes[0].name || null,
-						nextEpisodeAirDate: ns.episodes[0].air_date || null,
-						isComplete: false,
-					};
-				}
-			} catch {}
+			}
+			const info = adv.nextEpisode
+				? await lookupEpisode(adv.nextEpisode)
+				: { name: null, airDate: null };
 			return {
-				nextEpisode: null,
-				nextEpisodeName: null,
-				nextEpisodeAirDate: null,
-				isComplete: true,
+				advance: true,
+				nextEpisode: adv.nextEpisode,
+				nextEpisodeName: info.name,
+				nextEpisodeAirDate: info.airDate,
+				isComplete: !adv.nextEpisode,
+				status: adv.status,
+				incrementRewatch: adv.incrementRewatch,
 			};
 		},
-		[seasonData, apiKey, tmdbId],
+		[season.season_number, seasonLayout, episodes, episodesBySeason, watchedEps, trackingItem, lookupEpisode],
 	);
 
 	const doMarkSeasonWatched = useCallback(async () => {
@@ -254,8 +315,7 @@ export default memo(function SeasonDropdown({
 
 		setMarkingSeason(true);
 		try {
-			const { nextEpisode, nextEpisodeName, nextEpisodeAirDate, isComplete } =
-				await getNextEpisodeInfo(season.season_number);
+			const tw = await resolveTrackingWrite(eps.map((ep: TMDBEpisode) => ep.episode_number));
 
 			await markSeasonWatchedCF(
 				tmdbId,
@@ -265,10 +325,11 @@ export default memo(function SeasonDropdown({
 					name: ep.name,
 					runtime: ep.runtime || 0,
 				})),
-				nextEpisode,
-				isComplete,
-				nextEpisodeName,
-				nextEpisodeAirDate,
+				tw.nextEpisode,
+				tw.isComplete,
+				tw.nextEpisodeName,
+				tw.nextEpisodeAirDate,
+				{ skipTracking: !tw.advance, status: tw.status, incrementRewatch: tw.incrementRewatch },
 			);
 			const now = Timestamp.now();
 			for (const ep of eps) {
@@ -290,7 +351,7 @@ export default memo(function SeasonDropdown({
 		} finally {
 			setMarkingSeason(false);
 		}
-	}, [user?.uid, markingSeason, seasonData, tmdbId, season.season_number, getNextEpisodeInfo]);
+	}, [user?.uid, markingSeason, episodes, tmdbId, season.season_number, resolveTrackingWrite]);
 
 	const handleMarkSeasonWatched = useCallback(async () => {
 		if (guardTracking(doMarkSeasonWatched)) {
@@ -316,8 +377,7 @@ export default memo(function SeasonDropdown({
 			);
 
 			try {
-				const { nextEpisode, nextEpisodeName, nextEpisodeAirDate, isComplete } =
-					await getNextEpisodeInfo(season.season_number, ep.episode_number);
+				const tw = await resolveTrackingWrite([ep.episode_number]);
 
 				await markEpisodeWatched(
 					user.uid,
@@ -326,11 +386,12 @@ export default memo(function SeasonDropdown({
 					ep.episode_number,
 					ep.name,
 					ep.runtime || 0,
-					nextEpisode,
-					isComplete,
-					false,
-					nextEpisodeName,
-					nextEpisodeAirDate,
+					tw.nextEpisode,
+					tw.isComplete,
+					!tw.advance,
+					tw.nextEpisodeName,
+					tw.nextEpisodeAirDate,
+					{ status: tw.status, incrementRewatch: tw.incrementRewatch },
 				);
 				const now = Timestamp.now();
 				insertWatchedEpisodeCache(queryClient, user.uid, {
@@ -358,7 +419,7 @@ export default memo(function SeasonDropdown({
 			markingEps,
 			tmdbId,
 			season.season_number,
-			getNextEpisodeInfo,
+			resolveTrackingWrite,
 			queryClient,
 			mutateCachedUpcoming,
 			rollbackUpcoming,
@@ -526,8 +587,7 @@ export default memo(function SeasonDropdown({
 			setMarkingEps(new Set(epsToMark.map((e: TMDBEpisode) => e.episode_number)));
 			try {
 				// Use batch CF instead of sequential individual marks — survives backgrounding
-				const { nextEpisode, nextEpisodeName, nextEpisodeAirDate, isComplete } =
-					await getNextEpisodeInfo(season.season_number, toEp);
+				const tw = await resolveTrackingWrite(epsToMark.map((ep: TMDBEpisode) => ep.episode_number));
 
 				await markSeasonWatchedCF(
 					tmdbId,
@@ -537,10 +597,11 @@ export default memo(function SeasonDropdown({
 						name: ep.name,
 						runtime: ep.runtime || 0,
 					})),
-					nextEpisode,
-					isComplete,
-					nextEpisodeName,
-					nextEpisodeAirDate,
+					tw.nextEpisode,
+					tw.isComplete,
+					tw.nextEpisodeName,
+					tw.nextEpisodeAirDate,
+					{ skipTracking: !tw.advance, status: tw.status, incrementRewatch: tw.incrementRewatch },
 				);
 
 				const now = Timestamp.now();
@@ -564,7 +625,7 @@ export default memo(function SeasonDropdown({
 				setMarkingEps(new Set());
 			}
 		},
-		[user?.uid, seasonData, watchedMap, tmdbId, season.season_number, getNextEpisodeInfo],
+		[user?.uid, episodes, watchedMap, tmdbId, season.season_number, resolveTrackingWrite],
 	);
 
 	const markEpisodeRange = useCallback(

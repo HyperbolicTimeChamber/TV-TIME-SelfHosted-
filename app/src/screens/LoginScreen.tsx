@@ -17,6 +17,7 @@ import { getAuth, sendPasswordResetEmail } from "@react-native-firebase/auth";
 import { useAuthStore } from "../stores";
 import GoogleLogo from "../../assets/GoogleLogo";
 import { getFirebaseAuthErrorMessage } from "../hooks";
+import { isEmailIdentifier, isValidUsername } from "../utils/username";
 
 export default function LoginScreen() {
 	const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuthStore();
@@ -28,21 +29,27 @@ export default function LoginScreen() {
 	const [error, setError] = useState<string | null>(null);
 
 	const handleEmailAuth = async () => {
-		if (!email.trim() || !password.trim()) {
-			setError("Please enter email and password.");
+		const identifier = email.trim();
+		if (!identifier || !password.trim()) {
+			setError("Please enter email or username and password.");
+			return;
+		}
+		const isUsername = !isEmailIdentifier(identifier);
+		if (isUsername && !isValidUsername(identifier)) {
+			setError("Usernames are 3–20 characters: letters, numbers, _ or .");
 			return;
 		}
 		setLoading(true);
 		setError(null);
 		try {
 			if (isSignUp) {
-				await signUpWithEmail(email.trim(), password);
+				await signUpWithEmail(identifier, password);
 			} else {
-				await signInWithEmail(email.trim(), password);
+				await signInWithEmail(identifier, password);
 			}
 		} catch (e: unknown) {
 			const code = (e as { code?: string }).code ?? "";
-			setError(getFirebaseAuthErrorMessage(code));
+			setError(getFirebaseAuthErrorMessage(code, isUsername));
 		} finally {
 			setLoading(false);
 		}
@@ -63,6 +70,10 @@ export default function LoginScreen() {
 	const handleForgotPassword = async () => {
 		if (!email.trim()) {
 			setError("Enter your email address first.");
+			return;
+		}
+		if (!isEmailIdentifier(email.trim())) {
+			setError("Password reset needs an email. Username accounts can't be reset by email.");
 			return;
 		}
 		setLoading(true);
@@ -96,7 +107,7 @@ export default function LoginScreen() {
 				<View style={styles.form}>
 					<TextInput
 						style={styles.input}
-						placeholder="Email"
+						placeholder="Email or username"
 						placeholderTextColor={colors.textMuted}
 						keyboardType="email-address"
 						autoCapitalize="none"

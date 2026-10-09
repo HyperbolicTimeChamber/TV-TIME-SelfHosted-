@@ -10,6 +10,8 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { WatchedEpisode, QueryKey } from "../types";
 
+const inflight = new Map<string, Promise<WatchedEpisode[]>>();
+
 /**
  * One-time fetch of ALL watched episodes for a specific show.
  * Uses React Query cache so subsequent opens don't re-read Firestore.
@@ -23,17 +25,25 @@ export function useShowWatchedEpisodes(userId: string | undefined, tmdbShowId: n
 	const [refreshKey, setRefreshKey] = useState(0);
 
 	const fetchFromFirestore = useCallback(
-		async (uid: string) => {
-			const db = getFirestore();
-			const colRef = collection(doc(db, "users", uid), "watchedEpisodes");
-			const q = query(colRef, where("tmdbShowId", "==", tmdbShowId));
-			const snapshot = await getDocs(q);
-			const eps = snapshot.docs.map((d) => ({
-				id: d.id,
-				...d.data(),
-			})) as WatchedEpisode[];
-			queryClient.setQueryData([QueryKey.WATCHED_EPISODES, uid, tmdbShowId], eps);
-			return eps;
+		(uid: string) => {
+			// Dedupe: every SeasonDropdown + detail screen mounts this hook at once
+			const key = `${uid}_${tmdbShowId}`;
+			const pending = inflight.get(key);
+			if (pending) return pending;
+			const promise = (async () => {
+				const db = getFirestore();
+				const colRef = collection(doc(db, "users", uid), "watchedEpisodes");
+				const q = query(colRef, where("tmdbShowId", "==", tmdbShowId));
+				const snapshot = await getDocs(q);
+				const eps = snapshot.docs.map((d) => ({
+					id: d.id,
+					...d.data(),
+				})) as WatchedEpisode[];
+				queryClient.setQueryData([QueryKey.WATCHED_EPISODES, uid, tmdbShowId], eps);
+				return eps;
+			})().finally(() => inflight.delete(key));
+			inflight.set(key, promise);
+			return promise;
 		},
 		[tmdbShowId, queryClient],
 	);

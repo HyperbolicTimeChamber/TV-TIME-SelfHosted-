@@ -12,6 +12,13 @@ export enum MediaType {
 	MOVIE = "movie",
 }
 
+export enum ShowStatus {
+	ENDED = "Ended",
+	CANCELED = "Canceled",
+}
+
+export const ENDED_STATUSES: string[] = [ShowStatus.ENDED, ShowStatus.CANCELED];
+
 export enum MediaFilter {
 	ALL = "all",
 	TV = "tv",
@@ -36,6 +43,8 @@ export enum CacheKey {
 	HIDE_UNRELEASED_MODAL = "hideUnreleasedMovieModal",
 	IMPORT_IN_PROGRESS = "import_in_progress",
 	CATALOG_CACHE = "catalog_cache_v1",
+	CATALOG_SYNC_STAMP = "catalog_sync_stamp_v1",
+	UPCOMING_PAST = "upcoming_past_v1",
 	PROFILE_CARD_IMAGES = "profile_card_images_v1",
 	WEEKLY_ACTIVITY = "weekly_activity_v1",
 	COMPLETED_SECTIONS = "completed_sections_v1",

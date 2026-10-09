@@ -5,11 +5,13 @@ import {
 	getAuth,
 	signInWithEmailAndPassword,
 	createUserWithEmailAndPassword,
+	updateProfile,
 	signOut as firebaseSignOut,
 } from "@react-native-firebase/auth";
 import type { User } from "@react-native-firebase/auth";
 import { getFirestore, doc, getDoc } from "@react-native-firebase/firestore";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import { isEmailIdentifier, usernameToEmail, normalizeUsername } from "../utils/username";
 
 interface AuthState {
 	user: User | null;
@@ -19,13 +21,20 @@ interface AuthState {
 	hasCompletedImport: boolean;
 	userFlagsLoading: boolean;
 	minVersion: string | null;
+	/** ISO string of config/app.lastCatalogSync (weekly server catalog refresh) */
+	lastCatalogSync: string | null;
+	/** Sync before lastCatalogSync — caches stamped with it only need changedShowIds re-read */
+	previousCatalogSync: string | null;
+	/** Show doc ids changed by the last sync */
+	changedShowIds: string[] | null;
 	setUser: (user: User | null) => void;
 	setLoading: (loading: boolean) => void;
 	loadAppConfig: () => Promise<void>;
 	loadUserFlags: (userId: string) => Promise<void>;
 	signInWithGoogle: () => Promise<void>;
-	signInWithEmail: (email: string, password: string) => Promise<void>;
-	signUpWithEmail: (email: string, password: string) => Promise<void>;
+	/** identifier = email or username */
+	signInWithEmail: (identifier: string, password: string) => Promise<void>;
+	signUpWithEmail: (identifier: string, password: string) => Promise<void>;
 	signOut: () => Promise<void>;
 }
 
@@ -37,6 +46,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 	hasCompletedImport: false,
 	userFlagsLoading: true,
 	minVersion: null,
+	lastCatalogSync: null,
+	previousCatalogSync: null,
+	changedShowIds: null,
 
 	setUser: (user) => {
 		set({ user, loading: false, userFlagsLoading: !!user });
@@ -62,6 +74,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 				set({
 					appTmdbApiKey: data?.tmdbApiKey ?? null,
 					minVersion: data?.minVersion ?? null,
+					lastCatalogSync: data?.lastCatalogSync?.toDate?.()?.toISOString?.() ?? null,
+					previousCatalogSync: data?.previousCatalogSync?.toDate?.()?.toISOString?.() ?? null,
+					changedShowIds: Array.isArray(data?.changedShowIds) ? data.changedShowIds : null,
 				});
 			}
 		} catch (error) {
@@ -105,8 +120,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 		}
 	},
 
-	signInWithEmail: async (email: string, password: string) => {
+	signInWithEmail: async (identifier: string, password: string) => {
 		try {
+			const email = isEmailIdentifier(identifier) ? identifier : usernameToEmail(identifier);
 			await signInWithEmailAndPassword(getAuth(), email, password);
 		} catch (error) {
 			console.error("Email sign in error:", error);
@@ -114,9 +130,21 @@ export const useAuthStore = create<AuthState>((set) => ({
 		}
 	},
 
-	signUpWithEmail: async (email: string, password: string) => {
+	signUpWithEmail: async (identifier: string, password: string) => {
 		try {
-			await createUserWithEmailAndPassword(getAuth(), email, password);
+			if (isEmailIdentifier(identifier)) {
+				await createUserWithEmailAndPassword(getAuth(), identifier, password);
+				return;
+			}
+			// Username → synthetic email. Firebase rejects duplicates with
+			// auth/email-already-in-use, which the login screen maps to "username taken".
+			const username = normalizeUsername(identifier);
+			const cred = await createUserWithEmailAndPassword(
+				getAuth(),
+				usernameToEmail(username),
+				password,
+			);
+			await updateProfile(cred.user, { displayName: username }).catch(() => {});
 		} catch (error) {
 			console.error("Email sign up error:", error);
 			throw error;
@@ -137,6 +165,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 				appTmdbApiKeyLoading: true,
 				hasCompletedImport: false,
 				minVersion: null,
+				lastCatalogSync: null,
+				previousCatalogSync: null,
+				changedShowIds: null,
 			});
 		} catch (error) {
 			console.error("Sign out error:", error);

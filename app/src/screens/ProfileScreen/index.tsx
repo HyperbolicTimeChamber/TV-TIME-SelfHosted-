@@ -19,6 +19,7 @@ import WeeklyChart from "../../components/WeeklyChart";
 import StatCard from "./StatCard";
 import CollageCard from "./CollageCard";
 import CompletedSections from "./CompletedSections";
+import { usernameFromEmail } from "../../utils/username";
 import { styles } from "./styles";
 
 /** Replace Google profile photo size param with screen-aware resolution */
@@ -138,7 +139,7 @@ export default function ProfileScreen() {
 				<View style={styles.header}>
 					<Text style={styles.name}>{user?.displayName || "User"}</Text>
 					<Text style={styles.email} numberOfLines={1}>
-						{user?.email}
+						{usernameFromEmail(user?.email) ? `@${usernameFromEmail(user?.email)}` : user?.email}
 					</Text>
 				</View>
 			</View>

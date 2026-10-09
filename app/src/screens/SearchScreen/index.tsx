@@ -235,7 +235,7 @@ export default function SearchScreen() {
 
 				const title = item.title || item.name || "";
 				const poster = item.poster_path || null;
-				const epInfo = await fetchFirstEpisodeInfo(item.id, apiKey);
+				const epInfo = await fetchFirstEpisodeInfo(item.id, apiKey, item);
 
 				await addToTracking(user.uid!, item.id, mediaType, undefined, {
 					title,
@@ -475,7 +475,7 @@ export default function SearchScreen() {
 		await withLoadingId(item.id, async () => {
 			const title = item.title || item.name || "";
 			const poster = item.poster_path || null;
-			const epInfo = await fetchFirstEpisodeInfo(item.id, apiKey);
+			const epInfo = await fetchFirstEpisodeInfo(item.id, apiKey, item);
 			await addToTracking(user.uid!, item.id, MediaType.TV, undefined, {
 				title,
 				posterPath: poster,

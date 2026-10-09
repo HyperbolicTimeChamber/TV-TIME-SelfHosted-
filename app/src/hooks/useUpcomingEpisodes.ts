@@ -3,7 +3,6 @@ import {
 	getFirestore,
 	collection,
 	doc,
-	getDoc,
 	getDocs,
 	query,
 	where,
@@ -13,10 +12,21 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { UpcomingEpisode, CacheKey, CloudFunction, MediaType } from "../types";
 import { getCachedCatalogShow } from "./useWatchlist";
 import { todayStr } from "../utils/todayStr";
+import {
+	trimPastQueue,
+	upcomingEpKey as epKey,
+	placeholderTargets,
+	titlesFromCatalog,
+	applyTitles,
+} from "../utils/upcomingQueue";
+import { useAuthStore } from "../stores";
+import { getSeasonDetails, pooled } from "../services/tmdb";
+import { isGenericEpisodeTitle } from "../utils/episodeTitle";
 
 type MutateCallback = (fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[]) => void;
 const mutateListeners = new Set<MutateCallback>();
 const invalidateListeners = new Set<() => void>();
+const pastRemoveListeners = new Set<(tmdbId: number) => void>();
 
 function mutateCachedEpisodes(fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[]) {
 	mutateListeners.forEach((cb) => cb(fn));
@@ -24,6 +34,25 @@ function mutateCachedEpisodes(fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[]
 
 function triggerInvalidate() {
 	invalidateListeners.forEach((fn) => fn());
+}
+
+// --- Past days queue (local only, 0 Firestore reads) ---
+// Episodes that drop off the upcoming list (airDate < today) are pushed into a
+// per-device queue of the most recent PAST_DAYS_LIMIT air dates. Oldest date
+// falls off when a new day is pushed past the limit.
+async function loadPastQueue(userId: string): Promise<UpcomingEpisode[]> {
+	try {
+		const raw = await AsyncStorage.getItem(CacheKey.UPCOMING_PAST);
+		if (!raw) return [];
+		const parsed = JSON.parse(raw);
+		return parsed.userId === userId ? ((parsed.episodes as UpcomingEpisode[]) ?? []) : [];
+	} catch {
+		return [];
+	}
+}
+
+function persistPastQueue(userId: string, episodes: UpcomingEpisode[]) {
+	AsyncStorage.setItem(CacheKey.UPCOMING_PAST, JSON.stringify({ userId, episodes })).catch(() => {});
 }
 
 /** Persist upcoming cache with mutations applied */
@@ -41,6 +70,25 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 	const [forceRefetch, setForceRefetch] = useState(0);
 	const [cacheReady, setCacheReady] = useState(false);
 	const cachedSyncDate = useRef<string | null>(null);
+	const [pastEpisodes, setPastEpisodes] = useState<UpcomingEpisode[]>([]);
+	const pastRef = useRef<UpcomingEpisode[]>([]);
+
+	/** Push episodes that have aired (airDate < today) into the past queue */
+	const archivePast = useCallback(
+		(eps: UpcomingEpisode[], base?: UpcomingEpisode[]) => {
+			if (!userId) return;
+			const today = todayStr();
+			const prev = base ?? pastRef.current;
+			const aired = eps.filter((ep) => ep.airDate < today);
+			const next = trimPastQueue([...prev, ...aired], today);
+			const changed =
+				next.length !== prev.length || next.some((ep, i) => epKey(ep) !== epKey(prev[i]));
+			pastRef.current = next;
+			setPastEpisodes(next);
+			if (changed) persistPastQueue(userId, next);
+		},
+		[userId],
+	);
 
 	// Listen for invalidation (force refetch)
 	useEffect(() => {
@@ -50,6 +98,21 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 			invalidateListeners.delete(listener);
 		};
 	}, []);
+
+	// Removed show → drop it from the past queue too
+	useEffect(() => {
+		const cb = (tmdbId: number) => {
+			const next = pastRef.current.filter((ep) => ep.tmdbShowId !== tmdbId);
+			if (next.length === pastRef.current.length) return;
+			pastRef.current = next;
+			setPastEpisodes(next);
+			if (userId) persistPastQueue(userId, next);
+		};
+		pastRemoveListeners.add(cb);
+		return () => {
+			pastRemoveListeners.delete(cb);
+		};
+	}, [userId]);
 
 	// Listen for direct mutations — update state AND persist to cache
 	useEffect(() => {
@@ -70,8 +133,10 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 	// Restore from cache on mount + prune past episodes
 	useEffect(() => {
 		if (!userId || cacheReady) return;
-		AsyncStorage.getItem(CacheKey.UPCOMING_EPISODES).then((raw) => {
+		Promise.all([AsyncStorage.getItem(CacheKey.UPCOMING_EPISODES), loadPastQueue(userId)]).then(
+			([raw, storedPast]) => {
 			if (!raw) {
+				archivePast([], storedPast);
 				setCacheReady(true);
 				return;
 			}
@@ -79,6 +144,8 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 				const cached = JSON.parse(raw);
 				if (cached.userId === userId && cached.episodes?.length > 0) {
 					const today = todayStr();
+					// Aired since last open → push into past queue instead of dropping
+					archivePast(cached.episodes as UpcomingEpisode[], storedPast);
 					const pruned = (cached.episodes as UpcomingEpisode[]).filter((ep) => ep.airDate >= today);
 					cachedSyncDate.current = cached.syncDate || null;
 					if (pruned.length > 0) {
@@ -88,23 +155,27 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 							persistCache(userId, pruned, cached.syncDate || "");
 						}
 					}
+				} else {
+					archivePast([], storedPast);
 				}
 			} catch {}
 			setCacheReady(true);
-		});
-	}, [userId, cacheReady]);
+		},
+		);
+	}, [userId, cacheReady, archivePast]);
+
+	// Wait for authStore's config/app load (provides lastCatalogSync)
+	const configLoading = useAuthStore((s) => s.appTmdbApiKeyLoading);
 
 	// Check if backend has synced since our cache → refetch if so
 	useEffect(() => {
-		if (!userId || !cacheReady) return;
+		if (!userId || !cacheReady || configLoading) return;
 
 		(async () => {
-			// Read lastCatalogSync from config/app
+			// lastCatalogSync comes from authStore's config/app read — no extra read here
 			const db = getFirestore();
 			try {
-				const configDoc = await getDoc(doc(db, "config", "app"));
-				const serverSync = configDoc.data()?.lastCatalogSync;
-				const serverSyncStr = serverSync?.toDate?.()?.toISOString?.() || null;
+				const serverSyncStr = useAuthStore.getState().lastCatalogSync;
 
 				if (serverSyncStr && cachedSyncDate.current && serverSyncStr === cachedSyncDate.current) {
 					// Cache is fresh — no refetch needed
@@ -164,7 +235,10 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 
 				const newSyncDate = serverSyncStr || new Date().toISOString();
 				cachedSyncDate.current = newSyncDate;
-				setEpisodes(eps);
+				setEpisodes((prev) => {
+					archivePast(prev);
+					return eps;
+				});
 				setIsLoading(false);
 
 				// Cache with sync date
@@ -175,11 +249,107 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 				setIsLoading(false);
 			}
 		})();
-	}, [userId, cacheReady, forceRefetch]);
+	}, [userId, cacheReady, configLoading, forceRefetch, archivePast]);
 
 	const retry = useCallback(() => setForceRefetch((t) => t + 1), []);
 
-	return { data: episodes, isLoading, error, retry };
+	// App left open across midnight → move yesterday's episodes into the past queue
+	const [today, setToday] = useState(todayStr);
+	useEffect(() => {
+		const id = setInterval(() => {
+			const t = todayStr();
+			if (t !== today) setToday(t);
+		}, 60_000);
+		return () => clearInterval(id);
+	}, [today]);
+	useEffect(() => {
+		if (!userId || !cacheReady) return;
+		if (!episodes.some((ep) => ep.airDate < today)) return;
+		archivePast(episodes);
+		setEpisodes((prev) => prev.filter((ep) => ep.airDate >= today));
+	}, [today, userId, cacheReady, episodes, archivePast]);
+
+	// Patch placeholder names ("Episode 1") with real TMDB titles — local only
+	useEffect(() => {
+		refreshPlaceholderTitles(
+			[...pastRef.current, ...episodes],
+			setEpisodes,
+			(fn) => {
+				const next = fn(pastRef.current);
+				if (next === pastRef.current) return;
+				pastRef.current = next;
+				setPastEpisodes(next);
+				if (userId) persistPastQueue(userId, next);
+			},
+			userId,
+			cachedSyncDate.current,
+		);
+	}, [episodes, pastEpisodes, userId]);
+
+	return { data: episodes, pastData: pastEpisodes, isLoading, error, retry };
+}
+
+// Show+season pairs already refreshed this session
+const titleRefreshDone = new Set<string>();
+
+/**
+ * Upcoming docs are built weekly from the catalog, so episodes often carry TMDB
+ * placeholder names ("Episode 1") while TMDB already has the real title. Fetch the
+ * season from TMDB once per session and patch titles locally (+ persisted cache).
+ */
+async function refreshPlaceholderTitles(
+	episodes: UpcomingEpisode[],
+	setEpisodes: (fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[]) => void,
+	mutatePast: (fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[]) => void,
+	userId: string | undefined,
+	syncDate: string | null,
+) {
+	if (!userId) return;
+	const targets = placeholderTargets(episodes, titleRefreshDone);
+	if (targets.size === 0) return;
+	for (const k of targets.keys()) titleRefreshDone.add(k);
+
+	// 1. Local catalog cache (healed/fresher than the weekly upcoming docs) — free
+	// 2. Firestore skipped on purpose: upcoming docs are built from that same catalog doc
+	// 3. TMDB for whatever is still a placeholder
+	const titles = new Map<string, string>();
+	const needTmdb: Array<{ tmdbId: number; season: number }> = [];
+	for (const { tmdbId, season } of targets.values()) {
+		const fromCache = titlesFromCatalog(getCachedCatalogShow(tmdbId, MediaType.TV), tmdbId, season);
+		for (const [k, t] of fromCache) titles.set(k, t);
+		const stillGeneric = episodes.some(
+			(ep) =>
+				ep.tmdbShowId === tmdbId &&
+				ep.season === season &&
+				isGenericEpisodeTitle(ep.episodeTitle) &&
+				!fromCache.has(epKey(ep)),
+		);
+		if (stillGeneric) needTmdb.push({ tmdbId, season });
+	}
+
+	const apiKey = useAuthStore.getState().appTmdbApiKey;
+	if (apiKey && needTmdb.length > 0) {
+		await pooled(
+			needTmdb.map(({ tmdbId, season }) => async () => {
+				try {
+					const sd = await getSeasonDetails(apiKey, tmdbId, season);
+					for (const e of sd.episodes ?? []) {
+						if (!isGenericEpisodeTitle(e.name)) {
+							titles.set(epKey({ tmdbShowId: tmdbId, season, episode: e.episode_number }), e.name);
+						}
+					}
+				} catch {}
+			}),
+			3,
+		);
+	}
+	if (titles.size === 0) return;
+	setEpisodes((prev) => {
+		const next = applyTitles(prev, titles);
+		if (next !== prev && syncDate) persistCache(userId, next, syncDate);
+		return next;
+	});
+	mutatePast((prev) => applyTitles(prev, titles));
 }
 
 // Snapshot holder for optimistic rollbacks
@@ -207,6 +377,7 @@ export function useUpcomingMutations() {
 	const removeShowFromUpcoming = useCallback((tmdbId: number) => {
 		// Optimistic: remove from local state + cache immediately
 		mutateCachedEpisodes((prev) => prev.filter((ep) => ep.tmdbShowId !== tmdbId));
+		pastRemoveListeners.forEach((fn) => fn(tmdbId));
 	}, []);
 
 	const invalidateUpcoming = useCallback(() => {

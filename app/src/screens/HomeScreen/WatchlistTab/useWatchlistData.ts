@@ -37,6 +37,7 @@ import {
 } from "../../../types";
 import type { WatchlistListItem } from "../../../types/watchlist";
 import { todayStr } from "../../../utils/todayStr";
+import { pickEpisodeTitle } from "../../../utils/episodeTitle";
 
 const ACTIVE_CACHE_LIMIT = 100;
 
@@ -108,7 +109,7 @@ function buildCardItem(item: EnrichedTrackingItem, today: string) {
 
 	return {
 		...item,
-		nextEpisodeName: item.nextEpisodeName || catalogEp?.title || null,
+		nextEpisodeName: pickEpisodeTitle(item.nextEpisodeName, catalogEp?.title),
 		nextEpisodeAirDate: item.nextEpisodeAirDate ?? catalogEp?.airDate ?? null,
 		nextEpisodeRuntime: catalogEp?.runtime || 0,
 		releaseDate: item.releaseDate ?? catalog?.releaseDate ?? null,

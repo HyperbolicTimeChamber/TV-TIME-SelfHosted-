@@ -41,4 +41,6 @@ export interface CatalogShow {
 	trackedBy: string[];
 	trackedByCount: number;
 	lastSyncedAt: any; // Firestore Timestamp
+	/** Client-built stand-in (search add) — replace with the real catalog doc ASAP */
+	partial?: boolean;
 }

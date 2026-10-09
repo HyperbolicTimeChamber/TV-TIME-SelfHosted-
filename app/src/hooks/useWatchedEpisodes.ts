@@ -108,7 +108,9 @@ export function insertWatchedEpisodeCache(
 	});
 	// Update show-specific flat cache (used by useShowWatchedEpisodes)
 	queryClient.setQueryData([QueryKey.WATCHED_EPISODES, userId, ep.tmdbShowId], (old: any) => {
-		if (!Array.isArray(old)) return [ep];
+		// Not loaded yet → leave empty so detail screen fetches the full list
+		// (seeding [ep] would hide every other watched episode)
+		if (!Array.isArray(old)) return old;
 		const exists = old.some(
 			(e: WatchedEpisode) => e.season === ep.season && e.episode === ep.episode,
 		);

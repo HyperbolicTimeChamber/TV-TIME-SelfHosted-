@@ -16,6 +16,7 @@ import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { getAuth, sendPasswordResetEmail } from "@react-native-firebase/auth";
 import { useAuthStore } from "../../stores";
 import { colors, spacing, typography } from "../../theme";
+import { usernameFromEmail } from "../../utils/username";
 import { ProfileStackParamList, Route } from "../../types";
 
 export default function SettingsScreen() {
@@ -28,7 +29,10 @@ export default function SettingsScreen() {
 	const [migrating, setMigrating] = useState(false);
 	const [deletingAccount, setDeletingAccount] = useState(false);
 
-	const isEmailUser = user?.providerData?.some((p) => p.providerId === "password") ?? false;
+	// Username accounts have a synthetic email → no reset mail possible
+	const isEmailUser =
+		(user?.providerData?.some((p) => p.providerId === "password") ?? false) &&
+		!usernameFromEmail(user?.email);
 
 	const handleChangePassword = useCallback(async () => {
 		const email = user?.email;

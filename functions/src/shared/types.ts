@@ -129,4 +129,8 @@ export interface MarkSeasonRequest {
 	nextEpisodeName: string | null;
 	nextEpisodeAirDate: string | null;
 	isShowComplete: boolean;
+	/** Leave tracking doc untouched (mark doesn't continue the watch run) */
+	skipTracking?: boolean;
+	status?: WatchStatus;
+	incrementRewatch?: boolean;
 }

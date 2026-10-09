@@ -7,6 +7,7 @@ import {
 	doc,
 	getDoc,
 	getDocs,
+	updateDoc,
 	onSnapshot,
 	query,
 	orderBy,
@@ -18,6 +19,13 @@ import { TrackingItem, CatalogShow, CacheKey, DocChangeType, MediaType } from ".
 import { showDocId } from "../utils/docId";
 import { useAuthStore } from "../stores";
 import { getShowDetails, getSeasonDetails } from "../services/tmdb";
+import { isGenericEpisodeTitle } from "../utils/episodeTitle";
+import {
+	isIncompleteCatalog,
+	hasMissingDisplayData,
+	needsTmdbHeal,
+	selectStaleCatalogItems,
+} from "../utils/catalogFreshness";
 
 const PAGE_SIZE = 50;
 
@@ -49,6 +57,17 @@ async function restoreCatalogCache(): Promise<Map<string, CatalogShow | null>> {
 	}
 }
 
+// Shows re-read from Firestore this session for stale/missing display data (1 read max each)
+const rereadThisSession = new Set<string>();
+// Firestore attempts for missing/stand-in catalogs (CF may still be creating the doc)
+const missingAttempts = new Map<string, number>();
+const MAX_MISSING_ATTEMPTS = 3;
+
+/** Firestore was tried for this show this session → TMDB heal is now allowed */
+function backendTried(key: string): boolean {
+	return rereadThisSession.has(key) || (missingAttempts.get(key) ?? 0) > 0;
+}
+
 async function enrichItems(
 	trackingItems: TrackingItem[],
 	cache: Map<string, CatalogShow | null>,
@@ -61,33 +80,35 @@ async function enrichItems(
 			const key = showDocId(item.tmdbId, mt);
 			let catalogShow: CatalogShow | null = cache.get(key) ?? null;
 
-			if (!catalogShow) {
+			const readFromFirestore = async () => {
 				try {
 					const showDoc = await getDoc(doc(db, "shows", key));
-					catalogShow = showDoc?.exists?.()
-						? ({ id: showDoc.id, ...showDoc.data() } as unknown as CatalogShow)
-						: null;
-				} catch {
-					catalogShow = null;
+					if (showDoc?.exists?.()) {
+						catalogShow = { id: showDoc.id, ...showDoc.data() } as unknown as CatalogShow;
+						cache.set(key, catalogShow);
+						cacheUpdated = true;
+					} else if (!catalogShow) {
+						cache.set(key, null);
+					}
+				} catch {}
+			};
+
+			if (!catalogShow || isIncompleteCatalog(catalogShow)) {
+				// Missing / stand-in → Firestore (CF may still be creating it; capped retries,
+				// then TMDB heal takes over)
+				const attempts = missingAttempts.get(key) ?? 0;
+				if (attempts < MAX_MISSING_ATTEMPTS) {
+					missingAttempts.set(key, attempts + 1);
+					await readFromFirestore();
 				}
-				cache.set(key, catalogShow);
-				cacheUpdated = true;
-			} else if (mt === MediaType.TV && item.nextEpisode) {
-				// Re-read from Firestore if cached catalog is missing episode data
-				// for the current nextEpisode (stale AsyncStorage cache)
-				const ne = item.nextEpisode;
-				const season = catalogShow.seasons?.find((s) => s.seasonNumber === ne.season);
-				const ep = season?.episodes?.find((e) => e.episodeNumber === ne.episode);
-				if (!ep?.title) {
-					try {
-						const showDoc = await getDoc(doc(db, "shows", key));
-						if (showDoc?.exists?.()) {
-							catalogShow = { id: showDoc.id, ...showDoc.data() } as unknown as CatalogShow;
-							cache.set(key, catalogShow);
-							cacheUpdated = true;
-						}
-					} catch {}
-				}
+			} else if (
+				!rereadThisSession.has(key) &&
+				hasMissingDisplayData({ ...item, mediaType: mt, catalogShow }, catalogShow)
+			) {
+				// Cache lacks poster / next-ep title / credits → Firestore once per session
+				// (weekly sync may have it). TMDB heal only runs after this.
+				rereadThisSession.add(key);
+				await readFromFirestore();
 			}
 
 			return {
@@ -110,6 +131,105 @@ let sharedCatalogCache: Map<string, CatalogShow | null> = new Map();
 /** Get a catalog show from the in-memory cache (no Firestore read) */
 export function getCachedCatalogShow(tmdbId: number, mediaType: MediaType): CatalogShow | null {
 	return sharedCatalogCache.get(showDocId(tmdbId, mediaType)) ?? null;
+}
+
+function extractCredits(crew: any[] | undefined) {
+	if (!crew) return { directors: [], writers: [], producers: [] };
+	return {
+		directors: crew.filter((c: any) => c.job === "Director").map((c: any) => c.name),
+		writers: crew.filter((c: any) => c.department === "Writing").map((c: any) => c.name),
+		producers: crew
+			.filter((c: any) => c.job === "Producer")
+			.map((c: any) => c.name)
+			.slice(0, 3),
+	};
+}
+
+/**
+ * Build/refresh a catalog entry from TMDB.
+ * With `base` + `onlySeasons`, only those seasons are re-fetched and merged into base.
+ */
+async function fetchCatalogFromTmdb(
+	apiKey: string,
+	tmdbId: number,
+	mt: MediaType,
+	base: CatalogShow | null,
+	onlySeasons?: number[],
+): Promise<CatalogShow | null> {
+	const details: any = await getShowDetails(apiKey, tmdbId, mt);
+	if (!details) return null;
+
+	if (mt === MediaType.MOVIE) {
+		const credits = extractCredits(details.credits?.crew);
+		if (base) return { ...base, credits };
+	}
+
+	const seasonNumbers: number[] =
+		mt === MediaType.TV
+			? (details.seasons?.map((s: any) => s.season_number as number).filter((n: number) => n > 0) ??
+				[])
+			: [];
+	const toFetch = onlySeasons
+		? seasonNumbers.filter((n) => onlySeasons.includes(n))
+		: seasonNumbers;
+	const fetched = new Map<number, CatalogShow["seasons"][number]>();
+	for (const sn of toFetch) {
+		try {
+			const sd: any = await getSeasonDetails(apiKey, tmdbId, sn);
+			if (!sd?.episodes) continue;
+			const eps = sd.episodes as any[];
+			fetched.set(sn, {
+				seasonNumber: sn,
+				episodeCount: eps.length,
+				airDate: sd.air_date ?? null,
+				episodes: eps.map((e, idx) => ({
+					episodeNumber: e.episode_number,
+					title: e.name || "",
+					overview: e.overview || "",
+					airDate: e.air_date || null,
+					runtime: e.runtime ?? null,
+					stillPath: e.still_path || null,
+					isSeasonFinale: idx === eps.length - 1,
+				})),
+			});
+		} catch {}
+	}
+
+	let seasons: CatalogShow["seasons"];
+	if (base && onlySeasons) {
+		const merged = new Map((base.seasons ?? []).map((s) => [s.seasonNumber, s]));
+		for (const [sn, s] of fetched) merged.set(sn, s);
+		seasons = [...merged.values()].sort((a, b) => a.seasonNumber - b.seasonNumber);
+	} else {
+		seasons = [...fetched.values()];
+	}
+
+	return {
+		...(base ?? {}),
+		tmdbId,
+		mediaType: mt,
+		title: details.title || details.name || base?.title || "",
+		posterPath: details.poster_path ?? base?.posterPath ?? null,
+		backdropPath: details.backdrop_path ?? base?.backdropPath ?? null,
+		overview: details.overview || base?.overview || "",
+		status: details.status ?? base?.status ?? "",
+		totalSeasons: mt === MediaType.TV ? seasons.length : 0,
+		totalEpisodes:
+			mt === MediaType.TV
+				? seasons.reduce((sum, s) => sum + s.episodeCount, 0)
+				: (details.number_of_episodes ?? 0),
+		runtime: details.runtime ?? base?.runtime ?? null,
+		voteAverage: details.vote_average ?? base?.voteAverage ?? 0,
+		firstAirDate: details.first_air_date ?? base?.firstAirDate ?? null,
+		releaseDate: details.release_date ?? base?.releaseDate ?? null,
+		seasons,
+		genres: details.genres?.map((g: any) => g.name).filter(Boolean) ?? base?.genres ?? [],
+		...(mt === MediaType.MOVIE ? { credits: extractCredits(details.credits?.crew) } : {}),
+		trackedBy: base?.trackedBy ?? [],
+		trackedByCount: base?.trackedByCount ?? 0,
+		lastSyncedAt: base?.lastSyncedAt ?? null,
+		partial: false,
+	};
 }
 
 export function useWatchlist(userId: string | undefined) {
@@ -342,16 +462,82 @@ export function useWatchlist(userId: string | undefined) {
 	// Listen for external add events (e.g. from SearchScreen)
 	useEffect(() => onShowAdded(insertItem), [insertItem]);
 
-	// Self-heal: fetch from TMDB for items with null catalogShow (edge case —
-	// CF hasn't created catalog doc yet). Uses TMDB API instead of Firestore.
+	// Weekly server catalog sync (config/app.lastCatalogSync) → re-read catalog docs for
+	// tracked, still-airing shows once. Otherwise the AsyncStorage cache never sees new
+	// episodes / air dates / posters.
+	const lastCatalogSync = useAuthStore((s) => s.lastCatalogSync);
+	const syncCheckDone = useRef<string | null>(null);
+	useEffect(() => {
+		if (!lastCatalogSync || loading || items.length === 0) return;
+		if (syncCheckDone.current === lastCatalogSync) return;
+		syncCheckDone.current = lastCatalogSync;
+		(async () => {
+			let stamp: string | null = null;
+			try {
+				stamp = await AsyncStorage.getItem(CacheKey.CATALOG_SYNC_STAMP);
+			} catch {}
+			if (stamp === lastCatalogSync) return;
+			const persistStamp = () =>
+				AsyncStorage.setItem(CacheKey.CATALOG_SYNC_STAMP, lastCatalogSync).catch(() => {});
+			// No stamp yet (first run / pre-existing install) → refresh once too
+			const db = getFirestore();
+			const { previousCatalogSync, changedShowIds } = useAuthStore.getState();
+			const stale = selectStaleCatalogItems(
+				[...itemsRef.current.values()],
+				stamp,
+				previousCatalogSync,
+				changedShowIds,
+			);
+			const updates = new Map<number, CatalogShow>();
+			await Promise.all(
+				stale.map(async (item) => {
+					const key = showDocId(item.tmdbId, MediaType.TV);
+					try {
+						const snap = await getDoc(doc(db, "shows", key));
+						if (!snap?.exists?.()) return;
+						const fresh = { id: snap.id, ...snap.data() } as unknown as CatalogShow;
+						catalogCache.current.set(key, fresh);
+						updates.set(item.tmdbId, fresh);
+					} catch {}
+				}),
+			);
+			if (updates.size > 0) {
+				sharedCatalogCache = catalogCache.current;
+				persistCatalogCache(catalogCache.current);
+				setItems((prev) =>
+					prev.map((p) => {
+						const c = updates.get(p.tmdbId);
+						return c
+							? {
+									...p,
+									catalogShow: c,
+									title: c.title || p.title,
+									posterPath: c.posterPath ?? p.posterPath,
+									totalEpisodes: c.totalEpisodes ?? p.totalEpisodes,
+								}
+							: p;
+					}),
+				);
+			}
+			persistStamp();
+		})();
+	}, [lastCatalogSync, loading, items.length, setItems]);
+
+	// Self-heal via TMDB (free — 0 Firestore reads):
+	// - no catalog / search stand-in → build full catalog
+	// - movie without credits → fetch credits
+	// - TV missing poster or with placeholder next-episode name → refresh show + that season
+	// Each show heals at most once per session.
 	const healingRef = useRef(new Set<number>());
+	const healedRef = useRef(new Set<number>());
 	useEffect(() => {
 		if (loading || items.length === 0) return;
-		const missing = items.filter(
-			(i) =>
-				!healingRef.current.has(i.tmdbId) &&
-				(!i.catalogShow || (i.mediaType === MediaType.MOVIE && !i.catalogShow.credits)),
-		);
+		const needsHeal = (i: EnrichedTrackingItem) => {
+			if (healingRef.current.has(i.tmdbId) || healedRef.current.has(i.tmdbId)) return false;
+			const mt = i.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV;
+			return needsTmdbHeal(i, backendTried(showDocId(i.tmdbId, mt)));
+		};
+		const missing = items.filter(needsHeal);
 		if (missing.length === 0) return;
 
 		// Mark as healing to avoid duplicate fetches
@@ -363,127 +549,61 @@ export function useWatchlist(userId: string | undefined) {
 			for (const item of missing) {
 				const mt = item.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV;
 				const key = showDocId(item.tmdbId, mt);
-				try {
-					// Movie with catalog but missing credits → fetch via same axios path as search
+				healingRef.current.delete(item.tmdbId);
+				if (!apiKey) {
 					if (item.catalogShow && mt === MediaType.MOVIE) {
 						const emptyCredits = { directors: [], writers: [], producers: [] };
-						if (!apiKey) {
-							const updatedCatalog = { ...item.catalogShow, credits: emptyCredits };
-							catalogCache.current.set(key, updatedCatalog);
-							updates.push({ ...item, catalogShow: updatedCatalog });
-							healingRef.current.delete(item.tmdbId);
-							continue;
-						}
-						const details = await getShowDetails(apiKey, item.tmdbId, MediaType.MOVIE);
-						const crew = (details as any)?.credits?.crew;
-						const credits = crew
-							? {
-									directors: crew.filter((c: any) => c.job === "Director").map((c: any) => c.name),
-									writers: crew
-										.filter((c: any) => c.department === "Writing")
-										.map((c: any) => c.name),
-									producers: crew
-										.filter((c: any) => c.job === "Producer")
-										.map((c: any) => c.name)
-										.slice(0, 3),
-								}
-							: emptyCredits;
-						const updatedCatalog = { ...item.catalogShow, credits };
+						const updatedCatalog = { ...item.catalogShow, credits: emptyCredits };
 						catalogCache.current.set(key, updatedCatalog);
 						updates.push({ ...item, catalogShow: updatedCatalog });
-						healingRef.current.delete(item.tmdbId);
-						continue;
 					}
+					continue;
+				}
+				healedRef.current.add(item.tmdbId);
+				try {
+					const base =
+						item.catalogShow && !isIncompleteCatalog(item.catalogShow) ? item.catalogShow : null;
+					// Movie with catalog but missing credits → only credits
+					// TV with catalog → only the next episode's season
+					const onlySeasons =
+						base && mt === MediaType.TV && item.nextEpisode ? [item.nextEpisode.season] : undefined;
+					const catalog = await fetchCatalogFromTmdb(apiKey, item.tmdbId, mt, base, onlySeasons);
+					if (!catalog) continue;
+					catalogCache.current.set(key, catalog);
 
-					// Full heal for items with no catalogShow at all
-					if (!apiKey) {
-						healingRef.current.delete(item.tmdbId);
-						continue;
-					}
-					const details = await getShowDetails(apiKey, item.tmdbId, mt);
-					if (!details) continue;
-
-					const genres: string[] =
-						(details as any).genres?.map((g: any) => g.name).filter(Boolean) ?? [];
-					const totalSeasons = (details as any).number_of_seasons ?? 0;
-					const totalEpisodes = (details as any).number_of_episodes ?? 0;
-
-					const seasons: CatalogShow["seasons"] = [];
-					if (mt === MediaType.TV && totalSeasons > 0) {
-						const seasonNumbers: number[] =
-							(details as any).seasons
-								?.map((s: any) => s.season_number as number)
-								.filter((n: number) => n > 0) ?? [];
-						for (const sn of seasonNumbers) {
-							try {
-								const sd = await getSeasonDetails(apiKey, item.tmdbId, sn);
-								if (sd?.episodes) {
-									const eps = sd.episodes;
-									seasons.push({
-										seasonNumber: sn,
-										episodeCount: eps.length,
-										airDate: (sd as any).air_date ?? null,
-										episodes: eps.map((e, idx) => ({
-											episodeNumber: e.episode_number,
-											title: e.name || "",
-											overview: e.overview || "",
-											airDate: e.air_date || null,
-											runtime: e.runtime ?? null,
-											stillPath: e.still_path || null,
-											isSeasonFinale: idx === eps.length - 1,
-										})),
-									});
-								}
-							} catch {}
+					// Tracking doc's stored next-episode name wins over catalog — fix placeholder there too
+					let nextEpisodeName = item.nextEpisodeName ?? null;
+					let nextEpisodeAirDate = item.nextEpisodeAirDate ?? null;
+					const ne = item.nextEpisode;
+					if (mt === MediaType.TV && ne && userId) {
+						const ep = catalog.seasons
+							?.find((s) => s.seasonNumber === ne.season)
+							?.episodes?.find((e) => e.episodeNumber === ne.episode);
+						const realName = ep?.title && !isGenericEpisodeTitle(ep.title) ? ep.title : null;
+						const patch: Record<string, unknown> = {};
+						if (realName && realName !== nextEpisodeName) patch.nextEpisodeName = realName;
+						if (ep?.airDate && ep.airDate !== nextEpisodeAirDate)
+							patch.nextEpisodeAirDate = ep.airDate;
+						if (Object.keys(patch).length > 0) {
+							nextEpisodeName = (patch.nextEpisodeName as string) ?? nextEpisodeName;
+							nextEpisodeAirDate = (patch.nextEpisodeAirDate as string) ?? nextEpisodeAirDate;
+							updateDoc(doc(getFirestore(), "users", userId, "tracking", item.id), patch).catch(
+								() => {},
+							);
 						}
 					}
-
-					const crew = (details as any).credits?.crew;
-					const credits =
-						mt === MediaType.MOVIE && crew
-							? {
-									directors: crew.filter((c: any) => c.job === "Director").map((c: any) => c.name),
-									writers: crew
-										.filter((c: any) => c.department === "Writing")
-										.map((c: any) => c.name),
-									producers: crew
-										.filter((c: any) => c.job === "Producer")
-										.map((c: any) => c.name)
-										.slice(0, 3),
-								}
-							: undefined;
-
-					const catalog: CatalogShow = {
-						tmdbId: item.tmdbId,
-						mediaType: mt,
-						title: details.title || details.name || "",
-						posterPath: details.poster_path ?? null,
-						backdropPath: details.backdrop_path ?? null,
-						overview: details.overview ?? "",
-						status: (details as any).status ?? "",
-						totalSeasons,
-						totalEpisodes,
-						runtime: (details as any).runtime ?? null,
-						voteAverage: details.vote_average ?? 0,
-						firstAirDate: details.first_air_date ?? null,
-						releaseDate: details.release_date ?? null,
-						seasons,
-						genres,
-						...(credits ? { credits } : {}),
-						trackedBy: [],
-						trackedByCount: 0,
-						lastSyncedAt: null,
-					};
-					catalogCache.current.set(key, catalog);
 					updates.push({
 						...item,
+						nextEpisodeName,
+						nextEpisodeAirDate,
 						title: catalog.title || item.title,
 						posterPath: catalog.posterPath ?? item.posterPath,
 						totalEpisodes: catalog.totalEpisodes ?? 0,
 						catalogShow: catalog,
 					});
-				} catch {}
-				healingRef.current.delete(item.tmdbId);
+				} catch {
+					healedRef.current.delete(item.tmdbId);
+				}
 			}
 			if (updates.length > 0) {
 				sharedCatalogCache = catalogCache.current;
@@ -495,8 +615,12 @@ export function useWatchlist(userId: string | undefined) {
 			}
 		}, 3000);
 
-		return () => clearTimeout(timer);
-	}, [loading, items]);
+		const healing = healingRef.current;
+		return () => {
+			clearTimeout(timer);
+			for (const m of missing) healing.delete(m.tmdbId);
+		};
+	}, [loading, items, userId, setItems]);
 
 	return { items, loading, loadMore, loadingMore, hasMore, removeItem };
 }
