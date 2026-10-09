@@ -44,3 +44,6 @@ firebase-debug.log
 
 # Test builds
 .test-build/
+
+# Functions params are non-secret config — tracked
+!functions/.env
