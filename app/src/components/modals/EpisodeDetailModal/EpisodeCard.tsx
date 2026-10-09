@@ -29,6 +29,7 @@ export const EpisodeCard = memo(function EpisodeCard({
 	onMarkWatched,
 	onUnwatch,
 	onRewatch,
+	onSkip,
 	onShowPress,
 }: {
 	ep: CarouselEpisode;
@@ -42,8 +43,19 @@ export const EpisodeCard = memo(function EpisodeCard({
 	onMarkWatched: () => void;
 	onUnwatch: () => void;
 	onRewatch: () => void;
+	/** Rewatch only: move past this episode without watching it */
+	onSkip?: () => void;
 	onShowPress?: () => void;
 }) {
+	const skipButton = onSkip ? (
+		<TouchableOpacity
+			style={[styles.skipButton, isMarking && { opacity: 0.6 }]}
+			onPress={onSkip}
+			disabled={isMarking}
+		>
+			<Text style={styles.actionButtonText}>Skip</Text>
+		</TouchableOpacity>
+	) : null;
 	const shimmer = useSharedShimmer();
 	const [imageLoaded, setImageLoaded] = useState(false);
 	const label = `S${String(ep.season).padStart(2, "0")} | E${String(ep.episode).padStart(2, "0")}`;
@@ -158,6 +170,22 @@ export const EpisodeCard = memo(function EpisodeCard({
 							</View>
 						)}
 					</TouchableOpacity>
+					{skipButton}
+				</View>
+			) : skipButton ? (
+				<View style={styles.watchedButtonRow}>
+					<TouchableOpacity
+						style={[styles.markInRow, isMarking && { opacity: 0.6 }]}
+						onPress={onMarkWatched}
+						disabled={isMarking}
+					>
+						{isMarking ? (
+							<ActivityIndicator size="small" color={colors.text} />
+						) : (
+							<Text style={styles.actionButtonText}>Mark as Watched</Text>
+						)}
+					</TouchableOpacity>
+					{skipButton}
 				</View>
 			) : (
 				<TouchableOpacity

@@ -24,9 +24,10 @@ import {
 	markSeasonWatchedCF,
 	unmarkEpisodeWatched,
 	stopWatching,
+	skipRewatchEpisode,
 } from "../../../services";
 import { removeShowFromCalendarGlobal } from "../../../hooks/useCalendarEpisodes";
-import { emitShowCompleted } from "../../../utils/watchlistEvents";
+import { emitShowCompleted, todayStr, pickEpisodeTitle } from "../../../utils";
 import {
 	MediaType,
 	CacheKey,
@@ -36,7 +37,6 @@ import {
 	WatchedMovie,
 } from "../../../types";
 import type { WatchlistListItem } from "../../../types/watchlist";
-import { todayStr } from "../../../utils/todayStr";
 
 const ACTIVE_CACHE_LIMIT = 100;
 
@@ -108,7 +108,7 @@ function buildCardItem(item: EnrichedTrackingItem, today: string) {
 
 	return {
 		...item,
-		nextEpisodeName: item.nextEpisodeName || catalogEp?.title || null,
+		nextEpisodeName: pickEpisodeTitle(item.nextEpisodeName, catalogEp?.title),
 		nextEpisodeAirDate: item.nextEpisodeAirDate ?? catalogEp?.airDate ?? null,
 		nextEpisodeRuntime: catalogEp?.runtime || 0,
 		releaseDate: item.releaseDate ?? catalog?.releaseDate ?? null,
@@ -906,6 +906,53 @@ export function useWatchlistData(userId: string | undefined) {
 		[userId, items, queryClient],
 	);
 
+	/** Rewatch only: skip the current episode — pointer moves on, nothing marked watched */
+	const handleSkipEpisode = useCallback(
+		async (tmdbId: number, season: number, episode: number) => {
+			if (!userId) return;
+			const item = items.find((i) => i.tmdbId === tmdbId);
+			if (!item || item.status !== WatchStatus.REWATCHING) return;
+			const cur = item.nextEpisode;
+			if (!cur || cur.season !== season || cur.episode !== episode) return;
+
+			const next = item.catalogShow
+				? findNextEpisodeInCatalog(item.catalogShow, season, episode)
+				: null;
+			const nextEpisode = next ? { season: next.season, episode: next.episode } : null;
+			try {
+				await skipRewatchEpisode(
+					userId,
+					tmdbId,
+					nextEpisode,
+					next?.title ?? null,
+					next?.airDate ?? null,
+				);
+			} catch (err: any) {
+				Alert.alert("Error", err.message || "Failed to skip episode.");
+				return;
+			}
+			if (nextEpisode) {
+				const after = findNextEpisodeInCatalog(item.catalogShow, next!.season, next!.episode);
+				setOptimisticCards((prev) =>
+					new Map(prev).set(tmdbId, {
+						nextEpisode,
+						nextEpisodeName: next!.title,
+						nextEpisodeAirDate: next!.airDate,
+						nextEpisodeRuntime: next!.runtime,
+						nextNextEpisode: after ? { season: after.season, episode: after.episode } : null,
+						nextNextEpisodeName: after?.title ?? null,
+						nextNextEpisodeAirDate: after?.airDate ?? null,
+						nextNextEpisodeRuntime: after?.runtime ?? 0,
+						isLastEpisode: !after,
+						isSeasonFinale: false,
+					} as Partial<CardItem>),
+				);
+			}
+			return nextEpisode;
+		},
+		[userId, items],
+	);
+
 	// Safety timeout: clear stuck spinners after 15s
 	useEffect(() => {
 		if (updatingShows.size === 0) return;
@@ -983,5 +1030,6 @@ export function useWatchlistData(userId: string | undefined) {
 		handleMarkWatchedThrough,
 		handleUnmarkEpisode,
 		handleCarouselMarkWatched,
+		handleSkipEpisode,
 	};
 }

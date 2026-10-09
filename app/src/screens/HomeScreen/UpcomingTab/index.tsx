@@ -13,6 +13,7 @@ import { getCatalogShow, getShowDetails, getSeasonDetails } from "../../../servi
 import { colors, spacing, typography } from "../../../theme";
 import { UpcomingEpisode, HomeStackParamList, Route, MediaType } from "../../../types";
 import DateHeader from "./DateHeader";
+import { todayStr } from "../../../utils";
 import UpcomingEpisodeRow from "./UpcomingEpisodeRow";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
@@ -24,7 +25,9 @@ type ListItem = { type: "header"; date: string } | { type: "episode"; episode: U
 export default function UpcomingTab() {
 	const user = useAuthStore((s) => s.user);
 	const navigation = useNavigation<NavProp>();
-	const { data: episodes, isLoading, error, retry } = useUpcomingEpisodes(user?.uid);
+	const { data: upcoming, pastData, isLoading, error, retry } = useUpcomingEpisodes(user?.uid);
+	// Past days (local queue, oldest first) above today/future
+	const episodes = useMemo(() => [...pastData, ...upcoming], [pastData, upcoming]);
 
 	// Episode detail modal
 	const [epModalVisible, setEpModalVisible] = useState(false);
@@ -54,7 +57,7 @@ export default function UpcomingTab() {
 		}
 
 		const result: ListItem[] = [];
-		for (const [date, eps] of grouped) {
+		for (const [date, eps] of [...grouped].sort(([a], [b]) => a.localeCompare(b))) {
 			result.push({ type: "header", date });
 			for (const ep of eps) {
 				result.push({ type: "episode", episode: ep });
@@ -62,6 +65,13 @@ export default function UpcomingTab() {
 		}
 		return result;
 	}, [episodes]);
+
+	// Open scrolled to today (past days sit above)
+	const firstUpcomingIndex = useMemo(() => {
+		const today = todayStr();
+		const idx = listData.findIndex((i) => i.type === "header" && i.date >= today);
+		return idx === -1 ? Math.max(0, listData.length - 1) : idx;
+	}, [listData]);
 
 	const stickyIndices = useMemo(
 		() =>
@@ -131,10 +141,7 @@ export default function UpcomingTab() {
 					overview: e.overview || null,
 				}));
 			} catch {
-				const catalog = await getCatalogShow(
-					tmdbId,
-					MediaType.TV,
-				);
+				const catalog = await getCatalogShow(tmdbId, MediaType.TV);
 				const catSeason = catalog?.seasons?.find((s) => s.seasonNumber === season);
 				if (catSeason) {
 					return catSeason.episodes.map((e) => ({
@@ -193,9 +200,7 @@ export default function UpcomingTab() {
 					setDrawerShow((prev) => (prev ? { ...prev, overview: prev.overview || "" } : null));
 				}
 			} else {
-				setDrawerShow((prev) =>
-					prev ? { ...prev, overview: prev.overview || "" } : null,
-				);
+				setDrawerShow((prev) => (prev ? { ...prev, overview: prev.overview || "" } : null));
 			}
 		}
 	}, []);
@@ -269,6 +274,7 @@ export default function UpcomingTab() {
 				drawDistance={SCREEN_HEIGHT * 2}
 				estimatedItemSize={100}
 				stickyHeaderIndices={stickyIndices}
+				initialScrollIndex={firstUpcomingIndex}
 				style={styles.list}
 				contentContainerStyle={styles.listContent}
 			/>

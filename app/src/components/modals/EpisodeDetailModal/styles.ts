@@ -147,6 +147,20 @@ export const styles = StyleSheet.create({
 		borderRadius: 8,
 		alignItems: "center",
 	},
+	skipButton: {
+		flex: 1,
+		backgroundColor: colors.surfaceLight,
+		paddingVertical: spacing.md,
+		borderRadius: 8,
+		alignItems: "center",
+	},
+	markInRow: {
+		flex: 2,
+		backgroundColor: colors.watchedGreen,
+		paddingVertical: spacing.md,
+		borderRadius: 8,
+		alignItems: "center",
+	},
 	buttonInner: {
 		flexDirection: "row",
 		alignItems: "center",

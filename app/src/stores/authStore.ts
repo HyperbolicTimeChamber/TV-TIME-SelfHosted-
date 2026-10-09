@@ -19,6 +19,12 @@ interface AuthState {
 	hasCompletedImport: boolean;
 	userFlagsLoading: boolean;
 	minVersion: string | null;
+	/** ISO string of config/app.lastCatalogSync (weekly server catalog refresh) */
+	lastCatalogSync: string | null;
+	/** Sync before lastCatalogSync — caches stamped with it only need changedShowIds re-read */
+	previousCatalogSync: string | null;
+	/** Show doc ids changed by the last sync */
+	changedShowIds: string[] | null;
 	setUser: (user: User | null) => void;
 	setLoading: (loading: boolean) => void;
 	loadAppConfig: () => Promise<void>;
@@ -37,6 +43,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 	hasCompletedImport: false,
 	userFlagsLoading: true,
 	minVersion: null,
+	lastCatalogSync: null,
+	previousCatalogSync: null,
+	changedShowIds: null,
 
 	setUser: (user) => {
 		set({ user, loading: false, userFlagsLoading: !!user });
@@ -62,6 +71,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 				set({
 					appTmdbApiKey: data?.tmdbApiKey ?? null,
 					minVersion: data?.minVersion ?? null,
+					lastCatalogSync: data?.lastCatalogSync?.toDate?.()?.toISOString?.() ?? null,
+					previousCatalogSync: data?.previousCatalogSync?.toDate?.()?.toISOString?.() ?? null,
+					changedShowIds: Array.isArray(data?.changedShowIds) ? data.changedShowIds : null,
 				});
 			}
 		} catch (error) {
@@ -137,6 +149,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 				appTmdbApiKeyLoading: true,
 				hasCompletedImport: false,
 				minVersion: null,
+				lastCatalogSync: null,
+				previousCatalogSync: null,
+				changedShowIds: null,
 			});
 		} catch (error) {
 			console.error("Sign out error:", error);

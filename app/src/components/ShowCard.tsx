@@ -6,7 +6,7 @@ import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton from "./CheckmarkButton";
 
 import PosterImage from "./PosterImage";
-import { todayStr } from "../utils/todayStr";
+import { todayStr } from "../utils";
 
 // Computed once per app session — avoids Date allocation per card per render
 const TODAY = todayStr();

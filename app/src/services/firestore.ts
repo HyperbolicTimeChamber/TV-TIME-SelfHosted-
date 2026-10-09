@@ -16,7 +16,7 @@ import {
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { WatchStatus, MediaType, CloudFunction, CatalogShow } from "../types";
-import { showDocId } from "../utils/docId";
+import { showDocId } from "../utils";
 import { trackApi } from "./analytics";
 
 /** Tracked Cloud Function call */
@@ -228,6 +228,14 @@ export async function stopWatching(
 		.catch(() => {});
 }
 
+/** Extra tracking-doc effects for mark actions (see utils/trackingAdvance) */
+export interface TrackingWriteOpts {
+	/** Leave tracking doc untouched (markSeasonWatchedCF only) */
+	skipTracking?: boolean;
+	status?: WatchStatus;
+	incrementRewatch?: boolean;
+}
+
 export async function markEpisodeWatched(
 	userId: string,
 	tmdbShowId: number,
@@ -240,6 +248,7 @@ export async function markEpisodeWatched(
 	skipTrackingUpdate: boolean = false,
 	nextEpisodeName: string | null = null,
 	nextEpisodeAirDate: string | null = null,
+	opts: TrackingWriteOpts = {},
 ) {
 	const docId = episodeDocId(tmdbShowId, season, episode);
 	const epRef = doc(watchedEpisodesRef(userId), docId);
@@ -287,6 +296,8 @@ export async function markEpisodeWatched(
 			if (isShowComplete) {
 				trackingUpdate.status = WatchStatus.COMPLETED;
 			}
+			if (opts.status) trackingUpdate.status = opts.status;
+			if (opts.incrementRewatch) trackingUpdate.rewatchCount = increment(1);
 			tx.update(doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)), trackingUpdate);
 		}
 	});
@@ -500,6 +511,34 @@ export async function resumeWatching(userId: string, tmdbId: number, mediaType: 
 	});
 }
 
+/** Reset a show back to S1E1 / watching (e.g. COMPLETED with nothing watched) */
+export async function restartWatching(userId: string, tmdbId: number) {
+	await updateDoc(doc(trackingRef(userId), showDocId(tmdbId, MediaType.TV)), {
+		status: WatchStatus.WATCHING,
+		nextEpisode: { season: 1, episode: 1 },
+		priorityDate: serverTimestamp(),
+	});
+}
+
+/**
+ * Rewatch only: move the pointer past an episode without watching it.
+ * No watchedEpisodes write, no stats change, no priority bump. Last episode → rewatch done.
+ */
+export async function skipRewatchEpisode(
+	userId: string,
+	tmdbId: number,
+	nextEpisode: { season: number; episode: number } | null,
+	nextEpisodeName: string | null,
+	nextEpisodeAirDate: string | null,
+) {
+	await updateDoc(doc(trackingRef(userId), showDocId(tmdbId, MediaType.TV)), {
+		nextEpisode,
+		nextEpisodeName,
+		nextEpisodeAirDate,
+		...(nextEpisode ? {} : { status: WatchStatus.COMPLETED }),
+	});
+}
+
 export async function resumeRewatch(userId: string, tmdbId: number, mediaType: MediaType) {
 	const docId = showDocId(tmdbId, mediaType);
 	await updateDoc(doc(trackingRef(userId), docId), {
@@ -692,8 +731,10 @@ export async function markSeasonWatchedCF(
 	isShowComplete: boolean,
 	nextEpisodeName: string | null = null,
 	nextEpisodeAirDate: string | null = null,
+	opts: TrackingWriteOpts = {},
 ): Promise<void> {
 	const BATCH_SIZE = 100;
+	const { skipTracking = false, status, incrementRewatch = false } = opts;
 
 	try {
 		if (episodes.length <= BATCH_SIZE) {
@@ -719,6 +760,9 @@ export async function markSeasonWatchedCF(
 					nextEpisodeName: isLastChunk ? nextEpisodeName : null,
 					nextEpisodeAirDate: isLastChunk ? nextEpisodeAirDate : null,
 					isShowComplete: isLastChunk ? isShowComplete : false,
+					skipTracking: isLastChunk ? skipTracking : true,
+					status: isLastChunk ? status : undefined,
+					incrementRewatch: isLastChunk ? incrementRewatch : false,
 				});
 			}
 		}

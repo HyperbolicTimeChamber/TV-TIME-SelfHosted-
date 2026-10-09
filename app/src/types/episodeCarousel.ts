@@ -25,6 +25,8 @@ export interface EpisodeDetailModalProps {
 	onMarkWatched: (tmdbId: number, season: number, episode: number) => Promise<void>;
 	onMarkWatchedThrough: (tmdbId: number, season: number, episode: number) => Promise<void>;
 	onUnmarkWatched: (tmdbId: number, season: number, episode: number) => Promise<void>;
+	/** Skip the current episode without watching it (watchlist rewatches only) */
+	onSkipEpisode?: (tmdbId: number, season: number, episode: number) => Promise<void>;
 	onShowPress?: () => void;
 	onClose: () => void;
 	onLoadEpisodeDetails?: (season: number) => Promise<CarouselEpisode[] | null>;

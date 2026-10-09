@@ -26,6 +26,9 @@ export const markSeasonWatched = onCall(
 			nextEpisodeName,
 			nextEpisodeAirDate,
 			isShowComplete,
+			skipTracking,
+			status,
+			incrementRewatch,
 		} = data;
 
 		if (!tmdbId || !seasonNumber || !episodes?.length) {
@@ -88,7 +91,7 @@ export const markSeasonWatched = onCall(
 			{ merge: true },
 		);
 
-		// Update tracking doc
+		// Update tracking doc (skipped when the mark shouldn't move the watchlist pointer)
 		// If next episode hasn't aired yet, use its airDate as priorityDate
 		let effectivePriority = now;
 		if (nextEpisode && nextEpisodeAirDate) {
@@ -108,7 +111,15 @@ export const markSeasonWatched = onCall(
 		if (isShowComplete) {
 			trackingUpdate.status = WatchStatus.COMPLETED;
 		}
-		batch.set(trackingDoc, trackingUpdate, { merge: true });
+		if (status && Object.values(WatchStatus).includes(status)) {
+			trackingUpdate.status = status;
+		}
+		if (incrementRewatch) {
+			trackingUpdate.rewatchCount = FieldValue.increment(1);
+		}
+		if (!skipTracking) {
+			batch.set(trackingDoc, trackingUpdate, { merge: true });
+		}
 
 		await batch.commit();
 

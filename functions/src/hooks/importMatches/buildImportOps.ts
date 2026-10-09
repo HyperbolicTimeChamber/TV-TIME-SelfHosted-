@@ -39,6 +39,8 @@ export function buildImportOps(
 			const trackingRef = db.doc(`users/${uid}/tracking/${showId}`);
 
 			let nextEpisode: { season: number; episode: number } | null = null;
+			let nextEpisodeName: string | null = null;
+			let nextEpisodeAirDate: string | null = null;
 			let lastWatchedAt = now;
 
 			if (match.mediaType === MediaType.TV && match.watchedEpisodes?.length) {
@@ -67,6 +69,16 @@ export function buildImportOps(
 					}
 				}
 
+				// Without these the watchlist can't tell when the next episode airs
+				if (nextEpisode && catalog?.seasons) {
+					const ne = nextEpisode;
+					const ep = catalog.seasons
+						.find((s) => s.seasonNumber === ne.season)
+						?.episodes?.find((e) => e.episodeNumber === ne.episode);
+					nextEpisodeName = ep?.title ?? null;
+					nextEpisodeAirDate = ep?.airDate ?? null;
+				}
+
 				const latestDate = new Date(latest.watchedAt);
 				if (!isNaN(latestDate.getTime())) {
 					lastWatchedAt = Timestamp.fromDate(latestDate);
@@ -85,6 +97,8 @@ export function buildImportOps(
 				mediaType: match.mediaType,
 				status: match.status,
 				nextEpisode,
+				nextEpisodeName,
+				nextEpisodeAirDate,
 				rewatchCount: 0,
 				addedAt: now,
 				lastWatchedAt,

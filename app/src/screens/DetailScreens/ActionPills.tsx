@@ -9,6 +9,8 @@ interface Props {
 	adding: boolean;
 	removing: boolean;
 	movieWatchCount: number;
+	/** TV only: any episode watched — "Rewatch" is meaningless otherwise */
+	hasWatchedEpisodes?: boolean;
 	onAddToWatchlist: () => void;
 	onMarkMovieWatched: () => void;
 	onResumeOrRewatch: () => void;
@@ -22,12 +24,17 @@ export default function ActionPills({
 	adding,
 	removing,
 	movieWatchCount,
+	hasWatchedEpisodes = true,
 	onAddToWatchlist,
 	onMarkMovieWatched,
 	onResumeOrRewatch,
 	onRemove,
 	onMovieSheetOpen,
 }: Readonly<Props>) {
+	const neverWatched =
+		mediaType === MediaType.TV &&
+		watchlistItem?.status === WatchStatus.COMPLETED &&
+		!hasWatchedEpisodes;
 	return (
 		<View style={styles.pillRow}>
 			{!watchlistItem ? (
@@ -101,7 +108,9 @@ export default function ActionPills({
 									? "Resume"
 									: watchlistItem.status === WatchStatus.PAUSED_REWATCH
 										? "Resume Rewatch"
-										: "Rewatch"}
+										: neverWatched
+											? "Start Watching"
+											: "Rewatch"}
 							</Text>
 						</TouchableOpacity>
 					)}

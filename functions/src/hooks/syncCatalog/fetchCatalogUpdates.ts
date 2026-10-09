@@ -1,6 +1,7 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { fetchShowFromTMDB, fetchShowStatus, pooled, CatalogShow } from "../tmdb";
 import { MediaType, ENDED_STATUSES } from "../../shared/enums";
+import { hasCatalogChanged } from "./hasCatalogChanged";
 
 export interface FetchResult {
 	freshCatalogMap: Map<string, CatalogShow>;
@@ -9,12 +10,10 @@ export interface FetchResult {
 
 		data: Record<string, any>;
 	}>;
-	pendingReactivations: Array<{
-		showId: string;
-		freshData: CatalogShow;
-	}>;
 	hasEpisodeRemovals: boolean;
 	skippedEnded: number;
+	/** Show doc ids whose displayed data changed this sync */
+	changedShowIds: string[];
 }
 
 export async function fetchCatalogUpdates(
@@ -24,9 +23,9 @@ export async function fetchCatalogUpdates(
 	const freshCatalogMap = new Map<string, CatalogShow>();
 	let hasEpisodeRemovals = false;
 	let skippedEnded = 0;
+	const changedShowIds: string[] = [];
 
 	const pendingWrites: FetchResult["pendingWrites"] = [];
-	const pendingReactivations: FetchResult["pendingReactivations"] = [];
 
 	const syncTasks = showsSnap.docs.map((showDoc) => async () => {
 		const oldData = showDoc.data() as CatalogShow & {
@@ -56,8 +55,8 @@ export async function fetchCatalogUpdates(
 
 			const oldEpCount = oldData.totalEpisodes ?? 0;
 			const newEpCount = freshData.totalEpisodes ?? 0;
-			const hasNewContent = newEpCount > oldEpCount;
 			if (newEpCount < oldEpCount) hasEpisodeRemovals = true;
+			if (hasCatalogChanged(oldData, freshData)) changedShowIds.push(showDoc.id);
 
 			pendingWrites.push({
 				ref: showDoc.ref,
@@ -80,9 +79,8 @@ export async function fetchCatalogUpdates(
 
 			freshCatalogMap.set(showDoc.id, freshData);
 
-			if (hasNewContent) {
+			if (newEpCount > oldEpCount) {
 				console.log(`New content for ${freshData.title}: ${oldEpCount} → ${newEpCount} episodes`);
-				pendingReactivations.push({ showId: showDoc.id, freshData });
 			}
 		} catch (err) {
 			freshCatalogMap.set(showDoc.id, oldData);
@@ -103,8 +101,8 @@ export async function fetchCatalogUpdates(
 	return {
 		freshCatalogMap,
 		pendingWrites,
-		pendingReactivations,
 		hasEpisodeRemovals,
 		skippedEnded,
+		changedShowIds,
 	};
 }

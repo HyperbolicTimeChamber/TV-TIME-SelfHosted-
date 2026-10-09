@@ -14,6 +14,8 @@ export {
 	startRewatch,
 	resumeWatching,
 	resumeRewatch,
+	restartWatching,
+	skipRewatchEpisode,
 	markMovieWatched,
 	decrementMovieWatchCount,
 	unmarkMovieWatched,

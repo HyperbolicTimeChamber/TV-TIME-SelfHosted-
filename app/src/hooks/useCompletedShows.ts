@@ -10,7 +10,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CacheKey, WatchStatus, MediaType } from "../types";
 import { getCachedCatalogShow } from "./useWatchlist";
-import { onShowCompleted } from "../utils/watchlistEvents";
+import { onShowCompleted } from "../utils";
 
 export interface CompletedItem {
 	tmdbId: number;

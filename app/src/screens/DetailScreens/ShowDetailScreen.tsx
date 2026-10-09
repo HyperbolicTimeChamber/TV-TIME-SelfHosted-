@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
 	View,
 	Text,
@@ -17,15 +17,10 @@ import { Ionicons } from "@expo/vector-icons";
 import DetailBackdrop from "./DetailBackdrop";
 import ActionPills from "./ActionPills";
 import DetailCredits from "./DetailCredits";
-import {
-	getFirestore,
-	doc,
-	getDoc,
-	onSnapshot,
-	Timestamp,
-} from "@react-native-firebase/firestore";
+import { getFirestore, doc, getDoc, onSnapshot, Timestamp } from "@react-native-firebase/firestore";
 import {
 	useShowDetails,
+	useShowWatchedEpisodes,
 	useUpcomingMutations,
 	removeShowFromCalendarGlobal,
 	addMovieToCalendarGlobal,
@@ -39,6 +34,7 @@ import {
 	startRewatch,
 	resumeWatching,
 	resumeRewatch,
+	restartWatching,
 	markMovieWatched,
 	decrementMovieWatchCount,
 	unmarkMovieWatched,
@@ -53,9 +49,13 @@ import {
 	WatchActionSheet,
 } from "../../components";
 import type { WatchAction } from "../../components";
-import { emitShowAdded, emitShowRemoved, emitShowCompleted } from "../../utils/watchlistEvents";
-import { showDocId } from "../../utils/docId";
-import { todayStr } from "../../utils/todayStr";
+import {
+	emitShowAdded,
+	emitShowRemoved,
+	emitShowCompleted,
+	showDocId,
+	todayStr,
+} from "../../utils";
 import { colors, spacing, typography } from "../../theme";
 import {
 	HomeStackParamList,
@@ -95,6 +95,10 @@ export default function ShowDetailScreen() {
 		episodesBySeason,
 	} = useShowDetails(tmdbId, mediaType);
 	const [watchlistItem, setWatchlistItem] = useState<any>(null);
+	const { episodes: showWatchedEps } = useShowWatchedEpisodes(
+		mediaType === MediaType.TV ? user?.uid : undefined,
+		tmdbId,
+	);
 	const [trackingLoading, setTrackingLoading] = useState(true);
 	const [adding, setAdding] = useState(false);
 	const [removing, setRemoving] = useState(false);
@@ -370,10 +374,20 @@ export default function ShowDetailScreen() {
 			await resumeWatching(user.uid, tmdbId, mediaType);
 		} else if (watchlistItem?.status === WatchStatus.PAUSED_REWATCH) {
 			await resumeRewatch(user.uid, tmdbId, mediaType);
+		} else if (mediaType === MediaType.TV && showWatchedEps.length === 0) {
+			// COMPLETED without a single watched episode — bad state, start fresh instead of rewatch
+			await restartWatching(user.uid, tmdbId);
 		} else {
 			await startRewatch(user.uid, tmdbId, mediaType);
 		}
-	}, [user?.uid, tmdbId, watchlistItem?.status, mediaType, handleMarkMovieWatched]);
+	}, [
+		user?.uid,
+		tmdbId,
+		watchlistItem?.status,
+		mediaType,
+		handleMarkMovieWatched,
+		showWatchedEps.length,
+	]);
 
 	const handleMovieSheetAction = useCallback(
 		async (action: WatchAction) => {
@@ -431,6 +445,17 @@ export default function ShowDetailScreen() {
 		[user?.uid, show, tmdbId, movieWatchCount, queryClient, handleMarkMovieWatched],
 	);
 
+	const seasonLayout = useMemo(
+		() =>
+			(show?.seasons ?? [])
+				.filter((s) => s.season_number > 0)
+				.map((s) => ({
+					season: s.season_number,
+					episodeCount: episodesBySeason.get(s.season_number)?.length ?? s.episode_count ?? 0,
+				})),
+		[show?.seasons, episodesBySeason],
+	);
+
 	if (isLoading || trackingLoading) {
 		return (
 			<View style={styles.center}>
@@ -473,7 +498,10 @@ export default function ShowDetailScreen() {
 								const res = await httpsCallable<
 									{ tmdbId: number; mediaType: string; title: string },
 									{ shortUrl: string }
-								>(getFunctions(), CloudFunction.CREATE_DEEP_LINK)({
+								>(
+									getFunctions(),
+									CloudFunction.CREATE_DEEP_LINK,
+								)({
 									tmdbId,
 									mediaType,
 									title,
@@ -517,6 +545,7 @@ export default function ShowDetailScreen() {
 						adding={adding}
 						removing={removing}
 						movieWatchCount={movieWatchCount}
+						hasWatchedEpisodes={showWatchedEps.length > 0}
 						onAddToWatchlist={handleAddToWatchlist}
 						onMarkMovieWatched={handleMarkMovieWatched}
 						onResumeOrRewatch={handleResumeOrRewatch}
@@ -594,6 +623,9 @@ export default function ShowDetailScreen() {
 										showPosterPath={show.poster_path}
 										showBackdropPath={show.backdrop_path || null}
 										isTracked={!!watchlistItem}
+										trackingItem={watchlistItem}
+										seasonLayout={seasonLayout}
+										episodesBySeason={episodesBySeason}
 										preloadedEpisodes={episodesBySeason.get(season.season_number)}
 									/>
 								))}

@@ -1,9 +1,9 @@
 import { Timestamp } from "@react-native-firebase/firestore";
 import { getCachedCatalogShow } from "../../hooks/useWatchlist";
 import { getSeasonDetails } from "../../services";
-import { showDocId } from "../../utils/docId";
+import { showDocId } from "../../utils";
 import type { EnrichedTrackingItem } from "../../hooks/useWatchlist";
-import { MediaType, WatchStatus, CatalogShow } from "../../types";
+import { MediaType, WatchStatus, CatalogShow, TMDBShow } from "../../types";
 
 export interface EpInfo {
 	name: string | null;
@@ -23,6 +23,7 @@ export interface EpInfo {
 export async function fetchFirstEpisodeInfo(
 	tmdbId: number,
 	apiKey: string | null,
+	show?: TMDBShow,
 ): Promise<EpInfo> {
 	const cached = getCachedCatalogShow(tmdbId, MediaType.TV);
 	if (cached?.seasons?.length) {
@@ -52,18 +53,20 @@ export async function fetchFirstEpisodeInfo(
 				runtime: e.runtime ?? null,
 			}));
 			const minimalCatalog: CatalogShow = {
+				// Fill show-level fields from the search result — an empty title/poster here
+				// gets cached and renders a blank detail screen
 				tmdbId,
 				mediaType: MediaType.TV,
-				title: "",
-				posterPath: null,
-				backdropPath: null,
-				overview: "",
+				title: show?.name || show?.title || "",
+				posterPath: show?.poster_path ?? null,
+				backdropPath: show?.backdrop_path ?? null,
+				overview: show?.overview ?? "",
 				status: "",
 				totalSeasons: 1,
 				totalEpisodes: eps.length,
 				runtime: null,
-				voteAverage: 0,
-				firstAirDate: null,
+				voteAverage: show?.vote_average ?? 0,
+				firstAirDate: show?.first_air_date ?? null,
 				releaseDate: null,
 				seasons: [
 					{
@@ -83,6 +86,7 @@ export async function fetchFirstEpisodeInfo(
 				trackedBy: [],
 				trackedByCount: 0,
 				lastSyncedAt: null,
+				partial: true,
 			};
 			return {
 				name: ep1?.name || null,

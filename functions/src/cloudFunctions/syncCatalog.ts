@@ -3,11 +3,7 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getTmdbApiKey } from "../hooks/apiKey";
 import { rebuildAllUsersUpcoming } from "../hooks/upcoming";
-import {
-	fetchCatalogUpdates,
-	batchWriteCatalog,
-	reactivateCompletedUsers,
-} from "../hooks/syncCatalog";
+import { fetchCatalogUpdates, batchWriteCatalog } from "../hooks/syncCatalog";
 import { fetchShowFromTMDB, pooled } from "../hooks/tmdb";
 import { MediaType, ENDED_STATUSES } from "../shared/enums";
 
@@ -34,20 +30,16 @@ export const syncCatalog = onSchedule(
 		console.log(`Syncing ${showsSnap.size} TV shows`);
 
 		// Phase 2: Fetch updates from TMDB
-		const {
-			freshCatalogMap,
-			pendingWrites,
-			pendingReactivations,
-			hasEpisodeRemovals,
-			skippedEnded,
-		} = await fetchCatalogUpdates(apiKey, showsSnap);
+		const { freshCatalogMap, pendingWrites, hasEpisodeRemovals, skippedEnded, changedShowIds } =
+			await fetchCatalogUpdates(apiKey, showsSnap);
+		console.log(`${changedShowIds.length} shows changed`);
 		console.log(`Skipped ${skippedEnded} ended/canceled shows`);
 
 		// Phase 3: Batch write catalog updates
 		await batchWriteCatalog(db, pendingWrites);
 
-		// Phase 4: Reactivate completed users
-		await reactivateCompletedUsers(db, showsSnap, pendingReactivations);
+		// Reactivation of caught-up/completed users happens per user in Phase 6
+		// (rebuildUserUpcoming → reconcileTracking).
 
 		// Phase 4b: Sync movie metadata (credits, genres, poster, etc.)
 		const moviesSnap = await db.collection("shows").where("mediaType", "==", MediaType.MOVIE).get();
@@ -95,10 +87,18 @@ export const syncCatalog = onSchedule(
 		console.log("Rebuilding upcoming episodes...");
 		await rebuildAllUsersUpcoming(db, freshCatalogMap, !hasEpisodeRemovals);
 
-		// Phase 7: Write sync timestamp
-		await db
-			.doc("config/app")
-			.set({ lastCatalogSync: FieldValue.serverTimestamp() }, { merge: true });
+		// Phase 7: Write sync timestamp + what changed. Clients whose cache stamp equals
+		// previousCatalogSync re-read only changedShowIds (0 reads for unchanged shows);
+		// clients further behind re-read all their airing shows once.
+		const prevConfig = await db.doc("config/app").get();
+		await db.doc("config/app").set(
+			{
+				previousCatalogSync: prevConfig.data()?.lastCatalogSync ?? null,
+				lastCatalogSync: FieldValue.serverTimestamp(),
+				changedShowIds,
+			},
+			{ merge: true },
+		);
 
 		console.log("Catalog sync complete");
 	},

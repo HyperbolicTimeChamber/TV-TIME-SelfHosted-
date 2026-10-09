@@ -2,6 +2,7 @@ import { WatchStatus, MediaType, ENDED_STATUSES } from "../../shared/enums";
 import { parseTmdbId } from "../../shared/docId";
 import { CatalogShow } from "../../shared/types";
 import { cleanOrphanedEpisodes } from "./cleanOrphanedEpisodes";
+import { reconcileTracking } from "./reconcileTracking";
 
 export async function rebuildUserUpcoming(
 	db: FirebaseFirestore.Firestore,
@@ -18,8 +19,15 @@ export async function rebuildUserUpcoming(
 		db.collection(`users/${uid}/tracking`).where("mediaType", "==", MediaType.TV).get(),
 	]);
 
-	const activeStatuses = [WatchStatus.WATCHING, WatchStatus.REWATCHING];
-	let activeShows = trackingSnap.docs.filter((d) => activeStatuses.includes(d.data().status));
+	// Weekly sync path: fix pointers / reactivate caught-up shows before building upcoming
+	const statusOverrides = catalogMap
+		? await reconcileTracking(db, uid, trackingSnap.docs, catalogMap)
+		: new Map<string, string>();
+
+	const activeStatuses: string[] = [WatchStatus.WATCHING, WatchStatus.REWATCHING];
+	let activeShows = trackingSnap.docs.filter((d) =>
+		activeStatuses.includes(statusOverrides.get(d.id) ?? d.data().status),
+	);
 
 	if (activeShows.length === 0) return;
 
