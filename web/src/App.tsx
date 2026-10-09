@@ -6,6 +6,7 @@ import { store } from "./store";
 import { queryClient, persistOptions } from "./queryClient";
 import { antdThemeConfig } from "./theme";
 import AuthListener from "./AuthListener";
+import OfflineBanner from "./components/OfflineBanner";
 import AppRoutes from "./routes/AppRoutes";
 
 export default function App() {
@@ -16,6 +17,7 @@ export default function App() {
 					<AntApp>
 						<BrowserRouter>
 							<AuthListener />
+							<OfflineBanner />
 							<AppRoutes />
 						</BrowserRouter>
 					</AntApp>

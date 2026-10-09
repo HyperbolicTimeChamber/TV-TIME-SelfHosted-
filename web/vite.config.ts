@@ -74,6 +74,22 @@ export default defineConfig(({ mode }) => {
 			// Dev: guest TMDB requests go to the deployed proxy
 			proxy: { "/api/tmdb": { target: env.VITE_WEB_BASE_URL, changeOrigin: true } },
 		},
+		build: {
+			// firebase + antd vendor chunks are ~600kB raw / ~185kB gzip each, cached long-term
+			chunkSizeWarningLimit: 700,
+			rolldownOptions: {
+				output: {
+					// Long-lived vendor chunks: app deploys don't bust the big libraries
+					codeSplitting: {
+						groups: [
+							{ name: "firebase", test: /node_modules[\\/](@firebase|firebase)[\\/]/ },
+							{ name: "antd", test: /node_modules[\\/](antd|@ant-design|rc-|@rc-component)/ },
+							{ name: "react", test: /node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/ },
+						],
+					},
+				},
+			},
+		},
 		test: {
 			environment: "jsdom",
 			globals: true,

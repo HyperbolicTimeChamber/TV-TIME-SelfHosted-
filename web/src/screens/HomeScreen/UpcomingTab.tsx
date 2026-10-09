@@ -108,14 +108,15 @@ export default function UpcomingTab() {
 		);
 	}
 
-	let firstUpcomingSeen = false;
+	const firstUpcomingDate = u.listData.find((i: ListItem) => i.type === "header" && i.date >= today) as
+		| { date: string }
+		| undefined;
 	return (
 		<>
 			<div className={styles.list}>
 				{u.listData.map((item: ListItem) => {
 					if (item.type === "header") {
-						const isFirstUpcoming = !firstUpcomingSeen && item.date >= today;
-						if (isFirstUpcoming) firstUpcomingSeen = true;
+						const isFirstUpcoming = item.date === firstUpcomingDate?.date;
 						return (
 							<div
 								key={`header_${item.date}`}

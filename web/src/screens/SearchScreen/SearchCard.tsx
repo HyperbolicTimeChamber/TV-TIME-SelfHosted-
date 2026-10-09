@@ -5,6 +5,7 @@ import { MediaType } from "@app/enums";
 import type { TMDBShow } from "@app/types";
 import PosterImage from "../../components/PosterImage";
 import styles from "./SearchScreen.module.css";
+import { mediaTypeOf } from "./mediaTypeOf";
 
 interface Props {
 	item: TMDBShow;
@@ -16,10 +17,6 @@ interface Props {
 	onAdd: (item: TMDBShow) => void;
 	onRemove: (item: TMDBShow) => void;
 }
-
-export const mediaTypeOf = (item: TMDBShow): MediaType =>
-	(item.media_type as MediaType) ||
-	(item.first_air_date || (item.name && !item.title) ? MediaType.TV : MediaType.MOVIE);
 
 function SearchCard({ item, canTrack, isInWatchlist, isAdding, onPress, onAdd, onRemove }: Props) {
 	const title = item.name || item.title || "";

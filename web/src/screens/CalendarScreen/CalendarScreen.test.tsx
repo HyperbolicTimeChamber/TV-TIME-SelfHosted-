@@ -24,7 +24,8 @@ vi.mock("@app/screens/useCalendarScreen", () => ({
 	}),
 }));
 
-import CalendarScreen, { monthGrid } from ".";
+import CalendarScreen from ".";
+import { monthGrid } from "./monthGrid";
 
 describe("CalendarScreen", () => {
 	it("month grid is 6 weeks starting on Sunday", () => {

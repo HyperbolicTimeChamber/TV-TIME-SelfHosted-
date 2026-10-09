@@ -14,7 +14,8 @@ import { useCollapsingHeader } from "../../hooks/useCollapsingHeader";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
 import { useElementHeight } from "../../hooks/useElementHeight";
 import { Paths, showPath } from "../../routes/paths";
-import SearchCard, { mediaTypeOf } from "./SearchCard";
+import SearchCard from "./SearchCard";
+import { mediaTypeOf } from "./mediaTypeOf";
 import SearchModals from "./SearchModals";
 import styles from "./SearchScreen.module.css";
 
@@ -42,10 +43,12 @@ export default function SearchScreen() {
 	);
 	const { data: trending, isLoading: trendingLoading } = useTrending("all");
 
-	const filteredTrending = trending?.filter(
-		(item) => mediaFilter === MediaFilter.ALL || (mediaTypeOf(item) as string) === mediaFilter,
-	);
-	const items = (submittedQuery ? searchData?.results : filteredTrending) ?? [];
+	const items = useMemo(() => {
+		if (submittedQuery) return searchData?.results ?? [];
+		return (trending ?? []).filter(
+			(item) => mediaFilter === MediaFilter.ALL || (mediaTypeOf(item) as string) === mediaFilter,
+		);
+	}, [submittedQuery, searchData, trending, mediaFilter]);
 	const isLoading = submittedQuery ? searchLoading : trendingLoading;
 
 	const loadMore = useCallback(() => {
