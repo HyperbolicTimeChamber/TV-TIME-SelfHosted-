@@ -107,3 +107,7 @@ export enum Route {
 export const WEB_BASE_URL = process.env.EXPO_PUBLIC_WEB_BASE_URL ?? "";
 /** TMDB REST API base */
 export const TMDB_API_BASE = process.env.EXPO_PUBLIC_TMDB_API_BASE ?? "";
+/** Web only: tmdbProxy CF path for logged-out visitors (unset on mobile) */
+export const TMDB_PROXY_BASE = process.env.EXPO_PUBLIC_TMDB_PROXY_BASE ?? "";
+/** Stand-in "API key" meaning: no key — route TMDB calls through TMDB_PROXY_BASE */
+export const TMDB_PROXY_KEY = "__tmdb_proxy__";

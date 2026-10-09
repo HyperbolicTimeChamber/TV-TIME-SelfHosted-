@@ -3,6 +3,7 @@ import { getShowDetails, getCatalogShow } from "../services";
 import { getCachedCatalogShow } from "./useWatchlist";
 import { useAuthStore } from "../stores";
 import { TMDBShow, TMDBEpisode, CatalogShow, QueryKey, MediaType } from "../types";
+import { TMDB_PROXY_KEY } from "../enums";
 
 export interface ShowDetailsResult {
 	show: TMDBShow;
@@ -102,8 +103,12 @@ export function useShowDetails(tmdbId: number, mediaType: MediaType = MediaType.
 				return result;
 			}
 
-			// Fallback to Firestore catalog doc
-			const catalogShow = await getCatalogShow(tmdbId, mediaType);
+			// Fallback to Firestore catalog doc (not for logged-out web visitors —
+			// catalog rules require auth; they go straight to TMDB via the proxy)
+			const isGuest = useAuthStore.getState().appTmdbApiKey === TMDB_PROXY_KEY;
+			const catalogShow = isGuest
+				? null
+				: await getCatalogShow(tmdbId, mediaType).catch(() => null);
 			if (catalogShow && hasSeasonsData(catalogShow)) {
 				const result = catalogShowToResult(catalogShow);
 				if (mediaType === MediaType.MOVIE && !catalogShow.credits) {

@@ -1,12 +1,14 @@
 import axios from "axios";
 import { TMDBShow, TMDBEpisode } from "../types";
 import { logApiCall } from "./analytics";
-import { TMDB_API_BASE as TMDB_BASE } from "../enums";
+import { TMDB_API_BASE as TMDB_BASE, TMDB_PROXY_BASE, TMDB_PROXY_KEY } from "../enums";
 
 function tmdb(apiKey: string) {
+	// Logged-out web visitors have no key: same paths, served by the tmdbProxy CF
+	const viaProxy = apiKey === TMDB_PROXY_KEY;
 	const instance = axios.create({
-		baseURL: TMDB_BASE,
-		params: { api_key: apiKey },
+		baseURL: viaProxy ? TMDB_PROXY_BASE : TMDB_BASE,
+		params: viaProxy ? {} : { api_key: apiKey },
 	});
 	instance.interceptors.request.use((config) => {
 		(config as any)._startTime = Date.now();
