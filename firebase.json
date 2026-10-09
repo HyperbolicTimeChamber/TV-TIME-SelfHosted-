@@ -32,6 +32,7 @@
     }
   },
   "hosting": {
+    "site": "watchloom-app",
     "public": "web/dist",
     "ignore": [
       "firebase.json",

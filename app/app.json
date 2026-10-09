@@ -38,7 +38,7 @@
 					"data": [
 						{
 							"scheme": "https",
-							"host": "tv-time-returns.web.app",
+							"host": "watchloom-app.web.app",
 							"pathPrefix": "/show"
 						}
 					],
