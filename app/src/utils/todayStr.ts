@@ -6,3 +6,4 @@ export function todayStr(): string {
 	const day = String(d.getDate()).padStart(2, "0");
 	return `${y}-${m}-${day}`;
 }
+4
