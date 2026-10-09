@@ -3,6 +3,11 @@ name: Build & Distribute (Development)
 on:
   push:
     branches: [development]
+    # Only build the mobile app when the mobile app (or this workflow) changed
+    paths:
+      - "app/**"
+      - "functions/**"
+      - ".github/workflows/distribute.yml"
 
 concurrency:
   group: distribute-${{ github.ref }}

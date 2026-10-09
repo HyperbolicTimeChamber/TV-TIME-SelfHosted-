@@ -3,6 +3,10 @@ name: Build iOS & Publish to AltStore
 on:
   push:
     branches: [development]
+    # Only build the iOS app when the mobile app (or this workflow) changed
+    paths:
+      - "app/**"
+      - ".github/workflows/altstore.yml"
 
 concurrency:
   group: altstore-${{ github.ref }}

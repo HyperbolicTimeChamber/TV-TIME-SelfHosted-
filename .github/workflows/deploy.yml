@@ -3,8 +3,17 @@ name: Build & Deploy to Play Store
 on:
   push:
     branches: [main]
+    # Only build the mobile app when the mobile app (or this workflow) changed
+    paths:
+      - "app/**"
+      - "functions/**"
+      - ".github/workflows/deploy.yml"
   pull_request:
     branches: [main]
+    paths:
+      - "app/**"
+      - "functions/**"
+      - ".github/workflows/deploy.yml"
 
 concurrency:
   group: deploy-${{ github.ref }}
