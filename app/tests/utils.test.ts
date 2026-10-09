@@ -199,3 +199,16 @@ test("share URLs point at the web show page", async () => {
 	assert.equal(showShareUrl(MediaType.TV, 1399), "https://watchloom-app.web.app/show/tv/1399");
 	assert.equal(showShareUrl(MediaType.MOVIE, 550), "https://watchloom-app.web.app/show/movie/550");
 });
+
+test("profile formatters", async () => {
+	const { formatCount, formatTime, scaledPhotoURL } = await import("../src/utils");
+	assert.equal(formatCount(999), "999");
+	assert.equal(formatCount(1200), "1.2K");
+	assert.equal(formatCount(2000), "2K");
+	assert.equal(formatCount(2_500_000), "2.5M");
+	assert.equal(formatTime(40), "40m");
+	assert.equal(formatTime(312), "5h 12m");
+	assert.equal(formatTime(3 * 1440 + 240), "3d 4h");
+	assert.equal(formatTime(380 * 1440), "1y 15d");
+	assert.equal(scaledPhotoURL("https://x/photo=s96-c", 100, 2), "https://x/photo=s200-c");
+});
