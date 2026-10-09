@@ -1,0 +1,87 @@
+name: Build & Deploy Web
+
+on:
+  push:
+    branches: [development]
+    # Only when the web app, the app code it shares, or hosting config changed
+    paths:
+      - "web/**"
+      - "app/src/**"
+      - "firebase.json"
+      - ".github/workflows/web-deploy.yml"
+
+concurrency:
+  group: web-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Env (public Firebase web config + base URLs live in repo Variables) ──
+      - name: Write .env.production
+        run: |
+          {
+            echo "VITE_FIREBASE_API_KEY=${{ vars.VITE_FIREBASE_API_KEY }}"
+            echo "VITE_FIREBASE_AUTH_DOMAIN=${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}"
+            echo "VITE_FIREBASE_PROJECT_ID=${{ vars.VITE_FIREBASE_PROJECT_ID }}"
+            echo "VITE_FIREBASE_STORAGE_BUCKET=${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}"
+            echo "VITE_FIREBASE_MESSAGING_SENDER_ID=${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}"
+            echo "VITE_FIREBASE_APP_ID=${{ vars.VITE_FIREBASE_APP_ID }}"
+            echo "VITE_FIREBASE_MEASUREMENT_ID=${{ vars.VITE_FIREBASE_MEASUREMENT_ID }}"
+            echo "VITE_WEB_BASE_URL=${{ vars.WEB_BASE_URL }}"
+            echo "VITE_TMDB_API_BASE=${{ vars.TMDB_API_BASE }}"
+            echo "VITE_TMDB_PROXY_BASE=/api/tmdb"
+          } > .env.production
+
+      # ── Tests (fail fast) ──
+      - name: Run tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # ── Android App Links: assetlinks.json from the release keystore ──
+      - name: Write assetlinks.json
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > /tmp/release.keystore
+          UPLOAD_SHA=$(keytool -list -v -keystore /tmp/release.keystore -alias "$KEY_ALIAS" \
+            -storepass "$KEYSTORE_PASSWORD" | grep -m1 'SHA256:' | awk '{print $2}')
+          rm -f /tmp/release.keystore
+          node scripts/assetlinks.mjs dist/.well-known/assetlinks.json "$UPLOAD_SHA" "$PLAY_APP_SIGNING_SHA256"
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          # Play App Signing re-signs store builds with Google's key — add its SHA-256 as a Variable
+          PLAY_APP_SIGNING_SHA256: ${{ vars.PLAY_APP_SIGNING_SHA256 }}
+
+      # ── Deploy to Firebase Hosting ──
+      - name: Deploy hosting
+        working-directory: .
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT_JSON" > /tmp/firebase-sa.json
+          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa.json
+          npx --yes firebase-tools@14 deploy --only hosting --project tv-time-returns --non-interactive
+          rm -f /tmp/firebase-sa.json
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
