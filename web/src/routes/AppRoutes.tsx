@@ -11,7 +11,6 @@ const LoginScreen = lazy(() => import("../screens/LoginScreen"));
 const SearchScreen = lazy(() => import("../screens/SearchScreen"));
 const SearchInputScreen = lazy(() => import("../screens/SearchScreen/SearchInputScreen"));
 const ShowDetailScreen = lazy(() => import("../screens/DetailScreens/ShowDetailScreen"));
-const SeasonDetailScreen = lazy(() => import("../screens/DetailScreens/SeasonDetailScreen"));
 const HomeScreen = lazy(() => import("../screens/HomeScreen"));
 const CalendarScreen = lazy(() => import("../screens/CalendarScreen"));
 const ProfileScreen = lazy(() => import("../screens/ProfileScreen"));
@@ -36,7 +35,6 @@ export default function AppRoutes() {
 					<Route path={Paths.SEARCH} element={<SearchScreen />} />
 					<Route path={Paths.SEARCH_INPUT} element={<SearchInputScreen />} />
 					<Route path={Paths.SHOW} element={<ShowDetailScreen />} />
-					<Route path={Paths.SEASON} element={<SeasonDetailScreen />} />
 					{/* Signed-in only */}
 					<Route element={<RequireAuth />}>
 						<Route path={`${Paths.HOME}/*`} element={<HomeScreen />} />

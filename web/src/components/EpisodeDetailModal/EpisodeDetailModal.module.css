@@ -1,0 +1,311 @@
+.overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 900;
+	background: rgba(0, 0, 0, 0.7);
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	--card-w: min(82vw, 380px);
+	--card-h: min(55dvh, 460px);
+}
+
+.scroller {
+	display: flex;
+	overflow-x: auto;
+	scroll-snap-type: x mandatory;
+	scrollbar-width: none;
+	padding: 0 calc((100vw - var(--card-w)) / 2);
+	overscroll-behavior-x: contain;
+}
+
+.scroller::-webkit-scrollbar {
+	display: none;
+}
+
+.slide {
+	flex: 0 0 calc(var(--card-w) + 1px);
+	scroll-snap-align: center;
+	display: flex;
+	justify-content: center;
+}
+
+.cardWrapper {
+	transition: transform 0.05s linear;
+	will-change: transform;
+}
+
+.cardContent {
+	width: var(--card-w);
+	height: var(--card-h);
+	background: var(--bg);
+	border-radius: 12px;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+}
+
+.imageContainer {
+	position: relative;
+	height: 180px;
+	flex-shrink: 0;
+}
+
+.imageSkeleton {
+	position: absolute;
+	inset: 0;
+	background: var(--surface-light);
+}
+
+.still {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	transition: opacity 0.3s;
+}
+
+.stillPlaceholder {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--surface-light);
+	color: var(--text-muted);
+	font-size: 28px;
+	font-weight: 700;
+}
+
+.imageGradient {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	height: 60%;
+	background: linear-gradient(transparent, var(--bg));
+}
+
+.metaSection {
+	padding: 0 16px;
+	margin-top: -24px;
+	position: relative;
+}
+
+.titlePill {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	max-width: 100%;
+	border: 1.5px solid var(--text);
+	border-radius: 16px;
+	padding: 4px 12px;
+	background: none;
+	color: var(--text);
+	cursor: pointer;
+}
+
+.titlePill:disabled {
+	cursor: default;
+}
+
+.titlePillText {
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.5px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.titlePillArrow {
+	font-size: 16px;
+	line-height: 1;
+}
+
+.episodeTitle {
+	font-size: 18px;
+	font-weight: 700;
+	margin: 8px 0 0;
+}
+
+.label {
+	font-size: 13px;
+	color: var(--text-secondary);
+	margin: 4px 0 0;
+	letter-spacing: 0.5px;
+}
+
+.overviewContainer {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	margin: 8px 16px;
+}
+
+.meta {
+	font-size: 12px;
+	color: var(--text-secondary);
+	margin: 0;
+}
+
+.overview {
+	font-size: 13px;
+	line-height: 20px;
+	color: var(--text-secondary);
+	text-align: justify;
+	margin: 8px 0 0;
+}
+
+.buttonRow {
+	display: flex;
+	gap: 8px;
+	margin: 0 16px 16px;
+}
+
+.actionButton {
+	flex: 1;
+	padding: 12px 0;
+	border: none;
+	border-radius: 8px;
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--text);
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+}
+
+.actionButton:disabled {
+	opacity: 0.6;
+}
+
+.watchButton {
+	flex: 2;
+	background: #00a800;
+}
+
+.unwatchButton {
+	background: #e74c3c;
+}
+
+.rewatchButton {
+	background: #3498db;
+}
+
+.skipButton {
+	background: var(--surface-light);
+}
+
+.buttonBadge {
+	background: var(--text);
+	color: #3498db;
+	border-radius: 9px;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 5px;
+	font-size: 11px;
+	font-weight: 700;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.skeletonBody {
+	padding: 16px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.skeletonTitle,
+.skeletonLine,
+.skeletonLineShort {
+	height: 14px;
+	border-radius: 4px;
+	background: var(--surface-light);
+}
+
+.skeletonTitle {
+	width: 60%;
+	height: 20px;
+}
+
+.skeletonLineShort {
+	width: 40%;
+}
+
+.shimmer {
+	animation: shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+	0%,
+	100% {
+		opacity: 0.4;
+	}
+	50% {
+		opacity: 1;
+	}
+}
+
+.dotRow {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	gap: 6px;
+	margin-top: 16px;
+}
+
+.dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 3px;
+	background: var(--text-muted);
+	opacity: 0.4;
+}
+
+.dotActive {
+	width: 8px;
+	height: 8px;
+	border-radius: 4px;
+	background: var(--text);
+	opacity: 1;
+}
+
+/* Arrows only where there's a pointer (desktop) */
+.arrow {
+	display: none;
+}
+
+@media (hover: hover) and (min-width: 700px) {
+	.arrow {
+		position: absolute;
+		top: 50%;
+		transform: translateY(-50%);
+		width: 44px;
+		height: 44px;
+		border-radius: 22px;
+		border: none;
+		background: rgba(0, 0, 0, 0.5);
+		color: var(--text);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+	}
+
+	.arrow:disabled {
+		opacity: 0.3;
+		cursor: default;
+	}
+
+	.arrowLeft {
+		left: calc(50% - var(--card-w) / 2 - 60px);
+	}
+
+	.arrowRight {
+		right: calc(50% - var(--card-w) / 2 - 60px);
+	}
+}

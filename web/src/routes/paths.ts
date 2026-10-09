@@ -13,10 +13,7 @@ export const Paths = {
 	SETTINGS: "/profile/settings",
 	IMPORT: "/profile/import",
 	SHOW: "/show/:mediaType/:tmdbId",
-	SEASON: "/show/:mediaType/:tmdbId/season/:season",
 } as const;
 
 export const showPath = (mediaType: MediaType, tmdbId: number) =>
 	`/show/${mediaType === MediaType.MOVIE ? "movie" : "tv"}/${tmdbId}`;
-
-export const seasonPath = (tmdbId: number, season: number) => `/show/tv/${tmdbId}/season/${season}`;
