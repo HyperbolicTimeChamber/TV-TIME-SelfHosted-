@@ -83,7 +83,8 @@ function result(
  *
  * - First watch (c = 1): pointer moves only if every earlier episode is watched
  *   (an unbroken run). It jumps to the first later episode still unwatched.
- * - In a rewatch (c > 1, status rewatching): same, at level c.
+ * - In a rewatch (c > 1, status rewatching): same, at level c, counted from the
+ *   current pointer (earlier episodes were rewatched or skipped).
  * - Starting a rewatch (c > 1, not rewatching): only by re-marking from episode 1,
  *   and only if every other aired episode sits at the same count (c - 1) —
  *   i.e. the show was watched uniformly. Otherwise nothing moves; the UI may
@@ -112,8 +113,16 @@ export function computeTrackingAdvance(
 
 	if (level === 1 && rewatching) return NONE;
 
-	// Unbroken run up to X at this level
-	for (let i = 0; i < lastIdx; i++) {
+	// Unbroken run up to X at this level. During a rewatch the run starts at the current
+	// pointer: episodes before it were rewatched or skipped (watchlist "Skip").
+	let runStart = 0;
+	if (rewatching && tracking.nextEpisode) {
+		const ne = tracking.nextEpisode;
+		const pointerIdx = order.findIndex((e) => e.season === ne.season && e.episode === ne.episode);
+		if (pointerIdx > lastIdx) return NONE; // re-marking an episode already passed
+		if (pointerIdx >= 0) runStart = pointerIdx;
+	}
+	for (let i = runStart; i < lastIdx; i++) {
 		if (countOf(counts, order[i]) < level) return NONE;
 	}
 

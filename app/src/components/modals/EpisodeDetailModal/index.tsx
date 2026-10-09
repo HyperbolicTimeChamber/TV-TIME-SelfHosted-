@@ -27,6 +27,7 @@ export default function EpisodeDetailModal({
 	onMarkWatched,
 	onMarkWatchedThrough,
 	onUnmarkWatched,
+	onSkipEpisode,
 	onShowPress,
 	onClose,
 	onLoadEpisodeDetails,
@@ -233,6 +234,15 @@ export default function EpisodeDetailModal({
 			const key = epKey(item.season, item.episode);
 			const wc = localWatched.get(key) ?? 0;
 			const isWatched = wc > 0;
+			const isCurrentNext =
+				currentNextEpisode?.season === item.season && currentNextEpisode?.episode === item.episode;
+			const onSkip =
+				onSkipEpisode && isCurrentNext
+					? () => {
+							setMarkingKey(key);
+							onSkipEpisode(tmdbId, item.season, item.episode).finally(() => setMarkingKey(null));
+						}
+					: undefined;
 
 			return (
 				<Card3DWrapper index={index} scrollX={scrollX}>
@@ -270,6 +280,7 @@ export default function EpisodeDetailModal({
 									setMarkingKey(null);
 								});
 							}}
+							onSkip={onSkip}
 							onShowPress={onShowPress}
 						/>
 					</Pressable>
@@ -286,6 +297,8 @@ export default function EpisodeDetailModal({
 			tmdbId,
 			onUnmarkWatched,
 			onMarkWatched,
+			onSkipEpisode,
+			currentNextEpisode,
 			onShowPress,
 			scrollX,
 		],

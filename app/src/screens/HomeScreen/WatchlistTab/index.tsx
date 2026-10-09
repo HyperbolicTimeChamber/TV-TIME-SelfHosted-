@@ -42,6 +42,7 @@ import {
 	MediaType,
 	Route,
 	QueryKey,
+	WatchStatus,
 } from "../../../types";
 import type { ShowDrawerData } from "../../../components/ShowDrawer";
 import { useSharedShimmer } from "../../../components/SkeletonLine";
@@ -129,6 +130,7 @@ export default function WatchlistTab() {
 		handleMarkWatchedThrough,
 		handleUnmarkEpisode,
 		handleCarouselMarkWatched,
+		handleSkipEpisode,
 	} = useWatchlistData(user?.uid);
 
 	const listRef = useRef<any>(null);
@@ -156,6 +158,8 @@ export default function WatchlistTab() {
 		initialIndex: number;
 		watchedKeys: Map<string, number>;
 		currentNextEpisode: { season: number; episode: number } | null;
+		/** Skipping is only offered during a rewatch */
+		isRewatching: boolean;
 	} | null>(null);
 	const epModalTmdbIdRef = useRef<number | null>(null);
 	// Show drawer state
@@ -288,10 +292,26 @@ export default function WatchlistTab() {
 				initialIndex: initialIdx,
 				watchedKeys: wKeys,
 				currentNextEpisode: ep,
+				isRewatching: item.status === WatchStatus.REWATCHING,
 			});
 			setEpModalVisible(true);
 		},
 		[listData, user?.uid, queryClient],
+	);
+
+	// Skip in modal → move the modal's "current" episode along with the watchlist pointer
+	const handleModalSkip = useCallback(
+		async (tmdbId: number, season: number, episode: number) => {
+			const next = await handleSkipEpisode(tmdbId, season, episode);
+			if (next === undefined) return;
+			if (!next) {
+				setEpModalVisible(false);
+				setEpModalData(null);
+				return;
+			}
+			setEpModalData((prev) => (prev ? { ...prev, currentNextEpisode: next } : prev));
+		},
+		[handleSkipEpisode],
 	);
 
 	const handleLoadEpisodeDetails = useCallback(
@@ -888,6 +908,7 @@ export default function WatchlistTab() {
 					onMarkWatched={handleCarouselMarkWatched}
 					onMarkWatchedThrough={handleMarkWatchedThrough}
 					onUnmarkWatched={handleUnmarkEpisode}
+					onSkipEpisode={epModalData.isRewatching ? handleModalSkip : undefined}
 					onShowPress={handleEpModalShowPress}
 					onClose={() => {
 						setEpModalVisible(false);

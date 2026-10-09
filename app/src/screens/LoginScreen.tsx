@@ -17,7 +17,6 @@ import { getAuth, sendPasswordResetEmail } from "@react-native-firebase/auth";
 import { useAuthStore } from "../stores";
 import GoogleLogo from "../../assets/GoogleLogo";
 import { getFirebaseAuthErrorMessage } from "../hooks";
-import { isEmailIdentifier, isValidUsername } from "../utils";
 
 export default function LoginScreen() {
 	const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuthStore();
@@ -29,27 +28,21 @@ export default function LoginScreen() {
 	const [error, setError] = useState<string | null>(null);
 
 	const handleEmailAuth = async () => {
-		const identifier = email.trim();
-		if (!identifier || !password.trim()) {
-			setError("Please enter email or username and password.");
-			return;
-		}
-		const isUsername = !isEmailIdentifier(identifier);
-		if (isUsername && !isValidUsername(identifier)) {
-			setError("Usernames are 3–20 characters: letters, numbers, _ or .");
+		if (!email.trim() || !password.trim()) {
+			setError("Please enter email and password.");
 			return;
 		}
 		setLoading(true);
 		setError(null);
 		try {
 			if (isSignUp) {
-				await signUpWithEmail(identifier, password);
+				await signUpWithEmail(email.trim(), password);
 			} else {
-				await signInWithEmail(identifier, password);
+				await signInWithEmail(email.trim(), password);
 			}
 		} catch (e: unknown) {
 			const code = (e as { code?: string }).code ?? "";
-			setError(getFirebaseAuthErrorMessage(code, isUsername));
+			setError(getFirebaseAuthErrorMessage(code));
 		} finally {
 			setLoading(false);
 		}
@@ -70,10 +63,6 @@ export default function LoginScreen() {
 	const handleForgotPassword = async () => {
 		if (!email.trim()) {
 			setError("Enter your email address first.");
-			return;
-		}
-		if (!isEmailIdentifier(email.trim())) {
-			setError("Password reset needs an email. Username accounts can't be reset by email.");
 			return;
 		}
 		setLoading(true);
@@ -105,15 +94,9 @@ export default function LoginScreen() {
 				<Text style={styles.subtitle}>Track What You Watch</Text>
 
 				<View style={styles.form}>
-					{isSignUp && (
-						<Text style={styles.hintText}>
-							Don't want to share your email? Pick a username instead (3–20 characters: letters,
-							numbers, _ or .). Note: username accounts can't reset a forgotten password.
-						</Text>
-					)}
 					<TextInput
 						style={styles.input}
-						placeholder={isSignUp ? "Email or pick a username" : "Email or username"}
+						placeholder="Email"
 						placeholderTextColor={colors.textMuted}
 						keyboardType="email-address"
 						autoCapitalize="none"
@@ -243,12 +226,6 @@ const styles = StyleSheet.create({
 	},
 	buttonDisabled: {
 		opacity: 0.6,
-	},
-	hintText: {
-		...typography.caption,
-		color: colors.textMuted,
-		textAlign: "center",
-		marginBottom: spacing.md,
 	},
 	toggleText: {
 		...typography.body,

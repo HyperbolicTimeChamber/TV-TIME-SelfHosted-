@@ -458,7 +458,12 @@ export default memo(function SeasonDropdown({
 	);
 
 	// "Watch/rewatch from here?" — asked when a mark wouldn't move the watchlist
-	const [jumpModal, setJumpModal] = useState<{ ep: TMDBEpisode; rewatch: boolean } | null>(null);
+	const [jumpModal, setJumpModal] = useState<{
+		ep: TMDBEpisode;
+		rewatch: boolean;
+		/** Earlier episodes are still unwatched → jumping skips them */
+		skipsPrevious: boolean;
+	} | null>(null);
 
 	/** Mark directly if it continues the watch flow, else ask whether to jump the watchlist here */
 	const markOrAskJump = useCallback(
@@ -468,9 +473,23 @@ export default memo(function SeasonDropdown({
 				return;
 			}
 			const count = watchedMap.get(ep.episode_number)?.watchCount || 0;
-			setJumpModal({ ep, rewatch: count > 0 });
+			const { order, counts } = buildAdvanceInputs([]);
+			const idx = order.findIndex(
+				(o) => o.season === season.season_number && o.episode === ep.episode_number,
+			);
+			const skipsPrevious =
+				count === 0 &&
+				order.slice(0, Math.max(0, idx)).some((o) => !counts.get(epKey(o.season, o.episode)));
+			setJumpModal({ ep, rewatch: count > 0, skipsPrevious });
 		},
-		[isTracked, willAdvance, handleMarkWatched, watchedMap],
+		[
+			isTracked,
+			willAdvance,
+			handleMarkWatched,
+			watchedMap,
+			buildAdvanceInputs,
+			season.season_number,
+		],
 	);
 
 	const handleSheetAction = useCallback(
@@ -1038,12 +1057,18 @@ export default memo(function SeasonDropdown({
 				<AnimatedModal visible={!!jumpModal} onClose={() => setJumpModal(null)}>
 					<View style={styles.skipModalContent}>
 						<Text style={styles.skipModalTitle}>
-							{jumpModal.rewatch ? "Start a Rewatch?" : "Watch From Here?"}
+							{jumpModal.rewatch
+								? "Start a Rewatch?"
+								: jumpModal.skipsPrevious
+									? "Skip Previous Episodes?"
+									: "Watch From Here?"}
 						</Text>
 						<Text style={styles.skipModalHint}>
 							{jumpModal.rewatch
 								? `Rewatch from E${jumpModal.ep.episode_number}? Your watchlist will continue from the next episode.`
-								: `Continue watching from E${jumpModal.ep.episode_number}? Your watchlist will move to the next episode.`}
+								: jumpModal.skipsPrevious
+									? `Skip the earlier unwatched episodes and continue your watchlist after E${jumpModal.ep.episode_number}? They stay unwatched.`
+									: `Continue watching from E${jumpModal.ep.episode_number}? Your watchlist will move to the next episode.`}
 						</Text>
 						<TouchableOpacity
 							style={styles.skipModalButton}
@@ -1054,7 +1079,11 @@ export default memo(function SeasonDropdown({
 							}}
 						>
 							<Text style={styles.skipModalButtonText}>
-								{jumpModal.rewatch ? "Rewatch From Here" : "Watch From Here"}
+								{jumpModal.rewatch
+									? "Rewatch From Here"
+									: jumpModal.skipsPrevious
+										? "Skip Previous"
+										: "Watch From Here"}
 							</Text>
 						</TouchableOpacity>
 						<TouchableOpacity

@@ -1,16 +1,4 @@
-export function getFirebaseAuthErrorMessage(code: string, isUsername = false): string {
-	if (isUsername) {
-		switch (code) {
-			case "auth/user-not-found":
-			case "auth/wrong-password":
-			case "auth/invalid-credential":
-				return "Invalid username or password.";
-			case "auth/email-already-in-use":
-				return "That username is already taken.";
-			case "auth/invalid-email":
-				return "Invalid username.";
-		}
-	}
+export function getFirebaseAuthErrorMessage(code: string): string {
 	switch (code) {
 		case "auth/invalid-email":
 			return "Invalid email address.";

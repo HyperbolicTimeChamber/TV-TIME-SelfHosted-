@@ -5,13 +5,11 @@ import {
 	getAuth,
 	signInWithEmailAndPassword,
 	createUserWithEmailAndPassword,
-	updateProfile,
 	signOut as firebaseSignOut,
 } from "@react-native-firebase/auth";
 import type { User } from "@react-native-firebase/auth";
 import { getFirestore, doc, getDoc } from "@react-native-firebase/firestore";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
-import { isEmailIdentifier, usernameToEmail, normalizeUsername } from "../utils";
 
 interface AuthState {
 	user: User | null;
@@ -32,9 +30,8 @@ interface AuthState {
 	loadAppConfig: () => Promise<void>;
 	loadUserFlags: (userId: string) => Promise<void>;
 	signInWithGoogle: () => Promise<void>;
-	/** identifier = email or username */
-	signInWithEmail: (identifier: string, password: string) => Promise<void>;
-	signUpWithEmail: (identifier: string, password: string) => Promise<void>;
+	signInWithEmail: (email: string, password: string) => Promise<void>;
+	signUpWithEmail: (email: string, password: string) => Promise<void>;
 	signOut: () => Promise<void>;
 }
 
@@ -120,9 +117,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 		}
 	},
 
-	signInWithEmail: async (identifier: string, password: string) => {
+	signInWithEmail: async (email: string, password: string) => {
 		try {
-			const email = isEmailIdentifier(identifier) ? identifier : usernameToEmail(identifier);
 			await signInWithEmailAndPassword(getAuth(), email, password);
 		} catch (error) {
 			console.error("Email sign in error:", error);
@@ -130,21 +126,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 		}
 	},
 
-	signUpWithEmail: async (identifier: string, password: string) => {
+	signUpWithEmail: async (email: string, password: string) => {
 		try {
-			if (isEmailIdentifier(identifier)) {
-				await createUserWithEmailAndPassword(getAuth(), identifier, password);
-				return;
-			}
-			// Username → synthetic email. Firebase rejects duplicates with
-			// auth/email-already-in-use, which the login screen maps to "username taken".
-			const username = normalizeUsername(identifier);
-			const cred = await createUserWithEmailAndPassword(
-				getAuth(),
-				usernameToEmail(username),
-				password,
-			);
-			await updateProfile(cred.user, { displayName: username }).catch(() => {});
+			await createUserWithEmailAndPassword(getAuth(), email, password);
 		} catch (error) {
 			console.error("Email sign up error:", error);
 			throw error;

@@ -172,3 +172,15 @@ test("jump: first-time watch during a rewatch switches back to watching", () => 
 	});
 	assert.deepEqual([r.nextEpisode, r.status], [{ season: 1, episode: 6 }, W]);
 });
+
+// --- rewatch skips (watchlist "Skip") ---
+test("rewatch: after skipping ep 2, marking ep 3 continues the rewatch", () => {
+	// ep 2 skipped → still count 1; pointer moved to ep 3
+	const r = adv([2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1], mk(1, 3), R, { season: 1, episode: 3 });
+	assert.deepEqual([r.advance, r.nextEpisode, r.status], [true, { season: 1, episode: 4 }, R]);
+});
+
+test("rewatch: re-marking an episode before the pointer doesn't move it", () => {
+	const r = adv([3, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1], mk(1, 1), R, { season: 1, episode: 4 });
+	assert.equal(r.advance, false);
+});

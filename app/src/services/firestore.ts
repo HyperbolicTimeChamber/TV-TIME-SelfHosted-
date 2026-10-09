@@ -520,6 +520,25 @@ export async function restartWatching(userId: string, tmdbId: number) {
 	});
 }
 
+/**
+ * Rewatch only: move the pointer past an episode without watching it.
+ * No watchedEpisodes write, no stats change, no priority bump. Last episode → rewatch done.
+ */
+export async function skipRewatchEpisode(
+	userId: string,
+	tmdbId: number,
+	nextEpisode: { season: number; episode: number } | null,
+	nextEpisodeName: string | null,
+	nextEpisodeAirDate: string | null,
+) {
+	await updateDoc(doc(trackingRef(userId), showDocId(tmdbId, MediaType.TV)), {
+		nextEpisode,
+		nextEpisodeName,
+		nextEpisodeAirDate,
+		...(nextEpisode ? {} : { status: WatchStatus.COMPLETED }),
+	});
+}
+
 export async function resumeRewatch(userId: string, tmdbId: number, mediaType: MediaType) {
 	const docId = showDocId(tmdbId, mediaType);
 	await updateDoc(doc(trackingRef(userId), docId), {

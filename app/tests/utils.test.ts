@@ -3,11 +3,6 @@ import assert from "node:assert/strict";
 import {
 	isGenericEpisodeTitle,
 	pickEpisodeTitle,
-	isEmailIdentifier,
-	isValidUsername,
-	usernameToEmail,
-	usernameFromEmail,
-	USERNAME_EMAIL_DOMAIN,
 	isIncompleteCatalog,
 	hasMissingDisplayData,
 	needsTmdbHeal,
@@ -37,22 +32,6 @@ test("pickEpisodeTitle prefers a real title", () => {
 	assert.equal(pickEpisodeTitle("Pilot", "Episode 1"), "Pilot");
 	assert.equal(pickEpisodeTitle("Episode 1", null), "Episode 1");
 	assert.equal(pickEpisodeTitle(null, undefined), null);
-});
-
-// ---------- usernames ----------
-test("username sign-up mapping and validation", () => {
-	assert.equal(isEmailIdentifier("a@b.com"), true);
-	assert.equal(isEmailIdentifier("nolan_d"), false);
-	assert.equal(isValidUsername("Nolan_D.1"), true);
-	assert.equal(isValidUsername("ab"), false);
-	assert.equal(isValidUsername("has space"), false);
-	assert.equal(isValidUsername("x".repeat(21)), false);
-	assert.equal(usernameToEmail(" NoLan "), `nolan@${USERNAME_EMAIL_DOMAIN}`);
-	// Case-insensitive → same email → Firebase's duplicate-email check rejects taken usernames
-	assert.equal(usernameToEmail("Nolan"), usernameToEmail("nolan"));
-	assert.equal(usernameFromEmail(usernameToEmail("nolan")), "nolan");
-	assert.equal(usernameFromEmail("real@gmail.com"), null);
-	assert.match(USERNAME_EMAIL_DOMAIN, /\.invalid$/);
 });
 
 // ---------- cache → Firestore → TMDB ----------
