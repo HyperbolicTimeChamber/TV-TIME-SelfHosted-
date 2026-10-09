@@ -61,21 +61,6 @@ jobs:
       - name: Build
         run: npm run build
 
-      # ── Android App Links: assetlinks.json from the release keystore ──
-      - name: Write assetlinks.json
-        run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > /tmp/release.keystore
-          UPLOAD_SHA=$(keytool -list -v -keystore /tmp/release.keystore -alias "$KEY_ALIAS" \
-            -storepass "$KEYSTORE_PASSWORD" | grep -m1 'SHA256:' | awk '{print $2}')
-          rm -f /tmp/release.keystore
-          node scripts/assetlinks.mjs dist/.well-known/assetlinks.json "$UPLOAD_SHA" "$PLAY_APP_SIGNING_SHA256"
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          # Play App Signing re-signs store builds with Google's key — add its SHA-256 as a Secret
-          PLAY_APP_SIGNING_SHA256: ${{ secrets.PLAY_APP_SIGNING_SHA256 }}
-
       # ── Deploy to Firebase Hosting ──
       - name: Deploy hosting
         working-directory: .

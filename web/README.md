@@ -47,7 +47,10 @@ npm run build      # typecheck + production build
 ## Deploy
 
 `.github/workflows/web-deploy.yml` runs on pushes to `development` that touch
-`web/`, `app/src/`, `firebase.json` or the workflow: tests → build →
-`assetlinks.json` (Android App Links, from the release keystore) → Firebase Hosting.
+`web/`, `app/src/`, `firebase.json` or the workflow: tests → build → Firebase Hosting.
+
+Android App Links: Firebase Hosting serves `/.well-known/assetlinks.json`
+automatically from the SHA-256 fingerprints registered on the Android app in
+Firebase → Project settings (add the Play app-signing + upload key there).
 Share links `/show/{tv|movie}/{id}` are served by the `sharePreview` function
 with Open Graph tags, then load the app.
