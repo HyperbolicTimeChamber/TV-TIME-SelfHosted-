@@ -1,36 +1,24 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Keyboard } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useAuthStore } from "../../stores";
-import { searchSuggestions } from "../../services";
+import { useSearchInput } from "./useSearchInput";
 import { colors, spacing, typography } from "../../theme";
 import { SearchStackParamList, Route } from "../../types";
 
 type NavProp = NativeStackNavigationProp<SearchStackParamList, Route.SEARCH_INPUT>;
 type RoutePropType = RouteProp<SearchStackParamList, Route.SEARCH_INPUT>;
 
-const HISTORY_KEY = "search_history";
-const MAX_BYTES = 10240;
 
 export default function SearchInputScreen() {
 	const { top } = useSafeAreaInsets();
 	const navigation = useNavigation<NavProp>();
 	const route = useRoute<RoutePropType>();
 	const inputRef = useRef<TextInput>(null);
-	const [query, setQuery] = useState(route.params?.currentQuery || "");
-	const [searchHistory, setSearchHistory] = useState<string[]>([]);
-	const [tmdbSuggestions, setTmdbSuggestions] = useState<string[]>([]);
-	const apiKey = useAuthStore((s) => s.appTmdbApiKey);
-
-	useEffect(() => {
-		AsyncStorage.getItem(HISTORY_KEY).then((raw) => {
-			if (raw) setSearchHistory(JSON.parse(raw));
-		});
-	}, []);
+	const { query, setQuery, addToHistory, clearHistory, filteredHistory, suggestionItems } =
+		useSearchInput(route.params?.currentQuery || "");
 
 	useEffect(() => {
 		setTimeout(() => inputRef.current?.focus(), 100);
@@ -42,35 +30,6 @@ export default function SearchInputScreen() {
 		parent?.setOptions({ tabBarStyle: { display: "none" as const } });
 	}, [navigation]);
 
-	// Debounced TMDB suggestions
-	useEffect(() => {
-		const trimmed = query.trim();
-		if (trimmed.length < 2 || !apiKey) {
-			setTmdbSuggestions([]);
-			return;
-		}
-		const timer = setTimeout(() => {
-			searchSuggestions(apiKey, trimmed)
-				.then(setTmdbSuggestions)
-				.catch(() => setTmdbSuggestions([]));
-		}, 200);
-		return () => clearTimeout(timer);
-	}, [query, apiKey]);
-
-	const addToHistory = useCallback((term: string) => {
-		const trimmed = term.trim().toLowerCase();
-		if (!trimmed || trimmed.length < 2) return;
-		setSearchHistory((prev) => {
-			const filtered = prev.filter((h) => h.toLowerCase() !== trimmed);
-			const next = [trimmed, ...filtered];
-			while (JSON.stringify(next).length > MAX_BYTES && next.length > 1) {
-				next.pop();
-			}
-			AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(next)).catch(() => {});
-			return next;
-		});
-	}, []);
-
 	const submitSearch = useCallback(
 		(term: string) => {
 			const trimmed = term.trim();
@@ -81,29 +40,6 @@ export default function SearchInputScreen() {
 		},
 		[navigation, addToHistory],
 	);
-
-	const handleClearHistory = useCallback(() => {
-		setSearchHistory([]);
-		AsyncStorage.removeItem(HISTORY_KEY).catch(() => {});
-	}, []);
-
-	const filteredHistory =
-		query.length > 0
-			? searchHistory.filter((h) => h.toLowerCase().includes(query.toLowerCase()))
-			: searchHistory;
-
-	// Build suggestion items: typed query + TMDB suggestions (deduped against history)
-	const hasSuggestions = query.trim().length > 0;
-	const suggestionItems = hasSuggestions
-		? [
-				query.trim(),
-				...tmdbSuggestions.filter(
-					(s) =>
-						s.toLowerCase() !== query.trim().toLowerCase() &&
-						!filteredHistory.some((h) => h.toLowerCase() === s.toLowerCase()),
-				),
-			]
-		: [];
 
 	return (
 		<View style={[styles.container, { paddingTop: top }]}>
@@ -166,7 +102,7 @@ export default function SearchInputScreen() {
 						<View style={styles.sectionHeader}>
 							<Text style={styles.sectionTitle}>Recent</Text>
 							{query.length === 0 && (
-								<TouchableOpacity onPress={handleClearHistory}>
+								<TouchableOpacity onPress={clearHistory}>
 									<Text style={styles.clearAllText}>Clear All</Text>
 								</TouchableOpacity>
 							)}

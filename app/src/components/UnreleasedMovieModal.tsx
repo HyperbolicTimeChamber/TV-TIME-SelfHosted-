@@ -1,11 +1,9 @@
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getFirestore, doc, updateDoc, getDoc } from "@react-native-firebase/firestore";
+import { hideUnreleasedModal, shouldShowUnreleasedModal } from "../services/unreleasedModalPref";
 import { AnimatedModal } from "./modals";
 import { colors, spacing, typography } from "../theme";
 import { useAuthStore } from "../stores";
-import { CacheKey } from "../types";
 
 interface Props {
 	visible: boolean;
@@ -19,11 +17,7 @@ export function UnreleasedMovieModal({ visible, onClose, movieTitle }: Props) {
 
 	const handleOk = async () => {
 		if (dontShowAgain && user?.uid) {
-			await AsyncStorage.setItem(CacheKey.HIDE_UNRELEASED_MODAL, "true");
-			const db = getFirestore();
-			updateDoc(doc(db, "users", user.uid), {
-				hideUnreleasedMovieModal: true,
-			}).catch(() => {});
+			await hideUnreleasedModal(user.uid);
 		}
 		onClose();
 	};
@@ -47,29 +41,6 @@ export function UnreleasedMovieModal({ visible, onClose, movieTitle }: Props) {
 			</View>
 		</AnimatedModal>
 	);
-}
-
-/**
- * Check if the unreleased movie modal should be shown.
- * Reads from AsyncStorage first (cache), falls back to Firestore.
- */
-export async function shouldShowUnreleasedModal(userId: string): Promise<boolean> {
-	// Check cache first
-	const cached = await AsyncStorage.getItem(CacheKey.HIDE_UNRELEASED_MODAL);
-	if (cached === "true") return false;
-
-	// Fallback to Firestore
-	try {
-		const db = getFirestore();
-		const userDoc = await getDoc(doc(db, "users", userId));
-		const hide = userDoc.data()?.hideUnreleasedMovieModal === true;
-		if (hide) {
-			await AsyncStorage.setItem(CacheKey.HIDE_UNRELEASED_MODAL, "true");
-			return false;
-		}
-	} catch {}
-
-	return true;
 }
 
 const styles = StyleSheet.create({
@@ -131,3 +102,5 @@ const styles = StyleSheet.create({
 		color: colors.text,
 	},
 });
+
+export { shouldShowUnreleasedModal };
