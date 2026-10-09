@@ -17,7 +17,6 @@ import SkeletonLine, { useSharedShimmer } from "./SkeletonLine";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, spacing, typography } from "../theme";
 import { tmdbBackdropUri, tmdbPosterUri } from "../hooks/useTmdbImage";
-import { MediaType } from "../enums";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const SCREEN_HEIGHT = Dimensions.get("window").height;
