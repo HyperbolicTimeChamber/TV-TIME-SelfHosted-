@@ -1,10 +1,11 @@
-// Play in-app updates don't exist on web
+// Play in-app updates don't exist on web (types mirror the native lib loosely)
 export const IAUUpdateKind = { FLEXIBLE: 0, IMMEDIATE: 1 };
 export default class SpInAppUpdates {
-	checkNeedsUpdate() {
+	constructor(_debug?: boolean) {}
+	checkNeedsUpdate(_opts?: unknown) {
 		return Promise.resolve({ shouldUpdate: false });
 	}
-	startUpdate() {
+	startUpdate(_opts?: unknown) {
 		return Promise.resolve();
 	}
 }
