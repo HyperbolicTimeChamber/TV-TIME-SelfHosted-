@@ -39,7 +39,7 @@ npm test           # vitest
 npm run build      # typecheck + production build
 ```
 
-## Env (`.env.local` locally, CI writes `.env.production` from repo Variables)
+## Env (`.env.local` locally, CI writes `.env.production` from repo Secrets)
 
 `VITE_FIREBASE_*` (public web config), `VITE_WEB_BASE_URL`, `VITE_TMDB_API_BASE`,
 `VITE_TMDB_PROXY_BASE=/api/tmdb`, optional `VITE_RECAPTCHA_SITE_KEY` (App Check).
