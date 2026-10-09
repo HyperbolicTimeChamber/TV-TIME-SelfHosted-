@@ -14,3 +14,12 @@ if (!window.matchMedia) {
 			dispatchEvent: () => false,
 		}) as MediaQueryList;
 }
+
+// jsdom lacks layout observers
+class NoopObserver {
+	observe() {}
+	unobserve() {}
+	disconnect() {}
+}
+globalThis.ResizeObserver ??= NoopObserver as unknown as typeof ResizeObserver;
+globalThis.IntersectionObserver ??= NoopObserver as unknown as typeof IntersectionObserver;

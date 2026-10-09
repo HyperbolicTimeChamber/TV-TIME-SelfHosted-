@@ -1,0 +1,207 @@
+.container {
+	min-height: 100dvh;
+}
+
+.headerBlock {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	z-index: 20;
+	background: var(--bg);
+	padding-top: env(safe-area-inset-top);
+	max-width: 1100px;
+	margin: 0 auto;
+}
+
+@media (min-width: 900px) {
+	.headerBlock {
+		left: 88px;
+	}
+}
+
+/* Guests: brand + sign in / sign up, top right */
+.guestBar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 12px 12px 0;
+}
+
+.guestLogo {
+	width: 32px;
+	height: 32px;
+}
+
+.guestBrand {
+	font-weight: 700;
+	font-size: 18px;
+}
+
+.guestActions {
+	margin-left: auto;
+	display: flex;
+	gap: 8px;
+}
+
+.headerCard {
+	background: var(--surface);
+	border-radius: 12px;
+	margin: 12px 12px 0;
+	overflow: hidden;
+}
+
+.searchBarRow {
+	display: flex;
+	align-items: stretch;
+}
+
+.backButton,
+.searchIconWrap {
+	width: 44px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: none;
+	color: var(--text);
+}
+
+.backButton {
+	background: var(--surface-light);
+	cursor: pointer;
+}
+
+.searchRow {
+	flex: 1;
+	text-align: left;
+	background: none;
+	border: none;
+	color: var(--text-muted);
+	font-size: 14px;
+	padding: 16px 8px;
+	cursor: text;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.sectionTitle {
+	font-size: 16px;
+	font-weight: 600;
+	margin: 0;
+	padding: 12px 16px 8px;
+}
+
+.empty {
+	text-align: center;
+	color: var(--text-secondary);
+	font-size: 16px;
+	font-weight: 600;
+	margin-top: 30dvh;
+}
+
+/* Mobile: 2 columns like the app; wider screens add columns */
+.grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 8px;
+	padding: 8px 24px;
+}
+
+@media (min-width: 600px) {
+	.grid {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+}
+
+@media (min-width: 900px) {
+	.grid {
+		grid-template-columns: repeat(5, minmax(0, 1fr));
+		gap: 12px;
+	}
+}
+
+.card {
+	position: relative;
+	overflow: hidden;
+	border-radius: 6px;
+	cursor: pointer;
+}
+
+.poster {
+	width: 100%;
+	aspect-ratio: 2 / 3;
+	border-radius: 6px;
+	background: var(--surface);
+}
+
+.banner {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.6);
+	padding: 4px 8px;
+	display: flex;
+	flex-direction: column;
+}
+
+.bannerTop {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 4px;
+}
+
+.cardTitle {
+	font-size: 12px;
+	flex-shrink: 1;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.cardYear {
+	font-size: 11px;
+	color: var(--text-secondary);
+}
+
+.typeBadge {
+	background: var(--primary);
+	border-radius: 4px;
+	padding: 2px 6px;
+	font-size: 10px;
+	font-weight: 700;
+	flex-shrink: 0;
+}
+
+.typeBadgeMovie {
+	background: #8b5cf6;
+}
+
+.badge {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	z-index: 1;
+	width: 26px;
+	height: 26px;
+	border-radius: 13px;
+	border: 2px solid var(--text);
+	background: rgba(0, 0, 0, 0.5);
+	color: var(--text);
+	font-size: 16px;
+	font-weight: 700;
+	line-height: 18px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	padding: 0;
+}
+
+.badgeActive {
+	background: #00a800;
+	border-color: #00a800;
+	font-size: 14px;
+}
