@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { colors, spacing, typography } from "../../../theme";
-import { todayStr } from "../../../utils/todayStr";
+import { todayStr } from "../../../utils";
 
 interface Props {
 	date: string;

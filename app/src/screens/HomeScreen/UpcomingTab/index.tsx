@@ -13,7 +13,7 @@ import { getCatalogShow, getShowDetails, getSeasonDetails } from "../../../servi
 import { colors, spacing, typography } from "../../../theme";
 import { UpcomingEpisode, HomeStackParamList, Route, MediaType } from "../../../types";
 import DateHeader from "./DateHeader";
-import { todayStr } from "../../../utils/todayStr";
+import { todayStr } from "../../../utils";
 import UpcomingEpisodeRow from "./UpcomingEpisodeRow";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
@@ -141,10 +141,7 @@ export default function UpcomingTab() {
 					overview: e.overview || null,
 				}));
 			} catch {
-				const catalog = await getCatalogShow(
-					tmdbId,
-					MediaType.TV,
-				);
+				const catalog = await getCatalogShow(tmdbId, MediaType.TV);
 				const catSeason = catalog?.seasons?.find((s) => s.seasonNumber === season);
 				if (catSeason) {
 					return catSeason.episodes.map((e) => ({
@@ -203,9 +200,7 @@ export default function UpcomingTab() {
 					setDrawerShow((prev) => (prev ? { ...prev, overview: prev.overview || "" } : null));
 				}
 			} else {
-				setDrawerShow((prev) =>
-					prev ? { ...prev, overview: prev.overview || "" } : null,
-				);
+				setDrawerShow((prev) => (prev ? { ...prev, overview: prev.overview || "" } : null));
 			}
 		}
 	}, []);

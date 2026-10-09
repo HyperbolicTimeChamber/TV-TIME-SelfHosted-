@@ -26,9 +26,13 @@ import {
 	getHighestWatchedEpisode,
 } from "../../services";
 import { colors } from "../../theme";
-import { showDocId } from "../../utils/docId";
-import { emitShowAdded, emitShowRemoved, emitShowCompleted } from "../../utils/watchlistEvents";
-import { todayStr } from "../../utils/todayStr";
+import {
+	showDocId,
+	emitShowAdded,
+	emitShowRemoved,
+	emitShowCompleted,
+	todayStr,
+} from "../../utils";
 import { getCachedCatalogShow } from "../../hooks/useWatchlist";
 import {
 	TMDBShow,

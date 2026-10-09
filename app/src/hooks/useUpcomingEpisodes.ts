@@ -11,17 +11,17 @@ import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { UpcomingEpisode, CacheKey, CloudFunction, MediaType } from "../types";
 import { getCachedCatalogShow } from "./useWatchlist";
-import { todayStr } from "../utils/todayStr";
 import {
+	todayStr,
 	trimPastQueue,
 	upcomingEpKey as epKey,
 	placeholderTargets,
 	titlesFromCatalog,
 	applyTitles,
-} from "../utils/upcomingQueue";
+	isGenericEpisodeTitle,
+} from "../utils";
 import { useAuthStore } from "../stores";
 import { getSeasonDetails, pooled } from "../services/tmdb";
-import { isGenericEpisodeTitle } from "../utils/episodeTitle";
 
 type MutateCallback = (fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[]) => void;
 const mutateListeners = new Set<MutateCallback>();
@@ -52,7 +52,9 @@ async function loadPastQueue(userId: string): Promise<UpcomingEpisode[]> {
 }
 
 function persistPastQueue(userId: string, episodes: UpcomingEpisode[]) {
-	AsyncStorage.setItem(CacheKey.UPCOMING_PAST, JSON.stringify({ userId, episodes })).catch(() => {});
+	AsyncStorage.setItem(CacheKey.UPCOMING_PAST, JSON.stringify({ userId, episodes })).catch(
+		() => {},
+	);
 }
 
 /** Persist upcoming cache with mutations applied */
@@ -135,32 +137,34 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 		if (!userId || cacheReady) return;
 		Promise.all([AsyncStorage.getItem(CacheKey.UPCOMING_EPISODES), loadPastQueue(userId)]).then(
 			([raw, storedPast]) => {
-			if (!raw) {
-				archivePast([], storedPast);
-				setCacheReady(true);
-				return;
-			}
-			try {
-				const cached = JSON.parse(raw);
-				if (cached.userId === userId && cached.episodes?.length > 0) {
-					const today = todayStr();
-					// Aired since last open → push into past queue instead of dropping
-					archivePast(cached.episodes as UpcomingEpisode[], storedPast);
-					const pruned = (cached.episodes as UpcomingEpisode[]).filter((ep) => ep.airDate >= today);
-					cachedSyncDate.current = cached.syncDate || null;
-					if (pruned.length > 0) {
-						setEpisodes(pruned);
-						setIsLoading(false);
-						if (pruned.length !== cached.episodes.length) {
-							persistCache(userId, pruned, cached.syncDate || "");
-						}
-					}
-				} else {
+				if (!raw) {
 					archivePast([], storedPast);
+					setCacheReady(true);
+					return;
 				}
-			} catch {}
-			setCacheReady(true);
-		},
+				try {
+					const cached = JSON.parse(raw);
+					if (cached.userId === userId && cached.episodes?.length > 0) {
+						const today = todayStr();
+						// Aired since last open → push into past queue instead of dropping
+						archivePast(cached.episodes as UpcomingEpisode[], storedPast);
+						const pruned = (cached.episodes as UpcomingEpisode[]).filter(
+							(ep) => ep.airDate >= today,
+						);
+						cachedSyncDate.current = cached.syncDate || null;
+						if (pruned.length > 0) {
+							setEpisodes(pruned);
+							setIsLoading(false);
+							if (pruned.length !== cached.episodes.length) {
+								persistCache(userId, pruned, cached.syncDate || "");
+							}
+						}
+					} else {
+						archivePast([], storedPast);
+					}
+				} catch {}
+				setCacheReady(true);
+			},
 		);
 	}, [userId, cacheReady, archivePast]);
 

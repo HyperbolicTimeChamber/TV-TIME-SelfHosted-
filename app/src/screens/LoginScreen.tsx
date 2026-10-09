@@ -17,7 +17,7 @@ import { getAuth, sendPasswordResetEmail } from "@react-native-firebase/auth";
 import { useAuthStore } from "../stores";
 import GoogleLogo from "../../assets/GoogleLogo";
 import { getFirebaseAuthErrorMessage } from "../hooks";
-import { isEmailIdentifier, isValidUsername } from "../utils/username";
+import { isEmailIdentifier, isValidUsername } from "../utils";
 
 export default function LoginScreen() {
 	const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuthStore();

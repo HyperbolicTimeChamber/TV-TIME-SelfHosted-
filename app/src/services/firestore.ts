@@ -16,7 +16,7 @@ import {
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { WatchStatus, MediaType, CloudFunction, CatalogShow } from "../types";
-import { showDocId } from "../utils/docId";
+import { showDocId } from "../utils";
 import { trackApi } from "./analytics";
 
 /** Tracked Cloud Function call */

@@ -17,13 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import DetailBackdrop from "./DetailBackdrop";
 import ActionPills from "./ActionPills";
 import DetailCredits from "./DetailCredits";
-import {
-	getFirestore,
-	doc,
-	getDoc,
-	onSnapshot,
-	Timestamp,
-} from "@react-native-firebase/firestore";
+import { getFirestore, doc, getDoc, onSnapshot, Timestamp } from "@react-native-firebase/firestore";
 import {
 	useShowDetails,
 	useShowWatchedEpisodes,
@@ -55,9 +49,13 @@ import {
 	WatchActionSheet,
 } from "../../components";
 import type { WatchAction } from "../../components";
-import { emitShowAdded, emitShowRemoved, emitShowCompleted } from "../../utils/watchlistEvents";
-import { showDocId } from "../../utils/docId";
-import { todayStr } from "../../utils/todayStr";
+import {
+	emitShowAdded,
+	emitShowRemoved,
+	emitShowCompleted,
+	showDocId,
+	todayStr,
+} from "../../utils";
 import { colors, spacing, typography } from "../../theme";
 import {
 	HomeStackParamList,
@@ -500,7 +498,10 @@ export default function ShowDetailScreen() {
 								const res = await httpsCallable<
 									{ tmdbId: number; mediaType: string; title: string },
 									{ shortUrl: string }
-								>(getFunctions(), CloudFunction.CREATE_DEEP_LINK)({
+								>(
+									getFunctions(),
+									CloudFunction.CREATE_DEEP_LINK,
+								)({
 									tmdbId,
 									mediaType,
 									title,

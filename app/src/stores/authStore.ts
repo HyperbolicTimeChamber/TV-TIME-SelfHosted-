@@ -11,7 +11,7 @@ import {
 import type { User } from "@react-native-firebase/auth";
 import { getFirestore, doc, getDoc } from "@react-native-firebase/firestore";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
-import { isEmailIdentifier, usernameToEmail, normalizeUsername } from "../utils/username";
+import { isEmailIdentifier, usernameToEmail, normalizeUsername } from "../utils";
 
 interface AuthState {
 	user: User | null;

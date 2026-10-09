@@ -1,5 +1,14 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { onShowRemoved, onShowAdded } from "../utils/watchlistEvents";
+import {
+	onShowRemoved,
+	onShowAdded,
+	showDocId,
+	isGenericEpisodeTitle,
+	isIncompleteCatalog,
+	hasMissingDisplayData,
+	needsTmdbHeal,
+	selectStaleCatalogItems,
+} from "../utils";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
 	getFirestore,
@@ -16,16 +25,8 @@ import {
 	QueryDocumentSnapshot,
 } from "@react-native-firebase/firestore";
 import { TrackingItem, CatalogShow, CacheKey, DocChangeType, MediaType } from "../types";
-import { showDocId } from "../utils/docId";
 import { useAuthStore } from "../stores";
 import { getShowDetails, getSeasonDetails } from "../services/tmdb";
-import { isGenericEpisodeTitle } from "../utils/episodeTitle";
-import {
-	isIncompleteCatalog,
-	hasMissingDisplayData,
-	needsTmdbHeal,
-	selectStaleCatalogItems,
-} from "../utils/catalogFreshness";
 
 const PAGE_SIZE = 50;
 

@@ -1,7 +1,7 @@
 import { Timestamp } from "@react-native-firebase/firestore";
 import { getCachedCatalogShow } from "../../hooks/useWatchlist";
 import { getSeasonDetails } from "../../services";
-import { showDocId } from "../../utils/docId";
+import { showDocId } from "../../utils";
 import type { EnrichedTrackingItem } from "../../hooks/useWatchlist";
 import { MediaType, WatchStatus, CatalogShow, TMDBShow } from "../../types";
 

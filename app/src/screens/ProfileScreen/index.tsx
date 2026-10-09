@@ -19,7 +19,7 @@ import WeeklyChart from "../../components/WeeklyChart";
 import StatCard from "./StatCard";
 import CollageCard from "./CollageCard";
 import CompletedSections from "./CompletedSections";
-import { usernameFromEmail } from "../../utils/username";
+import { usernameFromEmail } from "../../utils";
 import { styles } from "./styles";
 
 /** Replace Google profile photo size param with screen-aware resolution */

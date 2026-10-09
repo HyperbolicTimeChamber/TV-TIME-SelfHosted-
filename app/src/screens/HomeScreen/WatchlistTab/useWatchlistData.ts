@@ -26,7 +26,7 @@ import {
 	stopWatching,
 } from "../../../services";
 import { removeShowFromCalendarGlobal } from "../../../hooks/useCalendarEpisodes";
-import { emitShowCompleted } from "../../../utils/watchlistEvents";
+import { emitShowCompleted, todayStr, pickEpisodeTitle } from "../../../utils";
 import {
 	MediaType,
 	CacheKey,
@@ -36,8 +36,6 @@ import {
 	WatchedMovie,
 } from "../../../types";
 import type { WatchlistListItem } from "../../../types/watchlist";
-import { todayStr } from "../../../utils/todayStr";
-import { pickEpisodeTitle } from "../../../utils/episodeTitle";
 
 const ACTIVE_CACHE_LIMIT = 100;
 

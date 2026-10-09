@@ -42,9 +42,8 @@ import EpisodeDetailModal from "./modals/EpisodeDetailModal";
 import type { CarouselEpisode } from "./modals/EpisodeDetailModal";
 import { colors, spacing, typography } from "../theme";
 import { tmdbPosterUri, tmdbStillUri } from "../hooks/useTmdbImage";
-import { todayStr } from "../utils/todayStr";
+import { todayStr, computeTrackingAdvance, epKey, EpisodeRef } from "../utils";
 import { TMDBSeason, TMDBEpisode, MediaType, WatchStatus } from "../types";
-import { computeTrackingAdvance, epKey, EpisodeRef } from "../utils/trackingAdvance";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
 	UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -305,7 +304,15 @@ export default memo(function SeasonDropdown({
 				incrementRewatch: adv.incrementRewatch,
 			};
 		},
-		[season.season_number, seasonLayout, episodes, episodesBySeason, watchedEps, trackingItem, lookupEpisode],
+		[
+			season.season_number,
+			seasonLayout,
+			episodes,
+			episodesBySeason,
+			watchedEps,
+			trackingItem,
+			lookupEpisode,
+		],
 	);
 
 	const doMarkSeasonWatched = useCallback(async () => {
@@ -587,7 +594,9 @@ export default memo(function SeasonDropdown({
 			setMarkingEps(new Set(epsToMark.map((e: TMDBEpisode) => e.episode_number)));
 			try {
 				// Use batch CF instead of sequential individual marks — survives backgrounding
-				const tw = await resolveTrackingWrite(epsToMark.map((ep: TMDBEpisode) => ep.episode_number));
+				const tw = await resolveTrackingWrite(
+					epsToMark.map((ep: TMDBEpisode) => ep.episode_number),
+				);
 
 				await markSeasonWatchedCF(
 					tmdbId,

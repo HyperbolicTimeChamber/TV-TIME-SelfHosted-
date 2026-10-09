@@ -16,7 +16,7 @@ import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { getAuth, sendPasswordResetEmail } from "@react-native-firebase/auth";
 import { useAuthStore } from "../../stores";
 import { colors, spacing, typography } from "../../theme";
-import { usernameFromEmail } from "../../utils/username";
+import { usernameFromEmail } from "../../utils";
 import { ProfileStackParamList, Route } from "../../types";
 
 export default function SettingsScreen() {

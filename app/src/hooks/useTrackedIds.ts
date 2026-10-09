@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { QueryKey } from "../types";
 import { getFirestore, collection, doc, getDocs } from "@react-native-firebase/firestore";
-import { onShowAdded, onShowRemoved } from "../utils/watchlistEvents";
+import { onShowAdded, onShowRemoved } from "../utils";
 
 export function useTrackedIds(userId: string | undefined) {
 	const queryClient = useQueryClient();

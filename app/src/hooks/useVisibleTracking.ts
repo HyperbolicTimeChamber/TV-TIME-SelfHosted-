@@ -1,7 +1,7 @@
 // app/src/hooks/useVisibleTracking.ts
 import { WatchStatus, MediaType } from "../types";
 import { EnrichedTrackingItem } from "./useWatchlist";
-import { todayStr } from "../utils/todayStr";
+import { todayStr } from "../utils";
 
 /**
  * Determines if a show should be visible in the "Currently Watching" list.

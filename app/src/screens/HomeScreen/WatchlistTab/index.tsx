@@ -67,7 +67,7 @@ import { styles } from "./styles";
 import { useWatchlistData } from "./useWatchlistData";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
 import SectionHeader from "./SectionHeader";
-import { todayStr } from "../../../utils/todayStr";
+import { todayStr } from "../../../utils";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
