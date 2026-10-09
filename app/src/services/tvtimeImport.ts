@@ -2,6 +2,7 @@ import JSZip from "jszip";
 import Papa from "papaparse";
 import { File } from "expo-file-system";
 import axios from "axios";
+import { TMDB_API_BASE } from "../enums";
 
 // --- Parsed types ---
 
@@ -166,7 +167,7 @@ export interface MatchResult {
 	unmatched: string[];
 }
 
-const TMDB_BASE = "https://api.themoviedb.org/3";
+const TMDB_BASE = TMDB_API_BASE;
 const BATCH_SIZE = 50;
 const BATCH_DELAY_MS = 1000;
 

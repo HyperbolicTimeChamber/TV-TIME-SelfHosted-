@@ -1,8 +1,7 @@
 import axios from "axios";
 import { TMDBShow, TMDBEpisode } from "../types";
 import { logApiCall } from "./analytics";
-
-const TMDB_BASE = "https://api.themoviedb.org/3";
+import { TMDB_API_BASE as TMDB_BASE } from "../enums";
 
 function tmdb(apiKey: string) {
 	const instance = axios.create({

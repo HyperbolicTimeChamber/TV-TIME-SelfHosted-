@@ -102,5 +102,8 @@ export enum Route {
 	IMPORT_DATA = "ImportData",
 }
 
+// Base URLs come from app/.env (EXPO_PUBLIC_* is inlined at build time; CI writes the file)
 /** Public web app — share links + App Links / Universal Links domain */
-export const WEB_BASE_URL = "https://tv-time-returns.web.app";
+export const WEB_BASE_URL = process.env.EXPO_PUBLIC_WEB_BASE_URL ?? "";
+/** TMDB REST API base */
+export const TMDB_API_BASE = process.env.EXPO_PUBLIC_TMDB_API_BASE ?? "";

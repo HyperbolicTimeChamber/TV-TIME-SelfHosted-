@@ -66,7 +66,7 @@
     "web": "expo start --web",
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"App.tsx\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"App.tsx\"",
-    "test": "rm -rf .test-build && tsc -p tsconfig.test.json && node --test .test-build/tests/*.test.js"
+    "test": "rm -rf .test-build && tsc -p tsconfig.test.json && EXPO_PUBLIC_WEB_BASE_URL=https://tv-time-returns.web.app EXPO_PUBLIC_TMDB_API_BASE=https://api.themoviedb.org/3 node --test .test-build/tests/*.test.js"
   },
   "private": true
 }
