@@ -98,6 +98,17 @@ export default defineConfig(({ mode }) => {
 		},
 		test: {
 			environment: "jsdom",
+			// Placeholder Firebase web config: tests never use real project values (CI has
+			// no .env.local), and getAuth() throws on an empty API key at import time
+			env: {
+				VITE_FIREBASE_API_KEY: "test-api-key",
+				VITE_FIREBASE_AUTH_DOMAIN: "test.firebaseapp.com",
+				VITE_FIREBASE_PROJECT_ID: "test-project",
+				VITE_FIREBASE_STORAGE_BUCKET: "test-project.appspot.com",
+				VITE_FIREBASE_MESSAGING_SENDER_ID: "0",
+				VITE_FIREBASE_APP_ID: "1:0:web:test",
+				VITE_FIREBASE_MEASUREMENT_ID: "",
+			},
 			globals: true,
 			setupFiles: ["./src/test/setup.ts"],
 			include: ["src/**/*.test.{ts,tsx}"],
