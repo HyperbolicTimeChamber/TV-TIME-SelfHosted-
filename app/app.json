@@ -1,63 +1,77 @@
 {
-  "expo": {
-    "name": "Watchloom",
-    "slug": "watchloom",
-    "scheme": "watchloom",
-    "version": "1.0.2",
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
-    "backgroundColor": "#0D0D0D",
-    "splash": {
-      "backgroundColor": "#0D0D0D",
-      "image": "./assets/icon-foreground.original.png",
-      "resizeMode": "contain"
-    },
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.tvtimerevived.app",
-      "buildNumber": "24",
-      "googleServicesFile": "./GoogleService-Info.plist",
-      "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"]
-      }
-    },
-    "android": {
-      "versionCode": 24,
-      "googleServicesFile": "./google-services.json",
-      "adaptiveIcon": {
-        "backgroundColor": "#0D0D0D",
-        "foregroundImage": "./assets/icon-foreground.png"
-      },
-      "predictiveBackGestureEnabled": false,
-      "package": "com.tvtimerevived.app"
-    },
-    "web": {},
-    "plugins": [
-      "@react-native-firebase/app",
-      "@react-native-firebase/auth",
-      "@react-native-firebase/messaging",
-      "@react-native-firebase/analytics",
-      "@react-native-firebase/crashlytics",
-      "@react-native-google-signin/google-signin",
-      "expo-image",
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#0D0D0D",
-          "image": "./assets/icon-foreground.original.png",
-          "imageWidth": 120
-        }
-      ],
-      "./plugins/withModularHeaders",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#E50914"
-        }
-      ],
-      "./plugins/withNotificationColorFix"
-    ]
-  }
+	"expo": {
+		"name": "Watchloom",
+		"slug": "watchloom",
+		"scheme": "watchloom",
+		"version": "1.0.2",
+		"orientation": "portrait",
+		"icon": "./assets/icon.png",
+		"userInterfaceStyle": "dark",
+		"backgroundColor": "#0D0D0D",
+		"splash": {
+			"backgroundColor": "#0D0D0D",
+			"image": "./assets/icon-foreground.original.png",
+			"resizeMode": "contain"
+		},
+		"ios": {
+			"supportsTablet": true,
+			"bundleIdentifier": "com.tvtimerevived.app",
+			"buildNumber": "24",
+			"googleServicesFile": "./GoogleService-Info.plist",
+			"infoPlist": {
+				"UIBackgroundModes": ["remote-notification"]
+			}
+		},
+		"android": {
+			"versionCode": 24,
+			"googleServicesFile": "./google-services.json",
+			"adaptiveIcon": {
+				"backgroundColor": "#0D0D0D",
+				"foregroundImage": "./assets/icon-foreground.png"
+			},
+			"predictiveBackGestureEnabled": false,
+			"package": "com.tvtimerevived.app",
+			"intentFilters": [
+				{
+					"action": "VIEW",
+					"autoVerify": true,
+					"data": [
+						{
+							"scheme": "https",
+							"host": "tv-time-returns.web.app",
+							"pathPrefix": "/show"
+						}
+					],
+					"category": ["BROWSABLE", "DEFAULT"]
+				}
+			]
+		},
+		"web": {},
+		"plugins": [
+			"@react-native-firebase/app",
+			"@react-native-firebase/auth",
+			"@react-native-firebase/messaging",
+			"@react-native-firebase/analytics",
+			"@react-native-firebase/crashlytics",
+			"@react-native-google-signin/google-signin",
+			"expo-image",
+			[
+				"expo-splash-screen",
+				{
+					"backgroundColor": "#0D0D0D",
+					"image": "./assets/icon-foreground.original.png",
+					"imageWidth": 120
+				}
+			],
+			"./plugins/withModularHeaders",
+			[
+				"expo-notifications",
+				{
+					"icon": "./assets/notification-icon.png",
+					"color": "#E50914"
+				}
+			],
+			"./plugins/withNotificationColorFix"
+		]
+	}
 }

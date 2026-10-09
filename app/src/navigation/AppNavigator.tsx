@@ -3,7 +3,7 @@ import { NavigationContainer, LinkingOptions } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { colors } from "../theme";
 import { MainStackParamList, Route } from "../types";
-import { MediaType } from "../enums";
+import { MediaType, WEB_BASE_URL } from "../enums";
 import HomeWithTabBar from "./HomeWithTabBar";
 import SwipeTabsScreen from "./SwipeTabsScreen";
 
@@ -28,7 +28,8 @@ const navTheme = {
 };
 
 const linking: LinkingOptions<MainStackParamList> = {
-	prefixes: ["watchloom://"],
+	// Web share links open here too (Android App Links via assetlinks.json on the web app)
+	prefixes: ["watchloom://", WEB_BASE_URL],
 	config: {
 		screens: {
 			[Route.HOME]: {
