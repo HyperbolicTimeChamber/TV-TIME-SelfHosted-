@@ -2,7 +2,7 @@ import type { TMDBShow } from "@app/types";
 import AnimatedModal from "../../components/AnimatedModal";
 import ConfirmModal from "../../components/ConfirmModal";
 import UnreleasedMovieModal from "../../components/UnreleasedMovieModal";
-import ui from "../../components/ui.module.css";
+import ui from "../../styles/components/ui.module.scss";
 
 const pad = (n?: number) => String(n).padStart(2, "0");
 

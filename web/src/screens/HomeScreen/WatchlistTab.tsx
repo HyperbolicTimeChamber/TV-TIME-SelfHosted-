@@ -12,7 +12,7 @@ import LoadingScreen from "../../components/LoadingScreen";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
 import { Paths, showPath } from "../../routes/paths";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
-import styles from "./HomeScreen.module.css";
+import styles from "../../styles/screens/HomeScreen/HomeScreen.module.scss";
 
 const UP_NEXT = "What's Up Next";
 

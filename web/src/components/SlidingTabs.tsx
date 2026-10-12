@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import styles from "./SlidingTabs.module.css";
+import styles from "../styles/components/SlidingTabs.module.scss";
 
 interface Props<K extends string> {
 	tabs: Array<{ key: K; label: string }>;

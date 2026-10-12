@@ -2,7 +2,7 @@ import { forwardRef, useCallback, useImperativeHandle, useRef, useState, type Re
 import { Spin } from "antd";
 import { animate, motion, useMotionValue, useTransform } from "motion/react";
 import { colors } from "../theme";
-import styles from "./SwipeableCard.module.css";
+import styles from "../styles/components/SwipeableCard.module.scss";
 
 export interface SwipeableCardRef {
 	triggerSwipeLeft: () => void;

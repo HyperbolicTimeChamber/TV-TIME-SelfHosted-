@@ -10,8 +10,8 @@ import EpisodeDetailModal from "../../components/EpisodeDetailModal";
 import ShowDrawer from "../../components/ShowDrawer";
 import LoadingScreen from "../../components/LoadingScreen";
 import { showPath } from "../../routes/paths";
-import card from "../../components/ShowCard.module.css";
-import styles from "./HomeScreen.module.css";
+import card from "../../styles/components/ShowCard.module.scss";
+import styles from "../../styles/screens/HomeScreen/HomeScreen.module.scss";
 
 function formatDate(dateStr: string) {
 	const date = new Date(`${dateStr}T00:00:00`);

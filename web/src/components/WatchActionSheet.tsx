@@ -1,7 +1,7 @@
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import type { WatchAction } from "@app/types";
-import styles from "./WatchActionSheet.module.css";
+import styles from "../styles/components/WatchActionSheet.module.scss";
 
 interface Props {
 	visible: boolean;

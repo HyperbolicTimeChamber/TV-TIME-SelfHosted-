@@ -37,5 +37,5 @@
 			"papaparse": ["./node_modules/@types/papaparse"]
 		}
 	},
-	"include": ["src"]
+	"include": ["src", "tests"]
 }

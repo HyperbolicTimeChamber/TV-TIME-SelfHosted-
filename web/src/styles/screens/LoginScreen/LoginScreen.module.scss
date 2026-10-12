@@ -1,0 +1,84 @@
+@use "../../tokens" as *;
+
+.container {
+	min-height: 100dvh;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 24px;
+	max-width: 368px;
+	margin: 0 auto;
+}
+
+.logo {
+	width: 120px;
+	height: 120px;
+	margin-bottom: 8px;
+}
+
+.subtitle {
+	color: var(--text-secondary);
+	font-size: 16px;
+	margin: 0 0 64px;
+}
+
+.form {
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	align-items: center;
+}
+
+.input {
+	background: var(--surface);
+}
+
+.toggle,
+.forgot {
+	background: none;
+	border: none;
+	cursor: pointer;
+	font-size: 14px;
+	padding: 0;
+}
+
+.toggle {
+	color: $accent;
+	margin-top: 12px;
+}
+
+.forgot {
+	color: var(--text-muted);
+}
+
+.divider {
+	width: 100%;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin: 24px 0;
+}
+
+.divider span {
+	flex: 1;
+	height: 1px;
+	background: var(--border);
+}
+
+.divider p {
+	margin: 0;
+	color: var(--text-muted);
+	font-size: 12px;
+}
+
+.google {
+	background: var(--surface) !important;
+}
+
+.error {
+	color: $destructive-red;
+	margin-top: 16px;
+	text-align: center;
+}

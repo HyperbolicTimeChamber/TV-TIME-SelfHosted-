@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
-import styles from "./ui.module.css";
+import styles from "../styles/components/ui.module.scss";
 
 interface Props {
 	visible: boolean;

@@ -3,7 +3,7 @@ import { Checkbox } from "antd";
 import { hideUnreleasedModal } from "@app/services/unreleasedModalPref";
 import { useAppSelector } from "../store";
 import AnimatedModal from "./AnimatedModal";
-import styles from "./ui.module.css";
+import styles from "../styles/components/ui.module.scss";
 
 interface Props {
 	visible: boolean;

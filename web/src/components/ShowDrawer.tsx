@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Spin } from "antd";
 import type { ShowDrawerData } from "@app/types";
 import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
-import styles from "./ShowDrawer.module.css";
+import styles from "../styles/components/ShowDrawer.module.scss";
 
 interface Props {
 	visible: boolean;

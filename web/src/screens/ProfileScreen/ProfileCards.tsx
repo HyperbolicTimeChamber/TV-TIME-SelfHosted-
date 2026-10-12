@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Spin } from "antd";
 import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
 import { generateCollageLayout } from "@app/utils/collageLayout";
-import styles from "./ProfileScreen.module.css";
+import styles from "../../styles/screens/ProfileScreen/ProfileScreen.module.scss";
 
 interface CardProps {
 	value: string | number;

@@ -17,7 +17,7 @@ import { Paths, showPath } from "../../routes/paths";
 import SearchCard from "./SearchCard";
 import { mediaTypeOf } from "./mediaTypeOf";
 import SearchModals from "./SearchModals";
-import styles from "./SearchScreen.module.css";
+import styles from "../../styles/screens/SearchScreen/SearchScreen.module.scss";
 
 const FILTER_TABS = [
 	{ key: MediaFilter.ALL, label: "All" },

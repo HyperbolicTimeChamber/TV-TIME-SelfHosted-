@@ -9,7 +9,7 @@ import PosterImage from "../../components/PosterImage";
 import AnimatedModal from "../../components/AnimatedModal";
 import LoadingScreen from "../../components/LoadingScreen";
 import { showPath } from "../../routes/paths";
-import styles from "./CalendarScreen.module.css";
+import styles from "../../styles/screens/CalendarScreen/CalendarScreen.module.scss";
 import { monthGrid } from "./monthGrid";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

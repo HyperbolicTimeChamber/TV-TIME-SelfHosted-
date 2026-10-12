@@ -12,8 +12,8 @@ import ConfirmModal from "./ConfirmModal";
 import WatchActionSheet from "./WatchActionSheet";
 import EpisodeDetailModal from "./EpisodeDetailModal";
 import { formatDate } from "./EpisodeDetailModal/helpers";
-import ui from "./ui.module.css";
-import styles from "./SeasonDropdown.module.css";
+import ui from "../styles/components/ui.module.scss";
+import styles from "../styles/components/SeasonDropdown.module.scss";
 
 type Props = SeasonDropdownProps & {
 	/** Logged-out web visitors: browse only, no check buttons */

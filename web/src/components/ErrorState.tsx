@@ -9,7 +9,7 @@ import {
 import { LoadErrorKind, MediaType } from "@app/enums";
 import type { LoadErrorInfo } from "@app/utils/loadError";
 import { colors } from "../theme";
-import styles from "./ErrorState.module.css";
+import styles from "../styles/components/ErrorState.module.scss";
 
 interface Action {
   label: string;

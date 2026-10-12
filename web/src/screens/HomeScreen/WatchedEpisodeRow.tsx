@@ -4,7 +4,7 @@ import type { EnrichedTrackingItem } from "@app/hooks/useWatchlist";
 import SwipeableCard from "../../components/SwipeableCard";
 import CheckmarkButton from "../../components/CheckmarkButton";
 import PosterImage from "../../components/PosterImage";
-import card from "../../components/ShowCard.module.css";
+import card from "../../styles/components/ShowCard.module.scss";
 
 interface Props {
 	episode: WatchedEpisode;

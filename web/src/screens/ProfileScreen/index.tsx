@@ -14,7 +14,7 @@ import WeeklyChart from "../../components/WeeklyChart";
 import PosterImage from "../../components/PosterImage";
 import { Paths, showPath } from "../../routes/paths";
 import { StatCard, CollageCard } from "./ProfileCards";
-import styles from "./ProfileScreen.module.css";
+import styles from "../../styles/screens/ProfileScreen/ProfileScreen.module.scss";
 
 /** Profile tab — stats, weekly chart, recently completed (same hooks as the app) */
 export default function ProfileScreen() {

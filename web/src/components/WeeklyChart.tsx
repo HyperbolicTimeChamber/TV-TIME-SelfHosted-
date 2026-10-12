@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { colors } from "../theme";
-import styles from "./WeeklyChart.module.css";
+import styles from "../styles/components/WeeklyChart.module.scss";
 
 interface DayData {
 	label: string;

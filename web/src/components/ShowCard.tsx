@@ -5,7 +5,7 @@ import { todayStr } from "@app/utils/todayStr";
 import SwipeableCard, { type SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton from "./CheckmarkButton";
 import PosterImage from "./PosterImage";
-import styles from "./ShowCard.module.css";
+import styles from "../styles/components/ShowCard.module.scss";
 
 const TODAY = todayStr();
 const TODAY_MS = new Date(TODAY).getTime();

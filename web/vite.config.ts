@@ -110,8 +110,8 @@ export default defineConfig(({ mode }) => {
 				VITE_FIREBASE_MEASUREMENT_ID: "",
 			},
 			globals: true,
-			setupFiles: ["./src/test/setup.ts"],
-			include: ["src/**/*.test.{ts,tsx}"],
+			setupFiles: ["./tests/setup.ts"],
+			include: ["tests/**/*.test.{ts,tsx}"],
 			css: false,
 		},
 	};

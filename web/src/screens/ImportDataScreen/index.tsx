@@ -13,9 +13,9 @@ import { importCompleted } from "../../store/authSlice";
 import AnimatedModal from "../../components/AnimatedModal";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import ShowDrawer from "../../components/ShowDrawer";
-import ui from "../../components/ui.module.css";
+import ui from "../../styles/components/ui.module.scss";
 import { useLongPress } from "../../hooks/useLongPress";
-import styles from "./ImportDataScreen.module.css";
+import styles from "../../styles/screens/ImportDataScreen/ImportDataScreen.module.scss";
 
 function Counter({ target, total }: { target: number; total: number }) {
 	const [display, setDisplay] = useState(0);

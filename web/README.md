@@ -25,6 +25,22 @@ modules for web shims in `src/platform/`:
 
 **Put new logic in the app's hooks/services so both platforms get it; only UI is per-platform.**
 
+## Project layout
+
+```
+web/
+  src/
+    components/ layout/ screens/ routes/ store/ platform/ hooks/ services/
+    styles/                 ← all styles, SCSS, mirroring src/
+      _tokens.scss          ← colours (from app/src/theme) + breakpoint mixins
+      global.scss
+      components/ShowCard.module.scss …
+  tests/                    ← Vitest tests, mirroring src/ (+ setup.ts, render.tsx)
+```
+
+Components import their module from `src/styles/…` and use `@use "../tokens" as *`
+for `$primary`, `@include desktop { … }` etc.
+
 ## Logged out
 
 Search and show pages work without an account (read-only — no add/mark

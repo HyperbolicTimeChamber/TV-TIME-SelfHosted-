@@ -3,7 +3,7 @@ import { Spin } from "antd";
 import type { CarouselEpisode } from "@app/types";
 import { tmdbBackdropUri, tmdbPosterUri, tmdbStillUri } from "@app/hooks/useTmdbImage";
 import { formatDate } from "./helpers";
-import styles from "./EpisodeDetailModal.module.css";
+import styles from "../../styles/components/EpisodeDetailModal/EpisodeDetailModal.module.scss";
 
 interface Props {
 	ep: CarouselEpisode;

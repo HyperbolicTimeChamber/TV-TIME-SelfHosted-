@@ -4,10 +4,10 @@ import { AnimatePresence, motion } from "motion/react";
 import { IoChevronBack, IoChevronForward } from "react-icons/io5";
 import type { CarouselEpisode, EnrichedEpisode, EpisodeDetailModalProps } from "@app/types";
 import AnimatedModal from "../AnimatedModal";
-import ui from "../ui.module.css";
+import ui from "../../styles/components/ui.module.scss";
 import EpisodeCard from "./EpisodeCard";
 import { epKey } from "./helpers";
-import styles from "./EpisodeDetailModal.module.css";
+import styles from "../../styles/components/EpisodeDetailModal/EpisodeDetailModal.module.scss";
 
 type Props = EpisodeDetailModalProps & {
 	/** Logged-out web visitors: browse episodes, no watch buttons */

@@ -16,7 +16,7 @@ import SeasonDropdown from "../../components/SeasonDropdown";
 import ActionPills from "./ActionPills";
 import { Paths } from "../../routes/paths";
 import { appDeepLink, isMobileBrowser } from "../../utils/deepLink";
-import styles from "./ShowDetailScreen.module.css";
+import styles from "../../styles/screens/DetailScreens/ShowDetailScreen.module.scss";
 
 /** Show / movie page — public (read-only for guests) and the target of share links */
 export default function ShowDetailScreen() {

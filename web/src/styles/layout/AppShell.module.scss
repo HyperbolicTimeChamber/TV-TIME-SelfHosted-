@@ -1,0 +1,20 @@
+@use "../tokens" as *;
+
+.content {
+	width: 100%;
+	max-width: 1100px;
+	margin: 0 auto;
+	min-height: 100dvh;
+}
+
+.withTabs .content {
+	padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom));
+}
+
+@include desktop {
+	.withTabs .content {
+		padding-bottom: 0;
+		padding-left: 88px;
+		max-width: calc(1100px + 88px);
+	}
+}

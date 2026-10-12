@@ -1,7 +1,7 @@
 import { Spin } from "antd";
 import { MediaType, WatchStatus } from "@app/enums";
 import { useLongPress } from "../../hooks/useLongPress";
-import styles from "./ShowDetailScreen.module.css";
+import styles from "../../styles/screens/DetailScreens/ShowDetailScreen.module.scss";
 
 interface Props {
 	mediaType: MediaType;

@@ -1,6 +1,6 @@
 import { Spin } from "antd";
 import AnimatedModal from "./AnimatedModal";
-import styles from "./ui.module.css";
+import styles from "../styles/components/ui.module.scss";
 
 interface Props {
 	visible: boolean;
