@@ -1,7 +1,7 @@
 import { theme as antdTheme, type ThemeConfig } from "antd";
-import { colors, spacing } from "@app/theme";
+import { colors, spacing, spinnerShape } from "@app/theme";
 
-export { colors, spacing };
+export { colors, spacing, spinnerShape };
 
 /** antd theme mirroring the mobile app's dark palette */
 export const antdThemeConfig: ThemeConfig = {

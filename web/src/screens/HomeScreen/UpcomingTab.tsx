@@ -89,7 +89,7 @@ export default function UpcomingTab() {
 		requestAnimationFrame(() => todayRef.current?.scrollIntoView({ block: "start" }));
 	}, [u.isLoading, u.listData.length]);
 
-	if (u.isLoading) return <LoadingScreen label="Predicting Your Future..." />;
+	if (u.isLoading) return <LoadingScreen label="Predicting Your Future..." hint="This may take a moment" />;
 	if (u.error) {
 		return (
 			<div className={styles.center}>

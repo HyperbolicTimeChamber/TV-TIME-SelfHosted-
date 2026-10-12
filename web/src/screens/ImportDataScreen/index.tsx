@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Progress, Spin } from "antd";
+import { Button, Progress } from "antd";
 import { animate } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import { useImportData } from "@app/screens/ImportDataScreen/useImportData";
@@ -11,6 +11,7 @@ import type { TMDBMatch } from "@app/services/tvtimeImport";
 import { useAppDispatch } from "../../store";
 import { importCompleted } from "../../store/authSlice";
 import AnimatedModal from "../../components/AnimatedModal";
+import LoadingSpinner from "../../components/LoadingSpinner";
 import ShowDrawer from "../../components/ShowDrawer";
 import ui from "../../components/ui.module.css";
 import { useLongPress } from "../../hooks/useLongPress";
@@ -154,7 +155,9 @@ export default function ImportDataScreen() {
 		return (
 			<div className={styles.centered}>
 				<h1 className={styles.title}>{imp.statusText}</h1>
-				<Spin size="large" style={{ marginTop: 12 }} />
+				<div style={{ marginTop: 12 }}>
+					<LoadingSpinner />
+				</div>
 				{imp.progress.total > 0 && <Counter target={imp.progress.done} total={imp.progress.total} />}
 				<p className={styles.warning}>Do not close this tab during import</p>
 			</div>
@@ -165,7 +168,9 @@ export default function ImportDataScreen() {
 		return (
 			<div className={styles.centered}>
 				<h1 className={styles.title}>Importing from TV Time</h1>
-				<Spin size="large" style={{ marginTop: 12 }} />
+				<div style={{ marginTop: 12 }}>
+					<LoadingSpinner />
+				</div>
 				<p className={styles.desc} style={{ marginTop: 24 }}>
 					This may take several minutes depending on how many shows you have. You can leave this page now.
 				</p>

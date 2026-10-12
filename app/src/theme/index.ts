@@ -52,3 +52,24 @@ export const backdropSize = {
 	small: `${TMDB_IMAGE_BASE}/w300`,
 	medium: `${TMDB_IMAGE_BASE}/w780`,
 } as const;
+
+/** Loading spinner ball (white with orange spots + hat) — shared by app and web */
+export const spinnerShape = {
+	size: 48,
+	dots: [
+		{ r: 12, cx: 22, cy: 22 },
+		{ r: 10, cx: 6, cy: 40 },
+		{ r: 14, cx: 31, cy: -6 },
+		{ r: 5, cx: 40, cy: 30 },
+	],
+	/** Ball spin period (ms) */
+	spinMs: 1000,
+	/** Tilt keyframes: [time ms, degrees] — rocks between -10° and 5° */
+	tilt: [
+		[0, -10],
+		[900, 5],
+		[1500, -5.5],
+		[2100, 5],
+		[3000, -10],
+	] as const,
+} as const;

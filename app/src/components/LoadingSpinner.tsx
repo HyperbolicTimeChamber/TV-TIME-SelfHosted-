@@ -1,15 +1,9 @@
 import React, { useEffect, useRef } from "react";
 import { View, Animated, Easing, StyleSheet } from "react-native";
-import { colors } from "../theme";
+import { colors, spinnerShape } from "../theme";
 
-const SIZE = 48;
-
-const DOTS = [
-	{ r: 12, cx: 22, cy: 22 },
-	{ r: 10, cx: 6, cy: 40 },
-	{ r: 14, cx: 31, cy: -6 },
-	{ r: 5, cx: 40, cy: 30 },
-];
+const SIZE = spinnerShape.size;
+const DOTS = spinnerShape.dots;
 
 export default function LoadingSpinner() {
 	const rotate = useRef(new Animated.Value(0)).current;
