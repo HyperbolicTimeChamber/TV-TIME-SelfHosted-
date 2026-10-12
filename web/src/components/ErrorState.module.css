@@ -1,3 +1,26 @@
+/* Not found: text + buttons sit above the character */
+.containerWithArt {
+	position: relative;
+	z-index: 1;
+	justify-content: flex-start;
+	padding-top: 14dvh;
+	padding-bottom: min(42dvh, 420px);
+}
+
+/* Flush with the bottom of the viewport: the cropped legs read as the character
+   climbing out of the screen (passes under the tab bar when signed in) */
+.art {
+	position: fixed;
+	bottom: 0;
+	left: 50%;
+	translate: -50% 0;
+	height: min(42dvh, 420px, calc(100vw / 1.022));
+	width: auto;
+	pointer-events: none;
+	user-select: none;
+	z-index: 0;
+}
+
 .container {
 	min-height: 100dvh;
 	max-width: 420px;
@@ -21,22 +44,6 @@
 	align-items: center;
 	justify-content: center;
 	margin-bottom: 24px;
-}
-
-.badge {
-	position: absolute;
-	top: 10px;
-	right: 10px;
-	width: 28px;
-	height: 28px;
-	border-radius: 14px;
-	background: var(--primary);
-	border: 3px solid var(--bg);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 13px;
-	font-weight: 800;
 }
 
 .title {
