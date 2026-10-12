@@ -83,6 +83,8 @@ function catalogShowToResult(catalog: CatalogShow): ShowDetailsResult {
 export function useShowDetails(tmdbId: number, mediaType: MediaType = MediaType.TV) {
 	const result = useQuery({
 		queryKey: [QueryKey.SHOW, tmdbId, mediaType],
+		// Broken deep links arrive as id 0 → straight to the not-found page
+		enabled: Number.isInteger(tmdbId) && tmdbId > 0,
 		queryFn: async (): Promise<ShowDetailsResult> => {
 			// Partial/untitled catalogs (search stand-ins) render a blank screen — skip them
 			const hasSeasonsData = (c: CatalogShow) =>
