@@ -255,6 +255,8 @@ const styles = StyleSheet.create({
 		marginBottom: spacing.md,
 	},
 	chartRow: {
+		// Room for the tallest bar's count labels (up to 2 stacked) above the bars
+		paddingTop: spacing.xxl + spacing.xs,
 		flexDirection: "row",
 		justifyContent: "space-between",
 		alignItems: "flex-end",

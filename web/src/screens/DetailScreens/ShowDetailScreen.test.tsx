@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 import { renderWithProviders, testUser } from "../../test/render";
 
@@ -60,6 +60,8 @@ const renderShow = (signedIn: boolean) => {
 	renderWithProviders(
 		<Routes>
 			<Route path="/show/:mediaType/:tmdbId" element={<ShowDetailScreen />} />
+			<Route path="/home" element={<p>watchlist page</p>} />
+			<Route path="/search" element={<p>search page</p>} />
 		</Routes>,
 		{ user: signedIn ? testUser : null, path: "/show/tv/1" },
 	);
@@ -90,5 +92,17 @@ describe("ShowDetailScreen", () => {
 		expect(screen.getByText("2004")).toBeInTheDocument();
 		expect(screen.getByText("8.2")).toBeInTheDocument();
 		expect(screen.getByText("EPISODES")).toBeInTheDocument();
+	});
+
+	it("back from a deep link goes to the watchlist (search for guests)", () => {
+		renderShow(true);
+		fireEvent.click(screen.getByLabelText("Back"));
+		expect(screen.getByText("watchlist page")).toBeInTheDocument();
+	});
+
+	it("back from a deep link sends guests to search", () => {
+		renderShow(false);
+		fireEvent.click(screen.getByLabelText("Back"));
+		expect(screen.getByText("search page")).toBeInTheDocument();
 	});
 });

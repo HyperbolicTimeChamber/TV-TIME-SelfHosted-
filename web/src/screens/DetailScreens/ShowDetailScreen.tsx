@@ -27,6 +27,13 @@ export default function ShowDetailScreen() {
 	const d = useShowDetailActions(tmdbId, mediaType);
 	const signedIn = !!d.user;
 
+	// Opened directly (share link / new tab): no in-app history, so go to the watchlist
+	// (or search for guests) instead of leaving the site
+	const handleBack = () => {
+		if (location.key !== "default") navigate(-1);
+		else navigate(signedIn ? Paths.HOME : Paths.SEARCH, { replace: true });
+	};
+
 	// Parallax backdrop (app: translateY = min(y * 0.4, 175))
 	const [parallax, setParallax] = useState(0);
 	useEffect(() => {
@@ -73,7 +80,7 @@ export default function ShowDetailScreen() {
 
 	return (
 		<div className={styles.container}>
-			<button className={`${styles.floatButton} ${styles.backButton}`} onClick={() => (history.length > 1 ? navigate(-1) : navigate(Paths.SEARCH))} aria-label="Back">
+			<button className={`${styles.floatButton} ${styles.backButton}`} onClick={handleBack} aria-label="Back">
 				<IoChevronBack size={26} />
 			</button>
 			<button className={`${styles.floatButton} ${styles.shareButton}`} onClick={share} aria-label="Share">
