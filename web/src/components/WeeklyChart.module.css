@@ -18,6 +18,8 @@
 }
 
 .chartRow {
+	/* Room for the tallest bar's count labels (up to 2 stacked) above the bars */
+	padding-top: 36px;
 	display: flex;
 	justify-content: space-between;
 	align-items: flex-end;

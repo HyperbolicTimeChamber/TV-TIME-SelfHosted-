@@ -33,6 +33,9 @@ const linking: LinkingOptions<MainStackParamList> = {
 	config: {
 		screens: {
 			[Route.HOME]: {
+				// Deep links open the show page on top of the watchlist, so back (header or
+				// Android system back) returns to the watchlist instead of exiting the app
+				initialRouteName: Route.HOME_TABS,
 				screens: {
 					[Route.SHOW_DETAIL]: {
 						path: "show/:mediaType/:tmdbId",

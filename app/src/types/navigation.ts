@@ -1,3 +1,4 @@
+import type { NavigatorScreenParams } from "@react-navigation/native";
 import { MediaType } from "../enums";
 
 export type RootStackParamList = {
@@ -7,7 +8,7 @@ export type RootStackParamList = {
 };
 
 export type MainStackParamList = {
-	Home: undefined;
+	Home: NavigatorScreenParams<HomeStackParamList> | undefined;
 	SwipeTabs: { screen?: string } | undefined;
 };
 

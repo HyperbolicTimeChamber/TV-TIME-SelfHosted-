@@ -26,7 +26,7 @@ import {
 } from "../../components";
 import { showShareUrl } from "../../utils";
 import { colors, spacing, typography } from "../../theme";
-import { HomeStackParamList, MediaType } from "../../types";
+import { HomeStackParamList, MediaType, Route } from "../../types";
 
 type RouteParams = RouteProp<HomeStackParamList, "ShowDetail">;
 
@@ -69,6 +69,11 @@ export default function ShowDetailScreen() {
 
 
 	const navigation = useNavigation();
+	// Opened from a deep link with nothing underneath → go to the watchlist
+	const handleBack = useCallback(() => {
+		if (navigation.canGoBack()) navigation.goBack();
+		else (navigation as any).navigate(Route.HOME, { screen: Route.HOME_TABS });
+	}, [navigation]);
 	const insets = useSafeAreaInsets();
 	const BACKDROP_HEIGHT = 350;
 	const [imageTranslateY, setImageTranslateY] = useState(0);
@@ -100,7 +105,7 @@ export default function ShowDetailScreen() {
 			{/* Floating back button */}
 			<TouchableOpacity
 				style={[styles.backButton, { top: insets.top + 8 }]}
-				onPress={() => navigation.goBack()}
+				onPress={handleBack}
 				hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
 			>
 				<Ionicons name="chevron-back" size={26} color={colors.text} />
