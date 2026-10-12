@@ -212,3 +212,19 @@ test("profile formatters", async () => {
 	assert.equal(formatTime(380 * 1440), "1y 15d");
 	assert.equal(scaledPhotoURL("https://x/photo=s96-c", 100, 2), "https://x/photo=s200-c");
 });
+
+test("load errors map to not found / offline / server copy", async () => {
+	const { describeLoadError } = await import("../src/utils");
+	const { LoadErrorKind } = await import("../src/enums");
+	const nf = describeLoadError({ response: { status: 404 } }, MediaType.MOVIE);
+	assert.equal(nf.kind, LoadErrorKind.NOT_FOUND);
+	assert.equal(nf.title, "We couldn't find this movie");
+	assert.equal(nf.canRetry, false);
+	assert.equal(nf.code, "404");
+	assert.equal(describeLoadError(null, MediaType.TV).kind, LoadErrorKind.NOT_FOUND, "no data = not found");
+	const off = describeLoadError({ code: "ERR_NETWORK", message: "Network Error" }, MediaType.TV);
+	assert.deepEqual([off.kind, off.canRetry, off.code], [LoadErrorKind.OFFLINE, true, "NETWORK"]);
+	const srv = describeLoadError({ response: { status: 500 } }, MediaType.TV);
+	assert.deepEqual([srv.kind, srv.canRetry, srv.code], [LoadErrorKind.SERVER, true, "500"]);
+	assert.match(srv.message, /this show/);
+});
