@@ -114,9 +114,10 @@ const styles = StyleSheet.create({
 		paddingHorizontal: spacing.xxl,
 	},
 	// Text + buttons live above the character
+	// Text stacks right on top of the character (fixed gap); extra height goes above
 	containerWithArt: {
-		justifyContent: "flex-start",
-		paddingTop: SCREEN_H * 0.14,
+		justifyContent: "flex-end",
+		paddingTop: spacing.xxl,
 		// Reserve the character's height + a gap so the buttons never overlap it
 		paddingBottom: ART_HEIGHT + spacing.lg,
 	},

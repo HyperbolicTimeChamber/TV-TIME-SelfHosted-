@@ -75,14 +75,15 @@
 	--art-h: max(0px, min(42dvh, 420px, calc(100vw / 1.022), calc(86dvh - 300px)));
 }
 
-/* Not found: text + buttons sit above the character, never overlapping it
+/* Not found: text + buttons sit just above the character, never overlapping it
    (declared after .container so these paddings win) */
 .container.containerWithArt {
 	position: relative;
 	z-index: 1;
-	justify-content: flex-start;
-	padding-top: 14dvh;
-	padding-bottom: calc(var(--art-h) + 24px);
+	/* Text stacks right on top of the character (fixed gap); extra height goes above */
+	justify-content: flex-end;
+	padding-top: 48px;
+	padding-bottom: calc(var(--art-h) + 16px);
 }
 
 /* Flush with the bottom of the viewport: the cropped legs read as the character
