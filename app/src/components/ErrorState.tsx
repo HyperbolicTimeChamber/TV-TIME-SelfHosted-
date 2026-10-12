@@ -95,7 +95,7 @@ export default function ErrorState({ info, mediaType, primary, secondary }: Prop
 						<Text style={styles.secondaryText}>{secondary.label}</Text>
 					</TouchableOpacity>
 				)}
-				{info.code && <Text style={styles.code}>Error {info.code}</Text>}
+				{info.code && !showArt && <Text style={styles.code}>Error {info.code}</Text>}
 			</Animated.View>
 		</View>
 	);

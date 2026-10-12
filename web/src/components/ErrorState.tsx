@@ -84,7 +84,7 @@ export default function ErrorState({
             {secondary.label}
           </button>
         )}
-        {info.code && <span className={styles.code}>Error {info.code}</span>}
+        {info.code && !showArt && <span className={styles.code}>Error {info.code}</span>}
       </motion.div>
     </>
   );
