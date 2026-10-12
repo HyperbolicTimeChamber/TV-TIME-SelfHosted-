@@ -1,5 +1,6 @@
 import { StyleSheet } from "react-native";
 import { colors, spacing, typography } from "../../theme";
+import { ART_HEIGHT } from "../../components/NotFoundArt";
 
 export const styles = StyleSheet.create({
 	container: {
@@ -180,8 +181,23 @@ export const styles = StyleSheet.create({
 		...typography.caption,
 		color: colors.textMuted,
 	},
+	// Text sits just above the character art pinned to the bottom edge
+	emptyWrap: {
+		flex: 1,
+		alignItems: "center" as const,
+		justifyContent: "flex-end" as const,
+		paddingHorizontal: spacing.xxl,
+		paddingBottom: ART_HEIGHT + spacing.lg,
+	},
 	emptyText: {
 		...typography.subtitle,
 		color: colors.textSecondary,
+		textAlign: "center" as const,
+	},
+	emptyHint: {
+		...typography.caption,
+		color: colors.textMuted,
+		textAlign: "center" as const,
+		marginTop: spacing.xs,
 	},
 });

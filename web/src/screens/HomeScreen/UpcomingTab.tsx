@@ -10,8 +10,8 @@ import EpisodeDetailModal from "../../components/EpisodeDetailModal";
 import ShowDrawer from "../../components/ShowDrawer";
 import LoadingScreen from "../../components/LoadingScreen";
 import { showPath } from "../../routes/paths";
-import card from "../../components/ShowCard.module.css";
-import styles from "./HomeScreen.module.css";
+import card from "../../components/styles/ShowCard.module.scss";
+import styles from "./styles/HomeScreen.module.scss";
 
 function formatDate(dateStr: string) {
 	const date = new Date(`${dateStr}T00:00:00`);
@@ -57,7 +57,7 @@ function UpcomingRow({
 					<span className={card.titleArrow}>›</span>
 				</button>
 				{isMovie ? (
-					<span className={card.movieBadge} style={{ borderRadius: 4 }}>
+					<span className={`${card.movieBadge} rounded-sm!`}>
 						MOVIE
 					</span>
 				) : (
@@ -89,7 +89,7 @@ export default function UpcomingTab() {
 		requestAnimationFrame(() => todayRef.current?.scrollIntoView({ block: "start" }));
 	}, [u.isLoading, u.listData.length]);
 
-	if (u.isLoading) return <LoadingScreen label="Predicting Your Future..." />;
+	if (u.isLoading) return <LoadingScreen label="Predicting Your Future..." hint="This may take a moment" />;
 	if (u.error) {
 		return (
 			<div className={styles.center}>
@@ -140,7 +140,7 @@ export default function UpcomingTab() {
 					);
 				})}
 			</div>
-			<div style={{ minHeight: "60dvh" }} />
+			<div className="min-h-[60dvh]" />
 
 			{u.epModalData && (
 				<EpisodeDetailModal

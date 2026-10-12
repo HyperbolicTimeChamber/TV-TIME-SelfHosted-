@@ -3,7 +3,7 @@ import { IoChevronBack } from "react-icons/io5";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSearchInput } from "@app/screens/SearchScreen/useSearchInput";
 import { Paths } from "../../routes/paths";
-import styles from "./SearchInputScreen.module.css";
+import styles from "./styles/SearchInputScreen.module.scss";
 
 /** Full-screen search box with recent searches + TMDB suggestions (app SearchInputScreen) */
 export default function SearchInputScreen() {

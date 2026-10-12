@@ -1,0 +1,82 @@
+@use "../../theme/tokens" as *;
+
+.container {
+	min-height: 100dvh;
+	max-width: 420px;
+	margin: 0 auto;
+	padding: 0 32px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+}
+
+.iconRing {
+	position: relative;
+	width: 112px;
+	height: 112px;
+	border-radius: 56px;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-bottom: 24px;
+}
+
+.title {
+	font-size: 20px;
+	font-weight: 600;
+	margin: 0;
+}
+
+.message {
+	font-size: 14px;
+	line-height: 21px;
+	color: var(--text-secondary);
+	margin: 8px 0 24px;
+}
+
+.primary,
+.secondary {
+	width: 100%;
+	padding: 14px;
+	border: none;
+	border-radius: 12px;
+	font-size: 15px;
+	font-weight: 600;
+	color: var(--text);
+	cursor: pointer;
+}
+
+.primary {
+	background: var(--primary);
+}
+
+.secondary {
+	background: var(--surface);
+	margin-top: 8px;
+}
+
+.primary:active,
+.secondary:active {
+	opacity: 0.8;
+}
+
+.code {
+	font-size: 12px;
+	color: var(--text-muted);
+	margin-top: 24px;
+}
+
+/* Not found: text + buttons sit just above the character, never overlapping it
+   (declared after .container so these paddings win) */
+.container.containerWithArt {
+	position: relative;
+	z-index: 1;
+	/* Text stacks right on top of the character (fixed gap); extra height goes above */
+	justify-content: flex-end;
+	padding-top: 48px;
+	padding-bottom: calc(var(--art-h) + 16px);
+}

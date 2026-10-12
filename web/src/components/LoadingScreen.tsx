@@ -1,19 +1,12 @@
-import { Spin } from "antd";
+import LoadingSpinner from "./LoadingSpinner";
 
-export default function LoadingScreen({ label }: { label?: string }) {
+/** Full-page loading state with the app's spinner (+ optional caption, like the app) */
+export default function LoadingScreen({ label, hint }: { label?: string; hint?: string }) {
 	return (
-		<div
-			style={{
-				minHeight: "60dvh",
-				display: "flex",
-				flexDirection: "column",
-				alignItems: "center",
-				justifyContent: "center",
-				gap: 16,
-			}}
-		>
-			<Spin size="large" />
-			{label && <span style={{ color: "var(--text-secondary)" }}>{label}</span>}
+		<div className="flex min-h-[60dvh] flex-col items-center justify-center">
+			<LoadingSpinner />
+			{label && <span className="mt-4 text-base font-semibold text-fg-secondary">{label}</span>}
+			{hint && <span className="mt-1 text-xs text-fg-muted">{hint}</span>}
 		</div>
 	);
 }

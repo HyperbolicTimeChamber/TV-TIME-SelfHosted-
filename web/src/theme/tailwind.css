@@ -1,0 +1,32 @@
+/*
+ * Tailwind v4 entry. Plain CSS on purpose: Tailwind processes this file itself
+ * (it can't go through Sass). Component styles stay in each folder's styles/*.module.scss.
+ *
+ * No preflight (CSS reset) — keeps antd and the existing SCSS looking unchanged.
+ */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* App palette (mirrors app/src/theme + theme/_tokens.scss) → bg-primary, text-fg-muted, … */
+@theme {
+	--color-page: #000000;
+	--color-surface: #1a1a1a;
+	--color-surface-light: #252525;
+	--color-primary: #e50914;
+	--color-accent: #4a90d9;
+	--color-fg: #ffffff;
+	--color-fg-secondary: #a0a0a0;
+	--color-fg-muted: #666666;
+	--color-watched: #00a800;
+	--color-stop: #3498db;
+	--color-danger: #e74c3c;
+	--color-line: #333333;
+	--color-movie: #8b5cf6;
+	--color-warning: #f59e0b;
+	--color-spinner-white: #ffffff;
+	--color-spinner-orange: #ff3d00;
+
+	--breakpoint-tablet: 600px;
+	--breakpoint-desktop: 900px;
+}

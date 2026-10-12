@@ -19,6 +19,13 @@ export enum ShowStatus {
 
 export const ENDED_STATUSES: string[] = [ShowStatus.ENDED, ShowStatus.CANCELED];
 
+/** Why a screen failed to load — drives the error state's copy and actions */
+export enum LoadErrorKind {
+	NOT_FOUND = "not_found",
+	OFFLINE = "offline",
+	SERVER = "server",
+}
+
 export enum MediaFilter {
 	ALL = "all",
 	TV = "tv",

@@ -1,0 +1,172 @@
+@use "../../theme/tokens" as *;
+
+.container {
+	display: flex;
+	background: var(--bg);
+	border-radius: 8px;
+	overflow: hidden;
+	min-height: 100px;
+	cursor: pointer;
+	user-select: none;
+}
+
+.poster {
+	width: 100px;
+	flex-shrink: 0;
+	align-self: stretch;
+	min-height: 100px;
+	object-fit: cover;
+}
+
+.watchedPoster {
+	opacity: 0.5;
+}
+
+.info {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: flex-start;
+	padding: 8px 4px 8px 12px;
+}
+
+.titlePill {
+	display: inline-flex;
+	align-items: center;
+	max-width: 90%;
+	border: 1.5px solid var(--text);
+	border-radius: 14px;
+	padding: 2px 8px;
+	margin-bottom: 12px;
+	background: none;
+	color: var(--text);
+	cursor: pointer;
+}
+
+.titlePill:disabled {
+	cursor: inherit;
+}
+
+.mutedPill {
+	border-color: var(--text-muted);
+	color: var(--text-muted);
+}
+
+.titleText {
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.5px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.titleArrow {
+	font-size: 11px;
+	margin-left: 4px;
+	line-height: 13px;
+}
+
+.episode {
+	font-size: 16px;
+	font-weight: 700;
+	letter-spacing: 1px;
+}
+
+.remaining {
+	color: var(--text-muted);
+	font-size: 12px;
+	font-weight: 400;
+}
+
+.episodeName {
+	font-size: 13px;
+	color: var(--text-secondary);
+	margin-top: 2px;
+	max-width: 100%;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.muted {
+	color: var(--text-muted);
+}
+
+.rewatch {
+	font-size: 12px;
+	color: $accent;
+	margin-top: 4px;
+}
+
+.movieMetaRow {
+	display: flex;
+	align-items: stretch;
+	margin-top: 4px;
+}
+
+.movieBadge {
+	background: $movie-purple;
+	padding: 2px 8px;
+	border-radius: 4px 0 0 4px;
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.5px;
+}
+
+.slantArrow {
+	width: 0;
+	height: 0;
+	border-top: 9px solid $warning-amber;
+	border-bottom: 9px solid $warning-amber;
+	border-left: 5px solid $movie-purple;
+}
+
+.freshTag {
+	background: $warning-amber;
+	padding: 0 8px;
+	border-radius: 0 4px 4px 0;
+	display: flex;
+	align-items: center;
+	font-size: 10px;
+	font-weight: 700;
+	color: var(--surface);
+	letter-spacing: 0.5px;
+}
+
+.tagBadge {
+	background: $warning-amber;
+	padding: 2px 8px;
+	border-radius: 4px;
+	margin-top: 8px;
+	font-size: 10px;
+	font-weight: 700;
+	color: var(--surface);
+	letter-spacing: 0.5px;
+}
+
+.latestBadge {
+	background: transparent;
+	border: 1px solid $accent;
+	color: $accent;
+}
+
+.checkmarkWrap {
+	align-self: center;
+	padding-right: 12px;
+}
+
+.updating {
+	min-height: 100px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	background: $watched-green;
+	border-radius: 8px;
+	margin: 0 12px;
+	font-size: 16px;
+	font-weight: 600;
+}

@@ -14,7 +14,7 @@ import WeeklyChart from "../../components/WeeklyChart";
 import PosterImage from "../../components/PosterImage";
 import { Paths, showPath } from "../../routes/paths";
 import { StatCard, CollageCard } from "./ProfileCards";
-import styles from "./ProfileScreen.module.css";
+import styles from "./styles/ProfileScreen.module.scss";
 
 /** Profile tab — stats, weekly chart, recently completed (same hooks as the app) */
 export default function ProfileScreen() {
@@ -51,7 +51,7 @@ export default function ProfileScreen() {
 						<StatCard value={formatCount(stats.episodesWatched)} label="Episodes" flex={3} backdrop={cardImages.episodeBackdrop} align="left" loading={statsLoading} />
 						<StatCard value={formatCount(stats.moviesWatched)} label="Movies" flex={2} backdrop={cardImages.movieBackdrop} align="right" loading={statsLoading} />
 					</div>
-					<div className={styles.statsRow} style={{ minHeight: 150 }}>
+					<div className={`${styles.statsRow} min-h-[150px]`}>
 						<CollageCard value={formatCount(stats.showsTracking)} label="Tracking" flex={2} posters={cardImages.trackingPosters} align="left" loading={statsLoading} seed={17} />
 						<CollageCard value={formatTime(stats.totalMinutes)} label="Watch Time" flex={3} posters={cardImages.watchTimePosters} align="right" loading={statsLoading} seed={53} />
 					</div>
@@ -63,8 +63,7 @@ export default function ProfileScreen() {
 							<img
 								src={scaledPhotoURL(user.photoURL, 100, window.devicePixelRatio || 1)}
 								alt=""
-								className={styles.avatar}
-								style={{ position: "absolute" }}
+								className={`${styles.avatar} absolute`}
 								referrerPolicy="no-referrer"
 							/>
 						)}

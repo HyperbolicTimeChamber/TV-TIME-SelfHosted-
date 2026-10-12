@@ -1,0 +1,40 @@
+@use "../../theme/tokens" as *;
+
+.container {
+	display: flex;
+	background: var(--surface);
+	padding: 8px;
+	gap: 4px;
+}
+
+.tab {
+	position: relative;
+	flex: 1;
+	border: none;
+	background: none;
+	padding: 8px 0;
+	border-radius: 8px;
+	cursor: pointer;
+}
+
+.pill {
+	position: absolute;
+	inset: 0;
+	border-radius: 6px;
+	background: var(--primary);
+}
+
+.label,
+.labelActive {
+	position: relative;
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.label {
+	color: var(--text-secondary);
+}
+
+.labelActive {
+	color: var(--text);
+}

@@ -1,8 +1,9 @@
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState, type ReactNode } from "react";
 import { Spin } from "antd";
 import { animate, motion, useMotionValue, useTransform } from "motion/react";
-import { colors } from "../theme";
-import styles from "./SwipeableCard.module.css";
+import { colors } from "../theme/index";
+import styles from "./styles/SwipeableCard.module.scss";
+import { cssVars } from "../utils/cssVars";
 
 export interface SwipeableCardRef {
 	triggerSwipeLeft: () => void;
@@ -94,25 +95,25 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 	return (
 		<div className={styles.wrapper} ref={wrapperRef}>
 			{state === "loading" ? (
-				<div className={styles.loading} style={{ background: busyColor }}>
+				<div className={`${styles.loading} bg-(--busy)!`} style={cssVars({ "--busy": busyColor })}>
 					<Spin size="small" />
 					<span className={styles.revealText}>{busyLabel}</span>
 				</div>
 			) : (
 				<>
-					<motion.div className={`${styles.reveal} ${styles.revealLeft}`} style={{ opacity: leftOpacity, background: leftColor }}>
+					<motion.div className={`${styles.reveal} ${styles.revealLeft} bg-(--reveal)!`} style={{ opacity: leftOpacity, ...cssVars({ "--reveal": leftColor }) }}>
 						<span className={styles.revealIcon}>✓</span>
 						<span className={styles.revealText}>{leftLabel}</span>
 					</motion.div>
-					<motion.div className={`${styles.reveal} ${styles.revealRight}`} style={{ opacity: rightOpacity, background: rightColor }}>
+					<motion.div className={`${styles.reveal} ${styles.revealRight} bg-(--reveal)!`} style={{ opacity: rightOpacity, ...cssVars({ "--reveal": rightColor }) }}>
 						<span className={styles.revealText}>{rightLabel}</span>
 						<span className={styles.revealIcon}>✕</span>
 					</motion.div>
 				</>
 			)}
 			<motion.div
-				className={styles.card}
-				style={{ x, visibility: state === "loading" ? "hidden" : "visible" }}
+				className={`${styles.card} ${state === "loading" ? "invisible" : ""}`}
+				style={{ x }}
 				drag={state === "idle" ? "x" : false}
 				dragDirectionLock
 				dragSnapToOrigin={false}

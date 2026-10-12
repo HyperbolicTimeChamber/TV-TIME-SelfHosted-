@@ -2,7 +2,8 @@ import { useMemo } from "react";
 import { Spin } from "antd";
 import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
 import { generateCollageLayout } from "@app/utils/collageLayout";
-import styles from "./ProfileScreen.module.css";
+import styles from "./styles/ProfileScreen.module.scss";
+import { cssVars } from "../../utils/cssVars";
 
 interface CardProps {
 	value: string | number;
@@ -24,7 +25,7 @@ function CardBody({ value, label, loading }: Pick<CardProps, "value" | "label" |
 /** Stat card with blurred backdrop (app StatCard) */
 export function StatCard({ backdrop, ...p }: CardProps & { backdrop?: string | null }) {
 	return (
-		<div className={styles.statCard} style={{ flex: p.flex, alignItems: p.align === "right" ? "flex-end" : "flex-start" }}>
+		<div className={`${styles.statCard} flex-(--flex)! ${p.align === "right" ? "items-end!" : "items-start!"}`} style={cssVars({ "--flex": p.flex })}>
 			{backdrop && <img src={tmdbBackdropUri(backdrop, 400)} alt="" className={styles.cardBg} />}
 			{backdrop && <div className={styles.cardOverlay} />}
 			<CardBody {...p} />
@@ -42,7 +43,7 @@ export function CollageCard({ posters = [], seed = 42, ...p }: CardProps & { pos
 	const rows = Math.ceil(posters.length / Math.max(cols, 1));
 
 	return (
-		<div className={styles.statCard} style={{ flex: p.flex, alignItems: p.align === "right" ? "flex-end" : "flex-start" }}>
+		<div className={`${styles.statCard} flex-(--flex)! ${p.align === "right" ? "items-end!" : "items-start!"}`} style={cssVars({ "--flex": p.flex })}>
 			{posters.length > 0 &&
 				(scattered ? (
 					<div className={styles.collage}>
@@ -51,20 +52,18 @@ export function CollageCard({ posters = [], seed = 42, ...p }: CardProps & { pos
 								key={i}
 								src={tmdbPosterUri(path, 55)}
 								alt=""
-								className={styles.scatterPoster}
-								style={{
-									left: `${layout[i].left}%`,
-									top: `${layout[i].top}%`,
-									transform: `rotate(${layout[i].rotate}deg)`,
-									zIndex: layout[i].zIndex,
-								}}
+								className={`${styles.scatterPoster} top-(--top)! left-(--left)! z-(--z)! rotate-(--rot)!`}
+								style={cssVars({ "--left": `${layout[i].left}%`, "--top": `${layout[i].top}%`, "--rot": `${layout[i].rotate}deg`, "--z": layout[i].zIndex })}
 							/>
 						))}
 					</div>
 				) : (
 					<div className={styles.collageGrid}>
 						{posters.map((path, i) => (
-							<img key={i} src={tmdbPosterUri(path, 55)} alt="" style={{ width: `${100 / cols}%`, height: `${100 / rows}%`, objectFit: "cover" }} />
+							<img key={i} src={tmdbPosterUri(path, 55)} alt=""
+									className="h-(--h) w-(--w) object-cover"
+									style={cssVars({ "--w": `${100 / cols}%`, "--h": `${100 / rows}%` })}
+								/>
 						))}
 					</div>
 				))}

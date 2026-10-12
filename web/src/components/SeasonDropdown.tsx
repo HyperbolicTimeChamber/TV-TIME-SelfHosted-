@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useSeasonActions, type SeasonDropdownProps } from "@app/components/useSeasonActions";
 import { tmdbPosterUri, tmdbStillUri } from "@app/hooks/useTmdbImage";
 import type { TMDBEpisode } from "@app/types";
-import { colors } from "../theme";
+import { colors } from "../theme/index";
 import { useLongPress } from "../hooks/useLongPress";
 import CheckmarkButton from "./CheckmarkButton";
 import AnimatedModal from "./AnimatedModal";
@@ -12,8 +12,8 @@ import ConfirmModal from "./ConfirmModal";
 import WatchActionSheet from "./WatchActionSheet";
 import EpisodeDetailModal from "./EpisodeDetailModal";
 import { formatDate } from "./EpisodeDetailModal/helpers";
-import ui from "./ui.module.css";
-import styles from "./SeasonDropdown.module.css";
+import ui from "./styles/ui.module.scss";
+import styles from "./styles/SeasonDropdown.module.scss";
 
 type Props = SeasonDropdownProps & {
 	/** Logged-out web visitors: browse only, no check buttons */
@@ -112,14 +112,14 @@ export default memo(function SeasonDropdown({ readOnly, ...props }: Props) {
 				<div className={styles.seasonInfo}>
 					<span className={styles.seasonName}>{season.name}</span>
 					<span className={styles.seasonMeta}>
-						{s.watchedLoading && !readOnly ? <Spin size="small" style={{ marginRight: 4 }} /> : null}
+						{s.watchedLoading && !readOnly ? <Spin size="small" className="mr-1" /> : null}
 						{s.watchedLoading || readOnly ? "" : `${s.watchedCount}/`}
 						{season.episode_count} episodes
 						{season.air_date ? ` · ${formatDate(season.air_date)}` : ""}
 					</span>
 				</div>
 				{!readOnly && (
-					<div style={{ marginRight: 8 }} onClick={(e) => e.stopPropagation()}>
+					<div className="mr-2" onClick={(e) => e.stopPropagation()}>
 						<CheckmarkButton
 							size={30}
 							watched={s.allWatched}

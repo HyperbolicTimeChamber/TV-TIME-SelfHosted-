@@ -1,0 +1,43 @@
+// Design tokens — mirror app/src/theme (colors) so web + app stay in sync.
+// Runtime CSS variables (--bg, --surface, …) live in global.scss :root.
+
+$background: #000000;
+$surface: #1a1a1a;
+$surface-light: #252525;
+$primary: #e50914;
+$accent: #4a90d9;
+$text: #ffffff;
+$text-secondary: #a0a0a0;
+$text-muted: #666666;
+$watched-green: #00a800;
+$stop-blue: #3498db;
+$destructive-red: #e74c3c;
+$border: #333333;
+$movie-purple: #8b5cf6;
+$warning-amber: #f59e0b;
+
+// Breakpoints
+$bp-tablet: 600px;
+$bp-desktop: 900px;
+$bp-hover-wide: 700px;
+
+/// Side-rail layout (desktop)
+@mixin desktop {
+	@media (min-width: $bp-desktop) {
+		@content;
+	}
+}
+
+/// Wider grids (large phones landscape / tablets)
+@mixin tablet {
+	@media (min-width: $bp-tablet) {
+		@content;
+	}
+}
+
+/// Pointer devices with room for extra controls (carousel arrows)
+@mixin hover-wide {
+	@media (hover: hover) and (min-width: $bp-hover-wide) {
+		@content;
+	}
+}

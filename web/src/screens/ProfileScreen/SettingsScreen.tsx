@@ -7,7 +7,7 @@ import { getFunctions } from "../../platform/functions";
 import { resetPassword, signOut } from "../../services/auth";
 import { useAppSelector } from "../../store";
 import { Paths } from "../../routes/paths";
-import styles from "./SettingsScreen.module.css";
+import styles from "./styles/SettingsScreen.module.scss";
 
 /** Settings (app SettingsScreen; push-notification debug tools are mobile-only) */
 export default function SettingsScreen() {

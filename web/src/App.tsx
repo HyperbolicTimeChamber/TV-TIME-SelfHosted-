@@ -4,7 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { store } from "./store";
 import { queryClient, persistOptions } from "./queryClient";
-import { antdThemeConfig } from "./theme";
+import { antdThemeConfig } from "./theme/index";
 import AuthListener from "./AuthListener";
 import OfflineBanner from "./components/OfflineBanner";
 import AppRoutes from "./routes/AppRoutes";

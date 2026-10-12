@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
-import { colors } from "../theme";
-import styles from "./WeeklyChart.module.css";
+import { colors } from "../theme/index";
+import styles from "./styles/WeeklyChart.module.scss";
+import { cssVars, px } from "../utils/cssVars";
 
 interface DayData {
 	label: string;
@@ -84,14 +85,14 @@ export default function WeeklyChart({ data }: { data: DayData[] }) {
 									)}
 								</svg>
 								{day.episodes > 0 && (
-									<span className={styles.countLabel} style={{ bottom: GLOW_HEIGHT + epH + 6 }}>
+									<span className={`${styles.countLabel} bottom-(--b)!`} style={cssVars({ "--b": px(GLOW_HEIGHT + epH + 6) })}>
 										{day.episodes}
 									</span>
 								)}
 								{day.movies > 0 && (
 									<span
-										className={styles.countLabel}
-										style={{ bottom: GLOW_HEIGHT + movH + (Math.abs(movH - epH) < 16 && epH > 0 ? 20 : 6) }}
+										className={`${styles.countLabel} bottom-(--b)!`}
+										style={cssVars({ "--b": px(GLOW_HEIGHT + movH + (Math.abs(movH - epH) < 16 && epH > 0 ? 20 : 6)) })}
 									>
 										{day.movies}
 									</span>
@@ -104,10 +105,10 @@ export default function WeeklyChart({ data }: { data: DayData[] }) {
 			</div>
 			<div className={styles.legend}>
 				<span className={styles.legendItem}>
-					<span className={styles.swatch} style={{ background: colors.primary }} /> Episodes
+					<span className={`${styles.swatch} bg-primary!`} /> Episodes
 				</span>
 				<span className={styles.legendItem}>
-					<span className={styles.swatch} style={{ background: colors.moviePurple }} /> Movies
+					<span className={`${styles.swatch} bg-movie!`} /> Movies
 				</span>
 			</div>
 		</section>

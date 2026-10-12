@@ -1,6 +1,7 @@
 /// <reference types="vitest/config" />
 import path from "node:path";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 
 const APP_SRC = path.resolve(import.meta.dirname, "../app/src");
@@ -57,7 +58,7 @@ const SHARED_DEPS = [
 export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, import.meta.dirname, "VITE_");
 	return {
-		plugins: [appOverrides(), react()],
+		plugins: [appOverrides(), react(), tailwindcss()],
 		// Transform every file — including shared ../app/src — with the web tsconfig.
 		// Otherwise Vite picks app/tsconfig.json, which extends "expo/tsconfig.base"
 		// and fails in CI where app/node_modules isn't installed.
@@ -110,8 +111,8 @@ export default defineConfig(({ mode }) => {
 				VITE_FIREBASE_MEASUREMENT_ID: "",
 			},
 			globals: true,
-			setupFiles: ["./src/test/setup.ts"],
-			include: ["src/**/*.test.{ts,tsx}"],
+			setupFiles: ["./tests/setup.ts"],
+			include: ["tests/**/*.test.{ts,tsx}"],
 			css: false,
 		},
 	};

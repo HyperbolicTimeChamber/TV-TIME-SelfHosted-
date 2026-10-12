@@ -7,6 +7,8 @@ import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
 import { MediaType } from "@app/enums";
 import { showShareUrl } from "@app/utils/shareUrl";
 import LoadingScreen from "../../components/LoadingScreen";
+import ErrorState from "../../components/ErrorState";
+import { describeLoadError } from "@app/utils/loadError";
 import ConfirmModal from "../../components/ConfirmModal";
 import UnreleasedMovieModal from "../../components/UnreleasedMovieModal";
 import WatchActionSheet from "../../components/WatchActionSheet";
@@ -14,7 +16,8 @@ import SeasonDropdown from "../../components/SeasonDropdown";
 import ActionPills from "./ActionPills";
 import { Paths } from "../../routes/paths";
 import { appDeepLink, isMobileBrowser } from "../../utils/deepLink";
-import styles from "./ShowDetailScreen.module.css";
+import styles from "./styles/ShowDetailScreen.module.scss";
+import { cssVars, px } from "../../utils/cssVars";
 
 /** Show / movie page — public (read-only for guests) and the target of share links */
 export default function ShowDetailScreen() {
@@ -51,10 +54,23 @@ export default function ShowDetailScreen() {
 
 	if (d.isLoading || d.trackingLoading) return <LoadingScreen />;
 	if (d.isError || !d.show) {
+		const info = describeLoadError(d.isError ? d.error : null, mediaType);
 		return (
-			<p className={styles.errorText}>
-				{d.isError ? (d.error as Error)?.message || "Failed to load show" : "Show not found"}
-			</p>
+			<>
+				<button className={`${styles.floatButton} ${styles.backButton}`} onClick={handleBack} aria-label="Back">
+					<IoChevronBack size={26} />
+				</button>
+				<ErrorState
+					info={info}
+					mediaType={mediaType}
+					primary={
+						info.canRetry
+							? { label: "Try Again", onPress: () => d.refetch() }
+							: { label: "Search Shows & Movies", onPress: () => navigate(Paths.SEARCH) }
+					}
+					secondary={signedIn ? { label: "Go to Watchlist", onPress: () => navigate(Paths.HOME) } : undefined}
+				/>
+			</>
 		);
 	}
 	const show = d.show;
@@ -89,7 +105,12 @@ export default function ShowDetailScreen() {
 
 			<div className={styles.backdrop}>
 				{backdropSrc && (
-					<img src={backdropSrc} alt="" className={styles.backdropImg} style={{ transform: `translateY(${parallax}px)` }} />
+					<img
+						src={backdropSrc}
+						alt=""
+						className={`${styles.backdropImg} translate-y-(--parallax)`}
+						style={cssVars({ "--parallax": px(parallax) })}
+					/>
 				)}
 			</div>
 			<div className={styles.gradientIsland}>

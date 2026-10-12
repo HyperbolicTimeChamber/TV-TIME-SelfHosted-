@@ -3,7 +3,7 @@ import { Spin } from "antd";
 import type { CarouselEpisode } from "@app/types";
 import { tmdbBackdropUri, tmdbPosterUri, tmdbStillUri } from "@app/hooks/useTmdbImage";
 import { formatDate } from "./helpers";
-import styles from "./EpisodeDetailModal.module.css";
+import styles from "./styles/EpisodeDetailModal.module.scss";
 
 interface Props {
 	ep: CarouselEpisode;
@@ -66,8 +66,7 @@ function EpisodeCard(p: Props) {
 					<img
 						src={img}
 						alt=""
-						className={styles.still}
-						style={{ opacity: imageLoaded ? 1 : 0 }}
+						className={`${styles.still} ${imageLoaded ? "opacity-100" : "opacity-0"}`}
 						onLoad={() => setImageLoaded(true)}
 					/>
 				) : (

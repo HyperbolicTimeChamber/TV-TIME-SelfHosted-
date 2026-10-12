@@ -28,22 +28,7 @@ export default function OfflineBanner() {
 					initial={{ y: -60 }}
 					animate={{ y: 0 }}
 					exit={{ y: -60 }}
-					style={{
-						position: "fixed",
-						top: 0,
-						left: 0,
-						right: 0,
-						zIndex: 2000,
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "center",
-						gap: 8,
-						padding: "calc(env(safe-area-inset-top) + 8px) 16px 8px",
-						background: "#e74c3c",
-						color: "#fff",
-						fontSize: 13,
-						fontWeight: 600,
-					}}
+					className="fixed inset-x-0 top-0 z-[2000] flex items-center justify-center gap-2 bg-danger px-4 pt-[calc(env(safe-area-inset-top)+8px)] pb-2 text-[13px] font-semibold text-white"
 				>
 					<IoCloudOfflineOutline size={18} /> You're offline — showing saved data
 				</motion.div>

@@ -16,6 +16,7 @@ const CalendarScreen = lazy(() => import("../screens/CalendarScreen"));
 const ProfileScreen = lazy(() => import("../screens/ProfileScreen"));
 const SettingsScreen = lazy(() => import("../screens/ProfileScreen/SettingsScreen"));
 const ImportDataScreen = lazy(() => import("../screens/ImportDataScreen"));
+const NotFoundScreen = lazy(() => import("../screens/NotFoundScreen"));
 
 /** Guests land on search; signed-in users on their watchlist */
 function RootRedirect() {
@@ -43,7 +44,7 @@ export default function AppRoutes() {
 						<Route path={Paths.SETTINGS} element={<SettingsScreen />} />
 						<Route path={Paths.IMPORT} element={<ImportDataScreen />} />
 					</Route>
-					<Route path="*" element={<Navigate to={Paths.ROOT} replace />} />
+					<Route path="*" element={<NotFoundScreen />} />
 				</Route>
 			</Routes>
 		</Suspense>

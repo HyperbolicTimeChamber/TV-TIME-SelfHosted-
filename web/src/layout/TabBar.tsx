@@ -10,9 +10,9 @@ import {
 	IoSearch,
 	IoSearchOutline,
 } from "react-icons/io5";
-import { colors } from "../theme";
+import { colors } from "../theme/index";
 import { Paths } from "../routes/paths";
-import styles from "./TabBar.module.css";
+import styles from "./styles/TabBar.module.scss";
 
 const TABS = [
 	{ path: Paths.HOME, label: "Home", icon: IoHome, iconOutline: IoHomeOutline },

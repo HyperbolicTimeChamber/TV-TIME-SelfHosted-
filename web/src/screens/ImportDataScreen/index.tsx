@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Progress, Spin } from "antd";
+import { Button, Progress } from "antd";
 import { animate } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import { useImportData } from "@app/screens/ImportDataScreen/useImportData";
@@ -11,10 +11,11 @@ import type { TMDBMatch } from "@app/services/tvtimeImport";
 import { useAppDispatch } from "../../store";
 import { importCompleted } from "../../store/authSlice";
 import AnimatedModal from "../../components/AnimatedModal";
+import LoadingSpinner from "../../components/LoadingSpinner";
 import ShowDrawer from "../../components/ShowDrawer";
-import ui from "../../components/ui.module.css";
+import ui from "../../components/styles/ui.module.scss";
 import { useLongPress } from "../../hooks/useLongPress";
-import styles from "./ImportDataScreen.module.css";
+import styles from "./styles/ImportDataScreen.module.scss";
 
 function Counter({ target, total }: { target: number; total: number }) {
 	const [display, setDisplay] = useState(0);
@@ -30,7 +31,7 @@ function Counter({ target, total }: { target: number; total: number }) {
 	}, [target]);
 	return (
 		<>
-			<Progress percent={total ? (display / total) * 100 : 0} showInfo={false} strokeColor="var(--primary)" style={{ width: "80%", marginTop: 16 }} />
+			<Progress percent={total ? (display / total) * 100 : 0} showInfo={false} strokeColor="var(--primary)" className="w-4/5! mt-4" />
 			<span className={styles.progressText}>
 				{display} / {total}
 			</span>
@@ -154,7 +155,9 @@ export default function ImportDataScreen() {
 		return (
 			<div className={styles.centered}>
 				<h1 className={styles.title}>{imp.statusText}</h1>
-				<Spin size="large" style={{ marginTop: 12 }} />
+				<div className="mt-3">
+					<LoadingSpinner />
+				</div>
 				{imp.progress.total > 0 && <Counter target={imp.progress.done} total={imp.progress.total} />}
 				<p className={styles.warning}>Do not close this tab during import</p>
 			</div>
@@ -165,8 +168,10 @@ export default function ImportDataScreen() {
 		return (
 			<div className={styles.centered}>
 				<h1 className={styles.title}>Importing from TV Time</h1>
-				<Spin size="large" style={{ marginTop: 12 }} />
-				<p className={styles.desc} style={{ marginTop: 24 }}>
+				<div className="mt-3">
+					<LoadingSpinner />
+				</div>
+				<p className={`${styles.desc} mt-6!`}>
 					This may take several minutes depending on how many shows you have. You can leave this page now.
 				</p>
 				<p className={styles.desc}>Your watchlist fills in as the import finishes.</p>
@@ -280,7 +285,7 @@ export default function ImportDataScreen() {
 					>
 						← Back
 					</button>
-					<button className={styles.primaryButton} style={{ margin: 0, flex: 1 }} onClick={imp.handleImport} disabled={imp.selected.size === 0}>
+					<button className={`${styles.primaryButton} m-0! flex-1`} onClick={imp.handleImport} disabled={imp.selected.size === 0}>
 						Import {review.showCount} shows, {review.movieCount} movies, {review.episodes} episodes
 					</button>
 				</div>
