@@ -5,7 +5,13 @@ import type { PersistQueryClientOptions } from "@tanstack/react-query-persist-cl
 // Same caching strategy as the mobile app (app/App.tsx)
 export const queryClient = new QueryClient({
 	defaultOptions: {
-		queries: { staleTime: 5 * 60 * 1000, retry: 2 },
+		queries: {
+			staleTime: 5 * 60 * 1000,
+			retry: 2,
+			// React Native never refetches on "focus"; browsers do by default, which
+			// re-fetched (and flashed the loader) every time you returned to the tab
+			refetchOnWindowFocus: false,
+		},
 	},
 });
 
