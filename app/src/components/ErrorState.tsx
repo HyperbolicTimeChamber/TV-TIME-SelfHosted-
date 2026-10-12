@@ -9,7 +9,8 @@ const NOT_FOUND_ART = require("../../assets/not-found.png");
 const ART_RATIO = 600 / 587;
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 // Cap by width and by ~42% of the screen height so the text always has room
-const ART_HEIGHT = Math.min(SCREEN_W / ART_RATIO, SCREEN_H * 0.42, 420);
+// Last term: on short screens shrink the art so it never reaches the buttons
+const ART_HEIGHT = Math.max(0, Math.min(SCREEN_W / ART_RATIO, SCREEN_H * 0.42, 420, SCREEN_H * 0.86 - 300));
 const ART_WIDTH = ART_HEIGHT * ART_RATIO;
 
 interface Action {
@@ -116,7 +117,8 @@ const styles = StyleSheet.create({
 	containerWithArt: {
 		justifyContent: "flex-start",
 		paddingTop: SCREEN_H * 0.14,
-		paddingBottom: ART_HEIGHT,
+		// Reserve the character's height + a gap so the buttons never overlap it
+		paddingBottom: ART_HEIGHT + spacing.lg,
 	},
 	// Flush with the bottom edge: the cropped legs read as climbing out of the screen
 	art: {
