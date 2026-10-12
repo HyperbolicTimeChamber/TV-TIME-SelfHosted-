@@ -127,8 +127,8 @@ export default function SearchScreen() {
 				<LoadingScreen />
 			) : submittedQuery && items.length === 0 ? (
 				<div className="relative z-1 flex min-h-[calc(100dvh-var(--header-h))] flex-col items-center justify-end px-8 pb-[calc(var(--art-h)+16px)] text-center">
-					<NotFoundArt />
-					<p className={styles.empty}>No results found</p>
+					<NotFoundArt src="/no-results.png" />
+					<p className={styles.empty}>NOTHING FOUND</p>
 					<p className={styles.emptyHint}>Try a different title or check the spelling</p>
 				</div>
 			) : (

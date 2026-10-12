@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LoadingSpinner } from "../../components";
 import SlidingTabs from "../../components/SlidingTabs";
-import NotFoundArt from "../../components/NotFoundArt";
+import NotFoundArt, { NO_RESULTS_ART, NO_RESULTS_RATIO } from "../../components/NotFoundArt";
 import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -227,8 +227,8 @@ export default function SearchScreen() {
 				</View>
 			) : !isLoading && submittedQuery.length > 0 && (!displayData || displayData.length === 0) ? (
 				<View style={styles.emptyWrap}>
-					<NotFoundArt />
-					<Text style={styles.emptyText}>No results found</Text>
+					<NotFoundArt source={NO_RESULTS_ART} ratio={NO_RESULTS_RATIO} />
+					<Text style={styles.emptyText}>NOTHING FOUND</Text>
 					<Text style={styles.emptyHint}>Try a different title or check the spelling</Text>
 				</View>
 			) : (
