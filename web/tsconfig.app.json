@@ -25,6 +25,7 @@
 			"@react-native-google-signin/google-signin": ["./src/platform/googleSignin.ts"],
 			"@react-native-async-storage/async-storage": ["./src/platform/asyncStorage.ts"],
 			"react-native": ["./src/platform/reactNative.ts"],
+			"@react-navigation/native": ["./src/platform/reactNavigation.ts"],
 			"expo-file-system": ["./src/platform/expoFileSystem.ts"],
 			"sp-react-native-in-app-updates": ["./src/platform/inAppUpdates.ts"],
 			"react": ["./node_modules/@types/react"],
