@@ -24,7 +24,8 @@ import {
 	UnreleasedMovieModal,
 	WatchActionSheet,
 } from "../../components";
-import { showShareUrl } from "../../utils";
+import { showShareUrl, describeLoadError } from "../../utils";
+import ErrorState from "../../components/ErrorState";
 import { colors, spacing, typography } from "../../theme";
 import { HomeStackParamList, MediaType, Route } from "../../types";
 
@@ -34,6 +35,7 @@ export default function ShowDetailScreen() {
 	const route = useRoute<RouteParams>();
 	const { tmdbId, mediaType } = route.params;
 	const {
+		refetch,
 		show,
 		isLoading,
 		isError,
@@ -91,11 +93,28 @@ export default function ShowDetailScreen() {
 	}
 
 	if (isError || !show) {
+		const info = describeLoadError(isError ? error : null, mediaType);
+		const goWatchlist = () => (navigation as any).navigate(Route.HOME, { screen: Route.HOME_TABS });
+		const goSearch = () => (navigation as any).navigate(Route.SWIPE_TABS, { screen: Route.SEARCH });
 		return (
-			<View style={styles.center}>
-				<Text style={styles.errorText}>
-					{isError ? (error as any)?.message || "Failed to load show" : "Show not found"}
-				</Text>
+			<View style={styles.container}>
+				<TouchableOpacity
+					style={[styles.backButton, { top: insets.top + 8 }]}
+					onPress={handleBack}
+					hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+				>
+					<Ionicons name="chevron-back" size={26} color={colors.text} />
+				</TouchableOpacity>
+				<ErrorState
+					info={info}
+					mediaType={mediaType}
+					primary={
+						info.canRetry
+							? { label: "Try Again", onPress: () => refetch() }
+							: { label: "Search Shows & Movies", onPress: goSearch }
+					}
+					secondary={{ label: "Go to Watchlist", onPress: goWatchlist }}
+				/>
 			</View>
 		);
 	}
@@ -272,10 +291,6 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.background,
 		justifyContent: "center",
 		alignItems: "center",
-	},
-	errorText: {
-		...typography.body,
-		color: colors.textSecondary,
 	},
 	backButton: {
 		position: "absolute",

@@ -54,6 +54,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		isError,
 		error,
 		episodesBySeason,
+		refetch,
 	} = useShowDetails(tmdbId, mediaType);
 	const [watchlistItem, setWatchlistItem] = useState<any>(null);
 	const { episodes: showWatchedEps } = useShowWatchedEpisodes(
@@ -418,6 +419,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	);
 
 	return {
+		refetch,
 		user,
 		show,
 		isLoading,

@@ -2,6 +2,7 @@ export * from "./catalogFreshness";
 export * from "./docId";
 export * from "./episodeTitle";
 export * from "./format";
+export * from "./loadError";
 export * from "./collageLayout";
 export * from "./shareUrl";
 export * from "./todayStr";

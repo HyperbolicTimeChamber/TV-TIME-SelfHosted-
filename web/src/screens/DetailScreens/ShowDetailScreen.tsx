@@ -7,6 +7,8 @@ import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
 import { MediaType } from "@app/enums";
 import { showShareUrl } from "@app/utils/shareUrl";
 import LoadingScreen from "../../components/LoadingScreen";
+import ErrorState from "../../components/ErrorState";
+import { describeLoadError } from "@app/utils/loadError";
 import ConfirmModal from "../../components/ConfirmModal";
 import UnreleasedMovieModal from "../../components/UnreleasedMovieModal";
 import WatchActionSheet from "../../components/WatchActionSheet";
@@ -51,10 +53,23 @@ export default function ShowDetailScreen() {
 
 	if (d.isLoading || d.trackingLoading) return <LoadingScreen />;
 	if (d.isError || !d.show) {
+		const info = describeLoadError(d.isError ? d.error : null, mediaType);
 		return (
-			<p className={styles.errorText}>
-				{d.isError ? (d.error as Error)?.message || "Failed to load show" : "Show not found"}
-			</p>
+			<>
+				<button className={`${styles.floatButton} ${styles.backButton}`} onClick={handleBack} aria-label="Back">
+					<IoChevronBack size={26} />
+				</button>
+				<ErrorState
+					info={info}
+					mediaType={mediaType}
+					primary={
+						info.canRetry
+							? { label: "Try Again", onPress: () => d.refetch() }
+							: { label: "Search Shows & Movies", onPress: () => navigate(Paths.SEARCH) }
+					}
+					secondary={signedIn ? { label: "Go to Watchlist", onPress: () => navigate(Paths.HOME) } : undefined}
+				/>
+			</>
 		);
 	}
 	const show = d.show;

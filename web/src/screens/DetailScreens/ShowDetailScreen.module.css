@@ -4,12 +4,6 @@
 	overflow-x: hidden;
 }
 
-.errorText {
-	text-align: center;
-	color: var(--text-secondary);
-	margin-top: 40dvh;
-}
-
 .floatButton {
 	position: fixed;
 	top: calc(env(safe-area-inset-top) + 8px);
