@@ -5,7 +5,7 @@ import { todayStr } from "@app/utils/todayStr";
 import SwipeableCard, { type SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton from "./CheckmarkButton";
 import PosterImage from "./PosterImage";
-import styles from "../styles/components/ShowCard.module.scss";
+import styles from "./styles/ShowCard.module.scss";
 
 const TODAY = todayStr();
 const TODAY_MS = new Date(TODAY).getTime();
@@ -96,7 +96,7 @@ export default memo(function ShowCard({
 
 	const movieMeta = (label: string, muted = false) => (
 		<>
-			<div className={styles.movieMetaRow} style={muted ? { opacity: 0.6 } : undefined}>
+			<div className={`${styles.movieMetaRow} ${muted ? "opacity-60" : ""}`}>
 				<span className={styles.movieBadge}>MOVIE</span>
 				{label && (
 					<>

@@ -6,7 +6,7 @@ import GoogleLogo from "../../components/GoogleLogo";
 import { resetPassword, signInWithEmail, signInWithGoogle, signUpWithEmail } from "../../services/auth";
 import { useAppSelector } from "../../store";
 import { Paths } from "../../routes/paths";
-import styles from "../../styles/screens/LoginScreen/LoginScreen.module.scss";
+import styles from "./styles/LoginScreen.module.scss";
 
 const codeOf = (e: unknown) => (e as { code?: string }).code ?? "";
 

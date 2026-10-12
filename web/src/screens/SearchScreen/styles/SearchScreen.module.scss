@@ -1,4 +1,4 @@
-@use "../../tokens" as *;
+@use "../../../theme/tokens" as *;
 
 .container {
 	min-height: 100dvh;
@@ -99,7 +99,13 @@
 	color: var(--text-secondary);
 	font-size: 16px;
 	font-weight: 600;
-	margin-top: 30dvh;
+	margin: 0;
+}
+
+.emptyHint {
+	color: var(--text-muted);
+	font-size: 13px;
+	margin: 4px 0 0;
 }
 
 /* Mobile: 2 columns like the app; wider screens add columns */

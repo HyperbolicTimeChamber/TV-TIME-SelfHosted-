@@ -1,7 +1,8 @@
 import { Spin } from "antd";
 import { IoCheckmark } from "react-icons/io5";
-import { colors } from "../theme";
+import { colors } from "../theme/index";
 import { useLongPress } from "../hooks/useLongPress";
+import { cssVars, px } from "../utils/cssVars";
 
 interface Props {
 	watched?: boolean;
@@ -48,26 +49,13 @@ export default function CheckmarkButton({
 				e.stopPropagation();
 				press.onClick(e);
 			}}
-			style={{
-				width: size,
-				height: size,
-				borderRadius: size / 2,
-				background: bg,
-				border: "none",
-				display: "flex",
-				alignItems: "center",
-				justifyContent: "center",
-				flexShrink: 0,
-				padding: 0,
-				cursor: disabled ? "default" : "pointer",
-				opacity: loading ? 0.5 : 1,
-				touchAction: "manipulation",
-			}}
+			className={`flex size-(--size) shrink-0 touch-manipulation items-center justify-center rounded-full border-0 bg-(--bg) p-0 ${disabled ? "cursor-default" : "cursor-pointer"} ${loading ? "opacity-50" : ""}`}
+			style={cssVars({ "--size": px(size), "--bg": bg, "--label-fs": px(size * 0.38), "--label-c": textColor })}
 		>
 			{loading ? (
 				<Spin size="small" />
 			) : label ? (
-				<span style={{ fontWeight: 700, fontSize: size * 0.38, color: textColor }}>{label}</span>
+				<span className="text-(length:--label-fs) font-bold text-(--label-c)">{label}</span>
 			) : (
 				<IoCheckmark size={iconSize} color={iconColor} />
 			)}

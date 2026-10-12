@@ -1,7 +1,7 @@
 import { Spin } from "antd";
 import { MediaType, WatchStatus } from "@app/enums";
 import { useLongPress } from "../../hooks/useLongPress";
-import styles from "../../styles/screens/DetailScreens/ShowDetailScreen.module.scss";
+import styles from "./styles/ShowDetailScreen.module.scss";
 
 interface Props {
 	mediaType: MediaType;
@@ -50,7 +50,7 @@ export default function ActionPills(p: Props) {
 				</button>
 			)}
 			{isMovie && status === WatchStatus.COMPLETED && (
-				<div className={`${styles.pill} ${styles.pillWatched}`} style={{ opacity: 0.7 }}>
+				<div className={`${styles.pill} ${styles.pillWatched} opacity-70`}>
 					Watched ✓{p.movieWatchCount > 1 && <span className={styles.pillBadge}>{p.movieWatchCount}</span>}
 				</div>
 			)}

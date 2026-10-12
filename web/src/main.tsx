@@ -2,7 +2,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./firebase";
 import { initAppCheck } from "./appCheck";
-import "./styles/global.scss";
+import "./theme/tailwind.css";
+import "./theme/global.scss";
 import App from "./App";
 
 initAppCheck();

@@ -8,8 +8,9 @@ import {
 } from "react-icons/io5";
 import { LoadErrorKind, MediaType } from "@app/enums";
 import type { LoadErrorInfo } from "@app/utils/loadError";
-import { colors } from "../theme";
-import styles from "../styles/components/ErrorState.module.scss";
+import { colors } from "../theme/index";
+import NotFoundArt from "./NotFoundArt";
+import styles from "./styles/ErrorState.module.scss";
 
 interface Action {
   label: string;
@@ -46,22 +47,7 @@ export default function ErrorState({
 
   return (
     <>
-      {showArt && (
-        <motion.img
-          src="/not-found.png"
-          alt=""
-          aria-hidden
-          className={styles.art}
-          initial={{ y: "100%" }}
-          animate={{ y: 0 }}
-          transition={{
-            type: "spring",
-            damping: 11,
-            stiffness: 90,
-            delay: 0.12,
-          }}
-        />
-      )}
+      {showArt && <NotFoundArt />}
       <motion.div
         className={`${styles.container} ${showArt ? styles.containerWithArt : ""}`}
         initial={{ opacity: 0, y: 16 }}

@@ -9,8 +9,9 @@ import PosterImage from "../../components/PosterImage";
 import AnimatedModal from "../../components/AnimatedModal";
 import LoadingScreen from "../../components/LoadingScreen";
 import { showPath } from "../../routes/paths";
-import styles from "../../styles/screens/CalendarScreen/CalendarScreen.module.scss";
+import styles from "./styles/CalendarScreen.module.scss";
 import { monthGrid } from "./monthGrid";
+import { cssVars } from "../../utils/cssVars";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -84,14 +85,14 @@ export default function CalendarScreen() {
 								aria-pressed={selected}
 							>
 								<span
-									className={`${styles.dayNumber} ${cell.date === today && !selected ? styles.today : ""}`}
-									style={selected ? { background: mark?.selectedColor } : undefined}
+									className={`${styles.dayNumber} ${cell.date === today && !selected ? styles.today : ""} ${selected ? "bg-(--sel)!" : ""}`}
+									style={selected ? cssVars({ "--sel": mark?.selectedColor ?? "transparent" }) : undefined}
 								>
 									{cell.day}
 								</span>
 								<span
-									className={styles.dot}
-									style={{ background: mark?.marked && cell.inMonth ? mark.dotColor : "transparent" }}
+									className={`${styles.dot} bg-(--dot)!`}
+									style={cssVars({ "--dot": mark?.marked && cell.inMonth ? mark.dotColor : "transparent" })}
 								/>
 							</button>
 						);

@@ -9,6 +9,7 @@ import { useSearchActions } from "@app/screens/SearchScreen/useSearchActions";
 import { MediaFilter } from "@app/enums";
 import type { TMDBShow } from "@app/types";
 import SlidingTabs from "../../components/SlidingTabs";
+import NotFoundArt from "../../components/NotFoundArt";
 import LoadingScreen from "../../components/LoadingScreen";
 import { useCollapsingHeader } from "../../hooks/useCollapsingHeader";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
@@ -17,7 +18,8 @@ import { Paths, showPath } from "../../routes/paths";
 import SearchCard from "./SearchCard";
 import { mediaTypeOf } from "./mediaTypeOf";
 import SearchModals from "./SearchModals";
-import styles from "../../styles/screens/SearchScreen/SearchScreen.module.scss";
+import styles from "./styles/SearchScreen.module.scss";
+import { cssVars, px } from "../../utils/cssVars";
 
 const FILTER_TABS = [
 	{ key: MediaFilter.ALL, label: "All" },
@@ -81,7 +83,7 @@ export default function SearchScreen() {
 	);
 
 	return (
-		<div className={styles.container} style={{ paddingTop: headerHeight }}>
+		<div className={`${styles.container} pt-(--header-h)`} style={cssVars({ "--header-h": px(headerHeight) })}>
 			<motion.header
 				ref={headerRef}
 				className={styles.headerBlock}
@@ -124,7 +126,11 @@ export default function SearchScreen() {
 			{isLoading ? (
 				<LoadingScreen />
 			) : submittedQuery && items.length === 0 ? (
-				<p className={styles.empty}>No results found</p>
+				<div className="relative z-1 flex min-h-[calc(100dvh-var(--header-h))] flex-col items-center justify-end px-8 pb-[calc(var(--art-h)+16px)] text-center">
+					<NotFoundArt />
+					<p className={styles.empty}>No results found</p>
+					<p className={styles.emptyHint}>Try a different title or check the spelling</p>
+				</div>
 			) : (
 				<div className={styles.grid}>{cards}</div>
 			)}

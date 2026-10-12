@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import { MediaType } from "@app/enums";
 import type { TMDBShow } from "@app/types";
 import PosterImage from "../../components/PosterImage";
-import styles from "../../styles/screens/SearchScreen/SearchScreen.module.scss";
+import styles from "./styles/SearchScreen.module.scss";
 import { mediaTypeOf } from "./mediaTypeOf";
 
 interface Props {

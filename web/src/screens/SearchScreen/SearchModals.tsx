@@ -2,7 +2,7 @@ import type { TMDBShow } from "@app/types";
 import AnimatedModal from "../../components/AnimatedModal";
 import ConfirmModal from "../../components/ConfirmModal";
 import UnreleasedMovieModal from "../../components/UnreleasedMovieModal";
-import ui from "../../styles/components/ui.module.scss";
+import ui from "../../components/styles/ui.module.scss";
 
 const pad = (n?: number) => String(n).padStart(2, "0");
 
@@ -33,7 +33,7 @@ export default function SearchModals(p: Props) {
 	return (
 		<>
 			<AnimatedModal visible={!!p.movieModal} onClose={p.onMovieModalClose}>
-				<p className={ui.modalTitle} style={{ marginBottom: 16 }}>
+				<p className={`${ui.modalTitle} mb-4!`}>
 					{p.movieModal?.title || p.movieModal?.name}
 				</p>
 				<button className={ui.button} onClick={p.onMovieAddOnly}>

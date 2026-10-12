@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { colors, spinnerShape } from "../theme";
+import { spinnerShape } from "../theme/index";
+import { cssVars, px } from "../utils/cssVars";
 
 const { size: SIZE, dots: DOTS, spinMs, tilt } = spinnerShape;
 const TILT_MS = tilt[tilt.length - 1][0];
@@ -26,42 +27,17 @@ export default function LoadingSpinner() {
 	}, []);
 
 	return (
-		<div style={{ padding: 8, display: "flex", justifyContent: "center", alignItems: "center" }} role="progressbar" aria-label="Loading">
-			<div ref={tiltRef} style={{ transform: `rotate(${tilt[0][1]}deg)` }}>
+		<div className="flex items-center justify-center p-2" role="progressbar" aria-label="Loading">
+			<div ref={tiltRef} className="rotate-(--tilt0)" style={cssVars({ "--tilt0": `${tilt[0][1]}deg`, "--s": px(SIZE) })}>
 				{/* Hat */}
-				<div
-					style={{
-						width: SIZE / 2,
-						height: SIZE / 4,
-						background: colors.spinnerWhite,
-						borderRadius: `${SIZE}px ${SIZE}px 0 0`,
-						margin: "0 auto -1px",
-					}}
-				/>
+				<div className="mx-auto -mb-px h-[calc(var(--s)/4)] w-[calc(var(--s)/2)] rounded-t-(--s) bg-spinner-white" />
 				{/* Ball */}
-				<div
-					ref={ballRef}
-					style={{
-						position: "relative",
-						width: SIZE,
-						height: SIZE,
-						borderRadius: SIZE / 2,
-						background: colors.spinnerWhite,
-						overflow: "hidden",
-					}}
-				>
+				<div ref={ballRef} className="relative size-(--s) overflow-hidden rounded-full bg-spinner-white">
 					{DOTS.map((dot, i) => (
 						<span
 							key={i}
-							style={{
-								position: "absolute",
-								width: dot.r * 2,
-								height: dot.r * 2,
-								borderRadius: dot.r,
-								left: dot.cx - dot.r,
-								top: dot.cy - dot.r,
-								background: colors.spinnerOrange,
-							}}
+							className="absolute top-(--y) left-(--x) size-(--d) rounded-full bg-spinner-orange"
+							style={cssVars({ "--d": px(dot.r * 2), "--x": px(dot.cx - dot.r), "--y": px(dot.cy - dot.r) })}
 						/>
 					))}
 				</div>

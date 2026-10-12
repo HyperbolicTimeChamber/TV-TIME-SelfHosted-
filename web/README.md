@@ -30,16 +30,25 @@ modules for web shims in `src/platform/`:
 ```
 web/
   src/
-    components/ layout/ screens/ routes/ store/ platform/ hooks/ services/
-    styles/                 ← all styles, SCSS, mirroring src/
-      _tokens.scss          ← colours (from app/src/theme) + breakpoint mixins
+    components/ layout/ screens/ routes/ store/ platform/ hooks/ services/ utils/
+      styles/               ← each folder's SCSS modules live in its own styles/
+    theme/
+      index.ts              ← colours, spinnerShape, antd theme
+      _tokens.scss          ← SCSS colours (from app/src/theme) + breakpoint mixins
       global.scss
-      components/ShowCard.module.scss …
+      tailwind.css          ← Tailwind theme + utilities (no preflight), app colours
   tests/                    ← Vitest tests, mirroring src/ (+ setup.ts, render.tsx)
 ```
 
-Components import their module from `src/styles/…` and use `@use "../tokens" as *`
-for `$primary`, `@include desktop { … }` etc.
+Styling:
+
+- **SCSS modules** for component structure: `components/styles/ShowCard.module.scss`
+  with `@use "../../theme/tokens" as *` for `$primary`, `@include desktop { … }` etc.
+- **Tailwind** instead of inline `style={{}}` blocks. Colours use the app names
+  (`bg-surface`, `text-fg-muted`, `bg-primary` …). Module rules beat utilities, so add
+  `!` when overriding one (`mt-6!`).
+- **Runtime values** go through CSS vars: `style={cssVars({ "--size": px(n) })}` with
+  `className="size-(--size)"` (`utils/cssVars.ts`). Only Motion values stay in `style`.
 
 ## Logged out
 

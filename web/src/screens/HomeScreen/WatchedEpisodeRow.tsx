@@ -4,7 +4,7 @@ import type { EnrichedTrackingItem } from "@app/hooks/useWatchlist";
 import SwipeableCard from "../../components/SwipeableCard";
 import CheckmarkButton from "../../components/CheckmarkButton";
 import PosterImage from "../../components/PosterImage";
-import card from "../../styles/components/ShowCard.module.scss";
+import card from "../../components/styles/ShowCard.module.scss";
 
 interface Props {
 	episode: WatchedEpisode;
@@ -27,8 +27,8 @@ export default memo(function WatchedEpisodeRow({ episode, show, onPress, onCheck
 			rightLabel={episode.watchCount > 1 ? "−1" : "Unwatch"}
 			persistAfterSwipe={{ left: true, right: episode.watchCount > 1 }}
 		>
-			<div className={card.container} style={{ opacity: 0.5 }} onClick={() => onPress(episode.tmdbShowId)} role="button">
-				<PosterImage posterPath={show.posterPath} mediaType="tv" className={card.poster} style={{ opacity: 0.6 }} />
+			<div className={`${card.container} opacity-50`} onClick={() => onPress(episode.tmdbShowId)} role="button">
+				<PosterImage posterPath={show.posterPath} mediaType="tv" className={`${card.poster} opacity-60`} />
 				<div className={card.info}>
 					<span className={card.titlePill}>
 						<span className={card.titleText}>{show.title.toUpperCase()}</span>

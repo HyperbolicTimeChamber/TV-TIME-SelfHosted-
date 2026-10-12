@@ -1,4 +1,4 @@
-@use "../tokens" as *;
+@use "../../theme/tokens" as *;
 
 .container {
 	min-height: 100dvh;
@@ -70,13 +70,6 @@
 	margin-top: 24px;
 }
 
-/* Character art height — shared by the image and the space reserved for it */
-.container,
-.art {
-	/* last term: on short screens shrink (or hide) the art so it never reaches the buttons */
-	--art-h: max(0px, min(42dvh, 420px, calc(100vw / 1.022), calc(86dvh - 300px)));
-}
-
 /* Not found: text + buttons sit just above the character, never overlapping it
    (declared after .container so these paddings win) */
 .container.containerWithArt {
@@ -86,18 +79,4 @@
 	justify-content: flex-end;
 	padding-top: 48px;
 	padding-bottom: calc(var(--art-h) + 16px);
-}
-
-/* Flush with the bottom of the viewport: the cropped legs read as the character
-   climbing out of the screen (passes under the tab bar when signed in) */
-.art {
-	position: fixed;
-	bottom: 0;
-	left: 50%;
-	translate: -50% 0;
-	height: var(--art-h);
-	width: auto;
-	pointer-events: none;
-	user-select: none;
-	z-index: 0;
 }

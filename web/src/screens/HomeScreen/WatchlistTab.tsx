@@ -12,7 +12,7 @@ import LoadingScreen from "../../components/LoadingScreen";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
 import { Paths, showPath } from "../../routes/paths";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
-import styles from "../../styles/screens/HomeScreen/HomeScreen.module.scss";
+import styles from "./styles/HomeScreen.module.scss";
 
 const UP_NEXT = "What's Up Next";
 
@@ -126,12 +126,12 @@ export default function WatchlistTab() {
 			</div>
 			<div ref={sentinel} />
 			{w.loadingMoreTracking && (
-				<div className={styles.center} style={{ minHeight: 80 }}>
+				<div className={`${styles.center} min-h-20!`}>
 					<Spin />
 				</div>
 			)}
 			{/* Keep "What's Up Next" scrollable to the top even with few cards */}
-			<div style={{ minHeight: "70dvh" }} />
+			<div className="min-h-[70dvh]" />
 
 			<WatchActionSheet
 				visible={w.sheetVisible}

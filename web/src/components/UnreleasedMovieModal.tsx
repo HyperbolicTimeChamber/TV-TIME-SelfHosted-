@@ -3,7 +3,7 @@ import { Checkbox } from "antd";
 import { hideUnreleasedModal } from "@app/services/unreleasedModalPref";
 import { useAppSelector } from "../store";
 import AnimatedModal from "./AnimatedModal";
-import styles from "../styles/components/ui.module.scss";
+import styles from "./styles/ui.module.scss";
 
 interface Props {
 	visible: boolean;
@@ -29,7 +29,7 @@ export default function UnreleasedMovieModal({ visible, onClose, movieTitle }: P
 			<Checkbox
 				checked={dontShowAgain}
 				onChange={(e) => setDontShowAgain(e.target.checked)}
-				style={{ marginBottom: 16 }}
+				className="mb-4"
 			>
 				Don't show this again
 			</Checkbox>

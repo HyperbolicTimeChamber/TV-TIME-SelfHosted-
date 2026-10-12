@@ -16,7 +16,8 @@ import SeasonDropdown from "../../components/SeasonDropdown";
 import ActionPills from "./ActionPills";
 import { Paths } from "../../routes/paths";
 import { appDeepLink, isMobileBrowser } from "../../utils/deepLink";
-import styles from "../../styles/screens/DetailScreens/ShowDetailScreen.module.scss";
+import styles from "./styles/ShowDetailScreen.module.scss";
+import { cssVars, px } from "../../utils/cssVars";
 
 /** Show / movie page — public (read-only for guests) and the target of share links */
 export default function ShowDetailScreen() {
@@ -104,7 +105,12 @@ export default function ShowDetailScreen() {
 
 			<div className={styles.backdrop}>
 				{backdropSrc && (
-					<img src={backdropSrc} alt="" className={styles.backdropImg} style={{ transform: `translateY(${parallax}px)` }} />
+					<img
+						src={backdropSrc}
+						alt=""
+						className={`${styles.backdropImg} translate-y-(--parallax)`}
+						style={cssVars({ "--parallax": px(parallax) })}
+					/>
 				)}
 			</div>
 			<div className={styles.gradientIsland}>

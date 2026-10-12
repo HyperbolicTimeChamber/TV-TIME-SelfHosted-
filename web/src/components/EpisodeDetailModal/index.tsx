@@ -4,10 +4,11 @@ import { AnimatePresence, motion } from "motion/react";
 import { IoChevronBack, IoChevronForward } from "react-icons/io5";
 import type { CarouselEpisode, EnrichedEpisode, EpisodeDetailModalProps } from "@app/types";
 import AnimatedModal from "../AnimatedModal";
-import ui from "../../styles/components/ui.module.scss";
+import ui from "../styles/ui.module.scss";
 import EpisodeCard from "./EpisodeCard";
 import { epKey } from "./helpers";
-import styles from "../../styles/components/EpisodeDetailModal/EpisodeDetailModal.module.scss";
+import styles from "./styles/EpisodeDetailModal.module.scss";
+import { cssVars } from "../../utils/cssVars";
 
 type Props = EpisodeDetailModalProps & {
 	/** Logged-out web visitors: browse episodes, no watch buttons */
@@ -219,11 +220,9 @@ export default function EpisodeDetailModal({
 								return (
 									<div key={key} className={styles.slide}>
 										<div
-											className={styles.cardWrapper}
+											className={`${styles.cardWrapper} [transform:perspective(900px)_rotateY(var(--ry))_scale(var(--sc))]`}
 											onClick={(e) => e.stopPropagation()}
-											style={{
-												transform: `perspective(900px) rotateY(${-d * SIDE_ROTATE_DEG}deg) scale(${1 - Math.abs(d) * (1 - SIDE_SCALE)})`,
-											}}
+											style={cssVars({ "--ry": `${-d * SIDE_ROTATE_DEG}deg`, "--sc": 1 - Math.abs(d) * (1 - SIDE_SCALE) })}
 										>
 											<EpisodeCard
 												ep={ep}

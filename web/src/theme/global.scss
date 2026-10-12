@@ -2,6 +2,8 @@
 
 :root {
 	color-scheme: dark;
+	/* Not-found character art height (NotFoundArt); last term shrinks/hides it on short screens */
+	--art-h: max(0px, min(42dvh, 420px, calc(100vw / 1.022), calc(86dvh - 300px)));
 	--bg: #000000;
 	--surface: #1a1a1a;
 	--surface-light: #252525;

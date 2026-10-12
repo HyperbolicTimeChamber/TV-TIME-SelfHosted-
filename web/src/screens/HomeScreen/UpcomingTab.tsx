@@ -10,8 +10,8 @@ import EpisodeDetailModal from "../../components/EpisodeDetailModal";
 import ShowDrawer from "../../components/ShowDrawer";
 import LoadingScreen from "../../components/LoadingScreen";
 import { showPath } from "../../routes/paths";
-import card from "../../styles/components/ShowCard.module.scss";
-import styles from "../../styles/screens/HomeScreen/HomeScreen.module.scss";
+import card from "../../components/styles/ShowCard.module.scss";
+import styles from "./styles/HomeScreen.module.scss";
 
 function formatDate(dateStr: string) {
 	const date = new Date(`${dateStr}T00:00:00`);
@@ -57,7 +57,7 @@ function UpcomingRow({
 					<span className={card.titleArrow}>›</span>
 				</button>
 				{isMovie ? (
-					<span className={card.movieBadge} style={{ borderRadius: 4 }}>
+					<span className={`${card.movieBadge} rounded-sm!`}>
 						MOVIE
 					</span>
 				) : (
@@ -140,7 +140,7 @@ export default function UpcomingTab() {
 					);
 				})}
 			</div>
-			<div style={{ minHeight: "60dvh" }} />
+			<div className="min-h-[60dvh]" />
 
 			{u.epModalData && (
 				<EpisodeDetailModal

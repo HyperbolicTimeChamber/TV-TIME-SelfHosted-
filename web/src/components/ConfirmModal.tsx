@@ -1,6 +1,7 @@
 import { Spin } from "antd";
 import AnimatedModal from "./AnimatedModal";
-import styles from "../styles/components/ui.module.scss";
+import styles from "./styles/ui.module.scss";
+import { cssVars } from "../utils/cssVars";
 
 interface Props {
 	visible: boolean;
@@ -31,8 +32,8 @@ export default function ConfirmModal({
 			{hint && <p className={styles.modalHint}>{hint}</p>}
 			{error && <p className={styles.modalError}>{error}</p>}
 			<button
-				className={`${styles.button} ${styles.danger}`}
-				style={confirmColor ? { background: confirmColor } : undefined}
+				className={`${styles.button} ${styles.danger} ${confirmColor ? "bg-(--confirm)!" : ""}`}
+				style={confirmColor ? cssVars({ "--confirm": confirmColor }) : undefined}
 				onClick={onConfirm}
 				disabled={loading}
 			>

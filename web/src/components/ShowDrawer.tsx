@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Spin } from "antd";
 import type { ShowDrawerData } from "@app/types";
 import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
-import styles from "../styles/components/ShowDrawer.module.scss";
+import styles from "./styles/ShowDrawer.module.scss";
 
 interface Props {
 	visible: boolean;
@@ -78,8 +78,8 @@ export default function ShowDrawer({ visible, show, loading, onGoToShow, onClose
 									{show.overview === null ? (
 										<div className={styles.overviewSkeleton}>
 											<span className={styles.skeleton} />
-											<span className={styles.skeleton} style={{ width: "95%" }} />
-											<span className={styles.skeleton} style={{ width: "60%" }} />
+											<span className={`${styles.skeleton} w-[95%]!`} />
+											<span className={`${styles.skeleton} w-[60%]!`} />
 										</div>
 									) : (
 										show.overview && <p className={styles.overview}>{show.overview}</p>

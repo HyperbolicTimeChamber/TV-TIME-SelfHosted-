@@ -3,7 +3,7 @@ import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import WatchlistTab from "./WatchlistTab";
 import UpcomingTab from "./UpcomingTab";
 import { Paths } from "../../routes/paths";
-import styles from "../../styles/screens/HomeScreen/HomeScreen.module.scss";
+import styles from "./styles/HomeScreen.module.scss";
 
 const TABS = [
 	{ to: Paths.HOME, label: "Watch List" },
