@@ -1,17 +1,11 @@
 import React, { useEffect, useRef } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, typography } from "../theme";
 import { LoadErrorKind, MediaType } from "../enums";
 import type { LoadErrorInfo } from "../utils";
+import NotFoundArt, { ART_HEIGHT } from "./NotFoundArt";
 
-const NOT_FOUND_ART = require("../../assets/not-found.png");
-const ART_RATIO = 600 / 587;
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
-// Cap by width and by ~42% of the screen height so the text always has room
-// Last term: on short screens shrink the art so it never reaches the buttons
-const ART_HEIGHT = Math.max(0, Math.min(SCREEN_W / ART_RATIO, SCREEN_H * 0.42, 420, SCREEN_H * 0.86 - 300));
-const ART_WIDTH = ART_HEIGHT * ART_RATIO;
 
 interface Action {
 	label: string;
@@ -29,23 +23,14 @@ interface Props {
 export default function ErrorState({ info, mediaType, primary, secondary }: Props) {
 	const fade = useRef(new Animated.Value(0)).current;
 	const rise = useRef(new Animated.Value(16)).current;
-	const climb = useRef(new Animated.Value(ART_HEIGHT)).current;
 	const showArt = info.kind === LoadErrorKind.NOT_FOUND;
 
 	useEffect(() => {
 		Animated.parallel([
 			Animated.timing(fade, { toValue: 1, duration: 300, useNativeDriver: true }),
 			Animated.spring(rise, { toValue: 0, damping: 14, stiffness: 140, useNativeDriver: true }),
-			// Character pops up from below the screen edge
-			Animated.spring(climb, {
-				toValue: 0,
-				damping: 11,
-				stiffness: 90,
-				delay: 120,
-				useNativeDriver: true,
-			}),
 		]).start();
-	}, [fade, rise, climb]);
+	}, [fade, rise]);
 
 	const icon =
 		info.kind === LoadErrorKind.OFFLINE
@@ -58,14 +43,7 @@ export default function ErrorState({ info, mediaType, primary, secondary }: Prop
 
 	return (
 		<View style={styles.root}>
-			{showArt && (
-				<Animated.Image
-					source={NOT_FOUND_ART}
-					style={[styles.art, { transform: [{ translateY: climb }] }]}
-					resizeMode="contain"
-					accessibilityIgnoresInvertColors
-				/>
-			)}
+			{showArt && <NotFoundArt />}
 			<Animated.View
 				style={[
 					styles.container,
@@ -120,14 +98,6 @@ const styles = StyleSheet.create({
 		paddingTop: spacing.xxl,
 		// Reserve the character's height + a gap so the buttons never overlap it
 		paddingBottom: ART_HEIGHT + spacing.lg,
-	},
-	// Flush with the bottom edge: the cropped legs read as climbing out of the screen
-	art: {
-		position: "absolute",
-		bottom: 0,
-		alignSelf: "center",
-		width: ART_WIDTH,
-		height: ART_HEIGHT,
 	},
 	iconRing: {
 		width: 112,
