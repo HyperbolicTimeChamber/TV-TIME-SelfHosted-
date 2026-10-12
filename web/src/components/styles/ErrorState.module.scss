@@ -78,5 +78,5 @@
 	/* Text stacks right on top of the character (fixed gap); extra height goes above */
 	justify-content: flex-end;
 	padding-top: 48px;
-	padding-bottom: calc(var(--art-h) + 16px);
+	padding-bottom: calc(var(--art-h) + 24px);
 }

@@ -1,6 +1,6 @@
 import { StyleSheet } from "react-native";
 import { colors, spacing, typography } from "../../theme";
-import { ART_HEIGHT } from "../../components/NotFoundArt";
+import { artHeight, NO_RESULTS_RATIO } from "../../components/NotFoundArt";
 
 export const styles = StyleSheet.create({
 	container: {
@@ -187,7 +187,7 @@ export const styles = StyleSheet.create({
 		alignItems: "center" as const,
 		justifyContent: "flex-end" as const,
 		paddingHorizontal: spacing.xxl,
-		paddingBottom: ART_HEIGHT + spacing.lg,
+		paddingBottom: artHeight(NO_RESULTS_RATIO) + spacing.xl,
 	},
 	emptyText: {
 		...typography.subtitle,

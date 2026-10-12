@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, typography } from "../theme";
 import { LoadErrorKind, MediaType } from "../enums";
 import type { LoadErrorInfo } from "../utils";
-import NotFoundArt, { ART_HEIGHT } from "./NotFoundArt";
+import NotFoundArt, { artHeight } from "./NotFoundArt";
 
 
 interface Action {
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
 		justifyContent: "flex-end",
 		paddingTop: spacing.xxl,
 		// Reserve the character's height + a gap so the buttons never overlap it
-		paddingBottom: ART_HEIGHT + spacing.lg,
+		paddingBottom: artHeight() + spacing.xl,
 	},
 	iconRing: {
 		width: 112,

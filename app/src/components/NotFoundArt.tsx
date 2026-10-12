@@ -1,19 +1,25 @@
 import React, { useEffect, useRef } from "react";
-import { Animated, Dimensions, StyleSheet } from "react-native";
+import { Animated, Dimensions, Easing, StyleSheet } from "react-native";
 
 const NOT_FOUND_ART = require("../../assets/not-found.png");
 const NOT_FOUND_RATIO = 600 / 587;
 /** Empty search results character (width / height) */
 export const NO_RESULTS_ART = require("../../assets/no-results.png");
 export const NO_RESULTS_RATIO = 306 / 646;
+
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
-// Cap by width and by ~42% of the screen height so the text always has room
-// Last term: on short screens shrink the art so it never reaches the buttons
-export const ART_HEIGHT = Math.max(0, Math.min(SCREEN_W / NOT_FOUND_RATIO, SCREEN_H * 0.42, 420, SCREEN_H * 0.86 - 300));
+
+/**
+ * Art height for an image of this width / height ratio: half the screen, at most 10%
+ * wider than the screen; the last term shrinks it on short screens so it never
+ * reaches the text and buttons above.
+ */
+export const artHeight = (ratio = NOT_FOUND_RATIO) =>
+	Math.max(0, Math.min((SCREEN_W * 1.1) / ratio, SCREEN_H * 0.5, 560, SCREEN_H * 0.9 - 280));
 
 /**
  * Character art flush with the bottom edge of its (flex: 1) parent: the cropped legs
- * read as climbing out of the screen. Reserve ART_HEIGHT under any content above it.
+ * read as climbing out of the screen. Reserve artHeight(ratio) under content above it.
  */
 export default function NotFoundArt({
 	source = NOT_FOUND_ART,
@@ -23,17 +29,24 @@ export default function NotFoundArt({
 	/** Image width / height */
 	ratio?: number;
 }) {
-	const climb = useRef(new Animated.Value(ART_HEIGHT)).current;
+	const height = artHeight(ratio);
+	const climb = useRef(new Animated.Value(height)).current;
 
 	useEffect(() => {
-		// Character pops up from below the screen edge
-		Animated.spring(climb, { toValue: 0, damping: 11, stiffness: 90, delay: 120, useNativeDriver: true }).start();
+		// Slides up from below the screen edge, no overshoot
+		Animated.timing(climb, {
+			toValue: 0,
+			duration: 350,
+			delay: 120,
+			easing: Easing.out(Easing.cubic),
+			useNativeDriver: true,
+		}).start();
 	}, [climb]);
 
 	return (
 		<Animated.Image
 			source={source}
-			style={[styles.art, { width: ART_HEIGHT * ratio, transform: [{ translateY: climb }] }]}
+			style={[styles.art, { height, width: height * ratio, transform: [{ translateY: climb }] }]}
 			resizeMode="contain"
 			accessibilityIgnoresInvertColors
 		/>
@@ -45,6 +58,5 @@ const styles = StyleSheet.create({
 		position: "absolute",
 		bottom: 0,
 		alignSelf: "center",
-		height: ART_HEIGHT,
 	},
 });
