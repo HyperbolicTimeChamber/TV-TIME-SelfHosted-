@@ -55,6 +55,8 @@ export enum CacheKey {
 	PROFILE_CARD_IMAGES = "profile_card_images_v1",
 	WEEKLY_ACTIVITY = "weekly_activity_v1",
 	COMPLETED_SECTIONS = "completed_sections_v1",
+	// v2: v1 could hold months saved empty before tracked ids loaded
+	CALENDAR_MONTHS = "calendar_months_v2",
 }
 
 export enum QueryKey {

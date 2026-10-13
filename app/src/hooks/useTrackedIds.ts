@@ -4,25 +4,24 @@ import { QueryKey } from "../types";
 import { getFirestore, collection, doc, getDocs } from "@react-native-firebase/firestore";
 import { onShowAdded, onShowRemoved } from "../utils";
 
+/** Every tracked tmdbId (tv + movie). One tracking read per session, shared by Search + Calendar */
+async function fetchTrackedIds(userId: string): Promise<Set<number>> {
+	const snapshot = await getDocs(collection(doc(getFirestore(), "users", userId), "tracking"));
+	const tracked = new Set<number>();
+	for (const d of snapshot.docs) tracked.add(Number(d.id.replace(/^(tv|movie)_/, "")));
+	return tracked;
+}
+
+/** Options for the shared tracked-ids query (useQuery / ensureQueryData) */
+export const trackedIdsQuery = (userId: string) => ({
+	queryKey: [QueryKey.TRACKED_IDS, userId],
+	queryFn: () => fetchTrackedIds(userId),
+	// Kept current by the local add/remove events below — never refetched
+	staleTime: Infinity,
+});
+
 export function useTrackedIds(userId: string | undefined) {
 	const queryClient = useQueryClient();
-
-	// One-time fetch on mount — no real-time listener
-	useEffect(() => {
-		if (!userId) return;
-
-		const db = getFirestore();
-		const colRef = collection(doc(db, "users", userId), "tracking");
-
-		getDocs(colRef).then((snapshot) => {
-			const tracked = new Set<number>();
-			for (const d of snapshot.docs) {
-				const raw = d.id.replace(/^(tv|movie)_/, "");
-				tracked.add(Number(raw));
-			}
-			queryClient.setQueryData([QueryKey.TRACKED_IDS, userId], tracked);
-		});
-	}, [userId, queryClient]);
 
 	// Local mutations — no Firestore reads
 	useEffect(() => {
@@ -50,10 +49,8 @@ export function useTrackedIds(userId: string | undefined) {
 	}, [userId, queryClient]);
 
 	const { data: ids = new Set<number>() } = useQuery<Set<number>>({
-		queryKey: [QueryKey.TRACKED_IDS, userId],
-		queryFn: () => new Set<number>(),
+		...trackedIdsQuery(userId ?? ""),
 		enabled: !!userId,
-		staleTime: Infinity,
 	});
 
 	return ids;
