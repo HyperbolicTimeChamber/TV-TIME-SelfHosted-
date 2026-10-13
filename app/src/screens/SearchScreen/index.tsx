@@ -229,7 +229,7 @@ export default function SearchScreen() {
 				<View style={styles.emptyWrap}>
 					<NotFoundArt source={NO_RESULTS_ART} ratio={NO_RESULTS_RATIO} />
 					<Text style={styles.emptyText}>NOTHING FOUND</Text>
-					<Text style={styles.emptyHint}>Try a different title or check the spelling</Text>
+					<Text style={styles.emptyHint}>Searched the database, but nothing happened. Have you lost the way?</Text>
 				</View>
 			) : (
 				<LegendList
