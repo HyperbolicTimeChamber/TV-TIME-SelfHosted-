@@ -1,19 +1,16 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
-import { useNavigationState } from "@react-navigation/native";
+import { getFocusedRouteNameFromRoute, useRoute } from "@react-navigation/native";
 import { colors } from "../theme";
 import { Route } from "../types";
 import HomeStackScreen from "./HomeStackScreen";
 import CustomTabBar from "./CustomTabBar";
 
 export default function HomeWithTabBar() {
-	// Get the focused route name inside the Home stack
-	const childRoute = useNavigationState((state) => {
-		const homeRoute = state.routes[state.index];
-		const nestedState = homeRoute.state;
-		if (!nestedState) return undefined;
-		return nestedState.routes[nestedState.index ?? 0]?.name;
-	});
+	// Focused screen inside the Home stack. Deep links hand over a partial state with
+	// no index (the last route is focused) — reading index ?? 0 showed the tab bar
+	// over linked show / not-found pages
+	const childRoute = getFocusedRouteNameFromRoute(useRoute());
 
 	const hideTabBar = childRoute === Route.SHOW_DETAIL || childRoute === Route.SEASON_DETAIL;
 
