@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getFirestore, doc, getDoc } from "@react-native-firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { discoverTVByAirDate, discoverMoviesByReleaseDate } from "../services";
+import { discoverMoviesByReleaseDate } from "../services";
 import { useAuthStore } from "../stores";
-import { UpcomingEpisode, CatalogShow, MediaType, QueryKey } from "../types";
-import { getCachedCatalogShow } from "./useWatchlist";
+import { UpcomingEpisode, MediaType, CacheKey } from "../types";
+import { getCachedCatalogShow, whenCatalogRestored } from "./useWatchlist";
+import { trackedIdsQuery } from "./useTrackedIds";
 import { useQueryClient } from "@tanstack/react-query";
 
-const CALENDAR_CACHE_KEY = "calendar_months";
 const MAX_CACHED_MONTHS = 12;
 
 interface CalendarCache {
@@ -17,7 +17,7 @@ interface CalendarCache {
 
 async function loadCalendarCache(): Promise<CalendarCache> {
 	try {
-		const raw = await AsyncStorage.getItem(CALENDAR_CACHE_KEY);
+		const raw = await AsyncStorage.getItem(CacheKey.CALENDAR_MONTHS);
 		if (!raw) return { months: {} };
 		return JSON.parse(raw) as CalendarCache;
 	} catch {
@@ -37,7 +37,7 @@ async function saveCalendarCache(cache: CalendarCache) {
 			if (key !== currentKey) delete cache.months[key];
 		}
 	}
-	await AsyncStorage.setItem(CALENDAR_CACHE_KEY, JSON.stringify(cache)).catch(() => {});
+	await AsyncStorage.setItem(CacheKey.CALENDAR_MONTHS, JSON.stringify(cache)).catch(() => {});
 }
 
 // Global mutation listeners (cross-screen)
@@ -57,14 +57,12 @@ export function addMovieToCalendarGlobal(movie: UpcomingEpisode) {
 export function useCalendarEpisodes(userId: string | undefined) {
 	const [episodesByMonth, setEpisodesByMonth] = useState<Map<string, UpcomingEpisode[]>>(new Map());
 	const [loading, setLoading] = useState(true);
-	const trackedIds = useRef<Set<string> | null>(null);
-	const trackedMovieIds = useRef<Set<string> | null>(null);
 	const calendarCacheRef = useRef<CalendarCache>({ months: {} });
 	const cacheLoaded = useRef(false);
 	const apiKey = useAuthStore((s) => s.appTmdbApiKey);
 	const queryClient = useQueryClient();
 
-	// Load persisted cache + derive tracked IDs from React Query cache (no Firestore reads)
+	// Load persisted cache + config sync date (for cache invalidation)
 	useEffect(() => {
 		if (!userId) return;
 
@@ -73,24 +71,6 @@ export function useCalendarEpisodes(userId: string | undefined) {
 		const db = getFirestore();
 		Promise.all([loadCalendarCache(), getDoc(doc(db, "config", "app")).catch(() => null)]).then(
 			([cache, configSnap]) => {
-				// Derive tracked IDs from TRACKED_IDS query cache (set by useTrackedIds — no Firestore read)
-				const allTracked =
-					queryClient.getQueryData<Set<number>>([QueryKey.TRACKED_IDS, userId]) ??
-					new Set<number>();
-				// Split TV vs movie using shared catalog cache
-				const tvIds = new Set<string>();
-				const movieIds = new Set<string>();
-				for (const id of allTracked) {
-					const movieCatalog = getCachedCatalogShow(id, MediaType.MOVIE);
-					if (movieCatalog) {
-						movieIds.add(String(id));
-					} else {
-						tvIds.add(String(id));
-					}
-				}
-				trackedIds.current = tvIds;
-				trackedMovieIds.current = movieIds;
-
 				// Check sync date — invalidate cache if backend synced since
 				const serverSync = configSnap?.data?.()?.lastCatalogSync;
 				const serverSyncStr = serverSync?.toDate?.()?.toISOString?.() || null;
@@ -132,39 +112,43 @@ export function useCalendarEpisodes(userId: string | undefined) {
 				return;
 			}
 
-			// Wait for tracked IDs
-			if (!trackedIds.current) {
-				setTimeout(() => loadMonthEpisodes(year, month), 200);
-				return;
-			}
-
 			setLoading(true);
 			try {
+				// Wait for the real tracked set — calendar used to read it straight from the
+				// query cache, which only the Search tab filled. Calendar first → empty set →
+				// empty month saved to AsyncStorage until the next catalog sync.
+				const [tracked] = await Promise.all([
+					queryClient.ensureQueryData(trackedIdsQuery(userId)),
+					whenCatalogRestored(),
+				]);
+
 				const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
 				const lastDay = new Date(year, month, 0).getDate();
 				const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+				const inMonth = (date: string | null | undefined): date is string =>
+					!!date && date >= startDate && date <= endDate;
 
-				// Run TV + movie discover in parallel
-				const [airingIds, movieResults] = await Promise.all([
-					discoverTVByAirDate(apiKey, startDate, endDate),
-					trackedMovieIds.current?.size
-						? discoverMoviesByReleaseDate(apiKey, startDate, endDate)
-						: Promise.resolve([]),
-				]);
+				// Split TV vs movie using the shared catalog cache (no Firestore reads)
+				const tvCatalogs = [...tracked]
+					.map((id) => getCachedCatalogShow(id, MediaType.TV))
+					.filter((c) => c !== null);
+				const movieCatalogs = [...tracked]
+					.map((id) => getCachedCatalogShow(id, MediaType.MOVIE))
+					.filter((c) => c !== null);
+				const movieIds = new Set(movieCatalogs.map((c) => c.tmdbId));
 
-				// TV: intersect discover results with tracked IDs → use shared catalog cache (no Firestore reads)
-				const matchedIds = airingIds.filter((id) => trackedIds.current!.has(String(id)));
+				const movieResults = movieIds.size
+					? await discoverMoviesByReleaseDate(apiKey, startDate, endDate)
+					: [];
+
+				// TV: every tracked show's catalog episodes in this month. (TMDB discover was
+				// only a pre-filter, capped at its 100 most popular shows — it dropped the rest.)
 				const episodes: UpcomingEpisode[] = [];
-				const catalogDocs: (CatalogShow | null)[] = matchedIds.map((id) =>
-					getCachedCatalogShow(id, MediaType.TV),
-				);
-
-				for (const catalog of catalogDocs) {
-					if (!catalog) continue;
+				for (const catalog of tvCatalogs) {
 					for (const season of catalog.seasons || []) {
 						if (season.seasonNumber === 0) continue;
 						for (const ep of season.episodes || []) {
-							if (!ep.airDate || ep.airDate < startDate || ep.airDate > endDate) continue;
+							if (!inMonth(ep.airDate)) continue;
 							episodes.push({
 								tmdbShowId: catalog.tmdbId ?? 0,
 								showTitle: catalog.title ?? "",
@@ -179,10 +163,10 @@ export function useCalendarEpisodes(userId: string | undefined) {
 					}
 				}
 
-				// Movies: intersect discover results with tracked IDs
-				const seen = new Set(episodes.map((e) => `${e.tmdbShowId}_S${e.season}E${e.episode}`));
+				// Movies: tracked releases from discover, plus catalog release dates it missed
+				const seen = new Set<string>();
 				for (const movie of movieResults) {
-					if (!trackedMovieIds.current?.has(String(movie.id))) continue;
+					if (!movieIds.has(movie.id)) continue;
 					const movieKey = `movie_${movie.id}`;
 					if (seen.has(movieKey)) continue;
 					episodes.push({
@@ -198,6 +182,25 @@ export function useCalendarEpisodes(userId: string | undefined) {
 					});
 					seen.add(movieKey);
 				}
+				for (const catalog of movieCatalogs) {
+					if (!inMonth(catalog.releaseDate) || seen.has(`movie_${catalog.tmdbId}`)) continue;
+					episodes.push({
+						tmdbShowId: catalog.tmdbId,
+						showTitle: catalog.title,
+						posterPath: catalog.posterPath,
+						season: 0,
+						episode: 0,
+						episodeTitle: catalog.title,
+						airDate: catalog.releaseDate,
+						runtime: null,
+						mediaType: MediaType.MOVIE,
+					});
+				}
+				episodes.sort((a, b) => a.airDate.localeCompare(b.airDate));
+
+				// Tracked shows but no catalogs in memory yet → show nothing for now, but don't
+				// save the month, so the next visit loads it again
+				if (tracked.size > 0 && tvCatalogs.length + movieCatalogs.length === 0) return;
 
 				// Update state + persist to cache
 				setEpisodesByMonth((prev) => {
@@ -211,7 +214,7 @@ export function useCalendarEpisodes(userId: string | undefined) {
 				setLoading(false);
 			}
 		},
-		[userId, apiKey, episodesByMonth, loading],
+		[userId, apiKey, episodesByMonth, queryClient],
 	);
 
 	const removeShowFromCalendar = useCallback((tmdbId: number) => {

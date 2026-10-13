@@ -129,6 +129,14 @@ async function enrichItems(
 // Module-level catalog cache shared across hooks
 let sharedCatalogCache: Map<string, CatalogShow | null> = new Map();
 
+let markCatalogRestored: () => void;
+const catalogRestored = new Promise<void>((resolve) => (markCatalogRestored = resolve));
+
+/** Resolves once the persisted catalog cache is back in memory (or after timeoutMs) */
+export function whenCatalogRestored(timeoutMs = 3000): Promise<void> {
+	return Promise.race([catalogRestored, new Promise<void>((r) => setTimeout(r, timeoutMs))]);
+}
+
 /** Get a catalog show from the in-memory cache (no Firestore read) */
 export function getCachedCatalogShow(tmdbId: number, mediaType: MediaType): CatalogShow | null {
 	return sharedCatalogCache.get(showDocId(tmdbId, mediaType)) ?? null;
@@ -268,6 +276,7 @@ export function useWatchlist(userId: string | undefined) {
 				sharedCatalogCache = restored;
 			}
 			catalogCacheRestored.current = true;
+			markCatalogRestored();
 			// Process any snapshot that arrived while restoring
 			if (pendingSnapshot.current) {
 				pendingSnapshot.current();
