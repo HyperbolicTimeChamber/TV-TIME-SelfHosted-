@@ -218,7 +218,7 @@ test("load errors map to not found / offline / server copy", async () => {
 	const { LoadErrorKind } = await import("../src/enums");
 	const nf = describeLoadError({ response: { status: 404 } }, MediaType.MOVIE);
 	assert.equal(nf.kind, LoadErrorKind.NOT_FOUND);
-	assert.equal(nf.title, "We couldn't find this movie");
+	assert.equal(nf.title, "You might be lost");
 	assert.equal(nf.canRetry, false);
 	assert.equal(nf.code, "404");
 	assert.equal(describeLoadError(null, MediaType.TV).kind, LoadErrorKind.NOT_FOUND, "no data = not found");

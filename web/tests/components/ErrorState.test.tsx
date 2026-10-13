@@ -18,7 +18,7 @@ describe("ErrorState", () => {
 				secondary={{ label: "Go to Watchlist", onPress: vi.fn() }}
 			/>,
 		);
-		expect(screen.getByRole("heading", { name: "We couldn't find this show" })).toBeInTheDocument();
+		expect(screen.getByRole("heading", { name: "You might be lost" })).toBeInTheDocument();
 		expect(screen.queryByText("Error 404")).not.toBeInTheDocument();
 		expect(document.querySelector('img[src="/not-found.png"]')).toBeInTheDocument();
 		fireEvent.click(screen.getByText("Search Shows & Movies"));

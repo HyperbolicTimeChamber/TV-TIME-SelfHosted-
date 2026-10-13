@@ -23,7 +23,7 @@ export function describeLoadError(error: unknown, mediaType: MediaType): LoadErr
 	if (!e || status === 404) {
 		return {
 			kind: LoadErrorKind.NOT_FOUND,
-			title: `We couldn't find this ${noun}`,
+			title: "You might be lost",
 			message: `It may have been removed from TMDB, or the link is broken. Try searching for it instead.`,
 			canRetry: false,
 			code: status ? String(status) : null,
