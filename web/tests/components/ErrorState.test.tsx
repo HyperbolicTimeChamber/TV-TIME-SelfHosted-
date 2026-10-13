@@ -6,6 +6,7 @@ import { MediaType } from "@app/enums";
 import { renderWithProviders, testUser } from "../render";
 import ErrorState from "../../src/components/ErrorState";
 import NotFoundScreen from "../../src/screens/NotFoundScreen";
+import AppShell from "../../src/layout/AppShell";
 
 describe("ErrorState", () => {
 	it("not-found: no retry, offers search + watchlist, shows code", () => {
@@ -47,6 +48,22 @@ describe("ErrorState", () => {
 		expect(screen.getByRole("heading", { name: "This page doesn't exist" })).toBeInTheDocument();
 		expect(screen.getByText("Go to Watchlist")).toBeInTheDocument();
 	});
+	it("not-found hides the tab bar; it comes back on other pages", () => {
+		const view = renderWithProviders(
+			<Routes>
+				<Route element={<AppShell />}>
+					<Route path="/home" element={<p>Watchlist page</p>} />
+					<Route path="*" element={<NotFoundScreen />} />
+				</Route>
+			</Routes>,
+			{ user: testUser, path: "/nope" },
+		);
+		expect(screen.queryByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
+		fireEvent.click(screen.getByText("Go to Watchlist"));
+		expect(screen.getByText("Watchlist page")).toBeInTheDocument();
+		expect(screen.getByRole("navigation", { name: "Main" })).toBeInTheDocument();
+		view.unmount();
+	});
 });
 
 describe("LoadingSpinner", () => {
@@ -56,4 +73,5 @@ describe("LoadingSpinner", () => {
 		expect(screen.getByRole("progressbar", { name: "Loading" })).toBeInTheDocument();
 		expect(container.querySelectorAll("span")).toHaveLength(4);
 	});
+
 });
