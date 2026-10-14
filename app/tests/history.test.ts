@@ -152,3 +152,35 @@ test("deriveHistoryCard: paused, rewatching, completed, movie", () => {
 	assert.equal(movie.tag, "2014");
 	assert.equal(movie.logoPath, null);
 });
+
+import { buildCompletedSections } from "../src/utils";
+
+test("buildCompletedSections: shows cluster in their most popular genre; small rows fold into More", () => {
+	const show = (id: number, genres: string[]) => ({
+		tmdbId: id,
+		mediaType: MediaType.TV,
+		title: `S${id}`,
+		posterPath: null,
+		genres,
+		completedAt: id,
+	});
+	const sections = buildCompletedSections([
+		show(1, ["Comedy", "Animation"]),
+		show(2, ["Animation"]),
+		show(3, ["Drama", "Animation"]),
+		show(4, ["Animation", "Comedy"]),
+		show(5, ["Crime"]),
+		show(6, ["Western"]),
+		{ ...show(7, []), mediaType: MediaType.MOVIE },
+	]);
+	assert.deepEqual(
+		sections.map((s) => [s.title, s.items.map((i) => i.tmdbId)]),
+		[
+			["Movies", [7]],
+			// Animation is everyone's most common genre → one full row
+			["Animation", [4, 3, 2, 1]],
+			// Crime / Western have 1 each → folded
+			["More", [6, 5]],
+		],
+	);
+});

@@ -11,21 +11,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CacheKey, WatchStatus, MediaType } from "../types";
 import { cacheCatalogShows, getCachedCatalogShow } from "./useWatchlist";
 import { fetchCatalogShows } from "../services/historyApi";
-import { onShowCompleted, showDocId } from "../utils";
+import {
+	onShowCompleted,
+	showDocId,
+	buildCompletedSections as buildSections,
+	type CompletedItem,
+	type CompletedSection,
+} from "../utils";
 
-export interface CompletedItem {
-	tmdbId: number;
-	mediaType: MediaType;
-	title: string;
-	posterPath: string | null;
-	genres: string[];
-	completedAt: number;
-}
-
-export interface CompletedSection {
-	title: string;
-	items: CompletedItem[];
-}
+export type { CompletedItem, CompletedSection };
 
 const SECTION_LIMIT = 10;
 /** Most recently completed TV shows considered for the genre rows — enough to fill them */
@@ -73,58 +67,6 @@ async function loadCompletedItems(userId: string): Promise<CompletedItem[]> {
 			genres: catalog?.genres ?? [],
 		};
 	});
-}
-
-function buildSections(items: CompletedItem[]): CompletedSection[] {
-	const sections: CompletedSection[] = [];
-
-	// Movies
-	const movies = items
-		.filter((i) => i.mediaType === MediaType.MOVIE)
-		.sort((a, b) => b.completedAt - a.completedAt)
-		.slice(0, SECTION_LIMIT);
-	if (movies.length > 0) {
-		sections.push({ title: "Movies", items: movies });
-	}
-
-	// TV shows — group by genre if available, else single "TV Shows" section
-	const tvShows = items.filter((i) => i.mediaType === MediaType.TV);
-	const hasGenres = tvShows.some((s) => s.genres.length > 0);
-
-	if (!hasGenres) {
-		// No genres yet — simple TV Shows section
-		const sorted = tvShows.sort((a, b) => b.completedAt - a.completedAt).slice(0, SECTION_LIMIT);
-		if (sorted.length > 0) {
-			sections.push({ title: "TV Shows", items: sorted });
-		}
-	} else {
-		const genreMap = new Map<string, CompletedItem[]>();
-		const placed = new Set<number>();
-		for (const show of tvShows) {
-			const genres = show.genres.length > 0 ? show.genres : ["Other"];
-			// Only place each show in its first genre to avoid duplicates
-			for (const genre of genres) {
-				if (placed.has(show.tmdbId)) break;
-				const list = genreMap.get(genre) ?? [];
-				list.push(show);
-				genreMap.set(genre, list);
-				placed.add(show.tmdbId);
-			}
-		}
-
-		const sortedGenres = [...genreMap.entries()].sort((a, b) => {
-			if (a[0] === "Other") return 1;
-			if (b[0] === "Other") return -1;
-			return b[1].length - a[1].length || a[0].localeCompare(b[0]);
-		});
-
-		for (const [genre, shows] of sortedGenres) {
-			const sorted = shows.sort((a, b) => b.completedAt - a.completedAt).slice(0, SECTION_LIMIT);
-			sections.push({ title: genre, items: sorted });
-		}
-	}
-
-	return sections;
 }
 
 export function useCompletedShows(userId: string | undefined) {
