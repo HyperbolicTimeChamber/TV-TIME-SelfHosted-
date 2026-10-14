@@ -10,6 +10,7 @@ import {
 import type { User } from "@react-native-firebase/auth";
 import { getFirestore, doc, getDoc } from "@react-native-firebase/firestore";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import { MIN_BUILD_FIELD, RELEASE_CHANNEL, ReleaseChannel } from "../enums";
 
 interface AuthState {
 	user: User | null;
@@ -18,7 +19,8 @@ interface AuthState {
 	appTmdbApiKeyLoading: boolean;
 	hasCompletedImport: boolean;
 	userFlagsLoading: boolean;
-	minVersion: string | null;
+	/** Minimum build number for this build's release channel (config/app) */
+	minBuild: number | null;
 	/** ISO string of config/app.lastCatalogSync (weekly server catalog refresh) */
 	lastCatalogSync: string | null;
 	/** Sync before lastCatalogSync — caches stamped with it only need changedShowIds re-read */
@@ -42,7 +44,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 	appTmdbApiKeyLoading: true,
 	hasCompletedImport: false,
 	userFlagsLoading: true,
-	minVersion: null,
+	minBuild: null,
 	lastCatalogSync: null,
 	previousCatalogSync: null,
 	changedShowIds: null,
@@ -70,7 +72,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 				const data = configDoc.data();
 				set({
 					appTmdbApiKey: data?.tmdbApiKey ?? null,
-					minVersion: data?.minVersion ?? null,
+					minBuild:
+						(data?.[MIN_BUILD_FIELD[RELEASE_CHANNEL as ReleaseChannel]] as number | undefined) ?? null,
 					lastCatalogSync: data?.lastCatalogSync?.toDate?.()?.toISOString?.() ?? null,
 					previousCatalogSync: data?.previousCatalogSync?.toDate?.()?.toISOString?.() ?? null,
 					changedShowIds: Array.isArray(data?.changedShowIds) ? data.changedShowIds : null,
@@ -148,7 +151,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 				appTmdbApiKey: null,
 				appTmdbApiKeyLoading: true,
 				hasCompletedImport: false,
-				minVersion: null,
+				minBuild: null,
 				lastCatalogSync: null,
 				previousCatalogSync: null,
 				changedShowIds: null,

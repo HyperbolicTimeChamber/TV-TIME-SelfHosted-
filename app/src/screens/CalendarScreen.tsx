@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { AnimatedModal, LoadingSpinner } from "../components";
@@ -7,10 +7,14 @@ import { LegendList } from "@legendapp/list/react-native";
 import { Calendar, DateData } from "react-native-calendars";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import PosterImage from "../components/PosterImage";
 import { colors, spacing, typography } from "../theme";
-import { UpcomingEpisode, CalendarStackParamList, Route, MediaType } from "../types";
-import { useCalendarScreen, YEARS } from "./useCalendarScreen";
+import { CalendarStackParamList, Route, MediaType } from "../types";
+import { useCalendarScreen, YEARS, type CalendarEpisode } from "./useCalendarScreen";
+import { Image } from "expo-image";
+import { tmdbBackdropUri, tmdbLogoUri } from "../hooks/useTmdbImage";
+import { BLUR_RADIUS } from "./ProfileScreen/styles";
+
+const CARD_WIDTH = Dimensions.get("window").width - 32;
 
 type NavProp = NativeStackNavigationProp<CalendarStackParamList, Route.CALENDAR_MAIN>;
 
@@ -61,11 +65,12 @@ export default function CalendarScreen() {
 	}, [currentYear, setYearModalVisible]);
 
 	const renderEpisode = useCallback(
-		({ item }: { item: UpcomingEpisode }) => {
+		({ item }: { item: CalendarEpisode }) => {
 			const isMovie = item.mediaType === MediaType.MOVIE;
 			return (
 				<TouchableOpacity
-					style={styles.episodeRow}
+					style={styles.episodeCard}
+					activeOpacity={0.85}
 					onPress={() =>
 						navigation.navigate(Route.SHOW_DETAIL, {
 							tmdbId: item.tmdbShowId,
@@ -73,29 +78,50 @@ export default function CalendarScreen() {
 						})
 					}
 				>
-					<PosterImage
-						posterPath={item.posterPath}
-						mediaType={item.mediaType}
-						style={styles.poster}
-					/>
+					{/* Same backdrop treatment as the Watch History cards */}
+					{item.backdropPath && (
+						<Image
+							source={{ uri: tmdbBackdropUri(item.backdropPath, CARD_WIDTH) }}
+							style={StyleSheet.absoluteFill}
+							contentFit="cover"
+							// Wide, short card: show the top of the backdrop (faces / titles sit there)
+							contentPosition="top"
+							blurRadius={BLUR_RADIUS}
+						/>
+					)}
+					<View style={[StyleSheet.absoluteFill, styles.cardOverlay]} />
 					<View style={styles.epInfo}>
-						<Text style={styles.showTitle} numberOfLines={1}>
-							{item.showTitle}
-						</Text>
+						{/* Title logo when TMDB has one, else the name */}
+						{item.logoPath ? (
+							<Image
+								source={{ uri: tmdbLogoUri(item.logoPath, CARD_WIDTH * 0.6) }}
+								style={styles.logo}
+								contentFit="contain"
+								contentPosition="left center"
+								accessibilityLabel={item.showTitle}
+							/>
+						) : (
+							<Text style={styles.showTitle} numberOfLines={1}>
+								{item.showTitle}
+							</Text>
+						)}
 						{isMovie ? (
 							<View style={styles.movieBadge}>
 								<Text style={styles.movieBadgeText}>MOVIE</Text>
 							</View>
 						) : (
-							<Text style={styles.epLabel}>
-								S{String(item.season).padStart(2, "0")}E{String(item.episode).padStart(2, "0")}
-							</Text>
-						)}
-						{!isMovie && (
-							<Text style={styles.epTitle} numberOfLines={1}>
+							<Text style={styles.epTitle} numberOfLines={2}>
 								{item.episodeTitle}
 							</Text>
 						)}
+					</View>
+					{/* Top-right pill: SxxExx for episodes, release year for movies */}
+					<View style={styles.seasonPill}>
+						<Text style={styles.epLabel}>
+							{isMovie
+								? item.airDate.slice(0, 4)
+								: `S${String(item.season).padStart(2, "0")}E${String(item.episode).padStart(2, "0")}`}
+						</Text>
 					</View>
 				</TouchableOpacity>
 			);
@@ -224,31 +250,37 @@ const styles = StyleSheet.create({
 		color: colors.textMuted,
 		marginTop: spacing.md,
 	},
-	episodeRow: {
+	episodeCard: {
+		minHeight: 120,
 		flexDirection: "row",
 		alignItems: "center",
-		paddingHorizontal: spacing.lg,
-		paddingVertical: spacing.sm,
-		borderBottomWidth: 1,
-		borderBottomColor: colors.border,
+		marginHorizontal: spacing.lg,
+		marginBottom: spacing.md,
+		padding: spacing.md,
+		borderRadius: 16,
+		overflow: "hidden",
+		backgroundColor: colors.surface,
 	},
-	poster: {
-		width: 45,
-		height: 67,
-		borderRadius: 4,
-	},
-	epInfo: {
-		flex: 1,
-		marginLeft: spacing.md,
-	},
+	cardOverlay: { backgroundColor: "rgba(0, 0, 0, 0.55)" },
+	epInfo: { flex: 1 },
+	logo: { height: 36, width: "60%", marginBottom: spacing.sm },
 	showTitle: {
 		...typography.subtitle,
 		fontSize: 14,
+		// Only the top row shares space with the corner pill — keep it clear
+		marginRight: 72,
 	},
-	epLabel: {
-		...typography.caption,
-		marginTop: spacing.xs,
+	// SxxExx / movie year in the card's top-right corner, translucent black
+	seasonPill: {
+		position: "absolute",
+		top: spacing.md,
+		right: spacing.md,
+		backgroundColor: colors.badgeOverlay,
+		borderRadius: 999,
+		paddingHorizontal: 12,
+		paddingVertical: 4,
 	},
+	epLabel: { ...typography.caption, fontSize: 14, color: colors.text, fontWeight: "600" },
 	movieBadge: {
 		alignSelf: "flex-start",
 		backgroundColor: colors.moviePurple,
@@ -265,9 +297,10 @@ const styles = StyleSheet.create({
 	},
 	epTitle: {
 		...typography.body,
-		color: colors.textSecondary,
+		color: colors.text,
 		marginTop: spacing.xs,
-		fontSize: 13,
+		fontSize: 15,
+		fontWeight: "500",
 	},
 	modalContent: {
 		backgroundColor: colors.surface,

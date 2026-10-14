@@ -17,6 +17,12 @@ vi.mock("@app/screens/useCalendarScreen", () => ({
 		selectedEpisodes: [
 			{ tmdbShowId: 1, showTitle: "Reacher", posterPath: null, season: 4, episode: 8, episodeTitle: "Cut", airDate: "2026-10-09", runtime: null },
 		],
+		episodes: [
+			{ tmdbShowId: 1, showTitle: "Reacher", posterPath: null, season: 4, episode: 8, episodeTitle: "Cut", airDate: "2026-10-09", runtime: null },
+			// Same show twice that day → still 1 show
+			{ tmdbShowId: 1, showTitle: "Reacher", posterPath: null, season: 4, episode: 9, episodeTitle: "Run", airDate: "2026-10-09", runtime: null },
+			{ tmdbShowId: 2, showTitle: "Dune", posterPath: null, season: 0, episode: 0, episodeTitle: "Dune", airDate: "2026-10-09", runtime: null, mediaType: "movie" },
+		],
 		handleDayPress,
 		handleMonthChange,
 		selectYear: vi.fn(),
@@ -44,5 +50,11 @@ describe("CalendarScreen", () => {
 		expect(handleMonthChange).toHaveBeenCalledWith(2026, 11);
 		fireEvent.click(screen.getByLabelText("2026-10-15"));
 		expect(handleDayPress).toHaveBeenCalledWith("2026-10-15");
+	});
+
+	it("desktop counts: distinct shows and movies per day", () => {
+		renderWithProviders(<CalendarScreen />, { user: testUser });
+		expect(screen.getByLabelText("1 shows")).toHaveTextContent("1");
+		expect(screen.getByLabelText("1 movies")).toHaveTextContent("1");
 	});
 });

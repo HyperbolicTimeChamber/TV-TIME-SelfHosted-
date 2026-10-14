@@ -2,7 +2,13 @@
 
 .container {
 	min-height: 100dvh;
+	max-width: 700px;
+	margin: 0 auto;
 	background: var(--surface);
+	/* Wide screens: paint the side gutters the same grey (content stays 1100px wide).
+	   clip-path keeps the spread horizontal only */
+	box-shadow: 0 0 0 100vmax var(--surface);
+	clip-path: inset(0 -100vmax);
 }
 
 .topTabs {
@@ -11,6 +17,9 @@
 	z-index: 15;
 	display: flex;
 	background: var(--bg);
+	/* Tab bar spans the full width too */
+	box-shadow: 0 0 0 100vmax var(--bg);
+	clip-path: inset(0 -100vmax);
 	padding-top: env(safe-area-inset-top);
 }
 
@@ -95,10 +104,4 @@
 	font-weight: 600;
 	color: $destructive-red;
 	margin: 0;
-}
-
-.loadEarlier {
-	display: flex;
-	justify-content: center;
-	padding-top: 8px;
 }

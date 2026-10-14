@@ -87,10 +87,47 @@ test("deriveHistoryCard: watching shows % of aired eps; caught up on airing show
 
 	const caughtUp = deriveHistoryCard(entry({ nextEpisode: { season: 1, episode: 4 } }), catalog(), today);
 	assert.deepEqual(caughtUp.progress, { kind: HistoryProgress.UP_TO_DATE });
-	// Ended show: no "up to date", plain percent
+	// Ended show caught up → finished (Completed, no ring), not "up to date"
 	const ended = deriveHistoryCard(entry({ nextEpisode: null }), catalog({ status: "Ended" }), today);
-	assert.deepEqual(ended.progress, { kind: HistoryProgress.PERCENT, percent: 100 });
+	assert.equal(ended.pill, HistoryPill.COMPLETED);
 	assert.equal(ended.tag, "Ended");
+});
+
+test("deriveHistoryCard: completed but still airing → Currently Watching + up to date", () => {
+	const today = "2026-10-14";
+	const airing = deriveHistoryCard(entry({ status: WatchStatus.COMPLETED, nextEpisode: null }), catalog(), today);
+	assert.equal(airing.pill, HistoryPill.WATCHING);
+	assert.deepEqual(airing.progress, { kind: HistoryProgress.UP_TO_DATE });
+	assert.equal(airing.watchCount, null);
+	assert.equal(airing.tag, "Ongoing");
+	// Ended show stays Completed
+	const ended = deriveHistoryCard(entry({ status: WatchStatus.COMPLETED }), catalog({ status: "Ended" }), today);
+	assert.equal(ended.pill, HistoryPill.COMPLETED);
+	assert.equal(ended.progress, null);
+});
+
+test("deriveHistoryCard: still 'watching' an ended show with nothing left → Completed", () => {
+	const today = "2026-10-14";
+	const card = deriveHistoryCard(entry({ nextEpisode: null }), catalog({ status: "Canceled" }), today);
+	assert.equal(card.pill, HistoryPill.COMPLETED);
+	assert.equal(card.progress, null);
+	assert.equal(card.watchCount, 1);
+	// Not finished yet → stays watching with progress
+	const midway = deriveHistoryCard(entry(), catalog({ status: "Ended" }), today);
+	assert.equal(midway.pill, HistoryPill.WATCHING);
+	assert.deepEqual(midway.progress, { kind: HistoryProgress.PERCENT, percent: 67 });
+});
+
+test("deriveHistoryCard: unknown runtimes show N/A instead of 0m", () => {
+	const card = deriveHistoryCard(entry({ minutesWatched: 0 }), catalog(), "2026-10-14");
+	assert.equal(card.timeSpent, "N/A");
+	// Movies hide Watch Time instead
+	const movie = deriveHistoryCard(
+		entry({ id: "movie_5", mediaType: MediaType.MOVIE, status: WatchStatus.COMPLETED, minutesWatched: 0, nextEpisode: null }),
+		catalog({ mediaType: MediaType.MOVIE }),
+		"2026-10-14",
+	);
+	assert.equal(movie.timeSpent, null);
 });
 
 test("deriveHistoryCard: paused, rewatching, completed, movie", () => {
@@ -102,7 +139,7 @@ test("deriveHistoryCard: paused, rewatching, completed, movie", () => {
 	const rewatch = deriveHistoryCard(entry({ status: WatchStatus.REWATCHING, rewatchCount: 2 }), catalog(), today);
 	assert.equal(rewatch.pill, HistoryPill.REWATCHING);
 	assert.equal(rewatch.watchCount, 2);
-	const done = deriveHistoryCard(entry({ status: WatchStatus.COMPLETED, rewatchCount: 1 }), catalog(), today);
+	const done = deriveHistoryCard(entry({ status: WatchStatus.COMPLETED, rewatchCount: 1 }), catalog({ status: "Ended" }), today);
 	assert.equal(done.progress, null);
 	assert.equal(done.watchCount, 2);
 	const movie = deriveHistoryCard(
@@ -110,8 +147,40 @@ test("deriveHistoryCard: paused, rewatching, completed, movie", () => {
 		catalog({ mediaType: MediaType.MOVIE, releaseDate: "2014-11-07", logoPath: null }),
 		today,
 	);
-	assert.equal(movie.pill, HistoryPill.COMPLETED);
+	assert.equal(movie.pill, null);
 	assert.equal(movie.watchCount, 3);
 	assert.equal(movie.tag, "2014");
 	assert.equal(movie.logoPath, null);
+});
+
+import { buildCompletedSections } from "../src/utils";
+
+test("buildCompletedSections: shows cluster in their most popular genre; small rows fold into Others", () => {
+	const show = (id: number, genres: string[]) => ({
+		tmdbId: id,
+		mediaType: MediaType.TV,
+		title: `S${id}`,
+		posterPath: null,
+		genres,
+		completedAt: id,
+	});
+	const sections = buildCompletedSections([
+		show(1, ["Comedy", "Animation"]),
+		show(2, ["Animation"]),
+		show(3, ["Drama", "Animation"]),
+		show(4, ["Animation", "Comedy"]),
+		show(5, ["Crime"]),
+		show(6, ["Western"]),
+		{ ...show(7, []), mediaType: MediaType.MOVIE },
+	]);
+	assert.deepEqual(
+		sections.map((s) => [s.title, s.items.map((i) => i.tmdbId)]),
+		[
+			["Movies", [7]],
+			// Animation is everyone's most common genre → one full row
+			["Animation", [4, 3, 2, 1]],
+			// Crime / Western have 1 each → folded
+			["Others", [6, 5]],
+		],
+	);
 });

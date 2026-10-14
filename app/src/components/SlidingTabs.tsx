@@ -6,6 +6,8 @@ import {
 	Animated,
 	StyleSheet,
 	LayoutChangeEvent,
+	StyleProp,
+	ViewStyle,
 } from "react-native";
 import { colors, spacing, typography } from "../theme";
 
@@ -18,9 +20,11 @@ interface Props {
 	tabs: Tab[];
 	activeKey: string;
 	onTabPress: (key: string) => void;
+	/** Container overrides (e.g. transparent background on a black top bar) */
+	style?: StyleProp<ViewStyle>;
 }
 
-export default function SlidingTabs({ tabs, activeKey, onTabPress }: Props) {
+export default function SlidingTabs({ tabs, activeKey, onTabPress, style }: Props) {
 	const activeIndex = tabs.findIndex((t) => t.key === activeKey);
 	const slideAnim = useRef(new Animated.Value(0)).current;
 	const tabWidths = useRef<number[]>([]);
@@ -51,7 +55,7 @@ export default function SlidingTabs({ tabs, activeKey, onTabPress }: Props) {
 	const pillWidth = tabWidths.current[activeIndex] || 0;
 
 	return (
-		<View style={styles.container}>
+		<View style={[styles.container, style]}>
 			<Animated.View
 				style={[
 					styles.pill,

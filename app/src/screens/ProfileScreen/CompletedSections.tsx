@@ -32,7 +32,7 @@ export default function CompletedSections({ sections, loading, onItemPress }: Re
 					<FlatList
 						horizontal
 						data={section.items}
-						keyExtractor={(item) => `${item.tmdbId}`}
+						keyExtractor={(item) => `${item.mediaType}_${item.tmdbId}`}
 						showsHorizontalScrollIndicator={false}
 						style={{ marginHorizontal: -spacing.lg }}
 						contentContainerStyle={{ paddingHorizontal: spacing.lg }}

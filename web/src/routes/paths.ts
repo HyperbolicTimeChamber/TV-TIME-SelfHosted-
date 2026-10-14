@@ -11,6 +11,7 @@ export const Paths = {
 	SEARCH_INPUT: "/search/input",
 	PROFILE: "/profile",
 	SETTINGS: "/profile/settings",
+	WATCH_HISTORY: "/profile/history",
 	IMPORT: "/profile/import",
 	SHOW: "/show/:mediaType/:tmdbId",
 } as const;

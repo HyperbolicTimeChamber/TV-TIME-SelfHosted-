@@ -9,9 +9,10 @@ export interface HistoryCard {
 	title: string;
 	logoPath: string | null;
 	backdropPath: string | null;
-	pill: HistoryPill;
-	/** formatTime(minutesWatched) */
-	timeSpent: string;
+	/** Status pill; null for movies (every movie in history is watched) */
+	pill: HistoryPill | null;
+	/** formatTime(minutesWatched); no runtime known yet → "N/A" for TV, null (hidden) for movies */
+	timeSpent: string | null;
 	/** Full watch-throughs — only for Rewatching / Completed */
 	watchCount: number | null;
 	progress: { kind: HistoryProgress; percent?: number } | null;
@@ -58,11 +59,32 @@ export function deriveHistoryCard(
 	today: string,
 ): HistoryCard {
 	const isMovie = entry.mediaType === MediaType.MOVIE;
-	const pill = isMovie ? HistoryPill.COMPLETED : PILL[entry.status];
 	const ended = ENDED_STATUSES.includes(catalog?.status ?? "");
+	// Watched everything aired on a show that's still airing → caught up, not finished
+	const caughtUpAiring =
+		!isMovie && !!catalog && !ended && entry.status === WatchStatus.COMPLETED;
+	// Still "watching" a show that has ended, with nothing left → finished (the status
+	// predates TMDB marking it ended, and the weekly sync skips ended shows)
+	const finishedEnded =
+		!isMovie &&
+		!!catalog &&
+		ended &&
+		entry.status === WatchStatus.WATCHING &&
+		percentWatched(entry, airedEpisodes(catalog, today)) === 100;
+	const pill = isMovie
+		? null
+		: caughtUpAiring
+			? HistoryPill.WATCHING
+			: finishedEnded
+				? HistoryPill.COMPLETED
+				: PILL[entry.status];
 
 	let progress: HistoryCard["progress"] = null;
-	if (pill === HistoryPill.PAUSED) {
+	if (finishedEnded) {
+		progress = null;
+	} else if (caughtUpAiring) {
+		progress = { kind: HistoryProgress.UP_TO_DATE };
+	} else if (pill === HistoryPill.PAUSED) {
 		progress = { kind: HistoryProgress.PAUSED };
 	} else if (pill === HistoryPill.WATCHING || pill === HistoryPill.REWATCHING) {
 		const aired = airedEpisodes(catalog, today);
@@ -88,7 +110,14 @@ export function deriveHistoryCard(
 		logoPath: catalog?.logoPath ?? null,
 		backdropPath: catalog?.backdropPath ?? null,
 		pill,
-		timeSpent: formatTime(Math.round(entry.minutesWatched)),
+		// Watched, but TMDB had no runtimes yet → TV "N/A" until the weekly sync heals it;
+		// movies just hide Watch Time
+		timeSpent:
+			entry.minutesWatched > 0
+				? formatTime(Math.round(entry.minutesWatched))
+				: isMovie
+					? null
+					: "N/A",
 		watchCount,
 		progress,
 		tag: isMovie ? year || null : catalog ? (ended ? "Ended" : "Ongoing") : null,

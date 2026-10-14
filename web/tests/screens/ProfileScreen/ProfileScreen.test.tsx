@@ -6,9 +6,6 @@ vi.mock("@app/hooks/useUserStats", () => ({
 	useUserStats: () => ({ stats: { episodesWatched: 1234, moviesWatched: 56, showsTracking: 78, totalMinutes: 3 * 1440 + 240 }, loading: false }),
 }));
 vi.mock("@app/hooks/useWatchlist", () => ({ useWatchlist: () => ({ items: [] }) }));
-vi.mock("@app/hooks/useWeeklyActivity", () => ({
-	useWeeklyActivity: () => ({ chartData: [{ label: "Mon", episodes: 2, movies: 1 }], refresh: vi.fn() }),
-}));
 vi.mock("@app/hooks/useProfileCardImages", () => ({
 	useProfileCardImages: () => ({ episodeBackdrop: null, movieBackdrop: null, trackingPosters: [], watchTimePosters: [] }),
 }));
@@ -28,7 +25,9 @@ describe("ProfileScreen", () => {
 		expect(screen.getByText("1.2K")).toBeInTheDocument();
 		expect(screen.getByText("56")).toBeInTheDocument();
 		expect(screen.getByText("3d 4h")).toBeInTheDocument();
-		expect(screen.getByText("Watch Statistics")).toBeInTheDocument();
+		// Chart is app-only (per-device cache)
+		expect(screen.queryByText("Watch Statistics")).not.toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Watch History" })).toBeInTheDocument();
 		expect(screen.getByText("Recently Completed")).toBeInTheDocument();
 		expect(screen.getByText("Drama")).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Log Out" })).toBeInTheDocument();

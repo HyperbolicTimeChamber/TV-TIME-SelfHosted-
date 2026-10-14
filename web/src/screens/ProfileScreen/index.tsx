@@ -1,19 +1,19 @@
-import { useEffect } from "react";
 import { App as AntApp, Spin } from "antd";
 import { IoPerson, IoSettingsSharp } from "react-icons/io5";
+import { IoIosArrowDroprightCircle } from "react-icons/io";
 import { useNavigate } from "react-router-dom";
 import { useUserStats } from "@app/hooks/useUserStats";
 import { useWatchlist } from "@app/hooks/useWatchlist";
-import { useWeeklyActivity } from "@app/hooks/useWeeklyActivity";
 import { useProfileCardImages } from "@app/hooks/useProfileCardImages";
 import { useCompletedShows } from "@app/hooks/useCompletedShows";
 import { formatCount, formatTime, scaledPhotoURL } from "@app/utils/format";
 import { useAppSelector } from "../../store";
 import { signOut } from "../../services/auth";
-import WeeklyChart from "../../components/WeeklyChart";
 import PosterImage from "../../components/PosterImage";
 import { Paths, showPath } from "../../routes/paths";
 import { StatCard, CollageCard } from "./ProfileCards";
+import historyStyles from "./WatchHistory/styles/WatchHistory.module.scss";
+import Marquee from "../../components/Marquee";
 import styles from "./styles/ProfileScreen.module.scss";
 
 /** Profile tab — stats, weekly chart, recently completed (same hooks as the app) */
@@ -23,13 +23,8 @@ export default function ProfileScreen() {
 	const user = useAppSelector((s) => s.auth.user);
 	const { stats, loading: statsLoading } = useUserStats(user?.uid);
 	const { items: watchlist } = useWatchlist(user?.uid);
-	const { chartData, refresh: refreshChart } = useWeeklyActivity();
 	const cardImages = useProfileCardImages(watchlist);
 	const { sections, loading: completedLoading } = useCompletedShows(user?.uid);
-
-	useEffect(() => {
-		refreshChart();
-	}, [refreshChart]);
 
 	const confirmSignOut = () =>
 		modal.confirm({
@@ -79,7 +74,13 @@ export default function ProfileScreen() {
 				<IoSettingsSharp size={18} /> Settings
 			</button>
 
-			<WeeklyChart data={chartData} />
+			{/* No Watch Statistics chart on web: its data is a per-device local cache */}
+			<button className={historyStyles.historyButton} onClick={() => navigate(Paths.WATCH_HISTORY)}>
+				{/* Spacer mirrors the icon so the label is centred on the whole pill */}
+				<span className="w-12 shrink-0" aria-hidden />
+				<span className="flex-1 text-center">Watch History</span>
+				<IoIosArrowDroprightCircle size={48} className="block shrink-0" />
+			</button>
 
 			{completedLoading ? (
 				<div className={styles.completedLoader}>
@@ -89,22 +90,36 @@ export default function ProfileScreen() {
 				sections.length > 0 && (
 					<section className={styles.section}>
 						<h3 className={styles.sectionTitle}>Recently Completed</h3>
-						{sections.map((section) => (
+						{sections.map((section, row) => (
 							<div key={section.title} className={styles.genreSection}>
 								<span className={styles.genreTitle}>{section.title}</span>
-								<div className={styles.posterRow}>
-									{section.items.map((item) => (
-										<button key={item.tmdbId} className={styles.posterButton} onClick={() => navigate(showPath(item.mediaType, item.tmdbId))}>
+								{/* More than 6 → continuously scrolling loop; otherwise a plain row */}
+								<Marquee
+									items={section.items}
+									// Stagger stacked rows: alternate direction, different start point
+									// and slightly different speed so posters never line up in columns
+									reverse={row % 2 === 1}
+									offset={(row * 0.37) % 1}
+									secondsPerItem={4 * (1 + ((row % 3) - 1) * 0.1)}
+									getKey={(item) => `${item.mediaType}_${item.tmdbId}`}
+									className={styles.posterRow}
+									renderItem={(item, hidden) => (
+										<button
+											className={styles.posterButton}
+											tabIndex={hidden ? -1 : undefined}
+											onClick={() => navigate(showPath(item.mediaType, item.tmdbId))}
+										>
 											<PosterImage
 												posterPath={item.posterPath}
 												mediaType={item.mediaType}
 												className={styles.completedPoster}
 												title={!item.posterPath ? item.title : undefined}
-												width={80}
+												// Largest size it's shown at (desktop 140px) so it stays sharp
+												width={140}
 											/>
 										</button>
-									))}
-								</div>
+									)}
+								/>
 							</div>
 						))}
 					</section>

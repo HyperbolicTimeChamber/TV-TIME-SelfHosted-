@@ -72,12 +72,21 @@ export enum QueryKey {
 	TRENDING = "trending",
 }
 
+/** Fill of the shared 44px circular icon buttons (back, share) */
+export enum CircleButtonTone {
+	/** Translucent black — floating over artwork */
+	OVERLAY = "overlay",
+	SURFACE = "surface",
+	SURFACE_LIGHT = "surfaceLight",
+}
+
 /** Watch History card status pill (label text) */
 export enum HistoryPill {
 	WATCHING = "Currently Watching",
 	REWATCHING = "Rewatching",
 	COMPLETED = "Completed",
-	PAUSED = "Paused",
+	/** Stopped part-way (paused / paused rewatch) */
+	PAUSED = "Incomplete",
 }
 
 /** Watch History card bottom-right module */
@@ -125,6 +134,7 @@ export enum Route {
 	CALENDAR_MAIN = "CalendarMain",
 	PROFILE_MAIN = "ProfileMain",
 	SETTINGS = "Settings",
+	WATCH_HISTORY = "WatchHistory",
 	IMPORT_DATA = "ImportData",
 }
 
@@ -135,5 +145,21 @@ export const WEB_BASE_URL = process.env.EXPO_PUBLIC_WEB_BASE_URL ?? "";
 export const TMDB_API_BASE = process.env.EXPO_PUBLIC_TMDB_API_BASE ?? "";
 /** Web only: tmdbProxy CF path for logged-out visitors (unset on mobile) */
 export const TMDB_PROXY_BASE = process.env.EXPO_PUBLIC_TMDB_PROXY_BASE ?? "";
+/** Distribution channel this build was made for — CI writes it; unset locally (never force-updated) */
+export const RELEASE_CHANNEL = process.env.EXPO_PUBLIC_RELEASE_CHANNEL ?? "";
+/** Where testers on this channel get the latest build (App Distribution tester link) */
+export const UPDATE_URL = process.env.EXPO_PUBLIC_UPDATE_URL ?? "";
+
+export enum ReleaseChannel {
+	DEV = "dev",
+	PROD = "prod",
+}
+
+/** config/app field holding the minimum build number per channel (set by CI on [force-update]) */
+export const MIN_BUILD_FIELD: Record<ReleaseChannel, string> = {
+	[ReleaseChannel.DEV]: "minBuildDev",
+	[ReleaseChannel.PROD]: "minBuildProd",
+};
+
 /** Stand-in "API key" meaning: no key — route TMDB calls through TMDB_PROXY_BASE */
 export const TMDB_PROXY_KEY = "__tmdb_proxy__";

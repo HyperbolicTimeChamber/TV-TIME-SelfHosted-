@@ -15,6 +15,8 @@
 .scroller {
 	display: flex;
 	overflow-x: auto;
+	/* Swipe UI: dragging must not highlight text across cards */
+	user-select: none;
 	scroll-snap-type: x mandatory;
 	scrollbar-width: none;
 	padding: 0 calc((100vw - var(--card-w)) / 2);
@@ -35,6 +37,16 @@
 .cardWrapper {
 	transition: transform 0.05s linear;
 	will-change: transform;
+}
+
+/* Side cards are previews: click brings them to the centre; their buttons stay inert
+   so you can't act on an episode you're not looking at */
+.sideCard {
+	cursor: pointer;
+
+	> * {
+		pointer-events: none;
+	}
 }
 
 .cardContent {

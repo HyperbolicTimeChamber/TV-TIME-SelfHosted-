@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { Fragment, useCallback, useMemo } from "react";
 import { Button, Spin } from "antd";
 import { useNavigate } from "react-router-dom";
 import { useWatchlistScreen } from "@app/screens/HomeScreen/WatchlistTab/useWatchlistScreen";
@@ -11,39 +11,30 @@ import ShowDrawer from "../../components/ShowDrawer";
 import LoadingScreen from "../../components/LoadingScreen";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
 import { Paths, showPath } from "../../routes/paths";
-import WatchedEpisodeRow from "./WatchedEpisodeRow";
 import styles from "./styles/HomeScreen.module.scss";
 
 const UP_NEXT = "What's Up Next";
 
 const keyOf = (item: WatchlistListItem) =>
-	item.type === "sectionHeader"
-		? `section_${item.title}`
-		: item.type === "watchedMovie"
-			? `movie_${item.movie.id}`
-			: item.type === "watchedEpisode"
-				? `watched_${item.episode.id}`
-				: `show_${item.item.id}`;
+	item.type === "sectionHeader" ? `section_${item.title}` : item.type === "show" ? `show_${item.item.id}` : item.type;
 
 /** Watch List tab — same data/actions as the app via useWatchlistScreen */
 export default function WatchlistTab() {
 	const navigate = useNavigate();
 	const goToShow = useCallback((tmdbId: number, mediaType: MediaType) => navigate(showPath(mediaType, tmdbId)), [navigate]);
 	const w = useWatchlistScreen(goToShow);
-	const upNextRef = useRef<HTMLDivElement>(null);
-	const scrolled = useRef(false);
-
-	// Open on "What's Up Next" (previously watched sits above, like the app)
-	useEffect(() => {
-		if (scrolled.current || w.isLoading || w.prevWatchedOffset <= 0) return;
-		scrolled.current = true;
-		requestAnimationFrame(() => upNextRef.current?.scrollIntoView({ block: "start" }));
-	}, [w.isLoading, w.prevWatchedOffset]);
-
 	const sentinel = useInfiniteScroll(w.loadMoreTracking, !w.loadingMoreTracking);
+	// Web shows only the active watchlist — no "Previously Watched" section above it
+	const items = useMemo(
+		() =>
+			w.listData.filter((i) =>
+				i.type === "sectionHeader" ? i.title === UP_NEXT : i.type !== "watchedEpisode" && i.type !== "watchedMovie",
+			),
+		[w.listData],
+	);
 
 	if (w.isLoading) return <LoadingScreen />;
-	if (w.listData.length === 0) {
+	if (items.length === 0) {
 		return (
 			<div className={styles.center}>
 				<p className={styles.empty}>No shows in your watchlist</p>
@@ -57,44 +48,12 @@ export default function WatchlistTab() {
 	const render = (item: WatchlistListItem) => {
 		if (item.type === "sectionHeader") {
 			return (
-				<div className={styles.sectionHeader} ref={item.title === UP_NEXT ? upNextRef : undefined}>
+				<div className={styles.sectionHeader}>
 					<span className={styles.sectionPill}>{item.title}</span>
 				</div>
 			);
 		}
-		if (item.type === "watchedMovie") {
-			return (
-				<ShowCard
-					item={
-						{
-							...item.show,
-							nextEpisode: null,
-							mediaType: MediaType.MOVIE,
-							rewatchCount: item.show.rewatchCount ?? 0,
-							director: item.show.catalogShow?.credits?.directors?.[0] ?? null,
-						} as never
-					}
-					isWatched
-					watchCount={item.movie.watchCount ?? 0}
-					onSwipeLeft={() => w.handleMovieSwipeLeft(item.movie)}
-					onSwipeRight={() => w.handleMovieSwipeRight(item.movie)}
-					onPress={(id) => goToShow(id, MediaType.MOVIE)}
-					onCheckmark={async () => w.handleMovieCheckmark(item.movie, item.show.title)}
-				/>
-			);
-		}
-		if (item.type === "watchedEpisode") {
-			return (
-				<WatchedEpisodeRow
-					episode={item.episode}
-					show={item.show}
-					onPress={w.handleTvPress}
-					onCheckmarkPress={w.handleWatchedCheckmark}
-					onSwipeLeft={w.handleWatchedSwipeLeft}
-					onSwipeRight={w.handleWatchedSwipeRight}
-				/>
-			);
-		}
+		if (item.type !== "show") return null;
 		return (
 			<ShowCard
 				item={item.item as never}
@@ -111,17 +70,11 @@ export default function WatchlistTab() {
 
 	return (
 		<>
-			{/* App: pull-to-refresh loads older history; web: explicit button */}
-			{w.hasMorePrevWatched && (
-				<div className={styles.loadEarlier}>
-					<Button size="small" onClick={w.loadMorePrevWatched} loading={w.loadingMorePrevWatched}>
-						Load earlier
-					</Button>
-				</div>
-			)}
 			<div className={styles.list}>
-				{w.listData.map((item) => (
-					<div key={keyOf(item)}>{render(item)}</div>
+				{/* No wrapper per item: a sticky section header can only stick within its
+				    parent, and a header-sized wrapper made it scroll straight away */}
+				{items.map((item) => (
+					<Fragment key={keyOf(item)}>{render(item)}</Fragment>
 				))}
 			</div>
 			<div ref={sentinel} />
@@ -130,8 +83,6 @@ export default function WatchlistTab() {
 					<Spin />
 				</div>
 			)}
-			{/* Keep "What's Up Next" scrollable to the top even with few cards */}
-			<div className="min-h-[70dvh]" />
 
 			<WatchActionSheet
 				visible={w.sheetVisible}

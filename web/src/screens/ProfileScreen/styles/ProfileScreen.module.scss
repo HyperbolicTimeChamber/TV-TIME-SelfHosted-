@@ -75,6 +75,9 @@
 	position: absolute;
 	inset: 0;
 	overflow: hidden;
+	/* Own stacking context: posters' z-index orders the pile only — without it they
+	   paint over the card overlay, labels, avatar and name */
+	isolation: isolate;
 }
 
 .scatterPoster {
@@ -155,11 +158,13 @@
 	justify-content: center;
 	gap: 4px;
 	width: calc(100% - 32px);
+	height: 56px;
 	margin: 24px 16px 0;
-	padding: 16px;
-	border: none;
-	border-radius: 8px;
-	background: var(--primary);
+	padding: 0 16px;
+	/* Outlined pill — the filled red pill below (Watch History) stays the main action */
+	border: 1.5px solid var(--primary);
+	border-radius: 999px;
+	background: transparent;
 	color: var(--text);
 	font-size: 14px;
 	font-weight: 600;
@@ -190,6 +195,10 @@
 .posterRow {
 	display: flex;
 	gap: 8px;
+
+	@include tablet {
+		gap: 12px;
+	}
 	overflow-x: auto;
 	margin: 0 -16px;
 	padding: 0 16px;
@@ -212,6 +221,17 @@
 	width: 80px;
 	height: 120px;
 	border-radius: 6px;
+
+	/* Bigger on wider screens (2:3 kept) */
+	@include tablet {
+		width: 110px;
+		height: 165px;
+		border-radius: 8px;
+	}
+	@include desktop {
+		width: 140px;
+		height: 210px;
+	}
 }
 
 .completedLoader {

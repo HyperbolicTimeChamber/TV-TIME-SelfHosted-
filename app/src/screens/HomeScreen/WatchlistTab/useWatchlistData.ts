@@ -526,18 +526,24 @@ export function useWatchlistData(userId: string | undefined) {
 		return displayList.map((item) => {
 			if (item.type === "sectionHeader") return item;
 			if (item.type === "watchedMovie") {
-				const show = showMap.get(item.tmdbId);
+				const show =
+					showMap.get(item.tmdbId) ??
+					({
+						tmdbId: item.tmdbId,
+						title: item.showTitle,
+						posterPath: item.posterPath,
+						mediaType: MediaType.MOVIE,
+						catalogShow: getCachedCatalogShow(item.tmdbId, MediaType.MOVIE),
+					} as EnrichedTrackingItem);
 				return {
 					type: "watchedMovie" as const,
 					movie: item.movie,
-					show:
-						show ??
-						({
-							tmdbId: item.tmdbId,
-							title: item.showTitle,
-							posterPath: item.posterPath,
-							mediaType: MediaType.MOVIE,
-						} as EnrichedTrackingItem),
+					// Tracking docs of movies added via "mark watched" store releaseDate null —
+					// fall back to the catalog like active cards do (buildCardItem)
+					show: {
+						...show,
+						releaseDate: show.releaseDate ?? show.catalogShow?.releaseDate ?? null,
+					},
 				};
 			}
 			if (item.type === "watchedEpisode") {

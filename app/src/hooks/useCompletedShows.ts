@@ -9,75 +9,64 @@ import {
 } from "@react-native-firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CacheKey, WatchStatus, MediaType } from "../types";
-import { getCachedCatalogShow } from "./useWatchlist";
-import { onShowCompleted } from "../utils";
+import { cacheCatalogShows, getCachedCatalogShow } from "./useWatchlist";
+import { fetchCatalogShows } from "../services/historyApi";
+import {
+	onShowCompleted,
+	showDocId,
+	buildCompletedSections as buildSections,
+	type CompletedItem,
+	type CompletedSection,
+} from "../utils";
 
-export interface CompletedItem {
-	tmdbId: number;
-	mediaType: MediaType;
-	title: string;
-	posterPath: string | null;
-	genres: string[];
-	completedAt: number;
-}
-
-export interface CompletedSection {
-	title: string;
-	items: CompletedItem[];
-}
+export type { CompletedItem, CompletedSection };
 
 const SECTION_LIMIT = 10;
+/** Most recently completed TV shows considered for the genre rows — enough to fill them */
+const RECENT_TV_POOL = 60;
 
-function buildSections(items: CompletedItem[]): CompletedSection[] {
-	const sections: CompletedSection[] = [];
+/**
+ * Completed tracking docs → display items. Only what can be shown is kept (latest
+ * movies + latest TV shows); catalogs missing from the shared cache are fetched in one
+ * batched query and cached, so later loads read nothing. Before, missing catalogs
+ * rendered as "Show 12345" with no poster under "Other".
+ */
+async function loadCompletedItems(userId: string): Promise<CompletedItem[]> {
+	const db = getFirestore();
+	const snap = await getDocs(
+		query(collection(doc(db, "users", userId), "tracking"), where("status", "==", WatchStatus.COMPLETED)),
+	);
+	const docs = snap.docs
+		.map((d) => {
+			const data = d.data();
+			return {
+				tmdbId: data.tmdbId as number,
+				mediaType: (data.mediaType as MediaType) ?? MediaType.TV,
+				completedAt: (data.lastWatchedAt?.toMillis?.() as number | undefined) ?? 0,
+			};
+		})
+		.sort((a, b) => b.completedAt - a.completedAt);
+	const shown = [
+		...docs.filter((d) => d.mediaType === MediaType.MOVIE).slice(0, SECTION_LIMIT),
+		...docs.filter((d) => d.mediaType === MediaType.TV).slice(0, RECENT_TV_POOL),
+	];
 
-	// Movies
-	const movies = items
-		.filter((i) => i.mediaType === MediaType.MOVIE)
-		.sort((a, b) => b.completedAt - a.completedAt)
-		.slice(0, SECTION_LIMIT);
-	if (movies.length > 0) {
-		sections.push({ title: "Movies", items: movies });
+	const missing = shown
+		.filter((d) => !getCachedCatalogShow(d.tmdbId, d.mediaType))
+		.map((d) => showDocId(d.tmdbId, d.mediaType));
+	if (missing.length > 0) {
+		cacheCatalogShows(await fetchCatalogShows(missing).catch(() => []));
 	}
 
-	// TV shows — group by genre if available, else single "TV Shows" section
-	const tvShows = items.filter((i) => i.mediaType === MediaType.TV);
-	const hasGenres = tvShows.some((s) => s.genres.length > 0);
-
-	if (!hasGenres) {
-		// No genres yet — simple TV Shows section
-		const sorted = tvShows.sort((a, b) => b.completedAt - a.completedAt).slice(0, SECTION_LIMIT);
-		if (sorted.length > 0) {
-			sections.push({ title: "TV Shows", items: sorted });
-		}
-	} else {
-		const genreMap = new Map<string, CompletedItem[]>();
-		const placed = new Set<number>();
-		for (const show of tvShows) {
-			const genres = show.genres.length > 0 ? show.genres : ["Other"];
-			// Only place each show in its first genre to avoid duplicates
-			for (const genre of genres) {
-				if (placed.has(show.tmdbId)) break;
-				const list = genreMap.get(genre) ?? [];
-				list.push(show);
-				genreMap.set(genre, list);
-				placed.add(show.tmdbId);
-			}
-		}
-
-		const sortedGenres = [...genreMap.entries()].sort((a, b) => {
-			if (a[0] === "Other") return 1;
-			if (b[0] === "Other") return -1;
-			return b[1].length - a[1].length || a[0].localeCompare(b[0]);
-		});
-
-		for (const [genre, shows] of sortedGenres) {
-			const sorted = shows.sort((a, b) => b.completedAt - a.completedAt).slice(0, SECTION_LIMIT);
-			sections.push({ title: genre, items: sorted });
-		}
-	}
-
-	return sections;
+	return shown.map((d) => {
+		const catalog = getCachedCatalogShow(d.tmdbId, d.mediaType);
+		return {
+			...d,
+			title: catalog?.title ?? `Show ${d.tmdbId}`,
+			posterPath: catalog?.posterPath ?? null,
+			genres: catalog?.genres ?? [],
+		};
+	});
 }
 
 export function useCompletedShows(userId: string | undefined) {
@@ -109,27 +98,7 @@ export function useCompletedShows(userId: string | undefined) {
 		fetchedFromFirestore.current = true;
 
 		(async () => {
-			const db = getFirestore();
-			const trackingRef = collection(doc(db, "users", userId), "tracking");
-			const q = query(trackingRef, where("status", "==", WatchStatus.COMPLETED));
-			const snap = await getDocs(q);
-
-			const items: CompletedItem[] = snap.docs.map((d) => {
-				const data = d.data();
-				const tmdbId = data.tmdbId as number;
-				const mediaType = (data.mediaType as MediaType) ?? MediaType.TV;
-				const catalog = getCachedCatalogShow(tmdbId, mediaType);
-
-				return {
-					tmdbId,
-					mediaType,
-					title: catalog?.title ?? `Show ${tmdbId}`,
-					posterPath: catalog?.posterPath ?? null,
-					genres: catalog?.genres ?? [],
-					completedAt: data.lastWatchedAt?.toMillis?.() ?? 0,
-				};
-			});
-
+			const items = await loadCompletedItems(userId);
 			setSections(buildSections(items));
 			setLoading(false);
 
@@ -142,7 +111,10 @@ export function useCompletedShows(userId: string | undefined) {
 	const addCompletedItem = useCallback(
 		(item: CompletedItem) => {
 			setSections((prev) => {
-				const allItems = extractAllItems(prev);
+				// Already listed (e.g. a completed movie watched again) → replace, don't duplicate
+				const allItems = extractAllItems(prev).filter(
+					(i) => !(i.tmdbId === item.tmdbId && i.mediaType === item.mediaType),
+				);
 				allItems.push(item);
 				const updated = buildSections(allItems);
 
@@ -175,26 +147,7 @@ export function useCompletedShows(userId: string | undefined) {
 
 	const refetch = useCallback(async () => {
 		if (!userId) return;
-		const db = getFirestore();
-		const trackingRef = collection(doc(db, "users", userId), "tracking");
-		const q = query(trackingRef, where("status", "==", WatchStatus.COMPLETED));
-		const snap = await getDocs(q);
-
-		const items: CompletedItem[] = snap.docs.map((d) => {
-			const data = d.data();
-			const tmdbId = data.tmdbId as number;
-			const mediaType = (data.mediaType as MediaType) ?? MediaType.TV;
-			const catalog = getCachedCatalogShow(tmdbId, mediaType);
-
-			return {
-				tmdbId,
-				mediaType,
-				title: catalog?.title ?? `Show ${tmdbId}`,
-				posterPath: catalog?.posterPath ?? null,
-				genres: catalog?.genres ?? [],
-				completedAt: data.lastWatchedAt?.toMillis?.() ?? 0,
-			};
-		});
+		const items = await loadCompletedItems(userId);
 
 		setSections(buildSections(items));
 
@@ -207,12 +160,14 @@ export function useCompletedShows(userId: string | undefined) {
 }
 
 function extractAllItems(sections: CompletedSection[]): CompletedItem[] {
-	const seen = new Set<number>();
+	// TV shows and movies can share a TMDB id — key by both
+	const seen = new Set<string>();
 	const items: CompletedItem[] = [];
 	for (const section of sections) {
 		for (const item of section.items) {
-			if (!seen.has(item.tmdbId)) {
-				seen.add(item.tmdbId);
+			const key = `${item.mediaType}_${item.tmdbId}`;
+			if (!seen.has(key)) {
+				seen.add(key);
 				items.push(item);
 			}
 		}

@@ -16,6 +16,9 @@
 	align-self: stretch;
 	min-height: 100px;
 	object-fit: cover;
+	/* Ignore the image's own 2:3 height: the card is as tall as its text (like the app)
+	   and the poster stretches to it */
+	contain: size;
 }
 
 .watchedPoster {
@@ -103,13 +106,17 @@
 
 .movieMetaRow {
 	display: flex;
-	align-items: stretch;
+	align-items: center;
 	margin-top: 4px;
 }
 
 .movieBadge {
+	/* Fixed 18px: matches the slanted arrow (9 + 9px borders) whatever the font */
+	display: flex;
+	align-items: center;
+	height: 18px;
 	background: $movie-purple;
-	padding: 2px 8px;
+	padding: 0 8px;
 	border-radius: 4px 0 0 4px;
 	font-size: 10px;
 	font-weight: 700;
@@ -125,6 +132,7 @@
 }
 
 .freshTag {
+	height: 18px;
 	background: $warning-amber;
 	padding: 0 8px;
 	border-radius: 0 4px 4px 0;

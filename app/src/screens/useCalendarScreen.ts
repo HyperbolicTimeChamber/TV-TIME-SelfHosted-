@@ -1,6 +1,12 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { useAuthStore } from "../stores";
-import { useCalendarEpisodes } from "../hooks";
+import { useCalendarEpisodes, getCachedCatalogShow } from "../hooks";
+import { ensureFreshCatalogs } from "../hooks/catalogRefresh";
+import { MediaType } from "../enums";
+import type { UpcomingEpisode } from "../types";
+
+/** A day's episode / movie, with its backdrop for the list card */
+export type CalendarEpisode = UpcomingEpisode & { backdropPath: string | null; logoPath: string | null };
 import { colors } from "../theme";
 import { todayStr } from "../utils";
 
@@ -70,10 +76,39 @@ export function useCalendarScreen() {
 		return marks;
 	}, [episodes, selectedDate]);
 
-	const selectedEpisodes = useMemo(() => {
-		if (!selectedDate || !episodes) return [];
-		return episodes.filter((ep) => ep.airDate === selectedDate);
+	// Catalog cache isn't reactive — bump after refreshing stale entries (missing logos)
+	const [catalogVersion, setCatalogVersion] = useState(0);
+	useEffect(() => {
+		if (!selectedDate || !episodes) return;
+		const day = episodes
+			.filter((ep) => ep.airDate === selectedDate)
+			.map((ep) => ({
+				tmdbId: ep.tmdbShowId,
+				mediaType: ep.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV,
+			}));
+		ensureFreshCatalogs(day)
+			.then((fetched) => fetched && setCatalogVersion((v) => v + 1))
+			.catch(() => {});
 	}, [episodes, selectedDate]);
+
+	// + backdrop and logo from the shared catalog cache (no reads) for the cards
+	const selectedEpisodes = useMemo((): CalendarEpisode[] => {
+		if (!selectedDate || !episodes) return [];
+		return episodes
+			.filter((ep) => ep.airDate === selectedDate)
+			.map((ep) => {
+				const catalog = getCachedCatalogShow(
+					ep.tmdbShowId,
+					ep.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV,
+				);
+				return {
+					...ep,
+					backdropPath: catalog?.backdropPath ?? null,
+					logoPath: catalog?.logoPath ?? null,
+				};
+			});
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [episodes, selectedDate, catalogVersion]);
 
 	const handleDayPress = useCallback((dateString: string) => {
 		setSelectedDate(dateString);
