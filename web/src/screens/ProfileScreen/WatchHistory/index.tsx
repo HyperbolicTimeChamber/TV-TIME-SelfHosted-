@@ -75,6 +75,8 @@ export default function WatchHistoryScreen() {
 						<IoChevronBack size={24} />
 					</button>
 					<h1 className={styles.title}>Watch History</h1>
+					{/* Mirrors the back button so the title is centred on the bar */}
+					<span className="w-11 shrink-0" aria-hidden />
 				</div>
 				<SlidingTabs id="history-tabs" tabs={TABS} activeKey={tab} onTabPress={setTab} />
 			</motion.header>

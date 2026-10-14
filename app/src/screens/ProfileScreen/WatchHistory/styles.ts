@@ -33,7 +33,8 @@ export const styles = StyleSheet.create({
 		justifyContent: "center",
 		paddingRight: 2,
 	},
-	title: { flex: 1, fontSize: 20, fontWeight: "700", color: colors.text },
+	title: { flex: 1, textAlign: "center", fontSize: 20, fontWeight: "700", color: colors.text },
+	backSpacer: { width: 44 },
 	list: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
 	separator: { height: spacing.lg },
 	empty: {

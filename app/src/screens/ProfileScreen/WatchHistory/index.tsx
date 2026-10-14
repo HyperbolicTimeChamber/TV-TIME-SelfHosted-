@@ -97,6 +97,8 @@ export default function WatchHistoryScreen() {
 						<Ionicons name="chevron-back" size={24} color={colors.text} />
 					</TouchableOpacity>
 					<Text style={styles.title}>Watch History</Text>
+					{/* Mirrors the back button so the title is centred on the bar */}
+					<View style={styles.backSpacer} />
 				</View>
 				<SlidingTabs tabs={TABS} activeKey={tab} onTabPress={(key) => setTab(key as MediaType)} />
 			</View>
