@@ -19,7 +19,7 @@ export default function DonePhase({ insetTop, stats, onDone }: Props) {
 				<Text style={styles.statLine}>Episodes: {stats.episodesImported}</Text>
 				{stats.minutesImported > 0 && (
 					<Text style={styles.statLine}>
-						Watch time: {Math.round(stats.minutesImported / 60)}h {stats.minutesImported % 60}m
+						Watch time: {Math.floor(stats.minutesImported / 60)}h {stats.minutesImported % 60}m
 					</Text>
 				)}
 				{stats.skipped > 0 && (

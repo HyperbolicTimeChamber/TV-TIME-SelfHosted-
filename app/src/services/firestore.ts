@@ -710,7 +710,7 @@ export async function markMovieWatched(
 		{
 			stats: {
 				moviesWatched: increment(1),
-				totalMinutes: increment(Math.round(runtime / 60)),
+				totalMinutes: increment(runtime || 0),
 			},
 		},
 		{ merge: true },
@@ -748,7 +748,7 @@ export async function decrementMovieWatchCount(
 		{
 			stats: {
 				moviesWatched: increment(-1),
-				totalMinutes: increment(-Math.round(runtime / 60)),
+				totalMinutes: increment(-(runtime || 0)),
 			},
 		},
 		{ merge: true },
@@ -785,7 +785,7 @@ export async function unmarkMovieWatched(
 		{
 			stats: {
 				moviesWatched: increment(-1),
-				totalMinutes: increment(-Math.round(runtime / 60)),
+				totalMinutes: increment(-(runtime || 0)),
 			},
 		},
 		{ merge: true },
@@ -853,7 +853,7 @@ export async function addAndMarkMovieWatched(
 			stats: {
 				...(!alreadyTracked ? { showsTracking: increment(1) } : {}),
 				moviesWatched: increment(1),
-				totalMinutes: increment(Math.round(runtime / 60)),
+				totalMinutes: increment(runtime || 0),
 			},
 		},
 		{ merge: true },
