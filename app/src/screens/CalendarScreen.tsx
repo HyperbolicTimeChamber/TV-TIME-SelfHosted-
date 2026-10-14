@@ -84,6 +84,8 @@ export default function CalendarScreen() {
 							source={{ uri: tmdbBackdropUri(item.backdropPath, CARD_WIDTH) }}
 							style={StyleSheet.absoluteFill}
 							contentFit="cover"
+							// Wide, short card: show the top of the backdrop (faces / titles sit there)
+							contentPosition="top"
 							blurRadius={BLUR_RADIUS}
 						/>
 					)}
