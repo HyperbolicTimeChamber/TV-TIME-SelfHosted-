@@ -79,6 +79,7 @@ export const styles = StyleSheet.create({
 		paddingVertical: 5,
 	},
 	progressText: { fontSize: 14, fontWeight: "700" },
+	progressIcon: { margin: -1 },
 	// Light grey (textSecondary) at 35% — translucent over the backdrop
 	tagPill: {
 		borderRadius: 999,

@@ -8,15 +8,16 @@ import { tmdbBackdropUri, tmdbLogoUri } from "../../../hooks/useTmdbImage";
 import type { HistoryCard } from "../../../utils";
 import { BLUR_RADIUS } from "../styles";
 import ProgressRing from "./ProgressRing";
-import { styles } from "./styles";
+import { RING_SIZE, styles } from "./styles";
 
 const CARD_WIDTH = Dimensions.get("window").width - 32;
 
+/** Status colours at 60% (hex alpha 99) — translucent over the backdrop */
 export const PILL_COLOR: Record<HistoryPill, string> = {
-	[HistoryPill.WATCHING]: colors.watchedGreen,
-	[HistoryPill.REWATCHING]: colors.stopBlue,
-	[HistoryPill.COMPLETED]: colors.destructiveRed,
-	[HistoryPill.PAUSED]: colors.moviePurple,
+	[HistoryPill.WATCHING]: `${colors.watchedGreen}99`,
+	[HistoryPill.REWATCHING]: `${colors.stopBlue}99`,
+	[HistoryPill.COMPLETED]: `${colors.destructiveRed}99`,
+	[HistoryPill.PAUSED]: `${colors.moviePurple}99`,
 };
 
 function ProgressModule({ progress }: { progress: NonNullable<HistoryCard["progress"]> }) {
@@ -29,13 +30,15 @@ function ProgressModule({ progress }: { progress: NonNullable<HistoryCard["progr
 					{ backgroundColor: upToDate ? colors.watchedGreen : colors.moviePurple },
 				]}
 			>
+				{/* Ionicons glyphs carry ~1px inner padding: +2 / −1 margin → visually RING_SIZE */}
 				<Ionicons
 					name={upToDate ? "checkmark-circle-outline" : "pause-circle-outline"}
-					size={18}
+					size={RING_SIZE + 2}
 					color={colors.text}
+					style={styles.progressIcon}
 				/>
 				<Text style={[styles.progressText, { color: colors.text }]}>
-					{upToDate ? "Up to date" : "Paused"}
+					{upToDate ? "Up To Date" : "Paused"}
 				</Text>
 			</View>
 		);

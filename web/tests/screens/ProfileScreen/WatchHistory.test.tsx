@@ -59,7 +59,7 @@ describe("WatchHistoryScreen", () => {
 		expect(screen.queryByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
 
 		expect(screen.getByText("55%")).toBeInTheDocument();
-		expect(screen.getByText("Up to date")).toBeInTheDocument();
+		expect(screen.getByText("Up To Date")).toBeInTheDocument();
 		// Paused card: status pill + progress module
 		expect(screen.getAllByText("Paused")).toHaveLength(2);
 		expect(screen.getByText("Watched 2×")).toBeInTheDocument();

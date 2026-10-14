@@ -6,25 +6,30 @@ import { tmdbBackdropUri, tmdbLogoUri } from "@app/hooks/useTmdbImage";
 import ProgressRing from "./ProgressRing";
 import styles from "./styles/WatchHistory.module.scss";
 
+/** Status colours at 60% — translucent over the backdrop */
 const PILL_BG: Record<HistoryPill, string> = {
-	[HistoryPill.WATCHING]: "bg-watched",
-	[HistoryPill.REWATCHING]: "bg-stop",
-	[HistoryPill.COMPLETED]: "bg-danger",
-	[HistoryPill.PAUSED]: "bg-movie",
+	[HistoryPill.WATCHING]: "bg-watched/60",
+	[HistoryPill.REWATCHING]: "bg-stop/60",
+	[HistoryPill.COMPLETED]: "bg-danger/60",
+	[HistoryPill.PAUSED]: "bg-movie/60",
 };
+/** Icons match the progress ring's 20px so all three pills line up */
+const ICON_SIZE = 20;
 
 function ProgressModule({ progress }: { progress: NonNullable<Card["progress"]> }) {
 	if (progress.kind === HistoryProgress.UP_TO_DATE) {
 		return (
 			<span className={`${styles.progressPill} bg-watched`}>
-				<FaRegCheckCircle size={16} /> Up to date
+				<FaRegCheckCircle size={ICON_SIZE} className="block shrink-0" />
+				Up To Date
 			</span>
 		);
 	}
 	if (progress.kind === HistoryProgress.PAUSED) {
 		return (
 			<span className={`${styles.progressPill} bg-movie`}>
-				<FaRegPauseCircle size={16} /> Paused
+				<FaRegPauseCircle size={ICON_SIZE} className="block shrink-0" />
+				Paused
 			</span>
 		);
 	}
