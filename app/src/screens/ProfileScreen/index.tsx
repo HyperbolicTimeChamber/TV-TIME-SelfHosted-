@@ -17,6 +17,7 @@ import { colors } from "../../theme";
 import { ProfileStackParamList, Route, MediaType } from "../../types";
 import WeeklyChart from "../../components/WeeklyChart";
 import StatCard from "./StatCard";
+import WatchHistoryButton from "./WatchHistoryButton";
 import CollageCard from "./CollageCard";
 import CompletedSections from "./CompletedSections";
 import { styles } from "./styles";
@@ -132,6 +133,7 @@ export default function ProfileScreen() {
 			</TouchableOpacity>
 
 			<WeeklyChart data={chartData} />
+			<WatchHistoryButton onPress={() => navigation.navigate(Route.WATCH_HISTORY)} />
 
 			<CompletedSections
 				sections={completedSections}

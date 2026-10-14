@@ -4,6 +4,7 @@ import { ProfileStackParamList, Route } from "../types";
 import { stackScreenOptions } from "./screenOptions";
 import ProfileScreen from "../screens/ProfileScreen";
 import SettingsScreen from "../screens/ProfileScreen/SettingsScreen";
+import WatchHistoryScreen from "../screens/ProfileScreen/WatchHistory";
 import ImportDataScreen from "../screens/ImportDataScreen";
 import ShowDetailScreen from "../screens/DetailScreens/ShowDetailScreen";
 
@@ -20,6 +21,11 @@ export default function ProfileStackScreen() {
 			<ProfileStack.Screen
 				name={Route.SETTINGS}
 				component={SettingsScreen}
+				options={{ headerShown: false }}
+			/>
+			<ProfileStack.Screen
+				name={Route.WATCH_HISTORY}
+				component={WatchHistoryScreen}
 				options={{ headerShown: false }}
 			/>
 			<ProfileStack.Screen

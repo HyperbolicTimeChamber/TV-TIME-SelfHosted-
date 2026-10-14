@@ -46,6 +46,13 @@ export function tmdbBackdropUri(path: string, layoutWidth: number): string {
 	return `${TMDB_IMAGE_BASE}/${getTmdbBackdropSize(layoutWidth)}${path}`;
 }
 
+/** Title logos are transparent PNGs — sized by width like posters */
+export function tmdbLogoUri(path: string, layoutWidth: number): string {
+	const px = toPhysicalPx(layoutWidth);
+	const size = px <= 185 ? "w185" : px <= 300 ? "w300" : px <= 500 ? "w500" : "original";
+	return `${TMDB_IMAGE_BASE}/${size}${path}`;
+}
+
 export function tmdbStillUri(path: string, layoutWidth: number): string {
 	return `${TMDB_IMAGE_BASE}/${getTmdbStillSize(layoutWidth)}${path}`;
 }

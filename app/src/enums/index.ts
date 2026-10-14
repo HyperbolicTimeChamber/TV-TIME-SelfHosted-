@@ -125,6 +125,7 @@ export enum Route {
 	CALENDAR_MAIN = "CalendarMain",
 	PROFILE_MAIN = "ProfileMain",
 	SETTINGS = "Settings",
+	WATCH_HISTORY = "WatchHistory",
 	IMPORT_DATA = "ImportData",
 }
 
