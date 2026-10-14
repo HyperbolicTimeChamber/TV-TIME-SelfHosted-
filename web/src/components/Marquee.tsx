@@ -13,6 +13,10 @@ interface Props<T> {
 	secondsPerItem?: number;
 	/** Row styling (gap, padding, overflow) — shared by the static and moving versions */
 	className?: string;
+	/** Scroll right instead of left */
+	reverse?: boolean;
+	/** Where in the loop the row starts, 0–1 — staggers stacked rows */
+	offset?: number;
 }
 
 /**
@@ -27,6 +31,8 @@ export default function Marquee<T>({
 	threshold = 6,
 	secondsPerItem = 4,
 	className = "",
+	reverse = false,
+	offset = 0,
 }: Props<T>) {
 	if (items.length <= threshold) {
 		return (
@@ -44,9 +50,14 @@ export default function Marquee<T>({
 			))}
 		</div>
 	);
+	const loop = items.length * secondsPerItem;
 	return (
 		<div className={`${className} ${styles.viewport}`}>
-			<div className={styles.track} style={cssVars({ "--loop": `${items.length * secondsPerItem}s` })}>
+			<div
+				className={`${styles.track} ${reverse ? styles.reverse : ""}`}
+				// Negative delay = start part-way through the loop
+				style={cssVars({ "--loop": `${loop}s`, "--start": `${-offset * loop}s` })}
+			>
 				{copy(false)}
 				{copy(true)}
 			</div>

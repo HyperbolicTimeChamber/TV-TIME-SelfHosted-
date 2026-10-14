@@ -90,12 +90,17 @@ export default function ProfileScreen() {
 				sections.length > 0 && (
 					<section className={styles.section}>
 						<h3 className={styles.sectionTitle}>Recently Completed</h3>
-						{sections.map((section) => (
+						{sections.map((section, row) => (
 							<div key={section.title} className={styles.genreSection}>
 								<span className={styles.genreTitle}>{section.title}</span>
 								{/* More than 6 → continuously scrolling loop; otherwise a plain row */}
 								<Marquee
 									items={section.items}
+									// Stagger stacked rows: alternate direction, different start point
+									// and slightly different speed so posters never line up in columns
+									reverse={row % 2 === 1}
+									offset={(row * 0.37) % 1}
+									secondsPerItem={4 * (1 + ((row % 3) - 1) * 0.1)}
 									getKey={(item) => item.tmdbId}
 									className={styles.posterRow}
 									renderItem={(item, hidden) => (

@@ -18,7 +18,11 @@
 .track {
 	display: flex;
 	width: max-content;
-	animation: marquee var(--loop) linear infinite;
+	animation: marquee var(--loop) linear var(--start, 0s) infinite;
+}
+
+.reverse {
+	animation-direction: reverse;
 }
 
 /* Each copy ends with one gap, so shifting by exactly half the track is seamless */
