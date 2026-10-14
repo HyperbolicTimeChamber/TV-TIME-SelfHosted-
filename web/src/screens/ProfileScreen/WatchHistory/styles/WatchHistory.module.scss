@@ -151,7 +151,7 @@
 .cardTitle {
 	max-width: 100%;
 	font-size: 20px;
-	font-weight: 700;
+	font-weight: 600;
 	/* Up to 2 lines, then … */
 	display: -webkit-box;
 	-webkit-box-orient: vertical;
@@ -184,7 +184,7 @@
 .timeSpent {
 	display: block;
 	font-size: 30px;
-	font-weight: 700;
+	font-weight: 600;
 	letter-spacing: -0.5px;
 	line-height: 1;
 	/* Box ends exactly at the digits' baseline → its bottom lines up with the pill's */
