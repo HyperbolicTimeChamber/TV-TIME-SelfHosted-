@@ -2,7 +2,7 @@ name: Bump Build Number
 
 on:
   workflow_run:
-    workflows: ["Build & Distribute (Development)", "Build & Deploy to Play Store"]
+    workflows: ["Build & Distribute (Development)", "Build & Distribute (Production)"]
     types: [completed]
 
 concurrency:
