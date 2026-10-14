@@ -276,18 +276,17 @@ export async function markEpisodeWatched(
 			{ merge: true },
 		);
 
-		if (!isRewatch) {
-			tx.set(
-				userRef(userId),
-				{
-					stats: {
-						episodesWatched: increment(1),
-						totalMinutes: increment(runtime),
-					},
+		// Episodes = unique episodes; Watch Time = every watch (rewatches count)
+		tx.set(
+			userRef(userId),
+			{
+				stats: {
+					...(isRewatch ? {} : { episodesWatched: increment(1) }),
+					totalMinutes: increment(runtime),
 				},
-				{ merge: true },
-			);
-		}
+			},
+			{ merge: true },
+		);
 
 		if (!skipTrackingUpdate) {
 			const now = Timestamp.now();
@@ -472,16 +471,14 @@ export async function unmarkSeasonWatched(
 	);
 
 	const batch = writeBatch(db);
-	let totalRuntime = 0;
 	let deleteCount = 0;
-	// Watch History counts every play (rewatches too) — all of them go away here
+	// Every play (rewatches too) goes away here — Watch Time + Watch History
 	let historyMinutes = 0;
 	let historyPlays = 0;
 
 	for (const d of allSeasonDocs.docs) {
 		batch.delete(d.ref);
 		const { runtime = 0, watchCount = 1 } = d.data();
-		totalRuntime += runtime;
 		deleteCount++;
 		historyMinutes += runtime * watchCount;
 		historyPlays += watchCount;
@@ -494,7 +491,8 @@ export async function unmarkSeasonWatched(
 		{
 			stats: {
 				episodesWatched: increment(-deleteCount),
-				totalMinutes: increment(-totalRuntime),
+				// Every play of these episodes leaves Watch Time
+				totalMinutes: increment(-historyMinutes),
 			},
 		},
 		{ merge: true },
