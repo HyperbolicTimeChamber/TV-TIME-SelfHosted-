@@ -9,6 +9,7 @@ import {
 	addMovieToCalendarGlobal,
 	incrementDailyWatch,
 	decrementDailyWatch,
+	getCachedCatalogShow,
 } from "../../hooks";
 import { useAuthStore } from "../../stores";
 import {
@@ -137,6 +138,37 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	const producers =
 		show?.credits?.crew?.filter((c) => c.job === "Producer").map((c) => c.name) ?? [];
 
+	/** Show's future episodes into the local upcoming + calendar caches (server docs come from addShow CF) */
+	const addFutureEpisodesLocally = useCallback(
+		(title: string, poster: string | null) => {
+			const today = todayStr();
+			const upcomingEps: UpcomingEpisode[] = [];
+			for (const [seasonNum, eps] of episodesBySeason) {
+				if (seasonNum === 0) continue;
+				for (const ep of eps) {
+					if (ep.air_date && ep.air_date >= today) {
+						upcomingEps.push({
+							tmdbShowId: tmdbId,
+							showTitle: title,
+							posterPath: poster,
+							season: seasonNum,
+							episode: ep.episode_number,
+							episodeTitle: ep.name || "",
+							airDate: ep.air_date,
+							runtime: ep.runtime ?? null,
+							mediaType: MediaType.TV,
+						});
+					}
+				}
+			}
+			// No ep data → nothing to add; syncCatalog CF fills upcoming later
+			if (upcomingEps.length === 0) return;
+			addShowToUpcoming(tmdbId, upcomingEps);
+			for (const ep of upcomingEps) addMovieToCalendarGlobal(ep);
+		},
+		[episodesBySeason, tmdbId, addShowToUpcoming],
+	);
+
 	const handleAddToWatchlist = useCallback(async () => {
 		if (!user?.uid || !show || adding) return;
 		setAdding(true);
@@ -198,32 +230,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 				addShowToUpcoming(tmdbId, movieEp);
 				addMovieToCalendarGlobal(movieEp);
 			} else if (mediaType === MediaType.TV) {
-				const upcomingEps: UpcomingEpisode[] = [];
-				for (const [seasonNum, eps] of episodesBySeason) {
-					if (seasonNum === 0) continue;
-					for (const ep of eps) {
-						if (ep.air_date && ep.air_date >= today) {
-							upcomingEps.push({
-								tmdbShowId: tmdbId,
-								showTitle: title,
-								posterPath: poster,
-								season: seasonNum,
-								episode: ep.episode_number,
-								episodeTitle: ep.name || "",
-								airDate: ep.air_date,
-								runtime: ep.runtime ?? null,
-								mediaType: MediaType.TV,
-							});
-						}
-					}
-				}
-				if (upcomingEps.length > 0) {
-					addShowToUpcoming(tmdbId, upcomingEps);
-					for (const ep of upcomingEps) {
-						addMovieToCalendarGlobal(ep);
-					}
-				}
-				// No ep data → don't add to upcoming. syncCatalog CF will populate later.
+				addFutureEpisodesLocally(title, poster);
 			}
 		} catch (err: any) {
 			console.error("addToTracking failed:", err);
@@ -231,7 +238,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		} finally {
 			setAdding(false);
 		}
-	}, [user?.uid, show, tmdbId, mediaType, adding, addShowToUpcoming, episodesBySeason]);
+	}, [user?.uid, show, tmdbId, mediaType, adding, addShowToUpcoming, episodesBySeason, addFutureEpisodesLocally]);
 
 	const handleRemove = useCallback(() => {
 		if (!user?.uid || removing) return;
@@ -332,10 +339,26 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 			await handleMarkMovieWatched();
 			return;
 		}
-		if (watchlistItem?.status === WatchStatus.PAUSED) {
-			await resumeWatching(user.uid, tmdbId, mediaType);
-		} else if (watchlistItem?.status === WatchStatus.PAUSED_REWATCH) {
-			await resumeRewatch(user.uid, tmdbId, mediaType);
+		const paused = watchlistItem?.status === WatchStatus.PAUSED;
+		if (paused || watchlistItem?.status === WatchStatus.PAUSED_REWATCH) {
+			await (paused ? resumeWatching : resumeRewatch)(user.uid, tmdbId, mediaType);
+			// Stop removed the show from the local watchlist + upcoming; put it back
+			// (the tracking listener alone misses it — see stopWatching / removeItem)
+			const title = show?.title || show?.name || "";
+			const poster = show?.poster_path || null;
+			emitShowAdded({
+				...watchlistItem,
+				id: showDocId(tmdbId, mediaType),
+				tmdbId,
+				mediaType,
+				status: paused ? WatchStatus.WATCHING : WatchStatus.REWATCHING,
+				priorityDate: Timestamp.now(),
+				title,
+				posterPath: poster,
+				totalEpisodes: 0,
+				catalogShow: getCachedCatalogShow(tmdbId, mediaType),
+			});
+			if (mediaType === MediaType.TV) addFutureEpisodesLocally(title, poster);
 		} else if (mediaType === MediaType.TV && showWatchedEps.length === 0) {
 			// COMPLETED without a single watched episode — bad state, start fresh instead of rewatch
 			await restartWatching(user.uid, tmdbId);
@@ -345,10 +368,12 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	}, [
 		user?.uid,
 		tmdbId,
-		watchlistItem?.status,
+		watchlistItem,
 		mediaType,
 		handleMarkMovieWatched,
 		showWatchedEps.length,
+		show,
+		addFutureEpisodesLocally,
 	]);
 
 	const handleMovieSheetAction = useCallback(

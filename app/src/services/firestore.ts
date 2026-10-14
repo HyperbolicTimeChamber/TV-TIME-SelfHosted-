@@ -301,6 +301,15 @@ export async function markEpisodeWatched(
 			tx.update(doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)), trackingUpdate);
 		}
 	});
+
+	// Watched → out of the server upcoming list too (doc id from the upcoming CFs), so a
+	// later upcoming refetch doesn't bring it back. Fire-and-forget: missing doc is fine
+	deleteDoc(
+		doc(
+			collection(doc(db, "users", userId), "upcoming"),
+			`${showDocId(tmdbShowId, MediaType.TV)}_${docId.slice(docId.indexOf("_") + 1)}`,
+		),
+	).catch(() => {});
 }
 
 export async function unmarkEpisodeWatched(
@@ -504,11 +513,25 @@ export async function startRewatch(userId: string, tmdbId: number, mediaType: Me
 	});
 }
 
-export async function resumeWatching(userId: string, tmdbId: number, mediaType: MediaType) {
-	const docId = showDocId(tmdbId, mediaType);
-	await updateDoc(doc(trackingRef(userId), docId), {
-		status: WatchStatus.WATCHING,
+/**
+ * Back from PAUSED / PAUSED_REWATCH. Bumps priorityDate (top of the watchlist, and
+ * inside the listener's first page) and rebuilds the show's upcoming docs that
+ * stopWatching deleted — upcoming is CF-write-only, addShow's fast path does it.
+ */
+async function resume(userId: string, tmdbId: number, mediaType: MediaType, status: WatchStatus) {
+	await updateDoc(doc(trackingRef(userId), showDocId(tmdbId, mediaType)), {
+		status,
+		priorityDate: serverTimestamp(),
 	});
+	if (mediaType === MediaType.TV) {
+		callCF(CloudFunction.ADD_SHOW, { tmdbId, mediaType }).catch((err: any) =>
+			console.error("[resume] addShow CF failed:", err),
+		);
+	}
+}
+
+export async function resumeWatching(userId: string, tmdbId: number, mediaType: MediaType) {
+	await resume(userId, tmdbId, mediaType, WatchStatus.WATCHING);
 }
 
 /** Reset a show back to S1E1 / watching (e.g. COMPLETED with nothing watched) */
@@ -540,10 +563,7 @@ export async function skipRewatchEpisode(
 }
 
 export async function resumeRewatch(userId: string, tmdbId: number, mediaType: MediaType) {
-	const docId = showDocId(tmdbId, mediaType);
-	await updateDoc(doc(trackingRef(userId), docId), {
-		status: WatchStatus.REWATCHING,
-	});
+	await resume(userId, tmdbId, mediaType, WatchStatus.REWATCHING);
 }
 
 export async function markMovieWatched(

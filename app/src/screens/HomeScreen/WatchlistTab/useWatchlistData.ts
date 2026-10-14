@@ -238,7 +238,8 @@ export function useWatchlistData(userId: string | undefined) {
 	} = useWatchedMovies(userId);
 
 	const queryClient = useQueryClient();
-	const { mutateCachedUpcoming, rollbackUpcoming, removeShowFromUpcoming } = useUpcomingMutations();
+	const { mutateCachedUpcoming, rollbackUpcoming, removeShowFromUpcoming, removeWatchedFromPast } =
+		useUpcomingMutations();
 	const [updatingShows, setUpdatingShows] = useState<Map<number, string>>(new Map());
 	// Optimistic card patches applied after Firestore write, before listener re-enriches
 	const [optimisticCards, setOptimisticCards] = useState<Map<number, Partial<CardItem>>>(new Map());
@@ -720,6 +721,7 @@ export function useWatchlistData(userId: string | undefined) {
 					watchCount: 1,
 				});
 				incrementDailyWatch("episode");
+				removeWatchedFromPast(item.tmdbId, currentEp.season, currentEp.episode);
 				if (isComplete) {
 					emitShowCompleted({
 						tmdbId: item.tmdbId,
@@ -740,7 +742,7 @@ export function useWatchlistData(userId: string | undefined) {
 				Alert.alert("Error", err.message || "Failed to mark as watched.");
 			}
 		},
-		[userId, queryClient, mutateCachedUpcoming, rollbackUpcoming],
+		[userId, queryClient, mutateCachedUpcoming, rollbackUpcoming, removeWatchedFromPast],
 	);
 
 	const handleMarkWatchedThrough = useCallback(
