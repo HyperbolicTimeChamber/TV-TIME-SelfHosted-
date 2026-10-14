@@ -1,4 +1,4 @@
-import { Timestamp } from "firebase-admin/firestore";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { CatalogShow } from "../tmdb";
 import { showDocId } from "../../shared/docId";
 import { MediaType } from "../../shared/enums";
@@ -96,6 +96,18 @@ export function buildImportOps(
         }
       }
 
+      // Watch History: absolute values (set() overwrites on re-import)
+      const tvEps = match.mediaType === MediaType.TV ? (match.watchedEpisodes ?? []) : [];
+      const plays = match.mediaType === MediaType.MOVIE ? 1 : tvEps.length;
+      const minutesWatched =
+        match.mediaType === MediaType.MOVIE
+          ? match.movieRuntime || catalog?.runtime || 0
+          : tvEps.reduce(
+              (sum, ep) =>
+                sum + lookupEpisode(catalogMap, match.tmdbId, ep.season, ep.episode).runtime,
+              0,
+            );
+
       await trackingRef.set({
         tmdbId: match.tmdbId,
         mediaType: match.mediaType,
@@ -107,6 +119,14 @@ export function buildImportOps(
         addedAt: now,
         lastWatchedAt,
         priorityDate: lastWatchedAt,
+        ...(plays > 0
+          ? {
+              historyAt: lastWatchedAt,
+              historyUpdatedAt: FieldValue.serverTimestamp(),
+              minutesWatched,
+              plays,
+            }
+          : {}),
       });
     });
 

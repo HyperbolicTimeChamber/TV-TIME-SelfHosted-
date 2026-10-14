@@ -39,6 +39,12 @@ export interface TMDBShowDetail {
   credits?: {
     crew: Array<{ job: string; department: string; name: string }>;
   };
+  images?: { logos?: TMDBLogo[] };
+}
+
+export interface TMDBLogo {
+  file_path: string;
+  iso_639_1: string | null;
 }
 
 export interface CatalogEpisode {
@@ -74,6 +80,8 @@ export interface CatalogShow {
   releaseDate: string | null;
   seasons: CatalogSeason[];
   genres: string[];
+  /** TMDB title logo (English, else language-neutral); null = TMDB has none */
+  logoPath?: string | null;
   credits?: {
     directors: string[];
     writers: string[];

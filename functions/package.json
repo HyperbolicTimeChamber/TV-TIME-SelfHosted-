@@ -9,7 +9,8 @@
     "shell": "npm run build && firebase functions:shell",
     "deploy": "firebase deploy --only functions",
     "lint": "eslint src/",
-    "test": "rm -rf .test-build && tsc -p tsconfig.test.json && node --test .test-build/test/*.test.js"
+    "test": "rm -rf .test-build && tsc -p tsconfig.test.json && node --test .test-build/test/*.test.js",
+    "backfill:history": "npm run build && node lib/scripts/backfillHistory.js"
   },
   "engines": {
     "node": "22"
