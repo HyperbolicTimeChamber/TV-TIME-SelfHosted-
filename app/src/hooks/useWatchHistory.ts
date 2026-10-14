@@ -4,7 +4,6 @@ import { useAuthStore } from "../stores";
 import { CacheKey, MediaType } from "../enums";
 import type { HistoryChange, HistoryState } from "../types";
 import {
-	fetchCatalogShows,
 	fetchHistoryDelta,
 	fetchHistoryEntry,
 	fetchHistoryPage,
@@ -18,7 +17,8 @@ import {
 	todayStr,
 	type HistoryCard,
 } from "../utils";
-import { cacheCatalogShows, getCachedCatalogShow } from "./useWatchlist";
+import { getCachedCatalogShow } from "./useWatchlist";
+import { ensureFreshCatalogs } from "./catalogRefresh";
 
 // --- Store: one cached list per (user, tab), persisted to AsyncStorage (localStorage on web) ---
 
@@ -75,24 +75,6 @@ onHistoryChange((change) => {
 	handleChange(change).catch((err) => console.error("[watchHistory] patch failed:", err));
 });
 
-// Asked once per session — a catalog doc that doesn't exist isn't re-read on every update
-const catalogRequested = new Set<string>();
-
-/** Catalog docs not cached, or cached before logos existed → fetched in one batch */
-async function ensureCatalogs(state: HistoryState): Promise<boolean> {
-	const missing = state.items
-		.filter((e) => {
-			const c = getCachedCatalogShow(e.tmdbId, e.mediaType);
-			return !c || !("logoPath" in c);
-		})
-		.map((e) => showDocId(e.tmdbId, e.mediaType))
-		.filter((id) => !catalogRequested.has(id));
-	if (missing.length === 0) return false;
-	missing.forEach((id) => catalogRequested.add(id));
-	cacheCatalogShows(await fetchCatalogShows(missing));
-	return true;
-}
-
 // --- Hook ---
 
 /**
@@ -146,7 +128,7 @@ export function useWatchHistory(mediaType: MediaType) {
 
 	useEffect(() => {
 		if (!state) return;
-		ensureCatalogs(state)
+		ensureFreshCatalogs(state.items)
 			.then((fetched) => fetched && setCatalogVersion((v) => v + 1))
 			.catch(() => {});
 	}, [state]);

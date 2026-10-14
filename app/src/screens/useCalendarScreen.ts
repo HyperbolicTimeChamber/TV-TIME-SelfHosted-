@@ -1,6 +1,7 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { useAuthStore } from "../stores";
 import { useCalendarEpisodes, getCachedCatalogShow } from "../hooks";
+import { ensureFreshCatalogs } from "../hooks/catalogRefresh";
 import { MediaType } from "../enums";
 import type { UpcomingEpisode } from "../types";
 
@@ -75,6 +76,21 @@ export function useCalendarScreen() {
 		return marks;
 	}, [episodes, selectedDate]);
 
+	// Catalog cache isn't reactive — bump after refreshing stale entries (missing logos)
+	const [catalogVersion, setCatalogVersion] = useState(0);
+	useEffect(() => {
+		if (!selectedDate || !episodes) return;
+		const day = episodes
+			.filter((ep) => ep.airDate === selectedDate)
+			.map((ep) => ({
+				tmdbId: ep.tmdbShowId,
+				mediaType: ep.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV,
+			}));
+		ensureFreshCatalogs(day)
+			.then((fetched) => fetched && setCatalogVersion((v) => v + 1))
+			.catch(() => {});
+	}, [episodes, selectedDate]);
+
 	// + backdrop and logo from the shared catalog cache (no reads) for the cards
 	const selectedEpisodes = useMemo((): CalendarEpisode[] => {
 		if (!selectedDate || !episodes) return [];
@@ -91,7 +107,8 @@ export function useCalendarScreen() {
 					logoPath: catalog?.logoPath ?? null,
 				};
 			});
-	}, [episodes, selectedDate]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [episodes, selectedDate, catalogVersion]);
 
 	const handleDayPress = useCallback((dateString: string) => {
 		setSelectedDate(dateString);
