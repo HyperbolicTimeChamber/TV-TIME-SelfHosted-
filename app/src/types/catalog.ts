@@ -31,6 +31,8 @@ export interface CatalogShow {
 	voteAverage: number;
 	firstAirDate: string | null;
 	releaseDate: string | null;
+	/** TMDB title logo (from the catalog doc only); null/missing = none */
+	logoPath?: string | null;
 	seasons: CatalogSeason[];
 	genres?: string[];
 	credits?: {

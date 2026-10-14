@@ -460,11 +460,7 @@ export function useWatchlist(userId: string | undefined) {
 			sharedCatalogCache = catalogCache.current;
 			persistCatalogCache(catalogCache.current);
 		}
-		setItems((prev) => {
-			// Don't duplicate
-			if (prev.some((p) => p.tmdbId === item.tmdbId)) return prev;
-			return [item, ...prev];
-		});
+		setItems((prev) => [item, ...prev.filter((p) => p.tmdbId !== item.tmdbId)]);
 	}, []);
 
 	// Listen for external removal events (e.g. from ShowDetailScreen)

@@ -79,7 +79,7 @@ export function useSeasonActions({
 	const [markingSeason, setMarkingSeason] = useState(false);
 	const user = useAuthStore((s) => s.user);
 	const queryClient = useQueryClient();
-	const { mutateCachedUpcoming, rollbackUpcoming } = useUpcomingMutations();
+	const { mutateCachedUpcoming, rollbackUpcoming, removeWatchedFromPast } = useUpcomingMutations();
 	const apiKey = useAuthStore((s) => s.appTmdbApiKey)!;
 	const {
 		data: seasonData,
@@ -404,6 +404,7 @@ export function useSeasonActions({
 					watchCount: 1,
 				});
 				incrementDailyWatch("episode");
+				removeWatchedFromPast(tmdbId, season.season_number, ep.episode_number);
 			} catch (err: any) {
 				rollbackUpcoming(snapshot);
 				console.error("markEpisodeWatched failed:", err);
@@ -421,6 +422,7 @@ export function useSeasonActions({
 			queryClient,
 			mutateCachedUpcoming,
 			rollbackUpcoming,
+			removeWatchedFromPast,
 		],
 	);
 

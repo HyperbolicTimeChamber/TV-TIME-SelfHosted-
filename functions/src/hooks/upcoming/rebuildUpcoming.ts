@@ -3,6 +3,7 @@ import { parseTmdbId } from "../../shared/docId";
 import { CatalogShow } from "../../shared/types";
 import { cleanOrphanedEpisodes } from "./cleanOrphanedEpisodes";
 import { reconcileTracking } from "./reconcileTracking";
+import { isBeforePointer, EpisodePointer } from "./watchedPointer";
 
 export async function rebuildUserUpcoming(
   db: FirebaseFirestore.Firestore,
@@ -81,11 +82,15 @@ export async function rebuildUserUpcoming(
   for (const trackDoc of activeShows) {
     const catalog = catalogMap.get(trackDoc.id);
     if (!catalog || ENDED_STATUSES.includes(catalog.status)) continue;
+    // Watched already (before the pointer) → not upcoming, even if it airs today
+    const pointer = trackDoc.data().nextEpisode as EpisodePointer | null;
 
     for (const season of catalog.seasons || []) {
       if (season.seasonNumber === 0) continue;
       for (const ep of season.episodes || []) {
         if (!ep.airDate || ep.airDate < today) continue;
+        if (isBeforePointer(season.seasonNumber, ep.episodeNumber, pointer))
+          continue;
         const epId = `${trackDoc.id}_S${String(season.seasonNumber).padStart(2, "0")}E${String(ep.episodeNumber).padStart(2, "0")}`;
         upcomingDocs.push({
           id: epId,
