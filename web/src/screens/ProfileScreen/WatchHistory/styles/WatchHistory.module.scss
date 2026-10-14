@@ -64,15 +64,16 @@
 
 .grid {
 	display: grid;
-	grid-template-columns: 1fr;
+	/* minmax(0, …): columns never grow to fit a card's content width */
+	grid-template-columns: minmax(0, 1fr);
 	gap: 16px;
 	padding: 16px;
 
 	@include tablet {
-		grid-template-columns: repeat(2, 1fr);
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 	@include desktop {
-		grid-template-columns: repeat(3, 1fr);
+		grid-template-columns: repeat(3, minmax(0, 1fr));
 	}
 }
 
@@ -86,6 +87,7 @@
 	/* 16:9 is the minimum: no overflow:hidden, so aspect-ratio lets the card grow when a
 	   two-line title needs more room (the bg layers round their own corners instead) */
 	aspect-ratio: 16 / 9;
+	min-width: 0;
 	border-radius: 16px;
 	padding: 16px;
 	background: var(--surface);
