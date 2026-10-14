@@ -1,0 +1,50 @@
+@use "../../theme/tokens" as *;
+
+/* The row keeps its own gap via --marquee-gap so the loop seam matches it */
+.viewport {
+	--marquee-gap: 8px;
+	overflow: hidden !important;
+
+	@include tablet {
+		--marquee-gap: 12px;
+	}
+
+	&:hover .track,
+	&:focus-within .track {
+		animation-play-state: paused;
+	}
+}
+
+.track {
+	display: flex;
+	width: max-content;
+	animation: marquee var(--loop) linear infinite;
+}
+
+/* Each copy ends with one gap, so shifting by exactly half the track is seamless */
+.group {
+	display: flex;
+	gap: var(--marquee-gap);
+	padding-right: var(--marquee-gap);
+}
+
+@keyframes marquee {
+	from {
+		transform: translateX(0);
+	}
+	to {
+		transform: translateX(-50%);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.viewport {
+		overflow-x: auto !important;
+	}
+	.track {
+		animation: none;
+	}
+	.group[aria-hidden] {
+		display: none;
+	}
+}

@@ -13,6 +13,7 @@ import PosterImage from "../../components/PosterImage";
 import { Paths, showPath } from "../../routes/paths";
 import { StatCard, CollageCard } from "./ProfileCards";
 import historyStyles from "./WatchHistory/styles/WatchHistory.module.scss";
+import Marquee from "../../components/Marquee";
 import styles from "./styles/ProfileScreen.module.scss";
 
 /** Profile tab — stats, weekly chart, recently completed (same hooks as the app) */
@@ -92,9 +93,17 @@ export default function ProfileScreen() {
 						{sections.map((section) => (
 							<div key={section.title} className={styles.genreSection}>
 								<span className={styles.genreTitle}>{section.title}</span>
-								<div className={styles.posterRow}>
-									{section.items.map((item) => (
-										<button key={item.tmdbId} className={styles.posterButton} onClick={() => navigate(showPath(item.mediaType, item.tmdbId))}>
+								{/* More than 6 → continuously scrolling loop; otherwise a plain row */}
+								<Marquee
+									items={section.items}
+									getKey={(item) => item.tmdbId}
+									className={styles.posterRow}
+									renderItem={(item, hidden) => (
+										<button
+											className={styles.posterButton}
+											tabIndex={hidden ? -1 : undefined}
+											onClick={() => navigate(showPath(item.mediaType, item.tmdbId))}
+										>
 											<PosterImage
 												posterPath={item.posterPath}
 												mediaType={item.mediaType}
@@ -104,8 +113,8 @@ export default function ProfileScreen() {
 												width={140}
 											/>
 										</button>
-									))}
-								</div>
+									)}
+								/>
 							</div>
 						))}
 					</section>
