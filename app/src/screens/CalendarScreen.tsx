@@ -300,6 +300,7 @@ const styles = StyleSheet.create({
 		color: colors.text,
 		marginTop: spacing.xs,
 		fontSize: 15,
+		fontWeight: "500",
 	},
 	modalContent: {
 		backgroundColor: colors.surface,
