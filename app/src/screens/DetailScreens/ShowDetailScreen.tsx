@@ -3,7 +3,6 @@ import {
 	View,
 	Text,
 	Animated,
-	TouchableOpacity,
 	StyleSheet,
 	Alert,
 	Share,
@@ -26,8 +25,10 @@ import {
 } from "../../components";
 import { showShareUrl, describeLoadError } from "../../utils";
 import ErrorState from "../../components/ErrorState";
+import CircleButton, { CircleBackButton } from "../../components/CircleButton";
 import { colors, spacing, typography } from "../../theme";
 import { HomeStackParamList, MediaType, Route } from "../../types";
+import { CircleButtonTone } from "../../enums";
 
 type RouteParams = RouteProp<HomeStackParamList, "ShowDetail">;
 
@@ -98,13 +99,11 @@ export default function ShowDetailScreen() {
 		const goSearch = () => (navigation as any).navigate(Route.SWIPE_TABS, { screen: Route.SEARCH });
 		return (
 			<View style={styles.container}>
-				<TouchableOpacity
+				<CircleBackButton
+					tone={CircleButtonTone.OVERLAY}
 					style={[styles.backButton, { top: insets.top + 8 }]}
 					onPress={handleBack}
-					hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-				>
-					<Ionicons name="chevron-back" size={26} color={colors.text} />
-				</TouchableOpacity>
+				/>
 				<ErrorState
 					info={info}
 					mediaType={mediaType}
@@ -122,26 +121,25 @@ export default function ShowDetailScreen() {
 	return (
 		<View style={styles.container}>
 			{/* Floating back button */}
-			<TouchableOpacity
+			<CircleBackButton
+				tone={CircleButtonTone.OVERLAY}
 				style={[styles.backButton, { top: insets.top + 8 }]}
 				onPress={handleBack}
-				hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-			>
-				<Ionicons name="chevron-back" size={26} color={colors.text} />
-			</TouchableOpacity>
+			/>
 
-			<TouchableOpacity
+			<CircleButton
+				tone={CircleButtonTone.OVERLAY}
 				style={[styles.shareButton, { top: insets.top + 8 }]}
+				accessibilityLabel="Share"
 				onPress={() => {
 					// Web URL: opens the app if installed (App/Universal Links), else the web show page
 					Share.share({
 						message: `Check out ${title}\n${showShareUrl(mediaType, tmdbId)}`,
 					}).catch((e: any) => Alert.alert("Share failed", e.message));
 				}}
-				hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
 			>
 				<Ionicons name="share-social-outline" size={26} color={colors.text} />
-			</TouchableOpacity>
+			</CircleButton>
 
 			<Animated.ScrollView
 				contentContainerStyle={{ paddingBottom: spacing.xxl + Math.max(insets.bottom, 48) }}
@@ -292,29 +290,9 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		alignItems: "center",
 	},
-	backButton: {
-		position: "absolute",
-		left: 16,
-		zIndex: 10,
-		width: 44,
-		height: 44,
-		borderRadius: 22,
-		backgroundColor: colors.badgeOverlay,
-		alignItems: "center",
-		justifyContent: "center",
-		paddingRight: 2,
-	},
-	shareButton: {
-		position: "absolute",
-		right: 16,
-		zIndex: 10,
-		width: 44,
-		height: 44,
-		borderRadius: 22,
-		backgroundColor: colors.badgeOverlay,
-		alignItems: "center",
-		justifyContent: "center",
-	},
+	// Position only — the circle itself is components/CircleButton
+	backButton: { position: "absolute", left: 16, zIndex: 10 },
+	shareButton: { position: "absolute", right: 16, zIndex: 10 },
 	islandTitle: {
 		...typography.title,
 		fontSize: 24,

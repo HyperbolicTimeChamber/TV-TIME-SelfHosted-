@@ -8,7 +8,6 @@ import {
 	Alert,
 	ActivityIndicator,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -16,6 +15,7 @@ import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { getAuth, sendPasswordResetEmail } from "@react-native-firebase/auth";
 import { useAuthStore } from "../../stores";
 import { colors, spacing, typography } from "../../theme";
+import { CircleBackButton, CIRCLE_BUTTON_SIZE } from "../../components/CircleButton";
 import { ProfileStackParamList, Route } from "../../types";
 
 export default function SettingsScreen() {
@@ -82,15 +82,9 @@ export default function SettingsScreen() {
 	return (
 		<ScrollView style={[styles.container, { paddingTop: top }]}>
 			<View style={styles.headerRow}>
-				<TouchableOpacity
-					style={styles.backButton}
-					onPress={() => navigation.goBack()}
-					hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-				>
-					<Ionicons name="chevron-back" size={26} color={colors.text} />
-				</TouchableOpacity>
+				<CircleBackButton onPress={() => navigation.goBack()} />
 				<Text style={styles.headerTitle}>Settings</Text>
-				<View style={styles.backButton} />
+				<View style={styles.headerSpacer} />
 			</View>
 			<View style={styles.section}>
 				<Text style={styles.sectionTitle}>Data</Text>
@@ -148,14 +142,7 @@ const styles = StyleSheet.create({
 		paddingHorizontal: spacing.sm,
 		paddingVertical: spacing.sm,
 	},
-	backButton: {
-		width: 44,
-		height: 44,
-		borderRadius: 22,
-		backgroundColor: colors.surface,
-		justifyContent: "center",
-		alignItems: "center",
-	},
+	headerSpacer: { width: CIRCLE_BUTTON_SIZE },
 	headerTitle: {
 		...typography.title,
 		flex: 1,

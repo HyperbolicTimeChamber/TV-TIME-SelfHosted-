@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { App as AntApp } from "antd";
-import { IoChevronBack, IoShareSocialOutline } from "react-icons/io5";
+import { IoShareSocialOutline } from "react-icons/io5";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useShowDetailActions } from "@app/screens/DetailScreens/useShowDetailActions";
 import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
-import { MediaType } from "@app/enums";
+import { CircleButtonTone, MediaType } from "@app/enums";
 import { showShareUrl } from "@app/utils/shareUrl";
 import LoadingScreen from "../../components/LoadingScreen";
+import CircleButton, { CircleBackButton } from "../../components/CircleButton";
 import ErrorState from "../../components/ErrorState";
 import { describeLoadError } from "@app/utils/loadError";
 import ConfirmModal from "../../components/ConfirmModal";
@@ -57,9 +58,7 @@ export default function ShowDetailScreen() {
 		const info = describeLoadError(d.isError ? d.error : null, mediaType);
 		return (
 			<>
-				<button className={`${styles.floatButton} ${styles.backButton}`} onClick={handleBack} aria-label="Back">
-					<IoChevronBack size={26} />
-				</button>
+				<CircleBackButton tone={CircleButtonTone.OVERLAY} className={`${styles.floatButton} ${styles.backButton}`} onClick={handleBack} />
 				<ErrorState
 					info={info}
 					mediaType={mediaType}
@@ -96,12 +95,10 @@ export default function ShowDetailScreen() {
 
 	return (
 		<div className={styles.container}>
-			<button className={`${styles.floatButton} ${styles.backButton}`} onClick={handleBack} aria-label="Back">
-				<IoChevronBack size={26} />
-			</button>
-			<button className={`${styles.floatButton} ${styles.shareButton}`} onClick={share} aria-label="Share">
+			<CircleBackButton tone={CircleButtonTone.OVERLAY} className={`${styles.floatButton} ${styles.backButton}`} onClick={handleBack} />
+			<CircleButton tone={CircleButtonTone.OVERLAY} className={`${styles.floatButton} ${styles.shareButton}`} onClick={share} ariaLabel="Share">
 				<IoShareSocialOutline size={24} />
-			</button>
+			</CircleButton>
 
 			<div className={styles.backdrop}>
 				{backdropSrc && (

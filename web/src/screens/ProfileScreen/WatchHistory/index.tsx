@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { motion } from "motion/react";
-import { IoChevronBack } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { useWatchHistory } from "@app/hooks/useWatchHistory";
-import { MediaType } from "@app/enums";
+import { CircleButtonTone, MediaType } from "@app/enums";
 import SlidingTabs from "../../../components/SlidingTabs";
+import { CircleBackButton, CircleButtonSpacer } from "../../../components/CircleButton";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 import { useHideTabBar } from "../../../hooks/useHideTabBar";
 import { Paths, showPath } from "../../../routes/paths";
@@ -71,12 +71,10 @@ export default function WatchHistoryScreen() {
 			    not against the scrolled page (otherwise it jumps after scrolling) */}
 			<motion.header layoutRoot className={styles.topBar}>
 				<div className={styles.titleRow}>
-					<button className={styles.backButton} onClick={goBack} aria-label="Back">
-						<IoChevronBack size={24} />
-					</button>
+					<CircleBackButton tone={CircleButtonTone.SURFACE_LIGHT} onClick={goBack} />
 					<h1 className={styles.title}>Watch History</h1>
 					{/* Mirrors the back button so the title is centred on the bar */}
-					<span className="w-11 shrink-0" aria-hidden />
+					<CircleButtonSpacer />
 				</div>
 				<SlidingTabs id="history-tabs" tabs={TABS} activeKey={tab} onTabPress={setTab} className={styles.tabs} />
 			</motion.header>

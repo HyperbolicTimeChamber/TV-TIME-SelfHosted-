@@ -72,6 +72,14 @@ export enum QueryKey {
 	TRENDING = "trending",
 }
 
+/** Fill of the shared 44px circular icon buttons (back, share) */
+export enum CircleButtonTone {
+	/** Translucent black — floating over artwork */
+	OVERLAY = "overlay",
+	SURFACE = "surface",
+	SURFACE_LIGHT = "surfaceLight",
+}
+
 /** Watch History card status pill (label text) */
 export enum HistoryPill {
 	WATCHING = "Currently Watching",

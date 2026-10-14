@@ -13,23 +13,6 @@
 	padding: 8px;
 }
 
-.backButton {
-	width: 44px;
-	height: 44px;
-	border-radius: 22px;
-	border: none;
-	background: var(--surface);
-	color: var(--text);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	cursor: pointer;
-}
-
-span.backButton {
-	visibility: hidden;
-}
-
 .headerTitle {
 	flex: 1;
 	text-align: center;

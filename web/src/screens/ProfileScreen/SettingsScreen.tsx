@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { App as AntApp, Spin } from "antd";
-import { IoChevronBack } from "react-icons/io5";
+
 import { useNavigate } from "react-router-dom";
 import { httpsCallable } from "firebase/functions";
 import { getFunctions } from "../../platform/functions";
 import { resetPassword, signOut } from "../../services/auth";
 import { useAppSelector } from "../../store";
 import { Paths } from "../../routes/paths";
+import { CircleBackButton, CircleButtonSpacer } from "../../components/CircleButton";
 import styles from "./styles/SettingsScreen.module.scss";
 
 /** Settings (app SettingsScreen; push-notification debug tools are mobile-only) */
@@ -50,11 +51,9 @@ export default function SettingsScreen() {
 	return (
 		<div className={styles.container}>
 			<div className={styles.headerRow}>
-				<button className={styles.backButton} onClick={() => navigate(-1)} aria-label="Back">
-					<IoChevronBack size={26} />
-				</button>
+				<CircleBackButton onClick={() => navigate(-1)} />
 				<h1 className={styles.headerTitle}>Settings</h1>
-				<span className={styles.backButton} />
+				<CircleButtonSpacer />
 			</div>
 
 			<section className={styles.section}>

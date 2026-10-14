@@ -22,16 +22,6 @@ export const styles = StyleSheet.create({
 		paddingHorizontal: spacing.lg,
 		paddingBottom: spacing.xs,
 	},
-	// Same circle as the show page's back button; lighter fill so it shows on the bar
-	backButton: {
-		width: 44,
-		height: 44,
-		borderRadius: 22,
-		backgroundColor: colors.surfaceLight,
-		alignItems: "center",
-		justifyContent: "center",
-		paddingRight: 2,
-	},
 	title: { flex: 1, textAlign: "center", fontSize: 20, fontWeight: "700", color: colors.text },
 	backSpacer: { width: 44 },
 	list: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },

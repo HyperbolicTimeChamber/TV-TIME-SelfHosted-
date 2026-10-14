@@ -1,15 +1,15 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, ActivityIndicator } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 import { LegendList } from "@legendapp/list/react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import SlidingTabs from "../../../components/SlidingTabs";
+import { CircleBackButton } from "../../../components/CircleButton";
 import { useSharedShimmer } from "../../../components/SkeletonLine";
 import { useWatchHistory } from "../../../hooks";
-import { MediaType, Route } from "../../../enums";
+import { CircleButtonTone, MediaType, Route } from "../../../enums";
 import type { ProfileStackParamList } from "../../../types";
 import type { HistoryCard } from "../../../utils";
 import { colors } from "../../../theme";
@@ -89,14 +89,7 @@ export default function WatchHistoryScreen() {
 		<View style={styles.container}>
 			<View style={[styles.topBar, { paddingTop: top + 8 }]}>
 				<View style={styles.titleRow}>
-					<TouchableOpacity
-						style={styles.backButton}
-						onPress={() => navigation.goBack()}
-						activeOpacity={0.7}
-						accessibilityLabel="Back"
-					>
-						<Ionicons name="chevron-back" size={24} color={colors.text} />
-					</TouchableOpacity>
+					<CircleBackButton tone={CircleButtonTone.SURFACE_LIGHT} onPress={() => navigation.goBack()} />
 					<Text style={styles.title}>Watch History</Text>
 					{/* Mirrors the back button so the title is centred on the bar */}
 					<View style={styles.backSpacer} />

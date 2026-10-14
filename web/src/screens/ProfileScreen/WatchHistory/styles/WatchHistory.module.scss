@@ -54,26 +54,6 @@
 	padding: 0 16px 4px;
 }
 
-/* Same circle as the show page's back button; lighter fill so it shows on the bar */
-.backButton {
-	width: 44px;
-	height: 44px;
-	border-radius: 22px;
-	padding: 0;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	border: none;
-	background: var(--surface-light);
-	color: var(--text);
-	cursor: pointer;
-	flex-shrink: 0;
-}
-
-.backButton svg {
-	display: block;
-}
-
 .title {
 	flex: 1;
 	margin: 0;
