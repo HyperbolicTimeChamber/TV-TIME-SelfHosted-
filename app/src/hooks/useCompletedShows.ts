@@ -9,8 +9,9 @@ import {
 } from "@react-native-firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CacheKey, WatchStatus, MediaType } from "../types";
-import { getCachedCatalogShow } from "./useWatchlist";
-import { onShowCompleted } from "../utils";
+import { cacheCatalogShows, getCachedCatalogShow } from "./useWatchlist";
+import { fetchCatalogShows } from "../services/historyApi";
+import { onShowCompleted, showDocId } from "../utils";
 
 export interface CompletedItem {
 	tmdbId: number;
@@ -27,6 +28,52 @@ export interface CompletedSection {
 }
 
 const SECTION_LIMIT = 10;
+/** Most recently completed TV shows considered for the genre rows — enough to fill them */
+const RECENT_TV_POOL = 60;
+
+/**
+ * Completed tracking docs → display items. Only what can be shown is kept (latest
+ * movies + latest TV shows); catalogs missing from the shared cache are fetched in one
+ * batched query and cached, so later loads read nothing. Before, missing catalogs
+ * rendered as "Show 12345" with no poster under "Other".
+ */
+async function loadCompletedItems(userId: string): Promise<CompletedItem[]> {
+	const db = getFirestore();
+	const snap = await getDocs(
+		query(collection(doc(db, "users", userId), "tracking"), where("status", "==", WatchStatus.COMPLETED)),
+	);
+	const docs = snap.docs
+		.map((d) => {
+			const data = d.data();
+			return {
+				tmdbId: data.tmdbId as number,
+				mediaType: (data.mediaType as MediaType) ?? MediaType.TV,
+				completedAt: (data.lastWatchedAt?.toMillis?.() as number | undefined) ?? 0,
+			};
+		})
+		.sort((a, b) => b.completedAt - a.completedAt);
+	const shown = [
+		...docs.filter((d) => d.mediaType === MediaType.MOVIE).slice(0, SECTION_LIMIT),
+		...docs.filter((d) => d.mediaType === MediaType.TV).slice(0, RECENT_TV_POOL),
+	];
+
+	const missing = shown
+		.filter((d) => !getCachedCatalogShow(d.tmdbId, d.mediaType))
+		.map((d) => showDocId(d.tmdbId, d.mediaType));
+	if (missing.length > 0) {
+		cacheCatalogShows(await fetchCatalogShows(missing).catch(() => []));
+	}
+
+	return shown.map((d) => {
+		const catalog = getCachedCatalogShow(d.tmdbId, d.mediaType);
+		return {
+			...d,
+			title: catalog?.title ?? `Show ${d.tmdbId}`,
+			posterPath: catalog?.posterPath ?? null,
+			genres: catalog?.genres ?? [],
+		};
+	});
+}
 
 function buildSections(items: CompletedItem[]): CompletedSection[] {
 	const sections: CompletedSection[] = [];
@@ -109,27 +156,7 @@ export function useCompletedShows(userId: string | undefined) {
 		fetchedFromFirestore.current = true;
 
 		(async () => {
-			const db = getFirestore();
-			const trackingRef = collection(doc(db, "users", userId), "tracking");
-			const q = query(trackingRef, where("status", "==", WatchStatus.COMPLETED));
-			const snap = await getDocs(q);
-
-			const items: CompletedItem[] = snap.docs.map((d) => {
-				const data = d.data();
-				const tmdbId = data.tmdbId as number;
-				const mediaType = (data.mediaType as MediaType) ?? MediaType.TV;
-				const catalog = getCachedCatalogShow(tmdbId, mediaType);
-
-				return {
-					tmdbId,
-					mediaType,
-					title: catalog?.title ?? `Show ${tmdbId}`,
-					posterPath: catalog?.posterPath ?? null,
-					genres: catalog?.genres ?? [],
-					completedAt: data.lastWatchedAt?.toMillis?.() ?? 0,
-				};
-			});
-
+			const items = await loadCompletedItems(userId);
 			setSections(buildSections(items));
 			setLoading(false);
 
@@ -175,26 +202,7 @@ export function useCompletedShows(userId: string | undefined) {
 
 	const refetch = useCallback(async () => {
 		if (!userId) return;
-		const db = getFirestore();
-		const trackingRef = collection(doc(db, "users", userId), "tracking");
-		const q = query(trackingRef, where("status", "==", WatchStatus.COMPLETED));
-		const snap = await getDocs(q);
-
-		const items: CompletedItem[] = snap.docs.map((d) => {
-			const data = d.data();
-			const tmdbId = data.tmdbId as number;
-			const mediaType = (data.mediaType as MediaType) ?? MediaType.TV;
-			const catalog = getCachedCatalogShow(tmdbId, mediaType);
-
-			return {
-				tmdbId,
-				mediaType,
-				title: catalog?.title ?? `Show ${tmdbId}`,
-				posterPath: catalog?.posterPath ?? null,
-				genres: catalog?.genres ?? [],
-				completedAt: data.lastWatchedAt?.toMillis?.() ?? 0,
-			};
-		});
+		const items = await loadCompletedItems(userId);
 
 		setSections(buildSections(items));
 
