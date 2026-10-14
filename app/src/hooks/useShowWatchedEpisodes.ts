@@ -1,14 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
-  getFirestore,
-  collection,
-  doc,
-  query,
-  where,
-  getDocs,
+	getFirestore,
+	collection,
+	doc,
+	query,
+	where,
+	getDocs,
 } from "@react-native-firebase/firestore";
 import { useQueryClient } from "@tanstack/react-query";
 import { WatchedEpisode, QueryKey } from "../types";
+
+const inflight = new Map<string, Promise<WatchedEpisode[]>>();
 
 /**
  * One-time fetch of ALL watched episodes for a specific show.
@@ -16,70 +18,88 @@ import { WatchedEpisode, QueryKey } from "../types";
  * Local mutations (insertWatchedEpisodeCache / removeWatchedEpisodeCache)
  * update the same query key → UI stays in sync without a real-time listener.
  */
-export function useShowWatchedEpisodes(
-  userId: string | undefined,
-  tmdbShowId: number,
-) {
-  const queryClient = useQueryClient();
-  const [episodes, setEpisodes] = useState<WatchedEpisode[]>([]);
-  const [loading, setLoading] = useState(true);
+export function useShowWatchedEpisodes(userId: string | undefined, tmdbShowId: number) {
+	const queryClient = useQueryClient();
+	const [episodes, setEpisodes] = useState<WatchedEpisode[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
-    if (!userId) {
-      setEpisodes([]);
-      setLoading(false);
-      return;
-    }
+	const fetchFromFirestore = useCallback(
+		(uid: string) => {
+			// Dedupe: every SeasonDropdown + detail screen mounts this hook at once
+			const key = `${uid}_${tmdbShowId}`;
+			const pending = inflight.get(key);
+			if (pending) return pending;
+			const promise = (async () => {
+				const db = getFirestore();
+				const colRef = collection(doc(db, "users", uid), "watchedEpisodes");
+				const q = query(colRef, where("tmdbShowId", "==", tmdbShowId));
+				const snapshot = await getDocs(q);
+				const eps = snapshot.docs.map((d) => ({
+					id: d.id,
+					...d.data(),
+				})) as WatchedEpisode[];
+				queryClient.setQueryData([QueryKey.WATCHED_EPISODES, uid, tmdbShowId], eps);
+				return eps;
+			})().finally(() => inflight.delete(key));
+			inflight.set(key, promise);
+			return promise;
+		},
+		[tmdbShowId, queryClient],
+	);
 
-    // Check React Query cache first
-    const cached = queryClient.getQueryData<WatchedEpisode[]>([
-      QueryKey.WATCHED_EPISODES,
-      userId,
-      tmdbShowId,
-    ]);
-    if (cached) {
-      setEpisodes(cached);
-      setLoading(false);
-      return;
-    }
+	useEffect(() => {
+		if (!userId) {
+			setEpisodes([]);
+			setLoading(false);
+			return;
+		}
 
-    // One-time Firestore read
-    const db = getFirestore();
-    const colRef = collection(doc(db, "users", userId), "watchedEpisodes");
-    const q = query(colRef, where("tmdbShowId", "==", tmdbShowId));
+		// Check React Query cache first (skip on manual refresh)
+		if (refreshKey === 0) {
+			const cached = queryClient.getQueryData<WatchedEpisode[]>([
+				QueryKey.WATCHED_EPISODES,
+				userId,
+				tmdbShowId,
+			]);
+			if (cached) {
+				setEpisodes(cached);
+				setLoading(false);
+				return;
+			}
+		}
 
-    getDocs(q).then((snapshot) => {
-      const eps = snapshot.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      })) as WatchedEpisode[];
-      queryClient.setQueryData(
-        [QueryKey.WATCHED_EPISODES, userId, tmdbShowId],
-        eps,
-      );
-      setEpisodes(eps);
-      setLoading(false);
-    }).catch(() => {
-      setLoading(false);
-    });
-  }, [userId, tmdbShowId, queryClient]);
+		setLoading(true);
+		fetchFromFirestore(userId)
+			.then((eps) => {
+				setEpisodes(eps);
+				setLoading(false);
+			})
+			.catch(() => {
+				setLoading(false);
+			});
+	}, [userId, tmdbShowId, queryClient, refreshKey, fetchFromFirestore]);
 
-  // Subscribe to React Query cache updates (from insertWatchedEpisodeCache etc.)
-  useEffect(() => {
-    if (!userId) return;
-    const unsub = queryClient.getQueryCache().subscribe((event) => {
-      if (
-        event.type === "updated" &&
-        event.query.queryKey[0] === QueryKey.WATCHED_EPISODES &&
-        event.query.queryKey[1] === userId &&
-        event.query.queryKey[2] === tmdbShowId
-      ) {
-        const data = event.query.state.data as WatchedEpisode[] | undefined;
-        if (data) setEpisodes(data);
-      }
-    });
-    return unsub;
-  }, [userId, tmdbShowId, queryClient]);
+	const refetch = useCallback(() => {
+		setRefreshKey((k) => k + 1);
+	}, []);
 
-  return { episodes, loading };
+	// Subscribe to React Query cache updates (from insertWatchedEpisodeCache etc.)
+	useEffect(() => {
+		if (!userId) return;
+		const unsub = queryClient.getQueryCache().subscribe((event) => {
+			if (
+				event.type === "updated" &&
+				event.query.queryKey[0] === QueryKey.WATCHED_EPISODES &&
+				event.query.queryKey[1] === userId &&
+				event.query.queryKey[2] === tmdbShowId
+			) {
+				const data = event.query.state.data as WatchedEpisode[] | undefined;
+				if (data) setEpisodes(data);
+			}
+		});
+		return unsub;
+	}, [userId, tmdbShowId, queryClient]);
+
+	return { episodes, loading, refetch };
 }

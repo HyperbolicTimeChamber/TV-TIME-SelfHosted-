@@ -1,0 +1,41 @@
+{
+	"compilerOptions": {
+		"tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+		"target": "es2023",
+		"lib": ["ES2023", "DOM", "DOM.Iterable"],
+		"module": "esnext",
+		"types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"],
+		"skipLibCheck": true,
+		"moduleResolution": "bundler",
+		"allowImportingTsExtensions": true,
+		"moduleDetection": "force",
+		"noEmit": true,
+		"jsx": "react-jsx",
+		"strict": true,
+		"noFallthroughCasesInSwitch": true,
+		"esModuleInterop": true,
+		"resolveJsonModule": true,
+		/* Shared app code + native-module shims (mirrors vite.config.ts) */
+		"paths": {
+			"@app/*": ["../app/src/*"],
+			"@react-native-firebase/firestore": ["./src/platform/firestore.ts"],
+			"@react-native-firebase/functions": ["./src/platform/functions.ts"],
+			"@react-native-firebase/analytics": ["./src/platform/analytics.ts"],
+			"@react-native-firebase/auth": ["./src/platform/auth.ts"],
+			"@react-native-google-signin/google-signin": ["./src/platform/googleSignin.ts"],
+			"@react-native-async-storage/async-storage": ["./src/platform/asyncStorage.ts"],
+			"react-native": ["./src/platform/reactNative.ts"],
+			"@react-navigation/native": ["./src/platform/reactNavigation.ts"],
+			"expo-file-system": ["./src/platform/expoFileSystem.ts"],
+			"sp-react-native-in-app-updates": ["./src/platform/inAppUpdates.ts"],
+			"react": ["./node_modules/@types/react"],
+			"react/*": ["./node_modules/@types/react/*"],
+			"@tanstack/react-query": ["./node_modules/@tanstack/react-query"],
+			"axios": ["./node_modules/axios"],
+			"zustand": ["./node_modules/zustand"],
+			"jszip": ["./node_modules/jszip"],
+			"papaparse": ["./node_modules/@types/papaparse"]
+		}
+	},
+	"include": ["src", "tests"]
+}
