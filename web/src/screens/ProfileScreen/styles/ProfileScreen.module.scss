@@ -158,11 +158,13 @@
 	justify-content: center;
 	gap: 4px;
 	width: calc(100% - 32px);
+	height: 56px;
 	margin: 24px 16px 0;
-	padding: 16px;
-	border: none;
-	border-radius: 8px;
-	background: var(--primary);
+	padding: 0 16px;
+	/* Outlined pill — the filled red pill below (Watch History) stays the main action */
+	border: 1.5px solid var(--primary);
+	border-radius: 999px;
+	background: transparent;
 	color: var(--text);
 	font-size: 14px;
 	font-weight: 600;
