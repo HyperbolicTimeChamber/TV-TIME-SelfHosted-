@@ -12,6 +12,20 @@
 	padding-top: calc(env(safe-area-inset-top) + 8px);
 }
 
+/* Wider screens: same bar as a rounded island inset from the edges. The shadow paints
+   the page colour over the gap above it so cards don't show through while stuck */
+@include tablet {
+	.topBar {
+		top: 12px;
+		margin: 12px 12px 0;
+		border: none;
+		border-radius: 12px;
+		overflow: hidden;
+		padding-top: 8px;
+		box-shadow: 0 -12px 0 12px var(--bg);
+	}
+}
+
 .titleRow {
 	display: flex;
 	align-items: center;
