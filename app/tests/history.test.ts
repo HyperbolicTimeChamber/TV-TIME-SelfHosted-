@@ -121,6 +121,13 @@ test("deriveHistoryCard: still 'watching' an ended show with nothing left → Co
 test("deriveHistoryCard: unknown runtimes show N/A instead of 0m", () => {
 	const card = deriveHistoryCard(entry({ minutesWatched: 0 }), catalog(), "2026-10-14");
 	assert.equal(card.timeSpent, "N/A");
+	// Movies hide Watch Time instead
+	const movie = deriveHistoryCard(
+		entry({ id: "movie_5", mediaType: MediaType.MOVIE, status: WatchStatus.COMPLETED, minutesWatched: 0, nextEpisode: null }),
+		catalog({ mediaType: MediaType.MOVIE }),
+		"2026-10-14",
+	);
+	assert.equal(movie.timeSpent, null);
 });
 
 test("deriveHistoryCard: paused, rewatching, completed, movie", () => {

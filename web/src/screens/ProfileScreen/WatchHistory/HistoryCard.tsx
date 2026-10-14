@@ -70,10 +70,12 @@ function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
 				) : (
 					<span />
 				)}
-				<span className={styles.timeBlock}>
-					<span className={styles.timeLabel}>Watch Time</span>
-					<span className={styles.timeSpent}>{card.timeSpent}</span>
-				</span>
+				{card.timeSpent && (
+					<span className={styles.timeBlock}>
+						<span className={styles.timeLabel}>Watch Time</span>
+						<span className={styles.timeSpent}>{card.timeSpent}</span>
+					</span>
+				)}
 			</span>
 		</button>
 	);

@@ -108,10 +108,12 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 				) : (
 					<View />
 				)}
-				<View style={styles.timeBlock}>
-					<Text style={styles.timeLabel}>Watch Time</Text>
-					<Text style={styles.timeSpent}>{card.timeSpent}</Text>
-				</View>
+				{card.timeSpent && (
+					<View style={styles.timeBlock}>
+						<Text style={styles.timeLabel}>Watch Time</Text>
+						<Text style={styles.timeSpent}>{card.timeSpent}</Text>
+					</View>
+				)}
 			</View>
 		</TouchableOpacity>
 	);

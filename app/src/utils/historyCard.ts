@@ -11,8 +11,8 @@ export interface HistoryCard {
 	backdropPath: string | null;
 	/** Status pill; null for movies (every movie in history is watched) */
 	pill: HistoryPill | null;
-	/** formatTime(minutesWatched); "N/A" when no runtime is known yet */
-	timeSpent: string;
+	/** formatTime(minutesWatched); no runtime known yet → "N/A" for TV, null (hidden) for movies */
+	timeSpent: string | null;
 	/** Full watch-throughs — only for Rewatching / Completed */
 	watchCount: number | null;
 	progress: { kind: HistoryProgress; percent?: number } | null;
@@ -110,8 +110,14 @@ export function deriveHistoryCard(
 		logoPath: catalog?.logoPath ?? null,
 		backdropPath: catalog?.backdropPath ?? null,
 		pill,
-		// Watched, but TMDB had no runtimes yet → "N/A" until the weekly sync heals it
-		timeSpent: entry.minutesWatched > 0 ? formatTime(Math.round(entry.minutesWatched)) : "N/A",
+		// Watched, but TMDB had no runtimes yet → TV "N/A" until the weekly sync heals it;
+		// movies just hide Watch Time
+		timeSpent:
+			entry.minutesWatched > 0
+				? formatTime(Math.round(entry.minutesWatched))
+				: isMovie
+					? null
+					: "N/A",
 		watchCount,
 		progress,
 		tag: isMovie ? year || null : catalog ? (ended ? "Ended" : "Ongoing") : null,
