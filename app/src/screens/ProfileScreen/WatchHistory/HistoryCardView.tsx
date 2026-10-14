@@ -14,7 +14,7 @@ const CARD_WIDTH = Dimensions.get("window").width - 32;
 
 /** Status colours at 60% (hex alpha 99) — translucent over the backdrop */
 export const PILL_COLOR: Record<HistoryPill, string> = {
-	[HistoryPill.WATCHING]: `${colors.textSecondary}99`,
+	[HistoryPill.WATCHING]: `${colors.stopBlue}99`,
 	[HistoryPill.REWATCHING]: `${colors.stopBlue}99`,
 	[HistoryPill.COMPLETED]: `${colors.watchedGreen}99`,
 	[HistoryPill.PAUSED]: `${colors.moviePurple}99`,

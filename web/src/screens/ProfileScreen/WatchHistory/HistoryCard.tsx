@@ -8,7 +8,7 @@ import styles from "./styles/WatchHistory.module.scss";
 
 /** Status colours at 60% — translucent over the backdrop */
 const PILL_BG: Record<HistoryPill, string> = {
-	[HistoryPill.WATCHING]: "bg-fg-secondary/60",
+	[HistoryPill.WATCHING]: "bg-stop/60",
 	[HistoryPill.REWATCHING]: "bg-stop/60",
 	[HistoryPill.COMPLETED]: "bg-watched/60",
 	[HistoryPill.PAUSED]: "bg-movie/60",
