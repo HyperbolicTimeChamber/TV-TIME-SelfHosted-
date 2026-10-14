@@ -178,6 +178,35 @@ test("active pointer: nothing written when catalog has nothing better", async ()
   assert.equal(db.state.writes.length, 0);
 });
 
+test("ended show still watching with nothing left → completed (no reads)", async () => {
+  const db = fakeDb();
+  const overrides = await reconcileTracking(
+    db,
+    "u",
+    [
+      trackingDoc("tv_1", { status: "watching", nextEpisode: null, plays: 2 }),
+      // Pointer past the last episode counts as nothing left too
+      trackingDoc("tv_2", { status: "watching", nextEpisode: { season: 1, episode: 3 }, plays: 2 }),
+      // Still has an unwatched episode → untouched
+      trackingDoc("tv_3", { status: "watching", nextEpisode: { season: 1, episode: 2 }, plays: 1 }),
+      // Never started → untouched
+      trackingDoc("tv_4", { status: "watching", nextEpisode: null }),
+    ],
+    new Map(
+      ["tv_1", "tv_2", "tv_3", "tv_4"].map((id) => [id, catalog([s1], { status: "Canceled" })]),
+    ),
+  );
+  assert.equal(db.state.queries, 0);
+  assert.deepEqual(
+    db.state.writes.map((w) => [w.path, w.data.status]),
+    [
+      ["users/u/tracking/tv_1", "completed"],
+      ["users/u/tracking/tv_2", "completed"],
+    ],
+  );
+  assert.equal(overrides.get("tv_1"), "completed");
+});
+
 test("ended shows are skipped entirely", async () => {
   const db = fakeDb();
   await reconcileTracking(

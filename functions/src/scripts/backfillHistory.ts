@@ -2,7 +2,7 @@
  * One-off admin backfill for Watch History — run locally, never deployed.
  *
  *   GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json \
- *     npm run backfill:history -- [--dry-run] [--only=history|logos|stats] [--mode=firstWatch|everyWatch]
+ *     npm run backfill:history -- [--dry-run] [--only=history|logos|stats|ended] [--mode=firstWatch|everyWatch]
  *
  * stats (only when asked for): recompute profile Watch Time from watched docs.
  *
@@ -13,6 +13,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { getTmdbApiKey } from "../hooks/apiKey";
 import { backfillHistory, backfillLogos } from "../hooks/backfill/runBackfill";
 import { recountWatchTime, WatchTimeMode } from "../hooks/backfill/recountWatchTime";
+import { completeEndedShows } from "../hooks/backfill/completeEndedShows";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -33,6 +34,11 @@ async function main() {
     const rows = await recountWatchTime(db, { dryRun, mode });
     console.table(rows);
     console.log(`Watch Time recount (${mode})${dryRun ? " — dry run, nothing written" : " written"}`);
+  }
+  if (only === "ended") {
+    const r = await completeEndedShows(db, { dryRun });
+    console.table(r.changed);
+    console.log(`Ended shows: ${r.endedShows}; ${r.changed.length} tracking docs ${dryRun ? "would be" : ""} marked completed`);
   }
   if (!only || only === "logos") {
     const r = await backfillLogos(db, await getTmdbApiKey(), { dryRun });
