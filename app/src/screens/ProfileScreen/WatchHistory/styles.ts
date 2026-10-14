@@ -64,7 +64,7 @@ export const styles = StyleSheet.create({
 		gap: spacing.md,
 	},
 	logo: { height: LOGO_HEIGHT, width: "34%", marginBottom: spacing.xs },
-	cardTitle: { alignSelf: "stretch", color: colors.text, fontSize: 17, fontWeight: "700" },
+	cardTitle: { alignSelf: "stretch", color: colors.text, fontSize: 20, fontWeight: "700" },
 	pill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
 	pillText: { color: colors.text, fontSize: 11, fontWeight: "700" },
 	bottomRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
