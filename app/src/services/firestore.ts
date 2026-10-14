@@ -18,6 +18,7 @@ import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { WatchStatus, MediaType, CloudFunction, CatalogShow } from "../types";
 import { showDocId } from "../utils";
 import { trackApi } from "./analytics";
+import { historyOnWatch, historyOnUnwatch, historyCleared, historyOnChange } from "./history";
 
 /** Tracked Cloud Function call */
 function callCF<T = any>(name: string, data: any): Promise<T> {
@@ -215,6 +216,7 @@ export async function stopWatching(
 	const docId = showDocId(tmdbId, mediaType);
 	await updateDoc(doc(trackingRef(userId), docId), {
 		status: newStatus,
+		...historyOnChange(),
 	});
 
 	// Clean upcoming subcollection for this show (fire-and-forget)
@@ -298,7 +300,17 @@ export async function markEpisodeWatched(
 			}
 			if (opts.status) trackingUpdate.status = opts.status;
 			if (opts.incrementRewatch) trackingUpdate.rewatchCount = increment(1);
-			tx.update(doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)), trackingUpdate);
+			tx.update(doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)), {
+				...trackingUpdate,
+				...historyOnWatch(runtime, 1, now),
+			});
+		} else {
+			// Pointer stays put, but the watch still counts for Watch History
+			tx.set(
+				doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)),
+				historyOnWatch(runtime),
+				{ merge: true },
+			);
 		}
 	});
 
@@ -345,6 +357,7 @@ export async function unmarkEpisodeWatched(
 			nextEpisodeAirDate: nextEpisodeAirDate || null,
 			status: WatchStatus.WATCHING,
 			priorityDate: Timestamp.now(),
+			...historyOnUnwatch(runtime),
 		},
 		{ merge: true },
 	);
@@ -386,19 +399,22 @@ export async function decrementEpisodeWatchCount(
 	);
 
 	// When fully unwatched, update tracking to point back to this episode
-	if (willDelete) {
-		batch.set(
-			doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)),
-			{
-				nextEpisode: { season, episode },
-				nextEpisodeName: episodeName || null,
-				nextEpisodeAirDate: nextEpisodeAirDate || null,
-				status: WatchStatus.WATCHING,
-				priorityDate: Timestamp.now(),
-			},
-			{ merge: true },
-		);
-	}
+	batch.set(
+		doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)),
+		{
+			...(willDelete
+				? {
+						nextEpisode: { season, episode },
+						nextEpisodeName: episodeName || null,
+						nextEpisodeAirDate: nextEpisodeAirDate || null,
+						status: WatchStatus.WATCHING,
+						priorityDate: Timestamp.now(),
+					}
+				: {}),
+			...historyOnUnwatch(runtime),
+		},
+		{ merge: true },
+	);
 
 	await batch.commit();
 }
@@ -423,11 +439,17 @@ export async function unmarkSeasonWatched(
 	const batch = writeBatch(db);
 	let totalRuntime = 0;
 	let deleteCount = 0;
+	// Watch History counts every play (rewatches too) — all of them go away here
+	let historyMinutes = 0;
+	let historyPlays = 0;
 
 	for (const d of allSeasonDocs.docs) {
 		batch.delete(d.ref);
-		totalRuntime += d.data().runtime || 0;
+		const { runtime = 0, watchCount = 1 } = d.data();
+		totalRuntime += runtime;
 		deleteCount++;
+		historyMinutes += runtime * watchCount;
+		historyPlays += watchCount;
 	}
 
 	if (deleteCount === 0) return;
@@ -451,6 +473,7 @@ export async function unmarkSeasonWatched(
 			nextEpisode: { season: firstEp.season, episode: firstEp.episode },
 			status: WatchStatus.WATCHING,
 			priorityDate: Timestamp.now(),
+			...historyOnUnwatch(historyMinutes, historyPlays),
 		},
 		{ merge: true },
 	);
@@ -497,6 +520,11 @@ export async function decrementSeasonWatchCount(
 			},
 			{ merge: true },
 		);
+		batch.set(
+			doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)),
+			historyOnUnwatch(totalRuntime, count),
+			{ merge: true },
+		);
 	}
 
 	await batch.commit();
@@ -510,6 +538,7 @@ export async function startRewatch(userId: string, tmdbId: number, mediaType: Me
 		nextEpisode: { season: 1, episode: 1 },
 		lastWatchedAt: serverTimestamp(),
 		priorityDate: serverTimestamp(),
+		...historyOnChange(),
 	});
 }
 
@@ -522,6 +551,7 @@ async function resume(userId: string, tmdbId: number, mediaType: MediaType, stat
 	await updateDoc(doc(trackingRef(userId), showDocId(tmdbId, mediaType)), {
 		status,
 		priorityDate: serverTimestamp(),
+		...historyOnChange(),
 	});
 	if (mediaType === MediaType.TV) {
 		callCF(CloudFunction.ADD_SHOW, { tmdbId, mediaType }).catch((err: any) =>
@@ -540,6 +570,7 @@ export async function restartWatching(userId: string, tmdbId: number) {
 		status: WatchStatus.WATCHING,
 		nextEpisode: { season: 1, episode: 1 },
 		priorityDate: serverTimestamp(),
+		...historyOnChange(),
 	});
 }
 
@@ -559,6 +590,7 @@ export async function skipRewatchEpisode(
 		nextEpisodeName,
 		nextEpisodeAirDate,
 		...(nextEpisode ? {} : { status: WatchStatus.COMPLETED }),
+		...historyOnChange(),
 	});
 }
 
@@ -593,6 +625,7 @@ export async function markMovieWatched(
 			status: WatchStatus.COMPLETED,
 			lastWatchedAt: now,
 			priorityDate: now,
+			...historyOnWatch(runtime || 0),
 		},
 		{ merge: true },
 	);
@@ -636,17 +669,14 @@ export async function decrementMovieWatchCount(
 		},
 		{ merge: true },
 	);
-	// When fully unwatched, revert tracking status
-	if (willDelete) {
-		batch.set(
-			doc(trackingRef(userId), showDocId(tmdbId, MediaType.MOVIE)),
-			{
-				status: WatchStatus.WATCHING,
-				priorityDate: Timestamp.now(),
-			},
-			{ merge: true },
-		);
-	}
+	// When fully unwatched, revert tracking status (and leave Watch History)
+	batch.set(
+		doc(trackingRef(userId), showDocId(tmdbId, MediaType.MOVIE)),
+		willDelete
+			? { status: WatchStatus.WATCHING, priorityDate: Timestamp.now(), ...historyCleared() }
+			: historyOnUnwatch(runtime || 0),
+		{ merge: true },
+	);
 
 	await batch.commit();
 }
@@ -676,6 +706,7 @@ export async function unmarkMovieWatched(
 		{
 			status: WatchStatus.WATCHING,
 			priorityDate: Timestamp.now(),
+			...historyCleared(),
 		},
 		{ merge: true },
 	);
@@ -713,6 +744,7 @@ export async function addAndMarkMovieWatched(
 		releaseDate: null,
 		...(meta?.title ? { title: meta.title } : {}),
 		...(meta?.posterPath ? { posterPath: meta.posterPath } : {}),
+		...historyOnWatch(runtime || 0, 1, now),
 	});
 	batch.set(
 		movieRef,
