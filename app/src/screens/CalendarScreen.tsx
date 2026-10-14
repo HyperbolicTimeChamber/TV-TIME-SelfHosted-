@@ -274,10 +274,10 @@ const styles = StyleSheet.create({
 		right: spacing.md,
 		backgroundColor: colors.badgeOverlay,
 		borderRadius: 999,
-		paddingHorizontal: 10,
-		paddingVertical: 3,
+		paddingHorizontal: 12,
+		paddingVertical: 4,
 	},
-	epLabel: { ...typography.caption, color: colors.text, fontWeight: "600" },
+	epLabel: { ...typography.caption, fontSize: 14, color: colors.text, fontWeight: "600" },
 	movieBadge: {
 		alignSelf: "flex-start",
 		backgroundColor: colors.moviePurple,
