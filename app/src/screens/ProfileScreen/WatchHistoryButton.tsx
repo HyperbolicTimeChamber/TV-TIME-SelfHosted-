@@ -1,6 +1,6 @@
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import ArrowDropRightCircle from "../../components/icons/ArrowDropRightCircle";
 import { colors } from "../../theme";
 import { styles } from "./WatchHistory/styles";
 
@@ -8,10 +8,10 @@ import { styles } from "./WatchHistory/styles";
 export default function WatchHistoryButton({ onPress }: { onPress: () => void }) {
 	return (
 		<TouchableOpacity style={styles.historyButton} onPress={onPress} activeOpacity={0.85}>
+			{/* Mirrors the icon so the label is centred on the whole pill */}
+			<View style={styles.historyButtonSpacer} />
 			<Text style={styles.historyButtonText}>Watch History</Text>
-			<View style={styles.historyButtonArrow}>
-				<Ionicons name="arrow-forward" size={20} color={colors.primary} />
-			</View>
+			<ArrowDropRightCircle size={48} color={colors.text} />
 		</TouchableOpacity>
 	);
 }

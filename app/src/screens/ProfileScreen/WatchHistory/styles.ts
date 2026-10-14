@@ -119,8 +119,8 @@ export const styles = StyleSheet.create({
 		backgroundColor: colors.primary,
 		borderRadius: 999,
 		height: 56,
-		paddingLeft: spacing.xl,
-		paddingRight: 8,
+		// 48px icon, circle inset ~4px inside it → visually 8px from the pill's end
+		paddingHorizontal: 4,
 		marginTop: spacing.lg,
 		marginHorizontal: spacing.lg,
 		shadowColor: colors.primary,
@@ -129,13 +129,6 @@ export const styles = StyleSheet.create({
 		shadowOffset: { width: 0, height: 6 },
 		elevation: 6,
 	},
-	historyButtonText: { color: colors.text, fontSize: 17, fontWeight: "600" },
-	historyButtonArrow: {
-		width: 40,
-		height: 40,
-		borderRadius: 20,
-		backgroundColor: colors.text,
-		justifyContent: "center",
-		alignItems: "center",
-	},
+	historyButtonText: { flex: 1, textAlign: "center", color: colors.text, fontSize: 17, fontWeight: "600" },
+	historyButtonSpacer: { width: 48 },
 });

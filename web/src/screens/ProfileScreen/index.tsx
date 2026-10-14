@@ -1,5 +1,6 @@
 import { App as AntApp, Spin } from "antd";
-import { IoArrowForward, IoPerson, IoSettingsSharp } from "react-icons/io5";
+import { IoPerson, IoSettingsSharp } from "react-icons/io5";
+import { IoIosArrowDroprightCircle } from "react-icons/io";
 import { useNavigate } from "react-router-dom";
 import { useUserStats } from "@app/hooks/useUserStats";
 import { useWatchlist } from "@app/hooks/useWatchlist";
@@ -74,10 +75,10 @@ export default function ProfileScreen() {
 
 			{/* No Watch Statistics chart on web: its data is a per-device local cache */}
 			<button className={historyStyles.historyButton} onClick={() => navigate(Paths.WATCH_HISTORY)}>
-				Watch History
-				<span className={historyStyles.historyButtonArrow}>
-					<IoArrowForward size={20} />
-				</span>
+				{/* Spacer mirrors the icon so the label is centred on the whole pill */}
+				<span className="w-12 shrink-0" aria-hidden />
+				<span className="flex-1 text-center">Watch History</span>
+				<IoIosArrowDroprightCircle size={48} className="block shrink-0" />
 			</button>
 
 			{completedLoading ? (

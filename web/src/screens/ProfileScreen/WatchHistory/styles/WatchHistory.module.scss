@@ -298,7 +298,8 @@
 	width: calc(100% - 32px);
 	height: 56px;
 	margin: 16px 16px 0;
-	padding: 0 8px 0 24px;
+	/* 48px icon, circle inset ~4px inside it → visually 8px from the pill's end */
+	padding: 0 4px;
 	border: none;
 	border-radius: 999px;
 	background: var(--primary);
@@ -313,13 +314,4 @@
 	}
 }
 
-.historyButtonArrow {
-	width: 40px;
-	height: 40px;
-	border-radius: 20px;
-	background: var(--text);
-	color: var(--primary);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
+
