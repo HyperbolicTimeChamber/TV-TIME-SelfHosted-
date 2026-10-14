@@ -185,11 +185,10 @@ export default function CalendarScreen() {
 													<span className={styles.epTitle}>{ep.episodeTitle}</span>
 												)}
 											</span>
-											{!isMovie && (
-												<span className={styles.seasonPill}>
-													S{pad(ep.season)}E{pad(ep.episode)}
-												</span>
-											)}
+											{/* Top-right pill: SxxExx for episodes, release year for movies */}
+											<span className={styles.seasonPill}>
+												{isMovie ? ep.airDate.slice(0, 4) : `S${pad(ep.season)}E${pad(ep.episode)}`}
+											</span>
 										</button>
 									);
 								})

@@ -113,13 +113,14 @@ export default function CalendarScreen() {
 							</Text>
 						)}
 					</View>
-					{!isMovie && (
-						<View style={styles.seasonPill}>
-							<Text style={styles.epLabel}>
-								S{String(item.season).padStart(2, "0")}E{String(item.episode).padStart(2, "0")}
-							</Text>
-						</View>
-					)}
+					{/* Top-right pill: SxxExx for episodes, release year for movies */}
+					<View style={styles.seasonPill}>
+						<Text style={styles.epLabel}>
+							{isMovie
+								? item.airDate.slice(0, 4)
+								: `S${String(item.season).padStart(2, "0")}E${String(item.episode).padStart(2, "0")}`}
+						</Text>
+					</View>
 				</TouchableOpacity>
 			);
 		},
@@ -265,7 +266,7 @@ const styles = StyleSheet.create({
 		...typography.subtitle,
 		fontSize: 14,
 	},
-	// SxxExx in the card's top-right corner, translucent black
+	// SxxExx / movie year in the card's top-right corner, translucent black
 	seasonPill: {
 		position: "absolute",
 		top: spacing.md,
