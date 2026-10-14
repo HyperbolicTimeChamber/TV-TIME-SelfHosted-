@@ -108,7 +108,7 @@ export default function CalendarScreen() {
 								<Text style={styles.movieBadgeText}>MOVIE</Text>
 							</View>
 						) : (
-							<Text style={styles.epTitle} numberOfLines={1}>
+							<Text style={styles.epTitle} numberOfLines={2}>
 								{item.episodeTitle}
 							</Text>
 						)}
@@ -259,12 +259,13 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.surface,
 	},
 	cardOverlay: { backgroundColor: "rgba(0, 0, 0, 0.55)" },
-	// Right padding keeps a long fallback name clear of the SxxExx pill
-	epInfo: { flex: 1, paddingRight: 72 },
+	epInfo: { flex: 1 },
 	logo: { height: 36, width: "60%", marginBottom: spacing.sm },
 	showTitle: {
 		...typography.subtitle,
 		fontSize: 14,
+		// Only the top row shares space with the corner pill — keep it clear
+		marginRight: 72,
 	},
 	// SxxExx / movie year in the card's top-right corner, translucent black
 	seasonPill: {
