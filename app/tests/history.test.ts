@@ -155,7 +155,7 @@ test("deriveHistoryCard: paused, rewatching, completed, movie", () => {
 
 import { buildCompletedSections } from "../src/utils";
 
-test("buildCompletedSections: shows cluster in their most popular genre; small rows fold into More", () => {
+test("buildCompletedSections: shows cluster in their most popular genre; small rows fold into Others", () => {
 	const show = (id: number, genres: string[]) => ({
 		tmdbId: id,
 		mediaType: MediaType.TV,
@@ -180,7 +180,7 @@ test("buildCompletedSections: shows cluster in their most popular genre; small r
 			// Animation is everyone's most common genre → one full row
 			["Animation", [4, 3, 2, 1]],
 			// Crime / Western have 1 each → folded
-			["More", [6, 5]],
+			["Others", [6, 5]],
 		],
 	);
 });

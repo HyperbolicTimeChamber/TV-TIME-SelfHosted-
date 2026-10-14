@@ -15,9 +15,9 @@ export interface CompletedSection {
 }
 
 const SECTION_LIMIT = 10;
-/** Genre rows smaller than this fold into the "More" row */
+/** Genre rows smaller than this fold into the "Others" row */
 const MIN_ROW_ITEMS = 3;
-const MORE_SECTION = "More";
+const MORE_SECTION = "Others";
 
 /** Movies row + genre rows for Recently Completed (pure — shared by app and web) */
 export function buildCompletedSections(items: CompletedItem[]): CompletedSection[] {
@@ -58,7 +58,7 @@ export function buildCompletedSections(items: CompletedItem[]): CompletedSection
 			genreMap.set(genre, [...(genreMap.get(genre) ?? []), show]);
 		}
 
-		// Rows with only a couple of items fold into one "More" row at the end
+		// Rows with only a couple of items fold into one "Others" row at the end
 		const more = genreMap.get(MORE_SECTION) ?? [];
 		genreMap.delete(MORE_SECTION);
 		for (const [genre, shows] of [...genreMap]) {
