@@ -76,9 +76,11 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 						{card.title}
 					</Text>
 				</View>
-				<View style={[styles.pill, { backgroundColor: PILL_COLOR[card.pill] }]}>
-					<Text style={styles.pillText}>{card.pill}</Text>
-				</View>
+				{card.pill && (
+					<View style={[styles.pill, { backgroundColor: PILL_COLOR[card.pill] }]}>
+						<Text style={styles.pillText}>{card.pill}</Text>
+					</View>
+				)}
 			</View>
 
 			<View style={styles.bottomRow}>

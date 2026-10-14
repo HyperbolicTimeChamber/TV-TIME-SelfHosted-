@@ -123,7 +123,7 @@ test("deriveHistoryCard: paused, rewatching, completed, movie", () => {
 		catalog({ mediaType: MediaType.MOVIE, releaseDate: "2014-11-07", logoPath: null }),
 		today,
 	);
-	assert.equal(movie.pill, HistoryPill.COMPLETED);
+	assert.equal(movie.pill, null);
 	assert.equal(movie.watchCount, 3);
 	assert.equal(movie.tag, "2014");
 	assert.equal(movie.logoPath, null);

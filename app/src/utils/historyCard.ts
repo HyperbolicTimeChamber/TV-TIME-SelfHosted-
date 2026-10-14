@@ -9,7 +9,8 @@ export interface HistoryCard {
 	title: string;
 	logoPath: string | null;
 	backdropPath: string | null;
-	pill: HistoryPill;
+	/** Status pill; null for movies (every movie in history is watched) */
+	pill: HistoryPill | null;
 	/** formatTime(minutesWatched) */
 	timeSpent: string;
 	/** Full watch-throughs — only for Rewatching / Completed */
@@ -63,7 +64,7 @@ export function deriveHistoryCard(
 	const caughtUpAiring =
 		!isMovie && !!catalog && !ended && entry.status === WatchStatus.COMPLETED;
 	const pill = isMovie
-		? HistoryPill.COMPLETED
+		? null
 		: caughtUpAiring
 			? HistoryPill.WATCHING
 			: PILL[entry.status];

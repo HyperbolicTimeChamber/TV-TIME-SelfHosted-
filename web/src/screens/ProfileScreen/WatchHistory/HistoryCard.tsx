@@ -50,7 +50,7 @@ function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
 					{card.logoPath && <img src={tmdbLogoUri(card.logoPath, 160)} alt="" className={styles.logo} loading="lazy" />}
 					<span className={styles.cardTitle}>{card.title}</span>
 				</span>
-				<span className={`${styles.pill} ${PILL_BG[card.pill]}`}>{card.pill}</span>
+				{card.pill && <span className={`${styles.pill} ${PILL_BG[card.pill]}`}>{card.pill}</span>}
 			</span>
 
 			<span className={styles.bottomRow}>
