@@ -10,12 +10,9 @@ export const RING_STROKE = 3;
 
 export const styles = StyleSheet.create({
 	container: { flex: 1, backgroundColor: colors.background },
-	// Full-width top bar: circular back + title, tabs underneath (same surface as the tabs)
-	topBar: {
-		backgroundColor: colors.surface,
-		borderBottomWidth: StyleSheet.hairlineWidth,
-		borderBottomColor: colors.border,
-	},
+	// Full-width top bar on the page background (blends in): circular back + title, tabs underneath
+	topBar: { backgroundColor: colors.background },
+	tabs: { backgroundColor: colors.background, borderTopWidth: 0 },
 	titleRow: {
 		flexDirection: "row",
 		alignItems: "center",

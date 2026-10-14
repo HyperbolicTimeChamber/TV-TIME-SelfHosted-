@@ -78,7 +78,7 @@ export default function WatchHistoryScreen() {
 					{/* Mirrors the back button so the title is centred on the bar */}
 					<span className="w-11 shrink-0" aria-hidden />
 				</div>
-				<SlidingTabs id="history-tabs" tabs={TABS} activeKey={tab} onTabPress={setTab} />
+				<SlidingTabs id="history-tabs" tabs={TABS} activeKey={tab} onTabPress={setTab} className={styles.tabs} />
 			</motion.header>
 			<HistoryList key={tab} mediaType={tab} />
 		</div>

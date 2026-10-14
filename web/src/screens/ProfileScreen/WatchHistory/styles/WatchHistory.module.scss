@@ -2,14 +2,18 @@
 
 /* Numbers match app/src/screens/ProfileScreen/WatchHistory/styles.ts → identical at phone width */
 
-/* Full-width sticky top bar: circular back + title, tabs underneath */
+/* Phones: full-width sticky top bar on the page background (blends in) */
 .topBar {
 	position: sticky;
 	top: 0;
 	z-index: 10;
-	background: var(--surface);
-	border-bottom: 1px solid var(--border);
+	background: var(--bg);
 	padding-top: calc(env(safe-area-inset-top) + 8px);
+}
+
+/* SlidingTabs paints its own surface — match the bar instead */
+.topBar .tabs {
+	background: transparent;
 }
 
 /* Wider screens: same bar as a rounded island inset from the edges. The shadow paints
@@ -23,6 +27,7 @@
 		overflow: hidden;
 		padding-top: 8px;
 		box-shadow: 0 -12px 0 12px var(--bg);
+		background: var(--surface);
 	}
 }
 

@@ -100,7 +100,12 @@ export default function WatchHistoryScreen() {
 					{/* Mirrors the back button so the title is centred on the bar */}
 					<View style={styles.backSpacer} />
 				</View>
-				<SlidingTabs tabs={TABS} activeKey={tab} onTabPress={(key) => setTab(key as MediaType)} />
+				<SlidingTabs
+					tabs={TABS}
+					activeKey={tab}
+					onTabPress={(key) => setTab(key as MediaType)}
+					style={styles.tabs}
+				/>
 			</View>
 			<HistoryList key={tab} mediaType={tab} />
 		</View>
