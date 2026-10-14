@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { AnimatedModal, LoadingSpinner } from "../components";
@@ -9,8 +9,13 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import PosterImage from "../components/PosterImage";
 import { colors, spacing, typography } from "../theme";
-import { UpcomingEpisode, CalendarStackParamList, Route, MediaType } from "../types";
-import { useCalendarScreen, YEARS } from "./useCalendarScreen";
+import { CalendarStackParamList, Route, MediaType } from "../types";
+import { useCalendarScreen, YEARS, type CalendarEpisode } from "./useCalendarScreen";
+import { Image } from "expo-image";
+import { tmdbBackdropUri } from "../hooks/useTmdbImage";
+import { BLUR_RADIUS } from "./ProfileScreen/styles";
+
+const CARD_WIDTH = Dimensions.get("window").width - 32;
 
 type NavProp = NativeStackNavigationProp<CalendarStackParamList, Route.CALENDAR_MAIN>;
 
@@ -61,11 +66,12 @@ export default function CalendarScreen() {
 	}, [currentYear, setYearModalVisible]);
 
 	const renderEpisode = useCallback(
-		({ item }: { item: UpcomingEpisode }) => {
+		({ item }: { item: CalendarEpisode }) => {
 			const isMovie = item.mediaType === MediaType.MOVIE;
 			return (
 				<TouchableOpacity
-					style={styles.episodeRow}
+					style={styles.episodeCard}
+					activeOpacity={0.85}
 					onPress={() =>
 						navigation.navigate(Route.SHOW_DETAIL, {
 							tmdbId: item.tmdbShowId,
@@ -73,6 +79,16 @@ export default function CalendarScreen() {
 						})
 					}
 				>
+					{/* Same backdrop treatment as the Watch History cards */}
+					{item.backdropPath && (
+						<Image
+							source={{ uri: tmdbBackdropUri(item.backdropPath, CARD_WIDTH) }}
+							style={StyleSheet.absoluteFill}
+							contentFit="cover"
+							blurRadius={BLUR_RADIUS}
+						/>
+					)}
+					<View style={[StyleSheet.absoluteFill, styles.cardOverlay]} />
 					<PosterImage
 						posterPath={item.posterPath}
 						mediaType={item.mediaType}
@@ -224,14 +240,17 @@ const styles = StyleSheet.create({
 		color: colors.textMuted,
 		marginTop: spacing.md,
 	},
-	episodeRow: {
+	episodeCard: {
 		flexDirection: "row",
 		alignItems: "center",
-		paddingHorizontal: spacing.lg,
-		paddingVertical: spacing.sm,
-		borderBottomWidth: 1,
-		borderBottomColor: colors.border,
+		marginHorizontal: spacing.lg,
+		marginBottom: spacing.md,
+		padding: spacing.md,
+		borderRadius: 16,
+		overflow: "hidden",
+		backgroundColor: colors.surface,
 	},
+	cardOverlay: { backgroundColor: "rgba(0, 0, 0, 0.55)" },
 	poster: {
 		width: 45,
 		height: 67,
@@ -247,6 +266,7 @@ const styles = StyleSheet.create({
 	},
 	epLabel: {
 		...typography.caption,
+		color: colors.text,
 		marginTop: spacing.xs,
 	},
 	movieBadge: {
@@ -265,7 +285,7 @@ const styles = StyleSheet.create({
 	},
 	epTitle: {
 		...typography.body,
-		color: colors.textSecondary,
+		color: colors.text,
 		marginTop: spacing.xs,
 		fontSize: 13,
 	},

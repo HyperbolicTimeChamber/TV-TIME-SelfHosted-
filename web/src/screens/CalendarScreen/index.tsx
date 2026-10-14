@@ -6,6 +6,7 @@ import { useCalendarScreen, YEARS } from "@app/screens/useCalendarScreen";
 import { MediaType } from "@app/enums";
 import { todayStr } from "@app/utils/todayStr";
 import PosterImage from "../../components/PosterImage";
+import { tmdbBackdropUri } from "@app/hooks/useTmdbImage";
 import AnimatedModal from "../../components/AnimatedModal";
 import LoadingScreen from "../../components/LoadingScreen";
 import { showPath } from "../../routes/paths";
@@ -23,12 +24,12 @@ function DayCounts({ counts }: { counts?: { shows: Set<number>; movies: number }
 		<span className={styles.counts} aria-hidden={!shows && !movies}>
 			{shows > 0 && (
 				<span className={`${styles.count} bg-primary`} aria-label={`${shows} shows`}>
-					{shows}
+					{shows} {shows === 1 ? "show" : "shows"}
 				</span>
 			)}
 			{movies > 0 && (
 				<span className={`${styles.count} bg-movie`} aria-label={`${movies} movies`}>
-					{movies}
+					{movies} {movies === 1 ? "movie" : "movies"}
 				</span>
 			)}
 		</span>
@@ -167,7 +168,12 @@ export default function CalendarScreen() {
 											className={styles.episodeRow}
 											onClick={() => navigate(showPath(isMovie ? MediaType.MOVIE : MediaType.TV, ep.tmdbShowId))}
 										>
-											<PosterImage posterPath={ep.posterPath} mediaType={ep.mediaType} className={styles.poster} />
+											{/* Same backdrop treatment as the Watch History cards */}
+										{ep.backdropPath && (
+											<img src={tmdbBackdropUri(ep.backdropPath, 600)} alt="" className={styles.cardBg} loading="lazy" />
+										)}
+										<span className={styles.cardOverlay} />
+										<PosterImage posterPath={ep.posterPath} mediaType={ep.mediaType} className={styles.poster} />
 											<span className={styles.epInfo}>
 												<span className={styles.showTitle}>{ep.showTitle}</span>
 												{isMovie ? (

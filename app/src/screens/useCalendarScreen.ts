@@ -1,6 +1,11 @@
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { useAuthStore } from "../stores";
-import { useCalendarEpisodes } from "../hooks";
+import { useCalendarEpisodes, getCachedCatalogShow } from "../hooks";
+import { MediaType } from "../enums";
+import type { UpcomingEpisode } from "../types";
+
+/** A day's episode / movie, with its backdrop for the list card */
+export type CalendarEpisode = UpcomingEpisode & { backdropPath: string | null };
 import { colors } from "../theme";
 import { todayStr } from "../utils";
 
@@ -70,9 +75,19 @@ export function useCalendarScreen() {
 		return marks;
 	}, [episodes, selectedDate]);
 
-	const selectedEpisodes = useMemo(() => {
+	// + backdrop from the shared catalog cache (no reads) for the card backgrounds
+	const selectedEpisodes = useMemo((): CalendarEpisode[] => {
 		if (!selectedDate || !episodes) return [];
-		return episodes.filter((ep) => ep.airDate === selectedDate);
+		return episodes
+			.filter((ep) => ep.airDate === selectedDate)
+			.map((ep) => ({
+				...ep,
+				backdropPath:
+					getCachedCatalogShow(
+						ep.tmdbShowId,
+						ep.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV,
+					)?.backdropPath ?? null,
+			}));
 	}, [episodes, selectedDate]);
 
 	const handleDayPress = useCallback((dateString: string) => {
