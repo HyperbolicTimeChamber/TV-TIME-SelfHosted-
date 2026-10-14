@@ -83,7 +83,7 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 						</View>
 					)}
 				</View>
-				<Text style={styles.cardTitle} numberOfLines={1}>
+				<Text style={styles.cardTitle} numberOfLines={2}>
 					{card.title}
 				</Text>
 				{card.tag && (

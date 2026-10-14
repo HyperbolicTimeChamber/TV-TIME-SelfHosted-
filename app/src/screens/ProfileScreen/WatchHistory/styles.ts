@@ -71,20 +71,19 @@ export const styles = StyleSheet.create({
 	timeSpent: { color: colors.text, fontSize: 30, fontWeight: "700", letterSpacing: -0.5 },
 	// Progress pill bottom-left, time + watch count bottom-right
 	timeBlock: { alignItems: "flex-end" },
-	// Count circle is the pill's full height with no right padding → its edge is the pill's end
+	// Right padding = vertical padding → count circle concentric with the pill's end
 	watchCountPill: {
 		flexDirection: "row",
 		alignItems: "center",
 		gap: 6,
 		marginTop: spacing.xs,
-		height: 22,
-		paddingVertical: 0,
-		paddingRight: 0,
+		paddingVertical: 3,
+		paddingRight: 3,
 	},
 	countCircle: {
-		minWidth: 22,
-		height: 22,
-		borderRadius: 11,
+		minWidth: 20,
+		height: 20,
+		borderRadius: 10,
 		paddingHorizontal: 6,
 		alignItems: "center",
 		justifyContent: "center",

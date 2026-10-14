@@ -132,9 +132,12 @@
 	max-width: 100%;
 	font-size: 17px;
 	font-weight: 700;
-	white-space: nowrap;
+	/* Up to 2 lines, then … */
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
 	overflow: hidden;
-	text-overflow: ellipsis;
 }
 
 .pill {
@@ -160,22 +163,19 @@
 	align-items: flex-end;
 }
 
-/* Count circle is the pill's full height with no right padding → its edge is the pill's end */
+/* Right padding = vertical padding → count circle concentric with the pill's end */
 .tagPill.watchCountPill {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
 	margin-top: 4px;
-	height: 22px;
-	padding-top: 0;
-	padding-bottom: 0;
-	padding-right: 0;
+	padding-right: 3px;
 }
 
 .countCircle {
-	min-width: 22px;
-	height: 22px;
-	border-radius: 11px;
+	min-width: 20px;
+	height: 20px;
+	border-radius: 10px;
 	padding: 0 6px;
 	display: inline-flex;
 	align-items: center;
