@@ -47,8 +47,6 @@
 }
 
 .list {
-	/* We keep the position ourselves when older items load above */
-	overflow-anchor: none;
 	padding: 8px 0;
 	display: flex;
 	flex-direction: column;
@@ -104,11 +102,4 @@
 	font-weight: 600;
 	color: $destructive-red;
 	margin: 0;
-}
-
-.loadEarlier {
-	display: flex;
-	justify-content: center;
-	padding-top: 8px;
-	min-height: 32px;
 }
