@@ -1,16 +1,13 @@
-import { useEffect } from "react";
 import { App as AntApp, Spin } from "antd";
 import { IoArrowForward, IoPerson, IoSettingsSharp } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import { useUserStats } from "@app/hooks/useUserStats";
 import { useWatchlist } from "@app/hooks/useWatchlist";
-import { useWeeklyActivity } from "@app/hooks/useWeeklyActivity";
 import { useProfileCardImages } from "@app/hooks/useProfileCardImages";
 import { useCompletedShows } from "@app/hooks/useCompletedShows";
 import { formatCount, formatTime, scaledPhotoURL } from "@app/utils/format";
 import { useAppSelector } from "../../store";
 import { signOut } from "../../services/auth";
-import WeeklyChart from "../../components/WeeklyChart";
 import PosterImage from "../../components/PosterImage";
 import { Paths, showPath } from "../../routes/paths";
 import { StatCard, CollageCard } from "./ProfileCards";
@@ -24,13 +21,8 @@ export default function ProfileScreen() {
 	const user = useAppSelector((s) => s.auth.user);
 	const { stats, loading: statsLoading } = useUserStats(user?.uid);
 	const { items: watchlist } = useWatchlist(user?.uid);
-	const { chartData, refresh: refreshChart } = useWeeklyActivity();
 	const cardImages = useProfileCardImages(watchlist);
 	const { sections, loading: completedLoading } = useCompletedShows(user?.uid);
-
-	useEffect(() => {
-		refreshChart();
-	}, [refreshChart]);
 
 	const confirmSignOut = () =>
 		modal.confirm({
@@ -80,7 +72,7 @@ export default function ProfileScreen() {
 				<IoSettingsSharp size={18} /> Settings
 			</button>
 
-			<WeeklyChart data={chartData} />
+			{/* No Watch Statistics chart on web: its data is a per-device local cache */}
 			<button className={historyStyles.historyButton} onClick={() => navigate(Paths.WATCH_HISTORY)}>
 				Watch History
 				<span className={historyStyles.historyButtonArrow}>
