@@ -8,9 +8,10 @@ import { tmdbBackdropUri, tmdbLogoUri } from "../../../hooks/useTmdbImage";
 import type { HistoryCard } from "../../../utils";
 import { BLUR_RADIUS } from "../styles";
 import ProgressRing from "./ProgressRing";
-import { RING_SIZE, styles } from "./styles";
+import { CARD_ASPECT, RING_SIZE, styles } from "./styles";
 
 const CARD_WIDTH = Dimensions.get("window").width - 32;
+const CARD_MIN_HEIGHT = CARD_WIDTH / CARD_ASPECT;
 
 /** Status colours at 60% (hex alpha 99) — translucent over the backdrop */
 export const PILL_COLOR: Record<HistoryPill, string> = {
@@ -54,7 +55,7 @@ function ProgressModule({ progress }: { progress: NonNullable<HistoryCard["progr
 /** Watch History card (16:9): logo + title + status, time spent, progress, Ongoing/Ended */
 function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => void }) {
 	return (
-		<TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
+		<TouchableOpacity style={[styles.card, { minHeight: CARD_MIN_HEIGHT }]} onPress={onPress} activeOpacity={0.85}>
 			{card.backdropPath && (
 				<Image
 					source={{ uri: tmdbBackdropUri(card.backdropPath, CARD_WIDTH) }}

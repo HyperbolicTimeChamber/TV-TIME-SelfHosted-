@@ -36,9 +36,11 @@ export const styles = StyleSheet.create({
 	footer: { paddingVertical: spacing.xl },
 
 	// Card
+	// 16:9 is the minimum (minHeight set from the card width in HistoryCardView) — the card
+	// grows when a two-line title needs more room instead of clipping the bottom row
 	card: {
 		width: "100%",
-		aspectRatio: CARD_ASPECT,
+		gap: spacing.md,
 		borderRadius: CARD_RADIUS,
 		backgroundColor: colors.surface,
 		padding: spacing.lg,
