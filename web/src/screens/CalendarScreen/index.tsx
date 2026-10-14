@@ -24,12 +24,12 @@ function DayCounts({ counts }: { counts?: { shows: Set<number>; movies: number }
 		<span className={styles.counts} aria-hidden={!shows && !movies}>
 			{shows > 0 && (
 				<span className={`${styles.count} bg-primary`} aria-label={`${shows} shows`}>
-					{shows} {shows === 1 ? "show" : "shows"}
+					{shows} {shows === 1 ? "Show" : "Shows"}
 				</span>
 			)}
 			{movies > 0 && (
 				<span className={`${styles.count} bg-movie`} aria-label={`${movies} movies`}>
-					{movies} {movies === 1 ? "movie" : "movies"}
+					{movies} {movies === 1 ? "Movie" : "Movies"}
 				</span>
 			)}
 		</span>
