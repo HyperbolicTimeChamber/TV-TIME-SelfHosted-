@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LegendList } from "@legendapp/list/react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import SlidingTabs from "../../../components/SlidingTabs";
 import { useSharedShimmer } from "../../../components/SkeletonLine";
 import { useWatchHistory } from "../../../hooks";
@@ -107,7 +108,15 @@ export default function WatchHistoryScreen() {
 					style={styles.tabs}
 				/>
 			</View>
-			<HistoryList key={tab} mediaType={tab} />
+			<View style={styles.listArea}>
+				<HistoryList key={tab} mediaType={tab} />
+				{/* Cards fade out under the bar instead of being cut off */}
+				<LinearGradient
+					colors={[colors.background, `${colors.background}00`]}
+					style={styles.topFade}
+					pointerEvents="none"
+				/>
+			</View>
 		</View>
 	);
 }

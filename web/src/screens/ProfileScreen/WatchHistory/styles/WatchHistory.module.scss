@@ -11,6 +11,18 @@
 	padding-top: calc(env(safe-area-inset-top) + 8px);
 }
 
+/* Cards fade out under the bar instead of being cut off */
+.topBar::after {
+	content: "";
+	position: absolute;
+	top: 100%;
+	left: 0;
+	right: 0;
+	height: 24px;
+	background: linear-gradient(var(--bg), transparent);
+	pointer-events: none;
+}
+
 /* SlidingTabs paints its own surface — match the bar instead */
 .topBar .tabs {
 	background: transparent;
@@ -28,6 +40,10 @@
 		padding-top: 8px;
 		box-shadow: 0 -12px 0 12px var(--bg);
 		background: var(--surface);
+		/* overflow: hidden would clip it anyway; the island floats over the cards */
+		&::after {
+			display: none;
+		}
 	}
 }
 

@@ -13,6 +13,8 @@ export const styles = StyleSheet.create({
 	// Full-width top bar on the page background (blends in): circular back + title, tabs underneath
 	topBar: { backgroundColor: colors.background },
 	tabs: { backgroundColor: colors.background, borderTopWidth: 0 },
+	listArea: { flex: 1 },
+	topFade: { position: "absolute", top: 0, left: 0, right: 0, height: 24 },
 	titleRow: {
 		flexDirection: "row",
 		alignItems: "center",
