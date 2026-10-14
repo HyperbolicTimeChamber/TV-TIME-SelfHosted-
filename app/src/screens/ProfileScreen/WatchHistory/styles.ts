@@ -68,7 +68,16 @@ export const styles = StyleSheet.create({
 	pill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
 	pillText: { color: colors.text, fontSize: 11, fontWeight: "700" },
 	bottomRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
-	timeSpent: { color: colors.text, fontSize: 30, fontWeight: "700", letterSpacing: -0.5 },
+	// lineHeight = fontSize, pulled down by the font's descent (~0.2em) so the digits'
+	// baseline lines up with the bottom of the progress pill on the left
+	timeSpent: {
+		color: colors.text,
+		fontSize: 30,
+		lineHeight: 30,
+		fontWeight: "700",
+		letterSpacing: -0.5,
+		marginBottom: -6,
+	},
 	// Progress pill bottom-left, time + watch count bottom-right
 	timeBlock: { alignItems: "flex-end" },
 	// Right padding = vertical padding → count circle concentric with the pill's end

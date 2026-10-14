@@ -153,7 +153,10 @@
 	font-size: 30px;
 	font-weight: 700;
 	letter-spacing: -0.5px;
-	line-height: 1.15;
+	/* line-height = font size, pulled down by the descent (~0.2em) so the digits'
+	   baseline lines up with the bottom of the progress pill on the left */
+	line-height: 1;
+	margin-bottom: -0.2em;
 }
 
 /* Progress pill bottom-left, time + watch count bottom-right */
