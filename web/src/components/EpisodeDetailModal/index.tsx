@@ -220,8 +220,12 @@ export default function EpisodeDetailModal({
 								return (
 									<div key={key} className={styles.slide}>
 										<div
-											className={`${styles.cardWrapper} [transform:perspective(900px)_rotateY(var(--ry))_scale(var(--sc))]`}
-											onClick={(e) => e.stopPropagation()}
+											className={`${styles.cardWrapper} ${index !== activeIndex ? styles.sideCard : ""} [transform:perspective(900px)_rotateY(var(--ry))_scale(var(--sc))]`}
+											onClick={(e) => {
+												e.stopPropagation();
+												// Side card: bring it to the centre instead of acting on it
+												if (index !== activeIndex) scrollTo(index);
+											}}
 											style={cssVars({ "--ry": `${-d * SIDE_ROTATE_DEG}deg`, "--sc": 1 - Math.abs(d) * (1 - SIDE_SCALE) })}
 										>
 											<EpisodeCard
