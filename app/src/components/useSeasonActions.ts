@@ -316,6 +316,7 @@ export function useSeasonActions({
 			const tw = await resolveTrackingWrite(eps.map((ep: TMDBEpisode) => ep.episode_number));
 
 			await markSeasonWatchedCF(
+				user.uid,
 				tmdbId,
 				season.season_number,
 				eps.map((ep: TMDBEpisode) => ({
@@ -627,6 +628,7 @@ export function useSeasonActions({
 				);
 
 				await markSeasonWatchedCF(
+					user.uid,
 					tmdbId,
 					season.season_number,
 					epsToMark.map((ep: TMDBEpisode) => ({

@@ -25,7 +25,6 @@ export default function SettingsScreen() {
 	const user = useAuthStore((s) => s.user);
 	const signOut = useAuthStore((s) => s.signOut);
 	const [testingFCM, setTestingFCM] = useState(false);
-	const [migrating, setMigrating] = useState(false);
 	const [deletingAccount, setDeletingAccount] = useState(false);
 
 	const isEmailUser = user?.providerData?.some((p) => p.providerId === "password") ?? false;
@@ -110,34 +109,6 @@ export default function SettingsScreen() {
 							<ActivityIndicator size="small" color={colors.accent} />
 						) : (
 							<Text style={styles.rowText}>Send Test Notification</Text>
-						)}
-					</TouchableOpacity>
-					<TouchableOpacity
-						style={styles.row}
-						onPress={async () => {
-							if (migrating) return;
-							setMigrating(true);
-							try {
-								const result = await httpsCallable(getFunctions(), "migrateDocIds", {
-									timeout: 3600000,
-								})({});
-								const data = result.data as any;
-								Alert.alert(
-									"Migration Done",
-									`Shows: ${data.showsMigrated}, Tracking: ${data.trackingMigrated}`,
-								);
-							} catch (err: any) {
-								Alert.alert("Error", err.message || "Migration failed.");
-							} finally {
-								setMigrating(false);
-							}
-						}}
-						disabled={migrating}
-					>
-						{migrating ? (
-							<ActivityIndicator size="small" color={colors.accent} />
-						) : (
-							<Text style={styles.rowText}>Run Doc ID Migration</Text>
 						)}
 					</TouchableOpacity>
 				</View>

@@ -137,6 +137,13 @@ export function whenCatalogRestored(timeoutMs = 3000): Promise<void> {
 	return Promise.race([catalogRestored, new Promise<void>((r) => setTimeout(r, timeoutMs))]);
 }
 
+/** Put catalog docs fetched elsewhere (e.g. Watch History) into the shared cache + persist */
+export function cacheCatalogShows(shows: CatalogShow[]) {
+	if (shows.length === 0) return;
+	for (const show of shows) sharedCatalogCache.set(showDocId(show.tmdbId, show.mediaType), show);
+	persistCatalogCache(sharedCatalogCache);
+}
+
 /** Get a catalog show from the in-memory cache (no Firestore read) */
 export function getCachedCatalogShow(tmdbId: number, mediaType: MediaType): CatalogShow | null {
 	return sharedCatalogCache.get(showDocId(tmdbId, mediaType)) ?? null;
