@@ -189,14 +189,33 @@
 	font-weight: 700;
 }
 
+.timeBlock {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+}
+
+.timeLabel {
+	font-size: 11px;
+	font-weight: 500;
+	margin-bottom: 4px;
+}
+
 .timeSpent {
+	display: block;
 	font-size: 30px;
 	font-weight: 700;
 	letter-spacing: -0.5px;
-	/* line-height = font size, pulled down by the descent (~0.2em) so the digits'
-	   baseline lines up with the bottom of the progress pill on the left */
 	line-height: 1;
-	margin-bottom: -0.2em;
+	/* Box ends exactly at the digits' baseline → its bottom lines up with the pill's */
+	text-box: trim-end cap alphabetic;
+}
+
+/* Browsers without text-box trimming: pull the descent space down instead */
+@supports not (text-box: trim-end cap alphabetic) {
+	.timeSpent {
+		margin-bottom: -0.15em;
+	}
 }
 
 /* Same size as the progress pills, mirrored: circle on the right, concentric with that end */

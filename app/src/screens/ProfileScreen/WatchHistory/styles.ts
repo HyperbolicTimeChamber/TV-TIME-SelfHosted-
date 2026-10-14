@@ -70,8 +70,10 @@ export const styles = StyleSheet.create({
 	pill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
 	pillText: { color: colors.text, fontSize: 11, fontWeight: "700" },
 	bottomRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
-	// lineHeight = fontSize, pulled down by the font's descent (~0.2em) so the digits'
-	// baseline lines up with the bottom of the progress pill on the left
+	timeBlock: { alignItems: "flex-end" },
+	timeLabel: { color: colors.text, fontSize: 11, fontWeight: "500", marginBottom: 2 },
+	// lineHeight = fontSize, pulled down by the font's descent so the digits' baseline
+	// lines up with the bottom of the progress pill on the left
 	timeSpent: {
 		color: colors.text,
 		fontSize: 30,
