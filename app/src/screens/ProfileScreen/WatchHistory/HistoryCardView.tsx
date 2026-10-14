@@ -18,7 +18,7 @@ export const PILL_COLOR: Record<HistoryPill, string> = {
 	[HistoryPill.WATCHING]: `${colors.stopBlue}99`,
 	[HistoryPill.REWATCHING]: `${colors.stopBlue}99`,
 	[HistoryPill.COMPLETED]: `${colors.watchedGreen}99`,
-	[HistoryPill.PAUSED]: `${colors.moviePurple}99`,
+	[HistoryPill.PAUSED]: `${colors.destructiveRed}99`,
 };
 
 function ProgressModule({ progress }: { progress: NonNullable<HistoryCard["progress"]> }) {
@@ -68,15 +68,20 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 
 			<View style={styles.topBlock}>
 				<View style={styles.topRow}>
+					{/* Logo when TMDB has one (name only as the fallback): 56px tall, width
+					    from its shape, never wider than the space left of the corner pill */}
 					{card.logoPath ? (
 						<Image
-							source={{ uri: tmdbLogoUri(card.logoPath, CARD_WIDTH * 0.34) }}
+							source={{ uri: tmdbLogoUri(card.logoPath, CARD_WIDTH * 0.7) }}
 							style={styles.logo}
 							contentFit="contain"
 							contentPosition="left center"
+							accessibilityLabel={card.title}
 						/>
 					) : (
-						<View />
+						<Text style={styles.cardTitle} numberOfLines={2}>
+							{card.title}
+						</Text>
 					)}
 					{card.tag && (
 						<View style={styles.tagPill}>
@@ -84,9 +89,6 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 						</View>
 					)}
 				</View>
-				<Text style={styles.cardTitle} numberOfLines={2}>
-					{card.title}
-				</Text>
 				{card.pill && (
 					<View style={[styles.pill, { backgroundColor: PILL_COLOR[card.pill] }]}>
 						<Text style={styles.pillText}>{card.pill}</Text>

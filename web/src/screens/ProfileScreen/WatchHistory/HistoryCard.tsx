@@ -14,7 +14,7 @@ const PILL_BG: Record<HistoryPill, string> = {
 	[HistoryPill.WATCHING]: "bg-stop/60",
 	[HistoryPill.REWATCHING]: "bg-stop/60",
 	[HistoryPill.COMPLETED]: "bg-watched/60",
-	[HistoryPill.PAUSED]: "bg-movie/60",
+	[HistoryPill.PAUSED]: "bg-danger/60",
 };
 /** Icons match the progress ring's 20px so all three pills line up */
 const ICON_SIZE = 20;
@@ -55,10 +55,16 @@ function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
 
 			<span className={styles.topBlock}>
 				<span className={styles.topRow}>
-					{card.logoPath ? <img src={tmdbLogoUri(card.logoPath, 160)} alt="" className={styles.logo} loading="lazy" /> : <span />}
+					{/* Logo when TMDB has one (name only as the fallback) */}
+					<span className={styles.logoSlot}>
+						{card.logoPath ? (
+							<img src={tmdbLogoUri(card.logoPath, CARD_MAX_WIDTH * 0.7)} alt={card.title} className={styles.logo} loading="lazy" />
+						) : (
+							<span className={styles.cardTitle}>{card.title}</span>
+						)}
+					</span>
 					{card.tag && <span className={styles.tagPill}>{card.tag}</span>}
 				</span>
-				<span className={styles.cardTitle}>{card.title}</span>
 				{card.pill && <span className={`${styles.pill} ${PILL_BG[card.pill]}`}>{card.pill}</span>}
 			</span>
 

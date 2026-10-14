@@ -164,10 +164,19 @@
 	justify-content: space-between;
 }
 
+/* Left of the corner pill: takes the remaining width, never pushes the pill */
+.logoSlot {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+}
+
+/* 56px tall, width follows the logo's shape, capped to the slot */
 .logo {
-	height: 40px;
-	width: 34%;
-	margin-bottom: 4px;
+	display: block;
+	height: 56px;
+	width: auto;
+	max-width: 100%;
 	object-fit: contain;
 	object-position: left center;
 }

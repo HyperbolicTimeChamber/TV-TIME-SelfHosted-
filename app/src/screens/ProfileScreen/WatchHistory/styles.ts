@@ -4,7 +4,7 @@ import { colors, spacing } from "../../../theme";
 /** Shared with the web card (same numbers → identical at phone width) */
 export const CARD_RADIUS = 16;
 export const CARD_ASPECT = 16 / 9;
-export const LOGO_HEIGHT = 40;
+export const LOGO_HEIGHT = 56;
 export const RING_SIZE = 20;
 export const RING_STROKE = 3;
 
@@ -57,8 +57,8 @@ export const styles = StyleSheet.create({
 		justifyContent: "space-between",
 		gap: spacing.md,
 	},
-	logo: { height: LOGO_HEIGHT, width: "34%", marginBottom: spacing.xs },
-	cardTitle: { alignSelf: "stretch", color: colors.text, fontSize: 20, fontWeight: "600" },
+	logo: { flex: 1, height: LOGO_HEIGHT },
+	cardTitle: { flex: 1, color: colors.text, fontSize: 20, fontWeight: "600" },
 	pill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
 	pillText: { color: colors.text, fontSize: 11, fontWeight: "700" },
 	bottomRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },

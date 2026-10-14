@@ -60,8 +60,9 @@ describe("WatchHistoryScreen", () => {
 
 		expect(screen.getByText("55%")).toBeInTheDocument();
 		expect(screen.getByText("Up To Date")).toBeInTheDocument();
-		// Paused card: status pill + progress module
-		expect(screen.getAllByText("Paused")).toHaveLength(2);
+		// Paused card: status pill reads Incomplete, progress module says Paused
+		expect(screen.getByText("Incomplete")).toBeInTheDocument();
+		expect(screen.getByText("Paused")).toBeInTheDocument();
 		expect(screen.getByText("Watch Count")).toHaveTextContent("Watch Count 2");
 		expect(screen.getByText("Ended")).toBeInTheDocument();
 		// Logo only where TMDB has one

@@ -85,7 +85,8 @@ export enum HistoryPill {
 	WATCHING = "Currently Watching",
 	REWATCHING = "Rewatching",
 	COMPLETED = "Completed",
-	PAUSED = "Paused",
+	/** Stopped part-way (paused / paused rewatch) */
+	PAUSED = "Incomplete",
 }
 
 /** Watch History card bottom-right module */
