@@ -75,6 +75,9 @@
 	position: absolute;
 	inset: 0;
 	overflow: hidden;
+	/* Own stacking context: posters' z-index orders the pile only — without it they
+	   paint over the card overlay, labels, avatar and name */
+	isolation: isolate;
 }
 
 .scatterPoster {
