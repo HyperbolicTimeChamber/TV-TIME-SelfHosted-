@@ -1,4 +1,6 @@
-name: Build & Deploy to Play Store
+# Play Store / App Store releases are off for now — production builds go to the
+# current Firebase App Distribution group instead (development → alpha-channel)
+name: Build & Distribute (Production)
 
 on:
   push:
@@ -145,11 +147,11 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
-      # ── Service Account ──
-      - name: Write Play service account JSON
-        run: printenv PLAY_SERVICE_ACCOUNT_JSON > /tmp/play-service-account.json
+      # ── Firebase Service Account ──
+      - name: Write Firebase service account JSON
+        run: printenv FIREBASE_SERVICE_ACCOUNT_JSON > /tmp/firebase-sa.json
         env:
-          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
 
       # ── Validate secrets ──
       - name: Validate required secrets
@@ -157,29 +159,47 @@ jobs:
           FAIL=0
           # JSON files
           python3 -c "import json; json.load(open('app/google-services.json'))" 2>/dev/null || { echo "::error::GOOGLE_SERVICES_JSON is missing or malformed"; FAIL=1; }
-          python3 -c "import json; json.load(open('/tmp/play-service-account.json'))" 2>/dev/null || { echo "::error::PLAY_SERVICE_ACCOUNT_JSON is missing or malformed"; FAIL=1; }
+          python3 -c "import json; json.load(open('/tmp/firebase-sa.json'))" 2>/dev/null || { echo "::error::FIREBASE_SERVICE_ACCOUNT_JSON is missing or malformed"; FAIL=1; }
           # Keystore
           [ -s /tmp/release.keystore ] || { echo "::error::KEYSTORE_BASE64 is missing or empty"; FAIL=1; }
           # String secrets
           [ -n "$KEYSTORE_PASSWORD" ] || { echo "::error::KEYSTORE_PASSWORD is not set"; FAIL=1; }
           [ -n "$KEY_ALIAS" ] || { echo "::error::KEY_ALIAS is not set"; FAIL=1; }
           [ -n "$KEY_PASSWORD" ] || { echo "::error::KEY_PASSWORD is not set"; FAIL=1; }
+          [ -n "$FIREBASE_APP_ID" ] || { echo "::error::FIREBASE_APP_ID is not set"; FAIL=1; }
           [ $FAIL -eq 0 ] && echo "All secrets valid" || exit 1
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
 
-      # ── Build + Deploy ──
-      - name: Fastlane deploy
-        run: bundle exec fastlane android deploy
+      # ── Extract release notes from commit ──
+      - name: Set release notes
+        id: notes
+        run: |
+          {
+            echo "release_notes<<NOTES_EOF"
+            git log -1 --pretty=format:"%s"
+            echo ""
+            git log -1 --pretty=format:"%b" | grep -v "^Co-Authored-By" | head -10
+            echo "NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # ── Build + Distribute (Play Store upload disabled: `fastlane android deploy`) ──
+      # PRs to main distribute too, so testers can try them before merge
+      - name: Fastlane distribute
+        run: bundle exec fastlane android distribute
         working-directory: app
         env:
           KEYSTORE_PATH: /tmp/release.keystore
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          PLAY_SERVICE_ACCOUNT_JSON_PATH: /tmp/play-service-account.json
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+          FIREBASE_SERVICE_ACCOUNT_JSON_PATH: /tmp/firebase-sa.json
+          RELEASE_NOTES: ${{ steps.notes.outputs.release_notes }}
+          FIREBASE_TESTER_GROUPS: ${{ vars.FIREBASE_TESTER_GROUPS || 'testers' }}
 
       # ── Force Update (push only) ──
       - name: Update Firestore minVersion
@@ -243,5 +263,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `Build deployed to internal testing. Version: **${version}**`
+              body: `Build distributed via Firebase App Distribution. Version: **${version}**`
             });

@@ -1,12 +1,14 @@
 name: Build iOS & Publish to AltStore
 
+# Paused: no automatic AltStore builds for now. Run by hand from the Actions tab;
+# restore the push trigger below to turn it back on.
 on:
-  push:
-    branches: [development]
-    # Only build the iOS app when the mobile app (or this workflow) changed
-    paths:
-      - "app/**"
-      - ".github/workflows/altstore.yml"
+  workflow_dispatch:
+  # push:
+  #   branches: [development]
+  #   paths:
+  #     - "app/**"
+  #     - ".github/workflows/altstore.yml"
 
 concurrency:
   group: altstore-${{ github.ref }}

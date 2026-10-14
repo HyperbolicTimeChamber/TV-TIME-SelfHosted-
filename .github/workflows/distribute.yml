@@ -175,7 +175,7 @@ jobs:
           FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
           FIREBASE_SERVICE_ACCOUNT_JSON_PATH: /tmp/firebase-sa.json
           RELEASE_NOTES: ${{ steps.notes.outputs.release_notes }}
-          FIREBASE_TESTER_GROUPS: ${{ vars.FIREBASE_TESTER_GROUPS || 'testers' }}
+          FIREBASE_TESTER_GROUPS: alpha-channel
 
       # ── GitHub Release with APK ──
       - name: Find APK
