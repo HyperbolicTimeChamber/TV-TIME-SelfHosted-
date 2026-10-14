@@ -61,6 +61,8 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 					source={{ uri: tmdbBackdropUri(card.backdropPath, CARD_WIDTH) }}
 					style={StyleSheet.absoluteFill}
 					contentFit="cover"
+					// Show the top of the backdrop (faces / titles sit there), like calendar cards
+					contentPosition="top"
 					blurRadius={BLUR_RADIUS}
 				/>
 			)}
