@@ -103,6 +103,8 @@
 	/* 16:9 is the minimum: no overflow:hidden, so aspect-ratio lets the card grow when a
 	   two-line title needs more room (the bg layers round their own corners instead) */
 	aspect-ratio: 16 / 9;
+	/* Buttons shrink to their content by default — fill the masonry column */
+	width: 100%;
 	min-width: 0;
 	border-radius: 16px;
 	padding: 16px;
