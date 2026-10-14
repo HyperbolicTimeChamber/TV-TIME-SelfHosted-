@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button, Spin } from "antd";
 import { useNavigate } from "react-router-dom";
 import { useWatchlistScreen } from "@app/screens/HomeScreen/WatchlistTab/useWatchlistScreen";
@@ -32,15 +32,41 @@ export default function WatchlistTab() {
 	const w = useWatchlistScreen(goToShow);
 	const upNextRef = useRef<HTMLDivElement>(null);
 	const scrolled = useRef(false);
+	// True once the page has jumped to "What's Up Next" — gates auto-loading older items
+	const [settled, setSettled] = useState(false);
 
 	// Open on "What's Up Next" (previously watched sits above, like the app)
 	useEffect(() => {
 		if (scrolled.current || w.isLoading || w.prevWatchedOffset <= 0) return;
 		scrolled.current = true;
-		requestAnimationFrame(() => upNextRef.current?.scrollIntoView({ block: "start" }));
+		requestAnimationFrame(() => {
+			upNextRef.current?.scrollIntoView({ block: "start" });
+			setSettled(true);
+		});
 	}, [w.isLoading, w.prevWatchedOffset]);
 
 	const sentinel = useInfiniteScroll(w.loadMoreTracking, !w.loadingMoreTracking);
+
+	// Scrolling up near the top loads older "Previously Watched" (app: pull to refresh).
+	// Only after the initial jump to "What's Up Next", or it would fire on open.
+	const listRef = useRef<HTMLDivElement>(null);
+	const anchor = useRef<{ el: Element; top: number } | null>(null);
+	const loadEarlier = useCallback(() => {
+		const el = listRef.current?.firstElementChild;
+		if (el) anchor.current = { el, top: el.getBoundingClientRect().top };
+		w.loadMorePrevWatched();
+	}, [w]);
+	const topSentinel = useInfiniteScroll(
+		loadEarlier,
+		settled && w.hasMorePrevWatched && !w.loadingMorePrevWatched,
+	);
+	// Older items render above: shift the scroll so what you were looking at stays put
+	useLayoutEffect(() => {
+		const a = anchor.current;
+		if (!a || w.loadingMorePrevWatched) return;
+		anchor.current = null;
+		if (a.el.isConnected) window.scrollBy(0, a.el.getBoundingClientRect().top - a.top);
+	}, [w.listData, w.loadingMorePrevWatched]);
 
 	if (w.isLoading) return <LoadingScreen />;
 	if (w.listData.length === 0) {
@@ -111,17 +137,17 @@ export default function WatchlistTab() {
 
 	return (
 		<>
-			{/* App: pull-to-refresh loads older history; web: explicit button */}
+			{/* App: pull-to-refresh loads older history; web: auto-loads near the top */}
 			{w.hasMorePrevWatched && (
-				<div className={styles.loadEarlier}>
-					<Button size="small" onClick={w.loadMorePrevWatched} loading={w.loadingMorePrevWatched}>
-						Load earlier
-					</Button>
+				<div ref={topSentinel} className={styles.loadEarlier}>
+					{w.loadingMorePrevWatched && <Spin size="small" />}
 				</div>
 			)}
-			<div className={styles.list}>
+			<div className={styles.list} ref={listRef}>
+				{/* No wrapper per item: a sticky section header can only stick within its
+				    parent, and a header-sized wrapper made it scroll straight away */}
 				{w.listData.map((item) => (
-					<div key={keyOf(item)}>{render(item)}</div>
+					<Fragment key={keyOf(item)}>{render(item)}</Fragment>
 				))}
 			</div>
 			<div ref={sentinel} />
