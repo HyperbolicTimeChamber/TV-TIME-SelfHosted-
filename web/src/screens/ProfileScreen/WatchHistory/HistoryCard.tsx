@@ -7,6 +7,9 @@ import ProgressRing from "./ProgressRing";
 import styles from "./styles/WatchHistory.module.scss";
 
 /** Status colours at 60% — translucent over the backdrop */
+/** Widest a card gets (1-col phone ≈ 380, grid columns ≈ 350) — × devicePixelRatio picks the TMDB size */
+const CARD_MAX_WIDTH = 400;
+
 const PILL_BG: Record<HistoryPill, string> = {
 	[HistoryPill.WATCHING]: "bg-stop/60",
 	[HistoryPill.REWATCHING]: "bg-stop/60",
@@ -46,7 +49,7 @@ function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
 	return (
 		<button className={styles.card} onClick={onClick} aria-label={card.title}>
 			{card.backdropPath && (
-				<img src={tmdbBackdropUri(card.backdropPath, 600)} alt="" className={styles.cardBg} loading="lazy" />
+				<img src={tmdbBackdropUri(card.backdropPath, CARD_MAX_WIDTH)} alt="" className={styles.cardBg} loading="lazy" />
 			)}
 			<span className={styles.cardOverlay} />
 

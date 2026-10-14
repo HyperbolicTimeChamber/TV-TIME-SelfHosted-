@@ -13,6 +13,9 @@ import styles from "./styles/CalendarScreen.module.scss";
 import { monthGrid } from "./monthGrid";
 import { cssVars } from "../../utils/cssVars";
 
+/** Widest a day card gets (desktop list pane ≈ 440) — × devicePixelRatio picks the TMDB size */
+const CARD_MAX_WIDTH = 440;
+
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /** Desktop: shows (red) / movies (purple) airing that day — replaces the dot */
@@ -169,13 +172,13 @@ export default function CalendarScreen() {
 										>
 											{/* Same backdrop treatment as the Watch History cards */}
 										{ep.backdropPath && (
-											<img src={tmdbBackdropUri(ep.backdropPath, 600)} alt="" className={styles.cardBg} loading="lazy" />
+											<img src={tmdbBackdropUri(ep.backdropPath, CARD_MAX_WIDTH)} alt="" className={styles.cardBg} loading="lazy" />
 										)}
 										<span className={styles.cardOverlay} />
 										<span className={styles.epInfo}>
 												{/* Title logo when TMDB has one, else the name */}
 												{ep.logoPath ? (
-													<img src={tmdbLogoUri(ep.logoPath, 240)} alt={ep.showTitle} className={styles.logo} loading="lazy" />
+													<img src={tmdbLogoUri(ep.logoPath, CARD_MAX_WIDTH * 0.6)} alt={ep.showTitle} className={styles.logo} loading="lazy" />
 												) : (
 													<span className={styles.showTitle}>{ep.showTitle}</span>
 												)}

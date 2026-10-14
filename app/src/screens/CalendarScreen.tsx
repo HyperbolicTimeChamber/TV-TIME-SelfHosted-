@@ -94,7 +94,7 @@ export default function CalendarScreen() {
 						{/* Title logo when TMDB has one, else the name */}
 						{item.logoPath ? (
 							<Image
-								source={{ uri: tmdbLogoUri(item.logoPath, CARD_WIDTH * 0.5) }}
+								source={{ uri: tmdbLogoUri(item.logoPath, CARD_WIDTH * 0.6) }}
 								style={styles.logo}
 								contentFit="contain"
 								contentPosition="left center"
