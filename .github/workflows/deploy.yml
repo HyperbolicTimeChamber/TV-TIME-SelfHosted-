@@ -187,19 +187,8 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       # ── Build + Distribute (Play Store upload disabled: `fastlane android deploy`) ──
-      # PRs only build — testers get builds from main
-      - name: Fastlane build (PR)
-        if: github.event_name == 'pull_request'
-        run: bundle exec fastlane android build_apk
-        working-directory: app
-        env:
-          KEYSTORE_PATH: /tmp/release.keystore
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-
+      # PRs to main distribute too, so testers can try them before merge
       - name: Fastlane distribute
-        if: github.event_name == 'push'
         run: bundle exec fastlane android distribute
         working-directory: app
         env:
@@ -274,5 +263,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `Build OK (not distributed — testers get builds from main). Version: **${version}**`
+              body: `Build distributed via Firebase App Distribution. Version: **${version}**`
             });
