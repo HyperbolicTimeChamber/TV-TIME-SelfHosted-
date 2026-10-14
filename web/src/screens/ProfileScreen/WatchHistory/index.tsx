@@ -10,6 +10,8 @@ import LoadingSpinner from "../../../components/LoadingSpinner";
 import { useHideTabBar } from "../../../hooks/useHideTabBar";
 import { Paths, showPath } from "../../../routes/paths";
 import HistoryCard from "./HistoryCard";
+import Masonry from "../../../components/Masonry";
+import { useColumnCount } from "../../../hooks/useColumnCount";
 import styles from "./styles/WatchHistory.module.scss";
 
 const TABS = [
@@ -22,6 +24,7 @@ const SKELETONS = [0, 1, 2];
 function HistoryList({ mediaType }: { mediaType: MediaType }) {
 	const navigate = useNavigate();
 	const { cards, loading, hasMore, error, loadMore } = useWatchHistory(mediaType);
+	const columns = useColumnCount();
 
 	if (loading) {
 		return (
@@ -47,11 +50,14 @@ function HistoryList({ mediaType }: { mediaType: MediaType }) {
 			scrollThreshold={0.8}
 			className="overflow-visible!"
 		>
-			<div className={styles.grid}>
-				{cards.map((card) => (
-					<HistoryCard key={card.id} card={card} onClick={() => navigate(showPath(card.mediaType, card.tmdbId))} />
-				))}
-			</div>
+			<Masonry
+				items={cards}
+				columns={columns}
+				getKey={(card) => card.id}
+				renderItem={(card) => <HistoryCard card={card} onClick={() => navigate(showPath(card.mediaType, card.tmdbId))} />}
+				className={styles.masonry}
+				columnClassName={styles.masonryColumn}
+			/>
 		</InfiniteScroll>
 	);
 }

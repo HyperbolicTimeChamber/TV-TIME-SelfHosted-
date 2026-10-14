@@ -79,6 +79,20 @@
 	}
 }
 
+/* Masonry (loaded list): same spacing as .grid, columns stack independently */
+.masonry {
+	gap: 16px;
+	padding: 16px;
+
+	@include tablet {
+		padding: 16px 12px;
+	}
+}
+
+.masonryColumn {
+	gap: 16px;
+}
+
 /* Card */
 .card {
 	position: relative;
