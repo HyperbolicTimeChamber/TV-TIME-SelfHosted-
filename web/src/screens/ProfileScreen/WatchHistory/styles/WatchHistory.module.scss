@@ -7,13 +7,14 @@
 	top: 0;
 	z-index: 10;
 	background: var(--bg);
-	padding-top: env(safe-area-inset-top);
+	/* Gap above the card lives in padding: a child's top margin would collapse
+	   through the sticky header and vanish once it sticks */
+	padding: calc(env(safe-area-inset-top) + 12px) 12px 0;
 }
 
 .headerCard {
 	background: var(--surface);
 	border-radius: 12px;
-	margin: 12px 12px 0;
 	overflow: hidden;
 }
 

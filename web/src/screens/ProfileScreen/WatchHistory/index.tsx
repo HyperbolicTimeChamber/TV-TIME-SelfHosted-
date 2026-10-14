@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { motion } from "motion/react";
 import { IoChevronBack } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import InfiniteScroll from "react-infinite-scroll-component";
@@ -66,7 +67,9 @@ export default function WatchHistoryScreen() {
 
 	return (
 		<div>
-			<header className={styles.header}>
+			{/* layoutRoot: the tab pill's layout animation measures inside this sticky header,
+			    not against the scrolled page (otherwise it jumps after scrolling) */}
+			<motion.header layoutRoot className={styles.header}>
 				<div className={styles.headerCard}>
 					<div className={styles.titleRow}>
 						<button className={styles.backButton} onClick={goBack} aria-label="Back">
@@ -76,7 +79,7 @@ export default function WatchHistoryScreen() {
 					</div>
 					<SlidingTabs id="history-tabs" tabs={TABS} activeKey={tab} onTabPress={setTab} />
 				</div>
-			</header>
+			</motion.header>
 			<HistoryList key={tab} mediaType={tab} />
 		</div>
 	);
