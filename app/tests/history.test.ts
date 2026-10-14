@@ -93,6 +93,19 @@ test("deriveHistoryCard: watching shows % of aired eps; caught up on airing show
 	assert.equal(ended.tag, "Ended");
 });
 
+test("deriveHistoryCard: completed but still airing → Currently Watching + up to date", () => {
+	const today = "2026-10-14";
+	const airing = deriveHistoryCard(entry({ status: WatchStatus.COMPLETED, nextEpisode: null }), catalog(), today);
+	assert.equal(airing.pill, HistoryPill.WATCHING);
+	assert.deepEqual(airing.progress, { kind: HistoryProgress.UP_TO_DATE });
+	assert.equal(airing.watchCount, null);
+	assert.equal(airing.tag, "Ongoing");
+	// Ended show stays Completed
+	const ended = deriveHistoryCard(entry({ status: WatchStatus.COMPLETED }), catalog({ status: "Ended" }), today);
+	assert.equal(ended.pill, HistoryPill.COMPLETED);
+	assert.equal(ended.progress, null);
+});
+
 test("deriveHistoryCard: paused, rewatching, completed, movie", () => {
 	const today = "2026-10-14";
 	assert.deepEqual(
@@ -102,7 +115,7 @@ test("deriveHistoryCard: paused, rewatching, completed, movie", () => {
 	const rewatch = deriveHistoryCard(entry({ status: WatchStatus.REWATCHING, rewatchCount: 2 }), catalog(), today);
 	assert.equal(rewatch.pill, HistoryPill.REWATCHING);
 	assert.equal(rewatch.watchCount, 2);
-	const done = deriveHistoryCard(entry({ status: WatchStatus.COMPLETED, rewatchCount: 1 }), catalog(), today);
+	const done = deriveHistoryCard(entry({ status: WatchStatus.COMPLETED, rewatchCount: 1 }), catalog({ status: "Ended" }), today);
 	assert.equal(done.progress, null);
 	assert.equal(done.watchCount, 2);
 	const movie = deriveHistoryCard(

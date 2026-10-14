@@ -58,11 +58,20 @@ export function deriveHistoryCard(
 	today: string,
 ): HistoryCard {
 	const isMovie = entry.mediaType === MediaType.MOVIE;
-	const pill = isMovie ? HistoryPill.COMPLETED : PILL[entry.status];
 	const ended = ENDED_STATUSES.includes(catalog?.status ?? "");
+	// Watched everything aired on a show that's still airing → caught up, not finished
+	const caughtUpAiring =
+		!isMovie && !!catalog && !ended && entry.status === WatchStatus.COMPLETED;
+	const pill = isMovie
+		? HistoryPill.COMPLETED
+		: caughtUpAiring
+			? HistoryPill.WATCHING
+			: PILL[entry.status];
 
 	let progress: HistoryCard["progress"] = null;
-	if (pill === HistoryPill.PAUSED) {
+	if (caughtUpAiring) {
+		progress = { kind: HistoryProgress.UP_TO_DATE };
+	} else if (pill === HistoryPill.PAUSED) {
 		progress = { kind: HistoryProgress.PAUSED };
 	} else if (pill === HistoryPill.WATCHING || pill === HistoryPill.REWATCHING) {
 		const aired = airedEpisodes(catalog, today);
