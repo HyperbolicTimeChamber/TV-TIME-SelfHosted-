@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
 		...typography.body,
 		color: colors.text,
 		marginTop: spacing.xs,
-		fontSize: 13,
+		fontSize: 15,
 	},
 	modalContent: {
 		backgroundColor: colors.surface,
