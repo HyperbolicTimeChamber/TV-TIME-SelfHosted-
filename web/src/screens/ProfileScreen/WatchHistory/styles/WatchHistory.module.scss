@@ -99,11 +99,9 @@
 	gap: 12px;
 }
 
-/* Logo, then title, then status pill — stacked, left-aligned */
+/* Logo above title on the left, status pill in the top-right corner */
 .topRow {
-	flex-direction: column;
 	align-items: flex-start;
-	gap: 8px;
 }
 
 .bottomRow {
@@ -113,19 +111,19 @@
 
 .logo {
 	height: 40px;
-	width: 34%;
+	width: 50%;
 	margin-bottom: 8px;
 	object-fit: contain;
 	object-position: left center;
 }
 
 .titleBlock {
-	align-self: stretch;
+	flex: 1;
 	min-width: 0;
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
-	gap: 6px;
+	gap: 8px;
 }
 
 .cardTitle {
@@ -138,6 +136,8 @@
 }
 
 .pill {
+	flex-shrink: 0;
+	white-space: nowrap;
 	border-radius: 999px;
 	padding: 3px 10px;
 	font-size: 11px;

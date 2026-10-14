@@ -54,11 +54,11 @@ export const styles = StyleSheet.create({
 		justifyContent: "space-between",
 	},
 	cardOverlay: { backgroundColor: "rgba(0, 0, 0, 0.55)" },
-	// Logo, then title, then status pill — stacked, left-aligned
-	topRow: { alignItems: "flex-start", gap: spacing.sm },
-	logo: { height: LOGO_HEIGHT, width: "34%", marginBottom: spacing.sm },
-	titleBlock: { alignSelf: "stretch", gap: 6, alignItems: "flex-start" },
-	cardTitle: { color: colors.text, fontSize: 17, fontWeight: "700" },
+	// Logo above title on the left, status pill in the top-right corner
+	topRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
+	logo: { height: LOGO_HEIGHT, width: "50%", marginBottom: spacing.sm },
+	titleBlock: { flex: 1, gap: spacing.sm, alignItems: "flex-start" },
+	cardTitle: { alignSelf: "stretch", color: colors.text, fontSize: 17, fontWeight: "700" },
 	pill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
 	pillText: { color: colors.text, fontSize: 11, fontWeight: "700" },
 	bottomRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },

@@ -63,21 +63,21 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 			<View style={[StyleSheet.absoluteFill, styles.cardOverlay]} />
 
 			<View style={styles.topRow}>
-				{card.logoPath && (
-					<Image
-						source={{ uri: tmdbLogoUri(card.logoPath, CARD_WIDTH * 0.34) }}
-						style={styles.logo}
-						contentFit="contain"
-						contentPosition="left center"
-					/>
-				)}
 				<View style={styles.titleBlock}>
+					{card.logoPath && (
+						<Image
+							source={{ uri: tmdbLogoUri(card.logoPath, CARD_WIDTH * 0.34) }}
+							style={styles.logo}
+							contentFit="contain"
+							contentPosition="left center"
+						/>
+					)}
 					<Text style={styles.cardTitle} numberOfLines={1}>
 						{card.title}
 					</Text>
-					<View style={[styles.pill, { backgroundColor: PILL_COLOR[card.pill] }]}>
-						<Text style={styles.pillText}>{card.pill}</Text>
-					</View>
+				</View>
+				<View style={[styles.pill, { backgroundColor: PILL_COLOR[card.pill] }]}>
+					<Text style={styles.pillText}>{card.pill}</Text>
 				</View>
 			</View>
 
