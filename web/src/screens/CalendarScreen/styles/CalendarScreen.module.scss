@@ -5,6 +5,28 @@
 	padding-top: env(safe-area-inset-top);
 	max-width: 640px;
 	margin: 0 auto;
+
+	/* Wide screens: calendar (bigger share) left, the selected day's list right */
+	@include desktop {
+		max-width: 1100px;
+		display: grid;
+		grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+		gap: 32px;
+		align-items: start;
+		padding: 16px 16px 0;
+	}
+}
+
+.calendarPane {
+	@include desktop {
+		/* Stays in view while a long episode list scrolls */
+		position: sticky;
+		top: 16px;
+	}
+}
+
+.listPane {
+	min-width: 0;
 }
 
 .header {
@@ -43,6 +65,11 @@
 	font-size: 13px;
 	color: var(--text-secondary);
 	padding: 0 8px 6px;
+
+	@include desktop {
+		font-size: 15px;
+		padding-bottom: 10px;
+	}
 }
 
 .grid {
@@ -62,6 +89,11 @@
 	border: none;
 	color: var(--text);
 	cursor: pointer;
+
+	@include desktop {
+		padding: 8px 0;
+		gap: 4px;
+	}
 }
 
 .dayOut {
@@ -77,6 +109,14 @@
 	align-items: center;
 	justify-content: center;
 	font-size: 15px;
+
+	/* Bigger calendar on wide screens */
+	@include desktop {
+		width: 44px;
+		height: 44px;
+		border-radius: 22px;
+		font-size: 17px;
+	}
 }
 
 .today {

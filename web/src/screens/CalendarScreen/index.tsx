@@ -40,110 +40,115 @@ export default function CalendarScreen() {
 
 	return (
 		<div className={styles.container}>
-			<div className={styles.header}>
-				<button className={styles.arrow} onClick={() => shiftMonth(-1)} aria-label="Previous month">
-					<IoChevronBack size={20} />
-				</button>
-				<button className={styles.headerTitle} onClick={() => c.setYearModalVisible(true)}>
-					{c.monthLabel}
-				</button>
-				<button className={styles.arrow} onClick={() => shiftMonth(1)} aria-label="Next month">
-					<IoChevronForward size={20} />
-				</button>
-			</div>
-			<div className={styles.weekdays}>
-				{WEEKDAYS.map((d) => (
-					<span key={d}>{d}</span>
-				))}
-			</div>
-			<AnimatePresence mode="wait" initial={false}>
-				<motion.div
-					key={monthKey}
-					className={styles.grid}
-					initial={{ opacity: 0 }}
-					animate={{ opacity: 1 }}
-					exit={{ opacity: 0 }}
-					transition={{ duration: 0.15 }}
-					drag="x"
-					dragConstraints={{ left: 0, right: 0 }}
-					dragElastic={0.3}
-					onDragEnd={(_, info) => {
-						if (info.offset.x < -60) shiftMonth(1);
-						else if (info.offset.x > 60) shiftMonth(-1);
-					}}
-				>
-					{grid.map((cell) => {
-						const mark = c.markedDates[cell.date];
-						const selected = cell.date === c.selectedDate;
-						return (
-							<button
-								key={cell.date}
-								className={`${styles.day} ${cell.inMonth ? "" : styles.dayOut}`}
-								onClick={() => (cell.inMonth ? c.handleDayPress(cell.date) : null)}
-								disabled={!cell.inMonth}
-								aria-label={cell.date}
-								aria-pressed={selected}
-							>
-								<span
-									className={`${styles.dayNumber} ${cell.date === today && !selected ? styles.today : ""} ${selected ? "bg-(--sel)!" : ""}`}
-									style={selected ? cssVars({ "--sel": mark?.selectedColor ?? "transparent" }) : undefined}
+			{/* Desktop: calendar left, the day's list right; stacked below that */}
+			<div className={styles.calendarPane}>
+				<div className={styles.header}>
+					<button className={styles.arrow} onClick={() => shiftMonth(-1)} aria-label="Previous month">
+						<IoChevronBack size={20} />
+					</button>
+					<button className={styles.headerTitle} onClick={() => c.setYearModalVisible(true)}>
+						{c.monthLabel}
+					</button>
+					<button className={styles.arrow} onClick={() => shiftMonth(1)} aria-label="Next month">
+						<IoChevronForward size={20} />
+					</button>
+				</div>
+				<div className={styles.weekdays}>
+					{WEEKDAYS.map((d) => (
+						<span key={d}>{d}</span>
+					))}
+				</div>
+				<AnimatePresence mode="wait" initial={false}>
+					<motion.div
+						key={monthKey}
+						className={styles.grid}
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						exit={{ opacity: 0 }}
+						transition={{ duration: 0.15 }}
+						drag="x"
+						dragConstraints={{ left: 0, right: 0 }}
+						dragElastic={0.3}
+						onDragEnd={(_, info) => {
+							if (info.offset.x < -60) shiftMonth(1);
+							else if (info.offset.x > 60) shiftMonth(-1);
+						}}
+					>
+						{grid.map((cell) => {
+							const mark = c.markedDates[cell.date];
+							const selected = cell.date === c.selectedDate;
+							return (
+								<button
+									key={cell.date}
+									className={`${styles.day} ${cell.inMonth ? "" : styles.dayOut}`}
+									onClick={() => (cell.inMonth ? c.handleDayPress(cell.date) : null)}
+									disabled={!cell.inMonth}
+									aria-label={cell.date}
+									aria-pressed={selected}
 								>
-									{cell.day}
-								</span>
-								<span
-									className={`${styles.dot} bg-(--dot)!`}
-									style={cssVars({ "--dot": mark?.marked && cell.inMonth ? mark.dotColor : "transparent" })}
-								/>
-							</button>
-						);
-					})}
-				</motion.div>
-			</AnimatePresence>
-
-			{c.loading ? (
-				<LoadingScreen label="Checking your calendar..." />
-			) : (
-				c.selectedDate && (
-					<section className={styles.episodeList}>
-						<h3 className={styles.dateHeader}>
-							{new Date(`${c.selectedDate}T00:00:00`).toLocaleDateString("en-US", {
-								weekday: "long",
-								month: "long",
-								day: "numeric",
-							})}
-						</h3>
-						{c.selectedEpisodes.length === 0 ? (
-							<p className={styles.noEps}>No episodes on this day</p>
-						) : (
-							c.selectedEpisodes.map((ep) => {
-								const isMovie = ep.mediaType === MediaType.MOVIE;
-								return (
-									<button
-										key={`${ep.tmdbShowId}_${ep.season}_${ep.episode}`}
-										className={styles.episodeRow}
-										onClick={() => navigate(showPath(isMovie ? MediaType.MOVIE : MediaType.TV, ep.tmdbShowId))}
+									<span
+										className={`${styles.dayNumber} ${cell.date === today && !selected ? styles.today : ""} ${selected ? "bg-(--sel)!" : ""}`}
+										style={selected ? cssVars({ "--sel": mark?.selectedColor ?? "transparent" }) : undefined}
 									>
-										<PosterImage posterPath={ep.posterPath} mediaType={ep.mediaType} className={styles.poster} />
-										<span className={styles.epInfo}>
-											<span className={styles.showTitle}>{ep.showTitle}</span>
-											{isMovie ? (
-												<span className={styles.movieBadge}>MOVIE</span>
-											) : (
-												<>
-													<span className={styles.epLabel}>
-														S{pad(ep.season)}E{pad(ep.episode)}
-													</span>
-													<span className={styles.epTitle}>{ep.episodeTitle}</span>
-												</>
-											)}
-										</span>
-									</button>
-								);
-							})
-						)}
-					</section>
-				)
-			)}
+										{cell.day}
+									</span>
+									<span
+										className={`${styles.dot} bg-(--dot)!`}
+										style={cssVars({ "--dot": mark?.marked && cell.inMonth ? mark.dotColor : "transparent" })}
+									/>
+								</button>
+							);
+						})}
+					</motion.div>
+				</AnimatePresence>
+			</div>
+
+			<div className={styles.listPane}>
+				{c.loading ? (
+					<LoadingScreen label="Checking your calendar..." />
+				) : (
+					c.selectedDate && (
+						<section className={styles.episodeList}>
+							<h3 className={styles.dateHeader}>
+								{new Date(`${c.selectedDate}T00:00:00`).toLocaleDateString("en-US", {
+									weekday: "long",
+									month: "long",
+									day: "numeric",
+								})}
+							</h3>
+							{c.selectedEpisodes.length === 0 ? (
+								<p className={styles.noEps}>No episodes on this day</p>
+							) : (
+								c.selectedEpisodes.map((ep) => {
+									const isMovie = ep.mediaType === MediaType.MOVIE;
+									return (
+										<button
+											key={`${ep.tmdbShowId}_${ep.season}_${ep.episode}`}
+											className={styles.episodeRow}
+											onClick={() => navigate(showPath(isMovie ? MediaType.MOVIE : MediaType.TV, ep.tmdbShowId))}
+										>
+											<PosterImage posterPath={ep.posterPath} mediaType={ep.mediaType} className={styles.poster} />
+											<span className={styles.epInfo}>
+												<span className={styles.showTitle}>{ep.showTitle}</span>
+												{isMovie ? (
+													<span className={styles.movieBadge}>MOVIE</span>
+												) : (
+													<>
+														<span className={styles.epLabel}>
+															S{pad(ep.season)}E{pad(ep.episode)}
+														</span>
+														<span className={styles.epTitle}>{ep.episodeTitle}</span>
+													</>
+												)}
+											</span>
+										</button>
+									);
+								})
+							)}
+						</section>
+					)
+				)}
+			</div>
 
 			<AnimatedModal visible={c.yearModalVisible} onClose={() => c.setYearModalVisible(false)} width={200}>
 				<p className={styles.modalTitle}>Select Year</p>
