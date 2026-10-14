@@ -803,6 +803,7 @@ export function useWatchlistData(userId: string | undefined) {
 				const [sn, eps] = seasonEntries[i];
 				const isLast = i === seasonEntries.length - 1;
 				await markSeasonWatchedCF(
+					userId,
 					tmdbId,
 					sn,
 					eps.map((e) => ({ episodeNumber: e.episodeNumber, name: e.name, runtime: e.runtime })),

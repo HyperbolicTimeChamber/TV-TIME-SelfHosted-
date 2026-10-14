@@ -16,7 +16,7 @@ import {
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { WatchStatus, MediaType, CloudFunction, CatalogShow } from "../types";
-import { showDocId } from "../utils";
+import { showDocId, emitHistoryChange } from "../utils";
 import { trackApi } from "./analytics";
 import { historyOnWatch, historyOnUnwatch, historyCleared, historyOnChange } from "./history";
 
@@ -192,6 +192,8 @@ export async function removeFromTracking(
 	batch.delete(doc(trackingRef(userId), docId));
 	batch.set(userRef(userId), { stats: { showsTracking: increment(-1) } }, { merge: true });
 	await batch.commit();
+	// Deleted docs never show up in the delta query — drop the card locally
+	emitHistoryChange({ userId, tmdbId, mediaType, cleared: true });
 
 	// Background: update trackedBy on catalog doc (CF handles cleanup)
 	callCF(CloudFunction.REMOVE_SHOW, { tmdbId, mediaType }).catch((err: any) =>
@@ -218,6 +220,7 @@ export async function stopWatching(
 		status: newStatus,
 		...historyOnChange(),
 	});
+	emitHistoryChange({ userId, tmdbId, mediaType, status: newStatus });
 
 	// Clean upcoming subcollection for this show (fire-and-forget)
 	const upcomingCol = collection(doc(db, "users", userId), "upcoming");
@@ -313,6 +316,21 @@ export async function markEpisodeWatched(
 			);
 		}
 	});
+	emitHistoryChange({
+		userId,
+		tmdbId: tmdbShowId,
+		mediaType: MediaType.TV,
+		watched: true,
+		minutesDelta: runtime,
+		playsDelta: 1,
+		...(skipTrackingUpdate
+			? {}
+			: {
+					nextEpisode,
+					status: opts.status ?? (isShowComplete ? WatchStatus.COMPLETED : undefined),
+					rewatchDelta: opts.incrementRewatch ? 1 : 0,
+				}),
+	});
 
 	// Watched → out of the server upcoming list too (doc id from the upcoming CFs), so a
 	// later upcoming refetch doesn't bring it back. Fire-and-forget: missing doc is fine
@@ -362,6 +380,15 @@ export async function unmarkEpisodeWatched(
 		{ merge: true },
 	);
 	await batch.commit();
+	emitHistoryChange({
+		userId,
+		tmdbId: tmdbShowId,
+		mediaType: MediaType.TV,
+		minutesDelta: -runtime,
+		playsDelta: -1,
+		nextEpisode: { season, episode },
+		status: WatchStatus.WATCHING,
+	});
 }
 
 export async function decrementEpisodeWatchCount(
@@ -417,6 +444,14 @@ export async function decrementEpisodeWatchCount(
 	);
 
 	await batch.commit();
+	emitHistoryChange({
+		userId,
+		tmdbId: tmdbShowId,
+		mediaType: MediaType.TV,
+		minutesDelta: -runtime,
+		playsDelta: -1,
+		...(willDelete ? { nextEpisode: { season, episode }, status: WatchStatus.WATCHING } : {}),
+	});
 }
 
 export async function unmarkSeasonWatched(
@@ -479,6 +514,15 @@ export async function unmarkSeasonWatched(
 	);
 
 	await batch.commit();
+	emitHistoryChange({
+		userId,
+		tmdbId: tmdbShowId,
+		mediaType: MediaType.TV,
+		minutesDelta: -historyMinutes,
+		playsDelta: -historyPlays,
+		nextEpisode: { season: firstEp.season, episode: firstEp.episode },
+		status: WatchStatus.WATCHING,
+	});
 }
 
 export async function decrementSeasonWatchCount(
@@ -528,6 +572,15 @@ export async function decrementSeasonWatchCount(
 	}
 
 	await batch.commit();
+	if (count > 0) {
+		emitHistoryChange({
+			userId,
+			tmdbId: tmdbShowId,
+			mediaType: MediaType.TV,
+			minutesDelta: -totalRuntime,
+			playsDelta: -count,
+		});
+	}
 }
 
 export async function startRewatch(userId: string, tmdbId: number, mediaType: MediaType) {
@@ -539,6 +592,14 @@ export async function startRewatch(userId: string, tmdbId: number, mediaType: Me
 		lastWatchedAt: serverTimestamp(),
 		priorityDate: serverTimestamp(),
 		...historyOnChange(),
+	});
+	emitHistoryChange({
+		userId,
+		tmdbId,
+		mediaType,
+		status: WatchStatus.REWATCHING,
+		nextEpisode: { season: 1, episode: 1 },
+		rewatchDelta: 1,
 	});
 }
 
@@ -553,6 +614,7 @@ async function resume(userId: string, tmdbId: number, mediaType: MediaType, stat
 		priorityDate: serverTimestamp(),
 		...historyOnChange(),
 	});
+	emitHistoryChange({ userId, tmdbId, mediaType, status });
 	if (mediaType === MediaType.TV) {
 		callCF(CloudFunction.ADD_SHOW, { tmdbId, mediaType }).catch((err: any) =>
 			console.error("[resume] addShow CF failed:", err),
@@ -571,6 +633,13 @@ export async function restartWatching(userId: string, tmdbId: number) {
 		nextEpisode: { season: 1, episode: 1 },
 		priorityDate: serverTimestamp(),
 		...historyOnChange(),
+	});
+	emitHistoryChange({
+		userId,
+		tmdbId,
+		mediaType: MediaType.TV,
+		status: WatchStatus.WATCHING,
+		nextEpisode: { season: 1, episode: 1 },
 	});
 }
 
@@ -591,6 +660,13 @@ export async function skipRewatchEpisode(
 		nextEpisodeAirDate,
 		...(nextEpisode ? {} : { status: WatchStatus.COMPLETED }),
 		...historyOnChange(),
+	});
+	emitHistoryChange({
+		userId,
+		tmdbId,
+		mediaType: MediaType.TV,
+		nextEpisode,
+		...(nextEpisode ? {} : { status: WatchStatus.COMPLETED }),
 	});
 }
 
@@ -629,7 +705,6 @@ export async function markMovieWatched(
 		},
 		{ merge: true },
 	);
-
 	batch.set(
 		userRef(userId),
 		{
@@ -642,6 +717,15 @@ export async function markMovieWatched(
 	);
 
 	await batch.commit();
+	emitHistoryChange({
+		userId,
+		tmdbId,
+		mediaType: MediaType.MOVIE,
+		watched: true,
+		minutesDelta: runtime || 0,
+		playsDelta: 1,
+		status: WatchStatus.COMPLETED,
+	});
 }
 
 export async function decrementMovieWatchCount(
@@ -679,6 +763,12 @@ export async function decrementMovieWatchCount(
 	);
 
 	await batch.commit();
+	emitHistoryChange({
+		userId,
+		tmdbId,
+		mediaType: MediaType.MOVIE,
+		...(willDelete ? { cleared: true } : { minutesDelta: -(runtime || 0), playsDelta: -1 }),
+	});
 }
 
 export async function unmarkMovieWatched(
@@ -712,6 +802,7 @@ export async function unmarkMovieWatched(
 	);
 
 	await batch.commit();
+	emitHistoryChange({ userId, tmdbId, mediaType: MediaType.MOVIE, cleared: true });
 }
 
 /** Add movie to tracking + mark as watched in one batch (1 write round-trip). */
@@ -768,6 +859,16 @@ export async function addAndMarkMovieWatched(
 		{ merge: true },
 	);
 	await batch.commit();
+	// New title → not cached yet → the history store fetches this one doc
+	emitHistoryChange({
+		userId,
+		tmdbId,
+		mediaType: MediaType.MOVIE,
+		watched: true,
+		minutesDelta: runtime || 0,
+		playsDelta: 1,
+		status: WatchStatus.COMPLETED,
+	});
 
 	// Background: ensure catalog exists
 	callCF(CloudFunction.ADD_SHOW, { tmdbId, mediaType: MediaType.MOVIE }).catch(() => {});
@@ -776,6 +877,7 @@ export async function addAndMarkMovieWatched(
 // --- Season batch mark (Cloud Function) ---
 
 export async function markSeasonWatchedCF(
+	userId: string,
 	tmdbId: number,
 	seasonNumber: number,
 	episodes: Array<{ episodeNumber: number; name: string; runtime: number }>,
@@ -798,6 +900,11 @@ export async function markSeasonWatchedCF(
 				nextEpisodeName,
 				nextEpisodeAirDate,
 				isShowComplete,
+				// Were missing here (only the >100 path sent them): rewatch status/count and
+				// "don't move the pointer" marks were ignored for every normal-sized season
+				skipTracking,
+				status,
+				incrementRewatch,
 			});
 		} else {
 			// Batch into chunks of 100 — only last chunk updates tracking doc
@@ -821,6 +928,21 @@ export async function markSeasonWatchedCF(
 	} catch (err: any) {
 		throw new Error(getCallableErrorMessage(err), { cause: err });
 	}
+	emitHistoryChange({
+		userId,
+		tmdbId,
+		mediaType: MediaType.TV,
+		watched: true,
+		minutesDelta: episodes.reduce((sum, e) => sum + (e.runtime || 0), 0),
+		playsDelta: episodes.length,
+		...(skipTracking
+			? {}
+			: {
+					nextEpisode,
+					status: status ?? (isShowComplete ? WatchStatus.COMPLETED : undefined),
+					rewatchDelta: incrementRewatch ? 1 : 0,
+				}),
+	});
 }
 
 // Keep backward-compatible aliases during transition

@@ -51,3 +51,20 @@ export function onShowCompleted(listener: CompletedListener) {
 export function emitShowCompleted(item: CompletedEvent) {
 	for (const listener of completedListeners) listener(item);
 }
+
+// --- Watch History change (services emit after each tracking write) ---
+import type { HistoryChange } from "../types";
+
+type HistoryListener = (change: HistoryChange) => void;
+const historyListeners = new Set<HistoryListener>();
+
+export function onHistoryChange(listener: HistoryListener) {
+	historyListeners.add(listener);
+	return () => {
+		historyListeners.delete(listener);
+	};
+}
+
+export function emitHistoryChange(change: HistoryChange) {
+	for (const listener of historyListeners) listener(change);
+}

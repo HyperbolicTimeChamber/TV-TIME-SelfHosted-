@@ -8,6 +8,8 @@ export {
 	CacheKey,
 	QueryKey,
 	DocChangeType,
+	HistoryPill,
+	HistoryProgress,
 	CloudFunction,
 } from "../enums";
 export type { CatalogEpisode, CatalogSeason, CatalogShow } from "./catalog";
@@ -35,3 +37,4 @@ export type { CarouselEpisode, EnrichedEpisode, EpisodeDetailModalProps } from "
 export type { WatchlistListItem } from "./watchlist";
 export type { WatchAction } from "./watchAction";
 export type { ShowDrawerData } from "./showDrawer";
+export type { HistoryEntry, HistoryState, HistoryChange } from "./history";

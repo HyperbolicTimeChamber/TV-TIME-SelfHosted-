@@ -57,6 +57,8 @@ export enum CacheKey {
 	COMPLETED_SECTIONS = "completed_sections_v1",
 	// v2: v1 could hold months saved empty before tracked ids loaded
 	CALENDAR_MONTHS = "calendar_months_v2",
+	/** + `_${mediaType}` — Watch History pages per tab */
+	WATCH_HISTORY = "watch_history_v1",
 }
 
 export enum QueryKey {
@@ -68,6 +70,21 @@ export enum QueryKey {
 	SEASON_IMAGES = "seasonImages",
 	SEARCH = "search",
 	TRENDING = "trending",
+}
+
+/** Watch History card status pill (label text) */
+export enum HistoryPill {
+	WATCHING = "Currently Watching",
+	REWATCHING = "Rewatching",
+	COMPLETED = "Completed",
+	PAUSED = "Paused",
+}
+
+/** Watch History card bottom-right module */
+export enum HistoryProgress {
+	PERCENT = "percent",
+	UP_TO_DATE = "upToDate",
+	PAUSED = "paused",
 }
 
 export enum DocChangeType {
