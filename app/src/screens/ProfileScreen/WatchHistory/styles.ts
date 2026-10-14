@@ -69,7 +69,7 @@ export const styles = StyleSheet.create({
 	pillText: { color: colors.text, fontSize: 11, fontWeight: "700" },
 	bottomRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
 	timeSpent: { color: colors.text, fontSize: 30, fontWeight: "700", letterSpacing: -0.5 },
-	watchCount: { color: colors.text, fontSize: 13, fontWeight: "500", marginTop: 2 },
+	watchCountPill: { alignSelf: "flex-start", marginTop: spacing.xs },
 	progressPill: {
 		flexDirection: "row",
 		alignItems: "center",

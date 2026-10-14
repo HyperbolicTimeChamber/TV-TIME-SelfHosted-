@@ -8,9 +8,9 @@ import styles from "./styles/WatchHistory.module.scss";
 
 /** Status colours at 60% — translucent over the backdrop */
 const PILL_BG: Record<HistoryPill, string> = {
-	[HistoryPill.WATCHING]: "bg-watched/60",
+	[HistoryPill.WATCHING]: "bg-warning/60",
 	[HistoryPill.REWATCHING]: "bg-stop/60",
-	[HistoryPill.COMPLETED]: "bg-danger/60",
+	[HistoryPill.COMPLETED]: "bg-watched/60",
 	[HistoryPill.PAUSED]: "bg-movie/60",
 };
 /** Icons match the progress ring's 20px so all three pills line up */
@@ -62,7 +62,7 @@ function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
 			<span className={styles.bottomRow}>
 				<span>
 					<span className={`${styles.timeSpent} block`}>{card.timeSpent}</span>
-					{card.watchCount != null && <span className={`${styles.watchCount} block`}>Watched {card.watchCount}×</span>}
+					{card.watchCount != null && <span className={`${styles.tagPill} ${styles.watchCountPill}`}>Watched {card.watchCount}×</span>}
 				</span>
 				{card.progress && <ProgressModule progress={card.progress} />}
 			</span>

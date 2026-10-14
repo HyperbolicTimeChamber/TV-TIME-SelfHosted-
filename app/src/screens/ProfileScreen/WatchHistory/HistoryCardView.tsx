@@ -14,9 +14,9 @@ const CARD_WIDTH = Dimensions.get("window").width - 32;
 
 /** Status colours at 60% (hex alpha 99) — translucent over the backdrop */
 export const PILL_COLOR: Record<HistoryPill, string> = {
-	[HistoryPill.WATCHING]: `${colors.watchedGreen}99`,
+	[HistoryPill.WATCHING]: `${colors.warningAmber}99`,
 	[HistoryPill.REWATCHING]: `${colors.stopBlue}99`,
-	[HistoryPill.COMPLETED]: `${colors.destructiveRed}99`,
+	[HistoryPill.COMPLETED]: `${colors.watchedGreen}99`,
 	[HistoryPill.PAUSED]: `${colors.moviePurple}99`,
 };
 
@@ -97,7 +97,9 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 				<View>
 					<Text style={styles.timeSpent}>{card.timeSpent}</Text>
 					{card.watchCount != null && (
-						<Text style={styles.watchCount}>Watched {card.watchCount}×</Text>
+						<View style={[styles.tagPill, styles.watchCountPill]}>
+							<Text style={styles.tag}>Watched {card.watchCount}×</Text>
+						</View>
 					)}
 				</View>
 				{card.progress && <ProgressModule progress={card.progress} />}

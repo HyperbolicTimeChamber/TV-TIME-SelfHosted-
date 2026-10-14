@@ -153,9 +153,9 @@
 	line-height: 1.15;
 }
 
-.watchCount {
-	font-size: 13px;
-	font-weight: 500;
+.watchCountPill {
+	display: inline-block;
+	margin-top: 4px;
 }
 
 /* Light grey (textSecondary) at 35% — translucent over the backdrop */
@@ -165,10 +165,6 @@
 	background: color-mix(in srgb, var(--text-secondary) 35%, transparent);
 	font-size: 12px;
 	font-weight: 600;
-}
-
-.watchCount {
-	margin-top: 2px;
 }
 
 .progressPill {
