@@ -199,20 +199,10 @@
 	margin-bottom: -0.2em;
 }
 
-/* Progress pill bottom-left, time + watch count bottom-right */
-.timeBlock {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-end;
-}
-
-/* Right padding = vertical padding → count circle concentric with the pill's end */
-.tagPill.watchCountPill {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	margin-bottom: 4px;
-	padding-right: 3px;
+/* Same size as the progress pills, mirrored: circle on the right, concentric with that end */
+.progressPill.watchCountPill {
+	padding: 5px 5px 5px 10px;
+	background: color-mix(in srgb, var(--text-secondary) 35%, transparent);
 }
 
 .countCircle {

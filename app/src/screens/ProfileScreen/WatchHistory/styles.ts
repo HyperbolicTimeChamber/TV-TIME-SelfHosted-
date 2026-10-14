@@ -80,16 +80,11 @@ export const styles = StyleSheet.create({
 		letterSpacing: -0.5,
 		marginBottom: -6,
 	},
-	// Progress pill bottom-left, time + watch count bottom-right
-	timeBlock: { alignItems: "flex-end" },
-	// Right padding = vertical padding → count circle concentric with the pill's end
+	// Same size as the progress pills, mirrored: circle on the right, concentric with that end
 	watchCountPill: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: 6,
-		marginBottom: spacing.xs,
-		paddingVertical: 3,
-		paddingRight: 3,
+		paddingLeft: 10,
+		paddingRight: 5,
+		backgroundColor: `${colors.textSecondary}59`,
 	},
 	countCircle: {
 		minWidth: 20,
