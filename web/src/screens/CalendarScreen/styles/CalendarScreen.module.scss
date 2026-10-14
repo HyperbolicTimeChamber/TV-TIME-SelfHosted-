@@ -203,6 +203,7 @@
 	/* Card like Watch History: blurred backdrop + same darkening */
 	position: relative;
 	width: calc(100% - 32px);
+	min-height: 120px;
 	margin: 0 16px 12px;
 	display: flex;
 	align-items: center;

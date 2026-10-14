@@ -251,6 +251,7 @@ const styles = StyleSheet.create({
 		marginTop: spacing.md,
 	},
 	episodeCard: {
+		minHeight: 120,
 		flexDirection: "row",
 		alignItems: "center",
 		marginHorizontal: spacing.lg,
