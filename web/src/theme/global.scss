@@ -34,6 +34,14 @@ body {
 	font-family: $font-family;
 }
 
+/* Form controls don't inherit the page font by default (no Tailwind preflight here) */
+button,
+input,
+select,
+textarea {
+	font-family: inherit;
+}
+
 a {
 	color: inherit;
 	text-decoration: none;
