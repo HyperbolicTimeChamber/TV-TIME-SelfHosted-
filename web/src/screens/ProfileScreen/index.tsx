@@ -100,7 +100,8 @@ export default function ProfileScreen() {
 												mediaType={item.mediaType}
 												className={styles.completedPoster}
 												title={!item.posterPath ? item.title : undefined}
-												width={80}
+												// Largest size it's shown at (desktop 140px) so it stays sharp
+												width={140}
 											/>
 										</button>
 									))}
