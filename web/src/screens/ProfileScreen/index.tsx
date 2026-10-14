@@ -101,7 +101,7 @@ export default function ProfileScreen() {
 									reverse={row % 2 === 1}
 									offset={(row * 0.37) % 1}
 									secondsPerItem={4 * (1 + ((row % 3) - 1) * 0.1)}
-									getKey={(item) => item.tmdbId}
+									getKey={(item) => `${item.mediaType}_${item.tmdbId}`}
 									className={styles.posterRow}
 									renderItem={(item, hidden) => (
 										<button

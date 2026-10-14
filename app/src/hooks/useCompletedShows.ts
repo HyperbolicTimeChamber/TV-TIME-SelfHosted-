@@ -169,7 +169,10 @@ export function useCompletedShows(userId: string | undefined) {
 	const addCompletedItem = useCallback(
 		(item: CompletedItem) => {
 			setSections((prev) => {
-				const allItems = extractAllItems(prev);
+				// Already listed (e.g. a completed movie watched again) → replace, don't duplicate
+				const allItems = extractAllItems(prev).filter(
+					(i) => !(i.tmdbId === item.tmdbId && i.mediaType === item.mediaType),
+				);
 				allItems.push(item);
 				const updated = buildSections(allItems);
 
@@ -215,12 +218,14 @@ export function useCompletedShows(userId: string | undefined) {
 }
 
 function extractAllItems(sections: CompletedSection[]): CompletedItem[] {
-	const seen = new Set<number>();
+	// TV shows and movies can share a TMDB id — key by both
+	const seen = new Set<string>();
 	const items: CompletedItem[] = [];
 	for (const section of sections) {
 		for (const item of section.items) {
-			if (!seen.has(item.tmdbId)) {
-				seen.add(item.tmdbId);
+			const key = `${item.mediaType}_${item.tmdbId}`;
+			if (!seen.has(key)) {
+				seen.add(key);
 				items.push(item);
 			}
 		}
