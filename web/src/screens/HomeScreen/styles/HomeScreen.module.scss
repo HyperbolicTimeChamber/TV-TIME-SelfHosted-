@@ -2,6 +2,8 @@
 
 .container {
 	min-height: 100dvh;
+	max-width: 700px;
+	margin: 0 auto;
 	background: var(--surface);
 	/* Wide screens: paint the side gutters the same grey (content stays 1100px wide).
 	   clip-path keeps the spread horizontal only */
