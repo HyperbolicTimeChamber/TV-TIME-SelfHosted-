@@ -24,7 +24,8 @@
 	width: 44px;
 	height: 44px;
 	border-radius: 22px;
-	padding-right: 2px;
+	/* Optical centre: a left chevron's weight sits on its point → nudge right */
+	padding: 0 0 0 2px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -33,6 +34,10 @@
 	color: var(--text);
 	cursor: pointer;
 	flex-shrink: 0;
+}
+
+.backButton svg {
+	display: block;
 }
 
 .title {
