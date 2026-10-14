@@ -24,6 +24,7 @@ concurrency:
 
 jobs:
   build-deploy:
+    environment: prod
     # Version bump commits back to main / development
     permissions:
       contents: write
@@ -121,7 +122,7 @@ jobs:
             echo "EXPO_PUBLIC_WEB_BASE_URL=${{ secrets.WEB_BASE_URL }}"
             echo "EXPO_PUBLIC_TMDB_API_BASE=${{ secrets.TMDB_API_BASE }}"
             echo "EXPO_PUBLIC_RELEASE_CHANNEL=prod"
-            echo "EXPO_PUBLIC_UPDATE_URL=${{ secrets.APP_UPDATE_URL_PROD }}"
+            echo "EXPO_PUBLIC_UPDATE_URL=${{ secrets.APP_UPDATE_URL }}"
           } > app/.env
 
       # ── Expo Prebuild ──
