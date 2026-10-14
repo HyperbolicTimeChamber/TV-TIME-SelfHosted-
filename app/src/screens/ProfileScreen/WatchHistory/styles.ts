@@ -56,7 +56,7 @@ export const styles = StyleSheet.create({
 	cardOverlay: { backgroundColor: "rgba(0, 0, 0, 0.55)" },
 	// Logo, then title, then status pill — stacked, left-aligned
 	topRow: { alignItems: "flex-start", gap: spacing.sm },
-	logo: { height: LOGO_HEIGHT, width: "34%" },
+	logo: { height: LOGO_HEIGHT, width: "34%", marginBottom: spacing.sm },
 	titleBlock: { alignSelf: "stretch", gap: 6, alignItems: "flex-start" },
 	cardTitle: { color: colors.text, fontSize: 17, fontWeight: "700" },
 	pill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
