@@ -118,6 +118,11 @@ test("deriveHistoryCard: still 'watching' an ended show with nothing left → Co
 	assert.deepEqual(midway.progress, { kind: HistoryProgress.PERCENT, percent: 67 });
 });
 
+test("deriveHistoryCard: unknown runtimes show — instead of 0m", () => {
+	const card = deriveHistoryCard(entry({ minutesWatched: 0 }), catalog(), "2026-10-14");
+	assert.equal(card.timeSpent, "—");
+});
+
 test("deriveHistoryCard: paused, rewatching, completed, movie", () => {
 	const today = "2026-10-14";
 	assert.deepEqual(

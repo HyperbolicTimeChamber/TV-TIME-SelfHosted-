@@ -7,6 +7,7 @@ import {
 } from "../tmdb";
 import { MediaType, ENDED_STATUSES } from "../../shared/enums";
 import { hasCatalogChanged } from "./hasCatalogChanged";
+import { filledRuntimes } from "../runtimeHeal/healRuntimes";
 
 export interface FetchResult {
   freshCatalogMap: Map<string, CatalogShow>;
@@ -19,6 +20,8 @@ export interface FetchResult {
   skippedEnded: number;
   /** Show doc ids whose displayed data changed this sync */
   changedShowIds: string[];
+  /** Shows where TMDB filled in episode runtimes it didn't have (users' 0-minute watches heal) */
+  runtimeFills: Array<{ showId: string; tmdbId: number; runtimes: Map<string, number> }>;
 }
 
 export async function fetchCatalogUpdates(
@@ -29,6 +32,7 @@ export async function fetchCatalogUpdates(
   let hasEpisodeRemovals = false;
   let skippedEnded = 0;
   const changedShowIds: string[] = [];
+  const runtimeFills: FetchResult["runtimeFills"] = [];
 
   const pendingWrites: FetchResult["pendingWrites"] = [];
 
@@ -69,6 +73,10 @@ export async function fetchCatalogUpdates(
       if (newEpCount < oldEpCount) hasEpisodeRemovals = true;
       if (hasCatalogChanged(oldData, freshData))
         changedShowIds.push(showDoc.id);
+      const filled = filledRuntimes(oldData, freshData);
+      if (filled.size > 0) {
+        runtimeFills.push({ showId: showDoc.id, tmdbId: oldData.tmdbId, runtimes: filled });
+      }
 
       pendingWrites.push({
         ref: showDoc.ref,
@@ -84,6 +92,8 @@ export async function fetchCatalogUpdates(
           voteAverage: freshData.voteAverage,
           seasons: freshData.seasons,
           genres: freshData.genres,
+          // Was missing: weekly syncs never refreshed logos
+          logoPath: freshData.logoPath ?? null,
           ...(freshData.credits ? { credits: freshData.credits } : {}),
           lastSyncedAt: FieldValue.serverTimestamp(),
         },
@@ -118,6 +128,7 @@ export async function fetchCatalogUpdates(
   return {
     freshCatalogMap,
     pendingWrites,
+    runtimeFills,
     hasEpisodeRemovals,
     skippedEnded,
     changedShowIds,
