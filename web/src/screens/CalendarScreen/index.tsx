@@ -182,14 +182,14 @@ export default function CalendarScreen() {
 												{isMovie ? (
 													<span className={styles.movieBadge}>MOVIE</span>
 												) : (
-													<>
-														<span className={styles.epLabel}>
-															S{pad(ep.season)}E{pad(ep.episode)}
-														</span>
-														<span className={styles.epTitle}>{ep.episodeTitle}</span>
-													</>
+													<span className={styles.epTitle}>{ep.episodeTitle}</span>
 												)}
 											</span>
+											{!isMovie && (
+												<span className={styles.seasonPill}>
+													S{pad(ep.season)}E{pad(ep.episode)}
+												</span>
+											)}
 										</button>
 									);
 								})

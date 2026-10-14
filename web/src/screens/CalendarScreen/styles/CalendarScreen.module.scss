@@ -243,6 +243,8 @@
 	position: relative;
 	flex: 1;
 	min-width: 0;
+	/* Keeps a long fallback name clear of the SxxExx pill */
+	padding-right: 72px;
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
@@ -257,9 +259,16 @@
 	text-overflow: ellipsis;
 }
 
-.epLabel {
+/* SxxExx in the card's top-right corner, translucent black */
+.seasonPill {
+	position: absolute;
+	top: 12px;
+	right: 12px;
+	padding: 3px 10px;
+	border-radius: 999px;
+	background: rgba(0, 0, 0, 0.5);
 	font-size: 12px;
-	margin-top: 4px;
+	font-weight: 600;
 }
 
 .epTitle {

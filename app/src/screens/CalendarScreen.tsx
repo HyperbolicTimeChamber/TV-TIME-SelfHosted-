@@ -108,16 +108,18 @@ export default function CalendarScreen() {
 								<Text style={styles.movieBadgeText}>MOVIE</Text>
 							</View>
 						) : (
-							<Text style={styles.epLabel}>
-								S{String(item.season).padStart(2, "0")}E{String(item.episode).padStart(2, "0")}
-							</Text>
-						)}
-						{!isMovie && (
 							<Text style={styles.epTitle} numberOfLines={1}>
 								{item.episodeTitle}
 							</Text>
 						)}
 					</View>
+					{!isMovie && (
+						<View style={styles.seasonPill}>
+							<Text style={styles.epLabel}>
+								S{String(item.season).padStart(2, "0")}E{String(item.episode).padStart(2, "0")}
+							</Text>
+						</View>
+					)}
 				</TouchableOpacity>
 			);
 		},
@@ -256,17 +258,24 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.surface,
 	},
 	cardOverlay: { backgroundColor: "rgba(0, 0, 0, 0.55)" },
-	epInfo: { flex: 1 },
+	// Right padding keeps a long fallback name clear of the SxxExx pill
+	epInfo: { flex: 1, paddingRight: 72 },
 	logo: { height: 36, width: "60%" },
 	showTitle: {
 		...typography.subtitle,
 		fontSize: 14,
 	},
-	epLabel: {
-		...typography.caption,
-		color: colors.text,
-		marginTop: spacing.xs,
+	// SxxExx in the card's top-right corner, translucent black
+	seasonPill: {
+		position: "absolute",
+		top: spacing.md,
+		right: spacing.md,
+		backgroundColor: colors.badgeOverlay,
+		borderRadius: 999,
+		paddingHorizontal: 10,
+		paddingVertical: 3,
 	},
+	epLabel: { ...typography.caption, color: colors.text, fontWeight: "600" },
 	movieBadge: {
 		alignSelf: "flex-start",
 		backgroundColor: colors.moviePurple,
