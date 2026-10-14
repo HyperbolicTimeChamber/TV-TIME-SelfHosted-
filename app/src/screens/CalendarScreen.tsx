@@ -240,9 +240,11 @@ const styles = StyleSheet.create({
 		color: colors.textMuted,
 		marginTop: spacing.md,
 	},
+	// 16:9 minimum like Watch History cards; details sit at the bottom over the backdrop
 	episodeCard: {
+		minHeight: (Dimensions.get("window").width - 32) * (9 / 16),
 		flexDirection: "row",
-		alignItems: "center",
+		alignItems: "flex-end",
 		marginHorizontal: spacing.lg,
 		marginBottom: spacing.md,
 		padding: spacing.md,
@@ -252,9 +254,9 @@ const styles = StyleSheet.create({
 	},
 	cardOverlay: { backgroundColor: "rgba(0, 0, 0, 0.55)" },
 	poster: {
-		width: 45,
-		height: 67,
-		borderRadius: 4,
+		width: 60,
+		height: 90,
+		borderRadius: 6,
 	},
 	epInfo: {
 		flex: 1,
