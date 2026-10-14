@@ -1,6 +1,7 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { WatchStatus, ENDED_STATUSES } from "../../shared/enums";
 import { CatalogShow } from "../../shared/types";
+import { historyOnChange } from "../../shared/history";
 
 const POINTER_STATUSES: string[] = [
   WatchStatus.WATCHING,
@@ -151,6 +152,8 @@ export async function reconcileTracking(
       ref: td.ref,
       data: {
         ...mark,
+        // Status flips back to watching → Watch History card must refresh
+        ...historyOnChange(),
         status: WatchStatus.WATCHING,
         nextEpisode: { season: firstNew.season, episode: firstNew.episode },
         nextEpisodeName: firstNew.title ?? null,

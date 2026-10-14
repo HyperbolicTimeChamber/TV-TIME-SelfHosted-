@@ -26,9 +26,13 @@ import { getSeasonDetails, pooled } from "../services/tmdb";
 type MutateCallback = (fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[]) => void;
 const mutateListeners = new Set<MutateCallback>();
 const invalidateListeners = new Set<() => void>();
-const pastRemoveListeners = new Set<(tmdbId: number) => void>();
+const pastRemoveListeners = new Set<(drop: (ep: UpcomingEpisode) => boolean) => void>();
+// Mutations made while a Firestore fetch is in flight — replayed onto its result,
+// otherwise the fetch (read before the mutation) puts e.g. a just-watched ep back
+const inflightMutations = new Set<Array<(prev: UpcomingEpisode[]) => UpcomingEpisode[]>>();
 
 function mutateCachedEpisodes(fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[]) {
+	inflightMutations.forEach((pending) => pending.push(fn));
 	mutateListeners.forEach((cb) => cb(fn));
 }
 
@@ -101,10 +105,10 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 		};
 	}, []);
 
-	// Removed show → drop it from the past queue too
+	// Removed show / watched episode → drop it from the past queue too
 	useEffect(() => {
-		const cb = (tmdbId: number) => {
-			const next = pastRef.current.filter((ep) => ep.tmdbShowId !== tmdbId);
+		const cb = (drop: (ep: UpcomingEpisode) => boolean) => {
+			const next = pastRef.current.filter((ep) => !drop(ep));
 			if (next.length === pastRef.current.length) return;
 			pastRef.current = next;
 			setPastEpisodes(next);
@@ -176,6 +180,7 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 		if (!userId || !cacheReady || configLoading) return;
 
 		(async () => {
+			const pending: Array<(prev: UpcomingEpisode[]) => UpcomingEpisode[]> = [];
 			// lastCatalogSync comes from authStore's config/app read — no extra read here
 			const db = getFirestore();
 			try {
@@ -190,6 +195,7 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 				// Cache is stale or missing — fetch from Firestore
 				if (episodes.length === 0) setIsLoading(true);
 				setError(null);
+				inflightMutations.add(pending);
 
 				const today = todayStr();
 				const upcomingCol = collection(doc(db, "users", userId), "upcoming");
@@ -235,7 +241,8 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 					});
 				}
 
-				const eps = [...tvEps, ...movieEps].sort((a, b) => a.airDate.localeCompare(b.airDate));
+				const fetched = [...tvEps, ...movieEps].sort((a, b) => a.airDate.localeCompare(b.airDate));
+				const eps = pending.reduce((acc, fn) => fn(acc), fetched);
 
 				const newSyncDate = serverSyncStr || new Date().toISOString();
 				cachedSyncDate.current = newSyncDate;
@@ -251,6 +258,8 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 				console.error("Upcoming fetch error:", err);
 				setError("Failed to fetch upcoming episodes");
 				setIsLoading(false);
+			} finally {
+				inflightMutations.delete(pending);
 			}
 		})();
 	}, [userId, cacheReady, configLoading, forceRefetch, archivePast]);
@@ -381,7 +390,14 @@ export function useUpcomingMutations() {
 	const removeShowFromUpcoming = useCallback((tmdbId: number) => {
 		// Optimistic: remove from local state + cache immediately
 		mutateCachedEpisodes((prev) => prev.filter((ep) => ep.tmdbShowId !== tmdbId));
-		pastRemoveListeners.forEach((fn) => fn(tmdbId));
+		pastRemoveListeners.forEach((fn) => fn((ep) => ep.tmdbShowId === tmdbId));
+	}, []);
+
+	/** Watched episode → out of the past-days queue (upcoming list is filtered optimistically) */
+	const removeWatchedFromPast = useCallback((tmdbId: number, season: number, episode: number) => {
+		pastRemoveListeners.forEach((fn) =>
+			fn((ep) => ep.tmdbShowId === tmdbId && ep.season === season && ep.episode === episode),
+		);
 	}, []);
 
 	const invalidateUpcoming = useCallback(() => {
@@ -410,6 +426,7 @@ export function useUpcomingMutations() {
 	return {
 		addShowToUpcoming,
 		removeShowFromUpcoming,
+		removeWatchedFromPast,
 		invalidateUpcoming,
 		mutateCachedUpcoming,
 		rollbackUpcoming,

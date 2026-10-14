@@ -5,6 +5,7 @@ import {
   CatalogSeason,
   TMDBSeasonDetail,
   TMDBShowDetail,
+  TMDBLogo,
 } from "../shared/types";
 
 export { CatalogShow, CatalogSeason };
@@ -13,6 +14,7 @@ export type {
   TMDBEpisode,
   TMDBSeasonDetail,
   TMDBShowDetail,
+  TMDBLogo,
 } from "../shared/types";
 
 export async function pooled<T>(
@@ -62,6 +64,16 @@ async function fetchSeasonEpisodes(
   };
 }
 
+/** Best title logo: TMDB lists them best-voted first; prefer English, then language-neutral */
+export function pickLogo(logos: TMDBLogo[] | undefined): string | null {
+  if (!logos?.length) return null;
+  return (
+    logos.find((l) => l.iso_639_1 === "en")?.file_path ??
+    logos.find((l) => !l.iso_639_1)?.file_path ??
+    null
+  );
+}
+
 export async function fetchShowStatus(
   apiKey: string,
   tmdbId: number,
@@ -85,10 +97,13 @@ export async function fetchShowFromTMDB(
       ? `${TMDB_BASE}/tv/${tmdbId}`
       : `${TMDB_BASE}/movie/${tmdbId}`;
 
+  // Logos ride along on the same request (images + language filter)
   const { data } = await axios.get<TMDBShowDetail>(endpoint, {
     params: {
       api_key: apiKey,
-      ...(mediaType === MediaType.MOVIE && { append_to_response: "credits" }),
+      append_to_response:
+        mediaType === MediaType.MOVIE ? "credits,images" : "images",
+      include_image_language: "en,null",
     },
   });
 
@@ -130,6 +145,7 @@ export async function fetchShowFromTMDB(
     releaseDate: data.release_date ?? null,
     seasons,
     genres: (data.genres ?? []).map((g) => g.name),
+    logoPath: pickLogo(data.images?.logos),
     ...(mediaType === MediaType.MOVIE && data.credits?.crew
       ? {
           credits: {

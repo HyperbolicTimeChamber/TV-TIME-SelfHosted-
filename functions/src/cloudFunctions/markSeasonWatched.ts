@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
+import { historyOnWatch } from "../shared/history";
 import { showDocId, episodeDocId } from "../shared/docId";
 import { WatchStatus, MediaType } from "../shared/enums";
 import { MarkSeasonRequest } from "../shared/types";
@@ -119,9 +120,13 @@ export const markSeasonWatched = onCall(
     if (incrementRewatch) {
       trackingUpdate.rewatchCount = FieldValue.increment(1);
     }
-    if (!skipTracking) {
-      batch.set(trackingDoc, trackingUpdate, { merge: true });
-    }
+    // History counts every mark, even when the pointer stays put
+    const history = historyOnWatch(totalRuntime, episodes.length, now);
+    batch.set(
+      trackingDoc,
+      skipTracking ? history : { ...trackingUpdate, ...history },
+      { merge: true },
+    );
 
     await batch.commit();
 
