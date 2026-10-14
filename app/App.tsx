@@ -27,6 +27,7 @@ import { getMessaging, getToken, requestPermission } from "@react-native-firebas
 import { getFirestore, doc, setDoc } from "@react-native-firebase/firestore";
 import { useAuthStore, useUiStore } from "./src/stores";
 import { useForceUpdate } from "./src/hooks";
+import ForceUpdateScreen from "./src/components/ForceUpdateScreen";
 import LoginScreen from "./src/screens/LoginScreen";
 import ImportDataScreen from "./src/screens/ImportDataScreen";
 import AppNavigator from "./src/navigation/AppNavigator";
@@ -79,7 +80,7 @@ async function registerFCMToken(userId: string) {
 }
 
 function AppContent() {
-	useForceUpdate();
+	const updateRequired = useForceUpdate();
 	const {
 		user,
 		loading,
@@ -117,6 +118,10 @@ function AppContent() {
 				<LoadingSpinner />
 			</View>
 		);
+	}
+
+	if (updateRequired) {
+		return <ForceUpdateScreen />;
 	}
 
 	if (!hasCompletedImport) {

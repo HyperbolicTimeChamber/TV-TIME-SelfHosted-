@@ -1,2 +1,4 @@
-// Web always serves the latest build — no forced store update
-export function useForceUpdate() {}
+// Web always serves the latest build — never blocked
+export function useForceUpdate(): boolean {
+	return false;
+}
