@@ -52,6 +52,7 @@ export const styles = StyleSheet.create({
 	topBlock: { alignItems: "flex-start", gap: spacing.sm },
 	topRow: {
 		alignSelf: "stretch",
+		marginBottom: spacing.sm,
 		flexDirection: "row",
 		alignItems: "flex-start",
 		justifyContent: "space-between",
@@ -59,8 +60,8 @@ export const styles = StyleSheet.create({
 	},
 	logo: { flex: 1, height: LOGO_HEIGHT },
 	cardTitle: { flex: 1, color: colors.text, fontSize: 20, fontWeight: "600" },
-	pill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
-	pillText: { color: colors.text, fontSize: 11, fontWeight: "700" },
+	pill: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 },
+	pillText: { color: colors.text, fontSize: 13, fontWeight: "700" },
 	bottomRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
 	timeBlock: { alignItems: "flex-end" },
 	timeLabel: { color: colors.text, fontSize: 11, fontWeight: "500", marginBottom: 2 },
