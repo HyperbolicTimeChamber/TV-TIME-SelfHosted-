@@ -21,7 +21,7 @@ export {
 } from "./useWatchedEpisodes";
 export { useWatchedMovies, insertWatchedMovieCache } from "./useWatchedMovies";
 export type { EnrichedTrackingItem } from "./useWatchlist";
-export { useWatchlist, getCachedCatalogShow } from "./useWatchlist";
+export { useWatchlist, getCachedCatalogShow, cacheCatalogShows } from "./useWatchlist";
 export { useWeeklyActivity, incrementDailyWatch, decrementDailyWatch } from "./useWeeklyActivity";
 export { useProfileCardImages } from "./useProfileCardImages";
 export { useCompletedShows } from "./useCompletedShows";
@@ -34,3 +34,4 @@ export {
 	tmdbBackdropUri,
 	tmdbStillUri,
 } from "./useTmdbImage";
+export { useWatchHistory } from "./useWatchHistory";

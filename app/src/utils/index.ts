@@ -9,3 +9,5 @@ export * from "./todayStr";
 export * from "./trackingAdvance";
 export * from "./upcomingQueue";
 export * from "./watchlistEvents";
+export * from "./historyCache";
+export * from "./historyCard";
