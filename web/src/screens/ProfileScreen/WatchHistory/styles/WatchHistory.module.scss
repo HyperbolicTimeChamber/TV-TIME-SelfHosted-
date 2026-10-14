@@ -153,9 +153,31 @@
 	line-height: 1.15;
 }
 
-.watchCountPill {
-	display: inline-block;
+/* Progress pill bottom-left, time + watch count bottom-right */
+.timeBlock {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+}
+
+/* Count circle sits concentric with the pill's rounded right end (right = vertical padding) */
+.tagPill.watchCountPill {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
 	margin-top: 4px;
+	padding-right: 3px;
+}
+
+.countCircle {
+	min-width: 20px;
+	height: 20px;
+	border-radius: 10px;
+	padding: 0 5px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: color-mix(in srgb, var(--text-secondary) 35%, transparent);
 }
 
 /* Light grey (textSecondary) at 35% — translucent over the backdrop */

@@ -60,11 +60,15 @@ function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
 			</span>
 
 			<span className={styles.bottomRow}>
-				<span>
+				{card.progress ? <ProgressModule progress={card.progress} /> : <span />}
+				<span className={styles.timeBlock}>
 					<span className={`${styles.timeSpent} block`}>{card.timeSpent}</span>
-					{card.watchCount != null && <span className={`${styles.tagPill} ${styles.watchCountPill}`}>Watched {card.watchCount}×</span>}
+					{card.watchCount != null && (
+						<span className={`${styles.tagPill} ${styles.watchCountPill}`}>
+							Watch Count <span className={styles.countCircle}>{card.watchCount}</span>
+						</span>
+					)}
 				</span>
-				{card.progress && <ProgressModule progress={card.progress} />}
 			</span>
 		</button>
 	);

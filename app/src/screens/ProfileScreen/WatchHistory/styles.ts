@@ -69,7 +69,25 @@ export const styles = StyleSheet.create({
 	pillText: { color: colors.text, fontSize: 11, fontWeight: "700" },
 	bottomRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
 	timeSpent: { color: colors.text, fontSize: 30, fontWeight: "700", letterSpacing: -0.5 },
-	watchCountPill: { alignSelf: "flex-start", marginTop: spacing.xs },
+	// Progress pill bottom-left, time + watch count bottom-right
+	timeBlock: { alignItems: "flex-end" },
+	// Count circle sits concentric with the pill's rounded right end (right = vertical padding)
+	watchCountPill: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 6,
+		marginTop: spacing.xs,
+		paddingRight: 3,
+	},
+	countCircle: {
+		minWidth: 20,
+		height: 20,
+		borderRadius: 10,
+		paddingHorizontal: 5,
+		alignItems: "center",
+		justifyContent: "center",
+		backgroundColor: `${colors.textSecondary}59`,
+	},
 	progressPill: {
 		flexDirection: "row",
 		alignItems: "center",

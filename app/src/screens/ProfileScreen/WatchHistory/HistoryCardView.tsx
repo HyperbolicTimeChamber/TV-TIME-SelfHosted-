@@ -94,15 +94,18 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 			</View>
 
 			<View style={styles.bottomRow}>
-				<View>
+				{card.progress ? <ProgressModule progress={card.progress} /> : <View />}
+				<View style={styles.timeBlock}>
 					<Text style={styles.timeSpent}>{card.timeSpent}</Text>
 					{card.watchCount != null && (
 						<View style={[styles.tagPill, styles.watchCountPill]}>
-							<Text style={styles.tag}>Watched {card.watchCount}×</Text>
+							<Text style={styles.tag}>Watch Count</Text>
+							<View style={styles.countCircle}>
+								<Text style={styles.tag}>{card.watchCount}</Text>
+							</View>
 						</View>
 					)}
 				</View>
-				{card.progress && <ProgressModule progress={card.progress} />}
 			</View>
 		</TouchableOpacity>
 	);
