@@ -5,8 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useCalendarScreen, YEARS } from "@app/screens/useCalendarScreen";
 import { MediaType } from "@app/enums";
 import { todayStr } from "@app/utils/todayStr";
-import PosterImage from "../../components/PosterImage";
-import { tmdbBackdropUri } from "@app/hooks/useTmdbImage";
+import { tmdbBackdropUri, tmdbLogoUri } from "@app/hooks/useTmdbImage";
 import AnimatedModal from "../../components/AnimatedModal";
 import LoadingScreen from "../../components/LoadingScreen";
 import { showPath } from "../../routes/paths";
@@ -173,9 +172,13 @@ export default function CalendarScreen() {
 											<img src={tmdbBackdropUri(ep.backdropPath, 600)} alt="" className={styles.cardBg} loading="lazy" />
 										)}
 										<span className={styles.cardOverlay} />
-										<PosterImage posterPath={ep.posterPath} mediaType={ep.mediaType} className={styles.poster} />
-											<span className={styles.epInfo}>
-												<span className={styles.showTitle}>{ep.showTitle}</span>
+										<span className={styles.epInfo}>
+												{/* Title logo when TMDB has one, else the name */}
+												{ep.logoPath ? (
+													<img src={tmdbLogoUri(ep.logoPath, 240)} alt={ep.showTitle} className={styles.logo} loading="lazy" />
+												) : (
+													<span className={styles.showTitle}>{ep.showTitle}</span>
+												)}
 												{isMovie ? (
 													<span className={styles.movieBadge}>MOVIE</span>
 												) : (

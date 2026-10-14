@@ -231,19 +231,18 @@
 	background: rgba(0, 0, 0, 0.55);
 }
 
-.poster {
-	position: relative;
-	width: 45px;
-	height: 67px;
-	border-radius: 4px;
-	flex-shrink: 0;
+.logo {
+	display: block;
+	height: 36px;
+	width: 60%;
+	object-fit: contain;
+	object-position: left center;
 }
 
 .epInfo {
 	position: relative;
 	flex: 1;
 	min-width: 0;
-	margin-left: 12px;
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;

@@ -7,12 +7,11 @@ import { LegendList } from "@legendapp/list/react-native";
 import { Calendar, DateData } from "react-native-calendars";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import PosterImage from "../components/PosterImage";
 import { colors, spacing, typography } from "../theme";
 import { CalendarStackParamList, Route, MediaType } from "../types";
 import { useCalendarScreen, YEARS, type CalendarEpisode } from "./useCalendarScreen";
 import { Image } from "expo-image";
-import { tmdbBackdropUri } from "../hooks/useTmdbImage";
+import { tmdbBackdropUri, tmdbLogoUri } from "../hooks/useTmdbImage";
 import { BLUR_RADIUS } from "./ProfileScreen/styles";
 
 const CARD_WIDTH = Dimensions.get("window").width - 32;
@@ -89,15 +88,21 @@ export default function CalendarScreen() {
 						/>
 					)}
 					<View style={[StyleSheet.absoluteFill, styles.cardOverlay]} />
-					<PosterImage
-						posterPath={item.posterPath}
-						mediaType={item.mediaType}
-						style={styles.poster}
-					/>
 					<View style={styles.epInfo}>
-						<Text style={styles.showTitle} numberOfLines={1}>
-							{item.showTitle}
-						</Text>
+						{/* Title logo when TMDB has one, else the name */}
+						{item.logoPath ? (
+							<Image
+								source={{ uri: tmdbLogoUri(item.logoPath, CARD_WIDTH * 0.5) }}
+								style={styles.logo}
+								contentFit="contain"
+								contentPosition="left center"
+								accessibilityLabel={item.showTitle}
+							/>
+						) : (
+							<Text style={styles.showTitle} numberOfLines={1}>
+								{item.showTitle}
+							</Text>
+						)}
 						{isMovie ? (
 							<View style={styles.movieBadge}>
 								<Text style={styles.movieBadgeText}>MOVIE</Text>
@@ -251,15 +256,8 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.surface,
 	},
 	cardOverlay: { backgroundColor: "rgba(0, 0, 0, 0.55)" },
-	poster: {
-		width: 45,
-		height: 67,
-		borderRadius: 4,
-	},
-	epInfo: {
-		flex: 1,
-		marginLeft: spacing.md,
-	},
+	epInfo: { flex: 1 },
+	logo: { height: 36, width: "60%" },
 	showTitle: {
 		...typography.subtitle,
 		fontSize: 14,

@@ -5,7 +5,7 @@ import { MediaType } from "../enums";
 import type { UpcomingEpisode } from "../types";
 
 /** A day's episode / movie, with its backdrop for the list card */
-export type CalendarEpisode = UpcomingEpisode & { backdropPath: string | null };
+export type CalendarEpisode = UpcomingEpisode & { backdropPath: string | null; logoPath: string | null };
 import { colors } from "../theme";
 import { todayStr } from "../utils";
 
@@ -75,19 +75,22 @@ export function useCalendarScreen() {
 		return marks;
 	}, [episodes, selectedDate]);
 
-	// + backdrop from the shared catalog cache (no reads) for the card backgrounds
+	// + backdrop and logo from the shared catalog cache (no reads) for the cards
 	const selectedEpisodes = useMemo((): CalendarEpisode[] => {
 		if (!selectedDate || !episodes) return [];
 		return episodes
 			.filter((ep) => ep.airDate === selectedDate)
-			.map((ep) => ({
-				...ep,
-				backdropPath:
-					getCachedCatalogShow(
-						ep.tmdbShowId,
-						ep.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV,
-					)?.backdropPath ?? null,
-			}));
+			.map((ep) => {
+				const catalog = getCachedCatalogShow(
+					ep.tmdbShowId,
+					ep.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV,
+				);
+				return {
+					...ep,
+					backdropPath: catalog?.backdropPath ?? null,
+					logoPath: catalog?.logoPath ?? null,
+				};
+			});
 	}, [episodes, selectedDate]);
 
 	const handleDayPress = useCallback((dateString: string) => {
