@@ -85,8 +85,8 @@ export default function WatchHistoryScreen() {
 	const [tab, setTab] = useState<MediaType>(MediaType.TV);
 
 	return (
-		<View style={[styles.container, { paddingTop: top }]}>
-			<View style={styles.headerCard}>
+		<View style={styles.container}>
+			<View style={[styles.topBar, { paddingTop: top + 8 }]}>
 				<View style={styles.titleRow}>
 					<TouchableOpacity
 						style={styles.backButton}

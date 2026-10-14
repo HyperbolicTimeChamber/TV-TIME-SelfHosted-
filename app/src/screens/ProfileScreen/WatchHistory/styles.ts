@@ -10,28 +10,30 @@ export const RING_STROKE = 3;
 
 export const styles = StyleSheet.create({
 	container: { flex: 1, backgroundColor: colors.background },
-	headerCard: {
+	// Full-width top bar: circular back + title, tabs underneath (same surface as the tabs)
+	topBar: {
 		backgroundColor: colors.surface,
-		borderRadius: 12,
-		marginHorizontal: spacing.md,
-		marginTop: spacing.md,
-		overflow: "hidden",
+		borderBottomWidth: StyleSheet.hairlineWidth,
+		borderBottomColor: colors.border,
 	},
-	titleRow: { flexDirection: "row", alignItems: "stretch", minHeight: 48 },
+	titleRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.md,
+		paddingHorizontal: spacing.lg,
+		paddingBottom: spacing.xs,
+	},
+	// Same circle as the show page's back button; lighter fill so it shows on the bar
 	backButton: {
 		width: 44,
-		justifyContent: "center",
-		alignItems: "center",
+		height: 44,
+		borderRadius: 22,
 		backgroundColor: colors.surfaceLight,
+		alignItems: "center",
+		justifyContent: "center",
+		paddingRight: 2,
 	},
-	title: {
-		flex: 1,
-		alignSelf: "center",
-		paddingHorizontal: spacing.md,
-		fontSize: 17,
-		fontWeight: "700",
-		color: colors.text,
-	},
+	title: { flex: 1, fontSize: 20, fontWeight: "700", color: colors.text },
 	list: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
 	separator: { height: spacing.lg },
 	empty: {

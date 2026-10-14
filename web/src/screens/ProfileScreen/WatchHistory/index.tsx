@@ -69,16 +69,14 @@ export default function WatchHistoryScreen() {
 		<div>
 			{/* layoutRoot: the tab pill's layout animation measures inside this sticky header,
 			    not against the scrolled page (otherwise it jumps after scrolling) */}
-			<motion.header layoutRoot className={styles.header}>
-				<div className={styles.headerCard}>
-					<div className={styles.titleRow}>
-						<button className={styles.backButton} onClick={goBack} aria-label="Back">
-							<IoChevronBack size={24} />
-						</button>
-						<h1 className={styles.title}>Watch History</h1>
-					</div>
-					<SlidingTabs id="history-tabs" tabs={TABS} activeKey={tab} onTabPress={setTab} />
+			<motion.header layoutRoot className={styles.topBar}>
+				<div className={styles.titleRow}>
+					<button className={styles.backButton} onClick={goBack} aria-label="Back">
+						<IoChevronBack size={24} />
+					</button>
+					<h1 className={styles.title}>Watch History</h1>
 				</div>
+				<SlidingTabs id="history-tabs" tabs={TABS} activeKey={tab} onTabPress={setTab} />
 			</motion.header>
 			<HistoryList key={tab} mediaType={tab} />
 		</div>
