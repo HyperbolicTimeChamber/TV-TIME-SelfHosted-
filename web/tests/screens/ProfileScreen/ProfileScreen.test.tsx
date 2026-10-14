@@ -29,6 +29,7 @@ describe("ProfileScreen", () => {
 		expect(screen.getByText("56")).toBeInTheDocument();
 		expect(screen.getByText("3d 4h")).toBeInTheDocument();
 		expect(screen.getByText("Watch Statistics")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Watch History" })).toBeInTheDocument();
 		expect(screen.getByText("Recently Completed")).toBeInTheDocument();
 		expect(screen.getByText("Drama")).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Log Out" })).toBeInTheDocument();

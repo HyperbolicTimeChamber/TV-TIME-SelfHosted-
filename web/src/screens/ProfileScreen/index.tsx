@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { App as AntApp, Spin } from "antd";
-import { IoPerson, IoSettingsSharp } from "react-icons/io5";
+import { IoArrowForward, IoPerson, IoSettingsSharp } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import { useUserStats } from "@app/hooks/useUserStats";
 import { useWatchlist } from "@app/hooks/useWatchlist";
@@ -14,6 +14,7 @@ import WeeklyChart from "../../components/WeeklyChart";
 import PosterImage from "../../components/PosterImage";
 import { Paths, showPath } from "../../routes/paths";
 import { StatCard, CollageCard } from "./ProfileCards";
+import historyStyles from "./WatchHistory/styles/WatchHistory.module.scss";
 import styles from "./styles/ProfileScreen.module.scss";
 
 /** Profile tab — stats, weekly chart, recently completed (same hooks as the app) */
@@ -80,6 +81,12 @@ export default function ProfileScreen() {
 			</button>
 
 			<WeeklyChart data={chartData} />
+			<button className={historyStyles.historyButton} onClick={() => navigate(Paths.WATCH_HISTORY)}>
+				Watch History
+				<span className={historyStyles.historyButtonArrow}>
+					<IoArrowForward size={20} />
+				</span>
+			</button>
 
 			{completedLoading ? (
 				<div className={styles.completedLoader}>

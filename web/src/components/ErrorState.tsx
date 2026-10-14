@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { motion } from "motion/react";
 import {
   IoAlertCircleOutline,
@@ -11,8 +10,7 @@ import { LoadErrorKind, MediaType } from "@app/enums";
 import type { LoadErrorInfo } from "@app/utils/loadError";
 import { colors } from "../theme/index";
 import NotFoundArt from "./NotFoundArt";
-import { useAppDispatch } from "../store";
-import { setTabBarHidden } from "../store/uiSlice";
+import { useHideTabBar } from "../hooks/useHideTabBar";
 import styles from "./styles/ErrorState.module.scss";
 
 interface Action {
@@ -47,16 +45,8 @@ export default function ErrorState({
             : IoCompassOutline;
 
   const showArt = info.kind === LoadErrorKind.NOT_FOUND;
-  const dispatch = useAppDispatch();
-
   // Not-found is a dead end: back + its own buttons are the way out, no tab bar
-  useEffect(() => {
-    if (!showArt) return;
-    dispatch(setTabBarHidden(true));
-    return () => {
-      dispatch(setTabBarHidden(false));
-    };
-  }, [showArt, dispatch]);
+  useHideTabBar(showArt);
 
   return (
     <>
