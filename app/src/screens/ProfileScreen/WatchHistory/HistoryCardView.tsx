@@ -62,23 +62,30 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 			)}
 			<View style={[StyleSheet.absoluteFill, styles.cardOverlay]} />
 
-			<View style={styles.topRow}>
-				<View style={styles.titleBlock}>
-					{card.logoPath && (
+			<View style={styles.topBlock}>
+				<View style={styles.topRow}>
+					{card.logoPath ? (
 						<Image
 							source={{ uri: tmdbLogoUri(card.logoPath, CARD_WIDTH * 0.34) }}
 							style={styles.logo}
 							contentFit="contain"
 							contentPosition="left center"
 						/>
+					) : (
+						<View />
 					)}
-					<Text style={styles.cardTitle} numberOfLines={1}>
-						{card.title}
-					</Text>
+					{card.pill && (
+						<View style={[styles.pill, { backgroundColor: PILL_COLOR[card.pill] }]}>
+							<Text style={styles.pillText}>{card.pill}</Text>
+						</View>
+					)}
 				</View>
-				{card.pill && (
-					<View style={[styles.pill, { backgroundColor: PILL_COLOR[card.pill] }]}>
-						<Text style={styles.pillText}>{card.pill}</Text>
+				<Text style={styles.cardTitle} numberOfLines={1}>
+					{card.title}
+				</Text>
+				{card.tag && (
+					<View style={styles.tagPill}>
+						<Text style={styles.tag}>{card.tag}</Text>
 					</View>
 				)}
 			</View>
@@ -90,10 +97,7 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 						<Text style={styles.watchCount}>Watched {card.watchCount}×</Text>
 					)}
 				</View>
-				<View style={styles.rightBlock}>
-					{card.progress && <ProgressModule progress={card.progress} />}
-					{card.tag && <Text style={styles.tag}>{card.tag}</Text>}
-				</View>
+				{card.progress && <ProgressModule progress={card.progress} />}
 			</View>
 		</TouchableOpacity>
 	);

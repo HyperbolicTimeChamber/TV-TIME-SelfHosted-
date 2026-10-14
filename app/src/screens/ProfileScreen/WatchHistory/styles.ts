@@ -54,17 +54,22 @@ export const styles = StyleSheet.create({
 		justifyContent: "space-between",
 	},
 	cardOverlay: { backgroundColor: "rgba(0, 0, 0, 0.55)" },
-	// Logo above title on the left, status pill in the top-right corner
-	topRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
-	logo: { height: LOGO_HEIGHT, width: "50%", marginBottom: spacing.sm },
-	titleBlock: { flex: 1, gap: spacing.sm, alignItems: "flex-start" },
+	// Logo + status pill on top, then full-width title, then the Ongoing / Ended / year pill
+	topBlock: { alignItems: "flex-start", gap: spacing.sm },
+	topRow: {
+		alignSelf: "stretch",
+		flexDirection: "row",
+		alignItems: "flex-start",
+		justifyContent: "space-between",
+		gap: spacing.md,
+	},
+	logo: { height: LOGO_HEIGHT, width: "34%", marginBottom: spacing.xs },
 	cardTitle: { alignSelf: "stretch", color: colors.text, fontSize: 17, fontWeight: "700" },
 	pill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
 	pillText: { color: colors.text, fontSize: 11, fontWeight: "700" },
 	bottomRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
 	timeSpent: { color: colors.text, fontSize: 30, fontWeight: "700", letterSpacing: -0.5 },
 	watchCount: { color: colors.text, fontSize: 13, fontWeight: "500", marginTop: 2 },
-	rightBlock: { alignItems: "flex-end", gap: 6 },
 	progressPill: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -74,7 +79,14 @@ export const styles = StyleSheet.create({
 		paddingVertical: 5,
 	},
 	progressText: { fontSize: 14, fontWeight: "700" },
-	tag: { color: colors.text, fontSize: 13, fontWeight: "500" },
+	// Light grey (textSecondary) at 35% — translucent over the backdrop
+	tagPill: {
+		borderRadius: 999,
+		paddingHorizontal: 10,
+		paddingVertical: 3,
+		backgroundColor: `${colors.textSecondary}59`,
+	},
+	tag: { color: colors.text, fontSize: 12, fontWeight: "600" },
 
 	// Profile entry button
 	historyButton: {

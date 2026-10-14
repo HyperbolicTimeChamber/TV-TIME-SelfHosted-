@@ -92,16 +92,27 @@
 	background: rgba(0, 0, 0, 0.55);
 }
 
-.topRow,
+/* Logo + status pill on top, then full-width title, then the Ongoing / Ended / year pill */
+.topBlock {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 8px;
+}
+
+.topRow {
+	align-self: stretch;
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+}
+
 .bottomRow {
 	position: relative;
 	display: flex;
 	gap: 12px;
-}
-
-/* Logo above title on the left, status pill in the top-right corner */
-.topRow {
-	align-items: flex-start;
 }
 
 .bottomRow {
@@ -111,19 +122,10 @@
 
 .logo {
 	height: 40px;
-	width: 50%;
-	margin-bottom: 8px;
+	width: 34%;
+	margin-bottom: 4px;
 	object-fit: contain;
 	object-position: left center;
-}
-
-.titleBlock {
-	flex: 1;
-	min-width: 0;
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-	gap: 8px;
 }
 
 .cardTitle {
@@ -151,21 +153,22 @@
 	line-height: 1.15;
 }
 
-.watchCount,
-.tag {
+.watchCount {
 	font-size: 13px;
 	font-weight: 500;
 }
 
-.watchCount {
-	margin-top: 2px;
+/* Light grey (textSecondary) at 35% — translucent over the backdrop */
+.tagPill {
+	border-radius: 999px;
+	padding: 3px 10px;
+	background: color-mix(in srgb, var(--text-secondary) 35%, transparent);
+	font-size: 12px;
+	font-weight: 600;
 }
 
-.rightBlock {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-end;
-	gap: 6px;
+.watchCount {
+	margin-top: 2px;
 }
 
 .progressPill {

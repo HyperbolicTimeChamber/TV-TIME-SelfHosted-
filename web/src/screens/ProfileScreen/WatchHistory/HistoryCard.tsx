@@ -45,12 +45,13 @@ function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
 			)}
 			<span className={styles.cardOverlay} />
 
-			<span className={styles.topRow}>
-				<span className={styles.titleBlock}>
-					{card.logoPath && <img src={tmdbLogoUri(card.logoPath, 160)} alt="" className={styles.logo} loading="lazy" />}
-					<span className={styles.cardTitle}>{card.title}</span>
+			<span className={styles.topBlock}>
+				<span className={styles.topRow}>
+					{card.logoPath ? <img src={tmdbLogoUri(card.logoPath, 160)} alt="" className={styles.logo} loading="lazy" /> : <span />}
+					{card.pill && <span className={`${styles.pill} ${PILL_BG[card.pill]}`}>{card.pill}</span>}
 				</span>
-				{card.pill && <span className={`${styles.pill} ${PILL_BG[card.pill]}`}>{card.pill}</span>}
+				<span className={styles.cardTitle}>{card.title}</span>
+				{card.tag && <span className={styles.tagPill}>{card.tag}</span>}
 			</span>
 
 			<span className={styles.bottomRow}>
@@ -58,10 +59,7 @@ function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
 					<span className={`${styles.timeSpent} block`}>{card.timeSpent}</span>
 					{card.watchCount != null && <span className={`${styles.watchCount} block`}>Watched {card.watchCount}×</span>}
 				</span>
-				<span className={styles.rightBlock}>
-					{card.progress && <ProgressModule progress={card.progress} />}
-					{card.tag && <span className={styles.tag}>{card.tag}</span>}
-				</span>
+				{card.progress && <ProgressModule progress={card.progress} />}
 			</span>
 		</button>
 	);
