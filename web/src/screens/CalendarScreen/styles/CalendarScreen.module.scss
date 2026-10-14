@@ -200,14 +200,12 @@
 }
 
 .episodeRow {
-	/* Card like Watch History: blurred backdrop + same darkening, 16:9 minimum,
-	   details at the bottom over the backdrop */
+	/* Card like Watch History: blurred backdrop + same darkening */
 	position: relative;
 	width: calc(100% - 32px);
-	aspect-ratio: 16 / 9;
 	margin: 0 16px 12px;
 	display: flex;
-	align-items: flex-end;
+	align-items: center;
 	padding: 12px;
 	overflow: hidden;
 	border-radius: 16px;
@@ -235,9 +233,9 @@
 
 .poster {
 	position: relative;
-	width: 60px;
-	height: 90px;
-	border-radius: 6px;
+	width: 45px;
+	height: 67px;
+	border-radius: 4px;
 	flex-shrink: 0;
 }
 
