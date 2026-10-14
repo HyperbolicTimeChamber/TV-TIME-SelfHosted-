@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
 	cardOverlay: { backgroundColor: "rgba(0, 0, 0, 0.55)" },
 	// Right padding keeps a long fallback name clear of the SxxExx pill
 	epInfo: { flex: 1, paddingRight: 72 },
-	logo: { height: 36, width: "60%" },
+	logo: { height: 36, width: "60%", marginBottom: spacing.sm },
 	showTitle: {
 		...typography.subtitle,
 		fontSize: 14,
