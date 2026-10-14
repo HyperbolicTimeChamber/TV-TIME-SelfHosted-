@@ -63,14 +63,26 @@ export function deriveHistoryCard(
 	// Watched everything aired on a show that's still airing → caught up, not finished
 	const caughtUpAiring =
 		!isMovie && !!catalog && !ended && entry.status === WatchStatus.COMPLETED;
+	// Still "watching" a show that has ended, with nothing left → finished (the status
+	// predates TMDB marking it ended, and the weekly sync skips ended shows)
+	const finishedEnded =
+		!isMovie &&
+		!!catalog &&
+		ended &&
+		entry.status === WatchStatus.WATCHING &&
+		percentWatched(entry, airedEpisodes(catalog, today)) === 100;
 	const pill = isMovie
 		? null
 		: caughtUpAiring
 			? HistoryPill.WATCHING
-			: PILL[entry.status];
+			: finishedEnded
+				? HistoryPill.COMPLETED
+				: PILL[entry.status];
 
 	let progress: HistoryCard["progress"] = null;
-	if (caughtUpAiring) {
+	if (finishedEnded) {
+		progress = null;
+	} else if (caughtUpAiring) {
 		progress = { kind: HistoryProgress.UP_TO_DATE };
 	} else if (pill === HistoryPill.PAUSED) {
 		progress = { kind: HistoryProgress.PAUSED };

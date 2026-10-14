@@ -87,9 +87,9 @@ test("deriveHistoryCard: watching shows % of aired eps; caught up on airing show
 
 	const caughtUp = deriveHistoryCard(entry({ nextEpisode: { season: 1, episode: 4 } }), catalog(), today);
 	assert.deepEqual(caughtUp.progress, { kind: HistoryProgress.UP_TO_DATE });
-	// Ended show: no "up to date", plain percent
+	// Ended show caught up → finished (Completed, no ring), not "up to date"
 	const ended = deriveHistoryCard(entry({ nextEpisode: null }), catalog({ status: "Ended" }), today);
-	assert.deepEqual(ended.progress, { kind: HistoryProgress.PERCENT, percent: 100 });
+	assert.equal(ended.pill, HistoryPill.COMPLETED);
 	assert.equal(ended.tag, "Ended");
 });
 
@@ -104,6 +104,18 @@ test("deriveHistoryCard: completed but still airing → Currently Watching + up 
 	const ended = deriveHistoryCard(entry({ status: WatchStatus.COMPLETED }), catalog({ status: "Ended" }), today);
 	assert.equal(ended.pill, HistoryPill.COMPLETED);
 	assert.equal(ended.progress, null);
+});
+
+test("deriveHistoryCard: still 'watching' an ended show with nothing left → Completed", () => {
+	const today = "2026-10-14";
+	const card = deriveHistoryCard(entry({ nextEpisode: null }), catalog({ status: "Canceled" }), today);
+	assert.equal(card.pill, HistoryPill.COMPLETED);
+	assert.equal(card.progress, null);
+	assert.equal(card.watchCount, 1);
+	// Not finished yet → stays watching with progress
+	const midway = deriveHistoryCard(entry(), catalog({ status: "Ended" }), today);
+	assert.equal(midway.pill, HistoryPill.WATCHING);
+	assert.deepEqual(midway.progress, { kind: HistoryProgress.PERCENT, percent: 67 });
 });
 
 test("deriveHistoryCard: paused, rewatching, completed, movie", () => {
