@@ -14,6 +14,26 @@ import { monthGrid } from "./monthGrid";
 import { cssVars } from "../../utils/cssVars";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** Desktop: shows (red) / movies (purple) airing that day — replaces the dot */
+function DayCounts({ counts }: { counts?: { shows: Set<number>; movies: number } }) {
+	const shows = counts?.shows.size ?? 0;
+	const movies = counts?.movies ?? 0;
+	return (
+		<span className={styles.counts} aria-hidden={!shows && !movies}>
+			{shows > 0 && (
+				<span className={`${styles.count} bg-primary`} aria-label={`${shows} shows`}>
+					{shows}
+				</span>
+			)}
+			{movies > 0 && (
+				<span className={`${styles.count} bg-movie`} aria-label={`${movies} movies`}>
+					{movies}
+				</span>
+			)}
+		</span>
+	);
+}
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /** Calendar tab — same state/data as the app via useCalendarScreen */
@@ -24,6 +44,17 @@ export default function CalendarScreen() {
 	const yearListRef = useRef<HTMLDivElement>(null);
 	const grid = useMemo(() => monthGrid(c.currentYear, c.currentMonth), [c.currentYear, c.currentMonth]);
 	const monthKey = `${c.currentYear}-${c.currentMonth}`;
+	// Desktop day cells show counts instead of a dot: distinct shows + movies per date
+	const countsByDate = useMemo(() => {
+		const map = new Map<string, { shows: Set<number>; movies: number }>();
+		for (const ep of c.episodes) {
+			const day = map.get(ep.airDate) ?? { shows: new Set<number>(), movies: 0 };
+			if (ep.mediaType === MediaType.MOVIE) day.movies++;
+			else day.shows.add(ep.tmdbShowId);
+			map.set(ep.airDate, day);
+		}
+		return map;
+	}, [c.episodes]);
 
 	const shiftMonth = (delta: number) => {
 		const d = new Date(c.currentYear, c.currentMonth - 1 + delta, 1);
@@ -96,11 +127,20 @@ export default function CalendarScreen() {
 										className={`${styles.dot} bg-(--dot)!`}
 										style={cssVars({ "--dot": mark?.marked && cell.inMonth ? mark.dotColor : "transparent" })}
 									/>
+									{cell.inMonth && <DayCounts counts={countsByDate.get(cell.date)} />}
 								</button>
 							);
 						})}
 					</motion.div>
 				</AnimatePresence>
+				<div className={styles.legend} aria-hidden>
+					<span>
+						<span className={`${styles.legendSwatch} bg-primary`} /> Shows
+					</span>
+					<span>
+						<span className={`${styles.legendSwatch} bg-movie`} /> Movies
+					</span>
+				</div>
 			</div>
 
 			<div className={styles.listPane}>
