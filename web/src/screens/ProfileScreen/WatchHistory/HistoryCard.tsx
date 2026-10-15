@@ -65,20 +65,21 @@ function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
 					</span>
 					{card.tag && <span className={styles.tagPill}>{card.tag}</span>}
 				</span>
-				{card.pill && <span className={`${styles.pill} ${PILL_BG[card.pill]}`}>{card.pill}</span>}
 			</span>
 
 			<span className={styles.bottomRow}>
-				{/* One slot: progress / up to date / paused, else the watch count */}
-				{card.progress ? (
-					<ProgressModule progress={card.progress} />
-				) : card.watchCount != null ? (
-					<span className={`${styles.progressPill} ${styles.watchCountPill}`}>
-						Watch Count <span className={styles.countCircle}>{card.watchCount}</span>
-					</span>
-				) : (
-					<span />
-				)}
+				{/* Bottom-left: status pill above one slot — progress / up to date / paused,
+				    else the watch count */}
+				<span className={styles.leftBlock}>
+					{card.pill && <span className={`${styles.pill} ${PILL_BG[card.pill]}`}>{card.pill}</span>}
+					{card.progress ? (
+						<ProgressModule progress={card.progress} />
+					) : card.watchCount != null ? (
+						<span className={`${styles.progressPill} ${styles.watchCountPill}`}>
+							Watch Count <span className={styles.countCircle}>{card.watchCount}</span>
+						</span>
+					) : null}
+				</span>
 				{(card.lastWatched || card.timeSpent) && (
 					<span className={styles.timeBlock}>
 						{card.lastWatched && (

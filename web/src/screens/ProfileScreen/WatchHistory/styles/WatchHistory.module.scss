@@ -205,6 +205,14 @@
 	font-weight: 700;
 }
 
+/* Bottom-left: status pill above the progress / watch count pill */
+.leftBlock {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 8px;
+}
+
 .timeBlock {
 	display: flex;
 	flex-direction: column;

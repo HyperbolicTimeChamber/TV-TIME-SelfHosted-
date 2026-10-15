@@ -91,27 +91,28 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 						</View>
 					)}
 				</View>
-				{card.pill && (
-					<View style={[styles.pill, { backgroundColor: PILL_COLOR[card.pill] }]}>
-						<Text style={styles.pillText}>{card.pill}</Text>
-					</View>
-				)}
 			</View>
 
 			<View style={styles.bottomRow}>
-				{/* One slot: progress / up to date / paused, else the watch count */}
-				{card.progress ? (
-					<ProgressModule progress={card.progress} />
-				) : card.watchCount != null ? (
-					<View style={[styles.progressPill, styles.watchCountPill]}>
-						<Text style={[styles.progressText, { color: colors.text }]}>Watch Count</Text>
-						<View style={styles.countCircle}>
-							<Text style={[styles.progressText, { color: colors.text }]}>{card.watchCount}</Text>
+				{/* Bottom-left: status pill above one slot — progress / up to date / paused,
+				    else the watch count */}
+				<View style={styles.leftBlock}>
+					{card.pill && (
+						<View style={[styles.pill, { backgroundColor: PILL_COLOR[card.pill] }]}>
+							<Text style={styles.pillText}>{card.pill}</Text>
 						</View>
-					</View>
-				) : (
-					<View />
-				)}
+					)}
+					{card.progress ? (
+						<ProgressModule progress={card.progress} />
+					) : card.watchCount != null ? (
+						<View style={[styles.progressPill, styles.watchCountPill]}>
+							<Text style={[styles.progressText, { color: colors.text }]}>Watch Count</Text>
+							<View style={styles.countCircle}>
+								<Text style={[styles.progressText, { color: colors.text }]}>{card.watchCount}</Text>
+							</View>
+						</View>
+					) : null}
+				</View>
 				{(card.lastWatched || card.timeSpent) && (
 					<View style={styles.timeBlock}>
 						{card.lastWatched && (
