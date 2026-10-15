@@ -6,6 +6,7 @@ import type { CarouselEpisode, EnrichedEpisode, EpisodeDetailModalProps } from "
 import AnimatedModal from "../AnimatedModal";
 import ui from "../styles/ui.module.scss";
 import EpisodeCard from "./EpisodeCard";
+import { markWatchedLabel } from "@app/utils/format";
 import { epKey } from "./helpers";
 import styles from "./styles/EpisodeDetailModal.module.scss";
 import { cssVars } from "../../utils/cssVars";
@@ -32,6 +33,7 @@ export default function EpisodeDetailModal({
 	initialIndex,
 	watchedKeys,
 	currentNextEpisode,
+	rewatchCount = 0,
 	onMarkWatched,
 	onMarkWatchedThrough,
 	onUnmarkWatched,
@@ -163,7 +165,7 @@ export default function EpisodeDetailModal({
 				(e.season > currentNextEpisode.season ||
 					(e.season === currentNextEpisode.season && e.episode >= currentNextEpisode.episode)) &&
 				(e.season < ep.season || (e.season === ep.season && e.episode < ep.episode));
-			return between && !localWatched.has(epKey(e.season, e.episode));
+			return between && (localWatched.get(epKey(e.season, e.episode)) ?? 0) <= rewatchCount;
 		});
 		if (hasGaps) setConfirmTarget({ season: ep.season, episode: ep.episode });
 		else markOne(ep);
@@ -233,10 +235,12 @@ export default function EpisodeDetailModal({
 												showTitle={showTitle}
 												showPosterPath={showPosterPath}
 												showBackdropPath={showBackdropPath}
-												isWatched={wc > 0}
+												// Rewatch n is a fresh run: watched only once seen more than n times
+												isWatched={wc > rewatchCount}
 												watchCount={wc}
 												isLoaded={!!ep.loaded}
 												isMarking={markingKey === key}
+												markLabel={markWatchedLabel(rewatchCount)}
 												readOnly={readOnly}
 												onMarkWatched={() => handleMark(ep)}
 												onUnwatch={() => {

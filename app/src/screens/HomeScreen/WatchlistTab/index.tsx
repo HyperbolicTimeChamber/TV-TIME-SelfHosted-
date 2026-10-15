@@ -328,6 +328,7 @@ export default function WatchlistTab() {
 					initialIndex={epModalData.initialIndex}
 					watchedKeys={epModalData.watchedKeys}
 					currentNextEpisode={epModalData.currentNextEpisode}
+					rewatchCount={epModalData.rewatchCount}
 					onMarkWatched={handleCarouselMarkWatched}
 					onMarkWatchedThrough={handleMarkWatchedThrough}
 					onUnmarkWatched={handleUnmarkEpisode}

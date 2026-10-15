@@ -228,3 +228,13 @@ test("load errors map to not found / offline / server copy", async () => {
 	assert.deepEqual([srv.kind, srv.canRetry, srv.code], [LoadErrorKind.SERVER, true, "500"]);
 	assert.match(srv.message, /this show/);
 });
+
+test("ordinal + markWatchedLabel: rewatch runs get an ordinal label", async () => {
+	const { ordinal, markWatchedLabel } = await import("../src/utils/format");
+	assert.deepEqual(
+		[1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 101, 111].map(ordinal),
+		["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "23rd", "101st", "111th"],
+	);
+	assert.equal(markWatchedLabel(0), "Mark as Watched");
+	assert.equal(markWatchedLabel(2), "Mark 2nd Rewatch");
+});

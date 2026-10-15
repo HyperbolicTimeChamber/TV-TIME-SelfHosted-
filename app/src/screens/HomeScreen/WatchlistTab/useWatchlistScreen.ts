@@ -101,6 +101,8 @@ export function useWatchlistScreen(
 		currentNextEpisode: { season: number; episode: number } | null;
 		/** Skipping is only offered during a rewatch */
 		isRewatching: boolean;
+		/** Rewatch run number while rewatching, else 0 */
+		rewatchCount: number;
 	} | null>(null);
 	const epModalTmdbIdRef = useRef<number | null>(null);
 	// Show drawer state
@@ -197,6 +199,7 @@ export function useWatchlistScreen(
 				watchedKeys: wKeys,
 				currentNextEpisode: ep,
 				isRewatching: item.status === WatchStatus.REWATCHING,
+				rewatchCount: item.status === WatchStatus.REWATCHING ? (item.rewatchCount ?? 0) : 0,
 			});
 			setEpModalVisible(true);
 		},

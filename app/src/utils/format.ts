@@ -4,6 +4,19 @@ export function scaledPhotoURL(url: string, layoutSize: number, pixelRatio = 1):
 	return url.replace(/=s\d+-c/, `=s${px}-c`);
 }
 
+/** 1 → "1st", 2 → "2nd", 11 → "11th", 23 → "23rd" */
+export function ordinal(n: number) {
+	const mod100 = n % 100;
+	if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+	const suffix = ["th", "st", "nd", "rd"][n % 10] ?? "th";
+	return `${n}${suffix}`;
+}
+
+/** Green watch button text: "Mark 2nd Rewatch" during rewatch n, else "Mark as Watched" */
+export function markWatchedLabel(rewatchCount: number) {
+	return rewatchCount > 0 ? `Mark ${ordinal(rewatchCount)} Rewatch` : "Mark as Watched";
+}
+
 /** 1234 → 1.2K, 2_500_000 → 2.5M */
 export function formatCount(n: number) {
 	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
