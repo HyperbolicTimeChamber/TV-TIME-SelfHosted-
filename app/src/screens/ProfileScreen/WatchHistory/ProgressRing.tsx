@@ -15,7 +15,8 @@ export default function ProgressRing({ percent }: { percent: number }) {
 				cx={RING_SIZE / 2}
 				cy={RING_SIZE / 2}
 				r={R}
-				stroke={colors.badgeOverlay}
+				// Unwatched part: a faint version of the filled stroke so the two read apart
+				stroke={`${colors.surface}38`}
 				strokeWidth={RING_STROKE}
 				fill="none"
 			/>

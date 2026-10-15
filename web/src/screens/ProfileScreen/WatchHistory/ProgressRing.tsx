@@ -8,7 +8,7 @@ export default function ProgressRing({ percent }: { percent: number }) {
 	const offset = CIRCUMFERENCE * (1 - Math.min(100, Math.max(0, percent)) / 100);
 	return (
 		<svg width={SIZE} height={SIZE} className="-rotate-90" aria-hidden>
-			<circle cx={SIZE / 2} cy={SIZE / 2} r={R} strokeWidth={STROKE} fill="none" stroke="rgba(0, 0, 0, 0.5)" />
+			<circle cx={SIZE / 2} cy={SIZE / 2} r={R} strokeWidth={STROKE} fill="none" stroke="color-mix(in srgb, var(--color-surface) 22%, transparent)" />
 			<circle
 				cx={SIZE / 2}
 				cy={SIZE / 2}

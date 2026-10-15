@@ -14,6 +14,7 @@ const card = (o: Partial<HistoryCard>): HistoryCard => ({
 	backdropPath: null,
 	pill: HistoryPill.WATCHING,
 	timeSpent: "3d 4h",
+	lastWatched: "S01 | E02",
 	watchCount: null,
 	progress: { kind: HistoryProgress.PERCENT, percent: 55 },
 	tag: "Ongoing",

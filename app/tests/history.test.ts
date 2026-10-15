@@ -15,6 +15,7 @@ const entry = (o: Partial<HistoryEntry> = {}): HistoryEntry => ({
 	historyUpdatedAt: 100,
 	minutesWatched: 90,
 	plays: 2,
+	lastEpisode: { season: 1, episode: 2 },
 	...o,
 });
 const state = (items: HistoryEntry[]): HistoryState => ({
@@ -183,4 +184,24 @@ test("buildCompletedSections: shows cluster in their most popular genre; small r
 			["Others", [6, 5]],
 		],
 	);
+});
+
+import { formatTime } from "../src/utils";
+
+test("formatTime drops a zero second unit", () => {
+	assert.equal(formatTime(1440), "1d");
+	assert.equal(formatTime(1440 + 240), "1d 4h");
+	assert.equal(formatTime(120), "2h");
+	assert.equal(formatTime(45), "45m");
+	assert.equal(formatTime(365 * 1440), "1y");
+});
+
+test("deriveHistoryCard: Last Watched as S01 | E02; none for movies", () => {
+	assert.equal(deriveHistoryCard(entry(), catalog(), "2026-10-14").lastWatched, "S01 | E02");
+	const movie = deriveHistoryCard(
+		entry({ id: "movie_5", mediaType: MediaType.MOVIE, status: WatchStatus.COMPLETED, nextEpisode: null }),
+		catalog({ mediaType: MediaType.MOVIE }),
+		"2026-10-14",
+	);
+	assert.equal(movie.lastWatched, null);
 });

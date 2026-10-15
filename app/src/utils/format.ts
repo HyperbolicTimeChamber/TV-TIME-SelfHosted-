@@ -11,13 +11,14 @@ export function formatCount(n: number) {
 	return `${n}`;
 }
 
-/** Minutes → "2y 14d" / "3d 4h" / "5h 12m" / "40m" */
+/** Minutes → "2y 14d" / "3d 4h" / "5h 12m" / "40m"; a zero second unit is dropped ("1d", not "1d 0h") */
 export function formatTime(minutes: number) {
 	const hours = Math.floor(minutes / 60);
 	const days = Math.floor(hours / 24);
 	const years = Math.floor(days / 365);
-	if (years > 0) return `${years}y ${days % 365}d`;
-	if (days > 0) return `${days}d ${hours % 24}h`;
-	if (hours > 0) return `${hours}h ${minutes % 60}m`;
+	const pair = (big: string, small: number, unit: string) => (small > 0 ? `${big} ${small}${unit}` : big);
+	if (years > 0) return pair(`${years}y`, days % 365, "d");
+	if (days > 0) return pair(`${days}d`, hours % 24, "h");
+	if (hours > 0) return pair(`${hours}h`, minutes % 60, "m");
 	return `${minutes}m`;
 }

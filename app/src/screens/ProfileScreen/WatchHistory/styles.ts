@@ -64,6 +64,8 @@ export const styles = StyleSheet.create({
 	pillText: { color: colors.text, fontSize: 13, fontWeight: "700" },
 	bottomRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
 	timeBlock: { alignItems: "flex-end" },
+	// Upper stat (Last Watched): normal spacing instead of the baseline pull-down
+	statGap: { marginBottom: spacing.sm },
 	timeLabel: { color: colors.text, fontSize: 11, fontWeight: "500", marginBottom: 2 },
 	// lineHeight = fontSize, pulled down by the font's descent so the digits' baseline
 	// lines up with the bottom of the progress pill on the left
@@ -122,8 +124,8 @@ export const styles = StyleSheet.create({
 		height: 56,
 		// 48px icon, circle inset ~4px inside it → visually 8px from the pill's end
 		paddingHorizontal: 4,
-		marginTop: spacing.lg,
-		marginHorizontal: spacing.lg,
+		// Shares the row with the Settings circle
+		flex: 1,
 		shadowColor: colors.primary,
 		shadowOpacity: 0.35,
 		shadowRadius: 12,

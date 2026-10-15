@@ -112,10 +112,20 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 				) : (
 					<View />
 				)}
-				{card.timeSpent && (
+				{(card.lastWatched || card.timeSpent) && (
 					<View style={styles.timeBlock}>
-						<Text style={styles.timeLabel}>Watch Time</Text>
-						<Text style={styles.timeSpent}>{card.timeSpent}</Text>
+						{card.lastWatched && (
+							<>
+								<Text style={styles.timeLabel}>Last Watched</Text>
+								<Text style={[styles.timeSpent, styles.statGap]}>{card.lastWatched}</Text>
+							</>
+						)}
+						{card.timeSpent && (
+							<>
+								<Text style={styles.timeLabel}>Total Time Spent</Text>
+								<Text style={styles.timeSpent}>{card.timeSpent}</Text>
+							</>
+						)}
 					</View>
 				)}
 			</View>

@@ -211,6 +211,12 @@
 	align-items: flex-end;
 }
 
+/* Upper stat (Last Watched): normal spacing below, no baseline trim */
+.timeSpent.statGap {
+	text-box: none;
+	margin-bottom: 8px;
+}
+
 .timeLabel {
 	font-size: 11px;
 	font-weight: 500;
@@ -307,9 +313,10 @@
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	width: calc(100% - 32px);
+	/* Shares the row with the Settings circle */
+	flex: 1;
+	min-width: 0;
 	height: 56px;
-	margin: 16px 16px 0;
 	/* 48px icon, circle inset ~4px inside it → visually 8px from the pill's end */
 	padding: 0 4px;
 	border: none;

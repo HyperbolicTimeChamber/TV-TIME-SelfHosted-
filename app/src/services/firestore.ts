@@ -304,13 +304,13 @@ export async function markEpisodeWatched(
 			if (opts.incrementRewatch) trackingUpdate.rewatchCount = increment(1);
 			tx.update(doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)), {
 				...trackingUpdate,
-				...historyOnWatch(runtime, 1, now),
+				...historyOnWatch(runtime, 1, now, { season, episode }),
 			});
 		} else {
 			// Pointer stays put, but the watch still counts for Watch History
 			tx.set(
 				doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)),
-				historyOnWatch(runtime),
+				historyOnWatch(runtime, 1, undefined, { season, episode }),
 				{ merge: true },
 			);
 		}
@@ -322,6 +322,7 @@ export async function markEpisodeWatched(
 		watched: true,
 		minutesDelta: runtime,
 		playsDelta: 1,
+		lastEpisode: { season, episode },
 		...(skipTrackingUpdate
 			? {}
 			: {
@@ -933,6 +934,7 @@ export async function markSeasonWatchedCF(
 		watched: true,
 		minutesDelta: episodes.reduce((sum, e) => sum + (e.runtime || 0), 0),
 		playsDelta: episodes.length,
+		lastEpisode: { season: seasonNumber, episode: Math.max(...episodes.map((e) => e.episodeNumber)) },
 		...(skipTracking
 			? {}
 			: {

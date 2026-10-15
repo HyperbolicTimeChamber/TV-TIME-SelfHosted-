@@ -79,10 +79,20 @@ function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
 				) : (
 					<span />
 				)}
-				{card.timeSpent && (
+				{(card.lastWatched || card.timeSpent) && (
 					<span className={styles.timeBlock}>
-						<span className={styles.timeLabel}>Watch Time</span>
-						<span className={styles.timeSpent}>{card.timeSpent}</span>
+						{card.lastWatched && (
+							<>
+								<span className={styles.timeLabel}>Last Watched</span>
+								<span className={`${styles.timeSpent} ${styles.statGap}`}>{card.lastWatched}</span>
+							</>
+						)}
+						{card.timeSpent && (
+							<>
+								<span className={styles.timeLabel}>Total Time Spent</span>
+								<span className={styles.timeSpent}>{card.timeSpent}</span>
+							</>
+						)}
 					</span>
 				)}
 			</span>

@@ -90,7 +90,7 @@ export default function WatchHistoryScreen() {
 			<View style={[styles.topBar, { paddingTop: top + 8 }]}>
 				<View style={styles.titleRow}>
 					<CircleBackButton tone={CircleButtonTone.SURFACE_LIGHT} onPress={() => navigation.goBack()} />
-					<Text style={styles.title}>Watch History</Text>
+					<Text style={styles.title}>Hall of Shame</Text>
 					{/* Mirrors the back button so the title is centred on the bar */}
 					<View style={styles.backSpacer} />
 				</View>

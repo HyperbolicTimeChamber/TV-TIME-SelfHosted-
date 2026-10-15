@@ -78,7 +78,7 @@ export default function WatchHistoryScreen() {
 			<motion.header layoutRoot className={styles.topBar}>
 				<div className={styles.titleRow}>
 					<CircleBackButton tone={CircleButtonTone.SURFACE_LIGHT} onClick={goBack} />
-					<h1 className={styles.title}>Watch History</h1>
+					<h1 className={styles.title}>Hall of Shame</h1>
 					{/* Mirrors the back button so the title is centred on the bar */}
 					<CircleButtonSpacer />
 				</div>

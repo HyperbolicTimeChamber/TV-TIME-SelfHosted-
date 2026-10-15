@@ -33,6 +33,7 @@ function toEntry(id: string, d: Record<string, any>): HistoryEntry {
 		historyUpdatedAt: ms(d.historyUpdatedAt),
 		minutesWatched: d.minutesWatched ?? 0,
 		plays: d.plays ?? 0,
+		lastEpisode: d.lastEpisode ?? null,
 	};
 }
 

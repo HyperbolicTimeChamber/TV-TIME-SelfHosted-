@@ -27,7 +27,7 @@ describe("ProfileScreen", () => {
 		expect(screen.getByText("3d 4h")).toBeInTheDocument();
 		// Chart is app-only (per-device cache)
 		expect(screen.queryByText("Watch Statistics")).not.toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Watch History" })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Hall of Shame" })).toBeInTheDocument();
 		expect(screen.getByText("Recently Completed")).toBeInTheDocument();
 		expect(screen.getByText("Drama")).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Log Out" })).toBeInTheDocument();
