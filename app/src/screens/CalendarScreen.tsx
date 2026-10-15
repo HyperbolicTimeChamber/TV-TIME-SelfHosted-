@@ -1,7 +1,6 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useFocusEffect } from "@react-navigation/native";
 import { AnimatedModal, LoadingSpinner } from "../components";
 import { LegendList } from "@legendapp/list/react-native";
 import { Calendar, DateData } from "react-native-calendars";
@@ -39,7 +38,9 @@ export default function CalendarScreen() {
 	} = useCalendarScreen();
 
 	// Reset to current month when tab is focused
-	useFocusEffect(resetToToday);
+	// Back to today only when the Calendar tab is entered — not when returning from a
+	// show page pushed inside this tab (that's a focus of this screen, not of the tab)
+	useEffect(() => navigation.getParent()?.addListener("focus", resetToToday), [navigation, resetToToday]);
 
 	const handleDayPress = useCallback((day: DateData) => selectDay(day.dateString), [selectDay]);
 	const handleMonthChange = useCallback(

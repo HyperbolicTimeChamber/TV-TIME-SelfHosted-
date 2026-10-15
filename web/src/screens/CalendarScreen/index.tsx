@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { IoChevronBack, IoChevronForward } from "react-icons/io5";
-import { useNavigate } from "react-router-dom";
-import { useCalendarScreen, YEARS } from "@app/screens/useCalendarScreen";
+import { NavigationType, useNavigate, useNavigationType } from "react-router-dom";
+import { useCalendarScreen, YEARS, type CalendarPosition } from "@app/screens/useCalendarScreen";
 import { MediaType } from "@app/enums";
 import { todayStr } from "@app/utils/todayStr";
 import { tmdbBackdropUri, tmdbLogoUri } from "@app/hooks/useTmdbImage";
@@ -15,6 +15,22 @@ import { cssVars } from "../../utils/cssVars";
 
 /** Widest a day card gets (desktop list pane ≈ 440) — × devicePixelRatio picks the TMDB size */
 const CARD_MAX_WIDTH = 440;
+
+const POSITION_KEY = "calendar_position";
+const readPosition = (): CalendarPosition | null => {
+	try {
+		return JSON.parse(sessionStorage.getItem(POSITION_KEY) ?? "null");
+	} catch {
+		return null;
+	}
+};
+const savePosition = (p: CalendarPosition) => {
+	try {
+		sessionStorage.setItem(POSITION_KEY, JSON.stringify(p));
+	} catch {
+		// private mode etc. — back just starts at today
+	}
+};
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -42,7 +58,14 @@ const pad = (n: number) => String(n).padStart(2, "0");
 /** Calendar tab — same state/data as the app via useCalendarScreen */
 export default function CalendarScreen() {
 	const navigate = useNavigate();
-	const c = useCalendarScreen();
+	// Back (POP) from a show page returns to the same month / day; entering from the
+	// tab bar starts at today (the screen remounts either way on web)
+	const navigationType = useNavigationType();
+	const [initial] = useState(() => (navigationType === NavigationType.Pop ? readPosition() : null));
+	const c = useCalendarScreen(initial);
+	useEffect(() => {
+		savePosition({ selectedDate: c.selectedDate, year: c.currentYear, month: c.currentMonth });
+	}, [c.selectedDate, c.currentYear, c.currentMonth]);
 	const today = todayStr();
 	const yearListRef = useRef<HTMLDivElement>(null);
 	const grid = useMemo(() => monthGrid(c.currentYear, c.currentMonth), [c.currentYear, c.currentMonth]);

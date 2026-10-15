@@ -5,6 +5,13 @@ import { ensureFreshCatalogs } from "../hooks/catalogRefresh";
 import { MediaType } from "../enums";
 import type { UpcomingEpisode } from "../types";
 
+/** Where the calendar is — restorable (web: returning via Back keeps the date) */
+export interface CalendarPosition {
+	selectedDate: string | null;
+	year: number;
+	month: number;
+}
+
 /** A day's episode / movie, with its backdrop for the list card */
 export type CalendarEpisode = UpcomingEpisode & { backdropPath: string | null; logoPath: string | null };
 import { colors } from "../theme";
@@ -28,13 +35,13 @@ export interface DayMark {
  * Calendar state: month/year navigation, selected day, airing dots and the
  * day's episodes. Shared by the mobile CalendarScreen and the web calendar.
  */
-export function useCalendarScreen() {
+export function useCalendarScreen(initial?: CalendarPosition | null) {
 	const user = useAuthStore((s) => s.user);
-	const [selectedDate, setSelectedDate] = useState<string | null>(todayStr());
+	const [selectedDate, setSelectedDate] = useState<string | null>(initial?.selectedDate ?? todayStr());
 	const [yearModalVisible, setYearModalVisible] = useState(false);
 	const now = new Date();
-	const [currentYear, setCurrentYear] = useState(now.getFullYear());
-	const [currentMonth, setCurrentMonth] = useState(now.getMonth() + 1);
+	const [currentYear, setCurrentYear] = useState(initial?.year ?? now.getFullYear());
+	const [currentMonth, setCurrentMonth] = useState(initial?.month ?? now.getMonth() + 1);
 
 	const { episodes, loading, loadMonthEpisodes } = useCalendarEpisodes(user?.uid);
 
