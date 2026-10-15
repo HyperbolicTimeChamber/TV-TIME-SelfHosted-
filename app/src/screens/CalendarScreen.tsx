@@ -201,12 +201,13 @@ export default function CalendarScreen() {
 						)}
 					</View>
 					{isGroup ? (
-						// Collapsed show: SEASON pill over a dropdown arrow that flips when open
-						<View style={styles.groupSide}>
-							<View style={styles.seasonPill}>
-								<Text style={styles.seasonPillText}>{seasonRangeLabel(groupEps)}</Text>
+						// Collapsed show: same square, a dropdown arrow (flips when open) in place of Exx
+						<View style={styles.epSquare}>
+							<Text style={styles.epSquareTitle}>{seasonRangeLabel(groupEps)}</Text>
+							<View style={styles.epSquareRule} />
+							<View style={styles.epSquareArrow}>
+								<ArrowDropdownCircle size={40} flipped={row.expanded} />
 							</View>
-							<ArrowDropdownCircle size={40} flipped={row.expanded} />
 						</View>
 					) : (
 						// Right square: SEASON xx over a big Exx; movies their release year
@@ -391,24 +392,6 @@ const styles = StyleSheet.create({
 		includeFontPadding: false,
 	},
 	childTitle: { ...typography.body, flex: 1, fontSize: 15, fontWeight: "500", color: colors.text },
-	// Collapsed show's right side: SEASON pill above the dropdown arrow
-	groupSide: { alignItems: "center", gap: spacing.sm, marginLeft: spacing.md },
-	seasonPill: {
-		backgroundColor: colors.badgeOverlay,
-		borderRadius: 999,
-		paddingHorizontal: 12,
-		paddingVertical: 4,
-	},
-	seasonPillText: {
-		...typography.caption,
-		fontSize: 14,
-		lineHeight: 18,
-		color: colors.text,
-		fontWeight: "600",
-		// Android pads glyphs for ascenders → text sat low in the pill
-		includeFontPadding: false,
-		textAlignVertical: "center",
-	},
 	groupCount: { fontSize: 18, fontWeight: "600" },
 	cardOverlay: { backgroundColor: "rgba(0, 0, 0, 0.55)" },
 	epInfo: { flex: 1 },
@@ -443,6 +426,8 @@ const styles = StyleSheet.create({
 		marginVertical: 6,
 	},
 	epSquareValue: { fontFamily: fonts.smoochRegular, fontSize: 56, color: colors.text, lineHeight: 58 },
+	// Arrow sits in the Exx line's box so the rule stays where it is on episode squares
+	epSquareArrow: { height: 58, justifyContent: "center" },
 	epSquareYear: { fontSize: 40, lineHeight: 44 },
 	movieBadge: {
 		alignSelf: "flex-start",

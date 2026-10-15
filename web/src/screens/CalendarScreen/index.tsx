@@ -110,10 +110,13 @@ function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 				)}
 			</span>
 			{groupEps ? (
-				// Collapsed show: SEASON pill over a dropdown arrow that flips when open
-				<span className={styles.groupSide}>
-					<span className={styles.seasonPill}>{seasonRangeLabel(groupEps)}</span>
-					<ArrowDropdownCircle size={40} flipped={expanded} />
+				// Collapsed show: same square, a dropdown arrow (flips when open) in place of Exx
+				<span className={styles.epSquare}>
+					<span className={styles.epSquareTitle}>{seasonRangeLabel(groupEps)}</span>
+					<span className={styles.epSquareRule} />
+					<span className={styles.epSquareArrow}>
+						<ArrowDropdownCircle size={40} flipped={expanded} />
+					</span>
 				</span>
 			) : (
 				// Right square: SEASON xx over a big Exx; movies their release year

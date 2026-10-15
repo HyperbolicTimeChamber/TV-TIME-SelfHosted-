@@ -301,6 +301,13 @@
 	line-height: 58px;
 }
 
+/* Arrow sits in the Exx line's box so the rule stays where it is on episode squares */
+.epSquareArrow {
+	height: 58px;
+	display: flex;
+	align-items: center;
+}
+
 .epSquareYear {
 	font-size: 40px;
 	line-height: 44px;
@@ -359,31 +366,6 @@
 	background: var(--primary);
 	color: var(--text);
 	font-weight: 700;
-}
-
-/* Collapsed show's right side: SEASON pill above the dropdown arrow */
-.groupSide {
-	position: relative;
-	flex-shrink: 0;
-	margin-left: 12px;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 8px;
-}
-
-.groupCount {
-	font-size: 18px;
-	font-weight: 600;
-}
-
-.seasonPill {
-	padding: 4px 12px;
-	line-height: 18px;
-	border-radius: 999px;
-	background: rgba(0, 0, 0, 0.5);
-	font-size: 14px;
-	font-weight: 600;
 }
 
 /* Episode under an opened show card: one-line strip, same backdrop cropped to fit */
