@@ -214,6 +214,7 @@ export default function CalendarScreen() {
 											{/* Right square: SEASON xx over a big Exx; movies get their release year */}
 											<span className={styles.epSquare}>
 												<span className={styles.epSquareTitle}>{isMovie ? "YEAR" : `SEASON ${pad(ep.season)}`}</span>
+												<span className={styles.epSquareRule} />
 												<span className={`${styles.epSquareValue} ${isMovie ? styles.epSquareYear : ""}`}>
 													{isMovie ? ep.airDate.slice(0, 4) : `E${pad(ep.episode)}`}
 												</span>

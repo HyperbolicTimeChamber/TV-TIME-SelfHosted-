@@ -15,6 +15,9 @@ import { BLUR_RADIUS } from "./ProfileScreen/styles";
 
 const CARD_WIDTH = Dimensions.get("window").width - 32;
 const pad2 = (n: number) => String(n).padStart(2, "0");
+const CARD_MIN_HEIGHT = 120;
+// Episode square spans the card's height minus its vertical padding
+const EP_SQUARE = CARD_MIN_HEIGHT - spacing.md * 2;
 
 type NavProp = NativeStackNavigationProp<CalendarStackParamList, Route.CALENDAR_MAIN>;
 
@@ -120,6 +123,7 @@ export default function CalendarScreen() {
 					{/* Right square: SEASON xx over a big Exx; movies get their release year */}
 					<View style={styles.epSquare}>
 						<Text style={styles.epSquareTitle}>{isMovie ? "YEAR" : `SEASON ${pad2(item.season)}`}</Text>
+						<View style={styles.epSquareRule} />
 						<Text style={[styles.epSquareValue, isMovie && styles.epSquareYear]}>
 							{isMovie ? item.airDate.slice(0, 4) : `E${pad2(item.episode)}`}
 						</Text>
@@ -252,7 +256,7 @@ const styles = StyleSheet.create({
 		marginTop: spacing.md,
 	},
 	episodeCard: {
-		minHeight: 120,
+		minHeight: CARD_MIN_HEIGHT,
 		flexDirection: "row",
 		alignItems: "center",
 		marginHorizontal: spacing.lg,
@@ -269,24 +273,31 @@ const styles = StyleSheet.create({
 		...typography.subtitle,
 		fontSize: 14,
 	},
-	// SEASON xx title over a big Exx (movies: release year), translucent black square
+	// SEASON xx title, rule, big Exx (movies: release year); fills the card's inner height
 	epSquare: {
-		width: 76,
-		height: 76,
+		width: EP_SQUARE,
+		height: EP_SQUARE,
 		marginLeft: spacing.md,
 		backgroundColor: colors.badgeOverlay,
-		borderRadius: 12,
+		borderRadius: 14,
 		alignItems: "center",
 		justifyContent: "center",
+		paddingHorizontal: spacing.sm,
 	},
 	epSquareTitle: {
-		fontSize: 10,
+		fontSize: 11,
 		fontWeight: "700",
-		letterSpacing: 0.8,
-		color: colors.textSecondary,
+		letterSpacing: 1,
+		color: colors.text,
 	},
-	epSquareValue: { fontSize: 30, fontWeight: "800", color: colors.text, lineHeight: 34 },
-	epSquareYear: { fontSize: 22, lineHeight: 30 },
+	epSquareRule: {
+		alignSelf: "stretch",
+		height: 1.5,
+		backgroundColor: colors.text,
+		marginVertical: 6,
+	},
+	epSquareValue: { fontSize: 40, fontWeight: "800", color: colors.text, lineHeight: 44 },
+	epSquareYear: { fontSize: 28, lineHeight: 36 },
 	movieBadge: {
 		alignSelf: "flex-start",
 		backgroundColor: colors.moviePurple,
