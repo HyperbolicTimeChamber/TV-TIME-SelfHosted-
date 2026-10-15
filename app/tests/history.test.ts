@@ -196,8 +196,8 @@ test("formatTime drops a zero second unit", () => {
 	assert.equal(formatTime(365 * 1440), "1y");
 });
 
-test("deriveHistoryCard: Last Watched as S01 | E02; none for movies", () => {
-	assert.equal(deriveHistoryCard(entry(), catalog(), "2026-10-14").lastWatched, "S01 | E02");
+test("deriveHistoryCard: Last Watched as S01E02; none for movies", () => {
+	assert.equal(deriveHistoryCard(entry(), catalog(), "2026-10-14").lastWatched, "S01E02");
 	const movie = deriveHistoryCard(
 		entry({ id: "movie_5", mediaType: MediaType.MOVIE, status: WatchStatus.COMPLETED, nextEpisode: null }),
 		catalog({ mediaType: MediaType.MOVIE }),
