@@ -3,8 +3,15 @@ import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Animated } from "
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AnimatedModal } from "../components";
 import { useSharedShimmer } from "../components/SkeletonLine";
-import ArrowDropdownCircle from "../components/ArrowDropdownCircle";
+import IosArrowDown from "../components/IosArrowDown";
 import { LegendList } from "@legendapp/list/react-native";
+import Reanimated, {
+	FadeInUp,
+	FadeOutUp,
+	LinearTransition,
+	useAnimatedStyle,
+	withTiming,
+} from "react-native-reanimated";
 import { Calendar, DateData } from "react-native-calendars";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -30,12 +37,29 @@ const EP_SQUARE = CARD_MIN_HEIGHT - spacing.md * 2;
 
 type NavProp = NativeStackNavigationProp<CalendarStackParamList, Route.CALENDAR_MAIN>;
 
-// LegendList ignores extraData — open/closed state rides in the row itself
+// Flat day list: show cards, plus the episode strips of opened groups
 type CalendarRow =
 	| { kind: CalendarRowKind.CARD; key: string; group: CalendarGroup<CalendarEpisode>; expanded: boolean }
-	| { kind: CalendarRowKind.CHILD; key: string; ep: CalendarEpisode };
+	| { kind: CalendarRowKind.CHILD; key: string; ep: CalendarEpisode; /** Position in its group */ nth: number };
 
 const SKELETON_CARDS = 3;
+const ACCORDION_MS = 220;
+// Episode strips cascade in, a few ms apart
+const STRIP_STAGGER_MS = 25;
+// Cards below an opening/closing group glide to their new spot
+const rowLayout = LinearTransition.duration(ACCORDION_MS);
+
+/** Dropdown arrow that turns to point up while its group is open */
+function GroupArrow({ open }: { open: boolean }) {
+	const style = useAnimatedStyle(() => ({
+		transform: [{ rotate: withTiming(open ? "180deg" : "0deg", { duration: ACCORDION_MS }) }],
+	}));
+	return (
+		<Reanimated.View style={style}>
+			<IosArrowDown size={40} />
+		</Reanimated.View>
+	);
+}
 
 /** Day list placeholder: date line + cards, pulsing on the shared shimmer */
 function CalendarSkeleton() {
@@ -100,7 +124,9 @@ export default function CalendarScreen() {
 
 	// Shows with several episodes that day collapse into one card; tap to open
 	const [expanded, setExpanded] = useState<Set<string>>(new Set());
+	// Groups start closed: on another day, and whenever the user comes back to this screen
 	useEffect(() => setExpanded(new Set()), [selectedDate]);
+	useEffect(() => navigation.addListener("blur", () => setExpanded(new Set())), [navigation]);
 	const toggleGroup = useCallback((key: string) => {
 		setExpanded((prev) => {
 			const next = new Set(prev);
@@ -116,9 +142,9 @@ export default function CalendarScreen() {
 			const open = expanded.has(group.key);
 			out.push({ kind: CalendarRowKind.CARD, key: group.key, group, expanded: open });
 			if (open && group.episodes.length > 1) {
-				for (const ep of group.episodes) {
-					out.push({ kind: CalendarRowKind.CHILD, key: `${group.key}_${ep.season}_${ep.episode}`, ep });
-				}
+				group.episodes.forEach((ep, nth) => {
+					out.push({ kind: CalendarRowKind.CHILD, key: `${group.key}_${ep.season}_${ep.episode}`, ep, nth });
+				});
 			}
 		}
 		return out;
@@ -206,7 +232,7 @@ export default function CalendarScreen() {
 							<Text style={styles.epSquareTitle}>{seasonRangeLabel(groupEps)}</Text>
 							<View style={styles.epSquareRule} />
 							<View style={styles.epSquareArrow}>
-								<ArrowDropdownCircle size={40} flipped={row.expanded} />
+								<GroupArrow open={row.expanded} />
 							</View>
 						</View>
 					) : (
@@ -267,12 +293,22 @@ export default function CalendarScreen() {
 						{selectedEpisodes.length === 0 ? (
 							<Text style={styles.noEps}>No episodes on this day</Text>
 						) : (
-							<LegendList
-								data={rows}
-								keyExtractor={(row) => row.key}
-								renderItem={renderRow}
-								getItemType={(row) => row.kind}
-							/>
+							// Short list (one day) → plain scroll view, so rows can animate in/out and reflow
+							<Reanimated.ScrollView>
+								{rows.map((row) => {
+									const isChild = row.kind === CalendarRowKind.CHILD;
+									return (
+										<Reanimated.View
+											key={row.key}
+											layout={rowLayout}
+											entering={isChild ? FadeInUp.duration(ACCORDION_MS).delay(row.nth * STRIP_STAGGER_MS) : undefined}
+											exiting={isChild ? FadeOutUp.duration(ACCORDION_MS / 2) : undefined}
+										>
+											{renderRow({ item: row })}
+										</Reanimated.View>
+									);
+								})}
+							</Reanimated.ScrollView>
 						)}
 					</View>
 				)

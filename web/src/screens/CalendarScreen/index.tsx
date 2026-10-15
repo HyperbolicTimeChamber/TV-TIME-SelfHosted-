@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { IoChevronBack, IoChevronForward } from "react-icons/io5";
+import { IoIosArrowDown } from "react-icons/io";
 import { NavigationType, useNavigate, useNavigationType } from "react-router-dom";
 import { useCalendarScreen, YEARS, type CalendarEpisode, type CalendarPosition } from "@app/screens/useCalendarScreen";
 import { groupCalendarDay, episodeCountLabel, seasonRangeLabel } from "@app/utils/calendarGroups";
@@ -8,7 +9,6 @@ import { MediaType } from "@app/enums";
 import { todayStr } from "@app/utils/todayStr";
 import { tmdbBackdropUri, tmdbLogoUri } from "@app/hooks/useTmdbImage";
 import AnimatedModal from "../../components/AnimatedModal";
-import ArrowDropdownCircle from "../../components/ArrowDropdownCircle";
 import { showPath } from "../../routes/paths";
 import styles from "./styles/CalendarScreen.module.scss";
 import { monthGrid } from "./monthGrid";
@@ -56,6 +56,8 @@ function DayCounts({ counts }: { counts?: { shows: Set<number>; movies: number }
 }
 const pad = (n: number) => String(n).padStart(2, "0");
 const SKELETON_CARDS = 3;
+// Same as the app's accordion timing
+const ACCORDION_S = 0.22;
 
 interface DayCardProps {
 	ep: CalendarEpisode;
@@ -115,7 +117,7 @@ function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 					<span className={styles.epSquareTitle}>{seasonRangeLabel(groupEps)}</span>
 					<span className={styles.epSquareRule} />
 					<span className={styles.epSquareArrow}>
-						<ArrowDropdownCircle size={40} flipped={expanded} />
+						<IoIosArrowDown size={40} className={`relative transition-transform duration-220 ${expanded ? "rotate-180" : ""}`} />
 					</span>
 				</span>
 			) : (
@@ -292,11 +294,23 @@ export default function CalendarScreen() {
 												expanded={open}
 												onClick={() => (isGroup ? toggleGroup(group.key) : openShow(group.first))}
 											/>
-											{isGroup &&
-												open &&
-												group.episodes.map((ep) => (
-													<DayCard key={`${ep.season}_${ep.episode}`} ep={ep} child onClick={() => openShow(ep)} />
-												))}
+											{/* Accordion: strips slide open/closed, cards below follow the height */}
+											<AnimatePresence initial={false}>
+												{isGroup && open && (
+													<motion.div
+														key="strips"
+														className="overflow-hidden"
+														initial={{ height: 0, opacity: 0 }}
+														animate={{ height: "auto", opacity: 1 }}
+														exit={{ height: 0, opacity: 0 }}
+														transition={{ duration: ACCORDION_S, ease: "easeInOut" }}
+													>
+														{group.episodes.map((ep) => (
+															<DayCard key={`${ep.season}_${ep.episode}`} ep={ep} child onClick={() => openShow(ep)} />
+														))}
+													</motion.div>
+												)}
+											</AnimatePresence>
 										</Fragment>
 									);
 								})

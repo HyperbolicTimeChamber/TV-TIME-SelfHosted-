@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithProviders, testUser } from "../../render";
 
 const handleDayPress = vi.fn();
@@ -61,7 +61,7 @@ describe("CalendarScreen", () => {
 		expect(screen.getByLabelText("1 movies")).toHaveTextContent("1");
 	});
 
-	it("collapses a show's several episodes into one card that opens like an accordion", () => {
+	it("collapses a show's several episodes into one card that opens like an accordion", async () => {
 		renderWithProviders(<CalendarScreen />, { user: testUser });
 		expect(screen.getAllByText("Reacher")).toHaveLength(1);
 		expect(screen.getByText("SEASON 04")).toBeInTheDocument();
@@ -74,6 +74,8 @@ describe("CalendarScreen", () => {
 		expect(screen.getByText("E09")).toBeInTheDocument();
 		expect(screen.getByText("Cut")).toBeInTheDocument();
 		fireEvent.click(card);
-		expect(screen.queryByText("E09")).not.toBeInTheDocument();
+		expect(card).toHaveAttribute("aria-expanded", "false");
+		// Strips animate out before they leave the DOM
+		await waitFor(() => expect(screen.queryByText("E09")).not.toBeInTheDocument());
 	});
 });
