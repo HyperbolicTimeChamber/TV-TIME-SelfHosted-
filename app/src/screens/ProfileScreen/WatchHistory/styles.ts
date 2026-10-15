@@ -63,7 +63,7 @@ export const styles = StyleSheet.create({
 	pill: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 },
 	pillText: { color: colors.text, fontSize: 13, fontWeight: "700" },
 	bottomRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
-	leftBlock: { alignItems: "flex-start", gap: spacing.sm },
+	leftBlock: { alignItems: "flex-start", gap: spacing.sm + 2 },
 	timeBlock: { alignItems: "flex-end" },
 	// Upper stat (Last Watched): normal spacing instead of the baseline pull-down
 	statGap: { marginBottom: spacing.md },
