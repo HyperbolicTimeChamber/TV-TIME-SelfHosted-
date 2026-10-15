@@ -128,7 +128,9 @@ export default memo(function ShowCard({
 						) : (
 							<span className={`${styles.episode} ${styles.muted}`}>{episodeLabel}</span>
 						)}
-						{item.rewatchCount > 0 && <span className={`${styles.rewatch} ${styles.muted}`}>Rewatch #{item.rewatchCount}</span>}
+						{item.rewatchCount > 0 && (
+							<span className={`${styles.tagBadge} ${styles.latestBadge} opacity-50`}>REWATCH {item.rewatchCount}</span>
+						)}
 					</div>
 					<div className={styles.checkmarkWrap} onClick={(e) => e.stopPropagation()}>
 						<CheckmarkButton size={38} watched label={wc > 1 ? `${wc}` : undefined} onPress={() => onCheckmark(item)} />
@@ -171,7 +173,10 @@ export default memo(function ShowCard({
 							) : null}
 						</>
 					)}
-					{item.rewatchCount > 0 && <span className={styles.rewatch}>Rewatch #{item.rewatchCount}</span>}
+					{/* Same outlined tag as LATEST */}
+					{item.rewatchCount > 0 && (
+						<span className={`${styles.tagBadge} ${styles.latestBadge}`}>REWATCH {item.rewatchCount}</span>
+					)}
 				</div>
 				<div className={styles.checkmarkWrap} onClick={(e) => e.stopPropagation()}>
 					<CheckmarkButton size={38} onPress={() => swipeRef.current?.triggerSwipeLeft()} onLongPress={onCheckmarkLongPress} />
