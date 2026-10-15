@@ -83,7 +83,7 @@ export default function ProfileScreen() {
 				</button>
 				<CircleButton
 					tone={CircleButtonTone.RAISED}
-					className="size-14!"
+					className="size-14! rounded-xl!"
 					onClick={() => navigate(Paths.SETTINGS)}
 					ariaLabel="Settings"
 				>

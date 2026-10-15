@@ -121,7 +121,8 @@ export const styles = StyleSheet.create({
 		justifyContent: "space-between",
 		// Softer red than the brand red, no glow
 		backgroundColor: colors.destructiveRed,
-		borderRadius: 999,
+		// Same 12px corners as the stat cards
+		borderRadius: 12,
 		height: 56,
 		// 48px icon, circle inset ~4px inside it → visually 8px from the pill's end
 		paddingHorizontal: 4,

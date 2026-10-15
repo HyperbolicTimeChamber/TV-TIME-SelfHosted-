@@ -32,7 +32,8 @@ export const styles = StyleSheet.create({
 		marginTop: spacing.xl,
 		marginHorizontal: spacing.lg,
 	},
-	settingsCircle: { width: 56, height: 56, borderRadius: 28 },
+	// Rounded square, same 12px corners as the stat cards
+	settingsCircle: { width: 56, height: 56, borderRadius: 12 },
 	avatarOverlay: {
 		position: "absolute",
 		top: 0,

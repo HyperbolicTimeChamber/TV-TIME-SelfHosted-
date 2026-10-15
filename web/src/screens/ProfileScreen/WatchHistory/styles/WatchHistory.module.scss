@@ -320,7 +320,8 @@
 	/* 48px icon, circle inset ~4px inside it → visually 8px from the pill's end */
 	padding: 0 4px;
 	border: none;
-	border-radius: 999px;
+	/* Same 12px corners as the stat cards */
+	border-radius: 12px;
 	/* Softer red than the brand red, no glow */
 	background: var(--color-danger);
 	color: var(--text);
