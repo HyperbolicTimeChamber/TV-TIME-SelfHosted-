@@ -119,13 +119,6 @@
 	}
 }
 
-.historyButtonSub {
-	margin-top: 1px;
-	font-size: 12px;
-	font-weight: 500;
-	opacity: 0.8;
-}
-
 .cardBg {
 	position: absolute;
 	inset: 0;
@@ -318,7 +311,6 @@
 /* Profile entry button */
 .historyButton {
 	display: flex;
-	flex-direction: column;
 	align-items: center;
 	justify-content: center;
 	/* Shares the row with the Settings circle */

@@ -76,7 +76,6 @@ export default function ProfileScreen() {
 			<div className={styles.actionRow}>
 				<button className={historyStyles.historyButton} onClick={() => navigate(Paths.WATCH_HISTORY)}>
 					Hall of Shame
-					<span className={historyStyles.historyButtonSub}>Where did all the time go</span>
 				</button>
 				<CircleButton
 					tone={CircleButtonTone.RAISED}
