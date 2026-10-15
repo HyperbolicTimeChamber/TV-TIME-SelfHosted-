@@ -105,10 +105,11 @@ function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 				)}
 				{isMovie ? (
 					<span className={styles.movieBadge}>MOVIE</span>
+				) : groupEps ? (
+					// Collapsed show: episode count in a translucent pill
+					<span className={styles.countPill}>{episodeCountLabel(groupEps)}</span>
 				) : (
-					<span className={`${styles.epTitle} ${groupEps ? styles.groupCount : ""}`}>
-						{groupEps ? episodeCountLabel(groupEps) : ep.episodeTitle}
-					</span>
+					<span className={styles.epTitle}>{ep.episodeTitle}</span>
 				)}
 			</span>
 			{groupEps ? (

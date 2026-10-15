@@ -301,11 +301,14 @@
 	line-height: 58px;
 }
 
-/* Arrow sits in the Exx line's box so the rule stays where it is on episode squares */
+/* Arrow fills rule → bottom edge (cancelling the rule's bottom margin) and centres in it */
 .epSquareArrow {
-	height: 58px;
+	flex: 1;
+	align-self: stretch;
+	margin-top: -6px;
 	display: flex;
 	align-items: center;
+	justify-content: center;
 }
 
 .epSquareYear {
@@ -445,4 +448,16 @@
 	to {
 		opacity: 0.4;
 	}
+}
+
+/* Collapsed show: episode count in a translucent pill */
+.countPill {
+	position: relative;
+	margin-top: 4px;
+	padding: 5px 14px;
+	border-radius: 999px;
+	background: rgba(0, 0, 0, 0.5);
+	font-size: 16px;
+	line-height: 20px;
+	font-weight: 600;
 }

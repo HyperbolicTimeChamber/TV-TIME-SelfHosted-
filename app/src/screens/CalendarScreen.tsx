@@ -220,9 +220,14 @@ export default function CalendarScreen() {
 							<View style={styles.movieBadge}>
 								<Text style={styles.movieBadgeText}>MOVIE</Text>
 							</View>
+						) : isGroup ? (
+							// Collapsed show: episode count in a translucent pill
+							<View style={styles.countPill}>
+								<Text style={styles.countPillText}>{episodeCountLabel(groupEps)}</Text>
+							</View>
 						) : (
-							<Text style={[styles.epTitle, isGroup && styles.groupCount]} numberOfLines={2}>
-								{isGroup ? episodeCountLabel(groupEps) : item.episodeTitle}
+							<Text style={styles.epTitle} numberOfLines={2}>
+								{item.episodeTitle}
 							</Text>
 						)}
 					</View>
@@ -428,7 +433,24 @@ const styles = StyleSheet.create({
 		includeFontPadding: false,
 	},
 	childTitle: { ...typography.body, flex: 1, fontSize: 15, fontWeight: "500", color: colors.text },
-	groupCount: { fontSize: 18, fontWeight: "600" },
+	countPill: {
+		alignSelf: "flex-start",
+		marginTop: spacing.xs,
+		backgroundColor: colors.badgeOverlay,
+		borderRadius: 999,
+		paddingHorizontal: 14,
+		paddingVertical: 5,
+	},
+	countPillText: {
+		...typography.body,
+		fontSize: 16,
+		lineHeight: 20,
+		fontWeight: "600",
+		color: colors.text,
+		// Android pads glyphs for ascenders → text sits low in a pill
+		includeFontPadding: false,
+		textAlignVertical: "center",
+	},
 	cardOverlay: { backgroundColor: "rgba(0, 0, 0, 0.55)" },
 	epInfo: { flex: 1 },
 	logo: { height: 36, width: "60%", marginBottom: spacing.sm },
@@ -462,8 +484,14 @@ const styles = StyleSheet.create({
 		marginVertical: 6,
 	},
 	epSquareValue: { fontFamily: fonts.smoochRegular, fontSize: 56, color: colors.text, lineHeight: 58 },
-	// Arrow sits in the Exx line's box so the rule stays where it is on episode squares
-	epSquareArrow: { height: 58, justifyContent: "center" },
+	// Arrow fills rule → bottom edge (cancelling the rule's bottom margin) and centres in it
+	epSquareArrow: {
+		flex: 1,
+		alignSelf: "stretch",
+		alignItems: "center",
+		justifyContent: "center",
+		marginTop: -6,
+	},
 	epSquareYear: { fontSize: 40, lineHeight: 44 },
 	movieBadge: {
 		alignSelf: "flex-start",
