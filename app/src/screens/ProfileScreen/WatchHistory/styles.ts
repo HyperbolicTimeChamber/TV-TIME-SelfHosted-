@@ -128,4 +128,5 @@ export const styles = StyleSheet.create({
 		flex: 1,
 	},
 	historyButtonText: { color: colors.text, fontSize: 17, fontWeight: "600" },
+	historyButtonSub: { color: colors.text, opacity: 0.8, fontSize: 12, fontWeight: "500", marginTop: 1 },
 });

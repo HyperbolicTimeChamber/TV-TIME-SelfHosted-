@@ -7,6 +7,7 @@ export default function WatchHistoryButton({ onPress }: { onPress: () => void })
 	return (
 		<TouchableOpacity style={styles.historyButton} onPress={onPress} activeOpacity={0.85}>
 			<Text style={styles.historyButtonText}>Hall of Shame</Text>
+			<Text style={styles.historyButtonSub}>Where did all the time go</Text>
 		</TouchableOpacity>
 	);
 }
