@@ -127,7 +127,8 @@ async function enrichItems(
 }
 
 // Module-level catalog cache shared across hooks
-let sharedCatalogCache: Map<string, CatalogShow | null> = new Map();
+// One map for the whole app lifetime — mutated in place, never reassigned
+const sharedCatalogCache: Map<string, CatalogShow | null> = new Map();
 
 let markCatalogRestored: () => void;
 const catalogRestored = new Promise<void>((resolve) => (markCatalogRestored = resolve));
@@ -278,9 +279,11 @@ export function useWatchlist(userId: string | undefined) {
 	// Restore persisted catalog cache on mount
 	useEffect(() => {
 		restoreCatalogCache().then((restored) => {
-			if (restored.size > 0) {
-				catalogCache.current = restored;
-				sharedCatalogCache = restored;
+			// Merge into the one shared map — never replace it. Other hook instances and
+			// the history / calendar refresh hold the same map, and in-memory entries are
+			// newer than the stored copy (replacing it lost freshly fetched logos)
+			for (const [key, show] of restored) {
+				if (!sharedCatalogCache.has(key)) sharedCatalogCache.set(key, show);
 			}
 			catalogCacheRestored.current = true;
 			markCatalogRestored();
@@ -464,7 +467,6 @@ export function useWatchlist(userId: string | undefined) {
 		if (item.catalogShow) {
 			const mt = item.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV;
 			catalogCache.current.set(showDocId(item.tmdbId, mt), item.catalogShow);
-			sharedCatalogCache = catalogCache.current;
 			persistCatalogCache(catalogCache.current);
 		}
 		setItems((prev) => [item, ...prev.filter((p) => p.tmdbId !== item.tmdbId)]);
@@ -515,7 +517,6 @@ export function useWatchlist(userId: string | undefined) {
 				}),
 			);
 			if (updates.size > 0) {
-				sharedCatalogCache = catalogCache.current;
 				persistCatalogCache(catalogCache.current);
 				setItems((prev) =>
 					prev.map((p) => {
@@ -619,7 +620,6 @@ export function useWatchlist(userId: string | undefined) {
 				}
 			}
 			if (updates.length > 0) {
-				sharedCatalogCache = catalogCache.current;
 				persistCatalogCache(catalogCache.current);
 				setItems((prev) => {
 					const updateMap = new Map(updates.map((u) => [u.tmdbId, u]));
