@@ -67,7 +67,7 @@ export const styles = StyleSheet.create({
 	timeBlock: { alignItems: "flex-end" },
 	// Upper stat (Last Watched): normal spacing instead of the baseline pull-down
 	statGap: { marginBottom: spacing.sm },
-	timeLabel: { color: colors.text, fontSize: 11, fontWeight: "500", marginBottom: 2 },
+	timeLabel: { color: colors.text, fontSize: 13, fontWeight: "500", marginBottom: 2 },
 	// lineHeight = fontSize, pulled down by the font's descent so the digits' baseline
 	// lines up with the bottom of the progress pill on the left
 	timeSpent: {
