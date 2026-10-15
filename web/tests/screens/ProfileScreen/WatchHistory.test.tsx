@@ -14,6 +14,7 @@ const card = (o: Partial<HistoryCard>): HistoryCard => ({
 	backdropPath: null,
 	pill: HistoryPill.WATCHING,
 	pillLabel: HistoryPill.WATCHING,
+	pillCount: null,
 	timeSpent: "3d 4h",
 	lastWatched: "S01 | E02",
 	watchCount: null,

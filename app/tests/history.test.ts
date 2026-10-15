@@ -139,7 +139,8 @@ test("deriveHistoryCard: paused, rewatching, completed, movie", () => {
 	assert.equal(paused.pill, null);
 	const rewatch = deriveHistoryCard(entry({ status: WatchStatus.REWATCHING, rewatchCount: 2 }), catalog(), today);
 	assert.equal(rewatch.pill, HistoryPill.REWATCHING);
-	assert.equal(rewatch.pillLabel, "Rewatching ×2");
+	assert.equal(rewatch.pillLabel, "Rewatching");
+	assert.equal(rewatch.pillCount, 2);
 	assert.equal(rewatch.watchCount, 2);
 	const done = deriveHistoryCard(entry({ status: WatchStatus.COMPLETED, rewatchCount: 1 }), catalog({ status: "Ended" }), today);
 	assert.equal(done.progress, null);

@@ -71,7 +71,12 @@ function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
 				{/* Bottom-left: status pill above one slot — progress / up to date / paused,
 				    else the watch count */}
 				<span className={styles.leftBlock}>
-					{card.pill && <span className={`${styles.pill} ${PILL_BG[card.pill]}`}>{card.pillLabel}</span>}
+					{card.pill && (
+						<span className={`${styles.pill} ${card.pillCount != null ? styles.pillWithCount : ""} ${PILL_BG[card.pill]}`}>
+							{card.pillLabel}
+							{card.pillCount != null && <span className={styles.pillCountCircle}>{card.pillCount}</span>}
+						</span>
+					)}
 					{card.progress ? (
 						<ProgressModule progress={card.progress} />
 					) : card.watchCount != null ? (

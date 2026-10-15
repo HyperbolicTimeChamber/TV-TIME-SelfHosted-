@@ -98,8 +98,19 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 				    else the watch count */}
 				<View style={styles.leftBlock}>
 					{card.pill && (
-						<View style={[styles.pill, { backgroundColor: PILL_COLOR[card.pill] }]}>
+						<View
+							style={[
+								styles.pill,
+								card.pillCount != null && styles.pillWithCount,
+								{ backgroundColor: PILL_COLOR[card.pill] },
+							]}
+						>
 							<Text style={styles.pillText}>{card.pillLabel}</Text>
+							{card.pillCount != null && (
+								<View style={styles.pillCountCircle}>
+									<Text style={styles.pillCountText}>{card.pillCount}</Text>
+								</View>
+							)}
 						</View>
 					)}
 					{card.progress ? (

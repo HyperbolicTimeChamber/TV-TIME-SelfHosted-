@@ -11,8 +11,10 @@ export interface HistoryCard {
 	backdropPath: string | null;
 	/** Status pill; null for movies (every movie in history is watched) */
 	pill: HistoryPill | null;
-	/** Pill text: the status, plus "×n" while rewatching (n = which rewatch) */
+	/** Pill text (null = no status pill) */
 	pillLabel: string | null;
+	/** Rewatching: which rewatch this is — shown in a white circle on the pill */
+	pillCount: number | null;
 	/** formatTime(minutesWatched); no runtime known yet → "N/A" for TV, null (hidden) for movies */
 	timeSpent: string | null;
 	/** TV: most recently watched episode as "S01 | E24"; null for movies / unknown */
@@ -126,12 +128,8 @@ export function deriveHistoryCard(
 					? null
 					: "N/A",
 		lastWatched: !isMovie && last ? `S${pad(last.season)} | E${pad(last.episode)}` : null,
-		pillLabel:
-			pill === HistoryPill.PAUSED
-				? null
-				: pill === HistoryPill.REWATCHING && entry.rewatchCount > 0
-					? `${pill} ×${entry.rewatchCount}`
-					: pill,
+		pillLabel: pill === HistoryPill.PAUSED ? null : pill,
+		pillCount: pill === HistoryPill.REWATCHING && entry.rewatchCount > 0 ? entry.rewatchCount : null,
 		watchCount,
 		progress,
 		tag: isMovie ? year || null : catalog ? (ended ? "Ended" : "Ongoing") : null,

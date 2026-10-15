@@ -61,6 +61,18 @@ export const styles = StyleSheet.create({
 	logo: { flex: 1, height: LOGO_HEIGHT },
 	cardTitle: { flex: 1, color: colors.text, fontSize: 20, fontWeight: "600" },
 	pill: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 },
+	// Rewatch count: white circle at the pill's end, concentric (right = vertical padding)
+	pillWithCount: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 4, paddingRight: 4 },
+	pillCountCircle: {
+		minWidth: 20,
+		height: 20,
+		borderRadius: 10,
+		paddingHorizontal: 5,
+		backgroundColor: colors.text,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	pillCountText: { color: colors.surface, fontSize: 12, fontWeight: "700" },
 	pillText: { color: colors.text, fontSize: 13, fontWeight: "700" },
 	bottomRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
 	leftBlock: { alignItems: "flex-start", gap: spacing.sm + 2 },
