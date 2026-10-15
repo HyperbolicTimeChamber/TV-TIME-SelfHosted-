@@ -1,7 +1,7 @@
 import React, { memo, useRef, useCallback } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS } from "../types";
-import { colors, fonts, spacing, typography } from "../theme";
+import { colors, spacing, typography } from "../theme";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton from "./CheckmarkButton";
 
@@ -334,10 +334,8 @@ const styles = StyleSheet.create({
 	},
 	episode: {
 		...typography.subtitle,
-		// Smooch Sans (condensed) — sized up; no fontWeight with a custom family on Android
-		fontFamily: fonts.smoochMedium,
-		fontSize: 22,
-		fontWeight: "normal",
+		fontSize: 16,
+		fontWeight: "700",
 		color: colors.text,
 		letterSpacing: 1,
 	},
