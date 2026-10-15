@@ -300,6 +300,12 @@
 	line-height: 58px;
 }
 
+.epSquareCount {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+}
+
 .epSquareYear {
 	font-size: 40px;
 	line-height: 44px;
@@ -358,4 +364,40 @@
 	background: var(--primary);
 	color: var(--text);
 	font-weight: 700;
+}
+
+/* Episode under an opened show card: indented so it reads as part of the group */
+.childRow {
+	width: calc(100% - 72px);
+	margin-left: 56px;
+}
+
+/* Day list skeleton: one CSS animation, same timing as the app's shared shimmer */
+.skeleton {
+	display: block;
+	background: var(--surface-light);
+	animation: calendarShimmer 1.2s ease-in-out infinite alternate;
+}
+
+.skeletonHeader {
+	width: 160px;
+	height: 18px;
+	margin: 0 16px 12px;
+	border-radius: 6px;
+}
+
+.skeletonCard {
+	width: calc(100% - 32px);
+	height: 120px;
+	margin: 0 16px 12px;
+	border-radius: 16px;
+}
+
+@keyframes calendarShimmer {
+	from {
+		opacity: 1;
+	}
+	to {
+		opacity: 0.4;
+	}
 }

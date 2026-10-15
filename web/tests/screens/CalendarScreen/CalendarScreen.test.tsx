@@ -15,7 +15,9 @@ vi.mock("@app/screens/useCalendarScreen", () => ({
 		setYearModalVisible: vi.fn(),
 		markedDates: { "2026-10-09": { marked: true, dotColor: "#000", selected: true, selectedColor: "#E50914" } },
 		selectedEpisodes: [
+			{ tmdbShowId: 1, showTitle: "Reacher", posterPath: null, season: 4, episode: 9, episodeTitle: "Run", airDate: "2026-10-09", runtime: null },
 			{ tmdbShowId: 1, showTitle: "Reacher", posterPath: null, season: 4, episode: 8, episodeTitle: "Cut", airDate: "2026-10-09", runtime: null },
+			{ tmdbShowId: 3, showTitle: "Slow Horses", posterPath: null, season: 5, episode: 2, episodeTitle: "Two", airDate: "2026-10-09", runtime: null },
 		],
 		episodes: [
 			{ tmdbShowId: 1, showTitle: "Reacher", posterPath: null, season: 4, episode: 8, episodeTitle: "Cut", airDate: "2026-10-09", runtime: null },
@@ -44,9 +46,9 @@ describe("CalendarScreen", () => {
 	it("lists the selected day's episodes and navigates months", () => {
 		renderWithProviders(<CalendarScreen />, { user: testUser });
 		expect(screen.getByText("October 2026")).toBeInTheDocument();
-		expect(screen.getByText("Reacher")).toBeInTheDocument();
-		expect(screen.getByText("SEASON 04")).toBeInTheDocument();
-		expect(screen.getByText("E08")).toBeInTheDocument();
+		expect(screen.getByText("Slow Horses")).toBeInTheDocument();
+		expect(screen.getByText("SEASON 05")).toBeInTheDocument();
+		expect(screen.getByText("E02")).toBeInTheDocument();
 		fireEvent.click(screen.getByLabelText("Next month"));
 		expect(handleMonthChange).toHaveBeenCalledWith(2026, 11);
 		fireEvent.click(screen.getByLabelText("2026-10-15"));
@@ -57,5 +59,21 @@ describe("CalendarScreen", () => {
 		renderWithProviders(<CalendarScreen />, { user: testUser });
 		expect(screen.getByLabelText("1 shows")).toHaveTextContent("1");
 		expect(screen.getByLabelText("1 movies")).toHaveTextContent("1");
+	});
+
+	it("collapses a show's several episodes into one card that opens like an accordion", () => {
+		renderWithProviders(<CalendarScreen />, { user: testUser });
+		expect(screen.getAllByText("Reacher")).toHaveLength(1);
+		expect(screen.getByText("EPISODES")).toBeInTheDocument();
+		expect(screen.getByText("S04 | E08 – E09")).toBeInTheDocument();
+		expect(screen.queryByText("E08")).not.toBeInTheDocument();
+		const card = screen.getByRole("button", { expanded: false });
+		fireEvent.click(card);
+		expect(card).toHaveAttribute("aria-expanded", "true");
+		expect(screen.getByText("E08")).toBeInTheDocument();
+		expect(screen.getByText("E09")).toBeInTheDocument();
+		expect(screen.getByText("Cut")).toBeInTheDocument();
+		fireEvent.click(card);
+		expect(screen.queryByText("E09")).not.toBeInTheDocument();
 	});
 });

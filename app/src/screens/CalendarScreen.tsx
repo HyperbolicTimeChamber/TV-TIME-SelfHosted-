@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useRef } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Animated } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { AnimatedModal, LoadingSpinner } from "../components";
+import { AnimatedModal } from "../components";
+import { useSharedShimmer } from "../components/SkeletonLine";
 import { LegendList } from "@legendapp/list/react-native";
 import { Calendar, DateData } from "react-native-calendars";
 import { useNavigation } from "@react-navigation/native";
@@ -12,6 +14,12 @@ import { useCalendarScreen, YEARS, type CalendarEpisode } from "./useCalendarScr
 import { Image } from "expo-image";
 import { tmdbBackdropUri, tmdbLogoUri } from "../hooks/useTmdbImage";
 import { BLUR_RADIUS } from "./ProfileScreen/styles";
+import {
+	groupCalendarDay,
+	episodeRangeLabel,
+	CalendarRowKind,
+	type CalendarGroup,
+} from "../utils/calendarGroups";
 
 const CARD_WIDTH = Dimensions.get("window").width - 32;
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -20,6 +28,26 @@ const CARD_MIN_HEIGHT = 120;
 const EP_SQUARE = CARD_MIN_HEIGHT - spacing.md * 2;
 
 type NavProp = NativeStackNavigationProp<CalendarStackParamList, Route.CALENDAR_MAIN>;
+
+// LegendList ignores extraData — open/closed state rides in the row itself
+type CalendarRow =
+	| { kind: CalendarRowKind.CARD; key: string; group: CalendarGroup<CalendarEpisode>; expanded: boolean }
+	| { kind: CalendarRowKind.CHILD; key: string; ep: CalendarEpisode };
+
+const SKELETON_CARDS = 3;
+
+/** Day list placeholder: date line + cards, pulsing on the shared shimmer */
+function CalendarSkeleton() {
+	const shimmer = useSharedShimmer();
+	return (
+		<View style={styles.episodeList}>
+			<Animated.View style={[styles.skeletonHeader, { opacity: shimmer }]} />
+			{Array.from({ length: SKELETON_CARDS }, (_, i) => (
+				<Animated.View key={i} style={[styles.skeletonCard, { opacity: shimmer }]} />
+			))}
+		</View>
+	);
+}
 
 export default function CalendarScreen() {
 	const { top } = useSafeAreaInsets();
@@ -69,19 +97,50 @@ export default function CalendarScreen() {
 		}, 100);
 	}, [currentYear, setYearModalVisible]);
 
-	const renderEpisode = useCallback(
-		({ item }: { item: CalendarEpisode }) => {
+	// Shows with several episodes that day collapse into one card; tap to open
+	const [expanded, setExpanded] = useState<Set<string>>(new Set());
+	useEffect(() => setExpanded(new Set()), [selectedDate]);
+	const toggleGroup = useCallback((key: string) => {
+		setExpanded((prev) => {
+			const next = new Set(prev);
+			if (next.has(key)) next.delete(key);
+			else next.add(key);
+			return next;
+		});
+	}, []);
+
+	const rows = useMemo(() => {
+		const out: CalendarRow[] = [];
+		for (const group of groupCalendarDay(selectedEpisodes)) {
+			const open = expanded.has(group.key);
+			out.push({ kind: CalendarRowKind.CARD, key: group.key, group, expanded: open });
+			if (open && group.episodes.length > 1) {
+				for (const ep of group.episodes) {
+					out.push({ kind: CalendarRowKind.CHILD, key: `${group.key}_${ep.season}_${ep.episode}`, ep });
+				}
+			}
+		}
+		return out;
+	}, [selectedEpisodes, expanded]);
+
+	const renderRow = useCallback(
+		({ item: row }: { item: CalendarRow }) => {
+			const isChild = row.kind === CalendarRowKind.CHILD;
+			const item = isChild ? row.ep : row.group.first;
+			const groupEps = isChild ? [] : row.group.episodes;
+			const isGroup = groupEps.length > 1;
+			const expandedCard = !isChild && row.expanded;
 			const isMovie = item.mediaType === MediaType.MOVIE;
+			const openShow = () =>
+				navigation.navigate(Route.SHOW_DETAIL, {
+					tmdbId: item.tmdbShowId,
+					mediaType: isMovie ? MediaType.MOVIE : MediaType.TV,
+				});
 			return (
 				<TouchableOpacity
-					style={styles.episodeCard}
+					style={[styles.episodeCard, isChild && styles.childCard]}
 					activeOpacity={0.85}
-					onPress={() =>
-						navigation.navigate(Route.SHOW_DETAIL, {
-							tmdbId: item.tmdbShowId,
-							mediaType: isMovie ? MediaType.MOVIE : MediaType.TV,
-						})
-					}
+					onPress={isGroup && !isChild ? () => toggleGroup(row.key) : openShow}
 				>
 					{/* Same backdrop treatment as the Watch History cards */}
 					{item.backdropPath && (
@@ -116,22 +175,36 @@ export default function CalendarScreen() {
 							</View>
 						) : (
 							<Text style={styles.epTitle} numberOfLines={2}>
-								{item.episodeTitle}
+								{isGroup ? episodeRangeLabel(groupEps) : item.episodeTitle}
 							</Text>
 						)}
 					</View>
-					{/* Right square: SEASON xx over a big Exx; movies get their release year */}
+					{/* Right square: SEASON xx over a big Exx; movies their release year;
+					    a collapsed show its episode count + chevron */}
 					<View style={styles.epSquare}>
-						<Text style={styles.epSquareTitle}>{isMovie ? "YEAR" : `SEASON ${pad2(item.season)}`}</Text>
-						<View style={styles.epSquareRule} />
-						<Text style={[styles.epSquareValue, isMovie && styles.epSquareYear]}>
-							{isMovie ? item.airDate.slice(0, 4) : `E${pad2(item.episode)}`}
+						<Text style={styles.epSquareTitle}>
+							{isGroup ? "EPISODES" : isMovie ? "YEAR" : `SEASON ${pad2(item.season)}`}
 						</Text>
+						<View style={styles.epSquareRule} />
+						{isGroup ? (
+							<View style={styles.epSquareCountRow}>
+								<Text style={styles.epSquareValue}>{groupEps.length}</Text>
+								<Ionicons
+									name={expandedCard ? "chevron-up" : "chevron-down"}
+									size={22}
+									color={colors.text}
+								/>
+							</View>
+						) : (
+							<Text style={[styles.epSquareValue, isMovie && styles.epSquareYear]}>
+								{isMovie ? item.airDate.slice(0, 4) : `E${pad2(item.episode)}`}
+							</Text>
+						)}
 					</View>
 				</TouchableOpacity>
 			);
 		},
-		[navigation],
+		[navigation, toggleGroup],
 	);
 
 	return (
@@ -162,10 +235,7 @@ export default function CalendarScreen() {
 			/>
 
 			{calendarLoading ? (
-				<View style={styles.loaderCenter}>
-					<LoadingSpinner />
-					<Text style={styles.loaderText}>Checking your calendar...</Text>
-				</View>
+				<CalendarSkeleton />
 			) : (
 				selectedDate && (
 					<View style={styles.episodeList}>
@@ -180,9 +250,10 @@ export default function CalendarScreen() {
 							<Text style={styles.noEps}>No episodes on this day</Text>
 						) : (
 							<LegendList
-								data={selectedEpisodes}
-								keyExtractor={(item) => `${item.tmdbShowId}_${item.season}_${item.episode}`}
-								renderItem={renderEpisode}
+								data={rows}
+								keyExtractor={(row) => row.key}
+								renderItem={renderRow}
+								getItemType={(row) => row.kind}
 							/>
 						)}
 					</View>
@@ -244,16 +315,20 @@ const styles = StyleSheet.create({
 		...typography.caption,
 		paddingHorizontal: spacing.lg,
 	},
-	loaderCenter: {
-		flex: 1,
-		alignItems: "center",
-		justifyContent: "center",
-		paddingVertical: spacing.xl,
+	skeletonHeader: {
+		width: 160,
+		height: 18,
+		borderRadius: 6,
+		marginHorizontal: spacing.lg,
+		marginBottom: spacing.md,
+		backgroundColor: colors.surfaceLight,
 	},
-	loaderText: {
-		...typography.caption,
-		color: colors.textMuted,
-		marginTop: spacing.md,
+	skeletonCard: {
+		height: CARD_MIN_HEIGHT,
+		marginHorizontal: spacing.lg,
+		marginBottom: spacing.md,
+		borderRadius: 16,
+		backgroundColor: colors.surfaceLight,
 	},
 	episodeCard: {
 		minHeight: CARD_MIN_HEIGHT,
@@ -266,6 +341,8 @@ const styles = StyleSheet.create({
 		overflow: "hidden",
 		backgroundColor: colors.surface,
 	},
+	// Episode under an opened show card: indented so it reads as part of the group
+	childCard: { marginLeft: spacing.xl + spacing.lg },
 	cardOverlay: { backgroundColor: "rgba(0, 0, 0, 0.55)" },
 	epInfo: { flex: 1 },
 	logo: { height: 36, width: "60%", marginBottom: spacing.sm },
@@ -299,6 +376,7 @@ const styles = StyleSheet.create({
 		marginVertical: 6,
 	},
 	epSquareValue: { fontFamily: fonts.smoochRegular, fontSize: 56, color: colors.text, lineHeight: 58 },
+	epSquareCountRow: { flexDirection: "row", alignItems: "center", gap: 2 },
 	epSquareYear: { fontSize: 40, lineHeight: 44 },
 	movieBadge: {
 		alignSelf: "flex-start",

@@ -238,3 +238,26 @@ test("ordinal + markWatchedLabel: rewatch runs get an ordinal label", async () =
 	assert.equal(markWatchedLabel(0), "Mark as Watched");
 	assert.equal(markWatchedLabel(2), "Mark 2nd Rewatch");
 });
+
+test("groupCalendarDay: one card per show, episodes sorted; movies stay single", async () => {
+	const { groupCalendarDay, episodeRangeLabel } = await import("../src/utils/calendarGroups");
+	const { MediaType } = await import("../src/enums");
+	const ep = (id: number, season: number, episode: number, mediaType = MediaType.TV) => ({
+		tmdbShowId: id,
+		mediaType,
+		season,
+		episode,
+	});
+	const groups = groupCalendarDay([ep(1, 1, 3), ep(2, 0, 0, MediaType.MOVIE), ep(1, 1, 1), ep(3, 2, 5), ep(1, 1, 2)]);
+	assert.deepEqual(
+		groups.map((g) => [g.key, g.episodes.map((e) => e.episode)]),
+		[
+			["tv_1", [1, 2, 3]],
+			["movie_2", [0]],
+			["tv_3", [5]],
+		],
+	);
+	assert.equal(groups[0].first.episode, 1);
+	assert.equal(episodeRangeLabel(groups[0].episodes), "S01 | E01 – E03");
+	assert.equal(episodeRangeLabel([ep(1, 1, 10), ep(1, 2, 2)]), "S01 | E10 – S02 | E02");
+});

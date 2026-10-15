@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { IoChevronBack, IoChevronForward } from "react-icons/io5";
+import { IoChevronBack, IoChevronDown, IoChevronForward, IoChevronUp } from "react-icons/io5";
 import { NavigationType, useNavigate, useNavigationType } from "react-router-dom";
-import { useCalendarScreen, YEARS, type CalendarPosition } from "@app/screens/useCalendarScreen";
+import { useCalendarScreen, YEARS, type CalendarEpisode, type CalendarPosition } from "@app/screens/useCalendarScreen";
+import { groupCalendarDay, episodeRangeLabel } from "@app/utils/calendarGroups";
 import { MediaType } from "@app/enums";
 import { todayStr } from "@app/utils/todayStr";
 import { tmdbBackdropUri, tmdbLogoUri } from "@app/hooks/useTmdbImage";
 import AnimatedModal from "../../components/AnimatedModal";
-import LoadingScreen from "../../components/LoadingScreen";
 import { showPath } from "../../routes/paths";
 import styles from "./styles/CalendarScreen.module.scss";
 import { monthGrid } from "./monthGrid";
@@ -54,6 +54,60 @@ function DayCounts({ counts }: { counts?: { shows: Set<number>; movies: number }
 	);
 }
 const pad = (n: number) => String(n).padStart(2, "0");
+const SKELETON_CARDS = 3;
+
+interface DayCardProps {
+	ep: CalendarEpisode;
+	/** Set when this card stands for several of the show's episodes that day */
+	groupEps?: CalendarEpisode[];
+	expanded?: boolean;
+	/** Episode listed under an opened show card */
+	child?: boolean;
+	onClick: () => void;
+}
+
+/** Day list card: backdrop, logo/name, episode title (or range) + the right-hand square */
+function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
+	const isMovie = ep.mediaType === MediaType.MOVIE;
+	return (
+		<button className={`${styles.episodeRow} ${child ? styles.childRow : ""}`} onClick={onClick} aria-expanded={groupEps ? !!expanded : undefined}>
+			{/* Same backdrop treatment as the Watch History cards */}
+			{ep.backdropPath && (
+				<img src={tmdbBackdropUri(ep.backdropPath, CARD_MAX_WIDTH)} alt="" className={styles.cardBg} loading="lazy" />
+			)}
+			<span className={styles.cardOverlay} />
+			<span className={styles.epInfo}>
+				{/* Title logo when TMDB has one, else the name */}
+				{ep.logoPath ? (
+					<img src={tmdbLogoUri(ep.logoPath, CARD_MAX_WIDTH * 0.6)} alt={ep.showTitle} className={styles.logo} loading="lazy" />
+				) : (
+					<span className={styles.showTitle}>{ep.showTitle}</span>
+				)}
+				{isMovie ? (
+					<span className={styles.movieBadge}>MOVIE</span>
+				) : (
+					<span className={styles.epTitle}>{groupEps ? episodeRangeLabel(groupEps) : ep.episodeTitle}</span>
+				)}
+			</span>
+			{/* Right square: SEASON xx over a big Exx; movies their release year;
+			    a collapsed show its episode count + chevron */}
+			<span className={styles.epSquare}>
+				<span className={styles.epSquareTitle}>{groupEps ? "EPISODES" : isMovie ? "YEAR" : `SEASON ${pad(ep.season)}`}</span>
+				<span className={styles.epSquareRule} />
+				{groupEps ? (
+					<span className={styles.epSquareCount}>
+						<span className={styles.epSquareValue}>{groupEps.length}</span>
+						{expanded ? <IoChevronUp size={22} /> : <IoChevronDown size={22} />}
+					</span>
+				) : (
+					<span className={`${styles.epSquareValue} ${isMovie ? styles.epSquareYear : ""}`}>
+						{isMovie ? ep.airDate.slice(0, 4) : `E${pad(ep.episode)}`}
+					</span>
+				)}
+			</span>
+		</button>
+	);
+}
 
 /** Calendar tab — same state/data as the app via useCalendarScreen */
 export default function CalendarScreen() {
@@ -66,6 +120,18 @@ export default function CalendarScreen() {
 	useEffect(() => {
 		savePosition({ selectedDate: c.selectedDate, year: c.currentYear, month: c.currentMonth });
 	}, [c.selectedDate, c.currentYear, c.currentMonth]);
+	// Open show groups; closed again when another day is picked
+	const [expanded, setExpanded] = useState<Set<string>>(new Set());
+	useEffect(() => setExpanded(new Set()), [c.selectedDate]);
+	const toggleGroup = (key: string) =>
+		setExpanded((prev) => {
+			const next = new Set(prev);
+			if (next.has(key)) next.delete(key);
+			else next.add(key);
+			return next;
+		});
+	const openShow = (ep: CalendarEpisode) =>
+		navigate(showPath(ep.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV, ep.tmdbShowId));
 	const today = todayStr();
 	const yearListRef = useRef<HTMLDivElement>(null);
 	const grid = useMemo(() => monthGrid(c.currentYear, c.currentMonth), [c.currentYear, c.currentMonth]);
@@ -171,7 +237,13 @@ export default function CalendarScreen() {
 
 			<div className={styles.listPane}>
 				{c.loading ? (
-					<LoadingScreen label="Checking your calendar..." />
+					/* Same shimmer timing as the app's shared skeleton pulse */
+					<section className={styles.episodeList} aria-busy>
+						<span className={`${styles.skeleton} ${styles.skeletonHeader}`} />
+						{Array.from({ length: SKELETON_CARDS }, (_, i) => (
+							<span key={i} className={`${styles.skeleton} ${styles.skeletonCard}`} />
+						))}
+					</section>
 				) : (
 					c.selectedDate && (
 						<section className={styles.episodeList}>
@@ -185,41 +257,24 @@ export default function CalendarScreen() {
 							{c.selectedEpisodes.length === 0 ? (
 								<p className={styles.noEps}>No episodes on this day</p>
 							) : (
-								c.selectedEpisodes.map((ep) => {
-									const isMovie = ep.mediaType === MediaType.MOVIE;
+								// Shows with several episodes that day collapse into one card; click to open
+								groupCalendarDay(c.selectedEpisodes).map((group) => {
+									const open = expanded.has(group.key);
+									const isGroup = group.episodes.length > 1;
 									return (
-										<button
-											key={`${ep.tmdbShowId}_${ep.season}_${ep.episode}`}
-											className={styles.episodeRow}
-											onClick={() => navigate(showPath(isMovie ? MediaType.MOVIE : MediaType.TV, ep.tmdbShowId))}
-										>
-											{/* Same backdrop treatment as the Watch History cards */}
-										{ep.backdropPath && (
-											<img src={tmdbBackdropUri(ep.backdropPath, CARD_MAX_WIDTH)} alt="" className={styles.cardBg} loading="lazy" />
-										)}
-										<span className={styles.cardOverlay} />
-										<span className={styles.epInfo}>
-												{/* Title logo when TMDB has one, else the name */}
-												{ep.logoPath ? (
-													<img src={tmdbLogoUri(ep.logoPath, CARD_MAX_WIDTH * 0.6)} alt={ep.showTitle} className={styles.logo} loading="lazy" />
-												) : (
-													<span className={styles.showTitle}>{ep.showTitle}</span>
-												)}
-												{isMovie ? (
-													<span className={styles.movieBadge}>MOVIE</span>
-												) : (
-													<span className={styles.epTitle}>{ep.episodeTitle}</span>
-												)}
-											</span>
-											{/* Right square: SEASON xx over a big Exx; movies get their release year */}
-											<span className={styles.epSquare}>
-												<span className={styles.epSquareTitle}>{isMovie ? "YEAR" : `SEASON ${pad(ep.season)}`}</span>
-												<span className={styles.epSquareRule} />
-												<span className={`${styles.epSquareValue} ${isMovie ? styles.epSquareYear : ""}`}>
-													{isMovie ? ep.airDate.slice(0, 4) : `E${pad(ep.episode)}`}
-												</span>
-											</span>
-										</button>
+										<Fragment key={group.key}>
+											<DayCard
+												ep={group.first}
+												groupEps={isGroup ? group.episodes : undefined}
+												expanded={open}
+												onClick={() => (isGroup ? toggleGroup(group.key) : openShow(group.first))}
+											/>
+											{isGroup &&
+												open &&
+												group.episodes.map((ep) => (
+													<DayCard key={`${ep.season}_${ep.episode}`} ep={ep} child onClick={() => openShow(ep)} />
+												))}
+										</Fragment>
 									);
 								})
 							)}
