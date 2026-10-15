@@ -673,11 +673,24 @@ export async function resumeRewatch(userId: string, tmdbId: number, mediaType: M
 	await resume(userId, tmdbId, mediaType, WatchStatus.REWATCHING);
 }
 
+/** Callers often only have a tracking item / search hit (no runtime) → read it off the
+ *  shared catalog doc, so Watch Time and history minutes aren't stored as 0 */
+async function resolveMovieRuntime(tmdbId: number, runtime: number): Promise<number> {
+	if (runtime > 0) return runtime;
+	try {
+		const snap = await getDoc(doc(db, "shows", showDocId(tmdbId, MediaType.MOVIE)));
+		return (snap.data()?.runtime as number | undefined) || 0;
+	} catch {
+		return 0;
+	}
+}
+
 export async function markMovieWatched(
 	userId: string,
 	tmdbId: number,
 	runtime: number,
 ): Promise<void> {
+	runtime = await resolveMovieRuntime(tmdbId, runtime);
 	const batch = writeBatch(db);
 	const movieRef = doc(watchedMoviesRef(userId), String(tmdbId));
 	const tRef = doc(trackingRef(userId), showDocId(tmdbId, MediaType.MOVIE));
@@ -775,6 +788,7 @@ export async function unmarkMovieWatched(
 	tmdbId: number,
 	runtime: number,
 ): Promise<void> {
+	runtime = await resolveMovieRuntime(tmdbId, runtime);
 	const batch = writeBatch(db);
 	const movieRef = doc(watchedMoviesRef(userId), String(tmdbId));
 
@@ -811,6 +825,7 @@ export async function addAndMarkMovieWatched(
 	runtime: number,
 	meta?: { title?: string; posterPath?: string | null },
 ): Promise<void> {
+	runtime = await resolveMovieRuntime(tmdbId, runtime);
 	const docId = showDocId(tmdbId, MediaType.MOVIE);
 	const tRef = doc(trackingRef(userId), docId);
 	const movieRef = doc(watchedMoviesRef(userId), String(tmdbId));

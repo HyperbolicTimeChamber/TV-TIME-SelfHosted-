@@ -107,6 +107,15 @@ export function deriveHistoryCard(
 	else if (pill === HistoryPill.COMPLETED) watchCount = entry.rewatchCount + 1;
 	else if (pill === HistoryPill.REWATCHING) watchCount = Math.max(1, entry.rewatchCount);
 
+	// Movies marked before TMDB had a runtime stored 0 minutes — fall back to the catalog's
+	// runtime × plays so the card still shows a duration
+	const minutes =
+		entry.minutesWatched > 0
+			? entry.minutesWatched
+			: isMovie && catalog?.runtime
+				? catalog.runtime * Math.max(1, entry.plays)
+				: 0;
+
 	const year = (catalog?.releaseDate ?? "").slice(0, 4);
 	const pad = (n: number) => String(n).padStart(2, "0");
 	const last = entry.lastEpisode;
@@ -122,8 +131,8 @@ export function deriveHistoryCard(
 		// Watched, but TMDB had no runtimes yet → TV "N/A" until the weekly sync heals it;
 		// movies just hide Watch Time
 		timeSpent:
-			entry.minutesWatched > 0
-				? formatTime(Math.round(entry.minutesWatched))
+			minutes > 0
+				? formatTime(Math.round(minutes))
 				: isMovie
 					? null
 					: "N/A",

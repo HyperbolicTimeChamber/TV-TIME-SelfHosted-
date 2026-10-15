@@ -2,7 +2,7 @@
  * One-off admin backfill for Watch History — run locally, never deployed.
  *
  *   GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json \
- *     npm run backfill:history -- [--dry-run] [--only=history|logos|stats|ended|runtimes] [--mode=firstWatch|everyWatch]
+ *     npm run backfill:history -- [--dry-run] [--only=history|logos|stats|ended|runtimes|movieRuntimes] [--mode=firstWatch|everyWatch]
  *
  * stats (only when asked for): recompute profile Watch Time from watched docs.
  *
@@ -14,7 +14,7 @@ import { getTmdbApiKey } from "../hooks/apiKey";
 import { backfillHistory, backfillLogos } from "../hooks/backfill/runBackfill";
 import { recountWatchTime, WatchTimeMode } from "../hooks/backfill/recountWatchTime";
 import { completeEndedShows } from "../hooks/backfill/completeEndedShows";
-import { healZeroRuntimes } from "../hooks/backfill/healZeroRuntimes";
+import { healZeroRuntimes, healZeroMovieRuntimes } from "../hooks/backfill/healZeroRuntimes";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -40,6 +40,11 @@ async function main() {
     const rows = await healZeroRuntimes(db, { dryRun });
     console.table(rows);
     console.log(`0-minute episodes healed${dryRun ? " (dry run — nothing written)" : ""}`);
+  }
+  if (only === "movieRuntimes") {
+    const rows = await healZeroMovieRuntimes(db, { dryRun });
+    console.table(rows);
+    console.log(`0-minute movies healed${dryRun ? " (dry run — nothing written)" : ""}; now run --only=history and --only=stats`);
   }
   if (only === "ended") {
     const r = await completeEndedShows(db, { dryRun });
