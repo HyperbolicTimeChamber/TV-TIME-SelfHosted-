@@ -156,7 +156,9 @@ export default function CalendarScreen() {
 				return (
 					<TouchableOpacity style={styles.childCard} activeOpacity={0.85} onPress={openShow}>
 						{backdrop}
-						<Text style={styles.childEp}>E{pad2(item.episode)}</Text>
+						<View style={styles.childEpBox}>
+							<Text style={styles.childEp}>E{pad2(item.episode)}</Text>
+						</View>
 						<Text style={styles.childTitle} numberOfLines={1}>
 							{item.episodeTitle}
 						</Text>
@@ -364,12 +366,30 @@ const styles = StyleSheet.create({
 		gap: spacing.md,
 		marginHorizontal: spacing.lg,
 		marginBottom: spacing.sm,
-		paddingHorizontal: spacing.md,
+		paddingLeft: 6,
+		paddingRight: spacing.md,
 		borderRadius: 12,
 		overflow: "hidden",
 		backgroundColor: colors.surface,
 	},
-	childEp: { fontFamily: fonts.smoochMedium, fontSize: 24, color: colors.text, letterSpacing: 1 },
+	// Exx in a translucent square (pill background), inset 6px like top/bottom
+	childEpBox: {
+		width: 40,
+		height: 40,
+		borderRadius: 8,
+		backgroundColor: colors.badgeOverlay,
+		alignItems: "center",
+		justifyContent: "center",
+		// Smooch Sans leaves room under the digits — nudge down to look centred
+		paddingTop: 2,
+	},
+	childEp: {
+		fontFamily: fonts.smoochMedium,
+		fontSize: 22,
+		color: colors.text,
+		letterSpacing: 0.5,
+		includeFontPadding: false,
+	},
 	childTitle: { ...typography.body, flex: 1, fontSize: 15, fontWeight: "500", color: colors.text },
 	// Collapsed show's right side: SEASON pill above the dropdown arrow
 	groupSide: { alignItems: "center", gap: spacing.sm, marginLeft: spacing.md },

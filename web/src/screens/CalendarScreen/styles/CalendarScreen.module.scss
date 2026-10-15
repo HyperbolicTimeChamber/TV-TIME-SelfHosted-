@@ -392,7 +392,7 @@
 	width: calc(100% - 32px);
 	height: 52px;
 	margin: 0 16px 8px;
-	padding: 0 12px;
+	padding: 0 12px 0 6px;
 	display: flex;
 	align-items: center;
 	gap: 12px;
@@ -405,12 +405,23 @@
 	cursor: pointer;
 }
 
+/* Exx in a translucent square (pill background), inset 6px like top/bottom */
 .childEp {
 	position: relative;
+	flex-shrink: 0;
+	width: 40px;
+	height: 40px;
+	/* Smooch Sans leaves room under the digits — nudge down to look centred */
+	padding-top: 2px;
+	border-radius: 8px;
+	background: rgba(0, 0, 0, 0.5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	font-family: "Smooch Sans", sans-serif;
-	font-size: 24px;
+	font-size: 22px;
 	font-weight: 500;
-	letter-spacing: 1px;
+	letter-spacing: 0.5px;
 }
 
 .childTitle {
