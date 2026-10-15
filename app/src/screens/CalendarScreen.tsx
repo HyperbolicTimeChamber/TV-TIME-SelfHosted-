@@ -6,7 +6,7 @@ import { LegendList } from "@legendapp/list/react-native";
 import { Calendar, DateData } from "react-native-calendars";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { colors, spacing, typography } from "../theme";
+import { colors, fonts, spacing, typography } from "../theme";
 import { CalendarStackParamList, Route, MediaType } from "../types";
 import { useCalendarScreen, YEARS, type CalendarEpisode } from "./useCalendarScreen";
 import { Image } from "expo-image";
@@ -285,9 +285,9 @@ const styles = StyleSheet.create({
 		paddingHorizontal: spacing.sm,
 	},
 	epSquareTitle: {
-		fontSize: 11,
-		fontWeight: "500",
-		letterSpacing: 1,
+		fontFamily: fonts.smoochMedium,
+		fontSize: 16,
+		letterSpacing: 1.5,
 		color: colors.text,
 	},
 	epSquareRule: {
@@ -296,8 +296,8 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.text,
 		marginVertical: 6,
 	},
-	epSquareValue: { fontSize: 40, fontWeight: "300", color: colors.text, lineHeight: 44 },
-	epSquareYear: { fontSize: 28, lineHeight: 36 },
+	epSquareValue: { fontFamily: fonts.smoochLight, fontSize: 56, color: colors.text, lineHeight: 58 },
+	epSquareYear: { fontSize: 40, lineHeight: 44 },
 	movieBadge: {
 		alignSelf: "flex-start",
 		backgroundColor: colors.moviePurple,

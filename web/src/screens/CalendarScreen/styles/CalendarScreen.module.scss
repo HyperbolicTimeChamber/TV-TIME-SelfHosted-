@@ -278,9 +278,10 @@
 }
 
 .epSquareTitle {
-	font-size: 11px;
+	font-family: "Smooch Sans", sans-serif;
+	font-size: 16px;
 	font-weight: 500;
-	letter-spacing: 1px;
+	letter-spacing: 1.5px;
 	white-space: nowrap;
 }
 
@@ -292,14 +293,15 @@
 }
 
 .epSquareValue {
-	font-size: 40px;
+	font-family: "Smooch Sans", sans-serif;
+	font-size: 56px;
 	font-weight: 300;
-	line-height: 44px;
+	line-height: 58px;
 }
 
 .epSquareYear {
-	font-size: 28px;
-	line-height: 36px;
+	font-size: 40px;
+	line-height: 44px;
 }
 
 .epTitle {
