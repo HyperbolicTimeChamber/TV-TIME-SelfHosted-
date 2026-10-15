@@ -24,7 +24,7 @@ export const colors = {
 /** Custom font families (loaded in App via useFonts). Android: never pair with fontWeight. */
 export const fonts = {
 	/** Smooch Sans — calendar episode square */
-	smoochLight: "SmoochSans_300Light",
+	smoochRegular: "SmoochSans_400Regular",
 	smoochMedium: "SmoochSans_500Medium",
 } as const;
 

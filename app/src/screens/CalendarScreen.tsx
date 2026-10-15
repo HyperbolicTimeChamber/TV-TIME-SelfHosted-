@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.text,
 		marginVertical: 6,
 	},
-	epSquareValue: { fontFamily: fonts.smoochLight, fontSize: 56, color: colors.text, lineHeight: 58 },
+	epSquareValue: { fontFamily: fonts.smoochRegular, fontSize: 56, color: colors.text, lineHeight: 58 },
 	epSquareYear: { fontSize: 40, lineHeight: 44 },
 	movieBadge: {
 		alignSelf: "flex-start",
