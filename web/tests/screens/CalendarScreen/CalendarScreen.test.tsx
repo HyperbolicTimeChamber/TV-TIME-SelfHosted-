@@ -45,7 +45,8 @@ describe("CalendarScreen", () => {
 		renderWithProviders(<CalendarScreen />, { user: testUser });
 		expect(screen.getByText("October 2026")).toBeInTheDocument();
 		expect(screen.getByText("Reacher")).toBeInTheDocument();
-		expect(screen.getByText("S04E08")).toBeInTheDocument();
+		expect(screen.getByText("SEASON 04")).toBeInTheDocument();
+		expect(screen.getByText("E08")).toBeInTheDocument();
 		fireEvent.click(screen.getByLabelText("Next month"));
 		expect(handleMonthChange).toHaveBeenCalledWith(2026, 11);
 		fireEvent.click(screen.getByLabelText("2026-10-15"));

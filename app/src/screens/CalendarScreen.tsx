@@ -14,6 +14,7 @@ import { tmdbBackdropUri, tmdbLogoUri } from "../hooks/useTmdbImage";
 import { BLUR_RADIUS } from "./ProfileScreen/styles";
 
 const CARD_WIDTH = Dimensions.get("window").width - 32;
+const pad2 = (n: number) => String(n).padStart(2, "0");
 
 type NavProp = NativeStackNavigationProp<CalendarStackParamList, Route.CALENDAR_MAIN>;
 
@@ -116,12 +117,11 @@ export default function CalendarScreen() {
 							</Text>
 						)}
 					</View>
-					{/* Top-right pill: SxxExx for episodes, release year for movies */}
-					<View style={styles.seasonPill}>
-						<Text style={styles.epLabel}>
-							{isMovie
-								? item.airDate.slice(0, 4)
-								: `S${String(item.season).padStart(2, "0")}E${String(item.episode).padStart(2, "0")}`}
+					{/* Right square: SEASON xx over a big Exx; movies get their release year */}
+					<View style={styles.epSquare}>
+						<Text style={styles.epSquareTitle}>{isMovie ? "YEAR" : `SEASON ${pad2(item.season)}`}</Text>
+						<Text style={[styles.epSquareValue, isMovie && styles.epSquareYear]}>
+							{isMovie ? item.airDate.slice(0, 4) : `E${pad2(item.episode)}`}
 						</Text>
 					</View>
 				</TouchableOpacity>
@@ -268,20 +268,25 @@ const styles = StyleSheet.create({
 	showTitle: {
 		...typography.subtitle,
 		fontSize: 14,
-		// Only the top row shares space with the corner pill — keep it clear
-		marginRight: 72,
 	},
-	// SxxExx / movie year in the card's top-right corner, translucent black
-	seasonPill: {
-		position: "absolute",
-		top: spacing.md,
-		right: spacing.md,
+	// SEASON xx title over a big Exx (movies: release year), translucent black square
+	epSquare: {
+		width: 76,
+		height: 76,
+		marginLeft: spacing.md,
 		backgroundColor: colors.badgeOverlay,
-		borderRadius: 999,
-		paddingHorizontal: 12,
-		paddingVertical: 4,
+		borderRadius: 12,
+		alignItems: "center",
+		justifyContent: "center",
 	},
-	epLabel: { ...typography.caption, fontSize: 14, color: colors.text, fontWeight: "600" },
+	epSquareTitle: {
+		fontSize: 10,
+		fontWeight: "700",
+		letterSpacing: 0.8,
+		color: colors.textSecondary,
+	},
+	epSquareValue: { fontSize: 30, fontWeight: "800", color: colors.text, lineHeight: 34 },
+	epSquareYear: { fontSize: 22, lineHeight: 30 },
 	movieBadge: {
 		alignSelf: "flex-start",
 		backgroundColor: colors.moviePurple,
