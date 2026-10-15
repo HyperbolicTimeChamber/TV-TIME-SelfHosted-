@@ -13,7 +13,7 @@ export interface HistoryCard {
 	pill: HistoryPill | null;
 	/** formatTime(minutesWatched); no runtime known yet → "N/A" for TV, null (hidden) for movies */
 	timeSpent: string | null;
-	/** TV: most recently watched episode as "S01E24"; null for movies / unknown */
+	/** TV: most recently watched episode as "S01 | E24"; null for movies / unknown */
 	lastWatched: string | null;
 	/** Full watch-throughs — only for Rewatching / Completed */
 	watchCount: number | null;
@@ -122,7 +122,7 @@ export function deriveHistoryCard(
 				: isMovie
 					? null
 					: "N/A",
-		lastWatched: !isMovie && last ? `S${pad(last.season)}E${pad(last.episode)}` : null,
+		lastWatched: !isMovie && last ? `S${pad(last.season)} | E${pad(last.episode)}` : null,
 		watchCount,
 		progress,
 		tag: isMovie ? year || null : catalog ? (ended ? "Ended" : "Ongoing") : null,
