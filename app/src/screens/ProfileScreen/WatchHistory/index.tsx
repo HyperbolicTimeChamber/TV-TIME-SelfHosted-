@@ -1,10 +1,11 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import { View, Text, ActivityIndicator } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LegendList } from "@legendapp/list/react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import PagerView from "react-native-pager-view";
 import SlidingTabs from "../../../components/SlidingTabs";
 import { CircleBackButton } from "../../../components/CircleButton";
 import { useSharedShimmer } from "../../../components/SkeletonLine";
@@ -25,7 +26,7 @@ const TABS = [
 ];
 const SKELETONS = [0, 1, 2];
 
-/** One tab's list — mounted only while active, so the other tab doesn't fetch */
+/** One tab's list — mounted once its page is first shown, so an unseen tab doesn't fetch */
 function HistoryList({ mediaType }: { mediaType: MediaType }) {
 	const navigation = useNavigation<Nav>();
 	const { cards, loading, loadingMore, hasMore, error, loadMore } = useWatchHistory(mediaType);
@@ -84,6 +85,13 @@ export default function WatchHistoryScreen() {
 	const navigation = useNavigation<Nav>();
 	const { top } = useSafeAreaInsets();
 	const [tab, setTab] = useState<MediaType>(MediaType.TV);
+	// Swipe between TV Shows / Movies; a page's list mounts the first time it's shown
+	const pagerRef = useRef<PagerView>(null);
+	const [visited, setVisited] = useState<Set<MediaType>>(() => new Set([MediaType.TV]));
+	const showPage = useCallback((key: MediaType) => {
+		setTab(key);
+		setVisited((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
+	}, []);
 
 	return (
 		<View style={styles.container}>
@@ -97,12 +105,26 @@ export default function WatchHistoryScreen() {
 				<SlidingTabs
 					tabs={TABS}
 					activeKey={tab}
-					onTabPress={(key) => setTab(key as MediaType)}
+					onTabPress={(key) => {
+						showPage(key as MediaType);
+						pagerRef.current?.setPage(TABS.findIndex((t) => t.key === key));
+					}}
 					style={styles.tabs}
 				/>
 			</View>
 			<View style={styles.listArea}>
-				<HistoryList key={tab} mediaType={tab} />
+				<PagerView
+					ref={pagerRef}
+					style={styles.pager}
+					initialPage={0}
+					onPageSelected={(e) => showPage(TABS[e.nativeEvent.position].key)}
+				>
+					{TABS.map((t) => (
+						<View key={t.key} style={styles.pager}>
+							{visited.has(t.key) && <HistoryList mediaType={t.key} />}
+						</View>
+					))}
+				</PagerView>
 				{/* Cards fade out under the bar instead of being cut off */}
 				<LinearGradient
 					colors={[colors.background, `${colors.background}00`]}

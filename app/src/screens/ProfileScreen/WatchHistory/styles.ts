@@ -9,6 +9,7 @@ export const RING_SIZE = 20;
 export const RING_STROKE = 3;
 
 export const styles = StyleSheet.create({
+	pager: { flex: 1 },
 	container: { flex: 1, backgroundColor: colors.background },
 	// Full-width top bar on the page background (blends in): circular back + title, tabs underneath
 	topBar: { backgroundColor: colors.background },

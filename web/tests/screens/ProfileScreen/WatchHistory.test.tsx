@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 import { HistoryPill, HistoryProgress, MediaType } from "@app/enums";
 import type { HistoryCard } from "@app/utils";
@@ -71,10 +71,11 @@ describe("WatchHistoryScreen", () => {
 		expect(document.querySelectorAll('img[src*="/logo.png"]')).toHaveLength(1);
 	});
 
-	it("Movies tab loads its own list; empty shows the message", () => {
+	it("Movies tab loads its own list; empty shows the message", async () => {
 		renderPage();
 		fireEvent.click(screen.getByText("Movies"));
-		expect(useWatchHistory).toHaveBeenLastCalledWith(MediaType.MOVIE);
-		expect(screen.getByText("Nothing watched yet")).toBeInTheDocument();
+		// The TV list slides out before the Movies list mounts
+		await waitFor(() => expect(useWatchHistory).toHaveBeenLastCalledWith(MediaType.MOVIE));
+		expect(await screen.findByText("Nothing watched yet")).toBeInTheDocument();
 	});
 });
