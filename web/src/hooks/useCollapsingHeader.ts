@@ -10,7 +10,8 @@ export function useCollapsingHeader(threshold = 50) {
 			const dy = y - last;
 			last = y;
 			if (dy > 10 && y > threshold) setVisible(false);
-			else if (dy < -10) setVisible(true);
+			// Back at the top always shows it — a short page may not scroll up far enough to trigger dy
+			else if (dy < -10 || y <= 0) setVisible(true);
 		};
 		window.addEventListener("scroll", onScroll, { passive: true });
 		return () => window.removeEventListener("scroll", onScroll);

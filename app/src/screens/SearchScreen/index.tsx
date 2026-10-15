@@ -44,13 +44,18 @@ export default function SearchScreen() {
 
 	const handleScroll = useCallback(
 		(e: any) => {
-			const y = e.nativeEvent.contentOffset.y;
+			const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+			const y = contentOffset.y;
 			const dy = y - lastScrollY.current;
 			lastScrollY.current = y;
 			const h = headerHeight.current;
 			if (animating.current) return;
+			// Hiding the header shrinks the list's top padding by h — only hide when the list
+			// would still scroll afterwards, or a short result set strands the header offscreen
+			const scrollRoom = contentSize.height - layoutMeasurement.height;
+			const canHide = scrollRoom > h + 50;
 
-			if (dy > 10 && headerVisible.current && y > 50) {
+			if (dy > 10 && headerVisible.current && y > 50 && canHide) {
 				headerVisible.current = false;
 				animating.current = true;
 				Animated.parallel([
@@ -67,7 +72,7 @@ export default function SearchScreen() {
 				]).start(() => {
 					animating.current = false;
 				});
-			} else if (dy < -10 && !headerVisible.current) {
+			} else if ((dy < -10 || y <= 0) && !headerVisible.current) {
 				headerVisible.current = true;
 				animating.current = true;
 				Animated.parallel([
