@@ -286,17 +286,17 @@ const styles = StyleSheet.create({
 	},
 	epSquareTitle: {
 		fontSize: 11,
-		fontWeight: "700",
+		fontWeight: "500",
 		letterSpacing: 1,
 		color: colors.text,
 	},
 	epSquareRule: {
 		alignSelf: "stretch",
-		height: 1.5,
+		height: 1,
 		backgroundColor: colors.text,
 		marginVertical: 6,
 	},
-	epSquareValue: { fontSize: 40, fontWeight: "800", color: colors.text, lineHeight: 44 },
+	epSquareValue: { fontSize: 40, fontWeight: "300", color: colors.text, lineHeight: 44 },
 	epSquareYear: { fontSize: 28, lineHeight: 36 },
 	movieBadge: {
 		alignSelf: "flex-start",
