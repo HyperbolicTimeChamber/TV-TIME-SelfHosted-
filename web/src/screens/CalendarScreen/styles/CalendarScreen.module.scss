@@ -372,8 +372,14 @@
 	gap: 8px;
 }
 
+.groupCount {
+	font-size: 18px;
+	font-weight: 600;
+}
+
 .seasonPill {
 	padding: 4px 12px;
+	line-height: 18px;
 	border-radius: 999px;
 	background: rgba(0, 0, 0, 0.5);
 	font-size: 14px;

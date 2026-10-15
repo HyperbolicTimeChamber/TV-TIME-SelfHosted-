@@ -1,7 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { IoChevronBack, IoChevronForward } from "react-icons/io5";
-import { IoIosArrowDropdownCircle } from "react-icons/io";
 import { NavigationType, useNavigate, useNavigationType } from "react-router-dom";
 import { useCalendarScreen, YEARS, type CalendarEpisode, type CalendarPosition } from "@app/screens/useCalendarScreen";
 import { groupCalendarDay, episodeCountLabel, seasonRangeLabel } from "@app/utils/calendarGroups";
@@ -9,6 +8,7 @@ import { MediaType } from "@app/enums";
 import { todayStr } from "@app/utils/todayStr";
 import { tmdbBackdropUri, tmdbLogoUri } from "@app/hooks/useTmdbImage";
 import AnimatedModal from "../../components/AnimatedModal";
+import ArrowDropdownCircle from "../../components/ArrowDropdownCircle";
 import { showPath } from "../../routes/paths";
 import styles from "./styles/CalendarScreen.module.scss";
 import { monthGrid } from "./monthGrid";
@@ -104,14 +104,16 @@ function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 				{isMovie ? (
 					<span className={styles.movieBadge}>MOVIE</span>
 				) : (
-					<span className={styles.epTitle}>{groupEps ? episodeCountLabel(groupEps) : ep.episodeTitle}</span>
+					<span className={`${styles.epTitle} ${groupEps ? styles.groupCount : ""}`}>
+						{groupEps ? episodeCountLabel(groupEps) : ep.episodeTitle}
+					</span>
 				)}
 			</span>
 			{groupEps ? (
 				// Collapsed show: SEASON pill over a dropdown arrow that flips when open
 				<span className={styles.groupSide}>
 					<span className={styles.seasonPill}>{seasonRangeLabel(groupEps)}</span>
-					<IoIosArrowDropdownCircle size={30} className={expanded ? "rotate-180" : undefined} />
+					<ArrowDropdownCircle size={40} flipped={expanded} />
 				</span>
 			) : (
 				// Right square: SEASON xx over a big Exx; movies their release year

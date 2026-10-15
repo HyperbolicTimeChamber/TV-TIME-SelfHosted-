@@ -193,7 +193,7 @@ export default function CalendarScreen() {
 								<Text style={styles.movieBadgeText}>MOVIE</Text>
 							</View>
 						) : (
-							<Text style={styles.epTitle} numberOfLines={2}>
+							<Text style={[styles.epTitle, isGroup && styles.groupCount]} numberOfLines={2}>
 								{isGroup ? episodeCountLabel(groupEps) : item.episodeTitle}
 							</Text>
 						)}
@@ -204,7 +204,7 @@ export default function CalendarScreen() {
 							<View style={styles.seasonPill}>
 								<Text style={styles.seasonPillText}>{seasonRangeLabel(groupEps)}</Text>
 							</View>
-							<ArrowDropdownCircle size={30} flipped={row.expanded} />
+							<ArrowDropdownCircle size={40} flipped={row.expanded} />
 						</View>
 					) : (
 						// Right square: SEASON xx over a big Exx; movies their release year
@@ -379,7 +379,17 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 12,
 		paddingVertical: 4,
 	},
-	seasonPillText: { ...typography.caption, fontSize: 14, color: colors.text, fontWeight: "600" },
+	seasonPillText: {
+		...typography.caption,
+		fontSize: 14,
+		lineHeight: 18,
+		color: colors.text,
+		fontWeight: "600",
+		// Android pads glyphs for ascenders → text sat low in the pill
+		includeFontPadding: false,
+		textAlignVertical: "center",
+	},
+	groupCount: { fontSize: 18, fontWeight: "600" },
 	cardOverlay: { backgroundColor: "rgba(0, 0, 0, 0.55)" },
 	epInfo: { flex: 1 },
 	logo: { height: 36, width: "60%", marginBottom: spacing.sm },
