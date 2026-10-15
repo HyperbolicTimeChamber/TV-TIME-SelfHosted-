@@ -34,6 +34,10 @@
 	background: var(--surface-light);
 }
 
+.raised {
+	background: var(--border);
+}
+
 .spacer {
 	width: 44px;
 	flex-shrink: 0;

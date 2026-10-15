@@ -82,13 +82,13 @@ export default function ProfileScreen() {
 					<IoIosArrowDroprightCircle size={48} className="block shrink-0" />
 				</button>
 				<CircleButton
-					tone={CircleButtonTone.SURFACE_LIGHT}
+					tone={CircleButtonTone.RAISED}
 					className="size-14!"
 					onClick={() => navigate(Paths.SETTINGS)}
 					ariaLabel="Settings"
 				>
-					{/* ~80% of the 56px circle */}
-					<IoSettingsSharp size={45} />
+					{/* ~55% of the 56px circle */}
+					<IoSettingsSharp size={31} />
 				</CircleButton>
 			</div>
 

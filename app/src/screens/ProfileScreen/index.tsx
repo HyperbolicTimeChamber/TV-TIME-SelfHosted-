@@ -21,9 +21,9 @@ import CircleButton from "../../components/CircleButton";
 import WatchHistoryButton from "./WatchHistoryButton";
 import { CircleButtonTone } from "../../enums";
 
-/** Same height as the Hall of Shame pill; gear fills ~80% of it */
+/** Same height as the Hall of Shame pill; gear fills ~55% of it */
 const ACTION_HEIGHT = 56;
-const SETTINGS_ICON = Math.round(ACTION_HEIGHT * 0.8);
+const SETTINGS_ICON = Math.round(ACTION_HEIGHT * 0.55);
 import CollageCard from "./CollageCard";
 import CompletedSections from "./CompletedSections";
 import { styles } from "./styles";
@@ -133,7 +133,7 @@ export default function ProfileScreen() {
 			<View style={styles.actionRow}>
 				<WatchHistoryButton onPress={() => navigation.navigate(Route.WATCH_HISTORY)} />
 				<CircleButton
-					tone={CircleButtonTone.SURFACE_LIGHT}
+					tone={CircleButtonTone.RAISED}
 					style={styles.settingsCircle}
 					onPress={() => navigation.navigate(Route.SETTINGS)}
 					accessibilityLabel="Settings"

@@ -119,18 +119,14 @@ export const styles = StyleSheet.create({
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "space-between",
-		backgroundColor: colors.primary,
+		// Softer red than the brand red, no glow
+		backgroundColor: colors.destructiveRed,
 		borderRadius: 999,
 		height: 56,
 		// 48px icon, circle inset ~4px inside it → visually 8px from the pill's end
 		paddingHorizontal: 4,
 		// Shares the row with the Settings circle
 		flex: 1,
-		shadowColor: colors.primary,
-		shadowOpacity: 0.35,
-		shadowRadius: 12,
-		shadowOffset: { width: 0, height: 6 },
-		elevation: 6,
 	},
 	historyButtonText: { flex: 1, textAlign: "center", color: colors.text, fontSize: 17, fontWeight: "600" },
 	historyButtonSpacer: { width: 48 },

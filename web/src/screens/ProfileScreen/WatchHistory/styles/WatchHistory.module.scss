@@ -321,12 +321,12 @@
 	padding: 0 4px;
 	border: none;
 	border-radius: 999px;
-	background: var(--primary);
+	/* Softer red than the brand red, no glow */
+	background: var(--color-danger);
 	color: var(--text);
 	font-size: 17px;
 	font-weight: 600;
 	cursor: pointer;
-	box-shadow: 0 6px 12px rgba(229, 9, 20, 0.35);
 
 	&:active {
 		opacity: 0.85;

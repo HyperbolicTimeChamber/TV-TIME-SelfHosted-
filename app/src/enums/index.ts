@@ -78,6 +78,8 @@ export enum CircleButtonTone {
 	OVERLAY = "overlay",
 	SURFACE = "surface",
 	SURFACE_LIGHT = "surfaceLight",
+	/** Brightest grey (the border colour) — stands out on black */
+	RAISED = "raised",
 }
 
 /** Watch History card status pill (label text) */
