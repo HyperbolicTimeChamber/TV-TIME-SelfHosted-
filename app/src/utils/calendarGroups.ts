@@ -33,18 +33,20 @@ export function groupCalendarDay<T extends DayItem>(items: T[]): CalendarGroup<T
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
-/** Collapsed card subtitle: "S02 | E01 – E04", or across seasons "S01 | E10 – S02 | E02" */
-export function episodeRangeLabel(episodes: DayItem[]) {
-	const a = episodes[0];
-	const b = episodes[episodes.length - 1];
-	const start = `S${pad2(a.season)} | E${pad2(a.episode)}`;
-	return a.season === b.season
-		? `${start} – E${pad2(b.episode)}`
-		: `${start} – S${pad2(b.season)} | E${pad2(b.episode)}`;
+/** Collapsed card subtitle: "13 Episodes" */
+export function episodeCountLabel(episodes: DayItem[]) {
+	return `${episodes.length} Episodes`;
 }
 
 /** Flat calendar list row: a card (single or collapsed show), or an episode under an open group */
 export enum CalendarRowKind {
 	CARD = "card",
 	CHILD = "child",
+}
+
+/** Collapsed card pill: "SEASON 01", or "SEASON 01–02" when the day spans seasons */
+export function seasonRangeLabel(episodes: DayItem[]) {
+	const a = episodes[0].season;
+	const b = episodes[episodes.length - 1].season;
+	return a === b ? `SEASON ${pad2(a)}` : `SEASON ${pad2(a)}–${pad2(b)}`;
 }

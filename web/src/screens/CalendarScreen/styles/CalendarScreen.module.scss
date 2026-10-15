@@ -264,6 +264,7 @@
 /* SxxExx / movie year in the card's top-right corner, translucent black */
 .epSquare {
 	/* SEASON xx title, rule, big Exx (movies: release year); fills the card's inner height (120 - 2×12) */
+	position: relative;
 	flex-shrink: 0;
 	width: 96px;
 	height: 96px;
@@ -298,12 +299,6 @@
 	font-size: 56px;
 	font-weight: 400;
 	line-height: 58px;
-}
-
-.epSquareCount {
-	display: flex;
-	align-items: center;
-	gap: 2px;
 }
 
 .epSquareYear {
@@ -366,10 +361,61 @@
 	font-weight: 700;
 }
 
-/* Episode under an opened show card: indented so it reads as part of the group */
+/* Collapsed show's right side: SEASON pill above the dropdown arrow */
+.groupSide {
+	position: relative;
+	flex-shrink: 0;
+	margin-left: 12px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+}
+
+.seasonPill {
+	padding: 4px 12px;
+	border-radius: 999px;
+	background: rgba(0, 0, 0, 0.5);
+	font-size: 14px;
+	font-weight: 600;
+}
+
+/* Episode under an opened show card: one-line strip, same backdrop cropped to fit */
 .childRow {
-	width: calc(100% - 72px);
-	margin-left: 56px;
+	position: relative;
+	width: calc(100% - 32px);
+	height: 52px;
+	margin: 0 16px 8px;
+	padding: 0 12px;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	overflow: hidden;
+	border-radius: 12px;
+	background: var(--surface);
+	border: none;
+	color: var(--text);
+	text-align: left;
+	cursor: pointer;
+}
+
+.childEp {
+	position: relative;
+	font-family: "Smooch Sans", sans-serif;
+	font-size: 24px;
+	font-weight: 500;
+	letter-spacing: 1px;
+}
+
+.childTitle {
+	position: relative;
+	flex: 1;
+	min-width: 0;
+	font-size: 15px;
+	font-weight: 500;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 /* Day list skeleton: one CSS animation, same timing as the app's shared shimmer */

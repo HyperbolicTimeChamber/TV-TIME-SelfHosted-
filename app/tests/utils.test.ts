@@ -240,7 +240,7 @@ test("ordinal + markWatchedLabel: rewatch runs get an ordinal label", async () =
 });
 
 test("groupCalendarDay: one card per show, episodes sorted; movies stay single", async () => {
-	const { groupCalendarDay, episodeRangeLabel } = await import("../src/utils/calendarGroups");
+	const { groupCalendarDay, episodeCountLabel } = await import("../src/utils/calendarGroups");
 	const { MediaType } = await import("../src/enums");
 	const ep = (id: number, season: number, episode: number, mediaType = MediaType.TV) => ({
 		tmdbShowId: id,
@@ -258,6 +258,8 @@ test("groupCalendarDay: one card per show, episodes sorted; movies stay single",
 		],
 	);
 	assert.equal(groups[0].first.episode, 1);
-	assert.equal(episodeRangeLabel(groups[0].episodes), "S01 | E01 – E03");
-	assert.equal(episodeRangeLabel([ep(1, 1, 10), ep(1, 2, 2)]), "S01 | E10 – S02 | E02");
+	assert.equal(episodeCountLabel(groups[0].episodes), "3 Episodes");
+	const { seasonRangeLabel } = await import("../src/utils/calendarGroups");
+	assert.equal(seasonRangeLabel(groups[0].episodes), "SEASON 01");
+	assert.equal(seasonRangeLabel([ep(1, 1, 10), ep(1, 2, 2)]), "SEASON 01–02");
 });

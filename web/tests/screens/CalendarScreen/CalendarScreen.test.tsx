@@ -64,8 +64,8 @@ describe("CalendarScreen", () => {
 	it("collapses a show's several episodes into one card that opens like an accordion", () => {
 		renderWithProviders(<CalendarScreen />, { user: testUser });
 		expect(screen.getAllByText("Reacher")).toHaveLength(1);
-		expect(screen.getByText("EPISODES")).toBeInTheDocument();
-		expect(screen.getByText("S04 | E08 – E09")).toBeInTheDocument();
+		expect(screen.getByText("SEASON 04")).toBeInTheDocument();
+		expect(screen.getByText("2 Episodes")).toBeInTheDocument();
 		expect(screen.queryByText("E08")).not.toBeInTheDocument();
 		const card = screen.getByRole("button", { expanded: false });
 		fireEvent.click(card);

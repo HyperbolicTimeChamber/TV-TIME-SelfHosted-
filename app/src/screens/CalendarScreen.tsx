@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Animated } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AnimatedModal } from "../components";
 import { useSharedShimmer } from "../components/SkeletonLine";
+import ArrowDropdownCircle from "../components/ArrowDropdownCircle";
 import { LegendList } from "@legendapp/list/react-native";
 import { Calendar, DateData } from "react-native-calendars";
 import { useNavigation } from "@react-navigation/native";
@@ -16,7 +16,8 @@ import { tmdbBackdropUri, tmdbLogoUri } from "../hooks/useTmdbImage";
 import { BLUR_RADIUS } from "./ProfileScreen/styles";
 import {
 	groupCalendarDay,
-	episodeRangeLabel,
+	episodeCountLabel,
+	seasonRangeLabel,
 	CalendarRowKind,
 	type CalendarGroup,
 } from "../utils/calendarGroups";
@@ -127,21 +128,14 @@ export default function CalendarScreen() {
 		({ item: row }: { item: CalendarRow }) => {
 			const isChild = row.kind === CalendarRowKind.CHILD;
 			const item = isChild ? row.ep : row.group.first;
-			const groupEps = isChild ? [] : row.group.episodes;
-			const isGroup = groupEps.length > 1;
-			const expandedCard = !isChild && row.expanded;
 			const isMovie = item.mediaType === MediaType.MOVIE;
 			const openShow = () =>
 				navigation.navigate(Route.SHOW_DETAIL, {
 					tmdbId: item.tmdbShowId,
 					mediaType: isMovie ? MediaType.MOVIE : MediaType.TV,
 				});
-			return (
-				<TouchableOpacity
-					style={[styles.episodeCard, isChild && styles.childCard]}
-					activeOpacity={0.85}
-					onPress={isGroup && !isChild ? () => toggleGroup(row.key) : openShow}
-				>
+			const backdrop = (
+				<>
 					{/* Same backdrop treatment as the Watch History cards */}
 					{item.backdropPath && (
 						<Image
@@ -154,6 +148,31 @@ export default function CalendarScreen() {
 						/>
 					)}
 					<View style={[StyleSheet.absoluteFill, styles.cardOverlay]} />
+				</>
+			);
+
+			// Episode under an opened show card: one line, Exx then its name
+			if (isChild) {
+				return (
+					<TouchableOpacity style={styles.childCard} activeOpacity={0.85} onPress={openShow}>
+						{backdrop}
+						<Text style={styles.childEp}>E{pad2(item.episode)}</Text>
+						<Text style={styles.childTitle} numberOfLines={1}>
+							{item.episodeTitle}
+						</Text>
+					</TouchableOpacity>
+				);
+			}
+
+			const groupEps = row.group.episodes;
+			const isGroup = groupEps.length > 1;
+			return (
+				<TouchableOpacity
+					style={styles.episodeCard}
+					activeOpacity={0.85}
+					onPress={isGroup ? () => toggleGroup(row.key) : openShow}
+				>
+					{backdrop}
 					<View style={styles.epInfo}>
 						{/* Title logo when TMDB has one, else the name */}
 						{item.logoPath ? (
@@ -175,32 +194,28 @@ export default function CalendarScreen() {
 							</View>
 						) : (
 							<Text style={styles.epTitle} numberOfLines={2}>
-								{isGroup ? episodeRangeLabel(groupEps) : item.episodeTitle}
+								{isGroup ? episodeCountLabel(groupEps) : item.episodeTitle}
 							</Text>
 						)}
 					</View>
-					{/* Right square: SEASON xx over a big Exx; movies their release year;
-					    a collapsed show its episode count + chevron */}
-					<View style={styles.epSquare}>
-						<Text style={styles.epSquareTitle}>
-							{isGroup ? "EPISODES" : isMovie ? "YEAR" : `SEASON ${pad2(item.season)}`}
-						</Text>
-						<View style={styles.epSquareRule} />
-						{isGroup ? (
-							<View style={styles.epSquareCountRow}>
-								<Text style={styles.epSquareValue}>{groupEps.length}</Text>
-								<Ionicons
-									name={expandedCard ? "chevron-up" : "chevron-down"}
-									size={22}
-									color={colors.text}
-								/>
+					{isGroup ? (
+						// Collapsed show: SEASON pill over a dropdown arrow that flips when open
+						<View style={styles.groupSide}>
+							<View style={styles.seasonPill}>
+								<Text style={styles.seasonPillText}>{seasonRangeLabel(groupEps)}</Text>
 							</View>
-						) : (
+							<ArrowDropdownCircle size={30} flipped={row.expanded} />
+						</View>
+					) : (
+						// Right square: SEASON xx over a big Exx; movies their release year
+						<View style={styles.epSquare}>
+							<Text style={styles.epSquareTitle}>{isMovie ? "YEAR" : `SEASON ${pad2(item.season)}`}</Text>
+							<View style={styles.epSquareRule} />
 							<Text style={[styles.epSquareValue, isMovie && styles.epSquareYear]}>
 								{isMovie ? item.airDate.slice(0, 4) : `E${pad2(item.episode)}`}
 							</Text>
-						)}
-					</View>
+						</View>
+					)}
 				</TouchableOpacity>
 			);
 		},
@@ -341,8 +356,30 @@ const styles = StyleSheet.create({
 		overflow: "hidden",
 		backgroundColor: colors.surface,
 	},
-	// Episode under an opened show card: indented so it reads as part of the group
-	childCard: { marginLeft: spacing.xl + spacing.lg },
+	// Episode under an opened show card: one-line strip, same backdrop cropped to fit
+	childCard: {
+		height: 52,
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.md,
+		marginHorizontal: spacing.lg,
+		marginBottom: spacing.sm,
+		paddingHorizontal: spacing.md,
+		borderRadius: 12,
+		overflow: "hidden",
+		backgroundColor: colors.surface,
+	},
+	childEp: { fontFamily: fonts.smoochMedium, fontSize: 24, color: colors.text, letterSpacing: 1 },
+	childTitle: { ...typography.body, flex: 1, fontSize: 15, fontWeight: "500", color: colors.text },
+	// Collapsed show's right side: SEASON pill above the dropdown arrow
+	groupSide: { alignItems: "center", gap: spacing.sm, marginLeft: spacing.md },
+	seasonPill: {
+		backgroundColor: colors.badgeOverlay,
+		borderRadius: 999,
+		paddingHorizontal: 12,
+		paddingVertical: 4,
+	},
+	seasonPillText: { ...typography.caption, fontSize: 14, color: colors.text, fontWeight: "600" },
 	cardOverlay: { backgroundColor: "rgba(0, 0, 0, 0.55)" },
 	epInfo: { flex: 1 },
 	logo: { height: 36, width: "60%", marginBottom: spacing.sm },
@@ -376,7 +413,6 @@ const styles = StyleSheet.create({
 		marginVertical: 6,
 	},
 	epSquareValue: { fontFamily: fonts.smoochRegular, fontSize: 56, color: colors.text, lineHeight: 58 },
-	epSquareCountRow: { flexDirection: "row", alignItems: "center", gap: 2 },
 	epSquareYear: { fontSize: 40, lineHeight: 44 },
 	movieBadge: {
 		alignSelf: "flex-start",

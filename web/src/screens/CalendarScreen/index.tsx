@@ -1,9 +1,10 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { IoChevronBack, IoChevronDown, IoChevronForward, IoChevronUp } from "react-icons/io5";
+import { IoChevronBack, IoChevronForward } from "react-icons/io5";
+import { IoIosArrowDropdownCircle } from "react-icons/io";
 import { NavigationType, useNavigate, useNavigationType } from "react-router-dom";
 import { useCalendarScreen, YEARS, type CalendarEpisode, type CalendarPosition } from "@app/screens/useCalendarScreen";
-import { groupCalendarDay, episodeRangeLabel } from "@app/utils/calendarGroups";
+import { groupCalendarDay, episodeCountLabel, seasonRangeLabel } from "@app/utils/calendarGroups";
 import { MediaType } from "@app/enums";
 import { todayStr } from "@app/utils/todayStr";
 import { tmdbBackdropUri, tmdbLogoUri } from "@app/hooks/useTmdbImage";
@@ -69,13 +70,30 @@ interface DayCardProps {
 /** Day list card: backdrop, logo/name, episode title (or range) + the right-hand square */
 function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 	const isMovie = ep.mediaType === MediaType.MOVIE;
-	return (
-		<button className={`${styles.episodeRow} ${child ? styles.childRow : ""}`} onClick={onClick} aria-expanded={groupEps ? !!expanded : undefined}>
+	const backdrop = (
+		<>
 			{/* Same backdrop treatment as the Watch History cards */}
 			{ep.backdropPath && (
 				<img src={tmdbBackdropUri(ep.backdropPath, CARD_MAX_WIDTH)} alt="" className={styles.cardBg} loading="lazy" />
 			)}
 			<span className={styles.cardOverlay} />
+		</>
+	);
+
+	// Episode under an opened show card: one line, Exx then its name
+	if (child) {
+		return (
+			<button className={styles.childRow} onClick={onClick}>
+				{backdrop}
+				<span className={styles.childEp}>E{pad(ep.episode)}</span>
+				<span className={styles.childTitle}>{ep.episodeTitle}</span>
+			</button>
+		);
+	}
+
+	return (
+		<button className={styles.episodeRow} onClick={onClick} aria-expanded={groupEps ? !!expanded : undefined}>
+			{backdrop}
 			<span className={styles.epInfo}>
 				{/* Title logo when TMDB has one, else the name */}
 				{ep.logoPath ? (
@@ -86,25 +104,25 @@ function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 				{isMovie ? (
 					<span className={styles.movieBadge}>MOVIE</span>
 				) : (
-					<span className={styles.epTitle}>{groupEps ? episodeRangeLabel(groupEps) : ep.episodeTitle}</span>
+					<span className={styles.epTitle}>{groupEps ? episodeCountLabel(groupEps) : ep.episodeTitle}</span>
 				)}
 			</span>
-			{/* Right square: SEASON xx over a big Exx; movies their release year;
-			    a collapsed show its episode count + chevron */}
-			<span className={styles.epSquare}>
-				<span className={styles.epSquareTitle}>{groupEps ? "EPISODES" : isMovie ? "YEAR" : `SEASON ${pad(ep.season)}`}</span>
-				<span className={styles.epSquareRule} />
-				{groupEps ? (
-					<span className={styles.epSquareCount}>
-						<span className={styles.epSquareValue}>{groupEps.length}</span>
-						{expanded ? <IoChevronUp size={22} /> : <IoChevronDown size={22} />}
-					</span>
-				) : (
+			{groupEps ? (
+				// Collapsed show: SEASON pill over a dropdown arrow that flips when open
+				<span className={styles.groupSide}>
+					<span className={styles.seasonPill}>{seasonRangeLabel(groupEps)}</span>
+					<IoIosArrowDropdownCircle size={30} className={expanded ? "rotate-180" : undefined} />
+				</span>
+			) : (
+				// Right square: SEASON xx over a big Exx; movies their release year
+				<span className={styles.epSquare}>
+					<span className={styles.epSquareTitle}>{isMovie ? "YEAR" : `SEASON ${pad(ep.season)}`}</span>
+					<span className={styles.epSquareRule} />
 					<span className={`${styles.epSquareValue} ${isMovie ? styles.epSquareYear : ""}`}>
 						{isMovie ? ep.airDate.slice(0, 4) : `E${pad(ep.episode)}`}
 					</span>
-				)}
-			</span>
+				</span>
+			)}
 		</button>
 	);
 }
