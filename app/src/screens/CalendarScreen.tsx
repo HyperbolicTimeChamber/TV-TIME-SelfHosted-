@@ -181,7 +181,6 @@ export default function CalendarScreen() {
 			if (isChild) {
 				return (
 					<TouchableOpacity style={styles.childCard} activeOpacity={0.85} onPress={openShow}>
-						{backdrop}
 						<View style={styles.childEpBox}>
 							<Text style={styles.childEp}>E{pad2(item.episode)}</Text>
 						</View>
@@ -400,7 +399,7 @@ const styles = StyleSheet.create({
 		overflow: "hidden",
 		backgroundColor: colors.surface,
 	},
-	// Episode under an opened show card: one-line strip, same backdrop cropped to fit
+	// Episode under an opened show card: plain one-line strip (no backdrop)
 	childCard: {
 		height: 52,
 		flexDirection: "row",

@@ -371,7 +371,7 @@
 	font-weight: 700;
 }
 
-/* Episode under an opened show card: one-line strip, same backdrop cropped to fit */
+/* Episode under an opened show card: plain one-line strip (no backdrop) */
 .childRow {
 	position: relative;
 	width: calc(100% - 32px);

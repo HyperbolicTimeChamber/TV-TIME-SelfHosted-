@@ -86,7 +86,6 @@ function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 	if (child) {
 		return (
 			<button className={styles.childRow} onClick={onClick}>
-				{backdrop}
 				<span className={styles.childEp}>E{pad(ep.episode)}</span>
 				<span className={styles.childTitle}>{ep.episodeTitle}</span>
 			</button>
