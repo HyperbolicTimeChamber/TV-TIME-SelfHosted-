@@ -11,6 +11,8 @@ export interface HistoryCard {
 	backdropPath: string | null;
 	/** Status pill; null for movies (every movie in history is watched) */
 	pill: HistoryPill | null;
+	/** Pill text: the status, plus "×n" while rewatching (n = which rewatch) */
+	pillLabel: string | null;
 	/** formatTime(minutesWatched); no runtime known yet → "N/A" for TV, null (hidden) for movies */
 	timeSpent: string | null;
 	/** TV: most recently watched episode as "S01 | E24"; null for movies / unknown */
@@ -113,7 +115,8 @@ export function deriveHistoryCard(
 		title: catalog?.title ?? "",
 		logoPath: catalog?.logoPath ?? null,
 		backdropPath: catalog?.backdropPath ?? null,
-		pill,
+		// Paused: no status pill — the bottom Paused pill already says it
+		pill: pill === HistoryPill.PAUSED ? null : pill,
 		// Watched, but TMDB had no runtimes yet → TV "N/A" until the weekly sync heals it;
 		// movies just hide Watch Time
 		timeSpent:
@@ -123,6 +126,12 @@ export function deriveHistoryCard(
 					? null
 					: "N/A",
 		lastWatched: !isMovie && last ? `S${pad(last.season)} | E${pad(last.episode)}` : null,
+		pillLabel:
+			pill === HistoryPill.PAUSED
+				? null
+				: pill === HistoryPill.REWATCHING && entry.rewatchCount > 0
+					? `${pill} ×${entry.rewatchCount}`
+					: pill,
 		watchCount,
 		progress,
 		tag: isMovie ? year || null : catalog ? (ended ? "Ended" : "Ongoing") : null,

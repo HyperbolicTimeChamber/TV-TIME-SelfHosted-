@@ -133,12 +133,13 @@ test("deriveHistoryCard: unknown runtimes show N/A instead of 0m", () => {
 
 test("deriveHistoryCard: paused, rewatching, completed, movie", () => {
 	const today = "2026-10-14";
-	assert.deepEqual(
-		deriveHistoryCard(entry({ status: WatchStatus.PAUSED_REWATCH }), catalog(), today).progress,
-		{ kind: HistoryProgress.PAUSED },
-	);
+	const paused = deriveHistoryCard(entry({ status: WatchStatus.PAUSED_REWATCH }), catalog(), today);
+	assert.deepEqual(paused.progress, { kind: HistoryProgress.PAUSED });
+	// No status pill — the Paused progress pill says it
+	assert.equal(paused.pill, null);
 	const rewatch = deriveHistoryCard(entry({ status: WatchStatus.REWATCHING, rewatchCount: 2 }), catalog(), today);
 	assert.equal(rewatch.pill, HistoryPill.REWATCHING);
+	assert.equal(rewatch.pillLabel, "Rewatching ×2");
 	assert.equal(rewatch.watchCount, 2);
 	const done = deriveHistoryCard(entry({ status: WatchStatus.COMPLETED, rewatchCount: 1 }), catalog({ status: "Ended" }), today);
 	assert.equal(done.progress, null);

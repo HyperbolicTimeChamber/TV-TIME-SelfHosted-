@@ -13,6 +13,7 @@ const card = (o: Partial<HistoryCard>): HistoryCard => ({
 	logoPath: null,
 	backdropPath: null,
 	pill: HistoryPill.WATCHING,
+	pillLabel: HistoryPill.WATCHING,
 	timeSpent: "3d 4h",
 	lastWatched: "S01 | E02",
 	watchCount: null,
@@ -23,9 +24,9 @@ const card = (o: Partial<HistoryCard>): HistoryCard => ({
 
 const tvCards = [
 	card({ id: "tv_1", logoPath: "/logo.png" }),
-	card({ id: "tv_2", tmdbId: 2, title: "Dark", pill: HistoryPill.COMPLETED, watchCount: 2, progress: null, tag: "Ended" }),
+	card({ id: "tv_2", tmdbId: 2, title: "Dark", pill: HistoryPill.COMPLETED, pillLabel: HistoryPill.COMPLETED, watchCount: 2, progress: null, tag: "Ended" }),
 	card({ id: "tv_3", tmdbId: 3, title: "Severance", progress: { kind: HistoryProgress.UP_TO_DATE } }),
-	card({ id: "tv_4", tmdbId: 4, title: "Fargo", pill: HistoryPill.PAUSED, progress: { kind: HistoryProgress.PAUSED } }),
+	card({ id: "tv_4", tmdbId: 4, title: "Fargo", pill: null, pillLabel: null, progress: { kind: HistoryProgress.PAUSED } }),
 ];
 const useWatchHistory = vi.fn((mediaType: MediaType) => ({
 	cards: mediaType === MediaType.TV ? tvCards : [],
@@ -61,8 +62,7 @@ describe("WatchHistoryScreen", () => {
 
 		expect(screen.getByText("55%")).toBeInTheDocument();
 		expect(screen.getByText("Up To Date")).toBeInTheDocument();
-		// Paused card: status pill reads Incomplete, progress module says Paused
-		expect(screen.getByText("Incomplete")).toBeInTheDocument();
+		// Paused card: only the Paused progress pill (no status pill)
 		expect(screen.getByText("Paused")).toBeInTheDocument();
 		expect(screen.getByText("Watch Count")).toHaveTextContent("Watch Count 2");
 		expect(screen.getByText("Ended")).toBeInTheDocument();

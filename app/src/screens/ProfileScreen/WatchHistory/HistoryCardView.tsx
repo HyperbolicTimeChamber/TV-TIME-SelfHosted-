@@ -99,7 +99,7 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 				<View style={styles.leftBlock}>
 					{card.pill && (
 						<View style={[styles.pill, { backgroundColor: PILL_COLOR[card.pill] }]}>
-							<Text style={styles.pillText}>{card.pill}</Text>
+							<Text style={styles.pillText}>{card.pillLabel}</Text>
 						</View>
 					)}
 					{card.progress ? (
