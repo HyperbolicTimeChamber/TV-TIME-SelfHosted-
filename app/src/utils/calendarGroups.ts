@@ -44,9 +44,9 @@ export enum CalendarRowKind {
 	CHILD = "child",
 }
 
-/** Collapsed card pill: "SEASON 01", or "SEASON 01–02" when the day spans seasons */
+/** Collapsed card subtitle: "Season 01", or "Season 01–02" when the day spans seasons */
 export function seasonRangeLabel(episodes: DayItem[]) {
 	const a = episodes[0].season;
 	const b = episodes[episodes.length - 1].season;
-	return a === b ? `SEASON ${pad2(a)}` : `SEASON ${pad2(a)}–${pad2(b)}`;
+	return a === b ? `Season ${pad2(a)}` : `Season ${pad2(a)}–${pad2(b)}`;
 }

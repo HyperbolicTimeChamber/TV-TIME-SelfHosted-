@@ -260,6 +260,6 @@ test("groupCalendarDay: one card per show, episodes sorted; movies stay single",
 	assert.equal(groups[0].first.episode, 1);
 	assert.equal(episodeCountLabel(groups[0].episodes), "3 Episodes");
 	const { seasonRangeLabel } = await import("../src/utils/calendarGroups");
-	assert.equal(seasonRangeLabel(groups[0].episodes), "SEASON 01");
-	assert.equal(seasonRangeLabel([ep(1, 1, 10), ep(1, 2, 2)]), "SEASON 01–02");
+	assert.equal(seasonRangeLabel(groups[0].episodes), "Season 01");
+	assert.equal(seasonRangeLabel([ep(1, 1, 10), ep(1, 2, 2)]), "Season 01–02");
 });

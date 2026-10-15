@@ -219,21 +219,17 @@ export default function CalendarScreen() {
 							<View style={styles.movieBadge}>
 								<Text style={styles.movieBadgeText}>MOVIE</Text>
 							</View>
-						) : isGroup ? (
-							// Collapsed show: episode count in a translucent pill
-							<View style={styles.countPill}>
-								<Text style={styles.countPillText}>{episodeCountLabel(groupEps)}</Text>
-							</View>
 						) : (
+							// Collapsed show: its season(s) where an episode name would be; count is in the square
 							<Text style={styles.epTitle} numberOfLines={2}>
-								{item.episodeTitle}
+								{isGroup ? seasonRangeLabel(groupEps) : item.episodeTitle}
 							</Text>
 						)}
 					</View>
 					{isGroup ? (
 						// Collapsed show: same square, a dropdown arrow (flips when open) in place of Exx
 						<View style={styles.epSquare}>
-							<Text style={styles.epSquareTitle}>{seasonRangeLabel(groupEps)}</Text>
+							<Text style={styles.epSquareTitle}>{episodeCountLabel(groupEps).toUpperCase()}</Text>
 							<View style={styles.epSquareRule} />
 							<View style={styles.epSquareArrow}>
 								<GroupArrow open={row.expanded} />
@@ -432,24 +428,6 @@ const styles = StyleSheet.create({
 		includeFontPadding: false,
 	},
 	childTitle: { ...typography.body, flex: 1, fontSize: 15, fontWeight: "500", color: colors.text },
-	countPill: {
-		alignSelf: "flex-start",
-		marginTop: spacing.xs,
-		backgroundColor: colors.badgeOverlay,
-		borderRadius: 999,
-		paddingHorizontal: 14,
-		paddingVertical: 5,
-	},
-	countPillText: {
-		...typography.body,
-		fontSize: 16,
-		lineHeight: 20,
-		fontWeight: "600",
-		color: colors.text,
-		// Android pads glyphs for ascenders → text sits low in a pill
-		includeFontPadding: false,
-		textAlignVertical: "center",
-	},
 	cardOverlay: { backgroundColor: "rgba(0, 0, 0, 0.55)" },
 	epInfo: { flex: 1 },
 	logo: { height: 36, width: "60%", marginBottom: spacing.sm },

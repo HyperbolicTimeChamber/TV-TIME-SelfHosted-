@@ -104,17 +104,15 @@ function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 				)}
 				{isMovie ? (
 					<span className={styles.movieBadge}>MOVIE</span>
-				) : groupEps ? (
-					// Collapsed show: episode count in a translucent pill
-					<span className={styles.countPill}>{episodeCountLabel(groupEps)}</span>
 				) : (
-					<span className={styles.epTitle}>{ep.episodeTitle}</span>
+					// Collapsed show: its season(s) where an episode name would be; count is in the square
+					<span className={styles.epTitle}>{groupEps ? seasonRangeLabel(groupEps) : ep.episodeTitle}</span>
 				)}
 			</span>
 			{groupEps ? (
 				// Collapsed show: same square, a dropdown arrow (flips when open) in place of Exx
 				<span className={styles.epSquare}>
-					<span className={styles.epSquareTitle}>{seasonRangeLabel(groupEps)}</span>
+					<span className={styles.epSquareTitle}>{episodeCountLabel(groupEps).toUpperCase()}</span>
 					<span className={styles.epSquareRule} />
 					<span className={styles.epSquareArrow}>
 						<IoIosArrowDown size={40} className={`relative transition-transform duration-220 ${expanded ? "rotate-180" : ""}`} />
