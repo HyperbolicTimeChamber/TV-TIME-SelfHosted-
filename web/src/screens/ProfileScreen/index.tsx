@@ -1,6 +1,5 @@
 import { App as AntApp, Spin } from "antd";
 import { IoPerson, IoSettingsSharp } from "react-icons/io5";
-import { IoIosArrowDroprightCircle } from "react-icons/io";
 import { useNavigate } from "react-router-dom";
 import { useUserStats } from "@app/hooks/useUserStats";
 import { useWatchlist } from "@app/hooks/useWatchlist";
@@ -76,14 +75,11 @@ export default function ProfileScreen() {
 			    No Watch Statistics chart on web: its data is a per-device local cache */}
 			<div className={styles.actionRow}>
 				<button className={historyStyles.historyButton} onClick={() => navigate(Paths.WATCH_HISTORY)}>
-					{/* Spacer mirrors the icon so the label is centred on the whole pill */}
-					<span className="w-12 shrink-0" aria-hidden />
-					<span className="flex-1 text-center">Hall of Shame</span>
-					<IoIosArrowDroprightCircle size={48} className="block shrink-0" />
+					Hall of Shame
 				</button>
 				<CircleButton
 					tone={CircleButtonTone.RAISED}
-					className="size-14! rounded-xl!"
+					className="size-14!"
 					onClick={() => navigate(Paths.SETTINGS)}
 					ariaLabel="Settings"
 				>

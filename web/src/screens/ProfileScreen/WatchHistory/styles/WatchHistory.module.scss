@@ -312,16 +312,15 @@
 .historyButton {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
+	justify-content: center;
 	/* Shares the row with the Settings circle */
 	flex: 1;
 	min-width: 0;
 	height: 56px;
-	/* 48px icon, circle inset ~4px inside it → visually 8px from the pill's end */
-	padding: 0 4px;
+	padding: 0 16px;
 	border: none;
-	/* Same 12px corners as the stat cards */
-	border-radius: 12px;
+	/* Reads as round as the (larger) stat cards */
+	border-radius: 16px;
 	/* Softer red than the brand red, no glow */
 	background: var(--color-danger);
 	color: var(--text);

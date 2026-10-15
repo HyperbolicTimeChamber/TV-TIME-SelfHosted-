@@ -116,19 +116,16 @@ export const styles = StyleSheet.create({
 
 	// Profile entry button
 	historyButton: {
-		flexDirection: "row",
 		alignItems: "center",
-		justifyContent: "space-between",
+		justifyContent: "center",
 		// Softer red than the brand red, no glow
 		backgroundColor: colors.destructiveRed,
-		// Same 12px corners as the stat cards
-		borderRadius: 12,
+		// Reads as round as the (larger) stat cards
+		borderRadius: 16,
 		height: 56,
-		// 48px icon, circle inset ~4px inside it → visually 8px from the pill's end
-		paddingHorizontal: 4,
+		paddingHorizontal: spacing.lg,
 		// Shares the row with the Settings circle
 		flex: 1,
 	},
-	historyButtonText: { flex: 1, textAlign: "center", color: colors.text, fontSize: 17, fontWeight: "600" },
-	historyButtonSpacer: { width: 48 },
+	historyButtonText: { color: colors.text, fontSize: 17, fontWeight: "600" },
 });
