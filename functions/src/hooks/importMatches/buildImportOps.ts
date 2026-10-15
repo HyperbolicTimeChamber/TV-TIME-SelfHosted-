@@ -97,6 +97,10 @@ export function buildImportOps(
       }
 
       // Watch History: absolute values (set() overwrites on re-import)
+      const latestEp = [...(match.watchedEpisodes ?? [])].sort(
+        (a, b) => new Date(b.watchedAt).getTime() - new Date(a.watchedAt).getTime() ||
+          b.season - a.season || b.episode - a.episode,
+      )[0];
       const tvEps = match.mediaType === MediaType.TV ? (match.watchedEpisodes ?? []) : [];
       const plays = match.mediaType === MediaType.MOVIE ? 1 : tvEps.length;
       const minutesWatched =
@@ -123,6 +127,9 @@ export function buildImportOps(
           ? {
               historyAt: lastWatchedAt,
               historyUpdatedAt: FieldValue.serverTimestamp(),
+              ...(match.mediaType === MediaType.TV && latestEp
+                ? { lastEpisode: { season: latestEp.season, episode: latestEp.episode } }
+                : {}),
               minutesWatched,
               plays,
             }

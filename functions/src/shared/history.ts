@@ -6,9 +6,16 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
  * - historyUpdatedAt: any history-relevant change — the client's delta-sync cursor
  * - minutesWatched: total time incl. rewatches
  * - plays: marks minus unmarks; 0 → back to "not started", hidden from history
+ * - lastEpisode: the episode most recently marked watched (TV) — "Last Watched"
  */
-export function historyOnWatch(minutes: number, plays: number, at: Timestamp) {
+export function historyOnWatch(
+  minutes: number,
+  plays: number,
+  at: Timestamp,
+  lastEpisode?: { season: number; episode: number },
+) {
   return {
+    ...(lastEpisode ? { lastEpisode } : {}),
     historyAt: at,
     historyUpdatedAt: FieldValue.serverTimestamp(),
     minutesWatched: FieldValue.increment(minutes),

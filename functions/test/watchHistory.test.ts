@@ -23,6 +23,16 @@ test("aggregateHistory: runtime × watchCount, plays, latest watch per show", ()
     { minutesWatched: 105, plays: 3, historyAt: 300 },
   );
   assert.equal(totals.get("tv_2")!.plays, 1);
+
+  // Last Watched = the episode with the latest lastWatchedAt
+  const withEps = aggregateHistory(
+    [
+      { tmdbShowId: 1, season: 1, episode: 5, lastWatchedAt: at(500) },
+      { tmdbShowId: 1, season: 2, episode: 1, lastWatchedAt: at(100) },
+    ],
+    [],
+  );
+  assert.deepEqual(withEps.get("tv_1")!.lastEpisode, { season: 1, episode: 5 });
   assert.equal(totals.get("movie_9")!.minutesWatched, 360);
 });
 
