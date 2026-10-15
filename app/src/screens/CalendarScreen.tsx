@@ -283,6 +283,8 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 		paddingHorizontal: spacing.sm,
+		// Smooch Sans digits leave extra room under them — nudge the stack down
+		paddingTop: 6,
 	},
 	epSquareTitle: {
 		fontFamily: fonts.smoochMedium,
