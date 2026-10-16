@@ -59,9 +59,9 @@ function CalendarSkeleton() {
 	);
 }
 
-/** "15 THU" */
+/** "15 THURSDAY" */
 function DayHeader({ date }: { date: string }) {
-	const weekday = parseDay(date).toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
+	const weekday = parseDay(date).toLocaleDateString("en-US", { weekday: "long" }).toUpperCase();
 	return (
 		<View style={styles.dayHeader}>
 			<Text style={styles.dayHeaderNumber}>{Number(date.slice(8))}</Text>
