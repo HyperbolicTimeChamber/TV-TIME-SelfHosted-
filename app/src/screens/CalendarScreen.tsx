@@ -241,9 +241,9 @@ export default function CalendarScreen() {
 						</View>
 					) : (
 						// Right square: SEASON xx over a big Exx; movies their release year
-						<View style={styles.epSquare}>
+						<View style={[styles.epSquare, airTime && styles.epSquareTimed]}>
 							<Text style={styles.epSquareTitle}>{isMovie ? "YEAR" : `SEASON ${pad2(item.season)}`}</Text>
-							<View style={styles.epSquareRule} />
+							<View style={[styles.epSquareRule, airTime && styles.epSquareRuleTimed]} />
 							<Text style={[styles.epSquareValue, isMovie && styles.epSquareYear, airTime && styles.epSquareValueTimed]}>
 								{isMovie ? item.airDate.slice(0, 4) : `E${pad2(item.episode)}`}
 							</Text>
@@ -475,8 +475,11 @@ const styles = StyleSheet.create({
 		marginTop: -6,
 	},
 	// With a time under it, Exx shrinks so all four lines fit the square
-	epSquareValueTimed: { fontSize: 44, lineHeight: 46 },
-	epSquareTime: { fontFamily: fonts.smoochMedium, fontSize: 14, lineHeight: 16, letterSpacing: 0.5, color: colors.text },
+	// Four lines: tighter gaps (and no top nudge) so the time keeps room below it
+	epSquareTimed: { paddingTop: 0 },
+	epSquareRuleTimed: { marginVertical: 4 },
+	epSquareValueTimed: { fontSize: 44, lineHeight: 40 },
+	epSquareTime: { fontFamily: fonts.smoochMedium, fontSize: 14, lineHeight: 14, letterSpacing: 0.5, color: colors.text },
 	epSquareYear: { fontSize: 40, lineHeight: 44 },
 	movieBadge: {
 		alignSelf: "flex-start",

@@ -124,7 +124,7 @@ function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 				</span>
 			) : (
 				// Right square: SEASON xx over a big Exx; movies their release year
-				<span className={styles.epSquare}>
+				<span className={`${styles.epSquare} ${airTime ? styles.epSquareTimed : ""}`}>
 					<span className={styles.epSquareTitle}>{isMovie ? "YEAR" : `SEASON ${pad(ep.season)}`}</span>
 					<span className={styles.epSquareRule} />
 					<span className={`${styles.epSquareValue} ${isMovie ? styles.epSquareYear : ""} ${airTime ? styles.epSquareValueTimed : ""}`}>

@@ -312,17 +312,26 @@
 	justify-content: center;
 }
 
+/* Four lines: tighter gaps (and no top nudge) so the time keeps room below it */
+.epSquareTimed {
+	padding-top: 0;
+
+	.epSquareRule {
+		margin: 4px 0;
+	}
+}
+
 /* With a time under it, Exx shrinks so all four lines fit the square */
 .epSquareValueTimed {
 	font-size: 44px;
-	line-height: 46px;
+	line-height: 40px;
 }
 
 .epSquareTime {
 	font-family: "Smooch Sans", sans-serif;
 	font-size: 14px;
 	font-weight: 500;
-	line-height: 16px;
+	line-height: 14px;
 	letter-spacing: 0.5px;
 }
 
