@@ -70,7 +70,7 @@ const DayCell = memo(function DayCell({
 								<Text
 									key={m.key}
 									numberOfLines={2}
-									style={[styles.chip, { backgroundColor: `${markColor(m)}66` }]}
+									style={[styles.chip, { backgroundColor: markColor(m) }]}
 								>
 									{m.title}
 								</Text>
