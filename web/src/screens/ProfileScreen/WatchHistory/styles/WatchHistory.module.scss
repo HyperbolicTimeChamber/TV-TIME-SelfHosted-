@@ -404,16 +404,6 @@
 	background: var(--color-fg);
 }
 
-.loadingAll {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 12px;
-	margin-top: 30vh;
-	color: var(--color-fg-secondary);
-	font-size: 13px;
-}
-
 /* Sort / filter popover */
 .viewPanel {
 	width: 260px;

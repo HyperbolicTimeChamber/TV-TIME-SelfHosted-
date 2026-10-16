@@ -13,7 +13,7 @@ import { useWatchHistory } from "../../../hooks";
 import { useHistorySort } from "../../../hooks/useWatchHistory";
 import { CircleButtonTone, HistoryFilter, HistorySort, MediaType, Route } from "../../../enums";
 import type { ProfileStackParamList } from "../../../types";
-import { applyHistoryView, needsFullHistory, type HistoryCard } from "../../../utils";
+import type { HistoryCard } from "../../../utils";
 import { Ionicons } from "@expo/vector-icons";
 import HistoryViewSheet from "./HistoryViewSheet";
 import { colors } from "../../../theme";
@@ -43,15 +43,8 @@ function HistoryList({
 	bottomInset: number;
 }) {
 	const navigation = useNavigation<Nav>();
-	const full = needsFullHistory(sort, filters);
-	const { cards: allCards, loading, loadingMore, loadingAll, hasMore, error, loadMore } = useWatchHistory(
-		mediaType,
-		full,
-	);
-	const cards = useMemo(
-		() => (full ? applyHistoryView(allCards, sort, filters) : allCards),
-		[full, allCards, sort, filters],
-	);
+	// Sort / filters run in the Firestore query — still 20 a page
+	const { cards, loading, loadingMore, hasMore, error, loadMore } = useWatchHistory(mediaType, sort, filters);
 	const shimmer = useSharedShimmer();
 
 	const renderItem = useCallback(
@@ -78,17 +71,8 @@ function HistoryList({
 		);
 	}
 
-	if (full && loadingAll) {
-		return (
-			<View style={styles.loadingAll}>
-				<ActivityIndicator color={colors.primary} />
-				<Text style={styles.loadingAllText}>Loading your full history…</Text>
-			</View>
-		);
-	}
-
 	if (cards.length === 0) {
-		const message = filters.size > 0 && allCards.length > 0 ? "Nothing matches these filters" : "Nothing watched yet";
+		const message = filters.size > 0 ? "Nothing matches these filters" : "Nothing watched yet";
 		return <Text style={styles.empty}>{error ?? message}</Text>;
 	}
 
@@ -100,8 +84,7 @@ function HistoryList({
 			estimatedItemSize={210}
 			contentContainerStyle={[styles.list, { paddingBottom: bottomInset }]}
 			ItemSeparatorComponent={() => <View style={styles.separator} />}
-			// A sort / filter already has the whole tab; the default view pages in
-			onEndReached={!full && hasMore ? loadMore : undefined}
+			onEndReached={hasMore ? loadMore : undefined}
 			onEndReachedThreshold={0.6}
 			recycleItems
 			ListFooterComponent={
@@ -126,11 +109,9 @@ export default function WatchHistoryScreen() {
 	const [filters, setFilters] = useState<Set<HistoryFilter>>(() => new Set());
 	const [sheetOpen, setSheetOpen] = useState(false);
 	const isMovieTab = tab === MediaType.MOVIE;
-	// Progress means nothing for movies — fall back to the default there
-	const tabSort = (mt: MediaType) => (mt === MediaType.MOVIE && sort === HistorySort.PROGRESS ? HistorySort.LAST_WATCHED : sort);
 	const NO_FILTERS = useMemo(() => new Set<HistoryFilter>(), []);
 	const tabFilters = (mt: MediaType) => (mt === MediaType.MOVIE ? NO_FILTERS : filters);
-	const customised = tabSort(tab) !== HistorySort.LAST_WATCHED || tabFilters(tab).size > 0;
+	const customised = sort !== HistorySort.LAST_WATCHED || tabFilters(tab).size > 0;
 	const toggleFilter = (f: HistoryFilter) =>
 		setFilters((prev) => {
 			const next = new Set(prev);
@@ -175,7 +156,7 @@ export default function WatchHistoryScreen() {
 							{visited.has(t.key) && (
 								<HistoryList
 									mediaType={t.key}
-									sort={tabSort(t.key)}
+									sort={sort}
 									filters={tabFilters(t.key)}
 									bottomInset={fabBottom + 72}
 								/>
@@ -203,7 +184,7 @@ export default function WatchHistoryScreen() {
 				visible={sheetOpen}
 				onClose={() => setSheetOpen(false)}
 				isMovie={isMovieTab}
-				sort={tabSort(tab)}
+				sort={sort}
 				onSort={(next) => {
 					setSort(next);
 					setSheetOpen(false);

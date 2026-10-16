@@ -4,7 +4,7 @@ import {
 	HISTORY_FILTERS,
 	HISTORY_FILTER_LABEL,
 	HISTORY_SORT_LABEL,
-	historySortOptions,
+	HISTORY_SORTS,
 } from "@app/utils/historyView";
 import styles from "./styles/WatchHistory.module.scss";
 
@@ -17,12 +17,12 @@ interface Props {
 	onClearFilters: () => void;
 }
 
-/** Sort order (saved) + status / airing filters (TV only, cleared on leaving) — app HistoryViewSheet */
+/** Sort order (saved) + status filters (TV only, cleared on leaving) — app HistoryViewSheet */
 export default function HistoryViewPanel({ isMovie, sort, onSort, filters, onToggleFilter, onClearFilters }: Props) {
 	return (
 		<div className={styles.viewPanel}>
 			<p className={styles.viewTitle}>Sort by</p>
-			{historySortOptions(isMovie).map((option) => (
+			{HISTORY_SORTS.map((option) => (
 				<button
 					key={option}
 					className={`${styles.viewRow} ${option === sort ? styles.viewRowActive : ""}`}

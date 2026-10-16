@@ -5,7 +5,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { useHistorySort, useWatchHistory } from "@app/hooks/useWatchHistory";
-import { applyHistoryView, needsFullHistory } from "@app/utils/historyView";
 import { CircleButtonTone, HistoryFilter, HistorySort, MediaType } from "@app/enums";
 import SlidingTabs from "../../../components/SlidingTabs";
 import { CircleBackButton, CircleButtonSpacer } from "../../../components/CircleButton";
@@ -37,12 +36,8 @@ function HistoryList({
 	filters: ReadonlySet<HistoryFilter>;
 }) {
 	const navigate = useNavigate();
-	const full = needsFullHistory(sort, filters);
-	const { cards: allCards, loading, loadingAll, hasMore, error, loadMore } = useWatchHistory(mediaType, full);
-	const cards = useMemo(
-		() => (full ? applyHistoryView(allCards, sort, filters) : allCards),
-		[full, allCards, sort, filters],
-	);
+	// Sort / filters run in the Firestore query — still 20 a page
+	const { cards, loading, hasMore, error, loadMore } = useWatchHistory(mediaType, sort, filters);
 	const columns = useColumnCount();
 
 	if (loading) {
@@ -54,16 +49,8 @@ function HistoryList({
 			</div>
 		);
 	}
-	if (full && loadingAll) {
-		return (
-			<div className={styles.loadingAll}>
-				<LoadingSpinner />
-				<p>Loading your full history…</p>
-			</div>
-		);
-	}
 	if (cards.length === 0) {
-		const message = filters.size > 0 && allCards.length > 0 ? "Nothing matches these filters" : "Nothing watched yet";
+		const message = filters.size > 0 ? "Nothing matches these filters" : "Nothing watched yet";
 		return <p className={styles.empty}>{error ?? message}</p>;
 	}
 
@@ -71,8 +58,7 @@ function HistoryList({
 		<InfiniteScroll
 			dataLength={cards.length}
 			next={loadMore}
-			// A sort / filter already has the whole tab; the default view pages in
-			hasMore={!full && hasMore}
+			hasMore={hasMore}
 			loader={
 				<div className={styles.footer}>
 					<LoadingSpinner />
@@ -105,10 +91,9 @@ export default function WatchHistoryScreen() {
 	const [filters, setFilters] = useState<Set<HistoryFilter>>(() => new Set());
 	const [panelOpen, setPanelOpen] = useState(false);
 	const noFilters = useMemo(() => new Set<HistoryFilter>(), []);
-	// Progress means nothing for movies (default there); filters are TV-only
-	const tabSort = tab === MediaType.MOVIE && sort === HistorySort.PROGRESS ? HistorySort.LAST_WATCHED : sort;
+	// Filters are TV-only (every movie in history is simply watched)
 	const tabFilters = tab === MediaType.MOVIE ? noFilters : filters;
-	const customised = tabSort !== HistorySort.LAST_WATCHED || tabFilters.size > 0;
+	const customised = sort !== HistorySort.LAST_WATCHED || tabFilters.size > 0;
 	const toggleFilter = (f: HistoryFilter) =>
 		setFilters((prev) => {
 			const next = new Set(prev);
@@ -149,7 +134,7 @@ export default function WatchHistoryScreen() {
 						content={
 							<HistoryViewPanel
 								isMovie={tab === MediaType.MOVIE}
-								sort={tabSort}
+								sort={sort}
 								onSort={(next) => {
 									setSort(next);
 									setPanelOpen(false);
@@ -186,7 +171,7 @@ export default function WatchHistoryScreen() {
 						else if (info.offset.x > SWIPE_PX) goTo(index - 1);
 					}}
 				>
-					<HistoryList mediaType={tab} sort={tabSort} filters={tabFilters} />
+					<HistoryList mediaType={tab} sort={sort} filters={tabFilters} />
 				</motion.div>
 			</AnimatePresence>
 		</div>

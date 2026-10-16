@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "../stores";
-import { CacheKey, HistorySort, MediaType } from "../enums";
-import type { HistoryChange, HistoryState } from "../types";
+import { CacheKey, HistoryFilter, HistorySort, MediaType } from "../enums";
+import type { HistoryChange, HistoryEntry, HistoryState } from "../types";
+import { historyFilterStatuses, isDefaultHistoryView } from "../utils/historyView";
 import {
 	fetchHistoryDelta,
 	fetchHistoryEntry,
 	fetchHistoryPage,
-	fetchHistoryRest,
+	fetchHistoryViewPage,
 } from "../services/historyApi";
 import {
 	applyChange,
@@ -95,12 +96,74 @@ export function useHistorySort(): [HistorySort, (sort: HistorySort) => void] {
 	return [sort, choose];
 }
 
+const NO_FILTERS: ReadonlySet<HistoryFilter> = new Set();
+
+/** A sorted / filtered view: pages straight from Firestore (not cached — 20 reads a page) */
+function useHistoryView(
+	userId: string | undefined,
+	mediaType: MediaType,
+	sort: HistorySort,
+	filters: ReadonlySet<HistoryFilter>,
+	enabled: boolean,
+) {
+	const statuses = historyFilterStatuses(filters);
+	const viewKey = `${mediaType}|${sort}|${statuses.join(",")}`;
+	const [view, setView] = useState<{ key: string; items: HistoryEntry[]; hasMore: boolean } | null>(null);
+	const [busy, setBusy] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	const current = view?.key === viewKey ? view : null;
+
+	const fetchPage = useCallback(
+		async (after: HistoryEntry | null) => {
+			if (!userId) return;
+			setBusy(true);
+			try {
+				const page = await fetchHistoryViewPage(userId, mediaType, sort, statuses, after);
+				setView((prev) => {
+					const base = after && prev?.key === viewKey ? prev.items : [];
+					const seen = new Set(base.map((e) => e.id));
+					return {
+						key: viewKey,
+						items: [...base, ...page.entries.filter((e) => !seen.has(e.id))],
+						hasMore: page.hasMore,
+					};
+				});
+				setError(null);
+			} catch (err) {
+				console.error("[watchHistory] view page failed:", err);
+				setError("Couldn't load your watch history");
+			} finally {
+				setBusy(false);
+			}
+		},
+		// statuses is derived from viewKey
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[userId, viewKey],
+	);
+
+	// New view (sort / filters / tab) → its first page
+	useEffect(() => {
+		if (enabled) fetchPage(null);
+	}, [enabled, fetchPage]);
+
+	const loadMore = useCallback(() => {
+		if (!current?.hasMore || busy) return;
+		fetchPage(current.items[current.items.length - 1] ?? null);
+	}, [current, busy, fetchPage]);
+
+	return { items: current?.items ?? null, hasMore: current?.hasMore ?? true, busy, error, loadMore };
+}
+
 /**
- * Watch History for one tab (SWR): cached cards render immediately, a delta query
- * (`historyUpdatedAt > checkedAt`) refreshes them quietly, pages of 20 load on demand.
- * `loadAll` (a sort / filter is on) pulls the rest of the tab once — then it's cached too.
+ * Watch History for one tab. Default view (SWR): cached cards render immediately, a delta
+ * query (`historyUpdatedAt > checkedAt`) refreshes them quietly, pages of 20 load on demand.
+ * Another sort / status filter pages from Firestore with that order / filter.
  */
-export function useWatchHistory(mediaType: MediaType, loadAll = false) {
+export function useWatchHistory(
+	mediaType: MediaType,
+	sort: HistorySort = HistorySort.LAST_WATCHED,
+	filters: ReadonlySet<HistoryFilter> = NO_FILTERS,
+) {
 	const userId = useAuthStore((s) => s.user?.uid);
 	const state = useSyncExternalStore(
 		useCallback((fn: () => void) => {
@@ -113,8 +176,6 @@ export function useWatchHistory(mediaType: MediaType, loadAll = false) {
 	);
 	const [loading, setLoading] = useState(!state);
 	const [loadingMore, setLoadingMore] = useState(false);
-	const [loadingAll, setLoadingAll] = useState(false);
-	const [restFailed, setRestFailed] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	// Catalog cache isn't reactive — bump to re-derive cards after a batch fetch
 	const [catalogVersion, setCatalogVersion] = useState(0);
@@ -169,41 +230,40 @@ export function useWatchHistory(mediaType: MediaType, loadAll = false) {
 		}
 	}, [userId, mediaType, state, loadingMore]);
 
-	// Sorting / filtering needs the whole tab: fetch everything after the cached pages, once
-	const needRest = loadAll && !!userId && !!state?.hasMore && !restFailed;
+	const isDefault = isDefaultHistoryView(sort, filters);
+	const view = useHistoryView(userId, mediaType, sort, filters, !isDefault);
+
+	const entries = isDefault ? (state?.items ?? []) : (view.items ?? []);
+	// Catalog details (logo, backdrop, status) for a view's titles too
 	useEffect(() => {
-		if (!needRest || !userId) return;
-		setLoadingAll(true);
-		const current = states.get(storeKey(userId, mediaType));
-		fetchHistoryRest(userId, mediaType, current?.items[current.items.length - 1] ?? null)
-			.then((rest) => {
-				const latest = states.get(storeKey(userId, mediaType)) ?? current ?? emptyState(userId);
-				save(mediaType, mergeEntries(latest, rest, false));
-			})
-			.catch((err) => {
-				console.error("[watchHistory] load all failed:", err);
-				setRestFailed(true);
-				setError("Couldn't load your full history");
-			})
-			// Not tied to this effect run: saving the rest flips needRest, which re-runs the
-			// effect — a "cancelled" guard here left the spinner on forever
-			.finally(() => setLoadingAll(false));
-	}, [needRest, userId, mediaType]);
+		if (isDefault || !view.items?.length) return;
+		ensureFreshCatalogs(view.items)
+			.then((fetched) => fetched && setCatalogVersion((v) => v + 1))
+			.catch(() => {});
+	}, [isDefault, view.items]);
 
 	const cards: HistoryCard[] = useMemo(() => {
 		const today = todayStr();
-		return (state?.items ?? []).map((e) =>
+		return entries.map((e) =>
 			deriveHistoryCard(e, getCachedCatalogShow(e.tmdbId, e.mediaType), today),
 		);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [state, catalogVersion]);
+	}, [entries, catalogVersion]);
 
+	if (!isDefault) {
+		return {
+			cards,
+			loading: view.items === null,
+			loadingMore: view.busy && view.items !== null,
+			hasMore: view.hasMore,
+			error: view.error,
+			loadMore: view.loadMore,
+		};
+	}
 	return {
 		cards,
 		loading: loading && !state,
 		loadingMore,
-		/** Fetching the rest of the tab for a sort / filter */
-		loadingAll: loadingAll || needRest,
 		hasMore: state?.hasMore ?? true,
 		error,
 		loadMore,

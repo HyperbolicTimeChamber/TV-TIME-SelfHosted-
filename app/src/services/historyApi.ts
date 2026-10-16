@@ -13,7 +13,7 @@ import {
 	Timestamp,
 } from "@react-native-firebase/firestore";
 import type { CatalogShow, HistoryEntry } from "../types";
-import { MediaType, WatchStatus } from "../enums";
+import { HistorySort, MediaType, WatchStatus } from "../enums";
 import { localizeCatalog } from "../utils/airTime";
 
 export const HISTORY_PAGE_SIZE = 20;
@@ -64,23 +64,36 @@ export async function fetchHistoryPage(
 	};
 }
 
-/** Everything after `after` (sorting / filtering needs the whole tab) — one read per title, once;
- *  the cache and delta sync keep it current afterwards */
-export async function fetchHistoryRest(
+/**
+ * One page of a sorted / filtered view (Firestore does the work, so it stays paginated):
+ * newest watch or most time spent first, optionally only some statuses.
+ */
+export async function fetchHistoryViewPage(
 	userId: string,
 	mediaType: MediaType,
-	after: Pick<HistoryEntry, "historyAt" | "id"> | null,
-): Promise<HistoryEntry[]> {
+	sort: HistorySort,
+	statuses: WatchStatus[],
+	after: Pick<HistoryEntry, "historyAt" | "minutesWatched" | "id"> | null,
+): Promise<{ entries: HistoryEntry[]; hasMore: boolean }> {
+	const bySpent = sort === HistorySort.TIME_SPENT;
+	const field = bySpent ? "minutesWatched" : "historyAt";
+	const cursor = after ? (bySpent ? after.minutesWatched : Timestamp.fromMillis(after.historyAt)) : null;
 	const snap = await getDocs(
 		query(
 			trackingCol(userId),
 			where("mediaType", "==", mediaType),
-			orderBy("historyAt", "desc"),
+			...(statuses.length > 0 ? [where("status", "in", statuses)] : []),
+			orderBy(field, "desc"),
 			orderBy(documentId(), "desc"),
-			...(after ? [startAfter(Timestamp.fromMillis(after.historyAt), after.id)] : []),
+			...(after ? [startAfter(cursor, after.id)] : []),
+			limit(HISTORY_PAGE_SIZE),
 		),
 	);
-	return snap.docs.map((d) => toEntry(d.id, d.data()));
+	return {
+		// Never-watched titles (plays 0) can carry minutesWatched 0 — not history
+		entries: snap.docs.map((d) => toEntry(d.id, d.data())).filter((e) => e.plays > 0),
+		hasMore: snap.docs.length === HISTORY_PAGE_SIZE,
+	};
 }
 
 /** Rows changed since the cache was last synced — usually 0 docs (1 read minimum) */

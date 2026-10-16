@@ -93,22 +93,17 @@ export enum HistoryPill {
 	PAUSED = "Incomplete",
 }
 
-/** Watch History sort order */
+/** Watch History sort order — each is a Firestore orderBy, so lists stay paginated */
 export enum HistorySort {
 	LAST_WATCHED = "lastWatched",
-	TITLE = "title",
-	RELEASED = "released",
-	PROGRESS = "progress",
 	TIME_SPENT = "timeSpent",
 }
 
-/** Watch History filters (TV) — statuses OR together, ended / airing OR together, both groups AND */
+/** Watch History status filters (TV) — OR together, applied in the Firestore query */
 export enum HistoryFilter {
 	PAUSED = "paused",
 	WATCHING = "watching",
 	REWATCHING = "rewatching",
-	ENDED = "ended",
-	AIRING = "airing",
 }
 
 /** Watch History card bottom-right module */

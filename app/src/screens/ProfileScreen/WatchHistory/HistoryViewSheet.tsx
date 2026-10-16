@@ -6,7 +6,7 @@ import {
 	HISTORY_FILTERS,
 	HISTORY_FILTER_LABEL,
 	HISTORY_SORT_LABEL,
-	historySortOptions,
+	HISTORY_SORTS,
 } from "../../../utils/historyView";
 import { colors } from "../../../theme";
 import { styles } from "./styles";
@@ -22,7 +22,7 @@ interface Props {
 	onClearFilters: () => void;
 }
 
-/** Bottom sheet: sort order (saved) + status / airing filters (TV only, cleared on leaving) */
+/** Bottom sheet: sort order (saved) + status filters (TV only, cleared on leaving) */
 export default function HistoryViewSheet({
 	visible,
 	onClose,
@@ -40,7 +40,7 @@ export default function HistoryViewSheet({
 				<Pressable style={[styles.sheet, { paddingBottom: bottom + 16 }]} onPress={() => {}}>
 					<View style={styles.sheetHandle} />
 					<Text style={styles.sheetTitle}>Sort by</Text>
-					{historySortOptions(isMovie).map((option) => {
+					{HISTORY_SORTS.map((option) => {
 						const active = option === sort;
 						return (
 							<TouchableOpacity key={option} style={styles.sheetRow} onPress={() => onSort(option)}>

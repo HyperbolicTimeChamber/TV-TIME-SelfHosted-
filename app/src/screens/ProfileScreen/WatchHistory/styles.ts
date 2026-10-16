@@ -35,8 +35,6 @@ export const styles = StyleSheet.create({
 		marginTop: "40%",
 	},
 	footer: { paddingVertical: spacing.xl },
-	loadingAll: { alignItems: "center", gap: spacing.md, marginTop: "35%" },
-	loadingAllText: { color: colors.textSecondary, fontSize: 13 },
 
 	// Sort / filter: floating button + bottom sheet
 	fab: {
