@@ -13,3 +13,4 @@ export * from "./watchlistEvents";
 export * from "./historyCache";
 export * from "./historyCard";
 export * from "./completedSections";
+export * from "./calendarGrid";

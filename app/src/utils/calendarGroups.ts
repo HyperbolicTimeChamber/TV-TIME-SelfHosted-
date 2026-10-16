@@ -92,3 +92,34 @@ export function calendarEpisodeInfo(
 		overview: c?.overview || null,
 	};
 }
+
+/** One event marker in a calendar cell (bar in month view, titled chip in full view) */
+export interface DayMark {
+	key: string;
+	title: string;
+	mediaType: MediaType;
+}
+
+/** date → its cards' markers (one per show/movie, air-time order, same grouping as the list) */
+export function buildDayMarks<T extends DayItem & { airDate: string; showTitle: string }>(
+	items: T[],
+): Map<string, DayMark[]> {
+	const byDate = new Map<string, T[]>();
+	for (const item of items) {
+		const list = byDate.get(item.airDate);
+		if (list) list.push(item);
+		else byDate.set(item.airDate, [item]);
+	}
+	const marks = new Map<string, DayMark[]>();
+	for (const [date, list] of byDate) {
+		marks.set(
+			date,
+			groupCalendarDay(list).map((g) => ({
+				key: g.key,
+				title: g.first.showTitle,
+				mediaType: g.first.mediaType ?? MediaType.TV,
+			})),
+		);
+	}
+	return marks;
+}

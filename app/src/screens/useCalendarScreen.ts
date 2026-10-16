@@ -15,7 +15,8 @@ export interface CalendarPosition {
 /** A day's episode / movie, with its backdrop for the list card */
 export type CalendarEpisode = UpcomingEpisode & { backdropPath: string | null; logoPath: string | null };
 import { colors } from "../theme";
-import { todayStr } from "../utils";
+import { todayStr, inMonth, shiftMonth, sameDayIn, parseDay } from "../utils";
+import { buildDayMarks } from "../utils/calendarGroups";
 
 const YEAR_RANGE_START = 1950;
 const YEAR_RANGE_END = 2035;
@@ -45,9 +46,21 @@ export function useCalendarScreen(initial?: CalendarPosition | null) {
 
 	const { episodes, loading, loadMonthEpisodes } = useCalendarEpisodes(user?.uid);
 
+	// Shown month + its neighbours (swiping peeks at them; list paging crosses into them)
+	const loadAround = useCallback(
+		(year: number, month: number) => {
+			loadMonthEpisodes(year, month);
+			for (const n of [-1, 1]) {
+				const m = shiftMonth(year, month, n);
+				loadMonthEpisodes(m.year, m.month);
+			}
+		},
+		[loadMonthEpisodes],
+	);
+
 	// Load current month's episodes on mount
 	useEffect(() => {
-		loadMonthEpisodes(currentYear, currentMonth);
+		loadAround(currentYear, currentMonth);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [user?.uid]);
 
@@ -57,7 +70,8 @@ export function useCalendarScreen(initial?: CalendarPosition | null) {
 		setCurrentYear(today.getFullYear());
 		setCurrentMonth(today.getMonth() + 1);
 		setSelectedDate(todayStr());
-	}, []);
+		loadAround(today.getFullYear(), today.getMonth() + 1);
+	}, [loadAround]);
 
 	const markedDates = useMemo(() => {
 		const marks: Record<string, DayMark> = {};
@@ -99,54 +113,71 @@ export function useCalendarScreen(initial?: CalendarPosition | null) {
 	}, [episodes, selectedDate]);
 
 	// + backdrop and logo from the shared catalog cache (no reads) for the cards
-	const selectedEpisodes = useMemo((): CalendarEpisode[] => {
-		if (!selectedDate || !episodes) return [];
-		return episodes
-			.filter((ep) => ep.airDate === selectedDate)
-			.map((ep) => {
+	const episodesForDate = useCallback(
+		(date: string | null): CalendarEpisode[] => {
+			if (!date || !episodes) return [];
+			return episodes
+				.filter((ep) => ep.airDate === date)
+				.map((ep) => {
 				const catalog = getCachedCatalogShow(
 					ep.tmdbShowId,
 					ep.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV,
 				);
-				return {
-					...ep,
-					backdropPath: catalog?.backdropPath ?? null,
-					logoPath: catalog?.logoPath ?? null,
-				};
-			});
+					return {
+						...ep,
+						backdropPath: catalog?.backdropPath ?? null,
+						logoPath: catalog?.logoPath ?? null,
+					};
+				});
+		},
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [episodes, selectedDate, catalogVersion]);
+		[episodes, catalogVersion],
+	);
+	const selectedEpisodes = useMemo(() => episodesForDate(selectedDate), [episodesForDate, selectedDate]);
+
+	/** date → markers for the calendar cells (one per show/movie) */
+	const dayMarks = useMemo(() => buildDayMarks(episodes ?? []), [episodes]);
 
 	const handleDayPress = useCallback((dateString: string) => {
 		setSelectedDate(dateString);
 	}, []);
 
+	/** Select any day; the shown month follows when it's in another month (week / list paging) */
+	const selectDate = useCallback(
+		(date: string) => {
+			setSelectedDate(date);
+			const d = parseDay(date);
+			const year = d.getFullYear();
+			const month = d.getMonth() + 1;
+			if (!inMonth(date, currentYear, currentMonth)) {
+				setCurrentYear(year);
+				setCurrentMonth(month);
+				loadAround(year, month);
+			}
+		},
+		[currentYear, currentMonth, loadAround],
+	);
+
 	const handleMonthChange = useCallback(
 		(year: number, month: number) => {
 			setCurrentYear(year);
 			setCurrentMonth(month);
-			loadMonthEpisodes(year, month);
+			loadAround(year, month);
 
 			// Auto-select same day in new month, clamped to last day
-			if (selectedDate) {
-				const prevDay = parseInt(selectedDate.split("-")[2], 10);
-				const lastDay = new Date(year, month, 0).getDate();
-				const day = Math.min(prevDay, lastDay);
-				setSelectedDate(
-					`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
-				);
-			}
+			if (selectedDate) setSelectedDate(sameDayIn(selectedDate, year, month));
 		},
-		[loadMonthEpisodes, selectedDate],
+		[loadAround, selectedDate],
 	);
 
 	const selectYear = useCallback(
 		(year: number) => {
 			setCurrentYear(year);
 			setYearModalVisible(false);
-			loadMonthEpisodes(year, currentMonth);
+			loadAround(year, currentMonth);
+			if (selectedDate) setSelectedDate(sameDayIn(selectedDate, year, currentMonth));
 		},
-		[loadMonthEpisodes, currentMonth],
+		[loadAround, currentMonth, selectedDate],
 	);
 
 	const monthLabel = new Date(currentYear, currentMonth - 1).toLocaleDateString("en-US", {
@@ -165,6 +196,9 @@ export function useCalendarScreen(initial?: CalendarPosition | null) {
 		resetToToday,
 		markedDates,
 		selectedEpisodes,
+		episodesForDate,
+		dayMarks,
+		selectDate,
 		handleDayPress,
 		handleMonthChange,
 		selectYear,
