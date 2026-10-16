@@ -48,7 +48,3 @@ firebase-debug.log
 
 # Functions params are non-secret config — tracked
 !functions/.env
-app/node_modules__hidden/
-app/_nm/
-app/_nm/.bin/acorn
-app/node_modules.hide/
