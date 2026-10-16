@@ -61,6 +61,8 @@ interface Props {
 	fitContent?: boolean;
 	/** Parent scrolls it (Calendar's combined calendar + list scroll): plain column, no ScrollView */
 	externalScroll?: boolean;
+	/** Off-screen neighbour day: skip the backdrop blur (the costly part) */
+	lite?: boolean;
 }
 
 /** One day's cards: show/movie cards, several episodes of a show collapse into one */
@@ -71,6 +73,7 @@ export default function DayList({
 	collapseSignal,
 	fitContent,
 	externalScroll,
+	lite,
 }: Props) {
 	// Shows with several episodes that day collapse into one card; tap to open
 	const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -138,7 +141,7 @@ export default function DayList({
 						contentFit="cover"
 						// Wide, short card: show the top of the backdrop (faces / titles sit there)
 						contentPosition="top"
-						blurRadius={BLUR_RADIUS}
+						blurRadius={lite ? undefined : BLUR_RADIUS}
 					/>
 				)}
 				<View style={[StyleSheet.absoluteFill, styles.cardOverlay]} />

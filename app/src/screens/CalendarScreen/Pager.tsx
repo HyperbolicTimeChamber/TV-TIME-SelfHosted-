@@ -21,6 +21,8 @@ interface Props {
 	renderPage: (offset: -1 | 0 | 1) => ReactNode;
 	/** Swiped to the next (1) or previous (-1) page */
 	onPage: (dir: 1 | -1) => void;
+	/** A sideways drag began (e.g. load the neighbour pages) */
+	onDragStart?: () => void;
 	/** Another gesture racing this one (e.g. the calendar's vertical scroll) */
 	race?: GestureType;
 	style?: StyleProp<ViewStyle>;
@@ -31,7 +33,16 @@ interface Props {
  * threshold slides to the neighbour and reports it. The strip already rests where the new
  * centre page lives, so the parent's re-render doesn't move anything.
  */
-export default function Pager({ width, index: absIndex, keyFor, renderPage, onPage, race, style }: Props) {
+export default function Pager({
+	width,
+	index: absIndex,
+	keyFor,
+	renderPage,
+	onPage,
+	onDragStart,
+	race,
+	style,
+}: Props) {
 	// Positions count from a nearby anchor so pixel offsets stay small (a day number × width
 	// would run into the millions); re-anchored after a big jump (that snaps anyway)
 	const anchor = useRef(absIndex);
@@ -44,6 +55,9 @@ export default function Pager({ width, index: absIndex, keyFor, renderPage, onPa
 	const onPageRef = useRef(onPage);
 	onPageRef.current = onPage;
 	const turn = useCallback((dir: 1 | -1) => onPageRef.current(dir), []);
+	const onDragStartRef = useRef(onDragStart);
+	onDragStartRef.current = onDragStart;
+	const dragStarted = useCallback(() => onDragStartRef.current?.(), []);
 
 	// Centre moved: after a swipe the strip is already there (no-op); after a jump (today,
 	// tapped day in another month) it snaps to the new spot
@@ -57,6 +71,9 @@ export default function Pager({ width, index: absIndex, keyFor, renderPage, onPa
 			Gesture.Pan()
 				.activeOffsetX([-14, 14])
 				.failOffsetY([-12, 12])
+				.onStart(() => {
+					runOnJS(dragStarted)();
+				})
 				.onUpdate((e) => {
 					tx.value = base.value + e.translationX;
 				})
@@ -72,7 +89,7 @@ export default function Pager({ width, index: absIndex, keyFor, renderPage, onPa
 						if (finished) runOnJS(turn)(dir);
 					});
 				}),
-		[width, base, tx, turn],
+		[width, base, tx, turn, dragStarted],
 	);
 	const gesture = useMemo(() => (race ? Gesture.Race(pan, race) : pan), [pan, race]);
 

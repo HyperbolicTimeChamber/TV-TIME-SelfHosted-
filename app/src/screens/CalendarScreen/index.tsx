@@ -32,7 +32,7 @@ import {
 import { todayStr } from "../../utils/todayStr";
 import Pager from "./Pager";
 import DayList from "./DayList";
-import { MonthGrid, WeekRow, type ChipFit } from "./MonthGrid";
+import { MonthGrid, WeekStrip, type ChipFit } from "./MonthGrid";
 import { CalendarMode, ROW_MONTH, styles } from "./calendarStyles";
 
 type NavProp = NativeStackNavigationProp<CalendarStackParamList, Route.CALENDAR_MAIN>;
@@ -222,6 +222,11 @@ export default function CalendarScreen() {
 
 	// --- Pages -----------------------------------------------------------------------------
 	const weekPaging = mode === CalendarMode.WEEK && !resizing;
+	// Titled chips are only built in full view or while a resize may be heading there
+	const showChips = mode === CalendarMode.FULL || resizing;
+	// Neighbouring days' cards are only built once a sideways swipe starts
+	const [peek, setPeek] = useState(false);
+	useEffect(() => setPeek(false), [selected]);
 	const [popupDate, setPopupDate] = useState<string | null>(null);
 
 	const onDayPress = useCallback(
@@ -236,13 +241,14 @@ export default function CalendarScreen() {
 	const renderCalendarPage = (offset: -1 | 0 | 1) => {
 		if (weekPaging) {
 			return (
-				<WeekRow
+				<WeekStrip
 					dates={weekDates(addDays(selected, offset * 7))}
 					month={null}
 					today={today}
 					selected={selected}
 					marks={dayMarks}
-				chipFit={chipFit}
+					chipFit={chipFit}
+					showChips={showChips}
 					progress={progress}
 					fullRowH={fullRowH}
 					onDayPress={onDayPress}
@@ -259,6 +265,7 @@ export default function CalendarScreen() {
 				selected={selected}
 				marks={dayMarks}
 				chipFit={chipFit}
+				showChips={showChips}
 				progress={progress}
 				fullRowH={fullRowH}
 				onDayPress={onDayPress}
@@ -311,13 +318,16 @@ export default function CalendarScreen() {
 				onLayout={offset === 0 ? (e) => (contentH.value = e.nativeEvent.layout.height) : undefined}
 			>
 				<DayHeader date={date} />
-				<DayList
-					episodes={episodesForDate(date)}
-					onOpenEpisode={setInfoEp}
-					onOpenMovie={openMovie}
-					collapseSignal={collapseSignal}
-					externalScroll
-				/>
+				{(offset === 0 || peek) && (
+					<DayList
+						episodes={episodesForDate(date)}
+						onOpenEpisode={setInfoEp}
+						onOpenMovie={openMovie}
+						collapseSignal={collapseSignal}
+						externalScroll
+						lite={offset !== 0}
+					/>
+				)}
 			</Animated.View>
 		);
 	};
@@ -388,6 +398,7 @@ export default function CalendarScreen() {
 							keyFor={(offset) => addDays(selected, offset)}
 							renderPage={renderDayPage}
 							onPage={(dir) => selectDate(addDays(selected, dir))}
+							onDragStart={() => setPeek(true)}
 							race={listScrollGesture}
 							style={styles.body}
 						/>
