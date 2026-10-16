@@ -19,13 +19,12 @@ export interface ChipFit {
 	charsPerLine: number;
 }
 
-/** Bars fade out / chips fade in toward full view — one pair per grid, shared by its cells */
-export type MarkFades = ReturnType<typeof useMarkFades>;
-
-export function useMarkFades(progress: SharedValue<number>) {
-	const bars = useAnimatedStyle(() => ({ opacity: interpolate(progress.value, [1, 1.5], [1, 0], "clamp") }));
-	const chips = useAnimatedStyle(() => ({ opacity: interpolate(progress.value, [1.3, 2], [0, 1], "clamp") }));
-	return { bars, chips };
+/** What a cell shows under its number — nothing while the calendar is being resized
+ *  (like Samsung Calendar: fewer views to lay out on every frame of the drag) */
+export enum CellMarks {
+	NONE = "none",
+	BARS = "bars",
+	CHIPS = "chips",
 }
 
 const markColor = (m: DayMark) => (m.mediaType === MediaType.MOVIE ? colors.moviePurple : colors.primary);
@@ -38,9 +37,7 @@ interface CellProps {
 	column: number;
 	marks: DayMark[] | undefined;
 	chipFit: ChipFit;
-	/** Chips only exist in (or on the way to) full view */
-	showChips: boolean;
-	fades: MarkFades;
+	show: CellMarks;
 	onPress: (date: string) => void;
 }
 
@@ -53,13 +50,12 @@ const DayCell = memo(function DayCell({
 	column,
 	marks,
 	chipFit,
-	showChips,
-	fades,
+	show,
 	onPress,
 }: CellProps) {
 	const day = Number(date.slice(8));
 	const chipPlan =
-		showChips && marks ? planChips(marks, chipFit.space, chipFit.charsPerLine, CHIP_LINE_H, CHIP_GAP) : null;
+		show === CellMarks.CHIPS && marks ? planChips(marks, chipFit.space, chipFit.charsPerLine, CHIP_LINE_H, CHIP_GAP) : null;
 	return (
 		<Pressable style={styles.cell} onPress={() => onPress(date)}>
 			{/* Today's red fill already marks it — the selection outline is for other days */}
@@ -74,15 +70,17 @@ const DayCell = memo(function DayCell({
 				<View style={styles.dayNumberBox}>
 					<Text style={[styles.dayNumber, column === SUNDAY_COLUMN && !isToday && styles.sunday]}>{day}</Text>
 				</View>
-				{marks && marks.length > 0 && (
+				{marks && marks.length > 0 && show !== CellMarks.NONE && (
 					<View style={styles.markArea}>
-						<Animated.View style={[styles.bars, fades.bars]}>
-							{marks.slice(0, MAX_BARS).map((m) => (
-								<View key={m.key} style={[styles.bar, { backgroundColor: markColor(m) }]} />
-							))}
-						</Animated.View>
+						{show === CellMarks.BARS && (
+							<View style={styles.bars}>
+								{marks.slice(0, MAX_BARS).map((m) => (
+									<View key={m.key} style={[styles.bar, { backgroundColor: markColor(m) }]} />
+								))}
+							</View>
+						)}
 						{chipPlan && (
-							<Animated.View style={[styles.chips, fades.chips]} pointerEvents="none">
+							<View style={styles.chips} pointerEvents="none">
 								{chipPlan.shown.map((m) => (
 									<Text key={m.key} numberOfLines={2} style={[styles.chip, { backgroundColor: markColor(m) }]}>
 										{m.title}
@@ -93,7 +91,7 @@ const DayCell = memo(function DayCell({
 										+{chipPlan.more} more
 									</Text>
 								)}
-							</Animated.View>
+							</View>
 						)}
 					</View>
 				)}
@@ -110,8 +108,7 @@ interface WeekRowProps {
 	selected: string | null;
 	marks: Map<string, DayMark[]>;
 	chipFit: ChipFit;
-	showChips: boolean;
-	fades: MarkFades;
+	show: CellMarks;
 	progress: SharedValue<number>;
 	/** Full-view row height (shared) */
 	fullRowH: SharedValue<number>;
@@ -126,8 +123,7 @@ export const WeekRow = memo(function WeekRow({
 	selected,
 	marks,
 	chipFit,
-	showChips,
-	fades,
+	show,
 	progress,
 	fullRowH,
 	onDayPress,
@@ -150,8 +146,7 @@ export const WeekRow = memo(function WeekRow({
 					isSelected={date === selected}
 					marks={marks.get(date)}
 					chipFit={chipFit}
-					showChips={showChips}
-					fades={fades}
+					show={show}
 					onPress={onDayPress}
 				/>
 			))}
@@ -159,13 +154,7 @@ export const WeekRow = memo(function WeekRow({
 	);
 });
 
-/** Week strip (week view): one row with its own fade pair */
-export function WeekStrip(props: Omit<WeekRowProps, "fades">) {
-	const fades = useMarkFades(props.progress);
-	return <WeekRow {...props} fades={fades} />;
-}
-
-interface MonthGridProps extends Omit<WeekRowProps, "dates" | "month" | "fades"> {
+interface MonthGridProps extends Omit<WeekRowProps, "dates" | "month"> {
 	weeks: string[][];
 	/** "YYYY-MM" of the month shown */
 	month: string;
@@ -175,7 +164,6 @@ interface MonthGridProps extends Omit<WeekRowProps, "dates" | "month" | "fades">
 
 /** Month as week rows; collapsing toward week view slides up to keep the selected row */
 export function MonthGrid({ weeks, selectedRow, progress, ...row }: MonthGridProps) {
-	const fades = useMarkFades(progress);
 	const slide = useAnimatedStyle(() => ({
 		transform: [
 			{ translateY: progress.value < CalendarMode.MONTH ? -selectedRow * ROW_MONTH * (1 - progress.value) : 0 },
@@ -184,7 +172,7 @@ export function MonthGrid({ weeks, selectedRow, progress, ...row }: MonthGridPro
 	return (
 		<Animated.View style={slide}>
 			{weeks.map((dates) => (
-				<WeekRow key={dates[0]} dates={dates} progress={progress} fades={fades} {...row} />
+				<WeekRow key={dates[0]} dates={dates} progress={progress} {...row} />
 			))}
 		</Animated.View>
 	);

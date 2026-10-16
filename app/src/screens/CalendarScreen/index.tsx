@@ -32,7 +32,7 @@ import {
 import { todayStr } from "../../utils/todayStr";
 import Pager from "./Pager";
 import DayList from "./DayList";
-import { MonthGrid, WeekStrip, type ChipFit } from "./MonthGrid";
+import { CellMarks, MonthGrid, WeekRow, type ChipFit } from "./MonthGrid";
 import { CalendarMode, ROW_MONTH, styles } from "./calendarStyles";
 
 type NavProp = NativeStackNavigationProp<CalendarStackParamList, Route.CALENDAR_MAIN>;
@@ -152,6 +152,8 @@ export default function CalendarScreen() {
 	const listY = useSharedValue(0);
 	const contentH = useSharedValue(0);
 	const lastT = useSharedValue(0);
+	// Set once the calendar's size actually changes in this drag (a plain list scroll isn't a resize)
+	const sizeChanging = useSharedValue(false);
 	const listMax = () => {
 		"worklet";
 		const viewport = bodyH.value - heightAt(progress.value, rows.value, bodyH.value);
@@ -163,12 +165,13 @@ export default function CalendarScreen() {
 			.failOffsetX([-12, 12])
 			.onStart(() => {
 				lastT.value = 0;
-				runOnJS(setResizing)(true);
+				sizeChanging.value = false;
 			})
 			.onUpdate((e) => {
 				let delta = e.translationY - lastT.value;
 				lastT.value = e.translationY;
 				const h = heightAt(progress.value, rows.value, bodyH.value);
+				const before = progress.value;
 				if (delta < 0) {
 					// Up: shrink the calendar, the rest scrolls the list
 					const shrink = Math.max(delta, ROW_MONTH - h);
@@ -181,6 +184,10 @@ export default function CalendarScreen() {
 					listY.value -= back;
 					delta -= back;
 					if (delta > 0) progress.value = progressAt(Math.min(bodyH.value, h + delta), rows.value, bodyH.value);
+				}
+				if (!sizeChanging.value && progress.value !== before) {
+					sizeChanging.value = true;
+					runOnJS(setResizing)(true);
 				}
 			})
 			.onEnd((e) => {
@@ -224,8 +231,8 @@ export default function CalendarScreen() {
 
 	// --- Pages -----------------------------------------------------------------------------
 	const weekPaging = mode === CalendarMode.WEEK && !resizing;
-	// Titled chips are only built in full view or while a resize may be heading there
-	const showChips = mode === CalendarMode.FULL || resizing;
+	// Bars in week / month view, titled chips in full view, nothing while resizing
+	const cellMarks = resizing ? CellMarks.NONE : mode === CalendarMode.FULL ? CellMarks.CHIPS : CellMarks.BARS;
 	// Neighbouring days' cards are only built once a sideways swipe starts
 	const [peek, setPeek] = useState(false);
 	// …and dropped again once the day has changed and the slide (~200ms) is over, so the day
@@ -248,14 +255,14 @@ export default function CalendarScreen() {
 	const renderCalendarPage = (offset: -1 | 0 | 1) => {
 		if (weekPaging) {
 			return (
-				<WeekStrip
+				<WeekRow
 					dates={weekDates(addDays(selected, offset * 7))}
 					month={null}
 					today={today}
 					selected={selected}
 					marks={dayMarks}
 					chipFit={chipFit}
-					showChips={showChips}
+					show={cellMarks}
 					progress={progress}
 					fullRowH={fullRowH}
 					onDayPress={onDayPress}
@@ -272,7 +279,7 @@ export default function CalendarScreen() {
 				selected={selected}
 				marks={dayMarks}
 				chipFit={chipFit}
-				showChips={showChips}
+				show={cellMarks}
 				progress={progress}
 				fullRowH={fullRowH}
 				onDayPress={onDayPress}
