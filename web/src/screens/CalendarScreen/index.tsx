@@ -5,7 +5,9 @@ import { IoIosArrowDown } from "react-icons/io";
 import { NavigationType, useNavigate, useNavigationType } from "react-router-dom";
 import { useCalendarScreen, YEARS, type CalendarEpisode, type CalendarPosition } from "@app/screens/useCalendarScreen";
 import { formatAirTime } from "@app/utils/airTime";
-import { groupCalendarDay, episodeCountLabel, seasonRangeLabel } from "@app/utils/calendarGroups";
+import { groupCalendarDay, episodeCountLabel, seasonRangeLabel, calendarEpisodeInfo } from "@app/utils/calendarGroups";
+import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
+import EpisodeDetailModal from "../../components/EpisodeDetailModal";
 import { MediaType } from "@app/enums";
 import { todayStr } from "@app/utils/todayStr";
 import { tmdbBackdropUri, tmdbLogoUri } from "@app/hooks/useTmdbImage";
@@ -57,6 +59,9 @@ function DayCounts({ counts }: { counts?: { shows: Set<number>; movies: number }
 }
 const pad = (n: number) => String(n).padStart(2, "0");
 const SKELETON_CARDS = 3;
+// Read-only episode info: nothing to mark
+const NO_WATCHED = new Map<string, number>();
+const noopAsync = async () => {};
 // Same as the app's accordion timing
 const ACCORDION_S = 0.22;
 
@@ -158,8 +163,10 @@ export default function CalendarScreen() {
 			else next.add(key);
 			return next;
 		});
+	// Episodes → their info card (no watch buttons — the Calendar is read-only); movies → their page
+	const [infoEp, setInfoEp] = useState<CalendarEpisode | null>(null);
 	const openShow = (ep: CalendarEpisode) =>
-		navigate(showPath(ep.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV, ep.tmdbShowId));
+		ep.mediaType === MediaType.MOVIE ? navigate(showPath(MediaType.MOVIE, ep.tmdbShowId)) : setInfoEp(ep);
 	const today = todayStr();
 	const yearListRef = useRef<HTMLDivElement>(null);
 	const grid = useMemo(() => monthGrid(c.currentYear, c.currentMonth), [c.currentYear, c.currentMonth]);
@@ -322,6 +329,26 @@ export default function CalendarScreen() {
 					)
 				)}
 			</div>
+
+			{infoEp && (
+				<EpisodeDetailModal
+					visible
+					readOnly
+					tmdbId={infoEp.tmdbShowId}
+					showTitle={infoEp.showTitle}
+					showPosterPath={infoEp.posterPath}
+					showBackdropPath={infoEp.backdropPath}
+					episodes={[calendarEpisodeInfo(infoEp, getCachedCatalogShow(infoEp.tmdbShowId, MediaType.TV))]}
+					initialIndex={0}
+					watchedKeys={NO_WATCHED}
+					currentNextEpisode={null}
+					onMarkWatched={noopAsync}
+					onMarkWatchedThrough={noopAsync}
+					onUnmarkWatched={noopAsync}
+					onShowPress={() => navigate(showPath(MediaType.TV, infoEp.tmdbShowId))}
+					onClose={() => setInfoEp(null)}
+				/>
+			)}
 
 			<AnimatedModal visible={c.yearModalVisible} onClose={() => c.setYearModalVisible(false)} width={200}>
 				<p className={styles.modalTitle}>Select Year</p>

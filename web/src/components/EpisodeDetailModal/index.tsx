@@ -11,10 +11,8 @@ import { epKey } from "./helpers";
 import styles from "./styles/EpisodeDetailModal.module.scss";
 import { cssVars } from "../../utils/cssVars";
 
-type Props = EpisodeDetailModalProps & {
-	/** Logged-out web visitors: browse episodes, no watch buttons */
-	readOnly?: boolean;
-};
+// readOnly (no watch buttons): logged-out visitors and the Calendar
+type Props = EpisodeDetailModalProps;
 
 const SIDE_SCALE = 0.88;
 const SIDE_ROTATE_DEG = 12;

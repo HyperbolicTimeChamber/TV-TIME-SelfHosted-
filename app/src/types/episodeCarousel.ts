@@ -34,4 +34,6 @@ export interface EpisodeDetailModalProps {
 	onClose: () => void;
 	onLoadEpisodeDetails?: (season: number) => Promise<CarouselEpisode[] | null>;
 	onIndexChange?: (index: number, total: number) => void;
+	/** Info only (e.g. from the Calendar): no watch / unwatch / skip buttons */
+	readOnly?: boolean;
 }

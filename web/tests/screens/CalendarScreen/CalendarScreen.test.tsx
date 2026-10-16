@@ -78,4 +78,13 @@ describe("CalendarScreen", () => {
 		// Strips animate out before they leave the DOM
 		await waitFor(() => expect(screen.queryByText("E09")).not.toBeInTheDocument());
 	});
+
+	it("tapping an episode opens its info card without watch buttons", async () => {
+		renderWithProviders(<CalendarScreen />, { user: testUser });
+		fireEvent.click(screen.getByText("Slow Horses"));
+		// Card title + the modal's episode title
+		expect(await screen.findAllByText("Two")).toHaveLength(2);
+		expect(screen.getByText("S05 | E02")).toBeInTheDocument();
+		expect(screen.queryByText(/Mark as Watched/)).not.toBeInTheDocument();
+	});
 });

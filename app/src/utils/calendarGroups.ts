@@ -1,4 +1,5 @@
 import { MediaType } from "../enums";
+import type { CarouselEpisode, CatalogShow } from "../types";
 
 interface DayItem {
 	tmdbShowId: number;
@@ -63,4 +64,31 @@ export function seasonRangeLabel(episodes: DayItem[]) {
 	const a = episodes[0].season;
 	const b = episodes[episodes.length - 1].season;
 	return a === b ? `Season ${pad2(a)}` : `Season ${pad2(a)}–${pad2(b)}`;
+}
+
+interface InfoSource {
+	season: number;
+	episode: number;
+	episodeTitle: string;
+	airDate: string;
+	runtime: number | null;
+}
+
+/** One-card episode info for the Calendar: catalog details (still, overview) when cached */
+export function calendarEpisodeInfo(
+	ep: InfoSource,
+	catalog: Pick<CatalogShow, "seasons"> | null | undefined,
+): CarouselEpisode {
+	const c = catalog?.seasons
+		?.find((s) => s.seasonNumber === ep.season)
+		?.episodes?.find((e) => e.episodeNumber === ep.episode);
+	return {
+		season: ep.season,
+		episode: ep.episode,
+		title: c?.title || ep.episodeTitle || null,
+		airDate: c?.airDate ?? ep.airDate,
+		runtime: c?.runtime ?? ep.runtime,
+		stillPath: c?.stillPath ?? null,
+		overview: c?.overview || null,
+	};
 }

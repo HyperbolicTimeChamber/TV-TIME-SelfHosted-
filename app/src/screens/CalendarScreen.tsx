@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { AnimatedModal } from "../components";
+import { AnimatedModal, EpisodeDetailModal } from "../components";
+import { getCachedCatalogShow } from "../hooks";
 import { useSharedShimmer } from "../components/SkeletonLine";
 import IosArrowDown from "../components/IosArrowDown";
 import { LegendList } from "@legendapp/list/react-native";
@@ -25,6 +26,7 @@ import {
 	groupCalendarDay,
 	episodeCountLabel,
 	seasonRangeLabel,
+	calendarEpisodeInfo,
 	CalendarRowKind,
 	type CalendarGroup,
 } from "../utils/calendarGroups";
@@ -44,6 +46,9 @@ type CalendarRow =
 	| { kind: CalendarRowKind.CHILD; key: string; ep: CalendarEpisode; /** Position in its group */ nth: number };
 
 const SKELETON_CARDS = 3;
+// Read-only episode info: nothing to mark
+const NO_WATCHED = new Map<string, number>();
+const noopAsync = async () => {};
 const ACCORDION_MS = 220;
 // Episode strips cascade in, a few ms apart
 const STRIP_STAGGER_MS = 25;
@@ -151,16 +156,24 @@ export default function CalendarScreen() {
 		return out;
 	}, [selectedEpisodes, expanded]);
 
+	// Tapping an episode opens its info card (no watch buttons — the Calendar is read-only)
+	const [infoEp, setInfoEp] = useState<CalendarEpisode | null>(null);
+	const infoCatalog = infoEp ? getCachedCatalogShow(infoEp.tmdbShowId, MediaType.TV) : null;
+	const infoEpisodes = useMemo(
+		() => (infoEp ? [calendarEpisodeInfo(infoEp, infoCatalog)] : []),
+		[infoEp, infoCatalog],
+	);
+
 	const renderRow = useCallback(
 		({ item: row }: { item: CalendarRow }) => {
 			const isChild = row.kind === CalendarRowKind.CHILD;
 			const item = isChild ? row.ep : row.group.first;
 			const isMovie = item.mediaType === MediaType.MOVIE;
+			// Episodes → info card; movies → their page
 			const openShow = () =>
-				navigation.navigate(Route.SHOW_DETAIL, {
-					tmdbId: item.tmdbShowId,
-					mediaType: isMovie ? MediaType.MOVIE : MediaType.TV,
-				});
+				isMovie
+					? navigation.navigate(Route.SHOW_DETAIL, { tmdbId: item.tmdbShowId, mediaType: MediaType.MOVIE })
+					: setInfoEp(item);
 			const backdrop = (
 				<>
 					{/* Same backdrop treatment as the Watch History cards */}
@@ -317,6 +330,29 @@ export default function CalendarScreen() {
 						)}
 					</View>
 				)
+			)}
+
+			{infoEp && (
+				<EpisodeDetailModal
+					visible
+					readOnly
+					tmdbId={infoEp.tmdbShowId}
+					showTitle={infoEp.showTitle}
+					showPosterPath={infoEp.posterPath}
+					showBackdropPath={infoEp.backdropPath}
+					episodes={infoEpisodes}
+					initialIndex={0}
+					watchedKeys={NO_WATCHED}
+					currentNextEpisode={null}
+					onMarkWatched={noopAsync}
+					onMarkWatchedThrough={noopAsync}
+					onUnmarkWatched={noopAsync}
+					onShowPress={() => {
+						setInfoEp(null);
+						navigation.navigate(Route.SHOW_DETAIL, { tmdbId: infoEp.tmdbShowId, mediaType: MediaType.TV });
+					}}
+					onClose={() => setInfoEp(null)}
+				/>
 			)}
 
 			{/* Year picker modal */}

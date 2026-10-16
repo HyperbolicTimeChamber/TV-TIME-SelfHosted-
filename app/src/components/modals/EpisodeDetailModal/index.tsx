@@ -34,6 +34,7 @@ export default function EpisodeDetailModal({
 	onClose,
 	onLoadEpisodeDetails,
 	onIndexChange,
+	readOnly,
 }: Readonly<EpisodeDetailModalProps>) {
 	const carouselRef = useRef<FlatList>(null);
 	const [localWatched, setLocalWatched] = useState<Map<string, number>>(watchedKeys);
@@ -259,6 +260,7 @@ export default function EpisodeDetailModal({
 							watchCount={wc}
 							isLoaded={!!item.loaded}
 							isMarking={markingKey === key}
+							readOnly={readOnly}
 							markLabel={markWatchedLabel(rewatchCount)}
 							onMarkWatched={() => handleMark(item)}
 							onUnwatch={() => {
@@ -294,6 +296,7 @@ export default function EpisodeDetailModal({
 		[
 			localWatched,
 			markingKey,
+			readOnly,
 			handleMark,
 			showTitle,
 			showPosterPath,
