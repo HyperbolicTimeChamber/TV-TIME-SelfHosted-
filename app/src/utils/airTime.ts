@@ -41,3 +41,20 @@ export function nextEpisodeLocalAirDate(
 	}
 	return fallback ?? null;
 }
+
+/** Local air time as "hh:mm a" (e.g. "08:00 PM"); null when only the date is known */
+export function formatAirTime(airStamp?: string): string | null {
+	if (!airStamp) return null;
+	const d = new Date(airStamp);
+	if (Number.isNaN(d.getTime())) return null;
+	const h = d.getHours();
+	const hh = String(h % 12 || 12).padStart(2, "0");
+	const mm = String(d.getMinutes()).padStart(2, "0");
+	return `${hh}:${mm} ${h < 12 ? "AM" : "PM"}`;
+}
+
+/** Calendar card subtitle: "Episode name • 08:00 PM" (just the name when no time is known) */
+export function withAirTime(label: string, airStamp?: string): string {
+	const time = formatAirTime(airStamp);
+	return time ? `${label} • ${time}` : label;
+}

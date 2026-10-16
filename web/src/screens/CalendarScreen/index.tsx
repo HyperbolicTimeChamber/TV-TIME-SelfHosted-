@@ -4,6 +4,7 @@ import { IoChevronBack, IoChevronForward } from "react-icons/io5";
 import { IoIosArrowDown } from "react-icons/io";
 import { NavigationType, useNavigate, useNavigationType } from "react-router-dom";
 import { useCalendarScreen, YEARS, type CalendarEpisode, type CalendarPosition } from "@app/screens/useCalendarScreen";
+import { withAirTime } from "@app/utils/airTime";
 import { groupCalendarDay, episodeCountLabel, seasonRangeLabel } from "@app/utils/calendarGroups";
 import { MediaType } from "@app/enums";
 import { todayStr } from "@app/utils/todayStr";
@@ -106,7 +107,7 @@ function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 					<span className={styles.movieBadge}>MOVIE</span>
 				) : (
 					// Collapsed show: its season(s) where an episode name would be; count is in the square
-					<span className={styles.epTitle}>{groupEps ? seasonRangeLabel(groupEps) : ep.episodeTitle}</span>
+					<span className={styles.epTitle}>{withAirTime(groupEps ? seasonRangeLabel(groupEps) : ep.episodeTitle, ep.airStamp)}</span>
 				)}
 			</span>
 			{groupEps ? (

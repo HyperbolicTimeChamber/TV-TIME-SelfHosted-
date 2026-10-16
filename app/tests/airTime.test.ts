@@ -12,6 +12,18 @@ test("localAirDate: US Wednesday 8pm ET episode lands on Thursday in India", asy
 	assert.equal(localAirDate(null), null);
 });
 
+test("formatAirTime: phone-local hh:mm a; withAirTime appends it after a bullet", async () => {
+	const { formatAirTime, withAirTime } = await import("../src/utils/airTime");
+	// 00:00 UTC → 05:30 IST
+	assert.equal(formatAirTime("2026-04-09T00:00:00Z"), "05:30 AM");
+	assert.equal(formatAirTime("2026-04-09T14:45:00Z"), "08:15 PM");
+	assert.equal(formatAirTime("2026-04-09T06:30:00Z"), "12:00 PM");
+	assert.equal(formatAirTime("2026-04-08T18:30:00Z"), "12:00 AM");
+	assert.equal(formatAirTime(undefined), null);
+	assert.equal(withAirTime("Pilot", "2026-04-09T00:00:00Z"), "Pilot • 05:30 AM");
+	assert.equal(withAirTime("Pilot"), "Pilot");
+});
+
 test("localizeCatalog rewrites stamped episodes only; nextEpisodeLocalAirDate prefers the catalog", async () => {
 	const { localizeCatalog, nextEpisodeLocalAirDate, localizeUpcoming } = await import("../src/utils/airTime");
 	const show = {

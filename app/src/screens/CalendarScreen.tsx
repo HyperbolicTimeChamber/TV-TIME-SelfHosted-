@@ -28,6 +28,7 @@ import {
 	CalendarRowKind,
 	type CalendarGroup,
 } from "../utils/calendarGroups";
+import { withAirTime } from "../utils/airTime";
 
 const CARD_WIDTH = Dimensions.get("window").width - 32;
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -222,7 +223,7 @@ export default function CalendarScreen() {
 						) : (
 							// Collapsed show: its season(s) where an episode name would be; count is in the square
 							<Text style={styles.epTitle} numberOfLines={2}>
-								{isGroup ? seasonRangeLabel(groupEps) : item.episodeTitle}
+								{withAirTime(isGroup ? seasonRangeLabel(groupEps) : item.episodeTitle, item.airStamp)}
 							</Text>
 						)}
 					</View>
