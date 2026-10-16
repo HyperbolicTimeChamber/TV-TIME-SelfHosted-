@@ -194,7 +194,7 @@ export default function CalendarScreen() {
 
 			const groupEps = row.group.episodes;
 			const isGroup = groupEps.length > 1;
-			// Local air time under Exx / the arrow (a group: its first episode's)
+			// Local air time under Exx / above the arrow (a group: its first episode's)
 			const airTime = isMovie ? null : formatAirTime(item.airStamp);
 			return (
 				<TouchableOpacity
@@ -235,8 +235,8 @@ export default function CalendarScreen() {
 							<Text style={styles.epSquareTitle}>{episodeCountLabel(groupEps).toUpperCase()}</Text>
 							<View style={styles.epSquareRule} />
 							<View style={styles.epSquareArrow}>
-								<GroupArrow open={row.expanded} />
 								{airTime && <Text style={styles.epSquareTime}>{airTime}</Text>}
+								<GroupArrow open={row.expanded} />
 							</View>
 						</View>
 					) : (

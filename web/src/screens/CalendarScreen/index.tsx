@@ -73,7 +73,7 @@ interface DayCardProps {
 /** Day list card: backdrop, logo/name, episode title (or range) + the right-hand square */
 function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 	const isMovie = ep.mediaType === MediaType.MOVIE;
-	// Local air time under Exx / the arrow (a group: its first episode's)
+	// Local air time under Exx / above the arrow (a group: its first episode's)
 	const airTime = isMovie ? null : formatAirTime(ep.airStamp);
 	const backdrop = (
 		<>
@@ -118,8 +118,8 @@ function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 					<span className={styles.epSquareTitle}>{episodeCountLabel(groupEps).toUpperCase()}</span>
 					<span className={styles.epSquareRule} />
 					<span className={styles.epSquareArrow}>
-						<IoIosArrowDown size={40} className={`relative transition-transform duration-220 ${expanded ? "rotate-180" : ""}`} />
 						{airTime && <span className={styles.epSquareTime}>{airTime}</span>}
+						<IoIosArrowDown size={40} className={`relative transition-transform duration-220 ${expanded ? "rotate-180" : ""}`} />
 					</span>
 				</span>
 			) : (
