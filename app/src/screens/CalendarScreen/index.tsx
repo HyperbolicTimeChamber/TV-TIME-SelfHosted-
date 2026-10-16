@@ -329,7 +329,7 @@ export default function CalendarScreen() {
 		}, 100);
 	}, [c, currentYear]);
 
-	const monthName = new Date(currentYear, currentMonth - 1).toLocaleDateString("en-US", { month: "short" }).toUpperCase();
+	const monthName = new Date(currentYear, currentMonth - 1).toLocaleDateString("en-US", { month: "long" }).toUpperCase();
 	const title = currentYear === new Date().getFullYear() ? monthName : `${monthName} ${currentYear}`;
 
 	return (
