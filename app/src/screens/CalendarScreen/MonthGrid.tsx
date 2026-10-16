@@ -52,9 +52,9 @@ const DayCell = memo(function DayCell({
 	const chipPlan = marks ? planChips(marks, chipFit.space, chipFit.charsPerLine, CHIP_LINE_H, CHIP_GAP) : null;
 	return (
 		<Pressable style={styles.cell} onPress={() => onPress(date)}>
-			<View style={[styles.tile, isSelected && styles.tileSelected, dimmed && styles.dimmed]}>
-				<View style={[styles.dayNumberBox, isToday && styles.todayBox]}>
-					<Text style={[styles.dayNumber, column === SUNDAY_COLUMN && styles.sunday, isToday && styles.todayNumber]}>
+			<View style={[styles.tile, isToday && styles.tileToday, isSelected && styles.tileSelected, dimmed && styles.dimmed]}>
+				<View style={styles.dayNumberBox}>
+					<Text style={[styles.dayNumber, column === SUNDAY_COLUMN && !isToday && styles.sunday]}>
 						{day}
 					</Text>
 				</View>

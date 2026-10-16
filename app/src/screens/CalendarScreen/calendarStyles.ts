@@ -62,10 +62,9 @@ export const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 	},
-	// Today: number in a faded red box
-	todayBox: { backgroundColor: `${colors.primary}66` },
+	// Today: the whole cell in faded red
+	tileToday: { backgroundColor: `${colors.primary}66` },
 	dayNumber: { fontSize: 12, fontWeight: "600", color: colors.text },
-	todayNumber: { color: colors.text },
 	sunday: { color: colors.primary },
 	markArea: { flex: 1, marginTop: 3 },
 	bars: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, paddingHorizontal: 3, gap: 2 },
