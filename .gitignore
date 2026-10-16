@@ -51,4 +51,4 @@ firebase-debug.log
 app/node_modules__hidden/
 app/_nm/
 app/_nm/.bin/acorn
-app/node_modules.hide/.bin/acorn
+app/node_modules.hide/
