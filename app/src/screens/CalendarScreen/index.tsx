@@ -39,6 +39,8 @@ type NavProp = NativeStackNavigationProp<CalendarStackParamList, Route.CALENDAR_
 
 const SKELETON_CARDS = 3;
 const RESIZE_MS = 240;
+/** Neighbour days stay built this long after a page turn (covers the slide) */
+const PEEK_HOLD_MS = 350;
 /** How far a release's speed carries the resize when picking the view to snap to */
 const FLING_CARRY = 0.15;
 // Read-only episode info: nothing to mark
@@ -226,7 +228,12 @@ export default function CalendarScreen() {
 	const showChips = mode === CalendarMode.FULL || resizing;
 	// Neighbouring days' cards are only built once a sideways swipe starts
 	const [peek, setPeek] = useState(false);
-	useEffect(() => setPeek(false), [selected]);
+	// …and dropped again once the day has changed and the slide (~200ms) is over, so the day
+	// sliding out keeps its cards until it's gone
+	useEffect(() => {
+		const t = setTimeout(() => setPeek(false), PEEK_HOLD_MS);
+		return () => clearTimeout(t);
+	}, [selected]);
 	const [popupDate, setPopupDate] = useState<string | null>(null);
 
 	const onDayPress = useCallback(

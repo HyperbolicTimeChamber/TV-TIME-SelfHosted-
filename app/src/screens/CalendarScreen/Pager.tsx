@@ -50,6 +50,8 @@ export default function Pager({
 	const index = absIndex - anchor.current;
 	const base = useSharedValue(-index * width);
 	const tx = useSharedValue(-index * width);
+	// Where a turn is sliding to (NaN = none) — the re-render must not cut that slide short
+	const target = useSharedValue(NaN);
 	// Gestures are built once (rebuilding mid-swipe drops their callbacks), so the latest
 	// onPage is read through a ref
 	const onPageRef = useRef(onPage);
@@ -59,12 +61,14 @@ export default function Pager({
 	onDragStartRef.current = onDragStart;
 	const dragStarted = useCallback(() => onDragStartRef.current?.(), []);
 
-	// Centre moved: after a swipe the strip is already there (no-op); after a jump (today,
-	// tapped day in another month) it snaps to the new spot
+	// Centre moved: after a swipe the strip is already sliding there (leave it); after a jump
+	// (today, a tapped day in another month) it snaps to the new spot
 	useLayoutEffect(() => {
-		base.value = -index * width;
-		tx.value = -index * width;
-	}, [index, width, base, tx]);
+		const pos = -index * width;
+		base.value = pos;
+		if (target.value !== pos) tx.value = pos;
+		target.value = NaN;
+	}, [index, width, base, tx, target]);
 
 	const pan = useMemo(
 		() =>
@@ -85,11 +89,14 @@ export default function Pager({
 						return;
 					}
 					const dir = next ? 1 : -1;
-					tx.value = withTiming(base.value - dir * width, { duration: TURN_MS }, (finished) => {
-						if (finished) runOnJS(turn)(dir);
-					});
+					const dest = base.value - dir * width;
+					target.value = dest;
+					tx.value = withTiming(dest, { duration: TURN_MS });
+					// Report the turn now, not when the slide ends — an interrupted slide used to
+					// skip the report and leave the strip a page off from the selected day
+					runOnJS(turn)(dir);
 				}),
-		[width, base, tx, turn, dragStarted],
+		[width, base, tx, target, turn, dragStarted],
 	);
 	const gesture = useMemo(() => (race ? Gesture.Race(pan, race) : pan), [pan, race]);
 
