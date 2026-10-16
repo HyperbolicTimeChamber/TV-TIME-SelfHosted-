@@ -258,6 +258,16 @@ test("groupCalendarDay: one card per show, episodes sorted; movies stay single",
 		],
 	);
 	assert.equal(groups[0].first.episode, 1);
+
+	// Air-time order; a group goes by its first episode's time; untimed cards last
+	const at = (id: number, episode: number, airStamp?: string) => ({ ...ep(id, 1, episode), airStamp });
+	const timed = groupCalendarDay([
+		at(9, 1),
+		at(7, 2, "2026-04-09T03:00:00Z"),
+		at(7, 1, "2026-04-09T01:00:00Z"),
+		at(8, 4, "2026-04-09T02:00:00Z"),
+	]);
+	assert.deepEqual(timed.map((g) => g.key), ["tv_7", "tv_8", "tv_9"]);
 	assert.equal(episodeCountLabel(groups[0].episodes), "3 Episodes");
 	const { seasonRangeLabel } = await import("../src/utils/calendarGroups");
 	assert.equal(seasonRangeLabel(groups[0].episodes), "Season 01");

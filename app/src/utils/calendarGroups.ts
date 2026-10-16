@@ -6,6 +6,8 @@ interface DayItem {
 	mediaType?: MediaType;
 	season: number;
 	episode: number;
+	/** Exact UTC air time when known (TVMaze) */
+	airStamp?: string;
 }
 
 /** One calendar card: a single episode/movie, or a show's several episodes airing that day */
@@ -15,7 +17,11 @@ export interface CalendarGroup<T extends DayItem> {
 	episodes: T[];
 }
 
-/** Collapse a day's list so each show gets one card; keeps first-seen order, episodes sorted */
+/**
+ * Collapse a day's list so each show gets one card, episodes sorted. Cards run in air-time
+ * order (a group by its first episode's time); cards without a known time follow, in their
+ * original order.
+ */
 export function groupCalendarDay<T extends DayItem>(items: T[]): CalendarGroup<T>[] {
 	const groups = new Map<string, CalendarGroup<T>>();
 	for (const item of items) {
@@ -28,7 +34,15 @@ export function groupCalendarDay<T extends DayItem>(items: T[]): CalendarGroup<T
 		group.episodes.sort((a, b) => a.season - b.season || a.episode - b.episode);
 		group.first = group.episodes[0];
 	}
-	return [...groups.values()];
+	const time = (g: CalendarGroup<T>) => (g.first.airStamp ? Date.parse(g.first.airStamp) : NaN);
+	// Stable sort: timed cards by time, untimed after them
+	return [...groups.values()].sort((a, b) => {
+		const ta = time(a);
+		const tb = time(b);
+		if (Number.isNaN(ta)) return Number.isNaN(tb) ? 0 : 1;
+		if (Number.isNaN(tb)) return -1;
+		return ta - tb;
+	});
 }
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
