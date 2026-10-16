@@ -35,6 +35,73 @@ export const styles = StyleSheet.create({
 		marginTop: "40%",
 	},
 	footer: { paddingVertical: spacing.xl },
+	loadingAll: { alignItems: "center", gap: spacing.md, marginTop: "35%" },
+	loadingAllText: { color: colors.textSecondary, fontSize: 13 },
+
+	// Sort / filter: floating button + bottom sheet
+	fab: {
+		position: "absolute",
+		right: spacing.lg,
+		width: 56,
+		height: 56,
+		borderRadius: 28,
+		backgroundColor: colors.primary,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	// Sort / filter not at default
+	fabDot: {
+		position: "absolute",
+		top: 12,
+		right: 12,
+		width: 9,
+		height: 9,
+		borderRadius: 5,
+		backgroundColor: colors.text,
+	},
+	sheetBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.overlayLight },
+	sheet: {
+		backgroundColor: colors.surface,
+		borderTopLeftRadius: 20,
+		borderTopRightRadius: 20,
+		paddingHorizontal: spacing.lg,
+		paddingTop: spacing.sm,
+	},
+	sheetHandle: {
+		alignSelf: "center",
+		width: 40,
+		height: 4,
+		borderRadius: 2,
+		backgroundColor: colors.border,
+		marginBottom: spacing.md,
+	},
+	sheetTitle: { fontSize: 13, fontWeight: "700", color: colors.textSecondary, letterSpacing: 1, marginVertical: spacing.sm },
+	sheetRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		paddingVertical: spacing.md,
+	},
+	sheetRowText: { fontSize: 16, color: colors.text },
+	sheetRowActive: { fontWeight: "700" },
+	sheetFilterHead: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		marginTop: spacing.md,
+	},
+	sheetClear: { color: colors.primary, fontWeight: "600" },
+	chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, paddingBottom: spacing.sm },
+	filterChip: {
+		paddingHorizontal: spacing.md,
+		paddingVertical: spacing.sm,
+		borderRadius: 999,
+		borderWidth: 1,
+		borderColor: colors.border,
+	},
+	filterChipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+	filterChipText: { color: colors.textSecondary, fontWeight: "600" },
+	filterChipTextOn: { color: colors.text },
 
 	// Card
 	// 16:9 is the minimum (minHeight set from the card width in HistoryCardView) — the card

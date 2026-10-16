@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "../stores";
-import { CacheKey, MediaType } from "../enums";
+import { CacheKey, HistorySort, MediaType } from "../enums";
 import type { HistoryChange, HistoryState } from "../types";
 import {
 	fetchHistoryDelta,
 	fetchHistoryEntry,
 	fetchHistoryPage,
+	fetchHistoryRest,
 } from "../services/historyApi";
 import {
 	applyChange,
@@ -77,11 +78,29 @@ onHistoryChange((change) => {
 
 // --- Hook ---
 
+/** History sort choice, kept across visits (cache); defaults to last watched */
+export function useHistorySort(): [HistorySort, (sort: HistorySort) => void] {
+	const [sort, setSort] = useState(HistorySort.LAST_WATCHED);
+	useEffect(() => {
+		AsyncStorage.getItem(CacheKey.HISTORY_SORT)
+			.then((saved) => {
+				if (saved && (Object.values(HistorySort) as string[]).includes(saved)) setSort(saved as HistorySort);
+			})
+			.catch(() => {});
+	}, []);
+	const choose = useCallback((next: HistorySort) => {
+		setSort(next);
+		AsyncStorage.setItem(CacheKey.HISTORY_SORT, next).catch(() => {});
+	}, []);
+	return [sort, choose];
+}
+
 /**
  * Watch History for one tab (SWR): cached cards render immediately, a delta query
  * (`historyUpdatedAt > checkedAt`) refreshes them quietly, pages of 20 load on demand.
+ * `loadAll` (a sort / filter is on) pulls the rest of the tab once — then it's cached too.
  */
-export function useWatchHistory(mediaType: MediaType) {
+export function useWatchHistory(mediaType: MediaType, loadAll = false) {
 	const userId = useAuthStore((s) => s.user?.uid);
 	const state = useSyncExternalStore(
 		useCallback((fn: () => void) => {
@@ -94,6 +113,8 @@ export function useWatchHistory(mediaType: MediaType) {
 	);
 	const [loading, setLoading] = useState(!state);
 	const [loadingMore, setLoadingMore] = useState(false);
+	const [loadingAll, setLoadingAll] = useState(false);
+	const [restFailed, setRestFailed] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	// Catalog cache isn't reactive — bump to re-derive cards after a batch fetch
 	const [catalogVersion, setCatalogVersion] = useState(0);
@@ -148,6 +169,27 @@ export function useWatchHistory(mediaType: MediaType) {
 		}
 	}, [userId, mediaType, state, loadingMore]);
 
+	// Sorting / filtering needs the whole tab: fetch everything after the cached pages, once
+	const needRest = loadAll && !!userId && !!state?.hasMore && !restFailed;
+	useEffect(() => {
+		if (!needRest || !userId) return;
+		setLoadingAll(true);
+		const current = states.get(storeKey(userId, mediaType));
+		fetchHistoryRest(userId, mediaType, current?.items[current.items.length - 1] ?? null)
+			.then((rest) => {
+				const latest = states.get(storeKey(userId, mediaType)) ?? current ?? emptyState(userId);
+				save(mediaType, mergeEntries(latest, rest, false));
+			})
+			.catch((err) => {
+				console.error("[watchHistory] load all failed:", err);
+				setRestFailed(true);
+				setError("Couldn't load your full history");
+			})
+			// Not tied to this effect run: saving the rest flips needRest, which re-runs the
+			// effect — a "cancelled" guard here left the spinner on forever
+			.finally(() => setLoadingAll(false));
+	}, [needRest, userId, mediaType]);
+
 	const cards: HistoryCard[] = useMemo(() => {
 		const today = todayStr();
 		return (state?.items ?? []).map((e) =>
@@ -160,6 +202,8 @@ export function useWatchHistory(mediaType: MediaType) {
 		cards,
 		loading: loading && !state,
 		loadingMore,
+		/** Fetching the rest of the tab for a sort / filter */
+		loadingAll: loadingAll || needRest,
 		hasMore: state?.hasMore ?? true,
 		error,
 		loadMore,

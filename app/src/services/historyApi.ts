@@ -64,6 +64,25 @@ export async function fetchHistoryPage(
 	};
 }
 
+/** Everything after `after` (sorting / filtering needs the whole tab) — one read per title, once;
+ *  the cache and delta sync keep it current afterwards */
+export async function fetchHistoryRest(
+	userId: string,
+	mediaType: MediaType,
+	after: Pick<HistoryEntry, "historyAt" | "id"> | null,
+): Promise<HistoryEntry[]> {
+	const snap = await getDocs(
+		query(
+			trackingCol(userId),
+			where("mediaType", "==", mediaType),
+			orderBy("historyAt", "desc"),
+			orderBy(documentId(), "desc"),
+			...(after ? [startAfter(Timestamp.fromMillis(after.historyAt), after.id)] : []),
+		),
+	);
+	return snap.docs.map((d) => toEntry(d.id, d.data()));
+}
+
 /** Rows changed since the cache was last synced — usually 0 docs (1 read minimum) */
 export async function fetchHistoryDelta(
 	userId: string,

@@ -24,6 +24,19 @@ export interface HistoryCard {
 	progress: { kind: HistoryProgress; percent?: number } | null;
 	/** "Ongoing" / "Ended" (TV), release year (movies) */
 	tag: string | null;
+	/** Raw values the History sort / filters use */
+	sortKeys: {
+		/** Last watch (ms) */
+		watchedAt: number;
+		minutes: number;
+		/** Premiere (TV) / release (movie) date, YYYY-MM-DD */
+		released: string | null;
+		/** TV: % of aired episodes watched (completed = 100); movies: null */
+		percent: number | null;
+		/** TV: still airing (true) / ended (false); unknown or movie: null */
+		airing: boolean | null;
+		status: WatchStatus;
+	};
 }
 
 const PILL: Record<WatchStatus, HistoryPill> = {
@@ -142,5 +155,17 @@ export function deriveHistoryCard(
 		watchCount,
 		progress,
 		tag: isMovie ? year || null : catalog ? (ended ? "Ended" : "Ongoing") : null,
+		sortKeys: {
+			watchedAt: entry.historyAt,
+			minutes,
+			released: (isMovie ? catalog?.releaseDate : catalog?.firstAirDate) || null,
+			percent: isMovie
+				? null
+				: entry.status === WatchStatus.COMPLETED || finishedEnded
+					? 100
+					: percentWatched(entry, airedEpisodes(catalog, today)),
+			airing: isMovie || !catalog ? null : !ended,
+			status: entry.status,
+		},
 	};
 }

@@ -59,6 +59,8 @@ export enum CacheKey {
 	CALENDAR_MONTHS = "calendar_months_v2",
 	/** + `_${mediaType}` — Watch History pages per tab */
 	WATCH_HISTORY = "watch_history_v1",
+	/** Watch History sort choice (kept across visits) */
+	HISTORY_SORT = "history_sort_v1",
 }
 
 export enum QueryKey {
@@ -89,6 +91,24 @@ export enum HistoryPill {
 	COMPLETED = "Completed",
 	/** Stopped part-way (paused / paused rewatch) */
 	PAUSED = "Incomplete",
+}
+
+/** Watch History sort order */
+export enum HistorySort {
+	LAST_WATCHED = "lastWatched",
+	TITLE = "title",
+	RELEASED = "released",
+	PROGRESS = "progress",
+	TIME_SPENT = "timeSpent",
+}
+
+/** Watch History filters (TV) — statuses OR together, ended / airing OR together, both groups AND */
+export enum HistoryFilter {
+	PAUSED = "paused",
+	WATCHING = "watching",
+	REWATCHING = "rewatching",
+	ENDED = "ended",
+	AIRING = "airing",
 }
 
 /** Watch History card bottom-right module */

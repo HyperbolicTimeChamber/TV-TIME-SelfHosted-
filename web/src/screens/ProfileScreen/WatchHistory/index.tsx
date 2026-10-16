@@ -1,15 +1,19 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { Popover } from "antd";
+import { IoOptionsOutline } from "react-icons/io5";
 import { AnimatePresence, motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import InfiniteScroll from "react-infinite-scroll-component";
-import { useWatchHistory } from "@app/hooks/useWatchHistory";
-import { CircleButtonTone, MediaType } from "@app/enums";
+import { useHistorySort, useWatchHistory } from "@app/hooks/useWatchHistory";
+import { applyHistoryView, needsFullHistory } from "@app/utils/historyView";
+import { CircleButtonTone, HistoryFilter, HistorySort, MediaType } from "@app/enums";
 import SlidingTabs from "../../../components/SlidingTabs";
 import { CircleBackButton, CircleButtonSpacer } from "../../../components/CircleButton";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 import { useHideTabBar } from "../../../hooks/useHideTabBar";
 import { Paths, showPath } from "../../../routes/paths";
 import HistoryCard from "./HistoryCard";
+import HistoryViewPanel from "./HistoryViewPanel";
 import Masonry from "../../../components/Masonry";
 import { useColumnCount } from "../../../hooks/useColumnCount";
 import styles from "./styles/WatchHistory.module.scss";
@@ -23,9 +27,22 @@ const SKELETONS = [0, 1, 2];
 const SWIPE_PX = 60;
 
 /** One tab's list — mounted only while active, so the other tab doesn't fetch */
-function HistoryList({ mediaType }: { mediaType: MediaType }) {
+function HistoryList({
+	mediaType,
+	sort,
+	filters,
+}: {
+	mediaType: MediaType;
+	sort: HistorySort;
+	filters: ReadonlySet<HistoryFilter>;
+}) {
 	const navigate = useNavigate();
-	const { cards, loading, hasMore, error, loadMore } = useWatchHistory(mediaType);
+	const full = needsFullHistory(sort, filters);
+	const { cards: allCards, loading, loadingAll, hasMore, error, loadMore } = useWatchHistory(mediaType, full);
+	const cards = useMemo(
+		() => (full ? applyHistoryView(allCards, sort, filters) : allCards),
+		[full, allCards, sort, filters],
+	);
 	const columns = useColumnCount();
 
 	if (loading) {
@@ -37,13 +54,25 @@ function HistoryList({ mediaType }: { mediaType: MediaType }) {
 			</div>
 		);
 	}
-	if (cards.length === 0) return <p className={styles.empty}>{error ?? "Nothing watched yet"}</p>;
+	if (full && loadingAll) {
+		return (
+			<div className={styles.loadingAll}>
+				<LoadingSpinner />
+				<p>Loading your full history…</p>
+			</div>
+		);
+	}
+	if (cards.length === 0) {
+		const message = filters.size > 0 && allCards.length > 0 ? "Nothing matches these filters" : "Nothing watched yet";
+		return <p className={styles.empty}>{error ?? message}</p>;
+	}
 
 	return (
 		<InfiniteScroll
 			dataLength={cards.length}
 			next={loadMore}
-			hasMore={hasMore}
+			// A sort / filter already has the whole tab; the default view pages in
+			hasMore={!full && hasMore}
 			loader={
 				<div className={styles.footer}>
 					<LoadingSpinner />
@@ -71,6 +100,22 @@ export default function WatchHistoryScreen() {
 	// +1 → new tab slides in from the right, -1 from the left
 	const [dir, setDir] = useState(1);
 	useHideTabBar();
+	// Sort is remembered (cache); filters only last while this page is open
+	const [sort, setSort] = useHistorySort();
+	const [filters, setFilters] = useState<Set<HistoryFilter>>(() => new Set());
+	const [panelOpen, setPanelOpen] = useState(false);
+	const noFilters = useMemo(() => new Set<HistoryFilter>(), []);
+	// Progress means nothing for movies (default there); filters are TV-only
+	const tabSort = tab === MediaType.MOVIE && sort === HistorySort.PROGRESS ? HistorySort.LAST_WATCHED : sort;
+	const tabFilters = tab === MediaType.MOVIE ? noFilters : filters;
+	const customised = tabSort !== HistorySort.LAST_WATCHED || tabFilters.size > 0;
+	const toggleFilter = (f: HistoryFilter) =>
+		setFilters((prev) => {
+			const next = new Set(prev);
+			if (next.has(f)) next.delete(f);
+			else next.add(f);
+			return next;
+		});
 	const index = TABS.findIndex((t) => t.key === tab);
 	const goTo = (next: number) => {
 		if (next < 0 || next >= TABS.length || next === index) return;
@@ -92,7 +137,35 @@ export default function WatchHistoryScreen() {
 					{/* Mirrors the back button so the title is centred on the bar */}
 					<CircleButtonSpacer />
 				</div>
-				<SlidingTabs id="history-tabs" tabs={TABS} activeKey={tab} onTabPress={(key) => goTo(TABS.findIndex((t) => t.key === key))} className={styles.tabs} />
+				<div className={styles.tabsRow}>
+					<SlidingTabs id="history-tabs" tabs={TABS} activeKey={tab} onTabPress={(key) => goTo(TABS.findIndex((t) => t.key === key))} className={styles.tabs} />
+					{/* Sort / filter */}
+					<Popover
+						trigger="click"
+						placement="bottomRight"
+						open={panelOpen}
+						onOpenChange={setPanelOpen}
+						arrow={false}
+						content={
+							<HistoryViewPanel
+								isMovie={tab === MediaType.MOVIE}
+								sort={tabSort}
+								onSort={(next) => {
+									setSort(next);
+									setPanelOpen(false);
+								}}
+								filters={tabFilters}
+								onToggleFilter={toggleFilter}
+								onClearFilters={() => setFilters(new Set())}
+							/>
+						}
+					>
+						<button className={styles.viewButton} aria-label="Sort and filter">
+							<IoOptionsOutline size={20} />
+							{customised && <span className={styles.viewButtonDot} />}
+						</button>
+					</Popover>
+				</div>
 			</motion.header>
 			{/* Swipe left/right between TV Shows and Movies (vertical scroll stays native) */}
 			<AnimatePresence mode="wait" initial={false} custom={dir}>
@@ -113,7 +186,7 @@ export default function WatchHistoryScreen() {
 						else if (info.offset.x > SWIPE_PX) goTo(index - 1);
 					}}
 				>
-					<HistoryList mediaType={tab} />
+					<HistoryList mediaType={tab} sort={tabSort} filters={tabFilters} />
 				</motion.div>
 			</AnimatePresence>
 		</div>

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
-import { HistoryPill, HistoryProgress, MediaType } from "@app/enums";
+import { HistoryPill, HistoryProgress, HistorySort, MediaType, WatchStatus } from "@app/enums";
 import type { HistoryCard } from "@app/utils";
 import { renderWithProviders, testUser } from "../../render";
 
@@ -20,6 +20,7 @@ const card = (o: Partial<HistoryCard>): HistoryCard => ({
 	watchCount: null,
 	progress: { kind: HistoryProgress.PERCENT, percent: 55 },
 	tag: "Ongoing",
+	sortKeys: { watchedAt: 0, minutes: 0, released: null, percent: null, airing: true, status: WatchStatus.WATCHING },
 	...o,
 });
 
@@ -27,17 +28,32 @@ const tvCards = [
 	card({ id: "tv_1", logoPath: "/logo.png" }),
 	card({ id: "tv_2", tmdbId: 2, title: "Dark", pill: HistoryPill.COMPLETED, pillLabel: HistoryPill.COMPLETED, watchCount: 2, progress: null, tag: "Ended" }),
 	card({ id: "tv_3", tmdbId: 3, title: "Severance", progress: { kind: HistoryProgress.UP_TO_DATE } }),
-	card({ id: "tv_4", tmdbId: 4, title: "Fargo", pill: null, pillLabel: null, progress: { kind: HistoryProgress.PAUSED } }),
+	card({
+		id: "tv_4",
+		tmdbId: 4,
+		title: "Fargo",
+		pill: null,
+		pillLabel: null,
+		progress: { kind: HistoryProgress.PAUSED },
+		sortKeys: { watchedAt: 0, minutes: 0, released: null, percent: 20, airing: false, status: WatchStatus.PAUSED },
+	}),
 ];
-const useWatchHistory = vi.fn((mediaType: MediaType) => ({
+const useWatchHistory = vi.fn((mediaType: MediaType, _loadAll?: boolean) => ({
 	cards: mediaType === MediaType.TV ? tvCards : [],
 	loading: false,
 	loadingMore: false,
+	loadingAll: false,
 	hasMore: false,
 	error: null,
 	loadMore: vi.fn(),
 }));
-vi.mock("@app/hooks/useWatchHistory", () => ({ useWatchHistory: (m: MediaType) => useWatchHistory(m) }));
+vi.mock("@app/hooks/useWatchHistory", async () => {
+	const React = await vi.importActual<typeof import("react")>("react");
+	return {
+		useWatchHistory: (m: MediaType, all?: boolean) => useWatchHistory(m, all),
+		useHistorySort: () => React.useState(HistorySort.LAST_WATCHED),
+	};
+});
 
 import AppShell from "../../../src/layout/AppShell";
 import WatchHistoryScreen from "../../../src/screens/ProfileScreen/WatchHistory";
@@ -58,7 +74,7 @@ describe("WatchHistoryScreen", () => {
 		const tabs = screen.getAllByRole("tab");
 		expect(tabs.map((t) => t.textContent)).toEqual(["TV Shows", "Movies"]);
 		expect(tabs[0]).toHaveAttribute("aria-selected", "true");
-		expect(useWatchHistory).toHaveBeenLastCalledWith(MediaType.TV);
+		expect(useWatchHistory).toHaveBeenLastCalledWith(MediaType.TV, false);
 		expect(screen.queryByRole("navigation", { name: "Main" })).not.toBeInTheDocument();
 
 		expect(screen.getByText("55%")).toBeInTheDocument();
@@ -75,7 +91,21 @@ describe("WatchHistoryScreen", () => {
 		renderPage();
 		fireEvent.click(screen.getByText("Movies"));
 		// The TV list slides out before the Movies list mounts
-		await waitFor(() => expect(useWatchHistory).toHaveBeenLastCalledWith(MediaType.MOVIE));
+		await waitFor(() => expect(useWatchHistory).toHaveBeenLastCalledWith(MediaType.MOVIE, false));
 		expect(await screen.findByText("Nothing watched yet")).toBeInTheDocument();
+	});
+
+	it("sort / filter button: alphabetical order, Paused filter, loads the whole tab", async () => {
+		renderPage();
+		fireEvent.click(screen.getByLabelText("Sort and filter"));
+		fireEvent.click(await screen.findByText("Alphabetical"));
+		await waitFor(() => expect(useWatchHistory).toHaveBeenLastCalledWith(MediaType.TV, true));
+		// "Lost" has a logo (alt text) — the other three render their names
+		const titles = () => screen.getAllByText(/^(Dark|Severance|Fargo)$/).map((el) => el.textContent);
+		expect(titles()).toEqual(["Dark", "Fargo", "Severance"]);
+		fireEvent.click(screen.getByLabelText("Sort and filter"));
+		// The filter chip (the Fargo card also says "Paused")
+		fireEvent.click(await screen.findByRole("button", { name: "Paused" }));
+		await waitFor(() => expect(titles()).toEqual(["Fargo"]));
 	});
 });
