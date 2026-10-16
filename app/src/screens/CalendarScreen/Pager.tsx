@@ -1,4 +1,4 @@
-import { useLayoutEffect, type ReactNode } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { Gesture, GestureDetector, type GestureType } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
@@ -28,13 +28,20 @@ interface Props {
  */
 export default function Pager({ width, pageKey, renderPage, onPage, race, style }: Props) {
 	const tx = useSharedValue(0);
+	// Gestures are built once (rebuilding mid-swipe drops their callbacks), so the latest
+	// onPage is read through a ref
+	const onPageRef = useRef(onPage);
+	onPageRef.current = onPage;
+	const turn = useCallback((dir: 1 | -1) => onPageRef.current(dir), []);
 
 	// New centre page rendered → put the strip back in the middle
 	useLayoutEffect(() => {
 		tx.value = 0;
 	}, [pageKey, tx]);
 
-	const pan = Gesture.Pan()
+	const pan = useMemo(
+		() =>
+			Gesture.Pan()
 		.activeOffsetX([-14, 14])
 		.failOffsetY([-12, 12])
 		.onUpdate((e) => {
@@ -49,14 +56,17 @@ export default function Pager({ width, pageKey, renderPage, onPage, race, style 
 			}
 			const dir = next ? 1 : -1;
 			tx.value = withTiming(-dir * width, { duration: TURN_MS }, (finished) => {
-				if (finished) runOnJS(onPage)(dir);
+				if (finished) runOnJS(turn)(dir);
 			});
-		});
+		}),
+		[width, tx, turn],
+	);
+	const gesture = useMemo(() => (race ? Gesture.Race(pan, race) : pan), [pan, race]);
 
 	const strip = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));
 
 	return (
-		<GestureDetector gesture={race ? Gesture.Race(pan, race) : pan}>
+		<GestureDetector gesture={gesture}>
 			<View style={[styles.clip, style]}>
 				<Animated.View style={[StyleSheet.absoluteFill, strip]}>
 					{([-1, 0, 1] as const).map((offset) => (

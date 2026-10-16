@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { View, Text, TouchableOpacity, Animated as RNAnimated, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { Gesture } from "react-native-gesture-handler";
 import Animated, {
 	interpolate,
 	runOnJS,
 	useAnimatedStyle,
 	useSharedValue,
+	withDecay,
 	withTiming,
 } from "react-native-reanimated";
 import { AnimatedModal, EpisodeDetailModal } from "../../components";
@@ -101,7 +102,6 @@ export default function CalendarScreen() {
 	const [resizing, setResizing] = useState(false);
 	const progress = useSharedValue<number>(CalendarMode.MONTH);
 	const bodyH = useSharedValue(0);
-	const startH = useSharedValue(0);
 	const weeks = useMemo(() => monthWeeks(currentYear, currentMonth), [currentYear, currentMonth]);
 	const rows = useSharedValue(weeks.length);
 	const fullRowH = useSharedValue(ROW_MONTH);
@@ -132,25 +132,60 @@ export default function CalendarScreen() {
 			: CalendarMode.MONTH + (h - monthH) / Math.max(1, full - monthH);
 	};
 
-	// Vertical drag on the calendar (or a day header) resizes; release snaps to the nearest view
-	const makeResize = () =>
+	// --- One scroll for the whole screen ------------------------------------------------------
+	// Finger up: the calendar shrinks to the week strip first, then the day list scrolls.
+	// Finger down: the list scrolls back to its top first, then the calendar grows (month →
+	// full). Same on the calendar and on the list. Release: a calendar caught between sizes
+	// snaps to the nearest; otherwise the list keeps the fling.
+	const listY = useSharedValue(0);
+	const contentH = useSharedValue(0);
+	const lastT = useSharedValue(0);
+	const listMax = () => {
+		"worklet";
+		const viewport = bodyH.value - heightAt(progress.value, rows.value, bodyH.value);
+		return Math.max(0, contentH.value - viewport);
+	};
+	const makeScroll = () =>
 		Gesture.Pan()
-			.activeOffsetY([-12, 12])
+			.activeOffsetY([-10, 10])
 			.failOffsetX([-12, 12])
 			.onStart(() => {
-				startH.value = heightAt(progress.value, rows.value, bodyH.value);
+				lastT.value = 0;
 				runOnJS(setResizing)(true);
 			})
 			.onUpdate((e) => {
-				const h = Math.min(Math.max(startH.value + e.translationY, ROW_MONTH), bodyH.value);
-				progress.value = progressAt(h, rows.value, bodyH.value);
+				let delta = e.translationY - lastT.value;
+				lastT.value = e.translationY;
+				const h = heightAt(progress.value, rows.value, bodyH.value);
+				if (delta < 0) {
+					// Up: shrink the calendar, the rest scrolls the list
+					const shrink = Math.max(delta, ROW_MONTH - h);
+					if (shrink < 0) progress.value = progressAt(h + shrink, rows.value, bodyH.value);
+					delta -= shrink;
+					if (delta < 0) listY.value = Math.min(listMax(), listY.value - delta);
+				} else if (delta > 0) {
+					// Down: list back to the top, the rest grows the calendar
+					const back = Math.min(delta, listY.value);
+					listY.value -= back;
+					delta -= back;
+					if (delta > 0) progress.value = progressAt(Math.min(bodyH.value, h + delta), rows.value, bodyH.value);
+				}
 			})
 			.onEnd((e) => {
-				const landing = heightAt(progress.value, rows.value, bodyH.value) + e.velocityY * FLING_CARRY;
-				const stops = [CalendarMode.WEEK, CalendarMode.MONTH, CalendarMode.FULL];
+				const p = progress.value;
+				const atStop = Math.abs(p - Math.round(p)) < 0.01;
+				if (atStop) {
+					const stop = Math.round(p) as CalendarMode;
+					progress.value = stop;
+					runOnJS(settle)(stop);
+					// Week strip (or month with a long day) — the list keeps the fling
+					listY.value = withDecay({ velocity: -e.velocityY, clamp: [0, listMax()] });
+					return;
+				}
+				const landing = heightAt(p, rows.value, bodyH.value) + e.velocityY * FLING_CARRY;
 				let target = CalendarMode.MONTH;
 				let best = Infinity;
-				for (const s of stops) {
+				for (const s of [CalendarMode.WEEK, CalendarMode.MONTH, CalendarMode.FULL]) {
 					const d = Math.abs(heightAt(s, rows.value, bodyH.value) - landing);
 					if (d < best) {
 						best = d;
@@ -159,7 +194,16 @@ export default function CalendarScreen() {
 				}
 				progress.value = withTiming(target, { duration: RESIZE_MS }, () => runOnJS(settle)(target));
 			});
-	const calendarResize = makeResize();
+	// Built once — rebuilding a gesture mid-drag (the drag itself re-renders) loses its callbacks
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	const calendarScroll = useMemo(() => makeScroll(), []);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	const listScrollGesture = useMemo(() => makeScroll(), []);
+	// New day → its list starts at the top (the calendar keeps its size)
+	useLayoutEffect(() => {
+		listY.value = 0;
+	}, [selected, listY]);
+	const listScroll = useAnimatedStyle(() => ({ transform: [{ translateY: -listY.value }] }));
 
 	const calendarStyle = useAnimatedStyle(() => ({ height: heightAt(progress.value, rows.value, bodyH.value) }));
 	const listStyle = useAnimatedStyle(() => ({
@@ -248,15 +292,21 @@ export default function CalendarScreen() {
 
 	const renderDayPage = (offset: -1 | 0 | 1) => {
 		const date = addDays(selected, offset);
+		// Only today's page scrolls (neighbours sit at their top while swiping in)
 		return (
-			<View style={styles.body}>
-				<GestureDetector gesture={makeResize()}>
-					<View>
-						<DayHeader date={date} />
-					</View>
-				</GestureDetector>
-				{dayList(date)}
-			</View>
+			<Animated.View
+				style={offset === 0 && listScroll}
+				onLayout={offset === 0 ? (e) => (contentH.value = e.nativeEvent.layout.height) : undefined}
+			>
+				<DayHeader date={date} />
+				<DayList
+					episodes={episodesForDate(date)}
+					onOpenEpisode={setInfoEp}
+					onOpenMovie={openMovie}
+					collapseSignal={collapseSignal}
+					externalScroll
+				/>
+			</Animated.View>
 		);
 	};
 
@@ -303,7 +353,7 @@ export default function CalendarScreen() {
 						pageKey={weekPaging ? `w${weekStart(selected)}` : `m${currentYear}-${currentMonth}`}
 						renderPage={renderCalendarPage}
 						onPage={onCalendarPage}
-						race={calendarResize}
+						race={calendarScroll}
 						style={styles.body}
 					/>
 				</Animated.View>
@@ -317,6 +367,7 @@ export default function CalendarScreen() {
 							pageKey={selected}
 							renderPage={renderDayPage}
 							onPage={(dir) => selectDate(addDays(selected, dir))}
+							race={listScrollGesture}
 							style={styles.body}
 						/>
 					)}

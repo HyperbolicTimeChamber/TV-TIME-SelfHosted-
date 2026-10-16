@@ -24,10 +24,9 @@ export const styles = StyleSheet.create({
 		paddingHorizontal: spacing.lg,
 	},
 	monthTitle: { ...typography.title, fontSize: 20, letterSpacing: 1 },
-	// Left of the app's floating settings gear (top-right on every tab)
 	todayButton: {
 		position: "absolute",
-		right: 76,
+		right: spacing.lg,
 		width: 28,
 		height: 28,
 		borderRadius: 7,

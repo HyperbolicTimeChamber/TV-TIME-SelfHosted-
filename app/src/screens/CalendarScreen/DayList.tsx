@@ -59,10 +59,19 @@ interface Props {
 	collapseSignal?: number;
 	/** Size to content (popup) instead of filling the space */
 	fitContent?: boolean;
+	/** Parent scrolls it (Calendar's combined calendar + list scroll): plain column, no ScrollView */
+	externalScroll?: boolean;
 }
 
 /** One day's cards: show/movie cards, several episodes of a show collapse into one */
-export default function DayList({ episodes, onOpenEpisode, onOpenMovie, collapseSignal, fitContent }: Props) {
+export default function DayList({
+	episodes,
+	onOpenEpisode,
+	onOpenMovie,
+	collapseSignal,
+	fitContent,
+	externalScroll,
+}: Props) {
 	// Shows with several episodes that day collapse into one card; tap to open
 	const [expanded, setExpanded] = useState<Set<string>>(new Set());
 	useEffect(() => setExpanded(new Set()), [collapseSignal]);
@@ -184,23 +193,26 @@ export default function DayList({ episodes, onOpenEpisode, onOpenMovie, collapse
 		);
 	};
 
+	const content = rows.map((row) => {
+		const isChild = row.kind === CalendarRowKind.CHILD;
+		return (
+			<Reanimated.View
+				key={row.key}
+				layout={rowLayout}
+				entering={isChild ? FadeInUp.duration(ACCORDION_MS).delay(row.nth * STRIP_STAGGER_MS) : undefined}
+				exiting={isChild ? FadeOutUp.duration(ACCORDION_MS / 2) : undefined}
+			>
+				{renderRow(row)}
+			</Reanimated.View>
+		);
+	});
+
+	if (externalScroll) return <View style={styles.listContent}>{content}</View>;
 	// Short list (one day) → plain scroll view, so rows can animate in/out and reflow.
 	// Gesture-handler ScrollView: vertical scroll here, horizontal swipes go to the day pager.
 	return (
 		<ScrollView style={fitContent && { flexGrow: 0 }} contentContainerStyle={styles.listContent}>
-			{rows.map((row) => {
-				const isChild = row.kind === CalendarRowKind.CHILD;
-				return (
-					<Reanimated.View
-						key={row.key}
-						layout={rowLayout}
-						entering={isChild ? FadeInUp.duration(ACCORDION_MS).delay(row.nth * STRIP_STAGGER_MS) : undefined}
-						exiting={isChild ? FadeOutUp.duration(ACCORDION_MS / 2) : undefined}
-					>
-						{renderRow(row)}
-					</Reanimated.View>
-				);
-			})}
+			{content}
 		</ScrollView>
 	);
 }
