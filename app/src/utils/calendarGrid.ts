@@ -49,6 +49,11 @@ export function monthWeeks(year: number, month: number): string[][] {
 	return weeks;
 }
 
+/** Days since 1970-01-01 (local) — a day's position for paging */
+export function dayNumber(day: string): number {
+	return Math.round(parseDay(day).getTime() / 86_400_000);
+}
+
 /** Same calendar month? */
 export function inMonth(day: string, year: number, month: number): boolean {
 	return day.startsWith(`${year}-${pad(month)}`);

@@ -22,6 +22,7 @@ import { calendarEpisodeInfo } from "../../utils/calendarGroups";
 import {
 	WEEKDAY_LABELS,
 	addDays,
+	dayNumber,
 	monthWeeks,
 	parseDay,
 	shiftMonth,
@@ -362,7 +363,14 @@ export default function CalendarScreen() {
 				<Animated.View style={[styles.calendar, calendarStyle]}>
 					<Pager
 						width={width}
-						pageKey={weekPaging ? `w${weekStart(selected)}` : `m${currentYear}-${currentMonth}`}
+						index={
+							weekPaging ? dayNumber(weekStart(selected)) / 7 : currentYear * 12 + currentMonth
+						}
+						keyFor={(offset) => {
+							if (weekPaging) return `w${weekStart(addDays(selected, offset * 7))}`;
+							const m = shiftMonth(currentYear, currentMonth, offset);
+							return `m${m.year}-${m.month}`;
+						}}
 						renderPage={renderCalendarPage}
 						onPage={onCalendarPage}
 						race={calendarScroll}
@@ -376,7 +384,8 @@ export default function CalendarScreen() {
 					) : (
 						<Pager
 							width={width}
-							pageKey={selected}
+							index={dayNumber(selected)}
+							keyFor={(offset) => addDays(selected, offset)}
 							renderPage={renderDayPage}
 							onPage={(dir) => selectDate(addDays(selected, dir))}
 							race={listScrollGesture}
