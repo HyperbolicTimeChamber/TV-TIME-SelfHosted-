@@ -1,5 +1,6 @@
 import axios from "axios";
-import { MediaType, TMDB_BASE } from "../shared/enums";
+import { MediaType, TMDB_BASE, ENDED_STATUSES } from "../shared/enums";
+import { applyAirStamps, fetchTvmazeAirStamps, lookupTvmazeId, needsAirStamps } from "./tvmaze";
 import {
   CatalogShow,
   CatalogSeason,
@@ -91,6 +92,8 @@ export async function fetchShowFromTMDB(
   apiKey: string,
   tmdbId: number,
   mediaType: MediaType,
+  /** Known TVMaze id from the stored catalog doc — skips the lookup call */
+  opts: { tvmazeId?: number | null } = {},
 ): Promise<CatalogShow> {
   const endpoint =
     mediaType === MediaType.TV
@@ -102,7 +105,7 @@ export async function fetchShowFromTMDB(
     params: {
       api_key: apiKey,
       append_to_response:
-        mediaType === MediaType.MOVIE ? "credits,images" : "images",
+        mediaType === MediaType.MOVIE ? "credits,images" : "images,external_ids",
       include_image_language: "en,null",
     },
   });
@@ -122,6 +125,21 @@ export async function fetchShowFromTMDB(
     seasons = await pooled(tasks, 5);
     totalEpisodes = seasons.reduce((sum, s) => sum + s.episodeCount, 0);
     totalSeasons = seasons.length;
+  }
+
+  // Exact air times (TVMaze) so each user sees an episode on their own local day —
+  // only for shows with something recent/upcoming; any failure just keeps TMDB dates
+  let tvmazeId = opts.tvmazeId ?? null;
+  if (
+    mediaType === MediaType.TV &&
+    needsAirStamps(seasons, ENDED_STATUSES.includes(data.status ?? ""))
+  ) {
+    try {
+      tvmazeId ??= data.external_ids ? await lookupTvmazeId(data.external_ids) : null;
+      if (tvmazeId) applyAirStamps(seasons, await fetchTvmazeAirStamps(tvmazeId));
+    } catch (err) {
+      console.warn(`TVMaze air times failed for tmdb ${tmdbId}:`, (err as Error).message);
+    }
   }
 
   const avgRuntime =
@@ -146,6 +164,7 @@ export async function fetchShowFromTMDB(
     seasons,
     genres: (data.genres ?? []).map((g) => g.name),
     logoPath: pickLogo(data.images?.logos),
+    ...(mediaType === MediaType.TV ? { tvmazeId } : {}),
     ...(mediaType === MediaType.MOVIE && data.credits?.crew
       ? {
           credits: {

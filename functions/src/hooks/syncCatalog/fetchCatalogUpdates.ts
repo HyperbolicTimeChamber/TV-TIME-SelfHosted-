@@ -66,6 +66,7 @@ export async function fetchCatalogUpdates(
         apiKey,
         oldData.tmdbId,
         MediaType.TV,
+        { tvmazeId: oldData.tvmazeId },
       );
 
       const oldEpCount = oldData.totalEpisodes ?? 0;
@@ -94,6 +95,7 @@ export async function fetchCatalogUpdates(
           genres: freshData.genres,
           // Was missing: weekly syncs never refreshed logos
           logoPath: freshData.logoPath ?? null,
+          tvmazeId: freshData.tvmazeId ?? null,
           ...(freshData.credits ? { credits: freshData.credits } : {}),
           lastSyncedAt: FieldValue.serverTimestamp(),
         },
