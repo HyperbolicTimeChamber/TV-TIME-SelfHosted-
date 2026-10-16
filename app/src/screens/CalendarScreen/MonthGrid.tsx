@@ -1,11 +1,15 @@
 import { memo } from "react";
 import { Pressable, Text, View } from "react-native";
-import Animated, { interpolate, useAnimatedStyle, type SharedValue } from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut, interpolate, useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { MediaType } from "../../types";
 import { colors } from "../../theme";
 import { SUNDAY_COLUMN, planChips } from "../../utils/calendarGrid";
 import type { DayMark } from "../../utils/calendarGroups";
 import { CalendarMode, ROW_MONTH, styles } from "./calendarStyles";
+
+/** Marks fade out as a resize starts and back in when it settles — plain timed fades */
+const MARKS_IN = FadeIn.duration(180);
+const MARKS_OUT = FadeOut.duration(120);
 
 /** Month view shows this many event bars per day */
 const MAX_BARS = 3;
@@ -71,7 +75,7 @@ const DayCell = memo(function DayCell({
 					<Text style={[styles.dayNumber, column === SUNDAY_COLUMN && !isToday && styles.sunday]}>{day}</Text>
 				</View>
 				{marks && marks.length > 0 && show !== CellMarks.NONE && (
-					<View style={styles.markArea}>
+					<Animated.View style={styles.markArea} entering={MARKS_IN} exiting={MARKS_OUT}>
 						{show === CellMarks.BARS && (
 							<View style={styles.bars}>
 								{marks.slice(0, MAX_BARS).map((m) => (
@@ -93,7 +97,7 @@ const DayCell = memo(function DayCell({
 								)}
 							</View>
 						)}
-					</View>
+					</Animated.View>
 				)}
 			</View>
 		</Pressable>
