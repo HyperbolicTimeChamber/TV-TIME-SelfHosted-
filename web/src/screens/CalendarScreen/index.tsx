@@ -4,7 +4,7 @@ import { IoChevronBack, IoChevronForward } from "react-icons/io5";
 import { IoIosArrowDown } from "react-icons/io";
 import { NavigationType, useNavigate, useNavigationType } from "react-router-dom";
 import { useCalendarScreen, YEARS, type CalendarEpisode, type CalendarPosition } from "@app/screens/useCalendarScreen";
-import { withAirTime } from "@app/utils/airTime";
+import { formatAirTime } from "@app/utils/airTime";
 import { groupCalendarDay, episodeCountLabel, seasonRangeLabel } from "@app/utils/calendarGroups";
 import { MediaType } from "@app/enums";
 import { todayStr } from "@app/utils/todayStr";
@@ -73,6 +73,8 @@ interface DayCardProps {
 /** Day list card: backdrop, logo/name, episode title (or range) + the right-hand square */
 function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 	const isMovie = ep.mediaType === MediaType.MOVIE;
+	// Local air time under Exx / the arrow (a group: its first episode's)
+	const airTime = isMovie ? null : formatAirTime(ep.airStamp);
 	const backdrop = (
 		<>
 			{/* Same backdrop treatment as the Watch History cards */}
@@ -107,7 +109,7 @@ function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 					<span className={styles.movieBadge}>MOVIE</span>
 				) : (
 					// Collapsed show: its season(s) where an episode name would be; count is in the square
-					<span className={styles.epTitle}>{withAirTime(groupEps ? seasonRangeLabel(groupEps) : ep.episodeTitle, ep.airStamp)}</span>
+					<span className={styles.epTitle}>{groupEps ? seasonRangeLabel(groupEps) : ep.episodeTitle}</span>
 				)}
 			</span>
 			{groupEps ? (
@@ -117,6 +119,7 @@ function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 					<span className={styles.epSquareRule} />
 					<span className={styles.epSquareArrow}>
 						<IoIosArrowDown size={40} className={`relative transition-transform duration-220 ${expanded ? "rotate-180" : ""}`} />
+						{airTime && <span className={styles.epSquareTime}>{airTime}</span>}
 					</span>
 				</span>
 			) : (
@@ -124,9 +127,10 @@ function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 				<span className={styles.epSquare}>
 					<span className={styles.epSquareTitle}>{isMovie ? "YEAR" : `SEASON ${pad(ep.season)}`}</span>
 					<span className={styles.epSquareRule} />
-					<span className={`${styles.epSquareValue} ${isMovie ? styles.epSquareYear : ""}`}>
+					<span className={`${styles.epSquareValue} ${isMovie ? styles.epSquareYear : ""} ${airTime ? styles.epSquareValueTimed : ""}`}>
 						{isMovie ? ep.airDate.slice(0, 4) : `E${pad(ep.episode)}`}
 					</span>
+					{airTime && <span className={styles.epSquareTime}>{airTime}</span>}
 				</span>
 			)}
 		</button>

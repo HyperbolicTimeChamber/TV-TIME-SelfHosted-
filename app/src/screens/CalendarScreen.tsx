@@ -28,7 +28,7 @@ import {
 	CalendarRowKind,
 	type CalendarGroup,
 } from "../utils/calendarGroups";
-import { withAirTime } from "../utils/airTime";
+import { formatAirTime } from "../utils/airTime";
 
 const CARD_WIDTH = Dimensions.get("window").width - 32;
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -194,6 +194,8 @@ export default function CalendarScreen() {
 
 			const groupEps = row.group.episodes;
 			const isGroup = groupEps.length > 1;
+			// Local air time under Exx / the arrow (a group: its first episode's)
+			const airTime = isMovie ? null : formatAirTime(item.airStamp);
 			return (
 				<TouchableOpacity
 					style={styles.episodeCard}
@@ -223,7 +225,7 @@ export default function CalendarScreen() {
 						) : (
 							// Collapsed show: its season(s) where an episode name would be; count is in the square
 							<Text style={styles.epTitle} numberOfLines={2}>
-								{withAirTime(isGroup ? seasonRangeLabel(groupEps) : item.episodeTitle, item.airStamp)}
+								{isGroup ? seasonRangeLabel(groupEps) : item.episodeTitle}
 							</Text>
 						)}
 					</View>
@@ -234,6 +236,7 @@ export default function CalendarScreen() {
 							<View style={styles.epSquareRule} />
 							<View style={styles.epSquareArrow}>
 								<GroupArrow open={row.expanded} />
+								{airTime && <Text style={styles.epSquareTime}>{airTime}</Text>}
 							</View>
 						</View>
 					) : (
@@ -241,9 +244,10 @@ export default function CalendarScreen() {
 						<View style={styles.epSquare}>
 							<Text style={styles.epSquareTitle}>{isMovie ? "YEAR" : `SEASON ${pad2(item.season)}`}</Text>
 							<View style={styles.epSquareRule} />
-							<Text style={[styles.epSquareValue, isMovie && styles.epSquareYear]}>
+							<Text style={[styles.epSquareValue, isMovie && styles.epSquareYear, airTime && styles.epSquareValueTimed]}>
 								{isMovie ? item.airDate.slice(0, 4) : `E${pad2(item.episode)}`}
 							</Text>
+							{airTime && <Text style={styles.epSquareTime}>{airTime}</Text>}
 						</View>
 					)}
 				</TouchableOpacity>
@@ -470,6 +474,9 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		marginTop: -6,
 	},
+	// With a time under it, Exx shrinks so all four lines fit the square
+	epSquareValueTimed: { fontSize: 44, lineHeight: 46 },
+	epSquareTime: { fontFamily: fonts.smoochMedium, fontSize: 14, lineHeight: 16, letterSpacing: 0.5, color: colors.text },
 	epSquareYear: { fontSize: 40, lineHeight: 44 },
 	movieBadge: {
 		alignSelf: "flex-start",

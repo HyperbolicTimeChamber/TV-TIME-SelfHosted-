@@ -52,9 +52,3 @@ export function formatAirTime(airStamp?: string): string | null {
 	const mm = String(d.getMinutes()).padStart(2, "0");
 	return `${hh}:${mm} ${h < 12 ? "AM" : "PM"}`;
 }
-
-/** Calendar card subtitle: "Episode name • 08:00 PM" (just the name when no time is known) */
-export function withAirTime(label: string, airStamp?: string): string {
-	const time = formatAirTime(airStamp);
-	return time ? `${label} • ${time}` : label;
-}
