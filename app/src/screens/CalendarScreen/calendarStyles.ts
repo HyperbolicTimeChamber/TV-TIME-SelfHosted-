@@ -71,15 +71,16 @@ export const styles = StyleSheet.create({
 	bars: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, paddingHorizontal: 3, gap: 2 },
 	bar: { height: 3, borderRadius: 2 },
 	chips: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, paddingHorizontal: 2, gap: 2 },
+	// Line height / gap match CHIP_LINE_H / CHIP_GAP in MonthGrid
 	chip: {
 		fontSize: 9,
-		lineHeight: 13,
+		lineHeight: 12,
 		color: colors.text,
 		borderRadius: 3,
 		paddingHorizontal: 2,
 		overflow: "hidden",
 	},
-	chipMore: { fontSize: 9, color: colors.textSecondary, paddingHorizontal: 2 },
+	chipMore: { fontSize: 9, lineHeight: 12, color: colors.textSecondary, paddingHorizontal: 2 },
 	listArea: { flex: 1, overflow: "hidden" },
 	// "15 THU" over each day's list
 	dayHeader: {

@@ -31,7 +31,7 @@ import {
 import { todayStr } from "../../utils/todayStr";
 import Pager from "./Pager";
 import DayList from "./DayList";
-import { MonthGrid, WeekRow } from "./MonthGrid";
+import { MonthGrid, WeekRow, type ChipFit } from "./MonthGrid";
 import { CalendarMode, ROW_MONTH, styles } from "./calendarStyles";
 
 type NavProp = NativeStackNavigationProp<CalendarStackParamList, Route.CALENDAR_MAIN>;
@@ -105,6 +105,15 @@ export default function CalendarScreen() {
 	const weeks = useMemo(() => monthWeeks(currentYear, currentMonth), [currentYear, currentMonth]);
 	const rows = useSharedValue(weeks.length);
 	const fullRowH = useSharedValue(ROW_MONTH);
+	// Full-view cell size in JS too — decides which event chips fit
+	const [bodyPx, setBodyPx] = useState(0);
+	const chipFit = useMemo((): ChipFit => {
+		// Row minus the day number area (cell padding, tile padding + border, number, gap)
+		const space = bodyPx / weeks.length - (3 + 6 + 20 + 3);
+		// Cell inner width at ~5px per 9px character
+		const cellW = (width - 8) / 7 - 3 - 2 - 4 - 4;
+		return { space: Math.max(0, space), charsPerLine: Math.max(4, Math.floor(cellW / 5)) };
+	}, [bodyPx, weeks.length, width]);
 	useEffect(() => {
 		rows.value = weeks.length;
 		if (bodyH.value > 0) fullRowH.value = bodyH.value / weeks.length;
@@ -232,6 +241,7 @@ export default function CalendarScreen() {
 					today={today}
 					selected={selected}
 					marks={dayMarks}
+				chipFit={chipFit}
 					progress={progress}
 					fullRowH={fullRowH}
 					onDayPress={onDayPress}
@@ -247,6 +257,7 @@ export default function CalendarScreen() {
 				today={today}
 				selected={selected}
 				marks={dayMarks}
+				chipFit={chipFit}
 				progress={progress}
 				fullRowH={fullRowH}
 				onDayPress={onDayPress}
@@ -344,6 +355,7 @@ export default function CalendarScreen() {
 				style={styles.body}
 				onLayout={(e) => {
 					bodyH.value = e.nativeEvent.layout.height;
+					setBodyPx(e.nativeEvent.layout.height);
 					fullRowH.value = e.nativeEvent.layout.height / weeks.length;
 				}}
 			>

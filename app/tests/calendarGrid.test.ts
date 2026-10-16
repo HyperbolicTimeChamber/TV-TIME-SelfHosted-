@@ -35,3 +35,17 @@ test("buildDayMarks: one marker per show per day, movies typed", () => {
 	]);
 	assert.equal(marks.get("2026-10-16")?.length, 1);
 });
+
+test("planChips: 2-line titles, last slot turns into +n more", async () => {
+	const { planChips } = await import("../src/utils/calendarGrid");
+	const m = (title: string) => ({ title });
+	// lineH 12 + gap 2: room for 50px
+	const all = [m("Ted Lasso"), m("The Simpsons Treehouse"), m("Ghosts"), m("Lanterns")];
+	const r = planChips(all, 50, 10, 12, 2);
+	// Ted Lasso (14) + Simpsons 2 lines (26) = 40, + "+2 more" (14) would be 54 > 50 → only Ted Lasso + more
+	assert.deepEqual(r.shown.map((x) => x.title), ["Ted Lasso"]);
+	assert.equal(r.more, 3);
+	const roomy = planChips(all, 200, 10, 12, 2);
+	assert.equal(roomy.shown.length, 4);
+	assert.equal(roomy.more, 0);
+});

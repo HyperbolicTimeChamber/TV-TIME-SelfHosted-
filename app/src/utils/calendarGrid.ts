@@ -59,3 +59,29 @@ export function sameDayIn(day: string, year: number, month: number): string {
 	const lastDay = new Date(year, month, 0).getDate();
 	return `${year}-${pad(month)}-${pad(Math.min(parseDay(day).getDate(), lastDay))}`;
 }
+
+/**
+ * Which event chips fit a full-view day cell. Titles wrap to at most 2 lines (estimated from
+ * charsPerLine); when they don't all fit, the last slot becomes "+n more".
+ */
+export function planChips<T extends { title: string }>(
+	marks: T[],
+	space: number,
+	charsPerLine: number,
+	lineH: number,
+	gap: number,
+): { shown: T[]; more: number } {
+	const height = (t: string) => (t.length > charsPerLine ? 2 : 1) * lineH + gap;
+	const shown: T[] = [];
+	let used = 0;
+	for (let i = 0; i < marks.length; i++) {
+		const need = height(marks[i].title);
+		const left = marks.length - i - 1;
+		// Keep a one-line slot for "+n more" while anything would be left over
+		const reserve = left > 0 ? lineH + gap : 0;
+		if (used + need + reserve > space) break;
+		shown.push(marks[i]);
+		used += need;
+	}
+	return { shown, more: marks.length - shown.length };
+}
