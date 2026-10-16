@@ -19,6 +19,8 @@ import {
 	titlesFromCatalog,
 	applyTitles,
 	isGenericEpisodeTitle,
+	localizeUpcoming,
+	localDateStr,
 } from "../utils";
 import { useAuthStore } from "../stores";
 import { getSeasonDetails, pooled } from "../services/tmdb";
@@ -198,14 +200,17 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 				inflightMutations.add(pending);
 
 				const today = todayStr();
+				// Stored airDate is the US date; ahead-of-US timezones see it a day later, so
+				// read from yesterday and filter on the local day below
+				const fromDate = localDateStr(new Date(Date.now() - 86_400_000));
 				const upcomingCol = collection(doc(db, "users", userId), "upcoming");
-				let snap = await getDocs(query(upcomingCol, where("airDate", ">=", today)));
+				let snap = await getDocs(query(upcomingCol, where("airDate", ">=", fromDate)));
 
 				// If empty, rebuild upcoming subcollection via CF
 				if (snap.size === 0) {
 					try {
 						await httpsCallable(getFunctions(), CloudFunction.REBUILD_UPCOMING)({});
-						snap = await getDocs(query(upcomingCol, where("airDate", ">=", today)));
+						snap = await getDocs(query(upcomingCol, where("airDate", ">=", fromDate)));
 					} catch (err) {
 						console.error("rebuildUpcoming CF failed:", err);
 						setError("Failed to fetch upcoming episodes");
@@ -214,7 +219,9 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 					}
 				}
 
-				const tvEps: UpcomingEpisode[] = snap.docs.map((d) => d.data() as UpcomingEpisode);
+				const tvEps: UpcomingEpisode[] = snap.docs
+					.map((d) => localizeUpcoming(d.data() as UpcomingEpisode))
+					.filter((ep) => ep.airDate >= today);
 
 				// Fetch tracked movies with future release dates
 				// Query only docs that have releaseDate field set (avoids reading all 1000+ movies)

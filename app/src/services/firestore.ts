@@ -16,7 +16,7 @@ import {
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { WatchStatus, MediaType, CloudFunction, CatalogShow } from "../types";
-import { showDocId, emitHistoryChange } from "../utils";
+import { showDocId, emitHistoryChange, localizeCatalog } from "../utils";
 import { trackApi } from "./analytics";
 import { historyOnWatch, historyOnUnwatch, historyCleared, historyOnChange } from "./history";
 
@@ -62,7 +62,7 @@ export async function getCatalogShow(
 		const docId = showDocId(tmdbId, mediaType);
 		const showDoc = await getDoc(doc(db, "shows", docId));
 		if (!showDoc.exists()) return null;
-		return { id: showDoc.id, ...showDoc.data() } as unknown as CatalogShow;
+		return localizeCatalog({ id: showDoc.id, ...showDoc.data() } as unknown as CatalogShow);
 	});
 }
 

@@ -14,6 +14,7 @@ import {
 } from "@react-native-firebase/firestore";
 import type { CatalogShow, HistoryEntry } from "../types";
 import { MediaType, WatchStatus } from "../enums";
+import { localizeCatalog } from "../utils/airTime";
 
 export const HISTORY_PAGE_SIZE = 20;
 /** Firestore `in` filter limit */
@@ -93,5 +94,5 @@ export async function fetchCatalogShows(docIds: string[]): Promise<CatalogShow[]
 	const snaps = await Promise.all(
 		chunks.map((ids) => getDocs(query(showsCol, where(documentId(), "in", ids)))),
 	);
-	return snaps.flatMap((s) => s.docs.map((d) => d.data() as CatalogShow));
+	return snaps.flatMap((s) => s.docs.map((d) => localizeCatalog(d.data() as CatalogShow)));
 }

@@ -8,6 +8,8 @@ import {
 	hasMissingDisplayData,
 	needsTmdbHeal,
 	selectStaleCatalogItems,
+	localizeCatalog,
+	nextEpisodeLocalAirDate,
 } from "../utils";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -52,7 +54,8 @@ async function restoreCatalogCache(): Promise<Map<string, CatalogShow | null>> {
 		const raw = await AsyncStorage.getItem(CacheKey.CATALOG_CACHE);
 		if (!raw) return new Map();
 		const obj = JSON.parse(raw) as Record<string, CatalogShow | null>;
-		return new Map(Object.entries(obj));
+		// Re-derive local air days (timezone may have changed since it was cached)
+		return new Map(Object.entries(obj).map(([k, v]) => [k, localizeCatalog(v)]));
 	} catch {
 		return new Map();
 	}
@@ -85,7 +88,7 @@ async function enrichItems(
 				try {
 					const showDoc = await getDoc(doc(db, "shows", key));
 					if (showDoc?.exists?.()) {
-						catalogShow = { id: showDoc.id, ...showDoc.data() } as unknown as CatalogShow;
+						catalogShow = localizeCatalog({ id: showDoc.id, ...showDoc.data() } as unknown as CatalogShow);
 						cache.set(key, catalogShow);
 						cacheUpdated = true;
 					} else if (!catalogShow) {
@@ -118,6 +121,8 @@ async function enrichItems(
 				posterPath: catalogShow?.posterPath ?? (item as any).posterPath ?? null,
 				totalEpisodes: catalogShow?.totalEpisodes ?? 0,
 				catalogShow: catalogShow ?? null,
+				// Tracking docs hold the US air date; the catalog's TVMaze time gives the local day
+				nextEpisodeAirDate: nextEpisodeLocalAirDate(item.nextEpisode, catalogShow, item.nextEpisodeAirDate),
 			};
 		}),
 	);
@@ -510,7 +515,7 @@ export function useWatchlist(userId: string | undefined) {
 					try {
 						const snap = await getDoc(doc(db, "shows", key));
 						if (!snap?.exists?.()) return;
-						const fresh = { id: snap.id, ...snap.data() } as unknown as CatalogShow;
+						const fresh = localizeCatalog({ id: snap.id, ...snap.data() } as unknown as CatalogShow);
 						catalogCache.current.set(key, fresh);
 						updates.set(item.tmdbId, fresh);
 					} catch {}
@@ -525,6 +530,7 @@ export function useWatchlist(userId: string | undefined) {
 							? {
 									...p,
 									catalogShow: c,
+									nextEpisodeAirDate: nextEpisodeLocalAirDate(p.nextEpisode, c, p.nextEpisodeAirDate),
 									title: c.title || p.title,
 									posterPath: c.posterPath ?? p.posterPath,
 									totalEpisodes: c.totalEpisodes ?? p.totalEpisodes,
