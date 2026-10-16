@@ -6,10 +6,17 @@ import { deleteField, increment, serverTimestamp, Timestamp } from "@react-nativ
  * - historyUpdatedAt: any history-relevant change — delta-sync cursor for cached pages
  * - minutesWatched: total time incl. rewatches
  * - plays: marks minus unmarks; 0 → "not started", hidden from history
+ * - lastEpisode: the episode most recently marked watched (TV) — "Last Watched"
  * They ride along on writes the app already makes → no extra Firestore writes.
  */
-export function historyOnWatch(minutes: number, plays = 1, at: Timestamp = Timestamp.now()) {
+export function historyOnWatch(
+	minutes: number,
+	plays = 1,
+	at: Timestamp = Timestamp.now(),
+	lastEpisode?: { season: number; episode: number },
+) {
 	return {
+		...(lastEpisode ? { lastEpisode } : {}),
 		historyAt: at,
 		historyUpdatedAt: serverTimestamp(),
 		minutesWatched: increment(minutes),

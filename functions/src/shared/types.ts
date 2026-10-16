@@ -40,6 +40,7 @@ export interface TMDBShowDetail {
     crew: Array<{ job: string; department: string; name: string }>;
   };
   images?: { logos?: TMDBLogo[] };
+  external_ids?: { tvdb_id?: number | null; imdb_id?: string | null };
 }
 
 export interface TMDBLogo {
@@ -55,6 +56,9 @@ export interface CatalogEpisode {
   runtime: number | null;
   stillPath: string | null;
   isSeasonFinale?: boolean;
+  /** Exact UTC air time from TVMaze (ISO); clients turn it into their local day.
+   *  Absent when TVMaze doesn't know the episode → fall back to airDate (US date) */
+  airStamp?: string;
 }
 
 export interface CatalogSeason {
@@ -82,6 +86,8 @@ export interface CatalogShow {
   genres: string[];
   /** TMDB title logo (English, else language-neutral); null = TMDB has none */
   logoPath?: string | null;
+  /** TVMaze show id (cached so later syncs skip the lookup); null = not on TVMaze */
+  tvmazeId?: number | null;
   credits?: {
     directors: string[];
     writers: string[];

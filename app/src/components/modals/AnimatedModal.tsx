@@ -6,11 +6,13 @@ interface Props extends Pick<ModalProps, "onRequestClose"> {
 	visible: boolean;
 	onClose: () => void;
 	children: React.ReactNode;
+	/** Near full width (e.g. a day's cards) instead of the 320px dialog */
+	wide?: boolean;
 }
 
 const DURATION = 250;
 
-export default function AnimatedModal({ visible, onClose, onRequestClose, children }: Props) {
+export default function AnimatedModal({ visible, onClose, onRequestClose, children, wide }: Props) {
 	const opacity = useRef(new Animated.Value(0)).current;
 	const scale = useRef(new Animated.Value(0.85)).current;
 
@@ -58,7 +60,7 @@ export default function AnimatedModal({ visible, onClose, onRequestClose, childr
 			onRequestClose={onRequestClose ?? handleClose}
 		>
 			<Pressable style={styles.overlay} onPress={handleClose}>
-				<Animated.View style={[styles.content, { opacity, transform: [{ scale }] }]}>
+				<Animated.View style={[styles.content, wide && styles.wide, { opacity, transform: [{ scale }] }]}>
 					<Pressable onPress={() => {}}>{children}</Pressable>
 				</Animated.View>
 			</Pressable>
@@ -77,4 +79,5 @@ const styles = StyleSheet.create({
 		width: "80%",
 		maxWidth: 320,
 	},
+	wide: { width: "92%", maxWidth: 560 },
 });

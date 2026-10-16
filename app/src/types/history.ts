@@ -13,6 +13,8 @@ export interface HistoryEntry {
 	historyUpdatedAt: number;
 	minutesWatched: number;
 	plays: number;
+	/** TV: the episode most recently marked watched */
+	lastEpisode: { season: number; episode: number } | null;
 }
 
 /** Cached list for one tab */
@@ -40,4 +42,6 @@ export interface HistoryChange {
 	/** undefined = unchanged */
 	nextEpisode?: { season: number; episode: number } | null;
 	rewatchDelta?: number;
+	/** TV mark → becomes the card's Last Watched */
+	lastEpisode?: { season: number; episode: number };
 }

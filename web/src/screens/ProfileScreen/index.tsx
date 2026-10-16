@@ -1,6 +1,5 @@
 import { App as AntApp, Spin } from "antd";
 import { IoPerson, IoSettingsSharp } from "react-icons/io5";
-import { IoIosArrowDroprightCircle } from "react-icons/io";
 import { useNavigate } from "react-router-dom";
 import { useUserStats } from "@app/hooks/useUserStats";
 import { useWatchlist } from "@app/hooks/useWatchlist";
@@ -13,6 +12,8 @@ import PosterImage from "../../components/PosterImage";
 import { Paths, showPath } from "../../routes/paths";
 import { StatCard, CollageCard } from "./ProfileCards";
 import historyStyles from "./WatchHistory/styles/WatchHistory.module.scss";
+import CircleButton from "../../components/CircleButton";
+import { CircleButtonTone } from "@app/enums";
 import Marquee from "../../components/Marquee";
 import styles from "./styles/ProfileScreen.module.scss";
 
@@ -70,17 +71,22 @@ export default function ProfileScreen() {
 				</div>
 			</div>
 
-			<button className={styles.settingsButton} onClick={() => navigate(Paths.SETTINGS)}>
-				<IoSettingsSharp size={18} /> Settings
-			</button>
-
-			{/* No Watch Statistics chart on web: its data is a per-device local cache */}
-			<button className={historyStyles.historyButton} onClick={() => navigate(Paths.WATCH_HISTORY)}>
-				{/* Spacer mirrors the icon so the label is centred on the whole pill */}
-				<span className="w-12 shrink-0" aria-hidden />
-				<span className="flex-1 text-center">Watch History</span>
-				<IoIosArrowDroprightCircle size={48} className="block shrink-0" />
-			</button>
+			{/* Hall of Shame (Watch History) + Settings gear on one row.
+			    No Watch Statistics chart on web: its data is a per-device local cache */}
+			<div className={styles.actionRow}>
+				<button className={historyStyles.historyButton} onClick={() => navigate(Paths.WATCH_HISTORY)}>
+					Hall of Shame
+				</button>
+				<CircleButton
+					tone={CircleButtonTone.RAISED}
+					className="size-14!"
+					onClick={() => navigate(Paths.SETTINGS)}
+					ariaLabel="Settings"
+				>
+					{/* ~55% of the 56px circle */}
+					<IoSettingsSharp size={31} />
+				</CircleButton>
+			</div>
 
 			{completedLoading ? (
 				<div className={styles.completedLoader}>

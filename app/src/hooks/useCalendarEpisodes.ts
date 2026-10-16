@@ -158,6 +158,8 @@ export function useCalendarEpisodes(userId: string | undefined) {
 								episodeTitle: ep.title,
 								airDate: ep.airDate,
 								runtime: ep.runtime ?? null,
+								// Exact time (TVMaze) — orders the day's cards
+								...(ep.airStamp ? { airStamp: ep.airStamp } : {}),
 							});
 						}
 					}

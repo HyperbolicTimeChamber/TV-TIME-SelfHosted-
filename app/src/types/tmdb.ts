@@ -52,4 +52,6 @@ export interface UpcomingEpisode {
 	airDate: string;
 	runtime: number | null;
 	mediaType?: MediaType;
+	/** Exact UTC air time (TVMaze) when known */
+	airStamp?: string;
 }

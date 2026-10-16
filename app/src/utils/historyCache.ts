@@ -46,6 +46,7 @@ export function applyChange(
 		rewatchCount: current.rewatchCount + (change.rewatchDelta ?? 0),
 		minutesWatched: Math.max(0, current.minutesWatched + (change.minutesDelta ?? 0)),
 		plays: current.plays + (change.playsDelta ?? 0),
+		lastEpisode: change.lastEpisode ?? current.lastEpisode,
 		historyAt: change.watched ? now : current.historyAt,
 		historyUpdatedAt: now,
 	};

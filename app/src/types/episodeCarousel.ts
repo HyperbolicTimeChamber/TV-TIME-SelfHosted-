@@ -22,6 +22,9 @@ export interface EpisodeDetailModalProps {
 	initialIndex: number;
 	watchedKeys: Map<string, number>;
 	currentNextEpisode: { season: number; episode: number } | null;
+	/** Rewatch run number while rewatching (0/undefined = first watch). An episode counts
+	 *  as watched in this run only once its watch count exceeds it. */
+	rewatchCount?: number;
 	onMarkWatched: (tmdbId: number, season: number, episode: number) => Promise<void>;
 	onMarkWatchedThrough: (tmdbId: number, season: number, episode: number) => Promise<void>;
 	onUnmarkWatched: (tmdbId: number, season: number, episode: number) => Promise<void>;
@@ -31,4 +34,6 @@ export interface EpisodeDetailModalProps {
 	onClose: () => void;
 	onLoadEpisodeDetails?: (season: number) => Promise<CarouselEpisode[] | null>;
 	onIndexChange?: (index: number, total: number) => void;
+	/** Info only (e.g. from the Calendar): no watch / unwatch / skip buttons */
+	readOnly?: boolean;
 }

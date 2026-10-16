@@ -21,6 +21,13 @@ export const colors = {
 	badgeOverlay: "rgba(0, 0, 0, 0.5)",
 } as const;
 
+/** Custom font families (loaded in App via useFonts). Android: never pair with fontWeight. */
+export const fonts = {
+	/** Smooch Sans — calendar episode square */
+	smoochRegular: "SmoochSans_400Regular",
+	smoochMedium: "SmoochSans_500Medium",
+} as const;
+
 export const spacing = {
 	xs: 4,
 	sm: 8,

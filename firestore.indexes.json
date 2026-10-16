@@ -4,40 +4,120 @@
       "collectionGroup": "tracking",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "priorityDate", "order": "DESCENDING" }
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "priorityDate",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "tracking",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "mediaType", "order": "ASCENDING" },
-        { "fieldPath": "historyAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "mediaType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "historyAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "tracking",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "mediaType", "order": "ASCENDING" },
-        { "fieldPath": "historyUpdatedAt", "order": "ASCENDING" }
+        {
+          "fieldPath": "mediaType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "historyUpdatedAt",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "watchedEpisodes",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "tmdbShowId", "order": "ASCENDING" },
-        { "fieldPath": "lastWatchedAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "tmdbShowId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastWatchedAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "watchlist",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "lastWatchedAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastWatchedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "tracking",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "mediaType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "minutesWatched",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "tracking",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "mediaType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "historyAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "tracking",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "mediaType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "minutesWatched",
+          "order": "DESCENDING"
+        }
       ]
     }
   ],

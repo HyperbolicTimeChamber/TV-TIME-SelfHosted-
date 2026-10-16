@@ -20,3 +20,4 @@ export enum ShowStatus {
 export const ENDED_STATUSES: string[] = [ShowStatus.ENDED, ShowStatus.CANCELED];
 
 export const TMDB_BASE = "https://api.themoviedb.org/3";
+export const TVMAZE_BASE = "https://api.tvmaze.com";

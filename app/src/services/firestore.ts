@@ -16,7 +16,7 @@ import {
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { WatchStatus, MediaType, CloudFunction, CatalogShow } from "../types";
-import { showDocId, emitHistoryChange } from "../utils";
+import { showDocId, emitHistoryChange, localizeCatalog } from "../utils";
 import { trackApi } from "./analytics";
 import { historyOnWatch, historyOnUnwatch, historyCleared, historyOnChange } from "./history";
 
@@ -62,7 +62,7 @@ export async function getCatalogShow(
 		const docId = showDocId(tmdbId, mediaType);
 		const showDoc = await getDoc(doc(db, "shows", docId));
 		if (!showDoc.exists()) return null;
-		return { id: showDoc.id, ...showDoc.data() } as unknown as CatalogShow;
+		return localizeCatalog({ id: showDoc.id, ...showDoc.data() } as unknown as CatalogShow);
 	});
 }
 
@@ -304,13 +304,13 @@ export async function markEpisodeWatched(
 			if (opts.incrementRewatch) trackingUpdate.rewatchCount = increment(1);
 			tx.update(doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)), {
 				...trackingUpdate,
-				...historyOnWatch(runtime, 1, now),
+				...historyOnWatch(runtime, 1, now, { season, episode }),
 			});
 		} else {
 			// Pointer stays put, but the watch still counts for Watch History
 			tx.set(
 				doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)),
-				historyOnWatch(runtime),
+				historyOnWatch(runtime, 1, undefined, { season, episode }),
 				{ merge: true },
 			);
 		}
@@ -322,6 +322,7 @@ export async function markEpisodeWatched(
 		watched: true,
 		minutesDelta: runtime,
 		playsDelta: 1,
+		lastEpisode: { season, episode },
 		...(skipTrackingUpdate
 			? {}
 			: {
@@ -672,11 +673,24 @@ export async function resumeRewatch(userId: string, tmdbId: number, mediaType: M
 	await resume(userId, tmdbId, mediaType, WatchStatus.REWATCHING);
 }
 
+/** Callers often only have a tracking item / search hit (no runtime) → read it off the
+ *  shared catalog doc, so Watch Time and history minutes aren't stored as 0 */
+async function resolveMovieRuntime(tmdbId: number, runtime: number): Promise<number> {
+	if (runtime > 0) return runtime;
+	try {
+		const snap = await getDoc(doc(db, "shows", showDocId(tmdbId, MediaType.MOVIE)));
+		return (snap.data()?.runtime as number | undefined) || 0;
+	} catch {
+		return 0;
+	}
+}
+
 export async function markMovieWatched(
 	userId: string,
 	tmdbId: number,
 	runtime: number,
 ): Promise<void> {
+	runtime = await resolveMovieRuntime(tmdbId, runtime);
 	const batch = writeBatch(db);
 	const movieRef = doc(watchedMoviesRef(userId), String(tmdbId));
 	const tRef = doc(trackingRef(userId), showDocId(tmdbId, MediaType.MOVIE));
@@ -774,6 +788,7 @@ export async function unmarkMovieWatched(
 	tmdbId: number,
 	runtime: number,
 ): Promise<void> {
+	runtime = await resolveMovieRuntime(tmdbId, runtime);
 	const batch = writeBatch(db);
 	const movieRef = doc(watchedMoviesRef(userId), String(tmdbId));
 
@@ -810,6 +825,7 @@ export async function addAndMarkMovieWatched(
 	runtime: number,
 	meta?: { title?: string; posterPath?: string | null },
 ): Promise<void> {
+	runtime = await resolveMovieRuntime(tmdbId, runtime);
 	const docId = showDocId(tmdbId, MediaType.MOVIE);
 	const tRef = doc(trackingRef(userId), docId);
 	const movieRef = doc(watchedMoviesRef(userId), String(tmdbId));
@@ -933,6 +949,7 @@ export async function markSeasonWatchedCF(
 		watched: true,
 		minutesDelta: episodes.reduce((sum, e) => sum + (e.runtime || 0), 0),
 		playsDelta: episodes.length,
+		lastEpisode: { season: seasonNumber, episode: Math.max(...episodes.map((e) => e.episodeNumber)) },
 		...(skipTracking
 			? {}
 			: {

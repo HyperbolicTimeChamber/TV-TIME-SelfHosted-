@@ -26,6 +26,8 @@ export const EpisodeCard = memo(function EpisodeCard({
 	watchCount,
 	isLoaded,
 	isMarking,
+	readOnly,
+	markLabel,
 	onMarkWatched,
 	onUnwatch,
 	onRewatch,
@@ -40,6 +42,10 @@ export const EpisodeCard = memo(function EpisodeCard({
 	watchCount: number;
 	isLoaded: boolean;
 	isMarking: boolean;
+	/** Info only: no watch / unwatch / skip buttons */
+	readOnly?: boolean;
+	/** Green button text ("Mark as Watched" / "Mark 2nd Rewatch") */
+	markLabel: string;
 	onMarkWatched: () => void;
 	onUnwatch: () => void;
 	onRewatch: () => void;
@@ -141,7 +147,7 @@ export const EpisodeCard = memo(function EpisodeCard({
 			</View>
 
 			{/* Button row */}
-			{isWatched ? (
+			{readOnly ? null : isWatched ? (
 				<View style={styles.watchedButtonRow}>
 					<TouchableOpacity
 						style={[styles.unwatchButton, isMarking && { opacity: 0.6 }]}
@@ -182,7 +188,7 @@ export const EpisodeCard = memo(function EpisodeCard({
 						{isMarking ? (
 							<ActivityIndicator size="small" color={colors.text} />
 						) : (
-							<Text style={styles.actionButtonText}>Mark as Watched</Text>
+							<Text style={styles.actionButtonText}>{markLabel}</Text>
 						)}
 					</TouchableOpacity>
 					{skipButton}
@@ -196,7 +202,7 @@ export const EpisodeCard = memo(function EpisodeCard({
 					{isMarking ? (
 						<ActivityIndicator size="small" color={colors.text} />
 					) : (
-						<Text style={styles.actionButtonText}>Mark as Watched</Text>
+						<Text style={styles.actionButtonText}>{markLabel}</Text>
 					)}
 				</TouchableOpacity>
 			)}

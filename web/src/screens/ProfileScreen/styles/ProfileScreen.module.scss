@@ -67,6 +67,11 @@
 
 .statLoader {
 	position: relative;
+
+	/* White in the rare case it shows */
+	:global(.ant-spin-dot-item) {
+		background: var(--text);
+	}
 	height: 38px;
 	margin-top: 4px;
 }
@@ -152,23 +157,12 @@
 	white-space: nowrap;
 }
 
-.settingsButton {
+/* Hall of Shame pill + Settings gear circle, one row */
+.actionRow {
 	display: flex;
 	align-items: center;
-	justify-content: center;
-	gap: 4px;
-	width: calc(100% - 32px);
-	height: 56px;
+	gap: 12px;
 	margin: 24px 16px 0;
-	padding: 0 16px;
-	/* Outlined pill — the filled red pill below (Watch History) stays the main action */
-	border: 1.5px solid var(--primary);
-	border-radius: 999px;
-	background: transparent;
-	color: var(--text);
-	font-size: 14px;
-	font-weight: 600;
-	cursor: pointer;
 }
 
 .section {

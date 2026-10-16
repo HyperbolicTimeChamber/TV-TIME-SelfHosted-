@@ -59,6 +59,8 @@ export enum CacheKey {
 	CALENDAR_MONTHS = "calendar_months_v2",
 	/** + `_${mediaType}` — Watch History pages per tab */
 	WATCH_HISTORY = "watch_history_v1",
+	/** Watch History sort choice (kept across visits) */
+	HISTORY_SORT = "history_sort_v1",
 }
 
 export enum QueryKey {
@@ -78,6 +80,8 @@ export enum CircleButtonTone {
 	OVERLAY = "overlay",
 	SURFACE = "surface",
 	SURFACE_LIGHT = "surfaceLight",
+	/** Brightest grey (the border colour) — stands out on black */
+	RAISED = "raised",
 }
 
 /** Watch History card status pill (label text) */
@@ -87,6 +91,19 @@ export enum HistoryPill {
 	COMPLETED = "Completed",
 	/** Stopped part-way (paused / paused rewatch) */
 	PAUSED = "Incomplete",
+}
+
+/** Watch History sort order — each is a Firestore orderBy, so lists stay paginated */
+export enum HistorySort {
+	LAST_WATCHED = "lastWatched",
+	TIME_SPENT = "timeSpent",
+}
+
+/** Watch History status filters (TV) — OR together, applied in the Firestore query */
+export enum HistoryFilter {
+	PAUSED = "paused",
+	WATCHING = "watching",
+	REWATCHING = "rewatching",
 }
 
 /** Watch History card bottom-right module */

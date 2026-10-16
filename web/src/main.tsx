@@ -7,6 +7,8 @@ import "@fontsource/poppins/latin-400.css";
 import "@fontsource/poppins/latin-500.css";
 import "@fontsource/poppins/latin-600.css";
 import "@fontsource/poppins/latin-700.css";
+import "@fontsource/smooch-sans/latin-400.css";
+import "@fontsource/smooch-sans/latin-500.css";
 import "./theme/tailwind.css";
 import "./theme/global.scss";
 import App from "./App";

@@ -24,22 +24,15 @@ export const styles = StyleSheet.create({
 		overflow: "hidden",
 		maxWidth: "70%",
 	},
-	settingsButton: {
+	// Hall of Shame pill + Settings gear circle, one row
+	actionRow: {
 		flexDirection: "row",
 		alignItems: "center",
-		justifyContent: "center",
-		gap: spacing.xs,
-		backgroundColor: colors.primary,
-		paddingVertical: spacing.lg,
-		borderRadius: 8,
+		gap: spacing.md,
 		marginTop: spacing.xl,
 		marginHorizontal: spacing.lg,
 	},
-	settingsButtonText: {
-		...typography.subtitle,
-		fontSize: 14,
-		color: colors.text,
-	},
+	settingsCircle: { width: 56, height: 56, borderRadius: 28 },
 	avatarOverlay: {
 		position: "absolute",
 		top: 0,

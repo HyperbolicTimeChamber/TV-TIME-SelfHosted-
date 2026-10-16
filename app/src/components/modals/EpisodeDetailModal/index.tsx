@@ -6,6 +6,7 @@ import { styles } from "./styles";
 import { Card3DWrapper } from "./Card3DWrapper";
 import { EpisodeCard } from "./EpisodeCard";
 import { BackfillModal } from "./BackfillModal";
+import { markWatchedLabel } from "../../../utils/format";
 import type {
 	CarouselEpisode,
 	EnrichedEpisode,
@@ -24,6 +25,7 @@ export default function EpisodeDetailModal({
 	initialIndex,
 	watchedKeys,
 	currentNextEpisode,
+	rewatchCount = 0,
 	onMarkWatched,
 	onMarkWatchedThrough,
 	onUnmarkWatched,
@@ -32,6 +34,7 @@ export default function EpisodeDetailModal({
 	onClose,
 	onLoadEpisodeDetails,
 	onIndexChange,
+	readOnly,
 }: Readonly<EpisodeDetailModalProps>) {
 	const carouselRef = useRef<FlatList>(null);
 	const [localWatched, setLocalWatched] = useState<Map<string, number>>(watchedKeys);
@@ -167,7 +170,7 @@ export default function EpisodeDetailModal({
 							(e.season === currentNextEpisode.season &&
 								e.episode >= currentNextEpisode.episode)) &&
 						(e.season < ep.season || (e.season === ep.season && e.episode < ep.episode));
-					return isBetween && !localWatched.has(eKey);
+					return isBetween && (localWatched.get(eKey) ?? 0) <= rewatchCount;
 				});
 
 				if (hasGaps) {
@@ -182,7 +185,7 @@ export default function EpisodeDetailModal({
 				}
 			}
 		},
-		[currentNextEpisode, episodes, localWatched, tmdbId, onMarkWatched],
+		[currentNextEpisode, episodes, localWatched, rewatchCount, tmdbId, onMarkWatched],
 	);
 
 	const handleConfirmBackfill = useCallback(async () => {
@@ -233,7 +236,8 @@ export default function EpisodeDetailModal({
 		({ item, index }: { item: EnrichedEpisode; index: number }) => {
 			const key = epKey(item.season, item.episode);
 			const wc = localWatched.get(key) ?? 0;
-			const isWatched = wc > 0;
+			// Rewatch n is a fresh run: watched only once seen more than n times
+			const isWatched = wc > rewatchCount;
 			const isCurrentNext =
 				currentNextEpisode?.season === item.season && currentNextEpisode?.episode === item.episode;
 			const onSkip =
@@ -256,6 +260,8 @@ export default function EpisodeDetailModal({
 							watchCount={wc}
 							isLoaded={!!item.loaded}
 							isMarking={markingKey === key}
+							readOnly={readOnly}
+							markLabel={markWatchedLabel(rewatchCount)}
 							onMarkWatched={() => handleMark(item)}
 							onUnwatch={() => {
 								setMarkingKey(key);
@@ -290,6 +296,7 @@ export default function EpisodeDetailModal({
 		[
 			localWatched,
 			markingKey,
+			readOnly,
 			handleMark,
 			showTitle,
 			showPosterPath,
@@ -299,6 +306,7 @@ export default function EpisodeDetailModal({
 			onMarkWatched,
 			onSkipEpisode,
 			currentNextEpisode,
+			rewatchCount,
 			onShowPress,
 			scrollX,
 		],

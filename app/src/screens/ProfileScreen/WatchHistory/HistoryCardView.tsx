@@ -91,31 +91,53 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 						</View>
 					)}
 				</View>
-				{card.pill && (
-					<View style={[styles.pill, { backgroundColor: PILL_COLOR[card.pill] }]}>
-						<Text style={styles.pillText}>{card.pill}</Text>
-					</View>
-				)}
 			</View>
 
 			<View style={styles.bottomRow}>
-				{/* One slot: progress / up to date / paused, else the watch count */}
-				{card.progress ? (
-					<ProgressModule progress={card.progress} />
-				) : card.watchCount != null ? (
-					<View style={[styles.progressPill, styles.watchCountPill]}>
-						<Text style={[styles.progressText, { color: colors.text }]}>Watch Count</Text>
-						<View style={styles.countCircle}>
-							<Text style={[styles.progressText, { color: colors.text }]}>{card.watchCount}</Text>
+				{/* Bottom-left: status pill above one slot — progress / up to date / paused,
+				    else the watch count */}
+				<View style={styles.leftBlock}>
+					{card.pill && (
+						<View
+							style={[
+								styles.pill,
+								card.pillCount != null && styles.pillWithCount,
+								{ backgroundColor: PILL_COLOR[card.pill] },
+							]}
+						>
+							<Text style={styles.pillText}>{card.pillLabel}</Text>
+							{card.pillCount != null && (
+								<View style={styles.pillCountCircle}>
+									<Text style={styles.pillCountText}>{card.pillCount}</Text>
+								</View>
+							)}
 						</View>
-					</View>
-				) : (
-					<View />
-				)}
-				{card.timeSpent && (
+					)}
+					{card.progress ? (
+						<ProgressModule progress={card.progress} />
+					) : card.watchCount != null ? (
+						<View style={[styles.progressPill, styles.watchCountPill]}>
+							<Text style={[styles.progressText, { color: colors.text }]}>Watch Count</Text>
+							<View style={styles.countCircle}>
+								<Text style={[styles.progressText, { color: colors.text }]}>{card.watchCount}</Text>
+							</View>
+						</View>
+					) : null}
+				</View>
+				{(card.lastWatched || card.timeSpent) && (
 					<View style={styles.timeBlock}>
-						<Text style={styles.timeLabel}>Watch Time</Text>
-						<Text style={styles.timeSpent}>{card.timeSpent}</Text>
+						{card.lastWatched && (
+							<>
+								<Text style={styles.timeLabel}>Last Watched</Text>
+								<Text style={[styles.timeSpent, styles.statGap]}>{card.lastWatched}</Text>
+							</>
+						)}
+						{card.timeSpent && (
+							<>
+								<Text style={styles.timeLabel}>Total Time Spent</Text>
+								<Text style={styles.timeSpent}>{card.timeSpent}</Text>
+							</>
+						)}
 					</View>
 				)}
 			</View>

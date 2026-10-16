@@ -17,7 +17,13 @@ import { colors } from "../../theme";
 import { ProfileStackParamList, Route, MediaType } from "../../types";
 import WeeklyChart from "../../components/WeeklyChart";
 import StatCard from "./StatCard";
+import CircleButton from "../../components/CircleButton";
 import WatchHistoryButton from "./WatchHistoryButton";
+import { CircleButtonTone } from "../../enums";
+
+/** Same height as the Hall of Shame pill; gear fills ~55% of it */
+const ACTION_HEIGHT = 56;
+const SETTINGS_ICON = Math.round(ACTION_HEIGHT * 0.55);
 import CollageCard from "./CollageCard";
 import CompletedSections from "./CompletedSections";
 import { styles } from "./styles";
@@ -123,17 +129,20 @@ export default function ProfileScreen() {
 				</View>
 			</View>
 
-			<TouchableOpacity
-				style={styles.settingsButton}
-				onPress={() => navigation.navigate(Route.SETTINGS)}
-				activeOpacity={0.7}
-			>
-				<Ionicons name="settings-sharp" size={18} color={colors.text} />
-				<Text style={styles.settingsButtonText}>Settings</Text>
-			</TouchableOpacity>
+			{/* Hall of Shame (Watch History) + Settings gear on one row */}
+			<View style={styles.actionRow}>
+				<WatchHistoryButton onPress={() => navigation.navigate(Route.WATCH_HISTORY)} />
+				<CircleButton
+					tone={CircleButtonTone.RAISED}
+					style={styles.settingsCircle}
+					onPress={() => navigation.navigate(Route.SETTINGS)}
+					accessibilityLabel="Settings"
+				>
+					<Ionicons name="settings-sharp" size={SETTINGS_ICON} color={colors.text} />
+				</CircleButton>
+			</View>
 
 			<WeeklyChart data={chartData} />
-			<WatchHistoryButton onPress={() => navigation.navigate(Route.WATCH_HISTORY)} />
 
 			<CompletedSections
 				sections={completedSections}

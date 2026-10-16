@@ -9,6 +9,7 @@ export const RING_SIZE = 20;
 export const RING_STROKE = 3;
 
 export const styles = StyleSheet.create({
+	pager: { flex: 1 },
 	container: { flex: 1, backgroundColor: colors.background },
 	// Full-width top bar on the page background (blends in): circular back + title, tabs underneath
 	topBar: { backgroundColor: colors.background },
@@ -34,6 +35,71 @@ export const styles = StyleSheet.create({
 		marginTop: "40%",
 	},
 	footer: { paddingVertical: spacing.xl },
+
+	// Sort / filter: floating button + bottom sheet
+	fab: {
+		position: "absolute",
+		right: spacing.lg,
+		width: 56,
+		height: 56,
+		borderRadius: 28,
+		backgroundColor: colors.primary,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	// Sort / filter not at default
+	fabDot: {
+		position: "absolute",
+		top: 12,
+		right: 12,
+		width: 9,
+		height: 9,
+		borderRadius: 5,
+		backgroundColor: colors.text,
+	},
+	sheetBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.overlayLight },
+	sheet: {
+		backgroundColor: colors.surface,
+		borderTopLeftRadius: 20,
+		borderTopRightRadius: 20,
+		paddingHorizontal: spacing.lg,
+		paddingTop: spacing.sm,
+	},
+	sheetHandle: {
+		alignSelf: "center",
+		width: 40,
+		height: 4,
+		borderRadius: 2,
+		backgroundColor: colors.border,
+		marginBottom: spacing.md,
+	},
+	sheetTitle: { fontSize: 13, fontWeight: "700", color: colors.textSecondary, letterSpacing: 1, marginVertical: spacing.sm },
+	sheetRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		paddingVertical: spacing.md,
+	},
+	sheetRowText: { fontSize: 16, color: colors.text },
+	sheetRowActive: { fontWeight: "700" },
+	sheetFilterHead: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		marginTop: spacing.md,
+	},
+	sheetClear: { color: colors.primary, fontWeight: "600" },
+	chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, paddingBottom: spacing.sm },
+	filterChip: {
+		paddingHorizontal: spacing.md,
+		paddingVertical: spacing.sm,
+		borderRadius: 999,
+		borderWidth: 1,
+		borderColor: colors.border,
+	},
+	filterChipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+	filterChipText: { color: colors.textSecondary, fontWeight: "600" },
+	filterChipTextOn: { color: colors.text },
 
 	// Card
 	// 16:9 is the minimum (minHeight set from the card width in HistoryCardView) — the card
@@ -61,10 +127,25 @@ export const styles = StyleSheet.create({
 	logo: { flex: 1, height: LOGO_HEIGHT },
 	cardTitle: { flex: 1, color: colors.text, fontSize: 20, fontWeight: "600" },
 	pill: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 },
+	// Rewatch count: white circle at the pill's end, concentric (right = vertical padding)
+	pillWithCount: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 4, paddingRight: 4 },
+	pillCountCircle: {
+		minWidth: 20,
+		height: 20,
+		borderRadius: 10,
+		paddingHorizontal: 5,
+		backgroundColor: colors.text,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	pillCountText: { color: colors.surface, fontSize: 12, fontWeight: "700" },
 	pillText: { color: colors.text, fontSize: 13, fontWeight: "700" },
 	bottomRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
+	leftBlock: { alignItems: "flex-start", gap: spacing.sm + 2 },
 	timeBlock: { alignItems: "flex-end" },
-	timeLabel: { color: colors.text, fontSize: 11, fontWeight: "500", marginBottom: 2 },
+	// Upper stat (Last Watched): normal spacing instead of the baseline pull-down
+	statGap: { marginBottom: spacing.md },
+	timeLabel: { color: colors.text, fontSize: 13, fontWeight: "500", marginBottom: 2 },
 	// lineHeight = fontSize, pulled down by the font's descent so the digits' baseline
 	// lines up with the bottom of the progress pill on the left
 	timeSpent: {
@@ -114,22 +195,16 @@ export const styles = StyleSheet.create({
 
 	// Profile entry button
 	historyButton: {
-		flexDirection: "row",
 		alignItems: "center",
-		justifyContent: "space-between",
-		backgroundColor: colors.primary,
-		borderRadius: 999,
+		justifyContent: "center",
+		// Softer red than the brand red, no glow
+		backgroundColor: colors.destructiveRed,
+		// Reads as round as the (larger) stat cards
+		borderRadius: 16,
 		height: 56,
-		// 48px icon, circle inset ~4px inside it → visually 8px from the pill's end
-		paddingHorizontal: 4,
-		marginTop: spacing.lg,
-		marginHorizontal: spacing.lg,
-		shadowColor: colors.primary,
-		shadowOpacity: 0.35,
-		shadowRadius: 12,
-		shadowOffset: { width: 0, height: 6 },
-		elevation: 6,
+		paddingHorizontal: spacing.lg,
+		// Shares the row with the Settings circle
+		flex: 1,
 	},
-	historyButtonText: { flex: 1, textAlign: "center", color: colors.text, fontSize: 17, fontWeight: "600" },
-	historyButtonSpacer: { width: 48 },
+	historyButtonText: { color: colors.text, fontSize: 17, fontWeight: "600" },
 });

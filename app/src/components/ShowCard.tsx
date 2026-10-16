@@ -155,9 +155,11 @@ export default memo(function ShowCard({
 							<Text style={[styles.episode, styles.watchedMuted]}>{episodeLabel}</Text>
 						)}
 						{item.rewatchCount > 0 && (
-							<Text style={[styles.rewatch, styles.watchedMuted]}>
-								Rewatch #{item.rewatchCount}
-							</Text>
+							<View style={[styles.tagBadge, styles.latestBadge, styles.mutedTag]}>
+								<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
+									REWATCH {item.rewatchCount}
+								</Text>
+							</View>
 						)}
 					</View>
 					<View style={styles.checkmarkWrap}>
@@ -258,7 +260,12 @@ export default memo(function ShowCard({
 						</>
 					)}
 					{item.rewatchCount > 0 && (
-						<Text style={styles.rewatch}>Rewatch #{item.rewatchCount}</Text>
+						// Same outlined tag as LATEST
+						<View style={[styles.tagBadge, styles.latestBadge]}>
+							<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
+								REWATCH {item.rewatchCount}
+							</Text>
+						</View>
 					)}
 				</View>
 				<View style={styles.checkmarkWrap}>
@@ -362,14 +369,10 @@ const styles = StyleSheet.create({
 		fontSize: 12,
 		fontWeight: "400",
 	},
-	rewatch: {
-		...typography.caption,
-		color: colors.accent,
-		marginTop: spacing.xs,
-	},
 	watchedMuted: {
 		color: colors.textMuted,
 	},
+	mutedTag: { opacity: 0.5 },
 	updatingContainer: {
 		minHeight: POSTER_WIDTH,
 		flexDirection: "row",

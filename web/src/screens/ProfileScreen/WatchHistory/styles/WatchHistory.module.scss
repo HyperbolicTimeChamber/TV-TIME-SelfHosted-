@@ -205,14 +205,50 @@
 	font-weight: 700;
 }
 
+/* Rewatch count: white circle at the pill's end, concentric (right = vertical padding) */
+.pill.pillWithCount {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 4px 4px 12px;
+}
+
+.pillCountCircle {
+	min-width: 20px;
+	height: 20px;
+	border-radius: 10px;
+	padding: 0 5px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--text);
+	color: var(--surface);
+	font-size: 12px;
+	font-weight: 700;
+}
+
+/* Bottom-left: status pill above the progress / watch count pill */
+.leftBlock {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 10px;
+}
+
 .timeBlock {
 	display: flex;
 	flex-direction: column;
 	align-items: flex-end;
 }
 
+/* Upper stat (Last Watched): normal spacing below, no baseline trim */
+.timeSpent.statGap {
+	text-box: none;
+	margin-bottom: 12px;
+}
+
 .timeLabel {
-	font-size: 11px;
+	font-size: 13px;
 	font-weight: 500;
 	margin-bottom: 4px;
 }
@@ -306,20 +342,21 @@
 .historyButton {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	width: calc(100% - 32px);
+	justify-content: center;
+	/* Shares the row with the Settings circle */
+	flex: 1;
+	min-width: 0;
 	height: 56px;
-	margin: 16px 16px 0;
-	/* 48px icon, circle inset ~4px inside it → visually 8px from the pill's end */
-	padding: 0 4px;
+	padding: 0 16px;
 	border: none;
-	border-radius: 999px;
-	background: var(--primary);
+	/* Reads as round as the (larger) stat cards */
+	border-radius: 16px;
+	/* Softer red than the brand red, no glow */
+	background: var(--color-danger);
 	color: var(--text);
 	font-size: 17px;
 	font-weight: 600;
 	cursor: pointer;
-	box-shadow: 0 6px 12px rgba(229, 9, 20, 0.35);
 
 	&:active {
 		opacity: 0.85;
@@ -327,3 +364,113 @@
 }
 
 
+
+/* Tabs + sort/filter button on one row */
+.tabsRow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding-right: 12px;
+
+	.tabs {
+		flex: 1;
+		min-width: 0;
+	}
+}
+
+.viewButton {
+	position: relative;
+	flex-shrink: 0;
+	width: 40px;
+	height: 40px;
+	border-radius: 999px;
+	border: none;
+	background: var(--color-primary);
+	color: var(--color-fg);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+}
+
+/* Sort / filter not at default */
+.viewButtonDot {
+	position: absolute;
+	top: 7px;
+	right: 7px;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--color-fg);
+}
+
+/* Sort / filter popover */
+.viewPanel {
+	width: 260px;
+	display: flex;
+	flex-direction: column;
+}
+
+.viewTitle {
+	margin: 8px 0;
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: var(--color-fg-secondary);
+}
+
+.viewRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 10px 0;
+	border: none;
+	background: none;
+	color: var(--color-fg);
+	font-size: 15px;
+	text-align: left;
+	cursor: pointer;
+}
+
+.viewRowActive {
+	font-weight: 700;
+}
+
+.viewFilterHead {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-top: 8px;
+}
+
+.viewClear {
+	border: none;
+	background: none;
+	color: var(--color-primary);
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.viewChips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	padding-bottom: 4px;
+}
+
+.viewChip {
+	padding: 6px 12px;
+	border-radius: 999px;
+	border: 1px solid var(--color-line);
+	background: none;
+	color: var(--color-fg-secondary);
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.viewChipOn {
+	background: var(--color-primary);
+	border-color: var(--color-primary);
+	color: var(--color-fg);
+}

@@ -121,7 +121,11 @@ export const markSeasonWatched = onCall(
       trackingUpdate.rewatchCount = FieldValue.increment(1);
     }
     // History counts every mark, even when the pointer stays put
-    const history = historyOnWatch(totalRuntime, episodes.length, now);
+    const lastEp = Math.max(...episodes.map((e) => e.episodeNumber));
+    const history = historyOnWatch(totalRuntime, episodes.length, now, {
+      season: seasonNumber,
+      episode: lastEp,
+    });
     batch.set(
       trackingDoc,
       skipTracking ? history : { ...trackingUpdate, ...history },

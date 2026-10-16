@@ -8,6 +8,8 @@ export interface CatalogEpisode {
 	runtime: number | null;
 	stillPath: string | null;
 	isSeasonFinale?: boolean;
+	/** Exact UTC air time (TVMaze) — clients show the episode on their local day */
+	airStamp?: string;
 }
 
 export interface CatalogSeason {

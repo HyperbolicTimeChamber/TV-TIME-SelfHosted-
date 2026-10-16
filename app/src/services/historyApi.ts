@@ -13,7 +13,8 @@ import {
 	Timestamp,
 } from "@react-native-firebase/firestore";
 import type { CatalogShow, HistoryEntry } from "../types";
-import { MediaType, WatchStatus } from "../enums";
+import { HistorySort, MediaType, WatchStatus } from "../enums";
+import { localizeCatalog } from "../utils/airTime";
 
 export const HISTORY_PAGE_SIZE = 20;
 /** Firestore `in` filter limit */
@@ -33,6 +34,7 @@ function toEntry(id: string, d: Record<string, any>): HistoryEntry {
 		historyUpdatedAt: ms(d.historyUpdatedAt),
 		minutesWatched: d.minutesWatched ?? 0,
 		plays: d.plays ?? 0,
+		lastEpisode: d.lastEpisode ?? null,
 	};
 }
 
@@ -58,6 +60,38 @@ export async function fetchHistoryPage(
 	);
 	return {
 		entries: snap.docs.map((d) => toEntry(d.id, d.data())),
+		hasMore: snap.docs.length === HISTORY_PAGE_SIZE,
+	};
+}
+
+/**
+ * One page of a sorted / filtered view (Firestore does the work, so it stays paginated):
+ * newest watch or most time spent first, optionally only some statuses.
+ */
+export async function fetchHistoryViewPage(
+	userId: string,
+	mediaType: MediaType,
+	sort: HistorySort,
+	statuses: WatchStatus[],
+	after: Pick<HistoryEntry, "historyAt" | "minutesWatched" | "id"> | null,
+): Promise<{ entries: HistoryEntry[]; hasMore: boolean }> {
+	const bySpent = sort === HistorySort.TIME_SPENT;
+	const field = bySpent ? "minutesWatched" : "historyAt";
+	const cursor = after ? (bySpent ? after.minutesWatched : Timestamp.fromMillis(after.historyAt)) : null;
+	const snap = await getDocs(
+		query(
+			trackingCol(userId),
+			where("mediaType", "==", mediaType),
+			...(statuses.length > 0 ? [where("status", "in", statuses)] : []),
+			orderBy(field, "desc"),
+			orderBy(documentId(), "desc"),
+			...(after ? [startAfter(cursor, after.id)] : []),
+			limit(HISTORY_PAGE_SIZE),
+		),
+	);
+	return {
+		// Never-watched titles (plays 0) can carry minutesWatched 0 — not history
+		entries: snap.docs.map((d) => toEntry(d.id, d.data())).filter((e) => e.plays > 0),
 		hasMore: snap.docs.length === HISTORY_PAGE_SIZE,
 	};
 }
@@ -92,5 +126,5 @@ export async function fetchCatalogShows(docIds: string[]): Promise<CatalogShow[]
 	const snaps = await Promise.all(
 		chunks.map((ids) => getDocs(query(showsCol, where(documentId(), "in", ids)))),
 	);
-	return snaps.flatMap((s) => s.docs.map((d) => d.data() as CatalogShow));
+	return snaps.flatMap((s) => s.docs.map((d) => localizeCatalog(d.data() as CatalogShow)));
 }

@@ -4,6 +4,19 @@ export function scaledPhotoURL(url: string, layoutSize: number, pixelRatio = 1):
 	return url.replace(/=s\d+-c/, `=s${px}-c`);
 }
 
+/** 1 → "1st", 2 → "2nd", 11 → "11th", 23 → "23rd" */
+export function ordinal(n: number) {
+	const mod100 = n % 100;
+	if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+	const suffix = ["th", "st", "nd", "rd"][n % 10] ?? "th";
+	return `${n}${suffix}`;
+}
+
+/** Green watch button text: "Mark 2nd Rewatch" during rewatch n, else "Mark as Watched" */
+export function markWatchedLabel(rewatchCount: number) {
+	return rewatchCount > 0 ? `Mark ${ordinal(rewatchCount)} Rewatch` : "Mark as Watched";
+}
+
 /** 1234 → 1.2K, 2_500_000 → 2.5M */
 export function formatCount(n: number) {
 	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
@@ -11,13 +24,14 @@ export function formatCount(n: number) {
 	return `${n}`;
 }
 
-/** Minutes → "2y 14d" / "3d 4h" / "5h 12m" / "40m" */
+/** Minutes → "2y 14d" / "3d 4h" / "5h 12m" / "40m"; a zero second unit is dropped ("1d", not "1d 0h") */
 export function formatTime(minutes: number) {
 	const hours = Math.floor(minutes / 60);
 	const days = Math.floor(hours / 24);
 	const years = Math.floor(days / 365);
-	if (years > 0) return `${years}y ${days % 365}d`;
-	if (days > 0) return `${days}d ${hours % 24}h`;
-	if (hours > 0) return `${hours}h ${minutes % 60}m`;
+	const pair = (big: string, small: number, unit: string) => (small > 0 ? `${big} ${small}${unit}` : big);
+	if (years > 0) return pair(`${years}y`, days % 365, "d");
+	if (days > 0) return pair(`${days}d`, hours % 24, "h");
+	if (hours > 0) return pair(`${hours}h`, minutes % 60, "m");
 	return `${minutes}m`;
 }

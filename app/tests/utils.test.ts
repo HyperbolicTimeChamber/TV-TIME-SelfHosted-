@@ -228,3 +228,48 @@ test("load errors map to not found / offline / server copy", async () => {
 	assert.deepEqual([srv.kind, srv.canRetry, srv.code], [LoadErrorKind.SERVER, true, "500"]);
 	assert.match(srv.message, /this show/);
 });
+
+test("ordinal + markWatchedLabel: rewatch runs get an ordinal label", async () => {
+	const { ordinal, markWatchedLabel } = await import("../src/utils/format");
+	assert.deepEqual(
+		[1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 101, 111].map(ordinal),
+		["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "23rd", "101st", "111th"],
+	);
+	assert.equal(markWatchedLabel(0), "Mark as Watched");
+	assert.equal(markWatchedLabel(2), "Mark 2nd Rewatch");
+});
+
+test("groupCalendarDay: one card per show, episodes sorted; movies stay single", async () => {
+	const { groupCalendarDay, episodeCountLabel } = await import("../src/utils/calendarGroups");
+	const { MediaType } = await import("../src/enums");
+	const ep = (id: number, season: number, episode: number, mediaType = MediaType.TV) => ({
+		tmdbShowId: id,
+		mediaType,
+		season,
+		episode,
+	});
+	const groups = groupCalendarDay([ep(1, 1, 3), ep(2, 0, 0, MediaType.MOVIE), ep(1, 1, 1), ep(3, 2, 5), ep(1, 1, 2)]);
+	assert.deepEqual(
+		groups.map((g) => [g.key, g.episodes.map((e) => e.episode)]),
+		[
+			["tv_1", [1, 2, 3]],
+			["movie_2", [0]],
+			["tv_3", [5]],
+		],
+	);
+	assert.equal(groups[0].first.episode, 1);
+
+	// Air-time order; a group goes by its first episode's time; untimed cards last
+	const at = (id: number, episode: number, airStamp?: string) => ({ ...ep(id, 1, episode), airStamp });
+	const timed = groupCalendarDay([
+		at(9, 1),
+		at(7, 2, "2026-04-09T03:00:00Z"),
+		at(7, 1, "2026-04-09T01:00:00Z"),
+		at(8, 4, "2026-04-09T02:00:00Z"),
+	]);
+	assert.deepEqual(timed.map((g) => g.key), ["tv_7", "tv_8", "tv_9"]);
+	assert.equal(episodeCountLabel(groups[0].episodes), "3 Episodes");
+	const { seasonRangeLabel } = await import("../src/utils/calendarGroups");
+	assert.equal(seasonRangeLabel(groups[0].episodes), "Season 01");
+	assert.equal(seasonRangeLabel([ep(1, 1, 10), ep(1, 2, 2)]), "Season 01–02");
+});

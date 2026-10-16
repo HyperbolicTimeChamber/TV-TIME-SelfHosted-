@@ -255,23 +255,89 @@
 .showTitle {
 	font-size: 14px;
 	font-weight: 600;
-	/* Only the top row shares space with the corner pill — keep it clear */
-	max-width: calc(100% - 72px);
+	max-width: 100%;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
 
 /* SxxExx / movie year in the card's top-right corner, translucent black */
-.seasonPill {
-	position: absolute;
-	top: 12px;
-	right: 12px;
-	padding: 4px 12px;
-	border-radius: 999px;
+.epSquare {
+	/* SEASON xx title, rule, big Exx (movies: release year); fills the card's inner height (120 - 2×12) */
+	position: relative;
+	flex-shrink: 0;
+	width: 96px;
+	height: 96px;
+	margin-left: 12px;
+	/* Smooch Sans digits leave extra room under them — nudge the stack down */
+	padding: 6px 8px 0;
+	border-radius: 14px;
 	background: rgba(0, 0, 0, 0.5);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+}
+
+.epSquareTitle {
+	font-family: "Smooch Sans", sans-serif;
+	font-size: 16px;
+	font-weight: 500;
+	letter-spacing: 1.5px;
+	white-space: nowrap;
+}
+
+.epSquareRule {
+	align-self: stretch;
+	height: 1px;
+	margin: 6px 0;
+	background: var(--color-fg);
+}
+
+.epSquareValue {
+	font-family: "Smooch Sans", sans-serif;
+	font-size: 56px;
+	font-weight: 400;
+	line-height: 58px;
+}
+
+/* Arrow fills rule → bottom edge (cancelling the rule's bottom margin) and centres in it */
+.epSquareArrow {
+	flex: 1;
+	align-self: stretch;
+	margin-top: -6px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+}
+
+/* Four lines: tighter gaps (and no top nudge) so the time keeps room below it */
+.epSquareTimed {
+	padding-top: 0;
+
+	.epSquareRule {
+		margin: 4px 0;
+	}
+}
+
+/* With a time under it, Exx shrinks so all four lines fit the square */
+.epSquareValueTimed {
+	font-size: 44px;
+	line-height: 40px;
+}
+
+.epSquareTime {
+	font-family: "Smooch Sans", sans-serif;
 	font-size: 14px;
-	font-weight: 600;
+	font-weight: 500;
+	line-height: 14px;
+	letter-spacing: 0.5px;
+}
+
+.epSquareYear {
+	font-size: 40px;
+	line-height: 44px;
 }
 
 .epTitle {
@@ -327,4 +393,83 @@
 	background: var(--primary);
 	color: var(--text);
 	font-weight: 700;
+}
+
+/* Episode under an opened show card: plain one-line strip (no backdrop) */
+.childRow {
+	position: relative;
+	width: calc(100% - 32px);
+	height: 52px;
+	margin: 0 16px 8px;
+	padding: 0 12px 0 6px;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	overflow: hidden;
+	border-radius: 12px;
+	background: var(--surface);
+	border: none;
+	color: var(--text);
+	text-align: left;
+	cursor: pointer;
+}
+
+/* Exx in a translucent square (pill background), inset 6px like top/bottom */
+.childEp {
+	position: relative;
+	flex-shrink: 0;
+	width: 40px;
+	height: 40px;
+	/* Smooch Sans leaves room under the digits — nudge down to look centred */
+	padding-top: 2px;
+	border-radius: 8px;
+	background: rgba(0, 0, 0, 0.5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-family: "Smooch Sans", sans-serif;
+	font-size: 22px;
+	font-weight: 500;
+	letter-spacing: 0.5px;
+}
+
+.childTitle {
+	position: relative;
+	flex: 1;
+	min-width: 0;
+	font-size: 15px;
+	font-weight: 500;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Day list skeleton: one CSS animation, same timing as the app's shared shimmer */
+.skeleton {
+	display: block;
+	background: var(--surface-light);
+	animation: calendarShimmer 1.2s ease-in-out infinite alternate;
+}
+
+.skeletonHeader {
+	width: 160px;
+	height: 18px;
+	margin: 0 16px 12px;
+	border-radius: 6px;
+}
+
+.skeletonCard {
+	width: calc(100% - 32px);
+	height: 120px;
+	margin: 0 16px 12px;
+	border-radius: 16px;
+}
+
+@keyframes calendarShimmer {
+	from {
+		opacity: 1;
+	}
+	to {
+		opacity: 0.4;
+	}
 }

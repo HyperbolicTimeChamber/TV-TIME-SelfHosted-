@@ -14,6 +14,8 @@ interface Props {
 	watchCount: number;
 	isLoaded: boolean;
 	isMarking: boolean;
+	/** Green button text ("Mark as Watched" / "Mark 2nd Rewatch") */
+	markLabel: string;
 	/** Guests: info only, no watch buttons */
 	readOnly?: boolean;
 	onMarkWatched: () => void;
@@ -113,7 +115,7 @@ function EpisodeCard(p: Props) {
 				) : (
 					<div className={styles.buttonRow}>
 						<button className={`${styles.actionButton} ${styles.watchButton}`} onClick={p.onMarkWatched} disabled={p.isMarking}>
-							{p.isMarking ? <Spin size="small" /> : "Mark as Watched"}
+							{p.isMarking ? <Spin size="small" /> : p.markLabel}
 						</button>
 						{skip}
 					</div>

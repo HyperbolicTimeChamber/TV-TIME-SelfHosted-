@@ -86,7 +86,7 @@ export default function CollageCard({
 			{posters.length > 0 && <View style={[StyleSheet.absoluteFill, styles.statCardOverlay]} />}
 			<Text style={styles.statLabel}>{label}</Text>
 			{loading ? (
-				<ActivityIndicator size="small" color={colors.primary} style={styles.statLoader} />
+				<ActivityIndicator size="small" color={colors.text} style={styles.statLoader} />
 			) : (
 				<Text style={styles.statNumber}>{value}</Text>
 			)}

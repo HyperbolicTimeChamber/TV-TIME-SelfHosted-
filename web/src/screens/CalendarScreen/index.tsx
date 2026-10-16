@@ -1,13 +1,17 @@
-import { useEffect, useMemo, useRef } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { IoChevronBack, IoChevronForward } from "react-icons/io5";
-import { useNavigate } from "react-router-dom";
-import { useCalendarScreen, YEARS } from "@app/screens/useCalendarScreen";
+import { IoIosArrowDown } from "react-icons/io";
+import { NavigationType, useNavigate, useNavigationType } from "react-router-dom";
+import { useCalendarScreen, YEARS, type CalendarEpisode, type CalendarPosition } from "@app/screens/useCalendarScreen";
+import { formatAirTime } from "@app/utils/airTime";
+import { groupCalendarDay, episodeCountLabel, seasonRangeLabel, calendarEpisodeInfo } from "@app/utils/calendarGroups";
+import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
+import EpisodeDetailModal from "../../components/EpisodeDetailModal";
 import { MediaType } from "@app/enums";
 import { todayStr } from "@app/utils/todayStr";
 import { tmdbBackdropUri, tmdbLogoUri } from "@app/hooks/useTmdbImage";
 import AnimatedModal from "../../components/AnimatedModal";
-import LoadingScreen from "../../components/LoadingScreen";
 import { showPath } from "../../routes/paths";
 import styles from "./styles/CalendarScreen.module.scss";
 import { monthGrid } from "./monthGrid";
@@ -15,6 +19,22 @@ import { cssVars } from "../../utils/cssVars";
 
 /** Widest a day card gets (desktop list pane ≈ 440) — × devicePixelRatio picks the TMDB size */
 const CARD_MAX_WIDTH = 440;
+
+const POSITION_KEY = "calendar_position";
+const readPosition = (): CalendarPosition | null => {
+	try {
+		return JSON.parse(sessionStorage.getItem(POSITION_KEY) ?? "null");
+	} catch {
+		return null;
+	}
+};
+const savePosition = (p: CalendarPosition) => {
+	try {
+		sessionStorage.setItem(POSITION_KEY, JSON.stringify(p));
+	} catch {
+		// private mode etc. — back just starts at today
+	}
+};
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -38,11 +58,115 @@ function DayCounts({ counts }: { counts?: { shows: Set<number>; movies: number }
 	);
 }
 const pad = (n: number) => String(n).padStart(2, "0");
+const SKELETON_CARDS = 3;
+// Read-only episode info: nothing to mark
+const NO_WATCHED = new Map<string, number>();
+const noopAsync = async () => {};
+// Same as the app's accordion timing
+const ACCORDION_S = 0.22;
+
+interface DayCardProps {
+	ep: CalendarEpisode;
+	/** Set when this card stands for several of the show's episodes that day */
+	groupEps?: CalendarEpisode[];
+	expanded?: boolean;
+	/** Episode listed under an opened show card */
+	child?: boolean;
+	onClick: () => void;
+}
+
+/** Day list card: backdrop, logo/name, episode title (or range) + the right-hand square */
+function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
+	const isMovie = ep.mediaType === MediaType.MOVIE;
+	// Local air time under Exx / above the arrow (a group: its first episode's)
+	const airTime = isMovie ? null : formatAirTime(ep.airStamp);
+	const backdrop = (
+		<>
+			{/* Same backdrop treatment as the Watch History cards */}
+			{ep.backdropPath && (
+				<img src={tmdbBackdropUri(ep.backdropPath, CARD_MAX_WIDTH)} alt="" className={styles.cardBg} loading="lazy" />
+			)}
+			<span className={styles.cardOverlay} />
+		</>
+	);
+
+	// Episode under an opened show card: one line, Exx then its name
+	if (child) {
+		return (
+			<button className={styles.childRow} onClick={onClick}>
+				<span className={styles.childEp}>E{pad(ep.episode)}</span>
+				<span className={styles.childTitle}>{ep.episodeTitle}</span>
+			</button>
+		);
+	}
+
+	return (
+		<button className={styles.episodeRow} onClick={onClick} aria-expanded={groupEps ? !!expanded : undefined}>
+			{backdrop}
+			<span className={styles.epInfo}>
+				{/* Title logo when TMDB has one, else the name */}
+				{ep.logoPath ? (
+					<img src={tmdbLogoUri(ep.logoPath, CARD_MAX_WIDTH * 0.6)} alt={ep.showTitle} className={styles.logo} loading="lazy" />
+				) : (
+					<span className={styles.showTitle}>{ep.showTitle}</span>
+				)}
+				{isMovie ? (
+					<span className={styles.movieBadge}>MOVIE</span>
+				) : (
+					// Collapsed show: its season(s) where an episode name would be; count is in the square
+					<span className={styles.epTitle}>{groupEps ? seasonRangeLabel(groupEps) : ep.episodeTitle}</span>
+				)}
+			</span>
+			{groupEps ? (
+				// Collapsed show: same square, a dropdown arrow (flips when open) in place of Exx
+				<span className={styles.epSquare}>
+					<span className={styles.epSquareTitle}>{episodeCountLabel(groupEps).toUpperCase()}</span>
+					<span className={styles.epSquareRule} />
+					<span className={styles.epSquareArrow}>
+						{airTime && <span className={styles.epSquareTime}>{airTime}</span>}
+						<IoIosArrowDown size={40} className={`relative transition-transform duration-220 ${expanded ? "rotate-180" : ""}`} />
+					</span>
+				</span>
+			) : (
+				// Right square: SEASON xx over a big Exx; movies their release year
+				<span className={`${styles.epSquare} ${airTime ? styles.epSquareTimed : ""}`}>
+					<span className={styles.epSquareTitle}>{isMovie ? "YEAR" : `SEASON ${pad(ep.season)}`}</span>
+					<span className={styles.epSquareRule} />
+					<span className={`${styles.epSquareValue} ${isMovie ? styles.epSquareYear : ""} ${airTime ? styles.epSquareValueTimed : ""}`}>
+						{isMovie ? ep.airDate.slice(0, 4) : `E${pad(ep.episode)}`}
+					</span>
+					{airTime && <span className={styles.epSquareTime}>{airTime}</span>}
+				</span>
+			)}
+		</button>
+	);
+}
 
 /** Calendar tab — same state/data as the app via useCalendarScreen */
 export default function CalendarScreen() {
 	const navigate = useNavigate();
-	const c = useCalendarScreen();
+	// Back (POP) from a show page returns to the same month / day; entering from the
+	// tab bar starts at today (the screen remounts either way on web)
+	const navigationType = useNavigationType();
+	const [initial] = useState(() => (navigationType === NavigationType.Pop ? readPosition() : null));
+	const c = useCalendarScreen(initial);
+	useEffect(() => {
+		savePosition({ selectedDate: c.selectedDate, year: c.currentYear, month: c.currentMonth });
+	}, [c.selectedDate, c.currentYear, c.currentMonth]);
+	// Open show groups; closed again when another day is picked
+	const [expanded, setExpanded] = useState<Set<string>>(new Set());
+	useEffect(() => setExpanded(new Set()), [c.selectedDate]);
+	const toggleGroup = (key: string) =>
+		setExpanded((prev) => {
+			const next = new Set(prev);
+			if (next.has(key)) next.delete(key);
+			else next.add(key);
+			return next;
+		});
+	// Episodes → their info card (no watch buttons — the Calendar is read-only); movies → their page
+	const [infoEp, setInfoEp] = useState<CalendarEpisode | null>(null);
+	const openShow = (ep: CalendarEpisode) =>
+		ep.mediaType === MediaType.MOVIE ? navigate(showPath(MediaType.MOVIE, ep.tmdbShowId)) : setInfoEp(ep);
 	const today = todayStr();
 	const yearListRef = useRef<HTMLDivElement>(null);
 	const grid = useMemo(() => monthGrid(c.currentYear, c.currentMonth), [c.currentYear, c.currentMonth]);
@@ -148,7 +272,13 @@ export default function CalendarScreen() {
 
 			<div className={styles.listPane}>
 				{c.loading ? (
-					<LoadingScreen label="Checking your calendar..." />
+					/* Same shimmer timing as the app's shared skeleton pulse */
+					<section className={styles.episodeList} aria-busy>
+						<span className={`${styles.skeleton} ${styles.skeletonHeader}`} />
+						{Array.from({ length: SKELETON_CARDS }, (_, i) => (
+							<span key={i} className={`${styles.skeleton} ${styles.skeletonCard}`} />
+						))}
+					</section>
 				) : (
 					c.selectedDate && (
 						<section className={styles.episodeList}>
@@ -162,37 +292,36 @@ export default function CalendarScreen() {
 							{c.selectedEpisodes.length === 0 ? (
 								<p className={styles.noEps}>No episodes on this day</p>
 							) : (
-								c.selectedEpisodes.map((ep) => {
-									const isMovie = ep.mediaType === MediaType.MOVIE;
+								// Shows with several episodes that day collapse into one card; click to open
+								groupCalendarDay(c.selectedEpisodes).map((group) => {
+									const open = expanded.has(group.key);
+									const isGroup = group.episodes.length > 1;
 									return (
-										<button
-											key={`${ep.tmdbShowId}_${ep.season}_${ep.episode}`}
-											className={styles.episodeRow}
-											onClick={() => navigate(showPath(isMovie ? MediaType.MOVIE : MediaType.TV, ep.tmdbShowId))}
-										>
-											{/* Same backdrop treatment as the Watch History cards */}
-										{ep.backdropPath && (
-											<img src={tmdbBackdropUri(ep.backdropPath, CARD_MAX_WIDTH)} alt="" className={styles.cardBg} loading="lazy" />
-										)}
-										<span className={styles.cardOverlay} />
-										<span className={styles.epInfo}>
-												{/* Title logo when TMDB has one, else the name */}
-												{ep.logoPath ? (
-													<img src={tmdbLogoUri(ep.logoPath, CARD_MAX_WIDTH * 0.6)} alt={ep.showTitle} className={styles.logo} loading="lazy" />
-												) : (
-													<span className={styles.showTitle}>{ep.showTitle}</span>
+										<Fragment key={group.key}>
+											<DayCard
+												ep={group.first}
+												groupEps={isGroup ? group.episodes : undefined}
+												expanded={open}
+												onClick={() => (isGroup ? toggleGroup(group.key) : openShow(group.first))}
+											/>
+											{/* Accordion: strips slide open/closed, cards below follow the height */}
+											<AnimatePresence initial={false}>
+												{isGroup && open && (
+													<motion.div
+														key="strips"
+														className="overflow-hidden"
+														initial={{ height: 0, opacity: 0 }}
+														animate={{ height: "auto", opacity: 1 }}
+														exit={{ height: 0, opacity: 0 }}
+														transition={{ duration: ACCORDION_S, ease: "easeInOut" }}
+													>
+														{group.episodes.map((ep) => (
+															<DayCard key={`${ep.season}_${ep.episode}`} ep={ep} child onClick={() => openShow(ep)} />
+														))}
+													</motion.div>
 												)}
-												{isMovie ? (
-													<span className={styles.movieBadge}>MOVIE</span>
-												) : (
-													<span className={styles.epTitle}>{ep.episodeTitle}</span>
-												)}
-											</span>
-											{/* Top-right pill: SxxExx for episodes, release year for movies */}
-											<span className={styles.seasonPill}>
-												{isMovie ? ep.airDate.slice(0, 4) : `S${pad(ep.season)}E${pad(ep.episode)}`}
-											</span>
-										</button>
+											</AnimatePresence>
+										</Fragment>
 									);
 								})
 							)}
@@ -200,6 +329,26 @@ export default function CalendarScreen() {
 					)
 				)}
 			</div>
+
+			{infoEp && (
+				<EpisodeDetailModal
+					visible
+					readOnly
+					tmdbId={infoEp.tmdbShowId}
+					showTitle={infoEp.showTitle}
+					showPosterPath={infoEp.posterPath}
+					showBackdropPath={infoEp.backdropPath}
+					episodes={[calendarEpisodeInfo(infoEp, getCachedCatalogShow(infoEp.tmdbShowId, MediaType.TV))]}
+					initialIndex={0}
+					watchedKeys={NO_WATCHED}
+					currentNextEpisode={null}
+					onMarkWatched={noopAsync}
+					onMarkWatchedThrough={noopAsync}
+					onUnmarkWatched={noopAsync}
+					onShowPress={() => navigate(showPath(MediaType.TV, infoEp.tmdbShowId))}
+					onClose={() => setInfoEp(null)}
+				/>
+			)}
 
 			<AnimatedModal visible={c.yearModalVisible} onClose={() => c.setYearModalVisible(false)} width={200}>
 				<p className={styles.modalTitle}>Select Year</p>

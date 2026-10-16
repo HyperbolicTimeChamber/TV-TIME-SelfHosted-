@@ -40,6 +40,8 @@ export async function addShowToUpcoming(
         episodeTitle: ep.title ?? "",
         airDate: ep.airDate,
         runtime: ep.runtime ?? null,
+        // Exact UTC air time when TVMaze has it — the app shows it on the user's local day
+        ...(ep.airStamp ? { airStamp: ep.airStamp } : {}),
       });
       count++;
     }
