@@ -1,6 +1,6 @@
 import { memo, useCallback, useRef } from "react";
 import { Spin } from "antd";
-import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS } from "@app/enums";
+import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS, WatchStatus } from "@app/enums";
 import { todayStr } from "@app/utils/todayStr";
 import SwipeableCard, { type SwipeableCardRef } from "./SwipeableCard";
 import { useLongPress } from "../hooks/useLongPress";
@@ -185,8 +185,8 @@ export default memo(function ShowCard({
 							) : null}
 						</>
 					)}
-					{/* Same outlined tag as LATEST */}
-					{item.rewatchCount > 0 && (
+					{/* Same outlined tag as LATEST; only while actually rewatching */}
+					{item.status === WatchStatus.REWATCHING && item.rewatchCount > 0 && (
 						<span className={`${styles.tagBadge} ${styles.latestBadge}`}>REWATCH {item.rewatchCount}</span>
 					)}
 				</div>

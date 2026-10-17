@@ -64,6 +64,10 @@ export default function ShowDetailScreen() {
 		handleConfirmRemove,
 		handleMarkMovieWatched,
 		handleResumeOrRewatch,
+		pauseModalVisible,
+		setPauseModalVisible,
+		pausing,
+		handleConfirmPause,
 		handleMovieSheetAction,
 		seasonLayout,
 	} = useShowDetailActions(tmdbId, mediaType);
@@ -162,6 +166,7 @@ export default function ShowDetailScreen() {
 						onAddToWatchlist={handleAddToWatchlist}
 						onMarkMovieWatched={handleMarkMovieWatched}
 						onResumeOrRewatch={handleResumeOrRewatch}
+						onPauseRewatch={() => setPauseModalVisible(true)}
 						onRemove={handleRemove}
 						onMovieSheetOpen={() => setMovieSheetVisible(true)}
 					/>
@@ -259,6 +264,17 @@ export default function ShowDetailScreen() {
 					setRemoveModalVisible(false);
 					setRemoveError(null);
 				}}
+			/>
+
+			<ConfirmModal
+				visible={pauseModalVisible}
+				title={`Pause ${title}?`}
+				hint="It leaves your watchlist. Resume the rewatch any time from here."
+				confirmLabel="Pause"
+				confirmColor={colors.stopBlue}
+				loading={pausing}
+				onConfirm={handleConfirmPause}
+				onClose={() => setPauseModalVisible(false)}
 			/>
 
 			<UnreleasedMovieModal

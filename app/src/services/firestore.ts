@@ -342,6 +342,15 @@ export async function markEpisodeWatched(
 	).catch(() => {});
 }
 
+/** Unwatching back to a hole in the first watch ends any rewatch (a show can't be rewatched
+ *  before it's finished) — take that rewatch's count back too, or a "Rewatch N" tag lingers */
+async function droppedRewatchFields(userId: string, tmdbShowId: number) {
+	const snap = await getDoc(doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)));
+	const status = snap.data()?.status;
+	const inRewatch = status === WatchStatus.REWATCHING || status === WatchStatus.PAUSED_REWATCH;
+	return inRewatch && (snap.data()?.rewatchCount ?? 0) > 0 ? { rewatchCount: increment(-1) } : {};
+}
+
 export async function unmarkEpisodeWatched(
 	userId: string,
 	tmdbShowId: number,
@@ -376,6 +385,7 @@ export async function unmarkEpisodeWatched(
 			status: WatchStatus.WATCHING,
 			priorityDate: Timestamp.now(),
 			...historyOnUnwatch(runtime),
+			...(await droppedRewatchFields(userId, tmdbShowId)),
 		},
 		{ merge: true },
 	);
@@ -436,6 +446,7 @@ export async function decrementEpisodeWatchCount(
 						nextEpisodeAirDate: nextEpisodeAirDate || null,
 						status: WatchStatus.WATCHING,
 						priorityDate: Timestamp.now(),
+						...(await droppedRewatchFields(userId, tmdbShowId)),
 					}
 				: {}),
 			...historyOnUnwatch(runtime),
@@ -508,6 +519,7 @@ export async function unmarkSeasonWatched(
 			status: WatchStatus.WATCHING,
 			priorityDate: Timestamp.now(),
 			...historyOnUnwatch(historyMinutes, historyPlays),
+			...(await droppedRewatchFields(userId, tmdbShowId)),
 		},
 		{ merge: true },
 	);

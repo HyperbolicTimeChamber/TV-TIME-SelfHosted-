@@ -1,7 +1,7 @@
 import React, { memo, useRef, useCallback, useMemo } from "react";
 import { withHaptic } from "../utils/haptics";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
-import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS } from "../types";
+import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS, WatchStatus } from "../types";
 import { colors, spacing, typography } from "../theme";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton from "./CheckmarkButton";
@@ -274,7 +274,8 @@ export default memo(function ShowCard({
 							) : null}
 						</>
 					)}
-					{item.rewatchCount > 0 && (
+					{/* Only while actually rewatching — a count left over from a dropped rewatch isn't one */}
+					{item.status === WatchStatus.REWATCHING && item.rewatchCount > 0 && (
 						// Same outlined tag as LATEST
 						<View style={[styles.tagBadge, styles.latestBadge]}>
 							<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>

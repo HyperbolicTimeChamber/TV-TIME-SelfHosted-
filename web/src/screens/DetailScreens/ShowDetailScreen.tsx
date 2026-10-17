@@ -11,6 +11,7 @@ import CircleButton, { CircleBackButton } from "../../components/CircleButton";
 import ErrorState from "../../components/ErrorState";
 import { describeLoadError } from "@app/utils/loadError";
 import ConfirmModal from "../../components/ConfirmModal";
+import { colors } from "../../theme/index";
 import UnreleasedMovieModal from "../../components/UnreleasedMovieModal";
 import WatchActionSheet from "../../components/WatchActionSheet";
 import SeasonDropdown from "../../components/SeasonDropdown";
@@ -124,6 +125,7 @@ export default function ShowDetailScreen() {
 							onAddToWatchlist={d.handleAddToWatchlist}
 							onMarkMovieWatched={d.handleMarkMovieWatched}
 							onResumeOrRewatch={d.handleResumeOrRewatch}
+							onPauseRewatch={() => d.setPauseModalVisible(true)}
 							onRemove={d.handleRemove}
 							onMovieSheetOpen={() => d.setMovieSheetVisible(true)}
 						/>
@@ -219,6 +221,16 @@ export default function ShowDetailScreen() {
 							d.setRemoveModalVisible(false);
 							d.setRemoveError(null);
 						}}
+					/>
+					<ConfirmModal
+						visible={d.pauseModalVisible}
+						title={`Pause ${d.title}?`}
+						hint="It leaves your watchlist. Resume the rewatch any time from here."
+						confirmLabel="Pause"
+						confirmColor={colors.stopBlue}
+						loading={d.pausing}
+						onConfirm={d.handleConfirmPause}
+						onClose={() => d.setPauseModalVisible(false)}
 					/>
 					<UnreleasedMovieModal
 						visible={!!d.unreleasedModal}

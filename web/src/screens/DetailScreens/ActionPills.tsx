@@ -13,6 +13,7 @@ interface Props {
 	onAddToWatchlist: () => void;
 	onMarkMovieWatched: () => void;
 	onResumeOrRewatch: () => void;
+	onPauseRewatch: () => void;
 	onRemove: () => void;
 	onMovieSheetOpen: () => void;
 }
@@ -63,6 +64,11 @@ export default function ActionPills(p: Props) {
 							: neverWatched
 								? "Start Watching"
 								: "Rewatch"}
+				</button>
+			)}
+			{status === WatchStatus.REWATCHING && (
+				<button className={`${styles.pill} ${styles.pillPause}`} onClick={p.onPauseRewatch}>
+					Pause Rewatch
 				</button>
 			)}
 			<button className={`${styles.pill} ${styles.pillRemove}`} onClick={p.onRemove} disabled={p.removing}>

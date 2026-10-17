@@ -19,6 +19,7 @@ import {
 	resumeWatching,
 	resumeRewatch,
 	restartWatching,
+	stopWatching,
 	markMovieWatched,
 	decrementMovieWatchCount,
 	unmarkMovieWatched,
@@ -76,6 +77,8 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	});
 	const [movieSheetVisible, setMovieSheetVisible] = useState(false);
 	const [removeModalVisible, setRemoveModalVisible] = useState(false);
+	const [pauseModalVisible, setPauseModalVisible] = useState(false);
+	const [pausing, setPausing] = useState(false);
 	const [removeError, setRemoveError] = useState<string | null>(null);
 	const [unreleasedModal, setUnreleasedModal] = useState<{
 		title: string;
@@ -263,6 +266,23 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 			setRemoving(false);
 		}
 	}, [user?.uid, tmdbId, removing, removeShowFromUpcoming]);
+
+	// Rewatching → paused rewatch (same as the watchlist's Pause); the button then reads "Resume Rewatch"
+	const handleConfirmPause = useCallback(async () => {
+		if (!user?.uid || pausing || watchlistItem?.status !== WatchStatus.REWATCHING) return;
+		setPausing(true);
+		try {
+			await stopWatching(user.uid, tmdbId, WatchStatus.REWATCHING, mediaType);
+			removeShowFromUpcoming(tmdbId);
+			removeShowFromCalendarGlobal(tmdbId);
+			emitShowRemoved(tmdbId);
+			setPauseModalVisible(false);
+		} catch (err: any) {
+			Alert.alert("Error", err.message || "Failed to pause.");
+		} finally {
+			setPausing(false);
+		}
+	}, [user?.uid, pausing, watchlistItem?.status, tmdbId, mediaType, removeShowFromUpcoming]);
 
 	const handleMarkMovieWatched = useCallback(async () => {
 		if (!user?.uid || !show || adding) return;
@@ -461,6 +481,10 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		setMovieSheetVisible,
 		removeModalVisible,
 		setRemoveModalVisible,
+		pauseModalVisible,
+		setPauseModalVisible,
+		pausing,
+		handleConfirmPause,
 		removeError,
 		setRemoveError,
 		unreleasedModal,
