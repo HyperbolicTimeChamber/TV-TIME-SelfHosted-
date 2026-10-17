@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useMemo } from "react";
+import { Fragment, useCallback, useMemo, useState } from "react";
 import { Button, Spin } from "antd";
 import { useNavigate } from "react-router-dom";
 import { useWatchlistScreen } from "@app/screens/HomeScreen/WatchlistTab/useWatchlistScreen";
@@ -8,6 +8,9 @@ import ShowCard from "../../components/ShowCard";
 import WatchActionSheet from "../../components/WatchActionSheet";
 import EpisodeDetailModal from "../../components/EpisodeDetailModal";
 import ShowDrawer from "../../components/ShowDrawer";
+import ConfirmModal from "../../components/ConfirmModal";
+import type { EnrichedTrackingItem } from "@app/hooks/useWatchlist";
+import { colors } from "../../theme/index";
 import LoadingScreen from "../../components/LoadingScreen";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
 import { Paths, showPath } from "../../routes/paths";
@@ -24,6 +27,21 @@ export default function WatchlistTab() {
 	const goToShow = useCallback((tmdbId: number, mediaType: MediaType) => navigate(showPath(mediaType, tmdbId)), [navigate]);
 	const w = useWatchlistScreen(goToShow);
 	const sentinel = useInfiniteScroll(w.loadMoreTracking, !w.loadingMoreTracking);
+	// Long press / right-click on a card → confirm pausing it (no swipe — too easy by accident)
+	const [pauseTarget, setPauseTarget] = useState<EnrichedTrackingItem | null>(null);
+	const [pausing, setPausing] = useState(false);
+	const confirmPause = async () => {
+		if (!pauseTarget) return;
+		setPausing(true);
+		try {
+			await w.handleStopWatching(pauseTarget);
+			setPauseTarget(null);
+		} catch (err) {
+			console.error("pause failed:", err);
+		} finally {
+			setPausing(false);
+		}
+	};
 	// Web shows only the active watchlist — no "Previously Watched" section above it
 	const items = useMemo(
 		() =>
@@ -60,7 +78,7 @@ export default function WatchlistTab() {
 				isUpdating={w.updatingShows.has(item.item.tmdbId)}
 				remainingEpisodes={(item.item as { remaining?: number | null }).remaining ?? null}
 				onSwipeLeft={w.handleMarkWatched}
-				onSwipeRight={w.handleStopWatching}
+				onLongPress={setPauseTarget}
 				onPress={w.handleCardPress}
 				onTitlePress={w.handleTitlePress}
 				onCheckmark={w.handleMarkWatched}
@@ -84,6 +102,16 @@ export default function WatchlistTab() {
 				</div>
 			)}
 
+			<ConfirmModal
+				visible={!!pauseTarget}
+				title={`Pause ${pauseTarget?.title ?? "watching"}?`}
+				hint="It leaves What's Up Next. Resume any time from its page."
+				confirmLabel="Pause"
+				confirmColor={colors.stopBlue}
+				loading={pausing}
+				onConfirm={confirmPause}
+				onClose={() => setPauseTarget(null)}
+			/>
 			<WatchActionSheet
 				visible={w.sheetVisible}
 				label={w.sheetLabel}

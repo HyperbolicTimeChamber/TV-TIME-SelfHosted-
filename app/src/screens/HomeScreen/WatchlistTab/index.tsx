@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect, useMemo } from "react";
+import { useCallback, useRef, useEffect, useMemo, useState } from "react";
 import {
 	View,
 	Text,
@@ -12,6 +12,7 @@ import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation, CompositeNavigationProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
+	ConfirmModal,
 	LoadingSpinner,
 	ShowCard,
 	WatchActionSheet,
@@ -22,6 +23,7 @@ import { colors, spacing } from "../../../theme";
 import { HomeStackParamList, MainStackParamList, MediaType, Route } from "../../../types";
 import { useSharedShimmer } from "../../../components/SkeletonLine";
 import type { WatchlistListItem } from "../../../types/watchlist";
+import type { EnrichedTrackingItem } from "../../../hooks/useWatchlist";
 import { styles } from "./styles";
 import { useWatchlistScreen } from "./useWatchlistScreen";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
@@ -123,24 +125,38 @@ export default function WatchlistTab() {
 	} = useWatchlistScreen(handleNavigateToShow);
 
 	const listRef = useRef<any>(null);
+	// Up-next card long-pressed → confirm pausing it
+	const [pauseTarget, setPauseTarget] = useState<EnrichedTrackingItem | null>(null);
+	const [pausing, setPausing] = useState(false);
+	const confirmPause = useCallback(async () => {
+		if (!pauseTarget) return;
+		setPausing(true);
+		try {
+			await handleStopWatching(pauseTarget);
+			setPauseTarget(null);
+		} catch (err) {
+			console.error("pause failed:", err);
+		} finally {
+			setPausing(false);
+		}
+	}, [pauseTarget, handleStopWatching]);
 
-	// Scroll to "What's Up Next" header on first load
-	const initialScrollDone = useRef(false);
+	// Open at "What's Up Next" (previously watched sits above it, reached by scrolling up).
+	// initialScrollIndex positions the list as it mounts — a timed scrollToIndex after
+	// mount raced the first layout and left the list at the top.
+	const upNextIndex = useMemo(
+		() => listData.findIndex((i) => i.type === "sectionHeader" && i.title === "What's Up Next"),
+		[listData],
+	);
+	const initialUpNext = useRef<number | null>(null);
+	if (initialUpNext.current === null && !isLoading && listData.length > 0) {
+		initialUpNext.current = Math.max(0, upNextIndex);
+	}
 	const scrollToUpNext = useCallback(() => {
-		const idx = listData.findIndex(
-			(i) => i.type === "sectionHeader" && i.title === "What's Up Next",
-		);
-		if (idx > 0) {
-			listRef.current?.scrollToIndex({ index: idx, animated: true, viewOffset: 0 });
+		if (upNextIndex > 0) {
+			listRef.current?.scrollToIndex({ index: upNextIndex, animated: true, viewOffset: 0 });
 		}
-	}, [listData]);
-
-	useEffect(() => {
-		if (!initialScrollDone.current && !isLoading && prevWatchedOffset > 0) {
-			initialScrollDone.current = true;
-			setTimeout(scrollToUpNext, 400);
-		}
-	}, [isLoading, prevWatchedOffset, scrollToUpNext]);
+	}, [upNextIndex]);
 
 	// Re-scroll on every tab focus
 	useEffect(() => {
@@ -202,7 +218,8 @@ export default function WatchlistTab() {
 					isUpdating={updatingShows.has(item.item.tmdbId)}
 					remainingEpisodes={(item.item as any).remaining ?? null}
 					onSwipeLeft={handleMarkWatched}
-					onSwipeRight={handleStopWatching}
+					// Pausing is a long press + confirm (no swipe — too easy to trigger by accident)
+					onLongPress={setPauseTarget}
 					onPress={handleCardPress}
 					onTitlePress={handleTitlePress}
 					onCheckmark={handleMarkWatched}
@@ -211,7 +228,6 @@ export default function WatchlistTab() {
 		},
 		[
 			handleMarkWatched,
-			handleStopWatching,
 			handleCardPress,
 			handleTitlePress,
 			handleTvPress,
@@ -267,6 +283,7 @@ export default function WatchlistTab() {
 			<LegendList
 				ref={listRef}
 				data={listData}
+				initialScrollIndex={initialUpNext.current ?? 0}
 				keyExtractor={(item) => {
 					if (item.type === "sectionHeader") return `section_${item.title}`;
 					if (item.type === "watchedMovie") return `movie_${item.movie.id}`;
@@ -306,6 +323,16 @@ export default function WatchlistTab() {
 					setSheetVisible(false);
 					setSheetEpisode(null);
 				}}
+			/>
+			<ConfirmModal
+				visible={!!pauseTarget}
+				title={`Pause ${pauseTarget?.title ?? "watching"}?`}
+				hint="It leaves What's Up Next. Resume any time from its page."
+				confirmLabel="Pause"
+				confirmColor={colors.stopBlue}
+				loading={pausing}
+				onConfirm={confirmPause}
+				onClose={() => setPauseTarget(null)}
 			/>
 			<WatchActionSheet
 				visible={movieSheetVisible}

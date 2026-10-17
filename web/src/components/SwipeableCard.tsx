@@ -13,8 +13,8 @@ interface Props {
 	children: ReactNode;
 	/** Swipe RIGHT (card moves right) — "watched" action, named as in the app */
 	onSwipeLeft: () => Promise<void>;
-	/** Swipe LEFT — stop / unwatch action */
-	onSwipeRight: () => Promise<void>;
+	/** Swipe LEFT — stop / unwatch action; omit to turn that direction off */
+	onSwipeRight?: () => Promise<void>;
 	persistAfterSwipe?: boolean | { left: boolean; right: boolean };
 	leftLabel?: string;
 	rightLabel?: string;
@@ -56,7 +56,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 			setState("loading");
 			const persist = typeof persistAfterSwipe === "object" ? persistAfterSwipe[direction] : persistAfterSwipe;
 			try {
-				await (direction === "left" ? onSwipeLeft() : onSwipeRight());
+				await (direction === "left" ? onSwipeLeft() : onSwipeRight?.());
 				if (persist) {
 					// List re-render replaces the card; reset quietly
 					x.set(0);
@@ -115,13 +115,16 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				className={`${styles.card} ${state === "loading" ? "invisible" : ""}`}
 				style={{ x }}
 				drag={state === "idle" ? "x" : false}
+				// No right action → the card only moves right
+				dragConstraints={onSwipeRight ? undefined : { left: 0 }}
+				dragElastic={onSwipeRight ? 0.5 : { left: 0, right: 0.5 }}
 				dragDirectionLock
 				dragSnapToOrigin={false}
 				dragMomentum={false}
 				onDragEnd={(_, info) => {
 					const threshold = width() * THRESHOLD_RATIO;
 					if (info.offset.x > threshold) animate(x, width(), { duration: 0.2 }).then(() => complete("left"));
-					else if (info.offset.x < -threshold) animate(x, -width(), { duration: 0.2 }).then(() => complete("right"));
+					else if (onSwipeRight && info.offset.x < -threshold) animate(x, -width(), { duration: 0.2 }).then(() => complete("right"));
 					else animate(x, 0, { duration: 0.2 });
 				}}
 			>

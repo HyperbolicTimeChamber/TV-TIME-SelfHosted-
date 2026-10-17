@@ -27,6 +27,8 @@ export default memo(function WatchedEpisodeRow({
 
 	return (
 		<SwipeableCard
+			// Keyed by episode: a recycled list row starts fresh instead of keeping swipe state
+			key={episode.id}
 			onSwipeLeft={() => onSwipeLeft(episode)}
 			onSwipeRight={() => onSwipeRight(episode)}
 			leftLabel="Rewatch"

@@ -1,4 +1,5 @@
-import React, { memo, useRef, useCallback } from "react";
+import React, { memo, useRef, useCallback, useMemo } from "react";
+import { withHaptic } from "../utils/haptics";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS } from "../types";
 import { colors, spacing, typography } from "../theme";
@@ -36,7 +37,10 @@ interface Props {
 	isUpdating?: boolean;
 	remainingEpisodes?: number | null;
 	onSwipeLeft: (item: any) => Promise<void>;
-	onSwipeRight: (item: any) => Promise<void>;
+	/** Omit to turn that swipe off */
+	onSwipeRight?: (item: any) => Promise<void>;
+	/** Long press on the card (haptic included) */
+	onLongPress?: (item: any) => void;
 	onPress: (tmdbId: number, mediaType: MediaType) => void;
 	onTitlePress?: (item: any) => void;
 	onCheckmark: (item: any) => Promise<void>;
@@ -55,6 +59,7 @@ export default memo(function ShowCard({
 	onTitlePress,
 	onCheckmark: _onCheckmark,
 	onCheckmarkLongPress,
+	onLongPress,
 }: Props) {
 	const ep =
 		item.nextEpisode ?? (item.mediaType === MediaType.TV ? { season: 1, episode: 1 } : null);
@@ -102,12 +107,15 @@ export default memo(function ShowCard({
 	}, [onPress, onTitlePress, item]);
 	const handleTitlePress = useCallback(() => onTitlePress?.(item), [onTitlePress, item]);
 	const handleSwipeLeft = useCallback(() => onSwipeLeft(item), [onSwipeLeft, item]);
-	const handleSwipeRight = useCallback(() => onSwipeRight(item), [onSwipeRight, item]);
+	const handleSwipeRight = useCallback(() => onSwipeRight?.(item) ?? Promise.resolve(), [onSwipeRight, item]);
+	const handleLongPress = useMemo(() => withHaptic(onLongPress && (() => onLongPress(item))), [onLongPress, item]);
 
 	if (isWatched) {
 		const wc = watchCount ?? 0;
 		return (
 			<SwipeableCard
+				// Keyed by title: a recycled list row starts fresh instead of keeping swipe state
+				key={`${item.mediaType}_${item.tmdbId}`}
 				onSwipeLeft={handleSwipeLeft}
 				onSwipeRight={handleSwipeRight}
 				leftLabel="Rewatch"
@@ -186,12 +194,18 @@ export default memo(function ShowCard({
 
 	return (
 		<SwipeableCard
+			key={`${item.mediaType}_${item.tmdbId}`}
 			ref={swipeRef}
 			onSwipeLeft={handleSwipeLeft}
-			onSwipeRight={handleSwipeRight}
+			onSwipeRight={onSwipeRight ? handleSwipeRight : undefined}
 			persistAfterSwipe
 		>
-			<TouchableOpacity style={styles.container} onPress={handlePress} activeOpacity={0.8}>
+			<TouchableOpacity
+				style={styles.container}
+				onPress={handlePress}
+				onLongPress={handleLongPress}
+				activeOpacity={0.8}
+			>
 				<PosterImage
 					posterPath={item.posterPath}
 					mediaType={item.mediaType}

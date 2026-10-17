@@ -37,6 +37,10 @@ import {
 	WatchedMovie,
 } from "../../../types";
 import type { WatchlistListItem } from "../../../types/watchlist";
+import { nextEpisodeAirStamp } from "../../../utils/airTime";
+
+/** Only schedule the air-time re-check for episodes airing within a day */
+const AIR_RECHECK_MAX_MS = 86_400_000;
 
 const ACTIVE_CACHE_LIMIT = 100;
 
@@ -302,10 +306,27 @@ export function useWatchlistData(userId: string | undefined) {
 		return map;
 	}, [watchedEps]);
 
+	// Re-check visibility when the next not-yet-aired episode reaches its air time (within a day)
+	const [airClock, setAirClock] = useState(0);
+	useEffect(() => {
+		const now = Date.now();
+		let next = Infinity;
+		for (const item of items) {
+			const stamp = nextEpisodeAirStamp(item.nextEpisode, item.catalogShow);
+			const t = stamp ? Date.parse(stamp) : NaN;
+			if (t > now && t < next) next = t;
+		}
+		if (next - now > AIR_RECHECK_MAX_MS) return;
+		const timer = setTimeout(() => setAirClock((c) => c + 1), next - now + 1000);
+		return () => clearTimeout(timer);
+	}, [items, airClock]);
+
 	const sortedActive = useMemo(() => {
 		const visible = items.filter((item) => isShowVisible(item));
 		return sortByPriority(visible);
-	}, [items]);
+		// airClock: re-filter once an episode's air time passes
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [items, airClock]);
 
 	// --- Build the display list with all fields baked in ---
 	const today = todayStr();

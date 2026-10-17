@@ -2,6 +2,7 @@
 import { WatchStatus, MediaType } from "../types";
 import { EnrichedTrackingItem } from "./useWatchlist";
 import { todayStr } from "../utils";
+import { hasAired, nextEpisodeAirStamp } from "../utils/airTime";
 
 /**
  * Determines if a show should be visible in the "Currently Watching" list.
@@ -49,9 +50,11 @@ export function isShowVisible(item: EnrichedTrackingItem): boolean {
 	const nextEp = item.nextEpisode;
 	if (!nextEp) return false;
 
-	// Use local nextEpisodeAirDate from tracking doc (no catalog dependency)
+	// Exact air time (catalog, TVMaze) when known — only once that moment has passed;
+	// else the local nextEpisodeAirDate day from the tracking doc (no catalog dependency)
+	const airStamp = nextEpisodeAirStamp(nextEp, item.catalogShow);
 	const airDate = item.nextEpisodeAirDate;
-	if (airDate) return airDate <= today;
+	if (airStamp || airDate) return hasAired(airStamp, airDate, today);
 
 	// Fallback to catalog if nextEpisodeAirDate not yet populated
 	const catalog = item.catalogShow;

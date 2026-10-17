@@ -17,6 +17,7 @@ import CheckmarkButton from "./CheckmarkButton";
 import SkeletonLine from "./SkeletonLine";
 import EpisodeDetailModal from "./modals/EpisodeDetailModal";
 import { colors, spacing, typography } from "../theme";
+import { withHaptic } from "../utils/haptics";
 import { tmdbPosterUri, tmdbStillUri } from "../hooks/useTmdbImage";
 import { TMDBEpisode } from "../types";
 import { useSeasonActions, type SeasonDropdownProps } from "./useSeasonActions";
@@ -144,7 +145,7 @@ export default memo(function SeasonDropdown({
 						labelColor={partiallyWatched ? colors.background : undefined}
 						backgroundColor={partiallyWatched ? colors.text : undefined}
 						onPress={handleSeasonPress}
-						onLongPress={handleSeasonLongPress}
+						onLongPress={allWatched ? handleSeasonLongPress : undefined}
 						disabled={markingEps.size > 0 || watchedLoading}
 					/>
 				</View>
@@ -168,7 +169,7 @@ export default memo(function SeasonDropdown({
 									<TouchableOpacity
 										style={styles.episodeInfo}
 										onPress={() => handleEpisodePress(ep)}
-										onLongPress={() => handleEpisodeLongPress(ep)}
+										onLongPress={withHaptic(() => handleEpisodeLongPress(ep))}
 										activeOpacity={0.7}
 									>
 										<View style={styles.epThumbWrap}>
@@ -214,16 +215,18 @@ export default memo(function SeasonDropdown({
 										loading={markingEps.has(ep.episode_number) || markingSeason}
 										label={isWatched ? `x${count}` : undefined}
 										onPress={() => handleCheckmarkPress(ep)}
-										onLongPress={() => {
-											if (isWatched) {
-												setSheetTarget({
-													type: "episode",
-													ep,
-													watchCount: count,
-												});
-												setSheetVisible(true);
-											}
-										}}
+										onLongPress={
+											isWatched
+												? () => {
+														setSheetTarget({
+															type: "episode",
+															ep,
+															watchCount: count,
+														});
+														setSheetVisible(true);
+													}
+												: undefined
+										}
 										disabled={markingEps.size > 0 || markingSeason}
 									/>
 								</View>

@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { colors, spacing, typography } from "../../../theme";
+import { colors, fonts, spacing, typography } from "../../../theme";
+import { formatAirTime } from "../../../utils/airTime";
 import PosterImage from "../../../components/PosterImage";
 import { UpcomingEpisode, MediaType } from "../../../types";
 
@@ -23,6 +24,8 @@ export default memo(function UpcomingEpisodeRow({
 	const label = isMovie
 		? "MOVIE"
 		: `S${String(episode.season).padStart(2, "0")} | E${String(episode.episode).padStart(2, "0")}`;
+	// Local air time (TVMaze) — only when the exact time is known
+	const airTime = isMovie ? null : formatAirTime(episode.airStamp);
 
 	return (
 		<TouchableOpacity
@@ -61,6 +64,7 @@ export default memo(function UpcomingEpisodeRow({
 					</>
 				)}
 			</View>
+			{airTime && <Text style={styles.airTime}>{airTime}</Text>}
 		</TouchableOpacity>
 	);
 });
@@ -124,6 +128,15 @@ const styles = StyleSheet.create({
 		color: colors.textSecondary,
 		marginTop: 2,
 		fontSize: 13,
+	},
+	// Right edge, vertically centred
+	airTime: {
+		alignSelf: "center",
+		paddingHorizontal: spacing.md,
+		fontFamily: fonts.smoochMedium,
+		fontSize: 20,
+		letterSpacing: 0.5,
+		color: colors.text,
 	},
 	movieBadge: {
 		alignSelf: "flex-start",

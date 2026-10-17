@@ -5,6 +5,7 @@ import { useUpcomingScreen, type ListItem } from "@app/screens/HomeScreen/Upcomi
 import { MediaType } from "@app/enums";
 import type { UpcomingEpisode } from "@app/types";
 import { todayStr } from "@app/utils/todayStr";
+import { formatAirTime } from "@app/utils/airTime";
 import PosterImage from "../../components/PosterImage";
 import EpisodeDetailModal from "../../components/EpisodeDetailModal";
 import ShowDrawer from "../../components/ShowDrawer";
@@ -42,6 +43,8 @@ function UpcomingRow({
 	onTitlePress: (ep: UpcomingEpisode) => void;
 }) {
 	const isMovie = episode.mediaType === MediaType.MOVIE;
+	// Local air time (TVMaze) — only when the exact time is known
+	const airTime = isMovie ? null : formatAirTime(episode.airStamp);
 	return (
 		<div className={`${card.container} ${styles.upcomingRow}`} onClick={() => onPress(episode)} role="button">
 			<PosterImage posterPath={episode.posterPath} mediaType={episode.mediaType} className={card.poster} />
@@ -69,6 +72,7 @@ function UpcomingRow({
 					</>
 				)}
 			</div>
+			{airTime && <span className={styles.upcomingTime}>{airTime}</span>}
 		</div>
 	);
 }

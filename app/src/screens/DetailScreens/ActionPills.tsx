@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { colors, spacing, typography } from "../../theme";
 import { WatchStatus, MediaType } from "../../types";
+import { withHaptic } from "../../utils/haptics";
 
 interface Props {
 	mediaType: MediaType;
@@ -99,9 +100,9 @@ export default function ActionPills({
 						<TouchableOpacity
 							style={[styles.pill, styles.pillAccent]}
 							onPress={onResumeOrRewatch}
-							onLongPress={
-								mediaType === MediaType.MOVIE && movieWatchCount > 0 ? onMovieSheetOpen : undefined
-							}
+							onLongPress={withHaptic(
+								mediaType === MediaType.MOVIE && movieWatchCount > 0 ? onMovieSheetOpen : undefined,
+							)}
 						>
 							<Text style={styles.pillText}>
 								{watchlistItem.status === WatchStatus.PAUSED

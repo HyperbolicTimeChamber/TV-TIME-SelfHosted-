@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithProviders, testUser } from "../../render";
 import { todayStr } from "@app/utils/todayStr";
 
 let listData: unknown[] = [];
+const handleStopWatching = vi.fn(async () => {});
 vi.mock("@app/screens/HomeScreen/WatchlistTab/useWatchlistScreen", () => ({
 	useWatchlistScreen: () => ({
 		isLoading: false,
@@ -17,6 +18,7 @@ vi.mock("@app/screens/HomeScreen/WatchlistTab/useWatchlistScreen", () => ({
 		drawerShow: null,
 		sheetEpisode: null,
 		sheetMovie: null,
+		handleStopWatching,
 	}),
 }));
 
@@ -81,5 +83,26 @@ describe("HomeScreen", () => {
 		const headers = screen.getAllByText(/Yesterday|Today/);
 		expect(headers.map((h) => h.textContent)).toEqual(["Yesterday", "Today"]);
 		expect(screen.getByText("Ep Three")).toBeInTheDocument();
+	});
+
+	it("long press (right-click) on an Up Next card asks before pausing it", async () => {
+		listData = [{ type: "sectionHeader", title: "What's Up Next" }, { type: "show", item: show }];
+		renderWithProviders(<Home />, { user: testUser, path: "/home" });
+		fireEvent.contextMenu(screen.getByText("The Real Name"));
+		expect(await screen.findByText("Pause Neagley?")).toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "Pause" }));
+		await waitFor(() => expect(handleStopWatching).toHaveBeenCalledWith(show));
+	});
+
+	it("upcoming rows show the local air time when known", () => {
+		const ep = { tmdbShowId: 1, showTitle: "Neagley", posterPath: null, season: 1, episode: 3, episodeTitle: "Ep Three", airDate: todayStr(), runtime: null };
+		const at = new Date();
+		at.setHours(20, 5, 0, 0);
+		upcomingList = [
+			{ type: "header", date: todayStr() },
+			{ type: "episode", episode: { ...ep, airStamp: at.toISOString() } },
+		];
+		renderWithProviders(<Home />, { user: testUser, path: "/home/upcoming" });
+		expect(screen.getByText("08:05 PM")).toBeInTheDocument();
 	});
 });

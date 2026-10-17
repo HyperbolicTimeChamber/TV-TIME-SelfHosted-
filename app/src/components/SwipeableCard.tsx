@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, forwardRef, useImperativeHandle } from "react";
+import React, { useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import {
 	View,
 	Text,
@@ -26,6 +26,8 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.35;
+/** A swiped-away row that is still in the list after this long comes back */
+const DONE_RESTORE_MS = 1500;
 
 type SwipeState = "idle" | "swiped_left" | "swiped_right" | "loading" | "done";
 
@@ -36,7 +38,8 @@ export interface SwipeableCardRef {
 interface Props {
 	children: React.ReactNode;
 	onSwipeLeft: () => Promise<void>;
-	onSwipeRight: () => Promise<void>;
+	/** Omit to turn the right action (drag toward the left edge) off */
+	onSwipeRight?: () => Promise<void>;
 	persistAfterSwipe?: boolean | { left: boolean; right: boolean };
 	leftLabel?: string;
 	rightLabel?: string;
@@ -63,6 +66,10 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 	const [showReveal, setShowReveal] = React.useState(false);
 	const [actionColor, setActionColor] = React.useState<string>(colors.watchedGreen);
 	const isProcessing = useRef(false);
+	const restoreTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	useEffect(() => () => {
+		if (restoreTimer.current) clearTimeout(restoreTimer.current);
+	}, []);
 	const [persistingLoad, setPersistingLoad] = React.useState(false);
 	const onSwipeLeftRef = useRef(onSwipeLeft);
 	onSwipeLeftRef.current = onSwipeLeft;
@@ -93,7 +100,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 					if (direction === "left") {
 						await onSwipeLeftRef.current();
 					} else {
-						await onSwipeRightRef.current();
+						await onSwipeRightRef.current?.();
 					}
 				} catch (err) {
 					console.error("SwipeableCard action failed:", err);
@@ -115,10 +122,18 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				if (direction === "left") {
 					await onSwipeLeftRef.current();
 				} else {
-					await onSwipeRightRef.current();
+					await onSwipeRightRef.current?.();
 				}
 				setSwipeState("done");
 				LayoutAnimation.configureNext(LayoutAnimation.create(300, "easeInEaseOut", "opacity"));
+				// Row still here once the list has updated (Rewatch / −1 keep it) → show it again;
+				// staying "done" left a blank gap in the list
+				restoreTimer.current = setTimeout(() => {
+					translateX.value = 0;
+					setShowReveal(false);
+					setSwipeState("idle");
+					isProcessing.current = false;
+				}, DONE_RESTORE_MS);
 			} catch (err) {
 				console.error("SwipeableCard action failed:", err);
 				translateX.value = withTiming(0, { duration: 300 });
@@ -144,6 +159,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		[swipeState, handleSwipeComplete, translateX],
 	);
 
+	const rightEnabled = !!onSwipeRight;
 	const panGesture = Gesture.Pan()
 		.activeOffsetX([-10, 10])
 		.onStart(() => {
@@ -151,7 +167,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		})
 		.onUpdate((event) => {
 			if (swipeState !== "idle") return;
-			translateX.value = event.translationX;
+			translateX.value = rightEnabled ? event.translationX : Math.max(0, event.translationX);
 		})
 		.onEnd((event) => {
 			if (swipeState !== "idle") return;
@@ -160,7 +176,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				translateX.value = withTiming(SCREEN_WIDTH, { duration: 200 }, () => {
 					runOnJS(handleSwipeComplete)("left");
 				});
-			} else if (event.translationX < -SWIPE_THRESHOLD) {
+			} else if (rightEnabled && event.translationX < -SWIPE_THRESHOLD) {
 				translateX.value = withTiming(-SCREEN_WIDTH, { duration: 200 }, () => {
 					runOnJS(handleSwipeComplete)("right");
 				});

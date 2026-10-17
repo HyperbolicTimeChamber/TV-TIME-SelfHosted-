@@ -3,6 +3,7 @@ import { Spin } from "antd";
 import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS } from "@app/enums";
 import { todayStr } from "@app/utils/todayStr";
 import SwipeableCard, { type SwipeableCardRef } from "./SwipeableCard";
+import { useLongPress } from "../hooks/useLongPress";
 import CheckmarkButton from "./CheckmarkButton";
 import PosterImage from "./PosterImage";
 import styles from "./styles/ShowCard.module.scss";
@@ -33,7 +34,10 @@ interface Props {
 	isUpdating?: boolean;
 	remainingEpisodes?: number | null;
 	onSwipeLeft: (item: any) => Promise<void>;
-	onSwipeRight: (item: any) => Promise<void>;
+	/** Omit to turn that swipe off */
+	onSwipeRight?: (item: any) => Promise<void>;
+	/** Long press / right-click on the card */
+	onLongPress?: (item: any) => void;
 	onPress: (tmdbId: number, mediaType: MediaType) => void;
 	onTitlePress?: (item: any) => void;
 	onCheckmark: (item: any) => Promise<void>;
@@ -55,6 +59,7 @@ export default memo(function ShowCard({
 	onTitlePress,
 	onCheckmark,
 	onCheckmarkLongPress,
+	onLongPress,
 }: Props) {
 	const swipeRef = useRef<SwipeableCardRef>(null);
 	const ep = item.nextEpisode ?? (item.mediaType === MediaType.TV ? { season: 1, episode: 1 } : null);
@@ -79,6 +84,7 @@ export default memo(function ShowCard({
 		if (item.mediaType === MediaType.MOVIE && onTitlePress) onTitlePress(item);
 		else onPress(item.tmdbId, item.mediaType);
 	}, [onPress, onTitlePress, item]);
+	const cardPress = useLongPress(onLongPress ? () => onLongPress(item) : undefined, handlePress);
 
 	const titlePill = (muted = false) => (
 		<button
@@ -114,7 +120,7 @@ export default memo(function ShowCard({
 		return (
 			<SwipeableCard
 				onSwipeLeft={() => onSwipeLeft(item)}
-				onSwipeRight={() => onSwipeRight(item)}
+				onSwipeRight={onSwipeRight ? () => onSwipeRight(item) : undefined}
 				leftLabel="Rewatch"
 				rightLabel={wc > 1 ? "−1" : "Unwatch"}
 				persistAfterSwipe={{ left: true, right: wc > 1 }}
@@ -150,8 +156,13 @@ export default memo(function ShowCard({
 	}
 
 	return (
-		<SwipeableCard ref={swipeRef} onSwipeLeft={() => onSwipeLeft(item)} onSwipeRight={() => onSwipeRight(item)} persistAfterSwipe>
-			<div className={styles.container} onClick={handlePress} role="button">
+		<SwipeableCard
+			ref={swipeRef}
+			onSwipeLeft={() => onSwipeLeft(item)}
+			onSwipeRight={onSwipeRight ? () => onSwipeRight(item) : undefined}
+			persistAfterSwipe
+		>
+			<div className={styles.container} {...cardPress} role="button">
 				<PosterImage posterPath={item.posterPath} mediaType={item.mediaType} className={styles.poster} />
 				<div className={styles.info}>
 					{titlePill()}
