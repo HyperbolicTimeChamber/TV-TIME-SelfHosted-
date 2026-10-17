@@ -4,7 +4,7 @@ import { IoShareSocialOutline } from "react-icons/io5";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useShowDetailActions } from "@app/screens/DetailScreens/useShowDetailActions";
 import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
-import { CircleButtonTone, MediaType } from "@app/enums";
+import { CircleButtonTone, MediaType, WatchStatus } from "@app/enums";
 import { showShareUrl } from "@app/utils/shareUrl";
 import LoadingScreen from "../../components/LoadingScreen";
 import CircleButton, { CircleBackButton } from "../../components/CircleButton";
@@ -125,7 +125,7 @@ export default function ShowDetailScreen() {
 							onAddToWatchlist={d.handleAddToWatchlist}
 							onMarkMovieWatched={d.handleMarkMovieWatched}
 							onResumeOrRewatch={d.handleResumeOrRewatch}
-							onPauseRewatch={() => d.setPauseModalVisible(true)}
+							onPause={() => d.setPauseModalVisible(true)}
 							onRemove={d.handleRemove}
 							onMovieSheetOpen={() => d.setMovieSheetVisible(true)}
 						/>
@@ -224,8 +224,8 @@ export default function ShowDetailScreen() {
 					/>
 					<ConfirmModal
 						visible={d.pauseModalVisible}
-						title={`Pause ${d.title}?`}
-						hint="It leaves your watchlist. Resume the rewatch any time from here."
+						title={`Pause ${d.watchlistItem?.status === WatchStatus.REWATCHING ? "rewatching " : ""}${d.title}?`}
+						hint="It leaves your watchlist. Resume any time from here."
 						confirmLabel="Pause"
 						confirmColor={colors.stopBlue}
 						loading={d.pausing}

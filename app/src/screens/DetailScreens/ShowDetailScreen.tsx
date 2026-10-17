@@ -25,7 +25,7 @@ import { showShareUrl, describeLoadError } from "../../utils";
 import ErrorState from "../../components/ErrorState";
 import CircleButton, { CircleBackButton } from "../../components/CircleButton";
 import { colors, spacing, typography } from "../../theme";
-import { HomeStackParamList, MediaType, Route } from "../../types";
+import { HomeStackParamList, MediaType, Route, WatchStatus } from "../../types";
 import { CircleButtonTone } from "../../enums";
 
 type RouteParams = RouteProp<HomeStackParamList, "ShowDetail">;
@@ -166,7 +166,7 @@ export default function ShowDetailScreen() {
 						onAddToWatchlist={handleAddToWatchlist}
 						onMarkMovieWatched={handleMarkMovieWatched}
 						onResumeOrRewatch={handleResumeOrRewatch}
-						onPauseRewatch={() => setPauseModalVisible(true)}
+						onPause={() => setPauseModalVisible(true)}
 						onRemove={handleRemove}
 						onMovieSheetOpen={() => setMovieSheetVisible(true)}
 					/>
@@ -268,8 +268,8 @@ export default function ShowDetailScreen() {
 
 			<ConfirmModal
 				visible={pauseModalVisible}
-				title={`Pause ${title}?`}
-				hint="It leaves your watchlist. Resume the rewatch any time from here."
+				title={`Pause ${watchlistItem?.status === WatchStatus.REWATCHING ? "rewatching " : ""}${title}?`}
+				hint="It leaves your watchlist. Resume any time from here."
 				confirmLabel="Pause"
 				confirmColor={colors.stopBlue}
 				loading={pausing}

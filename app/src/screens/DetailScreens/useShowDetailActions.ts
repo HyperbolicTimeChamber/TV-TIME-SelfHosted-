@@ -267,12 +267,14 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		}
 	}, [user?.uid, tmdbId, removing, removeShowFromUpcoming]);
 
-	// Rewatching → paused rewatch (same as the watchlist's Pause); the button then reads "Resume Rewatch"
+	// Watching → paused, rewatching → paused rewatch (same as the watchlist's Pause); the
+	// button then reads "Resume" / "Resume Rewatch"
 	const handleConfirmPause = useCallback(async () => {
-		if (!user?.uid || pausing || watchlistItem?.status !== WatchStatus.REWATCHING) return;
+		const status = watchlistItem?.status;
+		if (!user?.uid || pausing || (status !== WatchStatus.WATCHING && status !== WatchStatus.REWATCHING)) return;
 		setPausing(true);
 		try {
-			await stopWatching(user.uid, tmdbId, WatchStatus.REWATCHING, mediaType);
+			await stopWatching(user.uid, tmdbId, status, mediaType);
 			removeShowFromUpcoming(tmdbId);
 			removeShowFromCalendarGlobal(tmdbId);
 			emitShowRemoved(tmdbId);

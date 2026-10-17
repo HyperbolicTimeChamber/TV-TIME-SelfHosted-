@@ -15,8 +15,8 @@ interface Props {
 	onAddToWatchlist: () => void;
 	onMarkMovieWatched: () => void;
 	onResumeOrRewatch: () => void;
-	/** Rewatching only: pause the rewatch (asks first) */
-	onPauseRewatch: () => void;
+	/** TV watching / rewatching: pause it (asks first) */
+	onPause: () => void;
 	onRemove: () => void;
 	onMovieSheetOpen: () => void;
 }
@@ -31,7 +31,7 @@ export default function ActionPills({
 	onAddToWatchlist,
 	onMarkMovieWatched,
 	onResumeOrRewatch,
-	onPauseRewatch,
+	onPause,
 	onRemove,
 	onMovieSheetOpen,
 }: Readonly<Props>) {
@@ -118,11 +118,15 @@ export default function ActionPills({
 							</Text>
 						</TouchableOpacity>
 					)}
-					{watchlistItem.status === WatchStatus.REWATCHING && (
-						<TouchableOpacity style={[styles.pill, styles.pillPause]} onPress={onPauseRewatch}>
-							<Text style={styles.pillText}>Pause Rewatch</Text>
-						</TouchableOpacity>
-					)}
+					{mediaType === MediaType.TV &&
+						(watchlistItem.status === WatchStatus.WATCHING ||
+							watchlistItem.status === WatchStatus.REWATCHING) && (
+							<TouchableOpacity style={[styles.pill, styles.pillPause]} onPress={onPause}>
+								<Text style={styles.pillText}>
+									{watchlistItem.status === WatchStatus.REWATCHING ? "Pause Rewatch" : "Pause"}
+								</Text>
+							</TouchableOpacity>
+						)}
 					<TouchableOpacity
 						style={[styles.pill, styles.pillRemove, removing && styles.pillDisabled]}
 						onPress={onRemove}
