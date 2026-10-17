@@ -175,15 +175,18 @@ export default function EpisodeDetailModal({
 		setMarkingKey(epKey(confirmTarget.season, confirmTarget.episode));
 		try {
 			await onMarkWatchedThrough(tmdbId, confirmTarget.season, confirmTarget.episode);
+			// Mirror the write: one more watch for every episode from the current next one through
+			// the target (in a rewatch they all had counts already — cards used to stay stale)
+			const from = currentNextEpisode ?? { season: 1, episode: 1 };
+			const onOrAfter = (s: number, e: number) => s > from.season || (s === from.season && e >= from.episode);
+			const onOrBefore = (s: number, e: number) =>
+				s < confirmTarget.season || (s === confirmTarget.season && e <= confirmTarget.episode);
 			setLocalWatched((prev) => {
 				const next = new Map(prev);
 				for (const ep of episodes) {
-					if (
-						ep.season < confirmTarget.season ||
-						(ep.season === confirmTarget.season && ep.episode <= confirmTarget.episode)
-					) {
+					if (onOrAfter(ep.season, ep.episode) && onOrBefore(ep.season, ep.episode)) {
 						const k = epKey(ep.season, ep.episode);
-						if (!next.has(k)) next.set(k, 1);
+						next.set(k, (next.get(k) ?? 0) + 1);
 					}
 				}
 				return next;

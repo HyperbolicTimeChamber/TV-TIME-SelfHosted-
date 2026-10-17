@@ -196,15 +196,19 @@ export default function EpisodeDetailModal({
 
 		try {
 			await onMarkWatchedThrough(tmdbId, confirmTarget.season, confirmTarget.episode);
+			// Mirror the write: every episode from the current next one through the target gets
+			// one more watch (in a rewatch they all had counts already — the old "only if unwatched"
+			// left those cards stale until the modal reopened)
+			const from = currentNextEpisode ?? { season: 1, episode: 1 };
+			const onOrAfter = (s: number, e: number) => s > from.season || (s === from.season && e >= from.episode);
+			const onOrBefore = (s: number, e: number) =>
+				s < confirmTarget.season || (s === confirmTarget.season && e <= confirmTarget.episode);
 			setLocalWatched((prev) => {
 				const next = new Map(prev);
 				for (const ep of episodes) {
-					if (
-						ep.season < confirmTarget.season ||
-						(ep.season === confirmTarget.season && ep.episode <= confirmTarget.episode)
-					) {
+					if (onOrAfter(ep.season, ep.episode) && onOrBefore(ep.season, ep.episode)) {
 						const k = epKey(ep.season, ep.episode);
-						if (!next.has(k)) next.set(k, 1);
+						next.set(k, (next.get(k) ?? 0) + 1);
 					}
 				}
 				return next;
@@ -215,7 +219,7 @@ export default function EpisodeDetailModal({
 			setConfirmVisible(false);
 			setConfirmTarget(null);
 		}
-	}, [confirmTarget, tmdbId, episodes, onMarkWatchedThrough]);
+	}, [confirmTarget, tmdbId, episodes, onMarkWatchedThrough, currentNextEpisode]);
 
 	const handleDeclineBackfill = useCallback(async () => {
 		if (!confirmTarget) return;

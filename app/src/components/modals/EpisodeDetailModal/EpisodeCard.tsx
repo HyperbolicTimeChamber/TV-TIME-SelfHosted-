@@ -179,7 +179,9 @@ export const EpisodeCard = memo(function EpisodeCard({
 					{skipButton}
 				</View>
 			) : skipButton ? (
+				// Rewatch: Skip first, then "Mark Nth Rewatch"
 				<View style={styles.watchedButtonRow}>
+					{skipButton}
 					<TouchableOpacity
 						style={[styles.markInRow, isMarking && { opacity: 0.6 }]}
 						onPress={onMarkWatched}
@@ -191,7 +193,6 @@ export const EpisodeCard = memo(function EpisodeCard({
 							<Text style={styles.actionButtonText}>{markLabel}</Text>
 						)}
 					</TouchableOpacity>
-					{skipButton}
 				</View>
 			) : (
 				<TouchableOpacity
