@@ -338,8 +338,7 @@ const styles = StyleSheet.create({
 	revealIconText: {
 		fontSize: 14,
 		lineHeight: 18,
-		// Light like the thin Rx icons
-		fontWeight: "500",
+		fontWeight: "700",
 		color: colors.text,
 		// Android's font padding sits text low in the circle
 		includeFontPadding: false,
