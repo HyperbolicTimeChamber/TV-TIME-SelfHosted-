@@ -117,6 +117,17 @@ export default function SettingsScreen() {
 				)}
 				<TouchableOpacity
 					style={styles.row}
+					onPress={() =>
+						Alert.alert("Log Out", "Are you sure?", [
+							{ text: "Cancel", style: "cancel" },
+							{ text: "Log Out", style: "destructive", onPress: signOut },
+						])
+					}
+				>
+					<Text style={styles.deleteText}>Log Out</Text>
+				</TouchableOpacity>
+				<TouchableOpacity
+					style={styles.row}
 					onPress={handleDeleteAccount}
 					disabled={deletingAccount}
 				>

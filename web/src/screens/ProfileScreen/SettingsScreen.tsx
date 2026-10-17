@@ -70,6 +70,23 @@ export default function SettingsScreen() {
 						Change Password
 					</button>
 				)}
+				<button
+					className={`${styles.row} ${styles.deleteText}`}
+					onClick={() =>
+						modal.confirm({
+							title: "Log Out",
+							content: "Are you sure?",
+							okText: "Log Out",
+							okButtonProps: { danger: true },
+							onOk: async () => {
+								await signOut();
+								navigate(Paths.SEARCH, { replace: true });
+							},
+						})
+					}
+				>
+					Log Out
+				</button>
 				<button className={`${styles.row} ${styles.deleteText}`} onClick={deleteAccount} disabled={deleting}>
 					{deleting ? <Spin size="small" /> : "Delete Account & Data"}
 				</button>

@@ -127,17 +127,4 @@ export const styles = StyleSheet.create({
 		marginTop: spacing.xl,
 		alignItems: "center",
 	},
-	signOutButton: {
-		marginTop: spacing.xxl,
-		marginHorizontal: spacing.lg,
-		marginBottom: spacing.xxl * 2,
-		paddingVertical: spacing.lg,
-		backgroundColor: colors.surface,
-		borderRadius: 8,
-		alignItems: "center",
-	},
-	signOutText: {
-		...typography.subtitle,
-		color: colors.destructiveRed,
-	},
 });

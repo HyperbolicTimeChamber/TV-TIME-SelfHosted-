@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useCallback } from "react";
-import { View, Text, TouchableOpacity, ScrollView, Alert, PixelRatio } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, PixelRatio } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -33,7 +33,6 @@ export default function ProfileScreen() {
 	const { top } = useSafeAreaInsets();
 	const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
 	const user = useAuthStore((s) => s.user);
-	const signOut = useAuthStore((s) => s.signOut);
 	const { stats, loading: statsLoading } = useUserStats(user?.uid);
 	const { items: watchlist } = useWatchlist(user?.uid);
 	const { chartData, refresh: refreshChart } = useWeeklyActivity();
@@ -149,18 +148,6 @@ export default function ProfileScreen() {
 				loading={completedLoading}
 				onItemPress={handleCompletedItemPress}
 			/>
-
-			<TouchableOpacity
-				style={styles.signOutButton}
-				onPress={() => {
-					Alert.alert("Log Out", "Are you sure?", [
-						{ text: "Cancel", style: "cancel" },
-						{ text: "Log Out", style: "destructive", onPress: signOut },
-					]);
-				}}
-			>
-				<Text style={styles.signOutText}>Log Out</Text>
-			</TouchableOpacity>
 		</ScrollView>
 	);
 }
