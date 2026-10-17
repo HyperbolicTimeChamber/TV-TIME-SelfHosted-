@@ -195,13 +195,16 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				: Gesture.Pan().activeOffsetX(10).failOffsetX(-10)
 			)
 				.onStart(() => {
+					"worklet";
 					runOnJS(setShowReveal)(true);
 				})
 				.onUpdate((event) => {
+					"worklet";
 					if (!idle.value) return;
 					translateX.value = rightEnabled ? event.translationX : Math.max(0, event.translationX);
 				})
 				.onEnd((event) => {
+					"worklet";
 					if (!idle.value) return;
 		
 					if (event.translationX > SWIPE_THRESHOLD) {

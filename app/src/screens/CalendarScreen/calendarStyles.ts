@@ -39,7 +39,7 @@ export const styles = StyleSheet.create({
 	weekdays: { flexDirection: "row", height: WEEKDAY_ROW, paddingHorizontal: 4 },
 	weekday: { flex: 1, textAlign: "center", fontSize: 11, color: colors.textSecondary },
 	body: { flex: 1 },
-	calendar: { overflow: "hidden" },
+	calendar: { position: "absolute", top: 0, left: 0, right: 0, overflow: "hidden" },
 	weekRow: { flexDirection: "row", paddingHorizontal: 4 },
 	cell: { flex: 1, padding: 1.5 },
 	tile: {
@@ -80,7 +80,8 @@ export const styles = StyleSheet.create({
 		overflow: "hidden",
 	},
 	chipMore: { fontSize: 9, lineHeight: 12, color: colors.textSecondary, paddingHorizontal: 2 },
-	listArea: { flex: 1, overflow: "hidden" },
+	// Opaque layer over the calendar; its top edge is the calendar's visible bottom
+	listArea: { position: "absolute", top: 0, left: 0, right: 0, overflow: "hidden", backgroundColor: colors.background },
 	// "15 THU" over each day's list
 	dayHeader: {
 		flexDirection: "row",

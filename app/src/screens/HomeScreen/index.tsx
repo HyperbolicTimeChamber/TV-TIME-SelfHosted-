@@ -95,13 +95,16 @@ export default function HomeScreen() {
 				.activeOffsetX(index === 1 ? START_PX : -START_PX)
 				.failOffsetY([-15, 15])
 				.onStart(() => {
+					"worklet";
 					dragging.value = true;
 					if (index === 0) runOnJS(setUpcomingOpened)(true);
 				})
 				.onUpdate((e) => {
+					"worklet";
 					pos.value = Math.min(width, Math.max(0, index * width - e.translationX));
 				})
 				.onEnd((e) => {
+					"worklet";
 					dragging.value = false;
 					let next = index;
 					if (index === 0 && (e.translationX < -width * TURN_SHARE || e.velocityX < -FLICK_VELOCITY)) next = 1;

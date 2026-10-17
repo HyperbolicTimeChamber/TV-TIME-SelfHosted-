@@ -32,13 +32,14 @@ import {
 import { todayStr } from "../../utils/todayStr";
 import Pager from "./Pager";
 import DayList from "./DayList";
-import { CellMarks, MonthGrid, WeekRow, type ChipFit } from "./MonthGrid";
+import { MonthGrid, WeekRow, type ChipFit } from "./MonthGrid";
 import { CalendarMode, ROW_MONTH, styles } from "./calendarStyles";
 
 type NavProp = NativeStackNavigationProp<CalendarStackParamList, Route.CALENDAR_MAIN>;
 
 const SKELETON_CARDS = 3;
 const RESIZE_MS = 240;
+const MARKS_IN_MS = 100;
 /** Neighbour days stay built this long after a page turn (covers the slide) */
 const PEEK_HOLD_MS = 350;
 /** How far a release's speed carries the resize when picking the view to snap to */
@@ -154,6 +155,34 @@ export default function CalendarScreen() {
 	const lastT = useSharedValue(0);
 	// Set once the calendar's size actually changes in this drag (a plain list scroll isn't a resize)
 	const sizeChanging = useSharedValue(false);
+	// Bars (week / month) and titled chips (full) are both always mounted; two shared opacities
+	// pick which shows. Between month and full both hide (the rows are being stretched) and
+	// the right one fades back in the instant the resize lands — all on the UI thread, no
+	// re-render (remounting them waited on JS: up to ~1.5s on a slow phone)
+	const barsOpacity = useSharedValue(1);
+	const chipsOpacity = useSharedValue(0);
+	const marksHidden = useSharedValue(false);
+	// Rows rest at full height in full mode (switched on the UI thread when a resize lands)
+	const fullLayout = useSharedValue(false);
+	const syncMarks = (settled: boolean) => {
+		"worklet";
+		const hide = !settled && progress.value > CalendarMode.MONTH + 0.001;
+		if (hide) {
+			if (marksHidden.value) return;
+			marksHidden.value = true;
+			// Instantly: a fade would show them stretched with the rows
+			barsOpacity.value = 0;
+			chipsOpacity.value = 0;
+			return;
+		}
+		if (!marksHidden.value && !settled) return;
+		marksHidden.value = false;
+		const full = fullLayout.value;
+		barsOpacity.value = full ? 0 : withTiming(1, { duration: MARKS_IN_MS });
+		chipsOpacity.value = full ? withTiming(1, { duration: MARKS_IN_MS }) : 0;
+	};
+	const barsStyle = useAnimatedStyle(() => ({ opacity: barsOpacity.value }));
+	const chipsStyle = useAnimatedStyle(() => ({ opacity: chipsOpacity.value }));
 	const listMax = () => {
 		"worklet";
 		const viewport = bodyH.value - heightAt(progress.value, rows.value, bodyH.value);
@@ -164,10 +193,12 @@ export default function CalendarScreen() {
 			.activeOffsetY([-10, 10])
 			.failOffsetX([-12, 12])
 			.onStart(() => {
+				"worklet";
 				lastT.value = 0;
 				sizeChanging.value = false;
 			})
 			.onUpdate((e) => {
+				"worklet";
 				let delta = e.translationY - lastT.value;
 				lastT.value = e.translationY;
 				const h = heightAt(progress.value, rows.value, bodyH.value);
@@ -187,15 +218,20 @@ export default function CalendarScreen() {
 				}
 				if (!sizeChanging.value && progress.value !== before) {
 					sizeChanging.value = true;
-					runOnJS(setResizing)(true);
+					// Only the week strip needs swapping for the month grid (a JS re-render)
+					if (before < 0.01) runOnJS(setResizing)(true);
 				}
+				syncMarks(false);
 			})
 			.onEnd((e) => {
+				"worklet";
 				const p = progress.value;
 				const atStop = Math.abs(p - Math.round(p)) < 0.01;
 				if (atStop) {
 					const stop = Math.round(p) as CalendarMode;
 					progress.value = stop;
+					fullLayout.value = stop === CalendarMode.FULL;
+					syncMarks(true);
 					runOnJS(settle)(stop);
 					// Week strip (or month with a long day) — the list keeps the fling
 					listY.value = withDecay({ velocity: -e.velocityY, clamp: [0, listMax()] });
@@ -211,7 +247,12 @@ export default function CalendarScreen() {
 						target = s;
 					}
 				}
-				progress.value = withTiming(target, { duration: RESIZE_MS }, () => runOnJS(settle)(target));
+				// Marks come back the moment it lands (rows are stretched until then)
+				progress.value = withTiming(target, { duration: RESIZE_MS }, () => {
+					fullLayout.value = target === CalendarMode.FULL;
+					syncMarks(true);
+					runOnJS(settle)(target);
+				});
 			});
 	// Built once — rebuilding a gesture mid-drag (the drag itself re-renders) loses its callbacks
 	// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -224,15 +265,17 @@ export default function CalendarScreen() {
 	}, [selected, listY]);
 	const listScroll = useAnimatedStyle(() => ({ transform: [{ translateY: -listY.value }] }));
 
-	const calendarStyle = useAnimatedStyle(() => ({ height: heightAt(progress.value, rows.value, bodyH.value) }));
+	// Resizing is transform-only: the calendar keeps its full height and the day list — an opaque
+	// layer on top — slides down/up to uncover it. Animating the calendar's height relaid the
+	// whole screen out every frame (janky on real phones, e.g. an S21).
 	const listStyle = useAnimatedStyle(() => ({
+		transform: [{ translateY: heightAt(progress.value, rows.value, bodyH.value) }],
 		opacity: interpolate(progress.value, [CalendarMode.MONTH, CalendarMode.FULL - 0.3], [1, 0], "clamp"),
 	}));
 
 	// --- Pages -----------------------------------------------------------------------------
 	const weekPaging = mode === CalendarMode.WEEK && !resizing;
 	// Bars in week / month view, titled chips in full view, nothing while resizing
-	const cellMarks = resizing ? CellMarks.NONE : mode === CalendarMode.FULL ? CellMarks.CHIPS : CellMarks.BARS;
 	// Neighbouring days' cards are only built once a sideways swipe starts
 	const [peek, setPeek] = useState(false);
 	// …and dropped again once the day has changed and the slide (~200ms) is over, so the day
@@ -243,14 +286,23 @@ export default function CalendarScreen() {
 	}, [selected]);
 	const [popupDate, setPopupDate] = useState<string | null>(null);
 
+	// Mode read through a ref: a mode change must not hand every day cell a new onPress
+	// (that re-rendered all three grids the moment a resize landed)
+	const modeRef = useRef(mode);
+	modeRef.current = mode;
 	const onDayPress = useCallback(
 		(date: string) => {
 			selectDate(date);
 			// Full view has no list — the day opens in a popup instead
-			if (mode === CalendarMode.FULL) setPopupDate(date);
+			if (modeRef.current === CalendarMode.FULL) setPopupDate(date);
 		},
-		[selectDate, mode],
+		[selectDate],
 	);
+	// Neighbour months' weeks kept stable so their grids skip re-renders
+	const prevMonth = shiftMonth(currentYear, currentMonth, -1);
+	const nextMonth = shiftMonth(currentYear, currentMonth, 1);
+	const prevWeeks = useMemo(() => monthWeeks(prevMonth.year, prevMonth.month), [prevMonth.year, prevMonth.month]);
+	const nextWeeks = useMemo(() => monthWeeks(nextMonth.year, nextMonth.month), [nextMonth.year, nextMonth.month]);
 
 	const renderCalendarPage = (offset: -1 | 0 | 1) => {
 		if (weekPaging) {
@@ -262,8 +314,9 @@ export default function CalendarScreen() {
 					selected={selected}
 					marks={dayMarks}
 					chipFit={chipFit}
-					show={cellMarks}
-					progress={progress}
+					barsStyle={barsStyle}
+					chipsStyle={chipsStyle}
+					progress={offset === 0 ? progress : undefined}
 					fullRowH={fullRowH}
 					onDayPress={onDayPress}
 				/>
@@ -272,15 +325,17 @@ export default function CalendarScreen() {
 		const { year, month } = shiftMonth(currentYear, currentMonth, offset);
 		return (
 			<MonthGrid
-				weeks={offset === 0 ? weeks : monthWeeks(year, month)}
+				weeks={offset === 0 ? weeks : offset < 0 ? prevWeeks : nextWeeks}
 				month={`${year}-${pad2(month)}`}
 				selectedRow={offset === 0 ? selectedRow : 0}
+				fullLayout={fullLayout}
 				today={today}
 				selected={selected}
 				marks={dayMarks}
 				chipFit={chipFit}
-				show={cellMarks}
-				progress={progress}
+				barsStyle={barsStyle}
+				chipsStyle={chipsStyle}
+				progress={offset === 0 ? progress : undefined}
 				fullRowH={fullRowH}
 				onDayPress={onDayPress}
 			/>
@@ -384,7 +439,7 @@ export default function CalendarScreen() {
 					fullRowH.value = e.nativeEvent.layout.height / weeks.length;
 				}}
 			>
-				<Animated.View style={[styles.calendar, calendarStyle]}>
+				<View style={[styles.calendar, { height: bodyPx }]}>
 					<Pager
 						width={width}
 						index={
@@ -400,9 +455,9 @@ export default function CalendarScreen() {
 						race={calendarScroll}
 						style={styles.body}
 					/>
-				</Animated.View>
+				</View>
 
-				<Animated.View style={[styles.listArea, listStyle]}>
+				<Animated.View style={[styles.listArea, { height: Math.max(0, bodyPx - ROW_MONTH) }, listStyle]}>
 					{monthLoading ? (
 						<CalendarSkeleton />
 					) : (
