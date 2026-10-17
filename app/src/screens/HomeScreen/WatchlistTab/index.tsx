@@ -28,9 +28,6 @@ import { styles } from "./styles";
 import { useWatchlistScreen } from "./useWatchlistScreen";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
 import SectionHeader from "./SectionHeader";
-import { GestureDetector } from "react-native-gesture-handler";
-import { useTabSwipe } from "../useTabSwipe";
-import { useHomeTabs } from "../HomeTabsContext";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
@@ -128,10 +125,6 @@ export default function WatchlistTab() {
 	} = useWatchlistScreen(handleNavigateToShow);
 
 	const listRef = useRef<any>(null);
-	// Swipe left → Upcoming
-	const { setTab } = useHomeTabs();
-	const goUpcoming = useCallback(() => setTab(Route.UPCOMING), [setTab]);
-	const tabSwipe = useTabSwipe({ onLeft: goUpcoming });
 	// Up-next card long-pressed → confirm pausing it
 	const [pauseTarget, setPauseTarget] = useState<EnrichedTrackingItem | null>(null);
 	const [pausing, setPausing] = useState(false);
@@ -287,44 +280,40 @@ export default function WatchlistTab() {
 
 	return (
 		<>
-			<GestureDetector gesture={tabSwipe}>
-				<View style={styles.list}>
-					<LegendList
-						ref={listRef}
-						data={listData}
-						initialScrollIndex={initialUpNext.current ?? 0}
-						keyExtractor={(item) => {
-							if (item.type === "sectionHeader") return `section_${item.title}`;
-							if (item.type === "watchedMovie") return `movie_${item.movie.id}`;
-							if (item.type === "watchedEpisode") return `watched_${item.episode.id}`;
-							return `show_${item.item.id}`;
-						}}
-						renderItem={renderItem}
-						recycleItems
-						drawDistance={SCREEN_HEIGHT * 2}
-						estimatedItemSize={110}
-						stickyHeaderIndices={stickyIndices}
-						refreshControl={
-							hasMorePrevWatched ? (
-								<RefreshControl
-									refreshing={loadingMorePrevWatched}
-									onRefresh={loadMorePrevWatched}
-									tintColor={colors.primary}
-									colors={[colors.primary]}
-									progressBackgroundColor={colors.surface}
-								/>
-							) : undefined
-						}
-						onEndReached={() => loadMoreTracking()}
-						onEndReachedThreshold={1.5}
-						ListFooterComponent={loadingMoreTracking ? <SkeletonFooter /> : null}
-						ItemSeparatorComponent={SeparatorComponent}
-						maintainVisibleContentPosition={{ data: true, size: true }}
-						style={styles.list}
-						contentContainerStyle={contentStyle}
-					/>
-				</View>
-			</GestureDetector>
+			<LegendList
+				ref={listRef}
+				data={listData}
+				initialScrollIndex={initialUpNext.current ?? 0}
+				keyExtractor={(item) => {
+					if (item.type === "sectionHeader") return `section_${item.title}`;
+					if (item.type === "watchedMovie") return `movie_${item.movie.id}`;
+					if (item.type === "watchedEpisode") return `watched_${item.episode.id}`;
+					return `show_${item.item.id}`;
+				}}
+				renderItem={renderItem}
+				recycleItems
+				drawDistance={SCREEN_HEIGHT * 2}
+				estimatedItemSize={110}
+				stickyHeaderIndices={stickyIndices}
+				refreshControl={
+					hasMorePrevWatched ? (
+						<RefreshControl
+							refreshing={loadingMorePrevWatched}
+							onRefresh={loadMorePrevWatched}
+							tintColor={colors.primary}
+							colors={[colors.primary]}
+							progressBackgroundColor={colors.surface}
+						/>
+					) : undefined
+				}
+				onEndReached={() => loadMoreTracking()}
+				onEndReachedThreshold={1.5}
+				ListFooterComponent={loadingMoreTracking ? <SkeletonFooter /> : null}
+				ItemSeparatorComponent={SeparatorComponent}
+				maintainVisibleContentPosition={{ data: true, size: true }}
+				style={styles.list}
+				contentContainerStyle={contentStyle}
+			/>
 			<WatchActionSheet
 				visible={sheetVisible}
 				label={sheetLabel}

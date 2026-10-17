@@ -1,25 +1,32 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
-import Animated, { useAnimatedStyle, withTiming } from "react-native-reanimated";
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { colors } from "../../theme";
 import { HomeStackParamList, Route } from "../../types";
 import WatchlistTab from "./WatchlistTab";
 import UpcomingTab from "./UpcomingTab";
-import { HomeTabsContext, type HomeTab } from "./HomeTabsContext";
+
+type HomeTab = Route.WATCHLIST | Route.UPCOMING;
 
 const TABS: { key: HomeTab; label: string }[] = [
 	{ key: Route.WATCHLIST, label: "Watch List" },
 	{ key: Route.UPCOMING, label: "Upcoming" },
 ];
 const SLIDE_MS = 250;
+/** Drag starts after 25px sideways (cards claim theirs at 10px first); turns past 30% or a flick */
+const START_PX = 25;
+const TURN_SHARE = 0.3;
+const FLICK_VELOCITY = 500;
+const HANDOFF_PX = 60;
 
 /**
  * Home: Watch List / Upcoming. Not a material-top-tabs navigator — its native pager, nested
  * in the bottom pager, cancels every gesture on touch-down (pager-view's NestedScrollableHost
- * → requestDisallowInterceptTouchEvent → RNGH cancels). The tabs slide here instead and each
- * swipes itself (useTabSwipe).
+ * → requestDisallowInterceptTouchEvent → RNGH cancels). The tabs slide here instead, following
+ * the finger; a left drag on Upcoming hands off to Calendar (the bottom pager).
  */
 export default function HomeScreen() {
 	const { top } = useSafeAreaInsets();
@@ -43,25 +50,50 @@ export default function HomeScreen() {
 	}, [tab]);
 
 	const index = TABS.findIndex((t) => t.key === tab);
-	const pages = useAnimatedStyle(() => ({
-		transform: [{ translateX: withTiming(-index * width, { duration: SLIDE_MS }) }],
-	}));
-	const indicator = useAnimatedStyle(() => ({
-		transform: [{ translateX: withTiming((index * width) / TABS.length, { duration: SLIDE_MS }) }],
-	}));
-	const ctx = useMemo(() => ({ tab, setTab }), [tab]);
+	// Row position in px (0 = Watch List, width = Upcoming); follows the finger while dragging
+	const pos = useSharedValue(index * width);
+	const dragging = useSharedValue(false);
+	useEffect(() => {
+		if (!dragging.value) pos.value = withTiming(index * width, { duration: SLIDE_MS });
+	}, [index, width, pos, dragging]);
+
+	const goCalendar = () => navigation.navigate(Route.CALENDAR as never);
+	const pan = Gesture.Pan()
+		.activeOffsetX([-START_PX, START_PX])
+		.failOffsetY([-15, 15])
+		.onStart(() => {
+			dragging.value = true;
+			if (index === 0) runOnJS(setUpcomingOpened)(true);
+		})
+		.onUpdate((e) => {
+			pos.value = Math.min(width, Math.max(0, index * width - e.translationX));
+		})
+		.onEnd((e) => {
+			dragging.value = false;
+			let next = index;
+			if (index === 0 && (e.translationX < -width * TURN_SHARE || e.velocityX < -FLICK_VELOCITY)) next = 1;
+			if (index === 1 && (e.translationX > width * TURN_SHARE || e.velocityX > FLICK_VELOCITY)) next = 0;
+			pos.value = withTiming(next * width, { duration: SLIDE_MS });
+			if (next !== index) runOnJS(setTab)(TABS[next].key);
+			else if (index === 1 && (e.translationX < -HANDOFF_PX || e.velocityX < -FLICK_VELOCITY)) {
+				runOnJS(goCalendar)();
+			}
+		});
+
+	const pages = useAnimatedStyle(() => ({ transform: [{ translateX: -pos.value }] }));
+	const indicator = useAnimatedStyle(() => ({ transform: [{ translateX: pos.value / TABS.length }] }));
 
 	return (
-		<HomeTabsContext.Provider value={ctx}>
-			<View style={styles.container}>
-				<View style={[styles.tabBar, { paddingTop: top }]}>
-					{TABS.map((t) => (
-						<TouchableOpacity key={t.key} style={styles.tab} onPress={() => setTab(t.key)} activeOpacity={0.7}>
-							<Text style={[styles.tabLabel, t.key === tab && styles.tabLabelActive]}>{t.label}</Text>
-						</TouchableOpacity>
-					))}
-					<Animated.View style={[styles.indicator, { width: width / TABS.length }, indicator]} />
-				</View>
+		<View style={styles.container}>
+			<View style={[styles.tabBar, { paddingTop: top }]}>
+				{TABS.map((t) => (
+					<TouchableOpacity key={t.key} style={styles.tab} onPress={() => setTab(t.key)} activeOpacity={0.7}>
+						<Text style={[styles.tabLabel, t.key === tab && styles.tabLabelActive]}>{t.label}</Text>
+					</TouchableOpacity>
+				))}
+				<Animated.View style={[styles.indicator, { width: width / TABS.length }, indicator]} />
+			</View>
+			<GestureDetector gesture={pan}>
 				<View style={styles.clip}>
 					<Animated.View style={[styles.pages, { width: width * TABS.length }, pages]}>
 						<View style={{ width }}>
@@ -70,8 +102,8 @@ export default function HomeScreen() {
 						<View style={{ width }}>{upcomingOpened && <UpcomingTab />}</View>
 					</Animated.View>
 				</View>
-			</View>
-		</HomeTabsContext.Provider>
+			</GestureDetector>
+		</View>
 	);
 }
 

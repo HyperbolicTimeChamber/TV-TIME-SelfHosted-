@@ -32,7 +32,8 @@ export default memo(function WatchedEpisodeRow({
 			onSwipeLeft={() => onSwipeLeft(episode)}
 			onSwipeRight={() => onSwipeRight(episode)}
 			leftLabel="Rewatch"
-			rightLabel={episode.watchCount > 1 ? "−1" : "Unwatch"}
+			rightLabel="Unwatch"
+			rightIcon={episode.watchCount > 1 ? "−1" : "✕"}
 			persistAfterSwipe={{ left: true, right: episode.watchCount > 1 }}
 		>
 			<TouchableOpacity

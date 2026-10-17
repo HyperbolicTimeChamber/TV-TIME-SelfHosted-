@@ -122,7 +122,8 @@ export default memo(function ShowCard({
 				onSwipeLeft={() => onSwipeLeft(item)}
 				onSwipeRight={onSwipeRight ? () => onSwipeRight(item) : undefined}
 				leftLabel="Rewatch"
-				rightLabel={wc > 1 ? "−1" : "Unwatch"}
+				rightLabel="Unwatch"
+				rightIcon={wc > 1 ? "−1" : "✕"}
 				persistAfterSwipe={{ left: true, right: wc > 1 }}
 			>
 				<div className={styles.container} onClick={handlePress} role="button">

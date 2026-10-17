@@ -119,7 +119,8 @@ export default memo(function ShowCard({
 				onSwipeLeft={handleSwipeLeft}
 				onSwipeRight={handleSwipeRight}
 				leftLabel="Rewatch"
-				rightLabel={wc > 1 ? "−1" : "Unwatch"}
+				rightLabel="Unwatch"
+				rightIcon={wc > 1 ? "−1" : "✕"}
 				persistAfterSwipe={{ left: true, right: wc > 1 }}
 			>
 				<TouchableOpacity style={styles.container} onPress={handlePress} activeOpacity={0.8}>

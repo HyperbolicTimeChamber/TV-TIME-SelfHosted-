@@ -43,6 +43,8 @@ interface Props {
 	persistAfterSwipe?: boolean | { left: boolean; right: boolean };
 	leftLabel?: string;
 	rightLabel?: string;
+	/** Text in the right reveal's circle (default ✕) — e.g. "−1" when unwatching drops a count */
+	rightIcon?: string;
 	leftColor?: string;
 	rightColor?: string;
 }
@@ -55,6 +57,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		persistAfterSwipe = false,
 		leftLabel = "Watched",
 		rightLabel = "Stop",
+		rightIcon = "✕",
 		leftColor = colors.watchedGreen,
 		rightColor = colors.stopBlue,
 	},
@@ -272,7 +275,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 							<>
 								<Text style={styles.revealText}>{rightLabel}</Text>
 								<View style={styles.revealIcon}>
-									<Text style={styles.revealIconText}>✕</Text>
+									<Text style={styles.revealIconText}>{rightIcon}</Text>
 								</View>
 							</>
 						)}
