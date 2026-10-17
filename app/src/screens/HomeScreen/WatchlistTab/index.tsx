@@ -30,6 +30,7 @@ import WatchedEpisodeRow from "./WatchedEpisodeRow";
 import SectionHeader from "./SectionHeader";
 import { GestureDetector } from "react-native-gesture-handler";
 import { useTabSwipe } from "../useTabSwipe";
+import { useHomeTabs } from "../HomeTabsContext";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
@@ -128,8 +129,9 @@ export default function WatchlistTab() {
 
 	const listRef = useRef<any>(null);
 	// Swipe left → Upcoming
-	const goUpcoming = useCallback(() => navigation.navigate(Route.UPCOMING as never), [navigation]);
-	const tabSwipe = useTabSwipe(-1, goUpcoming);
+	const { setTab } = useHomeTabs();
+	const goUpcoming = useCallback(() => setTab(Route.UPCOMING), [setTab]);
+	const tabSwipe = useTabSwipe({ onLeft: goUpcoming });
 	// Up-next card long-pressed → confirm pausing it
 	const [pauseTarget, setPauseTarget] = useState<EnrichedTrackingItem | null>(null);
 	const [pausing, setPausing] = useState(false);
@@ -338,7 +340,7 @@ export default function WatchlistTab() {
 				title={`Pause ${pauseTarget?.title ?? "watching"}?`}
 				hint="It leaves your watchlist. Resume any time from its page."
 				confirmLabel="Pause"
-				confirmColor={colors.primary}
+				confirmColor={colors.stopBlue}
 				loading={pausing}
 				onConfirm={confirmPause}
 				onClose={() => setPauseTarget(null)}

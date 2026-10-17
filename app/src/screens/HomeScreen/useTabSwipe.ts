@@ -7,20 +7,23 @@ const TURN_PX = 60;
 const FLICK_VELOCITY = 500;
 
 /**
- * Swipe between Watch List and Upcoming (RNGH, not the native pager — card gestures block
- * that). `dir` -1 = finger moves left, 1 = right. Cards activate at 10px, so their own swipes
- * (watched, Previously Watched's both ways) win; vertical scrolling fails this one.
+ * Sideways swipe on a Home tab (RNGH — the bottom pager's swipe is off on Home, card
+ * gestures would block it). onLeft = finger moves left, onRight = right; a missing side never
+ * activates. Cards activate at 10px, so their swipes (watched, Previously Watched's both
+ * ways) win; vertical scrolling fails this one.
  */
-export function useTabSwipe(dir: -1 | 1, onSwipe: () => void) {
-	return useMemo(
-		() =>
-			Gesture.Pan()
-				.runOnJS(true)
-				.activeOffsetX(dir * START_PX)
-				.failOffsetY([-15, 15])
-				.onEnd((e) => {
-					if (e.translationX * dir > TURN_PX || e.velocityX * dir > FLICK_VELOCITY) onSwipe();
-				}),
-		[dir, onSwipe],
-	);
+export function useTabSwipe({ onLeft, onRight }: { onLeft?: () => void; onRight?: () => void }) {
+	return useMemo(() => {
+		// One side only → a single offset (that direction alone activates)
+		const start: number | [number, number] =
+			onLeft && onRight ? [-START_PX, START_PX] : onLeft ? -START_PX : START_PX;
+		return Gesture.Pan()
+			.runOnJS(true)
+			.activeOffsetX(start)
+			.failOffsetY([-15, 15])
+			.onEnd((e) => {
+				if (onLeft && (e.translationX < -TURN_PX || e.velocityX < -FLICK_VELOCITY)) onLeft();
+				else if (onRight && (e.translationX > TURN_PX || e.velocityX > FLICK_VELOCITY)) onRight();
+			});
+	}, [onLeft, onRight]);
 }

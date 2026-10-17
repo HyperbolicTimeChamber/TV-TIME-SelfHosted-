@@ -107,7 +107,7 @@ export default function WatchlistTab() {
 				title={`Pause ${pauseTarget?.title ?? "watching"}?`}
 				hint="It leaves your watchlist. Resume any time from its page."
 				confirmLabel="Pause"
-				confirmColor={colors.primary}
+				confirmColor={colors.stopBlue}
 				loading={pausing}
 				onConfirm={confirmPause}
 				onClose={() => setPauseTarget(null)}

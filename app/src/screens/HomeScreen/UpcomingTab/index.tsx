@@ -11,6 +11,7 @@ import { useUpcomingScreen, type ListItem } from "./useUpcomingScreen";
 import UpcomingEpisodeRow from "./UpcomingEpisodeRow";
 import { GestureDetector } from "react-native-gesture-handler";
 import { useTabSwipe } from "../useTabSwipe";
+import { useHomeTabs } from "../HomeTabsContext";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
@@ -18,9 +19,11 @@ type NavProp = NativeStackNavigationProp<HomeStackParamList, Route.HOME_TABS>;
 
 export default function UpcomingTab() {
 	const navigation = useNavigation<NavProp>();
-	// Swipe right → Watch List
-	const goWatchlist = useCallback(() => navigation.navigate(Route.WATCHLIST as never), [navigation]);
-	const tabSwipe = useTabSwipe(1, goWatchlist);
+	// Swipe right → Watch List; left → the Calendar page of the bottom pager
+	const { setTab } = useHomeTabs();
+	const goWatchlist = useCallback(() => setTab(Route.WATCHLIST), [setTab]);
+	const goCalendar = useCallback(() => navigation.navigate(Route.CALENDAR as never), [navigation]);
+	const tabSwipe = useTabSwipe({ onLeft: goCalendar, onRight: goWatchlist });
 
 	const handleNavigateToShow = useCallback(
 		(tmdbShowId: number) => {

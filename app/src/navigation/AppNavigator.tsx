@@ -3,15 +3,15 @@ import {
 	CommonActions,
 	NavigationContainer,
 	LinkingOptions,
+	PathConfig,
 	createNavigationContainerRef,
 	getActionFromState,
 	getStateFromPath,
 } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { colors } from "../theme";
-import { MainStackParamList, Route } from "../types";
+import { MainStackParamList, Route, SwipeTabParamList } from "../types";
 import { MediaType, WEB_BASE_URL } from "../enums";
-import HomeWithTabBar from "./HomeWithTabBar";
 import SwipeTabsScreen from "./SwipeTabsScreen";
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
@@ -42,9 +42,16 @@ const isValidTmdbId = (id: unknown): id is number => Number.isInteger(id) && (id
 const showDetailState = (tmdbId: number, mediaType: MediaType) => ({
 	routes: [
 		{
-			name: Route.HOME,
+			name: Route.SWIPE_TABS,
 			state: {
-				routes: [{ name: Route.HOME_TABS }, { name: Route.SHOW_DETAIL, params: { tmdbId, mediaType } }],
+				routes: [
+					{
+						name: Route.HOME,
+						state: {
+							routes: [{ name: Route.HOME_TABS }, { name: Route.SHOW_DETAIL, params: { tmdbId, mediaType } }],
+						},
+					},
+				],
 			},
 		},
 	],
@@ -52,7 +59,8 @@ const showDetailState = (tmdbId: number, mediaType: MediaType) => ({
 
 /** The ShowDetail params a parsed link points at, if any */
 function linkedShow(state: ReturnType<typeof getStateFromPath>) {
-	const home = state?.routes.find((r) => r.name === Route.HOME)?.state;
+	const tabs = state?.routes.find((r) => r.name === Route.SWIPE_TABS)?.state;
+	const home = tabs?.routes.find((r) => r.name === Route.HOME)?.state;
 	const detail = home?.routes.find((r) => r.name === Route.SHOW_DETAIL);
 	return detail?.params as { tmdbId: number; mediaType: MediaType } | undefined;
 }
@@ -62,21 +70,26 @@ const linking: LinkingOptions<MainStackParamList> = {
 	prefixes: ["watchloom://", WEB_BASE_URL],
 	config: {
 		screens: {
-			[Route.HOME]: {
-				// Deep links open the show page on top of the watchlist, so back (header or
-				// Android system back) returns to the watchlist instead of exiting the app
-				initialRouteName: Route.HOME_TABS,
+			// Typed loosely: the nested PathConfig types don't follow NavigatorScreenParams
+			[Route.SWIPE_TABS]: {
 				screens: {
-					[Route.SHOW_DETAIL]: {
-						path: "show/:mediaType/:tmdbId",
-						parse: {
-							tmdbId: Number,
-							mediaType: (val: string) =>
-								val === "movie" ? MediaType.MOVIE : MediaType.TV,
+					[Route.HOME]: {
+						// Deep links open the show page on top of the watchlist, so back (header or
+						// Android system back) returns to the watchlist instead of exiting the app
+						initialRouteName: Route.HOME_TABS,
+						screens: {
+							[Route.SHOW_DETAIL]: {
+								path: "show/:mediaType/:tmdbId",
+								parse: {
+									tmdbId: Number,
+									mediaType: (val: string) =>
+										val === "movie" ? MediaType.MOVIE : MediaType.TV,
+								},
+							},
 						},
 					},
 				},
-			},
+			} as PathConfig<SwipeTabParamList>,
 		},
 	},
 	// Broken links (unknown path, bad id) open the not-found page instead of a bogus route
@@ -88,7 +101,7 @@ const linking: LinkingOptions<MainStackParamList> = {
 		return showDetailState(0, show?.mediaType ?? MediaType.TV) as ReturnType<typeof getStateFromPath>;
 	},
 	// App already open on Calendar / Search / Profile → open the show inside that tab
-	// (navigating to Home would push a second Home over the tabs)
+	// instead of jumping to Home
 	getActionFromState(state, options) {
 		const show = linkedShow(state);
 		const root = navigationRef.isReady() ? navigationRef.getRootState() : undefined;
@@ -115,7 +128,6 @@ export default function AppNavigator() {
 					contentStyle: { backgroundColor: colors.background },
 				}}
 			>
-				<Stack.Screen name={Route.HOME} component={HomeWithTabBar} />
 				<Stack.Screen name={Route.SWIPE_TABS} component={SwipeTabsScreen} />
 			</Stack.Navigator>
 		</NavigationContainer>

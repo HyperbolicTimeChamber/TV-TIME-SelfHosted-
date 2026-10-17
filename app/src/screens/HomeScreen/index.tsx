@@ -1,42 +1,93 @@
+import { useEffect, useMemo, useState } from "react";
+import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
+import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import Animated, { useAnimatedStyle, withTiming } from "react-native-reanimated";
 import { colors } from "../../theme";
-import { HomeTopTabParamList, Route } from "../../types";
+import { HomeStackParamList, Route } from "../../types";
 import WatchlistTab from "./WatchlistTab";
 import UpcomingTab from "./UpcomingTab";
+import { HomeTabsContext, type HomeTab } from "./HomeTabsContext";
 
-const TopTab = createMaterialTopTabNavigator<HomeTopTabParamList>();
+const TABS: { key: HomeTab; label: string }[] = [
+	{ key: Route.WATCHLIST, label: "Watch List" },
+	{ key: Route.UPCOMING, label: "Upcoming" },
+];
+const SLIDE_MS = 250;
 
+/**
+ * Home: Watch List / Upcoming. Not a material-top-tabs navigator — its native pager, nested
+ * in the bottom pager, cancels every gesture on touch-down (pager-view's NestedScrollableHost
+ * → requestDisallowInterceptTouchEvent → RNGH cancels). The tabs slide here instead and each
+ * swipes itself (useTabSwipe).
+ */
 export default function HomeScreen() {
 	const { top } = useSafeAreaInsets();
+	const { width } = useWindowDimensions();
+	const navigation = useNavigation();
+	const route = useRoute<RouteProp<HomeStackParamList, Route.HOME_TABS>>();
+	const [tab, setTab] = useState<HomeTab>(route.params?.screen ?? Route.WATCHLIST);
+	// Upcoming mounts the first time it's shown (it fetches)
+	const [upcomingOpened, setUpcomingOpened] = useState(tab === Route.UPCOMING);
+
+	// Bottom tab bar / links ask for a tab through params — consume them so a repeat works
+	const requested = route.params?.screen;
+	useEffect(() => {
+		if (!requested) return;
+		setTab(requested);
+		navigation.setParams({ screen: undefined } as never);
+	}, [requested, navigation]);
+
+	useEffect(() => {
+		if (tab === Route.UPCOMING) setUpcomingOpened(true);
+	}, [tab]);
+
+	const index = TABS.findIndex((t) => t.key === tab);
+	const pages = useAnimatedStyle(() => ({
+		transform: [{ translateX: withTiming(-index * width, { duration: SLIDE_MS }) }],
+	}));
+	const indicator = useAnimatedStyle(() => ({
+		transform: [{ translateX: withTiming((index * width) / TABS.length, { duration: SLIDE_MS }) }],
+	}));
+	const ctx = useMemo(() => ({ tab, setTab }), [tab]);
 
 	return (
-		<TopTab.Navigator
-			screenOptions={{
-				lazy: true,
-				tabBarStyle: { backgroundColor: colors.background, paddingTop: top },
-				tabBarActiveTintColor: colors.primary,
-				tabBarInactiveTintColor: colors.textSecondary,
-				tabBarIndicatorStyle: { backgroundColor: colors.primary },
-				tabBarLabelStyle: {
-					fontWeight: "900",
-					fontSize: 16,
-					textTransform: "uppercase",
-					letterSpacing: 1,
-				},
-			}}
-		>
-			<TopTab.Screen
-				name={Route.WATCHLIST}
-				component={WatchlistTab}
-				// Native pager swipe off on both: card gestures block it. Each tab swipes itself (useTabSwipe)
-				options={{ tabBarLabel: "Watch List", swipeEnabled: false }}
-			/>
-			<TopTab.Screen
-				name={Route.UPCOMING}
-				component={UpcomingTab}
-				options={{ swipeEnabled: false }}
-			/>
-		</TopTab.Navigator>
+		<HomeTabsContext.Provider value={ctx}>
+			<View style={styles.container}>
+				<View style={[styles.tabBar, { paddingTop: top }]}>
+					{TABS.map((t) => (
+						<TouchableOpacity key={t.key} style={styles.tab} onPress={() => setTab(t.key)} activeOpacity={0.7}>
+							<Text style={[styles.tabLabel, t.key === tab && styles.tabLabelActive]}>{t.label}</Text>
+						</TouchableOpacity>
+					))}
+					<Animated.View style={[styles.indicator, { width: width / TABS.length }, indicator]} />
+				</View>
+				<View style={styles.clip}>
+					<Animated.View style={[styles.pages, { width: width * TABS.length }, pages]}>
+						<View style={{ width }}>
+							<WatchlistTab />
+						</View>
+						<View style={{ width }}>{upcomingOpened && <UpcomingTab />}</View>
+					</Animated.View>
+				</View>
+			</View>
+		</HomeTabsContext.Provider>
 	);
 }
+
+const styles = StyleSheet.create({
+	container: { flex: 1, backgroundColor: colors.background },
+	tabBar: { flexDirection: "row", backgroundColor: colors.background },
+	tab: { flex: 1, alignItems: "center", paddingVertical: 14 },
+	tabLabel: {
+		fontWeight: "900",
+		fontSize: 16,
+		textTransform: "uppercase",
+		letterSpacing: 1,
+		color: colors.textSecondary,
+	},
+	tabLabelActive: { color: colors.primary },
+	indicator: { position: "absolute", bottom: 0, left: 0, height: 2, backgroundColor: colors.primary },
+	clip: { flex: 1, overflow: "hidden" },
+	pages: { flex: 1, flexDirection: "row" },
+});
