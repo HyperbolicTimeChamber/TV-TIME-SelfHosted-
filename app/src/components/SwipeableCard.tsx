@@ -19,7 +19,7 @@ import Animated, {
 	Extrapolation,
 } from "react-native-reanimated";
 import { colors, spacing, typography } from "../theme";
-import { Ionicons } from "@expo/vector-icons";
+import { RxCheck, RxCross2 } from "./RxIcons";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
 	UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -251,7 +251,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 						) : (
 							<>
 								<View style={styles.revealIcon}>
-									<Ionicons name="checkmark" size={22} color={colors.text} />
+									<RxCheck size={26} />
 								</View>
 								<Text style={styles.revealText}>{leftLabel}</Text>
 							</>
@@ -279,7 +279,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 									{rightIcon ? (
 										<Text style={styles.revealIconText}>{rightIcon}</Text>
 									) : (
-										<Ionicons name="close" size={22} color={colors.text} />
+										<RxCross2 size={26} />
 									)}
 								</View>
 							</>

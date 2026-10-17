@@ -1,7 +1,7 @@
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState, type ReactNode } from "react";
 import { Spin } from "antd";
 import { animate, motion, useMotionValue, useTransform } from "motion/react";
-import { IoCheckmark, IoClose } from "react-icons/io5";
+import { RxCheck, RxCross2 } from "react-icons/rx";
 import { colors } from "../theme/index";
 import styles from "./styles/SwipeableCard.module.scss";
 import { cssVars } from "../utils/cssVars";
@@ -107,13 +107,13 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				<>
 					<motion.div className={`${styles.reveal} ${styles.revealLeft} bg-(--reveal)!`} style={{ opacity: leftOpacity, ...cssVars({ "--reveal": leftColor }) }}>
 						<span className={styles.revealIcon}>
-							<IoCheckmark size={20} />
+							<RxCheck size={22} />
 						</span>
 						<span className={styles.revealText}>{leftLabel}</span>
 					</motion.div>
 					<motion.div className={`${styles.reveal} ${styles.revealRight} bg-(--reveal)!`} style={{ opacity: rightOpacity, ...cssVars({ "--reveal": rightColor }) }}>
 						<span className={styles.revealText}>{rightLabel}</span>
-						<span className={styles.revealIcon}>{rightIcon ?? <IoClose size={20} />}</span>
+						<span className={styles.revealIcon}>{rightIcon ?? <RxCross2 size={22} />}</span>
 					</motion.div>
 				</>
 			)}
