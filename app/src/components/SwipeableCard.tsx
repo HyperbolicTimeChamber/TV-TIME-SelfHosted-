@@ -19,6 +19,7 @@ import Animated, {
 	Extrapolation,
 } from "react-native-reanimated";
 import { colors, spacing, typography } from "../theme";
+import { Ionicons } from "@expo/vector-icons";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
 	UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -43,7 +44,7 @@ interface Props {
 	persistAfterSwipe?: boolean | { left: boolean; right: boolean };
 	leftLabel?: string;
 	rightLabel?: string;
-	/** Text in the right reveal's circle (default ✕) — e.g. "−1" when unwatching drops a count */
+	/** Text in the right reveal's circle instead of the ✕ icon — e.g. "−1" when unwatching drops a count */
 	rightIcon?: string;
 	leftColor?: string;
 	rightColor?: string;
@@ -57,7 +58,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		persistAfterSwipe = false,
 		leftLabel = "Watched",
 		rightLabel = "Stop",
-		rightIcon = "✕",
+		rightIcon,
 		leftColor = colors.watchedGreen,
 		rightColor = colors.stopBlue,
 	},
@@ -250,7 +251,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 						) : (
 							<>
 								<View style={styles.revealIcon}>
-									<Text style={styles.revealIconText}>✓</Text>
+									<Ionicons name="checkmark" size={22} color={colors.text} />
 								</View>
 								<Text style={styles.revealText}>{leftLabel}</Text>
 							</>
@@ -275,7 +276,11 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 							<>
 								<Text style={styles.revealText}>{rightLabel}</Text>
 								<View style={styles.revealIcon}>
-									<Text style={styles.revealIconText}>{rightIcon}</Text>
+									{rightIcon ? (
+										<Text style={styles.revealIconText}>{rightIcon}</Text>
+									) : (
+										<Ionicons name="close" size={22} color={colors.text} />
+									)}
 								</View>
 							</>
 						)}
@@ -331,9 +336,13 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 	},
 	revealIconText: {
-		fontSize: 20,
+		fontSize: 18,
+		lineHeight: 22,
 		fontWeight: "700",
 		color: colors.text,
+		// Android's font padding sits text low in the circle
+		includeFontPadding: false,
+		textAlignVertical: "center",
 	},
 	revealText: {
 		...typography.subtitle,

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import { useIsFocused, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { colors } from "../../theme";
 import { HomeStackParamList, Route } from "../../types";
@@ -20,13 +20,12 @@ const SLIDE_MS = 250;
 const START_PX = 25;
 const TURN_SHARE = 0.3;
 const FLICK_VELOCITY = 500;
-const HANDOFF_PX = 60;
 
 /**
  * Home: Watch List / Upcoming. Not a material-top-tabs navigator — its native pager, nested
  * in the bottom pager, cancels every gesture on touch-down (pager-view's NestedScrollableHost
  * → requestDisallowInterceptTouchEvent → RNGH cancels). The tabs slide here instead, following
- * the finger; a left drag on Upcoming hands off to Calendar (the bottom pager).
+ * the finger. On Upcoming a left drag belongs to the bottom pager (on to Calendar, also live).
  */
 export default function HomeScreen() {
 	const { top } = useSafeAreaInsets();
@@ -57,9 +56,15 @@ export default function HomeScreen() {
 		if (!dragging.value) pos.value = withTiming(index * width, { duration: SLIDE_MS });
 	}, [index, width, pos, dragging]);
 
-	const goCalendar = () => navigation.navigate(Route.CALENDAR as never);
+	// Bottom pager swipe only while Upcoming shows (its left drag → Calendar); this pan then
+	// claims rightward drags only. On Watch List the pager stays off (card swipes).
+	const focused = useIsFocused();
+	useEffect(() => {
+		navigation.getParent()?.setOptions({ swipeEnabled: focused && tab === Route.UPCOMING });
+	}, [navigation, focused, tab]);
+
 	const pan = Gesture.Pan()
-		.activeOffsetX([-START_PX, START_PX])
+		.activeOffsetX(index === 1 ? START_PX : -START_PX)
 		.failOffsetY([-15, 15])
 		.onStart(() => {
 			dragging.value = true;
@@ -75,9 +80,6 @@ export default function HomeScreen() {
 			if (index === 1 && (e.translationX > width * TURN_SHARE || e.velocityX > FLICK_VELOCITY)) next = 0;
 			pos.value = withTiming(next * width, { duration: SLIDE_MS });
 			if (next !== index) runOnJS(setTab)(TABS[next].key);
-			else if (index === 1 && (e.translationX < -HANDOFF_PX || e.velocityX < -FLICK_VELOCITY)) {
-				runOnJS(goCalendar)();
-			}
 		});
 
 	const pages = useAnimatedStyle(() => ({ transform: [{ translateX: -pos.value }] }));

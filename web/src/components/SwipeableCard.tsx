@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState, type ReactNode } from "react";
 import { Spin } from "antd";
 import { animate, motion, useMotionValue, useTransform } from "motion/react";
+import { IoCheckmark, IoClose } from "react-icons/io5";
 import { colors } from "../theme/index";
 import styles from "./styles/SwipeableCard.module.scss";
 import { cssVars } from "../utils/cssVars";
@@ -18,7 +19,7 @@ interface Props {
 	persistAfterSwipe?: boolean | { left: boolean; right: boolean };
 	leftLabel?: string;
 	rightLabel?: string;
-	/** Text in the right reveal's circle (default ✕) — e.g. "−1" when unwatching drops a count */
+	/** Text in the right reveal's circle instead of the ✕ icon — e.g. "−1" when unwatching drops a count */
 	rightIcon?: string;
 	leftColor?: string;
 	rightColor?: string;
@@ -36,7 +37,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		persistAfterSwipe = false,
 		leftLabel = "Watched",
 		rightLabel = "Stop",
-		rightIcon = "✕",
+		rightIcon,
 		leftColor = colors.watchedGreen,
 		rightColor = colors.stopBlue,
 	},
@@ -105,12 +106,14 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 			) : (
 				<>
 					<motion.div className={`${styles.reveal} ${styles.revealLeft} bg-(--reveal)!`} style={{ opacity: leftOpacity, ...cssVars({ "--reveal": leftColor }) }}>
-						<span className={styles.revealIcon}>✓</span>
+						<span className={styles.revealIcon}>
+							<IoCheckmark size={20} />
+						</span>
 						<span className={styles.revealText}>{leftLabel}</span>
 					</motion.div>
 					<motion.div className={`${styles.reveal} ${styles.revealRight} bg-(--reveal)!`} style={{ opacity: rightOpacity, ...cssVars({ "--reveal": rightColor }) }}>
 						<span className={styles.revealText}>{rightLabel}</span>
-						<span className={styles.revealIcon}>{rightIcon}</span>
+						<span className={styles.revealIcon}>{rightIcon ?? <IoClose size={20} />}</span>
 					</motion.div>
 				</>
 			)}
