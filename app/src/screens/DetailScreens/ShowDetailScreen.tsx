@@ -1,17 +1,15 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback } from "react";
 import {
 	View,
 	Text,
-	Animated,
 	StyleSheet,
 	Alert,
 	Share,
-	NativeScrollEvent,
-	NativeSyntheticEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import Reanimated, { useAnimatedScrollHandler, useDerivedValue, useSharedValue } from "react-native-reanimated";
 import DetailBackdrop from "./DetailBackdrop";
 import ActionPills from "./ActionPills";
 import DetailCredits from "./DetailCredits";
@@ -79,11 +77,12 @@ export default function ShowDetailScreen() {
 	}, [navigation]);
 	const insets = useSafeAreaInsets();
 	const BACKDROP_HEIGHT = 350;
-	const [imageTranslateY, setImageTranslateY] = useState(0);
-	const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-		const y = e.nativeEvent.contentOffset.y;
-		setImageTranslateY(Math.min(y * 0.4, BACKDROP_HEIGHT * 0.5));
-	}, []);
+	// Parallax runs on the UI thread (was a setState per scroll event → whole screen re-rendered)
+	const scrollY = useSharedValue(0);
+	const handleScroll = useAnimatedScrollHandler((e) => {
+		scrollY.value = e.contentOffset.y;
+	});
+	const imageTranslateY = useDerivedValue(() => Math.min(scrollY.value * 0.4, BACKDROP_HEIGHT * 0.5));
 
 	if (isLoading || trackingLoading) {
 		return (
@@ -141,7 +140,7 @@ export default function ShowDetailScreen() {
 				<Ionicons name="share-social-outline" size={26} color={colors.text} />
 			</CircleButton>
 
-			<Animated.ScrollView
+			<Reanimated.ScrollView
 				contentContainerStyle={{ paddingBottom: spacing.xxl + Math.max(insets.bottom, 48) }}
 				onScroll={handleScroll}
 				scrollEventThrottle={16}
@@ -246,7 +245,7 @@ export default function ShowDetailScreen() {
 						</View>
 					)}
 				</View>
-			</Animated.ScrollView>
+			</Reanimated.ScrollView>
 
 			<ConfirmModal
 				visible={removeModalVisible}

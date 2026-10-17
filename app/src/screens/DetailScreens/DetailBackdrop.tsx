@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, Animated, StyleSheet, Dimensions } from "react-native";
 import { Image } from "expo-image";
+import Reanimated, { useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSharedShimmer } from "../../components/SkeletonLine";
 import { colors, spacing } from "../../theme";
@@ -13,7 +14,8 @@ const BACKDROP_HEIGHT = 350;
 interface Props {
 	backdropPath: string | null;
 	posterPath: string | null;
-	imageTranslateY: number;
+	/** Parallax offset (UI thread) */
+	imageTranslateY: SharedValue<number>;
 	children: React.ReactNode;
 }
 
@@ -25,6 +27,7 @@ export default function DetailBackdrop({
 }: Readonly<Props>) {
 	const shimmer = useSharedShimmer();
 	const [imageLoaded, setImageLoaded] = useState(false);
+	const parallax = useAnimatedStyle(() => ({ transform: [{ translateY: imageTranslateY.value }] }));
 	return (
 		<>
 			<View style={[styles.backdrop, { height: BACKDROP_HEIGHT }]}>
@@ -33,17 +36,19 @@ export default function DetailBackdrop({
 						style={[StyleSheet.absoluteFill, styles.backdropSkeleton, { opacity: shimmer }]}
 					/>
 				)}
-				<Image
-					source={{
-						uri: backdropPath
-							? tmdbBackdropUri(backdropPath, SCREEN_WIDTH)
-							: tmdbPosterUri(posterPath!, SCREEN_WIDTH),
-					}}
-					style={[StyleSheet.absoluteFill, { transform: [{ translateY: imageTranslateY }] }]}
-					contentFit="cover"
-					transition={300}
-					onLoad={() => setImageLoaded(true)}
-				/>
+				<Reanimated.View style={[StyleSheet.absoluteFill, parallax]}>
+					<Image
+						source={{
+							uri: backdropPath
+								? tmdbBackdropUri(backdropPath, SCREEN_WIDTH)
+								: tmdbPosterUri(posterPath!, SCREEN_WIDTH),
+						}}
+						style={StyleSheet.absoluteFill}
+						contentFit="cover"
+						transition={300}
+						onLoad={() => setImageLoaded(true)}
+					/>
+				</Reanimated.View>
 			</View>
 
 			<LinearGradient

@@ -48,6 +48,9 @@ interface Props {
 	rightIcon?: string;
 	leftColor?: string;
 	rightColor?: string;
+	/** Identity of what the card shows — a recycled list row resets its swipe state when it
+	 *  changes (instead of a remounting `key`, which threw away the recycled views) */
+	resetKey?: string;
 }
 
 export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
@@ -61,12 +64,19 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		rightIcon,
 		leftColor = colors.watchedGreen,
 		rightColor = colors.stopBlue,
+		resetKey,
 	},
 	ref,
 ) {
 	const translateX = useSharedValue(0);
-	const [cardHeight, setCardHeight] = React.useState(0);
+	// Height for the loading placeholder — a ref, not state (no extra render per row mount)
+	const cardHeight = useRef(0);
 	const [swipeState, setSwipeState] = React.useState<SwipeState>("idle");
+	// Mirror for the gesture worklets (so the gesture can be built once)
+	const idle = useSharedValue(true);
+	useEffect(() => {
+		idle.value = swipeState === "idle";
+	}, [swipeState, idle]);
 	const [showReveal, setShowReveal] = React.useState(false);
 	const [actionColor, setActionColor] = React.useState<string>(colors.watchedGreen);
 	const isProcessing = useRef(false);
@@ -75,6 +85,18 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		if (restoreTimer.current) clearTimeout(restoreTimer.current);
 	}, []);
 	const [persistingLoad, setPersistingLoad] = React.useState(false);
+	// Recycled into another item → start clean
+	const firstKey = useRef(resetKey);
+	useEffect(() => {
+		if (resetKey === firstKey.current) return;
+		firstKey.current = resetKey;
+		if (restoreTimer.current) clearTimeout(restoreTimer.current);
+		translateX.value = 0;
+		isProcessing.current = false;
+		setShowReveal(false);
+		setPersistingLoad(false);
+		setSwipeState("idle");
+	}, [resetKey, translateX]);
 	const onSwipeLeftRef = useRef(onSwipeLeft);
 	onSwipeLeftRef.current = onSwipeLeft;
 	const onSwipeRightRef = useRef(onSwipeRight);
@@ -165,33 +187,38 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 
 	const rightEnabled = !!onSwipeRight;
 	// Without a right action the card only claims rightward drags — a leftward one fails here
-	// so the Watch List ↔ Upcoming tab pager can take it
-	const panGesture = (
-		rightEnabled ? Gesture.Pan().activeOffsetX([-10, 10]) : Gesture.Pan().activeOffsetX(10).failOffsetX(-10)
-	)
-		.onStart(() => {
-			runOnJS(setShowReveal)(true);
-		})
-		.onUpdate((event) => {
-			if (swipeState !== "idle") return;
-			translateX.value = rightEnabled ? event.translationX : Math.max(0, event.translationX);
-		})
-		.onEnd((event) => {
-			if (swipeState !== "idle") return;
-
-			if (event.translationX > SWIPE_THRESHOLD) {
-				translateX.value = withTiming(SCREEN_WIDTH, { duration: 200 }, () => {
-					runOnJS(handleSwipeComplete)("left");
-				});
-			} else if (rightEnabled && event.translationX < -SWIPE_THRESHOLD) {
-				translateX.value = withTiming(-SCREEN_WIDTH, { duration: 200 }, () => {
-					runOnJS(handleSwipeComplete)("right");
-				});
-			} else {
-				translateX.value = withTiming(0, { duration: 200 });
-				runOnJS(setShowReveal)(false);
-			}
-		});
+	// so the Watch List ↔ Upcoming tab pager can take it. Built once per direction setup.
+	const panGesture = React.useMemo(
+		() =>
+			(rightEnabled
+				? Gesture.Pan().activeOffsetX([-10, 10])
+				: Gesture.Pan().activeOffsetX(10).failOffsetX(-10)
+			)
+				.onStart(() => {
+					runOnJS(setShowReveal)(true);
+				})
+				.onUpdate((event) => {
+					if (!idle.value) return;
+					translateX.value = rightEnabled ? event.translationX : Math.max(0, event.translationX);
+				})
+				.onEnd((event) => {
+					if (!idle.value) return;
+		
+					if (event.translationX > SWIPE_THRESHOLD) {
+						translateX.value = withTiming(SCREEN_WIDTH, { duration: 200 }, () => {
+							runOnJS(handleSwipeComplete)("left");
+						});
+					} else if (rightEnabled && event.translationX < -SWIPE_THRESHOLD) {
+						translateX.value = withTiming(-SCREEN_WIDTH, { duration: 200 }, () => {
+							runOnJS(handleSwipeComplete)("right");
+						});
+					} else {
+						translateX.value = withTiming(0, { duration: 200 });
+						runOnJS(setShowReveal)(false);
+					}
+				}),
+		[rightEnabled, idle, translateX, handleSwipeComplete],
+	);
 
 	const cardStyle = useAnimatedStyle(() => ({
 		transform: [{ translateX: translateX.value }],
@@ -215,7 +242,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				style={[
 					styles.wrapper,
 					styles.loadingReveal,
-					{ backgroundColor: actionColor, minHeight: cardHeight || 100 },
+					{ backgroundColor: actionColor, minHeight: cardHeight.current || 100 },
 				]}
 			>
 				<ActivityIndicator color={colors.text} />
@@ -229,7 +256,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 			style={styles.wrapper}
 			onLayout={(e) => {
 				const h = e.nativeEvent.layout.height;
-				if (h > 0 && h !== cardHeight) setCardHeight(h);
+				if (h > 0) cardHeight.current = h;
 			}}
 		>
 			{showReveal && (

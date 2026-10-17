@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useIsFocused, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import { CommonActions, useIsFocused, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { colors } from "../../theme";
 import { HomeStackParamList, Route } from "../../types";
@@ -20,6 +20,11 @@ const SLIDE_MS = 250;
 const START_PX = 25;
 const TURN_SHARE = 0.3;
 const FLICK_VELOCITY = 500;
+/** Other bottom tabs are built in the background after launch, one at a time, so a first visit
+ *  doesn't build a whole screen during the slide (Calendar dropped JS to ~15 fps on 2 cores) */
+const PRELOAD_TABS = [Route.CALENDAR, Route.SEARCH, Route.PROFILE];
+const PRELOAD_START_MS = 4000;
+const PRELOAD_GAP_MS = 1500;
 
 /**
  * Home: Watch List / Upcoming. Not a material-top-tabs navigator — its native pager, nested
@@ -40,7 +45,7 @@ export default function HomeScreen() {
 	const requested = route.params?.screen;
 	useEffect(() => {
 		if (!requested) return;
-		setTab(requested);
+		setTab((cur) => (cur === requested ? cur : requested));
 		navigation.setParams({ screen: undefined } as never);
 	}, [requested, navigation]);
 
@@ -56,6 +61,15 @@ export default function HomeScreen() {
 		if (!dragging.value) pos.value = withTiming(index * width, { duration: SLIDE_MS });
 	}, [index, width, pos, dragging]);
 
+	useEffect(() => {
+		const parent = navigation.getParent();
+		if (!parent) return;
+		const timers = PRELOAD_TABS.map((name, i) =>
+			setTimeout(() => parent.dispatch(CommonActions.preload(name)), PRELOAD_START_MS + i * PRELOAD_GAP_MS),
+		);
+		return () => timers.forEach(clearTimeout);
+	}, [navigation]);
+
 	// Bottom pager swipe only while Upcoming shows (its left drag → Calendar); this pan then
 	// claims rightward drags only. On Watch List the pager stays off (card swipes).
 	const focused = useIsFocused();
@@ -63,24 +77,44 @@ export default function HomeScreen() {
 		navigation.getParent()?.setOptions({ swipeEnabled: focused && tab === Route.UPCOMING });
 	}, [navigation, focused, tab]);
 
-	const pan = Gesture.Pan()
-		.activeOffsetX(index === 1 ? START_PX : -START_PX)
-		.failOffsetY([-15, 15])
-		.onStart(() => {
-			dragging.value = true;
-			if (index === 0) runOnJS(setUpcomingOpened)(true);
-		})
-		.onUpdate((e) => {
-			pos.value = Math.min(width, Math.max(0, index * width - e.translationX));
-		})
-		.onEnd((e) => {
-			dragging.value = false;
-			let next = index;
-			if (index === 0 && (e.translationX < -width * TURN_SHARE || e.velocityX < -FLICK_VELOCITY)) next = 1;
-			if (index === 1 && (e.translationX > width * TURN_SHARE || e.velocityX > FLICK_VELOCITY)) next = 0;
-			pos.value = withTiming(next * width, { duration: SLIDE_MS });
-			if (next !== index) runOnJS(setTab)(TABS[next].key);
-		});
+	// Tab tap: start the slide on the UI thread now — the state change (labels, swipe options)
+	// follows without holding up the animation
+	const goTo = useCallback(
+		(key: HomeTab) => {
+			const i = TABS.findIndex((t) => t.key === key);
+			pos.value = withTiming(i * width, { duration: SLIDE_MS });
+			if (key === Route.UPCOMING) setUpcomingOpened(true);
+			setTab(key);
+		},
+		[pos, width],
+	);
+
+	const pan = useMemo(
+		() =>
+			Gesture.Pan()
+				.activeOffsetX(index === 1 ? START_PX : -START_PX)
+				.failOffsetY([-15, 15])
+				.onStart(() => {
+					dragging.value = true;
+					if (index === 0) runOnJS(setUpcomingOpened)(true);
+				})
+				.onUpdate((e) => {
+					pos.value = Math.min(width, Math.max(0, index * width - e.translationX));
+				})
+				.onEnd((e) => {
+					dragging.value = false;
+					let next = index;
+					if (index === 0 && (e.translationX < -width * TURN_SHARE || e.velocityX < -FLICK_VELOCITY)) next = 1;
+					if (index === 1 && (e.translationX > width * TURN_SHARE || e.velocityX > FLICK_VELOCITY)) next = 0;
+					pos.value = withTiming(next * width, { duration: SLIDE_MS });
+					if (next !== index) runOnJS(setTab)(TABS[next].key);
+				}),
+		[index, width, pos, dragging],
+	);
+
+	// Tab trees don't depend on HomeScreen state — keep them out of its re-renders
+	const watchlist = useMemo(() => <WatchlistTab />, []);
+	const upcoming = useMemo(() => (upcomingOpened ? <UpcomingTab /> : null), [upcomingOpened]);
 
 	const pages = useAnimatedStyle(() => ({ transform: [{ translateX: -pos.value }] }));
 	const indicator = useAnimatedStyle(() => ({ transform: [{ translateX: pos.value / TABS.length }] }));
@@ -89,7 +123,7 @@ export default function HomeScreen() {
 		<View style={styles.container}>
 			<View style={[styles.tabBar, { paddingTop: top }]}>
 				{TABS.map((t) => (
-					<TouchableOpacity key={t.key} style={styles.tab} onPress={() => setTab(t.key)} activeOpacity={0.7}>
+					<TouchableOpacity key={t.key} style={styles.tab} onPress={() => goTo(t.key)} activeOpacity={0.7}>
 						<Text style={[styles.tabLabel, t.key === tab && styles.tabLabelActive]}>{t.label}</Text>
 					</TouchableOpacity>
 				))}
@@ -98,10 +132,8 @@ export default function HomeScreen() {
 			<GestureDetector gesture={pan}>
 				<View style={styles.clip}>
 					<Animated.View style={[styles.pages, { width: width * TABS.length }, pages]}>
-						<View style={{ width }}>
-							<WatchlistTab />
-						</View>
-						<View style={{ width }}>{upcomingOpened && <UpcomingTab />}</View>
+						<View style={{ width }}>{watchlist}</View>
+						<View style={{ width }}>{upcoming}</View>
 					</Animated.View>
 				</View>
 			</GestureDetector>

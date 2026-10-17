@@ -62,12 +62,11 @@ const DayCell = memo(function DayCell({
 		show === CellMarks.CHIPS && marks ? planChips(marks, chipFit.space, chipFit.charsPerLine, CHIP_LINE_H, CHIP_GAP) : null;
 	return (
 		<Pressable style={styles.cell} onPress={() => onPress(date)}>
-			{/* Today's red fill already marks it — the selection outline is for other days */}
-			<View
+						<View
 				style={[
 					styles.tile,
 					isToday && styles.tileToday,
-					isSelected && !isToday && styles.tileSelected,
+					isSelected && styles.tileSelected,
 					dimmed && styles.dimmed,
 				]}
 			>

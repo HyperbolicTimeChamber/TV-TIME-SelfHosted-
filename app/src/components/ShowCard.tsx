@@ -114,8 +114,8 @@ export default memo(function ShowCard({
 		const wc = watchCount ?? 0;
 		return (
 			<SwipeableCard
-				// Keyed by title: a recycled list row starts fresh instead of keeping swipe state
-				key={`${item.mediaType}_${item.tmdbId}`}
+				// Recycled list row → fresh swipe state for the new title
+				resetKey={`${item.mediaType}_${item.tmdbId}`}
 				onSwipeLeft={handleSwipeLeft}
 				onSwipeRight={handleSwipeRight}
 				leftLabel="Rewatch"
@@ -195,7 +195,7 @@ export default memo(function ShowCard({
 
 	return (
 		<SwipeableCard
-			key={`${item.mediaType}_${item.tmdbId}`}
+			resetKey={`${item.mediaType}_${item.tmdbId}`}
 			ref={swipeRef}
 			onSwipeLeft={handleSwipeLeft}
 			onSwipeRight={onSwipeRight ? handleSwipeRight : undefined}

@@ -7,6 +7,7 @@ export const styles = StyleSheet.create({
 		flex: 1,
 		backgroundColor: colors.background,
 	},
+	content: { flex: 1 },
 	headerBlock: {
 		position: "absolute" as const,
 		top: 0,
