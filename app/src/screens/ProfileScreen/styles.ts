@@ -4,6 +4,7 @@ import { colors, spacing, typography } from "../../theme";
 export const BLUR_RADIUS = 0.5;
 
 export const styles = StyleSheet.create({
+	scrollContent: { paddingBottom: spacing.xxl * 2 },
 	container: {
 		flex: 1,
 		backgroundColor: colors.background,

@@ -75,3 +75,15 @@ export function hasAired(
 	if (!Number.isNaN(t)) return t <= now;
 	return !!airDate && airDate <= today;
 }
+
+/** A day's episodes by air time (exact time first, earliest first); untimed keep their order after */
+export function sortByAirTime<T extends { airStamp?: string }>(eps: T[]): T[] {
+	const t = (e: T) => (e.airStamp ? Date.parse(e.airStamp) : NaN);
+	return [...eps].sort((a, b) => {
+		const ta = t(a);
+		const tb = t(b);
+		if (Number.isNaN(ta)) return Number.isNaN(tb) ? 0 : 1;
+		if (Number.isNaN(tb)) return -1;
+		return ta - tb;
+	});
+}

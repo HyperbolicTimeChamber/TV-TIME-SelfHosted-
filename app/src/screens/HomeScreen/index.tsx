@@ -29,12 +29,13 @@ export default function HomeScreen() {
 			<TopTab.Screen
 				name={Route.WATCHLIST}
 				component={WatchlistTab}
+				// Native pager swipe off on both: card gestures block it. Each tab swipes itself (useTabSwipe)
 				options={{ tabBarLabel: "Watch List", swipeEnabled: false }}
 			/>
 			<TopTab.Screen
 				name={Route.UPCOMING}
 				component={UpcomingTab}
-				options={{ swipeEnabled: true }}
+				options={{ swipeEnabled: false }}
 			/>
 		</TopTab.Navigator>
 	);

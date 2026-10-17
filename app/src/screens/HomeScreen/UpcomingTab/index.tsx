@@ -9,6 +9,8 @@ import { HomeStackParamList, Route, MediaType } from "../../../types";
 import DateHeader from "./DateHeader";
 import { useUpcomingScreen, type ListItem } from "./useUpcomingScreen";
 import UpcomingEpisodeRow from "./UpcomingEpisodeRow";
+import { GestureDetector } from "react-native-gesture-handler";
+import { useTabSwipe } from "../useTabSwipe";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
@@ -16,6 +18,9 @@ type NavProp = NativeStackNavigationProp<HomeStackParamList, Route.HOME_TABS>;
 
 export default function UpcomingTab() {
 	const navigation = useNavigation<NavProp>();
+	// Swipe right → Watch List
+	const goWatchlist = useCallback(() => navigation.navigate(Route.WATCHLIST as never), [navigation]);
+	const tabSwipe = useTabSwipe(1, goWatchlist);
 
 	const handleNavigateToShow = useCallback(
 		(tmdbShowId: number) => {
@@ -98,30 +103,36 @@ export default function UpcomingTab() {
 
 	if (listData.length === 0) {
 		return (
-			<View style={styles.center}>
-				<Text style={styles.empty}>No upcoming episodes</Text>
-			</View>
+			<GestureDetector gesture={tabSwipe}>
+				<View style={styles.center}>
+					<Text style={styles.empty}>No upcoming episodes</Text>
+				</View>
+			</GestureDetector>
 		);
 	}
 
 	return (
 		<>
-			<LegendList
-				data={listData}
-				keyExtractor={(item) =>
-					item.type === "header"
-						? `header_${item.date}`
-						: `ep_${item.episode.tmdbShowId}_S${item.episode.season}E${item.episode.episode}`
-				}
-				renderItem={renderItem}
-				recycleItems
-				drawDistance={SCREEN_HEIGHT * 2}
-				estimatedItemSize={100}
-				stickyHeaderIndices={stickyIndices}
-				initialScrollIndex={firstUpcomingIndex}
-				style={styles.list}
-				contentContainerStyle={styles.listContent}
-			/>
+			<GestureDetector gesture={tabSwipe}>
+				<View style={styles.list}>
+					<LegendList
+						data={listData}
+						keyExtractor={(item) =>
+							item.type === "header"
+								? `header_${item.date}`
+								: `ep_${item.episode.tmdbShowId}_S${item.episode.season}E${item.episode.episode}`
+						}
+						renderItem={renderItem}
+						recycleItems
+						drawDistance={SCREEN_HEIGHT * 2}
+						estimatedItemSize={100}
+						stickyHeaderIndices={stickyIndices}
+						initialScrollIndex={firstUpcomingIndex}
+						style={styles.list}
+						contentContainerStyle={styles.listContent}
+					/>
+				</View>
+			</GestureDetector>
 
 			{epModalData && (
 				<EpisodeDetailModal

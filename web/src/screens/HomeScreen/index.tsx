@@ -1,9 +1,12 @@
 import { motion } from "motion/react";
-import { NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import WatchlistTab from "./WatchlistTab";
 import UpcomingTab from "./UpcomingTab";
 import { Paths } from "../../routes/paths";
 import styles from "./styles/HomeScreen.module.scss";
+
+/** Horizontal travel that switches tab (and it must clearly beat the vertical travel) */
+const SWIPE_PX = 60;
 
 const TABS = [
 	{ to: Paths.HOME, label: "Watch List" },
@@ -14,6 +17,7 @@ const TABS = [
 export default function HomeScreen() {
 	const { pathname } = useLocation();
 	const active = pathname.startsWith(Paths.UPCOMING) ? Paths.UPCOMING : Paths.HOME;
+	const navigate = useNavigate();
 	return (
 		<div className={styles.container}>
 			<nav className={styles.topTabs}>
@@ -24,10 +28,22 @@ export default function HomeScreen() {
 					</NavLink>
 				))}
 			</nav>
-			<Routes>
-				<Route index element={<WatchlistTab />} />
-				<Route path="upcoming" element={<UpcomingTab />} />
-			</Routes>
+			{/* Swipe between the tabs (app parity). Watch List cards only drag right, so a left
+			    swipe there is always the tab's; Upcoming rows don't drag */}
+			<motion.div
+				className="touch-pan-y"
+				onPanEnd={(_, info) => {
+					const { x, y } = info.offset;
+					if (Math.abs(x) < SWIPE_PX || Math.abs(x) < Math.abs(y) * 1.5) return;
+					if (active === Paths.HOME && x < 0) navigate(Paths.UPCOMING);
+					else if (active === Paths.UPCOMING && x > 0) navigate(Paths.HOME);
+				}}
+			>
+				<Routes>
+					<Route index element={<WatchlistTab />} />
+					<Route path="upcoming" element={<UpcomingTab />} />
+				</Routes>
+			</motion.div>
 		</div>
 	);
 }

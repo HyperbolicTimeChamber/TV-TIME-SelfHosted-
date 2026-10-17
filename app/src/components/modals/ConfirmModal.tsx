@@ -97,13 +97,18 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		color: colors.text,
 	},
+	// Outlined, like the "Mark All Previous" modal's secondary button
 	cancelButton: {
-		paddingVertical: spacing.sm,
+		paddingVertical: spacing.md,
+		borderRadius: 8,
 		alignItems: "center",
+		borderWidth: 1.5,
+		borderColor: colors.text,
 		marginTop: spacing.sm,
 	},
 	cancelText: {
-		...typography.caption,
-		color: colors.textMuted,
+		...typography.subtitle,
+		fontSize: 14,
+		color: colors.text,
 	},
 });

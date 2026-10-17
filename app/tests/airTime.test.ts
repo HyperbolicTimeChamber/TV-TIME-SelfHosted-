@@ -60,3 +60,14 @@ test("hasAired: exact time when known, else the day", async () => {
 	assert.equal(hasAired(undefined, "2026-04-10", "2026-04-09", now), false);
 	assert.equal(hasAired(undefined, null, "2026-04-09", now), false);
 });
+
+test("sortByAirTime: earliest first, untimed after", async () => {
+	const { sortByAirTime } = await import("../src/utils/airTime");
+	const eps = [
+		{ id: "a", airStamp: "2026-10-17T06:15:00Z" },
+		{ id: "b" },
+		{ id: "c", airStamp: "2026-10-17T05:55:00Z" },
+		{ id: "d", airStamp: "2026-10-17T00:00:00Z" },
+	];
+	assert.deepEqual(sortByAirTime(eps).map((e) => e.id), ["d", "c", "a", "b"]);
+});

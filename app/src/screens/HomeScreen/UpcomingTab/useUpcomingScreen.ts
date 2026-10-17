@@ -5,6 +5,7 @@ import { getCachedCatalogShow } from "../../../hooks/useWatchlist";
 import { getCatalogShow, getShowDetails, getSeasonDetails } from "../../../services";
 import { UpcomingEpisode, MediaType, ShowDrawerData, CarouselEpisode } from "../../../types";
 import { todayStr } from "../../../utils";
+import { sortByAirTime } from "../../../utils/airTime";
 
 export type ListItem =
 	{ type: "header"; date: string } | { type: "episode"; episode: UpcomingEpisode };
@@ -49,7 +50,7 @@ export function useUpcomingScreen(handleNavigateToShow: (tmdbShowId: number) => 
 		const result: ListItem[] = [];
 		for (const [date, eps] of [...grouped].sort(([a], [b]) => a.localeCompare(b))) {
 			result.push({ type: "header", date });
-			for (const ep of eps) {
+			for (const ep of sortByAirTime(eps)) {
 				result.push({ type: "episode", episode: ep });
 			}
 		}

@@ -66,7 +66,11 @@ export default function ProfileScreen() {
 	}, [navigation]);
 
 	return (
-		<ScrollView style={[styles.container, { paddingTop: top }]}>
+		<ScrollView
+			style={[styles.container, { paddingTop: top }]}
+			// Room under the last row so the tab bar doesn't cover it (the Log Out button used to)
+			contentContainerStyle={styles.scrollContent}
+		>
 			<View style={styles.profileSection}>
 				<View style={styles.statsGrid}>
 					<View style={styles.statsRow}>

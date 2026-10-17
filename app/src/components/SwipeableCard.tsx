@@ -160,8 +160,11 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 	);
 
 	const rightEnabled = !!onSwipeRight;
-	const panGesture = Gesture.Pan()
-		.activeOffsetX([-10, 10])
+	// Without a right action the card only claims rightward drags — a leftward one fails here
+	// so the Watch List ↔ Upcoming tab pager can take it
+	const panGesture = (
+		rightEnabled ? Gesture.Pan().activeOffsetX([-10, 10]) : Gesture.Pan().activeOffsetX(10).failOffsetX(-10)
+	)
 		.onStart(() => {
 			runOnJS(setShowReveal)(true);
 		})

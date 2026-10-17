@@ -28,6 +28,8 @@ import { styles } from "./styles";
 import { useWatchlistScreen } from "./useWatchlistScreen";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
 import SectionHeader from "./SectionHeader";
+import { GestureDetector } from "react-native-gesture-handler";
+import { useTabSwipe } from "../useTabSwipe";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
@@ -125,6 +127,9 @@ export default function WatchlistTab() {
 	} = useWatchlistScreen(handleNavigateToShow);
 
 	const listRef = useRef<any>(null);
+	// Swipe left → Upcoming
+	const goUpcoming = useCallback(() => navigation.navigate(Route.UPCOMING as never), [navigation]);
+	const tabSwipe = useTabSwipe(-1, goUpcoming);
 	// Up-next card long-pressed → confirm pausing it
 	const [pauseTarget, setPauseTarget] = useState<EnrichedTrackingItem | null>(null);
 	const [pausing, setPausing] = useState(false);
@@ -280,40 +285,44 @@ export default function WatchlistTab() {
 
 	return (
 		<>
-			<LegendList
-				ref={listRef}
-				data={listData}
-				initialScrollIndex={initialUpNext.current ?? 0}
-				keyExtractor={(item) => {
-					if (item.type === "sectionHeader") return `section_${item.title}`;
-					if (item.type === "watchedMovie") return `movie_${item.movie.id}`;
-					if (item.type === "watchedEpisode") return `watched_${item.episode.id}`;
-					return `show_${item.item.id}`;
-				}}
-				renderItem={renderItem}
-				recycleItems
-				drawDistance={SCREEN_HEIGHT * 2}
-				estimatedItemSize={110}
-				stickyHeaderIndices={stickyIndices}
-				refreshControl={
-					hasMorePrevWatched ? (
-						<RefreshControl
-							refreshing={loadingMorePrevWatched}
-							onRefresh={loadMorePrevWatched}
-							tintColor={colors.primary}
-							colors={[colors.primary]}
-							progressBackgroundColor={colors.surface}
-						/>
-					) : undefined
-				}
-				onEndReached={() => loadMoreTracking()}
-				onEndReachedThreshold={1.5}
-				ListFooterComponent={loadingMoreTracking ? <SkeletonFooter /> : null}
-				ItemSeparatorComponent={SeparatorComponent}
-				maintainVisibleContentPosition={{ data: true, size: true }}
-				style={styles.list}
-				contentContainerStyle={contentStyle}
-			/>
+			<GestureDetector gesture={tabSwipe}>
+				<View style={styles.list}>
+					<LegendList
+						ref={listRef}
+						data={listData}
+						initialScrollIndex={initialUpNext.current ?? 0}
+						keyExtractor={(item) => {
+							if (item.type === "sectionHeader") return `section_${item.title}`;
+							if (item.type === "watchedMovie") return `movie_${item.movie.id}`;
+							if (item.type === "watchedEpisode") return `watched_${item.episode.id}`;
+							return `show_${item.item.id}`;
+						}}
+						renderItem={renderItem}
+						recycleItems
+						drawDistance={SCREEN_HEIGHT * 2}
+						estimatedItemSize={110}
+						stickyHeaderIndices={stickyIndices}
+						refreshControl={
+							hasMorePrevWatched ? (
+								<RefreshControl
+									refreshing={loadingMorePrevWatched}
+									onRefresh={loadMorePrevWatched}
+									tintColor={colors.primary}
+									colors={[colors.primary]}
+									progressBackgroundColor={colors.surface}
+								/>
+							) : undefined
+						}
+						onEndReached={() => loadMoreTracking()}
+						onEndReachedThreshold={1.5}
+						ListFooterComponent={loadingMoreTracking ? <SkeletonFooter /> : null}
+						ItemSeparatorComponent={SeparatorComponent}
+						maintainVisibleContentPosition={{ data: true, size: true }}
+						style={styles.list}
+						contentContainerStyle={contentStyle}
+					/>
+				</View>
+			</GestureDetector>
 			<WatchActionSheet
 				visible={sheetVisible}
 				label={sheetLabel}
@@ -327,9 +336,9 @@ export default function WatchlistTab() {
 			<ConfirmModal
 				visible={!!pauseTarget}
 				title={`Pause ${pauseTarget?.title ?? "watching"}?`}
-				hint="It leaves What's Up Next. Resume any time from its page."
+				hint="It leaves your watchlist. Resume any time from its page."
 				confirmLabel="Pause"
-				confirmColor={colors.stopBlue}
+				confirmColor={colors.primary}
 				loading={pausing}
 				onConfirm={confirmPause}
 				onClose={() => setPauseTarget(null)}

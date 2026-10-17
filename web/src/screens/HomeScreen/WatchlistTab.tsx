@@ -105,9 +105,9 @@ export default function WatchlistTab() {
 			<ConfirmModal
 				visible={!!pauseTarget}
 				title={`Pause ${pauseTarget?.title ?? "watching"}?`}
-				hint="It leaves What's Up Next. Resume any time from its page."
+				hint="It leaves your watchlist. Resume any time from its page."
 				confirmLabel="Pause"
-				confirmColor={colors.stopBlue}
+				confirmColor={colors.primary}
 				loading={pausing}
 				onConfirm={confirmPause}
 				onClose={() => setPauseTarget(null)}

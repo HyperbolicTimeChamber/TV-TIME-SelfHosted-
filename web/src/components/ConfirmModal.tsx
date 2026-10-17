@@ -39,7 +39,8 @@ export default function ConfirmModal({
 			>
 				{loading ? <Spin size="small" /> : confirmLabel}
 			</button>
-			<button className={styles.cancel} onClick={onClose}>
+			{/* Outlined, like the "Mark All Previous" modal's secondary button */}
+			<button className={`${styles.button} ${styles.outline}`} onClick={onClose}>
 				Cancel
 			</button>
 		</AnimatedModal>
