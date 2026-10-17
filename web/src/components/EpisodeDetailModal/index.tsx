@@ -3,8 +3,8 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { IoChevronBack, IoChevronForward } from "react-icons/io5";
 import type { CarouselEpisode, EnrichedEpisode, EpisodeDetailModalProps } from "@app/types";
-import AnimatedModal from "../AnimatedModal";
-import ui from "../styles/ui.module.scss";
+import ConfirmModal from "../ConfirmModal";
+import { colors } from "../../theme/index";
 import EpisodeCard from "./EpisodeCard";
 import { markWatchedLabel } from "@app/utils/format";
 import { epKey } from "./helpers";
@@ -303,29 +303,22 @@ export default function EpisodeDetailModal({
 				)}
 			</AnimatePresence>
 
-			<AnimatedModal visible={!!confirmTarget} onClose={() => setConfirmTarget(null)}>
-				<p className={ui.modalTitle}>Mark Previous Episodes?</p>
-				<p className={ui.modalHint}>Mark episodes {confirmLabel} as watched?</p>
-				<button className={`${ui.button} ${ui.watched}`} onClick={confirmBackfill} disabled={confirmLoading}>
-					Mark All
-				</button>
-				<button
-					className={`${ui.button} ${ui.outline}`}
-					disabled={confirmLoading}
-					onClick={() => {
-						const t = confirmTarget!;
-						setConfirmTarget(null);
-						markOne({ season: t.season, episode: t.episode } as CarouselEpisode);
-					}}
-				>
-					Just This One
-				</button>
-				{!confirmLoading && (
-					<button className={ui.cancel} onClick={() => setConfirmTarget(null)}>
-						Cancel
-					</button>
-				)}
-			</AnimatedModal>
+			<ConfirmModal
+				visible={!!confirmTarget}
+				title="Mark Previous Episodes?"
+				hint={`Mark episodes ${confirmLabel} as watched?`}
+				confirmLabel="Mark All"
+				confirmColor={colors.watchedGreen}
+				loading={confirmLoading}
+				onConfirm={confirmBackfill}
+				secondaryLabel="Just This One"
+				onSecondary={() => {
+					const t = confirmTarget!;
+					setConfirmTarget(null);
+					markOne({ season: t.season, episode: t.episode } as CarouselEpisode);
+				}}
+				onClose={() => setConfirmTarget(null)}
+			/>
 		</>,
 		document.body,
 	);

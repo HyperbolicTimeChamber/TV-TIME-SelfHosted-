@@ -808,14 +808,13 @@ export function useSeasonActions({
 		[watchedMap, handleMarkWatched, isTracked, episodes, markOrAskJump],
 	);
 
-	const handleSeasonPress = useCallback(() => {
-		if (allWatched) {
-			// Already fully watched → rewatch directly
-			handleMarkSeasonWatched();
-		} else {
-			handleMarkSeasonWatched();
-		}
-	}, [allWatched, handleMarkSeasonWatched]);
+	// Season tick asks first (fully watched → it's a rewatch of the whole season)
+	const [seasonConfirmVisible, setSeasonConfirmVisible] = useState(false);
+	const handleSeasonPress = useCallback(() => setSeasonConfirmVisible(true), []);
+	const confirmSeasonMark = useCallback(() => {
+		setSeasonConfirmVisible(false);
+		handleMarkSeasonWatched();
+	}, [handleMarkSeasonWatched]);
 
 	const handleSeasonLongPress = useCallback(() => {
 		if (allWatched) {
@@ -875,6 +874,9 @@ export function useSeasonActions({
 		resolveTrackingWrite,
 		doMarkSeasonWatched,
 		handleMarkSeasonWatched,
+		seasonConfirmVisible,
+		setSeasonConfirmVisible,
+		confirmSeasonMark,
 		doMarkEpisodeWatched,
 		handleMarkWatched,
 		jumpModal,

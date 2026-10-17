@@ -1,29 +1,44 @@
 import React from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from "react-native";
+import { Image, type ImageSource } from "expo-image";
 import AnimatedModal from "./AnimatedModal";
 import { colors, spacing, typography } from "../../theme";
 
 interface Props {
 	visible: boolean;
 	title: string;
+	/** Art between the title and the hint */
+	image?: ImageSource | number;
 	hint?: string;
 	error?: string | null;
 	confirmLabel?: string;
 	confirmColor?: string;
+	/** Spinner in the confirm button; the other buttons are locked while it runs */
 	loading?: boolean;
 	onConfirm: () => void;
+	/** Optional second choice under the confirm button (e.g. "Just This One") */
+	secondaryLabel?: string;
+	secondaryColor?: string;
+	onSecondary?: () => void;
+	cancelLabel?: string;
 	onClose: () => void;
 }
 
+/** Every confirm / choice popup: title, image, hint, one or two actions, outlined Cancel */
 export default function ConfirmModal({
 	visible,
 	title,
+	image,
 	hint,
 	error,
 	confirmLabel = "Confirm",
 	confirmColor,
 	loading = false,
 	onConfirm,
+	secondaryLabel,
+	secondaryColor,
+	onSecondary,
+	cancelLabel = "Cancel",
 	onClose,
 }: Props) {
 	return (
@@ -35,11 +50,12 @@ export default function ConfirmModal({
 		>
 			<View style={styles.content}>
 				<Text style={styles.title}>{title}</Text>
+				{image != null && <Image source={image} style={styles.image} contentFit="contain" />}
 				{hint ? <Text style={styles.hint}>{hint}</Text> : null}
 				{error ? <Text style={styles.error}>{error}</Text> : null}
 				<TouchableOpacity
 					style={[
-						styles.confirmButton,
+						styles.button,
 						confirmColor && { backgroundColor: confirmColor },
 						loading && { opacity: 0.6 },
 					]}
@@ -49,12 +65,26 @@ export default function ConfirmModal({
 					{loading ? (
 						<ActivityIndicator size="small" color={colors.text} />
 					) : (
-						<Text style={styles.confirmText}>{confirmLabel}</Text>
+						<Text style={styles.buttonText}>{confirmLabel}</Text>
 					)}
 				</TouchableOpacity>
+				{secondaryLabel && onSecondary && (
+					<TouchableOpacity
+						style={[
+							styles.button,
+							styles.secondary,
+							secondaryColor && { backgroundColor: secondaryColor },
+							loading && { opacity: 0.6 },
+						]}
+						onPress={onSecondary}
+						disabled={loading}
+					>
+						<Text style={styles.buttonText}>{secondaryLabel}</Text>
+					</TouchableOpacity>
+				)}
 				{!loading && (
 					<TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-						<Text style={styles.cancelText}>Cancel</Text>
+						<Text style={styles.buttonText}>{cancelLabel}</Text>
 					</TouchableOpacity>
 				)}
 			</View>
@@ -74,6 +104,11 @@ const styles = StyleSheet.create({
 		textAlign: "center",
 		marginBottom: spacing.sm,
 	},
+	image: {
+		width: "100%",
+		height: 140,
+		marginBottom: spacing.sm,
+	},
 	hint: {
 		...typography.caption,
 		color: colors.textSecondary,
@@ -86,18 +121,22 @@ const styles = StyleSheet.create({
 		textAlign: "center",
 		marginBottom: spacing.md,
 	},
-	confirmButton: {
+	button: {
 		backgroundColor: colors.destructiveRed,
 		paddingVertical: spacing.md,
 		borderRadius: 8,
 		alignItems: "center",
 	},
-	confirmText: {
+	// Neutral fill so it reads apart from the outlined Cancel
+	secondary: {
+		backgroundColor: colors.surfaceLight,
+		marginTop: spacing.sm,
+	},
+	buttonText: {
 		...typography.subtitle,
 		fontSize: 14,
 		color: colors.text,
 	},
-	// Outlined, like the "Mark All Previous" modal's secondary button
 	cancelButton: {
 		paddingVertical: spacing.md,
 		borderRadius: 8,
@@ -105,10 +144,5 @@ const styles = StyleSheet.create({
 		borderWidth: 1.5,
 		borderColor: colors.text,
 		marginTop: spacing.sm,
-	},
-	cancelText: {
-		...typography.subtitle,
-		fontSize: 14,
-		color: colors.text,
 	},
 });

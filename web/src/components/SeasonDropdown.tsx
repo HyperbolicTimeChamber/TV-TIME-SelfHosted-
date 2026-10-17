@@ -7,12 +7,10 @@ import type { TMDBEpisode } from "@app/types";
 import { colors } from "../theme/index";
 import { useLongPress } from "../hooks/useLongPress";
 import CheckmarkButton from "./CheckmarkButton";
-import AnimatedModal from "./AnimatedModal";
 import ConfirmModal from "./ConfirmModal";
 import WatchActionSheet from "./WatchActionSheet";
 import EpisodeDetailModal from "./EpisodeDetailModal";
 import { formatDate } from "./EpisodeDetailModal/helpers";
-import ui from "./styles/ui.module.scss";
 import styles from "./styles/SeasonDropdown.module.scss";
 
 type Props = SeasonDropdownProps & {
@@ -203,93 +201,82 @@ export default memo(function SeasonDropdown({ readOnly, ...props }: Props) {
 						}}
 					/>
 
-					<AnimatedModal
-						visible={s.skipModalVisible && !!s.skipModalData}
-						onClose={() => {
-							s.setSkipModalVisible(false);
-							s.setSkipModalData(null);
-						}}
-					>
-						<p className={ui.modalTitle}>Skipped Episodes</p>
-						<p className={ui.modalHint}>
-							Mark episodes {s.skipModalData?.firstSkipped}–{s.skipModalData?.targetEp.episode_number} as watched?
-						</p>
-						<button
-							className={ui.button}
-							onClick={() => {
+					<ConfirmModal
+						visible={s.seasonConfirmVisible}
+						title={s.allWatched ? "Rewatch Season?" : "Mark Season as Watched?"}
+						hint={
+							s.allWatched
+								? `Mark every episode of ${season.name} as watched again?`
+								: `Mark all ${s.episodes.length} episodes of ${season.name} as watched?`
+						}
+						confirmLabel={s.allWatched ? "Rewatch Season" : "Mark Season"}
+						confirmColor={colors.watchedGreen}
+						onConfirm={s.confirmSeasonMark}
+						onClose={() => s.setSeasonConfirmVisible(false)}
+					/>
+
+					{s.skipModalData && (
+						<ConfirmModal
+							visible={s.skipModalVisible}
+							title="Skipped Episodes"
+							hint={`Mark episodes ${s.skipModalData.firstSkipped}–${s.skipModalData.targetEp.episode_number} as watched?`}
+							confirmLabel="Mark All Previous"
+							confirmColor={colors.primary}
+							onConfirm={() => {
 								const d = s.skipModalData!;
 								s.setSkipModalVisible(false);
 								s.markEpisodeRange(d.firstSkipped, d.targetEp.episode_number);
 								s.setSkipModalData(null);
 							}}
-						>
-							Mark All Previous
-						</button>
-						<button
-							className={`${ui.button} ${ui.outline}`}
-							onClick={() => {
+							secondaryLabel="Just This One"
+							onSecondary={() => {
 								const d = s.skipModalData!;
 								s.setSkipModalVisible(false);
 								s.markOrAskJump(d.targetEp);
 								s.setSkipModalData(null);
 							}}
-						>
-							Just This One
-						</button>
-						<button
-							className={ui.cancel}
-							onClick={() => {
+							onClose={() => {
 								s.setSkipModalVisible(false);
 								s.setSkipModalData(null);
 							}}
-						>
-							Cancel
-						</button>
-					</AnimatedModal>
+						/>
+					)}
 
-					<AnimatedModal visible={!!s.jumpModal} onClose={() => s.setJumpModal(null)}>
-						{s.jumpModal && (
-							<>
-								<p className={ui.modalTitle}>
-									{s.jumpModal.rewatch
-										? "Start a Rewatch?"
-										: s.jumpModal.skipsPrevious
-											? "Skip Previous Episodes?"
-											: "Watch From Here?"}
-								</p>
-								<p className={ui.modalHint}>
-									{s.jumpModal.rewatch
-										? `Rewatch from E${s.jumpModal.ep.episode_number}? Your watchlist will continue from the next episode.`
-										: s.jumpModal.skipsPrevious
-											? `Skip the earlier unwatched episodes and continue your watchlist after E${s.jumpModal.ep.episode_number}? They stay unwatched.`
-											: `Continue watching from E${s.jumpModal.ep.episode_number}? Your watchlist will move to the next episode.`}
-								</p>
-								<button
-									className={ui.button}
-									onClick={() => {
-										const { ep } = s.jumpModal!;
-										s.setJumpModal(null);
-										s.handleMarkWatched(ep, true);
-									}}
-								>
-									{s.jumpModal.rewatch ? "Rewatch From Here" : s.jumpModal.skipsPrevious ? "Skip Previous" : "Watch From Here"}
-								</button>
-								<button
-									className={`${ui.button} ${ui.outline}`}
-									onClick={() => {
-										const { ep } = s.jumpModal!;
-										s.setJumpModal(null);
-										s.handleMarkWatched(ep);
-									}}
-								>
-									Just Mark It
-								</button>
-								<button className={ui.cancel} onClick={() => s.setJumpModal(null)}>
-									Cancel
-								</button>
-							</>
-						)}
-					</AnimatedModal>
+					{s.jumpModal && (
+						<ConfirmModal
+							visible
+							title={
+								s.jumpModal.rewatch
+									? "Start a Rewatch?"
+									: s.jumpModal.skipsPrevious
+										? "Skip Previous Episodes?"
+										: "Watch From Here?"
+							}
+							hint={
+								s.jumpModal.rewatch
+									? `Rewatch from E${s.jumpModal.ep.episode_number}? Your watchlist will continue from the next episode.`
+									: s.jumpModal.skipsPrevious
+										? `Skip the earlier unwatched episodes and continue your watchlist after E${s.jumpModal.ep.episode_number}? They stay unwatched.`
+										: `Continue watching from E${s.jumpModal.ep.episode_number}? Your watchlist will move to the next episode.`
+							}
+							confirmLabel={
+								s.jumpModal.rewatch ? "Rewatch From Here" : s.jumpModal.skipsPrevious ? "Skip Previous" : "Watch From Here"
+							}
+							confirmColor={colors.primary}
+							onConfirm={() => {
+								const { ep } = s.jumpModal!;
+								s.setJumpModal(null);
+								s.handleMarkWatched(ep, true);
+							}}
+							secondaryLabel="Just Mark It"
+							onSecondary={() => {
+								const { ep } = s.jumpModal!;
+								s.setJumpModal(null);
+								s.handleMarkWatched(ep);
+							}}
+							onClose={() => s.setJumpModal(null)}
+						/>
+					)}
 				</>
 			)}
 

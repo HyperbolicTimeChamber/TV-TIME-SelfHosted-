@@ -10,7 +10,6 @@ import {
 	Platform,
 } from "react-native";
 import { Image } from "expo-image";
-import AnimatedModal from "./modals/AnimatedModal";
 import WatchActionSheet from "./modals/WatchActionSheet";
 import ConfirmModal from "./modals/ConfirmModal";
 import CheckmarkButton from "./CheckmarkButton";
@@ -87,6 +86,9 @@ export default memo(function SeasonDropdown({
 		handleRewatchBadgePress,
 		handleCheckmarkPress,
 		handleSeasonPress,
+		seasonConfirmVisible,
+		setSeasonConfirmVisible,
+		confirmSeasonMark,
 		handleSeasonLongPress,
 		sheetLabel,
 		isLoading,
@@ -262,101 +264,85 @@ export default memo(function SeasonDropdown({
 				}}
 			/>
 
+			<ConfirmModal
+				visible={seasonConfirmVisible}
+				title={allWatched ? "Rewatch Season?" : "Mark Season as Watched?"}
+				hint={
+					allWatched
+						? `Mark every episode of ${season.name} as watched again?`
+						: `Mark all ${episodes.length} episodes of ${season.name} as watched?`
+				}
+				confirmLabel={allWatched ? "Rewatch Season" : "Mark Season"}
+				confirmColor={colors.watchedGreen}
+				onConfirm={confirmSeasonMark}
+				onClose={() => setSeasonConfirmVisible(false)}
+			/>
+
 			{skipModalData && (
-				<AnimatedModal
+				<ConfirmModal
 					visible={skipModalVisible}
+					title="Skipped Episodes"
+					hint={`Mark episodes ${skipModalData.firstSkipped}–${skipModalData.targetEp.episode_number} as watched?`}
+					confirmLabel="Mark All Previous"
+					confirmColor={colors.primary}
+					onConfirm={() => {
+						const d = skipModalData;
+						setSkipModalVisible(false);
+						markEpisodeRange(d.firstSkipped, d.targetEp.episode_number);
+						setSkipModalData(null);
+					}}
+					secondaryLabel="Just This One"
+					onSecondary={() => {
+						const d = skipModalData;
+						setSkipModalVisible(false);
+						markOrAskJump(d.targetEp);
+						setSkipModalData(null);
+					}}
 					onClose={() => {
 						setSkipModalVisible(false);
 						setSkipModalData(null);
 					}}
-				>
-					<View style={styles.skipModalContent}>
-						<Text style={styles.skipModalTitle}>Skipped Episodes</Text>
-						<Text style={styles.skipModalHint}>
-							Mark episodes {skipModalData.firstSkipped}–{skipModalData.targetEp.episode_number} as
-							watched?
-						</Text>
-						<TouchableOpacity
-							style={styles.skipModalButton}
-							onPress={() => {
-								setSkipModalVisible(false);
-								markEpisodeRange(skipModalData.firstSkipped, skipModalData.targetEp.episode_number);
-								setSkipModalData(null);
-							}}
-						>
-							<Text style={styles.skipModalButtonText}>Mark All Previous</Text>
-						</TouchableOpacity>
-						<TouchableOpacity
-							style={styles.skipModalButtonOutline}
-							onPress={() => {
-								setSkipModalVisible(false);
-								markOrAskJump(skipModalData.targetEp);
-								setSkipModalData(null);
-							}}
-						>
-							<Text style={styles.skipModalButtonOutlineText}>Just This One</Text>
-						</TouchableOpacity>
-						<TouchableOpacity
-							style={styles.skipModalCancel}
-							onPress={() => {
-								setSkipModalVisible(false);
-								setSkipModalData(null);
-							}}
-						>
-							<Text style={styles.skipModalCancelText}>Cancel</Text>
-						</TouchableOpacity>
-					</View>
-				</AnimatedModal>
+				/>
 			)}
 
 			{jumpModal && (
-				<AnimatedModal visible={!!jumpModal} onClose={() => setJumpModal(null)}>
-					<View style={styles.skipModalContent}>
-						<Text style={styles.skipModalTitle}>
-							{jumpModal.rewatch
-								? "Start a Rewatch?"
-								: jumpModal.skipsPrevious
-									? "Skip Previous Episodes?"
-									: "Watch From Here?"}
-						</Text>
-						<Text style={styles.skipModalHint}>
-							{jumpModal.rewatch
-								? `Rewatch from E${jumpModal.ep.episode_number}? Your watchlist will continue from the next episode.`
-								: jumpModal.skipsPrevious
-									? `Skip the earlier unwatched episodes and continue your watchlist after E${jumpModal.ep.episode_number}? They stay unwatched.`
-									: `Continue watching from E${jumpModal.ep.episode_number}? Your watchlist will move to the next episode.`}
-						</Text>
-						<TouchableOpacity
-							style={styles.skipModalButton}
-							onPress={() => {
-								const { ep } = jumpModal;
-								setJumpModal(null);
-								handleMarkWatched(ep, true);
-							}}
-						>
-							<Text style={styles.skipModalButtonText}>
-								{jumpModal.rewatch
-									? "Rewatch From Here"
-									: jumpModal.skipsPrevious
-										? "Skip Previous"
-										: "Watch From Here"}
-							</Text>
-						</TouchableOpacity>
-						<TouchableOpacity
-							style={styles.skipModalButtonOutline}
-							onPress={() => {
-								const { ep } = jumpModal;
-								setJumpModal(null);
-								handleMarkWatched(ep);
-							}}
-						>
-							<Text style={styles.skipModalButtonOutlineText}>Just Mark It</Text>
-						</TouchableOpacity>
-						<TouchableOpacity style={styles.skipModalCancel} onPress={() => setJumpModal(null)}>
-							<Text style={styles.skipModalCancelText}>Cancel</Text>
-						</TouchableOpacity>
-					</View>
-				</AnimatedModal>
+				<ConfirmModal
+					visible
+					title={
+						jumpModal.rewatch
+							? "Start a Rewatch?"
+							: jumpModal.skipsPrevious
+								? "Skip Previous Episodes?"
+								: "Watch From Here?"
+					}
+					hint={
+						jumpModal.rewatch
+							? `Rewatch from E${jumpModal.ep.episode_number}? Your watchlist will continue from the next episode.`
+							: jumpModal.skipsPrevious
+								? `Skip the earlier unwatched episodes and continue your watchlist after E${jumpModal.ep.episode_number}? They stay unwatched.`
+								: `Continue watching from E${jumpModal.ep.episode_number}? Your watchlist will move to the next episode.`
+					}
+					confirmLabel={
+						jumpModal.rewatch
+							? "Rewatch From Here"
+							: jumpModal.skipsPrevious
+								? "Skip Previous"
+								: "Watch From Here"
+					}
+					confirmColor={colors.primary}
+					onConfirm={() => {
+						const { ep } = jumpModal;
+						setJumpModal(null);
+						handleMarkWatched(ep, true);
+					}}
+					secondaryLabel="Just Mark It"
+					onSecondary={() => {
+						const { ep } = jumpModal;
+						setJumpModal(null);
+						handleMarkWatched(ep);
+					}}
+					onClose={() => setJumpModal(null)}
+				/>
 			)}
 
 			{epInfoData && (
@@ -483,55 +469,5 @@ const styles = StyleSheet.create({
 		color: colors.accent,
 		marginTop: 2,
 		fontSize: 11,
-	},
-	skipModalContent: {
-		backgroundColor: colors.surface,
-		borderRadius: 12,
-		padding: spacing.lg,
-	},
-	skipModalTitle: {
-		...typography.subtitle,
-		fontSize: 16,
-		textAlign: "center",
-		marginBottom: spacing.sm,
-	},
-	skipModalHint: {
-		...typography.caption,
-		color: colors.textSecondary,
-		textAlign: "center",
-		marginBottom: spacing.lg,
-	},
-	skipModalButton: {
-		backgroundColor: colors.primary,
-		paddingVertical: spacing.md,
-		borderRadius: 8,
-		alignItems: "center",
-	},
-	skipModalButtonText: {
-		...typography.subtitle,
-		fontSize: 14,
-		color: colors.text,
-	},
-	skipModalButtonOutline: {
-		paddingVertical: spacing.md,
-		borderRadius: 8,
-		alignItems: "center",
-		borderWidth: 1.5,
-		borderColor: colors.text,
-		marginTop: spacing.sm,
-	},
-	skipModalButtonOutlineText: {
-		...typography.subtitle,
-		fontSize: 14,
-		color: colors.text,
-	},
-	skipModalCancel: {
-		paddingVertical: spacing.sm,
-		alignItems: "center",
-		marginTop: spacing.sm,
-	},
-	skipModalCancelText: {
-		...typography.caption,
-		color: colors.textMuted,
 	},
 });

@@ -1,8 +1,7 @@
 import type { TMDBShow } from "@app/types";
-import AnimatedModal from "../../components/AnimatedModal";
 import ConfirmModal from "../../components/ConfirmModal";
 import UnreleasedMovieModal from "../../components/UnreleasedMovieModal";
-import ui from "../../components/styles/ui.module.scss";
+import { colors } from "../../theme/index";
 
 const pad = (n?: number) => String(n).padStart(2, "0");
 
@@ -32,20 +31,18 @@ interface Props {
 export default function SearchModals(p: Props) {
 	return (
 		<>
-			<AnimatedModal visible={!!p.movieModal} onClose={p.onMovieModalClose}>
-				<p className={`${ui.modalTitle} mb-4!`}>
-					{p.movieModal?.title || p.movieModal?.name}
-				</p>
-				<button className={ui.button} onClick={p.onMovieAddOnly}>
-					Add to Watchlist
-				</button>
-				<button className={`${ui.button} ${ui.watched}`} onClick={p.onMovieAddAndWatch}>
-					Add & Mark as Watched
-				</button>
-				<button className={ui.cancel} onClick={p.onMovieModalClose}>
-					Cancel
-				</button>
-			</AnimatedModal>
+			<ConfirmModal
+				visible={!!p.movieModal}
+				title="Add This Movie?"
+				hint={`Add "${p.movieModal?.title || p.movieModal?.name}" to your watchlist, or mark it as already watched.`}
+				confirmLabel="Add to Watchlist"
+				confirmColor={colors.primary}
+				onConfirm={p.onMovieAddOnly}
+				secondaryLabel="Add & Mark as Watched"
+				secondaryColor={colors.watchedGreen}
+				onSecondary={p.onMovieAddAndWatch}
+				onClose={p.onMovieModalClose}
+			/>
 
 			<ConfirmModal
 				visible={!!p.removeModal}
@@ -64,22 +61,17 @@ export default function SearchModals(p: Props) {
 				movieTitle={p.unreleasedModal?.title ?? ""}
 			/>
 
-			<AnimatedModal visible={!!p.resumeModal} onClose={p.onResumeModalClose}>
-				<p className={ui.modalTitle}>{p.resumeModal?.item?.name || p.resumeModal?.item?.title}</p>
-				<p className={ui.modalHint}>
-					You've previously watched up to S{pad(p.resumeModal?.highestEp?.season)}E
-					{pad(p.resumeModal?.highestEp?.episode)}
-				</p>
-				<button className={ui.button} onClick={p.onResumeFromWhere}>
-					Resume from S{pad(p.resumeModal?.nextEp?.season)}E{pad(p.resumeModal?.nextEp?.episode)}
-				</button>
-				<button className={`${ui.button} ${ui.muted}`} onClick={p.onStartFresh}>
-					Start from Beginning
-				</button>
-				<button className={ui.cancel} onClick={p.onResumeModalClose}>
-					Cancel
-				</button>
-			</AnimatedModal>
+			<ConfirmModal
+				visible={!!p.resumeModal}
+				title={p.resumeModal?.item?.name || p.resumeModal?.item?.title || ""}
+				hint={`You've previously watched up to S${pad(p.resumeModal?.highestEp?.season)}E${pad(p.resumeModal?.highestEp?.episode)}`}
+				confirmLabel={`Resume from S${pad(p.resumeModal?.nextEp?.season)}E${pad(p.resumeModal?.nextEp?.episode)}`}
+				confirmColor={colors.primary}
+				onConfirm={p.onResumeFromWhere}
+				secondaryLabel="Start from Beginning"
+				onSecondary={p.onStartFresh}
+				onClose={p.onResumeModalClose}
+			/>
 		</>
 	);
 }

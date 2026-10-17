@@ -1,8 +1,10 @@
-import { View, Text, TouchableOpacity } from "react-native";
-import { AnimatedModal, ConfirmModal, UnreleasedMovieModal } from "../../components";
-import { colors, spacing } from "../../theme";
+import { ConfirmModal, UnreleasedMovieModal } from "../../components";
+import { colors } from "../../theme";
 import { TMDBShow } from "../../types";
-import { styles } from "./styles";
+
+const pad = (n?: number) => String(n).padStart(2, "0");
+const epCode = (ep?: { season: number; episode: number }) =>
+	`S${pad(ep?.season)}E${pad(ep?.episode)}`;
 
 interface Props {
 	movieModal: TMDBShow | null;
@@ -45,23 +47,18 @@ export default function SearchModals({
 }: Props) {
 	return (
 		<>
-			<AnimatedModal visible={!!movieModal} onClose={onMovieModalClose}>
-				<View style={styles.modalContent}>
-					<Text style={styles.modalTitle}>{movieModal?.title || movieModal?.name}</Text>
-					<TouchableOpacity style={styles.modalButton} onPress={onMovieAddOnly}>
-						<Text style={styles.modalButtonText}>Add to Watchlist</Text>
-					</TouchableOpacity>
-					<TouchableOpacity
-						style={[styles.modalButton, styles.modalButtonWatched]}
-						onPress={onMovieAddAndWatch}
-					>
-						<Text style={styles.modalButtonText}>Add & Mark as Watched</Text>
-					</TouchableOpacity>
-					<TouchableOpacity style={styles.modalCancel} onPress={onMovieModalClose}>
-						<Text style={styles.modalCancelText}>Cancel</Text>
-					</TouchableOpacity>
-				</View>
-			</AnimatedModal>
+			<ConfirmModal
+				visible={!!movieModal}
+				title="Add This Movie?"
+				hint={`Add "${movieModal?.title || movieModal?.name}" to your watchlist, or mark it as already watched.`}
+				confirmLabel="Add to Watchlist"
+				confirmColor={colors.primary}
+				onConfirm={onMovieAddOnly}
+				secondaryLabel="Add & Mark as Watched"
+				secondaryColor={colors.watchedGreen}
+				onSecondary={onMovieAddAndWatch}
+				onClose={onMovieModalClose}
+			/>
 
 			<ConfirmModal
 				visible={!!removeModal}
@@ -80,33 +77,17 @@ export default function SearchModals({
 				movieTitle={unreleasedModal?.title ?? ""}
 			/>
 
-			<AnimatedModal visible={!!resumeModal} onClose={onResumeModalClose}>
-				<View style={styles.modalContent}>
-					<Text style={styles.modalTitle}>
-						{resumeModal?.item?.name || resumeModal?.item?.title}
-					</Text>
-					<Text style={[styles.modalCancelText, { marginBottom: spacing.lg, textAlign: "center" }]}>
-						You've previously watched up to S
-						{String(resumeModal?.highestEp?.season).padStart(2, "0")}E
-						{String(resumeModal?.highestEp?.episode).padStart(2, "0")}
-					</Text>
-					<TouchableOpacity style={styles.modalButton} onPress={onResumeFromWhere}>
-						<Text style={styles.modalButtonText}>
-							Resume from S{String(resumeModal?.nextEp?.season).padStart(2, "0")}E
-							{String(resumeModal?.nextEp?.episode).padStart(2, "0")}
-						</Text>
-					</TouchableOpacity>
-					<TouchableOpacity
-						style={[styles.modalButton, { backgroundColor: colors.surfaceLight }]}
-						onPress={onStartFresh}
-					>
-						<Text style={styles.modalButtonText}>Start from Beginning</Text>
-					</TouchableOpacity>
-					<TouchableOpacity style={styles.modalCancel} onPress={onResumeModalClose}>
-						<Text style={styles.modalCancelText}>Cancel</Text>
-					</TouchableOpacity>
-				</View>
-			</AnimatedModal>
+			<ConfirmModal
+				visible={!!resumeModal}
+				title={resumeModal?.item?.name || resumeModal?.item?.title || ""}
+				hint={`You've previously watched up to ${epCode(resumeModal?.highestEp)}`}
+				confirmLabel={`Resume from ${epCode(resumeModal?.nextEp)}`}
+				confirmColor={colors.primary}
+				onConfirm={onResumeFromWhere}
+				secondaryLabel="Start from Beginning"
+				onSecondary={onStartFresh}
+				onClose={onResumeModalClose}
+			/>
 		</>
 	);
 }

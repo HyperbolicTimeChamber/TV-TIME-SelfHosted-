@@ -16,6 +16,7 @@ import { getAuth, sendPasswordResetEmail } from "@react-native-firebase/auth";
 import { useAuthStore } from "../../stores";
 import { colors, spacing, typography } from "../../theme";
 import { CircleBackButton, CIRCLE_BUTTON_SIZE } from "../../components/CircleButton";
+import { ConfirmModal } from "../../components";
 import { ProfileStackParamList, Route } from "../../types";
 
 export default function SettingsScreen() {
@@ -54,29 +55,21 @@ export default function SettingsScreen() {
 		}
 	}, [testingFCM]);
 
-	const handleDeleteAccount = useCallback(() => {
-		Alert.alert(
-			"Delete Account",
-			"This will permanently delete your account and all data. This cannot be undone.",
-			[
-				{ text: "Cancel", style: "cancel" },
-				{
-					text: "Delete",
-					style: "destructive",
-					onPress: async () => {
-						setDeletingAccount(true);
-						try {
-							const functions = getFunctions();
-							await httpsCallable(functions, "deleteAccount")({});
-							await signOut();
-						} catch (err: any) {
-							Alert.alert("Error", err.message || "Failed to delete account.");
-							setDeletingAccount(false);
-						}
-					},
-				},
-			],
-		);
+	const [logoutVisible, setLogoutVisible] = useState(false);
+	const [deleteVisible, setDeleteVisible] = useState(false);
+	const [deleteError, setDeleteError] = useState<string | null>(null);
+
+	const handleDeleteAccount = useCallback(async () => {
+		setDeletingAccount(true);
+		setDeleteError(null);
+		try {
+			const functions = getFunctions();
+			await httpsCallable(functions, "deleteAccount")({});
+			await signOut();
+		} catch (err: any) {
+			setDeleteError(err.message || "Failed to delete account.");
+			setDeletingAccount(false);
+		}
 	}, [signOut]);
 
 	return (
@@ -115,29 +108,42 @@ export default function SettingsScreen() {
 						<Text style={styles.rowText}>Change Password</Text>
 					</TouchableOpacity>
 				)}
-				<TouchableOpacity
-					style={styles.row}
-					onPress={() =>
-						Alert.alert("Log Out", "Are you sure?", [
-							{ text: "Cancel", style: "cancel" },
-							{ text: "Log Out", style: "destructive", onPress: signOut },
-						])
-					}
-				>
+				<TouchableOpacity style={styles.row} onPress={() => setLogoutVisible(true)}>
 					<Text style={styles.deleteText}>Log Out</Text>
 				</TouchableOpacity>
 				<TouchableOpacity
 					style={styles.row}
-					onPress={handleDeleteAccount}
-					disabled={deletingAccount}
+					onPress={() => {
+						setDeleteError(null);
+						setDeleteVisible(true);
+					}}
 				>
-					{deletingAccount ? (
-						<ActivityIndicator size="small" color={colors.destructiveRed} />
-					) : (
-						<Text style={styles.deleteText}>Delete Account & Data</Text>
-					)}
+					<Text style={styles.deleteText}>Delete Account & Data</Text>
 				</TouchableOpacity>
 			</View>
+
+			<ConfirmModal
+				visible={logoutVisible}
+				title="Log Out?"
+				hint="You can sign back in any time — your watchlist and history stay saved."
+				confirmLabel="Log Out"
+				onConfirm={() => {
+					setLogoutVisible(false);
+					signOut();
+				}}
+				onClose={() => setLogoutVisible(false)}
+			/>
+
+			<ConfirmModal
+				visible={deleteVisible}
+				title="Delete Account?"
+				hint="This will permanently delete your account and all data. This cannot be undone."
+				error={deleteError}
+				confirmLabel="Delete"
+				loading={deletingAccount}
+				onConfirm={handleDeleteAccount}
+				onClose={() => setDeleteVisible(false)}
+			/>
 		</ScrollView>
 	);
 }
