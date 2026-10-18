@@ -27,6 +27,7 @@ import { HomeStackParamList, MediaType, Route, WatchStatus } from "../../types";
 import { CircleButtonTone } from "../../enums";
 import { ModalBackdrop, ModalLogo } from "../../components/modals/ModalArt";
 import { getCachedCatalogShow } from "../../hooks/useWatchlist";
+import { pickTitleLogo } from "../../services/tmdb";
 
 type RouteParams = RouteProp<HomeStackParamList, "ShowDetail">;
 
@@ -71,7 +72,10 @@ export default function ShowDetailScreen() {
 		handleMovieSheetAction,
 		seasonLayout,
 	} = useShowDetailActions(tmdbId, mediaType);
-	const logoPath = getCachedCatalogShow(tmdbId, mediaType)?.logoPath ?? null;
+	// Catalog's logo, else the one that came with the details (same request as the page data)
+	const logoPath =
+		getCachedCatalogShow(tmdbId, mediaType)?.logoPath ??
+		(show?.images ? pickTitleLogo(show.images.logos) : undefined);
 
 	const navigation = useNavigation();
 	// Opened from a deep link with nothing underneath → go to the watchlist

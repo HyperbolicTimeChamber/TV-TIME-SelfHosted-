@@ -118,24 +118,34 @@ export function ModalLogo({
 	const [ratio, setRatio] = useState<number | null>(null);
 	const [failed, setFailed] = useState(false);
 	// Fixed-height slot (tallest logo + the badge overhang): the popup keeps one size while the
-	// logo is fetched / loaded, whether it ends up a logo, the name, or nothing
+	// logo is fetched / loaded. The name shows until the logo image is actually in
 	const slot = [styles.logoSlot, { minHeight: LOGO_MAX_H + (paused ? BADGE * BADGE_OUT : 0) }];
+	const name = (
+		<View style={[styles.nameBox, paused && { marginBottom: BADGE * BADGE_OUT }]}>
+			<Text style={styles.name} numberOfLines={2}>
+				{title}
+			</Text>
+			{paused && <PauseBadge style={badgeCorner} />}
+		</View>
+	);
 
-	if (logoPath === undefined) return <View style={slot} />;
-	if (!logoPath || failed) {
+	if (!logoPath || failed) return <View style={slot}>{name}</View>;
+	if (ratio == null) {
 		return (
 			<View style={slot}>
-				<View style={[styles.nameBox, paused && { marginBottom: BADGE * BADGE_OUT }]}>
-					<Text style={styles.name} numberOfLines={2}>
-						{title}
-					</Text>
-					{paused && <PauseBadge style={badgeCorner} />}
-				</View>
+				{name}
+				{/* Loads invisibly; swaps in for the name once it has its size */}
+				<Image
+					source={{ uri: tmdbLogoUri(logoPath, LOGO_MAX_W) }}
+					style={styles.logoLoading}
+					onLoad={(e) => setRatio(e.source.width / e.source.height)}
+					onError={() => setFailed(true)}
+				/>
 			</View>
 		);
 	}
-	const w = ratio ? Math.min(LOGO_MAX_W, LOGO_MAX_H * ratio) : LOGO_MAX_W;
-	const h = ratio ? w / ratio : LOGO_MAX_H;
+	const w = Math.min(LOGO_MAX_W, LOGO_MAX_H * ratio);
+	const h = w / ratio;
 	return (
 		<View style={slot}>
 			{/* Room under the logo for the part of the badge hanging below it */}
@@ -144,10 +154,8 @@ export function ModalLogo({
 					source={{ uri: tmdbLogoUri(logoPath, LOGO_MAX_W) }}
 					style={{ width: w, height: h }}
 					contentFit="contain"
-					onLoad={(e) => setRatio(e.source.width / e.source.height)}
-					onError={() => setFailed(true)}
 				/>
-				{paused && ratio != null && <PauseBadge style={badgeCorner} />}
+				{paused && <PauseBadge style={badgeCorner} />}
 			</View>
 		</View>
 	);
@@ -172,6 +180,7 @@ export function ModalBackdrop({
 }) {
 	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	const [logoFailed, setLogoFailed] = useState(false);
+	const [logoLoaded, setLogoLoaded] = useState(false);
 	// Bleeds over ConfirmModal's side padding
 	const w = useContentWidth() + spacing.lg * 2;
 	const h = (w * 9) / 16;
@@ -195,17 +204,20 @@ export function ModalBackdrop({
 						style={styles.backdropShade}
 					/>
 					<View style={styles.backdropLogo}>
-						{logoPath === undefined ? null : logoPath && !logoFailed ? (
-							<Image
-								source={{ uri: tmdbLogoUri(logoPath, CONTENT_W * 0.6) }}
-								style={styles.backdropLogoImg}
-								contentFit="contain"
-								onError={() => setLogoFailed(true)}
-							/>
-						) : (
+						{/* Name until the logo image is in (or when there's none) */}
+						{(!logoPath || logoFailed || !logoLoaded) && (
 							<Text style={styles.backdropName} numberOfLines={2}>
 								{title}
 							</Text>
+						)}
+						{!!logoPath && !logoFailed && (
+							<Image
+								source={{ uri: tmdbLogoUri(logoPath, CONTENT_W * 0.6) }}
+								style={[styles.backdropLogoImg, !logoLoaded && styles.hiddenWhileLoading]}
+								contentFit="contain"
+								onLoad={() => setLogoLoaded(true)}
+								onError={() => setLogoFailed(true)}
+							/>
 						)}
 					</View>
 					{paused && (
@@ -223,6 +235,18 @@ const styles = StyleSheet.create({
 	logoSlot: {
 		justifyContent: "center",
 		alignItems: "center",
+	},
+	// Loading logo: full size (so it decodes at a real size and reports its true shape) but
+	// invisible and out of the flow
+	logoLoading: {
+		position: "absolute",
+		width: LOGO_MAX_W,
+		height: LOGO_MAX_H,
+		opacity: 0,
+	},
+	hiddenWhileLoading: {
+		position: "absolute",
+		opacity: 0,
 	},
 	nameBox: {
 		maxWidth: LOGO_MAX_W,

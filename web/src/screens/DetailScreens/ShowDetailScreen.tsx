@@ -14,6 +14,7 @@ import ConfirmModal from "../../components/ConfirmModal";
 import { colors } from "../../theme/index";
 import { ModalBackdrop, ModalLogo } from "../../components/ModalArt";
 import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
+import { pickTitleLogo } from "@app/services/tmdb";
 import UnreleasedMovieModal from "../../components/UnreleasedMovieModal";
 import WatchActionSheet from "../../components/WatchActionSheet";
 import SeasonDropdown from "../../components/SeasonDropdown";
@@ -32,7 +33,9 @@ export default function ShowDetailScreen() {
 	const location = useLocation();
 	const { message } = AntApp.useApp();
 	const d = useShowDetailActions(tmdbId, mediaType);
-	const logoPath = getCachedCatalogShow(tmdbId, mediaType)?.logoPath ?? null;
+	// Catalog's logo, else the one that came with the details (same request as the page data)
+	const logoPath =
+		getCachedCatalogShow(tmdbId, mediaType)?.logoPath ?? (d.show?.images ? pickTitleLogo(d.show.images.logos) : undefined);
 	const signedIn = !!d.user;
 
 	// Opened directly (share link / new tab): no in-app history, so go to the watchlist

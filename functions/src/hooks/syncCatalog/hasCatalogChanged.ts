@@ -29,6 +29,7 @@ export function hasCatalogChanged(
     oldData.overview !== fresh.overview ||
     oldData.status !== fresh.status ||
     oldData.totalEpisodes !== fresh.totalEpisodes ||
+    (oldData.firstAirDate ?? null) !== (fresh.firstAirDate ?? null) ||
     stableStringify(oldData.seasons ?? []) !==
       stableStringify(fresh.seasons ?? [])
   );

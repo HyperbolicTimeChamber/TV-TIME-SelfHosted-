@@ -108,13 +108,29 @@ export async function searchSuggestions(apiKey: string, query: string): Promise<
 }
 
 export async function getShowDetails(apiKey: string, tmdbId: number, mediaType: string = "tv") {
+	// Title logos ride along on the same request (the show page's logo comes with its data).
+	// Not via the guest proxy yet: the deployed proxy rejects append values it doesn't know
+	const viaProxy = apiKey === TMDB_PROXY_KEY;
 	const res = await tmdb(apiKey).get(`/${mediaType}/${tmdbId}`, {
-		params: { append_to_response: "credits,similar" },
+		params: viaProxy
+			? { append_to_response: "credits,similar" }
+			: { append_to_response: "credits,similar,images", include_image_language: "en,null" },
 	});
 	return res.data as TMDBShow;
 }
 
+type TmdbLogo = { file_path: string; iso_639_1: string | null };
+
 /** Best title logo — English, else language-neutral (same pick as the catalog's logoPath) */
+export function pickTitleLogo(logos: TmdbLogo[] | undefined | null): string | null {
+	return (
+		logos?.find((l) => l.iso_639_1 === "en")?.file_path ??
+		logos?.find((l) => !l.iso_639_1)?.file_path ??
+		null
+	);
+}
+
+/** Title logo on its own (for titles whose details weren't fetched with images) */
 export async function getTitleLogo(
 	apiKey: string,
 	tmdbId: number,
@@ -123,12 +139,7 @@ export async function getTitleLogo(
 	const res = await tmdb(apiKey).get(`/${mediaType}/${tmdbId}/images`, {
 		params: { include_image_language: "en,null" },
 	});
-	const logos: Array<{ file_path: string; iso_639_1: string | null }> = res.data?.logos ?? [];
-	return (
-		logos.find((l) => l.iso_639_1 === "en")?.file_path ??
-		logos.find((l) => !l.iso_639_1)?.file_path ??
-		null
-	);
+	return pickTitleLogo(res.data?.logos);
 }
 
 export async function getSeasonDetails(apiKey: string, tmdbId: number, seasonNumber: number) {

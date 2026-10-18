@@ -3,6 +3,7 @@ import {
   fetchShowFromTMDB,
   fetchShowStatus,
   pooled,
+  premiereDate,
   CatalogShow,
 } from "../tmdb";
 import { MediaType, ENDED_STATUSES } from "../../shared/enums";
@@ -42,6 +43,16 @@ export async function fetchCatalogUpdates(
       trackedByCount: number;
     };
 
+    // Skipped (ended) shows aren't re-fetched: fill a missing premiere date from the
+    // seasons already stored (no extra TMDB call)
+    const healPremiere = () => {
+      if (oldData.firstAirDate) return;
+      const firstAirDate = premiereDate(null, oldData.seasons);
+      if (!firstAirDate) return;
+      pendingWrites.push({ ref: showDoc.ref, data: { firstAirDate } });
+      changedShowIds.push(showDoc.id);
+    };
+
     // Ended/canceled: lightweight status check only (1 API call vs ~6)
     if (ENDED_STATUSES.includes(oldData.status)) {
       try {
@@ -49,6 +60,7 @@ export async function fetchCatalogUpdates(
         if (ENDED_STATUSES.includes(freshStatus)) {
           freshCatalogMap.set(showDoc.id, oldData);
           skippedEnded++;
+          healPremiere();
           return;
         }
         console.log(
@@ -57,6 +69,7 @@ export async function fetchCatalogUpdates(
       } catch {
         freshCatalogMap.set(showDoc.id, oldData);
         skippedEnded++;
+        healPremiere();
         return;
       }
     }
@@ -91,6 +104,8 @@ export async function fetchCatalogUpdates(
           totalEpisodes: freshData.totalEpisodes,
           runtime: freshData.runtime,
           voteAverage: freshData.voteAverage,
+          // Was never refreshed for TV; premiereDate() also fills TMDB's missing ones
+          firstAirDate: freshData.firstAirDate,
           seasons: freshData.seasons,
           genres: freshData.genres,
           // Was missing: weekly syncs never refreshed logos

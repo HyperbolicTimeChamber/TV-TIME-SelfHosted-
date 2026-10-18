@@ -20,6 +20,8 @@ export interface TMDBShow {
 	credits?: {
 		crew: Array<{ job: string; department: string; name: string }>;
 	};
+	/** Present when details were fetched with images (title logos) */
+	images?: { logos?: Array<{ file_path: string; iso_639_1: string | null }> };
 }
 
 export interface TMDBSeason {

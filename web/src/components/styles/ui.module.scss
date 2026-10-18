@@ -71,6 +71,13 @@
 	min-height: 102.6px;
 }
 
+/* A logo still loading: in the page (so it loads) but invisible and out of the flow */
+.logoLoading {
+	position: absolute;
+	opacity: 0;
+	pointer-events: none;
+}
+
 .modalLogoBox {
 	position: relative;
 	display: inline-block;
