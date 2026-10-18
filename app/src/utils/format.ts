@@ -46,4 +46,4 @@ export function episodeRange(from: number, to: number) {
 export const SKIP_AHEAD_TITLE = "Whoa there Speedster!";
 export const skipAheadHint = (range: string) =>
 	`You've jumped ahead a few episodes. Do you want to skip to this point or mark the previous episodes (${range})?`;
-export const skipAheadConfirm = (range: string) => `Mark ${range} as Watched`;
+export const skipAheadConfirm = (range: string) => `Mark ${range} Watched`;
