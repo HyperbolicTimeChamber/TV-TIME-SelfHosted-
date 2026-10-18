@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { tmdbBackdropUri, tmdbLogoUri } from "@app/hooks/useTmdbImage";
+import { useTitleLogo } from "@app/hooks/useTitleLogo";
+import type { MediaType } from "@app/enums";
 import { colors } from "../theme/index";
 import styles from "./styles/ui.module.scss";
 
@@ -48,7 +50,21 @@ export function ModalArt({ src }: { src: string }) {
 }
 
 /** The show / movie title logo (TMDB), its name when there's none; optional pause badge */
-export function ModalLogo({ logoPath, title, paused = false }: { logoPath?: string | null; title: string; paused?: boolean }) {
+export function ModalLogo({
+	logoPath: givenLogo,
+	tmdbId,
+	mediaType,
+	title,
+	paused = false,
+}: {
+	logoPath?: string | null;
+	/** Lets a title with no cached logo (not in the library) fetch it from TMDB */
+	tmdbId?: number;
+	mediaType?: MediaType;
+	title: string;
+	paused?: boolean;
+}) {
+	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	const [failed, setFailed] = useState(false);
 	return (
 		// Box shrinks to the logo, so the badge lands on its bottom-right corner
@@ -67,15 +83,20 @@ export function ModalLogo({ logoPath, title, paused = false }: { logoPath?: stri
  *  the popup (no side padding); `paused` lays a big translucent pause icon over all of it */
 export function ModalBackdrop({
 	backdropPath,
-	logoPath,
+	logoPath: givenLogo,
+	tmdbId,
+	mediaType,
 	title,
 	paused = false,
 }: {
 	backdropPath: string;
 	logoPath?: string | null;
+	tmdbId?: number;
+	mediaType?: MediaType;
 	title: string;
 	paused?: boolean;
 }) {
+	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	const [logoFailed, setLogoFailed] = useState(false);
 	return (
 		<div className={styles.modalBackdrop}>

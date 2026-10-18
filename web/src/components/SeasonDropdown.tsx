@@ -194,7 +194,7 @@ export default memo(function SeasonDropdown({ readOnly, ...props }: Props) {
 					<ConfirmModal
 						visible={s.addModalVisible}
 						title="Add to Watchlist?"
-						image={<ModalLogo logoPath={showLogo} title={props.showTitle} />}
+						image={<ModalLogo logoPath={showLogo} tmdbId={props.tmdbId} mediaType={MediaType.TV} title={props.showTitle} />}
 						hint="This show isn't in your watchlist yet. Add it to mark episodes as watched."
 						error={s.addModalError}
 						confirmLabel="Add & Mark"
@@ -212,9 +212,9 @@ export default memo(function SeasonDropdown({ readOnly, ...props }: Props) {
 						title={s.allWatched ? `Rewatch Season ${season.season_number}?` : `Mark Season ${season.season_number} as Watched?`}
 						image={
 							props.showBackdropPath ? (
-								<ModalBackdrop backdropPath={props.showBackdropPath} logoPath={showLogo} title={props.showTitle} />
+								<ModalBackdrop backdropPath={props.showBackdropPath} logoPath={showLogo} tmdbId={props.tmdbId} mediaType={MediaType.TV} title={props.showTitle} />
 							) : (
-								<ModalLogo logoPath={showLogo} title={props.showTitle} />
+								<ModalLogo logoPath={showLogo} tmdbId={props.tmdbId} mediaType={MediaType.TV} title={props.showTitle} />
 							)
 						}
 						hint={
@@ -267,7 +267,7 @@ export default memo(function SeasonDropdown({ readOnly, ...props }: Props) {
 										? "Skip Previous Episodes?"
 										: "Watch From Here?"
 							}
-							image={<ModalLogo logoPath={showLogo} title={props.showTitle} />}
+							image={<ModalLogo logoPath={showLogo} tmdbId={props.tmdbId} mediaType={MediaType.TV} title={props.showTitle} />}
 							hint={
 								s.jumpModal.rewatch
 									? `Rewatch from E${s.jumpModal.ep.episode_number}? Your watchlist will continue from the next episode.`

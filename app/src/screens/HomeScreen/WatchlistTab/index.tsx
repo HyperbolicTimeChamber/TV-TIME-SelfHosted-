@@ -339,12 +339,16 @@ export default function WatchlistTab() {
 						<ModalBackdrop
 							backdropPath={pauseTarget.catalogShow.backdropPath}
 							logoPath={pauseTarget.catalogShow.logoPath}
+							tmdbId={pauseTarget.tmdbId}
+							mediaType={pauseTarget.mediaType}
 							title={pauseTarget.title}
 							paused
 						/>
 					) : (
 						<ModalLogo
 							logoPath={pauseTarget.catalogShow?.logoPath}
+							tmdbId={pauseTarget.tmdbId}
+							mediaType={pauseTarget.mediaType}
 							title={pauseTarget.title}
 							paused
 						/>

@@ -43,7 +43,7 @@ export default function SearchModals(p: Props) {
 			<ConfirmModal
 				visible={!!p.movieModal}
 				title="Add This Movie?"
-				image={p.movieModal ? <ModalLogo logoPath={logoOf(p.movieModal, MediaType.MOVIE)} title={nameOf(p.movieModal)} /> : undefined}
+				image={p.movieModal ? <ModalLogo logoPath={logoOf(p.movieModal, MediaType.MOVIE)} tmdbId={p.movieModal.id} mediaType={MediaType.MOVIE} title={nameOf(p.movieModal)} /> : undefined}
 				hint={`Add "${p.movieModal?.title || p.movieModal?.name}" to your watchlist, or mark it as already watched.`}
 				confirmLabel="Add to Watchlist"
 				confirmColor={colors.primary}
@@ -57,7 +57,7 @@ export default function SearchModals(p: Props) {
 			<ConfirmModal
 				visible={!!p.removeModal}
 				title={mediaTypeOf(p.removeModal) === MediaType.MOVIE ? "Remove Movie?" : "Remove Show?"}
-				image={p.removeModal ? <ModalLogo logoPath={logoOf(p.removeModal, mediaTypeOf(p.removeModal))} title={nameOf(p.removeModal)} /> : undefined}
+				image={p.removeModal ? <ModalLogo logoPath={logoOf(p.removeModal, mediaTypeOf(p.removeModal))} tmdbId={p.removeModal.id} mediaType={mediaTypeOf(p.removeModal)} title={nameOf(p.removeModal)} /> : undefined}
 				hint="This will remove it from your watchlist. Your watch history will be kept."
 				error={p.removeError}
 				confirmLabel="Remove"
@@ -75,7 +75,7 @@ export default function SearchModals(p: Props) {
 			<ConfirmModal
 				visible={!!p.resumeModal}
 				title="Resume Watching?"
-				image={p.resumeModal ? <ModalLogo logoPath={logoOf(p.resumeModal.item, MediaType.TV)} title={nameOf(p.resumeModal.item)} /> : undefined}
+				image={p.resumeModal ? <ModalLogo logoPath={logoOf(p.resumeModal.item, MediaType.TV)} tmdbId={p.resumeModal.item.id} mediaType={MediaType.TV} title={nameOf(p.resumeModal.item)} /> : undefined}
 				hint={`You've previously watched up to S${pad(p.resumeModal?.highestEp?.season)}E${pad(p.resumeModal?.highestEp?.episode)}`}
 				confirmLabel={`Resume from S${pad(p.resumeModal?.nextEp?.season)}E${pad(p.resumeModal?.nextEp?.episode)}`}
 				confirmColor={colors.primary}

@@ -114,6 +114,23 @@ export async function getShowDetails(apiKey: string, tmdbId: number, mediaType: 
 	return res.data as TMDBShow;
 }
 
+/** Best title logo — English, else language-neutral (same pick as the catalog's logoPath) */
+export async function getTitleLogo(
+	apiKey: string,
+	tmdbId: number,
+	mediaType: string,
+): Promise<string | null> {
+	const res = await tmdb(apiKey).get(`/${mediaType}/${tmdbId}/images`, {
+		params: { include_image_language: "en,null" },
+	});
+	const logos: Array<{ file_path: string; iso_639_1: string | null }> = res.data?.logos ?? [];
+	return (
+		logos.find((l) => l.iso_639_1 === "en")?.file_path ??
+		logos.find((l) => !l.iso_639_1)?.file_path ??
+		null
+	);
+}
+
 export async function getSeasonDetails(apiKey: string, tmdbId: number, seasonNumber: number) {
 	const res = await tmdb(apiKey).get(`/tv/${tmdbId}/season/${seasonNumber}`);
 	return res.data as {

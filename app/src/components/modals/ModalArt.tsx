@@ -4,6 +4,8 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 import { tmdbBackdropUri, tmdbLogoUri } from "../../hooks/useTmdbImage";
+import { useTitleLogo } from "../../hooks/useTitleLogo";
+import type { MediaType } from "../../types";
 import { colors, spacing, typography } from "../../theme";
 
 /** Art for ConfirmModal's image slot (between the title and the hint) */
@@ -97,14 +99,20 @@ export function ModalArt({ source, ratio }: { source: number; ratio: number }) {
 
 /** The show / movie title logo (TMDB), its name when there's none; optional pause badge */
 export function ModalLogo({
-	logoPath,
+	logoPath: givenLogo,
+	tmdbId,
+	mediaType,
 	title,
 	paused = false,
 }: {
 	logoPath?: string | null;
+	/** Lets a title with no cached logo (not in the library) fetch it from TMDB */
+	tmdbId?: number;
+	mediaType?: MediaType;
 	title: string;
 	paused?: boolean;
 }) {
+	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	// Logo's own width / height, so the box (and the badge's corner) hugs the visible logo
 	const [ratio, setRatio] = useState<number | null>(null);
 	const [failed, setFailed] = useState(false);
@@ -140,15 +148,20 @@ export function ModalLogo({
  *  the popup (no side padding); `paused` lays a big translucent pause icon over all of it */
 export function ModalBackdrop({
 	backdropPath,
-	logoPath,
+	logoPath: givenLogo,
+	tmdbId,
+	mediaType,
 	title,
 	paused = false,
 }: {
 	backdropPath: string;
 	logoPath?: string | null;
+	tmdbId?: number;
+	mediaType?: MediaType;
 	title: string;
 	paused?: boolean;
 }) {
+	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	const [logoFailed, setLogoFailed] = useState(false);
 	// Bleeds over ConfirmModal's side padding
 	const w = useContentWidth() + spacing.lg * 2;

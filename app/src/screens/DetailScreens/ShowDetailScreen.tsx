@@ -257,7 +257,9 @@ export default function ShowDetailScreen() {
 			<ConfirmModal
 				visible={removeModalVisible}
 				title={mediaType === MediaType.MOVIE ? "Remove Movie?" : "Remove Show?"}
-				image={<ModalLogo logoPath={logoPath} title={title} />}
+				image={
+					<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={title} />
+				}
 				hint="This will remove it from your watchlist. Your watch history will be kept."
 				error={removeError}
 				confirmLabel="Remove"
@@ -277,11 +279,19 @@ export default function ShowDetailScreen() {
 						<ModalBackdrop
 							backdropPath={show.backdrop_path}
 							logoPath={logoPath}
+							tmdbId={tmdbId}
+							mediaType={mediaType}
 							title={title}
 							paused
 						/>
 					) : (
-						<ModalLogo logoPath={logoPath} title={title} paused />
+						<ModalLogo
+							logoPath={logoPath}
+							tmdbId={tmdbId}
+							mediaType={mediaType}
+							title={title}
+							paused
+						/>
 					)
 				}
 				hint="It leaves your watchlist. Resume any time from here."

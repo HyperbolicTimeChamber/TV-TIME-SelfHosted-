@@ -110,12 +110,12 @@ export default function WatchlistTab() {
 					!pauseTarget ? undefined : pauseTarget.catalogShow?.backdropPath ? (
 						<ModalBackdrop
 							backdropPath={pauseTarget.catalogShow.backdropPath}
-							logoPath={pauseTarget.catalogShow.logoPath}
+							logoPath={pauseTarget.catalogShow.logoPath} tmdbId={pauseTarget.tmdbId} mediaType={pauseTarget.mediaType}
 							title={pauseTarget.title}
 							paused
 						/>
 					) : (
-						<ModalLogo logoPath={pauseTarget.catalogShow?.logoPath} title={pauseTarget.title} paused />
+						<ModalLogo logoPath={pauseTarget.catalogShow?.logoPath} tmdbId={pauseTarget.tmdbId} mediaType={pauseTarget.mediaType} title={pauseTarget.title} paused />
 					)
 				}
 				hint="It leaves your watchlist. Resume any time from its page."

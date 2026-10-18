@@ -64,7 +64,12 @@ export default function SearchModals({
 				title="Add This Movie?"
 				image={
 					movieModal ? (
-						<ModalLogo logoPath={logoOf(movieModal, MediaType.MOVIE)} title={nameOf(movieModal)} />
+						<ModalLogo
+							logoPath={logoOf(movieModal, MediaType.MOVIE)}
+							tmdbId={movieModal.id}
+							mediaType={MediaType.MOVIE}
+							title={nameOf(movieModal)}
+						/>
 					) : undefined
 				}
 				hint={`Add "${movieModal?.title || movieModal?.name}" to your watchlist, or mark it as already watched.`}
@@ -84,6 +89,8 @@ export default function SearchModals({
 					removeModal ? (
 						<ModalLogo
 							logoPath={logoOf(removeModal, removeMediaType)}
+							tmdbId={removeModal.id}
+							mediaType={removeMediaType}
 							title={nameOf(removeModal)}
 						/>
 					) : undefined
@@ -109,6 +116,8 @@ export default function SearchModals({
 					resumeModal ? (
 						<ModalLogo
 							logoPath={logoOf(resumeModal.item, MediaType.TV)}
+							tmdbId={resumeModal.item.id}
+							mediaType={MediaType.TV}
 							title={nameOf(resumeModal.item)}
 						/>
 					) : undefined
