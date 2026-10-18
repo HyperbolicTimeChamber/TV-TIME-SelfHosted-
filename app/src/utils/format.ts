@@ -35,3 +35,15 @@ export function formatTime(minutes: number) {
 	if (hours > 0) return pair(`${hours}h`, minutes % 60, "m");
 	return `${minutes}m`;
 }
+
+/** "E01–E04" — an episode range in popups */
+export function episodeRange(from: number, to: number) {
+	const pad = (n: number) => String(n).padStart(2, "0");
+	return `E${pad(from)}–E${pad(to)}`;
+}
+
+/** Copy for the "jumped ahead" popups (season list + episode info) */
+export const SKIP_AHEAD_TITLE = "Whoa there Speedster!";
+export const skipAheadHint = (range: string) =>
+	`You've jumped ahead a few episodes. Do you want to skip to this point or mark the previous episodes (${range})?`;
+export const skipAheadConfirm = (range: string) => `Mark ${range} as Watched`;

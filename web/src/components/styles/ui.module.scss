@@ -29,11 +29,61 @@
 }
 
 .modalImage {
+	display: flex;
+	justify-content: center;
+	margin: 8px 0;
+}
+
+.modalArt {
 	display: block;
-	width: 100%;
 	height: 140px;
+	max-width: 100%;
 	object-fit: contain;
-	margin: 0 0 8px;
+}
+
+.modalLogoBox {
+	position: relative;
+	display: inline-block;
+	max-width: 240px;
+}
+
+.modalLogo {
+	display: block;
+	max-width: 240px;
+	max-height: 90px;
+	object-fit: contain;
+}
+
+.modalLogoName {
+	display: block;
+	padding: 4px 0;
+	font-size: 26px;
+	line-height: 30px;
+	font-weight: 800;
+	text-align: center;
+}
+
+/* Room under the logo for the part of the badge hanging below it */
+.modalLogoPaused {
+	margin-bottom: 12.6px;
+}
+
+/* 36px badge, 65% of it over the logo's bottom-right corner */
+.pauseBadge {
+	position: absolute;
+	width: 36px;
+	height: 36px;
+	right: -12.6px;
+	bottom: -12.6px;
+}
+
+.modalPoster {
+	display: block;
+	height: 150px;
+	width: 100px;
+	object-fit: cover;
+	border-radius: 8px;
+	background: var(--surface-light);
 }
 
 .modalHint {

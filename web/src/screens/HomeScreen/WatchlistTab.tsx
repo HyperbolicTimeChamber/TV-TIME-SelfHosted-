@@ -9,6 +9,7 @@ import WatchActionSheet from "../../components/WatchActionSheet";
 import EpisodeDetailModal from "../../components/EpisodeDetailModal";
 import ShowDrawer from "../../components/ShowDrawer";
 import ConfirmModal from "../../components/ConfirmModal";
+import { ModalLogo } from "../../components/ModalArt";
 import type { EnrichedTrackingItem } from "@app/hooks/useWatchlist";
 import { colors } from "../../theme/index";
 import LoadingScreen from "../../components/LoadingScreen";
@@ -105,6 +106,7 @@ export default function WatchlistTab() {
 			<ConfirmModal
 				visible={!!pauseTarget}
 				title={`Pause ${pauseTarget?.title ?? "watching"}?`}
+				image={pauseTarget ? <ModalLogo logoPath={pauseTarget.catalogShow?.logoPath} title={pauseTarget.title} paused /> : undefined}
 				hint="It leaves your watchlist. Resume any time from its page."
 				confirmLabel="Pause"
 				confirmColor={colors.stopBlue}

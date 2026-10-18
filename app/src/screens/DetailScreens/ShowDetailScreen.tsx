@@ -27,6 +27,8 @@ import CircleButton, { CircleBackButton } from "../../components/CircleButton";
 import { colors, spacing, typography } from "../../theme";
 import { HomeStackParamList, MediaType, Route, WatchStatus } from "../../types";
 import { CircleButtonTone } from "../../enums";
+import { ModalLogo } from "../../components/modals/ModalArt";
+import { getCachedCatalogShow } from "../../hooks/useWatchlist";
 
 type RouteParams = RouteProp<HomeStackParamList, "ShowDetail">;
 
@@ -71,6 +73,7 @@ export default function ShowDetailScreen() {
 		handleMovieSheetAction,
 		seasonLayout,
 	} = useShowDetailActions(tmdbId, mediaType);
+	const logoPath = getCachedCatalogShow(tmdbId, mediaType)?.logoPath ?? null;
 
 
 	const navigation = useNavigation();
@@ -254,7 +257,8 @@ export default function ShowDetailScreen() {
 
 			<ConfirmModal
 				visible={removeModalVisible}
-				title={`Remove "${title}"?`}
+				title={mediaType === MediaType.MOVIE ? "Remove Movie?" : "Remove Show?"}
+				image={<ModalLogo logoPath={logoPath} title={title} />}
 				hint="This will remove it from your watchlist. Your watch history will be kept."
 				error={removeError}
 				confirmLabel="Remove"
@@ -269,6 +273,7 @@ export default function ShowDetailScreen() {
 			<ConfirmModal
 				visible={pauseModalVisible}
 				title={`Pause ${watchlistItem?.status === WatchStatus.REWATCHING ? "rewatching " : ""}${title}?`}
+				image={<ModalLogo logoPath={logoPath} title={title} paused />}
 				hint="It leaves your watchlist. Resume any time from here."
 				confirmLabel="Pause"
 				confirmColor={colors.stopBlue}

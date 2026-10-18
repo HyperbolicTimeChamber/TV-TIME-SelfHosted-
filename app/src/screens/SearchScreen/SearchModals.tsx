@@ -1,8 +1,19 @@
 import { ConfirmModal, UnreleasedMovieModal } from "../../components";
+import { ModalLogo } from "../../components/modals/ModalArt";
+import { getCachedCatalogShow } from "../../hooks/useWatchlist";
 import { colors } from "../../theme";
-import { TMDBShow } from "../../types";
+import { MediaType, TMDBShow } from "../../types";
 
 const pad = (n?: number) => String(n).padStart(2, "0");
+/** Title logo when the catalog has the title cached (name otherwise) */
+const logoOf = (item: TMDBShow | null | undefined, mediaType: MediaType) =>
+	item ? (getCachedCatalogShow(item.id, mediaType)?.logoPath ?? null) : null;
+const nameOf = (item: TMDBShow | null | undefined) => item?.name || item?.title || "";
+
+const mediaTypeOf = (item: TMDBShow | null | undefined): MediaType =>
+	item?.media_type ||
+	(item?.first_air_date || (item?.name && !item?.title) ? MediaType.TV : MediaType.MOVIE);
+
 const epCode = (ep?: { season: number; episode: number }) =>
 	`S${pad(ep?.season)}E${pad(ep?.episode)}`;
 
@@ -45,11 +56,17 @@ export default function SearchModals({
 	onStartFresh,
 	onResumeModalClose,
 }: Props) {
+	const removeMediaType = mediaTypeOf(removeModal);
 	return (
 		<>
 			<ConfirmModal
 				visible={!!movieModal}
 				title="Add This Movie?"
+				image={
+					movieModal ? (
+						<ModalLogo logoPath={logoOf(movieModal, MediaType.MOVIE)} title={nameOf(movieModal)} />
+					) : undefined
+				}
 				hint={`Add "${movieModal?.title || movieModal?.name}" to your watchlist, or mark it as already watched.`}
 				confirmLabel="Add to Watchlist"
 				confirmColor={colors.primary}
@@ -62,7 +79,15 @@ export default function SearchModals({
 
 			<ConfirmModal
 				visible={!!removeModal}
-				title={`Remove "${removeModal?.name || removeModal?.title}"?`}
+				title={removeMediaType === MediaType.MOVIE ? "Remove Movie?" : "Remove Show?"}
+				image={
+					removeModal ? (
+						<ModalLogo
+							logoPath={logoOf(removeModal, removeMediaType)}
+							title={nameOf(removeModal)}
+						/>
+					) : undefined
+				}
 				hint="This will remove it from your watchlist. Your watch history will be kept."
 				error={removeError}
 				confirmLabel="Remove"
@@ -79,7 +104,15 @@ export default function SearchModals({
 
 			<ConfirmModal
 				visible={!!resumeModal}
-				title={resumeModal?.item?.name || resumeModal?.item?.title || ""}
+				title="Resume Watching?"
+				image={
+					resumeModal ? (
+						<ModalLogo
+							logoPath={logoOf(resumeModal.item, MediaType.TV)}
+							title={nameOf(resumeModal.item)}
+						/>
+					) : undefined
+				}
 				hint={`You've previously watched up to ${epCode(resumeModal?.highestEp)}`}
 				confirmLabel={`Resume from ${epCode(resumeModal?.nextEp)}`}
 				confirmColor={colors.primary}

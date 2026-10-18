@@ -2,6 +2,15 @@ import type { TMDBShow } from "@app/types";
 import ConfirmModal from "../../components/ConfirmModal";
 import UnreleasedMovieModal from "../../components/UnreleasedMovieModal";
 import { colors } from "../../theme/index";
+import { ModalLogo } from "../../components/ModalArt";
+import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
+import { MediaType } from "@app/enums";
+
+/** Title logo when the catalog has the title cached (name otherwise) */
+const logoOf = (item: TMDBShow, mediaType: MediaType) => getCachedCatalogShow(item.id, mediaType)?.logoPath ?? null;
+const nameOf = (item: TMDBShow) => item.name || item.title || "";
+const mediaTypeOf = (item: TMDBShow | null): MediaType =>
+	item?.media_type || (item?.first_air_date || (item?.name && !item?.title) ? MediaType.TV : MediaType.MOVIE);
 
 const pad = (n?: number) => String(n).padStart(2, "0");
 
@@ -34,6 +43,7 @@ export default function SearchModals(p: Props) {
 			<ConfirmModal
 				visible={!!p.movieModal}
 				title="Add This Movie?"
+				image={p.movieModal ? <ModalLogo logoPath={logoOf(p.movieModal, MediaType.MOVIE)} title={nameOf(p.movieModal)} /> : undefined}
 				hint={`Add "${p.movieModal?.title || p.movieModal?.name}" to your watchlist, or mark it as already watched.`}
 				confirmLabel="Add to Watchlist"
 				confirmColor={colors.primary}
@@ -46,7 +56,8 @@ export default function SearchModals(p: Props) {
 
 			<ConfirmModal
 				visible={!!p.removeModal}
-				title={`Remove "${p.removeModal?.name || p.removeModal?.title}"?`}
+				title={mediaTypeOf(p.removeModal) === MediaType.MOVIE ? "Remove Movie?" : "Remove Show?"}
+				image={p.removeModal ? <ModalLogo logoPath={logoOf(p.removeModal, mediaTypeOf(p.removeModal))} title={nameOf(p.removeModal)} /> : undefined}
 				hint="This will remove it from your watchlist. Your watch history will be kept."
 				error={p.removeError}
 				confirmLabel="Remove"
@@ -63,7 +74,8 @@ export default function SearchModals(p: Props) {
 
 			<ConfirmModal
 				visible={!!p.resumeModal}
-				title={p.resumeModal?.item?.name || p.resumeModal?.item?.title || ""}
+				title="Resume Watching?"
+				image={p.resumeModal ? <ModalLogo logoPath={logoOf(p.resumeModal.item, MediaType.TV)} title={nameOf(p.resumeModal.item)} /> : undefined}
 				hint={`You've previously watched up to S${pad(p.resumeModal?.highestEp?.season)}E${pad(p.resumeModal?.highestEp?.episode)}`}
 				confirmLabel={`Resume from S${pad(p.resumeModal?.nextEp?.season)}E${pad(p.resumeModal?.nextEp?.episode)}`}
 				confirmColor={colors.primary}

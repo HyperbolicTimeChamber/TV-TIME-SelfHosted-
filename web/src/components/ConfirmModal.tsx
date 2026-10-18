@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Spin } from "antd";
 import AnimatedModal from "./AnimatedModal";
 import styles from "./styles/ui.module.scss";
@@ -6,8 +7,8 @@ import { cssVars } from "../utils/cssVars";
 interface Props {
 	visible: boolean;
 	title: string;
-	/** Art between the title and the hint */
-	image?: string;
+	/** Art between the title and the hint (see ModalArt: logo, poster, character art) */
+	image?: ReactNode;
 	hint?: string;
 	error?: string | null;
 	confirmLabel: string;
@@ -43,7 +44,7 @@ export default function ConfirmModal({
 	return (
 		<AnimatedModal visible={visible} onClose={() => !loading && onClose()}>
 			<p className={styles.modalTitle}>{title}</p>
-			{image && <img className={styles.modalImage} src={image} alt="" />}
+			{image != null && <div className={styles.modalImage}>{image}</div>}
 			{hint && <p className={styles.modalHint}>{hint}</p>}
 			{error && <p className={styles.modalError}>{error}</p>}
 			<button

@@ -12,13 +12,16 @@ import {
 import { Image } from "expo-image";
 import WatchActionSheet from "./modals/WatchActionSheet";
 import ConfirmModal from "./modals/ConfirmModal";
+import { ModalArt, ModalLogo, ModalPoster, SPEEDSTER_ART } from "./modals/ModalArt";
+import { getCachedCatalogShow } from "../hooks/useWatchlist";
+import { SKIP_AHEAD_TITLE, episodeRange, skipAheadConfirm, skipAheadHint } from "../utils/format";
 import CheckmarkButton from "./CheckmarkButton";
 import SkeletonLine from "./SkeletonLine";
 import EpisodeDetailModal from "./modals/EpisodeDetailModal";
 import { colors, spacing, typography } from "../theme";
 import { withHaptic } from "../utils/haptics";
 import { tmdbPosterUri, tmdbStillUri } from "../hooks/useTmdbImage";
-import { TMDBEpisode } from "../types";
+import { MediaType, TMDBEpisode } from "../types";
 import { useSeasonActions, type SeasonDropdownProps } from "./useSeasonActions";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -106,6 +109,8 @@ export default memo(function SeasonDropdown({
 		seasonLayout,
 		episodesBySeason,
 	});
+
+	const showLogo = getCachedCatalogShow(tmdbId, MediaType.TV)?.logoPath ?? null;
 
 	return (
 		<View>
@@ -252,6 +257,7 @@ export default memo(function SeasonDropdown({
 			<ConfirmModal
 				visible={addModalVisible}
 				title="Add to Watchlist?"
+				image={<ModalLogo logoPath={showLogo} title={showTitle} />}
 				hint="This show isn't in your watchlist yet. Add it to mark episodes as watched."
 				error={addModalError}
 				confirmLabel="Add & Mark"
@@ -266,7 +272,16 @@ export default memo(function SeasonDropdown({
 
 			<ConfirmModal
 				visible={seasonConfirmVisible}
-				title={allWatched ? "Rewatch Season?" : "Mark Season as Watched?"}
+				title={
+					allWatched
+						? `Rewatch Season ${season.season_number}?`
+						: `Mark Season ${season.season_number} as Watched?`
+				}
+				image={
+					season.poster_path || showPosterPath ? (
+						<ModalPoster posterPath={(season.poster_path || showPosterPath)!} />
+					) : undefined
+				}
 				hint={
 					allWatched
 						? `Mark every episode of ${season.name} as watched again?`
@@ -281,9 +296,14 @@ export default memo(function SeasonDropdown({
 			{skipModalData && (
 				<ConfirmModal
 					visible={skipModalVisible}
-					title="Skipped Episodes"
-					hint={`Mark episodes ${skipModalData.firstSkipped}–${skipModalData.targetEp.episode_number} as watched?`}
-					confirmLabel="Mark All Previous"
+					title={SKIP_AHEAD_TITLE}
+					image={<ModalArt source={SPEEDSTER_ART} />}
+					hint={skipAheadHint(
+						episodeRange(skipModalData.firstSkipped, skipModalData.targetEp.episode_number),
+					)}
+					confirmLabel={skipAheadConfirm(
+						episodeRange(skipModalData.firstSkipped, skipModalData.targetEp.episode_number),
+					)}
 					confirmColor={colors.primary}
 					onConfirm={() => {
 						const d = skipModalData;
@@ -315,6 +335,7 @@ export default memo(function SeasonDropdown({
 								? "Skip Previous Episodes?"
 								: "Watch From Here?"
 					}
+					image={<ModalLogo logoPath={showLogo} title={showTitle} />}
 					hint={
 						jumpModal.rewatch
 							? `Rewatch from E${jumpModal.ep.episode_number}? Your watchlist will continue from the next episode.`

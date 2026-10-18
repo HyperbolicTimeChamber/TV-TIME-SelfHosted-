@@ -4,6 +4,8 @@ import { AnimatePresence, motion } from "motion/react";
 import { IoChevronBack, IoChevronForward } from "react-icons/io5";
 import type { CarouselEpisode, EnrichedEpisode, EpisodeDetailModalProps } from "@app/types";
 import ConfirmModal from "../ConfirmModal";
+import { ModalArt, SPEEDSTER_ART } from "../ModalArt";
+import { SKIP_AHEAD_TITLE, skipAheadConfirm, skipAheadHint } from "@app/utils/format";
 import { colors } from "../../theme/index";
 import EpisodeCard from "./EpisodeCard";
 import { markWatchedLabel } from "@app/utils/format";
@@ -305,9 +307,10 @@ export default function EpisodeDetailModal({
 
 			<ConfirmModal
 				visible={!!confirmTarget}
-				title="Mark Previous Episodes?"
-				hint={`Mark episodes ${confirmLabel} as watched?`}
-				confirmLabel="Mark All"
+				title={SKIP_AHEAD_TITLE}
+				image={<ModalArt src={SPEEDSTER_ART} />}
+				hint={skipAheadHint(confirmLabel)}
+				confirmLabel={skipAheadConfirm(confirmLabel)}
 				confirmColor={colors.watchedGreen}
 				loading={confirmLoading}
 				onConfirm={confirmBackfill}

@@ -1,5 +1,7 @@
 import ConfirmModal from "../ConfirmModal";
+import { ModalArt, SPEEDSTER_ART } from "../ModalArt";
 import { colors } from "../../../theme";
+import { SKIP_AHEAD_TITLE, skipAheadConfirm, skipAheadHint } from "../../../utils/format";
 
 interface BackfillModalProps {
 	visible: boolean;
@@ -21,9 +23,10 @@ export function BackfillModal({
 	return (
 		<ConfirmModal
 			visible={visible}
-			title="Mark Previous Episodes?"
-			hint={`Mark episodes ${confirmLabel} as watched?`}
-			confirmLabel="Mark All"
+			title={SKIP_AHEAD_TITLE}
+			image={<ModalArt source={SPEEDSTER_ART} />}
+			hint={skipAheadHint(confirmLabel)}
+			confirmLabel={skipAheadConfirm(confirmLabel)}
 			confirmColor={colors.watchedGreen}
 			loading={loading}
 			onConfirm={onConfirm}

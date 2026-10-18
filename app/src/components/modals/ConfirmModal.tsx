@@ -1,14 +1,13 @@
-import React from "react";
+import React, { type ReactNode } from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from "react-native";
-import { Image, type ImageSource } from "expo-image";
 import AnimatedModal from "./AnimatedModal";
 import { colors, spacing, typography } from "../../theme";
 
 interface Props {
 	visible: boolean;
 	title: string;
-	/** Art between the title and the hint */
-	image?: ImageSource | number;
+	/** Art between the title and the hint (see ModalArt: logo, poster, character art) */
+	image?: ReactNode;
 	hint?: string;
 	error?: string | null;
 	confirmLabel?: string;
@@ -50,7 +49,7 @@ export default function ConfirmModal({
 		>
 			<View style={styles.content}>
 				<Text style={styles.title}>{title}</Text>
-				{image != null && <Image source={image} style={styles.image} contentFit="contain" />}
+				{image != null && <View style={styles.image}>{image}</View>}
 				{hint ? <Text style={styles.hint}>{hint}</Text> : null}
 				{error ? <Text style={styles.error}>{error}</Text> : null}
 				<TouchableOpacity
@@ -105,9 +104,8 @@ const styles = StyleSheet.create({
 		marginBottom: spacing.sm,
 	},
 	image: {
-		width: "100%",
-		height: 140,
-		marginBottom: spacing.sm,
+		alignItems: "center",
+		marginVertical: spacing.sm,
 	},
 	hint: {
 		...typography.caption,

@@ -12,6 +12,8 @@ import ErrorState from "../../components/ErrorState";
 import { describeLoadError } from "@app/utils/loadError";
 import ConfirmModal from "../../components/ConfirmModal";
 import { colors } from "../../theme/index";
+import { ModalLogo } from "../../components/ModalArt";
+import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
 import UnreleasedMovieModal from "../../components/UnreleasedMovieModal";
 import WatchActionSheet from "../../components/WatchActionSheet";
 import SeasonDropdown from "../../components/SeasonDropdown";
@@ -30,6 +32,7 @@ export default function ShowDetailScreen() {
 	const location = useLocation();
 	const { message } = AntApp.useApp();
 	const d = useShowDetailActions(tmdbId, mediaType);
+	const logoPath = getCachedCatalogShow(tmdbId, mediaType)?.logoPath ?? null;
 	const signedIn = !!d.user;
 
 	// Opened directly (share link / new tab): no in-app history, so go to the watchlist
@@ -211,7 +214,8 @@ export default function ShowDetailScreen() {
 				<>
 					<ConfirmModal
 						visible={d.removeModalVisible}
-						title={`Remove "${d.title}"?`}
+						title={mediaType === MediaType.MOVIE ? "Remove Movie?" : "Remove Show?"}
+						image={<ModalLogo logoPath={logoPath} title={d.title} />}
 						hint="This will remove it from your watchlist. Your watch history will be kept."
 						error={d.removeError}
 						confirmLabel="Remove"
@@ -225,6 +229,7 @@ export default function ShowDetailScreen() {
 					<ConfirmModal
 						visible={d.pauseModalVisible}
 						title={`Pause ${d.watchlistItem?.status === WatchStatus.REWATCHING ? "rewatching " : ""}${d.title}?`}
+						image={<ModalLogo logoPath={logoPath} title={d.title} paused />}
 						hint="It leaves your watchlist. Resume any time from here."
 						confirmLabel="Pause"
 						confirmColor={colors.stopBlue}
