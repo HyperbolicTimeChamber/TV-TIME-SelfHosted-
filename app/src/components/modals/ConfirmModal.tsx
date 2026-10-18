@@ -106,9 +106,10 @@ const styles = StyleSheet.create({
 		textAlign: "center",
 		marginBottom: spacing.sm,
 	},
+	// Title's marginBottom is the gap above; this matches it below (equal top / bottom)
 	image: {
 		alignItems: "center",
-		marginVertical: spacing.sm,
+		marginBottom: spacing.sm,
 	},
 	hint: {
 		...typography.caption,
