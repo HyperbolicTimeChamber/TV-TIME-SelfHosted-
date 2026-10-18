@@ -34,12 +34,12 @@ const PAUSE_OPACITY = 0.6;
 const BACKDROP_LOGO_H = 48;
 const BACKDROP_LOGO_BOTTOM = 10;
 
-/** Heroicons' HiPauseCircle in gray, the bars filled white */
+/** Heroicons' HiPauseCircle in gray, the bars filled black */
 function PauseBadge({ style, size = BADGE }: { style?: ViewStyle; size?: number }) {
 	return (
 		<View style={style} pointerEvents="none">
 			<Svg width={size} height={size} viewBox="2.25 2.25 19.5 19.5">
-				<Circle cx={12} cy={12} r={6.5} fill={colors.text} />
+				<Circle cx={12} cy={12} r={6.5} fill={colors.background} />
 				<Path
 					fillRule="evenodd"
 					clipRule="evenodd"

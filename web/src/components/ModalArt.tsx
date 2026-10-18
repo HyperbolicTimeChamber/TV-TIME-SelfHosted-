@@ -16,11 +16,11 @@ const LOGO_MAX_W = 240;
 /** Popup content width — image request size */
 const CONTENT_W = 300;
 
-/** Heroicons' HiPauseCircle in gray, the bars filled white */
+/** Heroicons' HiPauseCircle in gray, the bars filled black */
 function PauseBadge({ className = styles.pauseBadge }: { className?: string }) {
 	return (
 		<svg className={className} viewBox="2.25 2.25 19.5 19.5" aria-hidden>
-			<circle cx={12} cy={12} r={6.5} fill={colors.text} />
+			<circle cx={12} cy={12} r={6.5} fill={colors.background} />
 			<path
 				fillRule="evenodd"
 				clipRule="evenodd"
