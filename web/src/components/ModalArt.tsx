@@ -67,15 +67,20 @@ export function ModalLogo({
 	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	const [failed, setFailed] = useState(false);
 	return (
-		// Box shrinks to the logo, so the badge lands on its bottom-right corner
-		<span className={`${styles.modalLogoBox} ${paused ? styles.modalLogoPaused : ""}`}>
-			{logoPath && !failed ? (
-				<img className={styles.modalLogo} src={tmdbLogoUri(logoPath, LOGO_MAX_W)} alt={title} onError={() => setFailed(true)} />
-			) : (
-				<span className={styles.modalLogoName}>{title}</span>
+		// Fixed-height slot: the popup keeps one size while the logo is fetched / loaded
+		<div className={`${styles.modalLogoSlot} ${paused ? styles.modalLogoSlotPaused : ""}`}>
+			{logoPath !== undefined && (
+				// Box shrinks to the logo, so the badge lands on its bottom-right corner
+				<span className={`${styles.modalLogoBox} ${paused ? styles.modalLogoPaused : ""}`}>
+					{logoPath && !failed ? (
+						<img className={styles.modalLogo} src={tmdbLogoUri(logoPath, LOGO_MAX_W)} alt={title} onError={() => setFailed(true)} />
+					) : (
+						<span className={styles.modalLogoName}>{title}</span>
+					)}
+					{paused && <PauseBadge />}
+				</span>
 			)}
-			{paused && <PauseBadge />}
-		</span>
+		</div>
 	);
 }
 
@@ -102,7 +107,7 @@ export function ModalBackdrop({
 		<div className={styles.modalBackdrop}>
 			<img className={styles.modalBackdropImg} src={tmdbBackdropUri(backdropPath, CONTENT_W)} alt="" />
 			<div className={styles.modalBackdropLogo}>
-				{logoPath && !logoFailed ? (
+				{logoPath === undefined ? null : logoPath && !logoFailed ? (
 					<img src={tmdbLogoUri(logoPath, CONTENT_W * 0.6)} alt={title} onError={() => setLogoFailed(true)} />
 				) : (
 					<span>{title}</span>
