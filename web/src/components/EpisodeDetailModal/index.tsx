@@ -175,6 +175,7 @@ export default function EpisodeDetailModal({
 		if (!confirmTarget) return;
 		setConfirmLoading(true);
 		setMarkingKey(epKey(confirmTarget.season, confirmTarget.episode));
+		let marked = false;
 		try {
 			await onMarkWatchedThrough(tmdbId, confirmTarget.season, confirmTarget.episode);
 			// Mirror the write: one more watch for every episode from the current next one through
@@ -193,11 +194,17 @@ export default function EpisodeDetailModal({
 				}
 				return next;
 			});
+			marked = true;
 		} finally {
 			setMarkingKey(null);
 			setConfirmLoading(false);
 			setConfirmTarget(null);
 		}
+		// Caught up through this card: slide on to the next one, or close after the last
+		if (!marked) return;
+		const at = enrichedEps.findIndex((e) => e.season === confirmTarget.season && e.episode === confirmTarget.episode);
+		if (at >= 0 && at < enrichedEps.length - 1) scrollTo(at + 1);
+		else onClose();
 	};
 
 	const confirmLabel = confirmTarget

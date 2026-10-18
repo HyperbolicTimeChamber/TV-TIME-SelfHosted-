@@ -193,6 +193,7 @@ export default function EpisodeDetailModal({
 		setConfirmLoading(true);
 		const key = epKey(confirmTarget.season, confirmTarget.episode);
 		setMarkingKey(key);
+		let marked = false;
 
 		try {
 			await onMarkWatchedThrough(tmdbId, confirmTarget.season, confirmTarget.episode);
@@ -213,13 +214,32 @@ export default function EpisodeDetailModal({
 				}
 				return next;
 			});
+			marked = true;
 		} finally {
 			setMarkingKey(null);
 			setConfirmLoading(false);
 			setConfirmVisible(false);
 			setConfirmTarget(null);
 		}
-	}, [confirmTarget, tmdbId, episodes, onMarkWatchedThrough, currentNextEpisode]);
+		// Caught up through this card: slide on to the next one, or close after the last
+		if (!marked) return;
+		const at = enrichedEps.findIndex(
+			(e) => e.season === confirmTarget.season && e.episode === confirmTarget.episode,
+		);
+		if (at >= 0 && at < enrichedEps.length - 1) {
+			carouselRef.current?.scrollToIndex({ index: at + 1, animated: true });
+		} else {
+			onClose();
+		}
+	}, [
+		confirmTarget,
+		tmdbId,
+		episodes,
+		enrichedEps,
+		onMarkWatchedThrough,
+		currentNextEpisode,
+		onClose,
+	]);
 
 	const handleDeclineBackfill = useCallback(async () => {
 		if (!confirmTarget) return;
