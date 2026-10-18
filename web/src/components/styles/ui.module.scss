@@ -97,19 +97,21 @@
 	object-fit: cover;
 }
 
-/* Big translucent pause over the whole backdrop (logo included), 12px from top and bottom */
+/* Gray wash over the whole backdrop (logo included); the bars centred, 12px from top and bottom */
 .modalBackdropPause {
 	position: absolute;
-	inset: 12px 0;
+	inset: 0;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	opacity: 0.6;
+	padding: 12px 0;
+	background: rgb(160 160 160 / 45%);
 }
 
 .pauseCenter {
 	height: 100%;
 	aspect-ratio: 1;
+	opacity: 0.6;
 }
 
 /* Logo over a bottom shade so it reads on any backdrop */

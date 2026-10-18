@@ -30,6 +30,8 @@ const CONTENT_W = 300;
 const PAUSE_INSET = 12;
 /** Big pause icon on a paused backdrop — translucent, the backdrop shows through */
 const PAUSE_OPACITY = 0.6;
+/** Gray wash over the whole backdrop when it's paused */
+const PAUSE_MASK = "rgba(160, 160, 160, 0.45)";
 /** Logo strip at the bottom of a backdrop (logo height + bottom inset) */
 const BACKDROP_LOGO_H = 48;
 const BACKDROP_LOGO_BOTTOM = 10;
@@ -48,6 +50,15 @@ function PauseBadge({ style, size = BADGE }: { style?: ViewStyle; size?: number 
 				/>
 			</Svg>
 		</View>
+	);
+}
+
+/** Just HiPauseCircle's two bars (no circle) in black — the big icon on a paused backdrop */
+function PauseBars({ size }: { size: number }) {
+	return (
+		<Svg width={size} height={size} viewBox="2.25 2.25 19.5 19.5">
+			<Path fill={colors.background} opacity={PAUSE_OPACITY} d="M9 8.25a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75h.75a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75H9Zm5.25 0a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75H15a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75h-.75Z" />
+		</Svg>
 	);
 }
 
@@ -149,7 +160,7 @@ export function ModalBackdrop({
 			</View>
 			{paused && (
 				<View style={styles.backdropPause} pointerEvents="none">
-					<PauseBadge size={h - PAUSE_INSET * 2} />
+					<PauseBars size={h - PAUSE_INSET * 2} />
 				</View>
 			)}
 		</View>
@@ -191,7 +202,7 @@ const styles = StyleSheet.create({
 		width: "60%",
 		height: BACKDROP_LOGO_H,
 	},
-	// Over the whole backdrop, logo included
+	// Gray wash over the whole backdrop (logo included), the bars centred on it
 	backdropPause: {
 		position: "absolute",
 		top: 0,
@@ -200,7 +211,7 @@ const styles = StyleSheet.create({
 		bottom: 0,
 		alignItems: "center",
 		justifyContent: "center",
-		opacity: PAUSE_OPACITY,
+		backgroundColor: PAUSE_MASK,
 	},
 	backdropName: {
 		...typography.title,

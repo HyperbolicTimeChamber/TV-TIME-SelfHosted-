@@ -31,6 +31,15 @@ function PauseBadge({ className = styles.pauseBadge }: { className?: string }) {
 	);
 }
 
+/** Just HiPauseCircle's two bars (no circle) in black — the big icon on a paused backdrop */
+function PauseBars() {
+	return (
+		<svg className={styles.pauseCenter} viewBox="2.25 2.25 19.5 19.5" aria-hidden>
+			<path fill={colors.background} d="M9 8.25a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75h.75a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75H9Zm5.25 0a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75H15a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75h-.75Z" />
+		</svg>
+	);
+}
+
 /** Static character art, fit to the slot */
 export function ModalArt({ src }: { src: string }) {
 	return <img className={styles.modalArt} src={src} alt="" />;
@@ -78,7 +87,7 @@ export function ModalBackdrop({
 			</div>
 			{paused && (
 				<div className={styles.modalBackdropPause}>
-					<PauseBadge className={styles.pauseCenter} />
+					<PauseBars />
 				</div>
 			)}
 		</div>
