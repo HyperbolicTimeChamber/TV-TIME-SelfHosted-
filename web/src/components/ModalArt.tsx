@@ -36,8 +36,8 @@ function PauseBadge({ className = styles.pauseBadge }: { className?: string }) {
 function PauseBars() {
 	return (
 		<svg className={styles.pauseCenter} viewBox="0 0 100 100" aria-hidden>
-			<rect x={32.5} y={22} width={13} height={56} rx={4} fill={colors.background} />
-			<rect x={54.5} y={22} width={13} height={56} rx={4} fill={colors.background} />
+			<rect x={26} y={22} width={20} height={56} rx={5} fill={colors.background} />
+			<rect x={54} y={22} width={20} height={56} rx={5} fill={colors.background} />
 		</svg>
 	);
 }

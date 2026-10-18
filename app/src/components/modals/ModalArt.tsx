@@ -59,20 +59,20 @@ function PauseBars({ size }: { size: number }) {
 	return (
 		<Svg width={size} height={size} viewBox="0 0 100 100">
 			<Rect
-				x={32.5}
+				x={26}
 				y={22}
-				width={13}
+				width={20}
 				height={56}
-				rx={4}
+				rx={5}
 				fill={colors.background}
 				opacity={PAUSE_OPACITY}
 			/>
 			<Rect
-				x={54.5}
+				x={54}
 				y={22}
-				width={13}
+				width={20}
 				height={56}
-				rx={4}
+				rx={5}
 				fill={colors.background}
 				opacity={PAUSE_OPACITY}
 			/>
