@@ -52,8 +52,16 @@ export default function DetailBackdrop({
 			</View>
 
 			<LinearGradient
-				colors={["transparent", "rgba(13,13,13,0.7)", colors.background]}
-				locations={[0, 0.2, 0.8]}
+				// Eased ramp (no visible start line): slow at the top, full black by 80%
+				colors={[
+					"rgba(0,0,0,0)",
+					"rgba(0,0,0,0.08)",
+					"rgba(0,0,0,0.25)",
+					"rgba(0,0,0,0.5)",
+					"rgba(0,0,0,0.75)",
+					colors.background,
+				]}
+				locations={[0, 0.12, 0.26, 0.42, 0.6, 0.8]}
 				style={[styles.gradientIsland, { marginTop: -280 }]}
 			>
 				<View style={styles.island}>{children}</View>

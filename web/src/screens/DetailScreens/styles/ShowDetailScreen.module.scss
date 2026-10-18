@@ -53,7 +53,16 @@
 	position: relative;
 	margin-top: -280px;
 	padding: 200px 8px 8px;
-	background: linear-gradient(to bottom, transparent 0%, rgba(13, 13, 13, 0.7) 20%, var(--bg) 80%);
+	/* Eased ramp (no visible start line): slow at the top, full black by 80% — app DetailBackdrop */
+	background: linear-gradient(
+		to bottom,
+		rgb(0 0 0 / 0%) 0%,
+		rgb(0 0 0 / 8%) 12%,
+		rgb(0 0 0 / 25%) 26%,
+		rgb(0 0 0 / 50%) 42%,
+		rgb(0 0 0 / 75%) 60%,
+		var(--bg) 80%
+	);
 }
 
 .island {
