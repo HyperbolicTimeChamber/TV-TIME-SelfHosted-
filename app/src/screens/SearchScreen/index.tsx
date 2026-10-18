@@ -18,6 +18,12 @@ import { styles } from "./styles";
 
 type NavProp = NativeStackNavigationProp<SearchStackParamList, Route.SEARCH_MAIN>;
 
+const FILTER_TABS = [
+	{ key: MediaFilter.ALL, label: "All" },
+	{ key: MediaFilter.TV, label: "TV" },
+	{ key: MediaFilter.MOVIE, label: "Movies" },
+];
+
 export default function SearchScreen() {
 	const { top } = useSafeAreaInsets();
 	const navigation = useNavigation<NavProp>();
@@ -26,10 +32,12 @@ export default function SearchScreen() {
 	const submittedQuery = (route.params as any)?.query || "";
 	const [mediaFilter, setMediaFilter] = useState<MediaFilter>(MediaFilter.ALL);
 
-	// Collapsible header
+	// Collapsible header — transforms only (native driver): header slides up by h, the content
+	// below it slides up by h too (it's h taller, so no gap opens at the bottom). Animating
+	// the content's paddingTop instead relaid the list out on the JS thread every frame.
 	const headerHeight = useRef(0);
+	const [headerH, setHeaderH] = useState(0);
 	const headerTranslateY = useRef(new Animated.Value(0)).current;
-	const contentPaddingTop = useRef(new Animated.Value(0)).current;
 	const lastScrollY = useRef(0);
 	const headerVisible = useRef(true);
 	const animating = useRef(false);
@@ -37,9 +45,9 @@ export default function SearchScreen() {
 	const onHeaderLayout = useCallback(
 		(e: any) => {
 			headerHeight.current = e.nativeEvent.layout.height;
-			contentPaddingTop.setValue(headerHeight.current);
+			setHeaderH(e.nativeEvent.layout.height);
 		},
-		[contentPaddingTop],
+		[],
 	);
 
 	const handleScroll = useCallback(
@@ -58,40 +66,26 @@ export default function SearchScreen() {
 			if (dy > 10 && headerVisible.current && y > 50 && canHide) {
 				headerVisible.current = false;
 				animating.current = true;
-				Animated.parallel([
-					Animated.timing(headerTranslateY, {
-						toValue: -h,
-						duration: 200,
-						useNativeDriver: false,
-					}),
-					Animated.timing(contentPaddingTop, {
-						toValue: 0,
-						duration: 200,
-						useNativeDriver: false,
-					}),
-				]).start(() => {
+				Animated.timing(headerTranslateY, {
+					toValue: -h,
+					duration: 200,
+					useNativeDriver: true,
+				}).start(() => {
 					animating.current = false;
 				});
 			} else if ((dy < -10 || y <= 0) && !headerVisible.current) {
 				headerVisible.current = true;
 				animating.current = true;
-				Animated.parallel([
-					Animated.timing(headerTranslateY, {
-						toValue: 0,
-						duration: 200,
-						useNativeDriver: false,
-					}),
-					Animated.timing(contentPaddingTop, {
-						toValue: h,
-						duration: 200,
-						useNativeDriver: false,
-					}),
-				]).start(() => {
+				Animated.timing(headerTranslateY, {
+					toValue: 0,
+					duration: 200,
+					useNativeDriver: true,
+				}).start(() => {
 					animating.current = false;
 				});
 			}
 		},
-		[headerTranslateY, contentPaddingTop],
+		[headerTranslateY],
 	);
 
 	const openSearchInput = useCallback(() => {
@@ -132,11 +126,16 @@ export default function SearchScreen() {
 
 	const { data: trending, isLoading: trendingLoading } = useTrending("all");
 
-	const filteredTrending = trending?.filter((item) => {
-		if (mediaFilter === MediaFilter.ALL) return true;
-		const mt = item.media_type || (item.title ? "movie" : "tv");
-		return mt === mediaFilter;
-	});
+	// Memoized: a new array every render re-mapped displayData → every card re-rendered
+	const filteredTrending = useMemo(
+		() =>
+			trending?.filter((item) => {
+				if (mediaFilter === MediaFilter.ALL) return true;
+				const mt = item.media_type || (item.title ? "movie" : "tv");
+				return mt === mediaFilter;
+			}),
+		[trending, mediaFilter],
+	);
 
 	const rawDisplayData = submittedQuery.length > 0 ? searchData?.results : filteredTrending;
 	const isLoading = submittedQuery.length > 0 ? searchLoading : trendingLoading;
@@ -211,49 +210,52 @@ export default function SearchScreen() {
 					</View>
 
 					<SlidingTabs
-						tabs={[
-							{ key: MediaFilter.ALL, label: "All" },
-							{ key: MediaFilter.TV, label: "TV" },
-							{ key: MediaFilter.MOVIE, label: "Movies" },
-						]}
+						tabs={FILTER_TABS}
 						activeKey={mediaFilter}
 						onTabPress={(key) => setMediaFilter(key as MediaFilter)}
 					/>
 				</View>
 			</Animated.View>
 
-			<Animated.View style={{ paddingTop: contentPaddingTop }}>
+			<Animated.View
+				style={[
+					styles.content,
+					{ paddingTop: headerH, marginBottom: -headerH, transform: [{ translateY: headerTranslateY }] },
+				]}
+			>
 				{!submittedQuery && <Text style={styles.sectionTitle}>Trending</Text>}
-			</Animated.View>
 
-			{isLoading ? (
-				<View style={styles.center}>
-					<LoadingSpinner />
-				</View>
-			) : !isLoading && submittedQuery.length > 0 && (!displayData || displayData.length === 0) ? (
-				<View style={styles.emptyWrap}>
-					<NotFoundArt source={NO_RESULTS_ART} ratio={NO_RESULTS_RATIO} />
-					<Text style={styles.emptyText}>NOTHING FOUND</Text>
-					<Text style={styles.emptyHint}>Searched the database, but nothing happened. Have you lost the way?</Text>
-				</View>
-			) : (
-				<LegendList
-					data={displayData || []}
-					keyExtractor={(item) => `${item.media_type || "x"}_${item.id}`}
-					renderItem={renderItem}
-					numColumns={2}
-					estimatedItemSize={140}
-					columnWrapperStyle={styles.row}
-					onScroll={handleScroll}
-					scrollEventThrottle={16}
-					contentContainerStyle={styles.grid}
-					onEndReached={() => {
-						if (submittedQuery && hasNextPage) fetchNextPage();
-					}}
-					onEndReachedThreshold={0.5}
-					recycleItems={false}
-				/>
-			)}
+				{isLoading ? (
+					<View style={styles.center}>
+						<LoadingSpinner />
+					</View>
+				) : !isLoading && submittedQuery.length > 0 && (!displayData || displayData.length === 0) ? (
+					<View style={styles.emptyWrap}>
+						<NotFoundArt source={NO_RESULTS_ART} ratio={NO_RESULTS_RATIO} />
+						<Text style={styles.emptyText}>NOTHING FOUND</Text>
+						<Text style={styles.emptyHint}>Searched the database, but nothing happened. Have you lost the way?</Text>
+					</View>
+				) : (
+					<LegendList
+						data={displayData || []}
+						keyExtractor={(item) => `${item.media_type || "x"}_${item.id}`}
+						renderItem={renderItem}
+						numColumns={2}
+						estimatedItemSize={140}
+						columnWrapperStyle={styles.row}
+						onScroll={handleScroll}
+						scrollEventThrottle={16}
+						// Content is headerH taller than the screen (see above) — keep the last row reachable
+						contentContainerStyle={[styles.grid, { paddingBottom: headerH }]}
+						onEndReached={() => {
+							if (submittedQuery && hasNextPage) fetchNextPage();
+						}}
+						onEndReachedThreshold={0.5}
+						recycleItems={false}
+					/>
+				)}
+
+			</Animated.View>
 
 			<SearchModals
 				movieModal={movieModal}

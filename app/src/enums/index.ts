@@ -72,6 +72,7 @@ export enum QueryKey {
 	SEASON_IMAGES = "seasonImages",
 	SEARCH = "search",
 	TRENDING = "trending",
+	TITLE_LOGO = "titleLogo",
 }
 
 /** Fill of the shared 44px circular icon buttons (back, share) */

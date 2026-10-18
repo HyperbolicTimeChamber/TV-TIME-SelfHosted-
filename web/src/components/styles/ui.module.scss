@@ -28,6 +28,177 @@
 	margin: 0 0 8px;
 }
 
+/* The title's 8px bottom margin is the gap above; this matches it below (equal top / bottom) */
+.modalImage {
+	display: flex;
+	justify-content: center;
+	margin: 0 0 8px;
+}
+
+/* 140px tall, or the popup's width for wide art */
+/* Title-over-image: art pulled up over modalCard's 16px top padding, title in black on it */
+.modalImageTop {
+	position: relative;
+	margin-top: -16px;
+}
+
+.modalTitleOnImage {
+	position: absolute;
+	top: 12px;
+	left: 16px;
+	right: 16px;
+	margin: 0;
+	color: #000;
+	pointer-events: none;
+}
+
+.modalArt {
+	display: block;
+	max-height: 140px;
+	max-width: 100%;
+	object-fit: contain;
+}
+
+/* Tallest logo (90px), + the badge overhang when paused */
+.modalLogoSlot {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 90px;
+}
+
+.modalLogoSlotPaused {
+	min-height: 102.6px;
+}
+
+/* A logo still loading: in the page (so it loads) but invisible and out of the flow */
+.logoLoading {
+	position: absolute;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.modalLogoBox {
+	position: relative;
+	display: inline-block;
+	max-width: 240px;
+}
+
+.modalLogo {
+	display: block;
+	max-width: 240px;
+	max-height: 90px;
+	object-fit: contain;
+}
+
+.modalLogoName {
+	display: block;
+	padding: 4px 0;
+	font-size: 26px;
+	line-height: 30px;
+	font-weight: 800;
+	text-align: center;
+}
+
+/* Room under the logo for the part of the badge hanging below it */
+.modalLogoPaused {
+	margin-bottom: 12.6px;
+}
+
+/* 36px badge, 65% of it over the logo's bottom-right corner */
+.pauseBadge {
+	position: absolute;
+	width: 36px;
+	height: 36px;
+	right: -12.6px;
+	bottom: -12.6px;
+}
+
+/* Edge to edge across the popup: bleeds over modalCard's 16px side padding */
+.modalBackdrop {
+	position: relative;
+	flex-shrink: 0;
+	width: calc(100% + 32px);
+	margin: 0 -16px;
+	aspect-ratio: 16 / 9;
+	overflow: hidden;
+	background: var(--surface-light);
+}
+
+/* Banner skeleton (pulse like the app's SkeletonLine); overlays hidden until the image is in */
+.modalBackdropSkeleton {
+	position: absolute;
+	inset: 0;
+	background: var(--border);
+}
+
+.shimmer {
+	animation: modal-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes modal-shimmer {
+	0%,
+	100% {
+		opacity: 0.3;
+	}
+	50% {
+		opacity: 0.6;
+	}
+}
+
+.modalBackdropLoading .modalBackdropLogo,
+.modalBackdropLoading .modalBackdropPause {
+	visibility: hidden;
+}
+
+.modalBackdropImg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+/* Gray wash over the whole backdrop (logo included); the bars centred, 12px from top and bottom */
+.modalBackdropPause {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 12px 0;
+	background: rgb(160 160 160 / 45%);
+}
+
+.pauseCenter {
+	height: 100%;
+	aspect-ratio: 1;
+	opacity: 0.6;
+}
+
+/* Logo over a bottom shade so it reads on any backdrop */
+.modalBackdropLogo {
+	position: absolute;
+	inset: 40% 0 0;
+	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+	padding: 0 12px 10px;
+	background: linear-gradient(transparent, rgb(0 0 0 / 85%));
+
+	img {
+		width: 60%;
+		height: 48px;
+		object-fit: contain;
+	}
+
+	span {
+		font-size: 20px;
+		font-weight: 800;
+		text-align: center;
+	}
+}
+
 .modalHint {
 	font-size: 12px;
 	color: var(--text-secondary);
@@ -80,6 +251,12 @@
 .outline {
 	background: transparent;
 	border: 1px solid var(--border);
+}
+
+/* Modal Cancel — white outline, same as the app */
+.cancelOutline {
+	background: transparent;
+	border: 1.5px solid var(--text);
 }
 
 .cancel {

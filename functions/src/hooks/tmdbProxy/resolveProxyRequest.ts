@@ -24,7 +24,9 @@ const ALLOWED_PARAMS: Record<string, (v: string) => boolean> = {
   query: (v) => v.length > 0 && v.length <= 100,
   page: (v) => /^\d{1,3}$/.test(v) && Number(v) >= 1 && Number(v) <= 500,
   append_to_response: (v) =>
-    v.split(",").every((p) => ["credits", "similar"].includes(p)),
+    v.split(",").every((p) => ["credits", "similar", "images"].includes(p)),
+  // Title logos with the details (images): English + language-neutral only
+  include_image_language: (v) => v === "en,null",
   language: (v) => /^[a-z]{2}(-[A-Z]{2})?$/.test(v),
 };
 

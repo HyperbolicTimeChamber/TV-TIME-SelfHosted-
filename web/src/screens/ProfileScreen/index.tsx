@@ -1,4 +1,4 @@
-import { App as AntApp, Spin } from "antd";
+import { Spin } from "antd";
 import { IoPerson, IoSettingsSharp } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import { useUserStats } from "@app/hooks/useUserStats";
@@ -7,7 +7,6 @@ import { useProfileCardImages } from "@app/hooks/useProfileCardImages";
 import { useCompletedShows } from "@app/hooks/useCompletedShows";
 import { formatCount, formatTime, scaledPhotoURL } from "@app/utils/format";
 import { useAppSelector } from "../../store";
-import { signOut } from "../../services/auth";
 import PosterImage from "../../components/PosterImage";
 import { Paths, showPath } from "../../routes/paths";
 import { StatCard, CollageCard } from "./ProfileCards";
@@ -20,24 +19,11 @@ import styles from "./styles/ProfileScreen.module.scss";
 /** Profile tab — stats, weekly chart, recently completed (same hooks as the app) */
 export default function ProfileScreen() {
 	const navigate = useNavigate();
-	const { modal } = AntApp.useApp();
 	const user = useAppSelector((s) => s.auth.user);
 	const { stats, loading: statsLoading } = useUserStats(user?.uid);
 	const { items: watchlist } = useWatchlist(user?.uid);
 	const cardImages = useProfileCardImages(watchlist);
 	const { sections, loading: completedLoading } = useCompletedShows(user?.uid);
-
-	const confirmSignOut = () =>
-		modal.confirm({
-			title: "Log Out",
-			content: "Are you sure?",
-			okText: "Log Out",
-			okButtonProps: { danger: true },
-			onOk: async () => {
-				await signOut();
-				navigate(Paths.SEARCH, { replace: true });
-			},
-		});
 
 	return (
 		<div className={styles.container}>
@@ -131,10 +117,6 @@ export default function ProfileScreen() {
 					</section>
 				)
 			)}
-
-			<button className={styles.signOutButton} onClick={confirmSignOut}>
-				Log Out
-			</button>
 		</div>
 	);
 }

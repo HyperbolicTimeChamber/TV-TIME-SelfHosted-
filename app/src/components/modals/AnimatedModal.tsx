@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Modal, View, Pressable, Animated, StyleSheet, ModalProps } from "react-native";
 import { colors } from "../../theme";
 
@@ -15,6 +15,18 @@ const DURATION = 250;
 export default function AnimatedModal({ visible, onClose, onRequestClose, children, wide }: Props) {
 	const opacity = useRef(new Animated.Value(0)).current;
 	const scale = useRef(new Animated.Value(0.85)).current;
+	// Touches only count once the open animation is done: a popup opened by a long press
+	// appears under the finger, and lifting it must not press whatever button is there
+	// (it paused shows by accident)
+	const [armed, setArmed] = useState(false);
+	useEffect(() => {
+		if (!visible) {
+			setArmed(false);
+			return;
+		}
+		const t = setTimeout(() => setArmed(true), DURATION);
+		return () => clearTimeout(t);
+	}, [visible]);
 
 	useEffect(() => {
 		if (visible) {
@@ -59,8 +71,11 @@ export default function AnimatedModal({ visible, onClose, onRequestClose, childr
 			animationType="none"
 			onRequestClose={onRequestClose ?? handleClose}
 		>
-			<Pressable style={styles.overlay} onPress={handleClose}>
-				<Animated.View style={[styles.content, wide && styles.wide, { opacity, transform: [{ scale }] }]}>
+			<Pressable style={styles.overlay} onPress={armed ? handleClose : undefined}>
+				<Animated.View
+					pointerEvents={armed ? "auto" : "none"}
+					style={[styles.content, wide && styles.wide, { opacity, transform: [{ scale }] }]}
+				>
 					<Pressable onPress={() => {}}>{children}</Pressable>
 				</Animated.View>
 			</Pressable>

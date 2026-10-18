@@ -35,3 +35,4 @@ export {
 	tmdbStillUri,
 } from "./useTmdbImage";
 export { useWatchHistory } from "./useWatchHistory";
+export { useTitleLogo } from "./useTitleLogo";

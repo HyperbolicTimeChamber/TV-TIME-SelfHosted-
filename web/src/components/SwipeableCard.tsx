@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState, type ReactNode } from "react";
 import { Spin } from "antd";
 import { animate, motion, useMotionValue, useTransform } from "motion/react";
+import { RxCheck, RxCross2 } from "react-icons/rx";
 import { colors } from "../theme/index";
 import styles from "./styles/SwipeableCard.module.scss";
 import { cssVars } from "../utils/cssVars";
@@ -13,11 +14,13 @@ interface Props {
 	children: ReactNode;
 	/** Swipe RIGHT (card moves right) — "watched" action, named as in the app */
 	onSwipeLeft: () => Promise<void>;
-	/** Swipe LEFT — stop / unwatch action */
-	onSwipeRight: () => Promise<void>;
+	/** Swipe LEFT — stop / unwatch action; omit to turn that direction off */
+	onSwipeRight?: () => Promise<void>;
 	persistAfterSwipe?: boolean | { left: boolean; right: boolean };
 	leftLabel?: string;
 	rightLabel?: string;
+	/** Text in the right reveal's circle instead of the ✕ icon — e.g. "−1" when unwatching drops a count */
+	rightIcon?: string;
 	leftColor?: string;
 	rightColor?: string;
 }
@@ -34,6 +37,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		persistAfterSwipe = false,
 		leftLabel = "Watched",
 		rightLabel = "Stop",
+		rightIcon,
 		leftColor = colors.watchedGreen,
 		rightColor = colors.stopBlue,
 	},
@@ -56,7 +60,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 			setState("loading");
 			const persist = typeof persistAfterSwipe === "object" ? persistAfterSwipe[direction] : persistAfterSwipe;
 			try {
-				await (direction === "left" ? onSwipeLeft() : onSwipeRight());
+				await (direction === "left" ? onSwipeLeft() : onSwipeRight?.());
 				if (persist) {
 					// List re-render replaces the card; reset quietly
 					x.set(0);
@@ -102,12 +106,14 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 			) : (
 				<>
 					<motion.div className={`${styles.reveal} ${styles.revealLeft} bg-(--reveal)!`} style={{ opacity: leftOpacity, ...cssVars({ "--reveal": leftColor }) }}>
-						<span className={styles.revealIcon}>✓</span>
+						<span className={styles.revealIcon}>
+							<RxCheck size={22} />
+						</span>
 						<span className={styles.revealText}>{leftLabel}</span>
 					</motion.div>
 					<motion.div className={`${styles.reveal} ${styles.revealRight} bg-(--reveal)!`} style={{ opacity: rightOpacity, ...cssVars({ "--reveal": rightColor }) }}>
 						<span className={styles.revealText}>{rightLabel}</span>
-						<span className={styles.revealIcon}>✕</span>
+						<span className={styles.revealIcon}>{rightIcon ?? <RxCross2 size={22} />}</span>
 					</motion.div>
 				</>
 			)}
@@ -115,13 +121,16 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				className={`${styles.card} ${state === "loading" ? "invisible" : ""}`}
 				style={{ x }}
 				drag={state === "idle" ? "x" : false}
+				// No right action → the card only moves right
+				dragConstraints={onSwipeRight ? undefined : { left: 0 }}
+				dragElastic={onSwipeRight ? 0.5 : { left: 0, right: 0.5 }}
 				dragDirectionLock
 				dragSnapToOrigin={false}
 				dragMomentum={false}
 				onDragEnd={(_, info) => {
 					const threshold = width() * THRESHOLD_RATIO;
 					if (info.offset.x > threshold) animate(x, width(), { duration: 0.2 }).then(() => complete("left"));
-					else if (info.offset.x < -threshold) animate(x, -width(), { duration: 0.2 }).then(() => complete("right"));
+					else if (onSwipeRight && info.offset.x < -threshold) animate(x, -width(), { duration: 0.2 }).then(() => complete("right"));
 					else animate(x, 0, { duration: 0.2 });
 				}}
 			>

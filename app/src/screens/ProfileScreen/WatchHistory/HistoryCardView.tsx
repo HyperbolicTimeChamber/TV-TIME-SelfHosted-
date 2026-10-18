@@ -4,7 +4,7 @@ import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../../theme";
 import { HistoryPill, HistoryProgress } from "../../../enums";
-import { tmdbBackdropUri, tmdbLogoUri } from "../../../hooks/useTmdbImage";
+import { tmdbBlurredBackdropUri, tmdbLogoUri } from "../../../hooks/useTmdbImage";
 import type { HistoryCard } from "../../../utils";
 import { BLUR_RADIUS } from "../styles";
 import ProgressRing from "./ProgressRing";
@@ -58,7 +58,8 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 		<TouchableOpacity style={[styles.card, { minHeight: CARD_MIN_HEIGHT }]} onPress={onPress} activeOpacity={0.85}>
 			{card.backdropPath && (
 				<Image
-					source={{ uri: tmdbBackdropUri(card.backdropPath, CARD_WIDTH) }}
+					source={{ uri: tmdbBlurredBackdropUri(card.backdropPath) }}
+					recyclingKey={card.id}
 					style={StyleSheet.absoluteFill}
 					contentFit="cover"
 					// Show the top of the backdrop (faces / titles sit there), like calendar cards

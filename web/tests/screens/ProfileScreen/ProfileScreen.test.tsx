@@ -30,11 +30,13 @@ describe("ProfileScreen", () => {
 		expect(screen.getByRole("button", { name: "Hall of Shame" })).toBeInTheDocument();
 		expect(screen.getByText("Recently Completed")).toBeInTheDocument();
 		expect(screen.getByText("Drama")).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "Log Out" })).toBeInTheDocument();
+		// Log Out lives in Settings now
+		expect(screen.queryByRole("button", { name: "Log Out" })).not.toBeInTheDocument();
 	});
 
 	it("settings offers password change only to email accounts", () => {
 		renderWithProviders(<SettingsScreen />, { user: testUser });
+		expect(screen.getByRole("button", { name: "Log Out" })).toBeInTheDocument();
 		expect(screen.getByText("Change Password")).toBeInTheDocument();
 		expect(screen.getByText("Import TV Time Data")).toBeInTheDocument();
 	});

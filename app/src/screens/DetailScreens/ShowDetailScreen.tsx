@@ -1,17 +1,13 @@
-import React, { useCallback, useState } from "react";
-import {
-	View,
-	Text,
-	Animated,
-	StyleSheet,
-	Alert,
-	Share,
-	NativeScrollEvent,
-	NativeSyntheticEvent,
-} from "react-native";
+import React, { useCallback } from "react";
+import { View, Text, StyleSheet, Alert, Share } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import Reanimated, {
+	useAnimatedScrollHandler,
+	useDerivedValue,
+	useSharedValue,
+} from "react-native-reanimated";
 import DetailBackdrop from "./DetailBackdrop";
 import ActionPills from "./ActionPills";
 import DetailCredits from "./DetailCredits";
@@ -27,8 +23,11 @@ import { showShareUrl, describeLoadError } from "../../utils";
 import ErrorState from "../../components/ErrorState";
 import CircleButton, { CircleBackButton } from "../../components/CircleButton";
 import { colors, spacing, typography } from "../../theme";
-import { HomeStackParamList, MediaType, Route } from "../../types";
+import { HomeStackParamList, MediaType, Route, WatchStatus } from "../../types";
 import { CircleButtonTone } from "../../enums";
+import { ModalBackdrop, ModalLogo } from "../../components/modals/ModalArt";
+import { getCachedCatalogShow } from "../../hooks/useWatchlist";
+import { pickTitleLogo } from "../../services/tmdb";
 
 type RouteParams = RouteProp<HomeStackParamList, "ShowDetail">;
 
@@ -66,10 +65,17 @@ export default function ShowDetailScreen() {
 		handleConfirmRemove,
 		handleMarkMovieWatched,
 		handleResumeOrRewatch,
+		pauseModalVisible,
+		setPauseModalVisible,
+		pausing,
+		handleConfirmPause,
 		handleMovieSheetAction,
 		seasonLayout,
 	} = useShowDetailActions(tmdbId, mediaType);
-
+	// Catalog's logo, else the one that came with the details (same request as the page data)
+	const logoPath =
+		getCachedCatalogShow(tmdbId, mediaType)?.logoPath ??
+		(show?.images ? pickTitleLogo(show.images.logos) : undefined);
 
 	const navigation = useNavigation();
 	// Opened from a deep link with nothing underneath → go to the watchlist
@@ -79,11 +85,14 @@ export default function ShowDetailScreen() {
 	}, [navigation]);
 	const insets = useSafeAreaInsets();
 	const BACKDROP_HEIGHT = 350;
-	const [imageTranslateY, setImageTranslateY] = useState(0);
-	const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-		const y = e.nativeEvent.contentOffset.y;
-		setImageTranslateY(Math.min(y * 0.4, BACKDROP_HEIGHT * 0.5));
-	}, []);
+	// Parallax runs on the UI thread (was a setState per scroll event → whole screen re-rendered)
+	const scrollY = useSharedValue(0);
+	const handleScroll = useAnimatedScrollHandler((e) => {
+		scrollY.value = e.contentOffset.y;
+	});
+	const imageTranslateY = useDerivedValue(() =>
+		Math.min(scrollY.value * 0.4, BACKDROP_HEIGHT * 0.5),
+	);
 
 	if (isLoading || trackingLoading) {
 		return (
@@ -141,7 +150,7 @@ export default function ShowDetailScreen() {
 				<Ionicons name="share-social-outline" size={26} color={colors.text} />
 			</CircleButton>
 
-			<Animated.ScrollView
+			<Reanimated.ScrollView
 				contentContainerStyle={{ paddingBottom: spacing.xxl + Math.max(insets.bottom, 48) }}
 				onScroll={handleScroll}
 				scrollEventThrottle={16}
@@ -151,7 +160,10 @@ export default function ShowDetailScreen() {
 					posterPath={show.poster_path}
 					imageTranslateY={imageTranslateY}
 				>
-					<Text style={styles.islandTitle}>{title}</Text>
+					{/* Title logo (name as the fallback), centred */}
+					<View style={styles.islandLogo} accessibilityRole="header" accessibilityLabel={title}>
+						<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={title} nameDelay={2000} />
+					</View>
 
 					<ActionPills
 						mediaType={mediaType}
@@ -163,6 +175,7 @@ export default function ShowDetailScreen() {
 						onAddToWatchlist={handleAddToWatchlist}
 						onMarkMovieWatched={handleMarkMovieWatched}
 						onResumeOrRewatch={handleResumeOrRewatch}
+						onPause={() => setPauseModalVisible(true)}
 						onRemove={handleRemove}
 						onMovieSheetOpen={() => setMovieSheetVisible(true)}
 					/>
@@ -246,11 +259,14 @@ export default function ShowDetailScreen() {
 						</View>
 					)}
 				</View>
-			</Animated.ScrollView>
+			</Reanimated.ScrollView>
 
 			<ConfirmModal
 				visible={removeModalVisible}
-				title={`Remove "${title}"?`}
+				title={mediaType === MediaType.MOVIE ? "Remove Movie?" : "Remove Show?"}
+				image={
+					<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={title} />
+				}
 				hint="This will remove it from your watchlist. Your watch history will be kept."
 				error={removeError}
 				confirmLabel="Remove"
@@ -260,6 +276,43 @@ export default function ShowDetailScreen() {
 					setRemoveModalVisible(false);
 					setRemoveError(null);
 				}}
+			/>
+
+			<ConfirmModal
+				visible={pauseModalVisible}
+				title={watchlistItem?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"}
+				imageAtTop={!!show?.backdrop_path}
+				hideTitle
+				image={
+					show?.backdrop_path ? (
+						<ModalBackdrop
+							backdropPath={show.backdrop_path}
+							logoPath={logoPath}
+							tmdbId={tmdbId}
+							mediaType={mediaType}
+							title={title}
+							paused
+						/>
+					) : (
+						<ModalLogo
+							logoPath={logoPath}
+							tmdbId={tmdbId}
+							mediaType={mediaType}
+							title={title}
+							paused
+						/>
+					)
+				}
+				hint={
+					watchlistItem?.status === WatchStatus.REWATCHING
+						? "Pausing this rewatch will take it off your watchlist. You can resume it any time from here."
+						: "Pausing this show will take it off your watchlist. You can resume it any time from here."
+				}
+				confirmLabel="Pause"
+				confirmColor={colors.stopBlue}
+				loading={pausing}
+				onConfirm={handleConfirmPause}
+				onClose={() => setPauseModalVisible(false)}
 			/>
 
 			<UnreleasedMovieModal
@@ -293,9 +346,8 @@ const styles = StyleSheet.create({
 	// Position only — the circle itself is components/CircleButton
 	backButton: { position: "absolute", left: 16, zIndex: 10 },
 	shareButton: { position: "absolute", right: 16, zIndex: 10 },
-	islandTitle: {
-		...typography.title,
-		fontSize: 24,
+	islandLogo: {
+		alignItems: "center",
 	},
 	statsBar: {
 		flexDirection: "row",

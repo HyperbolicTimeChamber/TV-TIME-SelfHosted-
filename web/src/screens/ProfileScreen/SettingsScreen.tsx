@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { App as AntApp, Spin } from "antd";
+import { App as AntApp } from "antd";
 
 import { useNavigate } from "react-router-dom";
 import { httpsCallable } from "firebase/functions";
@@ -8,12 +8,14 @@ import { resetPassword, signOut } from "../../services/auth";
 import { useAppSelector } from "../../store";
 import { Paths } from "../../routes/paths";
 import { CircleBackButton, CircleButtonSpacer } from "../../components/CircleButton";
+import ConfirmModal from "../../components/ConfirmModal";
+import { FAREWELL_ART, LOGOUT_ART, ModalArt } from "../../components/ModalArt";
 import styles from "./styles/SettingsScreen.module.scss";
 
 /** Settings (app SettingsScreen; push-notification debug tools are mobile-only) */
 export default function SettingsScreen() {
 	const navigate = useNavigate();
-	const { message, modal } = AntApp.useApp();
+	const { message } = AntApp.useApp();
 	const user = useAppSelector((s) => s.auth.user);
 	const hasCompletedImport = useAppSelector((s) => s.auth.hasCompletedImport);
 	const [deleting, setDeleting] = useState(false);
@@ -29,24 +31,22 @@ export default function SettingsScreen() {
 		}
 	};
 
-	const deleteAccount = () =>
-		modal.confirm({
-			title: "Delete Account",
-			content: "This will permanently delete your account and all data. This cannot be undone.",
-			okText: "Delete",
-			okButtonProps: { danger: true },
-			onOk: async () => {
-				setDeleting(true);
-				try {
-					await httpsCallable(getFunctions(), "deleteAccount")({});
-					await signOut();
-					navigate(Paths.SEARCH, { replace: true });
-				} catch (err) {
-					message.error((err as Error).message || "Failed to delete account.");
-					setDeleting(false);
-				}
-			},
-		});
+	const [logoutVisible, setLogoutVisible] = useState(false);
+	const [deleteVisible, setDeleteVisible] = useState(false);
+	const [deleteError, setDeleteError] = useState<string | null>(null);
+
+	const deleteAccount = async () => {
+		setDeleting(true);
+		setDeleteError(null);
+		try {
+			await httpsCallable(getFunctions(), "deleteAccount")({});
+			await signOut();
+			navigate(Paths.SEARCH, { replace: true });
+		} catch (err) {
+			setDeleteError((err as Error).message || "Failed to delete account.");
+			setDeleting(false);
+		}
+	};
 
 	return (
 		<div className={styles.container}>
@@ -70,10 +70,48 @@ export default function SettingsScreen() {
 						Change Password
 					</button>
 				)}
-				<button className={`${styles.row} ${styles.deleteText}`} onClick={deleteAccount} disabled={deleting}>
-					{deleting ? <Spin size="small" /> : "Delete Account & Data"}
+				<button
+					className={`${styles.row} ${styles.deleteText}`}
+					onClick={() => setLogoutVisible(true)}
+				>
+					Log Out
+				</button>
+				<button
+					className={`${styles.row} ${styles.deleteText}`}
+					onClick={() => {
+						setDeleteError(null);
+						setDeleteVisible(true);
+					}}
+				>
+					Delete Account & Data
 				</button>
 			</section>
+
+			<ConfirmModal
+				visible={logoutVisible}
+				title="Until Next Time"
+				image={<ModalArt src={LOGOUT_ART} />}
+				hint="You can sign back in any time — your watchlist and history stay saved."
+				confirmLabel="Log Out"
+				onConfirm={async () => {
+					setLogoutVisible(false);
+					await signOut();
+					navigate(Paths.SEARCH, { replace: true });
+				}}
+				onClose={() => setLogoutVisible(false)}
+			/>
+
+			<ConfirmModal
+				visible={deleteVisible}
+				title="Is This Goodbye?"
+				image={<ModalArt src={FAREWELL_ART} />}
+				hint="This will permanently delete your account and all data. This cannot be undone."
+				error={deleteError}
+				confirmLabel="Delete"
+				loading={deleting}
+				onConfirm={deleteAccount}
+				onClose={() => setDeleteVisible(false)}
+			/>
 		</div>
 	);
 }

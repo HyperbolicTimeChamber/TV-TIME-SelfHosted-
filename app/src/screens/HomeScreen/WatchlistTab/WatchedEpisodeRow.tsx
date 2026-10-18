@@ -27,10 +27,13 @@ export default memo(function WatchedEpisodeRow({
 
 	return (
 		<SwipeableCard
+			// Recycled list row → fresh swipe state for the new episode
+			resetKey={episode.id}
 			onSwipeLeft={() => onSwipeLeft(episode)}
 			onSwipeRight={() => onSwipeRight(episode)}
 			leftLabel="Rewatch"
-			rightLabel={episode.watchCount > 1 ? "−1" : "Unwatch"}
+			rightLabel="Unwatch"
+			rightIcon={episode.watchCount > 1 ? "−1" : undefined}
 			persistAfterSwipe={{ left: true, right: episode.watchCount > 1 }}
 		>
 			<TouchableOpacity

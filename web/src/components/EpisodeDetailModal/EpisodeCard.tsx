@@ -113,11 +113,12 @@ function EpisodeCard(p: Props) {
 						{skip}
 					</div>
 				) : (
+					// Rewatch: Skip first, then "Mark Nth Rewatch"
 					<div className={styles.buttonRow}>
+						{skip}
 						<button className={`${styles.actionButton} ${styles.watchButton}`} onClick={p.onMarkWatched} disabled={p.isMarking}>
 							{p.isMarking ? <Spin size="small" /> : p.markLabel}
 						</button>
-						{skip}
 					</div>
 				))}
 		</div>

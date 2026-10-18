@@ -3,8 +3,10 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { IoChevronBack, IoChevronForward } from "react-icons/io5";
 import type { CarouselEpisode, EnrichedEpisode, EpisodeDetailModalProps } from "@app/types";
-import AnimatedModal from "../AnimatedModal";
-import ui from "../styles/ui.module.scss";
+import ConfirmModal from "../ConfirmModal";
+import { ModalArt, SPEEDSTER_ART } from "../ModalArt";
+import { SKIP_AHEAD_TITLE, skipAheadConfirm, skipAheadHint } from "@app/utils/format";
+import { colors } from "../../theme/index";
 import EpisodeCard from "./EpisodeCard";
 import { markWatchedLabel } from "@app/utils/format";
 import { epKey } from "./helpers";
@@ -173,26 +175,36 @@ export default function EpisodeDetailModal({
 		if (!confirmTarget) return;
 		setConfirmLoading(true);
 		setMarkingKey(epKey(confirmTarget.season, confirmTarget.episode));
+		let marked = false;
 		try {
 			await onMarkWatchedThrough(tmdbId, confirmTarget.season, confirmTarget.episode);
+			// Mirror the write: one more watch for every episode from the current next one through
+			// the target (in a rewatch they all had counts already — cards used to stay stale)
+			const from = currentNextEpisode ?? { season: 1, episode: 1 };
+			const onOrAfter = (s: number, e: number) => s > from.season || (s === from.season && e >= from.episode);
+			const onOrBefore = (s: number, e: number) =>
+				s < confirmTarget.season || (s === confirmTarget.season && e <= confirmTarget.episode);
 			setLocalWatched((prev) => {
 				const next = new Map(prev);
 				for (const ep of episodes) {
-					if (
-						ep.season < confirmTarget.season ||
-						(ep.season === confirmTarget.season && ep.episode <= confirmTarget.episode)
-					) {
+					if (onOrAfter(ep.season, ep.episode) && onOrBefore(ep.season, ep.episode)) {
 						const k = epKey(ep.season, ep.episode);
-						if (!next.has(k)) next.set(k, 1);
+						next.set(k, (next.get(k) ?? 0) + 1);
 					}
 				}
 				return next;
 			});
+			marked = true;
 		} finally {
 			setMarkingKey(null);
 			setConfirmLoading(false);
 			setConfirmTarget(null);
 		}
+		// Caught up through this card: slide on to the next one, or close after the last
+		if (!marked) return;
+		const at = enrichedEps.findIndex((e) => e.season === confirmTarget.season && e.episode === confirmTarget.episode);
+		if (at >= 0 && at < enrichedEps.length - 1) scrollTo(at + 1);
+		else onClose();
 	};
 
 	const confirmLabel = confirmTarget
@@ -300,29 +312,24 @@ export default function EpisodeDetailModal({
 				)}
 			</AnimatePresence>
 
-			<AnimatedModal visible={!!confirmTarget} onClose={() => setConfirmTarget(null)}>
-				<p className={ui.modalTitle}>Mark Previous Episodes?</p>
-				<p className={ui.modalHint}>Mark episodes {confirmLabel} as watched?</p>
-				<button className={`${ui.button} ${ui.watched}`} onClick={confirmBackfill} disabled={confirmLoading}>
-					Mark All
-				</button>
-				<button
-					className={`${ui.button} ${ui.outline}`}
-					disabled={confirmLoading}
-					onClick={() => {
-						const t = confirmTarget!;
-						setConfirmTarget(null);
-						markOne({ season: t.season, episode: t.episode } as CarouselEpisode);
-					}}
-				>
-					Just This One
-				</button>
-				{!confirmLoading && (
-					<button className={ui.cancel} onClick={() => setConfirmTarget(null)}>
-						Cancel
-					</button>
-				)}
-			</AnimatedModal>
+			<ConfirmModal
+				visible={!!confirmTarget}
+				title={SKIP_AHEAD_TITLE}
+				hideCancel
+				image={<ModalArt src={SPEEDSTER_ART} />}
+				hint={skipAheadHint(confirmLabel)}
+				confirmLabel={skipAheadConfirm(confirmLabel)}
+				confirmColor={colors.watchedGreen}
+				loading={confirmLoading}
+				onConfirm={confirmBackfill}
+				secondaryLabel="Just This One"
+				onSecondary={() => {
+					const t = confirmTarget!;
+					setConfirmTarget(null);
+					markOne({ season: t.season, episode: t.episode } as CarouselEpisode);
+				}}
+				onClose={() => setConfirmTarget(null)}
+			/>
 		</>,
 		document.body,
 	);

@@ -7,6 +7,7 @@ export const styles = StyleSheet.create({
 		flex: 1,
 		backgroundColor: colors.background,
 	},
+	content: { flex: 1 },
 	headerBlock: {
 		position: "absolute" as const,
 		top: 0,
@@ -145,41 +146,6 @@ export const styles = StyleSheet.create({
 		color: colors.text,
 		fontSize: 10,
 		fontWeight: "700" as const,
-	},
-	modalContent: {
-		backgroundColor: colors.surface,
-		borderRadius: 12,
-		padding: spacing.lg,
-	},
-	modalTitle: {
-		...typography.subtitle,
-		fontSize: 16,
-		textAlign: "center" as const,
-		marginBottom: spacing.lg,
-	},
-	modalButton: {
-		backgroundColor: colors.primary,
-		paddingVertical: spacing.md,
-		borderRadius: 8,
-		alignItems: "center" as const,
-		marginBottom: spacing.sm,
-	},
-	modalButtonWatched: {
-		backgroundColor: colors.watchedGreen,
-	},
-	modalButtonText: {
-		...typography.subtitle,
-		fontSize: 14,
-		color: colors.text,
-	},
-	modalCancel: {
-		paddingVertical: spacing.sm,
-		alignItems: "center" as const,
-		marginTop: spacing.xs,
-	},
-	modalCancelText: {
-		...typography.caption,
-		color: colors.textMuted,
 	},
 	// Text sits just above the character art pinned to the bottom edge
 	emptyWrap: {

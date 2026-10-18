@@ -25,7 +25,6 @@ export type { TMDBShow, TMDBSeason, TMDBEpisode, UpcomingEpisode } from "./tmdb"
 export type {
 	RootStackParamList,
 	MainTabParamList,
-	HomeTopTabParamList,
 	MainStackParamList,
 	HomeStackParamList,
 	SwipeTabParamList,

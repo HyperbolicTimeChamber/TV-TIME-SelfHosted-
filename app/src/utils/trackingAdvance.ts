@@ -113,6 +113,21 @@ export function computeTrackingAdvance(
 
 	if (level === 1 && rewatching) return NONE;
 
+	// Filling the last gap of the first watch while a rewatch is already under way (episode 1
+	// at ×2, pointer further on — e.g. imported with holes, rewatched via the watchlist, holes
+	// marked later on the show page): it's a rewatch now — keep the pointer, flag it
+	if (level === 1 && tracking.nextEpisode && countOf(counts, order[0]) >= 2) {
+		const firstWatchDone = order.every((e) => countOf(counts, e) >= 1 || notAiredYet(e, today));
+		if (firstWatchDone) {
+			return {
+				advance: true,
+				nextEpisode: { season: tracking.nextEpisode.season, episode: tracking.nextEpisode.episode },
+				status: WatchStatus.REWATCHING,
+				incrementRewatch: true,
+			};
+		}
+	}
+
 	// Unbroken run up to X at this level. During a rewatch the run starts at the current
 	// pointer: episodes before it were rewatched or skipped (watchlist "Skip").
 	let runStart = 0;

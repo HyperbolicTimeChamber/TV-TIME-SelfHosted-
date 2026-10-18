@@ -4,13 +4,17 @@ import { IoShareSocialOutline } from "react-icons/io5";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useShowDetailActions } from "@app/screens/DetailScreens/useShowDetailActions";
 import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
-import { CircleButtonTone, MediaType } from "@app/enums";
+import { CircleButtonTone, MediaType, WatchStatus } from "@app/enums";
 import { showShareUrl } from "@app/utils/shareUrl";
 import LoadingScreen from "../../components/LoadingScreen";
 import CircleButton, { CircleBackButton } from "../../components/CircleButton";
 import ErrorState from "../../components/ErrorState";
 import { describeLoadError } from "@app/utils/loadError";
 import ConfirmModal from "../../components/ConfirmModal";
+import { colors } from "../../theme/index";
+import { ModalBackdrop, ModalLogo } from "../../components/ModalArt";
+import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
+import { pickTitleLogo } from "@app/services/tmdb";
 import UnreleasedMovieModal from "../../components/UnreleasedMovieModal";
 import WatchActionSheet from "../../components/WatchActionSheet";
 import SeasonDropdown from "../../components/SeasonDropdown";
@@ -29,6 +33,9 @@ export default function ShowDetailScreen() {
 	const location = useLocation();
 	const { message } = AntApp.useApp();
 	const d = useShowDetailActions(tmdbId, mediaType);
+	// Catalog's logo, else the one that came with the details (same request as the page data)
+	const logoPath =
+		getCachedCatalogShow(tmdbId, mediaType)?.logoPath ?? (d.show?.images ? pickTitleLogo(d.show.images.logos) : undefined);
 	const signedIn = !!d.user;
 
 	// Opened directly (share link / new tab): no in-app history, so go to the watchlist
@@ -112,7 +119,10 @@ export default function ShowDetailScreen() {
 			</div>
 			<div className={styles.gradientIsland}>
 				<div className={styles.island}>
-					<h1 className={styles.islandTitle}>{d.title}</h1>
+					{/* Title logo (name as the fallback), centred */}
+					<h1 className={styles.islandLogo} aria-label={d.title}>
+						<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={d.title} nameDelay={2000} />
+					</h1>
 					{signedIn ? (
 						<ActionPills
 							mediaType={mediaType}
@@ -124,6 +134,7 @@ export default function ShowDetailScreen() {
 							onAddToWatchlist={d.handleAddToWatchlist}
 							onMarkMovieWatched={d.handleMarkMovieWatched}
 							onResumeOrRewatch={d.handleResumeOrRewatch}
+							onPause={() => d.setPauseModalVisible(true)}
 							onRemove={d.handleRemove}
 							onMovieSheetOpen={() => d.setMovieSheetVisible(true)}
 						/>
@@ -209,7 +220,8 @@ export default function ShowDetailScreen() {
 				<>
 					<ConfirmModal
 						visible={d.removeModalVisible}
-						title={`Remove "${d.title}"?`}
+						title={mediaType === MediaType.MOVIE ? "Remove Movie?" : "Remove Show?"}
+						image={<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={d.title} />}
 						hint="This will remove it from your watchlist. Your watch history will be kept."
 						error={d.removeError}
 						confirmLabel="Remove"
@@ -219,6 +231,29 @@ export default function ShowDetailScreen() {
 							d.setRemoveModalVisible(false);
 							d.setRemoveError(null);
 						}}
+					/>
+					<ConfirmModal
+						visible={d.pauseModalVisible}
+						title={d.watchlistItem?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"}
+						imageAtTop={!!show.backdrop_path}
+						hideTitle
+						image={
+							show.backdrop_path ? (
+								<ModalBackdrop backdropPath={show.backdrop_path} logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={d.title} paused />
+							) : (
+								<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={d.title} paused />
+							)
+						}
+						hint={
+							d.watchlistItem?.status === WatchStatus.REWATCHING
+								? "Pausing this rewatch will take it off your watchlist. You can resume it any time from here."
+								: "Pausing this show will take it off your watchlist. You can resume it any time from here."
+						}
+						confirmLabel="Pause"
+						confirmColor={colors.stopBlue}
+						loading={d.pausing}
+						onConfirm={d.handleConfirmPause}
+						onClose={() => d.setPauseModalVisible(false)}
 					/>
 					<UnreleasedMovieModal
 						visible={!!d.unreleasedModal}

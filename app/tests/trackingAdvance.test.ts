@@ -184,3 +184,15 @@ test("rewatch: re-marking an episode before the pointer doesn't move it", () => 
 	const r = adv([3, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1], mk(1, 1), R, { season: 1, episode: 4 });
 	assert.equal(r.advance, false);
 });
+
+test("filling the last first-watch gap mid-rewatch turns it into a rewatch (pointer kept)", () => {
+	// E1–E4 rewatched (×2) except E3, which was never watched; pointer at E5 — mark E3 once
+	const r = adv([2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1], mk(1, 3), W, { season: 1, episode: 5 });
+	assert.deepEqual(
+		[r.advance, r.nextEpisode, r.status, r.incrementRewatch],
+		[true, { season: 1, episode: 5 }, R, true],
+	);
+	// Not a rewatch while gaps remain
+	const gap = adv([2, 2, 1, 2, 1, 1, 0, 1, 1, 1, 1, 1], mk(1, 3), W, { season: 1, episode: 5 });
+	assert.notEqual(gap.status, R);
+});

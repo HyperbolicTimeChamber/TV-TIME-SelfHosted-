@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { colors, spacing, typography } from "../../theme";
 import { WatchStatus, MediaType } from "../../types";
+import { withHaptic } from "../../utils/haptics";
 
 interface Props {
 	mediaType: MediaType;
@@ -14,6 +15,8 @@ interface Props {
 	onAddToWatchlist: () => void;
 	onMarkMovieWatched: () => void;
 	onResumeOrRewatch: () => void;
+	/** TV watching / rewatching: pause it (asks first) */
+	onPause: () => void;
 	onRemove: () => void;
 	onMovieSheetOpen: () => void;
 }
@@ -28,6 +31,7 @@ export default function ActionPills({
 	onAddToWatchlist,
 	onMarkMovieWatched,
 	onResumeOrRewatch,
+	onPause,
 	onRemove,
 	onMovieSheetOpen,
 }: Readonly<Props>) {
@@ -99,9 +103,9 @@ export default function ActionPills({
 						<TouchableOpacity
 							style={[styles.pill, styles.pillAccent]}
 							onPress={onResumeOrRewatch}
-							onLongPress={
-								mediaType === MediaType.MOVIE && movieWatchCount > 0 ? onMovieSheetOpen : undefined
-							}
+							onLongPress={withHaptic(
+								mediaType === MediaType.MOVIE && movieWatchCount > 0 ? onMovieSheetOpen : undefined,
+							)}
 						>
 							<Text style={styles.pillText}>
 								{watchlistItem.status === WatchStatus.PAUSED
@@ -114,6 +118,15 @@ export default function ActionPills({
 							</Text>
 						</TouchableOpacity>
 					)}
+					{mediaType === MediaType.TV &&
+						(watchlistItem.status === WatchStatus.WATCHING ||
+							watchlistItem.status === WatchStatus.REWATCHING) && (
+							<TouchableOpacity style={[styles.pill, styles.pillPause]} onPress={onPause}>
+								<Text style={styles.pillText}>
+									{watchlistItem.status === WatchStatus.REWATCHING ? "Pause Rewatch" : "Pause"}
+								</Text>
+							</TouchableOpacity>
+						)}
 					<TouchableOpacity
 						style={[styles.pill, styles.pillRemove, removing && styles.pillDisabled]}
 						onPress={onRemove}
@@ -155,6 +168,9 @@ const styles = StyleSheet.create({
 	},
 	pillAccent: {
 		backgroundColor: colors.accent,
+	},
+	pillPause: {
+		backgroundColor: colors.stopBlue,
 	},
 	pillRemove: {
 		backgroundColor: colors.destructiveRed,

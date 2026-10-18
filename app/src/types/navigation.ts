@@ -1,5 +1,5 @@
 import type { NavigatorScreenParams } from "@react-navigation/native";
-import { MediaType } from "../enums";
+import { MediaType, Route } from "../enums";
 
 export type RootStackParamList = {
 	Login: undefined;
@@ -8,8 +8,7 @@ export type RootStackParamList = {
 };
 
 export type MainStackParamList = {
-	Home: NavigatorScreenParams<HomeStackParamList> | undefined;
-	SwipeTabs: { screen?: string } | undefined;
+	SwipeTabs: NavigatorScreenParams<SwipeTabParamList> | undefined;
 };
 
 export type MainTabParamList = {
@@ -20,19 +19,15 @@ export type MainTabParamList = {
 };
 
 export type SwipeTabParamList = {
-	Home: undefined;
+	Home: NavigatorScreenParams<HomeStackParamList> | undefined;
 	Calendar: undefined;
 	Search: undefined;
 	Profile: undefined;
 };
 
-export type HomeTopTabParamList = {
-	Watchlist: undefined;
-	Upcoming: undefined;
-};
-
 export type HomeStackParamList = {
-	HomeTabs: undefined;
+	/** screen: which Home tab to show (Watch List / Upcoming) */
+	HomeTabs: { screen?: Route.WATCHLIST | Route.UPCOMING } | undefined;
 	ShowDetail: { tmdbId: number; mediaType: MediaType };
 	SeasonDetail: { tmdbId: number; seasonNumber: number; showTitle: string };
 };

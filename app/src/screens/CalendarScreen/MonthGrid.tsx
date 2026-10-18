@@ -1,15 +1,12 @@
 import { memo } from "react";
 import { Pressable, Text, View } from "react-native";
-import Animated, { FadeIn, FadeOut, interpolate, useAnimatedStyle, type SharedValue } from "react-native-reanimated";
+import Animated, { interpolate, useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { MediaType } from "../../types";
 import { colors } from "../../theme";
 import { SUNDAY_COLUMN, planChips } from "../../utils/calendarGrid";
 import type { DayMark } from "../../utils/calendarGroups";
 import { CalendarMode, ROW_MONTH, styles } from "./calendarStyles";
 
-/** Marks fade out as a resize starts and back in when it settles — plain timed fades */
-const MARKS_IN = FadeIn.duration(180);
-const MARKS_OUT = FadeOut.duration(120);
 
 /** Month view shows this many event bars per day */
 const MAX_BARS = 3;
@@ -23,13 +20,9 @@ export interface ChipFit {
 	charsPerLine: number;
 }
 
-/** What a cell shows under its number — nothing while the calendar is being resized
- *  (like Samsung Calendar: fewer views to lay out on every frame of the drag) */
-export enum CellMarks {
-	NONE = "none",
-	BARS = "bars",
-	CHIPS = "chips",
-}
+
+/** useAnimatedStyle result shared by every cell */
+export type MarksStyle = ReturnType<typeof useAnimatedStyle<{ opacity: number }>>;
 
 const markColor = (m: DayMark) => (m.mediaType === MediaType.MOVIE ? colors.moviePurple : colors.primary);
 
@@ -41,7 +34,12 @@ interface CellProps {
 	column: number;
 	marks: DayMark[] | undefined;
 	chipFit: ChipFit;
-	show: CellMarks;
+	/** Bars (week / month) and titled chips (full) are both mounted; these shared opacities
+	 *  pick which shows, switched on the UI thread (no re-render when a resize lands) */
+	barsStyle: MarksStyle;
+	chipsStyle: MarksStyle;
+	/** Counter-scale for the day number while its row is stretched (resize) */
+	numberStyle: ReturnType<typeof useAnimatedStyle>;
 	onPress: (date: string) => void;
 }
 
@@ -54,37 +52,36 @@ const DayCell = memo(function DayCell({
 	column,
 	marks,
 	chipFit,
-	show,
+	barsStyle,
+	chipsStyle,
+	numberStyle,
 	onPress,
 }: CellProps) {
 	const day = Number(date.slice(8));
 	const chipPlan =
-		show === CellMarks.CHIPS && marks ? planChips(marks, chipFit.space, chipFit.charsPerLine, CHIP_LINE_H, CHIP_GAP) : null;
+		marks ? planChips(marks, chipFit.space, chipFit.charsPerLine, CHIP_LINE_H, CHIP_GAP) : null;
 	return (
 		<Pressable style={styles.cell} onPress={() => onPress(date)}>
-			{/* Today's red fill already marks it — the selection outline is for other days */}
-			<View
+						<View
 				style={[
 					styles.tile,
 					isToday && styles.tileToday,
-					isSelected && !isToday && styles.tileSelected,
+					isSelected && styles.tileSelected,
 					dimmed && styles.dimmed,
 				]}
 			>
-				<View style={styles.dayNumberBox}>
+				<Animated.View style={[styles.dayNumberBox, numberStyle]}>
 					<Text style={[styles.dayNumber, column === SUNDAY_COLUMN && !isToday && styles.sunday]}>{day}</Text>
-				</View>
-				{marks && marks.length > 0 && show !== CellMarks.NONE && (
-					<Animated.View style={styles.markArea} entering={MARKS_IN} exiting={MARKS_OUT}>
-						{show === CellMarks.BARS && (
-							<View style={styles.bars}>
-								{marks.slice(0, MAX_BARS).map((m) => (
-									<View key={m.key} style={[styles.bar, { backgroundColor: markColor(m) }]} />
-								))}
-							</View>
-						)}
+				</Animated.View>
+				{marks && marks.length > 0 && (
+					<View style={styles.markArea}>
+						<Animated.View style={[styles.bars, barsStyle]}>
+							{marks.slice(0, MAX_BARS).map((m) => (
+								<View key={m.key} style={[styles.bar, { backgroundColor: markColor(m) }]} />
+							))}
+						</Animated.View>
 						{chipPlan && (
-							<View style={styles.chips} pointerEvents="none">
+							<Animated.View style={[styles.chips, chipsStyle]} pointerEvents="none">
 								{chipPlan.shown.map((m) => (
 									<Text key={m.key} numberOfLines={2} style={[styles.chip, { backgroundColor: markColor(m) }]}>
 										{m.title}
@@ -95,9 +92,9 @@ const DayCell = memo(function DayCell({
 										+{chipPlan.more} more
 									</Text>
 								)}
-							</View>
+							</Animated.View>
 						)}
-					</Animated.View>
+					</View>
 				)}
 			</View>
 		</Pressable>
@@ -112,10 +109,18 @@ interface WeekRowProps {
 	selected: string | null;
 	marks: Map<string, DayMark[]>;
 	chipFit: ChipFit;
-	show: CellMarks;
-	progress: SharedValue<number>;
+	barsStyle: MarksStyle;
+	chipsStyle: MarksStyle;
+	/** Resize progress — only the page on screen gets it: offscreen neighbours rest at their
+	 *  layout height and don't recompute styles on every resize frame */
+	progress?: SharedValue<number>;
 	/** Full-view row height (shared) */
 	fullRowH: SharedValue<number>;
+	/** Row position in its month (for stacking while stretched) */
+	rowIndex?: number;
+	/** Rows rest at the full-view height (full mode) instead of the month height — a shared
+	 *  value so it flips on the UI thread in the same frame the resize lands */
+	fullLayout?: SharedValue<boolean>;
 	onDayPress: (date: string) => void;
 }
 
@@ -127,19 +132,42 @@ export const WeekRow = memo(function WeekRow({
 	selected,
 	marks,
 	chipFit,
-	show,
+	barsStyle,
+	chipsStyle,
 	progress,
 	fullRowH,
+	rowIndex = 0,
+	fullLayout,
 	onDayPress,
 }: WeekRowProps) {
-	const row = useAnimatedStyle(() => ({
-		height:
+	// Height in layout never animates (that relaid the whole grid out every frame): the row
+	// rests at the month or full height and is stretched / squashed from its top with scaleY,
+	// shifted by translateY so rows stay stacked. GPU-only during the drag.
+	const rowStyle = useAnimatedStyle(() => {
+		const base = fullLayout?.value ? fullRowH.value : ROW_MONTH;
+		if (!progress) return { height: base, transform: [] };
+		const target =
 			progress.value <= CalendarMode.MONTH
 				? ROW_MONTH
-				: interpolate(progress.value, [CalendarMode.MONTH, CalendarMode.FULL], [ROW_MONTH, fullRowH.value]),
-	}));
+				: interpolate(progress.value, [CalendarMode.MONTH, CalendarMode.FULL], [ROW_MONTH, fullRowH.value]);
+		return {
+			height: base,
+			transformOrigin: "top",
+			transform: [{ translateY: rowIndex * (target - base) }, { scaleY: target / base }],
+		};
+	});
+	// Day numbers keep their shape inside a stretched row
+	const numberStyle = useAnimatedStyle(() => {
+		if (!progress) return { transform: [] };
+		const target =
+			progress.value <= CalendarMode.MONTH
+				? ROW_MONTH
+				: interpolate(progress.value, [CalendarMode.MONTH, CalendarMode.FULL], [ROW_MONTH, fullRowH.value]);
+		const base = fullLayout?.value ? fullRowH.value : ROW_MONTH;
+		return { transformOrigin: "top", transform: [{ scaleY: base / target }] };
+	});
 	return (
-		<Animated.View style={[styles.weekRow, row]}>
+		<Animated.View style={[styles.weekRow, rowStyle]}>
 			{dates.map((date, column) => (
 				<DayCell
 					key={date}
@@ -150,7 +178,9 @@ export const WeekRow = memo(function WeekRow({
 					isSelected={date === selected}
 					marks={marks.get(date)}
 					chipFit={chipFit}
-					show={show}
+					barsStyle={barsStyle}
+					chipsStyle={chipsStyle}
+					numberStyle={numberStyle}
 					onPress={onDayPress}
 				/>
 			))}
@@ -170,13 +200,16 @@ interface MonthGridProps extends Omit<WeekRowProps, "dates" | "month"> {
 export function MonthGrid({ weeks, selectedRow, progress, ...row }: MonthGridProps) {
 	const slide = useAnimatedStyle(() => ({
 		transform: [
-			{ translateY: progress.value < CalendarMode.MONTH ? -selectedRow * ROW_MONTH * (1 - progress.value) : 0 },
+			{
+				translateY:
+					progress && progress.value < CalendarMode.MONTH ? -selectedRow * ROW_MONTH * (1 - progress.value) : 0,
+			},
 		],
 	}));
 	return (
 		<Animated.View style={slide}>
-			{weeks.map((dates) => (
-				<WeekRow key={dates[0]} dates={dates} progress={progress} {...row} />
+			{weeks.map((dates, i) => (
+				<WeekRow key={dates[0]} dates={dates} progress={progress} rowIndex={i} {...row} />
 			))}
 		</Animated.View>
 	);

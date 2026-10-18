@@ -52,3 +52,38 @@ export function formatAirTime(airStamp?: string): string | null {
 	const mm = String(d.getMinutes()).padStart(2, "0");
 	return `${hh}:${mm} ${h < 12 ? "AM" : "PM"}`;
 }
+
+/** Exact UTC air time (TVMaze) of a show's next episode, when the catalog has it */
+export function nextEpisodeAirStamp(
+	nextEpisode: { season: number; episode: number } | null | undefined,
+	catalog: Pick<CatalogShow, "seasons"> | null | undefined,
+): string | undefined {
+	if (!nextEpisode || !catalog) return undefined;
+	return catalog.seasons
+		?.find((s) => s.seasonNumber === nextEpisode.season)
+		?.episodes?.find((e) => e.episodeNumber === nextEpisode.episode)?.airStamp;
+}
+
+/** Aired yet? With an exact time the moment counts, otherwise the (local) day */
+export function hasAired(
+	airStamp: string | undefined,
+	airDate: string | null | undefined,
+	today: string,
+	now = Date.now(),
+): boolean {
+	const t = airStamp ? Date.parse(airStamp) : NaN;
+	if (!Number.isNaN(t)) return t <= now;
+	return !!airDate && airDate <= today;
+}
+
+/** A day's episodes by air time (exact time first, earliest first); untimed keep their order after */
+export function sortByAirTime<T extends { airStamp?: string }>(eps: T[]): T[] {
+	const t = (e: T) => (e.airStamp ? Date.parse(e.airStamp) : NaN);
+	return [...eps].sort((a, b) => {
+		const ta = t(a);
+		const tb = t(b);
+		if (Number.isNaN(ta)) return Number.isNaN(tb) ? 0 : 1;
+		if (Number.isNaN(tb)) return -1;
+		return ta - tb;
+	});
+}

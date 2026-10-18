@@ -1,7 +1,7 @@
-import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
-import AnimatedModal from "../AnimatedModal";
+import ConfirmModal from "../ConfirmModal";
+import { ModalArt, SPEEDSTER_ART, SPEEDSTER_RATIO } from "../ModalArt";
 import { colors } from "../../../theme";
-import { styles } from "./styles";
+import { SKIP_AHEAD_TITLE, skipAheadConfirm, skipAheadHint } from "../../../utils/format";
 
 interface BackfillModalProps {
 	visible: boolean;
@@ -21,38 +21,19 @@ export function BackfillModal({
 	onCancel,
 }: BackfillModalProps) {
 	return (
-		<AnimatedModal visible={visible} onClose={onCancel}>
-			<View style={styles.backfillContent}>
-				<Text style={styles.backfillTitle}>Mark Previous Episodes?</Text>
-				<Text style={styles.backfillHint}>Mark episodes {confirmLabel} as watched?</Text>
-				<TouchableOpacity
-					style={[
-						styles.backfillButton,
-						{ backgroundColor: colors.watchedGreen },
-						loading && { opacity: 0.6 },
-					]}
-					onPress={onConfirm}
-					disabled={loading}
-				>
-					{loading ? (
-						<ActivityIndicator size="small" color={colors.text} />
-					) : (
-						<Text style={styles.backfillButtonText}>Mark All</Text>
-					)}
-				</TouchableOpacity>
-				<TouchableOpacity
-					style={[styles.backfillButtonOutline, loading && { opacity: 0.6 }]}
-					onPress={onDecline}
-					disabled={loading}
-				>
-					<Text style={styles.backfillButtonOutlineText}>Just This One</Text>
-				</TouchableOpacity>
-				{!loading && (
-					<TouchableOpacity style={styles.backfillCancel} onPress={onCancel}>
-						<Text style={styles.backfillCancelText}>Cancel</Text>
-					</TouchableOpacity>
-				)}
-			</View>
-		</AnimatedModal>
+		<ConfirmModal
+			visible={visible}
+			title={SKIP_AHEAD_TITLE}
+			hideCancel
+			image={<ModalArt source={SPEEDSTER_ART} ratio={SPEEDSTER_RATIO} />}
+			hint={skipAheadHint(confirmLabel)}
+			confirmLabel={skipAheadConfirm(confirmLabel)}
+			confirmColor={colors.watchedGreen}
+			loading={loading}
+			onConfirm={onConfirm}
+			secondaryLabel="Just This One"
+			onSecondary={onDecline}
+			onClose={onCancel}
+		/>
 	);
 }

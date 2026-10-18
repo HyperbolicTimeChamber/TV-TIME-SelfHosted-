@@ -19,6 +19,7 @@ import {
 	resumeWatching,
 	resumeRewatch,
 	restartWatching,
+	stopWatching,
 	markMovieWatched,
 	decrementMovieWatchCount,
 	unmarkMovieWatched,
@@ -76,6 +77,8 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	});
 	const [movieSheetVisible, setMovieSheetVisible] = useState(false);
 	const [removeModalVisible, setRemoveModalVisible] = useState(false);
+	const [pauseModalVisible, setPauseModalVisible] = useState(false);
+	const [pausing, setPausing] = useState(false);
 	const [removeError, setRemoveError] = useState<string | null>(null);
 	const [unreleasedModal, setUnreleasedModal] = useState<{
 		title: string;
@@ -121,7 +124,14 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	}, [user?.uid, tmdbId]);
 
 	const title = show?.name || show?.title || "";
-	const rawDate = show?.first_air_date || show?.release_date || "";
+	// TMDB sometimes has no first_air_date for a new show — fall back to the earliest season's
+	// air date (the date the season rows show), else the Year stat reads "—"
+	const firstSeasonDate =
+		(show?.seasons ?? [])
+			.filter((s) => s.season_number > 0 && s.air_date)
+			.map((s) => s.air_date as string)
+			.sort()[0] ?? "";
+	const rawDate = show?.first_air_date || show?.release_date || firstSeasonDate;
 	const year =
 		mediaType === MediaType.MOVIE && rawDate.length >= 10
 			? new Date(rawDate + "T00:00:00").toLocaleDateString("en-US", {
@@ -263,6 +273,25 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 			setRemoving(false);
 		}
 	}, [user?.uid, tmdbId, removing, removeShowFromUpcoming]);
+
+	// Watching → paused, rewatching → paused rewatch (same as the watchlist's Pause); the
+	// button then reads "Resume" / "Resume Rewatch"
+	const handleConfirmPause = useCallback(async () => {
+		const status = watchlistItem?.status;
+		if (!user?.uid || pausing || (status !== WatchStatus.WATCHING && status !== WatchStatus.REWATCHING)) return;
+		setPausing(true);
+		try {
+			await stopWatching(user.uid, tmdbId, status, mediaType);
+			removeShowFromUpcoming(tmdbId);
+			removeShowFromCalendarGlobal(tmdbId);
+			emitShowRemoved(tmdbId);
+			setPauseModalVisible(false);
+		} catch (err: any) {
+			Alert.alert("Error", err.message || "Failed to pause.");
+		} finally {
+			setPausing(false);
+		}
+	}, [user?.uid, pausing, watchlistItem?.status, tmdbId, mediaType, removeShowFromUpcoming]);
 
 	const handleMarkMovieWatched = useCallback(async () => {
 		if (!user?.uid || !show || adding) return;
@@ -461,6 +490,10 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		setMovieSheetVisible,
 		removeModalVisible,
 		setRemoveModalVisible,
+		pauseModalVisible,
+		setPauseModalVisible,
+		pausing,
+		handleConfirmPause,
 		removeError,
 		setRemoveError,
 		unreleasedModal,

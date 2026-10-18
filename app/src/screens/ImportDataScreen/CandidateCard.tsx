@@ -8,6 +8,7 @@ import { getShowDetails } from "../../services/tmdb";
 import { tmdbPosterUri } from "../../hooks/useTmdbImage";
 import { MediaType } from "../../enums";
 import { importStyles as styles } from "./styles";
+import { withHaptic } from "../../utils/haptics";
 
 interface Props {
 	item: TMDBMatch;
@@ -62,7 +63,7 @@ export default function CandidateCard({ item, apiKey, onPress }: Props) {
 
 	return (
 		<>
-			<TouchableOpacity style={styles.candidateRow} onPress={onPress} onLongPress={handleLongPress}>
+			<TouchableOpacity style={styles.candidateRow} onPress={onPress} onLongPress={withHaptic(handleLongPress)}>
 				{item.posterPath ? (
 					<Image
 						source={{ uri: tmdbPosterUri(item.posterPath, 60) }}

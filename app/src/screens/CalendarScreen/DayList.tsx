@@ -10,7 +10,7 @@ import Reanimated, {
 } from "react-native-reanimated";
 import { ScrollView } from "react-native-gesture-handler";
 import IosArrowDown from "../../components/IosArrowDown";
-import { tmdbBackdropUri, tmdbLogoUri } from "../../hooks/useTmdbImage";
+import { tmdbBlurredBackdropUri, tmdbLogoUri } from "../../hooks/useTmdbImage";
 import { MediaType } from "../../types";
 import { BLUR_RADIUS } from "../ProfileScreen/styles";
 import type { CalendarEpisode } from "../useCalendarScreen";
@@ -136,7 +136,7 @@ export default function DayList({
 				{/* Same backdrop treatment as the Watch History cards */}
 				{item.backdropPath && (
 					<Image
-						source={{ uri: tmdbBackdropUri(item.backdropPath, CARD_WIDTH) }}
+						source={{ uri: tmdbBlurredBackdropUri(item.backdropPath) }}
 						style={StyleSheet.absoluteFill}
 						contentFit="cover"
 						// Wide, short card: show the top of the backdrop (faces / titles sit there)

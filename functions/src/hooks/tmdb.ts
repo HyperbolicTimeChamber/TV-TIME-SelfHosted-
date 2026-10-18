@@ -66,6 +66,25 @@ async function fetchSeasonEpisodes(
 }
 
 /** Best title logo: TMDB lists them best-voted first; prefer English, then language-neutral */
+/**
+ * Premiere date: TMDB's first_air_date, else the earliest regular season's air date, else the
+ * earliest episode air date — TMDB sometimes leaves first_air_date empty for new shows (the app
+ * then showed "—" for the year). Season 0 (specials) doesn't count.
+ */
+export function premiereDate(
+  firstAirDate: string | null | undefined,
+  seasons: Array<Pick<CatalogSeason, "seasonNumber" | "airDate" | "episodes">> = [],
+): string | null {
+  if (firstAirDate) return firstAirDate;
+  const regular = seasons.filter((s) => s.seasonNumber > 0);
+  const dates = regular.map((s) => s.airDate).filter((d): d is string => !!d);
+  if (dates.length === 0) {
+    for (const s of regular)
+      for (const e of s.episodes ?? []) if (e.airDate) dates.push(e.airDate);
+  }
+  return dates.sort()[0] ?? null;
+}
+
 export function pickLogo(logos: TMDBLogo[] | undefined): string | null {
   if (!logos?.length) return null;
   return (
@@ -159,7 +178,8 @@ export async function fetchShowFromTMDB(
     totalEpisodes,
     runtime: avgRuntime,
     voteAverage: data.vote_average ?? 0,
-    firstAirDate: data.first_air_date ?? null,
+    firstAirDate:
+      mediaType === MediaType.TV ? premiereDate(data.first_air_date, seasons) : null,
     releaseDate: data.release_date ?? null,
     seasons,
     genres: (data.genres ?? []).map((g) => g.name),

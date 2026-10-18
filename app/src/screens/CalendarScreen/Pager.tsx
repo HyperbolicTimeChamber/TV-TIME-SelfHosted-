@@ -76,12 +76,15 @@ export default function Pager({
 				.activeOffsetX([-14, 14])
 				.failOffsetY([-12, 12])
 				.onStart(() => {
+					"worklet";
 					runOnJS(dragStarted)();
 				})
 				.onUpdate((e) => {
+					"worklet";
 					tx.value = base.value + e.translationX;
 				})
 				.onEnd((e) => {
+					"worklet";
 					const next = e.translationX < -width * TURN_SHARE || e.velocityX < -FLICK_VELOCITY;
 					const prev = e.translationX > width * TURN_SHARE || e.velocityX > FLICK_VELOCITY;
 					if (!next && !prev) {

@@ -193,29 +193,53 @@ export default function EpisodeDetailModal({
 		setConfirmLoading(true);
 		const key = epKey(confirmTarget.season, confirmTarget.episode);
 		setMarkingKey(key);
+		let marked = false;
 
 		try {
 			await onMarkWatchedThrough(tmdbId, confirmTarget.season, confirmTarget.episode);
+			// Mirror the write: every episode from the current next one through the target gets
+			// one more watch (in a rewatch they all had counts already — the old "only if unwatched"
+			// left those cards stale until the modal reopened)
+			const from = currentNextEpisode ?? { season: 1, episode: 1 };
+			const onOrAfter = (s: number, e: number) => s > from.season || (s === from.season && e >= from.episode);
+			const onOrBefore = (s: number, e: number) =>
+				s < confirmTarget.season || (s === confirmTarget.season && e <= confirmTarget.episode);
 			setLocalWatched((prev) => {
 				const next = new Map(prev);
 				for (const ep of episodes) {
-					if (
-						ep.season < confirmTarget.season ||
-						(ep.season === confirmTarget.season && ep.episode <= confirmTarget.episode)
-					) {
+					if (onOrAfter(ep.season, ep.episode) && onOrBefore(ep.season, ep.episode)) {
 						const k = epKey(ep.season, ep.episode);
-						if (!next.has(k)) next.set(k, 1);
+						next.set(k, (next.get(k) ?? 0) + 1);
 					}
 				}
 				return next;
 			});
+			marked = true;
 		} finally {
 			setMarkingKey(null);
 			setConfirmLoading(false);
 			setConfirmVisible(false);
 			setConfirmTarget(null);
 		}
-	}, [confirmTarget, tmdbId, episodes, onMarkWatchedThrough]);
+		// Caught up through this card: slide on to the next one, or close after the last
+		if (!marked) return;
+		const at = enrichedEps.findIndex(
+			(e) => e.season === confirmTarget.season && e.episode === confirmTarget.episode,
+		);
+		if (at >= 0 && at < enrichedEps.length - 1) {
+			carouselRef.current?.scrollToIndex({ index: at + 1, animated: true });
+		} else {
+			onClose();
+		}
+	}, [
+		confirmTarget,
+		tmdbId,
+		episodes,
+		enrichedEps,
+		onMarkWatchedThrough,
+		currentNextEpisode,
+		onClose,
+	]);
 
 	const handleDeclineBackfill = useCallback(async () => {
 		if (!confirmTarget) return;
