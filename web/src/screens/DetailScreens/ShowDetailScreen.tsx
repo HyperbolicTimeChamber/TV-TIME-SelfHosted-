@@ -12,7 +12,7 @@ import ErrorState from "../../components/ErrorState";
 import { describeLoadError } from "@app/utils/loadError";
 import ConfirmModal from "../../components/ConfirmModal";
 import { colors } from "../../theme/index";
-import { ModalLogo } from "../../components/ModalArt";
+import { ModalBackdrop, ModalLogo } from "../../components/ModalArt";
 import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
 import UnreleasedMovieModal from "../../components/UnreleasedMovieModal";
 import WatchActionSheet from "../../components/WatchActionSheet";
@@ -228,8 +228,14 @@ export default function ShowDetailScreen() {
 					/>
 					<ConfirmModal
 						visible={d.pauseModalVisible}
-						title={`Pause ${d.watchlistItem?.status === WatchStatus.REWATCHING ? "rewatching " : ""}${d.title}?`}
-						image={<ModalLogo logoPath={logoPath} title={d.title} paused />}
+						title={d.watchlistItem?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"}
+						image={
+							show.backdrop_path ? (
+								<ModalBackdrop backdropPath={show.backdrop_path} logoPath={logoPath} title={d.title} paused />
+							) : (
+								<ModalLogo logoPath={logoPath} title={d.title} paused />
+							)
+						}
 						hint="It leaves your watchlist. Resume any time from here."
 						confirmLabel="Pause"
 						confirmColor={colors.stopBlue}

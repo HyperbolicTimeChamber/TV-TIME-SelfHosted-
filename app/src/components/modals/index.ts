@@ -4,4 +4,4 @@ export { default as EpisodeDetailModal } from "./EpisodeDetailModal/index";
 export type { CarouselEpisode } from "../../types/episodeCarousel";
 export { default as WatchActionSheet } from "./WatchActionSheet";
 export type { WatchAction } from "./WatchActionSheet";
-export { ModalArt, ModalLogo, ModalPoster, SPEEDSTER_ART } from "./ModalArt";
+export * from "./ModalArt";

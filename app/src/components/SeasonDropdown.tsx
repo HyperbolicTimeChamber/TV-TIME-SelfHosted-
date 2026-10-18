@@ -12,7 +12,13 @@ import {
 import { Image } from "expo-image";
 import WatchActionSheet from "./modals/WatchActionSheet";
 import ConfirmModal from "./modals/ConfirmModal";
-import { ModalArt, ModalLogo, ModalPoster, SPEEDSTER_ART } from "./modals/ModalArt";
+import {
+	ModalArt,
+	ModalBackdrop,
+	ModalLogo,
+	SPEEDSTER_ART,
+	SPEEDSTER_RATIO,
+} from "./modals/ModalArt";
 import { getCachedCatalogShow } from "../hooks/useWatchlist";
 import { SKIP_AHEAD_TITLE, episodeRange, skipAheadConfirm, skipAheadHint } from "../utils/format";
 import CheckmarkButton from "./CheckmarkButton";
@@ -278,9 +284,11 @@ export default memo(function SeasonDropdown({
 						: `Mark Season ${season.season_number} as Watched?`
 				}
 				image={
-					season.poster_path || showPosterPath ? (
-						<ModalPoster posterPath={(season.poster_path || showPosterPath)!} />
-					) : undefined
+					showBackdropPath ? (
+						<ModalBackdrop backdropPath={showBackdropPath} logoPath={showLogo} title={showTitle} />
+					) : (
+						<ModalLogo logoPath={showLogo} title={showTitle} />
+					)
 				}
 				hint={
 					allWatched
@@ -297,7 +305,7 @@ export default memo(function SeasonDropdown({
 				<ConfirmModal
 					visible={skipModalVisible}
 					title={SKIP_AHEAD_TITLE}
-					image={<ModalArt source={SPEEDSTER_ART} />}
+					image={<ModalArt source={SPEEDSTER_ART} ratio={SPEEDSTER_RATIO} />}
 					hint={skipAheadHint(
 						episodeRange(skipModalData.firstSkipped, skipModalData.targetEp.episode_number),
 					)}

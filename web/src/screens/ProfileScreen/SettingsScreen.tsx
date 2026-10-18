@@ -9,6 +9,7 @@ import { useAppSelector } from "../../store";
 import { Paths } from "../../routes/paths";
 import { CircleBackButton, CircleButtonSpacer } from "../../components/CircleButton";
 import ConfirmModal from "../../components/ConfirmModal";
+import { FAREWELL_ART, LOGOUT_ART, ModalArt } from "../../components/ModalArt";
 import styles from "./styles/SettingsScreen.module.scss";
 
 /** Settings (app SettingsScreen; push-notification debug tools are mobile-only) */
@@ -88,7 +89,8 @@ export default function SettingsScreen() {
 
 			<ConfirmModal
 				visible={logoutVisible}
-				title="Log Out?"
+				title="Until Next Time"
+				image={<ModalArt src={LOGOUT_ART} />}
 				hint="You can sign back in any time — your watchlist and history stay saved."
 				confirmLabel="Log Out"
 				onConfirm={async () => {
@@ -101,7 +103,8 @@ export default function SettingsScreen() {
 
 			<ConfirmModal
 				visible={deleteVisible}
-				title="Delete Account?"
+				title="Is This Goodbye?"
+				image={<ModalArt src={FAREWELL_ART} />}
 				hint="This will permanently delete your account and all data. This cannot be undone."
 				error={deleteError}
 				confirmLabel="Delete"

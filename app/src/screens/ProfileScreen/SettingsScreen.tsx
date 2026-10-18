@@ -17,6 +17,13 @@ import { useAuthStore } from "../../stores";
 import { colors, spacing, typography } from "../../theme";
 import { CircleBackButton, CIRCLE_BUTTON_SIZE } from "../../components/CircleButton";
 import { ConfirmModal } from "../../components";
+import {
+	FAREWELL_ART,
+	FAREWELL_RATIO,
+	LOGOUT_ART,
+	LOGOUT_RATIO,
+	ModalArt,
+} from "../../components/modals/ModalArt";
 import { ProfileStackParamList, Route } from "../../types";
 
 export default function SettingsScreen() {
@@ -124,7 +131,8 @@ export default function SettingsScreen() {
 
 			<ConfirmModal
 				visible={logoutVisible}
-				title="Log Out?"
+				title="Until Next Time"
+				image={<ModalArt source={LOGOUT_ART} ratio={LOGOUT_RATIO} />}
 				hint="You can sign back in any time — your watchlist and history stay saved."
 				confirmLabel="Log Out"
 				onConfirm={() => {
@@ -136,7 +144,8 @@ export default function SettingsScreen() {
 
 			<ConfirmModal
 				visible={deleteVisible}
-				title="Delete Account?"
+				title="Is This Goodbye?"
+				image={<ModalArt source={FAREWELL_ART} ratio={FAREWELL_RATIO} />}
 				hint="This will permanently delete your account and all data. This cannot be undone."
 				error={deleteError}
 				confirmLabel="Delete"

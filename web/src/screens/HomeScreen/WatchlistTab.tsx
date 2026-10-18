@@ -2,14 +2,14 @@ import { Fragment, useCallback, useMemo, useState } from "react";
 import { Button, Spin } from "antd";
 import { useNavigate } from "react-router-dom";
 import { useWatchlistScreen } from "@app/screens/HomeScreen/WatchlistTab/useWatchlistScreen";
-import { MediaType } from "@app/enums";
+import { MediaType, WatchStatus } from "@app/enums";
 import type { WatchlistListItem } from "@app/types/watchlist";
 import ShowCard from "../../components/ShowCard";
 import WatchActionSheet from "../../components/WatchActionSheet";
 import EpisodeDetailModal from "../../components/EpisodeDetailModal";
 import ShowDrawer from "../../components/ShowDrawer";
 import ConfirmModal from "../../components/ConfirmModal";
-import { ModalLogo } from "../../components/ModalArt";
+import { ModalBackdrop, ModalLogo } from "../../components/ModalArt";
 import type { EnrichedTrackingItem } from "@app/hooks/useWatchlist";
 import { colors } from "../../theme/index";
 import LoadingScreen from "../../components/LoadingScreen";
@@ -105,8 +105,19 @@ export default function WatchlistTab() {
 
 			<ConfirmModal
 				visible={!!pauseTarget}
-				title={`Pause ${pauseTarget?.title ?? "watching"}?`}
-				image={pauseTarget ? <ModalLogo logoPath={pauseTarget.catalogShow?.logoPath} title={pauseTarget.title} paused /> : undefined}
+				title={pauseTarget?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"}
+				image={
+					!pauseTarget ? undefined : pauseTarget.catalogShow?.backdropPath ? (
+						<ModalBackdrop
+							backdropPath={pauseTarget.catalogShow.backdropPath}
+							logoPath={pauseTarget.catalogShow.logoPath}
+							title={pauseTarget.title}
+							paused
+						/>
+					) : (
+						<ModalLogo logoPath={pauseTarget.catalogShow?.logoPath} title={pauseTarget.title} paused />
+					)
+				}
 				hint="It leaves your watchlist. Resume any time from its page."
 				confirmLabel="Pause"
 				confirmColor={colors.stopBlue}

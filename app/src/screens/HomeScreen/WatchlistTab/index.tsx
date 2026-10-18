@@ -20,9 +20,15 @@ import {
 	ShowDrawer,
 } from "../../../components";
 import { colors, spacing } from "../../../theme";
-import { HomeStackParamList, MainStackParamList, MediaType, Route } from "../../../types";
+import {
+	HomeStackParamList,
+	MainStackParamList,
+	MediaType,
+	Route,
+	WatchStatus,
+} from "../../../types";
 import { useSharedShimmer } from "../../../components/SkeletonLine";
-import { ModalLogo } from "../../../components/modals/ModalArt";
+import { ModalBackdrop, ModalLogo } from "../../../components/modals/ModalArt";
 import type { WatchlistListItem } from "../../../types/watchlist";
 import type { EnrichedTrackingItem } from "../../../hooks/useWatchlist";
 import { styles } from "./styles";
@@ -327,15 +333,22 @@ export default function WatchlistTab() {
 			/>
 			<ConfirmModal
 				visible={!!pauseTarget}
-				title={`Pause ${pauseTarget?.title ?? "watching"}?`}
+				title={pauseTarget?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"}
 				image={
-					pauseTarget ? (
+					!pauseTarget ? undefined : pauseTarget.catalogShow?.backdropPath ? (
+						<ModalBackdrop
+							backdropPath={pauseTarget.catalogShow.backdropPath}
+							logoPath={pauseTarget.catalogShow.logoPath}
+							title={pauseTarget.title}
+							paused
+						/>
+					) : (
 						<ModalLogo
 							logoPath={pauseTarget.catalogShow?.logoPath}
 							title={pauseTarget.title}
 							paused
 						/>
-					) : undefined
+					)
 				}
 				hint="It leaves your watchlist. Resume any time from its page."
 				confirmLabel="Pause"

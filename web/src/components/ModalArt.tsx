@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { tmdbLogoUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
+import { tmdbBackdropUri, tmdbLogoUri } from "@app/hooks/useTmdbImage";
 import { colors } from "../theme/index";
 import styles from "./styles/ui.module.scss";
 
@@ -7,14 +7,19 @@ import styles from "./styles/ui.module.scss";
 
 /** "Whoa there Speedster!" — skipped-ahead popups */
 export const SPEEDSTER_ART = "/speedster.webp";
+/** Log Out — Straw Hats, fists up */
+export const LOGOUT_ART = "/logout.webp";
+/** Delete Account — crying Pikachu */
+export const FAREWELL_ART = "/farewell.webp";
 
 const LOGO_MAX_W = 240;
-const POSTER_H = 150;
+/** Popup content width — image request size */
+const CONTENT_W = 300;
 
 /** Bootstrap's BsFillPauseCircleFill in pause blue, the bars filled white */
-function PauseBadge() {
+function PauseBadge({ className = styles.pauseBadge }: { className?: string }) {
 	return (
-		<svg className={styles.pauseBadge} viewBox="0 0 16 16" aria-hidden>
+		<svg className={className} viewBox="0 0 16 16" aria-hidden>
 			<circle cx={8} cy={8} r={6} fill={colors.text} />
 			<path
 				fill={colors.stopBlue}
@@ -45,7 +50,35 @@ export function ModalLogo({ logoPath, title, paused = false }: { logoPath?: stri
 	);
 }
 
-/** A season (or show) poster */
-export function ModalPoster({ posterPath }: { posterPath: string }) {
-	return <img className={styles.modalPoster} src={tmdbPosterUri(posterPath, (POSTER_H * 2) / 3)} alt="" />;
+/** Show backdrop with its title logo (name as the fallback) over the bottom; `paused` adds a
+ *  pause icon in the middle of the space above the logo */
+export function ModalBackdrop({
+	backdropPath,
+	logoPath,
+	title,
+	paused = false,
+}: {
+	backdropPath: string;
+	logoPath?: string | null;
+	title: string;
+	paused?: boolean;
+}) {
+	const [logoFailed, setLogoFailed] = useState(false);
+	return (
+		<div className={styles.modalBackdrop}>
+			<img className={styles.modalBackdropImg} src={tmdbBackdropUri(backdropPath, CONTENT_W)} alt="" />
+			{paused && (
+				<div className={styles.modalBackdropPause}>
+					<PauseBadge className={styles.pauseCenter} />
+				</div>
+			)}
+			<div className={styles.modalBackdropLogo}>
+				{logoPath && !logoFailed ? (
+					<img src={tmdbLogoUri(logoPath, CONTENT_W * 0.6)} alt={title} onError={() => setLogoFailed(true)} />
+				) : (
+					<span>{title}</span>
+				)}
+			</div>
+		</div>
+	);
 }

@@ -1,15 +1,13 @@
 import React, { useCallback } from "react";
-import {
-	View,
-	Text,
-	StyleSheet,
-	Alert,
-	Share,
-} from "react-native";
+import { View, Text, StyleSheet, Alert, Share } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import Reanimated, { useAnimatedScrollHandler, useDerivedValue, useSharedValue } from "react-native-reanimated";
+import Reanimated, {
+	useAnimatedScrollHandler,
+	useDerivedValue,
+	useSharedValue,
+} from "react-native-reanimated";
 import DetailBackdrop from "./DetailBackdrop";
 import ActionPills from "./ActionPills";
 import DetailCredits from "./DetailCredits";
@@ -27,7 +25,7 @@ import CircleButton, { CircleBackButton } from "../../components/CircleButton";
 import { colors, spacing, typography } from "../../theme";
 import { HomeStackParamList, MediaType, Route, WatchStatus } from "../../types";
 import { CircleButtonTone } from "../../enums";
-import { ModalLogo } from "../../components/modals/ModalArt";
+import { ModalBackdrop, ModalLogo } from "../../components/modals/ModalArt";
 import { getCachedCatalogShow } from "../../hooks/useWatchlist";
 
 type RouteParams = RouteProp<HomeStackParamList, "ShowDetail">;
@@ -75,7 +73,6 @@ export default function ShowDetailScreen() {
 	} = useShowDetailActions(tmdbId, mediaType);
 	const logoPath = getCachedCatalogShow(tmdbId, mediaType)?.logoPath ?? null;
 
-
 	const navigation = useNavigation();
 	// Opened from a deep link with nothing underneath → go to the watchlist
 	const handleBack = useCallback(() => {
@@ -89,7 +86,9 @@ export default function ShowDetailScreen() {
 	const handleScroll = useAnimatedScrollHandler((e) => {
 		scrollY.value = e.contentOffset.y;
 	});
-	const imageTranslateY = useDerivedValue(() => Math.min(scrollY.value * 0.4, BACKDROP_HEIGHT * 0.5));
+	const imageTranslateY = useDerivedValue(() =>
+		Math.min(scrollY.value * 0.4, BACKDROP_HEIGHT * 0.5),
+	);
 
 	if (isLoading || trackingLoading) {
 		return (
@@ -272,8 +271,19 @@ export default function ShowDetailScreen() {
 
 			<ConfirmModal
 				visible={pauseModalVisible}
-				title={`Pause ${watchlistItem?.status === WatchStatus.REWATCHING ? "rewatching " : ""}${title}?`}
-				image={<ModalLogo logoPath={logoPath} title={title} paused />}
+				title={watchlistItem?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"}
+				image={
+					show?.backdrop_path ? (
+						<ModalBackdrop
+							backdropPath={show.backdrop_path}
+							logoPath={logoPath}
+							title={title}
+							paused
+						/>
+					) : (
+						<ModalLogo logoPath={logoPath} title={title} paused />
+					)
+				}
 				hint="It leaves your watchlist. Resume any time from here."
 				confirmLabel="Pause"
 				confirmColor={colors.stopBlue}

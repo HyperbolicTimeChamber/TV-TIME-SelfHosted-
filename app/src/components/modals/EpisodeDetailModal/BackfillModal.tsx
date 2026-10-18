@@ -1,5 +1,5 @@
 import ConfirmModal from "../ConfirmModal";
-import { ModalArt, SPEEDSTER_ART } from "../ModalArt";
+import { ModalArt, SPEEDSTER_ART, SPEEDSTER_RATIO } from "../ModalArt";
 import { colors } from "../../../theme";
 import { SKIP_AHEAD_TITLE, skipAheadConfirm, skipAheadHint } from "../../../utils/format";
 
@@ -24,7 +24,7 @@ export function BackfillModal({
 		<ConfirmModal
 			visible={visible}
 			title={SKIP_AHEAD_TITLE}
-			image={<ModalArt source={SPEEDSTER_ART} />}
+			image={<ModalArt source={SPEEDSTER_ART} ratio={SPEEDSTER_RATIO} />}
 			hint={skipAheadHint(confirmLabel)}
 			confirmLabel={skipAheadConfirm(confirmLabel)}
 			confirmColor={colors.watchedGreen}

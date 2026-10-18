@@ -8,7 +8,7 @@ import { colors } from "../theme/index";
 import { useLongPress } from "../hooks/useLongPress";
 import CheckmarkButton from "./CheckmarkButton";
 import ConfirmModal from "./ConfirmModal";
-import { ModalArt, ModalLogo, ModalPoster, SPEEDSTER_ART } from "./ModalArt";
+import { ModalArt, ModalBackdrop, ModalLogo, SPEEDSTER_ART } from "./ModalArt";
 import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
 import { MediaType } from "@app/enums";
 import { SKIP_AHEAD_TITLE, episodeRange, skipAheadConfirm, skipAheadHint } from "@app/utils/format";
@@ -210,7 +210,13 @@ export default memo(function SeasonDropdown({ readOnly, ...props }: Props) {
 					<ConfirmModal
 						visible={s.seasonConfirmVisible}
 						title={s.allWatched ? `Rewatch Season ${season.season_number}?` : `Mark Season ${season.season_number} as Watched?`}
-						image={season.poster_path || showPosterPath ? <ModalPoster posterPath={(season.poster_path || showPosterPath)!} /> : undefined}
+						image={
+							props.showBackdropPath ? (
+								<ModalBackdrop backdropPath={props.showBackdropPath} logoPath={showLogo} title={props.showTitle} />
+							) : (
+								<ModalLogo logoPath={showLogo} title={props.showTitle} />
+							)
+						}
 						hint={
 							s.allWatched
 								? `Mark every episode of ${season.name} as watched again?`
