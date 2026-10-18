@@ -50,8 +50,8 @@ export function ModalLogo({ logoPath, title, paused = false }: { logoPath?: stri
 	);
 }
 
-/** Show backdrop with its title logo (name as the fallback) over the bottom; `paused` adds a
- *  pause icon in the middle of the space above the logo */
+/** Show backdrop with its title logo (name as the fallback) over the bottom, edge to edge across
+ *  the popup (no side padding); `paused` lays a big translucent pause icon over all of it */
 export function ModalBackdrop({
 	backdropPath,
 	logoPath,
@@ -67,11 +67,6 @@ export function ModalBackdrop({
 	return (
 		<div className={styles.modalBackdrop}>
 			<img className={styles.modalBackdropImg} src={tmdbBackdropUri(backdropPath, CONTENT_W)} alt="" />
-			{paused && (
-				<div className={styles.modalBackdropPause}>
-					<PauseBadge className={styles.pauseCenter} />
-				</div>
-			)}
 			<div className={styles.modalBackdropLogo}>
 				{logoPath && !logoFailed ? (
 					<img src={tmdbLogoUri(logoPath, CONTENT_W * 0.6)} alt={title} onError={() => setLogoFailed(true)} />
@@ -79,6 +74,11 @@ export function ModalBackdrop({
 					<span>{title}</span>
 				)}
 			</div>
+			{paused && (
+				<div className={styles.modalBackdropPause}>
+					<PauseBadge className={styles.pauseCenter} />
+				</div>
+			)}
 		</div>
 	);
 }

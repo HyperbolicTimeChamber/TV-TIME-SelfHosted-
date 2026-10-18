@@ -26,8 +26,10 @@ const BADGE = 36;
 const BADGE_OUT = 0.35;
 /** Popup content width (modal minus padding) — image request size */
 const CONTENT_W = 300;
-/** Centre pause icon on a paused backdrop */
-const PAUSE_CENTER = 56;
+/** Gap above and below the big pause icon on a paused backdrop */
+const PAUSE_INSET = 12;
+/** Big pause icon on a paused backdrop — translucent, the backdrop shows through */
+const PAUSE_OPACITY = 0.6;
 /** Logo strip at the bottom of a backdrop (logo height + bottom inset) */
 const BACKDROP_LOGO_H = 48;
 const BACKDROP_LOGO_BOTTOM = 10;
@@ -103,8 +105,8 @@ export function ModalLogo({
 	);
 }
 
-/** Show backdrop with its title logo (name as the fallback) over the bottom; `paused` adds a
- *  pause icon in the middle of the space above the logo */
+/** Show backdrop with its title logo (name as the fallback) over the bottom, edge to edge across
+ *  the popup (no side padding); `paused` lays a big translucent pause icon over all of it */
 export function ModalBackdrop({
 	backdropPath,
 	logoPath,
@@ -117,8 +119,11 @@ export function ModalBackdrop({
 	paused?: boolean;
 }) {
 	const [logoFailed, setLogoFailed] = useState(false);
+	// Bleeds over ConfirmModal's side padding
+	const w = useContentWidth() + spacing.lg * 2;
+	const h = (w * 9) / 16;
 	return (
-		<View style={styles.backdrop}>
+		<View style={[styles.backdrop, { width: w, height: h }]}>
 			<Image
 				source={{ uri: tmdbBackdropUri(backdropPath, CONTENT_W) }}
 				style={StyleSheet.absoluteFill}
@@ -126,11 +131,6 @@ export function ModalBackdrop({
 			/>
 			{/* Darkens the bottom so the logo reads on any backdrop */}
 			<LinearGradient colors={["transparent", "rgba(0,0,0,0.85)"]} style={styles.backdropShade} />
-			{paused && (
-				<View style={styles.backdropPause} pointerEvents="none">
-					<PauseBadge size={PAUSE_CENTER} />
-				</View>
-			)}
 			<View style={styles.backdropLogo}>
 				{logoPath && !logoFailed ? (
 					<Image
@@ -145,6 +145,11 @@ export function ModalBackdrop({
 					</Text>
 				)}
 			</View>
+			{paused && (
+				<View style={styles.backdropPause} pointerEvents="none">
+					<PauseBadge size={h - PAUSE_INSET * 2} />
+				</View>
+			)}
 		</View>
 	);
 }
@@ -163,9 +168,6 @@ const styles = StyleSheet.create({
 		color: colors.text,
 	},
 	backdrop: {
-		width: "100%",
-		aspectRatio: 16 / 9,
-		borderRadius: 8,
 		overflow: "hidden",
 		backgroundColor: colors.surfaceLight,
 	},
@@ -187,15 +189,16 @@ const styles = StyleSheet.create({
 		width: "60%",
 		height: BACKDROP_LOGO_H,
 	},
-	// Centred in the space above the logo strip, so the logo never sits under it
+	// Over the whole backdrop, logo included
 	backdropPause: {
 		position: "absolute",
 		top: 0,
 		left: 0,
 		right: 0,
-		bottom: BACKDROP_LOGO_H + BACKDROP_LOGO_BOTTOM,
+		bottom: 0,
 		alignItems: "center",
 		justifyContent: "center",
+		opacity: PAUSE_OPACITY,
 	},
 	backdropName: {
 		...typography.title,
