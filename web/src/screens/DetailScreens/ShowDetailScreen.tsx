@@ -121,7 +121,7 @@ export default function ShowDetailScreen() {
 				<div className={styles.island}>
 					{/* Title logo (name as the fallback), centred */}
 					<h1 className={styles.islandLogo} aria-label={d.title}>
-						<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={d.title} />
+						<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={d.title} nameDelay={2000} />
 					</h1>
 					{signedIn ? (
 						<ActionPills

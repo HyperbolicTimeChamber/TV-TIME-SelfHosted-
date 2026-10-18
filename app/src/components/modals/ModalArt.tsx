@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, useWindowDimensions, type ViewStyle } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -105,6 +105,7 @@ export function ModalLogo({
 	mediaType,
 	title,
 	paused = false,
+	nameDelay = 0,
 }: {
 	logoPath?: string | null;
 	/** Lets a title with no cached logo (not in the library) fetch it from TMDB */
@@ -112,11 +113,19 @@ export function ModalLogo({
 	mediaType?: MediaType;
 	title: string;
 	paused?: boolean;
+	/** Wait this long (ms) for the logo before showing the name — 0: name right away */
+	nameDelay?: number;
 }) {
 	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	// Logo's own width / height, so the box (and the badge's corner) hugs the visible logo
 	const [ratio, setRatio] = useState<number | null>(null);
 	const [failed, setFailed] = useState(false);
+	const [waited, setWaited] = useState(nameDelay <= 0);
+	useEffect(() => {
+		if (nameDelay <= 0) return;
+		const t = setTimeout(() => setWaited(true), nameDelay);
+		return () => clearTimeout(t);
+	}, [nameDelay]);
 	// Fixed-height slot (tallest logo + the badge overhang): the popup keeps one size while the
 	// logo is fetched / loaded. The name shows until the logo image is actually in
 	const slot = [styles.logoSlot, { minHeight: LOGO_MAX_H + (paused ? BADGE * BADGE_OUT : 0) }];
@@ -129,11 +138,14 @@ export function ModalLogo({
 		</View>
 	);
 
-	if (!logoPath || failed) return <View style={slot}>{name}</View>;
+	// Known to have no logo (or it failed): the name straight away
+	if (logoPath === null || failed) return <View style={slot}>{name}</View>;
+	// Still on its way: the name only once nameDelay has passed
+	if (logoPath === undefined) return <View style={slot}>{waited && name}</View>;
 	if (ratio == null) {
 		return (
 			<View style={slot}>
-				{name}
+				{waited && name}
 				{/* Loads invisibly; swaps in for the name once it has its size */}
 				<Image
 					source={{ uri: tmdbLogoUri(logoPath, LOGO_MAX_W) }}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { tmdbBackdropUri, tmdbLogoUri } from "@app/hooks/useTmdbImage";
 import { useTitleLogo } from "@app/hooks/useTitleLogo";
 import type { MediaType } from "@app/enums";
@@ -56,6 +56,7 @@ export function ModalLogo({
 	mediaType,
 	title,
 	paused = false,
+	nameDelay = 0,
 }: {
 	logoPath?: string | null;
 	/** Lets a title with no cached logo (not in the library) fetch it from TMDB */
@@ -63,18 +64,28 @@ export function ModalLogo({
 	mediaType?: MediaType;
 	title: string;
 	paused?: boolean;
+	/** Wait this long (ms) for the logo before showing the name — 0: name right away */
+	nameDelay?: number;
 }) {
 	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	const [failed, setFailed] = useState(false);
 	const [loaded, setLoaded] = useState(false);
+	const [waited, setWaited] = useState(nameDelay <= 0);
+	useEffect(() => {
+		if (nameDelay <= 0) return;
+		const t = setTimeout(() => setWaited(true), nameDelay);
+		return () => clearTimeout(t);
+	}, [nameDelay]);
 	const showLogo = !!logoPath && !failed;
+	// Known to have no logo (or it failed): the name straight away; still loading: after nameDelay
+	const showName = logoPath === null || failed || (!loaded && waited);
 	return (
 		// Fixed-height slot: the popup keeps one size while the logo is fetched / loaded; the name
 		// shows until the logo image is actually in
 		<div className={`${styles.modalLogoSlot} ${paused ? styles.modalLogoSlotPaused : ""}`}>
 			{/* Box shrinks to the logo, so the badge lands on its bottom-right corner */}
 			<span className={`${styles.modalLogoBox} ${paused ? styles.modalLogoPaused : ""}`}>
-				{(!showLogo || !loaded) && <span className={styles.modalLogoName}>{title}</span>}
+				{showName && <span className={styles.modalLogoName}>{title}</span>}
 				{showLogo && (
 					<img
 						className={`${styles.modalLogo} ${loaded ? "" : styles.logoLoading}`}
