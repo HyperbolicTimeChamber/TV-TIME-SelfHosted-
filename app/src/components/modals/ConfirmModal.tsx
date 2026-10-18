@@ -20,8 +20,10 @@ interface Props {
 	secondaryColor?: string;
 	onSecondary?: () => void;
 	cancelLabel?: string;
-	/** Image flush with the top of the popup, the title in black over it (full-bleed art) */
-	titleOverImage?: boolean;
+	/** Image flush with the top of the popup (full-bleed art); a shown title is laid over it in black */
+	imageAtTop?: boolean;
+	/** No title (the image / hint say it all) */
+	hideTitle?: boolean;
 	/** No Cancel button (tapping outside still closes) */
 	hideCancel?: boolean;
 	onClose: () => void;
@@ -42,7 +44,8 @@ export default function ConfirmModal({
 	secondaryColor,
 	onSecondary,
 	cancelLabel = "Cancel",
-	titleOverImage = false,
+	imageAtTop = false,
+	hideTitle = false,
 	hideCancel = false,
 	onClose,
 }: Props) {
@@ -54,16 +57,18 @@ export default function ConfirmModal({
 			}}
 		>
 			<View style={styles.content}>
-				{titleOverImage && image != null ? (
+				{imageAtTop && image != null ? (
 					<View style={styles.imageTop}>
 						{image}
-						<Text style={[styles.title, styles.titleOnImage]} pointerEvents="none">
-							{title}
-						</Text>
+						{!hideTitle && (
+							<Text style={[styles.title, styles.titleOnImage]} pointerEvents="none">
+								{title}
+							</Text>
+						)}
 					</View>
 				) : (
 					<>
-						<Text style={styles.title}>{title}</Text>
+						{!hideTitle && <Text style={styles.title}>{title}</Text>}
 						{image != null && <View style={styles.image}>{image}</View>}
 					</>
 				)}

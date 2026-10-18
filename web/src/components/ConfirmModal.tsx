@@ -21,8 +21,10 @@ interface Props {
 	secondaryColor?: string;
 	onSecondary?: () => void;
 	cancelLabel?: string;
-	/** Image flush with the top of the popup, the title in black over it (full-bleed art) */
-	titleOverImage?: boolean;
+	/** Image flush with the top of the popup (full-bleed art); a shown title is laid over it in black */
+	imageAtTop?: boolean;
+	/** No title (the image / hint say it all) */
+	hideTitle?: boolean;
 	/** No Cancel button (tapping outside still closes) */
 	hideCancel?: boolean;
 	onClose: () => void;
@@ -43,20 +45,21 @@ export default function ConfirmModal({
 	secondaryColor,
 	onSecondary,
 	cancelLabel = "Cancel",
-	titleOverImage = false,
+	imageAtTop = false,
+	hideTitle = false,
 	hideCancel = false,
 	onClose,
 }: Props) {
 	return (
 		<AnimatedModal visible={visible} onClose={() => !loading && onClose()}>
-			{titleOverImage && image != null ? (
+			{imageAtTop && image != null ? (
 				<div className={`${styles.modalImage} ${styles.modalImageTop}`}>
 					{image}
-					<p className={`${styles.modalTitle} ${styles.modalTitleOnImage}`}>{title}</p>
+					{!hideTitle && <p className={`${styles.modalTitle} ${styles.modalTitleOnImage}`}>{title}</p>}
 				</div>
 			) : (
 				<>
-					<p className={styles.modalTitle}>{title}</p>
+					{!hideTitle && <p className={styles.modalTitle}>{title}</p>}
 					{image != null && <div className={styles.modalImage}>{image}</div>}
 				</>
 			)}

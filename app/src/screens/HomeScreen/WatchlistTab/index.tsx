@@ -334,7 +334,8 @@ export default function WatchlistTab() {
 			<ConfirmModal
 				visible={!!pauseTarget}
 				title={pauseTarget?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"}
-				titleOverImage={!!pauseTarget?.catalogShow?.backdropPath}
+				imageAtTop={!!pauseTarget?.catalogShow?.backdropPath}
+				hideTitle
 				image={
 					!pauseTarget ? undefined : pauseTarget.catalogShow?.backdropPath ? (
 						<ModalBackdrop
@@ -355,7 +356,11 @@ export default function WatchlistTab() {
 						/>
 					)
 				}
-				hint="It leaves your watchlist. Resume any time from its page."
+				hint={
+					pauseTarget?.status === WatchStatus.REWATCHING
+						? "Pausing this rewatch will take it off your watchlist. You can resume it any time from its page."
+						: "Pausing this show will take it off your watchlist. You can resume it any time from its page."
+				}
 				confirmLabel="Pause"
 				confirmColor={colors.stopBlue}
 				loading={pausing}

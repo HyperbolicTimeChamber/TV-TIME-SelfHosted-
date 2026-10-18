@@ -89,7 +89,7 @@ describe("HomeScreen", () => {
 		listData = [{ type: "sectionHeader", title: "What's Up Next" }, { type: "show", item: show }];
 		renderWithProviders(<Home />, { user: testUser, path: "/home" });
 		fireEvent.contextMenu(screen.getByText("The Real Name"));
-		expect(await screen.findByText("Pause Show?")).toBeInTheDocument();
+		expect(await screen.findByText(/^Pausing this show will/)).toBeInTheDocument();
 		fireEvent.click(screen.getByRole("button", { name: "Pause" }));
 		await waitFor(() => expect(handleStopWatching).toHaveBeenCalledWith(show));
 	});

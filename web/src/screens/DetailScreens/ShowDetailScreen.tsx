@@ -229,7 +229,8 @@ export default function ShowDetailScreen() {
 					<ConfirmModal
 						visible={d.pauseModalVisible}
 						title={d.watchlistItem?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"}
-						titleOverImage={!!show.backdrop_path}
+						imageAtTop={!!show.backdrop_path}
+						hideTitle
 						image={
 							show.backdrop_path ? (
 								<ModalBackdrop backdropPath={show.backdrop_path} logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={d.title} paused />
@@ -237,7 +238,11 @@ export default function ShowDetailScreen() {
 								<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={d.title} paused />
 							)
 						}
-						hint="It leaves your watchlist. Resume any time from here."
+						hint={
+							d.watchlistItem?.status === WatchStatus.REWATCHING
+								? "Pausing this rewatch will take it off your watchlist. You can resume it any time from here."
+								: "Pausing this show will take it off your watchlist. You can resume it any time from here."
+						}
 						confirmLabel="Pause"
 						confirmColor={colors.stopBlue}
 						loading={d.pausing}
