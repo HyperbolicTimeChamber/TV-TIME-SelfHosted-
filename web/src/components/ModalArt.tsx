@@ -31,11 +31,13 @@ function PauseBadge({ className = styles.pauseBadge }: { className?: string }) {
 	);
 }
 
-/** Just HiPauseCircle's two bars (no circle) in black — the big icon on a paused backdrop */
+/** Two black pause bars (no circle), larger and closer together than HiPauseCircle's — the big
+ *  icon on a paused backdrop */
 function PauseBars() {
 	return (
-		<svg className={styles.pauseCenter} viewBox="2.25 2.25 19.5 19.5" aria-hidden>
-			<path fill={colors.background} d="M9 8.25a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75h.75a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75H9Zm5.25 0a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75H15a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75h-.75Z" />
+		<svg className={styles.pauseCenter} viewBox="0 0 100 100" aria-hidden>
+			<rect x={32.5} y={22} width={13} height={56} rx={4} fill={colors.background} />
+			<rect x={54.5} y={22} width={13} height={56} rx={4} fill={colors.background} />
 		</svg>
 	);
 }
