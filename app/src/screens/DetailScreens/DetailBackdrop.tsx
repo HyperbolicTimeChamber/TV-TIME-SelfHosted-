@@ -10,6 +10,8 @@ import { tmdbBackdropUri, tmdbPosterUri } from "../../hooks/useTmdbImage";
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
 const BACKDROP_HEIGHT = 350;
+/** How far the title island rides up over the image — also the fade's height */
+const ISLAND_OVERLAP = 280;
 
 interface Props {
 	backdropPath: string | null;
@@ -51,21 +53,24 @@ export default function DetailBackdrop({
 				</Reanimated.View>
 			</View>
 
-			<LinearGradient
-				// Eased ramp (no visible start line): slow at the top, full black by 80%
-				colors={[
-					"rgba(0,0,0,0)",
-					"rgba(0,0,0,0.08)",
-					"rgba(0,0,0,0.25)",
-					"rgba(0,0,0,0.5)",
-					"rgba(0,0,0,0.75)",
-					colors.background,
-				]}
-				locations={[0, 0.12, 0.26, 0.42, 0.6, 0.8]}
-				style={[styles.gradientIsland, { marginTop: -280 }]}
-			>
+			<View style={[styles.gradientIsland, { marginTop: -ISLAND_OVERLAP }]}>
+				{/* Fixed-height fade that turns fully black exactly at the image's bottom edge, however
+				    tall the island (logo) is — eased, so there's no visible start line */}
+				<LinearGradient
+					colors={[
+						"rgba(0,0,0,0)",
+						"rgba(0,0,0,0.08)",
+						"rgba(0,0,0,0.25)",
+						"rgba(0,0,0,0.5)",
+						"rgba(0,0,0,0.75)",
+						colors.background,
+					]}
+					locations={[0, 0.15, 0.32, 0.52, 0.75, 1]}
+					style={styles.fade}
+					pointerEvents="none"
+				/>
 				<View style={styles.island}>{children}</View>
-			</LinearGradient>
+			</View>
 		</>
 	);
 }
@@ -81,6 +86,13 @@ const styles = StyleSheet.create({
 		paddingHorizontal: spacing.sm,
 		paddingTop: 200,
 		paddingBottom: spacing.sm,
+	},
+	fade: {
+		position: "absolute",
+		top: 0,
+		left: 0,
+		right: 0,
+		height: ISLAND_OVERLAP,
 	},
 	island: {
 		borderRadius: 20,

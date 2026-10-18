@@ -156,7 +156,10 @@ export default function ShowDetailScreen() {
 					posterPath={show.poster_path}
 					imageTranslateY={imageTranslateY}
 				>
-					<Text style={styles.islandTitle}>{title}</Text>
+					{/* Title logo (name as the fallback), centred */}
+					<View style={styles.islandLogo} accessibilityRole="header" accessibilityLabel={title}>
+						<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={title} />
+					</View>
 
 					<ActionPills
 						mediaType={mediaType}
@@ -339,9 +342,8 @@ const styles = StyleSheet.create({
 	// Position only — the circle itself is components/CircleButton
 	backButton: { position: "absolute", left: 16, zIndex: 10 },
 	shareButton: { position: "absolute", right: 16, zIndex: 10 },
-	islandTitle: {
-		...typography.title,
-		fontSize: 24,
+	islandLogo: {
+		alignItems: "center",
 	},
 	statsBar: {
 		flexDirection: "row",

@@ -124,7 +124,14 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	}, [user?.uid, tmdbId]);
 
 	const title = show?.name || show?.title || "";
-	const rawDate = show?.first_air_date || show?.release_date || "";
+	// TMDB sometimes has no first_air_date for a new show — fall back to the earliest season's
+	// air date (the date the season rows show), else the Year stat reads "—"
+	const firstSeasonDate =
+		(show?.seasons ?? [])
+			.filter((s) => s.season_number > 0 && s.air_date)
+			.map((s) => s.air_date as string)
+			.sort()[0] ?? "";
+	const rawDate = show?.first_air_date || show?.release_date || firstSeasonDate;
 	const year =
 		mediaType === MediaType.MOVIE && rawDate.length >= 10
 			? new Date(rawDate + "T00:00:00").toLocaleDateString("en-US", {

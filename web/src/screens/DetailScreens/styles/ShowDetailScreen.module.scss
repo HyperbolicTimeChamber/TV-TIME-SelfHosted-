@@ -53,27 +53,39 @@
 	position: relative;
 	margin-top: -280px;
 	padding: 200px 8px 8px;
-	/* Eased ramp (no visible start line): slow at the top, full black by 80% — app DetailBackdrop */
-	background: linear-gradient(
-		to bottom,
-		rgb(0 0 0 / 0%) 0%,
-		rgb(0 0 0 / 8%) 12%,
-		rgb(0 0 0 / 25%) 26%,
-		rgb(0 0 0 / 50%) 42%,
-		rgb(0 0 0 / 75%) 60%,
-		var(--bg) 80%
-	);
+
+	/* Fixed-height fade (= the 280px overlap) that turns fully black exactly at the image's bottom
+	   edge however tall the island (logo) is; eased, no visible start line — app DetailBackdrop */
+	&::before {
+		content: "";
+		position: absolute;
+		inset: 0 0 auto;
+		height: 280px;
+		pointer-events: none;
+		background: linear-gradient(
+			to bottom,
+			rgb(0 0 0 / 0%) 0%,
+			rgb(0 0 0 / 8%) 15%,
+			rgb(0 0 0 / 25%) 32%,
+			rgb(0 0 0 / 50%) 52%,
+			rgb(0 0 0 / 75%) 75%,
+			var(--bg) 100%
+		);
+	}
 }
 
 .island {
+	/* Positioned so it paints above the gradientIsland fade (::before) */
+	position: relative;
 	border-radius: 20px;
 	padding: 12px;
 }
 
-.islandTitle {
-	font-size: 24px;
-	font-weight: 600;
+.islandLogo {
+	display: flex;
+	justify-content: center;
 	margin: 0;
+	font-size: inherit;
 }
 
 .pillRow {

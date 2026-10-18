@@ -116,7 +116,10 @@ export default function ShowDetailScreen() {
 			</div>
 			<div className={styles.gradientIsland}>
 				<div className={styles.island}>
-					<h1 className={styles.islandTitle}>{d.title}</h1>
+					{/* Title logo (name as the fallback), centred */}
+					<h1 className={styles.islandLogo} aria-label={d.title}>
+						<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={d.title} />
+					</h1>
 					{signedIn ? (
 						<ActionPills
 							mediaType={mediaType}
