@@ -108,13 +108,9 @@ export async function searchSuggestions(apiKey: string, query: string): Promise<
 }
 
 export async function getShowDetails(apiKey: string, tmdbId: number, mediaType: string = "tv") {
-	// Title logos ride along on the same request (the show page's logo comes with its data).
-	// Not via the guest proxy yet: the deployed proxy rejects append values it doesn't know
-	const viaProxy = apiKey === TMDB_PROXY_KEY;
+	// Title logos ride along on the same request (the show page's logo comes with its data)
 	const res = await tmdb(apiKey).get(`/${mediaType}/${tmdbId}`, {
-		params: viaProxy
-			? { append_to_response: "credits,similar" }
-			: { append_to_response: "credits,similar,images", include_image_language: "en,null" },
+		params: { append_to_response: "credits,similar,images", include_image_language: "en,null" },
 	});
 	return res.data as TMDBShow;
 }
