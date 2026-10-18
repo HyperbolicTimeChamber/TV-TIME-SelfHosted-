@@ -232,6 +232,7 @@ export default memo(function SeasonDropdown({ readOnly, ...props }: Props) {
 						<ConfirmModal
 							visible={s.skipModalVisible}
 							title={SKIP_AHEAD_TITLE}
+							hideCancel
 							image={<ModalArt src={SPEEDSTER_ART} />}
 							hint={skipAheadHint(episodeRange(s.skipModalData.firstSkipped, s.skipModalData.targetEp.episode_number))}
 							confirmLabel={skipAheadConfirm(episodeRange(s.skipModalData.firstSkipped, s.skipModalData.targetEp.episode_number))}

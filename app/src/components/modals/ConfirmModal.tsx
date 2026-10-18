@@ -20,6 +20,8 @@ interface Props {
 	secondaryColor?: string;
 	onSecondary?: () => void;
 	cancelLabel?: string;
+	/** No Cancel button (tapping outside still closes) */
+	hideCancel?: boolean;
 	onClose: () => void;
 }
 
@@ -38,6 +40,7 @@ export default function ConfirmModal({
 	secondaryColor,
 	onSecondary,
 	cancelLabel = "Cancel",
+	hideCancel = false,
 	onClose,
 }: Props) {
 	return (
@@ -81,7 +84,7 @@ export default function ConfirmModal({
 						<Text style={styles.buttonText}>{secondaryLabel}</Text>
 					</TouchableOpacity>
 				)}
-				{!loading && (
+				{!loading && !hideCancel && (
 					<TouchableOpacity style={styles.cancelButton} onPress={onClose}>
 						<Text style={styles.buttonText}>{cancelLabel}</Text>
 					</TouchableOpacity>

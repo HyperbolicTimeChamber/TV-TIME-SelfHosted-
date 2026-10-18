@@ -24,6 +24,7 @@ export function BackfillModal({
 		<ConfirmModal
 			visible={visible}
 			title={SKIP_AHEAD_TITLE}
+			hideCancel
 			image={<ModalArt source={SPEEDSTER_ART} ratio={SPEEDSTER_RATIO} />}
 			hint={skipAheadHint(confirmLabel)}
 			confirmLabel={skipAheadConfirm(confirmLabel)}

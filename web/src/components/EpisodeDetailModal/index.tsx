@@ -308,6 +308,7 @@ export default function EpisodeDetailModal({
 			<ConfirmModal
 				visible={!!confirmTarget}
 				title={SKIP_AHEAD_TITLE}
+				hideCancel
 				image={<ModalArt src={SPEEDSTER_ART} />}
 				hint={skipAheadHint(confirmLabel)}
 				confirmLabel={skipAheadConfirm(confirmLabel)}
