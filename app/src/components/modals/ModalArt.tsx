@@ -5,6 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 import { tmdbBackdropUri, tmdbLogoUri } from "../../hooks/useTmdbImage";
 import { useTitleLogo } from "../../hooks/useTitleLogo";
+import SkeletonLine from "../SkeletonLine";
 import type { MediaType } from "../../types";
 import { colors, spacing, typography } from "../../theme";
 
@@ -174,33 +175,45 @@ export function ModalBackdrop({
 	// Bleeds over ConfirmModal's side padding
 	const w = useContentWidth() + spacing.lg * 2;
 	const h = (w * 9) / 16;
+	// Skeleton until the banner image is in; its overlays come in with it
+	const [loaded, setLoaded] = useState(false);
 	return (
 		<View style={[styles.backdrop, { width: w, height: h }]}>
 			<Image
 				source={{ uri: tmdbBackdropUri(backdropPath, CONTENT_W) }}
 				style={StyleSheet.absoluteFill}
 				contentFit="cover"
+				onLoad={() => setLoaded(true)}
+				onError={() => setLoaded(true)}
 			/>
-			{/* Darkens the bottom so the logo reads on any backdrop */}
-			<LinearGradient colors={["transparent", "rgba(0,0,0,0.85)"]} style={styles.backdropShade} />
-			<View style={styles.backdropLogo}>
-				{logoPath === undefined ? null : logoPath && !logoFailed ? (
-					<Image
-						source={{ uri: tmdbLogoUri(logoPath, CONTENT_W * 0.6) }}
-						style={styles.backdropLogoImg}
-						contentFit="contain"
-						onError={() => setLogoFailed(true)}
+			{!loaded && <SkeletonLine width={w} height={h} style={styles.backdropSkeleton} />}
+			{loaded && (
+				<>
+					{/* Darkens the bottom so the logo reads on any backdrop */}
+					<LinearGradient
+						colors={["transparent", "rgba(0,0,0,0.85)"]}
+						style={styles.backdropShade}
 					/>
-				) : (
-					<Text style={styles.backdropName} numberOfLines={2}>
-						{title}
-					</Text>
-				)}
-			</View>
-			{paused && (
-				<View style={styles.backdropPause} pointerEvents="none">
-					<PauseBars size={h - PAUSE_INSET * 2} />
-				</View>
+					<View style={styles.backdropLogo}>
+						{logoPath === undefined ? null : logoPath && !logoFailed ? (
+							<Image
+								source={{ uri: tmdbLogoUri(logoPath, CONTENT_W * 0.6) }}
+								style={styles.backdropLogoImg}
+								contentFit="contain"
+								onError={() => setLogoFailed(true)}
+							/>
+						) : (
+							<Text style={styles.backdropName} numberOfLines={2}>
+								{title}
+							</Text>
+						)}
+					</View>
+					{paused && (
+						<View style={styles.backdropPause} pointerEvents="none">
+							<PauseBars size={h - PAUSE_INSET * 2} />
+						</View>
+					)}
+				</>
 			)}
 		</View>
 	);
@@ -226,6 +239,12 @@ const styles = StyleSheet.create({
 	backdrop: {
 		overflow: "hidden",
 		backgroundColor: colors.surfaceLight,
+	},
+	backdropSkeleton: {
+		position: "absolute",
+		top: 0,
+		left: 0,
+		borderRadius: 0,
 	},
 	backdropShade: {
 		position: "absolute",

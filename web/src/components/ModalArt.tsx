@@ -103,9 +103,14 @@ export function ModalBackdrop({
 }) {
 	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	const [logoFailed, setLogoFailed] = useState(false);
+	const [loaded, setLoaded] = useState(false);
 	return (
-		<div className={styles.modalBackdrop}>
-			<img className={styles.modalBackdropImg} src={tmdbBackdropUri(backdropPath, CONTENT_W)} alt="" />
+		<div className={`${styles.modalBackdrop} ${loaded ? "" : styles.modalBackdropLoading}`}>
+			<img className={styles.modalBackdropImg} src={tmdbBackdropUri(backdropPath, CONTENT_W)} alt=""
+				onLoad={() => setLoaded(true)}
+				onError={() => setLoaded(true)} />
+			{/* Skeleton until the banner image is in; its overlays come in with it */}
+			{!loaded && <div className={`${styles.modalBackdropSkeleton} ${styles.shimmer}`} />}
 			<div className={styles.modalBackdropLogo}>
 				{logoPath === undefined ? null : logoPath && !logoFailed ? (
 					<img src={tmdbLogoUri(logoPath, CONTENT_W * 0.6)} alt={title} onError={() => setLogoFailed(true)} />
