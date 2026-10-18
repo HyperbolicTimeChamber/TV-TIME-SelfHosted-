@@ -334,6 +334,7 @@ export default function WatchlistTab() {
 			<ConfirmModal
 				visible={!!pauseTarget}
 				title={pauseTarget?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"}
+				titleOverImage={!!pauseTarget?.catalogShow?.backdropPath}
 				image={
 					!pauseTarget ? undefined : pauseTarget.catalogShow?.backdropPath ? (
 						<ModalBackdrop

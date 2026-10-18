@@ -20,6 +20,8 @@ interface Props {
 	secondaryColor?: string;
 	onSecondary?: () => void;
 	cancelLabel?: string;
+	/** Image flush with the top of the popup, the title in black over it (full-bleed art) */
+	titleOverImage?: boolean;
 	/** No Cancel button (tapping outside still closes) */
 	hideCancel?: boolean;
 	onClose: () => void;
@@ -40,6 +42,7 @@ export default function ConfirmModal({
 	secondaryColor,
 	onSecondary,
 	cancelLabel = "Cancel",
+	titleOverImage = false,
 	hideCancel = false,
 	onClose,
 }: Props) {
@@ -51,8 +54,19 @@ export default function ConfirmModal({
 			}}
 		>
 			<View style={styles.content}>
-				<Text style={styles.title}>{title}</Text>
-				{image != null && <View style={styles.image}>{image}</View>}
+				{titleOverImage && image != null ? (
+					<View style={styles.imageTop}>
+						{image}
+						<Text style={[styles.title, styles.titleOnImage]} pointerEvents="none">
+							{title}
+						</Text>
+					</View>
+				) : (
+					<>
+						<Text style={styles.title}>{title}</Text>
+						{image != null && <View style={styles.image}>{image}</View>}
+					</>
+				)}
 				{hint ? <Text style={styles.hint}>{hint}</Text> : null}
 				{error ? <Text style={styles.error}>{error}</Text> : null}
 				<TouchableOpacity
@@ -99,6 +113,22 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.surface,
 		borderRadius: 12,
 		padding: spacing.lg,
+		// Rounds the top of a title-over-image backdrop with the popup
+		overflow: "hidden",
+	},
+	// Pulled up over the popup's top padding so the art meets the top edge
+	imageTop: {
+		alignItems: "center",
+		marginTop: -spacing.lg,
+		marginBottom: spacing.sm,
+	},
+	titleOnImage: {
+		position: "absolute",
+		top: spacing.md,
+		left: spacing.lg,
+		right: spacing.lg,
+		marginBottom: 0,
+		color: colors.background,
 	},
 	title: {
 		...typography.subtitle,

@@ -274,6 +274,7 @@ export default function ShowDetailScreen() {
 			<ConfirmModal
 				visible={pauseModalVisible}
 				title={watchlistItem?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"}
+				titleOverImage={!!show?.backdrop_path}
 				image={
 					show?.backdrop_path ? (
 						<ModalBackdrop

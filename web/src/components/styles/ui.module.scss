@@ -36,6 +36,22 @@
 }
 
 /* 140px tall, or the popup's width for wide art */
+/* Title-over-image: art pulled up over modalCard's 16px top padding, title in black on it */
+.modalImageTop {
+	position: relative;
+	margin-top: -16px;
+}
+
+.modalTitleOnImage {
+	position: absolute;
+	top: 12px;
+	left: 16px;
+	right: 16px;
+	margin: 0;
+	color: #000;
+	pointer-events: none;
+}
+
 .modalArt {
 	display: block;
 	max-height: 140px;

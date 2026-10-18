@@ -21,6 +21,8 @@ interface Props {
 	secondaryColor?: string;
 	onSecondary?: () => void;
 	cancelLabel?: string;
+	/** Image flush with the top of the popup, the title in black over it (full-bleed art) */
+	titleOverImage?: boolean;
 	/** No Cancel button (tapping outside still closes) */
 	hideCancel?: boolean;
 	onClose: () => void;
@@ -41,13 +43,23 @@ export default function ConfirmModal({
 	secondaryColor,
 	onSecondary,
 	cancelLabel = "Cancel",
+	titleOverImage = false,
 	hideCancel = false,
 	onClose,
 }: Props) {
 	return (
 		<AnimatedModal visible={visible} onClose={() => !loading && onClose()}>
-			<p className={styles.modalTitle}>{title}</p>
-			{image != null && <div className={styles.modalImage}>{image}</div>}
+			{titleOverImage && image != null ? (
+				<div className={`${styles.modalImage} ${styles.modalImageTop}`}>
+					{image}
+					<p className={`${styles.modalTitle} ${styles.modalTitleOnImage}`}>{title}</p>
+				</div>
+			) : (
+				<>
+					<p className={styles.modalTitle}>{title}</p>
+					{image != null && <div className={styles.modalImage}>{image}</div>}
+				</>
+			)}
 			{hint && <p className={styles.modalHint}>{hint}</p>}
 			{error && <p className={styles.modalError}>{error}</p>}
 			<button
