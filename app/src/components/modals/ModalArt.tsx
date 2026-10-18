@@ -34,15 +34,17 @@ const PAUSE_OPACITY = 0.6;
 const BACKDROP_LOGO_H = 48;
 const BACKDROP_LOGO_BOTTOM = 10;
 
-/** Bootstrap's BsFillPauseCircleFill in pause blue, the bars filled white */
+/** Heroicons' HiPauseCircle in pause blue, the bars filled white */
 function PauseBadge({ style, size = BADGE }: { style?: ViewStyle; size?: number }) {
 	return (
 		<View style={style} pointerEvents="none">
-			<Svg width={size} height={size} viewBox="0 0 16 16">
-				<Circle cx={8} cy={8} r={6} fill={colors.text} />
+			<Svg width={size} height={size} viewBox="2.25 2.25 19.5 19.5">
+				<Circle cx={12} cy={12} r={6.5} fill={colors.text} />
 				<Path
+					fillRule="evenodd"
+					clipRule="evenodd"
 					fill={colors.stopBlue}
-					d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0M6.25 5C5.56 5 5 5.56 5 6.25v3.5a1.25 1.25 0 1 0 2.5 0v-3.5C7.5 5.56 6.94 5 6.25 5m3.5 0c-.69 0-1.25.56-1.25 1.25v3.5a1.25 1.25 0 1 0 2.5 0v-3.5C11 5.56 10.44 5 9.75 5"
+					d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12ZM9 8.25a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75h.75a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75H9Zm5.25 0a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75H15a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75h-.75Z"
 				/>
 			</Svg>
 		</View>
