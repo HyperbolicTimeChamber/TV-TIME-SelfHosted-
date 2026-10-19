@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, Dimensions, Easing, StyleSheet, View } from "react-native";
 
-const NOT_FOUND_ART = require("../../assets/not-found.png");
+const NOT_FOUND_ART = require("../../assets/not-found.webp");
 const NOT_FOUND_RATIO = 600 / 587;
 /** Empty search results character (width / height) */
-export const NO_RESULTS_ART = require("../../assets/no-results.png");
+export const NO_RESULTS_ART = require("../../assets/no-results.webp");
 export const NO_RESULTS_RATIO = 306 / 646;
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");

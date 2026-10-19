@@ -19,7 +19,7 @@ export const UPCOMING_EMPTY_ART = {
 /** Snorlax, asleep — "all caught up" */
 export const CAUGHT_UP_ART = {
 	source: require("../../../assets/caught-up.webp"),
-	ratio: 1080 / 795,
+	ratio: 660 / 486,
 };
 /** Streaming-overlay frame the art sits in on wide screens (tablets) */
 const FRAME = require("../../../assets/stream-frame.webp");

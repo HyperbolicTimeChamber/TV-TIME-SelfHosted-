@@ -19,7 +19,7 @@ export const LOGOUT_ART = require("../../../assets/logout.webp");
 export const LOGOUT_RATIO = 900 / 397;
 /** Delete Account — crying Pikachu */
 export const FAREWELL_ART = require("../../../assets/farewell.webp");
-export const FAREWELL_RATIO = 762 / 480;
+export const FAREWELL_RATIO = 666 / 420;
 
 const ART_H = 140;
 const LOGO_MAX_W = 240;

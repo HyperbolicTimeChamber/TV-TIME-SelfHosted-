@@ -5,7 +5,7 @@ import { colors, spacing, typography } from "../../../theme";
 
 /** Squidward, gesturing at nothing (transparent WebP, width / height) */
 const SQUIDWARD_ART = require("../../../../assets/history-empty.webp");
-const SQUIDWARD_RATIO = 517 / 720;
+const SQUIDWARD_RATIO = 474 / 660;
 const ART_H = 220;
 
 /** Hall of Shame with nothing in it: Squidward on the left, his take on the right */
