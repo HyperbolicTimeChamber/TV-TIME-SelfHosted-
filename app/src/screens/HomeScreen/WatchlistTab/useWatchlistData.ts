@@ -863,7 +863,7 @@ export function useWatchlistData(userId: string | undefined) {
 	);
 
 	const handleCarouselMarkWatched = useCallback(
-		async (tmdbId: number, season: number, episode: number) => {
+		async (tmdbId: number, season: number, episode: number, cardRuntime?: number | null) => {
 			if (!userId) return;
 			const item = items.find((i) => i.tmdbId === tmdbId);
 			if (!item) return;
@@ -885,7 +885,9 @@ export function useWatchlistData(userId: string | undefined) {
 				season,
 				episode,
 				catalogEp?.title || "",
-				catalogEp?.runtime || 0,
+				// A fresh episode can lack a runtime in the stored catalog while the card already
+				// has TMDB's — use that, or the watch counts 0 minutes ("N/A") until the next sync
+				catalogEp?.runtime || cardRuntime || 0,
 				isCurrentNext
 					? nextInCatalog
 						? { season: nextInCatalog.season, episode: nextInCatalog.episode }

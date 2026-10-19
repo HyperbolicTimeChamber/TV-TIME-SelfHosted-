@@ -25,7 +25,13 @@ export interface EpisodeDetailModalProps {
 	/** Rewatch run number while rewatching (0/undefined = first watch). An episode counts
 	 *  as watched in this run only once its watch count exceeds it. */
 	rewatchCount?: number;
-	onMarkWatched: (tmdbId: number, season: number, episode: number) => Promise<void>;
+	/** `runtime`: the card's runtime (TMDB) — used when the stored catalog has none yet */
+	onMarkWatched: (
+		tmdbId: number,
+		season: number,
+		episode: number,
+		runtime?: number | null,
+	) => Promise<void>;
 	onMarkWatchedThrough: (tmdbId: number, season: number, episode: number) => Promise<void>;
 	onUnmarkWatched: (tmdbId: number, season: number, episode: number) => Promise<void>;
 	/** Skip the current episode without watching it (watchlist rewatches only) */

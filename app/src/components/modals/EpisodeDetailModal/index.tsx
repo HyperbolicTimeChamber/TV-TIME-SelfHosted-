@@ -143,7 +143,7 @@ export default function EpisodeDetailModal({
 			const key = epKey(ep.season, ep.episode);
 			if (!currentNextEpisode) {
 				setMarkingKey(key);
-				onMarkWatched(tmdbId, ep.season, ep.episode).finally(() => {
+				onMarkWatched(tmdbId, ep.season, ep.episode, ep.runtime).finally(() => {
 					setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
 					setMarkingKey(null);
 				});
@@ -158,7 +158,7 @@ export default function EpisodeDetailModal({
 
 			if (isNext || !isAhead) {
 				setMarkingKey(key);
-				onMarkWatched(tmdbId, ep.season, ep.episode).finally(() => {
+				onMarkWatched(tmdbId, ep.season, ep.episode, ep.runtime).finally(() => {
 					setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
 					setMarkingKey(null);
 				});
@@ -178,7 +178,7 @@ export default function EpisodeDetailModal({
 					setConfirmVisible(true);
 				} else {
 					setMarkingKey(key);
-					onMarkWatched(tmdbId, ep.season, ep.episode).finally(() => {
+					onMarkWatched(tmdbId, ep.season, ep.episode, ep.runtime).finally(() => {
 						setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
 						setMarkingKey(null);
 					});
@@ -200,7 +200,8 @@ export default function EpisodeDetailModal({
 			// Mirror the write: every episode from the current next one through the target gets
 			// one more watch, including already-counted ones during a rewatch
 			const from = currentNextEpisode ?? { season: 1, episode: 1 };
-			const onOrAfter = (s: number, e: number) => s > from.season || (s === from.season && e >= from.episode);
+			const onOrAfter = (s: number, e: number) =>
+				s > from.season || (s === from.season && e >= from.episode);
 			const onOrBefore = (s: number, e: number) =>
 				s < confirmTarget.season || (s === confirmTarget.season && e <= confirmTarget.episode);
 			setLocalWatched((prev) => {
@@ -247,7 +248,10 @@ export default function EpisodeDetailModal({
 		setMarkingKey(key);
 
 		try {
-			await onMarkWatched(tmdbId, confirmTarget.season, confirmTarget.episode);
+			const target = enrichedEps.find(
+				(e) => e.season === confirmTarget.season && e.episode === confirmTarget.episode,
+			);
+			await onMarkWatched(tmdbId, confirmTarget.season, confirmTarget.episode, target?.runtime);
 			setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
 		} finally {
 			setMarkingKey(null);
@@ -304,7 +308,7 @@ export default function EpisodeDetailModal({
 							}}
 							onRewatch={() => {
 								setMarkingKey(key);
-								onMarkWatched(tmdbId, item.season, item.episode).finally(() => {
+								onMarkWatched(tmdbId, item.season, item.episode, item.runtime).finally(() => {
 									setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
 									setMarkingKey(null);
 								});

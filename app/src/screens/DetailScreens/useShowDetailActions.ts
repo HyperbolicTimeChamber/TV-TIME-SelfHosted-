@@ -75,6 +75,13 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		const found = cached.pages.flatMap((p: any) => p.movies).find((m: any) => m.tmdbId === tmdbId);
 		return found?.watchCount ?? 0;
 	});
+	// The tracking doc's plays is the movie's watch count (marks minus unmarks). The watched
+	// movies list above only holds the pages loaded so far, so an older movie opened from
+	// Watch History started at 0 there — follow the live tracking doc instead
+	const trackedPlays = mediaType === MediaType.MOVIE ? watchlistItem?.plays : undefined;
+	useEffect(() => {
+		if (typeof trackedPlays === "number") setMovieWatchCount(trackedPlays);
+	}, [trackedPlays]);
 	const [movieSheetVisible, setMovieSheetVisible] = useState(false);
 	const [removeModalVisible, setRemoveModalVisible] = useState(false);
 	const [pauseModalVisible, setPauseModalVisible] = useState(false);
@@ -247,7 +254,16 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		} finally {
 			setAdding(false);
 		}
-	}, [user?.uid, show, tmdbId, mediaType, adding, addShowToUpcoming, episodesBySeason, addFutureEpisodesLocally]);
+	}, [
+		user?.uid,
+		show,
+		tmdbId,
+		mediaType,
+		adding,
+		addShowToUpcoming,
+		episodesBySeason,
+		addFutureEpisodesLocally,
+	]);
 
 	const handleRemove = useCallback(() => {
 		if (!user?.uid || removing) return;
@@ -277,7 +293,12 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	// button then reads "Resume" / "Resume Rewatch"
 	const handleConfirmPause = useCallback(async () => {
 		const status = watchlistItem?.status;
-		if (!user?.uid || pausing || (status !== WatchStatus.WATCHING && status !== WatchStatus.REWATCHING)) return;
+		if (
+			!user?.uid ||
+			pausing ||
+			(status !== WatchStatus.WATCHING && status !== WatchStatus.REWATCHING)
+		)
+			return;
 		setPausing(true);
 		try {
 			await stopWatching(user.uid, tmdbId, status, mediaType);

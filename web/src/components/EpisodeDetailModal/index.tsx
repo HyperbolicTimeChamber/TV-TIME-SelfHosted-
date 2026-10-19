@@ -147,7 +147,7 @@ export default function EpisodeDetailModal({
 	const markOne = (ep: CarouselEpisode) => {
 		const key = epKey(ep.season, ep.episode);
 		setMarkingKey(key);
-		onMarkWatched(tmdbId, ep.season, ep.episode).finally(() => {
+		onMarkWatched(tmdbId, ep.season, ep.episode, ep.runtime).finally(() => {
 			bump(key, 1);
 			setMarkingKey(null);
 		});
