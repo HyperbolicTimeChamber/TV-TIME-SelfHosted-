@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from "react";
-import { Animated, Dimensions, Easing, StyleSheet } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Animated, Dimensions, Easing, StyleSheet, View } from "react-native";
 
 const NOT_FOUND_ART = require("../../assets/not-found.png");
 const NOT_FOUND_RATIO = 600 / 587;
@@ -24,18 +24,29 @@ export const artHeight = (ratio = NOT_FOUND_RATIO) =>
 export default function NotFoundArt({
 	source = NOT_FOUND_ART,
 	ratio = NOT_FOUND_RATIO,
+	onOverhang,
 }: {
 	source?: number;
 	/** Image width / height */
 	ratio?: number;
+	/** Told how far the parent reaches below the screen, so content above can move up with the art */
+	onOverhang?: (px: number) => void;
 }) {
 	const height = artHeight(ratio);
+	// How far the parent reaches below the screen — the art sits at the visible bottom instead
+	const [overhang, setOverhang] = useState(0);
 	const climb = useRef(new Animated.Value(height)).current;
 	const fade = useRef(new Animated.Value(0)).current;
 
 	useEffect(() => {
 		// Slides up from below the screen edge while fading in, no overshoot
-		const config = { toValue: 0, duration: 350, delay: 120, easing: Easing.out(Easing.cubic), useNativeDriver: true };
+		const config = {
+			toValue: 0,
+			duration: 350,
+			delay: 120,
+			easing: Easing.out(Easing.cubic),
+			useNativeDriver: true,
+		};
 		Animated.parallel([
 			Animated.timing(climb, config),
 			Animated.timing(fade, { ...config, toValue: 1 }),
@@ -43,12 +54,35 @@ export default function NotFoundArt({
 	}, [climb, fade]);
 
 	return (
-		<Animated.Image
-			source={source}
-			style={[styles.art, { height, width: height * ratio, opacity: fade, transform: [{ translateY: climb }] }]}
-			resizeMode="contain"
-			accessibilityIgnoresInvertColors
-		/>
+		// Fills the parent (no transform) so its bottom can be measured: the parent may run past
+		// the screen's bottom edge (e.g. space kept for a hidden tab bar), which hid the art's legs
+		<View
+			style={StyleSheet.absoluteFill}
+			pointerEvents="none"
+			onLayout={(e) =>
+				(e.target as unknown as View).measureInWindow((_x, y, _w, h) => {
+					const px = Math.max(0, y + h - Dimensions.get("screen").height);
+					setOverhang(px);
+					onOverhang?.(px);
+				})
+			}
+		>
+			<Animated.Image
+				source={source}
+				style={[
+					styles.art,
+					{
+						bottom: overhang,
+						height,
+						width: height * ratio,
+						opacity: fade,
+						transform: [{ translateY: climb }],
+					},
+				]}
+				resizeMode="contain"
+				accessibilityIgnoresInvertColors
+			/>
+		</View>
 	);
 }
 

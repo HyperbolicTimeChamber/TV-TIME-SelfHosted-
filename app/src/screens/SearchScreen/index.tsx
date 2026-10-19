@@ -4,7 +4,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LoadingSpinner } from "../../components";
 import SlidingTabs from "../../components/SlidingTabs";
-import NotFoundArt, { NO_RESULTS_ART, NO_RESULTS_RATIO } from "../../components/NotFoundArt";
+import NotFoundArt, {
+	NO_RESULTS_ART,
+	NO_RESULTS_RATIO,
+	artHeight,
+} from "../../components/NotFoundArt";
+
+const artReserve = artHeight(NO_RESULTS_RATIO) + 24;
 import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -31,6 +37,8 @@ export default function SearchScreen() {
 		useRoute<RouteProp<SearchStackParamList, Route.SEARCH_MAIN | Route.SEARCH_RESULTS>>();
 	const submittedQuery = (route.params as any)?.query || "";
 	const [mediaFilter, setMediaFilter] = useState<MediaFilter>(MediaFilter.ALL);
+	// No-results art sits at the visible bottom; the message stays above it
+	const [artOverhang, setArtOverhang] = useState(0);
 
 	// Collapsible header — transforms only (native driver): header and content both slide up
 	// by h (content is h taller, so no gap opens at the bottom). Animating paddingTop would
@@ -42,13 +50,10 @@ export default function SearchScreen() {
 	const headerVisible = useRef(true);
 	const animating = useRef(false);
 
-	const onHeaderLayout = useCallback(
-		(e: any) => {
-			headerHeight.current = e.nativeEvent.layout.height;
-			setHeaderH(e.nativeEvent.layout.height);
-		},
-		[],
-	);
+	const onHeaderLayout = useCallback((e: any) => {
+		headerHeight.current = e.nativeEvent.layout.height;
+		setHeaderH(e.nativeEvent.layout.height);
+	}, []);
 
 	const handleScroll = useCallback(
 		(e: any) => {
@@ -220,7 +225,11 @@ export default function SearchScreen() {
 			<Animated.View
 				style={[
 					styles.content,
-					{ paddingTop: headerH, marginBottom: -headerH, transform: [{ translateY: headerTranslateY }] },
+					{
+						paddingTop: headerH,
+						marginBottom: -headerH,
+						transform: [{ translateY: headerTranslateY }],
+					},
 				]}
 			>
 				{!submittedQuery && <Text style={styles.sectionTitle}>Trending</Text>}
@@ -229,11 +238,19 @@ export default function SearchScreen() {
 					<View style={styles.center}>
 						<LoadingSpinner />
 					</View>
-				) : !isLoading && submittedQuery.length > 0 && (!displayData || displayData.length === 0) ? (
-					<View style={styles.emptyWrap}>
-						<NotFoundArt source={NO_RESULTS_ART} ratio={NO_RESULTS_RATIO} />
+				) : !isLoading &&
+				  submittedQuery.length > 0 &&
+				  (!displayData || displayData.length === 0) ? (
+					<View style={[styles.emptyWrap, { paddingBottom: artReserve + artOverhang }]}>
+						<NotFoundArt
+							source={NO_RESULTS_ART}
+							ratio={NO_RESULTS_RATIO}
+							onOverhang={setArtOverhang}
+						/>
 						<Text style={styles.emptyText}>NOTHING FOUND</Text>
-						<Text style={styles.emptyHint}>Searched the database, but nothing happened. Have you lost the way?</Text>
+						<Text style={styles.emptyHint}>
+							Searched the database, but nothing happened. Have you lost the way?
+						</Text>
 					</View>
 				) : (
 					<LegendList
@@ -254,7 +271,6 @@ export default function SearchScreen() {
 						recycleItems={false}
 					/>
 				)}
-
 			</Animated.View>
 
 			<SearchModals
