@@ -158,7 +158,7 @@ export default function CalendarScreen() {
 	// Bars (week / month) and titled chips (full) are both always mounted; two shared opacities
 	// pick which shows. Between month and full both hide (the rows are being stretched) and
 	// the right one fades back in the instant the resize lands — all on the UI thread, no
-	// re-render (remounting them waited on JS: up to ~1.5s on a slow phone)
+	// re-render (remounting waits on JS: up to ~1.5s on a slow phone)
 	const barsOpacity = useSharedValue(1);
 	const chipsOpacity = useSharedValue(0);
 	const marksHidden = useSharedValue(false);
@@ -266,8 +266,8 @@ export default function CalendarScreen() {
 	const listScroll = useAnimatedStyle(() => ({ transform: [{ translateY: -listY.value }] }));
 
 	// Resizing is transform-only: the calendar keeps its full height and the day list — an opaque
-	// layer on top — slides down/up to uncover it. Animating the calendar's height relaid the
-	// whole screen out every frame (janky on real phones, e.g. an S21).
+	// layer on top — slides down/up to uncover it. Animating the height would relayout the
+	// whole screen every frame (janky on real phones, e.g. an S21).
 	const listStyle = useAnimatedStyle(() => ({
 		transform: [{ translateY: heightAt(progress.value, rows.value, bodyH.value) }],
 		opacity: interpolate(progress.value, [CalendarMode.MONTH, CalendarMode.FULL - 0.3], [1, 0], "clamp"),
@@ -275,7 +275,6 @@ export default function CalendarScreen() {
 
 	// --- Pages -----------------------------------------------------------------------------
 	const weekPaging = mode === CalendarMode.WEEK && !resizing;
-	// Bars in week / month view, titled chips in full view, nothing while resizing
 	// Neighbouring days' cards are only built once a sideways swipe starts
 	const [peek, setPeek] = useState(false);
 	// …and dropped again once the day has changed and the slide (~200ms) is over, so the day
@@ -287,7 +286,7 @@ export default function CalendarScreen() {
 	const [popupDate, setPopupDate] = useState<string | null>(null);
 
 	// Mode read through a ref: a mode change must not hand every day cell a new onPress
-	// (that re-rendered all three grids the moment a resize landed)
+	// (that would re-render all three grids the moment a resize lands)
 	const modeRef = useRef(mode);
 	modeRef.current = mode;
 	const onDayPress = useCallback(
@@ -380,7 +379,7 @@ export default function CalendarScreen() {
 
 	const renderDayPage = (offset: -1 | 0 | 1) => {
 		const date = addDays(selected, offset);
-		// Only today's page scrolls (neighbours sit at their top while swiping in)
+		// Only the selected day's page scrolls (neighbours sit at their top while swiping in)
 		return (
 			<Animated.View
 				style={offset === 0 && listScroll}

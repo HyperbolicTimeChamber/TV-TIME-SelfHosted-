@@ -28,8 +28,7 @@ const RECENT_TV_POOL = 60;
 /**
  * Completed tracking docs → display items. Only what can be shown is kept (latest
  * movies + latest TV shows); catalogs missing from the shared cache are fetched in one
- * batched query and cached, so later loads read nothing. Before, missing catalogs
- * rendered as "Show 12345" with no poster under "Other".
+ * batched query and cached, so later loads read nothing.
  */
 async function loadCompletedItems(userId: string): Promise<CompletedItem[]> {
 	const db = getFirestore();

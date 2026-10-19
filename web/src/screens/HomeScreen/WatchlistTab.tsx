@@ -90,8 +90,7 @@ export default function WatchlistTab() {
 	return (
 		<>
 			<div className={styles.list}>
-				{/* No wrapper per item: a sticky section header can only stick within its
-				    parent, and a header-sized wrapper made it scroll straight away */}
+				{/* No wrapper per item: a sticky section header can only stick within its parent */}
 				{items.map((item) => (
 					<Fragment key={keyOf(item)}>{render(item)}</Fragment>
 				))}

@@ -8,7 +8,7 @@ import {
 
 /**
  * One-off: mark ended shows users finished but are still "watching" as completed
- * (the weekly sync does this from now on). Reads ended catalog docs + TV tracking docs.
+ * (the weekly sync handles new cases). Reads ended catalog docs + TV tracking docs.
  */
 export async function completeEndedShows(
   db: FirebaseFirestore.Firestore,

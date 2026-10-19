@@ -74,8 +74,7 @@ const toDateStr = (ts: unknown): string => {
  *    "Episode N" names + TBA air dates get filled in once TMDB has them).
  * 2. Caught up (nextEpisode null) or COMPLETED → if the catalog has an episode after
  *    the user's highest watched one that is new to them, point at it and set WATCHING.
- *    Covers imported shows and episodes TMDB listed before the user caught up — the
- *    old "totalEpisodes increased" check missed both.
+ *    Covers imported shows and episodes TMDB listed before the user caught up.
  *    Gated by reconciledEpisodeCount so the watchedEpisodes query only runs when the
  *    show's episode count changed since the last check.
  *

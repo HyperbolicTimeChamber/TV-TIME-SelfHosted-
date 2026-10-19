@@ -6,7 +6,7 @@ export const CARD_MIN_HEIGHT = 120;
 // Episode square spans the card's height minus its vertical padding
 const EP_SQUARE = CARD_MIN_HEIGHT - spacing.md * 2;
 
-/** Day list cards (unchanged from the old Calendar screen) */
+/** Day list cards */
 export const listStyles = StyleSheet.create({
 	noEps: {
 		...typography.caption,

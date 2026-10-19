@@ -95,7 +95,7 @@ export default function Pager({
 					const dest = base.value - dir * width;
 					target.value = dest;
 					tx.value = withTiming(dest, { duration: TURN_MS });
-					// Report the turn now, not when the slide ends — an interrupted slide used to
+					// Report the turn now, not when the slide ends — an interrupted slide would
 					// skip the report and leave the strip a page off from the selected day
 					runOnJS(turn)(dir);
 				}),

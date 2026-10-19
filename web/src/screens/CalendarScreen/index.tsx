@@ -104,7 +104,6 @@ function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 		<button className={styles.episodeRow} onClick={onClick} aria-expanded={groupEps ? !!expanded : undefined}>
 			{backdrop}
 			<span className={styles.epInfo}>
-				{/* Title logo when TMDB has one, else the name */}
 				{ep.logoPath ? (
 					<img src={tmdbLogoUri(ep.logoPath, CARD_MAX_WIDTH * 0.6)} alt={ep.showTitle} className={styles.logo} loading="lazy" />
 				) : (

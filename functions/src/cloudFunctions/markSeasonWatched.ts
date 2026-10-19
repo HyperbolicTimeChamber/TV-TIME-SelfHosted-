@@ -82,7 +82,6 @@ export const markSeasonWatched = onCall(
       }
     }
 
-    // Update user stats
     batch.set(
       userDoc,
       {

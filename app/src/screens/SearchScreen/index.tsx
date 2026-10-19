@@ -32,9 +32,9 @@ export default function SearchScreen() {
 	const submittedQuery = (route.params as any)?.query || "";
 	const [mediaFilter, setMediaFilter] = useState<MediaFilter>(MediaFilter.ALL);
 
-	// Collapsible header — transforms only (native driver): header slides up by h, the content
-	// below it slides up by h too (it's h taller, so no gap opens at the bottom). Animating
-	// the content's paddingTop instead relaid the list out on the JS thread every frame.
+	// Collapsible header — transforms only (native driver): header and content both slide up
+	// by h (content is h taller, so no gap opens at the bottom). Animating paddingTop would
+	// relayout the list on the JS thread every frame.
 	const headerHeight = useRef(0);
 	const [headerH, setHeaderH] = useState(0);
 	const headerTranslateY = useRef(new Animated.Value(0)).current;
@@ -126,7 +126,7 @@ export default function SearchScreen() {
 
 	const { data: trending, isLoading: trendingLoading } = useTrending("all");
 
-	// Memoized: a new array every render re-mapped displayData → every card re-rendered
+	// Memoized: a new array each render would re-map displayData and re-render every card
 	const filteredTrending = useMemo(
 		() =>
 			trending?.filter((item) => {

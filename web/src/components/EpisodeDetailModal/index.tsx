@@ -179,7 +179,7 @@ export default function EpisodeDetailModal({
 		try {
 			await onMarkWatchedThrough(tmdbId, confirmTarget.season, confirmTarget.episode);
 			// Mirror the write: one more watch for every episode from the current next one through
-			// the target (in a rewatch they all had counts already — cards used to stay stale)
+			// the target (in a rewatch they all already have counts)
 			const from = currentNextEpisode ?? { season: 1, episode: 1 };
 			const onOrAfter = (s: number, e: number) => s > from.season || (s === from.season && e >= from.episode);
 			const onOrBefore = (s: number, e: number) =>

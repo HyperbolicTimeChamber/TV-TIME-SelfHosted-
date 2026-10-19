@@ -7,11 +7,9 @@ import { CacheKey } from "../types";
  * Reads from AsyncStorage first (cache), falls back to Firestore.
  */
 export async function shouldShowUnreleasedModal(userId: string): Promise<boolean> {
-	// Check cache first
 	const cached = await AsyncStorage.getItem(CacheKey.HIDE_UNRELEASED_MODAL);
 	if (cached === "true") return false;
 
-	// Fallback to Firestore
 	try {
 		const db = getFirestore();
 		const userDoc = await getDoc(doc(db, "users", userId));

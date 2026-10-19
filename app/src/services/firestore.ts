@@ -926,8 +926,7 @@ export async function markSeasonWatchedCF(
 				nextEpisodeName,
 				nextEpisodeAirDate,
 				isShowComplete,
-				// Were missing here (only the >100 path sent them): rewatch status/count and
-				// "don't move the pointer" marks were ignored for every normal-sized season
+				// Rewatch status/count + "don't move the pointer" — same as the chunked path
 				skipTracking,
 				status,
 				incrementRewatch,

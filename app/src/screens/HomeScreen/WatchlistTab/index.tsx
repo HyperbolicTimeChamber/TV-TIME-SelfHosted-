@@ -149,8 +149,7 @@ export default function WatchlistTab() {
 	}, [pauseTarget, handleStopWatching]);
 
 	// Open at "What's Up Next" (previously watched sits above it, reached by scrolling up).
-	// initialScrollIndex positions the list as it mounts — a timed scrollToIndex after
-	// mount raced the first layout and left the list at the top.
+	// initialScrollIndex positions the list as it mounts (a timed scrollToIndex races the first layout).
 	const upNextIndex = useMemo(
 		() => listData.findIndex((i) => i.type === "sectionHeader" && i.title === "What's Up Next"),
 		[listData],

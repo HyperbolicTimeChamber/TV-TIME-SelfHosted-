@@ -198,8 +198,7 @@ export default function EpisodeDetailModal({
 		try {
 			await onMarkWatchedThrough(tmdbId, confirmTarget.season, confirmTarget.episode);
 			// Mirror the write: every episode from the current next one through the target gets
-			// one more watch (in a rewatch they all had counts already — the old "only if unwatched"
-			// left those cards stale until the modal reopened)
+			// one more watch, including already-counted ones during a rewatch
 			const from = currentNextEpisode ?? { season: 1, episode: 1 };
 			const onOrAfter = (s: number, e: number) => s > from.season || (s === from.season && e >= from.episode);
 			const onOrBefore = (s: number, e: number) =>

@@ -21,7 +21,7 @@ const START_PX = 25;
 const TURN_SHARE = 0.3;
 const FLICK_VELOCITY = 500;
 /** Other bottom tabs are built in the background after launch, one at a time, so a first visit
- *  doesn't build a whole screen during the slide (Calendar dropped JS to ~15 fps on 2 cores) */
+ *  doesn't build a whole screen during the slide (building Calendar drops JS to ~15 fps on 2 cores) */
 const PRELOAD_TABS = [Route.CALENDAR, Route.SEARCH, Route.PROFILE];
 const PRELOAD_START_MS = 4000;
 const PRELOAD_GAP_MS = 1500;

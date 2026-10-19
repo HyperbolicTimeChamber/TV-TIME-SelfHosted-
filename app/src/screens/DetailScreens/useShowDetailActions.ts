@@ -195,7 +195,6 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 				});
 			}
 
-			// Get first episode info for TV shows
 			const firstEp = mediaType === MediaType.TV ? episodesBySeason.get(1)?.[0] : undefined;
 
 			await addToTracking(user.uid, tmdbId, mediaType, isUnreleased ? releaseDate : null, {

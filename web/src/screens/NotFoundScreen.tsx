@@ -4,7 +4,6 @@ import ErrorState from "../components/ErrorState";
 import { useAppSelector } from "../store";
 import { Paths } from "../routes/paths";
 
-/** Unknown URL */
 export default function NotFoundScreen() {
 	const navigate = useNavigate();
 	const signedIn = useAppSelector((s) => !!s.auth.user);

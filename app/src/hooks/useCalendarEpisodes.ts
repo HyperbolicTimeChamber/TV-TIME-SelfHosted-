@@ -114,9 +114,8 @@ export function useCalendarEpisodes(userId: string | undefined) {
 
 			setLoading(true);
 			try {
-				// Wait for the real tracked set — calendar used to read it straight from the
-				// query cache, which only the Search tab filled. Calendar first → empty set →
-				// empty month saved to AsyncStorage until the next catalog sync.
+				// Wait for the real tracked set — an empty one would save an empty month to
+				// AsyncStorage until the next catalog sync
 				const [tracked] = await Promise.all([
 					queryClient.ensureQueryData(trackedIdsQuery(userId)),
 					whenCatalogRestored(),
@@ -141,8 +140,8 @@ export function useCalendarEpisodes(userId: string | undefined) {
 					? await discoverMoviesByReleaseDate(apiKey, startDate, endDate)
 					: [];
 
-				// TV: every tracked show's catalog episodes in this month. (TMDB discover was
-				// only a pre-filter, capped at its 100 most popular shows — it dropped the rest.)
+				// TV: every tracked show's catalog episodes in this month (not TMDB discover —
+				// it caps at the 100 most popular shows)
 				const episodes: UpcomingEpisode[] = [];
 				for (const catalog of tvCatalogs) {
 					for (const season of catalog.seasons || []) {

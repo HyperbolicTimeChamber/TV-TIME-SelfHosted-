@@ -1,4 +1,3 @@
-// functions/src/cloudFunctions/importMatches.ts
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
