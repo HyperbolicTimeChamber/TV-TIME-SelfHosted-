@@ -1,5 +1,6 @@
 import { StyleSheet } from "react-native";
 import { colors, spacing, typography } from "../../theme";
+import { artHeight, NO_RESULTS_RATIO } from "../../components/NotFoundArt";
 
 export const styles = StyleSheet.create({
 	container: {
@@ -147,16 +148,15 @@ export const styles = StyleSheet.create({
 		fontWeight: "700" as const,
 	},
 	// Text sits just above the character art pinned to the bottom edge
-	// Art above the message, the pair centred
 	emptyWrap: {
 		flex: 1,
 		alignItems: "center" as const,
-		justifyContent: "center" as const,
+		justifyContent: "flex-end" as const,
 		paddingHorizontal: spacing.xxl,
+		paddingBottom: artHeight(NO_RESULTS_RATIO) + spacing.xl,
 	},
 	emptyText: {
 		...typography.subtitle,
-		marginTop: spacing.lg,
 		color: colors.textSecondary,
 		textAlign: "center" as const,
 	},

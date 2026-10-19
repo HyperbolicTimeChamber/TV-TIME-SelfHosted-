@@ -126,10 +126,9 @@ export default function SearchScreen() {
 			{isLoading ? (
 				<LoadingScreen />
 			) : submittedQuery && items.length === 0 ? (
-				// Art above the message, the pair centred (app SearchScreen)
-				<div className="relative z-1 flex min-h-[calc(100dvh-var(--header-h))] flex-col items-center justify-center px-8 text-center">
-					<NotFoundArt src="/no-results.png" inline />
-					<p className={`${styles.empty} mt-4`}>NOTHING FOUND</p>
+				<div className="relative z-1 flex min-h-[calc(100dvh-var(--header-h))] flex-col items-center justify-end px-8 pb-[calc(var(--art-h)+24px)] text-center [--art-h:max(0px,min(50dvh,560px,calc(90dvh-280px)))]">
+					<NotFoundArt src="/no-results.png" />
+					<p className={styles.empty}>NOTHING FOUND</p>
 					<p className={styles.emptyHint}>Searched the database, but nothing happened. Have you lost the way?</p>
 				</div>
 			) : (
