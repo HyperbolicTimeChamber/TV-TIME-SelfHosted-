@@ -24,18 +24,27 @@ export const artHeight = (ratio = NOT_FOUND_RATIO) =>
 export default function NotFoundArt({
 	source = NOT_FOUND_ART,
 	ratio = NOT_FOUND_RATIO,
+	inlineHeight,
 }: {
 	source?: number;
 	/** Image width / height */
 	ratio?: number;
+	/** In the layout flow at this height (e.g. above a message) instead of pinned to the bottom edge */
+	inlineHeight?: number;
 }) {
-	const height = artHeight(ratio);
+	const height = inlineHeight ?? artHeight(ratio);
 	const climb = useRef(new Animated.Value(height)).current;
 	const fade = useRef(new Animated.Value(0)).current;
 
 	useEffect(() => {
 		// Slides up from below the screen edge while fading in, no overshoot
-		const config = { toValue: 0, duration: 350, delay: 120, easing: Easing.out(Easing.cubic), useNativeDriver: true };
+		const config = {
+			toValue: 0,
+			duration: 350,
+			delay: 120,
+			easing: Easing.out(Easing.cubic),
+			useNativeDriver: true,
+		};
 		Animated.parallel([
 			Animated.timing(climb, config),
 			Animated.timing(fade, { ...config, toValue: 1 }),
@@ -45,7 +54,10 @@ export default function NotFoundArt({
 	return (
 		<Animated.Image
 			source={source}
-			style={[styles.art, { height, width: height * ratio, opacity: fade, transform: [{ translateY: climb }] }]}
+			style={[
+				!inlineHeight && styles.art,
+				{ height, width: height * ratio, opacity: fade, transform: [{ translateY: climb }] },
+			]}
 			resizeMode="contain"
 			accessibilityIgnoresInvertColors
 		/>

@@ -5,6 +5,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { LoadingSpinner } from "../../components";
 import SlidingTabs from "../../components/SlidingTabs";
 import NotFoundArt, { NO_RESULTS_ART, NO_RESULTS_RATIO } from "../../components/NotFoundArt";
+
+/** No-results art, above the message */
+const NO_RESULTS_ART_H = 260;
 import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -42,13 +45,10 @@ export default function SearchScreen() {
 	const headerVisible = useRef(true);
 	const animating = useRef(false);
 
-	const onHeaderLayout = useCallback(
-		(e: any) => {
-			headerHeight.current = e.nativeEvent.layout.height;
-			setHeaderH(e.nativeEvent.layout.height);
-		},
-		[],
-	);
+	const onHeaderLayout = useCallback((e: any) => {
+		headerHeight.current = e.nativeEvent.layout.height;
+		setHeaderH(e.nativeEvent.layout.height);
+	}, []);
 
 	const handleScroll = useCallback(
 		(e: any) => {
@@ -220,7 +220,11 @@ export default function SearchScreen() {
 			<Animated.View
 				style={[
 					styles.content,
-					{ paddingTop: headerH, marginBottom: -headerH, transform: [{ translateY: headerTranslateY }] },
+					{
+						paddingTop: headerH,
+						marginBottom: -headerH,
+						transform: [{ translateY: headerTranslateY }],
+					},
 				]}
 			>
 				{!submittedQuery && <Text style={styles.sectionTitle}>Trending</Text>}
@@ -229,11 +233,19 @@ export default function SearchScreen() {
 					<View style={styles.center}>
 						<LoadingSpinner />
 					</View>
-				) : !isLoading && submittedQuery.length > 0 && (!displayData || displayData.length === 0) ? (
+				) : !isLoading &&
+				  submittedQuery.length > 0 &&
+				  (!displayData || displayData.length === 0) ? (
 					<View style={styles.emptyWrap}>
-						<NotFoundArt source={NO_RESULTS_ART} ratio={NO_RESULTS_RATIO} />
+						<NotFoundArt
+							source={NO_RESULTS_ART}
+							ratio={NO_RESULTS_RATIO}
+							inlineHeight={NO_RESULTS_ART_H}
+						/>
 						<Text style={styles.emptyText}>NOTHING FOUND</Text>
-						<Text style={styles.emptyHint}>Searched the database, but nothing happened. Have you lost the way?</Text>
+						<Text style={styles.emptyHint}>
+							Searched the database, but nothing happened. Have you lost the way?
+						</Text>
 					</View>
 				) : (
 					<LegendList
@@ -254,7 +266,6 @@ export default function SearchScreen() {
 						recycleItems={false}
 					/>
 				)}
-
 			</Animated.View>
 
 			<SearchModals
