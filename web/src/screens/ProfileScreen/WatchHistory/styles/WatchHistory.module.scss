@@ -340,7 +340,8 @@
 	/* Centred in the space under the header and tabs */
 	min-height: calc(100dvh - 200px);
 	margin: 0 auto;
-	padding: 0 16px;
+	/* Nudged up: true centre reads low */
+	padding: 0 16px 120px;
 }
 
 .emptyArt {

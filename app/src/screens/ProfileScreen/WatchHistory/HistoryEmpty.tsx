@@ -40,12 +40,13 @@ export default function HistoryEmpty({
 }
 
 const styles = StyleSheet.create({
-	// Fills the page under the tabs, the pair centred in it
+	// Fills the page under the tabs, the pair centred in it — nudged up (true centre reads low)
 	row: {
 		flex: 1,
 		flexDirection: "row",
 		alignItems: "center",
 		paddingHorizontal: spacing.lg,
+		paddingBottom: 120,
 		gap: spacing.md,
 	},
 	text: {
