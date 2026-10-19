@@ -38,6 +38,8 @@ import {
 } from "../../../types";
 import type { WatchlistListItem } from "../../../types/watchlist";
 import { nextEpisodeAirStamp } from "../../../utils/airTime";
+import { fetchEpisodeRuntime } from "../../../services/tmdb";
+import { useAuthStore } from "../../../stores";
 
 /** Only schedule the air-time re-check for episodes airing within a day */
 const AIR_RECHECK_MAX_MS = 86_400_000;
@@ -653,7 +655,15 @@ export function useWatchlistData(userId: string | undefined) {
 
 			// Read pre-computed fields from card — no catalog fetch needed
 			const epTitle = card.nextEpisodeName || "";
-			const epRuntime = card.nextEpisodeRuntime || 0;
+			// Card runtime comes from the stored catalog; a just-aired episode may not have one yet
+			const epRuntime =
+				card.nextEpisodeRuntime ||
+				(await fetchEpisodeRuntime(
+					useAuthStore.getState().appTmdbApiKey,
+					item.tmdbId,
+					currentEp.season,
+					currentEp.episode,
+				));
 			const nextEpisode = card.nextNextEpisode ?? null;
 			const nextEpisodeName = card.nextNextEpisodeName ?? null;
 			const nextEpisodeAirDate = card.nextNextEpisodeAirDate ?? null;
@@ -885,9 +895,16 @@ export function useWatchlistData(userId: string | undefined) {
 				season,
 				episode,
 				catalogEp?.title || "",
-				// A fresh episode can lack a runtime in the stored catalog while the card already
-				// has TMDB's — use that, or the watch counts 0 minutes ("N/A") until the next sync
-				catalogEp?.runtime || cardRuntime || 0,
+				// A fresh episode can lack a runtime in the stored catalog: the card's (TMDB) one,
+				// else ask TMDB — or the watch counts 0 minutes ("N/A") until the next sync
+				catalogEp?.runtime ||
+					cardRuntime ||
+					(await fetchEpisodeRuntime(
+						useAuthStore.getState().appTmdbApiKey,
+						tmdbId,
+						season,
+						episode,
+					)),
 				isCurrentNext
 					? nextInCatalog
 						? { season: nextInCatalog.season, episode: nextInCatalog.episode }
