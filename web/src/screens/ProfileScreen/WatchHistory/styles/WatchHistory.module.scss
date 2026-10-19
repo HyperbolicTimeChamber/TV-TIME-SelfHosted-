@@ -331,6 +331,35 @@
 	margin-top: 30dvh;
 }
 
+/* Empty: Squidward left, his take right (app HistoryEmpty) */
+.emptyRow {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	max-width: 560px;
+	margin: 15dvh auto 0;
+	padding: 0 16px;
+}
+
+.emptyArt {
+	height: 220px;
+	width: auto;
+	flex-shrink: 0;
+}
+
+.emptyTitle {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 600;
+}
+
+.emptyBody {
+	margin: 8px 0 0;
+	font-size: 14px;
+	font-style: italic;
+	color: var(--text-secondary);
+}
+
 .footer {
 	display: flex;
 	justify-content: center;
