@@ -1,4 +1,3 @@
-// functions/src/cloudFunctions/addShow.ts
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { fetchShowFromTMDB, CatalogShow } from "../hooks/tmdb";

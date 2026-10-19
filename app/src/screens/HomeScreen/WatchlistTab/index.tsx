@@ -1,13 +1,5 @@
 import { useCallback, useRef, useEffect, useMemo, useState } from "react";
-import {
-	View,
-	Text,
-	TouchableOpacity,
-	Animated,
-	StyleSheet,
-	RefreshControl,
-	Dimensions,
-} from "react-native";
+import { View, Animated, StyleSheet, RefreshControl, Dimensions } from "react-native";
 import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation, CompositeNavigationProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -35,8 +27,12 @@ import { styles } from "./styles";
 import { useWatchlistScreen } from "./useWatchlistScreen";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
 import SectionHeader from "./SectionHeader";
+import HomeEmpty, { CAUGHT_UP_ART, WELCOME_ART } from "../HomeEmpty";
+import { withCaughtUp } from "../../../utils";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
+/** Height of a pinned section header pill row */
+const SECTION_HEADER_H = 48;
 
 type NavProp = CompositeNavigationProp<
 	NativeStackNavigationProp<HomeStackParamList, Route.HOME_TABS>,
@@ -115,7 +111,8 @@ export default function WatchlistTab() {
 		handleMovieSheetAction,
 		handleTvPress,
 		sheetLabel,
-		listData,
+		listData: liveListData,
+		listSettled,
 		loadMoreTracking,
 		loadingMoreTracking,
 		loadMorePrevWatched,
@@ -130,7 +127,15 @@ export default function WatchlistTab() {
 		handleUnmarkEpisode,
 		handleCarouselMarkWatched,
 	} = useWatchlistScreen(handleNavigateToShow);
+	const listData = useMemo(
+		() => withCaughtUp(liveListData, listSettled),
+		[liveListData, listSettled],
+	);
 
+	const caughtUp = listData.some((i) => i.type === "caughtUp");
+	// Up Next has shows and nothing more is coming: caught-up state as the list's footer
+	const caughtUpFooter = listSettled && !caughtUp && listData.some((i) => i.type === "show");
+	const [listH, setListH] = useState(0);
 	const listRef = useRef<any>(null);
 	// Up-next card long-pressed → confirm pausing it
 	const [pauseTarget, setPauseTarget] = useState<EnrichedTrackingItem | null>(null);
@@ -149,8 +154,7 @@ export default function WatchlistTab() {
 	}, [pauseTarget, handleStopWatching]);
 
 	// Open at "What's Up Next" (previously watched sits above it, reached by scrolling up).
-	// initialScrollIndex positions the list as it mounts — a timed scrollToIndex after
-	// mount raced the first layout and left the list at the top.
+	// initialScrollIndex positions the list as it mounts (a timed scrollToIndex races the first layout).
 	const upNextIndex = useMemo(
 		() => listData.findIndex((i) => i.type === "sectionHeader" && i.title === "What's Up Next"),
 		[listData],
@@ -176,6 +180,22 @@ export default function WatchlistTab() {
 		});
 		return unsub;
 	}, [navigation, prevWatchedOffset, scrollToUpNext]);
+
+	const renderCaughtUp = useCallback(
+		(minHeight?: number) => (
+			<HomeEmpty
+				art={CAUGHT_UP_ART}
+				compact
+				plainTitle
+				minHeight={minHeight}
+				title="Yay!"
+				subtitle="You're all caught up."
+				tagline="Now don't go getting productive on us. Add some more things to watch."
+				onAddShows={() => navigation.navigate(Route.SWIPE_TABS, { screen: Route.SEARCH })}
+			/>
+		),
+		[navigation],
+	);
 
 	const renderItem = useCallback(
 		({ item }: { item: WatchlistListItem }) => {
@@ -218,6 +238,11 @@ export default function WatchlistTab() {
 				);
 			}
 
+			if (item.type === "caughtUp") {
+				// Fills the list under the pinned "What's Up Next" header, so it can't scroll off
+				return renderCaughtUp(Math.max(0, listH - SECTION_HEADER_H));
+			}
+
 			// All fields pre-computed in useWatchlistData — no catalog lookup needed
 			return (
 				<ShowCard
@@ -246,12 +271,19 @@ export default function WatchlistTab() {
 			handleMovieCheckmark,
 			handleMovieSwipeLeft,
 			handleMovieSwipeRight,
+			renderCaughtUp,
+			listH,
 		],
 	);
 
+	// Room to scroll "What's Up Next" to the top. Caught up: exactly the list's own height, so the
+	// pinned header + empty state stop there instead of scrolling on into blank space
 	const contentStyle = useMemo(
-		() => [styles.listContent, { minHeight: SCREEN_HEIGHT + prevWatchedOffset }],
-		[prevWatchedOffset],
+		() => [
+			styles.listContent,
+			{ minHeight: (caughtUp && listH > 0 ? listH : SCREEN_HEIGHT) + prevWatchedOffset },
+		],
+		[prevWatchedOffset, caughtUp, listH],
 	);
 
 	const stickyIndices = useMemo(
@@ -273,15 +305,13 @@ export default function WatchlistTab() {
 
 	if (listData.length === 0) {
 		return (
-			<View style={styles.center}>
-				<Text style={styles.empty}>No shows in your watchlist</Text>
-				<TouchableOpacity
-					style={styles.addShowsButton}
-					onPress={() => navigation.navigate(Route.SWIPE_TABS, { screen: Route.SEARCH })}
-				>
-					<Text style={styles.addShowsText}>+ Add Shows</Text>
-				</TouchableOpacity>
-			</View>
+			<HomeEmpty
+				art={WELCOME_ART}
+				title="Welcome"
+				subtitle="Not tracking a thing yet? Now that's bad television."
+				tagline="Your couch is ready, and that free time won't waste itself. You're welcome."
+				onAddShows={() => navigation.navigate(Route.SWIPE_TABS, { screen: Route.SEARCH })}
+			/>
 		);
 	}
 
@@ -295,6 +325,7 @@ export default function WatchlistTab() {
 					if (item.type === "sectionHeader") return `section_${item.title}`;
 					if (item.type === "watchedMovie") return `movie_${item.movie.id}`;
 					if (item.type === "watchedEpisode") return `watched_${item.episode.id}`;
+					if (item.type === "caughtUp") return "caughtUp";
 					return `show_${item.item.id}`;
 				}}
 				renderItem={renderItem}
@@ -313,12 +344,20 @@ export default function WatchlistTab() {
 						/>
 					) : undefined
 				}
-				onEndReached={() => loadMoreTracking()}
+				// Caught up: nothing more to page in (scrolling the empty state kept refetching)
+				onEndReached={caughtUp ? undefined : () => loadMoreTracking()}
 				onEndReachedThreshold={1.5}
-				ListFooterComponent={loadingMoreTracking ? <SkeletonFooter /> : null}
+				ListFooterComponent={
+					loadingMoreTracking ? (
+						<SkeletonFooter />
+					) : caughtUpFooter ? (
+						<View style={styles.caughtUpFooter}>{renderCaughtUp()}</View>
+					) : null
+				}
 				ItemSeparatorComponent={SeparatorComponent}
 				maintainVisibleContentPosition={{ data: true, size: true }}
 				style={styles.list}
+				onLayout={(e) => setListH(e.nativeEvent.layout.height)}
 				contentContainerStyle={contentStyle}
 			/>
 			<WatchActionSheet

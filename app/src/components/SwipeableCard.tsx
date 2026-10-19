@@ -49,7 +49,7 @@ interface Props {
 	leftColor?: string;
 	rightColor?: string;
 	/** Identity of what the card shows — a recycled list row resets its swipe state when it
-	 *  changes (instead of a remounting `key`, which threw away the recycled views) */
+	 *  changes (a remounting `key` would throw away the recycled views) */
 	resetKey?: string;
 }
 
@@ -152,8 +152,8 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				}
 				setSwipeState("done");
 				LayoutAnimation.configureNext(LayoutAnimation.create(300, "easeInEaseOut", "opacity"));
-				// Row still here once the list has updated (Rewatch / −1 keep it) → show it again;
-				// staying "done" left a blank gap in the list
+				// Row still here once the list has updated (Rewatch / −1 keep it) → show it again
+				// rather than leave a blank gap
 				restoreTimer.current = setTimeout(() => {
 					translateX.value = 0;
 					setShowReveal(false);
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
 		marginHorizontal: spacing.md,
 	},
 	card: {
-		backgroundColor: colors.background,
+		backgroundColor: colors.surface,
 		zIndex: 1,
 	},
 	loadingReveal: {

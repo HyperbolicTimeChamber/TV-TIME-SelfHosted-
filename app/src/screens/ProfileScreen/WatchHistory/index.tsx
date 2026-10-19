@@ -19,6 +19,7 @@ import HistoryViewSheet from "./HistoryViewSheet";
 import { colors } from "../../../theme";
 import HistoryCardView from "./HistoryCardView";
 import HistoryCardSkeleton from "./HistoryCardSkeleton";
+import HistoryEmpty from "./HistoryEmpty";
 import { styles } from "./styles";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList>;
@@ -44,7 +45,11 @@ function HistoryList({
 }) {
 	const navigation = useNavigation<Nav>();
 	// Sort / filters run in the Firestore query — still 20 a page
-	const { cards, loading, loadingMore, hasMore, error, loadMore } = useWatchHistory(mediaType, sort, filters);
+	const { cards, loading, loadingMore, hasMore, error, loadMore } = useWatchHistory(
+		mediaType,
+		sort,
+		filters,
+	);
 	const shimmer = useSharedShimmer();
 
 	const renderItem = useCallback(
@@ -72,8 +77,8 @@ function HistoryList({
 	}
 
 	if (cards.length === 0) {
-		const message = filters.size > 0 ? "Nothing matches these filters" : "Nothing watched yet";
-		return <Text style={styles.empty}>{error ?? message}</Text>;
+		if (error) return <Text style={styles.empty}>{error}</Text>;
+		return <HistoryEmpty mediaType={mediaType} filtered={filters.size > 0} />;
 	}
 
 	return (
@@ -129,7 +134,10 @@ export default function WatchHistoryScreen() {
 		<View style={styles.container}>
 			<View style={[styles.topBar, { paddingTop: top + 8 }]}>
 				<View style={styles.titleRow}>
-					<CircleBackButton tone={CircleButtonTone.SURFACE_LIGHT} onPress={() => navigation.goBack()} />
+					<CircleBackButton
+						tone={CircleButtonTone.SURFACE_LIGHT}
+						onPress={() => navigation.goBack()}
+					/>
 					<Text style={styles.title}>Hall of Shame</Text>
 					{/* Mirrors the back button so the title is centred on the bar */}
 					<View style={styles.backSpacer} />

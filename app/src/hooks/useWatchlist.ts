@@ -286,7 +286,7 @@ export function useWatchlist(userId: string | undefined) {
 		restoreCatalogCache().then((restored) => {
 			// Merge into the one shared map — never replace it. Other hook instances and
 			// the history / calendar refresh hold the same map, and in-memory entries are
-			// newer than the stored copy (replacing it lost freshly fetched logos)
+			// newer than the stored copy (e.g. freshly fetched logos)
 			for (const [key, show] of restored) {
 				if (!sharedCatalogCache.has(key)) sharedCatalogCache.set(key, show);
 			}
@@ -468,7 +468,6 @@ export function useWatchlist(userId: string | undefined) {
 	}, []);
 
 	const insertItem = useCallback((item: EnrichedTrackingItem) => {
-		// Update catalog cache if we have catalog data
 		if (item.catalogShow) {
 			const mt = item.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV;
 			catalogCache.current.set(showDocId(item.tmdbId, mt), item.catalogShow);

@@ -147,6 +147,26 @@ export async function getSeasonDetails(apiKey: string, tmdbId: number, seasonNum
 	};
 }
 
+/**
+ * One episode's runtime straight from TMDB — for a mark on a just-aired episode whose stored
+ * catalog has no runtime yet (else the watch counts 0 minutes until the weekly sync).
+ * Gives up after timeoutMs so a slow network never holds up the mark; 0 when unknown.
+ */
+export async function fetchEpisodeRuntime(
+	apiKey: string | null | undefined,
+	tmdbId: number,
+	season: number,
+	episode: number,
+	timeoutMs = 2000,
+): Promise<number> {
+	if (!apiKey) return 0;
+	const lookup = getSeasonDetails(apiKey, tmdbId, season)
+		.then((s) => s.episodes.find((e) => e.episode_number === episode)?.runtime ?? 0)
+		.catch(() => 0);
+	const timeout = new Promise<number>((resolve) => setTimeout(() => resolve(0), timeoutMs));
+	return Promise.race([lookup, timeout]);
+}
+
 export async function discoverTVByAirDate(
 	apiKey: string,
 	startDate: string,

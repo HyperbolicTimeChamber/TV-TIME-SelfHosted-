@@ -93,7 +93,6 @@
 	gap: 16px;
 }
 
-/* Card */
 .card {
 	position: relative;
 	display: flex;
@@ -330,6 +329,38 @@
 	font-size: 15px;
 	font-weight: 600;
 	margin-top: 30dvh;
+}
+
+/* Empty: Squidward left, his take right (app HistoryEmpty) */
+.emptyRow {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	max-width: 560px;
+	/* Centred in the space under the header and tabs */
+	min-height: calc(100dvh - 200px);
+	margin: 0 auto;
+	/* Nudged up: true centre reads low */
+	padding: 0 16px 120px;
+}
+
+.emptyArt {
+	height: 220px;
+	width: auto;
+	flex-shrink: 0;
+}
+
+.emptyTitle {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 600;
+}
+
+.emptyBody {
+	margin: 8px 0 0;
+	font-size: 14px;
+	font-style: italic;
+	color: var(--text-secondary);
 }
 
 .footer {

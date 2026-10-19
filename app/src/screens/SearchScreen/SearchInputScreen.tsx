@@ -24,7 +24,6 @@ export default function SearchInputScreen() {
 		setTimeout(() => inputRef.current?.focus(), 100);
 	}, []);
 
-	// Hide tab bar on search input screen
 	useEffect(() => {
 		const parent = navigation.getParent();
 		parent?.setOptions({ tabBarStyle: { display: "none" as const } });

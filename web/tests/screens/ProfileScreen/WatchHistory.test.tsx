@@ -90,7 +90,7 @@ describe("WatchHistoryScreen", () => {
 		fireEvent.click(screen.getByText("Movies"));
 		// The TV list slides out before the Movies list mounts
 		await waitFor(() => expect(useWatchHistory).toHaveBeenLastCalledWith(MediaType.MOVIE, HistorySort.LAST_WATCHED, new Set()));
-		expect(await screen.findByText("Nothing watched yet")).toBeInTheDocument();
+		expect(await screen.findByText(/You haven't watched any movies yet/)).toBeInTheDocument();
 	});
 
 	it("sort / filter button: passes the sort and status filters to the (paged) query", async () => {

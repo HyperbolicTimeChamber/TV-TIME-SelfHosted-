@@ -65,11 +65,10 @@ async function fetchSeasonEpisodes(
   };
 }
 
-/** Best title logo: TMDB lists them best-voted first; prefer English, then language-neutral */
 /**
  * Premiere date: TMDB's first_air_date, else the earliest regular season's air date, else the
- * earliest episode air date — TMDB sometimes leaves first_air_date empty for new shows (the app
- * then showed "—" for the year). Season 0 (specials) doesn't count.
+ * earliest episode air date — TMDB sometimes leaves first_air_date empty for new shows.
+ * Season 0 (specials) doesn't count.
  */
 export function premiereDate(
   firstAirDate: string | null | undefined,
@@ -85,6 +84,7 @@ export function premiereDate(
   return dates.sort()[0] ?? null;
 }
 
+/** Best title logo: TMDB lists them best-voted first; prefer English, then language-neutral */
 export function pickLogo(logos: TMDBLogo[] | undefined): string | null {
   if (!logos?.length) return null;
   return (

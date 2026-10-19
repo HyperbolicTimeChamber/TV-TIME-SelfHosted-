@@ -60,6 +60,7 @@ export function useWatchlistScreen(
 	const {
 		listData,
 		loading,
+		listSettled,
 		loadMoreTracking,
 		loadingMoreTracking,
 		loadMorePrevWatched,
@@ -147,7 +148,6 @@ export function useWatchlistScreen(
 
 			if (allEps.length === 0) return;
 
-			// Find current episode index
 			const rawIdx = Math.max(
 				0,
 				allEps.findIndex((e) => e.season === ep.season && e.episode === ep.episode),
@@ -165,8 +165,7 @@ export function useWatchlistScreen(
 				initialIdx = rawIdx - start;
 			}
 
-			// Build watched keys from query cache
-			// Fetch ALL watched episodes for this show (complete + correct counts)
+			// Watched keys: this show's query cache, else fetch all its watched episodes (complete counts)
 			let showWatched = queryClient.getQueryData<WatchedEpisode[]>([
 				QueryKey.WATCHED_EPISODES,
 				user?.uid,
@@ -679,6 +678,7 @@ export function useWatchlistScreen(
 		sheetLabel,
 		listData,
 		loading,
+		listSettled,
 		loadMoreTracking,
 		loadingMoreTracking,
 		loadMorePrevWatched,

@@ -8,8 +8,8 @@ export const queryClient = new QueryClient({
 		queries: {
 			staleTime: 5 * 60 * 1000,
 			retry: 2,
-			// React Native never refetches on "focus"; browsers do by default, which
-			// re-fetched (and flashed the loader) every time you returned to the tab
+			// React Native never refetches on "focus"; browsers would, flashing the loader
+			// every time you return to the tab
 			refetchOnWindowFocus: false,
 		},
 	},

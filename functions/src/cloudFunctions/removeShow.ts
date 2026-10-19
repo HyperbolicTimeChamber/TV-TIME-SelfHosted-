@@ -1,4 +1,3 @@
-// functions/src/cloudFunctions/removeShow.ts
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { removeFromTrackedBy } from "../hooks/trackedBy";
@@ -38,7 +37,6 @@ export const removeShow = onCall(
     );
     await userBatch.commit();
 
-    // Delete upcoming docs for this show
     const upcomingSnap = await db
       .collection(`users/${uid}/upcoming`)
       .where("tmdbShowId", "==", tmdbId)

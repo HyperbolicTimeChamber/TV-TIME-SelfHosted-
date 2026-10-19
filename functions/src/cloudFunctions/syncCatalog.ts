@@ -1,4 +1,3 @@
-// functions/src/cloudFunctions/syncCatalog.ts
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getTmdbApiKey } from "../hooks/apiKey";

@@ -55,7 +55,6 @@ function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
 
 			<span className={styles.topBlock}>
 				<span className={styles.topRow}>
-					{/* Logo when TMDB has one (name only as the fallback) */}
 					<span className={styles.logoSlot}>
 						{card.logoPath ? (
 							<img src={tmdbLogoUri(card.logoPath, CARD_MAX_WIDTH * 0.7)} alt={card.title} className={styles.logo} loading="lazy" />

@@ -4,10 +4,10 @@
 	min-height: 100dvh;
 	max-width: 700px;
 	margin: 0 auto;
-	background: var(--surface);
-	/* Wide screens: paint the side gutters the same grey (content stays 1100px wide).
+	background: var(--bg);
+	/* Wide screens: paint the side gutters the same black (content stays 1100px wide).
 	   clip-path keeps the spread horizontal only */
-	box-shadow: 0 0 0 100vmax var(--surface);
+	box-shadow: 0 0 0 100vmax var(--bg);
 	clip-path: inset(0 -100vmax);
 }
 
@@ -92,11 +92,107 @@
 	gap: 16px;
 }
 
-.empty {
+/* Empty watchlist — art palette: screen-glow cyan with a red "signal ghost" (app WatchlistEmpty) */
+.welcome {
+	gap: 0;
+	padding: 0 16px;
+	text-align: center;
+}
+
+.welcomeText {
+	display: flex;
+	flex-direction: column;
+	max-width: 100%;
+}
+
+/* Phones: the art spans the full width (out past .welcome's 16px side padding) */
+.welcomeFrame {
+	align-self: stretch;
+	margin: 0 -16px;
+}
+
+/* Inline under a list section: smaller and centred at every width */
+.welcomeFrame.welcomeCompact {
+	align-self: center;
+	width: min(100%, 220px);
+	margin: 0;
+}
+
+.welcomeArt {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+/* Tablets / desktop: plain art capped at 400px — or, framed (Upcoming), inside the see-through
+   window of a streaming-overlay frame, 90% of the frame wide so cut-off hands tuck under its
+   side borders, centred on the window (10%–79% of the frame's height) */
+@media (min-width: 600px) {
+	.welcomeFrame {
+		align-self: center;
+		width: min(100%, 400px);
+		margin: 0;
+	}
+
+	.welcomeFramed {
+		position: relative;
+		width: min(100%, 560px);
+		aspect-ratio: 563 / 350;
+	}
+
+	.welcomeFramed::after {
+		content: "";
+		position: absolute;
+		inset: 0;
+		background: url("/stream-frame.webp") center / 100% 100% no-repeat;
+		pointer-events: none;
+	}
+
+	.welcomeFramed .welcomeArt {
+		position: absolute;
+		left: 5%;
+		top: 44.5%;
+		width: 90%;
+		transform: translateY(-50%);
+	}
+}
+
+.welcomeTitle {
+	margin: 12px 0 0;
+	font-family: "Handjet", sans-serif;
+	font-size: 60px;
+	line-height: 64px;
+	font-weight: 800;
+	letter-spacing: 2px;
+	color: #5cf2ee;
+	text-shadow: 3px 2px 1px #ff2d55;
+}
+
+.welcomeTitleLong {
+	font-size: 40px;
+	line-height: 44px;
+	letter-spacing: 1px;
+}
+
+.welcomeTitlePlain {
+	margin: 12px 0 0;
+	font-size: 32px;
+	font-weight: 800;
+	color: var(--text);
+}
+
+.welcomeSubtitle {
+	margin: 8px 0 0;
 	font-size: 16px;
 	font-weight: 600;
+	color: var(--text);
+}
+
+.welcomeTagline {
+	margin: 4px 0 24px;
+	font-size: 14px;
+	font-style: italic;
 	color: var(--text-secondary);
-	margin: 0;
 }
 
 .error {

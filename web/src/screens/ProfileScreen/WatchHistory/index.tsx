@@ -15,6 +15,7 @@ import HistoryCard from "./HistoryCard";
 import HistoryViewPanel from "./HistoryViewPanel";
 import Masonry from "../../../components/Masonry";
 import { useColumnCount } from "../../../hooks/useColumnCount";
+import HistoryEmpty from "./HistoryEmpty";
 import styles from "./styles/WatchHistory.module.scss";
 
 const TABS = [
@@ -50,8 +51,8 @@ function HistoryList({
 		);
 	}
 	if (cards.length === 0) {
-		const message = filters.size > 0 ? "Nothing matches these filters" : "Nothing watched yet";
-		return <p className={styles.empty}>{error ?? message}</p>;
+		if (error) return <p className={styles.empty}>{error}</p>;
+		return <HistoryEmpty mediaType={mediaType} filtered={filters.size > 0} />;
 	}
 
 	return (

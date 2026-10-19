@@ -1,4 +1,3 @@
-// functions/src/cloudFunctions/sharePreview.ts
 import { onRequest } from "firebase-functions/v2/https";
 import { defineString } from "firebase-functions/params";
 import { getFirestore } from "firebase-admin/firestore";

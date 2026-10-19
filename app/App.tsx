@@ -3,6 +3,7 @@ import { View, StyleSheet, Platform, PermissionsAndroid, Alert } from "react-nat
 import { Image } from "expo-image";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts, SmoochSans_400Regular, SmoochSans_500Medium } from "@expo-google-fonts/smooch-sans";
+import { Handjet_800ExtraBold } from "@expo-google-fonts/handjet";
 import crashlytics from "@react-native-firebase/crashlytics";
 
 // Report uncaught JS errors to Crashlytics
@@ -156,7 +157,7 @@ function AppContent() {
 
 export default function App() {
 	// Non-blocking: text falls back to the system font until these load
-	useFonts({ SmoochSans_400Regular, SmoochSans_500Medium });
+	useFonts({ SmoochSans_400Regular, SmoochSans_500Medium, Handjet_800ExtraBold });
 	const setUser = useAuthStore((s) => s.setUser);
 	const setConnected = useUiStore((s) => s.setConnected);
 

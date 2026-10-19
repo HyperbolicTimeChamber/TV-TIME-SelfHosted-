@@ -73,7 +73,7 @@ const POSTER_WIDTH = 100;
 const styles = StyleSheet.create({
 	container: {
 		flexDirection: "row",
-		backgroundColor: colors.background,
+		backgroundColor: colors.surface,
 		borderRadius: 8,
 		overflow: "hidden",
 		opacity: 0.5,

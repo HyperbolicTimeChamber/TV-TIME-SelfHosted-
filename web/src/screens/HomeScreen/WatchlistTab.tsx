@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useMemo, useState } from "react";
-import { Button, Spin } from "antd";
+import { Spin } from "antd";
 import { useNavigate } from "react-router-dom";
 import { useWatchlistScreen } from "@app/screens/HomeScreen/WatchlistTab/useWatchlistScreen";
 import { MediaType, WatchStatus } from "@app/enums";
@@ -9,15 +9,17 @@ import WatchActionSheet from "../../components/WatchActionSheet";
 import EpisodeDetailModal from "../../components/EpisodeDetailModal";
 import ShowDrawer from "../../components/ShowDrawer";
 import ConfirmModal from "../../components/ConfirmModal";
+import HomeEmpty, { CAUGHT_UP_ART, WELCOME_ART } from "./HomeEmpty";
+import { UP_NEXT_TITLE, withCaughtUp } from "@app/utils/watchlistList";
 import { ModalBackdrop, ModalLogo } from "../../components/ModalArt";
 import type { EnrichedTrackingItem } from "@app/hooks/useWatchlist";
 import { colors } from "../../theme/index";
 import LoadingScreen from "../../components/LoadingScreen";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
-import { Paths, showPath } from "../../routes/paths";
+import { showPath } from "../../routes/paths";
 import styles from "./styles/HomeScreen.module.scss";
 
-const UP_NEXT = "What's Up Next";
+const UP_NEXT = UP_NEXT_TITLE;
 
 const keyOf = (item: WatchlistListItem) =>
 	item.type === "sectionHeader" ? `section_${item.title}` : item.type === "show" ? `show_${item.item.id}` : item.type;
@@ -27,7 +29,6 @@ export default function WatchlistTab() {
 	const navigate = useNavigate();
 	const goToShow = useCallback((tmdbId: number, mediaType: MediaType) => navigate(showPath(mediaType, tmdbId)), [navigate]);
 	const w = useWatchlistScreen(goToShow);
-	const sentinel = useInfiniteScroll(w.loadMoreTracking, !w.loadingMoreTracking);
 	// Long press / right-click on a card → confirm pausing it (no swipe — too easy by accident)
 	const [pauseTarget, setPauseTarget] = useState<EnrichedTrackingItem | null>(null);
 	const [pausing, setPausing] = useState(false);
@@ -46,21 +47,37 @@ export default function WatchlistTab() {
 	// Web shows only the active watchlist — no "Previously Watched" section above it
 	const items = useMemo(
 		() =>
-			w.listData.filter((i) =>
+			withCaughtUp(w.listData, w.listSettled).filter((i) =>
 				i.type === "sectionHeader" ? i.title === UP_NEXT : i.type !== "watchedEpisode" && i.type !== "watchedMovie",
 			),
-		[w.listData],
+		[w.listData, w.listSettled],
+	);
+	// Caught up: nothing more to page in (scrolling the empty state kept refetching)
+	const caughtUp = items.some((i) => i.type === "caughtUp");
+	const sentinel = useInfiniteScroll(w.loadMoreTracking, !w.loadingMoreTracking && !caughtUp);
+
+	// Up Next has shows and nothing more is coming: caught-up state as the list's footer
+	const caughtUpFooter = w.listSettled && !caughtUp && items.some((i) => i.type === "show");
+	const caughtUpView = (
+		<HomeEmpty
+			art={CAUGHT_UP_ART}
+			compact
+			plainTitle
+			title="Yay!"
+			subtitle="You're all caught up."
+			tagline="Now don't go getting productive on us. Add some more things to watch."
+		/>
 	);
 
 	if (w.isLoading) return <LoadingScreen />;
 	if (items.length === 0) {
 		return (
-			<div className={styles.center}>
-				<p className={styles.empty}>No shows in your watchlist</p>
-				<Button type="primary" size="large" onClick={() => navigate(Paths.SEARCH)}>
-					+ Add Shows
-				</Button>
-			</div>
+			<HomeEmpty
+				art={WELCOME_ART}
+				title="Welcome"
+				subtitle="Not tracking a thing yet? Now that's bad television."
+				tagline="Your couch is ready, and that free time won't waste itself. You're welcome."
+			/>
 		);
 	}
 
@@ -72,6 +89,7 @@ export default function WatchlistTab() {
 				</div>
 			);
 		}
+		if (item.type === "caughtUp") return caughtUpView;
 		if (item.type !== "show") return null;
 		return (
 			<ShowCard
@@ -90,17 +108,18 @@ export default function WatchlistTab() {
 	return (
 		<>
 			<div className={styles.list}>
-				{/* No wrapper per item: a sticky section header can only stick within its
-				    parent, and a header-sized wrapper made it scroll straight away */}
+				{/* No wrapper per item: a sticky section header can only stick within its parent */}
 				{items.map((item) => (
 					<Fragment key={keyOf(item)}>{render(item)}</Fragment>
 				))}
 			</div>
 			<div ref={sentinel} />
-			{w.loadingMoreTracking && (
+			{w.loadingMoreTracking ? (
 				<div className={`${styles.center} min-h-20!`}>
 					<Spin />
 				</div>
+			) : (
+				caughtUpFooter && <div className="py-8">{caughtUpView}</div>
 			)}
 
 			<ConfirmModal

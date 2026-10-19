@@ -19,7 +19,6 @@ export const deleteAccount = onCall(
     // Read tracking FIRST (before deleting) to clean up trackedBy on shows
     const trackingSnap = await db.collection(`users/${uid}/tracking`).get();
 
-    // Remove user from trackedBy on all tracked shows
     if (trackingSnap.size > 0) {
       const showRefs = trackingSnap.docs.map((d) => db.doc(`shows/${d.id}`));
       const showDocs: FirebaseFirestore.DocumentSnapshot[] = [];
@@ -28,7 +27,6 @@ export const deleteAccount = onCall(
         showDocs.push(...chunk);
       }
 
-      // Batch update/delete shows
       const updateBatch = db.batch();
       const toDeleteWithOverflow: FirebaseFirestore.DocumentReference[] = [];
       for (const showDoc of showDocs) {
@@ -56,7 +54,6 @@ export const deleteAccount = onCall(
       }
     }
 
-    // Delete all subcollections in parallel
     const subcollections = [
       "tracking",
       "watchedEpisodes",
@@ -75,7 +72,6 @@ export const deleteAccount = onCall(
       }),
     );
 
-    // Delete user document + Firebase Auth user
     await db.doc(`users/${uid}`).delete();
     await getAuth().deleteUser(uid);
 

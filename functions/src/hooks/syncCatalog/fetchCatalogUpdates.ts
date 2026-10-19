@@ -104,11 +104,10 @@ export async function fetchCatalogUpdates(
           totalEpisodes: freshData.totalEpisodes,
           runtime: freshData.runtime,
           voteAverage: freshData.voteAverage,
-          // Was never refreshed for TV; premiereDate() also fills TMDB's missing ones
+          // premiereDate() fills in TMDB's missing first_air_date
           firstAirDate: freshData.firstAirDate,
           seasons: freshData.seasons,
           genres: freshData.genres,
-          // Was missing: weekly syncs never refreshed logos
           logoPath: freshData.logoPath ?? null,
           tvmazeId: freshData.tvmazeId ?? null,
           ...(freshData.credits ? { credits: freshData.credits } : {}),

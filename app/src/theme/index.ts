@@ -26,6 +26,8 @@ export const fonts = {
 	/** Smooch Sans — calendar episode square */
 	smoochRegular: "SmoochSans_400Regular",
 	smoochMedium: "SmoochSans_500Medium",
+	/** Handjet — pixel-style display (watchlist welcome title) */
+	handjetExtraBold: "Handjet_800ExtraBold",
 } as const;
 
 export const spacing = {

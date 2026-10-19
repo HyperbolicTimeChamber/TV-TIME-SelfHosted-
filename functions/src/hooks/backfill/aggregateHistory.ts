@@ -17,6 +17,15 @@ interface WatchedDoc {
   episode?: number;
 }
 
+type EpisodeRef = { season: number; episode: number };
+
+/** The later of two episodes in watch order; specials (season 0) rank below regular ones */
+function furthest(a: EpisodeRef | undefined, b: EpisodeRef | undefined): EpisodeRef | undefined {
+  if (!a || !b) return a ?? b;
+  const rank = (e: EpisodeRef) => (e.season === 0 ? -1 : e.season);
+  return rank(b) > rank(a) || (rank(b) === rank(a) && b.episode > a.episode) ? b : a;
+}
+
 /** Fold watch docs into per-key totals: Σ runtime × watchCount, Σ watchCount, latest watch */
 function fold(
   totals: Map<string, HistoryTotals>,
@@ -30,9 +39,16 @@ function fold(
   const latest = keepPrev
     ? prev.historyAt
     : (at ?? prev?.historyAt ?? Timestamp.fromMillis(0));
+  // Season 0 (specials) is a real episode too — only ranked below regular ones on a tie
   const thisEp =
-    d.season && d.episode ? { season: d.season, episode: d.episode } : undefined;
-  const lastEpisode = keepPrev ? prev.lastEpisode : (thisEp ?? prev?.lastEpisode);
+    d.season != null && d.episode ? { season: d.season, episode: d.episode } : undefined;
+  // Same watch time (bulk imports stamp every episode alike): the furthest episode wins
+  const tie = !!prev && !!at && prev.historyAt.toMillis() === at.toMillis();
+  const lastEpisode = tie
+    ? furthest(prev.lastEpisode, thisEp)
+    : keepPrev
+      ? prev.lastEpisode
+      : (thisEp ?? prev?.lastEpisode);
   totals.set(key, {
     ...(lastEpisode ? { lastEpisode } : {}),
     historyAt: latest,

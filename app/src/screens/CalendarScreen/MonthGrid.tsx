@@ -140,7 +140,7 @@ export const WeekRow = memo(function WeekRow({
 	fullLayout,
 	onDayPress,
 }: WeekRowProps) {
-	// Height in layout never animates (that relaid the whole grid out every frame): the row
+	// Height in layout never animates (that would relayout the whole grid every frame): the row
 	// rests at the month or full height and is stretched / squashed from its top with scaleY,
 	// shifted by translateY so rows stay stacked. GPU-only during the drag.
 	const rowStyle = useAnimatedStyle(() => {

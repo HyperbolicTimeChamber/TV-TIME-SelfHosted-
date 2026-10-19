@@ -17,7 +17,6 @@ export default function AnimatedModal({ visible, onClose, onRequestClose, childr
 	const scale = useRef(new Animated.Value(0.85)).current;
 	// Touches only count once the open animation is done: a popup opened by a long press
 	// appears under the finger, and lifting it must not press whatever button is there
-	// (it paused shows by accident)
 	const [armed, setArmed] = useState(false);
 	useEffect(() => {
 		if (!visible) {

@@ -2,6 +2,9 @@
 
 .container {
 	min-height: 100dvh;
+	/* Phones: the list pane takes the leftover height (an empty day centres in it) */
+	display: flex;
+	flex-direction: column;
 	padding-top: env(safe-area-inset-top);
 	max-width: 640px;
 	margin: 0 auto;
@@ -27,6 +30,9 @@
 
 .listPane {
 	min-width: 0;
+	flex: 1;
+	display: flex;
+	flex-direction: column;
 }
 
 .header {
@@ -184,6 +190,9 @@
 
 .episodeList {
 	padding-top: 12px;
+	flex: 1;
+	display: flex;
+	flex-direction: column;
 }
 
 .dateHeader {
@@ -193,10 +202,40 @@
 	margin: 0;
 }
 
-.noEps {
-	font-size: 12px;
+.emptyDay {
+	flex: 1;
+	justify-content: center;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: 12px 16px 32px;
+	text-align: center;
+}
+
+/* Wide screens: no leftover height to fill — give it a share of the viewport to centre in */
+@include desktop {
+	.emptyDay {
+		min-height: 50vh;
+	}
+}
+
+.emptyDayArt {
+	height: 140px;
+	width: auto;
+}
+
+.emptyDayTitle {
+	margin: 12px 0 0;
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--text);
+}
+
+.emptyDayTagline {
+	margin: 4px 0 0;
+	font-size: 14px;
+	font-style: italic;
 	color: var(--text-secondary);
-	padding: 0 16px;
 }
 
 .episodeRow {

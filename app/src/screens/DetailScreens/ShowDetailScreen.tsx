@@ -85,7 +85,7 @@ export default function ShowDetailScreen() {
 	}, [navigation]);
 	const insets = useSafeAreaInsets();
 	const BACKDROP_HEIGHT = 350;
-	// Parallax runs on the UI thread (was a setState per scroll event → whole screen re-rendered)
+	// Parallax runs on the UI thread — a setState per scroll event would re-render the whole screen
 	const scrollY = useSharedValue(0);
 	const handleScroll = useAnimatedScrollHandler((e) => {
 		scrollY.value = e.contentOffset.y;
