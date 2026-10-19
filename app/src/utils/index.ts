@@ -16,3 +16,4 @@ export * from "./completedSections";
 export * from "./calendarGrid";
 export * from "./historyView";
 export * from "./watchlistList";
+export * from "./calendarCache";

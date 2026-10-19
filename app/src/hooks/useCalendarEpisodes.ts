@@ -4,9 +4,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { discoverMoviesByReleaseDate } from "../services";
 import { useAuthStore } from "../stores";
 import { UpcomingEpisode, MediaType, CacheKey } from "../types";
-import { getCachedCatalogShow, whenCatalogRestored } from "./useWatchlist";
+import { cacheCatalogShows, getCachedCatalogShow, whenCatalogRestored } from "./useWatchlist";
+import { fetchCatalogShows } from "../services/historyApi";
+import { showDocId } from "../utils/docId";
 import { trackedIdsQuery } from "./useTrackedIds";
 import { useQueryClient } from "@tanstack/react-query";
+import { isCalendarCacheStale } from "../utils/calendarCache";
 
 const MAX_CACHED_MONTHS = 12;
 
@@ -38,6 +41,25 @@ async function saveCalendarCache(cache: CalendarCache) {
 		}
 	}
 	await AsyncStorage.setItem(CacheKey.CALENDAR_MONTHS, JSON.stringify(cache)).catch(() => {});
+}
+
+/** Shows with an episode in the persisted Upcoming lists (server upcoming + already-aired
+ *  queue) — the airing ones, whose catalogs the calendar can't do without */
+async function upcomingShowIds(): Promise<number[]> {
+	const ids = new Set<number>();
+	const raws = await Promise.all(
+		[CacheKey.UPCOMING_EPISODES, CacheKey.UPCOMING_PAST].map((k) =>
+			AsyncStorage.getItem(k).catch(() => null),
+		),
+	);
+	for (const raw of raws) {
+		try {
+			for (const ep of (JSON.parse(raw ?? "{}").episodes ?? []) as UpcomingEpisode[]) {
+				if (ep.mediaType !== MediaType.MOVIE) ids.add(ep.tmdbShowId);
+			}
+		} catch {}
+	}
+	return [...ids];
 }
 
 // Global mutation listeners (cross-screen)
@@ -75,14 +97,15 @@ export function useCalendarEpisodes(userId: string | undefined) {
 				const serverSync = configSnap?.data?.()?.lastCatalogSync;
 				const serverSyncStr = serverSync?.toDate?.()?.toISOString?.() || null;
 
-				if (serverSyncStr && cache.syncDate && serverSyncStr !== cache.syncDate) {
+				if (isCalendarCacheStale(cache.syncDate, serverSyncStr)) {
 					cache.months = {};
 					cache.syncDate = serverSyncStr;
 					saveCalendarCache(cache);
 				}
 
+				// Keep any month fetched while this was loading (it's built from current catalogs)
+				cache.months = { ...cache.months, ...calendarCacheRef.current.months };
 				calendarCacheRef.current = cache;
-				if (serverSyncStr) calendarCacheRef.current.syncDate = serverSyncStr;
 
 				const restored = new Map<string, UpcomingEpisode[]>();
 				for (const [key, eps] of Object.entries(cache.months)) {
@@ -126,6 +149,20 @@ export function useCalendarEpisodes(userId: string | undefined) {
 				const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 				const inMonth = (date: string | null | undefined): date is string =>
 					!!date && date >= startDate && date <= endDate;
+
+				// Airing shows whose catalog isn't in memory yet (the watchlist only loads catalogs for
+				// the pages it has shown): fetch those once — persisted, so later months cost nothing.
+				// Without this the calendar silently skipped them while Upcoming listed them
+				const missing = (await upcomingShowIds()).filter(
+					(id) => tracked.has(id) && !getCachedCatalogShow(id, MediaType.TV),
+				);
+				if (missing.length > 0) {
+					cacheCatalogShows(
+						await fetchCatalogShows(missing.map((id) => showDocId(id, MediaType.TV))).catch(
+							() => [],
+						),
+					);
+				}
 
 				// Split TV vs movie using the shared catalog cache (no Firestore reads)
 				const tvCatalogs = [...tracked]
