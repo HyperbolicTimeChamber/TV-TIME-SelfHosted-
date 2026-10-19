@@ -2,8 +2,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CommonActions, useIsFocused, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import {
+	CommonActions,
+	useIsFocused,
+	useNavigation,
+	useRoute,
+	type RouteProp,
+} from "@react-navigation/native";
+import Animated, {
+	runOnJS,
+	useAnimatedStyle,
+	useSharedValue,
+	withTiming,
+} from "react-native-reanimated";
 import { colors } from "../../theme";
 import { HomeStackParamList, Route } from "../../types";
 import WatchlistTab from "./WatchlistTab";
@@ -16,22 +27,13 @@ const TABS: { key: HomeTab; label: string }[] = [
 	{ key: Route.UPCOMING, label: "Upcoming" },
 ];
 const SLIDE_MS = 250;
-/** Drag starts after 25px sideways (cards claim theirs at 10px first); turns past 30% or a flick */
 const START_PX = 25;
 const TURN_SHARE = 0.3;
 const FLICK_VELOCITY = 500;
-/** Other bottom tabs are built in the background after launch, one at a time, so a first visit
- *  doesn't build a whole screen during the slide (building Calendar drops JS to ~15 fps on 2 cores) */
 const PRELOAD_TABS = [Route.CALENDAR, Route.SEARCH, Route.PROFILE];
 const PRELOAD_START_MS = 4000;
 const PRELOAD_GAP_MS = 1500;
 
-/**
- * Home: Watch List / Upcoming. Not a material-top-tabs navigator — its native pager, nested
- * in the bottom pager, cancels every gesture on touch-down (pager-view's NestedScrollableHost
- * → requestDisallowInterceptTouchEvent → RNGH cancels). The tabs slide here instead, following
- * the finger. On Upcoming a left drag belongs to the bottom pager (on to Calendar, also live).
- */
 export default function HomeScreen() {
 	const { top } = useSafeAreaInsets();
 	const { width } = useWindowDimensions();
@@ -65,7 +67,10 @@ export default function HomeScreen() {
 		const parent = navigation.getParent();
 		if (!parent) return;
 		const timers = PRELOAD_TABS.map((name, i) =>
-			setTimeout(() => parent.dispatch(CommonActions.preload(name)), PRELOAD_START_MS + i * PRELOAD_GAP_MS),
+			setTimeout(
+				() => parent.dispatch(CommonActions.preload(name)),
+				PRELOAD_START_MS + i * PRELOAD_GAP_MS,
+			),
 		);
 		return () => timers.forEach(clearTimeout);
 	}, [navigation]);
@@ -107,8 +112,13 @@ export default function HomeScreen() {
 					"worklet";
 					dragging.value = false;
 					let next = index;
-					if (index === 0 && (e.translationX < -width * TURN_SHARE || e.velocityX < -FLICK_VELOCITY)) next = 1;
-					if (index === 1 && (e.translationX > width * TURN_SHARE || e.velocityX > FLICK_VELOCITY)) next = 0;
+					if (
+						index === 0 &&
+						(e.translationX < -width * TURN_SHARE || e.velocityX < -FLICK_VELOCITY)
+					)
+						next = 1;
+					if (index === 1 && (e.translationX > width * TURN_SHARE || e.velocityX > FLICK_VELOCITY))
+						next = 0;
 					pos.value = withTiming(next * width, { duration: SLIDE_MS });
 					if (next !== index) runOnJS(setTab)(TABS[next].key);
 				}),
@@ -120,13 +130,20 @@ export default function HomeScreen() {
 	const upcoming = useMemo(() => (upcomingOpened ? <UpcomingTab /> : null), [upcomingOpened]);
 
 	const pages = useAnimatedStyle(() => ({ transform: [{ translateX: -pos.value }] }));
-	const indicator = useAnimatedStyle(() => ({ transform: [{ translateX: pos.value / TABS.length }] }));
+	const indicator = useAnimatedStyle(() => ({
+		transform: [{ translateX: pos.value / TABS.length }],
+	}));
 
 	return (
 		<View style={styles.container}>
 			<View style={[styles.tabBar, { paddingTop: top }]}>
 				{TABS.map((t) => (
-					<TouchableOpacity key={t.key} style={styles.tab} onPress={() => goTo(t.key)} activeOpacity={0.7}>
+					<TouchableOpacity
+						key={t.key}
+						style={styles.tab}
+						onPress={() => goTo(t.key)}
+						activeOpacity={0.7}
+					>
 						<Text style={[styles.tabLabel, t.key === tab && styles.tabLabelActive]}>{t.label}</Text>
 					</TouchableOpacity>
 				))}
@@ -156,7 +173,13 @@ const styles = StyleSheet.create({
 		color: colors.textSecondary,
 	},
 	tabLabelActive: { color: colors.primary },
-	indicator: { position: "absolute", bottom: 0, left: 0, height: 2, backgroundColor: colors.primary },
+	indicator: {
+		position: "absolute",
+		bottom: 0,
+		left: 0,
+		height: 2,
+		backgroundColor: colors.primary,
+	},
 	clip: { flex: 1, overflow: "hidden" },
 	pages: { flex: 1, flexDirection: "row" },
 });
