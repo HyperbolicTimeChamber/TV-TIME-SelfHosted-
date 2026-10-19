@@ -337,7 +337,9 @@
 	align-items: center;
 	gap: 12px;
 	max-width: 560px;
-	margin: 15dvh auto 0;
+	/* Centred in the space under the header and tabs */
+	min-height: calc(100dvh - 200px);
+	margin: 0 auto;
 	padding: 0 16px;
 }
 

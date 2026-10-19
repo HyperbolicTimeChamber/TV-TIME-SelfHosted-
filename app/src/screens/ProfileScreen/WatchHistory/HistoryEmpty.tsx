@@ -40,11 +40,12 @@ export default function HistoryEmpty({
 }
 
 const styles = StyleSheet.create({
+	// Fills the page under the tabs, the pair centred in it
 	row: {
+		flex: 1,
 		flexDirection: "row",
 		alignItems: "center",
 		paddingHorizontal: spacing.lg,
-		marginTop: "25%",
 		gap: spacing.md,
 	},
 	text: {
