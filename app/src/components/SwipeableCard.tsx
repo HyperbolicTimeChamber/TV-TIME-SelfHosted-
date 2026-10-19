@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
 		marginHorizontal: spacing.md,
 	},
 	card: {
-		backgroundColor: colors.background,
+		backgroundColor: colors.surface,
 		zIndex: 1,
 	},
 	loadingReveal: {

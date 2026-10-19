@@ -1025,6 +1025,9 @@ export function useWatchlistData(userId: string | undefined) {
 		removeItem,
 		listData,
 		loading: effectiveLoading,
+		// Everything fetched (no first load, next tracking page or skeleton footer pending): only
+		// then can an empty "What's Up Next" really mean "all caught up"
+		listSettled: !allLoading && !loadingMoreTracking && !hasMoreTracking,
 		loadMoreTracking,
 		loadingMoreTracking,
 		loadMorePrevWatched,

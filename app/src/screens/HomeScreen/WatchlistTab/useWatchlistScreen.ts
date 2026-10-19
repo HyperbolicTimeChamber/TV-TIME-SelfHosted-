@@ -60,6 +60,7 @@ export function useWatchlistScreen(
 	const {
 		listData,
 		loading,
+		listSettled,
 		loadMoreTracking,
 		loadingMoreTracking,
 		loadMorePrevWatched,
@@ -677,6 +678,7 @@ export function useWatchlistScreen(
 		sheetLabel,
 		listData,
 		loading,
+		listSettled,
 		loadMoreTracking,
 		loadingMoreTracking,
 		loadMorePrevWatched,

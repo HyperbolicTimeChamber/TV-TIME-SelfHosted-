@@ -10,6 +10,7 @@ import PosterImage from "../../components/PosterImage";
 import EpisodeDetailModal from "../../components/EpisodeDetailModal";
 import ShowDrawer from "../../components/ShowDrawer";
 import LoadingScreen from "../../components/LoadingScreen";
+import HomeEmpty, { UPCOMING_EMPTY_ART } from "./HomeEmpty";
 import { showPath } from "../../routes/paths";
 import card from "../../components/styles/ShowCard.module.scss";
 import styles from "./styles/HomeScreen.module.scss";
@@ -104,13 +105,18 @@ export default function UpcomingTab() {
 			</div>
 		);
 	}
-	if (u.listData.length === 0) {
-		return (
-			<div className={styles.center}>
-				<p className={styles.empty}>No upcoming episodes</p>
-			</div>
-		);
-	}
+	// Nothing from today on: the empty state — alone, or under the already-aired days still unwatched
+	const nothingUpcoming = !u.listData.some((i: ListItem) => i.type === "header" && i.date >= today);
+	const emptyState = (
+		<HomeEmpty
+			art={UPCOMING_EMPTY_ART}
+			framed
+			title="Nothing Upcoming to Watch?"
+			subtitle="Aw. Who saw that coming?"
+			tagline="Your schedule's as empty as a cancelled show's future. Add something now. Trust us."
+		/>
+	);
+	if (u.listData.length === 0) return emptyState;
 
 	const firstUpcomingDate = u.listData.find((i: ListItem) => i.type === "header" && i.date >= today) as
 		| { date: string }
@@ -144,7 +150,7 @@ export default function UpcomingTab() {
 					);
 				})}
 			</div>
-			<div className="min-h-[60dvh]" />
+			{nothingUpcoming ? emptyState : <div className="min-h-[60dvh]" />}
 
 			{u.epModalData && (
 				<EpisodeDetailModal

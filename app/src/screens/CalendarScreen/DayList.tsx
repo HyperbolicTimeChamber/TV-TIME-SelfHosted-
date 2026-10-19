@@ -23,6 +23,7 @@ import {
 } from "../../utils/calendarGroups";
 import { formatAirTime } from "../../utils/airTime";
 import { CARD_WIDTH, listStyles as styles } from "./listStyles";
+import EmptyDay from "./EmptyDay";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
@@ -100,7 +101,7 @@ export default function DayList({
 		return out;
 	}, [episodes, expanded]);
 
-	if (episodes.length === 0) return <Text style={[styles.noEps, fitContent && styles.noEpsPopup]}>No episodes on this day</Text>;
+	if (episodes.length === 0) return <EmptyDay compact={fitContent} />;
 
 	const renderRow = (row: CalendarRow) => {
 		const isChild = row.kind === CalendarRowKind.CHILD;

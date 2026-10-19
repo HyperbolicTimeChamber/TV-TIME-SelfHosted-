@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { View, Text, TouchableOpacity, Animated as RNAnimated, useWindowDimensions } from "react-native";
+import {
+	View,
+	Text,
+	TouchableOpacity,
+	Animated as RNAnimated,
+	useWindowDimensions,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation } from "@react-navigation/native";
@@ -91,14 +97,21 @@ export default function CalendarScreen() {
 	const today = todayStr();
 	// Skeleton only until the shown month has data — preloading neighbours shouldn't flash it
 	const monthKey = `${currentYear}-${pad2(currentMonth)}`;
-	const monthLoading = c.loading && !(c.episodes ?? []).some((ep) => ep.airDate.startsWith(monthKey));
+	const monthLoading =
+		c.loading && !(c.episodes ?? []).some((ep) => ep.airDate.startsWith(monthKey));
 
 	// Back to today only when the Calendar tab is entered — not when returning from a
 	// show page pushed inside this tab (that's a focus of this screen, not of the tab)
-	useEffect(() => navigation.getParent()?.addListener("focus", c.resetToToday), [navigation, c.resetToToday]);
+	useEffect(
+		() => navigation.getParent()?.addListener("focus", c.resetToToday),
+		[navigation, c.resetToToday],
+	);
 	// Groups start closed whenever the user comes back to this screen
 	const [collapseSignal, setCollapseSignal] = useState(0);
-	useEffect(() => navigation.addListener("blur", () => setCollapseSignal((n) => n + 1)), [navigation]);
+	useEffect(
+		() => navigation.addListener("blur", () => setCollapseSignal((n) => n + 1)),
+		[navigation],
+	);
 
 	// --- View size: week strip / month / full, animated through `progress` ---------------
 	const [mode, setMode] = useState(CalendarMode.MONTH);
@@ -122,7 +135,10 @@ export default function CalendarScreen() {
 		rows.value = weeks.length;
 		if (bodyH.value > 0) fullRowH.value = bodyH.value / weeks.length;
 	}, [weeks.length, rows, bodyH, fullRowH]);
-	const selectedRow = Math.max(0, weeks.findIndex((w) => w.includes(selected)));
+	const selectedRow = Math.max(
+		0,
+		weeks.findIndex((w) => w.includes(selected)),
+	);
 
 	const settle = useCallback((next: CalendarMode) => {
 		setMode(next);
@@ -214,7 +230,8 @@ export default function CalendarScreen() {
 					const back = Math.min(delta, listY.value);
 					listY.value -= back;
 					delta -= back;
-					if (delta > 0) progress.value = progressAt(Math.min(bodyH.value, h + delta), rows.value, bodyH.value);
+					if (delta > 0)
+						progress.value = progressAt(Math.min(bodyH.value, h + delta), rows.value, bodyH.value);
 				}
 				if (!sizeChanging.value && progress.value !== before) {
 					sizeChanging.value = true;
@@ -270,7 +287,12 @@ export default function CalendarScreen() {
 	// whole screen every frame (janky on real phones, e.g. an S21).
 	const listStyle = useAnimatedStyle(() => ({
 		transform: [{ translateY: heightAt(progress.value, rows.value, bodyH.value) }],
-		opacity: interpolate(progress.value, [CalendarMode.MONTH, CalendarMode.FULL - 0.3], [1, 0], "clamp"),
+		opacity: interpolate(
+			progress.value,
+			[CalendarMode.MONTH, CalendarMode.FULL - 0.3],
+			[1, 0],
+			"clamp",
+		),
 	}));
 
 	// --- Pages -----------------------------------------------------------------------------
@@ -300,8 +322,14 @@ export default function CalendarScreen() {
 	// Neighbour months' weeks kept stable so their grids skip re-renders
 	const prevMonth = shiftMonth(currentYear, currentMonth, -1);
 	const nextMonth = shiftMonth(currentYear, currentMonth, 1);
-	const prevWeeks = useMemo(() => monthWeeks(prevMonth.year, prevMonth.month), [prevMonth.year, prevMonth.month]);
-	const nextWeeks = useMemo(() => monthWeeks(nextMonth.year, nextMonth.month), [nextMonth.year, nextMonth.month]);
+	const prevWeeks = useMemo(
+		() => monthWeeks(prevMonth.year, prevMonth.month),
+		[prevMonth.year, prevMonth.month],
+	);
+	const nextWeeks = useMemo(
+		() => monthWeeks(nextMonth.year, nextMonth.month),
+		[nextMonth.year, nextMonth.month],
+	);
 
 	const renderCalendarPage = (offset: -1 | 0 | 1) => {
 		if (weekPaging) {
@@ -377,12 +405,16 @@ export default function CalendarScreen() {
 		/>
 	);
 
+	// List space under the month grid: an empty day centres in it in month view, and keeps the same
+	// spot (riding up with the list) when the grid shrinks to a week
+	const visibleListH = Math.max(0, bodyPx - weeks.length * ROW_MONTH);
 	const renderDayPage = (offset: -1 | 0 | 1) => {
 		const date = addDays(selected, offset);
 		// Only the selected day's page scrolls (neighbours sit at their top while swiping in)
 		return (
 			<Animated.View
-				style={offset === 0 && listScroll}
+				// At least the visible list height, so an empty day can centre in it
+				style={[{ minHeight: visibleListH }, offset === 0 && listScroll]}
 				onLayout={offset === 0 ? (e) => (contentH.value = e.nativeEvent.layout.height) : undefined}
 			>
 				<DayHeader date={date} />
@@ -404,12 +436,16 @@ export default function CalendarScreen() {
 		c.setYearModalVisible(true);
 		setTimeout(() => {
 			const idx = YEARS.indexOf(currentYear);
-			if (idx >= 0) yearListRef.current?.scrollToIndex({ index: idx, animated: false, viewPosition: 0.4 });
+			if (idx >= 0)
+				yearListRef.current?.scrollToIndex({ index: idx, animated: false, viewPosition: 0.4 });
 		}, 100);
 	}, [c, currentYear]);
 
-	const monthName = new Date(currentYear, currentMonth - 1).toLocaleDateString("en-US", { month: "long" }).toUpperCase();
-	const title = currentYear === new Date().getFullYear() ? monthName : `${monthName} ${currentYear}`;
+	const monthName = new Date(currentYear, currentMonth - 1)
+		.toLocaleDateString("en-US", { month: "long" })
+		.toUpperCase();
+	const title =
+		currentYear === new Date().getFullYear() ? monthName : `${monthName} ${currentYear}`;
 
 	return (
 		<View style={[styles.container, { paddingTop: top }]}>
@@ -418,7 +454,11 @@ export default function CalendarScreen() {
 					<Text style={styles.monthTitle}>{title}</Text>
 				</TouchableOpacity>
 				{/* Today: a calendar-page icon showing today's date */}
-				<TouchableOpacity style={styles.todayButton} onPress={c.resetToToday} accessibilityLabel="Go to today">
+				<TouchableOpacity
+					style={styles.todayButton}
+					onPress={c.resetToToday}
+					accessibilityLabel="Go to today"
+				>
 					<Text style={styles.todayButtonText}>{Number(today.slice(8))}</Text>
 				</TouchableOpacity>
 			</View>
@@ -456,7 +496,9 @@ export default function CalendarScreen() {
 					/>
 				</View>
 
-				<Animated.View style={[styles.listArea, { height: Math.max(0, bodyPx - ROW_MONTH) }, listStyle]}>
+				<Animated.View
+					style={[styles.listArea, { height: Math.max(0, bodyPx - ROW_MONTH) }, listStyle]}
+				>
 					{monthLoading ? (
 						<CalendarSkeleton />
 					) : (
@@ -502,7 +544,10 @@ export default function CalendarScreen() {
 					onShowPress={() => {
 						setInfoEp(null);
 						setPopupDate(null);
-						navigation.navigate(Route.SHOW_DETAIL, { tmdbId: infoEp.tmdbShowId, mediaType: MediaType.TV });
+						navigation.navigate(Route.SHOW_DETAIL, {
+							tmdbId: infoEp.tmdbShowId,
+							mediaType: MediaType.TV,
+						});
 					}}
 					onClose={() => setInfoEp(null)}
 				/>
@@ -521,7 +566,9 @@ export default function CalendarScreen() {
 								style={[styles.yearItem, item === currentYear && styles.yearItemActive]}
 								onPress={() => c.selectYear(item)}
 							>
-								<Text style={[styles.yearItemText, item === currentYear && styles.yearItemTextActive]}>
+								<Text
+									style={[styles.yearItemText, item === currentYear && styles.yearItemTextActive]}
+								>
 									{item}
 								</Text>
 							</TouchableOpacity>

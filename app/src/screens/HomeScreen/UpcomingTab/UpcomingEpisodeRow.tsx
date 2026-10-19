@@ -64,7 +64,11 @@ export default memo(function UpcomingEpisodeRow({
 					</>
 				)}
 			</View>
-			{airTime && <Text style={styles.airTime}>{airTime}</Text>}
+			{airTime && (
+				<Text style={styles.airTime} numberOfLines={1}>
+					{airTime}
+				</Text>
+			)}
 		</TouchableOpacity>
 	);
 });
@@ -72,7 +76,7 @@ export default memo(function UpcomingEpisodeRow({
 const styles = StyleSheet.create({
 	row: {
 		flexDirection: "row",
-		backgroundColor: colors.background,
+		backgroundColor: colors.surface,
 		borderRadius: 8,
 		overflow: "hidden",
 		marginHorizontal: spacing.md,
@@ -130,8 +134,13 @@ const styles = StyleSheet.create({
 		fontSize: 13,
 	},
 	// Right edge, vertically centred
+	// Never squeezed by a long show title, and wide enough for any "hh:mm AM": Android measures
+	// some times in this font a hair narrow and cut the "AM" / "PM" off
 	airTime: {
 		alignSelf: "center",
+		flexShrink: 0,
+		minWidth: 88,
+		textAlign: "right",
 		paddingHorizontal: spacing.md,
 		fontFamily: fonts.smoochMedium,
 		fontSize: 20,

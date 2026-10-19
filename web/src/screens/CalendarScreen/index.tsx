@@ -289,7 +289,12 @@ export default function CalendarScreen() {
 								})}
 							</h3>
 							{c.selectedEpisodes.length === 0 ? (
-								<p className={styles.noEps}>No episodes on this day</p>
+								// Nothing on: Shikamaru, sighing (app EmptyDay)
+								<div className={styles.emptyDay}>
+									<img className={styles.emptyDayArt} src="/empty-day.webp" alt="" />
+									<p className={styles.emptyDayTitle}>What a drag… nothing to watch today.</p>
+									<p className={styles.emptyDayTagline}>Guess you'll just have to watch the clouds instead. Way less troublesome.</p>
+								</div>
 							) : (
 								// Shows with several episodes that day collapse into one card; click to open
 								groupCalendarDay(c.selectedEpisodes).map((group) => {

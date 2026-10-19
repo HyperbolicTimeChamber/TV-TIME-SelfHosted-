@@ -8,11 +8,6 @@ const EP_SQUARE = CARD_MIN_HEIGHT - spacing.md * 2;
 
 /** Day list cards */
 export const listStyles = StyleSheet.create({
-	noEps: {
-		...typography.caption,
-		paddingHorizontal: spacing.lg,
-	},
-	noEpsPopup: { paddingBottom: spacing.lg },
 	listContent: { paddingBottom: spacing.xl },
 	episodeCard: {
 		minHeight: CARD_MIN_HEIGHT,

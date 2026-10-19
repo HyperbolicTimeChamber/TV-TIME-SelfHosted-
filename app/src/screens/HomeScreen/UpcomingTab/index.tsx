@@ -1,18 +1,23 @@
 import { useCallback, useMemo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
 import { LegendList } from "@legendapp/list/react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, CompositeNavigationProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LoadingSpinner, EpisodeDetailModal, ShowDrawer } from "../../../components";
 import { colors, spacing, typography } from "../../../theme";
-import { HomeStackParamList, Route, MediaType } from "../../../types";
+import { HomeStackParamList, MainStackParamList, Route, MediaType } from "../../../types";
 import DateHeader from "./DateHeader";
 import { useUpcomingScreen, type ListItem } from "./useUpcomingScreen";
 import UpcomingEpisodeRow from "./UpcomingEpisodeRow";
+import HomeEmpty, { UPCOMING_EMPTY_ART } from "../HomeEmpty";
+import { todayStr } from "../../../utils";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
-type NavProp = NativeStackNavigationProp<HomeStackParamList, Route.HOME_TABS>;
+type NavProp = CompositeNavigationProp<
+	NativeStackNavigationProp<HomeStackParamList, Route.HOME_TABS>,
+	NativeStackNavigationProp<MainStackParamList>
+>;
 
 export default function UpcomingTab() {
 	const navigation = useNavigation<NavProp>();
@@ -96,13 +101,19 @@ export default function UpcomingTab() {
 		);
 	}
 
-	if (listData.length === 0) {
-		return (
-			<View style={styles.center}>
-				<Text style={styles.empty}>No upcoming episodes</Text>
-			</View>
-		);
-	}
+	// Nothing from today on: the empty state — alone, or under the already-aired days still unwatched
+	const nothingUpcoming = !listData.some((i) => i.type === "header" && i.date >= todayStr());
+	const emptyState = (
+		<HomeEmpty
+			art={UPCOMING_EMPTY_ART}
+			framed
+			title="Nothing Upcoming to Watch?"
+			subtitle="Aw. Who saw that coming?"
+			tagline="Your schedule's as empty as a cancelled show's future. Add something now. Trust us."
+			onAddShows={() => navigation.navigate(Route.SWIPE_TABS, { screen: Route.SEARCH })}
+		/>
+	);
+	if (listData.length === 0) return emptyState;
 
 	return (
 		<>
@@ -119,6 +130,7 @@ export default function UpcomingTab() {
 				estimatedItemSize={100}
 				stickyHeaderIndices={stickyIndices}
 				initialScrollIndex={firstUpcomingIndex}
+				ListFooterComponent={nothingUpcoming ? emptyState : null}
 				style={styles.list}
 				contentContainerStyle={styles.listContent}
 			/>
@@ -171,14 +183,14 @@ export default function UpcomingTab() {
 const styles = StyleSheet.create({
 	list: {
 		flex: 1,
-		backgroundColor: colors.surface,
+		backgroundColor: colors.background,
 	},
 	listContent: {
 		paddingBottom: spacing.xl,
 	},
 	center: {
 		flex: 1,
-		backgroundColor: colors.surface,
+		backgroundColor: colors.background,
 		justifyContent: "center",
 		alignItems: "center",
 	},
@@ -191,10 +203,6 @@ const styles = StyleSheet.create({
 		...typography.caption,
 		color: colors.textMuted,
 		marginTop: spacing.xs,
-	},
-	empty: {
-		...typography.subtitle,
-		color: colors.textSecondary,
 	},
 	errorText: {
 		...typography.subtitle,

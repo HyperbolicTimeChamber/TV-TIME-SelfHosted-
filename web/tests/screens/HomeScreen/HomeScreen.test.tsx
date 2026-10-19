@@ -67,8 +67,9 @@ describe("HomeScreen", () => {
 	it("empty watchlist offers to add shows", () => {
 		listData = [];
 		renderWithProviders(<Home />, { user: testUser, path: "/home" });
-		expect(screen.getByText("No shows in your watchlist")).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: "+ Add Shows" })).toBeInTheDocument();
+		expect(screen.getByRole("heading", { name: "Welcome" })).toBeInTheDocument();
+		expect(screen.getByText("Not tracking a thing yet? Now that's bad television.")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "+ Add Shows & Movies" })).toBeInTheDocument();
 	});
 
 	it("upcoming shows past days (Yesterday) above Today", () => {
