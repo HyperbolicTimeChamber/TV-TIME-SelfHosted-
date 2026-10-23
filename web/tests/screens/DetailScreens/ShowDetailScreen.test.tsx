@@ -45,6 +45,7 @@ vi.mock("@app/components/useSeasonActions", () => ({
 		minWatchCount: 0,
 		allWatched: false,
 		partiallyWatched: false,
+		seasonConfirmCopy: { title: "Mark Season 1 as Watched?", hint: "", confirmLabel: "Mark Season" },
 		isLoading: false,
 		imagesLoading: false,
 		epInfoData: null,

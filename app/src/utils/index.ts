@@ -17,3 +17,4 @@ export * from "./calendarGrid";
 export * from "./historyView";
 export * from "./watchlistList";
 export * from "./calendarCache";
+export * from "./searchSort";

@@ -177,17 +177,22 @@ export default function EpisodeDetailModal({
 		setMarkingKey(epKey(confirmTarget.season, confirmTarget.episode));
 		let marked = false;
 		try {
-			await onMarkWatchedThrough(tmdbId, confirmTarget.season, confirmTarget.episode);
-			// Mirror the write: one more watch for every episode from the current next one through
-			// the target (in a rewatch they all already have counts)
+			const markedRefs = await onMarkWatchedThrough(tmdbId, confirmTarget.season, confirmTarget.episode);
+			// Mirror the write: the episodes the handler reports, else one more watch for every
+			// episode from the current next one through the target (in a rewatch they all already
+			// have counts)
 			const from = currentNextEpisode ?? { season: 1, episode: 1 };
 			const onOrAfter = (s: number, e: number) => s > from.season || (s === from.season && e >= from.episode);
 			const onOrBefore = (s: number, e: number) =>
 				s < confirmTarget.season || (s === confirmTarget.season && e <= confirmTarget.episode);
+			const reported = markedRefs ? new Set(markedRefs.map((r) => epKey(r.season, r.episode))) : null;
 			setLocalWatched((prev) => {
 				const next = new Map(prev);
 				for (const ep of episodes) {
-					if (onOrAfter(ep.season, ep.episode) && onOrBefore(ep.season, ep.episode)) {
+					const inRange = reported
+						? reported.has(epKey(ep.season, ep.episode))
+						: onOrAfter(ep.season, ep.episode) && onOrBefore(ep.season, ep.episode);
+					if (inRange) {
 						const k = epKey(ep.season, ep.episode);
 						next.set(k, (next.get(k) ?? 0) + 1);
 					}

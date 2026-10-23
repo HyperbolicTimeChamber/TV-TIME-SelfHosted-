@@ -113,7 +113,9 @@ function buildCardItem(item: EnrichedTrackingItem, today: string) {
 
 	return {
 		...item,
-		nextEpisodeName: pickEpisodeTitle(item.nextEpisodeName, catalogEp?.title),
+		// Catalog first: the tracking doc's name is copied at mark time and goes stale when TMDB
+		// corrects a title; the catalog is healed from fresh TMDB seasons (healCatalogSeason)
+		nextEpisodeName: pickEpisodeTitle(catalogEp?.title, item.nextEpisodeName),
 		nextEpisodeAirDate: item.nextEpisodeAirDate ?? catalogEp?.airDate ?? null,
 		nextEpisodeRuntime: catalogEp?.runtime || 0,
 		releaseDate: item.releaseDate ?? catalog?.releaseDate ?? null,

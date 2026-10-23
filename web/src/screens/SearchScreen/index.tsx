@@ -5,7 +5,15 @@ import { IoChevronBack, IoSearch } from "react-icons/io5";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSearch } from "@app/hooks/useSearch";
 import { useTrending } from "@app/hooks/useTrending";
+import { useSearchSort } from "@app/hooks/useSearchSort";
 import { useSearchActions } from "@app/screens/SearchScreen/useSearchActions";
+import {
+	DEFAULT_SEARCH_SORT,
+	SEARCH_SORT_OPTIONS,
+	sameSearchSort,
+	sortSearchResults,
+	type SearchSortView,
+} from "@app/utils/searchSort";
 import { MediaFilter } from "@app/enums";
 import type { TMDBShow } from "@app/types";
 import SlidingTabs from "../../components/SlidingTabs";
@@ -15,6 +23,7 @@ import { useCollapsingHeader } from "../../hooks/useCollapsingHeader";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
 import { useElementHeight } from "../../hooks/useElementHeight";
 import { Paths, showPath } from "../../routes/paths";
+import { SortButton, SortPanel, type SortOption } from "../../components/SortPanel";
 import SearchCard from "./SearchCard";
 import { mediaTypeOf } from "./mediaTypeOf";
 import SearchModals from "./SearchModals";
@@ -27,12 +36,17 @@ const FILTER_TABS = [
 	{ key: MediaFilter.MOVIE, label: "Movies" },
 ];
 
+const SORT_OPTIONS: SortOption<SearchSortView>[] = SEARCH_SORT_OPTIONS.map(({ label, ...value }) => ({ value, label }));
+
 /** Landing page for guests; same trending/search + add flows as the app's SearchScreen */
 export default function SearchScreen() {
 	const navigate = useNavigate();
 	const [params] = useSearchParams();
 	const submittedQuery = params.get("q") ?? "";
 	const [mediaFilter, setMediaFilter] = useState<MediaFilter>(MediaFilter.ALL);
+	// Results only (Trending keeps its own order); remembered for the session
+	const [sortView, setSortView] = useSearchSort();
+	const [sortOpen, setSortOpen] = useState(false);
 	const headerVisible = useCollapsingHeader();
 	const [headerRef, headerHeight] = useElementHeight<HTMLElement>();
 
@@ -46,12 +60,14 @@ export default function SearchScreen() {
 	const { data: trending, isLoading: trendingLoading } = useTrending("all");
 
 	const items = useMemo(() => {
-		if (submittedQuery) return searchData?.results ?? [];
+		// Sorts every loaded page — a new page merges into the sorted order
+		if (submittedQuery) return sortSearchResults(searchData?.results ?? [], sortView);
 		return (trending ?? []).filter(
 			(item) => mediaFilter === MediaFilter.ALL || (mediaTypeOf(item) as string) === mediaFilter,
 		);
-	}, [submittedQuery, searchData, trending, mediaFilter]);
+	}, [submittedQuery, searchData, trending, mediaFilter, sortView]);
 	const isLoading = submittedQuery ? searchLoading : trendingLoading;
+	const showSort = !!submittedQuery && !isLoading && items.length > 0;
 
 	const loadMore = useCallback(() => {
 		if (submittedQuery && hasNextPage) fetchNextPage();
@@ -116,6 +132,29 @@ export default function SearchScreen() {
 						<button className={styles.searchRow} onClick={openInput}>
 							{submittedQuery || "Search Shows & Movies"}
 						</button>
+						{showSort && (
+							<span className={styles.sortSlot}>
+								<SortButton
+									label="Sort results"
+									open={sortOpen}
+									onOpenChange={setSortOpen}
+									customised={!sameSearchSort(sortView, DEFAULT_SEARCH_SORT)}
+									content={
+										<SortPanel
+											options={SORT_OPTIONS}
+											selected={sortView}
+											isSame={sameSearchSort}
+											onSelect={(next) => {
+												setSortView(next);
+												setSortOpen(false);
+												// New order starts from the top
+												window.scrollTo({ top: 0 });
+											}}
+										/>
+									}
+								/>
+							</span>
+						)}
 					</div>
 					<SlidingTabs id="search-filter" tabs={FILTER_TABS} activeKey={mediaFilter} onTabPress={setMediaFilter} />
 				</div>

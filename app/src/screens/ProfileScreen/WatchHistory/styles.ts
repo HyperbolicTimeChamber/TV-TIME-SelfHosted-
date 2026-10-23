@@ -37,52 +37,7 @@ export const styles = StyleSheet.create({
 	},
 	footer: { paddingVertical: spacing.xl },
 
-	// Sort / filter: floating button + bottom sheet
-	fab: {
-		position: "absolute",
-		right: spacing.lg,
-		width: 56,
-		height: 56,
-		borderRadius: 28,
-		backgroundColor: colors.primary,
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	// Sort / filter not at default
-	fabDot: {
-		position: "absolute",
-		top: 12,
-		right: 12,
-		width: 9,
-		height: 9,
-		borderRadius: 5,
-		backgroundColor: colors.text,
-	},
-	sheetBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.overlayLight },
-	sheet: {
-		backgroundColor: colors.surface,
-		borderTopLeftRadius: 20,
-		borderTopRightRadius: 20,
-		paddingHorizontal: spacing.lg,
-		paddingTop: spacing.sm,
-	},
-	sheetHandle: {
-		alignSelf: "center",
-		width: 40,
-		height: 4,
-		borderRadius: 2,
-		backgroundColor: colors.border,
-		marginBottom: spacing.md,
-	},
-	sheetTitle: { fontSize: 13, fontWeight: "700", color: colors.textSecondary, letterSpacing: 1, marginVertical: spacing.sm },
-	sheetRow: {
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "space-between",
-		paddingVertical: spacing.md,
-	},
-	sheetRowText: { fontSize: 16, color: colors.text },
-	sheetRowActive: { fontWeight: "700" },
+	// Sort sheet (components/SortSheet) — filter section
 	sheetFilterHead: {
 		flexDirection: "row",
 		alignItems: "center",

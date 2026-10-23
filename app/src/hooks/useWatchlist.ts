@@ -10,6 +10,9 @@ import {
 	selectStaleCatalogItems,
 	localizeCatalog,
 	nextEpisodeLocalAirDate,
+	patchCatalogSeason,
+	catalogNextEpisodeTitle,
+	type FreshSeasonEpisode,
 } from "../utils";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -26,7 +29,16 @@ import {
 	startAfter,
 	QueryDocumentSnapshot,
 } from "@react-native-firebase/firestore";
-import { TrackingItem, CatalogShow, CacheKey, DocChangeType, MediaType } from "../types";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
+import {
+	TrackingItem,
+	CatalogShow,
+	CacheKey,
+	DocChangeType,
+	MediaType,
+	QueryKey,
+	type TMDBEpisode,
+} from "../types";
 import { useAuthStore } from "../stores";
 import { getShowDetails, getSeasonDetails } from "../services/tmdb";
 
@@ -181,6 +193,75 @@ export function cacheCatalogShows(shows: CatalogShow[]) {
 /** Get a catalog show from the in-memory cache (no Firestore read) */
 export function getCachedCatalogShow(tmdbId: number, mediaType: MediaType): CatalogShow | null {
 	return sharedCatalogCache.get(showDocId(tmdbId, mediaType)) ?? null;
+}
+
+type CatalogPatchListener = (tmdbId: number, catalog: CatalogShow) => void;
+const catalogPatchListeners = new Set<CatalogPatchListener>();
+
+/**
+ * Fresh TMDB season (episode info modal, show page dropdown) → patch the cached catalog when TMDB
+ * changed titles / overviews / stills since the doc was written, persist that show, and tell every
+ * useWatchlist instance so cards update now instead of after the next server sync. 0 reads/calls.
+ */
+export function healCatalogSeason(tmdbId: number, season: number, fresh: FreshSeasonEpisode[]) {
+	const key = showDocId(tmdbId, MediaType.TV);
+	const cached = sharedCatalogCache.get(key);
+	if (!cached || isIncompleteCatalog(cached)) return;
+	const patched = patchCatalogSeason(cached, season, fresh);
+	if (!patched) return;
+	sharedCatalogCache.set(key, patched);
+	persistCatalogCache(sharedCatalogCache);
+	for (const listener of catalogPatchListeners) listener(tmdbId, patched);
+}
+
+/**
+ * Every successful TMDB season fetch lands in the show page's season images query (the info
+ * modal's loadSeasonEpisodes shares the key) → heal from it. Also corrects the show page's
+ * catalog-backed season query so its episode list matches.
+ */
+let seasonHealClient: QueryClient | null = null;
+function subscribeSeasonHeal(queryClient: QueryClient) {
+	// Once per client for the app's lifetime — keeps healing while Home is unmounted (web routes)
+	if (seasonHealClient === queryClient) return;
+	seasonHealClient = queryClient;
+	queryClient.getQueryCache().subscribe((event) => {
+		if (event.type !== "updated" || event.action.type !== "success") return;
+		const [k, tmdbId, season] = event.query.queryKey as [unknown, unknown, unknown];
+		if (k !== QueryKey.SEASON_IMAGES || typeof tmdbId !== "number" || typeof season !== "number")
+			return;
+		const fresh = (event.query.state.data as { episodes?: TMDBEpisode[] } | undefined)?.episodes;
+		if (!fresh?.length) return;
+		healCatalogSeason(tmdbId, season, fresh);
+		const names = new Map(fresh.map((e) => [e.episode_number, e.name]));
+		queryClient.setQueryData<{ fromCatalog?: boolean; episodes: TMDBEpisode[] }>(
+			[QueryKey.SEASON, tmdbId, season],
+			(prev) => {
+				if (!prev?.fromCatalog) return prev;
+				let changed = false;
+				const episodes = prev.episodes.map((e) => {
+					const name = names.get(e.episode_number)?.trim();
+					const downgrade = isGenericEpisodeTitle(name) && !isGenericEpisodeTitle(e.name);
+					if (!name || name === e.name || downgrade) return e;
+					changed = true;
+					return { ...e, name };
+				});
+				return changed ? { ...prev, episodes } : prev;
+			},
+		);
+	});
+}
+
+// Tracking docs already corrected this session (itemId → name) — one write across hook instances
+const healedTrackingNames = new Map<string, string>();
+
+/** Item re-pointed at a patched catalog; its next-episode name follows the catalog's real title */
+function withCatalog(item: EnrichedTrackingItem, catalog: CatalogShow): EnrichedTrackingItem {
+	return {
+		...item,
+		catalogShow: catalog,
+		nextEpisodeName: catalogNextEpisodeTitle(catalog, item.nextEpisode) ?? item.nextEpisodeName,
+		nextEpisodeAirDate: nextEpisodeLocalAirDate(item.nextEpisode, catalog, item.nextEpisodeAirDate),
+	};
 }
 
 function extractCredits(crew: any[] | undefined) {
@@ -382,9 +463,12 @@ export function useWatchlist(userId: string | undefined) {
 				const freshlyEnriched = await enrichItems(toEnrich, catalogCache.current);
 				const freshMap = new Map(freshlyEnriched.map((e) => [e.id, e]));
 
+				// Unchanged docs keep the displayed item — it carries local catalog patches (TMDB heal,
+				// season heal, sync re-read) the previous snapshot's copy doesn't
 				enriched = trackingItems.map(
 					(t) =>
 						freshMap.get(t.id) ??
+						itemsRef.current.get(t.id) ??
 						prevEnrichedMap.get(t.id) ?? {
 							...t,
 							title: `Show #${t.tmdbId}`,
@@ -503,6 +587,35 @@ export function useWatchlist(userId: string | undefined) {
 		}
 		setItems((prev) => [item, ...prev.filter((p) => p.tmdbId !== item.tmdbId)]);
 	}, []);
+
+	// Fresh TMDB season loaded anywhere (info modal / show page) → cards follow the healed catalog
+	const queryClient = useQueryClient();
+	useEffect(() => subscribeSeasonHeal(queryClient), [queryClient]);
+	useEffect(() => {
+		const listener: CatalogPatchListener = (tmdbId, catalog) => {
+			const patch = (p: EnrichedTrackingItem) =>
+				p.tmdbId === tmdbId && p.mediaType !== MediaType.MOVIE ? withCatalog(p, catalog) : p;
+			paginatedItems.current = paginatedItems.current.map(patch);
+			// Tracking doc's stored name is stale too → same write as the TMDB heal (0 reads)
+			if (userId) {
+				for (const item of itemsRef.current.values()) {
+					if (item.tmdbId !== tmdbId || item.mediaType === MediaType.MOVIE) continue;
+					const name = catalogNextEpisodeTitle(catalog, item.nextEpisode);
+					if (!name || name === item.nextEpisodeName || healedTrackingNames.get(item.id) === name)
+						continue;
+					healedTrackingNames.set(item.id, name);
+					updateDoc(doc(getFirestore(), "users", userId, "tracking", item.id), {
+						nextEpisodeName: name,
+					}).catch(() => {});
+				}
+			}
+			setItems((prev) => prev.map(patch));
+		};
+		catalogPatchListeners.add(listener);
+		return () => {
+			catalogPatchListeners.delete(listener);
+		};
+	}, [userId, setItems]);
 
 	// Listen for external removal events (e.g. from ShowDetailScreen)
 	useEffect(() => onShowRemoved(removeItem), [removeItem]);

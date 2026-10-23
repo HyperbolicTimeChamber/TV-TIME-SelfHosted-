@@ -1,6 +1,4 @@
 import { useMemo, useState } from "react";
-import { Popover } from "antd";
-import { IoOptionsOutline } from "react-icons/io5";
 import { AnimatePresence, motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import InfiniteScroll from "react-infinite-scroll-component";
@@ -13,6 +11,7 @@ import { useHideTabBar } from "../../../hooks/useHideTabBar";
 import { Paths, showPath } from "../../../routes/paths";
 import HistoryCard from "./HistoryCard";
 import HistoryViewPanel from "./HistoryViewPanel";
+import { SortButton } from "../../../components/SortPanel";
 import Masonry from "../../../components/Masonry";
 import { useColumnCount } from "../../../hooks/useColumnCount";
 import HistoryEmpty from "./HistoryEmpty";
@@ -134,12 +133,11 @@ export default function WatchHistoryScreen() {
 				<div className={styles.tabsRow}>
 					<SlidingTabs id="history-tabs" tabs={TABS} activeKey={tab} onTabPress={(key) => goTo(TABS.findIndex((t) => t.key === key))} className={styles.tabs} />
 					{/* Sort / filter */}
-					<Popover
-						trigger="click"
-						placement="bottomRight"
+					<SortButton
+						label="Sort and filter"
 						open={panelOpen}
 						onOpenChange={setPanelOpen}
-						arrow={false}
+						customised={customised}
 						content={
 							<HistoryViewPanel
 								isMovie={tab === MediaType.MOVIE}
@@ -153,12 +151,7 @@ export default function WatchHistoryScreen() {
 								onClearFilters={() => setFilters(new Set())}
 							/>
 						}
-					>
-						<button className={styles.viewButton} aria-label="Sort and filter">
-							<IoOptionsOutline size={20} />
-							{customised && <span className={styles.viewButtonDot} />}
-						</button>
-					</Popover>
+					/>
 				</div>
 			</motion.header>
 			{/* Swipe left/right between TV Shows and Movies (vertical scroll stays native);

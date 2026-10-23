@@ -1,6 +1,5 @@
-import { Modal, Pressable, Text, TouchableOpacity, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Text, TouchableOpacity, View } from "react-native";
+import SortSheet, { sortSheetStyles, type SortOption } from "../../../components/SortSheet";
 import { HistoryFilter, HistorySort } from "../../../enums";
 import {
 	HISTORY_FILTERS,
@@ -8,8 +7,12 @@ import {
 	HISTORY_SORT_LABEL,
 	HISTORY_SORTS,
 } from "../../../utils/historyView";
-import { colors } from "../../../theme";
 import { styles } from "./styles";
+
+const SORT_OPTIONS: SortOption<HistorySort>[] = HISTORY_SORTS.map((value) => ({
+	value,
+	label: HISTORY_SORT_LABEL[value],
+}));
 
 interface Props {
 	visible: boolean;
@@ -33,54 +36,36 @@ export default function HistoryViewSheet({
 	onToggleFilter,
 	onClearFilters,
 }: Props) {
-	const { bottom } = useSafeAreaInsets();
 	return (
-		<Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-			<Pressable style={styles.sheetBackdrop} onPress={onClose}>
-				<Pressable style={[styles.sheet, { paddingBottom: bottom + 16 }]} onPress={() => {}}>
-					<View style={styles.sheetHandle} />
-					<Text style={styles.sheetTitle}>Sort by</Text>
-					{HISTORY_SORTS.map((option) => {
-						const active = option === sort;
-						return (
-							<TouchableOpacity key={option} style={styles.sheetRow} onPress={() => onSort(option)}>
-								<Text style={[styles.sheetRowText, active && styles.sheetRowActive]}>
-									{HISTORY_SORT_LABEL[option]}
-								</Text>
-								{active && <Ionicons name="checkmark" size={20} color={colors.primary} />}
+		<SortSheet visible={visible} onClose={onClose} options={SORT_OPTIONS} selected={sort} onSelect={onSort}>
+			{!isMovie && (
+				<>
+					<View style={styles.sheetFilterHead}>
+						<Text style={sortSheetStyles.title}>Filter</Text>
+						{filters.size > 0 && (
+							<TouchableOpacity onPress={onClearFilters}>
+								<Text style={styles.sheetClear}>Clear</Text>
 							</TouchableOpacity>
-						);
-					})}
-					{!isMovie && (
-						<>
-							<View style={styles.sheetFilterHead}>
-								<Text style={styles.sheetTitle}>Filter</Text>
-								{filters.size > 0 && (
-									<TouchableOpacity onPress={onClearFilters}>
-										<Text style={styles.sheetClear}>Clear</Text>
-									</TouchableOpacity>
-								)}
-							</View>
-							<View style={styles.chipWrap}>
-								{HISTORY_FILTERS.map((f) => {
-									const on = filters.has(f);
-									return (
-										<TouchableOpacity
-											key={f}
-											style={[styles.filterChip, on && styles.filterChipOn]}
-											onPress={() => onToggleFilter(f)}
-										>
-											<Text style={[styles.filterChipText, on && styles.filterChipTextOn]}>
-												{HISTORY_FILTER_LABEL[f]}
-											</Text>
-										</TouchableOpacity>
-									);
-								})}
-							</View>
-						</>
-					)}
-				</Pressable>
-			</Pressable>
-		</Modal>
+						)}
+					</View>
+					<View style={styles.chipWrap}>
+						{HISTORY_FILTERS.map((f) => {
+							const on = filters.has(f);
+							return (
+								<TouchableOpacity
+									key={f}
+									style={[styles.filterChip, on && styles.filterChipOn]}
+									onPress={() => onToggleFilter(f)}
+								>
+									<Text style={[styles.filterChipText, on && styles.filterChipTextOn]}>
+										{HISTORY_FILTER_LABEL[f]}
+									</Text>
+								</TouchableOpacity>
+							);
+						})}
+					</View>
+				</>
+			)}
+		</SortSheet>
 	);
 }

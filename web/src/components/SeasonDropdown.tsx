@@ -210,7 +210,7 @@ export default memo(function SeasonDropdown({ readOnly, ...props }: Props) {
 
 					<ConfirmModal
 						visible={s.seasonConfirmVisible}
-						title={s.allWatched ? `Rewatch Season ${season.season_number}?` : `Mark Season ${season.season_number} as Watched?`}
+						title={s.seasonConfirmCopy.title}
 						image={
 							props.showBackdropPath ? (
 								<ModalBackdrop backdropPath={props.showBackdropPath} logoPath={showLogo} tmdbId={props.tmdbId} mediaType={MediaType.TV} title={props.showTitle} />
@@ -218,12 +218,8 @@ export default memo(function SeasonDropdown({ readOnly, ...props }: Props) {
 								<ModalLogo logoPath={showLogo} tmdbId={props.tmdbId} mediaType={MediaType.TV} title={props.showTitle} />
 							)
 						}
-						hint={
-							s.allWatched
-								? `Mark every episode of ${season.name} as watched again?`
-								: `Mark all ${s.episodes.length} episodes of ${season.name} as watched?`
-						}
-						confirmLabel={s.allWatched ? "Rewatch Season" : "Mark Season"}
+						hint={s.seasonConfirmCopy.hint}
+						confirmLabel={s.seasonConfirmCopy.confirmLabel}
 						confirmColor={colors.watchedGreen}
 						onConfirm={s.confirmSeasonMark}
 						onClose={() => s.setSeasonConfirmVisible(false)}
@@ -241,7 +237,7 @@ export default memo(function SeasonDropdown({ readOnly, ...props }: Props) {
 							onConfirm={() => {
 								const d = s.skipModalData!;
 								s.setSkipModalVisible(false);
-								s.markEpisodeRange(d.firstSkipped, d.targetEp.episode_number);
+								s.markEpisodeRange(d.firstSkipped, d.targetEp.episode_number, d.level);
 								s.setSkipModalData(null);
 							}}
 							secondaryLabel="Just This One"
@@ -273,7 +269,9 @@ export default memo(function SeasonDropdown({ readOnly, ...props }: Props) {
 								s.jumpModal.rewatch
 									? `Rewatch from E${s.jumpModal.ep.episode_number}? Your watchlist will continue from the next episode.`
 									: s.jumpModal.skipsPrevious
-										? `Skip the earlier unwatched episodes and continue your watchlist after E${s.jumpModal.ep.episode_number}? They stay unwatched.`
+										? s.jumpModal.inRewatch
+											? `Skip the earlier episodes of this rewatch and continue after E${s.jumpModal.ep.episode_number}? They keep their watch count.`
+											: `Skip the earlier unwatched episodes and continue your watchlist after E${s.jumpModal.ep.episode_number}? They stay unwatched.`
 										: `Continue watching from E${s.jumpModal.ep.episode_number}? Your watchlist will move to the next episode.`
 							}
 							confirmLabel={
@@ -308,6 +306,7 @@ export default memo(function SeasonDropdown({ readOnly, ...props }: Props) {
 					initialIndex={s.epInfoData.initialIndex}
 					watchedKeys={s.epInfoData.watchedKeys}
 					currentNextEpisode={s.epInfoData.currentNextEpisode}
+					rewatchCount={s.epInfoData.rewatchCount}
 					readOnly={readOnly}
 					onMarkWatched={s.handleCarouselMark}
 					onMarkWatchedThrough={s.handleCarouselMarkThrough}

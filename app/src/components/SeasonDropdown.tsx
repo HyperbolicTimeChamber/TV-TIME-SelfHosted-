@@ -95,6 +95,7 @@ export default memo(function SeasonDropdown({
 		handleRewatchBadgePress,
 		handleCheckmarkPress,
 		handleSeasonPress,
+		seasonConfirmCopy,
 		seasonConfirmVisible,
 		setSeasonConfirmVisible,
 		confirmSeasonMark,
@@ -285,11 +286,7 @@ export default memo(function SeasonDropdown({
 
 			<ConfirmModal
 				visible={seasonConfirmVisible}
-				title={
-					allWatched
-						? `Rewatch Season ${season.season_number}?`
-						: `Mark Season ${season.season_number} as Watched?`
-				}
+				title={seasonConfirmCopy.title}
 				image={
 					showBackdropPath ? (
 						<ModalBackdrop
@@ -308,12 +305,8 @@ export default memo(function SeasonDropdown({
 						/>
 					)
 				}
-				hint={
-					allWatched
-						? `Mark every episode of ${season.name} as watched again?`
-						: `Mark all ${episodes.length} episodes of ${season.name} as watched?`
-				}
-				confirmLabel={allWatched ? "Rewatch Season" : "Mark Season"}
+				hint={seasonConfirmCopy.hint}
+				confirmLabel={seasonConfirmCopy.confirmLabel}
 				confirmColor={colors.watchedGreen}
 				onConfirm={confirmSeasonMark}
 				onClose={() => setSeasonConfirmVisible(false)}
@@ -335,7 +328,7 @@ export default memo(function SeasonDropdown({
 					onConfirm={() => {
 						const d = skipModalData;
 						setSkipModalVisible(false);
-						markEpisodeRange(d.firstSkipped, d.targetEp.episode_number);
+						markEpisodeRange(d.firstSkipped, d.targetEp.episode_number, d.level);
 						setSkipModalData(null);
 					}}
 					secondaryLabel="Just This One"
@@ -374,7 +367,9 @@ export default memo(function SeasonDropdown({
 						jumpModal.rewatch
 							? `Rewatch from E${jumpModal.ep.episode_number}? Your watchlist will continue from the next episode.`
 							: jumpModal.skipsPrevious
-								? `Skip the earlier unwatched episodes and continue your watchlist after E${jumpModal.ep.episode_number}? They stay unwatched.`
+								? jumpModal.inRewatch
+									? `Skip the earlier episodes of this rewatch and continue after E${jumpModal.ep.episode_number}? They keep their watch count.`
+									: `Skip the earlier unwatched episodes and continue your watchlist after E${jumpModal.ep.episode_number}? They stay unwatched.`
 								: `Continue watching from E${jumpModal.ep.episode_number}? Your watchlist will move to the next episode.`
 					}
 					confirmLabel={
@@ -411,6 +406,7 @@ export default memo(function SeasonDropdown({
 					initialIndex={epInfoData.initialIndex}
 					watchedKeys={epInfoData.watchedKeys}
 					currentNextEpisode={epInfoData.currentNextEpisode}
+					rewatchCount={epInfoData.rewatchCount}
 					onMarkWatched={handleCarouselMark}
 					onMarkWatchedThrough={handleCarouselMarkThrough}
 					onUnmarkWatched={handleCarouselUnmark}

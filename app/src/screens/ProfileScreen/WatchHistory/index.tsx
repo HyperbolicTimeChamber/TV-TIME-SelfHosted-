@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { View, Text, ActivityIndicator, TouchableOpacity, useWindowDimensions } from "react-native";
+import { View, Text, ActivityIndicator, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
@@ -15,7 +15,7 @@ import { useHistorySort } from "../../../hooks/useWatchHistory";
 import { CircleButtonTone, HistoryFilter, HistorySort, MediaType, Route } from "../../../enums";
 import type { ProfileStackParamList } from "../../../types";
 import type { HistoryCard } from "../../../utils";
-import { Ionicons } from "@expo/vector-icons";
+import SortFab, { SORT_FAB_CLEARANCE } from "../../../components/SortFab";
 import HistoryViewSheet from "./HistoryViewSheet";
 import { colors } from "../../../theme";
 import HistoryCardView from "./HistoryCardView";
@@ -248,7 +248,7 @@ export default function WatchHistoryScreen() {
 											mediaType={t.key}
 											sort={sort}
 											filters={tabFilters(t.key)}
-											bottomInset={fabBottom + 72}
+											bottomInset={fabBottom + SORT_FAB_CLEARANCE}
 										/>
 									)}
 								</View>
@@ -257,14 +257,12 @@ export default function WatchHistoryScreen() {
 					</View>
 				</GestureDetector>
 				{/* Sort / filter */}
-				<TouchableOpacity
-					style={[styles.fab, { bottom: fabBottom }]}
+				<SortFab
+					bottom={fabBottom}
 					onPress={() => setSheetOpen(true)}
+					customised={customised}
 					accessibilityLabel="Sort and filter"
-				>
-					<Ionicons name="options-outline" size={24} color={colors.text} />
-					{customised && <View style={styles.fabDot} />}
-				</TouchableOpacity>
+				/>
 				{/* Cards fade out under the bar instead of being cut off */}
 				<LinearGradient
 					colors={[colors.background, `${colors.background}00`]}

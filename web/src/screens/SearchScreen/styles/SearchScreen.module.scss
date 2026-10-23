@@ -88,6 +88,13 @@
 	text-overflow: ellipsis;
 }
 
+/* Results sort button — right end of the search bar, so it rides along with the collapsing header */
+.sortSlot {
+	display: flex;
+	align-items: center;
+	padding-right: 6px;
+}
+
 .sectionTitle {
 	font-size: 16px;
 	font-weight: 600;
