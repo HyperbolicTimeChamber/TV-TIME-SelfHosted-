@@ -1,7 +1,7 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { HomeStackParamList, Route } from "../types";
-import { stackScreenOptions } from "./screenOptions";
+import { stackScreenOptions, swipeBackScreenOptions } from "./screenOptions";
 import HomeScreen from "../screens/HomeScreen";
 import ShowDetailScreen from "../screens/DetailScreens/ShowDetailScreen";
 import SeasonDetailScreen from "../screens/DetailScreens/SeasonDetailScreen";
@@ -19,7 +19,7 @@ export default function HomeStackScreen() {
 			<HomeStack.Screen
 				name={Route.SHOW_DETAIL}
 				component={ShowDetailScreen}
-				options={{ headerShown: false }}
+				options={swipeBackScreenOptions}
 			/>
 			<HomeStack.Screen
 				name={Route.SEASON_DETAIL}

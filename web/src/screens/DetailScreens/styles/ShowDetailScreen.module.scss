@@ -1,14 +1,17 @@
 @use "../../../theme/tokens" as *;
 
 .container {
+	/* Anchors the back / share buttons, which scroll away with the page */
+	position: relative;
 	min-height: 100dvh;
 	padding-bottom: 48px;
 	overflow-x: hidden;
 }
 
-/* Position only — the circle itself is components/CircleButton */
+/* Position only — the circle itself is components/CircleButton. On the page, not the viewport:
+   they sit at its top and scroll away with it */
 .floatButton {
-	position: fixed;
+	position: absolute;
 	top: calc(env(safe-area-inset-top) + 8px);
 	z-index: 10;
 }
@@ -19,15 +22,6 @@
 
 .shareButton {
 	right: 16px;
-}
-
-@include desktop {
-	.backButton {
-		left: 104px;
-	}
-	.shareButton {
-		right: max(16px, calc((100vw - 1188px) / 2 + 16px));
-	}
 }
 
 .backdrop {

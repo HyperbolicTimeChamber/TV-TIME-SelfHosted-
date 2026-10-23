@@ -9,6 +9,7 @@ import { LegendList } from "@legendapp/list/react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import SlidingTabs from "../../../components/SlidingTabs";
 import { CircleBackButton } from "../../../components/CircleButton";
+import { slideOffAndBack } from "../../../components/SwipeBackView";
 import { useSharedShimmer } from "../../../components/SkeletonLine";
 import { useWatchHistory } from "../../../hooks";
 import { useHistorySort } from "../../../hooks/useWatchHistory";
@@ -35,8 +36,6 @@ const SLIDE_MS = 250;
 const START_PX = 25;
 const TURN_SHARE = 0.3;
 const FLICK_VELOCITY = 500;
-/** TV Shows: a rightward drag pulls the whole page this much per px, then pops on release */
-const BACK_PULL = 0.35;
 
 /** One tab's list — mounted once its page is first shown, so an unseen tab doesn't fetch */
 function HistoryList({
@@ -194,7 +193,8 @@ export default function WatchHistoryScreen() {
 					const dx = e.translationX - grab.value;
 					if (index === 0 && dx > 0) {
 						pos.value = 0;
-						pull.value = dx * BACK_PULL;
+						// The page follows the finger, Profile showing underneath (transparent modal route)
+						pull.value = dx;
 						return;
 					}
 					pull.value = 0;
@@ -205,7 +205,7 @@ export default function WatchHistoryScreen() {
 					dragging.value = false;
 					const dx = e.translationX - grab.value;
 					if (index === 0 && dx > 0 && (dx > width * TURN_SHARE || e.velocityX > FLICK_VELOCITY)) {
-						runOnJS(goBack)();
+						slideOffAndBack(pull, width, goBack);
 						return;
 					}
 					pull.value = withTiming(0, { duration: SLIDE_MS });

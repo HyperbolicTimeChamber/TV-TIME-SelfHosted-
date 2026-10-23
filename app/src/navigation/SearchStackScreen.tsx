@@ -3,7 +3,7 @@ import { TouchableOpacity } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { SearchStackParamList, Route } from "../types";
-import { stackScreenOptions } from "./screenOptions";
+import { stackScreenOptions, swipeBackScreenOptions } from "./screenOptions";
 import { colors } from "../theme";
 import { useNavigation } from "@react-navigation/native";
 import SearchScreen from "../screens/SearchScreen";
@@ -46,7 +46,7 @@ export default function SearchStackScreen() {
 			<SearchStack.Screen
 				name={Route.SHOW_DETAIL}
 				component={ShowDetailScreen}
-				options={{ headerShown: false }}
+				options={swipeBackScreenOptions}
 			/>
 		</SearchStack.Navigator>
 	);
