@@ -16,6 +16,7 @@ import WatchActionSheet from "./WatchActionSheet";
 import EpisodeDetailModal from "./EpisodeDetailModal";
 import { formatDate } from "./EpisodeDetailModal/helpers";
 import styles from "./styles/SeasonDropdown.module.scss";
+import SkeletonBlock from "./SkeletonBlock";
 
 type Props = SeasonDropdownProps & {
 	/** Logged-out web visitors: browse only, no check buttons */
@@ -56,7 +57,7 @@ function EpisodeRow({
 			<div className={styles.episodeInfo} role="button" tabIndex={0} {...press}>
 				<div className={styles.epThumbWrap}>
 					{imagesLoading ? (
-						<div className={`${styles.epThumbPlaceholder} ${styles.shimmer}`} />
+						<SkeletonBlock className={styles.epThumbSkeleton} />
 					) : ep.still_path ? (
 						<img src={tmdbStillUri(ep.still_path, 80)} alt="" className={styles.epThumb} loading="lazy" />
 					) : (

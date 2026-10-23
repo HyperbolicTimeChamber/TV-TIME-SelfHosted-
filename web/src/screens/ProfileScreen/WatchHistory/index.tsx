@@ -17,6 +17,7 @@ import Masonry from "../../../components/Masonry";
 import { useColumnCount } from "../../../hooks/useColumnCount";
 import HistoryEmpty from "./HistoryEmpty";
 import styles from "./styles/WatchHistory.module.scss";
+import SkeletonBlock from "../../../components/SkeletonBlock";
 
 const TABS = [
 	{ key: MediaType.TV, label: "TV Shows" },
@@ -45,7 +46,7 @@ function HistoryList({
 		return (
 			<div className={styles.grid} aria-busy>
 				{SKELETONS.map((i) => (
-					<div key={i} className={styles.skeleton} />
+					<SkeletonBlock key={i} className={styles.skeleton} />
 				))}
 			</div>
 		);

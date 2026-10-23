@@ -307,21 +307,9 @@
 	font-weight: 700;
 }
 
-/* Skeletons: one CSS animation, same timing as the app's shared shimmer */
 .skeleton {
 	aspect-ratio: 16 / 9;
 	border-radius: 16px;
-	background: var(--surface);
-	animation: shimmer 1.2s ease-in-out infinite alternate;
-}
-
-@keyframes shimmer {
-	from {
-		opacity: 1;
-	}
-	to {
-		opacity: 0.4;
-	}
 }
 
 .empty {
@@ -393,8 +381,6 @@
 		opacity: 0.85;
 	}
 }
-
-
 
 /* Tabs + sort/filter button on one row */
 .tabsRow {

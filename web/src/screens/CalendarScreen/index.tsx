@@ -16,6 +16,7 @@ import { showPath } from "../../routes/paths";
 import styles from "./styles/CalendarScreen.module.scss";
 import { monthGrid } from "./monthGrid";
 import { cssVars } from "../../utils/cssVars";
+import SkeletonBlock from "../../components/SkeletonBlock";
 
 /** Widest a day card gets (desktop list pane ≈ 440) — × devicePixelRatio picks the TMDB size */
 const CARD_MAX_WIDTH = 440;
@@ -271,11 +272,10 @@ export default function CalendarScreen() {
 
 			<div className={styles.listPane}>
 				{c.loading ? (
-					/* Same shimmer timing as the app's shared skeleton pulse */
 					<section className={styles.episodeList} aria-busy>
-						<span className={`${styles.skeleton} ${styles.skeletonHeader}`} />
+						<SkeletonBlock className={`${styles.skeleton} ${styles.skeletonHeader}`} />
 						{Array.from({ length: SKELETON_CARDS }, (_, i) => (
-							<span key={i} className={`${styles.skeleton} ${styles.skeletonCard}`} />
+							<SkeletonBlock key={i} className={`${styles.skeleton} ${styles.skeletonCard}`} />
 						))}
 					</section>
 				) : (

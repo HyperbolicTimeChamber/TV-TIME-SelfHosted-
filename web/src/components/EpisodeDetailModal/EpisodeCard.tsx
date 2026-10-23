@@ -4,6 +4,7 @@ import type { CarouselEpisode } from "@app/types";
 import { tmdbBackdropUri, tmdbPosterUri, tmdbStillUri } from "@app/hooks/useTmdbImage";
 import { formatDate } from "./helpers";
 import styles from "./styles/EpisodeDetailModal.module.scss";
+import SkeletonBlock from "../SkeletonBlock";
 
 interface Props {
 	ep: CarouselEpisode;
@@ -36,11 +37,11 @@ function EpisodeCard(p: Props) {
 	if (!p.isLoaded) {
 		return (
 			<div className={styles.cardContent}>
-				<div className={`${styles.imageContainer} ${styles.shimmer}`} />
+				<SkeletonBlock className={styles.imageContainer} />
 				<div className={styles.skeletonBody}>
-					<div className={`${styles.skeletonTitle} ${styles.shimmer}`} />
-					<div className={`${styles.skeletonLine} ${styles.shimmer}`} />
-					<div className={`${styles.skeletonLineShort} ${styles.shimmer}`} />
+					<SkeletonBlock className={styles.skeletonTitle} />
+					<SkeletonBlock className={styles.skeletonLine} />
+					<SkeletonBlock className={styles.skeletonLineShort} />
 				</div>
 			</div>
 		);
@@ -63,7 +64,7 @@ function EpisodeCard(p: Props) {
 	return (
 		<div className={styles.cardContent}>
 			<div className={styles.imageContainer}>
-				{!imageLoaded && img && <div className={`${styles.imageSkeleton} ${styles.shimmer}`} />}
+				{!imageLoaded && img && <SkeletonBlock className={styles.imageSkeleton} />}
 				{img ? (
 					<img
 						src={img}

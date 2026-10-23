@@ -4,6 +4,7 @@ import { useTitleLogo } from "@app/hooks/useTitleLogo";
 import type { MediaType } from "@app/enums";
 import { colors } from "../theme/index";
 import styles from "./styles/ui.module.scss";
+import SkeletonBlock from "./SkeletonBlock";
 
 /** Art for ConfirmModal's image slot (app ModalArt) */
 
@@ -128,7 +129,7 @@ export function ModalBackdrop({
 				onLoad={() => setLoaded(true)}
 				onError={() => setLoaded(true)} />
 			{/* Skeleton until the banner image is in; its overlays come in with it */}
-			{!loaded && <div className={`${styles.modalBackdropSkeleton} ${styles.shimmer}`} />}
+			{!loaded && <SkeletonBlock className={styles.modalBackdropSkeleton} />}
 			<div className={styles.modalBackdropLogo}>
 				{/* Name until the logo image is in (or when there's none) */}
 				{(!logoPath || logoFailed || !logoLoaded) && <span>{title}</span>}

@@ -124,25 +124,10 @@
 	background: var(--surface-light);
 }
 
-/* Banner skeleton (pulse like the app's SkeletonLine); overlays hidden until the image is in */
+/* Banner skeleton; overlays hidden until the image is in */
 .modalBackdropSkeleton {
 	position: absolute;
 	inset: 0;
-	background: var(--border);
-}
-
-.shimmer {
-	animation: modal-shimmer 1.2s ease-in-out infinite;
-}
-
-@keyframes modal-shimmer {
-	0%,
-	100% {
-		opacity: 0.3;
-	}
-	50% {
-		opacity: 0.6;
-	}
 }
 
 .modalBackdropLoading .modalBackdropLogo,
