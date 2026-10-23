@@ -239,9 +239,9 @@ export default function ShowDetailScreen() {
 						hideTitle
 						image={
 							show.backdrop_path ? (
-								<ModalBackdrop backdropPath={show.backdrop_path} logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={d.title} paused />
+								<ModalBackdrop backdropPath={show.backdrop_path} logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={d.title} paused nameDelay={2000} />
 							) : (
-								<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={d.title} paused />
+								<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={d.title} paused nameDelay={2000} />
 							)
 						}
 						hint={

@@ -2,26 +2,24 @@ import { useEffect } from "react";
 import { Animated, StyleSheet, ViewStyle } from "react-native";
 import { colors } from "../theme";
 
-// Shared animation value — all SkeletonLine instances pulse together
-let sharedAnim: Animated.Value | null = null;
+// Shared animation value — all skeletons pulse together. Created once and never replaced:
+// nulling it on last unmount handed later mounts a fresh value no loop was driving (static skeletons)
+const sharedAnim = new Animated.Value(0);
+const sharedOpacity = sharedAnim.interpolate({
+	inputRange: [0, 0.5, 1],
+	outputRange: [0.3, 0.6, 0.3],
+});
 let refCount = 0;
 let animLoop: Animated.CompositeAnimation | null = null;
 
-function getSharedAnim() {
-	if (!sharedAnim) {
-		sharedAnim = new Animated.Value(0);
-	}
-	return sharedAnim;
-}
-
 export function useSharedShimmer() {
-	const anim = getSharedAnim();
-
 	useEffect(() => {
 		refCount++;
 		if (refCount === 1) {
+			// Restart from the top — a stopped loop leaves the value mid-pulse
+			sharedAnim.setValue(0);
 			animLoop = Animated.loop(
-				Animated.timing(anim, {
+				Animated.timing(sharedAnim, {
 					toValue: 1,
 					duration: 1200,
 					useNativeDriver: true,
@@ -34,15 +32,11 @@ export function useSharedShimmer() {
 			if (refCount === 0) {
 				animLoop?.stop();
 				animLoop = null;
-				sharedAnim = null;
 			}
 		};
-	}, [anim]);
+	}, []);
 
-	return anim.interpolate({
-		inputRange: [0, 0.5, 1],
-		outputRange: [0.3, 0.6, 0.3],
-	});
+	return sharedOpacity;
 }
 
 interface Props {

@@ -7,10 +7,13 @@ import { useCalendarScreen, YEARS, type CalendarEpisode, type CalendarPosition }
 import { formatAirTime } from "@app/utils/airTime";
 import { groupCalendarDay, episodeCountLabel, seasonRangeLabel, calendarEpisodeInfo } from "@app/utils/calendarGroups";
 import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
+import { useQueryClient } from "@tanstack/react-query";
+import { loadSeasonEpisodes, useEpisodeInfoLoader } from "@app/hooks/useEpisodeInfoLoader";
 import EpisodeDetailModal from "../../components/EpisodeDetailModal";
 import { MediaType } from "@app/enums";
 import { todayStr } from "@app/utils/todayStr";
-import { tmdbBackdropUri, tmdbLogoUri } from "@app/hooks/useTmdbImage";
+import { tmdbBackdropUri, tmdbLogoUri, tmdbStillUri } from "@app/hooks/useTmdbImage";
+import { CARD_IMG_WIDTH } from "../../components/EpisodeDetailModal/EpisodeCard";
 import AnimatedModal from "../../components/AnimatedModal";
 import { showPath } from "../../routes/paths";
 import styles from "./styles/CalendarScreen.module.scss";
@@ -20,6 +23,9 @@ import SkeletonBlock from "../../components/SkeletonBlock";
 
 /** Widest a day card gets (desktop list pane ≈ 440) — × devicePixelRatio picks the TMDB size */
 const CARD_MAX_WIDTH = 440;
+
+/** Day settled this long before its info cards are warmed (seasons + stills) */
+const INFO_WARM_DELAY_MS = 400;
 
 const POSITION_KEY = "calendar_position";
 const readPosition = (): CalendarPosition | null => {
@@ -165,6 +171,44 @@ export default function CalendarScreen() {
 		});
 	// Episodes → their info card (no watch buttons — the Calendar is read-only); movies → their page
 	const [infoEp, setInfoEp] = useState<CalendarEpisode | null>(null);
+	// Overview / still from TMDB, as the Watch List's info modal loads them
+	const loadEpisodeDetails = useEpisodeInfoLoader(infoEp?.tmdbShowId);
+	// Warm the selected day's info cards (app twin): seasons into the query cache, stills into the
+	// browser cache — a clicked card opens with its screenshot. Settled days only
+	const queryClient = useQueryClient();
+	const selectedEpisodes = c.selectedEpisodes;
+	useEffect(() => {
+		const tv = selectedEpisodes.filter((ep) => ep.mediaType === MediaType.TV);
+		if (tv.length === 0) return;
+		let cancelled = false;
+		const timer = setTimeout(() => {
+			const bySeason = new Map<string, CalendarEpisode[]>();
+			for (const ep of tv) {
+				const key = `${ep.tmdbShowId}_${ep.season}`;
+				bySeason.set(key, [...(bySeason.get(key) ?? []), ep]);
+			}
+			for (const eps of bySeason.values()) {
+				loadSeasonEpisodes(queryClient, eps[0].tmdbShowId, eps[0].season).then((season) => {
+					if (cancelled) return;
+					// The card's image: the still, else (not aired yet) the backdrop it falls back to
+					for (const ep of eps) {
+						const still = season?.find((s) => s.episode === ep.episode)?.stillPath;
+						if (still) new Image().src = tmdbStillUri(still, CARD_IMG_WIDTH);
+						else if (ep.backdropPath) new Image().src = tmdbBackdropUri(ep.backdropPath, CARD_IMG_WIDTH);
+					}
+				});
+			}
+		}, INFO_WARM_DELAY_MS);
+		return () => {
+			cancelled = true;
+			clearTimeout(timer);
+		};
+	}, [selectedEpisodes, queryClient]);
+	// Stable: a new array each render would reset the modal's loaded details
+	const infoEpisodes = useMemo(
+		() => (infoEp ? [calendarEpisodeInfo(infoEp, getCachedCatalogShow(infoEp.tmdbShowId, MediaType.TV))] : []),
+		[infoEp],
+	);
 	const openShow = (ep: CalendarEpisode) =>
 		ep.mediaType === MediaType.MOVIE ? navigate(showPath(MediaType.MOVIE, ep.tmdbShowId)) : setInfoEp(ep);
 	const today = todayStr();
@@ -342,8 +386,9 @@ export default function CalendarScreen() {
 					showTitle={infoEp.showTitle}
 					showPosterPath={infoEp.posterPath}
 					showBackdropPath={infoEp.backdropPath}
-					episodes={[calendarEpisodeInfo(infoEp, getCachedCatalogShow(infoEp.tmdbShowId, MediaType.TV))]}
+					episodes={infoEpisodes}
 					initialIndex={0}
+					onLoadEpisodeDetails={loadEpisodeDetails}
 					watchedKeys={NO_WATCHED}
 					currentNextEpisode={null}
 					onMarkWatched={noopAsync}

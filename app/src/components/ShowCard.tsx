@@ -126,6 +126,7 @@ export default memo(function ShowCard({
 				<TouchableOpacity
 					style={[styles.container, styles.watchedContainer]}
 					onPress={handlePress}
+					onLongPress={handleLongPress}
 					activeOpacity={0.8}
 				>
 					<PosterImage

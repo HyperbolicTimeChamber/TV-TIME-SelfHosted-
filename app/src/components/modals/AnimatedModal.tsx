@@ -70,14 +70,18 @@ export default function AnimatedModal({ visible, onClose, onRequestClose, childr
 			animationType="none"
 			onRequestClose={onRequestClose ?? handleClose}
 		>
-			<Pressable style={styles.overlay} onPress={armed ? handleClose : undefined}>
+			<View style={styles.overlay}>
+				{/* Tap-outside-to-close sits behind the box, not around it: a touch responder around the
+				    content (it had a Pressable to swallow inner taps) took blank-space touches and
+				    cancelled gesture-handler gestures inside — the Calendar popup's day swipe */}
+				<Pressable style={StyleSheet.absoluteFill} onPress={armed ? handleClose : undefined} />
 				<Animated.View
 					pointerEvents={armed ? "auto" : "none"}
 					style={[styles.content, wide && styles.wide, { opacity, transform: [{ scale }] }]}
 				>
-					<Pressable onPress={() => {}}>{children}</Pressable>
+					{children}
 				</Animated.View>
-			</Pressable>
+			</View>
 		</Modal>
 	);
 }

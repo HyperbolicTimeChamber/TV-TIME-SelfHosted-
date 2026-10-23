@@ -32,6 +32,12 @@ vi.mock("@app/screens/useCalendarScreen", () => ({
 	}),
 }));
 
+// Info card's season loader (TMDB): the overview the stored catalog lacks
+const loadSeason = vi.fn(async (season: number) => [
+	{ season, episode: 2, title: "Two", airDate: "2026-10-09", runtime: 50, stillPath: "/s.jpg", overview: "Lamb regroups." },
+]);
+vi.mock("@app/hooks/useEpisodeInfoLoader", () => ({ useEpisodeInfoLoader: () => loadSeason }));
+
 import CalendarScreen from "../../../src/screens/CalendarScreen";
 import { monthGrid } from "../../../src/screens/CalendarScreen/monthGrid";
 
@@ -82,9 +88,16 @@ describe("CalendarScreen", () => {
 	it("tapping an episode opens its info card without watch buttons", async () => {
 		renderWithProviders(<CalendarScreen />, { user: testUser });
 		fireEvent.click(screen.getByText("Slow Horses"));
-		// Card title + the modal's episode title
-		expect(await screen.findAllByText("Two")).toHaveLength(2);
+		// Card title + the modal's episode title (once its details load)
+		await waitFor(() => expect(screen.getAllByText("Two")).toHaveLength(2));
 		expect(screen.getByText("S05 | E02")).toBeInTheDocument();
 		expect(screen.queryByText(/Mark as Watched/)).not.toBeInTheDocument();
+	});
+
+	it("info card loads the episode overview like the Watch List's", async () => {
+		renderWithProviders(<CalendarScreen />, { user: testUser });
+		fireEvent.click(screen.getByText("Slow Horses"));
+		expect(await screen.findByText("Lamb regroups.")).toBeInTheDocument();
+		expect(loadSeason).toHaveBeenCalledWith(5);
 	});
 });

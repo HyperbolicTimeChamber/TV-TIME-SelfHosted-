@@ -27,7 +27,7 @@ interface Props {
 	onShowPress?: () => void;
 }
 
-const CARD_IMG_WIDTH = 400;
+export const CARD_IMG_WIDTH = 400;
 
 function EpisodeCard(p: Props) {
 	const [imageLoaded, setImageLoaded] = useState(false);

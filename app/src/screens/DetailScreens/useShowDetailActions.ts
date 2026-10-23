@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getFirestore, doc, getDoc, onSnapshot, Timestamp } from "@react-native-firebase/firestore";
+import { getFirestore, doc, onSnapshot, Timestamp } from "@react-native-firebase/firestore";
 import { useQueryClient } from "@tanstack/react-query";
 import {
 	useShowDetails,
@@ -10,6 +10,7 @@ import {
 	incrementDailyWatch,
 	decrementDailyWatch,
 	getCachedCatalogShow,
+	insertWatchedMovieCache,
 } from "../../hooks";
 import { useAuthStore } from "../../stores";
 import {
@@ -68,7 +69,8 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	const [removing, setRemoving] = useState(false);
 	const { addShowToUpcoming, removeShowFromUpcoming } = useUpcomingMutations();
 	const queryClient = useQueryClient();
-	const [movieWatchCount, setMovieWatchCount] = useState(() => {
+	// Fallback count for tracking docs without plays — seeded from the watched movies list
+	const [localMovieWatchCount, setMovieWatchCount] = useState(() => {
 		if (mediaType !== MediaType.MOVIE || !user?.uid) return 0;
 		const cached = queryClient.getQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid]);
 		if (!cached?.pages) return 0;
@@ -77,8 +79,11 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	});
 	// The tracking doc's plays is the movie's watch count (marks minus unmarks). The watched
 	// movies list above only holds the pages loaded so far, so an older movie opened from
-	// Watch History started at 0 there — follow the live tracking doc instead
+	// Watch History started at 0 there — follow the live tracking doc instead. It's the only
+	// source while present: the listener already sees a mark's plays increment (local write),
+	// so bumping the local count on top showed rewatch 2 as 3
 	const trackedPlays = mediaType === MediaType.MOVIE ? watchlistItem?.plays : undefined;
+	const movieWatchCount = typeof trackedPlays === "number" ? trackedPlays : localMovieWatchCount;
 	useEffect(() => {
 		if (typeof trackedPlays === "number") setMovieWatchCount(trackedPlays);
 	}, [trackedPlays]);
@@ -99,36 +104,25 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		const db = getFirestore();
 		const trackingDocRef = doc(db, "users", user.uid, "tracking", showDocId(tmdbId, mediaType));
 
-		// One-time read + listener for real-time updates after add/remove
-		let cancelled = false;
-		getDoc(trackingDocRef)
-			.then((snap) => {
-				if (cancelled) return;
+		// Listener only: its first snapshot comes from the local cache when the doc is there, so
+		// the page renders right away. A separate getDoc went to the server every open (slow on a
+		// bad connection, gating the whole page) and cost an extra read
+		setTrackingLoading(true);
+		const unsubscribe = onSnapshot(
+			trackingDocRef,
+			(snap) => {
 				if (snap.exists()) {
 					setWatchlistItem({ id: snap.id, ...snap.data() });
 				} else {
 					setWatchlistItem(null);
 				}
 				setTrackingLoading(false);
-			})
-			.catch(() => {
-				if (!cancelled) setTrackingLoading(false);
-			});
+			},
+			() => setTrackingLoading(false),
+		);
 
-		// Listener for live updates (add/remove while on screen)
-		const unsubscribe = onSnapshot(trackingDocRef, (snap) => {
-			if (snap.exists()) {
-				setWatchlistItem({ id: snap.id, ...snap.data() });
-			} else {
-				setWatchlistItem(null);
-			}
-		});
-
-		return () => {
-			cancelled = true;
-			unsubscribe();
-		};
-	}, [user?.uid, tmdbId]);
+		return unsubscribe;
+	}, [user?.uid, tmdbId, mediaType]);
 
 	const title = show?.name || show?.title || "";
 	// TMDB sometimes has no first_air_date for a new show — fall back to the earliest season's
@@ -346,26 +340,20 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 			} else {
 				await markMovieWatched(user.uid, tmdbId, show.runtime ?? 0);
 			}
-			// Update query cache directly — no refetch
+			// Update query cache directly — no refetch. Rewatch bumps the existing row
+			// (prepending a second copy left a duplicate stuck at watchCount 1)
 			const now = Timestamp.now();
-			queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
-				if (!old?.pages) return old;
-				const newMovie = {
-					id: `${tmdbId}_watched`,
-					tmdbId,
-					watchedAt: now,
-					lastWatchedAt: now,
-					runtime: show.runtime ?? 0,
-					watchCount: 1,
-					title: movieTitle,
-					posterPath: moviePoster,
-				} as WatchedMovie;
-				const firstPage = old.pages[0];
-				return {
-					...old,
-					pages: [{ ...firstPage, movies: [newMovie, ...firstPage.movies] }, ...old.pages.slice(1)],
-				};
-			});
+			insertWatchedMovieCache(queryClient, user.uid, {
+				id: String(tmdbId),
+				tmdbId,
+				watchedAt: now,
+				lastWatchedAt: now,
+				runtime: show.runtime ?? 0,
+				watchCount: 1,
+				title: movieTitle,
+				posterPath: moviePoster,
+			} as WatchedMovie);
+			// Only feeds the count when the tracking doc has no plays (else the listener does)
 			setMovieWatchCount((c: number) => c + 1);
 			incrementDailyWatch("movie");
 			emitShowCompleted({

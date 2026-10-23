@@ -292,6 +292,7 @@ export default function ShowDetailScreen() {
 							mediaType={mediaType}
 							title={title}
 							paused
+							nameDelay={2000}
 						/>
 					) : (
 						<ModalLogo
@@ -300,6 +301,7 @@ export default function ShowDetailScreen() {
 							mediaType={mediaType}
 							title={title}
 							paused
+							nameDelay={2000}
 						/>
 					)
 				}

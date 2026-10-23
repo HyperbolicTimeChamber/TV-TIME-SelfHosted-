@@ -41,6 +41,10 @@ type NavProp = CompositeNavigationProp<
 
 const SeparatorComponent = () => <View style={styles.separator} />;
 
+/** Previously watched rows only offer pause while their title is still being (re)watched */
+const canPause = (show: EnrichedTrackingItem) =>
+	show.status === WatchStatus.WATCHING || show.status === WatchStatus.REWATCHING;
+
 const POSTER_WIDTH = 100;
 
 function SkeletonFooter() {
@@ -137,7 +141,7 @@ export default function WatchlistTab() {
 	const caughtUpFooter = listSettled && !caughtUp && listData.some((i) => i.type === "show");
 	const [listH, setListH] = useState(0);
 	const listRef = useRef<any>(null);
-	// Up-next card long-pressed → confirm pausing it
+	// Up-next / previously watched card long-pressed → confirm pausing it
 	const [pauseTarget, setPauseTarget] = useState<EnrichedTrackingItem | null>(null);
 	const [pausing, setPausing] = useState(false);
 	const confirmPause = useCallback(async () => {
@@ -219,6 +223,7 @@ export default function WatchlistTab() {
 						watchCount={item.movie.watchCount ?? 0}
 						onSwipeLeft={() => handleMovieSwipeLeft(item.movie)}
 						onSwipeRight={() => handleMovieSwipeRight(item.movie)}
+						onLongPress={canPause(item.show) ? () => setPauseTarget(item.show) : undefined}
 						onPress={(id) => handleNavigateToShow(id, MediaType.MOVIE)}
 						onCheckmark={async () => handleMovieCheckmark(item.movie, item.show.title)}
 					/>
@@ -234,6 +239,7 @@ export default function WatchlistTab() {
 						onCheckmarkPress={handleWatchedCheckmark}
 						onSwipeLeft={handleWatchedSwipeLeft}
 						onSwipeRight={handleWatchedSwipeRight}
+						onLongPress={canPause(item.show) ? setPauseTarget : undefined}
 					/>
 				);
 			}
@@ -384,6 +390,7 @@ export default function WatchlistTab() {
 							mediaType={pauseTarget.mediaType}
 							title={pauseTarget.title}
 							paused
+							nameDelay={2000}
 						/>
 					) : (
 						<ModalLogo
@@ -392,6 +399,7 @@ export default function WatchlistTab() {
 							mediaType={pauseTarget.mediaType}
 							title={pauseTarget.title}
 							paused
+							nameDelay={2000}
 						/>
 					)
 				}
