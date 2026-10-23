@@ -49,7 +49,7 @@ function UpcomingRow({
 	return (
 		<div className={`${card.container} ${styles.upcomingRow}`} onClick={() => onPress(episode)} role="button">
 			<PosterImage posterPath={episode.posterPath} mediaType={episode.mediaType} className={card.poster} />
-			<div className={card.info}>
+			<div className={`${card.info} pr-4!`}>
 				<button
 					className={card.titlePill}
 					onClick={(e) => {
@@ -66,14 +66,17 @@ function UpcomingRow({
 					</span>
 				) : (
 					<>
-						<span className={card.episode}>
-							S{pad(episode.season)} | E{pad(episode.episode)}
-						</span>
+						{/* Time on the SxxExx line → the episode name gets the card's full width */}
+						<div className={styles.upcomingEpRow}>
+							<span className={card.episode}>
+								S{pad(episode.season)} | E{pad(episode.episode)}
+							</span>
+							{airTime && <span className={styles.upcomingTime}>{airTime}</span>}
+						</div>
 						{episode.episodeTitle && <span className={card.episodeName}>{episode.episodeTitle}</span>}
 					</>
 				)}
 			</div>
-			{airTime && <span className={styles.upcomingTime}>{airTime}</span>}
 		</div>
 	);
 }

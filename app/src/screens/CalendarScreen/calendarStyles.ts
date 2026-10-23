@@ -118,6 +118,10 @@ export const styles = StyleSheet.create({
 		paddingBottom: spacing.sm,
 		overflow: "hidden",
 	},
+	// One day in the full-view popup's pager: fills the popup's fixed height
+	popupPage: {
+		flex: 1,
+	},
 	modalContent: {
 		backgroundColor: colors.surface,
 		borderRadius: 16,

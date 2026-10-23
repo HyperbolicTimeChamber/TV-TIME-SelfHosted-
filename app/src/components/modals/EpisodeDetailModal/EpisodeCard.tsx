@@ -72,7 +72,7 @@ export const EpisodeCard = memo(function EpisodeCard({
 				<Animated.View
 					style={[
 						styles.imageContainer,
-						{ opacity: shimmer, backgroundColor: colors.surfaceLight },
+						{ opacity: shimmer, backgroundColor: colors.border },
 					]}
 				/>
 				<View style={styles.skeletonBody}>

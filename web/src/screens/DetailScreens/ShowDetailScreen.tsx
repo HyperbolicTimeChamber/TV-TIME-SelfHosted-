@@ -20,7 +20,7 @@ import WatchActionSheet from "../../components/WatchActionSheet";
 import SeasonDropdown from "../../components/SeasonDropdown";
 import ActionPills from "./ActionPills";
 import { Paths } from "../../routes/paths";
-import { appDeepLink, isMobileBrowser } from "../../utils/deepLink";
+import { appDeepLink, isAndroidBrowser } from "../../utils/deepLink";
 import styles from "./styles/ShowDetailScreen.module.scss";
 import { cssVars, px } from "../../utils/cssVars";
 
@@ -146,7 +146,7 @@ export default function ShowDetailScreen() {
 							>
 								Sign in to track
 							</button>
-							{isMobileBrowser() && (
+							{isAndroidBrowser() && (
 								<a className={`${styles.pill} ${styles.pillAccent}`} href={appDeepLink(mediaType, tmdbId)}>
 									Open in app
 								</a>
@@ -239,9 +239,9 @@ export default function ShowDetailScreen() {
 						hideTitle
 						image={
 							show.backdrop_path ? (
-								<ModalBackdrop backdropPath={show.backdrop_path} logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={d.title} paused />
+								<ModalBackdrop backdropPath={show.backdrop_path} logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={d.title} paused nameDelay={2000} />
 							) : (
-								<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={d.title} paused />
+								<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={d.title} paused nameDelay={2000} />
 							)
 						}
 						hint={

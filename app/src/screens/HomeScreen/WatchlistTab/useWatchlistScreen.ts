@@ -10,7 +10,6 @@ import {
 	unmarkMovieWatched,
 	decrementMovieWatchCount,
 	getCatalogShow,
-	getSeasonDetails,
 	getShowDetails,
 } from "../../../services";
 import {
@@ -39,6 +38,7 @@ import {
 	insertWatchedMovieCache,
 	incrementDailyWatch,
 	decrementDailyWatch,
+	loadSeasonEpisodes,
 } from "../../../hooks";
 import { useWatchlistData } from "./useWatchlistData";
 import { todayStr } from "../../../utils";
@@ -220,41 +220,10 @@ export function useWatchlistScreen(
 		[handleSkipEpisode],
 	);
 
+	// Shared with Calendar: TMDB season via the query cache, no Firestore fallback read
 	const handleLoadEpisodeDetails = useCallback(
-		async (season: number): Promise<CarouselEpisode[] | null> => {
-			const tmdbId = epModalTmdbIdRef.current;
-			const apiKey = useAuthStore.getState().appTmdbApiKey;
-			if (!apiKey || !tmdbId) return null;
-			try {
-				const seasonData = await getSeasonDetails(apiKey, tmdbId, season);
-				return seasonData.episodes.map((e) => ({
-					season: e.season_number ?? season,
-					episode: e.episode_number,
-					title: e.name || null,
-					airDate: e.air_date || null,
-					runtime: e.runtime || null,
-					stillPath: e.still_path || null,
-					overview: e.overview || null,
-				}));
-			} catch {
-				// Firestore fallback
-				const catalog = await getCatalogShow(tmdbId, MediaType.TV);
-				const catSeason = catalog?.seasons?.find((s) => s.seasonNumber === season);
-				if (catSeason) {
-					return catSeason.episodes.map((e) => ({
-						season: catSeason.seasonNumber,
-						episode: e.episodeNumber,
-						title: e.title || null,
-						airDate: e.airDate || null,
-						runtime: e.runtime || null,
-						stillPath: e.stillPath || null,
-						overview: e.overview || null,
-					}));
-				}
-				return null;
-			}
-		},
-		[],
+		(season: number) => loadSeasonEpisodes(queryClient, epModalTmdbIdRef.current, season),
+		[queryClient],
 	);
 
 	const handleEpModalShowPress = useCallback(() => {

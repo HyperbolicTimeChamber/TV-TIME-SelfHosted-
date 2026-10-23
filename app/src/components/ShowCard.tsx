@@ -123,7 +123,12 @@ export default memo(function ShowCard({
 				rightIcon={wc > 1 ? "−1" : undefined}
 				persistAfterSwipe={{ left: true, right: wc > 1 }}
 			>
-				<TouchableOpacity style={styles.container} onPress={handlePress} activeOpacity={0.8}>
+				<TouchableOpacity
+					style={[styles.container, styles.watchedContainer]}
+					onPress={handlePress}
+					onLongPress={handleLongPress}
+					activeOpacity={0.8}
+				>
 					<PosterImage
 						posterPath={item.posterPath}
 						mediaType={item.mediaType}
@@ -310,8 +315,12 @@ const styles = StyleSheet.create({
 		width: POSTER_WIDTH,
 		alignSelf: "stretch",
 	},
-	watchedPoster: {
+	// Same fade as WatchedEpisodeRow: whole card, poster a step further
+	watchedContainer: {
 		opacity: 0.5,
+	},
+	watchedPoster: {
+		opacity: 0.6,
 	},
 	info: {
 		flex: 1,

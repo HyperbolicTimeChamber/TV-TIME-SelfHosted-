@@ -29,7 +29,8 @@ export function formatTime(minutes: number) {
 	const hours = Math.floor(minutes / 60);
 	const days = Math.floor(hours / 24);
 	const years = Math.floor(days / 365);
-	const pair = (big: string, small: number, unit: string) => (small > 0 ? `${big} ${small}${unit}` : big);
+	const pair = (big: string, small: number, unit: string) =>
+		small > 0 ? `${big} ${small}${unit}` : big;
 	if (years > 0) return pair(`${years}y`, days % 365, "d");
 	if (days > 0) return pair(`${days}d`, hours % 24, "h");
 	if (hours > 0) return pair(`${hours}h`, minutes % 60, "m");
@@ -47,3 +48,45 @@ export const SKIP_AHEAD_TITLE = "Whoa there Speedster!";
 export const skipAheadHint = (range: string) =>
 	`You've jumped ahead a few episodes. Do you want to skip to this point or mark the previous episodes (${range})?`;
 export const skipAheadConfirm = (range: string) => `Mark ${range} Watched`;
+
+/**
+ * Season tick confirm copy. `toMark` = episodes the mark actually bumps (see
+ * seasonMarkEpisodes) — fewer than `total` means only the rest of the season gets marked.
+ */
+export function seasonMarkCopy(o: {
+	seasonNumber: number;
+	seasonName: string;
+	total: number;
+	toMark: number;
+	allWatched: boolean;
+	inRewatch: boolean;
+}): { title: string; hint: string; confirmLabel: string } {
+	const { seasonNumber: n, seasonName, total, toMark, allWatched, inRewatch } = o;
+	const eps = (c: number) => `${c} episode${c === 1 ? "" : "s"}`;
+	if (toMark < total && inRewatch) {
+		return {
+			title: `Rewatch Rest of Season ${n}?`,
+			hint: `Mark the ${eps(toMark)} of ${seasonName} not yet rewatched as watched again? Episodes already rewatched keep their count.`,
+			confirmLabel: "Mark Rest",
+		};
+	}
+	if (toMark < total) {
+		return {
+			title: `Mark Season ${n} as Watched?`,
+			hint: `Mark the ${eps(toMark)} of ${seasonName} you haven't watched yet? Episodes already watched keep their count.`,
+			confirmLabel: "Mark Season",
+		};
+	}
+	if (allWatched) {
+		return {
+			title: `Rewatch Season ${n}?`,
+			hint: `Mark every episode of ${seasonName} as watched again?`,
+			confirmLabel: "Rewatch Season",
+		};
+	}
+	return {
+		title: `Mark Season ${n} as Watched?`,
+		hint: `Mark all ${total} episodes of ${seasonName} as watched?`,
+		confirmLabel: "Mark Season",
+	};
+}

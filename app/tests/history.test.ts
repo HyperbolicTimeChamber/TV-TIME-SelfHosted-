@@ -207,3 +207,29 @@ test("deriveHistoryCard: Last Watched as S01 | E02; none for movies", () => {
 	);
 	assert.equal(movie.lastWatched, null);
 });
+
+import { toHistoryCatalog, withHistoryCatalogs } from "../src/utils";
+
+test("deriveHistoryCard: not ready without a catalog until its fetch settles", () => {
+	assert.equal(deriveHistoryCard(entry(), catalog(), "2026-10-14").ready, true);
+	assert.equal(deriveHistoryCard(entry(), null, "2026-10-14").ready, false);
+	assert.equal(deriveHistoryCard(entry(), null, "2026-10-14", true).ready, true);
+});
+
+test("withHistoryCatalogs: keeps a slim card catalog per row, drops rows that left, same state when unchanged", () => {
+	const s = state([entry()]);
+	const kept = withHistoryCatalogs(s, s.items, () => catalog());
+	assert.notEqual(kept, s);
+	const slim = kept.catalogs?.tv_1;
+	assert.equal(slim?.title, "Show");
+	assert.deepEqual(slim?.seasons[0].episodes[0], { episodeNumber: 1, airDate: "2020-01-01" });
+	// A card from the slim copy matches one from the full catalog
+	const today = "2026-10-14";
+	assert.deepEqual(deriveHistoryCard(entry(), slim ?? null, today), deriveHistoryCard(entry(), catalog(), today));
+	assert.equal(withHistoryCatalogs(kept, kept.items, () => catalog()), kept);
+	// Shared cache cold → slim copy kept
+	assert.equal(withHistoryCatalogs(kept, kept.items, () => null), kept);
+	const gone = withHistoryCatalogs({ ...kept, items: [] }, [], () => null);
+	assert.deepEqual(gone.catalogs, {});
+	assert.deepEqual(toHistoryCatalog(catalog({ seasons: [] })).seasons, []);
+});

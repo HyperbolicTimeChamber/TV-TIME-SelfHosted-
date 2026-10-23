@@ -55,7 +55,15 @@ export default memo(function UpcomingEpisodeRow({
 					</View>
 				) : (
 					<>
-						<Text style={styles.epLabel}>{label}</Text>
+						{/* Time on the SxxExx line → the episode name gets the card's full width */}
+						<View style={styles.epRow}>
+							<Text style={styles.epLabel}>{label}</Text>
+							{airTime && (
+								<Text style={styles.airTime} numberOfLines={1}>
+									{airTime}
+								</Text>
+							)}
+						</View>
 						{episode.episodeTitle ? (
 							<Text style={styles.epTitle} numberOfLines={1}>
 								{episode.episodeTitle}
@@ -64,11 +72,6 @@ export default memo(function UpcomingEpisodeRow({
 					</>
 				)}
 			</View>
-			{airTime && (
-				<Text style={styles.airTime} numberOfLines={1}>
-					{airTime}
-				</Text>
-			)}
 		</TouchableOpacity>
 	);
 });
@@ -93,7 +96,7 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		paddingVertical: spacing.sm,
 		paddingLeft: spacing.md,
-		paddingRight: spacing.xs,
+		paddingRight: spacing.md,
 	},
 	titlePill: {
 		flexDirection: "row",
@@ -120,6 +123,12 @@ const styles = StyleSheet.create({
 		marginLeft: spacing.xs,
 		lineHeight: 13,
 	},
+	epRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		alignSelf: "stretch",
+	},
 	epLabel: {
 		...typography.subtitle,
 		fontSize: 16,
@@ -133,15 +142,13 @@ const styles = StyleSheet.create({
 		marginTop: 2,
 		fontSize: 13,
 	},
-	// Right edge, vertically centred
-	// Never squeezed by a long show title, and wide enough for any "hh:mm AM": Android measures
-	// some times in this font a hair narrow and cut the "AM" / "PM" off
+	// Right end of the SxxExx line
+	// Wide enough for any "hh:mm AM": Android measures some times in this font a hair narrow and
+	// cut the "AM" / "PM" off
 	airTime: {
-		alignSelf: "center",
 		flexShrink: 0,
 		minWidth: 88,
 		textAlign: "right",
-		paddingHorizontal: spacing.md,
 		fontFamily: fonts.smoochMedium,
 		fontSize: 20,
 		letterSpacing: 0.5,

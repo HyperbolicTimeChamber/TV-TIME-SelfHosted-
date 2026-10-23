@@ -1,10 +1,17 @@
 import { MediaType } from "../enums";
 import { fetchCatalogShows } from "../services/historyApi";
 import { showDocId } from "../utils";
-import { cacheCatalogShows, getCachedCatalogShow } from "./useWatchlist";
+import { cacheCatalogShows, getCachedCatalogShow, whenCatalogRestored } from "./useWatchlist";
 
 // Asked once per session — a catalog doc that doesn't exist isn't re-read on every render
 const requested = new Set<string>();
+// Requests that came back (found, missing or failed) — nothing more is coming for these
+const settled = new Set<string>();
+
+/** This title's catalog fetch has finished this session (whatever it found) */
+export function catalogSettled(tmdbId: number, mediaType: MediaType): boolean {
+	return settled.has(showDocId(tmdbId, mediaType));
+}
 
 /**
  * Catalogs not in the shared cache, or cached before logos existed (no `logoPath`
@@ -14,6 +21,8 @@ const requested = new Set<string>();
 export async function ensureFreshCatalogs(
 	items: Array<{ tmdbId: number; mediaType: MediaType }>,
 ): Promise<boolean> {
+	// The persisted cache may still be restoring — don't re-fetch what it already holds
+	await whenCatalogRestored();
 	const ids = [
 		...new Set(
 			items
@@ -26,6 +35,10 @@ export async function ensureFreshCatalogs(
 	].filter((id) => !requested.has(id));
 	if (ids.length === 0) return false;
 	ids.forEach((id) => requested.add(id));
-	cacheCatalogShows(await fetchCatalogShows(ids));
+	try {
+		cacheCatalogShows(await fetchCatalogShows(ids));
+	} finally {
+		ids.forEach((id) => settled.add(id));
+	}
 	return true;
 }

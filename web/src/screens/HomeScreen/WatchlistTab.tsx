@@ -134,9 +134,10 @@ export default function WatchlistTab() {
 							logoPath={pauseTarget.catalogShow.logoPath} tmdbId={pauseTarget.tmdbId} mediaType={pauseTarget.mediaType}
 							title={pauseTarget.title}
 							paused
+							nameDelay={2000}
 						/>
 					) : (
-						<ModalLogo logoPath={pauseTarget.catalogShow?.logoPath} tmdbId={pauseTarget.tmdbId} mediaType={pauseTarget.mediaType} title={pauseTarget.title} paused />
+						<ModalLogo logoPath={pauseTarget.catalogShow?.logoPath} tmdbId={pauseTarget.tmdbId} mediaType={pauseTarget.mediaType} title={pauseTarget.title} paused nameDelay={2000} />
 					)
 				}
 				hint={

@@ -23,7 +23,19 @@ import {
 	getSeasonDetails as fetchSeason,
 } from "../services";
 import type { CarouselEpisode } from "../types/episodeCarousel";
-import { todayStr, computeTrackingAdvance, computeJumpFrom, epKey, EpisodeRef } from "../utils";
+import {
+	todayStr,
+	computeTrackingAdvance,
+	computeJumpFrom,
+	firstSkippedBefore,
+	jumpPromptFor,
+	seasonMarkEpisodes,
+	rewatchLevel,
+	seasonMarkCopy,
+	epKey,
+	EpisodeRef,
+	type JumpPrompt,
+} from "../utils";
 import { TMDBSeason, TMDBEpisode, MediaType, WatchStatus, WatchAction } from "../types";
 
 export interface SeasonDropdownProps {
@@ -103,6 +115,8 @@ export function useSeasonActions({
 	const [skipModalData, setSkipModalData] = useState<{
 		firstSkipped: number;
 		targetEp: TMDBEpisode;
+		/** Watch count the range is brought to (1 = first watch, >1 = rewatch under way) */
+		level: number;
 	} | null>(null);
 
 	// Episode info modal state
@@ -116,6 +130,8 @@ export function useSeasonActions({
 		initialIndex: number;
 		watchedKeys: Map<string, number>;
 		currentNextEpisode: { season: number; episode: number } | null;
+		/** Rewatch run number while rewatching, else 0 (carousel's watched/backfill rule) */
+		rewatchCount: number;
 	} | null>(null);
 
 	// Add-to-watchlist modal state
@@ -306,9 +322,31 @@ export function useSeasonActions({
 		[buildAdvanceInputs, trackingItem, lookupEpisode],
 	);
 
+	/** Rewatch under way → its level (episodes reach this count), else null */
+	const currentRewatchLevel = useMemo(() => {
+		if (!isTracked || !trackingItem) return null;
+		const { order, counts, tracking } = buildAdvanceInputs([]);
+		return rewatchLevel(order, counts, tracking);
+	}, [isTracked, trackingItem, buildAdvanceInputs]);
+
+	/** Episodes a season tick bumps: unwatched (first watch) / not yet rewatched (rewatch) */
+	const seasonMarkEps = useMemo(() => {
+		const { order, counts, tracking } = buildAdvanceInputs([]);
+		const toMark = new Set(
+			seasonMarkEpisodes(
+				order,
+				counts,
+				isTracked ? tracking : null,
+				season.season_number,
+				episodes.map((ep: TMDBEpisode) => ep.episode_number),
+			),
+		);
+		return episodes.filter((ep: TMDBEpisode) => toMark.has(ep.episode_number));
+	}, [buildAdvanceInputs, isTracked, season.season_number, episodes]);
+
 	const doMarkSeasonWatched = useCallback(async () => {
 		if (!user?.uid || markingSeason) return;
-		const eps = episodes;
+		const eps = seasonMarkEps;
 		if (eps.length === 0) return;
 
 		setMarkingSeason(true);
@@ -350,7 +388,7 @@ export function useSeasonActions({
 		} finally {
 			setMarkingSeason(false);
 		}
-	}, [user?.uid, markingSeason, episodes, tmdbId, season.season_number, resolveTrackingWrite]);
+	}, [user?.uid, markingSeason, seasonMarkEps, tmdbId, season.season_number, resolveTrackingWrite]);
 
 	const handleMarkSeasonWatched = useCallback(async () => {
 		if (guardTracking(doMarkSeasonWatched)) {
@@ -437,12 +475,7 @@ export function useSeasonActions({
 	);
 
 	// "Watch/rewatch from here?" — asked when a mark wouldn't move the watchlist
-	const [jumpModal, setJumpModal] = useState<{
-		ep: TMDBEpisode;
-		rewatch: boolean;
-		/** Earlier episodes are still unwatched → jumping skips them */
-		skipsPrevious: boolean;
-	} | null>(null);
+	const [jumpModal, setJumpModal] = useState<({ ep: TMDBEpisode } & JumpPrompt) | null>(null);
 
 	/** Mark directly if it continues the watch flow, else ask whether to jump the watchlist here */
 	const markOrAskJump = useCallback(
@@ -451,24 +484,19 @@ export function useSeasonActions({
 				handleMarkWatched(ep);
 				return;
 			}
-			const count = watchedMap.get(ep.episode_number)?.watchCount || 0;
-			const { order, counts } = buildAdvanceInputs([]);
-			const idx = order.findIndex(
-				(o) => o.season === season.season_number && o.episode === ep.episode_number,
-			);
-			const skipsPrevious =
-				count === 0 &&
-				order.slice(0, Math.max(0, idx)).some((o) => !counts.get(epKey(o.season, o.episode)));
-			setJumpModal({ ep, rewatch: count > 0, skipsPrevious });
+			// Rewatch under way → skip-ahead within it, never "start a rewatch"
+			const { order, counts, tracking } = buildAdvanceInputs([]);
+			const prompt = jumpPromptFor(order, counts, tracking, {
+				season: season.season_number,
+				episode: ep.episode_number,
+			});
+			if (!prompt) {
+				handleMarkWatched(ep);
+				return;
+			}
+			setJumpModal({ ep, ...prompt });
 		},
-		[
-			isTracked,
-			willAdvance,
-			handleMarkWatched,
-			watchedMap,
-			buildAdvanceInputs,
-			season.season_number,
-		],
+		[isTracked, willAdvance, handleMarkWatched, buildAdvanceInputs, season.season_number],
 	);
 
 	const handleSheetAction = useCallback(
@@ -608,17 +636,21 @@ export function useSeasonActions({
 		],
 	);
 
+	/**
+	 * Mark fromEp–toEp; only episodes below `level` (1 = unwatched, >1 = not yet rewatched).
+	 * Resolves with the episodes marked (empty on failure).
+	 */
 	const doMarkEpisodeRange = useCallback(
-		async (fromEp: number, toEp: number) => {
-			if (!user?.uid) return;
+		async (fromEp: number, toEp: number, level = 1): Promise<EpisodeRef[]> => {
+			if (!user?.uid) return [];
 			const eps = episodes;
 			const epsToMark = eps.filter(
 				(e: TMDBEpisode) =>
 					e.episode_number >= fromEp &&
 					e.episode_number <= toEp &&
-					!watchedMap.has(e.episode_number),
+					(watchedMap.get(e.episode_number)?.watchCount || 0) < level,
 			);
-			if (epsToMark.length === 0) return;
+			if (epsToMark.length === 0) return [];
 
 			setMarkingEps(new Set(epsToMark.map((e: TMDBEpisode) => e.episode_number)));
 			try {
@@ -657,9 +689,14 @@ export function useSeasonActions({
 						watchCount: 1,
 					});
 				}
+				return epsToMark.map((ep: TMDBEpisode) => ({
+					season: season.season_number,
+					episode: ep.episode_number,
+				}));
 			} catch (err: any) {
 				console.error("markEpisodeRange failed:", err);
 				Alert.alert("Error", err.message || "Failed to mark episodes.");
+				return [];
 			} finally {
 				setMarkingEps(new Set());
 			}
@@ -668,10 +705,11 @@ export function useSeasonActions({
 	);
 
 	const markEpisodeRange = useCallback(
-		async (fromEp: number, toEp: number) => {
-			if (guardTracking(() => doMarkEpisodeRange(fromEp, toEp))) {
-				await doMarkEpisodeRange(fromEp, toEp);
-			}
+		async (fromEp: number, toEp: number, level = 1) => {
+			const run = async () => {
+				await doMarkEpisodeRange(fromEp, toEp, level);
+			};
+			if (guardTracking(run)) await run();
 		},
 		[guardTracking, doMarkEpisodeRange],
 	);
@@ -708,11 +746,23 @@ export function useSeasonActions({
 				episodes: carouselEps,
 				initialIndex: Math.max(0, idx),
 				watchedKeys: wKeys,
-				currentNextEpisode: null,
+				// Tracked → same backfill (speedster) rule as the season list, relative to the
+				// watchlist pointer; during a rewatch only this run's counts count as watched
+				currentNextEpisode:
+					isTracked && trackingItem?.nextEpisode
+						? {
+								season: trackingItem.nextEpisode.season,
+								episode: trackingItem.nextEpisode.episode,
+							}
+						: null,
+				rewatchCount: currentRewatchLevel ? currentRewatchLevel - 1 : 0,
 			});
 			setEpInfoVisible(true);
 		},
 		[
+			isTracked,
+			trackingItem,
+			currentRewatchLevel,
 			showTitle,
 			season.season_number,
 			episodes,
@@ -731,14 +781,14 @@ export function useSeasonActions({
 		[episodes, doMarkEpisodeWatched],
 	);
 
+	/** Carousel backfill: pointer (or E1 of this season) through `episode`, up to the level */
 	const handleCarouselMarkThrough = useCallback(
-		async (_tmdbId: number, _season: number, episode: number) => {
-			const firstUnwatched = episodes.find((e: TMDBEpisode) => !watchedMap.has(e.episode_number));
-			if (firstUnwatched) {
-				await doMarkEpisodeRange(firstUnwatched.episode_number, episode);
-			}
+		async (_tmdbId: number, _season: number, episode: number): Promise<EpisodeRef[]> => {
+			const ne = trackingItem?.nextEpisode;
+			const from = ne && ne.season === season.season_number ? ne.episode : 1;
+			return doMarkEpisodeRange(from, episode, currentRewatchLevel ?? 1);
 		},
-		[episodes, watchedMap, doMarkEpisodeRange],
+		[trackingItem, season.season_number, currentRewatchLevel, doMarkEpisodeRange],
 	);
 
 	const handleCarouselUnmark = useCallback(
@@ -789,23 +839,21 @@ export function useSeasonActions({
 				return;
 			}
 
-			// First watch with unwatched earlier episodes in this season → "mark previous?" first.
-			// "Just This One" then falls through to the "watch from here?" question.
-			const count = watchedMap.get(ep.episode_number)?.watchCount || 0;
-			if (count === 0) {
-				const skipped = episodes.filter(
-					(e: TMDBEpisode) =>
-						e.episode_number < ep.episode_number && !watchedMap.has(e.episode_number),
-				);
-				if (skipped.length > 0) {
-					setSkipModalData({ firstSkipped: skipped[0].episode_number, targetEp: ep });
-					setSkipModalVisible(true);
-					return;
-				}
+			// Unwatched (or not-yet-rewatched, during a rewatch) earlier episodes in this season
+			// → "mark previous?" first. "Just This One" then falls through to the jump question.
+			const { order, counts, tracking } = buildAdvanceInputs([]);
+			const skipped = firstSkippedBefore(order, counts, tracking, {
+				season: season.season_number,
+				episode: ep.episode_number,
+			});
+			if (skipped) {
+				setSkipModalData({ ...skipped, targetEp: ep });
+				setSkipModalVisible(true);
+				return;
 			}
 			markOrAskJump(ep);
 		},
-		[watchedMap, handleMarkWatched, isTracked, episodes, markOrAskJump],
+		[handleMarkWatched, isTracked, buildAdvanceInputs, season.season_number, markOrAskJump],
 	);
 
 	// Season tick asks first (fully watched → it's a rewatch of the whole season)
@@ -815,6 +863,16 @@ export function useSeasonActions({
 		setSeasonConfirmVisible(false);
 		handleMarkSeasonWatched();
 	}, [handleMarkSeasonWatched]);
+
+	// Season tick confirm copy — says what the mark really does (rest of season / rewatch)
+	const seasonConfirmCopy = seasonMarkCopy({
+		seasonNumber: season.season_number,
+		seasonName: season.name,
+		total: episodes.length,
+		toMark: seasonMarkEps.length,
+		allWatched,
+		inRewatch: currentRewatchLevel !== null,
+	});
 
 	const handleSeasonLongPress = useCallback(() => {
 		if (allWatched) {
@@ -874,6 +932,9 @@ export function useSeasonActions({
 		resolveTrackingWrite,
 		doMarkSeasonWatched,
 		handleMarkSeasonWatched,
+		currentRewatchLevel,
+		seasonMarkEps,
+		seasonConfirmCopy,
 		seasonConfirmVisible,
 		setSeasonConfirmVisible,
 		confirmSeasonMark,

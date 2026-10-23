@@ -4,6 +4,7 @@ import { useTitleLogo } from "@app/hooks/useTitleLogo";
 import type { MediaType } from "@app/enums";
 import { colors } from "../theme/index";
 import styles from "./styles/ui.module.scss";
+import SkeletonBlock from "./SkeletonBlock";
 
 /** Art for ConfirmModal's image slot (app ModalArt) */
 
@@ -110,6 +111,7 @@ export function ModalBackdrop({
 	mediaType,
 	title,
 	paused = false,
+	nameDelay = 0,
 }: {
 	backdropPath: string;
 	logoPath?: string | null;
@@ -117,10 +119,20 @@ export function ModalBackdrop({
 	mediaType?: MediaType;
 	title: string;
 	paused?: boolean;
+	/** Wait this long (ms) for the logo before showing the name — 0: name right away */
+	nameDelay?: number;
 }) {
 	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	const [logoFailed, setLogoFailed] = useState(false);
 	const [logoLoaded, setLogoLoaded] = useState(false);
+	const [waited, setWaited] = useState(nameDelay <= 0);
+	useEffect(() => {
+		if (nameDelay <= 0) return;
+		const t = setTimeout(() => setWaited(true), nameDelay);
+		return () => clearTimeout(t);
+	}, [nameDelay]);
+	// Known to have no logo (or it failed): the name straight away; still coming: after nameDelay
+	const showName = logoPath === null || logoFailed || (!logoLoaded && waited);
 	const [loaded, setLoaded] = useState(false);
 	return (
 		<div className={`${styles.modalBackdrop} ${loaded ? "" : styles.modalBackdropLoading}`}>
@@ -128,10 +140,10 @@ export function ModalBackdrop({
 				onLoad={() => setLoaded(true)}
 				onError={() => setLoaded(true)} />
 			{/* Skeleton until the banner image is in; its overlays come in with it */}
-			{!loaded && <div className={`${styles.modalBackdropSkeleton} ${styles.shimmer}`} />}
+			{!loaded && <SkeletonBlock className={styles.modalBackdropSkeleton} />}
 			<div className={styles.modalBackdropLogo}>
 				{/* Name until the logo image is in (or when there's none) */}
-				{(!logoPath || logoFailed || !logoLoaded) && <span>{title}</span>}
+				{showName && <span>{title}</span>}
 				{!!logoPath && !logoFailed && (
 					<img
 						className={logoLoaded ? "" : styles.logoLoading}

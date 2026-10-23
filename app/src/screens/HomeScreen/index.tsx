@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from "react-native";
+import { AppState, View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
 	CommonActions,
@@ -33,6 +33,8 @@ const FLICK_VELOCITY = 500;
 const PRELOAD_TABS = [Route.CALENDAR, Route.SEARCH, Route.PROFILE];
 const PRELOAD_START_MS = 4000;
 const PRELOAD_GAP_MS = 1500;
+/** Upcoming pre-mounts this long after Home, once JS is idle — mounting it mid-drag janked the slide */
+const UPCOMING_MOUNT_MS = 1500;
 
 export default function HomeScreen() {
 	const { top } = useSafeAreaInsets();
@@ -40,7 +42,7 @@ export default function HomeScreen() {
 	const navigation = useNavigation();
 	const route = useRoute<RouteProp<HomeStackParamList, Route.HOME_TABS>>();
 	const [tab, setTab] = useState<HomeTab>(route.params?.screen ?? Route.WATCHLIST);
-	// Upcoming mounts the first time it's shown (it fetches)
+	// Upcoming mounts once Home has settled (it fetches), or the first time it's shown if sooner
 	const [upcomingOpened, setUpcomingOpened] = useState(tab === Route.UPCOMING);
 
 	// Bottom tab bar / links ask for a tab through params — consume them so a repeat works
@@ -55,13 +57,51 @@ export default function HomeScreen() {
 		if (tab === Route.UPCOMING) setUpcomingOpened(true);
 	}, [tab]);
 
+	// Mirror for the pan worklet — a gesture rebuilt mid-drag would cut the drag off
+	const upcomingMounted = useSharedValue(upcomingOpened);
+	// Pre-mount Upcoming while nothing's happening, so the first swipe slides over a built page
+	useEffect(() => {
+		upcomingMounted.value = upcomingOpened;
+		if (upcomingOpened) return;
+		let idle: number | undefined;
+		const timer = setTimeout(() => {
+			idle = requestIdleCallback(() => setUpcomingOpened(true));
+		}, UPCOMING_MOUNT_MS);
+		return () => {
+			clearTimeout(timer);
+			if (idle !== undefined) cancelIdleCallback(idle);
+		};
+	}, [upcomingOpened, upcomingMounted]);
+
 	const index = TABS.findIndex((t) => t.key === tab);
 	// Row position in px (0 = Watch List, width = Upcoming); follows the finger while dragging
 	const pos = useSharedValue(index * width);
 	const dragging = useSharedValue(false);
+	// Where the row is sliding to — a swipe / tap sets it with its slide, so the `tab` re-render
+	// that follows doesn't restart the slide mid-flight (the hitch at the end of a swipe)
+	const settle = useSharedValue(index * width);
+	// translationX at activation — the pan only starts after START_PX, without this the row jumps
+	const grab = useSharedValue(0);
 	useEffect(() => {
-		if (!dragging.value) pos.value = withTiming(index * width, { duration: SLIDE_MS });
-	}, [index, width, pos, dragging]);
+		const to = index * width;
+		if (dragging.value || settle.value === to) return;
+		settle.value = to;
+		pos.value = withTiming(to, { duration: SLIDE_MS });
+	}, [index, width, pos, dragging, settle]);
+
+	// Back from background the row can come back at Watch List while `tab` still says Upcoming
+	// (view restored / gesture cut off mid-drag) — snap it back to the tab state
+	const target = useRef(index * width);
+	target.current = index * width;
+	useEffect(() => {
+		const sub = AppState.addEventListener("change", (state) => {
+			if (state !== "active") return;
+			dragging.value = false;
+			settle.value = target.current;
+			pos.value = target.current;
+		});
+		return () => sub.remove();
+	}, [pos, dragging, settle]);
 
 	useEffect(() => {
 		const parent = navigation.getParent();
@@ -87,11 +127,12 @@ export default function HomeScreen() {
 	const goTo = useCallback(
 		(key: HomeTab) => {
 			const i = TABS.findIndex((t) => t.key === key);
+			settle.value = i * width;
 			pos.value = withTiming(i * width, { duration: SLIDE_MS });
 			if (key === Route.UPCOMING) setUpcomingOpened(true);
 			setTab(key);
 		},
-		[pos, width],
+		[pos, settle, width],
 	);
 
 	const pan = useMemo(
@@ -99,14 +140,19 @@ export default function HomeScreen() {
 			Gesture.Pan()
 				.activeOffsetX(index === 1 ? START_PX : -START_PX)
 				.failOffsetY([-15, 15])
-				.onStart(() => {
+				.onStart((e) => {
 					"worklet";
 					dragging.value = true;
-					if (index === 0) runOnJS(setUpcomingOpened)(true);
+					grab.value = e.translationX;
+					// Not pre-mounted yet (swiped right away) — mount now
+					if (index === 0 && !upcomingMounted.value) {
+						upcomingMounted.value = true;
+						runOnJS(setUpcomingOpened)(true);
+					}
 				})
 				.onUpdate((e) => {
 					"worklet";
-					pos.value = Math.min(width, Math.max(0, index * width - e.translationX));
+					pos.value = Math.min(width, Math.max(0, index * width - (e.translationX - grab.value)));
 				})
 				.onEnd((e) => {
 					"worklet";
@@ -119,10 +165,11 @@ export default function HomeScreen() {
 						next = 1;
 					if (index === 1 && (e.translationX > width * TURN_SHARE || e.velocityX > FLICK_VELOCITY))
 						next = 0;
+					settle.value = next * width;
 					pos.value = withTiming(next * width, { duration: SLIDE_MS });
 					if (next !== index) runOnJS(setTab)(TABS[next].key);
 				}),
-		[index, width, pos, dragging],
+		[index, width, pos, dragging, settle, grab, upcomingMounted],
 	);
 
 	// Tab trees don't depend on HomeScreen state — keep them out of its re-renders

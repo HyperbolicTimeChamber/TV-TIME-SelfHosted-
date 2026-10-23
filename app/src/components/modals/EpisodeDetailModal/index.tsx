@@ -193,36 +193,45 @@ export default function EpisodeDetailModal({
 		setConfirmLoading(true);
 		const key = epKey(confirmTarget.season, confirmTarget.episode);
 		setMarkingKey(key);
-		let marked = false;
 
 		try {
-			await onMarkWatchedThrough(tmdbId, confirmTarget.season, confirmTarget.episode);
-			// Mirror the write: every episode from the current next one through the target gets
-			// one more watch, including already-counted ones during a rewatch
+			const markedRefs = await onMarkWatchedThrough(
+				tmdbId,
+				confirmTarget.season,
+				confirmTarget.episode,
+			);
+			// Mirror the write: the episodes the handler reports, else every episode from the
+			// current next one through the target gets one more watch (already-counted ones too
+			// during a rewatch)
 			const from = currentNextEpisode ?? { season: 1, episode: 1 };
 			const onOrAfter = (s: number, e: number) =>
 				s > from.season || (s === from.season && e >= from.episode);
 			const onOrBefore = (s: number, e: number) =>
 				s < confirmTarget.season || (s === confirmTarget.season && e <= confirmTarget.episode);
+			const reported = markedRefs
+				? new Set(markedRefs.map((r) => epKey(r.season, r.episode)))
+				: null;
 			setLocalWatched((prev) => {
 				const next = new Map(prev);
 				for (const ep of episodes) {
-					if (onOrAfter(ep.season, ep.episode) && onOrBefore(ep.season, ep.episode)) {
+					const inRange = reported
+						? reported.has(epKey(ep.season, ep.episode))
+						: onOrAfter(ep.season, ep.episode) && onOrBefore(ep.season, ep.episode);
+					if (inRange) {
 						const k = epKey(ep.season, ep.episode);
 						next.set(k, (next.get(k) ?? 0) + 1);
 					}
 				}
 				return next;
 			});
-			marked = true;
 		} finally {
 			setMarkingKey(null);
 			setConfirmLoading(false);
 			setConfirmVisible(false);
 			setConfirmTarget(null);
 		}
-		// Caught up through this card: slide on to the next one, or close after the last
-		if (!marked) return;
+		// Caught up through this card (a failed mark threw above): slide on to the next one, or close
+		// after the last
 		const at = enrichedEps.findIndex(
 			(e) => e.season === confirmTarget.season && e.episode === confirmTarget.episode,
 		);

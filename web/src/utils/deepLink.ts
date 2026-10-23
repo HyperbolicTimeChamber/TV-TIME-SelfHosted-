@@ -1,8 +1,8 @@
 import { MediaType } from "@app/enums";
 
-/** Custom-scheme link into the installed app (iOS AltStore builds can't use Universal Links) */
+/** Custom-scheme link into the installed app */
 export const appDeepLink = (mediaType: MediaType, tmdbId: number) =>
 	`watchloom://show/${mediaType === MediaType.MOVIE ? "movie" : "tv"}/${tmdbId}`;
 
-export const isMobileBrowser = () =>
-	typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+/** The app ships on Android only — no iOS build to open */
+export const isAndroidBrowser = () => typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);

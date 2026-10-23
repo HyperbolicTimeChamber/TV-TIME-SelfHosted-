@@ -23,9 +23,11 @@ export const styles = StyleSheet.create({
 	imageContainer: {
 		height: IMAGE_HEIGHT,
 	},
+	// Same fill as the text skeletons (border): surfaceLight vanished on the card's black at the
+	// shimmer's 0.3–0.6 opacity
 	imageSkeleton: {
 		...(StyleSheet.absoluteFill as object),
-		backgroundColor: colors.surfaceLight,
+		backgroundColor: colors.border,
 	},
 	still: {
 		width: "100%",

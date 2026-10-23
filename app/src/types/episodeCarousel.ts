@@ -32,7 +32,13 @@ export interface EpisodeDetailModalProps {
 		episode: number,
 		runtime?: number | null,
 	) => Promise<void>;
-	onMarkWatchedThrough: (tmdbId: number, season: number, episode: number) => Promise<void>;
+	/** May resolve with the episodes it actually marked — the carousel mirrors exactly those
+	 *  (otherwise every episode from the current next one through the target) */
+	onMarkWatchedThrough: (
+		tmdbId: number,
+		season: number,
+		episode: number,
+	) => Promise<void | Array<{ season: number; episode: number }>>;
 	onUnmarkWatched: (tmdbId: number, season: number, episode: number) => Promise<void>;
 	/** Skip the current episode without watching it (watchlist rewatches only) */
 	onSkipEpisode?: (tmdbId: number, season: number, episode: number) => Promise<void>;

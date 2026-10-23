@@ -24,4 +24,8 @@ export const antdThemeConfig: ThemeConfig = {
 		borderRadius: 12,
 		fontFamily: FONT_FAMILY,
 	},
+	components: {
+		// Shimmer in the app palette (surfaceLight → border), as the old CSS pulse used
+		Skeleton: { gradientFromColor: colors.surfaceLight, gradientToColor: colors.border },
+	},
 };

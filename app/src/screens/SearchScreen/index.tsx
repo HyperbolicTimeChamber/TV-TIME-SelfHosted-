@@ -14,13 +14,25 @@ const artReserve = artHeight(NO_RESULTS_RATIO) + 24;
 import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useSearch, useTrending } from "../../hooks";
+import { useSearch, useSearchSort, useTrending } from "../../hooks";
 import { colors } from "../../theme";
 import { TMDBShow, SearchStackParamList, MediaType, MediaFilter, Route } from "../../types";
+import SortFab, { SORT_FAB_CLEARANCE } from "../../components/SortFab";
+import SortSheet, { type SortOption } from "../../components/SortSheet";
+import {
+	SEARCH_SORT_OPTIONS,
+	sameSearchSort,
+	sortSearchResults,
+	DEFAULT_SEARCH_SORT,
+	type SearchSortView,
+} from "../../utils/searchSort";
 import { useSearchActions } from "./useSearchActions";
 import SearchCard from "./SearchCard";
 import SearchModals from "./SearchModals";
 import { styles } from "./styles";
+
+const SORT_OPTIONS: SortOption<SearchSortView>[] = SEARCH_SORT_OPTIONS.map(({ label, ...value }) => ({ value, label }));
+const FAB_BOTTOM = 20;
 
 type NavProp = NativeStackNavigationProp<SearchStackParamList, Route.SEARCH_MAIN>;
 
@@ -37,6 +49,10 @@ export default function SearchScreen() {
 		useRoute<RouteProp<SearchStackParamList, Route.SEARCH_MAIN | Route.SEARCH_RESULTS>>();
 	const submittedQuery = (route.params as any)?.query || "";
 	const [mediaFilter, setMediaFilter] = useState<MediaFilter>(MediaFilter.ALL);
+	// Results only (Trending keeps its own order); remembered for the session
+	const [sortView, setSortView] = useSearchSort();
+	const [sortOpen, setSortOpen] = useState(false);
+	const listRef = useRef<any>(null);
 	// No-results art sits at the visible bottom; the message stays above it
 	const [artOverhang, setArtOverhang] = useState(0);
 
@@ -142,7 +158,13 @@ export default function SearchScreen() {
 		[trending, mediaFilter],
 	);
 
-	const rawDisplayData = submittedQuery.length > 0 ? searchData?.results : filteredTrending;
+	// Sorts every loaded page — a new page merges into the sorted order
+	const sortedResults = useMemo(
+		() => searchData?.results && sortSearchResults(searchData.results, sortView),
+		[searchData?.results, sortView],
+	);
+
+	const rawDisplayData = submittedQuery.length > 0 ? sortedResults : filteredTrending;
 	const isLoading = submittedQuery.length > 0 ? searchLoading : trendingLoading;
 
 	// Augment data with tracked/adding state so LegendList re-renders items when these change
@@ -154,6 +176,8 @@ export default function SearchScreen() {
 			_adding: addingIds.has(item.id),
 		}));
 	}, [rawDisplayData, trackedIds, addingIds]);
+
+	const showSort = submittedQuery.length > 0 && !isLoading && !!displayData?.length;
 
 	const handlePress = useCallback(
 		(item: TMDBShow) => {
@@ -254,6 +278,7 @@ export default function SearchScreen() {
 					</View>
 				) : (
 					<LegendList
+						ref={listRef}
 						data={displayData || []}
 						keyExtractor={(item) => `${item.media_type || "x"}_${item.id}`}
 						renderItem={renderItem}
@@ -263,7 +288,10 @@ export default function SearchScreen() {
 						onScroll={handleScroll}
 						scrollEventThrottle={16}
 						// Content is headerH taller than the screen (see above) — keep the last row reachable
-						contentContainerStyle={[styles.grid, { paddingBottom: headerH }]}
+						contentContainerStyle={[
+							styles.grid,
+							{ paddingBottom: headerH + (showSort ? FAB_BOTTOM + SORT_FAB_CLEARANCE : 0) },
+						]}
 						onEndReached={() => {
 							if (submittedQuery && hasNextPage) fetchNextPage();
 						}}
@@ -272,6 +300,28 @@ export default function SearchScreen() {
 					/>
 				)}
 			</Animated.View>
+
+			{showSort && (
+				<SortFab
+					bottom={FAB_BOTTOM}
+					onPress={() => setSortOpen(true)}
+					customised={!sameSearchSort(sortView, DEFAULT_SEARCH_SORT)}
+					accessibilityLabel="Sort results"
+				/>
+			)}
+			<SortSheet
+				visible={sortOpen}
+				onClose={() => setSortOpen(false)}
+				options={SORT_OPTIONS}
+				selected={sortView}
+				isSame={sameSearchSort}
+				onSelect={(next) => {
+					setSortView(next);
+					setSortOpen(false);
+					// New order starts from the top
+					listRef.current?.scrollToOffset({ offset: 0, animated: false });
+				}}
+			/>
 
 			<SearchModals
 				movieModal={movieModal}

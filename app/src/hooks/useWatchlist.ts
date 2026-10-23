@@ -10,6 +10,9 @@ import {
 	selectStaleCatalogItems,
 	localizeCatalog,
 	nextEpisodeLocalAirDate,
+	patchCatalogSeason,
+	catalogNextEpisodeTitle,
+	type FreshSeasonEpisode,
 } from "../utils";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -26,7 +29,16 @@ import {
 	startAfter,
 	QueryDocumentSnapshot,
 } from "@react-native-firebase/firestore";
-import { TrackingItem, CatalogShow, CacheKey, DocChangeType, MediaType } from "../types";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
+import {
+	TrackingItem,
+	CatalogShow,
+	CacheKey,
+	DocChangeType,
+	MediaType,
+	QueryKey,
+	type TMDBEpisode,
+} from "../types";
 import { useAuthStore } from "../stores";
 import { getShowDetails, getSeasonDetails } from "../services/tmdb";
 
@@ -39,26 +51,54 @@ export interface EnrichedTrackingItem extends TrackingItem {
 	catalogShow: CatalogShow | null;
 }
 
+// Android reads a stored value through a 2MB window (UTF-16, so ~1M chars): the whole catalog as
+// one value (~2M chars) failed to load on every start ("Row too big to fit into CursorWindow"), so
+// each show is its own value. A show this big is left unsaved rather than stored unreadable
+const CATALOG_ENTRY_MAX_CHARS = 900_000;
+// docId → JSON last written, so a persist only writes the shows that changed
+const persistedCatalog = new Map<string, string>();
+
 /** Persist catalog cache to AsyncStorage (skip null entries — they represent missing docs that may appear later) */
 function persistCatalogCache(cache: Map<string, CatalogShow | null>) {
-	const obj: Record<string, CatalogShow> = {};
+	const changed: Record<string, string> = {};
+	const kept = new Set<string>();
 	for (const [key, val] of cache) {
-		if (val != null) obj[key] = val;
+		if (val == null) continue;
+		const json = JSON.stringify(val);
+		if (json.length > CATALOG_ENTRY_MAX_CHARS) continue;
+		kept.add(key);
+		if (persistedCatalog.get(key) === json) continue;
+		persistedCatalog.set(key, json);
+		changed[CacheKey.CATALOG_SHOW + key] = json;
 	}
-	AsyncStorage.setItem(CacheKey.CATALOG_CACHE, JSON.stringify(obj)).catch(() => {});
+	const dropped = [...persistedCatalog.keys()].filter((key) => !kept.has(key));
+	for (const key of dropped) persistedCatalog.delete(key);
+	if (Object.keys(changed).length === 0 && dropped.length === 0) return;
+	changed[CacheKey.CATALOG_INDEX] = JSON.stringify([...kept]);
+	AsyncStorage.setMany(changed).catch(() => {});
+	if (dropped.length) AsyncStorage.removeMany(dropped.map((key) => CacheKey.CATALOG_SHOW + key)).catch(() => {});
 }
 
 /** Restore catalog cache from AsyncStorage */
 async function restoreCatalogCache(): Promise<Map<string, CatalogShow | null>> {
+	// The old single-value cache can't be read back on Android — free its ~2MB
+	AsyncStorage.removeItem(CacheKey.CATALOG_CACHE).catch(() => {});
+	const restored = new Map<string, CatalogShow | null>();
 	try {
-		const raw = await AsyncStorage.getItem(CacheKey.CATALOG_CACHE);
-		if (!raw) return new Map();
-		const obj = JSON.parse(raw) as Record<string, CatalogShow | null>;
-		// Re-derive local air days (timezone may have changed since it was cached)
-		return new Map(Object.entries(obj).map(([k, v]) => [k, localizeCatalog(v)]));
-	} catch {
-		return new Map();
-	}
+		const index = JSON.parse((await AsyncStorage.getItem(CacheKey.CATALOG_INDEX)) ?? "[]") as string[];
+		if (index.length === 0) return restored;
+		const rows = await AsyncStorage.getMany(index.map((key) => CacheKey.CATALOG_SHOW + key));
+		for (const key of index) {
+			const raw = rows[CacheKey.CATALOG_SHOW + key];
+			if (!raw) continue;
+			try {
+				// Re-derive local air days (timezone may have changed since it was cached)
+				restored.set(key, localizeCatalog(JSON.parse(raw) as CatalogShow));
+				persistedCatalog.set(key, raw);
+			} catch {}
+		}
+	} catch {}
+	return restored;
 }
 
 // Shows re-read from Firestore this session for stale/missing display data (1 read max each)
@@ -153,6 +193,75 @@ export function cacheCatalogShows(shows: CatalogShow[]) {
 /** Get a catalog show from the in-memory cache (no Firestore read) */
 export function getCachedCatalogShow(tmdbId: number, mediaType: MediaType): CatalogShow | null {
 	return sharedCatalogCache.get(showDocId(tmdbId, mediaType)) ?? null;
+}
+
+type CatalogPatchListener = (tmdbId: number, catalog: CatalogShow) => void;
+const catalogPatchListeners = new Set<CatalogPatchListener>();
+
+/**
+ * Fresh TMDB season (episode info modal, show page dropdown) → patch the cached catalog when TMDB
+ * changed titles / overviews / stills since the doc was written, persist that show, and tell every
+ * useWatchlist instance so cards update now instead of after the next server sync. 0 reads/calls.
+ */
+export function healCatalogSeason(tmdbId: number, season: number, fresh: FreshSeasonEpisode[]) {
+	const key = showDocId(tmdbId, MediaType.TV);
+	const cached = sharedCatalogCache.get(key);
+	if (!cached || isIncompleteCatalog(cached)) return;
+	const patched = patchCatalogSeason(cached, season, fresh);
+	if (!patched) return;
+	sharedCatalogCache.set(key, patched);
+	persistCatalogCache(sharedCatalogCache);
+	for (const listener of catalogPatchListeners) listener(tmdbId, patched);
+}
+
+/**
+ * Every successful TMDB season fetch lands in the show page's season images query (the info
+ * modal's loadSeasonEpisodes shares the key) → heal from it. Also corrects the show page's
+ * catalog-backed season query so its episode list matches.
+ */
+let seasonHealClient: QueryClient | null = null;
+function subscribeSeasonHeal(queryClient: QueryClient) {
+	// Once per client for the app's lifetime — keeps healing while Home is unmounted (web routes)
+	if (seasonHealClient === queryClient) return;
+	seasonHealClient = queryClient;
+	queryClient.getQueryCache().subscribe((event) => {
+		if (event.type !== "updated" || event.action.type !== "success") return;
+		const [k, tmdbId, season] = event.query.queryKey as [unknown, unknown, unknown];
+		if (k !== QueryKey.SEASON_IMAGES || typeof tmdbId !== "number" || typeof season !== "number")
+			return;
+		const fresh = (event.query.state.data as { episodes?: TMDBEpisode[] } | undefined)?.episodes;
+		if (!fresh?.length) return;
+		healCatalogSeason(tmdbId, season, fresh);
+		const names = new Map(fresh.map((e) => [e.episode_number, e.name]));
+		queryClient.setQueryData<{ fromCatalog?: boolean; episodes: TMDBEpisode[] }>(
+			[QueryKey.SEASON, tmdbId, season],
+			(prev) => {
+				if (!prev?.fromCatalog) return prev;
+				let changed = false;
+				const episodes = prev.episodes.map((e) => {
+					const name = names.get(e.episode_number)?.trim();
+					const downgrade = isGenericEpisodeTitle(name) && !isGenericEpisodeTitle(e.name);
+					if (!name || name === e.name || downgrade) return e;
+					changed = true;
+					return { ...e, name };
+				});
+				return changed ? { ...prev, episodes } : prev;
+			},
+		);
+	});
+}
+
+// Tracking docs already corrected this session (itemId → name) — one write across hook instances
+const healedTrackingNames = new Map<string, string>();
+
+/** Item re-pointed at a patched catalog; its next-episode name follows the catalog's real title */
+function withCatalog(item: EnrichedTrackingItem, catalog: CatalogShow): EnrichedTrackingItem {
+	return {
+		...item,
+		catalogShow: catalog,
+		nextEpisodeName: catalogNextEpisodeTitle(catalog, item.nextEpisode) ?? item.nextEpisodeName,
+		nextEpisodeAirDate: nextEpisodeLocalAirDate(item.nextEpisode, catalog, item.nextEpisodeAirDate),
+	};
 }
 
 function extractCredits(crew: any[] | undefined) {
@@ -354,9 +463,12 @@ export function useWatchlist(userId: string | undefined) {
 				const freshlyEnriched = await enrichItems(toEnrich, catalogCache.current);
 				const freshMap = new Map(freshlyEnriched.map((e) => [e.id, e]));
 
+				// Unchanged docs keep the displayed item — it carries local catalog patches (TMDB heal,
+				// season heal, sync re-read) the previous snapshot's copy doesn't
 				enriched = trackingItems.map(
 					(t) =>
 						freshMap.get(t.id) ??
+						itemsRef.current.get(t.id) ??
 						prevEnrichedMap.get(t.id) ?? {
 							...t,
 							title: `Show #${t.tmdbId}`,
@@ -475,6 +587,35 @@ export function useWatchlist(userId: string | undefined) {
 		}
 		setItems((prev) => [item, ...prev.filter((p) => p.tmdbId !== item.tmdbId)]);
 	}, []);
+
+	// Fresh TMDB season loaded anywhere (info modal / show page) → cards follow the healed catalog
+	const queryClient = useQueryClient();
+	useEffect(() => subscribeSeasonHeal(queryClient), [queryClient]);
+	useEffect(() => {
+		const listener: CatalogPatchListener = (tmdbId, catalog) => {
+			const patch = (p: EnrichedTrackingItem) =>
+				p.tmdbId === tmdbId && p.mediaType !== MediaType.MOVIE ? withCatalog(p, catalog) : p;
+			paginatedItems.current = paginatedItems.current.map(patch);
+			// Tracking doc's stored name is stale too → same write as the TMDB heal (0 reads)
+			if (userId) {
+				for (const item of itemsRef.current.values()) {
+					if (item.tmdbId !== tmdbId || item.mediaType === MediaType.MOVIE) continue;
+					const name = catalogNextEpisodeTitle(catalog, item.nextEpisode);
+					if (!name || name === item.nextEpisodeName || healedTrackingNames.get(item.id) === name)
+						continue;
+					healedTrackingNames.set(item.id, name);
+					updateDoc(doc(getFirestore(), "users", userId, "tracking", item.id), {
+						nextEpisodeName: name,
+					}).catch(() => {});
+				}
+			}
+			setItems((prev) => prev.map(patch));
+		};
+		catalogPatchListeners.add(listener);
+		return () => {
+			catalogPatchListeners.delete(listener);
+		};
+	}, [userId, setItems]);
 
 	// Listen for external removal events (e.g. from ShowDetailScreen)
 	useEffect(() => onShowRemoved(removeItem), [removeItem]);

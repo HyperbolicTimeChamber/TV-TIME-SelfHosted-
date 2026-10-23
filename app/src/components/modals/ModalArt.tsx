@@ -182,6 +182,7 @@ export function ModalBackdrop({
 	mediaType,
 	title,
 	paused = false,
+	nameDelay = 0,
 }: {
 	backdropPath: string;
 	logoPath?: string | null;
@@ -189,10 +190,20 @@ export function ModalBackdrop({
 	mediaType?: MediaType;
 	title: string;
 	paused?: boolean;
+	/** Wait this long (ms) for the logo before showing the name — 0: name right away */
+	nameDelay?: number;
 }) {
 	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	const [logoFailed, setLogoFailed] = useState(false);
 	const [logoLoaded, setLogoLoaded] = useState(false);
+	const [waited, setWaited] = useState(nameDelay <= 0);
+	useEffect(() => {
+		if (nameDelay <= 0) return;
+		const t = setTimeout(() => setWaited(true), nameDelay);
+		return () => clearTimeout(t);
+	}, [nameDelay]);
+	// Known to have no logo (or it failed): the name straight away; still coming: after nameDelay
+	const showName = logoPath === null || logoFailed || (!logoLoaded && waited);
 	// Bleeds over ConfirmModal's side padding
 	const w = useContentWidth() + spacing.lg * 2;
 	const h = (w * 9) / 16;
@@ -217,7 +228,7 @@ export function ModalBackdrop({
 					/>
 					<View style={styles.backdropLogo}>
 						{/* Name until the logo image is in (or when there's none) */}
-						{(!logoPath || logoFailed || !logoLoaded) && (
+						{showName && (
 							<Text style={styles.backdropName} numberOfLines={2}>
 								{title}
 							</Text>

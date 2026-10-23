@@ -22,6 +22,7 @@ import {
 import { showShareUrl, describeLoadError } from "../../utils";
 import ErrorState from "../../components/ErrorState";
 import CircleButton, { CircleBackButton } from "../../components/CircleButton";
+import SwipeBackView from "../../components/SwipeBackView";
 import { colors, spacing, typography } from "../../theme";
 import { HomeStackParamList, MediaType, Route, WatchStatus } from "../../types";
 import { CircleButtonTone } from "../../enums";
@@ -107,7 +108,7 @@ export default function ShowDetailScreen() {
 		const goWatchlist = () => (navigation as any).navigate(Route.HOME, { screen: Route.HOME_TABS });
 		const goSearch = () => (navigation as any).navigate(Route.SWIPE_TABS, { screen: Route.SEARCH });
 		return (
-			<View style={styles.container}>
+			<SwipeBackView onBack={handleBack} style={styles.container}>
 				<CircleBackButton
 					tone={CircleButtonTone.OVERLAY}
 					style={[styles.backButton, { top: insets.top + 8 }]}
@@ -123,33 +124,13 @@ export default function ShowDetailScreen() {
 					}
 					secondary={{ label: "Go to Watchlist", onPress: goWatchlist }}
 				/>
-			</View>
+			</SwipeBackView>
 		);
 	}
 
 	return (
-		<View style={styles.container}>
-			{/* Floating back button */}
-			<CircleBackButton
-				tone={CircleButtonTone.OVERLAY}
-				style={[styles.backButton, { top: insets.top + 8 }]}
-				onPress={handleBack}
-			/>
-
-			<CircleButton
-				tone={CircleButtonTone.OVERLAY}
-				style={[styles.shareButton, { top: insets.top + 8 }]}
-				accessibilityLabel="Share"
-				onPress={() => {
-					// Web URL: opens the app if installed (App/Universal Links), else the web show page
-					Share.share({
-						message: `Check out ${title}\n${showShareUrl(mediaType, tmdbId)}`,
-					}).catch((e: any) => Alert.alert("Share failed", e.message));
-				}}
-			>
-				<Ionicons name="share-social-outline" size={26} color={colors.text} />
-			</CircleButton>
-
+		// Right swipe anywhere → back, the screen underneath showing through (transparent modal route)
+		<SwipeBackView onBack={handleBack} style={styles.container}>
 			<Reanimated.ScrollView
 				contentContainerStyle={{ paddingBottom: spacing.xxl + Math.max(insets.bottom, 48) }}
 				onScroll={handleScroll}
@@ -259,6 +240,25 @@ export default function ShowDetailScreen() {
 						</View>
 					)}
 				</View>
+				{/* Back / share ride at the top of the page (scroll away with it), drawn over the backdrop */}
+				<CircleBackButton
+					tone={CircleButtonTone.OVERLAY}
+					style={[styles.backButton, { top: insets.top + 8 }]}
+					onPress={handleBack}
+				/>
+				<CircleButton
+					tone={CircleButtonTone.OVERLAY}
+					style={[styles.shareButton, { top: insets.top + 8 }]}
+					accessibilityLabel="Share"
+					onPress={() => {
+						// Web URL: opens the app if installed (App/Universal Links), else the web show page
+						Share.share({
+							message: `Check out ${title}\n${showShareUrl(mediaType, tmdbId)}`,
+						}).catch((e: any) => Alert.alert("Share failed", e.message));
+					}}
+				>
+					<Ionicons name="share-social-outline" size={26} color={colors.text} />
+				</CircleButton>
 			</Reanimated.ScrollView>
 
 			<ConfirmModal
@@ -292,6 +292,7 @@ export default function ShowDetailScreen() {
 							mediaType={mediaType}
 							title={title}
 							paused
+							nameDelay={2000}
 						/>
 					) : (
 						<ModalLogo
@@ -300,6 +301,7 @@ export default function ShowDetailScreen() {
 							mediaType={mediaType}
 							title={title}
 							paused
+							nameDelay={2000}
 						/>
 					)
 				}
@@ -328,7 +330,7 @@ export default function ShowDetailScreen() {
 				onSelect={handleMovieSheetAction}
 				onClose={() => setMovieSheetVisible(false)}
 			/>
-		</View>
+		</SwipeBackView>
 	);
 }
 

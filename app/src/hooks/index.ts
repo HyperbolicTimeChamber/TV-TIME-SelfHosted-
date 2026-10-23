@@ -6,7 +6,9 @@ export {
 } from "./useCalendarEpisodes";
 export { useForceUpdate } from "./useForceUpdate";
 export { useSearch } from "./useSearch";
+export { useSearchSort } from "./useSearchSort";
 export { useSeasonDetails } from "./useSeasonDetails";
+export { useEpisodeInfoLoader, loadSeasonEpisodes } from "./useEpisodeInfoLoader";
 export { useShowDetails } from "./useShowDetails";
 export { useTrending } from "./useTrending";
 export { useUpcomingEpisodes, useUpcomingMutations } from "./useUpcomingEpisodes";

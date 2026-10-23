@@ -1,4 +1,3 @@
-import { IoCheckmark } from "react-icons/io5";
 import { HistoryFilter, HistorySort } from "@app/enums";
 import {
 	HISTORY_FILTERS,
@@ -6,7 +5,13 @@ import {
 	HISTORY_SORT_LABEL,
 	HISTORY_SORTS,
 } from "@app/utils/historyView";
+import { SortPanel, sortPanelTitleClass, type SortOption } from "../../../components/SortPanel";
 import styles from "./styles/WatchHistory.module.scss";
+
+const SORT_OPTIONS: SortOption<HistorySort>[] = HISTORY_SORTS.map((value) => ({
+	value,
+	label: HISTORY_SORT_LABEL[value],
+}));
 
 interface Props {
 	isMovie: boolean;
@@ -20,22 +25,11 @@ interface Props {
 /** Sort order (saved) + status filters (TV only, cleared on leaving) — app HistoryViewSheet */
 export default function HistoryViewPanel({ isMovie, sort, onSort, filters, onToggleFilter, onClearFilters }: Props) {
 	return (
-		<div className={styles.viewPanel}>
-			<p className={styles.viewTitle}>Sort by</p>
-			{HISTORY_SORTS.map((option) => (
-				<button
-					key={option}
-					className={`${styles.viewRow} ${option === sort ? styles.viewRowActive : ""}`}
-					onClick={() => onSort(option)}
-				>
-					{HISTORY_SORT_LABEL[option]}
-					{option === sort && <IoCheckmark className="text-primary" size={18} />}
-				</button>
-			))}
+		<SortPanel options={SORT_OPTIONS} selected={sort} onSelect={onSort}>
 			{!isMovie && (
 				<>
 					<div className={styles.viewFilterHead}>
-						<p className={styles.viewTitle}>Filter</p>
+						<p className={sortPanelTitleClass}>Filter</p>
 						{filters.size > 0 && (
 							<button className={styles.viewClear} onClick={onClearFilters}>
 								Clear
@@ -56,6 +50,6 @@ export default function HistoryViewPanel({ isMovie, sort, onSort, filters, onTog
 					</div>
 				</>
 			)}
-		</div>
+		</SortPanel>
 	);
 }

@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../../../stores";
-import { useUpcomingEpisodes } from "../../../hooks";
+import { useUpcomingEpisodes, loadSeasonEpisodes } from "../../../hooks";
 import { getCachedCatalogShow } from "../../../hooks/useWatchlist";
-import { getCatalogShow, getShowDetails, getSeasonDetails } from "../../../services";
+import { getCatalogShow, getShowDetails } from "../../../services";
 import { UpcomingEpisode, MediaType, ShowDrawerData, CarouselEpisode } from "../../../types";
 import { todayStr } from "../../../utils";
 import { sortByAirTime } from "../../../utils/airTime";
@@ -16,6 +17,7 @@ export type ListItem =
  */
 export function useUpcomingScreen(handleNavigateToShow: (tmdbShowId: number) => void) {
 	const user = useAuthStore((s) => s.user);
+	const queryClient = useQueryClient();
 	const { data: upcoming, pastData, isLoading, error, retry } = useUpcomingEpisodes(user?.uid);
 	// Past days (local queue, oldest first) above today/future
 	const episodes = useMemo(() => [...pastData, ...upcoming], [pastData, upcoming]);
@@ -96,40 +98,10 @@ export function useUpcomingScreen(handleNavigateToShow: (tmdbShowId: number) => 
 		setEpModalVisible(true);
 	}, []);
 
+	// Shared with Calendar: TMDB season via the query cache, no Firestore fallback read
 	const handleLoadEpisodeDetails = useCallback(
-		async (season: number): Promise<CarouselEpisode[] | null> => {
-			const tmdbId = epModalTmdbIdRef.current;
-			const apiKey = useAuthStore.getState().appTmdbApiKey;
-			if (!apiKey || !tmdbId) return null;
-			try {
-				const seasonData = await getSeasonDetails(apiKey, tmdbId, season);
-				return seasonData.episodes.map((e) => ({
-					season: e.season_number ?? season,
-					episode: e.episode_number,
-					title: e.name || null,
-					airDate: e.air_date || null,
-					runtime: e.runtime || null,
-					stillPath: e.still_path || null,
-					overview: e.overview || null,
-				}));
-			} catch {
-				const catalog = await getCatalogShow(tmdbId, MediaType.TV);
-				const catSeason = catalog?.seasons?.find((s) => s.seasonNumber === season);
-				if (catSeason) {
-					return catSeason.episodes.map((e) => ({
-						season: catSeason.seasonNumber,
-						episode: e.episodeNumber,
-						title: e.title || null,
-						airDate: e.airDate || null,
-						runtime: e.runtime || null,
-						stillPath: e.stillPath || null,
-						overview: e.overview || null,
-					}));
-				}
-				return null;
-			}
-		},
-		[],
+		(season: number) => loadSeasonEpisodes(queryClient, epModalTmdbIdRef.current, season),
+		[queryClient],
 	);
 
 	const handleTitlePress = useCallback(async (ep: UpcomingEpisode) => {

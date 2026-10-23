@@ -58,8 +58,6 @@ interface Props {
 	onOpenMovie: (ep: CalendarEpisode) => void;
 	/** Bump to close every open group (e.g. leaving the screen) */
 	collapseSignal?: number;
-	/** Size to content (popup) instead of filling the space */
-	fitContent?: boolean;
 	/** Parent scrolls it (Calendar's combined calendar + list scroll): plain column, no ScrollView */
 	externalScroll?: boolean;
 	/** Off-screen neighbour day: skip the backdrop blur (the costly part) */
@@ -72,7 +70,6 @@ export default function DayList({
 	onOpenEpisode,
 	onOpenMovie,
 	collapseSignal,
-	fitContent,
 	externalScroll,
 	lite,
 }: Props) {
@@ -101,7 +98,7 @@ export default function DayList({
 		return out;
 	}, [episodes, expanded]);
 
-	if (episodes.length === 0) return <EmptyDay compact={fitContent} />;
+	if (episodes.length === 0) return <EmptyDay />;
 
 	const renderRow = (row: CalendarRow) => {
 		const isChild = row.kind === CalendarRowKind.CHILD;
@@ -215,7 +212,7 @@ export default function DayList({
 	// Short list (one day) → plain scroll view, so rows can animate in/out and reflow.
 	// Gesture-handler ScrollView: vertical scroll here, horizontal swipes go to the day pager.
 	return (
-		<ScrollView style={fitContent && { flexGrow: 0 }} contentContainerStyle={styles.listContent}>
+		<ScrollView contentContainerStyle={styles.listContent}>
 			{content}
 		</ScrollView>
 	);
