@@ -1,4 +1,4 @@
-import type { CatalogShow, UpcomingEpisode } from "../types";
+import type { CatalogEpisode, CatalogShow, UpcomingEpisode } from "../types";
 import { localDateStr } from "./todayStr";
 
 /**
@@ -13,7 +13,9 @@ export function localAirDate(airDate: string | null, airStamp?: string): string 
 }
 
 /** Rewrite a catalog's episode airDates to the local day (idempotent — airStamp is kept) */
-export function localizeCatalog<T extends Pick<CatalogShow, "seasons"> | null | undefined>(show: T): T {
+export function localizeCatalog<
+	T extends { seasons?: { episodes?: Pick<CatalogEpisode, "airDate" | "airStamp">[] }[] } | null | undefined,
+>(show: T): T {
 	for (const season of show?.seasons ?? []) {
 		for (const ep of season.episodes ?? []) {
 			if (ep.airStamp) ep.airDate = localAirDate(ep.airDate, ep.airStamp);

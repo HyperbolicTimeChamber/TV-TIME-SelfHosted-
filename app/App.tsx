@@ -24,7 +24,8 @@ import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persi
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import NetInfo from "@react-native-community/netinfo";
-import { getAuth, onAuthStateChanged, reload, signOut } from "@react-native-firebase/auth";
+import { getAuth, onAuthStateChanged, reload } from "@react-native-firebase/auth";
+import type { User } from "@react-native-firebase/auth";
 import { getMessaging, getToken, requestPermission } from "@react-native-firebase/messaging";
 import { getFirestore, doc, setDoc } from "@react-native-firebase/firestore";
 import { useAuthStore, useUiStore } from "./src/stores";
@@ -35,6 +36,7 @@ import ImportDataScreen from "./src/screens/ImportDataScreen";
 import AppNavigator from "./src/navigation/AppNavigator";
 import { OfflineOverlay } from "./src/components";
 import { colors } from "./src/theme";
+import { FATAL_AUTH_ERRORS } from "./src/enums";
 
 // Keep native splash visible until auth resolves
 SplashScreen.preventAutoHideAsync();
@@ -78,6 +80,25 @@ async function registerFCMToken(userId: string) {
 		await setDoc(doc(db, "users", userId), { fcmToken: token }, { merge: true });
 	} catch (err) {
 		console.warn("FCM token registration failed:", err);
+	}
+}
+
+/**
+ * Background check that the account still exists server-side. Offline / slow / timed-out
+ * reloads are ignored — only a definitive auth error (deleted, disabled, revoked) signs out.
+ */
+async function verifySession(user: User) {
+	try {
+		await reload(user);
+	} catch (err) {
+		const code = (err as { code?: string } | null)?.code;
+		if (!code || !FATAL_AUTH_ERRORS.includes(code)) return;
+		// Signed out / switched account meanwhile → nothing to do
+		if (getAuth().currentUser?.uid !== user.uid) return;
+		useAuthStore
+			.getState()
+			.signOut()
+			.catch(() => {});
 	}
 }
 
@@ -162,21 +183,16 @@ export default function App() {
 	const setConnected = useUiStore((s) => s.setConnected);
 
 	useEffect(() => {
-		const unsubscribeAuth = onAuthStateChanged(getAuth(), async (firebaseUser) => {
+		const unsubscribeAuth = onAuthStateChanged(getAuth(), (firebaseUser) => {
+			// Persisted session is enough to enter (and hide the splash) — never wait on the network
+			setUser(firebaseUser);
 			if (firebaseUser) {
-				try {
-					await reload(firebaseUser);
-				} catch {
-					await signOut(getAuth());
-					setUser(null);
-					return;
-				}
-				registerFCMToken(firebaseUser.uid);
 				crashlytics().setUserId(firebaseUser.uid);
+				registerFCMToken(firebaseUser.uid);
+				verifySession(firebaseUser);
 			} else {
 				crashlytics().setUserId("");
 			}
-			setUser(firebaseUser);
 		});
 		return unsubscribeAuth;
 	}, [setUser]);

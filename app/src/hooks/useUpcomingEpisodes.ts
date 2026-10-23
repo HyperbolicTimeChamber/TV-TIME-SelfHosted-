@@ -174,8 +174,10 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 		);
 	}, [userId, cacheReady, archivePast]);
 
-	// Wait for authStore's config/app load (provides lastCatalogSync)
+	// Wait for authStore's config/app load (provides lastCatalogSync). Startup may apply the
+	// cached config first → re-check when the server's lastCatalogSync arrives
 	const configLoading = useAuthStore((s) => s.appTmdbApiKeyLoading);
+	const lastCatalogSync = useAuthStore((s) => s.lastCatalogSync);
 
 	// Check if backend has synced since our cache → refetch if so
 	useEffect(() => {
@@ -186,7 +188,7 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 			// lastCatalogSync comes from authStore's config/app read — no extra read here
 			const db = getFirestore();
 			try {
-				const serverSyncStr = useAuthStore.getState().lastCatalogSync;
+				const serverSyncStr = lastCatalogSync;
 
 				if (serverSyncStr && cachedSyncDate.current && serverSyncStr === cachedSyncDate.current) {
 					// Cache is fresh — no refetch needed
@@ -269,7 +271,7 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 				inflightMutations.delete(pending);
 			}
 		})();
-	}, [userId, cacheReady, configLoading, forceRefetch, archivePast]);
+	}, [userId, cacheReady, configLoading, lastCatalogSync, forceRefetch, archivePast]);
 
 	const retry = useCallback(() => setForceRefetch((t) => t + 1), []);
 

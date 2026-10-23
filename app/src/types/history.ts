@@ -1,4 +1,5 @@
 import { MediaType, WatchStatus } from "../enums";
+import type { CatalogEpisode, CatalogShow } from "./catalog";
 
 /** One Watch History row — the tracking doc's history fields, timestamps as ms (persistable) */
 export interface HistoryEntry {
@@ -25,7 +26,21 @@ export interface HistoryState {
 	hasMore: boolean;
 	/** Newest historyUpdatedAt seen — delta-sync cursor (ms) */
 	checkedAt: number;
+	/** What each card needs from its catalog, by tracking doc id — cards render from this
+	 *  while the shared catalog cache is still cold (full TV catalogs are heavy to fetch) */
+	catalogs?: Record<string, HistoryCatalog>;
 }
+
+/** The slice of a catalog a history card reads (aired episodes only need number + air day) */
+export type HistoryCatalog = Pick<
+	CatalogShow,
+	"title" | "logoPath" | "backdropPath" | "status" | "releaseDate" | "runtime"
+> & {
+	seasons: {
+		seasonNumber: number;
+		episodes: Pick<CatalogEpisode, "episodeNumber" | "airDate" | "airStamp">[];
+	}[];
+};
 
 /** Local write that touched a tracking doc — emitted by services, patches the cache */
 export interface HistoryChange {

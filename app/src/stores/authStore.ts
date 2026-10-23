@@ -8,9 +8,18 @@ import {
 	signOut as firebaseSignOut,
 } from "@react-native-firebase/auth";
 import type { User } from "@react-native-firebase/auth";
-import { getFirestore, doc, getDoc } from "@react-native-firebase/firestore";
+import {
+	getFirestore,
+	doc,
+	getDocFromCache,
+	getDocFromServer,
+} from "@react-native-firebase/firestore";
+import type { DocumentSnapshot } from "@react-native-firebase/firestore";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { MIN_BUILD_FIELD, RELEASE_CHANNEL, ReleaseChannel } from "../enums";
+
+/** Max wait on a startup server read when nothing is cached (then fall back; a late answer still applies) */
+const STARTUP_READ_TIMEOUT = 10_000;
 
 interface AuthState {
 	user: User | null;
@@ -61,26 +70,31 @@ export const useAuthStore = create<AuthState>((set) => ({
 	setLoading: (loading) => set({ loading }),
 
 	loadAppConfig: async () => {
-		// Timeout fallback — don't block app forever
-		const timeout = setTimeout(() => {
-			set({ appTmdbApiKeyLoading: false });
-		}, 10000);
+		const ref = doc(getFirestore(), "config", "app");
+		const apply = (snap: DocumentSnapshot): boolean => {
+			if (!snap.exists()) return false;
+			const data = snap.data();
+			set({
+				appTmdbApiKey: data?.tmdbApiKey ?? null,
+				minBuild:
+					(data?.[MIN_BUILD_FIELD[RELEASE_CHANNEL as ReleaseChannel]] as number | undefined) ?? null,
+				lastCatalogSync: data?.lastCatalogSync?.toDate?.()?.toISOString?.() ?? null,
+				previousCatalogSync: data?.previousCatalogSync?.toDate?.()?.toISOString?.() ?? null,
+				changedShowIds: Array.isArray(data?.changedShowIds) ? data.changedShowIds : null,
+			});
+			return true;
+		};
+		// Offline cache unblocks startup instantly (no billed read); server copy refreshes below
+		const cached = await getDocFromCache(ref)
+			.then(apply)
+			.catch(() => false);
+		if (cached) set({ appTmdbApiKeyLoading: false });
+		// Nothing cached → don't block the app forever on a slow network
+		const timeout = setTimeout(() => set({ appTmdbApiKeyLoading: false }), STARTUP_READ_TIMEOUT);
 		try {
-			const db = getFirestore();
-			const configDoc = await getDoc(doc(db, "config", "app"));
-			if (configDoc.exists()) {
-				const data = configDoc.data();
-				set({
-					appTmdbApiKey: data?.tmdbApiKey ?? null,
-					minBuild:
-						(data?.[MIN_BUILD_FIELD[RELEASE_CHANNEL as ReleaseChannel]] as number | undefined) ?? null,
-					lastCatalogSync: data?.lastCatalogSync?.toDate?.()?.toISOString?.() ?? null,
-					previousCatalogSync: data?.previousCatalogSync?.toDate?.()?.toISOString?.() ?? null,
-					changedShowIds: Array.isArray(data?.changedShowIds) ? data.changedShowIds : null,
-				});
-			}
+			apply(await getDocFromServer(ref));
 		} catch (error) {
-			console.error("Failed to load app config:", error);
+			console.warn("Failed to refresh app config:", error);
 		} finally {
 			clearTimeout(timeout);
 			set({ appTmdbApiKeyLoading: false });
@@ -88,17 +102,27 @@ export const useAuthStore = create<AuthState>((set) => ({
 	},
 
 	loadUserFlags: async (userId: string) => {
+		const ref = doc(getFirestore(), "users", userId);
+		const apply = (snap: DocumentSnapshot): boolean => {
+			// Signed out / switched account meanwhile → drop the stale result
+			if (useAuthStore.getState().user?.uid !== userId) return false;
+			// Missing doc (fresh account) → keep the default
+			if (!snap.exists()) return false;
+			set({ hasCompletedImport: snap.data()?.hasCompletedImport ?? false });
+			return true;
+		};
+		const cached = await getDocFromCache(ref)
+			.then(apply)
+			.catch(() => false);
+		if (cached) set({ userFlagsLoading: false });
+		// Nothing cached → wait for the server, but not forever (a late answer still applies)
+		const timeout = setTimeout(() => set({ userFlagsLoading: false }), STARTUP_READ_TIMEOUT);
 		try {
-			const db = getFirestore();
-			const userDoc = await getDoc(doc(db, "users", userId));
-			if (userDoc.exists()) {
-				set({
-					hasCompletedImport: userDoc.data()?.hasCompletedImport ?? false,
-				});
-			}
+			apply(await getDocFromServer(ref));
 		} catch (error) {
-			console.error("Failed to load user flags:", error);
+			console.warn("Failed to refresh user flags:", error);
 		} finally {
+			clearTimeout(timeout);
 			set({ userFlagsLoading: false });
 		}
 	},

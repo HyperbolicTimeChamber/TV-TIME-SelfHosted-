@@ -20,6 +20,7 @@ const card = (o: Partial<HistoryCard>): HistoryCard => ({
 	watchCount: null,
 	progress: { kind: HistoryProgress.PERCENT, percent: 55 },
 	tag: "Ongoing",
+	ready: true,
 	...o,
 });
 

@@ -1,11 +1,12 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
-import { View, Text, ActivityIndicator, TouchableOpacity } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { View, Text, ActivityIndicator, TouchableOpacity, useWindowDimensions } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LegendList } from "@legendapp/list/react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import PagerView from "react-native-pager-view";
 import SlidingTabs from "../../../components/SlidingTabs";
 import { CircleBackButton } from "../../../components/CircleButton";
 import { useSharedShimmer } from "../../../components/SkeletonLine";
@@ -29,6 +30,13 @@ const TABS = [
 	{ key: MediaType.MOVIE, label: "Movies" },
 ];
 const SKELETONS = [0, 1, 2];
+// Tab pager — same feel as Home's Watch List / Upcoming swipe
+const SLIDE_MS = 250;
+const START_PX = 25;
+const TURN_SHARE = 0.3;
+const FLICK_VELOCITY = 500;
+/** TV Shows: a rightward drag pulls the whole page this much per px, then pops on release */
+const BACK_PULL = 0.35;
 
 /** One tab's list — mounted once its page is first shown, so an unseen tab doesn't fetch */
 function HistoryList({
@@ -53,15 +61,19 @@ function HistoryList({
 	const shimmer = useSharedShimmer();
 
 	const renderItem = useCallback(
-		({ item }: { item: HistoryCard }) => (
-			<HistoryCardView
-				card={item}
-				onPress={() =>
-					navigation.navigate(Route.SHOW_DETAIL, { tmdbId: item.tmdbId, mediaType: item.mediaType })
-				}
-			/>
-		),
-		[navigation],
+		({ item }: { item: HistoryCard }) =>
+			// Title / art not here yet → skeleton until both the row and its show are
+			item.ready ? (
+				<HistoryCardView
+					card={item}
+					onPress={() =>
+						navigation.navigate(Route.SHOW_DETAIL, { tmdbId: item.tmdbId, mediaType: item.mediaType })
+					}
+				/>
+			) : (
+				<HistoryCardSkeleton shimmer={shimmer} />
+			),
+		[navigation, shimmer],
 	);
 
 	if (loading) {
@@ -105,9 +117,9 @@ function HistoryList({
 export default function WatchHistoryScreen() {
 	const navigation = useNavigation<Nav>();
 	const { top, bottom } = useSafeAreaInsets();
+	const { width } = useWindowDimensions();
 	const [tab, setTab] = useState<MediaType>(MediaType.TV);
-	// Swipe between TV Shows / Movies; a page's list mounts the first time it's shown
-	const pagerRef = useRef<PagerView>(null);
+	// A page's list mounts the first time it's shown (or dragged into view)
 	const [visited, setVisited] = useState<Set<MediaType>>(() => new Set([MediaType.TV]));
 	// Sort is remembered (cache); filters only last while this page is open
 	const [sort, setSort] = useHistorySort();
@@ -125,19 +137,95 @@ export default function WatchHistoryScreen() {
 			return next;
 		});
 	const fabBottom = bottom + 20;
-	const showPage = useCallback((key: MediaType) => {
-		setTab(key);
+	const mountPage = useCallback((key: MediaType) => {
 		setVisited((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
 	}, []);
+	const showPage = useCallback(
+		(key: MediaType) => {
+			setTab(key);
+			mountPage(key);
+		},
+		[mountPage],
+	);
+	const goBack = useCallback(() => navigation.goBack(), [navigation]);
+
+	// Swipe pager (Home's pattern): row position in px (0 = TV Shows, width = Movies) follows
+	// the finger; on TV Shows a rightward drag is a back swipe instead
+	const index = TABS.findIndex((t) => t.key === tab);
+	const pos = useSharedValue(index * width);
+	const pull = useSharedValue(0);
+	const dragging = useSharedValue(false);
+	// Where the row is sliding to — the `tab` re-render after a swipe doesn't restart the slide
+	const settle = useSharedValue(index * width);
+	// translationX at activation — the pan only starts after START_PX, without this the row jumps
+	const grab = useSharedValue(0);
+	useEffect(() => {
+		const to = index * width;
+		if (dragging.value || settle.value === to) return;
+		settle.value = to;
+		pos.value = withTiming(to, { duration: SLIDE_MS });
+	}, [index, width, pos, dragging, settle]);
+
+	const goTo = useCallback(
+		(key: MediaType) => {
+			const i = TABS.findIndex((t) => t.key === key);
+			settle.value = i * width;
+			pos.value = withTiming(i * width, { duration: SLIDE_MS });
+			showPage(key);
+		},
+		[pos, settle, width, showPage],
+	);
+
+	const pan = useMemo(
+		() =>
+			Gesture.Pan()
+				// TV Shows: both ways (left → Movies, right → back); Movies: right → TV Shows
+				.activeOffsetX(index === 0 ? [-START_PX, START_PX] : START_PX)
+				.failOffsetY([-15, 15])
+				.onStart((e) => {
+					"worklet";
+					dragging.value = true;
+					grab.value = e.translationX;
+					// Movies slides in under the finger — mount it now if it hasn't been shown
+					if (index === 0 && e.translationX < 0) runOnJS(mountPage)(TABS[1].key);
+				})
+				.onUpdate((e) => {
+					"worklet";
+					const dx = e.translationX - grab.value;
+					if (index === 0 && dx > 0) {
+						pos.value = 0;
+						pull.value = dx * BACK_PULL;
+						return;
+					}
+					pull.value = 0;
+					pos.value = Math.min(width, Math.max(0, index * width - dx));
+				})
+				.onEnd((e) => {
+					"worklet";
+					dragging.value = false;
+					const dx = e.translationX - grab.value;
+					if (index === 0 && dx > 0 && (dx > width * TURN_SHARE || e.velocityX > FLICK_VELOCITY)) {
+						runOnJS(goBack)();
+						return;
+					}
+					pull.value = withTiming(0, { duration: SLIDE_MS });
+					let next = index;
+					if (index === 0 && (dx < -width * TURN_SHARE || e.velocityX < -FLICK_VELOCITY)) next = 1;
+					if (index === 1 && (dx > width * TURN_SHARE || e.velocityX > FLICK_VELOCITY)) next = 0;
+					settle.value = next * width;
+					pos.value = withTiming(next * width, { duration: SLIDE_MS });
+					if (next !== index) runOnJS(showPage)(TABS[next].key);
+				}),
+		[index, width, pos, pull, dragging, settle, grab, mountPage, showPage, goBack],
+	);
+	const pages = useAnimatedStyle(() => ({ transform: [{ translateX: -pos.value }] }));
+	const pulled = useAnimatedStyle(() => ({ transform: [{ translateX: pull.value }] }));
 
 	return (
-		<View style={styles.container}>
+		<Animated.View style={[styles.container, pulled]}>
 			<View style={[styles.topBar, { paddingTop: top + 8 }]}>
 				<View style={styles.titleRow}>
-					<CircleBackButton
-						tone={CircleButtonTone.SURFACE_LIGHT}
-						onPress={() => navigation.goBack()}
-					/>
+					<CircleBackButton tone={CircleButtonTone.SURFACE_LIGHT} onPress={goBack} />
 					<Text style={styles.title}>Hall of Shame</Text>
 					{/* Mirrors the back button so the title is centred on the bar */}
 					<View style={styles.backSpacer} />
@@ -145,33 +233,29 @@ export default function WatchHistoryScreen() {
 				<SlidingTabs
 					tabs={TABS}
 					activeKey={tab}
-					onTabPress={(key) => {
-						showPage(key as MediaType);
-						pagerRef.current?.setPage(TABS.findIndex((t) => t.key === key));
-					}}
+					onTabPress={(key) => goTo(key as MediaType)}
 					style={styles.tabs}
 				/>
 			</View>
 			<View style={styles.listArea}>
-				<PagerView
-					ref={pagerRef}
-					style={styles.pager}
-					initialPage={0}
-					onPageSelected={(e) => showPage(TABS[e.nativeEvent.position].key)}
-				>
-					{TABS.map((t) => (
-						<View key={t.key} style={styles.pager}>
-							{visited.has(t.key) && (
-								<HistoryList
-									mediaType={t.key}
-									sort={sort}
-									filters={tabFilters(t.key)}
-									bottomInset={fabBottom + 72}
-								/>
-							)}
-						</View>
-					))}
-				</PagerView>
+				<GestureDetector gesture={pan}>
+					<View style={styles.pagerClip}>
+						<Animated.View style={[styles.pages, { width: width * TABS.length }, pages]}>
+							{TABS.map((t) => (
+								<View key={t.key} style={{ width }}>
+									{visited.has(t.key) && (
+										<HistoryList
+											mediaType={t.key}
+											sort={sort}
+											filters={tabFilters(t.key)}
+											bottomInset={fabBottom + 72}
+										/>
+									)}
+								</View>
+							))}
+						</Animated.View>
+					</View>
+				</GestureDetector>
 				{/* Sort / filter */}
 				<TouchableOpacity
 					style={[styles.fab, { bottom: fabBottom }]}
@@ -201,6 +285,6 @@ export default function WatchHistoryScreen() {
 				onToggleFilter={toggleFilter}
 				onClearFilters={() => setFilters(new Set())}
 			/>
-		</View>
+		</Animated.View>
 	);
 }

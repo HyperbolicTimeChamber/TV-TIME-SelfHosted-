@@ -39,26 +39,54 @@ export interface EnrichedTrackingItem extends TrackingItem {
 	catalogShow: CatalogShow | null;
 }
 
+// Android reads a stored value through a 2MB window (UTF-16, so ~1M chars): the whole catalog as
+// one value (~2M chars) failed to load on every start ("Row too big to fit into CursorWindow"), so
+// each show is its own value. A show this big is left unsaved rather than stored unreadable
+const CATALOG_ENTRY_MAX_CHARS = 900_000;
+// docId → JSON last written, so a persist only writes the shows that changed
+const persistedCatalog = new Map<string, string>();
+
 /** Persist catalog cache to AsyncStorage (skip null entries — they represent missing docs that may appear later) */
 function persistCatalogCache(cache: Map<string, CatalogShow | null>) {
-	const obj: Record<string, CatalogShow> = {};
+	const changed: Record<string, string> = {};
+	const kept = new Set<string>();
 	for (const [key, val] of cache) {
-		if (val != null) obj[key] = val;
+		if (val == null) continue;
+		const json = JSON.stringify(val);
+		if (json.length > CATALOG_ENTRY_MAX_CHARS) continue;
+		kept.add(key);
+		if (persistedCatalog.get(key) === json) continue;
+		persistedCatalog.set(key, json);
+		changed[CacheKey.CATALOG_SHOW + key] = json;
 	}
-	AsyncStorage.setItem(CacheKey.CATALOG_CACHE, JSON.stringify(obj)).catch(() => {});
+	const dropped = [...persistedCatalog.keys()].filter((key) => !kept.has(key));
+	for (const key of dropped) persistedCatalog.delete(key);
+	if (Object.keys(changed).length === 0 && dropped.length === 0) return;
+	changed[CacheKey.CATALOG_INDEX] = JSON.stringify([...kept]);
+	AsyncStorage.setMany(changed).catch(() => {});
+	if (dropped.length) AsyncStorage.removeMany(dropped.map((key) => CacheKey.CATALOG_SHOW + key)).catch(() => {});
 }
 
 /** Restore catalog cache from AsyncStorage */
 async function restoreCatalogCache(): Promise<Map<string, CatalogShow | null>> {
+	// The old single-value cache can't be read back on Android — free its ~2MB
+	AsyncStorage.removeItem(CacheKey.CATALOG_CACHE).catch(() => {});
+	const restored = new Map<string, CatalogShow | null>();
 	try {
-		const raw = await AsyncStorage.getItem(CacheKey.CATALOG_CACHE);
-		if (!raw) return new Map();
-		const obj = JSON.parse(raw) as Record<string, CatalogShow | null>;
-		// Re-derive local air days (timezone may have changed since it was cached)
-		return new Map(Object.entries(obj).map(([k, v]) => [k, localizeCatalog(v)]));
-	} catch {
-		return new Map();
-	}
+		const index = JSON.parse((await AsyncStorage.getItem(CacheKey.CATALOG_INDEX)) ?? "[]") as string[];
+		if (index.length === 0) return restored;
+		const rows = await AsyncStorage.getMany(index.map((key) => CacheKey.CATALOG_SHOW + key));
+		for (const key of index) {
+			const raw = rows[CacheKey.CATALOG_SHOW + key];
+			if (!raw) continue;
+			try {
+				// Re-derive local air days (timezone may have changed since it was cached)
+				restored.set(key, localizeCatalog(JSON.parse(raw) as CatalogShow));
+				persistedCatalog.set(key, raw);
+			} catch {}
+		}
+	} catch {}
+	return restored;
 }
 
 // Shows re-read from Firestore this session for stale/missing display data (1 read max each)

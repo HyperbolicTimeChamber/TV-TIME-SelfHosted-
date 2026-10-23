@@ -1,4 +1,4 @@
-import type { CatalogShow, HistoryEntry } from "../types";
+import type { HistoryCatalog, HistoryEntry } from "../types";
 import { ENDED_STATUSES, HistoryPill, HistoryProgress, MediaType, WatchStatus } from "../enums";
 import { formatTime } from "./format";
 
@@ -24,6 +24,8 @@ export interface HistoryCard {
 	progress: { kind: HistoryProgress; percent?: number } | null;
 	/** "Ongoing" / "Ended" (TV), release year (movies) */
 	tag: string | null;
+	/** Catalog known (or confirmed missing) — false → the list shows a skeleton, not a blank card */
+	ready: boolean;
 }
 
 const PILL: Record<WatchStatus, HistoryPill> = {
@@ -36,7 +38,7 @@ const PILL: Record<WatchStatus, HistoryPill> = {
 };
 
 /** Aired episodes (specials excluded) in watch order */
-function airedEpisodes(catalog: CatalogShow | null, today: string) {
+function airedEpisodes(catalog: HistoryCatalog | null, today: string) {
 	return [...(catalog?.seasons ?? [])]
 		.filter((s) => s.seasonNumber > 0)
 		.sort((a, b) => a.seasonNumber - b.seasonNumber)
@@ -61,8 +63,10 @@ function percentWatched(entry: HistoryEntry, aired: { season: number; episode: n
 /** Everything Watch History shows for one row — pure, catalog from the shared cache */
 export function deriveHistoryCard(
 	entry: HistoryEntry,
-	catalog: CatalogShow | null,
+	catalog: HistoryCatalog | null,
 	today: string,
+	/** No catalog, but its fetch is done (doc missing / failed) → render what we have */
+	catalogSettled = false,
 ): HistoryCard {
 	const isMovie = entry.mediaType === MediaType.MOVIE;
 	const ended = ENDED_STATUSES.includes(catalog?.status ?? "");
@@ -142,5 +146,6 @@ export function deriveHistoryCard(
 		watchCount,
 		progress,
 		tag: isMovie ? year || null : catalog ? (ended ? "Ended" : "Ongoing") : null,
+		ready: !!catalog || catalogSettled,
 	};
 }

@@ -73,7 +73,14 @@ function HistoryList({
 				items={cards}
 				columns={columns}
 				getKey={(card) => card.id}
-				renderItem={(card) => <HistoryCard card={card} onClick={() => navigate(showPath(card.mediaType, card.tmdbId))} />}
+				renderItem={(card) =>
+					// Title / art not here yet → skeleton until both the row and its show are
+					card.ready ? (
+						<HistoryCard card={card} onClick={() => navigate(showPath(card.mediaType, card.tmdbId))} />
+					) : (
+						<SkeletonBlock className={styles.skeleton} />
+					)
+				}
 				className={styles.masonry}
 				columnClassName={styles.masonryColumn}
 			/>
@@ -154,7 +161,8 @@ export default function WatchHistoryScreen() {
 					</Popover>
 				</div>
 			</motion.header>
-			{/* Swipe left/right between TV Shows and Movies (vertical scroll stays native) */}
+			{/* Swipe left/right between TV Shows and Movies (vertical scroll stays native);
+			    swiping right on TV Shows goes back, like the app */}
 			<AnimatePresence mode="wait" initial={false} custom={dir}>
 				<motion.div
 					key={tab}
@@ -170,7 +178,10 @@ export default function WatchHistoryScreen() {
 					className="touch-pan-y"
 					onDragEnd={(_, info) => {
 						if (info.offset.x < -SWIPE_PX) goTo(index + 1);
-						else if (info.offset.x > SWIPE_PX) goTo(index - 1);
+						else if (info.offset.x > SWIPE_PX) {
+							if (index === 0) goBack();
+							else goTo(index - 1);
+						}
 					}}
 				>
 					<HistoryList mediaType={tab} sort={sort} filters={tabFilters} />

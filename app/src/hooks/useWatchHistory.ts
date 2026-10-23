@@ -17,10 +17,12 @@ import {
 	onHistoryChange,
 	showDocId,
 	todayStr,
+	withHistoryCatalogs,
+	localizeCatalog,
 	type HistoryCard,
 } from "../utils";
-import { getCachedCatalogShow } from "./useWatchlist";
-import { ensureFreshCatalogs } from "./catalogRefresh";
+import { getCachedCatalogShow, whenCatalogRestored } from "./useWatchlist";
+import { catalogSettled, ensureFreshCatalogs } from "./catalogRefresh";
 
 // --- Store: one cached list per (user, tab), persisted to AsyncStorage (localStorage on web) ---
 
@@ -43,6 +45,8 @@ async function load(userId: string, mediaType: MediaType): Promise<HistoryState 
 		const raw = await AsyncStorage.getItem(storageKey(mediaType));
 		const parsed = raw ? (JSON.parse(raw) as HistoryState) : null;
 		if (parsed?.userId !== userId) return null;
+		// Re-derive local air days (timezone may have changed since it was cached)
+		Object.values(parsed.catalogs ?? {}).forEach(localizeCatalog);
 		states.set(storeKey(userId, mediaType), parsed);
 		subscribers.forEach((fn) => fn());
 		return parsed;
@@ -208,11 +212,21 @@ export function useWatchHistory(
 		};
 	}, [userId, mediaType]);
 
+	// Persisted catalog cache restores in the background — re-derive once it's in
+	useEffect(() => {
+		let cancelled = false;
+		whenCatalogRestored().then(() => !cancelled && setCatalogVersion((v) => v + 1));
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
 	useEffect(() => {
 		if (!state) return;
 		ensureFreshCatalogs(state.items)
-			.then((fetched) => fetched && setCatalogVersion((v) => v + 1))
-			.catch(() => {});
+			// Failed → re-derive anyway: those cards stop waiting and render what they have
+			.catch(() => true)
+			.then((fetched) => fetched && setCatalogVersion((v) => v + 1));
 	}, [state]);
 
 	const loadMore = useCallback(async () => {
@@ -233,22 +247,42 @@ export function useWatchHistory(
 	const isDefault = isDefaultHistoryView(sort, filters);
 	const view = useHistoryView(userId, mediaType, sort, filters, !isDefault);
 
-	const entries = isDefault ? (state?.items ?? []) : (view.items ?? []);
+	const viewItems = view.items;
+	const entries = useMemo(
+		() => (isDefault ? (state?.items ?? []) : (viewItems ?? [])),
+		[isDefault, state?.items, viewItems],
+	);
 	// Catalog details (logo, backdrop, status) for a view's titles too
 	useEffect(() => {
 		if (isDefault || !view.items?.length) return;
 		ensureFreshCatalogs(view.items)
-			.then((fetched) => fetched && setCatalogVersion((v) => v + 1))
-			.catch(() => {});
+			.catch(() => true)
+			.then((fetched) => fetched && setCatalogVersion((v) => v + 1));
 	}, [isDefault, view.items]);
 
+	// Shared catalog first, else the copy kept with the list (cold catalog cache / slow network)
+	const kept = state?.catalogs;
 	const cards: HistoryCard[] = useMemo(() => {
 		const today = todayStr();
 		return entries.map((e) =>
-			deriveHistoryCard(e, getCachedCatalogShow(e.tmdbId, e.mediaType), today),
+			deriveHistoryCard(
+				e,
+				getCachedCatalogShow(e.tmdbId, e.mediaType) ?? kept?.[e.id] ?? null,
+				today,
+				catalogSettled(e.tmdbId, e.mediaType),
+			),
 		);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [entries, catalogVersion]);
+	}, [entries, kept, catalogVersion]);
+
+	// Keep each card's catalog with the cached list, so the next open renders it from disk
+	useEffect(() => {
+		if (!userId || entries.length === 0) return;
+		const latest = states.get(storeKey(userId, mediaType));
+		if (!latest) return;
+		const next = withHistoryCatalogs(latest, entries, (e) => getCachedCatalogShow(e.tmdbId, e.mediaType));
+		if (next !== latest) save(mediaType, next);
+	}, [userId, mediaType, entries, catalogVersion]);
 
 	if (!isDefault) {
 		return {

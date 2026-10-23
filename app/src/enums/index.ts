@@ -19,6 +19,17 @@ export enum ShowStatus {
 
 export const ENDED_STATUSES: string[] = [ShowStatus.ENDED, ShowStatus.CANCELED];
 
+/** Firebase auth errors meaning the session is truly dead (account deleted/disabled, token revoked) */
+export enum FatalAuthError {
+	USER_NOT_FOUND = "auth/user-not-found",
+	USER_DISABLED = "auth/user-disabled",
+	USER_TOKEN_EXPIRED = "auth/user-token-expired",
+	INVALID_USER_TOKEN = "auth/invalid-user-token",
+}
+
+/** Only these may sign the user out automatically — never a network/timeout error */
+export const FATAL_AUTH_ERRORS: string[] = Object.values(FatalAuthError);
+
 /** Why a screen failed to load — drives the error state's copy and actions */
 export enum LoadErrorKind {
 	NOT_FOUND = "not_found",
@@ -49,7 +60,12 @@ export enum CacheKey {
 	USER_STATS = "profile_stats_cache",
 	HIDE_UNRELEASED_MODAL = "hideUnreleasedMovieModal",
 	IMPORT_IN_PROGRESS = "import_in_progress",
+	/** Legacy: the whole catalog as one ~2MB value — Android couldn't read it back. Deleted on start */
 	CATALOG_CACHE = "catalog_cache_v1",
+	/** Doc ids of the shows saved under CATALOG_SHOW */
+	CATALOG_INDEX = "catalog_index_v2",
+	/** + docId — one catalog show per value */
+	CATALOG_SHOW = "catalog_show_v2:",
 	CATALOG_SYNC_STAMP = "catalog_sync_stamp_v1",
 	UPCOMING_PAST = "upcoming_past_v1",
 	PROFILE_CARD_IMAGES = "profile_card_images_v1",
