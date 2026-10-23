@@ -21,8 +21,9 @@
 	contain: size;
 }
 
+/* Card itself fades to 0.5 (app WatchedEpisodeRow) */
 .watchedPoster {
-	opacity: 0.5;
+	opacity: 0.6;
 }
 
 .info {

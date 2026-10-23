@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from "react-native";
+import { AppState, View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
 	CommonActions,
@@ -62,6 +62,19 @@ export default function HomeScreen() {
 	useEffect(() => {
 		if (!dragging.value) pos.value = withTiming(index * width, { duration: SLIDE_MS });
 	}, [index, width, pos, dragging]);
+
+	// Back from background the row can come back at Watch List while `tab` still says Upcoming
+	// (view restored / gesture cut off mid-drag) — snap it back to the tab state
+	const target = useRef(index * width);
+	target.current = index * width;
+	useEffect(() => {
+		const sub = AppState.addEventListener("change", (state) => {
+			if (state !== "active") return;
+			dragging.value = false;
+			pos.value = target.current;
+		});
+		return () => sub.remove();
+	}, [pos, dragging]);
 
 	useEffect(() => {
 		const parent = navigation.getParent();

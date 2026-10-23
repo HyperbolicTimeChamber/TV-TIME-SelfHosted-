@@ -126,7 +126,7 @@ export default memo(function ShowCard({
 				rightIcon={wc > 1 ? "−1" : undefined}
 				persistAfterSwipe={{ left: true, right: wc > 1 }}
 			>
-				<div className={styles.container} onClick={handlePress} role="button">
+				<div className={`${styles.container} opacity-50`} onClick={handlePress} role="button">
 					<PosterImage posterPath={item.posterPath} mediaType={item.mediaType} className={`${styles.poster} ${styles.watchedPoster}`} />
 					<div className={styles.info}>
 						{titlePill(true)}
