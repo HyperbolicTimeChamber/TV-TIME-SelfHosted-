@@ -48,3 +48,4 @@ firebase-debug.log
 
 # Functions params are non-secret config — tracked
 !functions/.env
+.playwright-mcp/

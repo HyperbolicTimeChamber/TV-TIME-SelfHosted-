@@ -86,7 +86,7 @@ export default function SearchScreen() {
 		<div className={`${styles.container} pt-(--header-h)`} style={cssVars({ "--header-h": px(headerHeight) })}>
 			<motion.header
 				ref={headerRef}
-				className={styles.headerBlock}
+				className={`${styles.headerBlock} ${signedIn ? styles.headerBlockTabs : ""}`}
 				animate={{ y: headerVisible ? 0 : "-100%" }}
 				transition={{ duration: 0.2 }}
 			>

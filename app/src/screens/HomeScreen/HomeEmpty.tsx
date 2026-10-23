@@ -10,13 +10,11 @@ import {
 import { Image } from "expo-image";
 import { colors, fonts, spacing, typography } from "../../theme";
 
-/** TV-headed host art for the Home tabs' empty states (transparent WebP, width / height) */
 export const WELCOME_ART = { source: require("../../../assets/welcome.webp"), ratio: 1080 / 647 };
 export const UPCOMING_EMPTY_ART = {
 	source: require("../../../assets/upcoming-empty.webp"),
 	ratio: 1080 / 599,
 };
-/** Snorlax, asleep — "all caught up" */
 export const CAUGHT_UP_ART = {
 	source: require("../../../assets/caught-up.webp"),
 	ratio: 660 / 486,
