@@ -99,7 +99,6 @@ export default memo(function ShowCard({
 	const swipeRef = useRef<SwipeableCardRef>(null);
 
 	const handlePress = useCallback(() => {
-		console.log("DBGTAP handlePress", item.tmdbId);
 		if (item.mediaType === MediaType.MOVIE && onTitlePress) {
 			onTitlePress(item);
 		} else {
@@ -209,7 +208,6 @@ export default memo(function ShowCard({
 		>
 			<TouchableOpacity
 				style={styles.container}
-				onPressIn={() => console.log("DBGTAP pressIn")}
 				onPress={handlePress}
 				onLongPress={handleLongPress}
 				activeOpacity={0.8}

@@ -167,10 +167,10 @@ export const useAuthStore = create<AuthState>((set) => ({
 			const auth = getAuth();
 			const currentUser = auth.currentUser;
 			const isGoogleUser = currentUser?.providerData.some((p) => p.providerId === "google.com");
-			if (isGoogleUser) {
-				await GoogleSignin.revokeAccess().catch(() => {});
-			}
+			// Firebase sign-out is local — leave the app straight away. Revoking Google access is a
+			// network round trip: awaited first, it held the user on Settings on a slow connection
 			await firebaseSignOut(auth);
+			if (isGoogleUser) GoogleSignin.revokeAccess().catch(() => {});
 			set({
 				appTmdbApiKey: null,
 				appTmdbApiKeyLoading: true,

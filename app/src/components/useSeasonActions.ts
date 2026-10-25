@@ -430,6 +430,7 @@ export function useSeasonActions({
 		tmdbId,
 		season.season_number,
 		resolveTrackingWrite,
+		queryClient,
 	]);
 
 	const handleMarkSeasonWatched = useCallback(

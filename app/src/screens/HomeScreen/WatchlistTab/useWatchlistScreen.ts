@@ -116,7 +116,8 @@ export function useWatchlistScreen(
 
 	const handleCardPress = useCallback(
 		async (tmdbId: number, _mediaType: MediaType) => {
-			console.log("DBGTAP handleCardPress", tmdbId);
+			const dbgT0 = Date.now();
+			console.log("DBGMODAL press", tmdbId);
 			const listItem = listData.find((li) => li.type === "show" && li.item.tmdbId === tmdbId);
 			if (!listItem || listItem.type !== "show") return;
 			const item = listItem.item;
@@ -177,6 +178,7 @@ export function useWatchlistScreen(
 				const colRef = collection(doc(db, "users", user!.uid), "watchedEpisodes");
 				const q = query(colRef, where("tmdbShowId", "==", tmdbId));
 				const snap = await getDocs(q);
+				console.log("DBGMODAL getDocs", snap.size, Date.now() - dbgT0, "ms");
 				showWatched = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as WatchedEpisode[];
 				queryClient.setQueryData([QueryKey.WATCHED_EPISODES, user!.uid, tmdbId], showWatched);
 			}
@@ -201,6 +203,8 @@ export function useWatchlistScreen(
 				isRewatching: item.status === WatchStatus.REWATCHING,
 				rewatchCount: item.status === WatchStatus.REWATCHING ? (item.rewatchCount ?? 0) : 0,
 			});
+			console.log("DBGMODAL setVisible", Date.now() - dbgT0, "ms", carouselEps.length, "eps");
+			(globalThis as any).__dbgModalT0 = dbgT0;
 			setEpModalVisible(true);
 		},
 		[listData, user?.uid, queryClient],

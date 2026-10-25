@@ -63,6 +63,10 @@ export default function EpisodeDetailModal({
 		setLocalWatched(watchedKeys);
 	}, [watchedKeys]);
 
+	useEffect(() => {
+		if (visible) console.log("DBGMODAL modal effect", Date.now() - ((globalThis as any).__dbgModalT0 ?? 0), "ms");
+	}, [visible]);
+
 	// Watched in this run = count above runBase. From the counts the modal opened with (the
 	// pointer episode sits at it), not the stored rewatch number — that one can lag, which
 	// showed the next rewatch episode as already watched (Unwatch / Rewatch / Skip)
