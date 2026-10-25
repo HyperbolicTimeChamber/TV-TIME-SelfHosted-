@@ -47,8 +47,9 @@ export default function SearchScreen() {
 	// Results only (Trending keeps its own order); remembered for the session
 	const [sortView, setSortView] = useSearchSort();
 	const [sortOpen, setSortOpen] = useState(false);
-	const headerVisible = useCollapsingHeader();
 	const [headerRef, headerHeight] = useElementHeight<HTMLElement>();
+	// Follows the scroll continuously; held open while the sort popover (anchored in it) is up
+	const headerY = useCollapsingHeader(headerHeight, sortOpen);
 
 	const actions = useSearchActions();
 	const signedIn = !!actions.user;
@@ -103,8 +104,7 @@ export default function SearchScreen() {
 			<motion.header
 				ref={headerRef}
 				className={`${styles.headerBlock} ${signedIn ? styles.headerBlockTabs : ""}`}
-				animate={{ y: headerVisible ? 0 : "-100%" }}
-				transition={{ duration: 0.2 }}
+				style={{ y: headerY }}
 			>
 				{!signedIn && (
 					<div className={styles.guestBar}>

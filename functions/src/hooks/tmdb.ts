@@ -1,5 +1,5 @@
 import axios from "axios";
-import { MediaType, TMDB_BASE, ENDED_STATUSES } from "../shared/enums";
+import { EpisodeType, MediaType, TMDB_BASE, ENDED_STATUSES } from "../shared/enums";
 import { applyAirStamps, fetchTvmazeAirStamps, lookupTvmazeId, needsAirStamps } from "./tvmaze";
 import {
   CatalogShow,
@@ -53,16 +53,38 @@ async function fetchSeasonEpisodes(
     seasonNumber: data.season_number,
     episodeCount: data.episodes.length,
     airDate: data.air_date,
-    episodes: data.episodes.map((ep, _idx, arr) => ({
+    episodes: data.episodes.map((ep) => ({
       episodeNumber: ep.episode_number,
       title: ep.name,
       overview: ep.overview ?? "",
       airDate: ep.air_date,
       runtime: ep.runtime,
       stillPath: ep.still_path ?? null,
-      isSeasonFinale: ep.episode_number === arr.length,
+      // Only TMDB's explicit marker counts — the last listed episode is often just the latest
+      ...(ep.episode_type ? { episodeType: ep.episode_type } : {}),
+      isSeasonFinale: ep.episode_type === EpisodeType.FINALE,
     })),
   };
+}
+
+/**
+ * Seasons a partial refresh must re-fetch: forced ones, ones the stored doc lacks, and ones
+ * whose TMDB episode count no longer matches. Everything else reuses the stored season.
+ */
+export function seasonsToFetch(
+  listed: Array<{ season_number: number; episode_count: number }>,
+  stored: Array<Pick<CatalogSeason, "seasonNumber" | "episodeCount">>,
+  forced: number[],
+): number[] {
+  const storedCounts = new Map(stored.map((s) => [s.seasonNumber, s.episodeCount]));
+  return listed
+    .filter((s) => s.season_number > 0)
+    .filter(
+      (s) =>
+        forced.includes(s.season_number) ||
+        storedCounts.get(s.season_number) !== s.episode_count,
+    )
+    .map((s) => s.season_number);
 }
 
 /**
@@ -111,8 +133,13 @@ export async function fetchShowFromTMDB(
   apiKey: string,
   tmdbId: number,
   mediaType: MediaType,
-  /** Known TVMaze id from the stored catalog doc — skips the lookup call */
-  opts: { tvmazeId?: number | null } = {},
+  /** Known TVMaze id from the stored catalog doc — skips the lookup call.
+   *  With `reuseSeasons`, only `refetchSeasons` + new/resized seasons hit TMDB (refreshShow) */
+  opts: {
+    tvmazeId?: number | null;
+    reuseSeasons?: CatalogSeason[];
+    refetchSeasons?: number[];
+  } = {},
 ): Promise<CatalogShow> {
   const endpoint =
     mediaType === MediaType.TV
@@ -137,10 +164,17 @@ export async function fetchShowFromTMDB(
     const seasonNumbers = data.seasons
       .filter((s) => s.season_number > 0)
       .map((s) => s.season_number);
-
-    const tasks = seasonNumbers.map(
-      (num) => () => fetchSeasonEpisodes(apiKey, tmdbId, num),
+    const reuse = new Map((opts.reuseSeasons ?? []).map((s) => [s.seasonNumber, s]));
+    const fetchSet = new Set(
+      opts.reuseSeasons
+        ? seasonsToFetch(data.seasons, opts.reuseSeasons, opts.refetchSeasons ?? [])
+        : seasonNumbers,
     );
+
+    const tasks = seasonNumbers.map((num) => async () => {
+      const kept = reuse.get(num);
+      return !fetchSet.has(num) && kept ? kept : fetchSeasonEpisodes(apiKey, tmdbId, num);
+    });
     seasons = await pooled(tasks, 5);
     totalEpisodes = seasons.reduce((sum, s) => sum + s.episodeCount, 0);
     totalSeasons = seasons.length;

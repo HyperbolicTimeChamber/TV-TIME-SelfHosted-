@@ -30,6 +30,7 @@ export const markSeasonWatched = onCall(
       skipTracking,
       status,
       incrementRewatch,
+      rewatchCount,
     } = data;
 
     if (!tmdbId || !seasonNumber || !episodes?.length) {
@@ -116,7 +117,10 @@ export const markSeasonWatched = onCall(
     if (status && Object.values(WatchStatus).includes(status)) {
       trackingUpdate.status = status;
     }
-    if (incrementRewatch) {
+    // Absolute run number (client derives it from the episode counts) wins over the +1 bump
+    if (typeof rewatchCount === "number" && Number.isInteger(rewatchCount) && rewatchCount >= 0) {
+      trackingUpdate.rewatchCount = rewatchCount;
+    } else if (incrementRewatch) {
       trackingUpdate.rewatchCount = FieldValue.increment(1);
     }
     // History counts every mark, even when the pointer stays put

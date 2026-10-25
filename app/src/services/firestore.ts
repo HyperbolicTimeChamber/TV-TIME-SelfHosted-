@@ -19,6 +19,7 @@ import { WatchStatus, MediaType, CloudFunction, CatalogShow } from "../types";
 import { showDocId, emitHistoryChange, localizeCatalog } from "../utils";
 import { trackApi } from "./analytics";
 import { historyOnWatch, historyOnUnwatch, historyCleared, historyOnChange } from "./history";
+import { shareCatalogCreate } from "./refreshShow";
 
 /** Tracked Cloud Function call */
 function callCF<T = any>(name: string, data: any): Promise<T> {
@@ -158,8 +159,8 @@ export async function addToTracking(
 	// Background: ensure catalog exists + update trackedBy
 	// If CF fails after retry → rollback tracking doc + call onError
 	const callAddShow = () => callCF(CloudFunction.ADD_SHOW, { tmdbId, mediaType });
-	callAddShow().catch(() =>
-		callAddShow().catch(async () => {
+	const addShow = callAddShow().catch(() =>
+		callAddShow().catch(async (err: unknown) => {
 			// Both attempts failed — undo the local add
 			const rollback = writeBatch(db);
 			rollback.delete(tRef);
@@ -169,8 +170,13 @@ export async function addToTracking(
 			await rollback.commit().catch(() => {});
 			// Emit error for UI to pick up
 			addTrackingErrorListeners.forEach((fn) => fn(tmdbId, meta?.title || `Show #${tmdbId}`));
+			// Rejects so the shared catalog fill falls back
+			throw err;
 		}),
 	);
+	// Its response is the catalog doc → a background catalog fill reuses it
+	shareCatalogCreate(tmdbId, mediaType, addShow);
+	addShow.catch(() => {});
 }
 
 // Error listeners for background CF failures
@@ -239,6 +245,14 @@ export interface TrackingWriteOpts {
 	skipTracking?: boolean;
 	status?: WatchStatus;
 	incrementRewatch?: boolean;
+	/** Absolute rewatch run number to store (wins over incrementRewatch) */
+	rewatchCount?: number;
+}
+
+/** Tracking fields a caller already holds — saves the unwatch paths a tracking-doc read */
+export interface KnownTracking {
+	status?: WatchStatus;
+	rewatchCount?: number;
 }
 
 export async function markEpisodeWatched(
@@ -301,7 +315,8 @@ export async function markEpisodeWatched(
 				trackingUpdate.status = WatchStatus.COMPLETED;
 			}
 			if (opts.status) trackingUpdate.status = opts.status;
-			if (opts.incrementRewatch) trackingUpdate.rewatchCount = increment(1);
+			if (typeof opts.rewatchCount === "number") trackingUpdate.rewatchCount = opts.rewatchCount;
+			else if (opts.incrementRewatch) trackingUpdate.rewatchCount = increment(1);
 			tx.update(doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)), {
 				...trackingUpdate,
 				...historyOnWatch(runtime, 1, now, { season, episode }),
@@ -328,7 +343,9 @@ export async function markEpisodeWatched(
 			: {
 					nextEpisode,
 					status: opts.status ?? (isShowComplete ? WatchStatus.COMPLETED : undefined),
-					rewatchDelta: opts.incrementRewatch ? 1 : 0,
+					...(typeof opts.rewatchCount === "number"
+						? { rewatchCount: opts.rewatchCount }
+						: { rewatchDelta: opts.incrementRewatch ? 1 : 0 }),
 				}),
 	});
 
@@ -344,11 +361,23 @@ export async function markEpisodeWatched(
 
 /** Unwatching back to a hole in the first watch ends any rewatch (a show can't be rewatched
  *  before it's finished) — take that rewatch's count back too, or a "Rewatch N" tag lingers */
-async function droppedRewatchFields(userId: string, tmdbShowId: number) {
-	const snap = await getDoc(doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)));
-	const status = snap.data()?.status;
+async function droppedRewatchFields(userId: string, tmdbShowId: number, known?: KnownTracking) {
+	// Caller's live tracking doc → no read (a server round trip held the unwatch back)
+	const data = known
+		? known
+		: (await getDoc(doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)))).data();
+	const status = data?.status;
 	const inRewatch = status === WatchStatus.REWATCHING || status === WatchStatus.PAUSED_REWATCH;
-	return inRewatch && (snap.data()?.rewatchCount ?? 0) > 0 ? { rewatchCount: increment(-1) } : {};
+	return inRewatch && (data?.rewatchCount ?? 0) > 0 ? { rewatchCount: increment(-1) } : {};
+}
+
+/** Self-heal: store the rewatch run number the episode counts show (see observedRewatchRun) */
+export async function setRewatchCount(userId: string, tmdbShowId: number, rewatchCount: number) {
+	await updateDoc(doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)), {
+		rewatchCount,
+		...historyOnChange(),
+	});
+	emitHistoryChange({ userId, tmdbId: tmdbShowId, mediaType: MediaType.TV, rewatchCount });
 }
 
 export async function unmarkEpisodeWatched(
@@ -359,6 +388,7 @@ export async function unmarkEpisodeWatched(
 	runtime: number,
 	episodeName?: string | null,
 	nextEpisodeAirDate?: string | null,
+	known?: KnownTracking,
 ) {
 	const docId = episodeDocId(tmdbShowId, season, episode);
 	const epRef = doc(watchedEpisodesRef(userId), docId);
@@ -385,7 +415,7 @@ export async function unmarkEpisodeWatched(
 			status: WatchStatus.WATCHING,
 			priorityDate: Timestamp.now(),
 			...historyOnUnwatch(runtime),
-			...(await droppedRewatchFields(userId, tmdbShowId)),
+			...(await droppedRewatchFields(userId, tmdbShowId, known)),
 		},
 		{ merge: true },
 	);
@@ -410,6 +440,7 @@ export async function decrementEpisodeWatchCount(
 	currentWatchCount: number,
 	episodeName?: string | null,
 	nextEpisodeAirDate?: string | null,
+	known?: KnownTracking,
 ) {
 	const docId = episodeDocId(tmdbShowId, season, episode);
 	const epRef = doc(watchedEpisodesRef(userId), docId);
@@ -446,7 +477,7 @@ export async function decrementEpisodeWatchCount(
 						nextEpisodeAirDate: nextEpisodeAirDate || null,
 						status: WatchStatus.WATCHING,
 						priorityDate: Timestamp.now(),
-						...(await droppedRewatchFields(userId, tmdbShowId)),
+						...(await droppedRewatchFields(userId, tmdbShowId, known)),
 					}
 				: {}),
 			...historyOnUnwatch(runtime),
@@ -469,6 +500,7 @@ export async function unmarkSeasonWatched(
 	userId: string,
 	tmdbShowId: number,
 	episodes: Array<{ season: number; episode: number; runtime: number }>,
+	known?: KnownTracking,
 ) {
 	const seasonNumber = episodes[0]?.season;
 	if (seasonNumber == null) return;
@@ -519,7 +551,7 @@ export async function unmarkSeasonWatched(
 			status: WatchStatus.WATCHING,
 			priorityDate: Timestamp.now(),
 			...historyOnUnwatch(historyMinutes, historyPlays),
-			...(await droppedRewatchFields(userId, tmdbShowId)),
+			...(await droppedRewatchFields(userId, tmdbShowId, known)),
 		},
 		{ merge: true },
 	);
@@ -896,8 +928,10 @@ export async function addAndMarkMovieWatched(
 		status: WatchStatus.COMPLETED,
 	});
 
-	// Background: ensure catalog exists
-	callCF(CloudFunction.ADD_SHOW, { tmdbId, mediaType: MediaType.MOVIE }).catch(() => {});
+	// Background: ensure catalog exists (its response feeds a background catalog fill)
+	const addShow = callCF(CloudFunction.ADD_SHOW, { tmdbId, mediaType: MediaType.MOVIE });
+	shareCatalogCreate(tmdbId, MediaType.MOVIE, addShow);
+	addShow.catch(() => {});
 }
 
 // --- Season batch mark (Cloud Function) ---
@@ -914,7 +948,7 @@ export async function markSeasonWatchedCF(
 	opts: TrackingWriteOpts = {},
 ): Promise<void> {
 	const BATCH_SIZE = 100;
-	const { skipTracking = false, status, incrementRewatch = false } = opts;
+	const { skipTracking = false, status, incrementRewatch = false, rewatchCount } = opts;
 
 	try {
 		if (episodes.length <= BATCH_SIZE) {
@@ -930,6 +964,7 @@ export async function markSeasonWatchedCF(
 				skipTracking,
 				status,
 				incrementRewatch,
+				rewatchCount,
 			});
 		} else {
 			// Batch into chunks of 100 — only last chunk updates tracking doc
@@ -947,6 +982,7 @@ export async function markSeasonWatchedCF(
 					skipTracking: isLastChunk ? skipTracking : true,
 					status: isLastChunk ? status : undefined,
 					incrementRewatch: isLastChunk ? incrementRewatch : false,
+					rewatchCount: isLastChunk ? rewatchCount : undefined,
 				});
 			}
 		}
@@ -966,7 +1002,9 @@ export async function markSeasonWatchedCF(
 			: {
 					nextEpisode,
 					status: status ?? (isShowComplete ? WatchStatus.COMPLETED : undefined),
-					rewatchDelta: incrementRewatch ? 1 : 0,
+					...(typeof rewatchCount === "number"
+						? { rewatchCount }
+						: { rewatchDelta: incrementRewatch ? 1 : 0 }),
 				}),
 	});
 }

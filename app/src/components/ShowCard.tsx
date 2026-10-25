@@ -99,6 +99,7 @@ export default memo(function ShowCard({
 	const swipeRef = useRef<SwipeableCardRef>(null);
 
 	const handlePress = useCallback(() => {
+		console.log("DBGTAP handlePress", item.tmdbId);
 		if (item.mediaType === MediaType.MOVIE && onTitlePress) {
 			onTitlePress(item);
 		} else {
@@ -151,7 +152,7 @@ export default memo(function ShowCard({
 											<>
 												<View style={styles.slantArrow} />
 												<View style={styles.freshTag}>
-													<Text style={styles.freshTagText}>
+													<Text style={[styles.freshTagText, styles.watchedYear]}>
 														{item.releaseDate.substring(0, 4)}
 													</Text>
 												</View>
@@ -208,6 +209,7 @@ export default memo(function ShowCard({
 		>
 			<TouchableOpacity
 				style={styles.container}
+				onPressIn={() => console.log("DBGTAP pressIn")}
 				onPress={handlePress}
 				onLongPress={handleLongPress}
 				activeOpacity={0.8}
@@ -434,6 +436,10 @@ const styles = StyleSheet.create({
 		fontWeight: "700",
 		color: colors.surface,
 		letterSpacing: 0.5,
+	},
+	// Previously watched: the faded card turned the surface-grey year brownish — keep it black
+	watchedYear: {
+		color: colors.background,
 	},
 	tagBadge: {
 		alignSelf: "flex-start",

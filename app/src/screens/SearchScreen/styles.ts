@@ -50,11 +50,11 @@ export const styles = StyleSheet.create({
 		paddingHorizontal: spacing.sm,
 		paddingVertical: spacing.lg,
 	},
-	sectionTitle: {
+	// Inside the grid (already inset by spacing.lg); bottom = title gap + the grid's top gap
+	listTitle: {
 		...typography.subtitle,
-		paddingHorizontal: spacing.lg,
 		paddingTop: spacing.md,
-		paddingBottom: spacing.sm,
+		paddingBottom: spacing.sm * 2,
 	},
 	center: {
 		flex: 1,

@@ -11,7 +11,13 @@ import ConfirmModal from "./ConfirmModal";
 import { ModalArt, ModalBackdrop, ModalLogo, SPEEDSTER_ART } from "./ModalArt";
 import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
 import { MediaType } from "@app/enums";
-import { SKIP_AHEAD_TITLE, episodeRange, skipAheadConfirm, skipAheadHint } from "@app/utils/format";
+import {
+	SKIP_AHEAD_TITLE,
+	episodeRange,
+	skipAheadConfirm,
+	skipAheadHint,
+	startRewatchCopy,
+} from "@app/utils/format";
 import WatchActionSheet from "./WatchActionSheet";
 import EpisodeDetailModal from "./EpisodeDetailModal";
 import { formatDate } from "./EpisodeDetailModal/helpers";
@@ -222,8 +228,25 @@ export default memo(function SeasonDropdown({ readOnly, ...props }: Props) {
 						confirmLabel={s.seasonConfirmCopy.confirmLabel}
 						confirmColor={colors.watchedGreen}
 						onConfirm={s.confirmSeasonMark}
+						secondaryLabel={s.seasonConfirmCopy.secondaryLabel}
+						onSecondary={s.seasonConfirmCopy.secondaryLabel ? s.confirmSeasonMarkAll : undefined}
 						onClose={() => s.setSeasonConfirmVisible(false)}
 					/>
+
+					{s.seasonSkip && s.seasonSkipCopy && (
+						<ConfirmModal
+							visible
+							title={SKIP_AHEAD_TITLE}
+							image={<ModalArt src={SPEEDSTER_ART} />}
+							hint={s.seasonSkipCopy.hint}
+							confirmLabel={s.seasonSkipCopy.confirmLabel}
+							confirmColor={colors.primary}
+							onConfirm={s.confirmSeasonSkipAll}
+							secondaryLabel={s.seasonSkipCopy.secondaryLabel}
+							onSecondary={s.confirmSeasonSkipJustThis}
+							onClose={() => s.setSeasonSkip(null)}
+						/>
+					)}
 
 					{s.skipModalData && (
 						<ConfirmModal
@@ -254,7 +277,49 @@ export default memo(function SeasonDropdown({ readOnly, ...props }: Props) {
 						/>
 					)}
 
-					{s.jumpModal && (
+					{s.jumpModal?.rewatch &&
+						(() => {
+							const jm = s.jumpModal;
+							const first = jm.upTo[0];
+							const copy = startRewatchCopy({
+								label: `S${pad(props.season.season_number)}E${pad(jm.ep.episode_number)}`,
+								firstLabel: first ? `S${pad(first.season)}E${pad(first.episode)}` : "",
+								upTo: jm.upTo.length,
+							});
+							const fromHere = () => {
+								s.setJumpModal(null);
+								s.handleMarkWatched(jm.ep, true);
+							};
+							const justMark = () => {
+								s.setJumpModal(null);
+								s.handleMarkWatched(jm.ep);
+							};
+							return (
+								<ConfirmModal
+									visible
+									title="Start a Rewatch?"
+									image={<ModalLogo logoPath={showLogo} tmdbId={props.tmdbId} mediaType={MediaType.TV} title={props.showTitle} />}
+									hint={copy.hint}
+									confirmLabel={copy.confirmLabel}
+									confirmColor={colors.primary}
+									onConfirm={
+										copy.tertiaryLabel
+											? () => {
+													s.setJumpModal(null);
+													s.markRewatchUpTo(jm.upTo);
+												}
+											: fromHere
+									}
+									secondaryLabel={copy.secondaryLabel}
+									onSecondary={copy.tertiaryLabel ? fromHere : justMark}
+									tertiaryLabel={copy.tertiaryLabel}
+									onTertiary={copy.tertiaryLabel ? justMark : undefined}
+									onClose={() => s.setJumpModal(null)}
+								/>
+							);
+						})()}
+
+					{s.jumpModal && !s.jumpModal.rewatch && (
 						<ConfirmModal
 							visible
 							title={

@@ -20,6 +20,9 @@ interface Props {
 	secondaryLabel?: string;
 	secondaryColor?: string;
 	onSecondary?: () => void;
+	/** Optional third choice under the secondary one (e.g. "Just Mark It") */
+	tertiaryLabel?: string;
+	onTertiary?: () => void;
 	cancelLabel?: string;
 	/** Image flush with the top of the popup (full-bleed art); a shown title is laid over it in black */
 	imageAtTop?: boolean;
@@ -44,6 +47,8 @@ export default function ConfirmModal({
 	secondaryLabel,
 	secondaryColor,
 	onSecondary,
+	tertiaryLabel,
+	onTertiary,
 	cancelLabel = "Cancel",
 	imageAtTop = false,
 	hideTitle = false,
@@ -81,6 +86,11 @@ export default function ConfirmModal({
 					disabled={loading}
 				>
 					{secondaryLabel}
+				</button>
+			)}
+			{tertiaryLabel && onTertiary && (
+				<button className={`${styles.button} ${styles.muted}`} onClick={onTertiary} disabled={loading}>
+					{tertiaryLabel}
 				</button>
 			)}
 			{!loading && !hideCancel && (

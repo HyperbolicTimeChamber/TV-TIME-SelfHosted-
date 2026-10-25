@@ -50,6 +50,50 @@ export const skipAheadHint = (range: string) =>
 export const skipAheadConfirm = (range: string) => `Mark ${range} Watched`;
 
 /**
+ * Season speedster copy: marking Season `season` while earlier seasons (from `firstSeason`)
+ * are unwatched — or, in a rewatch, not reached yet.
+ */
+export function seasonSkipAheadCopy(
+	firstSeason: number,
+	season: number,
+	inRewatch: boolean,
+): { hint: string; confirmLabel: string; secondaryLabel: string } {
+	const single = firstSeason >= season - 1;
+	const earlier = single ? `Season ${firstSeason}` : `Seasons ${firstSeason}–${season - 1}`;
+	const ahead = single ? "a season" : "a few seasons";
+	return {
+		hint: inRewatch
+			? `You've jumped ahead ${ahead} in this rewatch. Rewatch the rest of ${earlier} too, or just this season? Skipped episodes keep their watch count.`
+			: `You've jumped ahead ${ahead}. Mark ${earlier} too, or just this season?`,
+		confirmLabel: `Mark S${firstSeason}–S${season} Watched`,
+		secondaryLabel: "Just This Season",
+	};
+}
+
+/** "Start a Rewatch?" copy (finished show, marking a later episode). `upTo` = episodes
+ *  "Rewatch Up To Here" would mark (1 → only this one: no such option) */
+export function startRewatchCopy(o: { label: string; firstLabel: string; upTo: number }): {
+	hint: string;
+	confirmLabel: string;
+	secondaryLabel: string;
+	tertiaryLabel?: string;
+} {
+	if (o.upTo > 1) {
+		return {
+			hint: `Rewatch Up To Here also counts ${o.firstLabel}–${o.label} (${o.upTo} episodes) as rewatched. Rewatch From Here only marks ${o.label} and starts the rewatch there. Either way your watchlist continues from the next episode.`,
+			confirmLabel: "Rewatch Up To Here",
+			secondaryLabel: "Rewatch From Here",
+			tertiaryLabel: "Just Mark It",
+		};
+	}
+	return {
+		hint: `Rewatch from ${o.label}? Your watchlist will continue from the next episode.`,
+		confirmLabel: "Rewatch From Here",
+		secondaryLabel: "Just Mark It",
+	};
+}
+
+/**
  * Season tick confirm copy. `toMark` = episodes the mark actually bumps (see
  * seasonMarkEpisodes) — fewer than `total` means only the rest of the season gets marked.
  */
@@ -60,14 +104,16 @@ export function seasonMarkCopy(o: {
 	toMark: number;
 	allWatched: boolean;
 	inRewatch: boolean;
-}): { title: string; hint: string; confirmLabel: string } {
+}): { title: string; hint: string; confirmLabel: string; secondaryLabel?: string } {
 	const { seasonNumber: n, seasonName, total, toMark, allWatched, inRewatch } = o;
 	const eps = (c: number) => `${c} episode${c === 1 ? "" : "s"}`;
 	if (toMark < total && inRewatch) {
+		const done = total - toMark;
 		return {
 			title: `Rewatch Rest of Season ${n}?`,
-			hint: `Mark the ${eps(toMark)} of ${seasonName} not yet rewatched as watched again? Episodes already rewatched keep their count.`,
+			hint: `${eps(done)} of ${seasonName} ${done === 1 ? "is" : "are"} already rewatched. Mark Rest marks the other ${eps(toMark)} as watched again; Mark All Again adds one more watch to all ${total}, including the ones already rewatched.`,
 			confirmLabel: "Mark Rest",
+			secondaryLabel: "Mark All Again",
 		};
 	}
 	if (toMark < total) {

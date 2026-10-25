@@ -10,6 +10,8 @@ import {
 	incrementDailyWatch,
 	decrementDailyWatch,
 	getCachedCatalogShow,
+	cacheCatalogShows,
+	catalogFromShowDetails,
 	insertWatchedMovieCache,
 } from "../../hooks";
 import { useAuthStore } from "../../stores";
@@ -33,6 +35,7 @@ import {
 	emitShowCompleted,
 	showDocId,
 	todayStr,
+	isIncompleteCatalog,
 } from "../../utils";
 import {
 	WatchStatus,
@@ -41,6 +44,7 @@ import {
 	QueryKey,
 	WatchedMovie,
 	WatchAction,
+	CatalogShow,
 } from "../../types";
 import { Alert } from "react-native";
 
@@ -149,6 +153,21 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	const producers =
 		show?.credits?.crew?.filter((c) => c.job === "Producer").map((c) => c.name) ?? [];
 
+	/**
+	 * Movie's catalog entry for its watchlist / Previously Watched card: the cached doc when it's
+	 * complete, else built from this page's details and put in the shared catalog cache. Run
+	 * before the tracking write — its local snapshot then enriches from the cache (no catalog
+	 * read, no TMDB heal) instead of rendering a card without poster / year / director.
+	 */
+	const seedMovieCatalog = useCallback((): CatalogShow | null => {
+		if (!show || mediaType !== MediaType.MOVIE) return null;
+		const cached = getCachedCatalogShow(tmdbId, MediaType.MOVIE);
+		if (cached && !isIncompleteCatalog(cached) && cached.credits) return cached;
+		const catalog = catalogFromShowDetails(show, MediaType.MOVIE, cached);
+		cacheCatalogShows([catalog]);
+		return catalog;
+	}, [show, tmdbId, mediaType]);
+
 	/** Show's future episodes into the local upcoming + calendar caches (server docs come from addShow CF) */
 	const addFutureEpisodesLocally = useCallback(
 		(title: string, poster: string | null) => {
@@ -197,6 +216,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 			}
 
 			const firstEp = mediaType === MediaType.TV ? episodesBySeason.get(1)?.[0] : undefined;
+			const movieCatalog = seedMovieCatalog();
 
 			await addToTracking(user.uid, tmdbId, mediaType, isUnreleased ? releaseDate : null, {
 				title: show.title || show.name || "",
@@ -223,7 +243,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 				title,
 				posterPath: poster,
 				totalEpisodes: 0,
-				catalogShow: null,
+				catalogShow: movieCatalog,
 			});
 			if (isUnreleased && releaseDate) {
 				const movieEp: UpcomingEpisode = {
@@ -257,6 +277,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		addShowToUpcoming,
 		episodesBySeason,
 		addFutureEpisodesLocally,
+		seedMovieCatalog,
 	]);
 
 	const handleRemove = useCallback(() => {
@@ -313,6 +334,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		try {
 			const movieTitle = show.title || show.name || "";
 			const moviePoster = show.poster_path || null;
+			const movieCatalog = seedMovieCatalog();
 			if (!watchlistItem) {
 				await addAndMarkMovieWatched(user.uid, tmdbId, show.runtime ?? 0, {
 					title: movieTitle,
@@ -335,7 +357,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 					title: movieTitle,
 					posterPath: moviePoster,
 					totalEpisodes: 0,
-					catalogShow: null,
+					catalogShow: movieCatalog,
 				});
 			} else {
 				await markMovieWatched(user.uid, tmdbId, show.runtime ?? 0);
@@ -352,6 +374,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 				watchCount: 1,
 				title: movieTitle,
 				posterPath: moviePoster,
+				releaseDate: movieCatalog?.releaseDate ?? show.release_date ?? null,
 			} as WatchedMovie);
 			// Only feeds the count when the tracking doc has no plays (else the listener does)
 			setMovieWatchCount((c: number) => c + 1);
@@ -361,14 +384,14 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 				mediaType: MediaType.MOVIE,
 				title: movieTitle,
 				posterPath: moviePoster,
-				genres: [],
+				genres: movieCatalog?.genres ?? [],
 			});
 		} catch (err: any) {
 			Alert.alert("Error", err.message || "Failed to mark movie as watched.");
 		} finally {
 			setAdding(false);
 		}
-	}, [user?.uid, show, tmdbId, watchlistItem, adding, queryClient]);
+	}, [user?.uid, show, tmdbId, watchlistItem, adding, queryClient, seedMovieCatalog]);
 
 	const handleResumeOrRewatch = useCallback(async () => {
 		if (!user?.uid) return;

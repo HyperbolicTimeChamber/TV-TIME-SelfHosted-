@@ -107,7 +107,7 @@ export default memo(function ShowCard({
 				{label && (
 					<>
 						<span className={styles.slantArrow} />
-						<span className={styles.freshTag}>{label}</span>
+						<span className={`${styles.freshTag} ${muted ? styles.watchedYear : ""}`}>{label}</span>
 					</>
 				)}
 			</div>

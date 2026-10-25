@@ -1,5 +1,12 @@
-import { ENDED_STATUSES, MediaType } from "../enums";
-import type { CatalogShow } from "../types/catalog";
+import {
+	ENDED_STATUSES,
+	EpisodeType,
+	MediaType,
+	REFRESH_AIRED_WINDOW_DAYS,
+	REFRESH_COOLDOWN_MS,
+	RefreshReason,
+} from "../enums";
+import type { CatalogEpisode, CatalogShow } from "../types/catalog";
 import { isGenericEpisodeTitle } from "./episodeTitle";
 
 /**
@@ -70,6 +77,7 @@ export interface FreshSeasonEpisode {
 	air_date?: string | null;
 	runtime?: number | null;
 	still_path?: string | null;
+	episode_type?: EpisodeType | null;
 }
 
 /**
@@ -99,6 +107,10 @@ export function patchCatalogSeason(
 		if (f.still_path && f.still_path !== ep.stillPath) patch.stillPath = f.still_path;
 		if (f.runtime && f.runtime !== ep.runtime) patch.runtime = f.runtime;
 		if (!ep.airStamp && f.air_date && f.air_date !== ep.airDate) patch.airDate = f.air_date;
+		if (f.episode_type && f.episode_type !== ep.episodeType) {
+			patch.episodeType = f.episode_type;
+			patch.isSeasonFinale = f.episode_type === EpisodeType.FINALE;
+		}
 		if (Object.keys(patch).length === 0) return ep;
 		changed = true;
 		return { ...ep, ...patch };
@@ -120,4 +132,77 @@ export function catalogNextEpisodeTitle(
 		?.find((s) => s.seasonNumber === nextEpisode.season)
 		?.episodes?.find((e) => e.episodeNumber === nextEpisode.episode)?.title;
 	return title && !isGenericEpisodeTitle(title) ? title : null;
+}
+
+/**
+ * FINALE tag: only TMDB's explicit episode_type. The last listed episode is often just the
+ * latest one TMDB knows; docs written before episodeType existed never show the tag.
+ */
+export function isFinaleEpisode(ep: Pick<CatalogEpisode, "episodeType"> | null | undefined): boolean {
+	return ep?.episodeType === EpisodeType.FINALE;
+}
+
+/** Last regular episode the catalog lists (highest season, then episode number) */
+export function lastCatalogEpisode(catalog: Pick<CatalogShow, "seasons">): CatalogEpisode | null {
+	let last: { season: number; ep: CatalogEpisode } | null = null;
+	for (const s of catalog.seasons ?? []) {
+		if (s.seasonNumber <= 0) continue;
+		for (const ep of s.episodes ?? []) {
+			if (
+				!last ||
+				s.seasonNumber > last.season ||
+				(s.seasonNumber === last.season && ep.episodeNumber > last.ep.episodeNumber)
+			)
+				last = { season: s.seasonNumber, ep };
+		}
+	}
+	return last?.ep ?? null;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Ask the server (refreshShow) to re-check TMDB: the last episode the catalog lists has aired
+ * (today or within the window) and isn't marked a finale — the season likely continues and TMDB
+ * may already list the next episodes the weekly sync hasn't picked up. Ended shows, unaired /
+ * undated last episodes and docs any user refreshed within the cooldown don't qualify.
+ * Pure — 0 reads; `today` is local YYYY-MM-DD, `now` epoch ms.
+ */
+export function needsServerRefresh(
+	catalog: CatalogShow | null | undefined,
+	today: string,
+	now: number,
+): boolean {
+	if (!catalog || isIncompleteCatalog(catalog) || catalog.mediaType === MediaType.MOVIE) return false;
+	if (ENDED_STATUSES.includes(catalog.status)) return false;
+	const checkedAt = catalog.lastTmdbCheckAt ?? 0;
+	if (now - checkedAt < REFRESH_COOLDOWN_MS[RefreshReason.AIRED_NO_FINALE]) return false;
+	const last = lastCatalogEpisode(catalog);
+	if (!last?.airDate || last.airDate > today) return false;
+	const ageDays = (Date.parse(today) - Date.parse(last.airDate)) / DAY_MS;
+	if (!(ageDays <= REFRESH_AIRED_WINDOW_DAYS)) return false;
+	return !isFinaleEpisode(last);
+}
+
+/** A fresh TMDB season lists episodes the cached catalog doesn't have (or the season itself) */
+export function freshSeasonAddsEpisodes(
+	catalog: Pick<CatalogShow, "seasons">,
+	seasonNumber: number,
+	fresh: FreshSeasonEpisode[],
+): boolean {
+	const season = catalog.seasons?.find((s) => s.seasonNumber === seasonNumber);
+	const known = new Set((season?.episodes ?? []).map((e) => e.episodeNumber));
+	return fresh.some((e) => !known.has(e.episode_number));
+}
+
+/**
+ * refreshShow returns the doc whether or not it fetched TMDB — only a doc refreshed after
+ * the cached copy replaces it (local season patches would otherwise be rolled back).
+ */
+export function isNewerServerCatalog(
+	server: Pick<CatalogShow, "lastTmdbCheckAt">,
+	cached: CatalogShow | null | undefined,
+): boolean {
+	if (!cached || isIncompleteCatalog(cached)) return true;
+	return (server.lastTmdbCheckAt ?? 0) > (cached.lastTmdbCheckAt ?? 0);
 }

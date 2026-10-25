@@ -116,6 +116,7 @@ export function useWatchlistScreen(
 
 	const handleCardPress = useCallback(
 		async (tmdbId: number, _mediaType: MediaType) => {
+			console.log("DBGTAP handleCardPress", tmdbId);
 			const listItem = listData.find((li) => li.type === "show" && li.item.tmdbId === tmdbId);
 			if (!listItem || listItem.type !== "show") return;
 			const item = listItem.item;

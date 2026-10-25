@@ -13,8 +13,11 @@ export interface TrackingAdvance {
 	nextEpisode: EpisodeRef | null;
 	/** Status to write when advancing (undefined → keep current) */
 	status?: WatchStatus;
-	/** true when entering a rewatch (bump rewatchCount) */
+	/** true when entering a rewatch (bump rewatchCount) — fallback for writers without `rewatchCount` */
 	incrementRewatch: boolean;
+	/** Rewatch run number to store (absolute) while rewatching: level − 1. Keeps the tracking
+	 *  doc's count in line with the episode counts instead of relying on +1 bumps */
+	rewatchCount?: number;
 }
 
 const IN_REWATCH: WatchStatus[] = [WatchStatus.REWATCHING, WatchStatus.PAUSED_REWATCH];
@@ -65,6 +68,7 @@ function result(
 			nextEpisode,
 			status: WatchStatus.REWATCHING,
 			incrementRewatch: !status || !IN_REWATCH.includes(status),
+			rewatchCount: level - 1,
 		};
 	}
 	const leaveFinished =
@@ -119,11 +123,17 @@ export function computeTrackingAdvance(
 	if (level === 1 && tracking.nextEpisode && countOf(counts, order[0]) >= 2) {
 		const firstWatchDone = order.every((e) => countOf(counts, e) >= 1 || notAiredYet(e, today));
 		if (firstWatchDone) {
+			const runLevel =
+				rewatchLevel(order, counts, {
+					status: WatchStatus.REWATCHING,
+					nextEpisode: tracking.nextEpisode,
+				}) ?? 2;
 			return {
 				advance: true,
 				nextEpisode: { season: tracking.nextEpisode.season, episode: tracking.nextEpisode.episode },
 				status: WatchStatus.REWATCHING,
 				incrementRewatch: true,
+				rewatchCount: runLevel - 1,
 			};
 		}
 	}
@@ -282,4 +292,109 @@ export function seasonMarkEpisodes(
 	const level = rewatchLevel(order, counts, tracking) ?? 1;
 	const below = episodes.filter((n) => (counts.get(epKey(season, n)) ?? 0) < level);
 	return below.length > 0 ? below : episodes;
+}
+
+/** Unaired as far as we know — entries built without episode data (no airDate field) count as aired */
+const knownUnaired = (e: EpisodeRef, today: string) =>
+	e.airDate !== undefined && notAiredYet(e, today);
+
+/**
+ * Rewatch run the episode counts say is under way (null → can't tell / not rewatching).
+ * The pointer episode is the run's next one, so it sits one below the run's level: run n
+ * brings episodes to n + 1, pointer count = n. Only trusted when the episode before the
+ * pointer agrees (rewatched in this run → n + 1, or skipped → n) — a hole at the pointer or
+ * stray extra counts never move it. Used to heal a stored rewatchCount that drifted.
+ */
+export function observedRewatchRun(
+	order: EpisodeRef[],
+	counts: Map<string, number>,
+	tracking: { status?: WatchStatus; nextEpisode?: EpisodeRef | null } | null,
+): number | null {
+	const status = tracking?.status;
+	if (!status || !IN_REWATCH.includes(status)) return null;
+	const pointerIdx = indexOf(order, tracking?.nextEpisode);
+	if (pointerIdx === -1) return null;
+	const c = countOf(counts, order[pointerIdx]);
+	if (c < 1) return null;
+	if (pointerIdx > 0) {
+		const prev = countOf(counts, order[pointerIdx - 1]);
+		if (prev !== c && prev !== c + 1) return null;
+	}
+	return c;
+}
+
+/**
+ * Episode carousel: an episode counts as watched in the current run once its count exceeds
+ * this (0 = first watch). During a rewatch it comes from the counts, not the stored run
+ * number (which can be stale): the pointer episode — next of the run — sits at it; a pointer
+ * on a first-watch hole falls back to the episode before it (one above).
+ */
+export function carouselRunBase(
+	inRewatch: boolean,
+	pointerCount: number | null | undefined,
+	prevCount: number | null | undefined,
+	storedRewatchCount: number,
+): number {
+	if (!inRewatch) return 0;
+	if (pointerCount && pointerCount > 0) return pointerCount;
+	if (prevCount && prevCount > 1) return prevCount - 1;
+	return Math.max(1, storedRewatchCount);
+}
+
+/**
+ * "Whoa there Speedster!" for a whole season: earlier episodes the season mark jumps past
+ * (null → no prompt). `counts` BEFORE the mark.
+ * - First watch: aired, unwatched episodes of earlier seasons.
+ * - Rewatch: episodes from the rewatch pointer up to this season still below the level
+ *   (earlier ones were skipped on purpose). Pointer already in / past this season → none.
+ * Only when the season mark is a real mark (some episode of the season below the level) —
+ * an extra watch of a finished season never prompts.
+ * `refs` = the earlier episodes to mark too, at `level`.
+ */
+export function firstSkippedSeason(
+	order: EpisodeRef[],
+	counts: Map<string, number>,
+	tracking: { status?: WatchStatus; nextEpisode?: EpisodeRef | null } | null,
+	season: number,
+	today: string = new Date().toISOString().slice(0, 10),
+): { firstSeason: number; level: number; refs: EpisodeRef[] } | null {
+	const seasonStart = order.findIndex((e) => e.season === season);
+	if (seasonStart <= 0) return null;
+	const level = rewatchLevel(order, counts, tracking) ?? 1;
+	const inSeason = order.filter((e) => e.season === season);
+	if (!inSeason.some((e) => countOf(counts, e) < level && !knownUnaired(e, today))) return null;
+	let from = 0;
+	if (level > 1) {
+		const pointerIdx = indexOf(order, tracking?.nextEpisode);
+		if (pointerIdx >= seasonStart) return null;
+		from = Math.max(0, pointerIdx);
+	}
+	const refs = order
+		.slice(from, seasonStart)
+		.filter((e) => countOf(counts, e) < level && !(countOf(counts, e) === 0 && knownUnaired(e, today)))
+		.map((e) => ({ season: e.season, episode: e.episode }));
+	return refs.length > 0 ? { firstSeason: refs[0].season, level, refs } : null;
+}
+
+/**
+ * "Rewatch Up To Here" (finished show, marking a later episode): every episode from the
+ * start through `target` that this new rewatch hasn't reached yet — already watched ones
+ * below target's count + 1. Never-watched holes stay as they are (a rewatch doesn't count as
+ * a first watch). `counts` BEFORE the mark. Empty when target is unwatched / unknown.
+ */
+export function rewatchUpToRefs(
+	order: EpisodeRef[],
+	counts: Map<string, number>,
+	target: EpisodeRef,
+): EpisodeRef[] {
+	const idx = indexOf(order, target);
+	const c = idx === -1 ? 0 : countOf(counts, order[idx]);
+	if (c < 1) return [];
+	return order
+		.slice(0, idx + 1)
+		.filter((e) => {
+			const n = countOf(counts, e);
+			return n >= 1 && n <= c;
+		})
+		.map((e) => ({ season: e.season, episode: e.episode }));
 }

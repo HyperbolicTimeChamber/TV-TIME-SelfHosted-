@@ -23,11 +23,12 @@ import {
 	markMovieWatched,
 	markSeasonWatchedCF,
 	unmarkEpisodeWatched,
+	decrementEpisodeWatchCount,
 	stopWatching,
 	skipRewatchEpisode,
 } from "../../../services";
 import { removeShowFromCalendarGlobal } from "../../../hooks/useCalendarEpisodes";
-import { emitShowCompleted, todayStr, pickEpisodeTitle } from "../../../utils";
+import { emitShowCompleted, todayStr, pickEpisodeTitle, isFinaleEpisode } from "../../../utils";
 import {
 	MediaType,
 	CacheKey,
@@ -128,9 +129,8 @@ function buildCardItem(item: EnrichedTrackingItem, today: string) {
 		nextNextEpisodeRuntime: nextNext?.runtime ?? 0,
 		// Only mark as last episode if catalog is available to confirm — prevents premature COMPLETED
 		isLastEpisode: nextEp != null && catalog != null && !nextNext,
-		isSeasonFinale:
-			catalogEp?.isSeasonFinale ??
-			(catalogEp && catalogSeason ? catalogEp.episodeNumber === catalogSeason.episodeCount : false),
+		// TMDB's explicit finale marker only (the last listed episode may just be the latest)
+		isSeasonFinale: isFinaleEpisode(catalogEp),
 	};
 }
 
@@ -241,6 +241,9 @@ export function useWatchlistData(userId: string | undefined) {
 	const [updatingShows, setUpdatingShows] = useState<Map<number, string>>(new Map());
 	// Optimistic card patches applied after Firestore write, before listener re-enriches
 	const [optimisticCards, setOptimisticCards] = useState<Map<number, Partial<CardItem>>>(new Map());
+	// Pointer (`season-episode`) each patch was made from — the listener moving it anywhere else
+	// (an unwatch, another screen) means the patch is stale
+	const optimisticFrom = useRef(new Map<number, string>());
 
 	// --- Cache: store and restore the display list directly ---
 	const [cachedList, setCachedList] = useState<CacheableWatchlistListItem[] | null>(null);
@@ -513,13 +516,15 @@ export function useWatchlistData(userId: string | undefined) {
 				// Patch applied — listener has caught up when nextEpisode matches
 				const patchEp = patch.nextEpisode;
 				const liveEp = liveItem.nextEpisode;
-				if (
-					patchEp &&
-					liveEp &&
-					patchEp.season === liveEp.season &&
-					patchEp.episode === liveEp.episode
-				) {
+				const liveKey = liveEp ? `${liveEp.season}-${liveEp.episode}` : null;
+				const patchKey = patchEp ? `${patchEp.season}-${patchEp.episode}` : null;
+				const from = optimisticFrom.current.get(tmdbId);
+				// Stale: the pointer went somewhere else than before / after this patch. Kept, the
+				// card showed the patch's episode and the next tap marked that one
+				const movedElsewhere = !!from && liveKey !== from && liveKey !== patchKey;
+				if ((patchKey && patchKey === liveKey) || movedElsewhere) {
 					next.delete(tmdbId);
+					optimisticFrom.current.delete(tmdbId);
 				}
 			}
 			return next.size === prev.size ? prev : next;
@@ -700,6 +705,7 @@ export function useWatchlistData(userId: string | undefined) {
 
 				// Optimistic UI: apply nextNext as new next immediately
 				if (nextEpisode) {
+					optimisticFrom.current.set(item.tmdbId, epKey);
 					setOptimisticCards((prev) => {
 						const next = new Map(prev);
 						next.set(item.tmdbId, {
@@ -858,6 +864,30 @@ export function useWatchlistData(userId: string | undefined) {
 			const catalog = item?.catalogShow;
 			const catalogSeason = catalog?.seasons?.find((s) => s.seasonNumber === season);
 			const catalogEp = catalogSeason?.episodes?.find((e) => e.episodeNumber === episode);
+			const known = item ? { status: item.status, rewatchCount: item.rewatchCount ?? 0 } : undefined;
+			// Carousel Unwatch takes one watch off (its card shows the count dropping by one);
+			// deleting every watch wiped earlier runs mid-rewatch
+			const count =
+				queryClient
+					.getQueryData<WatchedEpisode[]>([QueryKey.WATCHED_EPISODES, userId, tmdbId])
+					?.find((e) => e.season === season && e.episode === episode)?.watchCount ?? 1;
+
+			if (count > 1) {
+				await decrementEpisodeWatchCount(
+					userId,
+					tmdbId,
+					season,
+					episode,
+					catalogEp?.runtime || 0,
+					count,
+					catalogEp?.title || null,
+					catalogEp?.airDate || null,
+					known,
+				);
+				removeWatchedEpisodeCache(queryClient, userId, tmdbId, season, episode, true);
+				decrementDailyWatch("episode");
+				return;
+			}
 
 			await unmarkEpisodeWatched(
 				userId,
@@ -867,9 +897,31 @@ export function useWatchlistData(userId: string | undefined) {
 				catalogEp?.runtime || 0,
 				catalogEp?.title || null,
 				catalogEp?.airDate || null,
+				known,
 			);
 			removeWatchedEpisodeCache(queryClient, userId, tmdbId, season, episode);
 			decrementDailyWatch("episode");
+			// The write points the watchlist back at this episode — show it on the card now (and
+			// replace a mark's patch that would otherwise keep showing the old next episode)
+			if (item?.nextEpisode) {
+				const after = catalog ? findNextEpisodeInCatalog(catalog, season, episode) : null;
+				optimisticFrom.current.set(tmdbId, `${item.nextEpisode.season}-${item.nextEpisode.episode}`);
+				setOptimisticCards((prev) =>
+					new Map(prev).set(tmdbId, {
+						nextEpisode: { season, episode },
+						nextEpisodeName: catalogEp?.title || null,
+						nextEpisodeAirDate: catalogEp?.airDate || null,
+						nextEpisodeRuntime: catalogEp?.runtime || 0,
+						nextNextEpisode: after ? { season: after.season, episode: after.episode } : null,
+						nextNextEpisodeName: after?.title ?? null,
+						nextNextEpisodeAirDate: after?.airDate ?? null,
+						nextNextEpisodeRuntime: after?.runtime ?? 0,
+						isLastEpisode: !after,
+						isSeasonFinale: false,
+						status: WatchStatus.WATCHING,
+					} as Partial<CardItem>),
+				);
+			}
 		},
 		[userId, items, queryClient],
 	);
@@ -962,6 +1014,7 @@ export function useWatchlistData(userId: string | undefined) {
 			}
 			if (nextEpisode) {
 				const after = findNextEpisodeInCatalog(item.catalogShow, next!.season, next!.episode);
+				optimisticFrom.current.set(tmdbId, `${season}-${episode}`);
 				setOptimisticCards((prev) =>
 					new Map(prev).set(tmdbId, {
 						nextEpisode,

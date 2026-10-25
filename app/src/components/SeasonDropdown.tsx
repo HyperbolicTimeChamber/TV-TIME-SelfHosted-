@@ -20,7 +20,13 @@ import {
 	SPEEDSTER_RATIO,
 } from "./modals/ModalArt";
 import { getCachedCatalogShow } from "../hooks/useWatchlist";
-import { SKIP_AHEAD_TITLE, episodeRange, skipAheadConfirm, skipAheadHint } from "../utils/format";
+import {
+	SKIP_AHEAD_TITLE,
+	episodeRange,
+	skipAheadConfirm,
+	skipAheadHint,
+	startRewatchCopy,
+} from "../utils/format";
 import CheckmarkButton from "./CheckmarkButton";
 import SkeletonLine from "./SkeletonLine";
 import EpisodeDetailModal from "./modals/EpisodeDetailModal";
@@ -99,6 +105,13 @@ export default memo(function SeasonDropdown({
 		seasonConfirmVisible,
 		setSeasonConfirmVisible,
 		confirmSeasonMark,
+		confirmSeasonMarkAll,
+		seasonSkip,
+		setSeasonSkip,
+		seasonSkipCopy,
+		confirmSeasonSkipAll,
+		confirmSeasonSkipJustThis,
+		markRewatchUpTo,
 		handleSeasonLongPress,
 		sheetLabel,
 		isLoading,
@@ -309,8 +322,25 @@ export default memo(function SeasonDropdown({
 				confirmLabel={seasonConfirmCopy.confirmLabel}
 				confirmColor={colors.watchedGreen}
 				onConfirm={confirmSeasonMark}
+				secondaryLabel={seasonConfirmCopy.secondaryLabel}
+				onSecondary={seasonConfirmCopy.secondaryLabel ? confirmSeasonMarkAll : undefined}
 				onClose={() => setSeasonConfirmVisible(false)}
 			/>
+
+			{seasonSkip && seasonSkipCopy && (
+				<ConfirmModal
+					visible
+					title={SKIP_AHEAD_TITLE}
+					image={<ModalArt source={SPEEDSTER_ART} ratio={SPEEDSTER_RATIO} />}
+					hint={seasonSkipCopy.hint}
+					confirmLabel={seasonSkipCopy.confirmLabel}
+					confirmColor={colors.primary}
+					onConfirm={confirmSeasonSkipAll}
+					secondaryLabel={seasonSkipCopy.secondaryLabel}
+					onSecondary={confirmSeasonSkipJustThis}
+					onClose={() => setSeasonSkip(null)}
+				/>
+			)}
 
 			{skipModalData && (
 				<ConfirmModal
@@ -345,7 +375,58 @@ export default memo(function SeasonDropdown({
 				/>
 			)}
 
-			{jumpModal && (
+			{jumpModal &&
+				jumpModal.rewatch &&
+				(() => {
+					const pad = (n: number) => String(n).padStart(2, "0");
+					const first = jumpModal.upTo[0];
+					const copy = startRewatchCopy({
+						label: `S${pad(season.season_number)}E${pad(jumpModal.ep.episode_number)}`,
+						firstLabel: first ? `S${pad(first.season)}E${pad(first.episode)}` : "",
+						upTo: jumpModal.upTo.length,
+					});
+					const { ep, upTo } = jumpModal;
+					const fromHere = () => {
+						setJumpModal(null);
+						handleMarkWatched(ep, true);
+					};
+					const justMark = () => {
+						setJumpModal(null);
+						handleMarkWatched(ep);
+					};
+					return (
+						<ConfirmModal
+							visible
+							title="Start a Rewatch?"
+							image={
+								<ModalLogo
+									logoPath={showLogo}
+									tmdbId={tmdbId}
+									mediaType={MediaType.TV}
+									title={showTitle}
+								/>
+							}
+							hint={copy.hint}
+							confirmLabel={copy.confirmLabel}
+							confirmColor={colors.primary}
+							onConfirm={
+								copy.tertiaryLabel
+									? () => {
+											setJumpModal(null);
+											markRewatchUpTo(upTo);
+										}
+									: fromHere
+							}
+							secondaryLabel={copy.secondaryLabel}
+							onSecondary={copy.tertiaryLabel ? fromHere : justMark}
+							tertiaryLabel={copy.tertiaryLabel}
+							onTertiary={copy.tertiaryLabel ? justMark : undefined}
+							onClose={() => setJumpModal(null)}
+						/>
+					);
+				})()}
+
+			{jumpModal && !jumpModal.rewatch && (
 				<ConfirmModal
 					visible
 					title={

@@ -8,6 +8,8 @@ import {
 	removeShowFromCalendarGlobal,
 	addMovieToCalendarGlobal,
 	incrementDailyWatch,
+	insertWatchedMovieCache,
+	prefillCatalog,
 } from "../../hooks";
 import { useAuthStore } from "../../stores";
 import {
@@ -27,7 +29,6 @@ import { getCachedCatalogShow } from "../../hooks/useWatchlist";
 import {
 	TMDBShow,
 	MediaType,
-	QueryKey,
 	WatchStatus,
 	WatchedMovie,
 	UpcomingEpisode,
@@ -77,6 +78,12 @@ export function useSearchActions() {
 		}
 	}, []);
 
+	/** Full catalog once the background fill has it (else null — the fill patches the card later) */
+	const filledCatalog = (tmdbId: number, mediaType: MediaType) => {
+		const c = getCachedCatalogShow(tmdbId, mediaType);
+		return c && !c.partial && c.title ? c : null;
+	};
+
 	const handleAddToWatchlist = useCallback(
 		async (item: TMDBShow) => {
 			if (!user?.uid) return;
@@ -90,6 +97,7 @@ export function useSearchActions() {
 				const isUnreleased = releaseDate && releaseDate > today;
 
 				if (isUnreleased) {
+					prefillCatalog(item.id, MediaType.MOVIE);
 					const addPromise = withLoadingId(item.id, () =>
 						addToTracking(user.uid!, item.id, MediaType.MOVIE, releaseDate, {
 							title: item.title || item.name || "",
@@ -124,7 +132,7 @@ export function useSearchActions() {
 							null,
 							null,
 							null,
-							null,
+							filledCatalog(item.id, MediaType.MOVIE),
 							releaseDate,
 						),
 					);
@@ -151,6 +159,8 @@ export function useSearchActions() {
 				const title = item.title || item.name || "";
 				const poster = item.poster_path || null;
 				const epInfo = await fetchFirstEpisodeInfo(item.id, apiKey, item);
+				// Full catalog from the add's addShow response — the watchlist heal has nothing left
+				prefillCatalog(item.id, MediaType.TV);
 
 				await addToTracking(user.uid!, item.id, mediaType, undefined, {
 					title,
@@ -258,6 +268,7 @@ export function useSearchActions() {
 		if (!user?.uid || !movieModal) return;
 		const item = movieModal;
 		setMovieModal(null);
+		prefillCatalog(item.id, MediaType.MOVIE);
 		await withLoadingId(item.id, async () => {
 			const title = item.title || item.name || "";
 			const poster = item.poster_path || null;
@@ -274,7 +285,7 @@ export function useSearchActions() {
 					null,
 					null,
 					null,
-					null,
+					filledCatalog(item.id, MediaType.MOVIE),
 					item.release_date || null,
 				),
 			);
@@ -285,14 +296,19 @@ export function useSearchActions() {
 		if (!user?.uid || !movieModal) return;
 		const item = movieModal;
 		setMovieModal(null);
+		prefillCatalog(item.id, MediaType.MOVIE);
 		await withLoadingId(item.id, async () => {
 			const movieTitle = item.title || item.name || "";
 			const moviePoster = item.poster_path || null;
-			await addAndMarkMovieWatched(user.uid!, item.id, (item as any).runtime ?? 0, {
+			// Search results carry no runtime — a cached catalog may (else the write reads the doc)
+			const runtime: number =
+				(item as any).runtime || getCachedCatalogShow(item.id, MediaType.MOVIE)?.runtime || 0;
+			await addAndMarkMovieWatched(user.uid!, item.id, runtime, {
 				title: movieTitle,
 				posterPath: moviePoster,
 			});
 			const now = Timestamp.now();
+			const catalog = filledCatalog(item.id, MediaType.MOVIE);
 			emitShowAdded({
 				...buildOptimisticItem(
 					item.id,
@@ -302,36 +318,30 @@ export function useSearchActions() {
 					null,
 					null,
 					null,
-					null,
+					catalog,
 					item.release_date || null,
 				),
 				status: WatchStatus.COMPLETED,
 			});
-			queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid!], (old: any) => {
-				if (!old?.pages) return old;
-				const newMovie = {
-					id: `${item.id}_watched`,
-					tmdbId: item.id,
-					watchedAt: now,
-					lastWatchedAt: now,
-					runtime: (item as any).runtime ?? 0,
-					watchCount: 1,
-					title: movieTitle,
-					posterPath: moviePoster,
-				} as WatchedMovie;
-				const firstPage = old.pages[0];
-				return {
-					...old,
-					pages: [{ ...firstPage, movies: [newMovie, ...firstPage.movies] }, ...old.pages.slice(1)],
-				};
-			});
+			// Same row id as the watchedMovies doc (String(tmdbId)) — creates the first page if empty
+			insertWatchedMovieCache(queryClient, user.uid!, {
+				id: String(item.id),
+				tmdbId: item.id,
+				watchedAt: now,
+				lastWatchedAt: now,
+				runtime,
+				watchCount: 1,
+				title: movieTitle,
+				posterPath: moviePoster,
+				releaseDate: catalog?.releaseDate ?? item.release_date ?? null,
+			} as WatchedMovie);
 			incrementDailyWatch("movie");
 			emitShowCompleted({
 				tmdbId: item.id,
 				mediaType: MediaType.MOVIE,
 				title: movieTitle,
 				posterPath: moviePoster,
-				genres: [],
+				genres: catalog?.genres ?? [],
 			});
 		});
 	}, [user?.uid, movieModal, withLoadingId, queryClient]);
@@ -340,6 +350,7 @@ export function useSearchActions() {
 		if (!user?.uid || !resumeModal) return;
 		const { item, nextEp, nextEpName, nextEpAirDate } = resumeModal;
 		setResumeModal(null);
+		prefillCatalog(item.id, MediaType.TV);
 		await withLoadingId(item.id, async () => {
 			const title = item.title || item.name || "";
 			const poster = item.poster_path || null;
@@ -387,6 +398,7 @@ export function useSearchActions() {
 		if (!user?.uid || !resumeModal) return;
 		const item = resumeModal.item;
 		setResumeModal(null);
+		prefillCatalog(item.id, MediaType.TV);
 		await withLoadingId(item.id, async () => {
 			const title = item.title || item.name || "";
 			const poster = item.poster_path || null;

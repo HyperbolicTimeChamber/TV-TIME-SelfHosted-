@@ -1,5 +1,12 @@
 import { useState, useCallback, useRef, useMemo } from "react";
-import { View, Text, TouchableOpacity, Animated } from "react-native";
+import { View, Text, TouchableOpacity, useWindowDimensions } from "react-native";
+import type { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent } from "react-native";
+import Animated, {
+	useAnimatedReaction,
+	useAnimatedStyle,
+	useSharedValue,
+	withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LoadingSpinner } from "../../components";
@@ -11,11 +18,11 @@ import NotFoundArt, {
 } from "../../components/NotFoundArt";
 
 const artReserve = artHeight(NO_RESULTS_RATIO) + 24;
-import { LegendList } from "@legendapp/list/react-native";
+import { AnimatedLegendList } from "@legendapp/list/reanimated";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSearch, useSearchSort, useTrending } from "../../hooks";
-import { colors } from "../../theme";
+import { colors, spacing } from "../../theme";
 import { TMDBShow, SearchStackParamList, MediaType, MediaFilter, Route } from "../../types";
 import SortFab, { SORT_FAB_CLEARANCE } from "../../components/SortFab";
 import SortSheet, { type SortOption } from "../../components/SortSheet";
@@ -33,6 +40,11 @@ import { styles } from "./styles";
 
 const SORT_OPTIONS: SortOption<SearchSortView>[] = SEARCH_SORT_OPTIONS.map(({ label, ...value }) => ({ value, label }));
 const FAB_BOTTOM = 20;
+const HEADER_SNAP_MS = 180;
+
+type SearchItem = TMDBShow & { _tracked: boolean; _adding: boolean };
+
+const keyExtractor = (item: SearchItem) => `${item.media_type || "x"}_${item.id}`;
 
 type NavProp = NativeStackNavigationProp<SearchStackParamList, Route.SEARCH_MAIN>;
 
@@ -41,6 +53,9 @@ const FILTER_TABS = [
 	{ key: MediaFilter.TV, label: "TV" },
 	{ key: MediaFilter.MOVIE, label: "Movies" },
 ];
+
+// Scrolls with the grid (header block floats over the list's top padding)
+const TRENDING_TITLE = <Text style={styles.listTitle}>Trending</Text>;
 
 export default function SearchScreen() {
 	const { top } = useSafeAreaInsets();
@@ -56,57 +71,58 @@ export default function SearchScreen() {
 	// No-results art sits at the visible bottom; the message stays above it
 	const [artOverhang, setArtOverhang] = useState(0);
 
-	// Collapsible header — transforms only (native driver): header and content both slide up
-	// by h (content is h taller, so no gap opens at the bottom). Animating paddingTop would
-	// relayout the list on the JS thread every frame.
-	const headerHeight = useRef(0);
+	// Collapsing header ("diffClamp"): the header floats over the list's top padding and follows
+	// every scroll delta on the UI thread — translateY = clamp(prev - dy, -h, 0) — then snaps
+	// fully shown/hidden when the scroll settles. No JS work or React state per frame.
 	const [headerH, setHeaderH] = useState(0);
-	const headerTranslateY = useRef(new Animated.Value(0)).current;
-	const lastScrollY = useRef(0);
-	const headerVisible = useRef(true);
-	const animating = useRef(false);
+	const headerHeight = useSharedValue(0);
+	const headerY = useSharedValue(0);
+	const scrollY = useSharedValue(0);
+	// Stable object — AnimatedLegendList re-subscribes when it changes
+	const listSharedValues = useMemo(() => ({ scrollOffset: scrollY }), [scrollY]);
 
-	const onHeaderLayout = useCallback((e: any) => {
-		headerHeight.current = e.nativeEvent.layout.height;
-		setHeaderH(e.nativeEvent.layout.height);
-	}, []);
-
-	const handleScroll = useCallback(
-		(e: any) => {
-			const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-			const y = contentOffset.y;
-			const dy = y - lastScrollY.current;
-			lastScrollY.current = y;
-			const h = headerHeight.current;
-			if (animating.current) return;
-			// Hiding the header shrinks the list's top padding by h — only hide when the list
-			// would still scroll afterwards, or a short result set strands the header offscreen
-			const scrollRoom = contentSize.height - layoutMeasurement.height;
-			const canHide = scrollRoom > h + 50;
-
-			if (dy > 10 && headerVisible.current && y > 50 && canHide) {
-				headerVisible.current = false;
-				animating.current = true;
-				Animated.timing(headerTranslateY, {
-					toValue: -h,
-					duration: 200,
-					useNativeDriver: true,
-				}).start(() => {
-					animating.current = false;
-				});
-			} else if ((dy < -10 || y <= 0) && !headerVisible.current) {
-				headerVisible.current = true;
-				animating.current = true;
-				Animated.timing(headerTranslateY, {
-					toValue: 0,
-					duration: 200,
-					useNativeDriver: true,
-				}).start(() => {
-					animating.current = false;
-				});
-			}
+	useAnimatedReaction(
+		() => scrollY.value,
+		(y, prev) => {
+			if (prev === null) return;
+			const h = headerHeight.value;
+			// Ignore the top overscroll bounce (negative offsets)
+			const dy = Math.max(y, 0) - Math.max(prev, 0);
+			// dy 0 would still cancel a running snap animation
+			if (!h || dy === 0) return;
+			headerY.value = Math.min(0, Math.max(-h, headerY.value - dy));
 		},
-		[headerTranslateY],
+	);
+
+	const headerStyle = useAnimatedStyle(() => ({
+		transform: [{ translateY: headerY.value }],
+	}));
+
+	const onHeaderLayout = useCallback(
+		(e: LayoutChangeEvent) => {
+			const h = e.nativeEvent.layout.height;
+			headerHeight.value = h;
+			setHeaderH(h);
+		},
+		[headerHeight],
+	);
+
+	// Scroll settled: finish a half-hidden header. Only hide when the list is scrolled past the
+	// header, or its top padding would show as an empty band.
+	const snapHeader = useCallback(() => {
+		const h = headerHeight.value;
+		const y = headerY.value;
+		if (!h || y === 0 || y === -h) return;
+		const hide = y < -h / 2 && scrollY.value >= h;
+		headerY.value = withTiming(hide ? -h : 0, { duration: HEADER_SNAP_MS });
+	}, [headerHeight, headerY, scrollY]);
+
+	// A fling's momentum keeps moving the header — snap when it ends instead
+	const onScrollEndDrag = useCallback(
+		(e: NativeSyntheticEvent<NativeScrollEvent>) => {
+			if (Math.abs(e.nativeEvent.velocity?.y ?? 0) < 0.05) snapHeader();
+		},
+		[snapHeader],
 	);
 
 	const openSearchInput = useCallback(() => {
@@ -167,15 +183,35 @@ export default function SearchScreen() {
 	const rawDisplayData = submittedQuery.length > 0 ? sortedResults : filteredTrending;
 	const isLoading = submittedQuery.length > 0 ? searchLoading : trendingLoading;
 
-	// Augment data with tracked/adding state so LegendList re-renders items when these change
+	// Augment data with tracked/adding state so LegendList re-renders items when these change.
+	// Augmented items are reused per source item while their flags are unchanged — a fresh
+	// object per item would re-render every card on each page append, re-sort or add/remove
+	const augmented = useRef(new WeakMap<TMDBShow, SearchItem>());
 	const displayData = useMemo(() => {
 		if (!rawDisplayData) return rawDisplayData;
-		return rawDisplayData.map((item) => ({
-			...item,
-			_tracked: trackedIds.has(item.id),
-			_adding: addingIds.has(item.id),
-		}));
+		const cache = augmented.current;
+		return rawDisplayData.map((item) => {
+			const tracked = trackedIds.has(item.id);
+			const adding = addingIds.has(item.id);
+			const prev = cache.get(item);
+			if (prev && prev._tracked === tracked && prev._adding === adding) return prev;
+			const next: SearchItem = { ...item, _tracked: tracked, _adding: adding };
+			cache.set(item, next);
+			return next;
+		});
 	}, [rawDisplayData, trackedIds, addingIds]);
+
+	// Posters are 2:3 and fill the column — a close estimate keeps LegendList from
+	// re-positioning rows as real sizes come in (was 140, about half the real height)
+	const { width: windowWidth } = useWindowDimensions();
+	const estimatedItemSize = useMemo(() => {
+		const cardWidth = (windowWidth - 2 * spacing.lg - 3 * spacing.sm) / 2;
+		return Math.round(cardWidth * 1.5 + spacing.xs);
+	}, [windowWidth]);
+
+	const onEndReached = useCallback(() => {
+		if (submittedQuery && hasNextPage) fetchNextPage();
+	}, [submittedQuery, hasNextPage, fetchNextPage]);
 
 	const showSort = submittedQuery.length > 0 && !isLoading && !!displayData?.length;
 
@@ -190,11 +226,11 @@ export default function SearchScreen() {
 	);
 
 	const renderItem = useCallback(
-		({ item }: { item: TMDBShow & { _tracked?: boolean; _adding?: boolean } }) => (
+		({ item }: { item: SearchItem }) => (
 			<SearchCard
 				item={item}
-				isInWatchlist={!!item._tracked}
-				isAdding={!!item._adding}
+				isInWatchlist={item._tracked}
+				isAdding={item._adding}
 				onPress={handlePress}
 				onAdd={handleAddToWatchlist}
 				onRemove={handleRemoveFromWatchlist}
@@ -207,10 +243,7 @@ export default function SearchScreen() {
 		<View style={styles.container}>
 			<Animated.View
 				onLayout={onHeaderLayout}
-				style={[
-					styles.headerBlock,
-					{ paddingTop: top, transform: [{ translateY: headerTranslateY }] },
-				]}
+				style={[styles.headerBlock, { paddingTop: top }, headerStyle]}
 			>
 				<View style={styles.headerCard}>
 					<View style={styles.searchBarRow}>
@@ -246,26 +279,20 @@ export default function SearchScreen() {
 				</View>
 			</Animated.View>
 
-			<Animated.View
-				style={[
-					styles.content,
-					{
-						paddingTop: headerH,
-						marginBottom: -headerH,
-						transform: [{ translateY: headerTranslateY }],
-					},
-				]}
-			>
-				{!submittedQuery && <Text style={styles.sectionTitle}>Trending</Text>}
-
+			<View style={styles.content}>
 				{isLoading ? (
-					<View style={styles.center}>
+					<View style={[styles.center, { paddingTop: headerH }]}>
 						<LoadingSpinner />
 					</View>
 				) : !isLoading &&
 				  submittedQuery.length > 0 &&
 				  (!displayData || displayData.length === 0) ? (
-					<View style={[styles.emptyWrap, { paddingBottom: artReserve + artOverhang }]}>
+					<View
+						style={[
+							styles.emptyWrap,
+							{ paddingTop: headerH, paddingBottom: artReserve + artOverhang },
+						]}
+					>
 						<NotFoundArt
 							source={NO_RESULTS_ART}
 							ratio={NO_RESULTS_RATIO}
@@ -277,29 +304,34 @@ export default function SearchScreen() {
 						</Text>
 					</View>
 				) : (
-					<LegendList
+					<AnimatedLegendList
 						ref={listRef}
 						data={displayData || []}
-						keyExtractor={(item) => `${item.media_type || "x"}_${item.id}`}
+						keyExtractor={keyExtractor}
 						renderItem={renderItem}
 						numColumns={2}
-						estimatedItemSize={140}
+						estimatedItemSize={estimatedItemSize}
 						columnWrapperStyle={styles.row}
-						onScroll={handleScroll}
-						scrollEventThrottle={16}
-						// Content is headerH taller than the screen (see above) — keep the last row reachable
+						sharedValues={listSharedValues}
+						onScrollEndDrag={onScrollEndDrag}
+						onMomentumScrollEnd={snapHeader}
+						ListHeaderComponent={submittedQuery ? null : TRENDING_TITLE}
+						// Top padding sits under the floating header
 						contentContainerStyle={[
 							styles.grid,
-							{ paddingBottom: headerH + (showSort ? FAB_BOTTOM + SORT_FAB_CLEARANCE : 0) },
+							{
+								paddingTop: headerH + (submittedQuery ? spacing.sm : 0),
+								paddingBottom: showSort ? FAB_BOTTOM + SORT_FAB_CLEARANCE : 0,
+							},
 						]}
-						onEndReached={() => {
-							if (submittedQuery && hasNextPage) fetchNextPage();
-						}}
+						onEndReached={onEndReached}
 						onEndReachedThreshold={0.5}
-						recycleItems={false}
+						// Cards hold no state and expo-image has a recyclingKey — reusing views
+						// avoids a full card mount for every row scrolled in
+						recycleItems
 					/>
 				)}
-			</Animated.View>
+			</View>
 
 			{showSort && (
 				<SortFab
@@ -318,8 +350,9 @@ export default function SearchScreen() {
 				onSelect={(next) => {
 					setSortView(next);
 					setSortOpen(false);
-					// New order starts from the top
+					// New order starts from the top, header shown
 					listRef.current?.scrollToOffset({ offset: 0, animated: false });
+					headerY.value = 0;
 				}}
 			/>
 
