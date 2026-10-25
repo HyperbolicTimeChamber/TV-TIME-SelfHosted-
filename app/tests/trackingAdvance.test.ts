@@ -8,6 +8,12 @@ import {
 	jumpPromptFor,
 	seasonMarkEpisodes,
 	seasonMarkCopy,
+	seasonSkipAheadCopy,
+	startRewatchCopy,
+	observedRewatchRun,
+	carouselRunBase,
+	firstSkippedSeason,
+	rewatchUpToRefs,
 	epKey,
 	EpisodeRef,
 } from "../src/utils";
@@ -351,7 +357,7 @@ test("season confirm copy says what the mark really does", () => {
 	const base = { seasonNumber: 1, seasonName: "Season 1", total: 6 };
 	assert.equal(
 		seasonMarkCopy({ ...base, toMark: 6, allWatched: false, inRewatch: false }).title,
-		"Mark Season 1 as Watched?",
+		"Mark Season 1 as Watched",
 	);
 	const partial = seasonMarkCopy({ ...base, toMark: 4, allWatched: false, inRewatch: false });
 	assert.match(partial.hint, /4 episodes of Season 1 you haven't watched yet/);
@@ -359,14 +365,168 @@ test("season confirm copy says what the mark really does", () => {
 	const finished = seasonMarkCopy({ ...base, toMark: 6, allWatched: true, inRewatch: false });
 	assert.deepEqual(
 		[finished.title, finished.confirmLabel],
-		["Rewatch Season 1?", "Rewatch Season"],
+		["Rewatch Season 1", "Rewatch Season"],
 	);
 	const rest = seasonMarkCopy({ ...base, toMark: 1, allWatched: true, inRewatch: true });
-	assert.equal(rest.title, "Rewatch Rest of Season 1?");
-	assert.match(rest.hint, /1 episode of Season 1 not yet rewatched/);
+	assert.equal(rest.title, "Rewatch Rest of Season 1");
+	assert.match(rest.hint, /5 episodes of Season 1 are already rewatched/);
+	assert.match(rest.hint, /other 1 episode/);
+	assert.deepEqual([rest.confirmLabel, rest.secondaryLabel], ["Mark Rest", "Mark All Again"]);
+	// Only the mid-rewatch partial case offers "Mark All Again"
+	assert.equal(partial.secondaryLabel, undefined);
+	assert.equal(finished.secondaryLabel, undefined);
 	// Rewatch reaching a season nobody rewatched yet → whole season
 	assert.equal(
 		seasonMarkCopy({ ...base, toMark: 6, allWatched: true, inRewatch: true }).title,
-		"Rewatch Season 1?",
+		"Rewatch Season 1",
+	);
+});
+
+// ── rewatch run number stays in line with the episode counts ──
+test("rewatch writes carry the absolute run number (level − 1)", () => {
+	// Starting rewatch 1 from E1
+	const start = adv([2, ...Array(11).fill(1)], mk(1, 1), C, null);
+	assert.deepEqual([start.incrementRewatch, start.rewatchCount], [true, 1]);
+	// Continuing: no bump, but the run number is restated
+	const cont = adv([2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], mk(1, 2), R, ep(1, 2));
+	assert.deepEqual([cont.incrementRewatch, cont.rewatchCount], [false, 1]);
+	// First watch / completion carry none
+	assert.equal(adv([1, ...Array(11).fill(0)], mk(1, 1), W, ep(1, 1)).rewatchCount, undefined);
+	assert.equal(adv(all(2), mk(2, 6), R, ep(2, 6)).rewatchCount, undefined);
+});
+
+test("Scrubs: a new run under a REWATCHING status that never flipped stores run 4, not 3", () => {
+	// E1–E3 ×5, rest ×4, status still rewatching (stored run 3) — marking E4 continues run 4
+	const before = [5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4];
+	assert.equal(rewatchLevel(order, counts(before), tr(R, 1, 4)), 5);
+	assert.equal(observedRewatchRun(order, counts(before), tr(R, 1, 4)), 4);
+	const r = adv([5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4], mk(1, 4), R, ep(1, 4));
+	assert.deepEqual(
+		[r.advance, r.nextEpisode, r.status, r.incrementRewatch, r.rewatchCount],
+		[true, ep(1, 5), R, false, 4],
+	);
+});
+
+test("filling the last first-watch gap mid-rewatch stores the run under way", () => {
+	const r = adv([2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1], mk(1, 3), W, ep(1, 5));
+	assert.equal(r.rewatchCount, 1);
+});
+
+test("observed rewatch run: only trusted when the pointer and the episode before agree", () => {
+	// Pointer at run start (E1)
+	assert.equal(observedRewatchRun(order, counts(all(3)), tr(R, 1, 1)), 3);
+	// Episode before skipped (same count) still agrees
+	assert.equal(observedRewatchRun(order, counts([3, 2, 2, ...Array(9).fill(2)]), tr(R, 1, 3)), 2);
+	// Pointer on a first-watch hole / stray extra counts before it / not rewatching → unknown
+	assert.equal(observedRewatchRun(order, counts([2, 2, 0, ...Array(9).fill(1)]), tr(R, 1, 3)), null);
+	assert.equal(observedRewatchRun(order, counts([2, 5, 1, ...Array(9).fill(1)]), tr(R, 1, 3)), null);
+	assert.equal(observedRewatchRun(order, counts(all(2)), tr(C, 1, 3)), null);
+	assert.equal(observedRewatchRun(order, counts(all(2)), { status: R, nextEpisode: null }), null);
+});
+
+test("carousel run base: from the pointer's count, not a stale stored number", () => {
+	// Scrubs: pointer E15 at ×4, stored run 3 → base 4 → E15 is NOT watched in this run
+	assert.equal(carouselRunBase(true, 4, 5, 3), 4);
+	assert.ok(!(4 > carouselRunBase(true, 4, 5, 3)));
+	// First watch → 0
+	assert.equal(carouselRunBase(false, 1, 1, 0), 0);
+	// Pointer on a hole → one below the episode before it
+	assert.equal(carouselRunBase(true, 0, 3, 1), 2);
+	// Nothing known → stored run (≥ 1)
+	assert.equal(carouselRunBase(true, null, null, 0), 1);
+	assert.equal(carouselRunBase(true, null, null, 2), 2);
+});
+
+// ── season speedster ──
+test("season speedster (first watch): earlier seasons' unwatched episodes", () => {
+	const c = counts([1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+	const r = firstSkippedSeason(order, c, tr(W, 1, 3), 2, TODAY);
+	assert.deepEqual(r, { firstSeason: 1, level: 1, refs: [3, 4, 5, 6].map((e) => ep(1, e)) });
+	// Season 1 finished → no prompt
+	assert.equal(
+		firstSkippedSeason(order, counts([1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]), tr(W, 2, 1), 2, TODAY),
+		null,
+	);
+	// Season 1 itself never prompts
+	assert.equal(firstSkippedSeason(order, c, tr(W, 1, 3), 1, TODAY), null);
+	// Extra watch of a finished season (nothing below the level) → no prompt
+	assert.equal(
+		firstSkippedSeason(order, counts([0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1]), tr(W, 1, 1), 2, TODAY),
+		null,
+	);
+});
+
+test("season speedster: unaired unwatched earlier episodes don't count", () => {
+	const o: EpisodeRef[] = [
+		...order.slice(0, 5),
+		{ season: 1, episode: 6, airDate: "2099-01-01" },
+		...order.slice(6),
+	];
+	const c = new Map(o.map((e, i) => [epKey(e.season, e.episode), i < 5 ? 1 : 0]));
+	assert.equal(firstSkippedSeason(o, c, tr(W, 1, 6), 2, TODAY), null);
+});
+
+test("season speedster (rewatch): from the rewatch pointer, at the rewatch level", () => {
+	const c = counts([2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
+	assert.deepEqual(firstSkippedSeason(order, c, tr(R, 1, 3), 2, TODAY), {
+		firstSeason: 1,
+		level: 2,
+		refs: [3, 4, 5, 6].map((e) => ep(1, e)),
+	});
+	// Pointer already in the season → plain season mark
+	assert.equal(
+		firstSkippedSeason(order, counts([2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1]), tr(R, 2, 2), 2, TODAY),
+		null,
+	);
+	// The combined mark (S1E3–E6 + S2) continues the rewatch to the end
+	const after = counts(all(2));
+	const marked = [...[3, 4, 5, 6].map((e) => ep(1, e)), ...[1, 2, 3, 4, 5, 6].map((e) => ep(2, e))];
+	const r = computeTrackingAdvance(order, after, marked, tr(R, 1, 3), TODAY);
+	assert.deepEqual([r.advance, r.nextEpisode, r.status], [true, null, C]);
+});
+
+test("season speedster copy", () => {
+	const many = seasonSkipAheadCopy(1, 4, false);
+	assert.equal(many.hint, "You've jumped ahead a few seasons. Mark Seasons 1–3 too, or just this season?");
+	assert.deepEqual([many.confirmLabel, many.secondaryLabel], ["Mark S1–S4 Watched", "Just This Season"]);
+	assert.match(seasonSkipAheadCopy(1, 2, false).hint, /ahead a season\. Mark Season 1 too/);
+	assert.match(seasonSkipAheadCopy(2, 4, true).hint, /in this rewatch\. Rewatch the rest of Seasons 2–3/);
+});
+
+// ── "Start a Rewatch?" → Rewatch Up To Here ──
+test("rewatch up to here: E1 → target at the new level, holes and extra counts left alone", () => {
+	assert.deepEqual(
+		rewatchUpToRefs(order, counts(all(1)), ep(2, 2)),
+		[...[1, 2, 3, 4, 5, 6].map((e) => ep(1, e)), ep(2, 1), ep(2, 2)],
+	);
+	// S1E2 never watched (hole), S1E3 already ×2 (extra) → both skipped
+	assert.deepEqual(rewatchUpToRefs(order, counts([1, 0, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1]), ep(1, 5)), [
+		ep(1, 1),
+		ep(1, 4),
+		ep(1, 5),
+	]);
+	// Unwatched target → nothing
+	assert.deepEqual(rewatchUpToRefs(order, counts(all(0)), ep(1, 3)), []);
+	// Marking them starts rewatch 1 continuing after the target
+	const marked = rewatchUpToRefs(order, counts(all(1)), ep(2, 2));
+	const after = counts([2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1]);
+	const r = computeJumpFrom(order, after, marked, { status: C });
+	assert.deepEqual(
+		[r.advance, r.nextEpisode, r.status, r.incrementRewatch, r.rewatchCount],
+		[true, ep(2, 3), R, true, 1],
+	);
+});
+
+test("start rewatch copy: Up To Here only when it covers more than the one episode", () => {
+	const multi = startRewatchCopy({ label: "S02E02", firstLabel: "S01E01", upTo: 8 });
+	assert.deepEqual(
+		[multi.confirmLabel, multi.secondaryLabel, multi.tertiaryLabel],
+		["Rewatch Up To Here", "Rewatch From Here", "Just Mark It"],
+	);
+	assert.match(multi.hint, /S01E01–S02E02 \(8 episodes\)/);
+	const one = startRewatchCopy({ label: "S01E01", firstLabel: "S01E01", upTo: 1 });
+	assert.deepEqual(
+		[one.confirmLabel, one.secondaryLabel, one.tertiaryLabel],
+		["Rewatch From Here", "Just Mark It", undefined],
 	);
 });

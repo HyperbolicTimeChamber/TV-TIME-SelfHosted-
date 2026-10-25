@@ -10,7 +10,10 @@ export interface SearchSortOption extends SearchSortView {
 	label: string;
 }
 
-export const DEFAULT_SEARCH_SORT: SearchSortView = { sort: SearchSort.DATE, direction: SortDirection.DESC };
+export const DEFAULT_SEARCH_SORT: SearchSortView = {
+	sort: SearchSort.DATE,
+	direction: SortDirection.DESC,
+};
 
 export const SEARCH_SORT_OPTIONS: SearchSortOption[] = [
 	{ sort: SearchSort.DATE, direction: SortDirection.DESC, label: "Newest first" },
@@ -32,9 +35,10 @@ const titleOf = (item: TMDBShow): string => (item.title || item.name || "").trim
 export function compareSearchResults(view: SearchSortView): (a: TMDBShow, b: TMDBShow) => number {
 	const sign = view.direction === SortDirection.ASC ? 1 : -1;
 	const key = view.sort === SearchSort.DATE ? releaseOf : titleOf;
-	const compare = view.sort === SearchSort.DATE
-		? (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0)
-		: collator.compare;
+	const compare =
+		view.sort === SearchSort.DATE
+			? (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0)
+			: collator.compare;
 	return (a, b) => {
 		const ka = key(a);
 		const kb = key(b);
@@ -44,6 +48,9 @@ export function compareSearchResults(view: SearchSortView): (a: TMDBShow, b: TMD
 }
 
 /** Sorted copy — stable, so ties keep TMDB's relevance order */
-export function sortSearchResults<T extends TMDBShow>(items: readonly T[], view: SearchSortView): T[] {
+export function sortSearchResults<T extends TMDBShow>(
+	items: readonly T[],
+	view: SearchSortView,
+): T[] {
 	return [...items].sort(compareSearchResults(view));
 }

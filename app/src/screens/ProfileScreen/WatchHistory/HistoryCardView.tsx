@@ -55,7 +55,11 @@ function ProgressModule({ progress }: { progress: NonNullable<HistoryCard["progr
 /** Watch History card (16:9): logo + title + status, time spent, progress, Ongoing/Ended */
 function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => void }) {
 	return (
-		<TouchableOpacity style={[styles.card, { minHeight: CARD_MIN_HEIGHT }]} onPress={onPress} activeOpacity={0.85}>
+		<TouchableOpacity
+			style={[styles.card, { minHeight: CARD_MIN_HEIGHT }]}
+			onPress={onPress}
+			activeOpacity={0.85}
+		>
 			{card.backdropPath && (
 				<Image
 					source={{ uri: tmdbBlurredBackdropUri(card.backdropPath) }}

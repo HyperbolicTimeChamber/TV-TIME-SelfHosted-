@@ -107,8 +107,14 @@ export default memo(function ShowCard({
 	}, [onPress, onTitlePress, item]);
 	const handleTitlePress = useCallback(() => onTitlePress?.(item), [onTitlePress, item]);
 	const handleSwipeLeft = useCallback(() => onSwipeLeft(item), [onSwipeLeft, item]);
-	const handleSwipeRight = useCallback(() => onSwipeRight?.(item) ?? Promise.resolve(), [onSwipeRight, item]);
-	const handleLongPress = useMemo(() => withHaptic(onLongPress && (() => onLongPress(item))), [onLongPress, item]);
+	const handleSwipeRight = useCallback(
+		() => onSwipeRight?.(item) ?? Promise.resolve(),
+		[onSwipeRight, item],
+	);
+	const handleLongPress = useMemo(
+		() => withHaptic(onLongPress && (() => onLongPress(item))),
+		[onLongPress, item],
+	);
 
 	if (isWatched) {
 		const wc = watchCount ?? 0;
@@ -151,7 +157,7 @@ export default memo(function ShowCard({
 											<>
 												<View style={styles.slantArrow} />
 												<View style={styles.freshTag}>
-													<Text style={styles.freshTagText}>
+													<Text style={[styles.freshTagText, styles.watchedYear]}>
 														{item.releaseDate.substring(0, 4)}
 													</Text>
 												</View>
@@ -434,6 +440,10 @@ const styles = StyleSheet.create({
 		fontWeight: "700",
 		color: colors.surface,
 		letterSpacing: 0.5,
+	},
+	// Previously watched: the faded card turned the surface-grey year brownish — keep it black
+	watchedYear: {
+		color: colors.background,
 	},
 	tagBadge: {
 		alignSelf: "flex-start",

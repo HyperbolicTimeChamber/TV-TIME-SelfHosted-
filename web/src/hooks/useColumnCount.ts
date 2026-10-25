@@ -10,7 +10,8 @@ const subscribe = (onChange: () => void) => {
 	return () => queries.forEach((q) => q.removeEventListener("change", onChange));
 };
 
-const snapshot = () => (window.matchMedia(DESKTOP).matches ? 3 : window.matchMedia(TABLET).matches ? 2 : 1);
+const snapshot = () =>
+	window.matchMedia(DESKTOP).matches ? 3 : window.matchMedia(TABLET).matches ? 2 : 1;
 
 /** 1 / 2 / 3 columns by viewport width, re-rendering only when the count changes */
 export function useColumnCount(): number {

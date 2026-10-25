@@ -1,4 +1,4 @@
-import { MediaType } from "../enums";
+import { EpisodeType, MediaType } from "../enums";
 
 export interface CatalogEpisode {
 	episodeNumber: number;
@@ -7,6 +7,9 @@ export interface CatalogEpisode {
 	airDate: string | null;
 	runtime: number | null;
 	stillPath: string | null;
+	/** TMDB episode_type; missing on docs written before it was stored → not a finale */
+	episodeType?: EpisodeType;
+	/** Legacy flag (older docs: "last listed episode") — read episodeType instead */
 	isSeasonFinale?: boolean;
 	/** Exact UTC air time (TVMaze) — clients show the episode on their local day */
 	airStamp?: string;
@@ -45,6 +48,8 @@ export interface CatalogShow {
 	trackedBy: string[];
 	trackedByCount: number;
 	lastSyncedAt: any; // Firestore Timestamp
+	/** Last shared TMDB refresh (refreshShow, epoch ms) */
+	lastTmdbCheckAt?: number;
 	/** Client-built stand-in (search add) — replace with the real catalog doc ASAP */
 	partial?: boolean;
 }

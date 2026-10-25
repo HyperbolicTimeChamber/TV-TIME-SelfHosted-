@@ -1,4 +1,4 @@
-import { MediaType } from "../enums";
+import { EpisodeType, MediaType } from "../enums";
 
 export interface TMDBShow {
 	id: number;
@@ -42,6 +42,8 @@ export interface TMDBEpisode {
 	air_date: string | null;
 	runtime: number | null;
 	still_path: string | null;
+	/** "standard" | "finale" | "mid_season" */
+	episode_type?: EpisodeType;
 }
 
 export interface UpcomingEpisode {

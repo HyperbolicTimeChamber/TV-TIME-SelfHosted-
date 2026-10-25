@@ -7,7 +7,9 @@ export function useElementHeight<T extends HTMLElement>() {
 	useEffect(() => {
 		const el = ref.current;
 		if (!el) return;
-		const ro = new ResizeObserver(([entry]) => setHeight(entry.target.getBoundingClientRect().height));
+		const ro = new ResizeObserver(([entry]) =>
+			setHeight(entry.target.getBoundingClientRect().height),
+		);
 		ro.observe(el);
 		return () => ro.disconnect();
 	}, []);

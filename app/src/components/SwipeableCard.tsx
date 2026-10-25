@@ -81,9 +81,12 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 	const [actionColor, setActionColor] = React.useState<string>(colors.watchedGreen);
 	const isProcessing = useRef(false);
 	const restoreTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-	useEffect(() => () => {
-		if (restoreTimer.current) clearTimeout(restoreTimer.current);
-	}, []);
+	useEffect(
+		() => () => {
+			if (restoreTimer.current) clearTimeout(restoreTimer.current);
+		},
+		[],
+	);
 	const [persistingLoad, setPersistingLoad] = React.useState(false);
 	// Recycled into another item → start clean
 	const firstKey = useRef(resetKey);
@@ -206,7 +209,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				.onEnd((event) => {
 					"worklet";
 					if (!idle.value) return;
-		
+
 					if (event.translationX > SWIPE_THRESHOLD) {
 						translateX.value = withTiming(SCREEN_WIDTH, { duration: 200 }, () => {
 							runOnJS(handleSwipeComplete)("left");

@@ -12,3 +12,4 @@ export { deleteAccount } from "./cloudFunctions/deleteAccount";
 export { rebuildUpcoming } from "./cloudFunctions/rebuildUpcoming";
 export { tmdbProxy } from "./cloudFunctions/tmdbProxy";
 export { sharePreview } from "./cloudFunctions/sharePreview";
+export { refreshShow } from "./cloudFunctions/refreshShow";

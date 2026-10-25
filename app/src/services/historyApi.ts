@@ -77,7 +77,11 @@ export async function fetchHistoryViewPage(
 ): Promise<{ entries: HistoryEntry[]; hasMore: boolean }> {
 	const bySpent = sort === HistorySort.TIME_SPENT;
 	const field = bySpent ? "minutesWatched" : "historyAt";
-	const cursor = after ? (bySpent ? after.minutesWatched : Timestamp.fromMillis(after.historyAt)) : null;
+	const cursor = after
+		? bySpent
+			? after.minutesWatched
+			: Timestamp.fromMillis(after.historyAt)
+		: null;
 	const snap = await getDocs(
 		query(
 			trackingCol(userId),
@@ -113,7 +117,10 @@ export async function fetchHistoryDelta(
 }
 
 /** One tracking doc — a watch on a title the cache doesn't hold yet */
-export async function fetchHistoryEntry(userId: string, docId: string): Promise<HistoryEntry | null> {
+export async function fetchHistoryEntry(
+	userId: string,
+	docId: string,
+): Promise<HistoryEntry | null> {
 	const snap = await getDoc(doc(trackingCol(userId), docId));
 	return snap.exists() ? toEntry(snap.id, snap.data() as Record<string, any>) : null;
 }

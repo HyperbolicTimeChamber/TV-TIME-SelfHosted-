@@ -10,6 +10,8 @@ import {
 	incrementDailyWatch,
 	decrementDailyWatch,
 	getCachedCatalogShow,
+	cacheCatalogShows,
+	catalogFromShowDetails,
 	insertWatchedMovieCache,
 } from "../../hooks";
 import { useAuthStore } from "../../stores";
@@ -33,6 +35,7 @@ import {
 	emitShowCompleted,
 	showDocId,
 	todayStr,
+	isIncompleteCatalog,
 } from "../../utils";
 import {
 	WatchStatus,
@@ -41,8 +44,19 @@ import {
 	QueryKey,
 	WatchedMovie,
 	WatchAction,
+	CatalogShow,
 } from "../../types";
 import { Alert } from "react-native";
+
+/**
+ * Last tracking doc each show page's listener saw (uid/docId → doc, null = not tracked). A
+ * reopened page starts from it instead of a spinner: on Android RNFirebase serializes every
+ * snapshot on one shared executor thread that a server getDoc / getDocs blocks until the
+ * network answers, so after a mark (runtime / history reads in flight) the new listener's
+ * first snapshot — cached or not — could sit behind them for seconds. 0 reads; the listener
+ * still corrects it a moment later.
+ */
+const lastTracking = new Map<string, any | null>();
 
 /**
  * Show detail state + actions (tracking doc listener, add/remove, movie
@@ -59,12 +73,17 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		episodesBySeason,
 		refetch,
 	} = useShowDetails(tmdbId, mediaType);
-	const [watchlistItem, setWatchlistItem] = useState<any>(null);
+	const trackingKey = user?.uid ? `${user.uid}/${showDocId(tmdbId, mediaType)}` : null;
+	const [watchlistItem, setWatchlistItem] = useState<any>(() =>
+		trackingKey ? (lastTracking.get(trackingKey) ?? null) : null,
+	);
 	const { episodes: showWatchedEps } = useShowWatchedEpisodes(
 		mediaType === MediaType.TV ? user?.uid : undefined,
 		tmdbId,
 	);
-	const [trackingLoading, setTrackingLoading] = useState(true);
+	const [trackingLoading, setTrackingLoading] = useState(
+		() => !trackingKey || !lastTracking.has(trackingKey),
+	);
 	const [adding, setAdding] = useState(false);
 	const [removing, setRemoving] = useState(false);
 	const { addShowToUpcoming, removeShowFromUpcoming } = useUpcomingMutations();
@@ -106,16 +125,18 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 
 		// Listener only: its first snapshot comes from the local cache when the doc is there, so
 		// the page renders right away. A separate getDoc went to the server every open (slow on a
-		// bad connection, gating the whole page) and cost an extra read
-		setTrackingLoading(true);
+		// bad connection, gating the whole page) and cost an extra read. A page seen before this
+		// session renders its last state meanwhile (see lastTracking)
+		const key = `${user.uid}/${showDocId(tmdbId, mediaType)}`;
+		const known = lastTracking.has(key);
+		setWatchlistItem(known ? lastTracking.get(key) : null);
+		setTrackingLoading(!known);
 		const unsubscribe = onSnapshot(
 			trackingDocRef,
 			(snap) => {
-				if (snap.exists()) {
-					setWatchlistItem({ id: snap.id, ...snap.data() });
-				} else {
-					setWatchlistItem(null);
-				}
+				const item = snap.exists() ? { id: snap.id, ...snap.data() } : null;
+				lastTracking.set(key, item);
+				setWatchlistItem(item);
 				setTrackingLoading(false);
 			},
 			() => setTrackingLoading(false),
@@ -148,6 +169,21 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		show?.credits?.crew?.filter((c) => c.department === "Writing").map((c) => c.name) ?? [];
 	const producers =
 		show?.credits?.crew?.filter((c) => c.job === "Producer").map((c) => c.name) ?? [];
+
+	/**
+	 * Movie's catalog entry for its watchlist / Previously Watched card: the cached doc when it's
+	 * complete, else built from this page's details and put in the shared catalog cache. Run
+	 * before the tracking write — its local snapshot then enriches from the cache (no catalog
+	 * read, no TMDB heal) instead of rendering a card without poster / year / director.
+	 */
+	const seedMovieCatalog = useCallback((): CatalogShow | null => {
+		if (!show || mediaType !== MediaType.MOVIE) return null;
+		const cached = getCachedCatalogShow(tmdbId, MediaType.MOVIE);
+		if (cached && !isIncompleteCatalog(cached) && cached.credits) return cached;
+		const catalog = catalogFromShowDetails(show, MediaType.MOVIE, cached);
+		cacheCatalogShows([catalog]);
+		return catalog;
+	}, [show, tmdbId, mediaType]);
 
 	/** Show's future episodes into the local upcoming + calendar caches (server docs come from addShow CF) */
 	const addFutureEpisodesLocally = useCallback(
@@ -197,6 +233,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 			}
 
 			const firstEp = mediaType === MediaType.TV ? episodesBySeason.get(1)?.[0] : undefined;
+			const movieCatalog = seedMovieCatalog();
 
 			await addToTracking(user.uid, tmdbId, mediaType, isUnreleased ? releaseDate : null, {
 				title: show.title || show.name || "",
@@ -223,7 +260,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 				title,
 				posterPath: poster,
 				totalEpisodes: 0,
-				catalogShow: null,
+				catalogShow: movieCatalog,
 			});
 			if (isUnreleased && releaseDate) {
 				const movieEp: UpcomingEpisode = {
@@ -257,6 +294,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		addShowToUpcoming,
 		episodesBySeason,
 		addFutureEpisodesLocally,
+		seedMovieCatalog,
 	]);
 
 	const handleRemove = useCallback(() => {
@@ -313,6 +351,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		try {
 			const movieTitle = show.title || show.name || "";
 			const moviePoster = show.poster_path || null;
+			const movieCatalog = seedMovieCatalog();
 			if (!watchlistItem) {
 				await addAndMarkMovieWatched(user.uid, tmdbId, show.runtime ?? 0, {
 					title: movieTitle,
@@ -335,7 +374,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 					title: movieTitle,
 					posterPath: moviePoster,
 					totalEpisodes: 0,
-					catalogShow: null,
+					catalogShow: movieCatalog,
 				});
 			} else {
 				await markMovieWatched(user.uid, tmdbId, show.runtime ?? 0);
@@ -352,6 +391,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 				watchCount: 1,
 				title: movieTitle,
 				posterPath: moviePoster,
+				releaseDate: movieCatalog?.releaseDate ?? show.release_date ?? null,
 			} as WatchedMovie);
 			// Only feeds the count when the tracking doc has no plays (else the listener does)
 			setMovieWatchCount((c: number) => c + 1);
@@ -361,14 +401,14 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 				mediaType: MediaType.MOVIE,
 				title: movieTitle,
 				posterPath: moviePoster,
-				genres: [],
+				genres: movieCatalog?.genres ?? [],
 			});
 		} catch (err: any) {
 			Alert.alert("Error", err.message || "Failed to mark movie as watched.");
 		} finally {
 			setAdding(false);
 		}
-	}, [user?.uid, show, tmdbId, watchlistItem, adding, queryClient]);
+	}, [user?.uid, show, tmdbId, watchlistItem, adding, queryClient, seedMovieCatalog]);
 
 	const handleResumeOrRewatch = useCallback(async () => {
 		if (!user?.uid) return;

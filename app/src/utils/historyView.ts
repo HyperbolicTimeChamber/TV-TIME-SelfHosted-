@@ -7,7 +7,11 @@ export const HISTORY_SORT_LABEL: Record<HistorySort, string> = {
 	[HistorySort.TIME_SPENT]: "Total time spent",
 };
 
-export const HISTORY_FILTERS: HistoryFilter[] = [HistoryFilter.PAUSED, HistoryFilter.WATCHING, HistoryFilter.REWATCHING];
+export const HISTORY_FILTERS: HistoryFilter[] = [
+	HistoryFilter.PAUSED,
+	HistoryFilter.WATCHING,
+	HistoryFilter.REWATCHING,
+];
 
 export const HISTORY_FILTER_LABEL: Record<HistoryFilter, string> = {
 	[HistoryFilter.PAUSED]: "Paused",
@@ -27,6 +31,9 @@ export function historyFilterStatuses(filters: ReadonlySet<HistoryFilter>): Watc
 }
 
 /** Default view (newest watch first, no filters) uses the cached, delta-synced list */
-export function isDefaultHistoryView(sort: HistorySort, filters: ReadonlySet<HistoryFilter>): boolean {
+export function isDefaultHistoryView(
+	sort: HistorySort,
+	filters: ReadonlySet<HistoryFilter>,
+): boolean {
 	return sort === HistorySort.LAST_WATCHED && filters.size === 0;
 }

@@ -35,7 +35,13 @@ export default function ShowDrawer({ visible, show, loading, onGoToShow, onClose
 	return createPortal(
 		<AnimatePresence onExitComplete={() => setImageLoaded(false)}>
 			{visible && (
-				<motion.div className={styles.overlay} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
+				<motion.div
+					className={styles.overlay}
+					initial={{ opacity: 0 }}
+					animate={{ opacity: 1 }}
+					exit={{ opacity: 0 }}
+					onClick={onClose}
+				>
 					<motion.div
 						className={styles.sheet}
 						role="dialog"
@@ -58,7 +64,14 @@ export default function ShowDrawer({ visible, show, loading, onGoToShow, onClose
 							<div className={styles.scroll}>
 								<div className={styles.imageContainer}>
 									{!imageLoaded && <SkeletonBlock className={styles.imageSkeleton} />}
-									{image && <img src={image} alt="" className={styles.backdrop} onLoad={() => setImageLoaded(true)} />}
+									{image && (
+										<img
+											src={image}
+											alt=""
+											className={styles.backdrop}
+											onLoad={() => setImageLoaded(true)}
+										/>
+									)}
 									<div className={styles.imageGradient} />
 								</div>
 								<div className={styles.content}>
@@ -71,7 +84,9 @@ export default function ShowDrawer({ visible, show, loading, onGoToShow, onClose
 											show.genres && <span className={styles.meta}>{show.genres}</span>
 										)}
 										{show.mediaType && (
-											<span className={`${styles.typeBadge} ${show.mediaType === "movie" ? styles.typeBadgeMovie : ""}`}>
+											<span
+												className={`${styles.typeBadge} ${show.mediaType === "movie" ? styles.typeBadgeMovie : ""}`}
+											>
 												{show.mediaType === "movie" ? "MOVIE" : "TV"}
 											</span>
 										)}

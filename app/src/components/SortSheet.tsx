@@ -37,7 +37,10 @@ export default function SortSheet<T>({
 	return (
 		<Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
 			<Pressable style={sortSheetStyles.backdrop} onPress={onClose}>
-				<Pressable style={[sortSheetStyles.sheet, { paddingBottom: bottom + 16 }]} onPress={() => {}}>
+				<Pressable
+					style={[sortSheetStyles.sheet, { paddingBottom: bottom + 16 }]}
+					onPress={() => {}}
+				>
 					<View style={sortSheetStyles.handle} />
 					<Text style={sortSheetStyles.title}>Sort by</Text>
 					{options.map((option) => {
@@ -80,7 +83,13 @@ export const sortSheetStyles = StyleSheet.create({
 		backgroundColor: colors.border,
 		marginBottom: spacing.md,
 	},
-	title: { fontSize: 13, fontWeight: "700", color: colors.textSecondary, letterSpacing: 1, marginVertical: spacing.sm },
+	title: {
+		fontSize: 13,
+		fontWeight: "700",
+		color: colors.textSecondary,
+		letterSpacing: 1,
+		marginVertical: spacing.sm,
+	},
 	row: {
 		flexDirection: "row",
 		alignItems: "center",

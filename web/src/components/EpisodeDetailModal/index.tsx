@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { IoChevronBack, IoChevronForward } from "react-icons/io5";
@@ -9,6 +9,7 @@ import { SKIP_AHEAD_TITLE, skipAheadConfirm, skipAheadHint } from "@app/utils/fo
 import { colors } from "../../theme/index";
 import EpisodeCard from "./EpisodeCard";
 import { markWatchedLabel } from "@app/utils/format";
+import { carouselRunBase } from "@app/utils/trackingAdvance";
 import { epKey } from "./helpers";
 import styles from "./styles/EpisodeDetailModal.module.scss";
 import { cssVars } from "../../utils/cssVars";
@@ -52,19 +53,41 @@ export default function EpisodeDetailModal({
 	const [scrollPos, setScrollPos] = useState(initialIndex);
 	const [markingKey, setMarkingKey] = useState<string | null>(null);
 	const [activeIndex, setActiveIndex] = useState(initialIndex);
-	const [confirmTarget, setConfirmTarget] = useState<{ season: number; episode: number } | null>(null);
+	const [confirmTarget, setConfirmTarget] = useState<{ season: number; episode: number } | null>(
+		null,
+	);
 	const [confirmLoading, setConfirmLoading] = useState(false);
 
 	useEffect(() => setLocalWatched(watchedKeys), [watchedKeys]);
 
+	// Watched in this run = count above runBase — from the counts the modal opened with (the
+	// pointer episode sits at it), not the possibly stale stored rewatch number (app parity)
+	const runBase = useMemo(() => {
+		const inRewatch = rewatchCount > 0 || !!onSkipEpisode;
+		if (!inRewatch || !currentNextEpisode) return inRewatch ? Math.max(1, rewatchCount) : 0;
+		const at = episodes.findIndex(
+			(e) => e.season === currentNextEpisode.season && e.episode === currentNextEpisode.episode,
+		);
+		const prev = at > 0 ? episodes[at - 1] : null;
+		return carouselRunBase(
+			true,
+			watchedKeys.get(epKey(currentNextEpisode.season, currentNextEpisode.episode)),
+			prev ? watchedKeys.get(epKey(prev.season, prev.episode)) : null,
+			rewatchCount,
+		);
+	}, [rewatchCount, onSkipEpisode, currentNextEpisode, episodes, watchedKeys]);
+
 	useEffect(() => {
 		if (!visible) return;
-		setEnrichedEps(episodes.map((ep) => ({ ...ep, loaded: noLoader || !!(ep.overview && ep.stillPath) })));
+		setEnrichedEps(
+			episodes.map((ep) => ({ ...ep, loaded: noLoader || !!(ep.overview && ep.stillPath) })),
+		);
 		setActiveIndex(initialIndex);
 		setScrollPos(initialIndex);
 	}, [visible, episodes, initialIndex, noLoader]);
 
-	const snapWidth = () => scrollerRef.current?.firstElementChild?.getBoundingClientRect().width ?? 1;
+	const snapWidth = () =>
+		scrollerRef.current?.firstElementChild?.getBoundingClientRect().width ?? 1;
 
 	// Open on the tapped episode
 	useLayoutEffect(() => {
@@ -165,7 +188,7 @@ export default function EpisodeDetailModal({
 				(e.season > currentNextEpisode.season ||
 					(e.season === currentNextEpisode.season && e.episode >= currentNextEpisode.episode)) &&
 				(e.season < ep.season || (e.season === ep.season && e.episode < ep.episode));
-			return between && (localWatched.get(epKey(e.season, e.episode)) ?? 0) <= rewatchCount;
+			return between && (localWatched.get(epKey(e.season, e.episode)) ?? 0) <= runBase;
 		});
 		if (hasGaps) setConfirmTarget({ season: ep.season, episode: ep.episode });
 		else markOne(ep);
@@ -177,15 +200,22 @@ export default function EpisodeDetailModal({
 		setMarkingKey(epKey(confirmTarget.season, confirmTarget.episode));
 		let marked = false;
 		try {
-			const markedRefs = await onMarkWatchedThrough(tmdbId, confirmTarget.season, confirmTarget.episode);
+			const markedRefs = await onMarkWatchedThrough(
+				tmdbId,
+				confirmTarget.season,
+				confirmTarget.episode,
+			);
 			// Mirror the write: the episodes the handler reports, else one more watch for every
 			// episode from the current next one through the target (in a rewatch they all already
 			// have counts)
 			const from = currentNextEpisode ?? { season: 1, episode: 1 };
-			const onOrAfter = (s: number, e: number) => s > from.season || (s === from.season && e >= from.episode);
+			const onOrAfter = (s: number, e: number) =>
+				s > from.season || (s === from.season && e >= from.episode);
 			const onOrBefore = (s: number, e: number) =>
 				s < confirmTarget.season || (s === confirmTarget.season && e <= confirmTarget.episode);
-			const reported = markedRefs ? new Set(markedRefs.map((r) => epKey(r.season, r.episode))) : null;
+			const reported = markedRefs
+				? new Set(markedRefs.map((r) => epKey(r.season, r.episode)))
+				: null;
 			setLocalWatched((prev) => {
 				const next = new Map(prev);
 				for (const ep of episodes) {
@@ -207,7 +237,9 @@ export default function EpisodeDetailModal({
 		}
 		// Caught up through this card: slide on to the next one, or close after the last
 		if (!marked) return;
-		const at = enrichedEps.findIndex((e) => e.season === confirmTarget.season && e.episode === confirmTarget.episode);
+		const at = enrichedEps.findIndex(
+			(e) => e.season === confirmTarget.season && e.episode === confirmTarget.episode,
+		);
 		if (at >= 0 && at < enrichedEps.length - 1) scrollTo(at + 1);
 		else onClose();
 	};
@@ -233,7 +265,8 @@ export default function EpisodeDetailModal({
 								const wc = localWatched.get(key) ?? 0;
 								const d = Math.max(-1, Math.min(1, index - scrollPos));
 								const isCurrentNext =
-									currentNextEpisode?.season === ep.season && currentNextEpisode?.episode === ep.episode;
+									currentNextEpisode?.season === ep.season &&
+									currentNextEpisode?.episode === ep.episode;
 								return (
 									<div key={key} className={styles.slide}>
 										<div
@@ -243,7 +276,10 @@ export default function EpisodeDetailModal({
 												// Side card: bring it to the centre instead of acting on it
 												if (index !== activeIndex) scrollTo(index);
 											}}
-											style={cssVars({ "--ry": `${-d * SIDE_ROTATE_DEG}deg`, "--sc": 1 - Math.abs(d) * (1 - SIDE_SCALE) })}
+											style={cssVars({
+												"--ry": `${-d * SIDE_ROTATE_DEG}deg`,
+												"--sc": 1 - Math.abs(d) * (1 - SIDE_SCALE),
+											})}
 										>
 											<EpisodeCard
 												ep={ep}
@@ -251,11 +287,11 @@ export default function EpisodeDetailModal({
 												showPosterPath={showPosterPath}
 												showBackdropPath={showBackdropPath}
 												// Rewatch n is a fresh run: watched only once seen more than n times
-												isWatched={wc > rewatchCount}
+												isWatched={wc > runBase}
 												watchCount={wc}
 												isLoaded={!!ep.loaded}
 												isMarking={markingKey === key}
-												markLabel={markWatchedLabel(rewatchCount)}
+												markLabel={markWatchedLabel(runBase)}
 												readOnly={readOnly}
 												onMarkWatched={() => handleMark(ep)}
 												onUnwatch={() => {
@@ -270,7 +306,9 @@ export default function EpisodeDetailModal({
 													onSkipEpisode && isCurrentNext && !readOnly
 														? () => {
 																setMarkingKey(key);
-																onSkipEpisode(tmdbId, ep.season, ep.episode).finally(() => setMarkingKey(null));
+																onSkipEpisode(tmdbId, ep.season, ep.episode).finally(() =>
+																	setMarkingKey(null),
+																);
 															}
 														: undefined
 												}

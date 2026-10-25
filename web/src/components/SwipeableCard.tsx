@@ -1,4 +1,11 @@
-import { forwardRef, useCallback, useImperativeHandle, useRef, useState, type ReactNode } from "react";
+import {
+	forwardRef,
+	useCallback,
+	useImperativeHandle,
+	useRef,
+	useState,
+	type ReactNode,
+} from "react";
 import { Spin } from "antd";
 import { animate, motion, useMotionValue, useTransform } from "motion/react";
 import { RxCheck, RxCross2 } from "react-icons/rx";
@@ -49,8 +56,12 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 	const [action, setAction] = useState<"left" | "right" | null>(null);
 	const processing = useRef(false);
 	const width = () => wrapperRef.current?.offsetWidth ?? 360;
-	const leftOpacity = useTransform(x, (v) => Math.min(1, Math.max(0, v / (width() * THRESHOLD_RATIO))));
-	const rightOpacity = useTransform(x, (v) => Math.min(1, Math.max(0, -v / (width() * THRESHOLD_RATIO))));
+	const leftOpacity = useTransform(x, (v) =>
+		Math.min(1, Math.max(0, v / (width() * THRESHOLD_RATIO))),
+	);
+	const rightOpacity = useTransform(x, (v) =>
+		Math.min(1, Math.max(0, -v / (width() * THRESHOLD_RATIO))),
+	);
 
 	const complete = useCallback(
 		async (direction: "left" | "right") => {
@@ -58,7 +69,8 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 			processing.current = true;
 			setAction(direction);
 			setState("loading");
-			const persist = typeof persistAfterSwipe === "object" ? persistAfterSwipe[direction] : persistAfterSwipe;
+			const persist =
+				typeof persistAfterSwipe === "object" ? persistAfterSwipe[direction] : persistAfterSwipe;
 			try {
 				await (direction === "left" ? onSwipeLeft() : onSwipeRight?.());
 				if (persist) {
@@ -105,13 +117,19 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				</div>
 			) : (
 				<>
-					<motion.div className={`${styles.reveal} ${styles.revealLeft} bg-(--reveal)!`} style={{ opacity: leftOpacity, ...cssVars({ "--reveal": leftColor }) }}>
+					<motion.div
+						className={`${styles.reveal} ${styles.revealLeft} bg-(--reveal)!`}
+						style={{ opacity: leftOpacity, ...cssVars({ "--reveal": leftColor }) }}
+					>
 						<span className={styles.revealIcon}>
 							<RxCheck size={22} />
 						</span>
 						<span className={styles.revealText}>{leftLabel}</span>
 					</motion.div>
-					<motion.div className={`${styles.reveal} ${styles.revealRight} bg-(--reveal)!`} style={{ opacity: rightOpacity, ...cssVars({ "--reveal": rightColor }) }}>
+					<motion.div
+						className={`${styles.reveal} ${styles.revealRight} bg-(--reveal)!`}
+						style={{ opacity: rightOpacity, ...cssVars({ "--reveal": rightColor }) }}
+					>
 						<span className={styles.revealText}>{rightLabel}</span>
 						<span className={styles.revealIcon}>{rightIcon ?? <RxCross2 size={22} />}</span>
 					</motion.div>
@@ -129,8 +147,10 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				dragMomentum={false}
 				onDragEnd={(_, info) => {
 					const threshold = width() * THRESHOLD_RATIO;
-					if (info.offset.x > threshold) animate(x, width(), { duration: 0.2 }).then(() => complete("left"));
-					else if (onSwipeRight && info.offset.x < -threshold) animate(x, -width(), { duration: 0.2 }).then(() => complete("right"));
+					if (info.offset.x > threshold)
+						animate(x, width(), { duration: 0.2 }).then(() => complete("left"));
+					else if (onSwipeRight && info.offset.x < -threshold)
+						animate(x, -width(), { duration: 0.2 }).then(() => complete("right"));
 					else animate(x, 0, { duration: 0.2 });
 				}}
 			>

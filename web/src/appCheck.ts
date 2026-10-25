@@ -1,4 +1,9 @@
-import { initializeAppCheck, ReCaptchaV3Provider, getToken, type AppCheck } from "firebase/app-check";
+import {
+	initializeAppCheck,
+	ReCaptchaV3Provider,
+	getToken,
+	type AppCheck,
+} from "firebase/app-check";
 import { setTmdbProxyHeaders } from "@app/services/tmdb";
 import { firebaseApp } from "./firebase";
 

@@ -51,7 +51,15 @@ function useWidestLine(refs: Array<React.RefObject<HTMLElement | null>>) {
 }
 
 /** Home tab empty state: TV-host art, broadcast-style title, and the way to add shows (app HomeEmpty) */
-export default function HomeEmpty({ art, title, subtitle, tagline, framed = false, compact = false, plainTitle = false }: Props) {
+export default function HomeEmpty({
+	art,
+	title,
+	subtitle,
+	tagline,
+	framed = false,
+	compact = false,
+	plainTitle = false,
+}: Props) {
 	const navigate = useNavigate();
 	const subtitleRef = useRef<HTMLParagraphElement>(null);
 	const taglineRef = useRef<HTMLParagraphElement>(null);
@@ -59,11 +67,21 @@ export default function HomeEmpty({ art, title, subtitle, tagline, framed = fals
 	return (
 		<div className={`${styles.center} ${styles.welcome}`}>
 			{/* Edge to edge on phones; inside the streaming-overlay frame from tablet width up */}
-			<div className={`${styles.welcomeFrame} ${framed ? styles.welcomeFramed : ""} ${compact ? styles.welcomeCompact : ""}`}>
+			<div
+				className={`${styles.welcomeFrame} ${framed ? styles.welcomeFramed : ""} ${compact ? styles.welcomeCompact : ""}`}
+			>
 				<img className={styles.welcomeArt} src={art} alt="" />
 			</div>
 			{/* Long titles step down a size so they stay on two lines */}
-			<h2 className={plainTitle ? styles.welcomeTitlePlain : `${styles.welcomeTitle} ${title.length > 12 ? styles.welcomeTitleLong : ""}`}>{title}</h2>
+			<h2
+				className={
+					plainTitle
+						? styles.welcomeTitlePlain
+						: `${styles.welcomeTitle} ${title.length > 12 ? styles.welcomeTitleLong : ""}`
+				}
+			>
+				{title}
+			</h2>
 			{/* Shrink-wraps to the widest line, so the button matches the text width */}
 			<div className={styles.welcomeText}>
 				<p ref={subtitleRef} className={styles.welcomeSubtitle}>

@@ -37,7 +37,13 @@ export default function HistoryViewSheet({
 	onClearFilters,
 }: Props) {
 	return (
-		<SortSheet visible={visible} onClose={onClose} options={SORT_OPTIONS} selected={sort} onSelect={onSort}>
+		<SortSheet
+			visible={visible}
+			onClose={onClose}
+			options={SORT_OPTIONS}
+			selected={sort}
+			onSelect={onSort}
+		>
 			{!isMovie && (
 				<>
 					<View style={styles.sheetFilterHead}>

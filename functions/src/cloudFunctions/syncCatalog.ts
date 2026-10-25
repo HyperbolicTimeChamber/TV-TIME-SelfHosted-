@@ -7,6 +7,7 @@ import { fetchShowFromTMDB, pooled } from "../hooks/tmdb";
 import { getAllTrackerUids } from "../hooks/trackedBy";
 import { healUserShowRuntimes } from "../hooks/runtimeHeal/healRuntimes";
 import { MediaType, ENDED_STATUSES } from "../shared/enums";
+import { movieCatalogFields } from "../hooks/catalogFields";
 
 export const syncCatalog = onSchedule(
   {
@@ -87,19 +88,7 @@ export const syncCatalog = onSchedule(
             MediaType.MOVIE,
           );
           await movieDoc.ref.set(
-            {
-              title: fresh.title,
-              posterPath: fresh.posterPath,
-              backdropPath: fresh.backdropPath,
-              overview: fresh.overview,
-              status: fresh.status,
-              runtime: fresh.runtime,
-              voteAverage: fresh.voteAverage,
-              releaseDate: fresh.releaseDate,
-              genres: fresh.genres,
-              ...(fresh.credits ? { credits: fresh.credits } : {}),
-              lastSyncedAt: FieldValue.serverTimestamp(),
-            },
+            movieCatalogFields(fresh),
             { merge: true },
           );
         } catch (err) {

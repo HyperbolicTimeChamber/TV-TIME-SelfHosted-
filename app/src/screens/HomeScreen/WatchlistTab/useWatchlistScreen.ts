@@ -31,6 +31,7 @@ import {
 	query,
 	where,
 	getDocs,
+	getDocsFromCache,
 } from "@react-native-firebase/firestore";
 import {
 	insertWatchedEpisodeCache,
@@ -48,6 +49,18 @@ import { todayStr } from "../../../utils";
  * sheets/swipes). Shared by the mobile WatchlistTab and the web watchlist.
  * Navigation is passed in so the hook stays platform-neutral.
  */
+/** Watched counts keyed SxxEyy, as the episode modal reads them */
+function watchedKeysOf(rows: WatchedEpisode[]): Map<string, number> {
+	const keys = new Map<string, number>();
+	for (const we of rows) {
+		keys.set(
+			`S${String(we.season).padStart(2, "0")}E${String(we.episode).padStart(2, "0")}`,
+			we.watchCount ?? 1,
+		);
+	}
+	return keys;
+}
+
 export function useWatchlistScreen(
 	handleNavigateToShow: (tmdbId: number, mediaType: MediaType) => void,
 ) {
@@ -165,27 +178,38 @@ export function useWatchlistScreen(
 				initialIdx = rawIdx - start;
 			}
 
-			// Watched keys: this show's query cache, else fetch all its watched episodes (complete counts)
-			let showWatched = queryClient.getQueryData<WatchedEpisode[]>([
-				QueryKey.WATCHED_EPISODES,
-				user?.uid,
-				tmdbId,
-			]);
+			// Watched keys: this show's query cache, else all its watched episodes (complete counts)
+			const watchedKey = [QueryKey.WATCHED_EPISODES, user?.uid, tmdbId];
+			let showWatched = queryClient.getQueryData<WatchedEpisode[]>(watchedKey);
 			if (!showWatched) {
 				const db = getFirestore();
 				const colRef = collection(doc(db, "users", user!.uid), "watchedEpisodes");
 				const q = query(colRef, where("tmdbShowId", "==", tmdbId));
-				const snap = await getDocs(q);
-				showWatched = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as WatchedEpisode[];
-				queryClient.setQueryData([QueryKey.WATCHED_EPISODES, user!.uid, tmdbId], showWatched);
+				const rowsOf = (snap: { docs: { id: string; data: () => unknown }[] }) =>
+					snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) })) as WatchedEpisode[];
+				// Device copy first (instant, not a billed read) so the modal opens now; waiting on the
+				// server here held it closed for the whole round trip on a slow connection
+				const cached = await getDocsFromCache(q).catch(() => null);
+				if (cached && !cached.empty) {
+					const fromDevice = rowsOf(cached);
+					showWatched = fromDevice;
+					getDocs(q)
+						.then((snap) => {
+							// A mark made meanwhile already updated the cache — keep it
+							if (queryClient.getQueryData(watchedKey) !== fromDevice) return;
+							const fresh = rowsOf(snap);
+							queryClient.setQueryData(watchedKey, fresh);
+							setEpModalData((prev) =>
+								prev?.tmdbId === tmdbId ? { ...prev, watchedKeys: watchedKeysOf(fresh) } : prev,
+							);
+						})
+						.catch(() => {});
+				} else {
+					showWatched = rowsOf(await getDocs(q));
+				}
+				queryClient.setQueryData(watchedKey, showWatched);
 			}
-			const wKeys = new Map<string, number>();
-			for (const we of showWatched) {
-				wKeys.set(
-					`S${String(we.season).padStart(2, "0")}E${String(we.episode).padStart(2, "0")}`,
-					we.watchCount ?? 1,
-				);
-			}
+			const wKeys = watchedKeysOf(showWatched);
 
 			epModalTmdbIdRef.current = tmdbId;
 			setEpModalData({

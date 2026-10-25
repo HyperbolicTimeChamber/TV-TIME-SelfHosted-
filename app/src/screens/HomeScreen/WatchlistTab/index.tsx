@@ -167,9 +167,12 @@ export default function WatchlistTab() {
 	if (initialUpNext.current === null && !isLoading && listData.length > 0) {
 		initialUpNext.current = Math.max(0, upNextIndex);
 	}
+	// A jump, not an animated scroll: on Android an animated scroll cut short (e.g. by a tab swipe)
+	// can leave the ScrollView thinking it's still scrolling, and it then swallows every tap on the
+	// list until it's scrolled again (cards stopped opening their info modal)
 	const scrollToUpNext = useCallback(() => {
 		if (upNextIndex > 0) {
-			listRef.current?.scrollToIndex({ index: upNextIndex, animated: true, viewOffset: 0 });
+			listRef.current?.scrollToIndex({ index: upNextIndex, animated: false, viewOffset: 0 });
 		}
 	}, [upNextIndex]);
 

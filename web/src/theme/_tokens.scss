@@ -43,4 +43,12 @@ $bp-hover-wide: 700px;
 }
 
 // Poppins (self-hosted in main.tsx), system fonts while it loads — keep in sync with FONT_FAMILY
-$font-family: "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+$font-family:
+	"Poppins",
+	-apple-system,
+	BlinkMacSystemFont,
+	"Segoe UI",
+	Roboto,
+	"Helvetica Neue",
+	Arial,
+	sans-serif;

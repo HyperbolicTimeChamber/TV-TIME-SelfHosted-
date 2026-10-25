@@ -155,7 +155,38 @@ export enum CloudFunction {
 	MARK_SEASON_WATCHED = "markSeasonWatched",
 	IMPORT_MATCHES = "importMatches",
 	REBUILD_UPCOMING = "rebuildUpcoming",
+	REFRESH_SHOW = "refreshShow",
 }
+
+/** TMDB episode_type — only FINALE earns the card's FINALE tag (mirrors functions/shared/enums) */
+export enum EpisodeType {
+	STANDARD = "standard",
+	FINALE = "finale",
+	MID_SEASON = "mid_season",
+}
+
+/** Why the client asks refreshShow for a shared TMDB refresh (mirrors functions/shared/enums) */
+export enum RefreshReason {
+	/** Last catalog episode has aired and isn't a finale → TMDB may list new episodes */
+	AIRED_NO_FINALE = "aired_no_finale",
+	/** Catalog lacks a poster / real next-episode title / movie credits */
+	MISSING_DATA = "missing_data",
+	/** This client's TMDB season response differs from the catalog */
+	STALE_SEASON = "stale_season",
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+
+/** Server-side dedupe window per reason (functions REFRESH_COOLDOWN_MS) — a cached doc checked
+ *  inside it needs no call */
+export const REFRESH_COOLDOWN_MS: Record<RefreshReason, number> = {
+	[RefreshReason.AIRED_NO_FINALE]: 6 * HOUR_MS,
+	[RefreshReason.MISSING_DATA]: 6 * HOUR_MS,
+	[RefreshReason.STALE_SEASON]: HOUR_MS / 2,
+};
+
+/** Last listed episode aired longer ago than this → the weekly sync has had its chance */
+export const REFRESH_AIRED_WINDOW_DAYS = 14;
 
 export enum Route {
 	// Main tabs

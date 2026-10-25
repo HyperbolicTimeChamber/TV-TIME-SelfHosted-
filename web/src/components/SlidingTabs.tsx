@@ -12,7 +12,13 @@ interface Props<K extends string> {
 }
 
 /** Segmented pill tabs with a sliding highlight (app SlidingTabs) */
-export default function SlidingTabs<K extends string>({ tabs, activeKey, onTabPress, id = "tabs", className = "" }: Props<K>) {
+export default function SlidingTabs<K extends string>({
+	tabs,
+	activeKey,
+	onTabPress,
+	id = "tabs",
+	className = "",
+}: Props<K>) {
 	return (
 		<div className={`${styles.container} ${className}`} role="tablist">
 			{tabs.map((tab) => {

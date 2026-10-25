@@ -9,7 +9,7 @@ export { useSearch } from "./useSearch";
 export { useSearchSort } from "./useSearchSort";
 export { useSeasonDetails } from "./useSeasonDetails";
 export { useEpisodeInfoLoader, loadSeasonEpisodes } from "./useEpisodeInfoLoader";
-export { useShowDetails } from "./useShowDetails";
+export { useShowDetails, catalogFromShowDetails } from "./useShowDetails";
 export { useTrending } from "./useTrending";
 export { useUpcomingEpisodes, useUpcomingMutations } from "./useUpcomingEpisodes";
 export { useUserStats } from "./useUserStats";
@@ -23,7 +23,12 @@ export {
 } from "./useWatchedEpisodes";
 export { useWatchedMovies, insertWatchedMovieCache } from "./useWatchedMovies";
 export type { EnrichedTrackingItem } from "./useWatchlist";
-export { useWatchlist, getCachedCatalogShow, cacheCatalogShows } from "./useWatchlist";
+export {
+	useWatchlist,
+	getCachedCatalogShow,
+	cacheCatalogShows,
+	prefillCatalog,
+} from "./useWatchlist";
 export { useWeeklyActivity, incrementDailyWatch, decrementDailyWatch } from "./useWeeklyActivity";
 export { useProfileCardImages } from "./useProfileCardImages";
 export { useCompletedShows } from "./useCompletedShows";

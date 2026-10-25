@@ -62,9 +62,11 @@ export default memo(function ShowCard({
 	onLongPress,
 }: Props) {
 	const swipeRef = useRef<SwipeableCardRef>(null);
-	const ep = item.nextEpisode ?? (item.mediaType === MediaType.TV ? { season: 1, episode: 1 } : null);
+	const ep =
+		item.nextEpisode ?? (item.mediaType === MediaType.TV ? { season: 1, episode: 1 } : null);
 	const episodeLabel = ep ? `S${pad(ep.season)} | E${pad(ep.episode)}` : "Movie";
-	const remainingLabel = remainingEpisodes != null && remainingEpisodes > 0 ? `+${remainingEpisodes}` : null;
+	const remainingLabel =
+		remainingEpisodes != null && remainingEpisodes > 0 ? `+${remainingEpisodes}` : null;
 
 	const isNewEpisode = item.mediaType === MediaType.TV && item.nextEpisodeAirDate === TODAY;
 	const isJustAired = (() => {
@@ -107,11 +109,15 @@ export default memo(function ShowCard({
 				{label && (
 					<>
 						<span className={styles.slantArrow} />
-						<span className={styles.freshTag}>{label}</span>
+						<span className={`${styles.freshTag} ${muted ? styles.watchedYear : ""}`}>{label}</span>
 					</>
 				)}
 			</div>
-			{item.director && <span className={`${styles.episodeName} ${muted ? styles.muted : ""}`}>{item.director}</span>}
+			{item.director && (
+				<span className={`${styles.episodeName} ${muted ? styles.muted : ""}`}>
+					{item.director}
+				</span>
+			)}
 		</>
 	);
 
@@ -127,7 +133,11 @@ export default memo(function ShowCard({
 				persistAfterSwipe={{ left: true, right: wc > 1 }}
 			>
 				<div className={`${styles.container} opacity-50`} onClick={handlePress} role="button">
-					<PosterImage posterPath={item.posterPath} mediaType={item.mediaType} className={`${styles.poster} ${styles.watchedPoster}`} />
+					<PosterImage
+						posterPath={item.posterPath}
+						mediaType={item.mediaType}
+						className={`${styles.poster} ${styles.watchedPoster}`}
+					/>
 					<div className={styles.info}>
 						{titlePill(true)}
 						{item.mediaType === MediaType.MOVIE ? (
@@ -136,11 +146,18 @@ export default memo(function ShowCard({
 							<span className={`${styles.episode} ${styles.muted}`}>{episodeLabel}</span>
 						)}
 						{item.rewatchCount > 0 && (
-							<span className={`${styles.tagBadge} ${styles.latestBadge} opacity-50`}>REWATCH {item.rewatchCount}</span>
+							<span className={`${styles.tagBadge} ${styles.latestBadge} opacity-50`}>
+								REWATCH {item.rewatchCount}
+							</span>
 						)}
 					</div>
 					<div className={styles.checkmarkWrap} onClick={(e) => e.stopPropagation()}>
-						<CheckmarkButton size={38} watched label={wc > 1 ? `${wc}` : undefined} onPress={() => onCheckmark(item)} />
+						<CheckmarkButton
+							size={38}
+							watched
+							label={wc > 1 ? `${wc}` : undefined}
+							onPress={() => onCheckmark(item)}
+						/>
 					</div>
 				</div>
 			</SwipeableCard>
@@ -164,7 +181,11 @@ export default memo(function ShowCard({
 			persistAfterSwipe
 		>
 			<div className={styles.container} {...cardPress} role="button">
-				<PosterImage posterPath={item.posterPath} mediaType={item.mediaType} className={styles.poster} />
+				<PosterImage
+					posterPath={item.posterPath}
+					mediaType={item.mediaType}
+					className={styles.poster}
+				/>
 				<div className={styles.info}>
 					{titlePill()}
 					{item.mediaType === MediaType.MOVIE ? (
@@ -175,23 +196,33 @@ export default memo(function ShowCard({
 								{episodeLabel}
 								{remainingLabel && <span className={styles.remaining}> {remainingLabel}</span>}
 							</span>
-							{item.nextEpisodeName && <span className={styles.episodeName}>{item.nextEpisodeName}</span>}
+							{item.nextEpisodeName && (
+								<span className={styles.episodeName}>{item.nextEpisodeName}</span>
+							)}
 							{isFinale ? (
 								<span className={styles.tagBadge}>{FreshTag.FINALE}</span>
 							) : isNewEpisode ? (
 								<span className={styles.tagBadge}>{FreshTag.NEW}</span>
 							) : isLatest ? (
-								<span className={`${styles.tagBadge} ${styles.latestBadge}`}>{FreshTag.LATEST}</span>
+								<span className={`${styles.tagBadge} ${styles.latestBadge}`}>
+									{FreshTag.LATEST}
+								</span>
 							) : null}
 						</>
 					)}
 					{/* Same outlined tag as LATEST; only while actually rewatching */}
 					{item.status === WatchStatus.REWATCHING && item.rewatchCount > 0 && (
-						<span className={`${styles.tagBadge} ${styles.latestBadge}`}>REWATCH {item.rewatchCount}</span>
+						<span className={`${styles.tagBadge} ${styles.latestBadge}`}>
+							REWATCH {item.rewatchCount}
+						</span>
 					)}
 				</div>
 				<div className={styles.checkmarkWrap} onClick={(e) => e.stopPropagation()}>
-					<CheckmarkButton size={38} onPress={() => swipeRef.current?.triggerSwipeLeft()} onLongPress={onCheckmarkLongPress} />
+					<CheckmarkButton
+						size={38}
+						onPress={() => swipeRef.current?.triggerSwipeLeft()}
+						onLongPress={onCheckmarkLongPress}
+					/>
 				</div>
 			</div>
 		</SwipeableCard>

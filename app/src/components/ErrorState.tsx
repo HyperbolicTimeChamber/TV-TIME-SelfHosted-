@@ -6,7 +6,6 @@ import { LoadErrorKind, MediaType } from "../enums";
 import type { LoadErrorInfo } from "../utils";
 import NotFoundArt, { artHeight } from "./NotFoundArt";
 
-
 interface Action {
 	label: string;
 	onPress: () => void;

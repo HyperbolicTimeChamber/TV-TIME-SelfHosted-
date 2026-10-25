@@ -35,9 +35,17 @@ export default function AnimatedModal({ visible, onClose, children, width }: Pro
 						role="dialog"
 						aria-modal="true"
 						className={`${styles.modalCard} ${width ? "w-(--modal-w)!" : ""}`}
-						style={width ? cssVars({ "--modal-w": typeof width === "number" ? px(width) : width }) : undefined}
+						style={
+							width
+								? cssVars({ "--modal-w": typeof width === "number" ? px(width) : width })
+								: undefined
+						}
 						initial={{ scale: 0.85, opacity: 0 }}
-						animate={{ scale: 1, opacity: 1, transition: { type: "spring", stiffness: 300, damping: 22 } }}
+						animate={{
+							scale: 1,
+							opacity: 1,
+							transition: { type: "spring", stiffness: 300, damping: 22 },
+						}}
 						exit={{ scale: 0.85, opacity: 0, transition: { duration: 0.18 } }}
 						onClick={(e) => e.stopPropagation()}
 					>

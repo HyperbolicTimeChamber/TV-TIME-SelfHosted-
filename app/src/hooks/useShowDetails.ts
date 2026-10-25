@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getShowDetails, getCatalogShow } from "../services";
+import { pickTitleLogo } from "../services/tmdb";
 import { getCachedCatalogShow } from "./useWatchlist";
 import { useAuthStore } from "../stores";
 import { TMDBShow, TMDBEpisode, CatalogShow, QueryKey, MediaType } from "../types";
@@ -147,5 +148,60 @@ export function useShowDetails(tmdbId: number, mediaType: MediaType = MediaType.
 		...result,
 		data: result.data?.show as TMDBShow | undefined,
 		episodesBySeason: result.data?.episodesBySeason ?? new Map<number, TMDBEpisode[]>(),
+	};
+}
+
+/**
+ * Catalog-shaped entry from the show page's details (inverse of catalogShowToResult) — lets a
+ * movie marked / added from its page seed the shared catalog cache, so its watchlist card has
+ * title / poster / year / director right away (0 reads, no TMDB heal). Keeps `base` fields
+ * the details don't carry (logo, tracking counts).
+ */
+export function catalogFromShowDetails(
+	show: TMDBShow,
+	mediaType: MediaType,
+	base?: CatalogShow | null,
+): CatalogShow {
+	const crew = show.credits?.crew;
+	const names = (pick: (c: { job: string; department: string }) => boolean) =>
+		crew?.filter(pick).map((c) => c.name) ?? [];
+	const genres = ((show as any).genres as Array<{ name?: string }> | undefined)
+		?.map((g) => g.name)
+		.filter((g): g is string => !!g);
+	return {
+		...(base ?? {}),
+		tmdbId: show.id,
+		mediaType,
+		title: show.title || show.name || base?.title || "",
+		posterPath: show.poster_path ?? base?.posterPath ?? null,
+		backdropPath: show.backdrop_path ?? base?.backdropPath ?? null,
+		overview: show.overview || base?.overview || "",
+		status: show.status ?? base?.status ?? "",
+		totalSeasons: base?.totalSeasons ?? show.number_of_seasons ?? 0,
+		totalEpisodes: base?.totalEpisodes ?? show.number_of_episodes ?? 0,
+		runtime: show.runtime ?? base?.runtime ?? null,
+		voteAverage: show.vote_average ?? base?.voteAverage ?? 0,
+		firstAirDate: show.first_air_date ?? base?.firstAirDate ?? null,
+		releaseDate: show.release_date ?? base?.releaseDate ?? null,
+		// Only when the details came with images — missing lets the logo still be fetched
+		...(show.images ? { logoPath: pickTitleLogo(show.images.logos) } : {}),
+		seasons: base?.seasons ?? [],
+		genres: genres?.length ? genres : (base?.genres ?? []),
+		// No crew yet (catalog without credits, TMDB patch pending) → leave it for the heal
+		...(crew
+			? {
+					credits: {
+						directors: names((c) => c.job === "Director"),
+						writers: names((c) => c.department === "Writing"),
+						producers: names((c) => c.job === "Producer").slice(0, 3),
+					},
+				}
+			: base?.credits
+				? { credits: base.credits }
+				: {}),
+		trackedBy: base?.trackedBy ?? [],
+		trackedByCount: base?.trackedByCount ?? 0,
+		lastSyncedAt: base?.lastSyncedAt ?? null,
+		partial: false,
 	};
 }

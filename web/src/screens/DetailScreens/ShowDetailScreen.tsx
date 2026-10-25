@@ -35,7 +35,8 @@ export default function ShowDetailScreen() {
 	const d = useShowDetailActions(tmdbId, mediaType);
 	// Catalog's logo, else the one that came with the details (same request as the page data)
 	const logoPath =
-		getCachedCatalogShow(tmdbId, mediaType)?.logoPath ?? (d.show?.images ? pickTitleLogo(d.show.images.logos) : undefined);
+		getCachedCatalogShow(tmdbId, mediaType)?.logoPath ??
+		(d.show?.images ? pickTitleLogo(d.show.images.logos) : undefined);
 	const signedIn = !!d.user;
 
 	// Opened directly (share link / new tab): no in-app history, so go to the watchlist
@@ -65,7 +66,11 @@ export default function ShowDetailScreen() {
 		const info = describeLoadError(d.isError ? d.error : null, mediaType);
 		return (
 			<>
-				<CircleBackButton tone={CircleButtonTone.OVERLAY} className={`${styles.floatButton} ${styles.backButton}`} onClick={handleBack} />
+				<CircleBackButton
+					tone={CircleButtonTone.OVERLAY}
+					className={`${styles.floatButton} ${styles.backButton}`}
+					onClick={handleBack}
+				/>
 				<ErrorState
 					info={info}
 					mediaType={mediaType}
@@ -74,7 +79,9 @@ export default function ShowDetailScreen() {
 							? { label: "Try Again", onPress: () => d.refetch() }
 							: { label: "Search Shows & Movies", onPress: () => navigate(Paths.SEARCH) }
 					}
-					secondary={signedIn ? { label: "Go to Watchlist", onPress: () => navigate(Paths.HOME) } : undefined}
+					secondary={
+						signedIn ? { label: "Go to Watchlist", onPress: () => navigate(Paths.HOME) } : undefined
+					}
 				/>
 			</>
 		);
@@ -84,7 +91,8 @@ export default function ShowDetailScreen() {
 	const share = async () => {
 		const url = showShareUrl(mediaType, tmdbId);
 		try {
-			if (navigator.share) await navigator.share({ title: d.title, text: `Check out ${d.title}`, url });
+			if (navigator.share)
+				await navigator.share({ title: d.title, text: `Check out ${d.title}`, url });
 			else {
 				await navigator.clipboard.writeText(url);
 				message.success("Link copied");
@@ -102,8 +110,17 @@ export default function ShowDetailScreen() {
 
 	return (
 		<div className={styles.container}>
-			<CircleBackButton tone={CircleButtonTone.OVERLAY} className={`${styles.floatButton} ${styles.backButton}`} onClick={handleBack} />
-			<CircleButton tone={CircleButtonTone.OVERLAY} className={`${styles.floatButton} ${styles.shareButton}`} onClick={share} ariaLabel="Share">
+			<CircleBackButton
+				tone={CircleButtonTone.OVERLAY}
+				className={`${styles.floatButton} ${styles.backButton}`}
+				onClick={handleBack}
+			/>
+			<CircleButton
+				tone={CircleButtonTone.OVERLAY}
+				className={`${styles.floatButton} ${styles.shareButton}`}
+				onClick={share}
+				ariaLabel="Share"
+			>
 				<IoShareSocialOutline size={24} />
 			</CircleButton>
 
@@ -121,7 +138,13 @@ export default function ShowDetailScreen() {
 				<div className={styles.island}>
 					{/* Title logo (name as the fallback), centred */}
 					<h1 className={styles.islandLogo} aria-label={d.title}>
-						<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={d.title} nameDelay={2000} />
+						<ModalLogo
+							logoPath={logoPath}
+							tmdbId={tmdbId}
+							mediaType={mediaType}
+							title={d.title}
+							nameDelay={2000}
+						/>
 					</h1>
 					{signedIn ? (
 						<ActionPills
@@ -142,12 +165,17 @@ export default function ShowDetailScreen() {
 						<div className={styles.pillRow}>
 							<button
 								className={`${styles.pill} ${styles.pillPrimary}`}
-								onClick={() => navigate(`${Paths.LOGIN}?next=${encodeURIComponent(location.pathname)}`)}
+								onClick={() =>
+									navigate(`${Paths.LOGIN}?next=${encodeURIComponent(location.pathname)}`)
+								}
 							>
 								Sign in to track
 							</button>
 							{isAndroidBrowser() && (
-								<a className={`${styles.pill} ${styles.pillAccent}`} href={appDeepLink(mediaType, tmdbId)}>
+								<a
+									className={`${styles.pill} ${styles.pillAccent}`}
+									href={appDeepLink(mediaType, tmdbId)}
+								>
 									Open in app
 								</a>
 							)}
@@ -159,11 +187,17 @@ export default function ShowDetailScreen() {
 			<div className={styles.content}>
 				<div className={styles.statsBar}>
 					{mediaType === MediaType.MOVIE && show.runtime ? (
-						<Stat value={`${Math.floor(show.runtime / 60)}h ${show.runtime % 60}m`} label="RUNTIME" />
+						<Stat
+							value={`${Math.floor(show.runtime / 60)}h ${show.runtime % 60}m`}
+							label="RUNTIME"
+						/>
 					) : null}
 					<Stat value={d.year || "—"} label={mediaType === MediaType.MOVIE ? "RELEASED" : "YEAR"} />
 					{mediaType === MediaType.TV && show.number_of_seasons ? (
-						<Stat value={show.number_of_seasons} label={show.number_of_seasons > 1 ? "SEASONS" : "SEASON"} />
+						<Stat
+							value={show.number_of_seasons}
+							label={show.number_of_seasons > 1 ? "SEASONS" : "SEASON"}
+						/>
 					) : null}
 					{mediaType === MediaType.TV && show.number_of_episodes ? (
 						<Stat value={show.number_of_episodes} label="EPISODES" />
@@ -221,7 +255,14 @@ export default function ShowDetailScreen() {
 					<ConfirmModal
 						visible={d.removeModalVisible}
 						title={mediaType === MediaType.MOVIE ? "Remove Movie?" : "Remove Show?"}
-						image={<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={d.title} />}
+						image={
+							<ModalLogo
+								logoPath={logoPath}
+								tmdbId={tmdbId}
+								mediaType={mediaType}
+								title={d.title}
+							/>
+						}
 						hint="This will remove it from your watchlist. Your watch history will be kept."
 						error={d.removeError}
 						confirmLabel="Remove"
@@ -234,14 +275,31 @@ export default function ShowDetailScreen() {
 					/>
 					<ConfirmModal
 						visible={d.pauseModalVisible}
-						title={d.watchlistItem?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"}
+						title={
+							d.watchlistItem?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"
+						}
 						imageAtTop={!!show.backdrop_path}
 						hideTitle
 						image={
 							show.backdrop_path ? (
-								<ModalBackdrop backdropPath={show.backdrop_path} logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={d.title} paused nameDelay={2000} />
+								<ModalBackdrop
+									backdropPath={show.backdrop_path}
+									logoPath={logoPath}
+									tmdbId={tmdbId}
+									mediaType={mediaType}
+									title={d.title}
+									paused
+									nameDelay={2000}
+								/>
 							) : (
-								<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={d.title} paused nameDelay={2000} />
+								<ModalLogo
+									logoPath={logoPath}
+									tmdbId={tmdbId}
+									mediaType={mediaType}
+									title={d.title}
+									paused
+									nameDelay={2000}
+								/>
 							)
 						}
 						hint={

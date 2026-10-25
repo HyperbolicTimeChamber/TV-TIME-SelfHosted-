@@ -5,4 +5,5 @@ export const appDeepLink = (mediaType: MediaType, tmdbId: number) =>
 	`watchloom://show/${mediaType === MediaType.MOVIE ? "movie" : "tv"}/${tmdbId}`;
 
 /** The app ships on Android only — no iOS build to open */
-export const isAndroidBrowser = () => typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+export const isAndroidBrowser = () =>
+	typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);

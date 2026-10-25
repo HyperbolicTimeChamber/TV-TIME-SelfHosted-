@@ -49,7 +49,12 @@ function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
 	return (
 		<button className={styles.card} onClick={onClick} aria-label={card.title}>
 			{card.backdropPath && (
-				<img src={tmdbBackdropUri(card.backdropPath, CARD_MAX_WIDTH)} alt="" className={styles.cardBg} loading="lazy" />
+				<img
+					src={tmdbBackdropUri(card.backdropPath, CARD_MAX_WIDTH)}
+					alt=""
+					className={styles.cardBg}
+					loading="lazy"
+				/>
 			)}
 			<span className={styles.cardOverlay} />
 
@@ -57,7 +62,12 @@ function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
 				<span className={styles.topRow}>
 					<span className={styles.logoSlot}>
 						{card.logoPath ? (
-							<img src={tmdbLogoUri(card.logoPath, CARD_MAX_WIDTH * 0.7)} alt={card.title} className={styles.logo} loading="lazy" />
+							<img
+								src={tmdbLogoUri(card.logoPath, CARD_MAX_WIDTH * 0.7)}
+								alt={card.title}
+								className={styles.logo}
+								loading="lazy"
+							/>
 						) : (
 							<span className={styles.cardTitle}>{card.title}</span>
 						)}
@@ -71,9 +81,13 @@ function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
 				    else the watch count */}
 				<span className={styles.leftBlock}>
 					{card.pill && (
-						<span className={`${styles.pill} ${card.pillCount != null ? styles.pillWithCount : ""} ${PILL_BG[card.pill]}`}>
+						<span
+							className={`${styles.pill} ${card.pillCount != null ? styles.pillWithCount : ""} ${PILL_BG[card.pill]}`}
+						>
 							{card.pillLabel}
-							{card.pillCount != null && <span className={styles.pillCountCircle}>{card.pillCount}</span>}
+							{card.pillCount != null && (
+								<span className={styles.pillCountCircle}>{card.pillCount}</span>
+							)}
 						</span>
 					)}
 					{card.progress ? (

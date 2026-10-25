@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { View, FlatList, Pressable, Animated, Modal } from "react-native";
 
 import { SNAP_INTERVAL, CARD_GAP, SIDE_PADDING, AnimatedFlatList, epKey } from "./constants";
@@ -7,6 +7,7 @@ import { Card3DWrapper } from "./Card3DWrapper";
 import { EpisodeCard } from "./EpisodeCard";
 import { BackfillModal } from "./BackfillModal";
 import { markWatchedLabel } from "../../../utils/format";
+import { carouselRunBase } from "../../../utils/trackingAdvance";
 import type {
 	CarouselEpisode,
 	EnrichedEpisode,
@@ -61,6 +62,24 @@ export default function EpisodeDetailModal({
 	useEffect(() => {
 		setLocalWatched(watchedKeys);
 	}, [watchedKeys]);
+
+	// Watched in this run = count above runBase. From the counts the modal opened with (the
+	// pointer episode sits at it), not the stored rewatch number — that one can lag, which
+	// showed the next rewatch episode as already watched (Unwatch / Rewatch / Skip)
+	const runBase = useMemo(() => {
+		const inRewatch = rewatchCount > 0 || !!onSkipEpisode;
+		if (!inRewatch || !currentNextEpisode) return inRewatch ? Math.max(1, rewatchCount) : 0;
+		const at = episodes.findIndex(
+			(e) => e.season === currentNextEpisode.season && e.episode === currentNextEpisode.episode,
+		);
+		const prev = at > 0 ? episodes[at - 1] : null;
+		return carouselRunBase(
+			true,
+			watchedKeys.get(epKey(currentNextEpisode.season, currentNextEpisode.episode)),
+			prev ? watchedKeys.get(epKey(prev.season, prev.episode)) : null,
+			rewatchCount,
+		);
+	}, [rewatchCount, onSkipEpisode, currentNextEpisode, episodes, watchedKeys]);
 
 	useEffect(() => {
 		if (!visible) return;
@@ -170,7 +189,7 @@ export default function EpisodeDetailModal({
 							(e.season === currentNextEpisode.season &&
 								e.episode >= currentNextEpisode.episode)) &&
 						(e.season < ep.season || (e.season === ep.season && e.episode < ep.episode));
-					return isBetween && (localWatched.get(eKey) ?? 0) <= rewatchCount;
+					return isBetween && (localWatched.get(eKey) ?? 0) <= runBase;
 				});
 
 				if (hasGaps) {
@@ -185,7 +204,7 @@ export default function EpisodeDetailModal({
 				}
 			}
 		},
-		[currentNextEpisode, episodes, localWatched, rewatchCount, tmdbId, onMarkWatched],
+		[currentNextEpisode, episodes, localWatched, runBase, tmdbId, onMarkWatched],
 	);
 
 	const handleConfirmBackfill = useCallback(async () => {
@@ -273,7 +292,7 @@ export default function EpisodeDetailModal({
 			const key = epKey(item.season, item.episode);
 			const wc = localWatched.get(key) ?? 0;
 			// Rewatch n is a fresh run: watched only once seen more than n times
-			const isWatched = wc > rewatchCount;
+			const isWatched = wc > runBase;
 			const isCurrentNext =
 				currentNextEpisode?.season === item.season && currentNextEpisode?.episode === item.episode;
 			const onSkip =
@@ -297,7 +316,7 @@ export default function EpisodeDetailModal({
 							isLoaded={!!item.loaded}
 							isMarking={markingKey === key}
 							readOnly={readOnly}
-							markLabel={markWatchedLabel(rewatchCount)}
+							markLabel={markWatchedLabel(runBase)}
 							onMarkWatched={() => handleMark(item)}
 							onUnwatch={() => {
 								setMarkingKey(key);
@@ -342,7 +361,7 @@ export default function EpisodeDetailModal({
 			onMarkWatched,
 			onSkipEpisode,
 			currentNextEpisode,
-			rewatchCount,
+			runBase,
 			onShowPress,
 			scrollX,
 		],

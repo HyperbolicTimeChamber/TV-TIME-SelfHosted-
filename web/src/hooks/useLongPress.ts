@@ -40,7 +40,8 @@ export function useLongPress(onLongPress?: () => void, onPress?: () => void, del
 		onPointerDown: start,
 		onPointerMove: (e: React.PointerEvent) => {
 			const o = origin.current;
-			if (o && timer.current && Math.hypot(e.clientX - o.x, e.clientY - o.y) > MOVE_CANCEL_PX) clear();
+			if (o && timer.current && Math.hypot(e.clientX - o.x, e.clientY - o.y) > MOVE_CANCEL_PX)
+				clear();
 		},
 		onPointerUp: clear,
 		onPointerLeave: clear,

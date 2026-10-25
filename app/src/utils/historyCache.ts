@@ -43,7 +43,7 @@ export function applyChange(
 		...current,
 		status: change.status ?? current.status,
 		nextEpisode: change.nextEpisode !== undefined ? change.nextEpisode : current.nextEpisode,
-		rewatchCount: current.rewatchCount + (change.rewatchDelta ?? 0),
+		rewatchCount: change.rewatchCount ?? current.rewatchCount + (change.rewatchDelta ?? 0),
 		minutesWatched: Math.max(0, current.minutesWatched + (change.minutesDelta ?? 0)),
 		plays: current.plays + (change.playsDelta ?? 0),
 		lastEpisode: change.lastEpisode ?? current.lastEpisode,
@@ -55,7 +55,6 @@ export function applyChange(
 	if (next.plays > 0) items.push(next);
 	return { state: { ...state, items: items.sort(byHistory) }, missing: false };
 }
-
 
 /** The fields a history card reads from a catalog — small enough to persist with the list */
 export function toHistoryCatalog(c: HistoryCatalog): HistoryCatalog {

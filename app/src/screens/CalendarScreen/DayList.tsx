@@ -29,8 +29,18 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 
 // Flat day list: show cards, plus the episode strips of opened groups
 type CalendarRow =
-	| { kind: CalendarRowKind.CARD; key: string; group: CalendarGroup<CalendarEpisode>; expanded: boolean }
-	| { kind: CalendarRowKind.CHILD; key: string; ep: CalendarEpisode; /** Position in its group */ nth: number };
+	| {
+			kind: CalendarRowKind.CARD;
+			key: string;
+			group: CalendarGroup<CalendarEpisode>;
+			expanded: boolean;
+	  }
+	| {
+			kind: CalendarRowKind.CHILD;
+			key: string;
+			ep: CalendarEpisode;
+			/** Position in its group */ nth: number;
+	  };
 
 const ACCORDION_MS = 220;
 // Episode strips cascade in, a few ms apart
@@ -91,7 +101,12 @@ export default function DayList({
 			out.push({ kind: CalendarRowKind.CARD, key: group.key, group, expanded: open });
 			if (open && group.episodes.length > 1) {
 				group.episodes.forEach((ep, nth) => {
-					out.push({ kind: CalendarRowKind.CHILD, key: `${group.key}_${ep.season}_${ep.episode}`, ep, nth });
+					out.push({
+						kind: CalendarRowKind.CHILD,
+						key: `${group.key}_${ep.season}_${ep.episode}`,
+						ep,
+						nth,
+					});
 				});
 			}
 		}
@@ -182,9 +197,17 @@ export default function DayList({
 				) : (
 					// Right square: SEASON xx over a big Exx; movies their release year
 					<View style={[styles.epSquare, airTime && styles.epSquareTimed]}>
-						<Text style={styles.epSquareTitle}>{isMovie ? "YEAR" : `SEASON ${pad2(item.season)}`}</Text>
+						<Text style={styles.epSquareTitle}>
+							{isMovie ? "YEAR" : `SEASON ${pad2(item.season)}`}
+						</Text>
 						<View style={[styles.epSquareRule, airTime && styles.epSquareRuleTimed]} />
-						<Text style={[styles.epSquareValue, isMovie && styles.epSquareYear, airTime && styles.epSquareValueTimed]}>
+						<Text
+							style={[
+								styles.epSquareValue,
+								isMovie && styles.epSquareYear,
+								airTime && styles.epSquareValueTimed,
+							]}
+						>
 							{isMovie ? item.airDate.slice(0, 4) : `E${pad2(item.episode)}`}
 						</Text>
 						{airTime && <Text style={styles.epSquareTime}>{airTime}</Text>}
@@ -200,7 +223,9 @@ export default function DayList({
 			<Reanimated.View
 				key={row.key}
 				layout={rowLayout}
-				entering={isChild ? FadeInUp.duration(ACCORDION_MS).delay(row.nth * STRIP_STAGGER_MS) : undefined}
+				entering={
+					isChild ? FadeInUp.duration(ACCORDION_MS).delay(row.nth * STRIP_STAGGER_MS) : undefined
+				}
 				exiting={isChild ? FadeOutUp.duration(ACCORDION_MS / 2) : undefined}
 			>
 				{renderRow(row)}
@@ -211,9 +236,5 @@ export default function DayList({
 	if (externalScroll) return <View style={styles.listContent}>{content}</View>;
 	// Short list (one day) → plain scroll view, so rows can animate in/out and reflow.
 	// Gesture-handler ScrollView: vertical scroll here, horizontal swipes go to the day pager.
-	return (
-		<ScrollView contentContainerStyle={styles.listContent}>
-			{content}
-		</ScrollView>
-	);
+	return <ScrollView contentContainerStyle={styles.listContent}>{content}</ScrollView>;
 }

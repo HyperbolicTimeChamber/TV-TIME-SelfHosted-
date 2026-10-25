@@ -57,6 +57,8 @@ export interface HistoryChange {
 	/** undefined = unchanged */
 	nextEpisode?: { season: number; episode: number } | null;
 	rewatchDelta?: number;
+	/** Absolute rewatch run number (wins over rewatchDelta) */
+	rewatchCount?: number;
 	/** TV mark → becomes the card's Last Watched */
 	lastEpisode?: { season: number; episode: number };
 }

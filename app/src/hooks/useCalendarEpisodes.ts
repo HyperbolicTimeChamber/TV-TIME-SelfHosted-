@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getFirestore, doc, getDoc } from "@react-native-firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { discoverMoviesByReleaseDate } from "../services";
 import { useAuthStore } from "../stores";
@@ -15,8 +14,14 @@ const MAX_CACHED_MONTHS = 12;
 
 interface CalendarCache {
 	months: Record<string, UpcomingEpisode[]>;
+	/** Legacy single stamp (one for every month) — read as the stamp of months without their own */
 	syncDate?: string | null;
+	/** Month → lastCatalogSync it was built under */
+	monthSyncs?: Record<string, string | null>;
 }
+
+const monthSync = (cache: CalendarCache, key: string) =>
+	cache.monthSyncs?.[key] ?? cache.syncDate ?? null;
 
 async function loadCalendarCache(): Promise<CalendarCache> {
 	try {
@@ -37,7 +42,9 @@ async function saveCalendarCache(cache: CalendarCache) {
 		.reverse();
 	if (keys.length > MAX_CACHED_MONTHS) {
 		for (const key of keys.slice(MAX_CACHED_MONTHS)) {
-			if (key !== currentKey) delete cache.months[key];
+			if (key === currentKey) continue;
+			delete cache.months[key];
+			delete cache.monthSyncs?.[key];
 		}
 	}
 	await AsyncStorage.setItem(CacheKey.CALENDAR_MONTHS, JSON.stringify(cache)).catch(() => {});
@@ -78,47 +85,37 @@ export function addMovieToCalendarGlobal(movie: UpcomingEpisode) {
 
 export function useCalendarEpisodes(userId: string | undefined) {
 	const [episodesByMonth, setEpisodesByMonth] = useState<Map<string, UpcomingEpisode[]>>(new Map());
-	const [loading, setLoading] = useState(true);
+	// Months whose first build finished (with or without a result) — an uncached month shows
+	// the skeleton until then, a cached one never does
+	const [settled, setSettled] = useState<ReadonlySet<string>>(new Set());
 	const calendarCacheRef = useRef<CalendarCache>({ months: {} });
-	const cacheLoaded = useRef(false);
+	// Persisted months read back — builds wait for it, so a save never drops the stored months
+	// or their stamps (a stamp-less save read as stale next launch and wiped the cache)
+	const restoredRef = useRef<{ uid: string; done: Promise<void> } | null>(null);
+	// Months asked for this session — re-checked when the sync stamp / API key arrives
+	const requested = useRef(new Set<string>());
+	const building = useRef(new Set<string>());
 	const apiKey = useAuthStore((s) => s.appTmdbApiKey);
+	// From authStore's config/app read — no extra read here
+	const lastCatalogSync = useAuthStore((s) => s.lastCatalogSync);
 	const queryClient = useQueryClient();
 
-	// Load persisted cache + config sync date (for cache invalidation)
+	// AsyncStorage only: cached months render at once, whatever the network does. Staleness
+	// (backend synced since a month was built) is checked per month in loadMonthEpisodes
+	const restore = useCallback((uid: string) => {
+		if (restoredRef.current?.uid === uid) return restoredRef.current.done;
+		const done = loadCalendarCache().then((cache) => {
+			calendarCacheRef.current = cache;
+			const restored = new Map<string, UpcomingEpisode[]>(Object.entries(cache.months));
+			if (restored.size > 0) setEpisodesByMonth(restored);
+		});
+		restoredRef.current = { uid, done };
+		return done;
+	}, []);
+
 	useEffect(() => {
-		if (!userId) return;
-
-		// Load calendar cache + config sync date in parallel
-		// Config read is 1 doc — needed for cache invalidation
-		const db = getFirestore();
-		Promise.all([loadCalendarCache(), getDoc(doc(db, "config", "app")).catch(() => null)]).then(
-			([cache, configSnap]) => {
-				// Check sync date — invalidate cache if backend synced since
-				const serverSync = configSnap?.data?.()?.lastCatalogSync;
-				const serverSyncStr = serverSync?.toDate?.()?.toISOString?.() || null;
-
-				if (isCalendarCacheStale(cache.syncDate, serverSyncStr)) {
-					cache.months = {};
-					cache.syncDate = serverSyncStr;
-					saveCalendarCache(cache);
-				}
-
-				// Keep any month fetched while this was loading (it's built from current catalogs)
-				cache.months = { ...cache.months, ...calendarCacheRef.current.months };
-				calendarCacheRef.current = cache;
-
-				const restored = new Map<string, UpcomingEpisode[]>();
-				for (const [key, eps] of Object.entries(cache.months)) {
-					restored.set(key, eps);
-				}
-				if (restored.size > 0) {
-					setEpisodesByMonth(restored);
-					setLoading(false);
-				}
-				cacheLoaded.current = true;
-			},
-		);
-	}, [userId]);
+		if (userId) restore(userId);
+	}, [userId, restore]);
 
 	const allEpisodes = useMemo(() => {
 		const all: UpcomingEpisode[] = [];
@@ -128,14 +125,19 @@ export function useCalendarEpisodes(userId: string | undefined) {
 
 	const loadMonthEpisodes = useCallback(
 		async (year: number, month: number) => {
-			if (!userId || !apiKey) return;
+			if (!userId) return;
 			const monthKey = `${year}-${String(month).padStart(2, "0")}`;
-			if (episodesByMonth.has(monthKey)) {
-				setLoading(false);
-				return;
-			}
+			requested.current.add(monthKey);
+			await restore(userId);
+			const cache = calendarCacheRef.current;
+			const cached = monthKey in cache.months;
+			// Cached + built under the current sync → done. Sync not known yet → trust the cache
+			const syncNow = useAuthStore.getState().lastCatalogSync;
+			if (cached && !isCalendarCacheStale(monthSync(cache, monthKey), syncNow)) return;
+			// Stale months rebuild in the background (still shown); retried once the key arrives
+			if (!apiKey || building.current.has(monthKey)) return;
 
-			setLoading(true);
+			building.current.add(monthKey);
 			try {
 				// Wait for the real tracked set — an empty one would save an empty month to
 				// AsyncStorage until the next catalog sync
@@ -240,19 +242,39 @@ export function useCalendarEpisodes(userId: string | undefined) {
 				// save the month, so the next visit loads it again
 				if (tracked.size > 0 && tvCatalogs.length + movieCatalogs.length === 0) return;
 
-				// Update state + persist to cache
+				// Update state + persist to cache, stamped with the sync it was built under
 				setEpisodesByMonth((prev) => {
 					const next = new Map(prev);
 					next.set(monthKey, episodes);
 					return next;
 				});
-				calendarCacheRef.current.months[monthKey] = episodes;
-				saveCalendarCache(calendarCacheRef.current);
+				const target = calendarCacheRef.current;
+				target.months[monthKey] = episodes;
+				target.monthSyncs = { ...target.monthSyncs, [monthKey]: syncNow };
+				saveCalendarCache(target);
 			} finally {
-				setLoading(false);
+				building.current.delete(monthKey);
+				setSettled((prev) => (prev.has(monthKey) ? prev : new Set(prev).add(monthKey)));
 			}
 		},
-		[userId, apiKey, episodesByMonth, queryClient],
+		[userId, apiKey, queryClient, restore],
+	);
+
+	// Sync stamp / API key arrived (or changed): rebuild the asked-for months now stale or unbuilt
+	useEffect(() => {
+		for (const key of requested.current) {
+			const [y, m] = key.split("-").map(Number);
+			loadMonthEpisodes(y, m);
+		}
+	}, [lastCatalogSync, loadMonthEpisodes]);
+
+	/** Shown month has nothing to render yet (skeleton) — false for cached months, even stale */
+	const isMonthLoading = useCallback(
+		(year: number, month: number) => {
+			const key = `${year}-${String(month).padStart(2, "0")}`;
+			return !episodesByMonth.has(key) && !settled.has(key);
+		},
+		[episodesByMonth, settled],
 	);
 
 	const removeShowFromCalendar = useCallback((tmdbId: number) => {
@@ -296,6 +318,12 @@ export function useCalendarEpisodes(userId: string | undefined) {
 			saveCalendarCache(calendarCacheRef.current);
 			return next;
 		});
+		setSettled((prev) => {
+			if (!prev.has(monthKey)) return prev;
+			const next = new Set(prev);
+			next.delete(monthKey);
+			return next;
+		});
 	}, []);
 
 	// Listen for cross-screen mutations
@@ -310,7 +338,7 @@ export function useCalendarEpisodes(userId: string | undefined) {
 
 	return {
 		episodes: allEpisodes,
-		loading,
+		isMonthLoading,
 		loadMonthEpisodes,
 		removeShowFromCalendar,
 		addMovieToCalendar,

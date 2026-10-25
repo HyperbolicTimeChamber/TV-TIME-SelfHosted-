@@ -14,7 +14,11 @@ interface Props {
 /** Floating red sort button, bottom-right — opens a SortSheet */
 export default function SortFab({ bottom, onPress, customised, accessibilityLabel }: Props) {
 	return (
-		<TouchableOpacity style={[styles.fab, { bottom }]} onPress={onPress} accessibilityLabel={accessibilityLabel}>
+		<TouchableOpacity
+			style={[styles.fab, { bottom }]}
+			onPress={onPress}
+			accessibilityLabel={accessibilityLabel}
+		>
 			<Ionicons name="options-outline" size={24} color={colors.text} />
 			{customised && <View style={styles.dot} />}
 		</TouchableOpacity>

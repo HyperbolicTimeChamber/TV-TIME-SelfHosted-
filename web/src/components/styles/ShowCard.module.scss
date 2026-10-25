@@ -173,3 +173,8 @@
 	font-size: 16px;
 	font-weight: 600;
 }
+
+/* Previously watched: the faded card turned the year brownish — keep it black */
+.watchedYear {
+	color: var(--bg);
+}

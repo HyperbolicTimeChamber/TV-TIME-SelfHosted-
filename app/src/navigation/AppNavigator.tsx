@@ -48,7 +48,10 @@ const showDetailState = (tmdbId: number, mediaType: MediaType) => ({
 					{
 						name: Route.HOME,
 						state: {
-							routes: [{ name: Route.HOME_TABS }, { name: Route.SHOW_DETAIL, params: { tmdbId, mediaType } }],
+							routes: [
+								{ name: Route.HOME_TABS },
+								{ name: Route.SHOW_DETAIL, params: { tmdbId, mediaType } },
+							],
 						},
 					},
 				],
@@ -82,8 +85,7 @@ const linking: LinkingOptions<MainStackParamList> = {
 								path: "show/:mediaType/:tmdbId",
 								parse: {
 									tmdbId: Number,
-									mediaType: (val: string) =>
-										val === "movie" ? MediaType.MOVIE : MediaType.TV,
+									mediaType: (val: string) => (val === "movie" ? MediaType.MOVIE : MediaType.TV),
 								},
 							},
 						},
@@ -98,7 +100,9 @@ const linking: LinkingOptions<MainStackParamList> = {
 		const state = getStateFromPath(path, options);
 		const show = linkedShow(state);
 		if (show && isValidTmdbId(show.tmdbId)) return state;
-		return showDetailState(0, show?.mediaType ?? MediaType.TV) as ReturnType<typeof getStateFromPath>;
+		return showDetailState(0, show?.mediaType ?? MediaType.TV) as ReturnType<
+			typeof getStateFromPath
+		>;
 	},
 	// App already open on Calendar / Search / Profile → open the show inside that tab
 	// instead of jumping to Home

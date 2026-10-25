@@ -7,7 +7,7 @@ export const PixelRatio = {
 
 export const Platform = {
 	OS: "web" as string,
-	select: <T,>(o: { web?: T; default?: T }) => o.web ?? o.default,
+	select: <T>(o: { web?: T; default?: T }) => o.web ?? o.default,
 };
 
 export const Alert = {

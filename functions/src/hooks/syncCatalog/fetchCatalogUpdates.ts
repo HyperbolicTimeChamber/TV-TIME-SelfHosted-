@@ -9,6 +9,7 @@ import {
 import { MediaType, ENDED_STATUSES } from "../../shared/enums";
 import { hasCatalogChanged } from "./hasCatalogChanged";
 import { filledRuntimes } from "../runtimeHeal/healRuntimes";
+import { tvCatalogFields } from "../catalogFields";
 
 export interface FetchResult {
   freshCatalogMap: Map<string, CatalogShow>;
@@ -46,11 +47,16 @@ export async function fetchCatalogUpdates(
     // Skipped (ended) shows aren't re-fetched: fill a missing premiere date from the
     // seasons already stored (no extra TMDB call)
     const healPremiere = () => {
+      // refreshShow updated this ended show mid-week (missing-data heal) → announce + clear
+      if (oldData.refreshedSinceSync) {
+        pendingWrites.push({ ref: showDoc.ref, data: { refreshedSinceSync: FieldValue.delete() } });
+        changedShowIds.push(showDoc.id);
+      }
       if (oldData.firstAirDate) return;
       const firstAirDate = premiereDate(null, oldData.seasons);
       if (!firstAirDate) return;
       pendingWrites.push({ ref: showDoc.ref, data: { firstAirDate } });
-      changedShowIds.push(showDoc.id);
+      if (!oldData.refreshedSinceSync) changedShowIds.push(showDoc.id);
     };
 
     // Ended/canceled: lightweight status check only (1 API call vs ~6)
@@ -85,7 +91,8 @@ export async function fetchCatalogUpdates(
       const oldEpCount = oldData.totalEpisodes ?? 0;
       const newEpCount = freshData.totalEpisodes ?? 0;
       if (newEpCount < oldEpCount) hasEpisodeRemovals = true;
-      if (hasCatalogChanged(oldData, freshData))
+      // refreshShow wrote fresh seasons mid-week (old vs fresh looks equal now) → still changed
+      if (oldData.refreshedSinceSync || hasCatalogChanged(oldData, freshData))
         changedShowIds.push(showDoc.id);
       const filled = filledRuntimes(oldData, freshData);
       if (filled.size > 0) {
@@ -95,23 +102,9 @@ export async function fetchCatalogUpdates(
       pendingWrites.push({
         ref: showDoc.ref,
         data: {
-          title: freshData.title,
-          posterPath: freshData.posterPath,
-          backdropPath: freshData.backdropPath,
-          overview: freshData.overview,
-          status: freshData.status,
-          totalSeasons: freshData.totalSeasons,
-          totalEpisodes: freshData.totalEpisodes,
-          runtime: freshData.runtime,
-          voteAverage: freshData.voteAverage,
-          // premiereDate() fills in TMDB's missing first_air_date
-          firstAirDate: freshData.firstAirDate,
-          seasons: freshData.seasons,
-          genres: freshData.genres,
-          logoPath: freshData.logoPath ?? null,
-          tvmazeId: freshData.tvmazeId ?? null,
-          ...(freshData.credits ? { credits: freshData.credits } : {}),
-          lastSyncedAt: FieldValue.serverTimestamp(),
+          ...tvCatalogFields(freshData),
+          // refreshShow's change already reached the doc — this sync announces it to clients
+          ...(oldData.refreshedSinceSync ? { refreshedSinceSync: FieldValue.delete() } : {}),
         },
       });
 

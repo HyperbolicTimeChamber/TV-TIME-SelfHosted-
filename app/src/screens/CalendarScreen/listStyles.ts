@@ -85,7 +85,12 @@ export const listStyles = StyleSheet.create({
 		backgroundColor: colors.text,
 		marginVertical: 6,
 	},
-	epSquareValue: { fontFamily: fonts.smoochRegular, fontSize: 56, color: colors.text, lineHeight: 58 },
+	epSquareValue: {
+		fontFamily: fonts.smoochRegular,
+		fontSize: 56,
+		color: colors.text,
+		lineHeight: 58,
+	},
 	// Arrow fills rule → bottom edge (cancelling the rule's bottom margin) and centres in it
 	epSquareArrow: {
 		flex: 1,
@@ -99,7 +104,13 @@ export const listStyles = StyleSheet.create({
 	epSquareRuleTimed: { marginVertical: 4 },
 	// With a time under it, Exx shrinks so all four lines fit the square
 	epSquareValueTimed: { fontSize: 44, lineHeight: 40 },
-	epSquareTime: { fontFamily: fonts.smoochMedium, fontSize: 14, lineHeight: 14, letterSpacing: 0.5, color: colors.text },
+	epSquareTime: {
+		fontFamily: fonts.smoochMedium,
+		fontSize: 14,
+		lineHeight: 14,
+		letterSpacing: 0.5,
+		color: colors.text,
+	},
 	epSquareYear: { fontSize: 40, lineHeight: 44 },
 	movieBadge: {
 		alignSelf: "flex-start",

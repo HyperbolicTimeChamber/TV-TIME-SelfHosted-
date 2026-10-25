@@ -22,9 +22,16 @@ export default function HomeScreen() {
 		<div className={styles.container}>
 			<nav className={styles.topTabs}>
 				{TABS.map((t) => (
-					<NavLink key={t.to} to={t.to} end className={`${styles.topTab} ${active === t.to ? styles.topTabActive : ""}`}>
+					<NavLink
+						key={t.to}
+						to={t.to}
+						end
+						className={`${styles.topTab} ${active === t.to ? styles.topTabActive : ""}`}
+					>
 						{t.label}
-						{active === t.to && <motion.span layoutId="home-tab" className={styles.topTabIndicator} />}
+						{active === t.to && (
+							<motion.span layoutId="home-tab" className={styles.topTabIndicator} />
+						)}
 					</NavLink>
 				))}
 			</nav>

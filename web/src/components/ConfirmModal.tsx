@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import { cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { Spin } from "antd";
 import AnimatedModal from "./AnimatedModal";
+import { ModalBackdrop } from "./ModalArt";
 import styles from "./styles/ui.module.scss";
 import { cssVars } from "../utils/cssVars";
 
@@ -20,8 +21,12 @@ interface Props {
 	secondaryLabel?: string;
 	secondaryColor?: string;
 	onSecondary?: () => void;
+	/** Optional third choice under the secondary one (e.g. "Just Mark It") */
+	tertiaryLabel?: string;
+	onTertiary?: () => void;
 	cancelLabel?: string;
-	/** Image flush with the top of the popup (full-bleed art); a shown title is laid over it in black */
+	/** Image flush with the top of the popup (full-bleed art); a shown title is laid over it in black.
+	 *  Automatic for a ModalBackdrop, which hosts the title itself over a top shade */
 	imageAtTop?: boolean;
 	/** No title (the image / hint say it all) */
 	hideTitle?: boolean;
@@ -44,18 +49,27 @@ export default function ConfirmModal({
 	secondaryLabel,
 	secondaryColor,
 	onSecondary,
+	tertiaryLabel,
+	onTertiary,
 	cancelLabel = "Cancel",
 	imageAtTop = false,
 	hideTitle = false,
 	hideCancel = false,
 	onClose,
 }: Props) {
+	// Photo art: up to the popup's top edge, the title on its own top shade
+	const photo = isValidElement(image) && image.type === ModalBackdrop;
+	const atTop = (imageAtTop || photo) && image != null;
 	return (
 		<AnimatedModal visible={visible} onClose={() => !loading && onClose()}>
-			{imageAtTop && image != null ? (
+			{atTop ? (
 				<div className={`${styles.modalImage} ${styles.modalImageTop}`}>
-					{image}
-					{!hideTitle && <p className={`${styles.modalTitle} ${styles.modalTitleOnImage}`}>{title}</p>}
+					{photo && !hideTitle
+						? cloneElement(image as ReactElement<{ heading?: string }>, { heading: title })
+						: image}
+					{!photo && !hideTitle && (
+						<p className={`${styles.modalTitle} ${styles.modalTitleOnImage}`}>{title}</p>
+					)}
 				</div>
 			) : (
 				<>
@@ -81,6 +95,15 @@ export default function ConfirmModal({
 					disabled={loading}
 				>
 					{secondaryLabel}
+				</button>
+			)}
+			{tertiaryLabel && onTertiary && (
+				<button
+					className={`${styles.button} ${styles.muted}`}
+					onClick={onTertiary}
+					disabled={loading}
+				>
+					{tertiaryLabel}
 				</button>
 			)}
 			{!loading && !hideCancel && (

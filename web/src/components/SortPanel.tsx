@@ -21,7 +21,13 @@ interface PanelProps<T> {
 const strictEqual = <T,>(a: T, b: T) => a === b;
 
 /** "Sort by" rows (checkmark on the active one) + optional extra sections — app SortSheet */
-export function SortPanel<T>({ options, selected, onSelect, isSame = strictEqual, children }: PanelProps<T>) {
+export function SortPanel<T>({
+	options,
+	selected,
+	onSelect,
+	isSame = strictEqual,
+	children,
+}: PanelProps<T>) {
 	return (
 		<div className={styles.panel}>
 			<p className={styles.title}>Sort by</p>
@@ -59,7 +65,14 @@ interface ButtonProps {
 /** Red circle (sliders icon) opening the sort popover — app SortFab */
 export function SortButton({ open, onOpenChange, content, customised, label }: ButtonProps) {
 	return (
-		<Popover trigger="click" placement="bottomRight" open={open} onOpenChange={onOpenChange} arrow={false} content={content}>
+		<Popover
+			trigger="click"
+			placement="bottomRight"
+			open={open}
+			onOpenChange={onOpenChange}
+			arrow={false}
+			content={content}
+		>
 			<button className={styles.button} aria-label={label}>
 				<IoOptionsOutline size={20} />
 				{customised && <span className={styles.buttonDot} />}

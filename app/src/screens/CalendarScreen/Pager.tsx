@@ -1,7 +1,12 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { Gesture, GestureDetector, type GestureType } from "react-native-gesture-handler";
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, {
+	runOnJS,
+	useAnimatedStyle,
+	useSharedValue,
+	withTiming,
+} from "react-native-reanimated";
 
 /** Drag past this share of the width (or flick) to turn the page */
 const TURN_SHARE = 0.22;
