@@ -43,6 +43,7 @@ import {
 	type JumpPrompt,
 } from "../utils";
 import { TMDBSeason, TMDBEpisode, MediaType, WatchStatus, WatchAction } from "../types";
+import { endSeasonMarking, startSeasonMarking, useSeasonMarking } from "../hooks/seasonMarking";
 
 export interface SeasonDropdownProps {
 	tmdbId: number;
@@ -102,6 +103,7 @@ export function useSeasonActions({
 	const [expanded, setExpanded] = useState(false);
 	const [markingEps, setMarkingEps] = useState<Set<number>>(new Set());
 	const [markingSeason, setMarkingSeason] = useState(false);
+	const markedFromElsewhere = useSeasonMarking(tmdbId, season.season_number);
 	const user = useAuthStore((s) => s.user);
 	const queryClient = useQueryClient();
 	const { mutateCachedUpcoming, rollbackUpcoming, removeWatchedFromPast } = useUpcomingMutations();
@@ -475,6 +477,8 @@ export function useSeasonActions({
 			const seasons = [...bySeason.keys()].sort((a, b) => a - b);
 
 			setMarkingSeason(true);
+			// Every season this mark covers shows its spinner, not just the row it started from
+			startSeasonMarking(tmdbId, seasons);
 			try {
 				const tw = await resolveTrackingWrite(here, jump, others);
 				const now = Timestamp.now();
@@ -517,6 +521,7 @@ export function useSeasonActions({
 							watchCount: 1,
 						});
 					}
+					endSeasonMarking(tmdbId, [s]);
 				}
 				return refs;
 			} catch (err: any) {
@@ -524,6 +529,7 @@ export function useSeasonActions({
 				Alert.alert("Error", err.message || "Failed to mark episodes.");
 				return [];
 			} finally {
+				endSeasonMarking(tmdbId, seasons);
 				setMarkingSeason(false);
 			}
 		},
@@ -1146,7 +1152,8 @@ export function useSeasonActions({
 		setExpanded,
 		markingEps,
 		setMarkingEps,
-		markingSeason,
+		// Also while another row's mark covers this season (season speedster)
+		markingSeason: markingSeason || markedFromElsewhere,
 		setMarkingSeason,
 		user,
 		queryClient,

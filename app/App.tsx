@@ -36,7 +36,7 @@ import ImportDataScreen from "./src/screens/ImportDataScreen";
 import AppNavigator from "./src/navigation/AppNavigator";
 import { OfflineOverlay } from "./src/components";
 import { colors } from "./src/theme";
-import { FATAL_AUTH_ERRORS } from "./src/enums";
+import { FATAL_AUTH_ERRORS, QueryKey } from "./src/enums";
 
 // Keep native splash visible until auth resolves
 SplashScreen.preventAutoHideAsync();
@@ -54,6 +54,10 @@ const queryClient = new QueryClient({
 		queries: { staleTime: 5 * 60 * 1000, retry: 2 },
 	},
 });
+// A show's watched episodes back the info modal's counts — keep them for the session: the 5 min
+// default dropped them, and reopening that show's modal re-read every watched episode from the
+// server before it could open
+queryClient.setQueryDefaults([QueryKey.WATCHED_EPISODES], { gcTime: Infinity });
 
 const PERSIST_PREFIXES = ["upcomingEpisodes", "catalog"];
 
