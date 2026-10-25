@@ -3,9 +3,19 @@ import { AnimatePresence, motion } from "motion/react";
 import { IoChevronBack, IoChevronForward } from "react-icons/io5";
 import { IoIosArrowDown } from "react-icons/io";
 import { NavigationType, useNavigate, useNavigationType } from "react-router-dom";
-import { useCalendarScreen, YEARS, type CalendarEpisode, type CalendarPosition } from "@app/screens/useCalendarScreen";
+import {
+	useCalendarScreen,
+	YEARS,
+	type CalendarEpisode,
+	type CalendarPosition,
+} from "@app/screens/useCalendarScreen";
 import { formatAirTime } from "@app/utils/airTime";
-import { groupCalendarDay, episodeCountLabel, seasonRangeLabel, calendarEpisodeInfo } from "@app/utils/calendarGroups";
+import {
+	groupCalendarDay,
+	episodeCountLabel,
+	seasonRangeLabel,
+	calendarEpisodeInfo,
+} from "@app/utils/calendarGroups";
 import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
 import { useQueryClient } from "@tanstack/react-query";
 import { loadSeasonEpisodes, useEpisodeInfoLoader } from "@app/hooks/useEpisodeInfoLoader";
@@ -91,7 +101,12 @@ function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 		<>
 			{/* Same backdrop treatment as the Watch History cards */}
 			{ep.backdropPath && (
-				<img src={tmdbBackdropUri(ep.backdropPath, CARD_MAX_WIDTH)} alt="" className={styles.cardBg} loading="lazy" />
+				<img
+					src={tmdbBackdropUri(ep.backdropPath, CARD_MAX_WIDTH)}
+					alt=""
+					className={styles.cardBg}
+					loading="lazy"
+				/>
 			)}
 			<span className={styles.cardOverlay} />
 		</>
@@ -108,11 +123,20 @@ function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 	}
 
 	return (
-		<button className={styles.episodeRow} onClick={onClick} aria-expanded={groupEps ? !!expanded : undefined}>
+		<button
+			className={styles.episodeRow}
+			onClick={onClick}
+			aria-expanded={groupEps ? !!expanded : undefined}
+		>
 			{backdrop}
 			<span className={styles.epInfo}>
 				{ep.logoPath ? (
-					<img src={tmdbLogoUri(ep.logoPath, CARD_MAX_WIDTH * 0.6)} alt={ep.showTitle} className={styles.logo} loading="lazy" />
+					<img
+						src={tmdbLogoUri(ep.logoPath, CARD_MAX_WIDTH * 0.6)}
+						alt={ep.showTitle}
+						className={styles.logo}
+						loading="lazy"
+					/>
 				) : (
 					<span className={styles.showTitle}>{ep.showTitle}</span>
 				)}
@@ -120,7 +144,9 @@ function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 					<span className={styles.movieBadge}>MOVIE</span>
 				) : (
 					// Collapsed show: its season(s) where an episode name would be; count is in the square
-					<span className={styles.epTitle}>{groupEps ? seasonRangeLabel(groupEps) : ep.episodeTitle}</span>
+					<span className={styles.epTitle}>
+						{groupEps ? seasonRangeLabel(groupEps) : ep.episodeTitle}
+					</span>
 				)}
 			</span>
 			{groupEps ? (
@@ -130,15 +156,22 @@ function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 					<span className={styles.epSquareRule} />
 					<span className={styles.epSquareArrow}>
 						{airTime && <span className={styles.epSquareTime}>{airTime}</span>}
-						<IoIosArrowDown size={40} className={`relative transition-transform duration-220 ${expanded ? "rotate-180" : ""}`} />
+						<IoIosArrowDown
+							size={40}
+							className={`relative transition-transform duration-220 ${expanded ? "rotate-180" : ""}`}
+						/>
 					</span>
 				</span>
 			) : (
 				// Right square: SEASON xx over a big Exx; movies their release year
 				<span className={`${styles.epSquare} ${airTime ? styles.epSquareTimed : ""}`}>
-					<span className={styles.epSquareTitle}>{isMovie ? "YEAR" : `SEASON ${pad(ep.season)}`}</span>
+					<span className={styles.epSquareTitle}>
+						{isMovie ? "YEAR" : `SEASON ${pad(ep.season)}`}
+					</span>
 					<span className={styles.epSquareRule} />
-					<span className={`${styles.epSquareValue} ${isMovie ? styles.epSquareYear : ""} ${airTime ? styles.epSquareValueTimed : ""}`}>
+					<span
+						className={`${styles.epSquareValue} ${isMovie ? styles.epSquareYear : ""} ${airTime ? styles.epSquareValueTimed : ""}`}
+					>
 						{isMovie ? ep.airDate.slice(0, 4) : `E${pad(ep.episode)}`}
 					</span>
 					{airTime && <span className={styles.epSquareTime}>{airTime}</span>}
@@ -194,7 +227,8 @@ export default function CalendarScreen() {
 					for (const ep of eps) {
 						const still = season?.find((s) => s.episode === ep.episode)?.stillPath;
 						if (still) new Image().src = tmdbStillUri(still, CARD_IMG_WIDTH);
-						else if (ep.backdropPath) new Image().src = tmdbBackdropUri(ep.backdropPath, CARD_IMG_WIDTH);
+						else if (ep.backdropPath)
+							new Image().src = tmdbBackdropUri(ep.backdropPath, CARD_IMG_WIDTH);
 					}
 				});
 			}
@@ -206,14 +240,22 @@ export default function CalendarScreen() {
 	}, [selectedEpisodes, queryClient]);
 	// Stable: a new array each render would reset the modal's loaded details
 	const infoEpisodes = useMemo(
-		() => (infoEp ? [calendarEpisodeInfo(infoEp, getCachedCatalogShow(infoEp.tmdbShowId, MediaType.TV))] : []),
+		() =>
+			infoEp
+				? [calendarEpisodeInfo(infoEp, getCachedCatalogShow(infoEp.tmdbShowId, MediaType.TV))]
+				: [],
 		[infoEp],
 	);
 	const openShow = (ep: CalendarEpisode) =>
-		ep.mediaType === MediaType.MOVIE ? navigate(showPath(MediaType.MOVIE, ep.tmdbShowId)) : setInfoEp(ep);
+		ep.mediaType === MediaType.MOVIE
+			? navigate(showPath(MediaType.MOVIE, ep.tmdbShowId))
+			: setInfoEp(ep);
 	const today = todayStr();
 	const yearListRef = useRef<HTMLDivElement>(null);
-	const grid = useMemo(() => monthGrid(c.currentYear, c.currentMonth), [c.currentYear, c.currentMonth]);
+	const grid = useMemo(
+		() => monthGrid(c.currentYear, c.currentMonth),
+		[c.currentYear, c.currentMonth],
+	);
 	const monthKey = `${c.currentYear}-${c.currentMonth}`;
 	// Desktop day cells show counts instead of a dot: distinct shows + movies per date
 	const countsByDate = useMemo(() => {
@@ -236,7 +278,9 @@ export default function CalendarScreen() {
 	useEffect(() => {
 		if (!c.yearModalVisible) return;
 		requestAnimationFrame(() =>
-			yearListRef.current?.querySelector(`[data-year="${c.currentYear}"]`)?.scrollIntoView({ block: "center" }),
+			yearListRef.current
+				?.querySelector(`[data-year="${c.currentYear}"]`)
+				?.scrollIntoView({ block: "center" }),
 		);
 	}, [c.yearModalVisible, c.currentYear]);
 
@@ -245,7 +289,11 @@ export default function CalendarScreen() {
 			{/* Desktop: calendar left, the day's list right; stacked below that */}
 			<div className={styles.calendarPane}>
 				<div className={styles.header}>
-					<button className={styles.arrow} onClick={() => shiftMonth(-1)} aria-label="Previous month">
+					<button
+						className={styles.arrow}
+						onClick={() => shiftMonth(-1)}
+						aria-label="Previous month"
+					>
 						<IoChevronBack size={20} />
 					</button>
 					<button className={styles.headerTitle} onClick={() => c.setYearModalVisible(true)}>
@@ -290,13 +338,19 @@ export default function CalendarScreen() {
 								>
 									<span
 										className={`${styles.dayNumber} ${cell.date === today && !selected ? styles.today : ""} ${selected ? "bg-(--sel)!" : ""}`}
-										style={selected ? cssVars({ "--sel": mark?.selectedColor ?? "transparent" }) : undefined}
+										style={
+											selected
+												? cssVars({ "--sel": mark?.selectedColor ?? "transparent" })
+												: undefined
+										}
 									>
 										{cell.day}
 									</span>
 									<span
 										className={`${styles.dot} bg-(--dot)!`}
-										style={cssVars({ "--dot": mark?.marked && cell.inMonth ? mark.dotColor : "transparent" })}
+										style={cssVars({
+											"--dot": mark?.marked && cell.inMonth ? mark.dotColor : "transparent",
+										})}
 									/>
 									{cell.inMonth && <DayCounts counts={countsByDate.get(cell.date)} />}
 								</button>
@@ -337,7 +391,9 @@ export default function CalendarScreen() {
 								<div className={styles.emptyDay}>
 									<img className={styles.emptyDayArt} src="/empty-day.webp" alt="" />
 									<p className={styles.emptyDayTitle}>What a drag… nothing to watch today.</p>
-									<p className={styles.emptyDayTagline}>Guess you'll just have to watch the clouds instead. Way less troublesome.</p>
+									<p className={styles.emptyDayTagline}>
+										Guess you'll just have to watch the clouds instead. Way less troublesome.
+									</p>
 								</div>
 							) : (
 								// Shows with several episodes that day collapse into one card; click to open
@@ -364,7 +420,12 @@ export default function CalendarScreen() {
 														transition={{ duration: ACCORDION_S, ease: "easeInOut" }}
 													>
 														{group.episodes.map((ep) => (
-															<DayCard key={`${ep.season}_${ep.episode}`} ep={ep} child onClick={() => openShow(ep)} />
+															<DayCard
+																key={`${ep.season}_${ep.episode}`}
+																ep={ep}
+																child
+																onClick={() => openShow(ep)}
+															/>
 														))}
 													</motion.div>
 												)}
@@ -399,7 +460,11 @@ export default function CalendarScreen() {
 				/>
 			)}
 
-			<AnimatedModal visible={c.yearModalVisible} onClose={() => c.setYearModalVisible(false)} width={200}>
+			<AnimatedModal
+				visible={c.yearModalVisible}
+				onClose={() => c.setYearModalVisible(false)}
+				width={200}
+			>
 				<p className={styles.modalTitle}>Select Year</p>
 				<div className={styles.yearList} ref={yearListRef}>
 					{YEARS.map((y) => (

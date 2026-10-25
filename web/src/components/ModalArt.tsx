@@ -140,9 +140,13 @@ export function ModalBackdrop({
 	const [loaded, setLoaded] = useState(false);
 	return (
 		<div className={`${styles.modalBackdrop} ${loaded ? "" : styles.modalBackdropLoading}`}>
-			<img className={styles.modalBackdropImg} src={tmdbBackdropUri(backdropPath, CONTENT_W)} alt=""
+			<img
+				className={styles.modalBackdropImg}
+				src={tmdbBackdropUri(backdropPath, CONTENT_W)}
+				alt=""
 				onLoad={() => setLoaded(true)}
-				onError={() => setLoaded(true)} />
+				onError={() => setLoaded(true)}
+			/>
 			{/* Skeleton until the banner image is in; its overlays come in with it */}
 			{!loaded && <SkeletonBlock className={styles.modalBackdropSkeleton} />}
 			<div className={styles.modalBackdropLogo}>

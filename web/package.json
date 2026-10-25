@@ -10,7 +10,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "oxlint src tests",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "format": "prettier --write \"src/**/*.{ts,tsx,scss}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,scss}\""
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.4",
@@ -48,6 +50,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "jsdom": "^30.1.2",
     "oxlint": "^1.81.0",
+    "prettier": "^3.9.6",
     "sass-embedded": "^1.105.1",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",

@@ -56,7 +56,11 @@ function EpisodeCard(p: Props) {
 				: null;
 
 	const skip = p.onSkip ? (
-		<button className={`${styles.actionButton} ${styles.skipButton}`} onClick={p.onSkip} disabled={p.isMarking}>
+		<button
+			className={`${styles.actionButton} ${styles.skipButton}`}
+			onClick={p.onSkip}
+			disabled={p.isMarking}
+		>
 			Skip
 		</button>
 	) : null;
@@ -98,10 +102,18 @@ function EpisodeCard(p: Props) {
 			{!p.readOnly &&
 				(p.isWatched ? (
 					<div className={styles.buttonRow}>
-						<button className={`${styles.actionButton} ${styles.unwatchButton}`} onClick={p.onUnwatch} disabled={p.isMarking}>
+						<button
+							className={`${styles.actionButton} ${styles.unwatchButton}`}
+							onClick={p.onUnwatch}
+							disabled={p.isMarking}
+						>
 							Unwatch
 						</button>
-						<button className={`${styles.actionButton} ${styles.rewatchButton}`} onClick={p.onRewatch} disabled={p.isMarking}>
+						<button
+							className={`${styles.actionButton} ${styles.rewatchButton}`}
+							onClick={p.onRewatch}
+							disabled={p.isMarking}
+						>
 							{p.isMarking ? (
 								<Spin size="small" />
 							) : (
@@ -117,7 +129,11 @@ function EpisodeCard(p: Props) {
 					// Rewatch: Skip first, then "Mark Nth Rewatch"
 					<div className={styles.buttonRow}>
 						{skip}
-						<button className={`${styles.actionButton} ${styles.watchButton}`} onClick={p.onMarkWatched} disabled={p.isMarking}>
+						<button
+							className={`${styles.actionButton} ${styles.watchButton}`}
+							onClick={p.onMarkWatched}
+							disabled={p.isMarking}
+						>
 							{p.isMarking ? <Spin size="small" /> : p.markLabel}
 						</button>
 					</div>

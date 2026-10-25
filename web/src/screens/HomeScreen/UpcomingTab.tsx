@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef } from "react";
 import { Button } from "antd";
 import { useNavigate } from "react-router-dom";
-import { useUpcomingScreen, type ListItem } from "@app/screens/HomeScreen/UpcomingTab/useUpcomingScreen";
+import {
+	useUpcomingScreen,
+	type ListItem,
+} from "@app/screens/HomeScreen/UpcomingTab/useUpcomingScreen";
 import { MediaType } from "@app/enums";
 import type { UpcomingEpisode } from "@app/types";
 import { todayStr } from "@app/utils/todayStr";
@@ -47,8 +50,16 @@ function UpcomingRow({
 	// Local air time (TVMaze) — only when the exact time is known
 	const airTime = isMovie ? null : formatAirTime(episode.airStamp);
 	return (
-		<div className={`${card.container} ${styles.upcomingRow}`} onClick={() => onPress(episode)} role="button">
-			<PosterImage posterPath={episode.posterPath} mediaType={episode.mediaType} className={card.poster} />
+		<div
+			className={`${card.container} ${styles.upcomingRow}`}
+			onClick={() => onPress(episode)}
+			role="button"
+		>
+			<PosterImage
+				posterPath={episode.posterPath}
+				mediaType={episode.mediaType}
+				className={card.poster}
+			/>
 			<div className={`${card.info} pr-4!`}>
 				<button
 					className={card.titlePill}
@@ -61,9 +72,7 @@ function UpcomingRow({
 					<span className={card.titleArrow}>›</span>
 				</button>
 				{isMovie ? (
-					<span className={`${card.movieBadge} rounded-sm!`}>
-						MOVIE
-					</span>
+					<span className={`${card.movieBadge} rounded-sm!`}>MOVIE</span>
 				) : (
 					<>
 						{/* Time on the SxxExx line → the episode name gets the card's full width */}
@@ -73,7 +82,9 @@ function UpcomingRow({
 							</span>
 							{airTime && <span className={styles.upcomingTime}>{airTime}</span>}
 						</div>
-						{episode.episodeTitle && <span className={card.episodeName}>{episode.episodeTitle}</span>}
+						{episode.episodeTitle && (
+							<span className={card.episodeName}>{episode.episodeTitle}</span>
+						)}
 					</>
 				)}
 			</div>
@@ -84,7 +95,10 @@ function UpcomingRow({
 /** Upcoming tab: last 20 aired days (local queue) above today + future, same as the app */
 export default function UpcomingTab() {
 	const navigate = useNavigate();
-	const goToShow = useCallback((tmdbShowId: number) => navigate(showPath(MediaType.TV, tmdbShowId)), [navigate]);
+	const goToShow = useCallback(
+		(tmdbShowId: number) => navigate(showPath(MediaType.TV, tmdbShowId)),
+		[navigate],
+	);
 	const u = useUpcomingScreen(goToShow);
 	const todayRef = useRef<HTMLDivElement>(null);
 	const scrolled = useRef(false);
@@ -97,7 +111,8 @@ export default function UpcomingTab() {
 		requestAnimationFrame(() => todayRef.current?.scrollIntoView({ block: "start" }));
 	}, [u.isLoading, u.listData.length]);
 
-	if (u.isLoading) return <LoadingScreen label="Predicting Your Future..." hint="This may take a moment" />;
+	if (u.isLoading)
+		return <LoadingScreen label="Predicting Your Future..." hint="This may take a moment" />;
 	if (u.error) {
 		return (
 			<div className={styles.center}>
@@ -121,9 +136,9 @@ export default function UpcomingTab() {
 	);
 	if (u.listData.length === 0) return emptyState;
 
-	const firstUpcomingDate = u.listData.find((i: ListItem) => i.type === "header" && i.date >= today) as
-		| { date: string }
-		| undefined;
+	const firstUpcomingDate = u.listData.find(
+		(i: ListItem) => i.type === "header" && i.date >= today,
+	) as { date: string } | undefined;
 	return (
 		<>
 			<div className={styles.list}>
@@ -136,7 +151,9 @@ export default function UpcomingTab() {
 								className={styles.sectionHeader}
 								ref={isFirstUpcoming ? todayRef : undefined}
 							>
-								<span className={`${styles.sectionPill} ${item.date < today ? styles.sectionPillPast : ""}`}>
+								<span
+									className={`${styles.sectionPill} ${item.date < today ? styles.sectionPillPast : ""}`}
+								>
 									{formatDate(item.date)}
 								</span>
 							</div>

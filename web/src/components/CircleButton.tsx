@@ -20,9 +20,20 @@ interface Props {
 }
 
 /** 44px circular icon button (app CircleButton) — the one shape for back / share buttons */
-export default function CircleButton({ onClick, tone = CircleButtonTone.SURFACE, className = "", ariaLabel, children }: Props) {
+export default function CircleButton({
+	onClick,
+	tone = CircleButtonTone.SURFACE,
+	className = "",
+	ariaLabel,
+	children,
+}: Props) {
 	return (
-		<button type="button" className={`${styles.circle} ${FILL[tone]} ${className}`} onClick={onClick} aria-label={ariaLabel}>
+		<button
+			type="button"
+			className={`${styles.circle} ${FILL[tone]} ${className}`}
+			onClick={onClick}
+			aria-label={ariaLabel}
+		>
 			{children}
 		</button>
 	);

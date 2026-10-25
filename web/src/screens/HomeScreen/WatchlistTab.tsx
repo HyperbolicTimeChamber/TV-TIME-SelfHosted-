@@ -22,12 +22,19 @@ import styles from "./styles/HomeScreen.module.scss";
 const UP_NEXT = UP_NEXT_TITLE;
 
 const keyOf = (item: WatchlistListItem) =>
-	item.type === "sectionHeader" ? `section_${item.title}` : item.type === "show" ? `show_${item.item.id}` : item.type;
+	item.type === "sectionHeader"
+		? `section_${item.title}`
+		: item.type === "show"
+			? `show_${item.item.id}`
+			: item.type;
 
 /** Watch List tab — same data/actions as the app via useWatchlistScreen */
 export default function WatchlistTab() {
 	const navigate = useNavigate();
-	const goToShow = useCallback((tmdbId: number, mediaType: MediaType) => navigate(showPath(mediaType, tmdbId)), [navigate]);
+	const goToShow = useCallback(
+		(tmdbId: number, mediaType: MediaType) => navigate(showPath(mediaType, tmdbId)),
+		[navigate],
+	);
 	const w = useWatchlistScreen(goToShow);
 	// Long press / right-click on a card → confirm pausing it (no swipe — too easy by accident)
 	const [pauseTarget, setPauseTarget] = useState<EnrichedTrackingItem | null>(null);
@@ -48,7 +55,9 @@ export default function WatchlistTab() {
 	const items = useMemo(
 		() =>
 			withCaughtUp(w.listData, w.listSettled).filter((i) =>
-				i.type === "sectionHeader" ? i.title === UP_NEXT : i.type !== "watchedEpisode" && i.type !== "watchedMovie",
+				i.type === "sectionHeader"
+					? i.title === UP_NEXT
+					: i.type !== "watchedEpisode" && i.type !== "watchedMovie",
 			),
 		[w.listData, w.listSettled],
 	);
@@ -131,13 +140,22 @@ export default function WatchlistTab() {
 					!pauseTarget ? undefined : pauseTarget.catalogShow?.backdropPath ? (
 						<ModalBackdrop
 							backdropPath={pauseTarget.catalogShow.backdropPath}
-							logoPath={pauseTarget.catalogShow.logoPath} tmdbId={pauseTarget.tmdbId} mediaType={pauseTarget.mediaType}
+							logoPath={pauseTarget.catalogShow.logoPath}
+							tmdbId={pauseTarget.tmdbId}
+							mediaType={pauseTarget.mediaType}
 							title={pauseTarget.title}
 							paused
 							nameDelay={2000}
 						/>
 					) : (
-						<ModalLogo logoPath={pauseTarget.catalogShow?.logoPath} tmdbId={pauseTarget.tmdbId} mediaType={pauseTarget.mediaType} title={pauseTarget.title} paused nameDelay={2000} />
+						<ModalLogo
+							logoPath={pauseTarget.catalogShow?.logoPath}
+							tmdbId={pauseTarget.tmdbId}
+							mediaType={pauseTarget.mediaType}
+							title={pauseTarget.title}
+							paused
+							nameDelay={2000}
+						/>
 					)
 				}
 				hint={

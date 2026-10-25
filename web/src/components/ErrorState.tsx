@@ -1,10 +1,10 @@
 import { motion } from "motion/react";
 import {
-  IoAlertCircleOutline,
-  IoCloudOfflineOutline,
-  IoFilmOutline,
-  IoTvOutline,
-  IoCompassOutline,
+	IoAlertCircleOutline,
+	IoCloudOfflineOutline,
+	IoFilmOutline,
+	IoTvOutline,
+	IoCompassOutline,
 } from "react-icons/io5";
 import { LoadErrorKind, MediaType } from "@app/enums";
 import type { LoadErrorInfo } from "@app/utils/loadError";
@@ -14,67 +14,62 @@ import { useHideTabBar } from "../hooks/useHideTabBar";
 import styles from "./styles/ErrorState.module.scss";
 
 interface Action {
-  label: string;
-  onPress: () => void;
+	label: string;
+	onPress: () => void;
 }
 
 interface Props {
-  info: LoadErrorInfo;
-  /** Picks the not-found icon; omit for generic pages */
-  mediaType?: MediaType;
-  primary: Action;
-  secondary?: Action;
+	info: LoadErrorInfo;
+	/** Picks the not-found icon; omit for generic pages */
+	mediaType?: MediaType;
+	primary: Action;
+	secondary?: Action;
 }
 
 /** Full-screen load failure (app ErrorState): icon, title, explanation, next steps */
-export default function ErrorState({
-  info,
-  mediaType,
-  primary,
-  secondary,
-}: Props) {
-  const Icon =
-    info.kind === LoadErrorKind.OFFLINE
-      ? IoCloudOfflineOutline
-      : info.kind === LoadErrorKind.SERVER
-        ? IoAlertCircleOutline
-        : mediaType === MediaType.MOVIE
-          ? IoFilmOutline
-          : mediaType === MediaType.TV
-            ? IoTvOutline
-            : IoCompassOutline;
+export default function ErrorState({ info, mediaType, primary, secondary }: Props) {
+	const Icon =
+		info.kind === LoadErrorKind.OFFLINE
+			? IoCloudOfflineOutline
+			: info.kind === LoadErrorKind.SERVER
+				? IoAlertCircleOutline
+				: mediaType === MediaType.MOVIE
+					? IoFilmOutline
+					: mediaType === MediaType.TV
+						? IoTvOutline
+						: IoCompassOutline;
 
-  const showArt = info.kind === LoadErrorKind.NOT_FOUND;
-  // Not-found is a dead end: back + its own buttons are the way out, no tab bar
-  useHideTabBar(showArt);
+	const showArt = info.kind === LoadErrorKind.NOT_FOUND;
+	// Not-found is a dead end: back + its own buttons are the way out, no tab bar
+	useHideTabBar(showArt);
 
-  return (
-    <>
-      {showArt && <NotFoundArt />}
-      <motion.div
-        className={`${styles.container} ${showArt ? styles.containerWithArt : ""}`}
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", damping: 14, stiffness: 140 }}
-        role="alert"
-      >
-        {!showArt && (
-          <div className={styles.iconRing}>
-            <Icon size={44} color={colors.textSecondary} />
-          </div>
-        )}
-        <h1 className={styles.title}>{info.title}</h1>
-        <p className={styles.message}>{info.message}</p>
-        <button className={styles.primary} onClick={primary.onPress}>
-          {primary.label}
-        </button>
-        {secondary && (
-          <button className={styles.secondary} onClick={secondary.onPress}>
-            {secondary.label}
-          </button>
-        )}
-        {info.code && !showArt && <span className={styles.code}>Error {info.code}</span>}
-      </motion.div>
-    </>
-  );
+	return (
+		<>
+			{showArt && <NotFoundArt />}
+			<motion.div
+				className={`${styles.container} ${showArt ? styles.containerWithArt : ""}`}
+				initial={{ opacity: 0, y: 16 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ type: "spring", damping: 14, stiffness: 140 }}
+				role="alert"
+			>
+				{!showArt && (
+					<div className={styles.iconRing}>
+						<Icon size={44} color={colors.textSecondary} />
+					</div>
+				)}
+				<h1 className={styles.title}>{info.title}</h1>
+				<p className={styles.message}>{info.message}</p>
+				<button className={styles.primary} onClick={primary.onPress}>
+					{primary.label}
+				</button>
+				{secondary && (
+					<button className={styles.secondary} onClick={secondary.onPress}>
+						{secondary.label}
+					</button>
+				)}
+				{info.code && !showArt && <span className={styles.code}>Error {info.code}</span>}
+			</motion.div>
+		</>
+	);
 }

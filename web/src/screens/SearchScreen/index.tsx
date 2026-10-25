@@ -39,7 +39,9 @@ const FILTER_TABS = [
 // Horizontal drag (px) on the results that goes back to Trending — same as Watch History's tabs
 const SWIPE_BACK_PX = 60;
 
-const SORT_OPTIONS: SortOption<SearchSortView>[] = SEARCH_SORT_OPTIONS.map(({ label, ...value }) => ({ value, label }));
+const SORT_OPTIONS: SortOption<SearchSortView>[] = SEARCH_SORT_OPTIONS.map(
+	({ label, ...value }) => ({ value, label }),
+);
 
 /** Landing page for guests; same trending/search + add flows as the app's SearchScreen */
 export default function SearchScreen() {
@@ -57,10 +59,12 @@ export default function SearchScreen() {
 	const actions = useSearchActions();
 	const signedIn = !!actions.user;
 
-	const { data: searchData, isLoading: searchLoading, fetchNextPage, hasNextPage } = useSearch(
-		submittedQuery,
-		mediaFilter,
-	);
+	const {
+		data: searchData,
+		isLoading: searchLoading,
+		fetchNextPage,
+		hasNextPage,
+	} = useSearch(submittedQuery, mediaFilter);
 	const { data: trending, isLoading: trendingLoading } = useTrending("all");
 
 	const items = useMemo(() => {
@@ -79,7 +83,9 @@ export default function SearchScreen() {
 	const sentinel = useInfiniteScroll(loadMore, !!submittedQuery && !!hasNextPage);
 
 	const openInput = () =>
-		navigate(`${Paths.SEARCH_INPUT}${submittedQuery ? `?q=${encodeURIComponent(submittedQuery)}` : ""}`);
+		navigate(
+			`${Paths.SEARCH_INPUT}${submittedQuery ? `?q=${encodeURIComponent(submittedQuery)}` : ""}`,
+		);
 	const handlePress = useCallback(
 		(item: TMDBShow) => navigate(showPath(mediaTypeOf(item), item.id)),
 		[navigate],
@@ -99,11 +105,22 @@ export default function SearchScreen() {
 					onRemove={actions.handleRemoveFromWatchlist}
 				/>
 			)),
-		[items, signedIn, actions.trackedIds, actions.addingIds, actions.handleAddToWatchlist, actions.handleRemoveFromWatchlist, handlePress],
+		[
+			items,
+			signedIn,
+			actions.trackedIds,
+			actions.addingIds,
+			actions.handleAddToWatchlist,
+			actions.handleRemoveFromWatchlist,
+			handlePress,
+		],
 	);
 
 	return (
-		<div className={`${styles.container} pt-(--header-h)`} style={cssVars({ "--header-h": px(headerHeight) })}>
+		<div
+			className={`${styles.container} pt-(--header-h)`}
+			style={cssVars({ "--header-h": px(headerHeight) })}
+		>
 			<motion.header
 				ref={headerRef}
 				className={`${styles.headerBlock} ${signedIn ? styles.headerBlockTabs : ""}`}
@@ -127,7 +144,11 @@ export default function SearchScreen() {
 					<div className={styles.headerCard}>
 						<div className={styles.searchBarRow}>
 							{submittedQuery ? (
-								<button className={styles.backButton} onClick={() => navigate(Paths.SEARCH)} aria-label="Back">
+								<button
+									className={styles.backButton}
+									onClick={() => navigate(Paths.SEARCH)}
+									aria-label="Back"
+								>
 									<IoChevronBackCircleOutline size={30} />
 								</button>
 							) : (
@@ -162,7 +183,12 @@ export default function SearchScreen() {
 								</span>
 							)}
 						</div>
-						<SlidingTabs id="search-filter" tabs={FILTER_TABS} activeKey={mediaFilter} onTabPress={setMediaFilter} />
+						<SlidingTabs
+							id="search-filter"
+							tabs={FILTER_TABS}
+							activeKey={mediaFilter}
+							onTabPress={setMediaFilter}
+						/>
 					</div>
 				</div>
 			</motion.header>
@@ -175,7 +201,9 @@ export default function SearchScreen() {
 				<div className="relative z-1 flex min-h-[calc(100dvh-var(--header-h))] flex-col items-center justify-end px-8 pb-[calc(var(--art-h)+24px)] text-center [--art-h:max(0px,min(50dvh,560px,calc(90dvh-280px)))]">
 					<NotFoundArt src="/no-results.webp" />
 					<p className={styles.empty}>NOTHING FOUND</p>
-					<p className={styles.emptyHint}>Searched the database, but nothing happened. Have you lost the way?</p>
+					<p className={styles.emptyHint}>
+						Searched the database, but nothing happened. Have you lost the way?
+					</p>
 				</div>
 			) : submittedQuery ? (
 				// Results: swipe right goes back to Trending (vertical scroll stays native)

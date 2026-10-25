@@ -31,7 +31,12 @@ function SearchCard({ item, canTrack, isInWatchlist, isAdding, onPress, onAdd, o
 			role="link"
 			aria-label={title}
 		>
-			<PosterImage posterPath={item.poster_path} mediaType={mediaType} className={styles.poster} width={180} />
+			<PosterImage
+				posterPath={item.poster_path}
+				mediaType={mediaType}
+				className={styles.poster}
+				width={180}
+			/>
 			{canTrack && (
 				<button
 					className={`${styles.badge} ${isInWatchlist ? styles.badgeActive : ""}`}
@@ -50,7 +55,9 @@ function SearchCard({ item, canTrack, isInWatchlist, isAdding, onPress, onAdd, o
 			<div className={styles.banner}>
 				<div className={styles.bannerTop}>
 					<span className={styles.cardTitle}>{title}</span>
-					<span className={`${styles.typeBadge} ${mediaType === MediaType.MOVIE ? styles.typeBadgeMovie : ""}`}>
+					<span
+						className={`${styles.typeBadge} ${mediaType === MediaType.MOVIE ? styles.typeBadgeMovie : ""}`}
+					>
 						{mediaType === MediaType.TV ? "TV" : "MOVIE"}
 					</span>
 				</div>

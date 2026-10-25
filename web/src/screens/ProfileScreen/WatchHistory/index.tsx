@@ -75,7 +75,10 @@ function HistoryList({
 				renderItem={(card) =>
 					// Title / art not here yet → skeleton until both the row and its show are
 					card.ready ? (
-						<HistoryCard card={card} onClick={() => navigate(showPath(card.mediaType, card.tmdbId))} />
+						<HistoryCard
+							card={card}
+							onClick={() => navigate(showPath(card.mediaType, card.tmdbId))}
+						/>
 					) : (
 						<SkeletonBlock className={styles.skeleton} />
 					)
@@ -117,7 +120,8 @@ export default function WatchHistoryScreen() {
 	};
 
 	// Opened directly (no history entry) → back goes to Profile
-	const goBack = () => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate(Paths.PROFILE));
+	const goBack = () =>
+		(window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate(Paths.PROFILE);
 
 	return (
 		<div>
@@ -131,7 +135,13 @@ export default function WatchHistoryScreen() {
 					<CircleButtonSpacer />
 				</div>
 				<div className={styles.tabsRow}>
-					<SlidingTabs id="history-tabs" tabs={TABS} activeKey={tab} onTabPress={(key) => goTo(TABS.findIndex((t) => t.key === key))} className={styles.tabs} />
+					<SlidingTabs
+						id="history-tabs"
+						tabs={TABS}
+						activeKey={tab}
+						onTabPress={(key) => goTo(TABS.findIndex((t) => t.key === key))}
+						className={styles.tabs}
+					/>
 					{/* Sort / filter */}
 					<SortButton
 						label="Sort and filter"

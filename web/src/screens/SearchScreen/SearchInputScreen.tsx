@@ -33,7 +33,12 @@ export default function SearchInputScreen() {
 					submitSearch(query);
 				}}
 			>
-				<button type="button" className={styles.backButton} onClick={() => navigate(Paths.SEARCH)} aria-label="Back">
+				<button
+					type="button"
+					className={styles.backButton}
+					onClick={() => navigate(Paths.SEARCH)}
+					aria-label="Back"
+				>
 					<IoChevronBackCircleOutline size={30} />
 				</button>
 				<div className={styles.searchRow}>
@@ -49,7 +54,12 @@ export default function SearchInputScreen() {
 						autoCorrect="off"
 					/>
 					{query.length > 0 && (
-						<button type="button" className={styles.clearButton} onClick={() => setQuery("")} aria-label="Clear">
+						<button
+							type="button"
+							className={styles.clearButton}
+							onClick={() => setQuery("")}
+							aria-label="Clear"
+						>
 							✕
 						</button>
 					)}
@@ -59,7 +69,11 @@ export default function SearchInputScreen() {
 			{suggestionItems.length > 0 && (
 				<section className={styles.section}>
 					{suggestionItems.map((term, idx) => (
-						<button key={`sug_${term}_${idx}`} className={styles.listItem} onClick={() => submitSearch(term)}>
+						<button
+							key={`sug_${term}_${idx}`}
+							className={styles.listItem}
+							onClick={() => submitSearch(term)}
+						>
 							<span className={styles.listIcon}>{idx === 0 ? "🔍" : "→"}</span>
 							<span className={styles.listText}>{term}</span>
 						</button>
@@ -78,7 +92,11 @@ export default function SearchInputScreen() {
 						)}
 					</div>
 					{filteredHistory.map((term, idx) => (
-						<button key={`hist_${term}_${idx}`} className={styles.listItem} onClick={() => submitSearch(term)}>
+						<button
+							key={`hist_${term}_${idx}`}
+							className={styles.listItem}
+							onClick={() => submitSearch(term)}
+						>
 							<span className={styles.listIcon}>↻</span>
 							<span className={styles.listText}>{term}</span>
 						</button>

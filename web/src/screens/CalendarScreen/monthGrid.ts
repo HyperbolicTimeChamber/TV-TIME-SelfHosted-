@@ -1,7 +1,10 @@
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /** 6-row month grid (Sunday first, like react-native-calendars) */
-export function monthGrid(year: number, month: number): Array<{ date: string; inMonth: boolean; day: number }> {
+export function monthGrid(
+	year: number,
+	month: number,
+): Array<{ date: string; inMonth: boolean; day: number }> {
 	const first = new Date(year, month - 1, 1);
 	const start = new Date(first);
 	start.setDate(1 - first.getDay());

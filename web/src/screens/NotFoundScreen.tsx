@@ -17,7 +17,9 @@ export default function NotFoundScreen() {
 				code: "404",
 			}}
 			primary={{ label: "Search Shows & Movies", onPress: () => navigate(Paths.SEARCH) }}
-			secondary={signedIn ? { label: "Go to Watchlist", onPress: () => navigate(Paths.HOME) } : undefined}
+			secondary={
+				signedIn ? { label: "Go to Watchlist", onPress: () => navigate(Paths.HOME) } : undefined
+			}
 		/>
 	);
 }

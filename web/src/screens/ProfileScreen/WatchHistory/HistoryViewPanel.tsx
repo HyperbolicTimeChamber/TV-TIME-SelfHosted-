@@ -23,7 +23,14 @@ interface Props {
 }
 
 /** Sort order (saved) + status filters (TV only, cleared on leaving) — app HistoryViewSheet */
-export default function HistoryViewPanel({ isMovie, sort, onSort, filters, onToggleFilter, onClearFilters }: Props) {
+export default function HistoryViewPanel({
+	isMovie,
+	sort,
+	onSort,
+	filters,
+	onToggleFilter,
+	onClearFilters,
+}: Props) {
 	return (
 		<SortPanel options={SORT_OPTIONS} selected={sort} onSelect={onSort}>
 			{!isMovie && (

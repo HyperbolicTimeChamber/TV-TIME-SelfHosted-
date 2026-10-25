@@ -64,8 +64,12 @@ export default function ConfirmModal({
 		<AnimatedModal visible={visible} onClose={() => !loading && onClose()}>
 			{atTop ? (
 				<div className={`${styles.modalImage} ${styles.modalImageTop}`}>
-					{photo && !hideTitle ? cloneElement(image as ReactElement<{ heading?: string }>, { heading: title }) : image}
-					{!photo && !hideTitle && <p className={`${styles.modalTitle} ${styles.modalTitleOnImage}`}>{title}</p>}
+					{photo && !hideTitle
+						? cloneElement(image as ReactElement<{ heading?: string }>, { heading: title })
+						: image}
+					{!photo && !hideTitle && (
+						<p className={`${styles.modalTitle} ${styles.modalTitleOnImage}`}>{title}</p>
+					)}
 				</div>
 			) : (
 				<>
@@ -94,7 +98,11 @@ export default function ConfirmModal({
 				</button>
 			)}
 			{tertiaryLabel && onTertiary && (
-				<button className={`${styles.button} ${styles.muted}`} onClick={onTertiary} disabled={loading}>
+				<button
+					className={`${styles.button} ${styles.muted}`}
+					onClick={onTertiary}
+					disabled={loading}
+				>
 					{tertiaryLabel}
 				</button>
 			)}

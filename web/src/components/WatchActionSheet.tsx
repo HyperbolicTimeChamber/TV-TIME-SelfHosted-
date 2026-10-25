@@ -11,10 +11,27 @@ interface Props {
 	onClose: () => void;
 }
 
-const OPTIONS: Array<{ action: WatchAction; icon: string; text: string; hint: string; danger?: boolean }> = [
+const OPTIONS: Array<{
+	action: WatchAction;
+	icon: string;
+	text: string;
+	hint: string;
+	danger?: boolean;
+}> = [
 	{ action: "rewatch", icon: "🔄", text: "Rewatch", hint: "Mark as watched again" },
-	{ action: "watched_once_less", icon: "−1", text: "Watched Once Less", hint: "Reduce watch count by 1" },
-	{ action: "not_watched", icon: "✕", text: "Not Watched", hint: "Remove all watch history", danger: true },
+	{
+		action: "watched_once_less",
+		icon: "−1",
+		text: "Watched Once Less",
+		hint: "Reduce watch count by 1",
+	},
+	{
+		action: "not_watched",
+		icon: "✕",
+		text: "Not Watched",
+		hint: "Remove all watch history",
+		danger: true,
+	},
 ];
 
 /** Bottom sheet with drag-down-to-dismiss (app WatchActionSheet) */
@@ -58,7 +75,9 @@ export default function WatchActionSheet({ visible, label, watchCount, onSelect,
 							>
 								<span className={styles.optionIcon}>{o.icon}</span>
 								<span className={styles.optionContent}>
-									<span className={o.danger ? styles.optionTextDanger : styles.optionText}>{o.text}</span>
+									<span className={o.danger ? styles.optionTextDanger : styles.optionText}>
+										{o.text}
+									</span>
 									<span className={styles.optionHint}>{o.hint}</span>
 								</span>
 							</button>

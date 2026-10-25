@@ -30,12 +30,42 @@ export default function ProfileScreen() {
 			<div className={styles.profileSection}>
 				<div className={styles.statsGrid}>
 					<div className={styles.statsRow}>
-						<StatCard value={formatCount(stats.episodesWatched)} label="Episodes" flex={3} backdrop={cardImages.episodeBackdrop} align="left" loading={statsLoading} />
-						<StatCard value={formatCount(stats.moviesWatched)} label="Movies" flex={2} backdrop={cardImages.movieBackdrop} align="right" loading={statsLoading} />
+						<StatCard
+							value={formatCount(stats.episodesWatched)}
+							label="Episodes"
+							flex={3}
+							backdrop={cardImages.episodeBackdrop}
+							align="left"
+							loading={statsLoading}
+						/>
+						<StatCard
+							value={formatCount(stats.moviesWatched)}
+							label="Movies"
+							flex={2}
+							backdrop={cardImages.movieBackdrop}
+							align="right"
+							loading={statsLoading}
+						/>
 					</div>
 					<div className={`${styles.statsRow} min-h-[150px]`}>
-						<CollageCard value={formatCount(stats.showsTracking)} label="Tracking" flex={2} posters={cardImages.trackingPosters} align="left" loading={statsLoading} seed={17} />
-						<CollageCard value={formatTime(stats.totalMinutes)} label="Watch Time" flex={3} posters={cardImages.watchTimePosters} align="right" loading={statsLoading} seed={53} />
+						<CollageCard
+							value={formatCount(stats.showsTracking)}
+							label="Tracking"
+							flex={2}
+							posters={cardImages.trackingPosters}
+							align="left"
+							loading={statsLoading}
+							seed={17}
+						/>
+						<CollageCard
+							value={formatTime(stats.totalMinutes)}
+							label="Watch Time"
+							flex={3}
+							posters={cardImages.watchTimePosters}
+							align="right"
+							loading={statsLoading}
+							seed={53}
+						/>
 					</div>
 					<div className={styles.avatarOverlay}>
 						<div className={`${styles.avatar} ${styles.avatarPlaceholder}`}>
@@ -60,7 +90,10 @@ export default function ProfileScreen() {
 			{/* Hall of Shame (Watch History) + Settings gear on one row.
 			    No Watch Statistics chart on web: its data is a per-device local cache */}
 			<div className={styles.actionRow}>
-				<button className={historyStyles.historyButton} onClick={() => navigate(Paths.WATCH_HISTORY)}>
+				<button
+					className={historyStyles.historyButton}
+					onClick={() => navigate(Paths.WATCH_HISTORY)}
+				>
 					Hall of Shame
 				</button>
 				<CircleButton
