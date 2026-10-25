@@ -77,7 +77,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 			set({
 				appTmdbApiKey: data?.tmdbApiKey ?? null,
 				minBuild:
-					(data?.[MIN_BUILD_FIELD[RELEASE_CHANNEL as ReleaseChannel]] as number | undefined) ?? null,
+					(data?.[MIN_BUILD_FIELD[RELEASE_CHANNEL as ReleaseChannel]] as number | undefined) ??
+					null,
 				lastCatalogSync: data?.lastCatalogSync?.toDate?.()?.toISOString?.() ?? null,
 				previousCatalogSync: data?.previousCatalogSync?.toDate?.()?.toISOString?.() ?? null,
 				changedShowIds: Array.isArray(data?.changedShowIds) ? data.changedShowIds : null,

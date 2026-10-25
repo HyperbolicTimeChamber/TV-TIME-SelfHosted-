@@ -86,7 +86,8 @@ function persistCatalogCache(cache: Map<string, CatalogShow | null>) {
 	if (Object.keys(changed).length === 0 && dropped.length === 0) return;
 	changed[CacheKey.CATALOG_INDEX] = JSON.stringify([...kept]);
 	AsyncStorage.setMany(changed).catch(() => {});
-	if (dropped.length) AsyncStorage.removeMany(dropped.map((key) => CacheKey.CATALOG_SHOW + key)).catch(() => {});
+	if (dropped.length)
+		AsyncStorage.removeMany(dropped.map((key) => CacheKey.CATALOG_SHOW + key)).catch(() => {});
 }
 
 /** Restore catalog cache from AsyncStorage */
@@ -95,7 +96,9 @@ async function restoreCatalogCache(): Promise<Map<string, CatalogShow | null>> {
 	AsyncStorage.removeItem(CacheKey.CATALOG_CACHE).catch(() => {});
 	const restored = new Map<string, CatalogShow | null>();
 	try {
-		const index = JSON.parse((await AsyncStorage.getItem(CacheKey.CATALOG_INDEX)) ?? "[]") as string[];
+		const index = JSON.parse(
+			(await AsyncStorage.getItem(CacheKey.CATALOG_INDEX)) ?? "[]",
+		) as string[];
 		if (index.length === 0) return restored;
 		const rows = await AsyncStorage.getMany(index.map((key) => CacheKey.CATALOG_SHOW + key));
 		for (const key of index) {
@@ -138,7 +141,10 @@ async function enrichItems(
 				try {
 					const showDoc = await getDoc(doc(db, "shows", key));
 					if (showDoc?.exists?.()) {
-						catalogShow = localizeCatalog({ id: showDoc.id, ...showDoc.data() } as unknown as CatalogShow);
+						catalogShow = localizeCatalog({
+							id: showDoc.id,
+							...showDoc.data(),
+						} as unknown as CatalogShow);
 						cache.set(key, catalogShow);
 						cacheUpdated = true;
 					} else if (!catalogShow) {
@@ -178,7 +184,11 @@ async function enrichItems(
 				totalEpisodes: catalogShow?.totalEpisodes ?? 0,
 				catalogShow: catalogShow ?? null,
 				// Tracking docs hold the US air date; the catalog's TVMaze time gives the local day
-				nextEpisodeAirDate: nextEpisodeLocalAirDate(item.nextEpisode, catalogShow, item.nextEpisodeAirDate),
+				nextEpisodeAirDate: nextEpisodeLocalAirDate(
+					item.nextEpisode,
+					catalogShow,
+					item.nextEpisodeAirDate,
+				),
 			};
 		}),
 	);
@@ -803,7 +813,10 @@ export function useWatchlist(userId: string | undefined) {
 					try {
 						const snap = await getDoc(doc(db, "shows", key));
 						if (!snap?.exists?.()) return;
-						const fresh = localizeCatalog({ id: snap.id, ...snap.data() } as unknown as CatalogShow);
+						const fresh = localizeCatalog({
+							id: snap.id,
+							...snap.data(),
+						} as unknown as CatalogShow);
 						catalogCache.current.set(key, fresh);
 						updates.set(item.tmdbId, fresh);
 					} catch {}
@@ -818,7 +831,11 @@ export function useWatchlist(userId: string | undefined) {
 							? {
 									...p,
 									catalogShow: c,
-									nextEpisodeAirDate: nextEpisodeLocalAirDate(p.nextEpisode, c, p.nextEpisodeAirDate),
+									nextEpisodeAirDate: nextEpisodeLocalAirDate(
+										p.nextEpisode,
+										c,
+										p.nextEpisodeAirDate,
+									),
 									title: c.title || p.title,
 									posterPath: c.posterPath ?? p.posterPath,
 									totalEpisodes: c.totalEpisodes ?? p.totalEpisodes,
@@ -863,7 +880,8 @@ export function useWatchlist(userId: string | undefined) {
 					});
 					continue;
 				}
-				const seasons = mt === MediaType.TV && item.nextEpisode ? [item.nextEpisode.season] : undefined;
+				const seasons =
+					mt === MediaType.TV && item.nextEpisode ? [item.nextEpisode.season] : undefined;
 				refreshShared(item.tmdbId, mt, RefreshReason.MISSING_DATA, seasons);
 			}
 		}, 3000);

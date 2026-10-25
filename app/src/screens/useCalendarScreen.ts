@@ -13,7 +13,10 @@ export interface CalendarPosition {
 }
 
 /** A day's episode / movie, with its backdrop for the list card */
-export type CalendarEpisode = UpcomingEpisode & { backdropPath: string | null; logoPath: string | null };
+export type CalendarEpisode = UpcomingEpisode & {
+	backdropPath: string | null;
+	logoPath: string | null;
+};
 import { colors } from "../theme";
 import { todayStr, inMonth, shiftMonth, sameDayIn, parseDay } from "../utils";
 import { buildDayMarks } from "../utils/calendarGroups";
@@ -38,7 +41,9 @@ export interface DayMark {
  */
 export function useCalendarScreen(initial?: CalendarPosition | null) {
 	const user = useAuthStore((s) => s.user);
-	const [selectedDate, setSelectedDate] = useState<string | null>(initial?.selectedDate ?? todayStr());
+	const [selectedDate, setSelectedDate] = useState<string | null>(
+		initial?.selectedDate ?? todayStr(),
+	);
 	const [yearModalVisible, setYearModalVisible] = useState(false);
 	const now = new Date();
 	const [currentYear, setCurrentYear] = useState(initial?.year ?? now.getFullYear());
@@ -121,10 +126,10 @@ export function useCalendarScreen(initial?: CalendarPosition | null) {
 			return episodes
 				.filter((ep) => ep.airDate === date)
 				.map((ep) => {
-				const catalog = getCachedCatalogShow(
-					ep.tmdbShowId,
-					ep.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV,
-				);
+					const catalog = getCachedCatalogShow(
+						ep.tmdbShowId,
+						ep.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV,
+					);
 					return {
 						...ep,
 						backdropPath: catalog?.backdropPath ?? null,
@@ -135,7 +140,10 @@ export function useCalendarScreen(initial?: CalendarPosition | null) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 		[episodes, catalogVersion],
 	);
-	const selectedEpisodes = useMemo(() => episodesForDate(selectedDate), [episodesForDate, selectedDate]);
+	const selectedEpisodes = useMemo(
+		() => episodesForDate(selectedDate),
+		[episodesForDate, selectedDate],
+	);
 
 	/** date → markers for the calendar cells (one per show/movie) */
 	const dayMarks = useMemo(() => buildDayMarks(episodes ?? []), [episodes]);

@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { AppState, View, Text, TouchableOpacity, StyleSheet, useWindowDimensions } from "react-native";
+import {
+	AppState,
+	View,
+	Text,
+	TouchableOpacity,
+	StyleSheet,
+	useWindowDimensions,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
 	CommonActions,

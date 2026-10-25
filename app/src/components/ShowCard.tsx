@@ -107,8 +107,14 @@ export default memo(function ShowCard({
 	}, [onPress, onTitlePress, item]);
 	const handleTitlePress = useCallback(() => onTitlePress?.(item), [onTitlePress, item]);
 	const handleSwipeLeft = useCallback(() => onSwipeLeft(item), [onSwipeLeft, item]);
-	const handleSwipeRight = useCallback(() => onSwipeRight?.(item) ?? Promise.resolve(), [onSwipeRight, item]);
-	const handleLongPress = useMemo(() => withHaptic(onLongPress && (() => onLongPress(item))), [onLongPress, item]);
+	const handleSwipeRight = useCallback(
+		() => onSwipeRight?.(item) ?? Promise.resolve(),
+		[onSwipeRight, item],
+	);
+	const handleLongPress = useMemo(
+		() => withHaptic(onLongPress && (() => onLongPress(item))),
+		[onLongPress, item],
+	);
 
 	if (isWatched) {
 		const wc = watchCount ?? 0;

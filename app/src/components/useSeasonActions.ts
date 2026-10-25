@@ -373,67 +373,70 @@ export function useSeasonActions({
 	 * more watch, already-rewatched ones too. The pointer still moves as for the rest-of-season
 	 * mark — the extra counts on already-rewatched episodes aren't part of the run.
 	 */
-	const doMarkSeasonWatched = useCallback(async (all = false) => {
-		if (!user?.uid || markingSeason) return;
-		const eps = all ? episodes : seasonMarkEps;
-		if (eps.length === 0) return;
+	const doMarkSeasonWatched = useCallback(
+		async (all = false) => {
+			if (!user?.uid || markingSeason) return;
+			const eps = all ? episodes : seasonMarkEps;
+			if (eps.length === 0) return;
 
-		setMarkingSeason(true);
-		try {
-			const tw = await resolveTrackingWrite(
-				seasonMarkEps.map((ep: TMDBEpisode) => ep.episode_number),
-			);
+			setMarkingSeason(true);
+			try {
+				const tw = await resolveTrackingWrite(
+					seasonMarkEps.map((ep: TMDBEpisode) => ep.episode_number),
+				);
 
-			await markSeasonWatchedCF(
-				user.uid,
-				tmdbId,
-				season.season_number,
-				eps.map((ep: TMDBEpisode) => ({
-					episodeNumber: ep.episode_number,
-					name: ep.name,
-					runtime: ep.runtime || 0,
-				})),
-				tw.nextEpisode,
-				tw.isComplete,
-				tw.nextEpisodeName,
-				tw.nextEpisodeAirDate,
-				{
-					skipTracking: !tw.advance,
-					status: tw.status,
-					incrementRewatch: tw.incrementRewatch,
-					rewatchCount: tw.rewatchCount,
-				},
-			);
-			const now = Timestamp.now();
-			for (const ep of eps) {
-				insertWatchedEpisodeCache(queryClient, user.uid, {
-					id: `${tmdbId}_S${String(season.season_number).padStart(2, "0")}E${String(ep.episode_number).padStart(2, "0")}`,
-					tmdbShowId: tmdbId,
-					season: season.season_number,
-					episode: ep.episode_number,
-					episodeTitle: ep.name,
-					runtime: ep.runtime || 0,
-					lastWatchedAt: now,
-					watchedAt: now,
-					watchCount: 1,
-				});
+				await markSeasonWatchedCF(
+					user.uid,
+					tmdbId,
+					season.season_number,
+					eps.map((ep: TMDBEpisode) => ({
+						episodeNumber: ep.episode_number,
+						name: ep.name,
+						runtime: ep.runtime || 0,
+					})),
+					tw.nextEpisode,
+					tw.isComplete,
+					tw.nextEpisodeName,
+					tw.nextEpisodeAirDate,
+					{
+						skipTracking: !tw.advance,
+						status: tw.status,
+						incrementRewatch: tw.incrementRewatch,
+						rewatchCount: tw.rewatchCount,
+					},
+				);
+				const now = Timestamp.now();
+				for (const ep of eps) {
+					insertWatchedEpisodeCache(queryClient, user.uid, {
+						id: `${tmdbId}_S${String(season.season_number).padStart(2, "0")}E${String(ep.episode_number).padStart(2, "0")}`,
+						tmdbShowId: tmdbId,
+						season: season.season_number,
+						episode: ep.episode_number,
+						episodeTitle: ep.name,
+						runtime: ep.runtime || 0,
+						lastWatchedAt: now,
+						watchedAt: now,
+						watchCount: 1,
+					});
+				}
+			} catch (err: any) {
+				console.error("markSeasonWatched failed:", err);
+				Alert.alert("Error", err.message || "Failed to mark season as watched.");
+			} finally {
+				setMarkingSeason(false);
 			}
-		} catch (err: any) {
-			console.error("markSeasonWatched failed:", err);
-			Alert.alert("Error", err.message || "Failed to mark season as watched.");
-		} finally {
-			setMarkingSeason(false);
-		}
-	}, [
-		user?.uid,
-		markingSeason,
-		episodes,
-		seasonMarkEps,
-		tmdbId,
-		season.season_number,
-		resolveTrackingWrite,
-		queryClient,
-	]);
+		},
+		[
+			user?.uid,
+			markingSeason,
+			episodes,
+			seasonMarkEps,
+			tmdbId,
+			season.season_number,
+			resolveTrackingWrite,
+			queryClient,
+		],
+	);
 
 	const handleMarkSeasonWatched = useCallback(
 		async (all = false) => {
@@ -642,7 +645,10 @@ export function useSeasonActions({
 				return;
 			}
 			const upTo = prompt.rewatch
-				? rewatchUpToRefs(order, counts, { season: season.season_number, episode: ep.episode_number })
+				? rewatchUpToRefs(order, counts, {
+						season: season.season_number,
+						episode: ep.episode_number,
+					})
 				: [];
 			setJumpModal({ ep, upTo, ...prompt });
 		},
@@ -867,11 +873,11 @@ export function useSeasonActions({
 					tw.nextEpisodeName,
 					tw.nextEpisodeAirDate,
 					{
-					skipTracking: !tw.advance,
-					status: tw.status,
-					incrementRewatch: tw.incrementRewatch,
-					rewatchCount: tw.rewatchCount,
-				},
+						skipTracking: !tw.advance,
+						status: tw.status,
+						incrementRewatch: tw.incrementRewatch,
+						rewatchCount: tw.rewatchCount,
+					},
 				);
 
 				const now = Timestamp.now();

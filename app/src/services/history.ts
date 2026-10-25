@@ -1,4 +1,9 @@
-import { deleteField, increment, serverTimestamp, Timestamp } from "@react-native-firebase/firestore";
+import {
+	deleteField,
+	increment,
+	serverTimestamp,
+	Timestamp,
+} from "@react-native-firebase/firestore";
 
 /**
  * Watch History fields merged into tracking-doc writes (mirrors functions/src/shared/history.ts):

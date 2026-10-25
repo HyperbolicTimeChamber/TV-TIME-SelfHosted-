@@ -67,9 +67,25 @@ export const styles = StyleSheet.create({
 	dayNumber: { fontSize: 12, fontWeight: "600", color: colors.text },
 	sunday: { color: colors.primary },
 	markArea: { flex: 1, marginTop: 3 },
-	bars: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, paddingHorizontal: 3, gap: 2 },
+	bars: {
+		position: "absolute",
+		top: 0,
+		left: 0,
+		right: 0,
+		bottom: 0,
+		paddingHorizontal: 3,
+		gap: 2,
+	},
 	bar: { height: 3, borderRadius: 2 },
-	chips: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, paddingHorizontal: 2, gap: 2 },
+	chips: {
+		position: "absolute",
+		top: 0,
+		left: 0,
+		right: 0,
+		bottom: 0,
+		paddingHorizontal: 2,
+		gap: 2,
+	},
 	// Line height / gap match CHIP_LINE_H / CHIP_GAP in MonthGrid
 	chip: {
 		fontSize: 9,
@@ -81,7 +97,14 @@ export const styles = StyleSheet.create({
 	},
 	chipMore: { fontSize: 9, lineHeight: 12, color: colors.textSecondary, paddingHorizontal: 2 },
 	// Opaque layer over the calendar; its top edge is the calendar's visible bottom
-	listArea: { position: "absolute", top: 0, left: 0, right: 0, overflow: "hidden", backgroundColor: colors.background },
+	listArea: {
+		position: "absolute",
+		top: 0,
+		left: 0,
+		right: 0,
+		overflow: "hidden",
+		backgroundColor: colors.background,
+	},
 	// "15 THU" over each day's list
 	dayHeader: {
 		flexDirection: "row",
@@ -92,7 +115,12 @@ export const styles = StyleSheet.create({
 		paddingBottom: spacing.md,
 	},
 	dayHeaderNumber: { ...typography.title, fontSize: 26 },
-	dayHeaderWeekday: { fontSize: 12, fontWeight: "700", color: colors.textSecondary, letterSpacing: 1 },
+	dayHeaderWeekday: {
+		fontSize: 12,
+		fontWeight: "700",
+		color: colors.textSecondary,
+		letterSpacing: 1,
+	},
 	skeletonHeader: {
 		width: 120,
 		height: 26,
@@ -135,7 +163,11 @@ export const styles = StyleSheet.create({
 	modalTitle: { ...typography.subtitle, marginBottom: spacing.md },
 	yearList: { flex: 1, width: "100%" },
 	yearItem: { height: 52, justifyContent: "center", alignItems: "center" },
-	yearItemActive: { backgroundColor: colors.primary, marginHorizontal: spacing.lg, borderRadius: 8 },
+	yearItemActive: {
+		backgroundColor: colors.primary,
+		marginHorizontal: spacing.lg,
+		borderRadius: 8,
+	},
 	yearItemText: { ...typography.body, fontSize: 18, color: colors.textSecondary },
 	yearItemTextActive: { color: colors.text, fontWeight: "700" },
 });

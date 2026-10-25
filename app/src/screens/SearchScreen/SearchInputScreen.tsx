@@ -1,5 +1,13 @@
 import React, { useCallback, useEffect, useRef } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Keyboard } from "react-native";
+import {
+	View,
+	Text,
+	TextInput,
+	TouchableOpacity,
+	StyleSheet,
+	ScrollView,
+	Keyboard,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -10,7 +18,6 @@ import { SearchStackParamList, Route } from "../../types";
 
 type NavProp = NativeStackNavigationProp<SearchStackParamList, Route.SEARCH_INPUT>;
 type RoutePropType = RouteProp<SearchStackParamList, Route.SEARCH_INPUT>;
-
 
 export default function SearchInputScreen() {
 	const { top } = useSafeAreaInsets();

@@ -996,7 +996,10 @@ export async function markSeasonWatchedCF(
 		watched: true,
 		minutesDelta: episodes.reduce((sum, e) => sum + (e.runtime || 0), 0),
 		playsDelta: episodes.length,
-		lastEpisode: { season: seasonNumber, episode: Math.max(...episodes.map((e) => e.episodeNumber)) },
+		lastEpisode: {
+			season: seasonNumber,
+			episode: Math.max(...episodes.map((e) => e.episodeNumber)),
+		},
 		...(skipTracking
 			? {}
 			: {

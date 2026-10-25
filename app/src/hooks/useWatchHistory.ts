@@ -89,7 +89,8 @@ export function useHistorySort(): [HistorySort, (sort: HistorySort) => void] {
 	useEffect(() => {
 		AsyncStorage.getItem(CacheKey.HISTORY_SORT)
 			.then((saved) => {
-				if (saved && (Object.values(HistorySort) as string[]).includes(saved)) setSort(saved as HistorySort);
+				if (saved && (Object.values(HistorySort) as string[]).includes(saved))
+					setSort(saved as HistorySort);
 			})
 			.catch(() => {});
 	}, []);
@@ -112,7 +113,9 @@ function useHistoryView(
 ) {
 	const statuses = historyFilterStatuses(filters);
 	const viewKey = `${mediaType}|${sort}|${statuses.join(",")}`;
-	const [view, setView] = useState<{ key: string; items: HistoryEntry[]; hasMore: boolean } | null>(null);
+	const [view, setView] = useState<{ key: string; items: HistoryEntry[]; hasMore: boolean } | null>(
+		null,
+	);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const current = view?.key === viewKey ? view : null;
@@ -155,7 +158,13 @@ function useHistoryView(
 		fetchPage(current.items[current.items.length - 1] ?? null);
 	}, [current, busy, fetchPage]);
 
-	return { items: current?.items ?? null, hasMore: current?.hasMore ?? true, busy, error, loadMore };
+	return {
+		items: current?.items ?? null,
+		hasMore: current?.hasMore ?? true,
+		busy,
+		error,
+		loadMore,
+	};
 }
 
 /**
@@ -280,7 +289,9 @@ export function useWatchHistory(
 		if (!userId || entries.length === 0) return;
 		const latest = states.get(storeKey(userId, mediaType));
 		if (!latest) return;
-		const next = withHistoryCatalogs(latest, entries, (e) => getCachedCatalogShow(e.tmdbId, e.mediaType));
+		const next = withHistoryCatalogs(latest, entries, (e) =>
+			getCachedCatalogShow(e.tmdbId, e.mediaType),
+		);
 		if (next !== latest) save(mediaType, next);
 	}, [userId, mediaType, entries, catalogVersion]);
 

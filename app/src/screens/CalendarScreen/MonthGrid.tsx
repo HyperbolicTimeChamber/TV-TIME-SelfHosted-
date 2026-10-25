@@ -7,7 +7,6 @@ import { SUNDAY_COLUMN, planChips } from "../../utils/calendarGrid";
 import type { DayMark } from "../../utils/calendarGroups";
 import { CalendarMode, ROW_MONTH, styles } from "./calendarStyles";
 
-
 /** Month view shows this many event bars per day */
 const MAX_BARS = 3;
 /** Full-view chip text metrics (see chip style) */
@@ -20,11 +19,11 @@ export interface ChipFit {
 	charsPerLine: number;
 }
 
-
 /** useAnimatedStyle result shared by every cell */
 export type MarksStyle = ReturnType<typeof useAnimatedStyle<{ opacity: number }>>;
 
-const markColor = (m: DayMark) => (m.mediaType === MediaType.MOVIE ? colors.moviePurple : colors.primary);
+const markColor = (m: DayMark) =>
+	m.mediaType === MediaType.MOVIE ? colors.moviePurple : colors.primary;
 
 interface CellProps {
 	date: string;
@@ -58,11 +57,12 @@ const DayCell = memo(function DayCell({
 	onPress,
 }: CellProps) {
 	const day = Number(date.slice(8));
-	const chipPlan =
-		marks ? planChips(marks, chipFit.space, chipFit.charsPerLine, CHIP_LINE_H, CHIP_GAP) : null;
+	const chipPlan = marks
+		? planChips(marks, chipFit.space, chipFit.charsPerLine, CHIP_LINE_H, CHIP_GAP)
+		: null;
 	return (
 		<Pressable style={styles.cell} onPress={() => onPress(date)}>
-						<View
+			<View
 				style={[
 					styles.tile,
 					isToday && styles.tileToday,
@@ -71,7 +71,9 @@ const DayCell = memo(function DayCell({
 				]}
 			>
 				<Animated.View style={[styles.dayNumberBox, numberStyle]}>
-					<Text style={[styles.dayNumber, column === SUNDAY_COLUMN && !isToday && styles.sunday]}>{day}</Text>
+					<Text style={[styles.dayNumber, column === SUNDAY_COLUMN && !isToday && styles.sunday]}>
+						{day}
+					</Text>
 				</Animated.View>
 				{marks && marks.length > 0 && (
 					<View style={styles.markArea}>
@@ -83,7 +85,11 @@ const DayCell = memo(function DayCell({
 						{chipPlan && (
 							<Animated.View style={[styles.chips, chipsStyle]} pointerEvents="none">
 								{chipPlan.shown.map((m) => (
-									<Text key={m.key} numberOfLines={2} style={[styles.chip, { backgroundColor: markColor(m) }]}>
+									<Text
+										key={m.key}
+										numberOfLines={2}
+										style={[styles.chip, { backgroundColor: markColor(m) }]}
+									>
 										{m.title}
 									</Text>
 								))}
@@ -149,7 +155,11 @@ export const WeekRow = memo(function WeekRow({
 		const target =
 			progress.value <= CalendarMode.MONTH
 				? ROW_MONTH
-				: interpolate(progress.value, [CalendarMode.MONTH, CalendarMode.FULL], [ROW_MONTH, fullRowH.value]);
+				: interpolate(
+						progress.value,
+						[CalendarMode.MONTH, CalendarMode.FULL],
+						[ROW_MONTH, fullRowH.value],
+					);
 		return {
 			height: base,
 			transformOrigin: "top",
@@ -162,7 +172,11 @@ export const WeekRow = memo(function WeekRow({
 		const target =
 			progress.value <= CalendarMode.MONTH
 				? ROW_MONTH
-				: interpolate(progress.value, [CalendarMode.MONTH, CalendarMode.FULL], [ROW_MONTH, fullRowH.value]);
+				: interpolate(
+						progress.value,
+						[CalendarMode.MONTH, CalendarMode.FULL],
+						[ROW_MONTH, fullRowH.value],
+					);
 		const base = fullLayout?.value ? fullRowH.value : ROW_MONTH;
 		return { transformOrigin: "top", transform: [{ scaleY: base / target }] };
 	});
@@ -202,7 +216,9 @@ export function MonthGrid({ weeks, selectedRow, progress, ...row }: MonthGridPro
 		transform: [
 			{
 				translateY:
-					progress && progress.value < CalendarMode.MONTH ? -selectedRow * ROW_MONTH * (1 - progress.value) : 0,
+					progress && progress.value < CalendarMode.MONTH
+						? -selectedRow * ROW_MONTH * (1 - progress.value)
+						: 0,
 			},
 		],
 	}));

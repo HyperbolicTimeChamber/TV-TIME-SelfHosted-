@@ -138,7 +138,9 @@ export function catalogNextEpisodeTitle(
  * FINALE tag: only TMDB's explicit episode_type. The last listed episode is often just the
  * latest one TMDB knows; docs written before episodeType existed never show the tag.
  */
-export function isFinaleEpisode(ep: Pick<CatalogEpisode, "episodeType"> | null | undefined): boolean {
+export function isFinaleEpisode(
+	ep: Pick<CatalogEpisode, "episodeType"> | null | undefined,
+): boolean {
 	return ep?.episodeType === EpisodeType.FINALE;
 }
 
@@ -173,7 +175,8 @@ export function needsServerRefresh(
 	today: string,
 	now: number,
 ): boolean {
-	if (!catalog || isIncompleteCatalog(catalog) || catalog.mediaType === MediaType.MOVIE) return false;
+	if (!catalog || isIncompleteCatalog(catalog) || catalog.mediaType === MediaType.MOVIE)
+		return false;
 	if (ENDED_STATUSES.includes(catalog.status)) return false;
 	const checkedAt = catalog.lastTmdbCheckAt ?? 0;
 	if (now - checkedAt < REFRESH_COOLDOWN_MS[RefreshReason.AIRED_NO_FINALE]) return false;

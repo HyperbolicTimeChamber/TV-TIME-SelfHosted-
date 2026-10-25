@@ -20,7 +20,11 @@ export function addDays(day: string, n: number): string {
 }
 
 /** Year/month n months away (month is 1-based) */
-export function shiftMonth(year: number, month: number, n: number): { year: number; month: number } {
+export function shiftMonth(
+	year: number,
+	month: number,
+	n: number,
+): { year: number; month: number } {
 	const d = new Date(year, month - 1 + n, 1);
 	return { year: d.getFullYear(), month: d.getMonth() + 1 };
 }

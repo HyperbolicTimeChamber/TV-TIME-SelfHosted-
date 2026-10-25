@@ -26,13 +26,7 @@ import {
 	todayStr,
 } from "../../utils";
 import { getCachedCatalogShow } from "../../hooks/useWatchlist";
-import {
-	TMDBShow,
-	MediaType,
-	WatchStatus,
-	WatchedMovie,
-	UpcomingEpisode,
-} from "../../types";
+import { TMDBShow, MediaType, WatchStatus, WatchedMovie, UpcomingEpisode } from "../../types";
 import { Alert } from "react-native";
 import { fetchFirstEpisodeInfo, buildOptimisticItem } from "./helpers";
 

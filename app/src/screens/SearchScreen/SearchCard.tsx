@@ -23,11 +23,7 @@ function SearchCard({ item, isInWatchlist, isAdding, onPress, onAdd, onRemove }:
 
 	return (
 		<TouchableOpacity style={styles.card} onPress={() => onPress(item)} activeOpacity={0.7}>
-			<PosterImage
-				posterPath={item.poster_path}
-				mediaType={mediaType}
-				style={styles.poster}
-			/>
+			<PosterImage posterPath={item.poster_path} mediaType={mediaType} style={styles.poster} />
 			<TouchableOpacity
 				style={[styles.watchlistBadge, isInWatchlist && styles.watchlistBadgeActive]}
 				onPress={(e) => {

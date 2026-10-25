@@ -2,7 +2,11 @@ import React, { useEffect } from "react";
 import { View, StyleSheet, Platform, PermissionsAndroid, Alert } from "react-native";
 import { Image } from "expo-image";
 import * as SplashScreen from "expo-splash-screen";
-import { useFonts, SmoochSans_400Regular, SmoochSans_500Medium } from "@expo-google-fonts/smooch-sans";
+import {
+	useFonts,
+	SmoochSans_400Regular,
+	SmoochSans_500Medium,
+} from "@expo-google-fonts/smooch-sans";
 import { Handjet_800ExtraBold } from "@expo-google-fonts/handjet";
 import crashlytics from "@react-native-firebase/crashlytics";
 

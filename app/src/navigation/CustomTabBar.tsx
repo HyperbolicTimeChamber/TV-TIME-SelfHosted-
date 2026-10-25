@@ -35,12 +35,7 @@ export default function CustomTabBar({ activeTab }: Props) {
 
 	return (
 		<View style={[styles.container, { paddingBottom: bottom }]}>
-			<View
-				style={[
-					styles.bar,
-					{ left: activeIndex * TAB_WIDTH },
-				]}
-			/>
+			<View style={[styles.bar, { left: activeIndex * TAB_WIDTH }]} />
 			{TABS.map((tab) => {
 				const isActive = tab.route === activeTab;
 				return (

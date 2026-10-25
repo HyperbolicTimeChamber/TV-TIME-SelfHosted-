@@ -143,7 +143,13 @@ export default function ShowDetailScreen() {
 				>
 					{/* Title logo (name as the fallback), centred */}
 					<View style={styles.islandLogo} accessibilityRole="header" accessibilityLabel={title}>
-						<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={title} nameDelay={2000} />
+						<ModalLogo
+							logoPath={logoPath}
+							tmdbId={tmdbId}
+							mediaType={mediaType}
+							title={title}
+							nameDelay={2000}
+						/>
 					</View>
 
 					<ActionPills

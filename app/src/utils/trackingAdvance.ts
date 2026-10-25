@@ -371,7 +371,9 @@ export function firstSkippedSeason(
 	}
 	const refs = order
 		.slice(from, seasonStart)
-		.filter((e) => countOf(counts, e) < level && !(countOf(counts, e) === 0 && knownUnaired(e, today)))
+		.filter(
+			(e) => countOf(counts, e) < level && !(countOf(counts, e) === 0 && knownUnaired(e, today)),
+		)
 		.map((e) => ({ season: e.season, episode: e.episode }));
 	return refs.length > 0 ? { firstSeason: refs[0].season, level, refs } : null;
 }

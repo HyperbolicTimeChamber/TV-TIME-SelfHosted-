@@ -71,8 +71,7 @@ export function deriveHistoryCard(
 	const isMovie = entry.mediaType === MediaType.MOVIE;
 	const ended = ENDED_STATUSES.includes(catalog?.status ?? "");
 	// Watched everything aired on a show that's still airing → caught up, not finished
-	const caughtUpAiring =
-		!isMovie && !!catalog && !ended && entry.status === WatchStatus.COMPLETED;
+	const caughtUpAiring = !isMovie && !!catalog && !ended && entry.status === WatchStatus.COMPLETED;
 	// Still "watching" a show that has ended, with nothing left → finished (the status
 	// predates TMDB marking it ended, and the weekly sync skips ended shows)
 	const finishedEnded =
@@ -134,15 +133,11 @@ export function deriveHistoryCard(
 		pill: pill === HistoryPill.PAUSED ? null : pill,
 		// Watched, but TMDB had no runtimes yet → TV "N/A" until the weekly sync heals it;
 		// movies just hide Watch Time
-		timeSpent:
-			minutes > 0
-				? formatTime(Math.round(minutes))
-				: isMovie
-					? null
-					: "N/A",
+		timeSpent: minutes > 0 ? formatTime(Math.round(minutes)) : isMovie ? null : "N/A",
 		lastWatched: !isMovie && last ? `S${pad(last.season)} | E${pad(last.episode)}` : null,
 		pillLabel: pill === HistoryPill.PAUSED ? null : pill,
-		pillCount: pill === HistoryPill.REWATCHING && entry.rewatchCount > 0 ? entry.rewatchCount : null,
+		pillCount:
+			pill === HistoryPill.REWATCHING && entry.rewatchCount > 0 ? entry.rewatchCount : null,
 		watchCount,
 		progress,
 		tag: isMovie ? year || null : catalog ? (ended ? "Ended" : "Ongoing") : null,

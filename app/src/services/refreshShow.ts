@@ -28,7 +28,10 @@ export function requestShowRefresh(
 	const prior = requested.get(key);
 	if (prior) return prior;
 	const call = trackApi("cloud_function", CloudFunction.REFRESH_SHOW, async () => {
-		const res = await httpsCallable(getFunctions(), CloudFunction.REFRESH_SHOW)({
+		const res = await httpsCallable(
+			getFunctions(),
+			CloudFunction.REFRESH_SHOW,
+		)({
 			tmdbId,
 			mediaType,
 			reason,
@@ -45,7 +48,10 @@ export function requestShowRefresh(
  * Tracked show whose catalog doc still doesn't exist (addShow failed / never ran) → addShow
  * builds it from TMDB on the server (shared) and returns it. Once per show per session.
  */
-export function requestCatalogCreate(tmdbId: number, mediaType: MediaType): Promise<CatalogShow | null> {
+export function requestCatalogCreate(
+	tmdbId: number,
+	mediaType: MediaType,
+): Promise<CatalogShow | null> {
 	const key = `${showDocId(tmdbId, mediaType)}|${CloudFunction.ADD_SHOW}`;
 	const prior = requested.get(key);
 	if (prior) return prior;

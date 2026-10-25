@@ -39,7 +39,9 @@ import SearchCard from "./SearchCard";
 import SearchModals from "./SearchModals";
 import { styles } from "./styles";
 
-const SORT_OPTIONS: SortOption<SearchSortView>[] = SEARCH_SORT_OPTIONS.map(({ label, ...value }) => ({ value, label }));
+const SORT_OPTIONS: SortOption<SearchSortView>[] = SEARCH_SORT_OPTIONS.map(
+	({ label, ...value }) => ({ value, label }),
+);
 const FAB_BOTTOM = 20;
 const HEADER_SNAP_MS = 180;
 

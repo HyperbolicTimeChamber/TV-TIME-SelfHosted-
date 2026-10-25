@@ -864,7 +864,9 @@ export function useWatchlistData(userId: string | undefined) {
 			const catalog = item?.catalogShow;
 			const catalogSeason = catalog?.seasons?.find((s) => s.seasonNumber === season);
 			const catalogEp = catalogSeason?.episodes?.find((e) => e.episodeNumber === episode);
-			const known = item ? { status: item.status, rewatchCount: item.rewatchCount ?? 0 } : undefined;
+			const known = item
+				? { status: item.status, rewatchCount: item.rewatchCount ?? 0 }
+				: undefined;
 			// Carousel Unwatch takes one watch off (its card shows the count dropping by one);
 			// deleting every watch wiped earlier runs mid-rewatch
 			const count =
@@ -905,7 +907,10 @@ export function useWatchlistData(userId: string | undefined) {
 			// replace a mark's patch that would otherwise keep showing the old next episode)
 			if (item?.nextEpisode) {
 				const after = catalog ? findNextEpisodeInCatalog(catalog, season, episode) : null;
-				optimisticFrom.current.set(tmdbId, `${item.nextEpisode.season}-${item.nextEpisode.episode}`);
+				optimisticFrom.current.set(
+					tmdbId,
+					`${item.nextEpisode.season}-${item.nextEpisode.episode}`,
+				);
 				setOptimisticCards((prev) =>
 					new Map(prev).set(tmdbId, {
 						nextEpisode: { season, episode },

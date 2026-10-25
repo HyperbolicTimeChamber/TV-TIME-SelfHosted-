@@ -84,7 +84,13 @@ export const styles = StyleSheet.create({
 	cardTitle: { flex: 1, color: colors.text, fontSize: 20, fontWeight: "600" },
 	pill: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 },
 	// Rewatch count: white circle at the pill's end, concentric (right = vertical padding)
-	pillWithCount: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 4, paddingRight: 4 },
+	pillWithCount: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 6,
+		paddingVertical: 4,
+		paddingRight: 4,
+	},
 	pillCountCircle: {
 		minWidth: 20,
 		height: 20,

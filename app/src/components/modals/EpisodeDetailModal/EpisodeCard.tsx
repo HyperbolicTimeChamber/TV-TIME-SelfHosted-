@@ -70,10 +70,7 @@ export const EpisodeCard = memo(function EpisodeCard({
 		return (
 			<View style={styles.cardContent}>
 				<Animated.View
-					style={[
-						styles.imageContainer,
-						{ opacity: shimmer, backgroundColor: colors.border },
-					]}
+					style={[styles.imageContainer, { opacity: shimmer, backgroundColor: colors.border }]}
 				/>
 				<View style={styles.skeletonBody}>
 					<Animated.View style={[styles.skeletonTitle, { opacity: shimmer }]} />
