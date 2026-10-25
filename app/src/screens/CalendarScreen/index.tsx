@@ -102,10 +102,6 @@ export default function CalendarScreen() {
 	const { selectDate, handleMonthChange, episodesForDate, dayMarks, currentYear, currentMonth } = c;
 	const selected = c.selectedDate ?? todayStr();
 	const today = todayStr();
-	// Skeleton only until the shown month has data — preloading neighbours shouldn't flash it
-	const monthKey = `${currentYear}-${pad2(currentMonth)}`;
-	const monthLoading =
-		c.loading && !(c.episodes ?? []).some((ep) => ep.airDate.startsWith(monthKey));
 
 	// Back to today only when the Calendar tab is entered — not when returning from a
 	// show page pushed inside this tab (that's a focus of this screen, not of the tab)
@@ -452,7 +448,8 @@ export default function CalendarScreen() {
 	);
 
 	// --- Full-view day popup: swipes sideways through the days, like the list under the month ---
-	const popupMaxH = windowH * 0.75;
+	// Most of the window, leaving the backdrop visible around it; capped on tall screens
+	const popupMaxH = Math.min(windowH * 0.65, 640);
 	// AnimatedModal's wide box (92%, at most 560) less the popup border
 	const popupW = Math.min(width * 0.92, 560) - 2;
 	const onPopupPage = useCallback(
@@ -576,7 +573,8 @@ export default function CalendarScreen() {
 				<Animated.View
 					style={[styles.listArea, { height: Math.max(0, bodyPx - ROW_MONTH) }, listStyle]}
 				>
-					{monthLoading ? (
+					{/* Skeleton only until the shown month has data (cached or built) — not for neighbours */}
+					{c.loading ? (
 						<CalendarSkeleton />
 					) : (
 						<Pager
@@ -596,18 +594,22 @@ export default function CalendarScreen() {
 			{/* Full view: tapping a day shows its cards in a popup */}
 			<AnimatedModal visible={!!popupDate} onClose={() => setPopupDate(null)} wide>
 				{popupDate && (
-					// Own gesture root: a Modal renders outside the app's
-					<GestureHandlerRootView style={styles.dayPopup}>
-						<Pager
-							width={popupW}
-							index={dayNumber(popupDate)}
-							keyFor={(offset) => addDays(popupDate, offset)}
-							renderPage={renderPopupPage}
-							onPage={onPopupPage}
-							// One height for every day (the most it may take): sizing to each day's
-							// list made it jump between days, and an empty day shrank the swipe area
-							style={{ height: popupMaxH }}
-						/>
+					// Own gesture root: a Modal renders outside the app's. The rounded box is a plain View
+					// inside it — on Android the root's native view ignores borderRadius / overflow, so
+					// styling the root left square corners and unclipped pages
+					<GestureHandlerRootView style={styles.popupRoot}>
+						<View style={styles.dayPopup}>
+							<Pager
+								width={popupW}
+								index={dayNumber(popupDate)}
+								keyFor={(offset) => addDays(popupDate, offset)}
+								renderPage={renderPopupPage}
+								onPage={onPopupPage}
+								// One height for every day (the most it may take): sizing to each day's
+								// list made it jump between days, and an empty day shrank the swipe area
+								style={{ height: popupMaxH }}
+							/>
+						</View>
 					</GestureHandlerRootView>
 				)}
 			</AnimatedModal>

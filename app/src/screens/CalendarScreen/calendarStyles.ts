@@ -109,6 +109,8 @@ export const styles = StyleSheet.create({
 		borderRadius: 16,
 		backgroundColor: colors.surfaceLight,
 	},
+	// Full view popup's gesture root: no visuals (its native view can't round or clip on Android)
+	popupRoot: { alignSelf: "stretch" },
 	// Full view: a day's cards in a popup
 	dayPopup: {
 		backgroundColor: colors.background,

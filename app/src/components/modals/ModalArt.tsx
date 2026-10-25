@@ -35,6 +35,8 @@ const PAUSE_INSET = 12;
 const PAUSE_OPACITY = 0.6;
 /** Gray wash over the whole backdrop when it's paused */
 const PAUSE_MASK = "rgba(160, 160, 160, 0.45)";
+/** Dark shade behind a title laid over the top of a backdrop */
+const BACKDROP_HEADING_SHADE = "45%";
 /** Logo strip at the bottom of a backdrop (logo height + bottom inset) */
 const BACKDROP_LOGO_H = 48;
 const BACKDROP_LOGO_BOTTOM = 10;
@@ -174,7 +176,8 @@ export function ModalLogo({
 }
 
 /** Show backdrop with its title logo (name as the fallback) over the bottom, edge to edge across
- *  the popup (no side padding); `paused` lays a big translucent pause icon over all of it */
+ *  the popup (no side padding); `paused` lays a big translucent pause icon over all of it.
+ *  ConfirmModal pulls it up to the popup's top edge and passes its title as `heading` */
 export function ModalBackdrop({
 	backdropPath,
 	logoPath: givenLogo,
@@ -183,6 +186,7 @@ export function ModalBackdrop({
 	title,
 	paused = false,
 	nameDelay = 0,
+	heading,
 }: {
 	backdropPath: string;
 	logoPath?: string | null;
@@ -192,6 +196,8 @@ export function ModalBackdrop({
 	paused?: boolean;
 	/** Wait this long (ms) for the logo before showing the name — 0: name right away */
 	nameDelay?: number;
+	/** Popup title over the top (set by ConfirmModal) */
+	heading?: string;
 }) {
 	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	const [logoFailed, setLogoFailed] = useState(false);
@@ -250,6 +256,19 @@ export function ModalBackdrop({
 					)}
 				</>
 			)}
+			{/* Title on a top shade (mirrors the logo's bottom one), there from the skeleton on */}
+			{!!heading && (
+				<>
+					<LinearGradient
+						colors={["rgba(0,0,0,0.85)", "transparent"]}
+						style={styles.backdropHeadingShade}
+						pointerEvents="none"
+					/>
+					<Text style={styles.backdropHeading} pointerEvents="none">
+						{heading}
+					</Text>
+				</>
+			)}
 		</View>
 	);
 }
@@ -299,6 +318,24 @@ const styles = StyleSheet.create({
 		right: 0,
 		bottom: 0,
 		height: "60%",
+	},
+	backdropHeadingShade: {
+		position: "absolute",
+		left: 0,
+		right: 0,
+		top: 0,
+		height: BACKDROP_HEADING_SHADE,
+	},
+	// ConfirmModal's title type, on the backdrop's top
+	backdropHeading: {
+		...typography.subtitle,
+		position: "absolute",
+		top: spacing.md,
+		left: spacing.lg,
+		right: spacing.lg,
+		fontSize: 16,
+		textAlign: "center",
+		color: colors.text,
 	},
 	backdropLogo: {
 		position: "absolute",

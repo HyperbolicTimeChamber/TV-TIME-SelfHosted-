@@ -44,7 +44,9 @@ export function useCalendarScreen(initial?: CalendarPosition | null) {
 	const [currentYear, setCurrentYear] = useState(initial?.year ?? now.getFullYear());
 	const [currentMonth, setCurrentMonth] = useState(initial?.month ?? now.getMonth() + 1);
 
-	const { episodes, loading, loadMonthEpisodes } = useCalendarEpisodes(user?.uid);
+	const { episodes, isMonthLoading, loadMonthEpisodes } = useCalendarEpisodes(user?.uid);
+	// Skeleton only while the shown month has nothing to render — cached months show at once
+	const loading = isMonthLoading(currentYear, currentMonth);
 
 	// Shown month + its neighbours (swiping peeks at them; list paging crosses into them)
 	const loadAround = useCallback(

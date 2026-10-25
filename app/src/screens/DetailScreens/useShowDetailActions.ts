@@ -49,6 +49,16 @@ import {
 import { Alert } from "react-native";
 
 /**
+ * Last tracking doc each show page's listener saw (uid/docId → doc, null = not tracked). A
+ * reopened page starts from it instead of a spinner: on Android RNFirebase serializes every
+ * snapshot on one shared executor thread that a server getDoc / getDocs blocks until the
+ * network answers, so after a mark (runtime / history reads in flight) the new listener's
+ * first snapshot — cached or not — could sit behind them for seconds. 0 reads; the listener
+ * still corrects it a moment later.
+ */
+const lastTracking = new Map<string, any | null>();
+
+/**
  * Show detail state + actions (tracking doc listener, add/remove, movie
  * watch counts, rewatch/resume). Shared by the mobile ShowDetailScreen and the
  * web show page — keep UI out of here.
@@ -63,12 +73,17 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		episodesBySeason,
 		refetch,
 	} = useShowDetails(tmdbId, mediaType);
-	const [watchlistItem, setWatchlistItem] = useState<any>(null);
+	const trackingKey = user?.uid ? `${user.uid}/${showDocId(tmdbId, mediaType)}` : null;
+	const [watchlistItem, setWatchlistItem] = useState<any>(() =>
+		trackingKey ? (lastTracking.get(trackingKey) ?? null) : null,
+	);
 	const { episodes: showWatchedEps } = useShowWatchedEpisodes(
 		mediaType === MediaType.TV ? user?.uid : undefined,
 		tmdbId,
 	);
-	const [trackingLoading, setTrackingLoading] = useState(true);
+	const [trackingLoading, setTrackingLoading] = useState(
+		() => !trackingKey || !lastTracking.has(trackingKey),
+	);
 	const [adding, setAdding] = useState(false);
 	const [removing, setRemoving] = useState(false);
 	const { addShowToUpcoming, removeShowFromUpcoming } = useUpcomingMutations();
@@ -110,16 +125,18 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 
 		// Listener only: its first snapshot comes from the local cache when the doc is there, so
 		// the page renders right away. A separate getDoc went to the server every open (slow on a
-		// bad connection, gating the whole page) and cost an extra read
-		setTrackingLoading(true);
+		// bad connection, gating the whole page) and cost an extra read. A page seen before this
+		// session renders its last state meanwhile (see lastTracking)
+		const key = `${user.uid}/${showDocId(tmdbId, mediaType)}`;
+		const known = lastTracking.has(key);
+		setWatchlistItem(known ? lastTracking.get(key) : null);
+		setTrackingLoading(!known);
 		const unsubscribe = onSnapshot(
 			trackingDocRef,
 			(snap) => {
-				if (snap.exists()) {
-					setWatchlistItem({ id: snap.id, ...snap.data() });
-				} else {
-					setWatchlistItem(null);
-				}
+				const item = snap.exists() ? { id: snap.id, ...snap.data() } : null;
+				lastTracking.set(key, item);
+				setWatchlistItem(item);
 				setTrackingLoading(false);
 			},
 			() => setTrackingLoading(false),

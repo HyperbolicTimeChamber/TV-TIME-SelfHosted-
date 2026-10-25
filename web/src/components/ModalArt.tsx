@@ -103,7 +103,8 @@ export function ModalLogo({
 }
 
 /** Show backdrop with its title logo (name as the fallback) over the bottom, edge to edge across
- *  the popup (no side padding); `paused` lays a big translucent pause icon over all of it */
+ *  the popup (no side padding); `paused` lays a big translucent pause icon over all of it.
+ *  ConfirmModal pulls it up to the popup's top edge and passes its title as `heading` */
 export function ModalBackdrop({
 	backdropPath,
 	logoPath: givenLogo,
@@ -112,6 +113,7 @@ export function ModalBackdrop({
 	title,
 	paused = false,
 	nameDelay = 0,
+	heading,
 }: {
 	backdropPath: string;
 	logoPath?: string | null;
@@ -121,6 +123,8 @@ export function ModalBackdrop({
 	paused?: boolean;
 	/** Wait this long (ms) for the logo before showing the name — 0: name right away */
 	nameDelay?: number;
+	/** Popup title over the top (set by ConfirmModal) */
+	heading?: string;
 }) {
 	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	const [logoFailed, setLogoFailed] = useState(false);
@@ -159,6 +163,8 @@ export function ModalBackdrop({
 					<PauseBars />
 				</div>
 			)}
+			{/* Title on a top shade (mirrors the logo's bottom one), there from the skeleton on */}
+			{!!heading && <p className={styles.modalBackdropHeading}>{heading}</p>}
 		</div>
 	);
 }

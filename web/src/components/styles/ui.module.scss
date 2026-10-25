@@ -183,6 +183,21 @@
 	}
 }
 
+/* Popup title over the top of a backdrop, on a top shade (the logo's bottom one flipped) */
+.modalBackdropHeading {
+	position: absolute;
+	inset: 0 0 auto;
+	height: 45%;
+	margin: 0;
+	padding: 12px 16px 0;
+	font-size: 16px;
+	font-weight: 600;
+	text-align: center;
+	color: var(--text);
+	background: linear-gradient(rgb(0 0 0 / 85%), transparent);
+	pointer-events: none;
+}
+
 .modalHint {
 	font-size: 12px;
 	color: var(--text-secondary);

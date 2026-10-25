@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { IoChevronBack } from "react-icons/io5";
+import { IoChevronBackCircleOutline } from "react-icons/io5";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSearchInput } from "@app/screens/SearchScreen/useSearchInput";
 import { Paths } from "../../routes/paths";
@@ -34,7 +34,7 @@ export default function SearchInputScreen() {
 				}}
 			>
 				<button type="button" className={styles.backButton} onClick={() => navigate(Paths.SEARCH)} aria-label="Back">
-					<IoChevronBack size={26} />
+					<IoChevronBackCircleOutline size={30} />
 				</button>
 				<div className={styles.searchRow}>
 					<input

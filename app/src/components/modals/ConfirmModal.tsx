@@ -1,6 +1,7 @@
-import React, { type ReactNode } from "react";
+import React, { cloneElement, isValidElement, type ReactNode } from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from "react-native";
 import AnimatedModal from "./AnimatedModal";
+import { ModalBackdrop } from "./ModalArt";
 import { colors, spacing, typography } from "../../theme";
 
 interface Props {
@@ -23,7 +24,8 @@ interface Props {
 	tertiaryLabel?: string;
 	onTertiary?: () => void;
 	cancelLabel?: string;
-	/** Image flush with the top of the popup (full-bleed art); a shown title is laid over it in black */
+	/** Image flush with the top of the popup (full-bleed art); a shown title is laid over it in black.
+	 *  Automatic for a ModalBackdrop, which hosts the title itself over a top shade */
 	imageAtTop?: boolean;
 	/** No title (the image / hint say it all) */
 	hideTitle?: boolean;
@@ -54,6 +56,9 @@ export default function ConfirmModal({
 	hideCancel = false,
 	onClose,
 }: Props) {
+	// Photo art: up to the popup's top edge, the title on its own top shade
+	const photo = isValidElement(image) && image.type === ModalBackdrop;
+	const atTop = (imageAtTop || photo) && image != null;
 	return (
 		<AnimatedModal
 			visible={visible}
@@ -62,10 +67,12 @@ export default function ConfirmModal({
 			}}
 		>
 			<View style={styles.content}>
-				{imageAtTop && image != null ? (
+				{atTop ? (
 					<View style={styles.imageTop}>
-						{image}
-						{!hideTitle && (
+						{photo && !hideTitle
+							? cloneElement(image as React.ReactElement<{ heading?: string }>, { heading: title })
+							: image}
+						{!photo && !hideTitle && (
 							<Text style={[styles.title, styles.titleOnImage]} pointerEvents="none">
 								{title}
 							</Text>

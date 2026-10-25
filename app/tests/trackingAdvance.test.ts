@@ -357,7 +357,7 @@ test("season confirm copy says what the mark really does", () => {
 	const base = { seasonNumber: 1, seasonName: "Season 1", total: 6 };
 	assert.equal(
 		seasonMarkCopy({ ...base, toMark: 6, allWatched: false, inRewatch: false }).title,
-		"Mark Season 1 as Watched?",
+		"Mark Season 1 as Watched",
 	);
 	const partial = seasonMarkCopy({ ...base, toMark: 4, allWatched: false, inRewatch: false });
 	assert.match(partial.hint, /4 episodes of Season 1 you haven't watched yet/);
@@ -365,10 +365,10 @@ test("season confirm copy says what the mark really does", () => {
 	const finished = seasonMarkCopy({ ...base, toMark: 6, allWatched: true, inRewatch: false });
 	assert.deepEqual(
 		[finished.title, finished.confirmLabel],
-		["Rewatch Season 1?", "Rewatch Season"],
+		["Rewatch Season 1", "Rewatch Season"],
 	);
 	const rest = seasonMarkCopy({ ...base, toMark: 1, allWatched: true, inRewatch: true });
-	assert.equal(rest.title, "Rewatch Rest of Season 1?");
+	assert.equal(rest.title, "Rewatch Rest of Season 1");
 	assert.match(rest.hint, /5 episodes of Season 1 are already rewatched/);
 	assert.match(rest.hint, /other 1 episode/);
 	assert.deepEqual([rest.confirmLabel, rest.secondaryLabel], ["Mark Rest", "Mark All Again"]);
@@ -378,7 +378,7 @@ test("season confirm copy says what the mark really does", () => {
 	// Rewatch reaching a season nobody rewatched yet → whole season
 	assert.equal(
 		seasonMarkCopy({ ...base, toMark: 6, allWatched: true, inRewatch: true }).title,
-		"Rewatch Season 1?",
+		"Rewatch Season 1",
 	);
 });
 

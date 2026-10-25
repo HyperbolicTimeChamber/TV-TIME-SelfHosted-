@@ -51,7 +51,7 @@ export default function SearchInputScreen() {
 					}}
 					hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
 				>
-					<Ionicons name="chevron-back" size={26} color={colors.text} />
+					<Ionicons name="chevron-back-circle-outline" size={30} color={colors.text} />
 				</TouchableOpacity>
 				<View style={styles.searchRow}>
 					<TextInput
@@ -130,27 +130,24 @@ const styles = StyleSheet.create({
 		flex: 1,
 		backgroundColor: colors.background,
 	},
+	// One surface, like the results bar: outlined back icon, no highlighted box
 	searchBarRow: {
 		flexDirection: "row",
 		alignItems: "stretch",
 		marginHorizontal: spacing.md,
 		marginVertical: spacing.md,
+		backgroundColor: colors.surface,
+		borderRadius: 8,
 	},
+	// Left inset only — the input's own padding is the gap to the text
 	backButton: {
-		width: 44,
+		paddingLeft: spacing.md,
 		justifyContent: "center",
-		alignItems: "center",
-		backgroundColor: colors.surfaceLight,
-		borderTopLeftRadius: 8,
-		borderBottomLeftRadius: 8,
 	},
 	searchRow: {
 		flex: 1,
 		flexDirection: "row",
 		alignItems: "center",
-		backgroundColor: colors.surface,
-		borderTopRightRadius: 8,
-		borderBottomRightRadius: 8,
 	},
 	searchIcon: {
 		marginLeft: spacing.md,

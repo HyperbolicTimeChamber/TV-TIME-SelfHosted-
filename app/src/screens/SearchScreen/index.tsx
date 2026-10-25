@@ -25,6 +25,7 @@ import { useSearch, useSearchSort, useTrending } from "../../hooks";
 import { colors, spacing } from "../../theme";
 import { TMDBShow, SearchStackParamList, MediaType, MediaFilter, Route } from "../../types";
 import SortFab, { SORT_FAB_CLEARANCE } from "../../components/SortFab";
+import SwipeBackView from "../../components/SwipeBackView";
 import SortSheet, { type SortOption } from "../../components/SortSheet";
 import {
 	SEARCH_SORT_OPTIONS,
@@ -54,7 +55,7 @@ const FILTER_TABS = [
 	{ key: MediaFilter.MOVIE, label: "Movies" },
 ];
 
-// Scrolls with the grid (header block floats over the list's top padding)
+// Scrolls with the grid (header block floats over the list's top spacer)
 const TRENDING_TITLE = <Text style={styles.listTitle}>Trending</Text>;
 
 export default function SearchScreen() {
@@ -124,6 +125,8 @@ export default function SearchScreen() {
 		},
 		[snapHeader],
 	);
+
+	const backToMain = useCallback(() => navigation.navigate(Route.SEARCH_MAIN), [navigation]);
 
 	const openSearchInput = useCallback(() => {
 		navigation.navigate(Route.SEARCH_INPUT, {
@@ -239,43 +242,65 @@ export default function SearchScreen() {
 		[handlePress, handleAddToWatchlist, handleRemoveFromWatchlist],
 	);
 
-	return (
-		<View style={styles.container}>
+	// The floating header's height is a spacer at the top of the scrolling content, not top
+	// padding: Android clips a scroll view's children to its padding, so cards vanished at the
+	// island's bottom edge instead of passing under it (black corners around the island)
+	const listHeader = useMemo(
+		() => (
+			<View style={{ paddingTop: headerH + (submittedQuery ? spacing.sm : 0) }}>
+				{!submittedQuery && TRENDING_TITLE}
+			</View>
+		),
+		[headerH, submittedQuery],
+	);
+
+	const screen = (
+		<>
 			<Animated.View
 				onLayout={onHeaderLayout}
 				style={[styles.headerBlock, { paddingTop: top }, headerStyle]}
 			>
-				<View style={styles.headerCard}>
-					<View style={styles.searchBarRow}>
-						{submittedQuery ? (
+				<View style={styles.headerCardWrap}>
+					{/* Black from the screen top to the island's middle: nothing shows above it, only
+					    around its rounded bottom corners. Rides along with the collapsing header */}
+					<View
+						pointerEvents="none"
+						style={[styles.headerBackdrop, { top: -(top + spacing.md) }]}
+					/>
+					<View style={styles.headerCard}>
+						<View style={styles.searchBarRow}>
+							{submittedQuery ? (
+								<TouchableOpacity
+									style={styles.backButton}
+									onPress={backToMain}
+									activeOpacity={0.7}
+									hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+									accessibilityLabel="Back"
+								>
+									<Ionicons name="chevron-back-circle-outline" size={30} color={colors.text} />
+								</TouchableOpacity>
+							) : (
+								<View style={styles.searchIconWrap}>
+									<Ionicons name="search" size={18} color={colors.textMuted} />
+								</View>
+							)}
 							<TouchableOpacity
-								style={styles.backButton}
-								onPress={() => navigation.navigate(Route.SEARCH_MAIN)}
+								style={styles.searchRow}
+								onPress={openSearchInput}
 								activeOpacity={0.7}
 							>
-								<Ionicons name="chevron-back" size={24} color={colors.text} />
+								<Text style={[styles.searchInput, { color: colors.textMuted }]} numberOfLines={1}>
+									{submittedQuery || "Search Shows & Movies"}
+								</Text>
 							</TouchableOpacity>
-						) : (
-							<View style={styles.searchIconWrap}>
-								<Ionicons name="search" size={18} color={colors.textMuted} />
-							</View>
-						)}
-						<TouchableOpacity
-							style={styles.searchRow}
-							onPress={openSearchInput}
-							activeOpacity={0.7}
-						>
-							<Text style={[styles.searchInput, { color: colors.textMuted }]} numberOfLines={1}>
-								{submittedQuery || "Search Shows & Movies"}
-							</Text>
-						</TouchableOpacity>
-					</View>
+						</View>
 
-					<SlidingTabs
-						tabs={FILTER_TABS}
-						activeKey={mediaFilter}
-						onTabPress={(key) => setMediaFilter(key as MediaFilter)}
-					/>
+						<SlidingTabs
+							tabs={FILTER_TABS}
+							activeKey={mediaFilter}
+							onTabPress={(key) => setMediaFilter(key as MediaFilter)}
+						/>
+					</View>
 				</View>
 			</Animated.View>
 
@@ -315,12 +340,11 @@ export default function SearchScreen() {
 						sharedValues={listSharedValues}
 						onScrollEndDrag={onScrollEndDrag}
 						onMomentumScrollEnd={snapHeader}
-						ListHeaderComponent={submittedQuery ? null : TRENDING_TITLE}
-						// Top padding sits under the floating header
+						ListHeaderComponent={listHeader}
 						contentContainerStyle={[
 							styles.grid,
 							{
-								paddingTop: headerH + (submittedQuery ? spacing.sm : 0),
+								paddingTop: 0,
 								paddingBottom: showSort ? FAB_BOTTOM + SORT_FAB_CLEARANCE : 0,
 							},
 						]}
@@ -376,6 +400,16 @@ export default function SearchScreen() {
 				onStartFresh={handleStartFresh}
 				onResumeModalClose={() => setResumeModal(null)}
 			/>
-		</View>
+		</>
+	);
+
+	// Results: right swipe anywhere slides back to Trending (transparent modal route, so it
+	// shows underneath). Vertical drags fail the pan, so the list scroll / header collapse win
+	return submittedQuery ? (
+		<SwipeBackView onBack={backToMain} style={styles.container}>
+			{screen}
+		</SwipeBackView>
+	) : (
+		<View style={styles.container}>{screen}</View>
 	);
 }

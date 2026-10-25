@@ -110,7 +110,7 @@ export function seasonMarkCopy(o: {
 	if (toMark < total && inRewatch) {
 		const done = total - toMark;
 		return {
-			title: `Rewatch Rest of Season ${n}?`,
+			title: `Rewatch Rest of Season ${n}`,
 			hint: `${eps(done)} of ${seasonName} ${done === 1 ? "is" : "are"} already rewatched. Mark Rest marks the other ${eps(toMark)} as watched again; Mark All Again adds one more watch to all ${total}, including the ones already rewatched.`,
 			confirmLabel: "Mark Rest",
 			secondaryLabel: "Mark All Again",
@@ -118,20 +118,20 @@ export function seasonMarkCopy(o: {
 	}
 	if (toMark < total) {
 		return {
-			title: `Mark Season ${n} as Watched?`,
+			title: `Mark Season ${n} as Watched`,
 			hint: `Mark the ${eps(toMark)} of ${seasonName} you haven't watched yet? Episodes already watched keep their count.`,
 			confirmLabel: "Mark Season",
 		};
 	}
 	if (allWatched) {
 		return {
-			title: `Rewatch Season ${n}?`,
+			title: `Rewatch Season ${n}`,
 			hint: `Mark every episode of ${seasonName} as watched again?`,
 			confirmLabel: "Rewatch Season",
 		};
 	}
 	return {
-		title: `Mark Season ${n} as Watched?`,
+		title: `Mark Season ${n} as Watched`,
 		hint: `Mark all ${total} episodes of ${seasonName} as watched?`,
 		confirmLabel: "Mark Season",
 	};

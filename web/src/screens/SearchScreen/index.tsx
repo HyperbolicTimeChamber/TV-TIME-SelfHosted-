@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { Button } from "antd";
-import { IoChevronBack, IoSearch } from "react-icons/io5";
+import { IoChevronBackCircleOutline, IoSearch } from "react-icons/io5";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSearch } from "@app/hooks/useSearch";
 import { useTrending } from "@app/hooks/useTrending";
@@ -35,6 +35,9 @@ const FILTER_TABS = [
 	{ key: MediaFilter.TV, label: "TV" },
 	{ key: MediaFilter.MOVIE, label: "Movies" },
 ];
+
+// Horizontal drag (px) on the results that goes back to Trending — same as Watch History's tabs
+const SWIPE_BACK_PX = 60;
 
 const SORT_OPTIONS: SortOption<SearchSortView>[] = SEARCH_SORT_OPTIONS.map(({ label, ...value }) => ({ value, label }));
 
@@ -118,45 +121,49 @@ export default function SearchScreen() {
 						</div>
 					</div>
 				)}
-				<div className={styles.headerCard}>
-					<div className={styles.searchBarRow}>
-						{submittedQuery ? (
-							<button className={styles.backButton} onClick={() => navigate(Paths.SEARCH)} aria-label="Back">
-								<IoChevronBack size={24} />
+				{/* Its ::before blacks out everything above the island's middle — only the area around
+				    its rounded bottom corners shows the results */}
+				<div className={styles.headerCardWrap}>
+					<div className={styles.headerCard}>
+						<div className={styles.searchBarRow}>
+							{submittedQuery ? (
+								<button className={styles.backButton} onClick={() => navigate(Paths.SEARCH)} aria-label="Back">
+									<IoChevronBackCircleOutline size={30} />
+								</button>
+							) : (
+								<span className={styles.searchIconWrap}>
+									<IoSearch size={18} color="var(--text-muted)" />
+								</span>
+							)}
+							<button className={styles.searchRow} onClick={openInput}>
+								{submittedQuery || "Search Shows & Movies"}
 							</button>
-						) : (
-							<span className={styles.searchIconWrap}>
-								<IoSearch size={18} color="var(--text-muted)" />
-							</span>
-						)}
-						<button className={styles.searchRow} onClick={openInput}>
-							{submittedQuery || "Search Shows & Movies"}
-						</button>
-						{showSort && (
-							<span className={styles.sortSlot}>
-								<SortButton
-									label="Sort results"
-									open={sortOpen}
-									onOpenChange={setSortOpen}
-									customised={!sameSearchSort(sortView, DEFAULT_SEARCH_SORT)}
-									content={
-										<SortPanel
-											options={SORT_OPTIONS}
-											selected={sortView}
-											isSame={sameSearchSort}
-											onSelect={(next) => {
-												setSortView(next);
-												setSortOpen(false);
-												// New order starts from the top
-												window.scrollTo({ top: 0 });
-											}}
-										/>
-									}
-								/>
-							</span>
-						)}
+							{showSort && (
+								<span className={styles.sortSlot}>
+									<SortButton
+										label="Sort results"
+										open={sortOpen}
+										onOpenChange={setSortOpen}
+										customised={!sameSearchSort(sortView, DEFAULT_SEARCH_SORT)}
+										content={
+											<SortPanel
+												options={SORT_OPTIONS}
+												selected={sortView}
+												isSame={sameSearchSort}
+												onSelect={(next) => {
+													setSortView(next);
+													setSortOpen(false);
+													// New order starts from the top
+													window.scrollTo({ top: 0 });
+												}}
+											/>
+										}
+									/>
+								</span>
+							)}
+						</div>
+						<SlidingTabs id="search-filter" tabs={FILTER_TABS} activeKey={mediaFilter} onTabPress={setMediaFilter} />
 					</div>
-					<SlidingTabs id="search-filter" tabs={FILTER_TABS} activeKey={mediaFilter} onTabPress={setMediaFilter} />
 				</div>
 			</motion.header>
 
@@ -170,6 +177,20 @@ export default function SearchScreen() {
 					<p className={styles.empty}>NOTHING FOUND</p>
 					<p className={styles.emptyHint}>Searched the database, but nothing happened. Have you lost the way?</p>
 				</div>
+			) : submittedQuery ? (
+				// Results: swipe right goes back to Trending (vertical scroll stays native)
+				<motion.div
+					drag="x"
+					dragDirectionLock
+					dragConstraints={{ left: 0, right: 0 }}
+					dragElastic={0.2}
+					className={`${styles.grid} touch-pan-y`}
+					onDragEnd={(_, info) => {
+						if (info.offset.x > SWIPE_BACK_PX) navigate(Paths.SEARCH);
+					}}
+				>
+					{cards}
+				</motion.div>
 			) : (
 				<div className={styles.grid}>{cards}</div>
 			)}
