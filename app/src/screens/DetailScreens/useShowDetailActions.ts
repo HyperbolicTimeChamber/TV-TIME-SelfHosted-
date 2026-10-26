@@ -45,6 +45,7 @@ import {
 	WatchedMovie,
 	WatchAction,
 	CatalogShow,
+	type AddFailure,
 } from "../../types";
 import { Alert } from "react-native";
 
@@ -85,6 +86,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		() => !trackingKey || !lastTracking.has(trackingKey),
 	);
 	const [adding, setAdding] = useState(false);
+	const [addFailure, setAddFailure] = useState<AddFailure | null>(null);
 	const [removing, setRemoving] = useState(false);
 	const { addShowToUpcoming, removeShowFromUpcoming } = useUpcomingMutations();
 	const queryClient = useQueryClient();
@@ -279,9 +281,19 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 			} else if (mediaType === MediaType.TV) {
 				addFutureEpisodesLocally(title, poster);
 			}
+			setAddFailure(null);
 		} catch (err: any) {
 			console.error("addToTracking failed:", err);
-			Alert.alert("Error", err.message || "Failed to add to watchlist.");
+			// In-app popup, not a native Alert: an Alert raised while the app is backgrounded
+			// only surfaces the next time it's opened, with no idea what it refers to
+			setAddFailure({
+				title: show.title || show.name || "",
+				tmdbId,
+				mediaType,
+				backdropPath: show.backdrop_path ?? null,
+				logoPath: null,
+				message: err.message || "Failed to add to watchlist.",
+			});
 		} finally {
 			setAdding(false);
 		}
@@ -532,6 +544,8 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		showWatchedEps,
 		trackingLoading,
 		adding,
+		addFailure,
+		setAddFailure,
 		removing,
 		movieWatchCount,
 		movieSheetVisible,

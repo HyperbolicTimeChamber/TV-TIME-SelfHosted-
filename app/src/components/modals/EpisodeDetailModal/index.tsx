@@ -16,6 +16,15 @@ import type {
 
 export type { CarouselEpisode } from "../../../types/episodeCarousel";
 
+/** Enough to put on screen now: anything with a title, a still or an overview renders (the
+ *  missing pieces fill in as the season loads). Only a card with nothing at all — a neighbour
+ *  whose season hasn't been fetched — falls back to the skeleton. */
+const hasContent = (ep: CarouselEpisode) => !!(ep.title || ep.stillPath || ep.overview);
+
+/** Has the full detail, so its season needn't be fetched again. `loaded` only decides card vs
+ *  skeleton — a card can be on screen from catalog data and still be waiting for its overview */
+const isFull = (ep: CarouselEpisode) => !!(ep.overview && ep.stillPath);
+
 export default function EpisodeDetailModal({
 	visible,
 	tmdbId,
@@ -41,12 +50,10 @@ export default function EpisodeDetailModal({
 	const [localWatched, setLocalWatched] = useState<Map<string, number>>(watchedKeys);
 	const noLoader = !onLoadEpisodeDetails;
 	const [enrichedEps, setEnrichedEps] = useState<EnrichedEpisode[]>(() =>
-		episodes.map((ep) => ({
-			...ep,
-			loaded: noLoader || !!(ep.overview && ep.stillPath),
-		})),
+		episodes.map((ep) => ({ ...ep, loaded: noLoader || hasContent(ep) })),
 	);
 	const loadingSeasons = useRef(new Set<number>());
+	const fetchedSeasons = useRef(new Set<number>());
 	const scrollX = useRef(new Animated.Value(initialIndex * SNAP_INTERVAL)).current;
 	const [scrollEnabled, setScrollEnabled] = useState(true);
 	const [markingKey, setMarkingKey] = useState<string | null>(null);
@@ -83,19 +90,14 @@ export default function EpisodeDetailModal({
 
 	useEffect(() => {
 		if (!visible) return;
-		setEnrichedEps(
-			episodes.map((ep) => ({
-				...ep,
-				loaded: noLoader || !!(ep.overview && ep.stillPath),
-			})),
-		);
+		setEnrichedEps(episodes.map((ep) => ({ ...ep, loaded: noLoader || hasContent(ep) })));
 		setActiveIndex(initialIndex);
 		scrollX.setValue(initialIndex * SNAP_INTERVAL);
 	}, [visible, episodes, initialIndex, noLoader, scrollX]);
 
 	const fetchSeason = useCallback(
 		async (seasonNum: number) => {
-			if (loadingSeasons.current.has(seasonNum)) return;
+			if (loadingSeasons.current.has(seasonNum) || fetchedSeasons.current.has(seasonNum)) return;
 			loadingSeasons.current.add(seasonNum);
 			try {
 				let seasonEps: CarouselEpisode[] | null = null;
@@ -110,11 +112,22 @@ export default function EpisodeDetailModal({
 				}
 				setEnrichedEps((prev) =>
 					prev.map((ep) => {
-						if (ep.season !== seasonNum || ep.loaded) return ep;
+						if (ep.season !== seasonNum || isFull(ep)) return ep;
 						const detail = detailMap.get(epKey(ep.season, ep.episode));
-						return detail ? { ...detail, loaded: true } : { ...ep, loaded: true };
+						// Keep what the card is already showing where the fetch has nothing better
+						return detail
+							? {
+									...ep,
+									...detail,
+									title: detail.title ?? ep.title,
+									stillPath: detail.stillPath ?? ep.stillPath,
+									overview: detail.overview ?? ep.overview,
+									loaded: true,
+								}
+							: { ...ep, loaded: true };
 					}),
 				);
+				fetchedSeasons.current.add(seasonNum);
 			} finally {
 				loadingSeasons.current.delete(seasonNum);
 			}
@@ -129,7 +142,7 @@ export default function EpisodeDetailModal({
 			const seasonsToFetch = new Set<number>();
 			for (let i = index; i <= Math.min(index + 2, enrichedEps.length - 1); i++) {
 				const ep = enrichedEps[i];
-				if (ep && !ep.loaded) {
+				if (ep && !isFull(ep)) {
 					seasonsToFetch.add(ep.season);
 				}
 			}
@@ -145,9 +158,10 @@ export default function EpisodeDetailModal({
 		const seasonsToFetch = new Set<number>();
 		const start = Math.max(0, initialIndex);
 		const end = Math.min(episodes.length, start + 3);
+		fetchedSeasons.current.clear();
 		for (let i = start; i < end; i++) {
 			const ep = episodes[i];
-			if (!(ep.overview && ep.stillPath)) {
+			if (!isFull(ep)) {
 				seasonsToFetch.add(ep.season);
 			}
 		}

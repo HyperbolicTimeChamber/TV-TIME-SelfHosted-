@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { View, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,6 +19,23 @@ const TABS: {
 	{ route: Route.SEARCH, icon: "search", iconOutline: "search-outline" },
 	{ route: Route.PROFILE, icon: "person", iconOutline: "person-outline" },
 ];
+
+// A custom tabBar emits no `tabPress`, so screens that want to know a tab *button* was pressed
+// (as opposed to the tab being reached by swiping) subscribe here instead
+const tabPressListeners = new Set<(route: string) => void>();
+
+/** Run `handler` whenever a bottom tab button is pressed */
+export function useTabPress(handler: (route: string) => void) {
+	const latest = useRef(handler);
+	latest.current = handler;
+	useEffect(() => {
+		const fn = (route: string) => latest.current(route);
+		tabPressListeners.add(fn);
+		return () => {
+			tabPressListeners.delete(fn);
+		};
+	}, []);
+}
 
 const TAB_WIDTH = SCREEN_WIDTH / TABS.length;
 const BAR_WIDTH = TAB_WIDTH;
@@ -43,6 +60,7 @@ export default function CustomTabBar({ activeTab }: Props) {
 						key={tab.route}
 						style={styles.tab}
 						onPress={() => {
+							tabPressListeners.forEach((fn) => fn(tab.route));
 							navigation.navigate(
 								Route.SWIPE_TABS,
 								tab.route === Route.HOME

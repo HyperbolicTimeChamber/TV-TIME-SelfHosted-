@@ -313,6 +313,30 @@ export default function ShowDetailScreen() {
 						onConfirm={d.handleConfirmPause}
 						onClose={() => d.setPauseModalVisible(false)}
 					/>
+					{/* A failed add reports here, as it does in the app (app AddFailedModal) */}
+					<ConfirmModal
+						visible={!!d.addFailure}
+						title="Couldn't add that one"
+						image={
+							d.addFailure?.backdropPath ? (
+								<ModalBackdrop
+									backdropPath={d.addFailure.backdropPath}
+									logoPath={d.addFailure.logoPath}
+									tmdbId={d.addFailure.tmdbId}
+									mediaType={d.addFailure.mediaType}
+									title={d.addFailure.title}
+								/>
+							) : undefined
+						}
+						hint={
+							d.addFailure ? `${d.addFailure.title} is still not on your watch list.` : undefined
+						}
+						error={d.addFailure?.message ?? null}
+						confirmLabel="Retry"
+						loading={d.adding}
+						onConfirm={d.handleAddToWatchlist}
+						onClose={() => d.setAddFailure(null)}
+					/>
 					<UnreleasedMovieModal
 						visible={!!d.unreleasedModal}
 						onClose={() => d.setUnreleasedModal(null)}

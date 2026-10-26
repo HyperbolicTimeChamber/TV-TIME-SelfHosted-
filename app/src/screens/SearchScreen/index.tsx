@@ -25,7 +25,7 @@ import { useSearch, useSearchSort, useTrending } from "../../hooks";
 import { colors, spacing } from "../../theme";
 import { TMDBShow, SearchStackParamList, MediaType, MediaFilter, Route } from "../../types";
 import SortFab, { SORT_FAB_CLEARANCE } from "../../components/SortFab";
-import SwipeBackView from "../../components/SwipeBackView";
+import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import SortSheet, { type SortOption } from "../../components/SortSheet";
 import {
 	SEARCH_SORT_OPTIONS,
@@ -129,6 +129,7 @@ export default function SearchScreen() {
 	);
 
 	const backToMain = useCallback(() => navigation.navigate(Route.SEARCH_MAIN), [navigation]);
+	const swipeBack = useSwipeBackPop(navigation);
 
 	const openSearchInput = useCallback(() => {
 		navigation.navigate(Route.SEARCH_INPUT, {
@@ -150,6 +151,9 @@ export default function SearchScreen() {
 		setUnreleasedModal,
 		resumeModal,
 		handleAddToWatchlist,
+		addFailure,
+		retryAdd,
+		dismissAddFailure,
 		handleRemoveFromWatchlist,
 		handleConfirmRemove,
 		handleMovieAddOnly,
@@ -401,6 +405,9 @@ export default function SearchScreen() {
 				onResumeFromWhere={handleResumeFromWhere}
 				onStartFresh={handleStartFresh}
 				onResumeModalClose={() => setResumeModal(null)}
+				addFailure={addFailure}
+				onRetryAdd={retryAdd}
+				onAddFailureClose={dismissAddFailure}
 			/>
 		</>
 	);
@@ -408,7 +415,7 @@ export default function SearchScreen() {
 	// Results: right swipe anywhere slides back to Trending (transparent modal route, so it
 	// shows underneath). Vertical drags fail the pan, so the list scroll / header collapse win
 	return submittedQuery ? (
-		<SwipeBackView onBack={backToMain} style={styles.container}>
+		<SwipeBackView onBack={backToMain} {...swipeBack} style={styles.container}>
 			{screen}
 		</SwipeBackView>
 	) : (

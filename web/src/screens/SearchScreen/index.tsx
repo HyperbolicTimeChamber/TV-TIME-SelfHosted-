@@ -244,6 +244,9 @@ export default function SearchScreen() {
 					onResumeFromWhere={actions.handleResumeFromWhere}
 					onStartFresh={actions.handleStartFresh}
 					onResumeModalClose={() => actions.setResumeModal(null)}
+					addFailure={actions.addFailure}
+					onRetryAdd={actions.retryAdd}
+					onAddFailureClose={actions.dismissAddFailure}
 				/>
 			)}
 		</div>

@@ -210,8 +210,14 @@ interface MonthGridProps extends Omit<WeekRowProps, "dates" | "month"> {
 	selectedRow: number;
 }
 
-/** Month as week rows; collapsing toward week view slides up to keep the selected row */
-export function MonthGrid({ weeks, selectedRow, progress, ...row }: MonthGridProps) {
+/** Month as week rows; collapsing toward week view slides up to keep the selected row.
+ *  Memoised: three grids are mounted at once and the screen re-renders on every resize frame */
+export const MonthGrid = memo(function MonthGrid({
+	weeks,
+	selectedRow,
+	progress,
+	...row
+}: MonthGridProps) {
 	const slide = useAnimatedStyle(() => ({
 		transform: [
 			{
@@ -229,4 +235,4 @@ export function MonthGrid({ weeks, selectedRow, progress, ...row }: MonthGridPro
 			))}
 		</Animated.View>
 	);
-}
+});

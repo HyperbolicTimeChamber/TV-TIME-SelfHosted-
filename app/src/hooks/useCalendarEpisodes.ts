@@ -11,6 +11,28 @@ import { useQueryClient } from "@tanstack/react-query";
 import { isCalendarCacheStale } from "../utils/calendarCache";
 
 const MAX_CACHED_MONTHS = 12;
+/** Months kept in memory. Every loaded month is flattened into one array (and indexed by day)
+ *  on each change, so a long flick through the calendar must not grow that without end */
+const MAX_MEMORY_MONTHS = 15;
+/** Saves within this of each other are coalesced — a flick builds several months in a row and
+ *  each save stringifies the whole cache */
+const SAVE_DEBOUNCE_MS = 800;
+
+const monthIndex = (key: string) => {
+	const [y, m] = key.split("-").map(Number);
+	return y * 12 + m;
+};
+
+/** Drop the months furthest from `around`, keeping the cap (and `around` itself) */
+function pruneMonths(months: Map<string, UpcomingEpisode[]>, around: string) {
+	if (months.size <= MAX_MEMORY_MONTHS) return months;
+	const centre = monthIndex(around);
+	const farthest = [...months.keys()]
+		.sort((a, b) => Math.abs(monthIndex(b) - centre) - Math.abs(monthIndex(a) - centre))
+		.slice(0, months.size - MAX_MEMORY_MONTHS);
+	for (const key of farthest) if (key !== around) months.delete(key);
+	return months;
+}
 
 interface CalendarCache {
 	months: Record<string, UpcomingEpisode[]>;
@@ -48,6 +70,17 @@ async function saveCalendarCache(cache: CalendarCache) {
 		}
 	}
 	await AsyncStorage.setItem(CacheKey.CALENDAR_MONTHS, JSON.stringify(cache)).catch(() => {});
+}
+
+// Coalesced: JSON.stringify of a dozen months is the single most expensive thing a month
+// build does, and a flick builds several in a row
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+function queueCalendarSave(cache: CalendarCache) {
+	if (saveTimer) clearTimeout(saveTimer);
+	saveTimer = setTimeout(() => {
+		saveTimer = null;
+		saveCalendarCache(cache);
+	}, SAVE_DEBOUNCE_MS);
 }
 
 /** Shows with an episode in the persisted Upcoming lists (server upcoming + already-aired
@@ -246,12 +279,12 @@ export function useCalendarEpisodes(userId: string | undefined) {
 				setEpisodesByMonth((prev) => {
 					const next = new Map(prev);
 					next.set(monthKey, episodes);
-					return next;
+					return pruneMonths(next, monthKey);
 				});
 				const target = calendarCacheRef.current;
 				target.months[monthKey] = episodes;
 				target.monthSyncs = { ...target.monthSyncs, [monthKey]: syncNow };
-				saveCalendarCache(target);
+				queueCalendarSave(target);
 			} finally {
 				building.current.delete(monthKey);
 				setSettled((prev) => (prev.has(monthKey) ? prev : new Set(prev).add(monthKey)));
@@ -289,7 +322,7 @@ export function useCalendarEpisodes(userId: string | undefined) {
 					changed = true;
 				}
 			}
-			if (changed) saveCalendarCache(calendarCacheRef.current);
+			if (changed) queueCalendarSave(calendarCacheRef.current);
 			return changed ? next : prev;
 		});
 	}, []);
@@ -304,7 +337,7 @@ export function useCalendarEpisodes(userId: string | undefined) {
 			const updated = [...existing, movie].sort((a, b) => a.airDate.localeCompare(b.airDate));
 			next.set(monthKey, updated);
 			calendarCacheRef.current.months[monthKey] = updated;
-			saveCalendarCache(calendarCacheRef.current);
+			queueCalendarSave(calendarCacheRef.current);
 			return next;
 		});
 	}, []);
@@ -315,7 +348,7 @@ export function useCalendarEpisodes(userId: string | undefined) {
 			const next = new Map(prev);
 			next.delete(monthKey);
 			delete calendarCacheRef.current.months[monthKey];
-			saveCalendarCache(calendarCacheRef.current);
+			queueCalendarSave(calendarCacheRef.current);
 			return next;
 		});
 		setSettled((prev) => {

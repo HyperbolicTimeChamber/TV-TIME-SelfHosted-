@@ -35,5 +35,6 @@ export type {
 export type { CarouselEpisode, EnrichedEpisode, EpisodeDetailModalProps } from "./episodeCarousel";
 export type { WatchlistListItem } from "./watchlist";
 export type { WatchAction } from "./watchAction";
+export type { AddFailure } from "./addFailure";
 export type { ShowDrawerData } from "./showDrawer";
 export type { HistoryEntry, HistoryState, HistoryChange, HistoryCatalog } from "./history";

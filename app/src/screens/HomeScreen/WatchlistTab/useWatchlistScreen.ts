@@ -50,6 +50,20 @@ import { todayStr } from "../../../utils";
  * Navigation is passed in so the hook stays platform-neutral.
  */
 /** Watched counts keyed SxxEyy, as the episode modal reads them */
+/** Everything before the show's next episode counts as watched once — what the watchlist card
+ *  itself shows, so the popup can open with it while the real counts are fetched */
+function watchedKeysBefore(
+	eps: CarouselEpisode[],
+	next: { season: number; episode: number },
+): Map<string, number> {
+	const keys = new Map<string, number>();
+	for (const e of eps) {
+		if (e.season > next.season || (e.season === next.season && e.episode >= next.episode)) break;
+		keys.set(`S${String(e.season).padStart(2, "0")}E${String(e.episode).padStart(2, "0")}`, 1);
+	}
+	return keys;
+}
+
 function watchedKeysOf(rows: WatchedEpisode[]): Map<string, number> {
 	const keys = new Map<string, number>();
 	for (const we of rows) {
@@ -178,38 +192,15 @@ export function useWatchlistScreen(
 				initialIdx = rawIdx - start;
 			}
 
-			// Watched keys: this show's query cache, else all its watched episodes (complete counts)
+			// Watched keys: this show's query cache when it's there, else what the pointer already
+			// tells us — every released episode before `nextEpisode` has been watched. Awaiting
+			// Firestore here held the popup shut for the whole round trip; the real counts patch
+			// in below the moment they land.
 			const watchedKey = [QueryKey.WATCHED_EPISODES, user?.uid, tmdbId];
-			let showWatched = queryClient.getQueryData<WatchedEpisode[]>(watchedKey);
-			if (!showWatched) {
-				const db = getFirestore();
-				const colRef = collection(doc(db, "users", user!.uid), "watchedEpisodes");
-				const q = query(colRef, where("tmdbShowId", "==", tmdbId));
-				const rowsOf = (snap: { docs: { id: string; data: () => unknown }[] }) =>
-					snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) })) as WatchedEpisode[];
-				// Device copy first (instant, not a billed read) so the modal opens now; waiting on the
-				// server here held it closed for the whole round trip on a slow connection
-				const cached = await getDocsFromCache(q).catch(() => null);
-				if (cached && !cached.empty) {
-					const fromDevice = rowsOf(cached);
-					showWatched = fromDevice;
-					getDocs(q)
-						.then((snap) => {
-							// A mark made meanwhile already updated the cache — keep it
-							if (queryClient.getQueryData(watchedKey) !== fromDevice) return;
-							const fresh = rowsOf(snap);
-							queryClient.setQueryData(watchedKey, fresh);
-							setEpModalData((prev) =>
-								prev?.tmdbId === tmdbId ? { ...prev, watchedKeys: watchedKeysOf(fresh) } : prev,
-							);
-						})
-						.catch(() => {});
-				} else {
-					showWatched = rowsOf(await getDocs(q));
-				}
-				queryClient.setQueryData(watchedKey, showWatched);
-			}
-			const wKeys = watchedKeysOf(showWatched);
+			const cachedWatched = queryClient.getQueryData<WatchedEpisode[]>(watchedKey);
+			const wKeys = cachedWatched
+				? watchedKeysOf(cachedWatched)
+				: watchedKeysBefore(carouselEps, ep);
 
 			epModalTmdbIdRef.current = tmdbId;
 			setEpModalData({
@@ -225,6 +216,28 @@ export function useWatchlistScreen(
 				rewatchCount: item.status === WatchStatus.REWATCHING ? (item.rewatchCount ?? 0) : 0,
 			});
 			setEpModalVisible(true);
+
+			// …and the real counts in the background, oldest source first
+			if (cachedWatched) return;
+			const uid = user?.uid;
+			if (!uid) return;
+			const db = getFirestore();
+			const colRef = collection(doc(db, "users", uid), "watchedEpisodes");
+			const q = query(colRef, where("tmdbShowId", "==", tmdbId));
+			const rowsOf = (snap: { docs: { id: string; data: () => unknown }[] }) =>
+				snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) })) as WatchedEpisode[];
+			const patch = (rows: WatchedEpisode[]) => {
+				queryClient.setQueryData(watchedKey, rows);
+				setEpModalData((prev) =>
+					prev?.tmdbId === tmdbId ? { ...prev, watchedKeys: watchedKeysOf(rows) } : prev,
+				);
+			};
+			// Device copy first (instant, not a billed read), then the server's
+			const cached = await getDocsFromCache(q).catch(() => null);
+			if (cached && !cached.empty) patch(rowsOf(cached));
+			await getDocs(q)
+				.then((snap) => patch(rowsOf(snap)))
+				.catch(() => {});
 		},
 		[listData, user?.uid, queryClient],
 	);

@@ -104,17 +104,24 @@ export default memo(function ShowCard({
 
 	const movieMeta = (label: string, muted = false) => (
 		<>
-			<div className={`${styles.movieMetaRow} ${muted ? "opacity-60" : ""}`}>
-				<span className={styles.movieBadge}>MOVIE</span>
+			{/* The card fades its own parts rather than the whole subtree, so the year number
+			    alone can stay at full strength. The amber behind it is faded through a
+			    translucent fill, not opacity, which would take the number with it */}
+			<div className={styles.movieMetaRow}>
+				<span className={`${styles.movieBadge} ${muted ? styles.watchedFade : ""}`}>MOVIE</span>
 				{label && (
 					<>
-						<span className={styles.slantArrow} />
-						<span className={`${styles.freshTag} ${muted ? styles.watchedYear : ""}`}>{label}</span>
+						<span className={`${styles.slantArrow} ${muted ? styles.watchedFade : ""}`} />
+						<span className={`${styles.freshTag} ${muted ? styles.watchedFreshTag : ""}`}>
+							{label}
+						</span>
 					</>
 				)}
 			</div>
 			{item.director && (
-				<span className={`${styles.episodeName} ${muted ? styles.muted : ""}`}>
+				<span
+					className={`${styles.episodeName} ${muted ? `${styles.muted} ${styles.watchedFade}` : ""}`}
+				>
 					{item.director}
 				</span>
 			)}
@@ -132,18 +139,20 @@ export default memo(function ShowCard({
 				rightIcon={wc > 1 ? "−1" : undefined}
 				persistAfterSwipe={{ left: true, right: wc > 1 }}
 			>
-				<div className={`${styles.container} opacity-50`} onClick={handlePress} role="button">
+				<div className={styles.container} onClick={handlePress} role="button">
 					<PosterImage
 						posterPath={item.posterPath}
 						mediaType={item.mediaType}
 						className={`${styles.poster} ${styles.watchedPoster}`}
 					/>
 					<div className={styles.info}>
-						{titlePill(true)}
+						<span className={styles.watchedFade}>{titlePill(true)}</span>
 						{item.mediaType === MediaType.MOVIE ? (
 							movieMeta(item.releaseDate?.substring(0, 4) ?? "", true)
 						) : (
-							<span className={`${styles.episode} ${styles.muted}`}>{episodeLabel}</span>
+							<span className={`${styles.episode} ${styles.muted} ${styles.watchedFade}`}>
+								{episodeLabel}
+							</span>
 						)}
 						{item.rewatchCount > 0 && (
 							<span className={`${styles.tagBadge} ${styles.latestBadge} opacity-50`}>
@@ -151,7 +160,10 @@ export default memo(function ShowCard({
 							</span>
 						)}
 					</div>
-					<div className={styles.checkmarkWrap} onClick={(e) => e.stopPropagation()}>
+					<div
+						className={`${styles.checkmarkWrap} ${styles.watchedFade}`}
+						onClick={(e) => e.stopPropagation()}
+					>
 						<CheckmarkButton
 							size={38}
 							watched

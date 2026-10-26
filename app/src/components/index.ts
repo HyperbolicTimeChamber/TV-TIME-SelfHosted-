@@ -1,4 +1,10 @@
-export { AnimatedModal, ConfirmModal, EpisodeDetailModal, WatchActionSheet } from "./modals";
+export {
+	AnimatedModal,
+	ConfirmModal,
+	AddFailedModal,
+	EpisodeDetailModal,
+	WatchActionSheet,
+} from "./modals";
 export type { WatchAction, CarouselEpisode } from "./modals";
 export { default as CheckmarkButton } from "./CheckmarkButton";
 export { default as EpisodeCard } from "./EpisodeCard";

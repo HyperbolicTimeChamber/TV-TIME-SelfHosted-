@@ -9,13 +9,7 @@ import {
 	useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-	CommonActions,
-	useIsFocused,
-	useNavigation,
-	useRoute,
-	type RouteProp,
-} from "@react-navigation/native";
+import { CommonActions, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import Animated, {
 	runOnJS,
 	useAnimatedStyle,
@@ -81,9 +75,19 @@ export default function HomeScreen() {
 	}, [upcomingOpened, upcomingMounted]);
 
 	const index = TABS.findIndex((t) => t.key === tab);
+	// `index` on the UI thread. Written the moment a tab change *starts* (this pan's onEnd, a
+	// tab tap) rather than when React re-renders: a second swipe begun during the 250ms slide
+	// otherwise read the old tab, and a swipe back to Watch List did nothing at all.
+	const indexSV = useSharedValue(index);
+	useEffect(() => {
+		indexSV.value = index;
+	}, [index, indexSV]);
 	// Row position in px (0 = Watch List, width = Upcoming); follows the finger while dragging
 	const pos = useSharedValue(index * width);
 	const dragging = useSharedValue(false);
+	// Where the finger went down, for the manual activation below
+	const downX = useSharedValue(0);
+	const downY = useSharedValue(0);
 	// Where the row is sliding to — a swipe / tap sets it with its slide, so the `tab` re-render
 	// that follows doesn't restart the slide mid-flight (the hitch at the end of a swipe)
 	const settle = useSharedValue(index * width);
@@ -104,11 +108,12 @@ export default function HomeScreen() {
 		const sub = AppState.addEventListener("change", (state) => {
 			if (state !== "active") return;
 			dragging.value = false;
+			indexSV.value = target.current / Math.max(1, width);
 			settle.value = target.current;
 			pos.value = target.current;
 		});
 		return () => sub.remove();
-	}, [pos, dragging, settle]);
+	}, [pos, dragging, settle, indexSV, width]);
 
 	useEffect(() => {
 		const parent = navigation.getParent();
@@ -122,61 +127,112 @@ export default function HomeScreen() {
 		return () => timers.forEach(clearTimeout);
 	}, [navigation]);
 
-	// Bottom pager swipe only while Upcoming shows (its left drag → Calendar); this pan then
-	// claims rightward drags only. On Watch List the pager stays off (card swipes).
-	const focused = useIsFocused();
-	useEffect(() => {
-		navigation.getParent()?.setOptions({ swipeEnabled: focused && tab === Route.UPCOMING });
-	}, [navigation, focused, tab]);
+	// The bottom pager stays off for the whole Home tab (SwipeTabsScreen already does that) and
+	// this pan owns every sideways drag here, Upcoming → Calendar included. Handing the pager
+	// the Upcoming leg meant two handlers racing for the same drag, and the native pager wins:
+	// it intercepts at its own ~8dp slop, long before this pan's 25dp. A slow swipe back to
+	// Watch List was then swallowed and nothing moved (measured: 1 in 3 slow swipes).
+	const toCalendar = useCallback(() => {
+		navigation.getParent()?.navigate(Route.CALENDAR as never);
+	}, [navigation]);
 
 	// Tab tap: start the slide on the UI thread now — the state change (labels, swipe options)
 	// follows without holding up the animation
 	const goTo = useCallback(
 		(key: HomeTab) => {
 			const i = TABS.findIndex((t) => t.key === key);
+			indexSV.value = i;
 			settle.value = i * width;
 			pos.value = withTiming(i * width, { duration: SLIDE_MS });
 			if (key === Route.UPCOMING) setUpcomingOpened(true);
 			setTab(key);
 		},
-		[pos, settle, width],
+		[pos, settle, width, indexSV],
 	);
 
+	// Built once. Rebuilding a gesture the moment a drag ends (which `index` in the deps did)
+	// re-configures the detector mid-finalise and drops the handler's callbacks — the same
+	// trap the Calendar's pagers call out. Which direction this pan claims therefore can't be
+	// baked into activeOffsetX any more; it's decided per touch against `indexSV` instead.
 	const pan = useMemo(
 		() =>
 			Gesture.Pan()
-				.activeOffsetX(index === 1 ? START_PX : -START_PX)
-				.failOffsetY([-15, 15])
+				.manualActivation(true)
+				.onTouchesDown((e) => {
+					"worklet";
+					downX.value = e.allTouches[0].absoluteX;
+					downY.value = e.allTouches[0].absoluteY;
+				})
+				.onTouchesMove((e, state) => {
+					"worklet";
+					const touch = e.allTouches[0];
+					const dx = touch.absoluteX - downX.value;
+					const dy = touch.absoluteY - downY.value;
+					// Up / down belongs to the list (the old failOffsetY([-15, 15]))
+					if (Math.abs(dy) > 15) {
+						state.fail();
+						return;
+					}
+					// Upcoming claims both ways (right → Watch List, left → Calendar). Watch List
+					// claims leftward only; a rightward drag there is the system back gesture's.
+					if (Math.abs(dx) > START_PX) {
+						if (indexSV.value === 1 || dx < 0) state.activate();
+						else state.fail();
+					}
+				})
 				.onStart((e) => {
 					"worklet";
 					dragging.value = true;
 					grab.value = e.translationX;
 					// Not pre-mounted yet (swiped right away) — mount now
-					if (index === 0 && !upcomingMounted.value) {
+					if (indexSV.value === 0 && !upcomingMounted.value) {
 						upcomingMounted.value = true;
 						runOnJS(setUpcomingOpened)(true);
 					}
 				})
 				.onUpdate((e) => {
 					"worklet";
-					pos.value = Math.min(width, Math.max(0, index * width - (e.translationX - grab.value)));
+					const from = indexSV.value * width;
+					pos.value = Math.min(width, Math.max(0, from - (e.translationX - grab.value)));
 				})
 				.onEnd((e) => {
 					"worklet";
-					dragging.value = false;
-					let next = index;
+					const current = indexSV.value;
+					let next = current;
 					if (
-						index === 0 &&
+						current === 0 &&
 						(e.translationX < -width * TURN_SHARE || e.velocityX < -FLICK_VELOCITY)
 					)
 						next = 1;
-					if (index === 1 && (e.translationX > width * TURN_SHARE || e.velocityX > FLICK_VELOCITY))
+					if (
+						current === 1 &&
+						(e.translationX > width * TURN_SHARE || e.velocityX > FLICK_VELOCITY)
+					)
 						next = 0;
+					// Past Upcoming to the left: on to the Calendar tab (the pager used to do this)
+					if (
+						current === 1 &&
+						(e.translationX < -width * TURN_SHARE || e.velocityX < -FLICK_VELOCITY)
+					)
+						runOnJS(toCalendar)();
+					indexSV.value = next;
 					settle.value = next * width;
 					pos.value = withTiming(next * width, { duration: SLIDE_MS });
-					if (next !== index) runOnJS(setTab)(TABS[next].key);
+					if (next !== current) runOnJS(setTab)(TABS[next].key);
+				})
+				// Cancelled drags (the system back gesture, a parent claiming the touch) never
+				// reach onEnd — without this the row stays stuck wherever the finger left it
+				.onFinalize(() => {
+					"worklet";
+					if (!dragging.value) return;
+					dragging.value = false;
+					const to = indexSV.value * width;
+					if (settle.value !== to) {
+						settle.value = to;
+						pos.value = withTiming(to, { duration: SLIDE_MS });
+					}
 				}),
-		[index, width, pos, dragging, settle, grab, upcomingMounted],
+		[width, pos, dragging, settle, grab, upcomingMounted, indexSV, downX, downY, toCalendar],
 	);
 
 	// Tab trees don't depend on HomeScreen state — keep them out of its re-renders

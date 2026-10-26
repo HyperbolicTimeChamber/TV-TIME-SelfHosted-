@@ -159,8 +159,7 @@ export const styles = StyleSheet.create({
 	historyButton: {
 		alignItems: "center",
 		justifyContent: "center",
-		// Softer red than the brand red, no glow
-		backgroundColor: colors.destructiveRed,
+		backgroundColor: colors.primary,
 		// Reads as round as the (larger) stat cards
 		borderRadius: 16,
 		height: 56,
