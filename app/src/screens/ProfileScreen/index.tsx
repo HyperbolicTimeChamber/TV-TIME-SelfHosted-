@@ -127,7 +127,7 @@ export default function ProfileScreen() {
 							value={watchingCount ?? 0}
 							format={formatCount}
 							countUp={intro}
-							label="Currently Watching"
+							label="Watching"
 							flex={2}
 							posters={cardImages.trackingPosters}
 							align="left"

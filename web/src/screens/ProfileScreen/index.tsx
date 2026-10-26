@@ -61,7 +61,7 @@ export default function ProfileScreen() {
 						<CollageCard
 							value={watchingCount ?? 0}
 							format={formatCount}
-							label="Currently Watching"
+							label="Watching"
 							flex={2}
 							posters={cardImages.trackingPosters}
 							align="left"
