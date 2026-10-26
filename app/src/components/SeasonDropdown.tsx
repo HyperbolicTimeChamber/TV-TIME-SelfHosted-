@@ -92,7 +92,6 @@ export default memo(function SeasonDropdown({
 		handleCarouselMarkThrough,
 		handleCarouselUnmark,
 		handleEpisodeLongPress,
-		handleRewatchBadgePress,
 		handleCheckmarkPress,
 		handleSeasonPress,
 		seasonConfirmCopy,
@@ -233,14 +232,6 @@ export default memo(function SeasonDropdown({
 												</Text>
 												{ep.air_date && (
 													<Text style={styles.episodeMeta}>{formatDate(ep.air_date)}</Text>
-												)}
-												{count > 1 && (
-													<TouchableOpacity
-														onPress={() => handleRewatchBadgePress(ep)}
-														hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-													>
-														<Text style={styles.rewatchBadge}>Watched {count}x</Text>
-													</TouchableOpacity>
 												)}
 											</View>
 										</TouchableOpacity>
@@ -622,12 +613,6 @@ const styles = StyleSheet.create({
 	},
 	episodeMeta: {
 		...typography.caption,
-		marginTop: 2,
-		fontSize: 11,
-	},
-	rewatchBadge: {
-		...typography.caption,
-		color: colors.accent,
 		marginTop: 2,
 		fontSize: 11,
 	},

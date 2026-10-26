@@ -49,7 +49,6 @@ function EpisodeRow({
 	onPress,
 	onLongPress,
 	onCheck,
-	onBadge,
 }: {
 	ep: TMDBEpisode;
 	seasonNumber: number;
@@ -63,7 +62,6 @@ function EpisodeRow({
 	onPress: () => void;
 	onLongPress: () => void;
 	onCheck: () => void;
-	onBadge: () => void;
 }) {
 	const press = useLongPress(readOnly ? undefined : onLongPress, onPress);
 	const isWatched = count > 0;
@@ -90,17 +88,6 @@ function EpisodeRow({
 					</span>
 					<span className={styles.episodeName}>{ep.name}</span>
 					{ep.air_date && <span className={styles.episodeMeta}>{formatDate(ep.air_date)}</span>}
-					{count > 1 && !readOnly && (
-						<button
-							className={styles.rewatchBadge}
-							onClick={(e) => {
-								e.stopPropagation();
-								onBadge();
-							}}
-						>
-							Watched {count}x
-						</button>
-					)}
 				</div>
 			</div>
 			{!readOnly && (
@@ -218,7 +205,6 @@ export default memo(function SeasonDropdown({ readOnly, isFirst, isLast, ...prop
 										onPress={() => s.handleEpisodePress(ep)}
 										onLongPress={() => s.handleEpisodeLongPress(ep)}
 										onCheck={() => s.handleCheckmarkPress(ep)}
-										onBadge={() => s.handleRewatchBadgePress(ep)}
 									/>
 								);
 							})
