@@ -15,7 +15,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import SlidingTabs from "../../../components/SlidingTabs";
 import { CircleBackButton } from "../../../components/CircleButton";
 import { slideOffAndBack } from "../../../components/SwipeBackView";
-import { useSharedShimmer } from "../../../components/SkeletonLine";
 import { useWatchHistory } from "../../../hooks";
 import { useHistorySort } from "../../../hooks/useWatchHistory";
 import { CircleButtonTone, HistoryFilter, HistorySort, MediaType, Route } from "../../../enums";
@@ -62,7 +61,6 @@ function HistoryList({
 		sort,
 		filters,
 	);
-	const shimmer = useSharedShimmer();
 
 	const renderItem = useCallback(
 		({ item }: { item: HistoryCard }) =>
@@ -78,9 +76,9 @@ function HistoryList({
 					}
 				/>
 			) : (
-				<HistoryCardSkeleton shimmer={shimmer} />
+				<HistoryCardSkeleton />
 			),
-		[navigation, shimmer],
+		[navigation],
 	);
 
 	if (loading) {
@@ -88,7 +86,7 @@ function HistoryList({
 			<View style={styles.list}>
 				{SKELETONS.map((i) => (
 					<View key={i} style={i > 0 ? { marginTop: 16 } : undefined}>
-						<HistoryCardSkeleton shimmer={shimmer} />
+						<HistoryCardSkeleton />
 					</View>
 				))}
 			</View>
