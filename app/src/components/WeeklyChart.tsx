@@ -77,11 +77,19 @@ const GLOW_LAYERS = Array.from({ length: GLOW_STEPS }, (_, i) => {
 	const t = i / GLOW_STEPS;
 	return {
 		frac: 1 - t,
-		alpha: 0.05 + 0.15 * t,
+		// Climbs steeply near the axis, so the base glows nearly as bright as the bar and the two blend
+		alpha: 0.04 + 0.5 * t * t,
 		blur: BAR_WIDTH * (2.2 - 0.8 * t),
 		spread: BAR_WIDTH * 0.8 * t,
 	};
 });
+/** An outset shadow is cut out of its own box, so a bar-wide layer leaves a hole in the glow
+ *  that shows through the bar's faded top. Drawing each layer from a hairline core tucked under
+ *  the bar, with the difference added to its spread, with the core itself filled in, keeps the same shape without the hole. */
+const GLOW_CORE = 2;
+/** The blur thins a shadow at its source, so a core filled at full strength reads as a bright seam */
+const CORE_FILL = 0.55;
+const CORE_SPREAD = (BAR_WIDTH - GLOW_CORE) / 2;
 
 /** One day's bar: bright at the baseline, fading toward the tip, glowing into the dark */
 function GlowBar({ color, height }: Readonly<{ color: string; height: number }>) {
@@ -96,9 +104,14 @@ function GlowBar({ color, height }: Readonly<{ color: string; height: number }>)
 						style={[
 							styles.bar,
 							{
-								height: Math.max(height * layer.frac, BAR_WIDTH),
+								height: Math.max(height * layer.frac, BAR_WIDTH) - CORE_SPREAD,
+								bottom: CORE_SPREAD,
+								width: GLOW_CORE,
+								borderRadius: GLOW_CORE / 2,
+								// Fills the core's own cut-out to match the blurred shadow around it
+								backgroundColor: tint(color, layer.alpha * CORE_FILL),
 								// Spread, not a wider box, so the glow thickens toward the axis while the bar stays slim
-								boxShadow: `0 0 ${layer.blur}px ${layer.spread}px ${tint(color, layer.alpha)}`,
+								boxShadow: `0 0 ${layer.blur}px ${layer.spread + CORE_SPREAD}px ${tint(color, layer.alpha)}`,
 							},
 						]}
 					/>
