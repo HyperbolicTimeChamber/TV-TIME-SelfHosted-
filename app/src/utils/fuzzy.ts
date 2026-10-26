@@ -87,15 +87,26 @@ export function fuzzyRank(query: string, candidates: string[], min = 0.5): strin
 		.map((x) => x.c);
 }
 
-/**
- * Simpler versions of a query to retry when a search finds nothing: punctuation, accents and
- * a leading "the" dropped, then the last word (often the one still being typed, or misspelt).
- */
-export function fallbackQueries(query: string): string[] {
-	const out: string[] = [];
+/** The query cleaned up (punctuation, accents, a leading "the"), when that changes it */
+export function cleanedQuery(query: string): string | null {
 	const clean = normalize(query);
-	if (clean && clean !== query.trim().toLowerCase()) out.push(clean);
-	const words = clean.split(" ");
-	if (words.length > 1) out.push(words.slice(0, -1).join(" "));
-	return out;
+	return clean && clean !== query.trim().toLowerCase() ? clean : null;
+}
+
+/** Words too common to narrow a search on their own */
+const FILLER = new Set(["the", "and", "for", "with", "from", "you", "your", "of", "a", "an"]);
+
+/**
+ * A multi-word query's words worth searching one by one when the whole query finds nothing:
+ * TMDB only matches correctly spelt words, so one typo sinks the lot, but the other words
+ * still find the title on their own. Longest first (more specific), 3+ letters, no filler,
+ * at most `max`. Empty for a single word — that is the query already tried.
+ */
+export function fallbackWords(query: string, max = 3): string[] {
+	const words = [...new Set(normalize(query).split(" "))];
+	if (words.length < 2) return [];
+	return words
+		.filter((w) => w.length >= 3 && !FILLER.has(w))
+		.sort((a, b) => b.length - a.length)
+		.slice(0, max);
 }

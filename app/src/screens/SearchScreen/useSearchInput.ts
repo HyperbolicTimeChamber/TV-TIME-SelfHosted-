@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "../../stores";
 import { searchSuggestions } from "../../services/tmdb";
 import { getCachedCatalogTitles } from "../../hooks/useWatchlist";
-import { fallbackQueries, fuzzyRank, fuzzyScore } from "../../utils/fuzzy";
+import { cleanedQuery, fallbackWords, fuzzyRank, fuzzyScore } from "../../utils/fuzzy";
 
 const HISTORY_KEY = "search_history";
 const MAX_BYTES = 10240;
@@ -11,21 +11,34 @@ const MAX_BYTES = 10240;
 const MAX_LOCAL = 3;
 
 /**
- * TMDB suggestions; when there are none, simpler versions of the query (see fallbackQueries).
- * A simpler query casts a wider net ("monye heistt" → "monye" finds people named Monye), so
- * only results that still fuzzily match the whole typed query are kept — nothing beats noise.
+ * TMDB suggestions. When the query finds nothing: the cleaned-up query, then each meaningful
+ * word on its own, in parallel ("brakng bad" → "bad" finds Breaking Bad), merged. A single word
+ * casts a wide net ("monye" finds people named Monye), so only results that still fuzzily match
+ * the whole typed query are kept — nothing beats noise.
  */
 async function suggestionsWithFallback(apiKey: string, query: string): Promise<string[]> {
 	const first = await searchSuggestions(apiKey, query);
 	if (first.length > 0) return first;
-	for (const simpler of fallbackQueries(query)) {
-		if (simpler.length < 2) continue;
-		const found = (await searchSuggestions(apiKey, simpler)).filter(
-			(s) => fuzzyScore(query, s) > 0,
-		);
+	const matching = (found: string[]) => found.filter((s) => fuzzyScore(query, s) > 0);
+
+	const clean = cleanedQuery(query);
+	if (clean && clean.length >= 2) {
+		const found = matching(await searchSuggestions(apiKey, clean));
 		if (found.length > 0) return found;
 	}
-	return [];
+
+	const perWord = await Promise.all(
+		fallbackWords(query).map((w) => searchSuggestions(apiKey, w).catch(() => [] as string[])),
+	);
+	const merged: string[] = [];
+	const seen = new Set<string>();
+	for (const s of perWord.flat()) {
+		const key = s.toLowerCase();
+		if (seen.has(key)) continue;
+		seen.add(key);
+		merged.push(s);
+	}
+	return matching(merged);
 }
 
 /**

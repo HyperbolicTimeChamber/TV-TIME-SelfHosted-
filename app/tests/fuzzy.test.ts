@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fallbackQueries, fuzzyRank, fuzzyScore, normalize } from "../src/utils/fuzzy";
+import { cleanedQuery, fallbackWords, fuzzyRank, fuzzyScore, normalize } from "../src/utils/fuzzy";
 
 test("normalize: case, accents, punctuation, a leading 'the'", () => {
 	assert.equal(normalize("The Office (US)"), "office us");
@@ -28,8 +28,14 @@ test("fuzzyRank: best first, misses dropped, ties keep order", () => {
 	assert.deepEqual(fuzzyRank("bat", ["Batman", "Batwoman"]), ["Batman", "Batwoman"]);
 });
 
-test("fallbackQueries: cleaned query, then without the last word", () => {
-	assert.deepEqual(fallbackQueries("The Offfice!"), ["offfice"]);
-	assert.deepEqual(fallbackQueries("money heistt"), ["money"]);
-	assert.deepEqual(fallbackQueries("scrubs"), []);
+test("cleanedQuery: only when cleaning changes it", () => {
+	assert.equal(cleanedQuery("The Offfice!"), "offfice");
+	assert.equal(cleanedQuery("scrubs"), null);
+});
+
+test("fallbackWords: longest meaningful words of a multi-word query", () => {
+	assert.deepEqual(fallbackWords("brakng bad"), ["brakng", "bad"]);
+	assert.deepEqual(fallbackWords("The Lord of the Rnigs"), ["rnigs", "lord"]);
+	assert.deepEqual(fallbackWords("a b cd efgh ijklmn opq rs"), ["ijklmn", "efgh", "opq"]);
+	assert.deepEqual(fallbackWords("scrubs"), []);
 });
