@@ -63,7 +63,7 @@ function useGrow(count: number, animate: boolean) {
 	return bars.current;
 }
 
-const CHART_HEIGHT = 130;
+const CHART_HEIGHT = 160;
 const GLOW_HEIGHT = 24;
 const TOTAL_HEIGHT = CHART_HEIGHT + GLOW_HEIGHT;
 const BAR_WIDTH = 10;
@@ -123,7 +123,10 @@ const barHeight = (value: number, max: number) =>
 	value > 0 ? Math.max(MIN_BAR_HEIGHT, Math.sqrt(value / max) * CHART_HEIGHT) : 0;
 
 /** Room round a bar's column for its glow: a GPU-cached view is clipped to its own bounds */
-const GLOW_PAD = 28;
+const GLOW_PAD = 52;
+/** How far the canvas runs past the gap under the baseline, under the day labels, so the
+ *  widened base glow fades out rather than being cut off in a straight line */
+const GLOW_BELOW = 48;
 
 /**
  * A single boxShadow is uniform all round the box, so it halos the tip as brightly as the base.
@@ -136,10 +139,11 @@ const GLOW_LAYERS = Array.from({ length: GLOW_STEPS }, (_, i) => {
 	const t = i / GLOW_STEPS;
 	return {
 		frac: 1 - t,
-		// Climbs steeply near the axis, so the base glows nearly as bright as the bar and the two blend
+		// Climbs steeply near the axis, so the base glows nearly as bright as the bar and the two
+		// blend; faint near the tip, so the glow dies out with the bar's fade
 		alpha: 0.04 + 0.5 * t * t,
-		blur: BAR_WIDTH * (2.2 - 0.8 * t),
-		spread: BAR_WIDTH * 0.8 * t,
+		blur: BAR_WIDTH * (2.4 - 0.8 * t),
+		spread: BAR_WIDTH * 0.9 * t,
 	};
 });
 /** An outset shadow is cut out of its own box, so a bar-wide layer leaves a hole in the glow
@@ -149,12 +153,62 @@ const GLOW_CORE = 2;
 /** The blur thins a shadow at its source, so a core filled at full strength reads as a bright seam */
 const CORE_FILL = 0.55;
 const CORE_SPREAD = (BAR_WIDTH - GLOW_CORE) / 2;
+/**
+ * A pool of light on the axis under every bar, the same whatever the bar's height: wide enough
+ * that neighbouring days' pools meet and merge into one glow along the bottom. Widening the
+ * column layers instead turned tall bars into boxes and left short ones (which skip those
+ * layers) out of it.
+ */
+const POOL = { height: 8, blur: 28, spread: 24, alpha: 0.32 };
+/** How far up the pool's light reaches from the axis */
+const POOL_REACH = POOL.spread + POOL.blur / 2;
+/** Highest a glow may climb, as a share of its bar: above that the bar has faded out, and light
+ *  past its tip read as a halo over nothing */
+const GLOW_MAX_RISE = 0.7;
+/** Bars shorter than this get proportionally tighter column glows, for the same reason */
+const FULL_GLOW_HEIGHT = 80;
 
-/** One day's bar: bright at the baseline, fading toward the tip, glowing into the dark */
-function GlowBar({ color, height }: Readonly<{ color: string; height: number }>) {
+/**
+ * One day's bar: bright at the baseline, fading toward the tip, glowing into the dark. Drawn in
+ * two parts so a day's glows can all go behind its bars: the front bar's glow drawn over the
+ * back one hid it
+ */
+function GlowBar({
+	color,
+	height,
+	part,
+}: Readonly<{ color: string; height: number; part: "glow" | "fill" }>) {
 	if (height <= 0) return null;
+	if (part === "fill") {
+		return (
+			<View style={[styles.bar, { height }]}>
+				<LinearGradient
+					// Out to nothing at the tip, as the web's: an 8% tip still read as a cap
+					colors={[tint(color, 0), tint(color, 0.1), tint(color, 0.32), tint(color, 0.7), color]}
+					locations={[0, 0.12, 0.4, 0.75, 1]}
+					style={styles.barFill}
+				/>
+			</View>
+		);
+	}
+	// A short bar's pool sinks below the axis rather than shrinking: it still spreads sideways to
+	// meet its neighbours', but no longer climbs past the bar's fade
+	const poolDrop = Math.max(0, POOL_REACH - height * GLOW_MAX_RISE);
+	const shrink = Math.min(1, height / FULL_GLOW_HEIGHT);
 	return (
 		<>
+			<View
+				style={[
+					styles.bar,
+					{
+						height: POOL.height,
+						width: GLOW_CORE,
+						borderRadius: GLOW_CORE / 2,
+						backgroundColor: tint(color, POOL.alpha * CORE_FILL),
+						boxShadow: `0 ${poolDrop}px ${POOL.blur}px ${POOL.spread}px ${tint(color, POOL.alpha)}`,
+					},
+				]}
+			/>
 			{/* A short bar can't fit every step; the ones that would be squashed to the floor just pile up */}
 			{GLOW_LAYERS.filter((layer, i) => i === 0 || height * layer.frac >= BAR_WIDTH).map(
 				(layer) => (
@@ -170,19 +224,12 @@ function GlowBar({ color, height }: Readonly<{ color: string; height: number }>)
 								// Fills the core's own cut-out to match the blurred shadow around it
 								backgroundColor: tint(color, layer.alpha * CORE_FILL),
 								// Spread, not a wider box, so the glow thickens toward the axis while the bar stays slim
-								boxShadow: `0 0 ${layer.blur}px ${layer.spread + CORE_SPREAD}px ${tint(color, layer.alpha)}`,
+								boxShadow: `0 0 ${layer.blur * shrink}px ${layer.spread * shrink + CORE_SPREAD}px ${tint(color, layer.alpha)}`,
 							},
 						]}
 					/>
 				),
 			)}
-			<View style={[styles.bar, { height }]}>
-				<LinearGradient
-					colors={[tint(color, 0.08), tint(color, 0.3), tint(color, 0.7), color]}
-					locations={[0, 0.35, 0.7, 1]}
-					style={styles.barFill}
-				/>
-			</View>
 		</>
 	);
 }
@@ -254,15 +301,21 @@ export default function WeeklyChart({
 									shouldRasterizeIOS
 								>
 									<View style={styles.barStack}>
-										{/* Taller behind, shorter in front */}
-										<GlowBar
-											color={epBehind ? colors.primary : colors.moviePurple}
-											height={epBehind ? epH : movH}
-										/>
-										<GlowBar
-											color={epBehind ? colors.moviePurple : colors.primary}
-											height={epBehind ? movH : epH}
-										/>
+										{/* Both glows, then both bars: taller behind, shorter in front */}
+										{(["glow", "fill"] as const).map((part) => (
+											<React.Fragment key={part}>
+												<GlowBar
+													part={part}
+													color={epBehind ? colors.primary : colors.moviePurple}
+													height={epBehind ? epH : movH}
+												/>
+												<GlowBar
+													part={part}
+													color={epBehind ? colors.moviePurple : colors.primary}
+													height={epBehind ? movH : epH}
+												/>
+											</React.Fragment>
+										))}
 										{total === 0 && <View style={styles.emptyNub} />}
 									</View>
 								</Animated.View>
@@ -340,8 +393,9 @@ const styles = StyleSheet.create({
 		marginTop: -GLOW_PAD,
 		paddingHorizontal: GLOW_PAD,
 		paddingTop: GLOW_PAD,
-		// The bloom spills into the gap under the baseline
-		paddingBottom: GLOW_HEIGHT,
+		// The bloom spills into the gap under the baseline, and on under the day labels
+		paddingBottom: GLOW_HEIGHT + GLOW_BELOW,
+		marginBottom: -GLOW_BELOW,
 	},
 	barStack: {
 		height: CHART_HEIGHT,
