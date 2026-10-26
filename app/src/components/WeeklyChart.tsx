@@ -65,6 +65,45 @@ const GLOW_HEIGHT = 24;
 const TOTAL_HEIGHT = CHART_HEIGHT + GLOW_HEIGHT;
 const BAR_WIDTH = 10;
 const SVG_W = BAR_WIDTH + 30;
+/**
+ * A bar's count as neon: the number twice, a wide glow in the bar's colour behind a pale core
+ * with a tight glow of its own. One text shadow alone read as barely lit on Android.
+ */
+function NeonCount({
+	value,
+	color,
+	bottom,
+}: Readonly<{ value: number; color: string; bottom: number }>) {
+	const place = { position: "absolute", bottom, left: 0, width: SVG_W } as const;
+	return (
+		<>
+			<Text
+				style={[styles.countLabel, place, { color, textShadowColor: color, textShadowRadius: 12 }]}
+			>
+				{value}
+			</Text>
+			<Text
+				style={[
+					styles.countLabel,
+					place,
+					{ color: lighten(color, 0.55), textShadowColor: color, textShadowRadius: 4 },
+				]}
+			>
+				{value}
+			</Text>
+		</>
+	);
+}
+
+/** `hex` mixed `amount` (0–1) of the way to white */
+function lighten(hex: string, amount: number) {
+	const mix = (i: number) => {
+		const c = parseInt(hex.slice(i, i + 2), 16);
+		return Math.round(c + (255 - c) * amount);
+	};
+	return `rgb(${mix(1)}, ${mix(3)}, ${mix(5)})`;
+}
+
 /** Gap between a day's two stacked count labels */
 const LABEL_LINE = 13;
 /** Shortest a non-empty bar gets, so a 1 next to a 40 still reads as a bar */
@@ -164,14 +203,14 @@ export default function WeeklyChart({ data, animate = false }: Readonly<Props>) 
 
 					// Taller one behind, shorter in front
 					const epBehind = epH >= movH;
-					// Counts above the bars: the taller bar's first, the other a line up. With both,
-					// each is tinted its bar's colour so they're told apart
-					const both = day.episodes > 0 && day.movies > 0;
-					const epLabel = { kind: "ep", value: day.episodes, color: colors.primary };
-					const movLabel = { kind: "mov", value: day.movies, color: colors.moviePurple };
-					const labels = (epBehind ? [epLabel, movLabel] : [movLabel, epLabel]).filter(
-						(l) => l.value > 0,
-					);
+					// Counts above the bars in their bar's neon colour, stacked a line apart with the
+					// higher value on top
+					const labels = [
+						{ kind: "ep", value: day.episodes, color: colors.primary },
+						{ kind: "mov", value: day.movies, color: colors.moviePurple },
+					]
+						.filter((l) => l.value > 0)
+						.sort((a, b) => a.value - b.value);
 
 					return (
 						<View key={day.label} style={styles.barGroup}>
@@ -209,22 +248,13 @@ export default function WeeklyChart({ data, animate = false }: Readonly<Props>) 
 									pointerEvents="none"
 								>
 									{labels.map((l, n) => (
-										<Text
+										<NeonCount
 											key={l.kind}
-											style={[
-												styles.countLabel,
-												both && { color: l.color },
-												{
-													position: "absolute",
-													// Stacked above the taller bar, one line apart
-													bottom: GLOW_HEIGHT + Math.max(epH, movH) + 6 + n * LABEL_LINE,
-													left: 0,
-													width: SVG_W,
-												},
-											]}
-										>
-											{l.value}
-										</Text>
+											value={l.value}
+											color={l.color}
+											// Stacked above the taller bar, one line apart
+											bottom={GLOW_HEIGHT + Math.max(epH, movH) + 6 + n * LABEL_LINE}
+										/>
 									))}
 								</Animated.View>
 							</View>
@@ -310,9 +340,9 @@ const styles = StyleSheet.create({
 	},
 	countLabel: {
 		...typography.caption,
-		fontSize: 10,
-		fontWeight: "600",
-		color: colors.text,
+		fontSize: 11,
+		fontWeight: "700",
 		textAlign: "center",
+		textShadowOffset: { width: 0, height: 0 },
 	},
 });
