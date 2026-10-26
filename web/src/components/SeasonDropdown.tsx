@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { Spin } from "antd";
 import { AnimatePresence, motion } from "motion/react";
+import { IoIosArrowDown } from "react-icons/io";
 import { useSeasonActions, type SeasonDropdownProps } from "@app/components/useSeasonActions";
 import { tmdbPosterUri, tmdbStillUri } from "@app/hooks/useTmdbImage";
 import type { TMDBEpisode } from "@app/types";
@@ -30,6 +31,8 @@ type Props = SeasonDropdownProps & {
 };
 
 const pad = (n: number) => String(n).padStart(2, "0");
+// Calendar's show-card accordion beat
+const ACCORDION_S = 0.22;
 
 function EpisodeRow({
 	ep,
@@ -160,17 +163,21 @@ export default memo(function SeasonDropdown({ readOnly, ...props }: Props) {
 						/>
 					</div>
 				)}
-				<span className={styles.chevron}>{s.expanded ? "▾" : "›"}</span>
+				<IoIosArrowDown
+					size={24}
+					className={`${styles.arrow} ${s.expanded ? styles.arrowOpen : ""}`}
+				/>
 			</div>
 
 			<AnimatePresence initial={false}>
 				{s.expanded && (
+					// Same accordion as Calendar's show cards: strips slide open, seasons below follow
 					<motion.div
-						className={styles.episodeList}
+						className="overflow-hidden"
 						initial={{ height: 0, opacity: 0 }}
 						animate={{ height: "auto", opacity: 1 }}
 						exit={{ height: 0, opacity: 0 }}
-						transition={{ duration: 0.25, ease: "easeInOut" }}
+						transition={{ duration: ACCORDION_S, ease: "easeInOut" }}
 					>
 						{s.isLoading ? (
 							<div className={styles.loader}>

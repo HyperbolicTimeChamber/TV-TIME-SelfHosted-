@@ -1,15 +1,8 @@
 import React, { memo } from "react";
-import {
-	View,
-	Text,
-	TouchableOpacity,
-	StyleSheet,
-	ActivityIndicator,
-	LayoutAnimation,
-	UIManager,
-	Platform,
-} from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
+import Reanimated from "react-native-reanimated";
+import AccordionArrow, { accordionLayout, stripEntering, stripExiting } from "./AccordionArrow";
 import WatchActionSheet from "./modals/WatchActionSheet";
 import ConfirmModal from "./modals/ConfirmModal";
 import {
@@ -35,10 +28,6 @@ import { withHaptic } from "../utils/haptics";
 import { tmdbPosterUri, tmdbStillUri } from "../hooks/useTmdbImage";
 import { MediaType, TMDBEpisode } from "../types";
 import { useSeasonActions, type SeasonDropdownProps } from "./useSeasonActions";
-
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-	UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function formatDate(dateStr: string): string {
@@ -133,13 +122,12 @@ export default memo(function SeasonDropdown({
 	const showLogo = getCachedCatalogShow(tmdbId, MediaType.TV)?.logoPath ?? null;
 
 	return (
-		<View>
+		// Seasons below an opening/closing one glide to their new spot, as Calendar's cards do
+		<Reanimated.View layout={accordionLayout}>
 			<TouchableOpacity
 				style={styles.seasonRow}
-				onPress={() => {
-					LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-					setExpanded(!expanded);
-				}}
+				activeOpacity={0.85}
+				onPress={() => setExpanded(!expanded)}
 			>
 				<Image
 					source={{
@@ -176,92 +164,98 @@ export default memo(function SeasonDropdown({
 						disabled={markingEps.size > 0 || watchedLoading}
 					/>
 				</View>
-				<Text style={styles.chevron}>{expanded ? "▾" : "›"}</Text>
+				<AccordionArrow open={expanded} size={24} />
 			</TouchableOpacity>
 
-			{expanded && (
-				<View style={styles.episodeList}>
-					{isLoading ? (
+			{/* Episodes as Calendar's strips: each its own card, cascading in under the season */}
+			{expanded &&
+				(isLoading ? (
+					<Reanimated.View entering={stripEntering(0)} exiting={stripExiting}>
 						<ActivityIndicator size="small" color={colors.primary} style={styles.loader} />
-					) : (
-						episodes.map((ep: TMDBEpisode) => {
-							const watched = watchedMap.get(ep.episode_number);
-							const count = watched?.watchCount || 0;
-							const isWatched = count > 0;
+					</Reanimated.View>
+				) : (
+					episodes.map((ep: TMDBEpisode, nth: number) => {
+						const watched = watchedMap.get(ep.episode_number);
+						const count = watched?.watchCount || 0;
+						const isWatched = count > 0;
 
-							const epLabel = `S${String(season.season_number).padStart(2, "0")}E${String(ep.episode_number).padStart(2, "0")}`;
+						const epLabel = `S${String(season.season_number).padStart(2, "0")}E${String(ep.episode_number).padStart(2, "0")}`;
 
-							return (
-								<View key={ep.episode_number} style={styles.episodeRow}>
-									<TouchableOpacity
-										style={styles.episodeInfo}
-										onPress={() => handleEpisodePress(ep)}
-										onLongPress={withHaptic(() => handleEpisodeLongPress(ep))}
-										activeOpacity={0.7}
-									>
-										<View style={styles.epThumbWrap}>
-											{imagesLoading ? (
-												<SkeletonLine width={80} height={50} />
-											) : ep.still_path ? (
-												<Image
-													source={{
-														uri: tmdbStillUri(ep.still_path, 80),
-													}}
-													style={styles.epThumb}
-													contentFit="cover"
-												/>
-											) : (
-												<View style={styles.epThumbPlaceholder}>
-													<Text style={styles.epThumbText}>
-														E{String(ep.episode_number).padStart(2, "0")}
-													</Text>
-												</View>
-											)}
-										</View>
-										<View style={styles.episodeText}>
-											<Text style={styles.epLabel}>{epLabel}</Text>
-											<Text style={styles.episodeName} numberOfLines={1}>
-												{ep.name}
-											</Text>
-											{ep.air_date && (
-												<Text style={styles.episodeMeta}>{formatDate(ep.air_date)}</Text>
-											)}
-											{count > 1 && (
-												<TouchableOpacity
-													onPress={() => handleRewatchBadgePress(ep)}
-													hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-												>
-													<Text style={styles.rewatchBadge}>Watched {count}x</Text>
-												</TouchableOpacity>
-											)}
-										</View>
-									</TouchableOpacity>
-									<CheckmarkButton
-										size={28}
-										watched={isWatched}
-										loading={markingEps.has(ep.episode_number) || markingSeason}
-										label={isWatched ? `x${count}` : undefined}
-										onPress={() => handleCheckmarkPress(ep)}
-										onLongPress={
-											isWatched
-												? () => {
-														setSheetTarget({
-															type: "episode",
-															ep,
-															watchCount: count,
-														});
-														setSheetVisible(true);
-													}
-												: undefined
-										}
-										disabled={markingEps.size > 0 || markingSeason}
-									/>
-								</View>
-							);
-						})
-					)}
-				</View>
-			)}
+						return (
+							<Reanimated.View
+								key={ep.episode_number}
+								style={styles.episodeRow}
+								layout={accordionLayout}
+								entering={stripEntering(nth)}
+								exiting={stripExiting}
+							>
+								<TouchableOpacity
+									style={styles.episodeInfo}
+									onPress={() => handleEpisodePress(ep)}
+									onLongPress={withHaptic(() => handleEpisodeLongPress(ep))}
+									activeOpacity={0.7}
+								>
+									<View style={styles.epThumbWrap}>
+										{imagesLoading ? (
+											<SkeletonLine width={80} height={50} />
+										) : ep.still_path ? (
+											<Image
+												source={{
+													uri: tmdbStillUri(ep.still_path, 80),
+												}}
+												style={styles.epThumb}
+												contentFit="cover"
+											/>
+										) : (
+											<View style={styles.epThumbPlaceholder}>
+												<Text style={styles.epThumbText}>
+													E{String(ep.episode_number).padStart(2, "0")}
+												</Text>
+											</View>
+										)}
+									</View>
+									<View style={styles.episodeText}>
+										<Text style={styles.epLabel}>{epLabel}</Text>
+										<Text style={styles.episodeName} numberOfLines={1}>
+											{ep.name}
+										</Text>
+										{ep.air_date && (
+											<Text style={styles.episodeMeta}>{formatDate(ep.air_date)}</Text>
+										)}
+										{count > 1 && (
+											<TouchableOpacity
+												onPress={() => handleRewatchBadgePress(ep)}
+												hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+											>
+												<Text style={styles.rewatchBadge}>Watched {count}x</Text>
+											</TouchableOpacity>
+										)}
+									</View>
+								</TouchableOpacity>
+								<CheckmarkButton
+									size={28}
+									watched={isWatched}
+									loading={markingEps.has(ep.episode_number) || markingSeason}
+									label={isWatched ? `x${count}` : undefined}
+									onPress={() => handleCheckmarkPress(ep)}
+									onLongPress={
+										isWatched
+											? () => {
+													setSheetTarget({
+														type: "episode",
+														ep,
+														watchCount: count,
+													});
+													setSheetVisible(true);
+												}
+											: undefined
+									}
+									disabled={markingEps.size > 0 || markingSeason}
+								/>
+							</Reanimated.View>
+						);
+					})
+				))}
 
 			<WatchActionSheet
 				visible={sheetVisible}
@@ -497,22 +491,25 @@ export default memo(function SeasonDropdown({
 					}}
 				/>
 			)}
-		</View>
+		</Reanimated.View>
 	);
 });
 
 const styles = StyleSheet.create({
+	// Same card as Calendar's show cards: rounded, padded, on the surface
 	seasonRow: {
 		flexDirection: "row",
 		alignItems: "center",
-		paddingVertical: spacing.sm,
-		borderBottomWidth: 1,
-		borderBottomColor: colors.border,
+		marginBottom: spacing.md,
+		padding: spacing.md,
+		borderRadius: 16,
+		overflow: "hidden",
+		backgroundColor: colors.surface,
 	},
 	seasonPoster: {
 		width: 45,
 		height: 67,
-		borderRadius: 4,
+		borderRadius: 8,
 	},
 	seasonInfo: {
 		flex: 1,
@@ -530,25 +527,20 @@ const styles = StyleSheet.create({
 	seasonMeta: {
 		...typography.caption,
 	},
-	chevron: {
-		...typography.title,
-		color: colors.textMuted,
-		fontSize: 18,
-	},
-	episodeList: {
-		backgroundColor: colors.surface,
-		borderRadius: 8,
-		marginBottom: spacing.sm,
-	},
 	loader: {
 		paddingVertical: spacing.lg,
 	},
+	// Same strip as the episodes under an opened Calendar card: the thumb inset 6px all round
 	episodeRow: {
 		flexDirection: "row",
 		alignItems: "center",
+		marginBottom: spacing.sm,
+		paddingVertical: 6,
+		paddingLeft: 6,
 		paddingRight: spacing.md,
-		borderBottomWidth: 1,
-		borderBottomColor: colors.border,
+		borderRadius: 12,
+		overflow: "hidden",
+		backgroundColor: colors.surface,
 	},
 	episodeInfo: {
 		flex: 1,
@@ -559,6 +551,8 @@ const styles = StyleSheet.create({
 		width: 80,
 		height: 50,
 		marginRight: spacing.md,
+		borderRadius: 8,
+		overflow: "hidden",
 	},
 	epThumb: {
 		width: 80,

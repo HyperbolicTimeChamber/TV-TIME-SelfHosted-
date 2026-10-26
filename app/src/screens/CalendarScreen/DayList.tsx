@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Image } from "expo-image";
-import Reanimated, {
-	FadeInUp,
-	FadeOutUp,
-	LinearTransition,
-	useAnimatedStyle,
-	withTiming,
-} from "react-native-reanimated";
+import Reanimated from "react-native-reanimated";
 import { ScrollView } from "react-native-gesture-handler";
-import IosArrowDown from "../../components/IosArrowDown";
+import AccordionArrow, {
+	accordionLayout,
+	stripEntering,
+	stripExiting,
+} from "../../components/AccordionArrow";
 import { tmdbBlurredBackdropUri, tmdbLogoUri } from "../../hooks/useTmdbImage";
 import { MediaType } from "../../types";
 import { BLUR_RADIUS } from "../ProfileScreen/styles";
@@ -41,24 +39,6 @@ type CalendarRow =
 			ep: CalendarEpisode;
 			/** Position in its group */ nth: number;
 	  };
-
-const ACCORDION_MS = 220;
-// Episode strips cascade in, a few ms apart
-const STRIP_STAGGER_MS = 25;
-// Cards below an opening/closing group glide to their new spot
-const rowLayout = LinearTransition.duration(ACCORDION_MS);
-
-/** Dropdown arrow that turns to point up while its group is open */
-function GroupArrow({ open }: { open: boolean }) {
-	const style = useAnimatedStyle(() => ({
-		transform: [{ rotate: withTiming(open ? "180deg" : "0deg", { duration: ACCORDION_MS }) }],
-	}));
-	return (
-		<Reanimated.View style={style}>
-			<IosArrowDown size={40} />
-		</Reanimated.View>
-	);
-}
 
 interface Props {
 	episodes: CalendarEpisode[];
@@ -191,7 +171,7 @@ export default function DayList({
 						<View style={styles.epSquareRule} />
 						<View style={styles.epSquareArrow}>
 							{airTime && <Text style={styles.epSquareTime}>{airTime}</Text>}
-							<GroupArrow open={row.expanded} />
+							<AccordionArrow open={row.expanded} size={40} />
 						</View>
 					</View>
 				) : (
@@ -222,11 +202,9 @@ export default function DayList({
 		return (
 			<Reanimated.View
 				key={row.key}
-				layout={rowLayout}
-				entering={
-					isChild ? FadeInUp.duration(ACCORDION_MS).delay(row.nth * STRIP_STAGGER_MS) : undefined
-				}
-				exiting={isChild ? FadeOutUp.duration(ACCORDION_MS / 2) : undefined}
+				layout={accordionLayout}
+				entering={isChild ? stripEntering(row.nth) : undefined}
+				exiting={isChild ? stripExiting : undefined}
 			>
 				{renderRow(row)}
 			</Reanimated.View>

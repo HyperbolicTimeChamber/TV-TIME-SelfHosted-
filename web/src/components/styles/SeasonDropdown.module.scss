@@ -1,17 +1,21 @@
 @use "../../theme/tokens" as *;
 
+/* Same card as Calendar's show cards: rounded, padded, on the surface */
 .seasonRow {
 	display: flex;
 	align-items: center;
-	padding: 8px 0;
-	border-bottom: 1px solid var(--border);
+	margin-bottom: 12px;
+	padding: 12px;
+	border-radius: 16px;
+	overflow: hidden;
+	background: var(--surface);
 	cursor: pointer;
 }
 
 .seasonPoster {
 	width: 45px;
 	height: 67px;
-	border-radius: 4px;
+	border-radius: 8px;
 	object-fit: cover;
 	background: var(--surface-light);
 }
@@ -36,19 +40,13 @@
 	align-items: center;
 }
 
-.chevron {
-	font-size: 18px;
-	font-weight: 600;
-	color: var(--text-muted);
-	width: 14px;
-	text-align: center;
+.arrow {
+	flex-shrink: 0;
+	transition: transform 220ms;
 }
 
-.episodeList {
-	background: var(--surface);
-	border-radius: 8px;
-	margin-bottom: 8px;
-	overflow: hidden;
+.arrowOpen {
+	transform: rotate(180deg);
 }
 
 .loader {
@@ -57,11 +55,15 @@
 	justify-content: center;
 }
 
+/* Same strip as the episodes under an opened Calendar card: the thumb inset 6px all round */
 .episodeRow {
 	display: flex;
 	align-items: center;
-	padding-right: 12px;
-	border-bottom: 1px solid var(--border);
+	margin-bottom: 8px;
+	padding: 6px 12px 6px 6px;
+	border-radius: 12px;
+	overflow: hidden;
+	background: var(--surface);
 }
 
 .episodeInfo {
@@ -83,6 +85,8 @@
 	height: 50px;
 	margin-right: 12px;
 	flex-shrink: 0;
+	border-radius: 8px;
+	overflow: hidden;
 }
 
 .epThumb {
