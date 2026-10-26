@@ -260,9 +260,11 @@ export default function ShowDetailScreen() {
 								<Text style={styles.sectionTitle}>Seasons</Text>
 								{show.seasons
 									.filter((s) => s.season_number > 0)
-									?.map((season) => (
+									?.map((season, i, list) => (
 										<SeasonDropdown
 											key={season.season_number}
+											isFirst={i === 0}
+											isLast={i === list.length - 1}
 											tmdbId={tmdbId}
 											season={season}
 											showTitle={title}

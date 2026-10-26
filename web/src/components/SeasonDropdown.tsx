@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Spin } from "antd";
 import { AnimatePresence, motion } from "motion/react";
 import { IoIosArrowDown } from "react-icons/io";
@@ -28,6 +28,9 @@ import SkeletonBlock from "./SkeletonBlock";
 type Props = SeasonDropdownProps & {
 	/** Logged-out web visitors: browse only, no check buttons */
 	readOnly?: boolean;
+	/** Where this season sits in the show's list: only the list's outer corners are rounded */
+	isFirst?: boolean;
+	isLast?: boolean;
 };
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -42,6 +45,7 @@ function EpisodeRow({
 	disabled,
 	imagesLoading,
 	readOnly,
+	groupBottom,
 	onPress,
 	onLongPress,
 	onCheck,
@@ -54,6 +58,8 @@ function EpisodeRow({
 	disabled: boolean;
 	imagesLoading: boolean;
 	readOnly?: boolean;
+	/** Last episode of the last season: rounds off the bottom of the list */
+	groupBottom: boolean;
 	onPress: () => void;
 	onLongPress: () => void;
 	onCheck: () => void;
@@ -62,7 +68,7 @@ function EpisodeRow({
 	const press = useLongPress(readOnly ? undefined : onLongPress, onPress);
 	const isWatched = count > 0;
 	return (
-		<div className={styles.episodeRow}>
+		<div className={`${styles.episodeRow} ${groupBottom ? styles.groupBottom : ""}`}>
 			<div className={styles.episodeInfo} role="button" tabIndex={0} {...press}>
 				<div className={styles.epThumbWrap}>
 					{imagesLoading ? (
@@ -113,18 +119,30 @@ function EpisodeRow({
 }
 
 /** Expandable season row with episode list (app SeasonDropdown) */
-export default memo(function SeasonDropdown({ readOnly, ...props }: Props) {
+export default memo(function SeasonDropdown({ readOnly, isFirst, isLast, ...props }: Props) {
 	const s = useSeasonActions(props);
+	// While the episodes slide shut they still hang under the card, so it stays square till then
+	const [closing, setClosing] = useState(false);
 	const { season, showPosterPath } = props;
 	const showLogo = getCachedCatalogShow(props.tmdbId, MediaType.TV)?.logoPath ?? null;
 
 	return (
 		<div className={styles.season}>
 			<div
-				className={styles.seasonRow}
+				className={[
+					styles.seasonRow,
+					isFirst && styles.groupTop,
+					// The last season rounds off the list, unless its episodes hang below it
+					isLast && !s.expanded && !closing && styles.groupBottom,
+				]
+					.filter(Boolean)
+					.join(" ")}
 				role="button"
 				tabIndex={0}
-				onClick={() => s.setExpanded(!s.expanded)}
+				onClick={() => {
+					if (s.expanded) setClosing(true);
+					s.setExpanded(!s.expanded);
+				}}
 			>
 				<img
 					src={tmdbPosterUri(season.poster_path || showPosterPath || "", 45)}
@@ -169,7 +187,7 @@ export default memo(function SeasonDropdown({ readOnly, ...props }: Props) {
 				/>
 			</div>
 
-			<AnimatePresence initial={false}>
+			<AnimatePresence initial={false} onExitComplete={() => setClosing(false)}>
 				{s.expanded && (
 					// Same accordion as Calendar's show cards: strips slide open, seasons below follow
 					<motion.div
@@ -184,7 +202,7 @@ export default memo(function SeasonDropdown({ readOnly, ...props }: Props) {
 								<Spin />
 							</div>
 						) : (
-							s.episodes.map((ep: TMDBEpisode) => {
+							s.episodes.map((ep: TMDBEpisode, nth: number) => {
 								const count = s.watchedMap.get(ep.episode_number)?.watchCount || 0;
 								return (
 									<EpisodeRow
@@ -196,6 +214,7 @@ export default memo(function SeasonDropdown({ readOnly, ...props }: Props) {
 										disabled={s.markingEps.size > 0 || s.markingSeason}
 										imagesLoading={s.imagesLoading}
 										readOnly={readOnly}
+										groupBottom={!!isLast && nth === s.episodes.length - 1}
 										onPress={() => s.handleEpisodePress(ep)}
 										onLongPress={() => s.handleEpisodeLongPress(ep)}
 										onCheck={() => s.handleCheckmarkPress(ep)}

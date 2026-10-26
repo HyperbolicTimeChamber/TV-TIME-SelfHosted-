@@ -35,6 +35,9 @@ function formatDate(dateStr: string): string {
 	return `${parseInt(d, 10)} ${MONTHS[parseInt(m, 10) - 1]} ${y}`;
 }
 
+/** Where this season sits in the show's list: only the list's outer corners are rounded */
+type Props = SeasonDropdownProps & { isFirst?: boolean; isLast?: boolean };
+
 export default memo(function SeasonDropdown({
 	tmdbId,
 	season,
@@ -46,7 +49,9 @@ export default memo(function SeasonDropdown({
 	trackingItem,
 	seasonLayout,
 	episodesBySeason,
-}: SeasonDropdownProps) {
+	isFirst,
+	isLast,
+}: Props) {
 	const {
 		expanded,
 		setExpanded,
@@ -126,7 +131,12 @@ export default memo(function SeasonDropdown({
 	return (
 		<View style={styles.season}>
 			<TouchableOpacity
-				style={styles.seasonRow}
+				style={[
+					styles.seasonRow,
+					isFirst && styles.groupTop,
+					// The last season rounds off the list, unless its episodes hang below it
+					isLast && !accordion.mounted && styles.groupBottom,
+				]}
 				activeOpacity={0.85}
 				onPress={() => setExpanded(!expanded)}
 			>
@@ -185,7 +195,10 @@ export default memo(function SeasonDropdown({
 								return (
 									<Reanimated.View
 										key={ep.episode_number}
-										style={styles.episodeRow}
+										style={[
+											styles.episodeRow,
+											isLast && nth === episodes.length - 1 && styles.groupBottom,
+										]}
 										entering={stripEntering(nth)}
 									>
 										<TouchableOpacity
@@ -498,20 +511,28 @@ export default memo(function SeasonDropdown({
 });
 
 const styles = StyleSheet.create({
-	// Same card as Calendar's show cards: rounded, on the surface. The poster runs flush to its
-	// edges (the card's corners round it) so the card is only as tall as the poster
 	// Same hairline gap as the episodes, under the whole dropdown so an open one's episodes hang
 	// just under its card
 	season: {
 		marginBottom: 2,
 	},
+	// Seasons and their open episodes read as one list: square where they meet, rounded only at
+	// the list's top and bottom (groupTop / groupBottom). The poster runs flush to the card's
+	// edges, so the card is only as tall as the poster
 	seasonRow: {
 		flexDirection: "row",
 		alignItems: "center",
 		paddingRight: spacing.md,
-		borderRadius: 16,
 		overflow: "hidden",
 		backgroundColor: colors.surface,
+	},
+	groupTop: {
+		borderTopLeftRadius: 16,
+		borderTopRightRadius: 16,
+	},
+	groupBottom: {
+		borderBottomLeftRadius: 16,
+		borderBottomRightRadius: 16,
 	},
 	seasonPoster: {
 		width: 45,
@@ -553,7 +574,6 @@ const styles = StyleSheet.create({
 		paddingVertical: 6,
 		paddingLeft: 6,
 		paddingRight: spacing.md,
-		borderRadius: 12,
 		overflow: "hidden",
 		backgroundColor: colors.surface,
 	},
