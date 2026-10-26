@@ -1,10 +1,24 @@
-import { useEffect, useRef } from "react";
-import { AccessibilityInfo, Animated, Easing, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+	AccessibilityInfo,
+	Animated,
+	Easing,
+	LayoutChangeEvent,
+	StyleSheet,
+	Text,
+	View,
+} from "react-native";
+import Svg, { Defs, Ellipse, LinearGradient, RadialGradient, Rect, Stop } from "react-native-svg";
 import { colors, spacing, typography } from "../../theme";
 
 const GROW_MS = 500;
 const GROW_STAGGER_MS = 80;
-const BAR_HEIGHT = 14;
+/** Core bar thickness; the glow needs three times this around it */
+const BAR_H = 12;
+const GLOW_H = BAR_H * 3;
+const CY = GLOW_H / 2;
+/** Mirrors the ellipse the chart puts under each bar */
+const BASE_GLOW = 20;
 
 interface Props {
 	episodes: number;
@@ -13,21 +27,79 @@ interface Props {
 	animate?: boolean;
 }
 
-/** One bar per kind, both measured against whichever had the bigger week */
+/** WeeklyChart's GlowBar laid on its side: the bar runs right from the axis instead of up */
+function GlowBar({ id, color, length }: Readonly<{ id: string; color: string; length: number }>) {
+	if (length <= 0) {
+		return (
+			<>
+				<Rect x={0} y={CY - BAR_H / 2} width={4} height={BAR_H} rx={2} fill={colors.surfaceLight} />
+				<Ellipse
+					cx={2}
+					cy={CY}
+					rx={BASE_GLOW * 0.3}
+					ry={BAR_H}
+					fill={colors.surfaceLight}
+					opacity={0.1}
+				/>
+			</>
+		);
+	}
+	return (
+		<>
+			{/* Outer glow — wide, soft */}
+			<Rect
+				x={0}
+				y={CY - BAR_H * 1.5}
+				width={length * 0.8}
+				height={BAR_H * 3}
+				rx={BAR_H * 1.5}
+				fill={color}
+				opacity={0.12}
+			/>
+			{/* Mid glow */}
+			<Rect
+				x={0}
+				y={CY - BAR_H}
+				width={length * 0.9}
+				height={BAR_H * 2}
+				rx={BAR_H}
+				fill={color}
+				opacity={0.2}
+			/>
+			{/* Core bar — bright at the axis, fading at the tip */}
+			<Rect
+				x={0}
+				y={CY - BAR_H / 2}
+				width={length}
+				height={BAR_H}
+				rx={BAR_H / 2}
+				fill={`url(#${id})`}
+			/>
+			{/* Base glow where the bar leaves the axis */}
+			<Ellipse cx={0} cy={CY} rx={BASE_GLOW * 0.55} ry={BAR_H * 1.8} fill={`url(#${id}_radial)`} />
+		</>
+	);
+}
+
 function Bar({
 	label,
 	value,
 	share,
 	color,
+	id,
 	grow,
-}: {
+}: Readonly<{
 	label: string;
 	value: number;
 	/** 0–1 of the row's width */
 	share: number;
 	color: string;
+	id: string;
 	grow: Animated.Value;
-}) {
+}>) {
+	const [width, setWidth] = useState(0);
+	const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
+
 	return (
 		<View style={styles.row}>
 			<View style={styles.rowHeader}>
@@ -37,17 +109,26 @@ function Bar({
 				</View>
 				<Text style={styles.value}>{value}</Text>
 			</View>
-			<View style={styles.track}>
-				<Animated.View
-					style={[
-						styles.fill,
-						{
-							backgroundColor: color,
-							transform: [{ scaleX: grow }],
-							width: `${Math.max(share, value > 0 ? 0.02 : 0) * 100}%`,
-						},
-					]}
-				/>
+			<View style={styles.track} onLayout={onLayout}>
+				{width > 0 && (
+					<Animated.View style={{ transformOrigin: "left", transform: [{ scaleX: grow }] }}>
+						<Svg width={width} height={GLOW_H}>
+							<Defs>
+								<LinearGradient id={id} x1="0" y1="0" x2="1" y2="0">
+									<Stop offset="0" stopColor={color} stopOpacity="1" />
+									<Stop offset="0.2" stopColor={color} stopOpacity="0.95" />
+									<Stop offset="0.6" stopColor={color} stopOpacity="0.6" />
+									<Stop offset="1" stopColor={color} stopOpacity="0.15" />
+								</LinearGradient>
+								<RadialGradient id={`${id}_radial`} cx="50%" cy="50%" rx="50%" ry="50%">
+									<Stop offset="0" stopColor={color} stopOpacity="0.5" />
+									<Stop offset="1" stopColor={color} stopOpacity="0" />
+								</RadialGradient>
+							</Defs>
+							<GlowBar id={id} color={color} length={width * share} />
+						</Svg>
+					</Animated.View>
+				)}
 			</View>
 		</View>
 	);
@@ -94,6 +175,7 @@ export default function WeeklyRate({ episodes, movies, animate = false }: Readon
 		<View style={styles.container}>
 			<Text style={styles.title}>Weekly Watch Rate</Text>
 			<Bar
+				id="weekEp"
 				label="Episodes"
 				value={episodes}
 				share={episodes / peak}
@@ -101,6 +183,7 @@ export default function WeeklyRate({ episodes, movies, animate = false }: Readon
 				grow={bars.current[0]}
 			/>
 			<Bar
+				id="weekMov"
 				label="Movies"
 				value={movies}
 				share={movies / peak}
@@ -117,19 +200,16 @@ const styles = StyleSheet.create({
 		marginHorizontal: spacing.lg,
 		paddingHorizontal: spacing.lg,
 		marginTop: spacing.xl,
+		gap: spacing.sm,
 	},
 	title: {
 		...typography.subtitle,
-		marginBottom: spacing.md,
 	},
-	row: {
-		marginBottom: spacing.md,
-	},
+	row: {},
 	rowHeader: {
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "space-between",
-		marginBottom: spacing.xs,
 	},
 	rowLabel: {
 		flexDirection: "row",
@@ -151,16 +231,9 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		color: colors.text,
 	},
+	// No plate behind it: the bars sit on the page as the chart's do, glow and all
 	track: {
-		height: BAR_HEIGHT,
-		borderRadius: BAR_HEIGHT / 2,
-		backgroundColor: colors.surface,
-		overflow: "hidden",
-	},
-	// Grown with scaleX from the left edge, so the fill runs out rather than fading in
-	fill: {
-		height: BAR_HEIGHT,
-		borderRadius: BAR_HEIGHT / 2,
-		transformOrigin: "left",
+		height: GLOW_H,
+		justifyContent: "center",
 	},
 });

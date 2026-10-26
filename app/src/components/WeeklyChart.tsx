@@ -309,7 +309,6 @@ const styles = StyleSheet.create({
 		borderRadius: 12,
 		padding: spacing.lg,
 		marginHorizontal: spacing.lg,
-		marginTop: spacing.lg,
 	},
 	title: {
 		...typography.subtitle,
