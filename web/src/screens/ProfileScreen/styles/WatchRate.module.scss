@@ -1,8 +1,7 @@
 /* Weekly + Daily Watch Rate — mirrors app WeeklyRate / WeeklyChart */
 
-$bar-w: 10px;
+/* Daily chart sizes come from the row (--bar-w, --col-w, --scale, --label-*): it scales with its width */
 $rate-bar-h: 6px;
-$col-w: 40px;
 
 /* Bright where the bar leaves the axis, fading at the tip */
 @function fade($dir) {
@@ -141,7 +140,7 @@ $col-w: 40px;
 
 .barColumn {
 	position: relative;
-	width: $col-w;
+	width: var(--col-w);
 }
 
 .grow {
@@ -154,19 +153,40 @@ $col-w: 40px;
 .bar {
 	position: absolute;
 	bottom: 0;
-	left: 15px;
-	width: $bar-w;
-	border-radius: 5px;
-	background: fade(to top);
+	left: calc((var(--col-w) - var(--bar-w)) / 2);
+	width: var(--bar-w);
+	border-radius: calc(var(--bar-w) / 2);
+	/* Steeper than the weekly bars' fade, and all the way out: on a bar this wide an 8% tip
+	   still reads as a solid cap */
+	background: linear-gradient(
+		to top,
+		var(--color),
+		color-mix(in srgb, var(--color) 70%, transparent) 25%,
+		color-mix(in srgb, var(--color) 32%, transparent) 60%,
+		color-mix(in srgb, var(--color) 10%, transparent) 88%,
+		transparent
+	);
 
 	&::before {
 		content: "";
 		position: absolute;
-		inset: 0 -2px;
+		inset: 0 calc(-5px * var(--scale));
 		border-radius: inherit;
 		background: inherit;
-		filter: blur(10px);
-		opacity: 0.9;
+		filter: blur(calc(14px * var(--scale)));
+		/* The glow is the bar's own fade blurred, so it dies out with the tip: it can run at
+		   full strength, brightest round the base, without capping the top again */
+		z-index: -1;
+	}
+
+	/* A tight inner halo, so the bar's edge glows as well as the area round it */
+	&::after {
+		content: "";
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		background: inherit;
+		filter: blur(calc(4px * var(--scale)));
 		z-index: -1;
 	}
 }
@@ -174,8 +194,8 @@ $col-w: 40px;
 .emptyNub {
 	position: absolute;
 	bottom: 0;
-	left: 15px;
-	width: $bar-w;
+	left: calc((var(--col-w) - var(--bar-w)) / 2);
+	width: var(--bar-w);
 	height: 4px;
 	border-radius: 2px;
 	background: var(--surface-light);
@@ -192,8 +212,8 @@ $col-w: 40px;
 	position: absolute;
 	left: 0;
 	width: 100%;
-	font-size: 11px;
-	line-height: 13px;
+	font-size: var(--label-font);
+	line-height: var(--label-line);
 	font-weight: 700;
 	text-align: center;
 	color: color-mix(in srgb, var(--color) 45%, white);
@@ -203,7 +223,7 @@ $col-w: 40px;
 }
 
 .dayLabel {
-	font-size: 10px;
+	font-size: var(--day-font);
 	color: var(--text-secondary);
 	margin-top: 4px;
 }

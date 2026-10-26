@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { useElementWidth } from "../../hooks/useElementWidth";
 import styles from "./styles/WatchRate.module.scss";
 
 interface DayData {
@@ -11,20 +12,48 @@ interface DayData {
 const EPISODE_COLOR = "var(--primary)";
 const MOVIE_COLOR = "var(--movie-purple)";
 
+/** The app's chart row on a 390pt phone; its sizes below are for that width */
+const BASE_WIDTH = 326;
 const CHART_HEIGHT = 130;
 const BAR_WIDTH = 10;
-/** Shortest a non-empty bar gets, so a 1 next to a 40 still reads as a bar */
-const MIN_BAR_HEIGHT = BAR_WIDTH * 2;
-/** One count label's line; a day's two stack one line apart */
+/** A bar's column: the bar plus room for its count labels */
+const COLUMN_WIDTH = 40;
+/** One count label's line and size; a day's two stack one line apart */
 const LABEL_LINE = 13;
+const LABEL_FONT = 11;
+const DAY_FONT = 10;
 /** Space between a bar's top and its count */
 const LABEL_GAP = 6;
 const GROW_STAGGER_MS = 60;
 const RATE_STAGGER_MS = 80;
 
+/**
+ * Sizes for a chart row `width` wide. The chart keeps the app's proportions: on a wide screen
+ * the bars grow taller and thicker instead of spreading apart. Never smaller than the app's.
+ * Counts grow half as fast, so they stay labels rather than headlines.
+ */
+function chartSizes(width: number) {
+	const scale = Math.max(1, width / BASE_WIDTH);
+	const labelScale = 1 + (scale - 1) / 2;
+	const barWidth = BAR_WIDTH * scale;
+	return {
+		scale,
+		chartHeight: CHART_HEIGHT * scale,
+		barWidth,
+		/** Shortest a non-empty bar gets, so a 1 next to a 40 still reads as a bar */
+		minBarHeight: barWidth * 2,
+		columnWidth: COLUMN_WIDTH * scale,
+		labelLine: LABEL_LINE * labelScale,
+		labelFont: LABEL_FONT * labelScale,
+		dayFont: DAY_FONT * labelScale,
+		labelGap: LABEL_GAP * scale,
+	};
+}
+type ChartSizes = ReturnType<typeof chartSizes>;
+
 /** Bar height on a square-root scale, as the app's: a big day doesn't squash the small ones into dots */
-const barHeight = (value: number, max: number) =>
-	value > 0 ? Math.max(MIN_BAR_HEIGHT, Math.sqrt(value / max) * CHART_HEIGHT) : 0;
+const barHeight = (value: number, max: number, size: ChartSizes) =>
+	value > 0 ? Math.max(size.minBarHeight, Math.sqrt(value / max) * size.chartHeight) : 0;
 
 /** Weekly Watch Rate + Daily Watch Rate — same data and scales as the app's Profile charts */
 export default function WatchRate({
@@ -43,6 +72,9 @@ export default function WatchRate({
 	const empty = week.episodes + week.movies === 0;
 	const peak = Math.max(week.episodes, week.movies, 1);
 
+	const [rowRef, rowWidth] = useElementWidth<HTMLDivElement>();
+	const size = chartSizes(rowWidth);
+
 	const maxVal = Math.max(1, ...data.map((d) => Math.max(d.episodes, d.movies)));
 	// Room above the chart for whichever day's count labels reach highest: a day with two labels
 	// can stand taller than the peak day with one. No dead space under the title otherwise
@@ -51,8 +83,8 @@ export default function WatchRate({
 		...data.map((d) => {
 			const labels = Number(d.episodes > 0) + Number(d.movies > 0);
 			if (!labels) return 0;
-			const top = barHeight(Math.max(d.episodes, d.movies), maxVal);
-			return top + LABEL_GAP + labels * LABEL_LINE - CHART_HEIGHT;
+			const top = barHeight(Math.max(d.episodes, d.movies), maxVal, size);
+			return top + size.labelGap + labels * size.labelLine - size.chartHeight;
 		}),
 	);
 
@@ -83,16 +115,30 @@ export default function WatchRate({
 				<h3 className={`${styles.title} ${styles.chartTitle}`}>
 					{empty ? "Weekly Watch Rate" : "Daily Watch Rate"}
 				</h3>
-				<div className={styles.chartRow} style={{ paddingTop: labelRoom }}>
+				<div
+					ref={rowRef}
+					className={styles.chartRow}
+					style={
+						{
+							paddingTop: labelRoom,
+							"--scale": size.scale,
+							"--bar-w": `${size.barWidth}px`,
+							"--col-w": `${size.columnWidth}px`,
+							"--label-font": `${size.labelFont}px`,
+							"--label-line": `${size.labelLine}px`,
+							"--day-font": `${size.dayFont}px`,
+						} as CSSProperties
+					}
+				>
 					{/* The message waits for the week to load: until then empty isn't known to be empty */}
 					{empty && !loading && (
-						<p className={styles.emptyText} style={{ height: CHART_HEIGHT }}>
+						<p className={styles.emptyText} style={{ height: size.chartHeight }}>
 							Nothing watched in the last 7 days
 						</p>
 					)}
 					{data.map((day, i) => {
-						const epH = barHeight(day.episodes, maxVal);
-						const movH = barHeight(day.movies, maxVal);
+						const epH = barHeight(day.episodes, maxVal, size);
+						const movH = barHeight(day.movies, maxVal, size);
 						// Taller one behind, shorter in front
 						const bars = [
 							{ kind: "ep", h: epH, color: EPISODE_COLOR },
@@ -109,7 +155,7 @@ export default function WatchRate({
 
 						return (
 							<div key={day.day} className={styles.barGroup}>
-								<div className={styles.barColumn} style={{ height: CHART_HEIGHT }}>
+								<div className={styles.barColumn} style={{ height: size.chartHeight }}>
 									<div className={styles.grow} style={delay}>
 										{bars.map(
 											(b) =>
@@ -130,7 +176,7 @@ export default function WatchRate({
 												className={styles.count}
 												style={
 													{
-														bottom: Math.max(epH, movH) + LABEL_GAP + n * LABEL_LINE,
+														bottom: Math.max(epH, movH) + size.labelGap + n * size.labelLine,
 														"--color": l.color,
 													} as CSSProperties
 												}
