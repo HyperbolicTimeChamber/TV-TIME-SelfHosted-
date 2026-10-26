@@ -198,8 +198,8 @@ const styles = StyleSheet.create({
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "space-between",
-		// A little clear of the bar's glow below
-		paddingBottom: 2,
+		// Clear of the bar's glow below
+		paddingBottom: spacing.xs + 2,
 	},
 	rowLabel: {
 		flexDirection: "row",

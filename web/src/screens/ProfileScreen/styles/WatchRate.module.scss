@@ -1,0 +1,265 @@
+/* Weekly + Daily Watch Rate — mirrors app WeeklyRate / WeeklyChart */
+
+/* Daily chart sizes come from the row (--bar-w, --col-w, --scale, --label-*): it scales with its width */
+$rate-bar-h: 6px;
+
+/* Bright where the bar leaves the axis, fading at the tip */
+@function fade($dir) {
+	@return linear-gradient(
+		$dir,
+		var(--color),
+		color-mix(in srgb, var(--color) 70%, transparent) 30%,
+		color-mix(in srgb, var(--color) 30%, transparent) 65%,
+		color-mix(in srgb, var(--color) 8%, transparent)
+	);
+}
+
+.root {
+	margin: 24px 16px 0;
+	padding: 0 16px;
+}
+
+.title {
+	font-size: 16px;
+	font-weight: 600;
+	margin: 0 0 8px;
+}
+
+/* Weekly Watch Rate */
+
+.rate {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+
+	.title {
+		margin: 0;
+	}
+}
+
+.rowHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding-bottom: 2px;
+}
+
+.rowLabel {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 12px;
+	color: var(--text-secondary);
+}
+
+.swatch {
+	width: 10px;
+	height: 10px;
+	border-radius: 5px;
+}
+
+.value {
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.track {
+	/* Keeps each bar's glow (z-index -1) behind its bar, not behind the page */
+	isolation: isolate;
+	height: 14px;
+	display: flex;
+	align-items: center;
+}
+
+.rateBar {
+	position: relative;
+	height: $rate-bar-h;
+	border-radius: 3px;
+	background: fade(to right);
+	transform-origin: left center;
+
+	/* The bar's own gradient, blurred behind it: glows brightest at the axis, like the app's */
+	&::before {
+		content: "";
+		position: absolute;
+		inset: -2px 0;
+		border-radius: inherit;
+		background: inherit;
+		filter: blur(8px);
+		opacity: 0.9;
+		z-index: -1;
+	}
+}
+
+.stub {
+	width: 4px;
+	height: $rate-bar-h;
+	border-radius: 2px;
+	background: var(--surface-light);
+}
+
+/* Daily Watch Rate */
+
+.chart {
+	margin-top: 24px;
+}
+
+/* Twice the Weekly title's gap: the top count labels' glow crowded 8px */
+.chartTitle {
+	margin-bottom: 16px;
+}
+
+/* Nothing watched this week: centred over the bars' area, above the nubs and day labels */
+.emptyText {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin: 0;
+	font-size: 12px;
+	color: var(--text-secondary);
+	pointer-events: none;
+}
+
+.chartRow {
+	position: relative;
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-end;
+}
+
+.barGroup {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.barColumn {
+	position: relative;
+	width: var(--col-w);
+}
+
+.grow {
+	isolation: isolate;
+	position: absolute;
+	inset: 0;
+	transform-origin: bottom center;
+}
+
+.bar {
+	position: absolute;
+	bottom: 0;
+	left: calc((var(--col-w) - var(--bar-w)) / 2);
+	width: var(--bar-w);
+	border-radius: calc(var(--bar-w) / 2);
+	/* Steeper than the weekly bars' fade, and all the way out: on a bar this wide an 8% tip
+	   still reads as a solid cap */
+	background: linear-gradient(
+		to top,
+		var(--color),
+		color-mix(in srgb, var(--color) 70%, transparent) 25%,
+		color-mix(in srgb, var(--color) 32%, transparent) 60%,
+		color-mix(in srgb, var(--color) 10%, transparent) 88%,
+		transparent
+	);
+
+	&::before {
+		content: "";
+		position: absolute;
+		inset: 0 calc(-5px * var(--scale));
+		border-radius: inherit;
+		background: inherit;
+		filter: blur(calc(14px * var(--scale)));
+		/* The glow is the bar's own fade blurred, so it dies out with the tip: it can run at
+		   full strength, brightest round the base, without capping the top again */
+		z-index: -1;
+	}
+
+	/* A tight inner halo, so the bar's edge glows as well as the area round it */
+	&::after {
+		content: "";
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		background: inherit;
+		filter: blur(calc(4px * var(--scale)));
+		z-index: -1;
+	}
+}
+
+.emptyNub {
+	position: absolute;
+	bottom: 0;
+	left: calc((var(--col-w) - var(--bar-w)) / 2);
+	width: var(--bar-w);
+	height: 4px;
+	border-radius: 2px;
+	background: var(--surface-light);
+}
+
+.counts {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+
+/* Neon: pale core, tight glow plus a wide one in the bar's colour */
+.count {
+	position: absolute;
+	left: 0;
+	width: 100%;
+	font-size: var(--label-font);
+	line-height: var(--label-line);
+	font-weight: 700;
+	text-align: center;
+	color: color-mix(in srgb, var(--color) 45%, white);
+	text-shadow:
+		0 0 4px var(--color),
+		0 0 12px var(--color);
+}
+
+.dayLabel {
+	font-size: var(--day-font);
+	color: var(--text-secondary);
+	margin-top: 4px;
+}
+
+/* First visit: bars grow from the axis a beat apart, counts fade in with them */
+
+@keyframes growX {
+	from {
+		transform: scaleX(0);
+	}
+}
+
+@keyframes growY {
+	from {
+		transform: scaleY(0);
+	}
+}
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+	}
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.intro {
+		.rateBar {
+			animation: growX 500ms cubic-bezier(0.33, 1, 0.68, 1) var(--delay) backwards;
+		}
+
+		.grow {
+			animation: growY 450ms cubic-bezier(0.33, 1, 0.68, 1) var(--delay) backwards;
+		}
+
+		.counts {
+			animation: fadeIn 450ms ease-out var(--delay) backwards;
+		}
+	}
+}

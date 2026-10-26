@@ -9,7 +9,9 @@ const DURATION_MS = 900;
  * straight, so later changes just appear. Honours the system's reduce-motion setting.
  */
 export function useCountUp(value: number, run: boolean, duration = DURATION_MS): number {
-	const [display, setDisplay] = useState(value);
+	// Counting from the first render (web mounts with cached stats): start at zero, or the full
+	// number shows for a frame before the count resets it
+	const [display, setDisplay] = useState(run && value > 0 ? 0 : value);
 	const counted = useRef(false);
 	const frame = useRef<number | null>(null);
 

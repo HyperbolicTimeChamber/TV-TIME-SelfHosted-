@@ -1,26 +1,36 @@
 import { useMemo } from "react";
 import { Spin } from "antd";
 import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
-import { generateCollageLayout } from "@app/utils/collageLayout";
+import { collageColumns, generateCollageLayout } from "@app/utils/collageLayout";
 import styles from "./styles/ProfileScreen.module.scss";
+import { useCountUp } from "@app/hooks/useCountUp";
 import { cssVars } from "../../utils/cssVars";
 
 interface CardProps {
-	value: string | number;
+	value: number;
+	/** Applied to every counted frame, so the card keeps its "26.1K" / "1y 265d" shape */
+	format: (value: number) => string;
 	label: string;
 	flex: number;
 	align?: "left" | "right";
 	loading?: boolean;
 }
 
-function CardBody({ value, label, loading }: Pick<CardProps, "value" | "label" | "loading">) {
+/** Counts up from zero each time the page shows (the app does it once per launch) */
+function CardBody({
+	value,
+	format,
+	label,
+	loading,
+}: Pick<CardProps, "value" | "format" | "label" | "loading">) {
+	const shown = useCountUp(value, !loading);
 	return (
 		<>
 			<span className={styles.statLabel}>{label}</span>
 			{loading ? (
 				<Spin size="small" className={styles.statLoader} />
 			) : (
-				<span className={styles.statNumber}>{value}</span>
+				<span className={styles.statNumber}>{format(shown)}</span>
 			)}
 		</>
 	);
@@ -41,6 +51,11 @@ export function StatCard({ backdrop, ...p }: CardProps & { backdrop?: string | n
 }
 
 const SCATTER_THRESHOLD = 10;
+/** A scattered poster's width against its layout column. Columns sit 1.1 apart, so a bit past
+ *  that overlaps its neighbours and the pile reads as solid at any card width */
+const SCATTER_COVER = 1.3;
+/** Widest a scattered poster gets (desktop cards), for the image size to fetch */
+const SCATTER_MAX_W = 160;
 
 /** Poster collage card — grid for few posters, scattered pile for many (app CollageCard) */
 export function CollageCard({
@@ -53,6 +68,8 @@ export function CollageCard({
 		() => (scattered ? generateCollageLayout(posters.length, seed) : []),
 		[posters.length, seed, scattered],
 	);
+	// Grows with the card, so a wide one isn't phone-sized posters with dark gaps between
+	const scatterWidth = `${(100 / collageColumns(posters.length)) * SCATTER_COVER}%`;
 	const cols =
 		posters.length <= 2 ? posters.length : posters.length <= 5 ? Math.ceil(posters.length / 2) : 3;
 	const rows = Math.ceil(posters.length / Math.max(cols, 1));
@@ -68,10 +85,11 @@ export function CollageCard({
 						{posters.map((path, i) => (
 							<img
 								key={i}
-								src={tmdbPosterUri(path, 55)}
+								src={tmdbPosterUri(path, SCATTER_MAX_W)}
 								alt=""
-								className={`${styles.scatterPoster} top-(--top)! left-(--left)! z-(--z)! rotate-(--rot)!`}
+								className={`${styles.scatterPoster} w-(--w)! top-(--top)! left-(--left)! z-(--z)! rotate-(--rot)!`}
 								style={cssVars({
+									"--w": scatterWidth,
 									"--left": `${layout[i].left}%`,
 									"--top": `${layout[i].top}%`,
 									"--rot": `${layout[i].rotate}deg`,

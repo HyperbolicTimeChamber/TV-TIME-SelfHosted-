@@ -52,11 +52,16 @@ export default function ProfileScreen() {
 	// Lifetime watched count, already live from useUserStats' snapshot — the chart uses it to
 	// tell whether anything was watched elsewhere, so it only queries when something was
 	const watchedTotal = statsLoading ? null : stats.episodesWatched + stats.moviesWatched;
-	const { chartData, refresh: refreshChart } = useWeeklyActivity(user?.uid, watchedTotal);
+	const {
+		chartData,
+		loading: chartLoading,
+		refresh: refreshChart,
+	} = useWeeklyActivity(user?.uid, watchedTotal);
 	const weekTotals = chartData.reduce(
 		(sum, day) => ({ episodes: sum.episodes + day.episodes, movies: sum.movies + day.movies }),
 		{ episodes: 0, movies: 0 },
 	);
+	const weekEmpty = weekTotals.episodes + weekTotals.movies === 0;
 	const cardImages = useProfileCardImages(watchlist);
 	const { sections: completedSections, loading: completedLoading } = useCompletedShows(user?.uid);
 	const watchingCount = useWatchingCount(user?.uid);
@@ -122,7 +127,7 @@ export default function ProfileScreen() {
 							value={watchingCount ?? 0}
 							format={formatCount}
 							countUp={intro}
-							label="Currently Watching"
+							label="Watching"
 							flex={2}
 							posters={cardImages.trackingPosters}
 							align="left"
@@ -175,9 +180,19 @@ export default function ProfileScreen() {
 				</CircleButton>
 			</View>
 
-			<WeeklyRate episodes={weekTotals.episodes} movies={weekTotals.movies} animate={intro} />
-
-			<WeeklyChart data={chartData} animate={intro} />
+			{weekEmpty ? (
+				// One chart, not two rows of zeros over an empty one; the message waits for the week to load
+				<WeeklyChart
+					data={chartData}
+					title="Weekly Watch Rate"
+					emptyMessage={chartLoading ? undefined : "Nothing watched in the last 7 days"}
+				/>
+			) : (
+				<>
+					<WeeklyRate episodes={weekTotals.episodes} movies={weekTotals.movies} animate={intro} />
+					<WeeklyChart data={chartData} animate={intro} />
+				</>
+			)}
 
 			<CompletedSections
 				sections={completedSections}
