@@ -1,5 +1,7 @@
 import { StyleSheet } from "react-native";
-import { colors, spacing } from "../../../theme";
+import { colors, spacing, tint } from "../../../theme";
+
+const TIME_TEXT = tint(colors.text, 0.9);
 
 /** Shared with the web card (same numbers → identical at phone width) */
 export const CARD_RADIUS = 16;
@@ -107,11 +109,12 @@ export const styles = StyleSheet.create({
 	timeBlock: { alignItems: "flex-end" },
 	// Upper stat (Last Watched): normal spacing instead of the baseline pull-down
 	statGap: { marginBottom: spacing.md },
-	timeLabel: { color: colors.text, fontSize: 13, fontWeight: "500", marginBottom: 2 },
+	// Last Watched / Total Time Spent: white softened a touch, full white read too strong
+	timeLabel: { color: TIME_TEXT, fontSize: 13, fontWeight: "500", marginBottom: 2 },
 	// lineHeight = fontSize, pulled down by the font's descent so the digits' baseline
 	// lines up with the bottom of the progress pill on the left
 	timeSpent: {
-		color: colors.text,
+		color: TIME_TEXT,
 		fontSize: 30,
 		lineHeight: 30,
 		fontWeight: "600",
