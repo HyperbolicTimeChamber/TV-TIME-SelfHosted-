@@ -1,9 +1,17 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "../../stores";
 import { searchSuggestions } from "../../services/tmdb";
 import { getCachedCatalogTitles } from "../../hooks/useWatchlist";
-import { cleanedQuery, fallbackWords, fuzzyRank, fuzzyScore } from "../../utils/fuzzy";
+import {
+	cleanedQuery,
+	fallbackWords,
+	fuzzyRank,
+	fuzzyScore,
+	rememberSuggestions,
+	rememberedMatches,
+	type SuggestionMemory,
+} from "../../utils/fuzzy";
 
 const HISTORY_KEY = "search_history";
 const MAX_BYTES = 10240;
@@ -11,14 +19,24 @@ const MAX_BYTES = 10240;
 const MAX_LOCAL = 3;
 
 /**
- * TMDB suggestions. When the query finds nothing: the cleaned-up query, then each meaningful
- * word on its own, in parallel ("brakng bad" → "bad" finds Breaking Bad), merged. A single word
- * casts a wide net ("monye" finds people named Monye), so only results that still fuzzily match
- * the whole typed query are kept — nothing beats noise.
+ * TMDB suggestions. When the query finds nothing: what an earlier keystroke found, if it still
+ * matches (free — "breaking bda" keeps "breaking b"'s Breaking Bad), then the cleaned-up query,
+ * then each meaningful word on its own, in parallel ("brakng bad" → "bad" finds Breaking Bad),
+ * merged. A single word casts a wide net ("monye" finds people named Monye), so only results
+ * that still fuzzily match the whole typed query are kept — nothing beats noise.
  */
-async function suggestionsWithFallback(apiKey: string, query: string): Promise<string[]> {
+async function suggestionsWithFallback(
+	apiKey: string,
+	query: string,
+	memory: SuggestionMemory,
+): Promise<string[]> {
 	const first = await searchSuggestions(apiKey, query);
+	rememberSuggestions(memory, query, first, Date.now());
 	if (first.length > 0) return first;
+
+	const remembered = rememberedMatches(memory, query, Date.now());
+	if (remembered.length > 0) return remembered;
+
 	const matching = (found: string[]) => found.filter((s) => fuzzyScore(query, s) > 0);
 
 	const clean = cleanedQuery(query);
@@ -49,6 +67,8 @@ export function useSearchInput(initialQuery = "") {
 	const [query, setQuery] = useState(initialQuery);
 	const [searchHistory, setSearchHistory] = useState<string[]>([]);
 	const [tmdbSuggestions, setTmdbSuggestions] = useState<string[]>([]);
+	// Each keystroke's suggestions, reused when a later one finds nothing. Lives with the page
+	const suggestionMemory = useRef<SuggestionMemory>(new Map());
 	const apiKey = useAuthStore((s) => s.appTmdbApiKey);
 
 	useEffect(() => {
@@ -67,7 +87,7 @@ export function useSearchInput(initialQuery = "") {
 			return;
 		}
 		const timer = setTimeout(() => {
-			suggestionsWithFallback(apiKey, trimmed)
+			suggestionsWithFallback(apiKey, trimmed, suggestionMemory.current)
 				.then(setTmdbSuggestions)
 				.catch(() => setTmdbSuggestions([]));
 		}, 200);
