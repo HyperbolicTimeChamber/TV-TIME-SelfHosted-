@@ -1,8 +1,8 @@
-import React, { useLayoutEffect, useCallback } from "react";
+import React, { useLayoutEffect, useCallback, useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, ScrollView, PixelRatio } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useNavigation, useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../stores";
@@ -29,13 +29,25 @@ import CompletedSections from "./CompletedSections";
 import { styles } from "./styles";
 import { formatCount, formatTime, scaledPhotoURL } from "../../utils";
 
+// Reset when the app process restarts, so the intro plays once per launch
+let introPlayed = false;
+
 export default function ProfileScreen() {
+	// Keyed off the first *focus*, not the first mount: Home preloads this tab a few seconds
+	// after launch, so the screen mounts offscreen and the intro would play where nobody sees it
+	const focused = useIsFocused();
+	const [intro, setIntro] = useState(false);
+	useEffect(() => {
+		if (!focused || introPlayed) return;
+		introPlayed = true;
+		setIntro(true);
+	}, [focused]);
 	const { top } = useSafeAreaInsets();
 	const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
 	const user = useAuthStore((s) => s.user);
 	const { stats, loading: statsLoading } = useUserStats(user?.uid);
 	const { items: watchlist } = useWatchlist(user?.uid);
-	const { chartData, refresh: refreshChart } = useWeeklyActivity();
+	const { chartData, refresh: refreshChart } = useWeeklyActivity(user?.uid);
 	const cardImages = useProfileCardImages(watchlist);
 	const { sections: completedSections, loading: completedLoading } = useCompletedShows(user?.uid);
 
@@ -75,7 +87,9 @@ export default function ProfileScreen() {
 				<View style={styles.statsGrid}>
 					<View style={styles.statsRow}>
 						<StatCard
-							value={formatCount(stats.episodesWatched)}
+							value={stats.episodesWatched}
+							format={formatCount}
+							countUp={intro}
 							label="Episodes"
 							flex={3}
 							backdrop={cardImages.episodeBackdrop}
@@ -83,7 +97,9 @@ export default function ProfileScreen() {
 							loading={statsLoading}
 						/>
 						<StatCard
-							value={formatCount(stats.moviesWatched)}
+							value={stats.moviesWatched}
+							format={formatCount}
+							countUp={intro}
 							label="Movies"
 							flex={2}
 							backdrop={cardImages.movieBackdrop}
@@ -93,7 +109,9 @@ export default function ProfileScreen() {
 					</View>
 					<View style={[styles.statsRow, { minHeight: 150 }]}>
 						<CollageCard
-							value={formatCount(stats.showsTracking)}
+							value={stats.showsTracking}
+							format={formatCount}
+							countUp={intro}
 							label="Tracking"
 							flex={2}
 							posters={cardImages.trackingPosters}
@@ -102,7 +120,9 @@ export default function ProfileScreen() {
 							seed={17}
 						/>
 						<CollageCard
-							value={formatTime(stats.totalMinutes)}
+							value={stats.totalMinutes}
+							format={formatTime}
+							countUp={intro}
 							label="Watch Time"
 							flex={3}
 							posters={cardImages.watchTimePosters}
@@ -145,7 +165,7 @@ export default function ProfileScreen() {
 				</CircleButton>
 			</View>
 
-			<WeeklyChart data={chartData} />
+			<WeeklyChart data={chartData} animate={intro} />
 
 			<CompletedSections
 				sections={completedSections}

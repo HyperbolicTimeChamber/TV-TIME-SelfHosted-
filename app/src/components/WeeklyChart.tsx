@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { AccessibilityInfo, Animated, Easing, View, Text, StyleSheet } from "react-native";
 import Svg, { Defs, LinearGradient, RadialGradient, Stop, Rect, Ellipse } from "react-native-svg";
 import { colors, spacing, typography } from "../theme";
 
@@ -11,6 +11,53 @@ interface DayData {
 
 interface Props {
 	data: DayData[];
+	/** Grow the bars in from the baseline (the Profile screen's first appearance after launch) */
+	animate?: boolean;
+}
+
+const GROW_MS = 450;
+const GROW_STAGGER_MS = 60;
+
+/** One value per day, each growing 0 → 1 from the chart baseline, a beat apart */
+function useGrow(count: number, animate: boolean) {
+	const bars = useRef<Animated.Value[]>([]);
+	if (bars.current.length !== count) {
+		bars.current = Array.from({ length: count }, () => new Animated.Value(animate ? 0 : 1));
+	}
+
+	useEffect(() => {
+		if (!animate) return;
+		const values = bars.current;
+		// `animate` can turn on after mount (this screen is preloaded offscreen), so drop the
+		// bars back to the baseline before growing them
+		values.forEach((v) => v.setValue(0));
+		let cancelled = false;
+		AccessibilityInfo.isReduceMotionEnabled()
+			.catch(() => false)
+			.then((reduced) => {
+				if (cancelled) return;
+				if (reduced) {
+					values.forEach((v) => v.setValue(1));
+					return;
+				}
+				Animated.stagger(
+					GROW_STAGGER_MS,
+					values.map((v) =>
+						Animated.timing(v, {
+							toValue: 1,
+							duration: GROW_MS,
+							easing: Easing.out(Easing.cubic),
+							useNativeDriver: true,
+						}),
+					),
+				).start();
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [animate, count]);
+
+	return bars.current;
 }
 
 const CHART_HEIGHT = 130;
@@ -76,11 +123,12 @@ function GlowBar({
 	);
 }
 
-export default function WeeklyChart({ data }: Readonly<Props>) {
+export default function WeeklyChart({ data, animate = false }: Readonly<Props>) {
 	const maxEp = Math.max(0, ...data.map((d) => d.episodes));
 	const maxMov = Math.max(0, ...data.map((d) => d.movies));
 	const maxVal = Math.max(1, maxEp, maxMov);
 	const hasData = data.some((d) => d.episodes > 0 || d.movies > 0);
+	const grow = useGrow(data.length, animate);
 
 	return (
 		<View style={styles.container}>
@@ -89,7 +137,7 @@ export default function WeeklyChart({ data }: Readonly<Props>) {
 				<Text style={styles.emptyText}>Your Weekly Watch Data will appear here Shortly</Text>
 			)}
 			<View style={styles.chartRow}>
-				{data.map((day) => {
+				{data.map((day, i) => {
 					const epH = (day.episodes / maxVal) * CHART_HEIGHT;
 					const movH = (day.movies / maxVal) * CHART_HEIGHT;
 					const total = day.episodes + day.movies;
@@ -100,128 +148,141 @@ export default function WeeklyChart({ data }: Readonly<Props>) {
 					return (
 						<View key={day.label} style={styles.barGroup}>
 							<View style={styles.barPair}>
-								<Svg width={SVG_W} height={TOTAL_HEIGHT}>
-									<Defs>
-										<LinearGradient id={`ep_${day.label}`} x1="0" y1="0" x2="0" y2="1">
-											<Stop offset="0" stopColor={colors.primary} stopOpacity="0.15" />
-											<Stop offset="0.4" stopColor={colors.primary} stopOpacity="0.6" />
-											<Stop offset="0.8" stopColor={colors.primary} stopOpacity="0.95" />
-											<Stop offset="1" stopColor={colors.primary} stopOpacity="1" />
-										</LinearGradient>
-										<RadialGradient
-											id={`ep_${day.label}_radial`}
-											cx="50%"
-											cy="30%"
-											rx="50%"
-											ry="50%"
-										>
-											<Stop offset="0" stopColor={colors.primary} stopOpacity="0.5" />
-											<Stop offset="1" stopColor={colors.primary} stopOpacity="0" />
-										</RadialGradient>
-										<LinearGradient id={`mov_${day.label}`} x1="0" y1="0" x2="0" y2="1">
-											<Stop offset="0" stopColor={colors.moviePurple} stopOpacity="0.15" />
-											<Stop offset="0.4" stopColor={colors.moviePurple} stopOpacity="0.6" />
-											<Stop offset="0.8" stopColor={colors.moviePurple} stopOpacity="0.95" />
-											<Stop offset="1" stopColor={colors.moviePurple} stopOpacity="1" />
-										</LinearGradient>
-										<RadialGradient
-											id={`mov_${day.label}_radial`}
-											cx="50%"
-											cy="30%"
-											rx="50%"
-											ry="50%"
-										>
-											<Stop offset="0" stopColor={colors.moviePurple} stopOpacity="0.5" />
-											<Stop offset="1" stopColor={colors.moviePurple} stopOpacity="0" />
-										</RadialGradient>
-									</Defs>
+								{/* Grown from the chart baseline, so the bars rise out of their own glow */}
+								<Animated.View
+									style={{
+										transformOrigin: `50% ${CHART_HEIGHT}px`,
+										transform: [{ scaleY: grow[i] }],
+									}}
+								>
+									<Svg width={SVG_W} height={TOTAL_HEIGHT}>
+										<Defs>
+											<LinearGradient id={`ep_${day.label}`} x1="0" y1="0" x2="0" y2="1">
+												<Stop offset="0" stopColor={colors.primary} stopOpacity="0.15" />
+												<Stop offset="0.4" stopColor={colors.primary} stopOpacity="0.6" />
+												<Stop offset="0.8" stopColor={colors.primary} stopOpacity="0.95" />
+												<Stop offset="1" stopColor={colors.primary} stopOpacity="1" />
+											</LinearGradient>
+											<RadialGradient
+												id={`ep_${day.label}_radial`}
+												cx="50%"
+												cy="30%"
+												rx="50%"
+												ry="50%"
+											>
+												<Stop offset="0" stopColor={colors.primary} stopOpacity="0.5" />
+												<Stop offset="1" stopColor={colors.primary} stopOpacity="0" />
+											</RadialGradient>
+											<LinearGradient id={`mov_${day.label}`} x1="0" y1="0" x2="0" y2="1">
+												<Stop offset="0" stopColor={colors.moviePurple} stopOpacity="0.15" />
+												<Stop offset="0.4" stopColor={colors.moviePurple} stopOpacity="0.6" />
+												<Stop offset="0.8" stopColor={colors.moviePurple} stopOpacity="0.95" />
+												<Stop offset="1" stopColor={colors.moviePurple} stopOpacity="1" />
+											</LinearGradient>
+											<RadialGradient
+												id={`mov_${day.label}_radial`}
+												cx="50%"
+												cy="30%"
+												rx="50%"
+												ry="50%"
+											>
+												<Stop offset="0" stopColor={colors.moviePurple} stopOpacity="0.5" />
+												<Stop offset="1" stopColor={colors.moviePurple} stopOpacity="0" />
+											</RadialGradient>
+										</Defs>
 
-									{/* Back bar */}
-									{epBehind ? (
-										<GlowBar
-											id={`ep_${day.label}`}
-											color={colors.primary}
-											height={epH}
-											chartH={CHART_HEIGHT}
-										/>
-									) : (
-										<GlowBar
-											id={`mov_${day.label}`}
-											color={colors.moviePurple}
-											height={movH}
-											chartH={CHART_HEIGHT}
-										/>
-									)}
-
-									{/* Front bar */}
-									{epBehind ? (
-										<GlowBar
-											id={`mov_${day.label}`}
-											color={colors.moviePurple}
-											height={movH}
-											chartH={CHART_HEIGHT}
-										/>
-									) : (
-										<GlowBar
-											id={`ep_${day.label}`}
-											color={colors.primary}
-											height={epH}
-											chartH={CHART_HEIGHT}
-										/>
-									)}
-
-									{total === 0 && (
-										<>
-											<Rect
-												x={CX - BAR_WIDTH / 2}
-												y={CHART_HEIGHT - 4}
-												width={BAR_WIDTH}
-												height={4}
-												rx={2}
-												fill={colors.surfaceLight}
+										{/* Back bar */}
+										{epBehind ? (
+											<GlowBar
+												id={`ep_${day.label}`}
+												color={colors.primary}
+												height={epH}
+												chartH={CHART_HEIGHT}
 											/>
-											<Ellipse
-												cx={CX}
-												cy={CHART_HEIGHT + 2}
-												rx={BAR_WIDTH}
-												ry={GLOW_HEIGHT * 0.3}
-												fill={colors.surfaceLight}
-												opacity={0.1}
+										) : (
+											<GlowBar
+												id={`mov_${day.label}`}
+												color={colors.moviePurple}
+												height={movH}
+												chartH={CHART_HEIGHT}
 											/>
-										</>
+										)}
+
+										{/* Front bar */}
+										{epBehind ? (
+											<GlowBar
+												id={`mov_${day.label}`}
+												color={colors.moviePurple}
+												height={movH}
+												chartH={CHART_HEIGHT}
+											/>
+										) : (
+											<GlowBar
+												id={`ep_${day.label}`}
+												color={colors.primary}
+												height={epH}
+												chartH={CHART_HEIGHT}
+											/>
+										)}
+
+										{total === 0 && (
+											<>
+												<Rect
+													x={CX - BAR_WIDTH / 2}
+													y={CHART_HEIGHT - 4}
+													width={BAR_WIDTH}
+													height={4}
+													rx={2}
+													fill={colors.surfaceLight}
+												/>
+												<Ellipse
+													cx={CX}
+													cy={CHART_HEIGHT + 2}
+													rx={BAR_WIDTH}
+													ry={GLOW_HEIGHT * 0.3}
+													fill={colors.surfaceLight}
+													opacity={0.1}
+												/>
+											</>
+										)}
+									</Svg>
+								</Animated.View>
+								<Animated.View
+									style={[StyleSheet.absoluteFill, { opacity: grow[i] }]}
+									pointerEvents="none"
+								>
+									{day.episodes > 0 && (
+										<Text
+											style={[
+												styles.countLabel,
+												{
+													position: "absolute",
+													bottom: GLOW_HEIGHT + epH + 6,
+													left: 0,
+													width: SVG_W,
+												},
+											]}
+										>
+											{day.episodes}
+										</Text>
 									)}
-								</Svg>
-								{day.episodes > 0 && (
-									<Text
-										style={[
-											styles.countLabel,
-											{
-												position: "absolute",
-												bottom: GLOW_HEIGHT + epH + 6,
-												left: 0,
-												width: SVG_W,
-											},
-										]}
-									>
-										{day.episodes}
-									</Text>
-								)}
-								{day.movies > 0 && (
-									<Text
-										style={[
-											styles.countLabel,
-											{
-												position: "absolute",
-												bottom:
-													GLOW_HEIGHT + movH + (Math.abs(movH - epH) < 16 && epH > 0 ? 20 : 6),
-												left: 0,
-												width: SVG_W,
-											},
-										]}
-									>
-										{day.movies}
-									</Text>
-								)}
+									{day.movies > 0 && (
+										<Text
+											style={[
+												styles.countLabel,
+												{
+													position: "absolute",
+													bottom:
+														GLOW_HEIGHT + movH + (Math.abs(movH - epH) < 16 && epH > 0 ? 20 : 6),
+													left: 0,
+													width: SVG_W,
+												},
+											]}
+										>
+											{day.movies}
+										</Text>
+									)}
+								</Animated.View>
 							</View>
 							<Text style={styles.dayLabel}>{day.label}</Text>
 						</View>

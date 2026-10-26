@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
 import { colors } from "../../theme";
 import { tmdbPosterUri } from "../../hooks/useTmdbImage";
+import { useCountUp } from "../../hooks/useCountUp";
 import { styles, BLUR_RADIUS } from "./styles";
 import { generateCollageLayout as generateLayout } from "../../utils";
 
@@ -11,7 +12,11 @@ const POSTER_H = 82;
 const SCATTER_THRESHOLD = 10;
 
 interface Props {
-	value: string | number;
+	value: number;
+	/** Applied to every counted frame, so the card keeps its "26.1K" / "1y 265d" shape */
+	format: (value: number) => string;
+	/** Count up from zero (the Profile screen's first appearance after launch) */
+	countUp?: boolean;
 	label: string;
 	flex: number;
 	posters?: string[];
@@ -22,6 +27,8 @@ interface Props {
 
 export default function CollageCard({
 	value,
+	format,
+	countUp = false,
 	label,
 	flex,
 	posters = [],
@@ -30,6 +37,7 @@ export default function CollageCard({
 	seed = 42,
 }: Readonly<Props>) {
 	const side = align === "right" ? "flex-end" : "flex-start";
+	const shown = useCountUp(value, countUp);
 	const isScattered = posters.length >= SCATTER_THRESHOLD;
 	const layouts = useMemo(
 		() => (isScattered ? generateLayout(posters.length, seed) : []),
@@ -88,7 +96,7 @@ export default function CollageCard({
 			{loading ? (
 				<ActivityIndicator size="small" color={colors.text} style={styles.statLoader} />
 			) : (
-				<Text style={styles.statNumber}>{value}</Text>
+				<Text style={styles.statNumber}>{format(shown)}</Text>
 			)}
 		</View>
 	);
