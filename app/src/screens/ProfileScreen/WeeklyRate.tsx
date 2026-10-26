@@ -159,6 +159,8 @@ export default function WeeklyRate({ episodes, movies, animate = false }: Readon
 	}, [animate]);
 
 	const peak = Math.max(episodes, movies, 1);
+	// Widths on a square-root scale, like the daily chart: 3 movies next to 56 episodes still
+	// reads as a bar, not a dot. Exact counts sit beside them
 
 	return (
 		<View style={styles.container}>
@@ -166,14 +168,14 @@ export default function WeeklyRate({ episodes, movies, animate = false }: Readon
 			<Bar
 				label="Episodes"
 				value={episodes}
-				share={episodes / peak}
+				share={Math.sqrt(episodes / peak)}
 				color={colors.primary}
 				grow={bars.current[0]}
 			/>
 			<Bar
 				label="Movies"
 				value={movies}
-				share={movies / peak}
+				share={Math.sqrt(movies / peak)}
 				color={colors.moviePurple}
 				grow={bars.current[1]}
 			/>

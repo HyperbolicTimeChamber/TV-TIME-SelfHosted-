@@ -65,6 +65,19 @@ const GLOW_HEIGHT = 24;
 const TOTAL_HEIGHT = CHART_HEIGHT + GLOW_HEIGHT;
 const BAR_WIDTH = 10;
 const SVG_W = BAR_WIDTH + 30;
+/** Gap between a day's two stacked count labels */
+const LABEL_LINE = 13;
+/** Shortest a non-empty bar gets, so a 1 next to a 40 still reads as a bar */
+const MIN_BAR_HEIGHT = BAR_WIDTH * 2;
+
+/**
+ * Bar height on a square-root scale: a big day no longer squashes the small ones into dots
+ * (5 next to 43 is a third of the height, not an eighth). Order is kept and the exact count
+ * sits on every bar.
+ */
+const barHeight = (value: number, max: number) =>
+	value > 0 ? Math.max(MIN_BAR_HEIGHT, Math.sqrt(value / max) * CHART_HEIGHT) : 0;
+
 /** Room round a bar's column for its glow: a GPU-cached view is clipped to its own bounds */
 const GLOW_PAD = 28;
 
@@ -145,12 +158,20 @@ export default function WeeklyChart({ data, animate = false }: Readonly<Props>) 
 			)}
 			<View style={styles.chartRow}>
 				{data.map((day, i) => {
-					const epH = (day.episodes / maxVal) * CHART_HEIGHT;
-					const movH = (day.movies / maxVal) * CHART_HEIGHT;
+					const epH = barHeight(day.episodes, maxVal);
+					const movH = barHeight(day.movies, maxVal);
 					const total = day.episodes + day.movies;
 
 					// Taller one behind, shorter in front
 					const epBehind = epH >= movH;
+					// Counts above the bars: the taller bar's first, the other a line up. With both,
+					// each is tinted its bar's colour so they're told apart
+					const both = day.episodes > 0 && day.movies > 0;
+					const epLabel = { kind: "ep", value: day.episodes, color: colors.primary };
+					const movLabel = { kind: "mov", value: day.movies, color: colors.moviePurple };
+					const labels = (epBehind ? [epLabel, movLabel] : [movLabel, epLabel]).filter(
+						(l) => l.value > 0,
+					);
 
 					return (
 						<View key={day.label} style={styles.barGroup}>
@@ -187,37 +208,24 @@ export default function WeeklyChart({ data, animate = false }: Readonly<Props>) 
 									style={[StyleSheet.absoluteFill, { opacity: grow[i] }]}
 									pointerEvents="none"
 								>
-									{day.episodes > 0 && (
+									{labels.map((l, n) => (
 										<Text
+											key={l.kind}
 											style={[
 												styles.countLabel,
+												both && { color: l.color },
 												{
 													position: "absolute",
-													bottom: GLOW_HEIGHT + epH + 6,
+													// Stacked above the taller bar, one line apart
+													bottom: GLOW_HEIGHT + Math.max(epH, movH) + 6 + n * LABEL_LINE,
 													left: 0,
 													width: SVG_W,
 												},
 											]}
 										>
-											{day.episodes}
+											{l.value}
 										</Text>
-									)}
-									{day.movies > 0 && (
-										<Text
-											style={[
-												styles.countLabel,
-												{
-													position: "absolute",
-													bottom:
-														GLOW_HEIGHT + movH + (Math.abs(movH - epH) < 16 && epH > 0 ? 20 : 6),
-													left: 0,
-													width: SVG_W,
-												},
-											]}
-										>
-											{day.movies}
-										</Text>
-									)}
+									))}
 								</Animated.View>
 							</View>
 							<Text style={styles.dayLabel}>{day.label}</Text>
