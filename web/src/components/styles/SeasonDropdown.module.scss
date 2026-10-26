@@ -1,11 +1,12 @@
 @use "../../theme/tokens" as *;
 
-/* Same card as Calendar's show cards: rounded, padded, on the surface */
+/* Same card as Calendar's show cards: rounded, on the surface. The poster runs flush to its
+   edges (the card's corners round it) so the card is only as tall as the poster */
 .seasonRow {
 	display: flex;
 	align-items: center;
 	margin-bottom: 12px;
-	padding: 12px;
+	padding-right: 12px;
 	border-radius: 16px;
 	overflow: hidden;
 	background: var(--surface);
@@ -15,7 +16,7 @@
 .seasonPoster {
 	width: 45px;
 	height: 67px;
-	border-radius: 8px;
+	flex-shrink: 0;
 	object-fit: cover;
 	background: var(--surface-light);
 }

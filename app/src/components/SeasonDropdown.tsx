@@ -496,12 +496,13 @@ export default memo(function SeasonDropdown({
 });
 
 const styles = StyleSheet.create({
-	// Same card as Calendar's show cards: rounded, padded, on the surface
+	// Same card as Calendar's show cards: rounded, on the surface. The poster runs flush to its
+	// edges (the card's corners round it) so the card is only as tall as the poster
 	seasonRow: {
 		flexDirection: "row",
 		alignItems: "center",
 		marginBottom: spacing.md,
-		padding: spacing.md,
+		paddingRight: spacing.md,
 		borderRadius: 16,
 		overflow: "hidden",
 		backgroundColor: colors.surface,
@@ -509,7 +510,6 @@ const styles = StyleSheet.create({
 	seasonPoster: {
 		width: 45,
 		height: 67,
-		borderRadius: 8,
 	},
 	seasonInfo: {
 		flex: 1,
