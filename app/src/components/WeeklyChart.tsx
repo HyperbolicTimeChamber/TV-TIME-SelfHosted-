@@ -1,14 +1,6 @@
-import React, { useEffect, useId, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { AccessibilityInfo, Animated, Easing, View, Text, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import Svg, {
-	Defs,
-	FeGaussianBlur,
-	Filter,
-	LinearGradient as SvgGradient,
-	Rect,
-	Stop,
-} from "react-native-svg";
 import { colors, spacing, tint, typography } from "../theme";
 
 interface DayData {
@@ -74,60 +66,44 @@ const TOTAL_HEIGHT = CHART_HEIGHT + GLOW_HEIGHT;
 const BAR_WIDTH = 10;
 const SVG_W = BAR_WIDTH + 30;
 
-/** Glow alpha by distance from the baseline (0) to the tip (1): eased, so it never bands */
-export const GLOW_STOPS = [
-	[0, 0.9],
-	[0.15, 0.7],
-	[0.35, 0.42],
-	[0.6, 0.18],
-	[0.8, 0.06],
-	[1, 0],
-] as const;
-const GLOW_W = BAR_WIDTH * 2.6;
-const GLOW_BLUR = 8;
-/** Room either side of the bar's column for the blur to fall off before the canvas edge */
-const GLOW_PAD = GLOW_BLUR * 3;
-const GLOW_SVG_W = SVG_W + GLOW_PAD * 2;
-
 /**
- * One day's bar: bright at the baseline, fading toward the tip, glowing into the dark. The glow
- * is a single blurred column whose own gradient fades out, rather than stacked boxShadows, which
- * left visible bands where each layer ended.
+ * A single boxShadow is uniform all round the box, so it halos the tip as brightly as the base.
+ * Stacking shorter boxes from the axis, each with a wider spread, piles the light up where the
+ * bar starts. Many faint layers rather than a few strong ones: each layer is far shorter than
+ * its blur, so their ends melt together and the glow fades without visible steps.
  */
+const GLOW_STEPS = 10;
+const GLOW_LAYERS = Array.from({ length: GLOW_STEPS }, (_, i) => {
+	const t = i / GLOW_STEPS;
+	return {
+		frac: 1 - t,
+		alpha: 0.05 + 0.15 * t,
+		blur: BAR_WIDTH * (2.2 - 0.8 * t),
+		spread: BAR_WIDTH * 0.8 * t,
+	};
+});
+
+/** One day's bar: bright at the baseline, fading toward the tip, glowing into the dark */
 function GlowBar({ color, height }: Readonly<{ color: string; height: number }>) {
-	const id = useId().replace(/:/g, "");
 	if (height <= 0) return null;
-	const svgH = height + GLOW_HEIGHT;
 	return (
 		<>
-			<Svg width={GLOW_SVG_W} height={svgH} style={styles.glow} pointerEvents="none">
-				<Defs>
-					<SvgGradient id={`fade${id}`} x1="0" y1="1" x2="0" y2="0">
-						{GLOW_STOPS.map(([offset, alpha]) => (
-							<Stop key={offset} offset={offset} stopColor={color} stopOpacity={alpha} />
-						))}
-					</SvgGradient>
-					<Filter
-						id={`blur${id}`}
-						filterUnits="userSpaceOnUse"
-						x={0}
-						y={0}
-						width={GLOW_SVG_W}
-						height={svgH}
-					>
-						<FeGaussianBlur stdDeviation={GLOW_BLUR} />
-					</Filter>
-				</Defs>
-				<Rect
-					x={(GLOW_SVG_W - GLOW_W) / 2}
-					y={0}
-					width={GLOW_W}
-					height={height}
-					rx={GLOW_W / 2}
-					fill={`url(#fade${id})`}
-					filter={`url(#blur${id})`}
-				/>
-			</Svg>
+			{/* A short bar can't fit every step; the ones that would be squashed to the floor just pile up */}
+			{GLOW_LAYERS.filter((layer, i) => i === 0 || height * layer.frac >= BAR_WIDTH).map(
+				(layer) => (
+					<View
+						key={layer.frac}
+						style={[
+							styles.bar,
+							{
+								height: Math.max(height * layer.frac, BAR_WIDTH),
+								// Spread, not a wider box, so the glow thickens toward the axis while the bar stays slim
+								boxShadow: `0 0 ${layer.blur}px ${layer.spread}px ${tint(color, layer.alpha)}`,
+							},
+						]}
+					/>
+				),
+			)}
 			<View style={[styles.bar, { height }]}>
 				<LinearGradient
 					colors={[tint(color, 0.08), tint(color, 0.3), tint(color, 0.7), color]}
@@ -272,12 +248,6 @@ const styles = StyleSheet.create({
 		marginBottom: GLOW_HEIGHT,
 		justifyContent: "flex-end",
 		alignItems: "center",
-	},
-	// Hangs below the baseline so the base's bloom spills into the gap under the bars
-	glow: {
-		position: "absolute",
-		bottom: -GLOW_HEIGHT,
-		left: -GLOW_PAD,
 	},
 	bar: {
 		position: "absolute",

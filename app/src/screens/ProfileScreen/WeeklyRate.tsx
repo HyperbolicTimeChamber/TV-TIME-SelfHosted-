@@ -1,15 +1,6 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { AccessibilityInfo, Animated, Easing, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import Svg, {
-	Defs,
-	FeGaussianBlur,
-	Filter,
-	LinearGradient as SvgGradient,
-	Rect,
-	Stop,
-} from "react-native-svg";
-import { GLOW_STOPS } from "../../components/WeeklyChart";
 import { colors, spacing, tint, typography } from "../../theme";
 
 const GROW_MS = 500;
@@ -19,53 +10,22 @@ const GROW_STAGGER_MS = 80;
 const BAR_H = 6;
 const ROW_H = 14;
 
-const GLOW_THICK = BAR_H * 2.6;
-const GLOW_BLUR = 6;
-/** Room round the bar's glow for the blur to fall off before the canvas edge */
-const GLOW_PAD = GLOW_BLUR * 3;
-
-/** The chart's glow laid on its side: one blurred band that fades out toward the tip, rather
- *  than stacked boxShadows, which left visible steps where each layer ended */
-function Glow({ color, width }: Readonly<{ color: string; width: number }>) {
-	const id = useId().replace(/:/g, "");
-	const svgW = width + GLOW_PAD * 2;
-	const svgH = GLOW_THICK + GLOW_PAD * 2;
-	return (
-		<Svg
-			width={svgW}
-			height={svgH}
-			style={[styles.glow, { top: (BAR_H - svgH) / 2 }]}
-			pointerEvents="none"
-		>
-			<Defs>
-				<SvgGradient id={`fade${id}`} x1="0" y1="0" x2="1" y2="0">
-					{GLOW_STOPS.map(([offset, alpha]) => (
-						<Stop key={offset} offset={offset} stopColor={color} stopOpacity={alpha} />
-					))}
-				</SvgGradient>
-				<Filter
-					id={`blur${id}`}
-					filterUnits="userSpaceOnUse"
-					x={0}
-					y={0}
-					width={svgW}
-					height={svgH}
-				>
-					<FeGaussianBlur stdDeviation={GLOW_BLUR} />
-				</Filter>
-			</Defs>
-			<Rect
-				x={GLOW_PAD}
-				y={GLOW_PAD}
-				width={width}
-				height={GLOW_THICK}
-				rx={GLOW_THICK / 2}
-				fill={`url(#fade${id})`}
-				filter={`url(#blur${id})`}
-			/>
-		</Svg>
-	);
-}
+/**
+ * A single boxShadow is uniform all round the box, so it halos the tip as brightly as the base.
+ * Stacking shorter boxes from the axis, each with a wider spread, piles the light up where the
+ * bar starts. Many faint layers rather than a few strong ones: each layer is far shorter than
+ * its blur, so their ends melt together and the glow fades without visible steps.
+ */
+const GLOW_STEPS = 10;
+const GLOW_LAYERS = Array.from({ length: GLOW_STEPS }, (_, i) => {
+	const t = i / GLOW_STEPS;
+	return {
+		frac: 1 - t,
+		alpha: 0.05 + 0.15 * t,
+		blur: BAR_H * (2.2 - 0.8 * t),
+		spread: BAR_H * 0.8 * t,
+	};
+});
 
 interface Props {
 	episodes: number;
@@ -89,8 +49,6 @@ function Bar({
 	grow: Animated.Value;
 }>) {
 	const empty = value <= 0;
-	// The glow is drawn in pixels, so it waits for the bar's laid-out width
-	const [barW, setBarW] = useState(0);
 	return (
 		<View>
 			<View style={styles.rowHeader}>
@@ -113,9 +71,20 @@ function Bar({
 								transform: [{ scaleX: grow }],
 							},
 						]}
-						onLayout={(e) => setBarW(e.nativeEvent.layout.width)}
 					>
-						{barW > 0 && <Glow color={color} width={barW} />}
+						{GLOW_LAYERS.map((layer) => (
+							<View
+								key={layer.frac}
+								style={[
+									styles.bar,
+									{
+										width: `${layer.frac * 100}%`,
+										// Spread, not a wider box, so the glow thickens toward the axis while the bar stays slim
+										boxShadow: `0 0 ${layer.blur}px ${layer.spread}px ${tint(color, layer.alpha)}`,
+									},
+								]}
+							/>
+						))}
 						{/* Bright where the bar leaves the axis, fading at the tip, as the chart's do */}
 						<View style={[styles.bar, { width: "100%" }]}>
 							<LinearGradient
@@ -235,10 +204,6 @@ const styles = StyleSheet.create({
 	barStack: {
 		height: BAR_H,
 		justifyContent: "center",
-	},
-	glow: {
-		position: "absolute",
-		left: -GLOW_PAD,
 	},
 	bar: {
 		position: "absolute",
