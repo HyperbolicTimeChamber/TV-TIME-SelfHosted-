@@ -44,6 +44,7 @@ import {
 } from "../utils";
 import { TMDBSeason, TMDBEpisode, MediaType, WatchStatus, WatchAction } from "../types";
 import { endSeasonMarking, startSeasonMarking, useSeasonMarking } from "../hooks/seasonMarking";
+import { batchEndOffsets, staggerFinishTimes } from "../utils/stagger";
 
 export interface SeasonDropdownProps {
 	tmdbId: number;
@@ -405,8 +406,16 @@ export function useSeasonActions({
 						rewatchCount: tw.rewatchCount,
 					},
 				);
-				const now = Timestamp.now();
-				for (const ep of eps) {
+				// Same back-to-back finish times the function stores
+				const ordered = [...eps].sort(
+					(a: TMDBEpisode, b: TMDBEpisode) => a.episode_number - b.episode_number,
+				);
+				const finished = staggerFinishTimes(
+					ordered.map((ep: TMDBEpisode) => ep.runtime || 0),
+					Date.now(),
+				);
+				ordered.forEach((ep: TMDBEpisode, k: number) => {
+					const at = Timestamp.fromMillis(finished[k]);
 					insertWatchedEpisodeCache(queryClient, user.uid, {
 						id: `${tmdbId}_S${String(season.season_number).padStart(2, "0")}E${String(ep.episode_number).padStart(2, "0")}`,
 						tmdbShowId: tmdbId,
@@ -414,11 +423,11 @@ export function useSeasonActions({
 						episode: ep.episode_number,
 						episodeTitle: ep.name,
 						runtime: ep.runtime || 0,
-						lastWatchedAt: now,
-						watchedAt: now,
+						lastWatchedAt: at,
+						watchedAt: at,
 						watchCount: 1,
 					});
-				}
+				});
 			} catch (err: any) {
 				console.error("markSeasonWatched failed:", err);
 				Alert.alert("Error", err.message || "Failed to mark season as watched.");
@@ -485,14 +494,21 @@ export function useSeasonActions({
 			try {
 				const tw = await resolveTrackingWrite(here, jump, others);
 				const now = Timestamp.now();
+				// Every season's runtimes first: one catch-up, so the seasons lay end to end
+				const runs = await Promise.all(
+					seasons.map(async (s) => {
+						const details = await episodesOf(s);
+						return bySeason.get(s)!.map((n) => {
+							const d = details.find((e: TMDBEpisode) => e.episode_number === n);
+							return { episodeNumber: n, name: d?.name || "", runtime: d?.runtime || 0 };
+						});
+					}),
+				);
+				const endOffsets = batchEndOffsets(runs.map((eps) => eps.map((e) => e.runtime)));
 				for (let i = 0; i < seasons.length; i++) {
 					const s = seasons[i];
 					const isLast = i === seasons.length - 1;
-					const details = await episodesOf(s);
-					const eps = bySeason.get(s)!.map((n) => {
-						const d = details.find((e: TMDBEpisode) => e.episode_number === n);
-						return { episodeNumber: n, name: d?.name || "", runtime: d?.runtime || 0 };
-					});
+					const eps = runs[i];
 					await markSeasonWatchedCF(
 						user.uid,
 						tmdbId,
@@ -508,10 +524,18 @@ export function useSeasonActions({
 									status: tw.status,
 									incrementRewatch: tw.incrementRewatch,
 									rewatchCount: tw.rewatchCount,
+									endOffsetMs: endOffsets[i],
 								}
-							: { skipTracking: true },
+							: { skipTracking: true, endOffsetMs: endOffsets[i] },
 					);
-					for (const e of eps) {
+					// Same back-to-back finish times the function stores for this season
+					const ordered = [...eps].sort((a, b) => a.episodeNumber - b.episodeNumber);
+					const finished = staggerFinishTimes(
+						ordered.map((e) => e.runtime),
+						now.toMillis() - endOffsets[i],
+					);
+					ordered.forEach((e, k) => {
+						const at = Timestamp.fromMillis(finished[k]);
 						insertWatchedEpisodeCache(queryClient, user.uid, {
 							id: `${tmdbId}_S${String(s).padStart(2, "0")}E${String(e.episodeNumber).padStart(2, "0")}`,
 							tmdbShowId: tmdbId,
@@ -519,11 +543,11 @@ export function useSeasonActions({
 							episode: e.episodeNumber,
 							episodeTitle: e.name,
 							runtime: e.runtime,
-							lastWatchedAt: now,
-							watchedAt: now,
+							lastWatchedAt: at,
+							watchedAt: at,
 							watchCount: 1,
 						});
-					}
+					});
 					endSeasonMarking(tmdbId, [s]);
 				}
 				return refs;
@@ -880,8 +904,16 @@ export function useSeasonActions({
 					},
 				);
 
-				const now = Timestamp.now();
-				for (const ep of epsToMark) {
+				// Same back-to-back finish times the function stores
+				const ordered = [...epsToMark].sort(
+					(a: TMDBEpisode, b: TMDBEpisode) => a.episode_number - b.episode_number,
+				);
+				const finished = staggerFinishTimes(
+					ordered.map((ep: TMDBEpisode) => ep.runtime || 0),
+					Date.now(),
+				);
+				ordered.forEach((ep: TMDBEpisode, k: number) => {
+					const at = Timestamp.fromMillis(finished[k]);
 					insertWatchedEpisodeCache(queryClient, user.uid, {
 						id: `${tmdbId}_S${String(season.season_number).padStart(2, "0")}E${String(ep.episode_number).padStart(2, "0")}`,
 						tmdbShowId: tmdbId,
@@ -889,11 +921,11 @@ export function useSeasonActions({
 						episode: ep.episode_number,
 						episodeTitle: ep.name,
 						runtime: ep.runtime || 0,
-						lastWatchedAt: now,
-						watchedAt: now,
+						lastWatchedAt: at,
+						watchedAt: at,
 						watchCount: 1,
 					});
-				}
+				});
 				return epsToMark.map((ep: TMDBEpisode) => ({
 					season: season.season_number,
 					episode: ep.episode_number,

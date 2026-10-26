@@ -162,6 +162,10 @@ export interface MarkSeasonRequest {
   incrementRewatch?: boolean;
   /** Absolute rewatch run number to store (wins over incrementRewatch) */
   rewatchCount?: number;
+  /** How long before now this batch's last episode should count as finished — set when one
+   *  catch-up spans several calls (seasons / chunks), so they lay end to end, not on top of
+   *  each other. 0 / missing = now */
+  endOffsetMs?: number;
 }
 
 // refreshShow types

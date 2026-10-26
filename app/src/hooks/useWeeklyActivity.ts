@@ -40,9 +40,10 @@ interface WeeklyCache {
 
 /**
  * Bumped when the tally's rules change, so days counted under the old rules don't linger
- * (mergeDays keeps whichever count is higher). v3: a day holds at most 24 hours of watching.
+ * (mergeDays keeps whichever count is higher). v4: no daily cap; bulk marks are staggered
+ * when they're written instead.
  */
-const CACHE_VERSION = 3;
+const CACHE_VERSION = 4;
 
 const dayKey = (d: Date) =>
 	`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -112,14 +113,15 @@ async function loadWeeklyData(): Promise<WeeklyData> {
 	return (await loadCache()).days;
 }
 
-/** Call after successful mark watched to bump today's count. */
-export async function incrementDailyWatch(type: "episode" | "movie"): Promise<void> {
+/** Call after successful mark watched to bump today's count — or the day of `atMs`, for a
+ *  bulk mark's staggered episodes (see utils/stagger) */
+export async function incrementDailyWatch(type: "episode" | "movie", atMs?: number): Promise<void> {
 	const cache = await loadCache();
-	const today = todayStr();
-	const day = cache.days[today] ?? { episodes: 0, movies: 0 };
+	const key = atMs === undefined ? todayStr() : dayKey(new Date(atMs));
+	const day = cache.days[key] ?? { episodes: 0, movies: 0 };
 	if (type === "episode") day.episodes++;
 	else day.movies++;
-	cache.days[today] = day;
+	cache.days[key] = day;
 	cache.incOps = (cache.incOps ?? 0) + 1;
 	await saveCache(cache);
 }
@@ -164,7 +166,7 @@ async function seedFromWatched(userId: string): Promise<WeeklyData> {
 		const snap = await getDocs(
 			query(collection(userRef, name), where("lastWatchedAt", ">=", since)),
 		);
-		return snap.docs.map((d) => d.data() as { lastWatchedAt?: unknown; runtime?: number });
+		return snap.docs.map((d) => d.data() as { lastWatchedAt?: unknown });
 	};
 	const [episodes, movies] = await Promise.all([read("watchedEpisodes"), read("watchedMovies")]);
 

@@ -41,6 +41,7 @@ import type { WatchlistListItem } from "../../../types/watchlist";
 import { nextEpisodeAirStamp } from "../../../utils/airTime";
 import { fetchEpisodeRuntime } from "../../../services/tmdb";
 import { useAuthStore } from "../../../stores";
+import { batchEndOffsets, staggerFinishTimes } from "../../../utils/stagger";
 
 /** Only schedule the air-time re-check for episodes airing within a day */
 const AIR_RECHECK_MAX_MS = 86_400_000;
@@ -820,8 +821,12 @@ export function useWatchlistData(userId: string | undefined) {
 				bySeason.set(ep.season, list);
 			}
 
-			// Mark each season batch — only last batch updates tracking doc
-			const seasonEntries = [...bySeason.entries()];
+			// Mark each season batch — only last batch updates tracking doc. One catch-up, so the
+			// seasons lay end to end (oldest first) rather than each ending now
+			const seasonEntries = [...bySeason.entries()].sort(([a], [b]) => a - b);
+			const endOffsets = batchEndOffsets(
+				seasonEntries.map(([, eps]) => eps.map((e) => e.runtime || 0)),
+			);
 			for (let i = 0; i < seasonEntries.length; i++) {
 				const [sn, eps] = seasonEntries[i];
 				const isLast = i === seasonEntries.length - 1;
@@ -834,24 +839,34 @@ export function useWatchlistData(userId: string | undefined) {
 					isLast ? isComplete : false,
 					isLast ? (nextAfterTarget?.title ?? null) : null,
 					isLast ? (nextAfterTarget?.airDate ?? null) : null,
+					{ endOffsetMs: endOffsets[i] },
 				);
 			}
 
-			// Insert all into watched cache + update daily counter
-			const now = Timestamp.now();
-			for (const ep of epsToMark) {
-				insertWatchedEpisodeCache(queryClient, userId, {
-					id: `${tmdbId}_S${String(ep.season).padStart(2, "0")}E${String(ep.episodeNumber).padStart(2, "0")}`,
-					tmdbShowId: tmdbId,
-					season: ep.season,
-					episode: ep.episodeNumber,
-					episodeTitle: ep.name,
-					runtime: ep.runtime,
-					lastWatchedAt: now,
-					watchedAt: now,
-					watchCount: 1,
+			// Insert all into watched cache + update daily counter, at the same back-to-back finish
+			// times the function stores (each season ending where the next starts)
+			const nowMs = Date.now();
+			for (let i = 0; i < seasonEntries.length; i++) {
+				const ordered = [...seasonEntries[i][1]].sort((a, b) => a.episodeNumber - b.episodeNumber);
+				const finished = staggerFinishTimes(
+					ordered.map((e) => e.runtime || 0),
+					nowMs - endOffsets[i],
+				);
+				ordered.forEach((ep, k) => {
+					const at = Timestamp.fromMillis(finished[k]);
+					insertWatchedEpisodeCache(queryClient, userId, {
+						id: `${tmdbId}_S${String(ep.season).padStart(2, "0")}E${String(ep.episodeNumber).padStart(2, "0")}`,
+						tmdbShowId: tmdbId,
+						season: ep.season,
+						episode: ep.episodeNumber,
+						episodeTitle: ep.name,
+						runtime: ep.runtime,
+						lastWatchedAt: at,
+						watchedAt: at,
+						watchCount: 1,
+					});
+					incrementDailyWatch("episode", finished[k]);
 				});
-				incrementDailyWatch("episode");
 			}
 		},
 		[userId, items, queryClient],
