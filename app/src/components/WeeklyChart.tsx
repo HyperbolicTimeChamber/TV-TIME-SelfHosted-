@@ -65,6 +65,60 @@ const GLOW_HEIGHT = 24;
 const TOTAL_HEIGHT = CHART_HEIGHT + GLOW_HEIGHT;
 const BAR_WIDTH = 10;
 const SVG_W = BAR_WIDTH + 30;
+/**
+ * A bar's count as neon: the number twice, a wide glow in the bar's colour behind a pale core
+ * with a tight glow of its own. One text shadow alone read as barely lit on Android.
+ */
+function NeonCount({
+	value,
+	color,
+	bottom,
+}: Readonly<{ value: number; color: string; bottom: number }>) {
+	const place = { position: "absolute", bottom, left: 0, width: SVG_W } as const;
+	return (
+		<>
+			<Text
+				style={[styles.countLabel, place, { color, textShadowColor: color, textShadowRadius: 12 }]}
+			>
+				{value}
+			</Text>
+			<Text
+				style={[
+					styles.countLabel,
+					place,
+					{ color: lighten(color, 0.55), textShadowColor: color, textShadowRadius: 4 },
+				]}
+			>
+				{value}
+			</Text>
+		</>
+	);
+}
+
+/** `hex` mixed `amount` (0–1) of the way to white */
+function lighten(hex: string, amount: number) {
+	const mix = (i: number) => {
+		const c = parseInt(hex.slice(i, i + 2), 16);
+		return Math.round(c + (255 - c) * amount);
+	};
+	return `rgb(${mix(1)}, ${mix(3)}, ${mix(5)})`;
+}
+
+/** One count label's line; a day's two stack one line apart */
+const LABEL_LINE = 13;
+/** Space between a bar's top and its count */
+const LABEL_GAP = 6;
+/** Shortest a non-empty bar gets, so a 1 next to a 40 still reads as a bar */
+const MIN_BAR_HEIGHT = BAR_WIDTH * 2;
+
+/**
+ * Bar height on a square-root scale: a big day no longer squashes the small ones into dots
+ * (5 next to 43 is a third of the height, not an eighth). Order is kept and the exact count
+ * sits on every bar.
+ */
+const barHeight = (value: number, max: number) =>
+	value > 0 ? Math.max(MIN_BAR_HEIGHT, Math.sqrt(value / max) * CHART_HEIGHT) : 0;
+
 /** Room round a bar's column for its glow: a GPU-cached view is clipped to its own bounds */
 const GLOW_PAD = 28;
 
@@ -135,6 +189,15 @@ export default function WeeklyChart({ data, animate = false }: Readonly<Props>) 
 	const maxMov = Math.max(0, ...data.map((d) => d.movies));
 	const maxVal = Math.max(1, maxEp, maxMov);
 	const hasData = data.some((d) => d.episodes > 0 || d.movies > 0);
+	// The tallest bar reaches the top of the chart, so the room above it is exactly its count
+	// labels: no dead space under the title when that day only has one
+	const peakLabels = Math.max(
+		0,
+		...data
+			.filter((d) => Math.max(d.episodes, d.movies) === maxVal)
+			.map((d) => Number(d.episodes > 0) + Number(d.movies > 0)),
+	);
+	const labelRoom = peakLabels ? LABEL_GAP + peakLabels * LABEL_LINE : 0;
 	const grow = useGrow(data.length, animate);
 
 	return (
@@ -143,14 +206,22 @@ export default function WeeklyChart({ data, animate = false }: Readonly<Props>) 
 			{!hasData && (
 				<Text style={styles.emptyText}>Your Weekly Watch Data will appear here Shortly</Text>
 			)}
-			<View style={styles.chartRow}>
+			<View style={[styles.chartRow, { paddingTop: labelRoom }]}>
 				{data.map((day, i) => {
-					const epH = (day.episodes / maxVal) * CHART_HEIGHT;
-					const movH = (day.movies / maxVal) * CHART_HEIGHT;
+					const epH = barHeight(day.episodes, maxVal);
+					const movH = barHeight(day.movies, maxVal);
 					const total = day.episodes + day.movies;
 
 					// Taller one behind, shorter in front
 					const epBehind = epH >= movH;
+					// Counts above the bars in their bar's neon colour, stacked a line apart with the
+					// higher value on top
+					const labels = [
+						{ kind: "ep", value: day.episodes, color: colors.primary },
+						{ kind: "mov", value: day.movies, color: colors.moviePurple },
+					]
+						.filter((l) => l.value > 0)
+						.sort((a, b) => a.value - b.value);
 
 					return (
 						<View key={day.label} style={styles.barGroup}>
@@ -187,37 +258,15 @@ export default function WeeklyChart({ data, animate = false }: Readonly<Props>) 
 									style={[StyleSheet.absoluteFill, { opacity: grow[i] }]}
 									pointerEvents="none"
 								>
-									{day.episodes > 0 && (
-										<Text
-											style={[
-												styles.countLabel,
-												{
-													position: "absolute",
-													bottom: GLOW_HEIGHT + epH + 6,
-													left: 0,
-													width: SVG_W,
-												},
-											]}
-										>
-											{day.episodes}
-										</Text>
-									)}
-									{day.movies > 0 && (
-										<Text
-											style={[
-												styles.countLabel,
-												{
-													position: "absolute",
-													bottom:
-														GLOW_HEIGHT + movH + (Math.abs(movH - epH) < 16 && epH > 0 ? 20 : 6),
-													left: 0,
-													width: SVG_W,
-												},
-											]}
-										>
-											{day.movies}
-										</Text>
-									)}
+									{labels.map((l, n) => (
+										<NeonCount
+											key={l.kind}
+											value={l.value}
+											color={l.color}
+											// Stacked above the taller bar, one line apart
+											bottom={GLOW_HEIGHT + Math.max(epH, movH) + LABEL_GAP + n * LABEL_LINE}
+										/>
+									))}
 								</Animated.View>
 							</View>
 							<Text style={styles.dayLabel}>{day.label}</Text>
@@ -237,13 +286,13 @@ const styles = StyleSheet.create({
 		padding: spacing.lg,
 		marginHorizontal: spacing.lg,
 	},
+	// Same gap under the title as Weekly Watch Rate's (its section gap)
 	title: {
 		...typography.subtitle,
-		marginBottom: spacing.md,
+		marginBottom: spacing.sm,
 	},
+	// paddingTop is set inline: just the tallest bar's count labels
 	chartRow: {
-		// Room for the tallest bar's count labels (up to 2 stacked) above the bars
-		paddingTop: spacing.xxl + spacing.xs,
 		flexDirection: "row",
 		justifyContent: "space-between",
 		alignItems: "flex-end",
@@ -302,9 +351,10 @@ const styles = StyleSheet.create({
 	},
 	countLabel: {
 		...typography.caption,
-		fontSize: 10,
-		fontWeight: "600",
-		color: colors.text,
+		fontSize: 11,
+		lineHeight: LABEL_LINE,
+		fontWeight: "700",
 		textAlign: "center",
+		textShadowOffset: { width: 0, height: 0 },
 	},
 });

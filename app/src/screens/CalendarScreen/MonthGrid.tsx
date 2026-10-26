@@ -3,7 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import Animated, { interpolate, useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { MediaType } from "../../types";
 import { colors } from "../../theme";
-import { SUNDAY_COLUMN, planChips } from "../../utils/calendarGrid";
+import { SUNDAY_COLUMN, pickBars, planChips } from "../../utils/calendarGrid";
 import type { DayMark } from "../../utils/calendarGroups";
 import { CalendarMode, ROW_MONTH, styles } from "./calendarStyles";
 
@@ -78,7 +78,7 @@ const DayCell = memo(function DayCell({
 				{marks && marks.length > 0 && (
 					<View style={styles.markArea}>
 						<Animated.View style={[styles.bars, barsStyle]}>
-							{marks.slice(0, MAX_BARS).map((m) => (
+							{pickBars(marks, MAX_BARS).map((m) => (
 								<View key={m.key} style={[styles.bar, { backgroundColor: markColor(m) }]} />
 							))}
 						</Animated.View>

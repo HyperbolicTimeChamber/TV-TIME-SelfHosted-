@@ -10,6 +10,7 @@ import {
 	Timestamp,
 } from "@react-native-firebase/firestore";
 import { CacheKey } from "../types";
+import { tallyWeek } from "../utils/weeklyTally";
 
 export interface DayActivity {
 	episodes: number;
@@ -25,6 +26,8 @@ export type WeeklyData = Record<string, DayActivity>;
  * an import, a cloud function — and only that is worth a query.
  */
 interface WeeklyCache {
+	/** CACHE_VERSION it was written under; older tallies are thrown away and rebuilt */
+	version?: number;
 	days: WeeklyData;
 	/** users/{uid}.stats episodes + movies at the last reconcile */
 	syncedTotal?: number;
@@ -34,6 +37,13 @@ interface WeeklyCache {
 	/** Backstop, in case the bracket ever misses something */
 	seededOn?: string;
 }
+
+/**
+ * Bumped when the tally's rules change, so days counted under the old rules don't linger
+ * (mergeDays keeps whichever count is higher). v4: no daily cap; bulk marks are staggered
+ * when they're written instead.
+ */
+const CACHE_VERSION = 4;
 
 const dayKey = (d: Date) =>
 	`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -81,32 +91,37 @@ async function loadCache(): Promise<WeeklyCache> {
 	if (!raw) return { days: {} };
 	try {
 		const parsed = JSON.parse(raw);
-		// Older builds stored the day map at the top level
-		if (parsed && typeof parsed === "object" && "days" in parsed) {
-			return { ...parsed, days: pruneToWeek(parsed.days ?? {}) };
+		// Counted under older rules (or the old top-level day map): start over. No syncedTotal
+		// either, so the next load rebuilds the week from the watched collections
+		if (!parsed || typeof parsed !== "object" || parsed.version !== CACHE_VERSION) {
+			return { days: {} };
 		}
-		return { days: pruneToWeek(parsed ?? {}) };
+		return { ...parsed, days: pruneToWeek(parsed.days ?? {}) };
 	} catch {
 		return { days: {} };
 	}
 }
 
 async function saveCache(cache: WeeklyCache): Promise<void> {
-	await AsyncStorage.setItem(CacheKey.WEEKLY_ACTIVITY, JSON.stringify(cache)).catch(() => {});
+	await AsyncStorage.setItem(
+		CacheKey.WEEKLY_ACTIVITY,
+		JSON.stringify({ ...cache, version: CACHE_VERSION }),
+	).catch(() => {});
 }
 
 async function loadWeeklyData(): Promise<WeeklyData> {
 	return (await loadCache()).days;
 }
 
-/** Call after successful mark watched to bump today's count. */
-export async function incrementDailyWatch(type: "episode" | "movie"): Promise<void> {
+/** Call after successful mark watched to bump today's count — or the day of `atMs`, for a
+ *  bulk mark's staggered episodes (see utils/stagger) */
+export async function incrementDailyWatch(type: "episode" | "movie", atMs?: number): Promise<void> {
 	const cache = await loadCache();
-	const today = todayStr();
-	const day = cache.days[today] ?? { episodes: 0, movies: 0 };
+	const key = atMs === undefined ? todayStr() : dayKey(new Date(atMs));
+	const day = cache.days[key] ?? { episodes: 0, movies: 0 };
 	if (type === "episode") day.episodes++;
 	else day.movies++;
-	cache.days[today] = day;
+	cache.days[key] = day;
 	cache.incOps = (cache.incOps ?? 0) + 1;
 	await saveCache(cache);
 }
@@ -155,17 +170,7 @@ async function seedFromWatched(userId: string): Promise<WeeklyData> {
 	};
 	const [episodes, movies] = await Promise.all([read("watchedEpisodes"), read("watchedMovies")]);
 
-	const days: WeeklyData = {};
-	const bump = (stamp: unknown, key: keyof DayActivity) => {
-		const day = dayOf(stamp);
-		if (!day) return;
-		const entry = days[day] ?? { episodes: 0, movies: 0 };
-		entry[key]++;
-		days[day] = entry;
-	};
-	for (const e of episodes) bump(e.lastWatchedAt, "episodes");
-	for (const m of movies) bump(m.lastWatchedAt, "movies");
-	return pruneToWeek(days);
+	return pruneToWeek(tallyWeek(episodes, movies, dayOf));
 }
 
 /** Days after which the week is rebuilt regardless */

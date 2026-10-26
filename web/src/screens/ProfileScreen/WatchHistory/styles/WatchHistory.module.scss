@@ -246,7 +246,9 @@
 	margin-bottom: 12px;
 }
 
+/* Last Watched / Total Time Spent: white softened a touch, full white read too strong */
 .timeLabel {
+	color: color-mix(in srgb, var(--text) 90%, transparent);
 	font-size: 13px;
 	font-weight: 500;
 	margin-bottom: 4px;
@@ -254,6 +256,7 @@
 
 .timeSpent {
 	display: block;
+	color: color-mix(in srgb, var(--text) 90%, transparent);
 	font-size: 30px;
 	font-weight: 600;
 	letter-spacing: -0.5px;

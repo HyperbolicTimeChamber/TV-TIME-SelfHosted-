@@ -4,6 +4,7 @@ import { historyOnWatch } from "../shared/history";
 import { showDocId, episodeDocId } from "../shared/docId";
 import { WatchStatus, MediaType } from "../shared/enums";
 import { MarkSeasonRequest } from "../shared/types";
+import { MAX_END_OFFSET_MS, staggerFinishTimes } from "../shared/stagger";
 
 export const markSeasonWatched = onCall(
   {
@@ -31,6 +32,7 @@ export const markSeasonWatched = onCall(
       status,
       incrementRewatch,
       rewatchCount,
+      endOffsetMs,
     } = data;
 
     if (!tmdbId || !seasonNumber || !episodes?.length) {
@@ -57,6 +59,23 @@ export const markSeasonWatched = onCall(
     const batch = db.batch();
     let totalRuntime = 0;
     const now = Timestamp.now();
+    // Each episode gets its own finish time, laid back to back from the end of the run (which
+    // is now, unless a later season / chunk of the same catch-up comes after this one)
+    const offset =
+      typeof endOffsetMs === "number" && endOffsetMs > 0
+        ? Math.min(endOffsetMs, MAX_END_OFFSET_MS)
+        : 0;
+    const order = episodes
+      .map((ep, i) => ({ ep, i }))
+      .sort((a, b) => a.ep.episodeNumber - b.ep.episodeNumber);
+    const finishTimes = staggerFinishTimes(
+      order.map(({ ep }) => ep.runtime),
+      now.toMillis() - offset,
+    );
+    const finishedAt = new Array<Timestamp>(episodes.length);
+    order.forEach(({ i }, k) => {
+      finishedAt[i] = Timestamp.fromMillis(finishTimes[k]);
+    });
 
     for (let i = 0; i < episodes.length; i++) {
       const ep = episodes[i];
@@ -67,7 +86,7 @@ export const markSeasonWatched = onCall(
       if (existing.exists) {
         batch.update(ref, {
           watchCount: FieldValue.increment(1),
-          lastWatchedAt: now,
+          lastWatchedAt: finishedAt[i],
         });
       } else {
         batch.set(ref, {
@@ -75,8 +94,8 @@ export const markSeasonWatched = onCall(
           season: seasonNumber,
           episode: ep.episodeNumber,
           episodeTitle: ep.name,
-          watchedAt: now,
-          lastWatchedAt: now,
+          watchedAt: finishedAt[i],
+          lastWatchedAt: finishedAt[i],
           runtime: ep.runtime || 0,
           watchCount: 1,
         });
@@ -118,7 +137,11 @@ export const markSeasonWatched = onCall(
       trackingUpdate.status = status;
     }
     // Absolute run number (client derives it from the episode counts) wins over the +1 bump
-    if (typeof rewatchCount === "number" && Number.isInteger(rewatchCount) && rewatchCount >= 0) {
+    if (
+      typeof rewatchCount === "number" &&
+      Number.isInteger(rewatchCount) &&
+      rewatchCount >= 0
+    ) {
       trackingUpdate.rewatchCount = rewatchCount;
     } else if (incrementRewatch) {
       trackingUpdate.rewatchCount = FieldValue.increment(1);

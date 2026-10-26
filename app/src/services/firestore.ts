@@ -20,6 +20,7 @@ import { showDocId, emitHistoryChange, localizeCatalog } from "../utils";
 import { trackApi } from "./analytics";
 import { historyOnWatch, historyOnUnwatch, historyCleared, historyOnChange } from "./history";
 import { shareCatalogCreate } from "./refreshShow";
+import { batchEndOffsets } from "../utils/stagger";
 
 /** Tracked Cloud Function call */
 function callCF<T = any>(name: string, data: any): Promise<T> {
@@ -247,6 +248,9 @@ export interface TrackingWriteOpts {
 	incrementRewatch?: boolean;
 	/** Absolute rewatch run number to store (wins over incrementRewatch) */
 	rewatchCount?: number;
+	/** markSeasonWatchedCF only: how long before now this batch's last episode counts as
+	 *  finished, when one catch-up spans several calls (see batchEndOffsets) */
+	endOffsetMs?: number;
 }
 
 /** Tracking fields a caller already holds — saves the unwatch paths a tracking-doc read */
@@ -949,7 +953,13 @@ export async function markSeasonWatchedCF(
 	opts: TrackingWriteOpts = {},
 ): Promise<void> {
 	const BATCH_SIZE = 100;
-	const { skipTracking = false, status, incrementRewatch = false, rewatchCount } = opts;
+	const {
+		skipTracking = false,
+		status,
+		incrementRewatch = false,
+		rewatchCount,
+		endOffsetMs = 0,
+	} = opts;
 
 	try {
 		if (episodes.length <= BATCH_SIZE) {
@@ -966,12 +976,19 @@ export async function markSeasonWatchedCF(
 				status,
 				incrementRewatch,
 				rewatchCount,
+				endOffsetMs,
 			});
 		} else {
-			// Batch into chunks of 100 — only last chunk updates tracking doc
+			// Batch into chunks of 100 — only last chunk updates tracking doc. Chunks lay end to
+			// end, the last ending where this whole batch should
+			const chunks: (typeof episodes)[] = [];
 			for (let i = 0; i < episodes.length; i += BATCH_SIZE) {
-				const chunk = episodes.slice(i, i + BATCH_SIZE);
-				const isLastChunk = i + BATCH_SIZE >= episodes.length;
+				chunks.push(episodes.slice(i, i + BATCH_SIZE));
+			}
+			const chunkOffsets = batchEndOffsets(chunks.map((c) => c.map((e) => e.runtime)));
+			for (let c = 0; c < chunks.length; c++) {
+				const chunk = chunks[c];
+				const isLastChunk = c === chunks.length - 1;
 				await callCF(CloudFunction.MARK_SEASON_WATCHED, {
 					tmdbId,
 					seasonNumber,
@@ -984,6 +1001,7 @@ export async function markSeasonWatchedCF(
 					status: isLastChunk ? status : undefined,
 					incrementRewatch: isLastChunk ? incrementRewatch : false,
 					rewatchCount: isLastChunk ? rewatchCount : undefined,
+					endOffsetMs: endOffsetMs + chunkOffsets[c],
 				});
 			}
 		}
