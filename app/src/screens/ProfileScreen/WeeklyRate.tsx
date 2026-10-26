@@ -10,9 +10,14 @@ const GROW_STAGGER_MS = 80;
 const BAR_H = 6;
 const ROW_H = 14;
 
-/** Tight inner halo plus a wider bloom — a real blur, where the chart stacks translucent rects */
-const glow = (color: string) =>
-	`0 0 ${BAR_H}px ${tint(color, 0.9)}, 0 0 ${BAR_H * 2.5}px ${tint(color, 0.45)}`;
+/** A boxShadow is uniform all round the box, so one shadow halos the tip as brightly as the
+ *  axis. Shorter boxes stacked from the axis pile the light up where the bar starts and let it
+ *  thin out toward the tip, as the chart's bars do. */
+const GLOW_LAYERS = [
+	{ frac: 1, alpha: 0.18, blur: BAR_H * 2.2, spread: 0 },
+	{ frac: 0.55, alpha: 0.45, blur: BAR_H * 1.8, spread: BAR_H * 0.4 },
+	{ frac: 0.25, alpha: 0.8, blur: BAR_H * 1.4, spread: BAR_H * 0.8 },
+];
 
 interface Props {
 	episodes: number;
@@ -51,23 +56,37 @@ function Bar({
 				) : (
 					<Animated.View
 						style={[
-							styles.bar,
+							styles.barStack,
 							{
 								width: `${Math.max(share, 0.02) * 100}%`,
-								boxShadow: glow(color),
 								transformOrigin: "left",
 								transform: [{ scaleX: grow }],
 							},
 						]}
 					>
+						{GLOW_LAYERS.map((layer) => (
+							<View
+								key={layer.frac}
+								style={[
+									styles.bar,
+									{
+										width: `${layer.frac * 100}%`,
+										// Spread, not a wider box, so the glow thickens toward the axis while the bar stays slim
+										boxShadow: `0 0 ${layer.blur}px ${layer.spread}px ${tint(color, layer.alpha)}`,
+									},
+								]}
+							/>
+						))}
 						{/* Bright where the bar leaves the axis, fading at the tip, as the chart's do */}
-						<LinearGradient
-							colors={[color, color, tint(color, 0.35)]}
-							locations={[0, 0.55, 1]}
-							start={{ x: 0, y: 0 }}
-							end={{ x: 1, y: 0 }}
-							style={styles.fill}
-						/>
+						<View style={[styles.bar, { width: "100%" }]}>
+							<LinearGradient
+								colors={[color, tint(color, 0.65), tint(color, 0.1)]}
+								locations={[0, 0.55, 1]}
+								start={{ x: 0, y: 0 }}
+								end={{ x: 1, y: 0 }}
+								style={styles.fill}
+							/>
+						</View>
 					</Animated.View>
 				)}
 			</View>
@@ -174,7 +193,13 @@ const styles = StyleSheet.create({
 		height: ROW_H,
 		justifyContent: "center",
 	},
+	barStack: {
+		height: BAR_H,
+		justifyContent: "center",
+	},
 	bar: {
+		position: "absolute",
+		left: 0,
 		height: BAR_H,
 		borderRadius: BAR_H / 2,
 		overflow: "hidden",

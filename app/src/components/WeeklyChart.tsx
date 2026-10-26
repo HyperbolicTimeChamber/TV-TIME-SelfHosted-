@@ -66,21 +66,44 @@ const TOTAL_HEIGHT = CHART_HEIGHT + GLOW_HEIGHT;
 const BAR_WIDTH = 10;
 const SVG_W = BAR_WIDTH + 30;
 
-/** Tight halo plus a wider bloom — a real blur, where this used to stack translucent rects */
-const glow = (color: string) =>
-	`0 0 ${BAR_WIDTH}px ${tint(color, 0.9)}, 0 0 ${BAR_WIDTH * 2.5}px ${tint(color, 0.45)}`;
+/**
+ * A single boxShadow is uniform all round the box, so the halo stayed as strong at the tip as
+ * at the base and fought the fading fill. Stacking a few shorter boxes instead — each anchored
+ * at the baseline with a tighter, stronger shadow — piles the light up where the bar leaves the
+ * axis and lets it thin out toward the top.
+ */
+const GLOW_LAYERS = [
+	{ frac: 1, alpha: 0.18, blur: BAR_WIDTH * 2.2, spread: 0 },
+	{ frac: 0.55, alpha: 0.45, blur: BAR_WIDTH * 1.8, spread: BAR_WIDTH * 0.4 },
+	{ frac: 0.25, alpha: 0.8, blur: BAR_WIDTH * 1.4, spread: BAR_WIDTH * 0.8 },
+];
 
 /** One day's bar: bright at the baseline, fading toward the tip, glowing into the dark */
 function GlowBar({ color, height }: Readonly<{ color: string; height: number }>) {
 	if (height <= 0) return null;
 	return (
-		<View style={[styles.bar, { height, boxShadow: glow(color) }]}>
-			<LinearGradient
-				colors={[tint(color, 0.15), tint(color, 0.7), color]}
-				locations={[0, 0.45, 1]}
-				style={styles.barFill}
-			/>
-		</View>
+		<>
+			{GLOW_LAYERS.map((layer) => (
+				<View
+					key={layer.frac}
+					style={[
+						styles.bar,
+						{
+							height: Math.max(height * layer.frac, BAR_WIDTH),
+							// Spread, not a wider box, so the glow thickens toward the axis while the bar stays slim
+							boxShadow: `0 0 ${layer.blur}px ${layer.spread}px ${tint(color, layer.alpha)}`,
+						},
+					]}
+				/>
+			))}
+			<View style={[styles.bar, { height }]}>
+				<LinearGradient
+					colors={[tint(color, 0.1), tint(color, 0.65), color]}
+					locations={[0, 0.45, 1]}
+					style={styles.barFill}
+				/>
+			</View>
+		</>
 	);
 }
 
