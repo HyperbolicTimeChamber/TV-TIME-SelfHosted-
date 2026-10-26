@@ -272,10 +272,8 @@ export async function markEpisodeWatched(
 	const docId = episodeDocId(tmdbShowId, season, episode);
 	const epRef = doc(watchedEpisodesRef(userId), docId);
 
+	// Every write here is an increment or a merge, so no read is needed to stay correct
 	await runTransaction(db, async (tx) => {
-		const existing = await tx.get(epRef);
-		const isRewatch = existing.exists();
-
 		tx.set(
 			epRef,
 			{
@@ -290,12 +288,15 @@ export async function markEpisodeWatched(
 			{ merge: true },
 		);
 
-		// Episodes = unique episodes; Watch Time = every watch (rewatches count)
+		// Episodes and Watch Time both count every watch, rewatches included. Counting only
+		// unique episodes here made the stat drift: unwatching one play of a rewatched episode
+		// still decrements it (see unwatch below), so a rewatch + unwatch left it one short.
+		// The bulk season mark and the movie paths already count every play.
 		tx.set(
 			userRef(userId),
 			{
 				stats: {
-					...(isRewatch ? {} : { episodesWatched: increment(1) }),
+					episodesWatched: increment(1),
 					totalMinutes: increment(runtime),
 				},
 			},

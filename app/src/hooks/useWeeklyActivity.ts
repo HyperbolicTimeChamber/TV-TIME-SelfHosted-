@@ -23,17 +23,16 @@ export type WeeklyData = Record<string, DayActivity>;
  *
  * `syncedTotal` is the account's lifetime watched count (episodes + movies) as of the last
  * reconcile. Every local mark also moves that count, so the two can be compared — but not
- * exactly: a rewatch bumps the chart without bumping episodesWatched, and a bulk season mark
- * moves the server count by more than one. So instead of predicting the total, the local ops
- * since the last reconcile give a band it should still fall inside. Outside the band means a
- * change this device never saw — another device, an import, a cloud function — and only then
- * is the query worth making.
+ * exactly: a bulk season mark moves the server count by one per episode while the chart is
+ * bumped once. So instead of predicting the total, the local ops since the last reconcile give
+ * a band it should still fall inside. Outside the band means a change this device never saw —
+ * another device, an import, a cloud function — and only then is the query worth making.
  */
 interface WeeklyCache {
 	days: WeeklyData;
 	/** users/{uid}.stats episodes + movies at the last reconcile */
 	syncedTotal?: number;
-	/** Local marks / unmarks since then (a rewatch counts here but not on the server) */
+	/** Local marks / unmarks since then */
 	incOps?: number;
 	decOps?: number;
 	/** Backstop so a bug in the band can't leave the chart stale for ever */
@@ -202,8 +201,8 @@ export function useWeeklyActivity(userId?: string, watchedTotal?: number | null)
 
 			const today = todayStr();
 			const stale = !cache.seededOn || daysBetween(cache.seededOn, today) >= MAX_STALE_DAYS;
-			// Everything this device did moves the server total by at most one per op, and a
-			// rewatch moves it by none — so our own activity keeps it inside this band
+			// Everything this device did moves the server total by at most one per op, so our
+			// own activity keeps it inside this band
 			const low = (cache.syncedTotal ?? 0) - (cache.decOps ?? 0);
 			const high = (cache.syncedTotal ?? 0) + (cache.incOps ?? 0);
 			const untracked =
