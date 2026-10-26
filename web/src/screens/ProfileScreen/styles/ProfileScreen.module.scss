@@ -52,12 +52,17 @@
 	background: rgba(0, 0, 0, 0.55);
 }
 
+/* One line (app: shrinks to fit): a wrapped label stretched its pill to the card's width */
 .statLabel {
 	position: relative;
 	font-size: 12px;
 	background: rgba(0, 0, 0, 0.5);
 	padding: 2px 8px;
 	border-radius: 10px;
+	white-space: nowrap;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .statNumber {
