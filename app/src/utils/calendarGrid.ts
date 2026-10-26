@@ -1,4 +1,5 @@
 import { localDateStr } from "./todayStr";
+import { MediaType } from "../enums";
 
 /** Week runs Monday → Sunday (Samsung Calendar layout) */
 export const WEEKDAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
@@ -67,6 +68,23 @@ export function inMonth(day: string, year: number, month: number): boolean {
 export function sameDayIn(day: string, year: number, month: number): string {
 	const lastDay = new Date(year, month, 0).getDate();
 	return `${year}-${pad(month)}-${pad(Math.min(parseDay(day).getDate(), lastDay))}`;
+}
+
+/**
+ * The first `max` of a day's marks for its bars, except that a day with both episodes and
+ * movies always shows at least one of each: when the first few are all one kind, the last bar
+ * goes to the first mark of the other. Otherwise a movie behind three episodes never showed
+ * purple in the overview.
+ */
+export function pickBars<T extends { mediaType: MediaType }>(marks: T[], max: number): T[] {
+	const shown = marks.slice(0, max);
+	if (shown.length < max) return shown;
+	const isMovie = (m: T) => m.mediaType === MediaType.MOVIE;
+	const missing = shown.some(isMovie)
+		? marks.find((m) => !isMovie(m) && !shown.includes(m))
+		: marks.find(isMovie);
+	if (missing && shown.every((m) => isMovie(m) === isMovie(shown[0]))) shown[max - 1] = missing;
+	return shown;
 }
 
 /**
