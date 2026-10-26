@@ -1,9 +1,9 @@
 @use "../../theme/tokens" as *;
 
-/* The gap to the next season sits under the whole dropdown, so an open one's episodes hang
+/* Same hairline gap as the episodes, under the whole dropdown so an open one's episodes hang
    just under its card */
 .season {
-	margin-bottom: 12px;
+	margin-bottom: 2px;
 }
 
 /* Same card as Calendar's show cards: rounded, on the surface. The poster runs flush to its

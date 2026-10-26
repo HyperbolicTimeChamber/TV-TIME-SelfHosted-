@@ -500,10 +500,10 @@ export default memo(function SeasonDropdown({
 const styles = StyleSheet.create({
 	// Same card as Calendar's show cards: rounded, on the surface. The poster runs flush to its
 	// edges (the card's corners round it) so the card is only as tall as the poster
-	// The gap to the next season sits under the whole dropdown, so an open one's episodes hang
+	// Same hairline gap as the episodes, under the whole dropdown so an open one's episodes hang
 	// just under its card
 	season: {
-		marginBottom: spacing.md,
+		marginBottom: 2,
 	},
 	seasonRow: {
 		flexDirection: "row",
