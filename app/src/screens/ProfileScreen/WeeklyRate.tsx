@@ -112,8 +112,10 @@ export default function WeeklyRate({ episodes, movies, animate = false }: Readon
 }
 
 const styles = StyleSheet.create({
+	// Same inset as WeeklyChart below it, which pads inside its own horizontal margin
 	container: {
 		marginHorizontal: spacing.lg,
+		paddingHorizontal: spacing.lg,
 		marginTop: spacing.xl,
 	},
 	title: {
