@@ -196,9 +196,13 @@ export function useWeeklyActivity(userId?: string, watchedTotal?: number | null)
 			const cache = await loadCache();
 			if (cancelled) return;
 			setWeeklyData(cache.days);
-			setLoading(false);
-
-			if (!userId || watchedTotal == null || seeding.current) return;
+			// Still loading while a backfill runs: an empty tally there means "not fetched yet",
+			// and the Profile screen would show its nothing-watched state for a moment
+			if (seeding.current) return;
+			if (!userId || watchedTotal == null) {
+				if (watchedTotal != null) setLoading(false);
+				return;
+			}
 
 			const today = todayStr();
 			const stale = !cache.seededOn || daysBetween(cache.seededOn, today) >= MAX_STALE_DAYS;
@@ -210,6 +214,7 @@ export function useWeeklyActivity(userId?: string, watchedTotal?: number | null)
 
 			if (!untracked && !stale) {
 				// Nothing happened elsewhere: keep the local tally, just bank the reconcile
+				setLoading(false);
 				await saveCache({ ...cache, syncedTotal: watchedTotal, incOps: 0, decOps: 0 });
 				return;
 			}
@@ -226,6 +231,7 @@ export function useWeeklyActivity(userId?: string, watchedTotal?: number | null)
 				await saveCache({ ...cache, seededOn: today });
 			} finally {
 				seeding.current = false;
+				setLoading(false);
 			}
 		})();
 		return () => {

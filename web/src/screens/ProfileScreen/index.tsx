@@ -6,11 +6,13 @@ import { useWatchlist } from "@app/hooks/useWatchlist";
 import { useProfileCardImages } from "@app/hooks/useProfileCardImages";
 import { useWatchingCount } from "@app/hooks/useWatchingCount";
 import { useCompletedShows } from "@app/hooks/useCompletedShows";
+import { useWeeklyActivity } from "@app/hooks/useWeeklyActivity";
 import { formatCount, formatTime, scaledPhotoURL } from "@app/utils/format";
 import { useAppSelector } from "../../store";
 import PosterImage from "../../components/PosterImage";
 import { Paths, showPath } from "../../routes/paths";
 import { StatCard, CollageCard } from "./ProfileCards";
+import WatchRate from "./WatchRate";
 import historyStyles from "./WatchHistory/styles/WatchHistory.module.scss";
 import CircleButton from "../../components/CircleButton";
 import { CircleButtonTone } from "@app/enums";
@@ -26,6 +28,10 @@ export default function ProfileScreen() {
 	const cardImages = useProfileCardImages(watchlist);
 	const { sections, loading: completedLoading } = useCompletedShows(user?.uid);
 	const watchingCount = useWatchingCount(user?.uid);
+	// Lifetime watched count, live from useUserStats' snapshot — the chart only queries the
+	// watched collections when it moved by something this browser didn't mark
+	const watchedTotal = statsLoading ? null : stats.episodesWatched + stats.moviesWatched;
+	const { chartData, loading: chartLoading } = useWeeklyActivity(user?.uid, watchedTotal);
 
 	return (
 		<div className={styles.container}>
@@ -33,7 +39,8 @@ export default function ProfileScreen() {
 				<div className={styles.statsGrid}>
 					<div className={styles.statsRow}>
 						<StatCard
-							value={formatCount(stats.episodesWatched)}
+							value={stats.episodesWatched}
+							format={formatCount}
 							label="Episodes"
 							flex={3}
 							backdrop={cardImages.episodeBackdrop}
@@ -41,7 +48,8 @@ export default function ProfileScreen() {
 							loading={statsLoading}
 						/>
 						<StatCard
-							value={formatCount(stats.moviesWatched)}
+							value={stats.moviesWatched}
+							format={formatCount}
 							label="Movies"
 							flex={2}
 							backdrop={cardImages.movieBackdrop}
@@ -51,7 +59,8 @@ export default function ProfileScreen() {
 					</div>
 					<div className={`${styles.statsRow} min-h-[150px]`}>
 						<CollageCard
-							value={formatCount(watchingCount ?? 0)}
+							value={watchingCount ?? 0}
+							format={formatCount}
 							label="Currently Watching"
 							flex={2}
 							posters={cardImages.trackingPosters}
@@ -60,7 +69,8 @@ export default function ProfileScreen() {
 							seed={17}
 						/>
 						<CollageCard
-							value={formatTime(stats.totalMinutes)}
+							value={stats.totalMinutes}
+							format={formatTime}
 							label="Watch Time"
 							flex={3}
 							posters={cardImages.watchTimePosters}
@@ -89,8 +99,7 @@ export default function ProfileScreen() {
 				</div>
 			</div>
 
-			{/* Hall of Shame (Watch History) + Settings gear on one row.
-			    No Watch Statistics chart on web: its data is a per-device local cache */}
+			{/* Hall of Shame (Watch History) + Settings gear on one row */}
 			<div className={styles.actionRow}>
 				<button
 					className={historyStyles.historyButton}
@@ -108,6 +117,8 @@ export default function ProfileScreen() {
 					<IoSettingsSharp size={31} />
 				</CircleButton>
 			</div>
+
+			<WatchRate data={chartData} loading={chartLoading} />
 
 			{completedLoading ? (
 				<div className={styles.completedLoader}>

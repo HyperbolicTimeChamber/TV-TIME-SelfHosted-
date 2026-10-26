@@ -11,6 +11,9 @@ interface DayData {
 
 interface Props {
 	data: DayData[];
+	title?: string;
+	/** Centred in the chart's empty area when the week has nothing in it */
+	emptyMessage?: string;
 	/** Grow the bars in from the baseline (the Profile screen's first appearance after launch) */
 	animate?: boolean;
 }
@@ -184,29 +187,38 @@ function GlowBar({ color, height }: Readonly<{ color: string; height: number }>)
 	);
 }
 
-export default function WeeklyChart({ data, animate = false }: Readonly<Props>) {
+export default function WeeklyChart({
+	data,
+	title = "Daily Watch Rate",
+	emptyMessage,
+	animate = false,
+}: Readonly<Props>) {
 	const maxEp = Math.max(0, ...data.map((d) => d.episodes));
 	const maxMov = Math.max(0, ...data.map((d) => d.movies));
 	const maxVal = Math.max(1, maxEp, maxMov);
-	const hasData = data.some((d) => d.episodes > 0 || d.movies > 0);
-	// The tallest bar reaches the top of the chart, so the room above it is exactly its count
-	// labels: no dead space under the title when that day only has one
-	const peakLabels = Math.max(
+	// Room above the chart for whichever day's count labels reach highest: a day with two labels
+	// can stand taller than the peak day with one. No dead space under the title otherwise
+	const labelRoom = Math.max(
 		0,
-		...data
-			.filter((d) => Math.max(d.episodes, d.movies) === maxVal)
-			.map((d) => Number(d.episodes > 0) + Number(d.movies > 0)),
+		...data.map((d) => {
+			const labels = Number(d.episodes > 0) + Number(d.movies > 0);
+			if (!labels) return 0;
+			const top = barHeight(Math.max(d.episodes, d.movies), maxVal);
+			return top + LABEL_GAP + labels * LABEL_LINE - CHART_HEIGHT;
+		}),
 	);
-	const labelRoom = peakLabels ? LABEL_GAP + peakLabels * LABEL_LINE : 0;
+	const hasData = data.some((d) => d.episodes > 0 || d.movies > 0);
 	const grow = useGrow(data.length, animate);
 
 	return (
 		<View style={styles.container}>
-			<Text style={styles.title}>Daily Watch Rate</Text>
-			{!hasData && (
-				<Text style={styles.emptyText}>Your Weekly Watch Data will appear here Shortly</Text>
-			)}
+			<Text style={styles.title}>{title}</Text>
 			<View style={[styles.chartRow, { paddingTop: labelRoom }]}>
+				{!hasData && emptyMessage && (
+					<View style={styles.emptyArea} pointerEvents="none">
+						<Text style={styles.emptyText}>{emptyMessage}</Text>
+					</View>
+				)}
 				{data.map((day, i) => {
 					const epH = barHeight(day.episodes, maxVal);
 					const movH = barHeight(day.movies, maxVal);
@@ -297,6 +309,20 @@ const styles = StyleSheet.create({
 		justifyContent: "space-between",
 		alignItems: "flex-end",
 	},
+	// Over the bars' area only, above the baseline nubs and day labels
+	emptyArea: {
+		position: "absolute",
+		top: 0,
+		left: 0,
+		right: 0,
+		height: CHART_HEIGHT,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	emptyText: {
+		...typography.caption,
+		textAlign: "center",
+	},
 	barGroup: {
 		alignItems: "center",
 		flex: 1,
@@ -338,11 +364,6 @@ const styles = StyleSheet.create({
 		height: 4,
 		borderRadius: 2,
 		backgroundColor: colors.surfaceLight,
-	},
-	emptyText: {
-		...typography.caption,
-		textAlign: "center",
-		marginBottom: spacing.md,
 	},
 	dayLabel: {
 		...typography.caption,
