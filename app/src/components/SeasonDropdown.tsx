@@ -29,6 +29,12 @@ import { tmdbPosterUri, tmdbStillUri } from "../hooks/useTmdbImage";
 import { MediaType, TMDBEpisode } from "../types";
 import { useSeasonActions, type SeasonDropdownProps } from "./useSeasonActions";
 
+/** Every episode card is this tall (the 50px thumb inset 6px top and bottom), so a season's list
+ *  height is known up front instead of measured */
+const EP_ROW_H = 62;
+/** Hairline gap under the season card and between episodes */
+const STRIP_GAP = 2;
+
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function formatDate(dateStr: string): string {
 	const [y, m, d] = dateStr.split("-");
@@ -125,7 +131,11 @@ export default memo(function SeasonDropdown({
 
 	const showLogo = getCachedCatalogShow(tmdbId, MediaType.TV)?.logoPath ?? null;
 	// Seasons below an opening/closing one glide to their new spot, as Calendar's cards do
-	const accordion = useAccordion(expanded);
+	// Episode cards are a fixed height, so the list's height is known before it renders
+	const accordion = useAccordion(
+		expanded,
+		isLoading ? undefined : episodes.length * (EP_ROW_H + STRIP_GAP),
+	);
 
 	return (
 		<View style={styles.season}>
@@ -551,18 +561,17 @@ const styles = StyleSheet.create({
 		top: 0,
 		left: 0,
 		right: 0,
-		// Hairline gaps: under the season card and between episodes
-		paddingTop: 2,
-		gap: 2,
+		paddingTop: STRIP_GAP,
+		gap: STRIP_GAP,
 	},
 	loader: {
 		paddingVertical: spacing.lg,
 	},
 	// Same strip as the episodes under an opened Calendar card: the thumb inset 6px all round
 	episodeRow: {
+		height: EP_ROW_H,
 		flexDirection: "row",
 		alignItems: "center",
-		paddingVertical: 6,
 		paddingLeft: 6,
 		paddingRight: spacing.md,
 		overflow: "hidden",

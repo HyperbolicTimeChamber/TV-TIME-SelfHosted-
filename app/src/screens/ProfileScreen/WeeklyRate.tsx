@@ -9,6 +9,8 @@ const GROW_STAGGER_MS = 80;
  *  about as tall as the plain bar it replaced */
 const BAR_H = 6;
 const ROW_H = 14;
+/** Room round the bar for its glow: a GPU-cached view is clipped to its own bounds */
+const GLOW_PAD = 24;
 
 /**
  * A single boxShadow is uniform all round the box, so it halos the tip as brightly as the base.
@@ -72,41 +74,47 @@ function Bar({
 				) : (
 					<Animated.View
 						style={[
-							styles.barStack,
+							styles.glowCanvas,
 							{
-								width: `${Math.max(share, 0.02) * 100}%`,
-								transformOrigin: "left",
+								// The bar's left end, inside the canvas's padding
+								transformOrigin: `${GLOW_PAD}px 50%`,
 								transform: [{ scaleX: grow }],
 							},
 						]}
+						// The stacked glow shadows are costly to draw: paint them once into a GPU
+						// texture, so growing the bar only stretches that
+						renderToHardwareTextureAndroid
+						shouldRasterizeIOS
 					>
-						{GLOW_LAYERS.map((layer) => (
-							<View
-								key={layer.frac}
-								style={[
-									styles.bar,
-									{
-										left: CORE_SPREAD,
-										width: `${layer.frac * 100}%`,
-										height: GLOW_CORE,
-										borderRadius: GLOW_CORE / 2,
-										// Fills the core's own cut-out to match the blurred shadow around it
-										backgroundColor: tint(color, layer.alpha * CORE_FILL),
-										// Spread, not a thicker box, so the glow thickens toward the axis while the bar stays slim
-										boxShadow: `0 0 ${layer.blur}px ${layer.spread + CORE_SPREAD}px ${tint(color, layer.alpha)}`,
-									},
-								]}
-							/>
-						))}
-						{/* Bright where the bar leaves the axis, fading at the tip, as the chart's do */}
-						<View style={[styles.bar, { width: "100%" }]}>
-							<LinearGradient
-								colors={[color, tint(color, 0.7), tint(color, 0.3), tint(color, 0.08)]}
-								locations={[0, 0.3, 0.65, 1]}
-								start={{ x: 0, y: 0 }}
-								end={{ x: 1, y: 0 }}
-								style={styles.fill}
-							/>
+						<View style={[styles.barStack, { width: `${Math.max(share, 0.02) * 100}%` }]}>
+							{GLOW_LAYERS.map((layer) => (
+								<View
+									key={layer.frac}
+									style={[
+										styles.bar,
+										{
+											left: CORE_SPREAD,
+											width: `${layer.frac * 100}%`,
+											height: GLOW_CORE,
+											borderRadius: GLOW_CORE / 2,
+											// Fills the core's own cut-out to match the blurred shadow around it
+											backgroundColor: tint(color, layer.alpha * CORE_FILL),
+											// Spread, not a thicker box, so the glow thickens toward the axis while the bar stays slim
+											boxShadow: `0 0 ${layer.blur}px ${layer.spread + CORE_SPREAD}px ${tint(color, layer.alpha)}`,
+										},
+									]}
+								/>
+							))}
+							{/* Bright where the bar leaves the axis, fading at the tip, as the chart's do */}
+							<View style={[styles.bar, { width: "100%" }]}>
+								<LinearGradient
+									colors={[color, tint(color, 0.7), tint(color, 0.3), tint(color, 0.08)]}
+									locations={[0, 0.3, 0.65, 1]}
+									start={{ x: 0, y: 0 }}
+									end={{ x: 1, y: 0 }}
+									style={styles.fill}
+								/>
+							</View>
 						</View>
 					</Animated.View>
 				)}
@@ -213,6 +221,12 @@ const styles = StyleSheet.create({
 	track: {
 		height: ROW_H,
 		justifyContent: "center",
+	},
+	// The bar's GPU-cached layer, big enough for its glow: the padding holds the glow, the
+	// matching negative margins keep the layout as if it were just the bar
+	glowCanvas: {
+		margin: -GLOW_PAD,
+		padding: GLOW_PAD,
 	},
 	barStack: {
 		height: BAR_H,

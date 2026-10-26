@@ -67,11 +67,19 @@ export default function AccordionArrow({ open, size }: Readonly<{ open: boolean;
  * height in an absolute stack, and the box holding them grows to (or shrinks from) that height,
  * so everything below follows frame by frame. Strips stay mounted until the close finishes.
  */
-export function useAccordion(open: boolean) {
+export function useAccordion(
+	open: boolean,
+	/** Content height when the caller already knows it (fixed-height rows): no measuring, and
+	 *  the first frame of the open already has its target */
+	knownHeight?: number,
+) {
 	const [mounted, setMounted] = useState(open);
 	const progress = useSharedValue(open ? 1 : 0);
 	const closing = useSharedValue(false);
-	const contentH = useSharedValue(0);
+	const contentH = useSharedValue(knownHeight ?? 0);
+	useEffect(() => {
+		if (knownHeight !== undefined) contentH.value = knownHeight;
+	}, [knownHeight, contentH]);
 
 	useEffect(() => {
 		if (open) setMounted(true);
@@ -87,8 +95,11 @@ export function useAccordion(open: boolean) {
 		opacity: closing.value ? progress.value : 1,
 		overflow: "hidden",
 	}));
-	const onContentLayout = (e: LayoutChangeEvent) => {
-		contentH.value = e.nativeEvent.layout.height;
-	};
+	const onContentLayout =
+		knownHeight === undefined
+			? (e: LayoutChangeEvent) => {
+					contentH.value = e.nativeEvent.layout.height;
+				}
+			: undefined;
 	return { mounted, style, onContentLayout };
 }

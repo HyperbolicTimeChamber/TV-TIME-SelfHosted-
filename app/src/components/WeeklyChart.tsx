@@ -65,6 +65,8 @@ const GLOW_HEIGHT = 24;
 const TOTAL_HEIGHT = CHART_HEIGHT + GLOW_HEIGHT;
 const BAR_WIDTH = 10;
 const SVG_W = BAR_WIDTH + 30;
+/** Room round a bar's column for its glow: a GPU-cached view is clipped to its own bounds */
+const GLOW_PAD = 28;
 
 /**
  * A single boxShadow is uniform all round the box, so it halos the tip as brightly as the base.
@@ -156,20 +158,30 @@ export default function WeeklyChart({ data, animate = false }: Readonly<Props>) 
 								{/* Grown from the chart baseline, so the bars rise out of their own glow */}
 								<Animated.View
 									style={[
-										styles.barStack,
-										{ transformOrigin: "bottom", transform: [{ scaleY: grow[i] }] },
+										styles.glowCanvas,
+										{
+											// The baseline, inside the canvas's padding
+											transformOrigin: `50% ${GLOW_PAD + CHART_HEIGHT}px`,
+											transform: [{ scaleY: grow[i] }],
+										},
 									]}
+									// The stacked glow shadows are costly to draw: paint them once into a
+									// GPU texture, so growing the bar only stretches that
+									renderToHardwareTextureAndroid
+									shouldRasterizeIOS
 								>
-									{/* Taller behind, shorter in front */}
-									<GlowBar
-										color={epBehind ? colors.primary : colors.moviePurple}
-										height={epBehind ? epH : movH}
-									/>
-									<GlowBar
-										color={epBehind ? colors.moviePurple : colors.primary}
-										height={epBehind ? movH : epH}
-									/>
-									{total === 0 && <View style={styles.emptyNub} />}
+									<View style={styles.barStack}>
+										{/* Taller behind, shorter in front */}
+										<GlowBar
+											color={epBehind ? colors.primary : colors.moviePurple}
+											height={epBehind ? epH : movH}
+										/>
+										<GlowBar
+											color={epBehind ? colors.moviePurple : colors.primary}
+											height={epBehind ? movH : epH}
+										/>
+										{total === 0 && <View style={styles.emptyNub} />}
+									</View>
 								</Animated.View>
 								<Animated.View
 									style={[StyleSheet.absoluteFill, { opacity: grow[i] }]}
@@ -255,10 +267,19 @@ const styles = StyleSheet.create({
 		justifyContent: "flex-end",
 	},
 	// Both bars share the baseline; the glow blooms past it into the gap below
+	// The bar's GPU-cached layer, big enough for its glow: the padding holds the glow, the
+	// matching negative margins keep the layout as if it were just the bar's column
+	glowCanvas: {
+		marginHorizontal: -GLOW_PAD,
+		marginTop: -GLOW_PAD,
+		paddingHorizontal: GLOW_PAD,
+		paddingTop: GLOW_PAD,
+		// The bloom spills into the gap under the baseline
+		paddingBottom: GLOW_HEIGHT,
+	},
 	barStack: {
 		height: CHART_HEIGHT,
 		width: SVG_W,
-		marginBottom: GLOW_HEIGHT,
 		justifyContent: "flex-end",
 		alignItems: "center",
 	},
