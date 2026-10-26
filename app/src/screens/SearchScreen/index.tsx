@@ -128,7 +128,17 @@ export default function SearchScreen() {
 		[snapHeader],
 	);
 
-	const backToMain = useCallback(() => navigation.navigate(Route.SEARCH_MAIN), [navigation]);
+	// goBack, not navigate(SEARCH_MAIN): the stack is only [SEARCH_MAIN, SEARCH_RESULTS], so
+	// both land on Trending, but a NAVIGATE action is resolved into a pop by the navigator and
+	// react-native-screens animates that differently from a plain GO_BACK
+	// goBack, not navigate(SEARCH_MAIN). The stack is only [SEARCH_MAIN, SEARCH_RESULTS] so both
+	// land on Trending, but a NAVIGATE action is resolved into a pop by the navigator and
+	// react-native-screens runs a second transition for it: measured on a Pixel 9 Pro, the
+	// screen settled and then changed again 215ms later. GO_BACK is the single transition.
+	const backToMain = useCallback(() => {
+		if (navigation.canGoBack()) navigation.goBack();
+		else navigation.navigate(Route.SEARCH_MAIN);
+	}, [navigation]);
 	const swipeBack = useSwipeBackPop(navigation);
 
 	const openSearchInput = useCallback(() => {
