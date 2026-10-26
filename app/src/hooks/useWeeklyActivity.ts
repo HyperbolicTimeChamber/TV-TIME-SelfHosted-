@@ -40,9 +40,9 @@ interface WeeklyCache {
 
 /**
  * Bumped when the tally's rules change, so days counted under the old rules don't linger
- * (mergeDays keeps whichever count is higher). v2: bulk marks no longer count.
+ * (mergeDays keeps whichever count is higher). v3: a day holds at most 24 hours of watching.
  */
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 
 const dayKey = (d: Date) =>
 	`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -164,7 +164,7 @@ async function seedFromWatched(userId: string): Promise<WeeklyData> {
 		const snap = await getDocs(
 			query(collection(userRef, name), where("lastWatchedAt", ">=", since)),
 		);
-		return snap.docs.map((d) => d.data() as { lastWatchedAt?: unknown });
+		return snap.docs.map((d) => d.data() as { lastWatchedAt?: unknown; runtime?: number });
 	};
 	const [episodes, movies] = await Promise.all([read("watchedEpisodes"), read("watchedMovies")]);
 
