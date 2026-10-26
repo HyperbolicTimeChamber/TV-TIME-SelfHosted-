@@ -132,7 +132,7 @@ export default function WeeklyChart({ data, animate = false }: Readonly<Props>) 
 
 	return (
 		<View style={styles.container}>
-			<Text style={styles.title}>Watch Statistics</Text>
+			<Text style={styles.title}>Daily Watch Rate</Text>
 			{!hasData && (
 				<Text style={styles.emptyText}>Your Weekly Watch Data will appear here Shortly</Text>
 			)}

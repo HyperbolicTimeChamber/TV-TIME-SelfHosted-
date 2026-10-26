@@ -19,14 +19,10 @@ export interface DayActivity {
 export type WeeklyData = Record<string, DayActivity>;
 
 /**
- * The tally, plus what it takes to tell whether anything happened that this device didn't do.
- *
- * `syncedTotal` is the account's lifetime watched count (episodes + movies) as of the last
- * reconcile. Every local mark also moves that count, so the two can be compared — but not
- * exactly: a bulk season mark moves the server count by one per episode while the chart is
- * bumped once. So instead of predicting the total, the local ops since the last reconcile give
- * a band it should still fall inside. Outside the band means a change this device never saw —
- * another device, an import, a cloud function — and only then is the query worth making.
+ * The tally, plus enough to tell whether anything was watched that this device didn't do.
+ * Each local mark moves the account's lifetime count by one, so `syncedTotal` plus the ops
+ * since should still bracket it. Anything outside came from somewhere else — another device,
+ * an import, a cloud function — and only that is worth a query.
  */
 interface WeeklyCache {
 	days: WeeklyData;
@@ -35,7 +31,7 @@ interface WeeklyCache {
 	/** Local marks / unmarks since then */
 	incOps?: number;
 	decOps?: number;
-	/** Backstop so a bug in the band can't leave the chart stale for ever */
+	/** Backstop, in case the bracket ever misses something */
 	seededOn?: string;
 }
 
@@ -172,7 +168,7 @@ async function seedFromWatched(userId: string): Promise<WeeklyData> {
 	return pruneToWeek(days);
 }
 
-/** Days after which the week is rebuilt regardless, in case the band ever misses something */
+/** Days after which the week is rebuilt regardless */
 const MAX_STALE_DAYS = 7;
 
 const daysBetween = (from: string, to: string) =>
@@ -201,8 +197,7 @@ export function useWeeklyActivity(userId?: string, watchedTotal?: number | null)
 
 			const today = todayStr();
 			const stale = !cache.seededOn || daysBetween(cache.seededOn, today) >= MAX_STALE_DAYS;
-			// Everything this device did moves the server total by at most one per op, so our
-			// own activity keeps it inside this band
+			// Our own activity keeps the lifetime count inside this bracket
 			const low = (cache.syncedTotal ?? 0) - (cache.decOps ?? 0);
 			const high = (cache.syncedTotal ?? 0) + (cache.incOps ?? 0);
 			const untracked =

@@ -18,6 +18,7 @@ import { colors } from "../../theme";
 import { ProfileStackParamList, Route, MediaType } from "../../types";
 import WeeklyChart from "../../components/WeeklyChart";
 import StatCard from "./StatCard";
+import WeeklyRate from "./WeeklyRate";
 import CircleButton from "../../components/CircleButton";
 import WatchHistoryButton from "./WatchHistoryButton";
 import { CircleButtonTone } from "../../enums";
@@ -52,6 +53,10 @@ export default function ProfileScreen() {
 	// tell whether anything was watched elsewhere, so it only queries when something was
 	const watchedTotal = statsLoading ? null : stats.episodesWatched + stats.moviesWatched;
 	const { chartData, refresh: refreshChart } = useWeeklyActivity(user?.uid, watchedTotal);
+	const weekTotals = chartData.reduce(
+		(sum, day) => ({ episodes: sum.episodes + day.episodes, movies: sum.movies + day.movies }),
+		{ episodes: 0, movies: 0 },
+	);
 	const cardImages = useProfileCardImages(watchlist);
 	const { sections: completedSections, loading: completedLoading } = useCompletedShows(user?.uid);
 	const watchingCount = useWatchingCount(user?.uid);
@@ -169,6 +174,8 @@ export default function ProfileScreen() {
 					<Ionicons name="settings-sharp" size={SETTINGS_ICON} color={colors.text} />
 				</CircleButton>
 			</View>
+
+			<WeeklyRate episodes={weekTotals.episodes} movies={weekTotals.movies} animate={intro} />
 
 			<WeeklyChart data={chartData} animate={intro} />
 
