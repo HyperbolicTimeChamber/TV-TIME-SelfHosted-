@@ -2,7 +2,7 @@ import React, { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
 import Reanimated from "react-native-reanimated";
-import AccordionArrow, { accordionLayout, stripEntering, stripExiting } from "./AccordionArrow";
+import AccordionArrow, { stripEntering, useAccordion } from "./AccordionArrow";
 import WatchActionSheet from "./modals/WatchActionSheet";
 import ConfirmModal from "./modals/ConfirmModal";
 import {
@@ -120,10 +120,11 @@ export default memo(function SeasonDropdown({
 	});
 
 	const showLogo = getCachedCatalogShow(tmdbId, MediaType.TV)?.logoPath ?? null;
+	// Seasons below an opening/closing one glide to their new spot, as Calendar's cards do
+	const accordion = useAccordion(expanded);
 
 	return (
-		// Seasons below an opening/closing one glide to their new spot, as Calendar's cards do
-		<Reanimated.View layout={accordionLayout}>
+		<View>
 			<TouchableOpacity
 				style={styles.seasonRow}
 				activeOpacity={0.85}
@@ -168,94 +169,95 @@ export default memo(function SeasonDropdown({
 			</TouchableOpacity>
 
 			{/* Episodes as Calendar's strips: each its own card, cascading in under the season */}
-			{expanded &&
-				(isLoading ? (
-					<Reanimated.View entering={stripEntering(0)} exiting={stripExiting}>
-						<ActivityIndicator size="small" color={colors.primary} style={styles.loader} />
-					</Reanimated.View>
-				) : (
-					episodes.map((ep: TMDBEpisode, nth: number) => {
-						const watched = watchedMap.get(ep.episode_number);
-						const count = watched?.watchCount || 0;
-						const isWatched = count > 0;
+			{accordion.mounted && (
+				<Reanimated.View style={accordion.style}>
+					<View style={styles.stripStack} onLayout={accordion.onContentLayout}>
+						{isLoading ? (
+							<ActivityIndicator size="small" color={colors.primary} style={styles.loader} />
+						) : (
+							episodes.map((ep: TMDBEpisode, nth: number) => {
+								const watched = watchedMap.get(ep.episode_number);
+								const count = watched?.watchCount || 0;
+								const isWatched = count > 0;
 
-						const epLabel = `S${String(season.season_number).padStart(2, "0")}E${String(ep.episode_number).padStart(2, "0")}`;
+								const epLabel = `S${String(season.season_number).padStart(2, "0")}E${String(ep.episode_number).padStart(2, "0")}`;
 
-						return (
-							<Reanimated.View
-								key={ep.episode_number}
-								style={styles.episodeRow}
-								layout={accordionLayout}
-								entering={stripEntering(nth)}
-								exiting={stripExiting}
-							>
-								<TouchableOpacity
-									style={styles.episodeInfo}
-									onPress={() => handleEpisodePress(ep)}
-									onLongPress={withHaptic(() => handleEpisodeLongPress(ep))}
-									activeOpacity={0.7}
-								>
-									<View style={styles.epThumbWrap}>
-										{imagesLoading ? (
-											<SkeletonLine width={80} height={50} />
-										) : ep.still_path ? (
-											<Image
-												source={{
-													uri: tmdbStillUri(ep.still_path, 80),
-												}}
-												style={styles.epThumb}
-												contentFit="cover"
-											/>
-										) : (
-											<View style={styles.epThumbPlaceholder}>
-												<Text style={styles.epThumbText}>
-													E{String(ep.episode_number).padStart(2, "0")}
-												</Text>
+								return (
+									<Reanimated.View
+										key={ep.episode_number}
+										style={styles.episodeRow}
+										entering={stripEntering(nth)}
+									>
+										<TouchableOpacity
+											style={styles.episodeInfo}
+											onPress={() => handleEpisodePress(ep)}
+											onLongPress={withHaptic(() => handleEpisodeLongPress(ep))}
+											activeOpacity={0.7}
+										>
+											<View style={styles.epThumbWrap}>
+												{imagesLoading ? (
+													<SkeletonLine width={80} height={50} />
+												) : ep.still_path ? (
+													<Image
+														source={{
+															uri: tmdbStillUri(ep.still_path, 80),
+														}}
+														style={styles.epThumb}
+														contentFit="cover"
+													/>
+												) : (
+													<View style={styles.epThumbPlaceholder}>
+														<Text style={styles.epThumbText}>
+															E{String(ep.episode_number).padStart(2, "0")}
+														</Text>
+													</View>
+												)}
 											</View>
-										)}
-									</View>
-									<View style={styles.episodeText}>
-										<Text style={styles.epLabel}>{epLabel}</Text>
-										<Text style={styles.episodeName} numberOfLines={1}>
-											{ep.name}
-										</Text>
-										{ep.air_date && (
-											<Text style={styles.episodeMeta}>{formatDate(ep.air_date)}</Text>
-										)}
-										{count > 1 && (
-											<TouchableOpacity
-												onPress={() => handleRewatchBadgePress(ep)}
-												hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-											>
-												<Text style={styles.rewatchBadge}>Watched {count}x</Text>
-											</TouchableOpacity>
-										)}
-									</View>
-								</TouchableOpacity>
-								<CheckmarkButton
-									size={28}
-									watched={isWatched}
-									loading={markingEps.has(ep.episode_number) || markingSeason}
-									label={isWatched ? `x${count}` : undefined}
-									onPress={() => handleCheckmarkPress(ep)}
-									onLongPress={
-										isWatched
-											? () => {
-													setSheetTarget({
-														type: "episode",
-														ep,
-														watchCount: count,
-													});
-													setSheetVisible(true);
-												}
-											: undefined
-									}
-									disabled={markingEps.size > 0 || markingSeason}
-								/>
-							</Reanimated.View>
-						);
-					})
-				))}
+											<View style={styles.episodeText}>
+												<Text style={styles.epLabel}>{epLabel}</Text>
+												<Text style={styles.episodeName} numberOfLines={1}>
+													{ep.name}
+												</Text>
+												{ep.air_date && (
+													<Text style={styles.episodeMeta}>{formatDate(ep.air_date)}</Text>
+												)}
+												{count > 1 && (
+													<TouchableOpacity
+														onPress={() => handleRewatchBadgePress(ep)}
+														hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+													>
+														<Text style={styles.rewatchBadge}>Watched {count}x</Text>
+													</TouchableOpacity>
+												)}
+											</View>
+										</TouchableOpacity>
+										<CheckmarkButton
+											size={28}
+											watched={isWatched}
+											loading={markingEps.has(ep.episode_number) || markingSeason}
+											label={isWatched ? `x${count}` : undefined}
+											onPress={() => handleCheckmarkPress(ep)}
+											onLongPress={
+												isWatched
+													? () => {
+															setSheetTarget({
+																type: "episode",
+																ep,
+																watchCount: count,
+															});
+															setSheetVisible(true);
+														}
+													: undefined
+											}
+											disabled={markingEps.size > 0 || markingSeason}
+										/>
+									</Reanimated.View>
+								);
+							})
+						)}
+					</View>
+				</Reanimated.View>
+			)}
 
 			<WatchActionSheet
 				visible={sheetVisible}
@@ -491,7 +493,7 @@ export default memo(function SeasonDropdown({
 					}}
 				/>
 			)}
-		</Reanimated.View>
+		</View>
 	);
 });
 
@@ -526,6 +528,13 @@ const styles = StyleSheet.create({
 	},
 	seasonMeta: {
 		...typography.caption,
+	},
+	// Strips at their full height, whatever the accordion box around them shows
+	stripStack: {
+		position: "absolute",
+		top: 0,
+		left: 0,
+		right: 0,
 	},
 	loader: {
 		paddingVertical: spacing.lg,
