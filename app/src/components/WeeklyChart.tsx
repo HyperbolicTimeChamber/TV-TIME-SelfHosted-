@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { AccessibilityInfo, Animated, Easing, View, Text, StyleSheet } from "react-native";
-import Svg, { Defs, LinearGradient, RadialGradient, Stop, Rect, Ellipse } from "react-native-svg";
-import { colors, spacing, typography } from "../theme";
+import { LinearGradient } from "expo-linear-gradient";
+import { colors, spacing, tint, typography } from "../theme";
 
 interface DayData {
 	label: string;
@@ -65,61 +65,22 @@ const GLOW_HEIGHT = 24;
 const TOTAL_HEIGHT = CHART_HEIGHT + GLOW_HEIGHT;
 const BAR_WIDTH = 10;
 const SVG_W = BAR_WIDTH + 30;
-const CX = SVG_W / 2;
 
-function GlowBar({
-	id,
-	color,
-	height,
-	chartH,
-}: Readonly<{
-	id: string;
-	color: string;
-	height: number;
-	chartH: number;
-}>) {
+/** Tight halo plus a wider bloom — a real blur, where this used to stack translucent rects */
+const glow = (color: string) =>
+	`0 0 ${BAR_WIDTH}px ${tint(color, 0.9)}, 0 0 ${BAR_WIDTH * 2.5}px ${tint(color, 0.45)}`;
+
+/** One day's bar: bright at the baseline, fading toward the tip, glowing into the dark */
+function GlowBar({ color, height }: Readonly<{ color: string; height: number }>) {
 	if (height <= 0) return null;
-	const y = chartH - height;
 	return (
-		<>
-			{/* Outer glow — wide, soft */}
-			<Rect
-				x={CX - BAR_WIDTH * 1.5}
-				y={y + height * 0.2}
-				width={BAR_WIDTH * 3}
-				height={height * 0.8}
-				rx={BAR_WIDTH * 1.5}
-				fill={color}
-				opacity={0.12}
+		<View style={[styles.bar, { height, boxShadow: glow(color) }]}>
+			<LinearGradient
+				colors={[tint(color, 0.15), tint(color, 0.7), color]}
+				locations={[0, 0.45, 1]}
+				style={styles.barFill}
 			/>
-			{/* Mid glow */}
-			<Rect
-				x={CX - BAR_WIDTH}
-				y={y + height * 0.1}
-				width={BAR_WIDTH * 2}
-				height={height * 0.9}
-				rx={BAR_WIDTH}
-				fill={color}
-				opacity={0.2}
-			/>
-			{/* Core bar with gradient — bright bottom, fade top */}
-			<Rect
-				x={CX - BAR_WIDTH / 2}
-				y={y}
-				width={BAR_WIDTH}
-				height={height}
-				rx={BAR_WIDTH / 2}
-				fill={`url(#${id})`}
-			/>
-			{/* Base glow — ellipse reflection */}
-			<Ellipse
-				cx={CX}
-				cy={chartH + 2}
-				rx={BAR_WIDTH * 1.8}
-				ry={GLOW_HEIGHT * 0.55}
-				fill={`url(#${id}_radial)`}
-			/>
-		</>
+		</View>
 	);
 }
 
@@ -150,102 +111,21 @@ export default function WeeklyChart({ data, animate = false }: Readonly<Props>) 
 							<View style={styles.barPair}>
 								{/* Grown from the chart baseline, so the bars rise out of their own glow */}
 								<Animated.View
-									style={{
-										transformOrigin: `50% ${CHART_HEIGHT}px`,
-										transform: [{ scaleY: grow[i] }],
-									}}
+									style={[
+										styles.barStack,
+										{ transformOrigin: "bottom", transform: [{ scaleY: grow[i] }] },
+									]}
 								>
-									<Svg width={SVG_W} height={TOTAL_HEIGHT}>
-										<Defs>
-											<LinearGradient id={`ep_${day.label}`} x1="0" y1="0" x2="0" y2="1">
-												<Stop offset="0" stopColor={colors.primary} stopOpacity="0.15" />
-												<Stop offset="0.4" stopColor={colors.primary} stopOpacity="0.6" />
-												<Stop offset="0.8" stopColor={colors.primary} stopOpacity="0.95" />
-												<Stop offset="1" stopColor={colors.primary} stopOpacity="1" />
-											</LinearGradient>
-											<RadialGradient
-												id={`ep_${day.label}_radial`}
-												cx="50%"
-												cy="30%"
-												rx="50%"
-												ry="50%"
-											>
-												<Stop offset="0" stopColor={colors.primary} stopOpacity="0.5" />
-												<Stop offset="1" stopColor={colors.primary} stopOpacity="0" />
-											</RadialGradient>
-											<LinearGradient id={`mov_${day.label}`} x1="0" y1="0" x2="0" y2="1">
-												<Stop offset="0" stopColor={colors.moviePurple} stopOpacity="0.15" />
-												<Stop offset="0.4" stopColor={colors.moviePurple} stopOpacity="0.6" />
-												<Stop offset="0.8" stopColor={colors.moviePurple} stopOpacity="0.95" />
-												<Stop offset="1" stopColor={colors.moviePurple} stopOpacity="1" />
-											</LinearGradient>
-											<RadialGradient
-												id={`mov_${day.label}_radial`}
-												cx="50%"
-												cy="30%"
-												rx="50%"
-												ry="50%"
-											>
-												<Stop offset="0" stopColor={colors.moviePurple} stopOpacity="0.5" />
-												<Stop offset="1" stopColor={colors.moviePurple} stopOpacity="0" />
-											</RadialGradient>
-										</Defs>
-
-										{/* Back bar */}
-										{epBehind ? (
-											<GlowBar
-												id={`ep_${day.label}`}
-												color={colors.primary}
-												height={epH}
-												chartH={CHART_HEIGHT}
-											/>
-										) : (
-											<GlowBar
-												id={`mov_${day.label}`}
-												color={colors.moviePurple}
-												height={movH}
-												chartH={CHART_HEIGHT}
-											/>
-										)}
-
-										{/* Front bar */}
-										{epBehind ? (
-											<GlowBar
-												id={`mov_${day.label}`}
-												color={colors.moviePurple}
-												height={movH}
-												chartH={CHART_HEIGHT}
-											/>
-										) : (
-											<GlowBar
-												id={`ep_${day.label}`}
-												color={colors.primary}
-												height={epH}
-												chartH={CHART_HEIGHT}
-											/>
-										)}
-
-										{total === 0 && (
-											<>
-												<Rect
-													x={CX - BAR_WIDTH / 2}
-													y={CHART_HEIGHT - 4}
-													width={BAR_WIDTH}
-													height={4}
-													rx={2}
-													fill={colors.surfaceLight}
-												/>
-												<Ellipse
-													cx={CX}
-													cy={CHART_HEIGHT + 2}
-													rx={BAR_WIDTH}
-													ry={GLOW_HEIGHT * 0.3}
-													fill={colors.surfaceLight}
-													opacity={0.1}
-												/>
-											</>
-										)}
-									</Svg>
+									{/* Taller behind, shorter in front */}
+									<GlowBar
+										color={epBehind ? colors.primary : colors.moviePurple}
+										height={epBehind ? epH : movH}
+									/>
+									<GlowBar
+										color={epBehind ? colors.moviePurple : colors.primary}
+										height={epBehind ? movH : epH}
+									/>
+									{total === 0 && <View style={styles.emptyNub} />}
 								</Animated.View>
 								<Animated.View
 									style={[StyleSheet.absoluteFill, { opacity: grow[i] }]}
@@ -329,6 +209,30 @@ const styles = StyleSheet.create({
 		height: TOTAL_HEIGHT,
 		width: SVG_W,
 		justifyContent: "flex-end",
+	},
+	// Both bars share the baseline; the glow blooms past it into the gap below
+	barStack: {
+		height: CHART_HEIGHT,
+		width: SVG_W,
+		marginBottom: GLOW_HEIGHT,
+		justifyContent: "flex-end",
+		alignItems: "center",
+	},
+	bar: {
+		position: "absolute",
+		bottom: 0,
+		width: BAR_WIDTH,
+		borderRadius: BAR_WIDTH / 2,
+		overflow: "hidden",
+	},
+	barFill: {
+		flex: 1,
+	},
+	emptyNub: {
+		width: BAR_WIDTH,
+		height: 4,
+		borderRadius: 2,
+		backgroundColor: colors.surfaceLight,
 	},
 	emptyText: {
 		...typography.caption,

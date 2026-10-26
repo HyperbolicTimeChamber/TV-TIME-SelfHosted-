@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { AccessibilityInfo, Animated, Easing, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, tint, typography } from "../../theme";
 
 const GROW_MS = 500;
 const GROW_STAGGER_MS = 80;
@@ -9,10 +9,6 @@ const GROW_STAGGER_MS = 80;
  *  about as tall as the plain bar it replaced */
 const BAR_H = 6;
 const ROW_H = 14;
-
-/** `#RRGGBB` + alpha → rgba(), for the shadow colours */
-const tint = (hex: string, alpha: number) =>
-	`rgba(${parseInt(hex.slice(1, 3), 16)}, ${parseInt(hex.slice(3, 5), 16)}, ${parseInt(hex.slice(5, 7), 16)}, ${alpha})`;
 
 /** Tight inner halo plus a wider bloom — a real blur, where the chart stacks translucent rects */
 const glow = (color: string) =>
