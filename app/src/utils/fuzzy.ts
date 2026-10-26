@@ -110,3 +110,46 @@ export function fallbackWords(query: string, max = 3): string[] {
 		.sort((a, b) => b.length - a.length)
 		.slice(0, max);
 }
+
+/** A query's suggestions from moments ago */
+interface Remembered {
+	results: string[];
+	at: number;
+}
+/** Recent queries → their suggestions; short-lived, one per open search page */
+export type SuggestionMemory = Map<string, Remembered>;
+
+/** How long a keystroke's suggestions stay reusable */
+export const SUGGESTION_MEMORY_MS = 2 * 60 * 1000;
+const MEMORY_SIZE = 20;
+
+const memoryKey = (query: string) => query.trim().toLowerCase();
+
+/** Keep a query's suggestions (non-empty only), dropping expired and the oldest beyond 20 */
+export function rememberSuggestions(
+	memory: SuggestionMemory,
+	query: string,
+	results: string[],
+	now: number,
+): void {
+	for (const [key, entry] of memory) if (now - entry.at > SUGGESTION_MEMORY_MS) memory.delete(key);
+	if (results.length === 0) return;
+	memory.delete(memoryKey(query));
+	memory.set(memoryKey(query), { results, at: now });
+	while (memory.size > MEMORY_SIZE) memory.delete(memory.keys().next().value!);
+}
+
+/**
+ * When `query` finds nothing: the suggestions of the longest earlier query it starts with
+ * (typed a moment ago), kept only where they still fuzzily match `query`, best first.
+ * "breaking bda" reuses what "breaking b" found and keeps Breaking Bad — no new request.
+ */
+export function rememberedMatches(memory: SuggestionMemory, query: string, now: number): string[] {
+	const key = memoryKey(query);
+	for (let len = key.length - 1; len >= 2; len--) {
+		const entry = memory.get(key.slice(0, len).trimEnd());
+		if (!entry || now - entry.at > SUGGESTION_MEMORY_MS) continue;
+		return fuzzyRank(query, entry.results, Number.MIN_VALUE);
+	}
+	return [];
+}

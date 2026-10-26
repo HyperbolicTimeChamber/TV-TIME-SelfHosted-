@@ -39,3 +39,30 @@ test("fallbackWords: longest meaningful words of a multi-word query", () => {
 	assert.deepEqual(fallbackWords("a b cd efgh ijklmn opq rs"), ["ijklmn", "efgh", "opq"]);
 	assert.deepEqual(fallbackWords("scrubs"), []);
 });
+
+test("rememberedMatches: reuse the longest earlier query's suggestions, still matching", async () => {
+	const { rememberSuggestions, rememberedMatches, SUGGESTION_MEMORY_MS } =
+		await import("../src/utils/fuzzy");
+	const memory = new Map();
+	rememberSuggestions(memory, "breaking", ["Breaking Bad", "Breaking Point", "Breaking Dawn"], 0);
+	rememberSuggestions(memory, "breaking b", ["Breaking Bad", "Breaking Bread"], 1);
+	// Longest prefix wins; only what still matches "breaking bda"
+	assert.deepEqual(rememberedMatches(memory, "breaking bda", 2), [
+		"Breaking Bad",
+		"Breaking Bread",
+	]);
+	// Nothing typed before that it starts with
+	assert.deepEqual(rememberedMatches(memory, "scrbs", 2), []);
+	// Expired
+	assert.deepEqual(rememberedMatches(memory, "breaking bda", SUGGESTION_MEMORY_MS + 10), []);
+});
+
+test("rememberSuggestions: empty results aren't kept, oldest dropped past 20", async () => {
+	const { rememberSuggestions } = await import("../src/utils/fuzzy");
+	const memory = new Map();
+	rememberSuggestions(memory, "none", [], 0);
+	assert.equal(memory.size, 0);
+	for (let i = 0; i < 25; i++) rememberSuggestions(memory, `q${i}`, ["x"], i);
+	assert.equal(memory.size, 20);
+	assert.ok(!memory.has("q0") && memory.has("q24"));
+});
