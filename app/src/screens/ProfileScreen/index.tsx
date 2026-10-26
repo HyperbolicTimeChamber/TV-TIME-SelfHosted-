@@ -12,6 +12,7 @@ import {
 	useWeeklyActivity,
 	useProfileCardImages,
 	useCompletedShows,
+	useWatchingCount,
 } from "../../hooks";
 import { colors } from "../../theme";
 import { ProfileStackParamList, Route, MediaType } from "../../types";
@@ -50,6 +51,7 @@ export default function ProfileScreen() {
 	const { chartData, refresh: refreshChart } = useWeeklyActivity(user?.uid);
 	const cardImages = useProfileCardImages(watchlist);
 	const { sections: completedSections, loading: completedLoading } = useCompletedShows(user?.uid);
+	const watchingCount = useWatchingCount(user?.uid);
 
 	useFocusEffect(
 		useCallback(() => {
@@ -109,14 +111,14 @@ export default function ProfileScreen() {
 					</View>
 					<View style={[styles.statsRow, { minHeight: 150 }]}>
 						<CollageCard
-							value={stats.showsTracking}
+							value={watchingCount ?? 0}
 							format={formatCount}
 							countUp={intro}
-							label="Tracking"
+							label="Currently Watching"
 							flex={2}
 							posters={cardImages.trackingPosters}
 							align="left"
-							loading={statsLoading}
+							loading={statsLoading || watchingCount === null}
 							seed={17}
 						/>
 						<CollageCard

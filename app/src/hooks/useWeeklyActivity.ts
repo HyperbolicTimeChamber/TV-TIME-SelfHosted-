@@ -51,8 +51,19 @@ function pruneToWeek(data: WeeklyData): WeeklyData {
 	return pruned;
 }
 
-const isEmpty = (days: WeeklyData) =>
-	Object.values(days).every((d) => d.episodes === 0 && d.movies === 0);
+/** Server counts win, except where the local tally is ahead — a mark made moments ago may not
+ *  be in the query's results yet */
+function mergeDays(seeded: WeeklyData, local: WeeklyData): WeeklyData {
+	const merged: WeeklyData = { ...seeded };
+	for (const [day, counts] of Object.entries(local)) {
+		const from = merged[day] ?? { episodes: 0, movies: 0 };
+		merged[day] = {
+			episodes: Math.max(from.episodes, counts.episodes),
+			movies: Math.max(from.movies, counts.movies),
+		};
+	}
+	return merged;
+}
 
 async function loadCache(): Promise<WeeklyCache> {
 	const raw = await AsyncStorage.getItem(CacheKey.WEEKLY_ACTIVITY);
@@ -158,9 +169,11 @@ export function useWeeklyActivity(userId?: string) {
 			setWeeklyData(cache.days);
 			setLoading(false);
 
+			// Once a day, whatever the tally holds. Gating this on an empty tally meant a device
+			// that had marked anything today never backfilled the days before it — the chart
+			// showed one bar.
 			const today = todayStr();
-			const needsSeed = isEmpty(cache.days) && cache.seededOn !== today;
-			if (!userId || !needsSeed || seeding.current) {
+			if (!userId || cache.seededOn === today || seeding.current) {
 				await saveCache(cache);
 				return;
 			}
@@ -168,9 +181,8 @@ export function useWeeklyActivity(userId?: string) {
 			try {
 				const seeded = await seedFromWatched(userId);
 				if (cancelled) return;
-				// A mark made while the query was in flight wins
 				const latest = await loadCache();
-				const days = isEmpty(latest.days) ? seeded : latest.days;
+				const days = mergeDays(seeded, latest.days);
 				setWeeklyData(days);
 				await saveCache({ days, seededOn: today });
 			} catch {

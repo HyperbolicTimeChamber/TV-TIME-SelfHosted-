@@ -32,6 +32,7 @@ export {
 export { useWeeklyActivity, incrementDailyWatch, decrementDailyWatch } from "./useWeeklyActivity";
 export { useProfileCardImages } from "./useProfileCardImages";
 export { useCountUp } from "./useCountUp";
+export { useWatchingCount } from "./useWatchingCount";
 export { useCompletedShows } from "./useCompletedShows";
 export type { CompletedItem } from "./useCompletedShows";
 export {
