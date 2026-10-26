@@ -1,8 +1,8 @@
-import type { TMDBShow } from "@app/types";
+import type { AddFailure, TMDBShow } from "@app/types";
 import ConfirmModal from "../../components/ConfirmModal";
 import UnreleasedMovieModal from "../../components/UnreleasedMovieModal";
 import { colors } from "../../theme/index";
-import { ModalLogo } from "../../components/ModalArt";
+import { ModalBackdrop, ModalLogo } from "../../components/ModalArt";
 import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
 import { MediaType } from "@app/enums";
 
@@ -36,6 +36,9 @@ interface Props {
 	onResumeFromWhere: () => void;
 	onStartFresh: () => void;
 	onResumeModalClose: () => void;
+	addFailure: AddFailure | null;
+	onRetryAdd: () => void;
+	onAddFailureClose: () => void;
 }
 
 /** Same four modals as the app's SearchModals */
@@ -112,6 +115,28 @@ export default function SearchModals(p: Props) {
 				secondaryLabel="Start from Beginning"
 				onSecondary={p.onStartFresh}
 				onClose={p.onResumeModalClose}
+			/>
+
+			{/* A failed add reports here, as it does in the app (app AddFailedModal) */}
+			<ConfirmModal
+				visible={!!p.addFailure}
+				title="Couldn't add that one"
+				image={
+					p.addFailure?.backdropPath ? (
+						<ModalBackdrop
+							backdropPath={p.addFailure.backdropPath}
+							logoPath={p.addFailure.logoPath}
+							tmdbId={p.addFailure.tmdbId}
+							mediaType={p.addFailure.mediaType}
+							title={p.addFailure.title}
+						/>
+					) : undefined
+				}
+				hint={p.addFailure ? `${p.addFailure.title} is still not on your watch list.` : undefined}
+				error={p.addFailure?.message ?? null}
+				confirmLabel="Retry"
+				onConfirm={p.onRetryAdd}
+				onClose={p.onAddFailureClose}
 			/>
 		</>
 	);

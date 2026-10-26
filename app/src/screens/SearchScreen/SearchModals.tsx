@@ -1,8 +1,8 @@
-import { ConfirmModal, UnreleasedMovieModal } from "../../components";
+import { AddFailedModal, ConfirmModal, UnreleasedMovieModal } from "../../components";
 import { ModalLogo } from "../../components/modals/ModalArt";
 import { getCachedCatalogShow } from "../../hooks/useWatchlist";
 import { colors } from "../../theme";
-import { MediaType, TMDBShow } from "../../types";
+import { MediaType, TMDBShow, type AddFailure } from "../../types";
 
 const pad = (n?: number) => String(n).padStart(2, "0");
 /** Title logo when the catalog has the title cached (name otherwise) */
@@ -37,6 +37,9 @@ interface Props {
 	onResumeFromWhere: () => void;
 	onStartFresh: () => void;
 	onResumeModalClose: () => void;
+	addFailure: AddFailure | null;
+	onRetryAdd: () => void;
+	onAddFailureClose: () => void;
 }
 
 export default function SearchModals({
@@ -55,6 +58,9 @@ export default function SearchModals({
 	onResumeFromWhere,
 	onStartFresh,
 	onResumeModalClose,
+	addFailure,
+	onRetryAdd,
+	onAddFailureClose,
 }: Props) {
 	const removeMediaType = mediaTypeOf(removeModal);
 	return (
@@ -130,6 +136,8 @@ export default function SearchModals({
 				onSecondary={onStartFresh}
 				onClose={onResumeModalClose}
 			/>
+
+			<AddFailedModal failure={addFailure} onRetry={onRetryAdd} onClose={onAddFailureClose} />
 		</>
 	);
 }

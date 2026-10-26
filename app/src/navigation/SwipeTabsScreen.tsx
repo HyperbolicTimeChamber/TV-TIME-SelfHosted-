@@ -7,6 +7,7 @@ import CalendarStackScreen from "./CalendarStackScreen";
 import SearchStackScreen from "./SearchStackScreen";
 import ProfileStackScreen from "./ProfileStackScreen";
 import CustomTabBar from "./CustomTabBar";
+import { useSwipingBack } from "../components/SwipeBackView";
 
 const SwipeTab = createMaterialTopTabNavigator<SwipeTabParamList>();
 
@@ -20,18 +21,22 @@ const DETAIL_ROUTES = new Set([
 	Route.IMPORT_DATA,
 ]);
 
+/** Hidden on detail routes — but shown again the moment a swipe-back starts, so it is back in
+ *  place while the detail screen slides off instead of appearing after it (see useSwipingBack) */
+function TabBar({ state }: { state: { routes: { name: string }[]; index: number } }) {
+	const swipingBack = useSwipingBack();
+	const activeRoute = state.routes[state.index];
+	const childRoute = getFocusedRouteNameFromRoute(activeRoute as never);
+	if (!swipingBack && childRoute && DETAIL_ROUTES.has(childRoute as Route)) return null;
+	return <CustomTabBar activeTab={activeRoute.name} />;
+}
+
 export default function SwipeTabsScreen() {
 	return (
 		<SwipeTab.Navigator
 			initialRouteName={Route.HOME}
 			tabBarPosition="bottom"
-			tabBar={({ state }) => {
-				const activeRoute = state.routes[state.index];
-				const childRoute = getFocusedRouteNameFromRoute(activeRoute);
-				if (childRoute && DETAIL_ROUTES.has(childRoute as Route)) return null;
-
-				return <CustomTabBar activeTab={activeRoute.name} />;
-			}}
+			tabBar={({ state }) => <TabBar state={state} />}
 			screenOptions={({ route }) => {
 				const childRoute = getFocusedRouteNameFromRoute(route);
 				const onDetail = childRoute != null && DETAIL_ROUTES.has(childRoute as Route);

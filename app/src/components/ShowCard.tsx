@@ -130,7 +130,7 @@ export default memo(function ShowCard({
 				persistAfterSwipe={{ left: true, right: wc > 1 }}
 			>
 				<TouchableOpacity
-					style={[styles.container, styles.watchedContainer]}
+					style={styles.container}
 					onPress={handlePress}
 					onLongPress={handleLongPress}
 					activeOpacity={0.8}
@@ -141,22 +141,26 @@ export default memo(function ShowCard({
 						style={[styles.poster, styles.watchedPoster]}
 					/>
 					<View style={styles.info}>
-						<View style={[styles.titlePill, styles.watchedTitlePill]}>
+						<View style={[styles.titlePill, styles.watchedTitlePill, styles.watchedFade]}>
 							<Text style={[styles.titleText, styles.watchedMuted]} numberOfLines={1}>
 								{item.title.toUpperCase()}
 							</Text>
 						</View>
 						{item.mediaType === MediaType.MOVIE ? (
 							<>
-								<View style={[styles.movieMetaRow, { opacity: 0.6 }]}>
+								{/* The card fades its own parts rather than the whole subtree, so the year
+								    number alone can stay at full strength. The amber behind it is faded
+								    through a translucent fill, not opacity, which would take the number
+								    with it */}
+								<View style={styles.movieMetaRow}>
 									<View style={styles.movieBadgeGroup}>
-										<View style={styles.movieBadgeMerged}>
+										<View style={[styles.movieBadgeMerged, styles.watchedFade]}>
 											<Text style={styles.movieBadgeText}>MOVIE</Text>
 										</View>
 										{item.releaseDate && (
 											<>
-												<View style={styles.slantArrow} />
-												<View style={styles.freshTag}>
+												<View style={[styles.slantArrow, styles.watchedFade]} />
+												<View style={[styles.freshTag, styles.watchedFreshTag]}>
 													<Text style={[styles.freshTagText, styles.watchedYear]}>
 														{item.releaseDate.substring(0, 4)}
 													</Text>
@@ -166,13 +170,18 @@ export default memo(function ShowCard({
 									</View>
 								</View>
 								{item.director && (
-									<Text style={[styles.episodeName, styles.watchedMuted]} numberOfLines={1}>
+									<Text
+										style={[styles.episodeName, styles.watchedMuted, styles.watchedFade]}
+										numberOfLines={1}
+									>
 										{item.director}
 									</Text>
 								)}
 							</>
 						) : (
-							<Text style={[styles.episode, styles.watchedMuted]}>{episodeLabel}</Text>
+							<Text style={[styles.episode, styles.watchedMuted, styles.watchedFade]}>
+								{episodeLabel}
+							</Text>
 						)}
 						{item.rewatchCount > 0 && (
 							<View style={[styles.tagBadge, styles.latestBadge, styles.mutedTag]}>
@@ -182,7 +191,7 @@ export default memo(function ShowCard({
 							</View>
 						)}
 					</View>
-					<View style={styles.checkmarkWrap}>
+					<View style={[styles.checkmarkWrap, styles.watchedFade]}>
 						<CheckmarkButton
 							size={38}
 							watched
@@ -321,12 +330,15 @@ const styles = StyleSheet.create({
 		width: POSTER_WIDTH,
 		alignSelf: "stretch",
 	},
-	// Same fade as WatchedEpisodeRow: whole card, poster a step further
-	watchedContainer: {
+	// Same fade as WatchedEpisodeRow, but per element instead of over the whole card: a
+	// container opacity also dims the movie year, which has to stay readable. The card keeps
+	// `container`'s surface — SwipeableCard paints the same surface behind it, so the old
+	// container-wide 0.5 never actually darkened the background, only the content.
+	watchedFade: {
 		opacity: 0.5,
 	},
 	watchedPoster: {
-		opacity: 0.6,
+		opacity: 0.3,
 	},
 	info: {
 		flex: 1,
@@ -441,7 +453,11 @@ const styles = StyleSheet.create({
 		color: colors.surface,
 		letterSpacing: 0.5,
 	},
-	// Previously watched: the faded card turned the surface-grey year brownish — keep it black
+	// Previously watched: half-strength amber, so only the year number reads at full strength
+	watchedFreshTag: {
+		backgroundColor: colors.warningAmberFaded,
+	},
+	// …and black on that muted amber, where the surface-grey went brownish
 	watchedYear: {
 		color: colors.background,
 	},

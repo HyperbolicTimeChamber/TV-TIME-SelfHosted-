@@ -370,8 +370,7 @@
 	border: none;
 	/* Reads as round as the (larger) stat cards */
 	border-radius: 16px;
-	/* Softer red than the brand red, no glow */
-	background: var(--color-danger);
+	background: var(--color-primary);
 	color: var(--text);
 	font-size: 17px;
 	font-weight: 600;

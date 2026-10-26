@@ -3,10 +3,15 @@ import { View, Text, StyleSheet, ActivityIndicator, Dimensions } from "react-nat
 import { Image } from "expo-image";
 import { colors } from "../../theme";
 import { tmdbBackdropUri } from "../../hooks/useTmdbImage";
+import { useCountUp } from "../../hooks/useCountUp";
 import { styles, BLUR_RADIUS } from "./styles";
 
 interface Props {
-	value: string | number;
+	value: number;
+	/** Applied to every counted frame, so the card keeps its "26.1K" / "1y 265d" shape */
+	format: (value: number) => string;
+	/** Count up from zero (the Profile screen's first appearance after launch) */
+	countUp?: boolean;
 	label: string;
 	flex: number;
 	backdrop?: string | null;
@@ -16,6 +21,8 @@ interface Props {
 
 export default function StatCard({
 	value,
+	format,
+	countUp = false,
 	label,
 	flex,
 	backdrop,
@@ -23,6 +30,7 @@ export default function StatCard({
 	loading = false,
 }: Readonly<Props>) {
 	const side = align === "right" ? "flex-end" : "flex-start";
+	const shown = useCountUp(value, countUp);
 	return (
 		<View style={[styles.statCard, { flex, alignItems: side }]}>
 			{backdrop && (
@@ -38,7 +46,7 @@ export default function StatCard({
 			{loading ? (
 				<ActivityIndicator size="small" color={colors.text} style={styles.statLoader} />
 			) : (
-				<Text style={styles.statNumber}>{value}</Text>
+				<Text style={styles.statNumber}>{format(shown)}</Text>
 			)}
 		</View>
 	);

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
+	AppState,
 	View,
 	Text,
 	TouchableOpacity,
@@ -11,7 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Gesture, GestureHandlerRootView } from "react-native-gesture-handler";
+import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
 	interpolate,
 	runOnJS,
@@ -41,6 +42,7 @@ import {
 	weekStart,
 } from "../../utils/calendarGrid";
 import { todayStr } from "../../utils/todayStr";
+import { useTabPress } from "../../navigation/CustomTabBar";
 import Pager from "./Pager";
 import DayList from "./DayList";
 import { MonthGrid, WeekRow, type ChipFit } from "./MonthGrid";
@@ -53,8 +55,9 @@ const RESIZE_MS = 240;
 const MARKS_IN_MS = 100;
 /** Day settled this long before its info cards are warmed (seasons + stills) */
 const INFO_WARM_DELAY_MS = 400;
-/** Neighbour days stay built this long after a page turn (covers the slide) */
-const PEEK_HOLD_MS = 350;
+/** New day's cards slide in over this, from this far out */
+const DAY_SWAP_MS = 200;
+const DAY_SWAP_PX = 36;
 /** How far a release's speed carries the resize when picking the view to snap to */
 const FLING_CARRY = 0.15;
 // Read-only episode info: nothing to mark
@@ -99,16 +102,30 @@ export default function CalendarScreen() {
 	const navigation = useNavigation<NavProp>();
 	const yearListRef = useRef<any>(null);
 	const c = useCalendarScreen();
-	const { selectDate, handleMonthChange, episodesForDate, dayMarks, currentYear, currentMonth } = c;
+	const {
+		selectDate,
+		handleMonthChange,
+		episodesForDate,
+		dayMarks,
+		currentYear,
+		currentMonth,
+		resetToToday,
+	} = c;
 	const selected = c.selectedDate ?? todayStr();
 	const today = todayStr();
 
-	// Back to today only when the Calendar tab is entered — not when returning from a
-	// show page pushed inside this tab (that's a focus of this screen, not of the tab)
-	useEffect(
-		() => navigation.getParent()?.addListener("focus", c.resetToToday),
-		[navigation, c.resetToToday],
-	);
+	// Back to today on a Calendar tab-button press or when the app comes back — deliberately
+	// not on tab focus: reaching Calendar by swiping would jump the date out from under the
+	// swipe. (Returning from a show page pushed inside this tab must not reset it either.)
+	useTabPress((route) => {
+		if (route === Route.CALENDAR) resetToToday();
+	});
+	useEffect(() => {
+		const sub = AppState.addEventListener("change", (state) => {
+			if (state === "active") resetToToday();
+		});
+		return () => sub.remove();
+	}, [resetToToday]);
 	// Groups start closed whenever the user comes back to this screen
 	const [collapseSignal, setCollapseSignal] = useState(0);
 	useEffect(
@@ -132,7 +149,9 @@ export default function CalendarScreen() {
 		const cellW = (width - 8) / 7 - 3 - 2 - 4 - 4;
 		return { space: Math.max(0, space), charsPerLine: Math.max(4, Math.floor(cellW / 5)) };
 	}, [bodyPx, weeks.length, width]);
-	useEffect(() => {
+	// Before paint, not after: a month with a different number of weeks was otherwise drawn
+	// for one frame at the previous month's row height — the jump seen when swiping months
+	useLayoutEffect(() => {
 		rows.value = weeks.length;
 		if (bodyH.value > 0) fullRowH.value = bodyH.value / weeks.length;
 	}, [weeks.length, rows, bodyH, fullRowH]);
@@ -303,15 +322,30 @@ export default function CalendarScreen() {
 	// Week strip hides the instant a pull-down starts: the month grid already mounted under it
 	// takes over on the UI thread (no wait for a JS re-render to swap it in)
 	const weekStripStyle = useAnimatedStyle(() => ({ opacity: progress.value > 0.001 ? 0 : 1 }));
-	// Neighbouring days' cards are only built once a sideways swipe starts
-	const [peek, setPeek] = useState(false);
-	// …and dropped again once the day has changed and the slide (~200ms) is over, so the day
-	// sliding out keeps its cards until it's gone
-	useEffect(() => {
-		const t = setTimeout(() => setPeek(false), PEEK_HOLD_MS);
-		return () => clearTimeout(t);
-	}, [selected]);
 	const [popupDate, setPopupDate] = useState<string | null>(null);
+
+	const popupDateRef = useRef<string | null>(null);
+	popupDateRef.current = popupDate;
+	const closePopup = useCallback(() => {
+		if (popupDateRef.current) selectDate(popupDateRef.current);
+		setPopupDate(null);
+	}, [selectDate]);
+
+	// The list no longer swipes between days (that stole the sideways drag the bottom tabs
+	// need). A tapped date's cards slide in instead, from the side the new day lies on.
+	const daySwap = useSharedValue(0);
+	const prevSelected = useRef(selected);
+	useEffect(() => {
+		if (prevSelected.current === selected) return;
+		const from = selected > prevSelected.current ? DAY_SWAP_PX : -DAY_SWAP_PX;
+		prevSelected.current = selected;
+		daySwap.value = from;
+		daySwap.value = withTiming(0, { duration: DAY_SWAP_MS });
+	}, [selected, daySwap]);
+	const daySwapStyle = useAnimatedStyle(() => ({
+		transform: [{ translateX: daySwap.value }],
+		opacity: interpolate(Math.abs(daySwap.value), [0, DAY_SWAP_PX], [1, 0], "clamp"),
+	}));
 
 	// Mode read through a ref: a mode change must not hand every day cell a new onPress
 	// (that would re-render all three grids the moment a resize lands)
@@ -441,10 +475,10 @@ export default function CalendarScreen() {
 	}, [selectedEpisodes, queryClient]);
 	const openMovie = useCallback(
 		(ep: CalendarEpisode) => {
-			setPopupDate(null);
+			closePopup();
 			navigation.navigate(Route.SHOW_DETAIL, { tmdbId: ep.tmdbShowId, mediaType: MediaType.MOVIE });
 		},
-		[navigation],
+		[navigation, closePopup],
 	);
 
 	// --- Full-view day popup: swipes sideways through the days, like the list under the month ---
@@ -452,15 +486,12 @@ export default function CalendarScreen() {
 	const popupMaxH = Math.min(windowH * 0.65, 640);
 	// AnimatedModal's wide box (92%, at most 560) less the popup border
 	const popupW = Math.min(width * 0.92, 560) - 2;
-	const onPopupPage = useCallback(
-		(dir: 1 | -1) => {
-			if (!popupDate) return;
-			const next = addDays(popupDate, dir);
-			setPopupDate(next);
-			selectDate(next);
-		},
-		[popupDate, selectDate],
-	);
+	// Only the popup's own date moves while it's open: selecting the day as well re-rendered
+	// the three month grids and the day list in the middle of every slide (the stutter).
+	// The selection catches up when the popup closes.
+	const onPopupPage = useCallback((dir: 1 | -1) => {
+		setPopupDate((cur) => (cur ? addDays(cur, dir) : cur));
+	}, []);
 	const renderPopupPage = (offset: -1 | 0 | 1) => {
 		if (!popupDate) return null;
 		const date = addDays(popupDate, offset);
@@ -482,29 +513,22 @@ export default function CalendarScreen() {
 	// List space under the month grid: an empty day centres in it in month view, and keeps the same
 	// spot (riding up with the list) when the grid shrinks to a week
 	const visibleListH = Math.max(0, bodyPx - weeks.length * ROW_MONTH);
-	const renderDayPage = (offset: -1 | 0 | 1) => {
-		const date = addDays(selected, offset);
-		// Only the selected day's page scrolls (neighbours sit at their top while swiping in)
-		return (
-			<Animated.View
-				// At least the visible list height, so an empty day can centre in it
-				style={[{ minHeight: visibleListH }, offset === 0 && listScroll]}
-				onLayout={(e) => onDayPageLayout(date, e.nativeEvent.layout.height)}
-			>
-				<DayHeader date={date} />
-				{(offset === 0 || peek) && (
-					<DayList
-						episodes={episodesForDate(date)}
-						onOpenEpisode={setInfoEp}
-						onOpenMovie={openMovie}
-						collapseSignal={collapseSignal}
-						externalScroll
-						lite={offset !== 0}
-					/>
-				)}
-			</Animated.View>
-		);
-	};
+	const dayPage = (
+		<Animated.View
+			// At least the visible list height, so an empty day can centre in it
+			style={[{ minHeight: visibleListH }, listScroll]}
+			onLayout={(e) => onDayPageLayout(selected, e.nativeEvent.layout.height)}
+		>
+			<DayHeader date={selected} />
+			<DayList
+				episodes={episodesForDate(selected)}
+				onOpenEpisode={setInfoEp}
+				onOpenMovie={openMovie}
+				collapseSignal={collapseSignal}
+				externalScroll
+			/>
+		</Animated.View>
+	);
 
 	const openYearModal = useCallback(() => {
 		c.setYearModalVisible(true);
@@ -577,22 +601,17 @@ export default function CalendarScreen() {
 					{c.loading ? (
 						<CalendarSkeleton />
 					) : (
-						<Pager
-							width={width}
-							index={dayNumber(selected)}
-							keyFor={(offset) => addDays(selected, offset)}
-							renderPage={renderDayPage}
-							onPage={(dir) => selectDate(addDays(selected, dir))}
-							onDragStart={() => setPeek(true)}
-							race={listScrollGesture}
-							style={styles.body}
-						/>
+						// Vertical drag only (it scrolls the list / resizes the grid). Sideways drags
+						// fail it and reach the bottom tab pager, so Calendar ↔ Search swiping works.
+						<GestureDetector gesture={listScrollGesture}>
+							<Animated.View style={[styles.body, daySwapStyle]}>{dayPage}</Animated.View>
+						</GestureDetector>
 					)}
 				</Animated.View>
 			</View>
 
 			{/* Full view: tapping a day shows its cards in a popup */}
-			<AnimatedModal visible={!!popupDate} onClose={() => setPopupDate(null)} wide>
+			<AnimatedModal visible={!!popupDate} onClose={closePopup} wide>
 				{popupDate && (
 					// Own gesture root: a Modal renders outside the app's. The rounded box is a plain View
 					// inside it — on Android the root's native view ignores borderRadius / overflow, so
@@ -632,7 +651,7 @@ export default function CalendarScreen() {
 					onUnmarkWatched={noopAsync}
 					onShowPress={() => {
 						setInfoEp(null);
-						setPopupDate(null);
+						closePopup();
 						navigation.navigate(Route.SHOW_DETAIL, {
 							tmdbId: infoEp.tmdbShowId,
 							mediaType: MediaType.TV,

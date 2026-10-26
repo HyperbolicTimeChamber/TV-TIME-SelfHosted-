@@ -21,9 +21,16 @@
 	contain: size;
 }
 
-/* Card itself fades to 0.5 (app WatchedEpisodeRow) */
+/* Same fade as the app's ShowCard, per element instead of over the whole card: a container
+   opacity also dims the movie year, which has to stay readable. The card keeps `.container`'s
+   surface — SwipeableCard paints the same surface behind it, so the old container-wide 0.5
+   never darkened the background, only the content. */
+.watchedFade {
+	opacity: 0.5;
+}
+
 .watchedPoster {
-	opacity: 0.6;
+	opacity: 0.3;
 }
 
 .info {
@@ -174,7 +181,9 @@
 	font-weight: 600;
 }
 
-/* Previously watched: the faded card turned the year brownish — keep it black */
-.watchedYear {
+/* Previously watched: half-strength amber, so only the year number reads at full strength
+   (opacity here would fade the number too) */
+.watchedFreshTag {
+	background: rgba(245, 158, 11, 0.5);
 	color: var(--bg);
 }

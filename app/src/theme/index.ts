@@ -13,6 +13,8 @@ export const colors = {
 	border: "#333333",
 	moviePurple: "#8B5CF6",
 	warningAmber: "#F59E0B",
+	/** warningAmber at 50% — a faded fill that leaves the text on it untouched (opacity would not) */
+	warningAmberFaded: "rgba(245, 158, 11, 0.5)",
 	spinnerWhite: "#FFFFFF",
 	spinnerOrange: "#FF3D00",
 	overlay: "rgba(0, 0, 0, 0.85)",

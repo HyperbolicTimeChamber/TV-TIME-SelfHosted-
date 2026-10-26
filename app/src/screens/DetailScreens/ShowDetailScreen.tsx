@@ -13,6 +13,7 @@ import ActionPills from "./ActionPills";
 import DetailCredits from "./DetailCredits";
 import { useShowDetailActions } from "./useShowDetailActions";
 import {
+	AddFailedModal,
 	ConfirmModal,
 	LoadingSpinner,
 	SeasonDropdown,
@@ -22,7 +23,7 @@ import {
 import { showShareUrl, describeLoadError } from "../../utils";
 import ErrorState from "../../components/ErrorState";
 import CircleButton, { CircleBackButton } from "../../components/CircleButton";
-import SwipeBackView from "../../components/SwipeBackView";
+import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import { colors, spacing, typography } from "../../theme";
 import { HomeStackParamList, MediaType, Route, WatchStatus } from "../../types";
 import { CircleButtonTone } from "../../enums";
@@ -55,6 +56,8 @@ export default function ShowDetailScreen() {
 		removeError,
 		setRemoveError,
 		unreleasedModal,
+		addFailure,
+		setAddFailure,
 		setUnreleasedModal,
 		title,
 		year,
@@ -84,6 +87,7 @@ export default function ShowDetailScreen() {
 		if (navigation.canGoBack()) navigation.goBack();
 		else (navigation as any).navigate(Route.HOME, { screen: Route.HOME_TABS });
 	}, [navigation]);
+	const swipeBack = useSwipeBackPop(navigation as never);
 	const insets = useSafeAreaInsets();
 	const BACKDROP_HEIGHT = 350;
 	// Parallax runs on the UI thread — a setState per scroll event would re-render the whole screen
@@ -108,7 +112,7 @@ export default function ShowDetailScreen() {
 		const goWatchlist = () => (navigation as any).navigate(Route.HOME, { screen: Route.HOME_TABS });
 		const goSearch = () => (navigation as any).navigate(Route.SWIPE_TABS, { screen: Route.SEARCH });
 		return (
-			<SwipeBackView onBack={handleBack} style={styles.container}>
+			<SwipeBackView onBack={handleBack} {...swipeBack} style={styles.container}>
 				<CircleBackButton
 					tone={CircleButtonTone.OVERLAY}
 					style={[styles.backButton, { top: insets.top + 8 }]}
@@ -130,7 +134,7 @@ export default function ShowDetailScreen() {
 
 	return (
 		// Right swipe anywhere → back, the screen underneath showing through (transparent modal route)
-		<SwipeBackView onBack={handleBack} style={styles.container}>
+		<SwipeBackView onBack={handleBack} {...swipeBack} style={styles.container}>
 			<Reanimated.ScrollView
 				contentContainerStyle={{ paddingBottom: spacing.xxl + Math.max(insets.bottom, 48) }}
 				onScroll={handleScroll}
@@ -321,6 +325,13 @@ export default function ShowDetailScreen() {
 				loading={pausing}
 				onConfirm={handleConfirmPause}
 				onClose={() => setPauseModalVisible(false)}
+			/>
+
+			<AddFailedModal
+				failure={addFailure}
+				retrying={adding}
+				onRetry={handleAddToWatchlist}
+				onClose={() => setAddFailure(null)}
 			/>
 
 			<UnreleasedMovieModal

@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useAuthStore } from "../stores";
 import { useCalendarEpisodes, getCachedCatalogShow } from "../hooks";
 import { ensureFreshCatalogs } from "../hooks/catalogRefresh";
@@ -20,6 +20,10 @@ export type CalendarEpisode = UpcomingEpisode & {
 import { colors } from "../theme";
 import { todayStr, inMonth, shiftMonth, sameDayIn, parseDay } from "../utils";
 import { buildDayMarks } from "../utils/calendarGroups";
+
+/** A month stays on screen this long before its episodes are built (flicked-past months
+ *  are never built) */
+const MONTH_SETTLE_MS = 300;
 
 const YEAR_RANGE_START = 1950;
 const YEAR_RANGE_END = 2035;
@@ -54,7 +58,7 @@ export function useCalendarScreen(initial?: CalendarPosition | null) {
 	const loading = isMonthLoading(currentYear, currentMonth);
 
 	// Shown month + its neighbours (swiping peeks at them; list paging crosses into them)
-	const loadAround = useCallback(
+	const loadAroundNow = useCallback(
 		(year: number, month: number) => {
 			loadMonthEpisodes(year, month);
 			for (const n of [-1, 1]) {
@@ -65,9 +69,22 @@ export function useCalendarScreen(initial?: CalendarPosition | null) {
 		[loadMonthEpisodes],
 	);
 
+	// Building a month walks every tracked show's catalog and hits TMDB discover. Flicking
+	// through a year of months fired ~3 of those per turn and locked up the JS thread, so a
+	// turn only schedules the build — the months flicked past are never built at all.
+	const loadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const loadAround = useCallback(
+		(year: number, month: number) => {
+			if (loadTimer.current) clearTimeout(loadTimer.current);
+			loadTimer.current = setTimeout(() => loadAroundNow(year, month), MONTH_SETTLE_MS);
+		},
+		[loadAroundNow],
+	);
+	useEffect(() => () => void (loadTimer.current && clearTimeout(loadTimer.current)), []);
+
 	// Load current month's episodes on mount
 	useEffect(() => {
-		loadAround(currentYear, currentMonth);
+		loadAroundNow(currentYear, currentMonth);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [user?.uid]);
 
@@ -77,8 +94,8 @@ export function useCalendarScreen(initial?: CalendarPosition | null) {
 		setCurrentYear(today.getFullYear());
 		setCurrentMonth(today.getMonth() + 1);
 		setSelectedDate(todayStr());
-		loadAround(today.getFullYear(), today.getMonth() + 1);
-	}, [loadAround]);
+		loadAroundNow(today.getFullYear(), today.getMonth() + 1);
+	}, [loadAroundNow]);
 
 	const markedDates = useMemo(() => {
 		const marks: Record<string, DayMark> = {};
@@ -119,26 +136,36 @@ export function useCalendarScreen(initial?: CalendarPosition | null) {
 			.catch(() => {});
 	}, [episodes, selectedDate]);
 
+	// Indexed once per change instead of scanning every loaded month on each call — the screen
+	// asks for several days per render, and `episodes` holds every month visited this session
+	const byDate = useMemo(() => {
+		const map = new Map<string, UpcomingEpisode[]>();
+		for (const ep of episodes ?? []) {
+			const day = map.get(ep.airDate);
+			if (day) day.push(ep);
+			else map.set(ep.airDate, [ep]);
+		}
+		return map;
+	}, [episodes]);
+
 	// + backdrop and logo from the shared catalog cache (no reads) for the cards
 	const episodesForDate = useCallback(
 		(date: string | null): CalendarEpisode[] => {
-			if (!date || !episodes) return [];
-			return episodes
-				.filter((ep) => ep.airDate === date)
-				.map((ep) => {
-					const catalog = getCachedCatalogShow(
-						ep.tmdbShowId,
-						ep.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV,
-					);
-					return {
-						...ep,
-						backdropPath: catalog?.backdropPath ?? null,
-						logoPath: catalog?.logoPath ?? null,
-					};
-				});
+			if (!date) return [];
+			return (byDate.get(date) ?? []).map((ep) => {
+				const catalog = getCachedCatalogShow(
+					ep.tmdbShowId,
+					ep.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV,
+				);
+				return {
+					...ep,
+					backdropPath: catalog?.backdropPath ?? null,
+					logoPath: catalog?.logoPath ?? null,
+				};
+			});
 		},
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-		[episodes, catalogVersion],
+		[byDate, catalogVersion],
 	);
 	const selectedEpisodes = useMemo(
 		() => episodesForDate(selectedDate),

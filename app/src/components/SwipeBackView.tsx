@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
 import { useWindowDimensions, type StyleProp, type ViewStyle } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -30,10 +30,16 @@ export function slideOffAndBack(x: SharedValue<number>, width: number, onBack: (
 /** Right swipe anywhere on the screen: it follows the finger, then pops (or settles back) */
 export default function SwipeBackView({
 	onBack,
+	onSwipeStart,
+	onSwipeCancel,
 	style,
 	children,
 }: {
 	onBack: () => void;
+	/** The drag was claimed — the screen is about to follow the finger (see `useSwipeBackPop`) */
+	onSwipeStart?: () => void;
+	/** …and let go short of the threshold, so the screen stays */
+	onSwipeCancel?: () => void;
 	style?: StyleProp<ViewStyle>;
 	children: ReactNode;
 }) {
@@ -49,6 +55,7 @@ export default function SwipeBackView({
 				.onStart((e) => {
 					"worklet";
 					grab.value = e.translationX;
+					if (onSwipeStart) runOnJS(onSwipeStart)();
 				})
 				.onUpdate((e) => {
 					"worklet";
@@ -60,9 +67,10 @@ export default function SwipeBackView({
 						slideOffAndBack(x, width, onBack);
 					} else {
 						x.value = withTiming(0, { duration: SWIPE_BACK_SLIDE_MS });
+						if (onSwipeCancel) runOnJS(onSwipeCancel)();
 					}
 				}),
-		[width, x, grab, onBack],
+		[width, x, grab, onBack, onSwipeStart, onSwipeCancel],
 	);
 	const slide = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
 	return (
@@ -70,4 +78,51 @@ export default function SwipeBackView({
 			<Animated.View style={[style, slide]}>{children}</Animated.View>
 		</GestureDetector>
 	);
+}
+
+// --- "a swipe-back is in flight" ------------------------------------------------------------
+// The bottom tab bar is hidden on detail routes and comes back when one is popped — a re-render
+// that lands only once the navigation does, a beat after SwipeBackView's slide has finished. The
+// screen underneath was seen settling and then being shoved as the bar appeared. Letting the bar
+// know the swipe has begun brings it back with the slide instead of after it.
+let swipingBack = false;
+const swipeBackListeners = new Set<() => void>();
+const setSwipingBack = (value: boolean) => {
+	if (swipingBack === value) return;
+	swipingBack = value;
+	swipeBackListeners.forEach((fn) => fn());
+};
+
+/** True while a SwipeBackView drag is under way (the bottom tab bar watches this) */
+export function useSwipingBack() {
+	return useSyncExternalStore(
+		(onChange) => {
+			swipeBackListeners.add(onChange);
+			return () => swipeBackListeners.delete(onChange);
+		},
+		() => swipingBack,
+	);
+}
+
+/**
+ * Pair for SwipeBackView on a `swipeBackScreenOptions` route. The route's own
+ * `slide_from_right` is the *push* animation, and the native stack replays it in reverse when
+ * the route is popped — on top of the slide SwipeBackView has already run. The screen below
+ * was seen settling, then shifting again a beat later. Turning the route's animation off for
+ * the duration of the swipe leaves exactly one.
+ */
+export function useSwipeBackPop(navigation: {
+	setOptions: (options: { animation: "none" | "slide_from_right" }) => void;
+}) {
+	const onSwipeStart = useCallback(() => {
+		setSwipingBack(true);
+		navigation.setOptions({ animation: "none" });
+	}, [navigation]);
+	const onSwipeCancel = useCallback(() => {
+		setSwipingBack(false);
+		navigation.setOptions({ animation: "slide_from_right" });
+	}, [navigation]);
+	// Popped: the route itself now says the bar belongs on screen, so the override can go
+	useEffect(() => () => setSwipingBack(false), []);
+	return { onSwipeStart, onSwipeCancel };
 }
