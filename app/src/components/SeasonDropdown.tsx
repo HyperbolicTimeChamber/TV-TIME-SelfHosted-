@@ -124,7 +124,7 @@ export default memo(function SeasonDropdown({
 	const accordion = useAccordion(expanded);
 
 	return (
-		<View>
+		<View style={styles.season}>
 			<TouchableOpacity
 				style={styles.seasonRow}
 				activeOpacity={0.85}
@@ -500,10 +500,14 @@ export default memo(function SeasonDropdown({
 const styles = StyleSheet.create({
 	// Same card as Calendar's show cards: rounded, on the surface. The poster runs flush to its
 	// edges (the card's corners round it) so the card is only as tall as the poster
+	// The gap to the next season sits under the whole dropdown, so an open one's episodes hang
+	// just under its card
+	season: {
+		marginBottom: spacing.md,
+	},
 	seasonRow: {
 		flexDirection: "row",
 		alignItems: "center",
-		marginBottom: spacing.md,
 		paddingRight: spacing.md,
 		borderRadius: 16,
 		overflow: "hidden",
@@ -535,6 +539,9 @@ const styles = StyleSheet.create({
 		top: 0,
 		left: 0,
 		right: 0,
+		// Hairline gaps: under the season card and between episodes
+		paddingTop: 2,
+		gap: 2,
 	},
 	loader: {
 		paddingVertical: spacing.lg,
@@ -543,7 +550,6 @@ const styles = StyleSheet.create({
 	episodeRow: {
 		flexDirection: "row",
 		alignItems: "center",
-		marginBottom: spacing.sm,
 		paddingVertical: 6,
 		paddingLeft: 6,
 		paddingRight: spacing.md,

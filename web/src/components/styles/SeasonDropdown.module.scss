@@ -1,11 +1,16 @@
 @use "../../theme/tokens" as *;
 
+/* The gap to the next season sits under the whole dropdown, so an open one's episodes hang
+   just under its card */
+.season {
+	margin-bottom: 12px;
+}
+
 /* Same card as Calendar's show cards: rounded, on the surface. The poster runs flush to its
    edges (the card's corners round it) so the card is only as tall as the poster */
 .seasonRow {
 	display: flex;
 	align-items: center;
-	margin-bottom: 12px;
 	padding-right: 12px;
 	border-radius: 16px;
 	overflow: hidden;
@@ -50,6 +55,15 @@
 	transform: rotate(180deg);
 }
 
+/* Hairline gaps: under the season card and between episodes */
+.episodeList {
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding-top: 2px;
+}
+
 .loader {
 	padding: 16px 0;
 	display: flex;
@@ -60,7 +74,6 @@
 .episodeRow {
 	display: flex;
 	align-items: center;
-	margin-bottom: 8px;
 	padding: 6px 12px 6px 6px;
 	border-radius: 12px;
 	overflow: hidden;

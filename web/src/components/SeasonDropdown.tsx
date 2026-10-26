@@ -119,7 +119,7 @@ export default memo(function SeasonDropdown({ readOnly, ...props }: Props) {
 	const showLogo = getCachedCatalogShow(props.tmdbId, MediaType.TV)?.logoPath ?? null;
 
 	return (
-		<div>
+		<div className={styles.season}>
 			<div
 				className={styles.seasonRow}
 				role="button"
@@ -173,7 +173,7 @@ export default memo(function SeasonDropdown({ readOnly, ...props }: Props) {
 				{s.expanded && (
 					// Same accordion as Calendar's show cards: strips slide open, seasons below follow
 					<motion.div
-						className="overflow-hidden"
+						className={styles.episodeList}
 						initial={{ height: 0, opacity: 0 }}
 						animate={{ height: "auto", opacity: 1 }}
 						exit={{ height: 0, opacity: 0 }}
