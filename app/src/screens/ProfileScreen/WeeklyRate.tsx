@@ -1,25 +1,22 @@
-import { useEffect, useRef, useState } from "react";
-import {
-	AccessibilityInfo,
-	Animated,
-	Easing,
-	LayoutChangeEvent,
-	StyleSheet,
-	Text,
-	View,
-} from "react-native";
-import Svg, { Defs, Ellipse, LinearGradient, RadialGradient, Rect, Stop } from "react-native-svg";
+import { useEffect, useRef } from "react";
+import { AccessibilityInfo, Animated, Easing, StyleSheet, Text, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { colors, spacing, typography } from "../../theme";
 
 const GROW_MS = 500;
 const GROW_STAGGER_MS = 80;
-/** Glow and all, a row is as tall as the plain bar it replaced; the core is a third of that,
- *  since the outer halo reaches BAR_H either side of it */
-const GLOW_H = 14;
-const BAR_H = GLOW_H / 3;
-const CY = GLOW_H / 2;
-/** Mirrors the ellipse the chart puts under each bar */
-const BASE_GLOW = 20;
+/** Core thickness; the shadow blooms outside it without taking layout space, so a row stays
+ *  about as tall as the plain bar it replaced */
+const BAR_H = 6;
+const ROW_H = 14;
+
+/** `#RRGGBB` + alpha → rgba(), for the shadow colours */
+const tint = (hex: string, alpha: number) =>
+	`rgba(${parseInt(hex.slice(1, 3), 16)}, ${parseInt(hex.slice(3, 5), 16)}, ${parseInt(hex.slice(5, 7), 16)}, ${alpha})`;
+
+/** Tight inner halo plus a wider bloom — a real blur, where the chart stacks translucent rects */
+const glow = (color: string) =>
+	`0 0 ${BAR_H}px ${tint(color, 0.9)}, 0 0 ${BAR_H * 2.5}px ${tint(color, 0.45)}`;
 
 interface Props {
 	episodes: number;
@@ -28,66 +25,11 @@ interface Props {
 	animate?: boolean;
 }
 
-/** WeeklyChart's GlowBar laid on its side: the bar runs right from the axis instead of up */
-function GlowBar({ id, color, length }: Readonly<{ id: string; color: string; length: number }>) {
-	if (length <= 0) {
-		return (
-			<>
-				<Rect x={0} y={CY - BAR_H / 2} width={4} height={BAR_H} rx={2} fill={colors.surfaceLight} />
-				<Ellipse
-					cx={2}
-					cy={CY}
-					rx={BASE_GLOW * 0.3}
-					ry={CY}
-					fill={colors.surfaceLight}
-					opacity={0.1}
-				/>
-			</>
-		);
-	}
-	return (
-		<>
-			{/* Outer glow — wide, soft */}
-			<Rect
-				x={0}
-				y={CY - BAR_H * 1.5}
-				width={length * 0.8}
-				height={BAR_H * 3}
-				rx={BAR_H * 1.5}
-				fill={color}
-				opacity={0.12}
-			/>
-			{/* Mid glow */}
-			<Rect
-				x={0}
-				y={CY - BAR_H}
-				width={length * 0.9}
-				height={BAR_H * 2}
-				rx={BAR_H}
-				fill={color}
-				opacity={0.2}
-			/>
-			{/* Core bar — bright at the axis, fading at the tip */}
-			<Rect
-				x={0}
-				y={CY - BAR_H / 2}
-				width={length}
-				height={BAR_H}
-				rx={BAR_H / 2}
-				fill={`url(#${id})`}
-			/>
-			{/* Base glow where the bar leaves the axis */}
-			<Ellipse cx={0} cy={CY} rx={BASE_GLOW * 0.55} ry={CY} fill={`url(#${id}_radial)`} />
-		</>
-	);
-}
-
 function Bar({
 	label,
 	value,
 	share,
 	color,
-	id,
 	grow,
 }: Readonly<{
 	label: string;
@@ -95,14 +37,11 @@ function Bar({
 	/** 0–1 of the row's width */
 	share: number;
 	color: string;
-	id: string;
 	grow: Animated.Value;
 }>) {
-	const [width, setWidth] = useState(0);
-	const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
-
+	const empty = value <= 0;
 	return (
-		<View style={styles.row}>
+		<View>
 			<View style={styles.rowHeader}>
 				<View style={styles.rowLabel}>
 					<View style={[styles.swatch, { backgroundColor: color }]} />
@@ -110,24 +49,29 @@ function Bar({
 				</View>
 				<Text style={styles.value}>{value}</Text>
 			</View>
-			<View style={styles.track} onLayout={onLayout}>
-				{width > 0 && (
-					<Animated.View style={{ transformOrigin: "left", transform: [{ scaleX: grow }] }}>
-						<Svg width={width} height={GLOW_H}>
-							<Defs>
-								<LinearGradient id={id} x1="0" y1="0" x2="1" y2="0">
-									<Stop offset="0" stopColor={color} stopOpacity="1" />
-									<Stop offset="0.2" stopColor={color} stopOpacity="0.95" />
-									<Stop offset="0.6" stopColor={color} stopOpacity="0.6" />
-									<Stop offset="1" stopColor={color} stopOpacity="0.15" />
-								</LinearGradient>
-								<RadialGradient id={`${id}_radial`} cx="50%" cy="50%" rx="50%" ry="50%">
-									<Stop offset="0" stopColor={color} stopOpacity="0.5" />
-									<Stop offset="1" stopColor={color} stopOpacity="0" />
-								</RadialGradient>
-							</Defs>
-							<GlowBar id={id} color={color} length={width * share} />
-						</Svg>
+			<View style={styles.track}>
+				{empty ? (
+					<View style={styles.stub} />
+				) : (
+					<Animated.View
+						style={[
+							styles.bar,
+							{
+								width: `${Math.max(share, 0.02) * 100}%`,
+								boxShadow: glow(color),
+								transformOrigin: "left",
+								transform: [{ scaleX: grow }],
+							},
+						]}
+					>
+						{/* Bright where the bar leaves the axis, fading at the tip, as the chart's do */}
+						<LinearGradient
+							colors={[color, color, tint(color, 0.35)]}
+							locations={[0, 0.55, 1]}
+							start={{ x: 0, y: 0 }}
+							end={{ x: 1, y: 0 }}
+							style={styles.fill}
+						/>
 					</Animated.View>
 				)}
 			</View>
@@ -176,7 +120,6 @@ export default function WeeklyRate({ episodes, movies, animate = false }: Readon
 		<View style={styles.container}>
 			<Text style={styles.title}>Weekly Watch Rate</Text>
 			<Bar
-				id="weekEp"
 				label="Episodes"
 				value={episodes}
 				share={episodes / peak}
@@ -184,7 +127,6 @@ export default function WeeklyRate({ episodes, movies, animate = false }: Readon
 				grow={bars.current[0]}
 			/>
 			<Bar
-				id="weekMov"
 				label="Movies"
 				value={movies}
 				share={movies / peak}
@@ -206,7 +148,6 @@ const styles = StyleSheet.create({
 	title: {
 		...typography.subtitle,
 	},
-	row: {},
 	rowHeader: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -234,7 +175,22 @@ const styles = StyleSheet.create({
 	},
 	// No plate behind it: the bars sit on the page as the chart's do, glow and all
 	track: {
-		height: GLOW_H,
+		height: ROW_H,
 		justifyContent: "center",
+	},
+	bar: {
+		height: BAR_H,
+		borderRadius: BAR_H / 2,
+		overflow: "hidden",
+	},
+	fill: {
+		flex: 1,
+	},
+	// Nothing watched: the same nub the chart shows for an empty day
+	stub: {
+		width: 4,
+		height: BAR_H,
+		borderRadius: 2,
+		backgroundColor: colors.surfaceLight,
 	},
 });
