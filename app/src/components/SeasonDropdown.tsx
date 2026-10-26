@@ -2,7 +2,7 @@ import React, { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
 import Reanimated from "react-native-reanimated";
-import AccordionArrow, { stripEntering, useAccordion } from "./AccordionArrow";
+import AccordionArrow, { CascadeStrip, useAccordion } from "./AccordionArrow";
 import WatchActionSheet from "./modals/WatchActionSheet";
 import ConfirmModal from "./modals/ConfirmModal";
 import {
@@ -193,13 +193,13 @@ export default memo(function SeasonDropdown({
 								const epLabel = `S${String(season.season_number).padStart(2, "0")}E${String(ep.episode_number).padStart(2, "0")}`;
 
 								return (
-									<Reanimated.View
+									<CascadeStrip
 										key={ep.episode_number}
 										style={[
 											styles.episodeRow,
 											isLast && nth === episodes.length - 1 && styles.groupBottom,
 										]}
-										entering={stripEntering(nth)}
+										nth={nth}
 									>
 										<TouchableOpacity
 											style={styles.episodeInfo}
@@ -264,7 +264,7 @@ export default memo(function SeasonDropdown({
 											}
 											disabled={markingEps.size > 0 || markingSeason}
 										/>
-									</Reanimated.View>
+									</CascadeStrip>
 								);
 							})
 						)}

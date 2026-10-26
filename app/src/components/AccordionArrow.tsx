@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import type { LayoutChangeEvent } from "react-native";
+import { useEffect, useState, type ReactNode } from "react";
+import type { LayoutChangeEvent, StyleProp, ViewStyle } from "react-native";
 import Reanimated, {
 	FadeInUp,
 	FadeOutUp,
@@ -7,6 +7,7 @@ import Reanimated, {
 	runOnJS,
 	useAnimatedStyle,
 	useSharedValue,
+	withDelay,
 	withTiming,
 } from "react-native-reanimated";
 import IosArrowDown from "./IosArrowDown";
@@ -21,6 +22,31 @@ export const accordionLayout = LinearTransition.duration(ACCORDION_MS);
 export const stripEntering = (nth: number) =>
 	FadeInUp.duration(ACCORDION_MS).delay(nth * STRIP_STAGGER_MS);
 export const stripExiting = FadeOutUp.duration(ACCORDION_MS / 2);
+// FadeInUp's starting offset
+const STRIP_RISE = 25;
+
+/**
+ * stripEntering as a plain style animation, for strips whose rows can change height while they
+ * cascade in (a season's episodes gain a "Watched 2x" line once watch data lands). An `entering`
+ * animation holds a view's frame until it finishes, so a row below a growing one kept its old
+ * spot and overlapped it, eating the gap between them. Opacity and translate only — layout is
+ * left alone.
+ */
+export function CascadeStrip({
+	nth,
+	style,
+	children,
+}: Readonly<{ nth: number; style?: StyleProp<ViewStyle>; children: ReactNode }>) {
+	const progress = useSharedValue(0);
+	useEffect(() => {
+		progress.value = withDelay(nth * STRIP_STAGGER_MS, withTiming(1, { duration: ACCORDION_MS }));
+	}, [nth, progress]);
+	const cascade = useAnimatedStyle(() => ({
+		opacity: progress.value,
+		transform: [{ translateY: (1 - progress.value) * STRIP_RISE }],
+	}));
+	return <Reanimated.View style={[style, cascade]}>{children}</Reanimated.View>;
+}
 
 /** Dropdown arrow that turns to point up while its card is open */
 export default function AccordionArrow({ open, size }: Readonly<{ open: boolean; size: number }>) {
