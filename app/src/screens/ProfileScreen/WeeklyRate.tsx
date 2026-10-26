@@ -13,9 +13,10 @@ import { colors, spacing, typography } from "../../theme";
 
 const GROW_MS = 500;
 const GROW_STAGGER_MS = 80;
-/** Core bar thickness; the glow needs three times this around it */
-const BAR_H = 12;
-const GLOW_H = BAR_H * 3;
+/** Glow and all, a row is as tall as the plain bar it replaced; the core is a third of that,
+ *  since the outer halo reaches BAR_H either side of it */
+const GLOW_H = 14;
+const BAR_H = GLOW_H / 3;
 const CY = GLOW_H / 2;
 /** Mirrors the ellipse the chart puts under each bar */
 const BASE_GLOW = 20;
@@ -37,7 +38,7 @@ function GlowBar({ id, color, length }: Readonly<{ id: string; color: string; le
 					cx={2}
 					cy={CY}
 					rx={BASE_GLOW * 0.3}
-					ry={BAR_H}
+					ry={CY}
 					fill={colors.surfaceLight}
 					opacity={0.1}
 				/>
@@ -76,7 +77,7 @@ function GlowBar({ id, color, length }: Readonly<{ id: string; color: string; le
 				fill={`url(#${id})`}
 			/>
 			{/* Base glow where the bar leaves the axis */}
-			<Ellipse cx={0} cy={CY} rx={BASE_GLOW * 0.55} ry={BAR_H * 1.8} fill={`url(#${id}_radial)`} />
+			<Ellipse cx={0} cy={CY} rx={BASE_GLOW * 0.55} ry={CY} fill={`url(#${id}_radial)`} />
 		</>
 	);
 }
