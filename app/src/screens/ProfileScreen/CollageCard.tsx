@@ -5,6 +5,7 @@ import { colors } from "../../theme";
 import { tmdbPosterUri } from "../../hooks/useTmdbImage";
 import { useCountUp } from "../../hooks/useCountUp";
 import { styles, BLUR_RADIUS } from "./styles";
+import StatLabel from "./StatLabel";
 import { generateCollageLayout as generateLayout } from "../../utils";
 
 const POSTER_W = 55;
@@ -92,7 +93,7 @@ export default function CollageCard({
 					</View>
 				))}
 			{posters.length > 0 && <View style={[StyleSheet.absoluteFill, styles.statCardOverlay]} />}
-			<Text style={styles.statLabel}>{label}</Text>
+			<StatLabel label={label} />
 			{loading ? (
 				<ActivityIndicator size="small" color={colors.text} style={styles.statLoader} />
 			) : (

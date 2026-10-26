@@ -5,6 +5,7 @@ import { colors } from "../../theme";
 import { tmdbBackdropUri } from "../../hooks/useTmdbImage";
 import { useCountUp } from "../../hooks/useCountUp";
 import { styles, BLUR_RADIUS } from "./styles";
+import StatLabel from "./StatLabel";
 
 interface Props {
 	value: number;
@@ -42,7 +43,7 @@ export default function StatCard({
 				/>
 			)}
 			{backdrop && <View style={[StyleSheet.absoluteFill, styles.statCardOverlay]} />}
-			<Text style={styles.statLabel}>{label}</Text>
+			<StatLabel label={label} />
 			{loading ? (
 				<ActivityIndicator size="small" color={colors.text} style={styles.statLoader} />
 			) : (

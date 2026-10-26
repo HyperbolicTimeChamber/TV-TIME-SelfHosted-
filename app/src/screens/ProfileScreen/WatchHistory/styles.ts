@@ -1,7 +1,7 @@
 import { StyleSheet } from "react-native";
 import { colors, spacing, tint } from "../../../theme";
 
-const TIME_TEXT = tint(colors.text, 0.9);
+const TIME_TEXT = tint(colors.text, 0.95);
 
 /** Shared with the web card (same numbers → identical at phone width) */
 export const CARD_RADIUS = 16;

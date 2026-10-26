@@ -1,10 +1,45 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "../../stores";
 import { searchSuggestions } from "../../services/tmdb";
+import { getCachedCatalogTitles } from "../../hooks/useWatchlist";
+import { cleanedQuery, fallbackWords, fuzzyRank, fuzzyScore } from "../../utils/fuzzy";
 
 const HISTORY_KEY = "search_history";
 const MAX_BYTES = 10240;
+/** Most fuzzy matches from your own shows listed above TMDB's */
+const MAX_LOCAL = 3;
+
+/**
+ * TMDB suggestions. When the query finds nothing: the cleaned-up query, then each meaningful
+ * word on its own, in parallel ("brakng bad" → "bad" finds Breaking Bad), merged. A single word
+ * casts a wide net ("monye" finds people named Monye), so only results that still fuzzily match
+ * the whole typed query are kept — nothing beats noise.
+ */
+async function suggestionsWithFallback(apiKey: string, query: string): Promise<string[]> {
+	const first = await searchSuggestions(apiKey, query);
+	if (first.length > 0) return first;
+	const matching = (found: string[]) => found.filter((s) => fuzzyScore(query, s) > 0);
+
+	const clean = cleanedQuery(query);
+	if (clean && clean.length >= 2) {
+		const found = matching(await searchSuggestions(apiKey, clean));
+		if (found.length > 0) return found;
+	}
+
+	const perWord = await Promise.all(
+		fallbackWords(query).map((w) => searchSuggestions(apiKey, w).catch(() => [] as string[])),
+	);
+	const merged: string[] = [];
+	const seen = new Set<string>();
+	for (const s of perWord.flat()) {
+		const key = s.toLowerCase();
+		if (seen.has(key)) continue;
+		seen.add(key);
+		merged.push(s);
+	}
+	return matching(merged);
+}
 
 /**
  * Search box state: query, local search history (≤10KB) and debounced TMDB
@@ -32,7 +67,7 @@ export function useSearchInput(initialQuery = "") {
 			return;
 		}
 		const timer = setTimeout(() => {
-			searchSuggestions(apiKey, trimmed)
+			suggestionsWithFallback(apiKey, trimmed)
 				.then(setTmdbSuggestions)
 				.catch(() => setTmdbSuggestions([]));
 		}, 200);
@@ -58,23 +93,33 @@ export function useSearchInput(initialQuery = "") {
 		AsyncStorage.removeItem(HISTORY_KEY).catch(() => {});
 	}, []);
 
-	const filteredHistory =
-		query.length > 0
-			? searchHistory.filter((h) => h.toLowerCase().includes(query.toLowerCase()))
-			: searchHistory;
+	const trimmed = query.trim();
+	// Typo-tolerant, best match first
+	const filteredHistory = useMemo(
+		() => (trimmed.length > 0 ? fuzzyRank(trimmed, searchHistory) : searchHistory),
+		[trimmed, searchHistory],
+	);
 
-	// Typed query + TMDB suggestions (deduped against history)
-	const suggestionItems =
-		query.trim().length > 0
-			? [
-					query.trim(),
-					...tmdbSuggestions.filter(
-						(s) =>
-							s.toLowerCase() !== query.trim().toLowerCase() &&
-							!filteredHistory.some((h) => h.toLowerCase() === s.toLowerCase()),
-					),
-				]
-			: [];
+	// Typed query, then close matches among your own shows (instant, offline), then TMDB's
+	// suggestions re-ranked by how close they are to what's typed — TMDB's own (popularity)
+	// order breaks ties. Deduped against each other and the history list
+	const suggestionItems = useMemo(() => {
+		if (trimmed.length === 0) return [];
+		const local = trimmed.length >= 2 ? fuzzyRank(trimmed, getCachedCatalogTitles()) : [];
+		const ranked = tmdbSuggestions
+			.map((s, i) => ({ s, i, score: fuzzyScore(trimmed, s) }))
+			.sort((a, b) => b.score - a.score || a.i - b.i)
+			.map((x) => x.s);
+		const seen = new Set([trimmed.toLowerCase(), ...filteredHistory.map((h) => h.toLowerCase())]);
+		const out = [trimmed];
+		for (const s of [...local.slice(0, MAX_LOCAL), ...ranked]) {
+			const key = s.toLowerCase();
+			if (seen.has(key)) continue;
+			seen.add(key);
+			out.push(s);
+		}
+		return out;
+	}, [trimmed, tmdbSuggestions, filteredHistory]);
 
 	return {
 		query,
