@@ -48,7 +48,10 @@ export default function ProfileScreen() {
 	const user = useAuthStore((s) => s.user);
 	const { stats, loading: statsLoading } = useUserStats(user?.uid);
 	const { items: watchlist } = useWatchlist(user?.uid);
-	const { chartData, refresh: refreshChart } = useWeeklyActivity(user?.uid);
+	// Lifetime watched count, already live from useUserStats' snapshot — the chart uses it to
+	// tell whether anything was watched elsewhere, so it only queries when something was
+	const watchedTotal = statsLoading ? null : stats.episodesWatched + stats.moviesWatched;
+	const { chartData, refresh: refreshChart } = useWeeklyActivity(user?.uid, watchedTotal);
 	const cardImages = useProfileCardImages(watchlist);
 	const { sections: completedSections, loading: completedLoading } = useCompletedShows(user?.uid);
 	const watchingCount = useWatchingCount(user?.uid);

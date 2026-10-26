@@ -18,9 +18,25 @@ export interface DayActivity {
 
 export type WeeklyData = Record<string, DayActivity>;
 
-/** Tally plus the day it was last seeded, so an genuinely empty week isn't re-queried */
+/**
+ * The tally, plus what it takes to tell whether anything happened that this device didn't do.
+ *
+ * `syncedTotal` is the account's lifetime watched count (episodes + movies) as of the last
+ * reconcile. Every local mark also moves that count, so the two can be compared — but not
+ * exactly: a rewatch bumps the chart without bumping episodesWatched, and a bulk season mark
+ * moves the server count by more than one. So instead of predicting the total, the local ops
+ * since the last reconcile give a band it should still fall inside. Outside the band means a
+ * change this device never saw — another device, an import, a cloud function — and only then
+ * is the query worth making.
+ */
 interface WeeklyCache {
 	days: WeeklyData;
+	/** users/{uid}.stats episodes + movies at the last reconcile */
+	syncedTotal?: number;
+	/** Local marks / unmarks since then (a rewatch counts here but not on the server) */
+	incOps?: number;
+	decOps?: number;
+	/** Backstop so a bug in the band can't leave the chart stale for ever */
 	seededOn?: string;
 }
 
@@ -72,7 +88,7 @@ async function loadCache(): Promise<WeeklyCache> {
 		const parsed = JSON.parse(raw);
 		// Older builds stored the day map at the top level
 		if (parsed && typeof parsed === "object" && "days" in parsed) {
-			return { days: pruneToWeek(parsed.days ?? {}), seededOn: parsed.seededOn };
+			return { ...parsed, days: pruneToWeek(parsed.days ?? {}) };
 		}
 		return { days: pruneToWeek(parsed ?? {}) };
 	} catch {
@@ -96,6 +112,7 @@ export async function incrementDailyWatch(type: "episode" | "movie"): Promise<vo
 	if (type === "episode") day.episodes++;
 	else day.movies++;
 	cache.days[today] = day;
+	cache.incOps = (cache.incOps ?? 0) + 1;
 	await saveCache(cache);
 }
 
@@ -108,6 +125,7 @@ export async function decrementDailyWatch(type: "episode" | "movie"): Promise<vo
 	if (type === "episode") day.episodes = Math.max(0, day.episodes - 1);
 	else day.movies = Math.max(0, day.movies - 1);
 	cache.days[today] = day;
+	cache.decOps = (cache.decOps ?? 0) + 1;
 	await saveCache(cache);
 }
 
@@ -155,7 +173,18 @@ async function seedFromWatched(userId: string): Promise<WeeklyData> {
 	return pruneToWeek(days);
 }
 
-export function useWeeklyActivity(userId?: string) {
+/** Days after which the week is rebuilt regardless, in case the band ever misses something */
+const MAX_STALE_DAYS = 7;
+
+const daysBetween = (from: string, to: string) =>
+	Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
+
+/**
+ * @param userId        owner of the tally
+ * @param watchedTotal  `stats.episodesWatched + stats.moviesWatched`, or null while they load.
+ *                      Already on a live snapshot in useUserStats, so reading it costs nothing.
+ */
+export function useWeeklyActivity(userId?: string, watchedTotal?: number | null) {
 	const [weeklyData, setWeeklyData] = useState<WeeklyData>({});
 	const [loading, setLoading] = useState(true);
 	// One seed attempt per mount, whatever re-renders do
@@ -169,14 +198,23 @@ export function useWeeklyActivity(userId?: string) {
 			setWeeklyData(cache.days);
 			setLoading(false);
 
-			// Once a day, whatever the tally holds. Gating this on an empty tally meant a device
-			// that had marked anything today never backfilled the days before it — the chart
-			// showed one bar.
+			if (!userId || watchedTotal == null || seeding.current) return;
+
 			const today = todayStr();
-			if (!userId || cache.seededOn === today || seeding.current) {
-				await saveCache(cache);
+			const stale = !cache.seededOn || daysBetween(cache.seededOn, today) >= MAX_STALE_DAYS;
+			// Everything this device did moves the server total by at most one per op, and a
+			// rewatch moves it by none — so our own activity keeps it inside this band
+			const low = (cache.syncedTotal ?? 0) - (cache.decOps ?? 0);
+			const high = (cache.syncedTotal ?? 0) + (cache.incOps ?? 0);
+			const untracked =
+				cache.syncedTotal === undefined || watchedTotal < low || watchedTotal > high;
+
+			if (!untracked && !stale) {
+				// Nothing happened elsewhere: keep the local tally, just bank the reconcile
+				await saveCache({ ...cache, syncedTotal: watchedTotal, incOps: 0, decOps: 0 });
 				return;
 			}
+
 			seeding.current = true;
 			try {
 				const seeded = await seedFromWatched(userId);
@@ -184,15 +222,17 @@ export function useWeeklyActivity(userId?: string) {
 				const latest = await loadCache();
 				const days = mergeDays(seeded, latest.days);
 				setWeeklyData(days);
-				await saveCache({ days, seededOn: today });
+				await saveCache({ days, syncedTotal: watchedTotal, incOps: 0, decOps: 0, seededOn: today });
 			} catch {
 				await saveCache({ ...cache, seededOn: today });
+			} finally {
+				seeding.current = false;
 			}
 		})();
 		return () => {
 			cancelled = true;
 		};
-	}, [userId]);
+	}, [userId, watchedTotal]);
 
 	const refresh = useCallback(() => {
 		loadWeeklyData().then(setWeeklyData);
