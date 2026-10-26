@@ -13,3 +13,11 @@ export const Platform = {
 export const Alert = {
 	alert: (title: string, message?: string) => notify(title, message),
 };
+
+/** Reduce-motion, read from the CSS media query the browser already exposes */
+export const AccessibilityInfo = {
+	isReduceMotionEnabled: async (): Promise<boolean> =>
+		typeof window !== "undefined" &&
+		typeof window.matchMedia === "function" &&
+		window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+};
