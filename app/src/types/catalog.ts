@@ -19,6 +19,8 @@ export interface CatalogSeason {
 	seasonNumber: number;
 	episodeCount: number;
 	airDate: string | null;
+	/** The season's own poster; null/missing → the show's poster stands in */
+	posterPath?: string | null;
 	episodes: CatalogEpisode[];
 }
 

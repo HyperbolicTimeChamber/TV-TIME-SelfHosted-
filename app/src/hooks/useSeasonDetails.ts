@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getSeasonDetails, getCatalogShow } from "../services";
 import { useAuthStore } from "../stores";
 import { TMDBEpisode, QueryKey, MediaType } from "../types";
+import { TMDB_PROXY_KEY } from "../enums";
 
 export function useSeasonDetails(
 	tmdbId: number,
@@ -14,7 +15,13 @@ export function useSeasonDetails(
 		queryKey: [QueryKey.SEASON, tmdbId, seasonNumber],
 		enabled,
 		queryFn: async () => {
-			const catalogShow = await getCatalogShow(tmdbId, MediaType.TV);
+			const apiKey = useAuthStore.getState().appTmdbApiKey;
+			// Logged-out web visitors can't read the catalog (rules require auth) — that read
+			// failed the whole query and left their seasons empty. Straight to TMDB via the proxy
+			const catalogShow =
+				apiKey === TMDB_PROXY_KEY
+					? null
+					: await getCatalogShow(tmdbId, MediaType.TV).catch(() => null);
 			if (catalogShow) {
 				const season = catalogShow.seasons.find((s) => s.seasonNumber === seasonNumber);
 				if (season) {
@@ -36,7 +43,6 @@ export function useSeasonDetails(
 				}
 			}
 
-			const apiKey = useAuthStore.getState().appTmdbApiKey;
 			if (!apiKey) throw new Error("No TMDB API key available");
 			const data = await getSeasonDetails(apiKey, tmdbId, seasonNumber);
 			return { ...data, fromCatalog: false };
