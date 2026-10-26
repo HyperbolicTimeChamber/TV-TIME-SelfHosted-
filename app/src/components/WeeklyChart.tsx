@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { AccessibilityInfo, Animated, Easing, View, Text, StyleSheet } from "react-native";
-import Svg, { Defs, LinearGradient, RadialGradient, Stop, Rect, Ellipse } from "react-native-svg";
-import { colors, spacing, typography } from "../theme";
+import { LinearGradient } from "expo-linear-gradient";
+import { colors, spacing, tint, typography } from "../theme";
 
 interface DayData {
 	label: string;
@@ -65,60 +65,67 @@ const GLOW_HEIGHT = 24;
 const TOTAL_HEIGHT = CHART_HEIGHT + GLOW_HEIGHT;
 const BAR_WIDTH = 10;
 const SVG_W = BAR_WIDTH + 30;
-const CX = SVG_W / 2;
+/** Room round a bar's column for its glow: a GPU-cached view is clipped to its own bounds */
+const GLOW_PAD = 28;
 
-function GlowBar({
-	id,
-	color,
-	height,
-	chartH,
-}: Readonly<{
-	id: string;
-	color: string;
-	height: number;
-	chartH: number;
-}>) {
+/**
+ * A single boxShadow is uniform all round the box, so it halos the tip as brightly as the base.
+ * Stacking shorter boxes from the axis, each with a wider spread, piles the light up where the
+ * bar starts. Many faint layers rather than a few strong ones: each layer is far shorter than
+ * its blur, so their ends melt together and the glow fades without visible steps.
+ */
+const GLOW_STEPS = 10;
+const GLOW_LAYERS = Array.from({ length: GLOW_STEPS }, (_, i) => {
+	const t = i / GLOW_STEPS;
+	return {
+		frac: 1 - t,
+		// Climbs steeply near the axis, so the base glows nearly as bright as the bar and the two blend
+		alpha: 0.04 + 0.5 * t * t,
+		blur: BAR_WIDTH * (2.2 - 0.8 * t),
+		spread: BAR_WIDTH * 0.8 * t,
+	};
+});
+/** An outset shadow is cut out of its own box, so a bar-wide layer leaves a hole in the glow
+ *  that shows through the bar's faded top. Drawing each layer from a hairline core tucked under
+ *  the bar, with the difference added to its spread, with the core itself filled in, keeps the same shape without the hole. */
+const GLOW_CORE = 2;
+/** The blur thins a shadow at its source, so a core filled at full strength reads as a bright seam */
+const CORE_FILL = 0.55;
+const CORE_SPREAD = (BAR_WIDTH - GLOW_CORE) / 2;
+
+/** One day's bar: bright at the baseline, fading toward the tip, glowing into the dark */
+function GlowBar({ color, height }: Readonly<{ color: string; height: number }>) {
 	if (height <= 0) return null;
-	const y = chartH - height;
 	return (
 		<>
-			{/* Outer glow — wide, soft */}
-			<Rect
-				x={CX - BAR_WIDTH * 1.5}
-				y={y + height * 0.2}
-				width={BAR_WIDTH * 3}
-				height={height * 0.8}
-				rx={BAR_WIDTH * 1.5}
-				fill={color}
-				opacity={0.12}
-			/>
-			{/* Mid glow */}
-			<Rect
-				x={CX - BAR_WIDTH}
-				y={y + height * 0.1}
-				width={BAR_WIDTH * 2}
-				height={height * 0.9}
-				rx={BAR_WIDTH}
-				fill={color}
-				opacity={0.2}
-			/>
-			{/* Core bar with gradient — bright bottom, fade top */}
-			<Rect
-				x={CX - BAR_WIDTH / 2}
-				y={y}
-				width={BAR_WIDTH}
-				height={height}
-				rx={BAR_WIDTH / 2}
-				fill={`url(#${id})`}
-			/>
-			{/* Base glow — ellipse reflection */}
-			<Ellipse
-				cx={CX}
-				cy={chartH + 2}
-				rx={BAR_WIDTH * 1.8}
-				ry={GLOW_HEIGHT * 0.55}
-				fill={`url(#${id}_radial)`}
-			/>
+			{/* A short bar can't fit every step; the ones that would be squashed to the floor just pile up */}
+			{GLOW_LAYERS.filter((layer, i) => i === 0 || height * layer.frac >= BAR_WIDTH).map(
+				(layer) => (
+					<View
+						key={layer.frac}
+						style={[
+							styles.bar,
+							{
+								height: Math.max(height * layer.frac, BAR_WIDTH) - CORE_SPREAD,
+								bottom: CORE_SPREAD,
+								width: GLOW_CORE,
+								borderRadius: GLOW_CORE / 2,
+								// Fills the core's own cut-out to match the blurred shadow around it
+								backgroundColor: tint(color, layer.alpha * CORE_FILL),
+								// Spread, not a wider box, so the glow thickens toward the axis while the bar stays slim
+								boxShadow: `0 0 ${layer.blur}px ${layer.spread + CORE_SPREAD}px ${tint(color, layer.alpha)}`,
+							},
+						]}
+					/>
+				),
+			)}
+			<View style={[styles.bar, { height }]}>
+				<LinearGradient
+					colors={[tint(color, 0.08), tint(color, 0.3), tint(color, 0.7), color]}
+					locations={[0, 0.35, 0.7, 1]}
+					style={styles.barFill}
+				/>
+			</View>
 		</>
 	);
 }
@@ -132,7 +139,7 @@ export default function WeeklyChart({ data, animate = false }: Readonly<Props>) 
 
 	return (
 		<View style={styles.container}>
-			<Text style={styles.title}>Watch Statistics</Text>
+			<Text style={styles.title}>Daily Watch Rate</Text>
 			{!hasData && (
 				<Text style={styles.emptyText}>Your Weekly Watch Data will appear here Shortly</Text>
 			)}
@@ -150,102 +157,31 @@ export default function WeeklyChart({ data, animate = false }: Readonly<Props>) 
 							<View style={styles.barPair}>
 								{/* Grown from the chart baseline, so the bars rise out of their own glow */}
 								<Animated.View
-									style={{
-										transformOrigin: `50% ${CHART_HEIGHT}px`,
-										transform: [{ scaleY: grow[i] }],
-									}}
+									style={[
+										styles.glowCanvas,
+										{
+											// The baseline, inside the canvas's padding
+											transformOrigin: `50% ${GLOW_PAD + CHART_HEIGHT}px`,
+											transform: [{ scaleY: grow[i] }],
+										},
+									]}
+									// The stacked glow shadows are costly to draw: paint them once into a
+									// GPU texture, so growing the bar only stretches that
+									renderToHardwareTextureAndroid
+									shouldRasterizeIOS
 								>
-									<Svg width={SVG_W} height={TOTAL_HEIGHT}>
-										<Defs>
-											<LinearGradient id={`ep_${day.label}`} x1="0" y1="0" x2="0" y2="1">
-												<Stop offset="0" stopColor={colors.primary} stopOpacity="0.15" />
-												<Stop offset="0.4" stopColor={colors.primary} stopOpacity="0.6" />
-												<Stop offset="0.8" stopColor={colors.primary} stopOpacity="0.95" />
-												<Stop offset="1" stopColor={colors.primary} stopOpacity="1" />
-											</LinearGradient>
-											<RadialGradient
-												id={`ep_${day.label}_radial`}
-												cx="50%"
-												cy="30%"
-												rx="50%"
-												ry="50%"
-											>
-												<Stop offset="0" stopColor={colors.primary} stopOpacity="0.5" />
-												<Stop offset="1" stopColor={colors.primary} stopOpacity="0" />
-											</RadialGradient>
-											<LinearGradient id={`mov_${day.label}`} x1="0" y1="0" x2="0" y2="1">
-												<Stop offset="0" stopColor={colors.moviePurple} stopOpacity="0.15" />
-												<Stop offset="0.4" stopColor={colors.moviePurple} stopOpacity="0.6" />
-												<Stop offset="0.8" stopColor={colors.moviePurple} stopOpacity="0.95" />
-												<Stop offset="1" stopColor={colors.moviePurple} stopOpacity="1" />
-											</LinearGradient>
-											<RadialGradient
-												id={`mov_${day.label}_radial`}
-												cx="50%"
-												cy="30%"
-												rx="50%"
-												ry="50%"
-											>
-												<Stop offset="0" stopColor={colors.moviePurple} stopOpacity="0.5" />
-												<Stop offset="1" stopColor={colors.moviePurple} stopOpacity="0" />
-											</RadialGradient>
-										</Defs>
-
-										{/* Back bar */}
-										{epBehind ? (
-											<GlowBar
-												id={`ep_${day.label}`}
-												color={colors.primary}
-												height={epH}
-												chartH={CHART_HEIGHT}
-											/>
-										) : (
-											<GlowBar
-												id={`mov_${day.label}`}
-												color={colors.moviePurple}
-												height={movH}
-												chartH={CHART_HEIGHT}
-											/>
-										)}
-
-										{/* Front bar */}
-										{epBehind ? (
-											<GlowBar
-												id={`mov_${day.label}`}
-												color={colors.moviePurple}
-												height={movH}
-												chartH={CHART_HEIGHT}
-											/>
-										) : (
-											<GlowBar
-												id={`ep_${day.label}`}
-												color={colors.primary}
-												height={epH}
-												chartH={CHART_HEIGHT}
-											/>
-										)}
-
-										{total === 0 && (
-											<>
-												<Rect
-													x={CX - BAR_WIDTH / 2}
-													y={CHART_HEIGHT - 4}
-													width={BAR_WIDTH}
-													height={4}
-													rx={2}
-													fill={colors.surfaceLight}
-												/>
-												<Ellipse
-													cx={CX}
-													cy={CHART_HEIGHT + 2}
-													rx={BAR_WIDTH}
-													ry={GLOW_HEIGHT * 0.3}
-													fill={colors.surfaceLight}
-													opacity={0.1}
-												/>
-											</>
-										)}
-									</Svg>
+									<View style={styles.barStack}>
+										{/* Taller behind, shorter in front */}
+										<GlowBar
+											color={epBehind ? colors.primary : colors.moviePurple}
+											height={epBehind ? epH : movH}
+										/>
+										<GlowBar
+											color={epBehind ? colors.moviePurple : colors.primary}
+											height={epBehind ? movH : epH}
+										/>
+										{total === 0 && <View style={styles.emptyNub} />}
+									</View>
 								</Animated.View>
 								<Animated.View
 									style={[StyleSheet.absoluteFill, { opacity: grow[i] }]}
@@ -289,16 +225,7 @@ export default function WeeklyChart({ data, animate = false }: Readonly<Props>) 
 					);
 				})}
 			</View>
-			<View style={styles.legend}>
-				<View style={styles.legendItem}>
-					<View style={[styles.legendSwatch, { backgroundColor: colors.primary }]} />
-					<Text style={styles.legendText}>Episodes</Text>
-				</View>
-				<View style={styles.legendItem}>
-					<View style={[styles.legendSwatch, { backgroundColor: colors.moviePurple }]} />
-					<Text style={styles.legendText}>Movies</Text>
-				</View>
-			</View>
+			{/* No legend of its own: the Weekly Watch Rate rows above name both colours */}
 		</View>
 	);
 }
@@ -309,7 +236,6 @@ const styles = StyleSheet.create({
 		borderRadius: 12,
 		padding: spacing.lg,
 		marginHorizontal: spacing.lg,
-		marginTop: spacing.lg,
 	},
 	title: {
 		...typography.subtitle,
@@ -331,6 +257,39 @@ const styles = StyleSheet.create({
 		width: SVG_W,
 		justifyContent: "flex-end",
 	},
+	// Both bars share the baseline; the glow blooms past it into the gap below
+	// The bar's GPU-cached layer, big enough for its glow: the padding holds the glow, the
+	// matching negative margins keep the layout as if it were just the bar's column
+	glowCanvas: {
+		marginHorizontal: -GLOW_PAD,
+		marginTop: -GLOW_PAD,
+		paddingHorizontal: GLOW_PAD,
+		paddingTop: GLOW_PAD,
+		// The bloom spills into the gap under the baseline
+		paddingBottom: GLOW_HEIGHT,
+	},
+	barStack: {
+		height: CHART_HEIGHT,
+		width: SVG_W,
+		justifyContent: "flex-end",
+		alignItems: "center",
+	},
+	bar: {
+		position: "absolute",
+		bottom: 0,
+		width: BAR_WIDTH,
+		borderRadius: BAR_WIDTH / 2,
+		overflow: "hidden",
+	},
+	barFill: {
+		flex: 1,
+	},
+	emptyNub: {
+		width: BAR_WIDTH,
+		height: 4,
+		borderRadius: 2,
+		backgroundColor: colors.surfaceLight,
+	},
 	emptyText: {
 		...typography.caption,
 		textAlign: "center",
@@ -347,24 +306,5 @@ const styles = StyleSheet.create({
 		fontWeight: "600",
 		color: colors.text,
 		textAlign: "center",
-	},
-	legend: {
-		flexDirection: "row",
-		gap: spacing.lg,
-		marginTop: spacing.md,
-	},
-	legendItem: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: spacing.xs,
-	},
-	legendSwatch: {
-		width: 12,
-		height: 12,
-		borderRadius: 6,
-	},
-	legendText: {
-		...typography.caption,
-		fontSize: 10,
 	},
 });

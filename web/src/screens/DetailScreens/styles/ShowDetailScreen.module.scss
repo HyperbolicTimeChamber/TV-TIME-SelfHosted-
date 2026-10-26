@@ -1,7 +1,7 @@
 @use "../../../theme/tokens" as *;
 
 .container {
-	/* Anchors the back / share buttons, which scroll away with the page */
+	/* Anchors the back / share buttons */
 	position: relative;
 	min-height: 100dvh;
 	padding-bottom: 48px;
@@ -9,7 +9,7 @@
 }
 
 /* Position only — the circle itself is components/CircleButton. On the page, not the viewport:
-   they sit at its top and scroll away with it */
+   share scrolls away with it; back follows the scroll (--back-shift) until the pills push it off */
 .floatButton {
 	position: absolute;
 	top: calc(env(safe-area-inset-top) + 8px);

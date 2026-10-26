@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useUserStats } from "@app/hooks/useUserStats";
 import { useWatchlist } from "@app/hooks/useWatchlist";
 import { useProfileCardImages } from "@app/hooks/useProfileCardImages";
+import { useWatchingCount } from "@app/hooks/useWatchingCount";
 import { useCompletedShows } from "@app/hooks/useCompletedShows";
 import { formatCount, formatTime, scaledPhotoURL } from "@app/utils/format";
 import { useAppSelector } from "../../store";
@@ -24,6 +25,7 @@ export default function ProfileScreen() {
 	const { items: watchlist } = useWatchlist(user?.uid);
 	const cardImages = useProfileCardImages(watchlist);
 	const { sections, loading: completedLoading } = useCompletedShows(user?.uid);
+	const watchingCount = useWatchingCount(user?.uid);
 
 	return (
 		<div className={styles.container}>
@@ -49,12 +51,12 @@ export default function ProfileScreen() {
 					</div>
 					<div className={`${styles.statsRow} min-h-[150px]`}>
 						<CollageCard
-							value={formatCount(stats.showsTracking)}
-							label="Tracking"
+							value={formatCount(watchingCount ?? 0)}
+							label="Currently Watching"
 							flex={2}
 							posters={cardImages.trackingPosters}
 							align="left"
-							loading={statsLoading}
+							loading={statsLoading || watchingCount === null}
 							seed={17}
 						/>
 						<CollageCard

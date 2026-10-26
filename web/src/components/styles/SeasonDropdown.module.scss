@@ -1,17 +1,37 @@
 @use "../../theme/tokens" as *;
 
+/* Same hairline gap as the episodes, under the whole dropdown so an open one's episodes hang
+   just under its card */
+.season {
+	margin-bottom: 2px;
+}
+
+/* Seasons and their open episodes read as one list: square where they meet, rounded only at
+   the list's top and bottom (.groupTop / .groupBottom). The poster runs flush to the card's
+   edges, so the card is only as tall as the poster */
 .seasonRow {
 	display: flex;
 	align-items: center;
-	padding: 8px 0;
-	border-bottom: 1px solid var(--border);
+	padding-right: 12px;
+	overflow: hidden;
+	background: var(--surface);
 	cursor: pointer;
+}
+
+.groupTop {
+	border-top-left-radius: 16px;
+	border-top-right-radius: 16px;
+}
+
+.groupBottom {
+	border-bottom-left-radius: 16px;
+	border-bottom-right-radius: 16px;
 }
 
 .seasonPoster {
 	width: 45px;
 	height: 67px;
-	border-radius: 4px;
+	flex-shrink: 0;
 	object-fit: cover;
 	background: var(--surface-light);
 }
@@ -36,19 +56,22 @@
 	align-items: center;
 }
 
-.chevron {
-	font-size: 18px;
-	font-weight: 600;
-	color: var(--text-muted);
-	width: 14px;
-	text-align: center;
+.arrow {
+	flex-shrink: 0;
+	transition: transform 220ms;
 }
 
+.arrowOpen {
+	transform: rotate(180deg);
+}
+
+/* Hairline gaps: under the season card and between episodes */
 .episodeList {
-	background: var(--surface);
-	border-radius: 8px;
-	margin-bottom: 8px;
 	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding-top: 2px;
 }
 
 .loader {
@@ -57,11 +80,13 @@
 	justify-content: center;
 }
 
+/* Same strip as the episodes under an opened Calendar card: the thumb inset 6px all round */
 .episodeRow {
 	display: flex;
 	align-items: center;
-	padding-right: 12px;
-	border-bottom: 1px solid var(--border);
+	padding: 6px 12px 6px 6px;
+	overflow: hidden;
+	background: var(--surface);
 }
 
 .episodeInfo {
@@ -83,6 +108,8 @@
 	height: 50px;
 	margin-right: 12px;
 	flex-shrink: 0;
+	border-radius: 8px;
+	overflow: hidden;
 }
 
 .epThumb {
@@ -139,12 +166,3 @@
 	margin-top: 2px;
 }
 
-.rewatchBadge {
-	background: none;
-	border: none;
-	padding: 0;
-	font-size: 11px;
-	color: $accent;
-	margin-top: 2px;
-	cursor: pointer;
-}

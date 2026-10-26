@@ -58,7 +58,7 @@ function catalogShowToResult(catalog: CatalogShow): ShowDetailsResult {
 			name: `Season ${s.seasonNumber}`,
 			episode_count: s.episodeCount,
 			air_date: s.airDate,
-			poster_path: catalog.posterPath,
+			poster_path: s.posterPath ?? catalog.posterPath,
 		})),
 	};
 

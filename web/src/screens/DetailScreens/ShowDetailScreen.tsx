@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { App as AntApp } from "antd";
 import { IoShareSocialOutline } from "react-icons/io5";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -24,6 +24,9 @@ import { appDeepLink, isAndroidBrowser } from "../../utils/deepLink";
 import styles from "./styles/ShowDetailScreen.module.scss";
 import { cssVars, px } from "../../utils/cssVars";
 
+/** Space kept between the sticky back button and the pills pushing it off */
+const BACK_PUSH_GAP = 8;
+
 /** Show / movie page — public (read-only for guests) and the target of share links */
 export default function ShowDetailScreen() {
 	const params = useParams();
@@ -48,8 +51,23 @@ export default function ShowDetailScreen() {
 
 	// Parallax backdrop (app: translateY = min(y * 0.4, 175))
 	const [parallax, setParallax] = useState(0);
+	// Back button stays pinned to the top while the page scrolls, until the action pills come up
+	// under it — then they push it up and off with them (app: same, sticky header handing over)
+	const containerRef = useRef<HTMLDivElement>(null);
+	const backRef = useRef<HTMLDivElement>(null);
+	const pillsRef = useRef<HTMLDivElement>(null);
+	const [backShift, setBackShift] = useState(0);
 	useEffect(() => {
-		const onScroll = () => setParallax(Math.min(window.scrollY * 0.4, 175));
+		const onScroll = () => {
+			setParallax(Math.min(window.scrollY * 0.4, 175));
+			const page = containerRef.current?.getBoundingClientRect().top;
+			const back = backRef.current;
+			const pills = pillsRef.current?.getBoundingClientRect().top;
+			if (page === undefined || !back || pills === undefined) return;
+			// Furthest it can follow the scroll before its bottom would meet the pills
+			const maxShift = pills - page - BACK_PUSH_GAP - back.offsetHeight - back.offsetTop;
+			setBackShift(Math.max(0, Math.min(-page, maxShift)));
+		};
 		window.addEventListener("scroll", onScroll, { passive: true });
 		return () => window.removeEventListener("scroll", onScroll);
 	}, []);
@@ -109,12 +127,14 @@ export default function ShowDetailScreen() {
 			: null;
 
 	return (
-		<div className={styles.container}>
-			<CircleBackButton
-				tone={CircleButtonTone.OVERLAY}
-				className={`${styles.floatButton} ${styles.backButton}`}
-				onClick={handleBack}
-			/>
+		<div ref={containerRef} className={styles.container}>
+			<div
+				ref={backRef}
+				className={`${styles.floatButton} ${styles.backButton} translate-y-(--back-shift)`}
+				style={cssVars({ "--back-shift": px(backShift) })}
+			>
+				<CircleBackButton tone={CircleButtonTone.OVERLAY} onClick={handleBack} />
+			</div>
 			<CircleButton
 				tone={CircleButtonTone.OVERLAY}
 				className={`${styles.floatButton} ${styles.shareButton}`}
@@ -146,41 +166,43 @@ export default function ShowDetailScreen() {
 							nameDelay={2000}
 						/>
 					</h1>
-					{signedIn ? (
-						<ActionPills
-							mediaType={mediaType}
-							watchlistItem={d.watchlistItem}
-							adding={d.adding}
-							removing={d.removing}
-							movieWatchCount={d.movieWatchCount}
-							hasWatchedEpisodes={d.showWatchedEps.length > 0}
-							onAddToWatchlist={d.handleAddToWatchlist}
-							onMarkMovieWatched={d.handleMarkMovieWatched}
-							onResumeOrRewatch={d.handleResumeOrRewatch}
-							onPause={() => d.setPauseModalVisible(true)}
-							onRemove={d.handleRemove}
-							onMovieSheetOpen={() => d.setMovieSheetVisible(true)}
-						/>
-					) : (
-						<div className={styles.pillRow}>
-							<button
-								className={`${styles.pill} ${styles.pillPrimary}`}
-								onClick={() =>
-									navigate(`${Paths.LOGIN}?next=${encodeURIComponent(location.pathname)}`)
-								}
-							>
-								Sign in to track
-							</button>
-							{isAndroidBrowser() && (
-								<a
-									className={`${styles.pill} ${styles.pillAccent}`}
-									href={appDeepLink(mediaType, tmdbId)}
+					<div ref={pillsRef}>
+						{signedIn ? (
+							<ActionPills
+								mediaType={mediaType}
+								watchlistItem={d.watchlistItem}
+								adding={d.adding}
+								removing={d.removing}
+								movieWatchCount={d.movieWatchCount}
+								hasWatchedEpisodes={d.showWatchedEps.length > 0}
+								onAddToWatchlist={d.handleAddToWatchlist}
+								onMarkMovieWatched={d.handleMarkMovieWatched}
+								onResumeOrRewatch={d.handleResumeOrRewatch}
+								onPause={() => d.setPauseModalVisible(true)}
+								onRemove={d.handleRemove}
+								onMovieSheetOpen={() => d.setMovieSheetVisible(true)}
+							/>
+						) : (
+							<div className={styles.pillRow}>
+								<button
+									className={`${styles.pill} ${styles.pillPrimary}`}
+									onClick={() =>
+										navigate(`${Paths.LOGIN}?next=${encodeURIComponent(location.pathname)}`)
+									}
 								>
-									Open in app
-								</a>
-							)}
-						</div>
-					)}
+									Sign in to track
+								</button>
+								{isAndroidBrowser() && (
+									<a
+										className={`${styles.pill} ${styles.pillAccent}`}
+										href={appDeepLink(mediaType, tmdbId)}
+									>
+										Open in app
+									</a>
+								)}
+							</div>
+						)}
+					</div>
 				</div>
 			</div>
 
@@ -230,9 +252,11 @@ export default function ShowDetailScreen() {
 						<h2 className={styles.sectionTitle}>Seasons</h2>
 						{show.seasons
 							.filter((s) => s.season_number > 0)
-							.map((season) => (
+							.map((season, i, list) => (
 								<SeasonDropdown
 									key={season.season_number}
+									isFirst={i === 0}
+									isLast={i === list.length - 1}
 									tmdbId={tmdbId}
 									season={season}
 									showTitle={d.title}

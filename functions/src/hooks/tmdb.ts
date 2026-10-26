@@ -1,6 +1,16 @@
 import axios from "axios";
-import { EpisodeType, MediaType, TMDB_BASE, ENDED_STATUSES } from "../shared/enums";
-import { applyAirStamps, fetchTvmazeAirStamps, lookupTvmazeId, needsAirStamps } from "./tvmaze";
+import {
+  EpisodeType,
+  MediaType,
+  TMDB_BASE,
+  ENDED_STATUSES,
+} from "../shared/enums";
+import {
+  applyAirStamps,
+  fetchTvmazeAirStamps,
+  lookupTvmazeId,
+  needsAirStamps,
+} from "./tvmaze";
 import {
   CatalogShow,
   CatalogSeason,
@@ -76,7 +86,9 @@ export function seasonsToFetch(
   stored: Array<Pick<CatalogSeason, "seasonNumber" | "episodeCount">>,
   forced: number[],
 ): number[] {
-  const storedCounts = new Map(stored.map((s) => [s.seasonNumber, s.episodeCount]));
+  const storedCounts = new Map(
+    stored.map((s) => [s.seasonNumber, s.episodeCount]),
+  );
   return listed
     .filter((s) => s.season_number > 0)
     .filter(
@@ -94,7 +106,9 @@ export function seasonsToFetch(
  */
 export function premiereDate(
   firstAirDate: string | null | undefined,
-  seasons: Array<Pick<CatalogSeason, "seasonNumber" | "airDate" | "episodes">> = [],
+  seasons: Array<
+    Pick<CatalogSeason, "seasonNumber" | "airDate" | "episodes">
+  > = [],
 ): string | null {
   if (firstAirDate) return firstAirDate;
   const regular = seasons.filter((s) => s.seasonNumber > 0);
@@ -151,7 +165,9 @@ export async function fetchShowFromTMDB(
     params: {
       api_key: apiKey,
       append_to_response:
-        mediaType === MediaType.MOVIE ? "credits,images" : "images,external_ids",
+        mediaType === MediaType.MOVIE
+          ? "credits,images"
+          : "images,external_ids",
       include_image_language: "en,null",
     },
   });
@@ -164,18 +180,34 @@ export async function fetchShowFromTMDB(
     const seasonNumbers = data.seasons
       .filter((s) => s.season_number > 0)
       .map((s) => s.season_number);
-    const reuse = new Map((opts.reuseSeasons ?? []).map((s) => [s.seasonNumber, s]));
+    const reuse = new Map(
+      (opts.reuseSeasons ?? []).map((s) => [s.seasonNumber, s]),
+    );
     const fetchSet = new Set(
       opts.reuseSeasons
-        ? seasonsToFetch(data.seasons, opts.reuseSeasons, opts.refetchSeasons ?? [])
+        ? seasonsToFetch(
+            data.seasons,
+            opts.reuseSeasons,
+            opts.refetchSeasons ?? [],
+          )
         : seasonNumbers,
     );
 
     const tasks = seasonNumbers.map((num) => async () => {
       const kept = reuse.get(num);
-      return !fetchSet.has(num) && kept ? kept : fetchSeasonEpisodes(apiKey, tmdbId, num);
+      return !fetchSet.has(num) && kept
+        ? kept
+        : fetchSeasonEpisodes(apiKey, tmdbId, num);
     });
-    seasons = await pooled(tasks, 5);
+    // Posters come from the show's season list, so seasons reused from the stored doc pick
+    // them up too (and follow TMDB when a poster changes) without refetching the season
+    const posters = new Map(
+      data.seasons.map((s) => [s.season_number, s.poster_path ?? null]),
+    );
+    seasons = (await pooled(tasks, 5)).map((s) => ({
+      ...s,
+      posterPath: posters.get(s.seasonNumber) ?? null,
+    }));
     totalEpisodes = seasons.reduce((sum, s) => sum + s.episodeCount, 0);
     totalSeasons = seasons.length;
   }
@@ -188,10 +220,16 @@ export async function fetchShowFromTMDB(
     needsAirStamps(seasons, ENDED_STATUSES.includes(data.status ?? ""))
   ) {
     try {
-      tvmazeId ??= data.external_ids ? await lookupTvmazeId(data.external_ids) : null;
-      if (tvmazeId) applyAirStamps(seasons, await fetchTvmazeAirStamps(tvmazeId));
+      tvmazeId ??= data.external_ids
+        ? await lookupTvmazeId(data.external_ids)
+        : null;
+      if (tvmazeId)
+        applyAirStamps(seasons, await fetchTvmazeAirStamps(tvmazeId));
     } catch (err) {
-      console.warn(`TVMaze air times failed for tmdb ${tmdbId}:`, (err as Error).message);
+      console.warn(
+        `TVMaze air times failed for tmdb ${tmdbId}:`,
+        (err as Error).message,
+      );
     }
   }
 
@@ -213,7 +251,9 @@ export async function fetchShowFromTMDB(
     runtime: avgRuntime,
     voteAverage: data.vote_average ?? 0,
     firstAirDate:
-      mediaType === MediaType.TV ? premiereDate(data.first_air_date, seasons) : null,
+      mediaType === MediaType.TV
+        ? premiereDate(data.first_air_date, seasons)
+        : null,
     releaseDate: data.release_date ?? null,
     seasons,
     genres: (data.genres ?? []).map((g) => g.name),

@@ -18,9 +18,20 @@ export interface DayActivity {
 
 export type WeeklyData = Record<string, DayActivity>;
 
-/** Tally plus the day it was last seeded, so an genuinely empty week isn't re-queried */
+/**
+ * The tally, plus enough to tell whether anything was watched that this device didn't do.
+ * Each local mark moves the account's lifetime count by one, so `syncedTotal` plus the ops
+ * since should still bracket it. Anything outside came from somewhere else — another device,
+ * an import, a cloud function — and only that is worth a query.
+ */
 interface WeeklyCache {
 	days: WeeklyData;
+	/** users/{uid}.stats episodes + movies at the last reconcile */
+	syncedTotal?: number;
+	/** Local marks / unmarks since then */
+	incOps?: number;
+	decOps?: number;
+	/** Backstop, in case the bracket ever misses something */
 	seededOn?: string;
 }
 
@@ -51,8 +62,19 @@ function pruneToWeek(data: WeeklyData): WeeklyData {
 	return pruned;
 }
 
-const isEmpty = (days: WeeklyData) =>
-	Object.values(days).every((d) => d.episodes === 0 && d.movies === 0);
+/** Server counts win, except where the local tally is ahead — a mark made moments ago may not
+ *  be in the query's results yet */
+function mergeDays(seeded: WeeklyData, local: WeeklyData): WeeklyData {
+	const merged: WeeklyData = { ...seeded };
+	for (const [day, counts] of Object.entries(local)) {
+		const from = merged[day] ?? { episodes: 0, movies: 0 };
+		merged[day] = {
+			episodes: Math.max(from.episodes, counts.episodes),
+			movies: Math.max(from.movies, counts.movies),
+		};
+	}
+	return merged;
+}
 
 async function loadCache(): Promise<WeeklyCache> {
 	const raw = await AsyncStorage.getItem(CacheKey.WEEKLY_ACTIVITY);
@@ -61,7 +83,7 @@ async function loadCache(): Promise<WeeklyCache> {
 		const parsed = JSON.parse(raw);
 		// Older builds stored the day map at the top level
 		if (parsed && typeof parsed === "object" && "days" in parsed) {
-			return { days: pruneToWeek(parsed.days ?? {}), seededOn: parsed.seededOn };
+			return { ...parsed, days: pruneToWeek(parsed.days ?? {}) };
 		}
 		return { days: pruneToWeek(parsed ?? {}) };
 	} catch {
@@ -85,6 +107,7 @@ export async function incrementDailyWatch(type: "episode" | "movie"): Promise<vo
 	if (type === "episode") day.episodes++;
 	else day.movies++;
 	cache.days[today] = day;
+	cache.incOps = (cache.incOps ?? 0) + 1;
 	await saveCache(cache);
 }
 
@@ -97,6 +120,7 @@ export async function decrementDailyWatch(type: "episode" | "movie"): Promise<vo
 	if (type === "episode") day.episodes = Math.max(0, day.episodes - 1);
 	else day.movies = Math.max(0, day.movies - 1);
 	cache.days[today] = day;
+	cache.decOps = (cache.decOps ?? 0) + 1;
 	await saveCache(cache);
 }
 
@@ -144,7 +168,18 @@ async function seedFromWatched(userId: string): Promise<WeeklyData> {
 	return pruneToWeek(days);
 }
 
-export function useWeeklyActivity(userId?: string) {
+/** Days after which the week is rebuilt regardless */
+const MAX_STALE_DAYS = 7;
+
+const daysBetween = (from: string, to: string) =>
+	Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
+
+/**
+ * @param userId        owner of the tally
+ * @param watchedTotal  `stats.episodesWatched + stats.moviesWatched`, or null while they load.
+ *                      Already on a live snapshot in useUserStats, so reading it costs nothing.
+ */
+export function useWeeklyActivity(userId?: string, watchedTotal?: number | null) {
 	const [weeklyData, setWeeklyData] = useState<WeeklyData>({});
 	const [loading, setLoading] = useState(true);
 	// One seed attempt per mount, whatever re-renders do
@@ -158,29 +193,40 @@ export function useWeeklyActivity(userId?: string) {
 			setWeeklyData(cache.days);
 			setLoading(false);
 
+			if (!userId || watchedTotal == null || seeding.current) return;
+
 			const today = todayStr();
-			const needsSeed = isEmpty(cache.days) && cache.seededOn !== today;
-			if (!userId || !needsSeed || seeding.current) {
-				await saveCache(cache);
+			const stale = !cache.seededOn || daysBetween(cache.seededOn, today) >= MAX_STALE_DAYS;
+			// Our own activity keeps the lifetime count inside this bracket
+			const low = (cache.syncedTotal ?? 0) - (cache.decOps ?? 0);
+			const high = (cache.syncedTotal ?? 0) + (cache.incOps ?? 0);
+			const untracked =
+				cache.syncedTotal === undefined || watchedTotal < low || watchedTotal > high;
+
+			if (!untracked && !stale) {
+				// Nothing happened elsewhere: keep the local tally, just bank the reconcile
+				await saveCache({ ...cache, syncedTotal: watchedTotal, incOps: 0, decOps: 0 });
 				return;
 			}
+
 			seeding.current = true;
 			try {
 				const seeded = await seedFromWatched(userId);
 				if (cancelled) return;
-				// A mark made while the query was in flight wins
 				const latest = await loadCache();
-				const days = isEmpty(latest.days) ? seeded : latest.days;
+				const days = mergeDays(seeded, latest.days);
 				setWeeklyData(days);
-				await saveCache({ days, seededOn: today });
+				await saveCache({ days, syncedTotal: watchedTotal, incOps: 0, decOps: 0, seededOn: today });
 			} catch {
 				await saveCache({ ...cache, seededOn: today });
+			} finally {
+				seeding.current = false;
 			}
 		})();
 		return () => {
 			cancelled = true;
 		};
-	}, [userId]);
+	}, [userId, watchedTotal]);
 
 	const refresh = useCallback(() => {
 		loadWeeklyData().then(setWeeklyData);

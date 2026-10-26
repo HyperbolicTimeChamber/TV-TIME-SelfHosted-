@@ -37,6 +37,7 @@ export interface TMDBShowDetail {
     season_number: number;
     episode_count: number;
     air_date: string | null;
+    poster_path?: string | null;
   }>;
   credits?: {
     crew: Array<{ job: string; department: string; name: string }>;
@@ -70,6 +71,8 @@ export interface CatalogSeason {
   seasonNumber: number;
   episodeCount: number;
   airDate: string | null;
+  /** The season's own poster; null when TMDB has none (the show's poster stands in) */
+  posterPath?: string | null;
   episodes: CatalogEpisode[];
 }
 

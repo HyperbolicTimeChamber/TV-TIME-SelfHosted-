@@ -1019,17 +1019,6 @@ export function useSeasonActions({
 		[watchedMap],
 	);
 
-	const handleRewatchBadgePress = useCallback(
-		(ep: TMDBEpisode) => {
-			const count = watchedMap.get(ep.episode_number)?.watchCount || 0;
-			if (count > 0) {
-				setSheetTarget({ type: "episode", ep, watchCount: count });
-				setSheetVisible(true);
-			}
-		},
-		[watchedMap],
-	);
-
 	const handleCheckmarkPress = useCallback(
 		(ep: TMDBEpisode) => {
 			if (!isTracked) {
@@ -1226,7 +1215,6 @@ export function useSeasonActions({
 		handleCarouselMarkThrough,
 		handleCarouselUnmark,
 		handleEpisodeLongPress,
-		handleRewatchBadgePress,
 		handleCheckmarkPress,
 		handleSeasonPress,
 		handleSeasonLongPress,

@@ -32,6 +32,10 @@ export const fonts = {
 	handjetExtraBold: "Handjet_800ExtraBold",
 } as const;
 
+/** `#RRGGBB` + alpha → rgba(), for translucent fills and glow shadows */
+export const tint = (hex: string, alpha: number) =>
+	`rgba(${parseInt(hex.slice(1, 3), 16)}, ${parseInt(hex.slice(3, 5), 16)}, ${parseInt(hex.slice(5, 7), 16)}, ${alpha})`;
+
 export const spacing = {
 	xs: 4,
 	sm: 8,
