@@ -221,6 +221,13 @@ export function getCachedCatalogShow(tmdbId: number, mediaType: MediaType): Cata
 	return sharedCatalogCache.get(showDocId(tmdbId, mediaType)) ?? null;
 }
 
+/** Titles in the in-memory catalog cache — shows this device has tracked or opened */
+export function getCachedCatalogTitles(): string[] {
+	const titles: string[] = [];
+	for (const show of sharedCatalogCache.values()) if (show?.title) titles.push(show.title);
+	return titles;
+}
+
 /** Cached entry already has everything the cards / show page show → nothing to fill */
 function isCompleteCatalog(c: CatalogShow | null | undefined, mt: MediaType): c is CatalogShow {
 	if (!c || isIncompleteCatalog(c)) return false;
