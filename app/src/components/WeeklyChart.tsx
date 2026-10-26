@@ -225,16 +225,7 @@ export default function WeeklyChart({ data, animate = false }: Readonly<Props>) 
 					);
 				})}
 			</View>
-			<View style={styles.legend}>
-				<View style={styles.legendItem}>
-					<View style={[styles.legendSwatch, { backgroundColor: colors.primary }]} />
-					<Text style={styles.legendText}>Episodes</Text>
-				</View>
-				<View style={styles.legendItem}>
-					<View style={[styles.legendSwatch, { backgroundColor: colors.moviePurple }]} />
-					<Text style={styles.legendText}>Movies</Text>
-				</View>
-			</View>
+			{/* No legend of its own: the Weekly Watch Rate rows above name both colours */}
 		</View>
 	);
 }
@@ -315,24 +306,5 @@ const styles = StyleSheet.create({
 		fontWeight: "600",
 		color: colors.text,
 		textAlign: "center",
-	},
-	legend: {
-		flexDirection: "row",
-		gap: spacing.lg,
-		marginTop: spacing.md,
-	},
-	legendItem: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: spacing.xs,
-	},
-	legendSwatch: {
-		width: 12,
-		height: 12,
-		borderRadius: 6,
-	},
-	legendText: {
-		...typography.caption,
-		fontSize: 10,
 	},
 });
