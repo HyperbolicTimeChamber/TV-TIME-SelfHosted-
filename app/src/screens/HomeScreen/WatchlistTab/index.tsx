@@ -118,7 +118,6 @@ export default function WatchlistTab() {
 		listData: liveListData,
 		listSettled,
 		loadMoreTracking,
-		loadingMoreTracking,
 		loadMorePrevWatched,
 		loadingMorePrevWatched,
 		hasMorePrevWatched,
@@ -357,7 +356,8 @@ export default function WatchlistTab() {
 				onEndReached={caughtUp ? undefined : () => loadMoreTracking()}
 				onEndReachedThreshold={1.5}
 				ListFooterComponent={
-					loadingMoreTracking ? (
+					// Skeletons until it's confirmed nothing more is coming, then the image + message
+					!listSettled ? (
 						<SkeletonFooter />
 					) : caughtUpFooter ? (
 						<View style={styles.caughtUpFooter}>{renderCaughtUp()}</View>

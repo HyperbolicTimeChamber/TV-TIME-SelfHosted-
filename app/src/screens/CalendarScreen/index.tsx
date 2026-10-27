@@ -23,6 +23,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { AnimatedModal, EpisodeDetailModal } from "../../components";
 import { useSharedShimmer } from "../../components/SkeletonLine";
+import crashlytics from "@react-native-firebase/crashlytics";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { CARD_WIDTH as INFO_CARD_W } from "../../components/modals/EpisodeDetailModal/constants";
@@ -44,6 +45,7 @@ import {
 import { todayStr } from "../../utils/todayStr";
 import { useTabPress } from "../../navigation/CustomTabBar";
 import Pager from "./Pager";
+import TrackedEpisodeInfo from "./TrackedEpisodeInfo";
 import DayList from "./DayList";
 import { MonthGrid, WeekRow, type ChipFit } from "./MonthGrid";
 import { CalendarMode, ROW_MONTH, styles } from "./calendarStyles";
@@ -79,12 +81,18 @@ function CalendarSkeleton() {
 	);
 }
 
-/** "15 THURSDAY" */
+/** "15 THURSDAY" — today: a TODAY tag in place of the number */
 function DayHeader({ date }: { date: string }) {
 	const weekday = parseDay(date).toLocaleDateString("en-US", { weekday: "long" }).toUpperCase();
 	return (
 		<View style={styles.dayHeader}>
-			<Text style={styles.dayHeaderNumber}>{Number(date.slice(8))}</Text>
+			{date === todayStr() ? (
+				<View style={styles.todayTag}>
+					<Text style={styles.todayTagText}>TODAY</Text>
+				</View>
+			) : (
+				<Text style={styles.dayHeaderNumber}>{Number(date.slice(8))}</Text>
+			)}
 			<Text style={styles.dayHeaderWeekday}>{weekday}</Text>
 		</View>
 	);
@@ -160,7 +168,11 @@ export default function CalendarScreen() {
 		weeks.findIndex((w) => w.includes(selected)),
 	);
 
-	const settle = useCallback((next: CalendarMode) => setMode(next), []);
+	// Breadcrumb: a crash report shows how many resizes preceded it (memory-pressure hunting)
+	const settle = useCallback((next: CalendarMode) => {
+		crashlytics().log(`calendar mode -> ${CalendarMode[next]}`);
+		setMode(next);
+	}, []);
 
 	// Height of the calendar for a progress value, and back
 	const heightAt = (p: number, r: number, full: number) => {
@@ -431,6 +443,14 @@ export default function CalendarScreen() {
 
 	// --- Episode info / movie page -----------------------------------------------------------
 	const [infoEp, setInfoEp] = useState<CalendarEpisode | null>(null);
+	// Aired episodes open with watch buttons (TrackedEpisodeInfo); unaired ones, or any that
+	// can't be loaded for marking, as read-only info
+	const [infoReadOnly, setInfoReadOnly] = useState(false);
+	const openInfo = useCallback((ep: CalendarEpisode | null) => {
+		setInfoReadOnly(!!ep && (!ep.airDate || ep.airDate > todayStr()));
+		setInfoEp(ep);
+	}, []);
+	const onInfoUnavailable = useCallback(() => setInfoReadOnly(true), []);
 	const infoCatalog = infoEp ? getCachedCatalogShow(infoEp.tmdbShowId, MediaType.TV) : null;
 	const infoEpisodes = useMemo(
 		() => (infoEp ? [calendarEpisodeInfo(infoEp, infoCatalog)] : []),
@@ -501,7 +521,7 @@ export default function CalendarScreen() {
 				<DayHeader date={date} />
 				<DayList
 					episodes={episodesForDate(date)}
-					onOpenEpisode={setInfoEp}
+					onOpenEpisode={openInfo}
 					onOpenMovie={openMovie}
 					collapseSignal={collapseSignal}
 					lite={offset !== 0}
@@ -522,7 +542,7 @@ export default function CalendarScreen() {
 			<DayHeader date={selected} />
 			<DayList
 				episodes={episodesForDate(selected)}
-				onOpenEpisode={setInfoEp}
+				onOpenEpisode={openInfo}
 				onOpenMovie={openMovie}
 				collapseSignal={collapseSignal}
 				externalScroll
@@ -633,7 +653,22 @@ export default function CalendarScreen() {
 				)}
 			</AnimatedModal>
 
-			{infoEp && (
+			{infoEp && !infoReadOnly && (
+				<TrackedEpisodeInfo
+					episode={infoEp}
+					onUnavailable={onInfoUnavailable}
+					onShowPress={() => {
+						setInfoEp(null);
+						closePopup();
+						navigation.navigate(Route.SHOW_DETAIL, {
+							tmdbId: infoEp.tmdbShowId,
+							mediaType: MediaType.TV,
+						});
+					}}
+					onClose={() => setInfoEp(null)}
+				/>
+			)}
+			{infoEp && infoReadOnly && (
 				<EpisodeDetailModal
 					visible
 					readOnly
