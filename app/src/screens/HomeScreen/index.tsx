@@ -9,7 +9,13 @@ import {
 	useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CommonActions, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import {
+	CommonActions,
+	useIsFocused,
+	useNavigation,
+	useRoute,
+	type RouteProp,
+} from "@react-navigation/native";
 import Animated, {
 	runOnJS,
 	useAnimatedStyle,
@@ -29,6 +35,9 @@ const TABS: { key: HomeTab; label: string }[] = [
 ];
 const SLIDE_MS = 250;
 const START_PX = 25;
+/** On Upcoming a rightward drag is claimed this early, inside the bottom pager's ~8dp touch slop —
+ *  any later and the pager (swipeable there, for Calendar) intercepts it first */
+const UPCOMING_BACK_PX = 6;
 const TURN_SHARE = 0.3;
 const FLICK_VELOCITY = 500;
 const PRELOAD_TABS = [Route.CALENDAR, Route.SEARCH, Route.PROFILE];
@@ -127,14 +136,17 @@ export default function HomeScreen() {
 		return () => timers.forEach(clearTimeout);
 	}, [navigation]);
 
-	// The bottom pager stays off for the whole Home tab (SwipeTabsScreen already does that) and
-	// this pan owns every sideways drag here, Upcoming → Calendar included. Handing the pager
-	// the Upcoming leg meant two handlers racing for the same drag, and the native pager wins:
-	// it intercepts at its own ~8dp slop, long before this pan's 25dp. A slow swipe back to
-	// Watch List was then swallowed and nothing moved (measured: 1 in 3 slow swipes).
-	const toCalendar = useCallback(() => {
-		navigation.getParent()?.navigate(Route.CALENDAR as never);
-	}, [navigation]);
+	// Upcoming → Calendar belongs to the bottom pager, the one thing that can slide Calendar in
+	// under the finger (this pan, clamped at Upcoming, moved nothing and jumped on release). So
+	// the pager's swipe is on for Home while Upcoming shows. It intercepts at its own ~8dp slop,
+	// which used to swallow slow swipes back to Watch List (1 in 3) — the pan below now claims
+	// rightward drags on Upcoming at UPCOMING_BACK_PX, before the pager can.
+	const focused = useIsFocused();
+	useEffect(() => {
+		const parent = navigation.getParent();
+		if (!parent) return;
+		parent.setOptions({ swipeEnabled: focused && tab === Route.UPCOMING });
+	}, [navigation, focused, tab]);
 
 	// Tab tap: start the slide on the UI thread now — the state change (labels, swipe options)
 	// follows without holding up the animation
@@ -173,10 +185,16 @@ export default function HomeScreen() {
 						state.fail();
 						return;
 					}
-					// Upcoming claims both ways (right → Watch List, left → Calendar). Watch List
-					// claims leftward only; a rightward drag there is the system back gesture's.
+					// Upcoming: rightward → Watch List, claimed early (see UPCOMING_BACK_PX); leftward
+					// is the bottom pager's, on to Calendar. Watch List claims leftward only; a
+					// rightward drag there is the system back gesture's.
+					if (indexSV.value === 1) {
+						if (dx < -UPCOMING_BACK_PX) state.fail();
+						else if (dx > UPCOMING_BACK_PX && dx > Math.abs(dy) * 2) state.activate();
+						return;
+					}
 					if (Math.abs(dx) > START_PX) {
-						if (indexSV.value === 1 || dx < 0) state.activate();
+						if (dx < 0) state.activate();
 						else state.fail();
 					}
 				})
@@ -209,12 +227,6 @@ export default function HomeScreen() {
 						(e.translationX > width * TURN_SHARE || e.velocityX > FLICK_VELOCITY)
 					)
 						next = 0;
-					// Past Upcoming to the left: on to the Calendar tab (the pager used to do this)
-					if (
-						current === 1 &&
-						(e.translationX < -width * TURN_SHARE || e.velocityX < -FLICK_VELOCITY)
-					)
-						runOnJS(toCalendar)();
 					indexSV.value = next;
 					settle.value = next * width;
 					pos.value = withTiming(next * width, { duration: SLIDE_MS });
@@ -232,7 +244,7 @@ export default function HomeScreen() {
 						pos.value = withTiming(to, { duration: SLIDE_MS });
 					}
 				}),
-		[width, pos, dragging, settle, grab, upcomingMounted, indexSV, downX, downY, toCalendar],
+		[width, pos, dragging, settle, grab, upcomingMounted, indexSV, downX, downY],
 	);
 
 	// Tab trees don't depend on HomeScreen state — keep them out of its re-renders

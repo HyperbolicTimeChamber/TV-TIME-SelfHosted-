@@ -158,13 +158,22 @@ $rate-bar-h: 6px;
 	border-radius: calc(var(--bar-w) / 2);
 	/* Steeper than the weekly bars' fade, and all the way out: on a bar this wide an 8% tip
 	   still reads as a solid cap */
+	/* --fade (0 solid … 1 full fade, set inline) eases each stop toward solid: the front bar
+	   only fades as its tip nears the back one's. --solid (share from the base) keeps the back
+	   bar solid up to the front one's top and fits the fade above it — the part that peeks out
+	   would otherwise already be faded away */
+	--from: calc(var(--solid, 0) * 100%);
+	--span: calc(100% - var(--solid, 0) * 100%);
 	background: linear-gradient(
 		to top,
-		var(--color),
-		color-mix(in srgb, var(--color) 70%, transparent) 25%,
-		color-mix(in srgb, var(--color) 32%, transparent) 60%,
-		color-mix(in srgb, var(--color) 10%, transparent) 88%,
-		transparent
+		var(--color) var(--from),
+		color-mix(in srgb, var(--color) calc(100% - var(--fade, 1) * 30%), transparent)
+			calc(var(--from) + var(--span) * 0.25),
+		color-mix(in srgb, var(--color) calc(100% - var(--fade, 1) * 68%), transparent)
+			calc(var(--from) + var(--span) * 0.6),
+		color-mix(in srgb, var(--color) calc(100% - var(--fade, 1) * 90%), transparent)
+			calc(var(--from) + var(--span) * 0.88),
+		color-mix(in srgb, var(--color) calc(100% - var(--fade, 1) * 100%), transparent)
 	);
 
 	&::before {
