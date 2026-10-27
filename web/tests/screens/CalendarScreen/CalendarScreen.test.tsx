@@ -17,7 +17,7 @@ vi.mock("@app/screens/useCalendarScreen", () => ({
 		selectedEpisodes: [
 			{ tmdbShowId: 1, showTitle: "Reacher", posterPath: null, season: 4, episode: 9, episodeTitle: "Run", airDate: "2026-10-09", runtime: null },
 			{ tmdbShowId: 1, showTitle: "Reacher", posterPath: null, season: 4, episode: 8, episodeTitle: "Cut", airDate: "2026-10-09", runtime: null },
-			{ tmdbShowId: 3, showTitle: "Slow Horses", posterPath: null, season: 5, episode: 2, episodeTitle: "Two", airDate: "2026-10-09", runtime: null },
+			{ tmdbShowId: 3, showTitle: "Slow Horses", posterPath: null, season: 5, episode: 2, episodeTitle: "Two", airDate: "2099-01-01", runtime: null },
 		],
 		episodes: [
 			{ tmdbShowId: 1, showTitle: "Reacher", posterPath: null, season: 4, episode: 8, episodeTitle: "Cut", airDate: "2026-10-09", runtime: null },
@@ -37,6 +37,11 @@ const loadSeason = vi.fn(async (season: number) => [
 	{ season, episode: 2, title: "Two", airDate: "2026-10-09", runtime: 50, stillPath: "/s.jpg", overview: "Lamb regroups." },
 ]);
 vi.mock("@app/hooks/useEpisodeInfoLoader", () => ({ useEpisodeInfoLoader: () => loadSeason }));
+
+// Aired episodes open the tracked card (real watch buttons, Firestore-backed): stubbed here
+vi.mock("../../../src/screens/CalendarScreen/TrackedEpisodeInfo", () => ({
+	default: () => <div data-testid="tracked-info" />,
+}));
 
 import CalendarScreen from "../../../src/screens/CalendarScreen";
 import { monthGrid } from "../../../src/screens/CalendarScreen/monthGrid";
@@ -85,7 +90,7 @@ describe("CalendarScreen", () => {
 		await waitFor(() => expect(screen.queryByText("E09")).not.toBeInTheDocument());
 	});
 
-	it("tapping an episode opens its info card without watch buttons", async () => {
+	it("tapping an unaired episode opens its info card without watch buttons", async () => {
 		renderWithProviders(<CalendarScreen />, { user: testUser });
 		fireEvent.click(screen.getByText("Slow Horses"));
 		// Card title + the modal's episode title (once its details load)
@@ -99,5 +104,12 @@ describe("CalendarScreen", () => {
 		fireEvent.click(screen.getByText("Slow Horses"));
 		expect(await screen.findByText("Lamb regroups.")).toBeInTheDocument();
 		expect(loadSeason).toHaveBeenCalledWith(5);
+	});
+
+	it("an aired episode opens the card with watch buttons", async () => {
+		renderWithProviders(<CalendarScreen />, { user: testUser });
+		fireEvent.click(screen.getByText("Reacher"));
+		fireEvent.click(screen.getByText("E09"));
+		expect(await screen.findByTestId("tracked-info")).toBeInTheDocument();
 	});
 });

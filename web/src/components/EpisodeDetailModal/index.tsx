@@ -10,6 +10,7 @@ import { colors } from "../../theme/index";
 import EpisodeCard from "./EpisodeCard";
 import { markWatchedLabel } from "@app/utils/format";
 import { carouselRunBase } from "@app/utils/trackingAdvance";
+import { todayStr } from "@app/utils/todayStr";
 import { epKey } from "./helpers";
 import styles from "./styles/EpisodeDetailModal.module.scss";
 import { cssVars } from "../../utils/cssVars";
@@ -292,7 +293,8 @@ export default function EpisodeDetailModal({
 												isLoaded={!!ep.loaded}
 												isMarking={markingKey === key}
 												markLabel={markWatchedLabel(runBase)}
-												readOnly={readOnly}
+												// Not aired yet: nothing to watch
+												readOnly={readOnly || (!!ep.airDate && ep.airDate > todayStr())}
 												onMarkWatched={() => handleMark(ep)}
 												onUnwatch={() => {
 													setMarkingKey(key);

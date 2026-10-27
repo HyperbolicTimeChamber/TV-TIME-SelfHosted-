@@ -289,6 +289,20 @@ export function useWatchlistData(userId: string | undefined) {
 		});
 	}, [userId]);
 
+	// Last session's confirmation that no tracking page is left — until this session's own
+	// listeners confirm it, the list can already show the caught-up state instead of skeletons
+	const [cachedExhausted, setCachedExhausted] = useState(false);
+	useEffect(() => {
+		if (!userId) return;
+		AsyncStorage.getItem(CacheKey.WATCHLIST_EXHAUSTED)
+			.then((raw) => {
+				if (!raw) return;
+				const cached = JSON.parse(raw);
+				if (cached.userId === userId && cached.exhausted === true) setCachedExhausted(true);
+			})
+			.catch(() => {});
+	}, [userId]);
+
 	// --- Computed data from Firestore ---
 	const showMap = useMemo(() => {
 		const map = new Map<number, EnrichedTrackingItem>();
@@ -483,6 +497,16 @@ export function useWatchlistData(userId: string | undefined) {
 		).catch(() => {});
 		if (cachedList) setCachedList(null);
 	}, [userId, allLoading, liveList]);
+
+	// Confirmed by the live listeners: first load done, no page pending, none left
+	const liveExhausted = !allLoading && !loadingMoreTracking && !hasMoreTracking;
+	useEffect(() => {
+		if (!userId || allLoading || loadingMoreTracking) return;
+		AsyncStorage.setItem(
+			CacheKey.WATCHLIST_EXHAUSTED,
+			JSON.stringify({ userId, exhausted: !hasMoreTracking }),
+		).catch(() => {});
+	}, [userId, allLoading, loadingMoreTracking, hasMoreTracking]);
 
 	// --- Effective display: blend cached shows + live previously watched ---
 	const rawDisplayList = useMemo(() => {
@@ -1119,9 +1143,10 @@ export function useWatchlistData(userId: string | undefined) {
 		removeItem,
 		listData,
 		loading: effectiveLoading,
-		// Everything fetched (no first load, next tracking page or skeleton footer pending): only
-		// then can an empty "What's Up Next" really mean "all caught up"
-		listSettled: !allLoading && !loadingMoreTracking && !hasMoreTracking,
+		// Everything fetched (confirmed now, or by the last session while this one still loads):
+		// only then can an empty "What's Up Next" really mean "all caught up". Until then the
+		// footer is skeletons — never blank
+		listSettled: liveExhausted || (allLoading && cachedExhausted),
 		loadMoreTracking,
 		loadingMoreTracking,
 		loadMorePrevWatched,

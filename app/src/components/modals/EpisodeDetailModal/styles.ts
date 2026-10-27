@@ -116,6 +116,11 @@ export const styles = StyleSheet.create({
 		fontSize: 13,
 		textAlign: "justify",
 	},
+	overviewEmpty: {
+		fontStyle: "italic",
+		textAlign: "left",
+		opacity: 0.7,
+	},
 	watchButton: {
 		backgroundColor: colors.watchedGreen,
 		paddingVertical: spacing.md,

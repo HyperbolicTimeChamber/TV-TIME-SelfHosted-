@@ -115,6 +115,13 @@ export const styles = StyleSheet.create({
 		paddingBottom: spacing.md,
 	},
 	dayHeaderNumber: { ...typography.title, fontSize: 26 },
+	todayTag: {
+		backgroundColor: colors.primary,
+		borderRadius: 6,
+		paddingHorizontal: 10,
+		paddingVertical: 2,
+	},
+	todayTagText: { ...typography.title, fontSize: 18, letterSpacing: 1 },
 	dayHeaderWeekday: {
 		fontSize: 12,
 		fontWeight: "700",
