@@ -43,7 +43,7 @@ On a fresh system, before real work, check whether the tools below exist (`claud
 - Optimistic UI: cancelQueries only if the query already has data; `insertWatched*Cache` create the first page if empty; movie mark keeps `updatingShows` until the listener confirms.
 
 ## Crashlytics
-`App.tsx` enables collection, hooks `ErrorUtils` (JS errors), plugin + gradle plugin present for native crashes (sent on NEXT launch). It does **not** capture Android low-memory-killer SIGKILLs (RAM pressure) — those leave no report. Calendar mode changes leave `crashlytics().log` breadcrumbs. Observed: calendar resize cycles grow native heap ~12 MB/cycle on the emulator (dev build) — suspected cause of the reported RAM crash.
+`App.tsx` enables collection, hooks `ErrorUtils` (JS errors), plugin + gradle plugin present for native crashes (sent on NEXT launch). It does **not** capture Android low-memory-killer SIGKILLs (RAM pressure) — those leave no report. Calendar mode changes leave `crashlytics().log` breadcrumbs. Measured: release build on emulator = ~500 MB total PSS on Home (flat while scrolling the watchlist), calendar resize cycles add ~80 MB over the first ~4 cycles then plateau (~580 MB) — no leak. The earlier 800 MB+ native / 1.2 GB figures were dev-build inflation. A kill under heavy background apps is Android's LMK, not an app bug; it can't be reported. Emulator `/data` was enlarged to 16G (AVD config) because the release APK would not install at 6G.
 
 ## Build / run / test
 - App dev: `cd app && npx expo start --dev-client`, `adb reverse tcp:8081 tcp:8081`, open `exp+watchloom://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081` (scheme `watchloom`; first cold launch may crash once — relaunch). Editing a file can trigger a full reload back to Home.
