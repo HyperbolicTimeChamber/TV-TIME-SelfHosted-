@@ -16,6 +16,7 @@ import {
 	freshSeasonAddsEpisodes,
 	isNewerServerCatalog,
 	todayStr,
+	createSnapshotSequencer,
 	type FreshSeasonEpisode,
 } from "../utils";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -555,10 +556,14 @@ export function useWatchlist(userId: string | undefined) {
 		paginationCursor.current = null;
 
 		let prevEnrichedMap = new Map<string, EnrichedTrackingItem>();
+		const sequencer = createSnapshotSequencer();
 
 		const unsubscribe = onSnapshot(
 			q,
 			async (snapshot) => {
+				sequencer.receive(
+					snapshot.docChanges().map((c: any) => ({ id: c.doc.id, type: c.type as DocChangeType })),
+				);
 				// Wait for catalog cache restoration before processing
 				if (!catalogCacheRestored.current) {
 					pendingSnapshot.current = () => processSnapshot(snapshot);
@@ -578,8 +583,10 @@ export function useWatchlist(userId: string | undefined) {
 				...d.data(),
 			})) as TrackingItem[];
 
-			// Only enrich changed/added items — reuse previous for unchanged
-			const changedIds = new Set(snapshot.docChanges().map((c: any) => c.doc.id));
+			// Only enrich changed/added items — reuse previous for unchanged. Changes of snapshots
+			// superseded before they applied are included
+			const ticket = sequencer.begin();
+			const changedIds = ticket.changed;
 			const isInitial = prevEnrichedMap.size === 0;
 
 			let enriched: EnrichedTrackingItem[];
@@ -624,6 +631,10 @@ export function useWatchlist(userId: string | undefined) {
 				};
 			}
 
+			// A newer snapshot arrived while this one was enriching: it applies instead (a cold
+			// start's offline-cache pass finishing after the server's would undo it)
+			if (!sequencer.commit(ticket)) return;
+
 			// Update prev map for next snapshot
 			prevEnrichedMap = new Map(enriched.map((e) => [e.id, e]));
 
@@ -636,12 +647,7 @@ export function useWatchlist(userId: string | undefined) {
 			paginatedItems.current = paginatedItems.current.filter((p) => !firstPageIds.has(p.id));
 
 			// Removals in first page: filter paginated items locally (no Firestore reads)
-			const removedIds = new Set(
-				snapshot
-					.docChanges()
-					.filter((c: any) => c.type === DocChangeType.REMOVED)
-					.map((c: any) => c.doc.id),
-			);
+			const removedIds = ticket.removed;
 			if (removedIds.size > 0) {
 				paginatedItems.current = paginatedItems.current.filter((p) => !removedIds.has(p.id));
 			}
