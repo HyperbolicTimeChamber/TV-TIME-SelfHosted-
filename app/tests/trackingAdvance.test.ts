@@ -57,6 +57,13 @@ test("watching an episode in between (earlier unwatched) leaves watchlist alone"
 	assert.equal(r.advance, false);
 });
 
+test("marking the pointer's episode advances even when an earlier count is missing", () => {
+	// Another device marked E4 (pointer → E5); this one's per-show cache still has E4 at 0
+	const r = adv([1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0], mk(1, 5), W, { season: 1, episode: 5 });
+	assert.equal(r.advance, true);
+	assert.deepEqual(r.nextEpisode, { season: 1, episode: 6 });
+});
+
 test("crosses season boundary", () => {
 	const r = adv([1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0], mk(1, 6), W, { season: 1, episode: 6 });
 	assert.deepEqual(r.nextEpisode, { season: 2, episode: 1 });

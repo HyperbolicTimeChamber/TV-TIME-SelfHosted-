@@ -140,12 +140,19 @@ export function computeTrackingAdvance(
 
 	// Unbroken run up to X at this level. During a rewatch the run starts at the current
 	// pointer: episodes before it were rewatched or skipped (watchlist "Skip").
+	// On a first watch it starts there too when the mark reaches the pointer: everything before
+	// it is already watched (or skipped), whatever this device's per-show counts say — they're
+	// cached, so a mark made on another device since is missing and stalled the pointer.
 	let runStart = 0;
-	if (rewatching && tracking.nextEpisode) {
-		const ne = tracking.nextEpisode;
-		const pointerIdx = order.findIndex((e) => e.season === ne.season && e.episode === ne.episode);
+	const ne = tracking.nextEpisode;
+	const pointerIdx = ne
+		? order.findIndex((e) => e.season === ne.season && e.episode === ne.episode)
+		: -1;
+	if (rewatching && ne) {
 		if (pointerIdx > lastIdx) return NONE; // re-marking an episode already passed
 		if (pointerIdx >= 0) runStart = pointerIdx;
+	} else if (level === 1 && pointerIdx >= 0 && pointerIdx <= lastIdx) {
+		runStart = pointerIdx;
 	}
 	for (let i = runStart; i < lastIdx; i++) {
 		if (countOf(counts, order[i]) < level) return NONE;
