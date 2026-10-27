@@ -123,7 +123,8 @@ export default function WatchlistTab() {
 				))}
 			</div>
 			<div ref={sentinel} />
-			{w.loadingMoreTracking ? (
+			{!w.listSettled ? (
+				// Skeletons until it's confirmed nothing more is coming, then the image + message
 				<div className={`${styles.center} min-h-20!`}>
 					<Spin />
 				</div>

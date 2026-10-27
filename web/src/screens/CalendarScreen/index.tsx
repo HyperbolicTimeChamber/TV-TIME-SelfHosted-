@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { IoChevronBack, IoChevronForward } from "react-icons/io5";
 import { IoIosArrowDown } from "react-icons/io";
@@ -20,6 +20,7 @@ import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
 import { useQueryClient } from "@tanstack/react-query";
 import { loadSeasonEpisodes, useEpisodeInfoLoader } from "@app/hooks/useEpisodeInfoLoader";
 import EpisodeDetailModal from "../../components/EpisodeDetailModal";
+import TrackedEpisodeInfo from "./TrackedEpisodeInfo";
 import { MediaType } from "@app/enums";
 import { todayStr } from "@app/utils/todayStr";
 import { tmdbBackdropUri, tmdbLogoUri, tmdbStillUri } from "@app/hooks/useTmdbImage";
@@ -204,6 +205,14 @@ export default function CalendarScreen() {
 		});
 	// Episodes → their info card (no watch buttons — the Calendar is read-only); movies → their page
 	const [infoEp, setInfoEp] = useState<CalendarEpisode | null>(null);
+	// Aired episodes open with watch buttons (TrackedEpisodeInfo, app twin); unaired ones, or any
+	// that can't be loaded for marking, as read-only info
+	const [infoReadOnly, setInfoReadOnly] = useState(false);
+	const openInfo = useCallback((ep: CalendarEpisode | null) => {
+		setInfoReadOnly(!!ep && (!ep.airDate || ep.airDate > todayStr()));
+		setInfoEp(ep);
+	}, []);
+	const onInfoUnavailable = useCallback(() => setInfoReadOnly(true), []);
 	// Overview / still from TMDB, as the Watch List's info modal loads them
 	const loadEpisodeDetails = useEpisodeInfoLoader(infoEp?.tmdbShowId);
 	// Warm the selected day's info cards (app twin): seasons into the query cache, stills into the
@@ -249,7 +258,7 @@ export default function CalendarScreen() {
 	const openShow = (ep: CalendarEpisode) =>
 		ep.mediaType === MediaType.MOVIE
 			? navigate(showPath(MediaType.MOVIE, ep.tmdbShowId))
-			: setInfoEp(ep);
+			: openInfo(ep);
 	const today = todayStr();
 	const yearListRef = useRef<HTMLDivElement>(null);
 	const grid = useMemo(
@@ -380,6 +389,7 @@ export default function CalendarScreen() {
 					c.selectedDate && (
 						<section className={styles.episodeList}>
 							<h3 className={styles.dateHeader}>
+								{c.selectedDate === todayStr() && <span className={styles.todayTag}>TODAY</span>}
 								{new Date(`${c.selectedDate}T00:00:00`).toLocaleDateString("en-US", {
 									weekday: "long",
 									month: "long",
@@ -439,7 +449,15 @@ export default function CalendarScreen() {
 				)}
 			</div>
 
-			{infoEp && (
+			{infoEp && !infoReadOnly && (
+				<TrackedEpisodeInfo
+					episode={infoEp}
+					onUnavailable={onInfoUnavailable}
+					onShowPress={() => navigate(showPath(MediaType.TV, infoEp.tmdbShowId))}
+					onClose={() => setInfoEp(null)}
+				/>
+			)}
+			{infoEp && infoReadOnly && (
 				<EpisodeDetailModal
 					visible
 					readOnly

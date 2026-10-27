@@ -7,6 +7,7 @@ import { Card3DWrapper } from "./Card3DWrapper";
 import { EpisodeCard } from "./EpisodeCard";
 import { BackfillModal } from "./BackfillModal";
 import { markWatchedLabel } from "../../../utils/format";
+import { todayStr } from "../../../utils/todayStr";
 import { carouselRunBase } from "../../../utils/trackingAdvance";
 import type {
 	CarouselEpisode,
@@ -329,7 +330,8 @@ export default function EpisodeDetailModal({
 							watchCount={wc}
 							isLoaded={!!item.loaded}
 							isMarking={markingKey === key}
-							readOnly={readOnly}
+							// Not aired yet: nothing to watch
+							readOnly={readOnly || (!!item.airDate && item.airDate > todayStr())}
 							markLabel={markWatchedLabel(runBase)}
 							onMarkWatched={() => handleMark(item)}
 							onUnwatch={() => {

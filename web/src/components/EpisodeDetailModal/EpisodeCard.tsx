@@ -96,7 +96,13 @@ function EpisodeCard(p: Props) {
 					{ep.airDate ? formatDate(ep.airDate) : ""}
 					{ep.runtime ? `${ep.airDate ? " · " : ""}${ep.runtime} min` : ""}
 				</p>
-				{ep.overview && <p className={styles.overview}>{ep.overview}</p>}
+				{ep.overview ? (
+					<p className={styles.overview}>{ep.overview}</p>
+				) : (
+					<p className={`${styles.overview} ${styles.overviewEmpty}`}>
+						No description available yet.
+					</p>
+				)}
 			</div>
 
 			{!p.readOnly &&

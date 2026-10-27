@@ -10,6 +10,11 @@ import {
 import { Handjet_800ExtraBold } from "@expo-google-fonts/handjet";
 import crashlytics from "@react-native-firebase/crashlytics";
 
+// Explicit: native crashes (sent on the next launch) and JS errors always report
+crashlytics()
+	.setCrashlyticsCollectionEnabled(true)
+	.catch(() => {});
+
 // Report uncaught JS errors to Crashlytics
 const RNErrorUtils = (global as any).ErrorUtils;
 if (RNErrorUtils) {

@@ -139,7 +139,13 @@ export const EpisodeCard = memo(function EpisodeCard({
 							</Text>
 						) : null}
 					</View>
-					{ep.overview ? <Text style={styles.overview}>{ep.overview}</Text> : null}
+					{ep.overview ? (
+						<Text style={styles.overview}>{ep.overview}</Text>
+					) : (
+						<Text style={[styles.overview, styles.overviewEmpty]}>
+							No description available yet.
+						</Text>
+					)}
 				</ScrollView>
 			</View>
 
