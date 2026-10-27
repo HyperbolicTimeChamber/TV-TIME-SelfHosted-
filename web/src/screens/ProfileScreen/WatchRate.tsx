@@ -51,6 +51,19 @@ function chartSizes(width: number) {
 }
 type ChartSizes = ReturnType<typeof chartSizes>;
 
+/** The front bar starts fading once it's this share of the back one's height */
+const FRONT_FADE_FROM = 0.4;
+
+/**
+ * How much the shorter, front bar fades (0 solid … 1 like the back one). Well below the back
+ * bar's tip it sits over that bar's bright body, and a fade there washed it out into a smudge
+ * (1 movie in front of 182 episodes); it only fades as its tip nears the back one's
+ */
+function frontFade(front: number, back: number) {
+	if (back <= 0) return 1;
+	return Math.min(1, Math.max(0, (front / back - FRONT_FADE_FROM) / (1 - FRONT_FADE_FROM)));
+}
+
 /** Bar height on a square-root scale, as the app's: a big day doesn't squash the small ones into dots */
 const barHeight = (value: number, max: number, size: ChartSizes) =>
 	value > 0 ? Math.max(size.minBarHeight, Math.sqrt(value / max) * size.chartHeight) : 0;
@@ -158,12 +171,21 @@ export default function WatchRate({
 								<div className={styles.barColumn} style={{ height: size.chartHeight }}>
 									<div className={styles.grow} style={delay}>
 										{bars.map(
-											(b) =>
+											(b, n) =>
 												b.h > 0 && (
 													<div
 														key={b.kind}
 														className={styles.bar}
-														style={{ height: b.h, "--color": b.color } as CSSProperties}
+														style={
+															{
+																height: b.h,
+																"--color": b.color,
+																// Front bar: solid until its tip nears the back one's
+																"--fade": n === 0 ? 1 : frontFade(b.h, bars[0].h),
+																// Back bar: solid up to the front one's top, faded above
+																"--solid": n === 0 && bars[1].h > 0 ? bars[1].h / b.h : 0,
+															} as CSSProperties
+														}
 													/>
 												),
 										)}

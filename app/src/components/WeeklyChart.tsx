@@ -159,7 +159,7 @@ const CORE_SPREAD = (BAR_WIDTH - GLOW_CORE) / 2;
  * column layers instead turned tall bars into boxes and left short ones (which skip those
  * layers) out of it.
  */
-const POOL = { height: 8, blur: 28, spread: 24, alpha: 0.32 };
+const POOL = { height: 8, blur: 28, spread: 20, alpha: 0.2 };
 /** How far up the pool's light reaches from the axis */
 const POOL_REACH = POOL.spread + POOL.blur / 2;
 /** Highest a glow may climb, as a share of its bar: above that the bar has faded out, and light
@@ -167,6 +167,21 @@ const POOL_REACH = POOL.spread + POOL.blur / 2;
 const GLOW_MAX_RISE = 0.7;
 /** Bars shorter than this get proportionally tighter column glows, for the same reason */
 const FULL_GLOW_HEIGHT = 80;
+/** A bar's colour from base (last) to tip (first), fully faded */
+const FADE_STOPS = [0, 0.1, 0.32, 0.7, 1];
+const FADE_LOCATIONS = [0, 0.12, 0.4, 0.75, 1];
+/** The front bar starts fading once it's this share of the back one's height */
+const FRONT_FADE_FROM = 0.4;
+
+/**
+ * How much the shorter, front bar fades (0 solid … 1 like the back one). Well below the back
+ * bar's tip it sits over that bar's bright body, and a fade there washed it out into a smudge
+ * (1 movie in front of 182 episodes); it only fades as its tip nears the back one's
+ */
+function frontFade(front: number, back: number) {
+	if (back <= 0) return 1;
+	return Math.min(1, Math.max(0, (front / back - FRONT_FADE_FROM) / (1 - FRONT_FADE_FROM)));
+}
 
 /**
  * One day's bar: bright at the baseline, fading toward the tip, glowing into the dark. Drawn in
@@ -177,15 +192,27 @@ function GlowBar({
 	color,
 	height,
 	part,
-}: Readonly<{ color: string; height: number; part: "glow" | "fill" }>) {
+	fade = 1,
+	solidTo = 0,
+}: Readonly<{
+	color: string;
+	height: number;
+	part: "glow" | "fill";
+	fade?: number;
+	/** Share of the bar (from its base) kept solid, the fade fitted above it — the back bar,
+	 *  up to the front one's top, so the part that peeks out isn't already faded away */
+	solidTo?: number;
+}>) {
 	if (height <= 0) return null;
 	if (part === "fill") {
 		return (
 			<View style={[styles.bar, { height }]}>
 				<LinearGradient
 					// Out to nothing at the tip, as the web's: an 8% tip still read as a cap
-					colors={[tint(color, 0), tint(color, 0.1), tint(color, 0.32), tint(color, 0.7), color]}
-					locations={[0, 0.12, 0.4, 0.75, 1]}
+					colors={
+						[...FADE_STOPS.map((a) => tint(color, 1 - fade * (1 - a))), color] as [string, string]
+					}
+					locations={[...FADE_LOCATIONS.map((l) => l * (1 - solidTo)), 1] as [number, number]}
 					style={styles.barFill}
 				/>
 			</View>
@@ -308,11 +335,13 @@ export default function WeeklyChart({
 													part={part}
 													color={epBehind ? colors.primary : colors.moviePurple}
 													height={epBehind ? epH : movH}
+													solidTo={Math.min(epH, movH) / Math.max(epH, movH, 1)}
 												/>
 												<GlowBar
 													part={part}
 													color={epBehind ? colors.moviePurple : colors.primary}
 													height={epBehind ? movH : epH}
+													fade={frontFade(Math.min(epH, movH), Math.max(epH, movH))}
 												/>
 											</React.Fragment>
 										))}

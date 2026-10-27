@@ -42,8 +42,9 @@ export default function SwipeTabsScreen() {
 				const onDetail = childRoute != null && DETAIL_ROUTES.has(childRoute as Route);
 				return {
 					lazy: true,
-					// Home's pager swipe stays off: its Watch List / Upcoming tabs swipe themselves
-					// (RNGH, after the cards' own swipes) and Upcoming hands a left swipe on to Calendar
+					// Home's pager swipe is off: its Watch List / Upcoming tabs swipe themselves (RNGH,
+					// after the cards' own swipes). HomeScreen turns it on while Upcoming shows, so
+					// the left swipe on to Calendar follows the finger
 					swipeEnabled: !onDetail && route.name !== Route.HOME,
 				};
 			}}
