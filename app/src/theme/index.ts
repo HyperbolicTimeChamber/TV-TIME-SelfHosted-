@@ -13,6 +13,8 @@ export const colors = {
 	border: "#333333",
 	moviePurple: "#8B5CF6",
 	warningAmber: "#F59E0B",
+	/** warningAmber at 50% — a faded fill that leaves the text on it untouched (opacity would not) */
+	warningAmberFaded: "rgba(245, 158, 11, 0.5)",
 	spinnerWhite: "#FFFFFF",
 	spinnerOrange: "#FF3D00",
 	overlay: "rgba(0, 0, 0, 0.85)",
@@ -20,6 +22,19 @@ export const colors = {
 	overlayMedium: "rgba(0, 0, 0, 0.7)",
 	badgeOverlay: "rgba(0, 0, 0, 0.5)",
 } as const;
+
+/** Custom font families (loaded in App via useFonts). Android: never pair with fontWeight. */
+export const fonts = {
+	/** Smooch Sans — calendar episode square */
+	smoochRegular: "SmoochSans_400Regular",
+	smoochMedium: "SmoochSans_500Medium",
+	/** Handjet — pixel-style display (watchlist welcome title) */
+	handjetExtraBold: "Handjet_800ExtraBold",
+} as const;
+
+/** `#RRGGBB` + alpha → rgba(), for translucent fills and glow shadows */
+export const tint = (hex: string, alpha: number) =>
+	`rgba(${parseInt(hex.slice(1, 3), 16)}, ${parseInt(hex.slice(3, 5), 16)}, ${parseInt(hex.slice(5, 7), 16)}, ${alpha})`;
 
 export const spacing = {
 	xs: 4,

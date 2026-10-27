@@ -23,9 +23,11 @@ export const styles = StyleSheet.create({
 	imageContainer: {
 		height: IMAGE_HEIGHT,
 	},
+	// Same fill as the text skeletons (border): surfaceLight vanished on the card's black at the
+	// shimmer's 0.3–0.6 opacity
 	imageSkeleton: {
 		...(StyleSheet.absoluteFill as object),
-		backgroundColor: colors.surfaceLight,
+		backgroundColor: colors.border,
 	},
 	still: {
 		width: "100%",
@@ -221,54 +223,5 @@ export const styles = StyleSheet.create({
 		width: "70%",
 		borderRadius: 4,
 		backgroundColor: colors.border,
-	},
-	backfillContent: {
-		backgroundColor: colors.background,
-		borderRadius: 12,
-		padding: spacing.lg,
-	},
-	backfillTitle: {
-		...typography.subtitle,
-		fontSize: 16,
-		textAlign: "center",
-		marginBottom: spacing.sm,
-	},
-	backfillHint: {
-		...typography.caption,
-		color: colors.textSecondary,
-		textAlign: "center",
-		marginBottom: spacing.lg,
-	},
-	backfillButton: {
-		paddingVertical: spacing.md,
-		borderRadius: 8,
-		alignItems: "center",
-	},
-	backfillButtonText: {
-		...typography.subtitle,
-		fontSize: 14,
-		color: colors.text,
-	},
-	backfillButtonOutline: {
-		paddingVertical: spacing.md,
-		borderRadius: 8,
-		alignItems: "center",
-		borderWidth: 1.5,
-		borderColor: colors.text,
-		marginTop: spacing.sm,
-	},
-	backfillButtonOutlineText: {
-		...typography.subtitle,
-		fontSize: 14,
-		color: colors.text,
-	},
-	backfillCancel: {
-		paddingVertical: spacing.sm,
-		alignItems: "center",
-		marginTop: spacing.sm,
-	},
-	backfillCancelText: {
-		...typography.caption,
-		color: colors.textMuted,
 	},
 });

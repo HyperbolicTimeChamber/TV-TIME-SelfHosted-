@@ -34,6 +34,35 @@ function flatten(catalog: CatalogShow): EpRef[] {
     );
 }
 
+/**
+ * Ended show still marked watching with nothing left after the pointer → should be
+ * completed. Happens when the last episode was watched while TMDB still listed the
+ * show as returning. Never-started docs (plays 0) don't count.
+ */
+export function isFinishedEndedShow(
+  data: Record<string, any>,
+  catalog: CatalogShow,
+): boolean {
+  if (!ENDED_STATUSES.includes(catalog.status)) return false;
+  if (data.status !== WatchStatus.WATCHING || (data.plays ?? 0) <= 0) return false;
+  const next = data.nextEpisode as { season: number; episode: number } | null;
+  return (
+    !next ||
+    !flatten(catalog).some(
+      (e) =>
+        e.season > next.season ||
+        (e.season === next.season && e.episode >= next.episode),
+    )
+  );
+}
+
+/** Fields that mark a finished ended show completed */
+export const finishedEndedPatch = () => ({
+  status: WatchStatus.COMPLETED,
+  nextEpisode: null,
+  ...historyOnChange(),
+});
+
 const toDateStr = (ts: unknown): string => {
   const d = (ts as Timestamp | undefined)?.toDate?.();
   return d ? d.toISOString().slice(0, 10) : "";
@@ -45,8 +74,7 @@ const toDateStr = (ts: unknown): string => {
  *    "Episode N" names + TBA air dates get filled in once TMDB has them).
  * 2. Caught up (nextEpisode null) or COMPLETED → if the catalog has an episode after
  *    the user's highest watched one that is new to them, point at it and set WATCHING.
- *    Covers imported shows and episodes TMDB listed before the user caught up — the
- *    old "totalEpisodes increased" check missed both.
+ *    Covers imported shows and episodes TMDB listed before the user caught up.
  *    Gated by reconciledEpisodeCount so the watchedEpisodes query only runs when the
  *    show's episode count changed since the last check.
  *
@@ -67,13 +95,21 @@ export async function reconcileTracking(
 
   for (const td of trackingDocs) {
     const catalog = catalogMap.get(td.id);
-    if (!catalog?.seasons?.length || ENDED_STATUSES.includes(catalog.status))
-      continue;
+    if (!catalog?.seasons?.length) continue;
     const data = td.data();
     const status: string = data.status;
     const next = data.nextEpisode as
       { season: number; episode: number } | null | undefined;
     const order = flatten(catalog);
+
+    // 0. Ended show: only "finished but still watching" needs fixing. No reads.
+    if (ENDED_STATUSES.includes(catalog.status)) {
+      if (isFinishedEndedShow(data, catalog)) {
+        writes.push({ ref: td.ref, data: finishedEndedPatch() });
+        overrides.set(td.id, WatchStatus.COMPLETED);
+      }
+      continue;
+    }
 
     // 1. Refresh pointer metadata
     if (next && POINTER_STATUSES.includes(status)) {

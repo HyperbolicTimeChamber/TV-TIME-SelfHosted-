@@ -1,43 +1,27 @@
 @use "../../../theme/tokens" as *;
 
 .container {
+	/* Anchors the back / share buttons */
+	position: relative;
 	min-height: 100dvh;
 	padding-bottom: 48px;
 	overflow-x: hidden;
 }
 
+/* Position only — the circle itself is components/CircleButton. On the page, not the viewport:
+   share scrolls away with it; back follows the scroll (--back-shift) until the pills push it off */
 .floatButton {
-	position: fixed;
+	position: absolute;
 	top: calc(env(safe-area-inset-top) + 8px);
 	z-index: 10;
-	width: 44px;
-	height: 44px;
-	border-radius: 22px;
-	border: none;
-	background: rgba(0, 0, 0, 0.5);
-	color: var(--text);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	cursor: pointer;
 }
 
 .backButton {
 	left: 16px;
-	padding-right: 2px;
 }
 
 .shareButton {
 	right: 16px;
-}
-
-@include desktop {
-	.backButton {
-		left: 104px;
-	}
-	.shareButton {
-		right: max(16px, calc((100vw - 1188px) / 2 + 16px));
-	}
 }
 
 .backdrop {
@@ -63,18 +47,39 @@
 	position: relative;
 	margin-top: -280px;
 	padding: 200px 8px 8px;
-	background: linear-gradient(to bottom, transparent 0%, rgba(13, 13, 13, 0.7) 20%, var(--bg) 80%);
+
+	/* Fixed-height fade (= the 280px overlap) that turns fully black exactly at the image's bottom
+	   edge however tall the island (logo) is; eased, no visible start line — app DetailBackdrop */
+	&::before {
+		content: "";
+		position: absolute;
+		inset: 0 0 auto;
+		height: 280px;
+		pointer-events: none;
+		background: linear-gradient(
+			to bottom,
+			rgb(0 0 0 / 0%) 0%,
+			rgb(0 0 0 / 8%) 15%,
+			rgb(0 0 0 / 25%) 32%,
+			rgb(0 0 0 / 50%) 52%,
+			rgb(0 0 0 / 75%) 75%,
+			var(--bg) 100%
+		);
+	}
 }
 
 .island {
+	/* Positioned so it paints above the gradientIsland fade (::before) */
+	position: relative;
 	border-radius: 20px;
 	padding: 12px;
 }
 
-.islandTitle {
-	font-size: 24px;
-	font-weight: 600;
+.islandLogo {
+	display: flex;
+	justify-content: center;
 	margin: 0;
+	font-size: inherit;
 }
 
 .pillRow {
@@ -115,6 +120,10 @@
 
 .pillAccent {
 	background: $accent;
+}
+
+.pillPause {
+	background: $stop-blue;
 }
 
 .pillRemove {

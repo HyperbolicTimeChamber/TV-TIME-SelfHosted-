@@ -4,7 +4,6 @@ import ErrorState from "../components/ErrorState";
 import { useAppSelector } from "../store";
 import { Paths } from "../routes/paths";
 
-/** Unknown URL */
 export default function NotFoundScreen() {
 	const navigate = useNavigate();
 	const signedIn = useAppSelector((s) => !!s.auth.user);
@@ -18,7 +17,9 @@ export default function NotFoundScreen() {
 				code: "404",
 			}}
 			primary={{ label: "Search Shows & Movies", onPress: () => navigate(Paths.SEARCH) }}
-			secondary={signedIn ? { label: "Go to Watchlist", onPress: () => navigate(Paths.HOME) } : undefined}
+			secondary={
+				signedIn ? { label: "Go to Watchlist", onPress: () => navigate(Paths.HOME) } : undefined
+			}
 		/>
 	);
 }

@@ -1,23 +1,31 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { App as AntApp } from "antd";
-import { IoChevronBack, IoShareSocialOutline } from "react-icons/io5";
+import { IoShareSocialOutline } from "react-icons/io5";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useShowDetailActions } from "@app/screens/DetailScreens/useShowDetailActions";
 import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
-import { MediaType } from "@app/enums";
+import { CircleButtonTone, MediaType, WatchStatus } from "@app/enums";
 import { showShareUrl } from "@app/utils/shareUrl";
 import LoadingScreen from "../../components/LoadingScreen";
+import CircleButton, { CircleBackButton } from "../../components/CircleButton";
 import ErrorState from "../../components/ErrorState";
 import { describeLoadError } from "@app/utils/loadError";
 import ConfirmModal from "../../components/ConfirmModal";
+import { colors } from "../../theme/index";
+import { ModalBackdrop, ModalLogo } from "../../components/ModalArt";
+import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
+import { pickTitleLogo } from "@app/services/tmdb";
 import UnreleasedMovieModal from "../../components/UnreleasedMovieModal";
 import WatchActionSheet from "../../components/WatchActionSheet";
 import SeasonDropdown from "../../components/SeasonDropdown";
 import ActionPills from "./ActionPills";
 import { Paths } from "../../routes/paths";
-import { appDeepLink, isMobileBrowser } from "../../utils/deepLink";
+import { appDeepLink, isAndroidBrowser } from "../../utils/deepLink";
 import styles from "./styles/ShowDetailScreen.module.scss";
 import { cssVars, px } from "../../utils/cssVars";
+
+/** Space kept between the sticky back button and the pills pushing it off */
+const BACK_PUSH_GAP = 8;
 
 /** Show / movie page — public (read-only for guests) and the target of share links */
 export default function ShowDetailScreen() {
@@ -28,6 +36,10 @@ export default function ShowDetailScreen() {
 	const location = useLocation();
 	const { message } = AntApp.useApp();
 	const d = useShowDetailActions(tmdbId, mediaType);
+	// Catalog's logo, else the one that came with the details (same request as the page data)
+	const logoPath =
+		getCachedCatalogShow(tmdbId, mediaType)?.logoPath ??
+		(d.show?.images ? pickTitleLogo(d.show.images.logos) : undefined);
 	const signedIn = !!d.user;
 
 	// Opened directly (share link / new tab): no in-app history, so go to the watchlist
@@ -39,8 +51,23 @@ export default function ShowDetailScreen() {
 
 	// Parallax backdrop (app: translateY = min(y * 0.4, 175))
 	const [parallax, setParallax] = useState(0);
+	// Back button stays pinned to the top while the page scrolls, until the action pills come up
+	// under it — then they push it up and off with them (app: same, sticky header handing over)
+	const containerRef = useRef<HTMLDivElement>(null);
+	const backRef = useRef<HTMLDivElement>(null);
+	const pillsRef = useRef<HTMLDivElement>(null);
+	const [backShift, setBackShift] = useState(0);
 	useEffect(() => {
-		const onScroll = () => setParallax(Math.min(window.scrollY * 0.4, 175));
+		const onScroll = () => {
+			setParallax(Math.min(window.scrollY * 0.4, 175));
+			const page = containerRef.current?.getBoundingClientRect().top;
+			const back = backRef.current;
+			const pills = pillsRef.current?.getBoundingClientRect().top;
+			if (page === undefined || !back || pills === undefined) return;
+			// Furthest it can follow the scroll before its bottom would meet the pills
+			const maxShift = pills - page - BACK_PUSH_GAP - back.offsetHeight - back.offsetTop;
+			setBackShift(Math.max(0, Math.min(-page, maxShift)));
+		};
 		window.addEventListener("scroll", onScroll, { passive: true });
 		return () => window.removeEventListener("scroll", onScroll);
 	}, []);
@@ -57,9 +84,11 @@ export default function ShowDetailScreen() {
 		const info = describeLoadError(d.isError ? d.error : null, mediaType);
 		return (
 			<>
-				<button className={`${styles.floatButton} ${styles.backButton}`} onClick={handleBack} aria-label="Back">
-					<IoChevronBack size={26} />
-				</button>
+				<CircleBackButton
+					tone={CircleButtonTone.OVERLAY}
+					className={`${styles.floatButton} ${styles.backButton}`}
+					onClick={handleBack}
+				/>
 				<ErrorState
 					info={info}
 					mediaType={mediaType}
@@ -68,7 +97,9 @@ export default function ShowDetailScreen() {
 							? { label: "Try Again", onPress: () => d.refetch() }
 							: { label: "Search Shows & Movies", onPress: () => navigate(Paths.SEARCH) }
 					}
-					secondary={signedIn ? { label: "Go to Watchlist", onPress: () => navigate(Paths.HOME) } : undefined}
+					secondary={
+						signedIn ? { label: "Go to Watchlist", onPress: () => navigate(Paths.HOME) } : undefined
+					}
 				/>
 			</>
 		);
@@ -78,7 +109,8 @@ export default function ShowDetailScreen() {
 	const share = async () => {
 		const url = showShareUrl(mediaType, tmdbId);
 		try {
-			if (navigator.share) await navigator.share({ title: d.title, text: `Check out ${d.title}`, url });
+			if (navigator.share)
+				await navigator.share({ title: d.title, text: `Check out ${d.title}`, url });
 			else {
 				await navigator.clipboard.writeText(url);
 				message.success("Link copied");
@@ -95,13 +127,22 @@ export default function ShowDetailScreen() {
 			: null;
 
 	return (
-		<div className={styles.container}>
-			<button className={`${styles.floatButton} ${styles.backButton}`} onClick={handleBack} aria-label="Back">
-				<IoChevronBack size={26} />
-			</button>
-			<button className={`${styles.floatButton} ${styles.shareButton}`} onClick={share} aria-label="Share">
+		<div ref={containerRef} className={styles.container}>
+			<div
+				ref={backRef}
+				className={`${styles.floatButton} ${styles.backButton} translate-y-(--back-shift)`}
+				style={cssVars({ "--back-shift": px(backShift) })}
+			>
+				<CircleBackButton tone={CircleButtonTone.OVERLAY} onClick={handleBack} />
+			</div>
+			<CircleButton
+				tone={CircleButtonTone.OVERLAY}
+				className={`${styles.floatButton} ${styles.shareButton}`}
+				onClick={share}
+				ariaLabel="Share"
+			>
 				<IoShareSocialOutline size={24} />
-			</button>
+			</CircleButton>
 
 			<div className={styles.backdrop}>
 				{backdropSrc && (
@@ -115,47 +156,70 @@ export default function ShowDetailScreen() {
 			</div>
 			<div className={styles.gradientIsland}>
 				<div className={styles.island}>
-					<h1 className={styles.islandTitle}>{d.title}</h1>
-					{signedIn ? (
-						<ActionPills
+					{/* Title logo (name as the fallback), centred */}
+					<h1 className={styles.islandLogo} aria-label={d.title}>
+						<ModalLogo
+							logoPath={logoPath}
+							tmdbId={tmdbId}
 							mediaType={mediaType}
-							watchlistItem={d.watchlistItem}
-							adding={d.adding}
-							removing={d.removing}
-							movieWatchCount={d.movieWatchCount}
-							hasWatchedEpisodes={d.showWatchedEps.length > 0}
-							onAddToWatchlist={d.handleAddToWatchlist}
-							onMarkMovieWatched={d.handleMarkMovieWatched}
-							onResumeOrRewatch={d.handleResumeOrRewatch}
-							onRemove={d.handleRemove}
-							onMovieSheetOpen={() => d.setMovieSheetVisible(true)}
+							title={d.title}
+							nameDelay={2000}
 						/>
-					) : (
-						<div className={styles.pillRow}>
-							<button
-								className={`${styles.pill} ${styles.pillPrimary}`}
-								onClick={() => navigate(`${Paths.LOGIN}?next=${encodeURIComponent(location.pathname)}`)}
-							>
-								Sign in to track
-							</button>
-							{isMobileBrowser() && (
-								<a className={`${styles.pill} ${styles.pillAccent}`} href={appDeepLink(mediaType, tmdbId)}>
-									Open in app
-								</a>
-							)}
-						</div>
-					)}
+					</h1>
+					<div ref={pillsRef}>
+						{signedIn ? (
+							<ActionPills
+								mediaType={mediaType}
+								watchlistItem={d.watchlistItem}
+								adding={d.adding}
+								removing={d.removing}
+								movieWatchCount={d.movieWatchCount}
+								hasWatchedEpisodes={d.showWatchedEps.length > 0}
+								onAddToWatchlist={d.handleAddToWatchlist}
+								onMarkMovieWatched={d.handleMarkMovieWatched}
+								onResumeOrRewatch={d.handleResumeOrRewatch}
+								onPause={() => d.setPauseModalVisible(true)}
+								onRemove={d.handleRemove}
+								onMovieSheetOpen={() => d.setMovieSheetVisible(true)}
+							/>
+						) : (
+							<div className={styles.pillRow}>
+								<button
+									className={`${styles.pill} ${styles.pillPrimary}`}
+									onClick={() =>
+										navigate(`${Paths.LOGIN}?next=${encodeURIComponent(location.pathname)}`)
+									}
+								>
+									Sign in to track
+								</button>
+								{isAndroidBrowser() && (
+									<a
+										className={`${styles.pill} ${styles.pillAccent}`}
+										href={appDeepLink(mediaType, tmdbId)}
+									>
+										Open in app
+									</a>
+								)}
+							</div>
+						)}
+					</div>
 				</div>
 			</div>
 
 			<div className={styles.content}>
 				<div className={styles.statsBar}>
 					{mediaType === MediaType.MOVIE && show.runtime ? (
-						<Stat value={`${Math.floor(show.runtime / 60)}h ${show.runtime % 60}m`} label="RUNTIME" />
+						<Stat
+							value={`${Math.floor(show.runtime / 60)}h ${show.runtime % 60}m`}
+							label="RUNTIME"
+						/>
 					) : null}
 					<Stat value={d.year || "—"} label={mediaType === MediaType.MOVIE ? "RELEASED" : "YEAR"} />
 					{mediaType === MediaType.TV && show.number_of_seasons ? (
-						<Stat value={show.number_of_seasons} label={show.number_of_seasons > 1 ? "SEASONS" : "SEASON"} />
+						<Stat
+							value={show.number_of_seasons}
+							label={show.number_of_seasons > 1 ? "SEASONS" : "SEASON"}
+						/>
 					) : null}
 					{mediaType === MediaType.TV && show.number_of_episodes ? (
 						<Stat value={show.number_of_episodes} label="EPISODES" />
@@ -188,9 +252,11 @@ export default function ShowDetailScreen() {
 						<h2 className={styles.sectionTitle}>Seasons</h2>
 						{show.seasons
 							.filter((s) => s.season_number > 0)
-							.map((season) => (
+							.map((season, i, list) => (
 								<SeasonDropdown
 									key={season.season_number}
+									isFirst={i === 0}
+									isLast={i === list.length - 1}
 									tmdbId={tmdbId}
 									season={season}
 									showTitle={d.title}
@@ -212,7 +278,15 @@ export default function ShowDetailScreen() {
 				<>
 					<ConfirmModal
 						visible={d.removeModalVisible}
-						title={`Remove "${d.title}"?`}
+						title={mediaType === MediaType.MOVIE ? "Remove Movie?" : "Remove Show?"}
+						image={
+							<ModalLogo
+								logoPath={logoPath}
+								tmdbId={tmdbId}
+								mediaType={mediaType}
+								title={d.title}
+							/>
+						}
 						hint="This will remove it from your watchlist. Your watch history will be kept."
 						error={d.removeError}
 						confirmLabel="Remove"
@@ -222,6 +296,70 @@ export default function ShowDetailScreen() {
 							d.setRemoveModalVisible(false);
 							d.setRemoveError(null);
 						}}
+					/>
+					<ConfirmModal
+						visible={d.pauseModalVisible}
+						title={
+							d.watchlistItem?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"
+						}
+						imageAtTop={!!show.backdrop_path}
+						hideTitle
+						image={
+							show.backdrop_path ? (
+								<ModalBackdrop
+									backdropPath={show.backdrop_path}
+									logoPath={logoPath}
+									tmdbId={tmdbId}
+									mediaType={mediaType}
+									title={d.title}
+									paused
+									nameDelay={2000}
+								/>
+							) : (
+								<ModalLogo
+									logoPath={logoPath}
+									tmdbId={tmdbId}
+									mediaType={mediaType}
+									title={d.title}
+									paused
+									nameDelay={2000}
+								/>
+							)
+						}
+						hint={
+							d.watchlistItem?.status === WatchStatus.REWATCHING
+								? "Pausing this rewatch will take it off your watchlist. You can resume it any time from here."
+								: "Pausing this show will take it off your watchlist. You can resume it any time from here."
+						}
+						confirmLabel="Pause"
+						confirmColor={colors.stopBlue}
+						loading={d.pausing}
+						onConfirm={d.handleConfirmPause}
+						onClose={() => d.setPauseModalVisible(false)}
+					/>
+					{/* A failed add reports here, as it does in the app (app AddFailedModal) */}
+					<ConfirmModal
+						visible={!!d.addFailure}
+						title="Couldn't add that one"
+						image={
+							d.addFailure?.backdropPath ? (
+								<ModalBackdrop
+									backdropPath={d.addFailure.backdropPath}
+									logoPath={d.addFailure.logoPath}
+									tmdbId={d.addFailure.tmdbId}
+									mediaType={d.addFailure.mediaType}
+									title={d.addFailure.title}
+								/>
+							) : undefined
+						}
+						hint={
+							d.addFailure ? `${d.addFailure.title} is still not on your watch list.` : undefined
+						}
+						error={d.addFailure?.message ?? null}
+						confirmLabel="Retry"
+						loading={d.adding}
+						onConfirm={d.handleAddToWatchlist}
+						onClose={() => d.setAddFailure(null)}
 					/>
 					<UnreleasedMovieModal
 						visible={!!d.unreleasedModal}

@@ -13,6 +13,7 @@ interface Props {
 	onAddToWatchlist: () => void;
 	onMarkMovieWatched: () => void;
 	onResumeOrRewatch: () => void;
+	onPause: () => void;
 	onRemove: () => void;
 	onMovieSheetOpen: () => void;
 }
@@ -21,17 +22,29 @@ interface Props {
 export default function ActionPills(p: Props) {
 	const status = p.watchlistItem?.status;
 	const isMovie = p.mediaType === MediaType.MOVIE;
-	const neverWatched = !isMovie && status === WatchStatus.COMPLETED && p.hasWatchedEpisodes === false;
-	const rewatchPress = useLongPress(isMovie && p.movieWatchCount > 0 ? p.onMovieSheetOpen : undefined, p.onResumeOrRewatch);
+	const neverWatched =
+		!isMovie && status === WatchStatus.COMPLETED && p.hasWatchedEpisodes === false;
+	const rewatchPress = useLongPress(
+		isMovie && p.movieWatchCount > 0 ? p.onMovieSheetOpen : undefined,
+		p.onResumeOrRewatch,
+	);
 
 	if (!p.watchlistItem) {
 		return (
 			<div className={styles.pillRow}>
-				<button className={`${styles.pill} ${styles.pillPrimary}`} onClick={p.onAddToWatchlist} disabled={p.adding}>
+				<button
+					className={`${styles.pill} ${styles.pillPrimary}`}
+					onClick={p.onAddToWatchlist}
+					disabled={p.adding}
+				>
 					{p.adding ? <Spin size="small" /> : "+ Add to Watchlist"}
 				</button>
 				{isMovie && (
-					<button className={`${styles.pill} ${styles.pillWatched}`} onClick={p.onMarkMovieWatched} disabled={p.adding}>
+					<button
+						className={`${styles.pill} ${styles.pillWatched}`}
+						onClick={p.onMarkMovieWatched}
+						disabled={p.adding}
+					>
 						{p.adding ? <Spin size="small" /> : "Watched"}
 					</button>
 				)}
@@ -40,18 +53,25 @@ export default function ActionPills(p: Props) {
 	}
 
 	const showResume =
-		status === WatchStatus.COMPLETED || status === WatchStatus.PAUSED || status === WatchStatus.PAUSED_REWATCH;
+		status === WatchStatus.COMPLETED ||
+		status === WatchStatus.PAUSED ||
+		status === WatchStatus.PAUSED_REWATCH;
 
 	return (
 		<div className={styles.pillRow}>
 			{isMovie && status !== WatchStatus.COMPLETED && (
-				<button className={`${styles.pill} ${styles.pillWatched}`} onClick={p.onMarkMovieWatched} disabled={p.adding}>
+				<button
+					className={`${styles.pill} ${styles.pillWatched}`}
+					onClick={p.onMarkMovieWatched}
+					disabled={p.adding}
+				>
 					{p.adding ? <Spin size="small" /> : "Mark as Watched"}
 				</button>
 			)}
 			{isMovie && status === WatchStatus.COMPLETED && (
 				<div className={`${styles.pill} ${styles.pillWatched} opacity-70`}>
-					Watched ✓{p.movieWatchCount > 1 && <span className={styles.pillBadge}>{p.movieWatchCount}</span>}
+					Watched ✓
+					{p.movieWatchCount > 1 && <span className={styles.pillBadge}>{p.movieWatchCount}</span>}
 				</div>
 			)}
 			{showResume && (
@@ -65,7 +85,16 @@ export default function ActionPills(p: Props) {
 								: "Rewatch"}
 				</button>
 			)}
-			<button className={`${styles.pill} ${styles.pillRemove}`} onClick={p.onRemove} disabled={p.removing}>
+			{!isMovie && (status === WatchStatus.WATCHING || status === WatchStatus.REWATCHING) && (
+				<button className={`${styles.pill} ${styles.pillPause}`} onClick={p.onPause}>
+					{status === WatchStatus.REWATCHING ? "Pause Rewatch" : "Pause"}
+				</button>
+			)}
+			<button
+				className={`${styles.pill} ${styles.pillRemove}`}
+				onClick={p.onRemove}
+				disabled={p.removing}
+			>
 				{p.removing ? <Spin size="small" /> : "Remove"}
 			</button>
 		</div>

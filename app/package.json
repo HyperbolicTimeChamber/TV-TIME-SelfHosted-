@@ -3,6 +3,8 @@
   "version": "1.0.1",
   "main": "index.ts",
   "dependencies": {
+    "@expo-google-fonts/handjet": "0.4.3",
+    "@expo-google-fonts/smooch-sans": "0.4.2",
     "@expo/vector-icons": "^15.0.2",
     "@gorhom/bottom-sheet": "^5.2.14",
     "@legendapp/list": "^3.3.2",
@@ -29,6 +31,7 @@
     "expo-dev-client": "~57.0.5",
     "expo-document-picker": "~57.0.0",
     "expo-file-system": "~57.0.0",
+    "expo-haptics": "~57.0.3",
     "expo-image": "~57.0.0",
     "expo-linear-gradient": "~57.0.1",
     "expo-notifications": "~57.0.10",
@@ -38,7 +41,6 @@
     "papaparse": "^5.5.4",
     "react": "19.2.3",
     "react-native": "0.86.0",
-    "react-native-calendars": "^1.1314.0",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-pager-view": "8.0.2",
     "react-native-reanimated": "4.5.0",
@@ -68,5 +70,11 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"App.tsx\"",
     "test": "rm -rf .test-build && tsc -p tsconfig.test.json && EXPO_PUBLIC_WEB_BASE_URL=https://watchloom-app.web.app EXPO_PUBLIC_TMDB_API_BASE=https://api.themoviedb.org/3 node --test .test-build/tests/*.test.js"
   },
-  "private": true
+  "private": true,
+  "reanimated": {
+    "staticFeatureFlags": {
+      "ANDROID_SYNCHRONOUSLY_UPDATE_UI_PROPS": true,
+      "IOS_SYNCHRONOUSLY_UPDATE_UI_PROPS": true
+    }
+  }
 }

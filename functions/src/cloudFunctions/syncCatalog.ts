@@ -1,11 +1,13 @@
-// functions/src/cloudFunctions/syncCatalog.ts
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getTmdbApiKey } from "../hooks/apiKey";
 import { rebuildAllUsersUpcoming } from "../hooks/upcoming";
 import { fetchCatalogUpdates, batchWriteCatalog } from "../hooks/syncCatalog";
 import { fetchShowFromTMDB, pooled } from "../hooks/tmdb";
+import { getAllTrackerUids } from "../hooks/trackedBy";
+import { healUserShowRuntimes } from "../hooks/runtimeHeal/healRuntimes";
 import { MediaType, ENDED_STATUSES } from "../shared/enums";
+import { movieCatalogFields } from "../hooks/catalogFields";
 
 export const syncCatalog = onSchedule(
   {
@@ -39,12 +41,33 @@ export const syncCatalog = onSchedule(
       hasEpisodeRemovals,
       skippedEnded,
       changedShowIds,
+      runtimeFills,
     } = await fetchCatalogUpdates(apiKey, showsSnap);
     console.log(`${changedShowIds.length} shows changed`);
     console.log(`Skipped ${skippedEnded} ended/canceled shows`);
 
     // Phase 3: Batch write catalog updates
     await batchWriteCatalog(db, pendingWrites);
+
+    // Phase 3b: TMDB filled in runtimes → heal trackers' 0-minute watched episodes
+    let healedMinutes = 0;
+    for (const fill of runtimeFills) {
+      const uids = await getAllTrackerUids(fill.showId);
+      await pooled(
+        uids.map((uid) => async () => {
+          healedMinutes += await healUserShowRuntimes(db, uid, fill.tmdbId, fill.runtimes).catch(
+            (err) => {
+              console.error(`Runtime heal failed for ${uid} / ${fill.showId}:`, err);
+              return 0;
+            },
+          );
+        }),
+        5,
+      );
+    }
+    if (runtimeFills.length > 0) {
+      console.log(`Runtimes filled for ${runtimeFills.length} shows; ${healedMinutes} min healed`);
+    }
 
     // Reactivation of caught-up/completed users happens per user in Phase 6
     // (rebuildUserUpcoming → reconcileTracking).
@@ -65,19 +88,7 @@ export const syncCatalog = onSchedule(
             MediaType.MOVIE,
           );
           await movieDoc.ref.set(
-            {
-              title: fresh.title,
-              posterPath: fresh.posterPath,
-              backdropPath: fresh.backdropPath,
-              overview: fresh.overview,
-              status: fresh.status,
-              runtime: fresh.runtime,
-              voteAverage: fresh.voteAverage,
-              releaseDate: fresh.releaseDate,
-              genres: fresh.genres,
-              ...(fresh.credits ? { credits: fresh.credits } : {}),
-              lastSyncedAt: FieldValue.serverTimestamp(),
-            },
+            movieCatalogFields(fresh),
             { merge: true },
           );
         } catch (err) {

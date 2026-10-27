@@ -31,6 +31,8 @@ export async function cleanOrphanedEpisodes(
   }
 
   const orphans: FirebaseFirestore.DocumentReference[] = [];
+  // Both stats count every watch, so a doc watched N times contributed N of each
+  let orphanPlays = 0;
   let orphanRuntime = 0;
 
   for (const wd of watchedSnap.docs) {
@@ -47,8 +49,10 @@ export async function cleanOrphanedEpisodes(
     const maxEp = seasonMap.get(season);
 
     if (maxEp === undefined || episode > maxEp) {
+      const plays = data.watchCount || 1;
       orphans.push(wd.ref);
-      orphanRuntime += data.runtime || 0;
+      orphanPlays += plays;
+      orphanRuntime += (data.runtime || 0) * plays;
     }
   }
 
@@ -63,7 +67,7 @@ export async function cleanOrphanedEpisodes(
         db.doc(`users/${uid}`),
         {
           stats: {
-            episodesWatched: FieldValue.increment(-orphans.length),
+            episodesWatched: FieldValue.increment(-orphanPlays),
             totalMinutes: FieldValue.increment(-orphanRuntime),
           },
         },

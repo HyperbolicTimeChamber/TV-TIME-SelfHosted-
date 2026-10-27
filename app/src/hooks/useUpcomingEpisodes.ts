@@ -19,6 +19,8 @@ import {
 	titlesFromCatalog,
 	applyTitles,
 	isGenericEpisodeTitle,
+	localizeUpcoming,
+	localDateStr,
 } from "../utils";
 import { useAuthStore } from "../stores";
 import { getSeasonDetails, pooled } from "../services/tmdb";
@@ -172,8 +174,10 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 		);
 	}, [userId, cacheReady, archivePast]);
 
-	// Wait for authStore's config/app load (provides lastCatalogSync)
+	// Wait for authStore's config/app load (provides lastCatalogSync). Startup may apply the
+	// cached config first → re-check when the server's lastCatalogSync arrives
 	const configLoading = useAuthStore((s) => s.appTmdbApiKeyLoading);
+	const lastCatalogSync = useAuthStore((s) => s.lastCatalogSync);
 
 	// Check if backend has synced since our cache → refetch if so
 	useEffect(() => {
@@ -184,7 +188,7 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 			// lastCatalogSync comes from authStore's config/app read — no extra read here
 			const db = getFirestore();
 			try {
-				const serverSyncStr = useAuthStore.getState().lastCatalogSync;
+				const serverSyncStr = lastCatalogSync;
 
 				if (serverSyncStr && cachedSyncDate.current && serverSyncStr === cachedSyncDate.current) {
 					// Cache is fresh — no refetch needed
@@ -198,14 +202,17 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 				inflightMutations.add(pending);
 
 				const today = todayStr();
+				// Stored airDate is the US date; ahead-of-US timezones see it a day later, so
+				// read from yesterday and filter on the local day below
+				const fromDate = localDateStr(new Date(Date.now() - 86_400_000));
 				const upcomingCol = collection(doc(db, "users", userId), "upcoming");
-				let snap = await getDocs(query(upcomingCol, where("airDate", ">=", today)));
+				let snap = await getDocs(query(upcomingCol, where("airDate", ">=", fromDate)));
 
 				// If empty, rebuild upcoming subcollection via CF
 				if (snap.size === 0) {
 					try {
 						await httpsCallable(getFunctions(), CloudFunction.REBUILD_UPCOMING)({});
-						snap = await getDocs(query(upcomingCol, where("airDate", ">=", today)));
+						snap = await getDocs(query(upcomingCol, where("airDate", ">=", fromDate)));
 					} catch (err) {
 						console.error("rebuildUpcoming CF failed:", err);
 						setError("Failed to fetch upcoming episodes");
@@ -214,7 +221,9 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 					}
 				}
 
-				const tvEps: UpcomingEpisode[] = snap.docs.map((d) => d.data() as UpcomingEpisode);
+				const tvEps: UpcomingEpisode[] = snap.docs
+					.map((d) => localizeUpcoming(d.data() as UpcomingEpisode))
+					.filter((ep) => ep.airDate >= today);
 
 				// Fetch tracked movies with future release dates
 				// Query only docs that have releaseDate field set (avoids reading all 1000+ movies)
@@ -262,7 +271,7 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 				inflightMutations.delete(pending);
 			}
 		})();
-	}, [userId, cacheReady, configLoading, forceRefetch, archivePast]);
+	}, [userId, cacheReady, configLoading, lastCatalogSync, forceRefetch, archivePast]);
 
 	const retry = useCallback(() => setForceRefetch((t) => t + 1), []);
 

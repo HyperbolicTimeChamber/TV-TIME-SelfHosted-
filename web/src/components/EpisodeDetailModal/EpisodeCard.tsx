@@ -4,6 +4,7 @@ import type { CarouselEpisode } from "@app/types";
 import { tmdbBackdropUri, tmdbPosterUri, tmdbStillUri } from "@app/hooks/useTmdbImage";
 import { formatDate } from "./helpers";
 import styles from "./styles/EpisodeDetailModal.module.scss";
+import SkeletonBlock from "../SkeletonBlock";
 
 interface Props {
 	ep: CarouselEpisode;
@@ -14,6 +15,8 @@ interface Props {
 	watchCount: number;
 	isLoaded: boolean;
 	isMarking: boolean;
+	/** Green button text ("Mark as Watched" / "Mark 2nd Rewatch") */
+	markLabel: string;
 	/** Guests: info only, no watch buttons */
 	readOnly?: boolean;
 	onMarkWatched: () => void;
@@ -24,7 +27,7 @@ interface Props {
 	onShowPress?: () => void;
 }
 
-const CARD_IMG_WIDTH = 400;
+export const CARD_IMG_WIDTH = 400;
 
 function EpisodeCard(p: Props) {
 	const [imageLoaded, setImageLoaded] = useState(false);
@@ -34,11 +37,11 @@ function EpisodeCard(p: Props) {
 	if (!p.isLoaded) {
 		return (
 			<div className={styles.cardContent}>
-				<div className={`${styles.imageContainer} ${styles.shimmer}`} />
+				<SkeletonBlock className={styles.imageContainer} />
 				<div className={styles.skeletonBody}>
-					<div className={`${styles.skeletonTitle} ${styles.shimmer}`} />
-					<div className={`${styles.skeletonLine} ${styles.shimmer}`} />
-					<div className={`${styles.skeletonLineShort} ${styles.shimmer}`} />
+					<SkeletonBlock className={styles.skeletonTitle} />
+					<SkeletonBlock className={styles.skeletonLine} />
+					<SkeletonBlock className={styles.skeletonLineShort} />
 				</div>
 			</div>
 		);
@@ -53,7 +56,11 @@ function EpisodeCard(p: Props) {
 				: null;
 
 	const skip = p.onSkip ? (
-		<button className={`${styles.actionButton} ${styles.skipButton}`} onClick={p.onSkip} disabled={p.isMarking}>
+		<button
+			className={`${styles.actionButton} ${styles.skipButton}`}
+			onClick={p.onSkip}
+			disabled={p.isMarking}
+		>
 			Skip
 		</button>
 	) : null;
@@ -61,7 +68,7 @@ function EpisodeCard(p: Props) {
 	return (
 		<div className={styles.cardContent}>
 			<div className={styles.imageContainer}>
-				{!imageLoaded && img && <div className={`${styles.imageSkeleton} ${styles.shimmer}`} />}
+				{!imageLoaded && img && <SkeletonBlock className={styles.imageSkeleton} />}
 				{img ? (
 					<img
 						src={img}
@@ -95,10 +102,18 @@ function EpisodeCard(p: Props) {
 			{!p.readOnly &&
 				(p.isWatched ? (
 					<div className={styles.buttonRow}>
-						<button className={`${styles.actionButton} ${styles.unwatchButton}`} onClick={p.onUnwatch} disabled={p.isMarking}>
+						<button
+							className={`${styles.actionButton} ${styles.unwatchButton}`}
+							onClick={p.onUnwatch}
+							disabled={p.isMarking}
+						>
 							Unwatch
 						</button>
-						<button className={`${styles.actionButton} ${styles.rewatchButton}`} onClick={p.onRewatch} disabled={p.isMarking}>
+						<button
+							className={`${styles.actionButton} ${styles.rewatchButton}`}
+							onClick={p.onRewatch}
+							disabled={p.isMarking}
+						>
 							{p.isMarking ? (
 								<Spin size="small" />
 							) : (
@@ -111,11 +126,16 @@ function EpisodeCard(p: Props) {
 						{skip}
 					</div>
 				) : (
+					// Rewatch: Skip first, then "Mark Nth Rewatch"
 					<div className={styles.buttonRow}>
-						<button className={`${styles.actionButton} ${styles.watchButton}`} onClick={p.onMarkWatched} disabled={p.isMarking}>
-							{p.isMarking ? <Spin size="small" /> : "Mark as Watched"}
-						</button>
 						{skip}
+						<button
+							className={`${styles.actionButton} ${styles.watchButton}`}
+							onClick={p.onMarkWatched}
+							disabled={p.isMarking}
+						>
+							{p.isMarking ? <Spin size="small" /> : p.markLabel}
+						</button>
 					</div>
 				))}
 		</div>

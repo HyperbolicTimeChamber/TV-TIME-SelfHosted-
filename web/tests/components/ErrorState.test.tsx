@@ -21,7 +21,7 @@ describe("ErrorState", () => {
 		);
 		expect(screen.getByRole("heading", { name: "You might be lost" })).toBeInTheDocument();
 		expect(screen.queryByText("Error 404")).not.toBeInTheDocument();
-		expect(document.querySelector('img[src="/not-found.png"]')).toBeInTheDocument();
+		expect(document.querySelector('img[src="/not-found.webp"]')).toBeInTheDocument();
 		fireEvent.click(screen.getByText("Search Shows & Movies"));
 		expect(search).toHaveBeenCalled();
 	});
@@ -35,7 +35,7 @@ describe("ErrorState", () => {
 		);
 		expect(screen.getByRole("heading", { name: "You're offline" })).toBeInTheDocument();
 		expect(screen.getByText("Error NETWORK")).toBeInTheDocument();
-		expect(document.querySelector('img[src="/not-found.png"]')).not.toBeInTheDocument();
+		expect(document.querySelector('img[src="/not-found.webp"]')).not.toBeInTheDocument();
 	});
 
 	it("unknown URLs show the 404 page", () => {

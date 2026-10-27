@@ -1,39 +1,28 @@
 import { StyleSheet } from "react-native";
-import { colors, spacing, typography } from "../../../theme";
+import { colors, spacing } from "../../../theme";
 
 export const styles = StyleSheet.create({
 	list: {
 		flex: 1,
-		backgroundColor: colors.surface,
+		backgroundColor: colors.background,
 	},
 	listContent: {
 		paddingVertical: spacing.sm,
 	},
 	center: {
 		flex: 1,
-		backgroundColor: colors.surface,
+		backgroundColor: colors.background,
 		justifyContent: "center",
 		alignItems: "center",
-	},
-	empty: {
-		...typography.subtitle,
-		color: colors.textSecondary,
-	},
-	addShowsButton: {
-		marginTop: spacing.lg,
-		backgroundColor: colors.primary,
-		paddingHorizontal: spacing.xl,
-		paddingVertical: spacing.md,
-		borderRadius: 8,
-	},
-	addShowsText: {
-		...typography.subtitle,
-		fontSize: 14,
-		color: colors.text,
 	},
 	loaderRow: {
 		paddingVertical: spacing.lg,
 		alignItems: "center",
+	},
+	// Space between the last Up Next card and the caught-up footer, and below its button
+	caughtUpFooter: {
+		paddingTop: spacing.xxl,
+		paddingBottom: spacing.xxl,
 	},
 	separator: {
 		height: spacing.sm,

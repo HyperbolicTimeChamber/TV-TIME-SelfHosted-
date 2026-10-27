@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { colors, spacing, typography } from "../../../theme";
+import { colors, fonts, spacing, typography } from "../../../theme";
+import { formatAirTime } from "../../../utils/airTime";
 import PosterImage from "../../../components/PosterImage";
 import { UpcomingEpisode, MediaType } from "../../../types";
 
@@ -23,6 +24,8 @@ export default memo(function UpcomingEpisodeRow({
 	const label = isMovie
 		? "MOVIE"
 		: `S${String(episode.season).padStart(2, "0")} | E${String(episode.episode).padStart(2, "0")}`;
+	// Local air time (TVMaze) — only when the exact time is known
+	const airTime = isMovie ? null : formatAirTime(episode.airStamp);
 
 	return (
 		<TouchableOpacity
@@ -52,7 +55,15 @@ export default memo(function UpcomingEpisodeRow({
 					</View>
 				) : (
 					<>
-						<Text style={styles.epLabel}>{label}</Text>
+						{/* Time on the SxxExx line → the episode name gets the card's full width */}
+						<View style={styles.epRow}>
+							<Text style={styles.epLabel}>{label}</Text>
+							{airTime && (
+								<Text style={styles.airTime} numberOfLines={1}>
+									{airTime}
+								</Text>
+							)}
+						</View>
 						{episode.episodeTitle ? (
 							<Text style={styles.epTitle} numberOfLines={1}>
 								{episode.episodeTitle}
@@ -68,7 +79,7 @@ export default memo(function UpcomingEpisodeRow({
 const styles = StyleSheet.create({
 	row: {
 		flexDirection: "row",
-		backgroundColor: colors.background,
+		backgroundColor: colors.surface,
 		borderRadius: 8,
 		overflow: "hidden",
 		marginHorizontal: spacing.md,
@@ -85,7 +96,7 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		paddingVertical: spacing.sm,
 		paddingLeft: spacing.md,
-		paddingRight: spacing.xs,
+		paddingRight: spacing.md,
 	},
 	titlePill: {
 		flexDirection: "row",
@@ -112,6 +123,12 @@ const styles = StyleSheet.create({
 		marginLeft: spacing.xs,
 		lineHeight: 13,
 	},
+	epRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		alignSelf: "stretch",
+	},
 	epLabel: {
 		...typography.subtitle,
 		fontSize: 16,
@@ -124,6 +141,18 @@ const styles = StyleSheet.create({
 		color: colors.textSecondary,
 		marginTop: 2,
 		fontSize: 13,
+	},
+	// Right end of the SxxExx line
+	// Wide enough for any "hh:mm AM": Android measures some times in this font a hair narrow and
+	// cut the "AM" / "PM" off
+	airTime: {
+		flexShrink: 0,
+		minWidth: 88,
+		textAlign: "right",
+		fontFamily: fonts.smoochMedium,
+		fontSize: 20,
+		letterSpacing: 0.5,
+		color: colors.text,
 	},
 	movieBadge: {
 		alignSelf: "flex-start",

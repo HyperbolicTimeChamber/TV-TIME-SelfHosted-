@@ -7,30 +7,48 @@ export const styles = StyleSheet.create({
 		flex: 1,
 		backgroundColor: colors.background,
 	},
+	content: { flex: 1 },
 	headerBlock: {
 		position: "absolute" as const,
 		top: 0,
 		left: 0,
 		right: 0,
 		zIndex: 1,
-		backgroundColor: colors.background,
+		// No backdrop: the search card floats over the results (a black strip behind it showed
+		// square corners under its rounded ones)
 	},
 	searchBarRow: {
 		flexDirection: "row",
 		alignItems: "stretch",
 	},
+	// Margins live here (not on the card) so the backdrop's 50% bottom lands on the card's middle
+	headerCardWrap: {
+		marginHorizontal: spacing.md,
+		marginTop: spacing.md,
+	},
+	// Top is set inline to reach the screen top (safe area + the wrap's margin)
+	headerBackdrop: {
+		position: "absolute" as const,
+		left: -spacing.md,
+		right: -spacing.md,
+		bottom: "50%",
+		backgroundColor: colors.background,
+	},
 	headerCard: {
 		backgroundColor: colors.surface,
 		borderRadius: 12,
-		marginHorizontal: spacing.md,
-		marginTop: spacing.md,
 		overflow: "hidden",
+		// Lifts the floating island off the posters scrolling under it
+		elevation: 8,
+		shadowColor: colors.background,
+		shadowOffset: { width: 0, height: 4 },
+		shadowOpacity: 0.5,
+		shadowRadius: 10,
 	},
+	// Left inset only — the input's own padding is the gap to the text
 	backButton: {
-		width: 44,
+		paddingLeft: spacing.md,
 		justifyContent: "center",
-		alignItems: "center",
-		backgroundColor: colors.surfaceLight,
 	},
 	searchIconWrap: {
 		width: 44,
@@ -49,11 +67,11 @@ export const styles = StyleSheet.create({
 		paddingHorizontal: spacing.sm,
 		paddingVertical: spacing.lg,
 	},
-	sectionTitle: {
+	// Inside the grid (already inset by spacing.lg); bottom = title gap + the grid's top gap
+	listTitle: {
 		...typography.subtitle,
-		paddingHorizontal: spacing.lg,
 		paddingTop: spacing.md,
-		paddingBottom: spacing.sm,
+		paddingBottom: spacing.sm * 2,
 	},
 	center: {
 		flex: 1,
@@ -145,41 +163,6 @@ export const styles = StyleSheet.create({
 		color: colors.text,
 		fontSize: 10,
 		fontWeight: "700" as const,
-	},
-	modalContent: {
-		backgroundColor: colors.surface,
-		borderRadius: 12,
-		padding: spacing.lg,
-	},
-	modalTitle: {
-		...typography.subtitle,
-		fontSize: 16,
-		textAlign: "center" as const,
-		marginBottom: spacing.lg,
-	},
-	modalButton: {
-		backgroundColor: colors.primary,
-		paddingVertical: spacing.md,
-		borderRadius: 8,
-		alignItems: "center" as const,
-		marginBottom: spacing.sm,
-	},
-	modalButtonWatched: {
-		backgroundColor: colors.watchedGreen,
-	},
-	modalButtonText: {
-		...typography.subtitle,
-		fontSize: 14,
-		color: colors.text,
-	},
-	modalCancel: {
-		paddingVertical: spacing.sm,
-		alignItems: "center" as const,
-		marginTop: spacing.xs,
-	},
-	modalCancelText: {
-		...typography.caption,
-		color: colors.textMuted,
 	},
 	// Text sits just above the character art pinned to the bottom edge
 	emptyWrap: {

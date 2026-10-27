@@ -15,7 +15,13 @@ interface Props {
 }
 
 /** Poster with the app's film/tv placeholder when TMDB has no image */
-export default function PosterImage({ posterPath, mediaType, className = "", title, width }: Props) {
+export default function PosterImage({
+	posterPath,
+	mediaType,
+	className = "",
+	title,
+	width,
+}: Props) {
 	if (posterPath) {
 		return (
 			<img

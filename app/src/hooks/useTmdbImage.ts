@@ -46,6 +46,20 @@ export function tmdbBackdropUri(path: string, layoutWidth: number): string {
 	return `${TMDB_IMAGE_BASE}/${getTmdbBackdropSize(layoutWidth)}${path}`;
 }
 
+/** Backdrop that's shown blurred: detail is lost anyway, so cap at w780 (vs w1280 for a
+ *  full-width card) — 2.7× fewer pixels to download, decode and keep in memory */
+export function tmdbBlurredBackdropUri(path: string): string {
+	return `${TMDB_IMAGE_BASE}/w780${path}`;
+}
+
+/** Title logos are transparent PNGs — sized by width like posters, capped at w500 ("original"
+ *  logos can be thousands of px wide — heavy to decode on older phones) */
+export function tmdbLogoUri(path: string, layoutWidth: number): string {
+	const px = toPhysicalPx(layoutWidth);
+	const size = px <= 185 ? "w185" : px <= 300 ? "w300" : "w500";
+	return `${TMDB_IMAGE_BASE}/${size}${path}`;
+}
+
 export function tmdbStillUri(path: string, layoutWidth: number): string {
 	return `${TMDB_IMAGE_BASE}/${getTmdbStillSize(layoutWidth)}${path}`;
 }

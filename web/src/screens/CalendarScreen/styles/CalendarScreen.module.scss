@@ -2,9 +2,37 @@
 
 .container {
 	min-height: 100dvh;
+	/* Phones: the list pane takes the leftover height (an empty day centres in it) */
+	display: flex;
+	flex-direction: column;
 	padding-top: env(safe-area-inset-top);
 	max-width: 640px;
 	margin: 0 auto;
+
+	/* Wide screens: calendar (bigger share) left, the selected day's list right */
+	@include desktop {
+		max-width: 1100px;
+		display: grid;
+		grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+		gap: 32px;
+		align-items: start;
+		padding: 16px 16px 0;
+	}
+}
+
+.calendarPane {
+	@include desktop {
+		/* Stays in view while a long episode list scrolls */
+		position: sticky;
+		top: 16px;
+	}
+}
+
+.listPane {
+	min-width: 0;
+	flex: 1;
+	display: flex;
+	flex-direction: column;
 }
 
 .header {
@@ -43,6 +71,11 @@
 	font-size: 13px;
 	color: var(--text-secondary);
 	padding: 0 8px 6px;
+
+	@include desktop {
+		font-size: 15px;
+		padding-bottom: 10px;
+	}
 }
 
 .grid {
@@ -62,6 +95,11 @@
 	border: none;
 	color: var(--text);
 	cursor: pointer;
+
+	@include desktop {
+		padding: 8px 0;
+		gap: 4px;
+	}
 }
 
 .dayOut {
@@ -77,6 +115,14 @@
 	align-items: center;
 	justify-content: center;
 	font-size: 15px;
+
+	/* Bigger calendar on wide screens */
+	@include desktop {
+		width: 44px;
+		height: 44px;
+		border-radius: 22px;
+		font-size: 17px;
+	}
 }
 
 .today {
@@ -90,8 +136,63 @@
 	border-radius: 2px;
 }
 
+/* Desktop: counts replace the dot (phones keep the dot) */
+.counts,
+.legend {
+	display: none;
+}
+
+@include desktop {
+	.dot {
+		display: none;
+	}
+
+	.counts {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 3px;
+		min-height: 18px;
+	}
+
+	.count {
+		height: 18px;
+		padding: 0 8px;
+		border-radius: 9px;
+		font-size: 10px;
+		font-weight: 600;
+		line-height: 18px;
+		white-space: nowrap;
+		color: var(--text);
+	}
+
+	.legend {
+		display: flex;
+		justify-content: center;
+		gap: 20px;
+		margin-top: 12px;
+		font-size: 13px;
+		color: var(--text-secondary);
+
+		> span {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+		}
+	}
+
+	.legendSwatch {
+		width: 10px;
+		height: 10px;
+		border-radius: 5px;
+	}
+}
+
 .episodeList {
 	padding-top: 12px;
+	flex: 1;
+	display: flex;
+	flex-direction: column;
 }
 
 .dateHeader {
@@ -101,36 +202,90 @@
 	margin: 0;
 }
 
-.noEps {
-	font-size: 12px;
+.emptyDay {
+	flex: 1;
+	justify-content: center;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: 12px 16px 32px;
+	text-align: center;
+}
+
+/* Wide screens: no leftover height to fill — give it a share of the viewport to centre in */
+@include desktop {
+	.emptyDay {
+		min-height: 50vh;
+	}
+}
+
+.emptyDayArt {
+	height: 140px;
+	width: auto;
+}
+
+.emptyDayTitle {
+	margin: 12px 0 0;
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--text);
+}
+
+.emptyDayTagline {
+	margin: 4px 0 0;
+	font-size: 14px;
+	font-style: italic;
 	color: var(--text-secondary);
-	padding: 0 16px;
 }
 
 .episodeRow {
-	width: 100%;
+	/* Card like Watch History: blurred backdrop + same darkening */
+	position: relative;
+	width: calc(100% - 32px);
+	min-height: 120px;
+	margin: 0 16px 12px;
 	display: flex;
 	align-items: center;
-	padding: 8px 16px;
-	background: none;
+	padding: 12px;
+	overflow: hidden;
+	border-radius: 16px;
+	background: var(--surface);
 	border: none;
-	border-bottom: 1px solid var(--border);
 	color: var(--text);
 	text-align: left;
 	cursor: pointer;
 }
 
-.poster {
-	width: 45px;
-	height: 67px;
-	border-radius: 4px;
-	flex-shrink: 0;
+.cardBg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	/* Wide, short card: show the top of the backdrop (faces / titles sit there) */
+	object-position: top;
+	filter: blur(0.5px);
+}
+
+.cardOverlay {
+	position: absolute;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.55);
+}
+
+.logo {
+	display: block;
+	height: 36px;
+	width: 60%;
+	margin-bottom: 8px;
+	object-fit: contain;
+	object-position: left center;
 }
 
 .epInfo {
+	position: relative;
 	flex: 1;
 	min-width: 0;
-	margin-left: 12px;
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
@@ -145,20 +300,96 @@
 	text-overflow: ellipsis;
 }
 
-.epLabel {
-	font-size: 12px;
-	color: var(--text-secondary);
-	margin-top: 4px;
+/* SxxExx / movie year in the card's top-right corner, translucent black */
+.epSquare {
+	/* SEASON xx title, rule, big Exx (movies: release year); fills the card's inner height (120 - 2×12) */
+	position: relative;
+	flex-shrink: 0;
+	width: 96px;
+	height: 96px;
+	margin-left: 12px;
+	/* Smooch Sans digits leave extra room under them — nudge the stack down */
+	padding: 6px 8px 0;
+	border-radius: 14px;
+	background: rgba(0, 0, 0, 0.5);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+}
+
+.epSquareTitle {
+	font-family: "Smooch Sans", sans-serif;
+	font-size: 16px;
+	font-weight: 500;
+	letter-spacing: 1.5px;
+	white-space: nowrap;
+}
+
+.epSquareRule {
+	align-self: stretch;
+	height: 1px;
+	margin: 6px 0;
+	background: var(--color-fg);
+}
+
+.epSquareValue {
+	font-family: "Smooch Sans", sans-serif;
+	font-size: 56px;
+	font-weight: 400;
+	line-height: 58px;
+}
+
+/* Arrow fills rule → bottom edge (cancelling the rule's bottom margin) and centres in it */
+.epSquareArrow {
+	flex: 1;
+	align-self: stretch;
+	margin-top: -6px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+}
+
+/* Four lines: tighter gaps (and no top nudge) so the time keeps room below it */
+.epSquareTimed {
+	padding-top: 0;
+
+	.epSquareRule {
+		margin: 4px 0;
+	}
+}
+
+/* With a time under it, Exx shrinks so all four lines fit the square */
+.epSquareValueTimed {
+	font-size: 44px;
+	line-height: 40px;
+}
+
+.epSquareTime {
+	font-family: "Smooch Sans", sans-serif;
+	font-size: 14px;
+	font-weight: 500;
+	line-height: 14px;
+	letter-spacing: 0.5px;
+}
+
+.epSquareYear {
+	font-size: 40px;
+	line-height: 44px;
 }
 
 .epTitle {
-	font-size: 13px;
-	color: var(--text-secondary);
+	font-size: 15px;
+	font-weight: 500;
 	margin-top: 4px;
 	max-width: 100%;
-	white-space: nowrap;
+	/* Up to 2 lines, then … */
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
 	overflow: hidden;
-	text-overflow: ellipsis;
 }
 
 .movieBadge {
@@ -201,4 +432,72 @@
 	background: var(--primary);
 	color: var(--text);
 	font-weight: 700;
+}
+
+/* Episode under an opened show card: plain one-line strip (no backdrop) */
+.childRow {
+	position: relative;
+	width: calc(100% - 32px);
+	height: 52px;
+	margin: 0 16px 8px;
+	padding: 0 12px 0 6px;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	overflow: hidden;
+	border-radius: 12px;
+	background: var(--surface);
+	border: none;
+	color: var(--text);
+	text-align: left;
+	cursor: pointer;
+}
+
+/* Exx in a translucent square (pill background), inset 6px like top/bottom */
+.childEp {
+	position: relative;
+	flex-shrink: 0;
+	width: 40px;
+	height: 40px;
+	/* Smooch Sans leaves room under the digits — nudge down to look centred */
+	padding-top: 2px;
+	border-radius: 8px;
+	background: rgba(0, 0, 0, 0.5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-family: "Smooch Sans", sans-serif;
+	font-size: 22px;
+	font-weight: 500;
+	letter-spacing: 0.5px;
+}
+
+.childTitle {
+	position: relative;
+	flex: 1;
+	min-width: 0;
+	font-size: 15px;
+	font-weight: 500;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Day list skeleton */
+.skeleton {
+	display: block;
+}
+
+.skeletonHeader {
+	width: 160px;
+	height: 18px;
+	margin: 0 16px 12px;
+	border-radius: 6px;
+}
+
+.skeletonCard {
+	width: calc(100% - 32px);
+	height: 120px;
+	margin: 0 16px 12px;
+	border-radius: 16px;
 }

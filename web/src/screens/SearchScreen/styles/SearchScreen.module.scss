@@ -10,14 +10,16 @@
 	left: 0;
 	right: 0;
 	z-index: 20;
-	background: var(--bg);
+	/* No backdrop: the search card floats over the results (a black strip behind it showed
+	   square corners under its rounded ones) */
 	padding-top: env(safe-area-inset-top);
 	max-width: 1100px;
 	margin: 0 auto;
 }
 
+/* Signed in: clear the desktop side tab bar, like the page content does (guests have none) */
 @include desktop {
-	.headerBlock {
+	.headerBlockTabs {
 		left: 88px;
 	}
 }
@@ -27,7 +29,13 @@
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	padding: 12px 12px 0;
+	/* Keeps its own backdrop — the brand row isn't part of the floating card */
+	background: var(--bg);
+	padding: 12px;
+}
+
+.guestBar + .headerCardWrap {
+	margin-top: 0;
 }
 
 .guestLogo {
@@ -46,11 +54,33 @@
 	gap: 8px;
 }
 
+/* Margins live here (not on the card) so the backdrop's 50% bottom lands on the card's middle */
+.headerCardWrap {
+	position: relative;
+	margin: 12px 12px 0;
+}
+
+/* Black from above the screen top (safe area included) down to the island's middle: nothing
+   scrolls visibly above it, the results only show around its rounded bottom corners. Behind the
+   guest bar and the card (z-index -1 in the header's stacking context); rides along with it */
+.headerCardWrap::before {
+	content: "";
+	position: absolute;
+	left: -12px;
+	right: -12px;
+	top: -100dvh;
+	bottom: 50%;
+	z-index: -1;
+	background: var(--bg);
+	pointer-events: none;
+}
+
 .headerCard {
 	background: var(--surface);
 	border-radius: 12px;
-	margin: 12px 12px 0;
 	overflow: hidden;
+	/* Lifts the floating island off the posters scrolling under it */
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
 }
 
 .searchBarRow {
@@ -69,7 +99,11 @@
 }
 
 .backButton {
-	background: var(--surface-light);
+	/* Left inset only — the search text's own padding is the gap */
+	width: auto;
+	justify-content: flex-start;
+	padding: 0 0 0 12px;
+	background: none;
 	cursor: pointer;
 }
 
@@ -87,11 +121,19 @@
 	text-overflow: ellipsis;
 }
 
+/* Results sort button — right end of the search bar, so it rides along with the collapsing header */
+.sortSlot {
+	display: flex;
+	align-items: center;
+	padding-right: 6px;
+}
+
 .sectionTitle {
 	font-size: 16px;
 	font-weight: 600;
 	margin: 0;
-	padding: 12px 16px 8px;
+	/* Side edges line up with the search card (12px) */
+	padding: 12px 12px 8px;
 }
 
 .empty {
@@ -113,7 +155,7 @@
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: 8px;
-	padding: 8px 24px;
+	padding: 8px 12px;
 }
 
 @include tablet {

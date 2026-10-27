@@ -1,9 +1,10 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { ProfileStackParamList, Route } from "../types";
-import { stackScreenOptions } from "./screenOptions";
+import { stackScreenOptions, swipeBackScreenOptions } from "./screenOptions";
 import ProfileScreen from "../screens/ProfileScreen";
 import SettingsScreen from "../screens/ProfileScreen/SettingsScreen";
+import WatchHistoryScreen from "../screens/ProfileScreen/WatchHistory";
 import ImportDataScreen from "../screens/ImportDataScreen";
 import ShowDetailScreen from "../screens/DetailScreens/ShowDetailScreen";
 
@@ -23,6 +24,11 @@ export default function ProfileStackScreen() {
 				options={{ headerShown: false }}
 			/>
 			<ProfileStack.Screen
+				name={Route.WATCH_HISTORY}
+				component={WatchHistoryScreen}
+				options={swipeBackScreenOptions}
+			/>
+			<ProfileStack.Screen
 				name={Route.IMPORT_DATA}
 				component={ImportDataScreen}
 				options={{ headerTitle: "Import Data" }}
@@ -30,7 +36,7 @@ export default function ProfileStackScreen() {
 			<ProfileStack.Screen
 				name={Route.SHOW_DETAIL}
 				component={ShowDetailScreen}
-				options={{ headerShown: false }}
+				options={swipeBackScreenOptions}
 			/>
 		</ProfileStack.Navigator>
 	);

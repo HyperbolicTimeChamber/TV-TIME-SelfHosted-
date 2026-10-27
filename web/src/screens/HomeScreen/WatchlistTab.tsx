@@ -1,107 +1,112 @@
-import { useCallback, useEffect, useRef } from "react";
-import { Button, Spin } from "antd";
+import { Fragment, useCallback, useMemo, useState } from "react";
+import { Spin } from "antd";
 import { useNavigate } from "react-router-dom";
 import { useWatchlistScreen } from "@app/screens/HomeScreen/WatchlistTab/useWatchlistScreen";
-import { MediaType } from "@app/enums";
+import { MediaType, WatchStatus } from "@app/enums";
 import type { WatchlistListItem } from "@app/types/watchlist";
 import ShowCard from "../../components/ShowCard";
 import WatchActionSheet from "../../components/WatchActionSheet";
 import EpisodeDetailModal from "../../components/EpisodeDetailModal";
 import ShowDrawer from "../../components/ShowDrawer";
+import ConfirmModal from "../../components/ConfirmModal";
+import HomeEmpty, { CAUGHT_UP_ART, WELCOME_ART } from "./HomeEmpty";
+import { UP_NEXT_TITLE, withCaughtUp } from "@app/utils/watchlistList";
+import { ModalBackdrop, ModalLogo } from "../../components/ModalArt";
+import type { EnrichedTrackingItem } from "@app/hooks/useWatchlist";
+import { colors } from "../../theme/index";
 import LoadingScreen from "../../components/LoadingScreen";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
-import { Paths, showPath } from "../../routes/paths";
-import WatchedEpisodeRow from "./WatchedEpisodeRow";
+import { showPath } from "../../routes/paths";
 import styles from "./styles/HomeScreen.module.scss";
 
-const UP_NEXT = "What's Up Next";
+const UP_NEXT = UP_NEXT_TITLE;
 
 const keyOf = (item: WatchlistListItem) =>
 	item.type === "sectionHeader"
 		? `section_${item.title}`
-		: item.type === "watchedMovie"
-			? `movie_${item.movie.id}`
-			: item.type === "watchedEpisode"
-				? `watched_${item.episode.id}`
-				: `show_${item.item.id}`;
+		: item.type === "show"
+			? `show_${item.item.id}`
+			: item.type;
 
 /** Watch List tab — same data/actions as the app via useWatchlistScreen */
 export default function WatchlistTab() {
 	const navigate = useNavigate();
-	const goToShow = useCallback((tmdbId: number, mediaType: MediaType) => navigate(showPath(mediaType, tmdbId)), [navigate]);
+	const goToShow = useCallback(
+		(tmdbId: number, mediaType: MediaType) => navigate(showPath(mediaType, tmdbId)),
+		[navigate],
+	);
 	const w = useWatchlistScreen(goToShow);
-	const upNextRef = useRef<HTMLDivElement>(null);
-	const scrolled = useRef(false);
+	// Long press / right-click on a card → confirm pausing it (no swipe — too easy by accident)
+	const [pauseTarget, setPauseTarget] = useState<EnrichedTrackingItem | null>(null);
+	const [pausing, setPausing] = useState(false);
+	const confirmPause = async () => {
+		if (!pauseTarget) return;
+		setPausing(true);
+		try {
+			await w.handleStopWatching(pauseTarget);
+			setPauseTarget(null);
+		} catch (err) {
+			console.error("pause failed:", err);
+		} finally {
+			setPausing(false);
+		}
+	};
+	// Web shows only the active watchlist — no "Previously Watched" section above it
+	const items = useMemo(
+		() =>
+			withCaughtUp(w.listData, w.listSettled).filter((i) =>
+				i.type === "sectionHeader"
+					? i.title === UP_NEXT
+					: i.type !== "watchedEpisode" && i.type !== "watchedMovie",
+			),
+		[w.listData, w.listSettled],
+	);
+	// Caught up: nothing more to page in (scrolling the empty state kept refetching)
+	const caughtUp = items.some((i) => i.type === "caughtUp");
+	const sentinel = useInfiniteScroll(w.loadMoreTracking, !w.loadingMoreTracking && !caughtUp);
 
-	// Open on "What's Up Next" (previously watched sits above, like the app)
-	useEffect(() => {
-		if (scrolled.current || w.isLoading || w.prevWatchedOffset <= 0) return;
-		scrolled.current = true;
-		requestAnimationFrame(() => upNextRef.current?.scrollIntoView({ block: "start" }));
-	}, [w.isLoading, w.prevWatchedOffset]);
-
-	const sentinel = useInfiniteScroll(w.loadMoreTracking, !w.loadingMoreTracking);
+	// Up Next has shows and nothing more is coming: caught-up state as the list's footer
+	const caughtUpFooter = w.listSettled && !caughtUp && items.some((i) => i.type === "show");
+	const caughtUpView = (
+		<HomeEmpty
+			art={CAUGHT_UP_ART}
+			compact
+			plainTitle
+			title="Yay!"
+			subtitle="You're all caught up."
+			tagline="Now don't go getting productive on us. Add some more things to watch."
+		/>
+	);
 
 	if (w.isLoading) return <LoadingScreen />;
-	if (w.listData.length === 0) {
+	if (items.length === 0) {
 		return (
-			<div className={styles.center}>
-				<p className={styles.empty}>No shows in your watchlist</p>
-				<Button type="primary" size="large" onClick={() => navigate(Paths.SEARCH)}>
-					+ Add Shows
-				</Button>
-			</div>
+			<HomeEmpty
+				art={WELCOME_ART}
+				title="Welcome"
+				subtitle="Not tracking a thing yet? Now that's bad television."
+				tagline="Your couch is ready, and that free time won't waste itself. You're welcome."
+			/>
 		);
 	}
 
 	const render = (item: WatchlistListItem) => {
 		if (item.type === "sectionHeader") {
 			return (
-				<div className={styles.sectionHeader} ref={item.title === UP_NEXT ? upNextRef : undefined}>
+				<div className={styles.sectionHeader}>
 					<span className={styles.sectionPill}>{item.title}</span>
 				</div>
 			);
 		}
-		if (item.type === "watchedMovie") {
-			return (
-				<ShowCard
-					item={
-						{
-							...item.show,
-							nextEpisode: null,
-							mediaType: MediaType.MOVIE,
-							rewatchCount: item.show.rewatchCount ?? 0,
-							director: item.show.catalogShow?.credits?.directors?.[0] ?? null,
-						} as never
-					}
-					isWatched
-					watchCount={item.movie.watchCount ?? 0}
-					onSwipeLeft={() => w.handleMovieSwipeLeft(item.movie)}
-					onSwipeRight={() => w.handleMovieSwipeRight(item.movie)}
-					onPress={(id) => goToShow(id, MediaType.MOVIE)}
-					onCheckmark={async () => w.handleMovieCheckmark(item.movie, item.show.title)}
-				/>
-			);
-		}
-		if (item.type === "watchedEpisode") {
-			return (
-				<WatchedEpisodeRow
-					episode={item.episode}
-					show={item.show}
-					onPress={w.handleTvPress}
-					onCheckmarkPress={w.handleWatchedCheckmark}
-					onSwipeLeft={w.handleWatchedSwipeLeft}
-					onSwipeRight={w.handleWatchedSwipeRight}
-				/>
-			);
-		}
+		if (item.type === "caughtUp") return caughtUpView;
+		if (item.type !== "show") return null;
 		return (
 			<ShowCard
 				item={item.item as never}
 				isUpdating={w.updatingShows.has(item.item.tmdbId)}
 				remainingEpisodes={(item.item as { remaining?: number | null }).remaining ?? null}
 				onSwipeLeft={w.handleMarkWatched}
-				onSwipeRight={w.handleStopWatching}
+				onLongPress={setPauseTarget}
 				onPress={w.handleCardPress}
 				onTitlePress={w.handleTitlePress}
 				onCheckmark={w.handleMarkWatched}
@@ -111,28 +116,59 @@ export default function WatchlistTab() {
 
 	return (
 		<>
-			{/* App: pull-to-refresh loads older history; web: explicit button */}
-			{w.hasMorePrevWatched && (
-				<div className={styles.loadEarlier}>
-					<Button size="small" onClick={w.loadMorePrevWatched} loading={w.loadingMorePrevWatched}>
-						Load earlier
-					</Button>
-				</div>
-			)}
 			<div className={styles.list}>
-				{w.listData.map((item) => (
-					<div key={keyOf(item)}>{render(item)}</div>
+				{/* No wrapper per item: a sticky section header can only stick within its parent */}
+				{items.map((item) => (
+					<Fragment key={keyOf(item)}>{render(item)}</Fragment>
 				))}
 			</div>
 			<div ref={sentinel} />
-			{w.loadingMoreTracking && (
+			{w.loadingMoreTracking ? (
 				<div className={`${styles.center} min-h-20!`}>
 					<Spin />
 				</div>
+			) : (
+				caughtUpFooter && <div className="py-8">{caughtUpView}</div>
 			)}
-			{/* Keep "What's Up Next" scrollable to the top even with few cards */}
-			<div className="min-h-[70dvh]" />
 
+			<ConfirmModal
+				visible={!!pauseTarget}
+				title={pauseTarget?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"}
+				imageAtTop={!!pauseTarget?.catalogShow?.backdropPath}
+				hideTitle
+				image={
+					!pauseTarget ? undefined : pauseTarget.catalogShow?.backdropPath ? (
+						<ModalBackdrop
+							backdropPath={pauseTarget.catalogShow.backdropPath}
+							logoPath={pauseTarget.catalogShow.logoPath}
+							tmdbId={pauseTarget.tmdbId}
+							mediaType={pauseTarget.mediaType}
+							title={pauseTarget.title}
+							paused
+							nameDelay={2000}
+						/>
+					) : (
+						<ModalLogo
+							logoPath={pauseTarget.catalogShow?.logoPath}
+							tmdbId={pauseTarget.tmdbId}
+							mediaType={pauseTarget.mediaType}
+							title={pauseTarget.title}
+							paused
+							nameDelay={2000}
+						/>
+					)
+				}
+				hint={
+					pauseTarget?.status === WatchStatus.REWATCHING
+						? "Pausing this rewatch will take it off your watchlist. You can resume it any time from its page."
+						: "Pausing this show will take it off your watchlist. You can resume it any time from its page."
+				}
+				confirmLabel="Pause"
+				confirmColor={colors.stopBlue}
+				loading={pausing}
+				onConfirm={confirmPause}
+				onClose={() => setPauseTarget(null)}
+			/>
 			<WatchActionSheet
 				visible={w.sheetVisible}
 				label={w.sheetLabel}
@@ -164,6 +200,7 @@ export default function WatchlistTab() {
 					initialIndex={w.epModalData.initialIndex}
 					watchedKeys={w.epModalData.watchedKeys}
 					currentNextEpisode={w.epModalData.currentNextEpisode}
+					rewatchCount={w.epModalData.rewatchCount}
 					onMarkWatched={w.handleCarouselMarkWatched}
 					onMarkWatchedThrough={w.handleMarkWatchedThrough}
 					onUnmarkWatched={w.handleUnmarkEpisode}

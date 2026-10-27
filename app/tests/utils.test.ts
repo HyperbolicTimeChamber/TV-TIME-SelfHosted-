@@ -7,6 +7,8 @@ import {
 	hasMissingDisplayData,
 	needsTmdbHeal,
 	selectStaleCatalogItems,
+	patchCatalogSeason,
+	catalogNextEpisodeTitle,
 	trimPastQueue,
 	placeholderTargets,
 	titlesFromCatalog,
@@ -77,6 +79,115 @@ test("missing poster → Firestore first; TMDB only after Firestore was tried", 
 test("placeholder next-episode name triggers refresh", () => {
 	const i = item({ nextEpisode: { season: 1, episode: 2 }, nextEpisodeName: "Episode 2" });
 	assert.equal(hasMissingDisplayData(i, i.catalogShow!), true);
+});
+
+// ---------- season heal from fresh TMDB data ----------
+const tmdbEp = (n: number, name: string, o: Record<string, unknown> = {}) => ({
+	episode_number: n,
+	name,
+	overview: "",
+	air_date: null,
+	runtime: null,
+	still_path: null,
+	...o,
+});
+
+test("corrected TMDB title patches the cached season (stale real title never looked missing)", () => {
+	const c = cat({
+		seasons: [
+			{
+				seasonNumber: 1,
+				episodeCount: 3,
+				airDate: null,
+				episodes: [
+					{
+						episodeNumber: 3,
+						title: "Tori's Magic Locker",
+						overview: "",
+						airDate: null,
+						runtime: null,
+						stillPath: null,
+					},
+				],
+			},
+		],
+	});
+	const i = item({
+		nextEpisode: { season: 1, episode: 3 },
+		nextEpisodeName: "Tori's Magic Locker",
+		catalogShow: c,
+	});
+	assert.equal(hasMissingDisplayData(i, c), false);
+	const patched = patchCatalogSeason(c, 1, [
+		tmdbEp(3, "Underworld Understudy", { still_path: "/s.jpg", runtime: 22 }),
+	]);
+	assert.ok(patched);
+	const ep = patched!.seasons[0].episodes[0];
+	assert.equal(ep.title, "Underworld Understudy");
+	assert.equal(ep.stillPath, "/s.jpg");
+	assert.equal(ep.runtime, 22);
+	assert.equal(
+		catalogNextEpisodeTitle(patched, { season: 1, episode: 3 }),
+		"Underworld Understudy",
+	);
+	// Input untouched (cache entries are shared)
+	assert.equal(c.seasons[0].episodes[0].title, "Tori's Magic Locker");
+});
+
+test("season heal: no diff → null; blanks / placeholders never overwrite real data", () => {
+	const c = cat();
+	assert.equal(patchCatalogSeason(c, 1, [tmdbEp(1, "Pilot")]), null);
+	assert.equal(patchCatalogSeason(c, 1, [tmdbEp(1, "Episode 1")]), null);
+	assert.equal(patchCatalogSeason(c, 1, [tmdbEp(1, "")]), null);
+	assert.equal(patchCatalogSeason(c, 2, [tmdbEp(1, "Other")]), null);
+	assert.equal(patchCatalogSeason(c, 1, []), null);
+	// Placeholder → real is a fix
+	assert.equal(
+		patchCatalogSeason(c, 1, [tmdbEp(2, "The Real Two")])!.seasons[0].episodes[1].title,
+		"The Real Two",
+	);
+});
+
+test("season heal keeps TVMaze-localized air days, patches plain ones", () => {
+	const c = cat({
+		seasons: [
+			{
+				seasonNumber: 1,
+				episodeCount: 2,
+				airDate: null,
+				episodes: [
+					{
+						episodeNumber: 1,
+						title: "A",
+						overview: "",
+						airDate: "2026-01-02",
+						airStamp: "2026-01-02T01:00:00Z",
+						runtime: null,
+						stillPath: null,
+					},
+					{
+						episodeNumber: 2,
+						title: "B",
+						overview: "",
+						airDate: "2026-01-08",
+						runtime: null,
+						stillPath: null,
+					},
+				],
+			},
+		],
+	});
+	assert.equal(patchCatalogSeason(c, 1, [tmdbEp(1, "A", { air_date: "2026-01-01" })]), null);
+	const p = patchCatalogSeason(c, 1, [tmdbEp(2, "B", { air_date: "2026-01-09" })]);
+	assert.equal(p!.seasons[0].episodes[1].airDate, "2026-01-09");
+	assert.equal(p!.seasons[0].episodes[0], c.seasons[0].episodes[0]);
+});
+
+test("catalogNextEpisodeTitle ignores placeholders / missing", () => {
+	assert.equal(catalogNextEpisodeTitle(cat(), { season: 1, episode: 2 }), null);
+	assert.equal(catalogNextEpisodeTitle(cat(), { season: 1, episode: 1 }), "Pilot");
+	assert.equal(catalogNextEpisodeTitle(null, { season: 1, episode: 1 }), null);
+	assert.equal(catalogNextEpisodeTitle(cat(), null), null);
 });
 
 test("movie credits: missing → refresh, present → none", () => {
@@ -227,4 +338,49 @@ test("load errors map to not found / offline / server copy", async () => {
 	const srv = describeLoadError({ response: { status: 500 } }, MediaType.TV);
 	assert.deepEqual([srv.kind, srv.canRetry, srv.code], [LoadErrorKind.SERVER, true, "500"]);
 	assert.match(srv.message, /this show/);
+});
+
+test("ordinal + markWatchedLabel: rewatch runs get an ordinal label", async () => {
+	const { ordinal, markWatchedLabel } = await import("../src/utils/format");
+	assert.deepEqual(
+		[1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 101, 111].map(ordinal),
+		["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "23rd", "101st", "111th"],
+	);
+	assert.equal(markWatchedLabel(0), "Mark as Watched");
+	assert.equal(markWatchedLabel(2), "Mark 2nd Rewatch");
+});
+
+test("groupCalendarDay: one card per show, episodes sorted; movies stay single", async () => {
+	const { groupCalendarDay, episodeCountLabel } = await import("../src/utils/calendarGroups");
+	const { MediaType } = await import("../src/enums");
+	const ep = (id: number, season: number, episode: number, mediaType = MediaType.TV) => ({
+		tmdbShowId: id,
+		mediaType,
+		season,
+		episode,
+	});
+	const groups = groupCalendarDay([ep(1, 1, 3), ep(2, 0, 0, MediaType.MOVIE), ep(1, 1, 1), ep(3, 2, 5), ep(1, 1, 2)]);
+	assert.deepEqual(
+		groups.map((g) => [g.key, g.episodes.map((e) => e.episode)]),
+		[
+			["tv_1", [1, 2, 3]],
+			["movie_2", [0]],
+			["tv_3", [5]],
+		],
+	);
+	assert.equal(groups[0].first.episode, 1);
+
+	// Air-time order; a group goes by its first episode's time; untimed cards last
+	const at = (id: number, episode: number, airStamp?: string) => ({ ...ep(id, 1, episode), airStamp });
+	const timed = groupCalendarDay([
+		at(9, 1),
+		at(7, 2, "2026-04-09T03:00:00Z"),
+		at(7, 1, "2026-04-09T01:00:00Z"),
+		at(8, 4, "2026-04-09T02:00:00Z"),
+	]);
+	assert.deepEqual(timed.map((g) => g.key), ["tv_7", "tv_8", "tv_9"]);
+	assert.equal(episodeCountLabel(groups[0].episodes), "3 Episodes");
+	const { seasonRangeLabel } = await import("../src/utils/calendarGroups");
+	assert.equal(seasonRangeLabel(groups[0].episodes), "Season 01");
+	assert.equal(seasonRangeLabel([ep(1, 1, 10), ep(1, 2, 2)]), "Season 01–02");
 });

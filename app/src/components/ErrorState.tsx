@@ -6,7 +6,6 @@ import { LoadErrorKind, MediaType } from "../enums";
 import type { LoadErrorInfo } from "../utils";
 import NotFoundArt, { artHeight } from "./NotFoundArt";
 
-
 interface Action {
 	label: string;
 	onPress: () => void;
@@ -91,8 +90,7 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		paddingHorizontal: spacing.xxl,
 	},
-	// Text + buttons live above the character
-	// Text stacks right on top of the character (fixed gap); extra height goes above
+	// Text + buttons stack right on top of the character (fixed gap); extra height goes above
 	containerWithArt: {
 		justifyContent: "flex-end",
 		paddingTop: spacing.xxl,

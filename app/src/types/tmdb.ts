@@ -1,4 +1,4 @@
-import { MediaType } from "../enums";
+import { EpisodeType, MediaType } from "../enums";
 
 export interface TMDBShow {
 	id: number;
@@ -20,6 +20,8 @@ export interface TMDBShow {
 	credits?: {
 		crew: Array<{ job: string; department: string; name: string }>;
 	};
+	/** Present when details were fetched with images (title logos) */
+	images?: { logos?: Array<{ file_path: string; iso_639_1: string | null }> };
 }
 
 export interface TMDBSeason {
@@ -40,6 +42,8 @@ export interface TMDBEpisode {
 	air_date: string | null;
 	runtime: number | null;
 	still_path: string | null;
+	/** "standard" | "finale" | "mid_season" */
+	episode_type?: EpisodeType;
 }
 
 export interface UpcomingEpisode {
@@ -52,4 +56,6 @@ export interface UpcomingEpisode {
 	airDate: string;
 	runtime: number | null;
 	mediaType?: MediaType;
+	/** Exact UTC air time (TVMaze) when known */
+	airStamp?: string;
 }

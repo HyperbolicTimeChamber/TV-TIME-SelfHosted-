@@ -1,4 +1,4 @@
-import { MediaType, WatchStatus } from "./enums";
+import { EpisodeType, MediaType, RefreshReason, WatchStatus } from "./enums";
 
 export interface TMDBEpisode {
   episode_number: number;
@@ -7,6 +7,8 @@ export interface TMDBEpisode {
   air_date: string | null;
   runtime: number | null;
   still_path: string | null;
+  /** TMDB marks finales / mid-season finales explicitly */
+  episode_type?: EpisodeType;
 }
 
 export interface TMDBSeasonDetail {
@@ -35,11 +37,13 @@ export interface TMDBShowDetail {
     season_number: number;
     episode_count: number;
     air_date: string | null;
+    poster_path?: string | null;
   }>;
   credits?: {
     crew: Array<{ job: string; department: string; name: string }>;
   };
   images?: { logos?: TMDBLogo[] };
+  external_ids?: { tvdb_id?: number | null; imdb_id?: string | null };
 }
 
 export interface TMDBLogo {
@@ -54,13 +58,21 @@ export interface CatalogEpisode {
   airDate: string | null;
   runtime: number | null;
   stillPath: string | null;
+  /** TMDB episode_type; absent on docs written before it was stored → treated as not a finale */
+  episodeType?: EpisodeType;
+  /** episodeType === FINALE (kept for older app builds that read this flag) */
   isSeasonFinale?: boolean;
+  /** Exact UTC air time from TVMaze (ISO); clients turn it into their local day.
+   *  Absent when TVMaze doesn't know the episode → fall back to airDate (US date) */
+  airStamp?: string;
 }
 
 export interface CatalogSeason {
   seasonNumber: number;
   episodeCount: number;
   airDate: string | null;
+  /** The season's own poster; null when TMDB has none (the show's poster stands in) */
+  posterPath?: string | null;
   episodes: CatalogEpisode[];
 }
 
@@ -82,11 +94,17 @@ export interface CatalogShow {
   genres: string[];
   /** TMDB title logo (English, else language-neutral); null = TMDB has none */
   logoPath?: string | null;
+  /** TVMaze show id (cached so later syncs skip the lookup); null = not on TVMaze */
+  tvmazeId?: number | null;
   credits?: {
     directors: string[];
     writers: string[];
     producers: string[];
   };
+  /** Last refreshShow TMDB check (epoch ms) — dedupes refreshes across users */
+  lastTmdbCheckAt?: number;
+  /** refreshShow wrote this doc since the last syncCatalog → sync lists it as changed */
+  refreshedSinceSync?: boolean;
 }
 
 // Import types
@@ -142,4 +160,26 @@ export interface MarkSeasonRequest {
   skipTracking?: boolean;
   status?: WatchStatus;
   incrementRewatch?: boolean;
+  /** Absolute rewatch run number to store (wins over incrementRewatch) */
+  rewatchCount?: number;
+  /** How long before now this batch's last episode should count as finished — set when one
+   *  catch-up spans several calls (seasons / chunks), so they lay end to end, not on top of
+   *  each other. 0 / missing = now */
+  endOffsetMs?: number;
+}
+
+// refreshShow types
+export interface RefreshShowRequest {
+  tmdbId: number;
+  mediaType: MediaType;
+  reason: RefreshReason;
+  /** Seasons the client knows are stale (e.g. its next episode's season) */
+  seasons?: number[];
+}
+
+export interface RefreshShowResponse {
+  /** True when this call fetched TMDB and wrote the doc */
+  refreshed: boolean;
+  /** Current catalog doc (without trackedBy); null when no doc exists */
+  catalog: Omit<CatalogShow, "trackedBy"> | null;
 }

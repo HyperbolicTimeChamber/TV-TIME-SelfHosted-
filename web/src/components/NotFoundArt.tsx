@@ -5,7 +5,7 @@ import { motion } from "motion/react";
  * legs read as climbing out of the screen. Height is --art-h (theme/global.scss);
  * reserve it under any content with pb-[calc(var(--art-h)+24px)].
  */
-export default function NotFoundArt({ src = "/not-found.png" }: { src?: string }) {
+export default function NotFoundArt({ src = "/not-found.webp" }: { src?: string }) {
 	// Slides up from below the screen edge while fading in, no overshoot
 	return (
 		<motion.img

@@ -8,7 +8,6 @@ import {
 	Alert,
 	ActivityIndicator,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -16,6 +15,15 @@ import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { getAuth, sendPasswordResetEmail } from "@react-native-firebase/auth";
 import { useAuthStore } from "../../stores";
 import { colors, spacing, typography } from "../../theme";
+import { CircleBackButton, CIRCLE_BUTTON_SIZE } from "../../components/CircleButton";
+import { ConfirmModal } from "../../components";
+import {
+	FAREWELL_ART,
+	FAREWELL_RATIO,
+	LOGOUT_ART,
+	LOGOUT_RATIO,
+	ModalArt,
+} from "../../components/modals/ModalArt";
 import { ProfileStackParamList, Route } from "../../types";
 
 export default function SettingsScreen() {
@@ -54,43 +62,29 @@ export default function SettingsScreen() {
 		}
 	}, [testingFCM]);
 
-	const handleDeleteAccount = useCallback(() => {
-		Alert.alert(
-			"Delete Account",
-			"This will permanently delete your account and all data. This cannot be undone.",
-			[
-				{ text: "Cancel", style: "cancel" },
-				{
-					text: "Delete",
-					style: "destructive",
-					onPress: async () => {
-						setDeletingAccount(true);
-						try {
-							const functions = getFunctions();
-							await httpsCallable(functions, "deleteAccount")({});
-							await signOut();
-						} catch (err: any) {
-							Alert.alert("Error", err.message || "Failed to delete account.");
-							setDeletingAccount(false);
-						}
-					},
-				},
-			],
-		);
+	const [logoutVisible, setLogoutVisible] = useState(false);
+	const [deleteVisible, setDeleteVisible] = useState(false);
+	const [deleteError, setDeleteError] = useState<string | null>(null);
+
+	const handleDeleteAccount = useCallback(async () => {
+		setDeletingAccount(true);
+		setDeleteError(null);
+		try {
+			const functions = getFunctions();
+			await httpsCallable(functions, "deleteAccount")({});
+			await signOut();
+		} catch (err: any) {
+			setDeleteError(err.message || "Failed to delete account.");
+			setDeletingAccount(false);
+		}
 	}, [signOut]);
 
 	return (
 		<ScrollView style={[styles.container, { paddingTop: top }]}>
 			<View style={styles.headerRow}>
-				<TouchableOpacity
-					style={styles.backButton}
-					onPress={() => navigation.goBack()}
-					hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-				>
-					<Ionicons name="chevron-back" size={26} color={colors.text} />
-				</TouchableOpacity>
+				<CircleBackButton onPress={() => navigation.goBack()} />
 				<Text style={styles.headerTitle}>Settings</Text>
-				<View style={styles.backButton} />
+				<View style={styles.headerSpacer} />
 			</View>
 			<View style={styles.section}>
 				<Text style={styles.sectionTitle}>Data</Text>
@@ -121,18 +115,44 @@ export default function SettingsScreen() {
 						<Text style={styles.rowText}>Change Password</Text>
 					</TouchableOpacity>
 				)}
+				<TouchableOpacity style={styles.row} onPress={() => setLogoutVisible(true)}>
+					<Text style={styles.deleteText}>Log Out</Text>
+				</TouchableOpacity>
 				<TouchableOpacity
 					style={styles.row}
-					onPress={handleDeleteAccount}
-					disabled={deletingAccount}
+					onPress={() => {
+						setDeleteError(null);
+						setDeleteVisible(true);
+					}}
 				>
-					{deletingAccount ? (
-						<ActivityIndicator size="small" color={colors.destructiveRed} />
-					) : (
-						<Text style={styles.deleteText}>Delete Account & Data</Text>
-					)}
+					<Text style={styles.deleteText}>Delete Account & Data</Text>
 				</TouchableOpacity>
 			</View>
+
+			<ConfirmModal
+				visible={logoutVisible}
+				title="Until Next Time"
+				image={<ModalArt source={LOGOUT_ART} ratio={LOGOUT_RATIO} />}
+				hint="You can sign back in any time — your watchlist and history stay saved."
+				confirmLabel="Log Out"
+				onConfirm={() => {
+					setLogoutVisible(false);
+					signOut();
+				}}
+				onClose={() => setLogoutVisible(false)}
+			/>
+
+			<ConfirmModal
+				visible={deleteVisible}
+				title="Is This Goodbye?"
+				image={<ModalArt source={FAREWELL_ART} ratio={FAREWELL_RATIO} />}
+				hint="This will permanently delete your account and all data. This cannot be undone."
+				error={deleteError}
+				confirmLabel="Delete"
+				loading={deletingAccount}
+				onConfirm={handleDeleteAccount}
+				onClose={() => setDeleteVisible(false)}
+			/>
 		</ScrollView>
 	);
 }
@@ -148,14 +168,7 @@ const styles = StyleSheet.create({
 		paddingHorizontal: spacing.sm,
 		paddingVertical: spacing.sm,
 	},
-	backButton: {
-		width: 44,
-		height: 44,
-		borderRadius: 22,
-		backgroundColor: colors.surface,
-		justifyContent: "center",
-		alignItems: "center",
-	},
+	headerSpacer: { width: CIRCLE_BUTTON_SIZE },
 	headerTitle: {
 		...typography.title,
 		flex: 1,

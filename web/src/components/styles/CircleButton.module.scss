@@ -1,0 +1,44 @@
+@use "../../theme/tokens" as *;
+
+.circle {
+	width: 44px;
+	height: 44px;
+	flex-shrink: 0;
+	border-radius: 22px;
+	padding: 0;
+	border: none;
+	color: var(--text);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+
+	svg {
+		display: block;
+	}
+
+	&:active {
+		opacity: 0.7;
+	}
+}
+
+.overlay {
+	background: rgba(0, 0, 0, 0.5);
+}
+
+.surface {
+	background: var(--surface);
+}
+
+.surfaceLight {
+	background: var(--surface-light);
+}
+
+.raised {
+	background: var(--border);
+}
+
+.spacer {
+	width: 44px;
+	flex-shrink: 0;
+}

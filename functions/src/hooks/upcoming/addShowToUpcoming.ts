@@ -8,18 +8,20 @@ export async function addShowToUpcoming(
   uid: string,
   tmdbId: number,
   mediaType: MediaType = MediaType.TV,
+  /** Catalog already in hand (refreshShow fan-out) — skips the show doc read */
+  knownCatalog?: CatalogShow,
 ): Promise<void> {
   const today = new Date().toISOString().slice(0, 10);
   const showId = showDocId(tmdbId, mediaType);
   const [showDoc, trackingDoc] = await Promise.all([
-    db.doc(`shows/${showId}`).get(),
+    knownCatalog ? null : db.doc(`shows/${showId}`).get(),
     db.doc(`users/${uid}/tracking/${showId}`).get(),
   ]);
-  if (!showDoc.exists) return;
+  if (showDoc && !showDoc.exists) return;
   // Resumed shows: skip what the user already watched (before the pointer)
   const pointer = trackingDoc.data()?.nextEpisode as EpisodePointer | null;
 
-  const catalog = showDoc.data() as CatalogShow;
+  const catalog = knownCatalog ?? (showDoc!.data() as CatalogShow);
   const upcomingCol = db.collection(`users/${uid}/upcoming`);
   const batch = db.batch();
   let count = 0;
@@ -40,6 +42,8 @@ export async function addShowToUpcoming(
         episodeTitle: ep.title ?? "",
         airDate: ep.airDate,
         runtime: ep.runtime ?? null,
+        // Exact UTC air time when TVMaze has it — the app shows it on the user's local day
+        ...(ep.airStamp ? { airStamp: ep.airStamp } : {}),
       });
       count++;
     }

@@ -1,0 +1,437 @@
+@use "../../../../theme/tokens" as *;
+
+/* Numbers match app/src/screens/ProfileScreen/WatchHistory/styles.ts → identical at phone width */
+
+/* Phones: full-width sticky top bar on the page background (blends in) */
+.topBar {
+	position: sticky;
+	top: 0;
+	z-index: 10;
+	background: var(--bg);
+	padding-top: calc(env(safe-area-inset-top) + 8px);
+}
+
+/* Cards fade out under the bar instead of being cut off */
+.topBar::after {
+	content: "";
+	position: absolute;
+	top: 100%;
+	left: 0;
+	right: 0;
+	height: 24px;
+	background: linear-gradient(var(--bg), transparent);
+	pointer-events: none;
+}
+
+/* SlidingTabs paints its own surface — match the bar instead */
+.topBar .tabs {
+	background: transparent;
+}
+
+/* Wider screens: same bar as a rounded island inset from the edges. The shadow paints
+   the page colour over the gap above it so cards don't show through while stuck */
+@include tablet {
+	.topBar {
+		top: 12px;
+		margin: 12px 12px 0;
+		border: none;
+		border-radius: 12px;
+		overflow: hidden;
+		padding-top: 8px;
+		box-shadow: 0 -12px 0 12px var(--bg);
+		background: var(--surface);
+		/* overflow: hidden would clip it anyway; the island floats over the cards */
+		&::after {
+			display: none;
+		}
+	}
+}
+
+.titleRow {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 0 16px 4px;
+}
+
+.title {
+	flex: 1;
+	margin: 0;
+	text-align: center;
+	font-size: 20px;
+	font-weight: 700;
+}
+
+.grid {
+	display: grid;
+	/* minmax(0, …): columns never grow to fit a card's content width */
+	grid-template-columns: minmax(0, 1fr);
+	gap: 16px;
+	padding: 16px;
+
+	@include tablet {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		/* Same 12px inset as the header island so their edges line up */
+		padding: 16px 12px;
+	}
+	@include desktop {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+}
+
+/* Masonry (loaded list): same spacing as .grid, columns stack independently */
+.masonry {
+	gap: 16px;
+	padding: 16px;
+
+	@include tablet {
+		padding: 16px 12px;
+	}
+}
+
+.masonryColumn {
+	gap: 16px;
+}
+
+.card {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	gap: 12px;
+	/* 16:9 is the minimum: no overflow:hidden, so aspect-ratio lets the card grow when a
+	   two-line title needs more room (the bg layers round their own corners instead) */
+	aspect-ratio: 16 / 9;
+	/* Buttons shrink to their content by default — fill the masonry column */
+	width: 100%;
+	min-width: 0;
+	border-radius: 16px;
+	padding: 16px;
+	background: var(--surface);
+	border: none;
+	color: var(--text);
+	text-align: left;
+	cursor: pointer;
+
+	&:active {
+		opacity: 0.85;
+	}
+}
+
+.cardBg {
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	/* Show the top of the backdrop (faces / titles sit there), like calendar cards */
+	object-position: top;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	filter: blur(0.5px);
+}
+
+.cardOverlay {
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: rgba(0, 0, 0, 0.55);
+}
+
+/* Logo + status pill on top, then full-width title, then the Ongoing / Ended / year pill */
+.topBlock {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 8px;
+}
+
+.topRow {
+	align-self: stretch;
+	margin-bottom: 8px;
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.bottomRow {
+	position: relative;
+	display: flex;
+	gap: 12px;
+}
+
+.bottomRow {
+	align-items: flex-end;
+	justify-content: space-between;
+}
+
+/* Left of the corner pill: takes the remaining width, never pushes the pill */
+.logoSlot {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+}
+
+/* 56px tall, width follows the logo's shape, capped to the slot */
+.logo {
+	display: block;
+	height: 56px;
+	width: auto;
+	max-width: 100%;
+	object-fit: contain;
+	object-position: left center;
+}
+
+.cardTitle {
+	max-width: 100%;
+	font-size: 20px;
+	font-weight: 600;
+	/* Up to 2 lines, then … */
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	overflow: hidden;
+}
+
+.pill {
+	flex-shrink: 0;
+	white-space: nowrap;
+	border-radius: 999px;
+	padding: 5px 12px;
+	font-size: 13px;
+	font-weight: 700;
+}
+
+/* Rewatch count: white circle at the pill's end, concentric (right = vertical padding) */
+.pill.pillWithCount {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 4px 4px 12px;
+}
+
+.pillCountCircle {
+	min-width: 20px;
+	height: 20px;
+	border-radius: 10px;
+	padding: 0 5px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--text);
+	color: var(--surface);
+	font-size: 12px;
+	font-weight: 700;
+}
+
+/* Bottom-left: status pill above the progress / watch count pill */
+.leftBlock {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 10px;
+}
+
+.timeBlock {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+}
+
+/* Upper stat (Last Watched): normal spacing below, no baseline trim */
+.timeSpent.statGap {
+	text-box: none;
+	margin-bottom: 12px;
+}
+
+/* Last Watched / Total Time Spent: white softened a touch, full white read too strong */
+.timeLabel {
+	color: color-mix(in srgb, var(--text) 95%, transparent);
+	font-size: 13px;
+	font-weight: 500;
+	margin-bottom: 4px;
+}
+
+.timeSpent {
+	display: block;
+	color: color-mix(in srgb, var(--text) 95%, transparent);
+	font-size: 30px;
+	font-weight: 600;
+	letter-spacing: -0.5px;
+	line-height: 1;
+	/* Box ends exactly at the digits' baseline → its bottom lines up with the pill's */
+	text-box: trim-end cap alphabetic;
+}
+
+/* Browsers without text-box trimming: pull the descent space down instead */
+@supports not (text-box: trim-end cap alphabetic) {
+	.timeSpent {
+		margin-bottom: -0.15em;
+	}
+}
+
+/* Same size as the progress pills, mirrored: circle on the right, concentric with that end */
+.progressPill.watchCountPill {
+	padding: 5px 5px 5px 10px;
+	background: color-mix(in srgb, var(--text-secondary) 35%, transparent);
+}
+
+.countCircle {
+	min-width: 20px;
+	height: 20px;
+	border-radius: 10px;
+	padding: 0 6px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	/* Lighter grey than the pill (textSecondary 70% vs 35%) */
+	background: color-mix(in srgb, var(--text-secondary) 70%, transparent);
+}
+
+/* Light grey (textSecondary) at 35% — translucent over the backdrop */
+.tagPill {
+	border-radius: 999px;
+	padding: 3px 10px;
+	background: color-mix(in srgb, var(--text-secondary) 35%, transparent);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.progressPill {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	border-radius: 999px;
+	/* Left = vertical padding → icon/ring sits concentric with the rounded end */
+	padding: 5px 10px 5px 5px;
+	font-size: 14px;
+	font-weight: 700;
+}
+
+.skeleton {
+	aspect-ratio: 16 / 9;
+	border-radius: 16px;
+}
+
+.empty {
+	text-align: center;
+	font-size: 15px;
+	font-weight: 600;
+	margin-top: 30dvh;
+}
+
+/* Empty: Squidward left, his take right (app HistoryEmpty) */
+.emptyRow {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	max-width: 560px;
+	/* Centred in the space under the header and tabs */
+	min-height: calc(100dvh - 200px);
+	margin: 0 auto;
+	/* Nudged up: true centre reads low */
+	padding: 0 16px 120px;
+}
+
+.emptyArt {
+	height: 220px;
+	width: auto;
+	flex-shrink: 0;
+}
+
+.emptyTitle {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 600;
+}
+
+.emptyBody {
+	margin: 8px 0 0;
+	font-size: 14px;
+	font-style: italic;
+	color: var(--text-secondary);
+}
+
+.footer {
+	display: flex;
+	justify-content: center;
+	padding: 24px 0;
+}
+
+/* Profile entry button */
+.historyButton {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	/* Shares the row with the Settings circle */
+	flex: 1;
+	min-width: 0;
+	height: 56px;
+	padding: 0 16px;
+	border: none;
+	/* Reads as round as the (larger) stat cards */
+	border-radius: 16px;
+	background: var(--color-primary);
+	color: var(--text);
+	font-size: 17px;
+	font-weight: 600;
+	cursor: pointer;
+
+	&:active {
+		opacity: 0.85;
+	}
+}
+
+/* Tabs + sort/filter button on one row */
+.tabsRow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding-right: 12px;
+
+	.tabs {
+		flex: 1;
+		min-width: 0;
+	}
+}
+
+/* Sort popover (components/SortPanel) — filter section */
+.viewFilterHead {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-top: 8px;
+}
+
+.viewClear {
+	border: none;
+	background: none;
+	color: var(--color-primary);
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.viewChips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	padding-bottom: 4px;
+}
+
+.viewChip {
+	padding: 6px 12px;
+	border-radius: 999px;
+	border: 1px solid var(--color-line);
+	background: none;
+	color: var(--color-fg-secondary);
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.viewChipOn {
+	background: var(--color-primary);
+	border-color: var(--color-primary);
+	color: var(--color-fg);
+}

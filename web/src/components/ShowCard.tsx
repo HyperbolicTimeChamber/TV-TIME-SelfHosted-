@@ -1,8 +1,9 @@
 import { memo, useCallback, useRef } from "react";
 import { Spin } from "antd";
-import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS } from "@app/enums";
+import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS, WatchStatus } from "@app/enums";
 import { todayStr } from "@app/utils/todayStr";
 import SwipeableCard, { type SwipeableCardRef } from "./SwipeableCard";
+import { useLongPress } from "../hooks/useLongPress";
 import CheckmarkButton from "./CheckmarkButton";
 import PosterImage from "./PosterImage";
 import styles from "./styles/ShowCard.module.scss";
@@ -33,7 +34,10 @@ interface Props {
 	isUpdating?: boolean;
 	remainingEpisodes?: number | null;
 	onSwipeLeft: (item: any) => Promise<void>;
-	onSwipeRight: (item: any) => Promise<void>;
+	/** Omit to turn that swipe off */
+	onSwipeRight?: (item: any) => Promise<void>;
+	/** Long press / right-click on the card */
+	onLongPress?: (item: any) => void;
 	onPress: (tmdbId: number, mediaType: MediaType) => void;
 	onTitlePress?: (item: any) => void;
 	onCheckmark: (item: any) => Promise<void>;
@@ -55,11 +59,14 @@ export default memo(function ShowCard({
 	onTitlePress,
 	onCheckmark,
 	onCheckmarkLongPress,
+	onLongPress,
 }: Props) {
 	const swipeRef = useRef<SwipeableCardRef>(null);
-	const ep = item.nextEpisode ?? (item.mediaType === MediaType.TV ? { season: 1, episode: 1 } : null);
+	const ep =
+		item.nextEpisode ?? (item.mediaType === MediaType.TV ? { season: 1, episode: 1 } : null);
 	const episodeLabel = ep ? `S${pad(ep.season)} | E${pad(ep.episode)}` : "Movie";
-	const remainingLabel = remainingEpisodes != null && remainingEpisodes > 0 ? `+${remainingEpisodes}` : null;
+	const remainingLabel =
+		remainingEpisodes != null && remainingEpisodes > 0 ? `+${remainingEpisodes}` : null;
 
 	const isNewEpisode = item.mediaType === MediaType.TV && item.nextEpisodeAirDate === TODAY;
 	const isJustAired = (() => {
@@ -79,6 +86,7 @@ export default memo(function ShowCard({
 		if (item.mediaType === MediaType.MOVIE && onTitlePress) onTitlePress(item);
 		else onPress(item.tmdbId, item.mediaType);
 	}, [onPress, onTitlePress, item]);
+	const cardPress = useLongPress(onLongPress ? () => onLongPress(item) : undefined, handlePress);
 
 	const titlePill = (muted = false) => (
 		<button
@@ -96,16 +104,27 @@ export default memo(function ShowCard({
 
 	const movieMeta = (label: string, muted = false) => (
 		<>
-			<div className={`${styles.movieMetaRow} ${muted ? "opacity-60" : ""}`}>
-				<span className={styles.movieBadge}>MOVIE</span>
+			{/* The card fades its own parts rather than the whole subtree, so the year number
+			    alone can stay at full strength. The amber behind it is faded through a
+			    translucent fill, not opacity, which would take the number with it */}
+			<div className={styles.movieMetaRow}>
+				<span className={`${styles.movieBadge} ${muted ? styles.watchedFade : ""}`}>MOVIE</span>
 				{label && (
 					<>
-						<span className={styles.slantArrow} />
-						<span className={styles.freshTag}>{label}</span>
+						<span className={`${styles.slantArrow} ${muted ? styles.watchedFade : ""}`} />
+						<span className={`${styles.freshTag} ${muted ? styles.watchedFreshTag : ""}`}>
+							{label}
+						</span>
 					</>
 				)}
 			</div>
-			{item.director && <span className={`${styles.episodeName} ${muted ? styles.muted : ""}`}>{item.director}</span>}
+			{item.director && (
+				<span
+					className={`${styles.episodeName} ${muted ? `${styles.muted} ${styles.watchedFade}` : ""}`}
+				>
+					{item.director}
+				</span>
+			)}
 		</>
 	);
 
@@ -114,24 +133,43 @@ export default memo(function ShowCard({
 		return (
 			<SwipeableCard
 				onSwipeLeft={() => onSwipeLeft(item)}
-				onSwipeRight={() => onSwipeRight(item)}
+				onSwipeRight={onSwipeRight ? () => onSwipeRight(item) : undefined}
 				leftLabel="Rewatch"
-				rightLabel={wc > 1 ? "−1" : "Unwatch"}
+				rightLabel="Unwatch"
+				rightIcon={wc > 1 ? "−1" : undefined}
 				persistAfterSwipe={{ left: true, right: wc > 1 }}
 			>
 				<div className={styles.container} onClick={handlePress} role="button">
-					<PosterImage posterPath={item.posterPath} mediaType={item.mediaType} className={`${styles.poster} ${styles.watchedPoster}`} />
+					<PosterImage
+						posterPath={item.posterPath}
+						mediaType={item.mediaType}
+						className={`${styles.poster} ${styles.watchedPoster}`}
+					/>
 					<div className={styles.info}>
-						{titlePill(true)}
+						<span className={styles.watchedFade}>{titlePill(true)}</span>
 						{item.mediaType === MediaType.MOVIE ? (
 							movieMeta(item.releaseDate?.substring(0, 4) ?? "", true)
 						) : (
-							<span className={`${styles.episode} ${styles.muted}`}>{episodeLabel}</span>
+							<span className={`${styles.episode} ${styles.muted} ${styles.watchedFade}`}>
+								{episodeLabel}
+							</span>
 						)}
-						{item.rewatchCount > 0 && <span className={`${styles.rewatch} ${styles.muted}`}>Rewatch #{item.rewatchCount}</span>}
+						{item.rewatchCount > 0 && (
+							<span className={`${styles.tagBadge} ${styles.latestBadge} opacity-50`}>
+								REWATCH {item.rewatchCount}
+							</span>
+						)}
 					</div>
-					<div className={styles.checkmarkWrap} onClick={(e) => e.stopPropagation()}>
-						<CheckmarkButton size={38} watched label={wc > 1 ? `${wc}` : undefined} onPress={() => onCheckmark(item)} />
+					<div
+						className={`${styles.checkmarkWrap} ${styles.watchedFade}`}
+						onClick={(e) => e.stopPropagation()}
+					>
+						<CheckmarkButton
+							size={38}
+							watched
+							label={wc > 1 ? `${wc}` : undefined}
+							onPress={() => onCheckmark(item)}
+						/>
 					</div>
 				</div>
 			</SwipeableCard>
@@ -148,9 +186,18 @@ export default memo(function ShowCard({
 	}
 
 	return (
-		<SwipeableCard ref={swipeRef} onSwipeLeft={() => onSwipeLeft(item)} onSwipeRight={() => onSwipeRight(item)} persistAfterSwipe>
-			<div className={styles.container} onClick={handlePress} role="button">
-				<PosterImage posterPath={item.posterPath} mediaType={item.mediaType} className={styles.poster} />
+		<SwipeableCard
+			ref={swipeRef}
+			onSwipeLeft={() => onSwipeLeft(item)}
+			onSwipeRight={onSwipeRight ? () => onSwipeRight(item) : undefined}
+			persistAfterSwipe
+		>
+			<div className={styles.container} {...cardPress} role="button">
+				<PosterImage
+					posterPath={item.posterPath}
+					mediaType={item.mediaType}
+					className={styles.poster}
+				/>
 				<div className={styles.info}>
 					{titlePill()}
 					{item.mediaType === MediaType.MOVIE ? (
@@ -161,20 +208,33 @@ export default memo(function ShowCard({
 								{episodeLabel}
 								{remainingLabel && <span className={styles.remaining}> {remainingLabel}</span>}
 							</span>
-							{item.nextEpisodeName && <span className={styles.episodeName}>{item.nextEpisodeName}</span>}
+							{item.nextEpisodeName && (
+								<span className={styles.episodeName}>{item.nextEpisodeName}</span>
+							)}
 							{isFinale ? (
 								<span className={styles.tagBadge}>{FreshTag.FINALE}</span>
 							) : isNewEpisode ? (
 								<span className={styles.tagBadge}>{FreshTag.NEW}</span>
 							) : isLatest ? (
-								<span className={`${styles.tagBadge} ${styles.latestBadge}`}>{FreshTag.LATEST}</span>
+								<span className={`${styles.tagBadge} ${styles.latestBadge}`}>
+									{FreshTag.LATEST}
+								</span>
 							) : null}
 						</>
 					)}
-					{item.rewatchCount > 0 && <span className={styles.rewatch}>Rewatch #{item.rewatchCount}</span>}
+					{/* Same outlined tag as LATEST; only while actually rewatching */}
+					{item.status === WatchStatus.REWATCHING && item.rewatchCount > 0 && (
+						<span className={`${styles.tagBadge} ${styles.latestBadge}`}>
+							REWATCH {item.rewatchCount}
+						</span>
+					)}
 				</div>
 				<div className={styles.checkmarkWrap} onClick={(e) => e.stopPropagation()}>
-					<CheckmarkButton size={38} onPress={() => swipeRef.current?.triggerSwipeLeft()} onLongPress={onCheckmarkLongPress} />
+					<CheckmarkButton
+						size={38}
+						onPress={() => swipeRef.current?.triggerSwipeLeft()}
+						onLongPress={onCheckmarkLongPress}
+					/>
 				</div>
 			</div>
 		</SwipeableCard>

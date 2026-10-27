@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "../stores";
-import { CacheKey, MediaType } from "../enums";
-import type { HistoryChange, HistoryState } from "../types";
+import { CacheKey, HistoryFilter, HistorySort, MediaType } from "../enums";
+import type { HistoryChange, HistoryEntry, HistoryState } from "../types";
+import { historyFilterStatuses, isDefaultHistoryView } from "../utils/historyView";
 import {
-	fetchCatalogShows,
 	fetchHistoryDelta,
 	fetchHistoryEntry,
 	fetchHistoryPage,
+	fetchHistoryViewPage,
 } from "../services/historyApi";
 import {
 	applyChange,
@@ -16,9 +17,12 @@ import {
 	onHistoryChange,
 	showDocId,
 	todayStr,
+	withHistoryCatalogs,
+	localizeCatalog,
 	type HistoryCard,
 } from "../utils";
-import { cacheCatalogShows, getCachedCatalogShow } from "./useWatchlist";
+import { getCachedCatalogShow, whenCatalogRestored } from "./useWatchlist";
+import { catalogSettled, ensureFreshCatalogs } from "./catalogRefresh";
 
 // --- Store: one cached list per (user, tab), persisted to AsyncStorage (localStorage on web) ---
 
@@ -41,6 +45,8 @@ async function load(userId: string, mediaType: MediaType): Promise<HistoryState 
 		const raw = await AsyncStorage.getItem(storageKey(mediaType));
 		const parsed = raw ? (JSON.parse(raw) as HistoryState) : null;
 		if (parsed?.userId !== userId) return null;
+		// Re-derive local air days (timezone may have changed since it was cached)
+		Object.values(parsed.catalogs ?? {}).forEach(localizeCatalog);
 		states.set(storeKey(userId, mediaType), parsed);
 		subscribers.forEach((fn) => fn());
 		return parsed;
@@ -75,31 +81,102 @@ onHistoryChange((change) => {
 	handleChange(change).catch((err) => console.error("[watchHistory] patch failed:", err));
 });
 
-// Asked once per session — a catalog doc that doesn't exist isn't re-read on every update
-const catalogRequested = new Set<string>();
-
-/** Catalog docs not cached, or cached before logos existed → fetched in one batch */
-async function ensureCatalogs(state: HistoryState): Promise<boolean> {
-	const missing = state.items
-		.filter((e) => {
-			const c = getCachedCatalogShow(e.tmdbId, e.mediaType);
-			return !c || !("logoPath" in c);
-		})
-		.map((e) => showDocId(e.tmdbId, e.mediaType))
-		.filter((id) => !catalogRequested.has(id));
-	if (missing.length === 0) return false;
-	missing.forEach((id) => catalogRequested.add(id));
-	cacheCatalogShows(await fetchCatalogShows(missing));
-	return true;
-}
-
 // --- Hook ---
 
+/** History sort choice, kept across visits (cache); defaults to last watched */
+export function useHistorySort(): [HistorySort, (sort: HistorySort) => void] {
+	const [sort, setSort] = useState(HistorySort.LAST_WATCHED);
+	useEffect(() => {
+		AsyncStorage.getItem(CacheKey.HISTORY_SORT)
+			.then((saved) => {
+				if (saved && (Object.values(HistorySort) as string[]).includes(saved))
+					setSort(saved as HistorySort);
+			})
+			.catch(() => {});
+	}, []);
+	const choose = useCallback((next: HistorySort) => {
+		setSort(next);
+		AsyncStorage.setItem(CacheKey.HISTORY_SORT, next).catch(() => {});
+	}, []);
+	return [sort, choose];
+}
+
+const NO_FILTERS: ReadonlySet<HistoryFilter> = new Set();
+
+/** A sorted / filtered view: pages straight from Firestore (not cached — 20 reads a page) */
+function useHistoryView(
+	userId: string | undefined,
+	mediaType: MediaType,
+	sort: HistorySort,
+	filters: ReadonlySet<HistoryFilter>,
+	enabled: boolean,
+) {
+	const statuses = historyFilterStatuses(filters);
+	const viewKey = `${mediaType}|${sort}|${statuses.join(",")}`;
+	const [view, setView] = useState<{ key: string; items: HistoryEntry[]; hasMore: boolean } | null>(
+		null,
+	);
+	const [busy, setBusy] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	const current = view?.key === viewKey ? view : null;
+
+	const fetchPage = useCallback(
+		async (after: HistoryEntry | null) => {
+			if (!userId) return;
+			setBusy(true);
+			try {
+				const page = await fetchHistoryViewPage(userId, mediaType, sort, statuses, after);
+				setView((prev) => {
+					const base = after && prev?.key === viewKey ? prev.items : [];
+					const seen = new Set(base.map((e) => e.id));
+					return {
+						key: viewKey,
+						items: [...base, ...page.entries.filter((e) => !seen.has(e.id))],
+						hasMore: page.hasMore,
+					};
+				});
+				setError(null);
+			} catch (err) {
+				console.error("[watchHistory] view page failed:", err);
+				setError("Couldn't load your watch history");
+			} finally {
+				setBusy(false);
+			}
+		},
+		// statuses is derived from viewKey
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[userId, viewKey],
+	);
+
+	// New view (sort / filters / tab) → its first page
+	useEffect(() => {
+		if (enabled) fetchPage(null);
+	}, [enabled, fetchPage]);
+
+	const loadMore = useCallback(() => {
+		if (!current?.hasMore || busy) return;
+		fetchPage(current.items[current.items.length - 1] ?? null);
+	}, [current, busy, fetchPage]);
+
+	return {
+		items: current?.items ?? null,
+		hasMore: current?.hasMore ?? true,
+		busy,
+		error,
+		loadMore,
+	};
+}
+
 /**
- * Watch History for one tab (SWR): cached cards render immediately, a delta query
- * (`historyUpdatedAt > checkedAt`) refreshes them quietly, pages of 20 load on demand.
+ * Watch History for one tab. Default view (SWR): cached cards render immediately, a delta
+ * query (`historyUpdatedAt > checkedAt`) refreshes them quietly, pages of 20 load on demand.
+ * Another sort / status filter pages from Firestore with that order / filter.
  */
-export function useWatchHistory(mediaType: MediaType) {
+export function useWatchHistory(
+	mediaType: MediaType,
+	sort: HistorySort = HistorySort.LAST_WATCHED,
+	filters: ReadonlySet<HistoryFilter> = NO_FILTERS,
+) {
 	const userId = useAuthStore((s) => s.user?.uid);
 	const state = useSyncExternalStore(
 		useCallback((fn: () => void) => {
@@ -144,11 +221,21 @@ export function useWatchHistory(mediaType: MediaType) {
 		};
 	}, [userId, mediaType]);
 
+	// Persisted catalog cache restores in the background — re-derive once it's in
+	useEffect(() => {
+		let cancelled = false;
+		whenCatalogRestored().then(() => !cancelled && setCatalogVersion((v) => v + 1));
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
 	useEffect(() => {
 		if (!state) return;
-		ensureCatalogs(state)
-			.then((fetched) => fetched && setCatalogVersion((v) => v + 1))
-			.catch(() => {});
+		ensureFreshCatalogs(state.items)
+			// Failed → re-derive anyway: those cards stop waiting and render what they have
+			.catch(() => true)
+			.then((fetched) => fetched && setCatalogVersion((v) => v + 1));
 	}, [state]);
 
 	const loadMore = useCallback(async () => {
@@ -166,14 +253,58 @@ export function useWatchHistory(mediaType: MediaType) {
 		}
 	}, [userId, mediaType, state, loadingMore]);
 
+	const isDefault = isDefaultHistoryView(sort, filters);
+	const view = useHistoryView(userId, mediaType, sort, filters, !isDefault);
+
+	const viewItems = view.items;
+	const entries = useMemo(
+		() => (isDefault ? (state?.items ?? []) : (viewItems ?? [])),
+		[isDefault, state?.items, viewItems],
+	);
+	// Catalog details (logo, backdrop, status) for a view's titles too
+	useEffect(() => {
+		if (isDefault || !view.items?.length) return;
+		ensureFreshCatalogs(view.items)
+			.catch(() => true)
+			.then((fetched) => fetched && setCatalogVersion((v) => v + 1));
+	}, [isDefault, view.items]);
+
+	// Shared catalog first, else the copy kept with the list (cold catalog cache / slow network)
+	const kept = state?.catalogs;
 	const cards: HistoryCard[] = useMemo(() => {
 		const today = todayStr();
-		return (state?.items ?? []).map((e) =>
-			deriveHistoryCard(e, getCachedCatalogShow(e.tmdbId, e.mediaType), today),
+		return entries.map((e) =>
+			deriveHistoryCard(
+				e,
+				getCachedCatalogShow(e.tmdbId, e.mediaType) ?? kept?.[e.id] ?? null,
+				today,
+				catalogSettled(e.tmdbId, e.mediaType),
+			),
 		);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [state, catalogVersion]);
+	}, [entries, kept, catalogVersion]);
 
+	// Keep each card's catalog with the cached list, so the next open renders it from disk
+	useEffect(() => {
+		if (!userId || entries.length === 0) return;
+		const latest = states.get(storeKey(userId, mediaType));
+		if (!latest) return;
+		const next = withHistoryCatalogs(latest, entries, (e) =>
+			getCachedCatalogShow(e.tmdbId, e.mediaType),
+		);
+		if (next !== latest) save(mediaType, next);
+	}, [userId, mediaType, entries, catalogVersion]);
+
+	if (!isDefault) {
+		return {
+			cards,
+			loading: view.items === null,
+			loadingMore: view.busy && view.items !== null,
+			hasMore: view.hasMore,
+			error: view.error,
+			loadMore: view.loadMore,
+		};
+	}
 	return {
 		cards,
 		loading: loading && !state,

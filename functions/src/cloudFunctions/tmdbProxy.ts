@@ -1,4 +1,3 @@
-// functions/src/cloudFunctions/tmdbProxy.ts
 import { onRequest } from "firebase-functions/v2/https";
 import {
   defineBoolean,
@@ -21,7 +20,7 @@ const ALLOWED_ORIGINS = defineString("TMDB_PROXY_ALLOWED_ORIGINS", {
   default:
     "https://watchloom-app.web.app,https://watchloom-app.firebaseapp.com,http://localhost:5173",
 });
-/** true → reject requests without a valid App Check token (turn on once the web app ships App Check) */
+/** true → reject requests without a valid App Check token (only once the web build has VITE_RECAPTCHA_SITE_KEY set, or guests get locked out) */
 const ENFORCE_APP_CHECK = defineBoolean("TMDB_PROXY_ENFORCE_APP_CHECK", {
   default: false,
 });

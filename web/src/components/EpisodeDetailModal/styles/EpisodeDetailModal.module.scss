@@ -15,6 +15,8 @@
 .scroller {
 	display: flex;
 	overflow-x: auto;
+	/* Swipe UI: dragging must not highlight text across cards */
+	user-select: none;
 	scroll-snap-type: x mandatory;
 	scrollbar-width: none;
 	padding: 0 calc((100vw - var(--card-w)) / 2);
@@ -37,6 +39,16 @@
 	will-change: transform;
 }
 
+/* Side cards are previews: click brings them to the centre; their buttons stay inert
+   so you can't act on an episode you're not looking at */
+.sideCard {
+	cursor: pointer;
+
+	> * {
+		pointer-events: none;
+	}
+}
+
 .cardContent {
 	width: var(--card-w);
 	height: var(--card-h);
@@ -56,7 +68,6 @@
 .imageSkeleton {
 	position: absolute;
 	inset: 0;
-	background: var(--surface-light);
 }
 
 .still {
@@ -226,7 +237,6 @@
 .skeletonLineShort {
 	height: 14px;
 	border-radius: 4px;
-	background: var(--surface-light);
 }
 
 .skeletonTitle {
@@ -236,20 +246,6 @@
 
 .skeletonLineShort {
 	width: 40%;
-}
-
-.shimmer {
-	animation: shimmer 1.2s ease-in-out infinite;
-}
-
-@keyframes shimmer {
-	0%,
-	100% {
-		opacity: 0.4;
-	}
-	50% {
-		opacity: 1;
-	}
 }
 
 .dotRow {

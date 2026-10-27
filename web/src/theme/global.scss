@@ -8,6 +8,7 @@
 	--surface: #1a1a1a;
 	--surface-light: #252525;
 	--primary: #e50914;
+	--movie-purple: #{$movie-purple};
 	--text: #ffffff;
 	--text-secondary: #a0a0a0;
 	--text-muted: #666666;
@@ -27,12 +28,18 @@ body,
 	background: var(--bg);
 	color: var(--text);
 	-webkit-tap-highlight-color: transparent;
-	overscroll-behavior-y: none;
 }
 
 body {
-	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
-		sans-serif;
+	font-family: $font-family;
+}
+
+/* Form controls don't inherit the page font by default (no Tailwind preflight here) */
+button,
+input,
+select,
+textarea {
+	font-family: inherit;
 }
 
 a {

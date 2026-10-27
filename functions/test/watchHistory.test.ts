@@ -23,6 +23,16 @@ test("aggregateHistory: runtime × watchCount, plays, latest watch per show", ()
     { minutesWatched: 105, plays: 3, historyAt: 300 },
   );
   assert.equal(totals.get("tv_2")!.plays, 1);
+
+  // Last Watched = the episode with the latest lastWatchedAt
+  const withEps = aggregateHistory(
+    [
+      { tmdbShowId: 1, season: 1, episode: 5, lastWatchedAt: at(500) },
+      { tmdbShowId: 1, season: 2, episode: 1, lastWatchedAt: at(100) },
+    ],
+    [],
+  );
+  assert.deepEqual(withEps.get("tv_1")!.lastEpisode, { season: 1, episode: 5 });
   assert.equal(totals.get("movie_9")!.minutesWatched, 360);
 });
 
@@ -54,4 +64,39 @@ test("pickLogo: English first, then language-neutral, else null", () => {
   assert.equal(pickLogo([{ file_path: "/null.png", iso_639_1: null }]), "/null.png");
   assert.equal(pickLogo([{ file_path: "/fr.png", iso_639_1: "fr" }]), null);
   assert.equal(pickLogo(undefined), null);
+});
+
+test("aggregateHistory: Last Watched on bulk imports (every episode at the same time)", () => {
+  // A special listed first used to leave Last Watched empty: season 0 counted as "no episode",
+  // and same-time docs after it never replaced it
+  const imported = aggregateHistory(
+    [
+      { tmdbShowId: 1, season: 0, episode: 7, lastWatchedAt: at(100) },
+      { tmdbShowId: 1, season: 1, episode: 1, lastWatchedAt: at(100) },
+      { tmdbShowId: 1, season: 1, episode: 25, lastWatchedAt: at(100) },
+      { tmdbShowId: 1, season: 1, episode: 2, lastWatchedAt: at(100) },
+    ],
+    [],
+  );
+  assert.deepEqual(imported.get("tv_1")!.lastEpisode, { season: 1, episode: 25 });
+
+  // Only specials watched → the latest special still counts
+  const specials = aggregateHistory(
+    [
+      { tmdbShowId: 2, season: 0, episode: 1, lastWatchedAt: at(100) },
+      { tmdbShowId: 2, season: 0, episode: 3, lastWatchedAt: at(100) },
+    ],
+    [],
+  );
+  assert.deepEqual(specials.get("tv_2")!.lastEpisode, { season: 0, episode: 3 });
+
+  // A later watch still wins over a higher episode watched earlier
+  const later = aggregateHistory(
+    [
+      { tmdbShowId: 3, season: 2, episode: 9, lastWatchedAt: at(100) },
+      { tmdbShowId: 3, season: 1, episode: 4, lastWatchedAt: at(200) },
+    ],
+    [],
+  );
+  assert.deepEqual(later.get("tv_3")!.lastEpisode, { season: 1, episode: 4 });
 });

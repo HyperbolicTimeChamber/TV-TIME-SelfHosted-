@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { View, FlatList, Pressable, Animated, Modal } from "react-native";
 
 import { SNAP_INTERVAL, CARD_GAP, SIDE_PADDING, AnimatedFlatList, epKey } from "./constants";
@@ -6,6 +6,8 @@ import { styles } from "./styles";
 import { Card3DWrapper } from "./Card3DWrapper";
 import { EpisodeCard } from "./EpisodeCard";
 import { BackfillModal } from "./BackfillModal";
+import { markWatchedLabel } from "../../../utils/format";
+import { carouselRunBase } from "../../../utils/trackingAdvance";
 import type {
 	CarouselEpisode,
 	EnrichedEpisode,
@@ -13,6 +15,15 @@ import type {
 } from "../../../types/episodeCarousel";
 
 export type { CarouselEpisode } from "../../../types/episodeCarousel";
+
+/** Enough to put on screen now: anything with a title, a still or an overview renders (the
+ *  missing pieces fill in as the season loads). Only a card with nothing at all — a neighbour
+ *  whose season hasn't been fetched — falls back to the skeleton. */
+const hasContent = (ep: CarouselEpisode) => !!(ep.title || ep.stillPath || ep.overview);
+
+/** Has the full detail, so its season needn't be fetched again. `loaded` only decides card vs
+ *  skeleton — a card can be on screen from catalog data and still be waiting for its overview */
+const isFull = (ep: CarouselEpisode) => !!(ep.overview && ep.stillPath);
 
 export default function EpisodeDetailModal({
 	visible,
@@ -24,6 +35,7 @@ export default function EpisodeDetailModal({
 	initialIndex,
 	watchedKeys,
 	currentNextEpisode,
+	rewatchCount = 0,
 	onMarkWatched,
 	onMarkWatchedThrough,
 	onUnmarkWatched,
@@ -32,17 +44,16 @@ export default function EpisodeDetailModal({
 	onClose,
 	onLoadEpisodeDetails,
 	onIndexChange,
+	readOnly,
 }: Readonly<EpisodeDetailModalProps>) {
 	const carouselRef = useRef<FlatList>(null);
 	const [localWatched, setLocalWatched] = useState<Map<string, number>>(watchedKeys);
 	const noLoader = !onLoadEpisodeDetails;
 	const [enrichedEps, setEnrichedEps] = useState<EnrichedEpisode[]>(() =>
-		episodes.map((ep) => ({
-			...ep,
-			loaded: noLoader || !!(ep.overview && ep.stillPath),
-		})),
+		episodes.map((ep) => ({ ...ep, loaded: noLoader || hasContent(ep) })),
 	);
 	const loadingSeasons = useRef(new Set<number>());
+	const fetchedSeasons = useRef(new Set<number>());
 	const scrollX = useRef(new Animated.Value(initialIndex * SNAP_INTERVAL)).current;
 	const [scrollEnabled, setScrollEnabled] = useState(true);
 	const [markingKey, setMarkingKey] = useState<string | null>(null);
@@ -59,21 +70,34 @@ export default function EpisodeDetailModal({
 		setLocalWatched(watchedKeys);
 	}, [watchedKeys]);
 
+	// Watched in this run = count above runBase. From the counts the modal opened with (the
+	// pointer episode sits at it), not the stored rewatch number — that one can lag, which
+	// showed the next rewatch episode as already watched (Unwatch / Rewatch / Skip)
+	const runBase = useMemo(() => {
+		const inRewatch = rewatchCount > 0 || !!onSkipEpisode;
+		if (!inRewatch || !currentNextEpisode) return inRewatch ? Math.max(1, rewatchCount) : 0;
+		const at = episodes.findIndex(
+			(e) => e.season === currentNextEpisode.season && e.episode === currentNextEpisode.episode,
+		);
+		const prev = at > 0 ? episodes[at - 1] : null;
+		return carouselRunBase(
+			true,
+			watchedKeys.get(epKey(currentNextEpisode.season, currentNextEpisode.episode)),
+			prev ? watchedKeys.get(epKey(prev.season, prev.episode)) : null,
+			rewatchCount,
+		);
+	}, [rewatchCount, onSkipEpisode, currentNextEpisode, episodes, watchedKeys]);
+
 	useEffect(() => {
 		if (!visible) return;
-		setEnrichedEps(
-			episodes.map((ep) => ({
-				...ep,
-				loaded: noLoader || !!(ep.overview && ep.stillPath),
-			})),
-		);
+		setEnrichedEps(episodes.map((ep) => ({ ...ep, loaded: noLoader || hasContent(ep) })));
 		setActiveIndex(initialIndex);
 		scrollX.setValue(initialIndex * SNAP_INTERVAL);
 	}, [visible, episodes, initialIndex, noLoader, scrollX]);
 
 	const fetchSeason = useCallback(
 		async (seasonNum: number) => {
-			if (loadingSeasons.current.has(seasonNum)) return;
+			if (loadingSeasons.current.has(seasonNum) || fetchedSeasons.current.has(seasonNum)) return;
 			loadingSeasons.current.add(seasonNum);
 			try {
 				let seasonEps: CarouselEpisode[] | null = null;
@@ -88,11 +112,22 @@ export default function EpisodeDetailModal({
 				}
 				setEnrichedEps((prev) =>
 					prev.map((ep) => {
-						if (ep.season !== seasonNum || ep.loaded) return ep;
+						if (ep.season !== seasonNum || isFull(ep)) return ep;
 						const detail = detailMap.get(epKey(ep.season, ep.episode));
-						return detail ? { ...detail, loaded: true } : { ...ep, loaded: true };
+						// Keep what the card is already showing where the fetch has nothing better
+						return detail
+							? {
+									...ep,
+									...detail,
+									title: detail.title ?? ep.title,
+									stillPath: detail.stillPath ?? ep.stillPath,
+									overview: detail.overview ?? ep.overview,
+									loaded: true,
+								}
+							: { ...ep, loaded: true };
 					}),
 				);
+				fetchedSeasons.current.add(seasonNum);
 			} finally {
 				loadingSeasons.current.delete(seasonNum);
 			}
@@ -107,7 +142,7 @@ export default function EpisodeDetailModal({
 			const seasonsToFetch = new Set<number>();
 			for (let i = index; i <= Math.min(index + 2, enrichedEps.length - 1); i++) {
 				const ep = enrichedEps[i];
-				if (ep && !ep.loaded) {
+				if (ep && !isFull(ep)) {
 					seasonsToFetch.add(ep.season);
 				}
 			}
@@ -123,9 +158,10 @@ export default function EpisodeDetailModal({
 		const seasonsToFetch = new Set<number>();
 		const start = Math.max(0, initialIndex);
 		const end = Math.min(episodes.length, start + 3);
+		fetchedSeasons.current.clear();
 		for (let i = start; i < end; i++) {
 			const ep = episodes[i];
-			if (!(ep.overview && ep.stillPath)) {
+			if (!isFull(ep)) {
 				seasonsToFetch.add(ep.season);
 			}
 		}
@@ -140,7 +176,7 @@ export default function EpisodeDetailModal({
 			const key = epKey(ep.season, ep.episode);
 			if (!currentNextEpisode) {
 				setMarkingKey(key);
-				onMarkWatched(tmdbId, ep.season, ep.episode).finally(() => {
+				onMarkWatched(tmdbId, ep.season, ep.episode, ep.runtime).finally(() => {
 					setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
 					setMarkingKey(null);
 				});
@@ -155,7 +191,7 @@ export default function EpisodeDetailModal({
 
 			if (isNext || !isAhead) {
 				setMarkingKey(key);
-				onMarkWatched(tmdbId, ep.season, ep.episode).finally(() => {
+				onMarkWatched(tmdbId, ep.season, ep.episode, ep.runtime).finally(() => {
 					setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
 					setMarkingKey(null);
 				});
@@ -167,7 +203,7 @@ export default function EpisodeDetailModal({
 							(e.season === currentNextEpisode.season &&
 								e.episode >= currentNextEpisode.episode)) &&
 						(e.season < ep.season || (e.season === ep.season && e.episode < ep.episode));
-					return isBetween && !localWatched.has(eKey);
+					return isBetween && (localWatched.get(eKey) ?? 0) <= runBase;
 				});
 
 				if (hasGaps) {
@@ -175,14 +211,14 @@ export default function EpisodeDetailModal({
 					setConfirmVisible(true);
 				} else {
 					setMarkingKey(key);
-					onMarkWatched(tmdbId, ep.season, ep.episode).finally(() => {
+					onMarkWatched(tmdbId, ep.season, ep.episode, ep.runtime).finally(() => {
 						setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
 						setMarkingKey(null);
 					});
 				}
 			}
 		},
-		[currentNextEpisode, episodes, localWatched, tmdbId, onMarkWatched],
+		[currentNextEpisode, episodes, localWatched, runBase, tmdbId, onMarkWatched],
 	);
 
 	const handleConfirmBackfill = useCallback(async () => {
@@ -192,16 +228,31 @@ export default function EpisodeDetailModal({
 		setMarkingKey(key);
 
 		try {
-			await onMarkWatchedThrough(tmdbId, confirmTarget.season, confirmTarget.episode);
+			const markedRefs = await onMarkWatchedThrough(
+				tmdbId,
+				confirmTarget.season,
+				confirmTarget.episode,
+			);
+			// Mirror the write: the episodes the handler reports, else every episode from the
+			// current next one through the target gets one more watch (already-counted ones too
+			// during a rewatch)
+			const from = currentNextEpisode ?? { season: 1, episode: 1 };
+			const onOrAfter = (s: number, e: number) =>
+				s > from.season || (s === from.season && e >= from.episode);
+			const onOrBefore = (s: number, e: number) =>
+				s < confirmTarget.season || (s === confirmTarget.season && e <= confirmTarget.episode);
+			const reported = markedRefs
+				? new Set(markedRefs.map((r) => epKey(r.season, r.episode)))
+				: null;
 			setLocalWatched((prev) => {
 				const next = new Map(prev);
 				for (const ep of episodes) {
-					if (
-						ep.season < confirmTarget.season ||
-						(ep.season === confirmTarget.season && ep.episode <= confirmTarget.episode)
-					) {
+					const inRange = reported
+						? reported.has(epKey(ep.season, ep.episode))
+						: onOrAfter(ep.season, ep.episode) && onOrBefore(ep.season, ep.episode);
+					if (inRange) {
 						const k = epKey(ep.season, ep.episode);
-						if (!next.has(k)) next.set(k, 1);
+						next.set(k, (next.get(k) ?? 0) + 1);
 					}
 				}
 				return next;
@@ -212,7 +263,25 @@ export default function EpisodeDetailModal({
 			setConfirmVisible(false);
 			setConfirmTarget(null);
 		}
-	}, [confirmTarget, tmdbId, episodes, onMarkWatchedThrough]);
+		// Caught up through this card (a failed mark threw above): slide on to the next one, or close
+		// after the last
+		const at = enrichedEps.findIndex(
+			(e) => e.season === confirmTarget.season && e.episode === confirmTarget.episode,
+		);
+		if (at >= 0 && at < enrichedEps.length - 1) {
+			carouselRef.current?.scrollToIndex({ index: at + 1, animated: true });
+		} else {
+			onClose();
+		}
+	}, [
+		confirmTarget,
+		tmdbId,
+		episodes,
+		enrichedEps,
+		onMarkWatchedThrough,
+		currentNextEpisode,
+		onClose,
+	]);
 
 	const handleDeclineBackfill = useCallback(async () => {
 		if (!confirmTarget) return;
@@ -221,7 +290,10 @@ export default function EpisodeDetailModal({
 		setMarkingKey(key);
 
 		try {
-			await onMarkWatched(tmdbId, confirmTarget.season, confirmTarget.episode);
+			const target = enrichedEps.find(
+				(e) => e.season === confirmTarget.season && e.episode === confirmTarget.episode,
+			);
+			await onMarkWatched(tmdbId, confirmTarget.season, confirmTarget.episode, target?.runtime);
 			setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
 		} finally {
 			setMarkingKey(null);
@@ -233,7 +305,8 @@ export default function EpisodeDetailModal({
 		({ item, index }: { item: EnrichedEpisode; index: number }) => {
 			const key = epKey(item.season, item.episode);
 			const wc = localWatched.get(key) ?? 0;
-			const isWatched = wc > 0;
+			// Rewatch n is a fresh run: watched only once seen more than n times
+			const isWatched = wc > runBase;
 			const isCurrentNext =
 				currentNextEpisode?.season === item.season && currentNextEpisode?.episode === item.episode;
 			const onSkip =
@@ -256,6 +329,8 @@ export default function EpisodeDetailModal({
 							watchCount={wc}
 							isLoaded={!!item.loaded}
 							isMarking={markingKey === key}
+							readOnly={readOnly}
+							markLabel={markWatchedLabel(runBase)}
 							onMarkWatched={() => handleMark(item)}
 							onUnwatch={() => {
 								setMarkingKey(key);
@@ -275,7 +350,7 @@ export default function EpisodeDetailModal({
 							}}
 							onRewatch={() => {
 								setMarkingKey(key);
-								onMarkWatched(tmdbId, item.season, item.episode).finally(() => {
+								onMarkWatched(tmdbId, item.season, item.episode, item.runtime).finally(() => {
 									setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
 									setMarkingKey(null);
 								});
@@ -290,6 +365,7 @@ export default function EpisodeDetailModal({
 		[
 			localWatched,
 			markingKey,
+			readOnly,
 			handleMark,
 			showTitle,
 			showPosterPath,
@@ -299,6 +375,7 @@ export default function EpisodeDetailModal({
 			onMarkWatched,
 			onSkipEpisode,
 			currentNextEpisode,
+			runBase,
 			onShowPress,
 			scrollX,
 		],

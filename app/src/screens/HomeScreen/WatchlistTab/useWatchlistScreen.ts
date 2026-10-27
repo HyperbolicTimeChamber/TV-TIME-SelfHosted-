@@ -10,7 +10,6 @@ import {
 	unmarkMovieWatched,
 	decrementMovieWatchCount,
 	getCatalogShow,
-	getSeasonDetails,
 	getShowDetails,
 } from "../../../services";
 import {
@@ -32,6 +31,7 @@ import {
 	query,
 	where,
 	getDocs,
+	getDocsFromCache,
 } from "@react-native-firebase/firestore";
 import {
 	insertWatchedEpisodeCache,
@@ -39,6 +39,7 @@ import {
 	insertWatchedMovieCache,
 	incrementDailyWatch,
 	decrementDailyWatch,
+	loadSeasonEpisodes,
 } from "../../../hooks";
 import { useWatchlistData } from "./useWatchlistData";
 import { todayStr } from "../../../utils";
@@ -48,6 +49,32 @@ import { todayStr } from "../../../utils";
  * sheets/swipes). Shared by the mobile WatchlistTab and the web watchlist.
  * Navigation is passed in so the hook stays platform-neutral.
  */
+/** Watched counts keyed SxxEyy, as the episode modal reads them */
+/** Everything before the show's next episode counts as watched once — what the watchlist card
+ *  itself shows, so the popup can open with it while the real counts are fetched */
+function watchedKeysBefore(
+	eps: CarouselEpisode[],
+	next: { season: number; episode: number },
+): Map<string, number> {
+	const keys = new Map<string, number>();
+	for (const e of eps) {
+		if (e.season > next.season || (e.season === next.season && e.episode >= next.episode)) break;
+		keys.set(`S${String(e.season).padStart(2, "0")}E${String(e.episode).padStart(2, "0")}`, 1);
+	}
+	return keys;
+}
+
+function watchedKeysOf(rows: WatchedEpisode[]): Map<string, number> {
+	const keys = new Map<string, number>();
+	for (const we of rows) {
+		keys.set(
+			`S${String(we.season).padStart(2, "0")}E${String(we.episode).padStart(2, "0")}`,
+			we.watchCount ?? 1,
+		);
+	}
+	return keys;
+}
+
 export function useWatchlistScreen(
 	handleNavigateToShow: (tmdbId: number, mediaType: MediaType) => void,
 ) {
@@ -60,6 +87,7 @@ export function useWatchlistScreen(
 	const {
 		listData,
 		loading,
+		listSettled,
 		loadMoreTracking,
 		loadingMoreTracking,
 		loadMorePrevWatched,
@@ -101,6 +129,8 @@ export function useWatchlistScreen(
 		currentNextEpisode: { season: number; episode: number } | null;
 		/** Skipping is only offered during a rewatch */
 		isRewatching: boolean;
+		/** Rewatch run number while rewatching, else 0 */
+		rewatchCount: number;
 	} | null>(null);
 	const epModalTmdbIdRef = useRef<number | null>(null);
 	// Show drawer state
@@ -145,7 +175,6 @@ export function useWatchlistScreen(
 
 			if (allEps.length === 0) return;
 
-			// Find current episode index
 			const rawIdx = Math.max(
 				0,
 				allEps.findIndex((e) => e.season === ep.season && e.episode === ep.episode),
@@ -163,28 +192,15 @@ export function useWatchlistScreen(
 				initialIdx = rawIdx - start;
 			}
 
-			// Build watched keys from query cache
-			// Fetch ALL watched episodes for this show (complete + correct counts)
-			let showWatched = queryClient.getQueryData<WatchedEpisode[]>([
-				QueryKey.WATCHED_EPISODES,
-				user?.uid,
-				tmdbId,
-			]);
-			if (!showWatched) {
-				const db = getFirestore();
-				const colRef = collection(doc(db, "users", user!.uid), "watchedEpisodes");
-				const q = query(colRef, where("tmdbShowId", "==", tmdbId));
-				const snap = await getDocs(q);
-				showWatched = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as WatchedEpisode[];
-				queryClient.setQueryData([QueryKey.WATCHED_EPISODES, user!.uid, tmdbId], showWatched);
-			}
-			const wKeys = new Map<string, number>();
-			for (const we of showWatched) {
-				wKeys.set(
-					`S${String(we.season).padStart(2, "0")}E${String(we.episode).padStart(2, "0")}`,
-					we.watchCount ?? 1,
-				);
-			}
+			// Watched keys: this show's query cache when it's there, else what the pointer already
+			// tells us — every released episode before `nextEpisode` has been watched. Awaiting
+			// Firestore here held the popup shut for the whole round trip; the real counts patch
+			// in below the moment they land.
+			const watchedKey = [QueryKey.WATCHED_EPISODES, user?.uid, tmdbId];
+			const cachedWatched = queryClient.getQueryData<WatchedEpisode[]>(watchedKey);
+			const wKeys = cachedWatched
+				? watchedKeysOf(cachedWatched)
+				: watchedKeysBefore(carouselEps, ep);
 
 			epModalTmdbIdRef.current = tmdbId;
 			setEpModalData({
@@ -197,8 +213,31 @@ export function useWatchlistScreen(
 				watchedKeys: wKeys,
 				currentNextEpisode: ep,
 				isRewatching: item.status === WatchStatus.REWATCHING,
+				rewatchCount: item.status === WatchStatus.REWATCHING ? (item.rewatchCount ?? 0) : 0,
 			});
 			setEpModalVisible(true);
+
+			// …and the real counts in the background, oldest source first
+			if (cachedWatched) return;
+			const uid = user?.uid;
+			if (!uid) return;
+			const db = getFirestore();
+			const colRef = collection(doc(db, "users", uid), "watchedEpisodes");
+			const q = query(colRef, where("tmdbShowId", "==", tmdbId));
+			const rowsOf = (snap: { docs: { id: string; data: () => unknown }[] }) =>
+				snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) })) as WatchedEpisode[];
+			const patch = (rows: WatchedEpisode[]) => {
+				queryClient.setQueryData(watchedKey, rows);
+				setEpModalData((prev) =>
+					prev?.tmdbId === tmdbId ? { ...prev, watchedKeys: watchedKeysOf(rows) } : prev,
+				);
+			};
+			// Device copy first (instant, not a billed read), then the server's
+			const cached = await getDocsFromCache(q).catch(() => null);
+			if (cached && !cached.empty) patch(rowsOf(cached));
+			await getDocs(q)
+				.then((snap) => patch(rowsOf(snap)))
+				.catch(() => {});
 		},
 		[listData, user?.uid, queryClient],
 	);
@@ -218,41 +257,10 @@ export function useWatchlistScreen(
 		[handleSkipEpisode],
 	);
 
+	// Shared with Calendar: TMDB season via the query cache, no Firestore fallback read
 	const handleLoadEpisodeDetails = useCallback(
-		async (season: number): Promise<CarouselEpisode[] | null> => {
-			const tmdbId = epModalTmdbIdRef.current;
-			const apiKey = useAuthStore.getState().appTmdbApiKey;
-			if (!apiKey || !tmdbId) return null;
-			try {
-				const seasonData = await getSeasonDetails(apiKey, tmdbId, season);
-				return seasonData.episodes.map((e) => ({
-					season: e.season_number ?? season,
-					episode: e.episode_number,
-					title: e.name || null,
-					airDate: e.air_date || null,
-					runtime: e.runtime || null,
-					stillPath: e.still_path || null,
-					overview: e.overview || null,
-				}));
-			} catch {
-				// Firestore fallback
-				const catalog = await getCatalogShow(tmdbId, MediaType.TV);
-				const catSeason = catalog?.seasons?.find((s) => s.seasonNumber === season);
-				if (catSeason) {
-					return catSeason.episodes.map((e) => ({
-						season: catSeason.seasonNumber,
-						episode: e.episodeNumber,
-						title: e.title || null,
-						airDate: e.airDate || null,
-						runtime: e.runtime || null,
-						stillPath: e.stillPath || null,
-						overview: e.overview || null,
-					}));
-				}
-				return null;
-			}
-		},
-		[],
+		(season: number) => loadSeasonEpisodes(queryClient, epModalTmdbIdRef.current, season),
+		[queryClient],
 	);
 
 	const handleEpModalShowPress = useCallback(() => {
@@ -676,6 +684,7 @@ export function useWatchlistScreen(
 		sheetLabel,
 		listData,
 		loading,
+		listSettled,
 		loadMoreTracking,
 		loadingMoreTracking,
 		loadMorePrevWatched,

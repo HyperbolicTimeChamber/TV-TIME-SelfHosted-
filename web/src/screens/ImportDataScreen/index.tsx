@@ -31,7 +31,12 @@ function Counter({ target, total }: { target: number; total: number }) {
 	}, [target]);
 	return (
 		<>
-			<Progress percent={total ? (display / total) * 100 : 0} showInfo={false} strokeColor="var(--primary)" className="w-4/5! mt-4" />
+			<Progress
+				percent={total ? (display / total) * 100 : 0}
+				showInfo={false}
+				strokeColor="var(--primary)"
+				className="w-4/5! mt-4"
+			/>
 			<span className={styles.progressText}>
 				{display} / {total}
 			</span>
@@ -39,8 +44,20 @@ function Counter({ target, total }: { target: number; total: number }) {
 	);
 }
 
-function CandidateRow({ item, apiKey, onSelect }: { item: TMDBMatch; apiKey: string; onSelect: () => void }) {
-	const [drawer, setDrawer] = useState<{ visible: boolean; data: ShowDrawerData | null; loading: boolean }>({ visible: false, data: null, loading: false });
+function CandidateRow({
+	item,
+	apiKey,
+	onSelect,
+}: {
+	item: TMDBMatch;
+	apiKey: string;
+	onSelect: () => void;
+}) {
+	const [drawer, setDrawer] = useState<{
+		visible: boolean;
+		data: ShowDrawerData | null;
+		loading: boolean;
+	}>({ visible: false, data: null, loading: false });
 	const openDetails = async () => {
 		setDrawer((d) => ({ ...d, visible: true, loading: !d.data }));
 		if (drawer.data) return;
@@ -86,16 +103,25 @@ function CandidateRow({ item, apiKey, onSelect }: { item: TMDBMatch; apiKey: str
 				<div className={styles.candidateInfo}>
 					<div className={styles.candidateHeader}>
 						<span className={styles.candidateName}>{item.tmdbName}</span>
-						<span className={`${styles.typeBadge} ${item.mediaType === "movie" ? styles.typeBadgeMovie : ""}`}>
+						<span
+							className={`${styles.typeBadge} ${item.mediaType === "movie" ? styles.typeBadgeMovie : ""}`}
+						>
 							{item.mediaType === "tv" ? "TV" : "MOVIE"}
 						</span>
 					</div>
 					<span className={styles.candidateYear}>{item.year || "N/A"}</span>
-					<span className={styles.candidateOverview}>{item.overview || "No description available"}</span>
+					<span className={styles.candidateOverview}>
+						{item.overview || "No description available"}
+					</span>
 					<span className={styles.expandHint}>Long press for details</span>
 				</div>
 			</div>
-			<ShowDrawer visible={drawer.visible} show={drawer.data} loading={drawer.loading} onClose={() => setDrawer((d) => ({ ...d, visible: false }))} />
+			<ShowDrawer
+				visible={drawer.visible}
+				show={drawer.data}
+				loading={drawer.loading}
+				onClose={() => setDrawer((d) => ({ ...d, visible: false }))}
+			/>
 		</>
 	);
 }
@@ -118,10 +144,18 @@ export default function ImportDataScreen() {
 			seen.add(key);
 			(m.mediaType === "tv" ? shows : movies).push(m);
 		}
-		const selShows = imp.matched.filter((m) => m.mediaType === "tv" && imp.selected.has(`tv-${m.tmdbId}`));
-		const selectedTvTimeIds = new Set(selShows.map((m) => m.tvTimeId).filter((x) => x !== undefined));
-		const episodes = imp.parsedRef.current?.watchedEpisodes.filter((e) => selectedTvTimeIds.has(e.tvTimeShowId)).length ?? 0;
-		const movieCount = imp.matched.filter((m) => m.mediaType === "movie" && imp.selected.has(`movie-${m.tmdbId}`)).length;
+		const selShows = imp.matched.filter(
+			(m) => m.mediaType === "tv" && imp.selected.has(`tv-${m.tmdbId}`),
+		);
+		const selectedTvTimeIds = new Set(
+			selShows.map((m) => m.tvTimeId).filter((x) => x !== undefined),
+		);
+		const episodes =
+			imp.parsedRef.current?.watchedEpisodes.filter((e) => selectedTvTimeIds.has(e.tvTimeShowId))
+				.length ?? 0;
+		const movieCount = imp.matched.filter(
+			(m) => m.mediaType === "movie" && imp.selected.has(`movie-${m.tmdbId}`),
+		).length;
 		return { shows, movies, showCount: selShows.length, movieCount, episodes };
 	}, [imp.matched, imp.selected, imp.parsedRef]);
 
@@ -129,7 +163,9 @@ export default function ImportDataScreen() {
 		return (
 			<div className={styles.centered}>
 				<h1 className={styles.title}>Import TV Time Data</h1>
-				<p className={styles.desc}>Select your TV Time GDPR export (.zip) to import your watch history.</p>
+				<p className={styles.desc}>
+					Select your TV Time GDPR export (.zip) to import your watch history.
+				</p>
 				<input
 					ref={fileInput}
 					type="file"
@@ -158,7 +194,9 @@ export default function ImportDataScreen() {
 				<div className="mt-3">
 					<LoadingSpinner />
 				</div>
-				{imp.progress.total > 0 && <Counter target={imp.progress.done} total={imp.progress.total} />}
+				{imp.progress.total > 0 && (
+					<Counter target={imp.progress.done} total={imp.progress.total} />
+				)}
 				<p className={styles.warning}>Do not close this tab during import</p>
 			</div>
 		);
@@ -172,7 +210,8 @@ export default function ImportDataScreen() {
 					<LoadingSpinner />
 				</div>
 				<p className={`${styles.desc} mt-6!`}>
-					This may take several minutes depending on how many shows you have. You can leave this page now.
+					This may take several minutes depending on how many shows you have. You can leave this
+					page now.
 				</p>
 				<p className={styles.desc}>Your watchlist fills in as the import finishes.</p>
 			</div>
@@ -183,14 +222,19 @@ export default function ImportDataScreen() {
 		const current = imp.ambiguous[imp.disambigIndex];
 		return (
 			<div className={styles.container}>
-				<AnimatedModal visible={showInfo && imp.disambigIndex === 0} onClose={() => setShowInfo(false)}>
+				<AnimatedModal
+					visible={showInfo && imp.disambigIndex === 0}
+					onClose={() => setShowInfo(false)}
+				>
 					<p className={ui.modalTitle}>Duplicate Results</p>
 					<p className={ui.modalHint}>
-						Some shows or movies from your TV Time export matched multiple results on TMDB. This can happen when names are shared across
-						different shows, movies, remakes, or regional versions.
+						Some shows or movies from your TV Time export matched multiple results on TMDB. This can
+						happen when names are shared across different shows, movies, remakes, or regional
+						versions.
 					</p>
 					<p className={ui.modalHint}>
-						Pick the correct match for each one so your watch history imports accurately. You can also skip any you don't want to import.
+						Pick the correct match for each one so your watch history imports accurately. You can
+						also skip any you don't want to import.
 					</p>
 					<button className={ui.button} onClick={() => setShowInfo(false)}>
 						Resolve
@@ -200,20 +244,31 @@ export default function ImportDataScreen() {
 					<h2 className={styles.sectionTitle}>
 						Resolve {imp.disambigIndex + 1}/{imp.ambiguous.length}: "{current.tvTimeName}"
 					</h2>
-					<button className={styles.infoButton} onClick={() => setShowInfo(true)} aria-label="What is this?">
+					<button
+						className={styles.infoButton}
+						onClick={() => setShowInfo(true)}
+						aria-label="What is this?"
+					>
 						?
 					</button>
 				</div>
 				<p className={styles.expectedRow}>
 					Type:{" "}
-					<span className={`${styles.typeBadge} ${current.mediaType === "movie" ? styles.typeBadgeMovie : ""}`}>
+					<span
+						className={`${styles.typeBadge} ${current.mediaType === "movie" ? styles.typeBadgeMovie : ""}`}
+					>
 						{current.mediaType === "tv" ? "TV" : "MOVIE"}
 					</span>{" "}
 					· Tap to select, long press for details
 				</p>
 				<div className={styles.list}>
 					{imp.disambigCandidates.map((c) => (
-						<CandidateRow key={c.tmdbId} item={c} apiKey={imp.tmdbApiKey!} onSelect={() => imp.handleDisambiguate(c)} />
+						<CandidateRow
+							key={c.tmdbId}
+							item={c}
+							apiKey={imp.tmdbApiKey!}
+							onSelect={() => imp.handleDisambiguate(c)}
+						/>
 					))}
 					<div className={styles.loadMore}>
 						<Button onClick={imp.loadMoreCandidates} loading={imp.loadingMore}>
@@ -243,8 +298,14 @@ export default function ImportDataScreen() {
 			const checked = imp.selected.has(key);
 			const duplicate = imp.existingIdsRef.current.has(m.tmdbId);
 			return (
-				<button key={key} className={`${styles.reviewRow} ${duplicate ? styles.reviewRowDuplicate : ""}`} onClick={() => imp.toggleSelected(key)}>
-					<span className={`${styles.checkbox} ${checked ? styles.checkboxChecked : ""}`}>{checked && "✓"}</span>
+				<button
+					key={key}
+					className={`${styles.reviewRow} ${duplicate ? styles.reviewRowDuplicate : ""}`}
+					onClick={() => imp.toggleSelected(key)}
+				>
+					<span className={`${styles.checkbox} ${checked ? styles.checkboxChecked : ""}`}>
+						{checked && "✓"}
+					</span>
 					{m.posterPath ? (
 						<img src={tmdbPosterUri(m.posterPath, 40)} alt="" className={styles.posterSmall} />
 					) : (
@@ -252,7 +313,9 @@ export default function ImportDataScreen() {
 					)}
 					<span className={styles.reviewInfo}>
 						<span className={styles.reviewName}>{m.tmdbName}</span>
-						<span className={styles.reviewSub}>{m.tvTimeName !== m.tmdbName ? `"${m.tvTimeName}" → ${m.year}` : m.year}</span>
+						<span className={styles.reviewSub}>
+							{m.tvTimeName !== m.tmdbName ? `"${m.tvTimeName}" → ${m.year}` : m.year}
+						</span>
 						{duplicate && <span className={styles.duplicateBadge}>Already in watchlist</span>}
 					</span>
 				</button>
@@ -266,7 +329,9 @@ export default function ImportDataScreen() {
 					{review.shows.map(row)}
 					{review.movies.length > 0 && <h3 className={styles.subhead}>Movies</h3>}
 					{review.movies.map(row)}
-					{imp.unmatchedNames.length > 0 && <h3 className={styles.subhead}>Unmatched ({imp.unmatchedNames.length})</h3>}
+					{imp.unmatchedNames.length > 0 && (
+						<h3 className={styles.subhead}>Unmatched ({imp.unmatchedNames.length})</h3>
+					)}
 					{imp.unmatchedNames.map((n, i) => (
 						<p key={`${n}-${i}`} className={styles.unmatchedText}>
 							{n}
@@ -285,7 +350,11 @@ export default function ImportDataScreen() {
 					>
 						← Back
 					</button>
-					<button className={`${styles.primaryButton} m-0! flex-1`} onClick={imp.handleImport} disabled={imp.selected.size === 0}>
+					<button
+						className={`${styles.primaryButton} m-0! flex-1`}
+						onClick={imp.handleImport}
+						disabled={imp.selected.size === 0}
+					>
 						Import {review.showCount} shows, {review.movieCount} movies, {review.episodes} episodes
 					</button>
 				</div>

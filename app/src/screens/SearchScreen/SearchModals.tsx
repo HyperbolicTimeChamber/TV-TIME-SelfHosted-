@@ -1,8 +1,21 @@
-import { View, Text, TouchableOpacity } from "react-native";
-import { AnimatedModal, ConfirmModal, UnreleasedMovieModal } from "../../components";
-import { colors, spacing } from "../../theme";
-import { TMDBShow } from "../../types";
-import { styles } from "./styles";
+import { AddFailedModal, ConfirmModal, UnreleasedMovieModal } from "../../components";
+import { ModalLogo } from "../../components/modals/ModalArt";
+import { getCachedCatalogShow } from "../../hooks/useWatchlist";
+import { colors } from "../../theme";
+import { MediaType, TMDBShow, type AddFailure } from "../../types";
+
+const pad = (n?: number) => String(n).padStart(2, "0");
+/** Title logo when the catalog has the title cached (name otherwise) */
+const logoOf = (item: TMDBShow | null | undefined, mediaType: MediaType) =>
+	item ? (getCachedCatalogShow(item.id, mediaType)?.logoPath ?? null) : null;
+const nameOf = (item: TMDBShow | null | undefined) => item?.name || item?.title || "";
+
+const mediaTypeOf = (item: TMDBShow | null | undefined): MediaType =>
+	item?.media_type ||
+	(item?.first_air_date || (item?.name && !item?.title) ? MediaType.TV : MediaType.MOVIE);
+
+const epCode = (ep?: { season: number; episode: number }) =>
+	`S${pad(ep?.season)}E${pad(ep?.episode)}`;
 
 interface Props {
 	movieModal: TMDBShow | null;
@@ -24,6 +37,9 @@ interface Props {
 	onResumeFromWhere: () => void;
 	onStartFresh: () => void;
 	onResumeModalClose: () => void;
+	addFailure: AddFailure | null;
+	onRetryAdd: () => void;
+	onAddFailureClose: () => void;
 }
 
 export default function SearchModals({
@@ -42,30 +58,49 @@ export default function SearchModals({
 	onResumeFromWhere,
 	onStartFresh,
 	onResumeModalClose,
+	addFailure,
+	onRetryAdd,
+	onAddFailureClose,
 }: Props) {
+	const removeMediaType = mediaTypeOf(removeModal);
 	return (
 		<>
-			<AnimatedModal visible={!!movieModal} onClose={onMovieModalClose}>
-				<View style={styles.modalContent}>
-					<Text style={styles.modalTitle}>{movieModal?.title || movieModal?.name}</Text>
-					<TouchableOpacity style={styles.modalButton} onPress={onMovieAddOnly}>
-						<Text style={styles.modalButtonText}>Add to Watchlist</Text>
-					</TouchableOpacity>
-					<TouchableOpacity
-						style={[styles.modalButton, styles.modalButtonWatched]}
-						onPress={onMovieAddAndWatch}
-					>
-						<Text style={styles.modalButtonText}>Add & Mark as Watched</Text>
-					</TouchableOpacity>
-					<TouchableOpacity style={styles.modalCancel} onPress={onMovieModalClose}>
-						<Text style={styles.modalCancelText}>Cancel</Text>
-					</TouchableOpacity>
-				</View>
-			</AnimatedModal>
+			<ConfirmModal
+				visible={!!movieModal}
+				title="Add This Movie?"
+				image={
+					movieModal ? (
+						<ModalLogo
+							logoPath={logoOf(movieModal, MediaType.MOVIE)}
+							tmdbId={movieModal.id}
+							mediaType={MediaType.MOVIE}
+							title={nameOf(movieModal)}
+						/>
+					) : undefined
+				}
+				hint={`Add "${movieModal?.title || movieModal?.name}" to your watchlist, or mark it as already watched.`}
+				confirmLabel="Add to Watchlist"
+				confirmColor={colors.primary}
+				onConfirm={onMovieAddOnly}
+				secondaryLabel="Add & Mark as Watched"
+				secondaryColor={colors.watchedGreen}
+				onSecondary={onMovieAddAndWatch}
+				onClose={onMovieModalClose}
+			/>
 
 			<ConfirmModal
 				visible={!!removeModal}
-				title={`Remove "${removeModal?.name || removeModal?.title}"?`}
+				title={removeMediaType === MediaType.MOVIE ? "Remove Movie?" : "Remove Show?"}
+				image={
+					removeModal ? (
+						<ModalLogo
+							logoPath={logoOf(removeModal, removeMediaType)}
+							tmdbId={removeModal.id}
+							mediaType={removeMediaType}
+							title={nameOf(removeModal)}
+						/>
+					) : undefined
+				}
 				hint="This will remove it from your watchlist. Your watch history will be kept."
 				error={removeError}
 				confirmLabel="Remove"
@@ -80,33 +115,29 @@ export default function SearchModals({
 				movieTitle={unreleasedModal?.title ?? ""}
 			/>
 
-			<AnimatedModal visible={!!resumeModal} onClose={onResumeModalClose}>
-				<View style={styles.modalContent}>
-					<Text style={styles.modalTitle}>
-						{resumeModal?.item?.name || resumeModal?.item?.title}
-					</Text>
-					<Text style={[styles.modalCancelText, { marginBottom: spacing.lg, textAlign: "center" }]}>
-						You've previously watched up to S
-						{String(resumeModal?.highestEp?.season).padStart(2, "0")}E
-						{String(resumeModal?.highestEp?.episode).padStart(2, "0")}
-					</Text>
-					<TouchableOpacity style={styles.modalButton} onPress={onResumeFromWhere}>
-						<Text style={styles.modalButtonText}>
-							Resume from S{String(resumeModal?.nextEp?.season).padStart(2, "0")}E
-							{String(resumeModal?.nextEp?.episode).padStart(2, "0")}
-						</Text>
-					</TouchableOpacity>
-					<TouchableOpacity
-						style={[styles.modalButton, { backgroundColor: colors.surfaceLight }]}
-						onPress={onStartFresh}
-					>
-						<Text style={styles.modalButtonText}>Start from Beginning</Text>
-					</TouchableOpacity>
-					<TouchableOpacity style={styles.modalCancel} onPress={onResumeModalClose}>
-						<Text style={styles.modalCancelText}>Cancel</Text>
-					</TouchableOpacity>
-				</View>
-			</AnimatedModal>
+			<ConfirmModal
+				visible={!!resumeModal}
+				title="Resume Watching?"
+				image={
+					resumeModal ? (
+						<ModalLogo
+							logoPath={logoOf(resumeModal.item, MediaType.TV)}
+							tmdbId={resumeModal.item.id}
+							mediaType={MediaType.TV}
+							title={nameOf(resumeModal.item)}
+						/>
+					) : undefined
+				}
+				hint={`You've previously watched up to ${epCode(resumeModal?.highestEp)}`}
+				confirmLabel={`Resume from ${epCode(resumeModal?.nextEp)}`}
+				confirmColor={colors.primary}
+				onConfirm={onResumeFromWhere}
+				secondaryLabel="Start from Beginning"
+				onSecondary={onStartFresh}
+				onClose={onResumeModalClose}
+			/>
+
+			<AddFailedModal failure={addFailure} onRetry={onRetryAdd} onClose={onAddFailureClose} />
 		</>
 	);
 }

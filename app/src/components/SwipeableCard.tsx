@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, forwardRef, useImperativeHandle } from "react";
+import React, { useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import {
 	View,
 	Text,
@@ -19,6 +19,7 @@ import Animated, {
 	Extrapolation,
 } from "react-native-reanimated";
 import { colors, spacing, typography } from "../theme";
+import { RxCheck, RxCross2 } from "./RxIcons";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
 	UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -26,6 +27,8 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.35;
+/** A swiped-away row that is still in the list after this long comes back */
+const DONE_RESTORE_MS = 1500;
 
 type SwipeState = "idle" | "swiped_left" | "swiped_right" | "loading" | "done";
 
@@ -36,12 +39,18 @@ export interface SwipeableCardRef {
 interface Props {
 	children: React.ReactNode;
 	onSwipeLeft: () => Promise<void>;
-	onSwipeRight: () => Promise<void>;
+	/** Omit to turn the right action (drag toward the left edge) off */
+	onSwipeRight?: () => Promise<void>;
 	persistAfterSwipe?: boolean | { left: boolean; right: boolean };
 	leftLabel?: string;
 	rightLabel?: string;
+	/** Text in the right reveal's circle instead of the ✕ icon — e.g. "−1" when unwatching drops a count */
+	rightIcon?: string;
 	leftColor?: string;
 	rightColor?: string;
+	/** Identity of what the card shows — a recycled list row resets its swipe state when it
+	 *  changes (a remounting `key` would throw away the recycled views) */
+	resetKey?: string;
 }
 
 export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
@@ -52,18 +61,45 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		persistAfterSwipe = false,
 		leftLabel = "Watched",
 		rightLabel = "Stop",
+		rightIcon,
 		leftColor = colors.watchedGreen,
 		rightColor = colors.stopBlue,
+		resetKey,
 	},
 	ref,
 ) {
 	const translateX = useSharedValue(0);
-	const [cardHeight, setCardHeight] = React.useState(0);
+	// Height for the loading placeholder — a ref, not state (no extra render per row mount)
+	const cardHeight = useRef(0);
 	const [swipeState, setSwipeState] = React.useState<SwipeState>("idle");
+	// Mirror for the gesture worklets (so the gesture can be built once)
+	const idle = useSharedValue(true);
+	useEffect(() => {
+		idle.value = swipeState === "idle";
+	}, [swipeState, idle]);
 	const [showReveal, setShowReveal] = React.useState(false);
 	const [actionColor, setActionColor] = React.useState<string>(colors.watchedGreen);
 	const isProcessing = useRef(false);
+	const restoreTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	useEffect(
+		() => () => {
+			if (restoreTimer.current) clearTimeout(restoreTimer.current);
+		},
+		[],
+	);
 	const [persistingLoad, setPersistingLoad] = React.useState(false);
+	// Recycled into another item → start clean
+	const firstKey = useRef(resetKey);
+	useEffect(() => {
+		if (resetKey === firstKey.current) return;
+		firstKey.current = resetKey;
+		if (restoreTimer.current) clearTimeout(restoreTimer.current);
+		translateX.value = 0;
+		isProcessing.current = false;
+		setShowReveal(false);
+		setPersistingLoad(false);
+		setSwipeState("idle");
+	}, [resetKey, translateX]);
 	const onSwipeLeftRef = useRef(onSwipeLeft);
 	onSwipeLeftRef.current = onSwipeLeft;
 	const onSwipeRightRef = useRef(onSwipeRight);
@@ -93,7 +129,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 					if (direction === "left") {
 						await onSwipeLeftRef.current();
 					} else {
-						await onSwipeRightRef.current();
+						await onSwipeRightRef.current?.();
 					}
 				} catch (err) {
 					console.error("SwipeableCard action failed:", err);
@@ -115,10 +151,18 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				if (direction === "left") {
 					await onSwipeLeftRef.current();
 				} else {
-					await onSwipeRightRef.current();
+					await onSwipeRightRef.current?.();
 				}
 				setSwipeState("done");
 				LayoutAnimation.configureNext(LayoutAnimation.create(300, "easeInEaseOut", "opacity"));
+				// Row still here once the list has updated (Rewatch / −1 keep it) → show it again
+				// rather than leave a blank gap
+				restoreTimer.current = setTimeout(() => {
+					translateX.value = 0;
+					setShowReveal(false);
+					setSwipeState("idle");
+					isProcessing.current = false;
+				}, DONE_RESTORE_MS);
 			} catch (err) {
 				console.error("SwipeableCard action failed:", err);
 				translateX.value = withTiming(0, { duration: 300 });
@@ -144,31 +188,43 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		[swipeState, handleSwipeComplete, translateX],
 	);
 
-	const panGesture = Gesture.Pan()
-		.activeOffsetX([-10, 10])
-		.onStart(() => {
-			runOnJS(setShowReveal)(true);
-		})
-		.onUpdate((event) => {
-			if (swipeState !== "idle") return;
-			translateX.value = event.translationX;
-		})
-		.onEnd((event) => {
-			if (swipeState !== "idle") return;
+	const rightEnabled = !!onSwipeRight;
+	// Without a right action the card only claims rightward drags — a leftward one fails here
+	// so the Watch List ↔ Upcoming tab pager can take it. Built once per direction setup.
+	const panGesture = React.useMemo(
+		() =>
+			(rightEnabled
+				? Gesture.Pan().activeOffsetX([-10, 10])
+				: Gesture.Pan().activeOffsetX(10).failOffsetX(-10)
+			)
+				.onStart(() => {
+					"worklet";
+					runOnJS(setShowReveal)(true);
+				})
+				.onUpdate((event) => {
+					"worklet";
+					if (!idle.value) return;
+					translateX.value = rightEnabled ? event.translationX : Math.max(0, event.translationX);
+				})
+				.onEnd((event) => {
+					"worklet";
+					if (!idle.value) return;
 
-			if (event.translationX > SWIPE_THRESHOLD) {
-				translateX.value = withTiming(SCREEN_WIDTH, { duration: 200 }, () => {
-					runOnJS(handleSwipeComplete)("left");
-				});
-			} else if (event.translationX < -SWIPE_THRESHOLD) {
-				translateX.value = withTiming(-SCREEN_WIDTH, { duration: 200 }, () => {
-					runOnJS(handleSwipeComplete)("right");
-				});
-			} else {
-				translateX.value = withTiming(0, { duration: 200 });
-				runOnJS(setShowReveal)(false);
-			}
-		});
+					if (event.translationX > SWIPE_THRESHOLD) {
+						translateX.value = withTiming(SCREEN_WIDTH, { duration: 200 }, () => {
+							runOnJS(handleSwipeComplete)("left");
+						});
+					} else if (rightEnabled && event.translationX < -SWIPE_THRESHOLD) {
+						translateX.value = withTiming(-SCREEN_WIDTH, { duration: 200 }, () => {
+							runOnJS(handleSwipeComplete)("right");
+						});
+					} else {
+						translateX.value = withTiming(0, { duration: 200 });
+						runOnJS(setShowReveal)(false);
+					}
+				}),
+		[rightEnabled, idle, translateX, handleSwipeComplete],
+	);
 
 	const cardStyle = useAnimatedStyle(() => ({
 		transform: [{ translateX: translateX.value }],
@@ -192,7 +248,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				style={[
 					styles.wrapper,
 					styles.loadingReveal,
-					{ backgroundColor: actionColor, minHeight: cardHeight || 100 },
+					{ backgroundColor: actionColor, minHeight: cardHeight.current || 100 },
 				]}
 			>
 				<ActivityIndicator color={colors.text} />
@@ -206,7 +262,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 			style={styles.wrapper}
 			onLayout={(e) => {
 				const h = e.nativeEvent.layout.height;
-				if (h > 0 && h !== cardHeight) setCardHeight(h);
+				if (h > 0) cardHeight.current = h;
 			}}
 		>
 			{showReveal && (
@@ -228,7 +284,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 						) : (
 							<>
 								<View style={styles.revealIcon}>
-									<Text style={styles.revealIconText}>✓</Text>
+									<RxCheck size={26} />
 								</View>
 								<Text style={styles.revealText}>{leftLabel}</Text>
 							</>
@@ -253,7 +309,11 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 							<>
 								<Text style={styles.revealText}>{rightLabel}</Text>
 								<View style={styles.revealIcon}>
-									<Text style={styles.revealIconText}>✕</Text>
+									{rightIcon ? (
+										<Text style={styles.revealIconText}>{rightIcon}</Text>
+									) : (
+										<RxCross2 size={26} />
+									)}
 								</View>
 							</>
 						)}
@@ -275,7 +335,7 @@ const styles = StyleSheet.create({
 		marginHorizontal: spacing.md,
 	},
 	card: {
-		backgroundColor: colors.background,
+		backgroundColor: colors.surface,
 		zIndex: 1,
 	},
 	loadingReveal: {
@@ -309,9 +369,13 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 	},
 	revealIconText: {
-		fontSize: 20,
+		fontSize: 14,
+		lineHeight: 18,
 		fontWeight: "700",
 		color: colors.text,
+		// Android's font padding sits text low in the circle
+		includeFontPadding: false,
+		textAlignVertical: "center",
 	},
 	revealText: {
 		...typography.subtitle,

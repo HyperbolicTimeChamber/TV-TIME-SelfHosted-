@@ -19,10 +19,16 @@ on:
 
 concurrency:
   group: deploy-${{ github.ref }}
-  cancel-in-progress: true
+  # Queue instead of cancel: a cancelled run skips its force update + version bump
+  cancel-in-progress: false
 
 jobs:
   build-deploy:
+    environment: prod
+    # Version bump commits back to main / development
+    permissions:
+      contents: write
+      pull-requests: write
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -115,6 +121,8 @@ jobs:
           {
             echo "EXPO_PUBLIC_WEB_BASE_URL=${{ secrets.WEB_BASE_URL }}"
             echo "EXPO_PUBLIC_TMDB_API_BASE=${{ secrets.TMDB_API_BASE }}"
+            echo "EXPO_PUBLIC_RELEASE_CHANNEL=prod"
+            echo "EXPO_PUBLIC_UPDATE_URL=${{ secrets.APP_UPDATE_URL }}"
           } > app/.env
 
       # ── Expo Prebuild ──
@@ -201,30 +209,25 @@ jobs:
           RELEASE_NOTES: ${{ steps.notes.outputs.release_notes }}
           FIREBASE_TESTER_GROUPS: ${{ vars.FIREBASE_TESTER_GROUPS || 'testers' }}
 
-      # ── Force Update (push only) ──
-      - name: Update Firestore minVersion
+      # ── Force update ([force-update] in the commit message) ──
+      # Builds below config/app.minBuildProd show the blocking "Update required" screen
+      - name: Force update (prod)
         if: github.event_name == 'push' && contains(github.event.head_commit.message, '[force-update]')
         run: |
-          NEW_VERSION="${{ steps.version.outputs.new_version }}"
-          if [ -z "$NEW_VERSION" ]; then
-            echo "ERROR: new_version is empty, skipping minVersion update"
-            exit 1
-          fi
+          export BUILD=$(node -p "require('./app/app.json').expo.android.versionCode")
           echo "$FIREBASE_SERVICE_ACCOUNT_JSON" > /tmp/firebase-sa.json
           export GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa.json
           npm install -g firebase-admin@13
-          node -e "
+          NODE_PATH=$(npm root -g) node -e "
             const admin = require('firebase-admin');
             admin.initializeApp();
-            admin.firestore()
-              .doc('config/app')
-              .update({ minVersion: process.env.NEW_VERSION })
-              .then(() => { console.log('minVersion updated to ' + process.env.NEW_VERSION); process.exit(0); })
-              .catch(e => { console.error(e); process.exit(1); });
+            admin.firestore().doc('config/app')
+              .set({ minBuildProd: Number(process.env.BUILD) }, { merge: true })
+              .then(() => { console.log('minBuildProd = ' + process.env.BUILD); process.exit(0); })
+              .catch((e) => { console.error(e); process.exit(1); });
           "
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-          NEW_VERSION: ${{ steps.version.outputs.new_version }}
 
       # ── Commit version bump (only after successful build) ──
       - name: Commit version bump

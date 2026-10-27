@@ -13,4 +13,6 @@ export type WatchlistListItem =
 			type: "watchedMovie";
 			movie: WatchedMovie;
 			show: EnrichedTrackingItem;
-	  };
+	  }
+	/** Nothing left up next (but there's watch history) — the "all caught up" card */
+	| { type: "caughtUp" };

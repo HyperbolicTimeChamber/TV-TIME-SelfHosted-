@@ -20,6 +20,9 @@ export const trackedIdsQuery = (userId: string) => ({
 	staleTime: Infinity,
 });
 
+// Stable fallback — a new Set per render would re-run every memo keyed on the ids
+const NO_IDS: ReadonlySet<number> = new Set<number>();
+
 export function useTrackedIds(userId: string | undefined) {
 	const queryClient = useQueryClient();
 
@@ -48,7 +51,7 @@ export function useTrackedIds(userId: string | undefined) {
 		};
 	}, [userId, queryClient]);
 
-	const { data: ids = new Set<number>() } = useQuery<Set<number>>({
+	const { data: ids = NO_IDS as Set<number> } = useQuery<Set<number>>({
 		...trackedIdsQuery(userId ?? ""),
 		enabled: !!userId,
 	});

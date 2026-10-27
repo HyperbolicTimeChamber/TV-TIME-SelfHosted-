@@ -1,8 +1,8 @@
-import React, { useLayoutEffect, useCallback } from "react";
-import { View, Text, TouchableOpacity, ScrollView, Alert, PixelRatio } from "react-native";
+import React, { useLayoutEffect, useCallback, useState, useEffect } from "react";
+import { View, Text, TouchableOpacity, ScrollView, PixelRatio } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useNavigation, useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../stores";
@@ -12,26 +12,59 @@ import {
 	useWeeklyActivity,
 	useProfileCardImages,
 	useCompletedShows,
+	useWatchingCount,
 } from "../../hooks";
 import { colors } from "../../theme";
 import { ProfileStackParamList, Route, MediaType } from "../../types";
 import WeeklyChart from "../../components/WeeklyChart";
 import StatCard from "./StatCard";
+import WeeklyRate from "./WeeklyRate";
+import CircleButton from "../../components/CircleButton";
+import WatchHistoryButton from "./WatchHistoryButton";
+import { CircleButtonTone } from "../../enums";
+
+/** Same height as the Hall of Shame pill; gear fills ~55% of it */
+const ACTION_HEIGHT = 56;
+const SETTINGS_ICON = Math.round(ACTION_HEIGHT * 0.55);
 import CollageCard from "./CollageCard";
 import CompletedSections from "./CompletedSections";
 import { styles } from "./styles";
 import { formatCount, formatTime, scaledPhotoURL } from "../../utils";
 
+// Reset when the app process restarts, so the intro plays once per launch
+let introPlayed = false;
+
 export default function ProfileScreen() {
+	// Keyed off the first *focus*, not the first mount: Home preloads this tab a few seconds
+	// after launch, so the screen mounts offscreen and the intro would play where nobody sees it
+	const focused = useIsFocused();
+	const [intro, setIntro] = useState(false);
+	useEffect(() => {
+		if (!focused || introPlayed) return;
+		introPlayed = true;
+		setIntro(true);
+	}, [focused]);
 	const { top } = useSafeAreaInsets();
 	const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
 	const user = useAuthStore((s) => s.user);
-	const signOut = useAuthStore((s) => s.signOut);
 	const { stats, loading: statsLoading } = useUserStats(user?.uid);
 	const { items: watchlist } = useWatchlist(user?.uid);
-	const { chartData, refresh: refreshChart } = useWeeklyActivity();
+	// Lifetime watched count, already live from useUserStats' snapshot — the chart uses it to
+	// tell whether anything was watched elsewhere, so it only queries when something was
+	const watchedTotal = statsLoading ? null : stats.episodesWatched + stats.moviesWatched;
+	const {
+		chartData,
+		loading: chartLoading,
+		refresh: refreshChart,
+	} = useWeeklyActivity(user?.uid, watchedTotal);
+	const weekTotals = chartData.reduce(
+		(sum, day) => ({ episodes: sum.episodes + day.episodes, movies: sum.movies + day.movies }),
+		{ episodes: 0, movies: 0 },
+	);
+	const weekEmpty = weekTotals.episodes + weekTotals.movies === 0;
 	const cardImages = useProfileCardImages(watchlist);
 	const { sections: completedSections, loading: completedLoading } = useCompletedShows(user?.uid);
+	const watchingCount = useWatchingCount(user?.uid);
 
 	useFocusEffect(
 		useCallback(() => {
@@ -60,12 +93,18 @@ export default function ProfileScreen() {
 	}, [navigation]);
 
 	return (
-		<ScrollView style={[styles.container, { paddingTop: top }]}>
+		<ScrollView
+			style={[styles.container, { paddingTop: top }]}
+			// Room under the last row so the tab bar doesn't cover it
+			contentContainerStyle={styles.scrollContent}
+		>
 			<View style={styles.profileSection}>
 				<View style={styles.statsGrid}>
 					<View style={styles.statsRow}>
 						<StatCard
-							value={formatCount(stats.episodesWatched)}
+							value={stats.episodesWatched}
+							format={formatCount}
+							countUp={intro}
 							label="Episodes"
 							flex={3}
 							backdrop={cardImages.episodeBackdrop}
@@ -73,7 +112,9 @@ export default function ProfileScreen() {
 							loading={statsLoading}
 						/>
 						<StatCard
-							value={formatCount(stats.moviesWatched)}
+							value={stats.moviesWatched}
+							format={formatCount}
+							countUp={intro}
 							label="Movies"
 							flex={2}
 							backdrop={cardImages.movieBackdrop}
@@ -83,16 +124,20 @@ export default function ProfileScreen() {
 					</View>
 					<View style={[styles.statsRow, { minHeight: 150 }]}>
 						<CollageCard
-							value={formatCount(stats.showsTracking)}
-							label="Tracking"
+							value={watchingCount ?? 0}
+							format={formatCount}
+							countUp={intro}
+							label="Watching"
 							flex={2}
 							posters={cardImages.trackingPosters}
 							align="left"
-							loading={statsLoading}
+							loading={statsLoading || watchingCount === null}
 							seed={17}
 						/>
 						<CollageCard
-							value={formatTime(stats.totalMinutes)}
+							value={stats.totalMinutes}
+							format={formatTime}
+							countUp={intro}
 							label="Watch Time"
 							flex={3}
 							posters={cardImages.watchTimePosters}
@@ -122,34 +167,38 @@ export default function ProfileScreen() {
 				</View>
 			</View>
 
-			<TouchableOpacity
-				style={styles.settingsButton}
-				onPress={() => navigation.navigate(Route.SETTINGS)}
-				activeOpacity={0.7}
-			>
-				<Ionicons name="settings-sharp" size={18} color={colors.text} />
-				<Text style={styles.settingsButtonText}>Settings</Text>
-			</TouchableOpacity>
+			{/* Hall of Shame (Watch History) + Settings gear on one row */}
+			<View style={styles.actionRow}>
+				<WatchHistoryButton onPress={() => navigation.navigate(Route.WATCH_HISTORY)} />
+				<CircleButton
+					tone={CircleButtonTone.RAISED}
+					style={styles.settingsCircle}
+					onPress={() => navigation.navigate(Route.SETTINGS)}
+					accessibilityLabel="Settings"
+				>
+					<Ionicons name="settings-sharp" size={SETTINGS_ICON} color={colors.text} />
+				</CircleButton>
+			</View>
 
-			<WeeklyChart data={chartData} />
+			{weekEmpty ? (
+				// One chart, not two rows of zeros over an empty one; the message waits for the week to load
+				<WeeklyChart
+					data={chartData}
+					title="Weekly Watch Rate"
+					emptyMessage={chartLoading ? undefined : "Nothing watched in the last 7 days"}
+				/>
+			) : (
+				<>
+					<WeeklyRate episodes={weekTotals.episodes} movies={weekTotals.movies} animate={intro} />
+					<WeeklyChart data={chartData} animate={intro} />
+				</>
+			)}
 
 			<CompletedSections
 				sections={completedSections}
 				loading={completedLoading}
 				onItemPress={handleCompletedItemPress}
 			/>
-
-			<TouchableOpacity
-				style={styles.signOutButton}
-				onPress={() => {
-					Alert.alert("Log Out", "Are you sure?", [
-						{ text: "Cancel", style: "cancel" },
-						{ text: "Log Out", style: "destructive", onPress: signOut },
-					]);
-				}}
-			>
-				<Text style={styles.signOutText}>Log Out</Text>
-			</TouchableOpacity>
 		</ScrollView>
 	);
 }

@@ -1,5 +1,13 @@
 import React, { useCallback, useEffect, useRef } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Keyboard } from "react-native";
+import {
+	View,
+	Text,
+	TextInput,
+	TouchableOpacity,
+	StyleSheet,
+	ScrollView,
+	Keyboard,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -10,7 +18,6 @@ import { SearchStackParamList, Route } from "../../types";
 
 type NavProp = NativeStackNavigationProp<SearchStackParamList, Route.SEARCH_INPUT>;
 type RoutePropType = RouteProp<SearchStackParamList, Route.SEARCH_INPUT>;
-
 
 export default function SearchInputScreen() {
 	const { top } = useSafeAreaInsets();
@@ -24,7 +31,6 @@ export default function SearchInputScreen() {
 		setTimeout(() => inputRef.current?.focus(), 100);
 	}, []);
 
-	// Hide tab bar on search input screen
 	useEffect(() => {
 		const parent = navigation.getParent();
 		parent?.setOptions({ tabBarStyle: { display: "none" as const } });
@@ -52,7 +58,7 @@ export default function SearchInputScreen() {
 					}}
 					hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
 				>
-					<Ionicons name="chevron-back" size={26} color={colors.text} />
+					<Ionicons name="chevron-back-circle-outline" size={30} color={colors.text} />
 				</TouchableOpacity>
 				<View style={styles.searchRow}>
 					<TextInput
@@ -131,27 +137,24 @@ const styles = StyleSheet.create({
 		flex: 1,
 		backgroundColor: colors.background,
 	},
+	// One surface, like the results bar: outlined back icon, no highlighted box
 	searchBarRow: {
 		flexDirection: "row",
 		alignItems: "stretch",
 		marginHorizontal: spacing.md,
 		marginVertical: spacing.md,
+		backgroundColor: colors.surface,
+		borderRadius: 8,
 	},
+	// Left inset only — the input's own padding is the gap to the text
 	backButton: {
-		width: 44,
+		paddingLeft: spacing.md,
 		justifyContent: "center",
-		alignItems: "center",
-		backgroundColor: colors.surfaceLight,
-		borderTopLeftRadius: 8,
-		borderBottomLeftRadius: 8,
 	},
 	searchRow: {
 		flex: 1,
 		flexDirection: "row",
 		alignItems: "center",
-		backgroundColor: colors.surface,
-		borderTopRightRadius: 8,
-		borderBottomRightRadius: 8,
 	},
 	searchIcon: {
 		marginLeft: spacing.md,

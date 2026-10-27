@@ -3,10 +3,13 @@ import {
   fetchShowFromTMDB,
   fetchShowStatus,
   pooled,
+  premiereDate,
   CatalogShow,
 } from "../tmdb";
 import { MediaType, ENDED_STATUSES } from "../../shared/enums";
 import { hasCatalogChanged } from "./hasCatalogChanged";
+import { filledRuntimes } from "../runtimeHeal/healRuntimes";
+import { tvCatalogFields } from "../catalogFields";
 
 export interface FetchResult {
   freshCatalogMap: Map<string, CatalogShow>;
@@ -19,6 +22,8 @@ export interface FetchResult {
   skippedEnded: number;
   /** Show doc ids whose displayed data changed this sync */
   changedShowIds: string[];
+  /** Shows where TMDB filled in episode runtimes it didn't have (users' 0-minute watches heal) */
+  runtimeFills: Array<{ showId: string; tmdbId: number; runtimes: Map<string, number> }>;
 }
 
 export async function fetchCatalogUpdates(
@@ -29,6 +34,7 @@ export async function fetchCatalogUpdates(
   let hasEpisodeRemovals = false;
   let skippedEnded = 0;
   const changedShowIds: string[] = [];
+  const runtimeFills: FetchResult["runtimeFills"] = [];
 
   const pendingWrites: FetchResult["pendingWrites"] = [];
 
@@ -38,6 +44,21 @@ export async function fetchCatalogUpdates(
       trackedByCount: number;
     };
 
+    // Skipped (ended) shows aren't re-fetched: fill a missing premiere date from the
+    // seasons already stored (no extra TMDB call)
+    const healPremiere = () => {
+      // refreshShow updated this ended show mid-week (missing-data heal) → announce + clear
+      if (oldData.refreshedSinceSync) {
+        pendingWrites.push({ ref: showDoc.ref, data: { refreshedSinceSync: FieldValue.delete() } });
+        changedShowIds.push(showDoc.id);
+      }
+      if (oldData.firstAirDate) return;
+      const firstAirDate = premiereDate(null, oldData.seasons);
+      if (!firstAirDate) return;
+      pendingWrites.push({ ref: showDoc.ref, data: { firstAirDate } });
+      if (!oldData.refreshedSinceSync) changedShowIds.push(showDoc.id);
+    };
+
     // Ended/canceled: lightweight status check only (1 API call vs ~6)
     if (ENDED_STATUSES.includes(oldData.status)) {
       try {
@@ -45,6 +66,7 @@ export async function fetchCatalogUpdates(
         if (ENDED_STATUSES.includes(freshStatus)) {
           freshCatalogMap.set(showDoc.id, oldData);
           skippedEnded++;
+          healPremiere();
           return;
         }
         console.log(
@@ -53,6 +75,7 @@ export async function fetchCatalogUpdates(
       } catch {
         freshCatalogMap.set(showDoc.id, oldData);
         skippedEnded++;
+        healPremiere();
         return;
       }
     }
@@ -62,30 +85,26 @@ export async function fetchCatalogUpdates(
         apiKey,
         oldData.tmdbId,
         MediaType.TV,
+        { tvmazeId: oldData.tvmazeId },
       );
 
       const oldEpCount = oldData.totalEpisodes ?? 0;
       const newEpCount = freshData.totalEpisodes ?? 0;
       if (newEpCount < oldEpCount) hasEpisodeRemovals = true;
-      if (hasCatalogChanged(oldData, freshData))
+      // refreshShow wrote fresh seasons mid-week (old vs fresh looks equal now) → still changed
+      if (oldData.refreshedSinceSync || hasCatalogChanged(oldData, freshData))
         changedShowIds.push(showDoc.id);
+      const filled = filledRuntimes(oldData, freshData);
+      if (filled.size > 0) {
+        runtimeFills.push({ showId: showDoc.id, tmdbId: oldData.tmdbId, runtimes: filled });
+      }
 
       pendingWrites.push({
         ref: showDoc.ref,
         data: {
-          title: freshData.title,
-          posterPath: freshData.posterPath,
-          backdropPath: freshData.backdropPath,
-          overview: freshData.overview,
-          status: freshData.status,
-          totalSeasons: freshData.totalSeasons,
-          totalEpisodes: freshData.totalEpisodes,
-          runtime: freshData.runtime,
-          voteAverage: freshData.voteAverage,
-          seasons: freshData.seasons,
-          genres: freshData.genres,
-          ...(freshData.credits ? { credits: freshData.credits } : {}),
-          lastSyncedAt: FieldValue.serverTimestamp(),
+          ...tvCatalogFields(freshData),
+          // refreshShow's change already reached the doc — this sync announces it to clients
+          ...(oldData.refreshedSinceSync ? { refreshedSinceSync: FieldValue.delete() } : {}),
         },
       });
 
@@ -118,6 +137,7 @@ export async function fetchCatalogUpdates(
   return {
     freshCatalogMap,
     pendingWrites,
+    runtimeFills,
     hasEpisodeRemovals,
     skippedEnded,
     changedShowIds,

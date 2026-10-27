@@ -4,7 +4,6 @@ import {
 	Text,
 	TouchableOpacity,
 	StyleSheet,
-	ActivityIndicator,
 	TextInput,
 	KeyboardAvoidingView,
 	Platform,
@@ -17,6 +16,7 @@ import { getAuth, sendPasswordResetEmail } from "@react-native-firebase/auth";
 import { useAuthStore } from "../stores";
 import GoogleLogo from "../../assets/GoogleLogo";
 import { getFirebaseAuthErrorMessage } from "../hooks";
+import { LoadingSpinner } from "../components";
 
 export default function LoginScreen() {
 	const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuthStore();
@@ -25,6 +25,7 @@ export default function LoginScreen() {
 	const [isSignUp, setIsSignUp] = useState(false);
 	const [loading, setLoading] = useState(false);
 	const [googleLoading, setGoogleLoading] = useState(false);
+	const [resetting, setResetting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const handleEmailAuth = async () => {
@@ -43,7 +44,7 @@ export default function LoginScreen() {
 		} catch (e: unknown) {
 			const code = (e as { code?: string }).code ?? "";
 			setError(getFirebaseAuthErrorMessage(code));
-		} finally {
+			// Success keeps the loader up — the auth listener swaps this screen out
 			setLoading(false);
 		}
 	};
@@ -55,7 +56,6 @@ export default function LoginScreen() {
 			await signInWithGoogle();
 		} catch (e: unknown) {
 			setError(e instanceof Error ? e.message : "Google sign in failed");
-		} finally {
 			setGoogleLoading(false);
 		}
 	};
@@ -65,7 +65,7 @@ export default function LoginScreen() {
 			setError("Enter your email address first.");
 			return;
 		}
-		setLoading(true);
+		setResetting(true);
 		setError(null);
 		try {
 			await sendPasswordResetEmail(getAuth(), email.trim());
@@ -74,11 +74,13 @@ export default function LoginScreen() {
 			const code = (e as { code?: string }).code ?? "";
 			setError(getFirebaseAuthErrorMessage(code));
 		} finally {
-			setLoading(false);
+			setResetting(false);
 		}
 	};
 
-	const busy = loading || googleLoading;
+	// Signing in / up: the form gives way to a loader until the app swaps this screen out
+	const signingIn = loading || googleLoading;
+	const busy = signingIn || resetting;
 
 	return (
 		<KeyboardAvoidingView
@@ -93,82 +95,85 @@ export default function LoginScreen() {
 				/>
 				<Text style={styles.subtitle}>Track What You Watch</Text>
 
-				<View style={styles.form}>
-					<TextInput
-						style={styles.input}
-						placeholder="Email"
-						placeholderTextColor={colors.textMuted}
-						keyboardType="email-address"
-						autoCapitalize="none"
-						autoCorrect={false}
-						value={email}
-						onChangeText={setEmail}
-						editable={!busy}
-					/>
-					<TextInput
-						style={styles.input}
-						placeholder="Password"
-						placeholderTextColor={colors.textMuted}
-						secureTextEntry
-						value={password}
-						onChangeText={setPassword}
-						editable={!busy}
-						onSubmitEditing={handleEmailAuth}
-					/>
-
-					<TouchableOpacity
-						style={[styles.emailButton, busy && styles.buttonDisabled]}
-						onPress={handleEmailAuth}
-						disabled={busy}
-					>
-						{loading ? (
-							<ActivityIndicator color={colors.text} />
-						) : (
-							<Text style={styles.emailButtonText}>{isSignUp ? "Sign Up" : "Sign In"}</Text>
-						)}
-					</TouchableOpacity>
-
-					<TouchableOpacity
-						onPress={() => {
-							setIsSignUp(!isSignUp);
-							setError(null);
-						}}
-						disabled={busy}
-					>
-						<Text style={styles.toggleText}>
-							{isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
+				{signingIn ? (
+					<View style={styles.signingIn}>
+						<LoadingSpinner />
+						<Text style={styles.signingInText}>
+							{isSignUp && loading ? "Creating your account…" : "Signing you in…"}
 						</Text>
-					</TouchableOpacity>
+					</View>
+				) : (
+					<>
+						<View style={styles.form}>
+							<TextInput
+								style={styles.input}
+								placeholder="Email"
+								placeholderTextColor={colors.textMuted}
+								keyboardType="email-address"
+								autoCapitalize="none"
+								autoCorrect={false}
+								value={email}
+								onChangeText={setEmail}
+								editable={!busy}
+							/>
+							<TextInput
+								style={styles.input}
+								placeholder="Password"
+								placeholderTextColor={colors.textMuted}
+								secureTextEntry
+								value={password}
+								onChangeText={setPassword}
+								editable={!busy}
+								onSubmitEditing={handleEmailAuth}
+							/>
 
-					{!isSignUp && (
-						<TouchableOpacity onPress={handleForgotPassword} disabled={busy}>
-							<Text style={styles.forgotText}>Forgot Password?</Text>
-						</TouchableOpacity>
-					)}
-				</View>
+							<TouchableOpacity
+								style={[styles.emailButton, busy && styles.buttonDisabled]}
+								onPress={handleEmailAuth}
+								disabled={busy}
+							>
+								<Text style={styles.emailButtonText}>{isSignUp ? "Sign Up" : "Sign In"}</Text>
+							</TouchableOpacity>
 
-				<View style={styles.dividerRow}>
-					<View style={styles.dividerLine} />
-					<Text style={styles.dividerText}>OR</Text>
-					<View style={styles.dividerLine} />
-				</View>
+							<TouchableOpacity
+								onPress={() => {
+									setIsSignUp(!isSignUp);
+									setError(null);
+								}}
+								disabled={busy}
+							>
+								<Text style={styles.toggleText}>
+									{isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
+								</Text>
+							</TouchableOpacity>
 
-				<TouchableOpacity
-					style={[styles.googleButton, busy && styles.buttonDisabled]}
-					onPress={handleGoogleSignIn}
-					disabled={busy}
-				>
-					{googleLoading ? (
-						<ActivityIndicator color={colors.text} />
-					) : (
-						<View style={styles.googleButtonInner}>
-							<GoogleLogo size={20} />
-							<Text style={styles.googleButtonText}>Sign in with Google</Text>
+							{!isSignUp && (
+								<TouchableOpacity onPress={handleForgotPassword} disabled={busy}>
+									<Text style={styles.forgotText}>Forgot Password?</Text>
+								</TouchableOpacity>
+							)}
 						</View>
-					)}
-				</TouchableOpacity>
 
-				{error && <Text style={styles.error}>{error}</Text>}
+						<View style={styles.dividerRow}>
+							<View style={styles.dividerLine} />
+							<Text style={styles.dividerText}>OR</Text>
+							<View style={styles.dividerLine} />
+						</View>
+
+						<TouchableOpacity
+							style={[styles.googleButton, busy && styles.buttonDisabled]}
+							onPress={handleGoogleSignIn}
+							disabled={busy}
+						>
+							<View style={styles.googleButtonInner}>
+								<GoogleLogo size={20} />
+								<Text style={styles.googleButtonText}>Sign in with Google</Text>
+							</View>
+						</TouchableOpacity>
+
+						{error && <Text style={styles.error}>{error}</Text>}
+					</>
+				)}
 			</ScrollView>
 		</KeyboardAvoidingView>
 	);
@@ -273,6 +278,14 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		fontWeight: "600",
 		color: colors.text,
+	},
+	signingIn: {
+		alignItems: "center",
+		gap: spacing.lg,
+	},
+	signingInText: {
+		...typography.body,
+		color: colors.textSecondary,
 	},
 	error: {
 		...typography.body,

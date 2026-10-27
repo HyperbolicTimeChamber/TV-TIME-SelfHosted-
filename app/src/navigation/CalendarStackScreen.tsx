@@ -1,7 +1,7 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { CalendarStackParamList, Route } from "../types";
-import { stackScreenOptions } from "./screenOptions";
+import { stackScreenOptions, swipeBackScreenOptions } from "./screenOptions";
 import CalendarScreen from "../screens/CalendarScreen";
 import ShowDetailScreen from "../screens/DetailScreens/ShowDetailScreen";
 
@@ -18,7 +18,7 @@ export default function CalendarStackScreen() {
 			<CalendarStack.Screen
 				name={Route.SHOW_DETAIL}
 				component={ShowDetailScreen}
-				options={{ headerShown: false }}
+				options={swipeBackScreenOptions}
 			/>
 		</CalendarStack.Navigator>
 	);

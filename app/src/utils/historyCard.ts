@@ -1,4 +1,4 @@
-import type { CatalogShow, HistoryEntry } from "../types";
+import type { HistoryCatalog, HistoryEntry } from "../types";
 import { ENDED_STATUSES, HistoryPill, HistoryProgress, MediaType, WatchStatus } from "../enums";
 import { formatTime } from "./format";
 
@@ -9,14 +9,23 @@ export interface HistoryCard {
 	title: string;
 	logoPath: string | null;
 	backdropPath: string | null;
-	pill: HistoryPill;
-	/** formatTime(minutesWatched) */
-	timeSpent: string;
+	/** Status pill; null for movies (every movie in history is watched) */
+	pill: HistoryPill | null;
+	/** Pill text (null = no status pill) */
+	pillLabel: string | null;
+	/** Rewatching: which rewatch this is — shown in a white circle on the pill */
+	pillCount: number | null;
+	/** formatTime(minutesWatched); no runtime known yet → "N/A" for TV, null (hidden) for movies */
+	timeSpent: string | null;
+	/** TV: most recently watched episode as "S01 | E24"; null for movies / unknown */
+	lastWatched: string | null;
 	/** Full watch-throughs — only for Rewatching / Completed */
 	watchCount: number | null;
 	progress: { kind: HistoryProgress; percent?: number } | null;
 	/** "Ongoing" / "Ended" (TV), release year (movies) */
 	tag: string | null;
+	/** Catalog known (or confirmed missing) — false → the list shows a skeleton, not a blank card */
+	ready: boolean;
 }
 
 const PILL: Record<WatchStatus, HistoryPill> = {
@@ -29,7 +38,7 @@ const PILL: Record<WatchStatus, HistoryPill> = {
 };
 
 /** Aired episodes (specials excluded) in watch order */
-function airedEpisodes(catalog: CatalogShow | null, today: string) {
+function airedEpisodes(catalog: HistoryCatalog | null, today: string) {
 	return [...(catalog?.seasons ?? [])]
 		.filter((s) => s.seasonNumber > 0)
 		.sort((a, b) => a.seasonNumber - b.seasonNumber)
@@ -54,15 +63,37 @@ function percentWatched(entry: HistoryEntry, aired: { season: number; episode: n
 /** Everything Watch History shows for one row — pure, catalog from the shared cache */
 export function deriveHistoryCard(
 	entry: HistoryEntry,
-	catalog: CatalogShow | null,
+	catalog: HistoryCatalog | null,
 	today: string,
+	/** No catalog, but its fetch is done (doc missing / failed) → render what we have */
+	catalogSettled = false,
 ): HistoryCard {
 	const isMovie = entry.mediaType === MediaType.MOVIE;
-	const pill = isMovie ? HistoryPill.COMPLETED : PILL[entry.status];
 	const ended = ENDED_STATUSES.includes(catalog?.status ?? "");
+	// Watched everything aired on a show that's still airing → caught up, not finished
+	const caughtUpAiring = !isMovie && !!catalog && !ended && entry.status === WatchStatus.COMPLETED;
+	// Still "watching" a show that has ended, with nothing left → finished (the status
+	// predates TMDB marking it ended, and the weekly sync skips ended shows)
+	const finishedEnded =
+		!isMovie &&
+		!!catalog &&
+		ended &&
+		entry.status === WatchStatus.WATCHING &&
+		percentWatched(entry, airedEpisodes(catalog, today)) === 100;
+	const pill = isMovie
+		? null
+		: caughtUpAiring
+			? HistoryPill.WATCHING
+			: finishedEnded
+				? HistoryPill.COMPLETED
+				: PILL[entry.status];
 
 	let progress: HistoryCard["progress"] = null;
-	if (pill === HistoryPill.PAUSED) {
+	if (finishedEnded) {
+		progress = null;
+	} else if (caughtUpAiring) {
+		progress = { kind: HistoryProgress.UP_TO_DATE };
+	} else if (pill === HistoryPill.PAUSED) {
 		progress = { kind: HistoryProgress.PAUSED };
 	} else if (pill === HistoryPill.WATCHING || pill === HistoryPill.REWATCHING) {
 		const aired = airedEpisodes(catalog, today);
@@ -79,7 +110,18 @@ export function deriveHistoryCard(
 	else if (pill === HistoryPill.COMPLETED) watchCount = entry.rewatchCount + 1;
 	else if (pill === HistoryPill.REWATCHING) watchCount = Math.max(1, entry.rewatchCount);
 
+	// Movies marked before TMDB had a runtime stored 0 minutes — fall back to the catalog's
+	// runtime × plays so the card still shows a duration
+	const minutes =
+		entry.minutesWatched > 0
+			? entry.minutesWatched
+			: isMovie && catalog?.runtime
+				? catalog.runtime * Math.max(1, entry.plays)
+				: 0;
+
 	const year = (catalog?.releaseDate ?? "").slice(0, 4);
+	const pad = (n: number) => String(n).padStart(2, "0");
+	const last = entry.lastEpisode;
 	return {
 		id: entry.id,
 		tmdbId: entry.tmdbId,
@@ -87,10 +129,18 @@ export function deriveHistoryCard(
 		title: catalog?.title ?? "",
 		logoPath: catalog?.logoPath ?? null,
 		backdropPath: catalog?.backdropPath ?? null,
-		pill,
-		timeSpent: formatTime(Math.round(entry.minutesWatched)),
+		// Paused: no status pill — the bottom Paused pill already says it
+		pill: pill === HistoryPill.PAUSED ? null : pill,
+		// Watched, but TMDB had no runtimes yet → TV "N/A" until the weekly sync heals it;
+		// movies just hide Watch Time
+		timeSpent: minutes > 0 ? formatTime(Math.round(minutes)) : isMovie ? null : "N/A",
+		lastWatched: !isMovie && last ? `S${pad(last.season)} | E${pad(last.episode)}` : null,
+		pillLabel: pill === HistoryPill.PAUSED ? null : pill,
+		pillCount:
+			pill === HistoryPill.REWATCHING && entry.rewatchCount > 0 ? entry.rewatchCount : null,
 		watchCount,
 		progress,
 		tag: isMovie ? year || null : catalog ? (ended ? "Ended" : "Ongoing") : null,
+		ready: !!catalog || catalogSettled,
 	};
 }

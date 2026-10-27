@@ -15,6 +15,7 @@ const HomeScreen = lazy(() => import("../screens/HomeScreen"));
 const CalendarScreen = lazy(() => import("../screens/CalendarScreen"));
 const ProfileScreen = lazy(() => import("../screens/ProfileScreen"));
 const SettingsScreen = lazy(() => import("../screens/ProfileScreen/SettingsScreen"));
+const WatchHistoryScreen = lazy(() => import("../screens/ProfileScreen/WatchHistory"));
 const ImportDataScreen = lazy(() => import("../screens/ImportDataScreen"));
 const NotFoundScreen = lazy(() => import("../screens/NotFoundScreen"));
 
@@ -42,6 +43,7 @@ export default function AppRoutes() {
 						<Route path={Paths.CALENDAR} element={<CalendarScreen />} />
 						<Route path={Paths.PROFILE} element={<ProfileScreen />} />
 						<Route path={Paths.SETTINGS} element={<SettingsScreen />} />
+						<Route path={Paths.WATCH_HISTORY} element={<WatchHistoryScreen />} />
 						<Route path={Paths.IMPORT} element={<ImportDataScreen />} />
 					</Route>
 					<Route path="*" element={<NotFoundScreen />} />

@@ -5,6 +5,7 @@ import { Spin } from "antd";
 import type { ShowDrawerData } from "@app/types";
 import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
 import styles from "./styles/ShowDrawer.module.scss";
+import SkeletonBlock from "./SkeletonBlock";
 
 interface Props {
 	visible: boolean;
@@ -34,7 +35,13 @@ export default function ShowDrawer({ visible, show, loading, onGoToShow, onClose
 	return createPortal(
 		<AnimatePresence onExitComplete={() => setImageLoaded(false)}>
 			{visible && (
-				<motion.div className={styles.overlay} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
+				<motion.div
+					className={styles.overlay}
+					initial={{ opacity: 0 }}
+					animate={{ opacity: 1 }}
+					exit={{ opacity: 0 }}
+					onClick={onClose}
+				>
 					<motion.div
 						className={styles.sheet}
 						role="dialog"
@@ -56,8 +63,15 @@ export default function ShowDrawer({ visible, show, loading, onGoToShow, onClose
 						) : (
 							<div className={styles.scroll}>
 								<div className={styles.imageContainer}>
-									{!imageLoaded && <div className={styles.imageSkeleton} />}
-									{image && <img src={image} alt="" className={styles.backdrop} onLoad={() => setImageLoaded(true)} />}
+									{!imageLoaded && <SkeletonBlock className={styles.imageSkeleton} />}
+									{image && (
+										<img
+											src={image}
+											alt=""
+											className={styles.backdrop}
+											onLoad={() => setImageLoaded(true)}
+										/>
+									)}
 									<div className={styles.imageGradient} />
 								</div>
 								<div className={styles.content}>
@@ -65,21 +79,23 @@ export default function ShowDrawer({ visible, show, loading, onGoToShow, onClose
 									{meta && <p className={styles.meta}>{meta}</p>}
 									<div className={styles.genreRow}>
 										{show.genres == null ? (
-											<span className={`${styles.skeleton} ${styles.skeletonShort}`} />
+											<SkeletonBlock className={`${styles.skeleton} ${styles.skeletonShort}`} />
 										) : (
 											show.genres && <span className={styles.meta}>{show.genres}</span>
 										)}
 										{show.mediaType && (
-											<span className={`${styles.typeBadge} ${show.mediaType === "movie" ? styles.typeBadgeMovie : ""}`}>
+											<span
+												className={`${styles.typeBadge} ${show.mediaType === "movie" ? styles.typeBadgeMovie : ""}`}
+											>
 												{show.mediaType === "movie" ? "MOVIE" : "TV"}
 											</span>
 										)}
 									</div>
 									{show.overview === null ? (
 										<div className={styles.overviewSkeleton}>
-											<span className={styles.skeleton} />
-											<span className={`${styles.skeleton} w-[95%]!`} />
-											<span className={`${styles.skeleton} w-[60%]!`} />
+											<SkeletonBlock className={styles.skeleton} />
+											<SkeletonBlock className={`${styles.skeleton} w-[95%]!`} />
+											<SkeletonBlock className={`${styles.skeleton} w-[60%]!`} />
 										</div>
 									) : (
 										show.overview && <p className={styles.overview}>{show.overview}</p>

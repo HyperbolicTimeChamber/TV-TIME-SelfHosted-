@@ -10,6 +10,15 @@ const AsyncStorage = {
 	async removeItem(key: string): Promise<void> {
 		window.localStorage.removeItem(key);
 	},
+	async getMany(keys: string[]): Promise<Record<string, string | null>> {
+		return Object.fromEntries(keys.map((k) => [k, window.localStorage.getItem(k)]));
+	},
+	async setMany(entries: Record<string, string>): Promise<void> {
+		for (const [k, v] of Object.entries(entries)) window.localStorage.setItem(k, v);
+	},
+	async removeMany(keys: string[]): Promise<void> {
+		for (const k of keys) window.localStorage.removeItem(k);
+	},
 	async multiRemove(keys: string[]): Promise<void> {
 		for (const k of keys) window.localStorage.removeItem(k);
 	},

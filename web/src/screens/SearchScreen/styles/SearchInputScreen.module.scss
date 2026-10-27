@@ -9,16 +9,18 @@
 	display: flex;
 	align-items: stretch;
 	margin: 12px;
+	/* One surface, like the results bar: outlined back icon, no highlighted box */
+	background: var(--surface);
+	border-radius: 8px;
 }
 
+/* Left inset only — the input's own padding is the gap to the text */
 .backButton {
-	width: 44px;
 	display: flex;
 	align-items: center;
-	justify-content: center;
-	background: var(--surface-light);
+	padding: 0 0 0 12px;
+	background: none;
 	border: none;
-	border-radius: 8px 0 0 8px;
 	color: var(--text);
 	cursor: pointer;
 }
@@ -27,8 +29,6 @@
 	flex: 1;
 	display: flex;
 	align-items: center;
-	background: var(--surface);
-	border-radius: 0 8px 8px 0;
 }
 
 .searchInput {

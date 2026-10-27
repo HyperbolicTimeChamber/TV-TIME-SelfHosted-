@@ -5,6 +5,9 @@ export interface PosterLayout {
 	zIndex: number;
 }
 
+/** Columns the scattered layout spreads `count` posters over */
+export const collageColumns = (count: number) => Math.ceil(Math.sqrt(count * 1.5));
+
 /** Deterministic scattered-poster layout (percent positions) for profile collage cards */
 export function generateCollageLayout(count: number, seed: number): PosterLayout[] {
 	let s = seed;
@@ -13,7 +16,7 @@ export function generateCollageLayout(count: number, seed: number): PosterLayout
 		return (s % 1000) / 1000;
 	};
 
-	const cols = Math.ceil(Math.sqrt(count * 1.5));
+	const cols = collageColumns(count);
 	const rows = Math.ceil(count / cols);
 	const cellW = 100 / cols;
 	const cellH = 100 / rows;

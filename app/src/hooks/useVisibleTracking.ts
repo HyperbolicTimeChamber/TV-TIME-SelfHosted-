@@ -1,21 +1,13 @@
-// app/src/hooks/useVisibleTracking.ts
 import { WatchStatus, MediaType } from "../types";
 import { EnrichedTrackingItem } from "./useWatchlist";
 import { todayStr } from "../utils";
+import { hasAired, nextEpisodeAirStamp } from "../utils/airTime";
 
 /**
- * Determines if a show should be visible in the "Currently Watching" list.
- * Uses nextEpisode from tracking doc (not watched episode counts) to determine
- * if there are unwatched aired episodes.
- *
- * Visible when:
- * - status is active AND nextEpisode has aired (unwatched content exists)
- * - plan_to_watch (always visible)
- *
- * Hidden when:
- * - status is completed/paused_rewatch
- * - nextEpisode is null (fully caught up / show ended)
- * - nextEpisode hasn't aired yet (caught up, waiting for new ep)
+ * Whether an item belongs in the watchlist. TV uses the tracking doc's nextEpisode
+ * (not watched-episode counts): visible only once that episode has aired. Movies need
+ * a known, past release date. Statuses other than watching / rewatching / plan to watch
+ * are always hidden.
  */
 export function isShowVisible(item: EnrichedTrackingItem): boolean {
 	const activeStatuses: WatchStatus[] = [
@@ -49,9 +41,11 @@ export function isShowVisible(item: EnrichedTrackingItem): boolean {
 	const nextEp = item.nextEpisode;
 	if (!nextEp) return false;
 
-	// Use local nextEpisodeAirDate from tracking doc (no catalog dependency)
+	// Exact air time (catalog, TVMaze) when known — only once that moment has passed;
+	// else the local nextEpisodeAirDate day from the tracking doc (no catalog dependency)
+	const airStamp = nextEpisodeAirStamp(nextEp, item.catalogShow);
 	const airDate = item.nextEpisodeAirDate;
-	if (airDate) return airDate <= today;
+	if (airStamp || airDate) return hasAired(airStamp, airDate, today);
 
 	// Fallback to catalog if nextEpisodeAirDate not yet populated
 	const catalog = item.catalogShow;
@@ -68,13 +62,10 @@ export function isShowVisible(item: EnrichedTrackingItem): boolean {
 }
 
 /**
- * Get the air date of the next episode from the catalog data.
- * Returns ISO date string or null.
+ * Air date (YYYY-MM-DD) of the next episode: the tracking doc's field, else the catalog.
  */
 function getNextEpisodeAirDate(item: EnrichedTrackingItem): string | null {
-	// Prefer local field from tracking doc
 	if (item.nextEpisodeAirDate) return item.nextEpisodeAirDate;
-	// Fallback to catalog
 	if (!item.nextEpisode || !item.catalogShow) return null;
 	const season = item.catalogShow.seasons?.find((s) => s.seasonNumber === item.nextEpisode!.season);
 	if (!season) return null;
@@ -82,10 +73,7 @@ function getNextEpisodeAirDate(item: EnrichedTrackingItem): string | null {
 	return episode?.airDate ?? null;
 }
 
-/**
- * Get the effective sort timestamp for an item.
- * Uses max(priorityDate, nextEpisodeAirDate or releaseDate).
- */
+/** Sort timestamp: max(priorityDate, next episode air date or movie release date) */
 function getEffectivePriority(item: EnrichedTrackingItem): number {
 	const priorityMs = item.priorityDate?.toMillis?.() ?? 0;
 
@@ -101,10 +89,7 @@ function getEffectivePriority(item: EnrichedTrackingItem): number {
 	return Math.max(priorityMs, contentDateMs);
 }
 
-/**
- * Sort by effective priority descending.
- * Effective priority = max(priorityDate, nextEpisode.airDate or releaseDate)
- */
+/** Sort by effective priority, descending */
 export function sortByPriority(items: EnrichedTrackingItem[]): EnrichedTrackingItem[] {
 	return [...items].sort((a, b) => {
 		return getEffectivePriority(b) - getEffectivePriority(a);

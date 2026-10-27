@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Modal, View, Pressable, Animated, StyleSheet, ModalProps } from "react-native";
 import { colors } from "../../theme";
 
@@ -6,13 +6,26 @@ interface Props extends Pick<ModalProps, "onRequestClose"> {
 	visible: boolean;
 	onClose: () => void;
 	children: React.ReactNode;
+	/** Near full width (e.g. a day's cards) instead of the 320px dialog */
+	wide?: boolean;
 }
 
 const DURATION = 250;
 
-export default function AnimatedModal({ visible, onClose, onRequestClose, children }: Props) {
+export default function AnimatedModal({ visible, onClose, onRequestClose, children, wide }: Props) {
 	const opacity = useRef(new Animated.Value(0)).current;
 	const scale = useRef(new Animated.Value(0.85)).current;
+	// Touches only count once the open animation is done: a popup opened by a long press
+	// appears under the finger, and lifting it must not press whatever button is there
+	const [armed, setArmed] = useState(false);
+	useEffect(() => {
+		if (!visible) {
+			setArmed(false);
+			return;
+		}
+		const t = setTimeout(() => setArmed(true), DURATION);
+		return () => clearTimeout(t);
+	}, [visible]);
 
 	useEffect(() => {
 		if (visible) {
@@ -57,11 +70,18 @@ export default function AnimatedModal({ visible, onClose, onRequestClose, childr
 			animationType="none"
 			onRequestClose={onRequestClose ?? handleClose}
 		>
-			<Pressable style={styles.overlay} onPress={handleClose}>
-				<Animated.View style={[styles.content, { opacity, transform: [{ scale }] }]}>
-					<Pressable onPress={() => {}}>{children}</Pressable>
+			<View style={styles.overlay}>
+				{/* Tap-outside-to-close sits behind the box, not around it: a touch responder around the
+				    content (it had a Pressable to swallow inner taps) took blank-space touches and
+				    cancelled gesture-handler gestures inside — the Calendar popup's day swipe */}
+				<Pressable style={StyleSheet.absoluteFill} onPress={armed ? handleClose : undefined} />
+				<Animated.View
+					pointerEvents={armed ? "auto" : "none"}
+					style={[styles.content, wide && styles.wide, { opacity, transform: [{ scale }] }]}
+				>
+					{children}
 				</Animated.View>
-			</Pressable>
+			</View>
 		</Modal>
 	);
 }
@@ -77,4 +97,5 @@ const styles = StyleSheet.create({
 		width: "80%",
 		maxWidth: 320,
 	},
+	wide: { width: "92%", maxWidth: 560 },
 });

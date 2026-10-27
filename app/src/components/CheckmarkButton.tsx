@@ -1,6 +1,7 @@
 import { TouchableOpacity, Text, ActivityIndicator, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../theme";
+import { withHaptic } from "../utils/haptics";
 
 interface Props {
 	watched?: boolean;
@@ -43,7 +44,7 @@ export default function CheckmarkButton({
 				loading && { opacity: 0.5 },
 			]}
 			onPress={onPress}
-			onLongPress={onLongPress}
+			onLongPress={withHaptic(onLongPress)}
 			disabled={disabled || loading}
 			hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
 		>

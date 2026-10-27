@@ -2,6 +2,12 @@ import React, { useEffect } from "react";
 import { View, StyleSheet, Platform, PermissionsAndroid, Alert } from "react-native";
 import { Image } from "expo-image";
 import * as SplashScreen from "expo-splash-screen";
+import {
+	useFonts,
+	SmoochSans_400Regular,
+	SmoochSans_500Medium,
+} from "@expo-google-fonts/smooch-sans";
+import { Handjet_800ExtraBold } from "@expo-google-fonts/handjet";
 import crashlytics from "@react-native-firebase/crashlytics";
 
 // Report uncaught JS errors to Crashlytics
@@ -22,16 +28,19 @@ import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persi
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import NetInfo from "@react-native-community/netinfo";
-import { getAuth, onAuthStateChanged, reload, signOut } from "@react-native-firebase/auth";
+import { getAuth, onAuthStateChanged, reload } from "@react-native-firebase/auth";
+import type { User } from "@react-native-firebase/auth";
 import { getMessaging, getToken, requestPermission } from "@react-native-firebase/messaging";
 import { getFirestore, doc, setDoc } from "@react-native-firebase/firestore";
 import { useAuthStore, useUiStore } from "./src/stores";
 import { useForceUpdate } from "./src/hooks";
+import ForceUpdateScreen from "./src/components/ForceUpdateScreen";
 import LoginScreen from "./src/screens/LoginScreen";
 import ImportDataScreen from "./src/screens/ImportDataScreen";
 import AppNavigator from "./src/navigation/AppNavigator";
 import { OfflineOverlay } from "./src/components";
 import { colors } from "./src/theme";
+import { FATAL_AUTH_ERRORS, QueryKey } from "./src/enums";
 
 // Keep native splash visible until auth resolves
 SplashScreen.preventAutoHideAsync();
@@ -49,6 +58,10 @@ const queryClient = new QueryClient({
 		queries: { staleTime: 5 * 60 * 1000, retry: 2 },
 	},
 });
+// A show's watched episodes back the info modal's counts — keep them for the session: the 5 min
+// default dropped them, and reopening that show's modal re-read every watched episode from the
+// server before it could open
+queryClient.setQueryDefaults([QueryKey.WATCHED_EPISODES], { gcTime: Infinity });
 
 const PERSIST_PREFIXES = ["upcomingEpisodes", "catalog"];
 
@@ -78,8 +91,27 @@ async function registerFCMToken(userId: string) {
 	}
 }
 
+/**
+ * Background check that the account still exists server-side. Offline / slow / timed-out
+ * reloads are ignored — only a definitive auth error (deleted, disabled, revoked) signs out.
+ */
+async function verifySession(user: User) {
+	try {
+		await reload(user);
+	} catch (err) {
+		const code = (err as { code?: string } | null)?.code;
+		if (!code || !FATAL_AUTH_ERRORS.includes(code)) return;
+		// Signed out / switched account meanwhile → nothing to do
+		if (getAuth().currentUser?.uid !== user.uid) return;
+		useAuthStore
+			.getState()
+			.signOut()
+			.catch(() => {});
+	}
+}
+
 function AppContent() {
-	useForceUpdate();
+	const updateRequired = useForceUpdate();
 	const {
 		user,
 		loading,
@@ -119,6 +151,10 @@ function AppContent() {
 		);
 	}
 
+	if (updateRequired) {
+		return <ForceUpdateScreen />;
+	}
+
 	if (!hasCompletedImport) {
 		const markImportDone = () => {
 			useAuthStore.setState({ hasCompletedImport: true });
@@ -149,25 +185,22 @@ function AppContent() {
 }
 
 export default function App() {
+	// Non-blocking: text falls back to the system font until these load
+	useFonts({ SmoochSans_400Regular, SmoochSans_500Medium, Handjet_800ExtraBold });
 	const setUser = useAuthStore((s) => s.setUser);
 	const setConnected = useUiStore((s) => s.setConnected);
 
 	useEffect(() => {
-		const unsubscribeAuth = onAuthStateChanged(getAuth(), async (firebaseUser) => {
+		const unsubscribeAuth = onAuthStateChanged(getAuth(), (firebaseUser) => {
+			// Persisted session is enough to enter (and hide the splash) — never wait on the network
+			setUser(firebaseUser);
 			if (firebaseUser) {
-				try {
-					await reload(firebaseUser);
-				} catch {
-					await signOut(getAuth());
-					setUser(null);
-					return;
-				}
-				registerFCMToken(firebaseUser.uid);
 				crashlytics().setUserId(firebaseUser.uid);
+				registerFCMToken(firebaseUser.uid);
+				verifySession(firebaseUser);
 			} else {
 				crashlytics().setUserId("");
 			}
-			setUser(firebaseUser);
 		});
 		return unsubscribeAuth;
 	}, [setUser]);

@@ -50,7 +50,12 @@ export default function CheckmarkButton({
 				press.onClick(e);
 			}}
 			className={`flex size-(--size) shrink-0 touch-manipulation items-center justify-center rounded-full border-0 bg-(--bg) p-0 ${disabled ? "cursor-default" : "cursor-pointer"} ${loading ? "opacity-50" : ""}`}
-			style={cssVars({ "--size": px(size), "--bg": bg, "--label-fs": px(size * 0.38), "--label-c": textColor })}
+			style={cssVars({
+				"--size": px(size),
+				"--bg": bg,
+				"--label-fs": px(size * 0.38),
+				"--label-c": textColor,
+			})}
 		>
 			{loading ? (
 				<Spin size="small" />

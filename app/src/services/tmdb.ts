@@ -108,10 +108,34 @@ export async function searchSuggestions(apiKey: string, query: string): Promise<
 }
 
 export async function getShowDetails(apiKey: string, tmdbId: number, mediaType: string = "tv") {
+	// Title logos ride along on the same request (the show page's logo comes with its data)
 	const res = await tmdb(apiKey).get(`/${mediaType}/${tmdbId}`, {
-		params: { append_to_response: "credits,similar" },
+		params: { append_to_response: "credits,similar,images", include_image_language: "en,null" },
 	});
 	return res.data as TMDBShow;
+}
+
+type TmdbLogo = { file_path: string; iso_639_1: string | null };
+
+/** Best title logo — English, else language-neutral (same pick as the catalog's logoPath) */
+export function pickTitleLogo(logos: TmdbLogo[] | undefined | null): string | null {
+	return (
+		logos?.find((l) => l.iso_639_1 === "en")?.file_path ??
+		logos?.find((l) => !l.iso_639_1)?.file_path ??
+		null
+	);
+}
+
+/** Title logo on its own (for titles whose details weren't fetched with images) */
+export async function getTitleLogo(
+	apiKey: string,
+	tmdbId: number,
+	mediaType: string,
+): Promise<string | null> {
+	const res = await tmdb(apiKey).get(`/${mediaType}/${tmdbId}/images`, {
+		params: { include_image_language: "en,null" },
+	});
+	return pickTitleLogo(res.data?.logos);
 }
 
 export async function getSeasonDetails(apiKey: string, tmdbId: number, seasonNumber: number) {
@@ -121,6 +145,26 @@ export async function getSeasonDetails(apiKey: string, tmdbId: number, seasonNum
 		name: string;
 		season_number: number;
 	};
+}
+
+/**
+ * One episode's runtime straight from TMDB — for a mark on a just-aired episode whose stored
+ * catalog has no runtime yet (else the watch counts 0 minutes until the weekly sync).
+ * Gives up after timeoutMs so a slow network never holds up the mark; 0 when unknown.
+ */
+export async function fetchEpisodeRuntime(
+	apiKey: string | null | undefined,
+	tmdbId: number,
+	season: number,
+	episode: number,
+	timeoutMs = 2000,
+): Promise<number> {
+	if (!apiKey) return 0;
+	const lookup = getSeasonDetails(apiKey, tmdbId, season)
+		.then((s) => s.episodes.find((e) => e.episode_number === episode)?.runtime ?? 0)
+		.catch(() => 0);
+	const timeout = new Promise<number>((resolve) => setTimeout(() => resolve(0), timeoutMs));
+	return Promise.race([lookup, timeout]);
 }
 
 export async function discoverTVByAirDate(

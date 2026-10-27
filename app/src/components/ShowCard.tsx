@@ -1,6 +1,7 @@
-import React, { memo, useRef, useCallback } from "react";
+import React, { memo, useRef, useCallback, useMemo } from "react";
+import { withHaptic } from "../utils/haptics";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
-import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS } from "../types";
+import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS, WatchStatus } from "../types";
 import { colors, spacing, typography } from "../theme";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton from "./CheckmarkButton";
@@ -36,7 +37,10 @@ interface Props {
 	isUpdating?: boolean;
 	remainingEpisodes?: number | null;
 	onSwipeLeft: (item: any) => Promise<void>;
-	onSwipeRight: (item: any) => Promise<void>;
+	/** Omit to turn that swipe off */
+	onSwipeRight?: (item: any) => Promise<void>;
+	/** Long press on the card (haptic included) */
+	onLongPress?: (item: any) => void;
 	onPress: (tmdbId: number, mediaType: MediaType) => void;
 	onTitlePress?: (item: any) => void;
 	onCheckmark: (item: any) => Promise<void>;
@@ -55,6 +59,7 @@ export default memo(function ShowCard({
 	onTitlePress,
 	onCheckmark: _onCheckmark,
 	onCheckmarkLongPress,
+	onLongPress,
 }: Props) {
 	const ep =
 		item.nextEpisode ?? (item.mediaType === MediaType.TV ? { season: 1, episode: 1 } : null);
@@ -102,42 +107,61 @@ export default memo(function ShowCard({
 	}, [onPress, onTitlePress, item]);
 	const handleTitlePress = useCallback(() => onTitlePress?.(item), [onTitlePress, item]);
 	const handleSwipeLeft = useCallback(() => onSwipeLeft(item), [onSwipeLeft, item]);
-	const handleSwipeRight = useCallback(() => onSwipeRight(item), [onSwipeRight, item]);
+	const handleSwipeRight = useCallback(
+		() => onSwipeRight?.(item) ?? Promise.resolve(),
+		[onSwipeRight, item],
+	);
+	const handleLongPress = useMemo(
+		() => withHaptic(onLongPress && (() => onLongPress(item))),
+		[onLongPress, item],
+	);
 
 	if (isWatched) {
 		const wc = watchCount ?? 0;
 		return (
 			<SwipeableCard
+				// Recycled list row → fresh swipe state for the new title
+				resetKey={`${item.mediaType}_${item.tmdbId}`}
 				onSwipeLeft={handleSwipeLeft}
 				onSwipeRight={handleSwipeRight}
 				leftLabel="Rewatch"
-				rightLabel={wc > 1 ? "−1" : "Unwatch"}
+				rightLabel="Unwatch"
+				rightIcon={wc > 1 ? "−1" : undefined}
 				persistAfterSwipe={{ left: true, right: wc > 1 }}
 			>
-				<TouchableOpacity style={styles.container} onPress={handlePress} activeOpacity={0.8}>
+				<TouchableOpacity
+					style={styles.container}
+					onPress={handlePress}
+					onLongPress={handleLongPress}
+					activeOpacity={0.8}
+				>
 					<PosterImage
 						posterPath={item.posterPath}
 						mediaType={item.mediaType}
 						style={[styles.poster, styles.watchedPoster]}
 					/>
 					<View style={styles.info}>
-						<View style={[styles.titlePill, styles.watchedTitlePill]}>
+						<View style={[styles.titlePill, styles.watchedTitlePill, styles.watchedFade]}>
 							<Text style={[styles.titleText, styles.watchedMuted]} numberOfLines={1}>
 								{item.title.toUpperCase()}
 							</Text>
 						</View>
 						{item.mediaType === MediaType.MOVIE ? (
 							<>
-								<View style={[styles.movieMetaRow, { opacity: 0.6 }]}>
+								{/* The card fades its own parts rather than the whole subtree, so the year
+								    number alone can stay at full strength. The amber behind it is faded
+								    through a translucent fill, not opacity, which would take the number
+								    with it */}
+								<View style={styles.movieMetaRow}>
 									<View style={styles.movieBadgeGroup}>
-										<View style={styles.movieBadgeMerged}>
+										<View style={[styles.movieBadgeMerged, styles.watchedFade]}>
 											<Text style={styles.movieBadgeText}>MOVIE</Text>
 										</View>
 										{item.releaseDate && (
 											<>
-												<View style={styles.slantArrow} />
-												<View style={styles.freshTag}>
-													<Text style={styles.freshTagText}>
+												<View style={[styles.slantArrow, styles.watchedFade]} />
+												<View style={[styles.freshTag, styles.watchedFreshTag]}>
+													<Text style={[styles.freshTagText, styles.watchedYear]}>
 														{item.releaseDate.substring(0, 4)}
 													</Text>
 												</View>
@@ -146,21 +170,28 @@ export default memo(function ShowCard({
 									</View>
 								</View>
 								{item.director && (
-									<Text style={[styles.episodeName, styles.watchedMuted]} numberOfLines={1}>
+									<Text
+										style={[styles.episodeName, styles.watchedMuted, styles.watchedFade]}
+										numberOfLines={1}
+									>
 										{item.director}
 									</Text>
 								)}
 							</>
 						) : (
-							<Text style={[styles.episode, styles.watchedMuted]}>{episodeLabel}</Text>
-						)}
-						{item.rewatchCount > 0 && (
-							<Text style={[styles.rewatch, styles.watchedMuted]}>
-								Rewatch #{item.rewatchCount}
+							<Text style={[styles.episode, styles.watchedMuted, styles.watchedFade]}>
+								{episodeLabel}
 							</Text>
 						)}
+						{item.rewatchCount > 0 && (
+							<View style={[styles.tagBadge, styles.latestBadge, styles.mutedTag]}>
+								<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
+									REWATCH {item.rewatchCount}
+								</Text>
+							</View>
+						)}
 					</View>
-					<View style={styles.checkmarkWrap}>
+					<View style={[styles.checkmarkWrap, styles.watchedFade]}>
 						<CheckmarkButton
 							size={38}
 							watched
@@ -184,12 +215,18 @@ export default memo(function ShowCard({
 
 	return (
 		<SwipeableCard
+			resetKey={`${item.mediaType}_${item.tmdbId}`}
 			ref={swipeRef}
 			onSwipeLeft={handleSwipeLeft}
-			onSwipeRight={handleSwipeRight}
+			onSwipeRight={onSwipeRight ? handleSwipeRight : undefined}
 			persistAfterSwipe
 		>
-			<TouchableOpacity style={styles.container} onPress={handlePress} activeOpacity={0.8}>
+			<TouchableOpacity
+				style={styles.container}
+				onPress={handlePress}
+				onLongPress={handleLongPress}
+				activeOpacity={0.8}
+			>
 				<PosterImage
 					posterPath={item.posterPath}
 					mediaType={item.mediaType}
@@ -257,8 +294,14 @@ export default memo(function ShowCard({
 							) : null}
 						</>
 					)}
-					{item.rewatchCount > 0 && (
-						<Text style={styles.rewatch}>Rewatch #{item.rewatchCount}</Text>
+					{/* Only while actually rewatching — a count left over from a dropped rewatch isn't one */}
+					{item.status === WatchStatus.REWATCHING && item.rewatchCount > 0 && (
+						// Same outlined tag as LATEST
+						<View style={[styles.tagBadge, styles.latestBadge]}>
+							<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
+								REWATCH {item.rewatchCount}
+							</Text>
+						</View>
 					)}
 				</View>
 				<View style={styles.checkmarkWrap}>
@@ -278,7 +321,7 @@ const POSTER_WIDTH = 100;
 const styles = StyleSheet.create({
 	container: {
 		flexDirection: "row",
-		backgroundColor: colors.background,
+		backgroundColor: colors.surface,
 		borderRadius: 8,
 		overflow: "hidden",
 		minHeight: POSTER_WIDTH,
@@ -287,8 +330,15 @@ const styles = StyleSheet.create({
 		width: POSTER_WIDTH,
 		alignSelf: "stretch",
 	},
-	watchedPoster: {
+	// Same fade as WatchedEpisodeRow, but per element instead of over the whole card: a
+	// container opacity also dims the movie year, which has to stay readable. The card keeps
+	// `container`'s surface — SwipeableCard paints the same surface behind it, so the old
+	// container-wide 0.5 never actually darkened the background, only the content.
+	watchedFade: {
 		opacity: 0.5,
+	},
+	watchedPoster: {
+		opacity: 0.3,
 	},
 	info: {
 		flex: 1,
@@ -362,14 +412,10 @@ const styles = StyleSheet.create({
 		fontSize: 12,
 		fontWeight: "400",
 	},
-	rewatch: {
-		...typography.caption,
-		color: colors.accent,
-		marginTop: spacing.xs,
-	},
 	watchedMuted: {
 		color: colors.textMuted,
 	},
+	mutedTag: { opacity: 0.5 },
 	updatingContainer: {
 		minHeight: POSTER_WIDTH,
 		flexDirection: "row",
@@ -406,6 +452,14 @@ const styles = StyleSheet.create({
 		fontWeight: "700",
 		color: colors.surface,
 		letterSpacing: 0.5,
+	},
+	// Previously watched: half-strength amber, so only the year number reads at full strength
+	watchedFreshTag: {
+		backgroundColor: colors.warningAmberFaded,
+	},
+	// …and black on that muted amber, where the surface-grey went brownish
+	watchedYear: {
+		color: colors.background,
 	},
 	tagBadge: {
 		alignSelf: "flex-start",

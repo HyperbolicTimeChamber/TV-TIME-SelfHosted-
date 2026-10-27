@@ -25,7 +25,6 @@ export type { TMDBShow, TMDBSeason, TMDBEpisode, UpcomingEpisode } from "./tmdb"
 export type {
 	RootStackParamList,
 	MainTabParamList,
-	HomeTopTabParamList,
 	MainStackParamList,
 	HomeStackParamList,
 	SwipeTabParamList,
@@ -36,5 +35,6 @@ export type {
 export type { CarouselEpisode, EnrichedEpisode, EpisodeDetailModalProps } from "./episodeCarousel";
 export type { WatchlistListItem } from "./watchlist";
 export type { WatchAction } from "./watchAction";
+export type { AddFailure } from "./addFailure";
 export type { ShowDrawerData } from "./showDrawer";
-export type { HistoryEntry, HistoryState, HistoryChange } from "./history";
+export type { HistoryEntry, HistoryState, HistoryChange, HistoryCatalog } from "./history";

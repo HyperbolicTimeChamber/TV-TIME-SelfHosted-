@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { CheckmarkButton, SwipeableCard } from "../../../components";
+import { withHaptic } from "../../../utils/haptics";
 import PosterImage from "../../../components/PosterImage";
 import { colors, spacing, typography } from "../../../theme";
 import { WatchedEpisode } from "../../../types";
@@ -13,6 +14,8 @@ interface Props {
 	onCheckmarkPress: (episode: WatchedEpisode) => void;
 	onSwipeLeft: (episode: WatchedEpisode) => Promise<void>;
 	onSwipeRight: (episode: WatchedEpisode) => Promise<void>;
+	/** Long press on the card (haptic included) — omit to turn it off */
+	onLongPress?: (show: EnrichedTrackingItem) => void;
 }
 
 export default memo(function WatchedEpisodeRow({
@@ -22,20 +25,25 @@ export default memo(function WatchedEpisodeRow({
 	onCheckmarkPress,
 	onSwipeLeft,
 	onSwipeRight,
+	onLongPress,
 }: Props) {
 	const label = `S${String(episode.season).padStart(2, "0")} | E${String(episode.episode).padStart(2, "0")}`;
 
 	return (
 		<SwipeableCard
+			// Recycled list row → fresh swipe state for the new episode
+			resetKey={episode.id}
 			onSwipeLeft={() => onSwipeLeft(episode)}
 			onSwipeRight={() => onSwipeRight(episode)}
 			leftLabel="Rewatch"
-			rightLabel={episode.watchCount > 1 ? "−1" : "Unwatch"}
+			rightLabel="Unwatch"
+			rightIcon={episode.watchCount > 1 ? "−1" : undefined}
 			persistAfterSwipe={{ left: true, right: episode.watchCount > 1 }}
 		>
 			<TouchableOpacity
 				style={styles.container}
 				onPress={() => onPress(episode.tmdbShowId)}
+				onLongPress={withHaptic(onLongPress && (() => onLongPress(show)))}
 				activeOpacity={0.8}
 			>
 				<PosterImage posterPath={show.posterPath} mediaType="tv" style={styles.poster} />
@@ -70,7 +78,7 @@ const POSTER_WIDTH = 100;
 const styles = StyleSheet.create({
 	container: {
 		flexDirection: "row",
-		backgroundColor: colors.background,
+		backgroundColor: colors.surface,
 		borderRadius: 8,
 		overflow: "hidden",
 		opacity: 0.5,

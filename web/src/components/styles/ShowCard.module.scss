@@ -2,7 +2,7 @@
 
 .container {
 	display: flex;
-	background: var(--bg);
+	background: var(--surface);
 	border-radius: 8px;
 	overflow: hidden;
 	min-height: 100px;
@@ -16,10 +16,21 @@
 	align-self: stretch;
 	min-height: 100px;
 	object-fit: cover;
+	/* Ignore the image's own 2:3 height: the card is as tall as its text (like the app)
+	   and the poster stretches to it */
+	contain: size;
+}
+
+/* Same fade as the app's ShowCard, per element instead of over the whole card: a container
+   opacity also dims the movie year, which has to stay readable. The card keeps `.container`'s
+   surface — SwipeableCard paints the same surface behind it, so the old container-wide 0.5
+   never darkened the background, only the content. */
+.watchedFade {
+	opacity: 0.5;
 }
 
 .watchedPoster {
-	opacity: 0.5;
+	opacity: 0.3;
 }
 
 .info {
@@ -95,21 +106,19 @@
 	color: var(--text-muted);
 }
 
-.rewatch {
-	font-size: 12px;
-	color: $accent;
-	margin-top: 4px;
-}
-
 .movieMetaRow {
 	display: flex;
-	align-items: stretch;
+	align-items: center;
 	margin-top: 4px;
 }
 
 .movieBadge {
+	/* Fixed 18px: matches the slanted arrow (9 + 9px borders) whatever the font */
+	display: flex;
+	align-items: center;
+	height: 18px;
 	background: $movie-purple;
-	padding: 2px 8px;
+	padding: 0 8px;
 	border-radius: 4px 0 0 4px;
 	font-size: 10px;
 	font-weight: 700;
@@ -125,6 +134,7 @@
 }
 
 .freshTag {
+	height: 18px;
 	background: $warning-amber;
 	padding: 0 8px;
 	border-radius: 0 4px 4px 0;
@@ -169,4 +179,11 @@
 	margin: 0 12px;
 	font-size: 16px;
 	font-weight: 600;
+}
+
+/* Previously watched: half-strength amber, so only the year number reads at full strength
+   (opacity here would fade the number too) */
+.watchedFreshTag {
+	background: rgba(245, 158, 11, 0.5);
+	color: var(--bg);
 }

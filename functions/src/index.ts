@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase-admin/app";
 
-initializeApp(); // Node 22 runtime
+initializeApp();
 
 export { addShow } from "./cloudFunctions/addShow";
 export { removeShow } from "./cloudFunctions/removeShow";
@@ -12,3 +12,4 @@ export { deleteAccount } from "./cloudFunctions/deleteAccount";
 export { rebuildUpcoming } from "./cloudFunctions/rebuildUpcoming";
 export { tmdbProxy } from "./cloudFunctions/tmdbProxy";
 export { sharePreview } from "./cloudFunctions/sharePreview";
+export { refreshShow } from "./cloudFunctions/refreshShow";

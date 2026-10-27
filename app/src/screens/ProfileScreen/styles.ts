@@ -4,6 +4,7 @@ import { colors, spacing, typography } from "../../theme";
 export const BLUR_RADIUS = 0.5;
 
 export const styles = StyleSheet.create({
+	scrollContent: { paddingBottom: spacing.xxl * 2 },
 	container: {
 		flex: 1,
 		backgroundColor: colors.background,
@@ -24,22 +25,15 @@ export const styles = StyleSheet.create({
 		overflow: "hidden",
 		maxWidth: "70%",
 	},
-	settingsButton: {
+	// Hall of Shame pill + Settings gear circle, one row
+	actionRow: {
 		flexDirection: "row",
 		alignItems: "center",
-		justifyContent: "center",
-		gap: spacing.xs,
-		backgroundColor: colors.primary,
-		paddingVertical: spacing.lg,
-		borderRadius: 8,
+		gap: spacing.md,
 		marginTop: spacing.xl,
 		marginHorizontal: spacing.lg,
 	},
-	settingsButtonText: {
-		...typography.subtitle,
-		fontSize: 14,
-		color: colors.text,
-	},
+	settingsCircle: { width: 56, height: 56, borderRadius: 28 },
 	avatarOverlay: {
 		position: "absolute",
 		top: 0,
@@ -133,18 +127,5 @@ export const styles = StyleSheet.create({
 	completedLoader: {
 		marginTop: spacing.xl,
 		alignItems: "center",
-	},
-	signOutButton: {
-		marginTop: spacing.xxl,
-		marginHorizontal: spacing.lg,
-		marginBottom: spacing.xxl * 2,
-		paddingVertical: spacing.lg,
-		backgroundColor: colors.surface,
-		borderRadius: 8,
-		alignItems: "center",
-	},
-	signOutText: {
-		...typography.subtitle,
-		color: colors.destructiveRed,
 	},
 });

@@ -21,8 +21,8 @@ export function watchTimeTotals(episodes: Watched[], movies: Watched[]) {
 export type WatchTimeMode = "firstWatch" | "everyWatch";
 
 /**
- * users/{uid}.stats.totalMinutes recomputed from watchedEpisodes + watchedMovies
- * (movie marks used to add runtime / 60). Returns per-user before/after for review.
+ * users/{uid}.stats.totalMinutes recomputed from watchedEpisodes + watchedMovies.
+ * Returns per-user before/after for review.
  */
 export async function recountWatchTime(
   db: FirebaseFirestore.Firestore,

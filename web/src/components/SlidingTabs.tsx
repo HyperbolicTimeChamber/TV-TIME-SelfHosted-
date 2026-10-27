@@ -7,12 +7,20 @@ interface Props<K extends string> {
 	onTabPress: (key: K) => void;
 	/** Distinguishes multiple tab groups on one page (Motion layoutId) */
 	id?: string;
+	/** Container overrides (e.g. transparent background on a black top bar) */
+	className?: string;
 }
 
 /** Segmented pill tabs with a sliding highlight (app SlidingTabs) */
-export default function SlidingTabs<K extends string>({ tabs, activeKey, onTabPress, id = "tabs" }: Props<K>) {
+export default function SlidingTabs<K extends string>({
+	tabs,
+	activeKey,
+	onTabPress,
+	id = "tabs",
+	className = "",
+}: Props<K>) {
 	return (
-		<div className={styles.container} role="tablist">
+		<div className={`${styles.container} ${className}`} role="tablist">
 			{tabs.map((tab) => {
 				const active = tab.key === activeKey;
 				return (
