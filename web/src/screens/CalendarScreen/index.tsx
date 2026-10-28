@@ -389,12 +389,15 @@ export default function CalendarScreen() {
 					c.selectedDate && (
 						<section className={styles.episodeList}>
 							<h3 className={styles.dateHeader}>
-								{c.selectedDate === todayStr() && <span className={styles.todayTag}>TODAY</span>}
-								{new Date(`${c.selectedDate}T00:00:00`).toLocaleDateString("en-US", {
-									weekday: "long",
-									month: "long",
-									day: "numeric",
-								})}
+								{c.selectedDate === todayStr() ? (
+									<span className={styles.todayTag}>TODAY</span>
+								) : (
+									new Date(`${c.selectedDate}T00:00:00`).toLocaleDateString("en-US", {
+										weekday: "long",
+										month: "long",
+										day: "numeric",
+									})
+								)}
 							</h3>
 							{c.selectedEpisodes.length === 0 ? (
 								// Nothing on: Shikamaru, sighing (app EmptyDay)
