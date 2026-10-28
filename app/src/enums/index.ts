@@ -159,7 +159,26 @@ export enum CloudFunction {
 	IMPORT_MATCHES = "importMatches",
 	REBUILD_UPCOMING = "rebuildUpcoming",
 	REFRESH_SHOW = "refreshShow",
+	DELETE_ACCOUNT = "deleteAccount",
 }
+
+/** Callable error codes (web SDK prefixes them with "functions/") */
+export enum CallableErrorCode {
+	DEADLINE_EXCEEDED = "deadline-exceeded",
+	UNAVAILABLE = "unavailable",
+}
+
+/** The call gave up but the import Cloud Function may still be running → wait for its lastImportAt */
+export const IMPORT_MAYBE_RUNNING_ERRORS: string[] = [
+	CallableErrorCode.DEADLINE_EXCEEDED,
+	CallableErrorCode.UNAVAILABLE,
+];
+
+/** importMatches timeout (3600s) + slack: no lastImportAt by then → the import failed */
+export const IMPORT_MAX_WAIT_MS = 62 * 60 * 1000;
+
+/** Phone clock vs server timestamp tolerance when matching lastImportAt to this import */
+export const IMPORT_CLOCK_SKEW_MS = 2 * 60 * 1000;
 
 /** TMDB episode_type — only FINALE earns the card's FINALE tag (mirrors functions/shared/enums) */
 export enum EpisodeType {

@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Alert } from "react-native";
-import { getFirestore, collection, doc, getDocs } from "@react-native-firebase/firestore";
+import { getFirestore, collection, doc, getDocs, onSnapshot } from "@react-native-firebase/firestore";
+import { getCrashlytics, recordError } from "@react-native-firebase/crashlytics";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "../../stores";
@@ -16,6 +17,11 @@ import {
 } from "../../services/tvtimeImport";
 import { getCachedCatalogShow } from "../../hooks/useWatchlist";
 import { WatchStatus, MediaType, CacheKey, CloudFunction } from "../../types";
+import {
+	IMPORT_CLOCK_SKEW_MS,
+	IMPORT_MAX_WAIT_MS,
+	IMPORT_MAYBE_RUNNING_ERRORS,
+} from "../../enums";
 
 export type ImportPhase = "pick" | "matching" | "disambiguate" | "review" | "importing";
 
@@ -23,7 +29,7 @@ export type ImportPhase = "pick" | "matching" | "disambiguate" | "review" | "imp
  * TV Time import flow: parse the GDPR zip, match to TMDB, disambiguate,
  * review selection, then run the importMatches Cloud Function. Shared by the
  * mobile ImportDataScreen and the web import page (file picking is per-platform).
- * @param onComplete called after the import Cloud Function succeeds
+ * @param onComplete called once the import Cloud Function has finished
  */
 export function useImportData(onComplete: () => void) {
 	const user = useAuthStore((s) => s.user);
@@ -50,6 +56,26 @@ export function useImportData(onComplete: () => void) {
 	// Disambiguation history for back navigation
 	const disambigHistory = useRef<({ type: "pick"; match: TMDBMatch } | { type: "skip" })[]>([]);
 
+	const importStartedAtRef = useRef(0);
+	const importDoneRef = useRef(false);
+	const onCompleteRef = useRef(onComplete);
+	onCompleteRef.current = onComplete;
+
+	const finishImport = useCallback(async () => {
+		if (importDoneRef.current) return;
+		importDoneRef.current = true;
+		await AsyncStorage.removeItem(CacheKey.IMPORT_IN_PROGRESS);
+		onCompleteRef.current();
+	}, []);
+
+	const failImport = useCallback(async (message: string) => {
+		await AsyncStorage.removeItem(CacheKey.IMPORT_IN_PROGRESS);
+		importStartedAtRef.current = 0;
+		Alert.alert("Import Error", message);
+		// After an app restart there's nothing to review → start over
+		setPhase(parsedRef.current ? "review" : "pick");
+	}, []);
+
 	// Restore import state on mount
 	useEffect(() => {
 		AsyncStorage.getItem(CacheKey.IMPORT_IN_PROGRESS).then((raw) => {
@@ -57,11 +83,35 @@ export function useImportData(onComplete: () => void) {
 			try {
 				const data = JSON.parse(raw);
 				if (data.userId === user?.uid && !useAuthStore.getState().hasCompletedImport) {
+					importStartedAtRef.current = data.startedAt ?? 0;
 					setPhase("importing");
 				}
 			} catch {}
 		});
 	}, [user?.uid]);
+
+	// The server's lastImportAt stamp ends the wait: covers a call that gave up client-side
+	// (timeout / dropped connection) while the CF kept going, and an app restart mid-import
+	useEffect(() => {
+		const startedAt = importStartedAtRef.current;
+		if (phase !== "importing" || !user || !startedAt) return;
+		const giveUp = setTimeout(
+			() => failImport("The import didn't finish. Please try again."),
+			Math.max(0, startedAt + IMPORT_MAX_WAIT_MS - Date.now()),
+		);
+		const unsubscribe = onSnapshot(
+			doc(getFirestore(), "users", user.uid),
+			(snap) => {
+				const at = snap.data()?.lastImportAt?.toMillis?.() ?? 0;
+				if (at >= startedAt - IMPORT_CLOCK_SKEW_MS) finishImport();
+			},
+			() => {},
+		);
+		return () => {
+			clearTimeout(giveUp);
+			unsubscribe();
+		};
+	}, [phase, user, finishImport, failImport]);
 
 	// --- Helpers ---
 	const buildSelection = useCallback((matches: TMDBMatch[]) => {
@@ -187,7 +237,11 @@ export function useImportData(onComplete: () => void) {
 	}, [disambigIndex, ambiguous, matched, finishDisambig]);
 
 	const handleBackDisambig = useCallback(() => {
-		if (disambigIndex <= 0) return;
+		// First pick → back to the file picker (its Skip leaves the import)
+		if (disambigIndex <= 0) {
+			setPhase("pick");
+			return;
+		}
 		const prevIdx = disambigIndex - 1;
 		const prevAction = disambigHistory.current[prevIdx];
 		if (prevAction?.type === "pick") {
@@ -210,6 +264,8 @@ export function useImportData(onComplete: () => void) {
 	// --- Import via Cloud Function ---
 	const handleImport = useCallback(() => {
 		if (!user || !parsedRef.current) return;
+		importStartedAtRef.current = Date.now();
+		importDoneRef.current = false;
 		setPhase("importing");
 
 		// Defer heavy work so React renders the importing screen first
@@ -281,7 +337,7 @@ export function useImportData(onComplete: () => void) {
 
 			await AsyncStorage.setItem(
 				CacheKey.IMPORT_IN_PROGRESS,
-				JSON.stringify({ userId: user!.uid, startedAt: Date.now() }),
+				JSON.stringify({ userId: user!.uid, startedAt: importStartedAtRef.current }),
 			);
 
 			const functions = getFunctions();
@@ -291,16 +347,20 @@ export function useImportData(onComplete: () => void) {
 			try {
 				await importFn({ matches: cfMatches });
 			} catch (err: any) {
-				await AsyncStorage.removeItem(CacheKey.IMPORT_IN_PROGRESS);
-				Alert.alert("Import Error", err.message || "Import failed.");
-				setPhase("review");
+				recordError(
+					getCrashlytics(),
+					err instanceof Error ? err : new Error(String(err?.message ?? err)),
+					"ImportError",
+				);
+				const code = String(err?.code ?? "").replace(/^functions\//, "");
+				// Server may still finish → stay on "importing"; the lastImportAt listener ends it
+				if (IMPORT_MAYBE_RUNNING_ERRORS.includes(code)) return;
+				await failImport(err?.message || "Import failed.");
 				return;
 			}
-			// Mark import complete after CF succeeds
-			await AsyncStorage.removeItem(CacheKey.IMPORT_IN_PROGRESS);
-			onComplete();
+			await finishImport();
 		}, 50);
-	}, [user, matched, selected, onComplete]);
+	}, [user, matched, selected, finishImport, failImport]);
 
 	return {
 		phase,

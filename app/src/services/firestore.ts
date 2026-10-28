@@ -3,6 +3,7 @@ import {
 	collection,
 	doc,
 	getDoc,
+	getDocFromCache,
 	getDocs,
 	deleteDoc,
 	query,
@@ -228,8 +229,26 @@ export async function stopWatching(
 		...historyOnChange(),
 	});
 	emitHistoryChange({ userId, tmdbId, mediaType, status: newStatus });
+	clearUpcomingDocs(userId, tmdbId);
+}
 
-	// Clean upcoming subcollection for this show (fire-and-forget)
+/**
+ * Anything watched (plays > 0) — remove is blocked until the history is cleared. Local cache
+ * first (the watchlist listener usually holds the doc → 0 reads); server only on a miss.
+ */
+export async function hasWatchHistory(userId: string, tmdbId: number, mediaType: MediaType) {
+	const ref = doc(trackingRef(userId), showDocId(tmdbId, mediaType));
+	const snap = await getDocFromCache(ref).catch(() => getDoc(ref));
+	const data = snap.data();
+	// Older movie docs may predate plays — a completed movie was watched
+	return (
+		((data?.plays as number | undefined) ?? 0) > 0 ||
+		(mediaType === MediaType.MOVIE && data?.status === WatchStatus.COMPLETED)
+	);
+}
+
+/** Clean the upcoming subcollection for this show (fire-and-forget) — paused shows have none */
+function clearUpcomingDocs(userId: string, tmdbId: number) {
 	const upcomingCol = collection(doc(db, "users", userId), "upcoming");
 	getDocs(query(upcomingCol, where("tmdbShowId", "==", tmdbId)))
 		.then(async (snap) => {
@@ -631,10 +650,17 @@ export async function decrementSeasonWatchCount(
 	}
 }
 
-export async function startRewatch(userId: string, tmdbId: number, mediaType: MediaType) {
+/** Completed → next rewatch run from S1E1; `paused` queues it (PAUSED_REWATCH, off the watchlist) */
+export async function startRewatch(
+	userId: string,
+	tmdbId: number,
+	mediaType: MediaType,
+	paused = false,
+) {
 	const docId = showDocId(tmdbId, mediaType);
+	const status = paused ? WatchStatus.PAUSED_REWATCH : WatchStatus.REWATCHING;
 	await updateDoc(doc(trackingRef(userId), docId), {
-		status: WatchStatus.REWATCHING,
+		status,
 		rewatchCount: increment(1),
 		nextEpisode: { season: 1, episode: 1 },
 		lastWatchedAt: serverTimestamp(),
@@ -645,10 +671,91 @@ export async function startRewatch(userId: string, tmdbId: number, mediaType: Me
 		userId,
 		tmdbId,
 		mediaType,
-		status: WatchStatus.REWATCHING,
+		status,
 		nextEpisode: { season: 1, episode: 1 },
 		rewatchDelta: 1,
 	});
+	if (paused) clearUpcomingDocs(userId, tmdbId);
+}
+
+/**
+ * Whole-show "watched once less" / "not watched" (completed show's long-press sheet).
+ * `clearAll` deletes every watched episode → back to a first watch from `firstEp`; otherwise
+ * each listed episode loses one watch and the show stays completed at `watchCount` full watches.
+ * Chunked under Firestore's 500-op batch limit; the tracking + stats writes ride the last chunk.
+ */
+export async function reduceShowWatches(
+	userId: string,
+	tmdbShowId: number,
+	episodes: Array<{ season: number; episode: number; runtime: number; watchCount: number }>,
+	clearAll: boolean,
+	watchCount: number,
+	firstEp: { season: number; episode: number; name: string | null; airDate: string | null },
+) {
+	const writes = episodes.filter((ep) => ep.watchCount > 0);
+	if (writes.length === 0) return;
+	let minutes = 0;
+	let plays = 0;
+	const CHUNK = 450;
+	for (let i = 0; i < writes.length; i += CHUNK) {
+		const batch = writeBatch(db);
+		for (const ep of writes.slice(i, i + CHUNK)) {
+			const epRef = doc(watchedEpisodesRef(userId), episodeDocId(tmdbShowId, ep.season, ep.episode));
+			const removed = clearAll ? ep.watchCount : 1;
+			if (removed >= ep.watchCount) batch.delete(epRef);
+			else batch.update(epRef, { watchCount: increment(-1) });
+			minutes += ep.runtime * removed;
+			plays += removed;
+		}
+		if (i + CHUNK >= writes.length) {
+			batch.set(
+				userRef(userId),
+				{ stats: { episodesWatched: increment(-plays), totalMinutes: increment(-minutes) } },
+				{ merge: true },
+			);
+			batch.set(
+				doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)),
+				clearAll
+					? {
+							status: WatchStatus.WATCHING,
+							nextEpisode: { season: firstEp.season, episode: firstEp.episode },
+							nextEpisodeName: firstEp.name,
+							nextEpisodeAirDate: firstEp.airDate,
+							rewatchCount: 0,
+							priorityDate: Timestamp.now(),
+							...historyCleared(),
+						}
+					: {
+							status: WatchStatus.COMPLETED,
+							rewatchCount: Math.max(0, watchCount - 1),
+							...historyOnUnwatch(minutes, plays),
+						},
+				{ merge: true },
+			);
+		}
+		await batch.commit();
+	}
+	emitHistoryChange(
+		clearAll
+			? {
+					userId,
+					tmdbId: tmdbShowId,
+					mediaType: MediaType.TV,
+					cleared: true,
+					status: WatchStatus.WATCHING,
+					nextEpisode: { season: firstEp.season, episode: firstEp.episode },
+					rewatchCount: 0,
+				}
+			: {
+					userId,
+					tmdbId: tmdbShowId,
+					mediaType: MediaType.TV,
+					minutesDelta: -minutes,
+					playsDelta: -plays,
+					status: WatchStatus.COMPLETED,
+					rewatchCount: Math.max(0, watchCount - 1),
+				},
+	);
 }
 
 /**
