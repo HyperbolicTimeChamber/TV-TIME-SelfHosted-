@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
+import { getCrashlytics, recordError } from "@react-native-firebase/crashlytics";
 import { getAuth, sendPasswordResetEmail } from "@react-native-firebase/auth";
 import { useAuthStore } from "../../stores";
 import { colors, spacing, typography } from "../../theme";
@@ -24,7 +25,7 @@ import {
 	LOGOUT_RATIO,
 	ModalArt,
 } from "../../components/modals/ModalArt";
-import { ProfileStackParamList, Route } from "../../types";
+import { CloudFunction, ProfileStackParamList, Route } from "../../types";
 
 export default function SettingsScreen() {
 	const { top } = useSafeAreaInsets();
@@ -71,9 +72,15 @@ export default function SettingsScreen() {
 		setDeleteError(null);
 		try {
 			const functions = getFunctions();
-			await httpsCallable(functions, "deleteAccount")({});
+			// Returns once the auth user is gone; the data purge carries on server-side
+			await httpsCallable(functions, CloudFunction.DELETE_ACCOUNT)({});
 			await signOut();
 		} catch (err: any) {
+			recordError(
+				getCrashlytics(),
+				err instanceof Error ? err : new Error(String(err?.message ?? err)),
+				"DeleteAccountError",
+			);
 			setDeleteError(err.message || "Failed to delete account.");
 			setDeletingAccount(false);
 		}

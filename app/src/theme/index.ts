@@ -21,6 +21,8 @@ export const colors = {
 	overlayLight: "rgba(0, 0, 0, 0.6)",
 	overlayMedium: "rgba(0, 0, 0, 0.7)",
 	badgeOverlay: "rgba(0, 0, 0, 0.5)",
+	/** Frosted gray pill over artwork (detail page watch count) */
+	glassGray: "rgba(90, 90, 90, 0.55)",
 } as const;
 
 /** Custom font families (loaded in App via useFonts). Android: never pair with fontWeight. */

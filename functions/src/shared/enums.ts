@@ -50,3 +50,15 @@ export const REFRESH_COOLDOWN_MS: Record<RefreshReason, number> = {
 
 /** Season numbers one refreshShow call may force-refetch (the latest season always is) */
 export const REFRESH_MAX_HINT_SEASONS = 3;
+
+/** deleteAccount queues the uid here; purgeUserData deletes the user's data in the background */
+export const DELETION_REQUESTS = "deletionRequests";
+
+/** gRPC status of a create() on a doc that already exists */
+export const GRPC_ALREADY_EXISTS = 6;
+
+/** Import lock lifetime: importMatches timeout (3600s) + slack, so a crashed run can't block forever */
+export const IMPORT_LOCK_MS = 3660 * 1000;
+
+/** Firestore ops per WriteBatch commit (hard limit 500) */
+export const WRITE_BATCH_SIZE = 500;
