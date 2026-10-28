@@ -84,15 +84,19 @@ function CalendarSkeleton() {
 /** "15 THURSDAY" — today: a TODAY tag in place of the number */
 function DayHeader({ date }: { date: string }) {
 	const weekday = parseDay(date).toLocaleDateString("en-US", { weekday: "long" }).toUpperCase();
-	return (
-		<View style={styles.dayHeader}>
-			{date === todayStr() ? (
+	// Today shows just the tag — no day number or weekday name
+	if (date === todayStr()) {
+		return (
+			<View style={styles.dayHeader}>
 				<View style={styles.todayTag}>
 					<Text style={styles.todayTagText}>TODAY</Text>
 				</View>
-			) : (
-				<Text style={styles.dayHeaderNumber}>{Number(date.slice(8))}</Text>
-			)}
+			</View>
+		);
+	}
+	return (
+		<View style={styles.dayHeader}>
+			<Text style={styles.dayHeaderNumber}>{Number(date.slice(8))}</Text>
 			<Text style={styles.dayHeaderWeekday}>{weekday}</Text>
 		</View>
 	);
