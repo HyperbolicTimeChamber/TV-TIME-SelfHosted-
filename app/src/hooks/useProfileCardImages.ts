@@ -22,8 +22,9 @@ function pickRandom<T>(arr: T[], count: number, allowRepeat = false): T[] {
 	return [...arr].sort(() => Math.random() - 0.5).slice(0, count);
 }
 
-function getBackdrop(item: EnrichedTrackingItem): string | null {
-	return item.catalogShow?.backdropPath ?? null;
+/** `item` is undefined when the watchlist has no TV show / completed movie with a backdrop */
+function getBackdrop(item: EnrichedTrackingItem | undefined): string | null {
+	return item?.catalogShow?.backdropPath ?? null;
 }
 
 export function useProfileCardImages(watchlist: EnrichedTrackingItem[]) {
@@ -81,8 +82,8 @@ export function useProfileCardImages(watchlist: EnrichedTrackingItem[]) {
 		const watchTimePosters = pickRandom(allPosterPaths, COLLAGE_COUNT, useScatter);
 
 		const updated: ProfileCardImages = {
-			episodeBackdrop: getBackdrop(latestTV) ?? null,
-			movieBackdrop: getBackdrop(latestMovie) ?? null,
+			episodeBackdrop: getBackdrop(latestTV),
+			movieBackdrop: getBackdrop(latestMovie),
 			trackingPosters,
 			watchTimePosters,
 		};

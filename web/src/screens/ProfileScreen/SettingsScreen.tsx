@@ -4,6 +4,7 @@ import { App as AntApp } from "antd";
 import { useNavigate } from "react-router-dom";
 import { httpsCallable } from "firebase/functions";
 import { getFunctions } from "../../platform/functions";
+import { CloudFunction } from "@app/enums";
 import { resetPassword, signOut } from "../../services/auth";
 import { useAppSelector } from "../../store";
 import { Paths } from "../../routes/paths";
@@ -39,7 +40,7 @@ export default function SettingsScreen() {
 		setDeleting(true);
 		setDeleteError(null);
 		try {
-			await httpsCallable(getFunctions(), "deleteAccount")({});
+			await httpsCallable(getFunctions(), CloudFunction.DELETE_ACCOUNT)({});
 			await signOut();
 			navigate(Paths.SEARCH, { replace: true });
 		} catch (err) {

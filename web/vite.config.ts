@@ -17,6 +17,7 @@ const nativeModuleShims: Record<string, string> = {
 	"@react-native-firebase/functions": `${PLATFORM}/functions.ts`,
 	"@react-native-firebase/analytics": `${PLATFORM}/analytics.ts`,
 	"@react-native-firebase/auth": `${PLATFORM}/auth.ts`,
+	"@react-native-firebase/crashlytics": `${PLATFORM}/crashlytics.ts`,
 	"@react-native-google-signin/google-signin": `${PLATFORM}/googleSignin.ts`,
 	"@react-native-async-storage/async-storage": `${PLATFORM}/asyncStorage.ts`,
 	"react-native": `${PLATFORM}/reactNative.ts`,

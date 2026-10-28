@@ -9,6 +9,7 @@ export { syncCatalog } from "./cloudFunctions/syncCatalog";
 export { markSeasonWatched } from "./cloudFunctions/markSeasonWatched";
 export { testFCM } from "./cloudFunctions/testFCM";
 export { deleteAccount } from "./cloudFunctions/deleteAccount";
+export { purgeUserData } from "./cloudFunctions/purgeUserData";
 export { rebuildUpcoming } from "./cloudFunctions/rebuildUpcoming";
 export { tmdbProxy } from "./cloudFunctions/tmdbProxy";
 export { sharePreview } from "./cloudFunctions/sharePreview";

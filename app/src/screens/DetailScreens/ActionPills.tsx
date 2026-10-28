@@ -12,13 +12,18 @@ interface Props {
 	movieWatchCount: number;
 	/** TV only: any episode watched — "Rewatch" is meaningless otherwise */
 	hasWatchedEpisodes?: boolean;
+	/** Anything watched → no Remove (the watch history has to be cleared first) */
+	hasStarted: boolean;
 	onAddToWatchlist: () => void;
 	onMarkMovieWatched: () => void;
 	onResumeOrRewatch: () => void;
 	/** TV watching / rewatching: pause it (asks first) */
 	onPause: () => void;
+	/** Completed TV: queue the next rewatch without starting it */
+	onPauseRewatch: () => void;
 	onRemove: () => void;
-	onMovieSheetOpen: () => void;
+	/** Long-press on Rewatch: watch count sheet */
+	onWatchSheetOpen: () => void;
 }
 
 export default function ActionPills({
@@ -28,17 +33,21 @@ export default function ActionPills({
 	removing,
 	movieWatchCount,
 	hasWatchedEpisodes = true,
+	hasStarted,
 	onAddToWatchlist,
 	onMarkMovieWatched,
 	onResumeOrRewatch,
 	onPause,
+	onPauseRewatch,
 	onRemove,
-	onMovieSheetOpen,
+	onWatchSheetOpen,
 }: Readonly<Props>) {
-	const neverWatched =
-		mediaType === MediaType.TV &&
-		watchlistItem?.status === WatchStatus.COMPLETED &&
-		!hasWatchedEpisodes;
+	const isTv = mediaType === MediaType.TV;
+	const completed = watchlistItem?.status === WatchStatus.COMPLETED;
+	const neverWatched = isTv && completed && !hasWatchedEpisodes;
+	// Completed show: two ways into the next run instead of Rewatch + Remove
+	const rewatchChoice = isTv && completed && !neverWatched;
+	const hasSheet = isTv ? rewatchChoice : movieWatchCount > 0;
 	return (
 		<View style={styles.pillRow}>
 			{!watchlistItem ? (
@@ -83,29 +92,13 @@ export default function ActionPills({
 							)}
 						</TouchableOpacity>
 					)}
-					{mediaType === MediaType.MOVIE && watchlistItem.status === WatchStatus.COMPLETED && (
-						<View style={[styles.pill, styles.pillWatched, { opacity: 0.7 }]}>
-							<View style={styles.pillInner}>
-								<Text style={styles.pillText}>Watched {"\u2713"}</Text>
-								{movieWatchCount > 1 && (
-									<View style={styles.pillBadge}>
-										<Text style={[styles.pillBadgeText, { color: colors.watchedGreen }]}>
-											{movieWatchCount}
-										</Text>
-									</View>
-								)}
-							</View>
-						</View>
-					)}
 					{(watchlistItem.status === WatchStatus.COMPLETED ||
 						watchlistItem.status === WatchStatus.PAUSED ||
 						watchlistItem.status === WatchStatus.PAUSED_REWATCH) && (
 						<TouchableOpacity
 							style={[styles.pill, styles.pillAccent]}
 							onPress={onResumeOrRewatch}
-							onLongPress={withHaptic(
-								mediaType === MediaType.MOVIE && movieWatchCount > 0 ? onMovieSheetOpen : undefined,
-							)}
+							onLongPress={withHaptic(hasSheet ? onWatchSheetOpen : undefined)}
 						>
 							<Text style={styles.pillText}>
 								{watchlistItem.status === WatchStatus.PAUSED
@@ -114,8 +107,15 @@ export default function ActionPills({
 										? "Resume Rewatch"
 										: neverWatched
 											? "Start Watching"
-											: "Rewatch"}
+											: rewatchChoice
+												? "Start Rewatch"
+												: "Rewatch"}
 							</Text>
+						</TouchableOpacity>
+					)}
+					{rewatchChoice && (
+						<TouchableOpacity style={[styles.pill, styles.pillPause]} onPress={onPauseRewatch}>
+							<Text style={styles.pillText}>Pause Rewatch</Text>
 						</TouchableOpacity>
 					)}
 					{mediaType === MediaType.TV &&
@@ -127,17 +127,19 @@ export default function ActionPills({
 								</Text>
 							</TouchableOpacity>
 						)}
-					<TouchableOpacity
-						style={[styles.pill, styles.pillRemove, removing && styles.pillDisabled]}
-						onPress={onRemove}
-						disabled={removing}
-					>
-						{removing ? (
-							<ActivityIndicator size="small" color={colors.destructiveRed} />
-						) : (
-							<Text style={styles.pillRemoveText}>Remove</Text>
-						)}
-					</TouchableOpacity>
+					{!hasStarted && (
+						<TouchableOpacity
+							style={[styles.pill, styles.pillRemove, removing && styles.pillDisabled]}
+							onPress={onRemove}
+							disabled={removing}
+						>
+							{removing ? (
+								<ActivityIndicator size="small" color={colors.destructiveRed} />
+							) : (
+								<Text style={styles.pillRemoveText}>Remove</Text>
+							)}
+						</TouchableOpacity>
+					)}
 				</>
 			)}
 		</View>
@@ -187,22 +189,5 @@ const styles = StyleSheet.create({
 		...typography.subtitle,
 		fontSize: 13,
 		color: colors.text,
-	},
-	pillInner: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: spacing.sm,
-	},
-	pillBadge: {
-		width: 20,
-		height: 20,
-		borderRadius: 10,
-		backgroundColor: colors.text,
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	pillBadgeText: {
-		fontSize: 11,
-		fontWeight: "700",
 	},
 });

@@ -1,5 +1,5 @@
 import { AddFailedModal, ConfirmModal, UnreleasedMovieModal } from "../../components";
-import { ModalLogo } from "../../components/modals/ModalArt";
+import { ModalBackdrop, ModalLogo } from "../../components/modals/ModalArt";
 import { getCachedCatalogShow } from "../../hooks/useWatchlist";
 import { colors } from "../../theme";
 import { MediaType, TMDBShow, type AddFailure } from "../../types";
@@ -27,6 +27,10 @@ interface Props {
 	removing: boolean;
 	onConfirmRemove: () => void;
 	onRemoveModalClose: () => void;
+	/** Remove refused — already watched */
+	watchedBlock: TMDBShow | null;
+	onGoToShow: (item: TMDBShow) => void;
+	onWatchedBlockClose: () => void;
 	unreleasedModal: { title: string } | null;
 	onUnreleasedClose: () => void;
 	resumeModal: {
@@ -52,6 +56,9 @@ export default function SearchModals({
 	removing,
 	onConfirmRemove,
 	onRemoveModalClose,
+	watchedBlock,
+	onGoToShow,
+	onWatchedBlockClose,
 	unreleasedModal,
 	onUnreleasedClose,
 	resumeModal,
@@ -63,6 +70,7 @@ export default function SearchModals({
 	onAddFailureClose,
 }: Props) {
 	const removeMediaType = mediaTypeOf(removeModal);
+	const blockedMediaType = mediaTypeOf(watchedBlock);
 	return (
 		<>
 			<ConfirmModal
@@ -107,6 +115,34 @@ export default function SearchModals({
 				loading={removing}
 				onConfirm={onConfirmRemove}
 				onClose={onRemoveModalClose}
+			/>
+
+			<ConfirmModal
+				visible={!!watchedBlock}
+				title="Already Watched"
+				image={
+					watchedBlock?.backdrop_path ? (
+						<ModalBackdrop
+							backdropPath={watchedBlock.backdrop_path}
+							logoPath={logoOf(watchedBlock, blockedMediaType)}
+							tmdbId={watchedBlock.id}
+							mediaType={blockedMediaType}
+							title={nameOf(watchedBlock)}
+						/>
+					) : watchedBlock ? (
+						<ModalLogo
+							logoPath={logoOf(watchedBlock, blockedMediaType)}
+							tmdbId={watchedBlock.id}
+							mediaType={blockedMediaType}
+							title={nameOf(watchedBlock)}
+						/>
+					) : undefined
+				}
+				hint={`You have already watched this ${blockedMediaType === MediaType.MOVIE ? "movie" : "show"}. To remove it, clear the watch history first.`}
+				confirmLabel={blockedMediaType === MediaType.MOVIE ? "Go to Movie" : "Go to Show"}
+				confirmColor={colors.primary}
+				onConfirm={() => watchedBlock && onGoToShow(watchedBlock)}
+				onClose={onWatchedBlockClose}
 			/>
 
 			<UnreleasedMovieModal
