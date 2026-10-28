@@ -166,12 +166,17 @@ export enum CloudFunction {
 export enum CallableErrorCode {
 	DEADLINE_EXCEEDED = "deadline-exceeded",
 	UNAVAILABLE = "unavailable",
+	ALREADY_EXISTS = "already-exists",
 }
 
-/** The call gave up but the import Cloud Function may still be running → wait for its lastImportAt */
+/**
+ * The import Cloud Function may still be running → wait for its lastImportAt: the call gave
+ * up (timeout / dropped connection) or another import for this user holds the lock
+ */
 export const IMPORT_MAYBE_RUNNING_ERRORS: string[] = [
 	CallableErrorCode.DEADLINE_EXCEEDED,
 	CallableErrorCode.UNAVAILABLE,
+	CallableErrorCode.ALREADY_EXISTS,
 ];
 
 /** importMatches timeout (3600s) + slack: no lastImportAt by then → the import failed */

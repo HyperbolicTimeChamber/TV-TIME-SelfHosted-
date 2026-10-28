@@ -17,6 +17,7 @@ import {
 	removeFromTracking,
 	addAndMarkMovieWatched,
 	getHighestWatchedEpisode,
+	hasWatchHistory,
 } from "../../services";
 import {
 	showDocId,
@@ -50,6 +51,8 @@ export function useSearchActions() {
 	const [addingIds, setAddingIds] = useState<Set<number>>(new Set());
 	const [movieModal, setMovieModal] = useState<TMDBShow | null>(null);
 	const [removeModal, setRemoveModal] = useState<TMDBShow | null>(null);
+	// Remove refused: already watched (history must be cleared on the show page first)
+	const [watchedBlock, setWatchedBlock] = useState<TMDBShow | null>(null);
 	const [removing, setRemoving] = useState(false);
 	const [removeError, setRemoveError] = useState<string | null>(null);
 	const [unreleasedModal, setUnreleasedModal] = useState<{
@@ -280,8 +283,17 @@ export function useSearchActions() {
 	const dismissAddFailure = useCallback(() => setAddFailure(null), []);
 
 	const handleRemoveFromWatchlist = useCallback(
-		(item: TMDBShow) => {
+		async (item: TMDBShow) => {
 			if (!user?.uid) return;
+			const mediaType: MediaType =
+				item.media_type ||
+				(item.first_air_date || (item.name && !item.title) ? MediaType.TV : MediaType.MOVIE);
+			// Can't tell (offline, no cached doc) → the normal confirm; history is kept either way
+			const watched = await hasWatchHistory(user.uid, item.id, mediaType).catch(() => false);
+			if (watched) {
+				setWatchedBlock(item);
+				return;
+			}
 			setRemoveError(null);
 			setRemoveModal(item);
 		},
@@ -540,6 +552,8 @@ export function useSearchActions() {
 		setMovieModal,
 		removeModal,
 		setRemoveModal,
+		watchedBlock,
+		setWatchedBlock,
 		removing,
 		removeError,
 		setRemoveError,

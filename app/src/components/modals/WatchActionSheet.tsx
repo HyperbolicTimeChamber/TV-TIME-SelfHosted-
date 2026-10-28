@@ -20,24 +20,38 @@ interface Props {
 	visible: boolean;
 	label: string;
 	watchCount: number;
+	/** Rewatch row's hint (a show's rewatch starts a run instead of marking it again) */
+	rewatchHint?: string;
 	onSelect: (action: WatchAction) => void;
 	onClose: () => void;
 }
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
-export default function WatchActionSheet({ visible, label, watchCount, onSelect, onClose }: Props) {
+/** Sheet's slide-in / snap-back: critically damped, never past its resting place — an
+ *  overshoot lifted the sheet off the bottom edge and showed the page under it */
+const SHEET_SPRING = {
+	toValue: 0,
+	damping: 30,
+	stiffness: 220,
+	overshootClamping: true,
+	useNativeDriver: true,
+} as const;
+
+export default function WatchActionSheet({
+	visible,
+	label,
+	watchCount,
+	rewatchHint = "Mark as watched again",
+	onSelect,
+	onClose,
+}: Props) {
 	const insets = useSafeAreaInsets();
 	const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
 	useEffect(() => {
 		if (visible) {
-			Animated.spring(translateY, {
-				toValue: 0,
-				damping: 20,
-				stiffness: 200,
-				useNativeDriver: true,
-			}).start();
+			Animated.spring(translateY, SHEET_SPRING).start();
 		} else {
 			translateY.setValue(SCREEN_HEIGHT);
 		}
@@ -62,12 +76,7 @@ export default function WatchActionSheet({ visible, label, watchCount, onSelect,
 				if (gs.dy > 80 || gs.vy > 0.5) {
 					dismiss();
 				} else {
-					Animated.spring(translateY, {
-						toValue: 0,
-						damping: 20,
-						stiffness: 200,
-						useNativeDriver: true,
-					}).start();
+					Animated.spring(translateY, SHEET_SPRING).start();
 				}
 			},
 		}),
@@ -103,7 +112,7 @@ export default function WatchActionSheet({ visible, label, watchCount, onSelect,
 							<Text style={styles.optionIcon}>🔄</Text>
 							<View style={styles.optionContent}>
 								<Text style={styles.optionText}>Rewatch</Text>
-								<Text style={styles.optionHint}>Mark as watched again</Text>
+								<Text style={styles.optionHint}>{rewatchHint}</Text>
 							</View>
 						</TouchableOpacity>
 
