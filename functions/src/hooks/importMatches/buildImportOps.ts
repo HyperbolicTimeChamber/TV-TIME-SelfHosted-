@@ -4,9 +4,10 @@ import { showDocId } from "../../shared/docId";
 import { MediaType } from "../../shared/enums";
 import { ImportMatch, ImportStats } from "../../shared/types";
 import { lookupEpisode } from "./lookupEpisode";
+import { DocWrite } from "../batchWrites";
 
 interface BuildResult {
-  batchOps: Array<() => Promise<void>>;
+  writes: DocWrite[];
   stats: ImportStats;
   totalMinutes: number;
   totalEpisodes: number;
@@ -19,7 +20,7 @@ export function buildImportOps(
   catalogMap: Map<number, CatalogShow>,
   existingTrackingIds: Set<string>,
 ): BuildResult {
-  const batchOps: Array<() => Promise<void>> = [];
+  const writes: DocWrite[] = [];
   const stats: ImportStats = {
     showsImported: 0,
     moviesImported: 0,
@@ -35,7 +36,7 @@ export function buildImportOps(
     const catalog = catalogMap.get(match.tmdbId);
 
     // Create tracking doc
-    batchOps.push(async () => {
+    {
       const trackingRef = db.doc(`users/${uid}/tracking/${showId}`);
 
       let nextEpisode: { season: number; episode: number } | null = null;
@@ -112,7 +113,9 @@ export function buildImportOps(
               0,
             );
 
-      await trackingRef.set({
+      writes.push({
+        ref: trackingRef,
+        data: {
         tmdbId: match.tmdbId,
         mediaType: match.mediaType,
         status: match.status,
@@ -134,8 +137,9 @@ export function buildImportOps(
               plays,
             }
           : {}),
+        },
       });
-    });
+    }
 
     if (match.mediaType === MediaType.TV && !existingTrackingIds.has(showId)) {
       stats.showsImported++;
@@ -148,37 +152,32 @@ export function buildImportOps(
         ep,
         info: lookupEpisode(catalogMap, match.tmdbId, ep.season, ep.episode),
       }));
-      for (let i = 0; i < epInfos.length; i += 400) {
-        const chunk = epInfos.slice(i, i + 400);
-        batchOps.push(async () => {
-          const batch = db.batch();
-          for (const { ep, info } of chunk) {
-            const epId = `${match.tmdbId}_S${String(ep.season).padStart(2, "0")}E${String(ep.episode).padStart(2, "0")}`;
-            const epRef = db.doc(`users/${uid}/watchedEpisodes/${epId}`);
-            batch.set(epRef, {
-              tmdbShowId: match.tmdbId,
-              season: ep.season,
-              episode: ep.episode,
-              episodeTitle: info.title,
-              watchCount: 1,
-              watchedAt: Timestamp.fromDate(new Date(ep.watchedAt)),
-              lastWatchedAt: Timestamp.fromDate(new Date(ep.watchedAt)),
-              runtime: info.runtime,
-            });
-          }
-          await batch.commit();
+      for (const { ep, info } of epInfos) {
+        const epId = `${match.tmdbId}_S${String(ep.season).padStart(2, "0")}E${String(ep.episode).padStart(2, "0")}`;
+        writes.push({
+          ref: db.doc(`users/${uid}/watchedEpisodes/${epId}`),
+          data: {
+            tmdbShowId: match.tmdbId,
+            season: ep.season,
+            episode: ep.episode,
+            episodeTitle: info.title,
+            watchCount: 1,
+            watchedAt: Timestamp.fromDate(new Date(ep.watchedAt)),
+            lastWatchedAt: Timestamp.fromDate(new Date(ep.watchedAt)),
+            runtime: info.runtime,
+          },
         });
-        totalEpisodes += chunk.length;
-        totalMinutes += chunk.reduce((s, { info }) => s + info.runtime, 0);
+        totalEpisodes++;
+        totalMinutes += info.runtime;
       }
     }
 
     // Create watched movie doc
     if (match.mediaType === MediaType.MOVIE) {
       const movieRuntime = match.movieRuntime || catalog?.runtime || 0;
-      batchOps.push(async () => {
-        const movieRef = db.doc(`users/${uid}/watchedMovies/${showId}`);
-        await movieRef.set({
+      writes.push({
+        ref: db.doc(`users/${uid}/watchedMovies/${showId}`),
+        data: {
           tmdbId: match.tmdbId,
           watchCount: 1,
           watchedAt: match.movieWatchedAt
@@ -188,7 +187,7 @@ export function buildImportOps(
             ? Timestamp.fromDate(new Date(match.movieWatchedAt))
             : now,
           runtime: movieRuntime,
-        });
+        },
       });
       if (!existingTrackingIds.has(showId)) {
         stats.moviesImported++;
@@ -200,5 +199,5 @@ export function buildImportOps(
   stats.episodesImported = totalEpisodes;
   stats.minutesImported = totalMinutes;
 
-  return { batchOps, stats, totalMinutes, totalEpisodes };
+  return { writes, stats, totalMinutes, totalEpisodes };
 }

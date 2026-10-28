@@ -1,6 +1,7 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { fetchShowFromTMDB, CatalogShow, pooled } from "../tmdb";
-import { addToTrackedBy } from "../trackedBy";
+import { addToTrackedBy, TRACKED_BY_LIMIT } from "../trackedBy";
+import { commitInBatches, DocWrite } from "../batchWrites";
 import { showDocId } from "../../shared/docId";
 import { ImportMatch } from "../../shared/types";
 
@@ -20,12 +21,17 @@ export async function ensureCatalog(
   }
 
   const existingCatalog = new Map<string, CatalogShow>();
+  const existingTrackedBy = new Map<string, string[]>();
   for (let i = 0; i < existingDocs.length; i++) {
     if (existingDocs[i].exists) {
-      existingCatalog.set(showIds[i], existingDocs[i].data() as CatalogShow);
+      const data = existingDocs[i].data()!;
+      existingCatalog.set(showIds[i], data as CatalogShow);
+      existingTrackedBy.set(showIds[i], data.trackedBy ?? []);
     }
   }
 
+  // Existing docs: one batched trackedBy write each (already read above) instead of a transaction
+  const trackedByWrites: DocWrite[] = [];
   const catalogTasks = matches.map((m) => async () => {
     const showId = showDocId(m.tmdbId, m.mediaType);
     const showRef = db.doc(`shows/${showId}`);
@@ -34,7 +40,20 @@ export async function ensureCatalog(
     const existing = existingCatalog.get(showId);
     if (existing) {
       catalogMap.set(m.tmdbId, existing);
-      await addToTrackedBy(showId, uid);
+      const trackedBy = existingTrackedBy.get(showId) ?? [];
+      if (trackedBy.includes(uid)) return;
+      if (trackedBy.length >= TRACKED_BY_LIMIT) {
+        await addToTrackedBy(showId, uid); // overflow chunks need the transaction
+        return;
+      }
+      trackedByWrites.push({
+        ref: showRef,
+        data: {
+          trackedBy: FieldValue.arrayUnion(uid),
+          trackedByCount: FieldValue.increment(1),
+        },
+        merge: true,
+      });
       return;
     }
 
@@ -61,5 +80,6 @@ export async function ensureCatalog(
   });
 
   await pooled(catalogTasks, 5);
+  await commitInBatches(db, trackedByWrites);
   return catalogMap;
 }

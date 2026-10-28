@@ -1,10 +1,10 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
-import { pooled } from "../hooks/tmdb";
 import { getTmdbApiKey } from "../hooks/apiKey";
 import { rebuildUserUpcoming } from "../hooks/upcoming";
 import { ensureCatalog, buildImportOps } from "../hooks/importMatches";
+import { commitInBatches } from "../hooks/batchWrites";
 import { ImportRequest, ImportStats } from "../shared/types";
 
 export const importMatches = onCall(
@@ -53,7 +53,7 @@ export const importMatches = onCall(
     }
 
     // Phase 3: Build all write operations
-    const { batchOps, stats } = buildImportOps(
+    const { writes, stats } = buildImportOps(
       db,
       uid,
       matches,
@@ -61,17 +61,16 @@ export const importMatches = onCall(
       existingTrackingIds,
     );
 
-    // Phase 4: Execute batch ops
-    await pooled(
-      batchOps.map((op) => () => op()),
-      10,
-    );
+    // Phase 4: Commit everything as full WriteBatches
+    await commitInBatches(db, writes);
 
     // Phase 5: Update user stats
     const userRef = db.doc(`users/${uid}`);
     await userRef.set(
       {
         hasCompletedImport: true,
+        // Client whose call errored (timeout / dropped connection) watches this to finish
+        lastImportAt: FieldValue.serverTimestamp(),
         stats: {
           showsTracking: FieldValue.increment(stats.showsImported),
           episodesWatched: FieldValue.increment(stats.episodesImported),
