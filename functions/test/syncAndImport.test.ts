@@ -84,7 +84,7 @@ test("import stores next episode name and air date", async () => {
       },
     ],
   } as unknown as CatalogShow;
-  const { batchOps } = buildImportOps(
+  const { writes, history } = buildImportOps(
     db,
     "u",
     [
@@ -101,11 +101,14 @@ test("import stores next episode name and air date", async () => {
     new Map([[1, cat]]),
     new Set(),
   );
-  await batchOps[0]();
-  const t = db.state.writes.find(
-    (w) => w.path === "users/u/tracking/tv_1",
-  )!.data;
+  const t = writes.find((w) => w.ref.path === "users/u/tracking/tv_1")!.data;
   assert.deepEqual(t.nextEpisode, { season: 1, episode: 3 });
   assert.equal(t.nextEpisodeName, "C");
   assert.equal(t.nextEpisodeAirDate, "2026-11-01");
+  // Watched episodes are create-only history, never part of the overwriting tracking writes
+  assert.deepEqual(
+    history.map((w) => w.ref.path),
+    ["users/u/watchedEpisodes/1_S01E01", "users/u/watchedEpisodes/1_S01E02"],
+  );
+  assert.equal(writes.length, 1);
 });

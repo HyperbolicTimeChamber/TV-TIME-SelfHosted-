@@ -7,10 +7,12 @@ import { lookupEpisode } from "./lookupEpisode";
 import { DocWrite } from "../batchWrites";
 
 interface BuildResult {
+  /** Tracking docs — set(), a re-sync rewrites them */
   writes: DocWrite[];
+  /** watchedEpisodes / watchedMovies — create() only, docs already there are kept */
+  history: DocWrite[];
+  /** showsImported only; history counts come from what history actually created */
   stats: ImportStats;
-  totalMinutes: number;
-  totalEpisodes: number;
 }
 
 export function buildImportOps(
@@ -21,14 +23,13 @@ export function buildImportOps(
   existingTrackingIds: Set<string>,
 ): BuildResult {
   const writes: DocWrite[] = [];
+  const history: DocWrite[] = [];
   const stats: ImportStats = {
     showsImported: 0,
     moviesImported: 0,
     episodesImported: 0,
     minutesImported: 0,
   };
-  let totalMinutes = 0;
-  let totalEpisodes = 0;
 
   for (const match of matches) {
     const showId = showDocId(match.tmdbId, match.mediaType);
@@ -154,7 +155,7 @@ export function buildImportOps(
       }));
       for (const { ep, info } of epInfos) {
         const epId = `${match.tmdbId}_S${String(ep.season).padStart(2, "0")}E${String(ep.episode).padStart(2, "0")}`;
-        writes.push({
+        history.push({
           ref: db.doc(`users/${uid}/watchedEpisodes/${epId}`),
           data: {
             tmdbShowId: match.tmdbId,
@@ -167,15 +168,13 @@ export function buildImportOps(
             runtime: info.runtime,
           },
         });
-        totalEpisodes++;
-        totalMinutes += info.runtime;
       }
     }
 
     // Create watched movie doc
     if (match.mediaType === MediaType.MOVIE) {
       const movieRuntime = match.movieRuntime || catalog?.runtime || 0;
-      writes.push({
+      history.push({
         ref: db.doc(`users/${uid}/watchedMovies/${showId}`),
         data: {
           tmdbId: match.tmdbId,
@@ -189,15 +188,8 @@ export function buildImportOps(
           runtime: movieRuntime,
         },
       });
-      if (!existingTrackingIds.has(showId)) {
-        stats.moviesImported++;
-      }
-      totalMinutes += movieRuntime;
     }
   }
 
-  stats.episodesImported = totalEpisodes;
-  stats.minutesImported = totalMinutes;
-
-  return { writes, stats, totalMinutes, totalEpisodes };
+  return { writes, history, stats };
 }
