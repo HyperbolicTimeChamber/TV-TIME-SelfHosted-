@@ -14,6 +14,9 @@ import { colors, spacing, typography } from "../../theme";
 /** "Whoa there Speedster!" — skipped-ahead popups */
 export const SPEEDSTER_ART = require("../../../assets/speedster.webp");
 export const SPEEDSTER_RATIO = 568 / 480;
+/** Rewatch floor hit — Mr. Mime, palms on the invisible wall */
+export const HIT_A_WALL_ART = require("../../../assets/hit-a-wall.webp");
+export const HIT_A_WALL_RATIO = 1;
 /** Log Out — Straw Hats, fists up */
 export const LOGOUT_ART = require("../../../assets/logout.webp");
 export const LOGOUT_RATIO = 900 / 397;

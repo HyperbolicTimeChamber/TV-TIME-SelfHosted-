@@ -94,6 +94,24 @@ export enum QueryKey {
 	TITLE_LOGO = "titleLogo",
 }
 
+/** Watch count sheet actions (episode / season / movie) */
+export enum WatchAction {
+	REWATCH = "rewatch",
+	NOT_WATCHED = "not_watched",
+	WATCHED_ONCE_LESS = "watched_once_less",
+	/** Info page only: back to a single watch */
+	WATCHED_ONCE = "watched_once",
+}
+
+/** How much of a title the user has watched — search's Remove is refused past NONE */
+export enum WatchProgress {
+	NONE = "none",
+	/** Show mid first watch */
+	STARTED = "started",
+	/** Movie watched, or show completed / in a rewatch */
+	WATCHED = "watched",
+}
+
 /** Fill of the shared 44px circular icon buttons (back, share) */
 export enum CircleButtonTone {
 	/** Translucent black — floating over artwork */

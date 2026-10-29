@@ -1,6 +1,7 @@
 import { Spin } from "antd";
-import { MediaType, WatchStatus } from "@app/enums";
-import { useLongPress } from "../../hooks/useLongPress";
+import { IoEllipsisHorizontal } from "react-icons/io5";
+import { CircleButtonTone, MediaType, WatchStatus } from "@app/enums";
+import CircleButton from "../../components/CircleButton";
 import styles from "./styles/ShowDetailScreen.module.scss";
 
 interface Props {
@@ -10,24 +11,27 @@ interface Props {
 	removing: boolean;
 	movieWatchCount: number;
 	hasWatchedEpisodes?: boolean;
+	/** Anything watched → no Remove (the watch history has to be cleared first) */
+	hasStarted: boolean;
 	onAddToWatchlist: () => void;
 	onMarkMovieWatched: () => void;
 	onResumeOrRewatch: () => void;
 	onPause: () => void;
 	onRemove: () => void;
-	onMovieSheetOpen: () => void;
+	/** Movie ⋯ beside Rewatch: watch count sheet */
+	onWatchSheetOpen: () => void;
 }
 
 /** Same pills + states as the app's ActionPills */
 export default function ActionPills(p: Props) {
 	const status = p.watchlistItem?.status;
 	const isMovie = p.mediaType === MediaType.MOVIE;
-	const neverWatched =
-		!isMovie && status === WatchStatus.COMPLETED && p.hasWatchedEpisodes === false;
-	const rewatchPress = useLongPress(
-		isMovie && p.movieWatchCount > 0 ? p.onMovieSheetOpen : undefined,
-		p.onResumeOrRewatch,
-	);
+	const completed = status === WatchStatus.COMPLETED;
+	const neverWatched = !isMovie && completed && p.hasWatchedEpisodes === false;
+	// Completed show: "Start a Rewatch" (it reads "Pause a Rewatch" once the run is under way)
+	const rewatchChoice = !isMovie && completed && !neverWatched;
+	// Watch count sheet (⋯ at the row's end, like Settings beside Hall of Shame)
+	const hasSheet = isMovie && completed && p.movieWatchCount > 0;
 
 	if (!p.watchlistItem) {
 		return (
@@ -68,35 +72,42 @@ export default function ActionPills(p: Props) {
 					{p.adding ? <Spin size="small" /> : "Mark as Watched"}
 				</button>
 			)}
-			{isMovie && status === WatchStatus.COMPLETED && (
-				<div className={`${styles.pill} ${styles.pillWatched} opacity-70`}>
-					Watched ✓
-					{p.movieWatchCount > 1 && <span className={styles.pillBadge}>{p.movieWatchCount}</span>}
-				</div>
-			)}
 			{showResume && (
-				<button className={`${styles.pill} ${styles.pillAccent}`} {...rewatchPress}>
+				<button className={`${styles.pill} ${styles.pillAccent}`} onClick={p.onResumeOrRewatch}>
 					{status === WatchStatus.PAUSED
 						? "Resume"
 						: status === WatchStatus.PAUSED_REWATCH
 							? "Resume Rewatch"
 							: neverWatched
 								? "Start Watching"
-								: "Rewatch"}
+								: rewatchChoice
+									? "Start a Rewatch"
+									: "Rewatch"}
 				</button>
+			)}
+			{hasSheet && (
+				<CircleButton
+					tone={CircleButtonTone.RAISED}
+					onClick={p.onWatchSheetOpen}
+					ariaLabel="Watch count options"
+				>
+					<IoEllipsisHorizontal size={22} />
+				</CircleButton>
 			)}
 			{!isMovie && (status === WatchStatus.WATCHING || status === WatchStatus.REWATCHING) && (
 				<button className={`${styles.pill} ${styles.pillPause}`} onClick={p.onPause}>
-					{status === WatchStatus.REWATCHING ? "Pause Rewatch" : "Pause"}
+					{status === WatchStatus.REWATCHING ? "Pause a Rewatch" : "Pause"}
 				</button>
 			)}
-			<button
-				className={`${styles.pill} ${styles.pillRemove}`}
-				onClick={p.onRemove}
-				disabled={p.removing}
-			>
-				{p.removing ? <Spin size="small" /> : "Remove"}
-			</button>
+			{!p.hasStarted && (
+				<button
+					className={`${styles.pill} ${styles.pillRemove}`}
+					onClick={p.onRemove}
+					disabled={p.removing}
+				>
+					{p.removing ? <Spin size="small" /> : "Remove"}
+				</button>
+			)}
 		</div>
 	);
 }

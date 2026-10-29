@@ -10,6 +10,8 @@ import SkeletonBlock from "./SkeletonBlock";
 
 /** "Whoa there Speedster!" — skipped-ahead popups */
 export const SPEEDSTER_ART = "/speedster.webp";
+/** Rewatch floor hit — Mr. Mime, palms on the invisible wall */
+export const HIT_A_WALL_ART = "/hit-a-wall.webp";
 /** Log Out — Straw Hats, fists up */
 export const LOGOUT_ART = "/logout.webp";
 /** Delete Account — crying Pikachu */

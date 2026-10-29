@@ -115,12 +115,8 @@ export const styles = StyleSheet.create({
 		paddingBottom: spacing.md,
 	},
 	dayHeaderNumber: { ...typography.title, fontSize: 26 },
-	todayTag: {
-		backgroundColor: colors.primary,
-		borderRadius: 6,
-		paddingHorizontal: 10,
-		paddingVertical: 2,
-	},
+	// Plain label, no red fill — reads like the other day headers
+	todayTag: {},
 	todayTagText: { ...typography.title, fontSize: 18, letterSpacing: 1 },
 	dayHeaderWeekday: {
 		fontSize: 12,

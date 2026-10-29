@@ -75,6 +75,11 @@ const toDateStr = (ts: unknown): string => {
  * 2. Caught up (nextEpisode null) or COMPLETED → if the catalog has an episode after
  *    the user's highest watched one that is new to them, point at it and set WATCHING.
  *    Covers imported shows and episodes TMDB listed before the user caught up.
+ *    Paused rewatch → new AIRED episodes after the highest watched one end the rewatch:
+ *    rewatch count back to 0, pointer on the first new episode (paused). The rewatch floor
+ *    (rewatch count ≤ every episode's watches) can't hold for episodes nobody has seen.
+ *    Completed shows reset the count the same way. A rewatch under way is left alone (its
+ *    pointer never jumps mid-run); it reaches the new episodes when it completes.
  *    Gated by reconciledEpisodeCount so the watchedEpisodes query only runs when the
  *    show's episode count changed since the last check.
  *
@@ -111,8 +116,15 @@ export async function reconcileTracking(
       continue;
     }
 
-    // 1. Refresh pointer metadata
-    if (next && POINTER_STATUSES.includes(status)) {
+    // Only a paused rewatch: one under way keeps its pointer (see above)
+    const inRewatch = status === WatchStatus.PAUSED_REWATCH;
+
+    // 1. Refresh pointer metadata (a rewatch first checks for new episodes — step 2)
+    if (
+      next &&
+      POINTER_STATUSES.includes(status) &&
+      !(inRewatch && data.reconciledEpisodeCount !== catalog.totalEpisodes)
+    ) {
       const ep = order.find(
         (e) => e.season === next.season && e.episode === next.episode,
       );
@@ -132,7 +144,8 @@ export async function reconcileTracking(
     // 2. Caught up / completed → look for new episodes
     const caughtUp =
       (status === WatchStatus.WATCHING && !next) ||
-      status === WatchStatus.COMPLETED;
+      status === WatchStatus.COMPLETED ||
+      inRewatch;
     if (!caughtUp) continue;
     if (data.reconciledEpisodeCount === catalog.totalEpisodes) continue;
 
@@ -166,7 +179,8 @@ export async function reconcileTracking(
             (e.season === h.season && e.episode > h.episode),
         )
       : order[0];
-    if (!firstNew) {
+    // A rewatch only ends for episodes that have actually aired
+    if (!firstNew || (inRewatch && (!firstNew.airDate || firstNew.airDate > today))) {
       writes.push({ ref: td.ref, data: mark });
       continue;
     }
@@ -190,7 +204,12 @@ export async function reconcileTracking(
         ...mark,
         // Status flips back to watching → Watch History card must refresh
         ...historyOnChange(),
-        status: WatchStatus.WATCHING,
+        status:
+          status === WatchStatus.PAUSED_REWATCH
+            ? WatchStatus.PAUSED
+            : WatchStatus.WATCHING,
+        // New content → a first watch of it: the rewatch count starts over
+        rewatchCount: 0,
         nextEpisode: { season: firstNew.season, episode: firstNew.episode },
         nextEpisodeName: firstNew.title ?? null,
         nextEpisodeAirDate: firstNew.airDate ?? null,
@@ -200,7 +219,12 @@ export async function reconcileTracking(
             : Timestamp.now(),
       },
     });
-    overrides.set(td.id, WatchStatus.WATCHING);
+    overrides.set(
+      td.id,
+      status === WatchStatus.PAUSED_REWATCH
+        ? WatchStatus.PAUSED
+        : WatchStatus.WATCHING,
+    );
   }
 
   for (let i = 0; i < writes.length; i += 400) {

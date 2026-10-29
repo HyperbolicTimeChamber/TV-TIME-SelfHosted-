@@ -197,6 +197,8 @@ export default memo(function ShowCard({
 							watched
 							label={wc > 1 ? `${wc}` : undefined}
 							onPress={() => _onCheckmark(item)}
+							// Long-press too opens the watch count sheet (not the card's pause)
+							onLongPress={() => _onCheckmark(item)}
 						/>
 					</View>
 				</TouchableOpacity>

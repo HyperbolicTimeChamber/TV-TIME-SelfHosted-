@@ -3,6 +3,7 @@ import { ModalBackdrop, ModalLogo } from "../../components/modals/ModalArt";
 import { getCachedCatalogShow } from "../../hooks/useWatchlist";
 import { colors } from "../../theme";
 import { MediaType, TMDBShow, type AddFailure } from "../../types";
+import { WatchProgress } from "../../enums";
 
 const pad = (n?: number) => String(n).padStart(2, "0");
 /** Title logo when the catalog has the title cached (name otherwise) */
@@ -28,7 +29,7 @@ interface Props {
 	onConfirmRemove: () => void;
 	onRemoveModalClose: () => void;
 	/** Remove refused — already watched */
-	watchedBlock: TMDBShow | null;
+	watchedBlock: { item: TMDBShow; progress: WatchProgress } | null;
 	onGoToShow: (item: TMDBShow) => void;
 	onWatchedBlockClose: () => void;
 	unreleasedModal: { title: string } | null;
@@ -70,7 +71,10 @@ export default function SearchModals({
 	onAddFailureClose,
 }: Props) {
 	const removeMediaType = mediaTypeOf(removeModal);
-	const blockedMediaType = mediaTypeOf(watchedBlock);
+	const blocked = watchedBlock?.item ?? null;
+	const blockedMediaType = mediaTypeOf(blocked);
+	const started = watchedBlock?.progress === WatchProgress.STARTED;
+	const noun = blockedMediaType === MediaType.MOVIE ? "movie" : "show";
 	return (
 		<>
 			<ConfirmModal
@@ -118,30 +122,30 @@ export default function SearchModals({
 			/>
 
 			<ConfirmModal
-				visible={!!watchedBlock}
-				title="Already Watched"
+				visible={!!blocked}
+				title={started ? "Already Started" : "Already Watched"}
 				image={
-					watchedBlock?.backdrop_path ? (
+					blocked?.backdrop_path ? (
 						<ModalBackdrop
-							backdropPath={watchedBlock.backdrop_path}
-							logoPath={logoOf(watchedBlock, blockedMediaType)}
-							tmdbId={watchedBlock.id}
+							backdropPath={blocked.backdrop_path}
+							logoPath={logoOf(blocked, blockedMediaType)}
+							tmdbId={blocked.id}
 							mediaType={blockedMediaType}
-							title={nameOf(watchedBlock)}
+							title={nameOf(blocked)}
 						/>
-					) : watchedBlock ? (
+					) : blocked ? (
 						<ModalLogo
-							logoPath={logoOf(watchedBlock, blockedMediaType)}
-							tmdbId={watchedBlock.id}
+							logoPath={logoOf(blocked, blockedMediaType)}
+							tmdbId={blocked.id}
 							mediaType={blockedMediaType}
-							title={nameOf(watchedBlock)}
+							title={nameOf(blocked)}
 						/>
 					) : undefined
 				}
-				hint={`You have already watched this ${blockedMediaType === MediaType.MOVIE ? "movie" : "show"}. To remove it, clear the watch history first.`}
+				hint={`You have already ${started ? "started watching" : "watched"} this ${noun}. To remove it, clear the watch history first.`}
 				confirmLabel={blockedMediaType === MediaType.MOVIE ? "Go to Movie" : "Go to Show"}
 				confirmColor={colors.primary}
-				onConfirm={() => watchedBlock && onGoToShow(watchedBlock)}
+				onConfirm={() => blocked && onGoToShow(blocked)}
 				onClose={onWatchedBlockClose}
 			/>
 

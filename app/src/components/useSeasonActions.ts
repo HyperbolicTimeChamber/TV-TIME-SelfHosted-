@@ -7,7 +7,7 @@ import {
 	useShowWatchedEpisodes,
 	useUpcomingMutations,
 	insertWatchedEpisodeCache,
-	removeWatchedEpisodeCache,
+	setWatchedEpisodeCountsCache,
 	incrementDailyWatch,
 	decrementDailyWatch,
 } from "../hooks";
@@ -16,12 +16,13 @@ import {
 	markEpisodeWatched,
 	markSeasonWatchedCF,
 	addToTracking,
-	unmarkEpisodeWatched,
-	decrementEpisodeWatchCount,
 	unmarkSeasonWatched,
 	decrementSeasonWatchCount,
+	resetEpisodesToOnce,
 	setRewatchCount,
 	getSeasonDetails as fetchSeason,
+	writeEpisodeWatchCount,
+	healRewatch,
 } from "../services";
 import type { KnownTracking } from "../services/firestore";
 import type { CarouselEpisode } from "../types/episodeCarousel";
@@ -33,6 +34,8 @@ import {
 	jumpPromptFor,
 	seasonMarkEpisodes,
 	rewatchLevel,
+	stepperPointer,
+	rewatchBlocker,
 	seasonMarkCopy,
 	seasonSkipAheadCopy,
 	observedRewatchRun,
@@ -42,7 +45,15 @@ import {
 	EpisodeRef,
 	type JumpPrompt,
 } from "../utils";
-import { TMDBSeason, TMDBEpisode, MediaType, WatchStatus, WatchAction } from "../types";
+import {
+	TMDBSeason,
+	TMDBEpisode,
+	MediaType,
+	WatchStatus,
+	WatchAction,
+	QueryKey,
+	type WatchedEpisode,
+} from "../types";
 import { endSeasonMarking, startSeasonMarking, useSeasonMarking } from "../hooks/seasonMarking";
 import { batchEndOffsets, staggerFinishTimes } from "../utils/stagger";
 
@@ -89,6 +100,14 @@ const healedRewatch = new Set<string>();
  * sheet, episode carousel data). Shared by the mobile SeasonDropdown and the web
  * season list — keep UI out of here.
  */
+/** Where a watch count change moves the watchlist pointer (with what its card shows) */
+type PointerTarget = {
+	season: number;
+	episode: number;
+	name: string | null;
+	airDate: string | null;
+};
+
 export function useSeasonActions({
 	tmdbId,
 	season,
@@ -133,6 +152,9 @@ export function useSeasonActions({
 		targetEp: TMDBEpisode;
 		/** Watch count the range is brought to (1 = first watch, >1 = rewatch under way) */
 		level: number;
+		/** From the watch count sheet: the held change (nothing written yet) — "Just This One"
+		 *  applies it with the pointer move, the range mark covers it, dismissing drops it */
+		pending?: { from: number; to: number; pointer: PointerTarget };
 	} | null>(null);
 
 	// Episode info modal state
@@ -312,12 +334,43 @@ export function useSeasonActions({
 	 * Pointer only moves when the mark continues an unbroken watch run — see computeTrackingAdvance.
 	 * `jump` = user explicitly chose to (re)watch from this episode.
 	 */
+	// "Finish Watching First": a mark would have started a rewatch with an aired episode short
+	const [rewatchGate, setRewatchGate] = useState<{
+		season: number;
+		episode: number;
+		name: string | null;
+		count: number;
+	} | null>(null);
+
 	const resolveTrackingWrite = useCallback(
 		async (markedEps: number[], jump = false, extra: EpisodeRef[] = []): Promise<TrackingWrite> => {
 			const { order, counts, marked, tracking } = buildAdvanceInputs(markedEps, extra);
 			const adv = jump
 				? computeJumpFrom(order, counts, marked, tracking)
 				: computeTrackingAdvance(order, counts, marked, tracking, todayStr());
+
+			// Starting the next rewatch needs every aired episode at the current run (counts
+			// before this mark) — else the watches still count, the rewatch doesn't start
+			if (adv.advance && adv.incrementRewatch) {
+				const before = buildAdvanceInputs([]).counts;
+				const blocker = rewatchBlocker(order, before, trackingItem?.rewatchCount ?? 0, todayStr());
+				if (blocker) {
+					const info = await lookupEpisode(blocker);
+					setRewatchGate({
+						...blocker,
+						name: info.name,
+						count: (trackingItem?.rewatchCount ?? 0) + 1,
+					});
+					return {
+						advance: false,
+						nextEpisode: tracking.nextEpisode ?? null,
+						nextEpisodeName: trackingItem?.nextEpisodeName ?? null,
+						nextEpisodeAirDate: trackingItem?.nextEpisodeAirDate ?? null,
+						isComplete: false,
+						incrementRewatch: false,
+					};
+				}
+			}
 
 			if (!adv.advance) {
 				// Fallback values keep pointer intact on CF versions that ignore skipTracking
@@ -712,35 +765,74 @@ export function useSeasonActions({
 			if (count <= 0) return;
 			const ep = episodes.find((e: TMDBEpisode) => e.episode_number === episode);
 			const runtime = watched?.runtime || ep?.runtime || 0;
+			// Rewatch floor: never below the rewatch count (earlier runs' watches stay), so the
+			// carousel's Unwatch can't end a rewatch — only the drawers go lower, after asking
+			const floor = trackingItem?.rewatchCount ?? 0;
+			if (oneWatch && count <= floor) return;
 			const decrement = oneWatch && count > 1;
-			removeWatchedEpisodeCache(queryClient, user.uid, tmdbId, sn, episode, decrement);
+			const cacheKey = `${sn}_${episode}`;
+			setWatchedEpisodeCountsCache(
+				queryClient,
+				user.uid,
+				tmdbId,
+				new Map([[cacheKey, decrement ? count - 1 : 0]]),
+			);
+			const target = decrement ? count - 1 : 0;
+			// Pointer by the run rule (stepperPointer) while the show is being watched; a completed
+			// one keeps the legacy "back here at a real 0" (undefined)
+			let pointer: PointerTarget | null | undefined;
+			const status = trackingItem?.status;
+			if (
+				status === WatchStatus.WATCHING ||
+				status === WatchStatus.PAUSED ||
+				status === WatchStatus.REWATCHING ||
+				status === WatchStatus.PAUSED_REWATCH
+			) {
+				const { order, counts, tracking } = buildAdvanceInputs([]);
+				const to = stepperPointer(order, counts, tracking, { season: sn, episode }, count, target);
+				pointer = to ? { ...to, ...(await lookupEpisode(to)) } : null;
+			}
 			try {
-				if (decrement) {
-					await decrementEpisodeWatchCount(
-						user.uid,
-						tmdbId,
-						sn,
-						episode,
-						runtime,
-						count,
-						ep?.name || null,
-						ep?.air_date || null,
-						knownTracking,
-					);
-				} else {
-					await unmarkEpisodeWatched(
-						user.uid,
-						tmdbId,
-						sn,
-						episode,
-						runtime,
-						ep?.name || null,
-						ep?.air_date || null,
-						knownTracking,
-					);
+				// Off the real count (read first): a stale cached count can't delete watches
+				const final = await writeEpisodeWatchCount(
+					user.uid,
+					tmdbId,
+					{ season: sn, episode, title: ep?.name || "", runtime, airDate: ep?.air_date || null },
+					count,
+					target,
+					knownTracking,
+					pointer,
+				);
+				if (final !== target) {
+					// Firestore had a different count → the rows follow it
+					if (target <= 0 && final > 0) {
+						const now = Timestamp.now();
+						insertWatchedEpisodeCache(queryClient, user.uid, {
+							id: `${tmdbId}_S${String(sn).padStart(2, "0")}E${String(episode).padStart(2, "0")}`,
+							tmdbShowId: tmdbId,
+							season: sn,
+							episode,
+							episodeTitle: ep?.name || "",
+							runtime,
+							lastWatchedAt: now,
+							watchedAt: now,
+							watchCount: final,
+						});
+					} else {
+						setWatchedEpisodeCountsCache(
+							queryClient,
+							user.uid,
+							tmdbId,
+							new Map([[cacheKey, final]]),
+						);
+					}
 				}
 				decrementDailyWatch("episode");
 			} catch (err) {
+				if (decrement) {
+					setWatchedEpisodeCountsCache(queryClient, user.uid, tmdbId, new Map([[cacheKey, count]]));
+					throw err;
+				}
 				const now = Timestamp.now();
 				insertWatchedEpisodeCache(queryClient, user.uid, {
 					id: `${tmdbId}_S${String(sn).padStart(2, "0")}E${String(episode).padStart(2, "0")}`,
@@ -756,27 +848,120 @@ export function useSeasonActions({
 				throw err;
 			}
 		},
-		[user?.uid, season.season_number, watchedMap, episodes, queryClient, tmdbId, knownTracking],
+		[
+			user?.uid,
+			season.season_number,
+			watchedMap,
+			episodes,
+			queryClient,
+			tmdbId,
+			knownTracking,
+			trackingItem,
+			buildAdvanceInputs,
+			lookupEpisode,
+		],
+	);
+
+	/** Rewatch floor: no episode below the rewatch count unless the user confirms reducing it */
+	const rewatchFloorCount = trackingItem?.rewatchCount ?? 0;
+	// "Reduce Rewatch?" — a show page action that'd take an episode under the floor, held
+	const [reduceRewatch, setReduceRewatch] = useState<
+		| { kind: "episode"; ep: TMDBEpisode; from: number; to: number }
+		| { kind: "season"; action: WatchAction; target: NonNullable<typeof sheetTarget> }
+		| null
+	>(null);
+
+	/** Would this season action take any episode under the rewatch floor? */
+	const reducesBelowFloor = useCallback(
+		(action: WatchAction) => {
+			const floor = rewatchFloorCount;
+			if (floor <= 0) return false;
+			return episodes.some((ep: TMDBEpisode) => {
+				const c = watchedMap.get(ep.episode_number)?.watchCount ?? 0;
+				if (c <= 0) return false;
+				const after =
+					action === WatchAction.NOT_WATCHED
+						? 0
+						: action === WatchAction.WATCHED_ONCE
+							? 1
+							: action === WatchAction.WATCHED_ONCE_LESS
+								? c - 1
+								: c;
+				return after < floor && after < c;
+			});
+		},
+		[rewatchFloorCount, episodes, watchedMap],
+	);
+
+	/** Episode info for the heal's pointer (from this page's loaded seasons; no fetch) */
+	const localEpisodeInfo = useCallback(
+		(ref: EpisodeRef) => {
+			const list =
+				ref.season === season.season_number ? episodes : episodesBySeason?.get(ref.season);
+			const e = list?.find((x: TMDBEpisode) => x.episode_number === ref.episode);
+			return { name: e?.name || null, airDate: e?.air_date || null };
+		},
+		[season.season_number, episodes, episodesBySeason],
 	);
 
 	const handleSheetAction = useCallback(
-		async (action: WatchAction) => {
-			if (!user?.uid || !sheetTarget) return;
+		async (action: WatchAction, confirmedTarget?: NonNullable<typeof sheetTarget>) => {
+			// A confirmed "Reduce Rewatch" replays with the target it was asked about (the sheet
+			// has closed and cleared its own by then)
+			const target = confirmedTarget ?? sheetTarget;
+			if (!user?.uid || !target) return;
+			// Season under the rewatch floor (the rewatch count) → ask first ("Reduce Rewatch")
+			if (!confirmedTarget && target.type === "season" && reducesBelowFloor(action)) {
+				setReduceRewatch({ kind: "season", action, target });
+				setSheetTarget(null);
+				return;
+			}
+			// Same spinner as a mark while the write saves (rewatch sets its own): season → the
+			// season's checkmark, episode → that episode's
+			const busy = action !== WatchAction.REWATCH;
+			if (busy) {
+				if (target.type === "season") setMarkingSeason(true);
+				else setMarkingEps(new Set([target.ep.episode_number]));
+			}
 
 			try {
-				if (sheetTarget.type === "episode") {
-					const ep = sheetTarget.ep;
-					if (action === "rewatch") {
+				if (action === WatchAction.WATCHED_ONCE) {
+					// Episode: just it; season: every watched episode in it — back to one watch each
+					const nums =
+						target.type === "episode"
+							? [target.ep.episode_number]
+							: episodes.map((ep: TMDBEpisode) => ep.episode_number);
+					const targets = nums
+						.map((n: number) => ({ n, w: watchedMap.get(n) }))
+						.filter(({ w }) => (w?.watchCount ?? 0) > 1)
+						.map(({ n, w }) => ({
+							season: season.season_number,
+							episode: n,
+							runtime: w!.runtime || 0,
+							watchCount: w!.watchCount,
+						}));
+					if (targets.length > 0) {
+						await resetEpisodesToOnce(user.uid, tmdbId, targets);
+						setWatchedEpisodeCountsCache(
+							queryClient,
+							user.uid,
+							tmdbId,
+							new Map(targets.map((t) => [`${t.season}_${t.episode}`, 1])),
+						);
+					}
+				} else if (target.type === "episode") {
+					const ep = target.ep;
+					if (action === WatchAction.REWATCH) {
 						markOrAskJump(ep);
-					} else if (action === "not_watched") {
+					} else if (action === WatchAction.NOT_WATCHED) {
 						await unwatchEpisode(ep.episode_number, false);
-					} else if (action === "watched_once_less") {
+					} else if (action === WatchAction.WATCHED_ONCE_LESS) {
 						await unwatchEpisode(ep.episode_number, true);
 					}
-				} else if (sheetTarget.type === "season") {
-					if (action === "rewatch") {
+				} else if (target.type === "season") {
+					if (action === WatchAction.REWATCH) {
 						await handleMarkSeasonWatched();
-					} else if (action === "not_watched") {
+					} else if (action === WatchAction.NOT_WATCHED) {
 						const toUnmark = episodes
 							.filter((ep: TMDBEpisode) => watchedMap.has(ep.episode_number))
 							.map((ep: TMDBEpisode) => ({
@@ -787,7 +972,7 @@ export function useSeasonActions({
 						if (toUnmark.length > 0) {
 							await unmarkSeasonWatched(user.uid, tmdbId, toUnmark, knownTracking);
 						}
-					} else if (action === "watched_once_less") {
+					} else if (action === WatchAction.WATCHED_ONCE_LESS) {
 						const toDecrement = episodes
 							.filter((ep: TMDBEpisode) => {
 								const w = watchedMap.get(ep.episode_number);
@@ -809,43 +994,37 @@ export function useSeasonActions({
 				}
 				// Update query cache locally (episode actions: done up front by unwatchEpisode;
 				// "rewatch" handled by handleMarkWatched → doMarkEpisodeWatched)
-				if (sheetTarget.type === "season") {
-					if (action === "not_watched") {
-						for (const ep of episodes) {
-							if (watchedMap.has(ep.episode_number)) {
-								removeWatchedEpisodeCache(
-									queryClient,
-									user.uid,
-									tmdbId,
-									season.season_number,
-									ep.episode_number,
-								);
-							}
-						}
-					} else if (action === "watched_once_less") {
-						for (const ep of episodes) {
-							const w = watchedMap.get(ep.episode_number);
-							if (w && w.watchCount > 0) {
-								removeWatchedEpisodeCache(
-									queryClient,
-									user.uid,
-									tmdbId,
-									season.season_number,
-									ep.episode_number,
-									true,
-								);
-							}
-						}
+				if (
+					target.type === "season" &&
+					(action === WatchAction.NOT_WATCHED || action === WatchAction.WATCHED_ONCE_LESS)
+				) {
+					// Absolute counts from this show's list (the sheet's source), so the watchlist's
+					// rows land on the same numbers even if they had drifted
+					const counts = new Map<string, number>();
+					for (const ep of episodes) {
+						const w = watchedMap.get(ep.episode_number);
+						if (!w || w.watchCount <= 0) continue;
+						counts.set(
+							`${season.season_number}_${ep.episode_number}`,
+							action === WatchAction.NOT_WATCHED ? 0 : w.watchCount - 1,
+						);
 					}
+					setWatchedEpisodeCountsCache(queryClient, user.uid, tmdbId, counts);
 					// "rewatch" handled by handleMarkSeasonWatched → doMarkSeasonWatched
 				}
 			} catch (err: any) {
 				console.error("Watch action failed:", err);
 				Alert.alert("Error", err.message || "Action failed.");
+			} finally {
+				if (busy) {
+					setMarkingSeason(false);
+					setMarkingEps(new Set());
+				}
 			}
 			setSheetTarget(null);
 		},
 		[
+			reducesBelowFloor,
 			user?.uid,
 			sheetTarget,
 			tmdbId,
@@ -951,6 +1130,180 @@ export function useSeasonActions({
 		[guardTracking, doMarkEpisodeRange],
 	);
 
+	/** Carousel backfill: pointer (or E1 of this season) through `episode`, up to the level */
+	const handleCarouselMarkThrough = useCallback(
+		async (_tmdbId: number, _season: number, episode: number): Promise<EpisodeRef[]> => {
+			const ne = trackingItem?.nextEpisode;
+			const from = ne && ne.season === season.season_number ? ne.episode : 1;
+			return doMarkEpisodeRange(from, episode, currentRewatchLevel ?? 1);
+		},
+		[trackingItem, season.season_number, currentRewatchLevel, doMarkEpisodeRange],
+	);
+
+	const handleCarouselUnmark = useCallback(
+		async (_tmdbId: number, _season: number, episode: number) => {
+			try {
+				await unwatchEpisode(episode, true);
+			} catch (err: any) {
+				console.error("unmarkEpisode failed:", err);
+				Alert.alert("Error", err.message || "Failed to unwatch episode.");
+			}
+		},
+		[unwatchEpisode],
+	);
+
+	/**
+	 * Apply an episode watch count change (info page sheet / its speedster choice): optimistic —
+	 * both cached lists take the exact count first (up: watched now) — then one batch write,
+	 * moving the pointer when `pointer` is set. A failed write puts the row back.
+	 */
+	const applyEpisodeCount = useCallback(
+		async (
+			ep: TMDBEpisode,
+			from: number,
+			to: number,
+			pointer: PointerTarget | null,
+		): Promise<number> => {
+			if (!user?.uid || from === to) return to;
+			const uid = user.uid;
+			const sn = season.season_number;
+			const runtime = watchedMap.get(ep.episode_number)?.runtime || ep.runtime || 0;
+			const key = `${sn}_${ep.episode_number}`;
+			// The cached record (watchedMap holds only count / runtime) — for its timestamps
+			const record = queryClient
+				.getQueryData<WatchedEpisode[]>([QueryKey.WATCHED_EPISODES, uid, tmdbId])
+				?.find?.((w) => w.season === sn && w.episode === ep.episode_number);
+			const before = record?.lastWatchedAt ?? Timestamp.now();
+			const showCount = (n: number, prevN: number, at: Timestamp) => {
+				if (prevN <= 0 && n > 0) {
+					insertWatchedEpisodeCache(queryClient, uid, {
+						id: `${tmdbId}_S${String(sn).padStart(2, "0")}E${String(ep.episode_number).padStart(2, "0")}`,
+						tmdbShowId: tmdbId,
+						season: sn,
+						episode: ep.episode_number,
+						episodeTitle: ep.name || "",
+						runtime,
+						lastWatchedAt: at,
+						watchedAt: record?.watchedAt ?? at,
+						watchCount: n,
+					});
+				} else {
+					setWatchedEpisodeCountsCache(queryClient, uid, tmdbId, new Map([[key, n]]), at);
+				}
+			};
+			showCount(to, from, to > from ? Timestamp.now() : before);
+			let final: number;
+			try {
+				final = await writeEpisodeWatchCount(
+					uid,
+					tmdbId,
+					{ season: sn, episode: ep.episode_number, title: ep.name || "", runtime },
+					from,
+					to,
+					knownTracking,
+					pointer,
+				);
+			} catch (err: any) {
+				showCount(from, to, before);
+				console.error("Watch count change failed:", err);
+				Alert.alert("Error", err.message || "Couldn't update the watch count.");
+				return from;
+			}
+			// Firestore's real count differed (a stale cached count) → the row follows it
+			if (final !== to) showCount(final, to, before);
+			for (let i = 0; i < Math.abs(final - from); i++) {
+				if (final > from) incrementDailyWatch("episode");
+				else decrementDailyWatch("episode");
+			}
+			return final;
+		},
+		[user?.uid, season.season_number, watchedMap, queryClient, tmdbId, knownTracking],
+	);
+
+	/**
+	 * Info page episode watch count sheet settled (−/+, Watched Once, Not Watched).
+	 * Pointer (stepperPointer): + that finishes the episode in the run under way, or − that
+	 * un-finishes it, with the next episode still waiting in this run. A + that would move it
+	 * past episodes not yet watched in this run asks "Whoa there Speedster!" first and writes
+	 * NOTHING until a button is chosen — resolves false then, so the sheet takes its count back.
+	 */
+	/** A held change waits on a prompt → close the drawer: its number can't know the outcome
+	 *  (the rows update once the prompt is answered) */
+	const closeSheetForPrompt = useCallback(() => {
+		setSheetVisible(false);
+		setSheetTarget(null);
+	}, []);
+
+	const handleEpisodeCountCommit = useCallback(
+		async (from: number, to: number): Promise<boolean | number> => {
+			if (!user?.uid || sheetTarget?.type !== "episode" || from === to) return true;
+			const ep = sheetTarget.ep;
+			// Under the rewatch floor → ask first; nothing is written unless confirmed
+			if (to < from && to < rewatchFloorCount) {
+				setReduceRewatch({ kind: "episode", ep, from, to });
+				closeSheetForPrompt();
+				return false;
+			}
+			const sn = season.season_number;
+			let pointer: PointerTarget | null = null;
+			if (trackingItem) {
+				// Counts before the change
+				const { order, counts, tracking } = buildAdvanceInputs([]);
+				const ref = { season: sn, episode: ep.episode_number };
+				const target = stepperPointer(order, counts, tracking, ref, from, to);
+				if (target) pointer = { ...target, ...(await lookupEpisode(target)) };
+				if (pointer && to > from) {
+					const skipped = firstSkippedBefore(order, counts, tracking, ref);
+					if (skipped) {
+						setSkipModalData({ ...skipped, targetEp: ep, pending: { from, to, pointer } });
+						setSkipModalVisible(true);
+						closeSheetForPrompt();
+						return false;
+					}
+				}
+			}
+			return applyEpisodeCount(ep, from, to, pointer);
+		},
+		[
+			user?.uid,
+			sheetTarget,
+			season.season_number,
+			trackingItem,
+			buildAdvanceInputs,
+			lookupEpisode,
+			applyEpisodeCount,
+			rewatchFloorCount,
+			closeSheetForPrompt,
+		],
+	);
+	/** "Whoa there Speedster!" — mark the skipped ones too (from the list or the count sheet).
+	 *  The range includes the target, so a held sheet change is covered by it; watches past the
+	 *  run level the sheet asked for on top are added after */
+	const confirmSkipAll = useCallback(async () => {
+		const d = skipModalData;
+		setSkipModalVisible(false);
+		setSkipModalData(null);
+		if (!d) return;
+		await markEpisodeRange(d.firstSkipped, d.targetEp.episode_number, d.level);
+		if (d.pending && d.pending.to > d.level) {
+			await applyEpisodeCount(d.targetEp, d.level, d.pending.to, null);
+		}
+	}, [skipModalData, markEpisodeRange, applyEpisodeCount]);
+
+	/** "Just This One": a held count sheet change is applied with the pointer move; from the list
+	 *  it falls through to the jump question */
+	const confirmSkipJustThis = useCallback(async () => {
+		const d = skipModalData;
+		setSkipModalVisible(false);
+		setSkipModalData(null);
+		if (!d) return;
+		if (d.pending) {
+			await applyEpisodeCount(d.targetEp, d.pending.from, d.pending.to, d.pending.pointer);
+			return;
+		}
+		markOrAskJump(d.targetEp);
+	}, [skipModalData, markOrAskJump, applyEpisodeCount]);
+
 	const handleEpisodePress = useCallback(
 		(ep: TMDBEpisode) => {
 			const today = todayStr();
@@ -1009,6 +1362,34 @@ export function useSeasonActions({
 			showBackdropPath,
 		],
 	);
+	/**
+	 * "Reduce Rewatch" confirmed: apply the held change (episode count, or the season action),
+	 * then bring the rewatch count down to the lowest aired count (healRewatch re-reads the
+	 * server first) — 0 makes it a first watch again, with the pointer on that episode
+	 */
+	const confirmReduceRewatch = useCallback(async () => {
+		const r = reduceRewatch;
+		setReduceRewatch(null);
+		if (!r || !user?.uid || !trackingItem) return;
+		if (r.kind === "episode") await applyEpisodeCount(r.ep, r.from, r.to, null);
+		else await handleSheetAction(r.action, r.target);
+		const { order } = buildAdvanceInputs([]);
+		try {
+			await healRewatch(user.uid, tmdbId, order, trackingItem, localEpisodeInfo, todayStr());
+		} catch (err: any) {
+			console.error("Rewatch reduce failed:", err);
+			Alert.alert("Error", err.message || "Couldn't update the rewatch count.");
+		}
+	}, [
+		reduceRewatch,
+		user?.uid,
+		trackingItem,
+		applyEpisodeCount,
+		handleSheetAction,
+		buildAdvanceInputs,
+		tmdbId,
+		localEpisodeInfo,
+	]);
 
 	const handleCarouselMark = useCallback(
 		async (_tmdbId: number, _season: number, episode: number) => {
@@ -1016,28 +1397,6 @@ export function useSeasonActions({
 			if (ep) await doMarkEpisodeWatched(ep);
 		},
 		[episodes, doMarkEpisodeWatched],
-	);
-
-	/** Carousel backfill: pointer (or E1 of this season) through `episode`, up to the level */
-	const handleCarouselMarkThrough = useCallback(
-		async (_tmdbId: number, _season: number, episode: number): Promise<EpisodeRef[]> => {
-			const ne = trackingItem?.nextEpisode;
-			const from = ne && ne.season === season.season_number ? ne.episode : 1;
-			return doMarkEpisodeRange(from, episode, currentRewatchLevel ?? 1);
-		},
-		[trackingItem, season.season_number, currentRewatchLevel, doMarkEpisodeRange],
-	);
-
-	const handleCarouselUnmark = useCallback(
-		async (_tmdbId: number, _season: number, episode: number) => {
-			try {
-				await unwatchEpisode(episode, true);
-			} catch (err: any) {
-				console.error("unmarkEpisode failed:", err);
-				Alert.alert("Error", err.message || "Failed to unwatch episode.");
-			}
-		},
-		[unwatchEpisode],
 	);
 
 	const handleEpisodeLongPress = useCallback(
@@ -1167,12 +1526,14 @@ export function useSeasonActions({
 		}
 	}, [allWatched, minWatchCount]);
 
-	const sheetLabel =
-		sheetTarget?.type === "season"
-			? `${season.name}`
-			: sheetTarget?.type === "episode"
-				? `S${String(season.season_number).padStart(2, "0")}E${String(sheetTarget.ep.episode_number).padStart(2, "0")} - ${sheetTarget.ep.name}`
-				: "";
+	// Sheet header: which season / episode goes in the square's label (over the watch count);
+	// the line under the logo is the episode's title — a season needs none
+	const pad2 = (n: number) => String(n).padStart(2, "0");
+	const sheetSquareLabel =
+		sheetTarget?.type === "episode"
+			? `S${pad2(season.season_number)} · E${pad2(sheetTarget.ep.episode_number)}`
+			: `SEASON ${pad2(season.season_number)}`;
+	const sheetLabel = sheetTarget?.type === "episode" ? sheetTarget.ep.name : undefined;
 
 	return {
 		expanded,
@@ -1242,6 +1603,14 @@ export function useSeasonActions({
 		handleSheetAction,
 		doMarkEpisodeRange,
 		markEpisodeRange,
+		confirmSkipAll,
+		confirmSkipJustThis,
+		reduceRewatch,
+		setReduceRewatch,
+		rewatchGate,
+		setRewatchGate,
+		confirmReduceRewatch,
+		rewatchFloorCount,
 		handleEpisodePress,
 		handleCarouselMark,
 		handleCarouselMarkThrough,
@@ -1251,6 +1620,8 @@ export function useSeasonActions({
 		handleSeasonPress,
 		handleSeasonLongPress,
 		sheetLabel,
+		sheetSquareLabel,
+		handleEpisodeCountCommit,
 		mutateCachedUpcoming,
 		rollbackUpcoming,
 		seasonData,

@@ -1,8 +1,10 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, typography } from "../../theme";
 import { WatchStatus, MediaType } from "../../types";
-import { withHaptic } from "../../utils/haptics";
+import { CircleButtonTone } from "../../enums";
+import CircleButton from "../../components/CircleButton";
 
 interface Props {
 	mediaType: MediaType;
@@ -19,10 +21,8 @@ interface Props {
 	onResumeOrRewatch: () => void;
 	/** TV watching / rewatching: pause it (asks first) */
 	onPause: () => void;
-	/** Completed TV: queue the next rewatch without starting it */
-	onPauseRewatch: () => void;
 	onRemove: () => void;
-	/** Long-press on Rewatch: watch count sheet */
+	/** Movie ⋯ beside Rewatch: watch count sheet */
 	onWatchSheetOpen: () => void;
 }
 
@@ -38,16 +38,16 @@ export default function ActionPills({
 	onMarkMovieWatched,
 	onResumeOrRewatch,
 	onPause,
-	onPauseRewatch,
 	onRemove,
 	onWatchSheetOpen,
 }: Readonly<Props>) {
 	const isTv = mediaType === MediaType.TV;
 	const completed = watchlistItem?.status === WatchStatus.COMPLETED;
 	const neverWatched = isTv && completed && !hasWatchedEpisodes;
-	// Completed show: two ways into the next run instead of Rewatch + Remove
+	// Completed show: "Start a Rewatch" (it reads "Pause a Rewatch" once the run is under way)
 	const rewatchChoice = isTv && completed && !neverWatched;
-	const hasSheet = isTv ? rewatchChoice : movieWatchCount > 0;
+	// Watch count sheet (⋯ at the row's end, like Settings beside Hall of Shame)
+	const hasSheet = !isTv && completed && movieWatchCount > 0;
 	return (
 		<View style={styles.pillRow}>
 			{!watchlistItem ? (
@@ -95,11 +95,7 @@ export default function ActionPills({
 					{(watchlistItem.status === WatchStatus.COMPLETED ||
 						watchlistItem.status === WatchStatus.PAUSED ||
 						watchlistItem.status === WatchStatus.PAUSED_REWATCH) && (
-						<TouchableOpacity
-							style={[styles.pill, styles.pillAccent]}
-							onPress={onResumeOrRewatch}
-							onLongPress={withHaptic(hasSheet ? onWatchSheetOpen : undefined)}
-						>
+						<TouchableOpacity style={[styles.pill, styles.pillAccent]} onPress={onResumeOrRewatch}>
 							<Text style={styles.pillText}>
 								{watchlistItem.status === WatchStatus.PAUSED
 									? "Resume"
@@ -108,22 +104,26 @@ export default function ActionPills({
 										: neverWatched
 											? "Start Watching"
 											: rewatchChoice
-												? "Start Rewatch"
+												? "Start a Rewatch"
 												: "Rewatch"}
 							</Text>
 						</TouchableOpacity>
 					)}
-					{rewatchChoice && (
-						<TouchableOpacity style={[styles.pill, styles.pillPause]} onPress={onPauseRewatch}>
-							<Text style={styles.pillText}>Pause Rewatch</Text>
-						</TouchableOpacity>
+					{hasSheet && (
+						<CircleButton
+							tone={CircleButtonTone.RAISED}
+							onPress={onWatchSheetOpen}
+							accessibilityLabel="Watch count options"
+						>
+							<Ionicons name="ellipsis-horizontal" size={24} color={colors.text} />
+						</CircleButton>
 					)}
 					{mediaType === MediaType.TV &&
 						(watchlistItem.status === WatchStatus.WATCHING ||
 							watchlistItem.status === WatchStatus.REWATCHING) && (
 							<TouchableOpacity style={[styles.pill, styles.pillPause]} onPress={onPause}>
 								<Text style={styles.pillText}>
-									{watchlistItem.status === WatchStatus.REWATCHING ? "Pause Rewatch" : "Pause"}
+									{watchlistItem.status === WatchStatus.REWATCHING ? "Pause a Rewatch" : "Pause"}
 								</Text>
 							</TouchableOpacity>
 						)}
@@ -149,6 +149,7 @@ export default function ActionPills({
 const styles = StyleSheet.create({
 	pillRow: {
 		flexDirection: "row",
+		alignItems: "center",
 		flexWrap: "wrap",
 		gap: spacing.sm,
 		marginTop: spacing.lg,

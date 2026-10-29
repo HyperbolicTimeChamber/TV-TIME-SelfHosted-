@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import Reanimated from "react-native-reanimated";
 import AccordionArrow, { CascadeStrip, useAccordion } from "./AccordionArrow";
 import WatchActionSheet from "./modals/WatchActionSheet";
+import WatchCountSheet from "./modals/WatchCountSheet";
 import ConfirmModal from "./modals/ConfirmModal";
 import {
 	ModalArt,
@@ -11,6 +12,8 @@ import {
 	ModalLogo,
 	SPEEDSTER_ART,
 	SPEEDSTER_RATIO,
+	HIT_A_WALL_ART,
+	HIT_A_WALL_RATIO,
 } from "./modals/ModalArt";
 import { getCachedCatalogShow } from "../hooks/useWatchlist";
 import {
@@ -26,7 +29,7 @@ import EpisodeDetailModal from "./modals/EpisodeDetailModal";
 import { colors, spacing, typography } from "../theme";
 import { withHaptic } from "../utils/haptics";
 import { tmdbPosterUri, tmdbStillUri } from "../hooks/useTmdbImage";
-import { MediaType, TMDBEpisode } from "../types";
+import { MediaType, TMDBEpisode, WatchStatus } from "../types";
 import { useSeasonActions, type SeasonDropdownProps } from "./useSeasonActions";
 
 /** Every episode card is this tall (the 50px thumb inset 6px top and bottom), so a season's list
@@ -43,6 +46,22 @@ function formatDate(dateStr: string): string {
 
 /** Where this season sits in the show's list: only the list's outer corners are rounded */
 type Props = SeasonDropdownProps & { isFirst?: boolean; isLast?: boolean };
+
+/** "Reduce Rewatch?" copy: which episode(s) drop under the floor, and what happens */
+function reduceRewatchHint(
+	r: { kind: "episode"; ep: TMDBEpisode; to: number } | { kind: "season" } | null,
+	floor: number,
+	seasonNumber: number,
+	showTitle: string,
+) {
+	if (!r) return undefined;
+	const pad = (n: number) => String(n).padStart(2, "0");
+	const what =
+		r.kind === "episode"
+			? `S${pad(seasonNumber)}E${pad(r.ep.episode_number)}`
+			: `Episodes of Season ${seasonNumber}`;
+	return `${what} of ${showTitle} cannot go below x${floor}. Going lower will also lower your watch count.`;
+}
 
 export default memo(function SeasonDropdown({
 	tmdbId,
@@ -66,6 +85,14 @@ export default memo(function SeasonDropdown({
 		skipModalVisible,
 		setSkipModalVisible,
 		skipModalData,
+		confirmSkipAll,
+		confirmSkipJustThis,
+		reduceRewatch,
+		setReduceRewatch,
+		confirmReduceRewatch,
+		rewatchFloorCount,
+		rewatchGate,
+		setRewatchGate,
 		setSkipModalData,
 		epInfoVisible,
 		setEpInfoVisible,
@@ -90,9 +117,7 @@ export default memo(function SeasonDropdown({
 		handleMarkWatched,
 		jumpModal,
 		setJumpModal,
-		markOrAskJump,
 		handleSheetAction,
-		markEpisodeRange,
 		handleEpisodePress,
 		handleCarouselMark,
 		handleCarouselMarkThrough,
@@ -113,6 +138,8 @@ export default memo(function SeasonDropdown({
 		markRewatchUpTo,
 		handleSeasonLongPress,
 		sheetLabel,
+		sheetSquareLabel,
+		handleEpisodeCountCommit,
 		isLoading,
 		imagesLoading,
 		watchedLoading,
@@ -136,6 +163,11 @@ export default memo(function SeasonDropdown({
 		expanded,
 		isLoading ? undefined : episodes.length * (EP_ROW_H + STRIP_GAP),
 	);
+
+	// Rewatching (or one paused) → no "Watched Once": it'd wipe the earlier runs' watches
+	const inRewatch =
+		trackingItem?.status === WatchStatus.REWATCHING ||
+		trackingItem?.status === WatchStatus.PAUSED_REWATCH;
 
 	return (
 		<View style={styles.season}>
@@ -273,11 +305,40 @@ export default memo(function SeasonDropdown({
 				</Reanimated.View>
 			)}
 
+			{/* Season: the option list; episode: the −/+ watch count sheet (as on the watchlist) */}
 			<WatchActionSheet
-				visible={sheetVisible}
-				label={sheetLabel}
+				visible={sheetVisible && sheetTarget?.type === "season"}
+				title={showTitle}
+				subtitle={sheetLabel}
+				squareLabel={sheetSquareLabel}
+				tmdbId={tmdbId}
+				mediaType={MediaType.TV}
+				logoPath={showLogo}
 				watchCount={sheetTarget?.watchCount || 0}
+				showWatchedOnce={!inRewatch}
 				onSelect={handleSheetAction}
+				onClose={() => {
+					setSheetVisible(false);
+					setSheetTarget(null);
+				}}
+			/>
+			<WatchCountSheet
+				visible={sheetVisible && sheetTarget?.type === "episode"}
+				title={showTitle}
+				subtitle={sheetLabel}
+				episode={
+					sheetTarget?.type === "episode"
+						? { season: season.season_number, episode: sheetTarget.ep.episode_number }
+						: undefined
+				}
+				centered={false}
+				tmdbId={tmdbId}
+				mediaType={MediaType.TV}
+				logoPath={showLogo}
+				watchCount={sheetTarget?.watchCount || 0}
+				allowWatchedOnce={!inRewatch}
+				confirmBelow={rewatchFloorCount}
+				onCommit={handleEpisodeCountCommit}
 				onClose={() => {
 					setSheetVisible(false);
 					setSheetTarget(null);
@@ -352,6 +413,43 @@ export default memo(function SeasonDropdown({
 				/>
 			)}
 
+			{/* A mark that would have started a rewatch with an aired episode still short */}
+			<ConfirmModal
+				visible={!!rewatchGate}
+				title="Finish Watching First"
+				image={
+					<ModalLogo
+						logoPath={showLogo}
+						tmdbId={tmdbId}
+						mediaType={MediaType.TV}
+						title={showTitle}
+					/>
+				}
+				hint={(() => {
+					const g = rewatchGate;
+					if (!g) return undefined;
+					const pad = (n: number) => String(n).padStart(2, "0");
+					const label = `S${pad(g.season)}E${pad(g.episode)}${g.name ? ` – ${g.name}` : ""}`;
+					return `Those watches are saved, but rewatch ${g.count} can't start yet: ${label} isn't at x${g.count}. Every aired episode needs x${g.count} first.`;
+				})()}
+				confirmLabel="OK"
+				confirmColor={colors.primary}
+				hideCancel
+				onConfirm={() => setRewatchGate(null)}
+				onClose={() => setRewatchGate(null)}
+			/>
+
+			{/* Show page only: going under the rewatch floor asks first */}
+			<ConfirmModal
+				visible={!!reduceRewatch}
+				title="Oops, looks like you've hit a wall"
+				image={<ModalArt source={HIT_A_WALL_ART} ratio={HIT_A_WALL_RATIO} />}
+				hint={reduceRewatchHint(reduceRewatch, rewatchFloorCount, season.season_number, showTitle)}
+				confirmLabel="Reduce Count"
+				onConfirm={confirmReduceRewatch}
+				onClose={() => setReduceRewatch(null)}
+			/>
+
 			{skipModalData && (
 				<ConfirmModal
 					visible={skipModalVisible}
@@ -365,19 +463,9 @@ export default memo(function SeasonDropdown({
 						episodeRange(skipModalData.firstSkipped, skipModalData.targetEp.episode_number),
 					)}
 					confirmColor={colors.primary}
-					onConfirm={() => {
-						const d = skipModalData;
-						setSkipModalVisible(false);
-						markEpisodeRange(d.firstSkipped, d.targetEp.episode_number, d.level);
-						setSkipModalData(null);
-					}}
+					onConfirm={confirmSkipAll}
 					secondaryLabel="Just This One"
-					onSecondary={() => {
-						const d = skipModalData;
-						setSkipModalVisible(false);
-						markOrAskJump(d.targetEp);
-						setSkipModalData(null);
-					}}
+					onSecondary={confirmSkipJustThis}
 					onClose={() => {
 						setSkipModalVisible(false);
 						setSkipModalData(null);

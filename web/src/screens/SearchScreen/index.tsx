@@ -232,6 +232,12 @@ export default function SearchScreen() {
 					onMovieAddAndWatch={actions.handleMovieAddAndWatch}
 					removeModal={actions.removeModal}
 					removeError={actions.removeError}
+					watchedBlock={actions.watchedBlock}
+					onGoToShow={(item) => {
+						actions.setWatchedBlock(null);
+						handlePress(item);
+					}}
+					onWatchedBlockClose={() => actions.setWatchedBlock(null)}
 					removing={actions.removing}
 					onConfirmRemove={actions.handleConfirmRemove}
 					onRemoveModalClose={() => {
