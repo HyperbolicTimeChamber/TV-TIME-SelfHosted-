@@ -30,10 +30,16 @@ interface Props {
 	episode?: { season: number; episode: number };
 	/** Info page: logo alone, centred (default). Watchlist: logo left */
 	centered?: boolean;
+	/** Offer "Watched Once" (from 3 up) — off for a show in a rewatch (it'd wipe earlier runs) */
+	allowWatchedOnce?: boolean;
+	/** − stops here (watchlist mid-rewatch: the rewatch number — earlier runs' watches stay);
+	 *  above 0 also hides "Not Watched" */
+	minCount?: number;
 	watchCount: number;
 	/** Settled change from → to (0 = unwatched). Resolving false = held / not applied (e.g. a
-	 *  "Whoa there Speedster!" prompt): the stepper goes back to `from` */
-	onCommit: (from: number, to: number) => void | Promise<boolean | void>;
+	 *  "Whoa there Speedster!" prompt): the stepper goes back to `from`. Resolving a number =
+	 *  the count it really ended at (a stale cached count): the stepper takes that */
+	onCommit: (from: number, to: number) => void | Promise<boolean | number | void>;
 	onClose: () => void;
 }
 
@@ -47,6 +53,8 @@ export default function WatchCountSheet({
 	subtitle,
 	episode,
 	centered = true,
+	allowWatchedOnce = true,
+	minCount = 0,
 	watchCount,
 	onCommit,
 	onClose,
@@ -83,12 +91,13 @@ export default function WatchCountSheet({
 		const from = committed.current;
 		const to = pending.current;
 		committed.current = to;
-		Promise.resolve(onCommitRef.current(from, to)).then((applied) => {
-			// Held → back to the stored count (unless the user has moved on since)
-			if (applied === false && pending.current === to) {
-				committed.current = from;
-				pending.current = from;
-				setCount(from);
+		Promise.resolve(onCommitRef.current(from, to)).then((result) => {
+			// Held → back to the stored count; a real count → that (unless the user moved on since)
+			const settled = result === false ? from : typeof result === "number" ? result : to;
+			if (settled !== to && pending.current === to) {
+				committed.current = settled;
+				pending.current = settled;
+				setCount(settled);
 			}
 		});
 	}, []);
@@ -104,7 +113,7 @@ export default function WatchCountSheet({
 	};
 
 	const step = (delta: number) => {
-		const next = Math.max(0, pending.current + delta);
+		const next = Math.max(minCount, pending.current + delta);
 		if (next === pending.current) return;
 		Haptics.selectionAsync().catch(() => {});
 		pending.current = next;
@@ -149,7 +158,7 @@ export default function WatchCountSheet({
 								<StepButton
 									icon="circle-minus"
 									label="Watched once less"
-									disabled={count === 0}
+									disabled={count <= minCount}
 									onPress={() => step(-1)}
 								/>
 								<Text style={styles.value}>{count}</Text>
@@ -157,7 +166,7 @@ export default function WatchCountSheet({
 							</View>
 						</View>
 						{/* At 2, − already lands on 1 */}
-						<SheetCollapse open={count > 2}>
+						<SheetCollapse open={allowWatchedOnce && count > 2}>
 							<SheetOption
 								icon="checkmark-circle-outline"
 								color={colors.watchedGreen}
@@ -169,7 +178,7 @@ export default function WatchCountSheet({
 								}}
 							/>
 						</SheetCollapse>
-						<SheetCollapse open={count > 0}>
+						<SheetCollapse open={minCount === 0 && count > 0}>
 							<SheetOption
 								icon="trash-outline"
 								color={colors.destructiveRed}

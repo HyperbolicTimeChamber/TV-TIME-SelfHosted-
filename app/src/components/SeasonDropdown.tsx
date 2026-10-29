@@ -27,7 +27,7 @@ import EpisodeDetailModal from "./modals/EpisodeDetailModal";
 import { colors, spacing, typography } from "../theme";
 import { withHaptic } from "../utils/haptics";
 import { tmdbPosterUri, tmdbStillUri } from "../hooks/useTmdbImage";
-import { MediaType, TMDBEpisode } from "../types";
+import { MediaType, TMDBEpisode, WatchStatus } from "../types";
 import { useSeasonActions, type SeasonDropdownProps } from "./useSeasonActions";
 
 /** Every episode card is this tall (the 50px thumb inset 6px top and bottom), so a season's list
@@ -139,6 +139,11 @@ export default memo(function SeasonDropdown({
 		expanded,
 		isLoading ? undefined : episodes.length * (EP_ROW_H + STRIP_GAP),
 	);
+
+	// Rewatching (or one paused) → no "Watched Once": it'd wipe the earlier runs' watches
+	const inRewatch =
+		trackingItem?.status === WatchStatus.REWATCHING ||
+		trackingItem?.status === WatchStatus.PAUSED_REWATCH;
 
 	return (
 		<View style={styles.season}>
@@ -286,7 +291,7 @@ export default memo(function SeasonDropdown({
 				mediaType={MediaType.TV}
 				logoPath={showLogo}
 				watchCount={sheetTarget?.watchCount || 0}
-				showWatchedOnce
+				showWatchedOnce={!inRewatch}
 				onSelect={handleSheetAction}
 				onClose={() => {
 					setSheetVisible(false);
@@ -307,6 +312,7 @@ export default memo(function SeasonDropdown({
 				mediaType={MediaType.TV}
 				logoPath={showLogo}
 				watchCount={sheetTarget?.watchCount || 0}
+				allowWatchedOnce={!inRewatch}
 				onCommit={handleEpisodeCountCommit}
 				onClose={() => {
 					setSheetVisible(false);

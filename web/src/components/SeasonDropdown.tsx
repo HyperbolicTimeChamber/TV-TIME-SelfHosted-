@@ -11,7 +11,7 @@ import CheckmarkButton from "./CheckmarkButton";
 import ConfirmModal from "./ConfirmModal";
 import { ModalArt, ModalBackdrop, ModalLogo, SPEEDSTER_ART } from "./ModalArt";
 import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
-import { MediaType } from "@app/enums";
+import { MediaType, WatchStatus } from "@app/enums";
 import {
 	SKIP_AHEAD_TITLE,
 	episodeRange,
@@ -114,6 +114,10 @@ export default memo(function SeasonDropdown({ readOnly, isFirst, isLast, ...prop
 	const { season, showPosterPath } = props;
 	const showLogo = getCachedCatalogShow(props.tmdbId, MediaType.TV)?.logoPath ?? null;
 
+	// Rewatching (or one paused) → no "Watched Once": it'd wipe the earlier runs' watches
+	const inRewatch =
+		props.trackingItem?.status === WatchStatus.REWATCHING ||
+		props.trackingItem?.status === WatchStatus.PAUSED_REWATCH;
 	return (
 		<div className={styles.season}>
 			<div
@@ -226,7 +230,7 @@ export default memo(function SeasonDropdown({ readOnly, isFirst, isLast, ...prop
 						mediaType={MediaType.TV}
 						logoPath={showLogo}
 						watchCount={s.sheetTarget?.watchCount || 0}
-						showWatchedOnce
+						showWatchedOnce={!inRewatch}
 						onSelect={s.handleSheetAction}
 						onClose={() => {
 							s.setSheetVisible(false);
@@ -247,6 +251,7 @@ export default memo(function SeasonDropdown({ readOnly, isFirst, isLast, ...prop
 						mediaType={MediaType.TV}
 						logoPath={showLogo}
 						watchCount={s.sheetTarget?.watchCount || 0}
+						allowWatchedOnce={!inRewatch}
 						onCommit={s.handleEpisodeCountCommit}
 						onClose={() => {
 							s.setSheetVisible(false);

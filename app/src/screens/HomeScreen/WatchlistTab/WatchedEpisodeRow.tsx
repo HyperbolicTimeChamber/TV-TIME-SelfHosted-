@@ -66,6 +66,8 @@ export default memo(function WatchedEpisodeRow({
 						watched
 						label={episode.watchCount > 1 ? `${episode.watchCount}` : undefined}
 						onPress={() => onCheckmarkPress(episode)}
+						// Long-press too opens the watch count sheet (not the card's pause)
+						onLongPress={() => onCheckmarkPress(episode)}
 					/>
 				</View>
 			</TouchableOpacity>

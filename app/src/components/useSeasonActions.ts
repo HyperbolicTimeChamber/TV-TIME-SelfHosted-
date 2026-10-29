@@ -16,8 +16,6 @@ import {
 	markEpisodeWatched,
 	markSeasonWatchedCF,
 	addToTracking,
-	unmarkEpisodeWatched,
-	decrementEpisodeWatchCount,
 	unmarkSeasonWatched,
 	decrementSeasonWatchCount,
 	resetEpisodesToOnce,
@@ -742,30 +740,40 @@ export function useSeasonActions({
 				tmdbId,
 				new Map([[cacheKey, decrement ? count - 1 : 0]]),
 			);
+			const target = decrement ? count - 1 : 0;
 			try {
-				if (decrement) {
-					await decrementEpisodeWatchCount(
-						user.uid,
-						tmdbId,
-						sn,
-						episode,
-						runtime,
-						count,
-						ep?.name || null,
-						ep?.air_date || null,
-						knownTracking,
-					);
-				} else {
-					await unmarkEpisodeWatched(
-						user.uid,
-						tmdbId,
-						sn,
-						episode,
-						runtime,
-						ep?.name || null,
-						ep?.air_date || null,
-						knownTracking,
-					);
+				// Off the real count (read first): a stale cached count can't delete watches
+				const final = await writeEpisodeWatchCount(
+					user.uid,
+					tmdbId,
+					{ season: sn, episode, title: ep?.name || "", runtime, airDate: ep?.air_date || null },
+					count,
+					target,
+					knownTracking,
+				);
+				if (final !== target) {
+					// Firestore had a different count → the rows follow it
+					if (target <= 0 && final > 0) {
+						const now = Timestamp.now();
+						insertWatchedEpisodeCache(queryClient, user.uid, {
+							id: `${tmdbId}_S${String(sn).padStart(2, "0")}E${String(episode).padStart(2, "0")}`,
+							tmdbShowId: tmdbId,
+							season: sn,
+							episode,
+							episodeTitle: ep?.name || "",
+							runtime,
+							lastWatchedAt: now,
+							watchedAt: now,
+							watchCount: final,
+						});
+					} else {
+						setWatchedEpisodeCountsCache(
+							queryClient,
+							user.uid,
+							tmdbId,
+							new Map([[cacheKey, final]]),
+						);
+					}
 				}
 				decrementDailyWatch("episode");
 			} catch (err) {
@@ -1035,8 +1043,13 @@ export function useSeasonActions({
 	 * moving the pointer when `pointer` is set. A failed write puts the row back.
 	 */
 	const applyEpisodeCount = useCallback(
-		async (ep: TMDBEpisode, from: number, to: number, pointer: PointerTarget | null) => {
-			if (!user?.uid || from === to) return;
+		async (
+			ep: TMDBEpisode,
+			from: number,
+			to: number,
+			pointer: PointerTarget | null,
+		): Promise<number> => {
+			if (!user?.uid || from === to) return to;
 			const uid = user.uid;
 			const sn = season.season_number;
 			const runtime = watchedMap.get(ep.episode_number)?.runtime || ep.runtime || 0;
@@ -1064,8 +1077,9 @@ export function useSeasonActions({
 				}
 			};
 			showCount(to, from, to > from ? Timestamp.now() : before);
+			let final: number;
 			try {
-				await writeEpisodeWatchCount(
+				final = await writeEpisodeWatchCount(
 					uid,
 					tmdbId,
 					{ season: sn, episode: ep.episode_number, title: ep.name || "", runtime },
@@ -1078,12 +1092,15 @@ export function useSeasonActions({
 				showCount(from, to, before);
 				console.error("Watch count change failed:", err);
 				Alert.alert("Error", err.message || "Couldn't update the watch count.");
-				return;
+				return from;
 			}
-			for (let i = 0; i < Math.abs(to - from); i++) {
-				if (to > from) incrementDailyWatch("episode");
+			// Firestore's real count differed (a stale cached count) → the row follows it
+			if (final !== to) showCount(final, to, before);
+			for (let i = 0; i < Math.abs(final - from); i++) {
+				if (final > from) incrementDailyWatch("episode");
 				else decrementDailyWatch("episode");
 			}
+			return final;
 		},
 		[user?.uid, season.season_number, watchedMap, queryClient, tmdbId, knownTracking],
 	);
@@ -1096,7 +1113,7 @@ export function useSeasonActions({
 	 * NOTHING until a button is chosen — resolves false then, so the sheet takes its count back.
 	 */
 	const handleEpisodeCountCommit = useCallback(
-		async (from: number, to: number): Promise<boolean> => {
+		async (from: number, to: number): Promise<boolean | number> => {
 			if (!user?.uid || sheetTarget?.type !== "episode" || from === to) return true;
 			const ep = sheetTarget.ep;
 			const sn = season.season_number;
@@ -1116,8 +1133,7 @@ export function useSeasonActions({
 					}
 				}
 			}
-			await applyEpisodeCount(ep, from, to, pointer);
-			return true;
+			return applyEpisodeCount(ep, from, to, pointer);
 		},
 		[
 			user?.uid,

@@ -78,10 +78,19 @@ export function useWatchedEpisodes(userId: string | undefined, tmdbShowId?: numb
 
 /** Insert a watched episode into the query cache (no Firestore refetch). */
 export function insertWatchedEpisodeCache(
-	queryClient: { setQueryData: (key: any, updater: any) => void },
+	queryClient: { setQueryData: (key: any, updater: any) => void; getQueryData?: (key: any) => any },
 	userId: string,
 	ep: WatchedEpisode,
 ) {
+	// The show's full list (if loaded) knows the episode's real count — a row added to the
+	// paged list (episode watched long ago, not on a loaded page) must carry that + 1, not the
+	// caller's guess: a rewatch mark added it at 1, and the watch count sheet then took 1 → 0
+	// as "unwatched" and deleted a record that still had watches
+	const showList = queryClient.getQueryData?.([QueryKey.WATCHED_EPISODES, userId, ep.tmdbShowId]);
+	const known = Array.isArray(showList)
+		? (showList as WatchedEpisode[]).find((e) => e.season === ep.season && e.episode === ep.episode)
+		: undefined;
+	const insertCount = known ? (known.watchCount || 0) + 1 : ep.watchCount;
 	// Update paginated "all episodes" cache
 	queryClient.setQueryData([QueryKey.WATCHED_EPISODES, userId, undefined], (old: any) => {
 		if (!old?.pages) {
@@ -100,11 +109,12 @@ export function insertWatchedEpisodeCache(
 			}),
 		}));
 		if (found) return { ...old, pages: updatedPages };
-		// New episode — prepend to first page
+		// Not on a loaded page — prepend it, at its real count when known
 		const firstPage = old.pages[0];
+		const row = { ...ep, watchCount: insertCount };
 		return {
 			...old,
-			pages: [{ ...firstPage, episodes: [ep, ...firstPage.episodes] }, ...old.pages.slice(1)],
+			pages: [{ ...firstPage, episodes: [row, ...firstPage.episodes] }, ...old.pages.slice(1)],
 		};
 	});
 	// Update show-specific flat cache (used by useShowWatchedEpisodes)

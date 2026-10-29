@@ -189,6 +189,8 @@ export default function WatchlistTab() {
 				mediaType={MediaType.TV}
 				logoPath={sheetShow?.logoPath}
 				watchCount={w.sheetEpisode?.watchCount || 0}
+				allowWatchedOnce={!w.sheetInRewatch}
+				minCount={w.sheetMinCount}
 				onCommit={w.handleEpisodeCountCommit}
 				onClose={() => {
 					w.setSheetVisible(false);

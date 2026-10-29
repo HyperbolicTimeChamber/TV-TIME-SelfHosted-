@@ -109,6 +109,8 @@ export default function WatchlistTab() {
 		handleWatchedSwipeLeft,
 		handleWatchedSwipeRight,
 		handleEpisodeCountCommit,
+		sheetInRewatch,
+		sheetMinCount,
 		handleMovieCheckmark,
 		handleMovieSwipeLeft,
 		handleMovieSwipeRight,
@@ -385,6 +387,8 @@ export default function WatchlistTab() {
 				mediaType={MediaType.TV}
 				logoPath={sheetShow?.logoPath}
 				watchCount={sheetEpisode?.watchCount || 0}
+				allowWatchedOnce={!sheetInRewatch}
+				minCount={sheetMinCount}
 				onCommit={handleEpisodeCountCommit}
 				onClose={() => {
 					setSheetVisible(false);

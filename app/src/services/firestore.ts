@@ -561,31 +561,47 @@ export async function setNextEpisode(
 }
 
 /**
- * Watch count sheet: set one episode's plays from → to in one batch (the sheet debounces taps,
- * so +3 is one write). Up: lastWatchedAt now (the row moves to the top of Previously Watched).
+ * Watch count sheet: set one episode's plays from → to (the sheet debounces taps, so +3 is one
+ * write). Resolves with the count the episode ends up at.
+ * - Up: one batch, no read; lastWatchedAt now (the row moves to the top of Previously Watched).
+ * - Down: a transaction that reads the episode's real count first — a cached count can be stale
+ *   (a mark from elsewhere), and trusting it deleted a record that still had watches. Only a
+ *   real 0 deletes it; the rest is taken off what's actually there.
  * `pointer`: an episode → the watchlist pointer moves there (info page, see stepperPointer);
- * null → it stays; omitted (watchlist, no episode order at hand) → only at 0, back to this
- * episode, as unmarkEpisodeWatched does.
+ * null → it stays; omitted (watchlist, no episode order at hand) → only on a real 0, back to
+ * this episode, as unmarkEpisodeWatched does.
  */
 export async function writeEpisodeWatchCount(
 	userId: string,
 	tmdbShowId: number,
-	ep: { season: number; episode: number; title: string; runtime: number },
+	ep: { season: number; episode: number; title: string; runtime: number; airDate?: string | null },
 	from: number,
 	to: number,
 	known?: KnownTracking,
 	pointer?: { season: number; episode: number; name: string | null; airDate: string | null } | null,
-) {
-	const delta = to - from;
-	if (delta === 0) return;
-	const minutes = (ep.runtime || 0) * delta;
+): Promise<number> {
+	if (to === from) return to;
+	const runtime = ep.runtime || 0;
 	const epRef = doc(watchedEpisodesRef(userId), episodeDocId(tmdbShowId, ep.season, ep.episode));
 	const tRef = doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV));
 	const now = Timestamp.now();
-	const batch = writeBatch(db);
+	/** Tracking fields for a pointer move (with what the watchlist card shows) */
+	const moveFields = (m: {
+		season: number;
+		episode: number;
+		name: string | null;
+		airDate: string | null;
+	}) => ({
+		nextEpisode: { season: m.season, episode: m.episode },
+		nextEpisodeName: m.name,
+		nextEpisodeAirDate: m.airDate,
+		priorityDate: now,
+	});
 
-	if (to <= 0) batch.delete(epRef);
-	else
+	if (to > from) {
+		const delta = to - from;
+		const minutes = runtime * delta;
+		const batch = writeBatch(db);
 		batch.set(
 			epRef,
 			{
@@ -593,65 +609,98 @@ export async function writeEpisodeWatchCount(
 				season: ep.season,
 				episode: ep.episode,
 				episodeTitle: ep.title,
-				runtime: ep.runtime || 0,
+				runtime,
 				watchCount: increment(delta),
-				...(delta > 0 ? { lastWatchedAt: now } : {}),
+				lastWatchedAt: now,
 				// Back from 0 within one edit: the doc was deleted — give it its first watch time
 				...(from <= 0 ? { watchedAt: now } : {}),
 			},
 			{ merge: true },
 		);
-	batch.set(
-		userRef(userId),
-		{ stats: { episodesWatched: increment(delta), totalMinutes: increment(minutes) } },
-		{ merge: true },
-	);
+		batch.set(
+			userRef(userId),
+			{ stats: { episodesWatched: increment(delta), totalMinutes: increment(minutes) } },
+			{ merge: true },
+		);
+		batch.set(
+			tRef,
+			{
+				...historyOnWatch(minutes, delta, now, { season: ep.season, episode: ep.episode }),
+				...(pointer ? { ...moveFields(pointer), lastWatchedAt: now } : {}),
+			},
+			{ merge: true },
+		);
+		await batch.commit();
+		emitHistoryChange({
+			userId,
+			tmdbId: tmdbShowId,
+			mediaType: MediaType.TV,
+			minutesDelta: minutes,
+			playsDelta: delta,
+			watched: true,
+			lastEpisode: { season: ep.season, episode: ep.episode },
+			...(pointer ? { nextEpisode: { season: pointer.season, episode: pointer.episode } } : {}),
+		});
+		return to;
+	}
 
-	const history =
-		delta > 0
-			? historyOnWatch(minutes, delta, now, { season: ep.season, episode: ep.episode })
-			: historyOnUnwatch(-minutes, -delta);
-	// Legacy (watchlist): unwatched → pointer back here, a first watch again
-	const legacyBack = pointer === undefined && to <= 0;
-	const moveTo = legacyBack
-		? { season: ep.season, episode: ep.episode, name: ep.title || null, airDate: null }
-		: (pointer ?? null);
-	batch.set(
-		tRef,
-		{
-			...history,
-			...(moveTo
-				? {
-						nextEpisode: { season: moveTo.season, episode: moveTo.episode },
-						nextEpisodeName: moveTo.name,
-						nextEpisodeAirDate: moveTo.airDate,
-						priorityDate: now,
-						...(delta > 0 ? { lastWatchedAt: now } : {}),
-					}
-				: {}),
-			...(legacyBack
-				? {
-						status: WatchStatus.WATCHING,
-						...(await droppedRewatchFields(userId, tmdbShowId, known)),
-					}
-				: {}),
-		},
-		{ merge: true },
-	);
-
-	await batch.commit();
-	emitHistoryChange({
-		userId,
-		tmdbId: tmdbShowId,
-		mediaType: MediaType.TV,
-		minutesDelta: minutes,
-		playsDelta: delta,
-		...(delta > 0
-			? { watched: true, lastEpisode: { season: ep.season, episode: ep.episode } }
-			: {}),
-		...(moveTo ? { nextEpisode: { season: moveTo.season, episode: moveTo.episode } } : {}),
-		...(legacyBack ? { status: WatchStatus.WATCHING } : {}),
+	// Down: off the real count
+	// Rewatch fields the legacy "unwatched" path drops — read only when heading for 0
+	const dropped =
+		pointer === undefined && to <= 0 ? await droppedRewatchFields(userId, tmdbShowId, known) : {};
+	const result = await runTransaction(db, async (tx) => {
+		const snap = await tx.get(epRef);
+		const actual = (snap.data()?.watchCount as number | undefined) ?? 0;
+		const final = Math.max(0, actual - (from - to));
+		const removed = actual - final;
+		if (removed <= 0) return { final: actual, removed: 0, legacyBack: false };
+		if (final <= 0) tx.delete(epRef);
+		else tx.update(epRef, { watchCount: final });
+		tx.set(
+			userRef(userId),
+			{
+				stats: {
+					episodesWatched: increment(-removed),
+					totalMinutes: increment(-runtime * removed),
+				},
+			},
+			{ merge: true },
+		);
+		// Legacy (watchlist): really unwatched → pointer back here, a first watch again
+		const legacyBack = pointer === undefined && final <= 0;
+		const moveTo = legacyBack
+			? {
+					season: ep.season,
+					episode: ep.episode,
+					name: ep.title || null,
+					airDate: ep.airDate ?? null,
+				}
+			: (pointer ?? null);
+		tx.set(
+			tRef,
+			{
+				...historyOnUnwatch(runtime * removed, removed),
+				...(moveTo ? moveFields(moveTo) : {}),
+				...(legacyBack ? { status: WatchStatus.WATCHING, ...dropped } : {}),
+			},
+			{ merge: true },
+		);
+		return { final, removed, legacyBack, moveTo };
 	});
+	if (result.removed > 0) {
+		emitHistoryChange({
+			userId,
+			tmdbId: tmdbShowId,
+			mediaType: MediaType.TV,
+			minutesDelta: -runtime * result.removed,
+			playsDelta: -result.removed,
+			...(result.moveTo
+				? { nextEpisode: { season: result.moveTo.season, episode: result.moveTo.episode } }
+				: {}),
+			...(result.legacyBack ? { status: WatchStatus.WATCHING } : {}),
+		});
+	}
+	return result.final;
 }
 
 export async function unmarkSeasonWatched(
@@ -1036,61 +1085,89 @@ export async function writeMovieWatchCount(
 	runtime: number,
 	from: number,
 	to: number,
-): Promise<void> {
-	const delta = to - from;
-	if (delta === 0) return;
-	runtime = await resolveMovieRuntime(tmdbId, runtime);
-	const minutes = (runtime || 0) * delta;
-	const batch = writeBatch(db);
+): Promise<number> {
+	if (to === from) return to;
+	runtime = (await resolveMovieRuntime(tmdbId, runtime)) || 0;
 	const movieRef = doc(watchedMoviesRef(userId), String(tmdbId));
 	const tRef = doc(trackingRef(userId), showDocId(tmdbId, MediaType.MOVIE));
 	const now = serverTimestamp();
 
-	if (to <= 0) batch.delete(movieRef);
-	else
+	if (to > from) {
+		const delta = to - from;
+		const minutes = runtime * delta;
+		const batch = writeBatch(db);
 		batch.set(
 			movieRef,
+			{ tmdbId, runtime, watchCount: increment(delta), lastWatchedAt: now },
+			{ merge: true },
+		);
+		batch.set(
+			userRef(userId),
+			{ stats: { moviesWatched: increment(delta), totalMinutes: increment(minutes) } },
+			{ merge: true },
+		);
+		batch.set(
+			tRef,
 			{
-				tmdbId,
-				runtime: runtime || 0,
-				watchCount: increment(delta),
-				...(delta > 0 ? { lastWatchedAt: now } : {}),
+				status: WatchStatus.COMPLETED,
+				lastWatchedAt: now,
+				priorityDate: now,
+				...historyOnWatch(minutes, delta),
 			},
 			{ merge: true },
 		);
-	batch.set(
-		userRef(userId),
-		{ stats: { moviesWatched: increment(delta), totalMinutes: increment(minutes) } },
-		{ merge: true },
-	);
-	batch.set(
-		tRef,
-		to <= 0
-			? { status: WatchStatus.WATCHING, priorityDate: Timestamp.now(), ...historyCleared() }
-			: delta > 0
-				? {
-						status: WatchStatus.COMPLETED,
-						lastWatchedAt: now,
-						priorityDate: now,
-						...historyOnWatch(minutes, delta),
-					}
-				: historyOnUnwatch(-minutes, -delta),
-		{ merge: true },
-	);
+		await batch.commit();
+		emitHistoryChange({
+			userId,
+			tmdbId,
+			mediaType: MediaType.MOVIE,
+			minutesDelta: minutes,
+			playsDelta: delta,
+			watched: true,
+			status: WatchStatus.COMPLETED,
+		});
+		return to;
+	}
 
-	await batch.commit();
-	emitHistoryChange(
-		to <= 0
-			? { userId, tmdbId, mediaType: MediaType.MOVIE, cleared: true }
-			: {
-					userId,
-					tmdbId,
-					mediaType: MediaType.MOVIE,
-					minutesDelta: minutes,
-					playsDelta: delta,
-					...(delta > 0 ? { watched: true, status: WatchStatus.COMPLETED } : {}),
-				},
-	);
+	// Down: off the real count (a cached one can be stale — trusting it deleted watches)
+	const result = await runTransaction(db, async (tx) => {
+		const snap = await tx.get(movieRef);
+		const actual = (snap.data()?.watchCount as number | undefined) ?? 0;
+		const final = Math.max(0, actual - (from - to));
+		const removed = actual - final;
+		if (removed <= 0) return { final: actual, removed: 0 };
+		if (final <= 0) tx.delete(movieRef);
+		else tx.update(movieRef, { watchCount: final });
+		tx.set(
+			userRef(userId),
+			{
+				stats: { moviesWatched: increment(-removed), totalMinutes: increment(-runtime * removed) },
+			},
+			{ merge: true },
+		);
+		tx.set(
+			tRef,
+			final <= 0
+				? { status: WatchStatus.WATCHING, priorityDate: Timestamp.now(), ...historyCleared() }
+				: historyOnUnwatch(runtime * removed, removed),
+			{ merge: true },
+		);
+		return { final, removed };
+	});
+	if (result.removed > 0) {
+		emitHistoryChange(
+			result.final <= 0
+				? { userId, tmdbId, mediaType: MediaType.MOVIE, cleared: true }
+				: {
+						userId,
+						tmdbId,
+						mediaType: MediaType.MOVIE,
+						minutesDelta: -runtime * result.removed,
+						playsDelta: -result.removed,
+					},
+		);
+	}
+	return result.final;
 }
 
 export async function unmarkMovieWatched(

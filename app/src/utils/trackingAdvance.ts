@@ -438,3 +438,33 @@ export function stepperPointer(
 		return from < run && to >= run ? { season: next.season, episode: next.episode } : null;
 	return from >= run && to < run ? { season: target.season, episode: target.episode } : null;
 }
+
+/**
+ * stepperPointer for the watchlist, which knows the pointer but not every episode's count:
+ * the "next one is still at x − 1" check becomes "the pointer is right there" (the pointer
+ * episode is by definition the next to watch in the run). Run x as in stepperPointer.
+ * - +: the episode reaches x and the pointer is on it → pointer to the next episode.
+ * - −: the episode drops from x to below it and the pointer is the next episode → back to it.
+ */
+export function adjacentPointer(
+	order: EpisodeRef[],
+	pointer: EpisodeRef | null | undefined,
+	target: EpisodeRef,
+	from: number,
+	to: number,
+	run: number,
+): EpisodeRef | null {
+	if (!pointer || from === to) return null;
+	const idx = indexOf(order, target);
+	const next = idx >= 0 ? order[idx + 1] : undefined;
+	if (!next) return null;
+	const at = (a: EpisodeRef, b: EpisodeRef) => a.season === b.season && a.episode === b.episode;
+	if (to > from) {
+		return from < run && to >= run && at(pointer, target)
+			? { season: next.season, episode: next.episode }
+			: null;
+	}
+	return from >= run && to < run && at(pointer, next)
+		? { season: target.season, episode: target.episode }
+		: null;
+}
