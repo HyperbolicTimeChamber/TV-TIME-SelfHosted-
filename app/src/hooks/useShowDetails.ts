@@ -9,6 +9,8 @@ import { TMDB_PROXY_KEY } from "../enums";
 export interface ShowDetailsResult {
 	show: TMDBShow;
 	episodesBySeason: Map<number, TMDBEpisode[]>;
+	/** The catalog doc the page was built from (none when it came straight from TMDB) */
+	catalog?: CatalogShow;
 }
 
 function catalogShowToResult(catalog: CatalogShow): ShowDetailsResult {
@@ -78,7 +80,7 @@ function catalogShowToResult(catalog: CatalogShow): ShowDetailsResult {
 		);
 	}
 
-	return { show, episodesBySeason };
+	return { show, episodesBySeason, catalog };
 }
 
 export function useShowDetails(tmdbId: number, mediaType: MediaType = MediaType.TV) {
@@ -148,6 +150,7 @@ export function useShowDetails(tmdbId: number, mediaType: MediaType = MediaType.
 		...result,
 		data: result.data?.show as TMDBShow | undefined,
 		episodesBySeason: result.data?.episodesBySeason ?? new Map<number, TMDBEpisode[]>(),
+		catalog: result.data?.catalog,
 	};
 }
 

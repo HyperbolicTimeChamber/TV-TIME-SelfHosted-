@@ -7,6 +7,7 @@ import {
 	useWatchlist,
 	EnrichedTrackingItem,
 	getCachedCatalogShow,
+	prefillCatalog,
 	useWatchedEpisodes,
 	useWatchedMovies,
 	insertWatchedEpisodeCache,
@@ -426,6 +427,24 @@ export function useWatchlistData(userId: string | undefined) {
 
 	const allLoading = loading || watchedEpsLoading || watchedMoviesLoading;
 
+	// Previously Watched rows of a title that's neither on a loaded watchlist page nor in the
+	// catalog cache drew a blank card (e.g. marked from its page, its tracking page not loaded).
+	// Fill its catalog once — cached + persisted, so later launches label it with no read — then
+	// rebuild the list
+	const [catalogFillTick, setCatalogFillTick] = useState(0);
+	useEffect(() => {
+		for (const item of prevWatchedItems) {
+			const [id, type] =
+				item.kind === MediaType.MOVIE
+					? [item.movie.tmdbId, MediaType.MOVIE]
+					: [item.ep.tmdbShowId, MediaType.TV];
+			if (showMap.has(id) || getCachedCatalogShow(id, type)) continue;
+			prefillCatalog(id, type).then((catalog) => {
+				if (catalog) setCatalogFillTick((t) => t + 1);
+			});
+		}
+	}, [prevWatchedItems, showMap]);
+
 	const liveList: CacheableWatchlistListItem[] = useMemo(() => {
 		if (allLoading) return [];
 		const result: CacheableWatchlistListItem[] = [];
@@ -463,7 +482,8 @@ export function useWatchlistData(userId: string | undefined) {
 			}
 		}
 		return result;
-	}, [allLoading, prevWatchedItems, sortedActive, showMap, today]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- catalogFillTick: rebuild once a fill lands
+	}, [allLoading, prevWatchedItems, sortedActive, showMap, today, catalogFillTick]);
 
 	// --- Persist list cache when live data updates (only cached tier, not volatile) ---
 	useEffect(() => {

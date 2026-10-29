@@ -70,6 +70,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		isError,
 		error,
 		episodesBySeason,
+		catalog: pageCatalog,
 		refetch,
 	} = useShowDetails(tmdbId, mediaType);
 	const trackingKey = user?.uid ? `${user.uid}/${showDocId(tmdbId, mediaType)}` : null;
@@ -167,6 +168,20 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	}, [user?.uid, tmdbId, mediaType]);
 
 	const title = show?.name || show?.title || "";
+	// Tracked title: share the catalog doc this page already read with the watchlist cache (0
+	// extra reads). Without it, a show whose tracking page isn't loaded drew blank Previously
+	// Watched rows after a mark from here — the rows look the show up there, not on this page
+	const tracked = !!watchlistItem;
+	useEffect(() => {
+		if (!tracked || !pageCatalog) return;
+		const cached = getCachedCatalogShow(tmdbId, mediaType);
+		// Keep a complete cached copy; replace a missing / stand-in / seasonless one
+		const complete =
+			cached &&
+			!isIncompleteCatalog(cached) &&
+			(mediaType === MediaType.MOVIE || (cached.seasons?.length ?? 0) > 0);
+		if (!complete) cacheCatalogShows([pageCatalog]);
+	}, [tracked, pageCatalog, tmdbId, mediaType]);
 	// TMDB sometimes has no first_air_date for a new show — fall back to the earliest season's
 	// air date (the date the season rows show), else the Year stat reads "—"
 	const firstSeasonDate =
