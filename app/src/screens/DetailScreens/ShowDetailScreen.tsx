@@ -12,6 +12,7 @@ import Reanimated, {
 import DetailBackdrop from "./DetailBackdrop";
 import ActionPills from "./ActionPills";
 import DetailCredits from "./DetailCredits";
+import WatchCountPill from "../../components/WatchCountPill";
 import { useShowDetailActions } from "./useShowDetailActions";
 import {
 	AddFailedModal,
@@ -19,7 +20,7 @@ import {
 	LoadingSpinner,
 	SeasonDropdown,
 	UnreleasedMovieModal,
-	WatchActionSheet,
+	WatchCountSheet,
 } from "../../components";
 import { showShareUrl, describeLoadError } from "../../utils";
 import ErrorState from "../../components/ErrorState";
@@ -57,8 +58,6 @@ export default function ShowDetailScreen() {
 		hasStarted,
 		movieSheetVisible,
 		setMovieSheetVisible,
-		showSheetVisible,
-		setShowSheetVisible,
 		removeModalVisible,
 		setRemoveModalVisible,
 		removeError,
@@ -81,9 +80,7 @@ export default function ShowDetailScreen() {
 		setPauseModalVisible,
 		pausing,
 		handleConfirmPause,
-		handleMovieSheetAction,
-		handlePauseRewatch,
-		handleShowSheetAction,
+		handleMovieWatchCountChange,
 		seasonLayout,
 	} = useShowDetailActions(tmdbId, mediaType);
 	// Catalog's logo, else the one that came with the details (same request as the page data)
@@ -201,13 +198,8 @@ export default function ShowDetailScreen() {
 								onMarkMovieWatched={handleMarkMovieWatched}
 								onResumeOrRewatch={handleResumeOrRewatch}
 								onPause={() => setPauseModalVisible(true)}
-								onPauseRewatch={handlePauseRewatch}
 								onRemove={handleRemove}
-								onWatchSheetOpen={() =>
-									mediaType === MediaType.MOVIE
-										? setMovieSheetVisible(true)
-										: setShowSheetVisible(true)
-								}
+								onWatchSheetOpen={() => setMovieSheetVisible(true)}
 							/>
 						</View>
 					</DetailBackdrop>
@@ -299,17 +291,9 @@ export default function ShowDetailScreen() {
 					<CircleBackButton tone={CircleButtonTone.OVERLAY} onPress={handleBack} />
 				</Reanimated.View>
 				{watchCount > 0 && (
-					<View style={[styles.watchCountRow, { top: insets.top + 8 }]} pointerEvents="none">
-						<View
-							style={styles.watchCountPill}
-							accessible
-							accessibilityLabel={`Watched ${watchCount} ${watchCount === 1 ? "time" : "times"}`}
-						>
-							<Text style={styles.watchCountLabel}>Watched</Text>
-							<View style={styles.watchCountCircle}>
-								<Text style={styles.watchCountNumber}>{watchCount}</Text>
-							</View>
-						</View>
+					// Top edge level with back / share (not centred on them)
+					<View style={[styles.watchCountRow, { top: buttonTop }]} pointerEvents="none">
+						<WatchCountPill count={watchCount} />
 					</View>
 				)}
 				<CircleButton
@@ -396,21 +380,15 @@ export default function ShowDetailScreen() {
 				movieTitle={unreleasedModal?.title ?? ""}
 			/>
 
-			<WatchActionSheet
+			<WatchCountSheet
 				visible={movieSheetVisible}
-				label={show?.title || show?.name || "Movie"}
+				title={title || "Movie"}
+				tmdbId={tmdbId}
+				mediaType={mediaType}
+				logoPath={logoPath}
 				watchCount={movieWatchCount}
-				onSelect={handleMovieSheetAction}
+				onCommit={handleMovieWatchCountChange}
 				onClose={() => setMovieSheetVisible(false)}
-			/>
-
-			<WatchActionSheet
-				visible={showSheetVisible}
-				label={title || "Show"}
-				watchCount={watchCount}
-				rewatchHint="Start watching again from S01E01"
-				onSelect={handleShowSheetAction}
-				onClose={() => setShowSheetVisible(false)}
 			/>
 		</SwipeBackView>
 	);
@@ -430,38 +408,8 @@ const styles = StyleSheet.create({
 	// Position only — the circle itself is components/CircleButton
 	backButton: { position: "absolute", left: 16, zIndex: 10 },
 	shareButton: { position: "absolute", right: 16, zIndex: 10 },
-	// Centred between back and share, same height as them
+	// Centred between back and share
 	watchCountRow: { position: "absolute", left: 0, right: 0, alignItems: "center", zIndex: 10 },
-	watchCountPill: {
-		height: CIRCLE_BUTTON_SIZE,
-		flexDirection: "row",
-		alignItems: "center",
-		gap: spacing.sm,
-		paddingLeft: spacing.lg,
-		paddingRight: 6,
-		borderRadius: CIRCLE_BUTTON_SIZE / 2,
-		backgroundColor: colors.glassGray,
-	},
-	watchCountLabel: {
-		...typography.subtitle,
-		fontSize: 14,
-		color: colors.text,
-	},
-	watchCountCircle: {
-		minWidth: 32,
-		height: 32,
-		paddingHorizontal: 6,
-		borderRadius: 16,
-		backgroundColor: colors.text,
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	watchCountNumber: {
-		...typography.subtitle,
-		fontSize: 15,
-		fontWeight: "700",
-		color: colors.background,
-	},
 	islandLogo: {
 		alignItems: "center",
 	},

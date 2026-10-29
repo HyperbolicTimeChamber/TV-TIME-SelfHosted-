@@ -16,7 +16,8 @@ import { ModalBackdrop, ModalLogo } from "../../components/ModalArt";
 import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
 import { pickTitleLogo } from "@app/services/tmdb";
 import UnreleasedMovieModal from "../../components/UnreleasedMovieModal";
-import WatchActionSheet from "../../components/WatchActionSheet";
+import WatchCountSheet from "../../components/WatchCountSheet";
+import WatchCountPill from "../../components/WatchCountPill";
 import SeasonDropdown from "../../components/SeasonDropdown";
 import ActionPills from "./ActionPills";
 import { Paths } from "../../routes/paths";
@@ -135,6 +136,12 @@ export default function ShowDetailScreen() {
 			>
 				<CircleBackButton tone={CircleButtonTone.OVERLAY} onClick={handleBack} />
 			</div>
+			{signedIn && d.watchCount > 0 && (
+				// Top edge level with back / share (not centred on them)
+				<div className={`${styles.floatButton} ${styles.watchCount}`}>
+					<WatchCountPill count={d.watchCount} />
+				</div>
+			)}
 			<CircleButton
 				tone={CircleButtonTone.OVERLAY}
 				className={`${styles.floatButton} ${styles.shareButton}`}
@@ -175,12 +182,13 @@ export default function ShowDetailScreen() {
 								removing={d.removing}
 								movieWatchCount={d.movieWatchCount}
 								hasWatchedEpisodes={d.showWatchedEps.length > 0}
+								hasStarted={d.hasStarted}
 								onAddToWatchlist={d.handleAddToWatchlist}
 								onMarkMovieWatched={d.handleMarkMovieWatched}
 								onResumeOrRewatch={d.handleResumeOrRewatch}
 								onPause={() => d.setPauseModalVisible(true)}
 								onRemove={d.handleRemove}
-								onMovieSheetOpen={() => d.setMovieSheetVisible(true)}
+								onWatchSheetOpen={() => d.setMovieSheetVisible(true)}
 							/>
 						) : (
 							<div className={styles.pillRow}>
@@ -366,11 +374,14 @@ export default function ShowDetailScreen() {
 						onClose={() => d.setUnreleasedModal(null)}
 						movieTitle={d.unreleasedModal?.title ?? ""}
 					/>
-					<WatchActionSheet
+					<WatchCountSheet
 						visible={d.movieSheetVisible}
-						label={show.title || show.name || "Movie"}
+						title={d.title || "Movie"}
+						tmdbId={tmdbId}
+						mediaType={mediaType}
+						logoPath={logoPath}
 						watchCount={d.movieWatchCount}
-						onSelect={d.handleMovieSheetAction}
+						onCommit={d.handleMovieWatchCountChange}
 						onClose={() => d.setMovieSheetVisible(false)}
 					/>
 				</>

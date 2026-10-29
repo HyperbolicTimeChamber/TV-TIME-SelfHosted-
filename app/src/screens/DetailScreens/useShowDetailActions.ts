@@ -13,21 +13,18 @@ import {
 	cacheCatalogShows,
 	catalogFromShowDetails,
 	insertWatchedMovieCache,
-	reduceShowWatchedCache,
 } from "../../hooks";
 import { useAuthStore } from "../../stores";
 import {
 	addToTracking,
 	removeFromTracking,
 	startRewatch,
-	reduceShowWatches,
 	resumeWatching,
 	resumeRewatch,
 	restartWatching,
 	stopWatching,
 	markMovieWatched,
-	decrementMovieWatchCount,
-	unmarkMovieWatched,
+	writeMovieWatchCount,
 	addAndMarkMovieWatched,
 } from "../../services";
 import { shouldShowUnreleasedModal } from "../../services/unreleasedModalPref";
@@ -45,7 +42,6 @@ import {
 	UpcomingEpisode,
 	QueryKey,
 	WatchedMovie,
-	WatchAction,
 	CatalogShow,
 	type AddFailure,
 } from "../../types";
@@ -126,13 +122,12 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		}
 	}, [mediaType, watchlistItem, showWatchedEps.length]);
 	const watchCount = mediaType === MediaType.MOVIE ? movieWatchCount : showWatchCount;
-	// Anything watched → no Remove (the history would be orphaned); clear it via the sheet first
+	// Anything watched → no Remove (clear the watch history first)
 	const hasStarted =
 		mediaType === MediaType.MOVIE
 			? movieWatchCount > 0
 			: showWatchedEps.length > 0 || (watchlistItem?.plays ?? 0) > 0;
 	const [movieSheetVisible, setMovieSheetVisible] = useState(false);
-	const [showSheetVisible, setShowSheetVisible] = useState(false);
 	const [removeModalVisible, setRemoveModalVisible] = useState(false);
 	const [pauseModalVisible, setPauseModalVisible] = useState(false);
 	const [pausing, setPausing] = useState(false);
@@ -489,160 +484,63 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		addFutureEpisodesLocally,
 	]);
 
-	/** Completed show → rewatch queued for later (PAUSED_REWATCH, button reads "Resume Rewatch") */
-	const handlePauseRewatch = useCallback(async () => {
-		if (!user?.uid || mediaType !== MediaType.TV) return;
-		try {
-			await startRewatch(user.uid, tmdbId, mediaType, true);
-			removeShowFromUpcoming(tmdbId);
-			removeShowFromCalendarGlobal(tmdbId);
-		} catch (err: any) {
-			Alert.alert("Error", err.message || "Failed to pause rewatch.");
-		}
-	}, [user?.uid, tmdbId, mediaType, removeShowFromUpcoming]);
-
-	/**
-	 * Completed show's long-press sheet. "Watched once less" takes one watch off every episode
-	 * of the latest full watch (episodes skipped in a rewatch keep their earlier watches);
-	 * at 1 — or "not watched" — every watched episode is cleared and the show goes back to a
-	 * first watch from S1E1 (Pause / Remove come back).
-	 */
-	const handleShowSheetAction = useCallback(
-		async (action: WatchAction) => {
-			if (!user?.uid || !show || mediaType !== MediaType.TV) return;
-			if (action === "rewatch") {
-				await handleResumeOrRewatch();
-				return;
-			}
-			const clearAll = action === "not_watched" || showWatchCount <= 1;
-			const top = Math.max(0, ...showWatchedEps.map((e) => e.watchCount || 0));
-			const level = Math.min(showWatchCount, top);
-			const targets = clearAll
-				? showWatchedEps
-				: showWatchedEps.filter((e) => (e.watchCount || 0) >= level);
-			const first = episodesBySeason.get(1)?.[0];
-			const firstEp = {
-				season: 1,
-				episode: first?.episode_number ?? 1,
-				name: first?.name || null,
-				airDate: first?.air_date || null,
-			};
+	/** Watch count sheet settled on a new count — one write, caches set to the new number */
+	const handleMovieWatchCountChange = useCallback(
+		async (from: number, to: number) => {
+			if (!user?.uid || !show || from === to) return;
+			const uid = user.uid;
+			const movieTitle = show.title || show.name || "";
+			const moviePoster = show.poster_path || null;
+			const movieCatalog = from === 0 ? seedMovieCatalog() : null;
+			setMovieWatchCount(to);
 			try {
-				await reduceShowWatches(
-					user.uid,
-					tmdbId,
-					targets.map((e) => ({
-						season: e.season,
-						episode: e.episode,
-						runtime: e.runtime || 0,
-						watchCount: e.watchCount || 1,
-					})),
-					clearAll,
-					showWatchCount - 1,
-					firstEp,
-				);
+				await writeMovieWatchCount(uid, tmdbId, show.runtime ?? 0, from, to);
 			} catch (err: any) {
+				setMovieWatchCount(from);
 				Alert.alert("Error", err.message || "Failed to update watch count.");
 				return;
 			}
-			reduceShowWatchedCache(
-				queryClient,
-				user.uid,
-				tmdbId,
-				clearAll ? null : new Set(targets.map((e) => `${e.season}_${e.episode}`)),
-			);
-			if (clearAll) {
-				// Back on the watchlist as a first watch (completed shows aren't listed there)
-				const title = show.title || show.name || "";
-				const poster = show.poster_path || null;
-				emitShowAdded({
-					...watchlistItem,
-					id: showDocId(tmdbId, mediaType),
+			// Rows already listed take the new count (dropped at 0)
+			queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, uid], (old: any) => {
+				if (!old?.pages) return old;
+				return {
+					...old,
+					pages: old.pages.map((p: any) => ({
+						...p,
+						movies: p.movies.flatMap((m: any) =>
+							m.tmdbId !== tmdbId ? [m] : to > 0 ? [{ ...m, watchCount: to }] : [],
+						),
+					})),
+				};
+			});
+			if (from === 0 && to > 0) {
+				const now = Timestamp.now();
+				// First watch → the row isn't listed yet; insert it at the requested count
+				insertWatchedMovieCache(queryClient, uid, {
+					id: String(tmdbId),
 					tmdbId,
-					mediaType,
-					status: WatchStatus.WATCHING,
-					nextEpisode: { season: firstEp.season, episode: firstEp.episode },
-					nextEpisodeName: firstEp.name,
-					nextEpisodeAirDate: firstEp.airDate,
-					rewatchCount: 0,
-					priorityDate: Timestamp.now(),
-					title,
-					posterPath: poster,
-					totalEpisodes: 0,
-					catalogShow: getCachedCatalogShow(tmdbId, mediaType),
+					watchedAt: now,
+					lastWatchedAt: now,
+					runtime: show.runtime ?? 0,
+					watchCount: to,
+					title: movieTitle,
+					posterPath: moviePoster,
+					releaseDate: movieCatalog?.releaseDate ?? show.release_date ?? null,
+				} as WatchedMovie);
+				emitShowCompleted({
+					tmdbId,
+					mediaType: MediaType.MOVIE,
+					title: movieTitle,
+					posterPath: moviePoster,
+					genres: movieCatalog?.genres ?? [],
 				});
-				addFutureEpisodesLocally(title, poster);
+			}
+			for (let i = 0; i < Math.abs(to - from); i++) {
+				if (to > from) incrementDailyWatch("movie");
+				else decrementDailyWatch("movie");
 			}
 		},
-		[
-			user?.uid,
-			show,
-			mediaType,
-			tmdbId,
-			showWatchCount,
-			showWatchedEps,
-			episodesBySeason,
-			watchlistItem,
-			queryClient,
-			handleResumeOrRewatch,
-			addFutureEpisodesLocally,
-		],
-	);
-
-	const handleMovieSheetAction = useCallback(
-		async (action: WatchAction) => {
-			if (!user?.uid || !show) return;
-			const runtime = show.runtime ?? 0;
-			if (action === "rewatch") {
-				await handleMarkMovieWatched();
-			} else if (action === "watched_once_less") {
-				await decrementMovieWatchCount(user.uid, tmdbId, runtime, movieWatchCount);
-				if (movieWatchCount <= 1) {
-					// Fully unwatched — remove from cache
-					queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
-						if (!old?.pages) return old;
-						return {
-							...old,
-							pages: old.pages.map((p: any) => ({
-								...p,
-								movies: p.movies.filter((m: any) => m.tmdbId !== tmdbId),
-							})),
-						};
-					});
-					setMovieWatchCount(0);
-				} else {
-					queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
-						if (!old?.pages) return old;
-						return {
-							...old,
-							pages: old.pages.map((p: any) => ({
-								...p,
-								movies: p.movies.map((m: any) =>
-									m.tmdbId === tmdbId ? { ...m, watchCount: (m.watchCount || 1) - 1 } : m,
-								),
-							})),
-						};
-					});
-					setMovieWatchCount((c: number) => c - 1);
-				}
-				decrementDailyWatch("movie");
-			} else if (action === "not_watched") {
-				await unmarkMovieWatched(user.uid, tmdbId, runtime);
-				queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
-					if (!old?.pages) return old;
-					return {
-						...old,
-						pages: old.pages.map((p: any) => ({
-							...p,
-							movies: p.movies.filter((m: any) => m.tmdbId !== tmdbId),
-						})),
-					};
-				});
-				setMovieWatchCount(0);
-				decrementDailyWatch("movie");
-			}
-		},
-		[user?.uid, show, tmdbId, movieWatchCount, queryClient, handleMarkMovieWatched],
+		[user?.uid, show, tmdbId, queryClient, seedMovieCatalog],
 	);
 
 	const seasonLayout = useMemo(
@@ -677,8 +575,6 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		hasStarted,
 		movieSheetVisible,
 		setMovieSheetVisible,
-		showSheetVisible,
-		setShowSheetVisible,
 		removeModalVisible,
 		setRemoveModalVisible,
 		pauseModalVisible,
@@ -699,9 +595,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		handleConfirmRemove,
 		handleMarkMovieWatched,
 		handleResumeOrRewatch,
-		handleMovieSheetAction,
-		handlePauseRewatch,
-		handleShowSheetAction,
+		handleMovieWatchCountChange,
 		seasonLayout,
 	};
 }
