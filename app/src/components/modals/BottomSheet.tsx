@@ -255,13 +255,13 @@ function SheetLogo({
 function HeaderSquare({
 	label,
 	value,
-	suffix,
+	prefix,
 	accessibilityLabel,
 }: {
 	label: string;
 	value: string;
-	/** Smaller trailing unit (e.g. the X of 2X) so the number reads first */
-	suffix?: string;
+	/** Smaller leading unit (the x of x2) so the number reads first */
+	prefix?: string;
 	accessibilityLabel: string;
 }) {
 	return (
@@ -269,8 +269,8 @@ function HeaderSquare({
 			<Text style={styles.epSquareTitle}>{label}</Text>
 			<View style={styles.epSquareRule} />
 			<Text style={styles.epSquareValue}>
+				{prefix ? <Text style={styles.epSquarePrefix}>{prefix}</Text> : null}
 				{value}
-				{suffix ? <Text style={styles.epSquareSuffix}>{suffix}</Text> : null}
 			</Text>
 		</View>
 	);
@@ -289,13 +289,13 @@ export function EpisodeSquare({ season, episode }: { season: number; episode: nu
 	);
 }
 
-/** WATCHED over a big nX (info page season / episode sheet) */
-export function WatchCountSquare({ count }: { count: number }) {
+/** `label` (default WATCHED; info page: SEASON 01 / S01 · E05) over a big xN */
+export function WatchCountSquare({ count, label = "WATCHED" }: { count: number; label?: string }) {
 	return (
 		<HeaderSquare
-			label="WATCHED"
+			label={label}
 			value={String(count)}
-			suffix="X"
+			prefix="x"
 			accessibilityLabel={`Watched ${count} ${count === 1 ? "time" : "times"}`}
 		/>
 	);
@@ -326,7 +326,9 @@ export function SheetHeader({
 	return (
 		// With an aside the row stretches: the square takes the logo + name column's height
 		<View style={[styles.header, !!aside && styles.headerStretch]}>
-			<View style={[styles.headerText, !!subtitle && !centered && styles.headerTextFixed]}>
+			{/* A square beside it: one fixed height (logo + line), so the square is the same size
+			    with or without a line and the logo / logo + line block centres against it */}
+			<View style={[styles.headerText, !!aside && !centered && styles.headerTextFixed]}>
 				<SheetLogo
 					title={title}
 					tmdbId={tmdbId}
@@ -540,7 +542,7 @@ const styles = StyleSheet.create({
 		marginVertical: 5,
 		backgroundColor: colors.textMuted,
 	},
-	epSquareSuffix: { fontSize: 28 },
+	epSquarePrefix: { fontSize: 28 },
 	epSquareValue: {
 		fontFamily: fonts.smoochRegular,
 		fontSize: 48,

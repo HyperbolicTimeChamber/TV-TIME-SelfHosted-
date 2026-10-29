@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import Reanimated from "react-native-reanimated";
 import AccordionArrow, { CascadeStrip, useAccordion } from "./AccordionArrow";
 import WatchActionSheet from "./modals/WatchActionSheet";
+import WatchCountSheet from "./modals/WatchCountSheet";
 import ConfirmModal from "./modals/ConfirmModal";
 import {
 	ModalArt,
@@ -66,6 +67,8 @@ export default memo(function SeasonDropdown({
 		skipModalVisible,
 		setSkipModalVisible,
 		skipModalData,
+		confirmSkipAll,
+		confirmSkipJustThis,
 		setSkipModalData,
 		epInfoVisible,
 		setEpInfoVisible,
@@ -90,9 +93,7 @@ export default memo(function SeasonDropdown({
 		handleMarkWatched,
 		jumpModal,
 		setJumpModal,
-		markOrAskJump,
 		handleSheetAction,
-		markEpisodeRange,
 		handleEpisodePress,
 		handleCarouselMark,
 		handleCarouselMarkThrough,
@@ -113,6 +114,8 @@ export default memo(function SeasonDropdown({
 		markRewatchUpTo,
 		handleSeasonLongPress,
 		sheetLabel,
+		sheetSquareLabel,
+		handleEpisodeCountCommit,
 		isLoading,
 		imagesLoading,
 		watchedLoading,
@@ -273,16 +276,38 @@ export default memo(function SeasonDropdown({
 				</Reanimated.View>
 			)}
 
+			{/* Season: the option list; episode: the −/+ watch count sheet (as on the watchlist) */}
 			<WatchActionSheet
-				visible={sheetVisible}
+				visible={sheetVisible && sheetTarget?.type === "season"}
 				title={showTitle}
 				subtitle={sheetLabel}
+				squareLabel={sheetSquareLabel}
 				tmdbId={tmdbId}
 				mediaType={MediaType.TV}
 				logoPath={showLogo}
 				watchCount={sheetTarget?.watchCount || 0}
 				showWatchedOnce
 				onSelect={handleSheetAction}
+				onClose={() => {
+					setSheetVisible(false);
+					setSheetTarget(null);
+				}}
+			/>
+			<WatchCountSheet
+				visible={sheetVisible && sheetTarget?.type === "episode"}
+				title={showTitle}
+				subtitle={sheetLabel}
+				episode={
+					sheetTarget?.type === "episode"
+						? { season: season.season_number, episode: sheetTarget.ep.episode_number }
+						: undefined
+				}
+				centered={false}
+				tmdbId={tmdbId}
+				mediaType={MediaType.TV}
+				logoPath={showLogo}
+				watchCount={sheetTarget?.watchCount || 0}
+				onCommit={handleEpisodeCountCommit}
 				onClose={() => {
 					setSheetVisible(false);
 					setSheetTarget(null);
@@ -370,19 +395,9 @@ export default memo(function SeasonDropdown({
 						episodeRange(skipModalData.firstSkipped, skipModalData.targetEp.episode_number),
 					)}
 					confirmColor={colors.primary}
-					onConfirm={() => {
-						const d = skipModalData;
-						setSkipModalVisible(false);
-						markEpisodeRange(d.firstSkipped, d.targetEp.episode_number, d.level);
-						setSkipModalData(null);
-					}}
+					onConfirm={confirmSkipAll}
 					secondaryLabel="Just This One"
-					onSecondary={() => {
-						const d = skipModalData;
-						setSkipModalVisible(false);
-						markOrAskJump(d.targetEp);
-						setSkipModalData(null);
-					}}
+					onSecondary={confirmSkipJustThis}
 					onClose={() => {
 						setSkipModalVisible(false);
 						setSkipModalData(null);

@@ -24,6 +24,7 @@ export {
 	unmarkMovieWatched,
 	writeMovieWatchCount,
 	writeEpisodeWatchCount,
+	setNextEpisode,
 	addAndMarkMovieWatched,
 	markSeasonWatchedCF,
 	addToWatchlist,

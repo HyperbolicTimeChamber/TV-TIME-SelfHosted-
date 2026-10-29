@@ -534,10 +534,38 @@ export async function decrementEpisodeWatchCount(
 }
 
 /**
- * Watchlist watch count sheet: set one episode's plays from → to in one batch (the sheet
- * debounces taps, so +3 is one write). Up: lastWatchedAt now (the row moves to the top of
- * Previously Watched), tracking pointer untouched. 0: the episode is unwatched — the pointer goes
- * back to it, as unmarkEpisodeWatched does.
+ * Move the watchlist pointer only (no watches written) — the watch count sheet's "Whoa there
+ * Speedster!" "Just This One". Carries everything the watchlist card shows (next episode, its
+ * name / air date) and bumps priorityDate so the card comes up top.
+ */
+export async function setNextEpisode(
+	userId: string,
+	tmdbShowId: number,
+	next: { season: number; episode: number; name: string | null; airDate: string | null },
+) {
+	const now = Timestamp.now();
+	await updateDoc(doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)), {
+		nextEpisode: { season: next.season, episode: next.episode },
+		nextEpisodeName: next.name,
+		nextEpisodeAirDate: next.airDate,
+		lastWatchedAt: now,
+		priorityDate: now,
+		...historyOnChange(),
+	});
+	emitHistoryChange({
+		userId,
+		tmdbId: tmdbShowId,
+		mediaType: MediaType.TV,
+		nextEpisode: { season: next.season, episode: next.episode },
+	});
+}
+
+/**
+ * Watch count sheet: set one episode's plays from → to in one batch (the sheet debounces taps,
+ * so +3 is one write). Up: lastWatchedAt now (the row moves to the top of Previously Watched).
+ * `pointer`: an episode → the watchlist pointer moves there (info page, see stepperPointer);
+ * null → it stays; omitted (watchlist, no episode order at hand) → only at 0, back to this
+ * episode, as unmarkEpisodeWatched does.
  */
 export async function writeEpisodeWatchCount(
 	userId: string,
@@ -546,6 +574,7 @@ export async function writeEpisodeWatchCount(
 	from: number,
 	to: number,
 	known?: KnownTracking,
+	pointer?: { season: number; episode: number; name: string | null; airDate: string | null } | null,
 ) {
 	const delta = to - from;
 	if (delta === 0) return;
@@ -577,20 +606,36 @@ export async function writeEpisodeWatchCount(
 		{ stats: { episodesWatched: increment(delta), totalMinutes: increment(minutes) } },
 		{ merge: true },
 	);
+
+	const history =
+		delta > 0
+			? historyOnWatch(minutes, delta, now, { season: ep.season, episode: ep.episode })
+			: historyOnUnwatch(-minutes, -delta);
+	// Legacy (watchlist): unwatched → pointer back here, a first watch again
+	const legacyBack = pointer === undefined && to <= 0;
+	const moveTo = legacyBack
+		? { season: ep.season, episode: ep.episode, name: ep.title || null, airDate: null }
+		: (pointer ?? null);
 	batch.set(
 		tRef,
-		to <= 0
-			? {
-					nextEpisode: { season: ep.season, episode: ep.episode },
-					nextEpisodeName: ep.title || null,
-					status: WatchStatus.WATCHING,
-					priorityDate: now,
-					...historyOnUnwatch(-minutes, -delta),
-					...(await droppedRewatchFields(userId, tmdbShowId, known)),
-				}
-			: delta > 0
-				? historyOnWatch(minutes, delta, now, { season: ep.season, episode: ep.episode })
-				: historyOnUnwatch(-minutes, -delta),
+		{
+			...history,
+			...(moveTo
+				? {
+						nextEpisode: { season: moveTo.season, episode: moveTo.episode },
+						nextEpisodeName: moveTo.name,
+						nextEpisodeAirDate: moveTo.airDate,
+						priorityDate: now,
+						...(delta > 0 ? { lastWatchedAt: now } : {}),
+					}
+				: {}),
+			...(legacyBack
+				? {
+						status: WatchStatus.WATCHING,
+						...(await droppedRewatchFields(userId, tmdbShowId, known)),
+					}
+				: {}),
+		},
 		{ merge: true },
 	);
 
@@ -604,9 +649,8 @@ export async function writeEpisodeWatchCount(
 		...(delta > 0
 			? { watched: true, lastEpisode: { season: ep.season, episode: ep.episode } }
 			: {}),
-		...(to <= 0
-			? { nextEpisode: { season: ep.season, episode: ep.episode }, status: WatchStatus.WATCHING }
-			: {}),
+		...(moveTo ? { nextEpisode: { season: moveTo.season, episode: moveTo.episode } } : {}),
+		...(legacyBack ? { status: WatchStatus.WATCHING } : {}),
 	});
 }
 

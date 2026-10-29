@@ -23,6 +23,7 @@ import {
 	resetEpisodesToOnce,
 	setRewatchCount,
 	getSeasonDetails as fetchSeason,
+	writeEpisodeWatchCount,
 } from "../services";
 import type { KnownTracking } from "../services/firestore";
 import type { CarouselEpisode } from "../types/episodeCarousel";
@@ -34,6 +35,7 @@ import {
 	jumpPromptFor,
 	seasonMarkEpisodes,
 	rewatchLevel,
+	stepperPointer,
 	seasonMarkCopy,
 	seasonSkipAheadCopy,
 	observedRewatchRun,
@@ -43,7 +45,15 @@ import {
 	EpisodeRef,
 	type JumpPrompt,
 } from "../utils";
-import { TMDBSeason, TMDBEpisode, MediaType, WatchStatus, WatchAction } from "../types";
+import {
+	TMDBSeason,
+	TMDBEpisode,
+	MediaType,
+	WatchStatus,
+	WatchAction,
+	QueryKey,
+	type WatchedEpisode,
+} from "../types";
 import { endSeasonMarking, startSeasonMarking, useSeasonMarking } from "../hooks/seasonMarking";
 import { batchEndOffsets, staggerFinishTimes } from "../utils/stagger";
 
@@ -90,6 +100,14 @@ const healedRewatch = new Set<string>();
  * sheet, episode carousel data). Shared by the mobile SeasonDropdown and the web
  * season list — keep UI out of here.
  */
+/** Where a watch count change moves the watchlist pointer (with what its card shows) */
+type PointerTarget = {
+	season: number;
+	episode: number;
+	name: string | null;
+	airDate: string | null;
+};
+
 export function useSeasonActions({
 	tmdbId,
 	season,
@@ -134,6 +152,9 @@ export function useSeasonActions({
 		targetEp: TMDBEpisode;
 		/** Watch count the range is brought to (1 = first watch, >1 = rewatch under way) */
 		level: number;
+		/** From the watch count sheet: the held change (nothing written yet) — "Just This One"
+		 *  applies it with the pointer move, the range mark covers it, dismissing drops it */
+		pending?: { from: number; to: number; pointer: PointerTarget };
 	} | null>(null);
 
 	// Episode info modal state
@@ -986,6 +1007,156 @@ export function useSeasonActions({
 		[guardTracking, doMarkEpisodeRange],
 	);
 
+	/** Carousel backfill: pointer (or E1 of this season) through `episode`, up to the level */
+	const handleCarouselMarkThrough = useCallback(
+		async (_tmdbId: number, _season: number, episode: number): Promise<EpisodeRef[]> => {
+			const ne = trackingItem?.nextEpisode;
+			const from = ne && ne.season === season.season_number ? ne.episode : 1;
+			return doMarkEpisodeRange(from, episode, currentRewatchLevel ?? 1);
+		},
+		[trackingItem, season.season_number, currentRewatchLevel, doMarkEpisodeRange],
+	);
+
+	const handleCarouselUnmark = useCallback(
+		async (_tmdbId: number, _season: number, episode: number) => {
+			try {
+				await unwatchEpisode(episode, true);
+			} catch (err: any) {
+				console.error("unmarkEpisode failed:", err);
+				Alert.alert("Error", err.message || "Failed to unwatch episode.");
+			}
+		},
+		[unwatchEpisode],
+	);
+
+	/**
+	 * Apply an episode watch count change (info page sheet / its speedster choice): optimistic —
+	 * both cached lists take the exact count first (up: watched now) — then one batch write,
+	 * moving the pointer when `pointer` is set. A failed write puts the row back.
+	 */
+	const applyEpisodeCount = useCallback(
+		async (ep: TMDBEpisode, from: number, to: number, pointer: PointerTarget | null) => {
+			if (!user?.uid || from === to) return;
+			const uid = user.uid;
+			const sn = season.season_number;
+			const runtime = watchedMap.get(ep.episode_number)?.runtime || ep.runtime || 0;
+			const key = `${sn}_${ep.episode_number}`;
+			// The cached record (watchedMap holds only count / runtime) — for its timestamps
+			const record = queryClient
+				.getQueryData<WatchedEpisode[]>([QueryKey.WATCHED_EPISODES, uid, tmdbId])
+				?.find?.((w) => w.season === sn && w.episode === ep.episode_number);
+			const before = record?.lastWatchedAt ?? Timestamp.now();
+			const showCount = (n: number, prevN: number, at: Timestamp) => {
+				if (prevN <= 0 && n > 0) {
+					insertWatchedEpisodeCache(queryClient, uid, {
+						id: `${tmdbId}_S${String(sn).padStart(2, "0")}E${String(ep.episode_number).padStart(2, "0")}`,
+						tmdbShowId: tmdbId,
+						season: sn,
+						episode: ep.episode_number,
+						episodeTitle: ep.name || "",
+						runtime,
+						lastWatchedAt: at,
+						watchedAt: record?.watchedAt ?? at,
+						watchCount: n,
+					});
+				} else {
+					setWatchedEpisodeCountsCache(queryClient, uid, tmdbId, new Map([[key, n]]), at);
+				}
+			};
+			showCount(to, from, to > from ? Timestamp.now() : before);
+			try {
+				await writeEpisodeWatchCount(
+					uid,
+					tmdbId,
+					{ season: sn, episode: ep.episode_number, title: ep.name || "", runtime },
+					from,
+					to,
+					knownTracking,
+					pointer,
+				);
+			} catch (err: any) {
+				showCount(from, to, before);
+				console.error("Watch count change failed:", err);
+				Alert.alert("Error", err.message || "Couldn't update the watch count.");
+				return;
+			}
+			for (let i = 0; i < Math.abs(to - from); i++) {
+				if (to > from) incrementDailyWatch("episode");
+				else decrementDailyWatch("episode");
+			}
+		},
+		[user?.uid, season.season_number, watchedMap, queryClient, tmdbId, knownTracking],
+	);
+
+	/**
+	 * Info page episode watch count sheet settled (−/+, Watched Once, Not Watched).
+	 * Pointer (stepperPointer): + that finishes the episode in the run under way, or − that
+	 * un-finishes it, with the next episode still waiting in this run. A + that would move it
+	 * past episodes not yet watched in this run asks "Whoa there Speedster!" first and writes
+	 * NOTHING until a button is chosen — resolves false then, so the sheet takes its count back.
+	 */
+	const handleEpisodeCountCommit = useCallback(
+		async (from: number, to: number): Promise<boolean> => {
+			if (!user?.uid || sheetTarget?.type !== "episode" || from === to) return true;
+			const ep = sheetTarget.ep;
+			const sn = season.season_number;
+			let pointer: PointerTarget | null = null;
+			if (trackingItem) {
+				// Counts before the change
+				const { order, counts, tracking } = buildAdvanceInputs([]);
+				const ref = { season: sn, episode: ep.episode_number };
+				const target = stepperPointer(order, counts, tracking, ref, from, to);
+				if (target) pointer = { ...target, ...(await lookupEpisode(target)) };
+				if (pointer && to > from) {
+					const skipped = firstSkippedBefore(order, counts, tracking, ref);
+					if (skipped) {
+						setSkipModalData({ ...skipped, targetEp: ep, pending: { from, to, pointer } });
+						setSkipModalVisible(true);
+						return false;
+					}
+				}
+			}
+			await applyEpisodeCount(ep, from, to, pointer);
+			return true;
+		},
+		[
+			user?.uid,
+			sheetTarget,
+			season.season_number,
+			trackingItem,
+			buildAdvanceInputs,
+			lookupEpisode,
+			applyEpisodeCount,
+		],
+	);
+	/** "Whoa there Speedster!" — mark the skipped ones too (from the list or the count sheet).
+	 *  The range includes the target, so a held sheet change is covered by it; watches past the
+	 *  run level the sheet asked for on top are added after */
+	const confirmSkipAll = useCallback(async () => {
+		const d = skipModalData;
+		setSkipModalVisible(false);
+		setSkipModalData(null);
+		if (!d) return;
+		await markEpisodeRange(d.firstSkipped, d.targetEp.episode_number, d.level);
+		if (d.pending && d.pending.to > d.level) {
+			await applyEpisodeCount(d.targetEp, d.level, d.pending.to, null);
+		}
+	}, [skipModalData, markEpisodeRange, applyEpisodeCount]);
+
+	/** "Just This One": a held count sheet change is applied with the pointer move; from the list
+	 *  it falls through to the jump question */
+	const confirmSkipJustThis = useCallback(async () => {
+		const d = skipModalData;
+		setSkipModalVisible(false);
+		setSkipModalData(null);
+		if (!d) return;
+		if (d.pending) {
+			await applyEpisodeCount(d.targetEp, d.pending.from, d.pending.to, d.pending.pointer);
+			return;
+		}
+		markOrAskJump(d.targetEp);
+	}, [skipModalData, markOrAskJump, applyEpisodeCount]);
+
 	const handleEpisodePress = useCallback(
 		(ep: TMDBEpisode) => {
 			const today = todayStr();
@@ -1051,28 +1222,6 @@ export function useSeasonActions({
 			if (ep) await doMarkEpisodeWatched(ep);
 		},
 		[episodes, doMarkEpisodeWatched],
-	);
-
-	/** Carousel backfill: pointer (or E1 of this season) through `episode`, up to the level */
-	const handleCarouselMarkThrough = useCallback(
-		async (_tmdbId: number, _season: number, episode: number): Promise<EpisodeRef[]> => {
-			const ne = trackingItem?.nextEpisode;
-			const from = ne && ne.season === season.season_number ? ne.episode : 1;
-			return doMarkEpisodeRange(from, episode, currentRewatchLevel ?? 1);
-		},
-		[trackingItem, season.season_number, currentRewatchLevel, doMarkEpisodeRange],
-	);
-
-	const handleCarouselUnmark = useCallback(
-		async (_tmdbId: number, _season: number, episode: number) => {
-			try {
-				await unwatchEpisode(episode, true);
-			} catch (err: any) {
-				console.error("unmarkEpisode failed:", err);
-				Alert.alert("Error", err.message || "Failed to unwatch episode.");
-			}
-		},
-		[unwatchEpisode],
 	);
 
 	const handleEpisodeLongPress = useCallback(
@@ -1202,12 +1351,14 @@ export function useSeasonActions({
 		}
 	}, [allWatched, minWatchCount]);
 
-	const sheetLabel =
-		sheetTarget?.type === "season"
-			? `${season.name}`
-			: sheetTarget?.type === "episode"
-				? `S${String(season.season_number).padStart(2, "0")}E${String(sheetTarget.ep.episode_number).padStart(2, "0")} - ${sheetTarget.ep.name}`
-				: "";
+	// Sheet header: which season / episode goes in the square's label (over the watch count);
+	// the line under the logo is the episode's title — a season needs none
+	const pad2 = (n: number) => String(n).padStart(2, "0");
+	const sheetSquareLabel =
+		sheetTarget?.type === "episode"
+			? `S${pad2(season.season_number)} · E${pad2(sheetTarget.ep.episode_number)}`
+			: `SEASON ${pad2(season.season_number)}`;
+	const sheetLabel = sheetTarget?.type === "episode" ? sheetTarget.ep.name : undefined;
 
 	return {
 		expanded,
@@ -1277,6 +1428,8 @@ export function useSeasonActions({
 		handleSheetAction,
 		doMarkEpisodeRange,
 		markEpisodeRange,
+		confirmSkipAll,
+		confirmSkipJustThis,
 		handleEpisodePress,
 		handleCarouselMark,
 		handleCarouselMarkThrough,
@@ -1286,6 +1439,8 @@ export function useSeasonActions({
 		handleSeasonPress,
 		handleSeasonLongPress,
 		sheetLabel,
+		sheetSquareLabel,
+		handleEpisodeCountCommit,
 		mutateCachedUpcoming,
 		rollbackUpcoming,
 		seasonData,

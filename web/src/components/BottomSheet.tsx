@@ -83,13 +83,13 @@ const NAME_DELAY_MS = 2000;
 function HeaderSquare({
 	label,
 	value,
-	suffix,
+	prefix,
 	ariaLabel,
 }: {
 	label: string;
 	value: string;
-	/** Smaller trailing unit (e.g. the X of 2X) so the number reads first */
-	suffix?: string;
+	/** Smaller leading unit (the x of x2) so the number reads first */
+	prefix?: string;
 	ariaLabel: string;
 }) {
 	return (
@@ -97,8 +97,8 @@ function HeaderSquare({
 			<span className={styles.epSquareTitle}>{label}</span>
 			<span className={styles.epSquareRule} />
 			<span className={styles.epSquareValue}>
+				{prefix && <span className={styles.epSquarePrefix}>{prefix}</span>}
 				{value}
-				{suffix && <span className={styles.epSquareSuffix}>{suffix}</span>}
 			</span>
 		</span>
 	);
@@ -117,13 +117,13 @@ export function EpisodeSquare({ season, episode }: { season: number; episode: nu
 	);
 }
 
-/** WATCHED over a big nX (info page season / episode sheet) */
-export function WatchCountSquare({ count }: { count: number }) {
+/** `label` (default WATCHED; info page: SEASON 01 / S01 · E05) over a big xN */
+export function WatchCountSquare({ count, label = "WATCHED" }: { count: number; label?: string }) {
 	return (
 		<HeaderSquare
-			label="WATCHED"
+			label={label}
 			value={String(count)}
-			suffix="X"
+			prefix="x"
 			ariaLabel={`Watched ${count} ${count === 1 ? "time" : "times"}`}
 		/>
 	);
@@ -169,7 +169,7 @@ export function SheetHeader({
 			{/* Logo + line: fixed height (no resize while the logo loads), the block centred in it
 			    and the logo box fitted to the logo — lines up with the square's middle */}
 			<div
-				className={`${styles.headerText} ${centered ? styles.centered : ""} ${subtitle && !centered ? styles.headerTextFixed : ""}`}
+				className={`${styles.headerText} ${centered ? styles.centered : ""} ${aside && !centered ? styles.headerTextFixed : ""}`}
 			>
 				<div className={`${styles.logoSlot} ${subtitle && !centered ? styles.logoSlotFit : ""}`}>
 					{showName && <span className={styles.name}>{title}</span>}

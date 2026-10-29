@@ -20,6 +20,7 @@ import {
 	startRewatchCopy,
 } from "@app/utils/format";
 import WatchActionSheet from "./WatchActionSheet";
+import WatchCountSheet from "./WatchCountSheet";
 import EpisodeDetailModal from "./EpisodeDetailModal";
 import { formatDate } from "./EpisodeDetailModal/helpers";
 import styles from "./styles/SeasonDropdown.module.scss";
@@ -215,16 +216,38 @@ export default memo(function SeasonDropdown({ readOnly, isFirst, isLast, ...prop
 
 			{!readOnly && (
 				<>
+					{/* Season: the option list; episode: the −/+ watch count sheet (as on the watchlist) */}
 					<WatchActionSheet
-						visible={s.sheetVisible}
+						visible={s.sheetVisible && s.sheetTarget?.type === "season"}
 						title={props.showTitle}
 						subtitle={s.sheetLabel}
+						squareLabel={s.sheetSquareLabel}
 						tmdbId={props.tmdbId}
 						mediaType={MediaType.TV}
 						logoPath={showLogo}
 						watchCount={s.sheetTarget?.watchCount || 0}
 						showWatchedOnce
 						onSelect={s.handleSheetAction}
+						onClose={() => {
+							s.setSheetVisible(false);
+							s.setSheetTarget(null);
+						}}
+					/>
+					<WatchCountSheet
+						visible={s.sheetVisible && s.sheetTarget?.type === "episode"}
+						title={props.showTitle}
+						subtitle={s.sheetLabel}
+						episode={
+							s.sheetTarget?.type === "episode"
+								? { season: props.season.season_number, episode: s.sheetTarget.ep.episode_number }
+								: undefined
+						}
+						centered={false}
+						tmdbId={props.tmdbId}
+						mediaType={MediaType.TV}
+						logoPath={showLogo}
+						watchCount={s.sheetTarget?.watchCount || 0}
+						onCommit={s.handleEpisodeCountCommit}
 						onClose={() => {
 							s.setSheetVisible(false);
 							s.setSheetTarget(null);
@@ -312,19 +335,9 @@ export default memo(function SeasonDropdown({ readOnly, isFirst, isLast, ...prop
 								episodeRange(s.skipModalData.firstSkipped, s.skipModalData.targetEp.episode_number),
 							)}
 							confirmColor={colors.primary}
-							onConfirm={() => {
-								const d = s.skipModalData!;
-								s.setSkipModalVisible(false);
-								s.markEpisodeRange(d.firstSkipped, d.targetEp.episode_number, d.level);
-								s.setSkipModalData(null);
-							}}
+							onConfirm={s.confirmSkipAll}
 							secondaryLabel="Just This One"
-							onSecondary={() => {
-								const d = s.skipModalData!;
-								s.setSkipModalVisible(false);
-								s.markOrAskJump(d.targetEp);
-								s.setSkipModalData(null);
-							}}
+							onSecondary={s.confirmSkipJustThis}
 							onClose={() => {
 								s.setSkipModalVisible(false);
 								s.setSkipModalData(null);

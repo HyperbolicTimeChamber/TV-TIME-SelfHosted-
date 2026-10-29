@@ -29,8 +29,9 @@ interface Props {
 	/** Info page: logo alone, centred (default). Watchlist: logo left */
 	centered?: boolean;
 	watchCount: number;
-	/** Settled change from → to (0 = unwatched) */
-	onCommit: (from: number, to: number) => void;
+	/** Settled change from → to (0 = unwatched). Resolving false = held / not applied (e.g. a
+	 *  "Whoa there Speedster!" prompt): the stepper goes back to `from` */
+	onCommit: (from: number, to: number) => void | Promise<boolean | void>;
 	onClose: () => void;
 }
 
@@ -77,8 +78,17 @@ export default function WatchCountSheet({
 		if (timer.current) window.clearTimeout(timer.current);
 		timer.current = null;
 		if (pending.current === committed.current) return;
-		onCommitRef.current(committed.current, pending.current);
-		committed.current = pending.current;
+		const from = committed.current;
+		const to = pending.current;
+		committed.current = to;
+		Promise.resolve(onCommitRef.current(from, to)).then((applied) => {
+			// Held → back to the stored count (unless the user has moved on since)
+			if (applied === false && pending.current === to) {
+				committed.current = from;
+				pending.current = from;
+				setCount(from);
+			}
+		});
 	}, []);
 
 	// Leaving the page mid-edit still saves it

@@ -407,3 +407,34 @@ export function rewatchUpToRefs(
 		})
 		.map((e) => ({ season: e.season, episode: e.episode }));
 }
+
+/**
+ * Watch count −/+ on one episode (info page sheet): where the watchlist pointer goes, null →
+ * it stays. Run x = the watch under way (first watch 1, a rewatch its level; none when the show
+ * isn't being watched). `counts` are BEFORE the change.
+ * - +: the episode reaches x (finished in this run) and the next one is still at x − 1 (next
+ *   to watch in this run) → pointer to that next episode.
+ * - −: the episode drops from x to below it and the next one is at x − 1 → pointer back to it.
+ * Extra watches past the run, or a run already ahead of the next episode, never move it.
+ */
+export function stepperPointer(
+	order: EpisodeRef[],
+	counts: Map<string, number>,
+	tracking: { status?: WatchStatus; nextEpisode?: EpisodeRef | null } | null,
+	target: EpisodeRef,
+	from: number,
+	to: number,
+): EpisodeRef | null {
+	const status = tracking?.status;
+	const run =
+		status === WatchStatus.WATCHING || status === WatchStatus.PAUSED
+			? 1
+			: rewatchLevel(order, counts, tracking ?? null);
+	if (run === null || from === to) return null;
+	const idx = indexOf(order, target);
+	const next = idx >= 0 ? order[idx + 1] : undefined;
+	if (!next || countOf(counts, next) !== run - 1) return null;
+	if (to > from)
+		return from < run && to >= run ? { season: next.season, episode: next.episode } : null;
+	return from >= run && to < run ? { season: target.season, episode: target.episode } : null;
+}

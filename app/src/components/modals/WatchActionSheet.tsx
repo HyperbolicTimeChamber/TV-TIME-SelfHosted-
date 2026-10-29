@@ -17,6 +17,8 @@ interface Props {
 	mediaType?: MediaType;
 	logoPath?: string | null;
 	watchCount: number;
+	/** Square's label over the count (e.g. "SEASON 01"); default WATCHED */
+	squareLabel?: string;
 	/** Also offer "Watched Once" (back to a single watch) — info page and watchlist sheets */
 	showWatchedOnce?: boolean;
 	onSelect: (action: WatchAction) => void;
@@ -32,6 +34,7 @@ export default function WatchActionSheet({
 	mediaType,
 	logoPath,
 	watchCount,
+	squareLabel,
 	showWatchedOnce = false,
 	onSelect,
 	onClose,
@@ -48,7 +51,7 @@ export default function WatchActionSheet({
 							tmdbId={tmdbId}
 							mediaType={mediaType}
 							logoPath={logoPath}
-							aside={<WatchCountSquare count={watchCount} />}
+							aside={<WatchCountSquare count={watchCount} label={squareLabel} />}
 						/>
 						<SheetGroup>
 							<SheetOption
