@@ -7,7 +7,7 @@ import {
 	ConfirmModal,
 	LoadingSpinner,
 	ShowCard,
-	WatchActionSheet,
+	WatchCountSheet,
 	EpisodeDetailModal,
 	ShowDrawer,
 } from "../../../components";
@@ -108,13 +108,12 @@ export default function WatchlistTab() {
 		handleWatchedCheckmark,
 		handleWatchedSwipeLeft,
 		handleWatchedSwipeRight,
-		handleSheetAction,
+		handleEpisodeCountCommit,
 		handleMovieCheckmark,
 		handleMovieSwipeLeft,
 		handleMovieSwipeRight,
-		handleMovieSheetAction,
+		handleMovieCountCommit,
 		handleTvPress,
-		sheetLabel,
 		listData: liveListData,
 		listSettled,
 		loadMoreTracking,
@@ -373,16 +372,20 @@ export default function WatchlistTab() {
 				onLayout={(e) => setListH(e.nativeEvent.layout.height)}
 				contentContainerStyle={contentStyle}
 			/>
-			<WatchActionSheet
+			<WatchCountSheet
 				visible={sheetVisible}
 				title={sheetShow?.title || ""}
-				subtitle={sheetLabel}
+				// SEASON / Exx sit in the square beside the logo; the name stays under it
+				subtitle={sheetEpisode?.episodeTitle}
+				episode={
+					sheetEpisode ? { season: sheetEpisode.season, episode: sheetEpisode.episode } : undefined
+				}
+				centered={false}
 				tmdbId={sheetEpisode?.tmdbShowId}
 				mediaType={MediaType.TV}
 				logoPath={sheetShow?.logoPath}
 				watchCount={sheetEpisode?.watchCount || 0}
-				showWatchedOnce
-				onSelect={handleSheetAction}
+				onCommit={handleEpisodeCountCommit}
 				onClose={() => {
 					setSheetVisible(false);
 					setSheetEpisode(null);
@@ -426,14 +429,14 @@ export default function WatchlistTab() {
 				onConfirm={confirmPause}
 				onClose={() => setPauseTarget(null)}
 			/>
-			<WatchActionSheet
+			<WatchCountSheet
 				visible={movieSheetVisible}
 				title={sheetMovieTitle || "Movie"}
+				centered={false}
 				tmdbId={sheetMovie?.tmdbId}
 				mediaType={MediaType.MOVIE}
 				watchCount={sheetMovie?.watchCount || 0}
-				showWatchedOnce
-				onSelect={handleMovieSheetAction}
+				onCommit={handleMovieCountCommit}
 				onClose={() => {
 					setMovieSheetVisible(false);
 					setSheetMovie(null);

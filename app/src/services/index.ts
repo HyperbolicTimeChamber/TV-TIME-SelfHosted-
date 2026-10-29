@@ -23,6 +23,7 @@ export {
 	decrementMovieWatchCount,
 	unmarkMovieWatched,
 	writeMovieWatchCount,
+	writeEpisodeWatchCount,
 	addAndMarkMovieWatched,
 	markSeasonWatchedCF,
 	addToWatchlist,

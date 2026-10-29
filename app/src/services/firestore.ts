@@ -533,6 +533,83 @@ export async function decrementEpisodeWatchCount(
 	});
 }
 
+/**
+ * Watchlist watch count sheet: set one episode's plays from → to in one batch (the sheet
+ * debounces taps, so +3 is one write). Up: lastWatchedAt now (the row moves to the top of
+ * Previously Watched), tracking pointer untouched. 0: the episode is unwatched — the pointer goes
+ * back to it, as unmarkEpisodeWatched does.
+ */
+export async function writeEpisodeWatchCount(
+	userId: string,
+	tmdbShowId: number,
+	ep: { season: number; episode: number; title: string; runtime: number },
+	from: number,
+	to: number,
+	known?: KnownTracking,
+) {
+	const delta = to - from;
+	if (delta === 0) return;
+	const minutes = (ep.runtime || 0) * delta;
+	const epRef = doc(watchedEpisodesRef(userId), episodeDocId(tmdbShowId, ep.season, ep.episode));
+	const tRef = doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV));
+	const now = Timestamp.now();
+	const batch = writeBatch(db);
+
+	if (to <= 0) batch.delete(epRef);
+	else
+		batch.set(
+			epRef,
+			{
+				tmdbShowId,
+				season: ep.season,
+				episode: ep.episode,
+				episodeTitle: ep.title,
+				runtime: ep.runtime || 0,
+				watchCount: increment(delta),
+				...(delta > 0 ? { lastWatchedAt: now } : {}),
+				// Back from 0 within one edit: the doc was deleted — give it its first watch time
+				...(from <= 0 ? { watchedAt: now } : {}),
+			},
+			{ merge: true },
+		);
+	batch.set(
+		userRef(userId),
+		{ stats: { episodesWatched: increment(delta), totalMinutes: increment(minutes) } },
+		{ merge: true },
+	);
+	batch.set(
+		tRef,
+		to <= 0
+			? {
+					nextEpisode: { season: ep.season, episode: ep.episode },
+					nextEpisodeName: ep.title || null,
+					status: WatchStatus.WATCHING,
+					priorityDate: now,
+					...historyOnUnwatch(-minutes, -delta),
+					...(await droppedRewatchFields(userId, tmdbShowId, known)),
+				}
+			: delta > 0
+				? historyOnWatch(minutes, delta, now, { season: ep.season, episode: ep.episode })
+				: historyOnUnwatch(-minutes, -delta),
+		{ merge: true },
+	);
+
+	await batch.commit();
+	emitHistoryChange({
+		userId,
+		tmdbId: tmdbShowId,
+		mediaType: MediaType.TV,
+		minutesDelta: minutes,
+		playsDelta: delta,
+		...(delta > 0
+			? { watched: true, lastEpisode: { season: ep.season, episode: ep.episode } }
+			: {}),
+		...(to <= 0
+			? { nextEpisode: { season: ep.season, episode: ep.episode }, status: WatchStatus.WATCHING }
+			: {}),
+	});
+}
+
 export async function unmarkSeasonWatched(
 	userId: string,
 	tmdbShowId: number,

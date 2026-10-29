@@ -64,9 +64,46 @@
 	background: var(--surface-light);
 }
 
+/* Calendar-style square (CalendarScreen .epSquare, scaled to the 72px logo slot) */
+.epSquare {
+	flex-shrink: 0;
+	width: 72px;
+	height: 72px;
+	padding: 4px 4px 0;
+	border-radius: 12px;
+	background: var(--surface-light);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+}
+
+.epSquareTitle {
+	font-family: "Smooch Sans", sans-serif;
+	font-size: 12px;
+	font-weight: 500;
+	letter-spacing: 1px;
+	white-space: nowrap;
+}
+
+.epSquareRule {
+	align-self: stretch;
+	height: 1px;
+	margin: 4px 0;
+	background: var(--text);
+}
+
+.epSquareValue {
+	font-family: "Smooch Sans", sans-serif;
+	font-size: 36px;
+	font-weight: 400;
+	line-height: 38px;
+}
+
 /* Fixed height so the header never jumps while the logo loads */
 .logoSlot {
-	min-height: 44px;
+	/* Fixed at the tallest a logo gets: name / loading logo / logo all fill the same box */
+	height: 72px;
 	max-width: 100%;
 	display: flex;
 	align-items: center;

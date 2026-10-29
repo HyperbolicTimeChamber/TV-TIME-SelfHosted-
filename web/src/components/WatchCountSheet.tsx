@@ -8,6 +8,7 @@ import {
 } from "react-icons/io5";
 import type { MediaType } from "@app/enums";
 import BottomSheet, {
+	EpisodeSquare,
 	SheetGroup,
 	SheetHeader,
 	SheetIcon,
@@ -25,19 +26,28 @@ interface Props {
 	tmdbId?: number;
 	mediaType?: MediaType;
 	logoPath?: string | null;
+	/** Under the logo (watchlist episode: "Chapter 1") */
+	subtitle?: string;
+	/** Watchlist episode: calendar-style SEASON / Exx square beside the logo */
+	episode?: { season: number; episode: number };
+	/** Info page: logo alone, centred (default). Watchlist: logo left */
+	centered?: boolean;
 	watchCount: number;
 	/** Settled change from → to (0 = unwatched) */
 	onCommit: (from: number, to: number) => void;
 	onClose: () => void;
 }
 
-/** Detail page watch count sheet: − / + stepper (app WatchCountSheet) */
+/** Watch count sheet (info page + watchlist): − / + stepper (app WatchCountSheet) */
 export default function WatchCountSheet({
 	visible,
 	title,
 	tmdbId,
 	mediaType,
 	logoPath,
+	subtitle,
+	episode,
+	centered = true,
 	watchCount,
 	onCommit,
 	onClose,
@@ -96,7 +106,17 @@ export default function WatchCountSheet({
 				onClose();
 			}}
 		>
-			<SheetHeader title={title} tmdbId={tmdbId} mediaType={mediaType} logoPath={logoPath} />
+			<SheetHeader
+				title={title}
+				subtitle={subtitle}
+				tmdbId={tmdbId}
+				mediaType={mediaType}
+				logoPath={logoPath}
+				centered={centered}
+				aside={
+					episode ? <EpisodeSquare season={episode.season} episode={episode.episode} /> : undefined
+				}
+			/>
 			<SheetGroup>
 				<div className={styles.row}>
 					<SheetIcon icon={IoRepeat} color={colors.accent} />

@@ -5,7 +5,7 @@ import { useWatchlistScreen } from "@app/screens/HomeScreen/WatchlistTab/useWatc
 import { MediaType, WatchStatus } from "@app/enums";
 import type { WatchlistListItem } from "@app/types/watchlist";
 import ShowCard from "../../components/ShowCard";
-import WatchActionSheet from "../../components/WatchActionSheet";
+import WatchCountSheet from "../../components/WatchCountSheet";
 import EpisodeDetailModal from "../../components/EpisodeDetailModal";
 import ShowDrawer from "../../components/ShowDrawer";
 import ConfirmModal from "../../components/ConfirmModal";
@@ -174,29 +174,35 @@ export default function WatchlistTab() {
 				onConfirm={confirmPause}
 				onClose={() => setPauseTarget(null)}
 			/>
-			<WatchActionSheet
+			<WatchCountSheet
 				visible={w.sheetVisible}
 				title={sheetShow?.title || ""}
-				subtitle={w.sheetLabel}
+				// SEASON / Exx sit in the square beside the logo; the name stays under it
+				subtitle={w.sheetEpisode?.episodeTitle}
+				episode={
+					w.sheetEpisode
+						? { season: w.sheetEpisode.season, episode: w.sheetEpisode.episode }
+						: undefined
+				}
+				centered={false}
 				tmdbId={w.sheetEpisode?.tmdbShowId}
 				mediaType={MediaType.TV}
 				logoPath={sheetShow?.logoPath}
 				watchCount={w.sheetEpisode?.watchCount || 0}
-				showWatchedOnce
-				onSelect={w.handleSheetAction}
+				onCommit={w.handleEpisodeCountCommit}
 				onClose={() => {
 					w.setSheetVisible(false);
 					w.setSheetEpisode(null);
 				}}
 			/>
-			<WatchActionSheet
+			<WatchCountSheet
 				visible={w.movieSheetVisible}
 				title={w.sheetMovieTitle || "Movie"}
+				centered={false}
 				tmdbId={w.sheetMovie?.tmdbId}
 				mediaType={MediaType.MOVIE}
 				watchCount={w.sheetMovie?.watchCount || 0}
-				showWatchedOnce
-				onSelect={w.handleMovieSheetAction}
+				onCommit={w.handleMovieCountCommit}
 				onClose={() => {
 					w.setMovieSheetVisible(false);
 					w.setSheetMovie(null);

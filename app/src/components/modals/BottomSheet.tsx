@@ -17,7 +17,7 @@ import { tmdbLogoUri } from "../../hooks/useTmdbImage";
 import { useTitleLogo } from "../../hooks/useTitleLogo";
 import WatchCountPill from "../WatchCountPill";
 import type { MediaType } from "../../types";
-import { colors, spacing, tint, typography } from "../../theme";
+import { colors, fonts, spacing, tint, typography } from "../../theme";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
@@ -168,27 +168,42 @@ export default function BottomSheet({ visible, onClose, children }: Props) {
 }
 
 /** Title logo (its name when there's none) — fixed height so the header never jumps */
+/** Wait this long for the logo before falling back to the name — the name flashing in and
+ *  then swapping for the logo read as a glitch */
+const NAME_DELAY_MS = 2000;
+
+/** Title logo (its name when there's none) in a fixed LOGO_MAX_H slot — the drawer never resizes
+ *  while it loads or swaps */
 function SheetLogo({
 	title,
 	tmdbId,
 	mediaType,
 	logoPath: givenLogo,
 	centered,
+	maxW,
 }: {
 	title: string;
 	tmdbId?: number;
 	mediaType?: MediaType;
 	logoPath?: string | null;
 	centered: boolean;
+	maxW: number;
 }) {
 	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	const [ratio, setRatio] = useState<number | null>(null);
 	const [failed, setFailed] = useState(false);
+	const [waited, setWaited] = useState(false);
+	useEffect(() => {
+		const t = setTimeout(() => setWaited(true), NAME_DELAY_MS);
+		return () => clearTimeout(t);
+	}, []);
 	const showLogo = !!logoPath && !failed;
-	const size = ratio ? logoSize(ratio, centered ? LOGO_MAX_W : LOGO_MAX_W_BESIDE_PILL) : null;
+	// Known to have no logo (or it failed): the name at once; still loading: after the delay
+	const showName = logoPath === null || failed || (!ratio && waited);
+	const size = ratio ? logoSize(ratio, maxW) : null;
 	return (
 		<View style={[styles.logoSlot, centered && styles.logoSlotCentered]}>
-			{(!showLogo || !ratio) && (
+			{showName && (
 				<Text style={[styles.name, centered && styles.nameCentered]} numberOfLines={2}>
 					{title}
 				</Text>
@@ -208,8 +223,26 @@ function SheetLogo({
 	);
 }
 
-/** Logo (name fallback) + what the sheet is about on the left, watch count pill on the right.
- *  No `watchCount` → just the logo, centred (the sheet shows the count itself) */
+/** Calendar-style square: SEASON xx over a big Exx (watchlist episode sheet) */
+export function EpisodeSquare({ season, episode }: { season: number; episode: number }) {
+	const pad = (n: number) => String(n).padStart(2, "0");
+	return (
+		<View
+			style={styles.epSquare}
+			accessible
+			accessibilityLabel={`Season ${season}, episode ${episode}`}
+		>
+			<Text style={styles.epSquareTitle}>SEASON {pad(season)}</Text>
+			<View style={styles.epSquareRule} />
+			<Text style={styles.epSquareValue}>E{pad(episode)}</Text>
+		</View>
+	);
+}
+
+/**
+ * Logo (name fallback) + what the sheet is about on the left; on the right the watch count
+ * pill (`watchCount`) or any `aside` (e.g. EpisodeSquare). `centered`: the logo alone, centred.
+ */
 export function SheetHeader({
 	title,
 	subtitle,
@@ -217,6 +250,8 @@ export function SheetHeader({
 	mediaType,
 	logoPath,
 	watchCount,
+	aside,
+	centered = false,
 }: {
 	title: string;
 	subtitle?: string;
@@ -224,8 +259,14 @@ export function SheetHeader({
 	mediaType?: MediaType;
 	logoPath?: string | null;
 	watchCount?: number;
+	aside?: ReactNode;
+	centered?: boolean;
 }) {
-	const centered = watchCount === undefined;
+	const right =
+		aside ??
+		(watchCount !== undefined ? (
+			<WatchCountPill count={watchCount} style={styles.headerPill} />
+		) : null);
 	return (
 		<View style={styles.header}>
 			<View style={styles.headerText}>
@@ -235,14 +276,15 @@ export function SheetHeader({
 					mediaType={mediaType}
 					logoPath={logoPath}
 					centered={centered}
+					maxW={centered || !right ? LOGO_MAX_W : LOGO_MAX_W_BESIDE_PILL}
 				/>
 				{subtitle ? (
-					<Text style={styles.subtitle} numberOfLines={1}>
+					<Text style={[styles.subtitle, centered && styles.nameCentered]} numberOfLines={1}>
 						{subtitle}
 					</Text>
 				) : null}
 			</View>
-			{!centered && <WatchCountPill count={watchCount} style={styles.headerPill} />}
+			{!centered && right}
 		</View>
 	);
 }
@@ -347,7 +389,37 @@ const styles = StyleSheet.create({
 	},
 	headerText: { flex: 1, minWidth: 0 },
 	headerPill: { backgroundColor: colors.surfaceLight },
-	logoSlot: { minHeight: LOGO_MIN_H, justifyContent: "center", alignItems: "flex-start" },
+	epSquare: {
+		width: LOGO_MAX_H,
+		height: LOGO_MAX_H,
+		borderRadius: 12,
+		backgroundColor: colors.surfaceLight,
+		alignItems: "center",
+		justifyContent: "center",
+		paddingHorizontal: spacing.xs,
+		// Smooch Sans digits leave room under them — nudge the stack down
+		paddingTop: 4,
+	},
+	epSquareTitle: {
+		fontFamily: fonts.smoochMedium,
+		fontSize: 12,
+		letterSpacing: 1,
+		color: colors.text,
+	},
+	epSquareRule: {
+		alignSelf: "stretch",
+		height: 1,
+		backgroundColor: colors.text,
+		marginVertical: 4,
+	},
+	epSquareValue: {
+		fontFamily: fonts.smoochRegular,
+		fontSize: 36,
+		lineHeight: 38,
+		color: colors.text,
+	},
+	// Fixed at the tallest a logo gets: the name / loading logo / logo all fill the same box
+	logoSlot: { height: LOGO_MAX_H, justifyContent: "center", alignItems: "flex-start" },
 	logoSlotCentered: { alignItems: "center" },
 	nameCentered: { textAlign: "center" },
 	// Full size while loading (so it decodes and reports its true shape), invisible, out of flow

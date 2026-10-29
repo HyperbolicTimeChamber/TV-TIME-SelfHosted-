@@ -9,8 +9,8 @@ import {
 	markMovieWatched,
 	unmarkMovieWatched,
 	decrementMovieWatchCount,
-	resetEpisodesToOnce,
 	writeMovieWatchCount,
+	writeEpisodeWatchCount,
 	getCatalogShow,
 	getShowDetails,
 } from "../../../services";
@@ -20,7 +20,6 @@ import {
 	MediaType,
 	QueryKey,
 	WatchStatus,
-	WatchAction,
 	CarouselEpisode,
 	ShowDrawerData,
 } from "../../../types";
@@ -403,120 +402,48 @@ export function useWatchlistScreen(
 		[user?.uid, queryClient],
 	);
 
-	const handleSheetAction = useCallback(
-		async (action: WatchAction) => {
-			if (!user?.uid || !sheetEpisode) return;
-
+	/**
+	 * Watch count sheet settled on a new count for the sheet's episode: one batch write
+	 * (writeEpisodeWatchCount), then the exact count in both cached lists — up also moves the
+	 * row to the top (watched now). Back from 0 (row gone) re-inserts it.
+	 */
+	const handleEpisodeCountCommit = useCallback(
+		async (from: number, to: number) => {
+			const ep = sheetEpisode;
+			if (!user?.uid || !ep || from === to) return;
 			try {
-				if (action === WatchAction.REWATCH) {
-					const catalog = await getCatalogShow(sheetEpisode.tmdbShowId, MediaType.TV);
-					const catalogSeason = catalog?.seasons?.find(
-						(s) => s.seasonNumber === sheetEpisode.season,
-					);
-					const catalogEp = catalogSeason?.episodes?.find(
-						(e) => e.episodeNumber === sheetEpisode.episode,
-					);
-					const nextEpInSeason = catalogSeason?.episodes?.find(
-						(e) => e.episodeNumber === sheetEpisode.episode + 1,
-					);
-
-					let nextEpisode: { season: number; episode: number } | null = null;
-					let isComplete = false;
-
-					if (nextEpInSeason) {
-						nextEpisode = {
-							season: sheetEpisode.season,
-							episode: nextEpInSeason.episodeNumber,
-						};
-					} else {
-						const nextCatalogSeason = catalog?.seasons?.find(
-							(s) => s.seasonNumber === sheetEpisode.season + 1,
-						);
-						if (nextCatalogSeason && nextCatalogSeason.episodes.length > 0) {
-							nextEpisode = { season: sheetEpisode.season + 1, episode: 1 };
-						} else {
-							isComplete = true;
-						}
-					}
-
-					await markEpisodeWatched(
-						user.uid,
-						sheetEpisode.tmdbShowId,
-						sheetEpisode.season,
-						sheetEpisode.episode,
-						catalogEp?.title || sheetEpisode.episodeTitle,
-						catalogEp?.runtime || sheetEpisode.runtime,
-						nextEpisode,
-						isComplete,
-					);
-					incrementDailyWatch("episode");
-				} else if (action === WatchAction.NOT_WATCHED) {
-					await unmarkEpisodeWatched(
-						user.uid,
-						sheetEpisode.tmdbShowId,
-						sheetEpisode.season,
-						sheetEpisode.episode,
-						sheetEpisode.runtime,
-						sheetEpisode.episodeTitle,
-					);
-					decrementDailyWatch("episode");
-				} else if (action === WatchAction.WATCHED_ONCE_LESS) {
-					await decrementEpisodeWatchCount(
-						user.uid,
-						sheetEpisode.tmdbShowId,
-						sheetEpisode.season,
-						sheetEpisode.episode,
-						sheetEpisode.runtime,
-						sheetEpisode.watchCount,
-						sheetEpisode.episodeTitle,
-					);
-					decrementDailyWatch("episode");
-				} else if (action === WatchAction.WATCHED_ONCE) {
-					await resetEpisodesToOnce(user.uid, sheetEpisode.tmdbShowId, [
-						{
-							season: sheetEpisode.season,
-							episode: sheetEpisode.episode,
-							runtime: sheetEpisode.runtime || 0,
-							watchCount: sheetEpisode.watchCount,
-						},
-					]);
-				}
-				if (action === WatchAction.WATCHED_ONCE) {
-					setWatchedEpisodeCountsCache(
-						queryClient,
-						user.uid,
-						sheetEpisode.tmdbShowId,
-						new Map([[`${sheetEpisode.season}_${sheetEpisode.episode}`, 1]]),
-					);
-				} else if (action === WatchAction.REWATCH) {
-					const now = Timestamp.now();
-					insertWatchedEpisodeCache(queryClient, user.uid, {
-						id: `${sheetEpisode.tmdbShowId}_S${String(sheetEpisode.season).padStart(2, "0")}E${String(sheetEpisode.episode).padStart(2, "0")}`,
-						tmdbShowId: sheetEpisode.tmdbShowId,
-						season: sheetEpisode.season,
-						episode: sheetEpisode.episode,
-						episodeTitle: sheetEpisode.episodeTitle,
-						runtime: sheetEpisode.runtime,
-						lastWatchedAt: now,
-						watchedAt: now,
-						watchCount: (sheetEpisode.watchCount || 0) + 1,
-					});
-				} else {
-					removeWatchedEpisodeCache(
-						queryClient,
-						user.uid,
-						sheetEpisode.tmdbShowId,
-						sheetEpisode.season,
-						sheetEpisode.episode,
-						action === WatchAction.WATCHED_ONCE_LESS,
-					);
-				}
+				await writeEpisodeWatchCount(
+					user.uid,
+					ep.tmdbShowId,
+					{ season: ep.season, episode: ep.episode, title: ep.episodeTitle, runtime: ep.runtime },
+					from,
+					to,
+				);
 			} catch (err: any) {
-				console.error("Watch action failed:", err);
-				Alert.alert("Error", err.message || "Action failed.");
+				console.error("Watch count change failed:", err);
+				Alert.alert("Error", err.message || "Couldn't update the watch count.");
+				return;
 			}
-
-			setSheetEpisode(null);
+			const now = Timestamp.now();
+			if (from <= 0 && to > 0) {
+				insertWatchedEpisodeCache(queryClient, user.uid, {
+					...ep,
+					lastWatchedAt: now,
+					watchCount: to,
+				});
+			} else {
+				setWatchedEpisodeCountsCache(
+					queryClient,
+					user.uid,
+					ep.tmdbShowId,
+					new Map([[`${ep.season}_${ep.episode}`, to]]),
+					to > from ? now : undefined,
+				);
+			}
+			for (let i = 0; i < Math.abs(to - from); i++) {
+				if (to > from) incrementDailyWatch("episode");
+				else decrementDailyWatch("episode");
+			}
 		},
 		[user?.uid, sheetEpisode, queryClient],
 	);
@@ -582,93 +509,47 @@ export function useWatchlistScreen(
 		[user?.uid, queryClient],
 	);
 
-	const handleMovieSheetAction = useCallback(
-		async (action: WatchAction) => {
-			if (!user?.uid || !sheetMovie) return;
+	/** Movie row's watch count sheet settled: one batch write, exact count in the cache */
+	const handleMovieCountCommit = useCallback(
+		async (from: number, to: number) => {
+			const movie = sheetMovie;
+			if (!user?.uid || !movie || from === to) return;
 			try {
-				if (action === WatchAction.REWATCH) {
-					await markMovieWatched(user.uid, sheetMovie.tmdbId, sheetMovie.runtime ?? 0);
-					insertWatchedMovieCache(queryClient, user.uid, {
-						...sheetMovie,
-						watchCount: (sheetMovie.watchCount || 0) + 1,
-						lastWatchedAt: Timestamp.now(),
-					});
-					incrementDailyWatch("movie");
-				} else if (action === WatchAction.WATCHED_ONCE_LESS) {
-					if (sheetMovie.watchCount <= 1) {
-						await unmarkMovieWatched(user.uid, sheetMovie.tmdbId, sheetMovie.runtime ?? 0);
-						queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
-							if (!old?.pages) return old;
-							return {
-								...old,
-								pages: old.pages.map((p: any) => ({
-									...p,
-									movies: p.movies.filter((m: any) => m.tmdbId !== sheetMovie.tmdbId),
-								})),
-							};
-						});
-					} else {
-						await decrementMovieWatchCount(
-							user.uid,
-							sheetMovie.tmdbId,
-							sheetMovie.runtime ?? 0,
-							sheetMovie.watchCount,
-						);
-						queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
-							if (!old?.pages) return old;
-							return {
-								...old,
-								pages: old.pages.map((p: any) => ({
-									...p,
-									movies: p.movies.map((m: any) =>
-										m.tmdbId === sheetMovie.tmdbId
-											? { ...m, watchCount: (m.watchCount || 1) - 1 }
-											: m,
-									),
-								})),
-							};
-						});
-					}
-					decrementDailyWatch("movie");
-				} else if (action === WatchAction.NOT_WATCHED) {
-					await unmarkMovieWatched(user.uid, sheetMovie.tmdbId, sheetMovie.runtime ?? 0);
-					queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
-						if (!old?.pages) return old;
-						return {
-							...old,
-							pages: old.pages.map((p: any) => ({
-								...p,
-								movies: p.movies.filter((m: any) => m.tmdbId !== sheetMovie.tmdbId),
-							})),
-						};
-					});
-					decrementDailyWatch("movie");
-				} else if (action === WatchAction.WATCHED_ONCE && sheetMovie.watchCount > 1) {
-					await writeMovieWatchCount(
-						user.uid,
-						sheetMovie.tmdbId,
-						sheetMovie.runtime ?? 0,
-						sheetMovie.watchCount,
-						1,
-					);
-					queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
-						if (!old?.pages) return old;
-						return {
-							...old,
-							pages: old.pages.map((p: any) => ({
-								...p,
-								movies: p.movies.map((m: any) =>
-									m.tmdbId === sheetMovie.tmdbId ? { ...m, watchCount: 1 } : m,
-								),
-							})),
-						};
-					});
-				}
+				await writeMovieWatchCount(user.uid, movie.tmdbId, movie.runtime ?? 0, from, to);
 			} catch (err: any) {
-				console.error("Movie action failed:", err);
-				Alert.alert("Error", err.message || "Action failed.");
+				console.error("Watch count change failed:", err);
+				Alert.alert("Error", err.message || "Couldn't update the watch count.");
+				return;
 			}
-			setSheetMovie(null);
+			const now = Timestamp.now();
+			if (from <= 0 && to > 0) {
+				insertWatchedMovieCache(queryClient, user.uid, {
+					...movie,
+					lastWatchedAt: now,
+					watchCount: to,
+				});
+			} else {
+				queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
+					if (!old?.pages) return old;
+					return {
+						...old,
+						pages: old.pages.map((p: any) => ({
+							...p,
+							movies: p.movies.flatMap((m: any) =>
+								m.tmdbId !== movie.tmdbId
+									? [m]
+									: to > 0
+										? [{ ...m, watchCount: to, ...(to > from ? { lastWatchedAt: now } : {}) }]
+										: [],
+							),
+						})),
+					};
+				});
+			}
+			for (let i = 0; i < Math.abs(to - from); i++) {
+				if (to > from) incrementDailyWatch("movie");
+				else decrementDailyWatch("movie");
+			}
 		},
 		[user?.uid, sheetMovie, queryClient],
 	);
@@ -677,10 +558,6 @@ export function useWatchlistScreen(
 		(id: number) => handleNavigateToShow(id, MediaType.TV),
 		[handleNavigateToShow],
 	);
-
-	const sheetLabel = sheetEpisode
-		? `S${String(sheetEpisode.season).padStart(2, "0")}E${String(sheetEpisode.episode).padStart(2, "0")} - ${sheetEpisode.episodeTitle}`
-		: "";
 
 	return {
 		user,
@@ -714,13 +591,12 @@ export function useWatchlistScreen(
 		handleWatchedCheckmark,
 		handleWatchedSwipeLeft,
 		handleWatchedSwipeRight,
-		handleSheetAction,
+		handleEpisodeCountCommit,
 		handleMovieCheckmark,
 		handleMovieSwipeLeft,
 		handleMovieSwipeRight,
-		handleMovieSheetAction,
+		handleMovieCountCommit,
 		handleTvPress,
-		sheetLabel,
 		listData,
 		loading,
 		listSettled,

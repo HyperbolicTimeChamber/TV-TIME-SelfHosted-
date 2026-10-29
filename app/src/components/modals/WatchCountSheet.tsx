@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import BottomSheet, {
+	EpisodeSquare,
 	SheetGroup,
 	SheetHeader,
 	SheetIcon,
@@ -22,19 +23,28 @@ interface Props {
 	tmdbId?: number;
 	mediaType?: MediaType;
 	logoPath?: string | null;
+	/** Under the logo (watchlist episode: "Chapter 1") */
+	subtitle?: string;
+	/** Watchlist episode: calendar-style SEASON / Exx square beside the logo */
+	episode?: { season: number; episode: number };
+	/** Info page: logo alone, centred (default). Watchlist: logo left */
+	centered?: boolean;
 	watchCount: number;
 	/** Settled change from → to (0 = unwatched) */
 	onCommit: (from: number, to: number) => void;
 	onClose: () => void;
 }
 
-/** Detail page watch count sheet: set how many times it's been watched with − / + */
+/** Watch count sheet (info page + watchlist): set how many times it's been watched with − / + */
 export default function WatchCountSheet({
 	visible,
 	title,
 	tmdbId,
 	mediaType,
 	logoPath,
+	subtitle,
+	episode,
+	centered = true,
 	watchCount,
 	onCommit,
 	onClose,
@@ -95,7 +105,19 @@ export default function WatchCountSheet({
 		>
 			{(close) => (
 				<>
-					<SheetHeader title={title} tmdbId={tmdbId} mediaType={mediaType} logoPath={logoPath} />
+					<SheetHeader
+						title={title}
+						subtitle={subtitle}
+						tmdbId={tmdbId}
+						mediaType={mediaType}
+						logoPath={logoPath}
+						centered={centered}
+						aside={
+							episode ? (
+								<EpisodeSquare season={episode.season} episode={episode.episode} />
+							) : undefined
+						}
+					/>
 					<SheetGroup>
 						<View style={sheetStyles.row}>
 							<SheetIcon icon="repeat" color={colors.accent} />

@@ -10,6 +10,7 @@ import {
 	startAfter,
 	getDocs,
 	QueryDocumentSnapshot,
+	type Timestamp,
 } from "@react-native-firebase/firestore";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { WatchedEpisode, QueryKey } from "../types";
@@ -176,12 +177,15 @@ export function setWatchedEpisodeCountsCache(
 	userId: string,
 	tmdbShowId: number,
 	counts: Map<string, number>,
+	/** Watched again just now → these rows also take this lastWatchedAt (move to the top) */
+	watchedAt?: Timestamp,
 ) {
 	const apply = (eps: WatchedEpisode[], ofShow: (ep: WatchedEpisode) => boolean) =>
 		eps.flatMap((ep) => {
 			const n = ofShow(ep) ? counts.get(`${ep.season}_${ep.episode}`) : undefined;
 			if (n === undefined) return [ep];
-			return n > 0 ? [{ ...ep, watchCount: n }] : [];
+			if (n <= 0) return [];
+			return [{ ...ep, watchCount: n, ...(watchedAt ? { lastWatchedAt: watchedAt } : {}) }];
 		});
 	queryClient.setQueryData([QueryKey.WATCHED_EPISODES, userId, undefined], (old: any) => {
 		if (!old?.pages) return old;

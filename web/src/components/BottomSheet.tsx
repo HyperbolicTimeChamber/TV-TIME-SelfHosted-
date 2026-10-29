@@ -1,4 +1,4 @@
-import { Children, Fragment, useState, type ReactNode } from "react";
+import { Children, Fragment, useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import type { IconType } from "react-icons";
@@ -66,8 +66,27 @@ export default function BottomSheet({
 	);
 }
 
-/** Logo (name fallback) + what the sheet is about on the left, watch count pill on the right.
- *  No `watchCount` → just the logo, centred (the sheet shows the count itself) */
+/** Wait this long for the logo before falling back to the name — the name flashing in and
+ *  then swapping for the logo read as a glitch (app NAME_DELAY_MS) */
+const NAME_DELAY_MS = 2000;
+
+/** Calendar-style square: SEASON xx over a big Exx (watchlist episode sheet) */
+export function EpisodeSquare({ season, episode }: { season: number; episode: number }) {
+	const pad = (n: number) => String(n).padStart(2, "0");
+	return (
+		<span className={styles.epSquare} aria-label={`Season ${season}, episode ${episode}`}>
+			<span className={styles.epSquareTitle}>SEASON {pad(season)}</span>
+			<span className={styles.epSquareRule} />
+			<span className={styles.epSquareValue}>E{pad(episode)}</span>
+		</span>
+	);
+}
+
+/**
+ * Logo (name fallback) + what the sheet is about on the left; on the right the watch count
+ * pill (`watchCount`) or any `aside` (e.g. EpisodeSquare). `centered`: the logo alone, centred.
+ * The logo sits in a fixed-height slot so the sheet never resizes while it loads (app SheetHeader)
+ */
 export function SheetHeader({
 	title,
 	subtitle,
@@ -75,6 +94,8 @@ export function SheetHeader({
 	mediaType,
 	logoPath: givenLogo,
 	watchCount,
+	aside,
+	centered = false,
 }: {
 	title: string;
 	subtitle?: string;
@@ -82,17 +103,30 @@ export function SheetHeader({
 	mediaType?: MediaType;
 	logoPath?: string | null;
 	watchCount?: number;
+	aside?: ReactNode;
+	centered?: boolean;
 }) {
-	const centered = watchCount === undefined;
 	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	const [loaded, setLoaded] = useState(false);
 	const [failed, setFailed] = useState(false);
+	const [waited, setWaited] = useState(false);
+	useEffect(() => {
+		const t = window.setTimeout(() => setWaited(true), NAME_DELAY_MS);
+		return () => window.clearTimeout(t);
+	}, []);
 	const showLogo = !!logoPath && !failed;
+	// Known to have no logo (or it failed): the name at once; still loading: after the delay
+	const showName = logoPath === null || failed || (!loaded && waited);
+	const right =
+		aside ??
+		(watchCount !== undefined ? (
+			<WatchCountPill count={watchCount} className={styles.headerPill} />
+		) : null);
 	return (
 		<div className={styles.header}>
 			<div className={`${styles.headerText} ${centered ? styles.centered : ""}`}>
 				<div className={styles.logoSlot}>
-					{(!showLogo || !loaded) && <span className={styles.name}>{title}</span>}
+					{showName && <span className={styles.name}>{title}</span>}
 					{showLogo && (
 						<img
 							className={`${styles.logo} ${loaded ? "" : styles.logoLoading}`}
@@ -105,7 +139,7 @@ export function SheetHeader({
 				</div>
 				{subtitle && <span className={styles.subtitle}>{subtitle}</span>}
 			</div>
-			{!centered && <WatchCountPill count={watchCount} className={styles.headerPill} />}
+			{!centered && right}
 		</div>
 	);
 }
