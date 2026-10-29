@@ -1,4 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import React, {
+	cloneElement,
+	isValidElement,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	type ReactNode,
+} from "react";
 import {
 	View,
 	Text,
@@ -48,6 +57,7 @@ const LOGO_MIN_H = 44;
 const LOGO_MAX_W = 280;
 const LOGO_MAX_W_BESIDE_PILL = 200;
 const LOGO_MAX_H = 72;
+const SUBTITLE_LINE = 18;
 
 /** Logo size for its shape: grow to the min height (or min width), clamp to the max box */
 function logoSize(ratio: number, maxW: number) {
@@ -181,6 +191,7 @@ function SheetLogo({
 	logoPath: givenLogo,
 	centered,
 	maxW,
+	fit,
 }: {
 	title: string;
 	tmdbId?: number;
@@ -188,6 +199,9 @@ function SheetLogo({
 	logoPath?: string | null;
 	centered: boolean;
 	maxW: number;
+	/** A line follows it: shrink to the logo instead of the fixed slot, so the logo + line
+	 *  block can be centred as one (the header keeps the fixed height instead) */
+	fit: boolean;
 }) {
 	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	const [ratio, setRatio] = useState<number | null>(null);
@@ -202,7 +216,7 @@ function SheetLogo({
 	const showName = logoPath === null || failed || (!ratio && waited);
 	const size = ratio ? logoSize(ratio, maxW) : null;
 	return (
-		<View style={[styles.logoSlot, centered && styles.logoSlotCentered]}>
+		<View style={[styles.logoSlot, centered && styles.logoSlotCentered, fit && styles.logoSlotFit]}>
 			{showName && (
 				<Text style={[styles.name, centered && styles.nameCentered]} numberOfLines={2}>
 					{title}
@@ -268,8 +282,9 @@ export function SheetHeader({
 			<WatchCountPill count={watchCount} style={styles.headerPill} />
 		) : null);
 	return (
-		<View style={styles.header}>
-			<View style={styles.headerText}>
+		// With an aside the row stretches: the square takes the logo + name column's height
+		<View style={[styles.header, !!aside && styles.headerStretch]}>
+			<View style={[styles.headerText, !!subtitle && !centered && styles.headerTextFixed]}>
 				<SheetLogo
 					title={title}
 					tmdbId={tmdbId}
@@ -277,6 +292,7 @@ export function SheetHeader({
 					logoPath={logoPath}
 					centered={centered}
 					maxW={centered || !right ? LOGO_MAX_W : LOGO_MAX_W_BESIDE_PILL}
+					fit={!!subtitle && !centered}
 				/>
 				{subtitle ? (
 					<Text style={[styles.subtitle, centered && styles.nameCentered]} numberOfLines={1}>
@@ -294,13 +310,70 @@ export function SheetGroup({ children }: { children: ReactNode }) {
 	const rows = React.Children.toArray(children).filter(Boolean);
 	return (
 		<View style={styles.group}>
-			{rows.map((row, i) => (
-				<React.Fragment key={i}>
-					{i > 0 && <View style={styles.separator} />}
-					{row}
-				</React.Fragment>
-			))}
+			{rows.map((row, i) => {
+				// A collapsing row carries its own hairline, so the line folds away with it
+				if (isValidElement(row) && row.type === SheetCollapse) {
+					return cloneElement(row as React.ReactElement<SheetCollapseProps>, {
+						key: i,
+						separator: i > 0,
+					});
+				}
+				return (
+					<React.Fragment key={i}>
+						{i > 0 && <View style={styles.separator} />}
+						{row}
+					</React.Fragment>
+				);
+			})}
 		</View>
+	);
+}
+
+const COLLAPSE = { duration: 220, easing: Easing.bezier(0.23, 1, 0.32, 1) } as const;
+
+interface SheetCollapseProps {
+	open: boolean;
+	children: ReactNode;
+	/** Set by SheetGroup: draw the row's top hairline inside the collapsing part */
+	separator?: boolean;
+}
+
+/**
+ * A SheetGroup row that comes and goes (e.g. "Watched Once" from 3 watches up): height + fade
+ * instead of the row — and the sheet with it — snapping. Stays mounted until it has closed.
+ */
+export function SheetCollapse({ open, children, separator = false }: SheetCollapseProps) {
+	const progress = useRef(new Animated.Value(open ? 1 : 0)).current;
+	const [mounted, setMounted] = useState(open);
+	const [height, setHeight] = useState(0);
+	useEffect(() => {
+		if (open) setMounted(true);
+		// Height can't run on the native driver
+		const anim = Animated.timing(progress, {
+			...COLLAPSE,
+			toValue: open ? 1 : 0,
+			useNativeDriver: false,
+		});
+		anim.start(({ finished }) => {
+			if (finished && !open) setMounted(false);
+		});
+		return () => anim.stop();
+	}, [open, progress]);
+	if (!mounted) return null;
+	return (
+		<Animated.View
+			style={{
+				overflow: "hidden",
+				opacity: progress,
+				// Until measured: 0 tall (the content measures itself, absolutely placed)
+				height: progress.interpolate({ inputRange: [0, 1], outputRange: [0, height] }),
+			}}
+		>
+			<View style={styles.collapseContent} onLayout={(e) => setHeight(e.nativeEvent.layout.height)}>
+				{separator && <View style={styles.separator} />}
+				{children}
+			</View>
+		</Animated.View>
 	);
 }
 
@@ -388,44 +461,59 @@ const styles = StyleSheet.create({
 		marginBottom: spacing.lg,
 	},
 	headerText: { flex: 1, minWidth: 0 },
+	// Logo + line: the tallest logo + the line, fixed (no resize while the logo loads), the
+	// block centred in it — lines up with the square's middle
+	headerTextFixed: { height: LOGO_MAX_H + spacing.xs + SUBTITLE_LINE, justifyContent: "center" },
+	headerStretch: { alignItems: "stretch" },
 	headerPill: { backgroundColor: colors.surfaceLight },
+	// Square as tall as the logo + name column beside it (row stretches; width follows)
 	epSquare: {
-		width: LOGO_MAX_H,
-		height: LOGO_MAX_H,
-		borderRadius: 12,
+		aspectRatio: 1,
+		borderRadius: 14,
 		backgroundColor: colors.surfaceLight,
 		alignItems: "center",
 		justifyContent: "center",
-		paddingHorizontal: spacing.xs,
+		paddingHorizontal: spacing.sm,
 		// Smooch Sans digits leave room under them — nudge the stack down
 		paddingTop: 4,
 	},
 	epSquareTitle: {
 		fontFamily: fonts.smoochMedium,
-		fontSize: 12,
-		letterSpacing: 1,
-		color: colors.text,
+		fontSize: 14,
+		letterSpacing: 1.5,
+		color: colors.textSecondary,
 	},
+	// Inset, softer than the text: separates without competing
 	epSquareRule: {
 		alignSelf: "stretch",
-		height: 1,
-		backgroundColor: colors.text,
-		marginVertical: 4,
+		height: StyleSheet.hairlineWidth * 2,
+		marginHorizontal: spacing.xs,
+		marginVertical: 5,
+		backgroundColor: colors.textMuted,
 	},
 	epSquareValue: {
 		fontFamily: fonts.smoochRegular,
-		fontSize: 36,
-		lineHeight: 38,
+		fontSize: 48,
+		lineHeight: 50,
 		color: colors.text,
+		fontVariant: ["tabular-nums"],
 	},
 	// Fixed at the tallest a logo gets: the name / loading logo / logo all fill the same box
 	logoSlot: { height: LOGO_MAX_H, justifyContent: "center", alignItems: "flex-start" },
 	logoSlotCentered: { alignItems: "center" },
+	logoSlotFit: { height: undefined, minHeight: LOGO_MIN_H },
 	nameCentered: { textAlign: "center" },
 	// Full size while loading (so it decodes and reports its true shape), invisible, out of flow
 	logoLoading: { position: "absolute", width: LOGO_MAX_W, height: LOGO_MIN_H, opacity: 0 },
 	name: { ...typography.subtitle, fontSize: 18 },
-	subtitle: { ...typography.caption, color: colors.textSecondary, marginTop: spacing.xs },
+	subtitle: {
+		...typography.caption,
+		fontSize: 13,
+		lineHeight: SUBTITLE_LINE,
+		color: colors.textSecondary,
+		marginTop: spacing.xs,
+	},
+	collapseContent: { position: "absolute", top: 0, left: 0, right: 0 },
 	group: {
 		backgroundColor: colors.surfaceLight,
 		borderRadius: 14,

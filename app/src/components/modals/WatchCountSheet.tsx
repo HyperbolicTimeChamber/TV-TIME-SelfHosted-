@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { FontAwesome6 } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import BottomSheet, {
+	SheetCollapse,
 	EpisodeSquare,
 	SheetGroup,
 	SheetHeader,
@@ -15,7 +16,7 @@ import type { MediaType } from "../../types";
 
 /** Taps settle this long before the count is written — quick +/+/+ is one write, not three */
 const COMMIT_DELAY_MS = 700;
-const STEP_SIZE = 36;
+const STEP_SIZE = 28;
 
 interface Props {
 	visible: boolean;
@@ -129,17 +130,17 @@ export default function WatchCountSheet({
 							</View>
 							<View style={styles.stepper}>
 								<StepButton
-									icon="remove"
+									icon="circle-minus"
 									label="Watched once less"
 									disabled={count === 0}
 									onPress={() => step(-1)}
 								/>
 								<Text style={styles.value}>{count}</Text>
-								<StepButton icon="add" label="Watched once more" primary onPress={() => step(1)} />
+								<StepButton icon="circle-plus" label="Watched once more" onPress={() => step(1)} />
 							</View>
 						</View>
 						{/* At 2, − already lands on 1 */}
-						{count > 2 && (
+						<SheetCollapse open={count > 2}>
 							<SheetOption
 								icon="checkmark-circle-outline"
 								color={colors.watchedGreen}
@@ -150,8 +151,8 @@ export default function WatchCountSheet({
 									close();
 								}}
 							/>
-						)}
-						{count > 0 && (
+						</SheetCollapse>
+						<SheetCollapse open={count > 0}>
 							<SheetOption
 								icon="trash-outline"
 								color={colors.destructiveRed}
@@ -163,7 +164,7 @@ export default function WatchCountSheet({
 									close();
 								}}
 							/>
-						)}
+						</SheetCollapse>
 					</SheetGroup>
 				</>
 			)}
@@ -174,13 +175,11 @@ export default function WatchCountSheet({
 function StepButton({
 	icon,
 	label,
-	primary = false,
 	disabled = false,
 	onPress,
 }: {
-	icon: "add" | "remove";
+	icon: "circle-plus" | "circle-minus";
 	label: string;
-	primary?: boolean;
 	disabled?: boolean;
 	onPress: () => void;
 }) {
@@ -193,27 +192,19 @@ function StepButton({
 			accessibilityLabel={label}
 			style={({ pressed }) => [
 				styles.step,
-				primary && styles.stepPrimary,
 				disabled && styles.stepDisabled,
 				pressed && styles.stepPressed,
 			]}
 		>
-			<Ionicons name={icon} size={20} color={colors.text} />
+			<FontAwesome6 name={icon} solid size={STEP_SIZE} color={colors.accent} />
 		</Pressable>
 	);
 }
 
 const styles = StyleSheet.create({
 	stepper: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-	step: {
-		width: STEP_SIZE,
-		height: STEP_SIZE,
-		borderRadius: STEP_SIZE / 2,
-		backgroundColor: colors.border,
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	stepPrimary: { backgroundColor: colors.accent },
+	// Font Awesome's filled circle +/− glyphs are the whole button; only a real limit (0) dims it
+	step: { alignItems: "center", justifyContent: "center" },
 	stepDisabled: { opacity: 0.35 },
 	stepPressed: { transform: [{ scale: 0.92 }] },
 	value: {

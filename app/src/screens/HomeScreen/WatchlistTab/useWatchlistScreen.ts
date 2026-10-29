@@ -403,42 +403,48 @@ export function useWatchlistScreen(
 	);
 
 	/**
-	 * Watch count sheet settled on a new count for the sheet's episode: one batch write
-	 * (writeEpisodeWatchCount), then the exact count in both cached lists — up also moves the
-	 * row to the top (watched now). Back from 0 (row gone) re-inserts it.
+	 * Watch count sheet settled on a new count for the sheet's episode. Optimistic: both cached
+	 * lists take the exact count first (up also moves the row to the top — watched now), then one
+	 * batch write (writeEpisodeWatchCount); a failed write puts the row back as it was.
 	 */
 	const handleEpisodeCountCommit = useCallback(
 		async (from: number, to: number) => {
 			const ep = sheetEpisode;
 			if (!user?.uid || !ep || from === to) return;
+			const uid = user.uid;
+			const key = `${ep.season}_${ep.episode}`;
+			/** Row at `n` watches (0 = gone); a row that's gone comes back via insert */
+			const showCount = (n: number, prevN: number, watchedAt: Timestamp) => {
+				if (prevN <= 0 && n > 0) {
+					insertWatchedEpisodeCache(queryClient, uid, {
+						...ep,
+						lastWatchedAt: watchedAt,
+						watchCount: n,
+					});
+				} else {
+					setWatchedEpisodeCountsCache(
+						queryClient,
+						uid,
+						ep.tmdbShowId,
+						new Map([[key, n]]),
+						watchedAt,
+					);
+				}
+			};
+			showCount(to, from, to > from ? Timestamp.now() : ep.lastWatchedAt);
 			try {
 				await writeEpisodeWatchCount(
-					user.uid,
+					uid,
 					ep.tmdbShowId,
 					{ season: ep.season, episode: ep.episode, title: ep.episodeTitle, runtime: ep.runtime },
 					from,
 					to,
 				);
 			} catch (err: any) {
+				showCount(from, to, ep.lastWatchedAt);
 				console.error("Watch count change failed:", err);
 				Alert.alert("Error", err.message || "Couldn't update the watch count.");
 				return;
-			}
-			const now = Timestamp.now();
-			if (from <= 0 && to > 0) {
-				insertWatchedEpisodeCache(queryClient, user.uid, {
-					...ep,
-					lastWatchedAt: now,
-					watchCount: to,
-				});
-			} else {
-				setWatchedEpisodeCountsCache(
-					queryClient,
-					user.uid,
-					ep.tmdbShowId,
-					new Map([[`${ep.season}_${ep.episode}`, to]]),
-					to > from ? now : undefined,
-				);
 			}
 			for (let i = 0; i < Math.abs(to - from); i++) {
 				if (to > from) incrementDailyWatch("episode");
@@ -509,27 +515,23 @@ export function useWatchlistScreen(
 		[user?.uid, queryClient],
 	);
 
-	/** Movie row's watch count sheet settled: one batch write, exact count in the cache */
+	/** Movie row's watch count sheet settled: optimistic like the episode one, then one batch write */
 	const handleMovieCountCommit = useCallback(
 		async (from: number, to: number) => {
 			const movie = sheetMovie;
 			if (!user?.uid || !movie || from === to) return;
-			try {
-				await writeMovieWatchCount(user.uid, movie.tmdbId, movie.runtime ?? 0, from, to);
-			} catch (err: any) {
-				console.error("Watch count change failed:", err);
-				Alert.alert("Error", err.message || "Couldn't update the watch count.");
-				return;
-			}
-			const now = Timestamp.now();
-			if (from <= 0 && to > 0) {
-				insertWatchedMovieCache(queryClient, user.uid, {
-					...movie,
-					lastWatchedAt: now,
-					watchCount: to,
-				});
-			} else {
-				queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
+			const uid = user.uid;
+			/** Row at `n` watches (0 = gone); a row that's gone comes back via insert */
+			const showCount = (n: number, prevN: number, watchedAt: Timestamp) => {
+				if (prevN <= 0 && n > 0) {
+					insertWatchedMovieCache(queryClient, uid, {
+						...movie,
+						lastWatchedAt: watchedAt,
+						watchCount: n,
+					});
+					return;
+				}
+				queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, uid], (old: any) => {
 					if (!old?.pages) return old;
 					return {
 						...old,
@@ -538,13 +540,22 @@ export function useWatchlistScreen(
 							movies: p.movies.flatMap((m: any) =>
 								m.tmdbId !== movie.tmdbId
 									? [m]
-									: to > 0
-										? [{ ...m, watchCount: to, ...(to > from ? { lastWatchedAt: now } : {}) }]
+									: n > 0
+										? [{ ...m, watchCount: n, lastWatchedAt: watchedAt }]
 										: [],
 							),
 						})),
 					};
 				});
+			};
+			showCount(to, from, to > from ? Timestamp.now() : movie.lastWatchedAt);
+			try {
+				await writeMovieWatchCount(uid, movie.tmdbId, movie.runtime ?? 0, from, to);
+			} catch (err: any) {
+				showCount(from, to, movie.lastWatchedAt);
+				console.error("Watch count change failed:", err);
+				Alert.alert("Error", err.message || "Couldn't update the watch count.");
+				return;
 			}
 			for (let i = 0; i < Math.abs(to - from); i++) {
 				if (to > from) incrementDailyWatch("movie");

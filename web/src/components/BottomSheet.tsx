@@ -1,4 +1,13 @@
-import { Children, Fragment, useEffect, useState, type ReactNode } from "react";
+import {
+	Children,
+	Fragment,
+	cloneElement,
+	isValidElement,
+	useEffect,
+	useState,
+	type ReactElement,
+	type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import type { IconType } from "react-icons";
@@ -123,9 +132,14 @@ export function SheetHeader({
 			<WatchCountPill count={watchCount} className={styles.headerPill} />
 		) : null);
 	return (
-		<div className={styles.header}>
-			<div className={`${styles.headerText} ${centered ? styles.centered : ""}`}>
-				<div className={styles.logoSlot}>
+		// With an aside the row stretches: the square takes the logo + name column's height
+		<div className={`${styles.header} ${aside ? styles.headerStretch : ""}`}>
+			{/* Logo + line: fixed height (no resize while the logo loads), the block centred in it
+			    and the logo box fitted to the logo — lines up with the square's middle */}
+			<div
+				className={`${styles.headerText} ${centered ? styles.centered : ""} ${subtitle && !centered ? styles.headerTextFixed : ""}`}
+			>
+				<div className={`${styles.logoSlot} ${subtitle && !centered ? styles.logoSlotFit : ""}`}>
 					{showName && <span className={styles.name}>{title}</span>}
 					{showLogo && (
 						<img
@@ -149,13 +163,51 @@ export function SheetGroup({ children }: { children: ReactNode }) {
 	const rows = Children.toArray(children).filter(Boolean);
 	return (
 		<div className={styles.group}>
-			{rows.map((row, i) => (
-				<Fragment key={i}>
-					{i > 0 && <div className={styles.separator} />}
-					{row}
-				</Fragment>
-			))}
+			{rows.map((row, i) => {
+				// A collapsing row carries its own hairline, so the line folds away with it
+				if (isValidElement(row) && row.type === SheetCollapse) {
+					return cloneElement(row as ReactElement<SheetCollapseProps>, {
+						key: i,
+						separator: i > 0,
+					});
+				}
+				return (
+					<Fragment key={i}>
+						{i > 0 && <div className={styles.separator} />}
+						{row}
+					</Fragment>
+				);
+			})}
 		</div>
+	);
+}
+
+/** Row collapse: strong ease-out, under 250ms (app COLLAPSE) */
+const COLLAPSE = { duration: 0.22, ease: [0.23, 1, 0.32, 1] } as const;
+
+interface SheetCollapseProps {
+	open: boolean;
+	children: ReactNode;
+	/** Set by SheetGroup: draw the row's top hairline inside the collapsing part */
+	separator?: boolean;
+}
+
+/** A SheetGroup row that comes and goes: height + fade instead of snapping (app SheetCollapse) */
+export function SheetCollapse({ open, children, separator = false }: SheetCollapseProps) {
+	return (
+		<AnimatePresence initial={false}>
+			{open && (
+				<motion.div
+					className={styles.collapse}
+					initial={{ height: 0, opacity: 0 }}
+					animate={{ height: "auto", opacity: 1, transition: COLLAPSE }}
+					exit={{ height: 0, opacity: 0, transition: COLLAPSE }}
+				>
+					{separator && <div className={styles.separator} />}
+					{children}
+				</motion.div>
+			)}
+		</AnimatePresence>
 	);
 }
 

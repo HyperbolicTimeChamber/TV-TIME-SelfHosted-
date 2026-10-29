@@ -198,7 +198,7 @@ export default function WatchlistTab() {
 			<WatchCountSheet
 				visible={w.movieSheetVisible}
 				title={w.sheetMovieTitle || "Movie"}
-				centered={false}
+				// No episode square → logo alone, centred (as on the info page)
 				tmdbId={w.sheetMovie?.tmdbId}
 				mediaType={MediaType.MOVIE}
 				watchCount={w.sheetMovie?.watchCount || 0}

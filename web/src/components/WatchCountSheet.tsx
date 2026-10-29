@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-	IoAdd,
-	IoCheckmarkCircleOutline,
-	IoRemove,
-	IoRepeat,
-	IoTrashOutline,
-} from "react-icons/io5";
+import { IoCheckmarkCircleOutline, IoRepeat, IoTrashOutline } from "react-icons/io5";
+import { FaCircleMinus, FaCirclePlus } from "react-icons/fa6";
 import type { MediaType } from "@app/enums";
 import BottomSheet, {
+	SheetCollapse,
 	EpisodeSquare,
 	SheetGroup,
 	SheetHeader,
@@ -134,23 +130,23 @@ export default function WatchCountSheet({
 							disabled={count === 0}
 							onClick={() => step(-1)}
 						>
-							<IoRemove size={20} />
+							<FaCircleMinus size={28} />
 						</button>
 						<span className={styles.value} aria-live="polite">
 							{count}
 						</span>
 						<button
 							type="button"
-							className={`${styles.step} ${styles.stepPrimary}`}
+							className={styles.step}
 							aria-label="Watched once more"
 							onClick={() => step(1)}
 						>
-							<IoAdd size={20} />
+							<FaCirclePlus size={28} />
 						</button>
 					</div>
 				</div>
 				{/* At 2, − already lands on 1 */}
-				{count > 2 && (
+				<SheetCollapse open={count > 2}>
 					<SheetOption
 						icon={IoCheckmarkCircleOutline}
 						color={colors.watchedGreen}
@@ -161,8 +157,8 @@ export default function WatchCountSheet({
 							onClose();
 						}}
 					/>
-				)}
-				{count > 0 && (
+				</SheetCollapse>
+				<SheetCollapse open={count > 0}>
 					<SheetOption
 						icon={IoTrashOutline}
 						color={colors.destructiveRed}
@@ -174,7 +170,7 @@ export default function WatchCountSheet({
 							onClose();
 						}}
 					/>
-				)}
+				</SheetCollapse>
 			</SheetGroup>
 		</BottomSheet>
 	);

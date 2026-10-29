@@ -64,13 +64,16 @@
 	background: var(--surface-light);
 }
 
-/* Calendar-style square (CalendarScreen .epSquare, scaled to the 72px logo slot) */
+.headerStretch {
+	align-items: stretch;
+}
+
+/* Calendar-style square, as tall as the logo + name column beside it (width follows) */
 .epSquare {
 	flex-shrink: 0;
-	width: 72px;
-	height: 72px;
-	padding: 4px 4px 0;
-	border-radius: 12px;
+	aspect-ratio: 1;
+	padding: 4px 8px 0;
+	border-radius: 14px;
 	background: var(--surface-light);
 	display: flex;
 	flex-direction: column;
@@ -80,24 +83,27 @@
 
 .epSquareTitle {
 	font-family: "Smooch Sans", sans-serif;
-	font-size: 12px;
+	font-size: 14px;
 	font-weight: 500;
-	letter-spacing: 1px;
+	letter-spacing: 1.5px;
+	color: var(--text-secondary);
 	white-space: nowrap;
 }
 
+/* Inset, softer than the text: separates without competing */
 .epSquareRule {
 	align-self: stretch;
 	height: 1px;
-	margin: 4px 0;
-	background: var(--text);
+	margin: 5px 4px;
+	background: var(--text-muted);
 }
 
 .epSquareValue {
 	font-family: "Smooch Sans", sans-serif;
-	font-size: 36px;
+	font-size: 48px;
 	font-weight: 400;
-	line-height: 38px;
+	line-height: 50px;
+	font-variant-numeric: tabular-nums;
 }
 
 /* Fixed height so the header never jumps while the logo loads */
@@ -107,6 +113,17 @@
 	max-width: 100%;
 	display: flex;
 	align-items: center;
+}
+
+.logoSlotFit {
+	height: auto;
+	min-height: 44px;
+}
+
+.headerTextFixed {
+	/* Tallest logo + gap + one 18px line */
+	height: calc(72px + 4px + 18px);
+	justify-content: center;
 }
 
 /* At least 44px tall / 160px wide so wide or tiny logos stay legible (app logoSize) */
@@ -138,11 +155,16 @@
 }
 
 .subtitle {
-	font-size: 12px;
+	font-size: 13px;
+	line-height: 18px;
 	color: var(--text-secondary);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.collapse {
+	overflow: hidden;
 }
 
 .group {
@@ -229,18 +251,21 @@
 	gap: 8px;
 }
 
+/* Font Awesome's filled circle +/− glyphs are the whole button; only a real limit (0) dims it */
 .step {
-	width: 36px;
-	height: 36px;
-	border-radius: 18px;
+	padding: 0;
 	border: none;
-	background: var(--border);
-	color: var(--text);
+	background: none;
+	color: $accent;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	cursor: pointer;
 	transition: transform 120ms ease-out;
+
+	svg {
+		display: block;
+	}
 
 	&:active:not(:disabled) {
 		transform: scale(0.92);
@@ -252,9 +277,6 @@
 	}
 }
 
-.stepPrimary {
-	background: $accent;
-}
 
 .value {
 	min-width: 28px;
