@@ -31,7 +31,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { tmdbLogoUri } from "../../hooks/useTmdbImage";
 import { useTitleLogo } from "../../hooks/useTitleLogo";
-import WatchCountPill from "../WatchCountPill";
 import type { MediaType } from "../../types";
 import { colors, fonts, spacing, tint, typography } from "../../theme";
 
@@ -251,25 +250,60 @@ function SheetLogo({
 	);
 }
 
-/** Calendar-style square: SEASON xx over a big Exx (watchlist episode sheet) */
-export function EpisodeSquare({ season, episode }: { season: number; episode: number }) {
-	const pad = (n: number) => String(n).padStart(2, "0");
+/** Calendar-style square: a small label over a rule over a big value — the right side of a
+ *  sheet header, as tall as the logo + line beside it */
+function HeaderSquare({
+	label,
+	value,
+	suffix,
+	accessibilityLabel,
+}: {
+	label: string;
+	value: string;
+	/** Smaller trailing unit (e.g. the X of 2X) so the number reads first */
+	suffix?: string;
+	accessibilityLabel: string;
+}) {
 	return (
-		<View
-			style={styles.epSquare}
-			accessible
-			accessibilityLabel={`Season ${season}, episode ${episode}`}
-		>
-			<Text style={styles.epSquareTitle}>SEASON {pad(season)}</Text>
+		<View style={styles.epSquare} accessible accessibilityLabel={accessibilityLabel}>
+			<Text style={styles.epSquareTitle}>{label}</Text>
 			<View style={styles.epSquareRule} />
-			<Text style={styles.epSquareValue}>E{pad(episode)}</Text>
+			<Text style={styles.epSquareValue}>
+				{value}
+				{suffix ? <Text style={styles.epSquareSuffix}>{suffix}</Text> : null}
+			</Text>
 		</View>
 	);
 }
 
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** SEASON xx over a big Exx (watchlist episode sheet) */
+export function EpisodeSquare({ season, episode }: { season: number; episode: number }) {
+	return (
+		<HeaderSquare
+			label={`SEASON ${pad2(season)}`}
+			value={`E${pad2(episode)}`}
+			accessibilityLabel={`Season ${season}, episode ${episode}`}
+		/>
+	);
+}
+
+/** WATCHED over a big nX (info page season / episode sheet) */
+export function WatchCountSquare({ count }: { count: number }) {
+	return (
+		<HeaderSquare
+			label="WATCHED"
+			value={String(count)}
+			suffix="X"
+			accessibilityLabel={`Watched ${count} ${count === 1 ? "time" : "times"}`}
+		/>
+	);
+}
+
 /**
- * Logo (name fallback) + what the sheet is about on the left; on the right the watch count
- * pill (`watchCount`) or any `aside` (e.g. EpisodeSquare). `centered`: the logo alone, centred.
+ * Logo (name fallback) + what the sheet is about on the left; on the right an optional `aside`
+ * (EpisodeSquare / WatchCountSquare). `centered`: the logo alone, centred.
  */
 export function SheetHeader({
 	title,
@@ -277,7 +311,6 @@ export function SheetHeader({
 	tmdbId,
 	mediaType,
 	logoPath,
-	watchCount,
 	aside,
 	centered = false,
 }: {
@@ -286,15 +319,10 @@ export function SheetHeader({
 	tmdbId?: number;
 	mediaType?: MediaType;
 	logoPath?: string | null;
-	watchCount?: number;
 	aside?: ReactNode;
 	centered?: boolean;
 }) {
-	const right =
-		aside ??
-		(watchCount !== undefined ? (
-			<WatchCountPill count={watchCount} style={styles.headerPill} />
-		) : null);
+	const right = aside ?? null;
 	return (
 		// With an aside the row stretches: the square takes the logo + name column's height
 		<View style={[styles.header, !!aside && styles.headerStretch]}>
@@ -487,7 +515,6 @@ const styles = StyleSheet.create({
 	// block centred in it — lines up with the square's middle
 	headerTextFixed: { height: LOGO_MAX_H + spacing.xs + SUBTITLE_LINE, justifyContent: "center" },
 	headerStretch: { alignItems: "stretch" },
-	headerPill: { backgroundColor: colors.surfaceLight },
 	// Square as tall as the logo + name column beside it (row stretches; width follows)
 	epSquare: {
 		aspectRatio: 1,
@@ -513,6 +540,7 @@ const styles = StyleSheet.create({
 		marginVertical: 5,
 		backgroundColor: colors.textMuted,
 	},
+	epSquareSuffix: { fontSize: 28 },
 	epSquareValue: {
 		fontFamily: fonts.smoochRegular,
 		fontSize: 48,

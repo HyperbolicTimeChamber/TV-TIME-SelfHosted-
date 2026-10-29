@@ -60,10 +60,6 @@
 	}
 }
 
-.headerPill {
-	background: var(--surface-light);
-}
-
 .headerStretch {
 	align-items: stretch;
 }
@@ -96,6 +92,10 @@
 	height: 1px;
 	margin: 5px 4px;
 	background: var(--text-muted);
+}
+
+.epSquareSuffix {
+	font-size: 28px;
 }
 
 .epSquareValue {

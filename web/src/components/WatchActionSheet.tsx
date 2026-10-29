@@ -7,7 +7,7 @@ import {
 } from "react-icons/io5";
 import type { MediaType } from "@app/enums";
 import { WatchAction } from "@app/enums";
-import BottomSheet, { SheetGroup, SheetHeader, SheetOption } from "./BottomSheet";
+import BottomSheet, { SheetGroup, SheetHeader, SheetOption, WatchCountSquare } from "./BottomSheet";
 import { colors } from "../theme/index";
 
 interface Props {
@@ -51,7 +51,7 @@ export default function WatchActionSheet({
 				tmdbId={tmdbId}
 				mediaType={mediaType}
 				logoPath={logoPath}
-				watchCount={watchCount}
+				aside={<WatchCountSquare count={watchCount} />}
 			/>
 			<SheetGroup>
 				<SheetOption

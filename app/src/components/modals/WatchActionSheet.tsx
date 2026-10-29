@@ -1,5 +1,5 @@
 import React from "react";
-import BottomSheet, { SheetGroup, SheetHeader, SheetOption } from "./BottomSheet";
+import BottomSheet, { SheetGroup, SheetHeader, SheetOption, WatchCountSquare } from "./BottomSheet";
 import { colors } from "../../theme";
 import type { MediaType } from "../../types";
 
@@ -48,7 +48,7 @@ export default function WatchActionSheet({
 							tmdbId={tmdbId}
 							mediaType={mediaType}
 							logoPath={logoPath}
-							watchCount={watchCount}
+							aside={<WatchCountSquare count={watchCount} />}
 						/>
 						<SheetGroup>
 							<SheetOption

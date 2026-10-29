@@ -14,7 +14,6 @@ import type { IconType } from "react-icons";
 import { tmdbLogoUri } from "@app/hooks/useTmdbImage";
 import { useTitleLogo } from "@app/hooks/useTitleLogo";
 import type { MediaType } from "@app/enums";
-import WatchCountPill from "./WatchCountPill";
 import styles from "./styles/BottomSheet.module.scss";
 import { cssVars } from "../utils/cssVars";
 
@@ -79,21 +78,60 @@ export default function BottomSheet({
  *  then swapping for the logo read as a glitch (app NAME_DELAY_MS) */
 const NAME_DELAY_MS = 2000;
 
-/** Calendar-style square: SEASON xx over a big Exx (watchlist episode sheet) */
-export function EpisodeSquare({ season, episode }: { season: number; episode: number }) {
-	const pad = (n: number) => String(n).padStart(2, "0");
+/** Calendar-style square: a small label over a rule over a big value — the right side of a
+ *  sheet header, as tall as the logo + line beside it (app HeaderSquare) */
+function HeaderSquare({
+	label,
+	value,
+	suffix,
+	ariaLabel,
+}: {
+	label: string;
+	value: string;
+	/** Smaller trailing unit (e.g. the X of 2X) so the number reads first */
+	suffix?: string;
+	ariaLabel: string;
+}) {
 	return (
-		<span className={styles.epSquare} aria-label={`Season ${season}, episode ${episode}`}>
-			<span className={styles.epSquareTitle}>SEASON {pad(season)}</span>
+		<span className={styles.epSquare} aria-label={ariaLabel}>
+			<span className={styles.epSquareTitle}>{label}</span>
 			<span className={styles.epSquareRule} />
-			<span className={styles.epSquareValue}>E{pad(episode)}</span>
+			<span className={styles.epSquareValue}>
+				{value}
+				{suffix && <span className={styles.epSquareSuffix}>{suffix}</span>}
+			</span>
 		</span>
 	);
 }
 
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** SEASON xx over a big Exx (watchlist episode sheet) */
+export function EpisodeSquare({ season, episode }: { season: number; episode: number }) {
+	return (
+		<HeaderSquare
+			label={`SEASON ${pad2(season)}`}
+			value={`E${pad2(episode)}`}
+			ariaLabel={`Season ${season}, episode ${episode}`}
+		/>
+	);
+}
+
+/** WATCHED over a big nX (info page season / episode sheet) */
+export function WatchCountSquare({ count }: { count: number }) {
+	return (
+		<HeaderSquare
+			label="WATCHED"
+			value={String(count)}
+			suffix="X"
+			ariaLabel={`Watched ${count} ${count === 1 ? "time" : "times"}`}
+		/>
+	);
+}
+
 /**
- * Logo (name fallback) + what the sheet is about on the left; on the right the watch count
- * pill (`watchCount`) or any `aside` (e.g. EpisodeSquare). `centered`: the logo alone, centred.
+ * Logo (name fallback) + what the sheet is about on the left; on the right an optional `aside`
+ * (EpisodeSquare / WatchCountSquare). `centered`: the logo alone, centred.
  * The logo sits in a fixed-height slot so the sheet never resizes while it loads (app SheetHeader)
  */
 export function SheetHeader({
@@ -102,7 +140,6 @@ export function SheetHeader({
 	tmdbId,
 	mediaType,
 	logoPath: givenLogo,
-	watchCount,
 	aside,
 	centered = false,
 }: {
@@ -111,7 +148,6 @@ export function SheetHeader({
 	tmdbId?: number;
 	mediaType?: MediaType;
 	logoPath?: string | null;
-	watchCount?: number;
 	aside?: ReactNode;
 	centered?: boolean;
 }) {
@@ -126,11 +162,7 @@ export function SheetHeader({
 	const showLogo = !!logoPath && !failed;
 	// Known to have no logo (or it failed): the name at once; still loading: after the delay
 	const showName = logoPath === null || failed || (!loaded && waited);
-	const right =
-		aside ??
-		(watchCount !== undefined ? (
-			<WatchCountPill count={watchCount} className={styles.headerPill} />
-		) : null);
+	const right = aside ?? null;
 	return (
 		// With an aside the row stretches: the square takes the logo + name column's height
 		<div className={`${styles.header} ${aside ? styles.headerStretch : ""}`}>
