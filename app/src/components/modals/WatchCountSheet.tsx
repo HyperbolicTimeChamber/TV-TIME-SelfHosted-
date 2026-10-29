@@ -35,6 +35,9 @@ interface Props {
 	/** − stops here (watchlist mid-rewatch: the rewatch number — earlier runs' watches stay);
 	 *  above 0 also hides "Not Watched" */
 	minCount?: number;
+	/** Show page: going below this (the rewatch floor) asks first — the number doesn't move, the
+	 *  change goes straight to onCommit (no debounce) so its prompt opens at once */
+	confirmBelow?: number;
 	watchCount: number;
 	/** Settled change from → to (0 = unwatched). Resolving false = held / not applied (e.g. a
 	 *  "Whoa there Speedster!" prompt): the stepper goes back to `from`. Resolving a number =
@@ -55,6 +58,7 @@ export default function WatchCountSheet({
 	centered = true,
 	allowWatchedOnce = true,
 	minCount = 0,
+	confirmBelow = 0,
 	watchCount,
 	onCommit,
 	onClose,
@@ -106,7 +110,17 @@ export default function WatchCountSheet({
 	useEffect(() => flush, [flush]);
 
 	/** Jump straight to `n` and write it now (no debounce) — "Watched Once" / "Not Watched" */
+	/** Below confirmBelow: settle what's pending, then hand the step to onCommit unshown */
+	const askBelow = (n: number) => {
+		flush();
+		Promise.resolve(onCommitRef.current(committed.current, n)).catch(() => {});
+	};
+
 	const setNow = (n: number) => {
+		if (n < pending.current && n < confirmBelow) {
+			askBelow(n);
+			return;
+		}
 		pending.current = n;
 		setCount(n);
 		flush();
@@ -115,6 +129,10 @@ export default function WatchCountSheet({
 	const step = (delta: number) => {
 		const next = Math.max(minCount, pending.current + delta);
 		if (next === pending.current) return;
+		if (delta < 0 && next < confirmBelow) {
+			askBelow(next);
+			return;
+		}
 		Haptics.selectionAsync().catch(() => {});
 		pending.current = next;
 		setCount(next);

@@ -317,15 +317,11 @@ export function useWatchlistData(userId: string | undefined) {
 		return map;
 	}, [items]);
 
-	/** Mid-rewatch: the rewatch number — − / Unwatch never go below it (earlier runs' watches
-	 *  stay, so the rewatch can't end there). Otherwise 0 */
+	/** Rewatch floor: no episode goes below the rewatch count (any status — the rewatch number
+	 *  is the lowest count). − / swipe / Unwatch stop there; only the show page can go lower,
+	 *  behind a "Reduce Rewatch" confirmation */
 	const rewatchFloor = useCallback(
-		(tmdbId: number) => {
-			const it = showMap.get(tmdbId);
-			return it?.status === WatchStatus.REWATCHING || it?.status === WatchStatus.PAUSED_REWATCH
-				? (it.rewatchCount ?? 0)
-				: 0;
-		},
+		(tmdbId: number) => showMap.get(tmdbId)?.rewatchCount ?? 0,
 		[showMap],
 	);
 

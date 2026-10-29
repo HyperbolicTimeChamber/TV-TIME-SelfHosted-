@@ -29,6 +29,12 @@ import { cssVars, px } from "../../utils/cssVars";
 const BACK_PUSH_GAP = 8;
 
 /** Show / movie page — public (read-only for guests) and the target of share links */
+/** "S03E04 – My Lucky Night" for the rewatch gate (app) */
+function rewatchBlockedLabel(b: { season: number; episode: number; name: string | null }) {
+	const pad = (n: number) => String(n).padStart(2, "0");
+	return `S${pad(b.season)}E${pad(b.episode)}${b.name ? ` – ${b.name}` : ""}`;
+}
+
 export default function ShowDetailScreen() {
 	const params = useParams();
 	const tmdbId = Number(params.tmdbId);
@@ -368,6 +374,29 @@ export default function ShowDetailScreen() {
 						loading={d.adding}
 						onConfirm={d.handleAddToWatchlist}
 						onClose={() => d.setAddFailure(null)}
+					/>
+					{/* Next rewatch only once every aired episode is at the current run (app) */}
+					<ConfirmModal
+						visible={!!d.rewatchBlocked}
+						title="Finish Watching First"
+						image={
+							<ModalLogo
+								logoPath={logoPath}
+								tmdbId={tmdbId}
+								mediaType={mediaType}
+								title={d.title}
+							/>
+						}
+						hint={
+							d.rewatchBlocked
+								? `${rewatchBlockedLabel(d.rewatchBlocked)} isn't at x${d.rewatchBlocked.count} yet. Every aired episode needs x${d.rewatchBlocked.count} before rewatch ${d.rewatchBlocked.count} can start.`
+								: undefined
+						}
+						confirmLabel="OK"
+						confirmColor={colors.primary}
+						hideCancel
+						onConfirm={() => d.setRewatchBlocked(null)}
+						onClose={() => d.setRewatchBlocked(null)}
 					/>
 					<UnreleasedMovieModal
 						visible={!!d.unreleasedModal}

@@ -9,7 +9,7 @@ import { colors } from "../theme/index";
 import { useLongPress } from "../hooks/useLongPress";
 import CheckmarkButton from "./CheckmarkButton";
 import ConfirmModal from "./ConfirmModal";
-import { ModalArt, ModalBackdrop, ModalLogo, SPEEDSTER_ART } from "./ModalArt";
+import { HIT_A_WALL_ART, ModalArt, ModalBackdrop, ModalLogo, SPEEDSTER_ART } from "./ModalArt";
 import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
 import { MediaType, WatchStatus } from "@app/enums";
 import {
@@ -107,6 +107,21 @@ function EpisodeRow({
 }
 
 /** Expandable season row with episode list (app SeasonDropdown) */
+/** "Reduce Rewatch?" copy (app SeasonDropdown) */
+function reduceRewatchHint(
+	r: { kind: "episode"; ep: TMDBEpisode; to: number } | { kind: "season" } | null,
+	floor: number,
+	seasonNumber: number,
+) {
+	if (!r) return undefined;
+	const pad = (n: number) => String(n).padStart(2, "0");
+	const what =
+		r.kind === "episode"
+			? `S${pad(seasonNumber)}E${pad(r.ep.episode_number)} can't go below`
+			: `Episodes of Season ${seasonNumber} can't go below`;
+	return `${what} x${floor}, your rewatch count. Going lower drops your rewatch count to the lowest watch count left.`;
+}
+
 export default memo(function SeasonDropdown({ readOnly, isFirst, isLast, ...props }: Props) {
 	const s = useSeasonActions(props);
 	// While the episodes slide shut they still hang under the card, so it stays square till then
@@ -252,6 +267,7 @@ export default memo(function SeasonDropdown({ readOnly, isFirst, isLast, ...prop
 						logoPath={showLogo}
 						watchCount={s.sheetTarget?.watchCount || 0}
 						allowWatchedOnce={!inRewatch}
+						confirmBelow={s.rewatchFloorCount}
 						onCommit={s.handleEpisodeCountCommit}
 						onClose={() => {
 							s.setSheetVisible(false);
@@ -326,6 +342,47 @@ export default memo(function SeasonDropdown({ readOnly, isFirst, isLast, ...prop
 							onClose={() => s.setSeasonSkip(null)}
 						/>
 					)}
+
+					{/* A mark that would have started a rewatch with an aired episode still short */}
+					<ConfirmModal
+						visible={!!s.rewatchGate}
+						title="Finish Watching First"
+						image={
+							<ModalLogo
+								logoPath={showLogo}
+								tmdbId={props.tmdbId}
+								mediaType={MediaType.TV}
+								title={props.showTitle}
+							/>
+						}
+						hint={(() => {
+							const g = s.rewatchGate;
+							if (!g) return undefined;
+							const pad = (n: number) => String(n).padStart(2, "0");
+							const label = `S${pad(g.season)}E${pad(g.episode)}${g.name ? ` – ${g.name}` : ""}`;
+							return `Those watches are saved, but rewatch ${g.count} can't start yet: ${label} isn't at x${g.count}. Every aired episode needs x${g.count} first.`;
+						})()}
+						confirmLabel="OK"
+						confirmColor={colors.primary}
+						hideCancel
+						onConfirm={() => s.setRewatchGate(null)}
+						onClose={() => s.setRewatchGate(null)}
+					/>
+
+					{/* Show page only: going under the rewatch floor asks first (app SeasonDropdown) */}
+					<ConfirmModal
+						visible={!!s.reduceRewatch}
+						title="Oops, looks like you've hit a wall"
+						image={<ModalArt src={HIT_A_WALL_ART} />}
+						hint={reduceRewatchHint(
+							s.reduceRewatch,
+							s.rewatchFloorCount,
+							props.season.season_number,
+						)}
+						confirmLabel="Reduce Rewatch"
+						onConfirm={s.confirmReduceRewatch}
+						onClose={() => s.setReduceRewatch(null)}
+					/>
 
 					{s.skipModalData && (
 						<ConfirmModal

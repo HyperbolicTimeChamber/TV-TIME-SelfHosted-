@@ -25,6 +25,7 @@ export {
 	writeMovieWatchCount,
 	writeEpisodeWatchCount,
 	setNextEpisode,
+	healRewatch,
 	addAndMarkMovieWatched,
 	markSeasonWatchedCF,
 	addToWatchlist,

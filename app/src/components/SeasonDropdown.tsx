@@ -12,6 +12,8 @@ import {
 	ModalLogo,
 	SPEEDSTER_ART,
 	SPEEDSTER_RATIO,
+	HIT_A_WALL_ART,
+	HIT_A_WALL_RATIO,
 } from "./modals/ModalArt";
 import { getCachedCatalogShow } from "../hooks/useWatchlist";
 import {
@@ -45,6 +47,21 @@ function formatDate(dateStr: string): string {
 /** Where this season sits in the show's list: only the list's outer corners are rounded */
 type Props = SeasonDropdownProps & { isFirst?: boolean; isLast?: boolean };
 
+/** "Reduce Rewatch?" copy: which episode(s) drop under the floor, and what happens */
+function reduceRewatchHint(
+	r: { kind: "episode"; ep: TMDBEpisode; to: number } | { kind: "season" } | null,
+	floor: number,
+	seasonNumber: number,
+) {
+	if (!r) return undefined;
+	const pad = (n: number) => String(n).padStart(2, "0");
+	const what =
+		r.kind === "episode"
+			? `S${pad(seasonNumber)}E${pad(r.ep.episode_number)} can't go below`
+			: `Episodes of Season ${seasonNumber} can't go below`;
+	return `${what} x${floor}, your rewatch count. Going lower drops your rewatch count to the lowest watch count left.`;
+}
+
 export default memo(function SeasonDropdown({
 	tmdbId,
 	season,
@@ -69,6 +86,12 @@ export default memo(function SeasonDropdown({
 		skipModalData,
 		confirmSkipAll,
 		confirmSkipJustThis,
+		reduceRewatch,
+		setReduceRewatch,
+		confirmReduceRewatch,
+		rewatchFloorCount,
+		rewatchGate,
+		setRewatchGate,
 		setSkipModalData,
 		epInfoVisible,
 		setEpInfoVisible,
@@ -313,6 +336,7 @@ export default memo(function SeasonDropdown({
 				logoPath={showLogo}
 				watchCount={sheetTarget?.watchCount || 0}
 				allowWatchedOnce={!inRewatch}
+				confirmBelow={rewatchFloorCount}
 				onCommit={handleEpisodeCountCommit}
 				onClose={() => {
 					setSheetVisible(false);
@@ -387,6 +411,43 @@ export default memo(function SeasonDropdown({
 					onClose={() => setSeasonSkip(null)}
 				/>
 			)}
+
+			{/* A mark that would have started a rewatch with an aired episode still short */}
+			<ConfirmModal
+				visible={!!rewatchGate}
+				title="Finish Watching First"
+				image={
+					<ModalLogo
+						logoPath={showLogo}
+						tmdbId={tmdbId}
+						mediaType={MediaType.TV}
+						title={showTitle}
+					/>
+				}
+				hint={(() => {
+					const g = rewatchGate;
+					if (!g) return undefined;
+					const pad = (n: number) => String(n).padStart(2, "0");
+					const label = `S${pad(g.season)}E${pad(g.episode)}${g.name ? ` – ${g.name}` : ""}`;
+					return `Those watches are saved, but rewatch ${g.count} can't start yet: ${label} isn't at x${g.count}. Every aired episode needs x${g.count} first.`;
+				})()}
+				confirmLabel="OK"
+				confirmColor={colors.primary}
+				hideCancel
+				onConfirm={() => setRewatchGate(null)}
+				onClose={() => setRewatchGate(null)}
+			/>
+
+			{/* Show page only: going under the rewatch floor asks first */}
+			<ConfirmModal
+				visible={!!reduceRewatch}
+				title="Oops, looks like you've hit a wall"
+				image={<ModalArt source={HIT_A_WALL_ART} ratio={HIT_A_WALL_RATIO} />}
+				hint={reduceRewatchHint(reduceRewatch, rewatchFloorCount, season.season_number)}
+				confirmLabel="Reduce Rewatch"
+				onConfirm={confirmReduceRewatch}
+				onClose={() => setReduceRewatch(null)}
+			/>
 
 			{skipModalData && (
 				<ConfirmModal

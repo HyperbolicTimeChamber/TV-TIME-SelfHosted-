@@ -468,3 +468,86 @@ export function adjacentPointer(
 		? { season: target.season, episode: target.episode }
 		: null;
 }
+
+/** Aired by today; entries built without episode data (no airDate field) count as aired, TBA (null) not */
+const isAired = (e: EpisodeRef, today: string) =>
+	e.airDate === undefined || (e.airDate !== null && e.airDate <= today);
+
+/**
+ * Rewatch floor: the rewatch count may never exceed the lowest watch count across aired
+ * episodes (episodes can sit higher, never lower). The lowest count and the first episode at it.
+ */
+export function lowestAiredCount(
+	order: EpisodeRef[],
+	counts: Map<string, number>,
+	today: string,
+): { count: number; first: EpisodeRef | null } {
+	let count = Infinity;
+	let first: EpisodeRef | null = null;
+	for (const e of order) {
+		if (!isAired(e, today)) continue;
+		const c = countOf(counts, e);
+		if (c < count) {
+			count = c;
+			first = { season: e.season, episode: e.episode };
+		}
+	}
+	return { count: count === Infinity ? 0 : count, first };
+}
+
+/**
+ * Tracking fix when the rewatch count sits above the lowest aired count (an episode was
+ * unwatched under the floor, or data from before the rule): the count becomes that lowest
+ * count, the pointer the first episode at it. 0 → a first watch again (watching / paused);
+ * otherwise rewatch run L under way. null → consistent, nothing to write.
+ * A rewatch under way ignores unwatched episodes after the last watched one (new content
+ * aired mid-run): its pointer never jumps — it reaches them when the run completes.
+ */
+export function rewatchHeal(
+	order: EpisodeRef[],
+	counts: Map<string, number>,
+	tracking: { status?: WatchStatus; rewatchCount?: number; nextEpisode?: EpisodeRef | null },
+	today: string,
+): { rewatchCount: number; status: WatchStatus; nextEpisode: EpisodeRef | null } | null {
+	const stored = tracking.rewatchCount ?? 0;
+	if (stored <= 0) return null;
+	let scope = order;
+	if (tracking.status === WatchStatus.REWATCHING) {
+		let last = -1;
+		order.forEach((e, i) => {
+			if (countOf(counts, e) > 0) last = i;
+		});
+		scope = order.slice(0, last + 1);
+	}
+	const low = lowestAiredCount(scope, counts, today);
+	if (stored <= low.count) return null;
+	const paused =
+		tracking.status === WatchStatus.PAUSED || tracking.status === WatchStatus.PAUSED_REWATCH;
+	const status =
+		low.count === 0
+			? paused
+				? WatchStatus.PAUSED
+				: WatchStatus.WATCHING
+			: paused
+				? WatchStatus.PAUSED_REWATCH
+				: WatchStatus.REWATCHING;
+	return { rewatchCount: low.count, status, nextEpisode: low.first };
+}
+
+/**
+ * Starting the next rewatch needs the current run finished: every aired episode at least
+ * at rewatch count + 1. The first one short (null → a rewatch may start).
+ */
+export function rewatchBlocker(
+	order: EpisodeRef[],
+	counts: Map<string, number>,
+	rewatchCount: number,
+	today: string,
+): EpisodeRef | null {
+	for (const e of order) {
+		if (isAired(e, today) && countOf(counts, e) < rewatchCount + 1) {
+			return { season: e.season, episode: e.episode };
+		}
+	}
+	return null;
+}

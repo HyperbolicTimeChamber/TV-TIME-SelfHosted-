@@ -25,6 +25,7 @@ import {
 	stopWatching,
 	markMovieWatched,
 	writeMovieWatchCount,
+	healRewatch,
 	addAndMarkMovieWatched,
 } from "../../services";
 import { shouldShowUnreleasedModal } from "../../services/unreleasedModalPref";
@@ -35,6 +36,10 @@ import {
 	showDocId,
 	todayStr,
 	isIncompleteCatalog,
+	epKey,
+	rewatchHeal,
+	rewatchBlocker,
+	type EpisodeRef,
 } from "../../utils";
 import {
 	WatchStatus,
@@ -57,6 +62,9 @@ import { Alert } from "react-native";
  */
 const lastTracking = new Map<string, any | null>();
 
+/** Shows whose rewatch count was checked / healed this session (one server check each) */
+const healedShows = new Set<number>();
+
 /**
  * Show detail state + actions (tracking doc listener, add/remove, movie
  * watch counts, rewatch/resume). Shared by the mobile ShowDetailScreen and the
@@ -77,7 +85,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	const [watchlistItem, setWatchlistItem] = useState<any>(() =>
 		trackingKey ? (lastTracking.get(trackingKey) ?? null) : null,
 	);
-	const { episodes: showWatchedEps } = useShowWatchedEpisodes(
+	const { episodes: showWatchedEps, loading: showWatchedLoading } = useShowWatchedEpisodes(
 		mediaType === MediaType.TV ? user?.uid : undefined,
 		tmdbId,
 	);
@@ -456,6 +464,60 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		}
 	}, [user?.uid, show, tmdbId, watchlistItem, adding, queryClient, seedMovieCatalog]);
 
+	/** Whole show in order (specials skipped) with air dates, and the watch count per episode */
+	const showOrder = useMemo<EpisodeRef[]>(
+		() =>
+			[...episodesBySeason.entries()]
+				.filter(([sn]) => sn > 0)
+				.sort(([a], [b]) => a - b)
+				.flatMap(([sn, eps]) =>
+					eps.map((e) => ({ season: sn, episode: e.episode_number, airDate: e.air_date ?? null })),
+				),
+		[episodesBySeason],
+	);
+	const showCounts = useMemo(() => {
+		const counts = new Map<string, number>();
+		for (const w of showWatchedEps) counts.set(epKey(w.season, w.episode), w.watchCount || 0);
+		return counts;
+	}, [showWatchedEps]);
+	const episodeInfo = useCallback(
+		(ref: EpisodeRef) => {
+			const e = episodesBySeason.get(ref.season)?.find((x) => x.episode_number === ref.episode);
+			return { name: e?.name || null, airDate: e?.air_date || null };
+		},
+		[episodesBySeason],
+	);
+
+	// Rewatch floor auto-heal: the rewatch count above an aired episode's watches (data from
+	// before the rule) → bring it down. The local list only raises the suspicion; healRewatch
+	// re-reads the server before writing. Once per show per session
+	useEffect(() => {
+		if (!user?.uid || mediaType !== MediaType.TV || !watchlistItem || showWatchedLoading) return;
+		if (showOrder.length === 0 || healedShows.has(tmdbId)) return;
+		if (!rewatchHeal(showOrder, showCounts, watchlistItem, todayStr())) return;
+		healedShows.add(tmdbId);
+		healRewatch(user.uid, tmdbId, showOrder, watchlistItem, episodeInfo, todayStr()).catch((err) =>
+			console.error("Rewatch heal failed:", err),
+		);
+	}, [
+		user?.uid,
+		mediaType,
+		watchlistItem,
+		showWatchedLoading,
+		showOrder,
+		showCounts,
+		tmdbId,
+		episodeInfo,
+	]);
+
+	// "Start a Rewatch" refused: an aired episode isn't at the current run yet
+	const [rewatchBlocked, setRewatchBlocked] = useState<{
+		season: number;
+		episode: number;
+		name: string | null;
+		count: number;
+	} | null>(null);
+
 	const handleResumeOrRewatch = useCallback(async () => {
 		if (!user?.uid) return;
 		if (mediaType === MediaType.MOVIE && watchlistItem?.status === WatchStatus.COMPLETED) {
@@ -486,6 +548,23 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 			// COMPLETED without a single watched episode — bad state, start fresh instead of rewatch
 			await restartWatching(user.uid, tmdbId);
 		} else {
+			// Next rewatch only once every aired episode is at the current run
+			if (mediaType === MediaType.TV) {
+				const blocker = rewatchBlocker(
+					showOrder,
+					showCounts,
+					watchlistItem?.rewatchCount ?? 0,
+					todayStr(),
+				);
+				if (blocker) {
+					setRewatchBlocked({
+						...blocker,
+						name: episodeInfo(blocker).name,
+						count: (watchlistItem?.rewatchCount ?? 0) + 1,
+					});
+					return;
+				}
+			}
 			await startRewatch(user.uid, tmdbId, mediaType);
 		}
 	}, [
@@ -497,6 +576,9 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		showWatchedEps.length,
 		show,
 		addFutureEpisodesLocally,
+		showOrder,
+		showCounts,
+		episodeInfo,
 	]);
 
 	/** Watch count sheet settled on a new count — one write, caches set to the new number */
@@ -611,6 +693,8 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		handleMarkMovieWatched,
 		handleResumeOrRewatch,
 		handleMovieWatchCountChange,
+		rewatchBlocked,
+		setRewatchBlocked,
 		seasonLayout,
 	};
 }

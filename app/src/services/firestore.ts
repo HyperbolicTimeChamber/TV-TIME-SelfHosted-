@@ -23,6 +23,7 @@ import { trackApi } from "./analytics";
 import { historyOnWatch, historyOnUnwatch, historyCleared, historyOnChange } from "./history";
 import { shareCatalogCreate } from "./refreshShow";
 import { batchEndOffsets } from "../utils/stagger";
+import { epKey, rewatchHeal, type EpisodeRef } from "../utils/trackingAdvance";
 
 /** Tracked Cloud Function call */
 function callCF<T = any>(name: string, data: any): Promise<T> {
@@ -531,6 +532,52 @@ export async function decrementEpisodeWatchCount(
 		playsDelta: -1,
 		...(willDelete ? { nextEpisode: { season, episode }, status: WatchStatus.WATCHING } : {}),
 	});
+}
+
+/**
+ * Rewatch floor heal: re-read this show's watched episodes FROM THE SERVER (a stale local list
+ * could look inconsistent and wrongly end a rewatch), and if the rewatch count sits above the
+ * lowest aired count, bring it down to it (rewatchHeal: count, status, pointer). Runs only when
+ * the client already sees an inconsistency, or right after a confirmed "Reduce Rewatch".
+ * Resolves with the patch written (null → consistent, nothing written).
+ */
+export async function healRewatch(
+	userId: string,
+	tmdbShowId: number,
+	order: EpisodeRef[],
+	tracking: { status?: WatchStatus; rewatchCount?: number; nextEpisode?: EpisodeRef | null },
+	episodeInfo: (ref: EpisodeRef) => { name: string | null; airDate: string | null },
+	today: string,
+) {
+	const snap = await getDocs(
+		query(watchedEpisodesRef(userId), where("tmdbShowId", "==", tmdbShowId)),
+	);
+	const counts = new Map<string, number>();
+	for (const d of snap.docs) {
+		const { season, episode, watchCount } = d.data();
+		counts.set(epKey(season, episode), watchCount || 0);
+	}
+	const patch = rewatchHeal(order, counts, tracking, today);
+	if (!patch) return null;
+	const info = patch.nextEpisode ? episodeInfo(patch.nextEpisode) : { name: null, airDate: null };
+	await updateDoc(doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)), {
+		rewatchCount: patch.rewatchCount,
+		status: patch.status,
+		nextEpisode: patch.nextEpisode,
+		nextEpisodeName: info.name,
+		nextEpisodeAirDate: info.airDate,
+		priorityDate: Timestamp.now(),
+		...historyOnChange(),
+	});
+	emitHistoryChange({
+		userId,
+		tmdbId: tmdbShowId,
+		mediaType: MediaType.TV,
+		status: patch.status,
+		nextEpisode: patch.nextEpisode,
+		rewatchCount: patch.rewatchCount,
+	});
+	return patch;
 }
 
 /**

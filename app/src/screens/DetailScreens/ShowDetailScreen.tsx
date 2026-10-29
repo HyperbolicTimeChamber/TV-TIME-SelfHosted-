@@ -38,6 +38,12 @@ type RouteParams = RouteProp<HomeStackParamList, "ShowDetail">;
 /** Space kept between the sticky back button and the pills pushing it off */
 const BACK_PUSH_GAP = 8;
 
+/** "S03E04 – My Lucky Night" for the rewatch gate */
+function rewatchBlockedLabel(b: { season: number; episode: number; name: string | null }) {
+	const pad = (n: number) => String(n).padStart(2, "0");
+	return `S${pad(b.season)}E${pad(b.episode)}${b.name ? ` – ${b.name}` : ""}`;
+}
+
 export default function ShowDetailScreen() {
 	const route = useRoute<RouteParams>();
 	const { tmdbId, mediaType } = route.params;
@@ -81,6 +87,8 @@ export default function ShowDetailScreen() {
 		pausing,
 		handleConfirmPause,
 		handleMovieWatchCountChange,
+		rewatchBlocked,
+		setRewatchBlocked,
 		seasonLayout,
 	} = useShowDetailActions(tmdbId, mediaType);
 	// Catalog's logo, else the one that came with the details (same request as the page data)
@@ -365,6 +373,25 @@ export default function ShowDetailScreen() {
 				loading={pausing}
 				onConfirm={handleConfirmPause}
 				onClose={() => setPauseModalVisible(false)}
+			/>
+
+			{/* Next rewatch only once every aired episode is at the current run */}
+			<ConfirmModal
+				visible={!!rewatchBlocked}
+				title="Finish Watching First"
+				image={
+					<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={title} />
+				}
+				hint={
+					rewatchBlocked
+						? `${rewatchBlockedLabel(rewatchBlocked)} isn't at x${rewatchBlocked.count} yet. Every aired episode needs x${rewatchBlocked.count} before rewatch ${rewatchBlocked.count} can start.`
+						: undefined
+				}
+				confirmLabel="OK"
+				confirmColor={colors.primary}
+				hideCancel
+				onConfirm={() => setRewatchBlocked(null)}
+				onClose={() => setRewatchBlocked(null)}
 			/>
 
 			<AddFailedModal
