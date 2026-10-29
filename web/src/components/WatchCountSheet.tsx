@@ -54,9 +54,16 @@ export default function WatchCountSheet({
 	const pending = useRef(watchCount);
 	const timer = useRef<number | null>(null);
 
+	// Opening: this title's count in the same render (set in an effect, the last title's count
+	// showed for a frame — a "Watched Once" from a 3+ title unfolded, then folded away). Rows
+	// therefore mount straight into their state; only − / + animate them
+	const [openFor, setOpenFor] = useState(visible);
+	if (visible !== openFor) {
+		setOpenFor(visible);
+		if (visible) setCount(watchCount);
+	}
 	useEffect(() => {
 		if (!visible) return;
-		setCount(watchCount);
 		committed.current = watchCount;
 		pending.current = watchCount;
 		// Only on open: the stored count catching up mid-edit must not reset the stepper

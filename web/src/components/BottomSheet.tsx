@@ -182,8 +182,9 @@ export function SheetGroup({ children }: { children: ReactNode }) {
 	);
 }
 
-/** Row collapse: strong ease-out, under 250ms (app COLLAPSE) */
-const COLLAPSE = { duration: 0.22, ease: [0.23, 1, 0.32, 1] } as const;
+/** Row folding in / out: a morph on screen → ease-in-out (an ease-out front-loads ~80% of the
+ *  travel into the first frames and read as a snap) — app COLLAPSE */
+const COLLAPSE = { duration: 0.28, ease: [0.65, 0, 0.35, 1] } as const;
 
 interface SheetCollapseProps {
 	open: boolean;

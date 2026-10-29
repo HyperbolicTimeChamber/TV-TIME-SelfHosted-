@@ -19,6 +19,13 @@ import {
 	StyleSheet,
 	Dimensions,
 } from "react-native";
+import Reanimated, {
+	Easing as REasing,
+	runOnJS,
+	useAnimatedStyle,
+	useSharedValue,
+	withTiming,
+} from "react-native-reanimated";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -85,6 +92,7 @@ export default function BottomSheet({ visible, onClose, children }: Props) {
 	// Parked off-screen until measured; every slide then travels exactly the sheet's height
 	const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 	const [sheetH, setSheetH] = useState<number | null>(null);
+	const liveH = useRef<number | null>(null);
 	const hiddenY = sheetH ?? SCREEN_HEIGHT;
 	// Backdrop follows the sheet (drag included) instead of popping in and out
 	const backdropOpacity = useMemo(
@@ -107,13 +115,16 @@ export default function BottomSheet({ visible, onClose, children }: Props) {
 		}
 		if (entered.current || sheetH == null) return;
 		entered.current = true;
-		translateY.setValue(sheetH);
+		translateY.setValue(liveH.current ?? sheetH);
 		Animated.spring(translateY, SHEET_SPRING).start();
 	}, [visible, sheetH, translateY]);
 
 	const close = useCallback<CloseSheet>(
 		(after) => {
-			Animated.timing(translateY, { ...SHEET_EXIT, toValue: hiddenY }).start(() => {
+			Animated.timing(translateY, {
+				...SHEET_EXIT,
+				toValue: liveH.current ?? hiddenY,
+			}).start(() => {
 				onClose();
 				after?.();
 			});
@@ -164,8 +175,11 @@ export default function BottomSheet({ visible, onClose, children }: Props) {
 						{ transform: [{ translateY }] },
 					]}
 					onLayout={(e) => {
-						const h = Math.round(e.nativeEvent.layout.height);
-						if (h !== sheetH) setSheetH(h);
+						// Live height in a ref (closing reads it); state only for the first measure —
+						// a row folding in / out resizes the sheet every frame, and a re-render per
+						// frame made that animation stutter
+						liveH.current = Math.round(e.nativeEvent.layout.height);
+						if (sheetH == null) setSheetH(liveH.current);
 					}}
 					{...panResponder.panHandlers}
 				>
@@ -329,7 +343,9 @@ export function SheetGroup({ children }: { children: ReactNode }) {
 	);
 }
 
-const COLLAPSE = { duration: 220, easing: Easing.bezier(0.23, 1, 0.32, 1) } as const;
+/** Row folding in / out: a morph on screen → ease-in-out (an ease-out front-loads ~80% of the
+ *  travel into the first frames and read as a snap) */
+const COLLAPSE = { duration: 280, easing: REasing.bezier(0.65, 0, 0.35, 1) };
 
 interface SheetCollapseProps {
 	open: boolean;
@@ -343,37 +359,43 @@ interface SheetCollapseProps {
  * instead of the row — and the sheet with it — snapping. Stays mounted until it has closed.
  */
 export function SheetCollapse({ open, children, separator = false }: SheetCollapseProps) {
-	const progress = useRef(new Animated.Value(open ? 1 : 0)).current;
 	const [mounted, setMounted] = useState(open);
-	const [height, setHeight] = useState(0);
+	// UI thread (Reanimated): height can't use RN's native driver, and a JS-driven height
+	// stuttered — every frame round-tripped through JS
+	const progress = useSharedValue(open ? 1 : 0);
+	const height = useSharedValue(0);
+	// Unmount only if it's still meant to be closed when the close lands: the drawer opens on
+	// the last session's count for a frame, so a row can close (instantly, already at 0) and
+	// reopen at once — the late "closed" callback then unmounted a row that should show
+	const openRef = useRef(open);
+	openRef.current = open;
+	const unmountIfClosed = useCallback(() => {
+		if (!openRef.current) setMounted(false);
+	}, []);
 	useEffect(() => {
 		if (open) setMounted(true);
-		// Height can't run on the native driver
-		const anim = Animated.timing(progress, {
-			...COLLAPSE,
-			toValue: open ? 1 : 0,
-			useNativeDriver: false,
+		progress.value = withTiming(open ? 1 : 0, COLLAPSE, (finished) => {
+			if (finished && !open) runOnJS(unmountIfClosed)();
 		});
-		anim.start(({ finished }) => {
-			if (finished && !open) setMounted(false);
-		});
-		return () => anim.stop();
-	}, [open, progress]);
+	}, [open, progress, unmountIfClosed]);
+	// Until measured: 0 tall (the content measures itself, absolutely placed)
+	const style = useAnimatedStyle(() => ({
+		height: height.value * progress.value,
+		opacity: progress.value,
+	}));
 	if (!mounted) return null;
 	return (
-		<Animated.View
-			style={{
-				overflow: "hidden",
-				opacity: progress,
-				// Until measured: 0 tall (the content measures itself, absolutely placed)
-				height: progress.interpolate({ inputRange: [0, 1], outputRange: [0, height] }),
-			}}
-		>
-			<View style={styles.collapseContent} onLayout={(e) => setHeight(e.nativeEvent.layout.height)}>
+		<Reanimated.View style={[styles.collapse, style]}>
+			<View
+				style={styles.collapseContent}
+				onLayout={(e) => {
+					height.value = e.nativeEvent.layout.height;
+				}}
+			>
 				{separator && <View style={styles.separator} />}
 				{children}
 			</View>
-		</Animated.View>
+		</Reanimated.View>
 	);
 }
 
@@ -513,6 +535,7 @@ const styles = StyleSheet.create({
 		color: colors.textSecondary,
 		marginTop: spacing.xs,
 	},
+	collapse: { overflow: "hidden" },
 	collapseContent: { position: "absolute", top: 0, left: 0, right: 0 },
 	group: {
 		backgroundColor: colors.surfaceLight,
