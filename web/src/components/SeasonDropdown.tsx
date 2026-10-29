@@ -112,14 +112,15 @@ function reduceRewatchHint(
 	r: { kind: "episode"; ep: TMDBEpisode; to: number } | { kind: "season" } | null,
 	floor: number,
 	seasonNumber: number,
+	showTitle: string,
 ) {
 	if (!r) return undefined;
 	const pad = (n: number) => String(n).padStart(2, "0");
 	const what =
 		r.kind === "episode"
-			? `S${pad(seasonNumber)}E${pad(r.ep.episode_number)} can't go below`
-			: `Episodes of Season ${seasonNumber} can't go below`;
-	return `${what} x${floor}, your rewatch count. Going lower drops your rewatch count to the lowest watch count left.`;
+			? `S${pad(seasonNumber)}E${pad(r.ep.episode_number)}`
+			: `Episodes of Season ${seasonNumber}`;
+	return `${what} of ${showTitle} cannot go below x${floor}. Going lower will also lower your watch count.`;
 }
 
 export default memo(function SeasonDropdown({ readOnly, isFirst, isLast, ...props }: Props) {
@@ -378,8 +379,9 @@ export default memo(function SeasonDropdown({ readOnly, isFirst, isLast, ...prop
 							s.reduceRewatch,
 							s.rewatchFloorCount,
 							props.season.season_number,
+							props.showTitle,
 						)}
-						confirmLabel="Reduce Rewatch"
+						confirmLabel="Reduce Count"
 						onConfirm={s.confirmReduceRewatch}
 						onClose={() => s.setReduceRewatch(null)}
 					/>
