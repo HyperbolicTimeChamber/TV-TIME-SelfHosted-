@@ -732,6 +732,11 @@ export function useSeasonActions({
 			if (count <= 0) return;
 			const ep = episodes.find((e: TMDBEpisode) => e.episode_number === episode);
 			const runtime = watched?.runtime || ep?.runtime || 0;
+			// Mid-rewatch one watch at a time never goes below the run before this one (x − 1):
+			// earlier runs' watches stay, so stepping back through the carousel can't end the
+			// rewatch
+			const floor = currentRewatchLevel ? currentRewatchLevel - 1 : 0;
+			if (oneWatch && count <= floor) return;
 			const decrement = oneWatch && count > 1;
 			const cacheKey = `${sn}_${episode}`;
 			setWatchedEpisodeCountsCache(
@@ -741,6 +746,20 @@ export function useSeasonActions({
 				new Map([[cacheKey, decrement ? count - 1 : 0]]),
 			);
 			const target = decrement ? count - 1 : 0;
+			// Pointer by the run rule (stepperPointer) while the show is being watched; a completed
+			// one keeps the legacy "back here at a real 0" (undefined)
+			let pointer: PointerTarget | null | undefined;
+			const status = trackingItem?.status;
+			if (
+				status === WatchStatus.WATCHING ||
+				status === WatchStatus.PAUSED ||
+				status === WatchStatus.REWATCHING ||
+				status === WatchStatus.PAUSED_REWATCH
+			) {
+				const { order, counts, tracking } = buildAdvanceInputs([]);
+				const to = stepperPointer(order, counts, tracking, { season: sn, episode }, count, target);
+				pointer = to ? { ...to, ...(await lookupEpisode(to)) } : null;
+			}
 			try {
 				// Off the real count (read first): a stale cached count can't delete watches
 				const final = await writeEpisodeWatchCount(
@@ -750,6 +769,7 @@ export function useSeasonActions({
 					count,
 					target,
 					knownTracking,
+					pointer,
 				);
 				if (final !== target) {
 					// Firestore had a different count → the rows follow it
@@ -796,7 +816,19 @@ export function useSeasonActions({
 				throw err;
 			}
 		},
-		[user?.uid, season.season_number, watchedMap, episodes, queryClient, tmdbId, knownTracking],
+		[
+			user?.uid,
+			season.season_number,
+			watchedMap,
+			episodes,
+			queryClient,
+			tmdbId,
+			knownTracking,
+			currentRewatchLevel,
+			trackingItem,
+			buildAdvanceInputs,
+			lookupEpisode,
+		],
 	);
 
 	const handleSheetAction = useCallback(

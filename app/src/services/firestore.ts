@@ -646,8 +646,17 @@ export async function writeEpisodeWatchCount(
 
 	// Down: off the real count
 	// Rewatch fields the legacy "unwatched" path drops — read only when heading for 0
-	const dropped =
-		pointer === undefined && to <= 0 ? await droppedRewatchFields(userId, tmdbShowId, known) : {};
+	// Legacy "unwatched" (a real 0, no pointer given): a first watch again — unless a rewatch is
+	// under way, which must never end here (status and run number stay; only the pointer moves)
+	let resetFields: Record<string, unknown> = {};
+	if (pointer === undefined && to <= 0) {
+		const data = known
+			? known
+			: (await getDoc(doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)))).data();
+		const inRewatch =
+			data?.status === WatchStatus.REWATCHING || data?.status === WatchStatus.PAUSED_REWATCH;
+		if (!inRewatch) resetFields = { status: WatchStatus.WATCHING };
+	}
 	const result = await runTransaction(db, async (tx) => {
 		const snap = await tx.get(epRef);
 		const actual = (snap.data()?.watchCount as number | undefined) ?? 0;
@@ -681,7 +690,7 @@ export async function writeEpisodeWatchCount(
 			{
 				...historyOnUnwatch(runtime * removed, removed),
 				...(moveTo ? moveFields(moveTo) : {}),
-				...(legacyBack ? { status: WatchStatus.WATCHING, ...dropped } : {}),
+				...(legacyBack ? resetFields : {}),
 			},
 			{ merge: true },
 		);
@@ -697,7 +706,7 @@ export async function writeEpisodeWatchCount(
 			...(result.moveTo
 				? { nextEpisode: { season: result.moveTo.season, episode: result.moveTo.episode } }
 				: {}),
-			...(result.legacyBack ? { status: WatchStatus.WATCHING } : {}),
+			...(result.legacyBack && resetFields.status ? { status: WatchStatus.WATCHING } : {}),
 		});
 	}
 	return result.final;
