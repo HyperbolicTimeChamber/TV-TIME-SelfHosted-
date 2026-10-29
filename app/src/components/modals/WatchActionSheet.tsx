@@ -1,216 +1,93 @@
-import React, { useEffect, useRef } from "react";
-import {
-	View,
-	Text,
-	TouchableOpacity,
-	Modal,
-	Animated,
-	PanResponder,
-	StyleSheet,
-	Dimensions,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { colors, spacing, typography } from "../../theme";
+import React from "react";
+import BottomSheet, { SheetGroup, SheetHeader, SheetOption } from "./BottomSheet";
+import { colors } from "../../theme";
+import type { MediaType } from "../../types";
 
-import type { WatchAction } from "../../types/watchAction";
+import { WatchAction } from "../../types/watchAction";
 
-export type { WatchAction };
+export { WatchAction };
 
 interface Props {
 	visible: boolean;
-	label: string;
+	/** Show / movie name — the logo's fallback */
+	title: string;
+	/** What the actions apply to (e.g. "S01E05 - Pilot", "Season 2") */
+	subtitle?: string;
+	tmdbId?: number;
+	mediaType?: MediaType;
+	logoPath?: string | null;
 	watchCount: number;
-	/** Rewatch row's hint (a show's rewatch starts a run instead of marking it again) */
-	rewatchHint?: string;
+	/** Also offer "Watched Once" (back to a single watch) — info page and watchlist sheets */
+	showWatchedOnce?: boolean;
 	onSelect: (action: WatchAction) => void;
 	onClose: () => void;
 }
 
-const SCREEN_HEIGHT = Dimensions.get("window").height;
-
-/** Sheet's slide-in / snap-back: critically damped, never past its resting place — an
- *  overshoot lifted the sheet off the bottom edge and showed the page under it */
-const SHEET_SPRING = {
-	toValue: 0,
-	damping: 30,
-	stiffness: 220,
-	overshootClamping: true,
-	useNativeDriver: true,
-} as const;
-
+/** Long-press watch actions (watchlist episode / movie, season and episode rows) */
 export default function WatchActionSheet({
 	visible,
-	label,
+	title,
+	subtitle,
+	tmdbId,
+	mediaType,
+	logoPath,
 	watchCount,
-	rewatchHint = "Mark as watched again",
+	showWatchedOnce = false,
 	onSelect,
 	onClose,
 }: Props) {
-	const insets = useSafeAreaInsets();
-	const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-
-	useEffect(() => {
-		if (visible) {
-			Animated.spring(translateY, SHEET_SPRING).start();
-		} else {
-			translateY.setValue(SCREEN_HEIGHT);
-		}
-	}, [visible, translateY]);
-
-	const dismiss = () => {
-		Animated.timing(translateY, {
-			toValue: SCREEN_HEIGHT,
-			duration: 200,
-			useNativeDriver: true,
-		}).start(() => onClose());
-	};
-
-	const panResponder = useRef(
-		PanResponder.create({
-			onStartShouldSetPanResponder: () => false,
-			onMoveShouldSetPanResponder: (_, gs) => gs.dy > 8 && Math.abs(gs.dy) > Math.abs(gs.dx),
-			onPanResponderMove: (_, gs) => {
-				if (gs.dy > 0) translateY.setValue(gs.dy);
-			},
-			onPanResponderRelease: (_, gs) => {
-				if (gs.dy > 80 || gs.vy > 0.5) {
-					dismiss();
-				} else {
-					Animated.spring(translateY, SHEET_SPRING).start();
-				}
-			},
-		}),
-	).current;
-
-	const handleSelect = (action: WatchAction) => {
-		Animated.timing(translateY, {
-			toValue: SCREEN_HEIGHT,
-			duration: 200,
-			useNativeDriver: true,
-		}).start(() => {
-			onClose();
-			onSelect(action);
-		});
-	};
-
 	return (
-		<Modal visible={visible} transparent animationType="none" onRequestClose={dismiss}>
-			<TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={dismiss}>
-				<Animated.View
-					style={[
-						styles.sheet,
-						{ paddingBottom: Math.max(34, insets.bottom + 16), transform: [{ translateY }] },
-					]}
-					{...panResponder.panHandlers}
-				>
-					<TouchableOpacity activeOpacity={1}>
-						<View style={styles.handle} />
-						<Text style={styles.title}>{label}</Text>
-						<Text style={styles.subtitle}>Watched {watchCount}x</Text>
-
-						<TouchableOpacity style={styles.option} onPress={() => handleSelect("rewatch")}>
-							<Text style={styles.optionIcon}>🔄</Text>
-							<View style={styles.optionContent}>
-								<Text style={styles.optionText}>Rewatch</Text>
-								<Text style={styles.optionHint}>{rewatchHint}</Text>
-							</View>
-						</TouchableOpacity>
-
-						<TouchableOpacity
-							style={styles.option}
-							onPress={() => handleSelect("watched_once_less")}
-						>
-							<Text style={styles.optionIcon}>−1</Text>
-							<View style={styles.optionContent}>
-								<Text style={styles.optionText}>
-									{watchCount > 1 ? "Watched Once Less" : "Mark Unwatched"}
-								</Text>
-								<Text style={styles.optionHint}>
-									{watchCount > 1 ? `Reduce to ${watchCount - 1}x` : "Remove from watched"}
-								</Text>
-							</View>
-						</TouchableOpacity>
-
-						{watchCount > 1 && (
-							<TouchableOpacity
-								style={[styles.option, styles.destructiveOption]}
-								onPress={() => handleSelect("not_watched")}
-							>
-								<Text style={styles.optionIcon}>✕</Text>
-								<View style={styles.optionContent}>
-									<Text style={[styles.optionText, styles.destructiveText]}>Not Watched</Text>
-									<Text style={styles.optionHint}>Remove all watch history</Text>
-								</View>
-							</TouchableOpacity>
-						)}
-					</TouchableOpacity>
-				</Animated.View>
-			</TouchableOpacity>
-		</Modal>
+		<BottomSheet visible={visible} onClose={onClose}>
+			{(close) => {
+				const select = (action: WatchAction) => close(() => onSelect(action));
+				return (
+					<>
+						<SheetHeader
+							title={title}
+							subtitle={subtitle}
+							tmdbId={tmdbId}
+							mediaType={mediaType}
+							logoPath={logoPath}
+							watchCount={watchCount}
+						/>
+						<SheetGroup>
+							<SheetOption
+								icon="refresh"
+								color={colors.accent}
+								title="Rewatch"
+								hint="Mark as watched again"
+								onPress={() => select(WatchAction.REWATCH)}
+							/>
+							<SheetOption
+								icon={watchCount > 1 ? "remove" : "eye-off-outline"}
+								color={colors.warningAmber}
+								title={watchCount > 1 ? "Watched Once Less" : "Mark Unwatched"}
+								hint={watchCount > 1 ? `Reduce to ${watchCount - 1}x` : "Remove from watched"}
+								onPress={() => select(WatchAction.WATCHED_ONCE_LESS)}
+							/>
+							{showWatchedOnce && watchCount > 1 && (
+								<SheetOption
+									icon="checkmark-circle-outline"
+									color={colors.watchedGreen}
+									title="Watched Once"
+									hint="Reset to 1x"
+									onPress={() => select(WatchAction.WATCHED_ONCE)}
+								/>
+							)}
+							{watchCount > 1 && (
+								<SheetOption
+									icon="trash-outline"
+									color={colors.destructiveRed}
+									title="Not Watched"
+									hint="Remove all watch history"
+									destructive
+									onPress={() => select(WatchAction.NOT_WATCHED)}
+								/>
+							)}
+						</SheetGroup>
+					</>
+				);
+			}}
+		</BottomSheet>
 	);
 }
-
-const styles = StyleSheet.create({
-	overlay: {
-		flex: 1,
-		backgroundColor: colors.overlayLight,
-		justifyContent: "flex-end",
-	},
-	sheet: {
-		backgroundColor: colors.surface,
-		borderTopLeftRadius: 16,
-		borderTopRightRadius: 16,
-		paddingBottom: 34, // overridden dynamically with safe area insets
-		paddingHorizontal: spacing.lg,
-	},
-	handle: {
-		width: 36,
-		height: 4,
-		borderRadius: 2,
-		backgroundColor: colors.textMuted,
-		alignSelf: "center",
-		marginTop: spacing.sm,
-		marginBottom: spacing.md,
-	},
-	title: {
-		...typography.subtitle,
-		fontSize: 16,
-		textAlign: "center",
-	},
-	subtitle: {
-		...typography.caption,
-		textAlign: "center",
-		marginTop: spacing.xs,
-		marginBottom: spacing.lg,
-	},
-	option: {
-		flexDirection: "row",
-		alignItems: "center",
-		paddingVertical: spacing.md,
-		borderTopWidth: 1,
-		borderTopColor: colors.border,
-	},
-	optionIcon: {
-		fontSize: 18,
-		width: 36,
-		textAlign: "center",
-		color: colors.text,
-	},
-	optionContent: {
-		flex: 1,
-		marginLeft: spacing.sm,
-	},
-	optionText: {
-		...typography.subtitle,
-		fontSize: 15,
-	},
-	optionHint: {
-		...typography.caption,
-		fontSize: 12,
-		marginTop: 2,
-	},
-	destructiveOption: {},
-	destructiveText: {
-		color: colors.destructiveRed,
-	},
-});

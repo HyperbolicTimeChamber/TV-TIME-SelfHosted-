@@ -1,91 +1,93 @@
-import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "motion/react";
-import type { WatchAction } from "@app/types";
-import styles from "./styles/WatchActionSheet.module.scss";
+import {
+	IoCheckmarkCircleOutline,
+	IoEyeOffOutline,
+	IoRefresh,
+	IoRemove,
+	IoTrashOutline,
+} from "react-icons/io5";
+import type { MediaType } from "@app/enums";
+import { WatchAction } from "@app/enums";
+import BottomSheet, { SheetGroup, SheetHeader, SheetOption } from "./BottomSheet";
+import { colors } from "../theme/index";
 
 interface Props {
 	visible: boolean;
-	label: string;
+	/** Show / movie name — the logo's fallback */
+	title: string;
+	/** What the actions apply to (e.g. "S01E05 - Pilot", "Season 2") */
+	subtitle?: string;
+	tmdbId?: number;
+	mediaType?: MediaType;
+	logoPath?: string | null;
 	watchCount: number;
+	/** Also offer "Watched Once" (back to a single watch) — info page and watchlist sheets */
+	showWatchedOnce?: boolean;
 	onSelect: (action: WatchAction) => void;
 	onClose: () => void;
 }
 
-const OPTIONS: Array<{
-	action: WatchAction;
-	icon: string;
-	text: string;
-	hint: string;
-	danger?: boolean;
-}> = [
-	{ action: "rewatch", icon: "🔄", text: "Rewatch", hint: "Mark as watched again" },
-	{
-		action: "watched_once_less",
-		icon: "−1",
-		text: "Watched Once Less",
-		hint: "Reduce watch count by 1",
-	},
-	{
-		action: "not_watched",
-		icon: "✕",
-		text: "Not Watched",
-		hint: "Remove all watch history",
-		danger: true,
-	},
-];
-
-/** Bottom sheet with drag-down-to-dismiss (app WatchActionSheet) */
-export default function WatchActionSheet({ visible, label, watchCount, onSelect, onClose }: Props) {
-	return createPortal(
-		<AnimatePresence>
-			{visible && (
-				<motion.div
-					className={styles.overlay}
-					initial={{ opacity: 0 }}
-					animate={{ opacity: 1 }}
-					exit={{ opacity: 0 }}
-					onClick={onClose}
-				>
-					<motion.div
-						className={styles.sheet}
-						role="dialog"
-						aria-label={label}
-						initial={{ y: "100%" }}
-						animate={{ y: 0, transition: { type: "spring", damping: 20, stiffness: 200 } }}
-						exit={{ y: "100%", transition: { duration: 0.2 } }}
-						drag="y"
-						dragConstraints={{ top: 0, bottom: 0 }}
-						dragElastic={{ top: 0, bottom: 1 }}
-						onDragEnd={(_, info) => {
-							if (info.offset.y > 80 || info.velocity.y > 500) onClose();
-						}}
-						onClick={(e) => e.stopPropagation()}
-					>
-						<div className={styles.handle} />
-						<p className={styles.title}>{label}</p>
-						<p className={styles.subtitle}>Watched {watchCount}x</p>
-						{OPTIONS.map((o) => (
-							<button
-								key={o.action}
-								className={styles.option}
-								onClick={() => {
-									onClose();
-									onSelect(o.action);
-								}}
-							>
-								<span className={styles.optionIcon}>{o.icon}</span>
-								<span className={styles.optionContent}>
-									<span className={o.danger ? styles.optionTextDanger : styles.optionText}>
-										{o.text}
-									</span>
-									<span className={styles.optionHint}>{o.hint}</span>
-								</span>
-							</button>
-						))}
-					</motion.div>
-				</motion.div>
-			)}
-		</AnimatePresence>,
-		document.body,
+/** Long-press watch actions (app WatchActionSheet) */
+export default function WatchActionSheet({
+	visible,
+	title,
+	subtitle,
+	tmdbId,
+	mediaType,
+	logoPath,
+	watchCount,
+	showWatchedOnce = false,
+	onSelect,
+	onClose,
+}: Props) {
+	const select = (action: WatchAction) => {
+		onClose();
+		onSelect(action);
+	};
+	return (
+		<BottomSheet visible={visible} label={title} onClose={onClose}>
+			<SheetHeader
+				title={title}
+				subtitle={subtitle}
+				tmdbId={tmdbId}
+				mediaType={mediaType}
+				logoPath={logoPath}
+				watchCount={watchCount}
+			/>
+			<SheetGroup>
+				<SheetOption
+					icon={IoRefresh}
+					color={colors.accent}
+					title="Rewatch"
+					hint="Mark as watched again"
+					onClick={() => select(WatchAction.REWATCH)}
+				/>
+				<SheetOption
+					icon={watchCount > 1 ? IoRemove : IoEyeOffOutline}
+					color={colors.warningAmber}
+					title={watchCount > 1 ? "Watched Once Less" : "Mark Unwatched"}
+					hint={watchCount > 1 ? `Reduce to ${watchCount - 1}x` : "Remove from watched"}
+					onClick={() => select(WatchAction.WATCHED_ONCE_LESS)}
+				/>
+				{showWatchedOnce && watchCount > 1 && (
+					<SheetOption
+						icon={IoCheckmarkCircleOutline}
+						color={colors.watchedGreen}
+						title="Watched Once"
+						hint="Reset to 1x"
+						onClick={() => select(WatchAction.WATCHED_ONCE)}
+					/>
+				)}
+				{watchCount > 1 && (
+					<SheetOption
+						icon={IoTrashOutline}
+						color={colors.destructiveRed}
+						title="Not Watched"
+						hint="Remove all watch history"
+						destructive
+						onClick={() => select(WatchAction.NOT_WATCHED)}
+					/>
+				)}
+			</SheetGroup>
+		</BottomSheet>
 	);
 }

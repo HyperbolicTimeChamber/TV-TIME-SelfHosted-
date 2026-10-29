@@ -167,22 +167,21 @@ export function removeWatchedEpisodeCache(
 }
 
 /**
- * Whole-show version of removeWatchedEpisodeCache, one cache write per list: `keys`
- * ("season_episode") lose one watch each (dropped at 0); null drops every episode of the show.
+ * Set absolute watch counts ("season_episode" → n; 0 removes the row) in both cached lists —
+ * the paged list the watchlist's rows read and the show's flat list. Absolute, not ±1: a list
+ * that drifted (marks from elsewhere) is corrected instead of carrying the drift forward.
  */
-export function reduceShowWatchedCache(
+export function setWatchedEpisodeCountsCache(
 	queryClient: { setQueryData: (key: any, updater: any) => void },
 	userId: string,
 	tmdbShowId: number,
-	keys: Set<string> | null,
+	counts: Map<string, number>,
 ) {
-	const reduce = (eps: WatchedEpisode[], ofShow: (ep: WatchedEpisode) => boolean) =>
+	const apply = (eps: WatchedEpisode[], ofShow: (ep: WatchedEpisode) => boolean) =>
 		eps.flatMap((ep) => {
-			if (!ofShow(ep)) return [ep];
-			if (!keys) return [];
-			if (!keys.has(`${ep.season}_${ep.episode}`)) return [ep];
-			const watchCount = (ep.watchCount || 1) - 1;
-			return watchCount > 0 ? [{ ...ep, watchCount }] : [];
+			const n = ofShow(ep) ? counts.get(`${ep.season}_${ep.episode}`) : undefined;
+			if (n === undefined) return [ep];
+			return n > 0 ? [{ ...ep, watchCount: n }] : [];
 		});
 	queryClient.setQueryData([QueryKey.WATCHED_EPISODES, userId, undefined], (old: any) => {
 		if (!old?.pages) return old;
@@ -190,11 +189,11 @@ export function reduceShowWatchedCache(
 			...old,
 			pages: old.pages.map((page: any) => ({
 				...page,
-				episodes: reduce(page.episodes, (ep) => ep.tmdbShowId === tmdbShowId),
+				episodes: apply(page.episodes, (ep) => ep.tmdbShowId === tmdbShowId),
 			})),
 		};
 	});
 	queryClient.setQueryData([QueryKey.WATCHED_EPISODES, userId, tmdbShowId], (old: any) =>
-		Array.isArray(old) ? reduce(old, () => true) : old,
+		Array.isArray(old) ? apply(old, () => true) : old,
 	);
 }

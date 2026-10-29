@@ -22,7 +22,7 @@ import {
 import { useSharedShimmer } from "../../../components/SkeletonLine";
 import { ModalBackdrop, ModalLogo } from "../../../components/modals/ModalArt";
 import type { WatchlistListItem } from "../../../types/watchlist";
-import type { EnrichedTrackingItem } from "../../../hooks/useWatchlist";
+import { getCachedCatalogShow, type EnrichedTrackingItem } from "../../../hooks/useWatchlist";
 import { styles } from "./styles";
 import { useWatchlistScreen } from "./useWatchlistScreen";
 import WatchedEpisodeRow from "./WatchedEpisodeRow";
@@ -130,6 +130,10 @@ export default function WatchlistTab() {
 		handleUnmarkEpisode,
 		handleCarouselMarkWatched,
 	} = useWatchlistScreen(handleNavigateToShow);
+	// Episode sheet's logo / name (catalog cache — 0 reads)
+	const sheetShow = sheetEpisode
+		? getCachedCatalogShow(sheetEpisode.tmdbShowId, MediaType.TV)
+		: null;
 	const listData = useMemo(
 		() => withCaughtUp(liveListData, listSettled),
 		[liveListData, listSettled],
@@ -371,8 +375,13 @@ export default function WatchlistTab() {
 			/>
 			<WatchActionSheet
 				visible={sheetVisible}
-				label={sheetLabel}
+				title={sheetShow?.title || ""}
+				subtitle={sheetLabel}
+				tmdbId={sheetEpisode?.tmdbShowId}
+				mediaType={MediaType.TV}
+				logoPath={sheetShow?.logoPath}
 				watchCount={sheetEpisode?.watchCount || 0}
+				showWatchedOnce
 				onSelect={handleSheetAction}
 				onClose={() => {
 					setSheetVisible(false);
@@ -419,8 +428,11 @@ export default function WatchlistTab() {
 			/>
 			<WatchActionSheet
 				visible={movieSheetVisible}
-				label={sheetMovieTitle || "Movie"}
+				title={sheetMovieTitle || "Movie"}
+				tmdbId={sheetMovie?.tmdbId}
+				mediaType={MediaType.MOVIE}
 				watchCount={sheetMovie?.watchCount || 0}
+				showWatchedOnce
 				onSelect={handleMovieSheetAction}
 				onClose={() => {
 					setMovieSheetVisible(false);

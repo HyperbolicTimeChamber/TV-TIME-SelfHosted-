@@ -7,7 +7,7 @@ import {
 	useShowWatchedEpisodes,
 	useUpcomingMutations,
 	insertWatchedEpisodeCache,
-	removeWatchedEpisodeCache,
+	setWatchedEpisodeCountsCache,
 	incrementDailyWatch,
 	decrementDailyWatch,
 } from "../hooks";
@@ -20,6 +20,7 @@ import {
 	decrementEpisodeWatchCount,
 	unmarkSeasonWatched,
 	decrementSeasonWatchCount,
+	resetEpisodesToOnce,
 	setRewatchCount,
 	getSeasonDetails as fetchSeason,
 } from "../services";
@@ -713,7 +714,13 @@ export function useSeasonActions({
 			const ep = episodes.find((e: TMDBEpisode) => e.episode_number === episode);
 			const runtime = watched?.runtime || ep?.runtime || 0;
 			const decrement = oneWatch && count > 1;
-			removeWatchedEpisodeCache(queryClient, user.uid, tmdbId, sn, episode, decrement);
+			const cacheKey = `${sn}_${episode}`;
+			setWatchedEpisodeCountsCache(
+				queryClient,
+				user.uid,
+				tmdbId,
+				new Map([[cacheKey, decrement ? count - 1 : 0]]),
+			);
 			try {
 				if (decrement) {
 					await decrementEpisodeWatchCount(
@@ -741,6 +748,10 @@ export function useSeasonActions({
 				}
 				decrementDailyWatch("episode");
 			} catch (err) {
+				if (decrement) {
+					setWatchedEpisodeCountsCache(queryClient, user.uid, tmdbId, new Map([[cacheKey, count]]));
+					throw err;
+				}
 				const now = Timestamp.now();
 				insertWatchedEpisodeCache(queryClient, user.uid, {
 					id: `${tmdbId}_S${String(sn).padStart(2, "0")}E${String(episode).padStart(2, "0")}`,
@@ -762,21 +773,52 @@ export function useSeasonActions({
 	const handleSheetAction = useCallback(
 		async (action: WatchAction) => {
 			if (!user?.uid || !sheetTarget) return;
+			// Same spinner as a mark while the write saves (rewatch sets its own): season → the
+			// season's checkmark, episode → that episode's
+			const busy = action !== WatchAction.REWATCH;
+			if (busy) {
+				if (sheetTarget.type === "season") setMarkingSeason(true);
+				else setMarkingEps(new Set([sheetTarget.ep.episode_number]));
+			}
 
 			try {
-				if (sheetTarget.type === "episode") {
+				if (action === WatchAction.WATCHED_ONCE) {
+					// Episode: just it; season: every watched episode in it — back to one watch each
+					const nums =
+						sheetTarget.type === "episode"
+							? [sheetTarget.ep.episode_number]
+							: episodes.map((ep: TMDBEpisode) => ep.episode_number);
+					const targets = nums
+						.map((n: number) => ({ n, w: watchedMap.get(n) }))
+						.filter(({ w }) => (w?.watchCount ?? 0) > 1)
+						.map(({ n, w }) => ({
+							season: season.season_number,
+							episode: n,
+							runtime: w!.runtime || 0,
+							watchCount: w!.watchCount,
+						}));
+					if (targets.length > 0) {
+						await resetEpisodesToOnce(user.uid, tmdbId, targets);
+						setWatchedEpisodeCountsCache(
+							queryClient,
+							user.uid,
+							tmdbId,
+							new Map(targets.map((t) => [`${t.season}_${t.episode}`, 1])),
+						);
+					}
+				} else if (sheetTarget.type === "episode") {
 					const ep = sheetTarget.ep;
-					if (action === "rewatch") {
+					if (action === WatchAction.REWATCH) {
 						markOrAskJump(ep);
-					} else if (action === "not_watched") {
+					} else if (action === WatchAction.NOT_WATCHED) {
 						await unwatchEpisode(ep.episode_number, false);
-					} else if (action === "watched_once_less") {
+					} else if (action === WatchAction.WATCHED_ONCE_LESS) {
 						await unwatchEpisode(ep.episode_number, true);
 					}
 				} else if (sheetTarget.type === "season") {
-					if (action === "rewatch") {
+					if (action === WatchAction.REWATCH) {
 						await handleMarkSeasonWatched();
-					} else if (action === "not_watched") {
+					} else if (action === WatchAction.NOT_WATCHED) {
 						const toUnmark = episodes
 							.filter((ep: TMDBEpisode) => watchedMap.has(ep.episode_number))
 							.map((ep: TMDBEpisode) => ({
@@ -787,7 +829,7 @@ export function useSeasonActions({
 						if (toUnmark.length > 0) {
 							await unmarkSeasonWatched(user.uid, tmdbId, toUnmark, knownTracking);
 						}
-					} else if (action === "watched_once_less") {
+					} else if (action === WatchAction.WATCHED_ONCE_LESS) {
 						const toDecrement = episodes
 							.filter((ep: TMDBEpisode) => {
 								const w = watchedMap.get(ep.episode_number);
@@ -809,39 +851,32 @@ export function useSeasonActions({
 				}
 				// Update query cache locally (episode actions: done up front by unwatchEpisode;
 				// "rewatch" handled by handleMarkWatched → doMarkEpisodeWatched)
-				if (sheetTarget.type === "season") {
-					if (action === "not_watched") {
-						for (const ep of episodes) {
-							if (watchedMap.has(ep.episode_number)) {
-								removeWatchedEpisodeCache(
-									queryClient,
-									user.uid,
-									tmdbId,
-									season.season_number,
-									ep.episode_number,
-								);
-							}
-						}
-					} else if (action === "watched_once_less") {
-						for (const ep of episodes) {
-							const w = watchedMap.get(ep.episode_number);
-							if (w && w.watchCount > 0) {
-								removeWatchedEpisodeCache(
-									queryClient,
-									user.uid,
-									tmdbId,
-									season.season_number,
-									ep.episode_number,
-									true,
-								);
-							}
-						}
+				if (
+					sheetTarget.type === "season" &&
+					(action === WatchAction.NOT_WATCHED || action === WatchAction.WATCHED_ONCE_LESS)
+				) {
+					// Absolute counts from this show's list (the sheet's source), so the watchlist's
+					// rows land on the same numbers even if they had drifted
+					const counts = new Map<string, number>();
+					for (const ep of episodes) {
+						const w = watchedMap.get(ep.episode_number);
+						if (!w || w.watchCount <= 0) continue;
+						counts.set(
+							`${season.season_number}_${ep.episode_number}`,
+							action === WatchAction.NOT_WATCHED ? 0 : w.watchCount - 1,
+						);
 					}
+					setWatchedEpisodeCountsCache(queryClient, user.uid, tmdbId, counts);
 					// "rewatch" handled by handleMarkSeasonWatched → doMarkSeasonWatched
 				}
 			} catch (err: any) {
 				console.error("Watch action failed:", err);
 				Alert.alert("Error", err.message || "Action failed.");
+			} finally {
+				if (busy) {
+					setMarkingSeason(false);
+					setMarkingEps(new Set());
+				}
 			}
 			setSheetTarget(null);
 		},

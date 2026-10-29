@@ -17,6 +17,7 @@ import {
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { WatchStatus, MediaType, CloudFunction, CatalogShow } from "../types";
+import { WatchProgress } from "../enums";
 import { showDocId, emitHistoryChange, localizeCatalog } from "../utils";
 import { trackApi } from "./analytics";
 import { historyOnWatch, historyOnUnwatch, historyCleared, historyOnChange } from "./history";
@@ -233,18 +234,30 @@ export async function stopWatching(
 }
 
 /**
- * Anything watched (plays > 0) — remove is blocked until the history is cleared. Local cache
- * first (the watchlist listener usually holds the doc → 0 reads); server only on a miss.
+ * How far the user got (plays > 0 = anything watched) — remove is blocked past NONE until the
+ * history is cleared. Local cache first (the watchlist listener usually holds the doc → 0
+ * reads); server only on a miss.
  */
-export async function hasWatchHistory(userId: string, tmdbId: number, mediaType: MediaType) {
+export async function getWatchProgress(
+	userId: string,
+	tmdbId: number,
+	mediaType: MediaType,
+): Promise<WatchProgress> {
 	const ref = doc(trackingRef(userId), showDocId(tmdbId, mediaType));
 	const snap = await getDocFromCache(ref).catch(() => getDoc(ref));
 	const data = snap.data();
-	// Older movie docs may predate plays — a completed movie was watched
-	return (
-		((data?.plays as number | undefined) ?? 0) > 0 ||
-		(mediaType === MediaType.MOVIE && data?.status === WatchStatus.COMPLETED)
-	);
+	const status = data?.status as WatchStatus | undefined;
+	const played = ((data?.plays as number | undefined) ?? 0) > 0;
+	if (mediaType === MediaType.MOVIE) {
+		// Older movie docs may predate plays — a completed movie was watched
+		return played || status === WatchStatus.COMPLETED ? WatchProgress.WATCHED : WatchProgress.NONE;
+	}
+	if (!played) return WatchProgress.NONE;
+	return status === WatchStatus.COMPLETED ||
+		status === WatchStatus.REWATCHING ||
+		status === WatchStatus.PAUSED_REWATCH
+		? WatchProgress.WATCHED
+		: WatchProgress.STARTED;
 }
 
 /** Clean the upcoming subcollection for this show (fire-and-forget) — paused shows have none */
@@ -650,17 +663,51 @@ export async function decrementSeasonWatchCount(
 	}
 }
 
-/** Completed → next rewatch run from S1E1; `paused` queues it (PAUSED_REWATCH, off the watchlist) */
-export async function startRewatch(
+/**
+ * "Watched once": every listed episode back to a single watch (extra plays removed). Info page
+ * season / episode sheet. Episodes already at 1 (or unwatched) are skipped.
+ */
+export async function resetEpisodesToOnce(
 	userId: string,
-	tmdbId: number,
-	mediaType: MediaType,
-	paused = false,
+	tmdbShowId: number,
+	episodes: Array<{ season: number; episode: number; runtime: number; watchCount: number }>,
 ) {
+	const extra = episodes.filter((ep) => ep.watchCount > 1);
+	if (extra.length === 0) return;
+	const batch = writeBatch(db);
+	let plays = 0;
+	let minutes = 0;
+	for (const ep of extra) {
+		batch.update(doc(watchedEpisodesRef(userId), episodeDocId(tmdbShowId, ep.season, ep.episode)), {
+			watchCount: 1,
+		});
+		plays += ep.watchCount - 1;
+		minutes += ep.runtime * (ep.watchCount - 1);
+	}
+	batch.set(
+		userRef(userId),
+		{ stats: { episodesWatched: increment(-plays), totalMinutes: increment(-minutes) } },
+		{ merge: true },
+	);
+	batch.set(
+		doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)),
+		historyOnUnwatch(minutes, plays),
+		{ merge: true },
+	);
+	await batch.commit();
+	emitHistoryChange({
+		userId,
+		tmdbId: tmdbShowId,
+		mediaType: MediaType.TV,
+		minutesDelta: -minutes,
+		playsDelta: -plays,
+	});
+}
+
+export async function startRewatch(userId: string, tmdbId: number, mediaType: MediaType) {
 	const docId = showDocId(tmdbId, mediaType);
-	const status = paused ? WatchStatus.PAUSED_REWATCH : WatchStatus.REWATCHING;
 	await updateDoc(doc(trackingRef(userId), docId), {
-		status,
+		status: WatchStatus.REWATCHING,
 		rewatchCount: increment(1),
 		nextEpisode: { season: 1, episode: 1 },
 		lastWatchedAt: serverTimestamp(),
@@ -671,91 +718,10 @@ export async function startRewatch(
 		userId,
 		tmdbId,
 		mediaType,
-		status,
+		status: WatchStatus.REWATCHING,
 		nextEpisode: { season: 1, episode: 1 },
 		rewatchDelta: 1,
 	});
-	if (paused) clearUpcomingDocs(userId, tmdbId);
-}
-
-/**
- * Whole-show "watched once less" / "not watched" (completed show's long-press sheet).
- * `clearAll` deletes every watched episode → back to a first watch from `firstEp`; otherwise
- * each listed episode loses one watch and the show stays completed at `watchCount` full watches.
- * Chunked under Firestore's 500-op batch limit; the tracking + stats writes ride the last chunk.
- */
-export async function reduceShowWatches(
-	userId: string,
-	tmdbShowId: number,
-	episodes: Array<{ season: number; episode: number; runtime: number; watchCount: number }>,
-	clearAll: boolean,
-	watchCount: number,
-	firstEp: { season: number; episode: number; name: string | null; airDate: string | null },
-) {
-	const writes = episodes.filter((ep) => ep.watchCount > 0);
-	if (writes.length === 0) return;
-	let minutes = 0;
-	let plays = 0;
-	const CHUNK = 450;
-	for (let i = 0; i < writes.length; i += CHUNK) {
-		const batch = writeBatch(db);
-		for (const ep of writes.slice(i, i + CHUNK)) {
-			const epRef = doc(watchedEpisodesRef(userId), episodeDocId(tmdbShowId, ep.season, ep.episode));
-			const removed = clearAll ? ep.watchCount : 1;
-			if (removed >= ep.watchCount) batch.delete(epRef);
-			else batch.update(epRef, { watchCount: increment(-1) });
-			minutes += ep.runtime * removed;
-			plays += removed;
-		}
-		if (i + CHUNK >= writes.length) {
-			batch.set(
-				userRef(userId),
-				{ stats: { episodesWatched: increment(-plays), totalMinutes: increment(-minutes) } },
-				{ merge: true },
-			);
-			batch.set(
-				doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)),
-				clearAll
-					? {
-							status: WatchStatus.WATCHING,
-							nextEpisode: { season: firstEp.season, episode: firstEp.episode },
-							nextEpisodeName: firstEp.name,
-							nextEpisodeAirDate: firstEp.airDate,
-							rewatchCount: 0,
-							priorityDate: Timestamp.now(),
-							...historyCleared(),
-						}
-					: {
-							status: WatchStatus.COMPLETED,
-							rewatchCount: Math.max(0, watchCount - 1),
-							...historyOnUnwatch(minutes, plays),
-						},
-				{ merge: true },
-			);
-		}
-		await batch.commit();
-	}
-	emitHistoryChange(
-		clearAll
-			? {
-					userId,
-					tmdbId: tmdbShowId,
-					mediaType: MediaType.TV,
-					cleared: true,
-					status: WatchStatus.WATCHING,
-					nextEpisode: { season: firstEp.season, episode: firstEp.episode },
-					rewatchCount: 0,
-				}
-			: {
-					userId,
-					tmdbId: tmdbShowId,
-					mediaType: MediaType.TV,
-					minutesDelta: -minutes,
-					playsDelta: -plays,
-					status: WatchStatus.COMPLETED,
-					rewatchCount: Math.max(0, watchCount - 1),
-				},
-	);
 }
 
 /**
@@ -937,6 +903,73 @@ export async function decrementMovieWatchCount(
 		mediaType: MediaType.MOVIE,
 		...(willDelete ? { cleared: true } : { minutesDelta: -(runtime || 0), playsDelta: -1 }),
 	});
+}
+
+/**
+ * Detail page watch count sheet: set a movie's plays from → to in one batch (the sheet
+ * debounces taps, so +3 is one write). 0 → unwatched (tracking back to watching, out of history).
+ */
+export async function writeMovieWatchCount(
+	userId: string,
+	tmdbId: number,
+	runtime: number,
+	from: number,
+	to: number,
+): Promise<void> {
+	const delta = to - from;
+	if (delta === 0) return;
+	runtime = await resolveMovieRuntime(tmdbId, runtime);
+	const minutes = (runtime || 0) * delta;
+	const batch = writeBatch(db);
+	const movieRef = doc(watchedMoviesRef(userId), String(tmdbId));
+	const tRef = doc(trackingRef(userId), showDocId(tmdbId, MediaType.MOVIE));
+	const now = serverTimestamp();
+
+	if (to <= 0) batch.delete(movieRef);
+	else
+		batch.set(
+			movieRef,
+			{
+				tmdbId,
+				runtime: runtime || 0,
+				watchCount: increment(delta),
+				...(delta > 0 ? { lastWatchedAt: now } : {}),
+			},
+			{ merge: true },
+		);
+	batch.set(
+		userRef(userId),
+		{ stats: { moviesWatched: increment(delta), totalMinutes: increment(minutes) } },
+		{ merge: true },
+	);
+	batch.set(
+		tRef,
+		to <= 0
+			? { status: WatchStatus.WATCHING, priorityDate: Timestamp.now(), ...historyCleared() }
+			: delta > 0
+				? {
+						status: WatchStatus.COMPLETED,
+						lastWatchedAt: now,
+						priorityDate: now,
+						...historyOnWatch(minutes, delta),
+					}
+				: historyOnUnwatch(-minutes, -delta),
+		{ merge: true },
+	);
+
+	await batch.commit();
+	emitHistoryChange(
+		to <= 0
+			? { userId, tmdbId, mediaType: MediaType.MOVIE, cleared: true }
+			: {
+					userId,
+					tmdbId,
+					mediaType: MediaType.MOVIE,
+					minutesDelta: minutes,
+					playsDelta: delta,
+					...(delta > 0 ? { watched: true, status: WatchStatus.COMPLETED } : {}),
+				},
+	);
 }
 
 export async function unmarkMovieWatched(

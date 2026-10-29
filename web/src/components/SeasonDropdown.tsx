@@ -217,8 +217,13 @@ export default memo(function SeasonDropdown({ readOnly, isFirst, isLast, ...prop
 				<>
 					<WatchActionSheet
 						visible={s.sheetVisible}
-						label={s.sheetLabel}
+						title={props.showTitle}
+						subtitle={s.sheetLabel}
+						tmdbId={props.tmdbId}
+						mediaType={MediaType.TV}
+						logoPath={showLogo}
 						watchCount={s.sheetTarget?.watchCount || 0}
+						showWatchedOnce
 						onSelect={s.handleSheetAction}
 						onClose={() => {
 							s.setSheetVisible(false);

@@ -9,6 +9,8 @@ import {
 	markMovieWatched,
 	unmarkMovieWatched,
 	decrementMovieWatchCount,
+	resetEpisodesToOnce,
+	writeMovieWatchCount,
 	getCatalogShow,
 	getShowDetails,
 } from "../../../services";
@@ -36,6 +38,7 @@ import {
 import {
 	insertWatchedEpisodeCache,
 	removeWatchedEpisodeCache,
+	setWatchedEpisodeCountsCache,
 	insertWatchedMovieCache,
 	incrementDailyWatch,
 	decrementDailyWatch,
@@ -405,7 +408,7 @@ export function useWatchlistScreen(
 			if (!user?.uid || !sheetEpisode) return;
 
 			try {
-				if (action === "rewatch") {
+				if (action === WatchAction.REWATCH) {
 					const catalog = await getCatalogShow(sheetEpisode.tmdbShowId, MediaType.TV);
 					const catalogSeason = catalog?.seasons?.find(
 						(s) => s.seasonNumber === sheetEpisode.season,
@@ -447,7 +450,7 @@ export function useWatchlistScreen(
 						isComplete,
 					);
 					incrementDailyWatch("episode");
-				} else if (action === "not_watched") {
+				} else if (action === WatchAction.NOT_WATCHED) {
 					await unmarkEpisodeWatched(
 						user.uid,
 						sheetEpisode.tmdbShowId,
@@ -457,7 +460,7 @@ export function useWatchlistScreen(
 						sheetEpisode.episodeTitle,
 					);
 					decrementDailyWatch("episode");
-				} else if (action === "watched_once_less") {
+				} else if (action === WatchAction.WATCHED_ONCE_LESS) {
 					await decrementEpisodeWatchCount(
 						user.uid,
 						sheetEpisode.tmdbShowId,
@@ -468,8 +471,24 @@ export function useWatchlistScreen(
 						sheetEpisode.episodeTitle,
 					);
 					decrementDailyWatch("episode");
+				} else if (action === WatchAction.WATCHED_ONCE) {
+					await resetEpisodesToOnce(user.uid, sheetEpisode.tmdbShowId, [
+						{
+							season: sheetEpisode.season,
+							episode: sheetEpisode.episode,
+							runtime: sheetEpisode.runtime || 0,
+							watchCount: sheetEpisode.watchCount,
+						},
+					]);
 				}
-				if (action === "rewatch") {
+				if (action === WatchAction.WATCHED_ONCE) {
+					setWatchedEpisodeCountsCache(
+						queryClient,
+						user.uid,
+						sheetEpisode.tmdbShowId,
+						new Map([[`${sheetEpisode.season}_${sheetEpisode.episode}`, 1]]),
+					);
+				} else if (action === WatchAction.REWATCH) {
 					const now = Timestamp.now();
 					insertWatchedEpisodeCache(queryClient, user.uid, {
 						id: `${sheetEpisode.tmdbShowId}_S${String(sheetEpisode.season).padStart(2, "0")}E${String(sheetEpisode.episode).padStart(2, "0")}`,
@@ -489,7 +508,7 @@ export function useWatchlistScreen(
 						sheetEpisode.tmdbShowId,
 						sheetEpisode.season,
 						sheetEpisode.episode,
-						action === "watched_once_less",
+						action === WatchAction.WATCHED_ONCE_LESS,
 					);
 				}
 			} catch (err: any) {
@@ -567,7 +586,7 @@ export function useWatchlistScreen(
 		async (action: WatchAction) => {
 			if (!user?.uid || !sheetMovie) return;
 			try {
-				if (action === "rewatch") {
+				if (action === WatchAction.REWATCH) {
 					await markMovieWatched(user.uid, sheetMovie.tmdbId, sheetMovie.runtime ?? 0);
 					insertWatchedMovieCache(queryClient, user.uid, {
 						...sheetMovie,
@@ -575,7 +594,7 @@ export function useWatchlistScreen(
 						lastWatchedAt: Timestamp.now(),
 					});
 					incrementDailyWatch("movie");
-				} else if (action === "watched_once_less") {
+				} else if (action === WatchAction.WATCHED_ONCE_LESS) {
 					if (sheetMovie.watchCount <= 1) {
 						await unmarkMovieWatched(user.uid, sheetMovie.tmdbId, sheetMovie.runtime ?? 0);
 						queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
@@ -611,7 +630,7 @@ export function useWatchlistScreen(
 						});
 					}
 					decrementDailyWatch("movie");
-				} else if (action === "not_watched") {
+				} else if (action === WatchAction.NOT_WATCHED) {
 					await unmarkMovieWatched(user.uid, sheetMovie.tmdbId, sheetMovie.runtime ?? 0);
 					queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
 						if (!old?.pages) return old;
@@ -624,6 +643,26 @@ export function useWatchlistScreen(
 						};
 					});
 					decrementDailyWatch("movie");
+				} else if (action === WatchAction.WATCHED_ONCE && sheetMovie.watchCount > 1) {
+					await writeMovieWatchCount(
+						user.uid,
+						sheetMovie.tmdbId,
+						sheetMovie.runtime ?? 0,
+						sheetMovie.watchCount,
+						1,
+					);
+					queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
+						if (!old?.pages) return old;
+						return {
+							...old,
+							pages: old.pages.map((p: any) => ({
+								...p,
+								movies: p.movies.map((m: any) =>
+									m.tmdbId === sheetMovie.tmdbId ? { ...m, watchCount: 1 } : m,
+								),
+							})),
+						};
+					});
 				}
 			} catch (err: any) {
 				console.error("Movie action failed:", err);

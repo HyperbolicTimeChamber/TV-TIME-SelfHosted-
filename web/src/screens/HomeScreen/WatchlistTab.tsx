@@ -12,7 +12,7 @@ import ConfirmModal from "../../components/ConfirmModal";
 import HomeEmpty, { CAUGHT_UP_ART, WELCOME_ART } from "./HomeEmpty";
 import { UP_NEXT_TITLE, withCaughtUp } from "@app/utils/watchlistList";
 import { ModalBackdrop, ModalLogo } from "../../components/ModalArt";
-import type { EnrichedTrackingItem } from "@app/hooks/useWatchlist";
+import { getCachedCatalogShow, type EnrichedTrackingItem } from "@app/hooks/useWatchlist";
 import { colors } from "../../theme/index";
 import LoadingScreen from "../../components/LoadingScreen";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
@@ -36,6 +36,10 @@ export default function WatchlistTab() {
 		[navigate],
 	);
 	const w = useWatchlistScreen(goToShow);
+	// Episode sheet's logo / name (catalog cache — 0 reads)
+	const sheetShow = w.sheetEpisode
+		? getCachedCatalogShow(w.sheetEpisode.tmdbShowId, MediaType.TV)
+		: null;
 	// Long press / right-click on a card → confirm pausing it (no swipe — too easy by accident)
 	const [pauseTarget, setPauseTarget] = useState<EnrichedTrackingItem | null>(null);
 	const [pausing, setPausing] = useState(false);
@@ -172,8 +176,13 @@ export default function WatchlistTab() {
 			/>
 			<WatchActionSheet
 				visible={w.sheetVisible}
-				label={w.sheetLabel}
+				title={sheetShow?.title || ""}
+				subtitle={w.sheetLabel}
+				tmdbId={w.sheetEpisode?.tmdbShowId}
+				mediaType={MediaType.TV}
+				logoPath={sheetShow?.logoPath}
 				watchCount={w.sheetEpisode?.watchCount || 0}
+				showWatchedOnce
 				onSelect={w.handleSheetAction}
 				onClose={() => {
 					w.setSheetVisible(false);
@@ -182,8 +191,11 @@ export default function WatchlistTab() {
 			/>
 			<WatchActionSheet
 				visible={w.movieSheetVisible}
-				label={w.sheetMovieTitle || "Movie"}
+				title={w.sheetMovieTitle || "Movie"}
+				tmdbId={w.sheetMovie?.tmdbId}
+				mediaType={MediaType.MOVIE}
 				watchCount={w.sheetMovie?.watchCount || 0}
+				showWatchedOnce
 				onSelect={w.handleMovieSheetAction}
 				onClose={() => {
 					w.setMovieSheetVisible(false);

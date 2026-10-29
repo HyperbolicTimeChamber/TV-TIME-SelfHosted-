@@ -4,8 +4,10 @@ export {
 	AddFailedModal,
 	EpisodeDetailModal,
 	WatchActionSheet,
+	WatchCountSheet,
 } from "./modals";
-export type { WatchAction, CarouselEpisode } from "./modals";
+export { WatchAction } from "./modals";
+export type { CarouselEpisode } from "./modals";
 export { default as CheckmarkButton } from "./CheckmarkButton";
 export { default as EpisodeCard } from "./EpisodeCard";
 export { default as ShowDrawer } from "./ShowDrawer";
