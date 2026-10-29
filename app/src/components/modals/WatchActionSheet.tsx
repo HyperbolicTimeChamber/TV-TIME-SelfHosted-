@@ -65,7 +65,8 @@ export default function WatchActionSheet({
 								hint={watchCount > 1 ? `Reduce to ${watchCount - 1}x` : "Remove from watched"}
 								onPress={() => select(WatchAction.WATCHED_ONCE_LESS)}
 							/>
-							{showWatchedOnce && watchCount > 1 && (
+							{/* At 2, "Watched Once Less" already lands on 1 */}
+							{showWatchedOnce && watchCount > 2 && (
 								<SheetOption
 									icon="checkmark-circle-outline"
 									color={colors.watchedGreen}

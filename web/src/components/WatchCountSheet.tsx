@@ -129,7 +129,8 @@ export default function WatchCountSheet({
 						</button>
 					</div>
 				</div>
-				{count > 1 && (
+				{/* At 2, − already lands on 1 */}
+				{count > 2 && (
 					<SheetOption
 						icon={IoCheckmarkCircleOutline}
 						color={colors.watchedGreen}

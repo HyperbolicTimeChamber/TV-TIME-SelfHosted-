@@ -31,13 +31,17 @@ export default function BottomSheet({
 	return createPortal(
 		<AnimatePresence>
 			{visible && (
-				<motion.div
-					className={styles.overlay}
-					initial={{ opacity: 0 }}
-					animate={{ opacity: 1 }}
-					exit={{ opacity: 0, transition: SHEET_EXIT }}
-					onClick={onClose}
-				>
+				// Backdrop and sheet are siblings: the backdrop fades, the sheet only slides (as a
+				// child of the fading backdrop it faded out too and read as a blink)
+				// motion.div (no animation of its own) so AnimatePresence waits for both exits
+				<motion.div key="sheet" className={styles.overlay}>
+					<motion.div
+						className={styles.backdrop}
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						exit={{ opacity: 0, transition: SHEET_EXIT }}
+						onClick={onClose}
+					/>
 					<motion.div
 						className={styles.sheet}
 						role="dialog"
@@ -51,7 +55,6 @@ export default function BottomSheet({
 						onDragEnd={(_, info) => {
 							if (info.offset.y > 80 || info.velocity.y > 500) onClose();
 						}}
-						onClick={(e) => e.stopPropagation()}
 					>
 						<div className={styles.handle} />
 						{children}

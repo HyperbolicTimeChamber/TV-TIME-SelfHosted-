@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
 	View,
 	Text,
@@ -30,10 +30,10 @@ const SHEET_SPRING = {
 	overshootClamping: true,
 	useNativeDriver: true,
 } as const;
-/** Exit: faster than the entry, iOS drawer curve */
+/** Exit: a touch quicker than the entry, iOS drawer curve. Travels the sheet's own height —
+ *  sliding the whole screen height put it off-screen in the first frames (read as a blink) */
 const SHEET_EXIT = {
-	toValue: SCREEN_HEIGHT,
-	duration: 220,
+	duration: 240,
 	easing: Easing.bezier(0.32, 0.72, 0, 1),
 	useNativeDriver: true,
 } as const;
@@ -72,27 +72,43 @@ interface Props {
 /** Bottom sheet shell: dimmed backdrop that fades with the sheet, drag down / tap outside to close */
 export default function BottomSheet({ visible, onClose, children }: Props) {
 	const insets = useSafeAreaInsets();
+	// Parked off-screen until measured; every slide then travels exactly the sheet's height
 	const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+	const [sheetH, setSheetH] = useState<number | null>(null);
+	const hiddenY = sheetH ?? SCREEN_HEIGHT;
 	// Backdrop follows the sheet (drag included) instead of popping in and out
-	const backdropOpacity = translateY.interpolate({
-		inputRange: [0, SCREEN_HEIGHT / 2],
-		outputRange: [1, 0],
-		extrapolate: "clamp",
-	});
+	const backdropOpacity = useMemo(
+		() =>
+			translateY.interpolate({
+				inputRange: [0, hiddenY],
+				outputRange: [1, 0],
+				extrapolate: "clamp",
+			}),
+		[translateY, hiddenY],
+	);
 
+	// Slide in once open and measured (first open waits a frame for its layout)
+	const entered = useRef(false);
 	useEffect(() => {
-		if (visible) Animated.spring(translateY, SHEET_SPRING).start();
-		else translateY.setValue(SCREEN_HEIGHT);
-	}, [visible, translateY]);
+		if (!visible) {
+			entered.current = false;
+			translateY.setValue(SCREEN_HEIGHT);
+			return;
+		}
+		if (entered.current || sheetH == null) return;
+		entered.current = true;
+		translateY.setValue(sheetH);
+		Animated.spring(translateY, SHEET_SPRING).start();
+	}, [visible, sheetH, translateY]);
 
 	const close = useCallback<CloseSheet>(
 		(after) => {
-			Animated.timing(translateY, SHEET_EXIT).start(() => {
+			Animated.timing(translateY, { ...SHEET_EXIT, toValue: hiddenY }).start(() => {
 				onClose();
 				after?.();
 			});
 		},
-		[translateY, onClose],
+		[translateY, hiddenY, onClose],
 	);
 	// The pan responder is made once — it reads the latest close through this
 	const closeRef = useRef(close);
@@ -119,6 +135,9 @@ export default function BottomSheet({ visible, onClose, children }: Props) {
 			transparent
 			animationType="none"
 			statusBarTranslucent
+			// Draw under the nav bar too: the sheet's fill runs to the screen edge and the
+			// padding above keeps its rows clear of the bar
+			navigationBarTranslucent
 			onRequestClose={() => close()}
 		>
 			<View style={styles.root}>
@@ -130,9 +149,14 @@ export default function BottomSheet({ visible, onClose, children }: Props) {
 				<Animated.View
 					style={[
 						styles.sheet,
-						{ paddingBottom: Math.max(spacing.xl, insets.bottom + spacing.md) },
+						// Clear of the system nav bar (3-button bar ≈ 48dp, gesture pill less) + a gap
+						{ paddingBottom: insets.bottom + spacing.lg },
 						{ transform: [{ translateY }] },
 					]}
+					onLayout={(e) => {
+						const h = Math.round(e.nativeEvent.layout.height);
+						if (h !== sheetH) setSheetH(h);
+					}}
 					{...panResponder.panHandlers}
 				>
 					<View style={styles.handle} />

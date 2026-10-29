@@ -116,7 +116,8 @@ export default function WatchCountSheet({
 								<StepButton icon="add" label="Watched once more" primary onPress={() => step(1)} />
 							</View>
 						</View>
-						{count > 1 && (
+						{/* At 2, − already lands on 1 */}
+						{count > 2 && (
 							<SheetOption
 								icon="checkmark-circle-outline"
 								color={colors.watchedGreen}

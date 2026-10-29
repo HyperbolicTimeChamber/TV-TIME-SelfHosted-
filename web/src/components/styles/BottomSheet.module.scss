@@ -4,18 +4,25 @@
 	position: fixed;
 	inset: 0;
 	z-index: 1000;
-	background: rgba(0, 0, 0, 0.6);
 	display: flex;
 	align-items: flex-end;
 	justify-content: center;
 }
 
+.backdrop {
+	position: absolute;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.6);
+}
+
 .sheet {
+	position: relative;
 	width: 100%;
 	max-width: 520px;
 	background: var(--surface);
 	border-radius: 20px 20px 0 0;
-	padding: 0 16px max(24px, calc(env(safe-area-inset-bottom) + 12px));
+	/* Clear of the home indicator / browser nav bar, plus a gap */
+	padding: 0 16px calc(env(safe-area-inset-bottom) + 16px);
 	touch-action: none;
 }
 
