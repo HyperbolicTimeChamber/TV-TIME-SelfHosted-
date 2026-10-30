@@ -150,6 +150,9 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 				}
 				try {
 					const cached = JSON.parse(raw);
+					// Sync stamp counts even with nothing upcoming: otherwise an empty list re-fetches
+					// (and re-runs the rebuildUpcoming CF) on every launch
+					if (cached.userId === userId) cachedSyncDate.current = cached.syncDate || null;
 					if (cached.userId === userId && cached.episodes?.length > 0) {
 						const today = todayStr();
 						// Aired since last open → push into past queue instead of dropping
@@ -157,7 +160,6 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 						const pruned = (cached.episodes as UpcomingEpisode[]).filter(
 							(ep) => ep.airDate >= today,
 						);
-						cachedSyncDate.current = cached.syncDate || null;
 						if (pruned.length > 0) {
 							setEpisodes(pruned);
 							setIsLoading(false);

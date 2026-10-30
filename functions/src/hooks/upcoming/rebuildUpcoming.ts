@@ -9,7 +9,12 @@ export async function rebuildUserUpcoming(
   db: FirebaseFirestore.Firestore,
   uid: string,
   catalogMap?: Map<string, CatalogShow>,
-  skipOrphanCleanup = false,
+  /**
+   * Shows that lost episodes in the catalog (syncCatalog) — only their watched docs are checked
+   * for orphans. Empty (callable, import, backfills) → no scan: orphans only appear when the
+   * catalog drops episodes, and a full scan costs one read per watched episode (~26k).
+   */
+  orphanShowIds: ReadonlySet<string> = new Set(),
 ): Promise<void> {
   const today = new Date().toISOString().slice(0, 10);
   const upcomingCol = db.collection(`users/${uid}/upcoming`);
@@ -136,22 +141,23 @@ export async function rebuildUserUpcoming(
     `Rebuilt ${upcomingDocs.length} upcoming episodes for user ${uid} (removed ${staleIds.length} stale)`,
   );
 
-  // Clean orphaned watchedEpisode docs only when episodes were removed from catalog
-  if (!skipOrphanCleanup) {
-    await cleanOrphanedEpisodes(db, uid, activeShows, catalogMap);
+  // Clean orphaned watchedEpisode docs only for shows whose episodes were removed from catalog
+  const orphanCandidates = activeShows.filter((d) => orphanShowIds.has(d.id));
+  if (orphanCandidates.length > 0) {
+    await cleanOrphanedEpisodes(db, uid, orphanCandidates, catalogMap);
   }
 }
 
 export async function rebuildAllUsersUpcoming(
   db: FirebaseFirestore.Firestore,
   catalogMap: Map<string, CatalogShow>,
-  skipOrphanCleanup: boolean,
+  orphanShowIds: ReadonlySet<string> = new Set(),
 ): Promise<void> {
   const usersSnap = await db.collection("users").get();
 
   for (const userDoc of usersSnap.docs) {
     try {
-      await rebuildUserUpcoming(db, userDoc.id, catalogMap, skipOrphanCleanup);
+      await rebuildUserUpcoming(db, userDoc.id, catalogMap, orphanShowIds);
     } catch (err) {
       console.error(`Failed to rebuild upcoming for user ${userDoc.id}:`, err);
     }

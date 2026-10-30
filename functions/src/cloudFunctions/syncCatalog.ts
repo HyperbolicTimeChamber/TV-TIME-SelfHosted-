@@ -39,7 +39,7 @@ export const syncCatalog = trackedOnSchedule(
     const {
       freshCatalogMap,
       pendingWrites,
-      hasEpisodeRemovals,
+      removedEpisodeShowIds,
       skippedEnded,
       changedShowIds,
       runtimeFills,
@@ -115,7 +115,7 @@ export const syncCatalog = trackedOnSchedule(
 
     // Phase 6: Rebuild upcoming
     console.log("Rebuilding upcoming episodes...");
-    await rebuildAllUsersUpcoming(db, freshCatalogMap, !hasEpisodeRemovals);
+    await rebuildAllUsersUpcoming(db, freshCatalogMap, new Set(removedEpisodeShowIds));
 
     // Phase 7: Write sync timestamp + what changed. Clients whose cache stamp equals
     // previousCatalogSync re-read only changedShowIds (0 reads for unchanged shows);
