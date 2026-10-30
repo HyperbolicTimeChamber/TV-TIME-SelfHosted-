@@ -35,6 +35,8 @@ import {
 import { useSearchActions } from "./useSearchActions";
 import SearchCard from "./SearchCard";
 import SearchSkeleton from "./SearchSkeleton";
+import ErrorState from "../../components/ErrorState";
+import { describeSearchError } from "../../utils";
 import SearchModals from "./SearchModals";
 import { styles } from "./styles";
 
@@ -194,6 +196,8 @@ export default function SearchScreen() {
 	const {
 		data: searchData,
 		isLoading: searchLoading,
+		error: searchError,
+		refetch: retrySearch,
 		fetchNextPage,
 		hasNextPage,
 	} = useSearch(submittedQuery, mediaFilter);
@@ -349,7 +353,16 @@ export default function SearchScreen() {
 			</Animated.View>
 
 			<View style={styles.content}>
-				{!isLoading && submittedQuery.length > 0 && !resultItems?.length ? (
+				{!isLoading && submittedQuery.length > 0 && searchError && !resultItems?.length ? (
+					// Failed (busy / offline), not empty: say so, with a retry
+					<View style={[styles.errorWrap, { paddingTop: headerH }]}>
+						<ErrorState
+							info={describeSearchError(searchError)}
+							mediaType={MediaType.TV}
+							primary={{ label: "Try Again", onPress: () => retrySearch() }}
+						/>
+					</View>
+				) : !isLoading && submittedQuery.length > 0 && !resultItems?.length ? (
 					<View
 						style={[
 							styles.emptyWrap,

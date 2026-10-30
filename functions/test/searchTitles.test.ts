@@ -7,6 +7,7 @@ import {
   TtlCache,
 } from "../src/hooks/searchTitles";
 import { SearchScope } from "../src/shared/enums";
+import { callerIp } from "../src/hooks/requireCaller";
 
 const page = (n: number, results: Record<string, unknown>[], total = 9) => ({
   page: n,
@@ -66,4 +67,13 @@ test("cache entries expire and the oldest go first past the cap", () => {
   assert.equal(cache.get("b"), 2);
   now = 100;
   assert.equal(cache.get("c"), undefined);
+});
+
+test("guest IP is the last X-Forwarded-For entry (earlier ones are client-supplied)", () => {
+  const req = (xff: string | undefined, ip?: string) =>
+    ({ rawRequest: { headers: { "x-forwarded-for": xff }, ip } }) as any;
+  assert.equal(callerIp(req("1.1.1.1, 203.0.113.9")), "203.0.113.9");
+  assert.equal(callerIp(req("203.0.113.9")), "203.0.113.9");
+  assert.equal(callerIp(req(undefined, "10.0.0.1")), "10.0.0.1");
+  assert.equal(callerIp(req(undefined)), "unknown");
 });

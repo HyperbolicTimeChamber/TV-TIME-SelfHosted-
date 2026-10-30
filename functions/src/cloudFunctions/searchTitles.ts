@@ -1,7 +1,7 @@
 import { HttpsError } from "firebase-functions/v2/https";
 import { fetchSearchBatch } from "../hooks/searchTitles";
 import { RateLimitError } from "../hooks/tmdbProxy";
-import { requireCaller } from "../hooks/requireCaller";
+import { requireCallerOrGuest } from "../hooks/requireCaller";
 import { trackedOnCall } from "../hooks/trackedTriggers";
 import {
   Callable,
@@ -18,6 +18,7 @@ import type {
  * Title search in batches of several TMDB pages, so the client can sort a whole batch (TMDB
  * only orders search results by relevance; sorting page by page reshuffled the list as pages
  * came in).
+ * - Signed in or not: guests are rate limited per IP, users per uid
  * - One instance: its queueing TMDB rate limit, result cache and in-flight dedupe are global
  * - Busy (a TMDB request would queue too long) → resource-exhausted, the client retries later
  */
@@ -31,7 +32,8 @@ export const searchTitles = trackedOnCall(
     timeoutSeconds: 30,
   },
   async (request): Promise<SearchTitlesResponse | null> => {
-    requireCaller(request, Callable.SEARCH_TITLES);
+    // Logged-out web visitors search too (limited per IP)
+    requireCallerOrGuest(request, Callable.SEARCH_TITLES);
     if (request.data?.warmup) return null;
 
     const { query, scope, batch } = (request.data ?? {}) as SearchTitlesRequest;

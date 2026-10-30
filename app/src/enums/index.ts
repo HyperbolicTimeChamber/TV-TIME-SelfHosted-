@@ -294,14 +294,6 @@ export const MIN_BUILD_FIELD: Record<ReleaseChannel, string> = {
 /** Stand-in "API key" meaning: no key — route TMDB calls through TMDB_PROXY_BASE */
 export const TMDB_PROXY_KEY = "__tmdb_proxy__";
 
-/**
- * TMDB search pages per results batch (searchTitles CF; guests fetch the same through the proxy).
- * The whole batch is sorted at once, so a sort is exact across its ~100 results
- */
-export const SEARCH_PAGES_PER_BATCH = 5;
-/** TMDB serves at most this many search pages */
-export const SEARCH_MAX_TMDB_PAGE = 500;
-
 /** Mixpanel project token (app/.env; CI writes it). Unset → no tracking, so a fork never reports here */
 export const MIXPANEL_TOKEN = process.env.EXPO_PUBLIC_MIXPANEL_TOKEN ?? "";
 /** Mixpanel ingestion host — EU projects need https://api-eu.mixpanel.com. Unset → SDK default (US) */

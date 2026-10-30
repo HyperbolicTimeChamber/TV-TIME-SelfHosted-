@@ -95,7 +95,8 @@ export const CALLABLE_RATE_LIMITS: Record<
   [Callable.REFRESH_SHOW]: { limit: 120, windowMs: MINUTE_MS },
   [Callable.DELETE_ACCOUNT]: { limit: 3, windowMs: 10 * MINUTE_MS },
   [Callable.TEST_FCM]: { limit: 5, windowMs: MINUTE_MS },
-  // A search + a few "load more" batches; typing doesn't call it (suggestions stay client-side)
+  // A search + a few "load more" batches; typing doesn't call it (suggestions stay client-side).
+  // Per uid, or per IP for logged-out visitors
   [Callable.SEARCH_TITLES]: { limit: 30, windowMs: MINUTE_MS },
 };
 

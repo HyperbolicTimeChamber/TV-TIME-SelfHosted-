@@ -73,6 +73,7 @@ export const styles = StyleSheet.create({
 		paddingTop: spacing.md,
 		paddingBottom: spacing.sm * 2,
 	},
+	errorWrap: { flex: 1 },
 	center: {
 		flex: 1,
 		justifyContent: "center" as const,

@@ -18,6 +18,8 @@ import type { TMDBShow } from "@app/types";
 import SlidingTabs from "../../components/SlidingTabs";
 import NotFoundArt from "../../components/NotFoundArt";
 import SkeletonBlock from "../../components/SkeletonBlock";
+import ErrorState from "../../components/ErrorState";
+import { describeSearchError } from "@app/utils/loadError";
 import { useCollapsingHeader } from "../../hooks/useCollapsingHeader";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
 import { useElementHeight } from "../../hooks/useElementHeight";
@@ -70,6 +72,8 @@ export default function SearchScreen() {
 	const {
 		data: searchData,
 		isLoading: searchLoading,
+		error: searchError,
+		refetch: retrySearch,
 		fetchNextPage,
 		hasNextPage,
 	} = useSearch(submittedQuery, mediaFilter);
@@ -210,6 +214,12 @@ export default function SearchScreen() {
 
 			{isLoading ? (
 				<div className={styles.grid}>{skeletons(LOADING_CARDS)}</div>
+			) : submittedQuery && searchError && items.length === 0 ? (
+				// Failed (busy / offline), not empty: say so, with a retry
+				<ErrorState
+					info={describeSearchError(searchError)}
+					primary={{ label: "Try Again", onPress: () => retrySearch() }}
+				/>
 			) : submittedQuery && items.length === 0 ? (
 				<div className="relative z-1 flex min-h-[calc(100dvh-var(--header-h))] flex-col items-center justify-end px-8 pb-[calc(var(--art-h)+24px)] text-center [--art-h:max(0px,min(50dvh,560px,calc(90dvh-280px)))]">
 					<NotFoundArt src="/no-results.webp" />

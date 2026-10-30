@@ -1,6 +1,5 @@
 import { useInfiniteQuery, type InfiniteData } from "@tanstack/react-query";
 import { searchTitles } from "../services/searchTitles";
-import { useAuthStore } from "../stores";
 import { TMDBShow, QueryKey } from "../types";
 import { MediaFilter } from "../enums";
 import type { SearchBatch } from "../utils/searchBatch";
@@ -13,13 +12,11 @@ const selectResults = (data: InfiniteData<SearchBatch, number>) => ({
 	results: data.pages.flatMap((p) => p.results) as TMDBShow[],
 });
 
-/** Title search, a batch of several TMDB pages per "page" (see searchTitles) */
+/** Title search, a batch of several TMDB pages per "page" (see searchTitles); works logged out */
 export function useSearch(query: string, mediaType: MediaFilter = MediaFilter.ALL) {
-	const apiKey = useAuthStore((s) => s.appTmdbApiKey)!;
-
 	return useInfiniteQuery({
 		queryKey: [QueryKey.SEARCH, query, mediaType],
-		queryFn: ({ pageParam }) => searchTitles(apiKey, query, mediaType, pageParam),
+		queryFn: ({ pageParam }) => searchTitles(query, mediaType, pageParam),
 		getNextPageParam: (last) => (last.batch < last.totalBatches ? last.batch + 1 : undefined),
 		initialPageParam: 1,
 		enabled: query.length > 0,

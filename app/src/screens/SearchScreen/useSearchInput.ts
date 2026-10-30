@@ -73,7 +73,7 @@ export function useSearchInput(initialQuery = "") {
 	const apiKey = useAuthStore((s) => s.appTmdbApiKey);
 
 	// The results page's search runs in a CF: start it while the query is being typed
-	useEffect(() => warmupSearchTitles(apiKey), [apiKey]);
+	useEffect(() => warmupSearchTitles(), []);
 
 	useEffect(() => {
 		AsyncStorage.getItem(HISTORY_KEY)
