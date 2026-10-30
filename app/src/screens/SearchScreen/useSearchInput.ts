@@ -72,8 +72,14 @@ export function useSearchInput(initialQuery = "") {
 	const suggestionMemory = useRef<SuggestionMemory>(new Map());
 	const apiKey = useAuthStore((s) => s.appTmdbApiKey);
 
-	// The results page's search runs in a CF: start it while the query is being typed
+	// The results page's search runs in a CF: start it when the search box opens…
 	useEffect(() => warmupSearchTitles(), []);
+	// …and on the first keystroke, in case the box sat open past the idle window (warmups inside
+	// it are skipped, so this costs nothing otherwise)
+	const typing = query.trim().length > 0;
+	useEffect(() => {
+		if (typing) warmupSearchTitles();
+	}, [typing]);
 
 	useEffect(() => {
 		AsyncStorage.getItem(HISTORY_KEY)
