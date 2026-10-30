@@ -40,23 +40,44 @@ export const styles = StyleSheet.create({
 	footer: { paddingVertical: spacing.xl },
 
 	// Sort sheet (components/SortSheet) — filter section
+	// Filter section: its own block under the sort card, label and Clear on one line
 	sheetFilterHead: {
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "space-between",
-		marginTop: spacing.md,
+		marginTop: spacing.lg,
+		marginBottom: spacing.sm,
+		minHeight: 28,
 	},
-	sheetClear: { color: colors.primary, fontWeight: "600" },
-	chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, paddingBottom: spacing.sm },
-	filterChip: {
+	sheetFilterTitle: { marginBottom: 0 },
+	sheetClear: {
 		paddingHorizontal: spacing.md,
-		paddingVertical: spacing.sm,
+		paddingVertical: 4,
 		borderRadius: 999,
-		borderWidth: 1,
-		borderColor: colors.border,
+		backgroundColor: colors.surfaceLight,
 	},
-	filterChipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-	filterChipText: { color: colors.textSecondary, fontWeight: "600" },
+	sheetClearText: { color: colors.primary, fontWeight: "700", fontSize: 13 },
+	chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, paddingBottom: spacing.xs },
+	// Same height on or off: the check takes room from the padding, not the row
+	filterChip: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 4,
+		minHeight: 38,
+		paddingHorizontal: spacing.md,
+		borderRadius: 999,
+		backgroundColor: colors.surfaceLight,
+		borderWidth: 1,
+		borderColor: colors.surfaceLight,
+	},
+	filterChipOn: {
+		backgroundColor: colors.primary,
+		borderColor: colors.primary,
+		paddingLeft: spacing.sm + 2,
+	},
+	// Press feedback: a touch smaller, never from nothing
+	chipPressed: { transform: [{ scale: 0.97 }], opacity: 0.85 },
+	filterChipText: { color: colors.textSecondary, fontWeight: "600", fontSize: 14 },
 	filterChipTextOn: { color: colors.text },
 
 	// Card

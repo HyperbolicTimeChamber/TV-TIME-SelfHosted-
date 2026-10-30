@@ -1,4 +1,5 @@
-import { Text, TouchableOpacity, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import SortSheet, { sortSheetStyles, type SortOption } from "../../../components/SortSheet";
 import { HistoryFilter, HistorySort } from "../../../enums";
 import {
@@ -7,6 +8,7 @@ import {
 	HISTORY_SORT_LABEL,
 	HISTORY_SORTS,
 } from "../../../utils/historyView";
+import { colors } from "../../../theme";
 import { styles } from "./styles";
 
 const SORT_OPTIONS: SortOption<HistorySort>[] = HISTORY_SORTS.map((value) => ({
@@ -47,26 +49,38 @@ export default function HistoryViewSheet({
 			{!isMovie && (
 				<>
 					<View style={styles.sheetFilterHead}>
-						<Text style={sortSheetStyles.title}>Filter</Text>
+						<Text style={[sortSheetStyles.title, styles.sheetFilterTitle]}>FILTER</Text>
 						{filters.size > 0 && (
-							<TouchableOpacity onPress={onClearFilters}>
-								<Text style={styles.sheetClear}>Clear</Text>
-							</TouchableOpacity>
+							<Pressable
+								onPress={onClearFilters}
+								hitSlop={8}
+								accessibilityRole="button"
+								style={({ pressed }) => [styles.sheetClear, pressed && styles.chipPressed]}
+							>
+								<Text style={styles.sheetClearText}>Clear</Text>
+							</Pressable>
 						)}
 					</View>
 					<View style={styles.chipWrap}>
 						{HISTORY_FILTERS.map((f) => {
 							const on = filters.has(f);
 							return (
-								<TouchableOpacity
+								<Pressable
 									key={f}
-									style={[styles.filterChip, on && styles.filterChipOn]}
+									style={({ pressed }) => [
+										styles.filterChip,
+										on && styles.filterChipOn,
+										pressed && styles.chipPressed,
+									]}
 									onPress={() => onToggleFilter(f)}
+									accessibilityRole="button"
+									accessibilityState={{ selected: on }}
 								>
+									{on && <Ionicons name="checkmark" size={16} color={colors.text} />}
 									<Text style={[styles.filterChipText, on && styles.filterChipTextOn]}>
 										{HISTORY_FILTER_LABEL[f]}
 									</Text>
-								</TouchableOpacity>
+								</Pressable>
 							);
 						})}
 					</View>
