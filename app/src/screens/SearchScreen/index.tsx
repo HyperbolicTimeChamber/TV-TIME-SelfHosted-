@@ -159,10 +159,14 @@ export default function SearchScreen() {
 	}, [navigation]);
 	const swipeBack = useSwipeBackPop(navigation);
 
+	// From a results page the input replaces it, so the next search replaces these results rather
+	// than stacking on them: only ever one results page above Trending, and back goes to Trending
 	const openSearchInput = useCallback(() => {
-		navigation.navigate(Route.SEARCH_INPUT, {
-			currentQuery: submittedQuery || undefined,
-		});
+		if (submittedQuery) {
+			navigation.replace(Route.SEARCH_INPUT, { currentQuery: submittedQuery });
+		} else {
+			navigation.navigate(Route.SEARCH_INPUT, { currentQuery: undefined });
+		}
 	}, [navigation, submittedQuery]);
 
 	const {
