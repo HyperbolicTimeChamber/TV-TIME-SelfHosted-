@@ -174,7 +174,9 @@ export async function addToTracking(
 			}
 			await rollback.commit().catch(() => {});
 			// Emit error for UI to pick up
-			addTrackingErrorListeners.forEach((fn) => fn(tmdbId, meta?.title || `Show #${tmdbId}`));
+			addTrackingErrorListeners.forEach((fn) =>
+				fn(tmdbId, meta?.title || `Show #${tmdbId}`, mediaType),
+			);
 			// Rejects so the shared catalog fill falls back
 			throw err;
 		}),
@@ -185,7 +187,7 @@ export async function addToTracking(
 }
 
 // Error listeners for background CF failures
-type AddTrackingErrorCallback = (tmdbId: number, title: string) => void;
+type AddTrackingErrorCallback = (tmdbId: number, title: string, mediaType: MediaType) => void;
 const addTrackingErrorListeners = new Set<AddTrackingErrorCallback>();
 export function onAddTrackingError(cb: AddTrackingErrorCallback): () => void {
 	addTrackingErrorListeners.add(cb);

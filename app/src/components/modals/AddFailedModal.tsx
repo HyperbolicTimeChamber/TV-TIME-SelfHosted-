@@ -1,5 +1,5 @@
 import ConfirmModal from "./ConfirmModal";
-import { ModalBackdrop } from "./ModalArt";
+import { DEFEATED_ART, DEFEATED_RATIO, ModalArt } from "./ModalArt";
 import type { AddFailure } from "../../types";
 
 /**
@@ -22,18 +22,8 @@ export default function AddFailedModal({
 	return (
 		<ConfirmModal
 			visible={!!failure}
-			title="Couldn't add that one"
-			image={
-				failure?.backdropPath ? (
-					<ModalBackdrop
-						backdropPath={failure.backdropPath}
-						logoPath={failure.logoPath}
-						tmdbId={failure.tmdbId}
-						mediaType={failure.mediaType}
-						title={failure.title}
-					/>
-				) : undefined
-			}
+			title="That add got Yamcha'd"
+			image={<ModalArt source={DEFEATED_ART} ratio={DEFEATED_RATIO} />}
 			hint={failure ? `${failure.title} is still not on your watch list.` : undefined}
 			error={failure?.message ?? null}
 			confirmLabel="Retry"

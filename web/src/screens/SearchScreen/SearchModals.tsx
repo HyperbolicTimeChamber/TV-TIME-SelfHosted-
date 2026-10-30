@@ -1,5 +1,6 @@
 import type { AddFailure, TMDBShow } from "@app/types";
 import ConfirmModal from "../../components/ConfirmModal";
+import AddFailedModal from "../../components/AddFailedModal";
 import UnreleasedMovieModal from "../../components/UnreleasedMovieModal";
 import { colors } from "../../theme/index";
 import { ModalBackdrop, ModalLogo } from "../../components/ModalArt";
@@ -153,25 +154,10 @@ export default function SearchModals(p: Props) {
 				onClose={p.onResumeModalClose}
 			/>
 
-			{/* A failed add reports here, as it does in the app (app AddFailedModal) */}
-			<ConfirmModal
-				visible={!!p.addFailure}
-				title="Couldn't add that one"
-				image={
-					p.addFailure?.backdropPath ? (
-						<ModalBackdrop
-							backdropPath={p.addFailure.backdropPath}
-							logoPath={p.addFailure.logoPath}
-							tmdbId={p.addFailure.tmdbId}
-							mediaType={p.addFailure.mediaType}
-							title={p.addFailure.title}
-						/>
-					) : undefined
-				}
-				hint={p.addFailure ? `${p.addFailure.title} is still not on your watch list.` : undefined}
-				error={p.addFailure?.message ?? null}
-				confirmLabel="Retry"
-				onConfirm={p.onRetryAdd}
+			{/* A failed add reports here, as it does in the app */}
+			<AddFailedModal
+				failure={p.addFailure}
+				onRetry={p.onRetryAdd}
 				onClose={p.onAddFailureClose}
 			/>
 		</>

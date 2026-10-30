@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getFirestore, doc, onSnapshot, Timestamp } from "@react-native-firebase/firestore";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -94,6 +94,8 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	);
 	const [adding, setAdding] = useState(false);
 	const [addFailure, setAddFailure] = useState<AddFailure | null>(null);
+	// The failed add was "mark watched" on a movie not yet on the list → Retry redoes that
+	const failedWithWatch = useRef(false);
 	const [removing, setRemoving] = useState(false);
 	const { addShowToUpcoming, removeShowFromUpcoming } = useUpcomingMutations();
 	const queryClient = useQueryClient();
@@ -328,6 +330,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 			console.error("addToTracking failed:", err);
 			// In-app popup, not a native Alert: an Alert raised while the app is backgrounded
 			// only surfaces the next time it's opened, with no idea what it refers to
+			failedWithWatch.current = false;
 			setAddFailure({
 				title: show.title || show.name || "",
 				tmdbId,
@@ -457,12 +460,32 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 				posterPath: moviePoster,
 				genres: movieCatalog?.genres ?? [],
 			});
+			setAddFailure(null);
 		} catch (err: any) {
-			Alert.alert("Error", err.message || "Failed to mark movie as watched.");
+			if (watchlistItem) {
+				Alert.alert("Error", err.message || "Failed to mark movie as watched.");
+			} else {
+				// Not on the list yet, so this was an add: same in-app popup as a failed add
+				failedWithWatch.current = true;
+				setAddFailure({
+					title: show.title || show.name || "",
+					tmdbId,
+					mediaType: MediaType.MOVIE,
+					backdropPath: show.backdrop_path ?? null,
+					logoPath: null,
+					message: err.message || "Failed to mark movie as watched.",
+				});
+			}
 		} finally {
 			setAdding(false);
 		}
 	}, [user?.uid, show, tmdbId, watchlistItem, adding, queryClient, seedMovieCatalog]);
+
+	/** Retry from the "couldn't add" popup: whichever add failed */
+	const retryAdd = useCallback(
+		() => (failedWithWatch.current ? handleMarkMovieWatched() : handleAddToWatchlist()),
+		[handleMarkMovieWatched, handleAddToWatchlist],
+	);
 
 	/** Whole show in order (specials skipped) with air dates, and the watch count per episode */
 	const showOrder = useMemo<EpisodeRef[]>(
@@ -665,6 +688,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		adding,
 		addFailure,
 		setAddFailure,
+		retryAdd,
 		removing,
 		movieWatchCount,
 		showWatchCount,

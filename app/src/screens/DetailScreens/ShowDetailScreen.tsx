@@ -70,6 +70,7 @@ export default function ShowDetailScreen() {
 		setRemoveError,
 		unreleasedModal,
 		addFailure,
+		retryAdd,
 		setAddFailure,
 		setUnreleasedModal,
 		title,
@@ -397,7 +398,7 @@ export default function ShowDetailScreen() {
 			<AddFailedModal
 				failure={addFailure}
 				retrying={adding}
-				onRetry={handleAddToWatchlist}
+				onRetry={retryAdd}
 				onClose={() => setAddFailure(null)}
 			/>
 
