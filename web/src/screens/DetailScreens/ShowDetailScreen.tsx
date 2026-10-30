@@ -11,6 +11,7 @@ import CircleButton, { CircleBackButton } from "../../components/CircleButton";
 import ErrorState from "../../components/ErrorState";
 import { describeLoadError } from "@app/utils/loadError";
 import ConfirmModal from "../../components/ConfirmModal";
+import AddFailedModal from "../../components/AddFailedModal";
 import { colors } from "../../theme/index";
 import { ModalBackdrop, ModalLogo } from "../../components/ModalArt";
 import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
@@ -351,28 +352,11 @@ export default function ShowDetailScreen() {
 						onConfirm={d.handleConfirmPause}
 						onClose={() => d.setPauseModalVisible(false)}
 					/>
-					{/* A failed add reports here, as it does in the app (app AddFailedModal) */}
-					<ConfirmModal
-						visible={!!d.addFailure}
-						title="Couldn't add that one"
-						image={
-							d.addFailure?.backdropPath ? (
-								<ModalBackdrop
-									backdropPath={d.addFailure.backdropPath}
-									logoPath={d.addFailure.logoPath}
-									tmdbId={d.addFailure.tmdbId}
-									mediaType={d.addFailure.mediaType}
-									title={d.addFailure.title}
-								/>
-							) : undefined
-						}
-						hint={
-							d.addFailure ? `${d.addFailure.title} is still not on your watch list.` : undefined
-						}
-						error={d.addFailure?.message ?? null}
-						confirmLabel="Retry"
-						loading={d.adding}
-						onConfirm={d.handleAddToWatchlist}
+					{/* A failed add reports here, as it does in the app */}
+					<AddFailedModal
+						failure={d.addFailure}
+						retrying={d.adding}
+						onRetry={d.retryAdd}
 						onClose={() => d.setAddFailure(null)}
 					/>
 					{/* Next rewatch only once every aired episode is at the current run (app) */}

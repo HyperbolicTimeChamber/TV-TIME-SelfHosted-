@@ -16,6 +16,8 @@ export const HIT_A_WALL_ART = "/hit-a-wall.webp";
 export const LOGOUT_ART = "/logout.webp";
 /** Delete Account — crying Pikachu */
 export const FAREWELL_ART = "/farewell.webp";
+/** Couldn't add — Yamcha, down for the count */
+export const DEFEATED_ART = "/defeated.webp";
 
 const LOGO_MAX_W = 240;
 /** Popup content width — image request size */

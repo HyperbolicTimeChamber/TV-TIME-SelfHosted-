@@ -51,17 +51,17 @@ function chartSizes(width: number) {
 }
 type ChartSizes = ReturnType<typeof chartSizes>;
 
-/** The front bar starts fading once it's this share of the back one's height */
-const FRONT_FADE_FROM = 0.4;
+/** Share of a short front bar kept solid from its base, so it reads over the back one's body */
+const FRONT_SOLID = 0.4;
 
 /**
- * How much the shorter, front bar fades (0 solid … 1 like the back one). Well below the back
- * bar's tip it sits over that bar's bright body, and a fade there washed it out into a smudge
- * (1 movie in front of 182 episodes); it only fades as its tip nears the back one's
+ * The shorter, front bar fades out to its tip like the back one, as the app's. Well below the
+ * back bar's tip its lower part stays solid (a fade from the very base washed it out into a
+ * smudge), shrinking to none as its tip nears the back one's
  */
-function frontFade(front: number, back: number) {
-	if (back <= 0) return 1;
-	return Math.min(1, Math.max(0, (front / back - FRONT_FADE_FROM) / (1 - FRONT_FADE_FROM)));
+function frontSolid(front: number, back: number) {
+	if (back <= 0) return 0;
+	return FRONT_SOLID * Math.min(1, Math.max(0, 1 - front / back) / (1 - FRONT_SOLID));
 }
 
 /** Bar height on a square-root scale, as the app's: a big day doesn't squash the small ones into dots */
@@ -180,10 +180,9 @@ export default function WatchRate({
 															{
 																height: b.h,
 																"--color": b.color,
-																// Front bar: solid until its tip nears the back one's
-																"--fade": n === 0 ? 1 : frontFade(b.h, bars[0].h),
-																// Back bar: solid up to the front one's top, faded above
-																"--solid": n === 0 && bars[1].h > 0 ? bars[1].h / b.h : 0,
+																// Back bar: solid up to the front one's top, faded above.
+																// Front bar: a solid base, then faded like the back one
+																"--solid": n === 0 ? bars[1].h / b.h : frontSolid(b.h, bars[0].h),
 															} as CSSProperties
 														}
 													/>

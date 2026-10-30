@@ -73,6 +73,7 @@ export const styles = StyleSheet.create({
 		paddingTop: spacing.md,
 		paddingBottom: spacing.sm * 2,
 	},
+	errorWrap: { flex: 1 },
 	center: {
 		flex: 1,
 		justifyContent: "center" as const,
@@ -91,6 +92,10 @@ export const styles = StyleSheet.create({
 		flex: 1,
 		overflow: "hidden" as const,
 		borderRadius: 6,
+	},
+	// SearchSkeleton: the poster's box, in the skeleton colour (shimmer set inline)
+	skeletonPoster: {
+		backgroundColor: colors.border,
 	},
 	poster: {
 		aspectRatio: 2 / 3,

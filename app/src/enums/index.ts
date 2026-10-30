@@ -184,6 +184,7 @@ export enum CloudFunction {
 	REBUILD_UPCOMING = "rebuildUpcoming",
 	REFRESH_SHOW = "refreshShow",
 	DELETE_ACCOUNT = "deleteAccount",
+	SEARCH_TITLES = "searchTitles",
 }
 
 /** Callable error codes (web SDK prefixes them with "functions/") */

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getFirestore, doc, updateDoc, Timestamp } from "@react-native-firebase/firestore";
 import { shouldShowUnreleasedModal } from "../../services/unreleasedModalPref";
@@ -18,6 +18,7 @@ import {
 	addAndMarkMovieWatched,
 	getHighestWatchedEpisode,
 	getWatchProgress,
+	onAddTrackingError,
 } from "../../services";
 import {
 	showDocId,
@@ -75,6 +76,27 @@ export function useSearchActions() {
 	// The item the open failure popup would retry
 	const retryItem = useRef<TMDBShow | null>(null);
 
+	// addShow failed in the background after the add was shown: the tracking doc was rolled
+	// back, so undo the tick / card / calendar entries and say so
+	useEffect(
+		() =>
+			onAddTrackingError((tmdbId, title, mediaType) => {
+				emitShowRemoved(tmdbId);
+				removeShowFromUpcoming(tmdbId);
+				removeShowFromCalendarGlobal(tmdbId);
+				const cached = getCachedCatalogShow(tmdbId, mediaType);
+				setAddFailure({
+					title,
+					tmdbId,
+					mediaType,
+					backdropPath: cached?.backdropPath ?? null,
+					logoPath: cached?.logoPath ?? null,
+					message: "Couldn't add this title. Please try again.",
+				});
+			}),
+		[removeShowFromUpcoming],
+	);
+
 	const withLoadingId = useCallback(
 		async (
 			id: number,
@@ -82,14 +104,16 @@ export function useSearchActions() {
 			/** Add actions report through the in-app popup instead of a native Alert, which
 			 *  would only surface the next time the app is opened */
 			failure?: Omit<AddFailure, "message">,
-		) => {
+		): Promise<boolean> => {
 			setAddingIds((prev) => new Set(prev).add(id));
 			try {
 				await fn();
+				return true;
 			} catch (err: any) {
 				const message = err.message || "Failed to complete action.";
 				if (failure) setAddFailure({ ...failure, message });
 				else Alert.alert("Error", message);
+				return false;
 			} finally {
 				setAddingIds((prev) => {
 					const next = new Set(prev);
@@ -145,12 +169,13 @@ export function useSearchActions() {
 							}),
 						addFailed,
 					);
+					// Failed → the popup is up; nothing was added, so no tick / calendar entry
+					if (!(await addPromise)) return;
 					shouldShowUnreleasedModal(user.uid!).then((shouldShow) => {
 						if (shouldShow) {
 							setUnreleasedModal({ title: item.title || item.name || "" });
 						}
 					});
-					await addPromise;
 					const movieEp: UpcomingEpisode = {
 						tmdbShowId: item.id,
 						showTitle: item.title || item.name || "",
@@ -282,8 +307,9 @@ export function useSearchActions() {
 	const retryAdd = useCallback(() => {
 		const item = retryItem.current;
 		setAddFailure(null);
-		if (item) handleAddToWatchlist(item);
-	}, [handleAddToWatchlist]);
+		// A background failure can be about an earlier add than the last one started
+		if (item && item.id === addFailure?.tmdbId) handleAddToWatchlist(item);
+	}, [handleAddToWatchlist, addFailure?.tmdbId]);
 	const dismissAddFailure = useCallback(() => setAddFailure(null), []);
 
 	const handleRemoveFromWatchlist = useCallback(

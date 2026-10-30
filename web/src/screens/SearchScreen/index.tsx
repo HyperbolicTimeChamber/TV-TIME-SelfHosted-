@@ -5,20 +5,21 @@ import { IoChevronBackCircleOutline, IoSearch } from "react-icons/io5";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSearch } from "@app/hooks/useSearch";
 import { useTrending } from "@app/hooks/useTrending";
-import { useSearchSort } from "@app/hooks/useSearchSort";
+import { useSearchSort, useSortedSearchResults } from "@app/hooks/useSearchSort";
 import { useSearchActions } from "@app/screens/SearchScreen/useSearchActions";
 import {
 	DEFAULT_SEARCH_SORT,
 	SEARCH_SORT_OPTIONS,
 	sameSearchSort,
-	sortSearchResults,
 	type SearchSortView,
 } from "@app/utils/searchSort";
 import { MediaFilter } from "@app/enums";
 import type { TMDBShow } from "@app/types";
 import SlidingTabs from "../../components/SlidingTabs";
 import NotFoundArt from "../../components/NotFoundArt";
-import LoadingScreen from "../../components/LoadingScreen";
+import SkeletonBlock from "../../components/SkeletonBlock";
+import ErrorState from "../../components/ErrorState";
+import { describeSearchError } from "@app/utils/loadError";
 import { useCollapsingHeader } from "../../hooks/useCollapsingHeader";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
 import { useElementHeight } from "../../hooks/useElementHeight";
@@ -29,6 +30,15 @@ import { mediaTypeOf } from "./mediaTypeOf";
 import SearchModals from "./SearchModals";
 import styles from "./styles/SearchScreen.module.scss";
 import { cssVars, px } from "../../utils/cssVars";
+
+/** Placeholder cards while results load (fills 2-5 columns) and under the list while more
+ *  batches are to come — the searchTitles CF takes longer than one TMDB page did */
+const LOADING_CARDS = 10;
+const MORE_CARDS = 6;
+const skeletons = (count: number) =>
+	Array.from({ length: count }, (_, i) => (
+		<SkeletonBlock key={`skeleton-${i}`} className={styles.skeletonCard} />
+	));
 
 const FILTER_TABS = [
 	{ key: MediaFilter.ALL, label: "All" },
@@ -62,18 +72,25 @@ export default function SearchScreen() {
 	const {
 		data: searchData,
 		isLoading: searchLoading,
+		error: searchError,
+		refetch: retrySearch,
 		fetchNextPage,
 		hasNextPage,
 	} = useSearch(submittedQuery, mediaFilter);
 	const { data: trending, isLoading: trendingLoading } = useTrending("all");
 
+	// A page loaded while scrolling is appended in order, not merged in above the scroll position
+	const sortedResults = useSortedSearchResults(
+		searchData?.results,
+		sortView,
+		`${submittedQuery}|${mediaFilter}`,
+	);
 	const items = useMemo(() => {
-		// Sorts every loaded page — a new page merges into the sorted order
-		if (submittedQuery) return sortSearchResults(searchData?.results ?? [], sortView);
+		if (submittedQuery) return sortedResults ?? [];
 		return (trending ?? []).filter(
 			(item) => mediaFilter === MediaFilter.ALL || (mediaTypeOf(item) as string) === mediaFilter,
 		);
-	}, [submittedQuery, searchData, trending, mediaFilter, sortView]);
+	}, [submittedQuery, sortedResults, trending, mediaFilter]);
 	const isLoading = submittedQuery ? searchLoading : trendingLoading;
 	const showSort = !!submittedQuery && !isLoading && items.length > 0;
 
@@ -196,7 +213,13 @@ export default function SearchScreen() {
 			{!submittedQuery && <h2 className={styles.sectionTitle}>Trending</h2>}
 
 			{isLoading ? (
-				<LoadingScreen />
+				<div className={styles.grid}>{skeletons(LOADING_CARDS)}</div>
+			) : submittedQuery && searchError && items.length === 0 ? (
+				// Failed (busy / offline), not empty: say so, with a retry
+				<ErrorState
+					info={describeSearchError(searchError)}
+					primary={{ label: "Try Again", onPress: () => retrySearch() }}
+				/>
 			) : submittedQuery && items.length === 0 ? (
 				<div className="relative z-1 flex min-h-[calc(100dvh-var(--header-h))] flex-col items-center justify-end px-8 pb-[calc(var(--art-h)+24px)] text-center [--art-h:max(0px,min(50dvh,560px,calc(90dvh-280px)))]">
 					<NotFoundArt src="/no-results.webp" />
@@ -218,6 +241,7 @@ export default function SearchScreen() {
 					}}
 				>
 					{cards}
+					{hasNextPage && skeletons(MORE_CARDS)}
 				</motion.div>
 			) : (
 				<div className={styles.grid}>{cards}</div>

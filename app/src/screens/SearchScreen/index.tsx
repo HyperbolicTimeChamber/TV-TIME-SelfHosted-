@@ -9,7 +9,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { LoadingSpinner } from "../../components";
 import SlidingTabs from "../../components/SlidingTabs";
 import NotFoundArt, {
 	NO_RESULTS_ART,
@@ -21,7 +20,7 @@ const artReserve = artHeight(NO_RESULTS_RATIO) + 24;
 import { AnimatedLegendList } from "@legendapp/list/reanimated";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useSearch, useSearchSort, useTrending } from "../../hooks";
+import { useSearch, useSearchSort, useSortedSearchResults, useTrending } from "../../hooks";
 import { colors, spacing } from "../../theme";
 import { TMDBShow, SearchStackParamList, MediaType, MediaFilter, Route } from "../../types";
 import SortFab, { SORT_FAB_CLEARANCE } from "../../components/SortFab";
@@ -30,12 +29,14 @@ import SortSheet, { type SortOption } from "../../components/SortSheet";
 import {
 	SEARCH_SORT_OPTIONS,
 	sameSearchSort,
-	sortSearchResults,
 	DEFAULT_SEARCH_SORT,
 	type SearchSortView,
 } from "../../utils/searchSort";
 import { useSearchActions } from "./useSearchActions";
 import SearchCard from "./SearchCard";
+import SearchSkeleton from "./SearchSkeleton";
+import ErrorState from "../../components/ErrorState";
+import { describeSearchError } from "../../utils";
 import SearchModals from "./SearchModals";
 import { styles } from "./styles";
 
@@ -43,11 +44,28 @@ const SORT_OPTIONS: SortOption<SearchSortView>[] = SEARCH_SORT_OPTIONS.map(
 	({ label, ...value }) => ({ value, label }),
 );
 const FAB_BOTTOM = 20;
+/** Placeholder cards while results load (enough to fill the screen) / under the list while
+ *  more batches are to come (one row) */
+const LOADING_CARDS = 6;
+const COLUMNS = 2;
 const HEADER_SNAP_MS = 180;
 
-type SearchItem = TMDBShow & { _tracked: boolean; _adding: boolean };
+type SearchItem = TMDBShow & { _tracked: boolean; _adding: boolean; _skeleton?: boolean };
 
-const keyExtractor = (item: SearchItem) => `${item.media_type || "x"}_${item.id}`;
+const keyExtractor = (item: SearchItem) =>
+	item._skeleton ? `skeleton_${item.id}` : `${item.media_type || "x"}_${item.id}`;
+
+/** Placeholder list items: drawn as SearchSkeleton cards, in the same grid as the results */
+const skeletonItems = (count: number): SearchItem[] =>
+	Array.from({ length: count }, (_, id) => ({
+		id,
+		_skeleton: true,
+		_tracked: false,
+		_adding: false,
+	})) as SearchItem[];
+const LOADING_ITEMS = skeletonItems(LOADING_CARDS);
+// Fills an odd last row, then one full row
+const MORE_ITEMS = [skeletonItems(COLUMNS), skeletonItems(COLUMNS + 1)];
 
 type NavProp = NativeStackNavigationProp<SearchStackParamList, Route.SEARCH_MAIN>;
 
@@ -178,6 +196,8 @@ export default function SearchScreen() {
 	const {
 		data: searchData,
 		isLoading: searchLoading,
+		error: searchError,
+		refetch: retrySearch,
 		fetchNextPage,
 		hasNextPage,
 	} = useSearch(submittedQuery, mediaFilter);
@@ -195,10 +215,11 @@ export default function SearchScreen() {
 		[trending, mediaFilter],
 	);
 
-	// Sorts every loaded page — a new page merges into the sorted order
-	const sortedResults = useMemo(
-		() => searchData?.results && sortSearchResults(searchData.results, sortView),
-		[searchData?.results, sortView],
+	// A page loaded while scrolling is appended in order, not merged in above the scroll position
+	const sortedResults = useSortedSearchResults(
+		searchData?.results,
+		sortView,
+		`${submittedQuery}|${mediaFilter}`,
 	);
 
 	const rawDisplayData = submittedQuery.length > 0 ? sortedResults : filteredTrending;
@@ -208,7 +229,7 @@ export default function SearchScreen() {
 	// Augmented items are reused per source item while their flags are unchanged — a fresh
 	// object per item would re-render every card on each page append, re-sort or add/remove
 	const augmented = useRef(new WeakMap<TMDBShow, SearchItem>());
-	const displayData = useMemo(() => {
+	const resultItems = useMemo(() => {
 		if (!rawDisplayData) return rawDisplayData;
 		const cache = augmented.current;
 		return rawDisplayData.map((item) => {
@@ -221,6 +242,12 @@ export default function SearchScreen() {
 			return next;
 		});
 	}, [rawDisplayData, trackedIds, addingIds]);
+	const moreToLoad = !!submittedQuery && !!hasNextPage;
+	const displayData = useMemo(() => {
+		if (isLoading) return LOADING_ITEMS;
+		if (!resultItems || !moreToLoad) return resultItems;
+		return [...resultItems, ...MORE_ITEMS[resultItems.length % COLUMNS]];
+	}, [isLoading, resultItems, moreToLoad]);
 
 	// Posters are 2:3 and fill the column — a close estimate keeps LegendList from
 	// re-positioning rows as real sizes come in (was 140, about half the real height)
@@ -234,7 +261,7 @@ export default function SearchScreen() {
 		if (submittedQuery && hasNextPage) fetchNextPage();
 	}, [submittedQuery, hasNextPage, fetchNextPage]);
 
-	const showSort = submittedQuery.length > 0 && !isLoading && !!displayData?.length;
+	const showSort = submittedQuery.length > 0 && !isLoading && !!resultItems?.length;
 
 	const handlePress = useCallback(
 		(item: TMDBShow) => {
@@ -247,16 +274,19 @@ export default function SearchScreen() {
 	);
 
 	const renderItem = useCallback(
-		({ item }: { item: SearchItem }) => (
-			<SearchCard
-				item={item}
-				isInWatchlist={item._tracked}
-				isAdding={item._adding}
-				onPress={handlePress}
-				onAdd={handleAddToWatchlist}
-				onRemove={handleRemoveFromWatchlist}
-			/>
-		),
+		({ item }: { item: SearchItem }) =>
+			item._skeleton ? (
+				<SearchSkeleton />
+			) : (
+				<SearchCard
+					item={item}
+					isInWatchlist={item._tracked}
+					isAdding={item._adding}
+					onPress={handlePress}
+					onAdd={handleAddToWatchlist}
+					onRemove={handleRemoveFromWatchlist}
+				/>
+			),
 		[handlePress, handleAddToWatchlist, handleRemoveFromWatchlist],
 	);
 
@@ -323,13 +353,16 @@ export default function SearchScreen() {
 			</Animated.View>
 
 			<View style={styles.content}>
-				{isLoading ? (
-					<View style={[styles.center, { paddingTop: headerH }]}>
-						<LoadingSpinner />
+				{!isLoading && submittedQuery.length > 0 && searchError && !resultItems?.length ? (
+					// Failed (busy / offline), not empty: say so, with a retry
+					<View style={[styles.errorWrap, { paddingTop: headerH }]}>
+						<ErrorState
+							info={describeSearchError(searchError)}
+							mediaType={MediaType.TV}
+							primary={{ label: "Try Again", onPress: () => retrySearch() }}
+						/>
 					</View>
-				) : !isLoading &&
-				  submittedQuery.length > 0 &&
-				  (!displayData || displayData.length === 0) ? (
+				) : !isLoading && submittedQuery.length > 0 && !resultItems?.length ? (
 					<View
 						style={[
 							styles.emptyWrap,
@@ -352,7 +385,7 @@ export default function SearchScreen() {
 						data={displayData || []}
 						keyExtractor={keyExtractor}
 						renderItem={renderItem}
-						numColumns={2}
+						numColumns={COLUMNS}
 						estimatedItemSize={estimatedItemSize}
 						columnWrapperStyle={styles.row}
 						sharedValues={listSharedValues}

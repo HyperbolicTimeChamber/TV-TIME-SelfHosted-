@@ -54,3 +54,24 @@ export function sortSearchResults<T extends TMDBShow>(
 ): T[] {
 	return [...items].sort(compareSearchResults(view));
 }
+
+const resultKey = (item: TMDBShow) => `${item.media_type ?? ""}_${item.id}`;
+
+/**
+ * `items` sorted, keeping `prev` (the last sorted output for the same results stream and sort)
+ * in place: a newly loaded page's items are sorted among themselves and appended. Merging them
+ * into the whole order slotted them in above the scroll position and the list jumped. With no
+ * `prev`, or one that isn't part of `items`, it's a plain sort.
+ */
+export function extendSortedResults<T extends TMDBShow>(
+	prev: readonly T[] | null,
+	items: readonly T[],
+	view: SearchSortView,
+): T[] {
+	if (!prev?.length) return sortSearchResults(items, view);
+	const current = new Map(items.map((item) => [resultKey(item), item]));
+	if (prev.some((item) => !current.has(resultKey(item)))) return sortSearchResults(items, view);
+	const shown = new Set(prev.map(resultKey));
+	const added = items.filter((item) => !shown.has(resultKey(item)));
+	return [...prev.map((item) => current.get(resultKey(item))!), ...sortSearchResults(added, view)];
+}
