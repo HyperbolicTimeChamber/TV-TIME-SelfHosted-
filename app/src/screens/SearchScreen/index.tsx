@@ -154,6 +154,8 @@ export default function SearchScreen() {
 		setMovieModal,
 		removeModal,
 		setRemoveModal,
+		watchedBlock,
+		setWatchedBlock,
 		removing,
 		removeError,
 		setRemoveError,
@@ -387,9 +389,9 @@ export default function SearchScreen() {
 				options={SORT_OPTIONS}
 				selected={sortView}
 				isSame={sameSearchSort}
+				closeOnSelect
 				onSelect={(next) => {
 					setSortView(next);
-					setSortOpen(false);
 					// New order starts from the top, header shown
 					listRef.current?.scrollToOffset({ offset: 0, animated: false });
 					headerY.value = 0;
@@ -403,6 +405,12 @@ export default function SearchScreen() {
 				onMovieAddAndWatch={handleMovieAddAndWatch}
 				removeModal={removeModal}
 				removeError={removeError}
+				watchedBlock={watchedBlock}
+				onGoToShow={(item) => {
+					setWatchedBlock(null);
+					handlePress(item);
+				}}
+				onWatchedBlockClose={() => setWatchedBlock(null)}
 				removing={removing}
 				onConfirmRemove={handleConfirmRemove}
 				onRemoveModalClose={() => {

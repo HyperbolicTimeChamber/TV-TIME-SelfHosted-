@@ -5,14 +5,14 @@ import { useWatchlistScreen } from "@app/screens/HomeScreen/WatchlistTab/useWatc
 import { MediaType, WatchStatus } from "@app/enums";
 import type { WatchlistListItem } from "@app/types/watchlist";
 import ShowCard from "../../components/ShowCard";
-import WatchActionSheet from "../../components/WatchActionSheet";
+import WatchCountSheet from "../../components/WatchCountSheet";
 import EpisodeDetailModal from "../../components/EpisodeDetailModal";
 import ShowDrawer from "../../components/ShowDrawer";
 import ConfirmModal from "../../components/ConfirmModal";
 import HomeEmpty, { CAUGHT_UP_ART, WELCOME_ART } from "./HomeEmpty";
 import { UP_NEXT_TITLE, withCaughtUp } from "@app/utils/watchlistList";
 import { ModalBackdrop, ModalLogo } from "../../components/ModalArt";
-import type { EnrichedTrackingItem } from "@app/hooks/useWatchlist";
+import { getCachedCatalogShow, type EnrichedTrackingItem } from "@app/hooks/useWatchlist";
 import { colors } from "../../theme/index";
 import LoadingScreen from "../../components/LoadingScreen";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
@@ -36,6 +36,10 @@ export default function WatchlistTab() {
 		[navigate],
 	);
 	const w = useWatchlistScreen(goToShow);
+	// Episode sheet's logo / name (catalog cache — 0 reads)
+	const sheetShow = w.sheetEpisode
+		? getCachedCatalogShow(w.sheetEpisode.tmdbShowId, MediaType.TV)
+		: null;
 	// Long press / right-click on a card → confirm pausing it (no swipe — too easy by accident)
 	const [pauseTarget, setPauseTarget] = useState<EnrichedTrackingItem | null>(null);
 	const [pausing, setPausing] = useState(false);
@@ -170,21 +174,37 @@ export default function WatchlistTab() {
 				onConfirm={confirmPause}
 				onClose={() => setPauseTarget(null)}
 			/>
-			<WatchActionSheet
+			<WatchCountSheet
 				visible={w.sheetVisible}
-				label={w.sheetLabel}
+				title={sheetShow?.title || ""}
+				// SEASON / Exx sit in the square beside the logo; the name stays under it
+				subtitle={w.sheetEpisode?.episodeTitle}
+				episode={
+					w.sheetEpisode
+						? { season: w.sheetEpisode.season, episode: w.sheetEpisode.episode }
+						: undefined
+				}
+				centered={false}
+				tmdbId={w.sheetEpisode?.tmdbShowId}
+				mediaType={MediaType.TV}
+				logoPath={sheetShow?.logoPath}
 				watchCount={w.sheetEpisode?.watchCount || 0}
-				onSelect={w.handleSheetAction}
+				allowWatchedOnce={!w.sheetInRewatch}
+				minCount={w.sheetMinCount}
+				onCommit={w.handleEpisodeCountCommit}
 				onClose={() => {
 					w.setSheetVisible(false);
 					w.setSheetEpisode(null);
 				}}
 			/>
-			<WatchActionSheet
+			<WatchCountSheet
 				visible={w.movieSheetVisible}
-				label={w.sheetMovieTitle || "Movie"}
+				title={w.sheetMovieTitle || "Movie"}
+				// No episode square → logo alone, centred (as on the info page)
+				tmdbId={w.sheetMovie?.tmdbId}
+				mediaType={MediaType.MOVIE}
 				watchCount={w.sheetMovie?.watchCount || 0}
-				onSelect={w.handleMovieSheetAction}
+				onCommit={w.handleMovieCountCommit}
 				onClose={() => {
 					w.setMovieSheetVisible(false);
 					w.setSheetMovie(null);

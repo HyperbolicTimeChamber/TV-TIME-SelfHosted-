@@ -20,6 +20,7 @@ export {
 	useWatchedEpisodes,
 	insertWatchedEpisodeCache,
 	removeWatchedEpisodeCache,
+	setWatchedEpisodeCountsCache,
 } from "./useWatchedEpisodes";
 export { useWatchedMovies, insertWatchedMovieCache } from "./useWatchedMovies";
 export type { EnrichedTrackingItem } from "./useWatchlist";

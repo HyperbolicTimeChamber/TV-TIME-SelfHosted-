@@ -17,6 +17,7 @@ import {
 	removeFromTracking,
 	addAndMarkMovieWatched,
 	getHighestWatchedEpisode,
+	getWatchProgress,
 } from "../../services";
 import {
 	showDocId,
@@ -34,6 +35,7 @@ import {
 	UpcomingEpisode,
 	type AddFailure,
 } from "../../types";
+import { WatchProgress } from "../../enums";
 import { Alert } from "react-native";
 import { fetchFirstEpisodeInfo, buildOptimisticItem } from "./helpers";
 
@@ -50,6 +52,11 @@ export function useSearchActions() {
 	const [addingIds, setAddingIds] = useState<Set<number>>(new Set());
 	const [movieModal, setMovieModal] = useState<TMDBShow | null>(null);
 	const [removeModal, setRemoveModal] = useState<TMDBShow | null>(null);
+	// Remove refused: started / watched (history must be cleared on the show page first)
+	const [watchedBlock, setWatchedBlock] = useState<{
+		item: TMDBShow;
+		progress: WatchProgress;
+	} | null>(null);
 	const [removing, setRemoving] = useState(false);
 	const [removeError, setRemoveError] = useState<string | null>(null);
 	const [unreleasedModal, setUnreleasedModal] = useState<{
@@ -280,8 +287,19 @@ export function useSearchActions() {
 	const dismissAddFailure = useCallback(() => setAddFailure(null), []);
 
 	const handleRemoveFromWatchlist = useCallback(
-		(item: TMDBShow) => {
+		async (item: TMDBShow) => {
 			if (!user?.uid) return;
+			const mediaType: MediaType =
+				item.media_type ||
+				(item.first_air_date || (item.name && !item.title) ? MediaType.TV : MediaType.MOVIE);
+			// Can't tell (offline, no cached doc) → the normal confirm; history is kept either way
+			const progress = await getWatchProgress(user.uid, item.id, mediaType).catch(
+				() => WatchProgress.NONE,
+			);
+			if (progress !== WatchProgress.NONE) {
+				setWatchedBlock({ item, progress });
+				return;
+			}
 			setRemoveError(null);
 			setRemoveModal(item);
 		},
@@ -540,6 +558,8 @@ export function useSearchActions() {
 		setMovieModal,
 		removeModal,
 		setRemoveModal,
+		watchedBlock,
+		setWatchedBlock,
 		removing,
 		removeError,
 		setRemoveError,

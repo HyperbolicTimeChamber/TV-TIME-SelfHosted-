@@ -1,0 +1,30 @@
+/* Compact (32px) so it reads as a tag next to 44px buttons, not a button */
+.pill {
+	height: 32px;
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 0 4px 0 12px;
+	border-radius: 16px;
+	/* Same fill as the overlay back / share circles */
+	background: rgba(0, 0, 0, 0.5);
+	color: var(--text);
+	font-size: 13px;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.circle {
+	min-width: 24px;
+	height: 24px;
+	padding: 0 5px;
+	border-radius: 12px;
+	background: var(--text);
+	color: var(--bg);
+	font-size: 13px;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}

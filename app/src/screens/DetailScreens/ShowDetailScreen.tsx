@@ -12,6 +12,7 @@ import Reanimated, {
 import DetailBackdrop from "./DetailBackdrop";
 import ActionPills from "./ActionPills";
 import DetailCredits from "./DetailCredits";
+import WatchCountPill from "../../components/WatchCountPill";
 import { useShowDetailActions } from "./useShowDetailActions";
 import {
 	AddFailedModal,
@@ -19,7 +20,7 @@ import {
 	LoadingSpinner,
 	SeasonDropdown,
 	UnreleasedMovieModal,
-	WatchActionSheet,
+	WatchCountSheet,
 } from "../../components";
 import { showShareUrl, describeLoadError } from "../../utils";
 import ErrorState from "../../components/ErrorState";
@@ -37,6 +38,12 @@ type RouteParams = RouteProp<HomeStackParamList, "ShowDetail">;
 /** Space kept between the sticky back button and the pills pushing it off */
 const BACK_PUSH_GAP = 8;
 
+/** "S03E04 – My Lucky Night" for the rewatch gate */
+function rewatchBlockedLabel(b: { season: number; episode: number; name: string | null }) {
+	const pad = (n: number) => String(n).padStart(2, "0");
+	return `S${pad(b.season)}E${pad(b.episode)}${b.name ? ` – ${b.name}` : ""}`;
+}
+
 export default function ShowDetailScreen() {
 	const route = useRoute<RouteParams>();
 	const { tmdbId, mediaType } = route.params;
@@ -53,6 +60,8 @@ export default function ShowDetailScreen() {
 		adding,
 		removing,
 		movieWatchCount,
+		watchCount,
+		hasStarted,
 		movieSheetVisible,
 		setMovieSheetVisible,
 		removeModalVisible,
@@ -77,7 +86,9 @@ export default function ShowDetailScreen() {
 		setPauseModalVisible,
 		pausing,
 		handleConfirmPause,
-		handleMovieSheetAction,
+		handleMovieWatchCountChange,
+		rewatchBlocked,
+		setRewatchBlocked,
 		seasonLayout,
 	} = useShowDetailActions(tmdbId, mediaType);
 	// Catalog's logo, else the one that came with the details (same request as the page data)
@@ -190,12 +201,13 @@ export default function ShowDetailScreen() {
 								removing={removing}
 								movieWatchCount={movieWatchCount}
 								hasWatchedEpisodes={showWatchedEps.length > 0}
+								hasStarted={hasStarted}
 								onAddToWatchlist={handleAddToWatchlist}
 								onMarkMovieWatched={handleMarkMovieWatched}
 								onResumeOrRewatch={handleResumeOrRewatch}
 								onPause={() => setPauseModalVisible(true)}
 								onRemove={handleRemove}
-								onMovieSheetOpen={() => setMovieSheetVisible(true)}
+								onWatchSheetOpen={() => setMovieSheetVisible(true)}
 							/>
 						</View>
 					</DetailBackdrop>
@@ -286,6 +298,12 @@ export default function ShowDetailScreen() {
 				<Reanimated.View style={[styles.backButton, { top: buttonTop }, stickyBack]}>
 					<CircleBackButton tone={CircleButtonTone.OVERLAY} onPress={handleBack} />
 				</Reanimated.View>
+				{watchCount > 0 && (
+					// Top edge level with back / share (not centred on them)
+					<View style={[styles.watchCountRow, { top: buttonTop }]} pointerEvents="none">
+						<WatchCountPill count={watchCount} />
+					</View>
+				)}
 				<CircleButton
 					tone={CircleButtonTone.OVERLAY}
 					style={[styles.shareButton, { top: insets.top + 8 }]}
@@ -357,6 +375,25 @@ export default function ShowDetailScreen() {
 				onClose={() => setPauseModalVisible(false)}
 			/>
 
+			{/* Next rewatch only once every aired episode is at the current run */}
+			<ConfirmModal
+				visible={!!rewatchBlocked}
+				title="Finish Watching First"
+				image={
+					<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={title} />
+				}
+				hint={
+					rewatchBlocked
+						? `${rewatchBlockedLabel(rewatchBlocked)} isn't at x${rewatchBlocked.count} yet. Every aired episode needs x${rewatchBlocked.count} before rewatch ${rewatchBlocked.count} can start.`
+						: undefined
+				}
+				confirmLabel="OK"
+				confirmColor={colors.primary}
+				hideCancel
+				onConfirm={() => setRewatchBlocked(null)}
+				onClose={() => setRewatchBlocked(null)}
+			/>
+
 			<AddFailedModal
 				failure={addFailure}
 				retrying={adding}
@@ -370,11 +407,14 @@ export default function ShowDetailScreen() {
 				movieTitle={unreleasedModal?.title ?? ""}
 			/>
 
-			<WatchActionSheet
+			<WatchCountSheet
 				visible={movieSheetVisible}
-				label={show?.title || show?.name || "Movie"}
+				title={title || "Movie"}
+				tmdbId={tmdbId}
+				mediaType={mediaType}
+				logoPath={logoPath}
 				watchCount={movieWatchCount}
-				onSelect={handleMovieSheetAction}
+				onCommit={handleMovieWatchCountChange}
 				onClose={() => setMovieSheetVisible(false)}
 			/>
 		</SwipeBackView>
@@ -395,6 +435,8 @@ const styles = StyleSheet.create({
 	// Position only — the circle itself is components/CircleButton
 	backButton: { position: "absolute", left: 16, zIndex: 10 },
 	shareButton: { position: "absolute", right: 16, zIndex: 10 },
+	// Centred between back and share
+	watchCountRow: { position: "absolute", left: 0, right: 0, alignItems: "center", zIndex: 10 },
 	islandLogo: {
 		alignItems: "center",
 	},

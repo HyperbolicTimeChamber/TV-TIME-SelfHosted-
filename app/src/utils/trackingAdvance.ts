@@ -407,3 +407,147 @@ export function rewatchUpToRefs(
 		})
 		.map((e) => ({ season: e.season, episode: e.episode }));
 }
+
+/**
+ * Watch count −/+ on one episode (info page sheet): where the watchlist pointer goes, null →
+ * it stays. Run x = the watch under way (first watch 1, a rewatch its level; none when the show
+ * isn't being watched). `counts` are BEFORE the change.
+ * - +: the episode reaches x (finished in this run) and the next one is still at x − 1 (next
+ *   to watch in this run) → pointer to that next episode.
+ * - −: the episode drops from x to below it and the next one is at x − 1 → pointer back to it.
+ * Extra watches past the run, or a run already ahead of the next episode, never move it.
+ */
+export function stepperPointer(
+	order: EpisodeRef[],
+	counts: Map<string, number>,
+	tracking: { status?: WatchStatus; nextEpisode?: EpisodeRef | null } | null,
+	target: EpisodeRef,
+	from: number,
+	to: number,
+): EpisodeRef | null {
+	const status = tracking?.status;
+	const run =
+		status === WatchStatus.WATCHING || status === WatchStatus.PAUSED
+			? 1
+			: rewatchLevel(order, counts, tracking ?? null);
+	if (run === null || from === to) return null;
+	const idx = indexOf(order, target);
+	const next = idx >= 0 ? order[idx + 1] : undefined;
+	if (!next || countOf(counts, next) !== run - 1) return null;
+	if (to > from)
+		return from < run && to >= run ? { season: next.season, episode: next.episode } : null;
+	return from >= run && to < run ? { season: target.season, episode: target.episode } : null;
+}
+
+/**
+ * stepperPointer for the watchlist, which knows the pointer but not every episode's count:
+ * the "next one is still at x − 1" check becomes "the pointer is right there" (the pointer
+ * episode is by definition the next to watch in the run). Run x as in stepperPointer.
+ * - +: the episode reaches x and the pointer is on it → pointer to the next episode.
+ * - −: the episode drops from x to below it and the pointer is the next episode → back to it.
+ */
+export function adjacentPointer(
+	order: EpisodeRef[],
+	pointer: EpisodeRef | null | undefined,
+	target: EpisodeRef,
+	from: number,
+	to: number,
+	run: number,
+): EpisodeRef | null {
+	if (!pointer || from === to) return null;
+	const idx = indexOf(order, target);
+	const next = idx >= 0 ? order[idx + 1] : undefined;
+	if (!next) return null;
+	const at = (a: EpisodeRef, b: EpisodeRef) => a.season === b.season && a.episode === b.episode;
+	if (to > from) {
+		return from < run && to >= run && at(pointer, target)
+			? { season: next.season, episode: next.episode }
+			: null;
+	}
+	return from >= run && to < run && at(pointer, next)
+		? { season: target.season, episode: target.episode }
+		: null;
+}
+
+/** Aired by today; entries built without episode data (no airDate field) count as aired, TBA (null) not */
+const isAired = (e: EpisodeRef, today: string) =>
+	e.airDate === undefined || (e.airDate !== null && e.airDate <= today);
+
+/**
+ * Rewatch floor: the rewatch count may never exceed the lowest watch count across aired
+ * episodes (episodes can sit higher, never lower). The lowest count and the first episode at it.
+ */
+export function lowestAiredCount(
+	order: EpisodeRef[],
+	counts: Map<string, number>,
+	today: string,
+): { count: number; first: EpisodeRef | null } {
+	let count = Infinity;
+	let first: EpisodeRef | null = null;
+	for (const e of order) {
+		if (!isAired(e, today)) continue;
+		const c = countOf(counts, e);
+		if (c < count) {
+			count = c;
+			first = { season: e.season, episode: e.episode };
+		}
+	}
+	return { count: count === Infinity ? 0 : count, first };
+}
+
+/**
+ * Tracking fix when the rewatch count sits above the lowest aired count (an episode was
+ * unwatched under the floor, or data from before the rule): the count becomes that lowest
+ * count, the pointer the first episode at it. 0 → a first watch again (watching / paused);
+ * otherwise rewatch run L under way. null → consistent, nothing to write.
+ * A rewatch under way ignores unwatched episodes after the last watched one (new content
+ * aired mid-run): its pointer never jumps — it reaches them when the run completes.
+ */
+export function rewatchHeal(
+	order: EpisodeRef[],
+	counts: Map<string, number>,
+	tracking: { status?: WatchStatus; rewatchCount?: number; nextEpisode?: EpisodeRef | null },
+	today: string,
+): { rewatchCount: number; status: WatchStatus; nextEpisode: EpisodeRef | null } | null {
+	const stored = tracking.rewatchCount ?? 0;
+	if (stored <= 0) return null;
+	let scope = order;
+	if (tracking.status === WatchStatus.REWATCHING) {
+		let last = -1;
+		order.forEach((e, i) => {
+			if (countOf(counts, e) > 0) last = i;
+		});
+		scope = order.slice(0, last + 1);
+	}
+	const low = lowestAiredCount(scope, counts, today);
+	if (stored <= low.count) return null;
+	const paused =
+		tracking.status === WatchStatus.PAUSED || tracking.status === WatchStatus.PAUSED_REWATCH;
+	const status =
+		low.count === 0
+			? paused
+				? WatchStatus.PAUSED
+				: WatchStatus.WATCHING
+			: paused
+				? WatchStatus.PAUSED_REWATCH
+				: WatchStatus.REWATCHING;
+	return { rewatchCount: low.count, status, nextEpisode: low.first };
+}
+
+/**
+ * Starting the next rewatch needs the current run finished: every aired episode at least
+ * at rewatch count + 1. The first one short (null → a rewatch may start).
+ */
+export function rewatchBlocker(
+	order: EpisodeRef[],
+	counts: Map<string, number>,
+	rewatchCount: number,
+	today: string,
+): EpisodeRef | null {
+	for (const e of order) {
+		if (isAired(e, today) && countOf(counts, e) < rewatchCount + 1) {
+			return { season: e.season, episode: e.episode };
+		}
+	}
+	return null;
+}

@@ -16,7 +16,8 @@ import { ModalBackdrop, ModalLogo } from "../../components/ModalArt";
 import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
 import { pickTitleLogo } from "@app/services/tmdb";
 import UnreleasedMovieModal from "../../components/UnreleasedMovieModal";
-import WatchActionSheet from "../../components/WatchActionSheet";
+import WatchCountSheet from "../../components/WatchCountSheet";
+import WatchCountPill from "../../components/WatchCountPill";
 import SeasonDropdown from "../../components/SeasonDropdown";
 import ActionPills from "./ActionPills";
 import { Paths } from "../../routes/paths";
@@ -28,6 +29,12 @@ import { cssVars, px } from "../../utils/cssVars";
 const BACK_PUSH_GAP = 8;
 
 /** Show / movie page — public (read-only for guests) and the target of share links */
+/** "S03E04 – My Lucky Night" for the rewatch gate (app) */
+function rewatchBlockedLabel(b: { season: number; episode: number; name: string | null }) {
+	const pad = (n: number) => String(n).padStart(2, "0");
+	return `S${pad(b.season)}E${pad(b.episode)}${b.name ? ` – ${b.name}` : ""}`;
+}
+
 export default function ShowDetailScreen() {
 	const params = useParams();
 	const tmdbId = Number(params.tmdbId);
@@ -135,6 +142,12 @@ export default function ShowDetailScreen() {
 			>
 				<CircleBackButton tone={CircleButtonTone.OVERLAY} onClick={handleBack} />
 			</div>
+			{signedIn && d.watchCount > 0 && (
+				// Top edge level with back / share (not centred on them)
+				<div className={`${styles.floatButton} ${styles.watchCount}`}>
+					<WatchCountPill count={d.watchCount} />
+				</div>
+			)}
 			<CircleButton
 				tone={CircleButtonTone.OVERLAY}
 				className={`${styles.floatButton} ${styles.shareButton}`}
@@ -175,12 +188,13 @@ export default function ShowDetailScreen() {
 								removing={d.removing}
 								movieWatchCount={d.movieWatchCount}
 								hasWatchedEpisodes={d.showWatchedEps.length > 0}
+								hasStarted={d.hasStarted}
 								onAddToWatchlist={d.handleAddToWatchlist}
 								onMarkMovieWatched={d.handleMarkMovieWatched}
 								onResumeOrRewatch={d.handleResumeOrRewatch}
 								onPause={() => d.setPauseModalVisible(true)}
 								onRemove={d.handleRemove}
-								onMovieSheetOpen={() => d.setMovieSheetVisible(true)}
+								onWatchSheetOpen={() => d.setMovieSheetVisible(true)}
 							/>
 						) : (
 							<div className={styles.pillRow}>
@@ -361,16 +375,42 @@ export default function ShowDetailScreen() {
 						onConfirm={d.handleAddToWatchlist}
 						onClose={() => d.setAddFailure(null)}
 					/>
+					{/* Next rewatch only once every aired episode is at the current run (app) */}
+					<ConfirmModal
+						visible={!!d.rewatchBlocked}
+						title="Finish Watching First"
+						image={
+							<ModalLogo
+								logoPath={logoPath}
+								tmdbId={tmdbId}
+								mediaType={mediaType}
+								title={d.title}
+							/>
+						}
+						hint={
+							d.rewatchBlocked
+								? `${rewatchBlockedLabel(d.rewatchBlocked)} isn't at x${d.rewatchBlocked.count} yet. Every aired episode needs x${d.rewatchBlocked.count} before rewatch ${d.rewatchBlocked.count} can start.`
+								: undefined
+						}
+						confirmLabel="OK"
+						confirmColor={colors.primary}
+						hideCancel
+						onConfirm={() => d.setRewatchBlocked(null)}
+						onClose={() => d.setRewatchBlocked(null)}
+					/>
 					<UnreleasedMovieModal
 						visible={!!d.unreleasedModal}
 						onClose={() => d.setUnreleasedModal(null)}
 						movieTitle={d.unreleasedModal?.title ?? ""}
 					/>
-					<WatchActionSheet
+					<WatchCountSheet
 						visible={d.movieSheetVisible}
-						label={show.title || show.name || "Movie"}
+						title={d.title || "Movie"}
+						tmdbId={tmdbId}
+						mediaType={mediaType}
+						logoPath={logoPath}
 						watchCount={d.movieWatchCount}
-						onSelect={d.handleMovieSheetAction}
+						onCommit={d.handleMovieWatchCountChange}
 						onClose={() => d.setMovieSheetVisible(false)}
 					/>
 				</>

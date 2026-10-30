@@ -22,7 +22,15 @@ export async function cleanOrphanedEpisodes(
 
   if (maxEpByShowSeason.size === 0) return;
 
-  const watchedSnap = await db.collection(`users/${uid}/watchedEpisodes`).get();
+  // Only these shows' watched docs (`in` takes up to 30 values per query) — not the whole
+  // collection, which is one read per watched episode
+  const showTmdbIds = [...maxEpByShowSeason.keys()].map((key) => parseTmdbId(key).tmdbId);
+  const watchedCol = db.collection(`users/${uid}/watchedEpisodes`);
+  const watchedDocs: FirebaseFirestore.QueryDocumentSnapshot[] = [];
+  for (let i = 0; i < showTmdbIds.length; i += 30) {
+    const snap = await watchedCol.where("tmdbShowId", "in", showTmdbIds.slice(i, i + 30)).get();
+    watchedDocs.push(...snap.docs);
+  }
 
   const tmdbIdToKey = new Map<number, string>();
   for (const [key] of maxEpByShowSeason) {
@@ -35,7 +43,7 @@ export async function cleanOrphanedEpisodes(
   let orphanPlays = 0;
   let orphanRuntime = 0;
 
-  for (const wd of watchedSnap.docs) {
+  for (const wd of watchedDocs) {
     const data = wd.data();
     const tmdbShowId = data.tmdbShowId;
     const season = data.season;

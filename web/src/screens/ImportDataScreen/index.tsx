@@ -277,13 +277,9 @@ export default function ImportDataScreen() {
 					</div>
 				</div>
 				<div className={styles.footer}>
-					{imp.disambigIndex > 0 ? (
-						<button className={styles.footerBack} onClick={imp.handleBackDisambig}>
-							&lt; Back
-						</button>
-					) : (
-						<span />
-					)}
+					<button className={styles.footerBack} onClick={imp.handleBackDisambig}>
+						&lt; Back
+					</button>
 					<button className={styles.footerSkip} onClick={imp.handleSkipDisambig}>
 						Skip &gt;
 					</button>

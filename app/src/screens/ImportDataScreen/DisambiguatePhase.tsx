@@ -103,13 +103,9 @@ export default function DisambiguatePhase({
 
 			{/* Fixed footer */}
 			<View style={styles.disambigFooter}>
-				{disambigIndex > 0 ? (
-					<TouchableOpacity style={styles.disambigBackBtn} onPress={onBack}>
-						<Text style={styles.disambigBackText}>&lt; Back</Text>
-					</TouchableOpacity>
-				) : (
-					<View />
-				)}
+				<TouchableOpacity style={styles.disambigBackBtn} onPress={onBack}>
+					<Text style={styles.disambigBackText}>&lt; Back</Text>
+				</TouchableOpacity>
 				<TouchableOpacity style={styles.disambigSkipBtn} onPress={onSkip}>
 					<Text style={styles.disambigSkipText}>Skip &gt;</Text>
 				</TouchableOpacity>

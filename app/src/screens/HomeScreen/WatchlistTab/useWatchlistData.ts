@@ -7,6 +7,7 @@ import {
 	useWatchlist,
 	EnrichedTrackingItem,
 	getCachedCatalogShow,
+	prefillCatalog,
 	useWatchedEpisodes,
 	useWatchedMovies,
 	insertWatchedEpisodeCache,
@@ -16,19 +17,25 @@ import {
 	useUpcomingMutations,
 	incrementDailyWatch,
 	removeWatchedEpisodeCache,
+	setWatchedEpisodeCountsCache,
 	decrementDailyWatch,
 } from "../../../hooks";
 import {
 	markEpisodeWatched,
 	markMovieWatched,
 	markSeasonWatchedCF,
-	unmarkEpisodeWatched,
-	decrementEpisodeWatchCount,
+	writeEpisodeWatchCount,
 	stopWatching,
 	skipRewatchEpisode,
 } from "../../../services";
 import { removeShowFromCalendarGlobal } from "../../../hooks/useCalendarEpisodes";
-import { emitShowCompleted, todayStr, pickEpisodeTitle, isFinaleEpisode } from "../../../utils";
+import {
+	emitShowCompleted,
+	todayStr,
+	pickEpisodeTitle,
+	isFinaleEpisode,
+	adjacentPointer,
+} from "../../../utils";
 import {
 	MediaType,
 	CacheKey,
@@ -310,6 +317,63 @@ export function useWatchlistData(userId: string | undefined) {
 		return map;
 	}, [items]);
 
+	/** Rewatch floor: no episode goes below the rewatch count (any status — the rewatch number
+	 *  is the lowest count). − / swipe / Unwatch stop there; only the show page can go lower,
+	 *  behind a "Reduce Rewatch" confirmation */
+	const rewatchFloor = useCallback(
+		(tmdbId: number) => showMap.get(tmdbId)?.rewatchCount ?? 0,
+		[showMap],
+	);
+
+	/**
+	 * Where a watch count change on one episode moves the watchlist pointer, by the run rule
+	 * (adjacentPointer): an episode (with what its card shows), null (stays), or undefined when
+	 * the show / its episode order isn't loaded, or it's completed → writeEpisodeWatchCount's
+	 * legacy "back to this episode at a real 0". No reads: status, rewatch number, pointer and
+	 * episode order are all cached
+	 */
+	const pointerFor = useCallback(
+		(tmdbId: number, season: number, episode: number, from: number, to: number) => {
+			const item = showMap.get(tmdbId);
+			if (!item) return undefined;
+			const status = item.status;
+			const run =
+				status === WatchStatus.WATCHING || status === WatchStatus.PAUSED
+					? 1
+					: status === WatchStatus.REWATCHING || status === WatchStatus.PAUSED_REWATCH
+						? (item.rewatchCount ?? 0) + 1
+						: null;
+			if (run === null) return undefined;
+			const catalog = item.catalogShow ?? getCachedCatalogShow(tmdbId, MediaType.TV);
+			if (!catalog?.seasons?.length) return undefined;
+			const seasons = catalog.seasons
+				.filter((s) => s.seasonNumber > 0)
+				.sort((x, y) => x.seasonNumber - y.seasonNumber);
+			const order = seasons.flatMap((s) =>
+				s.episodes.map((e) => ({ season: s.seasonNumber, episode: e.episodeNumber })),
+			);
+			const target = adjacentPointer(order, item.nextEpisode, { season, episode }, from, to, run);
+			if (!target) return null;
+			const info = seasons
+				.find((s) => s.seasonNumber === target.season)
+				?.episodes.find((e) => e.episodeNumber === target.episode);
+			return { ...target, name: info?.title ?? null, airDate: info?.airDate ?? null };
+		},
+		[showMap],
+	);
+
+	/** Count a mark brings an episode to when the exact one isn't cached (see
+	 *  insertWatchedEpisodeCache): the run under way (rewatch n → n + 1), else a first watch */
+	const markedCount = useCallback(
+		(tmdbId: number) => {
+			const it = showMap.get(tmdbId);
+			return it?.status === WatchStatus.REWATCHING || it?.status === WatchStatus.PAUSED_REWATCH
+				? (it.rewatchCount ?? 0) + 1
+				: 1;
+		},
+		[showMap],
+	);
+
 	const watchedCountByShow = useMemo(() => {
 		const map = new Map<number, number>();
 		for (const ep of watchedEps) {
@@ -426,6 +490,24 @@ export function useWatchlistData(userId: string | undefined) {
 
 	const allLoading = loading || watchedEpsLoading || watchedMoviesLoading;
 
+	// Previously Watched rows of a title that's neither on a loaded watchlist page nor in the
+	// catalog cache drew a blank card (e.g. marked from its page, its tracking page not loaded).
+	// Fill its catalog once — cached + persisted, so later launches label it with no read — then
+	// rebuild the list
+	const [catalogFillTick, setCatalogFillTick] = useState(0);
+	useEffect(() => {
+		for (const item of prevWatchedItems) {
+			const [id, type] =
+				item.kind === MediaType.MOVIE
+					? [item.movie.tmdbId, MediaType.MOVIE]
+					: [item.ep.tmdbShowId, MediaType.TV];
+			if (showMap.has(id) || getCachedCatalogShow(id, type)) continue;
+			prefillCatalog(id, type).then((catalog) => {
+				if (catalog) setCatalogFillTick((t) => t + 1);
+			});
+		}
+	}, [prevWatchedItems, showMap]);
+
 	const liveList: CacheableWatchlistListItem[] = useMemo(() => {
 		if (allLoading) return [];
 		const result: CacheableWatchlistListItem[] = [];
@@ -463,7 +545,8 @@ export function useWatchlistData(userId: string | undefined) {
 			}
 		}
 		return result;
-	}, [allLoading, prevWatchedItems, sortedActive, showMap, today]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- catalogFillTick: rebuild once a fill lands
+	}, [allLoading, prevWatchedItems, sortedActive, showMap, today, catalogFillTick]);
 
 	// --- Persist list cache when live data updates (only cached tier, not volatile) ---
 	useEffect(() => {
@@ -766,7 +849,7 @@ export function useWatchlistData(userId: string | undefined) {
 					runtime: epRuntime,
 					lastWatchedAt: epNow,
 					watchedAt: epNow,
-					watchCount: 1,
+					watchCount: markedCount(item.tmdbId),
 				});
 				incrementDailyWatch("episode");
 				removeWatchedFromPast(item.tmdbId, currentEp.season, currentEp.episode);
@@ -790,7 +873,14 @@ export function useWatchlistData(userId: string | undefined) {
 				Alert.alert("Error", err.message || "Failed to mark as watched.");
 			}
 		},
-		[userId, queryClient, mutateCachedUpcoming, rollbackUpcoming, removeWatchedFromPast],
+		[
+			userId,
+			queryClient,
+			mutateCachedUpcoming,
+			rollbackUpcoming,
+			removeWatchedFromPast,
+			markedCount,
+		],
 	);
 
 	const handleMarkWatchedThrough = useCallback(
@@ -887,13 +977,13 @@ export function useWatchlistData(userId: string | undefined) {
 						runtime: ep.runtime,
 						lastWatchedAt: at,
 						watchedAt: at,
-						watchCount: 1,
+						watchCount: markedCount(tmdbId),
 					});
 					incrementDailyWatch("episode", finished[k]);
 				});
 			}
 		},
-		[userId, items, queryClient],
+		[userId, items, queryClient, markedCount],
 	);
 
 	const handleUnmarkEpisode = useCallback(
@@ -906,46 +996,53 @@ export function useWatchlistData(userId: string | undefined) {
 			const known = item
 				? { status: item.status, rewatchCount: item.rewatchCount ?? 0 }
 				: undefined;
-			// Carousel Unwatch takes one watch off (its card shows the count dropping by one);
-			// deleting every watch wiped earlier runs mid-rewatch
+			// Carousel Unwatch takes one watch off (its card shows the count dropping by one)
 			const count =
 				queryClient
 					.getQueryData<WatchedEpisode[]>([QueryKey.WATCHED_EPISODES, userId, tmdbId])
 					?.find((e) => e.season === season && e.episode === episode)?.watchCount ?? 1;
+			// Mid-rewatch never below the rewatch number: earlier runs' watches stay, so stepping
+			// back through the carousel unwatching can't end the rewatch
+			if (count <= rewatchFloor(tmdbId)) return;
+			const pointer = pointerFor(tmdbId, season, episode, count, count - 1);
 
-			if (count > 1) {
-				await decrementEpisodeWatchCount(
-					userId,
-					tmdbId,
-					season,
-					episode,
-					catalogEp?.runtime || 0,
-					count,
-					catalogEp?.title || null,
-					catalogEp?.airDate || null,
-					known,
-				);
-				removeWatchedEpisodeCache(queryClient, userId, tmdbId, season, episode, true);
-				decrementDailyWatch("episode");
-				return;
-			}
-
-			await unmarkEpisodeWatched(
+			// Off the real count (read first): a stale cached count can't delete watches
+			const final = await writeEpisodeWatchCount(
 				userId,
 				tmdbId,
-				season,
-				episode,
-				catalogEp?.runtime || 0,
-				catalogEp?.title || null,
-				catalogEp?.airDate || null,
+				{
+					season,
+					episode,
+					title: catalogEp?.title || "",
+					runtime: catalogEp?.runtime || 0,
+					airDate: catalogEp?.airDate || null,
+				},
+				count,
+				count - 1,
 				known,
+				pointer,
 			);
-			removeWatchedEpisodeCache(queryClient, userId, tmdbId, season, episode);
 			decrementDailyWatch("episode");
-			// The write points the watchlist back at this episode — show it on the card now (and
-			// replace a mark's patch that would otherwise keep showing the old next episode)
-			if (item?.nextEpisode) {
+			if (final > 0) {
+				setWatchedEpisodeCountsCache(
+					queryClient,
+					userId,
+					tmdbId,
+					new Map([[`${season}_${episode}`, final]]),
+				);
+			} else {
+				removeWatchedEpisodeCache(queryClient, userId, tmdbId, season, episode);
+			}
+			// The write pointed the watchlist back at this episode (run rule, or a real 0 without
+			// one) — show it on the card now, and replace a mark's patch that would otherwise keep
+			// showing the old next episode
+			const movedBack = pointer
+				? pointer.season === season && pointer.episode === episode
+				: pointer === undefined && final <= 0;
+			if (movedBack && item?.nextEpisode) {
 				const after = catalog ? findNextEpisodeInCatalog(catalog, season, episode) : null;
+				const inRewatch =
+					item.status === WatchStatus.REWATCHING || item.status === WatchStatus.PAUSED_REWATCH;
 				optimisticFrom.current.set(
 					tmdbId,
 					`${item.nextEpisode.season}-${item.nextEpisode.episode}`,
@@ -962,12 +1059,13 @@ export function useWatchlistData(userId: string | undefined) {
 						nextNextEpisodeRuntime: after?.runtime ?? 0,
 						isLastEpisode: !after,
 						isSeasonFinale: false,
-						status: WatchStatus.WATCHING,
+						// A rewatch stays a rewatch; otherwise it's a first watch again
+						status: inRewatch ? item.status : WatchStatus.WATCHING,
 					} as Partial<CardItem>),
 				);
 			}
 		},
-		[userId, items, queryClient],
+		[userId, items, queryClient, rewatchFloor, pointerFor],
 	);
 
 	const handleCarouselMarkWatched = useCallback(
@@ -1024,11 +1122,11 @@ export function useWatchlistData(userId: string | undefined) {
 				runtime: catalogEp?.runtime || 0,
 				lastWatchedAt: now,
 				watchedAt: now,
-				watchCount: 1,
+				watchCount: markedCount(tmdbId),
 			});
 			incrementDailyWatch("episode");
 		},
-		[userId, items, queryClient],
+		[userId, items, queryClient, markedCount],
 	);
 
 	/** Rewatch only: skip the current episode — pointer moves on, nothing marked watched */
@@ -1161,5 +1259,9 @@ export function useWatchlistData(userId: string | undefined) {
 		handleUnmarkEpisode,
 		handleCarouselMarkWatched,
 		handleSkipEpisode,
+		rewatchFloor,
+		pointerFor,
+		/** Loaded tracking items by tmdbId (status for the watch count sheet) */
+		showMap,
 	};
 }

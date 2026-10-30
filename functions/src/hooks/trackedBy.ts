@@ -1,6 +1,6 @@
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 
-const TRACKED_BY_LIMIT = 1000;
+export const TRACKED_BY_LIMIT = 1000;
 
 export async function addToTrackedBy(
   showId: string,

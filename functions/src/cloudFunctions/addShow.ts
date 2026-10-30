@@ -1,27 +1,28 @@
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { fetchShowFromTMDB, CatalogShow } from "../hooks/tmdb";
 import { addToTrackedBy } from "../hooks/trackedBy";
 import { getTmdbApiKey, invalidateApiKeyCache } from "../hooks/apiKey";
 import { addShowToUpcoming } from "../hooks/upcoming";
 import { showDocId } from "../shared/docId";
-import { MediaType } from "../shared/enums";
+import { MediaType, FunctionName, Callable } from "../shared/enums";
+import { requireCaller } from "../hooks/requireCaller";
+import { trackedOnCall } from "../hooks/trackedTriggers";
 
 interface AddShowRequest {
   tmdbId: number;
   mediaType: MediaType;
 }
 
-export const addShow = onCall(
+export const addShow = trackedOnCall(
+  FunctionName.ADD_SHOW,
   {
     maxInstances: 5,
     timeoutSeconds: 120,
     memory: "256MiB",
   },
   async (request): Promise<CatalogShow> => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Must be signed in");
-    }
+    const uid = requireCaller(request, Callable.ADD_SHOW);
     if (request.data?.warmup) return {} as CatalogShow;
 
     const { tmdbId, mediaType } = request.data as AddShowRequest;
@@ -32,7 +33,6 @@ export const addShow = onCall(
     const db = getFirestore();
     const showId = showDocId(tmdbId, mediaType);
     const showRef = db.doc(`shows/${showId}`);
-    const uid = request.auth.uid;
 
     // Fast path: if catalog doc already exists, just add to trackedBy
     const existingDoc = await showRef.get();
