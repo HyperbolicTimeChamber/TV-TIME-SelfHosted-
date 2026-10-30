@@ -5,13 +5,12 @@ import { IoChevronBackCircleOutline, IoSearch } from "react-icons/io5";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSearch } from "@app/hooks/useSearch";
 import { useTrending } from "@app/hooks/useTrending";
-import { useSearchSort } from "@app/hooks/useSearchSort";
+import { useSearchSort, useSortedSearchResults } from "@app/hooks/useSearchSort";
 import { useSearchActions } from "@app/screens/SearchScreen/useSearchActions";
 import {
 	DEFAULT_SEARCH_SORT,
 	SEARCH_SORT_OPTIONS,
 	sameSearchSort,
-	sortSearchResults,
 	type SearchSortView,
 } from "@app/utils/searchSort";
 import { MediaFilter } from "@app/enums";
@@ -67,13 +66,18 @@ export default function SearchScreen() {
 	} = useSearch(submittedQuery, mediaFilter);
 	const { data: trending, isLoading: trendingLoading } = useTrending("all");
 
+	// A page loaded while scrolling is appended in order, not merged in above the scroll position
+	const sortedResults = useSortedSearchResults(
+		searchData?.results,
+		sortView,
+		`${submittedQuery}|${mediaFilter}`,
+	);
 	const items = useMemo(() => {
-		// Sorts every loaded page — a new page merges into the sorted order
-		if (submittedQuery) return sortSearchResults(searchData?.results ?? [], sortView);
+		if (submittedQuery) return sortedResults ?? [];
 		return (trending ?? []).filter(
 			(item) => mediaFilter === MediaFilter.ALL || (mediaTypeOf(item) as string) === mediaFilter,
 		);
-	}, [submittedQuery, searchData, trending, mediaFilter, sortView]);
+	}, [submittedQuery, sortedResults, trending, mediaFilter]);
 	const isLoading = submittedQuery ? searchLoading : trendingLoading;
 	const showSort = !!submittedQuery && !isLoading && items.length > 0;
 

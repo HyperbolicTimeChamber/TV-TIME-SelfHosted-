@@ -21,7 +21,7 @@ const artReserve = artHeight(NO_RESULTS_RATIO) + 24;
 import { AnimatedLegendList } from "@legendapp/list/reanimated";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useSearch, useSearchSort, useTrending } from "../../hooks";
+import { useSearch, useSearchSort, useSortedSearchResults, useTrending } from "../../hooks";
 import { colors, spacing } from "../../theme";
 import { TMDBShow, SearchStackParamList, MediaType, MediaFilter, Route } from "../../types";
 import SortFab, { SORT_FAB_CLEARANCE } from "../../components/SortFab";
@@ -30,7 +30,6 @@ import SortSheet, { type SortOption } from "../../components/SortSheet";
 import {
 	SEARCH_SORT_OPTIONS,
 	sameSearchSort,
-	sortSearchResults,
 	DEFAULT_SEARCH_SORT,
 	type SearchSortView,
 } from "../../utils/searchSort";
@@ -195,10 +194,11 @@ export default function SearchScreen() {
 		[trending, mediaFilter],
 	);
 
-	// Sorts every loaded page — a new page merges into the sorted order
-	const sortedResults = useMemo(
-		() => searchData?.results && sortSearchResults(searchData.results, sortView),
-		[searchData?.results, sortView],
+	// A page loaded while scrolling is appended in order, not merged in above the scroll position
+	const sortedResults = useSortedSearchResults(
+		searchData?.results,
+		sortView,
+		`${submittedQuery}|${mediaFilter}`,
 	);
 
 	const rawDisplayData = submittedQuery.length > 0 ? sortedResults : filteredTrending;
