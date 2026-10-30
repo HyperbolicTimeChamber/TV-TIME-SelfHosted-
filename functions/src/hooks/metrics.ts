@@ -10,11 +10,14 @@ import {
 import {
   AnalyticsEvent,
   ClientPlatform,
-  MIXPANEL_TOKEN,
-  MIXPANEL_TRACK_URL,
+  MIXPANEL_DEFAULT_SERVER_URL,
   TMDB_BASE,
   TVMAZE_BASE,
 } from "../shared/enums";
+import { loadProjectEnv } from "./projectEnv";
+
+const mixpanelToken = () => process.env.MIXPANEL_TOKEN ?? "";
+const mixpanelServerUrl = () => process.env.MIXPANEL_SERVER_URL || MIXPANEL_DEFAULT_SERVER_URL;
 
 /**
  * Per-run Firestore + outbound API tallies, sent to Mixpanel when a Cloud Function invocation
@@ -86,7 +89,7 @@ function installHooks() {
     const url = config.url ?? "";
     if (url.startsWith(TMDB_BASE)) count("tmdbCalls");
     else if (url.startsWith(TVMAZE_BASE)) count("tvmazeCalls");
-    else if (!url.startsWith(MIXPANEL_TRACK_URL)) count("otherApiCalls");
+    else if (!url.startsWith(mixpanelServerUrl())) count("otherApiCalls");
     return config;
   });
 }
@@ -106,8 +109,10 @@ async function sendRun(
   success: boolean,
   durationMs: number,
 ) {
+  const token = mixpanelToken();
+  if (!token) return;
   const base = {
-    token: MIXPANEL_TOKEN,
+    token,
     time: Date.now(),
     // Empty → not attributed to a user (scheduled jobs, guests, scripts)
     distinct_id: source.uid ?? "",
@@ -147,7 +152,7 @@ async function sendRun(
     });
   }
   try {
-    await axios.post(MIXPANEL_TRACK_URL, events, {
+    await axios.post(`${mixpanelServerUrl()}/track`, events, {
       params: { ip: 0 },
       timeout: 3000,
     });
@@ -195,6 +200,7 @@ let scriptRun: {
  * tallied — works for main() scripts and top-level-await .mjs alike
  */
 export function startScriptMetrics(name: string) {
+  loadProjectEnv();
   installHooks();
   const tally = newTally();
   runs.enterWith(tally);

@@ -9,9 +9,14 @@ export class Mixpanel {
 		private trackAutomaticEvents: boolean,
 	) {}
 
-	async init() {
+	async init(
+		_optOutTrackingDefault = false,
+		_superProperties: Record<string, unknown> = {},
+		serverURL?: string,
+	) {
 		if (!enabled) return;
 		mixpanel.init(this.token, {
+			...(serverURL ? { api_host: serverURL } : {}),
 			autocapture: this.trackAutomaticEvents,
 			track_pageview: false,
 			persistence: "localStorage",
@@ -28,6 +33,14 @@ export class Mixpanel {
 
 	async identify(distinctId: string) {
 		if (enabled) mixpanel.identify(distinctId);
+	}
+
+	getPeople() {
+		return {
+			set: (properties: Record<string, unknown>) => {
+				if (enabled) mixpanel.people.set(properties);
+			},
+		};
 	}
 
 	reset() {

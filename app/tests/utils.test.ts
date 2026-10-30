@@ -307,8 +307,8 @@ test("unreleased show without catalog or air date stays off the watchlist", () =
 
 test("share URLs point at the web show page", async () => {
 	const { showShareUrl } = await import("../src/utils");
-	assert.equal(showShareUrl(MediaType.TV, 1399), "https://watchloom-app.web.app/show/tv/1399");
-	assert.equal(showShareUrl(MediaType.MOVIE, 550), "https://watchloom-app.web.app/show/movie/550");
+	assert.equal(showShareUrl(MediaType.TV, 1399), "https://example.web.app/show/tv/1399");
+	assert.equal(showShareUrl(MediaType.MOVIE, 550), "https://example.web.app/show/movie/550");
 });
 
 test("profile formatters", async () => {

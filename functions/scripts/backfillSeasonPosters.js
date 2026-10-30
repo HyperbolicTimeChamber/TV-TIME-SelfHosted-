@@ -10,9 +10,10 @@
  *   npm run build && node scripts/backfillSeasonPosters.js          # dry run (counts only)
  *   npm run build && node scripts/backfillSeasonPosters.js --write  # patch Firestore
  *
- * Auth: gcloud application-default credentials (project tv-time-returns).
+ * Auth: gcloud application-default credentials (project: GCLOUD_PROJECT or `firebase use`).
  */
 const admin = require("firebase-admin");
+const { scriptProjectId } = require("../lib/hooks/projectEnv");
 const { startScriptMetrics, finishScriptMetrics } = require("../lib/hooks/metrics");
 const axios = require("axios");
 const { MediaType, TMDB_BASE } = require("../lib/shared/enums");
@@ -21,7 +22,7 @@ const WRITE = process.argv.includes("--write");
 // TMDB allows ~40 req/s; stay well under it
 const CONCURRENCY = 4;
 
-admin.initializeApp({ projectId: "tv-time-returns" });
+admin.initializeApp({ projectId: scriptProjectId() });
 startScriptMetrics("backfillSeasonPosters");
 const db = admin.firestore();
 

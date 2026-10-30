@@ -102,9 +102,12 @@ export const PROXY_IP_LIMIT = { limit: 120, windowMs: MINUTE_MS };
 /** Pub/Sub topic the Cloud Billing budget publishes to — budgetGuard listens */
 export const BILLING_BUDGET_TOPIC = "billing-budget";
 
-/** Mixpanel project token — public by design (same one the app and web use) */
-export const MIXPANEL_TOKEN = "8605747605f73b5771dcc67d29d62a58";
-export const MIXPANEL_TRACK_URL = "https://api.mixpanel.com/track";
+/**
+ * Mixpanel is configured per Firebase project in functions/.env.<projectId> (gitignored):
+ * MIXPANEL_TOKEN, MIXPANEL_SERVER_URL (host, same value as the clients'). No token → nothing is
+ * sent, so a fork or a leaked deploy never reports into this project's Mixpanel
+ */
+export const MIXPANEL_DEFAULT_SERVER_URL = "https://api.mixpanel.com";
 
 /** Mixpanel events sent from the backend (names match the app's AnalyticsEvent) */
 export enum AnalyticsEvent {

@@ -7,14 +7,16 @@ import {
 	CacheKey,
 	ClientPlatform,
 	FIRESTORE_OPS_FLUSH_MS,
+	MIXPANEL_SERVER_URL,
 	MIXPANEL_TOKEN,
 	SIGN_UP_WINDOW_MS,
 	TRACKING_SESSION_IDLE_MS,
 } from "../enums";
 
-// Web swaps mixpanel-react-native for a mixpanel-browser shim (web/src/platform/mixpanel.ts)
-const mixpanel = new Mixpanel(MIXPANEL_TOKEN, false);
-let ready: Promise<void> | null = null;
+// Web swaps mixpanel-react-native for a mixpanel-browser shim (web/src/platform/mixpanel.ts).
+// No token configured (fork / local build without .env) → everything below is a no-op
+const mixpanel = MIXPANEL_TOKEN ? new Mixpanel(MIXPANEL_TOKEN, false) : null;
+let ready: Promise<Mixpanel | null> | null = null;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const PLATFORM_NAMES: Record<string, string> = { ios: "iOS", android: "Android", web: "Web" };
@@ -23,22 +25,28 @@ const DEVICE_PLATFORM = PLATFORM_NAMES[Platform.OS] ?? Platform.OS;
 /** app vs web — on every event, and sent with Cloud Function calls (backend caller_platform) */
 export const CLIENT_PLATFORM = Platform.OS === "web" ? ClientPlatform.WEB : ClientPlatform.APP;
 
-/** Start the SDK once, on boot. Every call below waits on it */
+/** Start the SDK once, on boot. Resolves to the SDK, or null when tracking is off */
 export function initMixpanel() {
 	ready ??= mixpanel
-		.init()
-		.then(() =>
-			mixpanel.registerSuperProperties({
-				client_platform: CLIENT_PLATFORM,
-				device_platform: DEVICE_PLATFORM,
-			}),
-		)
-		.catch((err) => console.warn("Mixpanel init failed:", err));
+		? mixpanel
+				.init(false, {}, MIXPANEL_SERVER_URL)
+				.then(() => {
+					mixpanel.registerSuperProperties({
+						client_platform: CLIENT_PLATFORM,
+						device_platform: DEVICE_PLATFORM,
+					});
+					return mixpanel;
+				})
+				.catch((err) => {
+					console.warn("Mixpanel init failed:", err);
+					return mixpanel;
+				})
+		: Promise.resolve(null);
 	return ready;
 }
 
 function track(event: AnalyticsEvent, props: Record<string, unknown>) {
-	initMixpanel().then(() => mixpanel.track(event, props));
+	initMixpanel().then((mp) => mp?.track(event, props));
 }
 
 /** YYYY-MM bucket (UTC) */
@@ -47,25 +55,47 @@ function monthUtc(date = new Date()) {
 }
 
 /**
- * Signed-in uid → Mixpanel distinct id (call on every auth resolve). A just-created account
- * also sends sign_up_completed, once (email and Google sign-ups alike)
+ * Signed-in uid → Mixpanel distinct id (call on every auth resolve), plus a profile so cost
+ * reports can name the user. A just-created account also sends sign_up_completed, once (email
+ * and Google sign-ups alike)
  */
-export function identifyUser(uid: string, createdAtMs?: number) {
-	initMixpanel().then(async () => {
-		await mixpanel.identify(uid);
+export function identifyUser(
+	uid: string,
+	createdAtMs?: number,
+	profile?: { email?: string | null; name?: string | null },
+) {
+	initMixpanel().then(async (mp) => {
+		if (!mp) return;
+		await mp.identify(uid);
+		await syncProfile(mp, uid, {
+			...(profile?.email ? { $email: profile.email } : {}),
+			...(profile?.name ? { $name: profile.name } : {}),
+			client_platform: CLIENT_PLATFORM,
+		});
 		if (!createdAtMs || Date.now() - createdAtMs > SIGN_UP_WINDOW_MS) return;
 		const key = CacheKey.SIGN_UP_TRACKED + uid;
 		try {
 			if (await AsyncStorage.getItem(key)) return;
 			await AsyncStorage.setItem(key, "1");
 		} catch {}
-		mixpanel.track(AnalyticsEvent.SIGN_UP_COMPLETED, { month_utc: monthUtc() });
+		mp.track(AnalyticsEvent.SIGN_UP_COMPLETED, { month_utc: monthUtc() });
 	});
+}
+
+/** Profile props only change on account edits — send them when they differ from the last send */
+async function syncProfile(mp: Mixpanel, uid: string, props: Record<string, string>) {
+	const key = CacheKey.MIXPANEL_PROFILE + uid;
+	const fingerprint = JSON.stringify(props);
+	try {
+		if ((await AsyncStorage.getItem(key)) === fingerprint) return;
+		await AsyncStorage.setItem(key, fingerprint);
+	} catch {}
+	mp.getPeople().set(props);
 }
 
 /** Sign-out: next user must not merge into this one */
 export function resetUser() {
-	initMixpanel().then(() => mixpanel.reset());
+	initMixpanel().then((mp) => mp?.reset());
 }
 
 export async function trackAppOpened(source: AppOpenSource, appVersion: string) {

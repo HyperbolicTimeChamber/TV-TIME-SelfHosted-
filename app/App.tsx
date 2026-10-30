@@ -275,7 +275,10 @@ export default function App() {
 			setUser(firebaseUser);
 			if (firebaseUser) {
 				crashlytics().setUserId(firebaseUser.uid);
-				identifyUser(firebaseUser.uid, Date.parse(firebaseUser.metadata.creationTime ?? ""));
+				identifyUser(firebaseUser.uid, Date.parse(firebaseUser.metadata.creationTime ?? ""), {
+					email: firebaseUser.email,
+					name: firebaseUser.displayName,
+				});
 				signedInUid = firebaseUser.uid;
 				registerFCMToken(firebaseUser.uid);
 				verifySession(firebaseUser);

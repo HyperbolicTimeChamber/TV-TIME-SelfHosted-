@@ -21,11 +21,9 @@ import {
 } from "../shared/enums";
 import { trackedOnRequest } from "../hooks/trackedTriggers";
 
-// Configured via functions/.env (or deploy-time prompts); defaults keep it safe
-const ALLOWED_ORIGINS = defineString("TMDB_PROXY_ALLOWED_ORIGINS", {
-  default:
-    "https://watchloom-app.web.app,https://watchloom-app.firebaseapp.com,http://localhost:5173",
-});
+// Configured via functions/.env.<projectId> (gitignored). Origins are project-specific, so no
+// default: a deploy without them prompts instead of trusting another project's origins
+const ALLOWED_ORIGINS = defineString("TMDB_PROXY_ALLOWED_ORIGINS");
 /** true → reject requests without a valid App Check token (only once the web build has VITE_RECAPTCHA_SITE_KEY set, or guests get locked out) */
 const ENFORCE_APP_CHECK = defineBoolean("TMDB_PROXY_ENFORCE_APP_CHECK", {
   default: false,

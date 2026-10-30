@@ -3,12 +3,14 @@
 # Firestore emulator — the only doc signed-in clients need before they work. 1 production read.
 # Needs: `firebase emulators:start` running, gcloud signed in as a project owner.
 set -euo pipefail
-PROJECT="${PROJECT:-tv-time-returns}"
-ACCOUNT="${GCLOUD_ACCOUNT:-nolangoku@gmail.com}"
+cd "$(dirname "$0")/.."
+PROJECT="${PROJECT:-$(node -p "JSON.parse(require('fs').readFileSync('.firebaserc','utf8')).projects.default")}"
+# Optional: a specific gcloud account (default: the active one)
+ACCOUNT_FLAG=${GCLOUD_ACCOUNT:+--account=$GCLOUD_ACCOUNT}
 EMULATOR="${FIRESTORE_EMULATOR_HOST:-127.0.0.1:8080}"
 DOC="projects/$PROJECT/databases/(default)/documents/config/app"
 
-TOKEN=$(gcloud auth print-access-token --account="$ACCOUNT")
+TOKEN=$(gcloud auth print-access-token $ACCOUNT_FLAG)
 BODY=$(curl -sf -H "Authorization: Bearer $TOKEN" "https://firestore.googleapis.com/v1/$DOC" |
 	python3 -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps({"fields": d["fields"]}))')
 curl -sf -X PATCH -H "Authorization: Bearer owner" -H "Content-Type: application/json" \

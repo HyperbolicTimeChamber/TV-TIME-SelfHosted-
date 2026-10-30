@@ -83,6 +83,9 @@ export default defineConfig(({ mode }) => {
 			"process.env.EXPO_PUBLIC_TMDB_API_BASE": JSON.stringify(env.VITE_TMDB_API_BASE ?? ""),
 			"process.env.EXPO_PUBLIC_TMDB_PROXY_BASE": JSON.stringify(env.VITE_TMDB_PROXY_BASE ?? ""),
 			"process.env.EXPO_PUBLIC_APP_VERSION": JSON.stringify(APP_VERSION),
+			// Mixpanel: unset token → no tracking (forks never report into this project)
+			"process.env.EXPO_PUBLIC_MIXPANEL_TOKEN": JSON.stringify(env.VITE_MIXPANEL_TOKEN ?? ""),
+			"process.env.EXPO_PUBLIC_MIXPANEL_SERVER_URL": JSON.stringify(env.VITE_MIXPANEL_SERVER_URL ?? ""),
 		},
 		server: {
 			fs: { allow: [path.resolve(import.meta.dirname, "..")] },

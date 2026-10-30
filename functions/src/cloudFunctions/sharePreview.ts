@@ -7,9 +7,8 @@ import { showDocId } from "../shared/docId";
 import { MediaType, TMDB_BASE, FunctionName, ClientPlatform } from "../shared/enums";
 import { trackedOnRequest } from "../hooks/trackedTriggers";
 
-const WEB_BASE_URL = defineString("WEB_BASE_URL", {
-  default: "https://watchloom-app.web.app",
-});
+// Project-specific: functions/.env.<projectId> (gitignored)
+const WEB_BASE_URL = defineString("WEB_BASE_URL");
 const SHARE_TAGLINE = defineString("SHARE_TAGLINE", {
   default: "Track What You Watch",
 });

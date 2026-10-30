@@ -37,7 +37,10 @@ export default function AuthListener() {
 				if (u) {
 					dispatch(loadAppConfig());
 					dispatch(loadUserFlags(u.uid));
-					identifyUser(u.uid, Date.parse(u.metadata.creationTime ?? ""));
+					identifyUser(u.uid, Date.parse(u.metadata.creationTime ?? ""), {
+						email: u.email,
+						name: u.displayName,
+					});
 				} else if (signedInUid.current) {
 					// Only a real sign-out resets — a signed-out visit keeps its anonymous id
 					resetUser();

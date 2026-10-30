@@ -52,6 +52,8 @@ jobs:
             echo "VITE_TMDB_API_BASE=${{ secrets.TMDB_API_BASE }}"
             echo "VITE_TMDB_PROXY_BASE=/api/tmdb"
             echo "VITE_RECAPTCHA_SITE_KEY=${{ secrets.VITE_RECAPTCHA_SITE_KEY }}"
+            echo "VITE_MIXPANEL_TOKEN=${{ secrets.MIXPANEL_TOKEN }}"
+            echo "VITE_MIXPANEL_SERVER_URL=${{ secrets.MIXPANEL_SERVER_URL }}"
           } > .env.production
 
       # ── Tests (fail fast) ──
@@ -67,7 +69,7 @@ jobs:
         run: |
           echo "$FIREBASE_SERVICE_ACCOUNT_JSON" > /tmp/firebase-sa.json
           export GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa.json
-          npx --yes firebase-tools@14 deploy --only hosting --project tv-time-returns --non-interactive
+          npx --yes firebase-tools@14 deploy --only hosting --project ${{ secrets.VITE_FIREBASE_PROJECT_ID }} --non-interactive
           rm -f /tmp/firebase-sa.json
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}

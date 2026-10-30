@@ -1,7 +1,26 @@
-# Mixpanel: events and the "App Analytics" dashboard
+# Mixpanel: events and the "Firebase Cost & Usage" dashboard
 
-Project token `8605747605f73b5771dcc67d29d62a58` (public by design — clients and backend share it;
-no secret is needed to send events). US data residency (`api.mixpanel.com`).
+Config is per deployment, never in the repo, so a fork or clone never sends events here:
+
+| Where | Keys | Source |
+| --- | --- | --- |
+| App | `EXPO_PUBLIC_MIXPANEL_TOKEN`, `EXPO_PUBLIC_MIXPANEL_SERVER_URL` | `app/.env` (CI: repo Secrets) |
+| Web | `VITE_MIXPANEL_TOKEN`, `VITE_MIXPANEL_SERVER_URL` | `web/.env.local` / `.env.production` (CI: repo Secrets) |
+| Cloud Functions + scripts | `MIXPANEL_TOKEN`, `MIXPANEL_SERVER_URL` | `functions/.env.<projectId>` (gitignored; template `functions/.env.example`) |
+
+No token, no tracking: the clients don't create the SDK, and the backend skips sending.
+`firebase deploy` loads `.env.<projectId>` only for that project, so a deploy to any other project
+sends nothing. Scripts load the same file (`hooks/projectEnv.ts`) for `GCLOUD_PROJECT` or the
+`.firebaserc` default.
+
+**EU data residency**: send to `https://api-eu.mixpanel.com` (same host everywhere). The US host
+does not ingest this project's events. Reports live at `eu.mixpanel.com`. Signed-in users get a
+profile (`$email`, `$name`) so cost tables can name them.
+
+The token is a public ingestion key: it ships inside every app and web build and can't be kept
+secret from someone who inspects one. Keeping it out of the repo stops accidental tracking from
+forks, not deliberate spoofing. If a token is abused, rotate it in Mixpanel (Project Settings) and
+update the Secrets and `.env` files.
 
 ## Where events come from
 
@@ -38,37 +57,41 @@ the Sum of `reads` / `writes` / `deletes`, never the event count.** Counts appro
 cache hits are 0, a query is max(docs, 1), listeners count changed docs, server-side
 `recursiveDelete` / `Query.stream` reads are not seen.
 
-## Dashboard: tile by tile
+## Dashboard: "Firebase Cost & Usage"
 
-Create a Board "App Analytics", date range Last 7 days. All reports are **Insights** unless noted.
-Add **Breakdown → `client_platform`** to any tile to get the app / web / backend split.
+Board: https://eu.mixpanel.com/project/4078775/app/boards#id=11622139 (Last 7 days). Goal: find what
+drives the Firebase bill — which users, which functions / scripts, which client APIs, app vs web.
+The Free plan caps a board at **5 saved reports**; text cards don't count.
 
-| Tile (mockup) | Report setup | Chart |
+**Read-equivalent ops** = `reads + 3 × writes + deletes / 3` (Firestore list-price ratio). Use it to rank
+cost; the raw sums sit beside it.
+
+| Tile | Report setup | Chart |
 | --- | --- | --- |
-| Total Active Users | Any event · **Unique users** · filter `client_platform` in (app, web) · compare to previous period | Metric |
-| Total API Calls | `api_called` · Total events · compare to previous period | Metric |
-| Total Reads (per day) | `firestore_ops` · **Sum of `reads`** · interval Day | Metric (+ line) |
-| Total Writes (per day) | `firestore_ops` · Sum of `writes` · Day | Metric |
-| Total Deletes (per day) | `firestore_ops` · Sum of `deletes` · Day | Metric |
-| Active Users Trend | Any event · Unique users · filter `client_platform` in (app, web) · Day | Line |
-| API Calls by Endpoint | `api_called` · Total · breakdown `endpoint` (top 5) | Pie |
-| Most Used Pages | `page_viewed` · Total · breakdown `page` (top 5) | Bar |
-| Highest Active Users | Metrics A `api_called` Total, B/C/D `firestore_ops` Sum of reads / writes / deletes · breakdown **User ID** · sort A desc, top 5 | Table |
-| User Flow | **Funnels**: `sign_up_completed` → `app_opened` → `page_viewed` (page = Watchlist) → `api_called` · window 7 days | Funnel |
-| Reads / Writes / Deletes Trend | `firestore_ops` · Sum of reads, Sum of writes, Sum of deletes · Day | Line |
-| Top User Locations | `api_called` · Total · breakdown `City` (or `Country`) | Map / table |
-| Recent Activity | **Events** page (live feed), filter `client_platform` in (app, web) — link it from a text card | — |
+| Firebase Billable Usage | Sum `firestore_ops.reads` / `writes` / `deletes`, `function_invoked` Total, Sum `duration_ms`, Sum `tmdb_calls` · compare previous week | Metric |
+| Firestore Cost by Source (daily) | Sum reads / writes / deletes + formula Read-equivalent ops · breakdown `client_platform` × `caller_platform` · Day | Stacked line |
+| Top Users by Cost | Sum reads / writes / deletes, `function_invoked` Total, `api_called` Total + formula · breakdown user `$email` × `$distinct_id` | Table |
+| Cost by Function / Script | Sum reads / writes / deletes, `function_invoked` Total, Sum `duration_ms` / `tmdb_calls` / `tvmaze_calls` + formula · breakdown `client_platform` × `function_name` × `caller_platform` | Table |
+| Client API Calls (app vs web) | `api_called` Total + Average `duration_ms` · breakdown `client_platform` × `api_type` × `endpoint` | Table |
+| Reading this board | Text card: cost weights, platform meanings, what isn't tracked | Text |
 
-### App vs web vs backend (extra tiles)
+Reading the source split: `app` / `web` rows = Firestore ops done directly by a client;
+`cloud_function` / `script` rows = backend, with `caller_platform` saying who caused them (app / web /
+system / unknown). In "Cost by Function / Script", app/web rows with no `function_name` are the
+direct client ops.
+
+**Billable but not tracked here:** Firestore storage, network egress, Hosting bandwidth, Auth. Check
+those in the GCP billing console.
+
+### Ad-hoc reports (not on the board)
 
 | Question | Report |
 | --- | --- |
-| API calls from app vs web | `api_called` · Total · breakdown `client_platform` |
-| Reads/writes/deletes per source | `firestore_ops` · Sum of reads / writes / deletes · breakdown `client_platform` |
-| Backend work caused by app vs web | `firestore_ops` · filter `client_platform` = cloud_function · Sum of total_ops · breakdown `caller_platform` |
-| Busiest functions | `firestore_ops` · Sum of total_ops · breakdown `function_name` |
-| Function errors / latency | `function_invoked` · Total · breakdown `success`; Average of `duration_ms` by `function_name` |
-| Script runs | `function_invoked` · filter `client_platform` = script · breakdown `function_name` |
+| Function errors / latency | `function_invoked` · Total · breakdown `function_name` × `success`; Average `duration_ms` by `function_name` |
+| Active users | Any event · Unique users · filter `client_platform` ≠ cloud_function, ≠ script |
+| Most used pages | `page_viewed` · Total · breakdown `page` |
+| User flow | Funnel `sign_up_completed` → `app_opened` → `page_viewed` (page = Watchlist) → `api_called` · 7 days |
+| Locations | `api_called` · Total · breakdown `mp_country_code` × `$city` |
 
 Backend events without a signed-in user have an empty `distinct_id` (not counted as users), and
 are sent with `ip=0`, so they never skew user counts or locations.

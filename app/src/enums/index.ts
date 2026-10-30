@@ -84,6 +84,8 @@ export enum CacheKey {
 	LAST_APP_OPEN = "last_app_open_v1",
 	/** + uid — sign_up_completed already sent for this account */
 	SIGN_UP_TRACKED = "sign_up_tracked_v1:",
+	/** + uid → last Mixpanel profile props sent (skip unchanged re-sends) */
+	MIXPANEL_PROFILE = "mixpanel_profile_v1:",
 }
 
 export enum QueryKey {
@@ -291,8 +293,10 @@ export const MIN_BUILD_FIELD: Record<ReleaseChannel, string> = {
 /** Stand-in "API key" meaning: no key — route TMDB calls through TMDB_PROXY_BASE */
 export const TMDB_PROXY_KEY = "__tmdb_proxy__";
 
-/** Mixpanel project token — public by design (ships in every client) */
-export const MIXPANEL_TOKEN = "8605747605f73b5771dcc67d29d62a58";
+/** Mixpanel project token (app/.env; CI writes it). Unset → no tracking, so a fork never reports here */
+export const MIXPANEL_TOKEN = process.env.EXPO_PUBLIC_MIXPANEL_TOKEN ?? "";
+/** Mixpanel ingestion host — EU projects need https://api-eu.mixpanel.com. Unset → SDK default (US) */
+export const MIXPANEL_SERVER_URL = process.env.EXPO_PUBLIC_MIXPANEL_SERVER_URL || undefined;
 
 /** Mixpanel event names */
 export enum AnalyticsEvent {

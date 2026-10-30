@@ -30,15 +30,7 @@
         "foregroundImage": "./assets/icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.tvtimerevived.app",
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [{ "scheme": "https", "host": "watchloom-app.web.app", "pathPrefix": "/show" }],
-          "category": ["BROWSABLE", "DEFAULT"]
-        }
-      ]
+      "package": "com.tvtimerevived.app"
     },
     "web": {},
     "plugins": [
