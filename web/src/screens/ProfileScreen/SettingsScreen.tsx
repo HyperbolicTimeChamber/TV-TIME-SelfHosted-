@@ -2,8 +2,7 @@ import { useState } from "react";
 import { App as AntApp } from "antd";
 
 import { useNavigate } from "react-router-dom";
-import { httpsCallable } from "firebase/functions";
-import { getFunctions } from "../../platform/functions";
+import { getFunctions, httpsCallable } from "../../platform/functions";
 import { CloudFunction } from "@app/enums";
 import { resetPassword, signOut } from "../../services/auth";
 import { useAppSelector } from "../../store";

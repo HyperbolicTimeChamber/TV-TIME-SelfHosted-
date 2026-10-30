@@ -1,12 +1,14 @@
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { removeFromTrackedBy } from "../hooks/trackedBy";
 import { showDocId } from "../shared/docId";
 import { RemoveShowRequest } from "../shared/types";
-import { Callable } from "../shared/enums";
+import { trackedOnCall } from "../hooks/trackedTriggers";
+import { FunctionName, Callable } from "../shared/enums";
 import { requireCaller } from "../hooks/requireCaller";
 
-export const removeShow = onCall(
+export const removeShow = trackedOnCall(
+  FunctionName.REMOVE_SHOW,
   {
     maxInstances: 5,
     timeoutSeconds: 60,

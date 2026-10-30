@@ -1,15 +1,16 @@
-import { onCall } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
-import { DELETION_REQUESTS, Callable } from "../shared/enums";
+import { DELETION_REQUESTS, FunctionName, Callable } from "../shared/enums";
 import { requireCaller } from "../hooks/requireCaller";
+import { trackedOnCall } from "../hooks/trackedTriggers";
 
 /**
  * Returns in about a second so the app can sign out and move on: queues the uid for
  * purgeUserData (which deletes the data in the background), then deletes the auth user —
  * signing in again later creates a fresh uid, so it never races the purge.
  */
-export const deleteAccount = onCall(
+export const deleteAccount = trackedOnCall(
+  FunctionName.DELETE_ACCOUNT,
   {
     maxInstances: 2,
     timeoutSeconds: 60,

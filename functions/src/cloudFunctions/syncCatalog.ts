@@ -1,4 +1,3 @@
-import { onSchedule } from "firebase-functions/v2/scheduler";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getTmdbApiKey } from "../hooks/apiKey";
 import { rebuildAllUsersUpcoming } from "../hooks/upcoming";
@@ -6,10 +5,12 @@ import { fetchCatalogUpdates, batchWriteCatalog } from "../hooks/syncCatalog";
 import { fetchShowFromTMDB, pooled } from "../hooks/tmdb";
 import { getAllTrackerUids } from "../hooks/trackedBy";
 import { healUserShowRuntimes } from "../hooks/runtimeHeal/healRuntimes";
-import { MediaType, ENDED_STATUSES } from "../shared/enums";
+import { MediaType, ENDED_STATUSES, FunctionName } from "../shared/enums";
+import { trackedOnSchedule } from "../hooks/trackedTriggers";
 import { movieCatalogFields } from "../hooks/catalogFields";
 
-export const syncCatalog = onSchedule(
+export const syncCatalog = trackedOnSchedule(
+  FunctionName.SYNC_CATALOG,
   {
     schedule: "0 3 * * 0", // Every Sunday 3:00 AM UTC
     maxInstances: 1,

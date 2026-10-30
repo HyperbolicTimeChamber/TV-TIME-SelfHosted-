@@ -1,19 +1,21 @@
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { fetchShowFromTMDB, CatalogShow } from "../hooks/tmdb";
 import { addToTrackedBy } from "../hooks/trackedBy";
 import { getTmdbApiKey, invalidateApiKeyCache } from "../hooks/apiKey";
 import { addShowToUpcoming } from "../hooks/upcoming";
 import { showDocId } from "../shared/docId";
-import { MediaType, Callable } from "../shared/enums";
+import { MediaType, FunctionName, Callable } from "../shared/enums";
 import { requireCaller } from "../hooks/requireCaller";
+import { trackedOnCall } from "../hooks/trackedTriggers";
 
 interface AddShowRequest {
   tmdbId: number;
   mediaType: MediaType;
 }
 
-export const addShow = onCall(
+export const addShow = trackedOnCall(
+  FunctionName.ADD_SHOW,
   {
     maxInstances: 5,
     timeoutSeconds: 120,

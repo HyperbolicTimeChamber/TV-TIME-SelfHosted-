@@ -1,10 +1,12 @@
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { HttpsError } from "firebase-functions/v2/https";
 import { getFirestore } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
-import { Callable } from "../shared/enums";
+import { trackedOnCall } from "../hooks/trackedTriggers";
+import { FunctionName, Callable } from "../shared/enums";
 import { requireCaller } from "../hooks/requireCaller";
 
-export const testFCM = onCall(
+export const testFCM = trackedOnCall(
+  FunctionName.TEST_FCM,
   {
     maxInstances: 1,
     timeoutSeconds: 30,

@@ -20,6 +20,7 @@
  * Auth: gcloud application-default credentials (project tv-time-returns).
  */
 const admin = require("firebase-admin");
+const { startScriptMetrics, finishScriptMetrics } = require("../lib/hooks/metrics");
 const { Timestamp } = require("firebase-admin/firestore");
 const { staggerFinishTimes } = require("../lib/shared/stagger");
 
@@ -30,6 +31,7 @@ const SINCE_DAYS = 30;
 const BATCH_LIMIT = 450;
 
 admin.initializeApp({ projectId: "tv-time-returns" });
+startScriptMetrics("restaggerBulkMarks");
 const db = admin.firestore();
 
 const stampKey = (t) => `${t.seconds}.${t.nanoseconds}`;
@@ -110,8 +112,10 @@ async function main() {
 }
 
 main()
+  .then(() => finishScriptMetrics(true))
   .then(() => process.exit(0))
-  .catch((err) => {
+  .catch(async (err) => {
     console.error(err);
+    await finishScriptMetrics(false);
     process.exit(1);
   });

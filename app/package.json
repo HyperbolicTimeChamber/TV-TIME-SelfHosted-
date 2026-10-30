@@ -39,6 +39,7 @@
     "expo-splash-screen": "~57.0.2",
     "expo-status-bar": "~57.0.0",
     "jszip": "^3.10.1",
+    "mixpanel-react-native": "^4.0.0",
     "papaparse": "^5.5.4",
     "react": "19.2.3",
     "react-native": "0.86.0",
@@ -76,6 +77,11 @@
     "staticFeatureFlags": {
       "ANDROID_SYNCHRONOUSLY_UPDATE_UI_PROPS": true,
       "IOS_SYNCHRONOUSLY_UPDATE_UI_PROPS": true
+    }
+  },
+  "overrides": {
+    "mixpanel-react-native": {
+      "@react-native-async-storage/async-storage": "$@react-native-async-storage/async-storage"
     }
   }
 }

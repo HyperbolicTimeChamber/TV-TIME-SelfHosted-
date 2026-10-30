@@ -16,6 +16,7 @@
  */
 import { initializeApp, applicationDefault } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
+import metrics from "../lib/hooks/metrics.js";
 
 const args = process.argv.slice(2);
 const apply = args.includes("--apply");
@@ -25,6 +26,7 @@ const onlyUid = args.includes("--uid") ? uidArg : null;
 const projectId = process.env.GCLOUD_PROJECT ?? "tv-time-returns";
 initializeApp({ credential: applicationDefault(), projectId });
 const db = getFirestore();
+metrics.startScriptMetrics("backfillWatchStats");
 
 /** Sum plays and minutes over one watched subcollection */
 async function tally(userRef, name) {
@@ -87,3 +89,4 @@ for (const user of users) {
 console.log(
   apply ? `Updated ${changed} user(s).` : `${changed} user(s) would change. Re-run with --apply.`,
 );
+await metrics.finishScriptMetrics(true);

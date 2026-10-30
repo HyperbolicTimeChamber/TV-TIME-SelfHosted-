@@ -1,4 +1,4 @@
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { HttpsError } from "firebase-functions/v2/https";
 import { getFirestore } from "firebase-admin/firestore";
 import { fetchShowFromTMDB, CatalogShow } from "../hooks/tmdb";
 import { getTmdbApiKey, invalidateApiKeyCache } from "../hooks/apiKey";
@@ -10,10 +10,12 @@ import {
   RefreshReason,
   REFRESH_COOLDOWN_MS,
   REFRESH_MAX_HINT_SEASONS,
+  FunctionName,
   Callable,
 } from "../shared/enums";
 import { requireCaller } from "../hooks/requireCaller";
 import { RefreshShowRequest, RefreshShowResponse } from "../shared/types";
+import { trackedOnCall } from "../hooks/trackedTriggers";
 
 type StoredShow = CatalogShow & {
   trackedBy?: string[];
@@ -33,7 +35,8 @@ function forClient(show: StoredShow): RefreshShowResponse["catalog"] {
  * claims shows/{id}.lastTmdbCheckAt (transaction), re-fetches TMDB with the server key and
  * merges the result; everyone else gets the current doc back (1 read, 0 TMDB calls).
  */
-export const refreshShow = onCall(
+export const refreshShow = trackedOnCall(
+  FunctionName.REFRESH_SHOW,
   {
     maxInstances: 10,
     timeoutSeconds: 120,

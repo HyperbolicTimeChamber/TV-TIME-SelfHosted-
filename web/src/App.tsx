@@ -2,6 +2,7 @@ import { App as AntApp, ConfigProvider } from "antd";
 import { Provider } from "react-redux";
 import { BrowserRouter } from "react-router-dom";
 import ScrollToTop from "./routes/ScrollToTop";
+import PageViewTracker from "./routes/PageViewTracker";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { store } from "./store";
 import { queryClient, persistOptions } from "./queryClient";
@@ -18,6 +19,7 @@ export default function App() {
 					<AntApp>
 						<BrowserRouter>
 							<ScrollToTop />
+							<PageViewTracker />
 							<AuthListener />
 							<OfflineBanner />
 							<AppRoutes />

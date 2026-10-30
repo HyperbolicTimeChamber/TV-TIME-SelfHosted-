@@ -1,4 +1,5 @@
 /// <reference types="vitest/config" />
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -6,6 +7,10 @@ import { defineConfig, loadEnv, type Plugin } from "vite";
 
 const APP_SRC = path.resolve(import.meta.dirname, "../app/src");
 const PLATFORM = path.resolve(import.meta.dirname, "src/platform");
+// Web ships with the app's version (app_version on analytics events)
+const APP_VERSION: string = JSON.parse(
+	readFileSync(path.resolve(import.meta.dirname, "../app/app.json"), "utf8"),
+).expo.version;
 
 /**
  * The web app reuses the mobile app's platform-neutral logic (hooks, services,
@@ -23,6 +28,7 @@ const nativeModuleShims: Record<string, string> = {
 	"react-native": `${PLATFORM}/reactNative.ts`,
 	"expo-file-system": `${PLATFORM}/expoFileSystem.ts`,
 	"sp-react-native-in-app-updates": `${PLATFORM}/inAppUpdates.ts`,
+	"mixpanel-react-native": `${PLATFORM}/mixpanel.ts`,
 };
 
 /** App files replaced wholesale on web (native-only implementations) */
@@ -76,6 +82,7 @@ export default defineConfig(({ mode }) => {
 			"process.env.EXPO_PUBLIC_WEB_BASE_URL": JSON.stringify(env.VITE_WEB_BASE_URL ?? ""),
 			"process.env.EXPO_PUBLIC_TMDB_API_BASE": JSON.stringify(env.VITE_TMDB_API_BASE ?? ""),
 			"process.env.EXPO_PUBLIC_TMDB_PROXY_BASE": JSON.stringify(env.VITE_TMDB_PROXY_BASE ?? ""),
+			"process.env.EXPO_PUBLIC_APP_VERSION": JSON.stringify(APP_VERSION),
 		},
 		server: {
 			fs: { allow: [path.resolve(import.meta.dirname, "..")] },

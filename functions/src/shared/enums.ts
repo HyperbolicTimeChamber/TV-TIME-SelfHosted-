@@ -101,3 +101,41 @@ export const PROXY_IP_LIMIT = { limit: 120, windowMs: MINUTE_MS };
 
 /** Pub/Sub topic the Cloud Billing budget publishes to — budgetGuard listens */
 export const BILLING_BUDGET_TOPIC = "billing-budget";
+
+/** Mixpanel project token — public by design (same one the app and web use) */
+export const MIXPANEL_TOKEN = "8605747605f73b5771dcc67d29d62a58";
+export const MIXPANEL_TRACK_URL = "https://api.mixpanel.com/track";
+
+/** Mixpanel events sent from the backend (names match the app's AnalyticsEvent) */
+export enum AnalyticsEvent {
+  FIRESTORE_OPS = "firestore_ops",
+  FUNCTION_INVOKED = "function_invoked",
+}
+
+/** Where an event / request came from (mirrors the app's ClientPlatform) */
+export enum ClientPlatform {
+  APP = "app",
+  WEB = "web",
+  CLOUD_FUNCTION = "cloud_function",
+  SCRIPT = "script",
+  /** Scheduled / triggered work no client asked for */
+  SYSTEM = "system",
+  UNKNOWN = "unknown",
+}
+
+/** Cloud Function names as reported to Mixpanel (match the exported names) */
+export enum FunctionName {
+  ADD_SHOW = "addShow",
+  REMOVE_SHOW = "removeShow",
+  IMPORT_MATCHES = "importMatches",
+  SYNC_CATALOG = "syncCatalog",
+  MARK_SEASON_WATCHED = "markSeasonWatched",
+  TEST_FCM = "testFCM",
+  DELETE_ACCOUNT = "deleteAccount",
+  PURGE_USER_DATA = "purgeUserData",
+  REBUILD_UPCOMING = "rebuildUpcoming",
+  TMDB_PROXY = "tmdbProxy",
+  SHARE_PREVIEW = "sharePreview",
+  REFRESH_SHOW = "refreshShow",
+  BUDGET_GUARD = "budgetGuard",
+}

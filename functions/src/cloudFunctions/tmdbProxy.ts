@@ -1,4 +1,3 @@
-import { onRequest } from "firebase-functions/v2/https";
 import {
   defineBoolean,
   defineInt,
@@ -14,7 +13,13 @@ import {
   isAllowedCaller,
 } from "../hooks/tmdbProxy";
 import { KeyedRateLimiter } from "../hooks/keyedRateLimit";
-import { PROXY_IP_LIMIT, TMDB_BASE } from "../shared/enums";
+import {
+  PROXY_IP_LIMIT,
+  TMDB_BASE,
+  FunctionName,
+  ClientPlatform,
+} from "../shared/enums";
+import { trackedOnRequest } from "../hooks/trackedTriggers";
 
 // Configured via functions/.env (or deploy-time prompts); defaults keep it safe
 const ALLOWED_ORIGINS = defineString("TMDB_PROXY_ALLOWED_ORIGINS", {
@@ -51,7 +56,9 @@ function clientIp(
  *   requests queue (up to 5s) instead of failing
  * - Origin filter + App Check token so only the Watchloom web app can use it
  */
-export const tmdbProxy = onRequest(
+export const tmdbProxy = trackedOnRequest(
+  FunctionName.TMDB_PROXY,
+  ClientPlatform.WEB,
   {
     maxInstances: 1,
     concurrency: 80,

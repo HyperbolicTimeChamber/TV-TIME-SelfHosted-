@@ -13,6 +13,7 @@
  * Auth: gcloud application-default credentials (project tv-time-returns).
  */
 const admin = require("firebase-admin");
+const { startScriptMetrics, finishScriptMetrics } = require("../lib/hooks/metrics");
 const axios = require("axios");
 const { MediaType, TMDB_BASE } = require("../lib/shared/enums");
 
@@ -21,6 +22,7 @@ const WRITE = process.argv.includes("--write");
 const CONCURRENCY = 4;
 
 admin.initializeApp({ projectId: "tv-time-returns" });
+startScriptMetrics("backfillSeasonPosters");
 const db = admin.firestore();
 
 async function pooled(items, limit, fn) {
@@ -90,8 +92,10 @@ async function main() {
 }
 
 main()
+  .then(() => finishScriptMetrics(true))
   .then(() => process.exit(0))
-  .catch((err) => {
+  .catch(async (err) => {
     console.error(err);
+    await finishScriptMetrics(false);
     process.exit(1);
   });

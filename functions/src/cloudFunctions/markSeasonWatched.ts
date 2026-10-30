@@ -1,13 +1,20 @@
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { historyOnWatch } from "../shared/history";
 import { showDocId, episodeDocId } from "../shared/docId";
-import { WatchStatus, MediaType, Callable } from "../shared/enums";
+import {
+  WatchStatus,
+  MediaType,
+  FunctionName,
+  Callable,
+} from "../shared/enums";
 import { requireCaller } from "../hooks/requireCaller";
 import { MarkSeasonRequest } from "../shared/types";
 import { MAX_END_OFFSET_MS, staggerFinishTimes } from "../shared/stagger";
+import { trackedOnCall } from "../hooks/trackedTriggers";
 
-export const markSeasonWatched = onCall(
+export const markSeasonWatched = trackedOnCall(
+  FunctionName.MARK_SEASON_WATCHED,
   {
     maxInstances: 10,
     timeoutSeconds: 30,

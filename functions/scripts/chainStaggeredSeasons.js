@@ -16,6 +16,7 @@
  *   npm run build && node scripts/chainStaggeredSeasons.js --write  # patch Firestore
  */
 const admin = require("firebase-admin");
+const { startScriptMetrics, finishScriptMetrics } = require("../lib/hooks/metrics");
 const { Timestamp } = require("firebase-admin/firestore");
 const {
   FALLBACK_EPISODE_MINUTES,
@@ -29,6 +30,7 @@ const SAME_ACTION_MS = 5 * 60 * 1000;
 const BATCH_LIMIT = 450;
 
 admin.initializeApp({ projectId: "tv-time-returns" });
+startScriptMetrics("chainStaggeredSeasons");
 const db = admin.firestore();
 
 const stepMs = (runtime) =>
@@ -151,8 +153,10 @@ async function main() {
 }
 
 main()
+  .then(() => finishScriptMetrics(true))
   .then(() => process.exit(0))
-  .catch((err) => {
+  .catch(async (err) => {
     console.error(err);
+    await finishScriptMetrics(false);
     process.exit(1);
   });

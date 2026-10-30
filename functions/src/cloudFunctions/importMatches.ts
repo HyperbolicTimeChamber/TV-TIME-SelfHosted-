@@ -1,4 +1,4 @@
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 import { getTmdbApiKey } from "../hooks/apiKey";
@@ -11,10 +11,12 @@ import {
 } from "../hooks/importMatches";
 import { commitInBatches, createMissing } from "../hooks/batchWrites";
 import { ImportMatch, ImportRequest, ImportStats } from "../shared/types";
-import { Callable } from "../shared/enums";
+import { trackedOnCall } from "../hooks/trackedTriggers";
+import { FunctionName, Callable } from "../shared/enums";
 import { requireCaller } from "../hooks/requireCaller";
 
-export const importMatches = onCall(
+export const importMatches = trackedOnCall(
+  FunctionName.IMPORT_MATCHES,
   {
     maxInstances: 5,
     timeoutSeconds: 3600,

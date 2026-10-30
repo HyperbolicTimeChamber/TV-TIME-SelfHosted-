@@ -20,6 +20,7 @@ import { WatchStatus, MediaType, CloudFunction, CatalogShow } from "../types";
 import { WatchProgress } from "../enums";
 import { showDocId, emitHistoryChange, localizeCatalog } from "../utils";
 import { trackApi } from "./analytics";
+import { recordTrackedEpisodes, trackEpisodeMarked } from "./mixpanel";
 import { historyOnWatch, historyOnUnwatch, historyCleared, historyOnChange } from "./history";
 import { shareCatalogCreate } from "./refreshShow";
 import { batchEndOffsets } from "../utils/stagger";
@@ -368,6 +369,7 @@ export async function markEpisodeWatched(
 			);
 		}
 	});
+	trackEpisodeMarked(tmdbShowId, showDocId(tmdbShowId, MediaType.TV), docId, episode);
 	emitHistoryChange({
 		userId,
 		tmdbId: tmdbShowId,
@@ -1402,6 +1404,7 @@ export async function markSeasonWatchedCF(
 	} catch (err: any) {
 		throw new Error(getCallableErrorMessage(err), { cause: err });
 	}
+	recordTrackedEpisodes(tmdbId, episodes.length);
 	emitHistoryChange({
 		userId,
 		tmdbId,

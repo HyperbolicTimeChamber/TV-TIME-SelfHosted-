@@ -1,13 +1,13 @@
-import { onMessagePublished } from "firebase-functions/v2/pubsub";
 import { defineBoolean } from "firebase-functions/params";
 import { applicationDefault } from "firebase-admin/app";
 import { logger } from "firebase-functions";
 import axios from "axios";
-import { BILLING_BUDGET_TOPIC } from "../shared/enums";
+import { BILLING_BUDGET_TOPIC, FunctionName } from "../shared/enums";
 import {
   shouldCutBilling,
   type BudgetNotification,
 } from "../hooks/budgetGuard";
+import { trackedOnMessagePublished } from "../hooks/trackedTriggers";
 
 /**
  * Off switch for a runaway bill. false → only logs. When true and the budget's cost reaches
@@ -21,7 +21,8 @@ const KILL_SWITCH = defineBoolean("BILLING_KILL_SWITCH", { default: false });
  * the month's running cost; Google's alerts alone never stop spending on Blaze.
  * Needs the runtime service account to hold Project Billing Manager on this project.
  */
-export const budgetGuard = onMessagePublished(
+export const budgetGuard = trackedOnMessagePublished(
+  FunctionName.BUDGET_GUARD,
   { topic: BILLING_BUDGET_TOPIC, maxInstances: 1, retry: false },
   async (event) => {
     const data = event.data.message.json as BudgetNotification;
