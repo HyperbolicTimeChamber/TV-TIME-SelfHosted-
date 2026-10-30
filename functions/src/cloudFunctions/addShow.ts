@@ -5,7 +5,8 @@ import { addToTrackedBy } from "../hooks/trackedBy";
 import { getTmdbApiKey, invalidateApiKeyCache } from "../hooks/apiKey";
 import { addShowToUpcoming } from "../hooks/upcoming";
 import { showDocId } from "../shared/docId";
-import { MediaType } from "../shared/enums";
+import { MediaType, Callable } from "../shared/enums";
+import { requireCaller } from "../hooks/requireCaller";
 
 interface AddShowRequest {
   tmdbId: number;
@@ -19,9 +20,7 @@ export const addShow = onCall(
     memory: "256MiB",
   },
   async (request): Promise<CatalogShow> => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Must be signed in");
-    }
+    const uid = requireCaller(request, Callable.ADD_SHOW);
     if (request.data?.warmup) return {} as CatalogShow;
 
     const { tmdbId, mediaType } = request.data as AddShowRequest;
@@ -32,7 +31,6 @@ export const addShow = onCall(
     const db = getFirestore();
     const showId = showDocId(tmdbId, mediaType);
     const showRef = db.doc(`shows/${showId}`);
-    const uid = request.auth.uid;
 
     // Fast path: if catalog doc already exists, just add to trackedBy
     const existingDoc = await showRef.get();

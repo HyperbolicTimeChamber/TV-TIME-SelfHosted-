@@ -13,7 +13,8 @@ import {
   RateLimitError,
   isAllowedCaller,
 } from "../hooks/tmdbProxy";
-import { TMDB_BASE } from "../shared/enums";
+import { KeyedRateLimiter } from "../hooks/keyedRateLimit";
+import { PROXY_IP_LIMIT, TMDB_BASE } from "../shared/enums";
 
 // Configured via functions/.env (or deploy-time prompts); defaults keep it safe
 const ALLOWED_ORIGINS = defineString("TMDB_PROXY_ALLOWED_ORIGINS", {
@@ -28,6 +29,20 @@ const ENFORCE_APP_CHECK = defineBoolean("TMDB_PROXY_ENFORCE_APP_CHECK", {
 const RATE_LIMIT = defineInt("TMDB_PROXY_RATE_LIMIT", { default: 35 });
 
 let limiter: RateLimiter | null = null;
+/** Single instance → this per-IP window is global. Only uncached requests get this far. */
+const ipLimiter = new KeyedRateLimiter(
+  PROXY_IP_LIMIT.limit,
+  PROXY_IP_LIMIT.windowMs,
+);
+
+/** Client IP: Hosting (Fastly) sets fastly-client-ip; X-Forwarded-For's first hop can be forged */
+function clientIp(
+  headers: Record<string, string | string[] | undefined>,
+  fallback?: string,
+) {
+  const v = headers["fastly-client-ip"];
+  return (Array.isArray(v) ? v[0] : v) ?? fallback ?? "unknown";
+}
 
 /**
  * Read-only TMDB proxy for logged-out web visitors (search + show info).
@@ -60,6 +75,13 @@ export const tmdbProxy = onRequest(
       }
     } else if (ENFORCE_APP_CHECK.value()) {
       res.status(401).json({ error: "App Check token required" });
+      return;
+    }
+
+    if (!ipLimiter.hit(clientIp(req.headers, req.ip))) {
+      res.set("Retry-After", "60");
+      res.set("Cache-Control", "no-store");
+      res.status(429).json({ error: "Too many requests" });
       return;
     }
 

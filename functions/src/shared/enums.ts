@@ -62,3 +62,42 @@ export const IMPORT_LOCK_MS = 3660 * 1000;
 
 /** Firestore ops per WriteBatch commit (hard limit 500) */
 export const WRITE_BATCH_SIZE = 500;
+
+/** Callable Cloud Functions guarded by requireCaller (per-user rate limit + App Check) */
+export enum Callable {
+  ADD_SHOW = "addShow",
+  REMOVE_SHOW = "removeShow",
+  IMPORT_MATCHES = "importMatches",
+  MARK_SEASON_WATCHED = "markSeasonWatched",
+  REBUILD_UPCOMING = "rebuildUpcoming",
+  REFRESH_SHOW = "refreshShow",
+  DELETE_ACCOUNT = "deleteAccount",
+  TEST_FCM = "testFCM",
+}
+
+const MINUTE_MS = 60 * 1000;
+
+/**
+ * Per-user call budget per function instance (in memory — no Firestore reads). Generous for
+ * real use (warmups and bursts like a watchlist refreshing many shows count too); a script
+ * looping on one account gets resource-exhausted instead of occupying the capped instances.
+ */
+export const CALLABLE_RATE_LIMITS: Record<
+  Callable,
+  { limit: number; windowMs: number }
+> = {
+  [Callable.ADD_SHOW]: { limit: 60, windowMs: MINUTE_MS },
+  [Callable.REMOVE_SHOW]: { limit: 60, windowMs: MINUTE_MS },
+  [Callable.IMPORT_MATCHES]: { limit: 5, windowMs: 10 * MINUTE_MS },
+  [Callable.MARK_SEASON_WATCHED]: { limit: 60, windowMs: MINUTE_MS },
+  [Callable.REBUILD_UPCOMING]: { limit: 20, windowMs: MINUTE_MS },
+  [Callable.REFRESH_SHOW]: { limit: 120, windowMs: MINUTE_MS },
+  [Callable.DELETE_ACCOUNT]: { limit: 3, windowMs: 10 * MINUTE_MS },
+  [Callable.TEST_FCM]: { limit: 5, windowMs: MINUTE_MS },
+};
+
+/** Guest TMDB proxy: uncached requests one IP may make per minute (CDN hits don't count) */
+export const PROXY_IP_LIMIT = { limit: 120, windowMs: MINUTE_MS };
+
+/** Pub/Sub topic the Cloud Billing budget publishes to — budgetGuard listens */
+export const BILLING_BUDGET_TOPIC = "billing-budget";

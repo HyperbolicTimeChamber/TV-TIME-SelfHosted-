@@ -1,7 +1,8 @@
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onCall } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
-import { DELETION_REQUESTS } from "../shared/enums";
+import { DELETION_REQUESTS, Callable } from "../shared/enums";
+import { requireCaller } from "../hooks/requireCaller";
 
 /**
  * Returns in about a second so the app can sign out and move on: queues the uid for
@@ -15,11 +16,8 @@ export const deleteAccount = onCall(
     memory: "256MiB",
   },
   async (request): Promise<{ success: boolean }> => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Must be signed in");
-    }
+    const uid = requireCaller(request, Callable.DELETE_ACCOUNT);
 
-    const uid = request.auth.uid;
     // Queue first: if the auth delete fails the data still goes and the client can retry
     await getFirestore()
       .doc(`${DELETION_REQUESTS}/${uid}`)

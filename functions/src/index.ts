@@ -14,3 +14,4 @@ export { rebuildUpcoming } from "./cloudFunctions/rebuildUpcoming";
 export { tmdbProxy } from "./cloudFunctions/tmdbProxy";
 export { sharePreview } from "./cloudFunctions/sharePreview";
 export { refreshShow } from "./cloudFunctions/refreshShow";
+export { budgetGuard } from "./cloudFunctions/budgetGuard";

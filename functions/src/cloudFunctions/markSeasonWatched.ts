@@ -2,7 +2,8 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { historyOnWatch } from "../shared/history";
 import { showDocId, episodeDocId } from "../shared/docId";
-import { WatchStatus, MediaType } from "../shared/enums";
+import { WatchStatus, MediaType, Callable } from "../shared/enums";
+import { requireCaller } from "../hooks/requireCaller";
 import { MarkSeasonRequest } from "../shared/types";
 import { MAX_END_OFFSET_MS, staggerFinishTimes } from "../shared/stagger";
 
@@ -13,12 +14,9 @@ export const markSeasonWatched = onCall(
     memory: "256MiB",
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Must be signed in.");
-    }
+    const uid = requireCaller(request, Callable.MARK_SEASON_WATCHED);
     if (request.data?.warmup) return { markedCount: 0 };
 
-    const uid = request.auth.uid;
     const data = request.data as MarkSeasonRequest;
     const {
       tmdbId,
@@ -155,7 +153,9 @@ export const markSeasonWatched = onCall(
     batch.set(
       trackingDoc,
       skipTracking ? history : { ...trackingUpdate, ...history },
-      { merge: true },
+      {
+        merge: true,
+      },
     );
 
     await batch.commit();

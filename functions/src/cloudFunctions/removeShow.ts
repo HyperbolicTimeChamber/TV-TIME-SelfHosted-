@@ -3,6 +3,8 @@ import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { removeFromTrackedBy } from "../hooks/trackedBy";
 import { showDocId } from "../shared/docId";
 import { RemoveShowRequest } from "../shared/types";
+import { Callable } from "../shared/enums";
+import { requireCaller } from "../hooks/requireCaller";
 
 export const removeShow = onCall(
   {
@@ -11,9 +13,7 @@ export const removeShow = onCall(
     memory: "256MiB",
   },
   async (request): Promise<{ success: boolean }> => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Must be signed in");
-    }
+    const uid = requireCaller(request, Callable.REMOVE_SHOW);
     if (request.data?.warmup) return { success: true };
 
     const { tmdbId, mediaType } = request.data as RemoveShowRequest;
@@ -22,7 +22,6 @@ export const removeShow = onCall(
     }
 
     const db = getFirestore();
-    const uid = request.auth.uid;
     const showId = showDocId(tmdbId, mediaType);
 
     // Remove tracking doc + decrement stats in one batch

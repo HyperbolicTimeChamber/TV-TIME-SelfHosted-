@@ -9,6 +9,10 @@ import {
 } from "@expo-google-fonts/smooch-sans";
 import { Handjet_800ExtraBold } from "@expo-google-fonts/handjet";
 import crashlytics from "@react-native-firebase/crashlytics";
+import { initAppCheck } from "./src/services/appCheck";
+
+// Before any Firestore / callable request, so they all carry an App Check token
+initAppCheck();
 
 // Explicit: native crashes (sent on the next launch) and JS errors always report
 crashlytics()

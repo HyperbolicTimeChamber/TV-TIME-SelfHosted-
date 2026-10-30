@@ -11,6 +11,8 @@ import {
 } from "../hooks/importMatches";
 import { commitInBatches, createMissing } from "../hooks/batchWrites";
 import { ImportMatch, ImportRequest, ImportStats } from "../shared/types";
+import { Callable } from "../shared/enums";
+import { requireCaller } from "../hooks/requireCaller";
 
 export const importMatches = onCall(
   {
@@ -19,9 +21,7 @@ export const importMatches = onCall(
     memory: "1GiB",
   },
   async (request): Promise<ImportStats> => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Must be signed in");
-    }
+    const uid = requireCaller(request, Callable.IMPORT_MATCHES);
     if (request.data?.warmup)
       return {
         showsImported: 0,
@@ -36,7 +36,6 @@ export const importMatches = onCall(
     }
 
     const db = getFirestore();
-    const uid = request.auth.uid;
     let apiKey: string;
     try {
       apiKey = await getTmdbApiKey();

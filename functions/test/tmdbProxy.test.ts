@@ -40,13 +40,13 @@ test("rejects anything else", () => {
   );
 });
 
-test("drops unknown params, never forwards a caller api_key", () => {
-  const r = ok("/api/tmdb/tv/1", {
-    api_key: "stolen",
-    foo: "bar",
+test("rejects unknown and repeated params (cache-busting), never forwards a caller api_key", () => {
+  assert.equal(fail("/api/tmdb/tv/1", { api_key: "stolen" }).status, 400);
+  assert.equal(fail("/api/tmdb/tv/1", { foo: "bar" }).status, 400);
+  assert.equal(fail("/api/tmdb/tv/1", { language: ["en-US", "fr-FR"] }).status, 400);
+  assert.deepEqual(ok("/api/tmdb/tv/1", { language: "en-US" }).params, {
     language: "en-US",
   });
-  assert.deepEqual(r.params, { language: "en-US" });
 });
 
 test("validates params", () => {
