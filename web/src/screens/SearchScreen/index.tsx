@@ -99,9 +99,12 @@ export default function SearchScreen() {
 	}, [submittedQuery, hasNextPage, fetchNextPage]);
 	const sentinel = useInfiniteScroll(loadMore, !!submittedQuery && !!hasNextPage);
 
+	// From a results page the input replaces it in history (as the app's stack), so the next search
+	// replaces these results rather than stacking on them: back goes to Trending
 	const openInput = () =>
 		navigate(
 			`${Paths.SEARCH_INPUT}${submittedQuery ? `?q=${encodeURIComponent(submittedQuery)}` : ""}`,
+			{ replace: !!submittedQuery },
 		);
 	const handlePress = useCallback(
 		(item: TMDBShow) => navigate(showPath(mediaTypeOf(item), item.id)),
