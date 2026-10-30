@@ -73,6 +73,7 @@ export enum Callable {
   REFRESH_SHOW = "refreshShow",
   DELETE_ACCOUNT = "deleteAccount",
   TEST_FCM = "testFCM",
+  SEARCH_TITLES = "searchTitles",
 }
 
 const MINUTE_MS = 60 * 1000;
@@ -94,6 +95,8 @@ export const CALLABLE_RATE_LIMITS: Record<
   [Callable.REFRESH_SHOW]: { limit: 120, windowMs: MINUTE_MS },
   [Callable.DELETE_ACCOUNT]: { limit: 3, windowMs: 10 * MINUTE_MS },
   [Callable.TEST_FCM]: { limit: 5, windowMs: MINUTE_MS },
+  // A search + a few "load more" batches; typing doesn't call it (suggestions stay client-side)
+  [Callable.SEARCH_TITLES]: { limit: 30, windowMs: MINUTE_MS },
 };
 
 /** Guest TMDB proxy: uncached requests one IP may make per minute (CDN hits don't count) */
@@ -141,4 +144,35 @@ export enum FunctionName {
   SHARE_PREVIEW = "sharePreview",
   REFRESH_SHOW = "refreshShow",
   BUDGET_GUARD = "budgetGuard",
+  SEARCH_TITLES = "searchTitles",
 }
+
+/** searchTitles scope: TMDB's /search/multi, /search/tv or /search/movie */
+export enum SearchScope {
+  ALL = "all",
+  TV = "tv",
+  MOVIE = "movie",
+}
+
+/** /search/multi also returns people — searchTitles keeps only these */
+export const SEARCH_MEDIA_TYPES: string[] = [MediaType.TV, MediaType.MOVIE];
+
+/**
+ * searchTitles: TMDB pages fetched per call. Clients sort the whole batch, so a sort is exact
+ * across its ~100 results (TMDB only sorts search results by relevance)
+ */
+export const SEARCH_PAGES_PER_BATCH = 5;
+/** TMDB serves at most this many search pages */
+export const SEARCH_MAX_TMDB_PAGE = 500;
+export const SEARCH_MAX_QUERY_LENGTH = 100;
+/**
+ * TMDB requests/second searchTitles may make. It runs as one instance, so this is global;
+ * tmdbProxy has its own 35/s and TMDB allows ~40-50/s per IP, so keep well under that
+ */
+export const SEARCH_TMDB_RATE_LIMIT = 20;
+/** Longest a TMDB request may queue for its slot before the search fails as busy */
+export const SEARCH_MAX_QUEUE_WAIT_MS = 8000;
+/** Same query + scope + batch within this window → served from memory, 0 TMDB calls */
+export const SEARCH_CACHE_TTL_MS = HOUR_MS;
+/** Cached batches kept per instance (oldest dropped first) */
+export const SEARCH_CACHE_MAX_ENTRIES = 500;

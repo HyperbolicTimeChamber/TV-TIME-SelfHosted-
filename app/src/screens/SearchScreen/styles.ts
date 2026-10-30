@@ -92,6 +92,10 @@ export const styles = StyleSheet.create({
 		overflow: "hidden" as const,
 		borderRadius: 6,
 	},
+	// SearchSkeleton: the poster's box, in the skeleton colour (shimmer set inline)
+	skeletonPoster: {
+		backgroundColor: colors.border,
+	},
 	poster: {
 		aspectRatio: 2 / 3,
 		borderRadius: 6,

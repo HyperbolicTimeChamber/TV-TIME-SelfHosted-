@@ -178,6 +178,12 @@
 	cursor: pointer;
 }
 
+/* Placeholder the size of a card's poster */
+.skeletonCard {
+	aspect-ratio: 2 / 3;
+	border-radius: 6px;
+}
+
 .poster {
 	width: 100%;
 	aspect-ratio: 2 / 3;

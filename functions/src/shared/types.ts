@@ -1,4 +1,4 @@
-import { EpisodeType, MediaType, RefreshReason, WatchStatus } from "./enums";
+import { EpisodeType, MediaType, RefreshReason, WatchStatus, SearchScope } from "./enums";
 
 export interface TMDBEpisode {
   episode_number: number;
@@ -182,4 +182,26 @@ export interface RefreshShowResponse {
   refreshed: boolean;
   /** Current catalog doc (without trackedBy); null when no doc exists */
   catalog: Omit<CatalogShow, "trackedBy"> | null;
+}
+
+// searchTitles types
+export interface SearchTitlesRequest {
+  query: string;
+  scope: SearchScope;
+  /** 1-based; batch n covers TMDB pages (n-1)*SEARCH_PAGES_PER_BATCH+1 … n*SEARCH_PAGES_PER_BATCH */
+  batch: number;
+}
+
+/** A TMDB search result as TMDB sends it, media_type always set */
+export type SearchTitle = Record<string, unknown> & {
+  id: number;
+  media_type: MediaType;
+};
+
+export interface SearchTitlesResponse {
+  /** This batch's TV shows + movies in TMDB relevance order, deduped, no people */
+  results: SearchTitle[];
+  batch: number;
+  totalBatches: number;
+  totalResults: number;
 }

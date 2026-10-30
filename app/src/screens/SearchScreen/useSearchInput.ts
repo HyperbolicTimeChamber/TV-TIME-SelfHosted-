@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "../../stores";
 import { searchSuggestions } from "../../services/tmdb";
+import { warmupSearchTitles } from "../../services/searchTitles";
 import { getCachedCatalogTitles } from "../../hooks/useWatchlist";
 import {
 	cleanedQuery,
@@ -70,6 +71,9 @@ export function useSearchInput(initialQuery = "") {
 	// Each keystroke's suggestions, reused when a later one finds nothing. Lives with the page
 	const suggestionMemory = useRef<SuggestionMemory>(new Map());
 	const apiKey = useAuthStore((s) => s.appTmdbApiKey);
+
+	// The results page's search runs in a CF: start it while the query is being typed
+	useEffect(() => warmupSearchTitles(apiKey), [apiKey]);
 
 	useEffect(() => {
 		AsyncStorage.getItem(HISTORY_KEY)

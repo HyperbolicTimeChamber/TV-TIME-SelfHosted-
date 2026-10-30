@@ -17,7 +17,7 @@ import { MediaFilter } from "@app/enums";
 import type { TMDBShow } from "@app/types";
 import SlidingTabs from "../../components/SlidingTabs";
 import NotFoundArt from "../../components/NotFoundArt";
-import LoadingScreen from "../../components/LoadingScreen";
+import SkeletonBlock from "../../components/SkeletonBlock";
 import { useCollapsingHeader } from "../../hooks/useCollapsingHeader";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
 import { useElementHeight } from "../../hooks/useElementHeight";
@@ -28,6 +28,15 @@ import { mediaTypeOf } from "./mediaTypeOf";
 import SearchModals from "./SearchModals";
 import styles from "./styles/SearchScreen.module.scss";
 import { cssVars, px } from "../../utils/cssVars";
+
+/** Placeholder cards while results load (fills 2-5 columns) and under the list while more
+ *  batches are to come — the searchTitles CF takes longer than one TMDB page did */
+const LOADING_CARDS = 10;
+const MORE_CARDS = 6;
+const skeletons = (count: number) =>
+	Array.from({ length: count }, (_, i) => (
+		<SkeletonBlock key={`skeleton-${i}`} className={styles.skeletonCard} />
+	));
 
 const FILTER_TABS = [
 	{ key: MediaFilter.ALL, label: "All" },
@@ -200,7 +209,7 @@ export default function SearchScreen() {
 			{!submittedQuery && <h2 className={styles.sectionTitle}>Trending</h2>}
 
 			{isLoading ? (
-				<LoadingScreen />
+				<div className={styles.grid}>{skeletons(LOADING_CARDS)}</div>
 			) : submittedQuery && items.length === 0 ? (
 				<div className="relative z-1 flex min-h-[calc(100dvh-var(--header-h))] flex-col items-center justify-end px-8 pb-[calc(var(--art-h)+24px)] text-center [--art-h:max(0px,min(50dvh,560px,calc(90dvh-280px)))]">
 					<NotFoundArt src="/no-results.webp" />
@@ -222,6 +231,7 @@ export default function SearchScreen() {
 					}}
 				>
 					{cards}
+					{hasNextPage && skeletons(MORE_CARDS)}
 				</motion.div>
 			) : (
 				<div className={styles.grid}>{cards}</div>
