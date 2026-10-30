@@ -1,4 +1,4 @@
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 import { getTmdbApiKey } from "../hooks/apiKey";
@@ -11,17 +11,19 @@ import {
 } from "../hooks/importMatches";
 import { commitInBatches, createMissing } from "../hooks/batchWrites";
 import { ImportMatch, ImportRequest, ImportStats } from "../shared/types";
+import { trackedOnCall } from "../hooks/trackedTriggers";
+import { FunctionName, Callable } from "../shared/enums";
+import { requireCaller } from "../hooks/requireCaller";
 
-export const importMatches = onCall(
+export const importMatches = trackedOnCall(
+  FunctionName.IMPORT_MATCHES,
   {
     maxInstances: 5,
     timeoutSeconds: 3600,
     memory: "1GiB",
   },
   async (request): Promise<ImportStats> => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Must be signed in");
-    }
+    const uid = requireCaller(request, Callable.IMPORT_MATCHES);
     if (request.data?.warmup)
       return {
         showsImported: 0,
@@ -36,7 +38,6 @@ export const importMatches = onCall(
     }
 
     const db = getFirestore();
-    const uid = request.auth.uid;
     let apiKey: string;
     try {
       apiKey = await getTmdbApiKey();

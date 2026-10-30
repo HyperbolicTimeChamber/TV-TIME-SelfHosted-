@@ -80,6 +80,12 @@ export enum CacheKey {
 	WATCH_HISTORY = "watch_history_v1",
 	/** Watch History sort choice (kept across visits) */
 	HISTORY_SORT = "history_sort_v1",
+	/** Last app_opened time (ms) — derives days_since_last_open */
+	LAST_APP_OPEN = "last_app_open_v1",
+	/** + uid — sign_up_completed already sent for this account */
+	SIGN_UP_TRACKED = "sign_up_tracked_v1:",
+	/** + uid → last Mixpanel profile props sent (skip unchanged re-sends) */
+	MIXPANEL_PROFILE = "mixpanel_profile_v1:",
 }
 
 export enum QueryKey {
@@ -286,3 +292,48 @@ export const MIN_BUILD_FIELD: Record<ReleaseChannel, string> = {
 
 /** Stand-in "API key" meaning: no key — route TMDB calls through TMDB_PROXY_BASE */
 export const TMDB_PROXY_KEY = "__tmdb_proxy__";
+
+/** Mixpanel project token (app/.env; CI writes it). Unset → no tracking, so a fork never reports here */
+export const MIXPANEL_TOKEN = process.env.EXPO_PUBLIC_MIXPANEL_TOKEN ?? "";
+/** Mixpanel ingestion host — EU projects need https://api-eu.mixpanel.com. Unset → SDK default (US) */
+export const MIXPANEL_SERVER_URL = process.env.EXPO_PUBLIC_MIXPANEL_SERVER_URL || undefined;
+
+/** Mixpanel event names */
+export enum AnalyticsEvent {
+	APP_OPENED = "app_opened",
+	EPISODE_MARKED_TRACKED = "episode_marked_tracked",
+	EPISODE_TRACKING_SESSION_COMPLETED = "episode_tracking_session_completed",
+	API_CALLED = "api_called",
+	/** Aggregated Firestore reads / writes / deletes since the last flush */
+	FIRESTORE_OPS = "firestore_ops",
+	PAGE_VIEWED = "page_viewed",
+	SIGN_UP_COMPLETED = "sign_up_completed",
+}
+
+/** Mixpanel `client_platform` super property (backend adds cloud_function / script) */
+export enum ClientPlatform {
+	APP = "app",
+	WEB = "web",
+}
+
+/** firestore_ops is sent at most this often (plus on background / tab hide) */
+export const FIRESTORE_OPS_FLUSH_MS = 60 * 1000;
+/** An account created this recently counts as a fresh sign-up on its first auth resolve */
+export const SIGN_UP_WINDOW_MS = 10 * 60 * 1000;
+
+/** app_opened `source` */
+export enum AppOpenSource {
+	ORGANIC = "organic",
+	PUSH = "push",
+	DEEP_LINK = "deep_link",
+}
+
+/** Marks this far apart start a new episode_tracking_session */
+export const TRACKING_SESSION_IDLE_MS = 5 * 60 * 1000;
+
+/** Local Firebase Emulator Suite ports (firebase.json → emulators) — dev only */
+export enum EmulatorPort {
+	AUTH = 9099,
+	FIRESTORE = 8080,
+	FUNCTIONS = 5001,
+}

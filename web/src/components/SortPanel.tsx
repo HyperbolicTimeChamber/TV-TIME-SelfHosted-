@@ -31,19 +31,21 @@ export function SortPanel<T>({
 	return (
 		<div className={styles.panel}>
 			<p className={styles.title}>Sort by</p>
-			{options.map((option) => {
-				const active = isSame(option.value, selected);
-				return (
-					<button
-						key={option.label}
-						className={`${styles.row} ${active ? styles.rowActive : ""}`}
-						onClick={() => onSelect(option.value)}
-					>
-						{option.label}
-						{active && <IoCheckmark className="text-primary" size={18} />}
-					</button>
-				);
-			})}
+			<div className={styles.group}>
+				{options.map((option) => {
+					const active = isSame(option.value, selected);
+					return (
+						<button
+							key={option.label}
+							className={`${styles.row} ${active ? styles.rowActive : ""}`}
+							onClick={() => onSelect(option.value)}
+						>
+							{option.label}
+							{active && <IoCheckmark size={18} />}
+						</button>
+					);
+				})}
+			</div>
 			{children}
 		</div>
 	);

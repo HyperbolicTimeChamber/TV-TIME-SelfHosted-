@@ -47,5 +47,11 @@ firebase-debug.log
 .test-build/
 
 # Functions params are non-secret config — tracked
-!functions/.env
+# Functions params are per project: functions/.env.<projectId> (template: functions/.env.example)
+functions/.env.*
+!functions/.env.example
 .playwright-mcp/
+
+# Local Firebase Emulator Suite data (npm run emulators)
+.emulator-data/
+firestore-debug.log

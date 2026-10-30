@@ -15,13 +15,15 @@ export function fakeDb(watched: Array<Record<string, unknown>> = []) {
       },
     }),
     collection: (path: string) => ({
-      where: (field: string, _op: string, value: unknown) => ({
+      where: (field: string, op: string, value: unknown) => ({
         get: async () => {
           state.queries++;
+          const match = (v: unknown) =>
+            op === "in" ? (value as unknown[]).includes(v) : v === value;
           return {
             docs: watched
-              .filter((w) => w[field] === value)
-              .map((w) => ({ data: () => w })),
+              .filter((w) => match(w[field]))
+              .map((w, i) => ({ data: () => w, ref: { path: `${path}/${i}` } })),
           };
         },
       }),

@@ -17,9 +17,11 @@
  *   npm run build && node scripts/restaggerBulkMarks.js --write         # patch Firestore
  *   npm run build && node scripts/restaggerBulkMarks.js --all [--write] # every stamp
  *
- * Auth: gcloud application-default credentials (project tv-time-returns).
+ * Auth: gcloud application-default credentials (project: GCLOUD_PROJECT or `firebase use`).
  */
 const admin = require("firebase-admin");
+const { scriptProjectId } = require("../lib/hooks/projectEnv");
+const { startScriptMetrics, finishScriptMetrics } = require("../lib/hooks/metrics");
 const { Timestamp } = require("firebase-admin/firestore");
 const { staggerFinishTimes } = require("../lib/shared/stagger");
 
@@ -29,7 +31,8 @@ const SINCE_DAYS = 30;
 // Firestore batches hold at most 500 writes
 const BATCH_LIMIT = 450;
 
-admin.initializeApp({ projectId: "tv-time-returns" });
+admin.initializeApp({ projectId: scriptProjectId() });
+startScriptMetrics("restaggerBulkMarks");
 const db = admin.firestore();
 
 const stampKey = (t) => `${t.seconds}.${t.nanoseconds}`;
@@ -110,8 +113,10 @@ async function main() {
 }
 
 main()
+  .then(() => finishScriptMetrics(true))
   .then(() => process.exit(0))
-  .catch((err) => {
+  .catch(async (err) => {
     console.error(err);
+    await finishScriptMetrics(false);
     process.exit(1);
   });

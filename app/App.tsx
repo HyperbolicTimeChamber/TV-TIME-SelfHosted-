@@ -1,5 +1,13 @@
 import React, { useEffect } from "react";
-import { View, StyleSheet, Platform, PermissionsAndroid, Alert } from "react-native";
+import {
+	View,
+	StyleSheet,
+	Platform,
+	PermissionsAndroid,
+	Alert,
+	AppState,
+	Linking,
+} from "react-native";
 import { Image } from "expo-image";
 import * as SplashScreen from "expo-splash-screen";
 import {
@@ -9,6 +17,13 @@ import {
 } from "@expo-google-fonts/smooch-sans";
 import { Handjet_800ExtraBold } from "@expo-google-fonts/handjet";
 import crashlytics from "@react-native-firebase/crashlytics";
+import { initAppCheck } from "./src/services/appCheck";
+import { connectEmulators } from "./src/services/emulators";
+
+// Before any Firestore / callable request, so they all carry an App Check token
+initAppCheck();
+// Dev opt-in: local Emulator Suite instead of production (EXPO_PUBLIC_USE_EMULATORS)
+connectEmulators();
 
 // Explicit: native crashes (sent on the next launch) and JS errors always report
 crashlytics()
@@ -35,7 +50,13 @@ import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import NetInfo from "@react-native-community/netinfo";
 import { getAuth, onAuthStateChanged, reload } from "@react-native-firebase/auth";
 import type { User } from "@react-native-firebase/auth";
-import { getMessaging, getToken, requestPermission } from "@react-native-firebase/messaging";
+import {
+	getMessaging,
+	getToken,
+	requestPermission,
+	getInitialNotification,
+	onNotificationOpenedApp,
+} from "@react-native-firebase/messaging";
 import { getFirestore, doc, setDoc } from "@react-native-firebase/firestore";
 import { useAuthStore, useUiStore } from "./src/stores";
 import { useForceUpdate } from "./src/hooks";
@@ -45,7 +66,15 @@ import ImportDataScreen from "./src/screens/ImportDataScreen";
 import AppNavigator from "./src/navigation/AppNavigator";
 import { OfflineOverlay } from "./src/components";
 import { colors } from "./src/theme";
-import { FATAL_AUTH_ERRORS, QueryKey } from "./src/enums";
+import { AppOpenSource, FATAL_AUTH_ERRORS, QueryKey } from "./src/enums";
+import {
+	initMixpanel,
+	identifyUser,
+	resetUser,
+	trackAppOpened,
+	flushAnalytics,
+} from "./src/services/mixpanel";
+import appConfig from "./app.json";
 
 // Keep native splash visible until auth resolves
 SplashScreen.preventAutoHideAsync();
@@ -196,15 +225,68 @@ export default function App() {
 	const setConnected = useUiStore((s) => s.setConnected);
 
 	useEffect(() => {
+		initMixpanel();
+		const appVersion = appConfig.expo.version;
+		const msg = getMessaging();
+
+		// Cold start: opened from a notification, a share link, or plainly
+		Promise.all([
+			getInitialNotification(msg).catch(() => null),
+			Linking.getInitialURL().catch(() => null),
+		]).then(([notification, url]) => {
+			const source = notification
+				? AppOpenSource.PUSH
+				: url
+					? AppOpenSource.DEEP_LINK
+					: AppOpenSource.ORGANIC;
+			trackAppOpened(source, appVersion);
+		});
+
+		// Resume: the push / link handlers fire around the same moment as the foreground change
+		let resumeSource: AppOpenSource | null = null;
+		const unsubscribePushOpen = onNotificationOpenedApp(msg, () => {
+			resumeSource = AppOpenSource.PUSH;
+		});
+		const linkSub = Linking.addEventListener("url", () => {
+			resumeSource ??= AppOpenSource.DEEP_LINK;
+		});
+		let appState = AppState.currentState;
+		const appStateSub = AppState.addEventListener("change", (next) => {
+			if (next === "background") flushAnalytics();
+			if (appState === "background" && next === "active") {
+				setTimeout(() => {
+					trackAppOpened(resumeSource ?? AppOpenSource.ORGANIC, appVersion);
+					resumeSource = null;
+				}, 1000);
+			}
+			appState = next;
+		});
+		return () => {
+			unsubscribePushOpen();
+			linkSub.remove();
+			appStateSub.remove();
+		};
+	}, []);
+
+	useEffect(() => {
+		let signedInUid: string | null = null;
 		const unsubscribeAuth = onAuthStateChanged(getAuth(), (firebaseUser) => {
 			// Persisted session is enough to enter (and hide the splash) — never wait on the network
 			setUser(firebaseUser);
 			if (firebaseUser) {
 				crashlytics().setUserId(firebaseUser.uid);
+				identifyUser(firebaseUser.uid, Date.parse(firebaseUser.metadata.creationTime ?? ""), {
+					email: firebaseUser.email,
+					name: firebaseUser.displayName,
+				});
+				signedInUid = firebaseUser.uid;
 				registerFCMToken(firebaseUser.uid);
 				verifySession(firebaseUser);
 			} else {
 				crashlytics().setUserId("");
+				// Only a real sign-out resets — a signed-out cold start keeps its anonymous id
+				if (signedInUid) resetUser();
+				signedInUid = null;
 			}
 		});
 		return unsubscribeAuth;

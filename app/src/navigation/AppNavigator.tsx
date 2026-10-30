@@ -13,6 +13,7 @@ import { colors } from "../theme";
 import { MainStackParamList, Route, SwipeTabParamList } from "../types";
 import { MediaType, WEB_BASE_URL } from "../enums";
 import SwipeTabsScreen from "./SwipeTabsScreen";
+import { trackPageViewed } from "../services/mixpanel";
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
@@ -122,9 +123,24 @@ const linking: LinkingOptions<MainStackParamList> = {
 	},
 };
 
+let lastPage: string | undefined;
+/** page_viewed for the focused (deepest) screen, once per change */
+function trackFocusedScreen() {
+	const page = navigationRef.getCurrentRoute()?.name;
+	if (!page || page === lastPage) return;
+	lastPage = page;
+	trackPageViewed(page);
+}
+
 export default function AppNavigator() {
 	return (
-		<NavigationContainer ref={navigationRef} theme={navTheme} linking={linking}>
+		<NavigationContainer
+			ref={navigationRef}
+			theme={navTheme}
+			linking={linking}
+			onReady={trackFocusedScreen}
+			onStateChange={trackFocusedScreen}
+		>
 			<Stack.Navigator
 				screenOptions={{
 					headerShown: false,

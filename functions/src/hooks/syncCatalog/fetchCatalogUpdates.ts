@@ -18,7 +18,8 @@ export interface FetchResult {
 
     data: Record<string, any>;
   }>;
-  hasEpisodeRemovals: boolean;
+  /** Show doc ids that lost episodes this sync — only their watched docs get the orphan scan */
+  removedEpisodeShowIds: string[];
   skippedEnded: number;
   /** Show doc ids whose displayed data changed this sync */
   changedShowIds: string[];
@@ -31,7 +32,7 @@ export async function fetchCatalogUpdates(
   showsSnap: FirebaseFirestore.QuerySnapshot,
 ): Promise<FetchResult> {
   const freshCatalogMap = new Map<string, CatalogShow>();
-  let hasEpisodeRemovals = false;
+  const removedEpisodeShowIds: string[] = [];
   let skippedEnded = 0;
   const changedShowIds: string[] = [];
   const runtimeFills: FetchResult["runtimeFills"] = [];
@@ -90,7 +91,7 @@ export async function fetchCatalogUpdates(
 
       const oldEpCount = oldData.totalEpisodes ?? 0;
       const newEpCount = freshData.totalEpisodes ?? 0;
-      if (newEpCount < oldEpCount) hasEpisodeRemovals = true;
+      if (newEpCount < oldEpCount) removedEpisodeShowIds.push(showDoc.id);
       // refreshShow wrote fresh seasons mid-week (old vs fresh looks equal now) → still changed
       if (oldData.refreshedSinceSync || hasCatalogChanged(oldData, freshData))
         changedShowIds.push(showDoc.id);
@@ -138,7 +139,7 @@ export async function fetchCatalogUpdates(
     freshCatalogMap,
     pendingWrites,
     runtimeFills,
-    hasEpisodeRemovals,
+    removedEpisodeShowIds,
     skippedEnded,
     changedShowIds,
   };

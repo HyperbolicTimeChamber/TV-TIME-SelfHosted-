@@ -1,13 +1,14 @@
-import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
-import { DELETION_REQUESTS } from "../shared/enums";
+import { DELETION_REQUESTS, FunctionName } from "../shared/enums";
+import { trackedOnDocumentCreated } from "../hooks/trackedTriggers";
 
 /**
  * Background half of deleteAccount: deletes users/{uid} and every subcollection (tracking,
  * watched history, upcoming) in parallel and takes the uid off the shows it tracked. Catalog
  * docs stay even when nobody tracks them any more — other users still search and add them.
  */
-export const purgeUserData = onDocumentCreated(
+export const purgeUserData = trackedOnDocumentCreated(
+  FunctionName.PURGE_USER_DATA,
   {
     document: `${DELETION_REQUESTS}/{uid}`,
     region: "europe-west1",

@@ -30,15 +30,7 @@
         "foregroundImage": "./assets/icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.tvtimerevived.app",
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [{ "scheme": "https", "host": "watchloom-app.web.app", "pathPrefix": "/show" }],
-          "category": ["BROWSABLE", "DEFAULT"]
-        }
-      ]
+      "package": "com.tvtimerevived.app"
     },
     "web": {},
     "plugins": [
@@ -47,6 +39,7 @@
       "@react-native-firebase/messaging",
       "@react-native-firebase/analytics",
       "@react-native-firebase/crashlytics",
+      "@react-native-firebase/app-check",
       "@react-native-google-signin/google-signin",
       "expo-image",
       [

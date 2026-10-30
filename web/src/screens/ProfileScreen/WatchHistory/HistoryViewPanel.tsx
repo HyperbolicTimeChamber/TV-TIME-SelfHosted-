@@ -1,3 +1,4 @@
+import { IoCheckmark } from "react-icons/io5";
 import { HistoryFilter, HistorySort } from "@app/enums";
 import {
 	HISTORY_FILTERS,
@@ -51,6 +52,7 @@ export default function HistoryViewPanel({
 								aria-pressed={filters.has(f)}
 								onClick={() => onToggleFilter(f)}
 							>
+								{filters.has(f) && <IoCheckmark size={15} />}
 								{HISTORY_FILTER_LABEL[f]}
 							</button>
 						))}

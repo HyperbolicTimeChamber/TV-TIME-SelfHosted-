@@ -389,9 +389,9 @@ export default function SearchScreen() {
 				options={SORT_OPTIONS}
 				selected={sortView}
 				isSame={sameSearchSort}
+				closeOnSelect
 				onSelect={(next) => {
 					setSortView(next);
-					setSortOpen(false);
 					// New order starts from the top, header shown
 					listRef.current?.scrollToOffset({ offset: 0, animated: false });
 					headerY.value = 0;

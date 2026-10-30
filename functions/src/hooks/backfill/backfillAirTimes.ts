@@ -45,6 +45,6 @@ export async function backfillAirTimes(
     }
   }
 
-  if (!dryRun) await rebuildAllUsersUpcoming(db, catalogMap, true);
+  if (!dryRun) await rebuildAllUsersUpcoming(db, catalogMap);
   return { candidates, matched, stamped };
 }

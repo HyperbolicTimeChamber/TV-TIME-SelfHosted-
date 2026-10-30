@@ -1,4 +1,3 @@
-import { onRequest } from "firebase-functions/v2/https";
 import {
   defineBoolean,
   defineInt,
@@ -13,13 +12,18 @@ import {
   RateLimitError,
   isAllowedCaller,
 } from "../hooks/tmdbProxy";
-import { TMDB_BASE } from "../shared/enums";
+import { KeyedRateLimiter } from "../hooks/keyedRateLimit";
+import {
+  PROXY_IP_LIMIT,
+  TMDB_BASE,
+  FunctionName,
+  ClientPlatform,
+} from "../shared/enums";
+import { trackedOnRequest } from "../hooks/trackedTriggers";
 
-// Configured via functions/.env (or deploy-time prompts); defaults keep it safe
-const ALLOWED_ORIGINS = defineString("TMDB_PROXY_ALLOWED_ORIGINS", {
-  default:
-    "https://watchloom-app.web.app,https://watchloom-app.firebaseapp.com,http://localhost:5173",
-});
+// Configured via functions/.env.<projectId> (gitignored). Origins are project-specific, so no
+// default: a deploy without them prompts instead of trusting another project's origins
+const ALLOWED_ORIGINS = defineString("TMDB_PROXY_ALLOWED_ORIGINS");
 /** true → reject requests without a valid App Check token (only once the web build has VITE_RECAPTCHA_SITE_KEY set, or guests get locked out) */
 const ENFORCE_APP_CHECK = defineBoolean("TMDB_PROXY_ENFORCE_APP_CHECK", {
   default: false,
@@ -28,6 +32,20 @@ const ENFORCE_APP_CHECK = defineBoolean("TMDB_PROXY_ENFORCE_APP_CHECK", {
 const RATE_LIMIT = defineInt("TMDB_PROXY_RATE_LIMIT", { default: 35 });
 
 let limiter: RateLimiter | null = null;
+/** Single instance → this per-IP window is global. Only uncached requests get this far. */
+const ipLimiter = new KeyedRateLimiter(
+  PROXY_IP_LIMIT.limit,
+  PROXY_IP_LIMIT.windowMs,
+);
+
+/** Client IP: Hosting (Fastly) sets fastly-client-ip; X-Forwarded-For's first hop can be forged */
+function clientIp(
+  headers: Record<string, string | string[] | undefined>,
+  fallback?: string,
+) {
+  const v = headers["fastly-client-ip"];
+  return (Array.isArray(v) ? v[0] : v) ?? fallback ?? "unknown";
+}
 
 /**
  * Read-only TMDB proxy for logged-out web visitors (search + show info).
@@ -36,7 +54,9 @@ let limiter: RateLimiter | null = null;
  *   requests queue (up to 5s) instead of failing
  * - Origin filter + App Check token so only the Watchloom web app can use it
  */
-export const tmdbProxy = onRequest(
+export const tmdbProxy = trackedOnRequest(
+  FunctionName.TMDB_PROXY,
+  ClientPlatform.WEB,
   {
     maxInstances: 1,
     concurrency: 80,
@@ -60,6 +80,13 @@ export const tmdbProxy = onRequest(
       }
     } else if (ENFORCE_APP_CHECK.value()) {
       res.status(401).json({ error: "App Check token required" });
+      return;
+    }
+
+    if (!ipLimiter.hit(clientIp(req.headers, req.ip))) {
+      res.set("Retry-After", "60");
+      res.set("Cache-Control", "no-store");
+      res.status(429).json({ error: "Too many requests" });
       return;
     }
 

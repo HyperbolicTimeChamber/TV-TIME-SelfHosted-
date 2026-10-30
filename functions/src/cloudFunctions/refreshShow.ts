@@ -1,4 +1,4 @@
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { HttpsError } from "firebase-functions/v2/https";
 import { getFirestore } from "firebase-admin/firestore";
 import { fetchShowFromTMDB, CatalogShow } from "../hooks/tmdb";
 import { getTmdbApiKey, invalidateApiKeyCache } from "../hooks/apiKey";
@@ -10,10 +10,17 @@ import {
   RefreshReason,
   REFRESH_COOLDOWN_MS,
   REFRESH_MAX_HINT_SEASONS,
+  FunctionName,
+  Callable,
 } from "../shared/enums";
+import { requireCaller } from "../hooks/requireCaller";
 import { RefreshShowRequest, RefreshShowResponse } from "../shared/types";
+import { trackedOnCall } from "../hooks/trackedTriggers";
 
-type StoredShow = CatalogShow & { trackedBy?: string[]; lastSyncedAt?: unknown };
+type StoredShow = CatalogShow & {
+  trackedBy?: string[];
+  lastSyncedAt?: unknown;
+};
 
 /** Doc as clients get it — trackedBy (other users' uids) never leaves the server */
 function forClient(show: StoredShow): RefreshShowResponse["catalog"] {
@@ -28,26 +35,29 @@ function forClient(show: StoredShow): RefreshShowResponse["catalog"] {
  * claims shows/{id}.lastTmdbCheckAt (transaction), re-fetches TMDB with the server key and
  * merges the result; everyone else gets the current doc back (1 read, 0 TMDB calls).
  */
-export const refreshShow = onCall(
+export const refreshShow = trackedOnCall(
+  FunctionName.REFRESH_SHOW,
   {
     maxInstances: 10,
     timeoutSeconds: 120,
     memory: "256MiB",
   },
   async (request): Promise<RefreshShowResponse> => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Must be signed in");
-    }
+    requireCaller(request, Callable.REFRESH_SHOW);
     if (request.data?.warmup) return { refreshed: false, catalog: null };
 
-    const { tmdbId, mediaType, reason, seasons } = request.data as RefreshShowRequest;
+    const { tmdbId, mediaType, reason, seasons } =
+      request.data as RefreshShowRequest;
     if (
       typeof tmdbId !== "number" ||
       tmdbId <= 0 ||
       !Object.values(MediaType).includes(mediaType) ||
       !Object.values(RefreshReason).includes(reason)
     ) {
-      throw new HttpsError("invalid-argument", "tmdbId, mediaType and reason required");
+      throw new HttpsError(
+        "invalid-argument",
+        "tmdbId, mediaType and reason required",
+      );
     }
     const hintSeasons = (Array.isArray(seasons) ? seasons : [])
       .filter((n) => Number.isInteger(n) && n > 0)
@@ -78,7 +88,10 @@ export const refreshShow = onCall(
       const apiKey = await getTmdbApiKey();
       // Latest stored season always (new episodes land there), plus the client's hints;
       // fetchShowFromTMDB adds seasons that are new or changed size on TMDB
-      const latest = Math.max(0, ...(old.seasons ?? []).map((s) => s.seasonNumber));
+      const latest = Math.max(
+        0,
+        ...(old.seasons ?? []).map((s) => s.seasonNumber),
+      );
       fresh = await fetchShowFromTMDB(apiKey, tmdbId, mediaType, {
         tvmazeId: old.tvmazeId,
         reuseSeasons: old.seasons ?? [],
@@ -87,7 +100,10 @@ export const refreshShow = onCall(
     } catch (err: any) {
       // Stamp stays → no retry storm while TMDB is down; the caller keeps its cache
       if (err?.response?.status === 401) invalidateApiKeyCache();
-      console.error(`[refreshShow] TMDB fetch failed for ${showId}:`, err?.message ?? err);
+      console.error(
+        `[refreshShow] TMDB fetch failed for ${showId}:`,
+        err?.message ?? err,
+      );
       return { refreshed: false, catalog: forClient(old) };
     }
 

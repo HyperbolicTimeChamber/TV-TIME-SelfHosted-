@@ -31,28 +31,73 @@
 	flex-direction: column;
 }
 
+/* Section label over a card ("Sort by", "Filter") */
 .title {
-	margin: 8px 0;
+	margin: 4px 0 8px 4px;
 	font-size: 12px;
 	font-weight: 700;
-	letter-spacing: 1px;
+	letter-spacing: 1.2px;
 	text-transform: uppercase;
 	color: var(--color-fg-secondary);
 }
 
+/* Sort rows grouped in one rounded card, hairlines under the text */
+.group {
+	display: flex;
+	flex-direction: column;
+	border-radius: 14px;
+	background: var(--color-surface-light);
+	overflow: hidden;
+}
+
 .row {
+	position: relative;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 10px 0;
+	min-height: 44px;
+	padding: 0 14px;
 	border: none;
 	background: none;
-	color: var(--color-fg);
+	color: var(--color-fg-secondary);
 	font-size: 15px;
 	text-align: left;
 	cursor: pointer;
+	transition: background-color 150ms ease;
+
+	& + &::before {
+		content: "";
+		position: absolute;
+		top: 0;
+		left: 14px;
+		right: 0;
+		height: 1px;
+		background: var(--color-line);
+	}
+
+	&:active {
+		background: var(--color-line);
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		&:hover {
+			background: var(--color-line);
+		}
+	}
 }
 
 .rowActive {
+	color: var(--color-fg);
 	font-weight: 700;
+
+	&,
+	&:active {
+		background: var(--color-primary-dark);
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		&:hover {
+			background: var(--color-primary-dark);
+		}
+	}
 }

@@ -1,19 +1,20 @@
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { HttpsError } from "firebase-functions/v2/https";
 import { getFirestore } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
+import { trackedOnCall } from "../hooks/trackedTriggers";
+import { FunctionName, Callable } from "../shared/enums";
+import { requireCaller } from "../hooks/requireCaller";
 
-export const testFCM = onCall(
+export const testFCM = trackedOnCall(
+  FunctionName.TEST_FCM,
   {
     maxInstances: 1,
     timeoutSeconds: 30,
     memory: "256MiB",
   },
   async (request): Promise<{ success: boolean }> => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Must be signed in");
-    }
+    const uid = requireCaller(request, Callable.TEST_FCM);
 
-    const uid = request.auth.uid;
     const db = getFirestore();
 
     const userDoc = await db.doc(`users/${uid}`).get();

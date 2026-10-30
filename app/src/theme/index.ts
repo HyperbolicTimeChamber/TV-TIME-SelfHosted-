@@ -3,6 +3,8 @@ export const colors = {
 	surface: "#1A1A1A",
 	surfaceLight: "#252525",
 	primary: "#E50914",
+	/** Deep red fill for a selected row (sort sheet) — white text stays readable on it */
+	primaryDark: "#5C0A10",
 	accent: "#4A90D9",
 	text: "#FFFFFF",
 	textSecondary: "#A0A0A0",

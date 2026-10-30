@@ -349,8 +349,15 @@ export function SheetHeader({
 	);
 }
 
-/** Rows grouped in one rounded card, hairlines between them */
-export function SheetGroup({ children }: { children: ReactNode }) {
+/** Rows grouped in one rounded card, hairlines between them. `textOnly`: rows without an icon
+ *  tile — the hairline starts under the text instead of where a tile's text would */
+export function SheetGroup({
+	children,
+	textOnly = false,
+}: {
+	children: ReactNode;
+	textOnly?: boolean;
+}) {
 	const rows = React.Children.toArray(children).filter(Boolean);
 	return (
 		<View style={styles.group}>
@@ -364,7 +371,7 @@ export function SheetGroup({ children }: { children: ReactNode }) {
 				}
 				return (
 					<React.Fragment key={i}>
-						{i > 0 && <View style={styles.separator} />}
+						{i > 0 && <View style={[styles.separator, textOnly && styles.separatorText]} />}
 						{row}
 					</React.Fragment>
 				);
@@ -578,6 +585,7 @@ const styles = StyleSheet.create({
 		// Starts under the text, not the icon tile
 		marginLeft: spacing.md + 36 + spacing.md,
 	},
+	separatorText: { marginLeft: spacing.md },
 	option: sheetStyles.row,
 	optionPressed: { backgroundColor: colors.border, transform: [{ scale: 0.98 }] },
 	optionContent: sheetStyles.rowContent,
