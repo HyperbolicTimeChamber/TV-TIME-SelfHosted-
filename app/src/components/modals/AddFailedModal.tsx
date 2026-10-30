@@ -1,6 +1,8 @@
+import { View } from "react-native";
 import ConfirmModal from "./ConfirmModal";
 import { DEFEATED_ART, DEFEATED_RATIO, ModalArt } from "./ModalArt";
 import type { AddFailure } from "../../types";
+import { spacing } from "../../theme";
 
 /**
  * "Couldn't add" popup — the same ConfirmModal every other choice uses, so a failed add is an
@@ -22,8 +24,13 @@ export default function AddFailedModal({
 	return (
 		<ConfirmModal
 			visible={!!failure}
-			title="That add got Yamcha'd"
-			image={<ModalArt source={DEFEATED_ART} ratio={DEFEATED_RATIO} />}
+			title="Well that add was a failure"
+			image={
+				// Yamcha's hair reaches up to the art's top edge: a gap so he isn't touching the title
+				<View style={{ paddingTop: spacing.md }}>
+					<ModalArt source={DEFEATED_ART} ratio={DEFEATED_RATIO} />
+				</View>
+			}
 			hint={failure ? `${failure.title} is still not on your watch list.` : undefined}
 			error={failure?.message ?? null}
 			confirmLabel="Retry"
