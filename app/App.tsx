@@ -18,9 +18,12 @@ import {
 import { Handjet_800ExtraBold } from "@expo-google-fonts/handjet";
 import crashlytics from "@react-native-firebase/crashlytics";
 import { initAppCheck } from "./src/services/appCheck";
+import { connectEmulators } from "./src/services/emulators";
 
 // Before any Firestore / callable request, so they all carry an App Check token
 initAppCheck();
+// Dev opt-in: local Emulator Suite instead of production (EXPO_PUBLIC_USE_EMULATORS)
+connectEmulators();
 
 // Explicit: native crashes (sent on the next launch) and JS errors always report
 crashlytics()

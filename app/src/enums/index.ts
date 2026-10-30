@@ -326,3 +326,10 @@ export enum AppOpenSource {
 
 /** Marks this far apart start a new episode_tracking_session */
 export const TRACKING_SESSION_IDLE_MS = 5 * 60 * 1000;
+
+/** Local Firebase Emulator Suite ports (firebase.json → emulators) — dev only */
+export enum EmulatorPort {
+	AUTH = 9099,
+	FIRESTORE = 8080,
+	FUNCTIONS = 5001,
+}

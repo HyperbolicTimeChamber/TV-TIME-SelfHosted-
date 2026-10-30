@@ -22,6 +22,7 @@ On a fresh system, before real work, check whether the tools below exist (`claud
 - **Version bump:** change version only; keep buildNumber/versionCode climbing, never reset to 1 (CI `bump-build.yml` adds +1 per build).
 - **Rewatch only when completed:** never set rewatching on incomplete shows; extra E1 counts ≠ rewatch.
 - **Verify visuals:** after every UI change, screenshot (+ zoom-crop) on the emulator and judge before reporting.
+- **Test against the Firebase Emulator Suite, never production:** before any testing on the Android emulator or localhost web, start `npm run emulators` (seed once with `npm run emulators:seed`) and run the app with `EXPO_PUBLIC_USE_EMULATORS=true` (+ `adb reverse tcp:9099/8080/5001`) / web with `VITE_USE_EMULATORS=true`. Testing on the real account costs ~26k Firestore reads per full reload. Only touch prod data when the user explicitly asks.
 - **Emulator safety:** the emulator is signed into a REAL account with real data. Screenshot-confirm the screen before any `adb` swipe/tap that could mark something; use back-key to dismiss confirm modals instead of confirming; avoid card swipes (a fast swipe can become a tap → opens carousel with Mark buttons).
 - **Typecheck:** `npx tsc --noEmit` from `app/`, `functions/`, and `web` (`npx tsc -p tsconfig.app.json --noEmit`) — root has no TypeScript. Pre-existing TS error list may be empty now; don't add new ones.
 - **LegendList** does not re-render on `extraData` — embed state in data items.
@@ -50,6 +51,8 @@ On a fresh system, before real work, check whether the tools below exist (`claud
 ## Build / run / test
 - App dev: `cd app && npx expo start --dev-client`, `adb reverse tcp:8081 tcp:8081`, open `exp+watchloom://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081` (scheme `watchloom`; first cold launch may crash once — relaunch). Editing a file can trigger a full reload back to Home.
 - `prebuild --clean` wipes `android/` — re-copy `google-services.json`. Node 20 CF runtime deprecated (deadline Oct 2026).
+- **Dev against the Emulator Suite, not prod** (dev on the real 26k-episode account was most of the Firestore bill): `npm run emulators` (Auth/Firestore/Functions, data kept in `.emulator-data/`), first time `npm run emulators:seed` (copies `config/app` from prod, 1 read). App: `EXPO_PUBLIC_USE_EMULATORS=true` + `adb reverse` 9099/8080/5001; web: `VITE_USE_EMULATORS=true`. Dev-only (`__DEV__` / `import.meta.env.DEV`).
+- **Never full-scan `watchedEpisodes`** (~26k reads): orphan cleanup only runs for shows syncCatalog saw lose episodes (`removedEpisodeShowIds`, `in` queries).
 - Web: `cd web && npx vite --port 5199 --strictPort --host 127.0.0.1`; on emulator Chrome use `adb reverse tcp:5199 tcp:5199`. Web taps can lag ~10s — never re-tap Mark. Use the checkmark, not swipe.
 - Emulator: AVD `Pixel_9_Pro`; screens at 1280x2856. Prefer mobile-mcp element listing over screenshots; `adb exec-out screencap -p > file.png` otherwise.
 - User-provided videos: `ffmpeg -i video.mp4 -vf "fps=1,scale=240:-1,tile=7x2" -frames:v 1 sheet.png` to read them.

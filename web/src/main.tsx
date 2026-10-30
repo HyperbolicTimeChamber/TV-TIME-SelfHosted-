@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./firebase";
 import { initAppCheck } from "./appCheck";
+import { connectEmulators } from "./emulators";
 import { AppOpenSource } from "@app/enums";
 import { initMixpanel, trackAppOpened, flushAnalytics } from "@app/services/mixpanel";
 import { Paths } from "./routes/paths";
@@ -18,6 +19,7 @@ import "./theme/global.scss";
 import App from "./App";
 
 initAppCheck();
+connectEmulators();
 
 initMixpanel();
 // A share link (/show/...) arriving from outside the site counts as a deep link
