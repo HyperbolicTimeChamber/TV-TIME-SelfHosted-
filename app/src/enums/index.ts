@@ -98,6 +98,7 @@ export enum QueryKey {
 	SEARCH = "search",
 	TRENDING = "trending",
 	TITLE_LOGO = "titleLogo",
+	CUSTOM_LISTS = "customLists",
 }
 
 /** Watch count sheet actions (episode / season / movie) */
@@ -117,6 +118,13 @@ export enum WatchProgress {
 	/** Movie watched, or show completed / in a rewatch */
 	WATCHED = "watched",
 }
+
+/** Custom lists live in users/{uid}/customLists — a list is only a bookmark, never tracking */
+export const CUSTOM_LISTS_COLLECTION = "customLists";
+/** Name length / count caps (mirrored in firestore.rules) */
+export const CUSTOM_LIST_NAME_MAX = 50;
+export const CUSTOM_LIST_ITEM_MAX = 500;
+export const CUSTOM_LIST_MAX = 50;
 
 /** Fill of the shared 44px circular icon buttons (back, share) */
 export enum CircleButtonTone {
@@ -266,6 +274,7 @@ export enum Route {
 	SETTINGS = "Settings",
 	WATCH_HISTORY = "WatchHistory",
 	IMPORT_DATA = "ImportData",
+	LIST_DETAIL = "ListDetail",
 }
 
 // Base URLs come from app/.env (EXPO_PUBLIC_* is inlined at build time; CI writes the file)

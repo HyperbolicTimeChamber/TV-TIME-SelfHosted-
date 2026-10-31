@@ -17,6 +17,7 @@ import historyStyles from "./WatchHistory/styles/WatchHistory.module.scss";
 import CircleButton from "../../components/CircleButton";
 import { CircleButtonTone } from "@app/enums";
 import Marquee from "../../components/Marquee";
+import CustomLists from "./CustomLists";
 import styles from "./styles/ProfileScreen.module.scss";
 
 /** Profile tab — stats, weekly chart, recently completed (same hooks as the app) */
@@ -163,6 +164,8 @@ export default function ProfileScreen() {
 					</section>
 				)
 			)}
+
+			<CustomLists />
 		</div>
 	);
 }

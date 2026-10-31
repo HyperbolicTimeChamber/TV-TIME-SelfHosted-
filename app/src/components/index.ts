@@ -5,6 +5,8 @@ export {
 	EpisodeDetailModal,
 	WatchActionSheet,
 	WatchCountSheet,
+	AddToListSheet,
+	ListNameModal,
 } from "./modals";
 export { WatchAction } from "./modals";
 export type { CarouselEpisode } from "./modals";
