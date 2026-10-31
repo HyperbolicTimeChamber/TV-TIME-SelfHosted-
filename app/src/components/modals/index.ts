@@ -6,4 +6,6 @@ export type { CarouselEpisode } from "../../types/episodeCarousel";
 export { default as WatchActionSheet } from "./WatchActionSheet";
 export { default as WatchCountSheet } from "./WatchCountSheet";
 export { WatchAction } from "./WatchActionSheet";
+export { default as AddToListSheet } from "./AddToListSheet";
+export { default as ListNameModal } from "./ListNameModal";
 export * from "./ModalArt";

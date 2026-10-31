@@ -1,0 +1,134 @@
+@use "../../theme/tokens" as *;
+
+.overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 1000;
+	background: rgba(0, 0, 0, 0.6);
+	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+}
+
+.sheet {
+	width: 100%;
+	max-width: 520px;
+	background: var(--surface);
+	border-radius: 16px 16px 0 0;
+	padding: 0 16px max(34px, calc(env(safe-area-inset-bottom) + 16px));
+	touch-action: none;
+}
+
+.handle {
+	width: 36px;
+	height: 4px;
+	border-radius: 2px;
+	background: var(--text-muted);
+	margin: 8px auto 12px;
+}
+
+.title {
+	font-size: 16px;
+	font-weight: 600;
+	text-align: center;
+	margin: 0;
+}
+
+.subtitle {
+	font-size: 12px;
+	color: var(--text-secondary);
+	text-align: center;
+	margin: 4px 0 16px;
+}
+
+.option {
+	width: 100%;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 12px 0;
+	background: none;
+	border: none;
+	border-top: 0.5px solid var(--border);
+	color: var(--text);
+	text-align: left;
+	cursor: pointer;
+}
+
+.optionIcon {
+	width: 32px;
+	text-align: center;
+	font-size: 18px;
+	font-weight: 700;
+}
+
+.optionContent {
+	display: flex;
+	flex-direction: column;
+}
+
+.optionText,
+.optionTextDanger {
+	font-size: 15px;
+	font-weight: 600;
+}
+
+.optionTextDanger {
+	color: $destructive-red;
+}
+
+.optionHint {
+	font-size: 12px;
+	color: var(--text-secondary);
+}
+
+/* Add to List sheet (AddToListSheet) */
+.optionAccent {
+	color: $accent;
+}
+
+.optionGrow {
+	flex: 1;
+	min-width: 0;
+}
+
+.optionTruncate {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.optionDisabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+.listScroll {
+	max-height: 40dvh;
+	overflow-y: auto;
+	touch-action: pan-y;
+}
+
+.check {
+	flex-shrink: 0;
+	color: var(--text-muted);
+}
+
+.checkOn {
+	color: $accent;
+}
+
+.sheetEmpty {
+	font-size: 12px;
+	color: var(--text-secondary);
+	text-align: center;
+	padding: 16px 0;
+	margin: 0;
+	border-top: 0.5px solid var(--border);
+}
+
+.sheetLoader {
+	display: flex;
+	justify-content: center;
+	padding: 24px 0;
+}

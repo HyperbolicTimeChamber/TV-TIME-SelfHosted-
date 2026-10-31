@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { Spin } from "antd";
+import { IoBookmark, IoBookmarkOutline } from "react-icons/io5";
 import { motion } from "motion/react";
 import { MediaType } from "@app/enums";
 import type { TMDBShow } from "@app/types";
@@ -13,12 +14,25 @@ interface Props {
 	canTrack: boolean;
 	isInWatchlist: boolean;
 	isAdding: boolean;
+	/** In at least one custom list */
+	isListed: boolean;
 	onPress: (item: TMDBShow) => void;
 	onAdd: (item: TMDBShow) => void;
 	onRemove: (item: TMDBShow) => void;
+	onAddToList: (item: TMDBShow) => void;
 }
 
-function SearchCard({ item, canTrack, isInWatchlist, isAdding, onPress, onAdd, onRemove }: Props) {
+function SearchCard({
+	item,
+	canTrack,
+	isInWatchlist,
+	isAdding,
+	isListed,
+	onPress,
+	onAdd,
+	onRemove,
+	onAddToList,
+}: Props) {
 	const title = item.name || item.title || "";
 	const year = (item.first_air_date || item.release_date || "").substring(0, 4);
 	const mediaType = mediaTypeOf(item);
@@ -50,6 +64,18 @@ function SearchCard({ item, canTrack, isInWatchlist, isAdding, onPress, onAdd, o
 					}}
 				>
 					{isAdding ? <Spin size="small" /> : isInWatchlist ? "✓" : "+"}
+				</button>
+			)}
+			{canTrack && (
+				<button
+					className={`${styles.listBadge} ${isListed ? styles.listBadgeActive : ""}`}
+					aria-label="Add to List"
+					onClick={(e) => {
+						e.stopPropagation();
+						onAddToList(item);
+					}}
+				>
+					{isListed ? <IoBookmark size={14} /> : <IoBookmarkOutline size={14} />}
 				</button>
 			)}
 			<div className={styles.banner}>

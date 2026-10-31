@@ -139,6 +139,25 @@ export const styles = StyleSheet.create({
 		backgroundColor: colors.watchedGreen,
 		borderColor: colors.watchedGreen,
 	},
+	// "Add to List" — mirrors the watchlist badge on the opposite corner; blue = already in a list
+	listBadge: {
+		position: "absolute" as const,
+		top: 6,
+		left: 6,
+		width: 26,
+		height: 26,
+		borderRadius: 13,
+		borderWidth: 2,
+		borderColor: colors.text,
+		backgroundColor: colors.badgeOverlay,
+		justifyContent: "center" as const,
+		alignItems: "center" as const,
+		zIndex: 1,
+	},
+	listBadgeActive: {
+		backgroundColor: colors.accent,
+		borderColor: colors.accent,
+	},
 	watchlistBadgeText: {
 		fontSize: 16,
 		fontWeight: "700" as const,

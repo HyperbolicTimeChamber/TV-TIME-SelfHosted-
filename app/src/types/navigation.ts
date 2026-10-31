@@ -49,5 +49,6 @@ export type ProfileStackParamList = {
 	Settings: undefined;
 	ImportData: undefined;
 	WatchHistory: undefined;
+	ListDetail: { listId: string };
 	ShowDetail: { tmdbId: number; mediaType: MediaType };
 };
