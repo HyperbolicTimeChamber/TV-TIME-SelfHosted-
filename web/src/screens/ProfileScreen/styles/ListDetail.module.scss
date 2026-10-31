@@ -1,0 +1,129 @@
+@use "../../../theme/tokens" as *;
+
+/* Numbers match app/src/screens/ProfileScreen/ListDetail.tsx → identical at phone width */
+.page {
+	min-height: 100dvh;
+	max-width: 900px;
+	margin: 0 auto;
+	padding-bottom: 64px;
+}
+
+.topBar {
+	position: sticky;
+	top: 0;
+	z-index: 10;
+	background: var(--bg);
+	padding: calc(env(safe-area-inset-top) + 8px) 16px 12px;
+}
+
+.titleRow {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.title {
+	flex: 1;
+	min-width: 0;
+	margin: 0;
+	font-size: 20px;
+	font-weight: 700;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.count {
+	margin: 0;
+	padding: 0 16px 12px;
+	font-size: 12px;
+	color: var(--text-secondary);
+}
+
+/* 3 columns like the app; wider screens add columns */
+.grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 8px;
+	padding: 0 16px;
+
+	@include tablet {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: 12px;
+	}
+
+	@include desktop {
+		grid-template-columns: repeat(6, minmax(0, 1fr));
+	}
+}
+
+.cell {
+	position: relative;
+}
+
+.posterButton {
+	display: block;
+	width: 100%;
+	background: none;
+	border: none;
+	padding: 0;
+	cursor: pointer;
+}
+
+.poster {
+	width: 100%;
+	aspect-ratio: 2 / 3;
+	border-radius: 6px;
+	background: var(--surface);
+}
+
+/* Always there on touch screens (no long-press on the web); fades in on hover for a mouse */
+.removeButton {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	width: 24px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border-radius: 12px;
+	border: 1.5px solid var(--text);
+	background: rgba(0, 0, 0, 0.6);
+	color: var(--text);
+	cursor: pointer;
+
+	@media (hover: hover) {
+		opacity: 0;
+		transition: opacity 0.15s;
+	}
+}
+
+@media (hover: hover) {
+	.cell:hover .removeButton,
+	.removeButton:focus-visible {
+		opacity: 1;
+	}
+}
+
+.empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	padding: 20dvh 32px 0;
+	text-align: center;
+}
+
+.emptyTitle {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 600;
+}
+
+.emptyHint {
+	margin: 0;
+	font-size: 12px;
+	color: var(--text-secondary);
+}

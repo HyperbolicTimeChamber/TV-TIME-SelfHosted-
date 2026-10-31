@@ -255,3 +255,27 @@
 	border-color: $watched-green;
 	font-size: 14px;
 }
+
+/* "Add to List" — mirrors the watchlist badge on the opposite corner; blue = already in a list */
+.listBadge {
+	position: absolute;
+	top: 6px;
+	left: 6px;
+	z-index: 1;
+	width: 26px;
+	height: 26px;
+	border-radius: 13px;
+	border: 2px solid var(--text);
+	background: rgba(0, 0, 0, 0.5);
+	color: var(--text);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	padding: 0;
+}
+
+.listBadgeActive {
+	background: $accent;
+	border-color: $accent;
+}

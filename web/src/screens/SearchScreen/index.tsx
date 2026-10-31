@@ -6,6 +6,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSearch } from "@app/hooks/useSearch";
 import { useTrending } from "@app/hooks/useTrending";
 import { useSearchSort } from "@app/hooks/useSearchSort";
+import { useCustomLists } from "@app/hooks/useCustomLists";
+import { entryFromSearchResult, listedTitleKeys, listItemKey } from "@app/utils/customLists";
 import { useSearchActions } from "@app/screens/SearchScreen/useSearchActions";
 import {
 	DEFAULT_SEARCH_SORT,
@@ -24,6 +26,7 @@ import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
 import { useElementHeight } from "../../hooks/useElementHeight";
 import { Paths, showPath } from "../../routes/paths";
 import { SortButton, SortPanel, type SortOption } from "../../components/SortPanel";
+import AddToListSheet from "../../components/AddToListSheet";
 import SearchCard from "./SearchCard";
 import { mediaTypeOf } from "./mediaTypeOf";
 import SearchModals from "./SearchModals";
@@ -58,6 +61,14 @@ export default function SearchScreen() {
 
 	const actions = useSearchActions();
 	const signedIn = !!actions.user;
+	// Custom lists: which results are already in one, and the title the "Add to List" sheet is open for
+	const { lists } = useCustomLists(actions.user?.uid);
+	const listedKeys = useMemo(() => listedTitleKeys(lists), [lists]);
+	const [listTarget, setListTarget] = useState<TMDBShow | null>(null);
+	const listEntry = useMemo(
+		() => (listTarget ? entryFromSearchResult(listTarget) : null),
+		[listTarget],
+	);
 
 	const {
 		data: searchData,
@@ -100,14 +111,17 @@ export default function SearchScreen() {
 					canTrack={signedIn}
 					isInWatchlist={actions.trackedIds.has(item.id)}
 					isAdding={actions.addingIds.has(item.id)}
+					isListed={listedKeys.has(listItemKey(item.id, mediaTypeOf(item)))}
 					onPress={handlePress}
 					onAdd={actions.handleAddToWatchlist}
 					onRemove={actions.handleRemoveFromWatchlist}
+					onAddToList={setListTarget}
 				/>
 			)),
 		[
 			items,
 			signedIn,
+			listedKeys,
 			actions.trackedIds,
 			actions.addingIds,
 			actions.handleAddToWatchlist,
@@ -223,6 +237,8 @@ export default function SearchScreen() {
 				<div className={styles.grid}>{cards}</div>
 			)}
 			<div ref={sentinel} />
+
+			{signedIn && <AddToListSheet entry={listEntry} onClose={() => setListTarget(null)} />}
 
 			{signedIn && (
 				<SearchModals

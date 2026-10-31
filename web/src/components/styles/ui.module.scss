@@ -205,6 +205,24 @@
 	margin: 0 0 16px;
 }
 
+/* Text field in a popup (list name) — app ListNameModal */
+.textInput {
+	width: 100%;
+	box-sizing: border-box;
+	background: var(--surface-light);
+	border: none;
+	border-radius: 8px;
+	padding: 12px;
+	margin-bottom: 12px;
+	font-size: 14px;
+	color: var(--text);
+	outline: none;
+}
+
+.textInput::placeholder {
+	color: var(--text-muted);
+}
+
 .modalError {
 	font-size: 12px;
 	color: $destructive-red;
