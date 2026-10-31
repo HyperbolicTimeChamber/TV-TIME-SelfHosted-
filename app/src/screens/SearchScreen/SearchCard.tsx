@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../theme";
 import { TMDBShow, MediaType } from "../../types";
 import PosterImage from "../../components/PosterImage";
@@ -9,12 +10,24 @@ interface Props {
 	item: TMDBShow;
 	isInWatchlist: boolean;
 	isAdding: boolean;
+	/** In at least one custom list */
+	isListed: boolean;
 	onPress: (item: TMDBShow) => void;
 	onAdd: (item: TMDBShow) => void;
 	onRemove: (item: TMDBShow) => void;
+	onAddToList: (item: TMDBShow) => void;
 }
 
-function SearchCard({ item, isInWatchlist, isAdding, onPress, onAdd, onRemove }: Readonly<Props>) {
+function SearchCard({
+	item,
+	isInWatchlist,
+	isAdding,
+	isListed,
+	onPress,
+	onAdd,
+	onRemove,
+	onAddToList,
+}: Readonly<Props>) {
 	const title = item.name || item.title || "";
 	const year = (item.first_air_date || item.release_date || "").substring(0, 4);
 	const mediaType: MediaType =
@@ -48,6 +61,18 @@ function SearchCard({ item, isInWatchlist, isAdding, onPress, onAdd, onRemove }:
 						{isInWatchlist ? "✓" : "+"}
 					</Text>
 				)}
+			</TouchableOpacity>
+			<TouchableOpacity
+				style={[styles.listBadge, isListed && styles.listBadgeActive]}
+				onPress={(e) => {
+					e.stopPropagation?.();
+					onAddToList(item);
+				}}
+				hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+				activeOpacity={0.7}
+				accessibilityLabel="Add to List"
+			>
+				<Ionicons name={isListed ? "bookmark" : "bookmark-outline"} size={14} color={colors.text} />
 			</TouchableOpacity>
 			<View style={styles.banner}>
 				<View style={styles.bannerTop}>

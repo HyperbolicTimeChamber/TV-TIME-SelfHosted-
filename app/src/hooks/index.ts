@@ -35,6 +35,8 @@ export { useProfileCardImages } from "./useProfileCardImages";
 export { useCountUp } from "./useCountUp";
 export { useWatchingCount } from "./useWatchingCount";
 export { useCompletedShows } from "./useCompletedShows";
+export { useCustomLists } from "./useCustomLists";
+export type { CreateListResult } from "./useCustomLists";
 export type { CompletedItem } from "./useCompletedShows";
 export {
 	getTmdbPosterSize,

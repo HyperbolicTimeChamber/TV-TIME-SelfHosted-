@@ -4,6 +4,8 @@ export {
 	AddFailedModal,
 	EpisodeDetailModal,
 	WatchActionSheet,
+	AddToListSheet,
+	ListNameModal,
 } from "./modals";
 export type { WatchAction, CarouselEpisode } from "./modals";
 export { default as CheckmarkButton } from "./CheckmarkButton";
