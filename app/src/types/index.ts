@@ -22,6 +22,7 @@ export type {
 	UserProfile,
 } from "./user";
 export type { TMDBShow, TMDBSeason, TMDBEpisode, UpcomingEpisode } from "./tmdb";
+export type { CustomList, CustomListItem, CustomListEntry } from "./customList";
 export type {
 	RootStackParamList,
 	MainTabParamList,

@@ -16,6 +16,8 @@ export const HIT_A_WALL_ART = "/hit-a-wall.webp";
 export const LOGOUT_ART = "/logout.webp";
 /** Delete Account — crying Pikachu */
 export const FAREWELL_ART = "/farewell.webp";
+/** New List — Light Yagami, Death Note in hand */
+export const NEW_LIST_ART = "/new-list.webp";
 /** Couldn't add — Yamcha, down for the count */
 export const DEFEATED_ART = "/defeated.webp";
 

@@ -35,6 +35,11 @@ export { useProfileCardImages } from "./useProfileCardImages";
 export { useCountUp } from "./useCountUp";
 export { useWatchingCount } from "./useWatchingCount";
 export { useCompletedShows } from "./useCompletedShows";
+export { useCustomLists } from "./useCustomLists";
+export { useCustomListView } from "./useCustomListView";
+export { useTitleInfo } from "./useTitleInfo";
+export type { TitleInfo } from "./useTitleInfo";
+export type { CreateListResult } from "./useCustomLists";
 export type { CompletedItem } from "./useCompletedShows";
 export {
 	getTmdbPosterSize,
@@ -45,4 +50,6 @@ export {
 	tmdbStillUri,
 } from "./useTmdbImage";
 export { useWatchHistory } from "./useWatchHistory";
+export { useRecentlyWatched } from "./useRecentlyWatched";
+export type { RecentlyWatchedItem } from "./useRecentlyWatched";
 export { useTitleLogo } from "./useTitleLogo";

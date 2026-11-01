@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, Alert, Share } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -14,15 +14,18 @@ import ActionPills from "./ActionPills";
 import DetailCredits from "./DetailCredits";
 import WatchCountPill from "../../components/WatchCountPill";
 import { useShowDetailActions } from "./useShowDetailActions";
+import { useAuthStore } from "../../stores";
+import { useCustomLists } from "../../hooks/useCustomLists";
 import {
 	AddFailedModal,
+	AddToListSheet,
 	ConfirmModal,
 	LoadingSpinner,
 	SeasonDropdown,
 	UnreleasedMovieModal,
 	WatchCountSheet,
 } from "../../components";
-import { showShareUrl, describeLoadError } from "../../utils";
+import { showShareUrl, describeLoadError, isTitleListed } from "../../utils";
 import ErrorState from "../../components/ErrorState";
 import CircleButton, { CIRCLE_BUTTON_SIZE, CircleBackButton } from "../../components/CircleButton";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
@@ -105,6 +108,15 @@ export default function ShowDetailScreen() {
 	}, [navigation]);
 	const swipeBack = useSwipeBackPop(navigation as never);
 	const insets = useSafeAreaInsets();
+	// "Add to List" button (next to Share): blue once the title is in any list
+	const userId = useAuthStore((s) => s.user?.uid);
+	const { lists } = useCustomLists(userId);
+	const [listSheetOpen, setListSheetOpen] = useState(false);
+	const isListed = isTitleListed(lists, tmdbId, mediaType);
+	const listEntry = useMemo(
+		() => ({ tmdbId, mediaType, title: title ?? "", posterPath: show?.poster_path ?? null }),
+		[tmdbId, mediaType, title, show?.poster_path],
+	);
 	const BACKDROP_HEIGHT = 350;
 	// Parallax runs on the UI thread — a setState per scroll event would re-render the whole screen
 	const scrollY = useSharedValue(0);
@@ -306,6 +318,18 @@ export default function ShowDetailScreen() {
 					</View>
 				)}
 				<CircleButton
+					tone={isListed ? CircleButtonTone.ACCENT : CircleButtonTone.OVERLAY}
+					style={[styles.listButton, { top: insets.top + 8 }]}
+					accessibilityLabel="Add to List"
+					onPress={() => setListSheetOpen(true)}
+				>
+					<Ionicons
+						name={isListed ? "bookmark" : "bookmark-outline"}
+						size={24}
+						color={colors.text}
+					/>
+				</CircleButton>
+				<CircleButton
 					tone={CircleButtonTone.OVERLAY}
 					style={[styles.shareButton, { top: insets.top + 8 }]}
 					accessibilityLabel="Share"
@@ -319,6 +343,11 @@ export default function ShowDetailScreen() {
 					<Ionicons name="share-social-outline" size={26} color={colors.text} />
 				</CircleButton>
 			</Reanimated.ScrollView>
+
+			<AddToListSheet
+				entry={listSheetOpen ? listEntry : null}
+				onClose={() => setListSheetOpen(false)}
+			/>
 
 			<ConfirmModal
 				visible={removeModalVisible}
@@ -436,6 +465,8 @@ const styles = StyleSheet.create({
 	// Position only — the circle itself is components/CircleButton
 	backButton: { position: "absolute", left: 16, zIndex: 10 },
 	shareButton: { position: "absolute", right: 16, zIndex: 10 },
+	// Left of Share (44px button + 8px gap)
+	listButton: { position: "absolute", right: 16 + CIRCLE_BUTTON_SIZE + 8, zIndex: 10 },
 	// Centred between back and share
 	watchCountRow: { position: "absolute", left: 0, right: 0, alignItems: "center", zIndex: 10 },
 	islandLogo: {

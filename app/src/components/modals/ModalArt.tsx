@@ -23,6 +23,9 @@ export const LOGOUT_RATIO = 900 / 397;
 /** Delete Account — crying Pikachu */
 export const FAREWELL_ART = require("../../../assets/farewell.webp");
 export const FAREWELL_RATIO = 666 / 420;
+/** New List — Light Yagami, Death Note in hand */
+export const NEW_LIST_ART = require("../../../assets/new-list.webp");
+export const NEW_LIST_RATIO = 600 / 499;
 /** Couldn't add — Yamcha, down for the count */
 export const DEFEATED_ART = require("../../../assets/defeated.webp");
 export const DEFEATED_RATIO = 557 / 709;

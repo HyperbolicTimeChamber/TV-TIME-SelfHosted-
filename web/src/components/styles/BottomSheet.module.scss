@@ -26,6 +26,49 @@
 	touch-action: none;
 }
 
+/* Art behind the content, clipped to the sheet's rounded top (app styles.background) */
+.sheetBackground {
+	position: absolute;
+	inset: 0;
+	border-radius: 20px 20px 0 0;
+	overflow: hidden;
+	pointer-events: none;
+}
+
+/* Sheet art (app SheetArt): backdrop fading into the sheet so cards and text read on it */
+.art {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	object-position: top;
+	filter: blur(0.5px);
+	animation: artFade 200ms ease-out;
+}
+
+.artPoster {
+	filter: blur(30px);
+	transform: scale(1.2);
+}
+
+.artFade {
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(rgba(26, 26, 26, 0.35), rgba(26, 26, 26, 0.85), var(--surface));
+}
+
+@keyframes artFade {
+	from {
+		opacity: 0;
+	}
+}
+
+/* Content above the art */
+.sheet > :not(.sheetBackground) {
+	position: relative;
+}
+
 .handle {
 	width: 36px;
 	height: 4px;
@@ -46,7 +89,8 @@
 	min-width: 0;
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	/* Logo → line under it (episode name): room for the logo to breathe (app SUBTITLE_GAP) */
+	gap: 8px;
 }
 
 /* Info page sheet: logo alone, centred */
@@ -115,14 +159,15 @@
 	align-items: center;
 }
 
+/* A line follows it: the logo sits on the slot's bottom edge, right above the line — the slot
+   keeps its full height, so the line never moves when the logo arrives (app logoSlotFit) */
 .logoSlotFit {
-	height: auto;
-	min-height: 44px;
+	align-items: flex-end;
 }
 
 .headerTextFixed {
 	/* Tallest logo + gap + one 18px line */
-	height: calc(72px + 4px + 18px);
+	height: calc(72px + 8px + 18px);
 	justify-content: center;
 }
 
@@ -171,6 +216,11 @@
 	background: var(--surface-light);
 	border-radius: 14px;
 	overflow: hidden;
+}
+
+/* surface-light at 80% over sheet art (app groupTranslucent) */
+.groupTranslucent {
+	background: rgba(37, 37, 37, 0.8);
 }
 
 /* Starts under the text, not the icon tile */

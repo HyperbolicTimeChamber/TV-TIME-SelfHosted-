@@ -6,14 +6,12 @@ import { colors } from "../../theme/index";
 import { ModalBackdrop, ModalLogo } from "../../components/ModalArt";
 import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
 import { MediaType, WatchProgress } from "@app/enums";
+import { searchMediaType as mediaTypeOf } from "@app/utils/customLists";
 
 /** Title logo when the catalog has the title cached (name otherwise) */
 const logoOf = (item: TMDBShow, mediaType: MediaType) =>
 	getCachedCatalogShow(item.id, mediaType)?.logoPath ?? null;
 const nameOf = (item: TMDBShow) => item.name || item.title || "";
-const mediaTypeOf = (item: TMDBShow | null): MediaType =>
-	item?.media_type ||
-	(item?.first_air_date || (item?.name && !item?.title) ? MediaType.TV : MediaType.MOVIE);
 
 const pad = (n?: number) => String(n).padStart(2, "0");
 

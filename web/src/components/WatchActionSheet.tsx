@@ -47,7 +47,12 @@ export default function WatchActionSheet({
 		onSelect(action);
 	};
 	return (
-		<BottomSheet visible={visible} label={title} onClose={onClose}>
+		<BottomSheet
+			visible={visible}
+			label={title}
+			onClose={onClose}
+			art={tmdbId ? { tmdbId, mediaType } : null}
+		>
 			<SheetHeader
 				title={title}
 				subtitle={subtitle}
