@@ -16,6 +16,7 @@ import type { CustomList, ProfileStackParamList } from "../../types";
 import { ConfirmModal, ListNameModal } from "../../components";
 import BottomSheet, { SheetGroup, SheetOption } from "../../components/modals/BottomSheet";
 import { ModalArt, NEW_LIST_ART, NEW_LIST_RATIO } from "../../components/modals/ModalArt";
+import ListMenuSheet from "./ListMenuSheet";
 import { CircleBackButton } from "../../components/CircleButton";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import PosterImage from "../../components/PosterImage";
@@ -216,114 +217,6 @@ function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 				</Text>
 			</View>
 		</Pressable>
-	);
-}
-
-/** Top of the menu art stays visible; it darkens downward so the cards and text read on it */
-const MENU_ART_FADE = ["rgba(26, 26, 26, 0.35)", "rgba(26, 26, 26, 0.85)", colors.surface] as const;
-
-/**
- * The list menu's background: its cover title's backdrop (poster as a blurred wash when there's
- * none) under a gradient into the sheet colour. Empty list → the plain sheet
- */
-function MenuArt({ list }: { list: CustomList }) {
-	const cover = listCoverItem(list);
-	const { data: info } = useTitleInfo(
-		cover?.tmdbId ?? 0,
-		cover?.mediaType ?? MediaType.TV,
-		!!cover,
-	);
-	if (!cover) return null;
-	return (
-		<>
-			{info?.backdropPath ? (
-				<Image
-					source={{ uri: tmdbBlurredBackdropUri(info.backdropPath) }}
-					style={StyleSheet.absoluteFill}
-					contentFit="cover"
-					contentPosition="top"
-					blurRadius={BLUR_RADIUS}
-					transition={IMAGE_FADE_MS}
-				/>
-			) : cover.posterPath ? (
-				<Image
-					source={{ uri: tmdbPosterUri(cover.posterPath, 185) }}
-					style={StyleSheet.absoluteFill}
-					contentFit="cover"
-					blurRadius={POSTER_BLUR_RADIUS}
-					transition={IMAGE_FADE_MS}
-				/>
-			) : null}
-			<LinearGradient colors={MENU_ART_FADE} style={StyleSheet.absoluteFill} />
-		</>
-	);
-}
-
-/**
- * A list's menu, in the app's sheet style: the list itself on top (cover, name, count — as in its
- * row), rename / share grouped, delete on its own. Each action runs once the sheet has slid away.
- */
-function ListMenuSheet({
-	list,
-	onRename,
-	onShare,
-	onDelete,
-	onClose,
-}: {
-	list: CustomList | null;
-	onRename: (list: CustomList) => void;
-	onShare: (list: CustomList) => void;
-	onDelete: (list: CustomList) => void;
-	onClose: () => void;
-}) {
-	return (
-		<BottomSheet
-			visible={!!list}
-			onClose={onClose}
-			background={list ? <MenuArt list={list} /> : undefined}
-		>
-			{(close) =>
-				list && (
-					<>
-						{/* The art behind says which list; the header just names it */}
-						<View style={styles.menuHeader}>
-							<View style={styles.rowText}>
-								<Text style={[styles.rowName, styles.menuName]} numberOfLines={1}>
-									{list.name}
-								</Text>
-								<Text style={styles.menuCount}>{titleCount(list.items.length)}</Text>
-							</View>
-						</View>
-						<SheetGroup translucent>
-							<SheetOption
-								icon="create-outline"
-								color={colors.accent}
-								title="Rename list"
-								onPress={() => close(() => onRename(list))}
-							/>
-							<SheetOption
-								icon="share-outline"
-								color={colors.accent}
-								title="Share list"
-								hint="As a file anyone can import"
-								onPress={() => close(() => onShare(list))}
-							/>
-						</SheetGroup>
-						<View style={styles.menuGap} />
-						<SheetGroup translucent>
-							<SheetOption
-								icon="trash-outline"
-								color={colors.destructiveRed}
-								title="Delete list"
-								hint="Removes the list, not the titles"
-								destructive
-								onPress={() => close(() => onDelete(list))}
-							/>
-						</SheetGroup>
-					</>
-				)
-			}
-		</BottomSheet>
 	);
 }
 
@@ -686,21 +579,6 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 	},
 	menuPressed: { opacity: 0.5 },
-	menuName: { fontSize: 20 },
-	menuCount: {
-		...typography.caption,
-		fontSize: 13,
-		color: colors.text,
-		opacity: 0.8,
-		marginTop: 2,
-	},
-	menuHeader: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: spacing.md,
-		marginBottom: spacing.lg,
-	},
-	menuGap: { height: spacing.md },
 	empty: {
 		flex: 1,
 		alignItems: "center",

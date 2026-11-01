@@ -21,7 +21,7 @@ import type { CustomListItem, ProfileStackParamList } from "../../types";
 import { AddToListSheet, ConfirmModal, ListNameModal } from "../../components";
 import type { ShowDrawerAction } from "../../components/ShowDrawer";
 import { CircleBackButton } from "../../components/CircleButton";
-import BottomSheet, { SheetGroup, SheetOption } from "../../components/modals/BottomSheet";
+import ListMenuSheet from "./ListMenuSheet";
 import { shareListsExport } from "../../services/customListsFiles";
 import PosterImage from "../../components/PosterImage";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
@@ -288,51 +288,22 @@ export default function ListDetailScreen() {
 				/>
 			)}
 
-			<BottomSheet visible={menuOpen} onClose={() => setMenuOpen(false)}>
-				{(close) => (
-					<>
-						<SheetGroup>
-							<SheetOption
-								icon="create-outline"
-								color={colors.accent}
-								title="Rename list"
-								onPress={() =>
-									close(() =>
-										afterModalClose(() => {
-											setRenameError(null);
-											setRenaming(true);
-										}),
-									)
-								}
-							/>
-							<SheetOption
-								icon="share-outline"
-								color={colors.accent}
-								title="Share list"
-								hint="As a file anyone can import"
-								onPress={() =>
-									close(() =>
-										shareListsExport([list]).catch((e: Error) =>
-											Alert.alert("Export failed", e.message),
-										),
-									)
-								}
-							/>
-						</SheetGroup>
-						<View style={styles.menuGap} />
-						<SheetGroup>
-							<SheetOption
-								icon="trash-outline"
-								color={colors.destructiveRed}
-								title="Delete list"
-								hint="Removes the list, not the titles"
-								destructive
-								onPress={() => close(() => afterModalClose(() => setConfirmDelete(true)))}
-							/>
-						</SheetGroup>
-					</>
-				)}
-			</BottomSheet>
+			{/* The same list menu as on the Lists page */}
+			<ListMenuSheet
+				list={menuOpen ? list : null}
+				// Another popup only once the sheet's own modal is gone (iOS can't stack them mid-dismiss)
+				onRename={() =>
+					afterModalClose(() => {
+						setRenameError(null);
+						setRenaming(true);
+					})
+				}
+				onShare={(target) =>
+					shareListsExport([target]).catch((e: Error) => Alert.alert("Export failed", e.message))
+				}
+				onDelete={() => afterModalClose(() => setConfirmDelete(true))}
+				onClose={() => setMenuOpen(false)}
+			/>
 
 			<ListItemPreview
 				item={previewItem}
@@ -395,7 +366,6 @@ export default function ListDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-	menuGap: { height: spacing.md },
 	container: { flex: 1, backgroundColor: colors.background },
 	topBar: {
 		flexDirection: "row",

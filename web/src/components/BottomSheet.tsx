@@ -2,7 +2,9 @@ import {
 	Children,
 	Fragment,
 	cloneElement,
+	createContext,
 	isValidElement,
+	useContext,
 	useEffect,
 	useState,
 	type ReactElement,
@@ -11,9 +13,11 @@ import {
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import type { IconType } from "react-icons";
-import { tmdbLogoUri } from "@app/hooks/useTmdbImage";
+import { tmdbBackdropUri, tmdbLogoUri, tmdbPosterUri, tmdbStillUri } from "@app/hooks/useTmdbImage";
+import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
+import { useTitleInfo } from "@app/hooks/useTitleInfo";
 import { useTitleLogo } from "@app/hooks/useTitleLogo";
-import type { MediaType } from "@app/enums";
+import { MediaType } from "@app/enums";
 import styles from "./styles/BottomSheet.module.scss";
 import { cssVars } from "../utils/cssVars";
 
@@ -24,12 +28,66 @@ const SHEET_SPRING = { type: "spring", damping: 32, stiffness: 220 } as const;
 const SHEET_EXIT = { duration: 0.22, ease: [0.32, 0.72, 0, 1] } as const;
 
 /** Bottom sheet with drag-down-to-dismiss (app BottomSheet) */
+/** Which title a sheet's art comes from — backdrop looked up when not given (app SheetArtSource) */
+export interface SheetArtSource {
+	tmdbId?: number;
+	mediaType?: MediaType;
+	backdropPath?: string | null;
+	posterPath?: string | null;
+	/** An episode sheet: that episode's still is the art (show backdrop when it has none) */
+	episode?: { season: number; episode: number } | null;
+}
+
+/** An episode's still from the cached catalog (no read); null when unknown (app cachedStill) */
+function cachedStill(
+	tmdbId: number | undefined,
+	ep: { season: number; episode: number } | null | undefined,
+): string | null {
+	if (!tmdbId || !ep) return null;
+	const season = getCachedCatalogShow(tmdbId, MediaType.TV)?.seasons?.find(
+		(s) => s.seasonNumber === ep.season,
+	);
+	return season?.episodes?.find((e) => e.episodeNumber === ep.episode)?.stillPath ?? null;
+}
+
+/** Cards inside a sheet with art default to translucent, so every such sheet matches */
+const SheetArtContext = createContext(false);
+
+/** A title's art for a sheet's background (app SheetArt): backdrop, else poster wash, under a
+ *  gradient into the sheet colour. Nothing known → nothing */
+export function SheetArt({ tmdbId, mediaType, backdropPath, posterPath, episode }: SheetArtSource) {
+	const still = cachedStill(tmdbId, episode);
+	const lookup = !still && backdropPath === undefined && !!tmdbId;
+	const { data: info } = useTitleInfo(tmdbId ?? 0, mediaType ?? MediaType.TV, lookup);
+	const backdrop = backdropPath ?? info?.backdropPath ?? null;
+	if (!still && !backdrop && !posterPath) return null;
+	return (
+		<>
+			{still ? (
+				<img src={tmdbStillUri(still, 300)} alt="" className={styles.art} />
+			) : backdrop ? (
+				<img src={tmdbBackdropUri(backdrop, 440)} alt="" className={styles.art} />
+			) : (
+				posterPath && (
+					<img
+						src={tmdbPosterUri(posterPath, 185)}
+						alt=""
+						className={`${styles.art} ${styles.artPoster}`}
+					/>
+				)
+			)}
+			<span className={styles.artFade} />
+		</>
+	);
+}
+
 export default function BottomSheet({
 	visible,
 	label,
 	onClose,
 	children,
 	background,
+	art,
 }: {
 	visible: boolean;
 	/** Dialog's accessible name */
@@ -38,7 +96,10 @@ export default function BottomSheet({
 	children: ReactNode;
 	/** Drawn behind the content, filling the sheet (app BottomSheet background) — e.g. art */
 	background?: ReactNode;
+	/** The title the sheet is about: its art behind the content, cards go translucent (app art) */
+	art?: SheetArtSource | null;
 }) {
+	const behind = background ?? (art ? <SheetArt {...art} /> : null);
 	return createPortal(
 		<AnimatePresence>
 			{visible && (
@@ -67,9 +128,9 @@ export default function BottomSheet({
 							if (info.offset.y > 80 || info.velocity.y > 500) onClose();
 						}}
 					>
-						{background && <div className={styles.sheetBackground}>{background}</div>}
+						{behind && <div className={styles.sheetBackground}>{behind}</div>}
 						<div className={styles.handle} />
-						{children}
+						<SheetArtContext.Provider value={!!behind}>{children}</SheetArtContext.Provider>
 					</motion.div>
 				</motion.div>
 			)}
@@ -96,8 +157,13 @@ function HeaderSquare({
 	prefix?: string;
 	ariaLabel: string;
 }) {
+	// Over sheet art: the cards' 80% ground, so the square matches them (app HeaderSquare)
+	const overArt = useContext(SheetArtContext);
 	return (
-		<span className={styles.epSquare} aria-label={ariaLabel}>
+		<span
+			className={`${styles.epSquare} ${overArt ? styles.groupTranslucent : ""}`}
+			aria-label={ariaLabel}
+		>
 			<span className={styles.epSquareTitle}>{label}</span>
 			<span className={styles.epSquareRule} />
 			<span className={styles.epSquareValue}>
@@ -197,15 +263,17 @@ export function SheetHeader({
 /** Rows grouped in one rounded card, hairlines between them */
 export function SheetGroup({
 	children,
-	translucent = false,
+	translucent,
 }: {
 	children: ReactNode;
-	/** Over sheet art (BottomSheet `background`): lets it show through faintly (app translucent) */
+	/** Over sheet art (BottomSheet `background` / `art`): lets it show through faintly. Default: on
+	 *  inside a sheet with art (app translucent) */
 	translucent?: boolean;
 }) {
+	const overArt = useContext(SheetArtContext);
 	const rows = Children.toArray(children).filter(Boolean);
 	return (
-		<div className={`${styles.group} ${translucent ? styles.groupTranslucent : ""}`}>
+		<div className={`${styles.group} ${(translucent ?? overArt) ? styles.groupTranslucent : ""}`}>
 			{rows.map((row, i) => {
 				// A collapsing row carries its own hairline, so the line folds away with it
 				if (isValidElement(row) && row.type === SheetCollapse) {

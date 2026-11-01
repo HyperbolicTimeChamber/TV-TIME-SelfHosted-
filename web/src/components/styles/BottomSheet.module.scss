@@ -35,6 +35,35 @@
 	pointer-events: none;
 }
 
+/* Sheet art (app SheetArt): backdrop fading into the sheet so cards and text read on it */
+.art {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	object-position: top;
+	filter: blur(0.5px);
+	animation: artFade 200ms ease-out;
+}
+
+.artPoster {
+	filter: blur(30px);
+	transform: scale(1.2);
+}
+
+.artFade {
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(rgba(26, 26, 26, 0.35), rgba(26, 26, 26, 0.85), var(--surface));
+}
+
+@keyframes artFade {
+	from {
+		opacity: 0;
+	}
+}
+
 /* Content above the art */
 .sheet > :not(.sheetBackground) {
 	position: relative;

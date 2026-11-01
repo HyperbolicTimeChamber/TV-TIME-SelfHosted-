@@ -4,12 +4,10 @@ import { Reorder, useDragControls } from "motion/react";
 import {
 	IoAddCircleOutline,
 	IoBookmarksOutline,
-	IoCreateOutline,
 	IoDownloadOutline,
 	IoEllipsisVertical,
 	IoList,
 	IoShareOutline,
-	IoTrashOutline,
 } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import { useCustomLists } from "@app/hooks/useCustomLists";
@@ -31,6 +29,7 @@ import { useHideTabBar } from "../../hooks/useHideTabBar";
 import { downloadListsExport, readListsFile } from "../../platform/customListsFiles";
 import { Paths, listPath } from "../../routes/paths";
 import { colors } from "../../theme";
+import ListMenuSheet from "./ListMenuSheet";
 import styles from "./styles/ListsScreen.module.scss";
 
 const NAME_ERRORS = {
@@ -212,109 +211,6 @@ function ListRow({ list, onOpen, onMenu, onDropped }: RowProps) {
 				<span className={styles.squareValue}>{list.items.length}</span>
 			</span>
 		</Reorder.Item>
-	);
-}
-
-/**
- * The list menu's background (app MenuArt): its cover title's backdrop (poster as a blurred wash
- * when there's none) under a gradient into the sheet colour. Empty list → the plain sheet
- */
-function MenuArt({ list }: { list: CustomList }) {
-	const cover = listCoverItem(list);
-	const { data: info } = useTitleInfo(
-		cover?.tmdbId ?? 0,
-		cover?.mediaType ?? MediaType.TV,
-		!!cover,
-	);
-	if (!cover) return null;
-	return (
-		<>
-			{info?.backdropPath ? (
-				<img
-					src={tmdbBackdropUri(info.backdropPath, CARD_MAX_WIDTH)}
-					alt=""
-					className={styles.menuArt}
-				/>
-			) : cover.posterPath ? (
-				<img
-					src={tmdbPosterUri(cover.posterPath, 185)}
-					alt=""
-					className={`${styles.menuArt} ${styles.cardBgPoster}`}
-				/>
-			) : null}
-			<span className={styles.menuArtFade} />
-		</>
-	);
-}
-
-/**
- * A list's menu in the app's sheet style (app ListMenuSheet): the list itself on top (cover, name,
- * count — as in its row), rename / share grouped, delete on its own
- */
-function ListMenuSheet({
-	list,
-	onRename,
-	onShare,
-	onDelete,
-	onClose,
-}: {
-	list: CustomList | null;
-	onRename: (list: CustomList) => void;
-	onShare: (list: CustomList) => void;
-	onDelete: (list: CustomList) => void;
-	onClose: () => void;
-}) {
-	// Close first, then act — the next popup opens over the page, not the sheet
-	const pick = (fn: (list: CustomList) => void) => () => {
-		if (!list) return;
-		onClose();
-		fn(list);
-	};
-	return (
-		<BottomSheet
-			visible={!!list}
-			label={list ? `Options for ${list.name}` : "List options"}
-			onClose={onClose}
-			background={list ? <MenuArt list={list} /> : undefined}
-		>
-			{list && (
-				<>
-					{/* The art behind says which list; the header just names it (app ListMenuSheet) */}
-					<div className={styles.menuHeader}>
-						<span className={styles.rowText}>
-							<span className={`${styles.rowName} ${styles.menuName}`}>{list.name}</span>
-							<span className={styles.menuCount}>{titleCount(list.items.length)}</span>
-						</span>
-					</div>
-					<SheetGroup translucent>
-						<SheetOption
-							icon={IoCreateOutline}
-							color={colors.accent}
-							title="Rename list"
-							onClick={pick(onRename)}
-						/>
-						<SheetOption
-							icon={IoShareOutline}
-							color={colors.accent}
-							title="Share list"
-							hint="As a file anyone can import"
-							onClick={pick(onShare)}
-						/>
-					</SheetGroup>
-					<div className={styles.menuGap} />
-					<SheetGroup translucent>
-						<SheetOption
-							icon={IoTrashOutline}
-							color={colors.destructiveRed}
-							title="Delete list"
-							hint="Removes the list, not the titles"
-							destructive
-							onClick={pick(onDelete)}
-						/>
-					</SheetGroup>
-				</>
-			)}
-		</BottomSheet>
 	);
 }
 

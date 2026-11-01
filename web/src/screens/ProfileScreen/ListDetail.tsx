@@ -6,11 +6,9 @@ import {
 	IoBookmarksOutline,
 	IoCheckmark,
 	IoClose,
-	IoCreateOutline,
 	IoEllipsisVertical,
 	IoGrid,
 	IoList,
-	IoShareOutline,
 	IoSwapVertical,
 	IoTrashOutline,
 } from "react-icons/io5";
@@ -22,7 +20,7 @@ import type { CustomListItem } from "@app/types";
 import { sameItemOrder, titleCount } from "@app/utils/customLists";
 import { useAppSelector } from "../../store";
 import { CircleBackButton } from "../../components/CircleButton";
-import BottomSheet, { SheetGroup, SheetOption } from "../../components/BottomSheet";
+import ListMenuSheet from "./ListMenuSheet";
 import { downloadListsExport } from "../../platform/customListsFiles";
 import ConfirmModal from "../../components/ConfirmModal";
 import ListNameModal from "../../components/ListNameModal";
@@ -239,44 +237,17 @@ export default function ListDetailScreen() {
 				</div>
 			)}
 
-			<BottomSheet visible={menuOpen} label="List options" onClose={() => setMenuOpen(false)}>
-				<SheetGroup>
-					<SheetOption
-						icon={IoCreateOutline}
-						color={colors.accent}
-						title="Rename list"
-						onClick={() => {
-							setMenuOpen(false);
-							setRenameError(null);
-							setRenaming(true);
-						}}
-					/>
-					<SheetOption
-						icon={IoShareOutline}
-						color={colors.accent}
-						title="Share list"
-						hint="As a file anyone can import"
-						onClick={() => {
-							setMenuOpen(false);
-							downloadListsExport([list]);
-						}}
-					/>
-				</SheetGroup>
-				<div className={styles.menuGap} />
-				<SheetGroup>
-					<SheetOption
-						icon={IoTrashOutline}
-						color={colors.destructiveRed}
-						title="Delete list"
-						hint="Removes the list, not the titles"
-						destructive
-						onClick={() => {
-							setMenuOpen(false);
-							setConfirmDelete(true);
-						}}
-					/>
-				</SheetGroup>
-			</BottomSheet>
+			{/* The same list menu as on the Lists page */}
+			<ListMenuSheet
+				list={menuOpen ? list : null}
+				onRename={() => {
+					setRenameError(null);
+					setRenaming(true);
+				}}
+				onShare={(target) => downloadListsExport([target])}
+				onDelete={() => setConfirmDelete(true)}
+				onClose={() => setMenuOpen(false)}
+			/>
 
 			<ListItemPreview
 				item={previewItem}

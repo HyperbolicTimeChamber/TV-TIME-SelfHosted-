@@ -1,4 +1,6 @@
 import React, {
+	createContext,
+	useContext,
 	cloneElement,
 	isValidElement,
 	useCallback,
@@ -29,9 +31,17 @@ import Reanimated, {
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { tmdbLogoUri } from "../../hooks/useTmdbImage";
+import { LinearGradient } from "expo-linear-gradient";
+import {
+	tmdbBlurredBackdropUri,
+	tmdbLogoUri,
+	tmdbPosterUri,
+	tmdbStillUri,
+} from "../../hooks/useTmdbImage";
+import { getCachedCatalogShow } from "../../hooks/useWatchlist";
+import { useTitleInfo } from "../../hooks/useTitleInfo";
 import { useTitleLogo } from "../../hooks/useTitleLogo";
-import type { MediaType } from "../../types";
+import { MediaType } from "../../types";
 import { colors, fonts, spacing, tint, typography } from "../../theme";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
@@ -87,10 +97,89 @@ interface Props {
 	children: (close: CloseSheet) => ReactNode;
 	/** Drawn behind the content, filling the sheet (clipped to its rounded top) — e.g. art */
 	background?: ReactNode;
+	/** The title the sheet is about: its art behind the content (SheetArt), cards go translucent */
+	art?: SheetArtSource | null;
+}
+
+/** Which title a sheet's art comes from — backdrop / poster looked up when not given */
+export interface SheetArtSource {
+	tmdbId?: number;
+	mediaType?: MediaType;
+	backdropPath?: string | null;
+	posterPath?: string | null;
+	/** An episode sheet: that episode's still is the art (show backdrop when it has none) */
+	episode?: { season: number; episode: number } | null;
+}
+
+/** An episode's still from the catalog kept on the phone (no read); null when unknown */
+function cachedStill(
+	tmdbId: number | undefined,
+	ep: { season: number; episode: number } | null | undefined,
+): string | null {
+	if (!tmdbId || !ep) return null;
+	const season = getCachedCatalogShow(tmdbId, MediaType.TV)?.seasons?.find(
+		(s) => s.seasonNumber === ep.season,
+	);
+	return season?.episodes?.find((e) => e.episodeNumber === ep.episode)?.stillPath ?? null;
+}
+
+/** Cards inside a sheet with art default to translucent, so every such sheet matches */
+const SheetArtContext = createContext(false);
+
+/** Top of the art stays visible; it darkens downward so the cards and text read on it */
+const ART_FADE = ["rgba(26, 26, 26, 0.35)", "rgba(26, 26, 26, 0.85)", colors.surface] as const;
+/** A poster standing in for a missing backdrop: blurred to a wash of its colours */
+const ART_POSTER_BLUR = 30;
+const ART_BLUR = 0.5;
+const ART_FADE_MS = 200;
+
+/**
+ * A title's art for a sheet's background: its backdrop (blurred a touch), else its poster as a
+ * wash, under a gradient into the sheet colour. Nothing known → nothing (the plain sheet)
+ */
+export function SheetArt({ tmdbId, mediaType, backdropPath, posterPath, episode }: SheetArtSource) {
+	const still = cachedStill(tmdbId, episode);
+	const lookup = !still && backdropPath === undefined && !!tmdbId;
+	const { data: info } = useTitleInfo(tmdbId ?? 0, mediaType ?? MediaType.TV, lookup);
+	const backdrop = backdropPath ?? info?.backdropPath ?? null;
+	if (!still && !backdrop && !posterPath) return null;
+	return (
+		<>
+			{still ? (
+				// Episode still: landscape like a backdrop, same crop / blur
+				<Image
+					source={{ uri: tmdbStillUri(still, 300) }}
+					style={StyleSheet.absoluteFill}
+					contentFit="cover"
+					blurRadius={ART_BLUR}
+					transition={ART_FADE_MS}
+				/>
+			) : backdrop ? (
+				<Image
+					source={{ uri: tmdbBlurredBackdropUri(backdrop) }}
+					style={StyleSheet.absoluteFill}
+					contentFit="cover"
+					contentPosition="top"
+					blurRadius={ART_BLUR}
+					transition={ART_FADE_MS}
+				/>
+			) : posterPath ? (
+				<Image
+					source={{ uri: tmdbPosterUri(posterPath, 185) }}
+					style={StyleSheet.absoluteFill}
+					contentFit="cover"
+					blurRadius={ART_POSTER_BLUR}
+					transition={ART_FADE_MS}
+				/>
+			) : null}
+			<LinearGradient colors={ART_FADE} style={StyleSheet.absoluteFill} />
+		</>
+	);
 }
 
 /** Bottom sheet shell: dimmed backdrop that fades with the sheet, drag down / tap outside to close */
-export default function BottomSheet({ visible, onClose, children, background }: Props) {
+export default function BottomSheet({ visible, onClose, children, background, art }: Props) {
+	const behind = background ?? (art ? <SheetArt {...art} /> : null);
 	const insets = useSafeAreaInsets();
 	// Parked off-screen until measured; every slide then travels exactly the sheet's height
 	const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -186,9 +275,9 @@ export default function BottomSheet({ visible, onClose, children, background }: 
 					}}
 					{...panResponder.panHandlers}
 				>
-					{background ? <View style={styles.background}>{background}</View> : null}
+					{behind ? <View style={styles.background}>{behind}</View> : null}
 					<View style={styles.handle} />
-					{children(close)}
+					<SheetArtContext.Provider value={!!behind}>{children(close)}</SheetArtContext.Provider>
 				</Animated.View>
 			</View>
 		</Modal>
@@ -270,8 +359,14 @@ function HeaderSquare({
 	prefix?: string;
 	accessibilityLabel: string;
 }) {
+	// Over sheet art: the cards' 80% ground, so the square matches them
+	const overArt = useContext(SheetArtContext);
 	return (
-		<View style={styles.epSquare} accessible accessibilityLabel={accessibilityLabel}>
+		<View
+			style={[styles.epSquare, overArt && styles.groupTranslucent]}
+			accessible
+			accessibilityLabel={accessibilityLabel}
+		>
 			<Text style={styles.epSquareTitle}>{label}</Text>
 			<View style={styles.epSquareRule} />
 			<Text style={styles.epSquareValue}>
@@ -360,16 +455,18 @@ export function SheetHeader({
 export function SheetGroup({
 	children,
 	textOnly = false,
-	translucent = false,
+	translucent,
 }: {
 	children: ReactNode;
 	textOnly?: boolean;
-	/** Over sheet art (BottomSheet `background`): lets it show through faintly */
+	/** Over sheet art (BottomSheet `background` / `art`): lets it show through faintly.
+	 *  Default: on inside a sheet with art */
 	translucent?: boolean;
 }) {
+	const overArt = useContext(SheetArtContext);
 	const rows = React.Children.toArray(children).filter(Boolean);
 	return (
-		<View style={[styles.group, translucent && styles.groupTranslucent]}>
+		<View style={[styles.group, (translucent ?? overArt) && styles.groupTranslucent]}>
 			{rows.map((row, i) => {
 				// A collapsing row carries its own hairline, so the line folds away with it
 				if (isValidElement(row) && row.type === SheetCollapse) {
