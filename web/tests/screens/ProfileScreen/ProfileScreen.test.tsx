@@ -17,6 +17,7 @@ vi.mock("@app/hooks/useWeeklyActivity", () => ({
 	}),
 }));
 vi.mock("@app/hooks/useWatchlist", () => ({ useWatchlist: () => ({ items: [] }) }));
+vi.mock("@app/hooks/useRecentlyWatched", () => ({ useRecentlyWatched: () => ({ items: [], loading: false }) }));
 vi.mock("@app/hooks/useProfileCardImages", () => ({
 	useProfileCardImages: () => ({ episodeBackdrop: null, movieBackdrop: null, trackingPosters: [], watchTimePosters: [] }),
 }));

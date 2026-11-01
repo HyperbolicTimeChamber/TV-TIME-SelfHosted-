@@ -30,3 +30,12 @@ export function tallyWeek(
 	for (const m of movies) bump(m, "movies");
 	return days;
 }
+
+/** The saved weekly tally if `uid` built it, else null — another account's days (or a legacy
+ *  tally with no owner) would be merged into this one's chart and never leave */
+export function tallyOwnedBy<T extends object>(
+	tally: (T & { userId?: string }) | null | undefined,
+	uid: string | undefined,
+): T | null {
+	return uid && tally?.userId === uid ? tally : null;
+}

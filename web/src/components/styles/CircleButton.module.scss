@@ -38,6 +38,10 @@
 	background: var(--border);
 }
 
+.accent {
+	background: $accent;
+}
+
 .spacer {
 	width: 44px;
 	flex-shrink: 0;

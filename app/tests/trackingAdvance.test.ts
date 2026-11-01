@@ -537,3 +537,18 @@ test("start rewatch copy: Up To Here only when it covers more than the one episo
 		["Rewatch From Here", "Just Mark It", undefined],
 	);
 });
+
+test("rewatch: re-marking an episode only back up to the previous run's level never ends the run", () => {
+	// Run 5 under way, pointer on S1E3 (×4). S1E4 was unwatched to ×3 and re-marked to ×4: every
+	// later episode is ×4 too, so judged by S1E4's own count the run looked finished → completed
+	const c = counts([5, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]);
+	const r = computeTrackingAdvance(
+		order,
+		c,
+		mk(1, 4),
+		{ status: WatchStatus.REWATCHING, nextEpisode: { season: 1, episode: 3 } },
+		TODAY,
+	);
+	assert.equal(r.advance, false);
+	assert.notEqual(r.status, WatchStatus.COMPLETED);
+});

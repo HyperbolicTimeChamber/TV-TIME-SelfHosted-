@@ -20,7 +20,7 @@ import { WatchStatus, MediaType, CloudFunction, CatalogShow } from "../types";
 import { WatchProgress } from "../enums";
 import { showDocId, emitHistoryChange, localizeCatalog } from "../utils";
 import { trackApi } from "./analytics";
-import { recordTrackedEpisodes, trackEpisodeMarked } from "./mixpanel";
+import { recordTrackedEpisodes, trackEpisodeMarked, trackEpisodeUnwatched } from "./mixpanel";
 import { historyOnWatch, historyOnUnwatch, historyCleared, historyOnChange } from "./history";
 import { shareCatalogCreate } from "./refreshShow";
 import { batchEndOffsets } from "../utils/stagger";
@@ -462,6 +462,7 @@ export async function unmarkEpisodeWatched(
 		{ merge: true },
 	);
 	await batch.commit();
+	trackEpisodeUnwatched(showDocId(tmdbShowId, MediaType.TV), docId, episode, 0);
 	emitHistoryChange({
 		userId,
 		tmdbId: tmdbShowId,
@@ -528,6 +529,12 @@ export async function decrementEpisodeWatchCount(
 	);
 
 	await batch.commit();
+	trackEpisodeUnwatched(
+		showDocId(tmdbShowId, MediaType.TV),
+		docId,
+		episode,
+		Math.max(0, currentWatchCount - 1),
+	);
 	emitHistoryChange({
 		userId,
 		tmdbId: tmdbShowId,

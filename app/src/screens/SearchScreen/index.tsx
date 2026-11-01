@@ -20,7 +20,16 @@ const artReserve = artHeight(NO_RESULTS_RATIO) + 24;
 import { AnimatedLegendList } from "@legendapp/list/reanimated";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useSearch, useSearchSort, useSortedSearchResults, useTrending } from "../../hooks";
+import {
+	useSearch,
+	useSearchSort,
+	useSortedSearchResults,
+	useTrending,
+	useCustomLists,
+} from "../../hooks";
+import { useAuthStore } from "../../stores";
+import { AddToListSheet } from "../../components";
+import { listedTitleKeys, listItemKey, searchMediaType, entryFromSearchResult } from "../../utils";
 import { colors, spacing } from "../../theme";
 import { TMDBShow, SearchStackParamList, MediaType, MediaFilter, Route } from "../../types";
 import SortFab, { SORT_FAB_CLEARANCE } from "../../components/SortFab";
@@ -50,7 +59,12 @@ const LOADING_CARDS = 6;
 const COLUMNS = 2;
 const HEADER_SNAP_MS = 180;
 
-type SearchItem = TMDBShow & { _tracked: boolean; _adding: boolean; _skeleton?: boolean };
+type SearchItem = TMDBShow & {
+	_tracked: boolean;
+	_adding: boolean;
+	_listed: boolean;
+	_skeleton?: boolean;
+};
 
 const keyExtractor = (item: SearchItem) =>
 	item._skeleton ? `skeleton_${item.id}` : `${item.media_type || "x"}_${item.id}`;
@@ -89,6 +103,15 @@ export default function SearchScreen() {
 	const [sortView, setSortView] = useSearchSort();
 	const [sortOpen, setSortOpen] = useState(false);
 	const listRef = useRef<any>(null);
+	// Custom lists: which results are already in one, and the title the "Add to List" sheet is open for
+	const user = useAuthStore((s) => s.user);
+	const { lists } = useCustomLists(user?.uid);
+	const listedKeys = useMemo(() => listedTitleKeys(lists), [lists]);
+	const [listTarget, setListTarget] = useState<TMDBShow | null>(null);
+	const listEntry = useMemo(
+		() => (listTarget ? entryFromSearchResult(listTarget) : null),
+		[listTarget],
+	);
 	// No-results art sits at the visible bottom; the message stays above it
 	const [artOverhang, setArtOverhang] = useState(0);
 
@@ -239,13 +262,20 @@ export default function SearchScreen() {
 		return rawDisplayData.map((item) => {
 			const tracked = trackedIds.has(item.id);
 			const adding = addingIds.has(item.id);
+			const listed = listedKeys.has(listItemKey(item.id, searchMediaType(item)));
 			const prev = cache.get(item);
-			if (prev && prev._tracked === tracked && prev._adding === adding) return prev;
-			const next: SearchItem = { ...item, _tracked: tracked, _adding: adding };
+			if (
+				prev &&
+				prev._tracked === tracked &&
+				prev._adding === adding &&
+				prev._listed === listed
+			)
+				return prev;
+			const next: SearchItem = { ...item, _tracked: tracked, _adding: adding, _listed: listed };
 			cache.set(item, next);
 			return next;
 		});
-	}, [rawDisplayData, trackedIds, addingIds]);
+	}, [rawDisplayData, trackedIds, addingIds, listedKeys]);
 	const moreToLoad = !!submittedQuery && !!hasNextPage;
 	const displayData = useMemo(() => {
 		if (isLoading) return LOADING_ITEMS;
@@ -286,9 +316,11 @@ export default function SearchScreen() {
 					item={item}
 					isInWatchlist={item._tracked}
 					isAdding={item._adding}
+					isListed={item._listed}
 					onPress={handlePress}
 					onAdd={handleAddToWatchlist}
 					onRemove={handleRemoveFromWatchlist}
+					onAddToList={setListTarget}
 				/>
 			),
 		[handlePress, handleAddToWatchlist, handleRemoveFromWatchlist],
@@ -434,6 +466,8 @@ export default function SearchScreen() {
 					headerY.value = 0;
 				}}
 			/>
+
+			<AddToListSheet entry={listEntry} onClose={() => setListTarget(null)} />
 
 			<SearchModals
 				movieModal={movieModal}
