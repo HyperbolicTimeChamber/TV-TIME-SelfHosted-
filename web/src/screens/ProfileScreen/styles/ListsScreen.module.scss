@@ -127,28 +127,36 @@
 	color: var(--text-secondary);
 }
 
-/* Ring the size of the drawer's bookmark badge */
+/* Bare dots in a badge-sized tap area (no ring) */
 .menuButton {
 	flex-shrink: 0;
 	width: 30px;
 	height: 30px;
-	border-radius: 50%;
-	border: 2px solid var(--border);
+	border: none;
 	background: none;
-	color: var(--text);
+	color: var(--text-secondary);
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	padding: 0;
 	cursor: pointer;
-	transition:
-		transform 160ms ease-out,
-		border-color 160ms ease;
+	transition: opacity 160ms ease;
 
 	&:active {
-		transform: scale(0.92);
-		border-color: var(--text-muted);
+		opacity: 0.5;
 	}
+}
+
+/* List menu: the list itself on top, as in its row */
+.menuHeader {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 16px;
+}
+
+.menuGap {
+	height: 12px;
 }
 
 .empty {

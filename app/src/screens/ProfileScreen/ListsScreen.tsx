@@ -12,7 +12,8 @@ import { useAuthStore } from "../../stores";
 import { useCustomLists } from "../../hooks";
 import { CircleButtonTone, NEW_LIST_HINTS, NEW_LIST_TITLE, Route } from "../../enums";
 import type { CustomList, ProfileStackParamList } from "../../types";
-import { ConfirmModal, ListNameModal, OptionsSheet } from "../../components";
+import { ConfirmModal, ListNameModal } from "../../components";
+import BottomSheet, { SheetGroup, SheetOption } from "../../components/modals/BottomSheet";
 import { ModalArt, NEW_LIST_ART, NEW_LIST_RATIO } from "../../components/modals/ModalArt";
 import { CircleBackButton } from "../../components/CircleButton";
 import PosterImage from "../../components/PosterImage";
@@ -59,13 +60,12 @@ interface RowProps {
 
 /**
  * One list, laid out like the Add to List drawer's rows: cover (the title added last), name + count,
- * ⋯ in a ring for its menu. Tap opens it; press and hold anywhere on the row picks it up to drag
+ * ⋯ for its menu. Tap opens it; press and hold anywhere on the row picks it up to drag
  * (the library starts a drag from a long press — a handle that starts it on first touch takes the
  * touch away from the list's own gesture).
  */
 function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 	const drag = useReorderableDrag();
-	const cover = listCoverItem(list);
 	return (
 		<Pressable
 			style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
@@ -76,17 +76,7 @@ function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 			accessibilityLabel={`${list.name}, ${titleCount(list.items.length)}`}
 			accessibilityHint="Press and hold to move"
 		>
-			{cover ? (
-				<PosterImage
-					posterPath={cover.posterPath}
-					mediaType={cover.mediaType}
-					style={styles.cover}
-				/>
-			) : (
-				<View style={[styles.cover, styles.coverEmpty]}>
-					<Ionicons name="list" size={22} color={colors.textMuted} />
-				</View>
-			)}
+			<ListCover list={list} />
 			<View style={styles.rowText}>
 				<Text style={styles.rowName} numberOfLines={1}>
 					{list.name}
@@ -100,9 +90,85 @@ function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 				accessibilityRole="button"
 				accessibilityLabel={`Options for ${list.name}`}
 			>
-				<Ionicons name="ellipsis-horizontal" size={16} color={colors.text} />
+				<Ionicons name="ellipsis-vertical" size={20} color={colors.textSecondary} />
 			</Pressable>
 		</Pressable>
+	);
+}
+
+/** A list's cover: the title added last, or a list icon when it's empty */
+function ListCover({ list }: { list: CustomList }) {
+	const cover = listCoverItem(list);
+	return cover ? (
+		<PosterImage posterPath={cover.posterPath} mediaType={cover.mediaType} style={styles.cover} />
+	) : (
+		<View style={[styles.cover, styles.coverEmpty]}>
+			<Ionicons name="list" size={22} color={colors.textMuted} />
+		</View>
+	);
+}
+
+/**
+ * A list's menu, in the app's sheet style: the list itself on top (cover, name, count — as in its
+ * row), rename / share grouped, delete on its own. Each action runs once the sheet has slid away.
+ */
+function ListMenuSheet({
+	list,
+	onRename,
+	onShare,
+	onDelete,
+	onClose,
+}: {
+	list: CustomList | null;
+	onRename: (list: CustomList) => void;
+	onShare: (list: CustomList) => void;
+	onDelete: (list: CustomList) => void;
+	onClose: () => void;
+}) {
+	return (
+		<BottomSheet visible={!!list} onClose={onClose}>
+			{(close) =>
+				list && (
+					<>
+						<View style={styles.menuHeader}>
+							<ListCover list={list} />
+							<View style={styles.rowText}>
+								<Text style={styles.rowName} numberOfLines={1}>
+									{list.name}
+								</Text>
+								<Text style={styles.rowCount}>{titleCount(list.items.length)}</Text>
+							</View>
+						</View>
+						<SheetGroup>
+							<SheetOption
+								icon="create-outline"
+								color={colors.accent}
+								title="Rename list"
+								onPress={() => close(() => onRename(list))}
+							/>
+							<SheetOption
+								icon="share-outline"
+								color={colors.accent}
+								title="Share list"
+								hint="As a file anyone can import"
+								onPress={() => close(() => onShare(list))}
+							/>
+						</SheetGroup>
+						<View style={styles.menuGap} />
+						<SheetGroup>
+							<SheetOption
+								icon="trash-outline"
+								color={colors.destructiveRed}
+								title="Delete list"
+								hint="Removes the list, not the titles"
+								destructive
+								onPress={() => close(() => onDelete(list))}
+							/>
+						</SheetGroup>
+					</>
+				)
+			}
+		</BottomSheet>
 	);
 }
 
@@ -296,44 +362,17 @@ export default function ListsScreen() {
 				/>
 			)}
 
-			<OptionsSheet
-				visible={!!menuList}
-				title={menuList?.name ?? ""}
-				subtitle={menuList ? titleCount(menuList.items.length) : undefined}
-				options={
-					menuList
-						? [
-								{
-									key: "export",
-									label: "Export list",
-									icon: "share-outline",
-									onPress: () => exportLists([menuList]),
-								},
-								{
-									key: "rename",
-									label: "Rename list",
-									icon: "create-outline",
-									onPress: () => {
-										const target = menuList;
-										afterModalClose(() => {
-											setNameError(null);
-											setNaming(target);
-										});
-									},
-								},
-								{
-									key: "delete",
-									label: "Delete list",
-									icon: "trash-outline",
-									destructive: true,
-									onPress: () => {
-										const target = menuList;
-										afterModalClose(() => setDeleteTarget(target));
-									},
-								},
-							]
-						: []
+			<ListMenuSheet
+				list={menuList}
+				// Another popup only once the sheet's own modal is gone (iOS can't stack them mid-dismiss)
+				onRename={(target) =>
+					afterModalClose(() => {
+						setNameError(null);
+						setNaming(target);
+					})
 				}
+				onShare={(target) => exportLists([target])}
+				onDelete={(target) => afterModalClose(() => setDeleteTarget(target))}
 				onClose={() => setMenuList(null)}
 			/>
 
@@ -413,17 +452,21 @@ const styles = StyleSheet.create({
 	rowText: { flex: 1, minWidth: 0 },
 	rowName: { ...typography.subtitle, fontSize: 16 },
 	rowCount: { ...typography.caption, fontSize: 13, color: colors.textSecondary, marginTop: 2 },
-	// Ring the size of the drawer's bookmark badge
+	// Bare dots in a badge-sized tap area (no ring)
 	menuButton: {
 		width: MENU_SIZE,
 		height: MENU_SIZE,
-		borderRadius: MENU_SIZE / 2,
-		borderWidth: 2,
-		borderColor: colors.border,
 		alignItems: "center",
 		justifyContent: "center",
 	},
-	menuPressed: { transform: [{ scale: 0.92 }], borderColor: colors.textMuted },
+	menuPressed: { opacity: 0.5 },
+	menuHeader: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.md,
+		marginBottom: spacing.lg,
+	},
+	menuGap: { height: spacing.md },
 	empty: {
 		flex: 1,
 		alignItems: "center",

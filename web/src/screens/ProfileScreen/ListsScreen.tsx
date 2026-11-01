@@ -6,7 +6,7 @@ import {
 	IoBookmarksOutline,
 	IoCreateOutline,
 	IoDownloadOutline,
-	IoEllipsisHorizontal,
+	IoEllipsisVertical,
 	IoList,
 	IoShareOutline,
 	IoTrashOutline,
@@ -22,7 +22,7 @@ import { CircleBackButton } from "../../components/CircleButton";
 import ConfirmModal from "../../components/ConfirmModal";
 import ListNameModal from "../../components/ListNameModal";
 import { ModalArt, NEW_LIST_ART } from "../../components/ModalArt";
-import OptionsSheet from "../../components/OptionsSheet";
+import BottomSheet, { SheetGroup, SheetOption } from "../../components/BottomSheet";
 import PosterImage from "../../components/PosterImage";
 import { useHideTabBar } from "../../hooks/useHideTabBar";
 import { downloadListsExport, readListsFile } from "../../platform/customListsFiles";
@@ -62,11 +62,10 @@ interface RowProps {
 
 /**
  * One list, laid out like the Add to List drawer's rows (app ListRow): cover (the title added last),
- * name + count, ⋯ in a ring for its menu (right-click too). Click opens it; hold to pick it up and drag.
+ * name + count, ⋯ for its menu (right-click too). Click opens it; hold to pick it up and drag.
  */
 function ListRow({ list, onOpen, onMenu, onDropped }: RowProps) {
 	const controls = useDragControls();
-	const cover = listCoverItem(list);
 	const hold = useRef<number | null>(null);
 	const origin = useRef<{ x: number; y: number } | null>(null);
 	// A drag ends with a click on the row — that one must not open it
@@ -116,18 +115,7 @@ function ListRow({ list, onOpen, onMenu, onDropped }: RowProps) {
 				}}
 				aria-label={`${list.name}, ${titleCount(list.items.length)}`}
 			>
-				{cover ? (
-					<PosterImage
-						posterPath={cover.posterPath}
-						mediaType={cover.mediaType}
-						className={styles.cover}
-						width={104}
-					/>
-				) : (
-					<span className={`${styles.cover} ${styles.coverEmpty}`}>
-						<IoList size={22} />
-					</span>
-				)}
+				<ListCover list={list} />
 				<span className={styles.rowText}>
 					<span className={styles.rowName}>{list.name}</span>
 					<span className={styles.rowCount}>{titleCount(list.items.length)}</span>
@@ -139,9 +127,96 @@ function ListRow({ list, onOpen, onMenu, onDropped }: RowProps) {
 				onClick={onMenu}
 				aria-label={`Options for ${list.name}`}
 			>
-				<IoEllipsisHorizontal size={16} />
+				<IoEllipsisVertical size={20} />
 			</button>
 		</Reorder.Item>
+	);
+}
+
+/** A list's cover: the title added last, or a list icon when it's empty (app ListCover) */
+function ListCover({ list }: { list: CustomList }) {
+	const cover = listCoverItem(list);
+	return cover ? (
+		<PosterImage
+			posterPath={cover.posterPath}
+			mediaType={cover.mediaType}
+			className={styles.cover}
+			width={104}
+		/>
+	) : (
+		<span className={`${styles.cover} ${styles.coverEmpty}`}>
+			<IoList size={22} />
+		</span>
+	);
+}
+
+/**
+ * A list's menu in the app's sheet style (app ListMenuSheet): the list itself on top (cover, name,
+ * count — as in its row), rename / share grouped, delete on its own
+ */
+function ListMenuSheet({
+	list,
+	onRename,
+	onShare,
+	onDelete,
+	onClose,
+}: {
+	list: CustomList | null;
+	onRename: (list: CustomList) => void;
+	onShare: (list: CustomList) => void;
+	onDelete: (list: CustomList) => void;
+	onClose: () => void;
+}) {
+	// Close first, then act — the next popup opens over the page, not the sheet
+	const pick = (fn: (list: CustomList) => void) => () => {
+		if (!list) return;
+		onClose();
+		fn(list);
+	};
+	return (
+		<BottomSheet
+			visible={!!list}
+			label={list ? `Options for ${list.name}` : "List options"}
+			onClose={onClose}
+		>
+			{list && (
+				<>
+					<div className={styles.menuHeader}>
+						<ListCover list={list} />
+						<span className={styles.rowText}>
+							<span className={styles.rowName}>{list.name}</span>
+							<span className={styles.rowCount}>{titleCount(list.items.length)}</span>
+						</span>
+					</div>
+					<SheetGroup>
+						<SheetOption
+							icon={IoCreateOutline}
+							color={colors.accent}
+							title="Rename list"
+							onClick={pick(onRename)}
+						/>
+						<SheetOption
+							icon={IoShareOutline}
+							color={colors.accent}
+							title="Share list"
+							hint="As a file anyone can import"
+							onClick={pick(onShare)}
+						/>
+					</SheetGroup>
+					<div className={styles.menuGap} />
+					<SheetGroup>
+						<SheetOption
+							icon={IoTrashOutline}
+							color={colors.destructiveRed}
+							title="Delete list"
+							hint="Removes the list, not the titles"
+							destructive
+							onClick={pick(onDelete)}
+						/>
+					</SheetGroup>
+				</>
+			)}
+		</BottomSheet>
 	);
 }
 
@@ -339,38 +414,14 @@ export default function ListsScreen() {
 				</>
 			)}
 
-			<OptionsSheet
-				visible={!!menuList}
-				title={menuList?.name ?? ""}
-				subtitle={menuList ? titleCount(menuList.items.length) : undefined}
-				options={
-					menuList
-						? [
-								{
-									key: "export",
-									label: "Export list",
-									icon: <IoShareOutline size={22} />,
-									onClick: () => downloadListsExport([menuList]),
-								},
-								{
-									key: "rename",
-									label: "Rename list",
-									icon: <IoCreateOutline size={22} />,
-									onClick: () => {
-										setNameError(null);
-										setNaming(menuList);
-									},
-								},
-								{
-									key: "delete",
-									label: "Delete list",
-									icon: <IoTrashOutline size={22} color={colors.destructiveRed} />,
-									destructive: true,
-									onClick: () => setDeleteTarget(menuList),
-								},
-							]
-						: []
-				}
+			<ListMenuSheet
+				list={menuList}
+				onRename={(target) => {
+					setNameError(null);
+					setNaming(target);
+				}}
+				onShare={(target) => downloadListsExport([target])}
+				onDelete={setDeleteTarget}
 				onClose={() => setMenuList(null)}
 			/>
 
