@@ -167,6 +167,10 @@ export enum CustomListView {
 export const LISTS_EXPORT_FORMAT = "watchloom-lists";
 export const LISTS_EXPORT_VERSION = 1;
 
+/** Whole-account export (Settings → Export My Data): tracking, watch history and lists */
+export const ACCOUNT_EXPORT_FORMAT = "watchloom-account";
+export const ACCOUNT_EXPORT_VERSION = 1;
+
 /** Fill of the shared 44px circular icon buttons (back, share) */
 export enum CircleButtonTone {
 	/** Translucent black — floating over artwork */
@@ -236,6 +240,7 @@ export enum CloudFunction {
 	REFRESH_SHOW = "refreshShow",
 	DELETE_ACCOUNT = "deleteAccount",
 	SEARCH_TITLES = "searchTitles",
+	EXPORT_ACCOUNT_DATA = "exportAccountData",
 }
 
 /** Callable error codes (web SDK prefixes them with "functions/") */

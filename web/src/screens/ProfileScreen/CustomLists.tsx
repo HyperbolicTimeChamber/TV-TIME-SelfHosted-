@@ -1,9 +1,8 @@
 import type { ReactNode } from "react";
 import { Spin } from "antd";
-import { IoBookmarksOutline, IoChevronForward, IoTimeOutline } from "react-icons/io5";
+import { IoBookmarksOutline, IoChevronForward } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import { useCustomLists } from "@app/hooks/useCustomLists";
-import { useRecentlyWatched } from "@app/hooks/useRecentlyWatched";
 import type { CustomListEntry } from "@app/types";
 import { profileLists } from "@app/utils/customLists";
 import { useAppSelector } from "../../store";
@@ -23,7 +22,6 @@ export default function CustomLists() {
 	const user = useAppSelector((s) => s.auth.user);
 	const { lists, loading } = useCustomLists(user?.uid);
 	const shown = profileLists(lists);
-	const recent = useRecentlyWatched();
 
 	return (
 		<section className={styles.section}>
@@ -37,11 +35,6 @@ export default function CustomLists() {
 				<span className={styles.seeAll}>See all</span>
 				<IoChevronForward size={16} color="var(--text-muted)" />
 			</button>
-
-			{/* Both histories in first: one alone drew a partial row that then reshuffled */}
-			{!recent.loading && recent.items.length > 0 && (
-				<Row icon={<IoTimeOutline size={16} />} name="Recently Watched" items={recent.items} />
-			)}
 
 			{loading && lists.length === 0 ? (
 				<div className={styles.completedLoader}>

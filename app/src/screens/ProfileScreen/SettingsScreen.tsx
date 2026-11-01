@@ -25,6 +25,7 @@ import {
 	LOGOUT_RATIO,
 	ModalArt,
 } from "../../components/modals/ModalArt";
+import { shareAccountExport } from "../../services/accountExport";
 import { CloudFunction, ProfileStackParamList, Route } from "../../types";
 
 export default function SettingsScreen() {
@@ -35,6 +36,7 @@ export default function SettingsScreen() {
 	const signOut = useAuthStore((s) => s.signOut);
 	const [testingFCM, setTestingFCM] = useState(false);
 	const [deletingAccount, setDeletingAccount] = useState(false);
+	const [exporting, setExporting] = useState(false);
 
 	const isEmailUser = user?.providerData?.some((p) => p.providerId === "password") ?? false;
 
@@ -62,6 +64,18 @@ export default function SettingsScreen() {
 			setTestingFCM(false);
 		}
 	}, [testingFCM]);
+
+	const handleExport = useCallback(async () => {
+		if (exporting) return;
+		setExporting(true);
+		try {
+			await shareAccountExport();
+		} catch (err: any) {
+			Alert.alert("Export failed", err.message || "Couldn't export your data. Try again later.");
+		} finally {
+			setExporting(false);
+		}
+	}, [exporting]);
 
 	const [logoutVisible, setLogoutVisible] = useState(false);
 	const [deleteVisible, setDeleteVisible] = useState(false);
@@ -99,6 +113,13 @@ export default function SettingsScreen() {
 					<Text style={styles.rowText}>
 						{hasCompletedImport ? "Re-sync TV Time Data" : "Import TV Time Data"}
 					</Text>
+				</TouchableOpacity>
+				<TouchableOpacity style={styles.row} onPress={handleExport} disabled={exporting}>
+					{exporting ? (
+						<ActivityIndicator size="small" color={colors.accent} />
+					) : (
+						<Text style={styles.rowText}>Export My Data</Text>
+					)}
 				</TouchableOpacity>
 			</View>
 
@@ -153,11 +174,13 @@ export default function SettingsScreen() {
 				visible={deleteVisible}
 				title="Is This Goodbye?"
 				image={<ModalArt source={FAREWELL_ART} ratio={FAREWELL_RATIO} />}
-				hint="This will permanently delete your account and all data. This cannot be undone."
+				hint="This will permanently delete your account and all data. This cannot be undone. Want a copy first?"
 				error={deleteError}
 				confirmLabel="Delete"
 				loading={deletingAccount}
 				onConfirm={handleDeleteAccount}
+				secondaryLabel={exporting ? "Exporting…" : "Export My Data First"}
+				onSecondary={handleExport}
 				onClose={() => setDeleteVisible(false)}
 			/>
 		</ScrollView>

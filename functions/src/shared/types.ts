@@ -112,16 +112,22 @@ export interface ImportEpisode {
   season: number;
   episode: number;
   watchedAt: string;
+  /** Restoring a Watchloom export: how many times it was watched (default 1) */
+  watchCount?: number;
 }
 
 export interface ImportMatch {
   tmdbId: number;
   mediaType: MediaType;
-  status:
-    WatchStatus.WATCHING | WatchStatus.COMPLETED | WatchStatus.PLAN_TO_WATCH;
+  status: WatchStatus;
   watchedEpisodes?: ImportEpisode[];
   movieRuntime?: number;
   movieWatchedAt?: string;
+  /** Restoring a Watchloom export only (all optional — a TV Time import sends none) */
+  movieWatchCount?: number;
+  rewatchCount?: number;
+  /** Explicit next episode (null = nothing left) instead of deriving it from the latest watched */
+  nextEpisode?: { season: number; episode: number } | null;
 }
 
 export interface ImportRequest {

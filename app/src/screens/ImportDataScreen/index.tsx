@@ -1,8 +1,9 @@
 import { useCallback } from "react";
-import { View, Text } from "react-native";
+import { View, Text, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as DocumentPicker from "expo-document-picker";
 import { getMessaging, requestPermission } from "@react-native-firebase/messaging";
+import { pickListsFile } from "../../services/customListsFiles";
 import { useAuthStore } from "../../stores/authStore";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import { spacing } from "../../theme";
@@ -38,6 +39,7 @@ export default function ImportDataScreen({ navigation }: any) {
 		handleBackDisambig,
 		toggleSelected,
 		handleImport,
+		restoreAccount,
 	} = useImportData(() => useAuthStore.setState({ hasCompletedImport: true }));
 
 	// --- Phase 1: Pick file ---
@@ -56,6 +58,19 @@ export default function ImportDataScreen({ navigation }: any) {
 		await processFile(result.assets[0].uri);
 	}, [processFile]);
 
+	// A Watchloom account export (.json): restored directly, no matching step
+	const handlePickBackup = useCallback(async () => {
+		const picked = await pickListsFile();
+		if (!picked.ok) {
+			if (picked.reason !== "canceled") Alert.alert("Import Error", "Couldn't read that file.");
+			return;
+		}
+		try {
+			await requestPermission(getMessaging());
+		} catch {}
+		await restoreAccount(picked.text);
+	}, [restoreAccount]);
+
 	// --- Render ---
 	const insetTop = insets.top;
 
@@ -64,6 +79,7 @@ export default function ImportDataScreen({ navigation }: any) {
 			<PickPhase
 				insetTop={insetTop}
 				onPickFile={handlePickFile}
+				onPickBackup={handlePickBackup}
 				onSkip={() => navigation.goBack?.() || navigation.navigate?.("Main")}
 			/>
 		);
