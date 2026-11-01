@@ -12,7 +12,7 @@ import { useLongPress } from "../../hooks/useLongPress";
 import PosterImage from "../../components/PosterImage";
 import SkeletonBlock from "../../components/SkeletonBlock";
 import ShowDrawer from "../../components/ShowDrawer";
-import type { SheetOption } from "../../components/OptionsSheet";
+import type { ShowDrawerAction } from "../../components/ShowDrawer";
 import styles from "./styles/ListDetail.module.scss";
 
 /** TV / MOVIE pill — the one on Search's cards */
@@ -170,7 +170,7 @@ export function ReorderRow({ item }: { item: CustomListItem }) {
 
 interface PreviewProps {
 	item: CustomListItem | null;
-	actions: SheetOption[];
+	actions: ShowDrawerAction[];
 	onGoToShow: (item: CustomListItem) => void;
 	onClose: () => void;
 }

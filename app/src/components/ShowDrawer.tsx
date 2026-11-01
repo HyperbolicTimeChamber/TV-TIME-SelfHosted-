@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	View,
 	Text,
@@ -14,10 +14,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
+import { SheetGroup, SheetOption } from "./modals/BottomSheet";
 import SkeletonLine, { useSharedShimmer } from "./SkeletonLine";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, spacing, typography } from "../theme";
-import { tmdbBackdropUri, tmdbPosterUri } from "../hooks/useTmdbImage";
+import { tmdbBackdropUri, tmdbLogoUri, tmdbPosterUri } from "../hooks/useTmdbImage";
+import { useTitleLogo } from "../hooks/useTitleLogo";
 import { useCustomLists } from "../hooks/useCustomLists";
 import { useAuthStore } from "../stores";
 import { listedTitleKeys, listItemKey } from "../utils";
@@ -35,6 +37,8 @@ export interface ShowDrawerAction {
 	key: string;
 	label: string;
 	icon: React.ComponentProps<typeof Ionicons>["name"];
+	/** Second line under the label */
+	hint?: string;
 	destructive?: boolean;
 	onPress: () => void;
 }
@@ -47,6 +51,45 @@ interface Props {
 	/** Extra rows under the Go to button */
 	actions?: ShowDrawerAction[];
 	onClose: () => void;
+}
+
+/** Wait this long for the logo before showing the name — the name flashing in, then swapping for
+ *  the logo, read as a glitch (as in the sheets) */
+const NAME_DELAY_MS = 2000;
+const LOGO_HEIGHT = 56;
+const LOGO_MAX_W = 260;
+
+/** The title's logo, its name when TMDB has none (or after NAME_DELAY_MS still loading), in a fixed
+ *  slot so the drawer doesn't resize. Keyed per title: the wait restarts for each one */
+function DrawerTitle({ show }: { show: ShowDrawerData }) {
+	const logoPath = useTitleLogo(undefined, show.tmdbId, show.mediaType);
+	const [waited, setWaited] = useState(false);
+	const [failed, setFailed] = useState(false);
+	useEffect(() => {
+		const t = setTimeout(() => setWaited(true), NAME_DELAY_MS);
+		return () => clearTimeout(t);
+	}, []);
+	const showLogo = !!logoPath && !failed;
+	const showName = logoPath === null || failed || (!logoPath && waited);
+	return (
+		<View style={styles.titleSlot}>
+			{showLogo ? (
+				<Image
+					source={{ uri: tmdbLogoUri(logoPath, LOGO_MAX_W) }}
+					style={styles.titleLogo}
+					contentFit="contain"
+					contentPosition="left center"
+					transition={200}
+					onError={() => setFailed(true)}
+					accessibilityLabel={show.title}
+				/>
+			) : showName ? (
+				<Text style={styles.title} numberOfLines={2}>
+					{show.title}
+				</Text>
+			) : null}
+		</View>
+	);
 }
 
 export default function ShowDrawer({
@@ -141,7 +184,8 @@ export default function ShowDrawer({
 									colors={["transparent", colors.background]}
 									style={styles.imageGradient}
 								/>
-								{userId && listEntry ? (
+								{/* With list actions below ("Add to another list"), the corner button would say it twice */}
+								{userId && listEntry && !actions?.length ? (
 									<TouchableOpacity
 										style={[styles.listButton, isListed && styles.listButtonActive]}
 										onPress={() => setListSheetOpen(true)}
@@ -158,7 +202,7 @@ export default function ShowDrawer({
 								) : null}
 							</View>
 							<View style={styles.content}>
-								<Text style={styles.title}>{show.title}</Text>
+								<DrawerTitle key={`${show.mediaType}_${show.tmdbId}`} show={show} />
 								{metaLine ? <Text style={styles.meta}>{metaLine}</Text> : null}
 								<View style={styles.genreRow}>
 									{show.genres == null ? (
@@ -193,7 +237,10 @@ export default function ShowDrawer({
 								<TouchableOpacity
 									style={[
 										styles.goToShowButton,
-										{ marginBottom: Math.max(spacing.xl, insets.bottom + 8) },
+										// Last thing in the drawer → clear of the nav bar; actions follow → they take that
+										actions?.length
+											? { marginBottom: spacing.lg }
+											: { marginBottom: Math.max(spacing.xl, insets.bottom + 8) },
 									]}
 									onPress={onGoToShow}
 								>
@@ -202,30 +249,38 @@ export default function ShowDrawer({
 									</Text>
 								</TouchableOpacity>
 							)}
-							{actions?.map((action) => (
-								<TouchableOpacity
-									key={action.key}
-									style={styles.actionRow}
-									onPress={action.onPress}
-									activeOpacity={0.7}
-								>
-									<Ionicons
-										name={action.icon}
-										size={20}
-										color={action.destructive ? colors.destructiveRed : colors.text}
-									/>
-									<Text
-										style={[styles.actionText, action.destructive && { color: colors.destructiveRed }]}
-									>
-										{action.label}
-									</Text>
-								</TouchableOpacity>
-							))}
+							{actions?.length ? (
+								// The app's sheet style: everyday actions in one card, destructive ones in their own
+								<View style={[styles.actions, { paddingBottom: insets.bottom + spacing.xl }]}>
+									{[actions.filter((a) => !a.destructive), actions.filter((a) => a.destructive)]
+										.filter((group) => group.length > 0)
+										.map((group, i) => (
+											<View key={i} style={i > 0 && styles.actionGap}>
+												<SheetGroup>
+													{group.map((action) => (
+														<SheetOption
+															key={action.key}
+															icon={action.icon}
+															color={action.destructive ? colors.destructiveRed : colors.accent}
+															title={action.label}
+															hint={action.hint}
+															destructive={action.destructive}
+															onPress={action.onPress}
+														/>
+													))}
+												</SheetGroup>
+											</View>
+										))}
+								</View>
+							) : null}
 						</BottomSheetScrollView>
 					) : null}
 				</BottomSheet>
 				{/* Inside this Modal, so it stacks on top of the drawer (a second top-level modal would not on iOS) */}
-				<AddToListSheet entry={listSheetOpen ? listEntry : null} onClose={() => setListSheetOpen(false)} />
+				<AddToListSheet
+					entry={listSheetOpen ? listEntry : null}
+					onClose={() => setListSheetOpen(false)}
+				/>
 			</GestureHandlerRootView>
 		</Modal>
 	);
@@ -293,6 +348,8 @@ const styles = StyleSheet.create({
 		...typography.title,
 		fontSize: 22,
 	},
+	titleSlot: { minHeight: LOGO_HEIGHT, justifyContent: "center", marginBottom: spacing.xs },
+	titleLogo: { height: LOGO_HEIGHT, width: LOGO_MAX_W, maxWidth: "100%" },
 	genreRow: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -360,17 +417,6 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.accent,
 		borderColor: colors.accent,
 	},
-	actionRow: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: spacing.md,
-		paddingVertical: spacing.md,
-		marginHorizontal: spacing.lg,
-		borderTopWidth: 1,
-		borderTopColor: colors.border,
-	},
-	actionText: {
-		...typography.subtitle,
-		fontSize: 14,
-	},
+	actions: { marginHorizontal: spacing.lg },
+	actionGap: { marginTop: spacing.md },
 });

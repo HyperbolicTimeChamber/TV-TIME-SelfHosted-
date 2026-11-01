@@ -13,7 +13,7 @@ import {
 } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import { useCustomLists } from "@app/hooks/useCustomLists";
-import { CircleButtonTone, NEW_LIST_HINTS, NEW_LIST_TITLE } from "@app/enums";
+import { CircleButtonTone, MediaType, NEW_LIST_HINTS, NEW_LIST_TITLE } from "@app/enums";
 import type { CustomList } from "@app/types";
 import { listCoverItem, titleCount } from "@app/utils/customLists";
 import { describeImport, parseListsExport, type ImportPlan } from "@app/utils/customListsIO";
@@ -24,6 +24,9 @@ import ListNameModal from "../../components/ListNameModal";
 import { ModalArt, NEW_LIST_ART } from "../../components/ModalArt";
 import BottomSheet, { SheetGroup, SheetOption } from "../../components/BottomSheet";
 import PosterImage from "../../components/PosterImage";
+import SkeletonBlock from "../../components/SkeletonBlock";
+import { useTitleInfo } from "@app/hooks/useTitleInfo";
+import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
 import { useHideTabBar } from "../../hooks/useHideTabBar";
 import { downloadListsExport, readListsFile } from "../../platform/customListsFiles";
 import { Paths, listPath } from "../../routes/paths";
@@ -49,6 +52,10 @@ const IMPORT_ERRORS = {
 const HOLD_MS = 250;
 /** Pointer travel before the hold counts as a scroll instead */
 const MOVE_CANCEL_PX = 10;
+/** Posters in a card's strip, under the name (app STRIP_COUNT) */
+const STRIP_COUNT = 4;
+/** Card width the backdrop is requested at (calendar CARD_MAX_WIDTH) */
+const CARD_MAX_WIDTH = 440;
 /** A drop waits this long for another before the order is written (app AUTOSAVE_MS) */
 const AUTOSAVE_MS = 800;
 
@@ -66,6 +73,13 @@ interface RowProps {
  */
 function ListRow({ list, onOpen, onMenu, onDropped }: RowProps) {
 	const controls = useDragControls();
+	const cover = listCoverItem(list);
+	const { data: info, isPending } = useTitleInfo(
+		cover?.tmdbId ?? 0,
+		cover?.mediaType ?? MediaType.TV,
+		!!cover,
+	);
+	const loading = !!cover && isPending;
 	const hold = useRef<number | null>(null);
 	const origin = useRef<{ x: number; y: number } | null>(null);
 	// A drag ends with a click on the row — that one must not open it
@@ -79,7 +93,7 @@ function ListRow({ list, onOpen, onMenu, onDropped }: RowProps) {
 			value={list}
 			dragListener={false}
 			dragControls={controls}
-			className={styles.row}
+			className={styles.card}
 			whileDrag={{ scale: 1.02, boxShadow: "0 8px 24px rgba(0,0,0,0.6)" }}
 			onDragEnd={onDropped}
 			onPointerDown={(e) => {
@@ -107,28 +121,65 @@ function ListRow({ list, onOpen, onMenu, onDropped }: RowProps) {
 				onMenu();
 			}}
 		>
-			<button
-				className={styles.rowMain}
-				onClick={() => {
-					if (dragged.current) dragged.current = false;
-					else onOpen();
-				}}
-				aria-label={`${list.name}, ${titleCount(list.items.length)}`}
-			>
-				<ListCover list={list} />
-				<span className={styles.rowText}>
-					<span className={styles.rowName}>{list.name}</span>
-					<span className={styles.rowCount}>{titleCount(list.items.length)}</span>
-				</span>
-			</button>
-			<button
-				className={styles.menuButton}
-				onPointerDown={(e) => e.stopPropagation()}
-				onClick={onMenu}
-				aria-label={`Options for ${list.name}`}
-			>
-				<IoEllipsisVertical size={20} />
-			</button>
+			{info?.backdropPath ? (
+				<img
+					src={tmdbBackdropUri(info.backdropPath, CARD_MAX_WIDTH)}
+					alt=""
+					className={styles.cardBg}
+					loading="lazy"
+				/>
+			) : info && cover?.posterPath ? (
+				<img
+					src={tmdbPosterUri(cover.posterPath, 185)}
+					alt=""
+					className={`${styles.cardBg} ${styles.cardBgPoster}`}
+					loading="lazy"
+				/>
+			) : loading ? (
+				<SkeletonBlock className={styles.cardBgSkeleton} />
+			) : null}
+			{cover && <span className={styles.cardOverlay} />}
+			{/* ⋮ rides the name line (app nameRow): it belongs to the list, and lines up card to card */}
+			<div className={styles.cardInfo}>
+				<button
+					className={styles.cardMain}
+					onClick={() => {
+						if (dragged.current) dragged.current = false;
+						else onOpen();
+					}}
+					aria-label={`${list.name}, ${titleCount(list.items.length)}`}
+				>
+					<span className={styles.cardName}>{list.name}</span>
+					{list.items.length > 0 ? (
+						<span className={styles.strip}>
+							{list.items.slice(0, STRIP_COUNT).map((item) => (
+								<PosterImage
+									key={`${item.mediaType}_${item.tmdbId}`}
+									posterPath={item.posterPath}
+									mediaType={item.mediaType}
+									className={styles.stripPoster}
+									width={56}
+								/>
+							))}
+						</span>
+					) : (
+						<span className={styles.emptyLine}>Nothing here yet</span>
+					)}
+				</button>
+				<button
+					className={`${styles.menuButton} ${styles.cardMenu}`}
+					onPointerDown={(e) => e.stopPropagation()}
+					onClick={onMenu}
+					aria-label={`Options for ${list.name}`}
+				>
+					<IoEllipsisVertical size={20} />
+				</button>
+			</div>
+			<span className={styles.square}>
+				<span className={styles.squareTitle}>{list.items.length === 1 ? "TITLE" : "TITLES"}</span>
+				<span className={styles.squareRule} />
+				<span className={styles.squareValue}>{list.items.length}</span>
+			</span>
 		</Reorder.Item>
 	);
 }
@@ -254,6 +305,8 @@ export default function ListsScreen() {
 	const [nameError, setNameError] = useState<string | null>(null);
 	const [nameBusy, setNameBusy] = useState(false);
 	const [menuList, setMenuList] = useState<CustomList | null>(null);
+	// Import / export, behind the top bar's ⋮ (app pageMenuOpen)
+	const [pageMenuOpen, setPageMenuOpen] = useState(false);
 	const [deleteTarget, setDeleteTarget] = useState<CustomList | null>(null);
 	const [importPlan, setImportPlan] = useState<ImportPlan | null>(null);
 	const [importing, setImporting] = useState(false);
@@ -352,18 +405,10 @@ export default function ListsScreen() {
 					</button>
 					<button
 						className={styles.iconButton}
-						onClick={() => fileInput.current?.click()}
-						aria-label="Import list"
+						onClick={() => setPageMenuOpen(true)}
+						aria-label="More list options"
 					>
-						<IoDownloadOutline size={25} />
-					</button>
-					<button
-						className={styles.iconButton}
-						onClick={() => downloadListsExport(lists)}
-						disabled={lists.length === 0}
-						aria-label="Export all lists"
-					>
-						<IoShareOutline size={25} />
+						<IoEllipsisVertical size={24} />
 					</button>
 				</div>
 				<input
@@ -378,6 +423,13 @@ export default function ListsScreen() {
 						void onFileChosen(file);
 					}}
 				/>
+				{/* In the sticky header (not the list, where the fade would hide it): the count, and what
+				    holding a card does (app hint) */}
+				{lists.length > 0 && (
+					<p className={styles.hint}>
+						{lists.length === 1 ? "1 list" : `${lists.length} lists · hold one to reorder`}
+					</p>
+				)}
 			</header>
 
 			{loading && lists.length === 0 ? null : lists.length === 0 ? (
@@ -390,7 +442,6 @@ export default function ListsScreen() {
 				</div>
 			) : (
 				<>
-					{lists.length > 1 && <p className={styles.hint}>Hold a list to drag it into place</p>}
 					<Reorder.Group
 						axis="y"
 						values={shown}
@@ -413,6 +464,37 @@ export default function ListsScreen() {
 					</Reorder.Group>
 				</>
 			)}
+
+			<BottomSheet
+				visible={pageMenuOpen}
+				label="List options"
+				onClose={() => setPageMenuOpen(false)}
+			>
+				<SheetGroup>
+					<SheetOption
+						icon={IoDownloadOutline}
+						color={colors.accent}
+						title="Import lists"
+						hint="From a file someone shared with you"
+						onClick={() => {
+							setPageMenuOpen(false);
+							fileInput.current?.click();
+						}}
+					/>
+					{lists.length > 0 && (
+						<SheetOption
+							icon={IoShareOutline}
+							color={colors.accent}
+							title="Export all lists"
+							hint="As one file you can share or keep"
+							onClick={() => {
+								setPageMenuOpen(false);
+								downloadListsExport(lists);
+							}}
+						/>
+					)}
+				</SheetGroup>
+			</BottomSheet>
 
 			<ListMenuSheet
 				list={menuList}

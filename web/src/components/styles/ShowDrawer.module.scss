@@ -79,6 +79,29 @@
 	margin: 0;
 }
 
+/* Logo (name fallback) in a fixed slot so the drawer doesn't resize (app titleSlot) */
+.titleSlot {
+	min-height: 56px;
+	display: flex;
+	align-items: center;
+	margin-bottom: 4px;
+}
+
+.titleLogo {
+	height: 56px;
+	width: 260px;
+	max-width: 100%;
+	object-fit: contain;
+	object-position: left center;
+	animation: titleFade 200ms ease-out;
+}
+
+@keyframes titleFade {
+	from {
+		opacity: 0;
+	}
+}
+
 .meta {
 	font-size: 12px;
 	color: var(--text-secondary);
@@ -158,6 +181,16 @@
 .listButtonActive {
 	background: $accent;
 	border-color: $accent;
+}
+
+/* List actions under Go to: cards, the destructive one apart (app actions / actionGap) */
+.actions {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	margin: 16px 16px 0;
+	/* Clear of the browser / OS nav bar, a step more than the sheet's own padding */
+	padding-bottom: 16px;
 }
 
 .actionRow {

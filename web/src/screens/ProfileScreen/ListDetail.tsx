@@ -9,7 +9,6 @@ import {
 	IoCreateOutline,
 	IoGrid,
 	IoList,
-	IoShareOutline,
 	IoSwapVertical,
 	IoTrashOutline,
 } from "react-icons/io5";
@@ -24,9 +23,8 @@ import CircleButton, { CircleBackButton } from "../../components/CircleButton";
 import ConfirmModal from "../../components/ConfirmModal";
 import ListNameModal from "../../components/ListNameModal";
 import AddToListSheet from "../../components/AddToListSheet";
-import type { SheetOption } from "../../components/OptionsSheet";
+import type { ShowDrawerAction } from "../../components/ShowDrawer";
 import { useHideTabBar } from "../../hooks/useHideTabBar";
-import { downloadListsExport } from "../../platform/customListsFiles";
 import { Paths, showPath } from "../../routes/paths";
 import { colors } from "../../theme";
 import { ListCell, ListItemPreview, ListRow, ReorderRow } from "./ListItemViews";
@@ -104,12 +102,13 @@ export default function ListDetailScreen() {
 		else message.error("Couldn't save the order. Check your connection and try again.");
 	};
 
-	const previewActions: SheetOption[] = previewItem
+	const previewActions: ShowDrawerAction[] = previewItem
 		? [
 				{
 					key: "add",
 					label: "Add to another list",
-					icon: <IoBookmarkOutline size={20} />,
+					hint: "Keep it here too",
+					icon: IoBookmarkOutline,
 					onClick: () => {
 						const item = previewItem;
 						setPreviewItem(null);
@@ -119,21 +118,13 @@ export default function ListDetailScreen() {
 				{
 					key: "remove",
 					label: `Remove from ${list.name}`,
-					icon: <IoTrashOutline size={20} color={colors.destructiveRed} />,
+					hint: "Only from this list",
+					icon: IoTrashOutline,
 					destructive: true,
 					onClick: () => {
 						const item = previewItem;
 						setPreviewItem(null);
 						setRemoveTarget(item);
-					},
-				},
-				{
-					key: "export",
-					label: "Export list",
-					icon: <IoShareOutline size={20} />,
-					onClick: () => {
-						setPreviewItem(null);
-						downloadListsExport([list]);
 					},
 				},
 			]
@@ -190,13 +181,19 @@ export default function ListDetailScreen() {
 						{titleCount(list.items.length)} · hold or right-click for options
 					</p>
 					{list.items.length > 1 && (
-						<button className={styles.iconButton} onClick={startReorder} aria-label="Reorder titles">
+						<button
+							className={styles.iconButton}
+							onClick={startReorder}
+							aria-label="Reorder titles"
+						>
 							<IoSwapVertical size={24} />
 						</button>
 					)}
 					<button
 						className={styles.iconButton}
-						onClick={() => setView(view === CustomListView.GRID ? CustomListView.LIST : CustomListView.GRID)}
+						onClick={() =>
+							setView(view === CustomListView.GRID ? CustomListView.LIST : CustomListView.GRID)
+						}
 						aria-label={view === CustomListView.GRID ? "Show as list" : "Show as grid"}
 					>
 						{view === CustomListView.GRID ? <IoList size={22} /> : <IoGrid size={20} />}

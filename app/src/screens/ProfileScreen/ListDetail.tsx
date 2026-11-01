@@ -23,7 +23,6 @@ import type { ShowDrawerAction } from "../../components/ShowDrawer";
 import CircleButton, { CircleBackButton } from "../../components/CircleButton";
 import PosterImage from "../../components/PosterImage";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
-import { shareListsExport } from "../../services/customListsFiles";
 import { moveElement, sameItemOrder, titleCount } from "../../utils";
 import { colors, spacing, typography } from "../../theme";
 import { ListItemPreview, ListRow, ReorderRow } from "./ListItemViews";
@@ -123,15 +122,12 @@ export default function ListDetailScreen() {
 		setDraft((d) => moveElement(d, from, to));
 	};
 
-	const exportList = () => {
-		shareListsExport([list]).catch((e: Error) => Alert.alert("Export failed", e.message));
-	};
-
 	const previewActions: ShowDrawerAction[] = previewItem
 		? [
 				{
 					key: "add",
 					label: "Add to another list",
+					hint: "Keep it here too",
 					icon: "bookmark-outline",
 					onPress: () => {
 						const item = previewItem;
@@ -142,21 +138,13 @@ export default function ListDetailScreen() {
 				{
 					key: "remove",
 					label: `Remove from ${list.name}`,
+					hint: "Only from this list",
 					icon: "trash-outline",
 					destructive: true,
 					onPress: () => {
 						const item = previewItem;
 						setPreviewItem(null);
 						afterModalClose(() => setRemoveTarget(item));
-					},
-				},
-				{
-					key: "export",
-					label: "Export list",
-					icon: "share-outline",
-					onPress: () => {
-						setPreviewItem(null);
-						afterModalClose(exportList);
 					},
 				},
 			]
@@ -213,12 +201,18 @@ export default function ListDetailScreen() {
 						{titleCount(list.items.length)} · long-press for options
 					</Text>
 					{list.items.length > 1 && (
-						<TouchableOpacity onPress={startReorder} hitSlop={8} accessibilityLabel="Reorder titles">
+						<TouchableOpacity
+							onPress={startReorder}
+							hitSlop={8}
+							accessibilityLabel="Reorder titles"
+						>
 							<Ionicons name="swap-vertical" size={24} color={colors.text} />
 						</TouchableOpacity>
 					)}
 					<TouchableOpacity
-						onPress={() => setView(view === CustomListView.GRID ? CustomListView.LIST : CustomListView.GRID)}
+						onPress={() =>
+							setView(view === CustomListView.GRID ? CustomListView.LIST : CustomListView.GRID)
+						}
 						hitSlop={8}
 						accessibilityLabel={view === CustomListView.GRID ? "Show as list" : "Show as grid"}
 					>
@@ -253,7 +247,9 @@ export default function ListDetailScreen() {
 				<ReorderableList
 					data={draft}
 					// The library also asks about the slot just past the end while a drag settles: no item there
-					keyExtractor={(item, index) => (item ? `${item.mediaType}_${item.tmdbId}` : `slot_${index}`)}
+					keyExtractor={(item, index) =>
+						item ? `${item.mediaType}_${item.tmdbId}` : `slot_${index}`
+					}
 					onReorder={onReorder}
 					renderItem={({ item }) => (item ? <ReorderRow item={item} /> : null)}
 					contentContainerStyle={styles.reorderContent}

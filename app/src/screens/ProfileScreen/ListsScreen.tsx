@@ -11,7 +11,7 @@ import ReorderableList, {
 } from "react-native-reorderable-list";
 import { useAuthStore } from "../../stores";
 import { useCustomLists } from "../../hooks";
-import { CircleButtonTone, NEW_LIST_HINTS, NEW_LIST_TITLE, Route } from "../../enums";
+import { CircleButtonTone, MediaType, NEW_LIST_HINTS, NEW_LIST_TITLE, Route } from "../../enums";
 import type { CustomList, ProfileStackParamList } from "../../types";
 import { ConfirmModal, ListNameModal } from "../../components";
 import BottomSheet, { SheetGroup, SheetOption } from "../../components/modals/BottomSheet";
@@ -19,6 +19,13 @@ import { ModalArt, NEW_LIST_ART, NEW_LIST_RATIO } from "../../components/modals/
 import { CircleBackButton } from "../../components/CircleButton";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import PosterImage from "../../components/PosterImage";
+import SkeletonLine from "../../components/SkeletonLine";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import { useTitleInfo } from "../../hooks";
+import { tmdbBlurredBackdropUri, tmdbPosterUri } from "../../hooks/useTmdbImage";
+import { BLUR_RADIUS } from "./styles";
+import { listStyles as card } from "../CalendarScreen/listStyles";
 import { pickListsFile, shareListsExport } from "../../services/customListsFiles";
 import {
 	describeImport,
@@ -35,6 +42,12 @@ type Nav = NativeStackNavigationProp<ProfileStackParamList, Route.LISTS>;
 const MODAL_HANDOFF_MS = 350;
 /** Press and hold this long to pick a list up */
 const HOLD_TO_DRAG_MS = 250;
+/** The fade under the title bar — and the space above the first card */
+const FADE_HEIGHT = spacing.lg;
+/** Page colour → transparent: the fade under the title bar */
+const TOP_FADE = [colors.background, "rgba(0, 0, 0, 0)"] as const;
+/** The drag pan wakes this long after the row's long press has fired */
+const PAN_WAKE_AFTER_MS = 50;
 /** A drop waits this long for another before the order is written */
 const AUTOSAVE_MS = 800;
 /** Same row metrics as the Add to List drawer */
@@ -62,17 +75,34 @@ interface RowProps {
 	onMenu: () => void;
 }
 
+/** Posters in a card's strip, under the name */
+const STRIP_COUNT = 4;
+/** Backdrop / poster wash fade in instead of popping */
+const IMAGE_FADE_MS = 200;
+/** A poster standing in for a missing backdrop: blurred to a wash of its colours */
+const POSTER_BLUR_RADIUS = 30;
+/** Taller than any card — the loading shimmer fills the whole card behind the overlay */
+const CARD_FILL = 400;
+
 /**
- * One list, laid out like the Add to List drawer's rows: cover (the title added last), name + count,
- * ⋯ for its menu. Tap opens it; press and hold anywhere on the row picks it up to drag
- * (the library starts a drag from a long press — a handle that starts it on first touch takes the
- * touch away from the list's own gesture).
+ * One list as a calendar card (like a list's own List view): its cover title's backdrop blurred
+ * under the dark overlay, the name over a strip of its first posters, the calendar square holding
+ * the title count, ⋮ for its menu. Tap opens it; press and hold picks it up to drag (the library
+ * starts a drag from a long press — a handle that starts it on first touch takes the touch away
+ * from the list's own gesture).
  */
 function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 	const drag = useReorderableDrag();
+	const cover = listCoverItem(list);
+	const { data: info, isPending } = useTitleInfo(
+		cover?.tmdbId ?? 0,
+		cover?.mediaType ?? MediaType.TV,
+		!!cover,
+	);
+	const loading = !!cover && isPending;
 	return (
 		<Pressable
-			style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+			style={({ pressed }) => [card.episodeCard, styles.card, pressed && styles.rowPressed]}
 			onPress={onOpen}
 			onLongPress={drag}
 			delayLongPress={HOLD_TO_DRAG_MS}
@@ -80,22 +110,71 @@ function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 			accessibilityLabel={`${list.name}, ${titleCount(list.items.length)}`}
 			accessibilityHint="Press and hold to move"
 		>
-			<ListCover list={list} />
-			<View style={styles.rowText}>
-				<Text style={styles.rowName} numberOfLines={1}>
-					{list.name}
-				</Text>
-				<Text style={styles.rowCount}>{titleCount(list.items.length)}</Text>
+			{info?.backdropPath ? (
+				<Image
+					source={{ uri: tmdbBlurredBackdropUri(info.backdropPath) }}
+					recyclingKey={list.id}
+					style={StyleSheet.absoluteFill}
+					contentFit="cover"
+					contentPosition="top"
+					blurRadius={BLUR_RADIUS}
+					transition={IMAGE_FADE_MS}
+				/>
+			) : info && cover?.posterPath ? (
+				<Image
+					source={{ uri: tmdbPosterUri(cover.posterPath, 185) }}
+					recyclingKey={`${list.id}_poster`}
+					style={StyleSheet.absoluteFill}
+					contentFit="cover"
+					blurRadius={POSTER_BLUR_RADIUS}
+					transition={IMAGE_FADE_MS}
+				/>
+			) : loading ? (
+				<SkeletonLine width="100%" height={CARD_FILL} style={styles.skeletonCard} />
+			) : null}
+			{cover && <View style={[StyleSheet.absoluteFill, card.cardOverlay]} />}
+			<View style={card.epInfo}>
+				{/* ⋮ rides the name line: it belongs to the list, and lines up card to card */}
+				<View style={styles.nameRow}>
+					<Text style={styles.cardName} numberOfLines={1}>
+						{list.name}
+					</Text>
+					<Pressable
+						onPress={onMenu}
+						hitSlop={10}
+						style={({ pressed }) => [styles.menuButton, pressed && styles.menuPressed]}
+						accessibilityRole="button"
+						accessibilityLabel={`Options for ${list.name}`}
+					>
+						<Ionicons name="ellipsis-vertical" size={20} color={colors.text} />
+					</Pressable>
+				</View>
+				{list.items.length > 0 ? (
+					<View style={styles.strip}>
+						{list.items.slice(0, STRIP_COUNT).map((item) => (
+							<PosterImage
+								key={`${item.mediaType}_${item.tmdbId}`}
+								posterPath={item.posterPath}
+								mediaType={item.mediaType}
+								style={styles.stripPoster}
+							/>
+						))}
+					</View>
+				) : (
+					<Text style={styles.emptyLine}>Nothing here yet</Text>
+				)}
 			</View>
-			<Pressable
-				onPress={onMenu}
-				hitSlop={10}
-				style={({ pressed }) => [styles.menuButton, pressed && styles.menuPressed]}
-				accessibilityRole="button"
-				accessibilityLabel={`Options for ${list.name}`}
-			>
-				<Ionicons name="ellipsis-vertical" size={20} color={colors.textSecondary} />
-			</Pressable>
+			<View style={card.epSquare}>
+				<Text style={card.epSquareTitle}>{list.items.length === 1 ? "TITLE" : "TITLES"}</Text>
+				<View style={card.epSquareRule} />
+				<Text
+					style={[card.epSquareValue, styles.squareValue]}
+					numberOfLines={1}
+					adjustsFontSizeToFit
+				>
+					{list.items.length}
+				</Text>
+			</View>
 		</Pressable>
 	);
 }
@@ -209,15 +288,21 @@ export default function ListsScreen() {
 	const [nameError, setNameError] = useState<string | null>(null);
 	const [nameBusy, setNameBusy] = useState(false);
 	const [menuList, setMenuList] = useState<CustomList | null>(null);
+	// Import / export, behind the top bar's ⋮
+	const [pageMenuOpen, setPageMenuOpen] = useState(false);
 	const [deleteTarget, setDeleteTarget] = useState<CustomList | null>(null);
 	const [importPlan, setImportPlan] = useState<ImportPlan | null>(null);
 	const [importing, setImporting] = useState(false);
 
 	const goBack = () => navigation.goBack();
 	const swipeBack = useSwipeBackPop(navigation);
-	// The list's drag pan only wakes after the hold that picks a row up — awake from the first touch
-	// it claimed every move, so a sideways swipe never reached the swipe-back
-	const dragPan = useMemo(() => Gesture.Pan().activateAfterLongPress(HOLD_TO_DRAG_MS), []);
+	// The list's drag pan wakes only after the hold that picks a row up, so a sideways swipe reaches
+	// the swipe-back. It must wake a beat *after* the row's long press (the library's advice): with
+	// both at the same delay it was a coin-flip which fired first, and drags mostly didn't start
+	const dragPan = useMemo(
+		() => Gesture.Pan().activateAfterLongPress(HOLD_TO_DRAG_MS + PAN_WAKE_AFTER_MS),
+		[],
+	);
 	const afterModalClose = (fn: () => void) => setTimeout(fn, MODAL_HANDOFF_MS);
 
 	// Autosave: drops settle for AUTOSAVE_MS before the order is written, so a few drags in a row
@@ -322,22 +407,21 @@ export default function ListsScreen() {
 				>
 					<Ionicons name="add-circle-outline" size={26} color={colors.text} />
 				</TouchableOpacity>
-				<TouchableOpacity onPress={startImport} hitSlop={8} accessibilityLabel="Import list">
-					<Ionicons name="download-outline" size={25} color={colors.text} />
-				</TouchableOpacity>
 				<TouchableOpacity
-					onPress={() => exportLists(lists)}
-					disabled={lists.length === 0}
+					onPress={() => setPageMenuOpen(true)}
 					hitSlop={8}
-					accessibilityLabel="Export all lists"
+					accessibilityLabel="More list options"
 				>
-					<Ionicons
-						name="share-outline"
-						size={25}
-						color={lists.length === 0 ? colors.textMuted : colors.text}
-					/>
+					<Ionicons name="ellipsis-vertical" size={24} color={colors.text} />
 				</TouchableOpacity>
 			</View>
+			{/* Fixed under the title (not in the scroll, where the fade would hide it): the count, and
+			    what holding a card does */}
+			{lists.length > 0 && (
+				<Text style={styles.hint}>
+					{lists.length === 1 ? "1 list" : `${lists.length} lists · hold one to reorder`}
+				</Text>
+			)}
 
 			{loading && lists.length === 0 ? null : lists.length === 0 ? (
 				<View style={styles.empty}>
@@ -348,29 +432,51 @@ export default function ListsScreen() {
 					</Text>
 				</View>
 			) : (
-				<ReorderableList
-					data={shown}
-					panGesture={dragPan}
-					ListHeaderComponent={
-						lists.length > 1 ? (
-							<Text style={styles.hint}>Hold a list to drag it into place</Text>
-						) : null
-					}
-					// The library also asks about the slot just past the end while a drag settles: no list there
-					keyExtractor={(l, index) => (l ? l.id : `slot_${index}`)}
-					onReorder={onReorder}
-					contentContainerStyle={styles.listContent}
-					renderItem={({ item }) =>
-						item ? (
-							<ListRow
-								list={item}
-								onOpen={() => navigation.navigate(Route.LIST_DETAIL, { listId: item.id })}
-								onMenu={() => setMenuList(item)}
-							/>
-						) : null
-					}
-				/>
+				<View style={styles.listArea}>
+					<ReorderableList
+						data={shown}
+						panGesture={dragPan}
+						// The library also asks about the slot just past the end while a drag settles: no list there
+						keyExtractor={(l, index) => (l ? l.id : `slot_${index}`)}
+						onReorder={onReorder}
+						contentContainerStyle={styles.listContent}
+						renderItem={({ item }) =>
+							item ? (
+								<ListRow
+									list={item}
+									onOpen={() => navigation.navigate(Route.LIST_DETAIL, { listId: item.id })}
+									onMenu={() => setMenuList(item)}
+								/>
+							) : null
+						}
+					/>
+					{/* Cards fade out under the title bar instead of being cut at its edge */}
+					<LinearGradient colors={TOP_FADE} style={styles.topFade} pointerEvents="none" />
+				</View>
 			)}
+
+			<BottomSheet visible={pageMenuOpen} onClose={() => setPageMenuOpen(false)}>
+				{(close) => (
+					<SheetGroup>
+						<SheetOption
+							icon="download-outline"
+							color={colors.accent}
+							title="Import lists"
+							hint="From a file someone shared with you"
+							onPress={() => close(() => void startImport())}
+						/>
+						{lists.length > 0 && (
+							<SheetOption
+								icon="share-outline"
+								color={colors.accent}
+								title="Export all lists"
+								hint="As one file you can share or keep"
+								onPress={() => close(() => exportLists(lists))}
+							/>
+						)}
+					</SheetGroup>
+				)}
+			</BottomSheet>
 
 			<ListMenuSheet
 				list={menuList}
@@ -442,8 +548,21 @@ const styles = StyleSheet.create({
 		paddingBottom: spacing.md,
 	},
 	title: { flex: 1, fontSize: 20, fontWeight: "700", color: colors.text },
-	listContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl * 2 },
-	hint: { ...typography.caption, color: colors.textMuted, marginBottom: spacing.sm },
+	listArea: { flex: 1 },
+	topFade: { position: "absolute", top: 0, left: 0, right: 0, height: FADE_HEIGHT },
+	// Top: the fade's height, so the first card rests clear of it and only fades once scrolled
+	listContent: {
+		paddingHorizontal: spacing.lg,
+		paddingTop: FADE_HEIGHT,
+		paddingBottom: spacing.xxl * 2,
+	},
+	// Left, in line with the cards' edge, like a list page's count line
+	hint: {
+		...typography.caption,
+		color: colors.textSecondary,
+		paddingHorizontal: spacing.lg,
+		marginTop: -spacing.xs,
+	},
 	// Flat, like the drawer's rows; the page colour behind it so a picked-up row covers the others
 	row: {
 		flexDirection: "row",
@@ -453,6 +572,20 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.background,
 	},
 	rowPressed: { transform: [{ scale: 0.98 }] },
+	// The calendar card sits in the list's own padding
+	card: { marginHorizontal: 0 },
+	skeletonCard: { position: "absolute", top: 0, left: 0, borderRadius: 0 },
+	nameRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		alignSelf: "stretch",
+		marginBottom: spacing.sm,
+	},
+	cardName: { ...typography.subtitle, fontSize: 18, flex: 1 },
+	strip: { flexDirection: "row", gap: spacing.xs },
+	stripPoster: { width: 28, height: 42, borderRadius: 4 },
+	emptyLine: { ...typography.caption, color: colors.textSecondary },
+	squareValue: { fontSize: 44, lineHeight: 48 },
 	cover: { width: COVER_SIZE, height: COVER_SIZE, borderRadius: 10, overflow: "hidden" },
 	coverEmpty: {
 		backgroundColor: colors.surfaceLight,
