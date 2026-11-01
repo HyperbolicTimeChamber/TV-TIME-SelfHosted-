@@ -11,6 +11,7 @@ import {
 	searchMediaType,
 	sortLists,
 	sheetListOrder,
+	listCoverItem,
 } from "../src/utils/customLists";
 import { CUSTOM_LIST_ITEM_MAX, CUSTOM_LIST_NAME_MAX, MediaType } from "../src/enums";
 import type { CustomList, CustomListEntry } from "../src/types/customList";
@@ -159,4 +160,16 @@ test("sheetListOrder puts the lists already holding the title first, then by rec
 		sheetListOrder(lists, null, entry).map((l) => l.id),
 		["holding", "recent", "older"],
 	);
+});
+
+test("listCoverItem is the most recently added title, null for an empty list", () => {
+	const item = (tmdbId: number, addedAt: number) => ({
+		tmdbId,
+		mediaType: MediaType.TV,
+		title: String(tmdbId),
+		posterPath: null,
+		addedAt,
+	});
+	assert.equal(listCoverItem({ ...list("a"), items: [item(1, 5), item(2, 9), item(3, 2)] })?.tmdbId, 2);
+	assert.equal(listCoverItem(list("b")), null);
 });

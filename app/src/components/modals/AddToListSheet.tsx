@@ -1,34 +1,30 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-	View,
-	Text,
-	Pressable,
-	ScrollView,
-	ActivityIndicator,
-	StyleSheet,
-	Dimensions,
-} from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { View, Text, Pressable, Modal, ActivityIndicator, StyleSheet } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import GorhomSheet, {
+	BottomSheetBackdrop,
+	BottomSheetScrollView,
+	useBottomSheetSpringConfigs,
+	type BottomSheetBackdropProps,
+} from "@gorhom/bottom-sheet";
 import Reanimated, {
 	Easing,
-	Extrapolation,
-	interpolate,
-	useAnimatedScrollHandler,
 	useAnimatedStyle,
 	useSharedValue,
 	withSequence,
 	withTiming,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useAuthStore } from "../../stores";
 import { useCustomLists } from "../../hooks/useCustomLists";
 import { CUSTOM_LIST_ITEM_MAX } from "../../enums";
 import type { CustomList, CustomListEntry } from "../../types";
-import { listHasItem, sheetListOrder, titleCount } from "../../utils";
-import { colors, spacing } from "../../theme";
-import BottomSheet, { SheetHeader, SheetOption, sheetStyles } from "./BottomSheet";
+import { listCoverItem, listHasItem, sheetListOrder, titleCount } from "../../utils";
+import { colors, spacing, typography } from "../../theme";
+import PosterImage from "../PosterImage";
+import { SheetHeader } from "./BottomSheet";
 import ListNameModal from "./ListNameModal";
 
 interface Props {
@@ -37,13 +33,15 @@ interface Props {
 	onClose: () => void;
 }
 
-const SCREEN_HEIGHT = Dimensions.get("window").height;
-/** Scrolled this far, the shadow under the Create row is fully in */
-const SHADOW_IN_DISTANCE = 16;
-/** The lists' scroll, at most this much of the screen (the part under the nav bar included) */
-const LIST_MAX_HEIGHT = SCREEN_HEIGHT * 0.55;
-/** Strong ease-out: the tick answers the tap at once */
-const TICK_EASE = Easing.bezier(0.23, 1, 0.32, 1);
+/** Opens part way; scrolling the lists first grows it to the top, then scrolls them */
+const SNAP_POINTS = ["60%", "100%"];
+/** Same feel as the app's other sheets (BottomSheet SHEET_SPRING): critically damped, no overshoot */
+const SHEET_SPRING = { damping: 30, stiffness: 220, overshootClamping: true } as const;
+/** Strong ease-out: the badge answers the tap at once */
+const TAP_EASE = Easing.bezier(0.23, 1, 0.32, 1);
+const COVER_SIZE = 52;
+/** Same badge as the search cards' Add to List button */
+const BADGE_SIZE = 30;
 
 const NAME_ERRORS = {
 	taken: "You already have a list with that name.",
@@ -53,31 +51,42 @@ const NAME_ERRORS = {
 } as const;
 
 /**
- * "Add to List": tick the lists a title belongs to (each tap saves at once), or create a new one
- * with it inside. A list is a bookmark — this never starts tracking the title. Same shell as the
- * watch count sheet: the title's logo (its name after a wait when there's none), grouped rows.
+ * "Add to List": tap the lists a title belongs to (each tap saves at once), or make a new one with
+ * it inside. A list is a bookmark — this never starts tracking the title. Laid out like a "save to
+ * collection" sheet: the title's logo on top, a Lists heading with New list, then the lists
+ * (cover, name, count) with the search cards' bookmark badge.
  */
 export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 	const insets = useSafeAreaInsets();
-	// The sheet's own bottom padding (BottomSheet) — the card runs through it to the screen edge,
-	// and the same space closes the scroll so the last row clears the nav bar
-	const bleed = insets.bottom + spacing.lg;
+	const sheetRef = useRef<GorhomSheet>(null);
+	const animationConfigs = useBottomSheetSpringConfigs(SHEET_SPRING);
+	const renderBackdrop = useCallback(
+		(props: BottomSheetBackdropProps) => (
+			<BottomSheetBackdrop
+				{...props}
+				appearsOnIndex={0}
+				disappearsOnIndex={-1}
+				opacity={0.6}
+				pressBehavior="close"
+			/>
+		),
+		[],
+	);
 	const user = useAuthStore((s) => s.user);
-	// Follows the scroll: rows read as sliding under the Create row, not cut off at it
-	const scrollY = useSharedValue(0);
-	const onScroll = useAnimatedScrollHandler((e) => {
-		scrollY.value = e.contentOffset.y;
-	});
-	const shadowStyle = useAnimatedStyle(() => ({
-		opacity: interpolate(scrollY.value, [0, SHADOW_IN_DISTANCE], [0, 1], Extrapolation.CLAMP),
-	}));
 	const { lists, loading, createList, addToList, removeFromList } = useCustomLists(user?.uid);
 	const [naming, setNaming] = useState(false);
+	// Swapping to the name popup unmounts the sheet, which reports a close — that one isn't the
+	// user closing it (it cleared the entry and the popup never showed)
+	const namingRef = useRef(false);
+	namingRef.current = naming;
 	const [creating, setCreating] = useState(false);
 	const [nameError, setNameError] = useState<string | null>(null);
-	// Order the sheet opened with (most recently created / modified first) — held while it is open
+	// Order the sheet opened with (lists holding the title, then newest) — held while it is open
 	const [pinned, setPinned] = useState<string[] | null>(null);
-	const ordered = useMemo(() => sheetListOrder(lists, pinned), [lists, pinned]);
+	const ordered = useMemo(
+		() => sheetListOrder(lists, pinned, entry ?? undefined),
+		[lists, pinned, entry],
+	);
 
 	useEffect(() => {
 		if (!entry) {
@@ -88,7 +97,8 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 	}, [entry]);
 
 	useEffect(() => {
-		if (entry && !loading && !pinned) setPinned(sheetListOrder(lists, null).map((l) => l.id));
+		if (entry && !loading && !pinned)
+			setPinned(sheetListOrder(lists, null, entry).map((l) => l.id));
 	}, [entry, loading, lists, pinned]);
 
 	const handleCreate = async (name: string) => {
@@ -96,7 +106,7 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 		setCreating(true);
 		const result = await createList(name, entry);
 		setCreating(false);
-		// Back to the sheet: the new list shows ticked with its count, confirming the add
+		// Back to the sheet: the new list shows on top, bookmarked, confirming the add
 		if (result.ok) setNaming(false);
 		else setNameError(NAME_ERRORS[result.reason]);
 	};
@@ -111,77 +121,88 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 	return (
 		<>
 			{/* Naming swaps the sheet for the name popup; creating or cancelling brings the sheet back */}
-			<BottomSheet visible={!!entry && !naming} onClose={onClose}>
-				{() =>
-					entry && (
-						<>
-							<SheetHeader
-								title={entry.title}
-								subtitle="Add to List"
-								tmdbId={entry.tmdbId}
-								mediaType={entry.mediaType}
-								centered
-							/>
-							{/* One card: Create fixed on top, the lists scroll under it and run off the bottom
-							    edge; scrolled to the end, a nav-bar-high gap closes it */}
-							<View style={[styles.card, { marginBottom: -bleed }]}>
-								<View style={styles.createRow}>
-									<SheetOption
-										icon="add"
-										color={colors.accent}
-										title="Create New List"
-										hint="Starts with this title"
+			<Modal
+				visible={!!entry && !naming}
+				transparent
+				animationType="none"
+				statusBarTranslucent
+				navigationBarTranslucent
+				onRequestClose={() => sheetRef.current?.close()}
+			>
+				<GestureHandlerRootView style={styles.root}>
+					{entry && (
+						<GorhomSheet
+							ref={sheetRef}
+							snapPoints={SNAP_POINTS}
+							enableDynamicSizing={false}
+							topInset={insets.top}
+							enablePanDownToClose
+							animationConfigs={animationConfigs}
+							backdropComponent={renderBackdrop}
+							backgroundStyle={styles.sheet}
+							handleIndicatorStyle={styles.handle}
+							onClose={() => {
+								if (!namingRef.current) onClose();
+							}}
+						>
+							<View style={styles.top}>
+								<SheetHeader
+									title={entry.title}
+									tmdbId={entry.tmdbId}
+									mediaType={entry.mediaType}
+									centered
+								/>
+							</View>
+							<View style={styles.divider} />
+							{/* The heading scrolls away with the lists; they run under the nav bar and,
+							    scrolled to the end, a nav-bar-high gap closes them */}
+							<BottomSheetScrollView
+								contentContainerStyle={[
+									styles.scrollContent,
+									{ paddingBottom: insets.bottom + spacing.lg },
+								]}
+								keyboardShouldPersistTaps="handled"
+							>
+								<View style={styles.heading}>
+									<Text style={styles.headingText}>Lists</Text>
+									<Pressable
 										onPress={() => {
 											setNameError(null);
 											setNaming(true);
 										}}
-									/>
-									<View style={styles.divider} />
-								</View>
-								<View>
-									<Reanimated.ScrollView
-										onScroll={onScroll}
-										scrollEventThrottle={16}
-										style={{ maxHeight: LIST_MAX_HEIGHT }}
-										contentContainerStyle={{ paddingBottom: bleed }}
-										bounces={false}
-										keyboardShouldPersistTaps="handled"
-										nestedScrollEnabled
+										hitSlop={10}
+										accessibilityRole="button"
+										style={({ pressed }) => pressed && styles.newListPressed}
 									>
-										<View style={styles.rows}>
-											{loading ? (
-												<ActivityIndicator style={styles.loader} color={colors.primary} />
-											) : ordered.length === 0 ? (
-												<Text style={styles.empty}>You don't have any lists yet.</Text>
-											) : (
-												ordered.map((list, i) => {
-													const has = listHasItem(list, entry.tmdbId, entry.mediaType);
-													const full = !has && list.items.length >= CUSTOM_LIST_ITEM_MAX;
-													return (
-														<React.Fragment key={list.id}>
-															{i > 0 && <View style={styles.separator} />}
-															<ListRow
-																name={list.name}
-																hint={full ? "List is full" : titleCount(list.items.length)}
-																checked={has}
-																disabled={full}
-																onPress={() => toggle(list, has)}
-															/>
-														</React.Fragment>
-													);
-												})
-											)}
-										</View>
-									</Reanimated.ScrollView>
-									<Reanimated.View pointerEvents="none" style={[styles.shadow, shadowStyle]}>
-										<LinearGradient colors={SHADOW_COLORS} style={StyleSheet.absoluteFill} />
-									</Reanimated.View>
+										<Text style={styles.newList}>New list</Text>
+									</Pressable>
 								</View>
-							</View>
-						</>
-					)
-				}
-			</BottomSheet>
+
+								{loading ? (
+									<ActivityIndicator style={styles.loader} color={colors.primary} />
+								) : ordered.length === 0 ? (
+									<Text style={styles.empty}>No lists yet — make one with New list.</Text>
+								) : (
+									ordered.map((list) => {
+										const has = listHasItem(list, entry.tmdbId, entry.mediaType);
+										const full = !has && list.items.length >= CUSTOM_LIST_ITEM_MAX;
+										return (
+											<ListRow
+												key={list.id}
+												list={list}
+												hint={full ? "List is full" : titleCount(list.items.length)}
+												listed={has}
+												disabled={full}
+												onPress={() => toggle(list, has)}
+											/>
+										);
+									})
+								)}
+							</BottomSheetScrollView>
+						</GorhomSheet>
+					)}
+				</GestureHandlerRootView>
+			</Modal>
 
 			<ListNameModal
 				visible={!!entry && naming}
@@ -199,45 +220,59 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 	);
 }
 
-/** One list: name + count, the tick on the right; scales a touch on press */
+/** One list: its cover (the title added last), name + count, the bookmark badge on the right */
 function ListRow({
-	name,
+	list,
 	hint,
-	checked,
+	listed,
 	disabled,
 	onPress,
 }: {
-	name: string;
+	list: CustomList;
 	hint: string;
-	checked: boolean;
+	listed: boolean;
 	disabled: boolean;
 	onPress: () => void;
 }) {
+	const cover = listCoverItem(list);
 	return (
 		<Pressable
 			onPress={onPress}
 			disabled={disabled}
 			accessibilityRole="checkbox"
-			accessibilityState={{ checked, disabled }}
+			accessibilityLabel={list.name}
+			accessibilityState={{ checked: listed, disabled }}
 			style={({ pressed }) => [
-				sheetStyles.row,
+				styles.row,
 				pressed && styles.rowPressed,
 				disabled && styles.rowDisabled,
 			]}
 		>
-			<View style={sheetStyles.rowContent}>
-				<Text style={sheetStyles.rowText} numberOfLines={1}>
-					{name}
+			{cover ? (
+				<PosterImage
+					posterPath={cover.posterPath}
+					mediaType={cover.mediaType}
+					style={styles.cover}
+				/>
+			) : (
+				<View style={[styles.cover, styles.coverEmpty]}>
+					<Ionicons name="list" size={22} color={colors.textMuted} />
+				</View>
+			)}
+			<View style={styles.rowContent}>
+				<Text style={styles.rowText} numberOfLines={1}>
+					{list.name}
 				</Text>
-				<Text style={sheetStyles.rowHint}>{hint}</Text>
+				<Text style={styles.rowHint}>{hint}</Text>
 			</View>
-			<Tick checked={checked} />
+			<Badge listed={listed} />
 		</Pressable>
 	);
 }
 
-/** Ring ↔ filled check; a change dips it to 0.85 and settles back (never grows from nothing) */
-function Tick({ checked }: { checked: boolean }) {
+/** The search cards' Add to List badge: outline bookmark, filled blue once listed. A change dips
+ *  it to 0.85 and settles back (never grows from nothing) */
+function Badge({ listed }: { listed: boolean }) {
 	const scale = useSharedValue(1);
 	// Mount shows the state as it is; only a change animates
 	const mounted = useRef(false);
@@ -247,47 +282,63 @@ function Tick({ checked }: { checked: boolean }) {
 			return;
 		}
 		scale.value = withSequence(
-			withTiming(0.85, { duration: 70, easing: TICK_EASE }),
-			withTiming(1, { duration: 180, easing: TICK_EASE }),
+			withTiming(0.85, { duration: 70, easing: TAP_EASE }),
+			withTiming(1, { duration: 180, easing: TAP_EASE }),
 		);
-	}, [checked, scale]);
+	}, [listed, scale]);
 	const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 	return (
-		<Reanimated.View style={style}>
-			<Ionicons
-				name={checked ? "checkmark-circle" : "ellipse-outline"}
-				size={26}
-				color={checked ? colors.accent : colors.textMuted}
-			/>
+		<Reanimated.View style={[styles.badge, listed && styles.badgeActive, style]}>
+			<Ionicons name={listed ? "bookmark" : "bookmark-outline"} size={15} color={colors.text} />
 		</Reanimated.View>
 	);
 }
 
-const CARD_RADIUS = 14;
-const SHADOW_COLORS = ["rgba(0, 0, 0, 0.35)", "rgba(0, 0, 0, 0)"] as const;
-
 const styles = StyleSheet.create({
-	// Rounds the Create row's top corners; the bottom runs off the screen
-	card: { borderTopLeftRadius: CARD_RADIUS, borderTopRightRadius: CARD_RADIUS, overflow: "hidden" },
-	createRow: { backgroundColor: colors.surfaceDim },
-	// Full width: closes the Create row off from the lists
+	root: { flex: 1 },
+	sheet: { backgroundColor: colors.surface, borderRadius: 20 },
+	handle: { width: 36, height: 4, backgroundColor: colors.textMuted },
+	top: { paddingHorizontal: spacing.lg },
+	scrollContent: { paddingHorizontal: spacing.lg },
 	divider: { height: StyleSheet.hairlineWidth * 2, backgroundColor: colors.border },
-	// On the scroll's top edge, just under the divider
-	shadow: { position: "absolute", left: 0, right: 0, top: 0, height: 10 },
-	rows: {
-		backgroundColor: colors.surfaceLight,
-		borderBottomLeftRadius: CARD_RADIUS,
-		borderBottomRightRadius: CARD_RADIUS,
-		overflow: "hidden",
+	heading: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		paddingTop: spacing.lg,
+		paddingBottom: spacing.sm,
 	},
-	// 2 hairlines: a single one lands between pixels while scrolling and blinks out
-	separator: {
-		height: StyleSheet.hairlineWidth * 2,
-		backgroundColor: colors.border,
-		marginLeft: spacing.md,
+	headingText: { ...typography.subtitle, fontSize: 18 },
+	newList: { color: colors.accent, fontSize: 15, fontWeight: "600" },
+	newListPressed: { opacity: 0.6 },
+	row: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.md,
+		paddingVertical: spacing.sm,
 	},
-	rowPressed: { backgroundColor: colors.border, transform: [{ scale: 0.98 }] },
+	rowPressed: { opacity: 0.6, transform: [{ scale: 0.98 }] },
 	rowDisabled: { opacity: 0.4 },
+	cover: { width: COVER_SIZE, height: COVER_SIZE, borderRadius: 10, overflow: "hidden" },
+	coverEmpty: {
+		backgroundColor: colors.surfaceLight,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	rowContent: { flex: 1, minWidth: 0 },
+	rowText: { ...typography.subtitle, fontSize: 16 },
+	rowHint: { ...typography.caption, fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+	badge: {
+		width: BADGE_SIZE,
+		height: BADGE_SIZE,
+		borderRadius: BADGE_SIZE / 2,
+		borderWidth: 2,
+		borderColor: colors.text,
+		backgroundColor: colors.badgeOverlay,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	badgeActive: { backgroundColor: colors.accent, borderColor: colors.accent },
 	loader: { paddingVertical: spacing.xl },
 	empty: {
 		color: colors.textSecondary,

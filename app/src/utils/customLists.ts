@@ -88,16 +88,30 @@ const byRecent = (a: CustomList, b: CustomList) =>
 	b.updatedAt - a.updatedAt || b.createdAt - a.createdAt;
 
 /**
- * Add to List sheet order: most recently created or modified first. `pinned` = the ids in the
- * order the sheet opened with — kept while it is open so a ticked row never jumps under the
- * finger; lists made since go on top. null = not opened yet → plain recency.
+ * Add to List sheet order: lists already holding `entry` first, then most recently created or
+ * modified. `pinned` = the ids in the order the sheet opened with — kept while it is open so a
+ * ticked row never jumps under the finger; lists made since go on top. null = not opened yet.
  */
-export function sheetListOrder(lists: CustomList[], pinned: string[] | null): CustomList[] {
-	if (!pinned) return [...lists].sort(byRecent);
+export function sheetListOrder(
+	lists: CustomList[],
+	pinned: string[] | null,
+	entry?: Pick<CustomListEntry, "tmdbId" | "mediaType">,
+): CustomList[] {
+	if (!pinned) {
+		const holds = (l: CustomList) => (entry && listHasItem(l, entry.tmdbId, entry.mediaType) ? 1 : 0);
+		return [...lists].sort((a, b) => holds(b) - holds(a) || byRecent(a, b));
+	}
 	const rank = new Map(pinned.map((id, i) => [id, i]));
 	const fresh = lists.filter((l) => !rank.has(l.id)).sort(byRecent);
 	const kept = lists.filter((l) => rank.has(l.id)).sort((a, b) => rank.get(a.id)! - rank.get(b.id)!);
 	return [...fresh, ...kept];
+}
+
+/** The title a list shows as its cover: the one added last (null when empty) */
+export function listCoverItem(list: CustomList): CustomListItem | null {
+	let cover: CustomListItem | null = null;
+	for (const item of list.items) if (!cover || item.addedAt > cover.addedAt) cover = item;
+	return cover;
 }
 
 /** Array with the element at `from` moved to `to` (a new array; same one back when nothing moves) */

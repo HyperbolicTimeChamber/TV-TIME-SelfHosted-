@@ -1,87 +1,141 @@
 @use "../../theme/tokens" as *;
 
-/* The sheet's own bottom padding (BottomSheet .sheet) — the card runs through it to the screen
+/* The sheet's own bottom padding (BottomSheet .sheet) — the lists run through it to the screen
    edge, and the same space closes the scroll so the last row clears the nav bar */
 $bleed: calc(env(safe-area-inset-bottom) + 16px);
-$radius: 14px;
+/* Same badge as the search cards' Add to List button */
+$badge: 30px;
 
-/* Create row + lists as one card; rounds the top, the bottom runs off the screen */
-.card {
-	border-radius: $radius $radius 0 0;
-	overflow: hidden;
-	margin-bottom: calc(-1 * #{$bleed});
-}
-
-.createRow {
-	position: relative;
-	z-index: 1;
-	background: var(--surface-dim);
-
-	/* Shadow on the lists' top edge, in only while they're scrolled under */
-	&::after {
-		content: "";
-		position: absolute;
-		left: 0;
-		right: 0;
-		top: 100%;
-		height: 10px;
-		background: linear-gradient(rgba(0, 0, 0, 0.35), transparent);
-		opacity: 0;
-		transition: opacity 160ms ease-out;
-		pointer-events: none;
-	}
-
-	&:has(+ .scrolled)::after {
-		opacity: 1;
-	}
-}
-
-/* Full width: closes the Create row off from the lists */
+/* Edge to edge under the logo (cancels the sheet's 16px side padding) */
 .divider {
 	height: 1px;
 	background: var(--border);
+	margin: 0 -16px;
 }
 
+.heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 16px 0 8px;
+}
+
+.headingText {
+	font-size: 18px;
+	font-weight: 600;
+}
+
+.newList {
+	background: none;
+	border: none;
+	padding: 4px 0;
+	color: $accent;
+	font-size: 15px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: opacity 160ms ease;
+
+	&:active {
+		opacity: 0.6;
+	}
+}
+
+/* Part way open: no scrolling yet — the first scroll grows the sheet (drawer curve) */
 .listScroll {
+	box-sizing: border-box;
 	max-height: 55vh;
-	overflow-y: auto;
+	overflow-y: hidden;
+	transition: height 300ms cubic-bezier(0.32, 0.72, 0, 1);
 	overscroll-behavior: contain;
 	touch-action: pan-y;
+	margin-bottom: calc(-1 * #{$bleed});
 	padding-bottom: $bleed;
 }
 
-.rows {
-	background: var(--surface-light);
-	border-radius: 0 0 $radius $radius;
+.listScrollExpanded {
+	overflow-y: auto;
+}
+
+.row {
+	width: 100%;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 0;
+	background: none;
+	border: none;
+	color: var(--text);
+	text-align: left;
+	cursor: pointer;
+	transition:
+		transform 160ms ease-out,
+		opacity 160ms ease;
+
+	&:active:not(:disabled) {
+		transform: scale(0.98);
+		opacity: 0.6;
+	}
+
+	&:disabled {
+		opacity: 0.4;
+		cursor: default;
+	}
+}
+
+.cover {
+	flex-shrink: 0;
+	width: 52px;
+	height: 52px;
+	border-radius: 10px;
 	overflow: hidden;
+	object-fit: cover;
 }
 
-/* Text-only rows: starts under the text */
-.separator {
-	height: 1px;
-	background: var(--border);
-	margin-left: 12px;
+.coverEmpty {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--surface-light);
+	color: var(--text-muted);
 }
 
-.listRow:disabled {
-	opacity: 0.4;
-	cursor: default;
+.rowContent {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
 }
 
-.truncate {
+.rowText {
+	font-size: 16px;
+	font-weight: 600;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
-.tick {
-	flex-shrink: 0;
-	display: inline-flex;
-	color: var(--text-muted);
+.rowHint {
+	font-size: 13px;
+	color: var(--text-secondary);
 }
 
-.tickOn {
-	color: $accent;
+.badge {
+	flex-shrink: 0;
+	width: $badge;
+	height: $badge;
+	border-radius: 50%;
+	border: 2px solid var(--text);
+	background: rgba(0, 0, 0, 0.5);
+	color: var(--text);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.badgeActive {
+	background: $accent;
+	border-color: $accent;
 }
 
 .loader {

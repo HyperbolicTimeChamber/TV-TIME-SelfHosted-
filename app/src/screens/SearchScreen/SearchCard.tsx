@@ -51,6 +51,7 @@ function SearchCard({
 				hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
 				activeOpacity={0.7}
 				disabled={isAdding}
+				accessibilityLabel={isInWatchlist ? "Remove from watchlist" : "Add to watchlist"}
 			>
 				{isAdding ? (
 					<ActivityIndicator size="small" color={colors.text} />

@@ -2,8 +2,6 @@ export const colors = {
 	background: "#000000",
 	surface: "#1A1A1A",
 	surfaceLight: "#252525",
-	/** A step under surfaceLight — a fixed row heading a card (Add to List's Create) */
-	surfaceDim: "#202020",
 	primary: "#E50914",
 	/** Deep red fill for a selected row (sort sheet) — white text stays readable on it */
 	primaryDark: "#5C0A10",
