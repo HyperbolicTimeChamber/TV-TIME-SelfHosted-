@@ -17,6 +17,10 @@ interface Props {
 	/** Spinner in the confirm button; the other buttons are locked while it runs */
 	loading?: boolean;
 	onConfirm: () => void;
+	/** Optional choice ABOVE the confirm button (e.g. "Export My Data First" over a destructive Delete) */
+	leadLabel?: string;
+	leadColor?: string;
+	onLead?: () => void;
 	/** Optional second choice under the confirm button (e.g. "Just This One") */
 	secondaryLabel?: string;
 	secondaryColor?: string;
@@ -46,6 +50,9 @@ export default function ConfirmModal({
 	confirmColor,
 	loading,
 	onConfirm,
+	leadLabel,
+	leadColor,
+	onLead,
 	secondaryLabel,
 	secondaryColor,
 	onSecondary,
@@ -79,6 +86,16 @@ export default function ConfirmModal({
 			)}
 			{hint && <p className={styles.modalHint}>{hint}</p>}
 			{error && <p className={styles.modalError}>{error}</p>}
+			{leadLabel && onLead && (
+				<button
+					className={`${styles.button} ${styles.danger} bg-(--lead)!`}
+					style={cssVars({ "--lead": leadColor ?? "var(--accent, #4a90d9)" })}
+					onClick={onLead}
+					disabled={loading}
+				>
+					{leadLabel}
+				</button>
+			)}
 			<button
 				className={`${styles.button} ${styles.danger} ${confirmColor ? "bg-(--confirm)!" : ""}`}
 				style={confirmColor ? cssVars({ "--confirm": confirmColor }) : undefined}

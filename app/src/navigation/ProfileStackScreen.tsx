@@ -23,7 +23,7 @@ export default function ProfileStackScreen() {
 			<ProfileStack.Screen
 				name={Route.SETTINGS}
 				component={SettingsScreen}
-				options={{ headerShown: false }}
+				options={swipeBackScreenOptions}
 			/>
 			<ProfileStack.Screen
 				name={Route.WATCH_HISTORY}
