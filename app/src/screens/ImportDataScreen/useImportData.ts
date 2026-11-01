@@ -5,6 +5,9 @@ import { getCrashlytics, recordError } from "@react-native-firebase/crashlytics"
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "../../stores";
+import { useCustomLists } from "../../hooks/useCustomLists";
+import { parseAccountExport } from "../../utils/accountExport";
+import { describeImport } from "../../utils/customListsIO";
 import {
 	parseGdprZip,
 	matchShowsAndMovies,
@@ -22,6 +25,12 @@ import {
 	IMPORT_MAX_WAIT_MS,
 	IMPORT_MAYBE_RUNNING_ERRORS,
 } from "../../enums";
+
+const RESTORE_ERRORS = {
+	invalid: "That file isn't a Watchloom account export.",
+	newer: "That export is from a newer version of the app. Update the app and try again.",
+	empty: "That export has nothing to restore.",
+};
 
 export type ImportPhase = "pick" | "matching" | "disambiguate" | "review" | "importing";
 
@@ -261,6 +270,37 @@ export function useImportData(onComplete: () => void) {
 		});
 	}, []);
 
+	/** Marks the import running and calls importMatches; ends on success or a real failure */
+	const runImportCall = useCallback(
+		async (cfMatches: unknown[]) => {
+			await AsyncStorage.setItem(
+				CacheKey.IMPORT_IN_PROGRESS,
+				JSON.stringify({ userId: user!.uid, startedAt: importStartedAtRef.current }),
+			);
+
+			const functions = getFunctions();
+			const importFn = httpsCallable(functions, CloudFunction.IMPORT_MATCHES, {
+				timeout: 3600000,
+			});
+			try {
+				await importFn({ matches: cfMatches });
+			} catch (err: any) {
+				recordError(
+					getCrashlytics(),
+					err instanceof Error ? err : new Error(String(err?.message ?? err)),
+					"ImportError",
+				);
+				const code = String(err?.code ?? "").replace(/^functions\//, "");
+				// Server may still finish → stay on "importing"; the lastImportAt listener ends it
+				if (IMPORT_MAYBE_RUNNING_ERRORS.includes(code)) return;
+				await failImport(err?.message || "Import failed.");
+				return;
+			}
+			await finishImport();
+		},
+		[user, finishImport, failImport],
+	);
+
 	// --- Import via Cloud Function ---
 	const handleImport = useCallback(() => {
 		if (!user || !parsedRef.current) return;
@@ -335,32 +375,33 @@ export function useImportData(onComplete: () => void) {
 				}
 			});
 
-			await AsyncStorage.setItem(
-				CacheKey.IMPORT_IN_PROGRESS,
-				JSON.stringify({ userId: user!.uid, startedAt: importStartedAtRef.current }),
-			);
+			await runImportCall(cfMatches);
+		}, 50);
+	}, [user, matched, selected, runImportCall]);
 
-			const functions = getFunctions();
-			const importFn = httpsCallable(functions, CloudFunction.IMPORT_MATCHES, {
-				timeout: 3600000,
-			});
-			try {
-				await importFn({ matches: cfMatches });
-			} catch (err: any) {
-				recordError(
-					getCrashlytics(),
-					err instanceof Error ? err : new Error(String(err?.message ?? err)),
-					"ImportError",
-				);
-				const code = String(err?.code ?? "").replace(/^functions\//, "");
-				// Server may still finish → stay on "importing"; the lastImportAt listener ends it
-				if (IMPORT_MAYBE_RUNNING_ERRORS.includes(code)) return;
-				await failImport(err?.message || "Import failed.");
+	// --- Restore a Watchloom account export (.json): no matching, straight to the import ---
+	const { planImport, applyImport } = useCustomLists(user?.uid);
+	const restoreAccount = useCallback(
+		async (text: string) => {
+			if (!user) return;
+			const parsed = parseAccountExport(text);
+			if (!parsed.ok) {
+				Alert.alert("Import Error", RESTORE_ERRORS[parsed.reason]);
 				return;
 			}
-			await finishImport();
-		}, 50);
-	}, [user, matched, selected, finishImport, failImport]);
+			importStartedAtRef.current = Date.now();
+			importDoneRef.current = false;
+			setPhase("importing");
+			if (parsed.lists.length > 0) {
+				const plan = planImport(parsed.lists);
+				const saved = await applyImport(plan).catch(() => false);
+				if (saved) Alert.alert("Lists restored", describeImport(plan));
+			}
+			if (parsed.matches.length > 0) await runImportCall(parsed.matches);
+			else await finishImport();
+		},
+		[user, planImport, applyImport, runImportCall, finishImport],
+	);
 
 	return {
 		phase,
@@ -385,5 +426,6 @@ export function useImportData(onComplete: () => void) {
 		handleBackDisambig,
 		toggleSelected,
 		handleImport,
+		restoreAccount,
 	};
 }

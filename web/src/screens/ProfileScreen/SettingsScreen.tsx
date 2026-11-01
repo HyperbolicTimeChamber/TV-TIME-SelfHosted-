@@ -4,6 +4,7 @@ import { App as AntApp } from "antd";
 import { useNavigate } from "react-router-dom";
 import { getFunctions, httpsCallable } from "../../platform/functions";
 import { CloudFunction } from "@app/enums";
+import { downloadAccountExport } from "../../platform/accountExport";
 import { resetPassword, signOut } from "../../services/auth";
 import { useAppSelector } from "../../store";
 import { Paths } from "../../routes/paths";
@@ -19,6 +20,7 @@ export default function SettingsScreen() {
 	const user = useAppSelector((s) => s.auth.user);
 	const hasCompletedImport = useAppSelector((s) => s.auth.hasCompletedImport);
 	const [deleting, setDeleting] = useState(false);
+	const [exporting, setExporting] = useState(false);
 	const isEmailUser = user?.providerData.some((p) => p.providerId === "password") ?? false;
 
 	const changePassword = async () => {
@@ -28,6 +30,18 @@ export default function SettingsScreen() {
 			message.success("Reset email sent — check your inbox.");
 		} catch {
 			message.error("Failed to send reset email. Try again later.");
+		}
+	};
+
+	const exportData = async () => {
+		if (exporting) return;
+		setExporting(true);
+		try {
+			await downloadAccountExport();
+		} catch (err) {
+			message.error((err as Error).message || "Couldn't export your data. Try again later.");
+		} finally {
+			setExporting(false);
 		}
 	};
 
@@ -60,6 +74,9 @@ export default function SettingsScreen() {
 				<h2 className={styles.sectionTitle}>Data</h2>
 				<button className={styles.row} onClick={() => navigate(Paths.IMPORT)}>
 					{hasCompletedImport ? "Re-sync TV Time Data" : "Import TV Time Data"}
+				</button>
+				<button className={styles.row} onClick={exportData} disabled={exporting}>
+					{exporting ? "Exporting…" : "Export My Data"}
 				</button>
 			</section>
 
@@ -105,11 +122,13 @@ export default function SettingsScreen() {
 				visible={deleteVisible}
 				title="Is This Goodbye?"
 				image={<ModalArt src={FAREWELL_ART} />}
-				hint="This will permanently delete your account and all data. This cannot be undone."
+				hint="This will permanently delete your account and all data. This cannot be undone. Want a copy first?"
 				error={deleteError}
 				confirmLabel="Delete"
 				loading={deleting}
 				onConfirm={deleteAccount}
+				secondaryLabel={exporting ? "Exporting…" : "Export My Data First"}
+				onSecondary={exportData}
 				onClose={() => setDeleteVisible(false)}
 			/>
 		</div>
