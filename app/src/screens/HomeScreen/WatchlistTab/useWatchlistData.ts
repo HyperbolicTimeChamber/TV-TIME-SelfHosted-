@@ -36,6 +36,7 @@ import {
 	isFinaleEpisode,
 	adjacentPointer,
 } from "../../../utils";
+import { promoteShows } from "../../../utils/watchlistOrder";
 import {
 	MediaType,
 	CacheKey,
@@ -142,6 +143,8 @@ function buildCardItem(item: EnrichedTrackingItem, today: string) {
 	};
 }
 
+/** A mark's client time vs the priority Firestore stores for it (a server timestamp may lag) */
+const PROMOTE_CLOCK_SKEW_MS = 5000;
 export type CardItem = ReturnType<typeof buildCardItem>;
 
 /**
@@ -249,6 +252,24 @@ export function useWatchlistData(userId: string | undefined) {
 	const [updatingShows, setUpdatingShows] = useState<Map<number, string>>(new Map());
 	// Optimistic card patches applied after Firestore write, before listener re-enriches
 	const [optimisticCards, setOptimisticCards] = useState<Map<number, Partial<CardItem>>>(new Map());
+	// Shows just marked → top of the list at once (tmdbId → when), before Firestore confirms the
+	// new priority (~a round trip). The saved list carries it too: closing the app in that window
+	// brought the card back in its old spot on the next launch, then it jumped up
+	const [promoted, setPromoted] = useState<ReadonlyMap<number, number>>(new Map());
+	// Bumped on every mark that lifts a card — the list animates card moves only right after one
+	const [promotions, setPromotions] = useState(0);
+	const promote = useCallback((tmdbId: number) => {
+		setPromoted((prev) => new Map(prev).set(tmdbId, Date.now()));
+		setPromotions((n) => n + 1);
+	}, []);
+	const unpromote = useCallback((tmdbId: number) => {
+		setPromoted((prev) => {
+			if (!prev.has(tmdbId)) return prev;
+			const next = new Map(prev);
+			next.delete(tmdbId);
+			return next;
+		});
+	}, []);
 	// Pointer (`season-episode`) each patch was made from — the listener moving it anywhere else
 	// (an unwatch, another screen) means the patch is stale
 	const optimisticFrom = useRef(new Map<number, string>());
@@ -435,9 +456,12 @@ export function useWatchlistData(userId: string | undefined) {
 			});
 		}
 
-		// If one type is empty and fully loaded, show all of the other
-		if (epItems.length === 0 && !hasMoreEps) return movieItems;
-		if (movieItems.length === 0 && !hasMoreMovies) return epItems;
+		// If one type is empty and fully loaded, show all of the other — ascending like the merge
+		// below (the queries come newest first; unsorted, the cached tier kept the oldest rows
+		// and a fresh mark never showed)
+		const ascending = (list: PrevItem[]) => [...list].sort((a, b) => a.time - b.time);
+		if (epItems.length === 0 && !hasMoreEps) return ascending(movieItems);
+		if (movieItems.length === 0 && !hasMoreMovies) return ascending(epItems);
 		// If one type is empty but has more pages, can't show anything from the other
 		// (gaps might exist) — show nothing until pull loads data
 		if (epItems.length === 0 || movieItems.length === 0) return [];
@@ -548,13 +572,25 @@ export function useWatchlistData(userId: string | undefined) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- catalogFillTick: rebuild once a fill lands
 	}, [allLoading, prevWatchedItems, sortedActive, showMap, today, catalogFillTick]);
 
+	const orderedLive = useMemo(() => promoteShows(liveList, promoted), [liveList, promoted]);
+
+	// Firestore's own order has caught up (priority at least the mark's) → drop the promotion
+	useEffect(() => {
+		if (promoted.size === 0) return;
+		for (const [tmdbId, at] of promoted) {
+			const live = items.find((i) => i.tmdbId === tmdbId);
+			const ms = live?.priorityDate?.toMillis?.() ?? 0;
+			if (!live || ms >= at - PROMOTE_CLOCK_SKEW_MS) unpromote(tmdbId);
+		}
+	}, [items, promoted, unpromote]);
+
 	// --- Persist list cache when live data updates (only cached tier, not volatile) ---
 	useEffect(() => {
-		if (!userId || allLoading || liveList.length === 0) return;
+		if (!userId || allLoading || orderedLive.length === 0) return;
 
 		// Cache: newest PREV_WATCHED_CACHE_SIZE watched items + the show cards
 		const cacheList: CacheableWatchlistListItem[] = [];
-		const cachedWatchedItems = liveList.filter(
+		const cachedWatchedItems = orderedLive.filter(
 			(i) => i.type === "watchedEpisode" || i.type === "watchedMovie",
 		);
 		const cachedOnly = cachedWatchedItems.slice(-PREV_WATCHED_CACHE_SIZE);
@@ -563,7 +599,7 @@ export function useWatchlistData(userId: string | undefined) {
 			cacheList.push(...cachedOnly);
 		}
 		// Show cards without catalogShow (too big to persist)
-		const showItems = liveList.filter((i) => i.type === "show");
+		const showItems = orderedLive.filter((i) => i.type === "show");
 		if (showItems.length > 0) {
 			cacheList.push({ type: "sectionHeader", title: "What's Up Next" });
 			for (const item of showItems) {
@@ -579,7 +615,7 @@ export function useWatchlistData(userId: string | undefined) {
 			JSON.stringify({ userId, date: todayStr(), list: cacheList }),
 		).catch(() => {});
 		if (cachedList) setCachedList(null);
-	}, [userId, allLoading, liveList]);
+	}, [userId, allLoading, orderedLive]);
 
 	// Confirmed by the live listeners: first load done, no page pending, none left
 	const liveExhausted = !allLoading && !loadingMoreTracking && !hasMoreTracking;
@@ -593,10 +629,10 @@ export function useWatchlistData(userId: string | undefined) {
 
 	// --- Effective display: blend cached shows + live previously watched ---
 	const rawDisplayList = useMemo(() => {
-		if (!cachedList) return liveList;
-		if (liveList.length === 0) return cachedList;
-		return liveList;
-	}, [cachedList, liveList]);
+		if (!cachedList) return orderedLive;
+		if (orderedLive.length === 0) return cachedList;
+		return orderedLive;
+	}, [cachedList, orderedLive]);
 	const effectiveLoading = reordering || (allLoading && !cachedList);
 
 	// Apply optimistic card patches
@@ -796,6 +832,7 @@ export function useWatchlistData(userId: string | undefined) {
 				),
 			);
 
+			promote(item.tmdbId);
 			try {
 				await markEpisodeWatched(
 					userId,
@@ -863,6 +900,7 @@ export function useWatchlistData(userId: string | undefined) {
 					});
 				}
 			} catch (err: any) {
+				unpromote(item.tmdbId);
 				rollbackUpcoming(upcomingSnapshot);
 				setUpdatingShows((prev) => {
 					const next = new Map(prev);
@@ -875,6 +913,8 @@ export function useWatchlistData(userId: string | undefined) {
 		},
 		[
 			userId,
+			promote,
+			unpromote,
 			queryClient,
 			mutateCachedUpcoming,
 			rollbackUpcoming,
@@ -941,6 +981,7 @@ export function useWatchlistData(userId: string | undefined) {
 			const endOffsets = batchEndOffsets(
 				seasonEntries.map(([, eps]) => eps.map((e) => e.runtime || 0)),
 			);
+			promote(tmdbId);
 			for (let i = 0; i < seasonEntries.length; i++) {
 				const [sn, eps] = seasonEntries[i];
 				const isLast = i === seasonEntries.length - 1;
@@ -954,7 +995,10 @@ export function useWatchlistData(userId: string | undefined) {
 					isLast ? (nextAfterTarget?.title ?? null) : null,
 					isLast ? (nextAfterTarget?.airDate ?? null) : null,
 					{ endOffsetMs: endOffsets[i] },
-				);
+				).catch((err) => {
+					unpromote(tmdbId);
+					throw err;
+				});
 			}
 
 			// Insert all into watched cache + update daily counter, at the same back-to-back finish
@@ -983,7 +1027,7 @@ export function useWatchlistData(userId: string | undefined) {
 				});
 			}
 		},
-		[userId, items, queryClient, markedCount],
+		[userId, items, queryClient, markedCount, promote, unpromote],
 	);
 
 	const handleUnmarkEpisode = useCallback(
@@ -1240,6 +1284,7 @@ export function useWatchlistData(userId: string | undefined) {
 	return {
 		removeItem,
 		listData,
+		promotions,
 		loading: effectiveLoading,
 		// Everything fetched (confirmed now, or by the last session while this one still loads):
 		// only then can an empty "What's Up Next" really mean "all caught up". Until then the
