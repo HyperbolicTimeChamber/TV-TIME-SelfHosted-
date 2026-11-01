@@ -3,7 +3,7 @@ import { View, Text, FlatList, ActivityIndicator, Pressable, StyleSheet } from "
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, typography } from "../../theme";
 import type { CustomListEntry, MediaType } from "../../types";
-import { useCustomLists, useRecentlyWatched } from "../../hooks";
+import { useCustomLists } from "../../hooks";
 import PosterImage from "../../components/PosterImage";
 import { profileLists } from "../../utils";
 import { styles as profileStyles } from "./styles";
@@ -31,7 +31,6 @@ export default function CustomLists({
 }: Readonly<Props>) {
 	const { lists, loading } = useCustomLists(userId);
 	const shown = profileLists(lists);
-	const recent = useRecentlyWatched();
 
 	return (
 		<View style={profileStyles.section}>
@@ -51,16 +50,6 @@ export default function CustomLists({
 				<Text style={styles.seeAll}>See all</Text>
 				<Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
 			</Pressable>
-
-			{/* Both histories in first: one alone drew a partial row that then reshuffled */}
-			{!recent.loading && recent.items.length > 0 && (
-				<Row
-					icon="time-outline"
-					name="Recently Watched"
-					items={recent.items}
-					onOpenTitle={onOpenTitle}
-				/>
-			)}
 
 			{loading && lists.length === 0 ? (
 				<ActivityIndicator style={styles.loader} size="small" color={colors.primary} />
