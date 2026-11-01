@@ -257,6 +257,19 @@
 	margin-bottom: 12px;
 }
 
+/* The "Lists" banner: opens the page that manages every list */
+.bannerTitle {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	background: none;
+	border: none;
+	padding: 0;
+	color: var(--text);
+	cursor: pointer;
+}
+
 .iconButton {
 	display: flex;
 	background: none;

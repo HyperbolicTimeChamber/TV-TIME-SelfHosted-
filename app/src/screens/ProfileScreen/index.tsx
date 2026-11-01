@@ -203,6 +203,7 @@ export default function ProfileScreen() {
 
 			<CustomLists
 				userId={user?.uid}
+				onOpenLists={() => navigation.navigate(Route.LISTS)}
 				onOpenList={(listId) => navigation.navigate(Route.LIST_DETAIL, { listId })}
 				onOpenTitle={handleCompletedItemPress}
 			/>

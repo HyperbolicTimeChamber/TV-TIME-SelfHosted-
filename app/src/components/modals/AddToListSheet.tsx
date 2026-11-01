@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
 	View,
 	Text,
-	TouchableOpacity,
+	Pressable,
 	Modal,
 	Animated,
 	PanResponder,
@@ -17,7 +17,7 @@ import { useAuthStore } from "../../stores";
 import { useCustomLists } from "../../hooks/useCustomLists";
 import { CUSTOM_LIST_ITEM_MAX } from "../../enums";
 import type { CustomListEntry } from "../../types";
-import { listHasItem } from "../../utils";
+import { listHasItem, titleCount } from "../../utils";
 import { colors, spacing, typography } from "../../theme";
 import ListNameModal from "./ListNameModal";
 
@@ -48,6 +48,11 @@ const NAME_ERRORS = {
 /**
  * "Add to List": tick the lists a title belongs to (each tap saves at once), or create a new one
  * with it inside. A list is a bookmark — this never starts tracking the title.
+ *
+ * Touch layout matters here (a tap on a list used to need two tries on a phone): the dismiss
+ * target sits *behind* the sheet, not around it (a touch responder wrapped around the rows takes
+ * the first touch), the drag-to-close pan lives on the header only (a pan responder over the rows
+ * claims a finger that wobbles a little), and the scroll view lets taps through (`handled`).
  */
 export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 	const insets = useSafeAreaInsets();
@@ -73,7 +78,7 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 		}
 	}, [entry]);
 
-	const dismiss = () => {
+	const slideOut = () => {
 		Animated.timing(translateY, {
 			toValue: SCREEN_HEIGHT,
 			duration: 200,
@@ -81,24 +86,18 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 		}).start(() => onClose());
 	};
 
+	// Header only: drag down to close
 	const panResponder = useRef(
 		PanResponder.create({
-			onStartShouldSetPanResponder: () => false,
-			onMoveShouldSetPanResponder: (_, gs) => gs.dy > 8 && Math.abs(gs.dy) > Math.abs(gs.dx),
+			onStartShouldSetPanResponder: () => true,
 			onPanResponderMove: (_, gs) => {
 				if (gs.dy > 0) translateY.setValue(gs.dy);
 			},
 			onPanResponderRelease: (_, gs) => {
-				if (gs.dy > 80 || gs.vy > 0.5) {
-					Animated.timing(translateY, {
-						toValue: SCREEN_HEIGHT,
-						duration: 200,
-						useNativeDriver: true,
-					}).start(() => onClose());
-				} else {
-					Animated.spring(translateY, SHEET_SPRING).start();
-				}
+				if (gs.dy > 80 || gs.vy > 0.5) slideOut();
+				else Animated.spring(translateY, SHEET_SPRING).start();
 			},
+			onPanResponderTerminate: () => Animated.spring(translateY, SHEET_SPRING).start(),
 		}),
 	).current;
 
@@ -117,77 +116,83 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 
 	return (
 		<>
-			<Modal visible={visible} transparent animationType="none" onRequestClose={dismiss}>
-				<TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={dismiss}>
+			<Modal visible={visible} transparent animationType="none" onRequestClose={slideOut}>
+				<View style={styles.overlay}>
+					<Pressable style={StyleSheet.absoluteFill} onPress={slideOut} />
 					<Animated.View
 						style={[
 							styles.sheet,
 							{ paddingBottom: Math.max(34, insets.bottom + 16), transform: [{ translateY }] },
 						]}
-						{...panResponder.panHandlers}
 					>
-						<TouchableOpacity activeOpacity={1}>
+						<View {...panResponder.panHandlers}>
 							<View style={styles.handle} />
 							<Text style={styles.title}>Add to List</Text>
 							<Text style={styles.subtitle} numberOfLines={1}>
 								{entry?.title}
 							</Text>
+						</View>
 
-							<TouchableOpacity
-								style={styles.option}
-								onPress={() => {
-									setNameError(null);
-									setNaming(true);
-								}}
+						<Pressable
+							style={styles.option}
+							onPress={() => {
+								setNameError(null);
+								setNaming(true);
+							}}
+						>
+							<Ionicons name="add-circle" size={26} color={colors.accent} style={styles.icon} />
+							<Text style={[styles.optionText, { color: colors.accent }]}>Create New List</Text>
+						</Pressable>
+
+						{loading ? (
+							<ActivityIndicator style={styles.loader} color={colors.primary} />
+						) : lists.length === 0 ? (
+							<Text style={styles.empty}>You don't have any lists yet.</Text>
+						) : (
+							<ScrollView
+								style={styles.listScroll}
+								bounces={false}
+								keyboardShouldPersistTaps="handled"
+								nestedScrollEnabled
 							>
-								<Ionicons name="add-circle" size={26} color={colors.accent} style={styles.icon} />
-								<Text style={[styles.optionText, { color: colors.accent }]}>Create New List</Text>
-							</TouchableOpacity>
-
-							{loading ? (
-								<ActivityIndicator style={styles.loader} color={colors.primary} />
-							) : lists.length === 0 ? (
-								<Text style={styles.empty}>You don't have any lists yet.</Text>
-							) : (
-								<ScrollView style={styles.listScroll} bounces={false}>
-									{lists.map((list) => {
-										const has = !!entry && listHasItem(list, entry.tmdbId, entry.mediaType);
-										const full = !has && list.items.length >= CUSTOM_LIST_ITEM_MAX;
-										return (
-											<TouchableOpacity
-												key={list.id}
-												style={[styles.option, full && { opacity: 0.4 }]}
-												disabled={full || !entry}
-												onPress={() =>
-													entry &&
-													(has
-														? removeFromList(list.id, entry.tmdbId, entry.mediaType)
-														: addToList(list.id, entry))
-												}
-											>
-												<View style={styles.optionContent}>
-													<Text style={styles.optionText} numberOfLines={1}>
-														{list.name}
-													</Text>
-													<Text style={styles.optionHint}>
-														{full
-															? "List is full"
-															: `${list.items.length} ${list.items.length === 1 ? "title" : "titles"}`}
-													</Text>
-												</View>
-												<Ionicons
-													name={has ? "checkmark-circle" : "ellipse-outline"}
-													size={26}
-													color={has ? colors.accent : colors.textMuted}
-												/>
-											</TouchableOpacity>
-										);
-									})}
-								</ScrollView>
-							)}
-						</TouchableOpacity>
+								{lists.map((list) => {
+									const has = !!entry && listHasItem(list, entry.tmdbId, entry.mediaType);
+									const full = !has && list.items.length >= CUSTOM_LIST_ITEM_MAX;
+									return (
+										<Pressable
+											key={list.id}
+											style={({ pressed }) => [
+												styles.option,
+												(full || pressed) && { opacity: full ? 0.4 : 0.6 },
+											]}
+											disabled={full || !entry}
+											onPress={() =>
+												entry &&
+												(has
+													? removeFromList(list.id, entry.tmdbId, entry.mediaType)
+													: addToList(list.id, entry))
+											}
+										>
+											<View style={styles.optionContent}>
+												<Text style={styles.optionText} numberOfLines={1}>
+													{list.name}
+												</Text>
+												<Text style={styles.optionHint}>
+													{full ? "List is full" : titleCount(list.items.length)}
+												</Text>
+											</View>
+											<Ionicons
+												name={has ? "checkmark-circle" : "ellipse-outline"}
+												size={26}
+												color={has ? colors.accent : colors.textMuted}
+											/>
+										</Pressable>
+									);
+								})}
+							</ScrollView>
+						)}
 					</Animated.View>
-				</TouchableOpacity>
+				</View>
 			</Modal>
 
 			<ListNameModal

@@ -172,7 +172,8 @@ service cloud.firestore {
       match /customLists/{listId} {
         allow read, delete: if isOwner(userId);
         allow create, update: if isOwner(userId)
-          && request.resource.data.keys().hasOnly(['name', 'items', 'createdAt', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['name', 'items', 'createdAt', 'updatedAt', 'order'])
+          && optNumber('order')
           && request.resource.data.name is string
           && request.resource.data.name.size() > 0
           && request.resource.data.name.size() <= 50

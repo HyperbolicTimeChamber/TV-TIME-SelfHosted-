@@ -1,23 +1,49 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { Spin } from "antd";
+import { IoBookmark, IoBookmarkOutline } from "react-icons/io5";
 import type { ShowDrawerData } from "@app/types";
 import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
+import { useCustomLists } from "@app/hooks/useCustomLists";
+import { listedTitleKeys, listItemKey } from "@app/utils/customLists";
+import { useAppSelector } from "../store";
 import styles from "./styles/ShowDrawer.module.scss";
 import SkeletonBlock from "./SkeletonBlock";
+import AddToListSheet from "./AddToListSheet";
+import type { SheetOption } from "./OptionsSheet";
 
 interface Props {
 	visible: boolean;
 	show: ShowDrawerData | null;
 	loading?: boolean;
 	onGoToShow?: () => void;
+	/** Extra rows under the Go to button (the list page's Add to another list / Remove / Export) */
+	actions?: SheetOption[];
 	onClose: () => void;
 }
 
 /** Bottom sheet with show summary (app ShowDrawer); drag down to close */
-export default function ShowDrawer({ visible, show, loading, onGoToShow, onClose }: Props) {
+export default function ShowDrawer({ visible, show, loading, onGoToShow, actions, onClose }: Props) {
 	const [imageLoaded, setImageLoaded] = useState(false);
+	// "Add to List": needs to know which title this is, and a signed-in user to own the list
+	const userId = useAppSelector((s) => s.auth.user?.uid);
+	const { lists } = useCustomLists(userId);
+	const [listSheetOpen, setListSheetOpen] = useState(false);
+	const listEntry = useMemo(
+		() =>
+			show?.tmdbId && show.mediaType
+				? {
+						tmdbId: show.tmdbId,
+						mediaType: show.mediaType,
+						title: show.title,
+						posterPath: show.posterPath,
+					}
+				: null,
+		[show?.tmdbId, show?.mediaType, show?.title, show?.posterPath],
+	);
+	const isListed =
+		!!listEntry && listedTitleKeys(lists).has(listItemKey(listEntry.tmdbId, listEntry.mediaType));
 	const meta = [
 		show?.year,
 		show?.totalSeasons ? `${show.totalSeasons} season${show.totalSeasons !== 1 ? "s" : ""}` : null,
@@ -32,7 +58,9 @@ export default function ShowDrawer({ visible, show, loading, onGoToShow, onClose
 			? tmdbPosterUri(show.posterPath, 780)
 			: null;
 
-	return createPortal(
+	return (
+		<>
+		{createPortal(
 		<AnimatePresence onExitComplete={() => setImageLoaded(false)}>
 			{visible && (
 				<motion.div
@@ -73,6 +101,15 @@ export default function ShowDrawer({ visible, show, loading, onGoToShow, onClose
 										/>
 									)}
 									<div className={styles.imageGradient} />
+									{userId && listEntry && (
+										<button
+											className={`${styles.listButton} ${isListed ? styles.listButtonActive : ""}`}
+											onClick={() => setListSheetOpen(true)}
+											aria-label="Add to List"
+										>
+											{isListed ? <IoBookmark size={18} /> : <IoBookmarkOutline size={18} />}
+										</button>
+									)}
 								</div>
 								<div className={styles.content}>
 									<h2 className={styles.title}>{show.title}</h2>
@@ -106,6 +143,16 @@ export default function ShowDrawer({ visible, show, loading, onGoToShow, onClose
 										{show.mediaType === "movie" ? "Go to Movie" : "Go to Show"}
 									</button>
 								)}
+									{actions?.map((a) => (
+										<button
+											key={a.key}
+											className={`${styles.actionRow} ${a.destructive ? styles.actionDanger : ""}`}
+											onClick={a.onClick}
+										>
+											{a.icon}
+											<span>{a.label}</span>
+										</button>
+									))}
 							</div>
 						)}
 					</motion.div>
@@ -113,5 +160,8 @@ export default function ShowDrawer({ visible, show, loading, onGoToShow, onClose
 			)}
 		</AnimatePresence>,
 		document.body,
+	)}
+		<AddToListSheet entry={listSheetOpen ? listEntry : null} onClose={() => setListSheetOpen(false)} />
+		</>
 	);
 }

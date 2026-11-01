@@ -1,22 +1,35 @@
 import { useEffect, useState } from "react";
+import { App as AntApp } from "antd";
+import { Reorder } from "motion/react";
 import {
+	IoBookmarkOutline,
 	IoBookmarksOutline,
+	IoCheckmark,
 	IoClose,
 	IoCreateOutline,
+	IoGrid,
+	IoList,
+	IoShareOutline,
+	IoSwapVertical,
 	IoTrashOutline,
 } from "react-icons/io5";
 import { useNavigate, useParams } from "react-router-dom";
 import { useCustomLists } from "@app/hooks/useCustomLists";
-import { CircleButtonTone } from "@app/enums";
+import { useCustomListView } from "@app/hooks/useCustomListView";
+import { CircleButtonTone, CustomListView } from "@app/enums";
 import type { CustomListItem } from "@app/types";
+import { sameItemOrder, titleCount } from "@app/utils/customLists";
 import { useAppSelector } from "../../store";
 import CircleButton, { CircleBackButton } from "../../components/CircleButton";
 import ConfirmModal from "../../components/ConfirmModal";
 import ListNameModal from "../../components/ListNameModal";
-import PosterImage from "../../components/PosterImage";
+import AddToListSheet from "../../components/AddToListSheet";
+import type { SheetOption } from "../../components/OptionsSheet";
 import { useHideTabBar } from "../../hooks/useHideTabBar";
-import { colors } from "../../theme";
+import { downloadListsExport } from "../../platform/customListsFiles";
 import { Paths, showPath } from "../../routes/paths";
+import { colors } from "../../theme";
+import { ListCell, ListItemPreview, ListRow, ReorderRow } from "./ListItemViews";
 import styles from "./styles/ListDetail.module.scss";
 
 const RENAME_ERRORS = {
@@ -25,19 +38,34 @@ const RENAME_ERRORS = {
 	failed: "Couldn't rename the list. Check your connection and try again.",
 } as const;
 
-/** One custom list (app ListDetail): its titles as a poster grid; × removes a title from the list */
+const itemKey = (i: CustomListItem) => `${i.mediaType}_${i.tmdbId}`;
+
+/**
+ * One custom list (app ListDetail). Grid or List view; hold / right-click a title for its preview
+ * card (+ add to another list / remove / export); the reorder button switches to drag-by-handle mode.
+ */
 export default function ListDetailScreen() {
 	const navigate = useNavigate();
+	const { message } = AntApp.useApp();
 	const { listId = "" } = useParams();
 	const user = useAppSelector((s) => s.auth.user);
-	const { lists, loading, renameList, deleteList, removeFromList } = useCustomLists(user?.uid);
+	const { lists, loading, renameList, deleteList, removeFromList, reorderItems } = useCustomLists(
+		user?.uid,
+	);
 	const list = lists.find((l) => l.id === listId);
+	const [view, setView] = useCustomListView();
 	useHideTabBar();
 
 	const [renaming, setRenaming] = useState(false);
 	const [renameError, setRenameError] = useState<string | null>(null);
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	const [previewItem, setPreviewItem] = useState<CustomListItem | null>(null);
 	const [removeTarget, setRemoveTarget] = useState<CustomListItem | null>(null);
+	const [listTarget, setListTarget] = useState<CustomListItem | null>(null);
+	// Reorder mode edits a copy; ✓ saves it, ✕ drops it
+	const [reordering, setReordering] = useState(false);
+	const [draft, setDraft] = useState<CustomListItem[]>([]);
+	const [saving, setSaving] = useState(false);
 
 	// Opened directly (no history entry) → back goes to Profile
 	const goBack = () =>
@@ -50,6 +78,9 @@ export default function ListDetailScreen() {
 
 	if (!list) return null;
 
+	const dirty = reordering && !sameItemOrder(draft, list.items);
+	const openTitle = (item: CustomListItem) => navigate(showPath(item.mediaType, item.tmdbId));
+
 	const handleRename = async (name: string) => {
 		const result = await renameList(listId, name);
 		if (result === "ok") {
@@ -59,6 +90,54 @@ export default function ListDetailScreen() {
 			setRenameError(RENAME_ERRORS[result]);
 		}
 	};
+
+	const startReorder = () => {
+		setDraft(list.items);
+		setReordering(true);
+	};
+	const saveReorder = async () => {
+		if (!dirty || saving) return;
+		setSaving(true);
+		const ok = await reorderItems(listId, draft);
+		setSaving(false);
+		if (ok) setReordering(false);
+		else message.error("Couldn't save the order. Check your connection and try again.");
+	};
+
+	const previewActions: SheetOption[] = previewItem
+		? [
+				{
+					key: "add",
+					label: "Add to another list",
+					icon: <IoBookmarkOutline size={20} />,
+					onClick: () => {
+						const item = previewItem;
+						setPreviewItem(null);
+						setListTarget(item);
+					},
+				},
+				{
+					key: "remove",
+					label: `Remove from ${list.name}`,
+					icon: <IoTrashOutline size={20} color={colors.destructiveRed} />,
+					destructive: true,
+					onClick: () => {
+						const item = previewItem;
+						setPreviewItem(null);
+						setRemoveTarget(item);
+					},
+				},
+				{
+					key: "export",
+					label: "Export list",
+					icon: <IoShareOutline size={20} />,
+					onClick: () => {
+						setPreviewItem(null);
+						downloadListsExport([list]);
+					},
+				},
+			]
+		: [];
 
 	return (
 		<div className={styles.page}>
@@ -86,47 +165,104 @@ export default function ListDetailScreen() {
 				</div>
 			</header>
 
+			{reordering ? (
+				<div className={styles.subBar}>
+					<p className={styles.count}>Drag a title by its handle to move it</p>
+					<button
+						className={styles.iconButton}
+						onClick={() => setReordering(false)}
+						aria-label="Cancel reordering"
+					>
+						<IoClose size={26} />
+					</button>
+					<button
+						className={`${styles.iconButton} ${styles.iconButtonAccent}`}
+						onClick={saveReorder}
+						disabled={!dirty || saving}
+						aria-label="Save order"
+					>
+						<IoCheckmark size={28} />
+					</button>
+				</div>
+			) : (
+				<div className={styles.subBar}>
+					<p className={styles.count}>
+						{titleCount(list.items.length)} · hold or right-click for options
+					</p>
+					{list.items.length > 1 && (
+						<button className={styles.iconButton} onClick={startReorder} aria-label="Reorder titles">
+							<IoSwapVertical size={24} />
+						</button>
+					)}
+					<button
+						className={styles.iconButton}
+						onClick={() => setView(view === CustomListView.GRID ? CustomListView.LIST : CustomListView.GRID)}
+						aria-label={view === CustomListView.GRID ? "Show as list" : "Show as grid"}
+					>
+						{view === CustomListView.GRID ? <IoList size={22} /> : <IoGrid size={20} />}
+					</button>
+				</div>
+			)}
+
 			{list.items.length === 0 ? (
 				<div className={styles.empty}>
 					<IoBookmarksOutline size={40} color="var(--text-muted)" />
 					<p className={styles.emptyTitle}>This list is empty</p>
-					<p className={styles.emptyHint}>
-						Click the bookmark on a show or movie in Search to add it here.
-					</p>
+					<p className={styles.emptyHint}>Click the bookmark on a show or movie to add it here.</p>
+				</div>
+			) : reordering ? (
+				<Reorder.Group axis="y" values={draft} onReorder={setDraft} className={styles.reorderList}>
+					{draft.map((item) => (
+						<ReorderRow key={itemKey(item)} item={item} />
+					))}
+				</Reorder.Group>
+			) : view === CustomListView.GRID ? (
+				<div className={styles.grid}>
+					{list.items.map((item) => (
+						<ListCell
+							key={itemKey(item)}
+							item={item}
+							onPress={() => openTitle(item)}
+							onLongPress={() => setPreviewItem(item)}
+						/>
+					))}
 				</div>
 			) : (
-				<>
-					<p className={styles.count}>
-						{list.items.length} {list.items.length === 1 ? "title" : "titles"}
-					</p>
-					<div className={styles.grid}>
-						{list.items.map((item) => (
-							<div key={`${item.mediaType}_${item.tmdbId}`} className={styles.cell}>
-								<button
-									className={styles.posterButton}
-									onClick={() => navigate(showPath(item.mediaType, item.tmdbId))}
-									aria-label={item.title}
-								>
-									<PosterImage
-										posterPath={item.posterPath}
-										mediaType={item.mediaType}
-										className={styles.poster}
-										title={!item.posterPath ? item.title : undefined}
-										width={180}
-									/>
-								</button>
-								<button
-									className={styles.removeButton}
-									onClick={() => setRemoveTarget(item)}
-									aria-label={`Remove ${item.title} from list`}
-								>
-									<IoClose size={16} />
-								</button>
-							</div>
-						))}
-					</div>
-				</>
+				<div className={styles.listView}>
+					{list.items.map((item) => (
+						<ListRow
+							key={itemKey(item)}
+							item={item}
+							onPress={() => openTitle(item)}
+							onLongPress={() => setPreviewItem(item)}
+						/>
+					))}
+				</div>
 			)}
+
+			<ListItemPreview
+				item={previewItem}
+				actions={previewActions}
+				onGoToShow={(item) => {
+					setPreviewItem(null);
+					openTitle(item);
+				}}
+				onClose={() => setPreviewItem(null)}
+			/>
+
+			<AddToListSheet
+				entry={
+					listTarget
+						? {
+								tmdbId: listTarget.tmdbId,
+								mediaType: listTarget.mediaType,
+								title: listTarget.title,
+								posterPath: listTarget.posterPath,
+							}
+						: null
+				}
+				onClose={() => setListTarget(null)}
+			/>
 
 			<ListNameModal
 				visible={renaming}

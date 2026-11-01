@@ -14,11 +14,13 @@ export interface CustomListItem {
 export interface CustomList {
 	id: string;
 	name: string;
-	/** Newest first */
+	/** In list order: new titles are appended, the user can reorder */
 	items: CustomListItem[];
 	/** Epoch ms */
 	createdAt: number;
 	updatedAt: number;
+	/** Position on the profile / Lists page (smaller = earlier). Unset → createdAt */
+	order?: number;
 }
 
 /** What a list stores about a title (everything but addedAt) */

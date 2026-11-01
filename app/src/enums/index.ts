@@ -80,6 +80,10 @@ export enum CacheKey {
 	WATCH_HISTORY = "watch_history_v1",
 	/** Watch History sort choice (kept across visits) */
 	HISTORY_SORT = "history_sort_v1",
+	/** + uid — the default Favorites list was offered to this user on this device (never re-created after a delete) */
+	CUSTOM_LISTS_SEEDED = "custom_lists_seeded_v1:",
+	/** A list page's Grid / List choice (kept across lists and visits) */
+	CUSTOM_LIST_VIEW = "custom_list_view_v1",
 	/** Last app_opened time (ms) — derives days_since_last_open */
 	LAST_APP_OPEN = "last_app_open_v1",
 	/** + uid — sign_up_completed already sent for this account */
@@ -99,6 +103,7 @@ export enum QueryKey {
 	TRENDING = "trending",
 	TITLE_LOGO = "titleLogo",
 	CUSTOM_LISTS = "customLists",
+	TITLE_INFO = "titleInfo",
 }
 
 /** Watch count sheet actions (episode / season / movie) */
@@ -125,6 +130,20 @@ export const CUSTOM_LISTS_COLLECTION = "customLists";
 export const CUSTOM_LIST_NAME_MAX = 50;
 export const CUSTOM_LIST_ITEM_MAX = 500;
 export const CUSTOM_LIST_MAX = 50;
+/** The list every user starts with — a normal list, renamable and deletable */
+export const FAVORITES_LIST_NAME = "Favorites";
+/** Sorts ahead of every other list (order falls back to createdAt, a huge number) */
+export const FAVORITES_LIST_ORDER = -1;
+
+/** How a list page lays out its titles */
+export enum CustomListView {
+	GRID = "grid",
+	LIST = "list",
+}
+
+/** Exported lists: a JSON file the Import button reads back (also meant for sharing) */
+export const LISTS_EXPORT_FORMAT = "watchloom-lists";
+export const LISTS_EXPORT_VERSION = 1;
 
 /** Fill of the shared 44px circular icon buttons (back, share) */
 export enum CircleButtonTone {
@@ -134,6 +153,8 @@ export enum CircleButtonTone {
 	SURFACE_LIGHT = "surfaceLight",
 	/** Brightest grey (the border colour) — stands out on black */
 	RAISED = "raised",
+	/** Accent blue — a toggled-on state (the Add to List button once the title is listed) */
+	ACCENT = "accent",
 }
 
 /** Watch History card status pill (label text) */
@@ -275,6 +296,7 @@ export enum Route {
 	WATCH_HISTORY = "WatchHistory",
 	IMPORT_DATA = "ImportData",
 	LIST_DETAIL = "ListDetail",
+	LISTS = "Lists",
 }
 
 // Base URLs come from app/.env (EXPO_PUBLIC_* is inlined at build time; CI writes the file)

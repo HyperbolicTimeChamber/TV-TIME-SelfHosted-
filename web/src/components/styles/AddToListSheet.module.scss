@@ -16,7 +16,12 @@
 	background: var(--surface);
 	border-radius: 16px 16px 0 0;
 	padding: 0 16px max(34px, calc(env(safe-area-inset-bottom) + 16px));
+}
+
+/* The only part that starts a drag-to-close (the rows and the list scroll stay free) */
+.dragHeader {
 	touch-action: none;
+	cursor: grab;
 }
 
 .handle {

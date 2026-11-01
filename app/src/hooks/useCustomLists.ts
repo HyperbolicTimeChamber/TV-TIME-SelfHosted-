@@ -1,23 +1,30 @@
 import { useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CUSTOM_LIST_MAX, QueryKey } from "../enums";
-import type { CustomList, CustomListEntry, MediaType } from "../types";
+import type { CustomList, CustomListEntry, CustomListItem, MediaType } from "../types";
 import {
 	addCustomListItem,
+	applyCustomListsImport,
 	createCustomList,
 	deleteCustomList,
-	fetchCustomLists,
+	loadCustomListsWithDefaults,
 	newCustomListId,
 	removeCustomListItem,
 	renameCustomList,
+	setCustomListItems,
+	setCustomListOrders,
 } from "../services/customLists";
 import {
 	addItemToList,
 	cleanListName,
 	isListNameTaken,
 	listHasItem,
+	listOrders,
+	planListsImport,
 	removeItemFromList,
 	sortLists,
+	type ImportedList,
+	type ImportPlan,
 } from "../utils";
 
 export type CreateListResult =
@@ -35,7 +42,7 @@ export function useCustomLists(userId: string | undefined) {
 
 	const { data, isLoading: loading } = useQuery({
 		queryKey,
-		queryFn: () => fetchCustomLists(userId!),
+		queryFn: () => loadCustomListsWithDefaults(userId!),
 		enabled: !!userId,
 	});
 
@@ -125,7 +132,7 @@ export function useCustomLists(userId: string | undefined) {
 			if (next === target) return listHasItem(target, entry.tmdbId, entry.mediaType);
 			return mutate(
 				(old) => old.map((l) => (l.id === listId ? next : l)),
-				() => addCustomListItem(userId, listId, next.items[0], now),
+				() => addCustomListItem(userId, listId, next.items[next.items.length - 1], now),
 			);
 		},
 		[userId, queryClient, queryKey, mutate],
@@ -148,5 +155,72 @@ export function useCustomLists(userId: string | undefined) {
 		[userId, queryClient, queryKey, mutate],
 	);
 
-	return { lists, loading, createList, renameList, deleteList, addToList, removeFromList };
+	/** Saves a new title order for one list (drag-to-reorder) */
+	const reorderItems = useCallback(
+		async (listId: string, items: CustomListItem[]): Promise<boolean> => {
+			if (!userId) return false;
+			const now = Date.now();
+			return mutate(
+				(old) => old.map((l) => (l.id === listId ? { ...l, items, updatedAt: now } : l)),
+				() => setCustomListItems(userId, listId, items, now),
+			);
+		},
+		[userId, mutate],
+	);
+
+	/** Saves the Lists page order (ids in the order they should show) */
+	const reorderLists = useCallback(
+		async (orderedIds: string[]): Promise<boolean> => {
+			if (!userId) return false;
+			const current = queryClient.getQueryData<CustomList[]>(queryKey) ?? [];
+			const byId = new Map(current.map((l) => [l.id, l]));
+			const ordered = orderedIds.map((id) => byId.get(id)).filter((l): l is CustomList => !!l);
+			const orders = listOrders(ordered);
+			const orderOf = new Map(orders.map((o) => [o.id, o.order]));
+			return mutate(
+				(old) => old.map((l) => (orderOf.has(l.id) ? { ...l, order: orderOf.get(l.id) } : l)),
+				() => setCustomListOrders(userId, orders),
+			);
+		},
+		[userId, queryClient, queryKey, mutate],
+	);
+
+	/** What importing would do — nothing written yet (the caller shows the outcome, then applies) */
+	const planImport = useCallback(
+		(imported: ImportedList[]): ImportPlan => {
+			const current = queryClient.getQueryData<CustomList[]>(queryKey) ?? [];
+			return planListsImport(current, imported, Date.now(), () => newCustomListId(userId ?? ""));
+		},
+		[userId, queryClient, queryKey],
+	);
+
+	const applyImport = useCallback(
+		async (plan: ImportPlan): Promise<boolean> => {
+			if (!userId) return false;
+			const now = Date.now();
+			const merged = new Map(plan.merges.map((m) => [m.listId, m.items]));
+			return mutate(
+				(old) => [
+					...old.map((l) => (merged.has(l.id) ? { ...l, items: merged.get(l.id)!, updatedAt: now } : l)),
+					...plan.creates,
+				],
+				() => applyCustomListsImport(userId, plan.creates, plan.merges, now),
+			);
+		},
+		[userId, mutate],
+	);
+
+	return {
+		lists,
+		loading,
+		createList,
+		renameList,
+		deleteList,
+		addToList,
+		removeFromList,
+		reorderItems,
+		reorderLists,
+		planImport,
+		applyImport,
+	};
 }

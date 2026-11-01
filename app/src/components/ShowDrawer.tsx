@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
 	View,
 	Text,
@@ -12,11 +12,16 @@ import {
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
 import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import SkeletonLine, { useSharedShimmer } from "./SkeletonLine";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, spacing, typography } from "../theme";
 import { tmdbBackdropUri, tmdbPosterUri } from "../hooks/useTmdbImage";
+import { useCustomLists } from "../hooks/useCustomLists";
+import { useAuthStore } from "../stores";
+import { listedTitleKeys, listItemKey } from "../utils";
+import AddToListSheet from "./modals/AddToListSheet";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const SCREEN_HEIGHT = Dimensions.get("window").height;
@@ -25,11 +30,22 @@ import type { ShowDrawerData } from "../types/showDrawer";
 
 export type { ShowDrawerData };
 
+/** An extra row under "Go to Show" (the list page's Add to another list / Remove / Export) */
+export interface ShowDrawerAction {
+	key: string;
+	label: string;
+	icon: React.ComponentProps<typeof Ionicons>["name"];
+	destructive?: boolean;
+	onPress: () => void;
+}
+
 interface Props {
 	visible: boolean;
 	show: ShowDrawerData | null;
 	loading?: boolean;
 	onGoToShow?: () => void;
+	/** Extra rows under the Go to button */
+	actions?: ShowDrawerAction[];
 	onClose: () => void;
 }
 
@@ -38,6 +54,7 @@ export default function ShowDrawer({
 	show,
 	loading,
 	onGoToShow,
+	actions,
 	onClose,
 }: Readonly<Props>) {
 	const bottomSheetRef = useRef<BottomSheet>(null);
@@ -45,6 +62,24 @@ export default function ShowDrawer({
 	const shimmer = useSharedShimmer();
 	const maxHeight = SCREEN_HEIGHT * 0.85;
 	const [imageLoaded, setImageLoaded] = useState(false);
+	// "Add to List": needs to know which title this is, and a signed-in user to own the list
+	const userId = useAuthStore((s) => s.user?.uid);
+	const { lists } = useCustomLists(userId);
+	const [listSheetOpen, setListSheetOpen] = useState(false);
+	const listEntry = useMemo(
+		() =>
+			show?.tmdbId && show.mediaType
+				? {
+						tmdbId: show.tmdbId,
+						mediaType: show.mediaType,
+						title: show.title,
+						posterPath: show.posterPath,
+					}
+				: null,
+		[show?.tmdbId, show?.mediaType, show?.title, show?.posterPath],
+	);
+	const isListed =
+		!!listEntry && listedTitleKeys(lists).has(listItemKey(listEntry.tmdbId, listEntry.mediaType));
 
 	const handleSheetChanges = useCallback(
 		(index: number) => {
@@ -90,11 +125,13 @@ export default function ShowDrawer({
 									<Animated.View style={[styles.imageSkeleton, { opacity: shimmer }]} />
 								)}
 								<Image
-									source={{
-										uri: show.backdropPath
-											? tmdbBackdropUri(show.backdropPath, SCREEN_WIDTH)
-											: tmdbPosterUri(show.posterPath!, SCREEN_WIDTH),
-									}}
+									source={
+										show.backdropPath
+											? { uri: tmdbBackdropUri(show.backdropPath, SCREEN_WIDTH) }
+											: show.posterPath
+												? { uri: tmdbPosterUri(show.posterPath, SCREEN_WIDTH) }
+												: undefined
+									}
 									style={styles.backdropImage}
 									contentFit="cover"
 									transition={300}
@@ -104,6 +141,21 @@ export default function ShowDrawer({
 									colors={["transparent", colors.background]}
 									style={styles.imageGradient}
 								/>
+								{userId && listEntry ? (
+									<TouchableOpacity
+										style={[styles.listButton, isListed && styles.listButtonActive]}
+										onPress={() => setListSheetOpen(true)}
+										activeOpacity={0.7}
+										hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+										accessibilityLabel="Add to List"
+									>
+										<Ionicons
+											name={isListed ? "bookmark" : "bookmark-outline"}
+											size={20}
+											color={colors.text}
+										/>
+									</TouchableOpacity>
+								) : null}
 							</View>
 							<View style={styles.content}>
 								<Text style={styles.title}>{show.title}</Text>
@@ -150,9 +202,30 @@ export default function ShowDrawer({
 									</Text>
 								</TouchableOpacity>
 							)}
+							{actions?.map((action) => (
+								<TouchableOpacity
+									key={action.key}
+									style={styles.actionRow}
+									onPress={action.onPress}
+									activeOpacity={0.7}
+								>
+									<Ionicons
+										name={action.icon}
+										size={20}
+										color={action.destructive ? colors.destructiveRed : colors.text}
+									/>
+									<Text
+										style={[styles.actionText, action.destructive && { color: colors.destructiveRed }]}
+									>
+										{action.label}
+									</Text>
+								</TouchableOpacity>
+							))}
 						</BottomSheetScrollView>
 					) : null}
 				</BottomSheet>
+				{/* Inside this Modal, so it stacks on top of the drawer (a second top-level modal would not on iOS) */}
+				<AddToListSheet entry={listSheetOpen ? listEntry : null} onClose={() => setListSheetOpen(false)} />
 			</GestureHandlerRootView>
 		</Modal>
 	);
@@ -268,5 +341,36 @@ const styles = StyleSheet.create({
 		...typography.subtitle,
 		fontSize: 14,
 		color: colors.text,
+	},
+	// Over the backdrop's top-right corner, below the sheet's grab handle
+	listButton: {
+		position: "absolute",
+		top: spacing.xl,
+		right: spacing.md,
+		width: 36,
+		height: 36,
+		borderRadius: 18,
+		borderWidth: 2,
+		borderColor: colors.text,
+		backgroundColor: colors.badgeOverlay,
+		justifyContent: "center",
+		alignItems: "center",
+	},
+	listButtonActive: {
+		backgroundColor: colors.accent,
+		borderColor: colors.accent,
+	},
+	actionRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.md,
+		paddingVertical: spacing.md,
+		marginHorizontal: spacing.lg,
+		borderTopWidth: 1,
+		borderTopColor: colors.border,
+	},
+	actionText: {
+		...typography.subtitle,
+		fontSize: 14,
 	},
 });

@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useDragControls } from "motion/react";
 import { Spin } from "antd";
 import { IoAddCircle, IoCheckmarkCircle, IoEllipseOutline } from "react-icons/io5";
 import { CUSTOM_LIST_ITEM_MAX } from "@app/enums";
 import type { CustomListEntry } from "@app/types";
 import { useCustomLists } from "@app/hooks/useCustomLists";
-import { listHasItem } from "@app/utils/customLists";
+import { listHasItem, titleCount } from "@app/utils/customLists";
 import { useAppSelector } from "../store";
 import ListNameModal from "./ListNameModal";
 import styles from "./styles/AddToListSheet.module.scss";
@@ -34,6 +34,8 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 	const [naming, setNaming] = useState(false);
 	const [creating, setCreating] = useState(false);
 	const [nameError, setNameError] = useState<string | null>(null);
+	// Drag-to-close starts from the header only, so a click or scroll on the rows is never taken as a drag
+	const dragControls = useDragControls();
 
 	useEffect(() => {
 		if (!entry) {
@@ -78,6 +80,8 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 								animate={{ y: 0, transition: { type: "spring", damping: 20, stiffness: 200 } }}
 								exit={{ y: "100%", transition: { duration: 0.2 } }}
 								drag="y"
+								dragListener={false}
+								dragControls={dragControls}
 								dragConstraints={{ top: 0, bottom: 0 }}
 								dragElastic={{ top: 0, bottom: 1 }}
 								onDragEnd={(_, info) => {
@@ -85,9 +89,11 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 								}}
 								onClick={(e) => e.stopPropagation()}
 							>
-								<div className={styles.handle} />
-								<p className={styles.title}>Add to List</p>
-								<p className={`${styles.subtitle} ${styles.optionTruncate}`}>{entry?.title}</p>
+								<div className={styles.dragHeader} onPointerDown={(e) => dragControls.start(e)}>
+									<div className={styles.handle} />
+									<p className={styles.title}>Add to List</p>
+									<p className={`${styles.subtitle} ${styles.optionTruncate}`}>{entry?.title}</p>
+								</div>
 
 								<button
 									className={styles.option}
@@ -133,9 +139,7 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 															{list.name}
 														</span>
 														<span className={styles.optionHint}>
-															{full
-																? "List is full"
-																: `${list.items.length} ${list.items.length === 1 ? "title" : "titles"}`}
+															{full ? "List is full" : titleCount(list.items.length)}
 														</span>
 													</span>
 													<Check size={26} className={`${styles.check} ${has ? styles.checkOn : ""}`} />

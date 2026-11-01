@@ -20,12 +20,19 @@ const NAME_ERRORS = {
 
 interface Props {
 	userId: string | undefined;
+	/** The "Lists" banner: the page that manages every list */
+	onOpenLists: () => void;
 	onOpenList: (listId: string) => void;
 	onOpenTitle: (tmdbId: number, mediaType: MediaType) => void;
 }
 
 /** "Lists" on the profile, under Recently Completed: the user's custom lists, a row of posters each */
-export default function CustomLists({ userId, onOpenList, onOpenTitle }: Readonly<Props>) {
+export default function CustomLists({
+	userId,
+	onOpenLists,
+	onOpenList,
+	onOpenTitle,
+}: Readonly<Props>) {
 	const { lists, loading, createList } = useCustomLists(userId);
 	const [naming, setNaming] = useState(false);
 	const [creating, setCreating] = useState(false);
@@ -50,7 +57,16 @@ export default function CustomLists({ userId, onOpenList, onOpenTitle }: Readonl
 	return (
 		<View style={profileStyles.section}>
 			<View style={styles.header}>
-				<Text style={[profileStyles.sectionTitle, styles.title]}>Lists</Text>
+				<TouchableOpacity
+					style={styles.bannerTitle}
+					onPress={onOpenLists}
+					activeOpacity={0.7}
+					accessibilityRole="button"
+					accessibilityLabel="Open Lists"
+				>
+					<Text style={[profileStyles.sectionTitle, styles.title]}>Lists</Text>
+					<Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+				</TouchableOpacity>
 				<TouchableOpacity
 					onPress={() => setNaming(true)}
 					hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -136,6 +152,7 @@ const styles = StyleSheet.create({
 	},
 	// The section title's own bottom margin would double up inside the header row
 	title: { marginBottom: 0 },
+	bannerTitle: { flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.xs },
 	loader: { marginVertical: spacing.lg },
 	listHeader: {
 		flexDirection: "row",

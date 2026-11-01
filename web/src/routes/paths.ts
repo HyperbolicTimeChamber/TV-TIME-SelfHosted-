@@ -13,6 +13,7 @@ export const Paths = {
 	SETTINGS: "/profile/settings",
 	WATCH_HISTORY: "/profile/history",
 	IMPORT: "/profile/import",
+	LISTS: "/profile/lists",
 	LIST: "/profile/lists/:listId",
 	SHOW: "/show/:mediaType/:tmdbId",
 } as const;

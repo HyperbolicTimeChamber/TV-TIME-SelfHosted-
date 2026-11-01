@@ -6,6 +6,7 @@ import ProfileScreen from "../screens/ProfileScreen";
 import SettingsScreen from "../screens/ProfileScreen/SettingsScreen";
 import WatchHistoryScreen from "../screens/ProfileScreen/WatchHistory";
 import ListDetailScreen from "../screens/ProfileScreen/ListDetail";
+import ListsScreen from "../screens/ProfileScreen/ListsScreen";
 import ImportDataScreen from "../screens/ImportDataScreen";
 import ShowDetailScreen from "../screens/DetailScreens/ShowDetailScreen";
 
@@ -28,6 +29,11 @@ export default function ProfileStackScreen() {
 				name={Route.WATCH_HISTORY}
 				component={WatchHistoryScreen}
 				options={swipeBackScreenOptions}
+			/>
+			<ProfileStack.Screen
+				name={Route.LISTS}
+				component={ListsScreen}
+				options={{ headerShown: false }}
 			/>
 			<ProfileStack.Screen
 				name={Route.LIST_DETAIL}

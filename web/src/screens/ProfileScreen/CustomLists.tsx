@@ -6,7 +6,7 @@ import { useCustomLists } from "@app/hooks/useCustomLists";
 import { useAppSelector } from "../../store";
 import PosterImage from "../../components/PosterImage";
 import ListNameModal from "../../components/ListNameModal";
-import { listPath, showPath } from "../../routes/paths";
+import { Paths, listPath, showPath } from "../../routes/paths";
 import styles from "./styles/ProfileScreen.module.scss";
 
 /** Posters shown per list on the profile; the rest are one click away on the list's page */
@@ -47,7 +47,14 @@ export default function CustomLists() {
 	return (
 		<section className={styles.section}>
 			<div className={styles.listsHeader}>
-				<h3 className={`${styles.sectionTitle} ${styles.noMargin}`}>Lists</h3>
+				<button
+					className={styles.bannerTitle}
+					onClick={() => navigate(Paths.LISTS)}
+					aria-label="Open Lists"
+				>
+					<h3 className={`${styles.sectionTitle} ${styles.noMargin}`}>Lists</h3>
+					<IoChevronForward size={18} color="var(--text-muted)" />
+				</button>
 				<button
 					className={styles.iconButton}
 					onClick={() => setNaming(true)}

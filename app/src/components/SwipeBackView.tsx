@@ -32,10 +32,13 @@ export default function SwipeBackView({
 	onBack,
 	onSwipeStart,
 	onSwipeCancel,
+	disabled,
 	style,
 	children,
 }: {
 	onBack: () => void;
+	/** Gesture off (a drag-to-reorder list on the page needs every touch) */
+	disabled?: boolean;
 	/** The drag was claimed — the screen is about to follow the finger (see `useSwipeBackPop`) */
 	onSwipeStart?: () => void;
 	/** …and let go short of the threshold, so the screen stays */
@@ -50,6 +53,7 @@ export default function SwipeBackView({
 	const pan = useMemo(
 		() =>
 			Gesture.Pan()
+				.enabled(!disabled)
 				.activeOffsetX(START_PX)
 				.failOffsetY([-15, 15])
 				.onStart((e) => {
@@ -70,7 +74,7 @@ export default function SwipeBackView({
 						if (onSwipeCancel) runOnJS(onSwipeCancel)();
 					}
 				}),
-		[width, x, grab, onBack, onSwipeStart, onSwipeCancel],
+		[width, x, grab, onBack, onSwipeStart, onSwipeCancel, disabled],
 	);
 	const slide = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
 	return (

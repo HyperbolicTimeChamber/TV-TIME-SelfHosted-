@@ -38,14 +38,14 @@ const show = (fields: Partial<TMDBShow>): TMDBShow => ({
 	...fields,
 });
 
-test("addItemToList puts the newest title first and stamps the list", () => {
+test("addItemToList appends at the end (where the server puts it) and stamps the list", () => {
 	const a = addItemToList(list("a"), entry(1), 100);
 	const b = addItemToList(a, entry(2), 200);
 	assert.deepEqual(
 		b.items.map((i) => i.tmdbId),
-		[2, 1],
+		[1, 2],
 	);
-	assert.equal(b.items[0].addedAt, 200);
+	assert.equal(b.items[1].addedAt, 200);
 	assert.equal(b.updatedAt, 200);
 });
 
