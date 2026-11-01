@@ -11,7 +11,8 @@ import {
 	newCustomListId,
 	removeCustomListItem,
 	renameCustomList,
-	setCustomListItems,
+	reorderCustomListItems,
+	saveListsCache,
 	setCustomListOrders,
 } from "../services/customLists";
 import {
@@ -19,6 +20,7 @@ import {
 	cleanListName,
 	isListNameTaken,
 	listHasItem,
+	listItemKey,
 	listOrders,
 	planListsImport,
 	removeItemFromList,
@@ -28,42 +30,74 @@ import {
 } from "../utils";
 
 export type CreateListResult =
-	| { ok: true; list: CustomList }
-	| { ok: false; reason: "empty" | "taken" | "limit" | "failed" };
+	{ ok: true; list: CustomList } | { ok: false; reason: "empty" | "taken" | "limit" | "failed" };
+
+/** A write's follow-up: the titles a transaction actually saved, put into the cache */
+type Settle = ((lists: CustomList[]) => CustomList[]) | void;
+
+/** A list's titles as the server saved them (null: the list was deleted elsewhere) */
+const settleItems =
+	(listId: string, items: CustomListItem[] | null) =>
+	(lists: CustomList[]): CustomList[] =>
+		items === null
+			? lists.filter((l) => l.id !== listId)
+			: lists.map((l) => (l.id === listId ? { ...l, items } : l));
 
 /**
  * The user's custom lists. Local-first: every edit patches the cached lists straight away and
- * the write follows; a failed write puts the previous lists back. Never invalidates/refetches.
- * A list is only a bookmark — nothing here touches tracking.
+ * the write follows; a failed write puts the previous lists back. Never invalidates/refetches —
+ * loaded once per session (the device copy when the server agrees with it) and saved to the
+ * device after every edit. A list is only a bookmark — nothing here touches tracking.
  */
 export function useCustomLists(userId: string | undefined) {
 	const queryClient = useQueryClient();
 	const queryKey = useMemo(() => [QueryKey.CUSTOM_LISTS, userId] as const, [userId]);
+	const queryFn = useCallback(() => loadCustomListsWithDefaults(userId!), [userId]);
 
 	const { data, isLoading: loading } = useQuery({
 		queryKey,
-		queryFn: () => loadCustomListsWithDefaults(userId!),
+		queryFn,
 		enabled: !!userId,
+		// Every edit patches the cache itself — nothing to refetch for
+		staleTime: Infinity,
+		gcTime: Infinity,
 	});
 
 	const lists = useMemo(() => sortLists(data ?? []), [data]);
 
-	/** Patch the cache, run the write; on failure restore what was there and report false */
+	/** The lists, waiting for the first load if it hasn't landed: an edit checked against an
+	 *  empty cache (duplicate names, the list cap) and then overwritten by that load lost it */
+	const loadedLists = useCallback(
+		() => queryClient.ensureQueryData({ queryKey, queryFn, staleTime: Infinity }),
+		[queryClient, queryKey, queryFn],
+	);
+
+	/** Set the cached lists and save them to the device */
+	const store = useCallback(
+		(next: CustomList[] | undefined) => {
+			queryClient.setQueryData(queryKey, next);
+			if (userId && next) saveListsCache(userId, next);
+		},
+		[queryClient, queryKey, userId],
+	);
+
+	/** Patch the cache, run the write (and apply what it saved); on failure restore what was
+	 *  there and report false */
 	const mutate = useCallback(
-		async (patch: (lists: CustomList[]) => CustomList[], write: () => Promise<void>) => {
-			if (queryClient.getQueryData(queryKey)) await queryClient.cancelQueries({ queryKey });
-			const previous = queryClient.getQueryData<CustomList[]>(queryKey);
-			queryClient.setQueryData<CustomList[]>(queryKey, (old) => patch(old ?? []));
+		async (patch: (lists: CustomList[]) => CustomList[], write: () => Promise<Settle>) => {
+			const previous = await loadedLists();
+			store(patch(previous));
 			try {
-				await write();
+				const settle = await write();
+				if (settle) store(settle(queryClient.getQueryData<CustomList[]>(queryKey) ?? []));
 				return true;
 			} catch (err) {
 				console.error("[customLists] write failed:", err);
-				queryClient.setQueryData(queryKey, previous);
+				store(previous);
 				return false;
 			}
 		},
-		[queryClient, queryKey],
+		[queryClient, queryKey, loadedLists, store],
 	);
 
 	const createList = useCallback(
@@ -71,7 +105,12 @@ export function useCustomLists(userId: string | undefined) {
 			if (!userId) return { ok: false, reason: "failed" };
 			const name = cleanListName(rawName);
 			if (!name) return { ok: false, reason: "empty" };
-			const current = queryClient.getQueryData<CustomList[]>(queryKey) ?? [];
+			let current: CustomList[];
+			try {
+				current = await loadedLists();
+			} catch {
+				return { ok: false, reason: "failed" };
+			}
 			if (isListNameTaken(current, name)) return { ok: false, reason: "taken" };
 			if (current.length >= CUSTOM_LIST_MAX) return { ok: false, reason: "limit" };
 			const now = Date.now();
@@ -89,7 +128,7 @@ export function useCustomLists(userId: string | undefined) {
 			);
 			return ok ? { ok: true, list } : { ok: false, reason: "failed" };
 		},
-		[userId, queryClient, queryKey, mutate],
+		[userId, loadedLists, mutate],
 	);
 
 	const renameList = useCallback(
@@ -97,7 +136,12 @@ export function useCustomLists(userId: string | undefined) {
 			if (!userId) return "failed";
 			const name = cleanListName(rawName);
 			if (!name) return "empty";
-			const current = queryClient.getQueryData<CustomList[]>(queryKey) ?? [];
+			let current: CustomList[];
+			try {
+				current = await loadedLists();
+			} catch {
+				return "failed";
+			}
 			if (isListNameTaken(current, name, listId)) return "taken";
 			const now = Date.now();
 			const ok = await mutate(
@@ -106,7 +150,7 @@ export function useCustomLists(userId: string | undefined) {
 			);
 			return ok ? "ok" : "failed";
 		},
-		[userId, queryClient, queryKey, mutate],
+		[userId, loadedLists, mutate],
 	);
 
 	const deleteList = useCallback(
@@ -124,7 +168,12 @@ export function useCustomLists(userId: string | undefined) {
 		async (listId: string, entry: CustomListEntry): Promise<boolean> => {
 			if (!userId) return false;
 			const now = Date.now();
-			const current = queryClient.getQueryData<CustomList[]>(queryKey) ?? [];
+			let current: CustomList[];
+			try {
+				current = await loadedLists();
+			} catch {
+				return false;
+			}
 			const target = current.find((l) => l.id === listId);
 			if (!target) return false;
 			const next = addItemToList(target, entry, now);
@@ -135,24 +184,24 @@ export function useCustomLists(userId: string | undefined) {
 				() => addCustomListItem(userId, listId, next.items[next.items.length - 1], now),
 			);
 		},
-		[userId, queryClient, queryKey, mutate],
+		[userId, loadedLists, mutate],
 	);
 
 	const removeFromList = useCallback(
 		async (listId: string, tmdbId: number, mediaType: MediaType): Promise<boolean> => {
 			if (!userId) return false;
-			const current = queryClient.getQueryData<CustomList[]>(queryKey) ?? [];
-			const target = current.find((l) => l.id === listId);
-			const stored = target?.items.find((i) => i.tmdbId === tmdbId && i.mediaType === mediaType);
-			if (!target || !stored) return true;
 			const now = Date.now();
 			return mutate(
 				(old) =>
 					old.map((l) => (l.id === listId ? removeItemFromList(l, tmdbId, mediaType, now) : l)),
-				() => removeCustomListItem(userId, listId, stored, now),
+				async () =>
+					settleItems(
+						listId,
+						await removeCustomListItem(userId, listId, { tmdbId, mediaType }, now),
+					),
 			);
 		},
-		[userId, queryClient, queryKey, mutate],
+		[userId, mutate],
 	);
 
 	/** Saves a new title order for one list (drag-to-reorder) */
@@ -162,7 +211,7 @@ export function useCustomLists(userId: string | undefined) {
 			const now = Date.now();
 			return mutate(
 				(old) => old.map((l) => (l.id === listId ? { ...l, items, updatedAt: now } : l)),
-				() => setCustomListItems(userId, listId, items, now),
+				async () => settleItems(listId, await reorderCustomListItems(userId, listId, items, now)),
 			);
 		},
 		[userId, mutate],
@@ -172,17 +221,26 @@ export function useCustomLists(userId: string | undefined) {
 	const reorderLists = useCallback(
 		async (orderedIds: string[]): Promise<boolean> => {
 			if (!userId) return false;
-			const current = queryClient.getQueryData<CustomList[]>(queryKey) ?? [];
+			let current: CustomList[];
+			try {
+				current = await loadedLists();
+			} catch {
+				return false;
+			}
 			const byId = new Map(current.map((l) => [l.id, l]));
 			const ordered = orderedIds.map((id) => byId.get(id)).filter((l): l is CustomList => !!l);
 			const orders = listOrders(ordered);
 			const orderOf = new Map(orders.map((o) => [o.id, o.order]));
+			const now = Date.now();
 			return mutate(
-				(old) => old.map((l) => (orderOf.has(l.id) ? { ...l, order: orderOf.get(l.id) } : l)),
-				() => setCustomListOrders(userId, orders),
+				(old) =>
+					old.map((l) =>
+						orderOf.has(l.id) ? { ...l, order: orderOf.get(l.id), updatedAt: now } : l,
+					),
+				() => setCustomListOrders(userId, orders, now),
 			);
 		},
-		[userId, queryClient, queryKey, mutate],
+		[userId, loadedLists, mutate],
 	);
 
 	/** What importing would do — nothing written yet (the caller shows the outcome, then applies) */
@@ -199,15 +257,40 @@ export function useCustomLists(userId: string | undefined) {
 			if (!userId) return false;
 			const now = Date.now();
 			const merged = new Map(plan.merges.map((m) => [m.listId, m.items]));
+			let current: CustomList[];
+			try {
+				current = await loadedLists();
+			} catch {
+				return false;
+			}
+			// Only the titles the import adds go to the server, merged into what is stored there —
+			// the plan's full arrays came from this device's copy and would undo edits made elsewhere
+			const adds = plan.merges.map((m) => {
+				const have = new Set(
+					(current.find((l) => l.id === m.listId)?.items ?? []).map((i) =>
+						listItemKey(i.tmdbId, i.mediaType),
+					),
+				);
+				return {
+					listId: m.listId,
+					add: m.items.filter((i) => !have.has(listItemKey(i.tmdbId, i.mediaType))),
+				};
+			});
 			return mutate(
 				(old) => [
-					...old.map((l) => (merged.has(l.id) ? { ...l, items: merged.get(l.id)!, updatedAt: now } : l)),
+					...old.map((l) =>
+						merged.has(l.id) ? { ...l, items: merged.get(l.id)!, updatedAt: now } : l,
+					),
 					...plan.creates,
 				],
-				() => applyCustomListsImport(userId, plan.creates, plan.merges, now),
+				async () => {
+					const saved = await applyCustomListsImport(userId, plan.creates, adds, now);
+					return (lists) =>
+						lists.map((l) => (saved.has(l.id) ? { ...l, items: saved.get(l.id)! } : l));
+				},
 			);
 		},
-		[userId, mutate],
+		[userId, loadedLists, mutate],
 	);
 
 	return {

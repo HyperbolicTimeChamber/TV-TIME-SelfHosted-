@@ -7,7 +7,7 @@ import type { ShowDrawerData } from "@app/types";
 import { tmdbBackdropUri, tmdbLogoUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
 import { useTitleLogo } from "@app/hooks/useTitleLogo";
 import { useCustomLists } from "@app/hooks/useCustomLists";
-import { listedTitleKeys, listItemKey } from "@app/utils/customLists";
+import { isTitleListed } from "@app/utils/customLists";
 import { useAppSelector } from "../store";
 import styles from "./styles/ShowDrawer.module.scss";
 import SkeletonBlock from "./SkeletonBlock";
@@ -94,8 +94,7 @@ export default function ShowDrawer({
 				: null,
 		[show?.tmdbId, show?.mediaType, show?.title, show?.posterPath],
 	);
-	const isListed =
-		!!listEntry && listedTitleKeys(lists).has(listItemKey(listEntry.tmdbId, listEntry.mediaType));
+	const isListed = !!listEntry && isTitleListed(lists, listEntry.tmdbId, listEntry.mediaType);
 	const meta = [
 		show?.year,
 		show?.totalSeasons ? `${show.totalSeasons} season${show.totalSeasons !== 1 ? "s" : ""}` : null,

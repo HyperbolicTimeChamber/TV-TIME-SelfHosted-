@@ -92,14 +92,14 @@ function mergeDays(seeded: WeeklyData, local: WeeklyData): WeeklyData {
 /** Signed-in account the tally is read / written for (mark / unmark callers don't pass it) */
 const currentUid = () => useAuthStore.getState().user?.uid;
 
-async function loadCache(): Promise<WeeklyCache> {
+async function loadCache(uid: string | undefined): Promise<WeeklyCache> {
 	const raw = await AsyncStorage.getItem(CacheKey.WEEKLY_ACTIVITY);
 	if (!raw) return { days: {} };
 	try {
 		const parsed = JSON.parse(raw);
 		// Counted under older rules (or the old top-level day map), or by another account: start
 		// over. No syncedTotal either, so the next load rebuilds the week from the watched collections
-		const owned = tallyOwnedBy<WeeklyCache>(parsed, currentUid());
+		const owned = tallyOwnedBy<WeeklyCache>(parsed, uid);
 		if (!owned || owned.version !== CACHE_VERSION) return { days: {} };
 		return { ...owned, days: pruneToWeek(owned.days ?? {}) };
 	} catch {
@@ -107,33 +107,41 @@ async function loadCache(): Promise<WeeklyCache> {
 	}
 }
 
-async function saveCache(cache: WeeklyCache): Promise<void> {
+/** Saved under the account it was counted for — passed in, not read at save time: with no
+ *  signed-in user yet (auth hydrating) the tally was saved owner-less and then discarded on every
+ *  load, forcing a rebuild from the watched collections. No owner → not saved */
+async function saveCache(cache: WeeklyCache, uid: string | undefined): Promise<void> {
+	if (!uid) return;
 	await AsyncStorage.setItem(
 		CacheKey.WEEKLY_ACTIVITY,
-		JSON.stringify({ ...cache, version: CACHE_VERSION, userId: currentUid() }),
+		JSON.stringify({ ...cache, version: CACHE_VERSION, userId: uid }),
 	).catch(() => {});
 }
 
-async function loadWeeklyData(): Promise<WeeklyData> {
-	return (await loadCache()).days;
+async function loadWeeklyData(uid: string | undefined): Promise<WeeklyData> {
+	return (await loadCache(uid)).days;
 }
 
 /** Call after successful mark watched to bump today's count — or the day of `atMs`, for a
  *  bulk mark's staggered episodes (see utils/stagger) */
 export async function incrementDailyWatch(type: "episode" | "movie", atMs?: number): Promise<void> {
-	const cache = await loadCache();
+	const uid = currentUid();
+	if (!uid) return;
+	const cache = await loadCache(uid);
 	const key = atMs === undefined ? todayStr() : dayKey(new Date(atMs));
 	const day = cache.days[key] ?? { episodes: 0, movies: 0 };
 	if (type === "episode") day.episodes++;
 	else day.movies++;
 	cache.days[key] = day;
 	cache.incOps = (cache.incOps ?? 0) + 1;
-	await saveCache(cache);
+	await saveCache(cache, uid);
 }
 
 /** Call after unwatch to reduce today's count. */
 export async function decrementDailyWatch(type: "episode" | "movie"): Promise<void> {
-	const cache = await loadCache();
+	const uid = currentUid();
+	if (!uid) return;
+	const cache = await loadCache(uid);
 	const today = todayStr();
 	const day = cache.days[today];
 	if (!day) return;
@@ -141,7 +149,7 @@ export async function decrementDailyWatch(type: "episode" | "movie"): Promise<vo
 	else day.movies = Math.max(0, day.movies - 1);
 	cache.days[today] = day;
 	cache.decOps = (cache.decOps ?? 0) + 1;
-	await saveCache(cache);
+	await saveCache(cache, uid);
 }
 
 /** Firestore Timestamp (or a restored plain object) → local day key */
@@ -198,7 +206,7 @@ export function useWeeklyActivity(userId?: string, watchedTotal?: number | null)
 	useEffect(() => {
 		let cancelled = false;
 		(async () => {
-			const cache = await loadCache();
+			const cache = await loadCache(userId);
 			if (cancelled) return;
 			setWeeklyData(cache.days);
 			// Still loading while a backfill runs: an empty tally there means "not fetched yet",
@@ -220,7 +228,7 @@ export function useWeeklyActivity(userId?: string, watchedTotal?: number | null)
 			if (!untracked && !stale) {
 				// Nothing happened elsewhere: keep the local tally, just bank the reconcile
 				setLoading(false);
-				await saveCache({ ...cache, syncedTotal: watchedTotal, incOps: 0, decOps: 0 });
+				await saveCache({ ...cache, syncedTotal: watchedTotal, incOps: 0, decOps: 0 }, userId);
 				return;
 			}
 
@@ -228,12 +236,15 @@ export function useWeeklyActivity(userId?: string, watchedTotal?: number | null)
 			try {
 				const seeded = await seedFromWatched(userId);
 				if (cancelled) return;
-				const latest = await loadCache();
+				const latest = await loadCache(userId);
 				const days = mergeDays(seeded, latest.days);
 				setWeeklyData(days);
-				await saveCache({ days, syncedTotal: watchedTotal, incOps: 0, decOps: 0, seededOn: today });
+				await saveCache(
+					{ days, syncedTotal: watchedTotal, incOps: 0, decOps: 0, seededOn: today },
+					userId,
+				);
 			} catch {
-				await saveCache({ ...cache, seededOn: today });
+				await saveCache({ ...cache, seededOn: today }, userId);
 			} finally {
 				seeding.current = false;
 				setLoading(false);
@@ -245,8 +256,8 @@ export function useWeeklyActivity(userId?: string, watchedTotal?: number | null)
 	}, [userId, watchedTotal]);
 
 	const refresh = useCallback(() => {
-		loadWeeklyData().then(setWeeklyData);
-	}, []);
+		loadWeeklyData(userId).then(setWeeklyData);
+	}, [userId]);
 
 	const days = getLast7Days();
 	const chartData = days.map((day) => ({

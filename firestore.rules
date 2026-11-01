@@ -62,10 +62,11 @@ service cloud.firestore {
 
     // fcmToken: push token (App.tsx registerForPush); hasCompletedImport: the import screen's
     // Skip / Done. Both were missing, so those writes were refused and the import screen came
-    // back on every launch
+    // back on every launch. customListsSeeded: the default Favorites list was offered
+    // (services/customLists seedDefaultLists)
     function validUserDoc() {
       return onlyWrites(['stats', 'lastAppOpen', 'hideUnreleasedMovieModal', 'fcmToken',
-                         'hasCompletedImport'])
+                         'hasCompletedImport', 'customListsSeeded'])
         && (!('stats' in writtenKeys()) || validStats())
         && optTimestamp('lastAppOpen')
         && (!('hideUnreleasedMovieModal' in request.resource.data)
@@ -74,7 +75,9 @@ service cloud.firestore {
             || (request.resource.data.fcmToken is string
                 && request.resource.data.fcmToken.size() <= 4096))
         && (!('hasCompletedImport' in request.resource.data)
-            || request.resource.data.hasCompletedImport is bool);
+            || request.resource.data.hasCompletedImport is bool)
+        && (!('customListsSeeded' in request.resource.data)
+            || request.resource.data.customListsSeeded is bool);
     }
 
     function validTracking(showId) {
@@ -177,12 +180,19 @@ service cloud.firestore {
         allow create, update: if isOwner(userId) && validWatchedMovie(movieId);
       }
 
-      // Custom lists — a bookmark list only; never touches tracking. Caps mirror CUSTOM_LIST_* in enums
+      // Custom lists — a bookmark list only; never touches tracking. Name length and items per
+      // list mirror CUSTOM_LIST_NAME_MAX / CUSTOM_LIST_ITEM_MAX in enums. Not enforceable here:
+      // the number of lists (CUSTOM_LIST_MAX — rules can't count docs) and each item's shape
+      // (rules can't loop over a list; clients drop malformed items on read)
       match /customLists/{listId} {
         allow read, delete: if isOwner(userId);
         allow create, update: if isOwner(userId)
+          // Auto ids, or the fixed Favorites id
+          && listId.matches('^[A-Za-z0-9]{1,40}$')
           && request.resource.data.keys().hasOnly(['name', 'items', 'createdAt', 'updatedAt', 'order'])
           && optNumber('order')
+          && optNumber('createdAt')
+          && optNumber('updatedAt')
           && request.resource.data.name is string
           && request.resource.data.name.size() > 0
           && request.resource.data.name.size() <= 50

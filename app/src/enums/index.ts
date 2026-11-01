@@ -80,8 +80,13 @@ export enum CacheKey {
 	WATCH_HISTORY = "watch_history_v1",
 	/** Watch History sort choice (kept across visits) */
 	HISTORY_SORT = "history_sort_v1",
-	/** + uid — the default Favorites list was offered to this user on this device (never re-created after a delete) */
+	/** + uid — this device saw users/{uid}.customListsSeeded (the server flag) set: skip checking it */
 	CUSTOM_LISTS_SEEDED = "custom_lists_seeded_v1:",
+	/** + uid — ids of the saved custom lists (each list under CUSTOM_LIST_CACHE; one value per list
+	 *  so a big list can't push a single value past Android's ~1M-char read limit) */
+	CUSTOM_LISTS_CACHE = "custom_lists_cache_v1:",
+	/** + uid + "_" + listId — one saved custom list */
+	CUSTOM_LIST_CACHE = "custom_list_cache_v1:",
 	/** A list page's Grid / List choice (kept across lists and visits) */
 	CUSTOM_LIST_VIEW = "custom_list_view_v1",
 	/** Last app_opened time (ms) — derives days_since_last_open */
@@ -136,6 +141,11 @@ export const PROFILE_LIST_COUNT = 5;
 export const RECENTLY_WATCHED_COUNT = 15;
 /** The list every user starts with — a normal list, renamable and deletable */
 export const FAVORITES_LIST_NAME = "Favorites";
+/** Its fixed doc id: two devices seeding at once write the same doc, never two Favorites */
+export const FAVORITES_LIST_ID = "favorites";
+/** users/{uid} field: the default Favorites was offered (kept server-side, so deleting it on one
+ *  device doesn't bring it back on another) */
+export const CUSTOM_LISTS_SEEDED_FIELD = "customListsSeeded";
 /** New List popup (Light Yagami art): the title, and the lines under it — one picked each open */
 export const NEW_LIST_TITLE = "A New List for a New World";
 export const NEW_LIST_HINTS = [

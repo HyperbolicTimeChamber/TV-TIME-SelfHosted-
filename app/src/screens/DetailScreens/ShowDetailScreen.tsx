@@ -25,7 +25,7 @@ import {
 	UnreleasedMovieModal,
 	WatchCountSheet,
 } from "../../components";
-import { showShareUrl, describeLoadError, listedTitleKeys, listItemKey } from "../../utils";
+import { showShareUrl, describeLoadError, isTitleListed } from "../../utils";
 import ErrorState from "../../components/ErrorState";
 import CircleButton, { CIRCLE_BUTTON_SIZE, CircleBackButton } from "../../components/CircleButton";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
@@ -112,7 +112,7 @@ export default function ShowDetailScreen() {
 	const userId = useAuthStore((s) => s.user?.uid);
 	const { lists } = useCustomLists(userId);
 	const [listSheetOpen, setListSheetOpen] = useState(false);
-	const isListed = listedTitleKeys(lists).has(listItemKey(tmdbId, mediaType));
+	const isListed = isTitleListed(lists, tmdbId, mediaType);
 	const listEntry = useMemo(
 		() => ({ tmdbId, mediaType, title: title ?? "", posterPath: show?.poster_path ?? null }),
 		[tmdbId, mediaType, title, show?.poster_path],

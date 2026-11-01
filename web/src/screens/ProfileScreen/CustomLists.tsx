@@ -38,7 +38,8 @@ export default function CustomLists() {
 				<IoChevronForward size={16} color="var(--text-muted)" />
 			</button>
 
-			{recent.items.length > 0 && (
+			{/* Both histories in first: one alone drew a partial row that then reshuffled */}
+			{!recent.loading && recent.items.length > 0 && (
 				<Row icon={<IoTimeOutline size={16} />} name="Recently Watched" items={recent.items} />
 			)}
 

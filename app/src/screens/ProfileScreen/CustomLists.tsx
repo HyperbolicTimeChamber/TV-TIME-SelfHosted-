@@ -52,7 +52,8 @@ export default function CustomLists({
 				<Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
 			</Pressable>
 
-			{recent.items.length > 0 && (
+			{/* Both histories in first: one alone drew a partial row that then reshuffled */}
+			{!recent.loading && recent.items.length > 0 && (
 				<Row
 					icon="time-outline"
 					name="Recently Watched"

@@ -22,7 +22,7 @@ import { tmdbBackdropUri, tmdbLogoUri, tmdbPosterUri } from "../hooks/useTmdbIma
 import { useTitleLogo } from "../hooks/useTitleLogo";
 import { useCustomLists } from "../hooks/useCustomLists";
 import { useAuthStore } from "../stores";
-import { listedTitleKeys, listItemKey } from "../utils";
+import { isTitleListed } from "../utils";
 import AddToListSheet from "./modals/AddToListSheet";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -121,8 +121,7 @@ export default function ShowDrawer({
 				: null,
 		[show?.tmdbId, show?.mediaType, show?.title, show?.posterPath],
 	);
-	const isListed =
-		!!listEntry && listedTitleKeys(lists).has(listItemKey(listEntry.tmdbId, listEntry.mediaType));
+	const isListed = !!listEntry && isTitleListed(lists, listEntry.tmdbId, listEntry.mediaType);
 
 	const handleSheetChanges = useCallback(
 		(index: number) => {
