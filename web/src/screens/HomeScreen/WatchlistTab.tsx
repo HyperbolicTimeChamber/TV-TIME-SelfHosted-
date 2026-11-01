@@ -1,5 +1,6 @@
-import { Fragment, useCallback, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Spin } from "antd";
+import { motion, useReducedMotion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import { useWatchlistScreen } from "@app/screens/HomeScreen/WatchlistTab/useWatchlistScreen";
 import { MediaType, WatchStatus } from "@app/enums";
@@ -28,6 +29,14 @@ const keyOf = (item: WatchlistListItem) =>
 			? `show_${item.item.id}`
 			: item.type;
 
+/** On-screen movement → ease-in-out, 300ms (app CARD_MOVE) */
+const CARD_MOVE = { duration: 0.3, ease: [0.77, 0, 0.175, 1] } as const;
+/** Any other position change (a card resized as its patch lands, a row added) snaps — animated,
+ *  those read as the list shaking (app CARD_SNAP) */
+const CARD_SNAP = { duration: 0 } as const;
+/** How long after a mark lifts a card its move animates (app CARD_MOVE_WINDOW_MS) */
+const CARD_MOVE_WINDOW_MS = 500;
+
 /** Watch List tab — same data/actions as the app via useWatchlistScreen */
 export default function WatchlistTab() {
 	const navigate = useNavigate();
@@ -36,6 +45,20 @@ export default function WatchlistTab() {
 		[navigate],
 	);
 	const w = useWatchlistScreen(goToShow);
+	const reduceMotion = useReducedMotion();
+	// A mark lifting a card opens a short window where card moves glide; set during render so the
+	// reordering commit already has it (app WatchlistTab)
+	const [seenPromotions, setSeenPromotions] = useState(w.promotions);
+	const [cardsMoving, setCardsMoving] = useState(false);
+	if (seenPromotions !== w.promotions) {
+		setSeenPromotions(w.promotions);
+		setCardsMoving(true);
+	}
+	useEffect(() => {
+		if (!cardsMoving) return;
+		const t = setTimeout(() => setCardsMoving(false), CARD_MOVE_WINDOW_MS);
+		return () => clearTimeout(t);
+	}, [cardsMoving, w.promotions]);
 	// Episode sheet's logo / name (catalog cache — 0 reads)
 	const sheetShow = w.sheetEpisode
 		? getCachedCatalogShow(w.sheetEpisode.tmdbShowId, MediaType.TV)
@@ -121,10 +144,22 @@ export default function WatchlistTab() {
 	return (
 		<>
 			<div className={styles.list}>
-				{/* No wrapper per item: a sticky section header can only stick within its parent */}
-				{items.map((item) => (
-					<Fragment key={keyOf(item)}>{render(item)}</Fragment>
-				))}
+				{/* No wrapper per item: a sticky section header can only stick within its parent. Show
+				    cards get one: a card changing places (a mark lifts it to the top) glides there
+				    (app CARD_MOVE) */}
+				{items.map((item) =>
+					item.type === "show" ? (
+						<motion.div
+							key={keyOf(item)}
+							layout={reduceMotion ? false : "position"}
+							transition={cardsMoving ? CARD_MOVE : CARD_SNAP}
+						>
+							{render(item)}
+						</motion.div>
+					) : (
+						<Fragment key={keyOf(item)}>{render(item)}</Fragment>
+					),
+				)}
 			</div>
 			<div ref={sentinel} />
 			{!w.listSettled ? (

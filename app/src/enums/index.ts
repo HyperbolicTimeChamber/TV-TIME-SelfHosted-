@@ -80,6 +80,15 @@ export enum CacheKey {
 	WATCH_HISTORY = "watch_history_v1",
 	/** Watch History sort choice (kept across visits) */
 	HISTORY_SORT = "history_sort_v1",
+	/** + uid — this device saw users/{uid}.customListsSeeded (the server flag) set: skip checking it */
+	CUSTOM_LISTS_SEEDED = "custom_lists_seeded_v1:",
+	/** + uid — ids of the saved custom lists (each list under CUSTOM_LIST_CACHE; one value per list
+	 *  so a big list can't push a single value past Android's ~1M-char read limit) */
+	CUSTOM_LISTS_CACHE = "custom_lists_cache_v1:",
+	/** + uid + "_" + listId — one saved custom list */
+	CUSTOM_LIST_CACHE = "custom_list_cache_v1:",
+	/** A list page's Grid / List choice (kept across lists and visits) */
+	CUSTOM_LIST_VIEW = "custom_list_view_v1",
 	/** Last app_opened time (ms) — derives days_since_last_open */
 	LAST_APP_OPEN = "last_app_open_v1",
 	/** + uid — sign_up_completed already sent for this account */
@@ -98,6 +107,8 @@ export enum QueryKey {
 	SEARCH = "search",
 	TRENDING = "trending",
 	TITLE_LOGO = "titleLogo",
+	CUSTOM_LISTS = "customLists",
+	TITLE_INFO = "titleInfo",
 }
 
 /** Watch count sheet actions (episode / season / movie) */
@@ -118,6 +129,44 @@ export enum WatchProgress {
 	WATCHED = "watched",
 }
 
+/** Custom lists live in users/{uid}/customLists — a list is only a bookmark, never tracking */
+export const CUSTOM_LISTS_COLLECTION = "customLists";
+/** Name length / count caps (mirrored in firestore.rules) */
+export const CUSTOM_LIST_NAME_MAX = 50;
+export const CUSTOM_LIST_ITEM_MAX = 500;
+export const CUSTOM_LIST_MAX = 50;
+/** Custom lists the profile shows under Lists (the biggest), after the Recently Watched row */
+export const PROFILE_LIST_COUNT = 5;
+/** Posters in the profile's Recently Watched row */
+export const RECENTLY_WATCHED_COUNT = 15;
+/** The list every user starts with — a normal list, renamable and deletable */
+export const FAVORITES_LIST_NAME = "Favorites";
+/** Its fixed doc id: two devices seeding at once write the same doc, never two Favorites */
+export const FAVORITES_LIST_ID = "favorites";
+/** users/{uid} field: the default Favorites was offered (kept server-side, so deleting it on one
+ *  device doesn't bring it back on another) */
+export const CUSTOM_LISTS_SEEDED_FIELD = "customListsSeeded";
+/** New List popup (Light Yagami art): the title, and the lines under it — one picked each open */
+export const NEW_LIST_TITLE = "A New List for a New World";
+export const NEW_LIST_HINTS = [
+	"Let's list down some new ways to kill time.",
+	"I'll take a potato chip… and list it!",
+	"Every title goes in exactly as planned.",
+	"Shinigami love apples. You'll love this list.",
+] as const;
+/** Sorts ahead of every other list (order falls back to createdAt, a huge number) */
+export const FAVORITES_LIST_ORDER = -1;
+
+/** How a list page lays out its titles */
+export enum CustomListView {
+	GRID = "grid",
+	LIST = "list",
+}
+
+/** Exported lists: a JSON file the Import button reads back (also meant for sharing) */
+export const LISTS_EXPORT_FORMAT = "watchloom-lists";
+export const LISTS_EXPORT_VERSION = 1;
+
 /** Fill of the shared 44px circular icon buttons (back, share) */
 export enum CircleButtonTone {
 	/** Translucent black — floating over artwork */
@@ -126,6 +175,8 @@ export enum CircleButtonTone {
 	SURFACE_LIGHT = "surfaceLight",
 	/** Brightest grey (the border colour) — stands out on black */
 	RAISED = "raised",
+	/** Accent blue — a toggled-on state (the Add to List button once the title is listed) */
+	ACCENT = "accent",
 }
 
 /** Watch History card status pill (label text) */
@@ -266,6 +317,8 @@ export enum Route {
 	SETTINGS = "Settings",
 	WATCH_HISTORY = "WatchHistory",
 	IMPORT_DATA = "ImportData",
+	LIST_DETAIL = "ListDetail",
+	LISTS = "Lists",
 }
 
 // Base URLs come from app/.env (EXPO_PUBLIC_* is inlined at build time; CI writes the file)
@@ -303,6 +356,8 @@ export const MIXPANEL_SERVER_URL = process.env.EXPO_PUBLIC_MIXPANEL_SERVER_URL |
 export enum AnalyticsEvent {
 	APP_OPENED = "app_opened",
 	EPISODE_MARKED_TRACKED = "episode_marked_tracked",
+	/** An episode unwatched or its watch count lowered (debugs tracking-pointer bugs) */
+	EPISODE_UNWATCHED = "episode_unwatched",
 	EPISODE_TRACKING_SESSION_COMPLETED = "episode_tracking_session_completed",
 	API_CALLED = "api_called",
 	/** Aggregated Firestore reads / writes / deletes since the last flush */

@@ -4,16 +4,13 @@ import { getCachedCatalogShow } from "../../hooks/useWatchlist";
 import { colors } from "../../theme";
 import { MediaType, TMDBShow, type AddFailure } from "../../types";
 import { WatchProgress } from "../../enums";
+import { searchMediaType as mediaTypeOf } from "../../utils";
 
 const pad = (n?: number) => String(n).padStart(2, "0");
 /** Title logo when the catalog has the title cached (name otherwise) */
 const logoOf = (item: TMDBShow | null | undefined, mediaType: MediaType) =>
 	item ? (getCachedCatalogShow(item.id, mediaType)?.logoPath ?? null) : null;
 const nameOf = (item: TMDBShow | null | undefined) => item?.name || item?.title || "";
-
-const mediaTypeOf = (item: TMDBShow | null | undefined): MediaType =>
-	item?.media_type ||
-	(item?.first_air_date || (item?.name && !item?.title) ? MediaType.TV : MediaType.MOVIE);
 
 const epCode = (ep?: { season: number; episode: number }) =>
 	`S${pad(ep?.season)}E${pad(ep?.episode)}`;

@@ -1,7 +1,23 @@
-import { useCallback, useRef, useEffect, useMemo, useState } from "react";
+import {
+	useCallback,
+	useRef,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useState,
+	type ReactNode,
+} from "react";
 import { View, Animated, StyleSheet, RefreshControl, Dimensions } from "react-native";
-import { LegendList } from "@legendapp/list/react-native";
-import { useNavigation, CompositeNavigationProp } from "@react-navigation/native";
+import type { LegendListRef } from "@legendapp/list/react-native";
+import { AnimatedLegendList } from "@legendapp/list/reanimated";
+import Reanimated, {
+	Easing,
+	useAnimatedStyle,
+	useSharedValue,
+	withSequence,
+	withTiming,
+} from "react-native-reanimated";
+import { useFocusEffect, useNavigation, CompositeNavigationProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
 	ConfirmModal,
@@ -71,6 +87,94 @@ const skeletonStyles = StyleSheet.create({
 	},
 });
 
+/** On-screen movement → ease-in-out; quick enough to read as a response to the tap */
+const CARD_MOVE_MS = 300;
+const CARD_MOVE_EASING = Easing.bezier(0.77, 0, 0.175, 1);
+/** How long the moved cards keep their glide offsets in the list data */
+const CARD_MOVE_WINDOW_MS = CARD_MOVE_MS + 200;
+
+/** A card's glide after a mark reorders the list: drawn `offset` px from where the list placed
+ *  it, easing to 0. `token` starts each glide once */
+type CardFlip = { offset: number; token: number };
+type ListRow = WatchlistListItem & { flip?: CardFlip };
+
+const keyOf = (item: WatchlistListItem) => {
+	if (item.type === "sectionHeader") return `section_${item.title}`;
+	if (item.type === "watchedMovie") return `movie_${item.movie.id}`;
+	if (item.type === "watchedEpisode") return `watched_${item.episode.id}`;
+	if (item.type === "caughtUp") return "caughtUp";
+	return `show_${item.item.id}`;
+};
+
+/**
+ * Where each card moved by a reorder was drawn before it, relative to where the list will put
+ * it (FLIP). Read from the list's current layout — the old order — and laid out again in the new
+ * order from the first card's slot, with the cards' measured sizes
+ */
+function flipOffsets(
+	list: LegendListRef | null,
+	prev: readonly WatchlistListItem[],
+	next: readonly WatchlistListItem[],
+): Map<string, number> {
+	const offsets = new Map<string, number>();
+	const state = list?.getState();
+	if (!state) return offsets;
+	const prevShows = prev.filter((i) => i.type === "show").map(keyOf);
+	if (prevShows.length === 0) return offsets;
+	const known = new Set(prevShows);
+	const nextShows = next.filter((i) => i.type === "show").map(keyOf);
+	let top = state.positionByKey(prevShows[0]);
+	if (top === undefined) return offsets;
+	for (const key of nextShows) {
+		const from = state.positionByKey(key);
+		const index = prev.findIndex((i) => keyOf(i) === key);
+		// New card or one the list never laid out: nothing to glide from — and the rest can't be
+		// placed reliably
+		if (!known.has(key) || from === undefined || index === -1) break;
+		if (from !== top) offsets.set(key, from - top);
+		top += state.sizeAtIndex(index);
+	}
+	return offsets;
+}
+
+const UP_NEXT_KEY = keyOf({ type: "sectionHeader", title: "What's Up Next" });
+
+const isWatchedRow = (item: WatchlistListItem) =>
+	item.type === "watchedEpisode" || item.type === "watchedMovie";
+
+/** Scrolled to (or past) the "What's Up Next" header — Previously Watched is off screen above */
+function upNextOnScreen(list: LegendListRef | null): boolean {
+	const state = list?.getState();
+	const top = state?.positionByKey(UP_NEXT_KEY);
+	return !!state && top !== undefined && state.scroll >= top - 1;
+}
+
+/** The list without the held rows; a section they leave empty goes too */
+function withoutHeld(data: WatchlistListItem[], held: ReadonlySet<string>): WatchlistListItem[] {
+	if (held.size === 0) return data;
+	const kept = data.filter((i) => !held.has(keyOf(i)));
+	return kept.filter(
+		(i, n) => i.type !== "sectionHeader" || (kept[n + 1] && kept[n + 1].type !== "sectionHeader"),
+	);
+}
+
+/** Draws a card at its glide offset and eases it home — a transform only, so the list's own
+ *  positions (and its corrections when a size changes) are never animated */
+function FlipView({ flip, children }: Readonly<{ flip?: CardFlip; children: ReactNode }>) {
+	const y = useSharedValue(0);
+	const style = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
+	const token = flip?.token;
+	const offset = flip?.offset ?? 0;
+	useLayoutEffect(() => {
+		if (token === undefined || offset === 0) return;
+		y.value = withSequence(
+			withTiming(offset, { duration: 0 }),
+			withTiming(0, { duration: CARD_MOVE_MS, easing: CARD_MOVE_EASING }),
+		);
+	}, [token, offset, y]);
+	return <Reanimated.View style={style}>{children}</Reanimated.View>;
+}
+
 export default function WatchlistTab() {
 	const navigation = useNavigation<NavProp>();
 
@@ -117,6 +221,7 @@ export default function WatchlistTab() {
 		handleMovieCountCommit,
 		handleTvPress,
 		listData: liveListData,
+		promotions,
 		listSettled,
 		loadMoreTracking,
 		loadMorePrevWatched,
@@ -135,16 +240,68 @@ export default function WatchlistTab() {
 	const sheetShow = sheetEpisode
 		? getCachedCatalogShow(sheetEpisode.tmdbShowId, MediaType.TV)
 		: null;
-	const listData = useMemo(
+	const fullData = useMemo(
 		() => withCaughtUp(liveListData, listSettled),
 		[liveListData, listSettled],
 	);
+	const listRef = useRef<LegendListRef | null>(null);
+
+	// A row joining Previously Watched (a mark saving) lands just above Up Next. Inserted there
+	// while Up Next is on screen, the list keeps the view in place a frame or two late on
+	// Android — the cards nudge. So it waits, hidden, until the next drag or leaving the tab
+	const seenWatched = useRef<Set<string> | null>(null);
+	const [held, setHeld] = useState<ReadonlySet<string>>(new Set());
+	const watchedKeys = fullData.filter(isWatchedRow).map(keyOf);
+	if (seenWatched.current === null) {
+		if (fullData.length > 0) seenWatched.current = new Set(watchedKeys);
+	} else {
+		const seen = seenWatched.current;
+		const fresh = watchedKeys.filter((k) => !seen.has(k));
+		if (fresh.length > 0) {
+			for (const k of fresh) seen.add(k);
+			if (upNextOnScreen(listRef.current)) setHeld((prev) => new Set([...prev, ...fresh]));
+		}
+	}
+	const releaseHeld = useCallback(() => {
+		setHeld((prev) => (prev.size === 0 ? prev : new Set()));
+	}, []);
+	useFocusEffect(useCallback(() => releaseHeld, [releaseHeld]));
+	const listData = useMemo(() => withoutHeld(fullData, held), [fullData, held]);
+
+	// The rows as last drawn: a reorder's glide starts from their layout
+	const drawnRows = useRef<readonly WatchlistListItem[]>(listData);
+	useEffect(() => {
+		drawnRows.current = listData;
+	}, [listData]);
+	// A mark lifting a card: each moved card glides from where it was drawn. Read during render —
+	// the list still holds the old layout until this render commits
+	const [seenPromotions, setSeenPromotions] = useState(promotions);
+	const [flips, setFlips] = useState<{ token: number; offsets: Map<string, number> } | null>(null);
+	if (seenPromotions !== promotions) {
+		setSeenPromotions(promotions);
+		setFlips({
+			token: promotions,
+			offsets: flipOffsets(listRef.current, drawnRows.current, listData),
+		});
+	}
+	useEffect(() => {
+		if (!flips) return;
+		const t = setTimeout(() => setFlips(null), CARD_MOVE_WINDOW_MS);
+		return () => clearTimeout(t);
+	}, [flips]);
+	// LegendList re-renders rows only when their data changes, so the glide rides in the rows
+	const rows = useMemo<ListRow[]>(() => {
+		if (!flips || flips.offsets.size === 0) return listData;
+		return listData.map((i) => {
+			const offset = flips.offsets.get(keyOf(i));
+			return offset === undefined ? i : { ...i, flip: { offset, token: flips.token } };
+		});
+	}, [listData, flips]);
 
 	const caughtUp = listData.some((i) => i.type === "caughtUp");
 	// Up Next has shows and nothing more is coming: caught-up state as the list's footer
 	const caughtUpFooter = listSettled && !caughtUp && listData.some((i) => i.type === "show");
 	const [listH, setListH] = useState(0);
-	const listRef = useRef<any>(null);
 	// Up-next / previously watched card long-pressed → confirm pausing it
 	const [pauseTarget, setPauseTarget] = useState<EnrichedTrackingItem | null>(null);
 	const [pausing, setPausing] = useState(false);
@@ -209,7 +366,7 @@ export default function WatchlistTab() {
 	);
 
 	const renderItem = useCallback(
-		({ item }: { item: WatchlistListItem }) => {
+		({ item }: { item: ListRow }) => {
 			if (item.type === "sectionHeader") {
 				return <SectionHeader title={item.title} />;
 			}
@@ -258,17 +415,19 @@ export default function WatchlistTab() {
 
 			// All fields pre-computed in useWatchlistData — no catalog lookup needed
 			return (
-				<ShowCard
-					item={item.item}
-					isUpdating={updatingShows.has(item.item.tmdbId)}
-					remainingEpisodes={(item.item as any).remaining ?? null}
-					onSwipeLeft={handleMarkWatched}
-					// Pausing is a long press + confirm (no swipe — too easy to trigger by accident)
-					onLongPress={setPauseTarget}
-					onPress={handleCardPress}
-					onTitlePress={handleTitlePress}
-					onCheckmark={handleMarkWatched}
-				/>
+				<FlipView flip={item.flip}>
+					<ShowCard
+						item={item.item}
+						isUpdating={updatingShows.has(item.item.tmdbId)}
+						remainingEpisodes={(item.item as any).remaining ?? null}
+						onSwipeLeft={handleMarkWatched}
+						// Pausing is a long press + confirm (no swipe — too easy to trigger by accident)
+						onLongPress={setPauseTarget}
+						onPress={handleCardPress}
+						onTitlePress={handleTitlePress}
+						onCheckmark={handleMarkWatched}
+					/>
+				</FlipView>
 			);
 		},
 		[
@@ -330,22 +489,19 @@ export default function WatchlistTab() {
 
 	return (
 		<>
-			<LegendList
+			{/* Reanimated variant for its sticky headers: the plain list's don't pin on the new
+			    architecture. No itemLayoutAnimation — card moves are FlipView's */}
+			<AnimatedLegendList
 				ref={listRef}
-				data={listData}
+				data={rows}
 				initialScrollIndex={initialUpNext.current ?? 0}
-				keyExtractor={(item) => {
-					if (item.type === "sectionHeader") return `section_${item.title}`;
-					if (item.type === "watchedMovie") return `movie_${item.movie.id}`;
-					if (item.type === "watchedEpisode") return `watched_${item.episode.id}`;
-					if (item.type === "caughtUp") return "caughtUp";
-					return `show_${item.item.id}`;
-				}}
+				keyExtractor={keyOf}
 				renderItem={renderItem}
 				recycleItems
 				drawDistance={SCREEN_HEIGHT * 2}
 				estimatedItemSize={110}
 				stickyHeaderIndices={stickyIndices}
+				onScrollBeginDrag={releaseHeld}
 				refreshControl={
 					hasMorePrevWatched ? (
 						<RefreshControl

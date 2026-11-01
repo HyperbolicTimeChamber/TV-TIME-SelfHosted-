@@ -5,7 +5,11 @@ export {
 	EpisodeDetailModal,
 	WatchActionSheet,
 	WatchCountSheet,
+	AddToListSheet,
+	ListNameModal,
+	OptionsSheet,
 } from "./modals";
+export type { SheetOption } from "./modals";
 export { WatchAction } from "./modals";
 export type { CarouselEpisode } from "./modals";
 export { default as CheckmarkButton } from "./CheckmarkButton";

@@ -40,7 +40,7 @@ export default function WatchActionSheet({
 	onClose,
 }: Props) {
 	return (
-		<BottomSheet visible={visible} onClose={onClose}>
+		<BottomSheet visible={visible} onClose={onClose} art={tmdbId ? { tmdbId, mediaType } : null}>
 			{(close) => {
 				const select = (action: WatchAction) => close(() => onSelect(action));
 				return (

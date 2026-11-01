@@ -49,6 +49,7 @@ clients send `clientPlatform` with every call), `system` (schedules, triggers, b
 | `firestore_ops` | app, web, cloud_function, script | `reads`, `writes`, `deletes`, `total_ops` (+ `function_name`, `caller_platform` from backend) |
 | `function_invoked` | cloud_function, script | `function_name`, `caller_platform`, `success`, `duration_ms`, `tmdb_calls`, `tvmaze_calls`, `other_api_calls` |
 | `episode_marked_tracked` | app, web | `show_id`, `episode_id`, `episode_number`, `month_utc` |
+| `episode_unwatched` | app, web | `show_id`, `episode_id`, `episode_number`, `watch_count_after`, `fully_unwatched`, `month_utc` |
 | `episode_tracking_session_completed` | app, web | `items_tracked_count`, `duration_seconds`, `show_count_covered`, `month_utc` |
 
 `firestore_ops` is aggregated to save event quota: clients send one event per minute of activity

@@ -143,6 +143,7 @@ export default function WatchCountSheet({
 	return (
 		<BottomSheet
 			visible={visible}
+			art={tmdbId ? { tmdbId, mediaType, episode } : null}
 			onClose={() => {
 				flush();
 				onClose();

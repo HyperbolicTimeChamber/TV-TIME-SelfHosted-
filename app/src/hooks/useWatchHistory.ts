@@ -298,6 +298,7 @@ export function useWatchHistory(
 	if (!isDefault) {
 		return {
 			cards,
+			entries,
 			loading: view.items === null,
 			loadingMore: view.busy && view.items !== null,
 			hasMore: view.hasMore,
@@ -307,6 +308,7 @@ export function useWatchHistory(
 	}
 	return {
 		cards,
+		entries,
 		loading: loading && !state,
 		loadingMore,
 		hasMore: state?.hasMore ?? true,

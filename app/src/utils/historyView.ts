@@ -1,4 +1,5 @@
 import { HistoryFilter, HistorySort, WatchStatus } from "../enums";
+import type { HistoryEntry } from "../types";
 
 export const HISTORY_SORTS: HistorySort[] = [HistorySort.LAST_WATCHED, HistorySort.TIME_SPENT];
 
@@ -36,4 +37,12 @@ export function isDefaultHistoryView(
 	filters: ReadonlySet<HistoryFilter>,
 ): boolean {
 	return sort === HistorySort.LAST_WATCHED && filters.size === 0;
+}
+
+/** Several history tabs (TV, movies) as one: the most recently watched first, at most `limit` */
+export function latestEntries(tabs: HistoryEntry[][], limit: number): HistoryEntry[] {
+	return tabs
+		.flat()
+		.sort((a, b) => b.historyAt - a.historyAt)
+		.slice(0, limit);
 }

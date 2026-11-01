@@ -81,6 +81,7 @@ export function useWatchlistScreen(
 
 	const {
 		listData,
+		promotions,
 		loading,
 		listSettled,
 		loadMoreTracking,
@@ -612,6 +613,7 @@ export function useWatchlistScreen(
 		handleMovieCountCommit,
 		handleTvPress,
 		listData,
+		promotions,
 		loading,
 		listSettled,
 		loadMoreTracking,

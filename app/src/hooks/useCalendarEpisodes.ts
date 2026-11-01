@@ -8,7 +8,7 @@ import { fetchCatalogShows } from "../services/historyApi";
 import { showDocId } from "../utils/docId";
 import { trackedIdsQuery } from "./useTrackedIds";
 import { useQueryClient } from "@tanstack/react-query";
-import { isCalendarCacheStale } from "../utils/calendarCache";
+import { calendarCacheForUser, isCalendarCacheStale } from "../utils/calendarCache";
 
 const MAX_CACHED_MONTHS = 12;
 /** Months kept in memory. Every loaded month is flattened into one array (and indexed by day)
@@ -35,6 +35,8 @@ function pruneMonths(months: Map<string, UpcomingEpisode[]>, around: string) {
 }
 
 interface CalendarCache {
+	/** Account the months were built for */
+	userId?: string;
 	months: Record<string, UpcomingEpisode[]>;
 	/** Legacy single stamp (one for every month) — read as the stamp of months without their own */
 	syncDate?: string | null;
@@ -45,13 +47,12 @@ interface CalendarCache {
 const monthSync = (cache: CalendarCache, key: string) =>
 	cache.monthSyncs?.[key] ?? cache.syncDate ?? null;
 
-async function loadCalendarCache(): Promise<CalendarCache> {
+async function loadCalendarCache(uid: string): Promise<CalendarCache> {
 	try {
 		const raw = await AsyncStorage.getItem(CacheKey.CALENDAR_MONTHS);
-		if (!raw) return { months: {} };
-		return JSON.parse(raw) as CalendarCache;
+		return calendarCacheForUser(raw ? (JSON.parse(raw) as CalendarCache) : null, uid);
 	} catch {
-		return { months: {} };
+		return { userId: uid, months: {} };
 	}
 }
 
@@ -137,10 +138,10 @@ export function useCalendarEpisodes(userId: string | undefined) {
 	// (backend synced since a month was built) is checked per month in loadMonthEpisodes
 	const restore = useCallback((uid: string) => {
 		if (restoredRef.current?.uid === uid) return restoredRef.current.done;
-		const done = loadCalendarCache().then((cache) => {
+		const done = loadCalendarCache(uid).then((cache) => {
 			calendarCacheRef.current = cache;
-			const restored = new Map<string, UpcomingEpisode[]>(Object.entries(cache.months));
-			if (restored.size > 0) setEpisodesByMonth(restored);
+			// Always replaced — a previous account's months must not linger in memory either
+			setEpisodesByMonth(new Map(Object.entries(cache.months)));
 		});
 		restoredRef.current = { uid, done };
 		return done;

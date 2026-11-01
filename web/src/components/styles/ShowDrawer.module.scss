@@ -79,6 +79,29 @@
 	margin: 0;
 }
 
+/* Logo (name fallback) in a fixed slot so the drawer doesn't resize (app titleSlot) */
+.titleSlot {
+	min-height: 56px;
+	display: flex;
+	align-items: center;
+	margin-bottom: 4px;
+}
+
+.titleLogo {
+	height: 56px;
+	width: 260px;
+	max-width: 100%;
+	object-fit: contain;
+	object-position: left center;
+	animation: titleFade 200ms ease-out;
+}
+
+@keyframes titleFade {
+	from {
+		opacity: 0;
+	}
+}
+
 .meta {
 	font-size: 12px;
 	color: var(--text-secondary);
@@ -134,6 +157,61 @@
 .skeletonShort {
 	width: 45%;
 	height: 11px;
+}
+
+/* Over the backdrop's top-right corner, below the grab handle (app ShowDrawer listButton) */
+.listButton {
+	position: absolute;
+	top: 20px;
+	right: 12px;
+	z-index: 2;
+	width: 36px;
+	height: 36px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border-radius: 18px;
+	border: 2px solid var(--text);
+	background: rgba(0, 0, 0, 0.5);
+	color: var(--text);
+	cursor: pointer;
+}
+
+.listButtonActive {
+	background: $accent;
+	border-color: $accent;
+}
+
+/* List actions under Go to: cards, the destructive one apart (app actions / actionGap) */
+.actions {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	margin: 16px 16px 0;
+	/* Clear of the browser / OS nav bar, a step more than the sheet's own padding */
+	padding-bottom: 16px;
+}
+
+.actionRow {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	width: calc(100% - 32px);
+	margin: 0 16px;
+	padding: 12px 0;
+	background: none;
+	border: none;
+	border-top: 0.5px solid var(--border);
+	color: var(--text);
+	font-size: 14px;
+	font-weight: 600;
+	text-align: left;
+	cursor: pointer;
+}
+
+.actionDanger {
+	color: $destructive-red;
 }
 
 .goToShow {
