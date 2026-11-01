@@ -8,12 +8,16 @@ export interface TitleInfo {
 	totalEpisodes: number | null;
 	/** Minutes: a movie's runtime / a show's usual episode length */
 	runtime: number | null;
+	/** List cards' backdrop */
+	backdropPath: string | null;
+	/** First air / release year ("2024") */
+	year: string | null;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Episode count + runtime of one title — what a list page's List view shows per row. The shared
+ * Episode count, runtime, backdrop and year of one title — what a list page's List view card shows. The shared
  * catalog cache answers when it can; otherwise one TMDB call (no Firestore read), kept for a day.
  * `enabled` lets a caller skip it (Grid view shows none of this).
  */
@@ -26,7 +30,12 @@ export function useTitleInfo(tmdbId: number, mediaType: MediaType, enabled = tru
 		queryFn: async (): Promise<TitleInfo> => {
 			const cached = getCachedCatalogShow(tmdbId, mediaType);
 			if (cached && !cached.partial && cached.title) {
-				return { totalEpisodes: cached.totalEpisodes || null, runtime: cached.runtime ?? null };
+				return {
+					totalEpisodes: cached.totalEpisodes || null,
+					runtime: cached.runtime ?? null,
+					backdropPath: cached.backdropPath ?? null,
+					year: (cached.firstAirDate ?? cached.releaseDate)?.slice(0, 4) || null,
+				};
 			}
 			const apiKey = useAuthStore.getState().appTmdbApiKey;
 			if (!apiKey) throw new Error("No TMDB API key available");
@@ -35,6 +44,8 @@ export function useTitleInfo(tmdbId: number, mediaType: MediaType, enabled = tru
 			return {
 				totalEpisodes: mediaType === MediaType.TV ? (details.number_of_episodes ?? null) : null,
 				runtime: details.runtime ?? episodeRunTime?.[0] ?? null,
+				backdropPath: details.backdrop_path ?? null,
+				year: (details.first_air_date ?? details.release_date)?.slice(0, 4) || null,
 			};
 		},
 	});

@@ -1,12 +1,16 @@
+import { useEffect, useState } from "react";
 import { Reorder, useDragControls } from "motion/react";
 import { IoReorderThree } from "react-icons/io5";
 import { MediaType } from "@app/enums";
 import type { CustomListItem } from "@app/types";
 import { useShowDetails } from "@app/hooks/useShowDetails";
 import { useTitleInfo } from "@app/hooks/useTitleInfo";
-import { listItemMeta } from "@app/utils/customLists";
+import { useTitleLogo } from "@app/hooks/useTitleLogo";
+import { tmdbBackdropUri, tmdbLogoUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
+import { formatRuntime } from "@app/utils/customLists";
 import { useLongPress } from "../../hooks/useLongPress";
 import PosterImage from "../../components/PosterImage";
+import SkeletonBlock from "../../components/SkeletonBlock";
 import ShowDrawer from "../../components/ShowDrawer";
 import type { SheetOption } from "../../components/OptionsSheet";
 import styles from "./styles/ListDetail.module.scss";
@@ -14,7 +18,9 @@ import styles from "./styles/ListDetail.module.scss";
 /** TV / MOVIE pill — the one on Search's cards */
 function TypeBadge({ mediaType }: { mediaType: MediaType }) {
 	return (
-		<span className={`${styles.typeBadge} ${mediaType === MediaType.MOVIE ? styles.typeBadgeMovie : ""}`}>
+		<span
+			className={`${styles.typeBadge} ${mediaType === MediaType.MOVIE ? styles.typeBadgeMovie : ""}`}
+		>
 			{mediaType === MediaType.TV ? "TV" : "MOVIE"}
 		</span>
 	);
@@ -43,26 +49,88 @@ export function ListCell({ item, onPress, onLongPress }: ItemProps) {
 	);
 }
 
-/** List view: poster, name, TV / MOVIE pill and — a show: episodes + episode length, a movie: runtime */
+/** Card width the backdrop / logo are requested at (calendar CARD_MAX_WIDTH) */
+const CARD_MAX_WIDTH = 440;
+/** Wait this long for a logo before showing the name (app NAME_DELAY_MS) */
+const NAME_DELAY_MS = 2000;
+
+/**
+ * List view (app ListRow): a calendar card for a saved title — blurred backdrop, logo (name when
+ * there's none) over its TV / MOVIE pill and runtime, and the square holding a show's episode count /
+ * a movie's year.
+ */
 export function ListRow({ item, onPress, onLongPress }: ItemProps) {
-	const { data: info } = useTitleInfo(item.tmdbId, item.mediaType);
-	const meta = info ? listItemMeta(item.mediaType, info) : "";
+	const { data: info, isPending: infoLoading } = useTitleInfo(item.tmdbId, item.mediaType);
+	const logoPath = useTitleLogo(undefined, item.tmdbId, item.mediaType);
+	const [waited, setWaited] = useState(false);
+	useEffect(() => {
+		const t = window.setTimeout(() => setWaited(true), NAME_DELAY_MS);
+		return () => window.clearTimeout(t);
+	}, []);
 	const press = useLongPress(onLongPress, onPress);
+	const isMovie = item.mediaType === MediaType.MOVIE;
+	const runtime = formatRuntime(info?.runtime);
+	const square = isMovie
+		? { label: "YEAR", value: info?.year ?? null }
+		: { label: "EPISODES", value: info?.totalEpisodes ? String(info.totalEpisodes) : null };
+	const showName = logoPath === null || (!logoPath && waited);
+	// Still looking for the logo (and not yet time for the name): shimmer where it will sit
+	const logoLoading = logoPath === undefined && !waited;
 	return (
-		<button className={styles.row} {...press}>
-			<PosterImage
-				posterPath={item.posterPath}
-				mediaType={item.mediaType}
-				className={styles.rowPoster}
-				title={!item.posterPath ? item.title : undefined}
-				width={112}
-			/>
-			<span className={styles.rowText}>
-				<span className={styles.rowTitle}>{item.title}</span>
+		<button className={styles.card} aria-label={item.title} {...press}>
+			{info?.backdropPath ? (
+				<img
+					src={tmdbBackdropUri(info.backdropPath, CARD_MAX_WIDTH)}
+					alt=""
+					className={styles.cardBg}
+					loading="lazy"
+				/>
+			) : info && item.posterPath ? (
+				// No backdrop on TMDB (e.g. not aired yet): the poster, blurred to a wash of its colours
+				<img
+					src={tmdbPosterUri(item.posterPath, 185)}
+					alt=""
+					className={`${styles.cardBg} ${styles.cardBgPoster}`}
+					loading="lazy"
+				/>
+			) : infoLoading ? (
+				<SkeletonBlock className={styles.cardBgSkeleton} />
+			) : null}
+			<span className={styles.cardOverlay} />
+			<span className={styles.cardInfo}>
+				{/* Fixed slot: the card never shifts as the logo / name arrives */}
+				<span className={styles.logoSlot}>
+					{logoPath ? (
+						<img
+							src={tmdbLogoUri(logoPath, CARD_MAX_WIDTH * 0.6)}
+							alt={item.title}
+							className={styles.cardLogo}
+						/>
+					) : showName ? (
+						<span className={styles.cardName}>{item.title}</span>
+					) : logoLoading ? (
+						<SkeletonBlock className={styles.skeletonLogo} />
+					) : null}
+				</span>
 				<span className={styles.rowMetaLine}>
 					<TypeBadge mediaType={item.mediaType} />
-					{meta && <span className={styles.rowMeta}>{meta}</span>}
+					{infoLoading ? (
+						<SkeletonBlock className={styles.skeletonMeta} />
+					) : (
+						runtime && (
+							<span className={styles.rowMeta}>{isMovie ? runtime : `${runtime} / ep`}</span>
+						)
+					)}
 				</span>
+			</span>
+			<span className={styles.square}>
+				<span className={styles.squareTitle}>{square.label}</span>
+				<span className={styles.squareRule} />
+				{infoLoading ? (
+					<SkeletonBlock className={styles.skeletonValue} />
+				) : (
+					<span className={styles.squareValue}>{square.value ?? "—"}</span>
+				)}
 			</span>
 		</button>
 	);
