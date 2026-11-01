@@ -5,14 +5,16 @@ import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { CloudFunction } from "../enums";
 import { accountExportFileName } from "../utils";
 
-/**
- * Settings → Export My Data: the exportAccountData function gathers everything server-side
- * (tracking, watch history, lists); the JSON goes out through the share sheet like a list export.
- */
-export async function shareAccountExport(): Promise<void> {
+/** The exportAccountData function gathers everything server-side (tracking, watch history, lists) */
+export async function fetchAccountExport(): Promise<unknown> {
 	const result = await httpsCallable(getFunctions(), CloudFunction.EXPORT_ACCOUNT_DATA)({});
+	return result.data;
+}
+
+/** Settings → Export My Data: the fetched JSON goes out through the share sheet like a list export */
+export async function shareAccountExport(data: unknown): Promise<void> {
 	const now = Date.now();
-	const json = JSON.stringify(result.data, null, 2);
+	const json = JSON.stringify(data, null, 2);
 	const file = new File(Paths.cache, accountExportFileName(now));
 	file.create({ overwrite: true });
 	file.write(json);

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { motion } from "motion/react";
 import { App as AntApp } from "antd";
 
 import { useNavigate } from "react-router-dom";
@@ -10,8 +11,12 @@ import { useAppSelector } from "../../store";
 import { Paths } from "../../routes/paths";
 import { CircleBackButton, CircleButtonSpacer } from "../../components/CircleButton";
 import ConfirmModal from "../../components/ConfirmModal";
+import ExportingModal from "../../components/ExportingModal";
 import { FAREWELL_ART, LOGOUT_ART, ModalArt } from "../../components/ModalArt";
 import styles from "./styles/SettingsScreen.module.scss";
+
+/** Swipe right farther than this to go back (as on the app) */
+const SWIPE_BACK_PX = 60;
 
 /** Settings (app SettingsScreen; push-notification debug tools are mobile-only) */
 export default function SettingsScreen() {
@@ -63,7 +68,17 @@ export default function SettingsScreen() {
 	};
 
 	return (
-		<div className={styles.container}>
+		// Swipe right goes back (vertical scroll stays native)
+		<motion.div
+			drag="x"
+			dragDirectionLock
+			dragConstraints={{ left: 0, right: 0 }}
+			dragElastic={0.2}
+			className={`${styles.container} touch-pan-y`}
+			onDragEnd={(_, info) => {
+				if (info.offset.x > SWIPE_BACK_PX) navigate(-1);
+			}}
+		>
 			<div className={styles.headerRow}>
 				<CircleBackButton onClick={() => navigate(-1)} />
 				<h1 className={styles.headerTitle}>Settings</h1>
@@ -132,6 +147,9 @@ export default function SettingsScreen() {
 				onLead={exportData}
 				onClose={() => setDeleteVisible(false)}
 			/>
-		</div>
+
+			{/* Last, so it stacks over the delete dialog when exporting from there */}
+			<ExportingModal visible={exporting} />
+		</motion.div>
 	);
 }
