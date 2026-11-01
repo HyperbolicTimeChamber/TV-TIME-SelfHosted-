@@ -8,7 +8,8 @@ import {
 	type ReactNode,
 } from "react";
 import { View, Animated, StyleSheet, RefreshControl, Dimensions } from "react-native";
-import { LegendList, type LegendListRef } from "@legendapp/list/react-native";
+import type { LegendListRef } from "@legendapp/list/react-native";
+import { AnimatedLegendList } from "@legendapp/list/reanimated";
 import Reanimated, {
 	Easing,
 	useAnimatedStyle,
@@ -488,7 +489,9 @@ export default function WatchlistTab() {
 
 	return (
 		<>
-			<LegendList
+			{/* Reanimated variant for its sticky headers: the plain list's don't pin on the new
+			    architecture. No itemLayoutAnimation — card moves are FlipView's */}
+			<AnimatedLegendList
 				ref={listRef}
 				data={rows}
 				initialScrollIndex={initialUpNext.current ?? 0}
