@@ -175,7 +175,7 @@ test("listCoverItem is the most recently added title, null for an empty list", (
 	assert.equal(listCoverItem(list("b")), null);
 });
 
-test("profileLists features the biggest list and keeps the next five, biggest first", () => {
+test("profileLists keeps the five biggest lists, biggest first", () => {
 	const sized = (id: string, n: number, updatedAt = 1) => ({
 		...touched(id, 1, updatedAt),
 		items: Array.from({ length: n }, (_, i) => ({
@@ -186,10 +186,11 @@ test("profileLists features the biggest list and keeps the next five, biggest fi
 			addedAt: i,
 		})),
 	});
-	const lists = [sized("a", 1), sized("b", 7), sized("c", 3), sized("d", 3, 9), sized("e", 0), sized("f", 2), sized("g", 5), sized("h", 4)];
-	const { featured, rest } = profileLists(lists);
-	assert.equal(featured?.id, "b");
+	const lists = [sized("a", 1), sized("b", 7), sized("c", 3), sized("d", 3, 9), sized("e", 0), sized("f", 2), sized("g", 5)];
 	// Ties: the more recently changed first (d over c)
-	assert.deepEqual(rest.map((l) => l.id), ["g", "h", "d", "c", "f"]);
-	assert.deepEqual(profileLists([]), { featured: null, rest: [] });
+	assert.deepEqual(
+		profileLists(lists).map((l) => l.id),
+		["b", "g", "d", "c", "f"],
+	);
+	assert.deepEqual(profileLists([]), []);
 });

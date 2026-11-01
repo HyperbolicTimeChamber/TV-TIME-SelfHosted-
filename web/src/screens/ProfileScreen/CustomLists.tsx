@@ -3,11 +3,14 @@ import { Spin } from "antd";
 import { IoAddCircleOutline, IoBookmarksOutline, IoChevronForward } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import { useCustomLists } from "@app/hooks/useCustomLists";
+import { useRecentlyWatched } from "@app/hooks/useRecentlyWatched";
 import { useAppSelector } from "../../store";
 import PosterImage from "../../components/PosterImage";
 import ListNameModal from "../../components/ListNameModal";
 import { ModalArt, NEW_LIST_ART } from "../../components/ModalArt";
 import { NEW_LIST_HINTS, NEW_LIST_TITLE } from "@app/enums";
+import type { CustomListEntry } from "@app/types";
+import { profileLists } from "@app/utils/customLists";
 import { Paths, listPath, showPath } from "../../routes/paths";
 import styles from "./styles/ProfileScreen.module.scss";
 
@@ -21,11 +24,14 @@ const NAME_ERRORS = {
 	empty: "Give the list a name.",
 } as const;
 
-/** "Lists" on the profile, under Recently Completed (app CustomLists): a row of posters per list */
+/** "Lists" on the profile, under Recently Completed (app CustomLists): a Recently Watched row
+ *  first, then the biggest custom lists — a row of posters each */
 export default function CustomLists() {
 	const navigate = useNavigate();
 	const user = useAppSelector((s) => s.auth.user);
 	const { lists, loading, createList } = useCustomLists(user?.uid);
+	const shown = profileLists(lists);
+	const recent = useRecentlyWatched();
 	const [naming, setNaming] = useState(false);
 	const [creating, setCreating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -57,14 +63,20 @@ export default function CustomLists() {
 					<h3 className={`${styles.sectionTitle} ${styles.noMargin}`}>Lists</h3>
 					<IoChevronForward size={18} color="var(--text-muted)" />
 				</button>
-				<button
-					className={styles.iconButton}
-					onClick={() => setNaming(true)}
-					aria-label="New list"
-				>
+				<button className={styles.iconButton} onClick={() => setNaming(true)} aria-label="New list">
 					<IoAddCircleOutline size={26} />
 				</button>
 			</div>
+
+			{recent.items.length > 0 && (
+				<div className={styles.genreSection}>
+					<button className={styles.listHeaderButton} onClick={() => navigate(Paths.WATCH_HISTORY)}>
+						<span className={styles.listName}>Recently Watched</span>
+						<IoChevronForward size={16} color="var(--text-muted)" />
+					</button>
+					<PosterRow items={recent.items} />
+				</div>
+			)}
 
 			{loading && lists.length === 0 ? (
 				<div className={styles.completedLoader}>
@@ -79,7 +91,7 @@ export default function CustomLists() {
 					</span>
 				</button>
 			) : (
-				lists.map((list) => (
+				shown.map((list) => (
 					<div key={list.id} className={styles.genreSection}>
 						<button className={styles.listHeaderButton} onClick={() => navigate(listPath(list.id))}>
 							<span className={styles.listName}>{list.name}</span>
@@ -89,23 +101,7 @@ export default function CustomLists() {
 						{list.items.length === 0 ? (
 							<span className={styles.listEmpty}>Nothing here yet. Add titles from Search.</span>
 						) : (
-							<div className={styles.posterRow}>
-								{list.items.slice(0, PREVIEW_COUNT).map((item) => (
-									<button
-										key={`${item.mediaType}_${item.tmdbId}`}
-										className={styles.posterButton}
-										onClick={() => navigate(showPath(item.mediaType, item.tmdbId))}
-									>
-										<PosterImage
-											posterPath={item.posterPath}
-											mediaType={item.mediaType}
-											className={styles.completedPoster}
-											title={!item.posterPath ? item.title : undefined}
-											width={140}
-										/>
-									</button>
-								))}
-							</div>
+							<PosterRow items={list.items} />
 						)}
 					</div>
 				))
@@ -123,5 +119,33 @@ export default function CustomLists() {
 				onClose={closeNaming}
 			/>
 		</section>
+	);
+}
+
+/** First posters in a row (click one to open the title) */
+function PosterRow({
+	items,
+}: {
+	items: ReadonlyArray<Pick<CustomListEntry, "tmdbId" | "mediaType" | "title" | "posterPath">>;
+}) {
+	const navigate = useNavigate();
+	return (
+		<div className={styles.posterRow}>
+			{items.slice(0, PREVIEW_COUNT).map((item) => (
+				<button
+					key={`${item.mediaType}_${item.tmdbId}`}
+					className={styles.posterButton}
+					onClick={() => navigate(showPath(item.mediaType, item.tmdbId))}
+				>
+					<PosterImage
+						posterPath={item.posterPath}
+						mediaType={item.mediaType}
+						className={styles.completedPoster}
+						title={!item.posterPath ? item.title : undefined}
+						width={140}
+					/>
+				</button>
+			))}
+		</div>
 	);
 }

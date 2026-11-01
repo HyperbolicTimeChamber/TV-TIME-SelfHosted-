@@ -9,12 +9,13 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, typography } from "../../theme";
-import { MediaType } from "../../types";
-import { useCustomLists } from "../../hooks";
+import type { CustomListEntry, MediaType } from "../../types";
+import { useCustomLists, useRecentlyWatched } from "../../hooks";
 import PosterImage from "../../components/PosterImage";
 import { ListNameModal } from "../../components";
 import { ModalArt, NEW_LIST_ART, NEW_LIST_RATIO } from "../../components/modals/ModalArt";
 import { NEW_LIST_HINTS, NEW_LIST_TITLE } from "../../enums";
+import { profileLists } from "../../utils";
 import { styles as profileStyles } from "./styles";
 
 /** Posters shown per list on the profile; the rest are one tap away on the list's page */
@@ -31,18 +32,24 @@ interface Props {
 	userId: string | undefined;
 	/** The "Lists" banner: the page that manages every list */
 	onOpenLists: () => void;
+	/** The Recently Watched row's header: Watch History */
+	onOpenHistory: () => void;
 	onOpenList: (listId: string) => void;
 	onOpenTitle: (tmdbId: number, mediaType: MediaType) => void;
 }
 
-/** "Lists" on the profile, under Recently Completed: the user's custom lists, a row of posters each */
+/** "Lists" on the profile, under Recently Completed: a Recently Watched row first, then the
+ *  biggest custom lists — a row of posters each */
 export default function CustomLists({
 	userId,
 	onOpenLists,
+	onOpenHistory,
 	onOpenList,
 	onOpenTitle,
 }: Readonly<Props>) {
 	const { lists, loading, createList } = useCustomLists(userId);
+	const shown = profileLists(lists);
+	const recent = useRecentlyWatched();
 	const [naming, setNaming] = useState(false);
 	const [creating, setCreating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -85,6 +92,18 @@ export default function CustomLists({
 				</TouchableOpacity>
 			</View>
 
+			{recent.items.length > 0 && (
+				<View style={profileStyles.genreSection}>
+					<TouchableOpacity style={styles.listHeader} onPress={onOpenHistory} activeOpacity={0.7}>
+						<Text style={styles.listName} numberOfLines={1}>
+							Recently Watched
+						</Text>
+						<Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+					</TouchableOpacity>
+					<PosterRow items={recent.items} onOpenTitle={onOpenTitle} />
+				</View>
+			)}
+
 			{loading && lists.length === 0 ? (
 				<ActivityIndicator style={styles.loader} size="small" color={colors.primary} />
 			) : lists.length === 0 ? (
@@ -100,7 +119,7 @@ export default function CustomLists({
 					</Text>
 				</TouchableOpacity>
 			) : (
-				lists.map((list) => (
+				shown.map((list) => (
 					<View key={list.id} style={profileStyles.genreSection}>
 						<TouchableOpacity
 							style={styles.listHeader}
@@ -116,28 +135,7 @@ export default function CustomLists({
 						{list.items.length === 0 ? (
 							<Text style={styles.listEmpty}>Nothing here yet. Add titles from Search.</Text>
 						) : (
-							<FlatList
-								horizontal
-								data={list.items.slice(0, PREVIEW_COUNT)}
-								keyExtractor={(item) => `${item.mediaType}_${item.tmdbId}`}
-								showsHorizontalScrollIndicator={false}
-								style={{ marginHorizontal: -spacing.lg }}
-								contentContainerStyle={{ paddingHorizontal: spacing.lg }}
-								renderItem={({ item }) => (
-									<TouchableOpacity
-										activeOpacity={0.7}
-										onPress={() => onOpenTitle(item.tmdbId, item.mediaType)}
-									>
-										<PosterImage
-											posterPath={item.posterPath}
-											mediaType={item.mediaType}
-											style={profileStyles.completedPoster}
-											title={!item.posterPath ? item.title : undefined}
-										/>
-									</TouchableOpacity>
-								)}
-								ItemSeparatorComponent={() => <View style={{ width: spacing.sm }} />}
-							/>
+							<PosterRow items={list.items} onOpenTitle={onOpenTitle} />
 						)}
 					</View>
 				))
@@ -155,6 +153,40 @@ export default function CustomLists({
 				onClose={closeNaming}
 			/>
 		</View>
+	);
+}
+
+/** First posters in a row (tap one to open the title) */
+function PosterRow({
+	items,
+	onOpenTitle,
+}: {
+	items: ReadonlyArray<Pick<CustomListEntry, "tmdbId" | "mediaType" | "title" | "posterPath">>;
+	onOpenTitle: Props["onOpenTitle"];
+}) {
+	return (
+		<FlatList
+			horizontal
+			data={items.slice(0, PREVIEW_COUNT)}
+			keyExtractor={(item) => `${item.mediaType}_${item.tmdbId}`}
+			showsHorizontalScrollIndicator={false}
+			style={{ marginHorizontal: -spacing.lg }}
+			contentContainerStyle={{ paddingHorizontal: spacing.lg }}
+			renderItem={({ item }) => (
+				<TouchableOpacity
+					activeOpacity={0.7}
+					onPress={() => onOpenTitle(item.tmdbId, item.mediaType)}
+				>
+					<PosterImage
+						posterPath={item.posterPath}
+						mediaType={item.mediaType}
+						style={profileStyles.completedPoster}
+						title={!item.posterPath ? item.title : undefined}
+					/>
+				</TouchableOpacity>
+			)}
+			ItemSeparatorComponent={() => <View style={{ width: spacing.sm }} />}
+		/>
 	);
 }
 

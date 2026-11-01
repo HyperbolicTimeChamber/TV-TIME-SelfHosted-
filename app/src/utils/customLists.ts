@@ -115,16 +115,12 @@ export function sheetListOrder(
 	return [...fresh, ...kept];
 }
 
-/**
- * Profile lists: the one with the most titles is featured above Recently Completed, the next
- * PROFILE_LIST_COUNT go in the Lists section. Equal sizes → the more recently changed first.
- */
-export function profileLists(lists: CustomList[]): {
-	featured: CustomList | null;
-	rest: CustomList[];
-} {
-	const bySize = [...lists].sort((a, b) => b.items.length - a.items.length || byRecent(a, b));
-	return { featured: bySize[0] ?? null, rest: bySize.slice(1, 1 + PROFILE_LIST_COUNT) };
+/** Profile Lists section: the PROFILE_LIST_COUNT lists with the most titles (equal sizes → the
+ *  more recently changed first) */
+export function profileLists(lists: CustomList[]): CustomList[] {
+	return [...lists]
+		.sort((a, b) => b.items.length - a.items.length || byRecent(a, b))
+		.slice(0, PROFILE_LIST_COUNT);
 }
 
 /** The title a list shows as its cover: the one added last (null when empty) */

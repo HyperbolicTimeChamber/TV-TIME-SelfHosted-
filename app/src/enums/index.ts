@@ -130,8 +130,10 @@ export const CUSTOM_LISTS_COLLECTION = "customLists";
 export const CUSTOM_LIST_NAME_MAX = 50;
 export const CUSTOM_LIST_ITEM_MAX = 500;
 export const CUSTOM_LIST_MAX = 50;
-/** Lists the profile shows below Recently Completed (the biggest is featured above it) */
+/** Custom lists the profile shows under Lists (the biggest), after the Recently Watched row */
 export const PROFILE_LIST_COUNT = 5;
+/** Posters in the profile's Recently Watched row */
+export const RECENTLY_WATCHED_COUNT = 15;
 /** The list every user starts with — a normal list, renamable and deletable */
 export const FAVORITES_LIST_NAME = "Favorites";
 /** New List popup (Light Yagami art): the title, and the lines under it — one picked each open */

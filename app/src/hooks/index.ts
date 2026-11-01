@@ -50,4 +50,6 @@ export {
 	tmdbStillUri,
 } from "./useTmdbImage";
 export { useWatchHistory } from "./useWatchHistory";
+export { useRecentlyWatched } from "./useRecentlyWatched";
+export type { RecentlyWatchedItem } from "./useRecentlyWatched";
 export { useTitleLogo } from "./useTitleLogo";

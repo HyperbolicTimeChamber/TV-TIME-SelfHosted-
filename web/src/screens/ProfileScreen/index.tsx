@@ -121,6 +121,7 @@ export default function ProfileScreen() {
 
 			<WatchRate data={chartData} loading={chartLoading} />
 
+
 			{completedLoading ? (
 				<div className={styles.completedLoader}>
 					<Spin size="small" />
