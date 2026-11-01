@@ -44,8 +44,11 @@
 	}
 }
 
-.iconButtonAccent:not(:disabled) {
-	color: $accent;
+.hint {
+	margin: 0 0 8px;
+	padding: 0 16px;
+	font-size: 12px;
+	color: var(--text-muted);
 }
 
 .list {
@@ -54,21 +57,17 @@
 	padding: 0 16px;
 }
 
+/* Flat, like the drawer's rows (app ListRow); the page colour behind it so a picked-up row covers
+   the others */
 .row {
 	display: flex;
 	align-items: center;
-	margin-bottom: 8px;
-	background: var(--surface);
-	border-radius: 12px;
+	gap: 12px;
+	padding: 8px 0;
+	background: var(--bg);
 	list-style: none;
-}
-
-.handle {
-	display: flex;
-	padding: 16px 8px 16px 12px;
-	color: var(--text-muted);
-	cursor: grab;
-	touch-action: none;
+	user-select: none;
+	-webkit-touch-callout: none;
 }
 
 .rowMain {
@@ -76,15 +75,35 @@
 	min-width: 0;
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	padding: 12px 12px 12px 0;
+	gap: 12px;
+	padding: 0;
 	background: none;
 	border: none;
 	color: var(--text);
 	text-align: left;
 	cursor: pointer;
-	user-select: none;
-	-webkit-touch-callout: none;
+	transition: transform 160ms ease-out;
+
+	&:active {
+		transform: scale(0.98);
+	}
+}
+
+.cover {
+	flex-shrink: 0;
+	width: 52px;
+	height: 52px;
+	border-radius: 10px;
+	overflow: hidden;
+	object-fit: cover;
+}
+
+.coverEmpty {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--surface-light);
+	color: var(--text-muted);
 }
 
 .rowText {
@@ -92,10 +111,11 @@
 	min-width: 0;
 	display: flex;
 	flex-direction: column;
+	gap: 2px;
 }
 
 .rowName {
-	font-size: 15px;
+	font-size: 16px;
 	font-weight: 600;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -103,9 +123,32 @@
 }
 
 .rowCount {
-	margin-top: 2px;
-	font-size: 12px;
+	font-size: 13px;
 	color: var(--text-secondary);
+}
+
+/* Ring the size of the drawer's bookmark badge */
+.menuButton {
+	flex-shrink: 0;
+	width: 30px;
+	height: 30px;
+	border-radius: 50%;
+	border: 2px solid var(--border);
+	background: none;
+	color: var(--text);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	cursor: pointer;
+	transition:
+		transform 160ms ease-out,
+		border-color 160ms ease;
+
+	&:active {
+		transform: scale(0.92);
+		border-color: var(--text-muted);
+	}
 }
 
 .empty {

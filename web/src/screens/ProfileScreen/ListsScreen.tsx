@@ -1,14 +1,13 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { App as AntApp } from "antd";
 import { Reorder, useDragControls } from "motion/react";
 import {
 	IoAddCircleOutline,
 	IoBookmarksOutline,
-	IoChevronForward,
-	IoCheckmark,
 	IoCreateOutline,
 	IoDownloadOutline,
-	IoReorderThree,
+	IoEllipsisHorizontal,
+	IoList,
 	IoShareOutline,
 	IoTrashOutline,
 } from "react-icons/io5";
@@ -16,7 +15,7 @@ import { useNavigate } from "react-router-dom";
 import { useCustomLists } from "@app/hooks/useCustomLists";
 import { CircleButtonTone, NEW_LIST_HINTS, NEW_LIST_TITLE } from "@app/enums";
 import type { CustomList } from "@app/types";
-import { sameIdOrder, titleCount } from "@app/utils/customLists";
+import { listCoverItem, titleCount } from "@app/utils/customLists";
 import { describeImport, parseListsExport, type ImportPlan } from "@app/utils/customListsIO";
 import { useAppSelector } from "../../store";
 import { CircleBackButton } from "../../components/CircleButton";
@@ -24,8 +23,8 @@ import ConfirmModal from "../../components/ConfirmModal";
 import ListNameModal from "../../components/ListNameModal";
 import { ModalArt, NEW_LIST_ART } from "../../components/ModalArt";
 import OptionsSheet from "../../components/OptionsSheet";
+import PosterImage from "../../components/PosterImage";
 import { useHideTabBar } from "../../hooks/useHideTabBar";
-import { useLongPress } from "../../hooks/useLongPress";
 import { downloadListsExport, readListsFile } from "../../platform/customListsFiles";
 import { Paths, listPath } from "../../routes/paths";
 import { colors } from "../../theme";
@@ -46,16 +45,36 @@ const IMPORT_ERRORS = {
 	unreadable: "Couldn't read that file.",
 } as const;
 
+/** Hold this long on a row to pick it up (app: delayLongPress) */
+const HOLD_MS = 250;
+/** Pointer travel before the hold counts as a scroll instead */
+const MOVE_CANCEL_PX = 10;
+/** A drop waits this long for another before the order is written (app AUTOSAVE_MS) */
+const AUTOSAVE_MS = 800;
+
 interface RowProps {
 	list: CustomList;
 	onOpen: () => void;
 	onMenu: () => void;
+	/** Dropped after a drag: the order is ready to save */
+	onDropped: () => void;
 }
 
-/** One list: grab the handle on the left to move it; click to open; hold / right-click for its menu */
-function ListRow({ list, onOpen, onMenu }: RowProps) {
+/**
+ * One list, laid out like the Add to List drawer's rows (app ListRow): cover (the title added last),
+ * name + count, ⋯ in a ring for its menu (right-click too). Click opens it; hold to pick it up and drag.
+ */
+function ListRow({ list, onOpen, onMenu, onDropped }: RowProps) {
 	const controls = useDragControls();
-	const press = useLongPress(onMenu, onOpen);
+	const cover = listCoverItem(list);
+	const hold = useRef<number | null>(null);
+	const origin = useRef<{ x: number; y: number } | null>(null);
+	// A drag ends with a click on the row — that one must not open it
+	const dragged = useRef(false);
+	const cancelHold = () => {
+		if (hold.current) window.clearTimeout(hold.current);
+		hold.current = null;
+	};
 	return (
 		<Reorder.Item
 			value={list}
@@ -63,38 +82,91 @@ function ListRow({ list, onOpen, onMenu }: RowProps) {
 			dragControls={controls}
 			className={styles.row}
 			whileDrag={{ scale: 1.02, boxShadow: "0 8px 24px rgba(0,0,0,0.6)" }}
+			onDragEnd={onDropped}
+			onPointerDown={(e) => {
+				if (e.button !== 0) return;
+				const native = e.nativeEvent;
+				dragged.current = false;
+				origin.current = { x: e.clientX, y: e.clientY };
+				hold.current = window.setTimeout(() => {
+					hold.current = null;
+					dragged.current = true;
+					navigator.vibrate?.(15);
+					controls.start(native);
+				}, HOLD_MS);
+			}}
+			onPointerMove={(e) => {
+				const o = origin.current;
+				if (o && hold.current && Math.hypot(e.clientX - o.x, e.clientY - o.y) > MOVE_CANCEL_PX)
+					cancelHold();
+			}}
+			onPointerUp={cancelHold}
+			onPointerCancel={cancelHold}
+			onContextMenu={(e) => {
+				e.preventDefault();
+				cancelHold();
+				onMenu();
+			}}
 		>
-			<span
-				className={styles.handle}
-				onPointerDown={(e) => controls.start(e)}
-				role="button"
-				aria-label={`Reorder ${list.name}`}
+			<button
+				className={styles.rowMain}
+				onClick={() => {
+					if (dragged.current) dragged.current = false;
+					else onOpen();
+				}}
+				aria-label={`${list.name}, ${titleCount(list.items.length)}`}
 			>
-				<IoReorderThree size={26} />
-			</span>
-			<button className={styles.rowMain} {...press}>
+				{cover ? (
+					<PosterImage
+						posterPath={cover.posterPath}
+						mediaType={cover.mediaType}
+						className={styles.cover}
+						width={104}
+					/>
+				) : (
+					<span className={`${styles.cover} ${styles.coverEmpty}`}>
+						<IoList size={22} />
+					</span>
+				)}
 				<span className={styles.rowText}>
 					<span className={styles.rowName}>{list.name}</span>
 					<span className={styles.rowCount}>{titleCount(list.items.length)}</span>
 				</span>
-				<IoChevronForward size={18} color="var(--text-muted)" />
+			</button>
+			<button
+				className={styles.menuButton}
+				onPointerDown={(e) => e.stopPropagation()}
+				onClick={onMenu}
+				aria-label={`Options for ${list.name}`}
+			>
+				<IoEllipsisHorizontal size={16} />
 			</button>
 		</Reorder.Item>
 	);
 }
 
-/** Manage every list (app ListsScreen): reorder (✓ saves — it's the order of the profile page), import, export, create */
+/** Manage every list (app ListsScreen): reorder (saves itself), import, export, create */
 export default function ListsScreen() {
 	const navigate = useNavigate();
 	const { message, modal } = AntApp.useApp();
 	const user = useAppSelector((s) => s.auth.user);
-	const { lists, loading, createList, renameList, deleteList, reorderLists, planImport, applyImport } =
-		useCustomLists(user?.uid);
+	const {
+		lists,
+		loading,
+		createList,
+		renameList,
+		deleteList,
+		reorderLists,
+		planImport,
+		applyImport,
+	} = useCustomLists(user?.uid);
 	useHideTabBar();
 
 	// Dragging edits a list of ids; null = follow the saved order
 	const [draftIds, setDraftIds] = useState<string[] | null>(null);
-	const [saving, setSaving] = useState(false);
+	// Latest draft for the save timer / unmount flush (state would be stale there)
+	const draftRef = useRef<string[] | null>(null);
+	const saveTimer = useRef<number | null>(null);
 	const shown = useMemo(() => {
 		if (!draftIds) return lists;
 		const byId = new Map(lists.map((l) => [l.id, l]));
@@ -102,7 +174,6 @@ export default function ListsScreen() {
 		// A list made meanwhile (not in the draft) goes last
 		return [...ordered, ...lists.filter((l) => !draftIds.includes(l.id))];
 	}, [lists, draftIds]);
-	const dirty = draftIds !== null && !sameIdOrder(shown, lists);
 
 	const [naming, setNaming] = useState<"new" | CustomList | null>(null);
 	const [nameError, setNameError] = useState<string | null>(null);
@@ -113,15 +184,30 @@ export default function ListsScreen() {
 	const [importing, setImporting] = useState(false);
 	const fileInput = useRef<HTMLInputElement>(null);
 
-	const goBack = () => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate(Paths.PROFILE));
+	const goBack = () =>
+		(window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate(Paths.PROFILE);
 
+	// Autosave (app ListsScreen): drops settle for AUTOSAVE_MS before the order is written, so a few
+	// drags in a row are one write; leaving the page writes whatever is still waiting
 	const save = async () => {
-		if (!dirty || saving) return;
-		setSaving(true);
-		const ok = await reorderLists(shown.map((l) => l.id));
-		setSaving(false);
-		if (ok) setDraftIds(null);
-		else message.error("Couldn't save the order. Check your connection and try again.");
+		if (saveTimer.current) window.clearTimeout(saveTimer.current);
+		saveTimer.current = null;
+		const ids = draftRef.current;
+		if (!ids) return;
+		const ok = await reorderLists(ids);
+		// A newer drag since → that one saves next; keep showing it
+		if (draftRef.current !== ids) return;
+		draftRef.current = null;
+		setDraftIds(null);
+		if (!ok) message.error("Couldn't save the order. Check your connection and try again.");
+	};
+	const saveRef = useRef(save);
+	saveRef.current = save;
+	useEffect(() => () => void saveRef.current(), []);
+	const scheduleSave = () => {
+		if (!draftRef.current) return;
+		if (saveTimer.current) window.clearTimeout(saveTimer.current);
+		saveTimer.current = window.setTimeout(() => void saveRef.current(), AUTOSAVE_MS);
 	};
 
 	const submitName = async (name: string) => {
@@ -204,14 +290,6 @@ export default function ListsScreen() {
 					>
 						<IoShareOutline size={25} />
 					</button>
-					<button
-						className={`${styles.iconButton} ${styles.iconButtonAccent}`}
-						onClick={save}
-						disabled={!dirty || saving}
-						aria-label="Save order"
-					>
-						<IoCheckmark size={30} />
-					</button>
 				</div>
 				<input
 					ref={fileInput}
@@ -236,21 +314,29 @@ export default function ListsScreen() {
 					</p>
 				</div>
 			) : (
-				<Reorder.Group
-					axis="y"
-					values={shown}
-					onReorder={(next) => setDraftIds(next.map((l) => l.id))}
-					className={styles.list}
-				>
-					{shown.map((list) => (
-						<ListRow
-							key={list.id}
-							list={list}
-							onOpen={() => navigate(listPath(list.id))}
-							onMenu={() => setMenuList(list)}
-						/>
-					))}
-				</Reorder.Group>
+				<>
+					{lists.length > 1 && <p className={styles.hint}>Hold a list to drag it into place</p>}
+					<Reorder.Group
+						axis="y"
+						values={shown}
+						onReorder={(next) => {
+							const ids = next.map((l) => l.id);
+							draftRef.current = ids;
+							setDraftIds(ids);
+						}}
+						className={styles.list}
+					>
+						{shown.map((list) => (
+							<ListRow
+								key={list.id}
+								list={list}
+								onOpen={() => navigate(listPath(list.id))}
+								onMenu={() => setMenuList(list)}
+								onDropped={scheduleSave}
+							/>
+						))}
+					</Reorder.Group>
+				</>
 			)}
 
 			<OptionsSheet
@@ -319,7 +405,9 @@ export default function ListsScreen() {
 			<ConfirmModal
 				visible={!!importPlan}
 				title="Import Lists?"
-				hint={importPlan ? `This will make these changes: ${describeImport(importPlan)}` : undefined}
+				hint={
+					importPlan ? `This will make these changes: ${describeImport(importPlan)}` : undefined
+				}
 				confirmLabel="Import"
 				confirmColor="var(--primary)"
 				loading={importing}

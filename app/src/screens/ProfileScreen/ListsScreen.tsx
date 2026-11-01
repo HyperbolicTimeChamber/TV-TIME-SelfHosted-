@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { View, Text, TouchableOpacity, Pressable, StyleSheet, Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,12 +15,13 @@ import type { CustomList, ProfileStackParamList } from "../../types";
 import { ConfirmModal, ListNameModal, OptionsSheet } from "../../components";
 import { ModalArt, NEW_LIST_ART, NEW_LIST_RATIO } from "../../components/modals/ModalArt";
 import { CircleBackButton } from "../../components/CircleButton";
+import PosterImage from "../../components/PosterImage";
 import { pickListsFile, shareListsExport } from "../../services/customListsFiles";
 import {
 	describeImport,
+	listCoverItem,
 	moveElement,
 	parseListsExport,
-	sameIdOrder,
 	titleCount,
 	type ImportPlan,
 } from "../../utils";
@@ -29,6 +30,11 @@ import { colors, spacing, typography } from "../../theme";
 type Nav = NativeStackNavigationProp<ProfileStackParamList, Route.LISTS>;
 
 const MODAL_HANDOFF_MS = 350;
+/** A drop waits this long for another before the order is written */
+const AUTOSAVE_MS = 800;
+/** Same row metrics as the Add to List drawer */
+const COVER_SIZE = 52;
+const MENU_SIZE = 30;
 
 const NAME_ERRORS = {
 	taken: "You already have a list with that name.",
@@ -52,43 +58,55 @@ interface RowProps {
 }
 
 /**
- * One list: tap to open; press and hold anywhere on the row (the ≡ handle shows where) to pick it up
- * and drag; ⋯ opens its menu. The library starts a drag from a long press — a handle that starts it
- * on first touch (onPressIn) takes the touch away from the list's own gesture.
+ * One list, laid out like the Add to List drawer's rows: cover (the title added last), name + count,
+ * ⋯ in a ring for its menu. Tap opens it; press and hold anywhere on the row picks it up to drag
+ * (the library starts a drag from a long press — a handle that starts it on first touch takes the
+ * touch away from the list's own gesture).
  */
 function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 	const drag = useReorderableDrag();
+	const cover = listCoverItem(list);
 	return (
-		<TouchableOpacity
-			style={styles.row}
+		<Pressable
+			style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
 			onPress={onOpen}
 			onLongPress={drag}
 			delayLongPress={250}
-			activeOpacity={0.8}
+			accessibilityRole="button"
+			accessibilityLabel={`${list.name}, ${titleCount(list.items.length)}`}
+			accessibilityHint="Press and hold to move"
 		>
-			<View style={styles.handle} accessibilityLabel={`Press and hold to move ${list.name}`}>
-				<Ionicons name="reorder-three" size={26} color={colors.textMuted} />
-			</View>
+			{cover ? (
+				<PosterImage
+					posterPath={cover.posterPath}
+					mediaType={cover.mediaType}
+					style={styles.cover}
+				/>
+			) : (
+				<View style={[styles.cover, styles.coverEmpty]}>
+					<Ionicons name="list" size={22} color={colors.textMuted} />
+				</View>
+			)}
 			<View style={styles.rowText}>
 				<Text style={styles.rowName} numberOfLines={1}>
 					{list.name}
 				</Text>
 				<Text style={styles.rowCount}>{titleCount(list.items.length)}</Text>
 			</View>
-			<TouchableOpacity
+			<Pressable
 				onPress={onMenu}
 				hitSlop={10}
-				style={styles.menuButton}
+				style={({ pressed }) => [styles.menuButton, pressed && styles.menuPressed]}
+				accessibilityRole="button"
 				accessibilityLabel={`Options for ${list.name}`}
 			>
-				<Ionicons name="ellipsis-horizontal" size={22} color={colors.textSecondary} />
-			</TouchableOpacity>
-			<Ionicons name="chevron-forward" size={18} color={colors.textMuted} style={styles.chevron} />
-		</TouchableOpacity>
+				<Ionicons name="ellipsis-horizontal" size={16} color={colors.text} />
+			</Pressable>
+		</Pressable>
 	);
 }
 
-/** Manage every list: reorder (✓ saves — it's the order of the profile page), import, export, create */
+/** Manage every list: reorder (saves itself), import, export, create */
 export default function ListsScreen() {
 	const navigation = useNavigation<Nav>();
 	const { top } = useSafeAreaInsets();
@@ -106,7 +124,9 @@ export default function ListsScreen() {
 
 	// Dragging edits a list of ids; null = follow the saved order
 	const [draftIds, setDraftIds] = useState<string[] | null>(null);
-	const [saving, setSaving] = useState(false);
+	// Latest draft for the save timer / unmount flush (state would be stale there)
+	const draftRef = useRef<string[] | null>(null);
+	const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const shown = useMemo(() => {
 		if (!draftIds) return lists;
 		const byId = new Map(lists.map((l) => [l.id, l]));
@@ -114,7 +134,6 @@ export default function ListsScreen() {
 		// A list made meanwhile (not in the draft) goes last
 		return [...ordered, ...lists.filter((l) => !draftIds.includes(l.id))];
 	}, [lists, draftIds]);
-	const dirty = draftIds !== null && !sameIdOrder(shown, lists);
 
 	const [naming, setNaming] = useState<"new" | CustomList | null>(null);
 	const [nameError, setNameError] = useState<string | null>(null);
@@ -127,18 +146,34 @@ export default function ListsScreen() {
 	const goBack = () => navigation.goBack();
 	const afterModalClose = (fn: () => void) => setTimeout(fn, MODAL_HANDOFF_MS);
 
+	// Autosave: drops settle for AUTOSAVE_MS before the order is written, so a few drags in a row
+	// are one write; leaving the page writes whatever is still waiting
+	const save = async () => {
+		if (saveTimer.current) clearTimeout(saveTimer.current);
+		saveTimer.current = null;
+		const ids = draftRef.current;
+		if (!ids) return;
+		const ok = await reorderLists(ids);
+		// A newer drag since → that one saves next; keep showing it
+		if (draftRef.current !== ids) return;
+		draftRef.current = null;
+		setDraftIds(null);
+		if (!ok) Alert.alert("Couldn't save the order", "Check your connection and try again.");
+	};
+	const saveRef = useRef(save);
+	saveRef.current = save;
+	useEffect(() => () => void saveRef.current(), []);
+
 	// Works from the latest draft (not this render's `shown`): the library follows a drop with a second
 	// event (from -1) that must not undo it — moveElement ignores indexes outside the list
-	const onReorder = ({ from, to }: ReorderableListReorderEvent) =>
-		setDraftIds((prev) => moveElement(prev ?? lists.map((l) => l.id), from, to));
-
-	const save = async () => {
-		if (!dirty || saving) return;
-		setSaving(true);
-		const ok = await reorderLists(shown.map((l) => l.id));
-		setSaving(false);
-		if (ok) setDraftIds(null);
-		else Alert.alert("Couldn't save the order", "Check your connection and try again.");
+	const onReorder = ({ from, to }: ReorderableListReorderEvent) => {
+		const prev = draftRef.current ?? shown.map((l) => l.id);
+		const next = moveElement(prev, from, to);
+		if (next === prev) return;
+		draftRef.current = next;
+		setDraftIds(next);
+		if (saveTimer.current) clearTimeout(saveTimer.current);
+		saveTimer.current = setTimeout(() => void saveRef.current(), AUTOSAVE_MS);
 	};
 
 	const submitName = async (name: string) => {
@@ -227,14 +262,6 @@ export default function ListsScreen() {
 						color={lists.length === 0 ? colors.textMuted : colors.text}
 					/>
 				</TouchableOpacity>
-				<TouchableOpacity
-					onPress={save}
-					disabled={!dirty || saving}
-					hitSlop={8}
-					accessibilityLabel="Save order"
-				>
-					<Ionicons name="checkmark" size={30} color={dirty ? colors.accent : colors.textMuted} />
-				</TouchableOpacity>
 			</View>
 
 			{loading && lists.length === 0 ? null : lists.length === 0 ? (
@@ -248,6 +275,11 @@ export default function ListsScreen() {
 			) : (
 				<ReorderableList
 					data={shown}
+					ListHeaderComponent={
+						lists.length > 1 ? (
+							<Text style={styles.hint}>Hold a list to drag it into place</Text>
+						) : null
+					}
 					// The library also asks about the slot just past the end while a drag settles: no list there
 					keyExtractor={(l, index) => (l ? l.id : `slot_${index}`)}
 					onReorder={onReorder}
@@ -362,19 +394,36 @@ const styles = StyleSheet.create({
 	},
 	title: { flex: 1, fontSize: 20, fontWeight: "700", color: colors.text },
 	listContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl * 2 },
+	hint: { ...typography.caption, color: colors.textMuted, marginBottom: spacing.sm },
+	// Flat, like the drawer's rows; the page colour behind it so a picked-up row covers the others
 	row: {
 		flexDirection: "row",
 		alignItems: "center",
-		backgroundColor: colors.surface,
-		borderRadius: 12,
-		marginBottom: spacing.sm,
+		gap: spacing.md,
+		paddingVertical: spacing.sm,
+		backgroundColor: colors.background,
 	},
-	handle: { paddingLeft: spacing.md, paddingRight: spacing.sm, paddingVertical: spacing.lg },
-	rowText: { flex: 1, marginRight: spacing.sm, paddingVertical: spacing.md },
-	menuButton: { paddingHorizontal: spacing.sm, paddingVertical: spacing.md },
-	chevron: { marginRight: spacing.md },
-	rowName: { ...typography.subtitle, fontSize: 15 },
-	rowCount: { ...typography.caption, marginTop: 2 },
+	rowPressed: { transform: [{ scale: 0.98 }] },
+	cover: { width: COVER_SIZE, height: COVER_SIZE, borderRadius: 10, overflow: "hidden" },
+	coverEmpty: {
+		backgroundColor: colors.surfaceLight,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	rowText: { flex: 1, minWidth: 0 },
+	rowName: { ...typography.subtitle, fontSize: 16 },
+	rowCount: { ...typography.caption, fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+	// Ring the size of the drawer's bookmark badge
+	menuButton: {
+		width: MENU_SIZE,
+		height: MENU_SIZE,
+		borderRadius: MENU_SIZE / 2,
+		borderWidth: 2,
+		borderColor: colors.border,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	menuPressed: { transform: [{ scale: 0.92 }], borderColor: colors.textMuted },
 	empty: {
 		flex: 1,
 		alignItems: "center",

@@ -10,7 +10,8 @@ import {
 	Timestamp,
 } from "@react-native-firebase/firestore";
 import { CacheKey } from "../types";
-import { tallyWeek } from "../utils/weeklyTally";
+import { tallyOwnedBy, tallyWeek } from "../utils/weeklyTally";
+import { useAuthStore } from "../stores";
 
 export interface DayActivity {
 	episodes: number;
@@ -28,6 +29,8 @@ export type WeeklyData = Record<string, DayActivity>;
 interface WeeklyCache {
 	/** CACHE_VERSION it was written under; older tallies are thrown away and rebuilt */
 	version?: number;
+	/** Account the tally belongs to — another sign-in's days are thrown away and rebuilt */
+	userId?: string;
 	days: WeeklyData;
 	/** users/{uid}.stats episodes + movies at the last reconcile */
 	syncedTotal?: number;
@@ -86,17 +89,19 @@ function mergeDays(seeded: WeeklyData, local: WeeklyData): WeeklyData {
 	return merged;
 }
 
+/** Signed-in account the tally is read / written for (mark / unmark callers don't pass it) */
+const currentUid = () => useAuthStore.getState().user?.uid;
+
 async function loadCache(): Promise<WeeklyCache> {
 	const raw = await AsyncStorage.getItem(CacheKey.WEEKLY_ACTIVITY);
 	if (!raw) return { days: {} };
 	try {
 		const parsed = JSON.parse(raw);
-		// Counted under older rules (or the old top-level day map): start over. No syncedTotal
-		// either, so the next load rebuilds the week from the watched collections
-		if (!parsed || typeof parsed !== "object" || parsed.version !== CACHE_VERSION) {
-			return { days: {} };
-		}
-		return { ...parsed, days: pruneToWeek(parsed.days ?? {}) };
+		// Counted under older rules (or the old top-level day map), or by another account: start
+		// over. No syncedTotal either, so the next load rebuilds the week from the watched collections
+		const owned = tallyOwnedBy<WeeklyCache>(parsed, currentUid());
+		if (!owned || owned.version !== CACHE_VERSION) return { days: {} };
+		return { ...owned, days: pruneToWeek(owned.days ?? {}) };
 	} catch {
 		return { days: {} };
 	}
@@ -105,7 +110,7 @@ async function loadCache(): Promise<WeeklyCache> {
 async function saveCache(cache: WeeklyCache): Promise<void> {
 	await AsyncStorage.setItem(
 		CacheKey.WEEKLY_ACTIVITY,
-		JSON.stringify({ ...cache, version: CACHE_VERSION }),
+		JSON.stringify({ ...cache, version: CACHE_VERSION, userId: currentUid() }),
 	).catch(() => {});
 }
 

@@ -193,4 +193,9 @@ test("profileLists keeps the five biggest lists, biggest first", () => {
 		["b", "g", "d", "c", "f"],
 	);
 	assert.deepEqual(profileLists([]), []);
+	// Empty lists never show on the profile, even with room to spare
+	assert.deepEqual(
+		profileLists([sized("x", 0), sized("y", 2)]).map((l) => l.id),
+		["y"],
+	);
 });

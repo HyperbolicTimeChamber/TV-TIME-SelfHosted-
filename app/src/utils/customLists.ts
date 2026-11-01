@@ -116,9 +116,10 @@ export function sheetListOrder(
 }
 
 /** Profile Lists section: the PROFILE_LIST_COUNT lists with the most titles (equal sizes → the
- *  more recently changed first) */
+ *  more recently changed first). Empty lists never show there */
 export function profileLists(lists: CustomList[]): CustomList[] {
-	return [...lists]
+	return lists
+		.filter((l) => l.items.length > 0)
 		.sort((a, b) => b.items.length - a.items.length || byRecent(a, b))
 		.slice(0, PROFILE_LIST_COUNT);
 }
