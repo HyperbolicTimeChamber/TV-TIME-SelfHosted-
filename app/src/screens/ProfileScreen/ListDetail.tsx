@@ -12,6 +12,7 @@ import { useNavigation, useRoute, type RouteProp } from "@react-navigation/nativ
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import ReorderableList, { type ReorderableListReorderEvent } from "react-native-reorderable-list";
 import { useAuthStore } from "../../stores";
 import { useCustomLists, useCustomListView } from "../../hooks";
@@ -30,6 +31,10 @@ import { ListItemPreview, ListRow, ReorderRow } from "./ListItemViews";
 type Nav = NativeStackNavigationProp<ProfileStackParamList, Route.LIST_DETAIL>;
 
 const COLUMNS = 3;
+
+/** Empty list art (transparent WebP, width / height) */
+const EMPTY_ART = require("../../../assets/list-empty.webp");
+const EMPTY_ART_RATIO = 1300 / 1500;
 /** A drawer / sheet is closing under the next one: wait so iOS never sees two modals at once */
 const MODAL_HANDOFF_MS = 350;
 
@@ -68,12 +73,18 @@ export default function ListDetailScreen() {
 	const [saving, setSaving] = useState(false);
 
 	const goBack = useCallback(() => navigation.goBack(), [navigation]);
+	// The root navigator owns the tabs (same hop the Watchlist's "Add Shows & Movies" makes)
+	const goSearch = useCallback(
+		() => (navigation as any).navigate(Route.SWIPE_TABS, { screen: Route.SEARCH }),
+		[navigation],
+	);
 
 	// Deleted (here or on another device): nothing left to show
 	useEffect(() => {
 		if (!loading && !list) goBack();
 	}, [loading, list, goBack]);
 
+	const emptyArtWidth = Math.min(width * 0.6, 260);
 	const posterWidth = useMemo(() => {
 		const gap = spacing.sm * (COLUMNS - 1);
 		return Math.floor((width - spacing.lg * 2 - gap) / COLUMNS);
@@ -221,13 +232,23 @@ export default function ListDetailScreen() {
 			)}
 
 			{list.items.length === 0 ? (
-				<View style={styles.empty}>
-					<Ionicons name="bookmarks-outline" size={40} color={colors.textMuted} />
-					<Text style={styles.emptyTitle}>This list is empty</Text>
-					<Text style={styles.emptyHint}>
-						Tap the bookmark on a show or movie to add it here.
+				// Anywhere in the empty area goes to Search (where the bookmark adds titles)
+				<TouchableOpacity
+					style={styles.empty}
+					onPress={goSearch}
+					activeOpacity={0.9}
+					accessibilityRole="button"
+					accessibilityLabel="List is empty. Go to Search"
+				>
+					<Image
+						source={EMPTY_ART}
+						style={{ width: emptyArtWidth, height: emptyArtWidth / EMPTY_ART_RATIO }}
+						contentFit="contain"
+					/>
+					<Text style={styles.emptyText}>
+						Zero items... I haven't felt this empty since my last fight.
 					</Text>
-				</View>
+				</TouchableOpacity>
 			) : reordering ? (
 				<ReorderableList
 					data={draft}
@@ -367,8 +388,12 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		paddingHorizontal: spacing.xxl,
 		paddingBottom: 120,
-		gap: spacing.sm,
+		gap: spacing.md,
 	},
-	emptyTitle: { ...typography.subtitle, fontSize: 18 },
-	emptyHint: { ...typography.caption, textAlign: "center" },
+	emptyText: {
+		...typography.body,
+		color: colors.textSecondary,
+		fontStyle: "italic",
+		textAlign: "center",
+	},
 });

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet } from "react-native";
 import AnimatedModal from "./AnimatedModal";
 import { CUSTOM_LIST_NAME_MAX } from "../../enums";
@@ -30,9 +30,18 @@ export default function ListNameModal({
 	onClose,
 }: Props) {
 	const [name, setName] = useState(initialName);
+	const inputRef = useRef<TextInput>(null);
 	useEffect(() => {
 		if (visible) setName(initialName);
 	}, [visible, initialName]);
+
+	// Keyboard up as soon as the popup is: `autoFocus` inside a Modal is ignored on Android, so focus
+	// by hand once the open animation (AnimatedModal's 250ms) has finished and the field takes touches
+	useEffect(() => {
+		if (!visible) return;
+		const t = setTimeout(() => inputRef.current?.focus(), 300);
+		return () => clearTimeout(t);
+	}, [visible]);
 
 	const blank = name.trim().length === 0;
 	const submit = () => {
@@ -49,13 +58,15 @@ export default function ListNameModal({
 			<View style={styles.content}>
 				<Text style={styles.title}>{title}</Text>
 				<TextInput
+					ref={inputRef}
 					style={styles.input}
 					value={name}
 					onChangeText={setName}
 					placeholder="List name"
 					placeholderTextColor={colors.textMuted}
 					maxLength={CUSTOM_LIST_NAME_MAX}
-					autoFocus
+					// Rename: the old name is selected, so typing replaces it
+					selectTextOnFocus={initialName.length > 0}
 					returnKeyType="done"
 					onSubmitEditing={submit}
 					selectionColor={colors.primary}

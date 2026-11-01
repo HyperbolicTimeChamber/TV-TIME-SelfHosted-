@@ -218,23 +218,33 @@
 	touch-action: none;
 }
 
+/* The whole empty area is one big button to Search */
 .empty {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 8px;
-	padding: 20dvh 32px 0;
+	justify-content: center;
+	gap: 12px;
+	width: 100%;
+	min-height: calc(100dvh - 160px);
+	padding: 0 32px 64px;
+	background: none;
+	border: none;
+	color: var(--text);
 	text-align: center;
+	cursor: pointer;
 }
 
-.emptyTitle {
-	margin: 0;
-	font-size: 18px;
-	font-weight: 600;
+.emptyArt {
+	width: min(60vw, 260px);
+	aspect-ratio: 1300 / 1500;
+	object-fit: contain;
 }
 
-.emptyHint {
+.emptyText {
 	margin: 0;
-	font-size: 12px;
+	max-width: 320px;
+	font-size: 14px;
+	font-style: italic;
 	color: var(--text-secondary);
 }

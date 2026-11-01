@@ -205,11 +205,17 @@ export default function ListDetailScreen() {
 			)}
 
 			{list.items.length === 0 ? (
-				<div className={styles.empty}>
-					<IoBookmarksOutline size={40} color="var(--text-muted)" />
-					<p className={styles.emptyTitle}>This list is empty</p>
-					<p className={styles.emptyHint}>Click the bookmark on a show or movie to add it here.</p>
-				</div>
+				// Anywhere in the empty area goes to Search (where the bookmark adds titles)
+				<button
+					className={styles.empty}
+					onClick={() => navigate(Paths.SEARCH)}
+					aria-label="List is empty. Go to Search"
+				>
+					<img className={styles.emptyArt} src="/list-empty.webp" alt="" />
+					<p className={styles.emptyText}>
+						Zero items... I haven't felt this empty since my last fight.
+					</p>
+				</button>
 			) : reordering ? (
 				<Reorder.Group axis="y" values={draft} onReorder={setDraft} className={styles.reorderList}>
 					{draft.map((item) => (

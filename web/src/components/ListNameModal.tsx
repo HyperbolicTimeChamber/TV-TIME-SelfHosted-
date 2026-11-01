@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Spin } from "antd";
 import { CUSTOM_LIST_NAME_MAX } from "@app/enums";
 import AnimatedModal from "./AnimatedModal";
@@ -30,8 +30,20 @@ export default function ListNameModal({
 	onClose,
 }: Props) {
 	const [name, setName] = useState(initialName);
+	const inputRef = useRef<HTMLInputElement>(null);
 	useEffect(() => {
 		if (visible) setName(initialName);
+	}, [visible, initialName]);
+
+	// Cursor in the field as soon as the popup is up (rename: old name selected, so typing replaces it);
+	// after a beat, the popup's own enter animation is still mounting the input
+	useEffect(() => {
+		if (!visible) return;
+		const t = window.setTimeout(() => {
+			inputRef.current?.focus();
+			if (initialName) inputRef.current?.select();
+		}, 60);
+		return () => window.clearTimeout(t);
 	}, [visible, initialName]);
 
 	const blank = name.trim().length === 0;
@@ -49,14 +61,13 @@ export default function ListNameModal({
 				}}
 			>
 				<input
+					ref={inputRef}
 					className={styles.textInput}
 					value={name}
 					onChange={(e) => setName(e.target.value)}
 					placeholder="List name"
 					maxLength={CUSTOM_LIST_NAME_MAX}
 					aria-label="List name"
-					// eslint-disable-next-line jsx-a11y/no-autofocus
-					autoFocus
 				/>
 				{error && <p className={styles.modalError}>{error}</p>}
 				<button
