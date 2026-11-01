@@ -158,15 +158,6 @@ export const styles = StyleSheet.create({
 		backgroundColor: colors.accent,
 		borderColor: colors.accent,
 	},
-	watchlistBadgeText: {
-		fontSize: 16,
-		fontWeight: "700" as const,
-		color: colors.text,
-		lineHeight: 18,
-	},
-	watchlistBadgeTextActive: {
-		fontSize: 14,
-	},
 	bannerTop: {
 		flexDirection: "row" as const,
 		alignItems: "center" as const,

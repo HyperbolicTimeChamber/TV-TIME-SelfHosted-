@@ -55,11 +55,8 @@ function SearchCard({
 				{isAdding ? (
 					<ActivityIndicator size="small" color={colors.text} />
 				) : (
-					<Text
-						style={[styles.watchlistBadgeText, isInWatchlist && styles.watchlistBadgeTextActive]}
-					>
-						{isInWatchlist ? "✓" : "+"}
-					</Text>
+					// Vector glyphs sit in the middle of their box — a text "+" rode high and off centre
+					<Ionicons name={isInWatchlist ? "checkmark" : "add"} size={18} color={colors.text} />
 				)}
 			</TouchableOpacity>
 			<TouchableOpacity

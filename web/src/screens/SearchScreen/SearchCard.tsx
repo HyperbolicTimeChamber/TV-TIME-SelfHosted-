@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { Spin } from "antd";
-import { IoBookmark, IoBookmarkOutline } from "react-icons/io5";
+import { IoAdd, IoBookmark, IoBookmarkOutline, IoCheckmark } from "react-icons/io5";
 import { motion } from "motion/react";
 import { MediaType } from "@app/enums";
 import type { TMDBShow } from "@app/types";
@@ -63,7 +63,14 @@ function SearchCard({
 						else onAdd(item);
 					}}
 				>
-					{isAdding ? <Spin size="small" /> : isInWatchlist ? "✓" : "+"}
+					{/* Vector glyphs sit in the middle of their box — a text "+" rode high and off centre */}
+					{isAdding ? (
+						<Spin size="small" />
+					) : isInWatchlist ? (
+						<IoCheckmark size={18} />
+					) : (
+						<IoAdd size={18} />
+					)}
 				</button>
 			)}
 			{canTrack && (

@@ -46,7 +46,8 @@
 	min-width: 0;
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	/* Logo → line under it (episode name): room for the logo to breathe (app SUBTITLE_GAP) */
+	gap: 8px;
 }
 
 /* Info page sheet: logo alone, centred */
@@ -115,14 +116,15 @@
 	align-items: center;
 }
 
+/* A line follows it: the logo sits on the slot's bottom edge, right above the line — the slot
+   keeps its full height, so the line never moves when the logo arrives (app logoSlotFit) */
 .logoSlotFit {
-	height: auto;
-	min-height: 44px;
+	align-items: flex-end;
 }
 
 .headerTextFixed {
 	/* Tallest logo + gap + one 18px line */
-	height: calc(72px + 4px + 18px);
+	height: calc(72px + 8px + 18px);
 	justify-content: center;
 }
 

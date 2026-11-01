@@ -1,0 +1,99 @@
+@use "../../theme/tokens" as *;
+
+/* The sheet's own bottom padding (BottomSheet .sheet) — the card runs through it to the screen
+   edge, and the same space closes the scroll so the last row clears the nav bar */
+$bleed: calc(env(safe-area-inset-bottom) + 16px);
+$radius: 14px;
+
+/* Create row + lists as one card; rounds the top, the bottom runs off the screen */
+.card {
+	border-radius: $radius $radius 0 0;
+	overflow: hidden;
+	margin-bottom: calc(-1 * #{$bleed});
+}
+
+.createRow {
+	position: relative;
+	z-index: 1;
+	background: var(--surface-dim);
+
+	/* Shadow on the lists' top edge, in only while they're scrolled under */
+	&::after {
+		content: "";
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: 100%;
+		height: 10px;
+		background: linear-gradient(rgba(0, 0, 0, 0.35), transparent);
+		opacity: 0;
+		transition: opacity 160ms ease-out;
+		pointer-events: none;
+	}
+
+	&:has(+ .scrolled)::after {
+		opacity: 1;
+	}
+}
+
+/* Full width: closes the Create row off from the lists */
+.divider {
+	height: 1px;
+	background: var(--border);
+}
+
+.listScroll {
+	max-height: 55vh;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	touch-action: pan-y;
+	padding-bottom: $bleed;
+}
+
+.rows {
+	background: var(--surface-light);
+	border-radius: 0 0 $radius $radius;
+	overflow: hidden;
+}
+
+/* Text-only rows: starts under the text */
+.separator {
+	height: 1px;
+	background: var(--border);
+	margin-left: 12px;
+}
+
+.listRow:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+.truncate {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.tick {
+	flex-shrink: 0;
+	display: inline-flex;
+	color: var(--text-muted);
+}
+
+.tickOn {
+	color: $accent;
+}
+
+.loader {
+	display: flex;
+	justify-content: center;
+	padding: 24px 0;
+}
+
+.empty {
+	font-size: 13px;
+	color: var(--text-secondary);
+	text-align: center;
+	padding: 16px 0;
+	margin: 0;
+}

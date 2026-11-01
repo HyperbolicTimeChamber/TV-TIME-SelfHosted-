@@ -246,9 +246,6 @@
 	border: 2px solid var(--text);
 	background: rgba(0, 0, 0, 0.5);
 	color: var(--text);
-	font-size: 16px;
-	font-weight: 700;
-	line-height: 18px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -259,7 +256,6 @@
 .badgeActive {
 	background: $watched-green;
 	border-color: $watched-green;
-	font-size: 14px;
 }
 
 /* "Add to List" — mirrors the watchlist badge on the opposite corner; blue = already in a list */

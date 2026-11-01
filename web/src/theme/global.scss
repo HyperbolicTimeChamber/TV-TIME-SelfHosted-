@@ -7,6 +7,8 @@
 	--bg: #000000;
 	--surface: #1a1a1a;
 	--surface-light: #252525;
+	/* A step under surface-light — a fixed row heading a card (app colors.surfaceDim) */
+	--surface-dim: #202020;
 	--primary: #e50914;
 	--movie-purple: #{$movie-purple};
 	--text: #ffffff;

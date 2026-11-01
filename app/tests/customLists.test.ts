@@ -150,3 +150,13 @@ test("sheetListOrder keeps the order the sheet opened with; lists made since go 
 		["old"],
 	);
 });
+
+test("sheetListOrder puts the lists already holding the title first, then by recency", () => {
+	const entry = { tmdbId: 7, mediaType: MediaType.TV, title: "T", posterPath: null };
+	const holding = { ...touched("holding", 1, 1), items: [{ ...entry, addedAt: 1 }] };
+	const lists = [holding, touched("recent", 2, 9), touched("older", 3, 5)];
+	assert.deepEqual(
+		sheetListOrder(lists, null, entry).map((l) => l.id),
+		["holding", "recent", "older"],
+	);
+});

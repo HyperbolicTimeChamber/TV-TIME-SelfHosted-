@@ -64,6 +64,8 @@ const LOGO_MAX_W = 280;
 const LOGO_MAX_W_BESIDE_PILL = 200;
 const LOGO_MAX_H = 72;
 const SUBTITLE_LINE = 18;
+/** Logo → line under it (episode name): room for the logo to breathe */
+const SUBTITLE_GAP = spacing.sm;
 
 /** Logo size for its shape: grow to the min height (or min width), clamp to the max box */
 function logoSize(ratio: number, maxW: number) {
@@ -212,8 +214,9 @@ function SheetLogo({
 	logoPath?: string | null;
 	centered: boolean;
 	maxW: number;
-	/** A line follows it: shrink to the logo instead of the fixed slot, so the logo + line
-	 *  block can be centred as one (the header keeps the fixed height instead) */
+	/** A line follows it: the logo sits on the slot's bottom edge, right above the line — the
+	 *  slot keeps its full height, so the line never moves when the logo arrives (a slot that
+	 *  grew to the loaded logo re-centred the header and read as a shake) */
 	fit: boolean;
 }) {
 	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
@@ -522,7 +525,7 @@ const styles = StyleSheet.create({
 	headerText: { flex: 1, minWidth: 0 },
 	// Logo + line: the tallest logo + the line, fixed (no resize while the logo loads), the
 	// block centred in it — lines up with the square's middle
-	headerTextFixed: { height: LOGO_MAX_H + spacing.xs + SUBTITLE_LINE, justifyContent: "center" },
+	headerTextFixed: { height: LOGO_MAX_H + SUBTITLE_GAP + SUBTITLE_LINE, justifyContent: "center" },
 	headerStretch: { alignItems: "stretch" },
 	// Square as tall as the logo + name column beside it (row stretches; width follows)
 	epSquare: {
@@ -560,7 +563,7 @@ const styles = StyleSheet.create({
 	// Fixed at the tallest a logo gets: the name / loading logo / logo all fill the same box
 	logoSlot: { height: LOGO_MAX_H, justifyContent: "center", alignItems: "flex-start" },
 	logoSlotCentered: { alignItems: "center" },
-	logoSlotFit: { height: undefined, minHeight: LOGO_MIN_H },
+	logoSlotFit: { justifyContent: "flex-end" },
 	nameCentered: { textAlign: "center" },
 	// Full size while loading (so it decodes and reports its true shape), invisible, out of flow
 	logoLoading: { position: "absolute", width: LOGO_MAX_W, height: LOGO_MIN_H, opacity: 0 },
@@ -570,7 +573,7 @@ const styles = StyleSheet.create({
 		fontSize: 13,
 		lineHeight: SUBTITLE_LINE,
 		color: colors.textSecondary,
-		marginTop: spacing.xs,
+		marginTop: SUBTITLE_GAP,
 	},
 	collapse: { overflow: "hidden" },
 	collapseContent: { position: "absolute", top: 0, left: 0, right: 0 },
