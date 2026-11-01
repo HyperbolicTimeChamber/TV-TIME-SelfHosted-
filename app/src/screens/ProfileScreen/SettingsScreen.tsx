@@ -179,8 +179,9 @@ export default function SettingsScreen() {
 				confirmLabel="Delete"
 				loading={deletingAccount}
 				onConfirm={handleDeleteAccount}
-				secondaryLabel={exporting ? "Exporting…" : "Export My Data First"}
-				onSecondary={handleExport}
+				leadLabel={exporting ? "Exporting…" : "Export My Data First"}
+				leadColor={colors.accent}
+				onLead={handleExport}
 				onClose={() => setDeleteVisible(false)}
 			/>
 		</ScrollView>

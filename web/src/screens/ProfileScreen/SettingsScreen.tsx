@@ -127,8 +127,9 @@ export default function SettingsScreen() {
 				confirmLabel="Delete"
 				loading={deleting}
 				onConfirm={deleteAccount}
-				secondaryLabel={exporting ? "Exporting…" : "Export My Data First"}
-				onSecondary={exportData}
+				leadLabel={exporting ? "Exporting…" : "Export My Data First"}
+				leadColor="#4a90d9"
+				onLead={exportData}
 				onClose={() => setDeleteVisible(false)}
 			/>
 		</div>

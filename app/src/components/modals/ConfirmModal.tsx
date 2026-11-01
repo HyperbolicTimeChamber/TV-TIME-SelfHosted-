@@ -16,6 +16,10 @@ interface Props {
 	/** Spinner in the confirm button; the other buttons are locked while it runs */
 	loading?: boolean;
 	onConfirm: () => void;
+	/** Optional choice ABOVE the confirm button (e.g. "Export My Data First" over a destructive Delete) */
+	leadLabel?: string;
+	leadColor?: string;
+	onLead?: () => void;
 	/** Optional second choice under the confirm button (e.g. "Just This One") */
 	secondaryLabel?: string;
 	secondaryColor?: string;
@@ -45,6 +49,9 @@ export default function ConfirmModal({
 	confirmColor,
 	loading = false,
 	onConfirm,
+	leadLabel,
+	leadColor,
+	onLead,
 	secondaryLabel,
 	secondaryColor,
 	onSecondary,
@@ -86,9 +93,23 @@ export default function ConfirmModal({
 				)}
 				{hint ? <Text style={styles.hint}>{hint}</Text> : null}
 				{error ? <Text style={styles.error}>{error}</Text> : null}
+				{leadLabel && onLead && (
+					<TouchableOpacity
+						style={[
+							styles.button,
+							leadColor && { backgroundColor: leadColor },
+							loading && { opacity: 0.6 },
+						]}
+						onPress={onLead}
+						disabled={loading}
+					>
+						<Text style={styles.buttonText}>{leadLabel}</Text>
+					</TouchableOpacity>
+				)}
 				<TouchableOpacity
 					style={[
 						styles.button,
+						leadLabel && onLead && { marginTop: spacing.sm },
 						confirmColor && { backgroundColor: confirmColor },
 						loading && { opacity: 0.6 },
 					]}
