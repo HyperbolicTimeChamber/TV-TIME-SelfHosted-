@@ -4,6 +4,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { Gesture } from "react-native-gesture-handler";
 import ReorderableList, {
 	useReorderableDrag,
 	type ReorderableListReorderEvent,
@@ -16,6 +17,7 @@ import { ConfirmModal, ListNameModal } from "../../components";
 import BottomSheet, { SheetGroup, SheetOption } from "../../components/modals/BottomSheet";
 import { ModalArt, NEW_LIST_ART, NEW_LIST_RATIO } from "../../components/modals/ModalArt";
 import { CircleBackButton } from "../../components/CircleButton";
+import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import PosterImage from "../../components/PosterImage";
 import { pickListsFile, shareListsExport } from "../../services/customListsFiles";
 import {
@@ -31,6 +33,8 @@ import { colors, spacing, typography } from "../../theme";
 type Nav = NativeStackNavigationProp<ProfileStackParamList, Route.LISTS>;
 
 const MODAL_HANDOFF_MS = 350;
+/** Press and hold this long to pick a list up */
+const HOLD_TO_DRAG_MS = 250;
 /** A drop waits this long for another before the order is written */
 const AUTOSAVE_MS = 800;
 /** Same row metrics as the Add to List drawer */
@@ -71,7 +75,7 @@ function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 			style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
 			onPress={onOpen}
 			onLongPress={drag}
-			delayLongPress={250}
+			delayLongPress={HOLD_TO_DRAG_MS}
 			accessibilityRole="button"
 			accessibilityLabel={`${list.name}, ${titleCount(list.items.length)}`}
 			accessibilityHint="Press and hold to move"
@@ -210,6 +214,10 @@ export default function ListsScreen() {
 	const [importing, setImporting] = useState(false);
 
 	const goBack = () => navigation.goBack();
+	const swipeBack = useSwipeBackPop(navigation);
+	// The list's drag pan only wakes after the hold that picks a row up — awake from the first touch
+	// it claimed every move, so a sideways swipe never reached the swipe-back
+	const dragPan = useMemo(() => Gesture.Pan().activateAfterLongPress(HOLD_TO_DRAG_MS), []);
 	const afterModalClose = (fn: () => void) => setTimeout(fn, MODAL_HANDOFF_MS);
 
 	// Autosave: drops settle for AUTOSAVE_MS before the order is written, so a few drags in a row
@@ -299,7 +307,8 @@ export default function ListsScreen() {
 	};
 
 	return (
-		<View style={styles.container}>
+		// Swipe right from anywhere slides the page off, back to the profile (as on a list's page)
+		<SwipeBackView onBack={goBack} {...swipeBack} style={styles.container}>
 			<View style={[styles.topBar, { paddingTop: top + 8 }]}>
 				<CircleBackButton tone={CircleButtonTone.SURFACE_LIGHT} onPress={goBack} />
 				<Text style={styles.title}>Lists</Text>
@@ -341,6 +350,7 @@ export default function ListsScreen() {
 			) : (
 				<ReorderableList
 					data={shown}
+					panGesture={dragPan}
 					ListHeaderComponent={
 						lists.length > 1 ? (
 							<Text style={styles.hint}>Hold a list to drag it into place</Text>
@@ -418,7 +428,7 @@ export default function ListsScreen() {
 				onConfirm={confirmImport}
 				onClose={() => setImportPlan(null)}
 			/>
-		</View>
+		</SwipeBackView>
 	);
 }
 

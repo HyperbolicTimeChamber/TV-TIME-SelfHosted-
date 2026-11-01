@@ -33,7 +33,7 @@ export default function ProfileStackScreen() {
 			<ProfileStack.Screen
 				name={Route.LISTS}
 				component={ListsScreen}
-				options={{ headerShown: false }}
+				options={swipeBackScreenOptions}
 			/>
 			<ProfileStack.Screen
 				name={Route.LIST_DETAIL}
