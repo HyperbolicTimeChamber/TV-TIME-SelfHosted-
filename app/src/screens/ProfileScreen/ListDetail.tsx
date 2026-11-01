@@ -32,8 +32,8 @@ type Nav = NativeStackNavigationProp<ProfileStackParamList, Route.LIST_DETAIL>;
 
 const COLUMNS = 3;
 
-/** Empty list art (transparent WebP, width / height) */
-const EMPTY_ART = require("../../../assets/list-empty.webp");
+/** Empty list art (transparent PNG, width / height) */
+const EMPTY_ART = require("../../../assets/list-empty.png");
 const EMPTY_ART_RATIO = 1300 / 1500;
 /** A drawer / sheet is closing under the next one: wait so iOS never sees two modals at once */
 const MODAL_HANDOFF_MS = 350;

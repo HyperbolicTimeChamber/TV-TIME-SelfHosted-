@@ -211,7 +211,7 @@ export default function ListDetailScreen() {
 					onClick={() => navigate(Paths.SEARCH)}
 					aria-label="List is empty. Go to Search"
 				>
-					<img className={styles.emptyArt} src="/list-empty.webp" alt="" />
+					<img className={styles.emptyArt} src="/list-empty.png" alt="" />
 					<p className={styles.emptyText}>
 						Zero items... I haven't felt this empty since my last fight.
 					</p>
