@@ -52,8 +52,49 @@ const IMPORT_ERRORS = {
 const HOLD_MS = 250;
 /** Pointer travel before the hold counts as a scroll instead */
 const MOVE_CANCEL_PX = 10;
-/** Posters in a card's strip, under the name (app STRIP_COUNT) */
-const STRIP_COUNT = 4;
+/** Slots in a card's strip: posters, the last one a "+N" tile when more are left (app STRIP_SLOTS) */
+const STRIP_SLOTS = 5;
+/** "+N" for the strip's last tile; capped so it always fits (app moreLabel) */
+const moreLabel = (n: number) => (n > 99 ? "99+" : `+${n}`);
+
+/**
+ * A list's first posters (app PosterStrip). Up to STRIP_SLOTS fit as they are; more → the last slot
+ * becomes "+N", the next poster dimmed under it (a "+1" would waste the slot)
+ */
+function PosterStrip({ items }: { items: CustomList["items"] }) {
+	const overflow = items.length > STRIP_SLOTS;
+	const shown = items.slice(0, overflow ? STRIP_SLOTS - 1 : STRIP_SLOTS);
+	const next = overflow ? items[STRIP_SLOTS - 1] : null;
+	const more = items.length - shown.length;
+	return (
+		<span className={styles.strip}>
+			{shown.map((item) => (
+				<PosterImage
+					key={`${item.mediaType}_${item.tmdbId}`}
+					posterPath={item.posterPath}
+					mediaType={item.mediaType}
+					className={styles.stripPoster}
+					width={56}
+				/>
+			))}
+			{next && (
+				<span className={styles.moreTile} aria-label={`${more} more`}>
+					<PosterImage
+						posterPath={next.posterPath}
+						mediaType={next.mediaType}
+						className={styles.morePoster}
+						width={56}
+					/>
+					<span
+						className={`${styles.moreText} ${more >= 100 ? styles.moreTextXs : more >= 10 ? styles.moreTextSm : ""}`}
+					>
+						{moreLabel(more)}
+					</span>
+				</span>
+			)}
+		</span>
+	);
+}
 /** Card width the backdrop is requested at (calendar CARD_MAX_WIDTH) */
 const CARD_MAX_WIDTH = 440;
 /** A drop waits this long for another before the order is written (app AUTOSAVE_MS) */
@@ -151,17 +192,7 @@ function ListRow({ list, onOpen, onMenu, onDropped }: RowProps) {
 				>
 					<span className={styles.cardName}>{list.name}</span>
 					{list.items.length > 0 ? (
-						<span className={styles.strip}>
-							{list.items.slice(0, STRIP_COUNT).map((item) => (
-								<PosterImage
-									key={`${item.mediaType}_${item.tmdbId}`}
-									posterPath={item.posterPath}
-									mediaType={item.mediaType}
-									className={styles.stripPoster}
-									width={56}
-								/>
-							))}
-						</span>
+						<PosterStrip items={list.items} />
 					) : (
 						<span className={styles.emptyLine}>Nothing here yet</span>
 					)}

@@ -20,7 +20,9 @@ import { CircleButtonTone, CustomListView, Route } from "../../enums";
 import type { CustomListItem, ProfileStackParamList } from "../../types";
 import { AddToListSheet, ConfirmModal, ListNameModal } from "../../components";
 import type { ShowDrawerAction } from "../../components/ShowDrawer";
-import CircleButton, { CircleBackButton } from "../../components/CircleButton";
+import { CircleBackButton } from "../../components/CircleButton";
+import BottomSheet, { SheetGroup, SheetOption } from "../../components/modals/BottomSheet";
+import { shareListsExport } from "../../services/customListsFiles";
 import PosterImage from "../../components/PosterImage";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import { moveElement, sameItemOrder, titleCount } from "../../utils";
@@ -63,6 +65,7 @@ export default function ListDetailScreen() {
 	const [renaming, setRenaming] = useState(false);
 	const [renameError, setRenameError] = useState<string | null>(null);
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	const [menuOpen, setMenuOpen] = useState(false);
 	const [previewItem, setPreviewItem] = useState<CustomListItem | null>(null);
 	const [removeTarget, setRemoveTarget] = useState<CustomListItem | null>(null);
 	const [listTarget, setListTarget] = useState<CustomListItem | null>(null);
@@ -157,23 +160,14 @@ export default function ListDetailScreen() {
 				<Text style={styles.title} numberOfLines={1}>
 					{list.name}
 				</Text>
-				<CircleButton
-					tone={CircleButtonTone.SURFACE_LIGHT}
-					onPress={() => {
-						setRenameError(null);
-						setRenaming(true);
-					}}
-					accessibilityLabel="Rename list"
+				{/* Rename / share / delete behind one ⋮, as on the Lists page */}
+				<TouchableOpacity
+					onPress={() => setMenuOpen(true)}
+					hitSlop={8}
+					accessibilityLabel="List options"
 				>
-					<Ionicons name="create-outline" size={22} color={colors.text} />
-				</CircleButton>
-				<CircleButton
-					tone={CircleButtonTone.SURFACE_LIGHT}
-					onPress={() => setConfirmDelete(true)}
-					accessibilityLabel="Delete list"
-				>
-					<Ionicons name="trash-outline" size={22} color={colors.destructiveRed} />
-				</CircleButton>
+					<Ionicons name="ellipsis-vertical" size={24} color={colors.text} />
+				</TouchableOpacity>
 			</View>
 
 			{reordering ? (
@@ -294,6 +288,52 @@ export default function ListDetailScreen() {
 				/>
 			)}
 
+			<BottomSheet visible={menuOpen} onClose={() => setMenuOpen(false)}>
+				{(close) => (
+					<>
+						<SheetGroup>
+							<SheetOption
+								icon="create-outline"
+								color={colors.accent}
+								title="Rename list"
+								onPress={() =>
+									close(() =>
+										afterModalClose(() => {
+											setRenameError(null);
+											setRenaming(true);
+										}),
+									)
+								}
+							/>
+							<SheetOption
+								icon="share-outline"
+								color={colors.accent}
+								title="Share list"
+								hint="As a file anyone can import"
+								onPress={() =>
+									close(() =>
+										shareListsExport([list]).catch((e: Error) =>
+											Alert.alert("Export failed", e.message),
+										),
+									)
+								}
+							/>
+						</SheetGroup>
+						<View style={styles.menuGap} />
+						<SheetGroup>
+							<SheetOption
+								icon="trash-outline"
+								color={colors.destructiveRed}
+								title="Delete list"
+								hint="Removes the list, not the titles"
+								destructive
+								onPress={() => close(() => afterModalClose(() => setConfirmDelete(true)))}
+							/>
+						</SheetGroup>
+					</>
+				)}
+			</BottomSheet>
+
 			<ListItemPreview
 				item={previewItem}
 				actions={previewActions}
@@ -355,6 +395,7 @@ export default function ListDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+	menuGap: { height: spacing.md },
 	container: { flex: 1, backgroundColor: colors.background },
 	topBar: {
 		flexDirection: "row",

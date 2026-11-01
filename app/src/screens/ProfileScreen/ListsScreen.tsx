@@ -35,7 +35,7 @@ import {
 	titleCount,
 	type ImportPlan,
 } from "../../utils";
-import { colors, spacing, typography } from "../../theme";
+import { colors, fonts, spacing, typography } from "../../theme";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, Route.LISTS>;
 
@@ -75,14 +75,64 @@ interface RowProps {
 	onMenu: () => void;
 }
 
-/** Posters in a card's strip, under the name */
-const STRIP_COUNT = 4;
+/** Slots in a card's strip, under the name: posters, the last one a "+N" tile when more are left */
+const STRIP_SLOTS = 5;
 /** Backdrop / poster wash fade in instead of popping */
 const IMAGE_FADE_MS = 200;
 /** A poster standing in for a missing backdrop: blurred to a wash of its colours */
 const POSTER_BLUR_RADIUS = 30;
 /** Taller than any card — the loading shimmer fills the whole card behind the overlay */
 const CARD_FILL = 400;
+
+/** "+N" for the strip's last tile; capped so it always fits */
+const moreLabel = (n: number) => (n > 99 ? "99+" : `+${n}`);
+/** One digit reads big; two or "99+" step down to fit the tile's width */
+const moreFontSize = (n: number) => (n < 10 ? 17 : n < 100 ? 13 : 11);
+
+/**
+ * A list's first posters. Up to STRIP_SLOTS fit as they are; more → the last slot becomes "+N",
+ * the next poster dimmed under it so it reads as more of the same (a "+1" would waste the slot)
+ */
+function PosterStrip({ items }: { items: CustomList["items"] }) {
+	const overflow = items.length > STRIP_SLOTS;
+	const shown = items.slice(0, overflow ? STRIP_SLOTS - 1 : STRIP_SLOTS);
+	const next = overflow ? items[STRIP_SLOTS - 1] : null;
+	return (
+		<View style={styles.strip}>
+			{shown.map((item) => (
+				<PosterImage
+					key={`${item.mediaType}_${item.tmdbId}`}
+					posterPath={item.posterPath}
+					mediaType={item.mediaType}
+					style={styles.stripPoster}
+				/>
+			))}
+			{next && (
+				<View
+					style={[styles.stripPoster, styles.moreBase]}
+					accessible
+					accessibilityLabel={`${items.length - shown.length} more`}
+				>
+					{/* Dimmed by its own opacity over black: an overlay on top lost to the image on Android */}
+					<PosterImage
+						posterPath={next.posterPath}
+						mediaType={next.mediaType}
+						style={[StyleSheet.absoluteFill, styles.morePoster]}
+					/>
+					<View style={[StyleSheet.absoluteFill, styles.moreTile]}>
+						{/* Steps down per digit so +9 … +99 fit the 28px tile; past that, 99+ */}
+						<Text
+							style={[styles.moreText, { fontSize: moreFontSize(items.length - shown.length) }]}
+							numberOfLines={1}
+						>
+							{moreLabel(items.length - shown.length)}
+						</Text>
+					</View>
+				</View>
+			)}
+		</View>
+	);
+}
 
 /**
  * One list as a calendar card (like a list's own List view): its cover title's backdrop blurred
@@ -150,16 +200,7 @@ function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 					</Pressable>
 				</View>
 				{list.items.length > 0 ? (
-					<View style={styles.strip}>
-						{list.items.slice(0, STRIP_COUNT).map((item) => (
-							<PosterImage
-								key={`${item.mediaType}_${item.tmdbId}`}
-								posterPath={item.posterPath}
-								mediaType={item.mediaType}
-								style={styles.stripPoster}
-							/>
-						))}
-					</View>
+					<PosterStrip items={list.items} />
 				) : (
 					<Text style={styles.emptyLine}>Nothing here yet</Text>
 				)}
@@ -583,7 +624,24 @@ const styles = StyleSheet.create({
 	},
 	cardName: { ...typography.subtitle, fontSize: 18, flex: 1 },
 	strip: { flexDirection: "row", gap: spacing.xs },
-	stripPoster: { width: 28, height: 42, borderRadius: 4 },
+	stripPoster: { width: 28, height: 42, borderRadius: 4, overflow: "hidden" },
+	// Dims the poster under "+N"; a hairline keeps the tile's edge against dark posters
+	moreBase: { backgroundColor: colors.background },
+	morePoster: { opacity: 0.4 },
+	moreTile: {
+		borderRadius: 4,
+		borderWidth: StyleSheet.hairlineWidth * 2,
+		borderColor: "rgba(255, 255, 255, 0.18)",
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	// The count square's face, so the number reads as part of the same card
+	moreText: {
+		fontFamily: fonts.smoochMedium,
+		color: colors.text,
+		letterSpacing: 0.5,
+		includeFontPadding: false,
+	},
 	emptyLine: { ...typography.caption, color: colors.textSecondary },
 	squareValue: { fontSize: 44, lineHeight: 48 },
 	cover: { width: COVER_SIZE, height: COVER_SIZE, borderRadius: 10, overflow: "hidden" },

@@ -7,8 +7,10 @@ import {
 	IoCheckmark,
 	IoClose,
 	IoCreateOutline,
+	IoEllipsisVertical,
 	IoGrid,
 	IoList,
+	IoShareOutline,
 	IoSwapVertical,
 	IoTrashOutline,
 } from "react-icons/io5";
@@ -19,7 +21,9 @@ import { CircleButtonTone, CustomListView } from "@app/enums";
 import type { CustomListItem } from "@app/types";
 import { sameItemOrder, titleCount } from "@app/utils/customLists";
 import { useAppSelector } from "../../store";
-import CircleButton, { CircleBackButton } from "../../components/CircleButton";
+import { CircleBackButton } from "../../components/CircleButton";
+import BottomSheet, { SheetGroup, SheetOption } from "../../components/BottomSheet";
+import { downloadListsExport } from "../../platform/customListsFiles";
 import ConfirmModal from "../../components/ConfirmModal";
 import ListNameModal from "../../components/ListNameModal";
 import AddToListSheet from "../../components/AddToListSheet";
@@ -57,6 +61,7 @@ export default function ListDetailScreen() {
 	const [renaming, setRenaming] = useState(false);
 	const [renameError, setRenameError] = useState<string | null>(null);
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	const [menuOpen, setMenuOpen] = useState(false);
 	const [previewItem, setPreviewItem] = useState<CustomListItem | null>(null);
 	const [removeTarget, setRemoveTarget] = useState<CustomListItem | null>(null);
 	const [listTarget, setListTarget] = useState<CustomListItem | null>(null);
@@ -136,23 +141,14 @@ export default function ListDetailScreen() {
 				<div className={styles.titleRow}>
 					<CircleBackButton tone={CircleButtonTone.SURFACE_LIGHT} onClick={goBack} />
 					<h1 className={styles.title}>{list.name}</h1>
-					<CircleButton
-						tone={CircleButtonTone.SURFACE_LIGHT}
-						onClick={() => {
-							setRenameError(null);
-							setRenaming(true);
-						}}
-						ariaLabel="Rename list"
+					{/* Rename / share / delete behind one ⋮, as on the Lists page (app ListDetail) */}
+					<button
+						className={styles.iconButton}
+						onClick={() => setMenuOpen(true)}
+						aria-label="List options"
 					>
-						<IoCreateOutline size={22} />
-					</CircleButton>
-					<CircleButton
-						tone={CircleButtonTone.SURFACE_LIGHT}
-						onClick={() => setConfirmDelete(true)}
-						ariaLabel="Delete list"
-					>
-						<IoTrashOutline size={22} color={colors.destructiveRed} />
-					</CircleButton>
+						<IoEllipsisVertical size={24} />
+					</button>
 				</div>
 			</header>
 
@@ -242,6 +238,45 @@ export default function ListDetailScreen() {
 					))}
 				</div>
 			)}
+
+			<BottomSheet visible={menuOpen} label="List options" onClose={() => setMenuOpen(false)}>
+				<SheetGroup>
+					<SheetOption
+						icon={IoCreateOutline}
+						color={colors.accent}
+						title="Rename list"
+						onClick={() => {
+							setMenuOpen(false);
+							setRenameError(null);
+							setRenaming(true);
+						}}
+					/>
+					<SheetOption
+						icon={IoShareOutline}
+						color={colors.accent}
+						title="Share list"
+						hint="As a file anyone can import"
+						onClick={() => {
+							setMenuOpen(false);
+							downloadListsExport([list]);
+						}}
+					/>
+				</SheetGroup>
+				<div className={styles.menuGap} />
+				<SheetGroup>
+					<SheetOption
+						icon={IoTrashOutline}
+						color={colors.destructiveRed}
+						title="Delete list"
+						hint="Removes the list, not the titles"
+						destructive
+						onClick={() => {
+							setMenuOpen(false);
+							setConfirmDelete(true);
+						}}
+					/>
+				</SheetGroup>
+			</BottomSheet>
 
 			<ListItemPreview
 				item={previewItem}
