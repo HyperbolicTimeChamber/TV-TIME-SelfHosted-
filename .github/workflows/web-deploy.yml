@@ -2,7 +2,7 @@ name: Build & Deploy Web
 
 on:
   push:
-    branches: [development]
+    branches: [staging]
     # Only when the web app, the app code it shares, or hosting config changed
     paths:
       - "web/**"
