@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useDragControls } from "motion/react";
 import { Spin } from "antd";
@@ -6,7 +6,7 @@ import { IoAddCircle, IoCheckmarkCircle, IoEllipseOutline } from "react-icons/io
 import { CUSTOM_LIST_ITEM_MAX } from "@app/enums";
 import type { CustomListEntry } from "@app/types";
 import { useCustomLists } from "@app/hooks/useCustomLists";
-import { listHasItem, titleCount } from "@app/utils/customLists";
+import { listHasItem, sheetListOrder, titleCount } from "@app/utils/customLists";
 import { useAppSelector } from "../store";
 import ListNameModal from "./ListNameModal";
 import styles from "./styles/AddToListSheet.module.scss";
@@ -34,6 +34,9 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 	const [naming, setNaming] = useState(false);
 	const [creating, setCreating] = useState(false);
 	const [nameError, setNameError] = useState<string | null>(null);
+	// Order the sheet opened with (most recently created / modified first) — held while it is open
+	const [pinned, setPinned] = useState<string[] | null>(null);
+	const ordered = useMemo(() => sheetListOrder(lists, pinned), [lists, pinned]);
 	// Drag-to-close starts from the header only, so a click or scroll on the rows is never taken as a drag
 	const dragControls = useDragControls();
 
@@ -41,23 +44,25 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 		if (!entry) {
 			setNaming(false);
 			setNameError(null);
+			setPinned(null);
 		}
 	}, [entry]);
+
+	useEffect(() => {
+		if (entry && !loading && !pinned) setPinned(sheetListOrder(lists, null).map((l) => l.id));
+	}, [entry, loading, lists, pinned]);
 
 	const handleCreate = async (name: string) => {
 		if (!entry) return;
 		setCreating(true);
 		const result = await createList(name, entry);
 		setCreating(false);
-		if (result.ok) {
-			setNaming(false);
-			onClose();
-		} else {
-			setNameError(NAME_ERRORS[result.reason]);
-		}
+		// Back to the sheet: the new list shows ticked with its count, confirming the add
+		if (result.ok) setNaming(false);
+		else setNameError(NAME_ERRORS[result.reason]);
 	};
 
-	// Naming swaps the sheet for the name popup; cancelling it brings the sheet back
+	// Naming swaps the sheet for the name popup; creating or cancelling brings the sheet back
 	const sheetOpen = !!entry && !naming;
 
 	return (
@@ -114,11 +119,11 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 									<div className={styles.sheetLoader}>
 										<Spin size="small" />
 									</div>
-								) : lists.length === 0 ? (
+								) : ordered.length === 0 ? (
 									<p className={styles.sheetEmpty}>You don't have any lists yet.</p>
 								) : (
 									<div className={styles.listScroll}>
-										{lists.map((list) => {
+										{ordered.map((list) => {
 											const has = !!entry && listHasItem(list, entry.tmdbId, entry.mediaType);
 											const full = !has && list.items.length >= CUSTOM_LIST_ITEM_MAX;
 											const Check = has ? IoCheckmarkCircle : IoEllipseOutline;

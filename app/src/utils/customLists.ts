@@ -84,6 +84,22 @@ const listPosition = (l: CustomList) => l.order ?? l.createdAt;
 export const sortLists = (lists: CustomList[]): CustomList[] =>
 	[...lists].sort((a, b) => listPosition(a) - listPosition(b) || a.createdAt - b.createdAt);
 
+const byRecent = (a: CustomList, b: CustomList) =>
+	b.updatedAt - a.updatedAt || b.createdAt - a.createdAt;
+
+/**
+ * Add to List sheet order: most recently created or modified first. `pinned` = the ids in the
+ * order the sheet opened with — kept while it is open so a ticked row never jumps under the
+ * finger; lists made since go on top. null = not opened yet → plain recency.
+ */
+export function sheetListOrder(lists: CustomList[], pinned: string[] | null): CustomList[] {
+	if (!pinned) return [...lists].sort(byRecent);
+	const rank = new Map(pinned.map((id, i) => [id, i]));
+	const fresh = lists.filter((l) => !rank.has(l.id)).sort(byRecent);
+	const kept = lists.filter((l) => rank.has(l.id)).sort((a, b) => rank.get(a.id)! - rank.get(b.id)!);
+	return [...fresh, ...kept];
+}
+
 /** Array with the element at `from` moved to `to` (a new array; same one back when nothing moves) */
 export function moveElement<T>(items: T[], from: number, to: number): T[] {
 	if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) return items;

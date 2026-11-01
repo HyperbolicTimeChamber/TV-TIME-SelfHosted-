@@ -10,6 +10,7 @@ import {
 	removeItemFromList,
 	searchMediaType,
 	sortLists,
+	sheetListOrder,
 } from "../src/utils/customLists";
 import { CUSTOM_LIST_ITEM_MAX, CUSTOM_LIST_NAME_MAX, MediaType } from "../src/enums";
 import type { CustomList, CustomListEntry } from "../src/types/customList";
@@ -121,4 +122,31 @@ test("sortLists is oldest first and leaves the input alone", () => {
 		["a", "b"],
 	);
 	assert.equal(input[0].id, "b");
+});
+
+const touched = (id: string, createdAt: number, updatedAt: number): CustomList => ({
+	...list(id, createdAt),
+	updatedAt,
+});
+
+test("sheetListOrder puts the most recently created or modified list first", () => {
+	const lists = [touched("old", 1, 1), touched("edited", 2, 9), touched("new", 5, 5)];
+	assert.deepEqual(
+		sheetListOrder(lists, null).map((l) => l.id),
+		["edited", "new", "old"],
+	);
+});
+
+test("sheetListOrder keeps the order the sheet opened with; lists made since go on top", () => {
+	// "old" was ticked while open (now the most recent) but must not jump under the finger
+	const lists = [touched("old", 1, 20), touched("edited", 2, 9), touched("made", 30, 30)];
+	assert.deepEqual(
+		sheetListOrder(lists, ["edited", "old"]).map((l) => l.id),
+		["made", "edited", "old"],
+	);
+	// Deleted since → just gone
+	assert.deepEqual(
+		sheetListOrder([touched("old", 1, 1)], ["edited", "old"]).map((l) => l.id),
+		["old"],
+	);
 });

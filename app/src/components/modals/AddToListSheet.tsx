@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
 	View,
 	Text,
@@ -17,7 +17,7 @@ import { useAuthStore } from "../../stores";
 import { useCustomLists } from "../../hooks/useCustomLists";
 import { CUSTOM_LIST_ITEM_MAX } from "../../enums";
 import type { CustomListEntry } from "../../types";
-import { listHasItem, titleCount } from "../../utils";
+import { listHasItem, sheetListOrder, titleCount } from "../../utils";
 import { colors, spacing, typography } from "../../theme";
 import ListNameModal from "./ListNameModal";
 
@@ -61,8 +61,11 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 	const [naming, setNaming] = useState(false);
 	const [creating, setCreating] = useState(false);
 	const [nameError, setNameError] = useState<string | null>(null);
+	// Order the sheet opened with (most recently created / modified first) — held while it is open
+	const [pinned, setPinned] = useState<string[] | null>(null);
+	const ordered = useMemo(() => sheetListOrder(lists, pinned), [lists, pinned]);
 
-	// Naming swaps the sheet for the name popup; cancelling it brings the sheet back
+	// Naming swaps the sheet for the name popup; creating or cancelling brings the sheet back
 	const visible = !!entry && !naming;
 	const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
@@ -75,8 +78,13 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 		if (!entry) {
 			setNaming(false);
 			setNameError(null);
+			setPinned(null);
 		}
 	}, [entry]);
+
+	useEffect(() => {
+		if (entry && !loading && !pinned) setPinned(sheetListOrder(lists, null).map((l) => l.id));
+	}, [entry, loading, lists, pinned]);
 
 	const slideOut = () => {
 		Animated.timing(translateY, {
@@ -106,12 +114,9 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 		setCreating(true);
 		const result = await createList(name, entry);
 		setCreating(false);
-		if (result.ok) {
-			setNaming(false);
-			onClose();
-		} else {
-			setNameError(NAME_ERRORS[result.reason]);
-		}
+		// Back to the sheet: the new list shows ticked with its count, confirming the add
+		if (result.ok) setNaming(false);
+		else setNameError(NAME_ERRORS[result.reason]);
 	};
 
 	return (
@@ -146,7 +151,7 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 
 						{loading ? (
 							<ActivityIndicator style={styles.loader} color={colors.primary} />
-						) : lists.length === 0 ? (
+						) : ordered.length === 0 ? (
 							<Text style={styles.empty}>You don't have any lists yet.</Text>
 						) : (
 							<ScrollView
@@ -155,7 +160,7 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 								keyboardShouldPersistTaps="handled"
 								nestedScrollEnabled
 							>
-								{lists.map((list) => {
+								{ordered.map((list) => {
 									const has = !!entry && listHasItem(list, entry.tmdbId, entry.mediaType);
 									const full = !has && list.items.length >= CUSTOM_LIST_ITEM_MAX;
 									return (
