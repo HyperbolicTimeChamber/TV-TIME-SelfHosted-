@@ -73,9 +73,12 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 		const el = scrollRef.current;
 		const sheet = el?.closest("[role=dialog]");
 		if (!el || !sheet || expanded) return;
-		// Everything above the lists keeps its size; the lists take the rest up to the top edge
+		// Everything fits already → nothing to grow into (no empty space beyond the nav-bar gap)
+		if (el.scrollHeight <= el.clientHeight) return;
+		// Everything above the lists keeps its size; the lists grow to fit their content, never
+		// past the top edge
 		const above = el.getBoundingClientRect().top - sheet.getBoundingClientRect().top;
-		const to = window.innerHeight - above - TOP_GAP;
+		const to = Math.min(el.scrollHeight, window.innerHeight - above - TOP_GAP);
 		// From the height it has now, so the grow starts where the eye is
 		setHeight(el.offsetHeight);
 		requestAnimationFrame(() => requestAnimationFrame(() => setHeight(to)));

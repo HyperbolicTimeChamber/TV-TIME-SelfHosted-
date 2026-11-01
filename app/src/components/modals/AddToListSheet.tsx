@@ -1,5 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, Pressable, Modal, ActivityIndicator, StyleSheet } from "react-native";
+import {
+	View,
+	Text,
+	Pressable,
+	Modal,
+	ActivityIndicator,
+	StyleSheet,
+	useWindowDimensions,
+} from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import GorhomSheet, {
 	BottomSheetBackdrop,
@@ -33,8 +41,10 @@ interface Props {
 	onClose: () => void;
 }
 
-/** Opens part way; scrolling the lists first grows it to the top, then scrolls them */
-const SNAP_POINTS = ["60%", "100%"];
+/** Opens at most this share of the screen; scrolling the lists first grows it to fit them */
+const PART_WAY_SHARE = 0.6;
+/** Grab handle: 10 above + 4 indicator + 10 below (styles.handleArea) */
+const HANDLE_HEIGHT = 24;
 /** Same feel as the app's other sheets (BottomSheet SHEET_SPRING): critically damped, no overshoot */
 const SHEET_SPRING = { damping: 30, stiffness: 220, overshootClamping: true } as const;
 /** Strong ease-out: the badge answers the tap at once */
@@ -59,6 +69,18 @@ const NAME_ERRORS = {
 export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 	const insets = useSafeAreaInsets();
 	const sheetRef = useRef<GorhomSheet>(null);
+	const { height: screenHeight } = useWindowDimensions();
+	// Logo + divider, and the lists' full scroll height (nav-bar gap included) — the sheet grows
+	// only as tall as these need (never past the top), so it never shows empty space
+	const [topHeight, setTopHeight] = useState(0);
+	const [listHeight, setListHeight] = useState(0);
+	const snapPoints = useMemo(() => {
+		const maxHeight = screenHeight - insets.top;
+		const partWay = Math.round(screenHeight * PART_WAY_SHARE);
+		if (!topHeight || !listHeight) return [partWay];
+		const full = Math.min(Math.ceil(HANDLE_HEIGHT + topHeight + listHeight), maxHeight);
+		return full > partWay ? [partWay, full] : [full];
+	}, [screenHeight, insets.top, topHeight, listHeight]);
 	const animationConfigs = useBottomSheetSpringConfigs(SHEET_SPRING);
 	const renderBackdrop = useCallback(
 		(props: BottomSheetBackdropProps) => (
@@ -133,27 +155,30 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 					{entry && (
 						<GorhomSheet
 							ref={sheetRef}
-							snapPoints={SNAP_POINTS}
+							snapPoints={snapPoints}
 							enableDynamicSizing={false}
 							topInset={insets.top}
 							enablePanDownToClose
 							animationConfigs={animationConfigs}
 							backdropComponent={renderBackdrop}
 							backgroundStyle={styles.sheet}
+							handleStyle={styles.handleArea}
 							handleIndicatorStyle={styles.handle}
 							onClose={() => {
 								if (!namingRef.current) onClose();
 							}}
 						>
-							<View style={styles.top}>
-								<SheetHeader
-									title={entry.title}
-									tmdbId={entry.tmdbId}
-									mediaType={entry.mediaType}
-									centered
-								/>
+							<View onLayout={(e) => setTopHeight(e.nativeEvent.layout.height)}>
+								<View style={styles.top}>
+									<SheetHeader
+										title={entry.title}
+										tmdbId={entry.tmdbId}
+										mediaType={entry.mediaType}
+										centered
+									/>
+								</View>
+								<View style={styles.divider} />
 							</View>
-							<View style={styles.divider} />
 							{/* The heading scrolls away with the lists; they run under the nav bar and,
 							    scrolled to the end, a nav-bar-high gap closes them */}
 							<BottomSheetScrollView
@@ -162,6 +187,7 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 									{ paddingBottom: insets.bottom + spacing.lg },
 								]}
 								keyboardShouldPersistTaps="handled"
+								onContentSizeChange={(_, h) => setListHeight(h)}
 							>
 								<View style={styles.heading}>
 									<Text style={styles.headingText}>Lists</Text>
@@ -297,6 +323,7 @@ function Badge({ listed }: { listed: boolean }) {
 const styles = StyleSheet.create({
 	root: { flex: 1 },
 	sheet: { backgroundColor: colors.surface, borderRadius: 20 },
+	handleArea: { paddingVertical: 10 },
 	handle: { width: 36, height: 4, backgroundColor: colors.textMuted },
 	top: { paddingHorizontal: spacing.lg },
 	scrollContent: { paddingHorizontal: spacing.lg },
