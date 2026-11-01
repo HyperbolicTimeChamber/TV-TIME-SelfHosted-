@@ -51,7 +51,6 @@ const PAN_WAKE_AFTER_MS = 50;
 /** A drop waits this long for another before the order is written */
 const AUTOSAVE_MS = 800;
 /** Same row metrics as the Add to List drawer */
-const COVER_SIZE = 52;
 const MENU_SIZE = 30;
 
 const NAME_ERRORS = {
@@ -220,15 +219,43 @@ function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 	);
 }
 
-/** A list's cover: the title added last, or a list icon when it's empty */
-function ListCover({ list }: { list: CustomList }) {
+/** Top of the menu art stays visible; it darkens downward so the cards and text read on it */
+const MENU_ART_FADE = ["rgba(26, 26, 26, 0.35)", "rgba(26, 26, 26, 0.85)", colors.surface] as const;
+
+/**
+ * The list menu's background: its cover title's backdrop (poster as a blurred wash when there's
+ * none) under a gradient into the sheet colour. Empty list → the plain sheet
+ */
+function MenuArt({ list }: { list: CustomList }) {
 	const cover = listCoverItem(list);
-	return cover ? (
-		<PosterImage posterPath={cover.posterPath} mediaType={cover.mediaType} style={styles.cover} />
-	) : (
-		<View style={[styles.cover, styles.coverEmpty]}>
-			<Ionicons name="list" size={22} color={colors.textMuted} />
-		</View>
+	const { data: info } = useTitleInfo(
+		cover?.tmdbId ?? 0,
+		cover?.mediaType ?? MediaType.TV,
+		!!cover,
+	);
+	if (!cover) return null;
+	return (
+		<>
+			{info?.backdropPath ? (
+				<Image
+					source={{ uri: tmdbBlurredBackdropUri(info.backdropPath) }}
+					style={StyleSheet.absoluteFill}
+					contentFit="cover"
+					contentPosition="top"
+					blurRadius={BLUR_RADIUS}
+					transition={IMAGE_FADE_MS}
+				/>
+			) : cover.posterPath ? (
+				<Image
+					source={{ uri: tmdbPosterUri(cover.posterPath, 185) }}
+					style={StyleSheet.absoluteFill}
+					contentFit="cover"
+					blurRadius={POSTER_BLUR_RADIUS}
+					transition={IMAGE_FADE_MS}
+				/>
+			) : null}
+			<LinearGradient colors={MENU_ART_FADE} style={StyleSheet.absoluteFill} />
+		</>
 	);
 }
 
@@ -250,20 +277,24 @@ function ListMenuSheet({
 	onClose: () => void;
 }) {
 	return (
-		<BottomSheet visible={!!list} onClose={onClose}>
+		<BottomSheet
+			visible={!!list}
+			onClose={onClose}
+			background={list ? <MenuArt list={list} /> : undefined}
+		>
 			{(close) =>
 				list && (
 					<>
+						{/* The art behind says which list; the header just names it */}
 						<View style={styles.menuHeader}>
-							<ListCover list={list} />
 							<View style={styles.rowText}>
-								<Text style={styles.rowName} numberOfLines={1}>
+								<Text style={[styles.rowName, styles.menuName]} numberOfLines={1}>
 									{list.name}
 								</Text>
-								<Text style={styles.rowCount}>{titleCount(list.items.length)}</Text>
+								<Text style={styles.menuCount}>{titleCount(list.items.length)}</Text>
 							</View>
 						</View>
-						<SheetGroup>
+						<SheetGroup translucent>
 							<SheetOption
 								icon="create-outline"
 								color={colors.accent}
@@ -279,7 +310,7 @@ function ListMenuSheet({
 							/>
 						</SheetGroup>
 						<View style={styles.menuGap} />
-						<SheetGroup>
+						<SheetGroup translucent>
 							<SheetOption
 								icon="trash-outline"
 								color={colors.destructiveRed}
@@ -644,12 +675,6 @@ const styles = StyleSheet.create({
 	},
 	emptyLine: { ...typography.caption, color: colors.textSecondary },
 	squareValue: { fontSize: 44, lineHeight: 48 },
-	cover: { width: COVER_SIZE, height: COVER_SIZE, borderRadius: 10, overflow: "hidden" },
-	coverEmpty: {
-		backgroundColor: colors.surfaceLight,
-		alignItems: "center",
-		justifyContent: "center",
-	},
 	rowText: { flex: 1, minWidth: 0 },
 	rowName: { ...typography.subtitle, fontSize: 16 },
 	rowCount: { ...typography.caption, fontSize: 13, color: colors.textSecondary, marginTop: 2 },
@@ -661,6 +686,14 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 	},
 	menuPressed: { opacity: 0.5 },
+	menuName: { fontSize: 20 },
+	menuCount: {
+		...typography.caption,
+		fontSize: 13,
+		color: colors.text,
+		opacity: 0.8,
+		marginTop: 2,
+	},
 	menuHeader: {
 		flexDirection: "row",
 		alignItems: "center",

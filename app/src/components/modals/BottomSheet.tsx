@@ -85,10 +85,12 @@ interface Props {
 	visible: boolean;
 	onClose: () => void;
 	children: (close: CloseSheet) => ReactNode;
+	/** Drawn behind the content, filling the sheet (clipped to its rounded top) — e.g. art */
+	background?: ReactNode;
 }
 
 /** Bottom sheet shell: dimmed backdrop that fades with the sheet, drag down / tap outside to close */
-export default function BottomSheet({ visible, onClose, children }: Props) {
+export default function BottomSheet({ visible, onClose, children, background }: Props) {
 	const insets = useSafeAreaInsets();
 	// Parked off-screen until measured; every slide then travels exactly the sheet's height
 	const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -184,6 +186,7 @@ export default function BottomSheet({ visible, onClose, children }: Props) {
 					}}
 					{...panResponder.panHandlers}
 				>
+					{background ? <View style={styles.background}>{background}</View> : null}
 					<View style={styles.handle} />
 					{children(close)}
 				</Animated.View>
@@ -357,13 +360,16 @@ export function SheetHeader({
 export function SheetGroup({
 	children,
 	textOnly = false,
+	translucent = false,
 }: {
 	children: ReactNode;
 	textOnly?: boolean;
+	/** Over sheet art (BottomSheet `background`): lets it show through faintly */
+	translucent?: boolean;
 }) {
 	const rows = React.Children.toArray(children).filter(Boolean);
 	return (
-		<View style={styles.group}>
+		<View style={[styles.group, translucent && styles.groupTranslucent]}>
 			{rows.map((row, i) => {
 				// A collapsing row carries its own hairline, so the line folds away with it
 				if (isValidElement(row) && row.type === SheetCollapse) {
@@ -507,6 +513,16 @@ const styles = StyleSheet.create({
 		borderTopRightRadius: 20,
 		paddingHorizontal: spacing.lg,
 	},
+	background: {
+		position: "absolute",
+		top: 0,
+		left: 0,
+		right: 0,
+		bottom: 0,
+		borderTopLeftRadius: 20,
+		borderTopRightRadius: 20,
+		overflow: "hidden",
+	},
 	handle: {
 		width: 36,
 		height: 4,
@@ -577,6 +593,8 @@ const styles = StyleSheet.create({
 	},
 	collapse: { overflow: "hidden" },
 	collapseContent: { position: "absolute", top: 0, left: 0, right: 0 },
+	// surfaceLight (#252525) at 80%: the art reads through, the text stays on a solid enough ground
+	groupTranslucent: { backgroundColor: "rgba(37, 37, 37, 0.8)" },
 	group: {
 		backgroundColor: colors.surfaceLight,
 		borderRadius: 14,

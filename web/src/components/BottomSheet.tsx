@@ -29,12 +29,15 @@ export default function BottomSheet({
 	label,
 	onClose,
 	children,
+	background,
 }: {
 	visible: boolean;
 	/** Dialog's accessible name */
 	label: string;
 	onClose: () => void;
 	children: ReactNode;
+	/** Drawn behind the content, filling the sheet (app BottomSheet background) — e.g. art */
+	background?: ReactNode;
 }) {
 	return createPortal(
 		<AnimatePresence>
@@ -64,6 +67,7 @@ export default function BottomSheet({
 							if (info.offset.y > 80 || info.velocity.y > 500) onClose();
 						}}
 					>
+						{background && <div className={styles.sheetBackground}>{background}</div>}
 						<div className={styles.handle} />
 						{children}
 					</motion.div>
@@ -191,10 +195,17 @@ export function SheetHeader({
 }
 
 /** Rows grouped in one rounded card, hairlines between them */
-export function SheetGroup({ children }: { children: ReactNode }) {
+export function SheetGroup({
+	children,
+	translucent = false,
+}: {
+	children: ReactNode;
+	/** Over sheet art (BottomSheet `background`): lets it show through faintly (app translucent) */
+	translucent?: boolean;
+}) {
 	const rows = Children.toArray(children).filter(Boolean);
 	return (
-		<div className={styles.group}>
+		<div className={`${styles.group} ${translucent ? styles.groupTranslucent : ""}`}>
 			{rows.map((row, i) => {
 				// A collapsing row carries its own hairline, so the line folds away with it
 				if (isValidElement(row) && row.type === SheetCollapse) {

@@ -215,20 +215,35 @@ function ListRow({ list, onOpen, onMenu, onDropped }: RowProps) {
 	);
 }
 
-/** A list's cover: the title added last, or a list icon when it's empty (app ListCover) */
-function ListCover({ list }: { list: CustomList }) {
+/**
+ * The list menu's background (app MenuArt): its cover title's backdrop (poster as a blurred wash
+ * when there's none) under a gradient into the sheet colour. Empty list → the plain sheet
+ */
+function MenuArt({ list }: { list: CustomList }) {
 	const cover = listCoverItem(list);
-	return cover ? (
-		<PosterImage
-			posterPath={cover.posterPath}
-			mediaType={cover.mediaType}
-			className={styles.cover}
-			width={104}
-		/>
-	) : (
-		<span className={`${styles.cover} ${styles.coverEmpty}`}>
-			<IoList size={22} />
-		</span>
+	const { data: info } = useTitleInfo(
+		cover?.tmdbId ?? 0,
+		cover?.mediaType ?? MediaType.TV,
+		!!cover,
+	);
+	if (!cover) return null;
+	return (
+		<>
+			{info?.backdropPath ? (
+				<img
+					src={tmdbBackdropUri(info.backdropPath, CARD_MAX_WIDTH)}
+					alt=""
+					className={styles.menuArt}
+				/>
+			) : cover.posterPath ? (
+				<img
+					src={tmdbPosterUri(cover.posterPath, 185)}
+					alt=""
+					className={`${styles.menuArt} ${styles.cardBgPoster}`}
+				/>
+			) : null}
+			<span className={styles.menuArtFade} />
+		</>
 	);
 }
 
@@ -260,17 +275,18 @@ function ListMenuSheet({
 			visible={!!list}
 			label={list ? `Options for ${list.name}` : "List options"}
 			onClose={onClose}
+			background={list ? <MenuArt list={list} /> : undefined}
 		>
 			{list && (
 				<>
+					{/* The art behind says which list; the header just names it (app ListMenuSheet) */}
 					<div className={styles.menuHeader}>
-						<ListCover list={list} />
 						<span className={styles.rowText}>
-							<span className={styles.rowName}>{list.name}</span>
-							<span className={styles.rowCount}>{titleCount(list.items.length)}</span>
+							<span className={`${styles.rowName} ${styles.menuName}`}>{list.name}</span>
+							<span className={styles.menuCount}>{titleCount(list.items.length)}</span>
 						</span>
 					</div>
-					<SheetGroup>
+					<SheetGroup translucent>
 						<SheetOption
 							icon={IoCreateOutline}
 							color={colors.accent}
@@ -286,7 +302,7 @@ function ListMenuSheet({
 						/>
 					</SheetGroup>
 					<div className={styles.menuGap} />
-					<SheetGroup>
+					<SheetGroup translucent>
 						<SheetOption
 							icon={IoTrashOutline}
 							color={colors.destructiveRed}

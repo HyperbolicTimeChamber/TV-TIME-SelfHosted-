@@ -26,6 +26,20 @@
 	touch-action: none;
 }
 
+/* Art behind the content, clipped to the sheet's rounded top (app styles.background) */
+.sheetBackground {
+	position: absolute;
+	inset: 0;
+	border-radius: 20px 20px 0 0;
+	overflow: hidden;
+	pointer-events: none;
+}
+
+/* Content above the art */
+.sheet > :not(.sheetBackground) {
+	position: relative;
+}
+
 .handle {
 	width: 36px;
 	height: 4px;
@@ -173,6 +187,11 @@
 	background: var(--surface-light);
 	border-radius: 14px;
 	overflow: hidden;
+}
+
+/* surface-light at 80% over sheet art (app groupTranslucent) */
+.groupTranslucent {
+	background: rgba(37, 37, 37, 0.8);
 }
 
 /* Starts under the text, not the icon tile */
