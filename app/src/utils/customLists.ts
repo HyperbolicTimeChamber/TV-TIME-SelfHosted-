@@ -1,4 +1,9 @@
-import { CUSTOM_LIST_ITEM_MAX, CUSTOM_LIST_NAME_MAX, MediaType } from "../enums";
+import {
+	CUSTOM_LIST_ITEM_MAX,
+	CUSTOM_LIST_NAME_MAX,
+	MediaType,
+	PROFILE_LIST_COUNT,
+} from "../enums";
 import type { CustomList, CustomListEntry, CustomListItem, TMDBShow } from "../types";
 
 /** One title across lists — also the key of a membership Set */
@@ -98,13 +103,28 @@ export function sheetListOrder(
 	entry?: Pick<CustomListEntry, "tmdbId" | "mediaType">,
 ): CustomList[] {
 	if (!pinned) {
-		const holds = (l: CustomList) => (entry && listHasItem(l, entry.tmdbId, entry.mediaType) ? 1 : 0);
+		const holds = (l: CustomList) =>
+			entry && listHasItem(l, entry.tmdbId, entry.mediaType) ? 1 : 0;
 		return [...lists].sort((a, b) => holds(b) - holds(a) || byRecent(a, b));
 	}
 	const rank = new Map(pinned.map((id, i) => [id, i]));
 	const fresh = lists.filter((l) => !rank.has(l.id)).sort(byRecent);
-	const kept = lists.filter((l) => rank.has(l.id)).sort((a, b) => rank.get(a.id)! - rank.get(b.id)!);
+	const kept = lists
+		.filter((l) => rank.has(l.id))
+		.sort((a, b) => rank.get(a.id)! - rank.get(b.id)!);
 	return [...fresh, ...kept];
+}
+
+/**
+ * Profile lists: the one with the most titles is featured above Recently Completed, the next
+ * PROFILE_LIST_COUNT go in the Lists section. Equal sizes → the more recently changed first.
+ */
+export function profileLists(lists: CustomList[]): {
+	featured: CustomList | null;
+	rest: CustomList[];
+} {
+	const bySize = [...lists].sort((a, b) => b.items.length - a.items.length || byRecent(a, b));
+	return { featured: bySize[0] ?? null, rest: bySize.slice(1, 1 + PROFILE_LIST_COUNT) };
 }
 
 /** The title a list shows as its cover: the one added last (null when empty) */

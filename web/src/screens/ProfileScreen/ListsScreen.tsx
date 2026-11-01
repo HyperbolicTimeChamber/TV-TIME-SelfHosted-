@@ -14,7 +14,7 @@ import {
 } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import { useCustomLists } from "@app/hooks/useCustomLists";
-import { CircleButtonTone } from "@app/enums";
+import { CircleButtonTone, NEW_LIST_HINTS, NEW_LIST_TITLE } from "@app/enums";
 import type { CustomList } from "@app/types";
 import { sameIdOrder, titleCount } from "@app/utils/customLists";
 import { describeImport, parseListsExport, type ImportPlan } from "@app/utils/customListsIO";
@@ -22,6 +22,7 @@ import { useAppSelector } from "../../store";
 import { CircleBackButton } from "../../components/CircleButton";
 import ConfirmModal from "../../components/ConfirmModal";
 import ListNameModal from "../../components/ListNameModal";
+import { ModalArt, NEW_LIST_ART } from "../../components/ModalArt";
 import OptionsSheet from "../../components/OptionsSheet";
 import { useHideTabBar } from "../../hooks/useHideTabBar";
 import { useLongPress } from "../../hooks/useLongPress";
@@ -289,7 +290,9 @@ export default function ListsScreen() {
 
 			<ListNameModal
 				visible={naming !== null}
-				title={naming === "new" ? "New List" : "Rename List"}
+				title={naming === "new" ? NEW_LIST_TITLE : "Rename List"}
+				image={naming === "new" ? <ModalArt src={NEW_LIST_ART} /> : undefined}
+				hint={naming === "new" ? NEW_LIST_HINTS : undefined}
 				initialName={naming && naming !== "new" ? naming.name : ""}
 				confirmLabel={naming === "new" ? "Create" : "Save"}
 				error={nameError}

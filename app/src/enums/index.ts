@@ -130,8 +130,18 @@ export const CUSTOM_LISTS_COLLECTION = "customLists";
 export const CUSTOM_LIST_NAME_MAX = 50;
 export const CUSTOM_LIST_ITEM_MAX = 500;
 export const CUSTOM_LIST_MAX = 50;
+/** Lists the profile shows below Recently Completed (the biggest is featured above it) */
+export const PROFILE_LIST_COUNT = 5;
 /** The list every user starts with — a normal list, renamable and deletable */
 export const FAVORITES_LIST_NAME = "Favorites";
+/** New List popup (Light Yagami art): the title, and the lines under it — one picked each open */
+export const NEW_LIST_TITLE = "A New List for a New World";
+export const NEW_LIST_HINTS = [
+	"Let's list down some new ways to kill time.",
+	"I'll take a potato chip… and list it!",
+	"Every title goes in exactly as planned.",
+	"Shinigami love apples. You'll love this list.",
+] as const;
 /** Sorts ahead of every other list (order falls back to createdAt, a huge number) */
 export const FAVORITES_LIST_ORDER = -1;
 

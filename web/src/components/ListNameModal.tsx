@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Spin } from "antd";
 import { CUSTOM_LIST_NAME_MAX } from "@app/enums";
 import AnimatedModal from "./AnimatedModal";
@@ -16,7 +16,16 @@ interface Props {
 	loading?: boolean;
 	onSubmit: (name: string) => void;
 	onClose: () => void;
+	/** Art between the title and the hint (ModalArt), as in ConfirmModal */
+	image?: ReactNode;
+	/** Line under the art; a list → one of them, picked each time the popup opens */
+	hint?: string | readonly string[];
 }
+
+const pickHint = (hint: Props["hint"]) =>
+	typeof hint === "string" || hint === undefined
+		? hint
+		: hint[Math.floor(Math.random() * hint.length)];
 
 /** One text field + confirm / cancel, in the popup look (app ListNameModal) */
 export default function ListNameModal({
@@ -28,12 +37,20 @@ export default function ListNameModal({
 	loading = false,
 	onSubmit,
 	onClose,
+	image,
+	hint,
 }: Props) {
 	const [name, setName] = useState(initialName);
+	const [shownHint, setShownHint] = useState(() => pickHint(hint));
 	const inputRef = useRef<HTMLInputElement>(null);
 	useEffect(() => {
 		if (visible) setName(initialName);
 	}, [visible, initialName]);
+	// A fresh line per opening, not per render (it'd change as the user types)
+	useEffect(() => {
+		if (visible) setShownHint(pickHint(hint));
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [visible]);
 
 	// Cursor in the field as soon as the popup is up (rename: old name selected, so typing replaces it);
 	// after a beat, the popup's own enter animation is still mounting the input
@@ -54,6 +71,8 @@ export default function ListNameModal({
 	return (
 		<AnimatedModal visible={visible} onClose={() => !loading && onClose()}>
 			<p className={styles.modalTitle}>{title}</p>
+			{image != null && <div className={styles.modalImage}>{image}</div>}
+			{shownHint && <p className={styles.modalHint}>{shownHint}</p>}
 			<form
 				onSubmit={(e) => {
 					e.preventDefault();

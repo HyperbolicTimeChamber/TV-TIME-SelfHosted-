@@ -10,9 +10,10 @@ import ReorderableList, {
 } from "react-native-reorderable-list";
 import { useAuthStore } from "../../stores";
 import { useCustomLists } from "../../hooks";
-import { CircleButtonTone, Route } from "../../enums";
+import { CircleButtonTone, NEW_LIST_HINTS, NEW_LIST_TITLE, Route } from "../../enums";
 import type { CustomList, ProfileStackParamList } from "../../types";
 import { ConfirmModal, ListNameModal, OptionsSheet } from "../../components";
+import { ModalArt, NEW_LIST_ART, NEW_LIST_RATIO } from "../../components/modals/ModalArt";
 import { CircleBackButton } from "../../components/CircleButton";
 import { pickListsFile, shareListsExport } from "../../services/customListsFiles";
 import {
@@ -92,8 +93,16 @@ export default function ListsScreen() {
 	const navigation = useNavigation<Nav>();
 	const { top } = useSafeAreaInsets();
 	const user = useAuthStore((s) => s.user);
-	const { lists, loading, createList, renameList, deleteList, reorderLists, planImport, applyImport } =
-		useCustomLists(user?.uid);
+	const {
+		lists,
+		loading,
+		createList,
+		renameList,
+		deleteList,
+		reorderLists,
+		planImport,
+		applyImport,
+	} = useCustomLists(user?.uid);
 
 	// Dragging edits a list of ids; null = follow the saved order
 	const [draftIds, setDraftIds] = useState<string[] | null>(null);
@@ -218,7 +227,12 @@ export default function ListsScreen() {
 						color={lists.length === 0 ? colors.textMuted : colors.text}
 					/>
 				</TouchableOpacity>
-				<TouchableOpacity onPress={save} disabled={!dirty || saving} hitSlop={8} accessibilityLabel="Save order">
+				<TouchableOpacity
+					onPress={save}
+					disabled={!dirty || saving}
+					hitSlop={8}
+					accessibilityLabel="Save order"
+				>
 					<Ionicons name="checkmark" size={30} color={dirty ? colors.accent : colors.textMuted} />
 				</TouchableOpacity>
 			</View>
@@ -293,7 +307,11 @@ export default function ListsScreen() {
 
 			<ListNameModal
 				visible={naming !== null}
-				title={naming === "new" ? "New List" : "Rename List"}
+				title={naming === "new" ? NEW_LIST_TITLE : "Rename List"}
+				image={
+					naming === "new" ? <ModalArt source={NEW_LIST_ART} ratio={NEW_LIST_RATIO} /> : undefined
+				}
+				hint={naming === "new" ? NEW_LIST_HINTS : undefined}
 				initialName={naming && naming !== "new" ? naming.name : ""}
 				confirmLabel={naming === "new" ? "Create" : "Save"}
 				error={nameError}
@@ -320,7 +338,9 @@ export default function ListsScreen() {
 			<ConfirmModal
 				visible={!!importPlan}
 				title="Import Lists?"
-				hint={importPlan ? `This will make these changes: ${describeImport(importPlan)}` : undefined}
+				hint={
+					importPlan ? `This will make these changes: ${describeImport(importPlan)}` : undefined
+				}
 				confirmLabel="Import"
 				confirmColor={colors.primary}
 				loading={importing}

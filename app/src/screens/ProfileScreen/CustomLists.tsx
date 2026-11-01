@@ -1,11 +1,20 @@
 import React, { useState } from "react";
-import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, StyleSheet } from "react-native";
+import {
+	View,
+	Text,
+	FlatList,
+	ActivityIndicator,
+	TouchableOpacity,
+	StyleSheet,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, typography } from "../../theme";
 import { MediaType } from "../../types";
 import { useCustomLists } from "../../hooks";
 import PosterImage from "../../components/PosterImage";
 import { ListNameModal } from "../../components";
+import { ModalArt, NEW_LIST_ART, NEW_LIST_RATIO } from "../../components/modals/ModalArt";
+import { NEW_LIST_HINTS, NEW_LIST_TITLE } from "../../enums";
 import { styles as profileStyles } from "./styles";
 
 /** Posters shown per list on the profile; the rest are one tap away on the list's page */
@@ -79,7 +88,11 @@ export default function CustomLists({
 			{loading && lists.length === 0 ? (
 				<ActivityIndicator style={styles.loader} size="small" color={colors.primary} />
 			) : lists.length === 0 ? (
-				<TouchableOpacity style={styles.emptyCard} onPress={() => setNaming(true)} activeOpacity={0.7}>
+				<TouchableOpacity
+					style={styles.emptyCard}
+					onPress={() => setNaming(true)}
+					activeOpacity={0.7}
+				>
 					<Ionicons name="bookmarks-outline" size={28} color={colors.textMuted} />
 					<Text style={styles.emptyTitle}>Make your first list</Text>
 					<Text style={styles.emptyHint}>
@@ -132,7 +145,9 @@ export default function CustomLists({
 
 			<ListNameModal
 				visible={naming}
-				title="New List"
+				title={NEW_LIST_TITLE}
+				image={<ModalArt source={NEW_LIST_ART} ratio={NEW_LIST_RATIO} />}
+				hint={NEW_LIST_HINTS}
 				confirmLabel="Create"
 				error={error}
 				loading={creating}

@@ -27,13 +27,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useAuthStore } from "../../stores";
 import { useCustomLists } from "../../hooks/useCustomLists";
-import { CUSTOM_LIST_ITEM_MAX } from "../../enums";
+import { CUSTOM_LIST_ITEM_MAX, NEW_LIST_HINTS, NEW_LIST_TITLE } from "../../enums";
 import type { CustomList, CustomListEntry } from "../../types";
 import { listCoverItem, listHasItem, sheetListOrder, titleCount } from "../../utils";
 import { colors, spacing, typography } from "../../theme";
 import PosterImage from "../PosterImage";
 import { SheetHeader } from "./BottomSheet";
 import ListNameModal from "./ListNameModal";
+import { ModalArt, NEW_LIST_ART, NEW_LIST_RATIO } from "./ModalArt";
 
 interface Props {
 	/** The title being listed; null = closed */
@@ -232,7 +233,9 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 
 			<ListNameModal
 				visible={!!entry && naming}
-				title="New List"
+				title={NEW_LIST_TITLE}
+				image={<ModalArt source={NEW_LIST_ART} ratio={NEW_LIST_RATIO} />}
+				hint={NEW_LIST_HINTS}
 				confirmLabel="Create & Add"
 				error={nameError}
 				loading={creating}

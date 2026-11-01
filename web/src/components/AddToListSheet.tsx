@@ -10,13 +10,14 @@ import {
 import { motion } from "motion/react";
 import { Spin } from "antd";
 import { IoBookmark, IoBookmarkOutline, IoList } from "react-icons/io5";
-import { CUSTOM_LIST_ITEM_MAX } from "@app/enums";
+import { CUSTOM_LIST_ITEM_MAX, NEW_LIST_HINTS, NEW_LIST_TITLE } from "@app/enums";
 import type { CustomList, CustomListEntry } from "@app/types";
 import { useCustomLists } from "@app/hooks/useCustomLists";
 import { listCoverItem, listHasItem, sheetListOrder, titleCount } from "@app/utils/customLists";
 import { useAppSelector } from "../store";
 import BottomSheet, { SheetHeader } from "./BottomSheet";
 import ListNameModal from "./ListNameModal";
+import { ModalArt, NEW_LIST_ART } from "./ModalArt";
 import PosterImage from "./PosterImage";
 import styles from "./styles/AddToList.module.scss";
 
@@ -235,7 +236,9 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 
 			<ListNameModal
 				visible={!!entry && naming}
-				title="New List"
+				title={NEW_LIST_TITLE}
+				image={<ModalArt src={NEW_LIST_ART} />}
+				hint={NEW_LIST_HINTS}
 				confirmLabel="Create & Add"
 				error={nameError}
 				loading={creating}

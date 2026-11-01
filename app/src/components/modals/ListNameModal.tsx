@@ -1,5 +1,12 @@
-import React, { useEffect, useRef, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet } from "react-native";
+import React, { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+	View,
+	Text,
+	TextInput,
+	TouchableOpacity,
+	ActivityIndicator,
+	StyleSheet,
+} from "react-native";
 import AnimatedModal from "./AnimatedModal";
 import { CUSTOM_LIST_NAME_MAX } from "../../enums";
 import { colors, spacing, typography } from "../../theme";
@@ -16,7 +23,16 @@ interface Props {
 	loading?: boolean;
 	onSubmit: (name: string) => void;
 	onClose: () => void;
+	/** Art between the title and the hint (ModalArt), as in ConfirmModal */
+	image?: ReactNode;
+	/** Line under the art; a list → one of them, picked each time the popup opens */
+	hint?: string | readonly string[];
 }
+
+const pickHint = (hint: Props["hint"]) =>
+	typeof hint === "string" || hint === undefined
+		? hint
+		: hint[Math.floor(Math.random() * hint.length)];
 
 /** One text field + confirm / cancel, in the app's popup look (ConfirmModal's shape) */
 export default function ListNameModal({
@@ -28,12 +44,20 @@ export default function ListNameModal({
 	loading = false,
 	onSubmit,
 	onClose,
+	image,
+	hint,
 }: Props) {
 	const [name, setName] = useState(initialName);
+	const [shownHint, setShownHint] = useState(() => pickHint(hint));
 	const inputRef = useRef<TextInput>(null);
 	useEffect(() => {
 		if (visible) setName(initialName);
 	}, [visible, initialName]);
+	// A fresh line per opening, not per render (it'd change as the user types)
+	useEffect(() => {
+		if (visible) setShownHint(pickHint(hint));
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [visible]);
 
 	// Keyboard up as soon as the popup is: `autoFocus` inside a Modal is ignored on Android, so focus
 	// by hand once the open animation (AnimatedModal's 250ms) has finished and the field takes touches
@@ -56,7 +80,9 @@ export default function ListNameModal({
 			}}
 		>
 			<View style={styles.content}>
-				<Text style={styles.title}>{title}</Text>
+				<Text style={[styles.title, image != null && styles.titleOverImage]}>{title}</Text>
+				{image != null && <View style={styles.image}>{image}</View>}
+				{shownHint ? <Text style={styles.hint}>{shownHint}</Text> : null}
 				<TextInput
 					ref={inputRef}
 					style={styles.input}
@@ -102,6 +128,15 @@ const styles = StyleSheet.create({
 	title: {
 		...typography.subtitle,
 		fontSize: 16,
+		textAlign: "center",
+		marginBottom: spacing.md,
+	},
+	// ConfirmModal's spacing: the title's gap above the art matches the art's gap below
+	titleOverImage: { marginBottom: spacing.sm },
+	image: { alignItems: "center", marginBottom: spacing.sm },
+	hint: {
+		...typography.caption,
+		color: colors.textSecondary,
 		textAlign: "center",
 		marginBottom: spacing.md,
 	},

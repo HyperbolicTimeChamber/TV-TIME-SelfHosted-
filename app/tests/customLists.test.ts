@@ -12,6 +12,7 @@ import {
 	sortLists,
 	sheetListOrder,
 	listCoverItem,
+	profileLists,
 } from "../src/utils/customLists";
 import { CUSTOM_LIST_ITEM_MAX, CUSTOM_LIST_NAME_MAX, MediaType } from "../src/enums";
 import type { CustomList, CustomListEntry } from "../src/types/customList";
@@ -172,4 +173,23 @@ test("listCoverItem is the most recently added title, null for an empty list", (
 	});
 	assert.equal(listCoverItem({ ...list("a"), items: [item(1, 5), item(2, 9), item(3, 2)] })?.tmdbId, 2);
 	assert.equal(listCoverItem(list("b")), null);
+});
+
+test("profileLists features the biggest list and keeps the next five, biggest first", () => {
+	const sized = (id: string, n: number, updatedAt = 1) => ({
+		...touched(id, 1, updatedAt),
+		items: Array.from({ length: n }, (_, i) => ({
+			tmdbId: i,
+			mediaType: MediaType.TV,
+			title: String(i),
+			posterPath: null,
+			addedAt: i,
+		})),
+	});
+	const lists = [sized("a", 1), sized("b", 7), sized("c", 3), sized("d", 3, 9), sized("e", 0), sized("f", 2), sized("g", 5), sized("h", 4)];
+	const { featured, rest } = profileLists(lists);
+	assert.equal(featured?.id, "b");
+	// Ties: the more recently changed first (d over c)
+	assert.deepEqual(rest.map((l) => l.id), ["g", "h", "d", "c", "f"]);
+	assert.deepEqual(profileLists([]), { featured: null, rest: [] });
 });

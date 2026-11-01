@@ -6,6 +6,8 @@ import { useCustomLists } from "@app/hooks/useCustomLists";
 import { useAppSelector } from "../../store";
 import PosterImage from "../../components/PosterImage";
 import ListNameModal from "../../components/ListNameModal";
+import { ModalArt, NEW_LIST_ART } from "../../components/ModalArt";
+import { NEW_LIST_HINTS, NEW_LIST_TITLE } from "@app/enums";
 import { Paths, listPath, showPath } from "../../routes/paths";
 import styles from "./styles/ProfileScreen.module.scss";
 
@@ -111,7 +113,9 @@ export default function CustomLists() {
 
 			<ListNameModal
 				visible={naming}
-				title="New List"
+				title={NEW_LIST_TITLE}
+				image={<ModalArt src={NEW_LIST_ART} />}
+				hint={NEW_LIST_HINTS}
 				confirmLabel="Create"
 				error={error}
 				loading={creating}
