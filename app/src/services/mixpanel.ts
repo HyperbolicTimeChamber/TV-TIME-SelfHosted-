@@ -218,3 +218,20 @@ export function trackEpisodeMarked(
 	});
 	recordTrackedEpisodes(tmdbShowId, 1);
 }
+
+/** Episode unwatched (`watchCountAfter` 0) or its watch count lowered by one */
+export function trackEpisodeUnwatched(
+	showId: string,
+	episodeId: string,
+	episodeNumber: number,
+	watchCountAfter: number,
+) {
+	track(AnalyticsEvent.EPISODE_UNWATCHED, {
+		show_id: showId,
+		episode_id: episodeId,
+		episode_number: episodeNumber,
+		watch_count_after: watchCountAfter,
+		fully_unwatched: watchCountAfter === 0,
+		month_utc: monthUtc(),
+	});
+}

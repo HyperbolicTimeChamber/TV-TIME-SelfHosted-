@@ -346,6 +346,8 @@ export const MIXPANEL_SERVER_URL = process.env.EXPO_PUBLIC_MIXPANEL_SERVER_URL |
 export enum AnalyticsEvent {
 	APP_OPENED = "app_opened",
 	EPISODE_MARKED_TRACKED = "episode_marked_tracked",
+	/** An episode unwatched or its watch count lowered (debugs tracking-pointer bugs) */
+	EPISODE_UNWATCHED = "episode_unwatched",
 	EPISODE_TRACKING_SESSION_COMPLETED = "episode_tracking_session_completed",
 	API_CALLED = "api_called",
 	/** Aggregated Firestore reads / writes / deletes since the last flush */

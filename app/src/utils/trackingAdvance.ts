@@ -40,6 +40,16 @@ function lastMarkedIndex(order: EpisodeRef[], marked: EpisodeRef[]): number {
 	return idx;
 }
 
+/** Counts as they were before `marked` was applied (each marked episode one lower) */
+function countsBefore(counts: Map<string, number>, marked: EpisodeRef[]): Map<string, number> {
+	const before = new Map(counts);
+	for (const m of marked) {
+		const key = epKey(m.season, m.episode);
+		before.set(key, Math.max(0, (before.get(key) ?? 0) - 1));
+	}
+	return before;
+}
+
 /** First episode after `fromIdx` still below `level` — skips eps already watched at that level */
 function firstBelow(
 	order: EpisodeRef[],
@@ -116,6 +126,11 @@ export function computeTrackingAdvance(
 	const rewatching = !!status && IN_REWATCH.includes(status);
 
 	if (level === 1 && rewatching) return NONE;
+	// Below the run under way (an episode unwatched, then re-marked back to the previous run's
+	// count): catching up, not rewatching — it must not move the pointer, let alone end the run.
+	// Judged by its own lower count every later episode looked done, and the show went completed
+	if (rewatching && level < (rewatchLevel(order, countsBefore(counts, marked), tracking) ?? level))
+		return NONE;
 
 	// Filling the last gap of the first watch while a rewatch is already under way (episode 1
 	// at ×2, pointer further on — e.g. imported with holes, rewatched via the watchlist, holes
