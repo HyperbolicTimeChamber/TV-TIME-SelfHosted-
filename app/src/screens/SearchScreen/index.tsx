@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useMemo } from "react";
-import { View, Text, TouchableOpacity, useWindowDimensions } from "react-native";
+import { View, Text, TouchableOpacity, useWindowDimensions, Keyboard } from "react-native";
 import type { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import Animated, {
 	useAnimatedReaction,
@@ -18,7 +18,7 @@ import NotFoundArt, {
 
 const artReserve = artHeight(NO_RESULTS_RATIO) + 24;
 import { AnimatedLegendList } from "@legendapp/list/reanimated";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
 	useSearch,
@@ -181,6 +181,17 @@ export default function SearchScreen() {
 		else navigation.navigate(Route.SEARCH_MAIN);
 	}, [navigation]);
 	const swipeBack = useSwipeBackPop(navigation);
+	// The input screen is replaced by this one while its keyboard is up; on Android the replace can
+	// leave the keyboard showing over the results, so close it once the results page is in front
+	// Once on focus and again when the screen transition ends: a dismiss that lands mid-replace is
+	// lost on some runs (keyboard stayed up over the results)
+	useFocusEffect(
+		useCallback(() => {
+			if (!submittedQuery) return;
+			Keyboard.dismiss();
+			return navigation.addListener("transitionEnd", () => Keyboard.dismiss());
+		}, [submittedQuery, navigation]),
+	);
 
 	// From a results page the input replaces it, so the next search replaces these results rather
 	// than stacking on them: only ever one results page above Trending, and back goes to Trending

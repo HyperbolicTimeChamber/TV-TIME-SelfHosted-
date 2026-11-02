@@ -205,6 +205,8 @@ export enum HistorySort {
 
 /** Search results sort — client-side over the pages already loaded */
 export enum SearchSort {
+	/** TMDB's own order (best match first) */
+	RELEVANCE = "relevance",
 	/** Release date (movie) / first air date (TV) */
 	DATE = "date",
 	/** Displayed title, dictionary order */

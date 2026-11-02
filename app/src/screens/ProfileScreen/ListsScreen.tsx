@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, TouchableOpacity, Pressable, StyleSheet, Alert } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -163,6 +163,9 @@ function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 		"worklet";
 		runOnJS(setLifted)(false);
 	});
+	// The drag-end hook can be missed (a hold released before the drag settles); leaving the screen
+	// must never leave the card lifted with its glow
+	useFocusEffect(useCallback(() => () => setLifted(false), []));
 	const cover = listCoverItem(list);
 	const { data: info, isPending } = useTitleInfo(
 		cover?.tmdbId ?? 0,
@@ -178,7 +181,10 @@ function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 				pressed && !lifted && styles.rowPressed,
 				lifted && styles.rowLifted,
 			]}
-			onPress={onOpen}
+			onPress={() => {
+				setLifted(false);
+				onOpen();
+			}}
 			onLongPress={drag}
 			delayLongPress={HOLD_TO_DRAG_MS}
 			accessibilityRole="button"
@@ -208,6 +214,7 @@ function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 				<SkeletonLine width="100%" height={CARD_FILL} style={styles.skeletonCard} />
 			) : null}
 			{cover && <View style={[StyleSheet.absoluteFill, card.cardOverlay]} />}
+			{lifted && <View style={[StyleSheet.absoluteFill, styles.liftedRim]} pointerEvents="none" />}
 			<View style={card.epInfo}>
 				{/* ⋮ rides the name line: it belongs to the list, and lines up card to card */}
 				<View style={styles.nameRow}>
@@ -565,12 +572,18 @@ const styles = StyleSheet.create({
 	// Armed to drag: lifted, with a soft shadow glow under it
 	rowLifted: {
 		transform: [{ scale: 1.03 }],
-		// A light halo (a dark shadow would vanish on the black page)
-		elevation: 24,
+		// A light halo (a dark shadow would vanish on the black page). No `elevation`: Android paints
+		// that shadow under the card's own body, which showed as a black rectangle in the middle
 		shadowColor: colors.text,
 		shadowOpacity: 0.45,
 		shadowRadius: 22,
 		shadowOffset: { width: 0, height: 0 },
+	},
+	// Lifted card's glow on Android (no elevation shadow): a soft light rim just inside the edge
+	liftedRim: {
+		borderRadius: 16,
+		borderWidth: 2,
+		borderColor: "rgba(255, 255, 255, 0.35)",
 	},
 	// The calendar card sits in the list's own padding
 	card: { marginHorizontal: 0 },
