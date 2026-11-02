@@ -5,6 +5,7 @@ import { colors, spacing, typography } from "../../theme";
 import { WatchStatus, MediaType } from "../../types";
 import { CircleButtonTone } from "../../enums";
 import CircleButton from "../../components/CircleButton";
+import { RxCheck } from "../../components/RxIcons";
 
 interface Props {
 	mediaType: MediaType;
@@ -72,7 +73,10 @@ export default function ActionPills({
 							{adding ? (
 								<ActivityIndicator size="small" color={colors.text} />
 							) : (
-								<Text style={styles.pillText}>Watched</Text>
+								<View style={styles.pillInline}>
+									<RxCheck size={20} />
+									<Text style={styles.pillText}>Mark as Watched</Text>
+								</View>
 							)}
 						</TouchableOpacity>
 					)}
@@ -88,7 +92,10 @@ export default function ActionPills({
 							{adding ? (
 								<ActivityIndicator size="small" color={colors.text} />
 							) : (
-								<Text style={styles.pillText}>Mark as Watched</Text>
+								<View style={styles.pillInline}>
+									<RxCheck size={20} />
+									<Text style={styles.pillText}>Mark as Watched</Text>
+								</View>
 							)}
 						</TouchableOpacity>
 					)}
@@ -178,6 +185,7 @@ const styles = StyleSheet.create({
 	pillRemove: {
 		backgroundColor: colors.destructiveRed,
 	},
+	pillInline: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
 	pillDisabled: {
 		opacity: 0.6,
 	},

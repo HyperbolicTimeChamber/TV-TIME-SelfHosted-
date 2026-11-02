@@ -30,5 +30,6 @@ export function useRecentlyWatched(): { items: RecentlyWatchedItem[]; loading: b
 			};
 		});
 	}, [tv.entries, tv.cards, movies.entries, movies.cards]);
-	return { items, loading: tv.loading && movies.loading };
+	// Loading until both histories are in: one alone rendered a partial row that reshuffled
+	return { items, loading: tv.loading || movies.loading };
 }

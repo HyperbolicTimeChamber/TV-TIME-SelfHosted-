@@ -12,6 +12,8 @@ export interface TitleInfo {
 	backdropPath: string | null;
 	/** First air / release year ("2024") */
 	year: string | null;
+	/** TV: season count (the list card's square) */
+	totalSeasons: number | null;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -35,6 +37,7 @@ export function useTitleInfo(tmdbId: number, mediaType: MediaType, enabled = tru
 					runtime: cached.runtime ?? null,
 					backdropPath: cached.backdropPath ?? null,
 					year: (cached.firstAirDate ?? cached.releaseDate)?.slice(0, 4) || null,
+					totalSeasons: mediaType === MediaType.TV ? cached.totalSeasons || null : null,
 				};
 			}
 			const apiKey = useAuthStore.getState().appTmdbApiKey;
@@ -46,6 +49,7 @@ export function useTitleInfo(tmdbId: number, mediaType: MediaType, enabled = tru
 				runtime: details.runtime ?? episodeRunTime?.[0] ?? null,
 				backdropPath: details.backdrop_path ?? null,
 				year: (details.first_air_date ?? details.release_date)?.slice(0, 4) || null,
+				totalSeasons: mediaType === MediaType.TV ? (details.number_of_seasons ?? null) : null,
 			};
 		},
 	});

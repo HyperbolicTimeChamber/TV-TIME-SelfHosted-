@@ -1,4 +1,6 @@
 import type { AddFailure, TMDBShow } from "@app/types";
+import { IoAdd, IoCheckmark } from "react-icons/io5";
+import BottomSheet, { SheetGroup, SheetHeader, SheetOption } from "../../components/BottomSheet";
 import ConfirmModal from "../../components/ConfirmModal";
 import AddFailedModal from "../../components/AddFailedModal";
 import UnreleasedMovieModal from "../../components/UnreleasedMovieModal";
@@ -6,14 +8,12 @@ import { colors } from "../../theme/index";
 import { ModalBackdrop, ModalLogo } from "../../components/ModalArt";
 import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
 import { MediaType, WatchProgress } from "@app/enums";
+import { searchMediaType as mediaTypeOf } from "@app/utils/customLists";
 
 /** Title logo when the catalog has the title cached (name otherwise) */
 const logoOf = (item: TMDBShow, mediaType: MediaType) =>
 	getCachedCatalogShow(item.id, mediaType)?.logoPath ?? null;
 const nameOf = (item: TMDBShow) => item.name || item.title || "";
-const mediaTypeOf = (item: TMDBShow | null): MediaType =>
-	item?.media_type ||
-	(item?.first_air_date || (item?.name && !item?.title) ? MediaType.TV : MediaType.MOVIE);
 
 const pad = (n?: number) => String(n).padStart(2, "0");
 
@@ -54,28 +54,37 @@ export default function SearchModals(p: Props) {
 	const noun = blockedMediaType === MediaType.MOVIE ? "movie" : "show";
 	return (
 		<>
-			<ConfirmModal
+			{/* A drawer, not a popup: the two ways to add, dismissed by pulling it down or clicking outside */}
+			<BottomSheet
 				visible={!!p.movieModal}
-				title="Add This Movie?"
-				image={
-					p.movieModal ? (
-						<ModalLogo
-							logoPath={logoOf(p.movieModal, MediaType.MOVIE)}
-							tmdbId={p.movieModal.id}
-							mediaType={MediaType.MOVIE}
-							title={nameOf(p.movieModal)}
-						/>
-					) : undefined
-				}
-				hint={`Add "${p.movieModal?.title || p.movieModal?.name}" to your watchlist, or mark it as already watched.`}
-				confirmLabel="Add to Watchlist"
-				confirmColor={colors.primary}
-				onConfirm={p.onMovieAddOnly}
-				secondaryLabel="Add & Mark as Watched"
-				secondaryColor={colors.watchedGreen}
-				onSecondary={p.onMovieAddAndWatch}
+				label="Add this movie"
 				onClose={p.onMovieModalClose}
-			/>
+				art={p.movieModal ? { tmdbId: p.movieModal.id, mediaType: MediaType.MOVIE } : null}
+			>
+				<SheetHeader
+					title={p.movieModal ? nameOf(p.movieModal) : ""}
+					tmdbId={p.movieModal?.id}
+					mediaType={MediaType.MOVIE}
+					logoPath={p.movieModal ? logoOf(p.movieModal, MediaType.MOVIE) : null}
+					centered
+				/>
+				<SheetGroup>
+					<SheetOption
+						icon={IoAdd}
+						color={colors.primary}
+						title="Add to Watchlist"
+						hint="Track it, not watched yet"
+						onClick={p.onMovieAddOnly}
+					/>
+					<SheetOption
+						icon={IoCheckmark}
+						color={colors.watchedGreen}
+						title="Add & Mark as Watched"
+						hint="Already seen it"
+						onClick={p.onMovieAddAndWatch}
+					/>
+				</SheetGroup>
+			</BottomSheet>
 
 			<ConfirmModal
 				visible={!!p.removeModal}
@@ -155,11 +164,7 @@ export default function SearchModals(p: Props) {
 			/>
 
 			{/* A failed add reports here, as it does in the app */}
-			<AddFailedModal
-				failure={p.addFailure}
-				onRetry={p.onRetryAdd}
-				onClose={p.onAddFailureClose}
-			/>
+			<AddFailedModal failure={p.addFailure} onRetry={p.onRetryAdd} onClose={p.onAddFailureClose} />
 		</>
 	);
 }

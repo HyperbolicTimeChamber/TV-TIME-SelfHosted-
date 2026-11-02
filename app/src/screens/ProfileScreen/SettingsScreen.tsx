@@ -16,8 +16,10 @@ import { getCrashlytics, recordError } from "@react-native-firebase/crashlytics"
 import { getAuth, sendPasswordResetEmail } from "@react-native-firebase/auth";
 import { useAuthStore } from "../../stores";
 import { colors, spacing, typography } from "../../theme";
+import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import { CircleBackButton, CIRCLE_BUTTON_SIZE } from "../../components/CircleButton";
 import { ConfirmModal } from "../../components";
+import { ExportingModal } from "../../components/modals";
 import {
 	FAREWELL_ART,
 	FAREWELL_RATIO,
@@ -25,16 +27,19 @@ import {
 	LOGOUT_RATIO,
 	ModalArt,
 } from "../../components/modals/ModalArt";
+import { fetchAccountExport, shareAccountExport } from "../../services/accountExport";
 import { CloudFunction, ProfileStackParamList, Route } from "../../types";
 
 export default function SettingsScreen() {
 	const { top } = useSafeAreaInsets();
 	const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
+	const swipeBack = useSwipeBackPop(navigation);
 	const hasCompletedImport = useAuthStore((s) => s.hasCompletedImport);
 	const user = useAuthStore((s) => s.user);
 	const signOut = useAuthStore((s) => s.signOut);
 	const [testingFCM, setTestingFCM] = useState(false);
 	const [deletingAccount, setDeletingAccount] = useState(false);
+	const [exporting, setExporting] = useState(false);
 
 	const isEmailUser = user?.providerData?.some((p) => p.providerId === "password") ?? false;
 
@@ -63,6 +68,26 @@ export default function SettingsScreen() {
 		}
 	}, [testingFCM]);
 
+	const handleExport = useCallback(async () => {
+		if (exporting) return;
+		setExporting(true);
+		let data: unknown;
+		try {
+			data = await fetchAccountExport();
+		} catch (err: any) {
+			setExporting(false);
+			Alert.alert("Export failed", err.message || "Couldn't export your data. Try again later.");
+			return;
+		}
+		// The modal covers the fetch only — the share sheet is the user's turn
+		setExporting(false);
+		try {
+			await shareAccountExport(data);
+		} catch (err: any) {
+			Alert.alert("Export failed", err.message || "Couldn't share your data. Try again later.");
+		}
+	}, [exporting]);
+
 	const [logoutVisible, setLogoutVisible] = useState(false);
 	const [deleteVisible, setDeleteVisible] = useState(false);
 	const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -87,80 +112,95 @@ export default function SettingsScreen() {
 	}, [signOut]);
 
 	return (
-		<ScrollView style={[styles.container, { paddingTop: top }]}>
-			<View style={styles.headerRow}>
-				<CircleBackButton onPress={() => navigation.goBack()} />
-				<Text style={styles.headerTitle}>Settings</Text>
-				<View style={styles.headerSpacer} />
-			</View>
-			<View style={styles.section}>
-				<Text style={styles.sectionTitle}>Data</Text>
-				<TouchableOpacity style={styles.row} onPress={() => navigation.navigate(Route.IMPORT_DATA)}>
-					<Text style={styles.rowText}>
-						{hasCompletedImport ? "Re-sync TV Time Data" : "Import TV Time Data"}
-					</Text>
-				</TouchableOpacity>
-			</View>
-
-			{__DEV__ && (
+		// Swipe right from anywhere slides the page off, back to the profile
+		<SwipeBackView onBack={() => navigation.goBack()} {...swipeBack} style={styles.container}>
+			<ScrollView style={{ paddingTop: top }}>
+				<View style={styles.headerRow}>
+					<CircleBackButton onPress={() => navigation.goBack()} />
+					<Text style={styles.headerTitle}>Settings</Text>
+					<View style={styles.headerSpacer} />
+				</View>
 				<View style={styles.section}>
-					<Text style={styles.sectionTitle}>Debug</Text>
-					<TouchableOpacity style={styles.row} onPress={handleTestFCM} disabled={testingFCM}>
-						{testingFCM ? (
+					<Text style={styles.sectionTitle}>Data</Text>
+					<TouchableOpacity style={styles.row} onPress={() => navigation.navigate(Route.IMPORT_DATA)}>
+						<Text style={styles.rowText}>
+							{hasCompletedImport ? "Re-sync TV Time Data" : "Import TV Time Data"}
+						</Text>
+					</TouchableOpacity>
+					<TouchableOpacity style={styles.row} onPress={handleExport} disabled={exporting}>
+						{exporting ? (
 							<ActivityIndicator size="small" color={colors.accent} />
 						) : (
-							<Text style={styles.rowText}>Send Test Notification</Text>
+							<Text style={styles.rowText}>Export My Data</Text>
 						)}
 					</TouchableOpacity>
 				</View>
-			)}
 
-			<View style={styles.section}>
-				<Text style={styles.sectionTitle}>Account</Text>
-				{isEmailUser && (
-					<TouchableOpacity style={styles.row} onPress={handleChangePassword}>
-						<Text style={styles.rowText}>Change Password</Text>
-					</TouchableOpacity>
+				{__DEV__ && (
+					<View style={styles.section}>
+						<Text style={styles.sectionTitle}>Debug</Text>
+						<TouchableOpacity style={styles.row} onPress={handleTestFCM} disabled={testingFCM}>
+							{testingFCM ? (
+								<ActivityIndicator size="small" color={colors.accent} />
+							) : (
+								<Text style={styles.rowText}>Send Test Notification</Text>
+							)}
+						</TouchableOpacity>
+					</View>
 				)}
-				<TouchableOpacity style={styles.row} onPress={() => setLogoutVisible(true)}>
-					<Text style={styles.deleteText}>Log Out</Text>
-				</TouchableOpacity>
-				<TouchableOpacity
-					style={styles.row}
-					onPress={() => {
-						setDeleteError(null);
-						setDeleteVisible(true);
+
+				<View style={styles.section}>
+					<Text style={styles.sectionTitle}>Account</Text>
+					{isEmailUser && (
+						<TouchableOpacity style={styles.row} onPress={handleChangePassword}>
+							<Text style={styles.rowText}>Change Password</Text>
+						</TouchableOpacity>
+					)}
+					<TouchableOpacity style={styles.row} onPress={() => setLogoutVisible(true)}>
+						<Text style={styles.deleteText}>Log Out</Text>
+					</TouchableOpacity>
+					<TouchableOpacity
+						style={styles.row}
+						onPress={() => {
+							setDeleteError(null);
+							setDeleteVisible(true);
+						}}
+					>
+						<Text style={styles.deleteText}>Delete Account & Data</Text>
+					</TouchableOpacity>
+				</View>
+
+				<ConfirmModal
+					visible={logoutVisible}
+					title="Until Next Time"
+					image={<ModalArt source={LOGOUT_ART} ratio={LOGOUT_RATIO} />}
+					hint="You can sign back in any time — your watchlist and history stay saved."
+					confirmLabel="Log Out"
+					onConfirm={() => {
+						setLogoutVisible(false);
+						signOut();
 					}}
-				>
-					<Text style={styles.deleteText}>Delete Account & Data</Text>
-				</TouchableOpacity>
-			</View>
+					onClose={() => setLogoutVisible(false)}
+				/>
 
-			<ConfirmModal
-				visible={logoutVisible}
-				title="Until Next Time"
-				image={<ModalArt source={LOGOUT_ART} ratio={LOGOUT_RATIO} />}
-				hint="You can sign back in any time — your watchlist and history stay saved."
-				confirmLabel="Log Out"
-				onConfirm={() => {
-					setLogoutVisible(false);
-					signOut();
-				}}
-				onClose={() => setLogoutVisible(false)}
-			/>
+				<ConfirmModal
+					visible={deleteVisible}
+					title="Is This Goodbye?"
+					image={<ModalArt source={FAREWELL_ART} ratio={FAREWELL_RATIO} />}
+					hint="This will permanently delete your account and all data. This cannot be undone. Want a copy first?"
+					error={deleteError}
+					confirmLabel="Delete"
+					loading={deletingAccount}
+					onConfirm={handleDeleteAccount}
+					leadLabel={exporting ? "Exporting…" : "Export My Data First"}
+					leadColor={colors.accent}
+					onLead={handleExport}
+					onClose={() => setDeleteVisible(false)}
+				/>
 
-			<ConfirmModal
-				visible={deleteVisible}
-				title="Is This Goodbye?"
-				image={<ModalArt source={FAREWELL_ART} ratio={FAREWELL_RATIO} />}
-				hint="This will permanently delete your account and all data. This cannot be undone."
-				error={deleteError}
-				confirmLabel="Delete"
-				loading={deletingAccount}
-				onConfirm={handleDeleteAccount}
-				onClose={() => setDeleteVisible(false)}
-			/>
-		</ScrollView>
+				<ExportingModal visible={exporting} />
+			</ScrollView>
+		</SwipeBackView>
 	);
 }
 

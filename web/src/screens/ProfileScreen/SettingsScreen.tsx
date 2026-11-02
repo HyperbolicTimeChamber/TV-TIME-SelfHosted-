@@ -1,16 +1,22 @@
 import { useState } from "react";
+import { motion } from "motion/react";
 import { App as AntApp } from "antd";
 
 import { useNavigate } from "react-router-dom";
 import { getFunctions, httpsCallable } from "../../platform/functions";
 import { CloudFunction } from "@app/enums";
+import { downloadAccountExport } from "../../platform/accountExport";
 import { resetPassword, signOut } from "../../services/auth";
 import { useAppSelector } from "../../store";
 import { Paths } from "../../routes/paths";
 import { CircleBackButton, CircleButtonSpacer } from "../../components/CircleButton";
 import ConfirmModal from "../../components/ConfirmModal";
+import ExportingModal from "../../components/ExportingModal";
 import { FAREWELL_ART, LOGOUT_ART, ModalArt } from "../../components/ModalArt";
 import styles from "./styles/SettingsScreen.module.scss";
+
+/** Swipe right farther than this to go back (as on the app) */
+const SWIPE_BACK_PX = 60;
 
 /** Settings (app SettingsScreen; push-notification debug tools are mobile-only) */
 export default function SettingsScreen() {
@@ -19,6 +25,7 @@ export default function SettingsScreen() {
 	const user = useAppSelector((s) => s.auth.user);
 	const hasCompletedImport = useAppSelector((s) => s.auth.hasCompletedImport);
 	const [deleting, setDeleting] = useState(false);
+	const [exporting, setExporting] = useState(false);
 	const isEmailUser = user?.providerData.some((p) => p.providerId === "password") ?? false;
 
 	const changePassword = async () => {
@@ -28,6 +35,18 @@ export default function SettingsScreen() {
 			message.success("Reset email sent — check your inbox.");
 		} catch {
 			message.error("Failed to send reset email. Try again later.");
+		}
+	};
+
+	const exportData = async () => {
+		if (exporting) return;
+		setExporting(true);
+		try {
+			await downloadAccountExport();
+		} catch (err) {
+			message.error((err as Error).message || "Couldn't export your data. Try again later.");
+		} finally {
+			setExporting(false);
 		}
 	};
 
@@ -49,7 +68,17 @@ export default function SettingsScreen() {
 	};
 
 	return (
-		<div className={styles.container}>
+		// Swipe right goes back (vertical scroll stays native)
+		<motion.div
+			drag="x"
+			dragDirectionLock
+			dragConstraints={{ left: 0, right: 0 }}
+			dragElastic={0.2}
+			className={`${styles.container} touch-pan-y`}
+			onDragEnd={(_, info) => {
+				if (info.offset.x > SWIPE_BACK_PX) navigate(-1);
+			}}
+		>
 			<div className={styles.headerRow}>
 				<CircleBackButton onClick={() => navigate(-1)} />
 				<h1 className={styles.headerTitle}>Settings</h1>
@@ -60,6 +89,9 @@ export default function SettingsScreen() {
 				<h2 className={styles.sectionTitle}>Data</h2>
 				<button className={styles.row} onClick={() => navigate(Paths.IMPORT)}>
 					{hasCompletedImport ? "Re-sync TV Time Data" : "Import TV Time Data"}
+				</button>
+				<button className={styles.row} onClick={exportData} disabled={exporting}>
+					{exporting ? "Exporting…" : "Export My Data"}
 				</button>
 			</section>
 
@@ -105,13 +137,19 @@ export default function SettingsScreen() {
 				visible={deleteVisible}
 				title="Is This Goodbye?"
 				image={<ModalArt src={FAREWELL_ART} />}
-				hint="This will permanently delete your account and all data. This cannot be undone."
+				hint="This will permanently delete your account and all data. This cannot be undone. Want a copy first?"
 				error={deleteError}
 				confirmLabel="Delete"
 				loading={deleting}
 				onConfirm={deleteAccount}
+				leadLabel={exporting ? "Exporting…" : "Export My Data First"}
+				leadColor="#4a90d9"
+				onLead={exportData}
 				onClose={() => setDeleteVisible(false)}
 			/>
-		</div>
+
+			{/* Last, so it stacks over the delete dialog when exporting from there */}
+			<ExportingModal visible={exporting} />
+		</motion.div>
 	);
 }

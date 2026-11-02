@@ -1,10 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, TouchableOpacity, Pressable, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useReorderableDrag } from "react-native-reorderable-list";
 import { MediaType, type CustomListItem } from "../../types";
-import { useShowDetails, useTitleInfo } from "../../hooks";
+import { useShowDetails, useTitleInfo, useTrackingEntry } from "../../hooks";
+import { useAuthStore } from "../../stores";
+import { catalogSettled, ensureFreshCatalogs } from "../../hooks/catalogRefresh";
+import { getCachedCatalogShow } from "../../hooks/useWatchlist";
 import { useTitleLogo } from "../../hooks/useTitleLogo";
 import { tmdbBlurredBackdropUri, tmdbLogoUri, tmdbPosterUri } from "../../hooks/useTmdbImage";
 import { BLUR_RADIUS } from "./styles";
@@ -16,7 +19,8 @@ import ShowDrawer, {
 	type ShowDrawerData,
 } from "../../components/ShowDrawer";
 import { colors, spacing, typography } from "../../theme";
-import { formatRuntime } from "../../utils";
+import { deriveHistoryCard, deriveListTags, formatRuntime, todayStr } from "../../utils";
+import ListCardTags from "./ListCardTags";
 
 const ROW_POSTER_W = 56;
 const ROW_POSTER_H = 84;
@@ -63,7 +67,31 @@ export function ListRow({ item, onPress, onLongPress }: Readonly<RowProps>) {
 	const runtime = formatRuntime(info?.runtime);
 	const square = isMovie
 		? { label: "YEAR", value: info?.year ?? null }
-		: { label: "EPISODES", value: info?.totalEpisodes ? String(info.totalEpisodes) : null };
+		: { label: "SEASONS", value: info?.totalSeasons ? String(info.totalSeasons) : null };
+	// Tags: Watch History's, from the title's own tracking doc (none → Not Started)
+	const userId = useAuthStore((s) => s.user?.uid);
+	const entry = useTrackingEntry(userId, item.tmdbId, item.mediaType);
+	const [catalogVersion, setCatalogVersion] = useState(0);
+	useEffect(() => {
+		// A tracked show's progress needs its episode list: one batched catalog read, then cached
+		if (!entry || isMovie) return;
+		ensureFreshCatalogs([entry])
+			.catch(() => false)
+			.then((fetched) => fetched && setCatalogVersion((v) => v + 1));
+	}, [entry, isMovie]);
+	const tags = useMemo(() => {
+		if (entry === undefined) return null;
+		const card = entry
+			? deriveHistoryCard(
+					entry,
+					getCachedCatalogShow(item.tmdbId, item.mediaType),
+					todayStr(),
+					catalogSettled(item.tmdbId, item.mediaType),
+				)
+			: null;
+		return deriveListTags(card);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [entry, catalogVersion, item.tmdbId, item.mediaType]);
 	// No logo on TMDB → the name at once; still looking → after the wait
 	const showName = logoPath === null || (!logoPath && waited);
 	// Still looking for the logo (and not yet time for the name): shimmer where it will sit
@@ -132,6 +160,11 @@ export function ListRow({ item, onPress, onLongPress }: Readonly<RowProps>) {
 						</Text>
 					) : null}
 				</View>
+				{tags ? (
+					<ListCardTags tags={tags} />
+				) : (
+					<SkeletonLine width={150} height={20} style={styles.skeletonTags} />
+				)}
 			</View>
 			<View style={card.epSquare}>
 				<Text style={card.epSquareTitle}>{square.label}</Text>
@@ -237,6 +270,7 @@ const styles = StyleSheet.create({
 	skeletonCard: { position: "absolute", top: 0, left: 0, borderRadius: 0 },
 	// Skeletons sit on the dark overlay: a lighter grey reads as a placeholder there
 	skeletonLogo: { borderRadius: 6, backgroundColor: colors.textMuted },
+	skeletonTags: { borderRadius: 999, marginTop: spacing.sm, backgroundColor: colors.textMuted },
 	skeletonValue: { borderRadius: 6, marginTop: 6, backgroundColor: colors.textMuted },
 	row: {
 		flexDirection: "row",

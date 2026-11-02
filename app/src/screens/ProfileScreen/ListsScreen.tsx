@@ -4,9 +4,13 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { Gesture } from "react-native-gesture-handler";
+import { runOnJS } from "react-native-reanimated";
 import ReorderableList, {
 	useReorderableDrag,
+	useReorderableDragEnd,
+	useReorderableDragStart,
 	type ReorderableListReorderEvent,
 } from "react-native-reorderable-list";
 import { useAuthStore } from "../../stores";
@@ -143,6 +147,22 @@ function PosterStrip({ items }: { items: CustomList["items"] }) {
  */
 function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 	const drag = useReorderableDrag();
+	// Picked up: the hold has registered and the drag is armed — a tick, and the card lifts
+	// (a touch bigger, a soft light shadow-glow) until the finger lets go, so it's plain when it's ready to move
+	const [lifted, setLifted] = useState(false);
+	// The library's own start / end of this card's drag (UI thread → hop to JS)
+	const liftUp = () => {
+		Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+		setLifted(true);
+	};
+	useReorderableDragStart(() => {
+		"worklet";
+		runOnJS(liftUp)();
+	});
+	useReorderableDragEnd(() => {
+		"worklet";
+		runOnJS(setLifted)(false);
+	});
 	const cover = listCoverItem(list);
 	const { data: info, isPending } = useTitleInfo(
 		cover?.tmdbId ?? 0,
@@ -152,7 +172,12 @@ function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 	const loading = !!cover && isPending;
 	return (
 		<Pressable
-			style={({ pressed }) => [card.episodeCard, styles.card, pressed && styles.rowPressed]}
+			style={({ pressed }) => [
+				card.episodeCard,
+				styles.card,
+				pressed && !lifted && styles.rowPressed,
+				lifted && styles.rowLifted,
+			]}
 			onPress={onOpen}
 			onLongPress={drag}
 			delayLongPress={HOLD_TO_DRAG_MS}
@@ -537,6 +562,16 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.background,
 	},
 	rowPressed: { transform: [{ scale: 0.98 }] },
+	// Armed to drag: lifted, with a soft shadow glow under it
+	rowLifted: {
+		transform: [{ scale: 1.03 }],
+		// A light halo (a dark shadow would vanish on the black page)
+		elevation: 24,
+		shadowColor: colors.text,
+		shadowOpacity: 0.45,
+		shadowRadius: 22,
+		shadowOffset: { width: 0, height: 0 },
+	},
 	// The calendar card sits in the list's own padding
 	card: { marginHorizontal: 0 },
 	skeletonCard: { position: "absolute", top: 0, left: 0, borderRadius: 0 },

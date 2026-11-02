@@ -1,8 +1,8 @@
-name: Build & Distribute (Development)
+name: Build & Distribute (Staging)
 
 on:
   push:
-    branches: [development]
+    branches: [staging]
     # Only build the mobile app when the mobile app (or this workflow) changed
     paths:
       - "app/**"

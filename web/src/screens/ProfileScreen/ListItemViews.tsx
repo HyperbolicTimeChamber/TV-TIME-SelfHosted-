@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Reorder, useDragControls } from "motion/react";
 import { IoReorderThree } from "react-icons/io5";
 import { MediaType } from "@app/enums";
@@ -6,11 +6,19 @@ import type { CustomListItem } from "@app/types";
 import { useShowDetails } from "@app/hooks/useShowDetails";
 import { useTitleInfo } from "@app/hooks/useTitleInfo";
 import { useTitleLogo } from "@app/hooks/useTitleLogo";
+import { useTrackingEntry } from "@app/hooks/useTrackingEntry";
+import { useAuthStore } from "@app/stores";
+import { catalogSettled, ensureFreshCatalogs } from "@app/hooks/catalogRefresh";
+import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
+import { deriveHistoryCard } from "@app/utils/historyCard";
+import { deriveListTags } from "@app/utils/listCardTags";
+import { todayStr } from "@app/utils/todayStr";
 import { tmdbBackdropUri, tmdbLogoUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
 import { formatRuntime } from "@app/utils/customLists";
 import { useLongPress } from "../../hooks/useLongPress";
 import PosterImage from "../../components/PosterImage";
 import SkeletonBlock from "../../components/SkeletonBlock";
+import ListCardTags from "./ListCardTags";
 import ShowDrawer from "../../components/ShowDrawer";
 import type { ShowDrawerAction } from "../../components/ShowDrawer";
 import styles from "./styles/ListDetail.module.scss";
@@ -72,7 +80,31 @@ export function ListRow({ item, onPress, onLongPress }: ItemProps) {
 	const runtime = formatRuntime(info?.runtime);
 	const square = isMovie
 		? { label: "YEAR", value: info?.year ?? null }
-		: { label: "EPISODES", value: info?.totalEpisodes ? String(info.totalEpisodes) : null };
+		: { label: "SEASONS", value: info?.totalSeasons ? String(info.totalSeasons) : null };
+	// Tags: Watch History's, from the title's own tracking doc (none → Not Started)
+	const userId = useAuthStore((st) => st.user?.uid);
+	const entry = useTrackingEntry(userId, item.tmdbId, item.mediaType);
+	const [catalogVersion, setCatalogVersion] = useState(0);
+	useEffect(() => {
+		// A tracked show's progress needs its episode list: one batched catalog read, then cached
+		if (!entry || isMovie) return;
+		ensureFreshCatalogs([entry])
+			.catch(() => false)
+			.then((fetched) => fetched && setCatalogVersion((v) => v + 1));
+	}, [entry, isMovie]);
+	const tags = useMemo(() => {
+		if (entry === undefined) return null;
+		const card = entry
+			? deriveHistoryCard(
+					entry,
+					getCachedCatalogShow(item.tmdbId, item.mediaType),
+					todayStr(),
+					catalogSettled(item.tmdbId, item.mediaType),
+				)
+			: null;
+		return deriveListTags(card);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [entry, catalogVersion, item.tmdbId, item.mediaType]);
 	const showName = logoPath === null || (!logoPath && waited);
 	// Still looking for the logo (and not yet time for the name): shimmer where it will sit
 	const logoLoading = logoPath === undefined && !waited;
@@ -122,6 +154,7 @@ export function ListRow({ item, onPress, onLongPress }: ItemProps) {
 						)
 					)}
 				</span>
+				{tags ? <ListCardTags tags={tags} /> : <SkeletonBlock className={styles.skeletonTags} />}
 			</span>
 			<span className={styles.square}>
 				<span className={styles.squareTitle}>{square.label}</span>

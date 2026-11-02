@@ -74,6 +74,7 @@ export enum Callable {
   DELETE_ACCOUNT = "deleteAccount",
   TEST_FCM = "testFCM",
   SEARCH_TITLES = "searchTitles",
+  EXPORT_ACCOUNT_DATA = "exportAccountData",
 }
 
 const MINUTE_MS = 60 * 1000;
@@ -98,6 +99,8 @@ export const CALLABLE_RATE_LIMITS: Record<
   // A search + a few "load more" batches; typing doesn't call it (suggestions stay client-side).
   // Per uid, or per IP for logged-out visitors
   [Callable.SEARCH_TITLES]: { limit: 30, windowMs: MINUTE_MS },
+  // Reads every watched episode (tens of thousands of docs) — a few per window is plenty
+  [Callable.EXPORT_ACCOUNT_DATA]: { limit: 3, windowMs: 10 * MINUTE_MS },
 };
 
 /** Guest TMDB proxy: uncached requests one IP may make per minute (CDN hits don't count) */
@@ -146,6 +149,7 @@ export enum FunctionName {
   REFRESH_SHOW = "refreshShow",
   BUDGET_GUARD = "budgetGuard",
   SEARCH_TITLES = "searchTitles",
+  EXPORT_ACCOUNT_DATA = "exportAccountData",
 }
 
 /** searchTitles scope: TMDB's /search/multi, /search/tv or /search/movie */

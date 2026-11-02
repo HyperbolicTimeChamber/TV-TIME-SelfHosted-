@@ -2,7 +2,7 @@
 
 Self-hosted TV Time clone. React Native (Expo 57) app + React/Vite web app + Firebase (Blaze).
 Firebase project `tv-time-returns`. Package `com.tvtimerevived.app` (iOS + Android). Repo `HyperbolicTimeChamber/TV-TIME-SelfHosted-`.
-Branches: `web` (active), `newFeatures`, `tmdbProxy`, `development` (base), `main`. Version 1.1.0, build 44+.
+Branches: `web` (active), `newFeatures`, `tmdbProxy`, `development` (base), `staging` (CI: app distribute + web deploy run on push here), `main` (production builds). Version 1.1.0, build 44+.
 
 Read `app/AGENTS.md` too (Expo docs rule, enum rule, typecheck rule). This file is the full context; keep it current when conventions change.
 

@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { Spin } from "antd";
 import type { CarouselEpisode } from "@app/types";
 import { tmdbBackdropUri, tmdbPosterUri, tmdbStillUri } from "@app/hooks/useTmdbImage";
@@ -28,9 +28,16 @@ interface Props {
 }
 
 export const CARD_IMG_WIDTH = 400;
+/** Wait this long (ms) for a still / backdrop before the show's poster stands in (app POSTER_FALLBACK_DELAY_MS) */
+const POSTER_FALLBACK_DELAY_MS = 2000;
 
 function EpisodeCard(p: Props) {
 	const [imageLoaded, setImageLoaded] = useState(false);
+	const [posterWaited, setPosterWaited] = useState(false);
+	useEffect(() => {
+		const t = window.setTimeout(() => setPosterWaited(true), POSTER_FALLBACK_DELAY_MS);
+		return () => window.clearTimeout(t);
+	}, []);
 	const { ep } = p;
 	const label = `S${String(ep.season).padStart(2, "0")} | E${String(ep.episode).padStart(2, "0")}`;
 
@@ -51,7 +58,7 @@ function EpisodeCard(p: Props) {
 		? tmdbStillUri(ep.stillPath, CARD_IMG_WIDTH)
 		: p.showBackdropPath
 			? tmdbBackdropUri(p.showBackdropPath, CARD_IMG_WIDTH)
-			: p.showPosterPath
+			: p.showPosterPath && posterWaited
 				? tmdbPosterUri(p.showPosterPath, CARD_IMG_WIDTH)
 				: null;
 
@@ -76,6 +83,9 @@ function EpisodeCard(p: Props) {
 						className={`${styles.still} ${imageLoaded ? "opacity-100" : "opacity-0"}`}
 						onLoad={() => setImageLoaded(true)}
 					/>
+				) : p.showPosterPath ? (
+					// Poster stands in only after a wait; the shimmer shows meanwhile
+					<SkeletonBlock className={styles.imageSkeleton} />
 				) : (
 					<div className={styles.stillPlaceholder}>E{String(ep.episode).padStart(2, "0")}</div>
 				)}

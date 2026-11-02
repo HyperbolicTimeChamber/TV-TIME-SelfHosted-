@@ -29,7 +29,7 @@ $badge: 30px;
 	background: none;
 	border: none;
 	padding: 4px 0;
-	color: $accent;
+	color: $warning-amber;
 	font-size: 15px;
 	font-weight: 600;
 	cursor: pointer;
@@ -134,8 +134,8 @@ $badge: 30px;
 }
 
 .badgeActive {
-	background: $accent;
-	border-color: $accent;
+	background: $warning-amber;
+	border-color: $warning-amber;
 }
 
 .loader {
@@ -150,4 +150,64 @@ $badge: 30px;
 	text-align: center;
 	padding: 16px 0;
 	margin: 0;
+}
+
+/* Find list + Sort (app AddToListSheet searchRow) */
+.searchRow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 12px 0;
+}
+
+.searchField {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	height: 40px;
+	padding: 0 12px;
+	border-radius: 8px;
+	background: var(--surface-light);
+	color: var(--text-secondary);
+}
+
+.searchInput {
+	flex: 1;
+	min-width: 0;
+	border: none;
+	outline: none;
+	background: transparent;
+	color: var(--text);
+	font-size: 14px;
+}
+
+.sortButton {
+	height: 40px;
+	padding: 0 12px;
+	border: none;
+	border-radius: 8px;
+	background: var(--surface-light);
+	color: var(--text);
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.footer {
+	display: flex;
+	justify-content: center;
+	padding: 12px 0 calc(12px + env(safe-area-inset-bottom));
+}
+
+.done {
+	min-width: 120px;
+	padding: 12px 24px;
+	border: none;
+	border-radius: 999px;
+	background: $warning-amber;
+	color: #000;
+	font-size: 15px;
+	font-weight: 700;
+	cursor: pointer;
 }

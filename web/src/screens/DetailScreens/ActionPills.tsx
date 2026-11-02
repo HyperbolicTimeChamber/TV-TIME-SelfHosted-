@@ -1,5 +1,6 @@
 import { Spin } from "antd";
 import { IoEllipsisHorizontal } from "react-icons/io5";
+import { RxCheck } from "react-icons/rx";
 import { CircleButtonTone, MediaType, WatchStatus } from "@app/enums";
 import CircleButton from "../../components/CircleButton";
 import styles from "./styles/ShowDetailScreen.module.scss";
@@ -49,7 +50,14 @@ export default function ActionPills(p: Props) {
 						onClick={p.onMarkMovieWatched}
 						disabled={p.adding}
 					>
-						{p.adding ? <Spin size="small" /> : "Watched"}
+						{p.adding ? (
+							<Spin size="small" />
+						) : (
+							<>
+								<RxCheck size={20} />
+								Mark as Watched
+							</>
+						)}
 					</button>
 				)}
 			</div>
@@ -69,7 +77,14 @@ export default function ActionPills(p: Props) {
 					onClick={p.onMarkMovieWatched}
 					disabled={p.adding}
 				>
-					{p.adding ? <Spin size="small" /> : "Mark as Watched"}
+					{p.adding ? (
+						<Spin size="small" />
+					) : (
+						<>
+							<RxCheck size={20} />
+							Mark as Watched
+						</>
+					)}
 				</button>
 			)}
 			{showResume && (

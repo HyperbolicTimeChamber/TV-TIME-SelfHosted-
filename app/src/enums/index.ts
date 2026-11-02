@@ -62,6 +62,8 @@ export enum CacheKey {
 	USER_STATS = "profile_stats_cache",
 	HIDE_UNRELEASED_MODAL = "hideUnreleasedMovieModal",
 	IMPORT_IN_PROGRESS = "import_in_progress",
+	/** Prefix; the uid is appended. Import screen done/skipped, kept on the device in case the Firestore write fails */
+	IMPORT_DONE = "import_done_",
 	/** Legacy: the whole catalog as one ~2MB value — Android couldn't read it back. Deleted on start */
 	CATALOG_CACHE = "catalog_cache_v1",
 	/** Doc ids of the shows saved under CATALOG_SHOW */
@@ -80,8 +82,16 @@ export enum CacheKey {
 	WATCH_HISTORY = "watch_history_v1",
 	/** Watch History sort choice (kept across visits) */
 	HISTORY_SORT = "history_sort_v1",
-	/** + uid — the default Favorites list was offered to this user on this device (never re-created after a delete) */
+	/** + uid — this device saw users/{uid}.customListsSeeded (the server flag) set: skip checking it */
 	CUSTOM_LISTS_SEEDED = "custom_lists_seeded_v1:",
+	/** + uid — ids of the saved custom lists (each list under CUSTOM_LIST_CACHE; one value per list
+	 *  so a big list can't push a single value past Android's ~1M-char read limit) */
+	CUSTOM_LISTS_CACHE = "custom_lists_cache_v1:",
+	/** + uid + "_" + listId — one saved custom list */
+	CUSTOM_LIST_CACHE = "custom_list_cache_v1:",
+	/** + uid + "_" + tracking doc id — a list title's last seen tracking state (list card tags);
+	 *  "null" = not tracked. One small value per title */
+	LIST_TRACKING = "list_tracking_v1:",
 	/** A list page's Grid / List choice (kept across lists and visits) */
 	CUSTOM_LIST_VIEW = "custom_list_view_v1",
 	/** Last app_opened time (ms) — derives days_since_last_open */
@@ -136,6 +146,11 @@ export const PROFILE_LIST_COUNT = 5;
 export const RECENTLY_WATCHED_COUNT = 15;
 /** The list every user starts with — a normal list, renamable and deletable */
 export const FAVORITES_LIST_NAME = "Favorites";
+/** Its fixed doc id: two devices seeding at once write the same doc, never two Favorites */
+export const FAVORITES_LIST_ID = "favorites";
+/** users/{uid} field: the default Favorites was offered (kept server-side, so deleting it on one
+ *  device doesn't bring it back on another) */
+export const CUSTOM_LISTS_SEEDED_FIELD = "customListsSeeded";
 /** New List popup (Light Yagami art): the title, and the lines under it — one picked each open */
 export const NEW_LIST_TITLE = "A New List for a New World";
 export const NEW_LIST_HINTS = [
@@ -157,6 +172,10 @@ export enum CustomListView {
 export const LISTS_EXPORT_FORMAT = "watchloom-lists";
 export const LISTS_EXPORT_VERSION = 1;
 
+/** Whole-account export (Settings → Export My Data): tracking, watch history and lists */
+export const ACCOUNT_EXPORT_FORMAT = "watchloom-account";
+export const ACCOUNT_EXPORT_VERSION = 1;
+
 /** Fill of the shared 44px circular icon buttons (back, share) */
 export enum CircleButtonTone {
 	/** Translucent black — floating over artwork */
@@ -165,7 +184,7 @@ export enum CircleButtonTone {
 	SURFACE_LIGHT = "surfaceLight",
 	/** Brightest grey (the border colour) — stands out on black */
 	RAISED = "raised",
-	/** Accent blue — a toggled-on state (the Add to List button once the title is listed) */
+	/** Amber — a toggled-on state (the Add to List button once the title is listed) */
 	ACCENT = "accent",
 }
 
@@ -211,6 +230,20 @@ export enum HistoryProgress {
 	PAUSED = "paused",
 }
 
+/** One tag on a list card's tag line (the Watch History card's tags, plus Not Started) */
+export enum ListTagKind {
+	/** Currently Watching / Rewatching / Completed — optional rewatch count */
+	STATUS = "status",
+	PERCENT = "percent",
+	UP_TO_DATE = "upToDate",
+	PAUSED = "paused",
+	WATCH_COUNT = "watchCount",
+	/** Not on the watchlist */
+	NOT_STARTED = "notStarted",
+	/** On the watchlist, never watched (movies) */
+	NOT_WATCHED = "notWatched",
+}
+
 export enum DocChangeType {
 	ADDED = "added",
 	MODIFIED = "modified",
@@ -226,6 +259,7 @@ export enum CloudFunction {
 	REFRESH_SHOW = "refreshShow",
 	DELETE_ACCOUNT = "deleteAccount",
 	SEARCH_TITLES = "searchTitles",
+	EXPORT_ACCOUNT_DATA = "exportAccountData",
 }
 
 /** Callable error codes (web SDK prefixes them with "functions/") */

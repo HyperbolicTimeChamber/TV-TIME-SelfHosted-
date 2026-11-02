@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import {
 	View,
 	Text,
@@ -13,7 +13,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useSharedShimmer } from "../../SkeletonLine";
 import { colors, spacing } from "../../../theme";
 import { tmdbStillUri, tmdbBackdropUri, tmdbPosterUri } from "../../../hooks/useTmdbImage";
-import { CARD_WIDTH, formatDate } from "./constants";
+import { CARD_WIDTH, POSTER_FALLBACK_DELAY_MS, formatDate } from "./constants";
 import { styles } from "./styles";
 import type { CarouselEpisode } from "../../../types/episodeCarousel";
 
@@ -64,6 +64,12 @@ export const EpisodeCard = memo(function EpisodeCard({
 	) : null;
 	const shimmer = useSharedShimmer();
 	const [imageLoaded, setImageLoaded] = useState(false);
+	// Poster fallback only after a wait, the shimmer showing meanwhile (was a flash of poster)
+	const [posterWaited, setPosterWaited] = useState(false);
+	useEffect(() => {
+		const t = setTimeout(() => setPosterWaited(true), POSTER_FALLBACK_DELAY_MS);
+		return () => clearTimeout(t);
+	}, []);
 	const label = `S${String(ep.season).padStart(2, "0")} | E${String(ep.episode).padStart(2, "0")}`;
 
 	if (!isLoaded) {
@@ -102,7 +108,7 @@ export const EpisodeCard = memo(function EpisodeCard({
 						transition={300}
 						onLoad={() => setImageLoaded(true)}
 					/>
-				) : showPosterPath ? (
+				) : showPosterPath && posterWaited ? (
 					<Image
 						source={{ uri: tmdbPosterUri(showPosterPath, CARD_WIDTH) }}
 						style={styles.still}
@@ -110,7 +116,7 @@ export const EpisodeCard = memo(function EpisodeCard({
 						transition={300}
 						onLoad={() => setImageLoaded(true)}
 					/>
-				) : (
+				) : showPosterPath ? null : (
 					<View style={styles.stillPlaceholder}>
 						<Text style={styles.stillPlaceholderText}>E{String(ep.episode).padStart(2, "0")}</Text>
 					</View>

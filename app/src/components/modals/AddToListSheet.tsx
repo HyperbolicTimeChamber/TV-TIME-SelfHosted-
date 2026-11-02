@@ -12,6 +12,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import GorhomSheet, {
 	BottomSheetBackdrop,
 	BottomSheetScrollView,
+	BottomSheetTextInput,
 	useBottomSheetSpringConfigs,
 	type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet";
@@ -53,6 +54,14 @@ const TAP_EASE = Easing.bezier(0.23, 1, 0.32, 1);
 const COVER_SIZE = 52;
 /** Same badge as the search cards' Add to List button */
 const BADGE_SIZE = 30;
+/** The pinned Done button: its pill + the gap above the nav bar (styles.footer / done) */
+const FOOTER_HEIGHT = 76;
+const SEARCH_HEIGHT = 40;
+
+enum ListSort {
+	RECENT = "Recent",
+	NAME = "A–Z",
+}
 
 const NAME_ERRORS = {
 	taken: "You already have a list with that name.",
@@ -64,8 +73,9 @@ const NAME_ERRORS = {
 /**
  * "Add to List": tap the lists a title belongs to (each tap saves at once), or make a new one with
  * it inside. A list is a bookmark — this never starts tracking the title. Laid out like a "save to
- * collection" sheet: the title's logo on top, a Lists heading with New list, then the lists
- * (cover, name, count) with the search cards' bookmark badge.
+ * playlist" sheet: the title's logo on top, "In lists" (the lists holding it when the sheet opened)
+ * with New list, a Find list search + Sort, the other lists, a New list row and a Done button. Rows
+ * stay where they are when ticked; the bookmark badge (not a plus) is the toggle.
  */
 export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 	const insets = useSafeAreaInsets();
@@ -79,9 +89,12 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 		const maxHeight = screenHeight - insets.top;
 		const partWay = Math.round(screenHeight * PART_WAY_SHARE);
 		if (!topHeight || !listHeight) return [partWay];
-		const full = Math.min(Math.ceil(HANDLE_HEIGHT + topHeight + listHeight), maxHeight);
+		const full = Math.min(
+			Math.ceil(HANDLE_HEIGHT + topHeight + listHeight + FOOTER_HEIGHT + insets.bottom),
+			maxHeight,
+		);
 		return full > partWay ? [partWay, full] : [full];
-	}, [screenHeight, insets.top, topHeight, listHeight]);
+	}, [screenHeight, insets.top, insets.bottom, topHeight, listHeight]);
 	const animationConfigs = useBottomSheetSpringConfigs(SHEET_SPRING);
 	const renderBackdrop = useCallback(
 		(props: BottomSheetBackdropProps) => (
@@ -106,6 +119,10 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 	const [nameError, setNameError] = useState<string | null>(null);
 	// Order the sheet opened with (lists holding the title, then newest) — held while it is open
 	const [pinned, setPinned] = useState<string[] | null>(null);
+	// Lists that held the title when the sheet opened: the "In lists" section, fixed while open
+	const [openSaved, setOpenSaved] = useState<ReadonlySet<string>>(new Set());
+	const [search, setSearch] = useState("");
+	const [sort, setSort] = useState(ListSort.RECENT);
 	const ordered = useMemo(
 		() => sheetListOrder(lists, pinned, entry ?? undefined),
 		[lists, pinned, entry],
@@ -120,9 +137,29 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 	}, [entry]);
 
 	useEffect(() => {
-		if (entry && !loading && !pinned)
+		if (entry && !loading && !pinned) {
 			setPinned(sheetListOrder(lists, null, entry).map((l) => l.id));
+			setOpenSaved(
+				new Set(
+					lists.filter((l) => listHasItem(l, entry.tmdbId, entry.mediaType)).map((l) => l.id),
+				),
+			);
+		}
 	}, [entry, loading, lists, pinned]);
+
+	// "In lists": held the title at open (a list made from here joins it). The rest: filtered by
+	// the search, in the chosen order
+	const saved = useMemo(
+		() => ordered.filter((l) => openSaved.has(l.id) || !pinned?.includes(l.id)),
+		[ordered, openSaved, pinned],
+	);
+	const others = useMemo(() => {
+		const term = search.trim().toLowerCase();
+		const rest = ordered.filter(
+			(l) => !saved.includes(l) && (!term || l.name.toLowerCase().includes(term)),
+		);
+		return sort === ListSort.NAME ? [...rest].sort((a, b) => a.name.localeCompare(b.name)) : rest;
+	}, [ordered, saved, search, sort]);
 
 	const handleCreate = async (name: string) => {
 		if (!entry) return;
@@ -139,6 +176,27 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 		Haptics.selectionAsync().catch(() => {});
 		if (has) removeFromList(list.id, entry.tmdbId, entry.mediaType);
 		else addToList(list.id, entry);
+	};
+
+	const startNaming = () => {
+		setNameError(null);
+		setNaming(true);
+	};
+
+	const renderRow = (list: CustomList) => {
+		if (!entry) return null;
+		const has = listHasItem(list, entry.tmdbId, entry.mediaType);
+		const full = !has && list.items.length >= CUSTOM_LIST_ITEM_MAX;
+		return (
+			<ListRow
+				key={list.id}
+				list={list}
+				hint={full ? "List is full" : titleCount(list.items.length)}
+				listed={has}
+				disabled={full}
+				onPress={() => toggle(list, has)}
+			/>
+		);
 	};
 
 	return (
@@ -180,23 +238,15 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 								</View>
 								<View style={styles.divider} />
 							</View>
-							{/* The heading scrolls away with the lists; they run under the nav bar and,
-							    scrolled to the end, a nav-bar-high gap closes them */}
 							<BottomSheetScrollView
-								contentContainerStyle={[
-									styles.scrollContent,
-									{ paddingBottom: insets.bottom + spacing.lg },
-								]}
+								contentContainerStyle={styles.scrollContent}
 								keyboardShouldPersistTaps="handled"
 								onContentSizeChange={(_, h) => setListHeight(h)}
 							>
 								<View style={styles.heading}>
-									<Text style={styles.headingText}>Lists</Text>
+									<Text style={styles.headingText}>In lists</Text>
 									<Pressable
-										onPress={() => {
-											setNameError(null);
-											setNaming(true);
-										}}
+										onPress={startNaming}
 										hitSlop={10}
 										accessibilityRole="button"
 										style={({ pressed }) => pressed && styles.newListPressed}
@@ -207,25 +257,73 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 
 								{loading ? (
 									<ActivityIndicator style={styles.loader} color={colors.primary} />
-								) : ordered.length === 0 ? (
-									<Text style={styles.empty}>No lists yet — make one with New list.</Text>
 								) : (
-									ordered.map((list) => {
-										const has = listHasItem(list, entry.tmdbId, entry.mediaType);
-										const full = !has && list.items.length >= CUSTOM_LIST_ITEM_MAX;
-										return (
-											<ListRow
-												key={list.id}
-												list={list}
-												hint={full ? "List is full" : titleCount(list.items.length)}
-												listed={has}
-												disabled={full}
-												onPress={() => toggle(list, has)}
-											/>
-										);
-									})
+									<>
+										{saved.length === 0 ? (
+											<Text style={styles.empty}>Not in any list yet.</Text>
+										) : (
+											saved.map(renderRow)
+										)}
+
+										<View style={styles.searchRow}>
+											<View style={styles.searchField}>
+												<Ionicons name="search" size={16} color={colors.textSecondary} />
+												<BottomSheetTextInput
+													style={styles.searchInput}
+													value={search}
+													onChangeText={setSearch}
+													placeholder="Find list"
+													placeholderTextColor={colors.textSecondary}
+													autoCorrect={false}
+													returnKeyType="search"
+													accessibilityLabel="Find list"
+												/>
+											</View>
+											<Pressable
+												onPress={() =>
+													setSort((v) => (v === ListSort.RECENT ? ListSort.NAME : ListSort.RECENT))
+												}
+												accessibilityRole="button"
+												accessibilityLabel={`Sort: ${sort}`}
+												style={({ pressed }) => [
+													styles.sortButton,
+													pressed && styles.newListPressed,
+												]}
+											>
+												<Text style={styles.sortText}>
+													{sort === ListSort.RECENT ? "Sort" : sort}
+												</Text>
+											</Pressable>
+										</View>
+
+										{others.map(renderRow)}
+										{others.length === 0 && search.trim() !== "" && (
+											<Text style={styles.empty}>No list called "{search.trim()}".</Text>
+										)}
+
+										<Pressable
+											onPress={startNaming}
+											accessibilityRole="button"
+											style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+										>
+											<View style={[styles.cover, styles.coverEmpty]}>
+												<Ionicons name="bookmarks-outline" size={22} color={colors.text} />
+											</View>
+											<Text style={styles.rowText}>New list</Text>
+										</Pressable>
+									</>
 								)}
 							</BottomSheetScrollView>
+							{/* Pinned under the lists; each tap already saved, Done just closes */}
+							<View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+								<Pressable
+									onPress={() => sheetRef.current?.close()}
+									accessibilityRole="button"
+									style={({ pressed }) => [styles.done, pressed && styles.donePressed]}
+								>
+									<Text style={styles.doneText}>Done</Text>
+								</Pressable>
+							</View>
 						</GorhomSheet>
 					)}
 				</GestureHandlerRootView>
@@ -329,7 +427,44 @@ const styles = StyleSheet.create({
 	handleArea: { paddingVertical: 10 },
 	handle: { width: 36, height: 4, backgroundColor: colors.textMuted },
 	top: { paddingHorizontal: spacing.lg },
-	scrollContent: { paddingHorizontal: spacing.lg },
+	scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
+	searchRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.sm,
+		marginVertical: spacing.md,
+	},
+	searchField: {
+		flex: 1,
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.sm,
+		height: SEARCH_HEIGHT,
+		paddingHorizontal: spacing.md,
+		borderRadius: 8,
+		backgroundColor: colors.surfaceLight,
+	},
+	searchInput: { flex: 1, ...typography.body, padding: 0 },
+	sortButton: {
+		height: SEARCH_HEIGHT,
+		paddingHorizontal: spacing.md,
+		borderRadius: 8,
+		backgroundColor: colors.surfaceLight,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	sortText: { ...typography.subtitle, fontSize: 13 },
+	footer: { alignItems: "center", paddingTop: spacing.md, backgroundColor: colors.surface },
+	done: {
+		minWidth: 120,
+		paddingVertical: spacing.md,
+		paddingHorizontal: spacing.xl,
+		borderRadius: 999,
+		alignItems: "center",
+		backgroundColor: colors.warningAmber,
+	},
+	donePressed: { opacity: 0.8, transform: [{ scale: 0.97 }] },
+	doneText: { ...typography.subtitle, fontSize: 15, color: colors.background },
 	divider: { height: StyleSheet.hairlineWidth * 2, backgroundColor: colors.border },
 	heading: {
 		flexDirection: "row",
@@ -339,7 +474,7 @@ const styles = StyleSheet.create({
 		paddingBottom: spacing.sm,
 	},
 	headingText: { ...typography.subtitle, fontSize: 18 },
-	newList: { color: colors.accent, fontSize: 15, fontWeight: "600" },
+	newList: { color: colors.warningAmber, fontSize: 15, fontWeight: "600" },
 	newListPressed: { opacity: 0.6 },
 	row: {
 		flexDirection: "row",
@@ -368,7 +503,7 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 	},
-	badgeActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+	badgeActive: { backgroundColor: colors.warningAmber, borderColor: colors.warningAmber },
 	loader: { paddingVertical: spacing.xl },
 	empty: {
 		color: colors.textSecondary,

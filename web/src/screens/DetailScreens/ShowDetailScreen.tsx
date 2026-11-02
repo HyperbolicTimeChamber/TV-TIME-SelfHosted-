@@ -7,7 +7,7 @@ import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
 import { CircleButtonTone, MediaType, WatchStatus } from "@app/enums";
 import { showShareUrl } from "@app/utils/shareUrl";
 import { useCustomLists } from "@app/hooks/useCustomLists";
-import { listedTitleKeys, listItemKey } from "@app/utils/customLists";
+import { isTitleListed } from "@app/utils/customLists";
 import AddToListSheet from "../../components/AddToListSheet";
 import LoadingScreen from "../../components/LoadingScreen";
 import CircleButton, { CircleBackButton } from "../../components/CircleButton";
@@ -55,7 +55,7 @@ export default function ShowDetailScreen() {
 	// "Add to List" button (next to Share): signed-in only (lists belong to an account), blue once listed
 	const { lists } = useCustomLists(d.user?.uid);
 	const [listSheetOpen, setListSheetOpen] = useState(false);
-	const isListed = listedTitleKeys(lists).has(listItemKey(tmdbId, mediaType));
+	const isListed = isTitleListed(lists, tmdbId, mediaType);
 
 	// Opened directly (share link / new tab): no in-app history, so go to the watchlist
 	// (or search for guests) instead of leaving the site

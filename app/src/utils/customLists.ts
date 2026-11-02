@@ -9,11 +9,12 @@ import type { CustomList, CustomListEntry, CustomListItem, TMDBShow } from "../t
 /** One title across lists — also the key of a membership Set */
 export const listItemKey = (tmdbId: number, mediaType: MediaType) => `${mediaType}_${tmdbId}`;
 
-/** Search results sometimes lack media_type (a TV-only endpoint); first_air_date / name tell them apart */
-export function searchMediaType(item: TMDBShow): MediaType {
+/** Search results sometimes lack media_type (a TV-only endpoint); first_air_date / name tell them
+ *  apart. The one copy of this rule — list keys, badges and search screens must agree */
+export function searchMediaType(item: TMDBShow | null | undefined): MediaType {
 	return (
-		item.media_type ||
-		(item.first_air_date || (item.name && !item.title) ? MediaType.TV : MediaType.MOVIE)
+		(item?.media_type as MediaType | undefined) ||
+		(item?.first_air_date || (item?.name && !item?.title) ? MediaType.TV : MediaType.MOVIE)
 	);
 }
 
@@ -76,6 +77,12 @@ export function listIdsContaining(
 }
 
 /** Every title that is in at least one list (search cards show it as "listed") */
+/** Whether any list holds one title — for a single check (a whole results grid uses
+ *  listedTitleKeys once instead) */
+export function isTitleListed(lists: CustomList[], tmdbId: number, mediaType: MediaType): boolean {
+	return lists.some((l) => listHasItem(l, tmdbId, mediaType));
+}
+
 export function listedTitleKeys(lists: CustomList[]): Set<string> {
 	const keys = new Set<string>();
 	for (const l of lists) for (const i of l.items) keys.add(listItemKey(i.tmdbId, i.mediaType));

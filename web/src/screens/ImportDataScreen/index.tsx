@@ -8,6 +8,7 @@ import { tmdbPosterUri } from "@app/hooks/useTmdbImage";
 import type { MediaType } from "@app/enums";
 import type { ShowDrawerData } from "@app/types";
 import type { TMDBMatch } from "@app/services/tvtimeImport";
+import { readListsFile } from "../../platform/customListsFiles";
 import { useAppDispatch } from "../../store";
 import { importCompleted } from "../../store/authSlice";
 import AnimatedModal from "../../components/AnimatedModal";
@@ -131,6 +132,7 @@ export default function ImportDataScreen() {
 	const navigate = useNavigate();
 	const dispatch = useAppDispatch();
 	const fileInput = useRef<HTMLInputElement>(null);
+	const backupInput = useRef<HTMLInputElement>(null);
 	const imp = useImportData(() => dispatch(importCompleted()));
 	const [showInfo, setShowInfo] = useState(true);
 
@@ -179,6 +181,25 @@ export default function ImportDataScreen() {
 				/>
 				<button className={styles.primaryButton} onClick={() => fileInput.current?.click()}>
 					Select ZIP File
+				</button>
+				<p className={styles.desc}>
+					Or restore a Watchloom export (.json) made with Export My Data.
+				</p>
+				<input
+					ref={backupInput}
+					type="file"
+					accept=".json,application/json"
+					hidden
+					onChange={async (e) => {
+						const file = e.target.files?.[0];
+						e.target.value = "";
+						const picked = await readListsFile(file);
+						if (picked.ok) imp.restoreAccount(picked.text);
+						else if (picked.reason !== "canceled") window.alert("Couldn't read that file.");
+					}}
+				/>
+				<button className={styles.primaryButton} onClick={() => backupInput.current?.click()}>
+					Select Watchloom Export
 				</button>
 				<button className={styles.skipButton} onClick={() => navigate(-1)}>
 					Skip
