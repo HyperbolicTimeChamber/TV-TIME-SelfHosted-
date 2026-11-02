@@ -30,7 +30,7 @@ import { useCustomLists } from "../../hooks/useCustomLists";
 import { CUSTOM_LIST_ITEM_MAX, NEW_LIST_HINTS, NEW_LIST_TITLE } from "../../enums";
 import type { CustomList, CustomListEntry } from "../../types";
 import { listCoverItem, listHasItem, sheetListOrder, titleCount } from "../../utils";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 import PosterImage from "../PosterImage";
 import { SheetHeader } from "./BottomSheet";
 import ListNameModal from "./ListNameModal";
@@ -323,7 +323,7 @@ function Badge({ listed }: { listed: boolean }) {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	root: { flex: 1 },
 	sheet: { backgroundColor: colors.surface, borderRadius: 20 },
 	handleArea: { paddingVertical: 10 },
@@ -376,4 +376,4 @@ const styles = StyleSheet.create({
 		textAlign: "center",
 		paddingVertical: spacing.lg,
 	},
-});
+}));

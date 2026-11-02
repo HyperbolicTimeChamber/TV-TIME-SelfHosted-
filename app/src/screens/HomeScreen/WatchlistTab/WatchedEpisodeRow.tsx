@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { CheckmarkButton, SwipeableCard } from "../../../components";
 import { withHaptic } from "../../../utils/haptics";
 import PosterImage from "../../../components/PosterImage";
-import { colors, spacing, typography } from "../../../theme";
+import { colors, spacing, typography, themedStyles } from "../../../theme";
 import { WatchedEpisode } from "../../../types";
 import { EnrichedTrackingItem } from "../../../hooks";
 
@@ -77,7 +77,7 @@ export default memo(function WatchedEpisodeRow({
 
 const POSTER_WIDTH = 100;
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		flexDirection: "row",
 		backgroundColor: colors.surface,
@@ -134,4 +134,4 @@ const styles = StyleSheet.create({
 		alignSelf: "center",
 		paddingRight: spacing.md,
 	},
-});
+}));

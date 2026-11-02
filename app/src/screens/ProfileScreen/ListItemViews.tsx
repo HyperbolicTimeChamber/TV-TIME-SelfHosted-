@@ -15,7 +15,7 @@ import ShowDrawer, {
 	type ShowDrawerAction,
 	type ShowDrawerData,
 } from "../../components/ShowDrawer";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 import { formatRuntime } from "../../utils";
 
 const ROW_POSTER_W = 56;
@@ -223,7 +223,7 @@ export function ListItemPreview({ item, actions, onGoToShow, onClose }: Readonly
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	// The calendar card sits in the list's own padding (no side margin of its own)
 	card: { marginHorizontal: 0 },
 	cardPressed: { transform: [{ scale: 0.98 }] },
@@ -269,4 +269,4 @@ const styles = StyleSheet.create({
 	},
 	reorderPoster: { width: 40, height: 60, borderRadius: 4 },
 	reorderTitle: { flex: 1 },
-});
+}));

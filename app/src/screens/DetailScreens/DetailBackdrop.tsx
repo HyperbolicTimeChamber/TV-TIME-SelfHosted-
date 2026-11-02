@@ -4,7 +4,7 @@ import { Image } from "expo-image";
 import Reanimated, { useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSharedShimmer } from "../../components/SkeletonLine";
-import { colors, spacing } from "../../theme";
+import { colors, spacing, themedStyles } from "../../theme";
 import { tmdbBackdropUri, tmdbPosterUri } from "../../hooks/useTmdbImage";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -75,7 +75,7 @@ export default function DetailBackdrop({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	backdrop: {
 		overflow: "hidden",
 	},
@@ -100,4 +100,4 @@ const styles = StyleSheet.create({
 		paddingVertical: spacing.md,
 		overflow: "hidden",
 	},
-});
+}));

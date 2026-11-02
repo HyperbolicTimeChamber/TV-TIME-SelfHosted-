@@ -2,7 +2,7 @@ import React, { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
-import { colors } from "../../../theme";
+import { colors, themedStyles } from "../../../theme";
 import { HistoryPill, HistoryProgress } from "../../../enums";
 import { tmdbBlurredBackdropUri, tmdbLogoUri } from "../../../hooks/useTmdbImage";
 import type { HistoryCard } from "../../../utils";
@@ -14,12 +14,12 @@ const CARD_WIDTH = Dimensions.get("window").width - 32;
 const CARD_MIN_HEIGHT = CARD_WIDTH / CARD_ASPECT;
 
 /** Status colours at 60% (hex alpha 99) — translucent over the backdrop */
-export const PILL_COLOR: Record<HistoryPill, string> = {
+export const PILL_COLOR = themedStyles<Record<HistoryPill, string>>(() => ({
 	[HistoryPill.WATCHING]: `${colors.stopBlue}99`,
 	[HistoryPill.REWATCHING]: `${colors.stopBlue}99`,
 	[HistoryPill.COMPLETED]: `${colors.watchedGreen}99`,
 	[HistoryPill.PAUSED]: `${colors.destructiveRed}99`,
-};
+}));
 
 function ProgressModule({ progress }: { progress: NonNullable<HistoryCard["progress"]> }) {
 	if (progress.kind === HistoryProgress.UP_TO_DATE || progress.kind === HistoryProgress.PAUSED) {

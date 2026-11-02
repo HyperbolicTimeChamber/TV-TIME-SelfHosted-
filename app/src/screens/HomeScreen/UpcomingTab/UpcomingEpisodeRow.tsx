@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { colors, fonts, spacing, typography } from "../../../theme";
+import { colors, fonts, spacing, typography, themedStyles } from "../../../theme";
 import { formatAirTime } from "../../../utils/airTime";
 import PosterImage from "../../../components/PosterImage";
 import { UpcomingEpisode, MediaType } from "../../../types";
@@ -76,7 +76,7 @@ export default memo(function UpcomingEpisodeRow({
 	);
 });
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	row: {
 		flexDirection: "row",
 		backgroundColor: colors.surface,
@@ -167,4 +167,4 @@ const styles = StyleSheet.create({
 		color: colors.text,
 		letterSpacing: 0.5,
 	},
-});
+}));

@@ -9,7 +9,7 @@ import {
 	StyleProp,
 	ViewStyle,
 } from "react-native";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 
 interface Tab {
 	key: string;
@@ -82,7 +82,7 @@ export default function SlidingTabs({ tabs, activeKey, onTabPress, style }: Prop
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		flexDirection: "row",
 		backgroundColor: colors.surface,
@@ -115,4 +115,4 @@ const styles = StyleSheet.create({
 	tabTextActive: {
 		color: colors.onPrimary,
 	},
-});
+}));

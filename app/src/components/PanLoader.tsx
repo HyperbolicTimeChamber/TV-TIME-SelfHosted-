@@ -9,6 +9,7 @@ import Animated, {
 	withRepeat,
 	withTiming,
 } from "react-native-reanimated";
+import { themedStyles } from "../theme";
 
 // Sizes mirror the web PanLoader.module.scss (1 unit = 1px there)
 const PAN_W = 120;
@@ -80,7 +81,7 @@ export default function PanLoader() {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	stage: {
 		width: STAGE_W,
 		paddingTop: STAGE_TOP,
@@ -147,4 +148,4 @@ const styles = StyleSheet.create({
 		borderRadius: 3,
 		backgroundColor: "rgba(255,255,255,0.4)",
 	},
-});
+}));

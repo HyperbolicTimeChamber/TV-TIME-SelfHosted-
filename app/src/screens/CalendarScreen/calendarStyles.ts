@@ -1,5 +1,5 @@
 import { StyleSheet } from "react-native";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 import { CARD_MIN_HEIGHT } from "./listStyles";
 
 /** Calendar size, also the animation progress value: week strip → month → full screen */
@@ -13,7 +13,7 @@ export enum CalendarMode {
 export const ROW_MONTH = 52;
 export const WEEKDAY_ROW = 22;
 
-export const styles = StyleSheet.create({
+export const styles = themedStyles(() => StyleSheet.create({
 	container: { flex: 1, backgroundColor: colors.background },
 	// Month name centred, today button on the right
 	header: {
@@ -173,4 +173,4 @@ export const styles = StyleSheet.create({
 	},
 	yearItemText: { ...typography.body, fontSize: 18, color: colors.textSecondary },
 	yearItemTextActive: { color: colors.onPrimary, fontWeight: "700" },
-});
+}));

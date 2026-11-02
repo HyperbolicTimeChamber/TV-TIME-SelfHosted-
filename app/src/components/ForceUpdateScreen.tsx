@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Linking } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 import { UPDATE_URL } from "../enums";
 
 /** Blocking screen for builds below the channel's minimum (see useForceUpdate) */
@@ -26,7 +26,7 @@ export default function ForceUpdateScreen() {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		flex: 1,
 		alignItems: "center",
@@ -62,4 +62,4 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 	},
 	buttonText: { ...typography.subtitle, fontSize: 15 },
-});
+}));

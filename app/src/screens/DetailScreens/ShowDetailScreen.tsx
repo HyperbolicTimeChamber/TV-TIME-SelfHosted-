@@ -29,7 +29,7 @@ import { showShareUrl, describeLoadError, isTitleListed } from "../../utils";
 import ErrorState from "../../components/ErrorState";
 import CircleButton, { CIRCLE_BUTTON_SIZE, CircleBackButton } from "../../components/CircleButton";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
-import { colors, isLightTheme, spacing, typography } from "../../theme";
+import { colors, isLightTheme, spacing, typography, themedStyles } from "../../theme";
 import { StatusBar } from "expo-status-bar";
 import { HomeStackParamList, MediaType, Route, WatchStatus } from "../../types";
 import { CircleButtonTone } from "../../enums";
@@ -455,7 +455,7 @@ export default function ShowDetailScreen() {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		flex: 1,
 		backgroundColor: colors.background,
@@ -529,4 +529,4 @@ const styles = StyleSheet.create({
 		fontSize: 18,
 		marginBottom: spacing.md,
 	},
-});
+}));

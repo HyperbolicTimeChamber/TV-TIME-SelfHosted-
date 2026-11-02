@@ -22,7 +22,7 @@ import Animated, {
 	useSharedValue,
 	withTiming,
 } from "react-native-reanimated";
-import { colors } from "../../theme";
+import { colors, themedStyles } from "../../theme";
 import { HomeStackParamList, Route } from "../../types";
 import WatchlistTab from "./WatchlistTab";
 import UpcomingTab from "./UpcomingTab";
@@ -283,7 +283,7 @@ export default function HomeScreen() {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: { flex: 1, backgroundColor: colors.background },
 	tabBar: { flexDirection: "row", backgroundColor: colors.background },
 	tab: { flex: 1, alignItems: "center", paddingVertical: 14 },
@@ -304,4 +304,4 @@ const styles = StyleSheet.create({
 	},
 	clip: { flex: 1, overflow: "hidden" },
 	pages: { flex: 1, flexDirection: "row" },
-});
+}));

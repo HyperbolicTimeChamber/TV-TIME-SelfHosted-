@@ -1,5 +1,5 @@
 import { Dimensions, StyleSheet } from "react-native";
-import { colors, fonts, spacing, typography } from "../../theme";
+import { colors, fonts, spacing, typography, themedStyles } from "../../theme";
 
 export const CARD_WIDTH = Dimensions.get("window").width - 32;
 export const CARD_MIN_HEIGHT = 120;
@@ -7,7 +7,7 @@ export const CARD_MIN_HEIGHT = 120;
 const EP_SQUARE = CARD_MIN_HEIGHT - spacing.md * 2;
 
 /** Day list cards */
-export const listStyles = StyleSheet.create({
+export const listStyles = themedStyles(() => StyleSheet.create({
 	listContent: { paddingBottom: spacing.xl },
 	episodeCard: {
 		minHeight: CARD_MIN_HEIGHT,
@@ -133,4 +133,4 @@ export const listStyles = StyleSheet.create({
 		fontSize: 15,
 		fontWeight: "500",
 	},
-});
+}));

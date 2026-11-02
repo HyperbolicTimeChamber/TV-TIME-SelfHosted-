@@ -1,7 +1,7 @@
 import { StyleSheet } from "react-native";
-import { colors, spacing } from "../../../theme";
+import { colors, spacing, themedStyles } from "../../../theme";
 
-export const styles = StyleSheet.create({
+export const styles = themedStyles(() => StyleSheet.create({
 	list: {
 		flex: 1,
 		backgroundColor: colors.background,
@@ -27,4 +27,4 @@ export const styles = StyleSheet.create({
 	separator: {
 		height: spacing.sm,
 	},
-});
+}));

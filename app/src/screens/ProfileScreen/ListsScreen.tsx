@@ -36,7 +36,7 @@ import {
 	titleCount,
 	type ImportPlan,
 } from "../../utils";
-import { colors, fonts, spacing, tint, typography } from "../../theme";
+import { colors, fonts, spacing, tint, typography, themedStyles } from "../../theme";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, Route.LISTS>;
 
@@ -46,7 +46,7 @@ const HOLD_TO_DRAG_MS = 250;
 /** The fade under the title bar — and the space above the first card */
 const FADE_HEIGHT = spacing.lg;
 /** Page colour → transparent: the fade under the title bar */
-const TOP_FADE = [colors.background, tint(colors.background, 0)] as const;
+const topFade = () => [colors.background, tint(colors.background, 0)] as const;
 /** The drag pan wakes this long after the row's long press has fired */
 const PAN_WAKE_AFTER_MS = 50;
 /** A drop waits this long for another before the order is written */
@@ -416,7 +416,7 @@ export default function ListsScreen() {
 						}
 					/>
 					{/* Cards fade out under the title bar instead of being cut at its edge */}
-					<LinearGradient colors={TOP_FADE} style={styles.topFade} pointerEvents="none" />
+					<LinearGradient colors={topFade()} style={styles.topFade} pointerEvents="none" />
 				</View>
 			)}
 
@@ -503,7 +503,7 @@ export default function ListsScreen() {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: { flex: 1, backgroundColor: colors.background },
 	topBar: {
 		flexDirection: "row",
@@ -589,4 +589,4 @@ const styles = StyleSheet.create({
 	},
 	emptyTitle: { ...typography.subtitle, fontSize: 18 },
 	emptyHint: { ...typography.caption, textAlign: "center" },
-});
+}));

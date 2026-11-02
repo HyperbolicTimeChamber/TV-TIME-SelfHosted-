@@ -1,9 +1,9 @@
 import { StyleSheet } from "react-native";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 
 export const BLUR_RADIUS = 0.5;
 
-export const styles = StyleSheet.create({
+export const styles = themedStyles(() => StyleSheet.create({
 	scrollContent: { paddingBottom: spacing.xxl * 2 },
 	container: {
 		flex: 1,
@@ -131,4 +131,4 @@ export const styles = StyleSheet.create({
 		marginTop: spacing.xl,
 		alignItems: "center",
 	},
-});
+}));

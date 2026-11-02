@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import AnimatedModal from "./AnimatedModal";
 import { CUSTOM_LIST_NAME_MAX } from "../../enums";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 
 interface Props {
 	visible: boolean;
@@ -119,7 +119,7 @@ export default function ListNameModal({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	content: {
 		backgroundColor: colors.surface,
 		borderRadius: 12,
@@ -173,4 +173,4 @@ const styles = StyleSheet.create({
 		borderColor: colors.text,
 		marginTop: spacing.sm,
 	},
-});
+}));

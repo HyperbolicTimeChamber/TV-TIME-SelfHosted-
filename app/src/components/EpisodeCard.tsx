@@ -1,6 +1,6 @@
 import React, { memo, useRef } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 import PosterImage from "./PosterImage";
 import { UpcomingEpisode } from "../types";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
@@ -81,7 +81,7 @@ export default memo(function EpisodeCard({
 	);
 });
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		flex: 1,
 		flexDirection: "row",
@@ -148,4 +148,4 @@ const styles = StyleSheet.create({
 	watchedText: {
 		color: colors.textMuted,
 	},
-});
+}));

@@ -3,10 +3,10 @@ import { View, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { colors } from "../theme";
+import { colors, themedStyles } from "../theme";
 import { Route } from "../types";
 
-const ACCENT = colors.primary;
+
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
 const TABS: {
@@ -76,7 +76,7 @@ export default function CustomTabBar({ activeTab }: Props) {
 						<Ionicons
 							name={isActive ? tab.icon : tab.iconOutline}
 							size={28}
-							color={isActive ? ACCENT : colors.textMuted}
+							color={isActive ? colors.primary : colors.textMuted}
 						/>
 					</TouchableOpacity>
 				);
@@ -85,7 +85,7 @@ export default function CustomTabBar({ activeTab }: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		flexDirection: "row",
 		backgroundColor: colors.background,
@@ -98,11 +98,11 @@ const styles = StyleSheet.create({
 		width: BAR_WIDTH,
 		height: BAR_HEIGHT,
 		borderRadius: BAR_HEIGHT / 2,
-		backgroundColor: ACCENT,
+		backgroundColor: colors.primary,
 	},
 	tab: {
 		flex: 1,
 		alignItems: "center",
 		paddingVertical: 14,
 	},
-});
+}));

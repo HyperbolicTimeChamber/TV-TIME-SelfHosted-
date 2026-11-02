@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, type StyleProp, type ViewStyle } from "react-native";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 
 /** Pill + circle height: compact, so it reads as a tag next to 44px buttons, not a button */
 export const WATCH_COUNT_PILL_HEIGHT = 32;
@@ -28,7 +28,7 @@ export default function WatchCountPill({ count, style }: Readonly<Props>) {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	pill: {
 		height: WATCH_COUNT_PILL_HEIGHT,
 		flexDirection: "row",
@@ -60,4 +60,4 @@ const styles = StyleSheet.create({
 		color: colors.background,
 		fontVariant: ["tabular-nums"],
 	},
-});
+}));

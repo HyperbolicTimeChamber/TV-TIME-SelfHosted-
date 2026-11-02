@@ -18,7 +18,7 @@ import Animated, {
 	interpolate,
 	Extrapolation,
 } from "react-native-reanimated";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 import { RxCheck, RxCross2 } from "./RxIcons";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -328,7 +328,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 	);
 });
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	wrapper: {
 		overflow: "hidden",
 		borderRadius: 8,
@@ -381,4 +381,4 @@ const styles = StyleSheet.create({
 		...typography.subtitle,
 		color: colors.text,
 	},
-});
+}));

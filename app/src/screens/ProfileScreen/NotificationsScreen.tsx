@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, Switch } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import { CircleBackButton, CIRCLE_BUTTON_SIZE } from "../../components/CircleButton";
 import { ProfileStackParamList } from "../../types";
@@ -42,7 +42,7 @@ export default function NotificationsScreen() {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: { flex: 1, backgroundColor: colors.background },
 	headerRow: {
 		flexDirection: "row",
@@ -85,4 +85,4 @@ const styles = StyleSheet.create({
 	rowTextWrap: { flex: 1 },
 	rowText: { ...typography.subtitle, fontSize: 15, color: colors.text },
 	rowHint: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
-});
+}));

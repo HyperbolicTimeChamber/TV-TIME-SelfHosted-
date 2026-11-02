@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Modal, View, Pressable, Animated, StyleSheet, ModalProps } from "react-native";
-import { colors } from "../../theme";
+import { colors, themedStyles } from "../../theme";
 
 interface Props extends Pick<ModalProps, "onRequestClose"> {
 	visible: boolean;
@@ -86,7 +86,7 @@ export default function AnimatedModal({ visible, onClose, onRequestClose, childr
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	overlay: {
 		flex: 1,
 		backgroundColor: colors.overlayMedium,
@@ -98,4 +98,4 @@ const styles = StyleSheet.create({
 		maxWidth: 320,
 	},
 	wide: { width: "92%", maxWidth: 560 },
-});
+}));

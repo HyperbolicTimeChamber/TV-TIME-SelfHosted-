@@ -2,7 +2,7 @@ import React, { cloneElement, isValidElement, type ReactNode } from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from "react-native";
 import AnimatedModal from "./AnimatedModal";
 import { ModalBackdrop } from "./ModalArt";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 
 interface Props {
 	visible: boolean;
@@ -155,7 +155,7 @@ export default function ConfirmModal({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	content: {
 		backgroundColor: colors.surface,
 		borderRadius: 12,
@@ -224,4 +224,4 @@ const styles = StyleSheet.create({
 		borderColor: colors.text,
 		marginTop: spacing.sm,
 	},
-});
+}));

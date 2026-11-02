@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import BottomSheet, { SheetGroup, sheetStyles } from "./modals/BottomSheet";
-import { colors, spacing } from "../theme";
+import { colors, spacing, themedStyles } from "../theme";
 
 export interface SortOption<T> {
 	value: T;
@@ -75,7 +75,7 @@ export default function SortSheet<T>({
 	);
 }
 
-export const sortSheetStyles = StyleSheet.create({
+export const sortSheetStyles = themedStyles(() => StyleSheet.create({
 	/** Section label over a card ("SORT BY", "FILTER") */
 	title: {
 		fontSize: 12,
@@ -90,4 +90,4 @@ export const sortSheetStyles = StyleSheet.create({
 	rowPressed: { backgroundColor: colors.border },
 	rowText: { fontSize: 16, color: colors.textSecondary },
 	rowActive: { color: colors.text, fontWeight: "700" },
-});
+}));

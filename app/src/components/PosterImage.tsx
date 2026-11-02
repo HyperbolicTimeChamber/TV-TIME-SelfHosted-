@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, StyleProp, ViewStyle } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, typography } from "../theme";
+import { colors, typography, themedStyles } from "../theme";
 import { tmdbPosterUri } from "../hooks/useTmdbImage";
 import { MediaType } from "../enums";
 
@@ -52,7 +52,7 @@ export default function PosterImage({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	placeholder: {
 		backgroundColor: colors.surfaceLight,
 		justifyContent: "center",
@@ -66,4 +66,4 @@ const styles = StyleSheet.create({
 		textAlign: "center",
 		marginTop: 2,
 	},
-});
+}));

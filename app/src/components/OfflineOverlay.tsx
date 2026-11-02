@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Modal } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 import { useUiStore } from "../stores";
 
 export default function OfflineOverlay() {
@@ -27,7 +27,7 @@ export default function OfflineOverlay() {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	overlay: {
 		flex: 1,
 		backgroundColor: colors.overlay,
@@ -55,4 +55,4 @@ const styles = StyleSheet.create({
 		...typography.subtitle,
 		color: colors.onPrimary,
 	},
-});
+}));

@@ -13,7 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSearchInput } from "./useSearchInput";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 import { SearchStackParamList, Route } from "../../types";
 
 type NavProp = NativeStackNavigationProp<SearchStackParamList, Route.SEARCH_INPUT>;
@@ -132,7 +132,7 @@ export default function SearchInputScreen() {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		flex: 1,
 		backgroundColor: colors.background,
@@ -213,4 +213,4 @@ const styles = StyleSheet.create({
 		color: colors.text,
 		flex: 1,
 	},
-});
+}));

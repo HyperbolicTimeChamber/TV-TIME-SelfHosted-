@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { hideUnreleasedModal, shouldShowUnreleasedModal } from "../services/unreleasedModalPref";
 import { AnimatedModal } from "./modals";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 import { useAuthStore } from "../stores";
 
 interface Props {
@@ -43,7 +43,7 @@ export function UnreleasedMovieModal({ visible, onClose, movieTitle }: Props) {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	content: {
 		backgroundColor: colors.surface,
 		borderRadius: 16,
@@ -101,6 +101,6 @@ const styles = StyleSheet.create({
 		...typography.subtitle,
 		color: colors.onPrimary,
 	},
-});
+}));
 
 export { shouldShowUnreleasedModal };

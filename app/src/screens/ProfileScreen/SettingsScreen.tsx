@@ -15,7 +15,7 @@ import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { getCrashlytics, recordError } from "@react-native-firebase/crashlytics";
 import { getAuth, sendPasswordResetEmail } from "@react-native-firebase/auth";
 import { useAuthStore } from "../../stores";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import { CircleBackButton, CIRCLE_BUTTON_SIZE } from "../../components/CircleButton";
 import { ConfirmModal } from "../../components";
@@ -217,7 +217,7 @@ export default function SettingsScreen() {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		flex: 1,
 		backgroundColor: colors.background,
@@ -265,4 +265,4 @@ const styles = StyleSheet.create({
 		fontSize: 15,
 		color: colors.destructiveRed,
 	},
-});
+}));

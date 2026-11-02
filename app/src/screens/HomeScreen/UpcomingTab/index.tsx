@@ -4,7 +4,7 @@ import { LegendList } from "@legendapp/list/react-native";
 import { useNavigation, CompositeNavigationProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { LoadingSpinner, EpisodeDetailModal, ShowDrawer } from "../../../components";
-import { colors, spacing, typography } from "../../../theme";
+import { colors, spacing, typography, themedStyles } from "../../../theme";
 import { HomeStackParamList, MainStackParamList, Route, MediaType } from "../../../types";
 import DateHeader from "./DateHeader";
 import { useUpcomingScreen, type ListItem } from "./useUpcomingScreen";
@@ -180,7 +180,7 @@ export default function UpcomingTab() {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	list: {
 		flex: 1,
 		backgroundColor: colors.background,
@@ -220,4 +220,4 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		color: colors.onPrimary,
 	},
-});
+}));

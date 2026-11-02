@@ -1,7 +1,10 @@
 import { DEFAULT_THEME_PREFS, ThemeMode, buildPalette, resolveScheme, tint as tintHex } from "./palette";
 import type { ColorPalette, ThemePrefs } from "./palette";
+import { bumpThemeVersion } from "./themeStore";
 
 export * from "./palette";
+export { themedStyles } from "./themedStyles";
+export { getThemeVersion, useThemeVersion } from "./themeStore";
 
 /**
  * Live palette. Styles built at module load (StyleSheet.create) copy these values, so the theme is
@@ -19,6 +22,7 @@ export const isLightTheme = (): boolean => lightTheme;
 export function applyThemePrefs(prefs: ThemePrefs, system?: "light" | "dark" | null): void {
 	Object.assign(colors, buildPalette(prefs, system));
 	lightTheme = resolveScheme(prefs.mode, system) === ThemeMode.LIGHT;
+	bumpThemeVersion();
 }
 
 /** Custom font families (loaded in App via useFonts). Android: never pair with fontWeight. */

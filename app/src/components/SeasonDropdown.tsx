@@ -26,7 +26,7 @@ import {
 import CheckmarkButton from "./CheckmarkButton";
 import SkeletonLine from "./SkeletonLine";
 import EpisodeDetailModal from "./modals/EpisodeDetailModal";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 import { withHaptic } from "../utils/haptics";
 import { tmdbPosterUri, tmdbStillUri } from "../hooks/useTmdbImage";
 import { MediaType, TMDBEpisode, WatchStatus } from "../types";
@@ -599,7 +599,7 @@ export default memo(function SeasonDropdown({
 	);
 });
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	// Same hairline gap as the episodes, under the whole dropdown so an open one's episodes hang
 	// just under its card
 	season: {
@@ -713,4 +713,4 @@ const styles = StyleSheet.create({
 		marginTop: 2,
 		fontSize: 11,
 	},
-});
+}));

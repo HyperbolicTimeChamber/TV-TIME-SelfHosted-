@@ -1,8 +1,8 @@
 import { StyleSheet } from "react-native";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 import { artHeight, NO_RESULTS_RATIO } from "../../components/NotFoundArt";
 
-export const styles = StyleSheet.create({
+export const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		flex: 1,
 		backgroundColor: colors.background,
@@ -199,4 +199,4 @@ export const styles = StyleSheet.create({
 		textAlign: "center" as const,
 		marginTop: spacing.xs,
 	},
-});
+}));

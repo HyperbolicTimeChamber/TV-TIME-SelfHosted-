@@ -17,7 +17,7 @@ import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { SheetGroup, SheetOption } from "./modals/BottomSheet";
 import SkeletonLine, { useSharedShimmer } from "./SkeletonLine";
 import { LinearGradient } from "expo-linear-gradient";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 import { tmdbBackdropUri, tmdbLogoUri, tmdbPosterUri } from "../hooks/useTmdbImage";
 import { useTitleLogo } from "../hooks/useTitleLogo";
 import { useCustomLists } from "../hooks/useCustomLists";
@@ -285,7 +285,7 @@ export default function ShowDrawer({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	overlay: {
 		flex: 1,
 	},
@@ -418,4 +418,4 @@ const styles = StyleSheet.create({
 	},
 	actions: { marginHorizontal: spacing.lg },
 	actionGap: { marginTop: spacing.md },
-});
+}));

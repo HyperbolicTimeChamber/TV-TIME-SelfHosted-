@@ -2,7 +2,7 @@ import React, { memo, useRef, useCallback, useMemo } from "react";
 import { withHaptic } from "../utils/haptics";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS, WatchStatus } from "../types";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton from "./CheckmarkButton";
 
@@ -320,7 +320,7 @@ export default memo(function ShowCard({
 
 const POSTER_WIDTH = 100;
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		flexDirection: "row",
 		backgroundColor: colors.surface,
@@ -494,4 +494,4 @@ const styles = StyleSheet.create({
 		alignSelf: "center",
 		paddingRight: spacing.md,
 	},
-});
+}));

@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import AnimatedModal from "./AnimatedModal";
 import PanLoader from "../PanLoader";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 
 /** Blocks the screen while exportAccountData runs: a pan tossing an egg (web ExportingModal) */
 export default function ExportingModal({ visible }: Readonly<{ visible: boolean }>) {
@@ -19,7 +19,7 @@ export default function ExportingModal({ visible }: Readonly<{ visible: boolean 
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	content: {
 		backgroundColor: colors.surface,
 		borderRadius: 12,
@@ -30,4 +30,4 @@ const styles = StyleSheet.create({
 	title: { ...typography.subtitle, fontSize: 16, textAlign: "center", marginBottom: spacing.xs },
 	hint: { ...typography.caption, color: colors.textSecondary, textAlign: "center" },
 	note: { ...typography.caption, color: colors.textMuted, textAlign: "center" },
-});
+}));
