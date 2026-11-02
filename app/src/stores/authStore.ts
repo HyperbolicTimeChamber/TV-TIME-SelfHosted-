@@ -13,10 +13,13 @@ import {
 	doc,
 	getDocFromCache,
 	getDocFromServer,
+	setDoc,
 } from "@react-native-firebase/firestore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { DocumentSnapshot } from "@react-native-firebase/firestore";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { MIN_BUILD_FIELD, RELEASE_CHANNEL, ReleaseChannel } from "../enums";
+import { importDoneKey, mergeImportFlag } from "../utils/importFlag";
 
 /** Max wait on a startup server read when nothing is cached (then fall back; a late answer still applies) */
 const STARTUP_READ_TIMEOUT = 10_000;
@@ -40,6 +43,8 @@ interface AuthState {
 	setLoading: (loading: boolean) => void;
 	loadAppConfig: () => Promise<void>;
 	loadUserFlags: (userId: string) => Promise<void>;
+	/** Import screen finished or skipped: flag on now, kept on the device, saved on the user doc */
+	markImportDone: (userId: string) => void;
 	signInWithGoogle: () => Promise<void>;
 	signInWithEmail: (email: string, password: string) => Promise<void>;
 	signUpWithEmail: (email: string, password: string) => Promise<void>;
@@ -102,24 +107,50 @@ export const useAuthStore = create<AuthState>((set) => ({
 		}
 	},
 
+	markImportDone: (userId: string) => {
+		set({ hasCompletedImport: true });
+		// Kept on the device too: the Firestore write can be refused (rules) or lost offline,
+		// and the import screen must not come back on the next launch
+		AsyncStorage.setItem(importDoneKey(userId), "true").catch(() => {});
+		setDoc(doc(getFirestore(), "users", userId), { hasCompletedImport: true }, { merge: true }).catch(
+			(error) => console.warn("Failed to save hasCompletedImport:", error),
+		);
+	},
+
 	loadUserFlags: async (userId: string) => {
 		const ref = doc(getFirestore(), "users", userId);
+		const isCurrentUser = () => useAuthStore.getState().user?.uid === userId;
+		const localDone =
+			(await AsyncStorage.getItem(importDoneKey(userId)).catch(() => null)) === "true";
+		if (localDone && isCurrentUser()) set({ hasCompletedImport: true });
 		const apply = (snap: DocumentSnapshot): boolean => {
 			// Signed out / switched account meanwhile → drop the stale result
-			if (useAuthStore.getState().user?.uid !== userId) return false;
+			if (!isCurrentUser()) return false;
 			// Missing doc (fresh account) → keep the default
 			if (!snap.exists()) return false;
-			set({ hasCompletedImport: snap.data()?.hasCompletedImport ?? false });
+			set({
+				hasCompletedImport: mergeImportFlag(
+					useAuthStore.getState().hasCompletedImport,
+					snap.data()?.hasCompletedImport === true,
+				),
+			});
 			return true;
 		};
 		const cached = await getDocFromCache(ref)
 			.then(apply)
 			.catch(() => false);
-		if (cached) set({ userFlagsLoading: false });
+		if (cached || localDone) set({ userFlagsLoading: false });
 		// Nothing cached → wait for the server, but not forever (a late answer still applies)
 		const timeout = setTimeout(() => set({ userFlagsLoading: false }), STARTUP_READ_TIMEOUT);
 		try {
-			apply(await getDocFromServer(ref));
+			const server = await getDocFromServer(ref);
+			apply(server);
+			// Done on this device but the server never got the flag: try again
+			if (localDone && isCurrentUser() && server.data()?.hasCompletedImport !== true) {
+				setDoc(ref, { hasCompletedImport: true }, { merge: true }).catch((error) =>
+					console.warn("Failed to save hasCompletedImport:", error),
+				);
+			}
 		} catch (error) {
 			console.warn("Failed to refresh user flags:", error);
 		} finally {
