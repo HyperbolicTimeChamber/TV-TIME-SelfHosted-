@@ -23,7 +23,7 @@ import Reanimated, {
 	withSequence,
 	withTiming,
 } from "react-native-reanimated";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useAuthStore } from "../../stores";
@@ -139,11 +139,8 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 	useEffect(() => {
 		if (entry && !loading && !pinned) {
 			setPinned(sheetListOrder(lists, null, entry).map((l) => l.id));
-			setOpenSaved(
-				new Set(
-					lists.filter((l) => listHasItem(l, entry.tmdbId, entry.mediaType)).map((l) => l.id),
-				),
-			);
+			const holding = lists.filter((l) => listHasItem(l, entry.tmdbId, entry.mediaType));
+			setOpenSaved(new Set(holding.map((l) => l.id)));
 		}
 	}, [entry, loading, lists, pinned]);
 
@@ -160,6 +157,9 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 		);
 		return sort === ListSort.NAME ? [...rest].sort((a, b) => a.name.localeCompare(b.name)) : rest;
 	}, [ordered, saved, search, sort]);
+	// Find list + Sort only earn their room with at least one list left to look through (the lists
+	// already holding the title sit above); counted before the search filter so typing never hides them
+	const searchable = useMemo(() => ordered.some((l) => !saved.includes(l)), [ordered, saved]);
 
 	const handleCreate = async (name: string) => {
 		if (!entry) return;
@@ -243,58 +243,62 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 								keyboardShouldPersistTaps="handled"
 								onContentSizeChange={(_, h) => setListHeight(h)}
 							>
-								<View style={styles.heading}>
-									<Text style={styles.headingText}>In lists</Text>
-									<Pressable
-										onPress={startNaming}
-										hitSlop={10}
-										accessibilityRole="button"
-										style={({ pressed }) => pressed && styles.newListPressed}
-									>
-										<Text style={styles.newList}>New list</Text>
-									</Pressable>
-								</View>
-
 								{loading ? (
 									<ActivityIndicator style={styles.loader} color={colors.primary} />
 								) : (
 									<>
-										{saved.length === 0 ? (
-											<Text style={styles.empty}>Not in any list yet.</Text>
-										) : (
-											saved.map(renderRow)
+										{/* Only when it holds the title already: nothing to show for a title in no list */}
+										{saved.length > 0 && (
+											<>
+												<View style={styles.heading}>
+													<Text style={styles.headingText}>In lists</Text>
+													<Pressable
+														onPress={startNaming}
+														hitSlop={10}
+														accessibilityRole="button"
+														style={({ pressed }) => pressed && styles.newListPressed}
+													>
+														<Text style={styles.newList}>New List</Text>
+													</Pressable>
+												</View>
+												{saved.map(renderRow)}
+											</>
 										)}
 
-										<View style={styles.searchRow}>
-											<View style={styles.searchField}>
-												<Ionicons name="search" size={16} color={colors.textSecondary} />
-												<BottomSheetTextInput
-													style={styles.searchInput}
-													value={search}
-													onChangeText={setSearch}
-													placeholder="Find list"
-													placeholderTextColor={colors.textSecondary}
-													autoCorrect={false}
-													returnKeyType="search"
-													accessibilityLabel="Find list"
-												/>
+										{searchable && (
+											<View style={styles.searchRow}>
+												<View style={styles.searchField}>
+													<Ionicons name="search" size={16} color={colors.textSecondary} />
+													<BottomSheetTextInput
+														style={styles.searchInput}
+														value={search}
+														onChangeText={setSearch}
+														placeholder="Find list"
+														placeholderTextColor={colors.textSecondary}
+														autoCorrect={false}
+														returnKeyType="search"
+														accessibilityLabel="Find list"
+													/>
+												</View>
+												<Pressable
+													onPress={() =>
+														setSort((v) =>
+															v === ListSort.RECENT ? ListSort.NAME : ListSort.RECENT,
+														)
+													}
+													accessibilityRole="button"
+													accessibilityLabel={`Sort: ${sort}`}
+													style={({ pressed }) => [
+														styles.sortButton,
+														pressed && styles.newListPressed,
+													]}
+												>
+													<Text style={styles.sortText}>
+														{sort === ListSort.RECENT ? "Sort" : sort}
+													</Text>
+												</Pressable>
 											</View>
-											<Pressable
-												onPress={() =>
-													setSort((v) => (v === ListSort.RECENT ? ListSort.NAME : ListSort.RECENT))
-												}
-												accessibilityRole="button"
-												accessibilityLabel={`Sort: ${sort}`}
-												style={({ pressed }) => [
-													styles.sortButton,
-													pressed && styles.newListPressed,
-												]}
-											>
-												<Text style={styles.sortText}>
-													{sort === ListSort.RECENT ? "Sort" : sort}
-												</Text>
-											</Pressable>
-										</View>
+										)}
 
 										{others.map(renderRow)}
 										{others.length === 0 && search.trim() !== "" && (
@@ -307,9 +311,13 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 											style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
 										>
 											<View style={[styles.cover, styles.coverEmpty]}>
-												<Ionicons name="bookmarks-outline" size={22} color={colors.text} />
+												<MaterialCommunityIcons
+													name="bookmark-plus-outline"
+													size={24}
+													color={colors.text}
+												/>
 											</View>
-											<Text style={styles.rowText}>New list</Text>
+											<Text style={styles.rowText}>New List</Text>
 										</Pressable>
 									</>
 								)}
