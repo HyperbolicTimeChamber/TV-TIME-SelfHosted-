@@ -145,7 +145,7 @@ function PosterStrip({ items }: { items: CustomList["items"] }) {
 function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 	const drag = useReorderableDrag();
 	// Picked up: the hold has registered and the drag is armed — a tick, and the card lifts
-	// (amber edge, a touch bigger) until the finger lets go, so it's plain when it's ready to move
+	// (a touch bigger, a shadow glow) until the finger lets go, so it's plain when it's ready to move
 	const [lifted, setLifted] = useState(false);
 	const cover = listCoverItem(list);
 	const { data: info, isPending } = useTitleInfo(
@@ -551,16 +551,14 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.background,
 	},
 	rowPressed: { transform: [{ scale: 0.98 }] },
-	// Armed to drag: lifted and edged in amber
+	// Armed to drag: lifted, with a soft shadow glow under it
 	rowLifted: {
 		transform: [{ scale: 1.03 }],
-		borderWidth: 2,
-		borderColor: colors.warningAmber,
-		elevation: 12,
+		elevation: 16,
 		shadowColor: "#000",
-		shadowOpacity: 0.5,
-		shadowRadius: 12,
-		shadowOffset: { width: 0, height: 6 },
+		shadowOpacity: 0.7,
+		shadowRadius: 18,
+		shadowOffset: { width: 0, height: 8 },
 	},
 	// The calendar card sits in the list's own padding
 	card: { marginHorizontal: 0 },

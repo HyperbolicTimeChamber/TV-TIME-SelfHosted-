@@ -235,8 +235,6 @@ export enum ListTagKind {
 	UP_TO_DATE = "upToDate",
 	PAUSED = "paused",
 	WATCH_COUNT = "watchCount",
-	/** Ongoing / Ended */
-	AIRING = "airing",
 	/** Not on the watchlist */
 	NOT_STARTED = "notStarted",
 	/** On the watchlist, never watched (movies) */

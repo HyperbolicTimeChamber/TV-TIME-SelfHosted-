@@ -1,4 +1,4 @@
-import { HistoryPill, HistoryProgress, ListTagKind, MediaType } from "../enums";
+import { HistoryPill, HistoryProgress, ListTagKind } from "../enums";
 import type { HistoryCard } from "./historyCard";
 
 export interface ListTag {
@@ -12,20 +12,14 @@ export interface ListTag {
 
 /**
  * The tags under a list card's meta line, in one row: what the Watch History card shows for the
- * title (status, progress / up to date / paused, watch count, Ongoing / Ended) — and, for a title
+ * title (status, progress / up to date / paused, watch count) — and, for a title
  * that isn't tracked, Not Started in place of the status and 0%.
- * `card` null = not on the watchlist; `airing` = the catalog's Ongoing / Ended when known.
+ * `card` null = not on the watchlist.
  */
-export function deriveListTags(
-	mediaType: MediaType,
-	card: HistoryCard | null,
-	airing: string | null,
-): ListTag[] {
+export function deriveListTags(card: HistoryCard | null): ListTag[] {
 	const tags: ListTag[] = [];
 	if (!card) {
 		tags.push({ kind: ListTagKind.NOT_STARTED, label: "Not Started" });
-		if (mediaType === MediaType.TV && airing)
-			tags.push({ kind: ListTagKind.AIRING, label: airing });
 		return tags;
 	}
 	if (card.pill && card.pillLabel) {
@@ -49,10 +43,6 @@ export function deriveListTags(
 				? { kind: ListTagKind.WATCH_COUNT, label: "Watch Count", count: card.watchCount }
 				: { kind: ListTagKind.NOT_WATCHED, label: "Not Watched" },
 		);
-	}
-	// Movies carry their year in the card's square already
-	if (mediaType === MediaType.TV && (card.tag ?? airing)) {
-		tags.push({ kind: ListTagKind.AIRING, label: (card.tag ?? airing) as string });
 	}
 	return tags;
 }

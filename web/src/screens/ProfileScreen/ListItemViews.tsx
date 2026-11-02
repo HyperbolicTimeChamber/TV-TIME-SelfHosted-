@@ -102,9 +102,9 @@ export function ListRow({ item, onPress, onLongPress }: ItemProps) {
 					catalogSettled(item.tmdbId, item.mediaType),
 				)
 			: null;
-		return deriveListTags(item.mediaType, card, info?.airing ?? null);
+		return deriveListTags(card);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [entry, catalogVersion, info?.airing, item.tmdbId, item.mediaType]);
+	}, [entry, catalogVersion, item.tmdbId, item.mediaType]);
 	const showName = logoPath === null || (!logoPath && waited);
 	// Still looking for the logo (and not yet time for the name): shimmer where it will sit
 	const logoLoading = logoPath === undefined && !waited;

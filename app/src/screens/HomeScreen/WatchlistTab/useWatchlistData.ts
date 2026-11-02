@@ -584,9 +584,15 @@ export function useWatchlistData(userId: string | undefined) {
 		}
 	}, [items, promoted, unpromote]);
 
+	// The live pages have caught up with last session's list (or there are no more pages): the
+	// saved cards can stop holding the bottom of the list
+	const liveCaughtUp = !hasMoreTracking || sortedActive.length >= cachedActiveCount.current;
+
 	// --- Persist list cache when live data updates (only cached tier, not volatile) ---
 	useEffect(() => {
 		if (!userId || allLoading || orderedLive.length === 0) return;
+		// Live shows still arriving: saving now would shrink the saved list to the first pages
+		if (cachedList && !liveCaughtUp) return;
 
 		// Cache: newest PREV_WATCHED_CACHE_SIZE watched items + the show cards
 		const cacheList: CacheableWatchlistListItem[] = [];
@@ -615,7 +621,7 @@ export function useWatchlistData(userId: string | undefined) {
 			JSON.stringify({ userId, date: todayStr(), list: cacheList }),
 		).catch(() => {});
 		if (cachedList) setCachedList(null);
-	}, [userId, allLoading, orderedLive]);
+	}, [userId, allLoading, orderedLive, cachedList, liveCaughtUp]);
 
 	// Confirmed by the live listeners: first load done, no page pending, none left
 	const liveExhausted = !allLoading && !loadingMoreTracking && !hasMoreTracking;
@@ -631,7 +637,16 @@ export function useWatchlistData(userId: string | undefined) {
 	const rawDisplayList = useMemo(() => {
 		if (!cachedList) return orderedLive;
 		if (orderedLive.length === 0) return cachedList;
-		return orderedLive;
+		// Live pages arrive a few at a time: the saved cards they haven't reached yet stay below
+		// them, so the list doesn't shrink to the first page and grow back (cards vanishing, then
+		// returning). They drop out as the live ones take over (liveCaughtUp)
+		const liveShows = new Set<number>();
+		for (const i of orderedLive) if (i.type === "show") liveShows.add(i.card.tmdbId);
+		const tail = cachedList.filter((i) => i.type === "show" && !liveShows.has(i.card.tmdbId));
+		if (tail.length === 0) return orderedLive;
+		const header: CacheableWatchlistListItem[] =
+			liveShows.size === 0 ? [{ type: "sectionHeader", title: "What's Up Next" }] : [];
+		return [...orderedLive, ...header, ...tail];
 	}, [cachedList, orderedLive]);
 	const effectiveLoading = reordering || (allLoading && !cachedList);
 
