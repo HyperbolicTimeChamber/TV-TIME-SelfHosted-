@@ -14,6 +14,8 @@ const PAGE_NAMES: [string, string][] = [
 	[Paths.SEARCH_INPUT, Route.SEARCH_INPUT],
 	[Paths.PROFILE, Route.PROFILE_MAIN],
 	[Paths.SETTINGS, Route.SETTINGS],
+	[Paths.APPEARANCE, Route.APPEARANCE],
+	[Paths.NOTIFICATIONS, Route.NOTIFICATIONS],
 	[Paths.WATCH_HISTORY, Route.WATCH_HISTORY],
 	[Paths.IMPORT, Route.IMPORT_DATA],
 	[Paths.SHOW, Route.SHOW_DETAIL],

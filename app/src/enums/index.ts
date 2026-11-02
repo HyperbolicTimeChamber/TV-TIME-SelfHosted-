@@ -320,6 +320,8 @@ export enum Route {
 	CALENDAR_MAIN = "CalendarMain",
 	PROFILE_MAIN = "ProfileMain",
 	SETTINGS = "Settings",
+	APPEARANCE = "Appearance",
+	NOTIFICATIONS = "Notifications",
 	WATCH_HISTORY = "WatchHistory",
 	IMPORT_DATA = "ImportData",
 	LIST_DETAIL = "ListDetail",

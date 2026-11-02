@@ -1,0 +1,111 @@
+@use "../../../theme/tokens" as *;
+
+/* Appearance + Notifications placeholders (app AppearanceScreen / NotificationsScreen) */
+.container {
+	min-height: 100dvh;
+	padding-top: env(safe-area-inset-top);
+	max-width: 640px;
+	margin: 0 auto;
+}
+
+.headerRow {
+	display: flex;
+	align-items: center;
+	padding: 8px;
+}
+
+.headerTitle {
+	flex: 1;
+	text-align: center;
+	font-size: 18px;
+	font-weight: 600;
+	margin: 0;
+}
+
+.soon {
+	margin: 8px 16px 0;
+	text-align: center;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+/* Dimmed: nothing here is active yet */
+.section {
+	margin: 16px 16px 0;
+	background: var(--surface);
+	border-radius: 8px;
+	overflow: hidden;
+	opacity: 0.6;
+}
+
+.sectionTitle {
+	font-size: 12px;
+	font-weight: 400;
+	color: var(--text-muted);
+	padding: 12px 12px 4px;
+	margin: 0;
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 16px 12px;
+	border-top: 1px solid var(--border);
+}
+
+.rowText {
+	flex: 1;
+	min-width: 0;
+	font-size: 15px;
+	font-weight: 600;
+}
+
+.rowHint {
+	display: block;
+	margin-top: 2px;
+	font-size: 12px;
+	font-weight: 400;
+	color: var(--text-muted);
+}
+
+.radio {
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	border: 2px solid var(--text-muted);
+}
+
+.radioOn {
+	border-color: $accent;
+	background: $accent;
+}
+
+.swatches {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16px;
+	padding: 12px;
+	border-top: 1px solid var(--border);
+}
+
+.swatchWrap {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.swatch {
+	width: 44px;
+	height: 44px;
+	border-radius: 50%;
+	border: 2px solid transparent;
+}
+
+.swatchOn {
+	border-color: var(--text);
+}

@@ -121,6 +121,19 @@ export default function SettingsScreen() {
 					<View style={styles.headerSpacer} />
 				</View>
 				<View style={styles.section}>
+					<Text style={styles.sectionTitle}>Preferences</Text>
+					<TouchableOpacity style={styles.row} onPress={() => navigation.navigate(Route.APPEARANCE)}>
+						<Text style={styles.rowText}>Appearance</Text>
+					</TouchableOpacity>
+					<TouchableOpacity
+						style={styles.row}
+						onPress={() => navigation.navigate(Route.NOTIFICATIONS)}
+					>
+						<Text style={styles.rowText}>Notifications</Text>
+					</TouchableOpacity>
+				</View>
+
+				<View style={styles.section}>
 					<Text style={styles.sectionTitle}>Data</Text>
 					<TouchableOpacity style={styles.row} onPress={() => navigation.navigate(Route.IMPORT_DATA)}>
 						<Text style={styles.rowText}>

@@ -86,6 +86,16 @@ export default function SettingsScreen() {
 			</div>
 
 			<section className={styles.section}>
+				<h2 className={styles.sectionTitle}>Preferences</h2>
+				<button className={styles.row} onClick={() => navigate(Paths.APPEARANCE)}>
+					Appearance
+				</button>
+				<button className={styles.row} onClick={() => navigate(Paths.NOTIFICATIONS)}>
+					Notifications
+				</button>
+			</section>
+
+			<section className={styles.section}>
 				<h2 className={styles.sectionTitle}>Data</h2>
 				<button className={styles.row} onClick={() => navigate(Paths.IMPORT)}>
 					{hasCompletedImport ? "Re-sync TV Time Data" : "Import TV Time Data"}
