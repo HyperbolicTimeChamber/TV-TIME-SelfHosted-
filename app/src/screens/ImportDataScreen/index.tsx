@@ -40,7 +40,10 @@ export default function ImportDataScreen({ navigation }: any) {
 		toggleSelected,
 		handleImport,
 		restoreAccount,
-	} = useImportData(() => useAuthStore.setState({ hasCompletedImport: true }));
+	} = useImportData(() => {
+		const uid = useAuthStore.getState().user?.uid;
+		if (uid) useAuthStore.getState().markImportDone(uid);
+	});
 
 	// --- Phase 1: Pick file ---
 	const handlePickFile = useCallback(async () => {
