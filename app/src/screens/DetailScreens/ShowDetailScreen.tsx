@@ -29,7 +29,8 @@ import { showShareUrl, describeLoadError, isTitleListed } from "../../utils";
 import ErrorState from "../../components/ErrorState";
 import CircleButton, { CIRCLE_BUTTON_SIZE, CircleBackButton } from "../../components/CircleButton";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
-import { colors, spacing, typography } from "../../theme";
+import { colors, isLightTheme, spacing, typography } from "../../theme";
+import { StatusBar } from "expo-status-bar";
 import { HomeStackParamList, MediaType, Route, WatchStatus } from "../../types";
 import { CircleButtonTone } from "../../enums";
 import { ModalBackdrop, ModalLogo } from "../../components/modals/ModalArt";
@@ -183,6 +184,8 @@ export default function ShowDetailScreen() {
 	return (
 		// Right swipe anywhere → back, the screen underneath showing through (transparent modal route)
 		<SwipeBackView onBack={handleBack} {...swipeBack} style={styles.container}>
+			{/* The poster runs under the status bar: light icons on it, whatever the theme */}
+			<StatusBar style="light" />
 			<Reanimated.ScrollView
 				contentContainerStyle={{ paddingBottom: spacing.xxl + Math.max(insets.bottom, 48) }}
 				onScroll={handleScroll}
@@ -203,6 +206,7 @@ export default function ShowDetailScreen() {
 								mediaType={mediaType}
 								title={title}
 								nameDelay={2000}
+								tint={isLightTheme() ? colors.text : undefined}
 							/>
 						</View>
 
@@ -326,7 +330,7 @@ export default function ShowDetailScreen() {
 					<Ionicons
 						name={isListed ? "bookmark" : "bookmark-outline"}
 						size={24}
-						color={colors.text}
+						color={colors.onImage}
 					/>
 				</CircleButton>
 				<CircleButton
@@ -340,7 +344,7 @@ export default function ShowDetailScreen() {
 						}).catch((e: any) => Alert.alert("Share failed", e.message));
 					}}
 				>
-					<Ionicons name="share-social-outline" size={26} color={colors.text} />
+					<Ionicons name="share-social-outline" size={26} color={colors.onImage} />
 				</CircleButton>
 			</Reanimated.ScrollView>
 

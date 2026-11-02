@@ -131,6 +131,7 @@ const styles = StyleSheet.create({
 	primaryText: {
 		...typography.subtitle,
 		fontSize: 15,
+		color: colors.onPrimary,
 	},
 	secondaryButton: {
 		alignSelf: "stretch",

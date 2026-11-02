@@ -62,6 +62,8 @@ export enum CacheKey {
 	USER_STATS = "profile_stats_cache",
 	HIDE_UNRELEASED_MODAL = "hideUnreleasedMovieModal",
 	IMPORT_IN_PROGRESS = "import_in_progress",
+	/** Saved theme + accent choice (JSON) */
+	THEME_PREFS = "theme_prefs_v1",
 	/** Legacy: the whole catalog as one ~2MB value — Android couldn't read it back. Deleted on start */
 	CATALOG_CACHE = "catalog_cache_v1",
 	/** Doc ids of the shows saved under CATALOG_SHOW */

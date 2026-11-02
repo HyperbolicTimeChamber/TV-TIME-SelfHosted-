@@ -113,6 +113,6 @@ const styles = StyleSheet.create({
 		color: colors.textMuted,
 	},
 	tabTextActive: {
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 });

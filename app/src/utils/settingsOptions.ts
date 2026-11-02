@@ -1,26 +1,4 @@
-/** Placeholder option lists for the Appearance / Notifications settings pages (web reuses them) */
-
-export enum ThemeMode {
-	DARK = "dark",
-	LIGHT = "light",
-	SYSTEM = "system",
-}
-
-export const THEME_OPTIONS: { mode: ThemeMode; label: string }[] = [
-	{ mode: ThemeMode.DARK, label: "Dark" },
-	{ mode: ThemeMode.LIGHT, label: "Light" },
-	{ mode: ThemeMode.SYSTEM, label: "System" },
-];
-
-/** The first one is today's accent */
-export const ACCENT_OPTIONS: { label: string; color: string }[] = [
-	{ label: "Blue", color: "#4A90D9" },
-	{ label: "Red", color: "#E50914" },
-	{ label: "Green", color: "#00A800" },
-	{ label: "Purple", color: "#8B5CF6" },
-	{ label: "Orange", color: "#F59E0B" },
-	{ label: "Pink", color: "#EC4899" },
-];
+/** Placeholder option list for the Notifications settings page (web reuses it) */
 
 export enum NotificationKind {
 	MOVIE_REMINDER = "movieReminder",

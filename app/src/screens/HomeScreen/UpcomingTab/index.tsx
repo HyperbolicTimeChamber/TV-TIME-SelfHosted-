@@ -218,6 +218,6 @@ const styles = StyleSheet.create({
 	retryText: {
 		...typography.subtitle,
 		fontSize: 14,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 });

@@ -43,11 +43,18 @@ export default function CircleButton({
 	);
 }
 
+/** Icon color that reads on each tone: dark scrim -> white, accent fill -> onPrimary, else the text color */
+function iconColor(tone: CircleButtonTone = CircleButtonTone.SURFACE): string {
+	if (tone === CircleButtonTone.OVERLAY) return colors.onImage;
+	if (tone === CircleButtonTone.ACCENT) return colors.onPrimary;
+	return colors.text;
+}
+
 /** Circular back button (Ionicons' chevron sits 2px left of centre — corrected here, once) */
 export function CircleBackButton(props: Omit<Props, "children" | "accessibilityLabel">) {
 	return (
 		<CircleButton {...props} accessibilityLabel="Back">
-			<Ionicons name="chevron-back" size={26} color={colors.text} style={styles.chevron} />
+			<Ionicons name="chevron-back" size={26} color={iconColor(props.tone)} style={styles.chevron} />
 		</CircleButton>
 	);
 }

@@ -184,11 +184,11 @@ const styles = StyleSheet.create({
 	pillText: {
 		...typography.subtitle,
 		fontSize: 13,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 	pillRemoveText: {
 		...typography.subtitle,
 		fontSize: 13,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 });

@@ -117,6 +117,7 @@ export function ModalLogo({
 	title,
 	paused = false,
 	nameDelay = 0,
+	tint,
 }: {
 	logoPath?: string | null;
 	/** Lets a title with no cached logo (not in the library) fetch it from TMDB */
@@ -126,6 +127,8 @@ export function ModalLogo({
 	paused?: boolean;
 	/** Wait this long (ms) for the logo before showing the name — 0: name right away */
 	nameDelay?: number;
+	/** Recolors the logo (a white title logo vanishes on the light theme's page) */
+	tint?: string;
 }) {
 	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	// Logo's own width / height, so the box (and the badge's corner) hugs the visible logo
@@ -176,6 +179,7 @@ export function ModalLogo({
 				<Image
 					source={{ uri: tmdbLogoUri(logoPath, LOGO_MAX_W) }}
 					style={{ width: w, height: h }}
+					tintColor={tint}
 					contentFit="contain"
 				/>
 				{paused && <PauseBadge style={badgeCorner} />}

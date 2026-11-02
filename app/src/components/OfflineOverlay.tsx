@@ -53,6 +53,6 @@ const styles = StyleSheet.create({
 	},
 	buttonText: {
 		...typography.subtitle,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 });

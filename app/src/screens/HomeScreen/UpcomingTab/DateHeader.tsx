@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
 	},
 	text: {
 		...typography.subtitle,
-		color: colors.text,
+		color: colors.onPrimary,
 		textTransform: "uppercase",
 		fontSize: 12,
 		letterSpacing: 1,

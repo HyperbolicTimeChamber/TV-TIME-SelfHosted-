@@ -208,6 +208,6 @@ const styles = StyleSheet.create({
 	buttonText: {
 		...typography.subtitle,
 		fontSize: 14,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 });

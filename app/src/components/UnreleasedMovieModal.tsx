@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
 		borderColor: colors.accent,
 	},
 	check: {
-		color: colors.text,
+		color: colors.onPrimary,
 		fontSize: 12,
 		fontWeight: "700",
 	},
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
 	},
 	buttonText: {
 		...typography.subtitle,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 });
 

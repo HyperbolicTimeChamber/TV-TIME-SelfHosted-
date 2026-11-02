@@ -114,11 +114,12 @@ export const styles = StyleSheet.create({
 	},
 	cardTitle: {
 		...typography.caption,
-		color: colors.text,
+		color: colors.onImage,
 		flexShrink: 1,
 	},
 	cardYear: {
 		...typography.caption,
+		color: colors.onImageSecondary,
 		fontSize: 11,
 	},
 	watchlistBadge: {
@@ -129,7 +130,7 @@ export const styles = StyleSheet.create({
 		height: 26,
 		borderRadius: 13,
 		borderWidth: 2,
-		borderColor: colors.text,
+		borderColor: colors.onImage,
 		backgroundColor: colors.badgeOverlay,
 		justifyContent: "center" as const,
 		alignItems: "center" as const,
@@ -148,7 +149,7 @@ export const styles = StyleSheet.create({
 		height: 26,
 		borderRadius: 13,
 		borderWidth: 2,
-		borderColor: colors.text,
+		borderColor: colors.onImage,
 		backgroundColor: colors.badgeOverlay,
 		justifyContent: "center" as const,
 		alignItems: "center" as const,
@@ -175,7 +176,7 @@ export const styles = StyleSheet.create({
 		backgroundColor: colors.moviePurple,
 	},
 	typeBadgeText: {
-		color: colors.text,
+		color: colors.onPrimary,
 		fontSize: 10,
 		fontWeight: "700" as const,
 	},

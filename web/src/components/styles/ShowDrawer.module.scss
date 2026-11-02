@@ -174,7 +174,7 @@
 	border-radius: 18px;
 	border: 2px solid var(--text);
 	background: rgba(0, 0, 0, 0.5);
-	color: var(--text);
+	color: var(--on-image);
 	cursor: pointer;
 }
 
@@ -222,7 +222,7 @@
 	border: none;
 	border-radius: 8px;
 	background: var(--primary);
-	color: var(--text);
+	color: var(--on-primary);
 	font-size: 14px;
 	font-weight: 600;
 	cursor: pointer;

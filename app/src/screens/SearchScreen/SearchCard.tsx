@@ -54,10 +54,10 @@ function SearchCard({
 				accessibilityLabel={isInWatchlist ? "Remove from watchlist" : "Add to watchlist"}
 			>
 				{isAdding ? (
-					<ActivityIndicator size="small" color={colors.text} />
+					<ActivityIndicator size="small" color={colors.onImage} />
 				) : (
 					// Vector glyphs sit in the middle of their box — a text "+" rode high and off centre
-					<Ionicons name={isInWatchlist ? "checkmark" : "add"} size={18} color={colors.text} />
+					<Ionicons name={isInWatchlist ? "checkmark" : "add"} size={18} color={colors.onImage} />
 				)}
 			</TouchableOpacity>
 			<TouchableOpacity
@@ -70,7 +70,7 @@ function SearchCard({
 				activeOpacity={0.7}
 				accessibilityLabel="Add to List"
 			>
-				<Ionicons name={isListed ? "bookmark" : "bookmark-outline"} size={14} color={colors.text} />
+				<Ionicons name={isListed ? "bookmark" : "bookmark-outline"} size={14} color={colors.onImage} />
 			</TouchableOpacity>
 			<View style={styles.banner}>
 				<View style={styles.bannerTop}>

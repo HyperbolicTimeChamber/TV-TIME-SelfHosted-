@@ -9,7 +9,7 @@ import {
 	getStateFromPath,
 } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { colors } from "../theme";
+import { colors, isLightTheme } from "../theme";
 import { MainStackParamList, Route, SwipeTabParamList } from "../types";
 import { MediaType, WEB_BASE_URL } from "../enums";
 import SwipeTabsScreen from "./SwipeTabsScreen";
@@ -18,7 +18,7 @@ import { trackPageViewed } from "../services/mixpanel";
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
 const navTheme = {
-	dark: true,
+	dark: !isLightTheme(),
 	colors: {
 		primary: colors.primary,
 		background: colors.background,

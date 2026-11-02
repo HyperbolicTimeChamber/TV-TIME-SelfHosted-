@@ -229,9 +229,9 @@ const styles = StyleSheet.create({
 	cardPressed: { transform: [{ scale: 0.98 }] },
 	logoSlot: { height: 44, justifyContent: "center", marginBottom: spacing.sm },
 	logo: { height: 44, width: "75%" },
-	name: { ...typography.subtitle, fontSize: 16 },
+	name: { ...typography.subtitle, fontSize: 16, color: colors.onImage },
 	metaLine: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-	meta: { ...typography.caption, color: colors.textSecondary, flexShrink: 1 },
+	meta: { ...typography.caption, color: colors.onImageSecondary, flexShrink: 1 },
 	// Year / episode counts are wider than Exx — a step down so 4 digits fit the square
 	squareValue: { fontSize: 44, lineHeight: 48 },
 	skeletonCard: { position: "absolute", top: 0, left: 0, borderRadius: 0 },
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
 		paddingVertical: 2,
 	},
 	typeBadgeMovie: { backgroundColor: colors.moviePurple },
-	typeBadgeText: { color: colors.text, fontSize: 10, fontWeight: "700" },
+	typeBadgeText: { color: colors.onPrimary, fontSize: 10, fontWeight: "700" },
 	reorderRow: {
 		flexDirection: "row",
 		alignItems: "center",

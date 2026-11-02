@@ -35,10 +35,10 @@ function ProgressModule({ progress }: { progress: NonNullable<HistoryCard["progr
 				<Ionicons
 					name={upToDate ? "checkmark-circle-outline" : "pause-circle-outline"}
 					size={RING_SIZE + 2}
-					color={colors.text}
+					color={colors.onImage}
 					style={styles.progressIcon}
 				/>
-				<Text style={[styles.progressText, { color: colors.text }]}>
+				<Text style={[styles.progressText, { color: colors.onImage }]}>
 					{upToDate ? "Up To Date" : "Paused"}
 				</Text>
 			</View>
@@ -122,9 +122,9 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 						<ProgressModule progress={card.progress} />
 					) : card.watchCount != null ? (
 						<View style={[styles.progressPill, styles.watchCountPill]}>
-							<Text style={[styles.progressText, { color: colors.text }]}>Watch Count</Text>
+							<Text style={[styles.progressText, { color: colors.onImage }]}>Watch Count</Text>
 							<View style={styles.countCircle}>
-								<Text style={[styles.progressText, { color: colors.text }]}>{card.watchCount}</Text>
+								<Text style={[styles.progressText, { color: colors.onImage }]}>{card.watchCount}</Text>
 							</View>
 						</View>
 					) : null}

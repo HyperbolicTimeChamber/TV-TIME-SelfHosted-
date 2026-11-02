@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
 	},
 	emailButtonText: {
 		...typography.subtitle,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 	buttonDisabled: {
 		opacity: 0.6,

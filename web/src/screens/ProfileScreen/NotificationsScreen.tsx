@@ -30,7 +30,7 @@ export default function NotificationsScreen() {
 			</div>
 			<p className={styles.soon}>{COMING_SOON}: these options are not active yet.</p>
 
-			<section className={styles.section}>
+			<section className={`${styles.section} ${styles.dim}`}>
 				<h2 className={styles.sectionTitle}>Reminders</h2>
 				{NOTIFICATION_OPTIONS.map((option) => (
 					<div key={option.kind} className={styles.row}>

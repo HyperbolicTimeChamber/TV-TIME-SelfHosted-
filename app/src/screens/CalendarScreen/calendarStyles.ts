@@ -172,5 +172,5 @@ export const styles = StyleSheet.create({
 		borderRadius: 8,
 	},
 	yearItemText: { ...typography.body, fontSize: 18, color: colors.textSecondary },
-	yearItemTextActive: { color: colors.text, fontWeight: "700" },
+	yearItemTextActive: { color: colors.onPrimary, fontWeight: "700" },
 });

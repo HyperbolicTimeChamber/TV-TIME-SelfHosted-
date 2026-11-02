@@ -1,7 +1,7 @@
 import { StyleSheet } from "react-native";
 import { colors, spacing, tint } from "../../../theme";
 
-const TIME_TEXT = tint(colors.text, 0.95);
+const TIME_TEXT = tint(colors.onImage, 0.95);
 
 /** Shared with the web card (same numbers → identical at phone width) */
 export const CARD_RADIUS = 16;
@@ -78,7 +78,7 @@ export const styles = StyleSheet.create({
 	// Press feedback: a touch smaller, never from nothing
 	chipPressed: { transform: [{ scale: 0.97 }], opacity: 0.85 },
 	filterChipText: { color: colors.textSecondary, fontWeight: "600", fontSize: 14 },
-	filterChipTextOn: { color: colors.text },
+	filterChipTextOn: { color: colors.onPrimary },
 
 	// Card
 	// 16:9 is the minimum (minHeight set from the card width in HistoryCardView) — the card
@@ -87,7 +87,7 @@ export const styles = StyleSheet.create({
 		width: "100%",
 		gap: spacing.md,
 		borderRadius: CARD_RADIUS,
-		backgroundColor: colors.surface,
+		backgroundColor: colors.cardDark,
 		padding: spacing.lg,
 		overflow: "hidden",
 		justifyContent: "space-between",
@@ -104,7 +104,7 @@ export const styles = StyleSheet.create({
 		gap: spacing.md,
 	},
 	logo: { flex: 1, height: LOGO_HEIGHT },
-	cardTitle: { flex: 1, color: colors.text, fontSize: 20, fontWeight: "600" },
+	cardTitle: { flex: 1, color: colors.onImage, fontSize: 20, fontWeight: "600" },
 	pill: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 },
 	// Rewatch count: white circle at the pill's end, concentric (right = vertical padding)
 	pillWithCount: {
@@ -119,12 +119,12 @@ export const styles = StyleSheet.create({
 		height: 20,
 		borderRadius: 10,
 		paddingHorizontal: 5,
-		backgroundColor: colors.text,
+		backgroundColor: colors.onImage,
 		alignItems: "center",
 		justifyContent: "center",
 	},
-	pillCountText: { color: colors.surface, fontSize: 12, fontWeight: "700" },
-	pillText: { color: colors.text, fontSize: 13, fontWeight: "700" },
+	pillCountText: { color: colors.cardDark, fontSize: 12, fontWeight: "700" },
+	pillText: { color: colors.onImage, fontSize: 13, fontWeight: "700" },
 	bottomRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
 	leftBlock: { alignItems: "flex-start", gap: spacing.sm + 2 },
 	timeBlock: { alignItems: "flex-end" },
@@ -177,7 +177,7 @@ export const styles = StyleSheet.create({
 		paddingVertical: 3,
 		backgroundColor: `${colors.textSecondary}59`,
 	},
-	tag: { color: colors.text, fontSize: 12, fontWeight: "600" },
+	tag: { color: colors.onImage, fontSize: 12, fontWeight: "600" },
 
 	// Profile entry button
 	historyButton: {
@@ -191,5 +191,5 @@ export const styles = StyleSheet.create({
 		// Shares the row with the Settings circle
 		flex: 1,
 	},
-	historyButtonText: { color: colors.text, fontSize: 17, fontWeight: "600" },
+	historyButtonText: { color: colors.onPrimary, fontSize: 17, fontWeight: "600" },
 });

@@ -1,15 +1,17 @@
 import { motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
-import { ACCENT_OPTIONS, COMING_SOON, THEME_OPTIONS, ThemeMode } from "@app/utils/settingsOptions";
+import { ACCENT_OPTIONS, THEME_OPTIONS } from "@app/theme";
 import { CircleBackButton, CircleButtonSpacer } from "../../components/CircleButton";
+import { setThemePrefs, useThemePrefs } from "../../theme/applyTheme";
 import styles from "./styles/SettingsPlaceholder.module.scss";
 
 /** Swipe right farther than this to go back (as on the app) */
 const SWIPE_BACK_PX = 60;
 
-/** Appearance placeholder (app AppearanceScreen): the planned theme + accent choices, none applies yet */
+/** Appearance (app AppearanceScreen): theme + accent color, applied at once (CSS variables) */
 export default function AppearanceScreen() {
 	const navigate = useNavigate();
+	const prefs = useThemePrefs();
 
 	return (
 		<motion.div
@@ -27,31 +29,43 @@ export default function AppearanceScreen() {
 				<h1 className={styles.headerTitle}>Appearance</h1>
 				<CircleButtonSpacer />
 			</div>
-			<p className={styles.soon}>{COMING_SOON}: these options are not active yet.</p>
 
 			<section className={styles.section}>
 				<h2 className={styles.sectionTitle}>Theme</h2>
 				{THEME_OPTIONS.map((option) => (
-					<div key={option.mode} className={styles.row}>
+					<button
+						key={option.mode}
+						className={styles.row}
+						onClick={() => setThemePrefs({ ...prefs, mode: option.mode })}
+					>
 						<span className={styles.rowText}>{option.label}</span>
 						<span
-							className={`${styles.radio} ${option.mode === ThemeMode.DARK ? styles.radioOn : ""}`}
+							className={`${styles.radio} ${option.mode === prefs.mode ? styles.radioOn : ""}`}
 						/>
-					</div>
+					</button>
 				))}
 			</section>
 
 			<section className={styles.section}>
 				<h2 className={styles.sectionTitle}>Accent color</h2>
 				<div className={styles.swatches}>
-					{ACCENT_OPTIONS.map((option, index) => (
-						<div key={option.label} className={styles.swatchWrap}>
+					{ACCENT_OPTIONS.map((option) => (
+						<button
+							key={option.id}
+							className={styles.swatchWrap}
+							onClick={() => setThemePrefs({ ...prefs, accent: option.id })}
+						>
 							<span
-								className={`${styles.swatch} ${index === 0 ? styles.swatchOn : ""}`}
-								style={{ background: option.color }}
+								className={`${styles.swatch} ${option.id === prefs.accent ? styles.swatchOn : ""}`}
+								style={{
+									background:
+										option.accent === option.primary
+											? option.primary
+											: `linear-gradient(${option.primary} 50%, ${option.accent} 50%)`,
+								}}
 							/>
 							{option.label}
-						</div>
+						</button>
 					))}
 				</div>
 			</section>

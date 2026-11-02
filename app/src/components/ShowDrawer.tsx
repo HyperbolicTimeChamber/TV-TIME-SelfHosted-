@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
 	typeBadgeText: {
 		fontSize: 10,
 		fontWeight: "700",
-		color: colors.text,
+		color: colors.onPrimary,
 		letterSpacing: 0.5,
 	},
 	meta: {
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
 	goToShowText: {
 		...typography.subtitle,
 		fontSize: 14,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 	// Over the backdrop's top-right corner, below the sheet's grab handle
 	listButton: {
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
 		height: 36,
 		borderRadius: 18,
 		borderWidth: 2,
-		borderColor: colors.text,
+		borderColor: colors.onImage,
 		backgroundColor: colors.badgeOverlay,
 		justifyContent: "center",
 		alignItems: "center",

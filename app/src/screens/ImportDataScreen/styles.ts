@@ -58,7 +58,7 @@ export const importStyles = StyleSheet.create({
 	},
 	buttonText: {
 		...typography.subtitle,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 	skipButton: {
 		marginTop: spacing.lg,
@@ -147,7 +147,7 @@ export const importStyles = StyleSheet.create({
 		backgroundColor: colors.moviePurple,
 	},
 	typeBadgeText: {
-		color: colors.text,
+		color: colors.onPrimary,
 		fontSize: 10,
 		fontWeight: "700",
 	},
@@ -177,7 +177,7 @@ export const importStyles = StyleSheet.create({
 		borderColor: colors.primary,
 	},
 	checkmark: {
-		color: colors.text,
+		color: colors.onPrimary,
 		fontSize: 14,
 		fontWeight: "700",
 	},
@@ -311,7 +311,7 @@ export const importStyles = StyleSheet.create({
 	},
 	modalButtonText: {
 		...typography.subtitle,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 	disambigSkipBtn: {
 		backgroundColor: colors.surface,
