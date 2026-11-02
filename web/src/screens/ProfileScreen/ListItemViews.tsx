@@ -83,7 +83,7 @@ export function ListRow({ item, onPress, onLongPress }: ItemProps) {
 		: { label: "SEASONS", value: info?.totalSeasons ? String(info.totalSeasons) : null };
 	// Tags: Watch History's, from the title's own tracking doc (none → Not Started)
 	const userId = useAuthStore((st) => st.user?.uid);
-	const entry = useTrackingEntry(userId, item.tmdbId, item.mediaType, true);
+	const entry = useTrackingEntry(userId, item.tmdbId, item.mediaType);
 	const [catalogVersion, setCatalogVersion] = useState(0);
 	useEffect(() => {
 		// A tracked show's progress needs its episode list: one batched catalog read, then cached

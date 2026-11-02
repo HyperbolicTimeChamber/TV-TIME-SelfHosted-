@@ -89,6 +89,9 @@ export enum CacheKey {
 	CUSTOM_LISTS_CACHE = "custom_lists_cache_v1:",
 	/** + uid + "_" + listId — one saved custom list */
 	CUSTOM_LIST_CACHE = "custom_list_cache_v1:",
+	/** + uid + "_" + tracking doc id — a list title's last seen tracking state (list card tags);
+	 *  "null" = not tracked. One small value per title */
+	LIST_TRACKING = "list_tracking_v1:",
 	/** A list page's Grid / List choice (kept across lists and visits) */
 	CUSTOM_LIST_VIEW = "custom_list_view_v1",
 	/** Last app_opened time (ms) — derives days_since_last_open */
