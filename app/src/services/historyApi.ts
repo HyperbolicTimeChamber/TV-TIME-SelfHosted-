@@ -22,7 +22,7 @@ const IN_LIMIT = 30;
 
 const ms = (t: unknown) => (t as Timestamp | undefined)?.toMillis?.() ?? 0;
 
-function toEntry(id: string, d: Record<string, any>): HistoryEntry {
+export function toEntry(id: string, d: Record<string, any>): HistoryEntry {
 	return {
 		id,
 		tmdbId: d.tmdbId,

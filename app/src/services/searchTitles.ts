@@ -6,6 +6,9 @@ import { trackApi } from "./analytics";
 /** CF idle timeout — a warmup inside it would only spend the caller's rate limit */
 const WARM_FOR_MS = 15 * 60 * 1000;
 let lastWarmup = 0;
+/** A search call that hasn't answered by now is dropped: the screen shows its error + Retry
+ *  instead of loading until the app is restarted (the CF's own limit is 30 s) */
+const SEARCH_TIMEOUT_MS = 20 * 1000;
 
 /**
  * Start the searchTitles instance while the user is still typing, so the first search doesn't
@@ -28,14 +31,25 @@ export function searchTitles(
 	batch: number,
 ): Promise<SearchBatch> {
 	return trackApi("cloud_function", CloudFunction.SEARCH_TITLES, async () => {
-		const res = await httpsCallable(
-			getFunctions(),
-			CloudFunction.SEARCH_TITLES,
-		)({
-			query,
-			scope,
-			batch,
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const timeout = new Promise<never>((_, reject) => {
+			timer = setTimeout(() => reject(new Error("Search timed out")), SEARCH_TIMEOUT_MS);
 		});
-		return res.data as SearchBatch;
+		try {
+			const res = await Promise.race([
+				httpsCallable(
+					getFunctions(),
+					CloudFunction.SEARCH_TITLES,
+				)({
+					query,
+					scope,
+					batch,
+				}),
+				timeout,
+			]);
+			return res.data as SearchBatch;
+		} finally {
+			clearTimeout(timer);
+		}
 	});
 }

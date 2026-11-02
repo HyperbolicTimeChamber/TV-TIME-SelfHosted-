@@ -12,6 +12,7 @@ export * from "./upcomingQueue";
 export * from "./watchlistEvents";
 export * from "./historyCache";
 export * from "./historyCard";
+export * from "./listCardTags";
 export * from "./completedSections";
 export * from "./calendarGrid";
 export * from "./historyView";

@@ -413,8 +413,8 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 	},
 	listButtonActive: {
-		backgroundColor: colors.accent,
-		borderColor: colors.accent,
+		backgroundColor: colors.warningAmber,
+		borderColor: colors.warningAmber,
 	},
 	actions: { marginHorizontal: spacing.lg },
 	actionGap: { marginTop: spacing.md },

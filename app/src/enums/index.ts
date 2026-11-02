@@ -181,7 +181,7 @@ export enum CircleButtonTone {
 	SURFACE_LIGHT = "surfaceLight",
 	/** Brightest grey (the border colour) — stands out on black */
 	RAISED = "raised",
-	/** Accent blue — a toggled-on state (the Add to List button once the title is listed) */
+	/** Amber — a toggled-on state (the Add to List button once the title is listed) */
 	ACCENT = "accent",
 }
 
@@ -225,6 +225,22 @@ export enum HistoryProgress {
 	PERCENT = "percent",
 	UP_TO_DATE = "upToDate",
 	PAUSED = "paused",
+}
+
+/** One tag on a list card's tag line (the Watch History card's tags, plus Not Started) */
+export enum ListTagKind {
+	/** Currently Watching / Rewatching / Completed — optional rewatch count */
+	STATUS = "status",
+	PERCENT = "percent",
+	UP_TO_DATE = "upToDate",
+	PAUSED = "paused",
+	WATCH_COUNT = "watchCount",
+	/** Ongoing / Ended */
+	AIRING = "airing",
+	/** Not on the watchlist */
+	NOT_STARTED = "notStarted",
+	/** On the watchlist, never watched (movies) */
+	NOT_WATCHED = "notWatched",
 }
 
 export enum DocChangeType {

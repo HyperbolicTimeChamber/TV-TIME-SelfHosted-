@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 	},
-	badgeActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+	badgeActive: { backgroundColor: colors.warningAmber, borderColor: colors.warningAmber },
 	loader: { paddingVertical: spacing.xl },
 	empty: {
 		color: colors.textSecondary,

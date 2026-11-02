@@ -3,6 +3,14 @@ import { getShowDetails } from "../services";
 import { getCachedCatalogShow } from "./useWatchlist";
 import { useAuthStore } from "../stores";
 import { MediaType, QueryKey } from "../types";
+import { ENDED_STATUSES } from "../enums";
+
+const airingOf = (mediaType: MediaType, status: string | undefined | null) =>
+	mediaType === MediaType.TV && status
+		? ENDED_STATUSES.includes(status)
+			? "Ended"
+			: "Ongoing"
+		: null;
 
 export interface TitleInfo {
 	totalEpisodes: number | null;
@@ -12,6 +20,10 @@ export interface TitleInfo {
 	backdropPath: string | null;
 	/** First air / release year ("2024") */
 	year: string | null;
+	/** TV: season count (the list card's square) */
+	totalSeasons: number | null;
+	/** TV: "Ongoing" / "Ended" once TMDB says; null for movies / unknown */
+	airing: string | null;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -35,6 +47,8 @@ export function useTitleInfo(tmdbId: number, mediaType: MediaType, enabled = tru
 					runtime: cached.runtime ?? null,
 					backdropPath: cached.backdropPath ?? null,
 					year: (cached.firstAirDate ?? cached.releaseDate)?.slice(0, 4) || null,
+					totalSeasons: mediaType === MediaType.TV ? cached.totalSeasons || null : null,
+					airing: airingOf(mediaType, cached.status),
 				};
 			}
 			const apiKey = useAuthStore.getState().appTmdbApiKey;
@@ -46,6 +60,8 @@ export function useTitleInfo(tmdbId: number, mediaType: MediaType, enabled = tru
 				runtime: details.runtime ?? episodeRunTime?.[0] ?? null,
 				backdropPath: details.backdrop_path ?? null,
 				year: (details.first_air_date ?? details.release_date)?.slice(0, 4) || null,
+				totalSeasons: mediaType === MediaType.TV ? (details.number_of_seasons ?? null) : null,
+				airing: airingOf(mediaType, details.status),
 			};
 		},
 	});

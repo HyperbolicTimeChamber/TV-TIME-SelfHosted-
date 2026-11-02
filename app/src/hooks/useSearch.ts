@@ -23,5 +23,8 @@ export function useSearch(query: string, mediaType: MediaFilter = MediaFilter.AL
 		select: selectResults,
 		// A query's results don't change within a session — never refetched (each one is a CF call)
 		staleTime: Infinity,
+		// A hung call times out after 20 s (searchTitles); one retry, not the default three, so a bad
+		// connection reaches the error + Retry state in under a minute
+		retry: 1,
 	});
 }

@@ -48,7 +48,7 @@ function SearchCard({
 						onAdd(item);
 					}
 				}}
-				hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+				hitSlop={{ top: 5, bottom: 5, left: 8, right: 8 }}
 				activeOpacity={0.7}
 				disabled={isAdding}
 				accessibilityLabel={isInWatchlist ? "Remove from watchlist" : "Add to watchlist"}
@@ -66,7 +66,7 @@ function SearchCard({
 					e.stopPropagation?.();
 					onAddToList(item);
 				}}
-				hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+				hitSlop={{ top: 5, bottom: 5, left: 8, right: 8 }}
 				activeOpacity={0.7}
 				accessibilityLabel="Add to List"
 			>

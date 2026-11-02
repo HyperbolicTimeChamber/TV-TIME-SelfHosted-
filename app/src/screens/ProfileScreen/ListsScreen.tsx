@@ -4,6 +4,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { Gesture } from "react-native-gesture-handler";
 import ReorderableList, {
 	useReorderableDrag,
@@ -143,6 +144,9 @@ function PosterStrip({ items }: { items: CustomList["items"] }) {
  */
 function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 	const drag = useReorderableDrag();
+	// Picked up: the hold has registered and the drag is armed — a tick, and the card lifts
+	// (amber edge, a touch bigger) until the finger lets go, so it's plain when it's ready to move
+	const [lifted, setLifted] = useState(false);
 	const cover = listCoverItem(list);
 	const { data: info, isPending } = useTitleInfo(
 		cover?.tmdbId ?? 0,
@@ -152,9 +156,19 @@ function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 	const loading = !!cover && isPending;
 	return (
 		<Pressable
-			style={({ pressed }) => [card.episodeCard, styles.card, pressed && styles.rowPressed]}
+			style={({ pressed }) => [
+				card.episodeCard,
+				styles.card,
+				pressed && !lifted && styles.rowPressed,
+				lifted && styles.rowLifted,
+			]}
 			onPress={onOpen}
-			onLongPress={drag}
+			onLongPress={() => {
+				Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+				setLifted(true);
+				drag();
+			}}
+			onPressOut={() => setLifted(false)}
 			delayLongPress={HOLD_TO_DRAG_MS}
 			accessibilityRole="button"
 			accessibilityLabel={`${list.name}, ${titleCount(list.items.length)}`}
@@ -537,6 +551,17 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.background,
 	},
 	rowPressed: { transform: [{ scale: 0.98 }] },
+	// Armed to drag: lifted and edged in amber
+	rowLifted: {
+		transform: [{ scale: 1.03 }],
+		borderWidth: 2,
+		borderColor: colors.warningAmber,
+		elevation: 12,
+		shadowColor: "#000",
+		shadowOpacity: 0.5,
+		shadowRadius: 12,
+		shadowOffset: { width: 0, height: 6 },
+	},
 	// The calendar card sits in the list's own padding
 	card: { marginHorizontal: 0 },
 	skeletonCard: { position: "absolute", top: 0, left: 0, borderRadius: 0 },

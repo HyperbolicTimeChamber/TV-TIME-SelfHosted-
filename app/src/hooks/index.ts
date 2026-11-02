@@ -38,6 +38,7 @@ export { useCompletedShows } from "./useCompletedShows";
 export { useCustomLists } from "./useCustomLists";
 export { useCustomListView } from "./useCustomListView";
 export { useTitleInfo } from "./useTitleInfo";
+export { useTrackingEntry } from "./useTrackingEntry";
 export type { TitleInfo } from "./useTitleInfo";
 export type { CreateListResult } from "./useCustomLists";
 export type { CompletedItem } from "./useCompletedShows";
