@@ -1,4 +1,5 @@
 import axios from "axios";
+import { keywordNames } from "../shared/titleFacets";
 import {
   EpisodeType,
   MediaType,
@@ -166,8 +167,8 @@ export async function fetchShowFromTMDB(
       api_key: apiKey,
       append_to_response:
         mediaType === MediaType.MOVIE
-          ? "credits,images"
-          : "images,external_ids",
+          ? "credits,images,keywords"
+          : "images,external_ids,keywords",
       include_image_language: "en,null",
     },
   });
@@ -257,6 +258,7 @@ export async function fetchShowFromTMDB(
     releaseDate: data.release_date ?? null,
     seasons,
     genres: (data.genres ?? []).map((g) => g.name),
+    keywords: keywordNames(data.keywords?.results ?? data.keywords?.keywords),
     logoPath: pickLogo(data.images?.logos),
     ...(mediaType === MediaType.TV ? { tvmazeId } : {}),
     ...(mediaType === MediaType.MOVIE && data.credits?.crew

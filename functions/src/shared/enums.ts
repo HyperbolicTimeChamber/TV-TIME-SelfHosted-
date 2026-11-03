@@ -185,12 +185,21 @@ export const SEARCH_MAX_QUEUE_WAIT_MS = 8000;
 export const SEARCH_CACHE_TTL_MS = HOUR_MS;
 /** Cached batches kept per instance (oldest dropped first) */
 export const SEARCH_CACHE_MAX_ENTRIES = 500;
+/** A title search with fewer results than this gets titles tagged with matching keywords after them */
+export const SEARCH_KEYWORD_FALLBACK_BELOW = 10;
+/** Best-matching TMDB keywords used for that fallback */
+export const SEARCH_KEYWORD_MAX = 3;
+/** TMDB keywords kept per title (catalog + tracking docs) */
+export const TITLE_KEYWORD_MAX = 40;
 
 /** Per-user subcollections of the tracking delta sync (mirrors app UserCollection) */
 export enum UserCollection {
   TRACKING = "tracking",
   /** One entry per deleted tracking doc (same id) — other devices drop their saved copy */
   TRACKING_DELETIONS = "trackingDeletions",
+  /** One doc per media type (tv / movie): every genre + keyword across the user's tracked
+   *  titles, with how many titles carry it — Watch History's filter choices */
+  FACETS = "facets",
 }
 
 /** Server time of a tracking doc's last write — clients' delta listener reads only docs past it */

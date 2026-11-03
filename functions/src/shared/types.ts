@@ -1,3 +1,4 @@
+import type { UserFacets } from "./titleFacets";
 import { EpisodeType, MediaType, RefreshReason, WatchStatus, SearchScope } from "./enums";
 
 export interface TMDBEpisode {
@@ -43,7 +44,14 @@ export interface TMDBShowDetail {
     crew: Array<{ job: string; department: string; name: string }>;
   };
   images?: { logos?: TMDBLogo[] };
+  /** append_to_response=keywords — TV lists them under results, movies under keywords */
+  keywords?: { results?: TMDBKeyword[]; keywords?: TMDBKeyword[] };
   external_ids?: { tvdb_id?: number | null; imdb_id?: string | null };
+}
+
+export interface TMDBKeyword {
+  id: number;
+  name: string;
 }
 
 export interface TMDBLogo {
@@ -92,6 +100,8 @@ export interface CatalogShow {
   releaseDate: string | null;
   seasons: CatalogSeason[];
   genres: string[];
+  /** TMDB keyword names (lowercase), at most TITLE_KEYWORD_MAX — Watch History filters on them */
+  keywords?: string[];
   /** TMDB title logo (English, else language-neutral); null = TMDB has none */
   logoPath?: string | null;
   /** TVMaze show id (cached so later syncs skip the lookup); null = not on TVMaze */
@@ -139,6 +149,8 @@ export interface ImportStats {
   moviesImported: number;
   episodesImported: number;
   minutesImported: number;
+  /** The user's filter choices as rebuilt by the import (tv / movie) — the client keeps them */
+  facets?: Record<MediaType, UserFacets>;
 }
 
 // removeShow types

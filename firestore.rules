@@ -219,6 +219,13 @@ service cloud.firestore {
           && request.resource.data.items.size() <= 500;
       }
 
+      // Watch History filter choices (tv / movie): every genre + keyword across the tracked
+      // titles, counted — kept by addShow / removeShow / importMatches only
+      match /facets/{mediaType} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
+
       match /upcoming/{episodeId} {
         allow read, delete: if isOwner(userId);
         allow create, update: if false; // CF-only writes

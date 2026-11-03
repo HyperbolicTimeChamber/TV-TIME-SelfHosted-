@@ -1,4 +1,5 @@
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { titleFacets } from "../../shared/titleFacets";
 import { CatalogShow } from "../tmdb";
 import { showDocId } from "../../shared/docId";
 import { MediaType, WatchStatus } from "../../shared/enums";
@@ -169,6 +170,7 @@ export function buildImportOps(
         addedAt: now,
         lastWatchedAt,
         priorityDate: lastWatchedAt,
+        ...titleFacets(catalog),
         ...(plays > 0
           ? {
               historyAt: lastWatchedAt,

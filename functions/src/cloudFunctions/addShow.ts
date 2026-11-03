@@ -2,6 +2,8 @@ import { HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { fetchShowFromTMDB, CatalogShow } from "../hooks/tmdb";
 import { addToTrackedBy } from "../hooks/trackedBy";
+import { fetchKeywords, stampTrackingFacets } from "../hooks/titleFacets";
+import { FacetDelta } from "../shared/titleFacets";
 import { getTmdbApiKey, invalidateApiKeyCache } from "../hooks/apiKey";
 import { addShowToUpcoming } from "../hooks/upcoming";
 import { showDocId } from "../shared/docId";
@@ -21,7 +23,7 @@ export const addShow = trackedOnCall(
     timeoutSeconds: 120,
     memory: "256MiB",
   },
-  async (request): Promise<CatalogShow> => {
+  async (request): Promise<CatalogShow & { facetDelta?: FacetDelta }> => {
     const uid = requireCaller(request, Callable.ADD_SHOW);
     if (request.data?.warmup) return {} as CatalogShow;
 
@@ -37,7 +39,20 @@ export const addShow = trackedOnCall(
     // Fast path: if catalog doc already exists, just add to trackedBy
     const existingDoc = await showRef.get();
     if (existingDoc.exists) {
-      await addToTrackedBy(showId, uid);
+      const catalog = existingDoc.data() as CatalogShow;
+      // Written before keywords were stored: fetch them once (light request) for every tracker
+      if (!("keywords" in catalog)) {
+        try {
+          catalog.keywords = await fetchKeywords(await getTmdbApiKey(), tmdbId, mediaType);
+          await showRef.update({ keywords: catalog.keywords });
+        } catch (err) {
+          console.warn(`[addShow] keywords for ${showId} failed:`, (err as Error).message);
+        }
+      }
+      const [, facetDelta] = await Promise.all([
+        addToTrackedBy(showId, uid),
+        stampTrackingFacets(db, uid, showId, catalog),
+      ]);
 
       // Update upcoming subcollection (fire-and-forget)
       if (mediaType === MediaType.TV) {
@@ -46,7 +61,8 @@ export const addShow = trackedOnCall(
         );
       }
 
-      return existingDoc.data() as CatalogShow;
+      // What the user's filter choices gained — the client patches its copy (no re-read)
+      return facetDelta ? { ...catalog, facetDelta } : catalog;
     }
 
     // Slow path: fetch from TMDB and create catalog doc
@@ -88,9 +104,10 @@ export const addShow = trackedOnCall(
     });
 
     // Only need addToTrackedBy if we lost the race (another call created the doc)
-    if (!created) {
-      await addToTrackedBy(showId, uid);
-    }
+    const [, facetDelta] = await Promise.all([
+      created ? null : addToTrackedBy(showId, uid),
+      stampTrackingFacets(db, uid, showId, showData),
+    ]);
 
     // Update upcoming subcollection (fire-and-forget, don't block response)
     if (mediaType === MediaType.TV) {
@@ -99,6 +116,6 @@ export const addShow = trackedOnCall(
       );
     }
 
-    return showData;
+    return facetDelta ? { ...showData, facetDelta } : showData;
   },
 );

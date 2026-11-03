@@ -1,5 +1,5 @@
 import { HttpsError } from "firebase-functions/v2/https";
-import { fetchSearchBatch } from "../hooks/searchTitles";
+import { fetchSearchBatch, primeSearch } from "../hooks/searchTitles";
 import { RateLimitError } from "../hooks/tmdbProxy";
 import { requireCallerOrGuest } from "../hooks/requireCaller";
 import { trackedOnCall } from "../hooks/trackedTriggers";
@@ -34,7 +34,10 @@ export const searchTitles = trackedOnCall(
   async (request): Promise<SearchTitlesResponse | null> => {
     // Logged-out web visitors search too (limited per IP)
     requireCallerOrGuest(request, Callable.SEARCH_TITLES);
-    if (request.data?.warmup) return null;
+    if (request.data?.warmup) {
+      await primeSearch();
+      return null;
+    }
 
     const { query, scope, batch } = (request.data ?? {}) as SearchTitlesRequest;
     if (
