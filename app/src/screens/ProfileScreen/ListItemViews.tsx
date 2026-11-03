@@ -32,10 +32,12 @@ import SearchCard from "../SearchScreen/SearchCard";
 
 /** The card (taller than the calendar's), and the row under the square — the add button / Tracking
  *  tag and the status tags share it, so they line up */
-const CARD_HEIGHT = 160;
+const CARD_HEIGHT = 136;
 /** The square's corner radius (the calendar's epSquare): the button under it rounds its bottom to match */
 const SQUARE_RADIUS = 14;
-const BOTTOM_ROW_HEIGHT = 40;
+const BOTTOM_ROW_HEIGHT = 32;
+/** The square above the button: 80 + 32 = the 112 block, + the card's 24 padding = CARD_HEIGHT */
+const SQUARE_HEIGHT = 80;
 const ROW_POSTER_W = 56;
 const ROW_POSTER_H = 84;
 
@@ -134,10 +136,6 @@ export function ListRow({
 		return deriveListTags(card);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [entry, catalogVersion, item.tmdbId, item.mediaType]);
-	// With two tags, the first (the status) moves up under the TV / MOVIE line — filling the gap
-	// above the bottom row — and the other stays on the line level with the add button
-	const topTags = tags && tags.length > 1 ? tags.slice(0, 1) : null;
-	const bottomTags = tags && topTags ? tags.slice(1) : tags;
 	// A show: its season count; a movie: its runtime (the year is in the square), in a translucent black pill
 	const metaText = isMovie
 		? runtime
@@ -183,26 +181,27 @@ export function ListRow({
 			) : null}
 			<View style={[StyleSheet.absoluteFill, card.cardOverlay]} />
 			<View style={[card.epInfo, styles.info]}>
-				<View style={styles.infoTop}>
-					{/* Fixed slot: the card never shifts as the logo / name arrives */}
-					<View style={styles.logoSlot}>
-						{logoPath ? (
-							<Image
-								source={{ uri: tmdbLogoUri(logoPath, CARD_WIDTH * 0.6) }}
-								style={styles.logo}
-								contentFit="contain"
-								contentPosition="left center"
-								transition={IMAGE_FADE_MS}
-								accessibilityLabel={item.title}
-							/>
-						) : showName ? (
-							<Text style={styles.name} numberOfLines={2}>
-								{item.title}
-							</Text>
-						) : logoLoading ? (
-							<SkeletonLine width="60%" height={28} style={styles.skeletonLogo} />
-						) : null}
-					</View>
+				{/* Fixed slot: the card never shifts as the logo / name arrives */}
+				<View style={styles.logoSlot}>
+					{logoPath ? (
+						<Image
+							source={{ uri: tmdbLogoUri(logoPath, CARD_WIDTH * 0.6) }}
+							style={styles.logo}
+							contentFit="contain"
+							contentPosition="left center"
+							transition={IMAGE_FADE_MS}
+							accessibilityLabel={item.title}
+						/>
+					) : showName ? (
+						<Text style={styles.name} numberOfLines={2}>
+							{item.title}
+						</Text>
+					) : logoLoading ? (
+						<SkeletonLine width="60%" height={28} style={styles.skeletonLogo} />
+					) : null}
+				</View>
+				{/* Centred between the logo and the tags, so it is equidistant from both */}
+				<View style={styles.metaArea}>
 					<View style={styles.metaLine}>
 						<TypeBadge mediaType={item.mediaType} />
 						{infoLoading ? (
@@ -215,17 +214,11 @@ export function ListRow({
 							</View>
 						) : null}
 					</View>
-					{/* Fills the space under the TV tag line; the other tag stays level with the add button */}
-					{topTags && (
-						<View style={styles.topTagsRow}>
-							<ListCardTags tags={topTags} flush />
-						</View>
-					)}
 				</View>
 				{/* Level with the add button / Tracking tag under the square */}
-				<View style={styles.bottomRow}>
-					{bottomTags ? (
-						<ListCardTags tags={bottomTags} flush />
+				<View style={styles.tagsRow}>
+					{tags ? (
+						<ListCardTags tags={tags} flush />
 					) : (
 						<SkeletonLine width={150} height={20} style={styles.skeletonTags} />
 					)}
@@ -422,9 +415,11 @@ const styles = StyleSheet.create({
 	card: { marginHorizontal: 0, height: CARD_HEIGHT, minHeight: CARD_HEIGHT, alignItems: "stretch" },
 	// The left column fills the card: logo + meta on top, the tags (level with the button) at the bottom
 	// Logo + meta on top, the tags at the bottom (level with the add button under the square)
-	info: { justifyContent: "space-between" },
-	// Shrinks (the logo slot gives way) when the pills below leave less than a full logo's room
-	infoTop: { flexShrink: 1, minHeight: 0 },
+	// Logo on top, the tags at the bottom, the meta pill centred in the space between
+	info: { justifyContent: "flex-start" },
+	metaArea: { flex: 1, justifyContent: "center", minHeight: 0 },
+	// The tag pills are 26 tall, centred on the 32 button beside them: 3 up from the bottom edge
+	tagsRow: { minHeight: 26, justifyContent: "center", marginBottom: 3 },
 	rightCol: {
 		alignItems: "center",
 		// One block: the square with the button / Tracking tag joined to its bottom edge, level
@@ -433,7 +428,12 @@ const styles = StyleSheet.create({
 		marginLeft: spacing.md,
 	},
 	// Flat bottom: the button continues it
-	square: { marginLeft: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
+	square: {
+		marginLeft: 0,
+		height: SQUARE_HEIGHT,
+		borderBottomLeftRadius: 0,
+		borderBottomRightRadius: 0,
+	},
 	bottomRow: { height: BOTTOM_ROW_HEIGHT, justifyContent: "center" },
 	addButton: {
 		flexDirection: "row",
@@ -465,11 +465,9 @@ const styles = StyleSheet.create({
 		minHeight: 24,
 		height: 44,
 		justifyContent: "center",
-		marginBottom: spacing.xs,
 	},
 	logo: { height: "100%", width: "75%" },
 	name: { ...typography.subtitle, fontSize: 16 },
-	topTagsRow: { marginTop: spacing.sm },
 	metaLine: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: spacing.sm },
 	// Season count / year over the backdrop: a translucent black pill, like the card's square
 	metaPill: {
@@ -481,7 +479,7 @@ const styles = StyleSheet.create({
 	metaPillText: { color: colors.text, fontSize: 11, fontWeight: "700" },
 	meta: { ...typography.caption, color: colors.textSecondary, flexShrink: 1 },
 	// Year / episode counts are wider than Exx — a step down so 4 digits fit the square
-	squareValue: { fontSize: 44, lineHeight: 48 },
+	squareValue: { fontSize: 36, lineHeight: 40 },
 	skeletonCard: { position: "absolute", top: 0, left: 0, borderRadius: 0 },
 	// Skeletons sit on the dark overlay: a lighter grey reads as a placeholder there
 	skeletonLogo: { borderRadius: 6, backgroundColor: colors.textMuted },

@@ -113,9 +113,9 @@
 	position: relative;
 	overflow: hidden;
 	width: 100%;
-	/* Exactly the right block (96 square + 40 button) plus the card's padding: the left column fits
+	/* Exactly the right block (80 square + 32 button) plus the card's padding: the left column fits
 	   inside it, the logo giving way */
-	height: 160px;
+	height: 136px;
 	box-sizing: border-box;
 	display: flex;
 	align-items: stretch;
@@ -193,8 +193,8 @@
 	min-width: 0;
 	display: flex;
 	flex-direction: column;
-	/* Logo + meta on top, the tags at the bottom (level with the add button under the square) */
-	justify-content: space-between;
+	/* Logo on top, the tags at the bottom, the meta pill centred in the space between */
+	justify-content: flex-start;
 	align-items: flex-start;
 }
 
@@ -214,7 +214,7 @@
 .bottomRow {
 	display: flex;
 	align-items: center;
-	height: 40px;
+	height: 32px;
 }
 
 .addButton,
@@ -223,7 +223,7 @@
 	align-items: center;
 	justify-content: center;
 	gap: 4px;
-	height: 40px;
+	height: 32px;
 	/* As wide as the square, flat top (joined to it), bottom corners matching its top (14px) */
 	width: 96px;
 	padding: 0 8px;
@@ -253,13 +253,22 @@
 	background: $watched-green;
 }
 
-/* Shrinks (the logo slot gives way) when the pills below leave less than a full logo's room */
-.infoTop {
-	display: flex;
-	flex-direction: column;
-	flex: 0 1 auto;
+/* The meta pill centred in the space between the logo and the tags */
+.metaArea {
+	flex: 1;
 	min-height: 0;
 	width: 100%;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+}
+
+/* The tag pills are 26 tall, centred on the 32 button beside them: 3 up from the bottom edge */
+.tagsRow {
+	display: flex;
+	align-items: center;
+	min-height: 26px;
+	margin-bottom: 3px;
 }
 
 .logoSlot {
@@ -268,7 +277,6 @@
 	width: 100%;
 	display: flex;
 	align-items: center;
-	margin-bottom: 4px;
 }
 
 .cardLogo {
@@ -294,7 +302,7 @@
 	position: relative;
 	flex-shrink: 0;
 	width: 96px;
-	height: 96px;
+	height: 80px;
 	padding: 6px 8px 0;
 	/* Flat bottom: the add button / Tracking tag continues it */
 	border-radius: 14px 14px 0 0;
@@ -323,20 +331,15 @@
 /* Year / episode counts are wider than Exx — a step down so 4 digits fit */
 .squareValue {
 	font-family: "Smooch Sans", sans-serif;
-	font-size: 44px;
+	font-size: 36px;
 	font-weight: 400;
-	line-height: 48px;
+	line-height: 40px;
 }
 
 @keyframes fadeIn {
 	from {
 		opacity: 0;
 	}
-}
-
-.topTagsRow {
-	display: block;
-	margin-top: 8px;
 }
 
 .rowMetaLine {

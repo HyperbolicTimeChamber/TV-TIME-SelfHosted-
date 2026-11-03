@@ -179,10 +179,6 @@ export function ListRow({
 		return deriveListTags(card);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [entry, catalogVersion, item.tmdbId, item.mediaType]);
-	// With two tags, the first (the status) moves up under the TV / MOVIE line — filling the gap
-	// above the bottom row — and the other stays on the line level with the add button (app ListRow)
-	const topTags = tags && tags.length > 1 ? tags.slice(0, 1) : null;
-	const bottomTags = tags && topTags ? tags.slice(1) : tags;
 	// A show: its season count; a movie: its runtime (the year is in the square), in a translucent black pill
 	const metaText = isMovie
 		? runtime
@@ -214,21 +210,22 @@ export function ListRow({
 			) : null}
 			<span className={styles.cardOverlay} />
 			<span className={styles.cardInfo}>
-				<span className={styles.infoTop}>
-					{/* Fixed slot: the card never shifts as the logo / name arrives */}
-					<span className={styles.logoSlot}>
-						{logoPath ? (
-							<img
-								src={tmdbLogoUri(logoPath, CARD_MAX_WIDTH * 0.6)}
-								alt={item.title}
-								className={styles.cardLogo}
-							/>
-						) : showName ? (
-							<span className={styles.cardName}>{item.title}</span>
-						) : logoLoading ? (
-							<SkeletonBlock className={styles.skeletonLogo} />
-						) : null}
-					</span>
+				{/* Fixed slot: the card never shifts as the logo / name arrives */}
+				<span className={styles.logoSlot}>
+					{logoPath ? (
+						<img
+							src={tmdbLogoUri(logoPath, CARD_MAX_WIDTH * 0.6)}
+							alt={item.title}
+							className={styles.cardLogo}
+						/>
+					) : showName ? (
+						<span className={styles.cardName}>{item.title}</span>
+					) : logoLoading ? (
+						<SkeletonBlock className={styles.skeletonLogo} />
+					) : null}
+				</span>
+				{/* Centred between the logo and the tags, so it is equidistant from both */}
+				<span className={styles.metaArea}>
 					<span className={styles.rowMetaLine}>
 						<TypeBadge mediaType={item.mediaType} />
 						{infoLoading ? (
@@ -237,17 +234,11 @@ export function ListRow({
 							<span className={styles.metaPill}>{metaText}</span>
 						) : null}
 					</span>
-					{/* Fills the space under the TV tag line; the other tag stays level with the add button */}
-					{topTags && (
-						<span className={styles.topTagsRow}>
-							<ListCardTags tags={topTags} flush />
-						</span>
-					)}
 				</span>
 				{/* Level with the add button / Tracking tag under the square */}
-				<span className={styles.bottomRow}>
-					{bottomTags ? (
-						<ListCardTags tags={bottomTags} flush />
+				<span className={styles.tagsRow}>
+					{tags ? (
+						<ListCardTags tags={tags} flush />
 					) : (
 						<SkeletonBlock className={styles.skeletonTags} />
 					)}
