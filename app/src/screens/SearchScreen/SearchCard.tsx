@@ -11,22 +11,25 @@ interface Props {
 	isInWatchlist: boolean;
 	isAdding: boolean;
 	/** In at least one custom list */
-	isListed: boolean;
+	isListed?: boolean;
 	onPress: (item: TMDBShow) => void;
 	onAdd: (item: TMDBShow) => void;
 	onRemove: (item: TMDBShow) => void;
-	onAddToList: (item: TMDBShow) => void;
+	/** Without it the card has no Add to List button (a list's own grid) */
+	onAddToList?: (item: TMDBShow) => void;
+	onLongPress?: (item: TMDBShow) => void;
 }
 
 function SearchCard({
 	item,
 	isInWatchlist,
 	isAdding,
-	isListed,
+	isListed = false,
 	onPress,
 	onAdd,
 	onRemove,
 	onAddToList,
+	onLongPress,
 }: Readonly<Props>) {
 	const title = item.name || item.title || "";
 	const year = (item.first_air_date || item.release_date || "").substring(0, 4);
@@ -35,7 +38,13 @@ function SearchCard({
 		(item.first_air_date || (item.name && !item.title) ? MediaType.TV : MediaType.MOVIE);
 
 	return (
-		<TouchableOpacity style={styles.card} onPress={() => onPress(item)} activeOpacity={0.7}>
+		<TouchableOpacity
+			style={styles.card}
+			onPress={() => onPress(item)}
+			onLongPress={onLongPress ? () => onLongPress(item) : undefined}
+			delayLongPress={350}
+			activeOpacity={0.7}
+		>
 			<PosterImage posterPath={item.poster_path} mediaType={mediaType} style={styles.poster} />
 			<TouchableOpacity
 				style={[styles.watchlistBadge, isInWatchlist && styles.watchlistBadgeActive]}
@@ -60,18 +69,24 @@ function SearchCard({
 					<Ionicons name={isInWatchlist ? "checkmark" : "add"} size={18} color={colors.text} />
 				)}
 			</TouchableOpacity>
-			<TouchableOpacity
-				style={[styles.listBadge, isListed && styles.listBadgeActive]}
-				onPress={(e) => {
-					e.stopPropagation?.();
-					onAddToList(item);
-				}}
-				hitSlop={{ top: 5, bottom: 5, left: 8, right: 8 }}
-				activeOpacity={0.7}
-				accessibilityLabel="Add to List"
-			>
-				<Ionicons name={isListed ? "bookmark" : "bookmark-outline"} size={14} color={colors.text} />
-			</TouchableOpacity>
+			{onAddToList && (
+				<TouchableOpacity
+					style={[styles.listBadge, isListed && styles.listBadgeActive]}
+					onPress={(e) => {
+						e.stopPropagation?.();
+						onAddToList(item);
+					}}
+					hitSlop={{ top: 5, bottom: 5, left: 8, right: 8 }}
+					activeOpacity={0.7}
+					accessibilityLabel="Add to List"
+				>
+					<Ionicons
+						name={isListed ? "bookmark" : "bookmark-outline"}
+						size={14}
+						color={colors.text}
+					/>
+				</TouchableOpacity>
+			)}
 			<View style={styles.banner}>
 				<View style={styles.bannerTop}>
 					<Text style={styles.cardTitle} numberOfLines={1}>

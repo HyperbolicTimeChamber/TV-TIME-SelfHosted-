@@ -8,6 +8,8 @@ import { tmdbBlurredBackdropUri, tmdbLogoUri } from "../../../hooks/useTmdbImage
 import type { HistoryCard } from "../../../utils";
 import { BLUR_RADIUS } from "../styles";
 import ProgressRing from "./ProgressRing";
+import WatchCountPill from "../../../components/WatchCountPill";
+import StatusPill from "../../../components/StatusPill";
 import { CARD_ASPECT, RING_SIZE, styles } from "./styles";
 
 const CARD_WIDTH = Dimensions.get("window").width - 32;
@@ -102,31 +104,17 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 				{/* Bottom-left: status pill above one slot — progress / up to date / paused,
 				    else the watch count */}
 				<View style={styles.leftBlock}>
-					{card.pill && (
-						<View
-							style={[
-								styles.pill,
-								card.pillCount != null && styles.pillWithCount,
-								{ backgroundColor: PILL_COLOR[card.pill] },
-							]}
-						>
-							<Text style={styles.pillText}>{card.pillLabel}</Text>
-							{card.pillCount != null && (
-								<View style={styles.pillCountCircle}>
-									<Text style={styles.pillCountText}>{card.pillCount}</Text>
-								</View>
-							)}
-						</View>
+					{card.pill && card.pillLabel && (
+						<StatusPill
+							label={card.pillLabel}
+							color={PILL_COLOR[card.pill]}
+							count={card.pillCount}
+						/>
 					)}
 					{card.progress ? (
 						<ProgressModule progress={card.progress} />
 					) : card.watchCount != null ? (
-						<View style={[styles.progressPill, styles.watchCountPill]}>
-							<Text style={[styles.progressText, { color: colors.text }]}>Watch Count</Text>
-							<View style={styles.countCircle}>
-								<Text style={[styles.progressText, { color: colors.text }]}>{card.watchCount}</Text>
-							</View>
-						</View>
+						<WatchCountPill count={card.watchCount} />
 					) : null}
 				</View>
 				{(card.lastWatched || card.timeSpent) && (

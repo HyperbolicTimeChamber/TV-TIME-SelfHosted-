@@ -5,6 +5,8 @@ import { HistoryPill, ListTagKind } from "../../enums";
 import type { ListTag } from "../../utils";
 import { colors, spacing } from "../../theme";
 import ProgressRing from "./WatchHistory/ProgressRing";
+import WatchCountPill from "../../components/WatchCountPill";
+import StatusPill from "../../components/StatusPill";
 import { RING_SIZE } from "./WatchHistory/styles";
 import { PILL_COLOR } from "./WatchHistory/HistoryCardView";
 
@@ -17,7 +19,10 @@ const GREY = `${colors.textSecondary}59`;
 export default function ListCardTags({
 	tags,
 	flush = false,
-}: Readonly<{ tags: ListTag[]; /** No space above: the caller lines the row up itself */ flush?: boolean }>) {
+}: Readonly<{
+	tags: ListTag[];
+	/** No space above: the caller lines the row up itself */ flush?: boolean;
+}>) {
 	return (
 		<View style={[styles.line, flush && styles.lineFlush]}>
 			{tags.map((t) => (
@@ -31,14 +36,12 @@ function Tag({ tag }: Readonly<{ tag: ListTag }>) {
 	switch (tag.kind) {
 		case ListTagKind.STATUS:
 			return (
-				<View style={[styles.tag, { backgroundColor: PILL_COLOR[tag.pill as HistoryPill] }]}>
-					<Text style={styles.text}>{tag.label}</Text>
-					{tag.count != null && (
-						<View style={styles.countCircle}>
-							<Text style={styles.countText}>{tag.count}</Text>
-						</View>
-					)}
-				</View>
+				<StatusPill
+					label={tag.label}
+					color={PILL_COLOR[tag.pill as HistoryPill]}
+					count={tag.count}
+					compact
+				/>
 			);
 		case ListTagKind.PERCENT:
 			return (
@@ -71,14 +74,7 @@ function Tag({ tag }: Readonly<{ tag: ListTag }>) {
 			);
 		}
 		case ListTagKind.WATCH_COUNT:
-			return (
-				<View style={[styles.tag, { backgroundColor: GREY }]}>
-					<Text style={styles.text}>{tag.label}</Text>
-					<View style={styles.countCircle}>
-						<Text style={styles.countText}>{tag.count}</Text>
-					</View>
-				</View>
-			);
+			return <WatchCountPill count={tag.count ?? 0} label={tag.label} compact />;
 		default:
 			// Ongoing / Ended / Not Started / Not Watched: plain grey
 			return (

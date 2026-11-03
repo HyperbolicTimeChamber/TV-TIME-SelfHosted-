@@ -28,11 +28,12 @@ import ShowDrawer, {
 import { colors, spacing, typography } from "../../theme";
 import { deriveHistoryCard, deriveListTags, formatRuntime, todayStr } from "../../utils";
 import ListCardTags from "./ListCardTags";
+import SearchCard from "../SearchScreen/SearchCard";
 
 /** The card (taller than the calendar's), and the row under the square — the add button / Tracking
  *  tag and the status tags share it, so they line up */
 const CARD_MIN_HEIGHT = 168;
-const BOTTOM_ROW_HEIGHT = 28;
+const BOTTOM_ROW_HEIGHT = 40;
 const ROW_POSTER_W = 56;
 const ROW_POSTER_H = 84;
 
@@ -131,6 +132,16 @@ export function ListRow({
 		return deriveListTags(card);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [entry, catalogVersion, item.tmdbId, item.mediaType]);
+	// With two tags, the first (the status) moves up under the TV / MOVIE line — filling the gap
+	// above the bottom row — and the other stays on the line level with the add button
+	const topTags = tags && tags.length > 1 ? tags.slice(0, 1) : null;
+	const bottomTags = tags && topTags ? tags.slice(1) : tags;
+	// A show: its season count; a movie: its runtime (the year is in the square), in a translucent black pill
+	const metaText = isMovie
+		? runtime
+		: seasons
+			? `${seasons} ${seasons === 1 ? "Season" : "Seasons"}`
+			: "";
 	// No logo on TMDB → the name at once; still looking → after the wait
 	const showName = logoPath === null || (!logoPath && waited);
 	// Still looking for the logo (and not yet time for the name): shimmer where it will sit
@@ -169,99 +180,156 @@ export function ListRow({
 				<SkeletonLine width="100%" height={CARD_FILL} style={styles.skeletonCard} />
 			) : null}
 			<View style={[StyleSheet.absoluteFill, card.cardOverlay]} />
-			<View style={card.epInfo}>
-				{/* Fixed slot: the card never shifts as the logo / name arrives */}
-				<View style={styles.logoSlot}>
-					{logoPath ? (
-						<Image
-							source={{ uri: tmdbLogoUri(logoPath, CARD_WIDTH * 0.6) }}
-							style={styles.logo}
-							contentFit="contain"
-							contentPosition="left center"
-							transition={IMAGE_FADE_MS}
-							accessibilityLabel={item.title}
-						/>
-					) : showName ? (
-						<Text style={styles.name} numberOfLines={2}>
-							{item.title}
-						</Text>
-					) : logoLoading ? (
-						<SkeletonLine width="60%" height={28} style={styles.skeletonLogo} />
-					) : null}
-				</View>
-				<View style={styles.metaLine}>
-					<TypeBadge mediaType={item.mediaType} />
-					{infoLoading ? (
-						<SkeletonLine width={60} height={10} />
-					) : isMovie ? (
-						runtime ? (
-							<Text style={styles.meta} numberOfLines={1}>
-								{runtime}
+			<View style={[card.epInfo, styles.info]}>
+				<View>
+					{/* Fixed slot: the card never shifts as the logo / name arrives */}
+					<View style={styles.logoSlot}>
+						{logoPath ? (
+							<Image
+								source={{ uri: tmdbLogoUri(logoPath, CARD_WIDTH * 0.6) }}
+								style={styles.logo}
+								contentFit="contain"
+								contentPosition="left center"
+								transition={IMAGE_FADE_MS}
+								accessibilityLabel={item.title}
+							/>
+						) : showName ? (
+							<Text style={styles.name} numberOfLines={2}>
+								{item.title}
 							</Text>
-						) : null
-					) : seasons ? (
-						<Text style={styles.meta} numberOfLines={1}>
-							{seasons} {seasons === 1 ? "season" : "seasons"}
-						</Text>
-					) : null}
+						) : logoLoading ? (
+							<SkeletonLine width="60%" height={28} style={styles.skeletonLogo} />
+						) : null}
+					</View>
+					<View style={styles.metaLine}>
+						<TypeBadge mediaType={item.mediaType} />
+						{infoLoading ? (
+							<SkeletonLine width={60} height={10} />
+						) : metaText ? (
+							<View style={styles.metaPill}>
+								<Text style={styles.metaPillText} numberOfLines={1}>
+									{metaText}
+								</Text>
+							</View>
+						) : null}
+					</View>
+					{/* Fills the space under the TV tag line; the other tag stays level with the add button */}
+					{topTags && (
+						<View style={styles.topTagsRow}>
+							<ListCardTags tags={topTags} flush />
+						</View>
+					)}
 				</View>
 				{/* Level with the add button / Tracking tag under the square */}
 				<View style={styles.bottomRow}>
-					{tags ? (
-						<ListCardTags tags={tags} flush />
+					{bottomTags ? (
+						<ListCardTags tags={bottomTags} flush />
 					) : (
 						<SkeletonLine width={150} height={20} style={styles.skeletonTags} />
 					)}
 				</View>
 			</View>
 			<View style={styles.rightCol}>
-			<View style={[card.epSquare, styles.square]}>
-				<Text style={card.epSquareTitle}>{square.label}</Text>
-				<View style={card.epSquareRule} />
-				{infoLoading ? (
-					<SkeletonLine width={52} height={36} style={styles.skeletonValue} />
-				) : (
-					<Text
-						style={[card.epSquareValue, styles.squareValue]}
-						numberOfLines={1}
-						adjustsFontSizeToFit
-					>
-						{square.value ?? "—"}
-					</Text>
-				)}
-			</View>
-			<View style={styles.bottomRow}>
-				{tracked ? (
-					<View style={styles.trackingTag}>
-						<Ionicons name="checkmark-circle-outline" size={14} color={colors.text} />
-						<Text style={styles.trackingText}>Tracking</Text>
-					</View>
-				) : (
-					<Pressable
-						onPress={() => onAddToWatchlist(addShow())}
-						disabled={adding || infoLoading}
-						hitSlop={8}
-						accessibilityRole="button"
-						accessibilityLabel={`Add ${item.title} to watchlist`}
-						style={({ pressed }) => [
-							styles.addButton,
-							(adding || infoLoading) && styles.addButtonBusy,
-							pressed && styles.addButtonPressed,
-						]}
-					>
-						{adding ? (
-							<ActivityIndicator size="small" color={colors.text} />
-						) : (
-							<>
-								<Ionicons name="add" size={14} color={colors.text} />
-								<Text style={styles.addText}>Watchlist</Text>
-							</>
-						)}
-					</Pressable>
-				)}
-			</View>
+				<View style={[card.epSquare, styles.square]}>
+					<Text style={card.epSquareTitle}>{square.label}</Text>
+					<View style={card.epSquareRule} />
+					{infoLoading ? (
+						<SkeletonLine width={52} height={36} style={styles.skeletonValue} />
+					) : (
+						<Text
+							style={[card.epSquareValue, styles.squareValue]}
+							numberOfLines={1}
+							adjustsFontSizeToFit
+						>
+							{square.value ?? "—"}
+						</Text>
+					)}
+				</View>
+				<View style={styles.bottomRow}>
+					{tracked ? (
+						<View style={styles.trackingTag}>
+							<Ionicons name="checkmark-circle-outline" size={14} color={colors.text} />
+							<Text style={styles.trackingText}>Watchlist</Text>
+						</View>
+					) : (
+						<Pressable
+							onPress={() => onAddToWatchlist(addShow())}
+							disabled={adding || infoLoading}
+							hitSlop={8}
+							accessibilityRole="button"
+							accessibilityLabel={`Add ${item.title} to watchlist`}
+							style={({ pressed }) => [
+								styles.addButton,
+								(adding || infoLoading) && styles.addButtonBusy,
+								pressed && styles.addButtonPressed,
+							]}
+						>
+							{adding ? (
+								<ActivityIndicator size="small" color={colors.text} />
+							) : (
+								<>
+									<Ionicons name="add" size={14} color={colors.text} />
+									<Text style={styles.addText}>Watchlist</Text>
+								</>
+							)}
+						</Pressable>
+					)}
+				</View>
 			</View>
 		</Pressable>
+	);
+}
+
+/**
+ * Grid view: Search's own result card (poster, title, TV / MOVIE, year, the add-to-watchlist badge)
+ * for a saved title — minus the Add to List button, since it is in a list already. The year and
+ * release date come from the title's info (a list stores only the title and poster).
+ */
+export function ListGridCard({
+	item,
+	tracked,
+	adding,
+	onPress,
+	onLongPress,
+	onAdd,
+	onRemove,
+}: Readonly<{
+	item: CustomListItem;
+	tracked: boolean;
+	adding: boolean;
+	onPress: (item: CustomListItem) => void;
+	onLongPress: (item: CustomListItem) => void;
+	onAdd: (show: TMDBShow) => void;
+	onRemove: (show: TMDBShow) => void;
+}>) {
+	const { data: info } = useTitleInfo(item.tmdbId, item.mediaType);
+	const isMovie = item.mediaType === MediaType.MOVIE;
+	const show = useMemo(
+		(): TMDBShow => ({
+			id: item.tmdbId,
+			media_type: item.mediaType,
+			...(isMovie ? { title: item.title } : { name: item.title }),
+			poster_path: item.posterPath ?? info?.posterPath ?? null,
+			backdrop_path: info?.backdropPath ?? null,
+			overview: "",
+			vote_average: 0,
+			genre_ids: [],
+			...(isMovie
+				? { release_date: info?.releaseDate ?? undefined }
+				: { first_air_date: info?.releaseDate ?? undefined }),
+		}),
+		[item, isMovie, info],
+	);
+	return (
+		<SearchCard
+			item={show}
+			isInWatchlist={tracked}
+			isAdding={adding}
+			onPress={() => onPress(item)}
+			onLongPress={() => onLongPress(item)}
+			onAdd={onAdd}
+			onRemove={onRemove}
+		/>
 	);
 }
 
@@ -341,7 +409,15 @@ const styles = StyleSheet.create({
 	// Taller than the calendar's card: the square has the add button / Tracking tag under it
 	card: { marginHorizontal: 0, minHeight: CARD_MIN_HEIGHT, alignItems: "stretch" },
 	// The left column fills the card: logo + meta on top, the tags (level with the button) at the bottom
-	rightCol: { alignItems: "center", gap: spacing.sm, marginLeft: spacing.md },
+	// Logo + meta on top, the tags at the bottom (level with the add button under the square)
+	info: { justifyContent: "space-between" },
+	rightCol: {
+		alignItems: "center",
+		// Square on top, the button / Tracking tag at the bottom edge, level with the tags
+		justifyContent: "space-between",
+		gap: spacing.xs,
+		marginLeft: spacing.md,
+	},
 	square: { marginLeft: 0 },
 	bottomRow: { height: BOTTOM_ROW_HEIGHT, justifyContent: "center" },
 	addButton: {
@@ -375,7 +451,16 @@ const styles = StyleSheet.create({
 	logoSlot: { height: 44, justifyContent: "center", marginBottom: spacing.sm },
 	logo: { height: 44, width: "75%" },
 	name: { ...typography.subtitle, fontSize: 16 },
-	metaLine: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+	topTagsRow: { marginTop: spacing.sm },
+	metaLine: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: spacing.sm },
+	// Season count / year over the backdrop: a translucent black pill, like the card's square
+	metaPill: {
+		backgroundColor: colors.badgeOverlay,
+		borderRadius: 999,
+		paddingHorizontal: 8,
+		paddingVertical: 3,
+	},
+	metaPillText: { color: colors.text, fontSize: 11, fontWeight: "700" },
 	meta: { ...typography.caption, color: colors.textSecondary, flexShrink: 1 },
 	// Year / episode counts are wider than Exx — a step down so 4 digits fit the square
 	squareValue: { fontSize: 44, lineHeight: 48 },

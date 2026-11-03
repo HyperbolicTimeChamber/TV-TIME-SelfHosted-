@@ -1,0 +1,52 @@
+.pill {
+	flex-shrink: 0;
+	white-space: nowrap;
+	border-radius: 999px;
+	padding: 5px 12px;
+	font-size: 13px;
+	font-weight: 700;
+	color: var(--text);
+}
+
+/* Rewatch count: white circle at the pill's end, concentric (right = vertical padding) */
+.withCount {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 4px 4px 12px;
+}
+
+.circle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 20px;
+	height: 20px;
+	padding: 0 5px;
+	box-sizing: border-box;
+	border-radius: 10px;
+	line-height: 1;
+	background: var(--text);
+	color: var(--surface);
+	font-size: 12px;
+	font-weight: 700;
+}
+
+/* A list card's tag line */
+.compact {
+	padding: 3px 8px;
+	font-size: 11px;
+
+	&.withCount {
+		gap: 4px;
+		padding: 3px 3px 3px 8px;
+	}
+
+	.circle {
+		min-width: 14px;
+		height: 14px;
+		padding: 0 3px;
+		border-radius: 7px;
+		font-size: 10px;
+	}
+}

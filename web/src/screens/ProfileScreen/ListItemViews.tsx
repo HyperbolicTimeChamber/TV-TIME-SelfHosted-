@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Reorder, useDragControls } from "motion/react";
-import { IoReorderThree } from "react-icons/io5";
+import { IoAdd, IoCheckmarkCircleOutline, IoReorderThree } from "react-icons/io5";
+import { Spin } from "antd";
 import { MediaType } from "@app/enums";
-import type { CustomListItem } from "@app/types";
+import type { CustomListItem, TMDBShow } from "@app/types";
 import { useShowDetails } from "@app/hooks/useShowDetails";
 import { useTitleInfo } from "@app/hooks/useTitleInfo";
 import { useTitleLogo } from "@app/hooks/useTitleLogo";
@@ -19,6 +20,7 @@ import { useLongPress } from "../../hooks/useLongPress";
 import PosterImage from "../../components/PosterImage";
 import SkeletonBlock from "../../components/SkeletonBlock";
 import ListCardTags from "./ListCardTags";
+import SearchCard from "../SearchScreen/SearchCard";
 import ShowDrawer from "../../components/ShowDrawer";
 import type { ShowDrawerAction } from "../../components/ShowDrawer";
 import styles from "./styles/ListDetail.module.scss";
@@ -39,6 +41,69 @@ interface ItemProps {
 	onPress: () => void;
 	/** Long press (hold 0.5s) or right-click */
 	onLongPress: () => void;
+}
+
+interface RowProps extends ItemProps {
+	/** On the watchlist already (a green Tracking tag instead of the add button) */
+	tracked: boolean;
+	adding: boolean;
+	onAddToWatchlist: (show: TMDBShow) => void;
+}
+
+/** What the shared add flow takes (Search's): a movie's release date decides whether it is added
+ *  as unreleased (app addShow) */
+function toShow(item: CustomListItem, info: ReturnType<typeof useTitleInfo>["data"]): TMDBShow {
+	const isMovie = item.mediaType === MediaType.MOVIE;
+	return {
+		id: item.tmdbId,
+		media_type: item.mediaType,
+		...(isMovie ? { title: item.title } : { name: item.title }),
+		poster_path: item.posterPath ?? info?.posterPath ?? null,
+		backdrop_path: info?.backdropPath ?? null,
+		overview: "",
+		vote_average: 0,
+		genre_ids: [],
+		...(isMovie
+			? { release_date: info?.releaseDate ?? undefined }
+			: { first_air_date: info?.releaseDate ?? undefined }),
+	};
+}
+
+/**
+ * Grid view (app ListGridCard): Search's own result card for a saved title, minus the Add to List
+ * button (it is in a list already). Year and release date come from the title's info.
+ */
+export function ListGridCard({
+	item,
+	tracked,
+	adding,
+	onPress,
+	onLongPress,
+	onAdd,
+	onRemove,
+}: {
+	item: CustomListItem;
+	tracked: boolean;
+	adding: boolean;
+	onPress: (item: CustomListItem) => void;
+	onLongPress: (item: CustomListItem) => void;
+	onAdd: (show: TMDBShow) => void;
+	onRemove: (show: TMDBShow) => void;
+}) {
+	const { data: info } = useTitleInfo(item.tmdbId, item.mediaType);
+	const show = useMemo(() => toShow(item, info), [item, info]);
+	return (
+		<SearchCard
+			item={show}
+			canTrack
+			isInWatchlist={tracked}
+			isAdding={adding}
+			onPress={() => onPress(item)}
+			onLongPress={() => onLongPress(item)}
+			onAdd={onAdd}
+			onRemove={onRemove}
+		/>
+	);
 }
 
 /** Grid view: just the poster */
@@ -67,7 +132,14 @@ const NAME_DELAY_MS = 2000;
  * there's none) over its TV / MOVIE pill and runtime, and the square holding a show's episode count /
  * a movie's year.
  */
-export function ListRow({ item, onPress, onLongPress }: ItemProps) {
+export function ListRow({
+	item,
+	onPress,
+	onLongPress,
+	tracked,
+	adding,
+	onAddToWatchlist,
+}: RowProps) {
 	const { data: info, isPending: infoLoading } = useTitleInfo(item.tmdbId, item.mediaType);
 	const logoPath = useTitleLogo(undefined, item.tmdbId, item.mediaType);
 	const [waited, setWaited] = useState(false);
@@ -107,6 +179,16 @@ export function ListRow({ item, onPress, onLongPress }: ItemProps) {
 		return deriveListTags(card);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [entry, catalogVersion, item.tmdbId, item.mediaType]);
+	// With two tags, the first (the status) moves up under the TV / MOVIE line — filling the gap
+	// above the bottom row — and the other stays on the line level with the add button (app ListRow)
+	const topTags = tags && tags.length > 1 ? tags.slice(0, 1) : null;
+	const bottomTags = tags && topTags ? tags.slice(1) : tags;
+	// A show: its season count; a movie: its runtime (the year is in the square), in a translucent black pill
+	const metaText = isMovie
+		? runtime
+		: seasons
+			? `${seasons} ${seasons === 1 ? "Season" : "Seasons"}`
+			: "";
 	const showName = logoPath === null || (!logoPath && waited);
 	// Still looking for the logo (and not yet time for the name): shimmer where it will sit
 	const logoLoading = logoPath === undefined && !waited;
@@ -132,44 +214,88 @@ export function ListRow({ item, onPress, onLongPress }: ItemProps) {
 			) : null}
 			<span className={styles.cardOverlay} />
 			<span className={styles.cardInfo}>
-				{/* Fixed slot: the card never shifts as the logo / name arrives */}
-				<span className={styles.logoSlot}>
-					{logoPath ? (
-						<img
-							src={tmdbLogoUri(logoPath, CARD_MAX_WIDTH * 0.6)}
-							alt={item.title}
-							className={styles.cardLogo}
-						/>
-					) : showName ? (
-						<span className={styles.cardName}>{item.title}</span>
-					) : logoLoading ? (
-						<SkeletonBlock className={styles.skeletonLogo} />
-					) : null}
-				</span>
-				<span className={styles.rowMetaLine}>
-					<TypeBadge mediaType={item.mediaType} />
-					{infoLoading ? (
-						<SkeletonBlock className={styles.skeletonMeta} />
-					) : (
-						<span className={styles.rowMeta}>
-							{isMovie
-								? runtime
-								: seasons
-									? `${seasons} ${seasons === 1 ? "season" : "seasons"}`
-									: null}
+				<span>
+					{/* Fixed slot: the card never shifts as the logo / name arrives */}
+					<span className={styles.logoSlot}>
+						{logoPath ? (
+							<img
+								src={tmdbLogoUri(logoPath, CARD_MAX_WIDTH * 0.6)}
+								alt={item.title}
+								className={styles.cardLogo}
+							/>
+						) : showName ? (
+							<span className={styles.cardName}>{item.title}</span>
+						) : logoLoading ? (
+							<SkeletonBlock className={styles.skeletonLogo} />
+						) : null}
+					</span>
+					<span className={styles.rowMetaLine}>
+						<TypeBadge mediaType={item.mediaType} />
+						{infoLoading ? (
+							<SkeletonBlock className={styles.skeletonMeta} />
+						) : metaText ? (
+							<span className={styles.metaPill}>{metaText}</span>
+						) : null}
+					</span>
+					{/* Fills the space under the TV tag line; the other tag stays level with the add button */}
+					{topTags && (
+						<span className={styles.topTagsRow}>
+							<ListCardTags tags={topTags} flush />
 						</span>
 					)}
 				</span>
-				{tags ? <ListCardTags tags={tags} /> : <SkeletonBlock className={styles.skeletonTags} />}
+				{/* Level with the add button / Tracking tag under the square */}
+				<span className={styles.bottomRow}>
+					{bottomTags ? (
+						<ListCardTags tags={bottomTags} flush />
+					) : (
+						<SkeletonBlock className={styles.skeletonTags} />
+					)}
+				</span>
 			</span>
-			<span className={styles.square}>
-				<span className={styles.squareTitle}>{square.label}</span>
-				<span className={styles.squareRule} />
-				{infoLoading ? (
-					<SkeletonBlock className={styles.skeletonValue} />
-				) : (
-					<span className={styles.squareValue}>{square.value ?? "—"}</span>
-				)}
+			<span className={styles.rightCol}>
+				<span className={styles.square}>
+					<span className={styles.squareTitle}>{square.label}</span>
+					<span className={styles.squareRule} />
+					{infoLoading ? (
+						<SkeletonBlock className={styles.skeletonValue} />
+					) : (
+						<span className={styles.squareValue}>{square.value ?? "—"}</span>
+					)}
+				</span>
+				<span className={styles.bottomRow}>
+					{tracked ? (
+						<span className={styles.trackingTag}>
+							<IoCheckmarkCircleOutline size={14} />
+							Watchlist
+						</span>
+					) : (
+						// A span, not a button: the card itself is one
+						<span
+							role="button"
+							tabIndex={0}
+							aria-label={`Add ${item.title} to watchlist`}
+							aria-disabled={adding || infoLoading}
+							className={`${styles.addButton} ${adding || infoLoading ? styles.addButtonBusy : ""}`}
+							onPointerDown={(e) => e.stopPropagation()}
+							onClick={(e) => {
+								e.stopPropagation();
+								if (adding || infoLoading) return;
+								onAddToWatchlist(toShow(item, info));
+							}}
+							onKeyDown={(e) => {
+								if (e.key !== "Enter" && e.key !== " ") return;
+								e.preventDefault();
+								e.stopPropagation();
+								if (adding || infoLoading) return;
+								onAddToWatchlist(toShow(item, info));
+							}}
+						>
+							{adding ? <Spin size="small" /> : <IoAdd size={14} />}
+							{!adding && "Watchlist"}
+						</span>
+					)}
+				</span>
 			</span>
 		</button>
 	);

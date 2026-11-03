@@ -113,9 +113,10 @@
 	position: relative;
 	overflow: hidden;
 	width: 100%;
-	min-height: 120px;
+	/* Taller than the calendar's card: the square has the add button / Tracking tag under it */
+	min-height: 168px;
 	display: flex;
-	align-items: center;
+	align-items: stretch;
 	margin-bottom: 12px;
 	padding: 12px;
 	border: none;
@@ -189,7 +190,61 @@
 	min-width: 0;
 	display: flex;
 	flex-direction: column;
+	/* Logo + meta on top, the tags at the bottom (level with the add button under the square) */
+	justify-content: space-between;
 	align-items: flex-start;
+}
+
+/* Square on top, the add button / Tracking tag at the bottom edge, level with the tags */
+.rightCol {
+	position: relative;
+	flex-shrink: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: space-between;
+	gap: 4px;
+	margin-left: 12px;
+}
+
+.bottomRow {
+	display: flex;
+	align-items: center;
+	height: 40px;
+}
+
+.addButton,
+.trackingTag {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	height: 40px;
+	min-width: 96px;
+	padding: 0 12px;
+	border-radius: 999px;
+	color: var(--text);
+	font-size: 12px;
+	font-weight: 700;
+	line-height: 1;
+}
+
+.addButton {
+	background: var(--primary);
+	cursor: pointer;
+	transition: transform 120ms ease-out;
+
+	&:active {
+		transform: scale(0.97);
+	}
+}
+
+.addButtonBusy {
+	opacity: 0.6;
+}
+
+.trackingTag {
+	background: $watched-green;
 }
 
 .logoSlot {
@@ -223,7 +278,6 @@
 	flex-shrink: 0;
 	width: 96px;
 	height: 96px;
-	margin-left: 12px;
 	padding: 6px 8px 0;
 	border-radius: 14px;
 	background: rgba(0, 0, 0, 0.5);
@@ -262,10 +316,27 @@
 	}
 }
 
+.topTagsRow {
+	display: block;
+	margin-top: 8px;
+}
+
 .rowMetaLine {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: 8px;
+}
+
+/* Season count / year over the backdrop: a translucent black pill, like the card's square */
+.metaPill {
+	padding: 3px 8px;
+	border-radius: 999px;
+	background: rgba(0, 0, 0, 0.5);
+	color: var(--text);
+	font-size: 11px;
+	font-weight: 700;
+	white-space: nowrap;
 }
 
 .rowMeta {
@@ -376,6 +447,11 @@
 	white-space: nowrap;
 }
 
+/* After .tagLine so it wins: the caller lines the row up itself */
+.tagLineFlush {
+	margin-top: 0;
+}
+
 .tag {
 	display: inline-flex;
 	align-items: center;
@@ -390,19 +466,6 @@
 
 .tagGrey {
 	background: color-mix(in srgb, var(--text-secondary) 35%, transparent);
-}
-
-.tagCount {
-	min-width: 14px;
-	height: 14px;
-	padding: 0 3px;
-	border-radius: 7px;
-	background: var(--text);
-	color: var(--color-surface);
-	font-size: 10px;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
 }
 
 /* The 20px ring scaled to the tag line's 14px icon */

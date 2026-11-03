@@ -2,6 +2,8 @@ import { FaRegCheckCircle, FaRegPauseCircle } from "react-icons/fa";
 import { HistoryPill, ListTagKind } from "@app/enums";
 import type { ListTag } from "@app/utils/listCardTags";
 import ProgressRing from "./WatchHistory/ProgressRing";
+import WatchCountPill from "../../components/WatchCountPill";
+import StatusPill from "../../components/StatusPill";
 import styles from "./styles/ListDetail.module.scss";
 
 const PILL_BG: Record<HistoryPill, string> = {
@@ -12,9 +14,16 @@ const PILL_BG: Record<HistoryPill, string> = {
 };
 
 /** The tag line under a list card's meta line (app ListCardTags): Watch History's tags, small, one row */
-export default function ListCardTags({ tags }: { tags: ListTag[] }) {
+export default function ListCardTags({
+	tags,
+	flush = false,
+}: {
+	tags: ListTag[];
+	/** No space above: the caller lines the row up itself */
+	flush?: boolean;
+}) {
 	return (
-		<span className={styles.tagLine}>
+		<span className={`${styles.tagLine} ${flush ? styles.tagLineFlush : ""}`}>
 			{tags.map((t) => (
 				<Tag key={t.kind} tag={t} />
 			))}
@@ -26,10 +35,12 @@ function Tag({ tag }: { tag: ListTag }) {
 	switch (tag.kind) {
 		case ListTagKind.STATUS:
 			return (
-				<span className={`${styles.tag} ${PILL_BG[tag.pill as HistoryPill]}`}>
-					{tag.label}
-					{tag.count != null && <span className={styles.tagCount}>{tag.count}</span>}
-				</span>
+				<StatusPill
+					label={tag.label}
+					bgClass={PILL_BG[tag.pill as HistoryPill]}
+					count={tag.count}
+					compact
+				/>
 			);
 		case ListTagKind.PERCENT:
 			return (
@@ -55,12 +66,7 @@ function Tag({ tag }: { tag: ListTag }) {
 				</span>
 			);
 		case ListTagKind.WATCH_COUNT:
-			return (
-				<span className={`${styles.tag} ${styles.tagGrey}`}>
-					{tag.label}
-					<span className={styles.tagCount}>{tag.count}</span>
-				</span>
-			);
+			return <WatchCountPill count={tag.count ?? 0} label={tag.label} compact />;
 		default:
 			return <span className={`${styles.tag} ${styles.tagGrey}`}>{tag.label}</span>;
 	}

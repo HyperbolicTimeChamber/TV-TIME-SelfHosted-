@@ -17,7 +17,7 @@ import ReorderableList, { type ReorderableListReorderEvent } from "react-native-
 import { useAuthStore } from "../../stores";
 import { useCustomLists, useCustomListView } from "../../hooks";
 import { CircleButtonTone, CustomListView, Route } from "../../enums";
-import type { CustomListItem, ProfileStackParamList } from "../../types";
+import { MediaType, type CustomListItem, type ProfileStackParamList } from "../../types";
 import { AddToListSheet, ConfirmModal, ListNameModal } from "../../components";
 import type { ShowDrawerAction } from "../../components/ShowDrawer";
 import { CircleBackButton } from "../../components/CircleButton";
@@ -27,11 +27,15 @@ import PosterImage from "../../components/PosterImage";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import { moveElement, sameItemOrder, titleCount } from "../../utils";
 import { colors, spacing, typography } from "../../theme";
-import { ListItemPreview, ListRow, ReorderRow } from "./ListItemViews";
+import { ListGridCard, ListItemPreview, ListRow, ReorderRow } from "./ListItemViews";
+import { useSearchActions } from "../SearchScreen/useSearchActions";
+import SearchModals from "../SearchScreen/SearchModals";
+import { styles as searchStyles } from "../SearchScreen/styles";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, Route.LIST_DETAIL>;
 
-const COLUMNS = 3;
+/** Grid view is Search's result grid */
+const COLUMNS = 2;
 
 /** Empty list art (transparent PNG, width / height) */
 const EMPTY_ART = require("../../../assets/list-empty.png");
@@ -61,6 +65,8 @@ export default function ListDetailScreen() {
 	);
 	const list = lists.find((l) => l.id === listId);
 	const [view, setView] = useCustomListView();
+	// Adding to / removing from the watchlist from a card: the same flow (and popups) as Search
+	const actions = useSearchActions();
 
 	const [renaming, setRenaming] = useState(false);
 	const [renameError, setRenameError] = useState<string | null>(null);
@@ -87,10 +93,6 @@ export default function ListDetailScreen() {
 	}, [loading, list, goBack]);
 
 	const emptyArtWidth = Math.min(width * 0.6, 260);
-	const posterWidth = useMemo(() => {
-		const gap = spacing.sm * (COLUMNS - 1);
-		return Math.floor((width - spacing.lg * 2 - gap) / COLUMNS);
-	}, [width]);
 
 	if (!list) return null;
 
@@ -254,22 +256,18 @@ export default function ListDetailScreen() {
 					data={list.items}
 					keyExtractor={(item) => `${item.mediaType}_${item.tmdbId}`}
 					numColumns={COLUMNS}
-					columnWrapperStyle={styles.row}
-					contentContainerStyle={styles.grid}
+					columnWrapperStyle={searchStyles.row}
+					contentContainerStyle={[searchStyles.grid, styles.gridContent]}
 					renderItem={({ item }) => (
-						<TouchableOpacity
-							activeOpacity={0.7}
-							onPress={() => openTitle(item)}
-							onLongPress={() => setPreviewItem(item)}
-							delayLongPress={350}
-						>
-							<PosterImage
-								posterPath={item.posterPath}
-								mediaType={item.mediaType}
-								style={{ width: posterWidth, height: posterWidth * 1.5, borderRadius: 6 }}
-								title={!item.posterPath ? item.title : undefined}
-							/>
-						</TouchableOpacity>
+						<ListGridCard
+							item={item}
+							tracked={actions.trackedIds.has(item.tmdbId)}
+							adding={actions.addingIds.has(item.tmdbId)}
+							onPress={openTitle}
+							onLongPress={setPreviewItem}
+							onAdd={actions.handleAddToWatchlist}
+							onRemove={actions.handleRemoveFromWatchlist}
+						/>
 					)}
 				/>
 			) : (
@@ -283,6 +281,9 @@ export default function ListDetailScreen() {
 							item={item}
 							onPress={() => openTitle(item)}
 							onLongPress={() => setPreviewItem(item)}
+							tracked={actions.trackedIds.has(item.tmdbId)}
+							adding={actions.addingIds.has(item.tmdbId)}
+							onAddToWatchlist={actions.handleAddToWatchlist}
 						/>
 					)}
 				/>
@@ -327,6 +328,39 @@ export default function ListDetailScreen() {
 						: null
 				}
 				onClose={() => setListTarget(null)}
+			/>
+
+			<SearchModals
+				movieModal={actions.movieModal}
+				onMovieModalClose={() => actions.setMovieModal(null)}
+				onMovieAddOnly={actions.handleMovieAddOnly}
+				onMovieAddAndWatch={actions.handleMovieAddAndWatch}
+				removeModal={actions.removeModal}
+				removeError={actions.removeError}
+				watchedBlock={actions.watchedBlock}
+				onGoToShow={(show) => {
+					actions.setWatchedBlock(null);
+					openTitle({
+						tmdbId: show.id,
+						mediaType: show.media_type ?? MediaType.TV,
+					} as CustomListItem);
+				}}
+				onWatchedBlockClose={() => actions.setWatchedBlock(null)}
+				removing={actions.removing}
+				onConfirmRemove={actions.handleConfirmRemove}
+				onRemoveModalClose={() => {
+					actions.setRemoveModal(null);
+					actions.setRemoveError(null);
+				}}
+				unreleasedModal={actions.unreleasedModal}
+				onUnreleasedClose={() => actions.setUnreleasedModal(null)}
+				resumeModal={actions.resumeModal}
+				onResumeFromWhere={actions.handleResumeFromWhere}
+				onStartFresh={actions.handleStartFresh}
+				onResumeModalClose={() => actions.setResumeModal(null)}
+				addFailure={actions.addFailure}
+				onRetryAdd={actions.retryAdd}
+				onAddFailureClose={actions.dismissAddFailure}
 			/>
 
 			<ListNameModal
@@ -385,8 +419,9 @@ const styles = StyleSheet.create({
 	},
 	count: { ...typography.caption },
 	countGrow: { flex: 1 },
-	grid: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl * 2 },
-	row: { gap: spacing.sm, marginBottom: spacing.sm },
+	// Search's grid padding (16) plus its row padding (8) read wider here than on the Search page,
+	// whose list drops the row's: 4 + the row's 8 = the same 12 side margin
+	gridContent: { paddingHorizontal: spacing.xs, paddingBottom: spacing.xxl * 2 },
 	listContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl * 2 },
 	reorderContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl * 2 },
 	empty: {

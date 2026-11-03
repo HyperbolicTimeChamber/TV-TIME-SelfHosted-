@@ -3,6 +3,8 @@ import { FaRegCheckCircle, FaRegPauseCircle } from "react-icons/fa";
 import { HistoryPill, HistoryProgress } from "@app/enums";
 import type { HistoryCard as Card } from "@app/utils";
 import { tmdbBackdropUri, tmdbLogoUri } from "@app/hooks/useTmdbImage";
+import WatchCountPill from "../../../components/WatchCountPill";
+import StatusPill from "../../../components/StatusPill";
 import ProgressRing from "./ProgressRing";
 import styles from "./styles/WatchHistory.module.scss";
 
@@ -80,22 +82,17 @@ function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
 				{/* Bottom-left: status pill above one slot — progress / up to date / paused,
 				    else the watch count */}
 				<span className={styles.leftBlock}>
-					{card.pill && (
-						<span
-							className={`${styles.pill} ${card.pillCount != null ? styles.pillWithCount : ""} ${PILL_BG[card.pill]}`}
-						>
-							{card.pillLabel}
-							{card.pillCount != null && (
-								<span className={styles.pillCountCircle}>{card.pillCount}</span>
-							)}
-						</span>
+					{card.pill && card.pillLabel && (
+						<StatusPill
+							label={card.pillLabel}
+							bgClass={PILL_BG[card.pill]}
+							count={card.pillCount}
+						/>
 					)}
 					{card.progress ? (
 						<ProgressModule progress={card.progress} />
 					) : card.watchCount != null ? (
-						<span className={`${styles.progressPill} ${styles.watchCountPill}`}>
-							Watch Count <span className={styles.countCircle}>{card.watchCount}</span>
-						</span>
+						<WatchCountPill count={card.watchCount} />
 					) : null}
 				</span>
 				{(card.lastWatched || card.timeSpent) && (
