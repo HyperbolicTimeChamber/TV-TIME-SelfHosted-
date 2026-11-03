@@ -3,6 +3,9 @@
 /* The sheet's own bottom padding (BottomSheet .sheet) — the lists run through it to the screen
    edge, and the same space closes the scroll so the last row clears the nav bar */
 $bleed: calc(env(safe-area-inset-bottom) + 16px);
+/* The Done button floats over the end of the lists (fade 28 + pill 44 + gap 12); the lists run
+   under it and end this far above the bottom so the last row can scroll clear of it */
+$footer: 84px;
 /* Same badge as the search cards' Add to List button */
 $badge: 30px;
 
@@ -49,7 +52,7 @@ $badge: 30px;
 	overscroll-behavior: contain;
 	touch-action: pan-y;
 	margin-bottom: calc(-1 * #{$bleed});
-	padding-bottom: $bleed;
+	padding-bottom: calc(#{$bleed} + #{$footer});
 }
 
 .listScrollExpanded {
@@ -194,10 +197,19 @@ $badge: 30px;
 	cursor: pointer;
 }
 
+/* Transparent: the Done button hovers over the end of the lists, no bar behind it */
 .footer {
+	position: relative;
+	z-index: 1;
 	display: flex;
 	justify-content: center;
-	padding: 12px 0 calc(12px + env(safe-area-inset-bottom));
+	margin: calc(-1 * #{$footer}) -16px 0;
+	padding: 28px 0 12px;
+	pointer-events: none;
+
+	.done {
+		pointer-events: auto;
+	}
 }
 
 .done {

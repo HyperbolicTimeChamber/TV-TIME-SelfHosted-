@@ -14,9 +14,12 @@ const ICON = 14;
 const GREY = `${colors.textSecondary}59`;
 
 /** The tag line under a list card's meta line: Watch History's tags, small, always one row */
-export default function ListCardTags({ tags }: Readonly<{ tags: ListTag[] }>) {
+export default function ListCardTags({
+	tags,
+	flush = false,
+}: Readonly<{ tags: ListTag[]; /** No space above: the caller lines the row up itself */ flush?: boolean }>) {
 	return (
-		<View style={styles.line}>
+		<View style={[styles.line, flush && styles.lineFlush]}>
 			{tags.map((t) => (
 				<Tag key={t.kind} tag={t} />
 			))}
@@ -94,6 +97,7 @@ const styles = StyleSheet.create({
 		marginTop: spacing.sm,
 		overflow: "hidden",
 	},
+	lineFlush: { marginTop: 0 },
 	tag: {
 		flexDirection: "row",
 		alignItems: "center",

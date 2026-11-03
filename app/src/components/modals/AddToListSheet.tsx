@@ -11,10 +11,12 @@ import {
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import GorhomSheet, {
 	BottomSheetBackdrop,
+	BottomSheetFooter,
 	BottomSheetScrollView,
 	BottomSheetTextInput,
 	useBottomSheetSpringConfigs,
 	type BottomSheetBackdropProps,
+	type BottomSheetFooterProps,
 } from "@gorhom/bottom-sheet";
 import Reanimated, {
 	Easing,
@@ -54,7 +56,9 @@ const TAP_EASE = Easing.bezier(0.23, 1, 0.32, 1);
 const COVER_SIZE = 52;
 /** Same badge as the search cards' Add to List button */
 const BADGE_SIZE = 30;
-/** The pinned Done button: its pill + the gap above the nav bar (styles.footer / done) */
+/** The Done pill floats over the lists (transparent, no bar behind it): its height + the gap
+ *  under it. The lists end this far (plus the nav-bar inset) above the sheet's bottom so the
+ *  last row can scroll clear of it (styles.footer / done) */
 const FOOTER_HEIGHT = 76;
 const SEARCH_HEIGHT = 40;
 
@@ -89,10 +93,7 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 		const maxHeight = screenHeight - insets.top;
 		const partWay = Math.round(screenHeight * PART_WAY_SHARE);
 		if (!topHeight || !listHeight) return [partWay];
-		const full = Math.min(
-			Math.ceil(HANDLE_HEIGHT + topHeight + listHeight + FOOTER_HEIGHT + insets.bottom),
-			maxHeight,
-		);
+		const full = Math.min(Math.ceil(HANDLE_HEIGHT + topHeight + listHeight), maxHeight);
 		return full > partWay ? [partWay, full] : [full];
 	}, [screenHeight, insets.top, insets.bottom, topHeight, listHeight]);
 	const animationConfigs = useBottomSheetSpringConfigs(SHEET_SPRING);
@@ -107,6 +108,24 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 			/>
 		),
 		[],
+	);
+	// Done floats over the lists (the sheet's footer: transparent, always at the visible bottom,
+	// whichever snap point the sheet is at); each tap already saved, Done just closes
+	const renderFooter = useCallback(
+		(props: BottomSheetFooterProps) => (
+			<BottomSheetFooter {...props} bottomInset={insets.bottom}>
+				<View style={styles.footer} pointerEvents="box-none">
+					<Pressable
+						onPress={() => sheetRef.current?.close()}
+						accessibilityRole="button"
+						style={({ pressed }) => [styles.done, pressed && styles.donePressed]}
+					>
+						<Text style={styles.doneText}>Done</Text>
+					</Pressable>
+				</View>
+			</BottomSheetFooter>
+		),
+		[insets.bottom],
 	);
 	const user = useAuthStore((s) => s.user);
 	const { lists, loading, createList, addToList, removeFromList } = useCustomLists(user?.uid);
@@ -220,6 +239,7 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 							enablePanDownToClose
 							animationConfigs={animationConfigs}
 							backdropComponent={renderBackdrop}
+							footerComponent={renderFooter}
 							backgroundStyle={styles.sheet}
 							handleStyle={styles.handleArea}
 							handleIndicatorStyle={styles.handle}
@@ -239,7 +259,10 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 								<View style={styles.divider} />
 							</View>
 							<BottomSheetScrollView
-								contentContainerStyle={styles.scrollContent}
+								contentContainerStyle={[
+									styles.scrollContent,
+									{ paddingBottom: FOOTER_HEIGHT + insets.bottom },
+								]}
 								keyboardShouldPersistTaps="handled"
 								onContentSizeChange={(_, h) => setListHeight(h)}
 							>
@@ -322,16 +345,6 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 									</>
 								)}
 							</BottomSheetScrollView>
-							{/* Pinned under the lists; each tap already saved, Done just closes */}
-							<View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-								<Pressable
-									onPress={() => sheetRef.current?.close()}
-									accessibilityRole="button"
-									style={({ pressed }) => [styles.done, pressed && styles.donePressed]}
-								>
-									<Text style={styles.doneText}>Done</Text>
-								</Pressable>
-							</View>
 						</GorhomSheet>
 					)}
 				</GestureHandlerRootView>
@@ -462,7 +475,7 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 	},
 	sortText: { ...typography.subtitle, fontSize: 13 },
-	footer: { alignItems: "center", paddingTop: spacing.md, backgroundColor: colors.surface },
+	footer: { alignItems: "center", paddingBottom: spacing.md },
 	done: {
 		minWidth: 120,
 		paddingVertical: spacing.md,

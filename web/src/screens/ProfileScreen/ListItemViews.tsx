@@ -78,9 +78,11 @@ export function ListRow({ item, onPress, onLongPress }: ItemProps) {
 	const press = useLongPress(onLongPress, onPress);
 	const isMovie = item.mediaType === MediaType.MOVIE;
 	const runtime = formatRuntime(info?.runtime);
+	const seasons = info?.totalSeasons;
+	// A show: its season count beside the TV tag, its episode count in the square (app ListRow)
 	const square = isMovie
 		? { label: "YEAR", value: info?.year ?? null }
-		: { label: "SEASONS", value: info?.totalSeasons ? String(info.totalSeasons) : null };
+		: { label: "EPISODES", value: info?.totalEpisodes ? String(info.totalEpisodes) : null };
 	// Tags: Watch History's, from the title's own tracking doc (none → Not Started)
 	const userId = useAuthStore((st) => st.user?.uid);
 	const entry = useTrackingEntry(userId, item.tmdbId, item.mediaType);
@@ -149,9 +151,13 @@ export function ListRow({ item, onPress, onLongPress }: ItemProps) {
 					{infoLoading ? (
 						<SkeletonBlock className={styles.skeletonMeta} />
 					) : (
-						runtime && (
-							<span className={styles.rowMeta}>{isMovie ? runtime : `${runtime} / ep`}</span>
-						)
+						<span className={styles.rowMeta}>
+							{isMovie
+								? runtime
+								: seasons
+									? `${seasons} ${seasons === 1 ? "season" : "seasons"}`
+									: null}
+						</span>
 					)}
 				</span>
 				{tags ? <ListCardTags tags={tags} /> : <SkeletonBlock className={styles.skeletonTags} />}

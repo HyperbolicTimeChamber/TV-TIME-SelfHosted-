@@ -1,9 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, TouchableOpacity, Pressable, StyleSheet } from "react-native";
+import {
+	View,
+	Text,
+	TouchableOpacity,
+	Pressable,
+	StyleSheet,
+	ActivityIndicator,
+} from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useReorderableDrag } from "react-native-reorderable-list";
-import { MediaType, type CustomListItem } from "../../types";
+import { MediaType, type CustomListItem, type TMDBShow } from "../../types";
 import { useShowDetails, useTitleInfo, useTrackingEntry } from "../../hooks";
 import { useAuthStore } from "../../stores";
 import { catalogSettled, ensureFreshCatalogs } from "../../hooks/catalogRefresh";
@@ -22,6 +29,10 @@ import { colors, spacing, typography } from "../../theme";
 import { deriveHistoryCard, deriveListTags, formatRuntime, todayStr } from "../../utils";
 import ListCardTags from "./ListCardTags";
 
+/** The card (taller than the calendar's), and the row under the square — the add button / Tracking
+ *  tag and the status tags share it, so they line up */
+const CARD_MIN_HEIGHT = 168;
+const BOTTOM_ROW_HEIGHT = 28;
 const ROW_POSTER_W = 56;
 const ROW_POSTER_H = 84;
 
@@ -38,6 +49,10 @@ interface RowProps {
 	item: CustomListItem;
 	onPress: () => void;
 	onLongPress: () => void;
+	/** On the watchlist already (a green Tracking tag instead of the add button) */
+	tracked: boolean;
+	adding: boolean;
+	onAddToWatchlist: (show: TMDBShow) => void;
 }
 
 /** Wait this long for a logo before showing the name — the name flashing in, then swapping for
@@ -55,7 +70,14 @@ const CARD_FILL = 400;
  * (name when there's none) over its TV / MOVIE pill and runtime, and the calendar's square holding
  * a show's episode count / a movie's year.
  */
-export function ListRow({ item, onPress, onLongPress }: Readonly<RowProps>) {
+export function ListRow({
+	item,
+	onPress,
+	onLongPress,
+	tracked,
+	adding,
+	onAddToWatchlist,
+}: Readonly<RowProps>) {
 	const { data: info, isPending: infoLoading } = useTitleInfo(item.tmdbId, item.mediaType);
 	const logoPath = useTitleLogo(undefined, item.tmdbId, item.mediaType);
 	const [waited, setWaited] = useState(false);
@@ -65,9 +87,26 @@ export function ListRow({ item, onPress, onLongPress }: Readonly<RowProps>) {
 	}, []);
 	const isMovie = item.mediaType === MediaType.MOVIE;
 	const runtime = formatRuntime(info?.runtime);
+	const seasons = info?.totalSeasons;
+	// A show: its season count beside the TV tag, its episode count in the square
 	const square = isMovie
 		? { label: "YEAR", value: info?.year ?? null }
-		: { label: "SEASONS", value: info?.totalSeasons ? String(info.totalSeasons) : null };
+		: { label: "EPISODES", value: info?.totalEpisodes ? String(info.totalEpisodes) : null };
+	// What the shared add flow takes (Search's): a movie's release date decides whether it is
+	// added as unreleased, so the button waits for it
+	const addShow = (): TMDBShow => ({
+		id: item.tmdbId,
+		media_type: item.mediaType,
+		...(isMovie ? { title: item.title } : { name: item.title }),
+		poster_path: item.posterPath ?? info?.posterPath ?? null,
+		backdrop_path: info?.backdropPath ?? null,
+		overview: "",
+		vote_average: 0,
+		genre_ids: [],
+		...(isMovie
+			? { release_date: info?.releaseDate ?? undefined }
+			: { first_air_date: info?.releaseDate ?? undefined }),
+	});
 	// Tags: Watch History's, from the title's own tracking doc (none → Not Started)
 	const userId = useAuthStore((s) => s.user?.uid);
 	const entry = useTrackingEntry(userId, item.tmdbId, item.mediaType);
@@ -154,19 +193,29 @@ export function ListRow({ item, onPress, onLongPress }: Readonly<RowProps>) {
 					<TypeBadge mediaType={item.mediaType} />
 					{infoLoading ? (
 						<SkeletonLine width={60} height={10} />
-					) : runtime ? (
+					) : isMovie ? (
+						runtime ? (
+							<Text style={styles.meta} numberOfLines={1}>
+								{runtime}
+							</Text>
+						) : null
+					) : seasons ? (
 						<Text style={styles.meta} numberOfLines={1}>
-							{isMovie ? runtime : `${runtime} / ep`}
+							{seasons} {seasons === 1 ? "season" : "seasons"}
 						</Text>
 					) : null}
 				</View>
-				{tags ? (
-					<ListCardTags tags={tags} />
-				) : (
-					<SkeletonLine width={150} height={20} style={styles.skeletonTags} />
-				)}
+				{/* Level with the add button / Tracking tag under the square */}
+				<View style={styles.bottomRow}>
+					{tags ? (
+						<ListCardTags tags={tags} flush />
+					) : (
+						<SkeletonLine width={150} height={20} style={styles.skeletonTags} />
+					)}
+				</View>
 			</View>
-			<View style={card.epSquare}>
+			<View style={styles.rightCol}>
+			<View style={[card.epSquare, styles.square]}>
 				<Text style={card.epSquareTitle}>{square.label}</Text>
 				<View style={card.epSquareRule} />
 				{infoLoading ? (
@@ -180,6 +229,37 @@ export function ListRow({ item, onPress, onLongPress }: Readonly<RowProps>) {
 						{square.value ?? "—"}
 					</Text>
 				)}
+			</View>
+			<View style={styles.bottomRow}>
+				{tracked ? (
+					<View style={styles.trackingTag}>
+						<Ionicons name="checkmark-circle-outline" size={14} color={colors.text} />
+						<Text style={styles.trackingText}>Tracking</Text>
+					</View>
+				) : (
+					<Pressable
+						onPress={() => onAddToWatchlist(addShow())}
+						disabled={adding || infoLoading}
+						hitSlop={8}
+						accessibilityRole="button"
+						accessibilityLabel={`Add ${item.title} to watchlist`}
+						style={({ pressed }) => [
+							styles.addButton,
+							(adding || infoLoading) && styles.addButtonBusy,
+							pressed && styles.addButtonPressed,
+						]}
+					>
+						{adding ? (
+							<ActivityIndicator size="small" color={colors.text} />
+						) : (
+							<>
+								<Ionicons name="add" size={14} color={colors.text} />
+								<Text style={styles.addText}>Watchlist</Text>
+							</>
+						)}
+					</Pressable>
+				)}
+			</View>
 			</View>
 		</Pressable>
 	);
@@ -258,7 +338,39 @@ export function ListItemPreview({ item, actions, onGoToShow, onClose }: Readonly
 
 const styles = StyleSheet.create({
 	// The calendar card sits in the list's own padding (no side margin of its own)
-	card: { marginHorizontal: 0 },
+	// Taller than the calendar's card: the square has the add button / Tracking tag under it
+	card: { marginHorizontal: 0, minHeight: CARD_MIN_HEIGHT, alignItems: "stretch" },
+	// The left column fills the card: logo + meta on top, the tags (level with the button) at the bottom
+	rightCol: { alignItems: "center", gap: spacing.sm, marginLeft: spacing.md },
+	square: { marginLeft: 0 },
+	bottomRow: { height: BOTTOM_ROW_HEIGHT, justifyContent: "center" },
+	addButton: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		gap: 2,
+		height: BOTTOM_ROW_HEIGHT,
+		minWidth: 96,
+		paddingHorizontal: spacing.md,
+		borderRadius: 999,
+		backgroundColor: colors.primary,
+	},
+	addButtonBusy: { opacity: 0.6 },
+	addButtonPressed: { transform: [{ scale: 0.97 }] },
+	addText: { color: colors.text, fontSize: 12, fontWeight: "700" },
+	// Same pill as the tag line's, in green
+	trackingTag: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		gap: 4,
+		height: BOTTOM_ROW_HEIGHT,
+		minWidth: 96,
+		paddingHorizontal: spacing.md,
+		borderRadius: 999,
+		backgroundColor: colors.watchedGreen,
+	},
+	trackingText: { color: colors.text, fontSize: 12, fontWeight: "700" },
 	cardPressed: { transform: [{ scale: 0.98 }] },
 	logoSlot: { height: 44, justifyContent: "center", marginBottom: spacing.sm },
 	logo: { height: 44, width: "75%" },

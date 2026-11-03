@@ -1,5 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, TouchableOpacity, Pressable, StyleSheet, Alert } from "react-native";
+import {
+	View,
+	Text,
+	TouchableOpacity,
+	Pressable,
+	StyleSheet,
+	Alert,
+	type StyleProp,
+	type ViewStyle,
+} from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -81,6 +90,8 @@ interface RowProps {
 
 /** Slots in a card's strip, under the name: posters, the last one a "+N" tile when more are left */
 const STRIP_SLOTS = 5;
+/** A strip tile is 28 × 42: the placeholder icon has to fit inside it (the default is 28) */
+const STRIP_ICON_SIZE = 16;
 /** Backdrop / poster wash fade in instead of popping */
 const IMAGE_FADE_MS = 200;
 /** A poster standing in for a missing backdrop: blurred to a wash of its colours */
@@ -97,6 +108,26 @@ const moreFontSize = (n: number) => (n < 10 ? 17 : n < 100 ? 13 : 11);
  * A list's first posters. Up to STRIP_SLOTS fit as they are; more → the last slot becomes "+N",
  * the next poster dimmed under it so it reads as more of the same (a "+1" would waste the slot)
  */
+/** One strip tile: the poster saved with the entry, else the title's own (an entry saved without
+ *  one would stay a placeholder in the strip while its list's cards show the poster) */
+function StripPoster({
+	item,
+	style,
+}: {
+	item: CustomList["items"][number];
+	style?: StyleProp<ViewStyle>;
+}) {
+	const { data: info } = useTitleInfo(item.tmdbId, item.mediaType, !item.posterPath);
+	return (
+		<PosterImage
+			posterPath={item.posterPath ?? info?.posterPath}
+			mediaType={item.mediaType}
+			style={style}
+			iconSize={STRIP_ICON_SIZE}
+		/>
+	);
+}
+
 function PosterStrip({ items }: { items: CustomList["items"] }) {
 	const overflow = items.length > STRIP_SLOTS;
 	const shown = items.slice(0, overflow ? STRIP_SLOTS - 1 : STRIP_SLOTS);
@@ -104,10 +135,9 @@ function PosterStrip({ items }: { items: CustomList["items"] }) {
 	return (
 		<View style={styles.strip}>
 			{shown.map((item) => (
-				<PosterImage
+				<StripPoster
 					key={`${item.mediaType}_${item.tmdbId}`}
-					posterPath={item.posterPath}
-					mediaType={item.mediaType}
+					item={item}
 					style={styles.stripPoster}
 				/>
 			))}
@@ -118,11 +148,7 @@ function PosterStrip({ items }: { items: CustomList["items"] }) {
 					accessibilityLabel={`${items.length - shown.length} more`}
 				>
 					{/* Dimmed by its own opacity over black: an overlay on top lost to the image on Android */}
-					<PosterImage
-						posterPath={next.posterPath}
-						mediaType={next.mediaType}
-						style={[StyleSheet.absoluteFill, styles.morePoster]}
-					/>
+					<StripPoster item={next} style={[StyleSheet.absoluteFill, styles.morePoster]} />
 					<View style={[StyleSheet.absoluteFill, styles.moreTile]}>
 						{/* Steps down per digit so +9 … +99 fit the 28px tile; past that, 99+ */}
 						<Text
