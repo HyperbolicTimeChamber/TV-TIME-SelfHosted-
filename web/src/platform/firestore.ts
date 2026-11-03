@@ -4,6 +4,7 @@
 import "../firebase";
 import * as firestore from "firebase/firestore";
 import { countFirestoreOps } from "@app/utils/countFirestoreOps";
+import { stampTrackingWrites } from "@app/utils/stampTrackingWrites";
 
 export * from "firebase/firestore";
 
@@ -20,4 +21,4 @@ export const {
 	deleteDoc,
 	writeBatch,
 	runTransaction,
-} = countFirestoreOps(firestore);
+} = countFirestoreOps({ ...firestore, ...stampTrackingWrites(firestore) });
