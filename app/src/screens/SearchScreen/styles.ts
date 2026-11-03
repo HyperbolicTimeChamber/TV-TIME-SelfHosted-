@@ -2,6 +2,9 @@ import { StyleSheet } from "react-native";
 import { colors, spacing, typography } from "../../theme";
 import { artHeight, NO_RESULTS_RATIO } from "../../components/NotFoundArt";
 
+/** Poster card corners: the same 16 as a list card, so the pills and badges sit in matching curves */
+const CARD_RADIUS = 16;
+
 export const styles = StyleSheet.create({
 	container: {
 		flex: 1,
@@ -91,7 +94,7 @@ export const styles = StyleSheet.create({
 	card: {
 		flex: 1,
 		overflow: "hidden" as const,
-		borderRadius: 6,
+		borderRadius: CARD_RADIUS,
 	},
 	// SearchSkeleton: the poster's box, in the skeleton colour (shimmer set inline)
 	skeletonPoster: {
@@ -99,7 +102,7 @@ export const styles = StyleSheet.create({
 	},
 	poster: {
 		aspectRatio: 2 / 3,
-		borderRadius: 6,
+		borderRadius: CARD_RADIUS,
 		backgroundColor: colors.surface,
 		width: "100%",
 	},
@@ -109,8 +112,10 @@ export const styles = StyleSheet.create({
 		left: 0,
 		right: 0,
 		backgroundColor: colors.overlayLight,
-		paddingHorizontal: spacing.sm,
-		paddingVertical: spacing.xs,
+		// Side and bottom room so the title and year clear the rounded corners
+		paddingHorizontal: spacing.md,
+		paddingTop: spacing.xs,
+		paddingBottom: spacing.sm + 2,
 	},
 	cardTitle: {
 		...typography.caption,

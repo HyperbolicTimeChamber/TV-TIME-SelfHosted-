@@ -259,22 +259,30 @@ export default function ListDetailScreen() {
 					{view === CustomListView.GRID ? (
 						<FlatList
 							key="grid"
-							data={list.items}
-							keyExtractor={(item) => `${item.mediaType}_${item.tmdbId}`}
+							// An odd count ends on a spacer cell: a lone last card is flex: 1 and would
+							// stretch across both columns
+							data={list.items.length % COLUMNS ? [...list.items, null] : list.items}
+							keyExtractor={(item, index) =>
+								item ? `${item.mediaType}_${item.tmdbId}` : `spacer_${index}`
+							}
 							numColumns={COLUMNS}
 							columnWrapperStyle={searchStyles.row}
 							contentContainerStyle={[searchStyles.grid, styles.gridContent]}
-							renderItem={({ item }) => (
-								<ListGridCard
-									item={item}
-									tracked={actions.trackedIds.has(item.tmdbId)}
-									adding={actions.addingIds.has(item.tmdbId)}
-									onPress={openTitle}
-									onLongPress={setPreviewItem}
-									onAdd={actions.handleAddToWatchlist}
-									onRemove={actions.handleRemoveFromWatchlist}
-								/>
-							)}
+							renderItem={({ item }) =>
+								item ? (
+									<ListGridCard
+										item={item}
+										tracked={actions.trackedIds.has(item.tmdbId)}
+										adding={actions.addingIds.has(item.tmdbId)}
+										onPress={openTitle}
+										onLongPress={setPreviewItem}
+										onAdd={actions.handleAddToWatchlist}
+										onRemove={actions.handleRemoveFromWatchlist}
+									/>
+								) : (
+									<View style={styles.gridSpacer} />
+								)
+							}
 						/>
 					) : (
 						<FlatList
@@ -431,6 +439,8 @@ const styles = StyleSheet.create({
 	// Search's grid padding (16) plus its row padding (8) read wider here than on the Search page,
 	// whose list drops the row's: 4 + the row's 8 = the same 12 side margin
 	listArea: { flex: 1 },
+	// Empty cell completing an odd last row (the card is flex: 1)
+	gridSpacer: { flex: 1 },
 	topFade: { position: "absolute", top: 0, left: 0, right: 0, height: FADE_HEIGHT },
 	// Top: the fade's height, so the first card rests clear of it and only fades once scrolled
 	gridContent: {
