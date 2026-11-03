@@ -469,18 +469,6 @@
 }
 
 /* The 20px ring scaled to the tag line's 14px icon */
-.tagRing {
-	display: inline-flex;
-	width: 14px;
-	height: 14px;
-	align-items: center;
-	justify-content: center;
-
-	svg {
-		transform: scale(0.7) rotate(-90deg);
-	}
-}
-
 .skeletonTags {
 	width: 150px;
 	height: 20px;

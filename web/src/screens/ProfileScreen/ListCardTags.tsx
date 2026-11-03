@@ -1,7 +1,6 @@
-import { FaRegCheckCircle, FaRegPauseCircle } from "react-icons/fa";
-import { HistoryPill, ListTagKind } from "@app/enums";
+import { HistoryPill, HistoryProgress, ListTagKind } from "@app/enums";
 import type { ListTag } from "@app/utils/listCardTags";
-import ProgressRing from "./WatchHistory/ProgressRing";
+import ProgressPill from "./WatchHistory/ProgressPill";
 import WatchCountPill from "../../components/WatchCountPill";
 import StatusPill from "../../components/StatusPill";
 import styles from "./styles/ListDetail.module.scss";
@@ -43,28 +42,11 @@ function Tag({ tag }: { tag: ListTag }) {
 				/>
 			);
 		case ListTagKind.PERCENT:
-			return (
-				<span className={`${styles.tag} bg-warning text-surface`}>
-					<span className={styles.tagRing}>
-						<ProgressRing percent={tag.percent ?? 0} />
-					</span>
-					{tag.label}
-				</span>
-			);
+			return <ProgressPill kind={HistoryProgress.PERCENT} percent={tag.percent ?? 0} compact />;
 		case ListTagKind.UP_TO_DATE:
-			return (
-				<span className={`${styles.tag} bg-watched`}>
-					<FaRegCheckCircle size={14} className="block shrink-0" />
-					{tag.label}
-				</span>
-			);
+			return <ProgressPill kind={HistoryProgress.UP_TO_DATE} compact />;
 		case ListTagKind.PAUSED:
-			return (
-				<span className={`${styles.tag} bg-movie`}>
-					<FaRegPauseCircle size={14} className="block shrink-0" />
-					{tag.label}
-				</span>
-			);
+			return <ProgressPill kind={HistoryProgress.PAUSED} compact />;
 		case ListTagKind.WATCH_COUNT:
 			return <WatchCountPill count={tag.count ?? 0} label={tag.label} compact />;
 		default:

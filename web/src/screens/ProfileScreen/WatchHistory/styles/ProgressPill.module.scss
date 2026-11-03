@@ -1,0 +1,37 @@
+.pill {
+	display: inline-flex;
+	align-items: center;
+	flex-shrink: 0;
+	gap: 6px;
+	border-radius: 999px;
+	/* Left = vertical padding → icon/ring sits concentric with the rounded end */
+	padding: 5px 10px 5px 5px;
+	font-size: 14px;
+	font-weight: 700;
+	line-height: 1.25;
+	white-space: nowrap;
+	color: var(--text);
+}
+
+.ring {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+/* A list card's tag line */
+.compact {
+	gap: 4px;
+	padding: 3px 8px 3px 3px;
+	font-size: 11px;
+
+	/* The 20px ring drawn shrunk into a 14px box */
+	.ring {
+		width: 14px;
+		height: 14px;
+
+		svg {
+			transform: scale(0.7) rotate(-90deg);
+		}
+	}
+}

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
 	View,
 	Text,
@@ -23,7 +23,6 @@ import type { ShowDrawerAction } from "../../components/ShowDrawer";
 import { CircleBackButton } from "../../components/CircleButton";
 import ListMenuSheet from "./ListMenuSheet";
 import { shareListsExport } from "../../services/customListsFiles";
-import PosterImage from "../../components/PosterImage";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import { moveElement, sameItemOrder, titleCount } from "../../utils";
 import { colors, spacing, typography } from "../../theme";

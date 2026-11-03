@@ -1,16 +1,15 @@
 import React, { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../../theme";
-import { HistoryPill, HistoryProgress } from "../../../enums";
+import { HistoryPill } from "../../../enums";
 import { tmdbBlurredBackdropUri, tmdbLogoUri } from "../../../hooks/useTmdbImage";
 import type { HistoryCard } from "../../../utils";
 import { BLUR_RADIUS } from "../styles";
-import ProgressRing from "./ProgressRing";
+import ProgressPill from "./ProgressPill";
 import WatchCountPill from "../../../components/WatchCountPill";
 import StatusPill from "../../../components/StatusPill";
-import { CARD_ASPECT, RING_SIZE, styles } from "./styles";
+import { CARD_ASPECT, styles } from "./styles";
 
 const CARD_WIDTH = Dimensions.get("window").width - 32;
 const CARD_MIN_HEIGHT = CARD_WIDTH / CARD_ASPECT;
@@ -22,37 +21,6 @@ export const PILL_COLOR: Record<HistoryPill, string> = {
 	[HistoryPill.COMPLETED]: `${colors.watchedGreen}99`,
 	[HistoryPill.PAUSED]: `${colors.destructiveRed}99`,
 };
-
-function ProgressModule({ progress }: { progress: NonNullable<HistoryCard["progress"]> }) {
-	if (progress.kind === HistoryProgress.UP_TO_DATE || progress.kind === HistoryProgress.PAUSED) {
-		const upToDate = progress.kind === HistoryProgress.UP_TO_DATE;
-		return (
-			<View
-				style={[
-					styles.progressPill,
-					{ backgroundColor: upToDate ? colors.watchedGreen : colors.moviePurple },
-				]}
-			>
-				{/* Ionicons glyphs carry ~1px inner padding: +2 / −1 margin → visually RING_SIZE */}
-				<Ionicons
-					name={upToDate ? "checkmark-circle-outline" : "pause-circle-outline"}
-					size={RING_SIZE + 2}
-					color={colors.text}
-					style={styles.progressIcon}
-				/>
-				<Text style={[styles.progressText, { color: colors.text }]}>
-					{upToDate ? "Up To Date" : "Paused"}
-				</Text>
-			</View>
-		);
-	}
-	return (
-		<View style={[styles.progressPill, { backgroundColor: colors.warningAmber }]}>
-			<ProgressRing percent={progress.percent ?? 0} />
-			<Text style={[styles.progressText, { color: colors.surface }]}>{progress.percent ?? 0}%</Text>
-		</View>
-	);
-}
 
 /** Watch History card (16:9): logo + title + status, time spent, progress, Ongoing/Ended */
 function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => void }) {
@@ -112,7 +80,7 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 						/>
 					)}
 					{card.progress ? (
-						<ProgressModule progress={card.progress} />
+						<ProgressPill kind={card.progress.kind} percent={card.progress.percent} />
 					) : card.watchCount != null ? (
 						<WatchCountPill count={card.watchCount} />
 					) : null}

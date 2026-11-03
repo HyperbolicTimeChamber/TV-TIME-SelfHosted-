@@ -250,17 +250,6 @@
 	font-weight: 600;
 }
 
-.progressPill {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	border-radius: 999px;
-	/* Left = vertical padding → icon/ring sits concentric with the rounded end */
-	padding: 5px 10px 5px 5px;
-	font-size: 14px;
-	font-weight: 700;
-}
-
 .skeleton {
 	aspect-ratio: 16 / 9;
 	border-radius: 16px;

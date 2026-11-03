@@ -122,18 +122,6 @@ export const styles = StyleSheet.create({
 		letterSpacing: -0.5,
 		marginBottom: -6,
 	},
-	progressPill: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: 6,
-		borderRadius: 999,
-		// Left = vertical padding → icon/ring sits concentric with the rounded end
-		paddingLeft: 5,
-		paddingRight: 10,
-		paddingVertical: 5,
-	},
-	progressText: { fontSize: 14, fontWeight: "700" },
-	progressIcon: { margin: -1 },
 	// Light grey (textSecondary) at 35% — translucent over the backdrop
 	tagPill: {
 		borderRadius: 999,

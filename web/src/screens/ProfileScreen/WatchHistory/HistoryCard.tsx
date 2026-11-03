@@ -1,11 +1,10 @@
 import { memo } from "react";
-import { FaRegCheckCircle, FaRegPauseCircle } from "react-icons/fa";
-import { HistoryPill, HistoryProgress } from "@app/enums";
+import { HistoryPill } from "@app/enums";
 import type { HistoryCard as Card } from "@app/utils";
 import { tmdbBackdropUri, tmdbLogoUri } from "@app/hooks/useTmdbImage";
 import WatchCountPill from "../../../components/WatchCountPill";
 import StatusPill from "../../../components/StatusPill";
-import ProgressRing from "./ProgressRing";
+import ProgressPill from "./ProgressPill";
 import styles from "./styles/WatchHistory.module.scss";
 
 /** Status colours at 60% — translucent over the backdrop */
@@ -19,32 +18,6 @@ const PILL_BG: Record<HistoryPill, string> = {
 	[HistoryPill.PAUSED]: "bg-danger/60",
 };
 /** Icons match the progress ring's 20px so all three pills line up */
-const ICON_SIZE = 20;
-
-function ProgressModule({ progress }: { progress: NonNullable<Card["progress"]> }) {
-	if (progress.kind === HistoryProgress.UP_TO_DATE) {
-		return (
-			<span className={`${styles.progressPill} bg-watched`}>
-				<FaRegCheckCircle size={ICON_SIZE} className="block shrink-0" />
-				Up To Date
-			</span>
-		);
-	}
-	if (progress.kind === HistoryProgress.PAUSED) {
-		return (
-			<span className={`${styles.progressPill} bg-movie`}>
-				<FaRegPauseCircle size={ICON_SIZE} className="block shrink-0" />
-				Paused
-			</span>
-		);
-	}
-	return (
-		<span className={`${styles.progressPill} bg-warning text-surface`}>
-			<ProgressRing percent={progress.percent ?? 0} />
-			{progress.percent ?? 0}%
-		</span>
-	);
-}
 
 /** Watch History card (app HistoryCardView) */
 function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
@@ -90,7 +63,7 @@ function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
 						/>
 					)}
 					{card.progress ? (
-						<ProgressModule progress={card.progress} />
+						<ProgressPill kind={card.progress.kind} percent={card.progress.percent} />
 					) : card.watchCount != null ? (
 						<WatchCountPill count={card.watchCount} />
 					) : null}
