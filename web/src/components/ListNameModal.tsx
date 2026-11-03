@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Spin } from "antd";
+import { IoCloseCircle } from "react-icons/io5";
 import { CUSTOM_LIST_NAME_MAX } from "@app/enums";
 import AnimatedModal from "./AnimatedModal";
 import styles from "./styles/ui.module.scss";
+import nameStyles from "./styles/ListNameModal.module.scss";
 
 interface Props {
 	visible: boolean;
@@ -21,6 +23,9 @@ interface Props {
 	/** Line under the art; a list → one of them, picked each time the popup opens */
 	hint?: string | readonly string[];
 }
+
+/** Past this many characters the field shows how many are left */
+const COUNTER_FROM = Math.floor(CUSTOM_LIST_NAME_MAX * 0.8);
 
 const pickHint = (hint: Props["hint"]) =>
 	typeof hint === "string" || hint === undefined
@@ -63,9 +68,14 @@ export default function ListNameModal({
 		return () => window.clearTimeout(t);
 	}, [visible, initialName]);
 
+	const showCounter = name.length >= COUNTER_FROM;
+	const showUnder = !!error || showCounter;
 	const blank = name.trim().length === 0;
+	// Rename with the name untouched: nothing to save
+	const unchanged = initialName.length > 0 && name.trim() === initialName.trim();
+	const disabled = blank || unchanged || loading;
 	const submit = () => {
-		if (!blank && !loading) onSubmit(name);
+		if (!disabled) onSubmit(name);
 	};
 
 	return (
@@ -79,30 +89,67 @@ export default function ListNameModal({
 					submit();
 				}}
 			>
-				<input
-					ref={inputRef}
-					className={styles.textInput}
-					value={name}
-					onChange={(e) => setName(e.target.value)}
-					placeholder="List name"
-					maxLength={CUSTOM_LIST_NAME_MAX}
-					aria-label="List name"
-				/>
-				{error && <p className={styles.modalError}>{error}</p>}
-				<button
-					type="submit"
-					className={styles.button}
-					disabled={blank || loading}
-					style={blank && !loading ? { opacity: 0.5 } : undefined}
+				<div
+					className={`${nameStyles.field} ${showUnder ? nameStyles.fieldTight : ""} ${error ? nameStyles.fieldError : ""}`}
 				>
-					{loading ? <Spin size="small" /> : confirmLabel}
-				</button>
+					<input
+						ref={inputRef}
+						className={nameStyles.input}
+						value={name}
+						onChange={(e) => setName(e.target.value)}
+						placeholder="List name"
+						maxLength={CUSTOM_LIST_NAME_MAX}
+						aria-label="List name"
+					/>
+					{name.length > 0 && !loading && (
+						<button
+							type="button"
+							className={nameStyles.clear}
+							aria-label="Clear name"
+							onClick={() => {
+								setName("");
+								inputRef.current?.focus();
+							}}
+						>
+							<IoCloseCircle size={20} />
+						</button>
+					)}
+				</div>
+				{/* Error and the character count share a line under the field — only when there is one */}
+				{showUnder && (
+					<div className={nameStyles.under}>
+						{error ? (
+							<p className={nameStyles.error}>{error}</p>
+						) : (
+							<span className={nameStyles.spacer} />
+						)}
+						{showCounter && (
+							<span className={nameStyles.counter}>
+								{name.length}/{CUSTOM_LIST_NAME_MAX}
+							</span>
+						)}
+					</div>
+				)}
+				<div className={nameStyles.buttons}>
+					{!loading && (
+						<button
+							type="button"
+							className={`${styles.button} ${styles.cancelOutline}`}
+							onClick={onClose}
+						>
+							Cancel
+						</button>
+					)}
+					<button
+						type="submit"
+						className={styles.button}
+						disabled={disabled}
+						style={disabled && !loading ? { opacity: 0.5 } : undefined}
+					>
+						{loading ? <Spin size="small" /> : confirmLabel}
+					</button>
+				</div>
 			</form>
-			{!loading && (
-				<button className={`${styles.button} ${styles.cancelOutline}`} onClick={onClose}>
-					Cancel
-				</button>
-			)}
 		</AnimatedModal>
 	);
 }
