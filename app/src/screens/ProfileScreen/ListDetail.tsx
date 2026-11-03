@@ -12,6 +12,7 @@ import { useNavigation, useRoute, type RouteProp } from "@react-navigation/nativ
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import ReorderableList, { type ReorderableListReorderEvent } from "react-native-reorderable-list";
 import { useAuthStore } from "../../stores";
@@ -33,6 +34,9 @@ import { styles as searchStyles } from "../SearchScreen/styles";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, Route.LIST_DETAIL>;
 
+/** Height of the fade under the header (the Lists page's FADE_HEIGHT) */
+const FADE_HEIGHT = spacing.lg;
+const TOP_FADE = [colors.background, "rgba(0, 0, 0, 0)"] as const;
 /** Grid view is Search's result grid */
 const COLUMNS = 2;
 
@@ -249,43 +253,49 @@ export default function ListDetailScreen() {
 					renderItem={({ item }) => (item ? <ReorderRow item={item} /> : null)}
 					contentContainerStyle={styles.reorderContent}
 				/>
-			) : view === CustomListView.GRID ? (
-				<FlatList
-					key="grid"
-					data={list.items}
-					keyExtractor={(item) => `${item.mediaType}_${item.tmdbId}`}
-					numColumns={COLUMNS}
-					columnWrapperStyle={searchStyles.row}
-					contentContainerStyle={[searchStyles.grid, styles.gridContent]}
-					renderItem={({ item }) => (
-						<ListGridCard
-							item={item}
-							tracked={actions.trackedIds.has(item.tmdbId)}
-							adding={actions.addingIds.has(item.tmdbId)}
-							onPress={openTitle}
-							onLongPress={setPreviewItem}
-							onAdd={actions.handleAddToWatchlist}
-							onRemove={actions.handleRemoveFromWatchlist}
-						/>
-					)}
-				/>
 			) : (
-				<FlatList
-					key="list"
-					data={list.items}
-					keyExtractor={(item) => `${item.mediaType}_${item.tmdbId}`}
-					contentContainerStyle={styles.listContent}
-					renderItem={({ item }) => (
-						<ListRow
-							item={item}
-							onPress={() => openTitle(item)}
-							onLongPress={() => setPreviewItem(item)}
-							tracked={actions.trackedIds.has(item.tmdbId)}
-							adding={actions.addingIds.has(item.tmdbId)}
-							onAddToWatchlist={actions.handleAddToWatchlist}
+				// Cards fade out under the header instead of being cut at its edge (the Lists page's topFade)
+				<View style={styles.listArea}>
+					{view === CustomListView.GRID ? (
+						<FlatList
+							key="grid"
+							data={list.items}
+							keyExtractor={(item) => `${item.mediaType}_${item.tmdbId}`}
+							numColumns={COLUMNS}
+							columnWrapperStyle={searchStyles.row}
+							contentContainerStyle={[searchStyles.grid, styles.gridContent]}
+							renderItem={({ item }) => (
+								<ListGridCard
+									item={item}
+									tracked={actions.trackedIds.has(item.tmdbId)}
+									adding={actions.addingIds.has(item.tmdbId)}
+									onPress={openTitle}
+									onLongPress={setPreviewItem}
+									onAdd={actions.handleAddToWatchlist}
+									onRemove={actions.handleRemoveFromWatchlist}
+								/>
+							)}
+						/>
+					) : (
+						<FlatList
+							key="list"
+							data={list.items}
+							keyExtractor={(item) => `${item.mediaType}_${item.tmdbId}`}
+							contentContainerStyle={styles.listContent}
+							renderItem={({ item }) => (
+								<ListRow
+									item={item}
+									onPress={() => openTitle(item)}
+									onLongPress={() => setPreviewItem(item)}
+									tracked={actions.trackedIds.has(item.tmdbId)}
+									adding={actions.addingIds.has(item.tmdbId)}
+									onAddToWatchlist={actions.handleAddToWatchlist}
+								/>
+							)}
 						/>
 					)}
-				/>
+					<LinearGradient colors={TOP_FADE} style={styles.topFade} pointerEvents="none" />
+				</View>
 			)}
 
 			{/* The same list menu as on the Lists page */}
@@ -420,8 +430,19 @@ const styles = StyleSheet.create({
 	countGrow: { flex: 1 },
 	// Search's grid padding (16) plus its row padding (8) read wider here than on the Search page,
 	// whose list drops the row's: 4 + the row's 8 = the same 12 side margin
-	gridContent: { paddingHorizontal: spacing.xs, paddingBottom: spacing.xxl * 2 },
-	listContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl * 2 },
+	listArea: { flex: 1 },
+	topFade: { position: "absolute", top: 0, left: 0, right: 0, height: FADE_HEIGHT },
+	// Top: the fade's height, so the first card rests clear of it and only fades once scrolled
+	gridContent: {
+		paddingHorizontal: spacing.xs,
+		paddingTop: FADE_HEIGHT,
+		paddingBottom: spacing.xxl * 2,
+	},
+	listContent: {
+		paddingHorizontal: spacing.lg,
+		paddingTop: FADE_HEIGHT,
+		paddingBottom: spacing.xxl * 2,
+	},
 	reorderContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl * 2 },
 	empty: {
 		flex: 1,

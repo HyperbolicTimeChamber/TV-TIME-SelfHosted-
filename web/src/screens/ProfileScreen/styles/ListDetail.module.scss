@@ -14,6 +14,18 @@
 	z-index: 10;
 	background: var(--bg);
 	padding: calc(env(safe-area-inset-top) + 8px) 16px 12px;
+
+	/* Cards fade out under the bar instead of being cut at its edge (app topFade, like the Lists page) */
+	&::after {
+		content: "";
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: 100%;
+		height: 16px;
+		background: linear-gradient(var(--bg), transparent);
+		pointer-events: none;
+	}
 }
 
 .titleRow {
@@ -497,4 +509,12 @@
 	height: 20px;
 	margin-top: 8px;
 	border-radius: 999px;
+}
+
+/* A list grid card's state pills sit on a solid backing: they are translucent, which lost them on a
+   busy poster */
+.gridTagBacking {
+	display: inline-flex;
+	border-radius: 999px;
+	background: var(--bg);
 }

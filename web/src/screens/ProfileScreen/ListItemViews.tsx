@@ -101,7 +101,10 @@ export function ListGridCard({
 			isInWatchlist={tracked}
 			isAdding={adding}
 			overlay={tags?.map((t) => (
-				<ListCardTags key={t.kind} tags={[t]} flush />
+				// Solid backing: the pills are translucent, which lost them on a busy poster
+				<span key={t.kind} className={styles.gridTagBacking}>
+					<ListCardTags tags={[t]} flush />
+				</span>
 			))}
 			onPress={() => onPress(item)}
 			onLongPress={() => onLongPress(item)}

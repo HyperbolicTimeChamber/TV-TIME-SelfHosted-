@@ -332,7 +332,10 @@ export function ListGridCard({
 			isInWatchlist={tracked}
 			isAdding={adding}
 			overlay={tags?.map((t) => (
-				<ListCardTags key={t.kind} tags={[t]} flush />
+				// Solid backing: the pills are translucent, which lost them on a busy poster
+				<View key={t.kind} style={styles.gridTagBacking}>
+					<ListCardTags tags={[t]} flush />
+				</View>
 			))}
 			onPress={() => onPress(item)}
 			onLongPress={() => onLongPress(item)}
@@ -423,6 +426,7 @@ const JOINED_BUTTON = {
 } as const;
 
 const styles = StyleSheet.create({
+	gridTagBacking: { borderRadius: 999, backgroundColor: colors.background },
 	// The calendar card sits in the list's own padding (no side margin of its own)
 	// Taller than the calendar's card: the square has the add button / Tracking tag under it
 	// Exactly the right block (square + button) plus the card's padding: the left column fits inside
