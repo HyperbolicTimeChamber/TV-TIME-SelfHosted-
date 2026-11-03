@@ -91,6 +91,8 @@ export function ListGridCard({
 	onRemove: (show: TMDBShow) => void;
 }) {
 	const { data: info } = useTitleInfo(item.tmdbId, item.mediaType);
+	// The same state pills as a list card, one per row over the poster's top-left
+	const tags = useListTags(item.tmdbId, item.mediaType);
 	const show = useMemo(() => toShow(item, info), [item, info]);
 	return (
 		<SearchCard
@@ -98,6 +100,9 @@ export function ListGridCard({
 			canTrack
 			isInWatchlist={tracked}
 			isAdding={adding}
+			overlay={tags?.map((t) => (
+				<ListCardTags key={t.kind} tags={[t]} flush />
+			))}
 			onPress={() => onPress(item)}
 			onLongPress={() => onLongPress(item)}
 			onAdd={onAdd}
@@ -128,6 +133,37 @@ const CARD_MAX_WIDTH = 440;
 const NAME_DELAY_MS = 2000;
 
 /**
+ * The list-card tags for a title (Currently Watching, Paused, Watch Count, Not Started / Not Watched…),
+ * from its own tracking doc; null until that is known (app useListTags). A tracked show's progress
+ * needs its episode list: one batched catalog read, then cached.
+ */
+function useListTags(tmdbId: number, mediaType: MediaType) {
+	const isMovie = mediaType === MediaType.MOVIE;
+	const userId = useAuthStore((st) => st.user?.uid);
+	const entry = useTrackingEntry(userId, tmdbId, mediaType);
+	const [catalogVersion, setCatalogVersion] = useState(0);
+	useEffect(() => {
+		if (!entry || isMovie) return;
+		ensureFreshCatalogs([entry])
+			.catch(() => false)
+			.then((fetched) => fetched && setCatalogVersion((v) => v + 1));
+	}, [entry, isMovie]);
+	return useMemo(() => {
+		if (entry === undefined) return null;
+		const card = entry
+			? deriveHistoryCard(
+					entry,
+					getCachedCatalogShow(tmdbId, mediaType),
+					todayStr(),
+					catalogSettled(tmdbId, mediaType),
+				)
+			: null;
+		return deriveListTags(card, isMovie);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [entry, catalogVersion, tmdbId, mediaType, isMovie]);
+}
+
+/**
  * List view (app ListRow): a calendar card for a saved title — blurred backdrop, logo (name when
  * there's none) over its TV / MOVIE pill and runtime, and the square holding a show's episode count /
  * a movie's year.
@@ -156,29 +192,7 @@ export function ListRow({
 		? { label: "YEAR", value: info?.year ?? null }
 		: { label: "EPISODES", value: info?.totalEpisodes ? String(info.totalEpisodes) : null };
 	// Tags: Watch History's, from the title's own tracking doc (none → Not Started)
-	const userId = useAuthStore((st) => st.user?.uid);
-	const entry = useTrackingEntry(userId, item.tmdbId, item.mediaType);
-	const [catalogVersion, setCatalogVersion] = useState(0);
-	useEffect(() => {
-		// A tracked show's progress needs its episode list: one batched catalog read, then cached
-		if (!entry || isMovie) return;
-		ensureFreshCatalogs([entry])
-			.catch(() => false)
-			.then((fetched) => fetched && setCatalogVersion((v) => v + 1));
-	}, [entry, isMovie]);
-	const tags = useMemo(() => {
-		if (entry === undefined) return null;
-		const card = entry
-			? deriveHistoryCard(
-					entry,
-					getCachedCatalogShow(item.tmdbId, item.mediaType),
-					todayStr(),
-					catalogSettled(item.tmdbId, item.mediaType),
-				)
-			: null;
-		return deriveListTags(card, isMovie);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [entry, catalogVersion, item.tmdbId, item.mediaType, isMovie]);
+	const tags = useListTags(item.tmdbId, item.mediaType);
 	// A show: its season count; a movie: its runtime (the year is in the square), in a translucent black pill
 	const metaText = isMovie
 		? runtime

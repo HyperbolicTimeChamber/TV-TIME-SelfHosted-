@@ -121,6 +121,16 @@ export const styles = StyleSheet.create({
 		...typography.caption,
 		fontSize: 11,
 	},
+	// The title's state pills (Currently Watching, Watch Count…), stacked top-left over the poster —
+	// the badges are top-right
+	overlayTags: {
+		position: "absolute" as const,
+		top: 8,
+		left: 6,
+		gap: 4,
+		alignItems: "flex-start" as const,
+		zIndex: 1,
+	},
 	watchlistBadge: {
 		position: "absolute" as const,
 		top: 6,

@@ -71,6 +71,37 @@ const POSTER_BLUR_RADIUS = 30;
 const CARD_FILL = 400;
 
 /**
+ * The list-card tags for a title (Currently Watching, Paused, Watch Count, Not Started / Not Watched…),
+ * from its own tracking doc; null until that is known. A tracked show's progress needs its episode
+ * list: one batched catalog read, then cached.
+ */
+function useListTags(tmdbId: number, mediaType: MediaType) {
+	const isMovie = mediaType === MediaType.MOVIE;
+	const userId = useAuthStore((s) => s.user?.uid);
+	const entry = useTrackingEntry(userId, tmdbId, mediaType);
+	const [catalogVersion, setCatalogVersion] = useState(0);
+	useEffect(() => {
+		if (!entry || isMovie) return;
+		ensureFreshCatalogs([entry])
+			.catch(() => false)
+			.then((fetched) => fetched && setCatalogVersion((v) => v + 1));
+	}, [entry, isMovie]);
+	return useMemo(() => {
+		if (entry === undefined) return null;
+		const card = entry
+			? deriveHistoryCard(
+					entry,
+					getCachedCatalogShow(tmdbId, mediaType),
+					todayStr(),
+					catalogSettled(tmdbId, mediaType),
+				)
+			: null;
+		return deriveListTags(card, isMovie);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [entry, catalogVersion, tmdbId, mediaType, isMovie]);
+}
+
+/**
  * List view: a calendar card (the Watch History family) for a saved title — blurred backdrop, logo
  * (name when there's none) over its TV / MOVIE pill and runtime, and the calendar's square holding
  * a show's episode count / a movie's year.
@@ -113,29 +144,7 @@ export function ListRow({
 			: { first_air_date: info?.releaseDate ?? undefined }),
 	});
 	// Tags: Watch History's, from the title's own tracking doc (none → Not Started)
-	const userId = useAuthStore((s) => s.user?.uid);
-	const entry = useTrackingEntry(userId, item.tmdbId, item.mediaType);
-	const [catalogVersion, setCatalogVersion] = useState(0);
-	useEffect(() => {
-		// A tracked show's progress needs its episode list: one batched catalog read, then cached
-		if (!entry || isMovie) return;
-		ensureFreshCatalogs([entry])
-			.catch(() => false)
-			.then((fetched) => fetched && setCatalogVersion((v) => v + 1));
-	}, [entry, isMovie]);
-	const tags = useMemo(() => {
-		if (entry === undefined) return null;
-		const card = entry
-			? deriveHistoryCard(
-					entry,
-					getCachedCatalogShow(item.tmdbId, item.mediaType),
-					todayStr(),
-					catalogSettled(item.tmdbId, item.mediaType),
-				)
-			: null;
-		return deriveListTags(card, isMovie);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [entry, catalogVersion, item.tmdbId, item.mediaType, isMovie]);
+	const tags = useListTags(item.tmdbId, item.mediaType);
 	// A show: its season count; a movie: its runtime (the year is in the square), in a translucent black pill
 	const metaText = isMovie
 		? runtime
@@ -299,6 +308,8 @@ export function ListGridCard({
 }>) {
 	const { data: info } = useTitleInfo(item.tmdbId, item.mediaType);
 	const isMovie = item.mediaType === MediaType.MOVIE;
+	// The same state pills as a list card, one per row over the poster's top-left
+	const tags = useListTags(item.tmdbId, item.mediaType);
 	const show = useMemo(
 		(): TMDBShow => ({
 			id: item.tmdbId,
@@ -320,6 +331,9 @@ export function ListGridCard({
 			item={show}
 			isInWatchlist={tracked}
 			isAdding={adding}
+			overlay={tags?.map((t) => (
+				<ListCardTags key={t.kind} tags={[t]} flush />
+			))}
 			onPress={() => onPress(item)}
 			onLongPress={() => onLongPress(item)}
 			onAdd={onAdd}

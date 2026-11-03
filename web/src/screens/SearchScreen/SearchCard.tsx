@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 import { Spin } from "antd";
 import { IoAdd, IoBookmark, IoBookmarkOutline, IoCheckmark } from "react-icons/io5";
 import { motion } from "motion/react";
@@ -20,6 +20,8 @@ interface Props {
 	onPress: (item: TMDBShow) => void;
 	onAdd: (item: TMDBShow) => void;
 	onRemove: (item: TMDBShow) => void;
+	/** Pills over the poster's top-left (a list's own grid: the title's state tags) */
+	overlay?: ReactNode;
 	/** Without it the card has no Add to List button (a list's own grid) */
 	onAddToList?: (item: TMDBShow) => void;
 	onLongPress?: (item: TMDBShow) => void;
@@ -36,6 +38,7 @@ function SearchCard({
 	onRemove,
 	onAddToList,
 	onLongPress,
+	overlay,
 }: Props) {
 	const title = item.name || item.title || "";
 	const year = (item.first_air_date || item.release_date || "").substring(0, 4);
@@ -92,6 +95,7 @@ function SearchCard({
 					{isListed ? <IoBookmark size={14} /> : <IoBookmarkOutline size={14} />}
 				</button>
 			)}
+			{overlay && <div className={styles.overlayTags}>{overlay}</div>}
 			<div className={styles.banner}>
 				<div className={styles.bannerTop}>
 					<span className={styles.cardTitle}>{title}</span>

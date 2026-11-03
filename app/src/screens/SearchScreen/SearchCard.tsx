@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../theme";
@@ -15,6 +15,8 @@ interface Props {
 	onPress: (item: TMDBShow) => void;
 	onAdd: (item: TMDBShow) => void;
 	onRemove: (item: TMDBShow) => void;
+	/** Pills over the poster's top-left (a list's own grid: the title's state tags) */
+	overlay?: ReactNode;
 	/** Without it the card has no Add to List button (a list's own grid) */
 	onAddToList?: (item: TMDBShow) => void;
 	onLongPress?: (item: TMDBShow) => void;
@@ -30,6 +32,7 @@ function SearchCard({
 	onRemove,
 	onAddToList,
 	onLongPress,
+	overlay,
 }: Readonly<Props>) {
 	const title = item.name || item.title || "";
 	const year = (item.first_air_date || item.release_date || "").substring(0, 4);
@@ -86,6 +89,11 @@ function SearchCard({
 						color={colors.text}
 					/>
 				</TouchableOpacity>
+			)}
+			{overlay && (
+				<View style={styles.overlayTags} pointerEvents="none">
+					{overlay}
+				</View>
 			)}
 			<View style={styles.banner}>
 				<View style={styles.bannerTop}>
