@@ -133,9 +133,9 @@ export function ListRow({
 					catalogSettled(item.tmdbId, item.mediaType),
 				)
 			: null;
-		return deriveListTags(card);
+		return deriveListTags(card, isMovie);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [entry, catalogVersion, item.tmdbId, item.mediaType]);
+	}, [entry, catalogVersion, item.tmdbId, item.mediaType, isMovie]);
 	// A show: its season count; a movie: its runtime (the year is in the square), in a translucent black pill
 	const metaText = isMovie
 		? runtime

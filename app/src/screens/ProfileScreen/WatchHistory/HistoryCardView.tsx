@@ -94,18 +94,18 @@ function HistoryCardView({
 						</TouchableOpacity>
 					)}
 				</View>
-				{/* Ongoing / Ended / year, under the logo */}
-				{card.tag && (
-					<View style={styles.tagPill}>
-						<Text style={styles.tag}>{card.tag}</Text>
-					</View>
-				)}
 			</View>
 
 			<View style={styles.bottomRow}>
 				{/* Bottom-left: status pill above one slot — progress / up to date / paused,
 				    else the watch count */}
 				<View style={styles.leftBlock}>
+					{/* Ongoing / Ended / year, over the status pill */}
+					{card.tag && (
+						<View style={styles.tagPill}>
+							<Text style={styles.tag}>{card.tag}</Text>
+						</View>
+					)}
 					{card.pill && card.pillLabel && (
 						<StatusPill
 							label={card.pillLabel}

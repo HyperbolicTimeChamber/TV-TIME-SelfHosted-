@@ -86,14 +86,14 @@ function HistoryCard({
 						</span>
 					)}
 				</span>
-				{/* Ongoing / Ended / year, under the logo */}
-				{card.tag && <span className={styles.tagPill}>{card.tag}</span>}
 			</span>
 
 			<span className={styles.bottomRow}>
 				{/* Bottom-left: status pill above one slot — progress / up to date / paused,
 				    else the watch count */}
 				<span className={styles.leftBlock}>
+					{/* Ongoing / Ended / year, over the status pill */}
+					{card.tag && <span className={styles.tagPill}>{card.tag}</span>}
 					{card.pill && card.pillLabel && (
 						<StatusPill
 							label={card.pillLabel}

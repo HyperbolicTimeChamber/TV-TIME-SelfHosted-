@@ -13,13 +13,18 @@ export interface ListTag {
 /**
  * The tags under a list card's meta line, in one row: what the Watch History card shows for the
  * title (Currently Watching, paused, watch count — not the other status pills, Up To Date or
- * the percentage) — and, for a title that isn't tracked, Not Started.
+ * the percentage) — and, for a title that isn't tracked, Not Started (a movie: Not Watched).
  * `card` null = not on the watchlist.
  */
-export function deriveListTags(card: HistoryCard | null): ListTag[] {
+export function deriveListTags(card: HistoryCard | null, isMovie = false): ListTag[] {
 	const tags: ListTag[] = [];
 	if (!card) {
-		tags.push({ kind: ListTagKind.NOT_STARTED, label: "Not Started" });
+		// A movie is watched or not, tracked or not: never "Started"
+		tags.push(
+			isMovie
+				? { kind: ListTagKind.NOT_WATCHED, label: "Not Watched" }
+				: { kind: ListTagKind.NOT_STARTED, label: "Not Started" },
+		);
 		return tags;
 	}
 	// Only Currently Watching of the status pills: Completed / Rewatching and the percentage are
