@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
 	View,
 	Text,
@@ -12,26 +12,33 @@ import { useNavigation, useRoute, type RouteProp } from "@react-navigation/nativ
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import ReorderableList, { type ReorderableListReorderEvent } from "react-native-reorderable-list";
 import { useAuthStore } from "../../stores";
 import { useCustomLists, useCustomListView } from "../../hooks";
 import { CircleButtonTone, CustomListView, Route } from "../../enums";
-import type { CustomListItem, ProfileStackParamList } from "../../types";
+import { MediaType, type CustomListItem, type ProfileStackParamList } from "../../types";
 import { AddToListSheet, ConfirmModal, ListNameModal } from "../../components";
 import type { ShowDrawerAction } from "../../components/ShowDrawer";
 import { CircleBackButton } from "../../components/CircleButton";
 import ListMenuSheet from "./ListMenuSheet";
 import { shareListsExport } from "../../services/customListsFiles";
-import PosterImage from "../../components/PosterImage";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import { moveElement, sameItemOrder, titleCount } from "../../utils";
 import { colors, spacing, typography } from "../../theme";
-import { ListItemPreview, ListRow, ReorderRow } from "./ListItemViews";
+import { ListGridCard, ListItemPreview, ListRow, ReorderRow } from "./ListItemViews";
+import { useSearchActions } from "../SearchScreen/useSearchActions";
+import SearchModals from "../SearchScreen/SearchModals";
+import { styles as searchStyles } from "../SearchScreen/styles";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, Route.LIST_DETAIL>;
 
-const COLUMNS = 3;
+/** Height of the fade under the header (the Lists page's FADE_HEIGHT) */
+const FADE_HEIGHT = spacing.lg;
+const TOP_FADE = [colors.background, "rgba(0, 0, 0, 0)"] as const;
+/** Grid view is Search's result grid */
+const COLUMNS = 2;
 
 /** Empty list art (transparent PNG, width / height) */
 const EMPTY_ART = require("../../../assets/list-empty.png");
@@ -61,6 +68,8 @@ export default function ListDetailScreen() {
 	);
 	const list = lists.find((l) => l.id === listId);
 	const [view, setView] = useCustomListView();
+	// Adding to / removing from the watchlist from a card: the same flow (and popups) as Search
+	const actions = useSearchActions();
 
 	const [renaming, setRenaming] = useState(false);
 	const [renameError, setRenameError] = useState<string | null>(null);
@@ -87,10 +96,6 @@ export default function ListDetailScreen() {
 	}, [loading, list, goBack]);
 
 	const emptyArtWidth = Math.min(width * 0.6, 260);
-	const posterWidth = useMemo(() => {
-		const gap = spacing.sm * (COLUMNS - 1);
-		return Math.floor((width - spacing.lg * 2 - gap) / COLUMNS);
-	}, [width]);
 
 	if (!list) return null;
 
@@ -248,44 +253,57 @@ export default function ListDetailScreen() {
 					renderItem={({ item }) => (item ? <ReorderRow item={item} /> : null)}
 					contentContainerStyle={styles.reorderContent}
 				/>
-			) : view === CustomListView.GRID ? (
-				<FlatList
-					key="grid"
-					data={list.items}
-					keyExtractor={(item) => `${item.mediaType}_${item.tmdbId}`}
-					numColumns={COLUMNS}
-					columnWrapperStyle={styles.row}
-					contentContainerStyle={styles.grid}
-					renderItem={({ item }) => (
-						<TouchableOpacity
-							activeOpacity={0.7}
-							onPress={() => openTitle(item)}
-							onLongPress={() => setPreviewItem(item)}
-							delayLongPress={350}
-						>
-							<PosterImage
-								posterPath={item.posterPath}
-								mediaType={item.mediaType}
-								style={{ width: posterWidth, height: posterWidth * 1.5, borderRadius: 6 }}
-								title={!item.posterPath ? item.title : undefined}
-							/>
-						</TouchableOpacity>
-					)}
-				/>
 			) : (
-				<FlatList
-					key="list"
-					data={list.items}
-					keyExtractor={(item) => `${item.mediaType}_${item.tmdbId}`}
-					contentContainerStyle={styles.listContent}
-					renderItem={({ item }) => (
-						<ListRow
-							item={item}
-							onPress={() => openTitle(item)}
-							onLongPress={() => setPreviewItem(item)}
+				// Cards fade out under the header instead of being cut at its edge (the Lists page's topFade)
+				<View style={styles.listArea}>
+					{view === CustomListView.GRID ? (
+						<FlatList
+							key="grid"
+							// An odd count ends on a spacer cell: a lone last card is flex: 1 and would
+							// stretch across both columns
+							data={list.items.length % COLUMNS ? [...list.items, null] : list.items}
+							keyExtractor={(item, index) =>
+								item ? `${item.mediaType}_${item.tmdbId}` : `spacer_${index}`
+							}
+							numColumns={COLUMNS}
+							columnWrapperStyle={searchStyles.row}
+							contentContainerStyle={[searchStyles.grid, styles.gridContent]}
+							renderItem={({ item }) =>
+								item ? (
+									<ListGridCard
+										item={item}
+										tracked={actions.trackedIds.has(item.tmdbId)}
+										adding={actions.addingIds.has(item.tmdbId)}
+										onPress={openTitle}
+										onLongPress={setPreviewItem}
+										onAdd={actions.handleAddToWatchlist}
+										onRemove={actions.handleRemoveFromWatchlist}
+									/>
+								) : (
+									<View style={styles.gridSpacer} />
+								)
+							}
+						/>
+					) : (
+						<FlatList
+							key="list"
+							data={list.items}
+							keyExtractor={(item) => `${item.mediaType}_${item.tmdbId}`}
+							contentContainerStyle={styles.listContent}
+							renderItem={({ item }) => (
+								<ListRow
+									item={item}
+									onPress={() => openTitle(item)}
+									onLongPress={() => setPreviewItem(item)}
+									tracked={actions.trackedIds.has(item.tmdbId)}
+									adding={actions.addingIds.has(item.tmdbId)}
+									onAddToWatchlist={actions.handleAddToWatchlist}
+								/>
+							)}
 						/>
 					)}
-				/>
+					<LinearGradient colors={TOP_FADE} style={styles.topFade} pointerEvents="none" />
+				</View>
 			)}
 
 			{/* The same list menu as on the Lists page */}
@@ -327,6 +345,39 @@ export default function ListDetailScreen() {
 						: null
 				}
 				onClose={() => setListTarget(null)}
+			/>
+
+			<SearchModals
+				movieModal={actions.movieModal}
+				onMovieModalClose={() => actions.setMovieModal(null)}
+				onMovieAddOnly={actions.handleMovieAddOnly}
+				onMovieAddAndWatch={actions.handleMovieAddAndWatch}
+				removeModal={actions.removeModal}
+				removeError={actions.removeError}
+				watchedBlock={actions.watchedBlock}
+				onGoToShow={(show) => {
+					actions.setWatchedBlock(null);
+					openTitle({
+						tmdbId: show.id,
+						mediaType: show.media_type ?? MediaType.TV,
+					} as CustomListItem);
+				}}
+				onWatchedBlockClose={() => actions.setWatchedBlock(null)}
+				removing={actions.removing}
+				onConfirmRemove={actions.handleConfirmRemove}
+				onRemoveModalClose={() => {
+					actions.setRemoveModal(null);
+					actions.setRemoveError(null);
+				}}
+				unreleasedModal={actions.unreleasedModal}
+				onUnreleasedClose={() => actions.setUnreleasedModal(null)}
+				resumeModal={actions.resumeModal}
+				onResumeFromWhere={actions.handleResumeFromWhere}
+				onStartFresh={actions.handleStartFresh}
+				onResumeModalClose={() => actions.setResumeModal(null)}
+				addFailure={actions.addFailure}
+				onRetryAdd={actions.retryAdd}
+				onAddFailureClose={actions.dismissAddFailure}
 			/>
 
 			<ListNameModal
@@ -385,9 +436,23 @@ const styles = StyleSheet.create({
 	},
 	count: { ...typography.caption },
 	countGrow: { flex: 1 },
-	grid: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl * 2 },
-	row: { gap: spacing.sm, marginBottom: spacing.sm },
-	listContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl * 2 },
+	// Search's grid padding (16) plus its row padding (8) read wider here than on the Search page,
+	// whose list drops the row's: 4 + the row's 8 = the same 12 side margin
+	listArea: { flex: 1 },
+	// Empty cell completing an odd last row (the card is flex: 1)
+	gridSpacer: { flex: 1 },
+	topFade: { position: "absolute", top: 0, left: 0, right: 0, height: FADE_HEIGHT },
+	// Top: the fade's height, so the first card rests clear of it and only fades once scrolled
+	gridContent: {
+		paddingHorizontal: spacing.xs,
+		paddingTop: FADE_HEIGHT,
+		paddingBottom: spacing.xxl * 2,
+	},
+	listContent: {
+		paddingHorizontal: spacing.lg,
+		paddingTop: FADE_HEIGHT,
+		paddingBottom: spacing.xxl * 2,
+	},
 	reorderContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl * 2 },
 	empty: {
 		flex: 1,

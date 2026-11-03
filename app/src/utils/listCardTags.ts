@@ -12,31 +12,34 @@ export interface ListTag {
 
 /**
  * The tags under a list card's meta line, in one row: what the Watch History card shows for the
- * title (status, progress / up to date / paused, watch count) — and, for a title
- * that isn't tracked, Not Started in place of the status and 0%.
+ * title (Currently Watching, paused, watch count — not the other status pills, Up To Date or
+ * the percentage) — and, for a title that isn't tracked, Not Started (a movie: Not Watched).
  * `card` null = not on the watchlist.
  */
-export function deriveListTags(card: HistoryCard | null): ListTag[] {
+export function deriveListTags(card: HistoryCard | null, isMovie = false): ListTag[] {
 	const tags: ListTag[] = [];
 	if (!card) {
-		tags.push({ kind: ListTagKind.NOT_STARTED, label: "Not Started" });
+		// A movie is watched or not, tracked or not: never "Started"
+		tags.push(
+			isMovie
+				? { kind: ListTagKind.NOT_WATCHED, label: "Not Watched" }
+				: { kind: ListTagKind.NOT_STARTED, label: "Not Started" },
+		);
 		return tags;
 	}
-	if (card.pill && card.pillLabel) {
+	// Only Currently Watching of the status pills: Completed / Rewatching and the percentage are
+	// left to the Watch History page
+	if (card.pill === HistoryPill.WATCHING && card.pillLabel) {
 		tags.push({
 			kind: ListTagKind.STATUS,
 			label: card.pillLabel,
 			pill: card.pill,
-			count: card.pillCount ?? undefined,
 		});
 	}
-	if (card.progress?.kind === HistoryProgress.UP_TO_DATE) {
-		tags.push({ kind: ListTagKind.UP_TO_DATE, label: "Up To Date" });
-	} else if (card.progress?.kind === HistoryProgress.PAUSED) {
+	if (card.progress?.kind === HistoryProgress.PAUSED) {
 		tags.push({ kind: ListTagKind.PAUSED, label: "Paused" });
 	} else if (card.progress) {
-		const percent = card.progress.percent ?? 0;
-		tags.push({ kind: ListTagKind.PERCENT, label: `${percent}%`, percent });
+		// Up To Date and a percentage aren't shown on a list card — the Watch History page has them
 	} else if (card.watchCount != null) {
 		tags.push(
 			card.watchCount > 0

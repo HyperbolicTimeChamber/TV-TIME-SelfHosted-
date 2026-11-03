@@ -174,14 +174,15 @@
 .card {
 	position: relative;
 	overflow: hidden;
-	border-radius: 6px;
+	/* The same 16 as a list card, so the pills and badges sit in matching curves */
+	border-radius: 16px;
 	cursor: pointer;
 }
 
 /* Placeholder the size of a card's poster */
 .skeletonCard {
 	aspect-ratio: 2 / 3;
-	border-radius: 6px;
+	border-radius: 16px;
 }
 
 .poster {
@@ -197,7 +198,8 @@
 	right: 0;
 	bottom: 0;
 	background: rgba(0, 0, 0, 0.6);
-	padding: 4px 8px;
+	/* Side and bottom room so the title and year clear the rounded corners */
+	padding: 4px 12px 10px;
 	display: flex;
 	flex-direction: column;
 }
@@ -233,6 +235,20 @@
 
 .typeBadgeMovie {
 	background: $movie-purple;
+}
+
+/* The title's state pills (Currently Watching, Watch Count…), stacked top-left over the poster —
+   the badges are top-right */
+.overlayTags {
+	position: absolute;
+	top: 8px;
+	left: 6px;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 4px;
+	pointer-events: none;
 }
 
 .badge {

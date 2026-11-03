@@ -12,6 +12,8 @@ interface Props {
 	title?: string;
 	/** Rendered width hint (px) for picking the TMDB size */
 	width?: number;
+	/** The placeholder icon's size, for tiles too small for the default */
+	iconSize?: number;
 }
 
 /** Poster with the app's film/tv placeholder when TMDB has no image */
@@ -21,6 +23,7 @@ export default function PosterImage({
 	className = "",
 	title,
 	width,
+	iconSize,
 }: Props) {
 	if (posterPath) {
 		return (
@@ -35,7 +38,7 @@ export default function PosterImage({
 	const Icon = mediaType === MediaType.MOVIE ? IoFilmOutline : IoTvOutline;
 	return (
 		<div className={`flex flex-col items-center justify-center bg-surface-light p-1 ${className}`}>
-			<Icon size={title ? 22 : 28} color={colors.textMuted} />
+			<Icon size={iconSize ?? (title ? 22 : 28)} color={colors.textMuted} />
 			{title && <span className="mt-0.5 text-center text-[9px] text-fg-muted">{title}</span>}
 		</div>
 	);

@@ -15,7 +15,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import SlidingTabs from "../../../components/SlidingTabs";
 import { CircleBackButton } from "../../../components/CircleButton";
 import { slideOffAndBack } from "../../../components/SwipeBackView";
-import { useWatchHistory } from "../../../hooks";
+import { useWatchHistory, useCustomLists } from "../../../hooks";
+import { useAuthStore } from "../../../stores";
+import AddToListSheet from "../../../components/modals/AddToListSheet";
+import { getCachedCatalogShow } from "../../../hooks/useWatchlist";
+import { titleListCount } from "../../../utils";
 import { useHistorySort } from "../../../hooks/useWatchHistory";
 import { CircleButtonTone, HistoryFilter, HistorySort, MediaType, Route } from "../../../enums";
 import type { ProfileStackParamList } from "../../../types";
@@ -62,12 +66,23 @@ function HistoryList({
 		filters,
 	);
 
+	// Add to List: the title the sheet is open for, and how many lists hold each card's title —
+	// embedded in the card data (the list doesn't re-render a row on an outside change)
+	const user = useAuthStore((s) => s.user);
+	const { lists } = useCustomLists(user?.uid);
+	const [listTarget, setListTarget] = useState<HistoryCard | null>(null);
+	const data = useMemo(
+		() => cards.map((c) => ({ ...c, listCount: titleListCount(lists, c.tmdbId, c.mediaType) })),
+		[cards, lists],
+	);
+
 	const renderItem = useCallback(
-		({ item }: { item: HistoryCard }) =>
+		({ item }: { item: HistoryCard & { listCount?: number } }) =>
 			// Title / art not here yet → skeleton until both the row and its show are
 			item.ready ? (
 				<HistoryCardView
 					card={item}
+					onAddToList={() => setListTarget(item)}
 					onPress={() =>
 						navigation.navigate(Route.SHOW_DETAIL, {
 							tmdbId: item.tmdbId,
@@ -99,22 +114,38 @@ function HistoryList({
 	}
 
 	return (
-		<LegendList
-			data={cards}
-			keyExtractor={(c) => c.id}
-			renderItem={renderItem}
-			estimatedItemSize={210}
-			contentContainerStyle={[styles.list, { paddingBottom: bottomInset }]}
-			ItemSeparatorComponent={() => <View style={styles.separator} />}
-			onEndReached={hasMore ? loadMore : undefined}
-			onEndReachedThreshold={0.6}
-			recycleItems
-			ListFooterComponent={
-				<View style={styles.footer}>
-					{loadingMore && <ActivityIndicator color={colors.primary} />}
-				</View>
-			}
-		/>
+		<>
+			<LegendList
+				data={data}
+				keyExtractor={(c) => c.id}
+				renderItem={renderItem}
+				estimatedItemSize={210}
+				contentContainerStyle={[styles.list, { paddingBottom: bottomInset }]}
+				ItemSeparatorComponent={() => <View style={styles.separator} />}
+				onEndReached={hasMore ? loadMore : undefined}
+				onEndReachedThreshold={0.6}
+				recycleItems
+				ListFooterComponent={
+					<View style={styles.footer}>
+						{loadingMore && <ActivityIndicator color={colors.primary} />}
+					</View>
+				}
+			/>
+			<AddToListSheet
+				entry={
+					listTarget
+						? {
+								tmdbId: listTarget.tmdbId,
+								mediaType: listTarget.mediaType,
+								title: listTarget.title,
+								posterPath:
+									getCachedCatalogShow(listTarget.tmdbId, listTarget.mediaType)?.posterPath ?? null,
+							}
+						: null
+				}
+				onClose={() => setListTarget(null)}
+			/>
+		</>
 	);
 }
 

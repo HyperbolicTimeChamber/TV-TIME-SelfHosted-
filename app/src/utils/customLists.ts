@@ -83,6 +83,11 @@ export function isTitleListed(lists: CustomList[], tmdbId: number, mediaType: Me
 	return lists.some((l) => listHasItem(l, tmdbId, mediaType));
 }
 
+/** How many lists hold one title (the detail screens' Add to List button shows it) */
+export function titleListCount(lists: CustomList[], tmdbId: number, mediaType: MediaType): number {
+	return lists.filter((l) => listHasItem(l, tmdbId, mediaType)).length;
+}
+
 export function listedTitleKeys(lists: CustomList[]): Set<string> {
 	const keys = new Set<string>();
 	for (const l of lists) for (const i of l.items) keys.add(listItemKey(i.tmdbId, i.mediaType));

@@ -9,13 +9,8 @@ import {
 } from "react";
 import { motion } from "motion/react";
 import { Spin } from "antd";
-import {
-	IoBookmark,
-	IoBookmarkOutline,
-	IoBookmarksOutline,
-	IoList,
-	IoSearch,
-} from "react-icons/io5";
+import { IoBookmark, IoBookmarkOutline, IoList, IoSearch } from "react-icons/io5";
+import { MdOutlineBookmarkAdd } from "react-icons/md";
 import { CUSTOM_LIST_ITEM_MAX, NEW_LIST_HINTS, NEW_LIST_TITLE } from "@app/enums";
 import type { CustomList, CustomListEntry } from "@app/types";
 import { useCustomLists } from "@app/hooks/useCustomLists";
@@ -145,11 +140,8 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 	useEffect(() => {
 		if (entry && !loading && !pinned) {
 			setPinned(sheetListOrder(lists, null, entry).map((l) => l.id));
-			setOpenSaved(
-				new Set(
-					lists.filter((l) => listHasItem(l, entry.tmdbId, entry.mediaType)).map((l) => l.id),
-				),
-			);
+			const holding = lists.filter((l) => listHasItem(l, entry.tmdbId, entry.mediaType));
+			setOpenSaved(new Set(holding.map((l) => l.id)));
 		}
 	}, [entry, loading, lists, pinned]);
 
@@ -166,6 +158,9 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 		);
 		return sort === ListSort.NAME ? [...rest].sort((a, b) => a.name.localeCompare(b.name)) : rest;
 	}, [ordered, saved, search, sort]);
+	// Find list + Sort only earn their room with at least one list left to look through (the lists
+	// already holding the title sit above); counted before the search filter so typing never hides them
+	const searchable = useMemo(() => ordered.some((l) => !saved.includes(l)), [ordered, saved]);
 
 	const handleCreate = async (name: string) => {
 		if (!entry) return;
@@ -252,48 +247,50 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 							onTouchStart={onTouchStart}
 							onTouchMove={onTouchMove}
 						>
-							<div className={styles.heading}>
-								<span className={styles.headingText}>In lists</span>
-								<button type="button" className={styles.newList} onClick={startNaming}>
-									New list
-								</button>
-							</div>
-
 							{loading ? (
 								<div className={styles.loader}>
 									<Spin size="small" />
 								</div>
 							) : (
 								<>
-									{saved.length === 0 ? (
-										<p className={styles.empty}>Not in any list yet.</p>
-									) : (
-										saved.map(renderRow)
+									{/* Only when it holds the title already: nothing to show for a title in no list */}
+									{saved.length > 0 && (
+										<>
+											<div className={styles.heading}>
+												<span className={styles.headingText}>In lists</span>
+												<button type="button" className={styles.newList} onClick={startNaming}>
+													New List
+												</button>
+											</div>
+											{saved.map(renderRow)}
+										</>
 									)}
 
-									<div className={styles.searchRow}>
-										<label className={styles.searchField}>
-											<IoSearch size={16} />
-											<input
-												className={styles.searchInput}
-												value={search}
-												onChange={(e) => setSearch(e.target.value)}
-												placeholder="Find list"
-												aria-label="Find list"
-												autoComplete="off"
-											/>
-										</label>
-										<button
-											type="button"
-											className={styles.sortButton}
-											aria-label={`Sort: ${sort}`}
-											onClick={() =>
-												setSort((v) => (v === ListSort.RECENT ? ListSort.NAME : ListSort.RECENT))
-											}
-										>
-											{sort === ListSort.RECENT ? "Sort" : sort}
-										</button>
-									</div>
+									{searchable && (
+										<div className={styles.searchRow}>
+											<label className={styles.searchField}>
+												<IoSearch size={16} />
+												<input
+													className={styles.searchInput}
+													value={search}
+													onChange={(e) => setSearch(e.target.value)}
+													placeholder="Find list"
+													aria-label="Find list"
+													autoComplete="off"
+												/>
+											</label>
+											<button
+												type="button"
+												className={styles.sortButton}
+												aria-label={`Sort: ${sort}`}
+												onClick={() =>
+													setSort((v) => (v === ListSort.RECENT ? ListSort.NAME : ListSort.RECENT))
+												}
+											>
+												{sort === ListSort.RECENT ? "Sort" : sort}
+											</button>
+										</div>
+									)}
 
 									{others.map(renderRow)}
 									{others.length === 0 && search.trim() !== "" && (
@@ -302,9 +299,9 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 
 									<button type="button" className={styles.row} onClick={startNaming}>
 										<span className={`${styles.cover} ${styles.coverEmpty}`}>
-											<IoBookmarksOutline size={22} />
+											<MdOutlineBookmarkAdd size={24} />
 										</span>
-										<span className={styles.rowText}>New list</span>
+										<span className={styles.rowText}>New List</span>
 									</button>
 								</>
 							)}

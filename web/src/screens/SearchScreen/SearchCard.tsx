@@ -1,8 +1,9 @@
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 import { Spin } from "antd";
 import { IoAdd, IoBookmark, IoBookmarkOutline, IoCheckmark } from "react-icons/io5";
 import { motion } from "motion/react";
 import { MediaType } from "@app/enums";
+import { useLongPress } from "../../hooks/useLongPress";
 import type { TMDBShow } from "@app/types";
 import PosterImage from "../../components/PosterImage";
 import styles from "./styles/SearchScreen.module.scss";
@@ -15,11 +16,15 @@ interface Props {
 	isInWatchlist: boolean;
 	isAdding: boolean;
 	/** In at least one custom list */
-	isListed: boolean;
+	isListed?: boolean;
 	onPress: (item: TMDBShow) => void;
 	onAdd: (item: TMDBShow) => void;
 	onRemove: (item: TMDBShow) => void;
-	onAddToList: (item: TMDBShow) => void;
+	/** Pills over the poster's top-left (a list's own grid: the title's state tags) */
+	overlay?: ReactNode;
+	/** Without it the card has no Add to List button (a list's own grid) */
+	onAddToList?: (item: TMDBShow) => void;
+	onLongPress?: (item: TMDBShow) => void;
 }
 
 function SearchCard({
@@ -27,20 +32,25 @@ function SearchCard({
 	canTrack,
 	isInWatchlist,
 	isAdding,
-	isListed,
+	isListed = false,
 	onPress,
 	onAdd,
 	onRemove,
 	onAddToList,
+	onLongPress,
+	overlay,
 }: Props) {
 	const title = item.name || item.title || "";
 	const year = (item.first_air_date || item.release_date || "").substring(0, 4);
 	const mediaType = mediaTypeOf(item);
+	const press = useLongPress(onLongPress ? () => onLongPress(item) : undefined, () =>
+		onPress(item),
+	);
 
 	return (
 		<motion.div
 			className={styles.card}
-			onClick={() => onPress(item)}
+			{...press}
 			whileTap={{ opacity: 0.7 }}
 			role="link"
 			aria-label={title}
@@ -73,7 +83,7 @@ function SearchCard({
 					)}
 				</button>
 			)}
-			{canTrack && (
+			{canTrack && onAddToList && (
 				<button
 					className={`${styles.listBadge} ${isListed ? styles.listBadgeActive : ""}`}
 					aria-label="Add to List"
@@ -85,6 +95,7 @@ function SearchCard({
 					{isListed ? <IoBookmark size={14} /> : <IoBookmarkOutline size={14} />}
 				</button>
 			)}
+			{overlay && <div className={styles.overlayTags}>{overlay}</div>}
 			<div className={styles.banner}>
 				<div className={styles.bannerTop}>
 					<span className={styles.cardTitle}>{title}</span>

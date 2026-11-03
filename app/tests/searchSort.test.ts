@@ -32,9 +32,13 @@ const NEWEST = { sort: SearchSort.DATE, direction: SortDirection.DESC };
 const OLDEST = { sort: SearchSort.DATE, direction: SortDirection.ASC };
 const NAME = { sort: SearchSort.NAME, direction: SortDirection.ASC };
 
-test("default is release date, newest first", () => {
-	assert.ok(sameSearchSort(DEFAULT_SEARCH_SORT, NEWEST));
+test("default is relevance, listed first", () => {
+	assert.equal(DEFAULT_SEARCH_SORT.sort, SearchSort.RELEVANCE);
 	assert.ok(sameSearchSort(SEARCH_SORT_OPTIONS[0], DEFAULT_SEARCH_SORT));
+});
+
+test("relevance keeps TMDB's order", () => {
+	assert.deepEqual(ids(sortSearchResults(results, DEFAULT_SEARCH_SORT)), ids(results));
 });
 
 test("date newest first: TV first_air_date + movie release_date, undated last (relevance order kept)", () => {

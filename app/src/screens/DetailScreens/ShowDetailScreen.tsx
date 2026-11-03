@@ -25,7 +25,7 @@ import {
 	UnreleasedMovieModal,
 	WatchCountSheet,
 } from "../../components";
-import { showShareUrl, describeLoadError, isTitleListed } from "../../utils";
+import { showShareUrl, describeLoadError, titleListCount } from "../../utils";
 import ErrorState from "../../components/ErrorState";
 import CircleButton, { CIRCLE_BUTTON_SIZE, CircleBackButton } from "../../components/CircleButton";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
@@ -112,7 +112,7 @@ export default function ShowDetailScreen() {
 	const userId = useAuthStore((s) => s.user?.uid);
 	const { lists } = useCustomLists(userId);
 	const [listSheetOpen, setListSheetOpen] = useState(false);
-	const isListed = isTitleListed(lists, tmdbId, mediaType);
+	const listCount = titleListCount(lists, tmdbId, mediaType);
 	const listEntry = useMemo(
 		() => ({ tmdbId, mediaType, title: title ?? "", posterPath: show?.poster_path ?? null }),
 		[tmdbId, mediaType, title, show?.poster_path],
@@ -221,6 +221,8 @@ export default function ShowDetailScreen() {
 								onPause={() => setPauseModalVisible(true)}
 								onRemove={handleRemove}
 								onWatchSheetOpen={() => setMovieSheetVisible(true)}
+								listCount={listCount}
+								onAddToList={() => setListSheetOpen(true)}
 							/>
 						</View>
 					</DetailBackdrop>
@@ -317,18 +319,6 @@ export default function ShowDetailScreen() {
 						<WatchCountPill count={watchCount} />
 					</View>
 				)}
-				<CircleButton
-					tone={isListed ? CircleButtonTone.ACCENT : CircleButtonTone.OVERLAY}
-					style={[styles.listButton, { top: insets.top + 8 }]}
-					accessibilityLabel="Add to List"
-					onPress={() => setListSheetOpen(true)}
-				>
-					<Ionicons
-						name={isListed ? "bookmark" : "bookmark-outline"}
-						size={24}
-						color={colors.text}
-					/>
-				</CircleButton>
 				<CircleButton
 					tone={CircleButtonTone.OVERLAY}
 					style={[styles.shareButton, { top: insets.top + 8 }]}
@@ -466,7 +456,6 @@ const styles = StyleSheet.create({
 	backButton: { position: "absolute", left: 16, zIndex: 10 },
 	shareButton: { position: "absolute", right: 16, zIndex: 10 },
 	// Left of Share (44px button + 8px gap)
-	listButton: { position: "absolute", right: 16 + CIRCLE_BUTTON_SIZE + 8, zIndex: 10 },
 	// Centred between back and share
 	watchCountRow: { position: "absolute", left: 0, right: 0, alignItems: "center", zIndex: 10 },
 	islandLogo: {
