@@ -1,5 +1,5 @@
 import { HttpsError } from "firebase-functions/v2/https";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getFirestore } from "firebase-admin/firestore";
 import { removeFromTrackedBy } from "../hooks/trackedBy";
 import { showDocId } from "../shared/docId";
 import { RemoveShowRequest } from "../shared/types";
@@ -26,17 +26,9 @@ export const removeShow = trackedOnCall(
     const db = getFirestore();
     const showId = showDocId(tmdbId, mediaType);
 
-    // Remove tracking doc + decrement stats in one batch
-    const trackingRef = db.doc(`users/${uid}/tracking/${showId}`);
-    const userRef = db.doc(`users/${uid}`);
-    const userBatch = db.batch();
-    userBatch.delete(trackingRef);
-    userBatch.set(
-      userRef,
-      { stats: { showsTracking: FieldValue.increment(-1) } },
-      { merge: true },
-    );
-    await userBatch.commit();
+    // The client already deleted the tracking doc (+ its deletion log entry) and took one off
+    // stats.showsTracking (removeFromTracking) — doing either here again counted every removal
+    // twice. This only cleans up what the client can't write: upcoming, trackedBy, the catalog
 
     const upcomingSnap = await db
       .collection(`users/${uid}/upcoming`)
