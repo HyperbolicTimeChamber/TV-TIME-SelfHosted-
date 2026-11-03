@@ -105,7 +105,6 @@ async function runImport(
       // Client whose call errored (timeout / dropped connection) watches this to finish
       lastImportAt: FieldValue.serverTimestamp(),
       stats: {
-        showsTracking: FieldValue.increment(stats.showsImported),
         episodesWatched: FieldValue.increment(stats.episodesImported),
         moviesWatched: FieldValue.increment(stats.moviesImported),
         totalMinutes: FieldValue.increment(stats.minutesImported),

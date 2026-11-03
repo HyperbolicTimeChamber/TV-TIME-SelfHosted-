@@ -26,9 +26,8 @@ export const removeShow = trackedOnCall(
     const db = getFirestore();
     const showId = showDocId(tmdbId, mediaType);
 
-    // The client already deleted the tracking doc (+ its deletion log entry) and took one off
-    // stats.showsTracking (removeFromTracking) — doing either here again counted every removal
-    // twice. This only cleans up what the client can't write: upcoming, trackedBy, the catalog
+    // The client already deleted the tracking doc (+ its deletion log entry). This only cleans
+    // up what the client can't write: upcoming, trackedBy, the catalog
 
     const upcomingSnap = await db
       .collection(`users/${uid}/upcoming`)

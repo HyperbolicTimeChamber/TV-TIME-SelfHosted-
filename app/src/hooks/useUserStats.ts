@@ -5,7 +5,6 @@ import { UserStats, CacheKey } from "../types";
 
 const defaultStats: UserStats = {
 	episodesWatched: 0,
-	showsTracking: 0,
 	moviesWatched: 0,
 	totalMinutes: 0,
 };
@@ -49,7 +48,6 @@ export function useUserStats(userId: string | undefined) {
 					const raw = data?.stats;
 					const fresh: UserStats = {
 						episodesWatched: Math.max(0, raw?.episodesWatched ?? 0),
-						showsTracking: Math.max(0, raw?.showsTracking ?? 0),
 						moviesWatched: Math.max(0, raw?.moviesWatched ?? 0),
 						totalMinutes: Math.max(0, raw?.totalMinutes ?? 0),
 					};

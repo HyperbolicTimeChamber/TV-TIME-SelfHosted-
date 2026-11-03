@@ -134,12 +134,10 @@ export async function addToTracking(
 		}
 	}
 
-	// Check if already tracked to avoid double-counting
 	const tRef = doc(trackingRef(userId), docId);
-	const existingDoc = await getDoc(tRef);
-	const alreadyTracked = existingDoc.exists();
 
-	// Write tracking doc immediately — no catalog read needed
+	// Write tracking doc immediately — no catalog or tracking read needed (the shows count is a
+	// count query, not a stored counter)
 	const batch = writeBatch(db);
 	batch.set(tRef, {
 		tmdbId,
@@ -156,9 +154,6 @@ export async function addToTracking(
 		...(meta?.title ? { title: meta.title } : {}),
 		...(meta?.posterPath ? { posterPath: meta.posterPath } : {}),
 	});
-	if (!alreadyTracked) {
-		batch.set(userRef(userId), { stats: { showsTracking: increment(1) } }, { merge: true });
-	}
 	await batch.commit();
 
 	// Background: ensure catalog exists + update trackedBy
@@ -167,12 +162,7 @@ export async function addToTracking(
 	const addShow = callAddShow().catch(() =>
 		callAddShow().catch(async (err: unknown) => {
 			// Both attempts failed — undo the local add
-			const rollback = writeBatch(db);
-			rollback.delete(tRef);
-			if (!alreadyTracked) {
-				rollback.set(userRef(userId), { stats: { showsTracking: increment(-1) } }, { merge: true });
-			}
-			await rollback.commit().catch(() => {});
+			await deleteDoc(tRef).catch(() => {});
 			// Emit error for UI to pick up
 			addTrackingErrorListeners.forEach((fn) =>
 				fn(tmdbId, meta?.title || `Show #${tmdbId}`, mediaType),
@@ -199,12 +189,9 @@ export async function removeFromTracking(
 	tmdbId: number,
 	mediaType: MediaType,
 ): Promise<void> {
-	// Delete tracking doc + decrement stats immediately
+	// Delete tracking doc immediately (+ its deletion log entry — stampTrackingWrites)
 	const docId = showDocId(tmdbId, mediaType);
-	const batch = writeBatch(db);
-	batch.delete(doc(trackingRef(userId), docId));
-	batch.set(userRef(userId), { stats: { showsTracking: increment(-1) } }, { merge: true });
-	await batch.commit();
+	await deleteDoc(doc(trackingRef(userId), docId));
 	// Deleted docs never show up in the delta query — drop the card locally
 	emitHistoryChange({ userId, tmdbId, mediaType, cleared: true });
 
@@ -1285,9 +1272,6 @@ export async function addAndMarkMovieWatched(
 	const movieRef = doc(watchedMoviesRef(userId), String(tmdbId));
 	const now = Timestamp.now();
 
-	const existingDoc = await getDoc(tRef);
-	const alreadyTracked = existingDoc.exists();
-
 	const batch = writeBatch(db);
 	batch.set(tRef, {
 		tmdbId,
@@ -1319,7 +1303,6 @@ export async function addAndMarkMovieWatched(
 		userRef(userId),
 		{
 			stats: {
-				...(!alreadyTracked ? { showsTracking: increment(1) } : {}),
 				moviesWatched: increment(1),
 				totalMinutes: increment(runtime || 0),
 			},
