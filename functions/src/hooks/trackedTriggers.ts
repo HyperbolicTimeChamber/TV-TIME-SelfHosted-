@@ -14,7 +14,10 @@ import {
 } from "firebase-functions/v2/scheduler";
 import {
   onDocumentCreated,
+  onDocumentWritten,
+  type Change,
   type DocumentOptions,
+  type DocumentSnapshot,
   type FirestoreEvent,
   type QueryDocumentSnapshot,
 } from "firebase-functions/v2/firestore";
@@ -104,6 +107,28 @@ export function trackedOnDocumentCreated(
   ) => Promise<unknown>,
 ) {
   return onDocumentCreated(opts, (event) =>
+    runWithMetrics(
+      {
+        name,
+        platform: ClientPlatform.CLOUD_FUNCTION,
+        caller: ClientPlatform.SYSTEM,
+      },
+      () => handler(event),
+    ),
+  );
+}
+
+export function trackedOnDocumentWritten(
+  name: FunctionName,
+  opts: DocumentOptions<string>,
+  handler: (
+    event: FirestoreEvent<
+      Change<DocumentSnapshot> | undefined,
+      Record<string, string>
+    >,
+  ) => Promise<unknown>,
+) {
+  return onDocumentWritten(opts, (event) =>
     runWithMetrics(
       {
         name,

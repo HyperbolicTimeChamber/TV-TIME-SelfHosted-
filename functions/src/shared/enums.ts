@@ -56,6 +56,9 @@ export const DELETION_REQUESTS = "deletionRequests";
 
 /** gRPC status of a create() on a doc that already exists */
 export const GRPC_ALREADY_EXISTS = 6;
+/** Firestore gRPC: the doc is gone / changed since the write being reacted to */
+export const GRPC_NOT_FOUND = 5;
+export const GRPC_FAILED_PRECONDITION = 9;
 
 /** Import lock lifetime: importMatches timeout (3600s) + slack, so a crashed run can't block forever */
 export const IMPORT_LOCK_MS = 3660 * 1000;
@@ -150,6 +153,7 @@ export enum FunctionName {
   BUDGET_GUARD = "budgetGuard",
   SEARCH_TITLES = "searchTitles",
   EXPORT_ACCOUNT_DATA = "exportAccountData",
+  TRACKING_SYNC_STAMP = "trackingSyncStamp",
 }
 
 /** searchTitles scope: TMDB's /search/multi, /search/tv or /search/movie */
@@ -193,3 +197,11 @@ export enum UserCollection {
 export const TRACKING_UPDATED_AT = "updatedAt";
 /** Deletion log entries expire after this (Firestore TTL on `expireAt`) */
 export const TRACKING_DELETION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** What trackingSyncStamp does for one tracking doc write */
+export enum TrackingWriteAction {
+  /** Written without a new updatedAt (old app build, a missed writer) → stamp it */
+  STAMP = "stamp",
+  /** Deleted → make sure the deletion log has it */
+  LOG_DELETION = "log_deletion",
+}

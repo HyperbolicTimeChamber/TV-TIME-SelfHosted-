@@ -2,6 +2,7 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import {
   TRACKING_DELETION_TTL_MS,
   TRACKING_UPDATED_AT,
+  TrackingWriteAction,
   UserCollection,
 } from "./enums";
 
@@ -36,4 +37,23 @@ export function deleteTracking(
     [TRACKING_UPDATED_AT]: FieldValue.serverTimestamp(),
     expireAt: Timestamp.fromMillis(Date.now() + TRACKING_DELETION_TTL_MS),
   });
+}
+
+type TrackingData = FirebaseFirestore.DocumentData | undefined;
+
+/**
+ * trackingSyncStamp's call for one write (before / after: the doc's data, undefined = absent).
+ * A write that set a new updatedAt (current clients, Cloud Functions, the trigger's own stamp)
+ * needs nothing — that also stops the trigger from looping on its own write.
+ */
+export function trackingWriteAction(
+  before: TrackingData,
+  after: TrackingData,
+): TrackingWriteAction | null {
+  if (!after) return before ? TrackingWriteAction.LOG_DELETION : null;
+  const was = before?.[TRACKING_UPDATED_AT] as Timestamp | undefined;
+  const now = after[TRACKING_UPDATED_AT] as Timestamp | undefined;
+  if (!now) return TrackingWriteAction.STAMP;
+  if (!before) return null;
+  return was && was.isEqual(now) ? TrackingWriteAction.STAMP : null;
 }
