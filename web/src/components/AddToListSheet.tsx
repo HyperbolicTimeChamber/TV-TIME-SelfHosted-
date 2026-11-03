@@ -11,7 +11,12 @@ import { motion } from "motion/react";
 import { Spin } from "antd";
 import { IoBookmark, IoBookmarkOutline, IoList, IoSearch } from "react-icons/io5";
 import { MdOutlineBookmarkAdd } from "react-icons/md";
-import { CUSTOM_LIST_ITEM_MAX, NEW_LIST_HINTS, NEW_LIST_TITLE } from "@app/enums";
+import {
+	ADD_TO_LIST_SEARCH_MIN_LISTS,
+	CUSTOM_LIST_ITEM_MAX,
+	NEW_LIST_HINTS,
+	NEW_LIST_TITLE,
+} from "@app/enums";
 import type { CustomList, CustomListEntry } from "@app/types";
 import { useCustomLists } from "@app/hooks/useCustomLists";
 import { listCoverItem, listHasItem, sheetListOrder, titleCount } from "@app/utils/customLists";
@@ -26,6 +31,8 @@ interface Props {
 	/** The title being listed; null = closed */
 	entry: CustomListEntry | null;
 	onClose: () => void;
+	/** No "N titles" under each list (the show info page) */
+	hideCounts?: boolean;
 }
 
 /** Gap left above the grown sheet */
@@ -57,7 +64,7 @@ const NAME_ERRORS = {
  * title. The title's logo on top, a Lists heading with New list, then the lists (cover, name,
  * count) with the search cards' bookmark badge.
  */
-export default function AddToListSheet({ entry, onClose }: Props) {
+export default function AddToListSheet({ entry, onClose, hideCounts = false }: Props) {
 	const user = useAppSelector((s) => s.auth.user);
 	const { lists, loading, createList, addToList, removeFromList } = useCustomLists(user?.uid);
 	const [naming, setNaming] = useState(false);
@@ -65,7 +72,7 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 	const [nameError, setNameError] = useState<string | null>(null);
 	// Order the sheet opened with (lists holding the title, then newest) — held while it is open
 	const [pinned, setPinned] = useState<string[] | null>(null);
-	// Lists that held the title when the sheet opened: the "In lists" section, fixed while open
+	// Lists that held the title when the sheet opened: the "In Lists" section, fixed while open
 	const [openSaved, setOpenSaved] = useState<ReadonlySet<string>>(new Set());
 	const [search, setSearch] = useState("");
 	const [sort, setSort] = useState(ListSort.RECENT);
@@ -145,7 +152,7 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 		}
 	}, [entry, loading, lists, pinned]);
 
-	// "In lists": held the title at open (a list made from here joins it). The rest: filtered by the
+	// "In Lists": held the title at open (a list made from here joins it). The rest: filtered by the
 	// search, in the chosen order (app AddToListSheet)
 	const saved = useMemo(
 		() => ordered.filter((l) => openSaved.has(l.id) || !pinned?.includes(l.id)),
@@ -158,9 +165,12 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 		);
 		return sort === ListSort.NAME ? [...rest].sort((a, b) => a.name.localeCompare(b.name)) : rest;
 	}, [ordered, saved, search, sort]);
-	// Find list + Sort only earn their room with at least one list left to look through (the lists
+	// Find list + Sort only earn their room with a few lists left to look through (the lists
 	// already holding the title sit above); counted before the search filter so typing never hides them
-	const searchable = useMemo(() => ordered.some((l) => !saved.includes(l)), [ordered, saved]);
+	const searchable = useMemo(
+		() => ordered.filter((l) => !saved.includes(l)).length >= ADD_TO_LIST_SEARCH_MIN_LISTS,
+		[ordered, saved],
+	);
 
 	const handleCreate = async (name: string) => {
 		if (!entry) return;
@@ -213,9 +223,11 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 				)}
 				<span className={styles.rowContent}>
 					<span className={styles.rowText}>{list.name}</span>
-					<span className={styles.rowHint}>
-						{full ? "List is full" : titleCount(list.items.length)}
-					</span>
+					{(full || !hideCounts) && (
+						<span className={styles.rowHint}>
+							{full ? "List is full" : titleCount(list.items.length)}
+						</span>
+					)}
 				</span>
 				<Badge listed={has} />
 			</button>
@@ -257,7 +269,7 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 									{saved.length > 0 && (
 										<>
 											<div className={styles.heading}>
-												<span className={styles.headingText}>In lists</span>
+												<span className={styles.headingText}>In Lists</span>
 												<button type="button" className={styles.newList} onClick={startNaming}>
 													New List
 												</button>

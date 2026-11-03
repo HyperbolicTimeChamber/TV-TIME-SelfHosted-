@@ -32,7 +32,11 @@ export function localizeUpcoming(ep: UpcomingEpisode): UpcomingEpisode {
 	return ep.airStamp ? { ...ep, airDate: localAirDate(ep.airDate, ep.airStamp) ?? ep.airDate } : ep;
 }
 
-/** Local air day of a show's next episode: catalog (localized) first, else the tracking doc's date */
+/**
+ * Local air day of a show's next episode: catalog (localized) first, else the tracking doc's date.
+ * The tracking doc's date is copied at add/mark time and only reconciled weekly — a show added
+ * before TMDB moved its premiere stays hidden on the old date, so any catalog date wins.
+ */
 export function nextEpisodeLocalAirDate(
 	nextEpisode: { season: number; episode: number } | null | undefined,
 	catalog: Pick<CatalogShow, "seasons"> | null | undefined,
@@ -42,7 +46,7 @@ export function nextEpisodeLocalAirDate(
 		const ep = catalog.seasons
 			?.find((s) => s.seasonNumber === nextEpisode.season)
 			?.episodes?.find((e) => e.episodeNumber === nextEpisode.episode);
-		if (ep?.airStamp) return localAirDate(ep.airDate, ep.airStamp);
+		if (ep?.airDate || ep?.airStamp) return localAirDate(ep.airDate, ep.airStamp);
 	}
 	return fallback ?? null;
 }

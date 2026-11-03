@@ -57,8 +57,11 @@ export function requestCatalogCreate(
 	if (prior) return prior;
 	const call = trackApi("cloud_function", CloudFunction.ADD_SHOW, async () => {
 		const res = await httpsCallable(getFunctions(), CloudFunction.ADD_SHOW)({ tmdbId, mediaType });
-		const catalog = res.data as CatalogShow | null;
-		return catalog?.title ? catalog : null;
+		// facetDelta: what a tracked title's stamp changed in the filter choices — not catalog data
+		const { facetDelta: _facetDelta, ...catalog } = (res.data ?? {}) as CatalogShow & {
+			facetDelta?: unknown;
+		};
+		return catalog.title ? (catalog as CatalogShow) : null;
 	}).catch(() => null);
 	requested.set(key, call);
 	return call;

@@ -13,8 +13,9 @@ interface Props {
 	/** In at least one custom list */
 	isListed?: boolean;
 	onPress: (item: TMDBShow) => void;
-	onAdd: (item: TMDBShow) => void;
-	onRemove: (item: TMDBShow) => void;
+	/** Without these the card has no watchlist badge (Hall of Shame: everything there is tracked) */
+	onAdd?: (item: TMDBShow) => void;
+	onRemove?: (item: TMDBShow) => void;
 	/** Pills over the poster's top-left (a list's own grid: the title's state tags) */
 	overlay?: ReactNode;
 	/** Without it the card has no Add to List button (a list's own grid) */
@@ -49,32 +50,38 @@ function SearchCard({
 			activeOpacity={0.7}
 		>
 			<PosterImage posterPath={item.poster_path} mediaType={mediaType} style={styles.poster} />
-			<TouchableOpacity
-				style={[styles.watchlistBadge, isInWatchlist && styles.watchlistBadgeActive]}
-				onPress={(e) => {
-					e.stopPropagation?.();
-					if (isAdding) return;
-					if (isInWatchlist) {
-						onRemove(item);
-					} else {
-						onAdd(item);
-					}
-				}}
-				hitSlop={{ top: 5, bottom: 5, left: 8, right: 8 }}
-				activeOpacity={0.7}
-				disabled={isAdding}
-				accessibilityLabel={isInWatchlist ? "Remove from watchlist" : "Add to watchlist"}
-			>
-				{isAdding ? (
-					<ActivityIndicator size="small" color={colors.text} />
-				) : (
-					// Vector glyphs sit in the middle of their box — a text "+" rode high and off centre
-					<Ionicons name={isInWatchlist ? "checkmark" : "add"} size={18} color={colors.text} />
-				)}
-			</TouchableOpacity>
+			{onAdd && onRemove && (
+				<TouchableOpacity
+					style={[styles.watchlistBadge, isInWatchlist && styles.watchlistBadgeActive]}
+					onPress={(e) => {
+						e.stopPropagation?.();
+						if (isAdding) return;
+						if (isInWatchlist) {
+							onRemove(item);
+						} else {
+							onAdd(item);
+						}
+					}}
+					hitSlop={{ top: 5, bottom: 5, left: 8, right: 8 }}
+					activeOpacity={0.7}
+					disabled={isAdding}
+					accessibilityLabel={isInWatchlist ? "Remove from watchlist" : "Add to watchlist"}
+				>
+					{isAdding ? (
+						<ActivityIndicator size="small" color={colors.text} />
+					) : (
+						// Vector glyphs sit in the middle of their box — a text "+" rode high and off centre
+						<Ionicons name={isInWatchlist ? "checkmark" : "add"} size={18} color={colors.text} />
+					)}
+				</TouchableOpacity>
+			)}
 			{onAddToList && (
 				<TouchableOpacity
-					style={[styles.listBadge, isListed && styles.listBadgeActive]}
+					style={[
+						styles.listBadge,
+						!onAdd && styles.listBadgeTop,
+						isListed && styles.listBadgeActive,
+					]}
 					onPress={(e) => {
 						e.stopPropagation?.();
 						onAddToList(item);

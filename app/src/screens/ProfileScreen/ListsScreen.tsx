@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Gesture } from "react-native-gesture-handler";
-import { runOnJS } from "react-native-reanimated";
+import { runOnJS, useSharedValue, type SharedValue } from "react-native-reanimated";
 import ReorderableList, {
 	useReorderableDrag,
 	useReorderableDragEnd,
@@ -62,6 +62,8 @@ const FADE_HEIGHT = spacing.lg;
 const TOP_FADE = [colors.background, "rgba(0, 0, 0, 0)"] as const;
 /** The drag pan wakes this long after the row's long press has fired */
 const PAN_WAKE_AFTER_MS = 50;
+/** After the finger lets go, wait this long for the drag to report its own end */
+const RELEASE_SETTLE_MS = 120;
 /** A drop waits this long for another before the order is written */
 const AUTOSAVE_MS = 800;
 /** Same row metrics as the Add to List drawer */
@@ -86,6 +88,8 @@ interface RowProps {
 	list: CustomList;
 	onOpen: () => void;
 	onMenu: () => void;
+	/** The list's drag pan is active (a finger is moving a card) */
+	dragging: SharedValue<boolean>;
 }
 
 /** Slots in a card's strip, under the name: posters, the last one a "+N" tile when more are left */
@@ -94,6 +98,13 @@ const STRIP_SLOTS = 5;
 const STRIP_ICON_SIZE = 16;
 /** Backdrop / poster wash fade in instead of popping */
 const IMAGE_FADE_MS = 200;
+/**
+ * Images a card has already shown. A drop re-mounts every card it moved past (the library re-keys
+ * them), and each one faded its backdrop in again from black — those now appear at once (held in
+ * memory: from the disk cache the re-mounted card was black for a few frames).
+ */
+const shownImages = new Set<string>();
+const fadeFor = (uri: string) => (shownImages.has(uri) ? 0 : IMAGE_FADE_MS);
 /** A poster standing in for a missing backdrop: blurred to a wash of its colours */
 const POSTER_BLUR_RADIUS = 30;
 /** Taller than any card — the loading shimmer fills the whole card behind the overlay */
@@ -171,27 +182,45 @@ function PosterStrip({ items }: { items: CustomList["items"] }) {
  * starts a drag from a long press — a handle that starts it on first touch takes the touch away
  * from the list's own gesture).
  */
-function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
+function ListRow({ list, onOpen, onMenu, dragging }: Readonly<RowProps>) {
 	const drag = useReorderableDrag();
 	// Picked up: the hold has registered and the drag is armed — a tick, and the card lifts
 	// (a touch bigger, a soft light shadow-glow) until the finger lets go, so it's plain when it's ready to move
 	const [lifted, setLifted] = useState(false);
-	// The library's own start / end of this card's drag (UI thread → hop to JS)
-	const liftUp = () => {
+	// The library's own start / end of this card's drag (UI thread → hop to JS). Stable callbacks:
+	// the start hook re-arms its reaction whenever its callback changes, and the library keeps this
+	// card as the dragged one after a hold that never moved — so any re-render (the release
+	// clearing the lift, a list update) lifted the card again and left its rim on
+	const liftUp = useCallback(() => {
 		Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
 		setLifted(true);
-	};
-	useReorderableDragStart(() => {
+	}, []);
+	const onDragStart = useCallback(() => {
 		"worklet";
 		runOnJS(liftUp)();
-	});
-	useReorderableDragEnd(() => {
+	}, [liftUp]);
+	const onDragEnd = useCallback(() => {
 		"worklet";
 		runOnJS(setLifted)(false);
-	});
+	}, []);
+	useReorderableDragStart(onDragStart);
+	useReorderableDragEnd(onDragEnd);
 	// The drag-end hook can be missed (a hold released before the drag settles); leaving the screen
 	// must never leave the card lifted with its glow
 	useFocusEffect(useCallback(() => () => setLifted(false), []));
+	// Held, then let go without moving: the list's pan never started, so no drag-end comes — drop
+	// the lift here. (Letting go of a real drag ends it through the hook above; the press also ends
+	// the moment the pan takes the touch, hence the check that no drag is under way.)
+	const releaseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	useEffect(() => () => {
+		if (releaseTimer.current) clearTimeout(releaseTimer.current);
+	}, []);
+	const onPressOut = () => {
+		if (releaseTimer.current) clearTimeout(releaseTimer.current);
+		releaseTimer.current = setTimeout(() => {
+			if (!dragging.value) setLifted(false);
+		}, RELEASE_SETTLE_MS);
+	};
 	const cover = listCoverItem(list);
 	const { data: info, isPending } = useTitleInfo(
 		cover?.tmdbId ?? 0,
@@ -212,29 +241,19 @@ function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 				onOpen();
 			}}
 			onLongPress={drag}
+			onPressOut={onPressOut}
 			delayLongPress={HOLD_TO_DRAG_MS}
 			accessibilityRole="button"
 			accessibilityLabel={`${list.name}, ${titleCount(list.items.length)}`}
 			accessibilityHint="Press and hold to move"
 		>
 			{info?.backdropPath ? (
-				<Image
-					source={{ uri: tmdbBlurredBackdropUri(info.backdropPath) }}
-					recyclingKey={list.id}
-					style={StyleSheet.absoluteFill}
-					contentFit="cover"
-					contentPosition="top"
-					blurRadius={BLUR_RADIUS}
-					transition={IMAGE_FADE_MS}
-				/>
+				<CardImage uri={tmdbBlurredBackdropUri(info.backdropPath)} recyclingKey={list.id} top />
 			) : info && cover?.posterPath ? (
-				<Image
-					source={{ uri: tmdbPosterUri(cover.posterPath, 185) }}
+				<CardImage
+					uri={tmdbPosterUri(cover.posterPath, 185)}
 					recyclingKey={`${list.id}_poster`}
-					style={StyleSheet.absoluteFill}
-					contentFit="cover"
 					blurRadius={POSTER_BLUR_RADIUS}
-					transition={IMAGE_FADE_MS}
 				/>
 			) : loading ? (
 				<SkeletonLine width="100%" height={CARD_FILL} style={styles.skeletonCard} />
@@ -278,6 +297,29 @@ function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 	);
 }
 
+/** A card's blurred backdrop (or poster wash): fades in the first time only (see shownImages) */
+function CardImage({
+	uri,
+	recyclingKey,
+	blurRadius = BLUR_RADIUS,
+	top = false,
+}: Readonly<{ uri: string; recyclingKey: string; blurRadius?: number; top?: boolean }>) {
+	const [transition] = useState(() => fadeFor(uri));
+	return (
+		<Image
+			source={{ uri }}
+			recyclingKey={recyclingKey}
+			style={StyleSheet.absoluteFill}
+			contentFit="cover"
+			contentPosition={top ? "top" : "center"}
+			blurRadius={blurRadius}
+			transition={transition}
+			cachePolicy="memory-disk"
+			onLoad={() => shownImages.add(uri)}
+		/>
+	);
+}
+
 /** Manage every list: reorder (saves itself), import, export, create */
 export default function ListsScreen() {
 	const navigation = useNavigation<Nav>();
@@ -299,13 +341,20 @@ export default function ListsScreen() {
 	// Latest draft for the save timer / unmount flush (state would be stale there)
 	const draftRef = useRef<string[] | null>(null);
 	const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-	const shown = useMemo(() => {
+	const ordered = useMemo(() => {
 		if (!draftIds) return lists;
 		const byId = new Map(lists.map((l) => [l.id, l]));
-		const ordered = draftIds.map((id) => byId.get(id)).filter((l): l is CustomList => !!l);
+		const inDraft = draftIds.map((id) => byId.get(id)).filter((l): l is CustomList => !!l);
 		// A list made meanwhile (not in the draft) goes last
-		return [...ordered, ...lists.filter((l) => !draftIds.includes(l.id))];
+		return [...inDraft, ...lists.filter((l) => !draftIds.includes(l.id))];
 	}, [lists, draftIds]);
+	// Same array while nothing a card shows has changed. After a drop the library re-keys the cards
+	// it passed (and once more for its stray follow-up event), and the next new `data` re-mounts
+	// them all — the save landing (new order numbers only) blanked every card for a moment
+	const shownRef = useRef<{ key: string; lists: CustomList[] } | null>(null);
+	const shownKey = JSON.stringify(ordered.map((l) => [l.id, l.name, l.items]));
+	if (shownRef.current?.key !== shownKey) shownRef.current = { key: shownKey, lists: ordered };
+	const shown = shownRef.current.lists;
 
 	const [naming, setNaming] = useState<"new" | CustomList | null>(null);
 	const [nameError, setNameError] = useState<string | null>(null);
@@ -322,9 +371,22 @@ export default function ListsScreen() {
 	// The list's drag pan wakes only after the hold that picks a row up, so a sideways swipe reaches
 	// the swipe-back. It must wake a beat *after* the row's long press (the library's advice): with
 	// both at the same delay it was a coin-flip which fired first, and drags mostly didn't start
+	// `dragging`: the library sets the pan's other callbacks, not onStart / onTouchesUp
+	const dragging = useSharedValue(false);
 	const dragPan = useMemo(
-		() => Gesture.Pan().activateAfterLongPress(HOLD_TO_DRAG_MS + PAN_WAKE_AFTER_MS),
-		[],
+		() =>
+			Gesture.Pan()
+				.activateAfterLongPress(HOLD_TO_DRAG_MS + PAN_WAKE_AFTER_MS)
+				.onStart(() => {
+					dragging.value = true;
+				})
+				.onTouchesUp(() => {
+					dragging.value = false;
+				})
+				.onTouchesCancelled(() => {
+					dragging.value = false;
+				}),
+		[dragging],
 	);
 	const afterModalClose = (fn: () => void) => setTimeout(fn, MODAL_HANDOFF_MS);
 
@@ -469,6 +531,7 @@ export default function ListsScreen() {
 									list={item}
 									onOpen={() => navigation.navigate(Route.LIST_DETAIL, { listId: item.id })}
 									onMenu={() => setMenuList(item)}
+									dragging={dragging}
 								/>
 							) : null
 						}

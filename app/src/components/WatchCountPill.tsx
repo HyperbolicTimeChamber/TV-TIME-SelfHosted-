@@ -7,6 +7,8 @@ interface Props {
 	label?: string;
 	/** The smaller size on a list card's tag line (Watch History's cards use the full size) */
 	compact?: boolean;
+	/** Over a backdrop beside the back / share buttons: their dark overlay fill */
+	overlay?: boolean;
 }
 
 /**
@@ -18,10 +20,11 @@ export default function WatchCountPill({
 	count,
 	label = "Watch Count",
 	compact = false,
+	overlay = false,
 }: Readonly<Props>) {
 	const size = compact ? compactStyles : fullStyles;
 	return (
-		<View style={[styles.pill, size.pill]}>
+		<View style={[styles.pill, size.pill, overlay && styles.overlay]}>
 			<Text style={[styles.text, size.text]}>{label}</Text>
 			<View style={[styles.circle, size.circle]}>
 				<Text style={[styles.text, size.text]}>{count}</Text>
@@ -38,6 +41,7 @@ const styles = StyleSheet.create({
 		// textSecondary at 35% — translucent over the backdrop
 		backgroundColor: `${colors.textSecondary}59`,
 	},
+	overlay: { backgroundColor: colors.badgeOverlay },
 	// No extra font padding: Android adds it above the digits, which pushed the count off-centre
 	text: { color: colors.text, fontWeight: "700", includeFontPadding: false },
 	circle: {

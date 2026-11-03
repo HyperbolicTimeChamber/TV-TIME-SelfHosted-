@@ -153,7 +153,7 @@ export default function ShowDetailScreen() {
 			{signedIn && d.watchCount > 0 && (
 				// Top edge level with back / share (not centred on them)
 				<div className={`${styles.floatButton} ${styles.watchCount}`}>
-					<WatchCountPill count={d.watchCount} />
+					<WatchCountPill count={d.watchCount} overlay />
 				</div>
 			)}
 			{signedIn && (
@@ -170,6 +170,7 @@ export default function ShowDetailScreen() {
 								: null
 						}
 						onClose={() => setListSheetOpen(false)}
+						hideCounts
 					/>
 				</>
 			)}

@@ -170,6 +170,8 @@ export const styles = StyleSheet.create({
 		alignItems: "center" as const,
 		zIndex: 1,
 	},
+	// No watchlist badge above it: takes its place
+	listBadgeTop: { top: 6 },
 	listBadgeActive: {
 		backgroundColor: colors.warningAmber,
 		borderColor: colors.warningAmber,

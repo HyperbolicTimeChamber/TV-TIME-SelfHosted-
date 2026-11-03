@@ -427,3 +427,52 @@
 	border-color: var(--color-primary);
 	color: var(--color-fg);
 }
+
+.viewChip:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+/* Genre / Keyword: a small heading over wrapping chips (app HistoryViewSheet) */
+.facetTitle {
+	margin: 12px 0 8px;
+	color: var(--color-fg-secondary);
+	font-size: 13px;
+	font-weight: 700;
+}
+
+.keywordField {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	height: 40px;
+	padding: 0 12px;
+	margin-bottom: 8px;
+	border-radius: 8px;
+	background: var(--color-surface-light);
+	color: var(--color-fg-secondary);
+
+	input {
+		flex: 1;
+		min-width: 0;
+		border: none;
+		outline: none;
+		background: transparent;
+		color: var(--color-fg);
+		/* 16px: iOS Safari zooms the page into smaller inputs */
+		font-size: 16px;
+	}
+}
+
+/* Grid view: a poster card's footprint while its title loads */
+.gridSkeleton {
+	aspect-ratio: 2 / 3;
+	border-radius: 16px;
+}
+
+/* Grid view's state pills: solid backing over a busy poster (ListDetail's gridTagBacking) */
+.gridTagBacking {
+	display: inline-flex;
+	border-radius: 999px;
+	background: var(--bg);
+}

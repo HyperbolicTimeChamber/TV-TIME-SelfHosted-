@@ -143,8 +143,13 @@ async function restore(uid: string): Promise<{ sync: SavedSync; docs: TrackingDo
 	}
 }
 
-const toDoc = (d: { id: string; data: () => unknown }) =>
-	({ id: d.id, ...(d.data() as object) }) as TrackingDoc;
+/** A tracking doc as the store keeps (and saves) it — without genres / keywords: only Watch
+ *  History's filters read those (in its own query), and ~40 keywords a title would bloat the
+ *  saved pages */
+const toDoc = (d: { id: string; data: () => unknown }) => {
+	const { genres: _genres, keywords: _keywords, ...data } = d.data() as Record<string, unknown>;
+	return { id: d.id, ...data } as TrackingDoc;
+};
 
 /** One page in Firestore order, after `after` (the last doc already held) */
 async function fetchPage(uid: string, after: TrackingDoc | null): Promise<TrackingDoc[]> {

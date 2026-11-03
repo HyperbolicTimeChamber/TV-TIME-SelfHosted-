@@ -294,6 +294,11 @@
 	padding: 0;
 }
 
+/* No watchlist badge above it: takes its place */
+.listBadgeTop {
+	top: 6px;
+}
+
 .listBadgeActive {
 	background: $warning-amber;
 	border-color: $warning-amber;

@@ -49,7 +49,6 @@ export default function ActionPills(p: Props) {
 			}
 		>
 			{p.listCount > 0 ? <IoBookmark size={26} /> : <IoBookmarkOutline size={22} />}
-			{p.listCount > 0 && <span className={styles.listCount}>{p.listCount}</span>}
 		</CircleButton>
 	);
 
@@ -120,15 +119,6 @@ export default function ActionPills(p: Props) {
 									: "Rewatch"}
 				</button>
 			)}
-			{hasSheet && (
-				<CircleButton
-					tone={CircleButtonTone.RAISED}
-					onClick={p.onWatchSheetOpen}
-					ariaLabel="Watch count options"
-				>
-					<IoEllipsisHorizontal size={22} />
-				</CircleButton>
-			)}
 			{!isMovie && (status === WatchStatus.WATCHING || status === WatchStatus.REWATCHING) && (
 				<button className={`${styles.pill} ${styles.pillPause}`} onClick={p.onPause}>
 					{status === WatchStatus.REWATCHING ? "Pause a Rewatch" : "Pause"}
@@ -144,6 +134,16 @@ export default function ActionPills(p: Props) {
 				</button>
 			)}
 			{listButton}
+			{/* Watch count ⋯ stays the row's right-most button */}
+			{hasSheet && (
+				<CircleButton
+					tone={CircleButtonTone.RAISED}
+					onClick={p.onWatchSheetOpen}
+					ariaLabel="Watch count options"
+				>
+					<IoEllipsisHorizontal size={22} />
+				</CircleButton>
+			)}
 		</div>
 	);
 }

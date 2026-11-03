@@ -12,28 +12,27 @@ export interface ListTag {
 
 /**
  * The tags under a list card's meta line, in one row: what the Watch History card shows for the
- * title (Currently Watching, paused, watch count — not the other status pills, Up To Date or
- * the percentage) — and, for a title that isn't tracked, Not Started (a movie: Not Watched).
- * `card` null = not on the watchlist.
+ * title (Currently Watching / Rewatching, Paused, watch count — not Completed, Up To Date or the
+ * percentage), or Not Started for a tracked show with no episode watched. A title that isn't on
+ * the watchlist gets no tags. `card` null = not on the watchlist.
  */
-export function deriveListTags(card: HistoryCard | null, isMovie = false): ListTag[] {
+export function deriveListTags(card: HistoryCard | null): ListTag[] {
 	const tags: ListTag[] = [];
-	if (!card) {
-		// A movie is watched or not, tracked or not: never "Started"
-		tags.push(
-			isMovie
-				? { kind: ListTagKind.NOT_WATCHED, label: "Not Watched" }
-				: { kind: ListTagKind.NOT_STARTED, label: "Not Started" },
-		);
+	if (!card) return tags;
+	// Tracked, nothing watched yet (no last episode, not a rewatch) → Not Started in place of
+	// Currently Watching
+	if (card.pill === HistoryPill.WATCHING && !card.lastWatched) {
+		tags.push({ kind: ListTagKind.NOT_STARTED, label: "Not Started" });
 		return tags;
 	}
-	// Only Currently Watching of the status pills: Completed / Rewatching and the percentage are
-	// left to the Watch History page
-	if (card.pill === HistoryPill.WATCHING && card.pillLabel) {
+	// Currently Watching / Rewatching (its run number in the circle) of the status pills: Completed
+	// and the percentage are left to the Watch History page
+	if ((card.pill === HistoryPill.WATCHING || card.pill === HistoryPill.REWATCHING) && card.pillLabel) {
 		tags.push({
 			kind: ListTagKind.STATUS,
 			label: card.pillLabel,
 			pill: card.pill,
+			count: card.pillCount ?? undefined,
 		});
 	}
 	if (card.progress?.kind === HistoryProgress.PAUSED) {

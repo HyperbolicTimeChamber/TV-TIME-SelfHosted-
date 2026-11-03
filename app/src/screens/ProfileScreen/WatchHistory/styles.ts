@@ -27,8 +27,10 @@ export const styles = StyleSheet.create({
 		paddingBottom: spacing.xs,
 	},
 	title: { flex: 1, textAlign: "center", fontSize: 20, fontWeight: "700", color: colors.text },
-	backSpacer: { width: 44 },
 	list: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
+	// A list's own grid's side margin (ListDetail gridContent + Search's row)
+	grid: { paddingHorizontal: spacing.xs + spacing.sm, paddingTop: spacing.lg },
+	gridTagBacking: { borderRadius: 999, backgroundColor: colors.background },
 	separator: { height: spacing.lg },
 	empty: {
 		textAlign: "center",
@@ -77,7 +79,27 @@ export const styles = StyleSheet.create({
 	},
 	// Press feedback: a touch smaller, never from nothing
 	chipPressed: { transform: [{ scale: 0.97 }], opacity: 0.85 },
+	filterChipDisabled: { opacity: 0.4 },
 	filterChipText: { color: colors.textSecondary, fontWeight: "600", fontSize: 14 },
+	// Genre / Keyword: a small heading over one scrolling line of chips
+	facetTitle: {
+		color: colors.textSecondary,
+		fontSize: 13,
+		fontWeight: "700",
+		marginTop: spacing.md,
+		marginBottom: spacing.sm,
+	},
+	keywordField: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.sm,
+		height: 40,
+		paddingHorizontal: spacing.md,
+		marginBottom: spacing.sm,
+		borderRadius: 8,
+		backgroundColor: colors.surfaceLight,
+	},
+	keywordInput: { flex: 1, color: colors.text, fontSize: 15, padding: 0 },
 	filterChipTextOn: { color: colors.text },
 
 	// Card
