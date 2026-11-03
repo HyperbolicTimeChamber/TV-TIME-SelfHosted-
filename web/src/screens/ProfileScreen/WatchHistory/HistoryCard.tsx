@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { IoBookmark, IoBookmarkOutline } from "react-icons/io5";
 import { HistoryPill } from "@app/enums";
 import type { HistoryCard as Card } from "@app/utils";
 import { tmdbBackdropUri, tmdbLogoUri } from "@app/hooks/useTmdbImage";
@@ -20,7 +21,17 @@ const PILL_BG: Record<HistoryPill, string> = {
 /** Icons match the progress ring's 20px so all three pills line up */
 
 /** Watch History card (app HistoryCardView) */
-function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
+function HistoryCard({
+	card,
+	onClick,
+	onAddToList,
+}: {
+	card: Card & { listCount?: number };
+	onClick: () => void;
+	/** Opens the Add to List sheet for this title */
+	onAddToList?: () => void;
+}) {
+	const listCount = card.listCount ?? 0;
 	return (
 		<button className={styles.card} onClick={onClick} aria-label={card.title}>
 			{card.backdropPath && (
@@ -47,8 +58,36 @@ function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
 							<span className={styles.cardTitle}>{card.title}</span>
 						)}
 					</span>
-					{card.tag && <span className={styles.tagPill}>{card.tag}</span>}
+					{/* Where the Ongoing / Ended pill was: Add to List, bookmark filled when the title is
+					    in a list */}
+					{onAddToList && (
+						// A span, not a button: the card itself is one
+						<span
+							role="button"
+							tabIndex={0}
+							className={`${styles.listButton} ${listCount > 0 ? styles.listButtonActive : ""}`}
+							aria-label={
+								listCount > 0
+									? `Add to List, in ${listCount} ${listCount === 1 ? "list" : "lists"}`
+									: "Add to List"
+							}
+							onClick={(e) => {
+								e.stopPropagation();
+								onAddToList();
+							}}
+							onKeyDown={(e) => {
+								if (e.key !== "Enter" && e.key !== " ") return;
+								e.preventDefault();
+								e.stopPropagation();
+								onAddToList();
+							}}
+						>
+							{listCount > 0 ? <IoBookmark size={20} /> : <IoBookmarkOutline size={20} />}
+						</span>
+					)}
 				</span>
+				{/* Ongoing / Ended / year, under the logo */}
+				{card.tag && <span className={styles.tagPill}>{card.tag}</span>}
 			</span>
 
 			<span className={styles.bottomRow}>

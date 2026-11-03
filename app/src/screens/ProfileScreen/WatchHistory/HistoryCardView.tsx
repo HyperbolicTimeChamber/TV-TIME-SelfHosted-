@@ -1,6 +1,7 @@
 import React, { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
 import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../../theme";
 import { HistoryPill } from "../../../enums";
 import { tmdbBlurredBackdropUri, tmdbLogoUri } from "../../../hooks/useTmdbImage";
@@ -23,7 +24,17 @@ export const PILL_COLOR: Record<HistoryPill, string> = {
 };
 
 /** Watch History card (16:9): logo + title + status, time spent, progress, Ongoing/Ended */
-function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => void }) {
+function HistoryCardView({
+	card,
+	onPress,
+	onAddToList,
+}: {
+	card: HistoryCard & { listCount?: number };
+	onPress: () => void;
+	/** Opens the Add to List sheet for this title */
+	onAddToList?: () => void;
+}) {
+	const listCount = card.listCount ?? 0;
 	return (
 		<TouchableOpacity
 			style={[styles.card, { minHeight: CARD_MIN_HEIGHT }]}
@@ -60,12 +71,35 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 							{card.title}
 						</Text>
 					)}
-					{card.tag && (
-						<View style={styles.tagPill}>
-							<Text style={styles.tag}>{card.tag}</Text>
-						</View>
+					{/* Where the Ongoing / Ended pill was: Add to List, bookmark filled when the title is
+					    in a list */}
+					{onAddToList && (
+						<TouchableOpacity
+							onPress={onAddToList}
+							activeOpacity={0.7}
+							hitSlop={8}
+							style={[styles.listButton, listCount > 0 && styles.listButtonActive]}
+							accessibilityRole="button"
+							accessibilityLabel={
+								listCount > 0
+									? `Add to List, in ${listCount} ${listCount === 1 ? "list" : "lists"}`
+									: "Add to List"
+							}
+						>
+							<Ionicons
+								name={listCount > 0 ? "bookmark" : "bookmark-outline"}
+								size={20}
+								color={colors.text}
+							/>
+						</TouchableOpacity>
 					)}
 				</View>
+				{/* Ongoing / Ended / year, under the logo */}
+				{card.tag && (
+					<View style={styles.tagPill}>
+						<Text style={styles.tag}>{card.tag}</Text>
+					</View>
+				)}
 			</View>
 
 			<View style={styles.bottomRow}>

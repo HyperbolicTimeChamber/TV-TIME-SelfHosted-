@@ -130,6 +130,16 @@ export const styles = StyleSheet.create({
 		backgroundColor: `${colors.textSecondary}59`,
 	},
 	tag: { color: colors.text, fontSize: 12, fontWeight: "600" },
+	// Add to List, top-right: a 36 circle, amber with a filled bookmark when the title is in a list
+	listButton: {
+		width: 36,
+		height: 36,
+		borderRadius: 18,
+		backgroundColor: colors.badgeOverlay,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	listButtonActive: { backgroundColor: colors.warningAmber },
 
 	// Profile entry button
 	historyButton: {

@@ -3,6 +3,12 @@ import { AnimatePresence, motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import InfiniteScroll from "react-infinite-scroll-component";
 import { useHistorySort, useWatchHistory } from "@app/hooks/useWatchHistory";
+import { useCustomLists } from "@app/hooks/useCustomLists";
+import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
+import { titleListCount } from "@app/utils/customLists";
+import type { HistoryCard as HistoryCardData } from "@app/utils";
+import { useAppSelector } from "../../../store";
+import AddToListSheet from "../../../components/AddToListSheet";
 import { CircleButtonTone, HistoryFilter, HistorySort, MediaType } from "@app/enums";
 import SlidingTabs from "../../../components/SlidingTabs";
 import { CircleBackButton, CircleButtonSpacer } from "../../../components/CircleButton";
@@ -40,6 +46,14 @@ function HistoryList({
 	// Sort / filters run in the Firestore query — still 20 a page
 	const { cards, loading, hasMore, error, loadMore } = useWatchHistory(mediaType, sort, filters);
 	const columns = useColumnCount();
+	// Add to List: the title the sheet is open for, and how many lists hold each card's title
+	const user = useAppSelector((s) => s.auth.user);
+	const { lists } = useCustomLists(user?.uid);
+	const [listTarget, setListTarget] = useState<HistoryCardData | null>(null);
+	const items = useMemo(
+		() => cards.map((c) => ({ ...c, listCount: titleListCount(lists, c.tmdbId, c.mediaType) })),
+		[cards, lists],
+	);
 
 	if (loading) {
 		return (
@@ -69,7 +83,7 @@ function HistoryList({
 			className="overflow-visible!"
 		>
 			<Masonry
-				items={cards}
+				items={items}
 				columns={columns}
 				getKey={(card) => card.id}
 				renderItem={(card) =>
@@ -78,6 +92,7 @@ function HistoryList({
 						<HistoryCard
 							card={card}
 							onClick={() => navigate(showPath(card.mediaType, card.tmdbId))}
+							onAddToList={() => setListTarget(card)}
 						/>
 					) : (
 						<SkeletonBlock className={styles.skeleton} />
@@ -85,6 +100,20 @@ function HistoryList({
 				}
 				className={styles.masonry}
 				columnClassName={styles.masonryColumn}
+			/>
+			<AddToListSheet
+				entry={
+					listTarget
+						? {
+								tmdbId: listTarget.tmdbId,
+								mediaType: listTarget.mediaType,
+								title: listTarget.title,
+								posterPath:
+									getCachedCatalogShow(listTarget.tmdbId, listTarget.mediaType)?.posterPath ?? null,
+							}
+						: null
+				}
+				onClose={() => setListTarget(null)}
 			/>
 		</InfiniteScroll>
 	);
