@@ -181,3 +181,15 @@ export const SEARCH_MAX_QUEUE_WAIT_MS = 8000;
 export const SEARCH_CACHE_TTL_MS = HOUR_MS;
 /** Cached batches kept per instance (oldest dropped first) */
 export const SEARCH_CACHE_MAX_ENTRIES = 500;
+
+/** Per-user subcollections of the tracking delta sync (mirrors app UserCollection) */
+export enum UserCollection {
+  TRACKING = "tracking",
+  /** One entry per deleted tracking doc (same id) — other devices drop their saved copy */
+  TRACKING_DELETIONS = "trackingDeletions",
+}
+
+/** Server time of a tracking doc's last write — clients' delta listener reads only docs past it */
+export const TRACKING_UPDATED_AT = "updatedAt";
+/** Deletion log entries expire after this (Firestore TTL on `expireAt`) */
+export const TRACKING_DELETION_TTL_MS = 30 * 24 * 60 * 60 * 1000;

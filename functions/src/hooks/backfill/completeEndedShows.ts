@@ -5,6 +5,7 @@ import {
   finishedEndedPatch,
   isFinishedEndedShow,
 } from "../upcoming/reconcileTracking";
+import { stampTracking } from "../../shared/trackingSync";
 
 /**
  * One-off: mark ended shows users finished but are still "watching" as completed
@@ -34,7 +35,7 @@ export async function completeEndedShows(
         const catalog = catalogs.get(t.id);
         if (!catalog || !isFinishedEndedShow(t.data(), catalog)) continue;
         changed.push({ uid: user.id, show: catalog.title });
-        if (!dryRun) writer.set(t.ref, finishedEndedPatch(), { merge: true });
+        if (!dryRun) writer.set(t.ref, stampTracking(finishedEndedPatch()), { merge: true });
       }
     }),
     5,
