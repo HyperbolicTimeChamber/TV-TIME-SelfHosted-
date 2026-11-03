@@ -7,6 +7,8 @@ export const SNAP_INTERVAL = CARD_WIDTH + CARD_GAP;
 export const SIDE_PADDING = Math.round((SCREEN_WIDTH - CARD_WIDTH) / 2);
 export const CARD_HEIGHT = Math.min(Dimensions.get("window").height * 0.55, 460);
 export const IMAGE_HEIGHT = 180;
+/** Wait this long (ms) for a still / backdrop before the show's poster stands in (same wait as title logos → name) */
+export const POSTER_FALLBACK_DELAY_MS = 2000;
 
 export const SIDE_SCALE = 0.88;
 export const SIDE_ROTATE = "12deg";

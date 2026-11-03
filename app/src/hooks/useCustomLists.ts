@@ -52,7 +52,16 @@ const settleItems =
 export function useCustomLists(userId: string | undefined) {
 	const queryClient = useQueryClient();
 	const queryKey = useMemo(() => [QueryKey.CUSTOM_LISTS, userId] as const, [userId]);
-	const queryFn = useCallback(() => loadCustomListsWithDefaults(userId!), [userId]);
+	const queryFn = useCallback(
+		() =>
+			loadCustomListsWithDefaults(userId!, (fresh, saved) => {
+				// The server differs from the saved copy shown meanwhile: swap it in — unless an edit
+				// has changed the lists since (that one is newer than what the check read)
+				if (queryClient.getQueryData<CustomList[]>(queryKey) === saved)
+					queryClient.setQueryData(queryKey, fresh);
+			}),
+		[userId, queryClient, queryKey],
+	);
 
 	const { data, isLoading: loading } = useQuery({
 		queryKey,

@@ -2,6 +2,9 @@ import { StyleSheet } from "react-native";
 import { colors, spacing, typography } from "../../theme";
 import { artHeight, NO_RESULTS_RATIO } from "../../components/NotFoundArt";
 
+/** Poster card corners: the same 16 as a list card, so the pills and badges sit in matching curves */
+const CARD_RADIUS = 16;
+
 export const styles = StyleSheet.create({
 	container: {
 		flex: 1,
@@ -91,7 +94,7 @@ export const styles = StyleSheet.create({
 	card: {
 		flex: 1,
 		overflow: "hidden" as const,
-		borderRadius: 6,
+		borderRadius: CARD_RADIUS,
 	},
 	// SearchSkeleton: the poster's box, in the skeleton colour (shimmer set inline)
 	skeletonPoster: {
@@ -99,7 +102,7 @@ export const styles = StyleSheet.create({
 	},
 	poster: {
 		aspectRatio: 2 / 3,
-		borderRadius: 6,
+		borderRadius: CARD_RADIUS,
 		backgroundColor: colors.surface,
 		width: "100%",
 	},
@@ -109,8 +112,10 @@ export const styles = StyleSheet.create({
 		left: 0,
 		right: 0,
 		backgroundColor: colors.overlayLight,
-		paddingHorizontal: spacing.sm,
-		paddingVertical: spacing.xs,
+		// Side and bottom room so the title and year clear the rounded corners
+		paddingHorizontal: spacing.md,
+		paddingTop: spacing.xs,
+		paddingBottom: spacing.sm + 2,
 	},
 	cardTitle: {
 		...typography.caption,
@@ -120,6 +125,16 @@ export const styles = StyleSheet.create({
 	cardYear: {
 		...typography.caption,
 		fontSize: 11,
+	},
+	// The title's state pills (Currently Watching, Watch Count…), stacked top-left over the poster —
+	// the badges are top-right
+	overlayTags: {
+		position: "absolute" as const,
+		top: 8,
+		left: 6,
+		gap: 4,
+		alignItems: "flex-start" as const,
+		zIndex: 1,
 	},
 	watchlistBadge: {
 		position: "absolute" as const,
@@ -139,11 +154,12 @@ export const styles = StyleSheet.create({
 		backgroundColor: colors.watchedGreen,
 		borderColor: colors.watchedGreen,
 	},
-	// "Add to List" — mirrors the watchlist badge on the opposite corner; blue = already in a list
+	// "Add to List" — sits right under the watchlist badge; amber = already in a list
 	listBadge: {
 		position: "absolute" as const,
-		top: 6,
-		left: 6,
+		// Under the watchlist badge: 6 + 26 + a 10 gap
+		top: 42,
+		right: 6,
 		width: 26,
 		height: 26,
 		borderRadius: 13,
@@ -155,8 +171,8 @@ export const styles = StyleSheet.create({
 		zIndex: 1,
 	},
 	listBadgeActive: {
-		backgroundColor: colors.accent,
-		borderColor: colors.accent,
+		backgroundColor: colors.warningAmber,
+		borderColor: colors.warningAmber,
 	},
 	bannerTop: {
 		flexDirection: "row" as const,

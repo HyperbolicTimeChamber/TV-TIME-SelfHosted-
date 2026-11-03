@@ -172,7 +172,12 @@ export function useWatchlistScreen(
 				}
 			}
 
-			if (allEps.length === 0) return;
+			if (allEps.length === 0) {
+				// A saved card whose catalog hasn't loaded yet (fresh launch): the card still opens
+				// the show's page rather than doing nothing
+				if (!catalog) handleNavigateToShow(tmdbId, _mediaType);
+				return;
+			}
 
 			const rawIdx = Math.max(
 				0,
@@ -238,7 +243,7 @@ export function useWatchlistScreen(
 				.then((snap) => patch(rowsOf(snap)))
 				.catch(() => {});
 		},
-		[listData, user?.uid, queryClient],
+		[listData, user?.uid, queryClient, handleNavigateToShow],
 	);
 
 	// Skip in modal → move the modal's "current" episode along with the watchlist pointer

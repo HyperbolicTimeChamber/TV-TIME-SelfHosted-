@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { App as AntApp } from "antd";
-import { IoBookmark, IoBookmarkOutline, IoShareSocialOutline } from "react-icons/io5";
+import { IoShareSocialOutline } from "react-icons/io5";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useShowDetailActions } from "@app/screens/DetailScreens/useShowDetailActions";
 import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
 import { CircleButtonTone, MediaType, WatchStatus } from "@app/enums";
 import { showShareUrl } from "@app/utils/shareUrl";
 import { useCustomLists } from "@app/hooks/useCustomLists";
-import { isTitleListed } from "@app/utils/customLists";
+import { titleListCount } from "@app/utils/customLists";
 import AddToListSheet from "../../components/AddToListSheet";
 import LoadingScreen from "../../components/LoadingScreen";
 import CircleButton, { CircleBackButton } from "../../components/CircleButton";
@@ -55,7 +55,7 @@ export default function ShowDetailScreen() {
 	// "Add to List" button (next to Share): signed-in only (lists belong to an account), blue once listed
 	const { lists } = useCustomLists(d.user?.uid);
 	const [listSheetOpen, setListSheetOpen] = useState(false);
-	const isListed = isTitleListed(lists, tmdbId, mediaType);
+	const listCount = titleListCount(lists, tmdbId, mediaType);
 
 	// Opened directly (share link / new tab): no in-app history, so go to the watchlist
 	// (or search for guests) instead of leaving the site
@@ -158,14 +158,6 @@ export default function ShowDetailScreen() {
 			)}
 			{signedIn && (
 				<>
-					<CircleButton
-						tone={isListed ? CircleButtonTone.ACCENT : CircleButtonTone.OVERLAY}
-						className={`${styles.floatButton} ${styles.listButton}`}
-						onClick={() => setListSheetOpen(true)}
-						ariaLabel="Add to List"
-					>
-						{isListed ? <IoBookmark size={22} /> : <IoBookmarkOutline size={22} />}
-					</CircleButton>
 					<AddToListSheet
 						entry={
 							listSheetOpen
@@ -228,6 +220,8 @@ export default function ShowDetailScreen() {
 								onPause={() => d.setPauseModalVisible(true)}
 								onRemove={d.handleRemove}
 								onWatchSheetOpen={() => d.setMovieSheetVisible(true)}
+								listCount={listCount}
+								onAddToList={() => setListSheetOpen(true)}
 							/>
 						) : (
 							<div className={styles.pillRow}>

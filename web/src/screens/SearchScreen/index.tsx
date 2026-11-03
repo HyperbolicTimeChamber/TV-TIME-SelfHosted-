@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from "react";
-import { motion } from "motion/react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { Button } from "antd";
 import { IoChevronBackCircleOutline, IoSearch } from "react-icons/io5";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -51,6 +51,10 @@ const FILTER_TABS = [
 
 // Horizontal drag (px) on the results that goes back to Trending — same as Watch History's tabs
 const SWIPE_BACK_PX = 60;
+/** A re-sort swaps the whole order: the grid settles in (same curve/offset as the app) */
+const SORT_IN_S = 0.22;
+const SORT_SETTLE_PX = 10;
+const SORT_EASE_OUT = [0.23, 1, 0.32, 1] as const;
 
 const SORT_OPTIONS: SortOption<SearchSortView>[] = SEARCH_SORT_OPTIONS.map(
 	({ label, ...value }) => ({ value, label }),
@@ -64,6 +68,11 @@ export default function SearchScreen() {
 	const [mediaFilter, setMediaFilter] = useState<MediaFilter>(MediaFilter.ALL);
 	// Results only (Trending keeps its own order); remembered for the session
 	const [sortView, setSortView] = useSearchSort();
+	const reduceMotion = useReducedMotion();
+	// Only a sort change animates the grid in, not the first load of a query
+	const firstSort = useRef(sortView);
+	const sortChanged = useRef(false);
+	if (firstSort.current !== sortView) sortChanged.current = true;
 	const [sortOpen, setSortOpen] = useState(false);
 	const [headerRef, headerHeight] = useElementHeight<HTMLElement>();
 	// Follows the scroll continuously; held open while the sort popover (anchored in it) is up
@@ -248,6 +257,11 @@ export default function SearchScreen() {
 			) : submittedQuery ? (
 				// Results: swipe right goes back to Trending (vertical scroll stays native)
 				<motion.div
+					// A new sort remounts the grid and it settles in (the app fades out, swaps, fades in)
+					key={`${sortView.sort}_${sortView.direction}`}
+					initial={reduceMotion || !sortChanged.current ? false : { opacity: 0, y: SORT_SETTLE_PX }}
+					animate={{ opacity: 1, y: 0 }}
+					transition={{ duration: SORT_IN_S, ease: SORT_EASE_OUT }}
 					drag="x"
 					dragDirectionLock
 					dragConstraints={{ left: 0, right: 0 }}

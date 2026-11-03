@@ -14,6 +14,8 @@ interface Props {
 	style?: StyleProp<ViewStyle>;
 	contentFit?: "cover" | "contain";
 	title?: string;
+	/** The placeholder icon's size, for tiles too small for the default (it was clipped in a 28px tile) */
+	iconSize?: number;
 }
 
 export default function PosterImage({
@@ -22,6 +24,7 @@ export default function PosterImage({
 	style,
 	contentFit = "cover",
 	title,
+	iconSize,
 }: Props) {
 	if (posterPath) {
 		return (
@@ -40,7 +43,7 @@ export default function PosterImage({
 		<View style={[style, styles.placeholder]}>
 			<Ionicons
 				name={isMovie ? "film-outline" : "tv-outline"}
-				size={title ? 22 : 28}
+				size={iconSize ?? (title ? 22 : 28)}
 				color={colors.textMuted}
 			/>
 			{title && (

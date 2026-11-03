@@ -56,6 +56,29 @@ const STRIP_SLOTS = 5;
 /** "+N" for the strip's last tile; capped so it always fits (app moreLabel) */
 const moreLabel = (n: number) => (n > 99 ? "99+" : `+${n}`);
 
+/** A strip tile is 28 × 42: the placeholder icon has to fit inside it (app STRIP_ICON_SIZE) */
+const STRIP_ICON_SIZE = 16;
+
+/** One strip tile: the poster saved with the entry, else the title's own (app StripPoster) */
+function StripPoster({
+	item,
+	className,
+}: {
+	item: CustomList["items"][number];
+	className: string;
+}) {
+	const { data: info } = useTitleInfo(item.tmdbId, item.mediaType, !item.posterPath);
+	return (
+		<PosterImage
+			posterPath={item.posterPath ?? info?.posterPath}
+			mediaType={item.mediaType}
+			className={className}
+			width={56}
+			iconSize={STRIP_ICON_SIZE}
+		/>
+	);
+}
+
 /**
  * A list's first posters (app PosterStrip). Up to STRIP_SLOTS fit as they are; more → the last slot
  * becomes "+N", the next poster dimmed under it (a "+1" would waste the slot)
@@ -68,22 +91,15 @@ function PosterStrip({ items }: { items: CustomList["items"] }) {
 	return (
 		<span className={styles.strip}>
 			{shown.map((item) => (
-				<PosterImage
+				<StripPoster
 					key={`${item.mediaType}_${item.tmdbId}`}
-					posterPath={item.posterPath}
-					mediaType={item.mediaType}
+					item={item}
 					className={styles.stripPoster}
-					width={56}
 				/>
 			))}
 			{next && (
 				<span className={styles.moreTile} aria-label={`${more} more`}>
-					<PosterImage
-						posterPath={next.posterPath}
-						mediaType={next.mediaType}
-						className={styles.morePoster}
-						width={56}
-					/>
+					<StripPoster item={next} className={styles.morePoster} />
 					<span
 						className={`${styles.moreText} ${more >= 100 ? styles.moreTextXs : more >= 10 ? styles.moreTextSm : ""}`}
 					>

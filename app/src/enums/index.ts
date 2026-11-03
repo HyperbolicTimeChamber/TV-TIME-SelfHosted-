@@ -62,6 +62,8 @@ export enum CacheKey {
 	USER_STATS = "profile_stats_cache",
 	HIDE_UNRELEASED_MODAL = "hideUnreleasedMovieModal",
 	IMPORT_IN_PROGRESS = "import_in_progress",
+	/** Prefix; the uid is appended. Import screen done/skipped, kept on the device in case the Firestore write fails */
+	IMPORT_DONE = "import_done_",
 	/** Legacy: the whole catalog as one ~2MB value — Android couldn't read it back. Deleted on start */
 	CATALOG_CACHE = "catalog_cache_v1",
 	/** Doc ids of the shows saved under CATALOG_SHOW */
@@ -87,6 +89,9 @@ export enum CacheKey {
 	CUSTOM_LISTS_CACHE = "custom_lists_cache_v1:",
 	/** + uid + "_" + listId — one saved custom list */
 	CUSTOM_LIST_CACHE = "custom_list_cache_v1:",
+	/** + uid + "_" + tracking doc id — a list title's last seen tracking state (list card tags);
+	 *  "null" = not tracked. One small value per title */
+	LIST_TRACKING = "list_tracking_v1:",
 	/** A list page's Grid / List choice (kept across lists and visits) */
 	CUSTOM_LIST_VIEW = "custom_list_view_v1",
 	/** Last app_opened time (ms) — derives days_since_last_open */
@@ -179,7 +184,7 @@ export enum CircleButtonTone {
 	SURFACE_LIGHT = "surfaceLight",
 	/** Brightest grey (the border colour) — stands out on black */
 	RAISED = "raised",
-	/** Accent blue — a toggled-on state (the Add to List button once the title is listed) */
+	/** Amber — a toggled-on state (the Add to List button once the title is listed) */
 	ACCENT = "accent",
 }
 
@@ -200,6 +205,8 @@ export enum HistorySort {
 
 /** Search results sort — client-side over the pages already loaded */
 export enum SearchSort {
+	/** TMDB's own order (best match first) */
+	RELEVANCE = "relevance",
 	/** Release date (movie) / first air date (TV) */
 	DATE = "date",
 	/** Displayed title, dictionary order */
@@ -223,6 +230,20 @@ export enum HistoryProgress {
 	PERCENT = "percent",
 	UP_TO_DATE = "upToDate",
 	PAUSED = "paused",
+}
+
+/** One tag on a list card's tag line (the Watch History card's tags, plus Not Started) */
+export enum ListTagKind {
+	/** Currently Watching / Rewatching / Completed — optional rewatch count */
+	STATUS = "status",
+	PERCENT = "percent",
+	UP_TO_DATE = "upToDate",
+	PAUSED = "paused",
+	WATCH_COUNT = "watchCount",
+	/** Not on the watchlist */
+	NOT_STARTED = "notStarted",
+	/** On the watchlist, never watched (movies) */
+	NOT_WATCHED = "notWatched",
 }
 
 export enum DocChangeType {

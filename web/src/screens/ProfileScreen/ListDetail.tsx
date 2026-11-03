@@ -15,7 +15,7 @@ import {
 import { useNavigate, useParams } from "react-router-dom";
 import { useCustomLists } from "@app/hooks/useCustomLists";
 import { useCustomListView } from "@app/hooks/useCustomListView";
-import { CircleButtonTone, CustomListView } from "@app/enums";
+import { CircleButtonTone, CustomListView, MediaType } from "@app/enums";
 import type { CustomListItem } from "@app/types";
 import { sameItemOrder, titleCount } from "@app/utils/customLists";
 import { useAppSelector } from "../../store";
@@ -29,7 +29,10 @@ import type { ShowDrawerAction } from "../../components/ShowDrawer";
 import { useHideTabBar } from "../../hooks/useHideTabBar";
 import { Paths, showPath } from "../../routes/paths";
 import { colors } from "../../theme";
-import { ListCell, ListItemPreview, ListRow, ReorderRow } from "./ListItemViews";
+import { ListGridCard, ListItemPreview, ListRow, ReorderRow } from "./ListItemViews";
+import { useSearchActions } from "@app/screens/SearchScreen/useSearchActions";
+import SearchModals from "../SearchScreen/SearchModals";
+import searchStyles from "../SearchScreen/styles/SearchScreen.module.scss";
 import styles from "./styles/ListDetail.module.scss";
 
 const RENAME_ERRORS = {
@@ -54,6 +57,8 @@ export default function ListDetailScreen() {
 	);
 	const list = lists.find((l) => l.id === listId);
 	const [view, setView] = useCustomListView();
+	// Adding to / removing from the watchlist from a card: the same flow (and popups) as Search
+	const actions = useSearchActions();
 	useHideTabBar();
 
 	const [renaming, setRenaming] = useState(false);
@@ -214,13 +219,18 @@ export default function ListDetailScreen() {
 					))}
 				</Reorder.Group>
 			) : view === CustomListView.GRID ? (
-				<div className={styles.grid}>
+				// Search's result grid
+				<div className={searchStyles.grid}>
 					{list.items.map((item) => (
-						<ListCell
+						<ListGridCard
 							key={itemKey(item)}
 							item={item}
-							onPress={() => openTitle(item)}
-							onLongPress={() => setPreviewItem(item)}
+							tracked={actions.trackedIds.has(item.tmdbId)}
+							adding={actions.addingIds.has(item.tmdbId)}
+							onPress={openTitle}
+							onLongPress={setPreviewItem}
+							onAdd={actions.handleAddToWatchlist}
+							onRemove={actions.handleRemoveFromWatchlist}
 						/>
 					))}
 				</div>
@@ -232,6 +242,9 @@ export default function ListDetailScreen() {
 							item={item}
 							onPress={() => openTitle(item)}
 							onLongPress={() => setPreviewItem(item)}
+							tracked={actions.trackedIds.has(item.tmdbId)}
+							adding={actions.addingIds.has(item.tmdbId)}
+							onAddToWatchlist={actions.handleAddToWatchlist}
 						/>
 					))}
 				</div>
@@ -271,6 +284,36 @@ export default function ListDetailScreen() {
 						: null
 				}
 				onClose={() => setListTarget(null)}
+			/>
+
+			<SearchModals
+				movieModal={actions.movieModal}
+				onMovieModalClose={() => actions.setMovieModal(null)}
+				onMovieAddOnly={actions.handleMovieAddOnly}
+				onMovieAddAndWatch={actions.handleMovieAddAndWatch}
+				removeModal={actions.removeModal}
+				removeError={actions.removeError}
+				watchedBlock={actions.watchedBlock}
+				onGoToShow={(show) => {
+					actions.setWatchedBlock(null);
+					navigate(showPath(show.media_type ?? MediaType.TV, show.id));
+				}}
+				onWatchedBlockClose={() => actions.setWatchedBlock(null)}
+				removing={actions.removing}
+				onConfirmRemove={actions.handleConfirmRemove}
+				onRemoveModalClose={() => {
+					actions.setRemoveModal(null);
+					actions.setRemoveError(null);
+				}}
+				unreleasedModal={actions.unreleasedModal}
+				onUnreleasedClose={() => actions.setUnreleasedModal(null)}
+				resumeModal={actions.resumeModal}
+				onResumeFromWhere={actions.handleResumeFromWhere}
+				onStartFresh={actions.handleStartFresh}
+				onResumeModalClose={() => actions.setResumeModal(null)}
+				addFailure={actions.addFailure}
+				onRetryAdd={actions.retryAdd}
+				onAddFailureClose={actions.dismissAddFailure}
 			/>
 
 			<ListNameModal

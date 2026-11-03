@@ -3,6 +3,9 @@
 /* The sheet's own bottom padding (BottomSheet .sheet) — the lists run through it to the screen
    edge, and the same space closes the scroll so the last row clears the nav bar */
 $bleed: calc(env(safe-area-inset-bottom) + 16px);
+/* The Done button floats over the end of the lists (fade 28 + pill 44 + gap 12); the lists run
+   under it and end this far above the bottom so the last row can scroll clear of it */
+$footer: 84px;
 /* Same badge as the search cards' Add to List button */
 $badge: 30px;
 
@@ -29,7 +32,7 @@ $badge: 30px;
 	background: none;
 	border: none;
 	padding: 4px 0;
-	color: $accent;
+	color: $warning-amber;
 	font-size: 15px;
 	font-weight: 600;
 	cursor: pointer;
@@ -49,7 +52,7 @@ $badge: 30px;
 	overscroll-behavior: contain;
 	touch-action: pan-y;
 	margin-bottom: calc(-1 * #{$bleed});
-	padding-bottom: $bleed;
+	padding-bottom: calc(#{$bleed} + #{$footer});
 }
 
 .listScrollExpanded {
@@ -134,8 +137,8 @@ $badge: 30px;
 }
 
 .badgeActive {
-	background: $accent;
-	border-color: $accent;
+	background: $warning-amber;
+	border-color: $warning-amber;
 }
 
 .loader {
@@ -150,4 +153,73 @@ $badge: 30px;
 	text-align: center;
 	padding: 16px 0;
 	margin: 0;
+}
+
+/* Find list + Sort (app AddToListSheet searchRow) */
+.searchRow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 12px 0;
+}
+
+.searchField {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	height: 40px;
+	padding: 0 12px;
+	border-radius: 8px;
+	background: var(--surface-light);
+	color: var(--text-secondary);
+}
+
+.searchInput {
+	flex: 1;
+	min-width: 0;
+	border: none;
+	outline: none;
+	background: transparent;
+	color: var(--text);
+	font-size: 14px;
+}
+
+.sortButton {
+	height: 40px;
+	padding: 0 12px;
+	border: none;
+	border-radius: 8px;
+	background: var(--surface-light);
+	color: var(--text);
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+/* Transparent: the Done button hovers over the end of the lists, no bar behind it */
+.footer {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	justify-content: center;
+	margin: calc(-1 * #{$footer}) -16px 0;
+	padding: 28px 0 12px;
+	pointer-events: none;
+
+	.done {
+		pointer-events: auto;
+	}
+}
+
+.done {
+	min-width: 120px;
+	padding: 12px 24px;
+	border: none;
+	border-radius: 999px;
+	background: $warning-amber;
+	color: #000;
+	font-size: 15px;
+	font-weight: 700;
+	cursor: pointer;
 }

@@ -1,12 +1,25 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, TouchableOpacity, Pressable, StyleSheet, Alert } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	View,
+	Text,
+	TouchableOpacity,
+	Pressable,
+	StyleSheet,
+	Alert,
+	type StyleProp,
+	type ViewStyle,
+} from "react-native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { Gesture } from "react-native-gesture-handler";
+import { runOnJS } from "react-native-reanimated";
 import ReorderableList, {
 	useReorderableDrag,
+	useReorderableDragEnd,
+	useReorderableDragStart,
 	type ReorderableListReorderEvent,
 } from "react-native-reorderable-list";
 import { useAuthStore } from "../../stores";
@@ -77,6 +90,8 @@ interface RowProps {
 
 /** Slots in a card's strip, under the name: posters, the last one a "+N" tile when more are left */
 const STRIP_SLOTS = 5;
+/** A strip tile is 28 × 42: the placeholder icon has to fit inside it (the default is 28) */
+const STRIP_ICON_SIZE = 16;
 /** Backdrop / poster wash fade in instead of popping */
 const IMAGE_FADE_MS = 200;
 /** A poster standing in for a missing backdrop: blurred to a wash of its colours */
@@ -93,6 +108,26 @@ const moreFontSize = (n: number) => (n < 10 ? 17 : n < 100 ? 13 : 11);
  * A list's first posters. Up to STRIP_SLOTS fit as they are; more → the last slot becomes "+N",
  * the next poster dimmed under it so it reads as more of the same (a "+1" would waste the slot)
  */
+/** One strip tile: the poster saved with the entry, else the title's own (an entry saved without
+ *  one would stay a placeholder in the strip while its list's cards show the poster) */
+function StripPoster({
+	item,
+	style,
+}: {
+	item: CustomList["items"][number];
+	style?: StyleProp<ViewStyle>;
+}) {
+	const { data: info } = useTitleInfo(item.tmdbId, item.mediaType, !item.posterPath);
+	return (
+		<PosterImage
+			posterPath={item.posterPath ?? info?.posterPath}
+			mediaType={item.mediaType}
+			style={style}
+			iconSize={STRIP_ICON_SIZE}
+		/>
+	);
+}
+
 function PosterStrip({ items }: { items: CustomList["items"] }) {
 	const overflow = items.length > STRIP_SLOTS;
 	const shown = items.slice(0, overflow ? STRIP_SLOTS - 1 : STRIP_SLOTS);
@@ -100,10 +135,9 @@ function PosterStrip({ items }: { items: CustomList["items"] }) {
 	return (
 		<View style={styles.strip}>
 			{shown.map((item) => (
-				<PosterImage
+				<StripPoster
 					key={`${item.mediaType}_${item.tmdbId}`}
-					posterPath={item.posterPath}
-					mediaType={item.mediaType}
+					item={item}
 					style={styles.stripPoster}
 				/>
 			))}
@@ -114,11 +148,7 @@ function PosterStrip({ items }: { items: CustomList["items"] }) {
 					accessibilityLabel={`${items.length - shown.length} more`}
 				>
 					{/* Dimmed by its own opacity over black: an overlay on top lost to the image on Android */}
-					<PosterImage
-						posterPath={next.posterPath}
-						mediaType={next.mediaType}
-						style={[StyleSheet.absoluteFill, styles.morePoster]}
-					/>
+					<StripPoster item={next} style={[StyleSheet.absoluteFill, styles.morePoster]} />
 					<View style={[StyleSheet.absoluteFill, styles.moreTile]}>
 						{/* Steps down per digit so +9 … +99 fit the 28px tile; past that, 99+ */}
 						<Text
@@ -143,6 +173,25 @@ function PosterStrip({ items }: { items: CustomList["items"] }) {
  */
 function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 	const drag = useReorderableDrag();
+	// Picked up: the hold has registered and the drag is armed — a tick, and the card lifts
+	// (a touch bigger, a soft light shadow-glow) until the finger lets go, so it's plain when it's ready to move
+	const [lifted, setLifted] = useState(false);
+	// The library's own start / end of this card's drag (UI thread → hop to JS)
+	const liftUp = () => {
+		Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+		setLifted(true);
+	};
+	useReorderableDragStart(() => {
+		"worklet";
+		runOnJS(liftUp)();
+	});
+	useReorderableDragEnd(() => {
+		"worklet";
+		runOnJS(setLifted)(false);
+	});
+	// The drag-end hook can be missed (a hold released before the drag settles); leaving the screen
+	// must never leave the card lifted with its glow
+	useFocusEffect(useCallback(() => () => setLifted(false), []));
 	const cover = listCoverItem(list);
 	const { data: info, isPending } = useTitleInfo(
 		cover?.tmdbId ?? 0,
@@ -152,8 +201,16 @@ function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 	const loading = !!cover && isPending;
 	return (
 		<Pressable
-			style={({ pressed }) => [card.episodeCard, styles.card, pressed && styles.rowPressed]}
-			onPress={onOpen}
+			style={({ pressed }) => [
+				card.episodeCard,
+				styles.card,
+				pressed && !lifted && styles.rowPressed,
+				lifted && styles.rowLifted,
+			]}
+			onPress={() => {
+				setLifted(false);
+				onOpen();
+			}}
 			onLongPress={drag}
 			delayLongPress={HOLD_TO_DRAG_MS}
 			accessibilityRole="button"
@@ -183,6 +240,7 @@ function ListRow({ list, onOpen, onMenu }: Readonly<RowProps>) {
 				<SkeletonLine width="100%" height={CARD_FILL} style={styles.skeletonCard} />
 			) : null}
 			{cover && <View style={[StyleSheet.absoluteFill, card.cardOverlay]} />}
+			{lifted && <View style={[StyleSheet.absoluteFill, styles.liftedRim]} pointerEvents="none" />}
 			<View style={card.epInfo}>
 				{/* ⋮ rides the name line: it belongs to the list, and lines up card to card */}
 				<View style={styles.nameRow}>
@@ -537,6 +595,22 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.background,
 	},
 	rowPressed: { transform: [{ scale: 0.98 }] },
+	// Armed to drag: lifted, with a soft shadow glow under it
+	rowLifted: {
+		transform: [{ scale: 1.03 }],
+		// A light halo (a dark shadow would vanish on the black page). No `elevation`: Android paints
+		// that shadow under the card's own body, which showed as a black rectangle in the middle
+		shadowColor: colors.text,
+		shadowOpacity: 0.45,
+		shadowRadius: 22,
+		shadowOffset: { width: 0, height: 0 },
+	},
+	// Lifted card's glow on Android (no elevation shadow): a soft light rim just inside the edge
+	liftedRim: {
+		borderRadius: 16,
+		borderWidth: 2,
+		borderColor: "rgba(255, 255, 255, 0.35)",
+	},
 	// The calendar card sits in the list's own padding
 	card: { marginHorizontal: 0 },
 	skeletonCard: { position: "absolute", top: 0, left: 0, borderRadius: 0 },

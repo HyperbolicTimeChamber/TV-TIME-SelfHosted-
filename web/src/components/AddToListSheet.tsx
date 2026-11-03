@@ -9,7 +9,8 @@ import {
 } from "react";
 import { motion } from "motion/react";
 import { Spin } from "antd";
-import { IoBookmark, IoBookmarkOutline, IoList } from "react-icons/io5";
+import { IoBookmark, IoBookmarkOutline, IoList, IoSearch } from "react-icons/io5";
+import { MdOutlineBookmarkAdd } from "react-icons/md";
 import { CUSTOM_LIST_ITEM_MAX, NEW_LIST_HINTS, NEW_LIST_TITLE } from "@app/enums";
 import type { CustomList, CustomListEntry } from "@app/types";
 import { useCustomLists } from "@app/hooks/useCustomLists";
@@ -38,6 +39,11 @@ const DRAG_SLOP = 6;
 /** Strong ease-out: the badge answers the click at once (app TAP_EASE) */
 const TAP_EASE = [0.23, 1, 0.32, 1] as const;
 
+enum ListSort {
+	RECENT = "Recent",
+	NAME = "A–Z",
+}
+
 const NAME_ERRORS = {
 	taken: "You already have a list with that name.",
 	limit: "You've reached the maximum number of lists.",
@@ -59,6 +65,10 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 	const [nameError, setNameError] = useState<string | null>(null);
 	// Order the sheet opened with (lists holding the title, then newest) — held while it is open
 	const [pinned, setPinned] = useState<string[] | null>(null);
+	// Lists that held the title when the sheet opened: the "In lists" section, fixed while open
+	const [openSaved, setOpenSaved] = useState<ReadonlySet<string>>(new Set());
+	const [search, setSearch] = useState("");
+	const [sort, setSort] = useState(ListSort.RECENT);
 	const ordered = useMemo(
 		() => sheetListOrder(lists, pinned, entry ?? undefined),
 		[lists, pinned, entry],
@@ -119,15 +129,38 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 			setNaming(false);
 			setNameError(null);
 			setPinned(null);
+			setOpenSaved(new Set());
+			setSearch("");
+			setSort(ListSort.RECENT);
 			setExpanded(false);
 			setHeight(undefined);
 		}
 	}, [entry]);
 
 	useEffect(() => {
-		if (entry && !loading && !pinned)
+		if (entry && !loading && !pinned) {
 			setPinned(sheetListOrder(lists, null, entry).map((l) => l.id));
+			const holding = lists.filter((l) => listHasItem(l, entry.tmdbId, entry.mediaType));
+			setOpenSaved(new Set(holding.map((l) => l.id)));
+		}
 	}, [entry, loading, lists, pinned]);
+
+	// "In lists": held the title at open (a list made from here joins it). The rest: filtered by the
+	// search, in the chosen order (app AddToListSheet)
+	const saved = useMemo(
+		() => ordered.filter((l) => openSaved.has(l.id) || !pinned?.includes(l.id)),
+		[ordered, openSaved, pinned],
+	);
+	const others = useMemo(() => {
+		const term = search.trim().toLowerCase();
+		const rest = ordered.filter(
+			(l) => !saved.includes(l) && (!term || l.name.toLowerCase().includes(term)),
+		);
+		return sort === ListSort.NAME ? [...rest].sort((a, b) => a.name.localeCompare(b.name)) : rest;
+	}, [ordered, saved, search, sort]);
+	// Find list + Sort only earn their room with at least one list left to look through (the lists
+	// already holding the title sit above); counted before the search filter so typing never hides them
+	const searchable = useMemo(() => ordered.some((l) => !saved.includes(l)), [ordered, saved]);
 
 	const handleCreate = async (name: string) => {
 		if (!entry) return;
@@ -143,6 +176,50 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 		if (!entry) return;
 		if (has) removeFromList(list.id, entry.tmdbId, entry.mediaType);
 		else addToList(list.id, entry);
+	};
+
+	const startNaming = () => {
+		setNameError(null);
+		setNaming(true);
+	};
+
+	const renderRow = (list: CustomList) => {
+		if (!entry) return null;
+		const has = listHasItem(list, entry.tmdbId, entry.mediaType);
+		const full = !has && list.items.length >= CUSTOM_LIST_ITEM_MAX;
+		const cover = listCoverItem(list);
+		return (
+			<button
+				key={list.id}
+				type="button"
+				role="checkbox"
+				aria-checked={has}
+				aria-label={list.name}
+				disabled={full}
+				className={styles.row}
+				onClick={() => toggle(list, has)}
+			>
+				{cover ? (
+					<PosterImage
+						posterPath={cover.posterPath}
+						mediaType={cover.mediaType}
+						className={styles.cover}
+						width={104}
+					/>
+				) : (
+					<span className={`${styles.cover} ${styles.coverEmpty}`}>
+						<IoList size={22} />
+					</span>
+				)}
+				<span className={styles.rowContent}>
+					<span className={styles.rowText}>{list.name}</span>
+					<span className={styles.rowHint}>
+						{full ? "List is full" : titleCount(list.items.length)}
+					</span>
+				</span>
+				<Badge listed={has} />
+			</button>
+		);
 	};
 
 	return (
@@ -170,65 +247,70 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 							onTouchStart={onTouchStart}
 							onTouchMove={onTouchMove}
 						>
-							<div className={styles.heading}>
-								<span className={styles.headingText}>Lists</span>
-								<button
-									type="button"
-									className={styles.newList}
-									onClick={() => {
-										setNameError(null);
-										setNaming(true);
-									}}
-								>
-									New list
-								</button>
-							</div>
-
 							{loading ? (
 								<div className={styles.loader}>
 									<Spin size="small" />
 								</div>
-							) : ordered.length === 0 ? (
-								<p className={styles.empty}>No lists yet — make one with New list.</p>
 							) : (
-								ordered.map((list) => {
-									const has = listHasItem(list, entry.tmdbId, entry.mediaType);
-									const full = !has && list.items.length >= CUSTOM_LIST_ITEM_MAX;
-									const cover = listCoverItem(list);
-									return (
-										<button
-											key={list.id}
-											type="button"
-											role="checkbox"
-											aria-checked={has}
-											aria-label={list.name}
-											disabled={full}
-											className={styles.row}
-											onClick={() => toggle(list, has)}
-										>
-											{cover ? (
-												<PosterImage
-													posterPath={cover.posterPath}
-													mediaType={cover.mediaType}
-													className={styles.cover}
-													width={104}
+								<>
+									{/* Only when it holds the title already: nothing to show for a title in no list */}
+									{saved.length > 0 && (
+										<>
+											<div className={styles.heading}>
+												<span className={styles.headingText}>In lists</span>
+												<button type="button" className={styles.newList} onClick={startNaming}>
+													New List
+												</button>
+											</div>
+											{saved.map(renderRow)}
+										</>
+									)}
+
+									{searchable && (
+										<div className={styles.searchRow}>
+											<label className={styles.searchField}>
+												<IoSearch size={16} />
+												<input
+													className={styles.searchInput}
+													value={search}
+													onChange={(e) => setSearch(e.target.value)}
+													placeholder="Find list"
+													aria-label="Find list"
+													autoComplete="off"
 												/>
-											) : (
-												<span className={`${styles.cover} ${styles.coverEmpty}`}>
-													<IoList size={22} />
-												</span>
-											)}
-											<span className={styles.rowContent}>
-												<span className={styles.rowText}>{list.name}</span>
-												<span className={styles.rowHint}>
-													{full ? "List is full" : titleCount(list.items.length)}
-												</span>
-											</span>
-											<Badge listed={has} />
-										</button>
-									);
-								})
+											</label>
+											<button
+												type="button"
+												className={styles.sortButton}
+												aria-label={`Sort: ${sort}`}
+												onClick={() =>
+													setSort((v) => (v === ListSort.RECENT ? ListSort.NAME : ListSort.RECENT))
+												}
+											>
+												{sort === ListSort.RECENT ? "Sort" : sort}
+											</button>
+										</div>
+									)}
+
+									{others.map(renderRow)}
+									{others.length === 0 && search.trim() !== "" && (
+										<p className={styles.empty}>No list called "{search.trim()}".</p>
+									)}
+
+									<button type="button" className={styles.row} onClick={startNaming}>
+										<span className={`${styles.cover} ${styles.coverEmpty}`}>
+											<MdOutlineBookmarkAdd size={24} />
+										</span>
+										<span className={styles.rowText}>New List</span>
+									</button>
+								</>
 							)}
+						</div>
+						{/* Each click already saved; Done just closes */}
+						<div className={styles.footer}>
+							<button type="button" className={styles.done} onClick={onClose}>
+								Done
+							</button>
 						</div>
 					</>
 				)}
@@ -252,7 +334,7 @@ export default function AddToListSheet({ entry, onClose }: Props) {
 	);
 }
 
-/** The search cards' Add to List badge: outline bookmark, filled blue once listed. A change dips
+/** The search cards' Add to List badge: outline bookmark, filled amber once listed. A change dips
  *  it to 0.85 and settles back (app Badge) */
 function Badge({ listed }: { listed: boolean }) {
 	// Opening shows the state as it is; only a change animates

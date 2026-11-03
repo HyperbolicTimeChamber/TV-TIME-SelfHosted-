@@ -1,5 +1,6 @@
 import { Spin } from "antd";
-import { IoEllipsisHorizontal } from "react-icons/io5";
+import { IoBookmark, IoBookmarkOutline, IoEllipsisHorizontal } from "react-icons/io5";
+import { RxCheck } from "react-icons/rx";
 import { CircleButtonTone, MediaType, WatchStatus } from "@app/enums";
 import CircleButton from "../../components/CircleButton";
 import styles from "./styles/ShowDetailScreen.module.scss";
@@ -20,6 +21,10 @@ interface Props {
 	onRemove: () => void;
 	/** Movie ⋯ beside Rewatch: watch count sheet */
 	onWatchSheetOpen: () => void;
+	/** How many custom lists hold the title (bookmark filled, count on it, when above 0) */
+	listCount: number;
+	/** Add to List: the row's last button, whichever other buttons are showing */
+	onAddToList: () => void;
 }
 
 /** Same pills + states as the app's ActionPills */
@@ -32,6 +37,21 @@ export default function ActionPills(p: Props) {
 	const rewatchChoice = !isMovie && completed && !neverWatched;
 	// Watch count sheet (⋯ at the row's end, like Settings beside Hall of Shame)
 	const hasSheet = isMovie && completed && p.movieWatchCount > 0;
+
+	const listButton = (
+		<CircleButton
+			tone={p.listCount > 0 ? CircleButtonTone.ACCENT : CircleButtonTone.RAISED}
+			onClick={p.onAddToList}
+			ariaLabel={
+				p.listCount > 0
+					? `Add to List, in ${p.listCount} ${p.listCount === 1 ? "list" : "lists"}`
+					: "Add to List"
+			}
+		>
+			{p.listCount > 0 ? <IoBookmark size={26} /> : <IoBookmarkOutline size={22} />}
+			{p.listCount > 0 && <span className={styles.listCount}>{p.listCount}</span>}
+		</CircleButton>
+	);
 
 	if (!p.watchlistItem) {
 		return (
@@ -49,9 +69,17 @@ export default function ActionPills(p: Props) {
 						onClick={p.onMarkMovieWatched}
 						disabled={p.adding}
 					>
-						{p.adding ? <Spin size="small" /> : "Watched"}
+						{p.adding ? (
+							<Spin size="small" />
+						) : (
+							<>
+								<RxCheck size={20} />
+								Mark as Watched
+							</>
+						)}
 					</button>
 				)}
+				{listButton}
 			</div>
 		);
 	}
@@ -69,7 +97,14 @@ export default function ActionPills(p: Props) {
 					onClick={p.onMarkMovieWatched}
 					disabled={p.adding}
 				>
-					{p.adding ? <Spin size="small" /> : "Mark as Watched"}
+					{p.adding ? (
+						<Spin size="small" />
+					) : (
+						<>
+							<RxCheck size={20} />
+							Mark as Watched
+						</>
+					)}
 				</button>
 			)}
 			{showResume && (
@@ -108,6 +143,7 @@ export default function ActionPills(p: Props) {
 					{p.removing ? <Spin size="small" /> : "Remove"}
 				</button>
 			)}
+			{listButton}
 		</div>
 	);
 }

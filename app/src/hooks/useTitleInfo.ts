@@ -10,8 +10,14 @@ export interface TitleInfo {
 	runtime: number | null;
 	/** List cards' backdrop */
 	backdropPath: string | null;
+	/** The poster, for a list entry saved without one (list strips fall back to it) */
+	posterPath: string | null;
 	/** First air / release year ("2024") */
 	year: string | null;
+	/** Full first air / release date ("2024-03-01"): a movie not out yet is added differently */
+	releaseDate: string | null;
+	/** TV: season count (the list card's square) */
+	totalSeasons: number | null;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -34,7 +40,10 @@ export function useTitleInfo(tmdbId: number, mediaType: MediaType, enabled = tru
 					totalEpisodes: cached.totalEpisodes || null,
 					runtime: cached.runtime ?? null,
 					backdropPath: cached.backdropPath ?? null,
+					posterPath: cached.posterPath ?? null,
 					year: (cached.firstAirDate ?? cached.releaseDate)?.slice(0, 4) || null,
+					releaseDate: cached.firstAirDate ?? cached.releaseDate ?? null,
+					totalSeasons: mediaType === MediaType.TV ? cached.totalSeasons || null : null,
 				};
 			}
 			const apiKey = useAuthStore.getState().appTmdbApiKey;
@@ -45,7 +54,10 @@ export function useTitleInfo(tmdbId: number, mediaType: MediaType, enabled = tru
 				totalEpisodes: mediaType === MediaType.TV ? (details.number_of_episodes ?? null) : null,
 				runtime: details.runtime ?? episodeRunTime?.[0] ?? null,
 				backdropPath: details.backdrop_path ?? null,
+				posterPath: details.poster_path ?? null,
 				year: (details.first_air_date ?? details.release_date)?.slice(0, 4) || null,
+				releaseDate: details.first_air_date ?? details.release_date ?? null,
+				totalSeasons: mediaType === MediaType.TV ? (details.number_of_seasons ?? null) : null,
 			};
 		},
 	});

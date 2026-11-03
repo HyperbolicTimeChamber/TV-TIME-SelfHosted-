@@ -12,6 +12,7 @@
 	align-items: center;
 	justify-content: center;
 	cursor: pointer;
+	position: relative;
 
 	svg {
 		display: block;
@@ -39,7 +40,7 @@
 }
 
 .accent {
-	background: $accent;
+	background: $warning-amber;
 }
 
 .spacer {

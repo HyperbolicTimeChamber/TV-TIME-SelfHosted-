@@ -195,37 +195,6 @@
 	overflow: hidden;
 }
 
-.pill {
-	flex-shrink: 0;
-	white-space: nowrap;
-	border-radius: 999px;
-	padding: 5px 12px;
-	font-size: 13px;
-	font-weight: 700;
-}
-
-/* Rewatch count: white circle at the pill's end, concentric (right = vertical padding) */
-.pill.pillWithCount {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	padding: 4px 4px 4px 12px;
-}
-
-.pillCountCircle {
-	min-width: 20px;
-	height: 20px;
-	border-radius: 10px;
-	padding: 0 5px;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	background: var(--text);
-	color: var(--surface);
-	font-size: 12px;
-	font-weight: 700;
-}
-
 /* Bottom-left: status pill above the progress / watch count pill */
 .leftBlock {
 	display: flex;
@@ -272,42 +241,37 @@
 	}
 }
 
-/* Same size as the progress pills, mirrored: circle on the right, concentric with that end */
-.progressPill.watchCountPill {
-	padding: 5px 5px 5px 10px;
-	background: color-mix(in srgb, var(--text-secondary) 35%, transparent);
-}
-
-.countCircle {
-	min-width: 20px;
-	height: 20px;
-	border-radius: 10px;
-	padding: 0 6px;
+/* Light grey (textSecondary) at 35% — translucent over the backdrop */
+/* Add to List, top-right: a 36 circle, amber with a filled bookmark when the title is in a list */
+.listButton {
+	position: relative;
+	flex-shrink: 0;
+	width: 36px;
+	height: 36px;
+	border-radius: 18px;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	/* Lighter grey than the pill (textSecondary 70% vs 35%) */
-	background: color-mix(in srgb, var(--text-secondary) 70%, transparent);
+	background: rgba(0, 0, 0, 0.5);
+	color: var(--text);
+	cursor: pointer;
+	transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
+
+	&:active {
+		transform: scale(0.95);
+	}
 }
 
-/* Light grey (textSecondary) at 35% — translucent over the backdrop */
+.listButtonActive {
+	background: $warning-amber;
+}
+
 .tagPill {
 	border-radius: 999px;
 	padding: 3px 10px;
 	background: color-mix(in srgb, var(--text-secondary) 35%, transparent);
 	font-size: 12px;
 	font-weight: 600;
-}
-
-.progressPill {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	border-radius: 999px;
-	/* Left = vertical padding → icon/ring sits concentric with the rounded end */
-	padding: 5px 10px 5px 5px;
-	font-size: 14px;
-	font-weight: 700;
 }
 
 .skeleton {

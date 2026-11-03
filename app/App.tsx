@@ -191,14 +191,8 @@ function AppContent() {
 
 	if (!hasCompletedImport) {
 		const markImportDone = () => {
-			useAuthStore.setState({ hasCompletedImport: true });
 			const uid = useAuthStore.getState().user?.uid;
-			if (uid) {
-				const db = getFirestore();
-				setDoc(doc(db, "users", uid), { hasCompletedImport: true }, { merge: true }).catch(
-					() => {},
-				);
-			}
+			if (uid) useAuthStore.getState().markImportDone(uid);
 		};
 		return (
 			<ImportDataScreen

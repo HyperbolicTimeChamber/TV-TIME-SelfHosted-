@@ -575,13 +575,18 @@ export default function CalendarScreen() {
 				<TouchableOpacity onPress={openYearModal}>
 					<Text style={styles.monthTitle}>{title}</Text>
 				</TouchableOpacity>
-				{/* Today: a calendar-page icon showing today's date */}
+				{/* Today: the date over a TODAY label (fixed type size: the box is sized for it) */}
 				<TouchableOpacity
 					style={styles.todayButton}
 					onPress={c.resetToToday}
-					accessibilityLabel="Go to today"
+					accessibilityLabel={`Go to today, ${Number(today.slice(8))}`}
 				>
-					<Text style={styles.todayButtonText}>{Number(today.slice(8))}</Text>
+					<Text style={styles.todayButtonNumber} allowFontScaling={false}>
+						{Number(today.slice(8))}
+					</Text>
+					<Text style={styles.todayButtonLabel} allowFontScaling={false}>
+						TODAY
+					</Text>
 				</TouchableOpacity>
 			</View>
 			<View style={styles.weekdays}>

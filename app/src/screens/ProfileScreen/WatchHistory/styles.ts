@@ -105,26 +105,6 @@ export const styles = StyleSheet.create({
 	},
 	logo: { flex: 1, height: LOGO_HEIGHT },
 	cardTitle: { flex: 1, color: colors.text, fontSize: 20, fontWeight: "600" },
-	pill: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 },
-	// Rewatch count: white circle at the pill's end, concentric (right = vertical padding)
-	pillWithCount: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: 6,
-		paddingVertical: 4,
-		paddingRight: 4,
-	},
-	pillCountCircle: {
-		minWidth: 20,
-		height: 20,
-		borderRadius: 10,
-		paddingHorizontal: 5,
-		backgroundColor: colors.text,
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	pillCountText: { color: colors.surface, fontSize: 12, fontWeight: "700" },
-	pillText: { color: colors.text, fontSize: 13, fontWeight: "700" },
 	bottomRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
 	leftBlock: { alignItems: "flex-start", gap: spacing.sm + 2 },
 	timeBlock: { alignItems: "flex-end" },
@@ -142,34 +122,6 @@ export const styles = StyleSheet.create({
 		letterSpacing: -0.5,
 		marginBottom: -6,
 	},
-	// Same size as the progress pills, mirrored: circle on the right, concentric with that end
-	watchCountPill: {
-		paddingLeft: 10,
-		paddingRight: 5,
-		backgroundColor: `${colors.textSecondary}59`,
-	},
-	countCircle: {
-		minWidth: 20,
-		height: 20,
-		borderRadius: 10,
-		paddingHorizontal: 6,
-		alignItems: "center",
-		justifyContent: "center",
-		// Lighter grey than the pill (textSecondary 70% vs 35%)
-		backgroundColor: `${colors.textSecondary}B3`,
-	},
-	progressPill: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: 6,
-		borderRadius: 999,
-		// Left = vertical padding → icon/ring sits concentric with the rounded end
-		paddingLeft: 5,
-		paddingRight: 10,
-		paddingVertical: 5,
-	},
-	progressText: { fontSize: 14, fontWeight: "700" },
-	progressIcon: { margin: -1 },
 	// Light grey (textSecondary) at 35% — translucent over the backdrop
 	tagPill: {
 		borderRadius: 999,
@@ -178,6 +130,16 @@ export const styles = StyleSheet.create({
 		backgroundColor: `${colors.textSecondary}59`,
 	},
 	tag: { color: colors.text, fontSize: 12, fontWeight: "600" },
+	// Add to List, top-right: a 36 circle, amber with a filled bookmark when the title is in a list
+	listButton: {
+		width: 36,
+		height: 36,
+		borderRadius: 18,
+		backgroundColor: colors.badgeOverlay,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	listButtonActive: { backgroundColor: colors.warningAmber },
 
 	// Profile entry button
 	historyButton: {

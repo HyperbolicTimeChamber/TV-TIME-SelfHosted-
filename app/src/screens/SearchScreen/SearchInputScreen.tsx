@@ -19,6 +19,9 @@ import { SearchStackParamList, Route } from "../../types";
 type NavProp = NativeStackNavigationProp<SearchStackParamList, Route.SEARCH_INPUT>;
 type RoutePropType = RouteProp<SearchStackParamList, Route.SEARCH_INPUT>;
 
+/** Longest the search waits for the keyboard to finish hiding before it opens the results */
+const KEYBOARD_HIDE_WAIT_MS = 400;
+
 export default function SearchInputScreen() {
 	const { top } = useSafeAreaInsets();
 	const navigation = useNavigation<NavProp>();
@@ -28,7 +31,8 @@ export default function SearchInputScreen() {
 		useSearchInput(route.params?.currentQuery || "");
 
 	useEffect(() => {
-		setTimeout(() => inputRef.current?.focus(), 100);
+		const t = setTimeout(() => inputRef.current?.focus(), 100);
+		return () => clearTimeout(t);
 	}, []);
 
 	useEffect(() => {
@@ -40,9 +44,29 @@ export default function SearchInputScreen() {
 		(term: string) => {
 			const trimmed = term.trim();
 			if (!trimmed) return;
-			Keyboard.dismiss();
 			addToHistory(trimmed);
-			navigation.replace(Route.SEARCH_RESULTS, { query: trimmed });
+			let went = false;
+			const go = () => {
+				if (went) return;
+				went = true;
+				navigation.replace(Route.SEARCH_RESULTS, { query: trimmed });
+			};
+			// Replacing the screen while the keyboard is still closing left it up over the results
+			// (dismiss() lost to the screen swap): close it first, go once it has hidden
+			inputRef.current?.blur();
+			if (Keyboard.isVisible()) {
+				const sub = Keyboard.addListener("keyboardDidHide", () => {
+					sub.remove();
+					go();
+				});
+				// Never strand the search if the hide event doesn't come
+				setTimeout(() => {
+					sub.remove();
+					go();
+				}, KEYBOARD_HIDE_WAIT_MS);
+			}
+			Keyboard.dismiss();
+			if (!Keyboard.isVisible()) go();
 		},
 		[navigation, addToHistory],
 	);

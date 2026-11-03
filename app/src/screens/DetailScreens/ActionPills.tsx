@@ -5,6 +5,7 @@ import { colors, spacing, typography } from "../../theme";
 import { WatchStatus, MediaType } from "../../types";
 import { CircleButtonTone } from "../../enums";
 import CircleButton from "../../components/CircleButton";
+import { RxCheck } from "../../components/RxIcons";
 
 interface Props {
 	mediaType: MediaType;
@@ -24,6 +25,10 @@ interface Props {
 	onRemove: () => void;
 	/** Movie ⋯ beside Rewatch: watch count sheet */
 	onWatchSheetOpen: () => void;
+	/** How many custom lists hold the title (bookmark filled, count on it, when above 0) */
+	listCount: number;
+	/** Add to List: the row's last button, whichever other buttons are showing */
+	onAddToList: () => void;
 }
 
 export default function ActionPills({
@@ -40,6 +45,8 @@ export default function ActionPills({
 	onPause,
 	onRemove,
 	onWatchSheetOpen,
+	listCount,
+	onAddToList,
 }: Readonly<Props>) {
 	const isTv = mediaType === MediaType.TV;
 	const completed = watchlistItem?.status === WatchStatus.COMPLETED;
@@ -72,7 +79,10 @@ export default function ActionPills({
 							{adding ? (
 								<ActivityIndicator size="small" color={colors.text} />
 							) : (
-								<Text style={styles.pillText}>Watched</Text>
+								<View style={styles.pillInline}>
+									<RxCheck size={20} />
+									<Text style={styles.pillText}>Mark as Watched</Text>
+								</View>
 							)}
 						</TouchableOpacity>
 					)}
@@ -88,7 +98,10 @@ export default function ActionPills({
 							{adding ? (
 								<ActivityIndicator size="small" color={colors.text} />
 							) : (
-								<Text style={styles.pillText}>Mark as Watched</Text>
+								<View style={styles.pillInline}>
+									<RxCheck size={20} />
+									<Text style={styles.pillText}>Mark as Watched</Text>
+								</View>
 							)}
 						</TouchableOpacity>
 					)}
@@ -142,6 +155,22 @@ export default function ActionPills({
 					)}
 				</>
 			)}
+			<CircleButton
+				tone={listCount > 0 ? CircleButtonTone.ACCENT : CircleButtonTone.RAISED}
+				onPress={onAddToList}
+				accessibilityLabel={
+					listCount > 0
+						? `Add to List, in ${listCount} ${listCount === 1 ? "list" : "lists"}`
+						: "Add to List"
+				}
+			>
+				<Ionicons
+					name={listCount > 0 ? "bookmark" : "bookmark-outline"}
+					size={28}
+					color={colors.text}
+				/>
+				{listCount > 0 && <Text style={styles.countText}>{listCount}</Text>}
+			</CircleButton>
 		</View>
 	);
 }
@@ -178,6 +207,18 @@ const styles = StyleSheet.create({
 	pillRemove: {
 		backgroundColor: colors.destructiveRed,
 	},
+	// The number of lists, knocked out of the filled bookmark in the button's own colour (the
+	// bookmark's notch takes the bottom, so it sits a touch above centre)
+	countText: {
+		...typography.subtitle,
+		position: "absolute",
+		fontSize: 13,
+		lineHeight: 16,
+		includeFontPadding: false,
+		color: colors.warningAmber,
+		marginTop: -3,
+	},
+	pillInline: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
 	pillDisabled: {
 		opacity: 0.6,
 	},

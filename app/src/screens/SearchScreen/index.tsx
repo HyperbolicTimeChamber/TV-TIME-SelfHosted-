@@ -1,12 +1,15 @@
-import { useState, useCallback, useRef, useMemo } from "react";
-import { View, Text, TouchableOpacity, useWindowDimensions } from "react-native";
+import { useState, useCallback, useRef, useMemo, useLayoutEffect } from "react";
+import { View, Text, TouchableOpacity, useWindowDimensions, Keyboard } from "react-native";
 import type { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import Animated, {
+	Easing,
 	useAnimatedReaction,
 	useAnimatedStyle,
+	useReducedMotion,
 	useSharedValue,
 	withTiming,
 } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import SlidingTabs from "../../components/SlidingTabs";
@@ -18,7 +21,7 @@ import NotFoundArt, {
 
 const artReserve = artHeight(NO_RESULTS_RATIO) + 24;
 import { AnimatedLegendList } from "@legendapp/list/reanimated";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
 	useSearch,
@@ -53,6 +56,12 @@ const SORT_OPTIONS: SortOption<SearchSortView>[] = SEARCH_SORT_OPTIONS.map(
 	({ label, ...value }) => ({ value, label }),
 );
 const FAB_BOTTOM = 20;
+/** Re-sorting swaps the whole order, and a virtualized grid can't glide cards to new slots:
+ *  the results fade down, swap, and settle back in (occasional action, so both halves stay short) */
+const SORT_OUT_MS = 100;
+const SORT_IN_MS = 220;
+const SORT_SETTLE_OFFSET = 10;
+const SORT_EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 /** Placeholder cards while results load (enough to fill the screen) / under the list while
  *  more batches are to come (one row) */
 const LOADING_CARDS = 6;
@@ -103,6 +112,13 @@ export default function SearchScreen() {
 	const [sortView, setSortView] = useSearchSort();
 	const [sortOpen, setSortOpen] = useState(false);
 	const listRef = useRef<any>(null);
+	const reducedMotion = useReducedMotion();
+	// 1 = results shown; fades to 0 as a new sort is chosen, back to 1 once it has been applied
+	const sortFade = useSharedValue(1);
+	const sortFadeStyle = useAnimatedStyle(() => ({
+		opacity: sortFade.get(),
+		transform: [{ translateY: (1 - sortFade.get()) * SORT_SETTLE_OFFSET }],
+	}));
 	// Custom lists: which results are already in one, and the title the "Add to List" sheet is open for
 	const user = useAuthStore((s) => s.user);
 	const { lists } = useCustomLists(user?.uid);
@@ -121,6 +137,41 @@ export default function SearchScreen() {
 	const [headerH, setHeaderH] = useState(0);
 	const headerHeight = useSharedValue(0);
 	const headerY = useSharedValue(0);
+
+	const applySort = useCallback(
+		(next: SearchSortView) => {
+			setSortView(next);
+			// New order starts from the top, header shown
+			listRef.current?.scrollToOffset({ offset: 0, animated: false });
+			headerY.value = 0;
+		},
+		[setSortView, headerY],
+	);
+	const chooseSort = useCallback(
+		(next: SearchSortView) => {
+			// Same sort again changes nothing, so nothing would fade the results back in
+			if (sameSearchSort(next, sortView)) return;
+			if (reducedMotion) {
+				applySort(next);
+				return;
+			}
+			sortFade.set(
+				withTiming(0, { duration: SORT_OUT_MS, easing: SORT_EASE_OUT }, (finished) => {
+					"worklet";
+					// Not finished = something else took over the fade (a newer pick): that one applies its own
+					if (finished) scheduleOnRN(applySort, next);
+				}),
+			);
+		},
+		[reducedMotion, sortView, applySort, sortFade],
+	);
+	// The new order is in: settle the results back in (not on first mount)
+	const shownSort = useRef(sortView);
+	useLayoutEffect(() => {
+		if (shownSort.current === sortView) return;
+		shownSort.current = sortView;
+		sortFade.set(withTiming(1, { duration: SORT_IN_MS, easing: SORT_EASE_OUT }));
+	}, [sortView, sortFade]);
 	const scrollY = useSharedValue(0);
 	// Stable object — AnimatedLegendList re-subscribes when it changes
 	const listSharedValues = useMemo(() => ({ scrollOffset: scrollY }), [scrollY]);
@@ -181,6 +232,17 @@ export default function SearchScreen() {
 		else navigation.navigate(Route.SEARCH_MAIN);
 	}, [navigation]);
 	const swipeBack = useSwipeBackPop(navigation);
+	// The input screen is replaced by this one while its keyboard is up; on Android the replace can
+	// leave the keyboard showing over the results, so close it once the results page is in front
+	// Once on focus and again when the screen transition ends: a dismiss that lands mid-replace is
+	// lost on some runs (keyboard stayed up over the results)
+	useFocusEffect(
+		useCallback(() => {
+			if (!submittedQuery) return;
+			Keyboard.dismiss();
+			return navigation.addListener("transitionEnd", () => Keyboard.dismiss());
+		}, [submittedQuery, navigation]),
+	);
 
 	// From a results page the input replaces it, so the next search replaces these results rather
 	// than stacking on them: only ever one results page above Trending, and back goes to Trending
@@ -388,7 +450,7 @@ export default function SearchScreen() {
 				</View>
 			</Animated.View>
 
-			<View style={styles.content}>
+			<Animated.View style={[styles.content, sortFadeStyle]}>
 				{!isLoading && submittedQuery.length > 0 && searchError && !resultItems?.length ? (
 					// Failed (busy / offline), not empty: say so, with a retry
 					<View style={[styles.errorWrap, { paddingTop: headerH }]}>
@@ -442,7 +504,7 @@ export default function SearchScreen() {
 						recycleItems
 					/>
 				)}
-			</View>
+			</Animated.View>
 
 			{showSort && (
 				<SortFab
@@ -459,12 +521,7 @@ export default function SearchScreen() {
 				selected={sortView}
 				isSame={sameSearchSort}
 				closeOnSelect
-				onSelect={(next) => {
-					setSortView(next);
-					// New order starts from the top, header shown
-					listRef.current?.scrollToOffset({ offset: 0, animated: false });
-					headerY.value = 0;
-				}}
+				onSelect={chooseSort}
 			/>
 
 			<AddToListSheet entry={listEntry} onClose={() => setListTarget(null)} />

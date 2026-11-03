@@ -74,10 +74,14 @@ describe("SearchScreen", () => {
 		expect(screen.queryByLabelText("Sort results")).not.toBeInTheDocument();
 	});
 
-	it("results sort: newest first by default, undated last; oldest first; name A → Z", async () => {
+	it("results sort: relevance by default; newest first, undated last; oldest first; name A → Z", async () => {
 		signedIn = false;
 		renderWithProviders(<SearchScreen />, { path: "/?q=x" });
-		expect(resultTitles()).toEqual(["Arrow", "heat", "Undated"]);
+		expect(resultTitles()).toEqual(["heat", "Undated", "Arrow"]);
+
+		fireEvent.click(screen.getByLabelText("Sort results"));
+		fireEvent.click(await screen.findByText("Newest first"));
+		await waitFor(() => expect(resultTitles()).toEqual(["Arrow", "heat", "Undated"]));
 
 		fireEvent.click(screen.getByLabelText("Sort results"));
 		fireEvent.click(await screen.findByText("Oldest first"));
