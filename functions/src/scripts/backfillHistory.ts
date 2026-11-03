@@ -52,7 +52,7 @@ async function main() {
   if (only === "airTimes") {
     const r = await backfillAirTimes(db, await getTmdbApiKey(), { dryRun });
     console.log(
-      `Air times: ${r.candidates} airing shows, ${r.matched} on TVMaze, ${r.stamped} episodes stamped${dryRun ? " (dry run)" : "; upcoming rebuilt"}`,
+      `Air times: ${r.candidates} airing shows, ${r.matched} on TVMaze, ${r.stamped} episodes stamped, ${r.changed} shows changed, ${r.usersRebuilt} users' upcoming ${dryRun ? "would be rebuilt (dry run)" : "rebuilt"}`,
     );
   }
   if (only === "facets") {
