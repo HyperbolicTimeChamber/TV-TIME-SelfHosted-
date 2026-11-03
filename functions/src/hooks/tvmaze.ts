@@ -1,6 +1,12 @@
 import axios from "axios";
-import { TVMAZE_BASE } from "../shared/enums";
+import {
+  COUNTRY_TIMEZONES,
+  STREAMING_RELEASE_TIMES,
+  TVMAZE_BASE,
+  UNTIMED_STUDIO_TIME,
+} from "../shared/enums";
 import { CatalogSeason } from "../shared/types";
+import { zonedTimeToUtc } from "../shared/zonedTime";
 
 /** TVMaze allows 20 calls / 10 s per IP — space every call ~550 ms apart (module-wide) */
 const MIN_GAP_MS = 550;
@@ -43,18 +49,70 @@ export async function lookupTvmazeId(ids: {
   return null;
 }
 
-interface TvmazeEpisode {
+export interface TvmazeEpisode {
   season: number;
   number: number | null;
+  airdate: string | null;
+  /** "HH:MM" in the network's zone; empty when TVMaze doesn't know the time */
+  airtime: string | null;
   airstamp: string | null;
 }
 
-/** "season_episode" → UTC airstamp for every numbered episode TVMaze has */
-export async function fetchTvmazeAirStamps(tvmazeId: number): Promise<Map<string, string>> {
-  const eps = await tvmazeGet<TvmazeEpisode[]>(`/shows/${tvmazeId}/episodes`);
+interface TvmazeChannel {
+  name?: string | null;
+  country?: { timezone?: string | null } | null;
+}
+
+export interface TvmazeShow {
+  network?: TvmazeChannel | null;
+  webChannel?: TvmazeChannel | null;
+  _embedded?: { episodes?: TvmazeEpisode[] };
+}
+
+/** When an untimed episode is released: its streaming service's pattern, else noon in the
+ *  studio's timezone (TVMaze's network zone, else the TMDB origin country's); null = unknown */
+function untimedRelease(
+  show: TvmazeShow | null | undefined,
+  originCountry: string | null | undefined,
+): { time: string; timeZone: string } | null {
+  const service = show?.webChannel?.name?.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (service && STREAMING_RELEASE_TIMES[service]) return STREAMING_RELEASE_TIMES[service];
+  const timeZone =
+    show?.network?.country?.timezone ??
+    show?.webChannel?.country?.timezone ??
+    (originCountry ? COUNTRY_TIMEZONES[originCountry.toUpperCase()] : undefined);
+  return timeZone ? { time: UNTIMED_STUDIO_TIME, timeZone } : null;
+}
+
+/**
+ * An episode's UTC release time. TVMaze's airstamp is exact only with an airtime; without one
+ * it is a 12:00 UTC filler on the airdate (early by up to a day outside the US) — then the
+ * service's / studio's time on that date replaces it. Unknown either way → TVMaze's value.
+ */
+export function episodeAirStamp(
+  ep: TvmazeEpisode,
+  show: TvmazeShow | null | undefined,
+  originCountry?: string | null,
+): string | null {
+  if (!ep.airstamp) return null;
+  if (ep.airtime || !ep.airdate) return ep.airstamp;
+  const release = untimedRelease(show, originCountry);
+  return release
+    ? zonedTimeToUtc(ep.airdate, release.time, release.timeZone).toISOString()
+    : ep.airstamp;
+}
+
+/** "season_episode" → UTC airstamp for every numbered episode TVMaze has (one call: show +
+ *  episodes). originCountry: TMDB's, for the studio timezone of untimed episodes */
+export async function fetchTvmazeAirStamps(
+  tvmazeId: number,
+  originCountry?: string | null,
+): Promise<Map<string, string>> {
+  const show = await tvmazeGet<TvmazeShow>(`/shows/${tvmazeId}`, { embed: "episodes" });
   const stamps = new Map<string, string>();
-  for (const ep of eps ?? []) {
-    if (ep.number != null && ep.airstamp) stamps.set(`${ep.season}_${ep.number}`, ep.airstamp);
+  for (const ep of show?._embedded?.episodes ?? []) {
+    const stamp = episodeAirStamp(ep, show, originCountry);
+    if (ep.number != null && stamp) stamps.set(`${ep.season}_${ep.number}`, stamp);
   }
   return stamps;
 }

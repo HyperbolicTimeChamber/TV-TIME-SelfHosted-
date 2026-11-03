@@ -207,6 +207,65 @@ export const TRACKING_UPDATED_AT = "updatedAt";
 /** Deletion log entries expire after this (Firestore TTL on `expireAt`) */
 export const TRACKING_DELETION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
+/**
+ * TVMaze has no release time for most streaming episodes (empty airtime) and fills airstamp
+ * with 12:00 UTC on the US date — a European viewer then saw a Disney+ evening drop as aired
+ * the day before. Untimed episodes get their service's usual release time instead (wall clock
+ * in that zone on TVMaze's airdate). Keys: the webChannel name, lower-case, letters/digits only.
+ */
+export const STREAMING_RELEASE_TIMES: Record<string, { time: string; timeZone: string }> = {
+  disney: { time: "18:00", timeZone: "America/Los_Angeles" },
+  netflix: { time: "00:00", timeZone: "America/Los_Angeles" },
+  hulu: { time: "00:00", timeZone: "America/Los_Angeles" },
+  max: { time: "00:00", timeZone: "America/Los_Angeles" },
+  hbomax: { time: "00:00", timeZone: "America/Los_Angeles" },
+  paramount: { time: "00:00", timeZone: "America/Los_Angeles" },
+  peacock: { time: "00:00", timeZone: "America/Los_Angeles" },
+  appletv: { time: "00:00", timeZone: "America/New_York" },
+  primevideo: { time: "00:00", timeZone: "UTC" },
+  amazonprimevideo: { time: "00:00", timeZone: "UTC" },
+};
+
+/** Untimed episode, no known streaming service: this time in the studio's timezone */
+export const UNTIMED_STUDIO_TIME = "12:00";
+
+/** Studio timezone from a show's origin country (TMDB origin_country) when TVMaze has none */
+export const COUNTRY_TIMEZONES: Record<string, string> = {
+  US: "America/Los_Angeles",
+  CA: "America/Toronto",
+  MX: "America/Mexico_City",
+  BR: "America/Sao_Paulo",
+  AR: "America/Argentina/Buenos_Aires",
+  CO: "America/Bogota",
+  GB: "Europe/London",
+  IE: "Europe/Dublin",
+  FR: "Europe/Paris",
+  DE: "Europe/Berlin",
+  ES: "Europe/Madrid",
+  IT: "Europe/Rome",
+  NL: "Europe/Amsterdam",
+  BE: "Europe/Brussels",
+  SE: "Europe/Stockholm",
+  NO: "Europe/Oslo",
+  DK: "Europe/Copenhagen",
+  FI: "Europe/Helsinki",
+  PL: "Europe/Warsaw",
+  TR: "Europe/Istanbul",
+  IL: "Asia/Jerusalem",
+  IN: "Asia/Kolkata",
+  TH: "Asia/Bangkok",
+  PH: "Asia/Manila",
+  ID: "Asia/Jakarta",
+  CN: "Asia/Shanghai",
+  TW: "Asia/Taipei",
+  HK: "Asia/Hong_Kong",
+  KR: "Asia/Seoul",
+  JP: "Asia/Tokyo",
+  AU: "Australia/Sydney",
+  NZ: "Pacific/Auckland",
+  ZA: "Africa/Johannesburg",
+};
+
 /** What trackingSyncStamp does for one tracking doc write */
 export enum TrackingWriteAction {
   /** Written without a new updatedAt (old app build, a missed writer) → stamp it */

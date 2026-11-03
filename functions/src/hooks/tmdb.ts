@@ -225,7 +225,10 @@ export async function fetchShowFromTMDB(
         ? await lookupTvmazeId(data.external_ids)
         : null;
       if (tvmazeId)
-        applyAirStamps(seasons, await fetchTvmazeAirStamps(tvmazeId));
+        applyAirStamps(
+          seasons,
+          await fetchTvmazeAirStamps(tvmazeId, data.origin_country?.[0]),
+        );
     } catch (err) {
       console.warn(
         `TVMaze air times failed for tmdb ${tmdbId}:`,

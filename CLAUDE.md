@@ -59,5 +59,6 @@ On a fresh system, before real work, check whether the tools below exist (`claud
 - User-provided videos: `ffmpeg -i video.mp4 -vf "fps=1,scale=240:-1,tile=7x2" -frames:v 1 sheet.png` to read them.
 
 ## Misc gotchas
+- **TVMaze air times:** an empty `airtime` means TVMaze's `airstamp` is a 12:00 UTC filler. `hooks/tvmaze.ts` replaces it with the streaming service's release pattern (`STREAMING_RELEASE_TIMES`, e.g. Disney+ 6pm PT) or noon in the studio timezone (`COUNTRY_TIMEZONES`); keep that table current when a service changes its drop time.
 - ESLint config uses `tseslint.config()` (v8 API). App icon foreground scaled to 66% safe zone.
 - `.claude/settings.local.json` holds local permissions; per-user memory lives outside the repo.

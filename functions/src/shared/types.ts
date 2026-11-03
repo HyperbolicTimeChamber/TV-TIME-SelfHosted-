@@ -47,6 +47,8 @@ export interface TMDBShowDetail {
   /** append_to_response=keywords — TV lists them under results, movies under keywords */
   keywords?: { results?: TMDBKeyword[]; keywords?: TMDBKeyword[] };
   external_ids?: { tvdb_id?: number | null; imdb_id?: string | null };
+  /** ISO 3166-1 codes; the first sets the studio timezone of untimed episodes */
+  origin_country?: string[];
 }
 
 export interface TMDBKeyword {
