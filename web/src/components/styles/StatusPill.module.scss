@@ -32,21 +32,22 @@
 	font-weight: 700;
 }
 
-/* A list card's tag line */
+/* A list card's tag line: 26px tall (line-height 16 + 5 + 5; with the circle 18 + 4 + 4) */
 .compact {
-	padding: 3px 8px;
+	padding: 5px 8px;
 	font-size: 11px;
+	line-height: 16px;
 
 	&.withCount {
 		gap: 4px;
-		padding: 3px 3px 3px 8px;
+		padding: 4px 4px 4px 8px;
 	}
 
 	.circle {
-		min-width: 14px;
-		height: 14px;
-		padding: 0 3px;
-		border-radius: 7px;
-		font-size: 10px;
+		min-width: 18px;
+		height: 18px;
+		padding: 0 4px;
+		border-radius: 9px;
+		font-size: 11px;
 	}
 }

@@ -71,9 +71,10 @@ const styles = StyleSheet.create({
 		gap: 4,
 		borderRadius: 999,
 		paddingHorizontal: 8,
-		paddingVertical: 3,
+		// 26 tall, like the status / progress / count pills on the line
+		paddingVertical: 5,
 	},
-	text: { color: colors.text, fontSize: 11, fontWeight: "700" },
+	text: { color: colors.text, fontSize: 11, lineHeight: 16, fontWeight: "700" },
 	countCircle: {
 		minWidth: 14,
 		height: 14,

@@ -15,7 +15,7 @@ interface Props {
 }
 
 /** The icon / ring box inside the compact pill */
-const COMPACT_ICON = 14;
+const COMPACT_ICON = 16;
 
 /**
  * The progress pill — a percent ring, Up To Date or Paused — that Watch History's cards and a
@@ -76,6 +76,7 @@ const fullStyles = StyleSheet.create({
 });
 
 const compactStyles = StyleSheet.create({
-	pill: { gap: 4, paddingLeft: 3, paddingRight: 8, paddingVertical: 3 },
-	text: { fontSize: 11, lineHeight: 14 },
+	// 26 tall (the 16 icon + 5 + 5): the icon sits concentric with the rounded left end
+	pill: { gap: 4, paddingLeft: 5, paddingRight: 8, paddingVertical: 5 },
+	text: { fontSize: 11, lineHeight: 16 },
 });

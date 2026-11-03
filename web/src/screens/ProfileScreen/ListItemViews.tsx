@@ -214,7 +214,7 @@ export function ListRow({
 			) : null}
 			<span className={styles.cardOverlay} />
 			<span className={styles.cardInfo}>
-				<span>
+				<span className={styles.infoTop}>
 					{/* Fixed slot: the card never shifts as the logo / name arrives */}
 					<span className={styles.logoSlot}>
 						{logoPath ? (

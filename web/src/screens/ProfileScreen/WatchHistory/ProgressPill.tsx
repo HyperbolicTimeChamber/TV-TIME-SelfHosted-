@@ -12,7 +12,7 @@ interface Props {
 }
 
 const ICON_SIZE = 20;
-const COMPACT_ICON_SIZE = 14;
+const COMPACT_ICON_SIZE = 16;
 
 /**
  * The progress pill — a percent ring, Up To Date or Paused — that Watch History's cards and a

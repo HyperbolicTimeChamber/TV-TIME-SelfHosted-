@@ -19,19 +19,20 @@
 	justify-content: center;
 }
 
-/* A list card's tag line */
+/* A list card's tag line: 26px tall (the 16 icon + 5 + 5), icon concentric with the left end */
 .compact {
 	gap: 4px;
-	padding: 3px 8px 3px 3px;
+	padding: 5px 8px 5px 5px;
 	font-size: 11px;
+	line-height: 16px;
 
-	/* The 20px ring drawn shrunk into a 14px box */
+	/* The 20px ring drawn shrunk into a 16px box */
 	.ring {
-		width: 14px;
-		height: 14px;
+		width: 16px;
+		height: 16px;
 
 		svg {
-			transform: scale(0.7) rotate(-90deg);
+			transform: scale(0.8) rotate(-90deg);
 		}
 	}
 }

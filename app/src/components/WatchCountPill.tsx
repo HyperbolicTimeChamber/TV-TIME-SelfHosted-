@@ -55,7 +55,8 @@ const fullStyles = StyleSheet.create({
 });
 
 const compactStyles = StyleSheet.create({
-	pill: { gap: 4, paddingLeft: 8, paddingRight: 3, paddingVertical: 3 },
-	text: { fontSize: 11, lineHeight: 14 },
-	circle: { minWidth: 14, height: 14, borderRadius: 7, paddingHorizontal: 3 },
+	// 26 tall (the 18 circle + 4 + 4), like the other tags on the line
+	pill: { gap: 4, paddingLeft: 8, paddingRight: 4, paddingVertical: 4 },
+	text: { fontSize: 11, lineHeight: 16 },
+	circle: { minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4 },
 });

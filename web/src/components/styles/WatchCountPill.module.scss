@@ -27,16 +27,17 @@
 	background: color-mix(in srgb, var(--text-secondary) 70%, transparent);
 }
 
-/* A list card's tag line */
+/* A list card's tag line: 26px tall (the 18 circle + 4 + 4), like the other tags on the line */
 .compact {
 	gap: 4px;
-	padding: 3px 3px 3px 8px;
+	padding: 4px 4px 4px 8px;
 	font-size: 11px;
+	line-height: 16px;
 
 	.circle {
-		min-width: 14px;
-		height: 14px;
-		padding: 0 3px;
-		border-radius: 7px;
+		min-width: 18px;
+		height: 18px;
+		padding: 0 4px;
+		border-radius: 9px;
 	}
 }

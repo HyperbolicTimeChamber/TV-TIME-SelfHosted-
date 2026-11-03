@@ -32,7 +32,9 @@ import SearchCard from "../SearchScreen/SearchCard";
 
 /** The card (taller than the calendar's), and the row under the square — the add button / Tracking
  *  tag and the status tags share it, so they line up */
-const CARD_MIN_HEIGHT = 168;
+const CARD_HEIGHT = 160;
+/** The square's corner radius (the calendar's epSquare): the button under it rounds its bottom to match */
+const SQUARE_RADIUS = 14;
 const BOTTOM_ROW_HEIGHT = 40;
 const ROW_POSTER_W = 56;
 const ROW_POSTER_H = 84;
@@ -181,7 +183,7 @@ export function ListRow({
 			) : null}
 			<View style={[StyleSheet.absoluteFill, card.cardOverlay]} />
 			<View style={[card.epInfo, styles.info]}>
-				<View>
+				<View style={styles.infoTop}>
 					{/* Fixed slot: the card never shifts as the logo / name arrives */}
 					<View style={styles.logoSlot}>
 						{logoPath ? (
@@ -404,21 +406,34 @@ export function ListItemPreview({ item, actions, onGoToShow, onClose }: Readonly
 	);
 }
 
+/** The button under the square: as wide as it, flat top (joined), bottom corners matching its top */
+const JOINED_BUTTON = {
+	width: 96,
+	borderTopLeftRadius: 0,
+	borderTopRightRadius: 0,
+	borderBottomLeftRadius: SQUARE_RADIUS,
+	borderBottomRightRadius: SQUARE_RADIUS,
+} as const;
+
 const styles = StyleSheet.create({
 	// The calendar card sits in the list's own padding (no side margin of its own)
 	// Taller than the calendar's card: the square has the add button / Tracking tag under it
-	card: { marginHorizontal: 0, minHeight: CARD_MIN_HEIGHT, alignItems: "stretch" },
+	// Exactly the right block (square + button) plus the card's padding: the left column fits inside
+	card: { marginHorizontal: 0, height: CARD_HEIGHT, minHeight: CARD_HEIGHT, alignItems: "stretch" },
 	// The left column fills the card: logo + meta on top, the tags (level with the button) at the bottom
 	// Logo + meta on top, the tags at the bottom (level with the add button under the square)
 	info: { justifyContent: "space-between" },
+	// Shrinks (the logo slot gives way) when the pills below leave less than a full logo's room
+	infoTop: { flexShrink: 1, minHeight: 0 },
 	rightCol: {
 		alignItems: "center",
-		// Square on top, the button / Tracking tag at the bottom edge, level with the tags
-		justifyContent: "space-between",
-		gap: spacing.xs,
+		// One block: the square with the button / Tracking tag joined to its bottom edge, level
+		// with the tags
+		justifyContent: "flex-end",
 		marginLeft: spacing.md,
 	},
-	square: { marginLeft: 0 },
+	// Flat bottom: the button continues it
+	square: { marginLeft: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
 	bottomRow: { height: BOTTOM_ROW_HEIGHT, justifyContent: "center" },
 	addButton: {
 		flexDirection: "row",
@@ -426,30 +441,33 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		gap: 2,
 		height: BOTTOM_ROW_HEIGHT,
-		minWidth: 96,
-		paddingHorizontal: spacing.md,
-		borderRadius: 999,
+		...JOINED_BUTTON,
 		backgroundColor: colors.primary,
 	},
 	addButtonBusy: { opacity: 0.6 },
 	addButtonPressed: { transform: [{ scale: 0.97 }] },
 	addText: { color: colors.text, fontSize: 12, fontWeight: "700" },
-	// Same pill as the tag line's, in green
+	// The same joined block, in green
 	trackingTag: {
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "center",
 		gap: 4,
 		height: BOTTOM_ROW_HEIGHT,
-		minWidth: 96,
-		paddingHorizontal: spacing.md,
-		borderRadius: 999,
+		...JOINED_BUTTON,
 		backgroundColor: colors.watchedGreen,
 	},
 	trackingText: { color: colors.text, fontSize: 12, fontWeight: "700" },
 	cardPressed: { transform: [{ scale: 0.98 }] },
-	logoSlot: { height: 44, justifyContent: "center", marginBottom: spacing.sm },
-	logo: { height: 44, width: "75%" },
+	logoSlot: {
+		flexShrink: 1,
+		maxHeight: 44,
+		minHeight: 24,
+		height: 44,
+		justifyContent: "center",
+		marginBottom: spacing.xs,
+	},
+	logo: { height: "100%", width: "75%" },
 	name: { ...typography.subtitle, fontSize: 16 },
 	topTagsRow: { marginTop: spacing.sm },
 	metaLine: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: spacing.sm },

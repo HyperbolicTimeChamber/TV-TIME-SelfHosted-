@@ -113,8 +113,10 @@
 	position: relative;
 	overflow: hidden;
 	width: 100%;
-	/* Taller than the calendar's card: the square has the add button / Tracking tag under it */
-	min-height: 168px;
+	/* Exactly the right block (96 square + 40 button) plus the card's padding: the left column fits
+	   inside it, the logo giving way */
+	height: 160px;
+	box-sizing: border-box;
 	display: flex;
 	align-items: stretch;
 	margin-bottom: 12px;
@@ -186,6 +188,7 @@
 
 .cardInfo {
 	position: relative;
+	min-height: 0;
 	flex: 1;
 	min-width: 0;
 	display: flex;
@@ -202,8 +205,9 @@
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	justify-content: space-between;
-	gap: 4px;
+	/* One block: the square with the button / Tracking tag joined to its bottom edge, level with
+	   the tags */
+	justify-content: flex-end;
 	margin-left: 12px;
 }
 
@@ -220,9 +224,11 @@
 	justify-content: center;
 	gap: 4px;
 	height: 40px;
-	min-width: 96px;
-	padding: 0 12px;
-	border-radius: 999px;
+	/* As wide as the square, flat top (joined to it), bottom corners matching its top (14px) */
+	width: 96px;
+	padding: 0 8px;
+	box-sizing: border-box;
+	border-radius: 0 0 14px 14px;
 	color: var(--text);
 	font-size: 12px;
 	font-weight: 700;
@@ -247,16 +253,27 @@
 	background: $watched-green;
 }
 
+/* Shrinks (the logo slot gives way) when the pills below leave less than a full logo's room */
+.infoTop {
+	display: flex;
+	flex-direction: column;
+	flex: 0 1 auto;
+	min-height: 0;
+	width: 100%;
+}
+
 .logoSlot {
-	height: 44px;
+	flex: 0 1 44px;
+	min-height: 24px;
 	width: 100%;
 	display: flex;
 	align-items: center;
-	margin-bottom: 8px;
+	margin-bottom: 4px;
 }
 
 .cardLogo {
-	height: 44px;
+	height: 100%;
+	max-height: 44px;
 	width: 75%;
 	object-fit: contain;
 	object-position: left center;
@@ -279,7 +296,8 @@
 	width: 96px;
 	height: 96px;
 	padding: 6px 8px 0;
-	border-radius: 14px;
+	/* Flat bottom: the add button / Tracking tag continues it */
+	border-radius: 14px 14px 0 0;
 	background: rgba(0, 0, 0, 0.5);
 	display: flex;
 	flex-direction: column;
@@ -458,8 +476,10 @@
 	gap: 4px;
 	flex-shrink: 0;
 	border-radius: 999px;
-	padding: 3px 8px;
+	/* 26 tall, like the status / progress / count pills on the line */
+	padding: 5px 8px;
 	font-size: 11px;
+	line-height: 16px;
 	font-weight: 700;
 	color: var(--text);
 }
