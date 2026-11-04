@@ -8,6 +8,7 @@ import {
 } from "../enums";
 import type { CatalogEpisode, CatalogShow } from "../types/catalog";
 import { isGenericEpisodeTitle } from "./episodeTitle";
+import { todayStr } from "./todayStr";
 
 /**
  * Catalog data lookup order for tracked shows: local cache → Firestore → TMDB.
@@ -28,8 +29,17 @@ export function isIncompleteCatalog(c: CatalogShow): boolean {
 	return !!c.partial || !c.title;
 }
 
-/** Cached catalog lacks something the UI shows: poster, next-ep title, movie credits */
-export function hasMissingDisplayData(item: ItemLike, c: CatalogShow): boolean {
+/**
+ * Cached catalog lacks something the UI shows: poster, next-ep title, movie credits.
+ * A placeholder title ("Episode 7") only counts once that episode has aired: TMDB names most
+ * episodes still to come that way (anime, K-dramas, weekly shows), so asking about them never
+ * fixed anything — it re-read Firestore and called refreshShow for each such show every launch.
+ */
+export function hasMissingDisplayData(
+	item: ItemLike,
+	c: CatalogShow,
+	today: string = todayStr(),
+): boolean {
 	if (item.mediaType === MediaType.MOVIE) return !c.credits;
 	if (!c.posterPath) return true;
 	const ne = item.nextEpisode;
@@ -37,6 +47,8 @@ export function hasMissingDisplayData(item: ItemLike, c: CatalogShow): boolean {
 	const ep = c.seasons
 		?.find((s) => s.seasonNumber === ne.season)
 		?.episodes?.find((e) => e.episodeNumber === ne.episode);
+	const aired = !!ep?.airDate && ep.airDate <= today;
+	if (!aired) return false;
 	return isGenericEpisodeTitle(ep?.title) || isGenericEpisodeTitle(item.nextEpisodeName);
 }
 
@@ -44,9 +56,16 @@ export function hasMissingDisplayData(item: ItemLike, c: CatalogShow): boolean {
  * TMDB heal is the LAST resort: only when there's no usable catalog, or the
  * Firestore copy was already re-read (`backendTried`) and still lacks data.
  */
-export function needsTmdbHeal(item: ItemLike, backendTried: boolean): boolean {
+export function needsTmdbHeal(
+	item: ItemLike,
+	backendTried: boolean,
+	now: number = Date.now(),
+): boolean {
 	const c = item.catalogShow;
 	if (!c || isIncompleteCatalog(c)) return backendTried;
+	// Someone's refresh inside the server's cooldown: the call would only hand back this doc
+	if (now - (c.lastTmdbCheckAt ?? 0) < REFRESH_COOLDOWN_MS[RefreshReason.MISSING_DATA])
+		return false;
 	return backendTried && hasMissingDisplayData(item, c);
 }
 

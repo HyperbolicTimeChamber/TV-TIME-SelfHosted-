@@ -1,13 +1,16 @@
 /**
- * Cloud Function call priority. The watchlist's self-heal can ask for dozens of refreshShow /
- * addShow calls at once; fired together they filled the device's request queue for the
- * functions host, and a search or an add the user was waiting on sat behind them until it timed
- * out (the server answered each in under a second). Background calls now go one at a time and
- * hold back while any foreground call (something the user is waiting on) is in flight.
+ * Cloud Function call priority. On Android, RNFirebase runs callables on its task executor,
+ * one thread by default, each call holding it until its response — every callable in the app
+ * shared that one lane. The watchlist's self-heal fired ~40 refreshShow calls at once, and a
+ * search or an add the user was waiting on sat behind them until it timed out (the server
+ * answered each in under a second). firebase.json `react-native.android_task_executor_maximum_pool_size`
+ * now gives the native side several threads; on top of that, background calls are capped and
+ * start no new ones while a foreground call (something the user is waiting on) is in flight,
+ * so the user's call always has a free lane.
  */
 
-/** Background calls running at once — one keeps a user's call at most one call from the front */
-const BACKGROUND_CONCURRENCY = 1;
+/** Background calls running at once — below the native pool, so foreground calls never wait */
+const BACKGROUND_CONCURRENCY = 3;
 
 let foreground = 0;
 let running = 0;

@@ -46,8 +46,10 @@ const cat = (o: Partial<CatalogShow> = {}) =>
 			{
 				seasonNumber: 1,
 				episodes: [
-					{ episodeNumber: 1, title: "Pilot" },
-					{ episodeNumber: 2, title: "Episode 2" },
+					{ episodeNumber: 1, title: "Pilot", airDate: "2025-01-01" },
+					{ episodeNumber: 2, title: "Episode 2", airDate: "2025-01-08" },
+					{ episodeNumber: 3, title: "Episode 3", airDate: "2099-01-01" },
+					{ episodeNumber: 4, title: "Episode 4" },
 				],
 			},
 		],
@@ -76,9 +78,21 @@ test("missing poster → Firestore first; TMDB only after Firestore was tried", 
 	assert.equal(needsTmdbHeal(i, true), true);
 });
 
-test("placeholder next-episode name triggers refresh", () => {
+test("placeholder next-episode name triggers refresh once the episode has aired", () => {
 	const i = item({ nextEpisode: { season: 1, episode: 2 }, nextEpisodeName: "Episode 2" });
 	assert.equal(hasMissingDisplayData(i, i.catalogShow!), true);
+});
+
+test("placeholder name on an episode still to come (or undated) is TMDB's real name: no heal", () => {
+	const future = item({ nextEpisode: { season: 1, episode: 3 }, nextEpisodeName: "Episode 3" });
+	assert.equal(hasMissingDisplayData(future, future.catalogShow!), false);
+	const undated = item({ nextEpisode: { season: 1, episode: 4 }, nextEpisodeName: "Episode 4" });
+	assert.equal(hasMissingDisplayData(undated, undated.catalogShow!), false);
+});
+
+test("doc refreshed by anyone inside the cooldown: no refreshShow call", () => {
+	const i = item({ catalogShow: cat({ posterPath: null, lastTmdbCheckAt: Date.now() - 60_000 }) });
+	assert.equal(needsTmdbHeal(i, true), false);
 });
 
 // ---------- season heal from fresh TMDB data ----------
