@@ -219,7 +219,7 @@ export default function WatchlistTab() {
 		handleMovieSwipeLeft,
 		handleMovieSwipeRight,
 		handleMovieCountCommit,
-		handleTvPress,
+		handleWatchedRowPress,
 		listData: liveListData,
 		promotions,
 		listSettled,
@@ -399,7 +399,7 @@ export default function WatchlistTab() {
 					<WatchedEpisodeRow
 						episode={item.episode}
 						show={item.show}
-						onPress={handleTvPress}
+						onPress={handleWatchedRowPress}
 						onCheckmarkPress={handleWatchedCheckmark}
 						onSwipeLeft={handleWatchedSwipeLeft}
 						onSwipeRight={handleWatchedSwipeRight}
@@ -434,7 +434,7 @@ export default function WatchlistTab() {
 			handleMarkWatched,
 			handleCardPress,
 			handleTitlePress,
-			handleTvPress,
+			handleWatchedRowPress,
 			watchedCountByShow,
 			updatingShows,
 			handleWatchedCheckmark,

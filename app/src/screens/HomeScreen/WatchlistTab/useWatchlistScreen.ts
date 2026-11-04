@@ -35,6 +35,7 @@ import {
 	incrementDailyWatch,
 	decrementDailyWatch,
 	loadSeasonEpisodes,
+	EnrichedTrackingItem,
 } from "../../../hooks";
 import {
 	getCachedCatalogShow,
@@ -62,6 +63,21 @@ function watchedKeysBefore(
 		keys.set(`S${String(e.season).padStart(2, "0")}E${String(e.episode).padStart(2, "0")}`, 1);
 	}
 	return keys;
+}
+
+/** No pointer: the released episode after the furthest watched one (null → none watched known) */
+function afterLastWatched(
+	eps: CarouselEpisode[],
+	rows: WatchedEpisode[] | undefined,
+): { season: number; episode: number } | null {
+	if (!rows?.length) return null;
+	const watched = new Set(rows.map((r) => `${r.season}_${r.episode}`));
+	let last = -1;
+	eps.forEach((e, i) => {
+		if (watched.has(`${e.season}_${e.episode}`)) last = i;
+	});
+	const e = eps[Math.min(last + 1, eps.length - 1)];
+	return last < 0 ? null : { season: e.season, episode: e.episode };
 }
 
 function watchedKeysOf(rows: WatchedEpisode[]): Map<string, number> {
@@ -145,13 +161,15 @@ export function useWatchlistScreen(
 		setWatchlistLoading(isLoading);
 	}, [isLoading, setWatchlistLoading]);
 
-	const handleCardPress = useCallback(
-		async (tmdbId: number, _mediaType: MediaType) => {
-			const listItem = listData.find((li) => li.type === "show" && li.item.tmdbId === tmdbId);
-			if (!listItem || listItem.type !== "show") return;
-			const item = listItem.item;
-			const ep = item.nextEpisode;
-			if (!ep) return;
+	/**
+	 * Episode popup for one show, opened on `focus` (a Previously Watched row's episode) or the
+	 * show's next episode. A show without a pointer (cleared by an old double mark) still opens:
+	 * on the episode after the last watched one, else the latest aired.
+	 */
+	const openEpisodeModal = useCallback(
+		async (item: EnrichedTrackingItem, focus?: { season: number; episode: number } | null) => {
+			const tmdbId = item.tmdbId;
+			const pointer = item.nextEpisode ?? null;
 
 			// Fresh launch: the saved card can render before the persisted catalog cache is
 			// restored — wait for it (on-device, quick), then fill from the server only if the
@@ -189,10 +207,16 @@ export function useWatchlistScreen(
 
 			if (allEps.length === 0) return;
 
-			const rawIdx = Math.max(
-				0,
-				allEps.findIndex((e) => e.season === ep.season && e.episode === ep.episode),
-			);
+			const watchedKey = [QueryKey.WATCHED_EPISODES, user?.uid, tmdbId];
+			const cachedWatched = queryClient.getQueryData<WatchedEpisode[]>(watchedKey);
+			const ep = focus ?? pointer ?? afterLastWatched(allEps, cachedWatched);
+
+			const rawIdx = ep
+				? Math.max(
+						0,
+						allEps.findIndex((e) => e.season === ep.season && e.episode === ep.episode),
+					)
+				: allEps.length - 1;
 
 			// Window to max 50 episodes around current
 			const MAX_WINDOW = 50;
@@ -210,11 +234,11 @@ export function useWatchlistScreen(
 			// tells us — every released episode before `nextEpisode` has been watched. Awaiting
 			// Firestore here held the popup shut for the whole round trip; the real counts patch
 			// in below the moment they land.
-			const watchedKey = [QueryKey.WATCHED_EPISODES, user?.uid, tmdbId];
-			const cachedWatched = queryClient.getQueryData<WatchedEpisode[]>(watchedKey);
 			const wKeys = cachedWatched
 				? watchedKeysOf(cachedWatched)
-				: watchedKeysBefore(carouselEps, ep);
+				: pointer
+					? watchedKeysBefore(carouselEps, pointer)
+					: new Map<string, number>();
 
 			epModalTmdbIdRef.current = tmdbId;
 			setEpModalData({
@@ -225,7 +249,7 @@ export function useWatchlistScreen(
 				episodes: carouselEps,
 				initialIndex: initialIdx,
 				watchedKeys: wKeys,
-				currentNextEpisode: ep,
+				currentNextEpisode: pointer,
 				isRewatching: item.status === WatchStatus.REWATCHING,
 				rewatchCount: item.status === WatchStatus.REWATCHING ? (item.rewatchCount ?? 0) : 0,
 			});
@@ -253,7 +277,24 @@ export function useWatchlistScreen(
 				.then((snap) => patch(rowsOf(snap)))
 				.catch(() => {});
 		},
-		[listData, user?.uid, queryClient],
+		[user?.uid, queryClient],
+	);
+
+	const handleCardPress = useCallback(
+		(tmdbId: number, _mediaType: MediaType) => {
+			const listItem = listData.find((li) => li.type === "show" && li.item.tmdbId === tmdbId);
+			if (!listItem || listItem.type !== "show") return;
+			return openEpisodeModal(listItem.item);
+		},
+		[listData, openEpisodeModal],
+	);
+
+	/** Previously Watched row body → the episode popup on that row's episode (its green circle
+	 *  opens the watch count sheet instead) */
+	const handleWatchedRowPress = useCallback(
+		(episode: WatchedEpisode, show: EnrichedTrackingItem) =>
+			openEpisodeModal(show, { season: episode.season, episode: episode.episode }),
+		[openEpisodeModal],
 	);
 
 	// Skip in modal → move the modal's "current" episode along with the watchlist pointer
@@ -573,11 +614,6 @@ export function useWatchlistScreen(
 		[user?.uid, sheetMovie, queryClient],
 	);
 
-	const handleTvPress = useCallback(
-		(id: number) => handleNavigateToShow(id, MediaType.TV),
-		[handleNavigateToShow],
-	);
-
 	// Sheet's show is rewatching (or has one paused) → no "Watched Once": it would wipe earlier
 	// runs' watches. A show off the loaded watchlist pages counts as not rewatching
 	const sheetStatus = sheetEpisode ? showMap.get(sheetEpisode.tmdbShowId)?.status : undefined;
@@ -626,7 +662,7 @@ export function useWatchlistScreen(
 		handleMovieSwipeLeft,
 		handleMovieSwipeRight,
 		handleMovieCountCommit,
-		handleTvPress,
+		handleWatchedRowPress,
 		listData,
 		promotions,
 		loading,

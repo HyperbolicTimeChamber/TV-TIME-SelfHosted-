@@ -55,6 +55,16 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 	const [state, setState] = useState<SwipeState>("idle");
 	const [action, setAction] = useState<"left" | "right" | null>(null);
 	const processing = useRef(false);
+	// One action per swipe: only the latest started swipe animation acts, once (an interrupted
+	// animation's promise resolves too — that settle must not run the action a second time)
+	const swipeSeq = useRef(0);
+	const handledSeq = useRef(0);
+	const startSwipe = (direction: "left" | "right", duration: number) => {
+		const seq = ++swipeSeq.current;
+		animate(x, direction === "left" ? width() : -width(), { duration }).then(() =>
+			complete(direction, seq),
+		);
+	};
 	const width = () => wrapperRef.current?.offsetWidth ?? 360;
 	const leftOpacity = useTransform(x, (v) =>
 		Math.min(1, Math.max(0, v / (width() * THRESHOLD_RATIO))),
@@ -64,8 +74,9 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 	);
 
 	const complete = useCallback(
-		async (direction: "left" | "right") => {
-			if (processing.current) return;
+		async (direction: "left" | "right", seq: number) => {
+			if (seq !== swipeSeq.current || seq <= handledSeq.current || processing.current) return;
+			handledSeq.current = seq;
 			processing.current = true;
 			setAction(direction);
 			setState("loading");
@@ -97,7 +108,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		() => ({
 			triggerSwipeLeft: () => {
 				if (state !== "idle" || processing.current) return;
-				animate(x, width(), { duration: 0.3 }).then(() => complete("left"));
+				startSwipe("left", 0.3);
 			},
 		}),
 		[state, complete, x],
@@ -147,10 +158,8 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				dragMomentum={false}
 				onDragEnd={(_, info) => {
 					const threshold = width() * THRESHOLD_RATIO;
-					if (info.offset.x > threshold)
-						animate(x, width(), { duration: 0.2 }).then(() => complete("left"));
-					else if (onSwipeRight && info.offset.x < -threshold)
-						animate(x, -width(), { duration: 0.2 }).then(() => complete("right"));
+					if (info.offset.x > threshold) startSwipe("left", 0.2);
+					else if (onSwipeRight && info.offset.x < -threshold) startSwipe("right", 0.2);
 					else animate(x, 0, { duration: 0.2 });
 				}}
 			>

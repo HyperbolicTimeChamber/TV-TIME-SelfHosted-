@@ -10,7 +10,8 @@ import { EnrichedTrackingItem } from "../../../hooks";
 interface Props {
 	episode: WatchedEpisode;
 	show: EnrichedTrackingItem;
-	onPress: (tmdbShowId: number) => void;
+	/** Row body → the episode popup on this row's episode */
+	onPress: (episode: WatchedEpisode, show: EnrichedTrackingItem) => void;
 	onCheckmarkPress: (episode: WatchedEpisode) => void;
 	onSwipeLeft: (episode: WatchedEpisode) => Promise<void>;
 	onSwipeRight: (episode: WatchedEpisode) => Promise<void>;
@@ -42,7 +43,7 @@ export default memo(function WatchedEpisodeRow({
 		>
 			<TouchableOpacity
 				style={styles.container}
-				onPress={() => onPress(episode.tmdbShowId)}
+				onPress={() => onPress(episode, show)}
 				onLongPress={withHaptic(onLongPress && (() => onLongPress(show)))}
 				activeOpacity={0.8}
 			>
