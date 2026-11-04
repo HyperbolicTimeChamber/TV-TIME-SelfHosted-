@@ -189,6 +189,34 @@ export const SEARCH_CACHE_MAX_ENTRIES = 500;
 export const SEARCH_KEYWORD_FALLBACK_BELOW = 10;
 /** Best-matching TMDB keywords used for that fallback */
 export const SEARCH_KEYWORD_MAX = 3;
+/** TMDB genre ids the search aliases use (same id for TV and movies) */
+export enum TmdbGenre {
+  ANIMATION = 16,
+  DRAMA = 18,
+}
+/**
+ * Searches that name a regional genre TMDB has no keyword for ("k-drama" fuzzy-matched cdrama /
+ * jdrama / drama, so generic dramas filled the list) → the most popular titles from that origin
+ * country in that genre. Keys: the query lower-case, letters / digits only.
+ */
+export const SEARCH_REGION_ALIASES: Record<
+  string,
+  { country: string; genre: TmdbGenre; types: MediaType[] }
+> = {
+  kdrama: { country: "KR", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
+  kdramas: { country: "KR", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
+  koreandrama: { country: "KR", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
+  koreandramas: { country: "KR", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
+  jdrama: { country: "JP", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
+  jdramas: { country: "JP", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
+  japanesedrama: { country: "JP", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
+  cdrama: { country: "CN", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
+  cdramas: { country: "CN", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
+  chinesedrama: { country: "CN", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
+  thaidrama: { country: "TH", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
+  lakorn: { country: "TH", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
+  anime: { country: "JP", genre: TmdbGenre.ANIMATION, types: [MediaType.TV, MediaType.MOVIE] },
+};
 /** TMDB keywords kept per title (catalog + tracking docs) */
 export const TITLE_KEYWORD_MAX = 40;
 

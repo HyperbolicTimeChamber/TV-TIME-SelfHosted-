@@ -21,6 +21,7 @@ import {
   MediaType,
 } from "../../shared/enums";
 import type { SearchTitle, SearchTitlesResponse } from "../../shared/types";
+import { keywordMatches, regionAlias } from "./keywordMatch";
 
 const SEARCH_PATH: Record<SearchScope, string> = {
   [SearchScope.ALL]: "/search/multi",
@@ -95,27 +96,39 @@ const DISCOVER_TYPES: Record<SearchScope, MediaType[]> = {
 };
 
 /**
- * Few title matches → the most popular titles tagged with the query's best keywords (TMDB
- * /search/keyword → /discover), to stack under them. Best effort: a failure adds nothing.
+ * Few title matches → the most popular titles of what the query names, to stack under them:
+ * a regional genre (k-drama, anime → origin country + genre), else TMDB keywords that really
+ * are the query (/search/keyword → /discover). Best effort: a failure adds nothing.
  */
 async function keywordTitles(
   scope: SearchScope,
   query: string,
 ): Promise<SearchTitle[]> {
   try {
-    const keywords = await tmdbGet<{ results: { id: number }[] }>(
-      "/search/keyword",
-      { query, page: 1 },
-    );
-    const ids = keywords.results
-      .slice(0, SEARCH_KEYWORD_MAX)
-      .map((k) => k.id);
-    if (ids.length === 0) return [];
+    const alias = regionAlias(query);
+    let types = DISCOVER_TYPES[scope];
+    let filter: Record<string, string | number>;
+    if (alias) {
+      types = types.filter((t) => alias.types.includes(t));
+      filter = { with_origin_country: alias.country, with_genres: alias.genre };
+    } else {
+      const keywords = await tmdbGet<{ results: { id: number; name: string }[] }>(
+        "/search/keyword",
+        { query, page: 1 },
+      );
+      const ids = keywords.results
+        .filter((k) => keywordMatches(query, k.name))
+        .slice(0, SEARCH_KEYWORD_MAX)
+        .map((k) => k.id);
+      if (ids.length === 0) return [];
+      // Any of the keywords
+      filter = { with_keywords: ids.join("|") };
+    }
+    if (types.length === 0) return [];
     const pages = await Promise.all(
-      DISCOVER_TYPES[scope].map(async (type) => {
+      types.map(async (type) => {
         const page = await tmdbGet<TmdbSearchPage>(`/discover/${type}`, {
-          // Any of the keywords
-          with_keywords: ids.join("|"),
+          ...filter,
           sort_by: "popularity.desc",
           page: 1,
         });
