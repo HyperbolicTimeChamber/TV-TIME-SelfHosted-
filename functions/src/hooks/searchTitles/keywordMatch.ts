@@ -1,4 +1,4 @@
-import { SEARCH_REGION_ALIASES } from "../../shared/enums";
+import { SEARCH_REGION_ALIASES, SEARCH_STUDIO_ALIASES } from "../../shared/enums";
 
 const words = (s: string) => s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
 const squash = (s: string) => words(s).join("");
@@ -23,4 +23,9 @@ export function keywordMatches(query: string, keyword: string): boolean {
 /** The regional-genre alias a query names (k-drama, anime, …), if any */
 export function regionAlias(query: string) {
   return SEARCH_REGION_ALIASES[squash(query)];
+}
+
+/** The studio / streaming service a query names (disney, ghibli, hbo…), if any */
+export function studioAlias(query: string) {
+  return SEARCH_STUDIO_ALIASES[squash(query)];
 }

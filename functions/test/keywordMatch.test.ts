@@ -30,3 +30,13 @@ test("regionAlias names regional genres however they're written", () => {
   assert.equal(regionAlias("drama"), undefined);
   assert.equal(regionAlias("breaking bad"), undefined);
 });
+
+test("studioAlias names studios / services however they're written", async () => {
+  const { studioAlias } = await import("../src/hooks/searchTitles/keywordMatch");
+  assert.deepEqual(studioAlias("Disney")?.companies, [2, 6125]);
+  assert.deepEqual(studioAlias("Studio Ghibli")?.companies, [10342]);
+  assert.deepEqual(studioAlias("HBO")?.networks, [49]);
+  assert.deepEqual(studioAlias("Apple TV+")?.networks, [2552]);
+  assert.equal(studioAlias("Warner Bros.")?.companies?.[0], 174);
+  assert.equal(studioAlias("breaking bad"), undefined);
+});

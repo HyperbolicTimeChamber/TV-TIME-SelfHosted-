@@ -236,6 +236,59 @@ export const SEARCH_REGION_ALIASES: Record<string, RegionAlias> = {
   donghua: { country: "CN", genre: TmdbGenre.ANIMATION, types: BOTH },
   bollywood: { country: "IN", types: [MediaType.MOVIE] },
 };
+
+/**
+ * Searches naming a studio or a streaming service ("disney", "ghibli", "hbo") → its titles
+ * (TMDB discover: movies by production company, shows by network when it has one, else by
+ * company). A title search alone only finds titles with the name in them ("Disney's …"). IDs
+ * checked against TMDB /company and /network. Keys: lower-case, letters / digits only.
+ */
+type StudioAlias = { companies?: number[]; networks?: number[]; types: MediaType[] };
+const DISNEY: StudioAlias = { companies: [2, 6125], networks: [54, 2739], types: BOTH };
+const MARVEL: StudioAlias = { companies: [420, 38679], types: BOTH };
+const GHIBLI: StudioAlias = { companies: [10342], types: BOTH };
+const KYOANI: StudioAlias = { companies: [5438], types: BOTH };
+const WARNER: StudioAlias = { companies: [174], types: [MediaType.MOVIE] };
+const APPLE: StudioAlias = { networks: [2552], types: [MediaType.TV] };
+const PRIME: StudioAlias = { networks: [1024], types: [MediaType.TV] };
+export const SEARCH_STUDIO_ALIASES: Record<string, StudioAlias> = {
+  disney: DISNEY,
+  waltdisney: DISNEY,
+  disneyplus: { networks: [2739], types: [MediaType.TV] },
+  pixar: { companies: [3], types: [MediaType.MOVIE] },
+  marvel: MARVEL,
+  marvelstudios: MARVEL,
+  mcu: { companies: [420], types: BOTH },
+  lucasfilm: { companies: [1], types: BOTH },
+  dreamworks: { companies: [521], types: BOTH },
+  ghibli: GHIBLI,
+  studioghibli: GHIBLI,
+  illumination: { companies: [6704], types: [MediaType.MOVIE] },
+  warnerbros: WARNER,
+  warnerbrothers: WARNER,
+  a24: { companies: [41077], types: BOTH },
+  blumhouse: { companies: [3172], types: BOTH },
+  universal: { companies: [33], types: [MediaType.MOVIE] },
+  paramount: { companies: [4], types: [MediaType.MOVIE] },
+  sonyanimation: { companies: [2251], types: [MediaType.MOVIE] },
+  amblin: { companies: [56], types: [MediaType.MOVIE] },
+  lionsgate: { companies: [1632], types: [MediaType.MOVIE] },
+  toei: { companies: [5542], types: BOTH },
+  toeianimation: { companies: [5542], types: BOTH },
+  mappa: { companies: [21444], types: BOTH },
+  kyotoanimation: KYOANI,
+  kyoani: KYOANI,
+  ufotable: { companies: [5887, 280276], types: BOTH },
+  madhouse: { companies: [3464], types: BOTH },
+  witstudio: { companies: [31058], types: BOTH },
+  hbo: { companies: [3268], networks: [49], types: BOTH },
+  netflix: { companies: [178464], networks: [213], types: BOTH },
+  appletv: APPLE,
+  appletvplus: APPLE,
+  primevideo: PRIME,
+  amazonprime: PRIME,
+  hulu: { networks: [453], types: [MediaType.TV] },
+};
 /** TMDB keywords kept per title (catalog + tracking docs) */
 export const TITLE_KEYWORD_MAX = 40;
 
