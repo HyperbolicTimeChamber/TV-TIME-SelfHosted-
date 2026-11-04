@@ -284,6 +284,9 @@ export default function BottomSheet({ visible, onClose, children, background, ar
 					{...panResponder.panHandlers}
 				>
 					{behind ? <View style={styles.background}>{behind}</View> : null}
+					{/* Hangs below the bottom edge, off-screen: pulling the sheet up past its resting
+					    place shows more sheet, not the page under it */}
+					<View style={styles.overpull} pointerEvents="none" />
 					<View style={styles.handle} />
 					<SheetArtContext.Provider value={!!behind}>{children(close)}</SheetArtContext.Provider>
 				</Animated.View>
@@ -617,6 +620,15 @@ const styles = StyleSheet.create({
 		borderTopLeftRadius: 20,
 		borderTopRightRadius: 20,
 		paddingHorizontal: spacing.lg,
+	},
+	// Taller than any upward pull gets (it's damped: √distance × 2)
+	overpull: {
+		position: "absolute",
+		top: "100%",
+		left: 0,
+		right: 0,
+		height: 400,
+		backgroundColor: colors.surface,
 	},
 	background: {
 		position: "absolute",
