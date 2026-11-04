@@ -11,6 +11,7 @@ import {
 	catalogNextEpisodeTitle,
 	trimPastQueue,
 	placeholderTargets,
+	recentTitleChecks,
 	titlesFromCatalog,
 	applyTitles,
 	todayStr,
@@ -406,4 +407,17 @@ test("titleCase: capitalised words, short joining words kept lower-case unless f
 	assert.equal(titleCase("mentor protégé relationship"), "Mentor Protégé Relationship");
 	assert.equal(titleCase("1990s"), "1990s");
 	assert.equal(titleCase("time travel"), "Time Travel");
+});
+
+test("recentTitleChecks: seasons asked inside the window stay skipped across launches", () => {
+	const now = 1_000_000_000;
+	const hour = 60 * 60 * 1000;
+	const { recent, kept } = recentTitleChecks(
+		{ "5_1": now - hour, "6_2": now - 13 * hour, "7_1": now + hour, bad: "x" as unknown as number },
+		now,
+		12 * hour,
+	);
+	assert.deepEqual([...recent], ["5_1"]);
+	assert.deepEqual(kept, { "5_1": now - hour });
+	assert.equal(recentTitleChecks(null, now, 12 * hour).recent.size, 0);
 });
