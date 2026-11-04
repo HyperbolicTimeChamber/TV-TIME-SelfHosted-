@@ -145,16 +145,15 @@ export default function HistoryViewSheet({
 	// The search narrows every section: a chip shows when picked or when its label holds the text
 	const shown = (label: string, on: boolean) => on || !typed || label.toLowerCase().includes(typed);
 	// Picked keywords first, then the most common ones (nothing typed) or the ones matching what's
-	// typed — and the typed text itself when no keyword is exactly it
+	// typed — only keywords the user's titles carry, nothing made up from the typed text
 	const keywordChips = useMemo(() => {
 		const rest = facetOptions.keywords
 			.filter((k) => !facets.keywords.has(k) && (!typed || k.includes(typed)))
 			.slice(0, HISTORY_KEYWORD_SUGGESTIONS);
-		// A regional genre (k-drama, anime…) is a country + genre, not a TMDB keyword: its chip
-		// takes the place of the typed text's
+		// A regional genre (k-drama, anime…) is a country + genre, not a TMDB keyword
 		const region = typed ? regionAliasFor(typed) : undefined;
-		const exact = !region && !!typed && !facets.keywords.has(typed) && !rest.includes(typed);
-		return { picked: [...facets.keywords], rest, exact, region };
+		const picked = [...facets.keywords];
+		return { picked, rest, region, any: picked.length > 0 || rest.length > 0 || !!region };
 	}, [facetOptions.keywords, facets.keywords, typed]);
 	const [allCountries, setAllCountries] = useState(false);
 	const countries = useMemo(() => {
@@ -250,9 +249,7 @@ export default function HistoryViewSheet({
 					onFocus={() => setFocused(true)}
 					onBlur={() => setFocused(false)}
 					onSubmitEditing={() => {
-						if (keywordChips.region) return applyRegion();
-						if (keywordChips.exact && !keywordsFull) onToggleKeyword(typed);
-						setTerm("");
+						if (keywordChips.region) applyRegion();
 					}}
 					accessibilityLabel="Search filters"
 				/>
@@ -356,14 +353,8 @@ export default function HistoryViewSheet({
 					</ChipLine>
 				</>
 			)}
-			{(keywordChips.picked.length > 0 ||
-				keywordChips.rest.length > 0 ||
-				keywordChips.exact ||
-				keywordChips.region) && <Text style={styles.facetTitle}>KEYWORD</Text>}
-			{(keywordChips.picked.length > 0 ||
-				keywordChips.rest.length > 0 ||
-				keywordChips.exact ||
-				keywordChips.region) && (
+			{keywordChips.any && <Text style={styles.facetTitle}>KEYWORD</Text>}
+			{keywordChips.any && (
 				<ChipLine>
 					{keywordChips.region && (
 						<Chip
@@ -371,18 +362,6 @@ export default function HistoryViewSheet({
 							on={false}
 							icon="sparkles"
 							onPress={applyRegion}
-						/>
-					)}
-					{keywordChips.exact && (
-						<Chip
-							label={titleCase(typed)}
-							on={false}
-							icon="add"
-							disabled={keywordsFull}
-							onPress={() => {
-								onToggleKeyword(typed);
-								setTerm("");
-							}}
 						/>
 					)}
 					{keywordChips.picked.map((k) => (

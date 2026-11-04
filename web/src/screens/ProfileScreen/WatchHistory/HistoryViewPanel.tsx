@@ -1,12 +1,5 @@
 import { useMemo, useState } from "react";
-import {
-	IoAdd,
-	IoCheckmark,
-	IoChevronDown,
-	IoCloseCircle,
-	IoSearch,
-	IoSparkles,
-} from "react-icons/io5";
+import { IoCheckmark, IoChevronDown, IoCloseCircle, IoSearch, IoSparkles } from "react-icons/io5";
 import {
 	HISTORY_FACET_MAX,
 	HISTORY_KEYWORD_SUGGESTIONS,
@@ -60,14 +53,14 @@ function Chip({
 	label,
 	on,
 	disabled = false,
-	add = false,
+	add,
 	onClick,
 }: {
 	label: string;
 	on: boolean;
 	disabled?: boolean;
-	/** In place of the check: a typed keyword's plus, a regional genre's sparkle, "More" */
-	add?: boolean | "region" | "more";
+	/** In place of the check: a regional genre's sparkle, "More" */
+	add?: "region" | "more";
 	onClick: () => void;
 }) {
 	return (
@@ -83,8 +76,6 @@ function Chip({
 				<IoSparkles size={15} className={styles.chipIcon} />
 			) : add === "more" ? (
 				<IoChevronDown size={15} className={styles.chipIcon} />
-			) : add ? (
-				<IoAdd size={15} className={styles.chipIcon} />
 			) : null}
 			{label}
 		</button>
@@ -113,16 +104,15 @@ export default function HistoryViewPanel({
 	const [term, setTerm] = useState("");
 	const typed = term.trim().toLowerCase();
 	// Picked keywords first, then the most common ones (nothing typed) or the ones matching what's
-	// typed — and the typed text itself when no keyword is exactly it
+	// typed — only keywords the user's titles carry, nothing made up from the typed text
 	const keywordChips = useMemo(() => {
 		const rest = facetOptions.keywords
 			.filter((k) => !facets.keywords.has(k) && (!typed || k.includes(typed)))
 			.slice(0, HISTORY_KEYWORD_SUGGESTIONS);
-		// A regional genre (k-drama, anime…) is a country + genre, not a TMDB keyword: its chip
-		// takes the place of the typed text's (app HistoryViewSheet)
+		// A regional genre (k-drama, anime…) is a country + genre, not a TMDB keyword (app HistoryViewSheet)
 		const region = typed ? regionAliasFor(typed) : undefined;
-		const exact = !region && !!typed && !facets.keywords.has(typed) && !rest.includes(typed);
-		return { picked: [...facets.keywords], rest, exact, region };
+		const picked = [...facets.keywords];
+		return { picked, rest, region, any: picked.length > 0 || rest.length > 0 || !!region };
 	}, [facetOptions.keywords, facets.keywords, typed]);
 	const [allCountries, setAllCountries] = useState(false);
 	// The search narrows every section (app HistoryViewSheet): a chip shows when picked or when its
@@ -173,8 +163,8 @@ export default function HistoryViewPanel({
 	const genresFull = facets.genres.size >= HISTORY_FACET_MAX;
 	const keywordsFull = facets.keywords.size >= HISTORY_FACET_MAX;
 	const addTyped = () => {
-		if (keywordChips.region) onApplyRegion(keywordChips.region.country, keywordChips.region.genre);
-		else if (keywordChips.exact && !keywordsFull) onToggleKeyword(typed);
+		if (!keywordChips.region) return;
+		onApplyRegion(keywordChips.region.country, keywordChips.region.genre);
 		setTerm("");
 	};
 	return (
@@ -296,29 +286,14 @@ export default function HistoryViewPanel({
 					</div>
 				</>
 			)}
-			{(keywordChips.picked.length > 0 ||
-				keywordChips.rest.length > 0 ||
-				keywordChips.exact ||
-				keywordChips.region) && <p className={styles.facetTitle}>Keyword</p>}
-			{(keywordChips.picked.length > 0 ||
-				keywordChips.rest.length > 0 ||
-				keywordChips.exact ||
-				keywordChips.region) && (
+			{keywordChips.any && <p className={styles.facetTitle}>Keyword</p>}
+			{keywordChips.any && (
 				<div className={styles.viewChips}>
 					{keywordChips.region && (
 						<Chip
 							label={`${keywordChips.region.label} · ${countryLabel(keywordChips.region.country)}`}
 							on={false}
 							add="region"
-							onClick={addTyped}
-						/>
-					)}
-					{keywordChips.exact && (
-						<Chip
-							label={titleCase(typed)}
-							on={false}
-							add
-							disabled={keywordsFull}
 							onClick={addTyped}
 						/>
 					)}
