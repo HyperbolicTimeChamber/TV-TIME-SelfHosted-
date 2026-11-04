@@ -1,7 +1,7 @@
-import { TITLE_KEYWORD_MAX, TITLE_STUDIO_MAX } from "./enums";
+import { TITLE_COMPANY_MAX, TITLE_KEYWORD_MAX, TITLE_NETWORK_MAX } from "./enums";
 import { TMDBKeyword } from "./types";
 
-/** A title's genres + keywords + origin countries (catalog doc / tracking doc) */
+/** A title's genres + keywords + origin countries + studios (catalog doc / tracking doc) */
 export interface TitleFacets {
   genres: string[];
   keywords: string[];
@@ -49,22 +49,30 @@ export function countryCodes(list: string[] | undefined): string[] {
 }
 
 /**
- * A title's studios: its TV networks first (what people mean by "an HBO show"), then its
- * production companies — unique names, at most TITLE_STUDIO_MAX
+ * A title's studios: its TV networks first (what people mean by "an HBO show"), then its lead
+ * production companies — each capped on its own (TITLE_NETWORK_MAX / TITLE_COMPANY_MAX), so
+ * networks never crowd the companies out. Kept by name, not TMDB id: a network and a company
+ * of the same name ("Netflix", "HBO") are one filter choice, and a rename reaches every title
+ * the next time its catalog doc refreshes (weekly sync / refreshShow / backfill --refetch).
  */
 export function studioNames(
   networks: Array<{ name?: string }> | undefined,
   companies: Array<{ name?: string }> | undefined,
 ): string[] {
-  const names = [...(networks ?? []), ...(companies ?? [])]
-    .map((s) => (s.name ?? "").trim())
-    .filter(Boolean);
-  return [...new Set(names)].slice(0, TITLE_STUDIO_MAX);
+  const clean = (list: Array<{ name?: string }> | undefined) => [
+    ...new Set((list ?? []).map((s) => (s.name ?? "").trim()).filter(Boolean)),
+  ];
+  const nets = clean(networks).slice(0, TITLE_NETWORK_MAX);
+  const comps = clean(companies)
+    .filter((n) => !nets.includes(n))
+    .slice(0, TITLE_COMPANY_MAX);
+  return [...nets, ...comps];
 }
 
 /**
- * Genres + keywords + countries + studios copied from a catalog doc onto a tracking doc, so Watch History can filter
- * with array-contains-any in the Firestore query (tracking docs are what it pages through).
+ * Genres + keywords + countries + studios copied from a catalog doc onto a tracking doc, so Watch
+ * History can filter with array-contains-any in the Firestore query (tracking docs are what it
+ * pages through).
  * Deduped: TMDB lists each once, but a doc written by hand / an old build might not.
  */
 export function titleFacets(catalog: FacetSource | null | undefined): TitleFacets {

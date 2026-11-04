@@ -5,36 +5,49 @@ import { pooled } from "../tmdb";
 import { fetchFacetFields, writeUserFacets } from "../titleFacets";
 import { BackfillOptions } from "./runBackfill";
 
+export interface BackfillFacetsOptions extends BackfillOptions {
+  /** Refetch every catalog doc's keywords / countries / studios, not only the missing ones —
+   *  after their rules change (e.g. the studio caps), or to pick up renames on ended shows the
+   *  weekly sync no longer refreshes. One TMDB request per catalog doc; only changes are written */
+  refetch?: boolean;
+}
+
 /**
- * Watch History genre / keyword filters:
- * 1. `keywords` + `countries` on every catalog doc missing either (one TMDB request each)
- * 2. `genres` + `keywords` + `countries` copied from the catalog onto every tracking doc that differs —
- *    stamped `updatedAt` (stampTracking) like every server tracking write, so the clients'
- *    tracking delta sync takes the new version; unchanged docs aren't written (no re-read)
- * 3. Each user's facets docs (tv / movie: every genre + keyword + country, counted) rebuilt
+ * Watch History genre / keyword / country / studio filters:
+ * 1. `keywords` + `countries` + `studios` on every catalog doc missing any of them (`refetch`:
+ *    every catalog doc) — one TMDB request each
+ * 2. All four copied from the catalog onto every tracking doc that differs — stamped `updatedAt`
+ *    (stampTracking) like every server tracking write, so the clients' tracking delta sync takes
+ *    the new version; unchanged docs aren't written (no re-read)
+ * 3. Each user's facets docs (tv / movie: every value of the four, counted) rebuilt
  * Reads: every catalog doc + every tracking doc. Safe to rerun — unchanged docs aren't written.
  */
 export async function backfillFacets(
   db: FirebaseFirestore.Firestore,
   apiKey: string,
-  { dryRun, userConcurrency = 5, tmdbConcurrency = 20 }: BackfillOptions,
+  { dryRun, refetch = false, userConcurrency = 5, tmdbConcurrency = 20 }: BackfillFacetsOptions,
 ) {
   const shows = await db.collection("shows").get();
   const catalogs = new Map(shows.docs.map((d) => [d.id, d.data()]));
-  const missing = shows.docs.filter((d) =>
-    ["keywords", "countries", "studios"].some((field) => !(field in d.data())),
-  );
+  const toFetch = refetch
+    ? shows.docs
+    : shows.docs.filter((d) =>
+        ["keywords", "countries", "studios"].some((field) => !(field in d.data())),
+      );
   const writer = db.bulkWriter();
-  let keyworded = 0;
+  let changed = 0;
   let failed = 0;
 
   await pooled(
-    missing.map((d) => async () => {
+    toFetch.map((d) => async () => {
       const { tmdbId, mediaType } = d.data() as { tmdbId: number; mediaType: MediaType };
       try {
         const fields = await fetchFacetFields(apiKey, tmdbId, mediaType);
-        catalogs.set(d.id, { ...d.data(), ...fields });
-        keyworded++;
+        const merged = { ...d.data(), ...fields };
+        const missingField = ["keywords", "countries", "studios"].some((f) => !(f in d.data()));
+        if (!missingField && sameFacets(titleFacets(d.data()), titleFacets(merged))) return;
+        catalogs.set(d.id, merged);
+        changed++;
         if (!dryRun) writer.update(d.ref, fields);
       } catch {
         // Left without the field → the next run (or the title's next add) retries
@@ -72,8 +85,8 @@ export async function backfillFacets(
   await writer.close();
   return {
     shows: shows.size,
-    keywordsChecked: missing.length,
-    keyworded,
+    fetched: toFetch.length,
+    changed,
     failed,
     users: users.length,
     trackingWritten,

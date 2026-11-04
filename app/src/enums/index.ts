@@ -227,7 +227,8 @@ export enum SortDirection {
 }
 
 /** Watch History status filters (TV) — OR together, applied in the Firestore query */
-/** Watch History: genres / keywords pickable at once (each runs as one Firestore array-contains-any) */
+/** Watch History: values pickable at once per facet (genres / keywords / countries / studios — the
+ *  query's array-contains-any facet takes them all, and Firestore caps that list) */
 export const HISTORY_FACET_MAX = 10;
 /** Keyword chips the filter sheet lists before anything is typed (most common first) */
 export const HISTORY_KEYWORD_SUGGESTIONS = 12;

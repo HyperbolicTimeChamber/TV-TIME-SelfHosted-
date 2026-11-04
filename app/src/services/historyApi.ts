@@ -23,8 +23,9 @@ const IN_LIMIT = 30;
 
 const ms = (t: unknown) => (t as Timestamp | undefined)?.toMillis?.() ?? 0;
 
-/** `withFacets`: keep genres / keywords — a filtered view's page (checked on the phone, kept
- *  in memory). The cached default list leaves them out: it's one saved value per tab */
+/** `withFacets`: keep the facets (genres / keywords / countries / studios) — a filtered view's
+ *  page (checked on the phone, kept in memory). The cached default list leaves them out: it's one
+ *  saved value per tab */
 export function toEntry(id: string, d: Record<string, any>, withFacets = false): HistoryEntry {
 	return {
 		id,
@@ -77,7 +78,8 @@ export async function fetchHistoryPage(
 
 /**
  * One page of a sorted / filtered view (Firestore does the work, so it stays paginated):
- * newest watch or most time spent first, optionally only some statuses / genres / keywords.
+ * newest watch or most time spent first, optionally only some statuses / genres / keywords /
+ * countries / studios.
  * Firestore takes one array-contains-any per query: the most selective picked facet runs there
  * (studios, then countries, then genres, then keywords); the rest (statuses with it, the other facets) are
  * checked here — so a page can come back short. `cursor` is the page's last doc either way, for the next page.

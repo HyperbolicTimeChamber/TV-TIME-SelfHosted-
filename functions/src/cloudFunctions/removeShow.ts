@@ -41,7 +41,7 @@ export const removeShow = trackedOnCall(
       await batch.commit();
     }
 
-    // Its genres / keywords out of the user's filter choices — read from the catalog before
+    // Its facets (genres / keywords / countries / studios) out of the user's filter choices — read from the catalog before
     // the doc can go below (the tracking doc that carried them is already deleted)
     const catalog = (await db.doc(`shows/${showId}`).get()).data();
     const facetDelta = await uncountTitleFacets(db, uid, mediaType, catalog);

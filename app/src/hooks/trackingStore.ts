@@ -143,11 +143,17 @@ async function restore(uid: string): Promise<{ sync: SavedSync; docs: TrackingDo
 	}
 }
 
-/** A tracking doc as the store keeps (and saves) it — without genres / keywords: only Watch
- *  History's filters read those (in its own query), and ~40 keywords a title would bloat the
- *  saved pages */
+/** A tracking doc as the store keeps (and saves) it — without its facets (genres / keywords /
+ *  countries / studios): only Watch History's filters read those (in its own query), and ~40
+ *  keywords a title would bloat the saved pages */
 const toDoc = (d: { id: string; data: () => unknown }) => {
-	const { genres: _genres, keywords: _keywords, ...data } = d.data() as Record<string, unknown>;
+	const {
+		genres: _genres,
+		keywords: _keywords,
+		countries: _countries,
+		studios: _studios,
+		...data
+	} = d.data() as Record<string, unknown>;
 	return { id: d.id, ...data } as TrackingDoc;
 };
 

@@ -201,7 +201,7 @@ export async function removeFromTracking(
 	emitHistoryChange({ userId, tmdbId, mediaType, cleared: true });
 
 	// Background: update trackedBy on catalog doc (CF handles cleanup); its facetDelta takes the
-	// title's genres / keywords out of the kept filter choices
+	// title's facets (genres / keywords / countries / studios) out of the kept filter choices
 	const removeShow = callCF(CloudFunction.REMOVE_SHOW, { tmdbId, mediaType }).then((res) =>
 		takeFacetDelta(userId, mediaType, res),
 	);

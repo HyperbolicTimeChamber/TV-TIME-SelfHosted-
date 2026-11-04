@@ -44,7 +44,7 @@ interface Props {
 	onToggleFilter: (filter: HistoryFilter) => void;
 	onClearFilters: () => void;
 	facets: HistoryFacets;
-	/** Every genre / keyword / country across the tab's tracked titles (the user's facets doc) */
+	/** Every genre / keyword / country / studio across the tab's tracked titles (the user's facets doc) */
 	facetOptions: { genres: string[]; keywords: string[]; countries: string[]; studios: string[] };
 	onToggleGenre: (genre: string) => void;
 	onToggleKeyword: (keyword: string) => void;
