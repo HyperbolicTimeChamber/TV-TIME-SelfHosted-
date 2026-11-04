@@ -1041,10 +1041,11 @@ export function useSeasonActions({
 
 	/**
 	 * Mark fromEp–toEp; only episodes below `level` (1 = unwatched, >1 = not yet rewatched).
+	 * `packed` (Speedster backfill): a second apart ending now instead of a runtime apart.
 	 * Resolves with the episodes marked (empty on failure).
 	 */
 	const doMarkEpisodeRange = useCallback(
-		async (fromEp: number, toEp: number, level = 1): Promise<EpisodeRef[]> => {
+		async (fromEp: number, toEp: number, level = 1, packed = false): Promise<EpisodeRef[]> => {
 			if (!user?.uid) return [];
 			const eps = episodes;
 			const epsToMark = eps.filter(
@@ -1080,6 +1081,7 @@ export function useSeasonActions({
 						status: tw.status,
 						incrementRewatch: tw.incrementRewatch,
 						rewatchCount: tw.rewatchCount,
+						packed,
 					},
 				);
 
@@ -1090,6 +1092,7 @@ export function useSeasonActions({
 				const finished = staggerFinishTimes(
 					ordered.map((ep: TMDBEpisode) => ep.runtime || 0),
 					Date.now(),
+					packed,
 				);
 				ordered.forEach((ep: TMDBEpisode, k: number) => {
 					const at = Timestamp.fromMillis(finished[k]);
@@ -1130,12 +1133,13 @@ export function useSeasonActions({
 		[guardTracking, doMarkEpisodeRange],
 	);
 
-	/** Carousel backfill: pointer (or E1 of this season) through `episode`, up to the level */
+	/** Carousel (Speedster) backfill: pointer (or E1 of this season) through `episode`, up to the
+	 *  level — packed, so the catch-up reads as just watched */
 	const handleCarouselMarkThrough = useCallback(
 		async (_tmdbId: number, _season: number, episode: number): Promise<EpisodeRef[]> => {
 			const ne = trackingItem?.nextEpisode;
 			const from = ne && ne.season === season.season_number ? ne.episode : 1;
-			return doMarkEpisodeRange(from, episode, currentRewatchLevel ?? 1);
+			return doMarkEpisodeRange(from, episode, currentRewatchLevel ?? 1, true);
 		},
 		[trackingItem, season.season_number, currentRewatchLevel, doMarkEpisodeRange],
 	);

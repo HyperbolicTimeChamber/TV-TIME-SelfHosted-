@@ -186,6 +186,8 @@ export interface MarkSeasonRequest {
    *  catch-up spans several calls (seasons / chunks), so they lay end to end, not on top of
    *  each other. 0 / missing = now */
   endOffsetMs?: number;
+  /** Episodes PACKED_MARK_GAP_MS apart instead of a runtime apart (Speedster backfill) */
+  packed?: boolean;
 }
 
 // refreshShow types

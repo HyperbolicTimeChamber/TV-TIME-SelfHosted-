@@ -984,11 +984,13 @@ export function useWatchlistData(userId: string | undefined) {
 				bySeason.set(ep.season, list);
 			}
 
-			// Mark each season batch — only last batch updates tracking doc. One catch-up, so the
-			// seasons lay end to end (oldest first) rather than each ending now
+			// Mark each season batch — only last batch updates tracking doc. The Speedster backfill
+			// is packed: a second apart, ending now (oldest first), so the whole catch-up reads as
+			// just watched — runtime gaps put E1… hours back, behind other recent marks
 			const seasonEntries = [...bySeason.entries()].sort(([a], [b]) => a - b);
 			const endOffsets = batchEndOffsets(
 				seasonEntries.map(([, eps]) => eps.map((e) => e.runtime || 0)),
+				true,
 			);
 			promote(tmdbId);
 			for (let i = 0; i < seasonEntries.length; i++) {
@@ -1003,7 +1005,7 @@ export function useWatchlistData(userId: string | undefined) {
 					isLast ? isComplete : false,
 					isLast ? (nextAfterTarget?.title ?? null) : null,
 					isLast ? (nextAfterTarget?.airDate ?? null) : null,
-					{ endOffsetMs: endOffsets[i] },
+					{ endOffsetMs: endOffsets[i], packed: true },
 				).catch((err) => {
 					unpromote(tmdbId);
 					throw err;
@@ -1018,6 +1020,7 @@ export function useWatchlistData(userId: string | undefined) {
 				const finished = staggerFinishTimes(
 					ordered.map((e) => e.runtime || 0),
 					nowMs - endOffsets[i],
+					true,
 				);
 				ordered.forEach((ep, k) => {
 					const at = Timestamp.fromMillis(finished[k]);
