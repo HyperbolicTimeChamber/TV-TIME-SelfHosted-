@@ -107,8 +107,6 @@ export const styles = StyleSheet.create({
 		backgroundColor: colors.surfaceLight,
 	},
 	keywordFieldFocused: { borderColor: colors.textMuted },
-	/** The first section label sits right under FILTERS — no second gap */
-	facetTitleFirst: { marginTop: 0 },
 	keywordInput: { flex: 1, color: colors.text, fontSize: 15, padding: 0 },
 	filterChipTextOn: { color: colors.text },
 
