@@ -127,17 +127,6 @@ function cachedStill(
 /** Cards inside a sheet with art default to translucent, so every such sheet matches */
 const SheetArtContext = createContext(false);
 
-/**
- * A scroll view inside the sheet (SortSheet's, when its content outgrows the screen) reports here:
- * whether it can scroll at all, and how far it is scrolled. The sheet's own drag stays out of a
- * scrolling list's way — scrolling back up was read as a pull-down and closed the sheet.
- */
-export interface SheetScroll {
-	scrollable: { current: boolean };
-	offset: { current: number };
-}
-export const SheetScrollContext = createContext<SheetScroll | null>(null);
-
 /** Top of the art stays visible; it darkens downward so the cards and text read on it */
 const ART_FADE = ["rgba(26, 26, 26, 0.35)", "rgba(26, 26, 26, 0.85)", colors.surface] as const;
 /** A poster standing in for a missing backdrop: blurred to a wash of its colours */
@@ -197,9 +186,6 @@ export default function BottomSheet({ visible, onClose, children, background, ar
 	const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 	const [sheetH, setSheetH] = useState<number | null>(null);
 	const liveH = useRef<number | null>(null);
-	// Filled in by a scroll view inside (SheetScrollContext); read by the pan responder
-	const scroll = useRef<SheetScroll>({ scrollable: { current: false }, offset: { current: 0 } })
-		.current;
 	const hiddenY = sheetH ?? SCREEN_HEIGHT;
 	// Backdrop follows the sheet (drag included) instead of popping in and out
 	const backdropOpacity = useMemo(
@@ -218,16 +204,13 @@ export default function BottomSheet({ visible, onClose, children, background, ar
 		if (!visible) {
 			entered.current = false;
 			translateY.setValue(SCREEN_HEIGHT);
-			// Reopened content starts at its top, measured afresh
-			scroll.offset.current = 0;
-			scroll.scrollable.current = false;
 			return;
 		}
 		if (entered.current || sheetH == null) return;
 		entered.current = true;
 		translateY.setValue(liveH.current ?? sheetH);
 		Animated.spring(translateY, SHEET_SPRING).start();
-	}, [visible, sheetH, translateY, scroll]);
+	}, [visible, sheetH, translateY]);
 
 	const close = useCallback<CloseSheet>(
 		(after) => {
@@ -251,19 +234,12 @@ export default function BottomSheet({ visible, onClose, children, background, ar
 			// chips (they keep their taps). Unclaimed, a drag from there never reached the sheet —
 			// on Android the Modal sent its moves nowhere, so only drags that began on a pressable
 			// moved the drawer. A plain tap just springs back to where it was
-			// …unless the content scrolls: then the list owns the touch, and only a pull down from
-			// its very top (nothing left to scroll back) drags the sheet
-			onStartShouldSetPanResponder: () => !scroll.scrollable.current,
-			onMoveShouldSetPanResponder: (_, gs) =>
-				gs.dy > 8 &&
-				Math.abs(gs.dy) > Math.abs(gs.dx) &&
-				(!scroll.scrollable.current || scroll.offset.current <= 0),
+			onStartShouldSetPanResponder: () => true,
+			onMoveShouldSetPanResponder: (_, gs) => gs.dy > 8 && Math.abs(gs.dy) > Math.abs(gs.dx),
 			onPanResponderMove: (_, gs) => {
 				// Upward drag gets resistance instead of a hard stop
 				translateY.setValue(gs.dy > 0 ? gs.dy : -Math.sqrt(-gs.dy) * 2);
 			},
-			// A scroll view inside took the touch over (content taller than the sheet): settle back
-			onPanResponderTerminate: () => Animated.spring(translateY, SHEET_SPRING).start(),
 			onPanResponderRelease: (_, gs) => {
 				// A touch the sheet took (outside any field / row) leaves a focused field, like a
 				// tap outside an input anywhere else
@@ -312,9 +288,7 @@ export default function BottomSheet({ visible, onClose, children, background, ar
 					    place shows more sheet, not the page under it */}
 					<View style={styles.overpull} pointerEvents="none" />
 					<View style={styles.handle} />
-					<SheetScrollContext.Provider value={scroll}>
-						<SheetArtContext.Provider value={!!behind}>{children(close)}</SheetArtContext.Provider>
-					</SheetScrollContext.Provider>
+					<SheetArtContext.Provider value={!!behind}>{children(close)}</SheetArtContext.Provider>
 				</Animated.View>
 			</View>
 		</Modal>

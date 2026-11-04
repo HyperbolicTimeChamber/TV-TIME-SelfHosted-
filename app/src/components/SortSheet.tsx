@@ -1,7 +1,15 @@
-import { useContext, useRef, type ReactNode } from "react";
-import { Dimensions, Pressable, ScrollView, StyleSheet, Text } from "react-native";
+import { useCallback, useRef, type ReactNode } from "react";
+import { Modal, Pressable, StyleSheet, Text, useWindowDimensions } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import GorhomSheet, {
+	BottomSheetBackdrop,
+	BottomSheetScrollView,
+	useBottomSheetSpringConfigs,
+	type BottomSheetBackdropProps,
+} from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
-import BottomSheet, { SheetGroup, SheetScrollContext, sheetStyles } from "./modals/BottomSheet";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SheetGroup, sheetStyles } from "./modals/BottomSheet";
 import SegmentedControl from "./SegmentedControl";
 import { colors, spacing } from "../theme";
 
@@ -29,7 +37,15 @@ interface Props<T> {
 
 const strictEqual = <T,>(a: T, b: T) => a === b;
 
-/** Bottom sheet: "Sort by" rows in one card (checkmark on the active one) + optional extra sections */
+/** Same feel as the app's other sheets (BottomSheet SHEET_SPRING): critically damped, no overshoot */
+const SHEET_SPRING = { damping: 30, stiffness: 220, overshootClamping: true } as const;
+
+/**
+ * Bottom sheet: "Sort by" rows in one card (checkmark on the active one) + optional extra sections.
+ * Built like Add to List: it grows with its content up to just under the status bar, then the
+ * content scrolls; a pull down with the list at its top drags the sheet (closing it), scrolling
+ * the list back up never does.
+ */
 export default function SortSheet<T>({
 	visible,
 	onClose,
@@ -41,90 +57,118 @@ export default function SortSheet<T>({
 	children,
 	segmented = false,
 }: Props<T>) {
-	return (
-		<BottomSheet visible={visible} onClose={onClose}>
-			{(close) => (
-				// Content past most of the screen scrolls instead of pushing the top off-screen
-				// (Watch History's filters with every studio shown)
-				<SheetScroller>
-					<Text style={sortSheetStyles.title}>SORT BY</Text>
-					{segmented ? (
-						<SegmentedControl
-							options={options}
-							selected={selected}
-							isSame={isSame}
-							onSelect={(value) => (closeOnSelect ? close(() => onSelect(value)) : onSelect(value))}
-						/>
-					) : (
-						<SheetGroup textOnly>
-							{options.map((option) => {
-								const active = isSame(option.value, selected);
-								return (
-									<Pressable
-										key={option.label}
-										style={({ pressed }) => [
-											sheetStyles.row,
-											sortSheetStyles.row,
-											active && sortSheetStyles.rowSelected,
-											pressed && !active && sortSheetStyles.rowPressed,
-										]}
-										onPress={() =>
-											closeOnSelect ? close(() => onSelect(option.value)) : onSelect(option.value)
-										}
-										accessibilityRole="button"
-										accessibilityState={{ selected: active }}
-									>
-										<Text style={[sortSheetStyles.rowText, active && sortSheetStyles.rowActive]}>
-											{option.label}
-										</Text>
-										{active && <Ionicons name="checkmark" size={20} color={colors.text} />}
-									</Pressable>
-								);
-							})}
-						</SheetGroup>
-					)}
-					{children}
-				</SheetScroller>
-			)}
-		</BottomSheet>
+	const insets = useSafeAreaInsets();
+	const { height: screenHeight } = useWindowDimensions();
+	const sheetRef = useRef<GorhomSheet>(null);
+	// A pick made with closeOnSelect: applied once the sheet has slid out
+	const afterClose = useRef<(() => void) | null>(null);
+	const animationConfigs = useBottomSheetSpringConfigs(SHEET_SPRING);
+	const renderBackdrop = useCallback(
+		(props: BottomSheetBackdropProps) => (
+			<BottomSheetBackdrop
+				{...props}
+				appearsOnIndex={0}
+				disappearsOnIndex={-1}
+				opacity={0.6}
+				pressBehavior="close"
+			/>
+		),
+		[],
 	);
-}
-
-/** The sheet's content, scrolling past SCROLL_MAX_HEIGHT; tells the sheet whether it scrolls and
- *  where it is (SheetScrollContext) so pulling the list back up never closes the sheet */
-function SheetScroller({ children }: { children: ReactNode }) {
-	const scroll = useContext(SheetScrollContext);
-	const size = useRef({ box: 0, content: 0 });
-	const measure = () => {
-		if (scroll) scroll.scrollable.current = size.current.content > size.current.box + 1;
+	const pick = (value: T) => {
+		if (!closeOnSelect) return onSelect(value);
+		afterClose.current = () => onSelect(value);
+		sheetRef.current?.close();
 	};
 	return (
-		<ScrollView
-			style={sortSheetStyles.scroll}
-			bounces={false}
-			overScrollMode="never"
-			showsVerticalScrollIndicator={false}
-			keyboardShouldPersistTaps="handled"
-			scrollEventThrottle={16}
-			onScroll={(e) => {
-				if (scroll) scroll.offset.current = e.nativeEvent.contentOffset.y;
-			}}
-			onLayout={(e) => {
-				size.current.box = e.nativeEvent.layout.height;
-				measure();
-			}}
-			onContentSizeChange={(_, h) => {
-				size.current.content = h;
-				measure();
-			}}
+		<Modal
+			visible={visible}
+			transparent
+			animationType="none"
+			statusBarTranslucent
+			navigationBarTranslucent
+			onRequestClose={() => sheetRef.current?.close()}
 		>
-			{children}
-		</ScrollView>
+			<GestureHandlerRootView style={sortSheetStyles.root}>
+				{visible && (
+					<GorhomSheet
+						ref={sheetRef}
+						enableDynamicSizing
+						maxDynamicContentSize={screenHeight - insets.top}
+						topInset={insets.top}
+						enablePanDownToClose
+						animationConfigs={animationConfigs}
+						backdropComponent={renderBackdrop}
+						backgroundStyle={sortSheetStyles.sheet}
+						handleStyle={sortSheetStyles.handleArea}
+						handleIndicatorStyle={sortSheetStyles.handle}
+						onClose={() => {
+							const then = afterClose.current;
+							afterClose.current = null;
+							onClose();
+							then?.();
+						}}
+					>
+						<BottomSheetScrollView
+							contentContainerStyle={[
+								sortSheetStyles.content,
+								// Clear of the system nav bar + a gap
+								{ paddingBottom: insets.bottom + spacing.lg },
+							]}
+							showsVerticalScrollIndicator={false}
+							keyboardShouldPersistTaps="handled"
+						>
+							<Text style={sortSheetStyles.title}>SORT BY</Text>
+							{segmented ? (
+								<SegmentedControl
+									options={options}
+									selected={selected}
+									isSame={isSame}
+									onSelect={pick}
+								/>
+							) : (
+								<SheetGroup textOnly>
+									{options.map((option) => {
+										const active = isSame(option.value, selected);
+										return (
+											<Pressable
+												key={option.label}
+												style={({ pressed }) => [
+													sheetStyles.row,
+													sortSheetStyles.row,
+													active && sortSheetStyles.rowSelected,
+													pressed && !active && sortSheetStyles.rowPressed,
+												]}
+												onPress={() => pick(option.value)}
+												accessibilityRole="button"
+												accessibilityState={{ selected: active }}
+											>
+												<Text
+													style={[sortSheetStyles.rowText, active && sortSheetStyles.rowActive]}
+												>
+													{option.label}
+												</Text>
+												{active && <Ionicons name="checkmark" size={20} color={colors.text} />}
+											</Pressable>
+										);
+									})}
+								</SheetGroup>
+							)}
+							{children}
+						</BottomSheetScrollView>
+					</GorhomSheet>
+				)}
+			</GestureHandlerRootView>
+		</Modal>
 	);
 }
 
 export const sortSheetStyles = StyleSheet.create({
-	scroll: { maxHeight: Dimensions.get("window").height * 0.8, flexGrow: 0 },
+	root: { flex: 1 },
+	sheet: { backgroundColor: colors.surface, borderRadius: 20 },
+	handleArea: { paddingVertical: 10 },
+	handle: { width: 36, height: 4, backgroundColor: colors.textMuted },
+	content: { paddingHorizontal: spacing.lg },
 	/** Section label over a card ("SORT BY", "FILTER") */
 	title: {
 		fontSize: 12,
