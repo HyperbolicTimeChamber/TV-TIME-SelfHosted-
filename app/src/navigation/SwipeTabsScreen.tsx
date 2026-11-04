@@ -25,6 +25,8 @@ const DETAIL_ROUTES = new Set([
 	Route.SEARCH_RESULTS,
 	Route.SETTINGS,
 	Route.WATCH_HISTORY,
+	Route.LISTS,
+	Route.LIST_DETAIL,
 	Route.IMPORT_DATA,
 ]);
 

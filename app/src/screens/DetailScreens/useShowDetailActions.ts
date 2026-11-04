@@ -32,6 +32,7 @@ import { shouldShowUnreleasedModal } from "../../services/unreleasedModalPref";
 import {
 	emitShowAdded,
 	emitShowRemoved,
+	emitShowPaused,
 	emitShowCompleted,
 	showDocId,
 	todayStr,
@@ -393,7 +394,8 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 			await stopWatching(user.uid, tmdbId, status, mediaType);
 			removeShowFromUpcoming(tmdbId);
 			removeShowFromCalendarGlobal(tmdbId);
-			emitShowRemoved(tmdbId);
+			// Off the watchlist but still tracked — not emitShowRemoved (that untracks it everywhere)
+			emitShowPaused(tmdbId);
 			setPauseModalVisible(false);
 		} catch (err: any) {
 			Alert.alert("Error", err.message || "Failed to pause.");

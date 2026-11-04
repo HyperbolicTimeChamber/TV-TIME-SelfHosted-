@@ -90,8 +90,9 @@ export enum CacheKey {
 	/** + uid + "_" + listId — one saved custom list */
 	CUSTOM_LIST_CACHE = "custom_list_cache_v1:",
 	/** + uid + "_" + tracking doc id — a list title's last seen tracking state (list card tags);
-	 *  "null" = not tracked. One small value per title */
-	LIST_TRACKING = "list_tracking_v1:",
+	 *  "null" = not tracked. One small value per title. v2: a detail-page Pause used to store "null"
+	 *  here (it fired the removal event), hiding paused titles as untracked */
+	LIST_TRACKING = "list_tracking_v2:",
 	/** A list page's Grid / List choice (kept across lists and visits) */
 	CUSTOM_LIST_VIEW = "custom_list_view_v1",
 	/** Hall of Shame: Grid / List */

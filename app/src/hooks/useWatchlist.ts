@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
 	onShowRemoved,
+	onShowPaused,
 	onShowAdded,
 	showDocId,
 	isGenericEpisodeTitle,
@@ -657,6 +658,8 @@ export function useWatchlist(userId: string | undefined) {
 
 	// Listen for external removal events (e.g. from ShowDetailScreen)
 	useEffect(() => onShowRemoved(removeItem), [removeItem]);
+	// Paused elsewhere (ShowDetailScreen): off the watchlist, still tracked
+	useEffect(() => onShowPaused(removeItem), [removeItem]);
 	// Listen for external add events (e.g. from SearchScreen)
 	useEffect(() => onShowAdded(insertItem), [insertItem]);
 	// Background catalog fill landed → cards still on no / stand-in catalog follow it
