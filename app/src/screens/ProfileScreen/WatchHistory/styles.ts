@@ -60,10 +60,6 @@ export const styles = StyleSheet.create({
 	},
 	sheetClearText: { color: colors.primary, fontWeight: "700", fontSize: 13 },
 	chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, paddingBottom: spacing.xs },
-	// Keyword suggestions: one sideways-scrolling line, bleeding to the sheet's edges so chips
-	// slide out of view instead of being cut at the padding
-	chipRow: { marginHorizontal: -spacing.lg, flexGrow: 0 },
-	chipRowContent: { gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.xs },
 	// Same height on or off: the check takes room from the padding, not the row
 	filterChip: {
 		flexDirection: "row",

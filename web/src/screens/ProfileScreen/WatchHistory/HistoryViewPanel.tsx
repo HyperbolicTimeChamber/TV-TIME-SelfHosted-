@@ -7,6 +7,7 @@ import {
 	HistorySort,
 } from "@app/enums";
 import type { HistoryFacets } from "@app/types";
+import { titleCase } from "@app/utils/format";
 import {
 	HISTORY_FILTERS,
 	HISTORY_FILTER_LABEL,
@@ -177,19 +178,23 @@ export default function HistoryViewPanel({
 				)}
 			</label>
 			{(keywordChips.picked.length > 0 || keywordChips.rest.length > 0 || keywordChips.exact) && (
-				// One sideways-scrolling line: the list changes with every keystroke, the panel's
-				// height doesn't
-				<div className={styles.chipRow}>
+				<div className={styles.viewChips}>
 					{keywordChips.exact && (
-						<Chip label={typed} on={false} add disabled={keywordsFull} onClick={addTyped} />
+						<Chip
+							label={titleCase(typed)}
+							on={false}
+							add
+							disabled={keywordsFull}
+							onClick={addTyped}
+						/>
 					)}
 					{keywordChips.picked.map((k) => (
-						<Chip key={k} label={k} on onClick={() => onToggleKeyword(k)} />
+						<Chip key={k} label={titleCase(k)} on onClick={() => onToggleKeyword(k)} />
 					))}
 					{keywordChips.rest.map((k) => (
 						<Chip
 							key={k}
-							label={k}
+							label={titleCase(k)}
 							on={false}
 							disabled={keywordsFull}
 							onClick={() => onToggleKeyword(k)}

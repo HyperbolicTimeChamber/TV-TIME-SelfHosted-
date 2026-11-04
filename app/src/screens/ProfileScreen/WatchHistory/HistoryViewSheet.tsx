@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Keyboard, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Keyboard, Platform, Pressable, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Animated, {
@@ -24,6 +24,7 @@ import {
 	HISTORY_SORTS,
 } from "../../../utils/historyView";
 import { colors } from "../../../theme";
+import { titleCase } from "../../../utils/format";
 import { styles } from "./styles";
 
 const SORT_OPTIONS: SortOption<HistorySort>[] = HISTORY_SORTS.map((value) => ({
@@ -119,22 +120,6 @@ function Chip({
 /** A section's chips, wrapping onto as many lines as they need */
 function ChipLine({ children }: { children: ReactNode }) {
 	return <View style={styles.chipWrap}>{children}</View>;
-}
-
-/** A section's chips on one line that scrolls sideways — a list that changes with every
- *  keystroke (keyword suggestions) keeps the sheet's height still */
-function ChipRow({ children }: { children: ReactNode }) {
-	return (
-		<ScrollView
-			horizontal
-			showsHorizontalScrollIndicator={false}
-			keyboardShouldPersistTaps="handled"
-			style={styles.chipRow}
-			contentContainerStyle={styles.chipRowContent}
-		>
-			{children}
-		</ScrollView>
-	);
 }
 
 /**
@@ -269,10 +254,10 @@ export default function HistoryViewSheet({
 				)}
 			</View>
 			{(keywordChips.picked.length > 0 || keywordChips.rest.length > 0 || keywordChips.exact) && (
-				<ChipRow>
+				<ChipLine>
 					{keywordChips.exact && (
 						<Chip
-							label={typed}
+							label={titleCase(typed)}
 							on={false}
 							icon="add"
 							disabled={keywordsFull}
@@ -283,18 +268,18 @@ export default function HistoryViewSheet({
 						/>
 					)}
 					{keywordChips.picked.map((k) => (
-						<Chip key={k} label={k} on onPress={() => onToggleKeyword(k)} />
+						<Chip key={k} label={titleCase(k)} on onPress={() => onToggleKeyword(k)} />
 					))}
 					{keywordChips.rest.map((k) => (
 						<Chip
 							key={k}
-							label={k}
+							label={titleCase(k)}
 							on={false}
 							disabled={keywordsFull}
 							onPress={() => onToggleKeyword(k)}
 						/>
 					))}
-				</ChipRow>
+				</ChipLine>
 			)}
 			{/* Keyboard up: the sheet grows by its height, the field stays above it */}
 			<View style={{ height: keyboard }} />

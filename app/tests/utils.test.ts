@@ -384,3 +384,12 @@ test("groupCalendarDay: one card per show, episodes sorted; movies stay single",
 	assert.equal(seasonRangeLabel(groups[0].episodes), "Season 01");
 	assert.equal(seasonRangeLabel([ep(1, 1, 10), ep(1, 2, 2)]), "Season 01–02");
 });
+
+test("titleCase: capitalised words, short joining words kept lower-case unless first", async () => {
+	const { titleCase } = await import("../src/utils/format");
+	assert.equal(titleCase("based on novel or book"), "Based on Novel or Book");
+	assert.equal(titleCase("the office"), "The Office");
+	assert.equal(titleCase("mentor protégé relationship"), "Mentor Protégé Relationship");
+	assert.equal(titleCase("1990s"), "1990s");
+	assert.equal(titleCase("time travel"), "Time Travel");
+});

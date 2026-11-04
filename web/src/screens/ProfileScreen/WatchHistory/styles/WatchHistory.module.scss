@@ -469,24 +469,6 @@
 	}
 }
 
-/* Keyword suggestions: one sideways-scrolling line, edges fading instead of a hard cut */
-.chipRow {
-	display: flex;
-	gap: 8px;
-	padding-bottom: 4px;
-	overflow-x: auto;
-	scrollbar-width: none;
-	mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
-
-	&::-webkit-scrollbar {
-		display: none;
-	}
-
-	> * {
-		flex-shrink: 0;
-	}
-}
-
 .keywordField {
 	display: flex;
 	align-items: center;
