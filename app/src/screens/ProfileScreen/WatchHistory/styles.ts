@@ -81,6 +81,7 @@ export const styles = StyleSheet.create({
 	chipPressed: { transform: [{ scale: 0.97 }], opacity: 0.85 },
 	filterChipDisabled: { opacity: 0.4 },
 	filterChipText: { color: colors.textSecondary, fontWeight: "600", fontSize: 14 },
+	filterChipFlag: { fontSize: 14 },
 	// Status / Genre / Keyword: the sheet's section label voice (SORT BY, FILTERS), one step
 	// quieter — one label style for the whole sheet
 	facetTitle: {
@@ -103,8 +104,9 @@ export const styles = StyleSheet.create({
 		// fill) so focusing never shifts the text
 		borderRadius: 999,
 		borderWidth: 1,
-		borderColor: colors.surfaceLight,
-		backgroundColor: colors.surfaceLight,
+		// A step lighter than the chips under it: reads as the field, not one more pill
+		borderColor: colors.border,
+		backgroundColor: colors.border,
 	},
 	keywordFieldFocused: { borderColor: colors.textMuted },
 	keywordInput: { flex: 1, color: colors.text, fontSize: 15, padding: 0 },

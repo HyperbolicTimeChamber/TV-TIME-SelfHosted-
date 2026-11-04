@@ -13,9 +13,9 @@ import {
 	Timestamp,
 } from "@react-native-firebase/firestore";
 import type { CatalogShow, HistoryEntry, HistoryFacets } from "../types";
-import { HistorySort, MediaType, UserCollection, WatchStatus } from "../enums";
+import { FACET_INDEX_SUFFIX, HistorySort, MediaType, UserCollection, WatchStatus } from "../enums";
 import { localizeCatalog } from "../utils/airTime";
-import { matchesHistoryView, type UserFacetsDoc } from "../utils/historyView";
+import { matchesHistoryView, type FacetIndex, type UserFacetsDoc } from "../utils/historyView";
 
 export const HISTORY_PAGE_SIZE = 20;
 /** Firestore `in` filter limit */
@@ -172,4 +172,22 @@ export async function fetchUserFacets(
 ): Promise<UserFacetsDoc | null> {
 	const snap = await getDoc(doc(getFirestore(), "users", userId, UserCollection.FACETS, mediaType));
 	return snap.exists() ? (snap.data() as UserFacetsDoc) : null;
+}
+
+/** The tab's facet index (title → its facet codes) — null until a Cloud Function first writes
+ *  it (an older account: its next add / import / facets backfill) */
+export async function fetchUserFacetIndex(
+	userId: string,
+	mediaType: MediaType,
+): Promise<FacetIndex | null> {
+	const snap = await getDoc(
+		doc(
+			getFirestore(),
+			"users",
+			userId,
+			UserCollection.FACETS,
+			`${mediaType}${FACET_INDEX_SUFFIX}`,
+		),
+	);
+	return snap.exists() ? ((snap.data() as { titles?: FacetIndex }).titles ?? {}) : null;
 }

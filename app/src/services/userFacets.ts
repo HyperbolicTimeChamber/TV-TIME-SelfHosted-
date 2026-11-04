@@ -1,6 +1,12 @@
 import { MediaType } from "../enums";
-import { applyFacetDelta, type FacetDelta, type UserFacetsDoc } from "../utils/historyView";
-import { fetchUserFacets } from "./historyApi";
+import {
+	applyFacetDelta,
+	facetIndexEntry,
+	type FacetDelta,
+	type FacetIndex,
+	type UserFacetsDoc,
+} from "../utils/historyView";
+import { fetchUserFacetIndex, fetchUserFacets } from "./historyApi";
 
 /**
  * The user's filter choices (users/{uid}/facets/{tv|movie}), read once a session and then kept
@@ -16,6 +22,10 @@ const inFlight = new Set<Promise<unknown>>();
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((l) => l());
 
+// Facet index per tab (null: the doc doesn't exist yet) — read with the counts, patched the same way
+const indexCache = new Map<string, FacetIndex | null>();
+const indexLoading = new Map<string, Promise<FacetIndex | null>>();
+
 export function subscribeUserFacets(listener: () => void): () => void {
 	listeners.add(listener);
 	return () => {
@@ -25,6 +35,30 @@ export function subscribeUserFacets(listener: () => void): () => void {
 
 export function cachedUserFacets(uid: string, mediaType: MediaType): UserFacetsDoc | undefined {
 	return cache.get(key(uid, mediaType));
+}
+
+export function cachedUserFacetIndex(
+	uid: string,
+	mediaType: MediaType,
+): FacetIndex | null | undefined {
+	return indexCache.get(key(uid, mediaType));
+}
+
+/** The tab's facet index: kept copy, else one read (after the facet writes in flight land) */
+export function loadUserFacetIndex(uid: string, mediaType: MediaType): Promise<FacetIndex | null> {
+	const k = key(uid, mediaType);
+	if (indexCache.has(k)) return Promise.resolve(indexCache.get(k) ?? null);
+	const pending = indexLoading.get(k);
+	if (pending) return pending;
+	const load = (async () => {
+		await Promise.allSettled([...inFlight]);
+		const index = await fetchUserFacetIndex(uid, mediaType);
+		indexCache.set(k, index);
+		notify();
+		return index;
+	})().finally(() => indexLoading.delete(k));
+	indexLoading.set(k, load);
+	return load;
 }
 
 /** The doc for a tab: kept copy, else one read — after the facet writes in flight land */
@@ -67,6 +101,15 @@ export function takeFacetDelta<T>(
 		cache.set(k, applyFacetDelta(kept, facetDelta.remove, facetDelta.add));
 		notify();
 	}
+	// The index: this title's entry swapped (add) or dropped (remove only)
+	const index = indexCache.get(k);
+	if (facetDelta?.id && index) {
+		const next = { ...index };
+		if (facetDelta.add) next[facetDelta.id] = facetIndexEntry(facetDelta.add);
+		else delete next[facetDelta.id];
+		indexCache.set(k, next);
+		notify();
+	}
 	return rest;
 }
 
@@ -82,6 +125,8 @@ export function setUserFacets(uid: string, docs: Partial<Record<MediaType, UserF
 	for (const mediaType of [MediaType.TV, MediaType.MOVIE]) {
 		const doc = docs[mediaType];
 		if (doc) cache.set(key(uid, mediaType), doc);
+		// The import rewrote the index too — the next open reads it fresh (one read)
+		indexCache.delete(key(uid, mediaType));
 	}
 	notify();
 }

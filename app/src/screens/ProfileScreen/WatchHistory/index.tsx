@@ -15,16 +15,18 @@ import { LinearGradient } from "expo-linear-gradient";
 import SlidingTabs from "../../../components/SlidingTabs";
 import CircleButton, { CircleBackButton } from "../../../components/CircleButton";
 import { Ionicons } from "@expo/vector-icons";
-import SearchCard from "../../SearchScreen/SearchCard";
 import { styles as searchStyles } from "../../SearchScreen/styles";
-import ListCardTags from "../ListCardTags";
 import { slideOffAndBack } from "../../../components/SwipeBackView";
 import { useWatchHistory, useCustomLists, useCustomListView } from "../../../hooks";
 import { useAuthStore } from "../../../stores";
 import AddToListSheet from "../../../components/modals/AddToListSheet";
 import { getCachedCatalogShow } from "../../../hooks/useWatchlist";
-import { deriveListTags, titleListCount } from "../../../utils";
-import { useHistoryFacetOptions, useHistorySort } from "../../../hooks/useWatchHistory";
+import { titleListCount } from "../../../utils";
+import {
+	useHistoryFacetIndex,
+	useHistoryFacetOptions,
+	useHistorySort,
+} from "../../../hooks/useWatchHistory";
 import { hasFacets, NO_FACETS } from "../../../utils/historyView";
 import type { HistoryFacets } from "../../../types";
 import {
@@ -36,12 +38,13 @@ import {
 	MediaType,
 	Route,
 } from "../../../enums";
-import type { ProfileStackParamList, TMDBShow } from "../../../types";
+import type { ProfileStackParamList } from "../../../types";
 import type { HistoryCard } from "../../../utils";
 import SortFab, { SORT_FAB_CLEARANCE } from "../../../components/SortFab";
 import HistoryViewSheet from "./HistoryViewSheet";
 import { colors } from "../../../theme";
 import HistoryCardView from "./HistoryCardView";
+import HistoryGridCard from "./HistoryGridCard";
 import HistoryCardSkeleton from "./HistoryCardSkeleton";
 import HistoryEmpty from "./HistoryEmpty";
 import { styles } from "./styles";
@@ -152,9 +155,7 @@ function HistoryList({
 
 	if (cards.length === 0) {
 		if (error) return <Text style={styles.empty}>{error}</Text>;
-		return (
-			<HistoryEmpty mediaType={mediaType} filtered={filters.size > 0 || hasFacets(facets)} />
-		);
+		return <HistoryEmpty mediaType={mediaType} filtered={filters.size > 0 || hasFacets(facets)} />;
 	}
 
 	return (
@@ -215,54 +216,6 @@ function HistoryList({
 	);
 }
 
-/**
- * Grid view's card: the poster (Search's card, no watchlist badge — everything here is tracked),
- * the list card's state pills over it, and Add to List
- */
-function HistoryGridCard({
-	card,
-	onPress,
-	onAddToList,
-}: Readonly<{
-	card: HistoryCard & { listCount?: number };
-	onPress: () => void;
-	onAddToList: () => void;
-}>) {
-	const isMovie = card.mediaType === MediaType.MOVIE;
-	const show = useMemo((): TMDBShow => {
-		const catalog = getCachedCatalogShow(card.tmdbId, card.mediaType);
-		const date = (isMovie ? catalog?.releaseDate : catalog?.firstAirDate) ?? undefined;
-		return {
-			id: card.tmdbId,
-			media_type: card.mediaType,
-			...(isMovie ? { title: card.title } : { name: card.title }),
-			poster_path: catalog?.posterPath ?? null,
-			backdrop_path: card.backdropPath,
-			overview: "",
-			vote_average: 0,
-			genre_ids: [],
-			...(isMovie ? { release_date: date } : { first_air_date: date }),
-		};
-	}, [card, isMovie]);
-	const tags = useMemo(() => deriveListTags(card), [card]);
-	return (
-		<SearchCard
-			item={show}
-			isInWatchlist
-			isAdding={false}
-			isListed={(card.listCount ?? 0) > 0}
-			overlay={tags.map((t) => (
-				// Solid backing: the pills are translucent, which lost them on a busy poster
-				<View key={t.kind} style={styles.gridTagBacking}>
-					<ListCardTags tags={[t]} flush />
-				</View>
-			))}
-			onPress={onPress}
-			onAddToList={onAddToList}
-		/>
-	);
-}
-
 /** Watch History: TV Shows | Movies, most recently watched first (no tab bar) */
 export default function WatchHistoryScreen() {
 	const navigation = useNavigation<Nav>();
@@ -278,6 +231,7 @@ export default function WatchHistoryScreen() {
 	// Genre / Keyword filters: both tabs, also only while this page is open
 	const [facets, setFacets] = useState<HistoryFacets>(NO_FACETS);
 	const facetOptions = useHistoryFacetOptions(tab, sheetOpen);
+	const facetIndex = useHistoryFacetIndex(tab, sheetOpen);
 	const toggleFacet = (key: keyof HistoryFacets, value: string) =>
 		setFacets((prev) => {
 			const next = new Set(prev[key]);
@@ -285,12 +239,12 @@ export default function WatchHistoryScreen() {
 			else next.add(value);
 			return { ...prev, [key]: next };
 		});
-	// A regional genre (k-drama → Korea + Drama): both turned on, never toggled off by it
-	const applyRegion = (country: string, genre?: string) =>
+	// A regional genre (k drama → Korea + Drama): all turned on, never toggled off by it
+	const applyRegion = (countries: string[], genres: string[]) =>
 		setFacets((prev) => ({
 			...prev,
-			countries: new Set([...prev.countries, country]),
-			genres: genre ? new Set([...prev.genres, genre]) : prev.genres,
+			countries: new Set([...prev.countries, ...countries]),
+			genres: new Set([...prev.genres, ...genres]),
 		}));
 	// Grid / List, remembered (List: the cards this page always had)
 	const [view, setView] = useCustomListView(CacheKey.HISTORY_VIEW, CustomListView.LIST);
@@ -476,6 +430,7 @@ export default function WatchHistoryScreen() {
 				onToggleCountry={(c) => toggleFacet("countries", c)}
 				onToggleStudio={(st) => toggleFacet("studios", st)}
 				onApplyRegion={applyRegion}
+				facetIndex={facetIndex}
 			/>
 		</Animated.View>
 	);

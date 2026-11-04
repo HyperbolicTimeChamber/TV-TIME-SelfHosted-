@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import InfiniteScroll from "react-infinite-scroll-component";
 import {
+	useHistoryFacetIndex,
 	useHistoryFacetOptions,
 	useHistorySort,
 	useWatchHistory,
@@ -13,7 +14,7 @@ import { useCustomLists } from "@app/hooks/useCustomLists";
 import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
 import { titleListCount } from "@app/utils/customLists";
 import type { HistoryCard as HistoryCardData } from "@app/utils";
-import { deriveListTags } from "@app/utils/listCardTags";
+import { deriveHistoryGridTags } from "@app/utils/listCardTags";
 import { useCustomListView } from "@app/hooks/useCustomListView";
 import type { TMDBShow } from "@app/types";
 import { IoGrid, IoList } from "react-icons/io5";
@@ -166,7 +167,8 @@ function HistoryList({
 	);
 }
 
-/** Grid view's card (app HistoryGridCard): Search's poster card, no watchlist badge, the state pills */
+/** Grid view's card (app HistoryGridCard): Search's poster card, no watchlist badge, every pill
+ *  the list card has, and the title + Ongoing/Ended + Last Watched / Time Spent over a scrim */
 function HistoryGridCard({
 	card,
 	onClick,
@@ -192,7 +194,11 @@ function HistoryGridCard({
 			...(isMovie ? { release_date: date } : { first_air_date: date }),
 		};
 	}, [card, isMovie]);
-	const tags = useMemo(() => deriveListTags(card), [card]);
+	const tags = useMemo(() => deriveHistoryGridTags(card), [card]);
+	const stats = [
+		card.lastWatched ? { label: "Last watched", value: card.lastWatched } : null,
+		card.timeSpent ? { label: "Time spent", value: card.timeSpent } : null,
+	].filter((s): s is { label: string; value: string } => s !== null);
 	return (
 		<SearchCard
 			item={show}
@@ -206,6 +212,24 @@ function HistoryGridCard({
 					<ListCardTags tags={[t]} flush />
 				</span>
 			))}
+			footer={
+				<div className={styles.gridFooter}>
+					<div className={styles.gridTitleRow}>
+						<span className={styles.gridTitle}>{card.title}</span>
+						{card.tag && <span className={styles.gridTag}>{card.tag}</span>}
+					</div>
+					{stats.length > 0 && (
+						<div className={styles.gridStats}>
+							{stats.map((s) => (
+								<div key={s.label} className={styles.gridStat}>
+									<span className={styles.gridStatLabel}>{s.label}</span>
+									<span className={styles.gridStatValue}>{s.value}</span>
+								</div>
+							))}
+						</div>
+					)}
+				</div>
+			}
 			onPress={onClick}
 			onAddToList={onAddToList}
 		/>
@@ -226,6 +250,7 @@ export default function WatchHistoryScreen() {
 	// Genre / Keyword filters: both tabs, also only while this page is open
 	const [facets, setFacets] = useState<HistoryFacets>(NO_FACETS);
 	const facetOptions = useHistoryFacetOptions(tab, panelOpen);
+	const facetIndex = useHistoryFacetIndex(tab, panelOpen);
 	const toggleFacet = (key: keyof HistoryFacets, value: string) =>
 		setFacets((prev) => {
 			const next = new Set(prev[key]);
@@ -308,14 +333,16 @@ export default function WatchHistoryScreen() {
 								onToggleKeyword={(k) => toggleFacet("keywords", k)}
 								onToggleCountry={(c) => toggleFacet("countries", c)}
 								onToggleStudio={(st) => toggleFacet("studios", st)}
-								onApplyRegion={(country, genre) =>
-									// k-drama → Korea + Drama: both on, never toggled off by it (app)
+								onApplyRegion={(countries, genres) =>
+									// k drama → Korea + Drama: all on, never toggled off by it (app)
 									setFacets((prev) => ({
 										...prev,
-										countries: new Set([...prev.countries, country]),
-										genres: genre ? new Set([...prev.genres, genre]) : prev.genres,
+										countries: new Set([...prev.countries, ...countries]),
+										genres: new Set([...prev.genres, ...genres]),
 									}))
 								}
+								facetIndex={facetIndex}
+								onDone={() => setPanelOpen(false)}
 							/>
 						}
 					/>

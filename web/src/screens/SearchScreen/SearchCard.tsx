@@ -23,6 +23,8 @@ interface Props {
 	onRemove?: (item: TMDBShow) => void;
 	/** Pills over the poster's top-left (a list's own grid: the title's state tags) */
 	overlay?: ReactNode;
+	/** In place of the title / year banner (Hall of Shame's grid: title + its stats) */
+	footer?: ReactNode;
 	/** Without it the card has no Add to List button (a list's own grid) */
 	onAddToList?: (item: TMDBShow) => void;
 	onLongPress?: (item: TMDBShow) => void;
@@ -40,6 +42,7 @@ function SearchCard({
 	onAddToList,
 	onLongPress,
 	overlay,
+	footer,
 }: Props) {
 	const title = item.name || item.title || "";
 	const year = (item.first_air_date || item.release_date || "").substring(0, 4);
@@ -97,17 +100,19 @@ function SearchCard({
 				</button>
 			)}
 			{overlay && <div className={styles.overlayTags}>{overlay}</div>}
-			<div className={styles.banner}>
-				<div className={styles.bannerTop}>
-					<span className={styles.cardTitle}>{title}</span>
-					<span
-						className={`${styles.typeBadge} ${mediaType === MediaType.MOVIE ? styles.typeBadgeMovie : ""}`}
-					>
-						{mediaType === MediaType.TV ? "TV" : "MOVIE"}
-					</span>
+			{footer ?? (
+				<div className={styles.banner}>
+					<div className={styles.bannerTop}>
+						<span className={styles.cardTitle}>{title}</span>
+						<span
+							className={`${styles.typeBadge} ${mediaType === MediaType.MOVIE ? styles.typeBadgeMovie : ""}`}
+						>
+							{mediaType === MediaType.TV ? "TV" : "MOVIE"}
+						</span>
+					</div>
+					{year && <span className={styles.cardYear}>{year}</span>}
 				</div>
-				{year && <span className={styles.cardYear}>{year}</span>}
-			</div>
+			)}
 		</motion.div>
 	);
 }

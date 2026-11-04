@@ -1,4 +1,13 @@
-import { COUNTRY_NAMES, HistoryFilter, HistorySort, REGION_ALIASES, WatchStatus } from "../enums";
+import {
+	COUNTRY_NAMES,
+	FACET_INDEX_KEYWORDS,
+	FILTER_ALIASES,
+	FacetCode,
+	HistoryFilter,
+	HistorySort,
+	WatchStatus,
+	type FilterAlias,
+} from "../enums";
 import type { HistoryEntry, HistoryFacets } from "../types";
 
 export const NO_FACETS: HistoryFacets = {
@@ -47,6 +56,8 @@ export interface TitleFacets {
 
 /** What an addShow / removeShow call did to the facets doc (functions FacetDelta) */
 export interface FacetDelta {
+	/** The title (tracking doc id) — patches the facet index */
+	id?: string;
 	remove: TitleFacets | null;
 	add: TitleFacets | null;
 }
@@ -57,7 +68,11 @@ export function applyFacetDelta(
 	remove: Partial<TitleFacets> | null,
 	add: Partial<TitleFacets> | null,
 ): Required<UserFacetsDoc> {
-	const step = (counts: Record<string, number> | undefined, out: string[] = [], inn: string[] = []) => {
+	const step = (
+		counts: Record<string, number> | undefined,
+		out: string[] = [],
+		inn: string[] = [],
+	) => {
 		const next: Record<string, number> = { ...(counts ?? {}) };
 		for (const v of new Set(out)) next[v] = (next[v] ?? 0) - 1;
 		for (const v of new Set(inn)) next[v] = (next[v] ?? 0) + 1;
@@ -145,15 +160,79 @@ export function latestEntries(tabs: HistoryEntry[][], limit: number): HistoryEnt
 
 const squash = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 
-/** The regional genre a typed keyword names ("K Drama" → K-Drama: KR + Drama), if any */
-export function regionAliasFor(text: string) {
-	return REGION_ALIASES[squash(text)];
+/** The chips a typed filter search means without spelling them ("K Drama" → South Korea +
+ *  Drama, "sci fi" → Sci-Fi & Fantasy / Science Fiction), if any */
+export function filterAliasFor(text: string): FilterAlias | undefined {
+	return FILTER_ALIASES[squash(text)];
+}
+
+/** facets/{mediaType}Index: title id → its facet codes */
+export type FacetIndex = Record<string, string[]>;
+
+/** One title's index entry — functions facetIndexEntry (to patch the kept copy after an add) */
+export function facetIndexEntry(t: Partial<TitleFacets> | null | undefined): string[] {
+	return [
+		...new Set([
+			...(t?.genres ?? []).map((v) => FacetCode.GENRE + v),
+			...(t?.countries ?? []).map((v) => FacetCode.COUNTRY + v),
+			...(t?.studios ?? []).map((v) => FacetCode.STUDIO + v),
+			...(t?.keywords ?? []).slice(0, FACET_INDEX_KEYWORDS).map((v) => FacetCode.KEYWORD + v),
+		]),
+	];
+}
+
+const FACET_SECTIONS: Array<[keyof HistoryFacets, FacetCode]> = [
+	["genres", FacetCode.GENRE],
+	["countries", FacetCode.COUNTRY],
+	["studios", FacetCode.STUDIO],
+	["keywords", FacetCode.KEYWORD],
+];
+
+/**
+ * Faceted narrowing: per section, the values some title still carries alongside the picks in
+ * every OTHER section (a section's own picks are "any of", so they never narrow it). Picking only
+ * from these can't build a filter that matches nothing. null = nothing to narrow (no picks, or no
+ * index yet — every choice shows, as before).
+ */
+export function availableFacets(
+	index: FacetIndex | null | undefined,
+	facets: HistoryFacets,
+): Record<keyof HistoryFacets, Set<string>> | null {
+	if (!index || !hasFacets(facets)) return null;
+	const entries = Object.values(index).map((codes) => new Set(codes));
+	const out = {
+		genres: new Set<string>(),
+		keywords: new Set<string>(),
+		countries: new Set<string>(),
+		studios: new Set<string>(),
+	};
+	const matches = (codes: Set<string>, skip: keyof HistoryFacets) =>
+		FACET_SECTIONS.every(
+			([key, code]) =>
+				key === skip || facets[key].size === 0 || [...facets[key]].some((v) => codes.has(code + v)),
+		);
+	for (const [key, code] of FACET_SECTIONS) {
+		for (const codes of entries) {
+			if (!matches(codes, key)) continue;
+			for (const c of codes) if (c.startsWith(code)) out[key].add(c.slice(code.length));
+		}
+	}
+	return out;
+}
+
+/** A country's flag emoji ("KR" → 🇰🇷), "" when the code isn't a two-letter country */
+export function countryFlag(code: string) {
+	return /^[A-Z]{2}$/.test(code)
+		? String.fromCodePoint(...[...code].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65))
+		: "";
+}
+
+/** A country's name, the bare code when it isn't known */
+export function countryName(code: string) {
+	return COUNTRY_NAMES[code] ?? code;
 }
 
 /** A country chip: flag + name ("🇰🇷 South Korea"), the bare code when the name isn't known */
 export function countryLabel(code: string) {
-	const flag = /^[A-Z]{2}$/.test(code)
-		? String.fromCodePoint(...[...code].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65))
-		: "";
-	return `${flag} ${COUNTRY_NAMES[code] ?? code}`.trim();
+	return `${countryFlag(code)} ${countryName(code)}`.trim();
 }
