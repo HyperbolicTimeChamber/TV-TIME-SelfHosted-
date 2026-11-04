@@ -29,6 +29,11 @@
 	width: 260px;
 	display: flex;
 	flex-direction: column;
+	/* Long filter lists (every studio) scroll inside the popover, not off the page */
+	max-height: min(80vh, 720px);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	scrollbar-width: thin;
 }
 
 /* Section label over a card ("Sort by", "Filter") */

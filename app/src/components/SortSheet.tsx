@@ -1,7 +1,7 @@
-import type { ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useContext, useRef, type ReactNode } from "react";
+import { Dimensions, Pressable, ScrollView, StyleSheet, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import BottomSheet, { SheetGroup, sheetStyles } from "./modals/BottomSheet";
+import BottomSheet, { SheetGroup, SheetScrollContext, sheetStyles } from "./modals/BottomSheet";
 import SegmentedControl from "./SegmentedControl";
 import { colors, spacing } from "../theme";
 
@@ -44,7 +44,9 @@ export default function SortSheet<T>({
 	return (
 		<BottomSheet visible={visible} onClose={onClose}>
 			{(close) => (
-				<>
+				// Content past most of the screen scrolls instead of pushing the top off-screen
+				// (Watch History's filters with every studio shown)
+				<SheetScroller>
 					<Text style={sortSheetStyles.title}>SORT BY</Text>
 					{segmented ? (
 						<SegmentedControl
@@ -82,13 +84,47 @@ export default function SortSheet<T>({
 						</SheetGroup>
 					)}
 					{children}
-				</>
+				</SheetScroller>
 			)}
 		</BottomSheet>
 	);
 }
 
+/** The sheet's content, scrolling past SCROLL_MAX_HEIGHT; tells the sheet whether it scrolls and
+ *  where it is (SheetScrollContext) so pulling the list back up never closes the sheet */
+function SheetScroller({ children }: { children: ReactNode }) {
+	const scroll = useContext(SheetScrollContext);
+	const size = useRef({ box: 0, content: 0 });
+	const measure = () => {
+		if (scroll) scroll.scrollable.current = size.current.content > size.current.box + 1;
+	};
+	return (
+		<ScrollView
+			style={sortSheetStyles.scroll}
+			bounces={false}
+			overScrollMode="never"
+			showsVerticalScrollIndicator={false}
+			keyboardShouldPersistTaps="handled"
+			scrollEventThrottle={16}
+			onScroll={(e) => {
+				if (scroll) scroll.offset.current = e.nativeEvent.contentOffset.y;
+			}}
+			onLayout={(e) => {
+				size.current.box = e.nativeEvent.layout.height;
+				measure();
+			}}
+			onContentSizeChange={(_, h) => {
+				size.current.content = h;
+				measure();
+			}}
+		>
+			{children}
+		</ScrollView>
+	);
+}
+
 export const sortSheetStyles = StyleSheet.create({
+	scroll: { maxHeight: Dimensions.get("window").height * 0.8, flexGrow: 0 },
 	/** Section label over a card ("SORT BY", "FILTER") */
 	title: {
 		fontSize: 12,
