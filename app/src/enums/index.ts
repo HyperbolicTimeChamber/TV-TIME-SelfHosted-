@@ -90,8 +90,9 @@ export enum CacheKey {
 	/** + uid + "_" + listId — one saved custom list */
 	CUSTOM_LIST_CACHE = "custom_list_cache_v1:",
 	/** + uid + "_" + tracking doc id — a list title's last seen tracking state (list card tags);
-	 *  "null" = not tracked. One small value per title */
-	LIST_TRACKING = "list_tracking_v1:",
+	 *  "null" = not tracked. One small value per title. v2: a detail-page Pause used to store "null"
+	 *  here (it fired the removal event), hiding paused titles as untracked */
+	LIST_TRACKING = "list_tracking_v2:",
 	/** A list page's Grid / List choice (kept across lists and visits) */
 	CUSTOM_LIST_VIEW = "custom_list_view_v1",
 	/** Hall of Shame: Grid / List */
@@ -106,6 +107,8 @@ export enum CacheKey {
 	SIGN_UP_TRACKED = "sign_up_tracked_v1:",
 	/** + uid → last Mixpanel profile props sent (skip unchanged re-sends) */
 	MIXPANEL_PROFILE = "mixpanel_profile_v1:",
+	/** `${tmdbId}_${season}` → ms TMDB was last asked for Upcoming's placeholder titles */
+	UPCOMING_TITLE_CHECKS = "upcoming_title_checks_v1",
 }
 
 export enum QueryKey {
@@ -322,6 +325,11 @@ export enum RefreshReason {
 
 const HOUR_MS = 60 * 60 * 1000;
 
+/** Upcoming placeholder titles ("Episode 3"): re-ask TMDB for one season at most this often.
+ *  The check was per session only — ~20 season fetches every launch for names TMDB doesn't
+ *  have yet */
+export const UPCOMING_TITLE_RECHECK_MS = 12 * HOUR_MS;
+
 /** Server-side dedupe window per reason (functions REFRESH_COOLDOWN_MS) — a cached doc checked
  *  inside it needs no call */
 export const REFRESH_COOLDOWN_MS: Record<RefreshReason, number> = {
@@ -385,6 +393,17 @@ export const MIN_BUILD_FIELD: Record<ReleaseChannel, string> = {
 	[ReleaseChannel.DEV]: "minBuildDev",
 	[ReleaseChannel.PROD]: "minBuildProd",
 };
+
+/** A watchlist card heals (Firestore re-read / refreshShow) only after staying on screen this
+ *  long — cards scrolled past aren't worth a read or a call */
+export const HEAL_VIEW_DWELL_MS = 600;
+
+/** Android: threads RNFirebase runs callables on — must equal firebase.json
+ *  react-native.android_task_executor_maximum_pool_size (a test checks) */
+export const NATIVE_CALLABLE_THREADS = 10;
+/** Of those, kept for calls the user is waiting on (search, add, marks…): background calls
+ *  (refreshShow / heal addShow) can never take them */
+export const FOREGROUND_RESERVED_THREADS = 7;
 
 /** Stand-in "API key" meaning: no key — route TMDB calls through TMDB_PROXY_BASE */
 export const TMDB_PROXY_KEY = "__tmdb_proxy__";
@@ -455,45 +474,233 @@ export const TRACKING_DELETION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const TRACKING_SYNC_OVERLAP_MS = 60 * 1000;
 
 /**
- * Regional genres TMDB has no keyword for, typed into Watch History's keyword field ("k-drama") →
- * the filters they stand for: the origin country (+ the genre, when there is one). Keys: lower-case,
- * letters / digits only. Mirrors functions SEARCH_REGION_ALIASES — keep both in step.
+ * Words typed into Hall of Shame's filter search that don't spell a chip's label → the chips they
+ * mean, revealed in their sections ("k drama" shows South Korea under COUNTRY and Drama under
+ * GENRE). Keys: lower-case, letters / digits only. Genre names cover both TMDB lists (TV "Sci-Fi &
+ * Fantasy", movie "Science Fiction"): only the ones the user's titles carry show. An alias with a
+ * country (a regional genre) also offers one chip that turns its country + genre on together.
+ * The regional part mirrors functions SEARCH_REGION_ALIASES — keep both in step.
  */
-type RegionAlias = { label: string; country: string; genre?: string };
-const K_DRAMA: RegionAlias = { label: "K-Drama", country: "KR", genre: "Drama" };
-const J_DRAMA: RegionAlias = { label: "J-Drama", country: "JP", genre: "Drama" };
-const C_DRAMA: RegionAlias = { label: "C-Drama", country: "CN", genre: "Drama" };
-const TW_DRAMA: RegionAlias = { label: "Taiwanese Drama", country: "TW", genre: "Drama" };
-const THAI_DRAMA: RegionAlias = { label: "Thai Drama", country: "TH", genre: "Drama" };
-const TURKISH_DRAMA: RegionAlias = { label: "Turkish Drama", country: "TR", genre: "Drama" };
-export const REGION_ALIASES: Record<string, RegionAlias> = {
-	kdrama: K_DRAMA,
-	kdramas: K_DRAMA,
-	koreandrama: K_DRAMA,
-	koreandramas: K_DRAMA,
-	jdrama: J_DRAMA,
-	jdramas: J_DRAMA,
-	japanesedrama: J_DRAMA,
-	japanesedramas: J_DRAMA,
-	cdrama: C_DRAMA,
-	cdramas: C_DRAMA,
-	chinesedrama: C_DRAMA,
-	chinesedramas: C_DRAMA,
-	twdrama: TW_DRAMA,
-	twdramas: TW_DRAMA,
-	taiwanesedrama: TW_DRAMA,
-	taiwanesedramas: TW_DRAMA,
-	thaidrama: THAI_DRAMA,
-	thaidramas: THAI_DRAMA,
-	lakorn: THAI_DRAMA,
-	turkishdrama: TURKISH_DRAMA,
-	turkishdramas: TURKISH_DRAMA,
-	turkishseries: TURKISH_DRAMA,
-	dizi: TURKISH_DRAMA,
-	anime: { label: "Anime", country: "JP", genre: "Animation" },
-	donghua: { label: "Donghua", country: "CN", genre: "Animation" },
-	bollywood: { label: "Bollywood", country: "IN" },
+export interface FilterAlias {
+	label: string;
+	countries?: string[];
+	genres?: string[];
+	keywords?: string[];
+}
+const regional = (label: string, country: string, genre?: string): FilterAlias => ({
+	label,
+	countries: [country],
+	...(genre ? { genres: [genre] } : {}),
+});
+const K_DRAMA = regional("K-Drama", "KR", "Drama");
+const J_DRAMA = regional("J-Drama", "JP", "Drama");
+const C_DRAMA = regional("C-Drama", "CN", "Drama");
+const TW_DRAMA = regional("Taiwanese Drama", "TW", "Drama");
+const THAI_DRAMA = regional("Thai Drama", "TH", "Drama");
+const TURKISH_DRAMA = regional("Turkish Drama", "TR", "Drama");
+const ANIME = regional("Anime", "JP", "Animation");
+const DONGHUA = regional("Donghua", "CN", "Animation");
+const TELENOVELA = regional("Telenovela", "MX", "Drama");
+const BRITCOM = regional("Britcom", "GB", "Comedy");
+const NORDIC_NOIR: FilterAlias = {
+	label: "Nordic Noir",
+	countries: ["SE", "DK", "NO", "IS", "FI"],
+	genres: ["Crime"],
 };
+/** Country by what people call its people / language ("korean" → KR) */
+const DEMONYMS: Record<string, string[]> = {
+	KR: ["korean", "korea", "kr"],
+	JP: ["japanese", "jp"],
+	CN: ["chinese", "mandarin", "cn"],
+	TW: ["taiwanese"],
+	HK: ["hongkong", "cantonese", "hk"],
+	TH: ["thai"],
+	PH: ["filipino", "philippine", "pinoy"],
+	ID: ["indonesian"],
+	IN: ["indian", "hindi", "desi"],
+	TR: ["turkish", "turkey"],
+	GB: ["british", "uk", "english", "england", "brit", "brits"],
+	US: ["american", "usa", "us", "america"],
+	CA: ["canadian"],
+	AU: ["australian", "aussie"],
+	NZ: ["kiwi"],
+	IE: ["irish"],
+	FR: ["french"],
+	DE: ["german"],
+	ES: ["spanish", "spain"],
+	IT: ["italian"],
+	PT: ["portuguese"],
+	NL: ["dutch"],
+	BE: ["belgian"],
+	SE: ["swedish"],
+	NO: ["norwegian"],
+	DK: ["danish"],
+	FI: ["finnish"],
+	IS: ["icelandic"],
+	PL: ["polish"],
+	RU: ["russian"],
+	UA: ["ukrainian"],
+	MX: ["mexican"],
+	BR: ["brazilian"],
+	AR: ["argentine", "argentinian"],
+	CO: ["colombian"],
+	IL: ["israeli"],
+	EG: ["egyptian"],
+	ZA: ["southafrican"],
+	NG: ["nigerian", "nollywood"],
+};
+/** Genre synonyms → TMDB genre names (TV and movie lists) */
+const GENRE_WORDS: Array<[string[], string[]]> = [
+	[
+		["scifi", "sf", "sciencefiction", "space"],
+		["Sci-Fi & Fantasy", "Science Fiction"],
+	],
+	[
+		["fantasy", "magic"],
+		["Sci-Fi & Fantasy", "Fantasy"],
+	],
+	[
+		["action", "actionadventure"],
+		["Action & Adventure", "Action"],
+	],
+	[["adventure"], ["Action & Adventure", "Adventure"]],
+	[
+		["war", "military", "politics", "political"],
+		["War & Politics", "War"],
+	],
+	[["cartoon", "cartoons", "animated", "animation"], ["Animation"]],
+	[
+		["docs", "doc", "docu", "docuseries", "documentaries", "documentary", "truecrime"],
+		["Documentary"],
+	],
+	[["sitcom", "sitcoms", "comedies", "funny"], ["Comedy"]],
+	[
+		["kids", "children", "childrens", "family"],
+		["Kids", "Family"],
+	],
+	[["reality", "realitytv", "gameshow"], ["Reality"]],
+	[
+		["thriller", "thrillers", "suspense"],
+		["Thriller", "Mystery", "Crime"],
+	],
+	[
+		["detective", "whodunit", "mysteries"],
+		["Mystery", "Crime"],
+	],
+	[["romance", "romantic", "love"], ["Romance"]],
+	[["scary", "horror", "slasher"], ["Horror"]],
+	[
+		["history", "historical", "period"],
+		["History", "War & Politics"],
+	],
+	[["musical", "musicals", "music"], ["Music"]],
+	[["soap", "soaps", "soapopera"], ["Soap"]],
+	[["talkshow", "latenight"], ["Talk"]],
+	[["western", "westerns", "cowboy"], ["Western"]],
+	[["telefilm", "tvmovie"], ["TV Movie"]],
+];
+/** Common words for TMDB keywords whose own names read differently */
+const KEYWORD_WORDS: Array<[string[], string[]]> = [
+	[["romcom", "romcoms"], ["romantic comedy"]],
+	[
+		["superhero", "superheroes", "capes"],
+		["superhero", "based on comic"],
+	],
+	[
+		["timetravel", "timeloop"],
+		["time travel", "time loop"],
+	],
+	[["zombie", "zombies", "undead"], ["zombie"]],
+	[["vampire", "vampires"], ["vampire"]],
+	[
+		["isekai", "anotherworld"],
+		["isekai", "isekai (another world)"],
+	],
+	[
+		["shonen", "shounen"],
+		["shounen", "shonen"],
+	],
+	[
+		["shojo", "shoujo"],
+		["shoujo", "shojo"],
+	],
+	[["seinen"], ["seinen"]],
+	[
+		["mecha", "robots"],
+		["mecha", "robot"],
+	],
+	[
+		["dystopia", "dystopian", "postapocalyptic"],
+		["dystopia", "post-apocalyptic future"],
+	],
+	[["miniseries", "limitedseries"], ["miniseries"]],
+	[["basedonbook", "bookadaptation", "novel"], ["based on novel or book"]],
+	[["basedonmanga", "manga"], ["based on manga"]],
+	[["basedontruestory", "truestory"], ["based on true story"]],
+	[["coming of age", "comingofage"], ["coming of age"]],
+	[["highschool", "school"], ["high school"]],
+	[["serialkiller"], ["serial killer"]],
+	[["heist", "heists"], ["heist"]],
+	[["lgbt", "lgbtq", "queer", "gay"], ["lgbt"]],
+];
+const buildFilterAliases = (): Record<string, FilterAlias> => {
+	const out: Record<string, FilterAlias> = {};
+	const squashKey = (k: string) => k.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+	const add = (key: string, alias: FilterAlias) => {
+		const k = squashKey(key);
+		const had = out[k];
+		// Two tables naming one word ("romance": genre + keyword) → both shown
+		out[k] = had
+			? {
+					label: had.label,
+					countries: [...new Set([...(had.countries ?? []), ...(alias.countries ?? [])])],
+					genres: [...new Set([...(had.genres ?? []), ...(alias.genres ?? [])])],
+					keywords: [...new Set([...(had.keywords ?? []), ...(alias.keywords ?? [])])],
+				}
+			: alias;
+	};
+	for (const [code, words] of Object.entries(DEMONYMS))
+		for (const w of words) add(w, { label: w, countries: [code] });
+	for (const [words, genres] of GENRE_WORDS) for (const w of words) add(w, { label: w, genres });
+	for (const [words, keywords] of KEYWORD_WORDS)
+		for (const w of words) add(w, { label: w, keywords });
+	// Regional genres last: their label / apply chip win over a demonym of the same word
+	const regions: Array<[string[], FilterAlias]> = [
+		[["kdrama", "kdramas", "koreandrama", "koreandramas", "koreanseries", "koreanshow"], K_DRAMA],
+		[["jdrama", "jdramas", "japanesedrama", "japanesedramas"], J_DRAMA],
+		[["cdrama", "cdramas", "chinesedrama", "chinesedramas"], C_DRAMA],
+		[["twdrama", "twdramas", "taiwanesedrama", "taiwanesedramas"], TW_DRAMA],
+		[["thaidrama", "thaidramas", "lakorn", "thaibl"], THAI_DRAMA],
+		[["turkishdrama", "turkishdramas", "turkishseries", "dizi"], TURKISH_DRAMA],
+		[["anime", "japaneseanimation"], ANIME],
+		[["donghua", "chineseanimation", "chineseanime"], DONGHUA],
+		[["bollywood"], regional("Bollywood", "IN")],
+		[["telenovela", "telenovelas", "novela"], TELENOVELA],
+		[["britcom", "britishcomedy"], BRITCOM],
+		[["nordicnoir", "scandinoir", "scandi"], NORDIC_NOIR],
+		[["kmovie", "koreanmovie", "koreanfilm"], regional("Korean Film", "KR")],
+		[["jmovie", "japanesemovie", "japanesefilm"], regional("Japanese Film", "JP")],
+	];
+	for (const [words, alias] of regions)
+		for (const w of words) {
+			const k = squashKey(w);
+			out[k] = { ...alias, keywords: out[k]?.keywords };
+		}
+	return out;
+};
+export const FILTER_ALIASES: Record<string, FilterAlias> = buildFilterAliases();
+
+/** facets/{mediaType}{FACET_INDEX_SUFFIX} ("tvIndex"): title id → its facet codes — the filter
+ *  drawer hides choices no title shares with the ones picked. Mirrors functions */
+export const FACET_INDEX_SUFFIX = "Index";
+/** Keywords per title the index keeps (functions FACET_INDEX_KEYWORDS) */
+export const FACET_INDEX_KEYWORDS = 8;
+export enum FacetCode {
+	GENRE = "g:",
+	COUNTRY = "c:",
+	STUDIO = "s:",
+	KEYWORD = "k:",
+}
 
 /** Country chip names (TMDB origin_country codes); a code not listed shows as the code */
 export const COUNTRY_NAMES: Record<string, string> = {

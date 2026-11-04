@@ -1,4 +1,4 @@
-import { TITLE_COMPANY_MAX, TITLE_KEYWORD_MAX, TITLE_NETWORK_MAX } from "./enums";
+import { FACET_INDEX_KEYWORDS, FacetCode, TITLE_COMPANY_MAX, TITLE_KEYWORD_MAX, TITLE_NETWORK_MAX } from "./enums";
 import { TMDBKeyword } from "./types";
 
 /** A title's genres + keywords + origin countries + studios (catalog doc / tracking doc) */
@@ -30,10 +30,29 @@ export interface UserFacets {
   studios: FacetCounts;
 }
 
-/** What one write did to a user's facets doc — sent back so the client patches its copy */
+/** What one write did to a user's facets doc — sent back so the client patches its copy
+ *  (`id`: the title, for the facet index) */
 export interface FacetDelta {
+  id?: string;
   remove: TitleFacets | null;
   add: TitleFacets | null;
+}
+
+/** facets/{mediaType}Index: title id → its codes ("g:Drama", "c:KR", "s:HBO") */
+export interface UserFacetIndex {
+  titles: Record<string, string[]>;
+}
+
+/** One title's facet-index entry: genres, countries, studios and its first keywords as codes */
+export function facetIndexEntry(t: Partial<TitleFacets> | null | undefined): string[] {
+  return [
+    ...new Set([
+      ...(t?.genres ?? []).map((v) => FacetCode.GENRE + v),
+      ...(t?.countries ?? []).map((v) => FacetCode.COUNTRY + v),
+      ...(t?.studios ?? []).map((v) => FacetCode.STUDIO + v),
+      ...(t?.keywords ?? []).slice(0, FACET_INDEX_KEYWORDS).map((v) => FacetCode.KEYWORD + v),
+    ]),
+  ];
 }
 
 /** TMDB keyword list → the names a catalog doc keeps: lowercase, trimmed, unique, capped */

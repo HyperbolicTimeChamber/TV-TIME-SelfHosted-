@@ -80,3 +80,66 @@ test("applyFacetDelta (client mirror): patches the kept facets doc, drops zeros"
 		studios: {},
 	});
 });
+
+const INDEX = {
+	tv_1: ["g:Drama", "c:KR", "s:tvN", "k:romance"],
+	tv_2: ["g:Comedy", "c:US", "s:NBC"],
+	tv_3: ["g:Drama", "c:IT", "s:RAI"],
+};
+
+test("availableFacets: a section's own picks don't narrow it; other sections do", async () => {
+	const { availableFacets } = await import("../src/utils/historyView");
+	assert.equal(availableFacets(INDEX, facets([], [])), null);
+	assert.equal(availableFacets(null, facets(["Drama"], [])), null);
+	const a = availableFacets(INDEX, facets([], [], ["IT"]))!;
+	// Italy picked: only Drama is left in genres; every country stays (any-of)
+	assert.deepEqual([...a.genres], ["Drama"]);
+	assert.deepEqual([...a.countries].sort(), ["IT", "KR", "US"]);
+	const b = availableFacets(INDEX, facets(["Drama"], [], ["IT"]))!;
+	assert.deepEqual([...b.studios], ["RAI"]);
+	assert.deepEqual([...b.keywords], []);
+});
+
+test("buildFilterSections: k drama reveals South Korea + Drama and offers both in one chip", async () => {
+	const { buildFilterSections } = await import("../src/utils/historyFilterSections");
+	const options = {
+		genres: ["Comedy", "Drama"],
+		keywords: ["romance"],
+		countries: ["US", "KR", "IT"],
+		studios: ["NBC", "tvN", "RAI"],
+	};
+	const s = buildFilterSections({
+		term: "k drama",
+		filters: new Set(),
+		facets: facets([], []),
+		options,
+		index: INDEX,
+		allCountries: false,
+		studioLimit: 8,
+	});
+	assert.deepEqual(s.countries, ["KR"]);
+	assert.deepEqual(s.genres, ["Drama"]);
+	assert.deepEqual(s.region?.countries, ["KR"]);
+	assert.deepEqual(s.region?.genres, ["Drama"]);
+	// Italy picked → Comedy / US / NBC can't match anything with it: hidden
+	const it = buildFilterSections({
+		term: "",
+		filters: new Set(),
+		facets: facets([], [], ["IT"]),
+		options,
+		index: INDEX,
+		allCountries: false,
+		studioLimit: 8,
+	});
+	assert.deepEqual(it.genres, ["Drama"]);
+	assert.deepEqual(it.studios, ["RAI"]);
+	assert.deepEqual(it.keywords.rest, []);
+});
+
+test("filterAliasFor: demonyms, genre and keyword synonyms", async () => {
+	const { filterAliasFor } = await import("../src/utils/historyView");
+	assert.deepEqual(filterAliasFor("Korean")?.countries, ["KR"]);
+	assert.ok(filterAliasFor("sci-fi")?.genres?.includes("Science Fiction"));
+	assert.deepEqual(filterAliasFor("rom com")?.keywords, ["romantic comedy"]);
+	assert.equal(filterAliasFor("K-Drama")?.label, "K-Drama");
+});

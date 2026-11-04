@@ -84,3 +84,20 @@ test("planChips: 2-line titles, last slot turns into +n more", async () => {
 	assert.equal(roomy.shown.length, 4);
 	assert.equal(roomy.more, 0);
 });
+
+test("planChips: one +n more line per kind (episodes vs movies)", async () => {
+	const { planChips } = await import("../src/utils/calendarGrid");
+	const m = (title: string, kind: string) => ({ title, kind });
+	const all = [m("Ted", "tv"), m("Ghosts", "tv"), m("Jimmy", "movie"), m("Scrubs", "tv")];
+	// 14px per line: room for 3 lines → reserve 2 "+n more" lines (tv + movie) → 1 shown
+	const r = planChips(all, 42, 10, 12, 2, (x) => x.kind);
+	assert.deepEqual(
+		r.shown.map((x) => x.title),
+		["Ted"],
+	);
+	assert.deepEqual(r.moreByKind, [
+		{ kind: "tv", count: 2 },
+		{ kind: "movie", count: 1 },
+	]);
+	assert.equal(r.more, 3);
+});

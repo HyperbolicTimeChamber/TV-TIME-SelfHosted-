@@ -1,5 +1,6 @@
 import axios from "axios";
-import { MediaType, TMDB_BASE, UserCollection } from "../shared/enums";
+import { FieldValue } from "firebase-admin/firestore";
+import { FACET_INDEX_SUFFIX, MediaType, TMDB_BASE, UserCollection } from "../shared/enums";
 import { TMDBKeyword } from "../shared/types";
 import {
   applyFacetDelta,
@@ -9,10 +10,12 @@ import {
   studioNames,
   keywordNames,
   FacetDelta,
+  facetIndexEntry,
   sameFacets,
   titleFacets,
   TitleFacets,
   UserFacets,
+  UserFacetIndex,
 } from "../shared/titleFacets";
 import { getAllTrackerUids } from "./trackedBy";
 import { pooled } from "./tmdb";
@@ -44,6 +47,13 @@ export async function fetchFacetFields(
 export const userFacetsRef = (db: FirebaseFirestore.Firestore, uid: string, mediaType: MediaType) =>
   db.doc(`users/${uid}/${UserCollection.FACETS}/${mediaType}`);
 
+/** The per-title facet index next to the counts (facets/tvIndex, facets/movieIndex) */
+export const userFacetIndexRef = (
+  db: FirebaseFirestore.Firestore,
+  uid: string,
+  mediaType: MediaType,
+) => db.doc(`users/${uid}/${UserCollection.FACETS}/${mediaType}${FACET_INDEX_SUFFIX}`);
+
 const mediaTypeOf = (showId: string) =>
   showId.startsWith(`${MediaType.MOVIE}_`) ? MediaType.MOVIE : MediaType.TV;
 
@@ -61,10 +71,11 @@ export async function stampTrackingFacets(
 ): Promise<FacetDelta | null> {
   const trackingRef = db.doc(`users/${uid}/${UserCollection.TRACKING}/${showId}`);
   const facetsRef = userFacetsRef(db, uid, mediaTypeOf(showId));
+  const indexRef = userFacetIndexRef(db, uid, mediaTypeOf(showId));
   const next = titleFacets(catalog);
   return db
     .runTransaction(async (tx) => {
-      const [tracking, facets] = await tx.getAll(trackingRef, facetsRef);
+      const [tracking, facets, index] = await tx.getAll(trackingRef, facetsRef, indexRef);
       if (!tracking.exists) return null;
       const had = tracking.data() as Partial<TitleFacets>;
       if (sameFacets(had, next)) return null;
@@ -77,8 +88,14 @@ export async function stampTrackingFacets(
           ? titleFacets(had)
           : null;
       tx.set(facetsRef, applyFacetDelta(facets.data() as Partial<UserFacets>, counted, next));
+      // Only an index built whole (import / backfill) is kept up to date — one started here
+      // would hold this title alone, and the drawer would hide every other title's choices.
+      // Merge: only this title's entry changes (a nested map merges key by key)
+      if (index.exists) {
+        tx.set(indexRef, { titles: { [showId]: facetIndexEntry(next) } }, { merge: true });
+      }
       tx.update(trackingRef, stampTracking({ ...next }));
-      return { remove: counted, add: next };
+      return { id: showId, remove: counted, add: next };
     })
     .catch((err) => {
       console.error(`[titleFacets] stamp ${showId} failed:`, err);
@@ -93,18 +110,24 @@ export async function stampTrackingFacets(
 export async function uncountTitleFacets(
   db: FirebaseFirestore.Firestore,
   uid: string,
-  mediaType: MediaType,
+  showId: string,
   catalog: FacetSource | undefined,
 ): Promise<FacetDelta | null> {
   if (!catalog) return null;
+  const mediaType = mediaTypeOf(showId);
   const ref = userFacetsRef(db, uid, mediaType);
+  const indexRef = userFacetIndexRef(db, uid, mediaType);
   const facets = titleFacets(catalog);
   return db
     .runTransaction(async (tx) => {
-      const doc = await tx.get(ref);
+      const [doc, index] = await tx.getAll(ref, indexRef);
       if (!doc.exists) return null;
       tx.set(ref, applyFacetDelta(doc.data() as Partial<UserFacets>, facets, null));
-      return { remove: facets, add: null };
+      // Never creates the index (an empty one would hide every choice) — see stampTrackingFacets
+      if (index.exists) {
+        tx.update(indexRef, { [`titles.${showId}`]: FieldValue.delete() });
+      }
+      return { id: showId, remove: facets, add: null };
     })
     .catch((err) => {
       console.error(`[titleFacets] uncount ${mediaType} failed:`, err);
@@ -137,11 +160,14 @@ export async function propagateTitleFacets(
 /** Both facets docs from scratch, from every tracked title's facets (import, backfill) —
  *  returns what it wrote, by media type */
 export function writeUserFacets(
-  writer: { set: (ref: FirebaseFirestore.DocumentReference, data: UserFacets) => unknown },
+  writer: {
+    set: (ref: FirebaseFirestore.DocumentReference, data: UserFacets | UserFacetIndex) => unknown;
+  },
   db: FirebaseFirestore.Firestore,
   uid: string,
-  titles: Iterable<{ id: string } & Partial<TitleFacets>>,
+  titleList: Iterable<{ id: string } & Partial<TitleFacets>>,
 ): Record<MediaType, UserFacets> {
+  const titles = [...titleList];
   const byType: Record<MediaType, Partial<TitleFacets>[]> = {
     [MediaType.TV]: [],
     [MediaType.MOVIE]: [],
@@ -151,8 +177,14 @@ export function writeUserFacets(
     [MediaType.TV]: countFacets(byType[MediaType.TV]),
     [MediaType.MOVIE]: countFacets(byType[MediaType.MOVIE]),
   };
+  const index: Record<MediaType, UserFacetIndex> = {
+    [MediaType.TV]: { titles: {} },
+    [MediaType.MOVIE]: { titles: {} },
+  };
+  for (const t of titles) index[mediaTypeOf(t.id)].titles[t.id] = facetIndexEntry(t);
   for (const mediaType of [MediaType.TV, MediaType.MOVIE]) {
     writer.set(userFacetsRef(db, uid, mediaType), out[mediaType]);
+    writer.set(userFacetIndexRef(db, uid, mediaType), index[mediaType]);
   }
   return out;
 }

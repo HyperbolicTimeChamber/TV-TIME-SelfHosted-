@@ -1,21 +1,21 @@
 import { useMemo, useState } from "react";
 import { IoCheckmark, IoChevronDown, IoCloseCircle, IoSearch, IoSparkles } from "react-icons/io5";
-import {
-	HISTORY_FACET_MAX,
-	HISTORY_KEYWORD_SUGGESTIONS,
-	HistoryFilter,
-	HistorySort,
-} from "@app/enums";
+import { HISTORY_FACET_MAX, HistoryFilter, HistorySort } from "@app/enums";
 import type { HistoryFacets } from "@app/types";
 import { titleCase } from "@app/utils/format";
 import {
-	HISTORY_FILTERS,
 	HISTORY_FILTER_LABEL,
 	HISTORY_SORT_LABEL,
 	HISTORY_SORTS,
-	countryLabel,
-	regionAliasFor,
+	countryFlag,
+	countryName,
+	type FacetIndex,
 } from "@app/utils/historyView";
+import {
+	STUDIO_MORE_STEP,
+	STUDIO_SUGGESTIONS,
+	buildFilterSections,
+} from "@app/utils/historyFilterSections";
 import { SortPanel, sortPanelTitleClass, type SortOption } from "../../../components/SortPanel";
 import styles from "./styles/WatchHistory.module.scss";
 
@@ -38,25 +38,26 @@ interface Props {
 	onToggleKeyword: (keyword: string) => void;
 	onToggleCountry: (country: string) => void;
 	onToggleStudio: (studio: string) => void;
-	/** A regional genre typed as a keyword ("k-drama"): turn on its country (+ genre) */
-	onApplyRegion: (country: string, genre?: string) => void;
+	/** A regional genre typed ("k drama"): turn on its countries + genres together */
+	onApplyRegion: (countries: string[], genres: string[]) => void;
+	/** Title → facet codes: hides choices no title shares with the picks (null: no narrowing) */
+	facetIndex: FacetIndex | null;
+	/** Done: closes the panel (picks apply as they're made) — app HistoryViewSheet's Done */
+	onDone: () => void;
 }
-
-/** Countries / studios listed before "More": the most common ones (picked ones always show) */
-const COUNTRY_SUGGESTIONS = 8;
-const STUDIO_SUGGESTIONS = 8;
-/** "More" adds this many studios each click — the long tail stays reachable by typing its name */
-const STUDIO_MORE_STEP = 16;
 
 /** One filter chip (status, genre or keyword): a check when on */
 function Chip({
 	label,
+	flag,
 	on,
 	disabled = false,
 	add,
 	onClick,
 }: {
 	label: string;
+	/** Country flag, kept apart from the name (app Chip) */
+	flag?: string;
 	on: boolean;
 	disabled?: boolean;
 	/** In place of the check: a regional genre's sparkle, "More" */
@@ -77,6 +78,7 @@ function Chip({
 			) : add === "more" ? (
 				<IoChevronDown size={15} className={styles.chipIcon} />
 			) : null}
+			{flag && <span aria-hidden>{flag}</span>}
 			{label}
 		</button>
 	);
@@ -100,58 +102,31 @@ export default function HistoryViewPanel({
 	onToggleCountry,
 	onToggleStudio,
 	onApplyRegion,
+	facetIndex,
+	onDone,
 }: Props) {
 	const [term, setTerm] = useState("");
-	const typed = term.trim().toLowerCase();
-	// Picked keywords first, then the most common ones (nothing typed) or the ones matching what's
-	// typed — only keywords the user's titles carry, nothing made up from the typed text
-	const keywordChips = useMemo(() => {
-		const rest = facetOptions.keywords
-			.filter((k) => !facets.keywords.has(k) && (!typed || k.includes(typed)))
-			.slice(0, HISTORY_KEYWORD_SUGGESTIONS);
-		// A regional genre (k-drama, anime…) is a country + genre, not a TMDB keyword (app HistoryViewSheet)
-		const region = typed ? regionAliasFor(typed) : undefined;
-		const picked = [...facets.keywords];
-		return { picked, rest, region, any: picked.length > 0 || rest.length > 0 || !!region };
-	}, [facetOptions.keywords, facets.keywords, typed]);
 	const [allCountries, setAllCountries] = useState(false);
-	// The search narrows every section (app HistoryViewSheet): a chip shows when picked or when its
-	// label holds the text — typing searches every country / studio, not just the first few
-	const countries = useMemo(() => {
-		if (typed)
-			return [...new Set([...facets.countries, ...facetOptions.countries])].filter(
-				(c) => facets.countries.has(c) || countryLabel(c).toLowerCase().includes(typed),
-			);
-		return [
-			...new Set([
-				...facets.countries,
-				...(allCountries
-					? facetOptions.countries
-					: facetOptions.countries.slice(0, COUNTRY_SUGGESTIONS)),
-			]),
-		];
-	}, [facets.countries, facetOptions.countries, allCountries, typed]);
-	const moreCountries =
-		!typed && !allCountries && facetOptions.countries.length > COUNTRY_SUGGESTIONS;
 	const [studioLimit, setStudioLimit] = useState(STUDIO_SUGGESTIONS);
-	const studios = useMemo(() => {
-		if (typed)
-			return [...new Set([...facets.studios, ...facetOptions.studios])].filter(
-				(st) => facets.studios.has(st) || st.toLowerCase().includes(typed),
-			);
-		return [...new Set([...facets.studios, ...facetOptions.studios.slice(0, studioLimit)])];
-	}, [facets.studios, facetOptions.studios, studioLimit, typed]);
-	const moreStudios = !typed && facetOptions.studios.length > studioLimit;
-	const genres = useMemo(
+	// Shared with the app sheet: picks stay, dead combinations hide, aliases reveal their chips
+	const sections = useMemo(
 		() =>
-			[...new Set([...facets.genres, ...facetOptions.genres])].filter(
-				(g) => facets.genres.has(g) || !typed || g.toLowerCase().includes(typed),
-			),
-		[facets.genres, facetOptions.genres, typed],
+			buildFilterSections({
+				term,
+				filters,
+				facets,
+				options: facetOptions,
+				index: facetIndex,
+				allCountries,
+				studioLimit,
+			}),
+		[term, filters, facets, facetOptions, facetIndex, allCountries, studioLimit],
 	);
-	const statuses = HISTORY_FILTERS.filter(
-		(f) => filters.has(f) || !typed || HISTORY_FILTER_LABEL[f].toLowerCase().includes(typed),
-	);
+	const { statuses, genres, countries, moreCountries, studios, moreStudios, region } = sections;
+	const keywordChips = {
+		...sections.keywords,
+		any: sections.keywords.picked.length > 0 || sections.keywords.rest.length > 0 || !!region,
+	};
 	const anyFilter =
 		filters.size > 0 ||
 		facets.genres.size > 0 ||
@@ -163,8 +138,8 @@ export default function HistoryViewPanel({
 	const genresFull = facets.genres.size >= HISTORY_FACET_MAX;
 	const keywordsFull = facets.keywords.size >= HISTORY_FACET_MAX;
 	const addTyped = () => {
-		if (!keywordChips.region) return;
-		onApplyRegion(keywordChips.region.country, keywordChips.region.genre);
+		if (!region) return;
+		onApplyRegion(region.countries, region.genres);
 		setTerm("");
 	};
 	return (
@@ -246,7 +221,8 @@ export default function HistoryViewPanel({
 							return (
 								<Chip
 									key={c}
-									label={countryLabel(c)}
+									flag={countryFlag(c)}
+									label={countryName(c)}
 									on={on}
 									disabled={!on && countriesFull}
 									onClick={() => onToggleCountry(c)}
@@ -289,9 +265,13 @@ export default function HistoryViewPanel({
 			{keywordChips.any && <p className={styles.facetTitle}>Keyword</p>}
 			{keywordChips.any && (
 				<div className={styles.viewChips}>
-					{keywordChips.region && (
+					{region && (
 						<Chip
-							label={`${keywordChips.region.label} · ${countryLabel(keywordChips.region.country)}`}
+							label={[
+								region.alias.label,
+								...region.countries.map(countryName),
+								...region.genres,
+							].join(" · ")}
 							on={false}
 							add="region"
 							onClick={addTyped}
@@ -311,6 +291,12 @@ export default function HistoryViewPanel({
 					))}
 				</div>
 			)}
+			{/* Each pick already applied; Done just closes (app sheet's floating Done) */}
+			<div className={styles.viewDoneBar}>
+				<button type="button" className={styles.viewDone} onClick={onDone}>
+					Done
+				</button>
+			</div>
 		</SortPanel>
 	);
 }

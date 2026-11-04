@@ -46,6 +46,22 @@ export function placeholderTargets(
 	return targets;
 }
 
+/** Seasons TMDB was asked within `windowMs` (still skipped) + the stamps worth keeping */
+export function recentTitleChecks(
+	stamps: Record<string, number> | null | undefined,
+	now: number,
+	windowMs: number,
+): { recent: Set<string>; kept: Record<string, number> } {
+	const recent = new Set<string>();
+	const kept: Record<string, number> = {};
+	for (const [k, at] of Object.entries(stamps ?? {})) {
+		if (typeof at !== "number" || now - at >= windowMs || at > now) continue;
+		recent.add(k);
+		kept[k] = at;
+	}
+	return { recent, kept };
+}
+
 /** Real titles for a season from a cached catalog (key = upcomingEpKey) */
 export function titlesFromCatalog(
 	catalog: CatalogShow | null,

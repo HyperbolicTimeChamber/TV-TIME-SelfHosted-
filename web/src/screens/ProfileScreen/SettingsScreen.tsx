@@ -5,6 +5,7 @@ import { App as AntApp } from "antd";
 import { useNavigate } from "react-router-dom";
 import { getFunctions, httpsCallable } from "../../platform/functions";
 import { CloudFunction } from "@app/enums";
+import { foregroundCall } from "@app/services/callQueue";
 import { downloadAccountExport } from "../../platform/accountExport";
 import { resetPassword, signOut } from "../../services/auth";
 import { useAppSelector } from "../../store";
@@ -58,7 +59,7 @@ export default function SettingsScreen() {
 		setDeleting(true);
 		setDeleteError(null);
 		try {
-			await httpsCallable(getFunctions(), CloudFunction.DELETE_ACCOUNT)({});
+			await foregroundCall(() => httpsCallable(getFunctions(), CloudFunction.DELETE_ACCOUNT)({}));
 			await signOut();
 			navigate(Paths.SEARCH, { replace: true });
 		} catch (err) {

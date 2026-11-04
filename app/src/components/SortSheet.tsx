@@ -1,15 +1,20 @@
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
-import { Modal, Pressable, StyleSheet, Text, useWindowDimensions } from "react-native";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { Modal, StyleSheet, Text, useWindowDimensions } from "react-native";
+// Gesture-handler Pressable: inside the sheet, React Native's lost a tap whose finger drifted a
+// pixel or two (the sheet's gestures took the touch) — a first tap often did nothing
+import { GestureHandlerRootView, Pressable } from "react-native-gesture-handler";
 import GorhomSheet, {
 	BottomSheetBackdrop,
+	BottomSheetFooter,
 	BottomSheetScrollView,
 	useBottomSheetSpringConfigs,
 	type BottomSheetBackdropProps,
+	type BottomSheetFooterProps,
 } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SheetGroup, sheetStyles } from "./modals/BottomSheet";
+import SheetDoneFooter, { DONE_FOOTER_HEIGHT } from "./modals/SheetDoneFooter";
 import SegmentedControl from "./SegmentedControl";
 import { colors, spacing } from "../theme";
 
@@ -33,6 +38,8 @@ interface Props<T> {
 	children?: ReactNode;
 	/** Two or three options: one sliding segmented control instead of rows */
 	segmented?: boolean;
+	/** A floating Done pill (Add to List's) that closes the sheet — picks apply as they're made */
+	done?: boolean;
 }
 
 const strictEqual = <T,>(a: T, b: T) => a === b;
@@ -60,6 +67,7 @@ export default function SortSheet<T>({
 	closeOnSelect = false,
 	children,
 	segmented = false,
+	done = false,
 }: Props<T>) {
 	const insets = useSafeAreaInsets();
 	const { height: screenHeight } = useWindowDimensions();
@@ -87,6 +95,15 @@ export default function SortSheet<T>({
 		),
 		[],
 	);
+	const lowestSnap = snapPoints[0];
+	const renderFooter = useCallback(
+		(props: BottomSheetFooterProps) => (
+			<BottomSheetFooter {...props} bottomInset={insets.bottom}>
+				<SheetDoneFooter lowestSnap={lowestSnap} onPress={() => sheetRef.current?.close()} />
+			</BottomSheetFooter>
+		),
+		[insets.bottom, lowestSnap],
+	);
 	const pick = (value: T) => {
 		if (!closeOnSelect) return onSelect(value);
 		afterClose.current = () => onSelect(value);
@@ -113,6 +130,7 @@ export default function SortSheet<T>({
 						keyboardBlurBehavior="restore"
 						animationConfigs={animationConfigs}
 						backdropComponent={renderBackdrop}
+						footerComponent={done ? renderFooter : undefined}
 						backgroundStyle={sortSheetStyles.sheet}
 						handleStyle={sortSheetStyles.handleArea}
 						handleIndicatorStyle={sortSheetStyles.handle}
@@ -126,8 +144,8 @@ export default function SortSheet<T>({
 						<BottomSheetScrollView
 							contentContainerStyle={[
 								sortSheetStyles.content,
-								// Clear of the system nav bar + a gap
-								{ paddingBottom: insets.bottom + spacing.lg },
+								// Clear of the system nav bar + a gap (and of the Done pill, which floats)
+								{ paddingBottom: insets.bottom + (done ? DONE_FOOTER_HEIGHT : spacing.lg) },
 							]}
 							showsVerticalScrollIndicator={false}
 							keyboardShouldPersistTaps="handled"

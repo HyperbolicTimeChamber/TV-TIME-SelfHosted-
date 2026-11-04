@@ -15,13 +15,14 @@ import GorhomSheet, {
 	BottomSheetFooter,
 	BottomSheetScrollView,
 	BottomSheetTextInput,
-	useBottomSheet,
 	useBottomSheetSpringConfigs,
 	type BottomSheetBackdropProps,
 	type BottomSheetFooterProps,
 } from "@gorhom/bottom-sheet";
 import Reanimated, {
 	Easing,
+	FadeOut,
+	Keyframe,
 	useAnimatedStyle,
 	useSharedValue,
 	withSequence,
@@ -44,6 +45,7 @@ import { colors, spacing, typography } from "../../theme";
 import PosterImage from "../PosterImage";
 import { SheetHeader } from "./BottomSheet";
 import ListNameModal from "./ListNameModal";
+import SheetDoneFooter, { DONE_FOOTER_HEIGHT } from "./SheetDoneFooter";
 import { ModalArt, NEW_LIST_ART, NEW_LIST_RATIO } from "./ModalArt";
 
 interface Props {
@@ -62,13 +64,15 @@ const HANDLE_HEIGHT = 24;
 const SHEET_SPRING = { damping: 30, stiffness: 220, overshootClamping: true } as const;
 /** Strong ease-out: the badge answers the tap at once */
 const TAP_EASE = Easing.bezier(0.23, 1, 0.32, 1);
+/** "Create “…”" row: rises 6px into place as the search finds nothing, leaves faster than it came */
+const CREATE_IN = new Keyframe({
+	0: { opacity: 0, transform: [{ translateY: 6 }] },
+	100: { opacity: 1, transform: [{ translateY: 0 }], easing: TAP_EASE },
+}).duration(180);
+const CREATE_OUT = FadeOut.duration(110);
 const COVER_SIZE = 52;
 /** Same badge as the search cards' Add to List button */
 const BADGE_SIZE = 30;
-/** The Done pill floats over the lists (transparent, no bar behind it): its height + the gap
- *  under it. The lists end this far (plus the nav-bar inset) above the sheet's bottom so the
- *  last row can scroll clear of it (styles.footer / done) */
-const FOOTER_HEIGHT = 76;
 const SEARCH_HEIGHT = 40;
 
 enum ListSort {
@@ -124,7 +128,7 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: R
 	const renderFooter = useCallback(
 		(props: BottomSheetFooterProps) => (
 			<BottomSheetFooter {...props} bottomInset={insets.bottom}>
-				<DoneFooter lowestSnap={lowestSnap} onPress={() => sheetRef.current?.close()} />
+				<SheetDoneFooter lowestSnap={lowestSnap} onPress={() => sheetRef.current?.close()} />
 			</BottomSheetFooter>
 		),
 		[insets.bottom, lowestSnap],
@@ -132,6 +136,8 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: R
 	const user = useAuthStore((s) => s.user);
 	const { lists, loading, createList, addToList, removeFromList } = useCustomLists(user?.uid);
 	const [naming, setNaming] = useState(false);
+	// Name the popup opens with: the search text when made from "Create “…”", else empty
+	const [draftName, setDraftName] = useState("");
 	// Swapping to the name popup unmounts the sheet, which reports a close — that one isn't the
 	// user closing it (it cleared the entry and the popup never showed)
 	const namingRef = useRef(false);
@@ -191,8 +197,11 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: R
 		const result = await createList(name, entry);
 		setCreating(false);
 		// Back to the sheet: the new list shows on top, bookmarked, confirming the add
-		if (result.ok) setNaming(false);
-		else setNameError(NAME_ERRORS[result.reason]);
+		if (result.ok) {
+			setNaming(false);
+			// The search found nothing by this name — the new list now sits under In Lists
+			setSearch("");
+		} else setNameError(NAME_ERRORS[result.reason]);
 	};
 
 	const toggle = (list: CustomList, has: boolean) => {
@@ -202,10 +211,15 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: R
 		else addToList(list.id, entry);
 	};
 
-	const startNaming = () => {
+	const startNaming = (prefill = "") => {
 		setNameError(null);
+		setDraftName(prefill);
 		setNaming(true);
 	};
+	// Searched for a list that doesn't exist → offer to make it, named as typed
+	const typedName = search.trim();
+	const canCreateTyped =
+		typedName !== "" && !lists.some((l) => l.name.trim().toLowerCase() === typedName.toLowerCase());
 
 	const renderRow = (list: CustomList) => {
 		if (!entry) return null;
@@ -266,7 +280,7 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: R
 							<BottomSheetScrollView
 								contentContainerStyle={[
 									styles.scrollContent,
-									{ paddingBottom: FOOTER_HEIGHT + insets.bottom },
+									{ paddingBottom: DONE_FOOTER_HEIGHT + insets.bottom },
 								]}
 								keyboardShouldPersistTaps="handled"
 								onContentSizeChange={(_, h) => setListHeight(h)}
@@ -281,7 +295,7 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: R
 												<View style={styles.heading}>
 													<Text style={styles.headingText}>In Lists</Text>
 													<Pressable
-														onPress={startNaming}
+														onPress={() => startNaming()}
 														hitSlop={10}
 														accessibilityRole="button"
 														style={({ pressed }) => pressed && styles.newListPressed}
@@ -328,13 +342,35 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: R
 											</View>
 										)}
 
-										{others.map(renderRow)}
-										{others.length === 0 && search.trim() !== "" && (
-											<Text style={styles.empty}>No list called "{search.trim()}".</Text>
+										{/* No list by that name: make it, the popup opens named as typed */}
+										{canCreateTyped && (
+											<Reanimated.View entering={CREATE_IN} exiting={CREATE_OUT}>
+												<Pressable
+													onPress={() => startNaming(typedName)}
+													accessibilityRole="button"
+													accessibilityLabel={`Create list ${typedName}`}
+													style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+												>
+													<View style={[styles.cover, styles.coverCreate]}>
+														<Ionicons name="add" size={26} color={colors.background} />
+													</View>
+													<View style={styles.rowContent}>
+														<Text style={styles.rowText} numberOfLines={1}>
+															Create “{typedName}”
+														</Text>
+														<Text style={styles.rowHint}>
+															{others.length === 0
+																? "No list by that name yet"
+																: "New list, this title in it"}
+														</Text>
+													</View>
+												</Pressable>
+											</Reanimated.View>
 										)}
+										{others.map(renderRow)}
 
 										<Pressable
-											onPress={startNaming}
+											onPress={() => startNaming()}
 											accessibilityRole="button"
 											style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
 										>
@@ -358,6 +394,7 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: R
 			<ListNameModal
 				visible={!!entry && naming}
 				title={NEW_LIST_TITLE}
+				suggestedName={draftName}
 				image={<ModalArt source={NEW_LIST_ART} ratio={NEW_LIST_RATIO} />}
 				hint={NEW_LIST_HINTS}
 				confirmLabel="Create & Add"
@@ -447,29 +484,6 @@ function Badge({ listed }: { listed: boolean }) {
 	);
 }
 
-/**
- * The footer pins Done to the sheet's visible bottom, so while the sheet closes it stayed put
- * until the sheet's top reached it. Below the lowest detent (index between 0 and -1 — closing)
- * it now rides down with the sheet: the share of that detent already gone.
- */
-function DoneFooter({ lowestSnap, onPress }: Readonly<{ lowestSnap: number; onPress: () => void }>) {
-	const { animatedIndex } = useBottomSheet();
-	const closingStyle = useAnimatedStyle(() => ({
-		transform: [{ translateY: Math.max(0, -animatedIndex.value) * lowestSnap }],
-	}));
-	return (
-		<Reanimated.View style={[styles.footer, closingStyle]} pointerEvents="box-none">
-			<Pressable
-				onPress={onPress}
-				accessibilityRole="button"
-				style={({ pressed }) => [styles.done, pressed && styles.donePressed]}
-			>
-				<Text style={styles.doneText}>Done</Text>
-			</Pressable>
-		</Reanimated.View>
-	);
-}
-
 const styles = StyleSheet.create({
 	root: { flex: 1 },
 	sheet: { backgroundColor: colors.surface, borderRadius: 20 },
@@ -503,17 +517,6 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 	},
 	sortText: { ...typography.subtitle, fontSize: 13 },
-	footer: { alignItems: "center", paddingBottom: spacing.md },
-	done: {
-		minWidth: 120,
-		paddingVertical: spacing.md,
-		paddingHorizontal: spacing.xl,
-		borderRadius: 999,
-		alignItems: "center",
-		backgroundColor: colors.warningAmber,
-	},
-	donePressed: { opacity: 0.8, transform: [{ scale: 0.97 }] },
-	doneText: { ...typography.subtitle, fontSize: 15, color: colors.background },
 	divider: { height: StyleSheet.hairlineWidth * 2, backgroundColor: colors.border },
 	heading: {
 		flexDirection: "row",
@@ -534,6 +537,11 @@ const styles = StyleSheet.create({
 	rowPressed: { opacity: 0.6, transform: [{ scale: 0.98 }] },
 	rowDisabled: { opacity: 0.4 },
 	cover: { width: COVER_SIZE, height: COVER_SIZE, borderRadius: 10, overflow: "hidden" },
+	coverCreate: {
+		backgroundColor: colors.warningAmber,
+		alignItems: "center",
+		justifyContent: "center",
+	},
 	coverEmpty: {
 		backgroundColor: colors.surfaceLight,
 		alignItems: "center",

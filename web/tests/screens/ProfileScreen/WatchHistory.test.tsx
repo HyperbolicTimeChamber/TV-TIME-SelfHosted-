@@ -52,6 +52,7 @@ vi.mock("@app/hooks/useWatchHistory", async () => {
 			useWatchHistory(m, sort, filters),
 		useHistorySort: () => React.useState(HistorySort.LAST_WATCHED),
 		useHistoryFacetOptions: () => ({ genres: [], keywords: [], countries: [], studios: [] }),
+		useHistoryFacetIndex: () => null,
 	};
 });
 

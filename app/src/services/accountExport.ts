@@ -4,10 +4,13 @@ import * as Sharing from "expo-sharing";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { CloudFunction } from "../enums";
 import { accountExportFileName } from "../utils";
+import { foregroundCall } from "./callQueue";
 
 /** The exportAccountData function gathers everything server-side (tracking, watch history, lists) */
 export async function fetchAccountExport(): Promise<unknown> {
-	const result = await httpsCallable(getFunctions(), CloudFunction.EXPORT_ACCOUNT_DATA)({});
+	const result = await foregroundCall(() =>
+		httpsCallable(getFunctions(), CloudFunction.EXPORT_ACCOUNT_DATA)({}),
+	);
 	return result.data;
 }
 

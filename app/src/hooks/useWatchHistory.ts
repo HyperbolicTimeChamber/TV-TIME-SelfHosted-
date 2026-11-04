@@ -23,7 +23,9 @@ import {
 	HISTORY_PAGE_SIZE,
 } from "../services/historyApi";
 import {
+	cachedUserFacetIndex,
 	cachedUserFacets,
+	loadUserFacetIndex,
 	loadUserFacets,
 	subscribeUserFacets,
 } from "../services/userFacets";
@@ -387,4 +389,20 @@ export function useHistoryFacetOptions(mediaType: MediaType, enabled: boolean) {
 		);
 	}, [enabled, userId, mediaType]);
 	return useMemo(() => (doc ? facetOptionsFromDoc(doc) : NO_CHOICES), [doc]);
+}
+
+/** The tab's facet index (narrows the filter choices) — read with the choices, then kept local.
+ *  null: not built for this account yet (nothing narrows) */
+export function useHistoryFacetIndex(mediaType: MediaType, enabled: boolean) {
+	const userId = useAuthStore((s) => s.user?.uid);
+	const index = useSyncExternalStore(subscribeUserFacets, () =>
+		userId ? cachedUserFacetIndex(userId, mediaType) : undefined,
+	);
+	useEffect(() => {
+		if (!enabled || !userId) return;
+		loadUserFacetIndex(userId, mediaType).catch((err) =>
+			console.error("[watchHistory] facet index failed:", err),
+		);
+	}, [enabled, userId, mediaType]);
+	return index ?? null;
 }

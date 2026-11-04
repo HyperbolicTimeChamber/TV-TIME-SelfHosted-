@@ -17,6 +17,7 @@ import { getCachedCatalogShow, type EnrichedTrackingItem } from "@app/hooks/useW
 import { colors } from "../../theme/index";
 import LoadingScreen from "../../components/LoadingScreen";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
+import { useVisibleCards } from "../../hooks/useVisibleCards";
 import { showPath } from "../../routes/paths";
 import styles from "./styles/HomeScreen.module.scss";
 
@@ -45,6 +46,8 @@ export default function WatchlistTab() {
 		[navigate],
 	);
 	const w = useWatchlistScreen(goToShow);
+	// Heals (missing poster / episode name…) run only for cards kept on screen (app list)
+	const observeCard = useVisibleCards(w.onCardsVisible);
 	const reduceMotion = useReducedMotion();
 	// A mark lifting a card opens a short window where card moves glide; set during render so the
 	// reordering commit already has it (app WatchlistTab)
@@ -151,6 +154,7 @@ export default function WatchlistTab() {
 					item.type === "show" ? (
 						<motion.div
 							key={keyOf(item)}
+							ref={observeCard(item.item.tmdbId)}
 							layout={reduceMotion ? false : "position"}
 							transition={cardsMoving ? CARD_MOVE : CARD_SNAP}
 						>

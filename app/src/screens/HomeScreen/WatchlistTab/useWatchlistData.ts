@@ -229,6 +229,7 @@ export function useWatchlistData(userId: string | undefined) {
 		loadingMore: loadingMoreTracking,
 		hasMore: hasMoreTracking,
 		removeItem,
+		healShown,
 	} = useWatchlist(userId);
 
 	const {
@@ -824,10 +825,29 @@ export function useWatchlistData(userId: string | undefined) {
 					currentEp.season,
 					currentEp.episode,
 				));
-			const nextEpisode = card.nextNextEpisode ?? null;
-			const nextEpisodeName = card.nextNextEpisodeName ?? null;
-			const nextEpisodeAirDate = card.nextNextEpisodeAirDate ?? null;
-			const isComplete = card.isLastEpisode ?? false;
+			// What comes next, from the catalog at mark time — not the card's pre-computed fields:
+			// a card still showing an optimistic patch has none (a fast second mark once wrote
+			// nextEpisode: null with episodes left, and the card lost its pointer for good)
+			const catalog = item.catalogShow?.seasons?.length
+				? item.catalogShow
+				: getCachedCatalogShow(item.tmdbId, MediaType.TV);
+			const hasSeasons = !!catalog?.seasons?.length;
+			const after = hasSeasons
+				? findNextEpisodeInCatalog(catalog, currentEp.season, currentEp.episode)
+				: null;
+			const nextEpisode = after
+				? { season: after.season, episode: after.episode }
+				: (card.nextNextEpisode ?? null);
+			const nextEpisodeName = after ? after.title : (card.nextNextEpisodeName ?? null);
+			const nextEpisodeAirDate = after ? after.airDate : (card.nextNextEpisodeAirDate ?? null);
+			const nextEpisodeRuntime = after ? after.runtime : (card.nextNextEpisodeRuntime ?? 0);
+			// Last only when the catalog says so (no catalog → never completed on a guess)
+			const isComplete = hasSeasons && !nextEpisode;
+			// The episode after the new pointer, so the patched card can be marked again at once
+			const afterNext =
+				hasSeasons && nextEpisode
+					? findNextEpisodeInCatalog(catalog, nextEpisode.season, nextEpisode.episode)
+					: null;
 
 			// Optimistic upcoming update
 			const upcomingSnapshot = mutateCachedUpcoming((prev) =>
@@ -866,13 +886,14 @@ export function useWatchlistData(userId: string | undefined) {
 							nextEpisode,
 							nextEpisodeName,
 							nextEpisodeAirDate,
-							nextEpisodeRuntime: card.nextNextEpisodeRuntime ?? 0,
-							// nextNext will be null until listener re-enriches
-							nextNextEpisode: null,
-							nextNextEpisodeName: null,
-							nextNextEpisodeAirDate: null,
-							nextNextEpisodeRuntime: 0,
-							isLastEpisode: false,
+							nextEpisodeRuntime,
+							nextNextEpisode: afterNext
+								? { season: afterNext.season, episode: afterNext.episode }
+								: null,
+							nextNextEpisodeName: afterNext?.title ?? null,
+							nextNextEpisodeAirDate: afterNext?.airDate ?? null,
+							nextNextEpisodeRuntime: afterNext?.runtime ?? 0,
+							isLastEpisode: hasSeasons && !afterNext,
 							isSeasonFinale: false,
 						} as Partial<CardItem>);
 						return next;
@@ -1295,6 +1316,8 @@ export function useWatchlistData(userId: string | undefined) {
 
 	return {
 		removeItem,
+		/** Cards that stayed on screen → heal their missing data (see useWatchlist) */
+		healShown,
 		listData,
 		promotions,
 		loading: effectiveLoading,

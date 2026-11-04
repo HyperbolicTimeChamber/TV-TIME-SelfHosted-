@@ -2,6 +2,7 @@ import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { CloudFunction, MediaFilter } from "../enums";
 import type { SearchBatch } from "../utils/searchBatch";
 import { trackApi } from "./analytics";
+import { foregroundCall } from "./callQueue";
 
 /** CF idle timeout — a warmup inside it would only spend the caller's rate limit */
 const WARM_FOR_MS = 15 * 60 * 1000;
@@ -30,26 +31,28 @@ export function searchTitles(
 	scope: MediaFilter,
 	batch: number,
 ): Promise<SearchBatch> {
-	return trackApi("cloud_function", CloudFunction.SEARCH_TITLES, async () => {
-		let timer: ReturnType<typeof setTimeout> | undefined;
-		const timeout = new Promise<never>((_, reject) => {
-			timer = setTimeout(() => reject(new Error("Search timed out")), SEARCH_TIMEOUT_MS);
-		});
-		try {
-			const res = await Promise.race([
-				httpsCallable(
-					getFunctions(),
-					CloudFunction.SEARCH_TITLES,
-				)({
-					query,
-					scope,
-					batch,
-				}),
-				timeout,
-			]);
-			return res.data as SearchBatch;
-		} finally {
-			clearTimeout(timer);
-		}
-	});
+	return foregroundCall(() =>
+		trackApi("cloud_function", CloudFunction.SEARCH_TITLES, async () => {
+			let timer: ReturnType<typeof setTimeout> | undefined;
+			const timeout = new Promise<never>((_, reject) => {
+				timer = setTimeout(() => reject(new Error("Search timed out")), SEARCH_TIMEOUT_MS);
+			});
+			try {
+				const res = await Promise.race([
+					httpsCallable(
+						getFunctions(),
+						CloudFunction.SEARCH_TITLES,
+					)({
+						query,
+						scope,
+						batch,
+					}),
+					timeout,
+				]);
+				return res.data as SearchBatch;
+			} finally {
+				clearTimeout(timer);
+			}
+		}),
+	);
 }

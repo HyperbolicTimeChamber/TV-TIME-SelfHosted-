@@ -94,6 +94,14 @@ $badge: 30px;
 	object-fit: cover;
 }
 
+.coverCreate {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: $warning-amber;
+	color: #000;
+}
+
 .coverEmpty {
 	display: inline-flex;
 	align-items: center;

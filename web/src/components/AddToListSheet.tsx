@@ -9,7 +9,7 @@ import {
 } from "react";
 import { motion } from "motion/react";
 import { Spin } from "antd";
-import { IoBookmark, IoBookmarkOutline, IoList, IoSearch } from "react-icons/io5";
+import { IoAdd, IoBookmark, IoBookmarkOutline, IoList, IoSearch } from "react-icons/io5";
 import { MdOutlineBookmarkAdd } from "react-icons/md";
 import {
 	ADD_TO_LIST_SEARCH_MIN_LISTS,
@@ -68,6 +68,8 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: P
 	const user = useAppSelector((s) => s.auth.user);
 	const { lists, loading, createList, addToList, removeFromList } = useCustomLists(user?.uid);
 	const [naming, setNaming] = useState(false);
+	// Name the popup opens with: the search text when made from "Create “…”" (app AddToListSheet)
+	const [draftName, setDraftName] = useState("");
 	const [creating, setCreating] = useState(false);
 	const [nameError, setNameError] = useState<string | null>(null);
 	// Order the sheet opened with (lists holding the title, then newest) — held while it is open
@@ -178,8 +180,10 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: P
 		const result = await createList(name, entry);
 		setCreating(false);
 		// Back to the sheet: the new list shows on top, bookmarked, confirming the add
-		if (result.ok) setNaming(false);
-		else setNameError(NAME_ERRORS[result.reason]);
+		if (result.ok) {
+			setNaming(false);
+			setSearch("");
+		} else setNameError(NAME_ERRORS[result.reason]);
 	};
 
 	const toggle = (list: CustomList, has: boolean) => {
@@ -188,10 +192,15 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: P
 		else addToList(list.id, entry);
 	};
 
-	const startNaming = () => {
+	const startNaming = (prefill = "") => {
 		setNameError(null);
+		setDraftName(prefill);
 		setNaming(true);
 	};
+	// Searched for a list that doesn't exist → offer to make it, named as typed
+	const typedName = search.trim();
+	const canCreateTyped =
+		typedName !== "" && !lists.some((l) => l.name.trim().toLowerCase() === typedName.toLowerCase());
 
 	const renderRow = (list: CustomList) => {
 		if (!entry) return null;
@@ -270,7 +279,11 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: P
 										<>
 											<div className={styles.heading}>
 												<span className={styles.headingText}>In Lists</span>
-												<button type="button" className={styles.newList} onClick={startNaming}>
+												<button
+													type="button"
+													className={styles.newList}
+													onClick={() => startNaming()}
+												>
 													New List
 												</button>
 											</div>
@@ -304,12 +317,33 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: P
 										</div>
 									)}
 
-									{others.map(renderRow)}
-									{others.length === 0 && search.trim() !== "" && (
-										<p className={styles.empty}>No list called "{search.trim()}".</p>
+									{/* No list by that name: make it, the popup opens named as typed */}
+									{canCreateTyped && (
+										<motion.button
+											type="button"
+											className={styles.row}
+											onClick={() => startNaming(typedName)}
+											initial={{ opacity: 0, transform: "translateY(6px)" }}
+											animate={{ opacity: 1, transform: "translateY(0px)" }}
+											transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+											aria-label={`Create list ${typedName}`}
+										>
+											<span className={`${styles.cover} ${styles.coverCreate}`}>
+												<IoAdd size={26} />
+											</span>
+											<span className={styles.rowContent}>
+												<span className={styles.rowText}>Create “{typedName}”</span>
+												<span className={styles.rowHint}>
+													{others.length === 0
+														? "No list by that name yet"
+														: "New list, this title in it"}
+												</span>
+											</span>
+										</motion.button>
 									)}
+									{others.map(renderRow)}
 
-									<button type="button" className={styles.row} onClick={startNaming}>
+									<button type="button" className={styles.row} onClick={() => startNaming()}>
 										<span className={`${styles.cover} ${styles.coverEmpty}`}>
 											<MdOutlineBookmarkAdd size={24} />
 										</span>
@@ -331,6 +365,7 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: P
 			<ListNameModal
 				visible={!!entry && naming}
 				title={NEW_LIST_TITLE}
+				suggestedName={draftName}
 				image={<ModalArt src={NEW_LIST_ART} />}
 				hint={NEW_LIST_HINTS}
 				confirmLabel="Create & Add"

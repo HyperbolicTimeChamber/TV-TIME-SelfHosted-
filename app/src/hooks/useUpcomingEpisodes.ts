@@ -16,6 +16,7 @@ import {
 	trimPastQueue,
 	upcomingEpKey as epKey,
 	placeholderTargets,
+	recentTitleChecks,
 	titlesFromCatalog,
 	applyTitles,
 	isGenericEpisodeTitle,
@@ -24,6 +25,8 @@ import {
 } from "../utils";
 import { useAuthStore } from "../stores";
 import { getSeasonDetails, pooled } from "../services/tmdb";
+import { foregroundCall } from "../services/callQueue";
+import { UPCOMING_TITLE_RECHECK_MS } from "../enums";
 
 type MutateCallback = (fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[]) => void;
 const mutateListeners = new Set<MutateCallback>();
@@ -213,7 +216,9 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 				// If empty, rebuild upcoming subcollection via CF
 				if (snap.size === 0) {
 					try {
-						await httpsCallable(getFunctions(), CloudFunction.REBUILD_UPCOMING)({});
+						await foregroundCall(() =>
+							httpsCallable(getFunctions(), CloudFunction.REBUILD_UPCOMING)({}),
+						);
 						snap = await getDocs(query(upcomingCol, where("airDate", ">=", fromDate)));
 					} catch (err) {
 						console.error("rebuildUpcoming CF failed:", err);
@@ -315,6 +320,22 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 
 // Show+season pairs already refreshed this session
 const titleRefreshDone = new Set<string>();
+// Seasons TMDB was asked within UPCOMING_TITLE_RECHECK_MS, across launches (key → ms)
+let titleChecks: Promise<Record<string, number>> | null = null;
+function loadTitleChecks(): Promise<Record<string, number>> {
+	titleChecks ??= AsyncStorage.getItem(CacheKey.UPCOMING_TITLE_CHECKS)
+		.then((raw) => {
+			const { recent, kept } = recentTitleChecks(
+				raw ? JSON.parse(raw) : null,
+				Date.now(),
+				UPCOMING_TITLE_RECHECK_MS,
+			);
+			for (const k of recent) titleRefreshDone.add(k);
+			return kept;
+		})
+		.catch(() => ({}));
+	return titleChecks;
+}
 
 /**
  * Upcoming docs are built weekly from the catalog, so episodes often carry TMDB
@@ -329,6 +350,7 @@ async function refreshPlaceholderTitles(
 	syncDate: string | null,
 ) {
 	if (!userId) return;
+	const checks = await loadTitleChecks();
 	const targets = placeholderTargets(episodes, titleRefreshDone);
 	if (targets.size === 0) return;
 	for (const k of targets.keys()) titleRefreshDone.add(k);
@@ -353,6 +375,10 @@ async function refreshPlaceholderTitles(
 
 	const apiKey = useAuthStore.getState().appTmdbApiKey;
 	if (apiKey && needTmdb.length > 0) {
+		// Stamped before the fetch: a launch soon after doesn't ask again for names TMDB lacks
+		const now = Date.now();
+		for (const { tmdbId, season } of needTmdb) checks[`${tmdbId}_${season}`] = now;
+		AsyncStorage.setItem(CacheKey.UPCOMING_TITLE_CHECKS, JSON.stringify(checks)).catch(() => {});
 		await pooled(
 			needTmdb.map(({ tmdbId, season }) => async () => {
 				try {

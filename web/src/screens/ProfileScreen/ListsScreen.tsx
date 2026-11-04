@@ -26,6 +26,7 @@ import SkeletonBlock from "../../components/SkeletonBlock";
 import { useTitleInfo } from "@app/hooks/useTitleInfo";
 import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
 import { useHideTabBar } from "../../hooks/useHideTabBar";
+import SwipeBackPage from "../../components/SwipeBackPage";
 import { downloadListsExport, readListsFile } from "../../platform/customListsFiles";
 import { Paths, listPath } from "../../routes/paths";
 import { colors } from "../../theme";
@@ -347,7 +348,7 @@ export default function ListsScreen() {
 	};
 
 	return (
-		<div className={styles.page}>
+		<SwipeBackPage onBack={goBack} className={styles.page}>
 			<header className={styles.topBar}>
 				<div className={styles.titleRow}>
 					<CircleBackButton tone={CircleButtonTone.SURFACE_LIGHT} onClick={goBack} />
@@ -506,6 +507,6 @@ export default function ListsScreen() {
 				onConfirm={confirmImport}
 				onClose={() => setImportPlan(null)}
 			/>
-		</div>
+		</SwipeBackPage>
 	);
 }

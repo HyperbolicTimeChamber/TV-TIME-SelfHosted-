@@ -3,6 +3,7 @@ import { CloudFunction, MediaType, RefreshReason } from "../enums";
 import type { CatalogShow } from "../types";
 import { showDocId } from "../utils";
 import { trackApi } from "./analytics";
+import { backgroundCall } from "./callQueue";
 
 interface RefreshShowResponse {
 	refreshed: boolean;
@@ -27,19 +28,22 @@ export function requestShowRefresh(
 	const key = `${showDocId(tmdbId, mediaType)}|${reason}`;
 	const prior = requested.get(key);
 	if (prior) return prior;
-	const call = trackApi("cloud_function", CloudFunction.REFRESH_SHOW, async () => {
-		const res = await httpsCallable(
-			getFunctions(),
-			CloudFunction.REFRESH_SHOW,
-		)({
-			tmdbId,
-			mediaType,
-			reason,
-			...(seasons?.length ? { seasons } : {}),
-		});
-		const catalog = (res.data as RefreshShowResponse).catalog;
-		return catalog ? ({ trackedBy: [], ...catalog } as CatalogShow) : null;
-	}).catch(() => null);
+	// Queued (background): never in the way of a search / add the user is waiting on
+	const call = backgroundCall(() =>
+		trackApi("cloud_function", CloudFunction.REFRESH_SHOW, async () => {
+			const res = await httpsCallable(
+				getFunctions(),
+				CloudFunction.REFRESH_SHOW,
+			)({
+				tmdbId,
+				mediaType,
+				reason,
+				...(seasons?.length ? { seasons } : {}),
+			});
+			const catalog = (res.data as RefreshShowResponse).catalog;
+			return catalog ? ({ trackedBy: [], ...catalog } as CatalogShow) : null;
+		}),
+	).catch(() => null);
 	requested.set(key, call);
 	return call;
 }
@@ -55,14 +59,19 @@ export function requestCatalogCreate(
 	const key = `${showDocId(tmdbId, mediaType)}|${CloudFunction.ADD_SHOW}`;
 	const prior = requested.get(key);
 	if (prior) return prior;
-	const call = trackApi("cloud_function", CloudFunction.ADD_SHOW, async () => {
-		const res = await httpsCallable(getFunctions(), CloudFunction.ADD_SHOW)({ tmdbId, mediaType });
-		// facetDelta: what a tracked title's stamp changed in the filter choices — not catalog data
-		const { facetDelta: _facetDelta, ...catalog } = (res.data ?? {}) as CatalogShow & {
-			facetDelta?: unknown;
-		};
-		return catalog.title ? (catalog as CatalogShow) : null;
-	}).catch(() => null);
+	const call = backgroundCall(() =>
+		trackApi("cloud_function", CloudFunction.ADD_SHOW, async () => {
+			const res = await httpsCallable(
+				getFunctions(),
+				CloudFunction.ADD_SHOW,
+			)({ tmdbId, mediaType });
+			// facetDelta: what a tracked title's stamp changed in the filter choices — not catalog data
+			const { facetDelta: _facetDelta, ...catalog } = (res.data ?? {}) as CatalogShow & {
+				facetDelta?: unknown;
+			};
+			return catalog.title ? (catalog as CatalogShow) : null;
+		}),
+	).catch(() => null);
 	requested.set(key, call);
 	return call;
 }

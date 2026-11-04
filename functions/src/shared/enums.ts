@@ -307,6 +307,20 @@ export enum UserCollection {
   FACETS = "facets",
 }
 
+/** facets/{mediaType}{FACET_INDEX_SUFFIX} ("tvIndex"): title id → its genre / country / studio /
+ *  keyword codes (FacetCode prefixes), so the filter drawer can hide choices no title shares with
+ *  the ones picked. Mirrors app */
+export const FACET_INDEX_SUFFIX = "Index";
+/** Keywords per title in the index — all 40 would push a big library's doc past 1 MB. A subset
+ *  can only hide a valid keyword choice, never offer a dead one */
+export const FACET_INDEX_KEYWORDS = 8;
+export enum FacetCode {
+  GENRE = "g:",
+  COUNTRY = "c:",
+  STUDIO = "s:",
+  KEYWORD = "k:",
+}
+
 /** Server time of a tracking doc's last write — clients' delta listener reads only docs past it */
 export const TRACKING_UPDATED_AT = "updatedAt";
 /** Deletion log entries expire after this (Firestore TTL on `expireAt`) */

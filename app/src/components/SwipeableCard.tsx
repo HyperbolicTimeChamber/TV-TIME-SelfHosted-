@@ -80,6 +80,12 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 	const [showReveal, setShowReveal] = React.useState(false);
 	const [actionColor, setActionColor] = React.useState<string>(colors.watchedGreen);
 	const isProcessing = useRef(false);
+	// One action per swipe: each swipe / checkmark gets an id and only its first finished
+	// animation callback acts. A swipe's withTiming callback can fire a second time (finished:
+	// false) after the mark's await — once isProcessing was reset, that second call ran the
+	// action again on the card's new episode (one swipe marked E39 and E40)
+	const swipeSeq = useSharedValue(0);
+	const handledSeq = useRef(0);
 	const restoreTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	useEffect(
 		() => () => {
@@ -112,8 +118,9 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 	rightColorRef.current = rightColor;
 
 	const handleSwipeComplete = useCallback(
-		async (direction: "left" | "right") => {
-			if (isProcessing.current) return;
+		async (direction: "left" | "right", seq: number) => {
+			if (seq <= handledSeq.current || isProcessing.current) return;
+			handledSeq.current = seq;
 			isProcessing.current = true;
 
 			const persist = persistRef.current;
@@ -180,12 +187,14 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 			triggerSwipeLeft: () => {
 				if (swipeState !== "idle" || isProcessing.current) return;
 				setShowReveal(true);
-				translateX.value = withTiming(SCREEN_WIDTH, { duration: 300 }, () => {
-					runOnJS(handleSwipeComplete)("left");
+				swipeSeq.value += 1;
+				const seq = swipeSeq.value;
+				translateX.value = withTiming(SCREEN_WIDTH, { duration: 300 }, (finished) => {
+					if (finished) runOnJS(handleSwipeComplete)("left", seq);
 				});
 			},
 		}),
-		[swipeState, handleSwipeComplete, translateX],
+		[swipeState, handleSwipeComplete, translateX, swipeSeq],
 	);
 
 	const rightEnabled = !!onSwipeRight;
@@ -211,19 +220,23 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 					if (!idle.value) return;
 
 					if (event.translationX > SWIPE_THRESHOLD) {
-						translateX.value = withTiming(SCREEN_WIDTH, { duration: 200 }, () => {
-							runOnJS(handleSwipeComplete)("left");
+						swipeSeq.value += 1;
+						const seq = swipeSeq.value;
+						translateX.value = withTiming(SCREEN_WIDTH, { duration: 200 }, (finished) => {
+							if (finished) runOnJS(handleSwipeComplete)("left", seq);
 						});
 					} else if (rightEnabled && event.translationX < -SWIPE_THRESHOLD) {
-						translateX.value = withTiming(-SCREEN_WIDTH, { duration: 200 }, () => {
-							runOnJS(handleSwipeComplete)("right");
+						swipeSeq.value += 1;
+						const seq = swipeSeq.value;
+						translateX.value = withTiming(-SCREEN_WIDTH, { duration: 200 }, (finished) => {
+							if (finished) runOnJS(handleSwipeComplete)("right", seq);
 						});
 					} else {
 						translateX.value = withTiming(0, { duration: 200 });
 						runOnJS(setShowReveal)(false);
 					}
 				}),
-		[rightEnabled, idle, translateX, handleSwipeComplete],
+		[rightEnabled, idle, translateX, handleSwipeComplete, swipeSeq],
 	);
 
 	const cardStyle = useAnimatedStyle(() => ({

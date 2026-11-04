@@ -27,6 +27,7 @@ import ListNameModal from "../../components/ListNameModal";
 import AddToListSheet from "../../components/AddToListSheet";
 import type { ShowDrawerAction } from "../../components/ShowDrawer";
 import { useHideTabBar } from "../../hooks/useHideTabBar";
+import SwipeBackPage from "../../components/SwipeBackPage";
 import { Paths, showPath } from "../../routes/paths";
 import { colors } from "../../theme";
 import { ListGridCard, ListItemPreview, ListRow, ReorderRow } from "./ListItemViews";
@@ -139,7 +140,7 @@ export default function ListDetailScreen() {
 		: [];
 
 	return (
-		<div className={styles.page}>
+		<SwipeBackPage onBack={goBack} disabled={reordering} className={styles.page}>
 			<header className={styles.topBar}>
 				<div className={styles.titleRow}>
 					<CircleBackButton tone={CircleButtonTone.SURFACE_LIGHT} onClick={goBack} />
@@ -348,6 +349,6 @@ export default function ListDetailScreen() {
 				}}
 				onClose={() => setRemoveTarget(null)}
 			/>
-		</div>
+		</SwipeBackPage>
 	);
 }

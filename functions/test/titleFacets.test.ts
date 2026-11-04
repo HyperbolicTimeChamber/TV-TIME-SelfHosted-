@@ -4,6 +4,7 @@ import {
   applyFacetDelta,
   countFacets,
   countryCodes,
+  facetIndexEntry,
   keywordNames,
   sameFacets,
   studioNames,
@@ -89,4 +90,12 @@ test("studioNames: networks first, then companies; unique, capped", () => {
 test("studioNames: networks and companies capped apart — many networks never crowd out the studio", () => {
   const list = (prefix: string) => Array.from({ length: 4 }, (_, i) => ({ name: `${prefix}${i}` }));
   assert.deepEqual(studioNames(list("N"), list("C")), ["N0", "N1", "C0", "C1", "C2"]);
+});
+
+test("facetIndexEntry: prefixed genre / country / studio codes + the first 8 keywords", () => {
+  const kws = Array.from({ length: 12 }, (_, i) => `kw${i}`);
+  const e = facetIndexEntry({ genres: ["Drama"], countries: ["KR"], studios: ["tvN"], keywords: kws });
+  assert.deepEqual(e.slice(0, 3), ["g:Drama", "c:KR", "s:tvN"]);
+  assert.equal(e.filter((c) => c.startsWith("k:")).length, 8);
+  assert.deepEqual(facetIndexEntry(null), []);
 });
