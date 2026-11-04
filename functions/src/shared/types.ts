@@ -104,6 +104,8 @@ export interface CatalogShow {
   genres: string[];
   /** TMDB keyword names (lowercase), at most TITLE_KEYWORD_MAX — Watch History filters on them */
   keywords?: string[];
+  /** TMDB origin_country codes ("KR") — the Watch History Country filter */
+  countries?: string[];
   /** TMDB title logo (English, else language-neutral); null = TMDB has none */
   logoPath?: string | null;
   /** TVMaze show id (cached so later syncs skip the lookup); null = not on TVMaze */

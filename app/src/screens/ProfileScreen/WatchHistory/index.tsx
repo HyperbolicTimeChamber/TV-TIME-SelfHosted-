@@ -285,6 +285,13 @@ export default function WatchHistoryScreen() {
 			else next.add(value);
 			return { ...prev, [key]: next };
 		});
+	// A regional genre (k-drama → Korea + Drama): both turned on, never toggled off by it
+	const applyRegion = (country: string, genre?: string) =>
+		setFacets((prev) => ({
+			...prev,
+			countries: new Set([...prev.countries, country]),
+			genres: genre ? new Set([...prev.genres, genre]) : prev.genres,
+		}));
 	// Grid / List, remembered (List: the cards this page always had)
 	const [view, setView] = useCustomListView(CacheKey.HISTORY_VIEW, CustomListView.LIST);
 	const isMovieTab = tab === MediaType.MOVIE;
@@ -466,6 +473,8 @@ export default function WatchHistoryScreen() {
 				facetOptions={facetOptions}
 				onToggleGenre={(g) => toggleFacet("genres", g)}
 				onToggleKeyword={(k) => toggleFacet("keywords", k)}
+				onToggleCountry={(c) => toggleFacet("countries", c)}
+				onApplyRegion={applyRegion}
 			/>
 		</Animated.View>
 	);

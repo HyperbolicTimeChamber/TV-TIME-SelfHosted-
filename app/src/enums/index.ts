@@ -452,3 +452,100 @@ export const TRACKING_UPDATED_AT = "updatedAt";
 export const TRACKING_DELETION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 /** Delta listener starts this far before the last seen write (commit order vs timestamp order) */
 export const TRACKING_SYNC_OVERLAP_MS = 60 * 1000;
+
+/**
+ * Regional genres TMDB has no keyword for, typed into Watch History's keyword field ("k-drama") →
+ * the filters they stand for: the origin country (+ the genre, when there is one). Keys: lower-case,
+ * letters / digits only. Mirrors functions SEARCH_REGION_ALIASES — keep both in step.
+ */
+type RegionAlias = { label: string; country: string; genre?: string };
+const K_DRAMA: RegionAlias = { label: "K-Drama", country: "KR", genre: "Drama" };
+const J_DRAMA: RegionAlias = { label: "J-Drama", country: "JP", genre: "Drama" };
+const C_DRAMA: RegionAlias = { label: "C-Drama", country: "CN", genre: "Drama" };
+const TW_DRAMA: RegionAlias = { label: "Taiwanese Drama", country: "TW", genre: "Drama" };
+const THAI_DRAMA: RegionAlias = { label: "Thai Drama", country: "TH", genre: "Drama" };
+const TURKISH_DRAMA: RegionAlias = { label: "Turkish Drama", country: "TR", genre: "Drama" };
+export const REGION_ALIASES: Record<string, RegionAlias> = {
+	kdrama: K_DRAMA,
+	kdramas: K_DRAMA,
+	koreandrama: K_DRAMA,
+	koreandramas: K_DRAMA,
+	jdrama: J_DRAMA,
+	jdramas: J_DRAMA,
+	japanesedrama: J_DRAMA,
+	japanesedramas: J_DRAMA,
+	cdrama: C_DRAMA,
+	cdramas: C_DRAMA,
+	chinesedrama: C_DRAMA,
+	chinesedramas: C_DRAMA,
+	twdrama: TW_DRAMA,
+	twdramas: TW_DRAMA,
+	taiwanesedrama: TW_DRAMA,
+	taiwanesedramas: TW_DRAMA,
+	thaidrama: THAI_DRAMA,
+	thaidramas: THAI_DRAMA,
+	lakorn: THAI_DRAMA,
+	turkishdrama: TURKISH_DRAMA,
+	turkishdramas: TURKISH_DRAMA,
+	turkishseries: TURKISH_DRAMA,
+	dizi: TURKISH_DRAMA,
+	anime: { label: "Anime", country: "JP", genre: "Animation" },
+	donghua: { label: "Donghua", country: "CN", genre: "Animation" },
+	bollywood: { label: "Bollywood", country: "IN" },
+};
+
+/** Country chip names (TMDB origin_country codes); a code not listed shows as the code */
+export const COUNTRY_NAMES: Record<string, string> = {
+	US: "United States",
+	GB: "United Kingdom",
+	CA: "Canada",
+	AU: "Australia",
+	NZ: "New Zealand",
+	IE: "Ireland",
+	KR: "South Korea",
+	JP: "Japan",
+	CN: "China",
+	TW: "Taiwan",
+	HK: "Hong Kong",
+	TH: "Thailand",
+	PH: "Philippines",
+	ID: "Indonesia",
+	MY: "Malaysia",
+	SG: "Singapore",
+	VN: "Vietnam",
+	IN: "India",
+	PK: "Pakistan",
+	TR: "Turkey",
+	IL: "Israel",
+	EG: "Egypt",
+	ZA: "South Africa",
+	NG: "Nigeria",
+	FR: "France",
+	DE: "Germany",
+	ES: "Spain",
+	IT: "Italy",
+	PT: "Portugal",
+	NL: "Netherlands",
+	BE: "Belgium",
+	CH: "Switzerland",
+	AT: "Austria",
+	SE: "Sweden",
+	NO: "Norway",
+	DK: "Denmark",
+	FI: "Finland",
+	IS: "Iceland",
+	PL: "Poland",
+	CZ: "Czechia",
+	HU: "Hungary",
+	RO: "Romania",
+	GR: "Greece",
+	RU: "Russia",
+	UA: "Ukraine",
+	MX: "Mexico",
+	BR: "Brazil",
+	AR: "Argentina",
+	CO: "Colombia",
+	CL: "Chile",
+	PE: "Peru",
+	VE: "Venezuela",
+};

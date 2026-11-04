@@ -1,5 +1,5 @@
 import axios from "axios";
-import { keywordNames } from "../shared/titleFacets";
+import { countryCodes, keywordNames } from "../shared/titleFacets";
 import {
   EpisodeType,
   MediaType,
@@ -262,6 +262,7 @@ export async function fetchShowFromTMDB(
     seasons,
     genres: (data.genres ?? []).map((g) => g.name),
     keywords: keywordNames(data.keywords?.results ?? data.keywords?.keywords),
+    countries: countryCodes(data.origin_country),
     logoPath: pickLogo(data.images?.logos),
     ...(mediaType === MediaType.TV ? { tvmazeId } : {}),
     ...(mediaType === MediaType.MOVIE && data.credits?.crew

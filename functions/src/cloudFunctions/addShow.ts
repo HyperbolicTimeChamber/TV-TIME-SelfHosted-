@@ -2,7 +2,7 @@ import { HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { fetchShowFromTMDB, CatalogShow } from "../hooks/tmdb";
 import { addToTrackedBy } from "../hooks/trackedBy";
-import { fetchKeywords, stampTrackingFacets } from "../hooks/titleFacets";
+import { fetchFacetFields, stampTrackingFacets } from "../hooks/titleFacets";
 import { FacetDelta } from "../shared/titleFacets";
 import { getTmdbApiKey, invalidateApiKeyCache } from "../hooks/apiKey";
 import { addShowToUpcoming } from "../hooks/upcoming";
@@ -40,13 +40,15 @@ export const addShow = trackedOnCall(
     const existingDoc = await showRef.get();
     if (existingDoc.exists) {
       const catalog = existingDoc.data() as CatalogShow;
-      // Written before keywords were stored: fetch them once (light request) for every tracker
-      if (!("keywords" in catalog)) {
+      // Written before keywords / countries were stored: fetch both once (one TMDB request)
+      // for every tracker
+      if (!("keywords" in catalog) || !("countries" in catalog)) {
         try {
-          catalog.keywords = await fetchKeywords(await getTmdbApiKey(), tmdbId, mediaType);
-          await showRef.update({ keywords: catalog.keywords });
+          const fields = await fetchFacetFields(await getTmdbApiKey(), tmdbId, mediaType);
+          Object.assign(catalog, fields);
+          await showRef.update(fields);
         } catch (err) {
-          console.warn(`[addShow] keywords for ${showId} failed:`, (err as Error).message);
+          console.warn(`[addShow] facets for ${showId} failed:`, (err as Error).message);
         }
       }
       const [, facetDelta] = await Promise.all([

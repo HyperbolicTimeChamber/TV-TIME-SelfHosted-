@@ -110,7 +110,10 @@ async function keywordTitles(
     let filter: Record<string, string | number>;
     if (alias) {
       types = types.filter((t) => alias.types.includes(t));
-      filter = { with_origin_country: alias.country, with_genres: alias.genre };
+      filter = {
+        with_origin_country: alias.country,
+        ...(alias.genre ? { with_genres: alias.genre } : {}),
+      };
     } else {
       const keywords = await tmdbGet<{ results: { id: number; name: string }[] }>(
         "/search/keyword",

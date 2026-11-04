@@ -197,25 +197,44 @@ export enum TmdbGenre {
 /**
  * Searches that name a regional genre TMDB has no keyword for ("k-drama" fuzzy-matched cdrama /
  * jdrama / drama, so generic dramas filled the list) → the most popular titles from that origin
- * country in that genre. Keys: the query lower-case, letters / digits only.
+ * country (in that genre, when there is one). Keys: the query lower-case, letters / digits only.
+ * Mirrors app REGION_ALIASES (the Watch History filter) — keep both in step.
  */
-export const SEARCH_REGION_ALIASES: Record<
-  string,
-  { country: string; genre: TmdbGenre; types: MediaType[] }
-> = {
-  kdrama: { country: "KR", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
-  kdramas: { country: "KR", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
-  koreandrama: { country: "KR", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
-  koreandramas: { country: "KR", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
-  jdrama: { country: "JP", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
-  jdramas: { country: "JP", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
-  japanesedrama: { country: "JP", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
-  cdrama: { country: "CN", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
-  cdramas: { country: "CN", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
-  chinesedrama: { country: "CN", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
-  thaidrama: { country: "TH", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
-  lakorn: { country: "TH", genre: TmdbGenre.DRAMA, types: [MediaType.TV] },
-  anime: { country: "JP", genre: TmdbGenre.ANIMATION, types: [MediaType.TV, MediaType.MOVIE] },
+type RegionAlias = { country: string; genre?: TmdbGenre; types: MediaType[] };
+const KR_DRAMA: RegionAlias = { country: "KR", genre: TmdbGenre.DRAMA, types: [MediaType.TV] };
+const JP_DRAMA: RegionAlias = { country: "JP", genre: TmdbGenre.DRAMA, types: [MediaType.TV] };
+const CN_DRAMA: RegionAlias = { country: "CN", genre: TmdbGenre.DRAMA, types: [MediaType.TV] };
+const TW_DRAMA: RegionAlias = { country: "TW", genre: TmdbGenre.DRAMA, types: [MediaType.TV] };
+const TH_DRAMA: RegionAlias = { country: "TH", genre: TmdbGenre.DRAMA, types: [MediaType.TV] };
+const TR_DRAMA: RegionAlias = { country: "TR", genre: TmdbGenre.DRAMA, types: [MediaType.TV] };
+const BOTH = [MediaType.TV, MediaType.MOVIE];
+export const SEARCH_REGION_ALIASES: Record<string, RegionAlias> = {
+  kdrama: KR_DRAMA,
+  kdramas: KR_DRAMA,
+  koreandrama: KR_DRAMA,
+  koreandramas: KR_DRAMA,
+  jdrama: JP_DRAMA,
+  jdramas: JP_DRAMA,
+  japanesedrama: JP_DRAMA,
+  japanesedramas: JP_DRAMA,
+  cdrama: CN_DRAMA,
+  cdramas: CN_DRAMA,
+  chinesedrama: CN_DRAMA,
+  chinesedramas: CN_DRAMA,
+  twdrama: TW_DRAMA,
+  twdramas: TW_DRAMA,
+  taiwanesedrama: TW_DRAMA,
+  taiwanesedramas: TW_DRAMA,
+  thaidrama: TH_DRAMA,
+  thaidramas: TH_DRAMA,
+  lakorn: TH_DRAMA,
+  turkishdrama: TR_DRAMA,
+  turkishdramas: TR_DRAMA,
+  turkishseries: TR_DRAMA,
+  dizi: TR_DRAMA,
+  anime: { country: "JP", genre: TmdbGenre.ANIMATION, types: BOTH },
+  donghua: { country: "CN", genre: TmdbGenre.ANIMATION, types: BOTH },
+  bollywood: { country: "IN", types: [MediaType.MOVIE] },
 };
 /** TMDB keywords kept per title (catalog + tracking docs) */
 export const TITLE_KEYWORD_MAX = 40;

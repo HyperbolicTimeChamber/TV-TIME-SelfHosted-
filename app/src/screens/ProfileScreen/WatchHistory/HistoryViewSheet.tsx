@@ -22,6 +22,8 @@ import {
 	HISTORY_FILTER_LABEL,
 	HISTORY_SORT_LABEL,
 	HISTORY_SORTS,
+	countryLabel,
+	regionAliasFor,
 } from "../../../utils/historyView";
 import { colors } from "../../../theme";
 import { titleCase } from "../../../utils/format";
@@ -42,11 +44,17 @@ interface Props {
 	onToggleFilter: (filter: HistoryFilter) => void;
 	onClearFilters: () => void;
 	facets: HistoryFacets;
-	/** Every genre / keyword across the tab's tracked titles (the user's facets doc) */
-	facetOptions: { genres: string[]; keywords: string[] };
+	/** Every genre / keyword / country across the tab's tracked titles (the user's facets doc) */
+	facetOptions: { genres: string[]; keywords: string[]; countries: string[] };
 	onToggleGenre: (genre: string) => void;
 	onToggleKeyword: (keyword: string) => void;
+	onToggleCountry: (country: string) => void;
+	/** A regional genre typed as a keyword ("k-drama"): turn on its country (+ genre) */
+	onApplyRegion: (country: string, genre?: string) => void;
 }
+
+/** Countries listed before "show all": the most common ones (picked ones always show) */
+const COUNTRY_SUGGESTIONS = 8;
 
 /** Keyboard height while it's up — the sheet grows by it so the keyword field stays in sight */
 function useKeyboardHeight() {
@@ -139,6 +147,8 @@ export default function HistoryViewSheet({
 	facetOptions,
 	onToggleGenre,
 	onToggleKeyword,
+	onToggleCountry,
+	onApplyRegion,
 }: Props) {
 	const keyboard = useKeyboardHeight();
 	const [term, setTerm] = useState("");
@@ -150,14 +160,41 @@ export default function HistoryViewSheet({
 		const rest = facetOptions.keywords
 			.filter((k) => !facets.keywords.has(k) && (!typed || k.includes(typed)))
 			.slice(0, HISTORY_KEYWORD_SUGGESTIONS);
-		const exact = !!typed && !facets.keywords.has(typed) && !rest.includes(typed);
-		return { picked: [...facets.keywords], rest, exact };
+		// A regional genre (k-drama, anime…) is a country + genre, not a TMDB keyword: its chip
+		// takes the place of the typed text's
+		const region = typed ? regionAliasFor(typed) : undefined;
+		const exact = !region && !!typed && !facets.keywords.has(typed) && !rest.includes(typed);
+		return { picked: [...facets.keywords], rest, exact, region };
 	}, [facetOptions.keywords, facets.keywords, typed]);
+	const [allCountries, setAllCountries] = useState(false);
+	const countries = useMemo(() => {
+		const all = [...new Set([...facets.countries, ...facetOptions.countries])];
+		return allCountries
+			? all
+			: [
+					...new Set([
+						...facets.countries,
+						...facetOptions.countries.slice(0, COUNTRY_SUGGESTIONS),
+					]),
+				];
+	}, [facets.countries, facetOptions.countries, allCountries]);
+	const moreCountries = !allCountries && facetOptions.countries.length > COUNTRY_SUGGESTIONS;
 	const genres = useMemo(
 		() => [...new Set([...facets.genres, ...facetOptions.genres])],
 		[facets.genres, facetOptions.genres],
 	);
-	const anyFilter = filters.size > 0 || facets.genres.size > 0 || facets.keywords.size > 0;
+	const anyFilter =
+		filters.size > 0 ||
+		facets.genres.size > 0 ||
+		facets.keywords.size > 0 ||
+		facets.countries.size > 0;
+	const countriesFull = facets.countries.size >= HISTORY_FACET_MAX;
+	const applyRegion = () => {
+		const region = keywordChips.region;
+		if (!region) return;
+		onApplyRegion(region.country, region.genre);
+		setTerm("");
+	};
 	const genresFull = facets.genres.size >= HISTORY_FACET_MAX;
 	const keywordsFull = facets.keywords.size >= HISTORY_FACET_MAX;
 	return (
@@ -219,6 +256,33 @@ export default function HistoryViewSheet({
 					</ChipLine>
 				</>
 			)}
+			{countries.length > 0 && (
+				<>
+					<Text style={styles.facetTitle}>COUNTRY</Text>
+					<ChipLine>
+						{countries.map((c) => {
+							const on = facets.countries.has(c);
+							return (
+								<Chip
+									key={c}
+									label={countryLabel(c)}
+									on={on}
+									disabled={!on && countriesFull}
+									onPress={() => onToggleCountry(c)}
+								/>
+							);
+						})}
+						{moreCountries && (
+							<Chip
+								label="More"
+								on={false}
+								icon="chevron-down"
+								onPress={() => setAllCountries(true)}
+							/>
+						)}
+					</ChipLine>
+				</>
+			)}
 			<Text style={styles.facetTitle}>KEYWORD</Text>
 			<View style={[styles.keywordField, focused && styles.keywordFieldFocused]}>
 				<Ionicons name="search" size={16} color={focused ? colors.text : colors.textSecondary} />
@@ -234,6 +298,7 @@ export default function HistoryViewSheet({
 					onFocus={() => setFocused(true)}
 					onBlur={() => setFocused(false)}
 					onSubmitEditing={() => {
+						if (keywordChips.region) return applyRegion();
 						if (keywordChips.exact && !keywordsFull) onToggleKeyword(typed);
 						setTerm("");
 					}}
@@ -253,8 +318,19 @@ export default function HistoryViewSheet({
 					</Animated.View>
 				)}
 			</View>
-			{(keywordChips.picked.length > 0 || keywordChips.rest.length > 0 || keywordChips.exact) && (
+			{(keywordChips.picked.length > 0 ||
+				keywordChips.rest.length > 0 ||
+				keywordChips.exact ||
+				keywordChips.region) && (
 				<ChipLine>
+					{keywordChips.region && (
+						<Chip
+							label={`${keywordChips.region.label} · ${countryLabel(keywordChips.region.country)}`}
+							on={false}
+							icon="sparkles"
+							onPress={applyRegion}
+						/>
+					)}
 					{keywordChips.exact && (
 						<Chip
 							label={titleCase(typed)}

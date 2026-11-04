@@ -1,5 +1,12 @@
 import { useMemo, useState } from "react";
-import { IoAdd, IoCheckmark, IoCloseCircle, IoSearch } from "react-icons/io5";
+import {
+	IoAdd,
+	IoCheckmark,
+	IoChevronDown,
+	IoCloseCircle,
+	IoSearch,
+	IoSparkles,
+} from "react-icons/io5";
 import {
 	HISTORY_FACET_MAX,
 	HISTORY_KEYWORD_SUGGESTIONS,
@@ -13,6 +20,8 @@ import {
 	HISTORY_FILTER_LABEL,
 	HISTORY_SORT_LABEL,
 	HISTORY_SORTS,
+	countryLabel,
+	regionAliasFor,
 } from "@app/utils/historyView";
 import { SortPanel, sortPanelTitleClass, type SortOption } from "../../../components/SortPanel";
 import styles from "./styles/WatchHistory.module.scss";
@@ -31,10 +40,16 @@ interface Props {
 	onClearFilters: () => void;
 	facets: HistoryFacets;
 	/** Every genre / keyword across the tab's tracked titles (the user's facets doc) */
-	facetOptions: { genres: string[]; keywords: string[] };
+	facetOptions: { genres: string[]; keywords: string[]; countries: string[] };
 	onToggleGenre: (genre: string) => void;
 	onToggleKeyword: (keyword: string) => void;
+	onToggleCountry: (country: string) => void;
+	/** A regional genre typed as a keyword ("k-drama"): turn on its country (+ genre) */
+	onApplyRegion: (country: string, genre?: string) => void;
 }
+
+/** Countries listed before "More": the most common ones (picked ones always show) */
+const COUNTRY_SUGGESTIONS = 8;
 
 /** One filter chip (status, genre or keyword): a check when on */
 function Chip({
@@ -47,8 +62,8 @@ function Chip({
 	label: string;
 	on: boolean;
 	disabled?: boolean;
-	/** A typed keyword: a plus in place of the check */
-	add?: boolean;
+	/** In place of the check: a typed keyword's plus, a regional genre's sparkle, "More" */
+	add?: boolean | "region" | "more";
 	onClick: () => void;
 }) {
 	return (
@@ -60,6 +75,10 @@ function Chip({
 		>
 			{on ? (
 				<IoCheckmark size={15} className={styles.chipIcon} />
+			) : add === "region" ? (
+				<IoSparkles size={15} className={styles.chipIcon} />
+			) : add === "more" ? (
+				<IoChevronDown size={15} className={styles.chipIcon} />
 			) : add ? (
 				<IoAdd size={15} className={styles.chipIcon} />
 			) : null}
@@ -83,6 +102,8 @@ export default function HistoryViewPanel({
 	facetOptions,
 	onToggleGenre,
 	onToggleKeyword,
+	onToggleCountry,
+	onApplyRegion,
 }: Props) {
 	const [term, setTerm] = useState("");
 	const typed = term.trim().toLowerCase();
@@ -92,18 +113,40 @@ export default function HistoryViewPanel({
 		const rest = facetOptions.keywords
 			.filter((k) => !facets.keywords.has(k) && (!typed || k.includes(typed)))
 			.slice(0, HISTORY_KEYWORD_SUGGESTIONS);
-		const exact = !!typed && !facets.keywords.has(typed) && !rest.includes(typed);
-		return { picked: [...facets.keywords], rest, exact };
+		// A regional genre (k-drama, anime…) is a country + genre, not a TMDB keyword: its chip
+		// takes the place of the typed text's (app HistoryViewSheet)
+		const region = typed ? regionAliasFor(typed) : undefined;
+		const exact = !region && !!typed && !facets.keywords.has(typed) && !rest.includes(typed);
+		return { picked: [...facets.keywords], rest, exact, region };
 	}, [facetOptions.keywords, facets.keywords, typed]);
+	const [allCountries, setAllCountries] = useState(false);
+	const countries = useMemo(
+		() => [
+			...new Set([
+				...facets.countries,
+				...(allCountries
+					? facetOptions.countries
+					: facetOptions.countries.slice(0, COUNTRY_SUGGESTIONS)),
+			]),
+		],
+		[facets.countries, facetOptions.countries, allCountries],
+	);
+	const moreCountries = !allCountries && facetOptions.countries.length > COUNTRY_SUGGESTIONS;
 	const genres = useMemo(
 		() => [...new Set([...facets.genres, ...facetOptions.genres])],
 		[facets.genres, facetOptions.genres],
 	);
-	const anyFilter = filters.size > 0 || facets.genres.size > 0 || facets.keywords.size > 0;
+	const anyFilter =
+		filters.size > 0 ||
+		facets.genres.size > 0 ||
+		facets.keywords.size > 0 ||
+		facets.countries.size > 0;
+	const countriesFull = facets.countries.size >= HISTORY_FACET_MAX;
 	const genresFull = facets.genres.size >= HISTORY_FACET_MAX;
 	const keywordsFull = facets.keywords.size >= HISTORY_FACET_MAX;
 	const addTyped = () => {
-		if (keywordChips.exact && !keywordsFull) onToggleKeyword(typed);
+		if (keywordChips.region) onApplyRegion(keywordChips.region.country, keywordChips.region.genre);
+		else if (keywordChips.exact && !keywordsFull) onToggleKeyword(typed);
 		setTerm("");
 	};
 	return (
@@ -154,6 +197,28 @@ export default function HistoryViewPanel({
 					</div>
 				</>
 			)}
+			{countries.length > 0 && (
+				<>
+					<p className={styles.facetTitle}>Country</p>
+					<div className={styles.viewChips}>
+						{countries.map((c) => {
+							const on = facets.countries.has(c);
+							return (
+								<Chip
+									key={c}
+									label={countryLabel(c)}
+									on={on}
+									disabled={!on && countriesFull}
+									onClick={() => onToggleCountry(c)}
+								/>
+							);
+						})}
+						{moreCountries && (
+							<Chip label="More" on={false} add="more" onClick={() => setAllCountries(true)} />
+						)}
+					</div>
+				</>
+			)}
 			<p className={styles.facetTitle}>Keyword</p>
 			<label className={styles.keywordField}>
 				<IoSearch size={16} />
@@ -177,8 +242,19 @@ export default function HistoryViewPanel({
 					</button>
 				)}
 			</label>
-			{(keywordChips.picked.length > 0 || keywordChips.rest.length > 0 || keywordChips.exact) && (
+			{(keywordChips.picked.length > 0 ||
+				keywordChips.rest.length > 0 ||
+				keywordChips.exact ||
+				keywordChips.region) && (
 				<div className={styles.viewChips}>
+					{keywordChips.region && (
+						<Chip
+							label={`${keywordChips.region.label} · ${countryLabel(keywordChips.region.country)}`}
+							on={false}
+							add="region"
+							onClick={addTyped}
+						/>
+					)}
 					{keywordChips.exact && (
 						<Chip
 							label={titleCase(typed)}

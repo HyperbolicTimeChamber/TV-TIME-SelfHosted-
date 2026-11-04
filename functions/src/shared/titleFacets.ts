@@ -1,11 +1,16 @@
 import { TITLE_KEYWORD_MAX } from "./enums";
 import { TMDBKeyword } from "./types";
 
-/** A title's genres + keywords (catalog doc / tracking doc) */
+/** A title's genres + keywords + origin countries (catalog doc / tracking doc) */
 export interface TitleFacets {
   genres: string[];
   keywords: string[];
+  /** TMDB origin_country: ISO 3166-1 codes ("KR") — the Country filter, regional aliases */
+  countries: string[];
 }
+
+/** Catalog fields the facets come from (any may be missing on an older doc) */
+export type FacetSource = { genres?: string[]; keywords?: string[]; countries?: string[] };
 
 /** Value → how many of the user's tracked titles carry it. Map keys can't repeat: no duplicates */
 export type FacetCounts = Record<string, number>;
@@ -14,6 +19,7 @@ export type FacetCounts = Record<string, number>;
 export interface UserFacets {
   genres: FacetCounts;
   keywords: FacetCounts;
+  countries: FacetCounts;
 }
 
 /** What one write did to a user's facets doc — sent back so the client patches its copy */
@@ -28,22 +34,29 @@ export function keywordNames(list: TMDBKeyword[] | undefined): string[] {
   return [...new Set(names)].slice(0, TITLE_KEYWORD_MAX);
 }
 
+/** TMDB origin_country → the codes a catalog doc keeps: upper-case two-letter codes, unique */
+export function countryCodes(list: string[] | undefined): string[] {
+  const codes = (list ?? []).map((c) => c.trim().toUpperCase()).filter((c) => /^[A-Z]{2}$/.test(c));
+  return [...new Set(codes)];
+}
+
 /**
- * Genres + keywords copied from a catalog doc onto a tracking doc, so Watch History can filter
+ * Genres + keywords + countries copied from a catalog doc onto a tracking doc, so Watch History can filter
  * with array-contains-any in the Firestore query (tracking docs are what it pages through).
  * Deduped: TMDB lists each once, but a doc written by hand / an old build might not.
  */
-export function titleFacets(
-  catalog: { genres?: string[]; keywords?: string[] } | null | undefined,
-): TitleFacets {
+export function titleFacets(catalog: FacetSource | null | undefined): TitleFacets {
   return {
     genres: [...new Set(catalog?.genres ?? [])],
     keywords: [...new Set(catalog?.keywords ?? [])],
+    countries: [...new Set(catalog?.countries ?? [])],
   };
 }
 
 export const sameFacets = (a: Partial<TitleFacets> | undefined, b: TitleFacets) =>
-  sameList(a?.genres, b.genres) && sameList(a?.keywords, b.keywords);
+  sameList(a?.genres, b.genres) &&
+  sameList(a?.keywords, b.keywords) &&
+  sameList(a?.countries, b.countries);
 
 function sameList(a: unknown, b: string[]) {
   return Array.isArray(a) && a.length === b.length && a.every((v, i) => v === b[i]);
@@ -51,10 +64,11 @@ function sameList(a: unknown, b: string[]) {
 
 /** Absolute counts over a set of titles (rebuild: import, backfill) */
 export function countFacets(titles: Iterable<Partial<TitleFacets>>): UserFacets {
-  const out: UserFacets = { genres: {}, keywords: {} };
+  const out: UserFacets = { genres: {}, keywords: {}, countries: {} };
   for (const t of titles) {
     for (const g of new Set(t.genres ?? [])) out.genres[g] = (out.genres[g] ?? 0) + 1;
     for (const k of new Set(t.keywords ?? [])) out.keywords[k] = (out.keywords[k] ?? 0) + 1;
+    for (const c of new Set(t.countries ?? [])) out.countries[c] = (out.countries[c] ?? 0) + 1;
   }
   return out;
 }
@@ -78,5 +92,6 @@ export function applyFacetDelta(
   return {
     genres: step(current?.genres, remove?.genres, add?.genres),
     keywords: step(current?.keywords, remove?.keywords, add?.keywords),
+    countries: step(current?.countries, remove?.countries, add?.countries),
   };
 }

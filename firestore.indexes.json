@@ -191,6 +191,42 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "tracking",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "mediaType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "countries",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "historyAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "tracking",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "mediaType",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "countries",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "minutesWatched",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [

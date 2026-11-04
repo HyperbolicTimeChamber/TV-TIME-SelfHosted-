@@ -95,9 +95,7 @@ function HistoryList({
 	}
 	if (cards.length === 0) {
 		if (error) return <p className={styles.empty}>{error}</p>;
-		return (
-			<HistoryEmpty mediaType={mediaType} filtered={filters.size > 0 || hasFacets(facets)} />
-		);
+		return <HistoryEmpty mediaType={mediaType} filtered={filters.size > 0 || hasFacets(facets)} />;
 	}
 
 	return (
@@ -308,6 +306,15 @@ export default function WatchHistoryScreen() {
 								facetOptions={facetOptions}
 								onToggleGenre={(g) => toggleFacet("genres", g)}
 								onToggleKeyword={(k) => toggleFacet("keywords", k)}
+								onToggleCountry={(c) => toggleFacet("countries", c)}
+								onApplyRegion={(country, genre) =>
+									// k-drama → Korea + Drama: both on, never toggled off by it (app)
+									setFacets((prev) => ({
+										...prev,
+										countries: new Set([...prev.countries, country]),
+										genres: genre ? new Set([...prev.genres, genre]) : prev.genres,
+									}))
+								}
 							/>
 						}
 					/>

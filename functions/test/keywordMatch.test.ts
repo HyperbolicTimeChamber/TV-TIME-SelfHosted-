@@ -22,6 +22,11 @@ test("regionAlias names regional genres however they're written", () => {
   }
   assert.deepEqual(regionAlias("anime")?.types, [MediaType.TV, MediaType.MOVIE]);
   assert.equal(regionAlias("j-drama")?.country, "JP");
+  assert.equal(regionAlias("Turkish drama")?.country, "TR");
+  assert.equal(regionAlias("dizi")?.country, "TR");
+  assert.equal(regionAlias("tw-drama")?.country, "TW");
+  assert.equal(regionAlias("donghua")?.country, "CN");
+  assert.equal(regionAlias("Bollywood")?.genre, undefined);
   assert.equal(regionAlias("drama"), undefined);
   assert.equal(regionAlias("breaking bad"), undefined);
 });
