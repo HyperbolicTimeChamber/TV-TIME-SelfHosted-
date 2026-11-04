@@ -58,7 +58,14 @@ const DayCell = memo(function DayCell({
 }: CellProps) {
 	const day = Number(date.slice(8));
 	const chipPlan = marks
-		? planChips(marks, chipFit.space, chipFit.charsPerLine, CHIP_LINE_H, CHIP_GAP)
+		? planChips(
+				marks,
+				chipFit.space,
+				chipFit.charsPerLine,
+				CHIP_LINE_H,
+				CHIP_GAP,
+				(m) => m.mediaType,
+			)
 		: null;
 	return (
 		<Pressable style={styles.cell} onPress={() => onPress(date)}>
@@ -93,11 +100,19 @@ const DayCell = memo(function DayCell({
 										{m.title}
 									</Text>
 								))}
-								{!!chipPlan.more && (
-									<Text numberOfLines={1} style={styles.chipMore}>
-										+{chipPlan.more} more
+								{/* Hidden ones, per kind: red episodes, purple movies */}
+								{chipPlan.moreByKind.map(({ kind, count }) => (
+									<Text
+										key={kind}
+										numberOfLines={1}
+										style={[
+											styles.chipMore,
+											kind === MediaType.MOVIE ? styles.chipMoreMovie : styles.chipMoreShow,
+										]}
+									>
+										+{count} more
 									</Text>
-								)}
+								))}
 							</Animated.View>
 						)}
 					</View>

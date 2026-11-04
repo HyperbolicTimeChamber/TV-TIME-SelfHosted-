@@ -213,7 +213,12 @@ export default function CalendarScreen() {
 	const fullLayout = useSharedValue(false);
 	const syncMarks = (settled: boolean) => {
 		"worklet";
-		const hide = !settled && progress.value > CalendarMode.MONTH + 0.001;
+		// Only while rows are really stretched: a pull down in full view (nothing left to grow)
+		// leaves progress at FULL and must not blank the chips
+		const hide =
+			!settled &&
+			progress.value > CalendarMode.MONTH + 0.001 &&
+			progress.value < CalendarMode.FULL - 0.001;
 		if (hide) {
 			if (marksHidden.value) return;
 			marksHidden.value = true;
@@ -294,6 +299,13 @@ export default function CalendarScreen() {
 					syncMarks(true);
 					runOnJS(settle)(target);
 				});
+			})
+			.onFinalize(() => {
+				"worklet";
+				// Cancelled / interrupted drag that never reached onEnd: marks hidden at a size the
+				// calendar rests at come back
+				const p = progress.value;
+				if (marksHidden.value && Math.abs(p - Math.round(p)) < 0.01) syncMarks(true);
 			});
 	// Built once — rebuilding a gesture mid-drag (the drag itself re-renders) loses its callbacks
 	// eslint-disable-next-line react-hooks/exhaustive-deps

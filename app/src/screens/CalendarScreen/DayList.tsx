@@ -126,10 +126,10 @@ export default function DayList({
 				activeOpacity={0.85}
 				onPress={isGroup ? () => toggleGroup(row.key) : openShow}
 			>
-				{/* Same backdrop treatment as the Watch History cards */}
-				{item.backdropPath && (
+				{/* Same backdrop treatment as the Watch History cards; no backdrop → the poster */}
+				{(item.backdropPath || item.posterPath) && (
 					<Image
-						source={{ uri: tmdbBlurredBackdropUri(item.backdropPath) }}
+						source={{ uri: tmdbBlurredBackdropUri((item.backdropPath || item.posterPath)!) }}
 						style={StyleSheet.absoluteFill}
 						contentFit="cover"
 						// Wide, short card: show the top of the backdrop (faces / titles sit there)

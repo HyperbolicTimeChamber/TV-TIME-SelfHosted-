@@ -113,7 +113,19 @@ export const styles = StyleSheet.create({
 		paddingHorizontal: 2,
 		overflow: "hidden",
 	},
-	chipMore: { fontSize: 9, lineHeight: 12, color: colors.textSecondary, paddingHorizontal: 2 },
+	// "+n more": a quieter chip in its kind's colour (tinted fill, coloured text) — reads as
+	// "more of these", not as one more title
+	chipMore: {
+		alignSelf: "flex-start",
+		fontSize: 9,
+		lineHeight: 12,
+		fontWeight: "700",
+		borderRadius: 3,
+		paddingHorizontal: 3,
+		overflow: "hidden",
+	},
+	chipMoreShow: { color: colors.text, backgroundColor: `${colors.primary}59` },
+	chipMoreMovie: { color: colors.text, backgroundColor: `${colors.moviePurple}59` },
 	// Opaque layer over the calendar; its top edge is the calendar's visible bottom
 	listArea: {
 		position: "absolute",
