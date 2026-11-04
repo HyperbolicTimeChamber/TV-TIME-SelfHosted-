@@ -1,4 +1,4 @@
-import { TITLE_KEYWORD_MAX } from "./enums";
+import { TITLE_KEYWORD_MAX, TITLE_STUDIO_MAX } from "./enums";
 import { TMDBKeyword } from "./types";
 
 /** A title's genres + keywords + origin countries (catalog doc / tracking doc) */
@@ -7,10 +7,17 @@ export interface TitleFacets {
   keywords: string[];
   /** TMDB origin_country: ISO 3166-1 codes ("KR") — the Country filter, regional aliases */
   countries: string[];
+  /** TMDB networks (TV) then production companies, by name ("HBO", "Marvel Studios") */
+  studios: string[];
 }
 
 /** Catalog fields the facets come from (any may be missing on an older doc) */
-export type FacetSource = { genres?: string[]; keywords?: string[]; countries?: string[] };
+export type FacetSource = {
+  genres?: string[];
+  keywords?: string[];
+  countries?: string[];
+  studios?: string[];
+};
 
 /** Value → how many of the user's tracked titles carry it. Map keys can't repeat: no duplicates */
 export type FacetCounts = Record<string, number>;
@@ -20,6 +27,7 @@ export interface UserFacets {
   genres: FacetCounts;
   keywords: FacetCounts;
   countries: FacetCounts;
+  studios: FacetCounts;
 }
 
 /** What one write did to a user's facets doc — sent back so the client patches its copy */
@@ -41,7 +49,21 @@ export function countryCodes(list: string[] | undefined): string[] {
 }
 
 /**
- * Genres + keywords + countries copied from a catalog doc onto a tracking doc, so Watch History can filter
+ * A title's studios: its TV networks first (what people mean by "an HBO show"), then its
+ * production companies — unique names, at most TITLE_STUDIO_MAX
+ */
+export function studioNames(
+  networks: Array<{ name?: string }> | undefined,
+  companies: Array<{ name?: string }> | undefined,
+): string[] {
+  const names = [...(networks ?? []), ...(companies ?? [])]
+    .map((s) => (s.name ?? "").trim())
+    .filter(Boolean);
+  return [...new Set(names)].slice(0, TITLE_STUDIO_MAX);
+}
+
+/**
+ * Genres + keywords + countries + studios copied from a catalog doc onto a tracking doc, so Watch History can filter
  * with array-contains-any in the Firestore query (tracking docs are what it pages through).
  * Deduped: TMDB lists each once, but a doc written by hand / an old build might not.
  */
@@ -50,13 +72,15 @@ export function titleFacets(catalog: FacetSource | null | undefined): TitleFacet
     genres: [...new Set(catalog?.genres ?? [])],
     keywords: [...new Set(catalog?.keywords ?? [])],
     countries: [...new Set(catalog?.countries ?? [])],
+    studios: [...new Set(catalog?.studios ?? [])],
   };
 }
 
 export const sameFacets = (a: Partial<TitleFacets> | undefined, b: TitleFacets) =>
   sameList(a?.genres, b.genres) &&
   sameList(a?.keywords, b.keywords) &&
-  sameList(a?.countries, b.countries);
+  sameList(a?.countries, b.countries) &&
+  sameList(a?.studios, b.studios);
 
 function sameList(a: unknown, b: string[]) {
   return Array.isArray(a) && a.length === b.length && a.every((v, i) => v === b[i]);
@@ -64,11 +88,12 @@ function sameList(a: unknown, b: string[]) {
 
 /** Absolute counts over a set of titles (rebuild: import, backfill) */
 export function countFacets(titles: Iterable<Partial<TitleFacets>>): UserFacets {
-  const out: UserFacets = { genres: {}, keywords: {}, countries: {} };
+  const out: UserFacets = { genres: {}, keywords: {}, countries: {}, studios: {} };
   for (const t of titles) {
     for (const g of new Set(t.genres ?? [])) out.genres[g] = (out.genres[g] ?? 0) + 1;
     for (const k of new Set(t.keywords ?? [])) out.keywords[k] = (out.keywords[k] ?? 0) + 1;
     for (const c of new Set(t.countries ?? [])) out.countries[c] = (out.countries[c] ?? 0) + 1;
+    for (const st of new Set(t.studios ?? [])) out.studios[st] = (out.studios[st] ?? 0) + 1;
   }
   return out;
 }
@@ -93,5 +118,6 @@ export function applyFacetDelta(
     genres: step(current?.genres, remove?.genres, add?.genres),
     keywords: step(current?.keywords, remove?.keywords, add?.keywords),
     countries: step(current?.countries, remove?.countries, add?.countries),
+    studios: step(current?.studios, remove?.studios, add?.studios),
   };
 }

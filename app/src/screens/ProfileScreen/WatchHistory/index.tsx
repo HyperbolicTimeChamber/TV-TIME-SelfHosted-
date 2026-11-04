@@ -474,6 +474,7 @@ export default function WatchHistoryScreen() {
 				onToggleGenre={(g) => toggleFacet("genres", g)}
 				onToggleKeyword={(k) => toggleFacet("keywords", k)}
 				onToggleCountry={(c) => toggleFacet("countries", c)}
+				onToggleStudio={(st) => toggleFacet("studios", st)}
 				onApplyRegion={applyRegion}
 			/>
 		</Animated.View>

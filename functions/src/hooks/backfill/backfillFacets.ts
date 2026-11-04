@@ -21,7 +21,9 @@ export async function backfillFacets(
 ) {
   const shows = await db.collection("shows").get();
   const catalogs = new Map(shows.docs.map((d) => [d.id, d.data()]));
-  const missing = shows.docs.filter((d) => !("keywords" in d.data()) || !("countries" in d.data()));
+  const missing = shows.docs.filter((d) =>
+    ["keywords", "countries", "studios"].some((field) => !(field in d.data())),
+  );
   const writer = db.bulkWriter();
   let keyworded = 0;
   let failed = 0;

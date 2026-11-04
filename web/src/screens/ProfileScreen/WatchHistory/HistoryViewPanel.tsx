@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
 	IoAdd,
+	IoBusiness,
 	IoCheckmark,
 	IoChevronDown,
 	IoCloseCircle,
@@ -40,16 +41,22 @@ interface Props {
 	onClearFilters: () => void;
 	facets: HistoryFacets;
 	/** Every genre / keyword across the tab's tracked titles (the user's facets doc) */
-	facetOptions: { genres: string[]; keywords: string[]; countries: string[] };
+	facetOptions: { genres: string[]; keywords: string[]; countries: string[]; studios: string[] };
 	onToggleGenre: (genre: string) => void;
 	onToggleKeyword: (keyword: string) => void;
 	onToggleCountry: (country: string) => void;
+	onToggleStudio: (studio: string) => void;
 	/** A regional genre typed as a keyword ("k-drama"): turn on its country (+ genre) */
 	onApplyRegion: (country: string, genre?: string) => void;
 }
 
-/** Countries listed before "More": the most common ones (picked ones always show) */
+/** Countries / studios listed before "More": the most common ones (picked ones always show) */
 const COUNTRY_SUGGESTIONS = 8;
+const STUDIO_SUGGESTIONS = 8;
+/** "More" adds this many studios each click — the long tail stays reachable by typing its name */
+const STUDIO_MORE_STEP = 16;
+/** Studios offered for what's typed in the keyword field ("disney" → Disney+, Walt Disney…) */
+const TYPED_STUDIO_MATCHES = 4;
 
 /** One filter chip (status, genre or keyword): a check when on */
 function Chip({
@@ -63,7 +70,7 @@ function Chip({
 	on: boolean;
 	disabled?: boolean;
 	/** In place of the check: a typed keyword's plus, a regional genre's sparkle, "More" */
-	add?: boolean | "region" | "more";
+	add?: boolean | "region" | "more" | "studio";
 	onClick: () => void;
 }) {
 	return (
@@ -77,6 +84,8 @@ function Chip({
 				<IoCheckmark size={15} className={styles.chipIcon} />
 			) : add === "region" ? (
 				<IoSparkles size={15} className={styles.chipIcon} />
+			) : add === "studio" ? (
+				<IoBusiness size={15} className={styles.chipIcon} />
 			) : add === "more" ? (
 				<IoChevronDown size={15} className={styles.chipIcon} />
 			) : add ? (
@@ -103,6 +112,7 @@ export default function HistoryViewPanel({
 	onToggleGenre,
 	onToggleKeyword,
 	onToggleCountry,
+	onToggleStudio,
 	onApplyRegion,
 }: Props) {
 	const [term, setTerm] = useState("");
@@ -132,6 +142,22 @@ export default function HistoryViewPanel({
 		[facets.countries, facetOptions.countries, allCountries],
 	);
 	const moreCountries = !allCountries && facetOptions.countries.length > COUNTRY_SUGGESTIONS;
+	const [studioLimit, setStudioLimit] = useState(STUDIO_SUGGESTIONS);
+	const studios = useMemo(
+		() => [...new Set([...facets.studios, ...facetOptions.studios.slice(0, studioLimit)])],
+		[facets.studios, facetOptions.studios, studioLimit],
+	);
+	const moreStudios = facetOptions.studios.length > studioLimit;
+	// Typed text naming a studio ("disney", "hbo"): its studios, offered beside the keywords
+	const typedStudios = useMemo(
+		() =>
+			typed
+				? facetOptions.studios
+						.filter((st) => !facets.studios.has(st) && st.toLowerCase().includes(typed))
+						.slice(0, TYPED_STUDIO_MATCHES)
+				: [],
+		[facetOptions.studios, facets.studios, typed],
+	);
 	const genres = useMemo(
 		() => [...new Set([...facets.genres, ...facetOptions.genres])],
 		[facets.genres, facetOptions.genres],
@@ -140,8 +166,10 @@ export default function HistoryViewPanel({
 		filters.size > 0 ||
 		facets.genres.size > 0 ||
 		facets.keywords.size > 0 ||
-		facets.countries.size > 0;
+		facets.countries.size > 0 ||
+		facets.studios.size > 0;
 	const countriesFull = facets.countries.size >= HISTORY_FACET_MAX;
+	const studiosFull = facets.studios.size >= HISTORY_FACET_MAX;
 	const genresFull = facets.genres.size >= HISTORY_FACET_MAX;
 	const keywordsFull = facets.keywords.size >= HISTORY_FACET_MAX;
 	const addTyped = () => {
@@ -219,6 +247,33 @@ export default function HistoryViewPanel({
 					</div>
 				</>
 			)}
+			{studios.length > 0 && (
+				<>
+					<p className={styles.facetTitle}>Studio</p>
+					<div className={styles.viewChips}>
+						{studios.map((st) => {
+							const on = facets.studios.has(st);
+							return (
+								<Chip
+									key={st}
+									label={st}
+									on={on}
+									disabled={!on && studiosFull}
+									onClick={() => onToggleStudio(st)}
+								/>
+							);
+						})}
+						{moreStudios && (
+							<Chip
+								label="More"
+								on={false}
+								add="more"
+								onClick={() => setStudioLimit((n) => n + STUDIO_MORE_STEP)}
+							/>
+						)}
+					</div>
+				</>
+			)}
 			<p className={styles.facetTitle}>Keyword</p>
 			<label className={styles.keywordField}>
 				<IoSearch size={16} />
@@ -245,7 +300,8 @@ export default function HistoryViewPanel({
 			{(keywordChips.picked.length > 0 ||
 				keywordChips.rest.length > 0 ||
 				keywordChips.exact ||
-				keywordChips.region) && (
+				keywordChips.region ||
+				typedStudios.length > 0) && (
 				<div className={styles.viewChips}>
 					{keywordChips.region && (
 						<Chip
@@ -255,6 +311,19 @@ export default function HistoryViewPanel({
 							onClick={addTyped}
 						/>
 					)}
+					{typedStudios.map((st) => (
+						<Chip
+							key={`studio-${st}`}
+							label={st}
+							on={false}
+							add="studio"
+							disabled={studiosFull}
+							onClick={() => {
+								onToggleStudio(st);
+								setTerm("");
+							}}
+						/>
+					))}
 					{keywordChips.exact && (
 						<Chip
 							label={titleCase(typed)}

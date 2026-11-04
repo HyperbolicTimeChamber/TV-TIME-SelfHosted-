@@ -72,7 +72,7 @@ async function runImport(
   const existingTrackingIds = new Set<string>();
   const trackingSnap = await db
     .collection(`users/${uid}/tracking`)
-    .select("genres", "keywords", "countries")
+    .select("genres", "keywords", "countries", "studios")
     .get();
   for (const d of trackingSnap.docs) {
     existingTrackingIds.add(d.id);
@@ -108,6 +108,7 @@ async function runImport(
       genres: d.genres,
       keywords: d.keywords,
       countries: d.countries,
+      studios: d.studios,
     })),
   );
   await facetsBatch.commit();

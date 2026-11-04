@@ -6,6 +6,7 @@ import {
   countFacets,
   countryCodes,
   FacetSource,
+  studioNames,
   keywordNames,
   FacetDelta,
   sameFacets,
@@ -17,16 +18,18 @@ import { getAllTrackerUids } from "./trackedBy";
 import { pooled } from "./tmdb";
 import { stampTracking } from "../shared/trackingSync";
 
-/** A title's keywords + origin countries in one TMDB call (catalog docs written before either
- *  was stored) */
+/** A title's keywords + origin countries + studios in one TMDB call (catalog docs written before
+ *  any of them was stored) */
 export async function fetchFacetFields(
   apiKey: string,
   tmdbId: number,
   mediaType: MediaType,
-): Promise<{ keywords: string[]; countries: string[] }> {
+): Promise<{ keywords: string[]; countries: string[]; studios: string[] }> {
   const kind = mediaType === MediaType.MOVIE ? "movie" : "tv";
   const { data } = await axios.get<{
     origin_country?: string[];
+    networks?: Array<{ name?: string }>;
+    production_companies?: Array<{ name?: string }>;
     keywords?: { results?: TMDBKeyword[]; keywords?: TMDBKeyword[] };
   }>(`${TMDB_BASE}/${kind}/${tmdbId}`, {
     params: { api_key: apiKey, append_to_response: "keywords" },
@@ -34,6 +37,7 @@ export async function fetchFacetFields(
   return {
     keywords: keywordNames(data.keywords?.results ?? data.keywords?.keywords),
     countries: countryCodes(data.origin_country),
+    studios: studioNames(data.networks, data.production_companies),
   };
 }
 
@@ -66,7 +70,10 @@ export async function stampTrackingFacets(
       if (sameFacets(had, next)) return null;
       // Fields missing → never counted (a fresh add); present → swap the old values for the new
       const counted =
-        Array.isArray(had.genres) || Array.isArray(had.keywords) || Array.isArray(had.countries)
+        Array.isArray(had.genres) ||
+        Array.isArray(had.keywords) ||
+        Array.isArray(had.countries) ||
+        Array.isArray(had.studios)
           ? titleFacets(had)
           : null;
       tx.set(facetsRef, applyFacetDelta(facets.data() as Partial<UserFacets>, counted, next));

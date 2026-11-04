@@ -39,7 +39,12 @@ export function toEntry(id: string, d: Record<string, any>, withFacets = false):
 		plays: d.plays ?? 0,
 		lastEpisode: d.lastEpisode ?? null,
 		...(withFacets
-			? { genres: d.genres ?? [], keywords: d.keywords ?? [], countries: d.countries ?? [] }
+			? {
+					genres: d.genres ?? [],
+					keywords: d.keywords ?? [],
+					countries: d.countries ?? [],
+					studios: d.studios ?? [],
+				}
 			: {}),
 	};
 }
@@ -73,8 +78,8 @@ export async function fetchHistoryPage(
 /**
  * One page of a sorted / filtered view (Firestore does the work, so it stays paginated):
  * newest watch or most time spent first, optionally only some statuses / genres / keywords.
- * Firestore takes one array-contains-any per query: the countries (fewest titles, e.g. K-Drama),
- * else the genres, else the keywords run there; the rest (statuses with it, the other facets) are
+ * Firestore takes one array-contains-any per query: the most selective picked facet runs there
+ * (studios, then countries, then genres, then keywords); the rest (statuses with it, the other facets) are
  * checked here — so a page can come back short. `cursor` is the page's last doc either way, for the next page.
  */
 export async function fetchHistoryViewPage(
@@ -93,13 +98,15 @@ export async function fetchHistoryViewPage(
 			: Timestamp.fromMillis(after.historyAt)
 		: null;
 	const facet =
-		facets.countries.size > 0
-			? where("countries", "array-contains-any", [...facets.countries])
-			: facets.genres.size > 0
-				? where("genres", "array-contains-any", [...facets.genres])
-				: facets.keywords.size > 0
-					? where("keywords", "array-contains-any", [...facets.keywords])
-					: null;
+		facets.studios.size > 0
+			? where("studios", "array-contains-any", [...facets.studios])
+			: facets.countries.size > 0
+				? where("countries", "array-contains-any", [...facets.countries])
+				: facets.genres.size > 0
+					? where("genres", "array-contains-any", [...facets.genres])
+					: facets.keywords.size > 0
+						? where("keywords", "array-contains-any", [...facets.keywords])
+						: null;
 	const snap = await getDocs(
 		query(
 			trackingCol(userId),
@@ -161,8 +168,6 @@ export async function fetchUserFacets(
 	userId: string,
 	mediaType: MediaType,
 ): Promise<UserFacetsDoc | null> {
-	const snap = await getDoc(
-		doc(getFirestore(), "users", userId, UserCollection.FACETS, mediaType),
-	);
+	const snap = await getDoc(doc(getFirestore(), "users", userId, UserCollection.FACETS, mediaType));
 	return snap.exists() ? (snap.data() as UserFacetsDoc) : null;
 }

@@ -19,6 +19,7 @@ export function tvCatalogFields(fresh: CatalogShow): Record<string, unknown> {
     genres: fresh.genres,
     keywords: fresh.keywords ?? [],
     countries: fresh.countries ?? [],
+    studios: fresh.studios ?? [],
     logoPath: fresh.logoPath ?? null,
     tvmazeId: fresh.tvmazeId ?? null,
     ...(fresh.credits ? { credits: fresh.credits } : {}),
@@ -40,6 +41,7 @@ export function movieCatalogFields(fresh: CatalogShow): Record<string, unknown> 
     genres: fresh.genres,
     keywords: fresh.keywords ?? [],
     countries: fresh.countries ?? [],
+    studios: fresh.studios ?? [],
     ...(fresh.credits ? { credits: fresh.credits } : {}),
     lastSyncedAt: FieldValue.serverTimestamp(),
   };

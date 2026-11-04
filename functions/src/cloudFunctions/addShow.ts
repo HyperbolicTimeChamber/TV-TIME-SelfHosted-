@@ -40,9 +40,9 @@ export const addShow = trackedOnCall(
     const existingDoc = await showRef.get();
     if (existingDoc.exists) {
       const catalog = existingDoc.data() as CatalogShow;
-      // Written before keywords / countries were stored: fetch both once (one TMDB request)
+      // Written before keywords / countries / studios were stored: fetch both once (one TMDB request)
       // for every tracker
-      if (!("keywords" in catalog) || !("countries" in catalog)) {
+      if (!("keywords" in catalog) || !("countries" in catalog) || !("studios" in catalog)) {
         try {
           const fields = await fetchFacetFields(await getTmdbApiKey(), tmdbId, mediaType);
           Object.assign(catalog, fields);

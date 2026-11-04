@@ -5,10 +5,11 @@ export const NO_FACETS: HistoryFacets = {
 	genres: new Set(),
 	keywords: new Set(),
 	countries: new Set(),
+	studios: new Set(),
 };
 
 export const hasFacets = (f: HistoryFacets) =>
-	f.genres.size > 0 || f.keywords.size > 0 || f.countries.size > 0;
+	f.genres.size > 0 || f.keywords.size > 0 || f.countries.size > 0 || f.studios.size > 0;
 
 const anyOf = (picked: ReadonlySet<string>, values: string[] | undefined) =>
 	picked.size === 0 || (values ?? []).some((v) => picked.has(v));
@@ -23,7 +24,8 @@ export function matchesHistoryView(
 		(statuses.length === 0 || statuses.includes(entry.status)) &&
 		anyOf(facets.genres, entry.genres) &&
 		anyOf(facets.keywords, entry.keywords) &&
-		anyOf(facets.countries, entry.countries)
+		anyOf(facets.countries, entry.countries) &&
+		anyOf(facets.studios, entry.studios)
 	);
 }
 
@@ -32,6 +34,7 @@ export interface UserFacetsDoc {
 	genres?: Record<string, number>;
 	keywords?: Record<string, number>;
 	countries?: Record<string, number>;
+	studios?: Record<string, number>;
 }
 
 /** One title's genres + keywords + origin countries */
@@ -39,6 +42,7 @@ export interface TitleFacets {
 	genres: string[];
 	keywords: string[];
 	countries: string[];
+	studios: string[];
 }
 
 /** What an addShow / removeShow call did to the facets doc (functions FacetDelta) */
@@ -64,6 +68,7 @@ export function applyFacetDelta(
 		genres: step(current?.genres, remove?.genres, add?.genres),
 		keywords: step(current?.keywords, remove?.keywords, add?.keywords),
 		countries: step(current?.countries, remove?.countries, add?.countries),
+		studios: step(current?.studios, remove?.studios, add?.studios),
 	};
 }
 
@@ -73,6 +78,7 @@ export function facetOptionsFromDoc(doc: UserFacetsDoc | null | undefined): {
 	genres: string[];
 	keywords: string[];
 	countries: string[];
+	studios: string[];
 } {
 	const live = (m: Record<string, number> | undefined) =>
 		Object.entries(m ?? {}).filter(([, n]) => n > 0);
@@ -86,6 +92,7 @@ export function facetOptionsFromDoc(doc: UserFacetsDoc | null | undefined): {
 			.sort((a, b) => a.localeCompare(b)),
 		keywords: byCount(doc?.keywords),
 		countries: byCount(doc?.countries),
+		studios: byCount(doc?.studios),
 	};
 }
 

@@ -45,16 +45,22 @@ interface Props {
 	onClearFilters: () => void;
 	facets: HistoryFacets;
 	/** Every genre / keyword / country across the tab's tracked titles (the user's facets doc) */
-	facetOptions: { genres: string[]; keywords: string[]; countries: string[] };
+	facetOptions: { genres: string[]; keywords: string[]; countries: string[]; studios: string[] };
 	onToggleGenre: (genre: string) => void;
 	onToggleKeyword: (keyword: string) => void;
 	onToggleCountry: (country: string) => void;
+	onToggleStudio: (studio: string) => void;
 	/** A regional genre typed as a keyword ("k-drama"): turn on its country (+ genre) */
 	onApplyRegion: (country: string, genre?: string) => void;
 }
 
-/** Countries listed before "show all": the most common ones (picked ones always show) */
+/** Countries / studios listed before "More": the most common ones (picked ones always show) */
 const COUNTRY_SUGGESTIONS = 8;
+const STUDIO_SUGGESTIONS = 8;
+/** "More" adds this many each tap — the long tail stays reachable by typing its name */
+const STUDIO_MORE_STEP = 16;
+/** Studios offered for what's typed in the keyword field ("disney" → Disney+, Walt Disney…) */
+const TYPED_STUDIO_MATCHES = 4;
 
 /** Keyboard height while it's up — the sheet grows by it so the keyword field stays in sight */
 function useKeyboardHeight() {
@@ -148,6 +154,7 @@ export default function HistoryViewSheet({
 	onToggleGenre,
 	onToggleKeyword,
 	onToggleCountry,
+	onToggleStudio,
 	onApplyRegion,
 }: Props) {
 	const keyboard = useKeyboardHeight();
@@ -179,6 +186,27 @@ export default function HistoryViewSheet({
 				];
 	}, [facets.countries, facetOptions.countries, allCountries]);
 	const moreCountries = !allCountries && facetOptions.countries.length > COUNTRY_SUGGESTIONS;
+	const [studioLimit, setStudioLimit] = useState(STUDIO_SUGGESTIONS);
+	const studios = useMemo(
+		() => [
+			...new Set([
+				...facets.studios,
+				...facetOptions.studios.slice(0, studioLimit),
+			]),
+		],
+		[facets.studios, facetOptions.studios, studioLimit],
+	);
+	const moreStudios = facetOptions.studios.length > studioLimit;
+	// Typed text naming a studio ("disney", "hbo"): its studios, offered beside the keywords
+	const typedStudios = useMemo(
+		() =>
+			typed
+				? facetOptions.studios
+						.filter((st) => !facets.studios.has(st) && st.toLowerCase().includes(typed))
+						.slice(0, TYPED_STUDIO_MATCHES)
+				: [],
+		[facetOptions.studios, facets.studios, typed],
+	);
 	const genres = useMemo(
 		() => [...new Set([...facets.genres, ...facetOptions.genres])],
 		[facets.genres, facetOptions.genres],
@@ -187,8 +215,10 @@ export default function HistoryViewSheet({
 		filters.size > 0 ||
 		facets.genres.size > 0 ||
 		facets.keywords.size > 0 ||
-		facets.countries.size > 0;
+		facets.countries.size > 0 ||
+		facets.studios.size > 0;
 	const countriesFull = facets.countries.size >= HISTORY_FACET_MAX;
+	const studiosFull = facets.studios.size >= HISTORY_FACET_MAX;
 	const applyRegion = () => {
 		const region = keywordChips.region;
 		if (!region) return;
@@ -283,6 +313,33 @@ export default function HistoryViewSheet({
 					</ChipLine>
 				</>
 			)}
+			{studios.length > 0 && (
+				<>
+					<Text style={styles.facetTitle}>STUDIO</Text>
+					<ChipLine>
+						{studios.map((st) => {
+							const on = facets.studios.has(st);
+							return (
+								<Chip
+									key={st}
+									label={st}
+									on={on}
+									disabled={!on && studiosFull}
+									onPress={() => onToggleStudio(st)}
+								/>
+							);
+						})}
+						{moreStudios && (
+							<Chip
+								label="More"
+								on={false}
+								icon="chevron-down"
+								onPress={() => setStudioLimit((n) => n + STUDIO_MORE_STEP)}
+							/>
+						)}
+					</ChipLine>
+				</>
+			)}
 			<Text style={styles.facetTitle}>KEYWORD</Text>
 			<View style={[styles.keywordField, focused && styles.keywordFieldFocused]}>
 				<Ionicons name="search" size={16} color={focused ? colors.text : colors.textSecondary} />
@@ -321,7 +378,8 @@ export default function HistoryViewSheet({
 			{(keywordChips.picked.length > 0 ||
 				keywordChips.rest.length > 0 ||
 				keywordChips.exact ||
-				keywordChips.region) && (
+				keywordChips.region ||
+				typedStudios.length > 0) && (
 				<ChipLine>
 					{keywordChips.region && (
 						<Chip
@@ -331,6 +389,19 @@ export default function HistoryViewSheet({
 							onPress={applyRegion}
 						/>
 					)}
+					{typedStudios.map((st) => (
+						<Chip
+							key={`studio-${st}`}
+							label={st}
+							on={false}
+							icon="business"
+							disabled={studiosFull}
+							onPress={() => {
+								onToggleStudio(st);
+								setTerm("");
+							}}
+						/>
+					))}
 					{keywordChips.exact && (
 						<Chip
 							label={titleCase(typed)}

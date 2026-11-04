@@ -137,6 +137,7 @@ function useHistoryView(
 		[...facets.genres].sort().join(","),
 		[...facets.keywords].sort().join(","),
 		[...facets.countries].sort().join(","),
+		[...facets.studios].sort().join(","),
 	].join("|");
 	const [view, setView] = useState<{
 		key: string;
@@ -365,7 +366,12 @@ export function useWatchHistory(
 	};
 }
 
-const NO_CHOICES = { genres: [] as string[], keywords: [] as string[], countries: [] as string[] };
+const NO_CHOICES = {
+	genres: [] as string[],
+	keywords: [] as string[],
+	countries: [] as string[],
+	studios: [] as string[],
+};
 
 /** The Genre / Keyword filter choices for a tab, from the user's facets doc — read once the
  *  sheet first opens (`enabled`), then kept current locally (services/userFacets) */

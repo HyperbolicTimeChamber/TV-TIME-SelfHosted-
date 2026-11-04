@@ -5,10 +5,16 @@ import type { HistoryEntry } from "../src/types";
 
 const entry = (over: Partial<HistoryEntry>): HistoryEntry =>
 	({ status: WatchStatus.WATCHING, genres: [], keywords: [], ...over }) as HistoryEntry;
-const facets = (genres: string[], keywords: string[], countries: string[] = []) => ({
+const facets = (
+	genres: string[],
+	keywords: string[],
+	countries: string[] = [],
+	studios: string[] = [],
+) => ({
 	genres: new Set(genres),
 	keywords: new Set(keywords),
 	countries: new Set(countries),
+	studios: new Set(studios),
 });
 
 test("matchesHistoryView: any picked genre AND any picked keyword AND the statuses", async () => {
@@ -26,6 +32,10 @@ test("matchesHistoryView: any picked genre AND any picked keyword AND the status
 	assert.equal(matchesHistoryView(kdrama, [], facets(["Drama"], [], ["KR"])), true);
 	assert.equal(matchesHistoryView(kdrama, [], facets(["Drama"], [], ["JP"])), false);
 	assert.equal(matchesHistoryView(entry({ genres: ["Drama"] }), [], facets([], [], ["KR"])), false);
+	// Studio
+	const hbo = entry({ studios: ["HBO", "Warner Bros. Television"] });
+	assert.equal(matchesHistoryView(hbo, [], facets([], [], [], ["HBO", "Netflix"])), true);
+	assert.equal(matchesHistoryView(hbo, [], facets([], [], [], ["Netflix"])), false);
 });
 
 test("facetOptionsFromDoc: genres A–Z, keywords most common first, zero counts dropped", async () => {
@@ -36,9 +46,19 @@ test("facetOptionsFromDoc: genres A–Z, keywords most common first, zero counts
 			keywords: { boss: 1, office: 3 },
 			countries: { US: 4, KR: 6, JP: 0 },
 		}),
-		{ genres: ["Comedy", "Drama"], keywords: ["office", "boss"], countries: ["KR", "US"] },
+		{
+			genres: ["Comedy", "Drama"],
+			keywords: ["office", "boss"],
+			countries: ["KR", "US"],
+			studios: [],
+		},
 	);
-	assert.deepEqual(facetOptionsFromDoc(null), { genres: [], keywords: [], countries: [] });
+	assert.deepEqual(facetOptionsFromDoc(null), {
+		genres: [],
+		keywords: [],
+		countries: [],
+		studios: [],
+	});
 });
 
 test("applyFacetDelta (client mirror): patches the kept facets doc, drops zeros", async () => {
@@ -46,11 +66,17 @@ test("applyFacetDelta (client mirror): patches the kept facets doc, drops zeros"
 	const kept = { genres: { Comedy: 1, Drama: 2 }, keywords: { office: 1 } };
 	assert.deepEqual(
 		applyFacetDelta(kept, null, { genres: ["Comedy"], keywords: ["boss"], countries: ["KR"] }),
-		{ genres: { Comedy: 2, Drama: 2 }, keywords: { office: 1, boss: 1 }, countries: { KR: 1 } },
+		{
+			genres: { Comedy: 2, Drama: 2 },
+			keywords: { office: 1, boss: 1 },
+			countries: { KR: 1 },
+			studios: {},
+		},
 	);
 	assert.deepEqual(applyFacetDelta(kept, { genres: ["Comedy"], keywords: ["office"] }, null), {
 		genres: { Drama: 2 },
 		keywords: {},
 		countries: {},
+		studios: {},
 	});
 });

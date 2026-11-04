@@ -74,7 +74,7 @@ export async function fetchCatalogUpdates(
     // Ended shows skip the full fetch: one written before keywords / countries were stored
     // gets them alone (one TMDB request)
     const healKeywords = async () => {
-      if ("keywords" in oldData && "countries" in oldData) return;
+      if ("keywords" in oldData && "countries" in oldData && "studios" in oldData) return;
       try {
         const fields = await fetchFacetFields(apiKey, oldData.tmdbId, MediaType.TV);
         pendingWrites.push({ ref: showDoc.ref, data: fields });

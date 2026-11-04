@@ -307,6 +307,7 @@ export default function WatchHistoryScreen() {
 								onToggleGenre={(g) => toggleFacet("genres", g)}
 								onToggleKeyword={(k) => toggleFacet("keywords", k)}
 								onToggleCountry={(c) => toggleFacet("countries", c)}
+								onToggleStudio={(st) => toggleFacet("studios", st)}
 								onApplyRegion={(country, genre) =>
 									// k-drama → Korea + Drama: both on, never toggled off by it (app)
 									setFacets((prev) => ({

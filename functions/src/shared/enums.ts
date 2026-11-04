@@ -291,6 +291,9 @@ export const SEARCH_STUDIO_ALIASES: Record<string, StudioAlias> = {
 };
 /** TMDB keywords kept per title (catalog + tracking docs) */
 export const TITLE_KEYWORD_MAX = 40;
+/** Studios kept per title (networks first, then the lead production companies) — more pulled in
+ *  every co-production committee and drowned the well-known names in the filter */
+export const TITLE_STUDIO_MAX = 4;
 
 /** Per-user subcollections of the tracking delta sync (mirrors app UserCollection) */
 export enum UserCollection {
