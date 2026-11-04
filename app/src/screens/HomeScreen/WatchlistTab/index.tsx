@@ -98,6 +98,9 @@ const CARD_MOVE_WINDOW_MS = CARD_MOVE_MS + 200;
 type CardFlip = { offset: number; token: number };
 type ListRow = WatchlistListItem & { flip?: CardFlip };
 
+/** A card counts as seen once half of it is on screen */
+const CARD_VIEWABILITY = { itemVisiblePercentThreshold: 50 };
+
 const keyOf = (item: WatchlistListItem) => {
 	if (item.type === "sectionHeader") return `section_${item.title}`;
 	if (item.type === "watchedMovie") return `movie_${item.movie.id}`;
@@ -187,6 +190,7 @@ export default function WatchlistTab() {
 
 	const {
 		isLoading,
+		onCardsVisible,
 		sheetVisible,
 		setSheetVisible,
 		sheetEpisode,
@@ -290,6 +294,13 @@ export default function WatchlistTab() {
 		return () => clearTimeout(t);
 	}, [flips]);
 	// LegendList re-renders rows only when their data changes, so the glide rides in the rows
+	const onViewableItemsChanged = useCallback(
+		({ viewableItems }: { viewableItems: Array<{ item: ListRow }> }) =>
+			onCardsVisible(
+				viewableItems.flatMap(({ item }) => (item.type === "show" ? [item.item.tmdbId] : [])),
+			),
+		[onCardsVisible],
+	);
 	const rows = useMemo<ListRow[]>(() => {
 		if (!flips || flips.offsets.size === 0) return listData;
 		return listData.map((i) => {
@@ -502,6 +513,9 @@ export default function WatchlistTab() {
 				estimatedItemSize={110}
 				stickyHeaderIndices={stickyIndices}
 				onScrollBeginDrag={releaseHeld}
+				// Heals (missing poster / episode name…) run only for cards kept on screen
+				onViewableItemsChanged={onViewableItemsChanged}
+				viewabilityConfig={CARD_VIEWABILITY}
 				refreshControl={
 					hasMorePrevWatched ? (
 						<RefreshControl

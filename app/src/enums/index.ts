@@ -393,6 +393,10 @@ export const MIN_BUILD_FIELD: Record<ReleaseChannel, string> = {
 	[ReleaseChannel.PROD]: "minBuildProd",
 };
 
+/** A watchlist card heals (Firestore re-read / refreshShow) only after staying on screen this
+ *  long — cards scrolled past aren't worth a read or a call */
+export const HEAL_VIEW_DWELL_MS = 600;
+
 /** Android: threads RNFirebase runs callables on — must equal firebase.json
  *  react-native.android_task_executor_maximum_pool_size (a test checks) */
 export const NATIVE_CALLABLE_THREADS = 10;

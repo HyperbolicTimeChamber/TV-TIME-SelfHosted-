@@ -43,6 +43,7 @@ import {
 	whenCatalogRestored,
 } from "../../../hooks/useWatchlist";
 import { useWatchlistData } from "./useWatchlistData";
+import { useHealOnView } from "../../../hooks/useHealOnView";
 import { todayStr } from "../../../utils";
 
 /**
@@ -122,7 +123,10 @@ export function useWatchlistScreen(
 		showMap,
 		rewatchFloor,
 		pointerFor,
+		healShown,
 	} = useWatchlistData(user?.uid);
+	// Only cards the user keeps on screen get healed
+	const onCardsVisible = useHealOnView(healShown);
 
 	const isLoading = loading;
 	const setWatchlistLoading = useUiStore((s) => s.setWatchlistLoading);
@@ -624,6 +628,7 @@ export function useWatchlistScreen(
 	const sheetMinCount = sheetEpisode ? rewatchFloor(sheetEpisode.tmdbShowId) : 0;
 
 	return {
+		onCardsVisible,
 		sheetInRewatch,
 		sheetMinCount,
 		user,

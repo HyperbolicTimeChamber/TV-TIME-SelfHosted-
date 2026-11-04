@@ -229,6 +229,7 @@ export function useWatchlistData(userId: string | undefined) {
 		loadingMore: loadingMoreTracking,
 		hasMore: hasMoreTracking,
 		removeItem,
+		healShown,
 	} = useWatchlist(userId);
 
 	const {
@@ -1315,6 +1316,8 @@ export function useWatchlistData(userId: string | undefined) {
 
 	return {
 		removeItem,
+		/** Cards that stayed on screen → heal their missing data (see useWatchlist) */
+		healShown,
 		listData,
 		promotions,
 		loading: effectiveLoading,
