@@ -4,6 +4,9 @@ import { TMDBKeyword } from "../shared/types";
 import {
   applyFacetDelta,
   countFacets,
+  countryCodes,
+  FacetSource,
+  studioNames,
   keywordNames,
   FacetDelta,
   sameFacets,
@@ -15,18 +18,27 @@ import { getAllTrackerUids } from "./trackedBy";
 import { pooled } from "./tmdb";
 import { stampTracking } from "../shared/trackingSync";
 
-/** A title's TMDB keywords on their own (catalog docs written before keywords were stored) */
-export async function fetchKeywords(
+/** A title's keywords + origin countries + studios in one TMDB call (catalog docs written before
+ *  any of them was stored) */
+export async function fetchFacetFields(
   apiKey: string,
   tmdbId: number,
   mediaType: MediaType,
-): Promise<string[]> {
+): Promise<{ keywords: string[]; countries: string[]; studios: string[] }> {
   const kind = mediaType === MediaType.MOVIE ? "movie" : "tv";
-  const { data } = await axios.get<{ results?: TMDBKeyword[]; keywords?: TMDBKeyword[] }>(
-    `${TMDB_BASE}/${kind}/${tmdbId}/keywords`,
-    { params: { api_key: apiKey } },
-  );
-  return keywordNames(data.results ?? data.keywords);
+  const { data } = await axios.get<{
+    origin_country?: string[];
+    networks?: Array<{ name?: string }>;
+    production_companies?: Array<{ name?: string }>;
+    keywords?: { results?: TMDBKeyword[]; keywords?: TMDBKeyword[] };
+  }>(`${TMDB_BASE}/${kind}/${tmdbId}`, {
+    params: { api_key: apiKey, append_to_response: "keywords" },
+  });
+  return {
+    keywords: keywordNames(data.keywords?.results ?? data.keywords?.keywords),
+    countries: countryCodes(data.origin_country),
+    studios: studioNames(data.networks, data.production_companies),
+  };
 }
 
 export const userFacetsRef = (db: FirebaseFirestore.Firestore, uid: string, mediaType: MediaType) =>
@@ -45,7 +57,7 @@ export async function stampTrackingFacets(
   db: FirebaseFirestore.Firestore,
   uid: string,
   showId: string,
-  catalog: { genres?: string[]; keywords?: string[] },
+  catalog: FacetSource,
 ): Promise<FacetDelta | null> {
   const trackingRef = db.doc(`users/${uid}/${UserCollection.TRACKING}/${showId}`);
   const facetsRef = userFacetsRef(db, uid, mediaTypeOf(showId));
@@ -58,7 +70,12 @@ export async function stampTrackingFacets(
       if (sameFacets(had, next)) return null;
       // Fields missing → never counted (a fresh add); present → swap the old values for the new
       const counted =
-        Array.isArray(had.genres) || Array.isArray(had.keywords) ? titleFacets(had) : null;
+        Array.isArray(had.genres) ||
+        Array.isArray(had.keywords) ||
+        Array.isArray(had.countries) ||
+        Array.isArray(had.studios)
+          ? titleFacets(had)
+          : null;
       tx.set(facetsRef, applyFacetDelta(facets.data() as Partial<UserFacets>, counted, next));
       tx.update(trackingRef, stampTracking({ ...next }));
       return { remove: counted, add: next };
@@ -77,7 +94,7 @@ export async function uncountTitleFacets(
   db: FirebaseFirestore.Firestore,
   uid: string,
   mediaType: MediaType,
-  catalog: { genres?: string[]; keywords?: string[] } | undefined,
+  catalog: FacetSource | undefined,
 ): Promise<FacetDelta | null> {
   if (!catalog) return null;
   const ref = userFacetsRef(db, uid, mediaType);
@@ -102,8 +119,8 @@ export async function uncountTitleFacets(
 export async function propagateTitleFacets(
   db: FirebaseFirestore.Firestore,
   showId: string,
-  old: { genres?: string[]; keywords?: string[] } | undefined,
-  fresh: { genres?: string[]; keywords?: string[] },
+  old: FacetSource | undefined,
+  fresh: FacetSource,
 ): Promise<number> {
   if (old && sameFacets(titleFacets(old), titleFacets(fresh))) return 0;
   const uids = await getAllTrackerUids(showId);

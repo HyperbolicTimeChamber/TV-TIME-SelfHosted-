@@ -49,6 +49,9 @@ export interface TMDBShowDetail {
   external_ids?: { tvdb_id?: number | null; imdb_id?: string | null };
   /** ISO 3166-1 codes; the first sets the studio timezone of untimed episodes */
   origin_country?: string[];
+  /** Studios: TV networks (HBO, Disney+) and production companies — the Studio filter */
+  networks?: Array<{ id: number; name: string }>;
+  production_companies?: Array<{ id: number; name: string }>;
 }
 
 export interface TMDBKeyword {
@@ -104,6 +107,10 @@ export interface CatalogShow {
   genres: string[];
   /** TMDB keyword names (lowercase), at most TITLE_KEYWORD_MAX — Watch History filters on them */
   keywords?: string[];
+  /** TMDB origin_country codes ("KR") — the Watch History Country filter */
+  countries?: string[];
+  /** TMDB networks (TV) + production companies, by name — the Watch History Studio filter */
+  studios?: string[];
   /** TMDB title logo (English, else language-neutral); null = TMDB has none */
   logoPath?: string | null;
   /** TVMaze show id (cached so later syncs skip the lookup); null = not on TVMaze */
@@ -186,6 +193,8 @@ export interface MarkSeasonRequest {
    *  catch-up spans several calls (seasons / chunks), so they lay end to end, not on top of
    *  each other. 0 / missing = now */
   endOffsetMs?: number;
+  /** Episodes PACKED_MARK_GAP_MS apart instead of a runtime apart (Speedster backfill) */
+  packed?: boolean;
 }
 
 // refreshShow types

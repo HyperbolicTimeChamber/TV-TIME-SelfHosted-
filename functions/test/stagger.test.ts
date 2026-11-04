@@ -30,3 +30,8 @@ test("staggerFinishTimes: every stamp is distinct", () => {
   );
   assert.equal(new Set(times).size, 89);
 });
+
+test("staggerFinishTimes packed: a second apart ending at the end time", () => {
+  const end = 1_000_000_000;
+  assert.deepEqual(staggerFinishTimes([22, null, 45], end, true), [end - 2000, end - 1000, end]);
+});

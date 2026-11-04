@@ -282,6 +282,9 @@ export interface TrackingWriteOpts {
 	/** markSeasonWatchedCF only: how long before now this batch's last episode counts as
 	 *  finished, when one catch-up spans several calls (see batchEndOffsets) */
 	endOffsetMs?: number;
+	/** markSeasonWatchedCF only: episodes a second apart, ending now, instead of a runtime apart —
+	 *  the Speedster backfill (a catch-up confirmed in one tap reads as just watched) */
+	packed?: boolean;
 }
 
 /** Tracking fields a caller already holds — saves the unwatch paths a tracking-doc read */
@@ -1365,6 +1368,7 @@ async function markEpisodesBatch(
 		incrementRewatch: boolean;
 		rewatchCount?: number;
 		endOffsetMs: number;
+		packed: boolean;
 	},
 ): Promise<void> {
 	const now = Timestamp.now();
@@ -1372,6 +1376,7 @@ async function markEpisodesBatch(
 	const finished = staggerFinishTimes(
 		ordered.map((ep) => ep.runtime),
 		now.toMillis() - Math.max(0, o.endOffsetMs),
+		o.packed,
 	);
 	const batch = writeBatch(db);
 	let totalRuntime = 0;
@@ -1456,6 +1461,7 @@ export async function markSeasonWatchedCF(
 		incrementRewatch = false,
 		rewatchCount,
 		endOffsetMs = 0,
+		packed = false,
 	} = opts;
 
 	try {
@@ -1473,6 +1479,7 @@ export async function markSeasonWatchedCF(
 				incrementRewatch,
 				rewatchCount,
 				endOffsetMs,
+				packed,
 			});
 		} else if (episodes.length <= BATCH_SIZE) {
 			await callCF(CloudFunction.MARK_SEASON_WATCHED, {
@@ -1489,6 +1496,7 @@ export async function markSeasonWatchedCF(
 				incrementRewatch,
 				rewatchCount,
 				endOffsetMs,
+				packed,
 			});
 		} else {
 			// Batch into chunks of 100 — only last chunk updates tracking doc. Chunks lay end to
@@ -1497,7 +1505,10 @@ export async function markSeasonWatchedCF(
 			for (let i = 0; i < episodes.length; i += BATCH_SIZE) {
 				chunks.push(episodes.slice(i, i + BATCH_SIZE));
 			}
-			const chunkOffsets = batchEndOffsets(chunks.map((c) => c.map((e) => e.runtime)));
+			const chunkOffsets = batchEndOffsets(
+				chunks.map((c) => c.map((e) => e.runtime)),
+				packed,
+			);
 			for (let c = 0; c < chunks.length; c++) {
 				const chunk = chunks[c];
 				const isLastChunk = c === chunks.length - 1;
@@ -1514,6 +1525,7 @@ export async function markSeasonWatchedCF(
 					incrementRewatch: isLastChunk ? incrementRewatch : false,
 					rewatchCount: isLastChunk ? rewatchCount : undefined,
 					endOffsetMs: endOffsetMs + chunkOffsets[c],
+					packed,
 				});
 			}
 		}

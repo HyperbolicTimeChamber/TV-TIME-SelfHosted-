@@ -285,6 +285,13 @@ export default function WatchHistoryScreen() {
 			else next.add(value);
 			return { ...prev, [key]: next };
 		});
+	// A regional genre (k-drama → Korea + Drama): both turned on, never toggled off by it
+	const applyRegion = (country: string, genre?: string) =>
+		setFacets((prev) => ({
+			...prev,
+			countries: new Set([...prev.countries, country]),
+			genres: genre ? new Set([...prev.genres, genre]) : prev.genres,
+		}));
 	// Grid / List, remembered (List: the cards this page always had)
 	const [view, setView] = useCustomListView(CacheKey.HISTORY_VIEW, CustomListView.LIST);
 	const isMovieTab = tab === MediaType.MOVIE;
@@ -453,10 +460,9 @@ export default function WatchHistoryScreen() {
 				onClose={() => setSheetOpen(false)}
 				isMovie={isMovieTab}
 				sort={sort}
-				onSort={(next) => {
-					setSort(next);
-					setSheetOpen(false);
-				}}
+				// Stays open like the filters under it — the segment's slide is the feedback, and a
+				// sort is often followed by a filter
+				onSort={setSort}
 				filters={tabFilters(tab)}
 				onToggleFilter={toggleFilter}
 				onClearFilters={() => {
@@ -467,6 +473,9 @@ export default function WatchHistoryScreen() {
 				facetOptions={facetOptions}
 				onToggleGenre={(g) => toggleFacet("genres", g)}
 				onToggleKeyword={(k) => toggleFacet("keywords", k)}
+				onToggleCountry={(c) => toggleFacet("countries", c)}
+				onToggleStudio={(st) => toggleFacet("studios", st)}
+				onApplyRegion={applyRegion}
 			/>
 		</Animated.View>
 	);

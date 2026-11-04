@@ -39,6 +39,7 @@ export const markSeasonWatched = trackedOnCall(
       incrementRewatch,
       rewatchCount,
       endOffsetMs,
+      packed,
     } = data;
 
     if (!tmdbId || !seasonNumber || !episodes?.length) {
@@ -77,6 +78,7 @@ export const markSeasonWatched = trackedOnCall(
     const finishTimes = staggerFinishTimes(
       order.map(({ ep }) => ep.runtime),
       now.toMillis() - offset,
+      packed === true,
     );
     const finishedAt = new Array<Timestamp>(episodes.length);
     order.forEach(({ i }, k) => {

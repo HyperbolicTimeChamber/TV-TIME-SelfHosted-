@@ -10,6 +10,19 @@
 	background: var(--bg);
 	border-top: 0.5px solid var(--border);
 	padding-bottom: env(safe-area-inset-bottom);
+	/* Back up when it returns (iOS drawer curve, like the sheets) */
+	transition: transform 240ms cubic-bezier(0.32, 0.72, 0, 1);
+
+	@media (prefers-reduced-motion: reduce) {
+		transition: none;
+	}
+}
+
+/* Full-screen page: slid down out of view (a touch quicker out than in); the page takes the
+   space at once and the bar glides off over it */
+.barHidden {
+	transform: translateY(calc(100% + 1px));
+	transition-duration: 200ms;
 }
 
 .tab {
@@ -52,6 +65,11 @@
 		padding-top: 24px;
 		border-top: none;
 		border-right: 0.5px solid var(--border);
+	}
+
+	/* The side rail slides out to the left */
+	.barHidden {
+		transform: translateX(calc(-100% - 1px));
 	}
 
 	.tab {

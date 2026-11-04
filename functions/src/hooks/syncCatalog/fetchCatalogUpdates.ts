@@ -10,7 +10,7 @@ import { MediaType, ENDED_STATUSES } from "../../shared/enums";
 import { hasCatalogChanged } from "./hasCatalogChanged";
 import { filledRuntimes } from "../runtimeHeal/healRuntimes";
 import { tvCatalogFields } from "../catalogFields";
-import { fetchKeywords } from "../titleFacets";
+import { fetchFacetFields } from "../titleFacets";
 import { sameFacets, titleFacets, TitleFacets } from "../../shared/titleFacets";
 
 export interface FetchResult {
@@ -71,16 +71,17 @@ export async function fetchCatalogUpdates(
       if (!oldData.refreshedSinceSync) changedShowIds.push(showDoc.id);
     };
 
-    // Ended shows skip the full fetch: one written before keywords were stored gets them alone
+    // Ended shows skip the full fetch: one written before keywords / countries were stored
+    // gets them alone (one TMDB request)
     const healKeywords = async () => {
-      if ("keywords" in oldData) return;
+      if ("keywords" in oldData && "countries" in oldData && "studios" in oldData) return;
       try {
-        const keywords = await fetchKeywords(apiKey, oldData.tmdbId, MediaType.TV);
-        pendingWrites.push({ ref: showDoc.ref, data: { keywords } });
+        const fields = await fetchFacetFields(apiKey, oldData.tmdbId, MediaType.TV);
+        pendingWrites.push({ ref: showDoc.ref, data: fields });
         facetChanges.push({
           showId: showDoc.id,
           old: oldData,
-          fresh: titleFacets({ ...oldData, keywords }),
+          fresh: titleFacets({ ...oldData, ...fields }),
         });
       } catch {
         // Next sync (or the backfill) retries

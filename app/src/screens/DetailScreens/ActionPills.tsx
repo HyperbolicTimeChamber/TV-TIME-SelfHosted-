@@ -168,7 +168,7 @@ export default function ActionPills({
 					onPress={onWatchSheetOpen}
 					accessibilityLabel="Watch count options"
 				>
-					<Ionicons name="ellipsis-horizontal" size={24} color={colors.text} />
+					<Ionicons name="ellipsis-vertical" size={24} color={colors.text} />
 				</CircleButton>
 			)}
 		</View>

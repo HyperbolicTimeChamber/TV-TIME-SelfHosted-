@@ -1,9 +1,15 @@
-import { HistoryFilter, HistorySort, WatchStatus } from "../enums";
+import { COUNTRY_NAMES, HistoryFilter, HistorySort, REGION_ALIASES, WatchStatus } from "../enums";
 import type { HistoryEntry, HistoryFacets } from "../types";
 
-export const NO_FACETS: HistoryFacets = { genres: new Set(), keywords: new Set() };
+export const NO_FACETS: HistoryFacets = {
+	genres: new Set(),
+	keywords: new Set(),
+	countries: new Set(),
+	studios: new Set(),
+};
 
-export const hasFacets = (f: HistoryFacets) => f.genres.size > 0 || f.keywords.size > 0;
+export const hasFacets = (f: HistoryFacets) =>
+	f.genres.size > 0 || f.keywords.size > 0 || f.countries.size > 0 || f.studios.size > 0;
 
 const anyOf = (picked: ReadonlySet<string>, values: string[] | undefined) =>
 	picked.size === 0 || (values ?? []).some((v) => picked.has(v));
@@ -17,7 +23,9 @@ export function matchesHistoryView(
 	return (
 		(statuses.length === 0 || statuses.includes(entry.status)) &&
 		anyOf(facets.genres, entry.genres) &&
-		anyOf(facets.keywords, entry.keywords)
+		anyOf(facets.keywords, entry.keywords) &&
+		anyOf(facets.countries, entry.countries) &&
+		anyOf(facets.studios, entry.studios)
 	);
 }
 
@@ -25,12 +33,16 @@ export function matchesHistoryView(
 export interface UserFacetsDoc {
 	genres?: Record<string, number>;
 	keywords?: Record<string, number>;
+	countries?: Record<string, number>;
+	studios?: Record<string, number>;
 }
 
-/** One title's genres + keywords */
+/** One title's genres + keywords + origin countries */
 export interface TitleFacets {
 	genres: string[];
 	keywords: string[];
+	countries: string[];
+	studios: string[];
 }
 
 /** What an addShow / removeShow call did to the facets doc (functions FacetDelta) */
@@ -55,23 +67,32 @@ export function applyFacetDelta(
 	return {
 		genres: step(current?.genres, remove?.genres, add?.genres),
 		keywords: step(current?.keywords, remove?.keywords, add?.keywords),
+		countries: step(current?.countries, remove?.countries, add?.countries),
+		studios: step(current?.studios, remove?.studios, add?.studios),
 	};
 }
 
-/** The facets doc → genres A–Z and keywords most common first (map keys: never duplicated) */
+/** The facets doc → genres A–Z, keywords and countries most common first (map keys: never
+ *  duplicated) */
 export function facetOptionsFromDoc(doc: UserFacetsDoc | null | undefined): {
 	genres: string[];
 	keywords: string[];
+	countries: string[];
+	studios: string[];
 } {
 	const live = (m: Record<string, number> | undefined) =>
 		Object.entries(m ?? {}).filter(([, n]) => n > 0);
+	const byCount = (m: Record<string, number> | undefined) =>
+		live(m)
+			.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+			.map(([v]) => v);
 	return {
 		genres: live(doc?.genres)
 			.map(([g]) => g)
 			.sort((a, b) => a.localeCompare(b)),
-		keywords: live(doc?.keywords)
-			.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-			.map(([k]) => k),
+		keywords: byCount(doc?.keywords),
+		countries: byCount(doc?.countries),
+		studios: byCount(doc?.studios),
 	};
 }
 
@@ -120,4 +141,19 @@ export function latestEntries(tabs: HistoryEntry[][], limit: number): HistoryEnt
 		.flat()
 		.sort((a, b) => b.historyAt - a.historyAt)
 		.slice(0, limit);
+}
+
+const squash = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+
+/** The regional genre a typed keyword names ("K Drama" → K-Drama: KR + Drama), if any */
+export function regionAliasFor(text: string) {
+	return REGION_ALIASES[squash(text)];
+}
+
+/** A country chip: flag + name ("🇰🇷 South Korea"), the bare code when the name isn't known */
+export function countryLabel(code: string) {
+	const flag = /^[A-Z]{2}$/.test(code)
+		? String.fromCodePoint(...[...code].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65))
+		: "";
+	return `${flag} ${COUNTRY_NAMES[code] ?? code}`.trim();
 }

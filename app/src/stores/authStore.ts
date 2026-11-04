@@ -113,7 +113,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 		// and the import screen must not come back on the next launch
 		AsyncStorage.setItem(importDoneKey(userId), "true").catch(() => {});
 		setDoc(doc(getFirestore(), "users", userId), { hasCompletedImport: true }, { merge: true }).catch(
-			(error) => console.warn("Failed to save hasCompletedImport:", error),
+			(error: unknown) => console.warn("Failed to save hasCompletedImport:", error),
 		);
 	},
 
@@ -147,7 +147,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 			apply(server);
 			// Done on this device but the server never got the flag: try again
 			if (localDone && isCurrentUser() && server.data()?.hasCompletedImport !== true) {
-				setDoc(ref, { hasCompletedImport: true }, { merge: true }).catch((error) =>
+				setDoc(ref, { hasCompletedImport: true }, { merge: true }).catch((error: unknown) =>
 					console.warn("Failed to save hasCompletedImport:", error),
 				);
 			}

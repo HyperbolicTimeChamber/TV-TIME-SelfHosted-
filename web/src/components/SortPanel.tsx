@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Popover } from "antd";
 import { IoCheckmark, IoOptionsOutline } from "react-icons/io5";
 import styles from "./styles/SortPanel.module.scss";
@@ -16,6 +16,8 @@ interface PanelProps<T> {
 	isSame?: (a: T, b: T) => boolean;
 	/** Extra sections under the sort rows (e.g. Watch History's filters) */
 	children?: ReactNode;
+	/** Two or three options: one sliding segmented control instead of rows (app SegmentedControl) */
+	segmented?: boolean;
 }
 
 const strictEqual = <T,>(a: T, b: T) => a === b;
@@ -27,25 +29,52 @@ export function SortPanel<T>({
 	onSelect,
 	isSame = strictEqual,
 	children,
+	segmented = false,
 }: PanelProps<T>) {
+	const activeIndex = Math.max(
+		0,
+		options.findIndex((o) => isSame(o.value, selected)),
+	);
 	return (
 		<div className={styles.panel}>
 			<p className={styles.title}>Sort by</p>
-			<div className={styles.group}>
-				{options.map((option) => {
-					const active = isSame(option.value, selected);
-					return (
+			{segmented ? (
+				<div
+					className={styles.segments}
+					role="tablist"
+					style={{ "--count": options.length, "--index": activeIndex } as CSSProperties}
+				>
+					{/* The pill slides to the pick — the eye follows the change */}
+					<span className={styles.segmentPill} aria-hidden />
+					{options.map((option, i) => (
 						<button
 							key={option.label}
-							className={`${styles.row} ${active ? styles.rowActive : ""}`}
+							role="tab"
+							aria-selected={i === activeIndex}
+							className={`${styles.segment} ${i === activeIndex ? styles.segmentActive : ""}`}
 							onClick={() => onSelect(option.value)}
 						>
 							{option.label}
-							{active && <IoCheckmark size={18} />}
 						</button>
-					);
-				})}
-			</div>
+					))}
+				</div>
+			) : (
+				<div className={styles.group}>
+					{options.map((option) => {
+						const active = isSame(option.value, selected);
+						return (
+							<button
+								key={option.label}
+								className={`${styles.row} ${active ? styles.rowActive : ""}`}
+								onClick={() => onSelect(option.value)}
+							>
+								{option.label}
+								{active && <IoCheckmark size={18} />}
+							</button>
+						);
+					})}
+				</div>
+			)}
 			{children}
 		</div>
 	);

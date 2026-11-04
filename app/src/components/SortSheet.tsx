@@ -1,7 +1,16 @@
-import type { ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useRef, type ReactNode } from "react";
+import { Modal, Pressable, StyleSheet, Text, useWindowDimensions } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import GorhomSheet, {
+	BottomSheetBackdrop,
+	BottomSheetScrollView,
+	useBottomSheetSpringConfigs,
+	type BottomSheetBackdropProps,
+} from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
-import BottomSheet, { SheetGroup, sheetStyles } from "./modals/BottomSheet";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SheetGroup, sheetStyles } from "./modals/BottomSheet";
+import SegmentedControl from "./SegmentedControl";
 import { colors, spacing } from "../theme";
 
 export interface SortOption<T> {
@@ -22,11 +31,21 @@ interface Props<T> {
 	closeOnSelect?: boolean;
 	/** Extra sections under the sort rows (e.g. Watch History's filters) */
 	children?: ReactNode;
+	/** Two or three options: one sliding segmented control instead of rows */
+	segmented?: boolean;
 }
 
 const strictEqual = <T,>(a: T, b: T) => a === b;
 
-/** Bottom sheet: "Sort by" rows in one card (checkmark on the active one) + optional extra sections */
+/** Same feel as the app's other sheets (BottomSheet SHEET_SPRING): critically damped, no overshoot */
+const SHEET_SPRING = { damping: 30, stiffness: 220, overshootClamping: true } as const;
+
+/**
+ * Bottom sheet: "Sort by" rows in one card (checkmark on the active one) + optional extra sections.
+ * Built like Add to List: it grows with its content up to just under the status bar, then the
+ * content scrolls; a pull down with the list at its top drags the sheet (closing it), scrolling
+ * the list back up never does.
+ */
 export default function SortSheet<T>({
 	visible,
 	onClose,
@@ -36,46 +55,120 @@ export default function SortSheet<T>({
 	isSame = strictEqual,
 	closeOnSelect = false,
 	children,
+	segmented = false,
 }: Props<T>) {
+	const insets = useSafeAreaInsets();
+	const { height: screenHeight } = useWindowDimensions();
+	const sheetRef = useRef<GorhomSheet>(null);
+	// A pick made with closeOnSelect: applied once the sheet has slid out
+	const afterClose = useRef<(() => void) | null>(null);
+	const animationConfigs = useBottomSheetSpringConfigs(SHEET_SPRING);
+	const renderBackdrop = useCallback(
+		(props: BottomSheetBackdropProps) => (
+			<BottomSheetBackdrop
+				{...props}
+				appearsOnIndex={0}
+				disappearsOnIndex={-1}
+				opacity={0.6}
+				pressBehavior="close"
+			/>
+		),
+		[],
+	);
+	const pick = (value: T) => {
+		if (!closeOnSelect) return onSelect(value);
+		afterClose.current = () => onSelect(value);
+		sheetRef.current?.close();
+	};
 	return (
-		<BottomSheet visible={visible} onClose={onClose}>
-			{(close) => (
-				<>
-					<Text style={sortSheetStyles.title}>SORT BY</Text>
-					<SheetGroup textOnly>
-						{options.map((option) => {
-							const active = isSame(option.value, selected);
-							return (
-								<Pressable
-									key={option.label}
-									style={({ pressed }) => [
-										sheetStyles.row,
-										sortSheetStyles.row,
-										active && sortSheetStyles.rowSelected,
-										pressed && !active && sortSheetStyles.rowPressed,
-									]}
-									onPress={() =>
-										closeOnSelect ? close(() => onSelect(option.value)) : onSelect(option.value)
-									}
-									accessibilityRole="button"
-									accessibilityState={{ selected: active }}
-								>
-									<Text style={[sortSheetStyles.rowText, active && sortSheetStyles.rowActive]}>
-										{option.label}
-									</Text>
-									{active && <Ionicons name="checkmark" size={20} color={colors.text} />}
-								</Pressable>
-							);
-						})}
-					</SheetGroup>
-					{children}
-				</>
-			)}
-		</BottomSheet>
+		<Modal
+			visible={visible}
+			transparent
+			animationType="none"
+			statusBarTranslucent
+			navigationBarTranslucent
+			onRequestClose={() => sheetRef.current?.close()}
+		>
+			<GestureHandlerRootView style={sortSheetStyles.root}>
+				{visible && (
+					<GorhomSheet
+						ref={sheetRef}
+						enableDynamicSizing
+						maxDynamicContentSize={screenHeight - insets.top}
+						topInset={insets.top}
+						enablePanDownToClose
+						animationConfigs={animationConfigs}
+						backdropComponent={renderBackdrop}
+						backgroundStyle={sortSheetStyles.sheet}
+						handleStyle={sortSheetStyles.handleArea}
+						handleIndicatorStyle={sortSheetStyles.handle}
+						onClose={() => {
+							const then = afterClose.current;
+							afterClose.current = null;
+							onClose();
+							then?.();
+						}}
+					>
+						<BottomSheetScrollView
+							contentContainerStyle={[
+								sortSheetStyles.content,
+								// Clear of the system nav bar + a gap
+								{ paddingBottom: insets.bottom + spacing.lg },
+							]}
+							showsVerticalScrollIndicator={false}
+							keyboardShouldPersistTaps="handled"
+						>
+							<Text style={sortSheetStyles.title}>SORT BY</Text>
+							{segmented ? (
+								<SegmentedControl
+									options={options}
+									selected={selected}
+									isSame={isSame}
+									onSelect={pick}
+								/>
+							) : (
+								<SheetGroup textOnly>
+									{options.map((option) => {
+										const active = isSame(option.value, selected);
+										return (
+											<Pressable
+												key={option.label}
+												style={({ pressed }) => [
+													sheetStyles.row,
+													sortSheetStyles.row,
+													active && sortSheetStyles.rowSelected,
+													pressed && !active && sortSheetStyles.rowPressed,
+												]}
+												onPress={() => pick(option.value)}
+												accessibilityRole="button"
+												accessibilityState={{ selected: active }}
+											>
+												<Text
+													style={[sortSheetStyles.rowText, active && sortSheetStyles.rowActive]}
+												>
+													{option.label}
+												</Text>
+												{active && <Ionicons name="checkmark" size={20} color={colors.text} />}
+											</Pressable>
+										);
+									})}
+								</SheetGroup>
+							)}
+							{children}
+						</BottomSheetScrollView>
+					</GorhomSheet>
+				)}
+			</GestureHandlerRootView>
+		</Modal>
 	);
 }
 
 export const sortSheetStyles = StyleSheet.create({
+	root: { flex: 1 },
+	sheet: { backgroundColor: colors.surface, borderRadius: 20 },
+	handleArea: { paddingVertical: 10 },
+	handle: { width: 36, height: 4, backgroundColor: colors.textMuted },
+	content: { paddingHorizontal: spacing.lg },
 	/** Section label over a card ("SORT BY", "FILTER") */
 	title: {
 		fontSize: 12,

@@ -136,3 +136,37 @@ export function seasonMarkCopy(o: {
 		confirmLabel: "Mark Season",
 	};
 }
+
+/** Short words kept lower-case inside a title-cased label (never as its first word) */
+const TITLE_MINOR_WORDS = new Set([
+	"a",
+	"an",
+	"and",
+	"as",
+	"at",
+	"but",
+	"by",
+	"for",
+	"in",
+	"of",
+	"on",
+	"or",
+	"the",
+	"to",
+	"vs",
+]);
+
+/**
+ * Display label in Title Case ("based on novel or book" → "Based on Novel or Book"). Keywords are
+ * stored / matched lower-case — this is only how a chip shows them.
+ */
+export function titleCase(text: string) {
+	return text
+		.split(" ")
+		.map((word, i) =>
+			i > 0 && TITLE_MINOR_WORDS.has(word.toLowerCase())
+				? word.toLowerCase()
+				: word.charAt(0).toUpperCase() + word.slice(1),
+		)
+		.join(" ");
+}

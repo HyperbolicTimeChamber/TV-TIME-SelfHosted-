@@ -17,6 +17,7 @@ import {
 	Modal,
 	Animated,
 	Easing,
+	Keyboard,
 	PanResponder,
 	StyleSheet,
 	Dimensions,
@@ -229,13 +230,20 @@ export default function BottomSheet({ visible, onClose, children, background, ar
 
 	const panResponder = useRef(
 		PanResponder.create({
-			onStartShouldSetPanResponder: () => false,
+			// Claim touches no child claims (labels, gaps, the handle): asked last, after the rows /
+			// chips (they keep their taps). Unclaimed, a drag from there never reached the sheet —
+			// on Android the Modal sent its moves nowhere, so only drags that began on a pressable
+			// moved the drawer. A plain tap just springs back to where it was
+			onStartShouldSetPanResponder: () => true,
 			onMoveShouldSetPanResponder: (_, gs) => gs.dy > 8 && Math.abs(gs.dy) > Math.abs(gs.dx),
 			onPanResponderMove: (_, gs) => {
 				// Upward drag gets resistance instead of a hard stop
 				translateY.setValue(gs.dy > 0 ? gs.dy : -Math.sqrt(-gs.dy) * 2);
 			},
 			onPanResponderRelease: (_, gs) => {
+				// A touch the sheet took (outside any field / row) leaves a focused field, like a
+				// tap outside an input anywhere else
+				Keyboard.dismiss();
 				if (gs.dy > DISMISS_DISTANCE || gs.vy > DISMISS_VELOCITY) closeRef.current();
 				else Animated.spring(translateY, SHEET_SPRING).start();
 			},
@@ -276,6 +284,9 @@ export default function BottomSheet({ visible, onClose, children, background, ar
 					{...panResponder.panHandlers}
 				>
 					{behind ? <View style={styles.background}>{behind}</View> : null}
+					{/* Hangs below the bottom edge, off-screen: pulling the sheet up past its resting
+					    place shows more sheet, not the page under it */}
+					<View style={styles.overpull} pointerEvents="none" />
 					<View style={styles.handle} />
 					<SheetArtContext.Provider value={!!behind}>{children(close)}</SheetArtContext.Provider>
 				</Animated.View>
@@ -609,6 +620,15 @@ const styles = StyleSheet.create({
 		borderTopLeftRadius: 20,
 		borderTopRightRadius: 20,
 		paddingHorizontal: spacing.lg,
+	},
+	// Taller than any upward pull gets (it's damped: √distance × 2)
+	overpull: {
+		position: "absolute",
+		top: "100%",
+		left: 0,
+		right: 0,
+		height: 400,
+		backgroundColor: colors.surface,
 	},
 	background: {
 		position: "absolute",

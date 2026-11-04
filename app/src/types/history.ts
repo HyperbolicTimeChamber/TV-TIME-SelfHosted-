@@ -20,12 +20,18 @@ export interface HistoryEntry {
 	 *  backfill) — the Genre / Keyword filters. Missing on entries cached before they existed */
 	genres?: string[];
 	keywords?: string[];
+	/** TMDB origin countries ("KR") — the Country filter */
+	countries?: string[];
+	/** TMDB networks / production companies by name — the Studio filter */
+	studios?: string[];
 }
 
 /** Genre / Keyword filters (any of the picked genres, any of the picked keywords) */
 export interface HistoryFacets {
 	genres: ReadonlySet<string>;
 	keywords: ReadonlySet<string>;
+	countries: ReadonlySet<string>;
+	studios: ReadonlySet<string>;
 }
 
 /** Cached list for one tab */

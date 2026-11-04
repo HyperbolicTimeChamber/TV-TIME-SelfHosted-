@@ -189,8 +189,111 @@ export const SEARCH_CACHE_MAX_ENTRIES = 500;
 export const SEARCH_KEYWORD_FALLBACK_BELOW = 10;
 /** Best-matching TMDB keywords used for that fallback */
 export const SEARCH_KEYWORD_MAX = 3;
+/** TMDB genre ids the search aliases use (same id for TV and movies) */
+export enum TmdbGenre {
+  ANIMATION = 16,
+  DRAMA = 18,
+}
+/**
+ * Searches that name a regional genre TMDB has no keyword for ("k-drama" fuzzy-matched cdrama /
+ * jdrama / drama, so generic dramas filled the list) → the most popular titles from that origin
+ * country (in that genre, when there is one). Keys: the query lower-case, letters / digits only.
+ * Mirrors app REGION_ALIASES (the Watch History filter) — keep both in step.
+ */
+type RegionAlias = { country: string; genre?: TmdbGenre; types: MediaType[] };
+const KR_DRAMA: RegionAlias = { country: "KR", genre: TmdbGenre.DRAMA, types: [MediaType.TV] };
+const JP_DRAMA: RegionAlias = { country: "JP", genre: TmdbGenre.DRAMA, types: [MediaType.TV] };
+const CN_DRAMA: RegionAlias = { country: "CN", genre: TmdbGenre.DRAMA, types: [MediaType.TV] };
+const TW_DRAMA: RegionAlias = { country: "TW", genre: TmdbGenre.DRAMA, types: [MediaType.TV] };
+const TH_DRAMA: RegionAlias = { country: "TH", genre: TmdbGenre.DRAMA, types: [MediaType.TV] };
+const TR_DRAMA: RegionAlias = { country: "TR", genre: TmdbGenre.DRAMA, types: [MediaType.TV] };
+const BOTH = [MediaType.TV, MediaType.MOVIE];
+export const SEARCH_REGION_ALIASES: Record<string, RegionAlias> = {
+  kdrama: KR_DRAMA,
+  kdramas: KR_DRAMA,
+  koreandrama: KR_DRAMA,
+  koreandramas: KR_DRAMA,
+  jdrama: JP_DRAMA,
+  jdramas: JP_DRAMA,
+  japanesedrama: JP_DRAMA,
+  japanesedramas: JP_DRAMA,
+  cdrama: CN_DRAMA,
+  cdramas: CN_DRAMA,
+  chinesedrama: CN_DRAMA,
+  chinesedramas: CN_DRAMA,
+  twdrama: TW_DRAMA,
+  twdramas: TW_DRAMA,
+  taiwanesedrama: TW_DRAMA,
+  taiwanesedramas: TW_DRAMA,
+  thaidrama: TH_DRAMA,
+  thaidramas: TH_DRAMA,
+  lakorn: TH_DRAMA,
+  turkishdrama: TR_DRAMA,
+  turkishdramas: TR_DRAMA,
+  turkishseries: TR_DRAMA,
+  dizi: TR_DRAMA,
+  anime: { country: "JP", genre: TmdbGenre.ANIMATION, types: BOTH },
+  donghua: { country: "CN", genre: TmdbGenre.ANIMATION, types: BOTH },
+  bollywood: { country: "IN", types: [MediaType.MOVIE] },
+};
+
+/**
+ * Searches naming a studio or a streaming service ("disney", "ghibli", "hbo") → its titles
+ * (TMDB discover: movies by production company, shows by network when it has one, else by
+ * company). A title search alone only finds titles with the name in them ("Disney's …"). IDs
+ * checked against TMDB /company and /network. Keys: lower-case, letters / digits only.
+ */
+type StudioAlias = { companies?: number[]; networks?: number[]; types: MediaType[] };
+const DISNEY: StudioAlias = { companies: [2, 6125], networks: [54, 2739], types: BOTH };
+const MARVEL: StudioAlias = { companies: [420, 38679], types: BOTH };
+const GHIBLI: StudioAlias = { companies: [10342], types: BOTH };
+const KYOANI: StudioAlias = { companies: [5438], types: BOTH };
+const WARNER: StudioAlias = { companies: [174], types: [MediaType.MOVIE] };
+const APPLE: StudioAlias = { networks: [2552], types: [MediaType.TV] };
+const PRIME: StudioAlias = { networks: [1024], types: [MediaType.TV] };
+export const SEARCH_STUDIO_ALIASES: Record<string, StudioAlias> = {
+  disney: DISNEY,
+  waltdisney: DISNEY,
+  disneyplus: { networks: [2739], types: [MediaType.TV] },
+  pixar: { companies: [3], types: [MediaType.MOVIE] },
+  marvel: MARVEL,
+  marvelstudios: MARVEL,
+  mcu: { companies: [420], types: BOTH },
+  lucasfilm: { companies: [1], types: BOTH },
+  dreamworks: { companies: [521], types: BOTH },
+  ghibli: GHIBLI,
+  studioghibli: GHIBLI,
+  illumination: { companies: [6704], types: [MediaType.MOVIE] },
+  warnerbros: WARNER,
+  warnerbrothers: WARNER,
+  a24: { companies: [41077], types: BOTH },
+  blumhouse: { companies: [3172], types: BOTH },
+  universal: { companies: [33], types: [MediaType.MOVIE] },
+  paramount: { companies: [4], types: [MediaType.MOVIE] },
+  sonyanimation: { companies: [2251], types: [MediaType.MOVIE] },
+  amblin: { companies: [56], types: [MediaType.MOVIE] },
+  lionsgate: { companies: [1632], types: [MediaType.MOVIE] },
+  toei: { companies: [5542], types: BOTH },
+  toeianimation: { companies: [5542], types: BOTH },
+  mappa: { companies: [21444], types: BOTH },
+  kyotoanimation: KYOANI,
+  kyoani: KYOANI,
+  ufotable: { companies: [5887, 280276], types: BOTH },
+  madhouse: { companies: [3464], types: BOTH },
+  witstudio: { companies: [31058], types: BOTH },
+  hbo: { companies: [3268], networks: [49], types: BOTH },
+  netflix: { companies: [178464], networks: [213], types: BOTH },
+  appletv: APPLE,
+  appletvplus: APPLE,
+  primevideo: PRIME,
+  amazonprime: PRIME,
+  hulu: { networks: [453], types: [MediaType.TV] },
+};
 /** TMDB keywords kept per title (catalog + tracking docs) */
 export const TITLE_KEYWORD_MAX = 40;
+/** Studios kept per title (networks first, then the lead production companies) — more pulled in
+ *  every co-production committee and drowned the well-known names in the filter */
+export const TITLE_STUDIO_MAX = 4;
 
 /** Per-user subcollections of the tracking delta sync (mirrors app UserCollection) */
 export enum UserCollection {

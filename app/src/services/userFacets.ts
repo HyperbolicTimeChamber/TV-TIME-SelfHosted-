@@ -36,7 +36,12 @@ export function loadUserFacets(uid: string, mediaType: MediaType): Promise<UserF
 	if (pending) return pending;
 	const load = (async () => {
 		await Promise.allSettled([...inFlight]);
-		const doc = (await fetchUserFacets(uid, mediaType)) ?? { genres: {}, keywords: {} };
+		const doc = (await fetchUserFacets(uid, mediaType)) ?? {
+			genres: {},
+			keywords: {},
+			countries: {},
+			studios: {},
+		};
 		cache.set(k, doc);
 		notify();
 		return doc;

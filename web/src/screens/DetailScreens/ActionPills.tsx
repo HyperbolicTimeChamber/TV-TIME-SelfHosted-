@@ -1,5 +1,5 @@
 import { Spin } from "antd";
-import { IoBookmark, IoBookmarkOutline, IoEllipsisHorizontal } from "react-icons/io5";
+import { IoBookmark, IoBookmarkOutline, IoEllipsisVertical } from "react-icons/io5";
 import { RxCheck } from "react-icons/rx";
 import { CircleButtonTone, MediaType, WatchStatus } from "@app/enums";
 import CircleButton from "../../components/CircleButton";
@@ -141,7 +141,7 @@ export default function ActionPills(p: Props) {
 					onClick={p.onWatchSheetOpen}
 					ariaLabel="Watch count options"
 				>
-					<IoEllipsisHorizontal size={22} />
+					<IoEllipsisVertical size={22} />
 				</CircleButton>
 			)}
 		</div>

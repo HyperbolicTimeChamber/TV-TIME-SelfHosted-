@@ -1,5 +1,13 @@
 import { useMemo, useState } from "react";
-import { IoAdd, IoCheckmark, IoSearch } from "react-icons/io5";
+import {
+	IoAdd,
+	IoBusiness,
+	IoCheckmark,
+	IoChevronDown,
+	IoCloseCircle,
+	IoSearch,
+	IoSparkles,
+} from "react-icons/io5";
 import {
 	HISTORY_FACET_MAX,
 	HISTORY_KEYWORD_SUGGESTIONS,
@@ -7,11 +15,14 @@ import {
 	HistorySort,
 } from "@app/enums";
 import type { HistoryFacets } from "@app/types";
+import { titleCase } from "@app/utils/format";
 import {
 	HISTORY_FILTERS,
 	HISTORY_FILTER_LABEL,
 	HISTORY_SORT_LABEL,
 	HISTORY_SORTS,
+	countryLabel,
+	regionAliasFor,
 } from "@app/utils/historyView";
 import { SortPanel, sortPanelTitleClass, type SortOption } from "../../../components/SortPanel";
 import styles from "./styles/WatchHistory.module.scss";
@@ -30,10 +41,22 @@ interface Props {
 	onClearFilters: () => void;
 	facets: HistoryFacets;
 	/** Every genre / keyword across the tab's tracked titles (the user's facets doc) */
-	facetOptions: { genres: string[]; keywords: string[] };
+	facetOptions: { genres: string[]; keywords: string[]; countries: string[]; studios: string[] };
 	onToggleGenre: (genre: string) => void;
 	onToggleKeyword: (keyword: string) => void;
+	onToggleCountry: (country: string) => void;
+	onToggleStudio: (studio: string) => void;
+	/** A regional genre typed as a keyword ("k-drama"): turn on its country (+ genre) */
+	onApplyRegion: (country: string, genre?: string) => void;
 }
+
+/** Countries / studios listed before "More": the most common ones (picked ones always show) */
+const COUNTRY_SUGGESTIONS = 8;
+const STUDIO_SUGGESTIONS = 8;
+/** "More" adds this many studios each click — the long tail stays reachable by typing its name */
+const STUDIO_MORE_STEP = 16;
+/** Studios offered for what's typed in the keyword field ("disney" → Disney+, Walt Disney…) */
+const TYPED_STUDIO_MATCHES = 4;
 
 /** One filter chip (status, genre or keyword): a check when on */
 function Chip({
@@ -46,8 +69,8 @@ function Chip({
 	label: string;
 	on: boolean;
 	disabled?: boolean;
-	/** A typed keyword: a plus in place of the check */
-	add?: boolean;
+	/** In place of the check: a typed keyword's plus, a regional genre's sparkle, "More" */
+	add?: boolean | "region" | "more" | "studio";
 	onClick: () => void;
 }) {
 	return (
@@ -57,7 +80,17 @@ function Chip({
 			disabled={disabled}
 			onClick={onClick}
 		>
-			{on ? <IoCheckmark size={15} /> : add ? <IoAdd size={15} /> : null}
+			{on ? (
+				<IoCheckmark size={15} className={styles.chipIcon} />
+			) : add === "region" ? (
+				<IoSparkles size={15} className={styles.chipIcon} />
+			) : add === "studio" ? (
+				<IoBusiness size={15} className={styles.chipIcon} />
+			) : add === "more" ? (
+				<IoChevronDown size={15} className={styles.chipIcon} />
+			) : add ? (
+				<IoAdd size={15} className={styles.chipIcon} />
+			) : null}
 			{label}
 		</button>
 	);
@@ -78,6 +111,9 @@ export default function HistoryViewPanel({
 	facetOptions,
 	onToggleGenre,
 	onToggleKeyword,
+	onToggleCountry,
+	onToggleStudio,
+	onApplyRegion,
 }: Props) {
 	const [term, setTerm] = useState("");
 	const typed = term.trim().toLowerCase();
@@ -87,24 +123,64 @@ export default function HistoryViewPanel({
 		const rest = facetOptions.keywords
 			.filter((k) => !facets.keywords.has(k) && (!typed || k.includes(typed)))
 			.slice(0, HISTORY_KEYWORD_SUGGESTIONS);
-		const exact = !!typed && !facets.keywords.has(typed) && !rest.includes(typed);
-		return { picked: [...facets.keywords], rest, exact };
+		// A regional genre (k-drama, anime…) is a country + genre, not a TMDB keyword: its chip
+		// takes the place of the typed text's (app HistoryViewSheet)
+		const region = typed ? regionAliasFor(typed) : undefined;
+		const exact = !region && !!typed && !facets.keywords.has(typed) && !rest.includes(typed);
+		return { picked: [...facets.keywords], rest, exact, region };
 	}, [facetOptions.keywords, facets.keywords, typed]);
+	const [allCountries, setAllCountries] = useState(false);
+	const countries = useMemo(
+		() => [
+			...new Set([
+				...facets.countries,
+				...(allCountries
+					? facetOptions.countries
+					: facetOptions.countries.slice(0, COUNTRY_SUGGESTIONS)),
+			]),
+		],
+		[facets.countries, facetOptions.countries, allCountries],
+	);
+	const moreCountries = !allCountries && facetOptions.countries.length > COUNTRY_SUGGESTIONS;
+	const [studioLimit, setStudioLimit] = useState(STUDIO_SUGGESTIONS);
+	const studios = useMemo(
+		() => [...new Set([...facets.studios, ...facetOptions.studios.slice(0, studioLimit)])],
+		[facets.studios, facetOptions.studios, studioLimit],
+	);
+	const moreStudios = facetOptions.studios.length > studioLimit;
+	// Typed text naming a studio ("disney", "hbo"): its studios, offered beside the keywords
+	const typedStudios = useMemo(
+		() =>
+			typed
+				? facetOptions.studios
+						.filter((st) => !facets.studios.has(st) && st.toLowerCase().includes(typed))
+						.slice(0, TYPED_STUDIO_MATCHES)
+				: [],
+		[facetOptions.studios, facets.studios, typed],
+	);
 	const genres = useMemo(
 		() => [...new Set([...facets.genres, ...facetOptions.genres])],
 		[facets.genres, facetOptions.genres],
 	);
-	const anyFilter = filters.size > 0 || facets.genres.size > 0 || facets.keywords.size > 0;
+	const anyFilter =
+		filters.size > 0 ||
+		facets.genres.size > 0 ||
+		facets.keywords.size > 0 ||
+		facets.countries.size > 0 ||
+		facets.studios.size > 0;
+	const countriesFull = facets.countries.size >= HISTORY_FACET_MAX;
+	const studiosFull = facets.studios.size >= HISTORY_FACET_MAX;
 	const genresFull = facets.genres.size >= HISTORY_FACET_MAX;
 	const keywordsFull = facets.keywords.size >= HISTORY_FACET_MAX;
 	const addTyped = () => {
-		if (keywordChips.exact && !keywordsFull) onToggleKeyword(typed);
+		if (keywordChips.region) onApplyRegion(keywordChips.region.country, keywordChips.region.genre);
+		else if (keywordChips.exact && !keywordsFull) onToggleKeyword(typed);
 		setTerm("");
 	};
 	return (
-		<SortPanel options={SORT_OPTIONS} selected={sort} onSelect={onSort}>
+		<SortPanel options={SORT_OPTIONS} selected={sort} onSelect={onSort} segmented>
 			<div className={styles.viewFilterHead}>
-				<p className={sortPanelTitleClass}>Filter</p>
+				<p className={sortPanelTitleClass}>Filters</p>
 				{anyFilter && (
 					<button
 						className={styles.viewClear}
@@ -113,10 +189,11 @@ export default function HistoryViewPanel({
 							setTerm("");
 						}}
 					>
-						Clear
+						Clear all
 					</button>
 				)}
 			</div>
+			{!isMovie && <p className={`${styles.facetTitle} ${styles.facetTitleFirst}`}>Status</p>}
 			{!isMovie && (
 				<div className={styles.viewChips}>
 					{HISTORY_FILTERS.map((f) => (
@@ -131,7 +208,7 @@ export default function HistoryViewPanel({
 			)}
 			{genres.length > 0 && (
 				<>
-					<p className={styles.facetTitle}>Genre</p>
+					<p className={`${styles.facetTitle} ${isMovie ? styles.facetTitleFirst : ""}`}>Genre</p>
 					<div className={styles.viewChips}>
 						{genres.map((g) => {
 							const on = facets.genres.has(g);
@@ -148,6 +225,55 @@ export default function HistoryViewPanel({
 					</div>
 				</>
 			)}
+			{countries.length > 0 && (
+				<>
+					<p className={styles.facetTitle}>Country</p>
+					<div className={styles.viewChips}>
+						{countries.map((c) => {
+							const on = facets.countries.has(c);
+							return (
+								<Chip
+									key={c}
+									label={countryLabel(c)}
+									on={on}
+									disabled={!on && countriesFull}
+									onClick={() => onToggleCountry(c)}
+								/>
+							);
+						})}
+						{moreCountries && (
+							<Chip label="More" on={false} add="more" onClick={() => setAllCountries(true)} />
+						)}
+					</div>
+				</>
+			)}
+			{studios.length > 0 && (
+				<>
+					<p className={styles.facetTitle}>Studio</p>
+					<div className={styles.viewChips}>
+						{studios.map((st) => {
+							const on = facets.studios.has(st);
+							return (
+								<Chip
+									key={st}
+									label={st}
+									on={on}
+									disabled={!on && studiosFull}
+									onClick={() => onToggleStudio(st)}
+								/>
+							);
+						})}
+						{moreStudios && (
+							<Chip
+								label="More"
+								on={false}
+								add="more"
+								onClick={() => setStudioLimit((n) => n + STUDIO_MORE_STEP)}
+							/>
+						)}
+					</div>
+				</>
+			)}
 			<p className={styles.facetTitle}>Keyword</p>
 			<label className={styles.keywordField}>
 				<IoSearch size={16} />
@@ -160,19 +286,60 @@ export default function HistoryViewPanel({
 					autoCorrect="off"
 					aria-label="Find a keyword"
 				/>
+				{term && (
+					<button
+						type="button"
+						className={styles.keywordClear}
+						onClick={() => setTerm("")}
+						aria-label="Clear keyword"
+					>
+						<IoCloseCircle size={18} />
+					</button>
+				)}
 			</label>
-			{(keywordChips.picked.length > 0 || keywordChips.rest.length > 0 || keywordChips.exact) && (
+			{(keywordChips.picked.length > 0 ||
+				keywordChips.rest.length > 0 ||
+				keywordChips.exact ||
+				keywordChips.region ||
+				typedStudios.length > 0) && (
 				<div className={styles.viewChips}>
+					{keywordChips.region && (
+						<Chip
+							label={`${keywordChips.region.label} · ${countryLabel(keywordChips.region.country)}`}
+							on={false}
+							add="region"
+							onClick={addTyped}
+						/>
+					)}
+					{typedStudios.map((st) => (
+						<Chip
+							key={`studio-${st}`}
+							label={st}
+							on={false}
+							add="studio"
+							disabled={studiosFull}
+							onClick={() => {
+								onToggleStudio(st);
+								setTerm("");
+							}}
+						/>
+					))}
 					{keywordChips.exact && (
-						<Chip label={typed} on={false} add disabled={keywordsFull} onClick={addTyped} />
+						<Chip
+							label={titleCase(typed)}
+							on={false}
+							add
+							disabled={keywordsFull}
+							onClick={addTyped}
+						/>
 					)}
 					{keywordChips.picked.map((k) => (
-						<Chip key={k} label={k} on onClick={() => onToggleKeyword(k)} />
+						<Chip key={k} label={titleCase(k)} on onClick={() => onToggleKeyword(k)} />
 					))}
 					{keywordChips.rest.map((k) => (
 						<Chip
 							key={k}
-							label={k}
+							label={titleCase(k)}
 							on={false}
 							disabled={keywordsFull}
 							onClick={() => onToggleKeyword(k)}
