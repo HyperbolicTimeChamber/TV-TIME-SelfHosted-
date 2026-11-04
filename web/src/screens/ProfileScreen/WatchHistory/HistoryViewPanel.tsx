@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { IoAdd, IoCheckmark, IoSearch } from "react-icons/io5";
+import { IoAdd, IoCheckmark, IoCloseCircle, IoSearch } from "react-icons/io5";
 import {
 	HISTORY_FACET_MAX,
 	HISTORY_KEYWORD_SUGGESTIONS,
@@ -57,7 +57,11 @@ function Chip({
 			disabled={disabled}
 			onClick={onClick}
 		>
-			{on ? <IoCheckmark size={15} /> : add ? <IoAdd size={15} /> : null}
+			{on ? (
+				<IoCheckmark size={15} className={styles.chipIcon} />
+			) : add ? (
+				<IoAdd size={15} className={styles.chipIcon} />
+			) : null}
 			{label}
 		</button>
 	);
@@ -102,9 +106,9 @@ export default function HistoryViewPanel({
 		setTerm("");
 	};
 	return (
-		<SortPanel options={SORT_OPTIONS} selected={sort} onSelect={onSort}>
+		<SortPanel options={SORT_OPTIONS} selected={sort} onSelect={onSort} segmented>
 			<div className={styles.viewFilterHead}>
-				<p className={sortPanelTitleClass}>Filter</p>
+				<p className={sortPanelTitleClass}>Filters</p>
 				{anyFilter && (
 					<button
 						className={styles.viewClear}
@@ -113,10 +117,11 @@ export default function HistoryViewPanel({
 							setTerm("");
 						}}
 					>
-						Clear
+						Clear all
 					</button>
 				)}
 			</div>
+			{!isMovie && <p className={`${styles.facetTitle} ${styles.facetTitleFirst}`}>Status</p>}
 			{!isMovie && (
 				<div className={styles.viewChips}>
 					{HISTORY_FILTERS.map((f) => (
@@ -131,7 +136,7 @@ export default function HistoryViewPanel({
 			)}
 			{genres.length > 0 && (
 				<>
-					<p className={styles.facetTitle}>Genre</p>
+					<p className={`${styles.facetTitle} ${isMovie ? styles.facetTitleFirst : ""}`}>Genre</p>
 					<div className={styles.viewChips}>
 						{genres.map((g) => {
 							const on = facets.genres.has(g);
@@ -160,9 +165,21 @@ export default function HistoryViewPanel({
 					autoCorrect="off"
 					aria-label="Find a keyword"
 				/>
+				{term && (
+					<button
+						type="button"
+						className={styles.keywordClear}
+						onClick={() => setTerm("")}
+						aria-label="Clear keyword"
+					>
+						<IoCloseCircle size={18} />
+					</button>
+				)}
 			</label>
 			{(keywordChips.picked.length > 0 || keywordChips.rest.length > 0 || keywordChips.exact) && (
-				<div className={styles.viewChips}>
+				// One sideways-scrolling line: the list changes with every keystroke, the panel's
+				// height doesn't
+				<div className={styles.chipRow}>
 					{keywordChips.exact && (
 						<Chip label={typed} on={false} add disabled={keywordsFull} onClick={addTyped} />
 					)}

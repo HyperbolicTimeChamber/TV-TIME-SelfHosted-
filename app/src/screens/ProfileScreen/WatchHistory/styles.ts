@@ -60,6 +60,10 @@ export const styles = StyleSheet.create({
 	},
 	sheetClearText: { color: colors.primary, fontWeight: "700", fontSize: 13 },
 	chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, paddingBottom: spacing.xs },
+	// Keyword suggestions: one sideways-scrolling line, bleeding to the sheet's edges so chips
+	// slide out of view instead of being cut at the padding
+	chipRow: { marginHorizontal: -spacing.lg, flexGrow: 0 },
+	chipRowContent: { gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.xs },
 	// Same height on or off: the check takes room from the padding, not the row
 	filterChip: {
 		flexDirection: "row",
@@ -81,24 +85,34 @@ export const styles = StyleSheet.create({
 	chipPressed: { transform: [{ scale: 0.97 }], opacity: 0.85 },
 	filterChipDisabled: { opacity: 0.4 },
 	filterChipText: { color: colors.textSecondary, fontWeight: "600", fontSize: 14 },
-	// Genre / Keyword: a small heading over one scrolling line of chips
+	// Status / Genre / Keyword: the sheet's section label voice (SORT BY, FILTERS), one step
+	// quieter — one label style for the whole sheet
 	facetTitle: {
-		color: colors.textSecondary,
-		fontSize: 13,
+		color: colors.textMuted,
+		fontSize: 11,
 		fontWeight: "700",
+		letterSpacing: 1.1,
 		marginTop: spacing.md,
 		marginBottom: spacing.sm,
+		marginLeft: spacing.xs,
 	},
 	keywordField: {
 		flexDirection: "row",
 		alignItems: "center",
 		gap: spacing.sm,
-		height: 40,
+		height: 42,
 		paddingHorizontal: spacing.md,
 		marginBottom: spacing.sm,
-		borderRadius: 8,
+		// Pill like the chips under it; the border is there off-focus too (same colour as the
+		// fill) so focusing never shifts the text
+		borderRadius: 999,
+		borderWidth: 1,
+		borderColor: colors.surfaceLight,
 		backgroundColor: colors.surfaceLight,
 	},
+	keywordFieldFocused: { borderColor: colors.textMuted },
+	/** The first section label sits right under FILTERS — no second gap */
+	facetTitleFirst: { marginTop: 0 },
 	keywordInput: { flex: 1, color: colors.text, fontSize: 15, padding: 0 },
 	filterChipTextOn: { color: colors.text },
 

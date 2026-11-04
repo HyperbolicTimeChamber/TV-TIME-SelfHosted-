@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Keyboard, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { Keyboard, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import Animated, {
+	Easing,
+	FadeIn,
+	FadeOut,
+	Keyframe,
+	LinearTransition,
+} from "react-native-reanimated";
 import SortSheet, { sortSheetStyles, type SortOption } from "../../../components/SortSheet";
 import {
 	HISTORY_FACET_MAX,
@@ -55,7 +63,17 @@ function useKeyboardHeight() {
 	return height;
 }
 
-/** One filter chip (status, genre or keyword): a check when on */
+/** Neighbours glide to their new place when a chip grows / shrinks (its check) or comes and goes,
+ *  instead of the row jumping */
+const CHIP_REFLOW = LinearTransition.duration(180).easing(Easing.bezier(0.23, 1, 0.32, 1));
+/** The check grows in from 60% — never from nothing — and leaves faster than it came */
+const CHECK_IN = new Keyframe({
+	0: { opacity: 0, transform: [{ scale: 0.6 }] },
+	100: { opacity: 1, transform: [{ scale: 1 }], easing: Easing.bezier(0.23, 1, 0.32, 1) },
+}).duration(160);
+const CHECK_OUT = FadeOut.duration(100);
+
+/** One filter chip (status, genre or keyword): a check when on, a selection tick on toggle */
 function Chip({
 	label,
 	on,
@@ -71,27 +89,52 @@ function Chip({
 	onPress: () => void;
 }) {
 	return (
-		<Pressable
-			style={({ pressed }) => [
-				styles.filterChip,
-				on && styles.filterChipOn,
-				disabled && styles.filterChipDisabled,
-				pressed && styles.chipPressed,
-			]}
-			onPress={onPress}
-			disabled={disabled}
-			accessibilityRole="button"
-			accessibilityState={{ selected: on, disabled }}
-		>
-			{(on || icon) && <Ionicons name={on ? "checkmark" : icon!} size={16} color={colors.text} />}
-			<Text style={[styles.filterChipText, on && styles.filterChipTextOn]}>{label}</Text>
-		</Pressable>
+		<Animated.View layout={CHIP_REFLOW}>
+			<Pressable
+				style={({ pressed }) => [
+					styles.filterChip,
+					on && styles.filterChipOn,
+					disabled && styles.filterChipDisabled,
+					pressed && styles.chipPressed,
+				]}
+				onPress={() => {
+					Haptics.selectionAsync().catch(() => {});
+					onPress();
+				}}
+				disabled={disabled}
+				accessibilityRole="button"
+				accessibilityState={{ selected: on, disabled }}
+			>
+				{(on || icon) && (
+					<Animated.View entering={CHECK_IN} exiting={CHECK_OUT}>
+						<Ionicons name={on ? "checkmark" : icon!} size={16} color={colors.text} />
+					</Animated.View>
+				)}
+				<Text style={[styles.filterChipText, on && styles.filterChipTextOn]}>{label}</Text>
+			</Pressable>
+		</Animated.View>
 	);
 }
 
 /** A section's chips, wrapping onto as many lines as they need */
 function ChipLine({ children }: { children: ReactNode }) {
 	return <View style={styles.chipWrap}>{children}</View>;
+}
+
+/** A section's chips on one line that scrolls sideways — a list that changes with every
+ *  keystroke (keyword suggestions) keeps the sheet's height still */
+function ChipRow({ children }: { children: ReactNode }) {
+	return (
+		<ScrollView
+			horizontal
+			showsHorizontalScrollIndicator={false}
+			keyboardShouldPersistTaps="handled"
+			style={styles.chipRow}
+			contentContainerStyle={styles.chipRowContent}
+		>
+			{children}
+		</ScrollView>
+	);
 }
 
 /**
@@ -114,6 +157,7 @@ export default function HistoryViewSheet({
 }: Props) {
 	const keyboard = useKeyboardHeight();
 	const [term, setTerm] = useState("");
+	const [focused, setFocused] = useState(false);
 	const typed = term.trim().toLowerCase();
 	// Picked keywords first, then the most common ones (nothing typed) or the ones matching what's
 	// typed — and the typed text itself when no keyword is exactly it
@@ -138,23 +182,27 @@ export default function HistoryViewSheet({
 			options={SORT_OPTIONS}
 			selected={sort}
 			onSelect={onSort}
+			segmented
 		>
 			<View style={styles.sheetFilterHead}>
-				<Text style={[sortSheetStyles.title, styles.sheetFilterTitle]}>FILTER</Text>
+				<Text style={[sortSheetStyles.title, styles.sheetFilterTitle]}>FILTERS</Text>
 				{anyFilter && (
-					<Pressable
-						onPress={() => {
-							onClearFilters();
-							setTerm("");
-						}}
-						hitSlop={8}
-						accessibilityRole="button"
-						style={({ pressed }) => [styles.sheetClear, pressed && styles.chipPressed]}
-					>
-						<Text style={styles.sheetClearText}>Clear</Text>
-					</Pressable>
+					<Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(100)}>
+						<Pressable
+							onPress={() => {
+								onClearFilters();
+								setTerm("");
+							}}
+							hitSlop={8}
+							accessibilityRole="button"
+							style={({ pressed }) => [styles.sheetClear, pressed && styles.chipPressed]}
+						>
+							<Text style={styles.sheetClearText}>Clear all</Text>
+						</Pressable>
+					</Animated.View>
 				)}
 			</View>
+			{!isMovie && <Text style={[styles.facetTitle, styles.facetTitleFirst]}>STATUS</Text>}
 			{!isMovie && (
 				<View style={styles.chipWrap}>
 					{HISTORY_FILTERS.map((f) => (
@@ -169,7 +217,7 @@ export default function HistoryViewSheet({
 			)}
 			{genres.length > 0 && (
 				<>
-					<Text style={styles.facetTitle}>Genre</Text>
+					<Text style={[styles.facetTitle, isMovie && styles.facetTitleFirst]}>GENRE</Text>
 					<ChipLine>
 						{genres.map((g) => {
 							const on = facets.genres.has(g);
@@ -186,9 +234,9 @@ export default function HistoryViewSheet({
 					</ChipLine>
 				</>
 			)}
-			<Text style={styles.facetTitle}>Keyword</Text>
-			<View style={styles.keywordField}>
-				<Ionicons name="search" size={16} color={colors.textSecondary} />
+			<Text style={styles.facetTitle}>KEYWORD</Text>
+			<View style={[styles.keywordField, focused && styles.keywordFieldFocused]}>
+				<Ionicons name="search" size={16} color={focused ? colors.text : colors.textSecondary} />
 				<TextInput
 					style={styles.keywordInput}
 					value={term}
@@ -198,17 +246,30 @@ export default function HistoryViewSheet({
 					autoCapitalize="none"
 					autoCorrect={false}
 					returnKeyType="done"
+					onFocus={() => setFocused(true)}
+					onBlur={() => setFocused(false)}
 					onSubmitEditing={() => {
 						if (keywordChips.exact && !keywordsFull) onToggleKeyword(typed);
 						setTerm("");
 					}}
 					accessibilityLabel="Find a keyword"
 				/>
+				{term.length > 0 && (
+					<Animated.View entering={FadeIn.duration(120)} exiting={FadeOut.duration(90)}>
+						<Pressable
+							onPress={() => setTerm("")}
+							hitSlop={10}
+							accessibilityRole="button"
+							accessibilityLabel="Clear keyword"
+							style={({ pressed }) => pressed && styles.chipPressed}
+						>
+							<Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+						</Pressable>
+					</Animated.View>
+				)}
 			</View>
-			{(keywordChips.picked.length > 0 ||
-				keywordChips.rest.length > 0 ||
-				keywordChips.exact) && (
-				<ChipLine>
+			{(keywordChips.picked.length > 0 || keywordChips.rest.length > 0 || keywordChips.exact) && (
+				<ChipRow>
 					{keywordChips.exact && (
 						<Chip
 							label={typed}
@@ -233,7 +294,7 @@ export default function HistoryViewSheet({
 							onPress={() => onToggleKeyword(k)}
 						/>
 					))}
-				</ChipLine>
+				</ChipRow>
 			)}
 			{/* Keyboard up: the sheet grows by its height, the field stays above it */}
 			<View style={{ height: keyboard }} />

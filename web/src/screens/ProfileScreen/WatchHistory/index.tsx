@@ -296,10 +296,8 @@ export default function WatchHistoryScreen() {
 							<HistoryViewPanel
 								isMovie={tab === MediaType.MOVIE}
 								sort={sort}
-								onSort={(next) => {
-									setSort(next);
-									setPanelOpen(false);
-								}}
+								// Stays open like the filters under it (app HistoryViewSheet)
+								onSort={setSort}
 								filters={tabFilters}
 								onToggleFilter={toggleFilter}
 								onClearFilters={() => {

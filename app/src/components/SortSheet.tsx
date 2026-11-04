@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import BottomSheet, { SheetGroup, sheetStyles } from "./modals/BottomSheet";
+import SegmentedControl from "./SegmentedControl";
 import { colors, spacing } from "../theme";
 
 export interface SortOption<T> {
@@ -22,6 +23,8 @@ interface Props<T> {
 	closeOnSelect?: boolean;
 	/** Extra sections under the sort rows (e.g. Watch History's filters) */
 	children?: ReactNode;
+	/** Two or three options: one sliding segmented control instead of rows */
+	segmented?: boolean;
 }
 
 const strictEqual = <T,>(a: T, b: T) => a === b;
@@ -36,38 +39,48 @@ export default function SortSheet<T>({
 	isSame = strictEqual,
 	closeOnSelect = false,
 	children,
+	segmented = false,
 }: Props<T>) {
 	return (
 		<BottomSheet visible={visible} onClose={onClose}>
 			{(close) => (
 				<>
 					<Text style={sortSheetStyles.title}>SORT BY</Text>
-					<SheetGroup textOnly>
-						{options.map((option) => {
-							const active = isSame(option.value, selected);
-							return (
-								<Pressable
-									key={option.label}
-									style={({ pressed }) => [
-										sheetStyles.row,
-										sortSheetStyles.row,
-										active && sortSheetStyles.rowSelected,
-										pressed && !active && sortSheetStyles.rowPressed,
-									]}
-									onPress={() =>
-										closeOnSelect ? close(() => onSelect(option.value)) : onSelect(option.value)
-									}
-									accessibilityRole="button"
-									accessibilityState={{ selected: active }}
-								>
-									<Text style={[sortSheetStyles.rowText, active && sortSheetStyles.rowActive]}>
-										{option.label}
-									</Text>
-									{active && <Ionicons name="checkmark" size={20} color={colors.text} />}
-								</Pressable>
-							);
-						})}
-					</SheetGroup>
+					{segmented ? (
+						<SegmentedControl
+							options={options}
+							selected={selected}
+							isSame={isSame}
+							onSelect={(value) => (closeOnSelect ? close(() => onSelect(value)) : onSelect(value))}
+						/>
+					) : (
+						<SheetGroup textOnly>
+							{options.map((option) => {
+								const active = isSame(option.value, selected);
+								return (
+									<Pressable
+										key={option.label}
+										style={({ pressed }) => [
+											sheetStyles.row,
+											sortSheetStyles.row,
+											active && sortSheetStyles.rowSelected,
+											pressed && !active && sortSheetStyles.rowPressed,
+										]}
+										onPress={() =>
+											closeOnSelect ? close(() => onSelect(option.value)) : onSelect(option.value)
+										}
+										accessibilityRole="button"
+										accessibilityState={{ selected: active }}
+									>
+										<Text style={[sortSheetStyles.rowText, active && sortSheetStyles.rowActive]}>
+											{option.label}
+										</Text>
+										{active && <Ionicons name="checkmark" size={20} color={colors.text} />}
+									</Pressable>
+								);
+							})}
+						</SheetGroup>
+					)}
 					{children}
 				</>
 			)}

@@ -453,10 +453,9 @@ export default function WatchHistoryScreen() {
 				onClose={() => setSheetOpen(false)}
 				isMovie={isMovieTab}
 				sort={sort}
-				onSort={(next) => {
-					setSort(next);
-					setSheetOpen(false);
-				}}
+				// Stays open like the filters under it — the segment's slide is the feedback, and a
+				// sort is often followed by a filter
+				onSort={setSort}
 				filters={tabFilters(tab)}
 				onToggleFilter={toggleFilter}
 				onClearFilters={() => {
