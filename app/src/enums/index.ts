@@ -263,6 +263,8 @@ export enum ListTagKind {
 	NOT_STARTED = "notStarted",
 	/** On the watchlist, never watched (movies) */
 	NOT_WATCHED = "notWatched",
+	/** Ongoing / Ended (grid cards: a pill under the others, so the title gets the full width) */
+	AIR_STATE = "airState",
 }
 
 export enum DocChangeType {

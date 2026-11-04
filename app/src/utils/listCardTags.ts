@@ -81,5 +81,7 @@ export function deriveHistoryGridTags(card: HistoryCard | null): ListTag[] {
 	} else if (card.watchCount != null) {
 		tags.push({ kind: ListTagKind.WATCH_COUNT, label: "Watch Count", count: card.watchCount });
 	}
+	// Ongoing / Ended: last pill in the stack, not beside the title
+	if (card.tag) tags.push({ kind: ListTagKind.AIR_STATE, label: card.tag });
 	return tags;
 }

@@ -348,18 +348,21 @@ export default function HistoryViewSheet({
 							onPress={applyRegion}
 						/>
 					)}
-					{keywordChips.picked.map((k) => (
-						<Chip key={k} label={titleCase(k)} on onPress={() => onToggleKeyword(k)} />
-					))}
-					{keywordChips.rest.map((k) => (
-						<Chip
-							key={k}
-							label={titleCase(k)}
-							on={false}
-							disabled={keywordsFull}
-							onPress={() => onToggleKeyword(k)}
-						/>
-					))}
+					{/* One list, not picked + rest maps: a toggled keyword stays the same chip that
+					    recolours, instead of a remount where the old red pill lingered (its check's
+					    exit) over the new grey one */}
+					{[...keywordChips.picked, ...keywordChips.rest].map((k) => {
+						const on = facets.keywords.has(k);
+						return (
+							<Chip
+								key={k}
+								label={titleCase(k)}
+								on={on}
+								disabled={!on && keywordsFull}
+								onPress={() => onToggleKeyword(k)}
+							/>
+						);
+					})}
 				</ChipLine>
 			)}
 		</SortSheet>

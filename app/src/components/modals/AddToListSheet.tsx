@@ -28,7 +28,7 @@ import Reanimated, {
 	withSequence,
 	withTiming,
 } from "react-native-reanimated";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useAuthStore } from "../../stores";
@@ -369,20 +369,22 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: R
 										)}
 										{others.map(renderRow)}
 
-										<Pressable
-											onPress={() => startNaming()}
-											accessibilityRole="button"
-											style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-										>
-											<View style={[styles.cover, styles.coverEmpty]}>
-												<MaterialCommunityIcons
-													name="bookmark-plus-outline"
-													size={24}
-													color={colors.text}
-												/>
-											</View>
-											<Text style={styles.rowText}>New List</Text>
-										</Pressable>
+										{/* The Create “…” suggestion already is the new-list row */}
+										{!canCreateTyped && (
+											<Pressable
+												onPress={() => startNaming()}
+												accessibilityRole="button"
+												style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+											>
+												<View style={[styles.cover, styles.coverCreate]}>
+													<Ionicons name="add" size={26} color={colors.background} />
+												</View>
+												<View style={styles.rowContent}>
+													<Text style={styles.rowText}>New List</Text>
+													<Text style={styles.rowHint}>Start one with this title in it</Text>
+												</View>
+											</Pressable>
+										)}
 									</>
 								)}
 							</BottomSheetScrollView>

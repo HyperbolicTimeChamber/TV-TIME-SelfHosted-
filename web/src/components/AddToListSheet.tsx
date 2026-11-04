@@ -10,7 +10,6 @@ import {
 import { motion } from "motion/react";
 import { Spin } from "antd";
 import { IoAdd, IoBookmark, IoBookmarkOutline, IoList, IoSearch } from "react-icons/io5";
-import { MdOutlineBookmarkAdd } from "react-icons/md";
 import {
 	ADD_TO_LIST_SEARCH_MIN_LISTS,
 	CUSTOM_LIST_ITEM_MAX,
@@ -343,12 +342,18 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: P
 									)}
 									{others.map(renderRow)}
 
-									<button type="button" className={styles.row} onClick={() => startNaming()}>
-										<span className={`${styles.cover} ${styles.coverEmpty}`}>
-											<MdOutlineBookmarkAdd size={24} />
-										</span>
-										<span className={styles.rowText}>New List</span>
-									</button>
+									{/* The Create “…” suggestion already is the new-list row */}
+									{!canCreateTyped && (
+										<button type="button" className={styles.row} onClick={() => startNaming()}>
+											<span className={`${styles.cover} ${styles.coverCreate}`}>
+												<IoAdd size={26} />
+											</span>
+											<span className={styles.rowContent}>
+												<span className={styles.rowText}>New List</span>
+												<span className={styles.rowHint}>Start one with this title in it</span>
+											</span>
+										</button>
+									)}
 								</>
 							)}
 						</div>

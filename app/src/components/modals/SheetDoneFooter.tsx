@@ -2,7 +2,7 @@ import { StyleSheet, Text } from "react-native";
 // Gesture-handler Pressable: inside a Gorhom sheet, React Native's lost a tap whose finger drifted
 // a pixel or two (the sheet's gestures took the touch)
 import { Pressable } from "react-native-gesture-handler";
-import { useBottomSheet } from "@gorhom/bottom-sheet";
+import { KEYBOARD_STATUS, useBottomSheet, useBottomSheetInternal } from "@gorhom/bottom-sheet";
 import Reanimated, { useAnimatedStyle } from "react-native-reanimated";
 import { colors, spacing, typography } from "../../theme";
 
@@ -15,15 +15,37 @@ export const DONE_FOOTER_HEIGHT = 76;
  * The footer pins it to the sheet's visible bottom, so while the sheet closes it stayed put until
  * the sheet's top reached it. Below the lowest detent (index between 0 and -1 — closing) it rides
  * down with the sheet: the share of that detent already gone.
+ *
+ * `stayBehindKeyboard`: Gorhom's footer jumps to the keyboard's top edge while it's up; this
+ * cancels that (and the nav-bar inset Gorhom drops then), so Done stays at the sheet's bottom and
+ * the keyboard covers it instead of pushing it up over the content.
  */
 export default function SheetDoneFooter({
 	lowestSnap,
 	onPress,
-}: Readonly<{ lowestSnap: number; onPress: () => void }>) {
+	stayBehindKeyboard = false,
+	bottomInset = 0,
+}: Readonly<{
+	lowestSnap: number;
+	onPress: () => void;
+	stayBehindKeyboard?: boolean;
+	/** The BottomSheetFooter's bottomInset (needed with stayBehindKeyboard) */
+	bottomInset?: number;
+}>) {
 	const { animatedIndex } = useBottomSheet();
-	const closingStyle = useAnimatedStyle(() => ({
-		transform: [{ translateY: Math.max(0, -animatedIndex.value) * lowestSnap }],
-	}));
+	const { animatedKeyboardState } = useBottomSheetInternal();
+	const closingStyle = useAnimatedStyle(() => {
+		const keyboard = animatedKeyboardState.value;
+		const keyboardLift =
+			stayBehindKeyboard && keyboard.status === KEYBOARD_STATUS.SHOWN
+				? keyboard.heightWithinContainer - bottomInset
+				: 0;
+		return {
+			transform: [
+				{ translateY: Math.max(0, -animatedIndex.value) * lowestSnap + Math.max(0, keyboardLift) },
+			],
+		};
+	});
 	return (
 		<Reanimated.View style={[styles.footer, closingStyle]} pointerEvents="box-none">
 			<Pressable

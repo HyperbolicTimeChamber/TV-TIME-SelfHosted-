@@ -277,18 +277,19 @@ export default function HistoryViewPanel({
 							onClick={addTyped}
 						/>
 					)}
-					{keywordChips.picked.map((k) => (
-						<Chip key={k} label={titleCase(k)} on onClick={() => onToggleKeyword(k)} />
-					))}
-					{keywordChips.rest.map((k) => (
-						<Chip
-							key={k}
-							label={titleCase(k)}
-							on={false}
-							disabled={keywordsFull}
-							onClick={() => onToggleKeyword(k)}
-						/>
-					))}
+					{/* One list (app parity): a toggled keyword keeps its chip and recolours */}
+					{[...keywordChips.picked, ...keywordChips.rest].map((k) => {
+						const on = facets.keywords.has(k);
+						return (
+							<Chip
+								key={k}
+								label={titleCase(k)}
+								on={on}
+								disabled={!on && keywordsFull}
+								onClick={() => onToggleKeyword(k)}
+							/>
+						);
+					})}
 				</div>
 			)}
 			{/* Each pick already applied; Done just closes (app sheet's floating Done) */}

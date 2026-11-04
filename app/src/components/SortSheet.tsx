@@ -99,7 +99,13 @@ export default function SortSheet<T>({
 	const renderFooter = useCallback(
 		(props: BottomSheetFooterProps) => (
 			<BottomSheetFooter {...props} bottomInset={insets.bottom}>
-				<SheetDoneFooter lowestSnap={lowestSnap} onPress={() => sheetRef.current?.close()} />
+				{/* The filter search's keyboard covers Done instead of lifting it over the chips */}
+				<SheetDoneFooter
+					lowestSnap={lowestSnap}
+					onPress={() => sheetRef.current?.close()}
+					stayBehindKeyboard
+					bottomInset={insets.bottom}
+				/>
 			</BottomSheetFooter>
 		),
 		[insets.bottom, lowestSnap],
