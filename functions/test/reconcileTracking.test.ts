@@ -241,3 +241,31 @@ test("future first-new episode sets priorityDate to its air date", async () => {
   const pd = db.state.writes[0].data.priorityDate as Timestamp;
   assert.equal(pd.toDate().toISOString().slice(0, 10), "2099-01-01");
 });
+
+test("completed with an aired episode still ahead (TV Time archived import) → watching", async () => {
+  const cat = catalog(
+    [season(1, [ep(1, "Pilot", "2024-06-15"), ep(2, "Two", "2024-06-16"), ep(3, "Three", "2024-06-22")])],
+    { status: "Ended" },
+  );
+  const db = fakeDb(watched([1, 1], [1, 2]));
+  const ov = await reconcileTracking(
+    db,
+    "u",
+    [trackingDoc("tv_1", { status: "completed", nextEpisode: { season: 1, episode: 3 } })],
+    new Map([["tv_1", cat]]),
+  );
+  assert.equal(ov.get("tv_1"), "watching");
+  assert.equal(db.state.writes[0].data.status, "watching");
+});
+
+test("completed with no pointer stays completed", async () => {
+  const cat = catalog([s1], { status: "Ended" });
+  const db = fakeDb(watched([1, 1], [1, 2]));
+  const ov = await reconcileTracking(
+    db,
+    "u",
+    [trackingDoc("tv_1", { status: "completed", nextEpisode: null })],
+    new Map([["tv_1", cat]]),
+  );
+  assert.equal(ov.get("tv_1"), undefined);
+});
