@@ -1,16 +1,19 @@
+import { FOREGROUND_RESERVED_THREADS, NATIVE_CALLABLE_THREADS } from "../enums";
+
 /**
  * Cloud Function call priority. On Android, RNFirebase runs callables on its task executor,
  * one thread by default, each call holding it until its response — every callable in the app
  * shared that one lane. The watchlist's self-heal fired ~40 refreshShow calls at once, and a
  * search or an add the user was waiting on sat behind them until it timed out (the server
  * answered each in under a second). firebase.json `react-native.android_task_executor_maximum_pool_size`
- * now gives the native side several threads; on top of that, background calls are capped and
- * start no new ones while a foreground call (something the user is waiting on) is in flight,
- * so the user's call always has a free lane.
+ * gives the native side NATIVE_CALLABLE_THREADS threads, FOREGROUND_RESERVED_THREADS of them kept
+ * for calls the user is waiting on: background calls are capped at the rest, and start no new
+ * ones while a foreground call is in flight.
  */
 
-/** Background calls running at once — below the native pool, so foreground calls never wait */
-const BACKGROUND_CONCURRENCY = 3;
+/** Background calls running at once: the native threads left after the foreground's reserved
+ *  ones — so a foreground call always finds a free thread, however many heals are queued */
+export const BACKGROUND_CONCURRENCY = NATIVE_CALLABLE_THREADS - FOREGROUND_RESERVED_THREADS;
 
 let foreground = 0;
 let running = 0;

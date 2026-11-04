@@ -106,6 +106,8 @@ export enum CacheKey {
 	SIGN_UP_TRACKED = "sign_up_tracked_v1:",
 	/** + uid → last Mixpanel profile props sent (skip unchanged re-sends) */
 	MIXPANEL_PROFILE = "mixpanel_profile_v1:",
+	/** `${tmdbId}_${season}` → ms TMDB was last asked for Upcoming's placeholder titles */
+	UPCOMING_TITLE_CHECKS = "upcoming_title_checks_v1",
 }
 
 export enum QueryKey {
@@ -322,6 +324,11 @@ export enum RefreshReason {
 
 const HOUR_MS = 60 * 60 * 1000;
 
+/** Upcoming placeholder titles ("Episode 3"): re-ask TMDB for one season at most this often.
+ *  The check was per session only — ~20 season fetches every launch for names TMDB doesn't
+ *  have yet */
+export const UPCOMING_TITLE_RECHECK_MS = 12 * HOUR_MS;
+
 /** Server-side dedupe window per reason (functions REFRESH_COOLDOWN_MS) — a cached doc checked
  *  inside it needs no call */
 export const REFRESH_COOLDOWN_MS: Record<RefreshReason, number> = {
@@ -385,6 +392,13 @@ export const MIN_BUILD_FIELD: Record<ReleaseChannel, string> = {
 	[ReleaseChannel.DEV]: "minBuildDev",
 	[ReleaseChannel.PROD]: "minBuildProd",
 };
+
+/** Android: threads RNFirebase runs callables on — must equal firebase.json
+ *  react-native.android_task_executor_maximum_pool_size (a test checks) */
+export const NATIVE_CALLABLE_THREADS = 10;
+/** Of those, kept for calls the user is waiting on (search, add, marks…): background calls
+ *  (refreshShow / heal addShow) can never take them */
+export const FOREGROUND_RESERVED_THREADS = 7;
 
 /** Stand-in "API key" meaning: no key — route TMDB calls through TMDB_PROXY_BASE */
 export const TMDB_PROXY_KEY = "__tmdb_proxy__";
