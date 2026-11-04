@@ -12,6 +12,9 @@ interface Props {
 	title: string;
 	/** Text the field starts with (rename) */
 	initialName?: string;
+	/** Text the field starts with when creating (a list searched for that doesn't exist yet):
+	 *  submittable as is, cursor at its end — unlike initialName, the rename's old name */
+	suggestedName?: string;
 	confirmLabel?: string;
 	/** Why the last try was refused (name taken, write failed…) */
 	error?: string | null;
@@ -37,6 +40,7 @@ export default function ListNameModal({
 	visible,
 	title,
 	initialName = "",
+	suggestedName = "",
 	confirmLabel = "Save",
 	error,
 	loading = false,
@@ -45,12 +49,12 @@ export default function ListNameModal({
 	image,
 	hint,
 }: Props) {
-	const [name, setName] = useState(initialName);
+	const [name, setName] = useState(initialName || suggestedName);
 	const [shownHint, setShownHint] = useState(() => pickHint(hint));
 	const inputRef = useRef<HTMLInputElement>(null);
 	useEffect(() => {
-		if (visible) setName(initialName);
-	}, [visible, initialName]);
+		if (visible) setName(initialName || suggestedName);
+	}, [visible, initialName, suggestedName]);
 	// A fresh line per opening, not per render (it'd change as the user types)
 	useEffect(() => {
 		if (visible) setShownHint(pickHint(hint));
