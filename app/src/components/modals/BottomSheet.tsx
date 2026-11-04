@@ -17,6 +17,7 @@ import {
 	Modal,
 	Animated,
 	Easing,
+	Keyboard,
 	PanResponder,
 	StyleSheet,
 	Dimensions,
@@ -240,6 +241,9 @@ export default function BottomSheet({ visible, onClose, children, background, ar
 				translateY.setValue(gs.dy > 0 ? gs.dy : -Math.sqrt(-gs.dy) * 2);
 			},
 			onPanResponderRelease: (_, gs) => {
+				// A touch the sheet took (outside any field / row) leaves a focused field, like a
+				// tap outside an input anywhere else
+				Keyboard.dismiss();
 				if (gs.dy > DISMISS_DISTANCE || gs.vy > DISMISS_VELOCITY) closeRef.current();
 				else Animated.spring(translateY, SHEET_SPRING).start();
 			},
