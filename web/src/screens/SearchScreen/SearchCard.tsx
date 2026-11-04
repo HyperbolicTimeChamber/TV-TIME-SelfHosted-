@@ -18,8 +18,9 @@ interface Props {
 	/** In at least one custom list */
 	isListed?: boolean;
 	onPress: (item: TMDBShow) => void;
-	onAdd: (item: TMDBShow) => void;
-	onRemove: (item: TMDBShow) => void;
+	/** Without these the card has no watchlist badge (Hall of Shame: everything there is tracked) */
+	onAdd?: (item: TMDBShow) => void;
+	onRemove?: (item: TMDBShow) => void;
 	/** Pills over the poster's top-left (a list's own grid: the title's state tags) */
 	overlay?: ReactNode;
 	/** Without it the card has no Add to List button (a list's own grid) */
@@ -61,7 +62,7 @@ function SearchCard({
 				className={styles.poster}
 				width={180}
 			/>
-			{canTrack && (
+			{canTrack && onAdd && onRemove && (
 				<button
 					className={`${styles.badge} ${isInWatchlist ? styles.badgeActive : ""}`}
 					aria-label={isInWatchlist ? "Remove from watchlist" : "Add to watchlist"}
@@ -85,7 +86,7 @@ function SearchCard({
 			)}
 			{canTrack && onAddToList && (
 				<button
-					className={`${styles.listBadge} ${isListed ? styles.listBadgeActive : ""}`}
+					className={`${styles.listBadge} ${onAdd ? "" : styles.listBadgeTop} ${isListed ? styles.listBadgeActive : ""}`}
 					aria-label="Add to List"
 					onClick={(e) => {
 						e.stopPropagation();

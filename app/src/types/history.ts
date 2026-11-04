@@ -16,6 +16,16 @@ export interface HistoryEntry {
 	plays: number;
 	/** TV: the episode most recently marked watched */
 	lastEpisode: { season: number; episode: number } | null;
+	/** The catalog's genres / TMDB keywords, copied onto the tracking doc (addShow, import,
+	 *  backfill) — the Genre / Keyword filters. Missing on entries cached before they existed */
+	genres?: string[];
+	keywords?: string[];
+}
+
+/** Genre / Keyword filters (any of the picked genres, any of the picked keywords) */
+export interface HistoryFacets {
+	genres: ReadonlySet<string>;
+	keywords: ReadonlySet<string>;
 }
 
 /** Cached list for one tab */

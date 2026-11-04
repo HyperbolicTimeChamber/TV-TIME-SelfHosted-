@@ -1,4 +1,5 @@
 import { HttpsError } from "firebase-functions/v2/https";
+import { writeUserFacets } from "../hooks/titleFacets";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 import { getTmdbApiKey } from "../hooks/apiKey";
@@ -12,7 +13,7 @@ import {
 import { commitInBatches, createMissing } from "../hooks/batchWrites";
 import { ImportMatch, ImportRequest, ImportStats } from "../shared/types";
 import { trackedOnCall } from "../hooks/trackedTriggers";
-import { FunctionName, Callable } from "../shared/enums";
+import { FunctionName, Callable, UserCollection } from "../shared/enums";
 import { requireCaller } from "../hooks/requireCaller";
 
 export const importMatches = trackedOnCall(
@@ -66,11 +67,12 @@ async function runImport(
   // Phase 1: Ensure all shows exist in catalog
   const catalogMap = await ensureCatalog(db, uid, apiKey, matches);
 
-  // Phase 2: Pre-read existing tracking docs (avoid double-counting on re-import)
+  // Phase 2: Pre-read existing tracking docs (avoid double-counting on re-import) — with their
+  // genres / keywords, for the facets rebuild after the import (same reads)
   const existingTrackingIds = new Set<string>();
   const trackingSnap = await db
     .collection(`users/${uid}/tracking`)
-    .select()
+    .select("genres", "keywords")
     .get();
   for (const d of trackingSnap.docs) {
     existingTrackingIds.add(d.id);
@@ -91,6 +93,19 @@ async function runImport(
     commitInBatches(db, writes),
     createMissing(db, history),
   ]);
+  // Filter choices: every tracked title's facets — the imported ones as just written
+  const titles = new Map(trackingSnap.docs.map((d) => [d.id, d.data()]));
+  for (const w of writes) {
+    if (w.ref.parent.id === UserCollection.TRACKING) titles.set(w.ref.id, w.data);
+  }
+  const facetsBatch = db.batch();
+  stats.facets = writeUserFacets(
+    facetsBatch,
+    db,
+    uid,
+    [...titles].map(([id, d]) => ({ id, genres: d.genres, keywords: d.keywords })),
+  );
+  await facetsBatch.commit();
   for (const w of created) {
     if (w.ref.parent.id === "watchedMovies") stats.moviesImported++;
     else stats.episodesImported++;
@@ -105,7 +120,6 @@ async function runImport(
       // Client whose call errored (timeout / dropped connection) watches this to finish
       lastImportAt: FieldValue.serverTimestamp(),
       stats: {
-        showsTracking: FieldValue.increment(stats.showsImported),
         episodesWatched: FieldValue.increment(stats.episodesImported),
         moviesWatched: FieldValue.increment(stats.moviesImported),
         totalMinutes: FieldValue.increment(stats.minutesImported),

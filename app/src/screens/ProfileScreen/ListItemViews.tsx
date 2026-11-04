@@ -15,6 +15,7 @@ import { useShowDetails, useTitleInfo, useTrackingEntry } from "../../hooks";
 import { useAuthStore } from "../../stores";
 import { catalogSettled, ensureFreshCatalogs } from "../../hooks/catalogRefresh";
 import { getCachedCatalogShow } from "../../hooks/useWatchlist";
+import { isPausedStatus, useResumeTitle } from "../../hooks/useResumeTitle";
 import { useTitleLogo } from "../../hooks/useTitleLogo";
 import { tmdbBlurredBackdropUri, tmdbLogoUri, tmdbPosterUri } from "../../hooks/useTmdbImage";
 import { BLUR_RADIUS } from "./styles";
@@ -71,7 +72,7 @@ const POSTER_BLUR_RADIUS = 30;
 const CARD_FILL = 400;
 
 /**
- * The list-card tags for a title (Currently Watching, Paused, Watch Count, Not Started / Not Watched…),
+ * The list-card tags for a title (Currently Watching / Rewatching, Paused, Watch Count — none when untracked),
  * from its own tracking doc; null until that is known. A tracked show's progress needs its episode
  * list: one batched catalog read, then cached.
  */
@@ -86,7 +87,7 @@ function useListTags(tmdbId: number, mediaType: MediaType) {
 			.catch(() => false)
 			.then((fetched) => fetched && setCatalogVersion((v) => v + 1));
 	}, [entry, isMovie]);
-	return useMemo(() => {
+	const tags = useMemo(() => {
 		if (entry === undefined) return null;
 		const card = entry
 			? deriveHistoryCard(
@@ -96,9 +97,10 @@ function useListTags(tmdbId: number, mediaType: MediaType) {
 					catalogSettled(tmdbId, mediaType),
 				)
 			: null;
-		return deriveListTags(card, isMovie);
+		return deriveListTags(card);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [entry, catalogVersion, tmdbId, mediaType, isMovie]);
+	return { tags, entry };
 }
 
 /**
@@ -143,8 +145,11 @@ export function ListRow({
 			? { release_date: info?.releaseDate ?? undefined }
 			: { first_air_date: info?.releaseDate ?? undefined }),
 	});
-	// Tags: Watch History's, from the title's own tracking doc (none → Not Started)
-	const tags = useListTags(item.tmdbId, item.mediaType);
+	// Tags: Watch History's, from the title's own tracking doc (none → no tags)
+	const { tags, entry } = useListTags(item.tmdbId, item.mediaType);
+	// Paused: Resume (blue) in place of the Watchlist tag
+	const paused = !!entry && isPausedStatus(entry.status);
+	const { resume, resuming } = useResumeTitle();
 	// A show: its season count; a movie: its runtime (the year is in the square), in a translucent black pill
 	const metaText = isMovie
 		? runtime
@@ -250,7 +255,30 @@ export function ListRow({
 					)}
 				</View>
 				<View style={styles.bottomRow}>
-					{tracked ? (
+					{paused ? (
+						<Pressable
+							onPress={() => entry && resume(entry, item.title, item.posterPath ?? info?.posterPath ?? null)}
+							disabled={resuming}
+							hitSlop={8}
+							accessibilityRole="button"
+							accessibilityLabel={`Resume ${item.title}`}
+							style={({ pressed }) => [
+								styles.addButton,
+								styles.resumeButton,
+								resuming && styles.addButtonBusy,
+								pressed && styles.addButtonPressed,
+							]}
+						>
+							{resuming ? (
+								<ActivityIndicator size="small" color={colors.text} />
+							) : (
+								<>
+									<Ionicons name="play" size={12} color={colors.text} />
+									<Text style={styles.addText}>Resume</Text>
+								</>
+							)}
+						</Pressable>
+					) : tracked ? (
 						<View style={styles.trackingTag}>
 							<Ionicons name="checkmark-circle-outline" size={14} color={colors.text} />
 							<Text style={styles.trackingText}>Watchlist</Text>
@@ -309,7 +337,7 @@ export function ListGridCard({
 	const { data: info } = useTitleInfo(item.tmdbId, item.mediaType);
 	const isMovie = item.mediaType === MediaType.MOVIE;
 	// The same state pills as a list card, one per row over the poster's top-left
-	const tags = useListTags(item.tmdbId, item.mediaType);
+	const { tags } = useListTags(item.tmdbId, item.mediaType);
 	const show = useMemo(
 		(): TMDBShow => ({
 			id: item.tmdbId,
@@ -463,6 +491,8 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.primary,
 	},
 	addButtonBusy: { opacity: 0.6 },
+	// The info page's Resume blue
+	resumeButton: { gap: 4, backgroundColor: colors.accent },
 	addButtonPressed: { transform: [{ scale: 0.97 }] },
 	addText: { color: colors.text, fontSize: 12, fontWeight: "700" },
 	// The same joined block, in green

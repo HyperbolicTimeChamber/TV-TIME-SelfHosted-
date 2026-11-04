@@ -23,7 +23,8 @@ import { trackApi } from "./analytics";
 import { recordTrackedEpisodes, trackEpisodeMarked, trackEpisodeUnwatched } from "./mixpanel";
 import { historyOnWatch, historyOnUnwatch, historyCleared, historyOnChange } from "./history";
 import { shareCatalogCreate } from "./refreshShow";
-import { batchEndOffsets } from "../utils/stagger";
+import { takeFacetDelta, trackFacetWrite } from "./userFacets";
+import { batchEndOffsets, staggerFinishTimes } from "../utils/stagger";
 import { epKey, rewatchHeal, type EpisodeRef } from "../utils/trackingAdvance";
 
 /** Tracked Cloud Function call */
@@ -134,12 +135,10 @@ export async function addToTracking(
 		}
 	}
 
-	// Check if already tracked to avoid double-counting
 	const tRef = doc(trackingRef(userId), docId);
-	const existingDoc = await getDoc(tRef);
-	const alreadyTracked = existingDoc.exists();
 
-	// Write tracking doc immediately — no catalog read needed
+	// Write tracking doc immediately — no catalog or tracking read needed (the shows count is a
+	// count query, not a stored counter)
 	const batch = writeBatch(db);
 	batch.set(tRef, {
 		tmdbId,
@@ -156,23 +155,18 @@ export async function addToTracking(
 		...(meta?.title ? { title: meta.title } : {}),
 		...(meta?.posterPath ? { posterPath: meta.posterPath } : {}),
 	});
-	if (!alreadyTracked) {
-		batch.set(userRef(userId), { stats: { showsTracking: increment(1) } }, { merge: true });
-	}
 	await batch.commit();
 
 	// Background: ensure catalog exists + update trackedBy
 	// If CF fails after retry → rollback tracking doc + call onError
-	const callAddShow = () => callCF(CloudFunction.ADD_SHOW, { tmdbId, mediaType });
+	const callAddShow = () =>
+		callCF(CloudFunction.ADD_SHOW, { tmdbId, mediaType }).then((res) =>
+			takeFacetDelta(userId, mediaType, res),
+		);
 	const addShow = callAddShow().catch(() =>
 		callAddShow().catch(async (err: unknown) => {
 			// Both attempts failed — undo the local add
-			const rollback = writeBatch(db);
-			rollback.delete(tRef);
-			if (!alreadyTracked) {
-				rollback.set(userRef(userId), { stats: { showsTracking: increment(-1) } }, { merge: true });
-			}
-			await rollback.commit().catch(() => {});
+			await deleteDoc(tRef).catch(() => {});
 			// Emit error for UI to pick up
 			addTrackingErrorListeners.forEach((fn) =>
 				fn(tmdbId, meta?.title || `Show #${tmdbId}`, mediaType),
@@ -183,6 +177,7 @@ export async function addToTracking(
 	);
 	// Its response is the catalog doc → a background catalog fill reuses it
 	shareCatalogCreate(tmdbId, mediaType, addShow);
+	trackFacetWrite(addShow);
 	addShow.catch(() => {});
 }
 
@@ -199,19 +194,19 @@ export async function removeFromTracking(
 	tmdbId: number,
 	mediaType: MediaType,
 ): Promise<void> {
-	// Delete tracking doc + decrement stats immediately
+	// Delete tracking doc immediately (+ its deletion log entry — stampTrackingWrites)
 	const docId = showDocId(tmdbId, mediaType);
-	const batch = writeBatch(db);
-	batch.delete(doc(trackingRef(userId), docId));
-	batch.set(userRef(userId), { stats: { showsTracking: increment(-1) } }, { merge: true });
-	await batch.commit();
+	await deleteDoc(doc(trackingRef(userId), docId));
 	// Deleted docs never show up in the delta query — drop the card locally
 	emitHistoryChange({ userId, tmdbId, mediaType, cleared: true });
 
-	// Background: update trackedBy on catalog doc (CF handles cleanup)
-	callCF(CloudFunction.REMOVE_SHOW, { tmdbId, mediaType }).catch((err: any) =>
-		console.error("[removeFromTracking] removeShow CF failed:", err),
+	// Background: update trackedBy on catalog doc (CF handles cleanup); its facetDelta takes the
+	// title's genres / keywords out of the kept filter choices
+	const removeShow = callCF(CloudFunction.REMOVE_SHOW, { tmdbId, mediaType }).then((res) =>
+		takeFacetDelta(userId, mediaType, res),
 	);
+	trackFacetWrite(removeShow);
+	removeShow.catch((err: any) => console.error("[removeFromTracking] removeShow CF failed:", err));
 }
 
 export async function stopWatching(
@@ -974,9 +969,11 @@ async function resume(userId: string, tmdbId: number, mediaType: MediaType, stat
 	});
 	emitHistoryChange({ userId, tmdbId, mediaType, status });
 	if (mediaType === MediaType.TV) {
-		callCF(CloudFunction.ADD_SHOW, { tmdbId, mediaType }).catch((err: any) =>
-			console.error("[resume] addShow CF failed:", err),
+		const addShow = callCF(CloudFunction.ADD_SHOW, { tmdbId, mediaType }).then((res) =>
+			takeFacetDelta(userId, mediaType, res),
 		);
+		trackFacetWrite(addShow);
+		addShow.catch((err: any) => console.error("[resume] addShow CF failed:", err));
 	}
 }
 
@@ -1285,9 +1282,6 @@ export async function addAndMarkMovieWatched(
 	const movieRef = doc(watchedMoviesRef(userId), String(tmdbId));
 	const now = Timestamp.now();
 
-	const existingDoc = await getDoc(tRef);
-	const alreadyTracked = existingDoc.exists();
-
 	const batch = writeBatch(db);
 	batch.set(tRef, {
 		tmdbId,
@@ -1319,7 +1313,6 @@ export async function addAndMarkMovieWatched(
 		userRef(userId),
 		{
 			stats: {
-				...(!alreadyTracked ? { showsTracking: increment(1) } : {}),
 				moviesWatched: increment(1),
 				totalMinutes: increment(runtime || 0),
 			},
@@ -1339,12 +1332,111 @@ export async function addAndMarkMovieWatched(
 	});
 
 	// Background: ensure catalog exists (its response feeds a background catalog fill)
-	const addShow = callCF(CloudFunction.ADD_SHOW, { tmdbId, mediaType: MediaType.MOVIE });
+	const addShow = callCF(CloudFunction.ADD_SHOW, { tmdbId, mediaType: MediaType.MOVIE }).then(
+		(res) => takeFacetDelta(userId, MediaType.MOVIE, res),
+	);
 	shareCatalogCreate(tmdbId, MediaType.MOVIE, addShow);
+	trackFacetWrite(addShow);
 	addShow.catch(() => {});
 }
 
 // --- Season batch mark (Cloud Function) ---
+
+/** Up to this many episodes, a bulk mark is one client batch instead of the function */
+const CLIENT_MARK_MAX = 50;
+
+/**
+ * Client-side markSeasonWatched for small batches: the same writes, minus the existence reads
+ * (watchCount is an increment and fields merge, like markEpisodeWatched). Finish times are laid
+ * back to back the same way, ending `endOffsetMs` before now.
+ */
+async function markEpisodesBatch(
+	userId: string,
+	tmdbId: number,
+	seasonNumber: number,
+	episodes: Array<{ episodeNumber: number; name: string; runtime: number }>,
+	o: {
+		nextEpisode: { season: number; episode: number } | null;
+		isShowComplete: boolean;
+		nextEpisodeName: string | null;
+		nextEpisodeAirDate: string | null;
+		skipTracking: boolean;
+		status?: WatchStatus;
+		incrementRewatch: boolean;
+		rewatchCount?: number;
+		endOffsetMs: number;
+	},
+): Promise<void> {
+	const now = Timestamp.now();
+	const ordered = [...episodes].sort((a, b) => a.episodeNumber - b.episodeNumber);
+	const finished = staggerFinishTimes(
+		ordered.map((ep) => ep.runtime),
+		now.toMillis() - Math.max(0, o.endOffsetMs),
+	);
+	const batch = writeBatch(db);
+	let totalRuntime = 0;
+	ordered.forEach((ep, k) => {
+		totalRuntime += ep.runtime || 0;
+		batch.set(
+			doc(watchedEpisodesRef(userId), episodeDocId(tmdbId, seasonNumber, ep.episodeNumber)),
+			{
+				tmdbShowId: tmdbId,
+				season: seasonNumber,
+				episode: ep.episodeNumber,
+				episodeTitle: ep.name,
+				lastWatchedAt: Timestamp.fromMillis(finished[k]),
+				runtime: ep.runtime || 0,
+				watchCount: increment(1),
+			},
+			{ merge: true },
+		);
+	});
+	batch.set(
+		userRef(userId),
+		{
+			stats: {
+				episodesWatched: increment(episodes.length),
+				totalMinutes: increment(totalRuntime),
+			},
+		},
+		{ merge: true },
+	);
+
+	const lastEp = ordered[ordered.length - 1].episodeNumber;
+	const history = historyOnWatch(totalRuntime, episodes.length, now, {
+		season: seasonNumber,
+		episode: lastEp,
+	});
+	const trackingDoc = doc(trackingRef(userId), showDocId(tmdbId, MediaType.TV));
+	if (o.skipTracking) {
+		batch.set(trackingDoc, history, { merge: true });
+	} else {
+		// Next episode not aired yet → it sorts by its air date (same as the function)
+		const airMs = o.nextEpisode && o.nextEpisodeAirDate ? Date.parse(o.nextEpisodeAirDate) : NaN;
+		const trackingUpdate: Record<string, unknown> = {
+			lastWatchedAt: now,
+			priorityDate: airMs > now.toMillis() ? Timestamp.fromMillis(airMs) : now,
+			nextEpisode: o.nextEpisode,
+			nextEpisodeName: o.nextEpisodeName ?? null,
+			nextEpisodeAirDate: o.nextEpisodeAirDate ?? null,
+		};
+		if (o.isShowComplete) trackingUpdate.status = WatchStatus.COMPLETED;
+		if (o.status) trackingUpdate.status = o.status;
+		if (typeof o.rewatchCount === "number") trackingUpdate.rewatchCount = o.rewatchCount;
+		else if (o.incrementRewatch) trackingUpdate.rewatchCount = increment(1);
+		batch.set(trackingDoc, { ...trackingUpdate, ...history }, { merge: true });
+	}
+	await batch.commit();
+
+	// Watched → out of the server upcoming list too (fire-and-forget, like markEpisodeWatched)
+	const upcoming = collection(doc(db, "users", userId), "upcoming");
+	for (const ep of ordered) {
+		const id = episodeDocId(tmdbId, seasonNumber, ep.episodeNumber);
+		deleteDoc(
+			doc(upcoming, `${showDocId(tmdbId, MediaType.TV)}_${id.slice(id.indexOf("_") + 1)}`),
+		).catch(() => {});
+	}
+}
 
 export async function markSeasonWatchedCF(
 	userId: string,
@@ -1367,7 +1459,22 @@ export async function markSeasonWatchedCF(
 	} = opts;
 
 	try {
-		if (episodes.length <= BATCH_SIZE) {
+		if (episodes.length <= CLIENT_MARK_MAX) {
+			// A handful of episodes (Speedster backfill, carousel mark-through) → one client batch:
+			// the function's cold start + round trip made a 2-episode mark take seconds while a
+			// single mark (direct write) is instant
+			await markEpisodesBatch(userId, tmdbId, seasonNumber, episodes, {
+				nextEpisode,
+				isShowComplete,
+				nextEpisodeName,
+				nextEpisodeAirDate,
+				skipTracking,
+				status,
+				incrementRewatch,
+				rewatchCount,
+				endOffsetMs,
+			});
+		} else if (episodes.length <= BATCH_SIZE) {
 			await callCF(CloudFunction.MARK_SEASON_WATCHED, {
 				tmdbId,
 				seasonNumber,

@@ -43,6 +43,8 @@ test("localizeCatalog rewrites stamped episodes only; nextEpisodeLocalAirDate pr
 	);
 	assert.equal(nextEpisodeLocalAirDate({ season: 1, episode: 1 }, show, "2026-02-25"), "2026-02-26");
 	assert.equal(nextEpisodeLocalAirDate({ season: 1, episode: 2 }, show, "2026-03-04"), "2026-03-04");
+	// Tracking doc copied an old date (premiere moved earlier) → the untimed catalog date wins
+	assert.equal(nextEpisodeLocalAirDate({ season: 1, episode: 2 }, show, "2026-03-11"), "2026-03-04");
 	assert.equal(nextEpisodeLocalAirDate(null, show, "2026-01-01"), "2026-01-01");
 	assert.equal(
 		localizeUpcoming({ airDate: "2026-02-25", airStamp: "2026-02-26T01:00:00+00:00" } as any).airDate,

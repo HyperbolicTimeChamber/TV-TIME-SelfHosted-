@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Reorder, useDragControls } from "motion/react";
-import { IoAdd, IoCheckmarkCircleOutline, IoReorderThree } from "react-icons/io5";
+import { IoAdd, IoCheckmarkCircleOutline, IoPlay, IoReorderThree } from "react-icons/io5";
 import { Spin } from "antd";
 import { MediaType } from "@app/enums";
 import type { CustomListItem, TMDBShow } from "@app/types";
@@ -8,6 +8,7 @@ import { useShowDetails } from "@app/hooks/useShowDetails";
 import { useTitleInfo } from "@app/hooks/useTitleInfo";
 import { useTitleLogo } from "@app/hooks/useTitleLogo";
 import { useTrackingEntry } from "@app/hooks/useTrackingEntry";
+import { isPausedStatus, useResumeTitle } from "@app/hooks/useResumeTitle";
 import { useAuthStore } from "@app/stores";
 import { catalogSettled, ensureFreshCatalogs } from "@app/hooks/catalogRefresh";
 import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
@@ -92,7 +93,7 @@ export function ListGridCard({
 }) {
 	const { data: info } = useTitleInfo(item.tmdbId, item.mediaType);
 	// The same state pills as a list card, one per row over the poster's top-left
-	const tags = useListTags(item.tmdbId, item.mediaType);
+	const { tags } = useListTags(item.tmdbId, item.mediaType);
 	const show = useMemo(() => toShow(item, info), [item, info]);
 	return (
 		<SearchCard
@@ -136,7 +137,7 @@ const CARD_MAX_WIDTH = 440;
 const NAME_DELAY_MS = 2000;
 
 /**
- * The list-card tags for a title (Currently Watching, Paused, Watch Count, Not Started / Not Watched…),
+ * The list-card tags for a title (Currently Watching / Rewatching, Paused, Watch Count — none when untracked),
  * from its own tracking doc; null until that is known (app useListTags). A tracked show's progress
  * needs its episode list: one batched catalog read, then cached.
  */
@@ -151,7 +152,7 @@ function useListTags(tmdbId: number, mediaType: MediaType) {
 			.catch(() => false)
 			.then((fetched) => fetched && setCatalogVersion((v) => v + 1));
 	}, [entry, isMovie]);
-	return useMemo(() => {
+	const tags = useMemo(() => {
 		if (entry === undefined) return null;
 		const card = entry
 			? deriveHistoryCard(
@@ -161,9 +162,10 @@ function useListTags(tmdbId: number, mediaType: MediaType) {
 					catalogSettled(tmdbId, mediaType),
 				)
 			: null;
-		return deriveListTags(card, isMovie);
+		return deriveListTags(card);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [entry, catalogVersion, tmdbId, mediaType, isMovie]);
+	return { tags, entry };
 }
 
 /**
@@ -194,8 +196,14 @@ export function ListRow({
 	const square = isMovie
 		? { label: "YEAR", value: info?.year ?? null }
 		: { label: "EPISODES", value: info?.totalEpisodes ? String(info.totalEpisodes) : null };
-	// Tags: Watch History's, from the title's own tracking doc (none → Not Started)
-	const tags = useListTags(item.tmdbId, item.mediaType);
+	// Tags: Watch History's, from the title's own tracking doc (none → no tags)
+	const { tags, entry } = useListTags(item.tmdbId, item.mediaType);
+	// Paused: Resume (blue) in place of the Watchlist tag (app ListRow)
+	const paused = !!entry && isPausedStatus(entry.status);
+	const { resume, resuming } = useResumeTitle();
+	const doResume = () => {
+		if (entry && !resuming) resume(entry, item.title, item.posterPath ?? info?.posterPath ?? null);
+	};
 	// A show: its season count; a movie: its runtime (the year is in the square), in a translucent black pill
 	const metaText = isMovie
 		? runtime
@@ -272,7 +280,30 @@ export function ListRow({
 					)}
 				</span>
 				<span className={styles.bottomRow}>
-					{tracked ? (
+					{paused ? (
+						// A span, not a button: the card itself is one
+						<span
+							role="button"
+							tabIndex={0}
+							aria-label={`Resume ${item.title}`}
+							aria-disabled={resuming}
+							className={`${styles.addButton} ${styles.resumeButton} ${resuming ? styles.addButtonBusy : ""}`}
+							onPointerDown={(e) => e.stopPropagation()}
+							onClick={(e) => {
+								e.stopPropagation();
+								doResume();
+							}}
+							onKeyDown={(e) => {
+								if (e.key !== "Enter" && e.key !== " ") return;
+								e.preventDefault();
+								e.stopPropagation();
+								doResume();
+							}}
+						>
+							{resuming ? <Spin size="small" /> : <IoPlay size={12} />}
+							{!resuming && "Resume"}
+						</span>
+					) : tracked ? (
 						<span className={styles.trackingTag}>
 							<IoCheckmarkCircleOutline size={14} />
 							Watchlist

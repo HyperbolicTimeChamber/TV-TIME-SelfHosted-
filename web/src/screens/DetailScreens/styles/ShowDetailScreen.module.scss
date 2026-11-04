@@ -97,22 +97,6 @@
 	margin-top: 16px;
 }
 
-/* Number of lists the title is in, knocked out of the filled bookmark in the button's own colour
-   (the bookmark's notch takes the bottom, so it sits a touch above centre) */
-.listCount {
-	position: absolute;
-	inset: 0;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding-bottom: 5px;
-	color: $warning-amber;
-	font-size: 13px;
-	font-weight: 700;
-	line-height: 1;
-	pointer-events: none;
-}
-
 .pill {
 	flex: 1;
 	min-width: 100px;

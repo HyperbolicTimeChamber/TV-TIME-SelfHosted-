@@ -1,15 +1,32 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "../stores";
-import { CacheKey, HistoryFilter, HistorySort, MediaType } from "../enums";
-import type { HistoryChange, HistoryEntry, HistoryState } from "../types";
-import { historyFilterStatuses, isDefaultHistoryView } from "../utils/historyView";
+import {
+	CacheKey,
+	HISTORY_VIEW_REFILL_PAGES,
+	HistoryFilter,
+	HistorySort,
+	MediaType,
+} from "../enums";
+import type { HistoryChange, HistoryEntry, HistoryFacets, HistoryState } from "../types";
+import {
+	facetOptionsFromDoc,
+	historyFilterStatuses,
+	isDefaultHistoryView,
+	NO_FACETS,
+} from "../utils/historyView";
 import {
 	fetchHistoryDelta,
 	fetchHistoryEntry,
 	fetchHistoryPage,
 	fetchHistoryViewPage,
+	HISTORY_PAGE_SIZE,
 } from "../services/historyApi";
+import {
+	cachedUserFacets,
+	loadUserFacets,
+	subscribeUserFacets,
+} from "../services/userFacets";
 import {
 	applyChange,
 	deriveHistoryCard,
@@ -109,13 +126,24 @@ function useHistoryView(
 	mediaType: MediaType,
 	sort: HistorySort,
 	filters: ReadonlySet<HistoryFilter>,
+	facets: HistoryFacets,
 	enabled: boolean,
 ) {
 	const statuses = historyFilterStatuses(filters);
-	const viewKey = `${mediaType}|${sort}|${statuses.join(",")}`;
-	const [view, setView] = useState<{ key: string; items: HistoryEntry[]; hasMore: boolean } | null>(
-		null,
-	);
+	const viewKey = [
+		mediaType,
+		sort,
+		statuses.join(","),
+		[...facets.genres].sort().join(","),
+		[...facets.keywords].sort().join(","),
+	].join("|");
+	const [view, setView] = useState<{
+		key: string;
+		items: HistoryEntry[];
+		hasMore: boolean;
+		/** Last doc Firestore returned (filtered out or not) — where the next page starts */
+		cursor: HistoryEntry | null;
+	} | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const current = view?.key === viewKey ? view : null;
@@ -125,14 +153,32 @@ function useHistoryView(
 			if (!userId) return;
 			setBusy(true);
 			try {
-				const page = await fetchHistoryViewPage(userId, mediaType, sort, statuses, after);
+				// Filters checked on this side can thin a page out: top it up with a few more
+				let cursor = after;
+				let hasMore = true;
+				const found: HistoryEntry[] = [];
+				for (let i = 0; i <= HISTORY_VIEW_REFILL_PAGES && hasMore; i++) {
+					const page = await fetchHistoryViewPage(
+						userId,
+						mediaType,
+						sort,
+						statuses,
+						facets,
+						cursor,
+					);
+					found.push(...page.entries);
+					cursor = page.cursor;
+					hasMore = page.hasMore;
+					if (found.length >= HISTORY_PAGE_SIZE) break;
+				}
 				setView((prev) => {
 					const base = after && prev?.key === viewKey ? prev.items : [];
 					const seen = new Set(base.map((e) => e.id));
 					return {
 						key: viewKey,
-						items: [...base, ...page.entries.filter((e) => !seen.has(e.id))],
-						hasMore: page.hasMore,
+						items: [...base, ...found.filter((e) => !seen.has(e.id))],
+						hasMore,
+						cursor,
 					};
 				});
 				setError(null);
@@ -143,7 +189,7 @@ function useHistoryView(
 				setBusy(false);
 			}
 		},
-		// statuses is derived from viewKey
+		// statuses / facets are derived from viewKey
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 		[userId, viewKey],
 	);
@@ -155,7 +201,7 @@ function useHistoryView(
 
 	const loadMore = useCallback(() => {
 		if (!current?.hasMore || busy) return;
-		fetchPage(current.items[current.items.length - 1] ?? null);
+		fetchPage(current.cursor);
 	}, [current, busy, fetchPage]);
 
 	return {
@@ -176,6 +222,7 @@ export function useWatchHistory(
 	mediaType: MediaType,
 	sort: HistorySort = HistorySort.LAST_WATCHED,
 	filters: ReadonlySet<HistoryFilter> = NO_FILTERS,
+	facets: HistoryFacets = NO_FACETS,
 ) {
 	const userId = useAuthStore((s) => s.user?.uid);
 	const state = useSyncExternalStore(
@@ -253,8 +300,8 @@ export function useWatchHistory(
 		}
 	}, [userId, mediaType, state, loadingMore]);
 
-	const isDefault = isDefaultHistoryView(sort, filters);
-	const view = useHistoryView(userId, mediaType, sort, filters, !isDefault);
+	const isDefault = isDefaultHistoryView(sort, filters, facets);
+	const view = useHistoryView(userId, mediaType, sort, filters, facets, !isDefault);
 
 	const viewItems = view.items;
 	const entries = useMemo(
@@ -315,4 +362,22 @@ export function useWatchHistory(
 		error,
 		loadMore,
 	};
+}
+
+const NO_CHOICES = { genres: [] as string[], keywords: [] as string[] };
+
+/** The Genre / Keyword filter choices for a tab, from the user's facets doc — read once the
+ *  sheet first opens (`enabled`), then kept current locally (services/userFacets) */
+export function useHistoryFacetOptions(mediaType: MediaType, enabled: boolean) {
+	const userId = useAuthStore((s) => s.user?.uid);
+	const doc = useSyncExternalStore(subscribeUserFacets, () =>
+		userId ? cachedUserFacets(userId, mediaType) : undefined,
+	);
+	useEffect(() => {
+		if (!enabled || !userId) return;
+		loadUserFacets(userId, mediaType).catch((err) =>
+			console.error("[watchHistory] facets failed:", err),
+		);
+	}, [enabled, userId, mediaType]);
+	return useMemo(() => (doc ? facetOptionsFromDoc(doc) : NO_CHOICES), [doc]);
 }

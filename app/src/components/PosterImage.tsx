@@ -33,6 +33,9 @@ export default function PosterImage({
 				style={style as any}
 				contentFit={contentFit}
 				recyclingKey={posterPath}
+				// Small (w100) and shown everywhere: kept decoded in memory, so a re-mounted card (a
+				// list reorder re-keys the cards it moves past) shows it at once instead of flashing
+				cachePolicy="memory-disk"
 			/>
 		);
 	}

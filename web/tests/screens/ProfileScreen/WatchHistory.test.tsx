@@ -51,6 +51,7 @@ vi.mock("@app/hooks/useWatchHistory", async () => {
 		useWatchHistory: (m: MediaType, sort?: HistorySort, filters?: ReadonlySet<HistoryFilter>) =>
 			useWatchHistory(m, sort, filters),
 		useHistorySort: () => React.useState(HistorySort.LAST_WATCHED),
+		useHistoryFacetOptions: () => ({ genres: [], keywords: [] }),
 	};
 });
 

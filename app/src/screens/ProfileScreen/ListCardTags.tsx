@@ -46,8 +46,11 @@ function Tag({ tag }: Readonly<{ tag: ListTag }>) {
 			return <ProgressPill kind={HistoryProgress.PAUSED} compact />;
 		case ListTagKind.WATCH_COUNT:
 			return <WatchCountPill count={tag.count ?? 0} label={tag.label} compact />;
+		case ListTagKind.NOT_STARTED:
+			// Red, like the Incomplete status pill
+			return <StatusPill label={tag.label} color={PILL_COLOR[HistoryPill.PAUSED]} compact />;
 		default:
-			// Ongoing / Ended / Not Started / Not Watched: plain grey
+			// Ongoing / Ended / Not Watched: plain grey
 			return (
 				<View style={[styles.tag, { backgroundColor: GREY }]}>
 					<Text style={styles.text}>{tag.label}</Text>

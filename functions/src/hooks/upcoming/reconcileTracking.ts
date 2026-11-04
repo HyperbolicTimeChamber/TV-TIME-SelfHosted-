@@ -2,6 +2,7 @@ import { Timestamp } from "firebase-admin/firestore";
 import { WatchStatus, ENDED_STATUSES } from "../../shared/enums";
 import { CatalogShow } from "../../shared/types";
 import { historyOnChange } from "../../shared/history";
+import { stampTracking } from "../../shared/trackingSync";
 
 const POINTER_STATUSES: string[] = [
   WatchStatus.WATCHING,
@@ -230,7 +231,7 @@ export async function reconcileTracking(
   for (let i = 0; i < writes.length; i += 400) {
     const batch = db.batch();
     for (const { ref, data } of writes.slice(i, i + 400))
-      batch.set(ref, data, { merge: true });
+      batch.set(ref, stampTracking(data), { merge: true });
     await batch.commit();
   }
   if (overrides.size > 0) {

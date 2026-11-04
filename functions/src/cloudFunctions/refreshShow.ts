@@ -1,4 +1,5 @@
 import { HttpsError } from "firebase-functions/v2/https";
+import { propagateTitleFacets } from "../hooks/titleFacets";
 import { getFirestore } from "firebase-admin/firestore";
 import { fetchShowFromTMDB, CatalogShow } from "../hooks/tmdb";
 import { getTmdbApiKey, invalidateApiKeyCache } from "../hooks/apiKey";
@@ -122,6 +123,10 @@ export const refreshShow = trackedOnCall(
     };
     await propagateRefresh(db, showId, old, updated).catch((err) =>
       console.error(`[refreshShow] propagate failed for ${showId}:`, err),
+    );
+    // Genres / keywords changed → trackers' tracking docs + filter-choice counts follow
+    await propagateTitleFacets(db, showId, old, fresh).catch((err) =>
+      console.error(`[refreshShow] facets failed for ${showId}:`, err),
     );
 
     return { refreshed: true, catalog: forClient(updated) };

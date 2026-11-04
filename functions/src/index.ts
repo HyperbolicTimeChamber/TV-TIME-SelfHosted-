@@ -17,3 +17,4 @@ export { refreshShow } from "./cloudFunctions/refreshShow";
 export { budgetGuard } from "./cloudFunctions/budgetGuard";
 export { searchTitles } from "./cloudFunctions/searchTitles";
 export { exportAccountData } from "./cloudFunctions/exportAccountData";
+export { trackingSyncStamp } from "./cloudFunctions/trackingSyncStamp";

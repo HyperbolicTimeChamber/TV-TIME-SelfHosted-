@@ -36,7 +36,7 @@ import {
 	isFinaleEpisode,
 	adjacentPointer,
 } from "../../../utils";
-import { promoteShows } from "../../../utils/watchlistOrder";
+import { mergeCachedShows, promoteShows } from "../../../utils/watchlistOrder";
 import {
 	MediaType,
 	CacheKey,
@@ -637,16 +637,10 @@ export function useWatchlistData(userId: string | undefined) {
 	const rawDisplayList = useMemo(() => {
 		if (!cachedList) return orderedLive;
 		if (orderedLive.length === 0) return cachedList;
-		// Live pages arrive a few at a time: the saved cards they haven't reached yet stay below
-		// them, so the list doesn't shrink to the first page and grow back (cards vanishing, then
-		// returning). They drop out as the live ones take over (liveCaughtUp)
-		const liveShows = new Set<number>();
-		for (const i of orderedLive) if (i.type === "show") liveShows.add(i.card.tmdbId);
-		const tail = cachedList.filter((i) => i.type === "show" && !liveShows.has(i.card.tmdbId));
-		if (tail.length === 0) return orderedLive;
-		const header: CacheableWatchlistListItem[] =
-			liveShows.size === 0 ? [{ type: "sectionHeader", title: "What's Up Next" }] : [];
-		return [...orderedLive, ...header, ...tail];
+		// Live pages arrive a few at a time: the saved cards they haven't reached yet keep their
+		// saved spot, so the list doesn't shrink to the first page and grow back (cards vanishing,
+		// then returning). They drop out as the live ones take over (liveCaughtUp)
+		return mergeCachedShows(cachedList, orderedLive);
 	}, [cachedList, orderedLive]);
 	const effectiveLoading = reordering || (allLoading && !cachedList);
 

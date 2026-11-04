@@ -316,7 +316,7 @@ export default function ShowDetailScreen() {
 				{watchCount > 0 && (
 					// Top edge level with back / share (not centred on them)
 					<View style={[styles.watchCountRow, { top: buttonTop }]} pointerEvents="none">
-						<WatchCountPill count={watchCount} />
+						<WatchCountPill count={watchCount} overlay />
 					</View>
 				)}
 				<CircleButton
@@ -337,6 +337,7 @@ export default function ShowDetailScreen() {
 			<AddToListSheet
 				entry={listSheetOpen ? listEntry : null}
 				onClose={() => setListSheetOpen(false)}
+				hideCounts
 			/>
 
 			<ConfirmModal

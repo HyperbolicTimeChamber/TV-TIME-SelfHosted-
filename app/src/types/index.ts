@@ -38,4 +38,10 @@ export type { WatchlistListItem } from "./watchlist";
 export { WatchAction } from "./watchAction";
 export type { AddFailure } from "./addFailure";
 export type { ShowDrawerData } from "./showDrawer";
-export type { HistoryEntry, HistoryState, HistoryChange, HistoryCatalog } from "./history";
+export type {
+	HistoryEntry,
+	HistoryState,
+	HistoryChange,
+	HistoryCatalog,
+	HistoryFacets,
+} from "./history";

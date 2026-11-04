@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { promoteShows } from "../src/utils/watchlistOrder";
+import { mergeCachedShows, promoteShows } from "../src/utils/watchlistOrder";
 
 type Item = { type: "sectionHeader"; title: string } | { type: "show"; card: { tmdbId: number } } | { type: "watchedEpisode"; id: string };
 const show = (tmdbId: number): Item => ({ type: "show", card: { tmdbId } });
@@ -22,4 +22,29 @@ test("promoteShows moves just-marked shows to the top of the active section, new
 	assert.equal(promoteShows(list, new Map()), list);
 	// A promoted show not in the list is ignored
 	assert.deepEqual(ids(promoteShows(list, new Map([[9, 1]]))), ids(list));
+});
+
+test("mergeCachedShows keeps saved cards in their saved spot while live pages load", () => {
+	const header: Item = { type: "sectionHeader", title: "What's Up Next" };
+	// Saved order: 3 ranks high (new episode aired) but sits on a later Firestore page
+	const cached: Item[] = [header, show(1), show(2), show(3), show(4), show(5), show(6)];
+	// First live page: 3 and 6 not loaded yet; 7 is new (not in the saved list)
+	const live: Item[] = [{ type: "watchedEpisode", id: "a" }, header, show(1), show(2), show(4), show(7), show(5)];
+	assert.deepEqual(ids(mergeCachedShows(cached, live)), ["w", "|", 1, 2, 3, 4, 7, 5, 6]);
+	// Every saved card live → live list as-is
+	const full: Item[] = [header, show(1), show(2), show(3), show(4), show(5), show(6)];
+	assert.equal(mergeCachedShows(cached, full), full);
+	// No live shows yet → saved cards under a header
+	assert.deepEqual(ids(mergeCachedShows(cached, [{ type: "watchedEpisode", id: "a" }])), ["w", "|", 1, 2, 3, 4, 5, 6]);
+});
+
+test("mergeCachedShows with no live shows uses the active section's header, not Previously Watched", () => {
+	const cached: Item[] = [
+		{ type: "sectionHeader", title: "Previously Watched" },
+		{ type: "watchedEpisode", id: "a" },
+		{ type: "sectionHeader", title: "What's Up Next" },
+		show(1),
+	];
+	const out = mergeCachedShows(cached, [{ type: "watchedEpisode", id: "b" }]);
+	assert.deepEqual(out[1], { type: "sectionHeader", title: "What's Up Next" });
 });

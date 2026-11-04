@@ -1,5 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Modal, View, Pressable, Animated, StyleSheet, ModalProps } from "react-native";
+import {
+	Modal,
+	View,
+	Pressable,
+	Animated,
+	Keyboard,
+	Platform,
+	StyleSheet,
+	ModalProps,
+} from "react-native";
 import { colors } from "../../theme";
 
 interface Props extends Pick<ModalProps, "onRequestClose"> {
@@ -11,6 +20,8 @@ interface Props extends Pick<ModalProps, "onRequestClose"> {
 }
 
 const DURATION = 250;
+/** How long the popup takes to rise above / settle back from the keyboard */
+const KEYBOARD_SHIFT_MS = 200;
 
 export default function AnimatedModal({ visible, onClose, onRequestClose, children, wide }: Props) {
 	const opacity = useRef(new Animated.Value(0)).current;
@@ -26,6 +37,29 @@ export default function AnimatedModal({ visible, onClose, onRequestClose, childr
 		const t = setTimeout(() => setArmed(true), DURATION);
 		return () => clearTimeout(t);
 	}, [visible]);
+
+	// Keyboard up (a text field in the popup): rise by half its height, so the popup is centred
+	// in the space left above it. A Modal isn't resized for the keyboard (edge-to-edge Android),
+	// so KeyboardAvoidingView / adjustResize leave the field under it
+	const lift = useRef(new Animated.Value(0)).current;
+	useEffect(() => {
+		if (!visible) {
+			lift.setValue(0);
+			return;
+		}
+		const shift = (to: number, duration = KEYBOARD_SHIFT_MS) =>
+			Animated.timing(lift, { toValue: to, duration, useNativeDriver: true }).start();
+		const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+		const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+		const show = Keyboard.addListener(showEvent, (e) =>
+			shift(-e.endCoordinates.height / 2, e.duration || KEYBOARD_SHIFT_MS),
+		);
+		const hide = Keyboard.addListener(hideEvent, (e) => shift(0, e?.duration || KEYBOARD_SHIFT_MS));
+		return () => {
+			show.remove();
+			hide.remove();
+		};
+	}, [visible, lift]);
 
 	useEffect(() => {
 		if (visible) {
@@ -77,7 +111,11 @@ export default function AnimatedModal({ visible, onClose, onRequestClose, childr
 				<Pressable style={StyleSheet.absoluteFill} onPress={armed ? handleClose : undefined} />
 				<Animated.View
 					pointerEvents={armed ? "auto" : "none"}
-					style={[styles.content, wide && styles.wide, { opacity, transform: [{ scale }] }]}
+					style={[
+						styles.content,
+						wide && styles.wide,
+						{ opacity, transform: [{ translateY: lift }, { scale }] },
+					]}
 				>
 					{children}
 				</Animated.View>

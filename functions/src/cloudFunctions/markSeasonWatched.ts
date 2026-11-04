@@ -12,6 +12,7 @@ import { requireCaller } from "../hooks/requireCaller";
 import { MarkSeasonRequest } from "../shared/types";
 import { MAX_END_OFFSET_MS, staggerFinishTimes } from "../shared/stagger";
 import { trackedOnCall } from "../hooks/trackedTriggers";
+import { stampTracking } from "../shared/trackingSync";
 
 export const markSeasonWatched = trackedOnCall(
   FunctionName.MARK_SEASON_WATCHED,
@@ -159,7 +160,7 @@ export const markSeasonWatched = trackedOnCall(
     });
     batch.set(
       trackingDoc,
-      skipTracking ? history : { ...trackingUpdate, ...history },
+      stampTracking(skipTracking ? history : { ...trackingUpdate, ...history }),
       {
         merge: true,
       },

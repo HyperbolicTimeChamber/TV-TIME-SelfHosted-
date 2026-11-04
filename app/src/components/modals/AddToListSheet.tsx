@@ -2,18 +2,20 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
 	View,
 	Text,
-	Pressable,
 	Modal,
 	ActivityIndicator,
 	StyleSheet,
 	useWindowDimensions,
 } from "react-native";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+// Gesture-handler Pressable: inside the sheet, React Native's lost a tap whose finger drifted a
+// pixel or two (the sheet's gestures took the touch), so a quick first tap often did nothing
+import { GestureHandlerRootView, Pressable } from "react-native-gesture-handler";
 import GorhomSheet, {
 	BottomSheetBackdrop,
 	BottomSheetFooter,
 	BottomSheetScrollView,
 	BottomSheetTextInput,
+	useBottomSheet,
 	useBottomSheetSpringConfigs,
 	type BottomSheetBackdropProps,
 	type BottomSheetFooterProps,
@@ -30,7 +32,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useAuthStore } from "../../stores";
 import { useCustomLists } from "../../hooks/useCustomLists";
-import { CUSTOM_LIST_ITEM_MAX, NEW_LIST_HINTS, NEW_LIST_TITLE } from "../../enums";
+import {
+	ADD_TO_LIST_SEARCH_MIN_LISTS,
+	CUSTOM_LIST_ITEM_MAX,
+	NEW_LIST_HINTS,
+	NEW_LIST_TITLE,
+} from "../../enums";
 import type { CustomList, CustomListEntry } from "../../types";
 import { listCoverItem, listHasItem, sheetListOrder, titleCount } from "../../utils";
 import { colors, spacing, typography } from "../../theme";
@@ -43,6 +50,8 @@ interface Props {
 	/** The title being listed; null = closed */
 	entry: CustomListEntry | null;
 	onClose: () => void;
+	/** No "N titles" under each list (the show info page) */
+	hideCounts?: boolean;
 }
 
 /** Opens at most this share of the screen; scrolling the lists first grows it to fit them */
@@ -77,11 +86,11 @@ const NAME_ERRORS = {
 /**
  * "Add to List": tap the lists a title belongs to (each tap saves at once), or make a new one with
  * it inside. A list is a bookmark — this never starts tracking the title. Laid out like a "save to
- * playlist" sheet: the title's logo on top, "In lists" (the lists holding it when the sheet opened)
+ * playlist" sheet: the title's logo on top, "In Lists" (the lists holding it when the sheet opened)
  * with New list, a Find list search + Sort, the other lists, a New list row and a Done button. Rows
  * stay where they are when ticked; the bookmark badge (not a plus) is the toggle.
  */
-export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
+export default function AddToListSheet({ entry, onClose, hideCounts = false }: Readonly<Props>) {
 	const insets = useSafeAreaInsets();
 	const sheetRef = useRef<GorhomSheet>(null);
 	const { height: screenHeight } = useWindowDimensions();
@@ -111,21 +120,14 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 	);
 	// Done floats over the lists (the sheet's footer: transparent, always at the visible bottom,
 	// whichever snap point the sheet is at); each tap already saved, Done just closes
+	const lowestSnap = snapPoints[0];
 	const renderFooter = useCallback(
 		(props: BottomSheetFooterProps) => (
 			<BottomSheetFooter {...props} bottomInset={insets.bottom}>
-				<View style={styles.footer} pointerEvents="box-none">
-					<Pressable
-						onPress={() => sheetRef.current?.close()}
-						accessibilityRole="button"
-						style={({ pressed }) => [styles.done, pressed && styles.donePressed]}
-					>
-						<Text style={styles.doneText}>Done</Text>
-					</Pressable>
-				</View>
+				<DoneFooter lowestSnap={lowestSnap} onPress={() => sheetRef.current?.close()} />
 			</BottomSheetFooter>
 		),
-		[insets.bottom],
+		[insets.bottom, lowestSnap],
 	);
 	const user = useAuthStore((s) => s.user);
 	const { lists, loading, createList, addToList, removeFromList } = useCustomLists(user?.uid);
@@ -138,7 +140,7 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 	const [nameError, setNameError] = useState<string | null>(null);
 	// Order the sheet opened with (lists holding the title, then newest) — held while it is open
 	const [pinned, setPinned] = useState<string[] | null>(null);
-	// Lists that held the title when the sheet opened: the "In lists" section, fixed while open
+	// Lists that held the title when the sheet opened: the "In Lists" section, fixed while open
 	const [openSaved, setOpenSaved] = useState<ReadonlySet<string>>(new Set());
 	const [search, setSearch] = useState("");
 	const [sort, setSort] = useState(ListSort.RECENT);
@@ -163,7 +165,7 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 		}
 	}, [entry, loading, lists, pinned]);
 
-	// "In lists": held the title at open (a list made from here joins it). The rest: filtered by
+	// "In Lists": held the title at open (a list made from here joins it). The rest: filtered by
 	// the search, in the chosen order
 	const saved = useMemo(
 		() => ordered.filter((l) => openSaved.has(l.id) || !pinned?.includes(l.id)),
@@ -176,9 +178,12 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 		);
 		return sort === ListSort.NAME ? [...rest].sort((a, b) => a.name.localeCompare(b.name)) : rest;
 	}, [ordered, saved, search, sort]);
-	// Find list + Sort only earn their room with at least one list left to look through (the lists
+	// Find list + Sort only earn their room with a few lists left to look through (the lists
 	// already holding the title sit above); counted before the search filter so typing never hides them
-	const searchable = useMemo(() => ordered.some((l) => !saved.includes(l)), [ordered, saved]);
+	const searchable = useMemo(
+		() => ordered.filter((l) => !saved.includes(l)).length >= ADD_TO_LIST_SEARCH_MIN_LISTS,
+		[ordered, saved],
+	);
 
 	const handleCreate = async (name: string) => {
 		if (!entry) return;
@@ -210,7 +215,7 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 			<ListRow
 				key={list.id}
 				list={list}
-				hint={full ? "List is full" : titleCount(list.items.length)}
+				hint={full ? "List is full" : hideCounts ? null : titleCount(list.items.length)}
 				listed={has}
 				disabled={full}
 				onPress={() => toggle(list, has)}
@@ -274,7 +279,7 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 										{saved.length > 0 && (
 											<>
 												<View style={styles.heading}>
-													<Text style={styles.headingText}>In lists</Text>
+													<Text style={styles.headingText}>In Lists</Text>
 													<Pressable
 														onPress={startNaming}
 														hitSlop={10}
@@ -377,7 +382,7 @@ function ListRow({
 	onPress,
 }: {
 	list: CustomList;
-	hint: string;
+	hint: string | null;
 	listed: boolean;
 	disabled: boolean;
 	onPress: () => void;
@@ -411,7 +416,7 @@ function ListRow({
 				<Text style={styles.rowText} numberOfLines={1}>
 					{list.name}
 				</Text>
-				<Text style={styles.rowHint}>{hint}</Text>
+				{hint && <Text style={styles.rowHint}>{hint}</Text>}
 			</View>
 			<Badge listed={listed} />
 		</Pressable>
@@ -438,6 +443,29 @@ function Badge({ listed }: { listed: boolean }) {
 	return (
 		<Reanimated.View style={[styles.badge, listed && styles.badgeActive, style]}>
 			<Ionicons name={listed ? "bookmark" : "bookmark-outline"} size={15} color={colors.text} />
+		</Reanimated.View>
+	);
+}
+
+/**
+ * The footer pins Done to the sheet's visible bottom, so while the sheet closes it stayed put
+ * until the sheet's top reached it. Below the lowest detent (index between 0 and -1 — closing)
+ * it now rides down with the sheet: the share of that detent already gone.
+ */
+function DoneFooter({ lowestSnap, onPress }: Readonly<{ lowestSnap: number; onPress: () => void }>) {
+	const { animatedIndex } = useBottomSheet();
+	const closingStyle = useAnimatedStyle(() => ({
+		transform: [{ translateY: Math.max(0, -animatedIndex.value) * lowestSnap }],
+	}));
+	return (
+		<Reanimated.View style={[styles.footer, closingStyle]} pointerEvents="box-none">
+			<Pressable
+				onPress={onPress}
+				accessibilityRole="button"
+				style={({ pressed }) => [styles.done, pressed && styles.donePressed]}
+			>
+				<Text style={styles.doneText}>Done</Text>
+			</Pressable>
 		</Reanimated.View>
 	);
 }

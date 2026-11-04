@@ -94,6 +94,12 @@ export enum CacheKey {
 	LIST_TRACKING = "list_tracking_v1:",
 	/** A list page's Grid / List choice (kept across lists and visits) */
 	CUSTOM_LIST_VIEW = "custom_list_view_v1",
+	/** Hall of Shame: Grid / List */
+	HISTORY_VIEW = "history_view_v1",
+	/** + uid — tracking delta sync state: lastSync, saved page count, hasMore, last full fetch day */
+	TRACKING_SYNC = "tracking_sync_v1:",
+	/** + uid + "_" + page index — one saved page of tracking docs (Firestore page order) */
+	TRACKING_PAGE = "tracking_page_v1:",
 	/** Last app_opened time (ms) — derives days_since_last_open */
 	LAST_APP_OPEN = "last_app_open_v1",
 	/** + uid — sign_up_completed already sent for this account */
@@ -139,6 +145,8 @@ export const CUSTOM_LISTS_COLLECTION = "customLists";
 /** Name length / count caps (mirrored in firestore.rules) */
 export const CUSTOM_LIST_NAME_MAX = 50;
 export const CUSTOM_LIST_ITEM_MAX = 500;
+/** Add to List sheet: Find list + Sort show once this many lists don't hold the title yet */
+export const ADD_TO_LIST_SEARCH_MIN_LISTS = 3;
 export const CUSTOM_LIST_MAX = 50;
 /** Custom lists the profile shows under Lists (the biggest), after the Recently Watched row */
 export const PROFILE_LIST_COUNT = 5;
@@ -219,6 +227,13 @@ export enum SortDirection {
 }
 
 /** Watch History status filters (TV) — OR together, applied in the Firestore query */
+/** Watch History: genres / keywords pickable at once (each runs as one Firestore array-contains-any) */
+export const HISTORY_FACET_MAX = 10;
+/** Keyword chips the filter sheet lists before anything is typed (most common first) */
+export const HISTORY_KEYWORD_SUGGESTIONS = 12;
+/** A filtered view tops a short page up with at most this many more Firestore pages */
+export const HISTORY_VIEW_REFILL_PAGES = 4;
+
 export enum HistoryFilter {
 	PAUSED = "paused",
 	WATCHING = "watching",
@@ -240,7 +255,7 @@ export enum ListTagKind {
 	UP_TO_DATE = "upToDate",
 	PAUSED = "paused",
 	WATCH_COUNT = "watchCount",
-	/** Not on the watchlist */
+	/** On the watchlist, no episode watched yet (shows) — red */
 	NOT_STARTED = "notStarted",
 	/** On the watchlist, never watched (movies) */
 	NOT_WATCHED = "notWatched",
@@ -419,3 +434,21 @@ export enum EmulatorPort {
 	FIRESTORE = 8080,
 	FUNCTIONS = 5001,
 }
+
+/** Per-user subcollections the tracking delta sync reads (users/{uid}/…) */
+export enum UserCollection {
+	TRACKING = "tracking",
+	/** One entry per deleted tracking doc (same id) — other devices drop their saved copy */
+	TRACKING_DELETIONS = "trackingDeletions",
+	/** tv / movie: every genre + keyword across the tracked titles, counted (CF-written) —
+	 *  Watch History's filter choices */
+	FACETS = "facets",
+}
+
+/** Server time of a tracking doc's last write — the delta listener reads only docs past it */
+export const TRACKING_UPDATED_AT = "updatedAt";
+/** Deletion log entries expire (Firestore TTL on `expireAt`) after this; a device last synced
+ *  longer ago than the daily full fetch can't miss one */
+export const TRACKING_DELETION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+/** Delta listener starts this far before the last seen write (commit order vs timestamp order) */
+export const TRACKING_SYNC_OVERLAP_MS = 60 * 1000;

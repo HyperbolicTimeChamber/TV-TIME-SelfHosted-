@@ -122,15 +122,6 @@ export default function ActionPills({
 							</Text>
 						</TouchableOpacity>
 					)}
-					{hasSheet && (
-						<CircleButton
-							tone={CircleButtonTone.RAISED}
-							onPress={onWatchSheetOpen}
-							accessibilityLabel="Watch count options"
-						>
-							<Ionicons name="ellipsis-horizontal" size={24} color={colors.text} />
-						</CircleButton>
-					)}
 					{mediaType === MediaType.TV &&
 						(watchlistItem.status === WatchStatus.WATCHING ||
 							watchlistItem.status === WatchStatus.REWATCHING) && (
@@ -169,8 +160,17 @@ export default function ActionPills({
 					size={28}
 					color={colors.text}
 				/>
-				{listCount > 0 && <Text style={styles.countText}>{listCount}</Text>}
 			</CircleButton>
+			{/* Watch count ⋯ stays the row's right-most button */}
+			{watchlistItem && hasSheet && (
+				<CircleButton
+					tone={CircleButtonTone.RAISED}
+					onPress={onWatchSheetOpen}
+					accessibilityLabel="Watch count options"
+				>
+					<Ionicons name="ellipsis-horizontal" size={24} color={colors.text} />
+				</CircleButton>
+			)}
 		</View>
 	);
 }
@@ -206,17 +206,6 @@ const styles = StyleSheet.create({
 	},
 	pillRemove: {
 		backgroundColor: colors.destructiveRed,
-	},
-	// The number of lists, knocked out of the filled bookmark in the button's own colour (the
-	// bookmark's notch takes the bottom, so it sits a touch above centre)
-	countText: {
-		...typography.subtitle,
-		position: "absolute",
-		fontSize: 13,
-		lineHeight: 16,
-		includeFontPadding: false,
-		color: colors.warningAmber,
-		marginTop: -3,
 	},
 	pillInline: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
 	pillDisabled: {

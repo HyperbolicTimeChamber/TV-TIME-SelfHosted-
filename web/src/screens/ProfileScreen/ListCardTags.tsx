@@ -49,6 +49,9 @@ function Tag({ tag }: { tag: ListTag }) {
 			return <ProgressPill kind={HistoryProgress.PAUSED} compact />;
 		case ListTagKind.WATCH_COUNT:
 			return <WatchCountPill count={tag.count ?? 0} label={tag.label} compact />;
+		case ListTagKind.NOT_STARTED:
+			// Red, like the Incomplete status pill
+			return <StatusPill label={tag.label} bgClass={PILL_BG[HistoryPill.PAUSED]} compact />;
 		default:
 			return <span className={`${styles.tag} ${styles.tagGrey}`}>{tag.label}</span>;
 	}

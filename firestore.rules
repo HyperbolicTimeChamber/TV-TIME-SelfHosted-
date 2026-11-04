@@ -86,8 +86,9 @@ service cloud.firestore {
           'tmdbId', 'mediaType', 'status', 'nextEpisode', 'nextEpisodeName',
           'nextEpisodeAirDate', 'rewatchCount', 'addedAt', 'lastWatchedAt', 'priorityDate',
           'releaseDate', 'title', 'posterPath', 'lastEpisode', 'historyAt',
-          'historyUpdatedAt', 'minutesWatched', 'plays'
+          'historyUpdatedAt', 'minutesWatched', 'plays', 'updatedAt'
         ])
+        && stampedNow()
         && optNumber('tmdbId')
         && (!('mediaType' in request.resource.data)
             || request.resource.data.mediaType in ['tv', 'movie'])
@@ -109,6 +110,13 @@ service cloud.firestore {
         && optTimestamp('priorityDate')
         && optTimestamp('historyAt')
         && optTimestamp('historyUpdatedAt');
+    }
+
+    // Tracking delta sync: a written `updatedAt` is the server's commit time, never a client
+    // clock (other devices read only docs past their last sync). Optional: builds before the
+    // delta sync don't write it — the trackingSyncStamp trigger stamps those writes instead
+    function stampedNow() {
+      return !('updatedAt' in writtenKeys()) || request.resource.data.updatedAt == request.time;
     }
 
     function validWatchedEpisode(episodeId) {
@@ -170,6 +178,17 @@ service cloud.firestore {
         allow create, update: if isOwner(userId) && validTracking(showId);
       }
 
+      // Deletion log of tracking docs (same id), written with each delete — other devices drop
+      // their saved copy. Entries expire through the TTL policy on expireAt
+      match /trackingDeletions/{showId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && showId.matches('^(tv|movie)_[0-9]{1,10}$')
+          && request.resource.data.keys().hasOnly(['updatedAt', 'expireAt'])
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.expireAt is timestamp;
+      }
+
       match /watchedEpisodes/{episodeId} {
         allow read, delete: if isOwner(userId);
         allow create, update: if isOwner(userId) && validWatchedEpisode(episodeId);
@@ -198,6 +217,13 @@ service cloud.firestore {
           && request.resource.data.name.size() <= 50
           && request.resource.data.items is list
           && request.resource.data.items.size() <= 500;
+      }
+
+      // Watch History filter choices (tv / movie): every genre + keyword across the tracked
+      // titles, counted — kept by addShow / removeShow / importMatches only
+      match /facets/{mediaType} {
+        allow read: if isOwner(userId);
+        allow write: if false;
       }
 
       match /upcoming/{episodeId} {

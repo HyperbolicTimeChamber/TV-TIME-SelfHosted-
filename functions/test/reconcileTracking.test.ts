@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Timestamp } from "firebase-admin/firestore";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { reconcileTracking } from "../src/hooks/upcoming/reconcileTracking";
 import {
   CatalogShow,
@@ -8,6 +8,9 @@ import {
   CatalogEpisode,
 } from "../src/shared/types";
 import { fakeDb, trackingDoc } from "./helpers";
+
+// Every tracking write carries the delta sync stamp
+const stamp = { updatedAt: FieldValue.serverTimestamp() };
 
 const ep = (
   n: number,
@@ -113,7 +116,7 @@ test("archived show: old unwatched episodes don't bring it back", async () => {
     new Map([["tv_1", catalog([s1])]]),
   );
   assert.equal(ov.size, 0);
-  assert.deepEqual(db.state.writes[0].data, { reconciledEpisodeCount: 2 });
+  assert.deepEqual(db.state.writes[0].data, { reconciledEpisodeCount: 2, ...stamp });
 });
 
 test("unchanged episode count → zero watchedEpisodes reads and no writes", async () => {
@@ -155,6 +158,7 @@ test("active pointer: placeholder name and missing air date refreshed without re
   assert.deepEqual(db.state.writes[0].data, {
     nextEpisodeName: "Real Name",
     nextEpisodeAirDate: "2026-10-12",
+    ...stamp,
   });
 });
 
