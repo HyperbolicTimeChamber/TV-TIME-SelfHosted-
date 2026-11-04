@@ -33,6 +33,8 @@ const BAR_EASING = Easing.bezier(0.32, 0.72, 0, 1);
 /** Back up from below when it returns; down and out a touch quicker when a detail screen opens */
 const BAR_IN_MS = 240;
 const BAR_OUT_MS = 200;
+/** Slide distance before the bar's height is known */
+const BAR_FALLBACK_HEIGHT = 200;
 
 const isDetail = (route: Parameters<typeof getFocusedRouteNameFromRoute>[0]) => {
 	const child = getFocusedRouteNameFromRoute(route);
@@ -67,7 +69,8 @@ function TabBar({
 	}, [hidden, offset]);
 	const slide = useAnimatedStyle(() => ({
 		// Its own height + a pixel: fully off-screen, shadow line included
-		transform: [{ translateY: offset.value * (height.value + 1) }],
+		// Not measured yet (first frames, a fast refresh) → a distance that clears any bar
+		transform: [{ translateY: offset.value * ((height.value || BAR_FALLBACK_HEIGHT) + 1) }],
 	}));
 	return (
 		<Animated.View
