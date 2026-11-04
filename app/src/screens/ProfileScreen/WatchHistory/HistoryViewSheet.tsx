@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Keyboard, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { useMemo, useState, type ReactNode } from "react";
+import { Pressable, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Animated, {
@@ -59,24 +59,6 @@ const COUNTRY_SUGGESTIONS = 8;
 const STUDIO_SUGGESTIONS = 8;
 /** "More" adds this many each tap — the long tail stays reachable by typing its name */
 const STUDIO_MORE_STEP = 16;
-/** Studios offered for what's typed in the keyword field ("disney" → Disney+, Walt Disney…) */
-const TYPED_STUDIO_MATCHES = 4;
-
-/** Keyboard height while it's up — the sheet grows by it so the keyword field stays in sight */
-function useKeyboardHeight() {
-	const [height, setHeight] = useState(0);
-	useEffect(() => {
-		const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-		const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-		const show = Keyboard.addListener(showEvent, (e) => setHeight(e.endCoordinates.height));
-		const hide = Keyboard.addListener(hideEvent, () => setHeight(0));
-		return () => {
-			show.remove();
-			hide.remove();
-		};
-	}, []);
-	return height;
-}
 
 /** Neighbours glide to their new place when a chip grows / shrinks (its check) or comes and goes,
  *  instead of the row jumping */
@@ -157,25 +139,30 @@ export default function HistoryViewSheet({
 	onToggleStudio,
 	onApplyRegion,
 }: Props) {
-	const keyboard = useKeyboardHeight();
 	const [term, setTerm] = useState("");
 	const [focused, setFocused] = useState(false);
 	const typed = term.trim().toLowerCase();
+	// The search narrows every section: a chip shows when picked or when its label holds the text
+	const shown = (label: string, on: boolean) => on || !typed || label.toLowerCase().includes(typed);
 	// Picked keywords first, then the most common ones (nothing typed) or the ones matching what's
-	// typed — and the typed text itself when no keyword is exactly it
+	// typed — only keywords the user's titles carry, nothing made up from the typed text
 	const keywordChips = useMemo(() => {
 		const rest = facetOptions.keywords
 			.filter((k) => !facets.keywords.has(k) && (!typed || k.includes(typed)))
 			.slice(0, HISTORY_KEYWORD_SUGGESTIONS);
-		// A regional genre (k-drama, anime…) is a country + genre, not a TMDB keyword: its chip
-		// takes the place of the typed text's
+		// A regional genre (k-drama, anime…) is a country + genre, not a TMDB keyword
 		const region = typed ? regionAliasFor(typed) : undefined;
-		const exact = !region && !!typed && !facets.keywords.has(typed) && !rest.includes(typed);
-		return { picked: [...facets.keywords], rest, exact, region };
+		const picked = [...facets.keywords];
+		return { picked, rest, region, any: picked.length > 0 || rest.length > 0 || !!region };
 	}, [facetOptions.keywords, facets.keywords, typed]);
 	const [allCountries, setAllCountries] = useState(false);
 	const countries = useMemo(() => {
 		const all = [...new Set([...facets.countries, ...facetOptions.countries])];
+		// Typing searches every country, not just the first few
+		if (typed)
+			return all.filter(
+				(c) => facets.countries.has(c) || countryLabel(c).toLowerCase().includes(typed),
+			);
 		return allCountries
 			? all
 			: [
@@ -184,33 +171,27 @@ export default function HistoryViewSheet({
 						...facetOptions.countries.slice(0, COUNTRY_SUGGESTIONS),
 					]),
 				];
-	}, [facets.countries, facetOptions.countries, allCountries]);
-	const moreCountries = !allCountries && facetOptions.countries.length > COUNTRY_SUGGESTIONS;
+	}, [facets.countries, facetOptions.countries, allCountries, typed]);
+	const moreCountries =
+		!typed && !allCountries && facetOptions.countries.length > COUNTRY_SUGGESTIONS;
 	const [studioLimit, setStudioLimit] = useState(STUDIO_SUGGESTIONS);
-	const studios = useMemo(
-		() => [
-			...new Set([
-				...facets.studios,
-				...facetOptions.studios.slice(0, studioLimit),
-			]),
-		],
-		[facets.studios, facetOptions.studios, studioLimit],
-	);
-	const moreStudios = facetOptions.studios.length > studioLimit;
-	// Typed text naming a studio ("disney", "hbo"): its studios, offered beside the keywords
-	const typedStudios = useMemo(
-		() =>
-			typed
-				? facetOptions.studios
-						.filter((st) => !facets.studios.has(st) && st.toLowerCase().includes(typed))
-						.slice(0, TYPED_STUDIO_MATCHES)
-				: [],
-		[facetOptions.studios, facets.studios, typed],
-	);
+	const studios = useMemo(() => {
+		// Typing searches every studio ("disney" → Disney+, Walt Disney…), not just the first few
+		if (typed)
+			return [...new Set([...facets.studios, ...facetOptions.studios])].filter(
+				(st) => facets.studios.has(st) || st.toLowerCase().includes(typed),
+			);
+		return [...new Set([...facets.studios, ...facetOptions.studios.slice(0, studioLimit)])];
+	}, [facets.studios, facetOptions.studios, studioLimit, typed]);
+	const moreStudios = !typed && facetOptions.studios.length > studioLimit;
 	const genres = useMemo(
-		() => [...new Set([...facets.genres, ...facetOptions.genres])],
-		[facets.genres, facetOptions.genres],
+		() =>
+			[...new Set([...facets.genres, ...facetOptions.genres])].filter(
+				(g) => facets.genres.has(g) || !typed || g.toLowerCase().includes(typed),
+			),
+		[facets.genres, facetOptions.genres, typed],
 	);
+	const statuses = HISTORY_FILTERS.filter((f) => shown(HISTORY_FILTER_LABEL[f], filters.has(f)));
 	const anyFilter =
 		filters.size > 0 ||
 		facets.genres.size > 0 ||
@@ -254,10 +235,42 @@ export default function HistoryViewSheet({
 					</Animated.View>
 				)}
 			</View>
-			{!isMovie && <Text style={[styles.facetTitle, styles.facetTitleFirst]}>STATUS</Text>}
-			{!isMovie && (
+			<View style={[styles.keywordField, focused && styles.keywordFieldFocused]}>
+				<Ionicons name="search" size={16} color={focused ? colors.text : colors.textSecondary} />
+				<TextInput
+					style={styles.keywordInput}
+					value={term}
+					onChangeText={setTerm}
+					placeholder="Search filters (e.g. Disney, time travel)"
+					placeholderTextColor={colors.textSecondary}
+					autoCapitalize="none"
+					autoCorrect={false}
+					returnKeyType="done"
+					onFocus={() => setFocused(true)}
+					onBlur={() => setFocused(false)}
+					onSubmitEditing={() => {
+						if (keywordChips.region) applyRegion();
+					}}
+					accessibilityLabel="Search filters"
+				/>
+				{term.length > 0 && (
+					<Animated.View entering={FadeIn.duration(120)} exiting={FadeOut.duration(90)}>
+						<Pressable
+							onPress={() => setTerm("")}
+							hitSlop={10}
+							accessibilityRole="button"
+							accessibilityLabel="Clear search"
+							style={({ pressed }) => pressed && styles.chipPressed}
+						>
+							<Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+						</Pressable>
+					</Animated.View>
+				)}
+			</View>
+			{!isMovie && statuses.length > 0 && <Text style={styles.facetTitle}>STATUS</Text>}
+			{!isMovie && statuses.length > 0 && (
 				<View style={styles.chipWrap}>
-					{HISTORY_FILTERS.map((f) => (
+					{statuses.map((f) => (
 						<Chip
 							key={f}
 							label={HISTORY_FILTER_LABEL[f]}
@@ -269,7 +282,7 @@ export default function HistoryViewSheet({
 			)}
 			{genres.length > 0 && (
 				<>
-					<Text style={[styles.facetTitle, isMovie && styles.facetTitleFirst]}>GENRE</Text>
+					<Text style={styles.facetTitle}>GENRE</Text>
 					<ChipLine>
 						{genres.map((g) => {
 							const on = facets.genres.has(g);
@@ -340,46 +353,8 @@ export default function HistoryViewSheet({
 					</ChipLine>
 				</>
 			)}
-			<Text style={styles.facetTitle}>KEYWORD</Text>
-			<View style={[styles.keywordField, focused && styles.keywordFieldFocused]}>
-				<Ionicons name="search" size={16} color={focused ? colors.text : colors.textSecondary} />
-				<TextInput
-					style={styles.keywordInput}
-					value={term}
-					onChangeText={setTerm}
-					placeholder="Find a keyword (e.g. time travel)"
-					placeholderTextColor={colors.textSecondary}
-					autoCapitalize="none"
-					autoCorrect={false}
-					returnKeyType="done"
-					onFocus={() => setFocused(true)}
-					onBlur={() => setFocused(false)}
-					onSubmitEditing={() => {
-						if (keywordChips.region) return applyRegion();
-						if (keywordChips.exact && !keywordsFull) onToggleKeyword(typed);
-						setTerm("");
-					}}
-					accessibilityLabel="Find a keyword"
-				/>
-				{term.length > 0 && (
-					<Animated.View entering={FadeIn.duration(120)} exiting={FadeOut.duration(90)}>
-						<Pressable
-							onPress={() => setTerm("")}
-							hitSlop={10}
-							accessibilityRole="button"
-							accessibilityLabel="Clear keyword"
-							style={({ pressed }) => pressed && styles.chipPressed}
-						>
-							<Ionicons name="close-circle" size={18} color={colors.textSecondary} />
-						</Pressable>
-					</Animated.View>
-				)}
-			</View>
-			{(keywordChips.picked.length > 0 ||
-				keywordChips.rest.length > 0 ||
-				keywordChips.exact ||
-				keywordChips.region ||
-				typedStudios.length > 0) && (
+			{keywordChips.any && <Text style={styles.facetTitle}>KEYWORD</Text>}
+			{keywordChips.any && (
 				<ChipLine>
 					{keywordChips.region && (
 						<Chip
@@ -387,31 +362,6 @@ export default function HistoryViewSheet({
 							on={false}
 							icon="sparkles"
 							onPress={applyRegion}
-						/>
-					)}
-					{typedStudios.map((st) => (
-						<Chip
-							key={`studio-${st}`}
-							label={st}
-							on={false}
-							icon="business"
-							disabled={studiosFull}
-							onPress={() => {
-								onToggleStudio(st);
-								setTerm("");
-							}}
-						/>
-					))}
-					{keywordChips.exact && (
-						<Chip
-							label={titleCase(typed)}
-							on={false}
-							icon="add"
-							disabled={keywordsFull}
-							onPress={() => {
-								onToggleKeyword(typed);
-								setTerm("");
-							}}
 						/>
 					)}
 					{keywordChips.picked.map((k) => (
@@ -428,8 +378,6 @@ export default function HistoryViewSheet({
 					))}
 				</ChipLine>
 			)}
-			{/* Keyboard up: the sheet grows by its height, the field stays above it */}
-			<View style={{ height: keyboard }} />
 		</SortSheet>
 	);
 }
