@@ -25,6 +25,7 @@ import {
 } from "../utils";
 import { useAuthStore } from "../stores";
 import { getSeasonDetails, pooled } from "../services/tmdb";
+import { foregroundCall } from "../services/callQueue";
 import { UPCOMING_TITLE_RECHECK_MS } from "../enums";
 
 type MutateCallback = (fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[]) => void;
@@ -215,7 +216,9 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 				// If empty, rebuild upcoming subcollection via CF
 				if (snap.size === 0) {
 					try {
-						await httpsCallable(getFunctions(), CloudFunction.REBUILD_UPCOMING)({});
+						await foregroundCall(() =>
+							httpsCallable(getFunctions(), CloudFunction.REBUILD_UPCOMING)({}),
+						);
 						snap = await getDocs(query(upcomingCol, where("airDate", ">=", fromDate)));
 					} catch (err) {
 						console.error("rebuildUpcoming CF failed:", err);

@@ -15,6 +15,7 @@ import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { getCrashlytics, recordError } from "@react-native-firebase/crashlytics";
 import { getAuth, sendPasswordResetEmail } from "@react-native-firebase/auth";
 import { useAuthStore } from "../../stores";
+import { foregroundCall } from "../../services/callQueue";
 import { colors, spacing, typography } from "../../theme";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import { CircleBackButton, CIRCLE_BUTTON_SIZE } from "../../components/CircleButton";
@@ -98,7 +99,7 @@ export default function SettingsScreen() {
 		try {
 			const functions = getFunctions();
 			// Returns once the auth user is gone; the data purge carries on server-side
-			await httpsCallable(functions, CloudFunction.DELETE_ACCOUNT)({});
+			await foregroundCall(() => httpsCallable(functions, CloudFunction.DELETE_ACCOUNT)({}));
 			await signOut();
 		} catch (err: any) {
 			recordError(

@@ -154,15 +154,33 @@ export async function fetchHistoryEntry(
 	return snap.exists() ? toEntry(snap.id, snap.data() as Record<string, any>) : null;
 }
 
-/** Catalog docs by id in `in` batches (1 round trip per 30) */
-export async function fetchCatalogShows(docIds: string[]): Promise<CatalogShow[]> {
+/** Catalog doc snapshots by id in `in` batches (1 round trip per 30). Use this rather than a
+ *  getDoc per show: on Android every getDoc holds a native Firestore thread until the server
+ *  answers, and past the pool size they spill onto the single thread that also runs every write */
+async function getCatalogSnaps(docIds: string[]) {
 	const showsCol = collection(getFirestore(), "shows");
+	const unique = [...new Set(docIds)];
 	const chunks: string[][] = [];
-	for (let i = 0; i < docIds.length; i += IN_LIMIT) chunks.push(docIds.slice(i, i + IN_LIMIT));
+	for (let i = 0; i < unique.length; i += IN_LIMIT) chunks.push(unique.slice(i, i + IN_LIMIT));
 	const snaps = await Promise.all(
 		chunks.map((ids) => getDocs(query(showsCol, where(documentId(), "in", ids)))),
 	);
-	return snaps.flatMap((s) => s.docs.map((d) => localizeCatalog(d.data() as CatalogShow)));
+	return snaps.flatMap((s) => s.docs);
+}
+
+/** Catalog docs by id in `in` batches (1 round trip per 30) */
+export async function fetchCatalogShows(docIds: string[]): Promise<CatalogShow[]> {
+	return (await getCatalogSnaps(docIds)).map((d) => localizeCatalog(d.data() as CatalogShow));
+}
+
+/** Catalog docs by id, keyed by doc id (with `id` set); ids with no doc are absent */
+export async function fetchCatalogDocs(docIds: string[]): Promise<Map<string, CatalogShow>> {
+	const out = new Map<string, CatalogShow>();
+	if (docIds.length === 0) return out;
+	for (const d of await getCatalogSnaps(docIds)) {
+		out.set(d.id, localizeCatalog({ id: d.id, ...d.data() } as unknown as CatalogShow));
+	}
+	return out;
 }
 
 /** The user's filter choices for a tab (one doc, kept by the Cloud Functions) */

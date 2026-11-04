@@ -38,6 +38,7 @@ import {
 	type TrackingDoc,
 } from "./trackingStore";
 import { useAuthStore } from "../stores";
+import { fetchCatalogDocs } from "../services/historyApi";
 import { getShowDetails, getSeasonDetails } from "../services/tmdb";
 import {
 	requestShowRefresh,
@@ -120,63 +121,62 @@ async function enrichItems(
 	trackingItems: TrackingItem[],
 	cache: Map<string, CatalogShow | null>,
 ): Promise<EnrichedTrackingItem[]> {
-	const db = getFirestore();
 	let cacheUpdated = false;
-	const enriched = await Promise.all(
-		trackingItems.map(async (item): Promise<EnrichedTrackingItem> => {
+	// Pass 1: cache + add-time fills; collect the docs still missing / stand-in
+	const resolved = await Promise.all(
+		trackingItems.map(async (item) => {
 			const mt = (item as any).mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV;
 			const key = showDocId(item.tmdbId, mt);
 			let catalogShow: CatalogShow | null = cache.get(key) ?? null;
-
-			const readFromFirestore = async () => {
-				try {
-					const showDoc = await getDoc(doc(db, "shows", key));
-					if (showDoc?.exists?.()) {
-						catalogShow = localizeCatalog({
-							id: showDoc.id,
-							...showDoc.data(),
-						} as unknown as CatalogShow);
-						cache.set(key, catalogShow);
-						cacheUpdated = true;
-					} else if (!catalogShow) {
-						cache.set(key, null);
-					}
-				} catch {}
-			};
-
 			// Background fill started at add time (search) → use its result instead of a doc read
 			const filling = catalogFills.get(key);
 			if (filling && (!catalogShow || isIncompleteCatalog(catalogShow))) {
 				catalogShow = (await filling) ?? catalogShow;
 			}
-
-			if (!catalogShow || isIncompleteCatalog(catalogShow)) {
-				// Missing / stand-in → Firestore (CF may still be creating it; capped retries,
-				// then the server heal takes over)
-				const attempts = missingAttempts.get(key) ?? 0;
-				if (attempts < MAX_MISSING_ATTEMPTS) {
-					missingAttempts.set(key, attempts + 1);
-					await readFromFirestore();
-				}
-			}
-			// Poster / next-ep title / credits missing: not here — healShown fixes a card once the
-			// user actually sees it (a re-read for every list card cost reads nobody looked at)
-
-			return {
-				...item,
-				title: catalogShow?.title ?? (item as any).title ?? `Show #${item.tmdbId}`,
-				posterPath: catalogShow?.posterPath ?? (item as any).posterPath ?? null,
-				totalEpisodes: catalogShow?.totalEpisodes ?? 0,
-				catalogShow: catalogShow ?? null,
-				// Tracking docs hold the US air date; the catalog's TVMaze time gives the local day
-				nextEpisodeAirDate: nextEpisodeLocalAirDate(
-					item.nextEpisode,
-					catalogShow,
-					item.nextEpisodeAirDate,
-				),
-			};
+			return { item, key, catalogShow };
 		}),
 	);
+
+	// Missing / stand-in → Firestore (CF may still be creating it; capped retries, then the
+	// server heal takes over). One `in` query per 30 shows, not a getDoc each (see fetchCatalogDocs)
+	const toRead = resolved.filter(({ key, catalogShow }) => {
+		if (catalogShow && !isIncompleteCatalog(catalogShow)) return false;
+		const attempts = missingAttempts.get(key) ?? 0;
+		if (attempts >= MAX_MISSING_ATTEMPTS) return false;
+		missingAttempts.set(key, attempts + 1);
+		return true;
+	});
+	if (toRead.length > 0) {
+		try {
+			const fetched = await fetchCatalogDocs(toRead.map((r) => r.key));
+			for (const r of toRead) {
+				const fresh = fetched.get(r.key);
+				if (fresh) {
+					r.catalogShow = fresh;
+					cache.set(r.key, fresh);
+					cacheUpdated = true;
+				} else if (!r.catalogShow) {
+					cache.set(r.key, null);
+				}
+			}
+		} catch {}
+	}
+	// Poster / next-ep title / credits missing: not here — healShown fixes a card once the
+	// user actually sees it (a re-read for every list card cost reads nobody looked at)
+
+	const enriched = resolved.map(({ item, catalogShow }): EnrichedTrackingItem => ({
+		...item,
+		title: catalogShow?.title ?? (item as any).title ?? `Show #${item.tmdbId}`,
+		posterPath: catalogShow?.posterPath ?? (item as any).posterPath ?? null,
+		totalEpisodes: catalogShow?.totalEpisodes ?? 0,
+		catalogShow: catalogShow ?? null,
+		// Tracking docs hold the US air date; the catalog's TVMaze time gives the local day
+		nextEpisodeAirDate: nextEpisodeLocalAirDate(
+			item.nextEpisode,
+			catalogShow,
+			item.nextEpisodeAirDate,
+		),
+	}));
 
 	if (cacheUpdated) persistCatalogCache(cache);
 	return enriched;
@@ -700,7 +700,6 @@ export function useWatchlist(userId: string | undefined) {
 			const persistStamp = () =>
 				AsyncStorage.setItem(CacheKey.CATALOG_SYNC_STAMP, lastCatalogSync).catch(() => {});
 			// No stamp yet (first run / pre-existing install) → refresh once too
-			const db = getFirestore();
 			const { previousCatalogSync, changedShowIds } = useAuthStore.getState();
 			const stale = selectStaleCatalogItems(
 				[...itemsRef.current.values()],
@@ -709,21 +708,20 @@ export function useWatchlist(userId: string | undefined) {
 				changedShowIds,
 			);
 			const updates = new Map<number, CatalogShow>();
-			await Promise.all(
-				stale.map(async (item) => {
-					const key = showDocId(item.tmdbId, MediaType.TV);
-					try {
-						const snap = await getDoc(doc(db, "shows", key));
-						if (!snap?.exists?.()) return;
-						const fresh = localizeCatalog({
-							id: snap.id,
-							...snap.data(),
-						} as unknown as CatalogShow);
+			if (stale.length > 0) {
+				// One `in` query per 30 shows, not a getDoc each (see fetchCatalogDocs)
+				const keyOf = (tmdbId: number) => showDocId(tmdbId, MediaType.TV);
+				try {
+					const fetched = await fetchCatalogDocs(stale.map((s) => keyOf(s.tmdbId)));
+					for (const item of stale) {
+						const key = keyOf(item.tmdbId);
+						const fresh = fetched.get(key);
+						if (!fresh) continue;
 						catalogCache.current.set(key, fresh);
 						updates.set(item.tmdbId, fresh);
-					} catch {}
-				}),
-			);
+					}
+				} catch {}
+			}
 			if (updates.size > 0) {
 				persistCatalogCache(catalogCache.current);
 				setItems((prev) =>
@@ -798,7 +796,8 @@ async function healCard(item: EnrichedTrackingItem, mt: MediaType, key: string) 
 			}
 		}
 		if (needsTmdbHeal({ ...display, catalogShow: catalog }, true)) {
-			const seasons = mt === MediaType.TV && item.nextEpisode ? [item.nextEpisode.season] : undefined;
+			const seasons =
+				mt === MediaType.TV && item.nextEpisode ? [item.nextEpisode.season] : undefined;
 			refreshShared(item.tmdbId, mt, RefreshReason.MISSING_DATA, seasons);
 			return;
 		}
@@ -812,5 +811,3 @@ async function healCard(item: EnrichedTrackingItem, mt: MediaType, key: string) 
 		refreshShared(item.tmdbId, MediaType.TV, RefreshReason.AIRED_NO_FINALE);
 	}
 }
-
-
