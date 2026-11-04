@@ -229,7 +229,11 @@ export default function BottomSheet({ visible, onClose, children, background, ar
 
 	const panResponder = useRef(
 		PanResponder.create({
-			onStartShouldSetPanResponder: () => false,
+			// Claim touches no child claims (labels, gaps, the handle): asked last, after the rows /
+			// chips (they keep their taps). Unclaimed, a drag from there never reached the sheet —
+			// on Android the Modal sent its moves nowhere, so only drags that began on a pressable
+			// moved the drawer. A plain tap just springs back to where it was
+			onStartShouldSetPanResponder: () => true,
 			onMoveShouldSetPanResponder: (_, gs) => gs.dy > 8 && Math.abs(gs.dy) > Math.abs(gs.dx),
 			onPanResponderMove: (_, gs) => {
 				// Upward drag gets resistance instead of a hard stop
