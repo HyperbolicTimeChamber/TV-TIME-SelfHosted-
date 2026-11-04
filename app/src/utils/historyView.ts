@@ -37,7 +37,7 @@ export interface UserFacetsDoc {
 	studios?: Record<string, number>;
 }
 
-/** One title's genres + keywords + origin countries */
+/** One title's genres + keywords + origin countries + studios */
 export interface TitleFacets {
 	genres: string[];
 	keywords: string[];

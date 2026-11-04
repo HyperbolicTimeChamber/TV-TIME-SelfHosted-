@@ -2,10 +2,11 @@
  * One-off admin backfill for Watch History — run locally, never deployed.
  *
  *   GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json \
- *     npm run backfill:history -- [--dry-run] [--only=history|logos|stats|ended|runtimes|movieRuntimes|airTimes|facets] [--mode=firstWatch|everyWatch]
+ *     npm run backfill:history -- [--dry-run] [--only=history|logos|stats|ended|runtimes|movieRuntimes|airTimes|facets] [--mode=firstWatch|everyWatch] [--refetch]
  *
  * stats (only when asked for): recompute profile Watch Time from watched docs.
- * facets (only when asked for): TMDB keywords on catalog docs + genres / keywords on tracking docs.
+ * facets (only when asked for): TMDB keywords / countries / studios on catalog docs missing them
+ *   (--refetch: on every catalog doc) + all four facets on tracking docs + the users' facets docs.
  *
  * Safe to rerun: history totals are recomputed from scratch, logos only fill gaps.
  */
@@ -56,9 +57,10 @@ async function main() {
     );
   }
   if (only === "facets") {
-    const r = await backfillFacets(db, await getTmdbApiKey(), { dryRun });
+    const refetch = args.includes("--refetch");
+    const r = await backfillFacets(db, await getTmdbApiKey(), { dryRun, refetch });
     console.log(
-      `Facets: ${r.shows} catalog docs, ${r.keywordsChecked} without keywords → ${r.keyworded} filled, ${r.failed} failed (rerun to retry); ${r.users} users, ${r.trackingWritten} tracking docs ${dryRun ? "would be" : ""} updated`,
+      `Facets: ${r.shows} catalog docs, ${r.fetched} ${refetch ? "refetched" : "missing facets"} → ${r.changed} changed, ${r.failed} failed (rerun to retry); ${r.users} users, ${r.trackingWritten} tracking docs ${dryRun ? "would be" : ""} updated`,
     );
   }
   if (only === "ended") {

@@ -68,7 +68,7 @@ async function runImport(
   const catalogMap = await ensureCatalog(db, uid, apiKey, matches);
 
   // Phase 2: Pre-read existing tracking docs (avoid double-counting on re-import) — with their
-  // genres / keywords / countries, for the facets rebuild after the import (same reads)
+  // genres / keywords / countries / studios, for the facets rebuild after the import (same reads)
   const existingTrackingIds = new Set<string>();
   const trackingSnap = await db
     .collection(`users/${uid}/tracking`)

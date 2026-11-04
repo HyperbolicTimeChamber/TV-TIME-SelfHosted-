@@ -83,5 +83,10 @@ test("studioNames: networks first, then companies; unique, capped", () => {
     studioNames([{ name: "HBO" }], [{ name: "HBO" }, { name: " Warner Bros. Television " }, {}]),
     ["HBO", "Warner Bros. Television"],
   );
-  assert.equal(studioNames(undefined, Array.from({ length: 12 }, (_, i) => ({ name: `S${i}` }))).length, 4);
+  assert.equal(studioNames(undefined, Array.from({ length: 12 }, (_, i) => ({ name: `S${i}` }))).length, 3);
+});
+
+test("studioNames: networks and companies capped apart — many networks never crowd out the studio", () => {
+  const list = (prefix: string) => Array.from({ length: 4 }, (_, i) => ({ name: `${prefix}${i}` }));
+  assert.deepEqual(studioNames(list("N"), list("C")), ["N0", "N1", "C0", "C1", "C2"]);
 });

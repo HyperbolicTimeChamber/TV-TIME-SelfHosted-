@@ -27,7 +27,8 @@ export interface FetchResult {
   changedShowIds: string[];
   /** Shows where TMDB filled in episode runtimes it didn't have (users' 0-minute watches heal) */
   runtimeFills: Array<{ showId: string; tmdbId: number; runtimes: Map<string, number> }>;
-  /** Shows whose genres / keywords changed — trackers' tracking docs + facet counts follow */
+  /** Shows whose facets (genres / keywords / countries / studios) changed — trackers' tracking
+   *  docs + facet counts follow */
   facetChanges: FacetChange[];
 }
 
@@ -71,7 +72,7 @@ export async function fetchCatalogUpdates(
       if (!oldData.refreshedSinceSync) changedShowIds.push(showDoc.id);
     };
 
-    // Ended shows skip the full fetch: one written before keywords / countries were stored
+    // Ended shows skip the full fetch: one written before keywords / countries / studios were stored
     // gets them alone (one TMDB request)
     const healKeywords = async () => {
       if ("keywords" in oldData && "countries" in oldData && "studios" in oldData) return;

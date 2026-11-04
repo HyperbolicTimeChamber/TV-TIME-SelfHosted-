@@ -48,8 +48,8 @@ const mediaTypeOf = (showId: string) =>
   showId.startsWith(`${MediaType.MOVIE}_`) ? MediaType.MOVIE : MediaType.TV;
 
 /**
- * Copy the catalog's genres + keywords onto a tracker's tracking doc and count them into the
- * user's facets doc — in one transaction, by the difference from what the tracking doc already
+ * Copy the catalog's facets (genres / keywords / countries / studios) onto a tracker's tracking
+ * doc and count them into the user's facets doc — in one transaction, by the difference from what the tracking doc already
  * carried, so a repeat call (resume, refresh, the weekly sync) counts nothing twice. A doc the
  * client already removed isn't recreated. Returns what it changed (null: nothing).
  */
@@ -113,7 +113,7 @@ export async function uncountTitleFacets(
 }
 
 /**
- * A catalog doc's genres / keywords changed (weekly sync, refreshShow): restamp every tracker's
+ * A catalog doc's facets changed (weekly sync, refreshShow): restamp every tracker's
  * tracking doc and move their facet counts with it. Returns how many trackers changed.
  */
 export async function propagateTitleFacets(
