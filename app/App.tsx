@@ -157,8 +157,8 @@ function AppContent() {
 
 	// Listen for background add failures (CF rollback)
 	useEffect(() => {
-		const { onAddTrackingError } = require("./src/services/firestore");
-		return onAddTrackingError((_tmdbId: number, title: string) => {
+		const { onAddTrackingErrorFallback } = require("./src/services/firestore");
+		return onAddTrackingErrorFallback((_tmdbId: number, title: string) => {
 			Alert.alert("Failed to Add", `"${title}" could not be added. Please try again.`);
 		});
 	}, []);

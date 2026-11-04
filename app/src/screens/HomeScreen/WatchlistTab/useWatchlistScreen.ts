@@ -36,6 +36,11 @@ import {
 	decrementDailyWatch,
 	loadSeasonEpisodes,
 } from "../../../hooks";
+import {
+	getCachedCatalogShow,
+	prefillCatalog,
+	whenCatalogRestored,
+} from "../../../hooks/useWatchlist";
 import { useWatchlistData } from "./useWatchlistData";
 import { todayStr } from "../../../utils";
 
@@ -148,7 +153,17 @@ export function useWatchlistScreen(
 			const ep = item.nextEpisode;
 			if (!ep) return;
 
-			const catalog = item.catalogShow;
+			// Fresh launch: the saved card can render before the persisted catalog cache is
+			// restored — wait for it (on-device, quick), then fill from the server only if the
+			// show was never cached. The popup always opens; never the show page instead.
+			let catalog = item.catalogShow;
+			if (!catalog?.seasons?.length) {
+				await whenCatalogRestored();
+				catalog =
+					getCachedCatalogShow(tmdbId, MediaType.TV) ??
+					(await prefillCatalog(tmdbId, MediaType.TV)) ??
+					catalog;
+			}
 			const today = todayStr();
 
 			// Build flat episode list from catalog — all released episodes
@@ -172,12 +187,7 @@ export function useWatchlistScreen(
 				}
 			}
 
-			if (allEps.length === 0) {
-				// A saved card whose catalog hasn't loaded yet (fresh launch): the card still opens
-				// the show's page rather than doing nothing
-				if (!catalog) handleNavigateToShow(tmdbId, _mediaType);
-				return;
-			}
+			if (allEps.length === 0) return;
 
 			const rawIdx = Math.max(
 				0,
@@ -243,7 +253,7 @@ export function useWatchlistScreen(
 				.then((snap) => patch(rowsOf(snap)))
 				.catch(() => {});
 		},
-		[listData, user?.uid, queryClient, handleNavigateToShow],
+		[listData, user?.uid, queryClient],
 	);
 
 	// Skip in modal → move the modal's "current" episode along with the watchlist pointer

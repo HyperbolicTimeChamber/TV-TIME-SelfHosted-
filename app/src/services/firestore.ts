@@ -23,16 +23,20 @@ import { trackApi } from "./analytics";
 import { recordTrackedEpisodes, trackEpisodeMarked, trackEpisodeUnwatched } from "./mixpanel";
 import { historyOnWatch, historyOnUnwatch, historyCleared, historyOnChange } from "./history";
 import { shareCatalogCreate } from "./refreshShow";
+import { foregroundCall } from "./callQueue";
 import { takeFacetDelta, trackFacetWrite } from "./userFacets";
 import { batchEndOffsets, staggerFinishTimes } from "../utils/stagger";
 import { epKey, rewatchHeal, type EpisodeRef } from "../utils/trackingAdvance";
 
 /** Tracked Cloud Function call */
+/** A user-triggered callable: queued background heals wait while it runs */
 function callCF<T = any>(name: string, data: any): Promise<T> {
-	return trackApi("cloud_function", name, async () => {
-		const result = await httpsCallable(getFunctions(), name)(data);
-		return result.data as T;
-	});
+	return foregroundCall(() =>
+		trackApi("cloud_function", name, async () => {
+			const result = await httpsCallable(getFunctions(), name)(data);
+			return result.data as T;
+		}),
+	);
 }
 
 const db = getFirestore();
@@ -167,10 +171,12 @@ export async function addToTracking(
 		callAddShow().catch(async (err: unknown) => {
 			// Both attempts failed — undo the local add
 			await deleteDoc(tRef).catch(() => {});
-			// Emit error for UI to pick up
-			addTrackingErrorListeners.forEach((fn) =>
-				fn(tmdbId, meta?.title || `Show #${tmdbId}`, mediaType),
-			);
+			// Emit error for UI to pick up: the open screen's popup, else the app-wide fallback —
+			// never both (a native Alert on top of the in-app popup)
+			const title = meta?.title || `Show #${tmdbId}`;
+			const targets =
+				addTrackingErrorListeners.size > 0 ? addTrackingErrorListeners : addTrackingErrorFallbacks;
+			targets.forEach((fn) => fn(tmdbId, title, mediaType));
 			// Rejects so the shared catalog fill falls back
 			throw err;
 		}),
@@ -187,6 +193,13 @@ const addTrackingErrorListeners = new Set<AddTrackingErrorCallback>();
 export function onAddTrackingError(cb: AddTrackingErrorCallback): () => void {
 	addTrackingErrorListeners.add(cb);
 	return () => addTrackingErrorListeners.delete(cb);
+}
+
+/** Only told when no screen listener is mounted (e.g. the failure lands after leaving Search) */
+const addTrackingErrorFallbacks = new Set<AddTrackingErrorCallback>();
+export function onAddTrackingErrorFallback(cb: AddTrackingErrorCallback): () => void {
+	addTrackingErrorFallbacks.add(cb);
+	return () => addTrackingErrorFallbacks.delete(cb);
 }
 
 export async function removeFromTracking(
@@ -218,10 +231,12 @@ export async function stopWatching(
 	let newStatus: WatchStatus;
 	if (currentStatus === WatchStatus.REWATCHING) {
 		newStatus = WatchStatus.PAUSED_REWATCH;
-	} else if (currentStatus === WatchStatus.WATCHING) {
-		newStatus = WatchStatus.PAUSED;
-	} else {
+	} else if (currentStatus === WatchStatus.COMPLETED) {
 		newStatus = WatchStatus.COMPLETED;
+	} else {
+		// Watching, plan to watch, … → paused. Never "completed": stopping a show part-way
+		// doesn't finish it (it used to, which offered a rewatch of a show never seen through)
+		newStatus = WatchStatus.PAUSED;
 	}
 	const docId = showDocId(tmdbId, mediaType);
 	await updateDoc(doc(trackingRef(userId), docId), {
