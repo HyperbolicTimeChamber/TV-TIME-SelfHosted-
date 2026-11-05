@@ -196,6 +196,7 @@ function listMotion(
 	grow: Set<string>;
 	leaving: LeavingRow[];
 	header: { from: number; to: number } | null;
+	noAnchor?: boolean;
 } {
 	const grow = new Set<string>();
 	const leaving: LeavingRow[] = [];
@@ -206,6 +207,13 @@ function listMotion(
 	}
 	const nextKeys = new Set(next.map(keyOf));
 	const prevKeys = new Set(prev.map(keyOf));
+	// A mark lifted a card while scrolled past the top of "What's Up Next": it lands above the
+	// view. The list doesn't hold the view on it (noAnchor) — the rows above the card's slot
+	// glide down into it, the rows under it stay, and the scroll doesn't move. Compensating the
+	// scroll instead landed a frame late and every row jumped
+	if (promoted && !upNextTopOnScreen(list)) {
+		return { move: true, grow, leaving, header, noAnchor: true };
+	}
 	const changed = (i: WatchlistListItem) => {
 		const id = rowTmdbId(i);
 		return id !== null && wasJustChanged(id);
@@ -302,19 +310,14 @@ function upNextOnScreen(list: LegendListRef | null): boolean {
 }
 
 /** The top of "What's Up Next" (where a marked card goes) is on screen — scrolled no further
- *  than the pinned header's own spot. Scrolled past it, the card would land above the view:
- *  see `pinned` */
+ *  than the pinned header's own spot. Scrolled past it, the card lands above the view: see
+ *  listMotion's noAnchor */
 function upNextTopOnScreen(list: LegendListRef | null): boolean {
 	const state = list?.getState();
 	const top = state?.positionByKey(UP_NEXT_KEY);
 	// Up to a header's height past it: the list opens a few px past the header's own spot
 	// (content padding), and the first card is still in view right under the pinned header
 	return !!state && top !== undefined && state.scroll <= top + SECTION_HEADER_H;
-}
-
-/** The list without a lifted card that's waiting to be added at the top (see `pinned`) */
-function withPinned(data: WatchlistListItem[], pin: { key: string } | null): WatchlistListItem[] {
-	return pin ? data.filter((r) => keyOf(r) !== pin.key) : data;
 }
 
 /** The list without the held rows; a section they leave empty goes too */
@@ -484,41 +487,8 @@ export default function WatchlistTab() {
 		setHeld((prev) => (prev.size === 0 ? prev : new Set()));
 	}, []);
 	useFocusEffect(useCallback(() => releaseHeld, [releaseHeld]));
-	// A mark scrolled past the top of "What's Up Next": the card leaves its slot (it shrinks
-	// away, the cards under it glide up — like a card leaving the list) and is added at the top
-	// on the next drag. Added at once it landed above the view, and the list's scroll shift for
-	// that came a frame after the rows moved: every row jumped and snapped back. During a drag
-	// that shift isn't seen
 	const drawnRows = useRef<readonly WatchlistListItem[]>([]);
-	const [pinned, setPinned] = useState<{ key: string } | null>(null);
-	const [pinSeen, setPinSeen] = useState(promotions);
-	let pin = pinned;
-	if (pinSeen !== promotions) {
-		setPinSeen(promotions);
-		pin = null;
-		const lifted = fullData.find((r) => r.type === "show");
-		const prev = drawnRows.current;
-		const at = lifted ? prev.findIndex((r) => keyOf(r) === keyOf(lifted)) : -1;
-		const wasFirst = prev.find((r) => r.type === "show");
-		if (
-			lifted &&
-			at !== -1 &&
-			wasFirst &&
-			keyOf(wasFirst) !== keyOf(lifted) &&
-			!upNextTopOnScreen(listRef.current)
-		) {
-			pin = { key: keyOf(lifted) };
-		}
-		setPinned(pin);
-	}
-	const releasePinned = useCallback(() => {
-		setPinned((prev) => (prev ? null : prev));
-	}, []);
-	useFocusEffect(useCallback(() => releasePinned, [releasePinned]));
-	const listData = useMemo(
-		() => withPinned(withoutHeld(fullData, held), pin),
-		[fullData, held, pin],
-	);
+	const listData = useMemo(() => withoutHeld(fullData, held), [fullData, held]);
 
 	// The rows as last drawn: a reorder's glide starts from their layout
 	useEffect(() => {
@@ -622,6 +592,9 @@ export default function WatchlistTab() {
 	}
 	const [leaving, setLeaving] = useState<LeavingRow[]>([]);
 	const [layoutMoving, setLayoutMoving] = useState(false);
+	// This reorder's rows keep their positions (no scroll compensation): see listMotion
+	const [noAnchor, setNoAnchor] = useState(false);
+	const mvcp = useMemo(() => ({ data: !noAnchor, size: true }), [noAnchor]);
 	const [growing, setGrowing] = useState<{ keys: ReadonlySet<string>; token: number } | null>(null);
 	const growToken = useRef(0);
 	const [headerGlide, setHeaderGlide] = useState<HeaderMove | null>(null);
@@ -637,6 +610,9 @@ export default function WatchlistTab() {
 			wasJustMarked,
 			listH,
 		);
+		// On only: the list change right behind it (the card's patch) mustn't switch it off before
+		// the list has applied the reorder; it clears with the glide
+		if (motion.noAnchor) setNoAnchor(true);
 		// Same render as the new rows: the commit that moves them carries the glide
 		if (motion.move) setLayoutMoving(true);
 		if (motion.grow.size > 0 || motion.header) {
@@ -675,6 +651,7 @@ export default function WatchlistTab() {
 		const t = setTimeout(() => {
 			setLayoutMoving(false);
 			setArmed(false);
+			setNoAnchor(false);
 		}, CARD_MOVE_MS + 200);
 		return () => clearTimeout(t);
 	}, [layoutMoving, listKeys]);
@@ -991,7 +968,6 @@ export default function WatchlistTab() {
 				stickyHeaderIndices={stickyIndices}
 				onScrollBeginDrag={() => {
 					releaseHeld();
-					releasePinned();
 					setArmed(false);
 				}}
 				// Heals (missing poster / episode name…) run only for cards kept on screen
@@ -1020,7 +996,7 @@ export default function WatchlistTab() {
 					) : null
 				}
 				ItemSeparatorComponent={SeparatorComponent}
-				maintainVisibleContentPosition={{ data: true, size: true }}
+				maintainVisibleContentPosition={mvcp}
 				style={styles.list}
 				onLayout={(e) => setListH(e.nativeEvent.layout.height)}
 				contentContainerStyle={contentStyle}
