@@ -33,6 +33,7 @@ import {
 import { colors } from "../../../theme";
 import { titleCase } from "../../../utils/format";
 import { styles } from "./styles";
+import { HiCheck } from "../../../components/HiIcons";
 
 const SORT_OPTIONS: SortOption<HistorySort>[] = HISTORY_SORTS.map((value) => ({
 	value,
@@ -109,7 +110,11 @@ function Chip({
 			>
 				{(on || icon) && (
 					<Animated.View entering={CHECK_IN} exiting={CHECK_OUT}>
-						<Ionicons name={on ? "checkmark" : icon!} size={16} color={colors.text} />
+						{on ? (
+							<HiCheck size={16} color={colors.text} />
+						) : (
+							<Ionicons name={icon!} size={16} color={colors.text} />
+						)}
 					</Animated.View>
 				)}
 				{!!flag && <Text style={styles.filterChipFlag}>{flag}</Text>}

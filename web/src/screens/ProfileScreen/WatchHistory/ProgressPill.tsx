@@ -1,4 +1,5 @@
-import { FaRegCheckCircle, FaRegPauseCircle } from "react-icons/fa";
+import { HiCheck } from "react-icons/hi";
+import { FaRegPauseCircle } from "react-icons/fa";
 import { HistoryProgress } from "@app/enums";
 import ProgressRing from "./ProgressRing";
 import styles from "./styles/ProgressPill.module.scss";
@@ -25,7 +26,7 @@ export default function ProgressPill({ kind, percent = 0, compact = false }: Pro
 	if (kind === HistoryProgress.UP_TO_DATE) {
 		return (
 			<span className={`${cls} bg-watched`}>
-				<FaRegCheckCircle size={size} className="block shrink-0" />
+				<HiCheck size={size} className="block shrink-0" />
 				Up To Date
 			</span>
 		);

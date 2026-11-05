@@ -30,6 +30,7 @@ import { colors, spacing, typography } from "../../theme";
 import { deriveHistoryCard, deriveListTags, formatRuntime, todayStr } from "../../utils";
 import ListCardTags from "./ListCardTags";
 import SearchCard from "../SearchScreen/SearchCard";
+import { HiCheck } from "../../components/HiIcons";
 
 /** The card (taller than the calendar's), and the row under the square — the add button / Tracking
  *  tag and the status tags share it, so they line up */
@@ -280,7 +281,7 @@ export function ListRow({
 						</Pressable>
 					) : tracked ? (
 						<View style={styles.trackingTag}>
-							<Ionicons name="checkmark-circle-outline" size={14} color={colors.text} />
+							<HiCheck size={14} color={colors.text} />
 							<Text style={styles.trackingText}>Watchlist</Text>
 						</View>
 					) : (

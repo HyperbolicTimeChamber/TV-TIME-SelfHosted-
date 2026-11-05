@@ -1,3 +1,4 @@
+import { HiCheck } from "react-icons/hi";
 import {
 	forwardRef,
 	useCallback,
@@ -8,7 +9,7 @@ import {
 } from "react";
 import { Spin } from "antd";
 import { animate, motion, useMotionValue, useTransform } from "motion/react";
-import { RxCheck, RxCross2 } from "react-icons/rx";
+import { RxCross2 } from "react-icons/rx";
 import { colors } from "../theme/index";
 import styles from "./styles/SwipeableCard.module.scss";
 import { cssVars } from "../utils/cssVars";
@@ -133,7 +134,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 						style={{ opacity: leftOpacity, ...cssVars({ "--reveal": leftColor }) }}
 					>
 						<span className={styles.revealIcon}>
-							<RxCheck size={22} />
+							<HiCheck size={22} />
 						</span>
 						<span className={styles.revealText}>{leftLabel}</span>
 					</motion.div>

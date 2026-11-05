@@ -4,6 +4,7 @@ import { colors } from "../../theme";
 import type { MediaType } from "../../types";
 
 import { WatchAction } from "../../types/watchAction";
+import { HiCheck } from "../HiIcons";
 
 export { WatchAction };
 
@@ -71,7 +72,7 @@ export default function WatchActionSheet({
 							{/* At 2, "Watched Once Less" already lands on 1 */}
 							{showWatchedOnce && watchCount > 2 && (
 								<SheetOption
-									icon="checkmark-circle-outline"
+									icon={HiCheck}
 									color={colors.watchedGreen}
 									title="Watched Once"
 									hint="Reset to 1x"

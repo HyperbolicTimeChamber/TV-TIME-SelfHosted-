@@ -1,5 +1,6 @@
+import { HiCheck } from "react-icons/hi";
 import { useMemo, useState } from "react";
-import { IoCheckmark, IoChevronDown, IoCloseCircle, IoSearch, IoSparkles } from "react-icons/io5";
+import { IoChevronDown, IoCloseCircle, IoSearch, IoSparkles } from "react-icons/io5";
 import { HISTORY_FACET_MAX, HistoryFilter, HistorySort } from "@app/enums";
 import type { HistoryFacets } from "@app/types";
 import { titleCase } from "@app/utils/format";
@@ -72,7 +73,7 @@ function Chip({
 			onClick={onClick}
 		>
 			{on ? (
-				<IoCheckmark size={15} className={styles.chipIcon} />
+				<HiCheck size={15} className={styles.chipIcon} />
 			) : add === "region" ? (
 				<IoSparkles size={15} className={styles.chipIcon} />
 			) : add === "more" ? (

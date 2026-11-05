@@ -31,6 +31,7 @@ import { ListGridCard, ListItemPreview, ListRow, ReorderRow } from "./ListItemVi
 import { useSearchActions } from "../SearchScreen/useSearchActions";
 import SearchModals from "../SearchScreen/SearchModals";
 import { styles as searchStyles } from "../SearchScreen/styles";
+import { HiCheck } from "../../components/HiIcons";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, Route.LIST_DETAIL>;
 
@@ -191,7 +192,7 @@ export default function ListDetailScreen() {
 						hitSlop={8}
 						accessibilityLabel="Save order"
 					>
-						<Ionicons name="checkmark" size={28} color={dirty ? colors.accent : colors.textMuted} />
+						<HiCheck size={28} color={dirty ? colors.accent : colors.textMuted} />
 					</TouchableOpacity>
 				</View>
 			) : (

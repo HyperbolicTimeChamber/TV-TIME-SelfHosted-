@@ -1,6 +1,6 @@
+import { HiCheck } from "react-icons/hi";
 import { Spin } from "antd";
 import { IoBookmark, IoBookmarkOutline, IoEllipsisVertical } from "react-icons/io5";
-import { RxCheck } from "react-icons/rx";
 import { CircleButtonTone, MediaType, WatchStatus } from "@app/enums";
 import CircleButton from "../../components/CircleButton";
 import styles from "./styles/ShowDetailScreen.module.scss";
@@ -72,7 +72,7 @@ export default function ActionPills(p: Props) {
 							<Spin size="small" />
 						) : (
 							<>
-								<RxCheck size={20} />
+								<HiCheck size={20} />
 								Mark as Watched
 							</>
 						)}
@@ -100,7 +100,7 @@ export default function ActionPills(p: Props) {
 						<Spin size="small" />
 					) : (
 						<>
-							<RxCheck size={20} />
+							<HiCheck size={20} />
 							Mark as Watched
 						</>
 					)}

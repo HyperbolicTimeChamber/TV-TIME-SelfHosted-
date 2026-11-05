@@ -1,5 +1,5 @@
+import { HiCheck } from "react-icons/hi";
 import { Spin } from "antd";
-import { IoCheckmark } from "react-icons/io5";
 import { colors } from "../theme/index";
 import { useLongPress } from "../hooks/useLongPress";
 import { cssVars, px } from "../utils/cssVars";
@@ -62,7 +62,7 @@ export default function CheckmarkButton({
 			) : label ? (
 				<span className="text-(length:--label-fs) font-bold text-(--label-c)">{label}</span>
 			) : (
-				<IoCheckmark size={iconSize} color={iconColor} />
+				<HiCheck size={size * 0.72} color={iconColor} />
 			)}
 		</button>
 	);

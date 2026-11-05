@@ -15,6 +15,7 @@ import BottomSheet, {
 } from "./BottomSheet";
 import { colors, spacing, typography } from "../../theme";
 import type { MediaType } from "../../types";
+import { HiCheck } from "../HiIcons";
 
 /** Taps settle this long before the count is written — quick +/+/+ is one write, not three */
 const COMMIT_DELAY_MS = 700;
@@ -189,7 +190,7 @@ export default function WatchCountSheet({
 						{/* At 2, − already lands on 1 */}
 						<SheetCollapse open={allowWatchedOnce && count > 2}>
 							<SheetOption
-								icon="checkmark-circle-outline"
+								icon={HiCheck}
 								color={colors.watchedGreen}
 								title="Watched Once"
 								hint="Reset to 1x"

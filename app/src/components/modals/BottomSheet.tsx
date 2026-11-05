@@ -51,6 +51,7 @@ import { getCachedCatalogShow } from "../../hooks/useWatchlist";
 import { useTitleInfo } from "../../hooks/useTitleInfo";
 import { useTitleLogo } from "../../hooks/useTitleLogo";
 import { MediaType } from "../../types";
+import type { HiIconProps } from "../HiIcons";
 import { colors, fonts, spacing, tint, typography } from "../../theme";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
@@ -605,7 +606,7 @@ export function SheetOption({
 	destructive = false,
 	onPress,
 }: {
-	icon: React.ComponentProps<typeof Ionicons>["name"];
+	icon: SheetIconName;
 	color: `#${string}`;
 	title: string;
 	hint?: string;
@@ -627,16 +628,23 @@ export function SheetOption({
 	);
 }
 
-export function SheetIcon({
-	icon,
-	color,
-}: {
-	icon: React.ComponentProps<typeof Ionicons>["name"];
-	color: `#${string}`;
-}) {
+/** An Ionicons name, or an icon component (HiCheck — the app's tick) */
+export type SheetIconName =
+	React.ComponentProps<typeof Ionicons>["name"] | React.ComponentType<HiIconProps>;
+
+export function SheetIcon({ icon, color }: { icon: SheetIconName; color: `#${string}` }) {
+	const Icon = typeof icon === "string" ? null : icon;
 	return (
 		<View style={[styles.iconTile, { backgroundColor: tint(color, 0.16) }]}>
-			<Ionicons name={icon} size={20} color={color} />
+			{Icon ? (
+				<Icon size={20} color={color} />
+			) : (
+				<Ionicons
+					name={icon as React.ComponentProps<typeof Ionicons>["name"]}
+					size={20}
+					color={color}
+				/>
+			)}
 		</View>
 	);
 }

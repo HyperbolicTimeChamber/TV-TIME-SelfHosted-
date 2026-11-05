@@ -3,9 +3,10 @@ import { View, Text, TouchableOpacity } from "react-native";
 import { LegendList } from "@legendapp/list/react-native";
 import { Image } from "expo-image";
 import { TMDBMatch, ParsedGdprData } from "../../services/tvtimeImport";
-import { spacing } from "../../theme";
+import { colors, spacing } from "../../theme";
 import { tmdbPosterUri } from "../../hooks/useTmdbImage";
 import { importStyles as styles } from "./styles";
+import { HiCheck } from "../../components/HiIcons";
 
 interface Props {
 	insetTop: number;
@@ -125,7 +126,7 @@ export default function ReviewPhase({
 					onPress={() => onToggle(key)}
 				>
 					<View style={[styles.checkbox, isSelected && styles.checkboxChecked]}>
-						{isSelected && <Text style={styles.checkmark}>✓</Text>}
+						{isSelected && <HiCheck size={16} color={colors.text} />}
 					</View>
 					{m.posterPath ? (
 						<Image

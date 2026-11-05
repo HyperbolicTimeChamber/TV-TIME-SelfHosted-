@@ -1,5 +1,6 @@
+import { HiCheck } from "react-icons/hi";
 import type { AddFailure, TMDBShow } from "@app/types";
-import { IoAdd, IoCheckmark } from "react-icons/io5";
+import { IoAdd } from "react-icons/io5";
 import BottomSheet, { SheetGroup, SheetHeader, SheetOption } from "../../components/BottomSheet";
 import ConfirmModal from "../../components/ConfirmModal";
 import AddFailedModal from "../../components/AddFailedModal";
@@ -77,7 +78,7 @@ export default function SearchModals(p: Props) {
 						onClick={p.onMovieAddOnly}
 					/>
 					<SheetOption
-						icon={IoCheckmark}
+						icon={HiCheck}
 						color={colors.watchedGreen}
 						title="Add & Mark as Watched"
 						hint="Already seen it"

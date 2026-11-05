@@ -1,6 +1,7 @@
+import { HiCheck } from "react-icons/hi";
 import type { CSSProperties, ReactNode } from "react";
 import { Popover } from "antd";
-import { IoCheckmark, IoOptionsOutline } from "react-icons/io5";
+import { IoOptionsOutline } from "react-icons/io5";
 import styles from "./styles/SortPanel.module.scss";
 
 export interface SortOption<T> {
@@ -69,7 +70,7 @@ export function SortPanel<T>({
 								onClick={() => onSelect(option.value)}
 							>
 								{option.label}
-								{active && <IoCheckmark size={18} />}
+								{active && <HiCheck size={18} />}
 							</button>
 						);
 					})}

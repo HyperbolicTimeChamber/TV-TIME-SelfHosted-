@@ -17,7 +17,8 @@ import Animated, {
 	Extrapolation,
 } from "react-native-reanimated";
 import { colors, spacing, typography } from "../theme";
-import { RxCheck, RxCross2 } from "./RxIcons";
+import { RxCross2 } from "./RxIcons";
+import { HiCheck } from "./HiIcons";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.35;
@@ -334,7 +335,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 						) : (
 							<>
 								<View style={styles.revealIcon}>
-									<RxCheck size={26} />
+									<HiCheck size={26} />
 								</View>
 								<Text style={styles.revealText}>{leftLabel}</Text>
 							</>

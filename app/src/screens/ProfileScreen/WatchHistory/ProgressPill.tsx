@@ -5,6 +5,7 @@ import { colors } from "../../../theme";
 import { HistoryProgress } from "../../../enums";
 import ProgressRing from "./ProgressRing";
 import { RING_SIZE } from "./styles";
+import { HiCheck } from "../../../components/HiIcons";
 
 interface Props {
 	kind: HistoryProgress;
@@ -45,12 +46,16 @@ export default function ProgressPill({ kind, percent = 0, compact = false }: Rea
 			]}
 		>
 			{/* Ionicons glyphs carry ~1px inner padding: +2 / −1 margin → visually the ring's size */}
-			<Ionicons
-				name={upToDate ? "checkmark-circle-outline" : "pause-circle-outline"}
-				size={(compact ? COMPACT_ICON : RING_SIZE) + 2}
-				color={colors.text}
-				style={styles.icon}
-			/>
+			{upToDate ? (
+				<HiCheck size={compact ? COMPACT_ICON : RING_SIZE} color={colors.text} />
+			) : (
+				<Ionicons
+					name="pause-circle-outline"
+					size={(compact ? COMPACT_ICON : RING_SIZE) + 2}
+					color={colors.text}
+					style={styles.icon}
+				/>
+			)}
 			<Text style={[styles.text, size.text]}>{upToDate ? "Up To Date" : "Paused"}</Text>
 		</View>
 	);
