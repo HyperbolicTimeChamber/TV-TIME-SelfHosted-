@@ -360,6 +360,7 @@ export default function ShowDetailScreen() {
 			<ConfirmModal
 				visible={pauseModalVisible}
 				title={watchlistItem?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"}
+				drawer
 				imageAtTop={!!show?.backdrop_path}
 				hideTitle
 				image={

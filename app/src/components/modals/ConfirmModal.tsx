@@ -1,6 +1,16 @@
 import React, { cloneElement, isValidElement, type ReactNode } from "react";
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from "react-native";
+import {
+	View,
+	Text,
+	TouchableOpacity,
+	ActivityIndicator,
+	StyleSheet,
+	useWindowDimensions,
+} from "react-native";
+// Drawer buttons: gesture-handler Pressables (BottomSheet's first-tap fix)
+import { Pressable } from "react-native-gesture-handler";
 import AnimatedModal from "./AnimatedModal";
+import BottomSheet from "./BottomSheet";
 import { ModalBackdrop } from "./ModalArt";
 import { colors, spacing, typography } from "../../theme";
 
@@ -35,6 +45,8 @@ interface Props {
 	hideTitle?: boolean;
 	/** No Cancel button (tapping outside still closes) */
 	hideCancel?: boolean;
+	/** A bottom drawer instead of a centred popup (the banner confirms: backdrop art on top) */
+	drawer?: boolean;
 	onClose: () => void;
 }
 
@@ -61,8 +73,38 @@ export default function ConfirmModal({
 	imageAtTop = false,
 	hideTitle = false,
 	hideCancel = false,
+	drawer = false,
 	onClose,
 }: Props) {
+	const { width: screenW } = useWindowDimensions();
+	if (drawer) {
+		return (
+			<ConfirmDrawer
+				visible={visible}
+				title={title}
+				image={image}
+				hint={hint}
+				error={error}
+				confirmLabel={confirmLabel}
+				confirmColor={confirmColor}
+				loading={loading}
+				onConfirm={onConfirm}
+				leadLabel={leadLabel}
+				leadColor={leadColor}
+				onLead={onLead}
+				secondaryLabel={secondaryLabel}
+				secondaryColor={secondaryColor}
+				onSecondary={onSecondary}
+				tertiaryLabel={tertiaryLabel}
+				onTertiary={onTertiary}
+				cancelLabel={cancelLabel}
+				hideTitle={hideTitle}
+				hideCancel={hideCancel}
+				onClose={onClose}
+				bannerWidth={screenW - spacing.lg * 2}
+			/>
+		);
+	}
 	// Photo art: up to the popup's top edge, the title on its own top shade
 	const photo = isValidElement(image) && image.type === ModalBackdrop;
 	const atTop = (imageAtTop || photo) && image != null;
@@ -216,6 +258,13 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		color: colors.text,
 	},
+	// Rounded like the drawer's cards; clips the banner's corners
+	drawerBanner: {
+		borderRadius: 14,
+		overflow: "hidden",
+		marginBottom: spacing.md,
+	},
+	drawerPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
 	cancelButton: {
 		paddingVertical: spacing.md,
 		borderRadius: 8,
@@ -225,3 +274,123 @@ const styles = StyleSheet.create({
 		marginTop: spacing.sm,
 	},
 });
+
+type DrawerProps = Omit<Props, "drawer" | "imageAtTop"> & {
+	confirmLabel: string;
+	cancelLabel: string;
+	/** The drawer's content width — a banner fills it */
+	bannerWidth: number;
+};
+
+/** ConfirmModal as a bottom drawer: the banner (backdrop + logo, title over its top) as a rounded
+ *  card, the hint, then the same buttons. Dismissed by Cancel, pulling it down or tapping outside
+ *  (all locked while the action runs) */
+function ConfirmDrawer({
+	visible,
+	title,
+	image,
+	hint,
+	error,
+	confirmLabel,
+	confirmColor,
+	loading = false,
+	onConfirm,
+	leadLabel,
+	leadColor,
+	onLead,
+	secondaryLabel,
+	secondaryColor,
+	onSecondary,
+	tertiaryLabel,
+	onTertiary,
+	cancelLabel,
+	hideTitle = false,
+	hideCancel = false,
+	onClose,
+	bannerWidth,
+}: DrawerProps) {
+	const photo = isValidElement(image) && image.type === ModalBackdrop;
+	const banner = photo
+		? cloneElement(image as React.ReactElement<{ heading?: string; width?: number }>, {
+				heading: hideTitle ? undefined : title,
+				width: bannerWidth,
+			})
+		: null;
+	const button = (
+		label: string,
+		onPress: () => void,
+		style: object[],
+		content: ReactNode = <Text style={styles.buttonText}>{label}</Text>,
+	) => (
+		<Pressable
+			onPress={onPress}
+			disabled={loading}
+			accessibilityRole="button"
+			accessibilityLabel={label}
+			style={({ pressed }) => [...style, pressed && !loading && styles.drawerPressed]}
+		>
+			{content}
+		</Pressable>
+	);
+	return (
+		<BottomSheet visible={visible} onClose={onClose} locked={loading}>
+			{(close) => (
+				<View>
+					{banner ? (
+						<View style={styles.drawerBanner}>{banner}</View>
+					) : (
+						<>
+							{!hideTitle && <Text style={styles.title}>{title}</Text>}
+							{image != null && <View style={styles.image}>{image}</View>}
+						</>
+					)}
+					{hint ? <Text style={styles.hint}>{hint}</Text> : null}
+					{error ? <Text style={styles.error}>{error}</Text> : null}
+					{leadLabel &&
+						onLead &&
+						button(leadLabel, onLead, [
+							styles.button,
+							leadColor ? { backgroundColor: leadColor } : {},
+							loading ? { opacity: 0.6 } : {},
+						])}
+					{button(
+						confirmLabel,
+						onConfirm,
+						[
+							styles.button,
+							leadLabel && onLead ? { marginTop: spacing.sm } : {},
+							confirmColor ? { backgroundColor: confirmColor } : {},
+							loading ? { opacity: 0.6 } : {},
+						],
+						loading ? (
+							<ActivityIndicator size="small" color={colors.text} />
+						) : (
+							<Text style={styles.buttonText}>{confirmLabel}</Text>
+						),
+					)}
+					{secondaryLabel &&
+						onSecondary &&
+						button(secondaryLabel, onSecondary, [
+							styles.button,
+							styles.secondary,
+							secondaryColor ? { backgroundColor: secondaryColor } : {},
+							loading ? { opacity: 0.6 } : {},
+						])}
+					{tertiaryLabel &&
+						onTertiary &&
+						button(tertiaryLabel, onTertiary, [
+							styles.button,
+							styles.secondary,
+							loading ? { opacity: 0.6 } : {},
+						])}
+					{/* Kept (dimmed) while the action runs: the drawer doesn't change height */}
+					{!hideCancel &&
+						button(cancelLabel, () => close(), [
+							styles.cancelButton,
+							loading ? { opacity: 0.4 } : {},
+						])}
+				</View>
+			)}
+		</BottomSheet>
+	);
+}

@@ -138,6 +138,7 @@ export default function SearchModals({
 			<ConfirmModal
 				visible={!!blocked}
 				title={started ? "Already Started" : "Already Watched"}
+				drawer
 				image={
 					blocked?.backdrop_path ? (
 						<ModalBackdrop

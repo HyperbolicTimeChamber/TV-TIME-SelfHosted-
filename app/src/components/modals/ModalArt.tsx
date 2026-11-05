@@ -196,6 +196,7 @@ export function ModalBackdrop({
 	paused = false,
 	nameDelay = 0,
 	heading,
+	width,
 }: {
 	backdropPath: string;
 	logoPath?: string | null;
@@ -207,6 +208,8 @@ export function ModalBackdrop({
 	nameDelay?: number;
 	/** Popup title over the top (set by ConfirmModal) */
 	heading?: string;
+	/** Banner width (a drawer's content width); default: the popup's full width */
+	width?: number;
 }) {
 	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	const [logoFailed, setLogoFailed] = useState(false);
@@ -220,14 +223,15 @@ export function ModalBackdrop({
 	// Known to have no logo (or it failed): the name straight away; still coming: after nameDelay
 	const showName = logoPath === null || logoFailed || (!logoLoaded && waited);
 	// Bleeds over ConfirmModal's side padding
-	const w = useContentWidth() + spacing.lg * 2;
+	const popupW = useContentWidth() + spacing.lg * 2;
+	const w = width ?? popupW;
 	const h = (w * 9) / 16;
 	// Skeleton until the banner image is in; its overlays come in with it
 	const [loaded, setLoaded] = useState(false);
 	return (
 		<View style={[styles.backdrop, { width: w, height: h }]}>
 			<Image
-				source={{ uri: tmdbBackdropUri(backdropPath, CONTENT_W) }}
+				source={{ uri: tmdbBackdropUri(backdropPath, w) }}
 				style={StyleSheet.absoluteFill}
 				contentFit="cover"
 				onLoad={() => setLoaded(true)}

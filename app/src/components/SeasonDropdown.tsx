@@ -371,6 +371,7 @@ export default memo(function SeasonDropdown({
 			<ConfirmModal
 				visible={seasonConfirmVisible}
 				title={seasonConfirmCopy.title}
+				drawer
 				image={
 					showBackdropPath ? (
 						<ModalBackdrop

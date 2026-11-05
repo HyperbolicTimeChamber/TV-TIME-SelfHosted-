@@ -341,6 +341,7 @@ export default function ShowDetailScreen() {
 					/>
 					<ConfirmModal
 						visible={d.pauseModalVisible}
+						drawer
 						title={
 							d.watchlistItem?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"
 						}
