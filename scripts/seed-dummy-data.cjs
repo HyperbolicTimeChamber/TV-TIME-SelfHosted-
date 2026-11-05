@@ -23,7 +23,7 @@ const { getFirestore, Timestamp, FieldValue } = fnRequire("firebase-admin/firest
 const TMDB = "https://api.themoviedb.org/3";
 // Mirrors of functions/src/shared/enums.ts (plain JS can't import the TS enums)
 const MediaType = { TV: "tv", MOVIE: "movie" };
-const WatchStatus = { WATCHING: "watching", COMPLETED: "completed" };
+const WatchStatus = { WATCHING: "watching", COMPLETED: "completed", REWATCHING: "rewatching" };
 
 // Airing shows fill the calendar / Upcoming; `watched` = seasons marked watched up front,
 // `upToDate` = tracking jumps straight to the next unaired episode (long-running dailies whose
@@ -65,6 +65,12 @@ const SHOWS = [
 	{ title: "Community", watched: 1 },
 	{ title: "One Piece", watched: 0 },
 	{ title: "Jujutsu Kaisen", watched: 1 },
+	// Rewatch cards: ended shows watched through (→ completed), then rewatched from the start —
+	// `rewatch` = episodes of the rewatch already watched again (the card points past them)
+	{ title: "Chernobyl", watched: 1, rewatch: 2 },
+	{ title: "The Queen's Gambit", watched: 1, rewatch: 0 },
+	{ title: "Fleabag", watched: 2, rewatch: 4 },
+	{ title: "Mare of Easttown", watched: 1, rewatch: 1 },
 ];
 const MOVIES = ["Dune: Part Two", "Avengers: Doomsday", "Spider-Man: Beyond the Spider-Verse"];
 // Upcoming movies sharing one release date (the busiest upcoming day) → movie "+n more" chip
@@ -157,7 +163,7 @@ async function main() {
 
 	// SEED_ONLY="Friends,Community" → just those titles (a re-run marks seasons again otherwise)
 	const only = process.env.SEED_ONLY?.split(",").map((t) => t.trim().toLowerCase());
-	for (const { title, watched = 0, upToDate = false } of SHOWS) {
+	for (const { title, watched = 0, upToDate = false, rewatch } of SHOWS) {
 		if (only && !only.includes(title.toLowerCase())) continue;
 		const hit = await search(apiKey, "tv", title);
 		if (!hit) {
@@ -213,6 +219,35 @@ async function main() {
 				console.warn(`  ! markSeasonWatched failed for ${hit.name} S${season.seasonNumber}: ${err.message.slice(0, 100)}`);
 				break;
 			}
+		}
+		if (rewatch !== undefined && marked.length === seasons.length && marked.length > 0) {
+			// As the app's startRewatch, then `rewatch` episodes of it watched again
+			const eps = seasons.flatMap((sn) =>
+				(sn.episodes ?? []).map((e) => ({ ...e, season: sn.seasonNumber })),
+			);
+			const pad = (n) => String(n).padStart(2, "0");
+			for (const e of eps.slice(0, rewatch)) {
+				await userRef
+					.collection("watchedEpisodes")
+					.doc(`${hit.id}_S${pad(e.season)}E${pad(e.episodeNumber)}`)
+					.set(
+						{ watchCount: FieldValue.increment(1), lastWatchedAt: Timestamp.now() },
+						{ merge: true },
+					);
+			}
+			const next = eps[rewatch] ?? eps[0];
+			await userRef.collection("tracking").doc(`${MediaType.TV}_${hit.id}`).update({
+				status: WatchStatus.REWATCHING,
+				rewatchCount: FieldValue.increment(1),
+				nextEpisode: { season: next.season, episode: next.episodeNumber },
+				nextEpisodeName: next.title ?? null,
+				nextEpisodeAirDate: next.airDate ?? null,
+				lastWatchedAt: Timestamp.now(),
+				priorityDate: Timestamp.now(),
+				updatedAt: FieldValue.serverTimestamp(),
+			});
+			console.log(`  tv    ${hit.name} (${hit.id}) — rewatching, at S${next.season}E${next.episodeNumber}`);
+			continue;
 		}
 		console.log(`  tv    ${hit.name} (${hit.id}) — ${marked.length} season(s) watched`);
 	}
