@@ -29,8 +29,9 @@ export function rowSizeType(item: WatchlistListItem): RowSizeType {
 }
 
 /** Types whose remembered height is used up front */
+// Not the section headers: they're sticky, and a fixed size on one threw LegendList's sticky
+// placement off (the header vanished / the list re-anchored by a header's height after a change)
 const FIXED_TYPES: ReadonlySet<RowSizeType> = new Set([
-	RowSizeType.HEADER,
 	RowSizeType.WATCHED_EPISODE,
 	RowSizeType.WATCHED_MOVIE,
 ]);
@@ -66,8 +67,9 @@ export function saveRowSizes(
 		const type = rowSizeType(item);
 		if (!FIXED_TYPES.has(type)) return;
 		const bySize = counts.get(type) ?? new Map<number, number>();
-		const rounded = Math.round(size * 10) / 10;
-		bySize.set(rounded, (bySize.get(rounded) ?? 0) + 1);
+		// Exactly as the list measured it: a remembered height that differs by a rounding step
+		// isn't "the same", and the list re-measured and re-placed every such row
+		bySize.set(size, (bySize.get(size) ?? 0) + 1);
 		counts.set(type, bySize);
 	});
 	const next: Partial<Record<RowSizeType, number>> = { ...remembered };

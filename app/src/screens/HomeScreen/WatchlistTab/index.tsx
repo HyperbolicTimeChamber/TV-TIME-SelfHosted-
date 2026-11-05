@@ -37,6 +37,7 @@ import {
 	WatchStatus,
 } from "../../../types";
 import { useSharedShimmer } from "../../../components/SkeletonLine";
+import { SwipeActionBanner } from "../../../components/SwipeableCard";
 import { ModalBackdrop, ModalLogo } from "../../../components/modals/ModalArt";
 import type { WatchlistListItem } from "../../../types/watchlist";
 import { getCachedCatalogShow, type EnrichedTrackingItem } from "../../../hooks/useWatchlist";
@@ -47,7 +48,7 @@ import SectionHeader from "./SectionHeader";
 import HomeEmpty, { CAUGHT_UP_ART, WELCOME_ART } from "../HomeEmpty";
 import { withCaughtUp } from "../../../utils";
 import { UP_NEXT_TITLE } from "../../../utils/watchlistList";
-import { rememberedRowSize, rowSizeType, rowSizesReady, saveRowSizes } from "./rowSizes";
+import { rememberedRowSize, rowSizesReady, saveRowSizes } from "./rowSizes";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 /** Height of a pinned section header pill row */
@@ -94,8 +95,14 @@ const skeletonStyles = StyleSheet.create({
 const CARD_MOVE_MS = 300;
 const CARD_MOVE_EASING = Easing.bezier(0.77, 0, 0.175, 1);
 
-/** `grow`: a row joining Previously Watched on screen — grows in (the token starts it once) */
-type ListRow = WatchlistListItem & { grow?: number; growFrom?: number; hideHeader?: boolean };
+/** `grow`: a row joining Previously Watched on screen — grows in (GrowIn). `growShift`: rides
+ *  the header glide while it grows; `growWaiting`: hidden until its grow has started */
+type ListRow = WatchlistListItem & {
+	grow?: number;
+	growShift?: boolean;
+	growWaiting?: boolean;
+	hideHeader?: boolean;
+};
 /** The "What's Up Next" header's move (list coordinates) while a row grows in above it */
 type HeaderMove = { from: number; to: number; token: number };
 /** Card moves right after a mark glide (the list's own layout transition: positions change
@@ -319,38 +326,18 @@ function HeaderGlide({
 }
 
 /**
- * A row joining Previously Watched: grows in from ROW_GROW_FROM while the rows under it glide
- * down (CARD_LAYOUT). Hidden by a plain style in the commit that places it — the animated values
- * only reach the screen a frame later, and the row showed full size for that frame — until its
- * grow has started
+ * Row wrapper for the grow-in of a row joining Previously Watched (or a card coming back). No
+ * hooks: every mounted row has one, so the animation (shared values + the animated styles) lives
+ * once in WatchlistTab and only rows that are growing get its style. Always the same view type,
+ * so a row starting / finishing a grow never remounts its card. `waiting` hides the row by a
+ * plain style in the commit that places it — the animated values only reach the screen a frame
+ * later, and the row showed full size for that frame — until its grow has started
  */
 function GrowIn({
-	token,
-	from = 0,
+	style,
+	waiting,
 	children,
-}: Readonly<{ token?: number; from?: number; children: ReactNode }>) {
-	const p = useSharedValue(1);
-	const offset = useSharedValue(0);
-	const [started, setStarted] = useState<number | undefined>(undefined);
-	useLayoutEffect(() => {
-		if (token === undefined) return;
-		p.value = 0;
-		p.value = withTiming(1, { duration: CARD_MOVE_MS, easing: CARD_MOVE_EASING });
-		offset.value = from;
-		const frame = requestAnimationFrame(() => setStarted(token));
-		return () => cancelAnimationFrame(frame);
-		// `from` belongs to the token it came with
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [token, p, offset]);
-	const style = useAnimatedStyle(() => ({
-		opacity: p.value,
-		transform: [
-			// A card coming back under a header that's gliding up rides along with it
-			{ translateY: offset.value * (1 - p.value) },
-			{ scale: ROW_GROW_FROM + (1 - ROW_GROW_FROM) * p.value },
-		],
-	}));
-	const waiting = token !== undefined && started !== token;
+}: Readonly<{ style?: object; waiting?: boolean; children: ReactNode }>) {
 	return (
 		<Reanimated.View style={[styles.growIn, style, waiting && styles.growWaiting]}>
 			{children}
@@ -420,6 +407,7 @@ export default function WatchlistTab() {
 		handleMarkWatchedThrough,
 		handleUnmarkEpisode,
 		handleCarouselMarkWatched,
+		isSwipedOff,
 	} = useWatchlistScreen(handleNavigateToShow);
 	// Episode sheet's logo / name (catalog cache — 0 reads)
 	const sheetShow = sheetEpisode
@@ -525,22 +513,53 @@ export default function WatchlistTab() {
 			),
 		[onCardsVisible],
 	);
+	// The grow-in, shared by every growing row (they all start in the same commit): progress 0 → 1,
+	// and the offset a card coming back under a header gliding up starts at (it rides along)
+	const growP = useSharedValue(1);
+	const growOffset = useSharedValue(0);
+	const [growStarted, setGrowStarted] = useState<number | undefined>(undefined);
+	const activeGrow = growing?.token;
+	useLayoutEffect(() => {
+		if (activeGrow === undefined) return;
+		growP.value = 0;
+		growP.value = withTiming(1, { duration: CARD_MOVE_MS, easing: CARD_MOVE_EASING });
+		growOffset.value = headerGlide?.token === activeGrow ? headerGlide.from - headerGlide.to : 0;
+		const frame = requestAnimationFrame(() => setGrowStarted(activeGrow));
+		return () => cancelAnimationFrame(frame);
+		// The header glide belongs to the token it came with
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [activeGrow, growP, growOffset]);
+	const growStyle = useAnimatedStyle(() => ({
+		opacity: growP.value,
+		transform: [{ scale: ROW_GROW_FROM + (1 - ROW_GROW_FROM) * growP.value }],
+	}));
+	const growShiftStyle = useAnimatedStyle(() => ({
+		opacity: growP.value,
+		transform: [
+			{ translateY: growOffset.value * (1 - growP.value) },
+			{ scale: ROW_GROW_FROM + (1 - ROW_GROW_FROM) * growP.value },
+		],
+	}));
+	// Only rows growing now carry an animated style; the rest are plain views
+	const growStyleOf = useCallback(
+		(item: ListRow) =>
+			item.grow === undefined ? undefined : item.growShift ? growShiftStyle : growStyle,
+		[growStyle, growShiftStyle],
+	);
 	const rows = useMemo<ListRow[]>(() => {
 		if (!growing && !headerGlide) return listData;
+		const growWaiting = growing !== null && growStarted !== growing.token;
 		return listData.map((i) => {
 			const key = keyOf(i);
 			if (growing?.keys.has(key)) {
-				// Under a header gliding by `d`: start where the header still is (see GrowIn)
-				const growFrom =
-					i.type === "show" && headerGlide?.token === growing.token
-						? headerGlide.from - headerGlide.to
-						: 0;
-				return { ...i, grow: growing.token, growFrom };
+				// Under a header gliding by: start where the header still is (growShiftStyle)
+				const growShift = i.type === "show" && headerGlide?.token === growing.token;
+				return { ...i, grow: growing.token, growShift, growWaiting };
 			}
 			if (headerGlide && key === UP_NEXT_KEY) return { ...i, hideHeader: true };
 			return i;
 		});
-	}, [listData, growing, headerGlide]);
+	}, [listData, growing, headerGlide, growStarted]);
 	// Failsafe: the header copy / leaving rows never outlast their animation (a finish callback
 	// that never comes — the view torn down mid-way — must not leave the real header hidden)
 	useEffect(() => {
@@ -637,7 +656,7 @@ export default function WatchlistTab() {
 
 			if (item.type === "watchedMovie") {
 				return (
-					<GrowIn token={item.grow}>
+					<GrowIn style={growStyleOf(item)} waiting={item.growWaiting}>
 						<ShowCard
 							item={
 								{
@@ -662,7 +681,7 @@ export default function WatchlistTab() {
 
 			if (item.type === "watchedEpisode") {
 				return (
-					<GrowIn token={item.grow}>
+					<GrowIn style={growStyleOf(item)} waiting={item.growWaiting}>
 						<WatchedEpisodeRow
 							episode={item.episode}
 							show={item.show}
@@ -684,7 +703,7 @@ export default function WatchlistTab() {
 			// All fields pre-computed in useWatchlistData — no catalog lookup needed
 			return (
 				// Grows in when an unwatch brings the card back (listMotion)
-				<GrowIn token={item.grow} from={item.growFrom}>
+				<GrowIn style={growStyleOf(item)} waiting={item.growWaiting}>
 					<ShowCard
 						item={item.item}
 						isUpdating={updatingShows.has(item.item.tmdbId)}
@@ -713,6 +732,7 @@ export default function WatchlistTab() {
 			handleMovieSwipeLeft,
 			handleMovieSwipeRight,
 			renderCaughtUp,
+			growStyleOf,
 			listH,
 		],
 	);
@@ -767,7 +787,6 @@ export default function WatchlistTab() {
 				keyExtractor={keyOf}
 				renderItem={renderItem}
 				recycleItems
-				getItemType={rowSizeType}
 				getFixedItemSize={rememberedRowSize}
 				itemLayoutAnimation={layoutMoving ? CARD_LAYOUT : CARD_LAYOUT_INSTANT}
 				drawDistance={SCREEN_HEIGHT * 2}
@@ -816,6 +835,13 @@ export default function WatchlistTab() {
 							onSwipeLeft={noopAsync}
 							onPress={noop}
 							onCheckmark={noopAsync}
+						/>
+					) : isSwipedOff(card.key) ? (
+						// Swiped off (unwatched): the blue banner it waited on is what shrinks away
+						<SwipeActionBanner
+							color={colors.stopBlue}
+							label="Unwatch"
+							minHeight={Math.max(0, card.h - spacing.sm)}
 						/>
 					) : (
 						renderItem({ item: card.row })

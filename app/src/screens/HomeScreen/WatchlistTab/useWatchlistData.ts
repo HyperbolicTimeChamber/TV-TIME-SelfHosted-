@@ -449,9 +449,22 @@ export function useWatchlistData(userId: string | undefined) {
 			if (t > now && t < next) next = t;
 		}
 		if (next - now > AIR_RECHECK_MAX_MS) return;
-		const timer = setTimeout(() => setAirClock((c) => c + 1), next - now + 1000);
+		const timer = setTimeout(
+			() => {
+				// Cards this re-check brings into "What's Up Next" grow in (noted before the list sees
+				// them — it picks its animations while rendering the new rows)
+				for (const item of items) {
+					if (!isShowVisible(item)) continue;
+					const stamp = nextEpisodeAirStamp(item.nextEpisode, item.catalogShow);
+					const t = stamp ? Date.parse(stamp) : NaN;
+					if (t > now) noteListChange(item.tmdbId);
+				}
+				setAirClock((c) => c + 1);
+			},
+			next - now + 1000,
+		);
 		return () => clearTimeout(timer);
-	}, [items, airClock]);
+	}, [items, airClock, noteListChange]);
 
 	const sortedActive = useMemo(() => {
 		const visible = items.filter((item) => isShowVisible(item));
@@ -541,13 +554,25 @@ export function useWatchlistData(userId: string | undefined) {
 		return all.length > MAX_VOLATILE ? all.slice(-MAX_VOLATILE) : all;
 	}, [safePrevItems]);
 
-	// Already ascending — volatile (older) then cached (newer), newest at bottom
-	const prevWatchedItems = useMemo(
-		() => [...volatilePrevWatched, ...cachedPrevWatched],
-		[volatilePrevWatched, cachedPrevWatched],
-	);
-
 	const allLoading = loading || watchedEpsLoading || watchedMoviesLoading;
+
+	// The oldest row shown stays the oldest: the section is a window of the newest rows, so
+	// an unwatched row used to pull the next-older one in at the top (and a mark pushed the top
+	// one out) — a row appearing / going above the view, which the list answered by scrolling.
+	// Rows newer than the boundary all show (marks just add at the bottom); it moves only when
+	// more are pulled in (pull to refresh → volatileCap)
+	const shownFrom = useRef<{ time: number; cap: number } | null>(null);
+	// Already ascending — volatile (older) then cached (newer), newest at bottom
+	const prevWatchedItems = useMemo(() => {
+		const windowed = [...volatilePrevWatched, ...cachedPrevWatched];
+		if (allLoading || windowed.length === 0) return windowed;
+		const from = shownFrom.current;
+		if (!from || from.cap !== volatileCap) {
+			shownFrom.current = { time: windowed[0].time, cap: volatileCap };
+			return windowed;
+		}
+		return safePrevItems.filter((i) => i.time >= from.time);
+	}, [volatilePrevWatched, cachedPrevWatched, safePrevItems, allLoading, volatileCap]);
 
 	// Previously Watched rows of a title that's neither on a loaded watchlist page nor in the
 	// catalog cache drew a blank card (e.g. marked from its page, its tracking page not loaded).

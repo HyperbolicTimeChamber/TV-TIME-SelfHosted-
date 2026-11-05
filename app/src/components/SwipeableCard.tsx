@@ -1,11 +1,12 @@
-import React, { useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
-import {
-	View,
-	Text,
-	StyleSheet,
-	ActivityIndicator,
-	Dimensions,
-} from "react-native";
+import React, {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	forwardRef,
+	useImperativeHandle,
+} from "react";
+import { View, Text, StyleSheet, ActivityIndicator, Dimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
 	useSharedValue,
@@ -21,7 +22,8 @@ import { RxCheck, RxCross2 } from "./RxIcons";
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.35;
 /** A swiped-away row that is still in the list after this long comes back */
-const DONE_RESTORE_MS = 1500;
+/** A row whose action should have taken it off the list, still there after this → shown again */
+const HOLD_MS = 5000;
 
 type SwipeState = "idle" | "swiped_left" | "swiped_right" | "loading" | "done";
 
@@ -44,6 +46,21 @@ interface Props {
 	/** Identity of what the card shows — a recycled list row resets its swipe state when it
 	 *  changes (a remounting `key` would throw away the recycled views) */
 	resetKey?: string;
+}
+
+/** The swipe's in-progress banner (action colour, spinner, label) — also drawn by the watchlist
+ *  as a leaving row's copy, so the banner a row ended on is what shrinks away */
+export function SwipeActionBanner({
+	color,
+	label,
+	minHeight,
+}: Readonly<{ color: string; label: string; minHeight: number }>) {
+	return (
+		<View style={[styles.wrapper, styles.loadingReveal, { backgroundColor: color, minHeight }]}>
+			<ActivityIndicator color={colors.text} />
+			<Text style={styles.revealText}>{label}</Text>
+		</View>
+	);
 }
 
 export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
@@ -89,7 +106,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 	const [persistingLoad, setPersistingLoad] = React.useState(false);
 	// Recycled into another item → start clean
 	const firstKey = useRef(resetKey);
-	useEffect(() => {
+	useLayoutEffect(() => {
 		if (resetKey === firstKey.current) return;
 		firstKey.current = resetKey;
 		if (restoreTimer.current) clearTimeout(restoreTimer.current);
@@ -153,18 +170,16 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				} else {
 					await onSwipeRightRef.current?.();
 				}
-				setSwipeState("done");
-				// No LayoutAnimation here: on Android it runs over the whole next commit, and a poster
-				// the list swapped out during it (mark / unwatch re-render, recycled rows) stayed on
-				// screen over another card until restart. The list's own updates are enough
-				// Row still here once the list has updated (Rewatch / −1 keep it) → show it again
-				// rather than leave a blank gap
+				// The action takes the row off the list (an unwatch to 0): stay on its banner until
+				// the list drops it — the list then shrinks that banner away (WatchlistTab). Coming
+				// back to the row in between read as the unwatch undoing itself. Still here after
+				// HOLD_MS (the list kept it) → show it again rather than a stuck banner
 				restoreTimer.current = setTimeout(() => {
 					translateX.value = 0;
 					setShowReveal(false);
 					setSwipeState("idle");
 					isProcessing.current = false;
-				}, DONE_RESTORE_MS);
+				}, HOLD_MS);
 			} catch (err) {
 				console.error("SwipeableCard action failed:", err);
 				translateX.value = withTiming(0, { duration: 300 });
@@ -249,22 +264,25 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		opacity: interpolate(translateX.value, [-SWIPE_THRESHOLD, 0], [1, 0], Extrapolation.CLAMP),
 	}));
 
-	if (swipeState === "done") {
+	// A recycled list row shows its new item from the first render: the reset below runs after
+	// it, and a row drawn one frame in the old item's swipe state (blank / banner) was measured
+	// at that size — the list placed every row under it by that and corrected it a moment later
+	// (the watchlist jumped after an unwatch)
+	const recycled = resetKey !== firstKey.current;
+	const state: SwipeState = recycled ? "idle" : swipeState;
+	const reveal = recycled ? false : showReveal;
+
+	if (state === "done") {
 		return null;
 	}
 
-	if (swipeState === "loading" && !persistingLoad) {
+	if (state === "loading" && !persistingLoad) {
 		return (
-			<View
-				style={[
-					styles.wrapper,
-					styles.loadingReveal,
-					{ backgroundColor: actionColor, minHeight: cardHeight.current || 100 },
-				]}
-			>
-				<ActivityIndicator color={colors.text} />
-				<Text style={styles.revealText}>{actionColor === leftColor ? leftLabel : rightLabel}</Text>
-			</View>
+			<SwipeActionBanner
+				color={actionColor}
+				label={actionColor === leftColor ? leftLabel : rightLabel}
+				minHeight={cardHeight.current || 100}
+			/>
 		);
 	}
 
@@ -276,18 +294,18 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				if (h > 0) cardHeight.current = h;
 			}}
 		>
-			{showReveal && (
+			{reveal && (
 				<>
 					<Animated.View
 						style={[
 							styles.revealCard,
-							swipeState === "loading" && actionColor === leftColor
+							state === "loading" && actionColor === leftColor
 								? { opacity: 1, justifyContent: "center" as const }
 								: [styles.revealLeft, leftRevealOpacity],
 							{ backgroundColor: leftColor },
 						]}
 					>
-						{swipeState === "loading" && actionColor === leftColor ? (
+						{state === "loading" && actionColor === leftColor ? (
 							<>
 								<ActivityIndicator color={colors.text} />
 								<Text style={styles.revealText}>{leftLabel}</Text>
@@ -305,13 +323,13 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 					<Animated.View
 						style={[
 							styles.revealCard,
-							swipeState === "loading" && actionColor === rightColor
+							state === "loading" && actionColor === rightColor
 								? { opacity: 1, justifyContent: "center" as const }
 								: [styles.revealRight, rightRevealOpacity],
 							{ backgroundColor: rightColor },
 						]}
 					>
-						{swipeState === "loading" && actionColor === rightColor ? (
+						{state === "loading" && actionColor === rightColor ? (
 							<>
 								<ActivityIndicator color={colors.text} />
 								<Text style={styles.revealText}>{rightLabel}</Text>

@@ -58,7 +58,7 @@ export enum CacheKey {
 	/** Confirmed: every tracking page is loaded (nothing more to page in) — skips the skeleton footer */
 	WATCHLIST_EXHAUSTED = "watchlist_exhausted_v1",
 	/** Measured watchlist row heights by row type (WatchlistTab rowSizes) */
-	WATCHLIST_ROW_SIZES = "watchlist_row_sizes_v1",
+	WATCHLIST_ROW_SIZES = "watchlist_row_sizes_v2",
 	UPCOMING_EPISODES = "upcoming_episodes_cache_v2",
 	UPCOMING_BUILT = "upcoming_subcollection_built",
 	USER_STATS = "profile_stats_cache",

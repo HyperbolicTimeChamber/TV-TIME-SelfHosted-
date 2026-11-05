@@ -422,10 +422,15 @@ export function useWatchlistScreen(
 		[user?.uid, queryClient, watchlistPointer],
 	);
 
+	// Rows a swipe is taking off the list (their last watch unwatched): they wait on the swipe's
+	// blue banner, and the list shrinks that banner away when they go (isSwipedOff)
+	const swipedOff = useRef(new Set<string>());
+	const isSwipedOff = useCallback((rowKey: string) => swipedOff.current.has(rowKey), []);
 	const handleWatchedSwipeRight = useCallback(
 		async (episode: WatchedEpisode) => {
 			if (!user?.uid) return;
 			noteListChange(episode.tmdbShowId);
+			if ((episode.watchCount || 0) <= 1) swipedOff.current.add(`watched_${episode.id}`);
 			const uid = user.uid;
 			// Mid-rewatch: not below the rewatch number (as the sheet's −) — earlier runs stay
 			const floor = rewatchFloor(episode.tmdbShowId);
@@ -542,6 +547,7 @@ export function useWatchlistScreen(
 		async (movie: WatchedMovie) => {
 			if (!user?.uid) return;
 			noteListChange(movie.tmdbId);
+			if ((movie.watchCount || 0) <= 1) swipedOff.current.add(`movie_${movie.id}`);
 			const count = movie.watchCount || 0;
 			if (count <= 0) return;
 			// Off the real count (read first): a stale cached count can't delete watches
@@ -693,5 +699,6 @@ export function useWatchlistScreen(
 		handleUnmarkEpisode,
 		handleCarouselMarkWatched,
 		handleSkipEpisode,
+		isSwipedOff,
 	};
 }
