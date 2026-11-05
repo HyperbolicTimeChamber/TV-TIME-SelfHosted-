@@ -23,7 +23,7 @@ const SCREEN_WIDTH = Dimensions.get("window").width;
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.35;
 /** A swiped-away row that is still in the list after this long comes back */
 /** A row whose action should have taken it off the list, still there after this → shown again */
-const HOLD_MS = 5000;
+const HOLD_MS = 15000;
 
 type SwipeState = "idle" | "swiped_left" | "swiped_right" | "loading" | "done";
 
