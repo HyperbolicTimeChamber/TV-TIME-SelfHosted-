@@ -86,6 +86,17 @@
 	letter-spacing: 1px;
 }
 
+/* Episode line: "S02 | E10" and its tag, centred on each other, 8 apart (app episodeRow) */
+.episodeRow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.inlineTag {
+	margin-top: 0;
+}
+
 .remaining {
 	color: var(--text-muted);
 	font-size: 12px;

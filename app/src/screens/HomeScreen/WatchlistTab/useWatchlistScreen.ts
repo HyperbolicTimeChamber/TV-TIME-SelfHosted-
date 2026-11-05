@@ -104,6 +104,8 @@ export function useWatchlistScreen(
 	const {
 		listData,
 		promotions,
+		wasJustMarked,
+		noteListChange,
 		loading,
 		listSettled,
 		loadMoreTracking,
@@ -423,6 +425,7 @@ export function useWatchlistScreen(
 	const handleWatchedSwipeRight = useCallback(
 		async (episode: WatchedEpisode) => {
 			if (!user?.uid) return;
+			noteListChange(episode.tmdbShowId);
 			const uid = user.uid;
 			// Mid-rewatch: not below the rewatch number (as the sheet's −) — earlier runs stay
 			const floor = rewatchFloor(episode.tmdbShowId);
@@ -452,7 +455,7 @@ export function useWatchlistScreen(
 			);
 			decrementDailyWatch("episode");
 		},
-		[user?.uid, queryClient, rewatchFloor, watchlistPointer],
+		[noteListChange, user?.uid, queryClient, rewatchFloor, watchlistPointer],
 	);
 
 	/**
@@ -464,6 +467,7 @@ export function useWatchlistScreen(
 		async (from: number, to: number): Promise<number | void> => {
 			const ep = sheetEpisode;
 			if (!user?.uid || !ep || from === to) return;
+			noteListChange(ep.tmdbShowId);
 			const uid = user.uid;
 			const key = `${ep.season}_${ep.episode}`;
 			/** Row at `n` watches (0 = gone); a row that's gone comes back via insert */
@@ -510,7 +514,7 @@ export function useWatchlistScreen(
 			}
 			return final;
 		},
-		[user?.uid, sheetEpisode, queryClient, watchlistPointer],
+		[noteListChange, user?.uid, sheetEpisode, queryClient, watchlistPointer],
 	);
 
 	// --- Watched movie handlers ---
@@ -537,6 +541,7 @@ export function useWatchlistScreen(
 	const handleMovieSwipeRight = useCallback(
 		async (movie: WatchedMovie) => {
 			if (!user?.uid) return;
+			noteListChange(movie.tmdbId);
 			const count = movie.watchCount || 0;
 			if (count <= 0) return;
 			// Off the real count (read first): a stale cached count can't delete watches
@@ -561,7 +566,7 @@ export function useWatchlistScreen(
 			});
 			decrementDailyWatch("movie");
 		},
-		[user?.uid, queryClient],
+		[noteListChange, user?.uid, queryClient],
 	);
 
 	/** Movie row's watch count sheet settled: optimistic like the episode one, then one batch write */
@@ -569,6 +574,7 @@ export function useWatchlistScreen(
 		async (from: number, to: number): Promise<number | void> => {
 			const movie = sheetMovie;
 			if (!user?.uid || !movie || from === to) return;
+			noteListChange(movie.tmdbId);
 			const uid = user.uid;
 			/** Row at `n` watches (0 = gone); a row that's gone comes back via insert */
 			const showCount = (n: number, prevN: number, watchedAt: Timestamp) => {
@@ -615,7 +621,7 @@ export function useWatchlistScreen(
 			}
 			return final;
 		},
-		[user?.uid, sheetMovie, queryClient],
+		[noteListChange, user?.uid, sheetMovie, queryClient],
 	);
 
 	// Sheet's show is rewatching (or has one paused) → no "Watched Once": it would wipe earlier
@@ -670,6 +676,7 @@ export function useWatchlistScreen(
 		handleWatchedRowPress,
 		listData,
 		promotions,
+		wasJustMarked,
 		loading,
 		listSettled,
 		loadMoreTracking,

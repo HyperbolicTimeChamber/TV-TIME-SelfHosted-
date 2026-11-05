@@ -206,22 +206,30 @@ export default memo(function ShowCard({
 						movieMeta(isJustAired ? FreshTag.JUST_AIRED : (item.releaseDate?.substring(0, 4) ?? ""))
 					) : (
 						<>
-							<span className={styles.episode}>
-								{episodeLabel}
-								{remainingLabel && <span className={styles.remaining}> {remainingLabel}</span>}
+							{/* The episode's tag sits on its line, so a tagged card is no taller than the
+							    rest; LATEST already says nothing's left, so no +N beside it (app parity) */}
+							<span className={styles.episodeRow}>
+								<span className={styles.episode}>
+									{episodeLabel}
+									{remainingLabel && !(isLatest && !isFinale && !isNewEpisode) && (
+										<span className={styles.remaining}> {remainingLabel}</span>
+									)}
+								</span>
+								{isFinale ? (
+									<span className={`${styles.tagBadge} ${styles.inlineTag}`}>
+										{FreshTag.FINALE}
+									</span>
+								) : isNewEpisode ? (
+									<span className={`${styles.tagBadge} ${styles.inlineTag}`}>{FreshTag.NEW}</span>
+								) : isLatest ? (
+									<span className={`${styles.tagBadge} ${styles.inlineTag} ${styles.latestBadge}`}>
+										{FreshTag.LATEST}
+									</span>
+								) : null}
 							</span>
 							{item.nextEpisodeName && (
 								<span className={styles.episodeName}>{item.nextEpisodeName}</span>
 							)}
-							{isFinale ? (
-								<span className={styles.tagBadge}>{FreshTag.FINALE}</span>
-							) : isNewEpisode ? (
-								<span className={styles.tagBadge}>{FreshTag.NEW}</span>
-							) : isLatest ? (
-								<span className={`${styles.tagBadge} ${styles.latestBadge}`}>
-									{FreshTag.LATEST}
-								</span>
-							) : null}
 						</>
 					)}
 					{/* Same outlined tag as LATEST; only while actually rewatching */}

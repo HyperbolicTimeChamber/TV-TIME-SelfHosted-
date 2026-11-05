@@ -143,6 +143,10 @@ function buildCardItem(item: EnrichedTrackingItem, today: string) {
 	};
 }
 
+/** A card leaving "What's Up Next" this soon after its mark left because of it (the listener
+ *  confirming the write takes a round trip; generous for a slow network) */
+const JUST_MARKED_MS = 20_000;
+
 /** A mark's client time vs the priority Firestore stores for it (a server timestamp may lag) */
 const PROMOTE_CLOCK_SKEW_MS = 5000;
 
@@ -279,6 +283,28 @@ export function useWatchlistData(userId: string | undefined) {
 			return next;
 		});
 	}, []);
+	// Cards a mark just took off "What's Up Next" (nothing aired left to watch): hidden at once,
+	// so the card leaves from where it is — lifted to the top until Firestore confirmed, it sat
+	// there a round trip before going. Cleared once the live list drops it too, or the write fails
+	const [leftUpNext, setLeftUpNext] = useState<ReadonlySet<number>>(new Set());
+	const keepInUpNext = useCallback((tmdbId: number) => {
+		setLeftUpNext((prev) => {
+			if (!prev.has(tmdbId)) return prev;
+			const next = new Set(prev);
+			next.delete(tmdbId);
+			return next;
+		});
+	}, []);
+	// Titles just marked / unwatched from the list (tmdbId → when): a card or row that leaves or
+	// joins the list soon after is that change's doing, and the list animates it (grow / shrink)
+	const justMarked = useRef(new Map<number, number>());
+	const noteListChange = useCallback((tmdbId: number) => {
+		justMarked.current.set(tmdbId, Date.now());
+	}, []);
+	const wasJustMarked = useCallback(
+		(tmdbId: number) => Date.now() - (justMarked.current.get(tmdbId) ?? 0) < JUST_MARKED_MS,
+		[],
+	);
 	// Pointer (`season-episode`) each patch was made from — the listener moving it anywhere else
 	// (an unwatch, another screen) means the patch is stale
 	const optimisticFrom = useRef(new Map<number, string>());
@@ -653,16 +679,34 @@ export function useWatchlistData(userId: string | undefined) {
 	}, [cachedList, orderedLive]);
 	const effectiveLoading = reordering || (allLoading && !cachedList);
 
-	// Apply optimistic card patches
+	// Apply optimistic card patches (and hide cards a mark just took off — leftUpNext)
 	const displayList = useMemo(() => {
-		if (optimisticCards.size === 0) return rawDisplayList;
-		return rawDisplayList.map((item) => {
+		const shown =
+			leftUpNext.size === 0
+				? rawDisplayList
+				: rawDisplayList.filter((i) => i.type !== "show" || !leftUpNext.has(i.card.tmdbId));
+		if (optimisticCards.size === 0) return shown;
+		return shown.map((item) => {
 			if (item.type !== "show") return item;
 			const patch = optimisticCards.get(item.card.tmdbId);
 			if (!patch) return item;
 			return { ...item, card: { ...item.card, ...patch } };
 		});
-	}, [rawDisplayList, optimisticCards]);
+	}, [rawDisplayList, optimisticCards, leftUpNext]);
+
+	// The live list caught up (the card's gone from it too) → stop hiding it, so a later unwatch
+	// brings it back
+	useEffect(() => {
+		if (leftUpNext.size === 0) return;
+		const live = new Set(sortedActive.map((i) => i.tmdbId));
+		const confirmed = [...leftUpNext].filter((id) => !live.has(id));
+		if (confirmed.length === 0) return;
+		setLeftUpNext((prev) => {
+			const next = new Set(prev);
+			for (const id of confirmed) next.delete(id);
+			return next;
+		});
+	}, [sortedActive, leftUpNext]);
 
 	// Clear optimistic patches when listener provides matching data
 	useEffect(() => {
@@ -773,10 +817,13 @@ export function useWatchlistData(userId: string | undefined) {
 	const handleMarkWatched = useCallback(
 		async (item: EnrichedTrackingItem) => {
 			if (!userId) return;
+			noteListChange(item.tmdbId);
 			const card = item as any as CardItem;
 
 			if (item.mediaType === MediaType.MOVIE) {
 				setUpdatingShows((prev) => new Map(prev).set(item.tmdbId, MediaType.MOVIE));
+				// Watched → off "What's Up Next" now (see leftUpNext)
+				setLeftUpNext((prev) => new Set(prev).add(item.tmdbId));
 				// Previously Watched row first (optimistic, like the watch count sheet), not after
 				// the write's server ack: the row used to land a round trip after the tap.
 				// Cancel an in-flight fetch only if data is already loaded — a first load
@@ -800,6 +847,7 @@ export function useWatchlistData(userId: string | undefined) {
 				} catch (err: any) {
 					// Clear on failure so movie reappears in What's Up Next, and its row goes
 					restoreQuery(queryClient, moviesKey, moviesBefore);
+					keepInUpNext(item.tmdbId);
 					setUpdatingShows((prev) => {
 						const next = new Map(prev);
 						next.delete(item.tmdbId);
@@ -872,7 +920,16 @@ export function useWatchlistData(userId: string | undefined) {
 				),
 			);
 
-			promote(item.tmdbId);
+			// Nothing aired left after this one (finale, next not out yet) → the card leaves from
+			// where it is; otherwise it goes to the top with its next episode
+			const leaves = !isShowVisible({
+				...item,
+				nextEpisode,
+				nextEpisodeAirDate,
+				status: isComplete ? WatchStatus.COMPLETED : item.status,
+			});
+			if (leaves) setLeftUpNext((prev) => new Set(prev).add(item.tmdbId));
+			else promote(item.tmdbId);
 			// Previously Watched row now, with the Upcoming removal above — not after the write's
 			// server ack (the card left Upcoming at once and its row landed a round trip later).
 			// A failed write restores both caches as they were.
@@ -945,6 +1002,7 @@ export function useWatchlistData(userId: string | undefined) {
 				}
 			} catch (err: any) {
 				unpromote(item.tmdbId);
+				keepInUpNext(item.tmdbId);
 				rollbackUpcoming(upcomingSnapshot);
 				restoreQuery(queryClient, allEpsKey, allEpsBefore);
 				restoreQuery(queryClient, showEpsKey, showEpsBefore);
@@ -958,6 +1016,8 @@ export function useWatchlistData(userId: string | undefined) {
 			}
 		},
 		[
+			noteListChange,
+			keepInUpNext,
 			userId,
 			promote,
 			unpromote,
@@ -1082,6 +1142,7 @@ export function useWatchlistData(userId: string | undefined) {
 	const handleUnmarkEpisode = useCallback(
 		async (tmdbId: number, season: number, episode: number) => {
 			if (!userId) return;
+			noteListChange(tmdbId);
 			const item = items.find((i) => i.tmdbId === tmdbId);
 			const catalog = item?.catalogShow;
 			const catalogSeason = catalog?.seasons?.find((s) => s.seasonNumber === season);
@@ -1158,7 +1219,7 @@ export function useWatchlistData(userId: string | undefined) {
 				);
 			}
 		},
-		[userId, items, queryClient, rewatchFloor, pointerFor],
+		[noteListChange, userId, items, queryClient, rewatchFloor, pointerFor],
 	);
 
 	const handleCarouselMarkWatched = useCallback(
@@ -1336,6 +1397,8 @@ export function useWatchlistData(userId: string | undefined) {
 		healShown,
 		listData,
 		promotions,
+		wasJustMarked,
+		noteListChange,
 		loading: effectiveLoading,
 		// Everything fetched (confirmed now, or by the last session while this one still loads):
 		// only then can an empty "What's Up Next" really mean "all caught up". Until then the

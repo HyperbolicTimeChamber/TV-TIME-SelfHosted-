@@ -11,6 +11,7 @@ vi.mock("@app/screens/HomeScreen/WatchlistTab/useWatchlistScreen", () => ({
 		listData,
 		prevWatchedOffset: 0,
 		updatingShows: new Map(),
+		wasJustMarked: () => false,
 		hasMorePrevWatched: false,
 		loadMoreTracking: vi.fn(),
 		loadingMoreTracking: false,

@@ -270,29 +270,35 @@ export default memo(function ShowCard({
 						</>
 					) : (
 						<>
-							<Text style={styles.episode}>
-								{episodeLabel}
-								{remainingLabel ? <Text style={styles.remaining}> {remainingLabel}</Text> : null}
-							</Text>
+							{/* The episode's tag sits on its line, so a tagged card is no taller than the
+							    rest; LATEST already says nothing's left, so no +N beside it */}
+							<View style={styles.episodeRow}>
+								<Text style={styles.episode}>
+									{episodeLabel}
+									{remainingLabel && !(isLatest && !isFinale && !isNewEpisode) ? (
+										<Text style={styles.remaining}> {remainingLabel}</Text>
+									) : null}
+								</Text>
+								{isFinale ? (
+									<View style={[styles.tagBadge, styles.inlineTag]}>
+										<Text style={styles.tagBadgeText}>{FreshTag.FINALE}</Text>
+									</View>
+								) : isNewEpisode ? (
+									<View style={[styles.tagBadge, styles.inlineTag]}>
+										<Text style={styles.tagBadgeText}>{FreshTag.NEW}</Text>
+									</View>
+								) : isLatest ? (
+									<View style={[styles.tagBadge, styles.inlineTag, styles.latestBadge]}>
+										<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
+											{FreshTag.LATEST}
+										</Text>
+									</View>
+								) : null}
+							</View>
 							{item.nextEpisodeName ? (
 								<Text style={styles.episodeName} numberOfLines={1}>
 									{item.nextEpisodeName}
 								</Text>
-							) : null}
-							{isFinale ? (
-								<View style={styles.tagBadge}>
-									<Text style={styles.tagBadgeText}>{FreshTag.FINALE}</Text>
-								</View>
-							) : isNewEpisode ? (
-								<View style={styles.tagBadge}>
-									<Text style={styles.tagBadgeText}>{FreshTag.NEW}</Text>
-								</View>
-							) : isLatest ? (
-								<View style={[styles.tagBadge, styles.latestBadge]}>
-									<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
-										{FreshTag.LATEST}
-									</Text>
-								</View>
 							) : null}
 						</>
 					)}
@@ -477,6 +483,13 @@ const styles = StyleSheet.create({
 		color: colors.surface,
 		letterSpacing: 0.5,
 	},
+	// Episode line: "S02 | E10" and its tag, centred on each other, 8 apart
+	episodeRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.sm,
+	},
+	inlineTag: { marginTop: 0, alignSelf: "center" },
 	latestBadge: {
 		backgroundColor: "transparent",
 		borderWidth: 1,

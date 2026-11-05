@@ -73,18 +73,28 @@ function getNextEpisodeAirDate(item: EnrichedTrackingItem): string | null {
 	return episode?.airDate ?? null;
 }
 
-/** Sort timestamp: max(priorityDate, next episode air date or movie release date) */
-function getEffectivePriority(item: EnrichedTrackingItem): number {
+/** Local midnight of a `YYYY-MM-DD` day (`new Date(day)` is UTC midnight — ahead of UTC that's
+ *  1–14h into the day, so a title released today outranked every mark made before then) */
+function localDayStartMs(day: string): number {
+	const [y, m, d] = day.split("-").map(Number);
+	if (!y || !m || !d) return 0;
+	return new Date(y, m - 1, d).getTime();
+}
+
+/**
+ * Sort timestamp: max(priorityDate, next episode air date or movie release date). The content
+ * date never counts past now: a date still ahead (catalog and tracking disagreeing on a movie's
+ * release) sat above every fresh mark, so each marked card landed under it
+ */
+export function getEffectivePriority(item: EnrichedTrackingItem, nowMs = Date.now()): number {
 	const priorityMs = item.priorityDate?.toMillis?.() ?? 0;
 
-	let contentDateMs = 0;
-	if (item.catalogShow?.mediaType === MediaType.MOVIE) {
-		const rd = item.catalogShow.releaseDate;
-		if (rd) contentDateMs = new Date(rd).getTime();
-	} else {
-		const airDate = getNextEpisodeAirDate(item);
-		if (airDate) contentDateMs = new Date(airDate).getTime();
-	}
+	const isMovie = (item.mediaType ?? item.catalogShow?.mediaType) === MediaType.MOVIE;
+	// Same release date the visibility check uses
+	const contentDay = isMovie
+		? (item.releaseDate ?? item.catalogShow?.releaseDate ?? null)
+		: getNextEpisodeAirDate(item);
+	const contentDateMs = contentDay ? Math.min(localDayStartMs(contentDay), nowMs) : 0;
 
 	return Math.max(priorityMs, contentDateMs);
 }

@@ -27,4 +27,17 @@ export const styles = StyleSheet.create({
 	separator: {
 		height: spacing.sm,
 	},
+	// A new Previously Watched row grows in from its top edge; hidden until its grow has started
+	growIn: { transformOrigin: "top" },
+	growWaiting: { opacity: 0 },
+	// Leaving card's layer over the list: clipped at the pinned header's bottom edge
+	leavingClip: {
+		position: "absolute",
+		left: 0,
+		right: 0,
+		bottom: 0,
+		overflow: "hidden",
+	},
+	headerGlide: { position: "absolute", left: 0, right: 0 },
+	leavingCard: { position: "absolute", left: 0, right: 0, backgroundColor: colors.background },
 });
