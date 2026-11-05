@@ -2,6 +2,9 @@ import { StyleSheet } from "react-native";
 import { colors, spacing, typography } from "../../theme";
 import { artHeight, NO_RESULTS_RATIO } from "../../components/NotFoundArt";
 
+/** Search bar clear button (IoIosCloseCircle) — results and suggestions pages */
+export const CLEAR_ICON_SIZE = 20;
+
 /** Poster card corners: the same 16 as a list card, so the pills and badges sit in matching curves */
 const CARD_RADIUS = 16;
 
@@ -57,11 +60,6 @@ export const styles = StyleSheet.create({
 	clearButton: {
 		paddingHorizontal: spacing.md,
 		justifyContent: "center",
-	},
-	clearButtonText: {
-		color: colors.textMuted,
-		fontSize: 16,
-		fontWeight: "600",
 	},
 	searchIconWrap: {
 		width: 44,

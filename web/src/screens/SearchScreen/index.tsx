@@ -1,3 +1,4 @@
+import { IoIosCloseCircle } from "react-icons/io";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Button } from "antd";
@@ -210,7 +211,7 @@ export default function SearchScreen() {
 									onClick={() => navigate(Paths.SEARCH_INPUT, { replace: true })}
 									aria-label="Clear search"
 								>
-									✕
+									<IoIosCloseCircle size={20} />
 								</button>
 							)}
 							{showSort && (

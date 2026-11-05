@@ -50,7 +50,8 @@ import SearchSkeleton from "./SearchSkeleton";
 import ErrorState from "../../components/ErrorState";
 import { describeSearchError } from "../../utils";
 import SearchModals from "./SearchModals";
-import { styles } from "./styles";
+import { CLEAR_ICON_SIZE, styles } from "./styles";
+import { IoIosCloseCircle } from "../../components/HiIcons";
 
 const SORT_OPTIONS: SortOption<SearchSortView>[] = SEARCH_SORT_OPTIONS.map(
 	({ label, ...value }) => ({ value, label }),
@@ -331,12 +332,7 @@ export default function SearchScreen() {
 			const adding = addingIds.has(item.id);
 			const listed = listedKeys.has(listItemKey(item.id, searchMediaType(item)));
 			const prev = cache.get(item);
-			if (
-				prev &&
-				prev._tracked === tracked &&
-				prev._adding === adding &&
-				prev._listed === listed
-			)
+			if (prev && prev._tracked === tracked && prev._adding === adding && prev._listed === listed)
 				return prev;
 			const next: SearchItem = { ...item, _tracked: tracked, _adding: adding, _listed: listed };
 			cache.set(item, next);
@@ -451,7 +447,7 @@ export default function SearchScreen() {
 									hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
 									accessibilityLabel="Clear search"
 								>
-									<Text style={styles.clearButtonText}>✕</Text>
+									<IoIosCloseCircle size={CLEAR_ICON_SIZE} color={colors.textMuted} />
 								</TouchableOpacity>
 							) : null}
 						</View>
