@@ -50,6 +50,7 @@ import { nextEpisodeAirStamp } from "../../../utils/airTime";
 import { fetchEpisodeRuntime } from "../../../services/tmdb";
 import { useAuthStore } from "../../../stores";
 import { batchEndOffsets, staggerFinishTimes } from "../../../utils/stagger";
+import { createRowStabilizer } from "../../../utils/stableRows";
 
 /** Only schedule the air-time re-check for episodes airing within a day */
 const AIR_RECHECK_MAX_MS = 86_400_000;
@@ -232,6 +233,15 @@ export type CacheableWatchlistListItem =
 			posterPath: string | null;
 			tmdbId: number;
 	  };
+
+/** A list row's identity (matches the list's own keys) */
+function listRowKey(row: WatchlistListItem): string {
+	if (row.type === "sectionHeader") return `section_${row.title}`;
+	if (row.type === "watchedMovie") return `movie_${row.movie.id}`;
+	if (row.type === "watchedEpisode") return `watched_${row.episode.id}`;
+	if (row.type === "caughtUp") return "caughtUp";
+	return `show_${row.item.id}`;
+}
 
 export function useWatchlistData(userId: string | undefined) {
 	const {
@@ -767,8 +777,11 @@ export function useWatchlistData(userId: string | undefined) {
 	}, [items, optimisticCards, loading]);
 
 	// --- Convert to WatchlistListItem for renderItem ---
+	// Unchanged rows keep their object (createRowStabilizer): rebuilt, every card re-rendered on
+	// every list change
+	const [stabilizeRows] = useState(() => createRowStabilizer<WatchlistListItem>(listRowKey));
 	const listData: WatchlistListItem[] = useMemo(() => {
-		return displayList.map((item) => {
+		const rows: WatchlistListItem[] = displayList.map((item) => {
 			if (item.type === "sectionHeader") return item;
 			if (item.type === "watchedMovie") {
 				const show =
@@ -810,7 +823,8 @@ export function useWatchlistData(userId: string | undefined) {
 				item: item.card as unknown as EnrichedTrackingItem,
 			};
 		});
-	}, [displayList, showMap]);
+		return stabilizeRows(rows);
+	}, [displayList, showMap, stabilizeRows]);
 
 	// --- Auto-load more if fewer visible items than cached ---
 	useEffect(() => {

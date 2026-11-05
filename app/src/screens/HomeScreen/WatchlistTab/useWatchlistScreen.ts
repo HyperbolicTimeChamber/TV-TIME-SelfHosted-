@@ -287,13 +287,21 @@ export function useWatchlistScreen(
 		[user?.uid, queryClient],
 	);
 
+	// Reads the list through a ref: depending on listData made it a new function on every list
+	// change, and every card re-rendered with it
+	const listDataRef = useRef(listData);
+	useEffect(() => {
+		listDataRef.current = listData;
+	}, [listData]);
 	const handleCardPress = useCallback(
 		(tmdbId: number, _mediaType: MediaType) => {
-			const listItem = listData.find((li) => li.type === "show" && li.item.tmdbId === tmdbId);
+			const listItem = listDataRef.current.find(
+				(li) => li.type === "show" && li.item.tmdbId === tmdbId,
+			);
 			if (!listItem || listItem.type !== "show") return;
 			return openEpisodeModal(listItem.item);
 		},
-		[listData, openEpisodeModal],
+		[openEpisodeModal],
 	);
 
 	/** Previously Watched row body → the episode popup on that row's episode (its green circle
