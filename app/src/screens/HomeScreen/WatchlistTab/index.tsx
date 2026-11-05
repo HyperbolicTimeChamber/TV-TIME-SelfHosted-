@@ -657,6 +657,8 @@ export default function WatchlistTab() {
 	const [headerGlide, setHeaderGlide] = useState<HeaderMove | null>(null);
 	const [opening, setOpening] = useState<{ keys: ReadonlySet<string>; token: number } | null>(null);
 	const heightToken = useRef(0);
+	// Rows that finished closing and were dropped (see `closed`)
+	const closedDone = useRef(new Set<string>());
 	if (seenPromotions !== promotions || seenList !== listKeys) {
 		const promoted = seenPromotions !== promotions;
 		setSeenPromotions(promotions);
@@ -703,9 +705,16 @@ export default function WatchlistTab() {
 				changedRow(r) &&
 				prevRows.length > 0,
 		);
+		// Not a row that already closed and was dropped: seen leaving again then, it looped
+		// (closed → dropped → "removed" → closed …) and the list kept re-anchoring
 		const closed = prevRows.filter(
-			(r) => isWatchedRow(r) && !nextKeySet.has(keyOf(r)) && changedRow(r),
+			(r) =>
+				isWatchedRow(r) &&
+				!nextKeySet.has(keyOf(r)) &&
+				changedRow(r) &&
+				!closedDone.current.has(keyOf(r)),
 		);
+		for (const r of listData) closedDone.current.delete(keyOf(r));
 		if (opened.length > 0 || closed.length > 0) {
 			heightToken.current += 1;
 			const token = heightToken.current;
@@ -758,7 +767,10 @@ export default function WatchlistTab() {
 	// Closed rows leave the list (at height 0, so nothing moves); opening flags clear
 	useEffect(() => {
 		if (closing.length === 0 || cardsGliding) return;
-		const t = setTimeout(() => setClosing([]), ROW_HEIGHT_MS + 100);
+		const t = setTimeout(() => {
+			for (const c of closing) closedDone.current.add(keyOf(c.row));
+			setClosing([]);
+		}, ROW_HEIGHT_MS + 100);
 		return () => clearTimeout(t);
 	}, [closing, cardsGliding]);
 	useEffect(() => {
