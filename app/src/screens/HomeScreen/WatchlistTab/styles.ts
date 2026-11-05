@@ -38,6 +38,8 @@ export const styles = StyleSheet.create({
 		bottom: 0,
 		overflow: "hidden",
 	},
+	// RowHeight content while its height animates: laid out at its own height
+	rowHeightContent: { position: "absolute", top: 0, left: 0, right: 0 },
 	headerGlide: { position: "absolute", left: 0, right: 0 },
 	leavingCard: { position: "absolute", left: 0, right: 0, backgroundColor: colors.background },
 });

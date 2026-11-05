@@ -1,5 +1,5 @@
 diff --git a/node_modules/@legendapp/list/react-native.js b/node_modules/@legendapp/list/react-native.js
-index b3c5a30..84d491a 100644
+index b3c5a30..6c662f4 100644
 --- a/node_modules/@legendapp/list/react-native.js
 +++ b/node_modules/@legendapp/list/react-native.js
 @@ -1624,7 +1624,7 @@ function doMaintainScrollAtEnd(ctx) {
@@ -20,7 +20,17 @@ index b3c5a30..84d491a 100644
      return false;
    }
    const distanceFromEnd = prevTotalSize - prevScroll - state.scrollLength;
-@@ -6010,7 +6010,7 @@ var ListComponent = typedMemo(function ListComponent2({
+@@ -4832,7 +4832,8 @@ function applyItemSize(ctx, itemKey, sizeObj, resolvedMeasurementItem) {
+       };
+     }
+     const size2 = resolvedMeasurementItem.fixedItemSize;
+-    if (size2 !== void 0 && size2 === sizesKnown.get(itemKey)) {
++    /* PATCH(watchloom): a measured size that differs from the fixed one still counts (rows animating their height) */
++    if (size2 !== void 0 && size2 === sizesKnown.get(itemKey) && Math.abs((horizontal ? sizeObj.width : sizeObj.height) - size2) < 0.5) {
+       updateOtherAxisSizeIfNeeded(ctx, sizeObj, horizontal);
+       return { didMeasureUserScrollAnchorResetItem };
+     }
+@@ -6010,7 +6011,7 @@ var ListComponent = typedMemo(function ListComponent2({
        ],
        contentOffset: initialContentOffset !== void 0 ? horizontal ? { x: initialContentOffset, y: 0 } : { x: 0, y: initialContentOffset } : void 0,
        horizontal,
@@ -30,7 +40,7 @@ index b3c5a30..84d491a 100644
        onScroll: onScroll2,
        ref: refScrollView,
 diff --git a/node_modules/@legendapp/list/react-native.mjs b/node_modules/@legendapp/list/react-native.mjs
-index 40e87cd..d9ad60e 100644
+index 40e87cd..f39ab62 100644
 --- a/node_modules/@legendapp/list/react-native.mjs
 +++ b/node_modules/@legendapp/list/react-native.mjs
 @@ -1603,7 +1603,7 @@ function doMaintainScrollAtEnd(ctx) {
@@ -51,7 +61,17 @@ index 40e87cd..d9ad60e 100644
      return false;
    }
    const distanceFromEnd = prevTotalSize - prevScroll - state.scrollLength;
-@@ -5989,7 +5989,7 @@ var ListComponent = typedMemo(function ListComponent2({
+@@ -4811,7 +4811,8 @@ function applyItemSize(ctx, itemKey, sizeObj, resolvedMeasurementItem) {
+       };
+     }
+     const size2 = resolvedMeasurementItem.fixedItemSize;
+-    if (size2 !== void 0 && size2 === sizesKnown.get(itemKey)) {
++    /* PATCH(watchloom): a measured size that differs from the fixed one still counts (rows animating their height) */
++    if (size2 !== void 0 && size2 === sizesKnown.get(itemKey) && Math.abs((horizontal ? sizeObj.width : sizeObj.height) - size2) < 0.5) {
+       updateOtherAxisSizeIfNeeded(ctx, sizeObj, horizontal);
+       return { didMeasureUserScrollAnchorResetItem };
+     }
+@@ -5989,7 +5990,7 @@ var ListComponent = typedMemo(function ListComponent2({
        ],
        contentOffset: initialContentOffset !== void 0 ? horizontal ? { x: initialContentOffset, y: 0 } : { x: 0, y: initialContentOffset } : void 0,
        horizontal,
