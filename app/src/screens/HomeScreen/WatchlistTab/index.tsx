@@ -454,6 +454,11 @@ function FlipIn({
 	return <Reanimated.View style={[style, waiting && FLIP_START]}>{children}</Reanimated.View>;
 }
 
+/** RowHeight's key: the row, plus whether it's animating. A row whose open / close ended or was
+ *  called off gets a fresh RowHeight — an animated height left behind (an open cancelled before
+ *  it started kept the row at 0, drawn nowhere) can't outlive its animation */
+const rowHeightKey = (item: ListRow) => `${keyOf(item)}|${item.height?.mode ?? ""}`;
+
 /** Remembered row heights (rowSizes) — but not for a row opening / closing: its height is the
  *  animation, the list must follow its measured size */
 const fixedRowSize = (item: ListRow) => {
@@ -976,7 +981,7 @@ export default function WatchlistTab() {
 
 			if (item.type === "watchedMovie") {
 				return (
-					<RowHeight key={keyOf(item)} mode={item.height?.mode} token={item.height?.token}>
+					<RowHeight key={rowHeightKey(item)} mode={item.height?.mode} token={item.height?.token}>
 						<GrowIn style={growStyleOf(item)} waiting={item.growWaiting}>
 							<ShowCard
 								item={
@@ -1003,7 +1008,7 @@ export default function WatchlistTab() {
 
 			if (item.type === "watchedEpisode") {
 				return (
-					<RowHeight key={keyOf(item)} mode={item.height?.mode} token={item.height?.token}>
+					<RowHeight key={rowHeightKey(item)} mode={item.height?.mode} token={item.height?.token}>
 						<GrowIn style={growStyleOf(item)} waiting={item.growWaiting}>
 							<WatchedEpisodeRow
 								episode={item.episode}

@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { similarProps } from "../../../utils/similarProps";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { CheckmarkButton, SwipeableCard } from "../../../components";
 import { withHaptic } from "../../../utils/haptics";
@@ -74,7 +75,7 @@ export default memo(function WatchedEpisodeRow({
 			</TouchableOpacity>
 		</SwipeableCard>
 	);
-});
+}, similarProps);
 
 const POSTER_WIDTH = 100;
 

@@ -1,4 +1,5 @@
 import React, { memo, useRef, useCallback, useMemo } from "react";
+import { similarProps } from "../utils/similarProps";
 import { withHaptic } from "../utils/haptics";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS, WatchStatus } from "../types";
@@ -334,7 +335,7 @@ export default memo(function ShowCard({
 			</TouchableOpacity>
 		</SwipeableCard>
 	);
-});
+}, similarProps);
 
 const POSTER_WIDTH = 100;
 
