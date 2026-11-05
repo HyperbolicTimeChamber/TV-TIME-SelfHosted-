@@ -37,7 +37,7 @@ import {
 	WatchStatus,
 } from "../../../types";
 import { useSharedShimmer } from "../../../components/SkeletonLine";
-import { SwipeActionBanner } from "../../../components/SwipeableCard";
+import { SwipeActionBanner, releaseHeldSwipe } from "../../../components/SwipeableCard";
 import { ModalBackdrop, ModalLogo } from "../../../components/modals/ModalArt";
 import type { WatchlistListItem } from "../../../types/watchlist";
 import { getCachedCatalogShow, type EnrichedTrackingItem } from "../../../hooks/useWatchlist";
@@ -102,7 +102,15 @@ type ListRow = WatchlistListItem & {
 	growShift?: boolean;
 	growWaiting?: boolean;
 	hideHeader?: boolean;
+	/** An unwatch just moved this card's episode back: it flips over (FlipIn); hidden until
+	 *  the flip has started */
+	flipping?: boolean;
+	flipWaiting?: boolean;
 };
+/** Unwatch flip: from edge-on (rotateX 90°) to flat, strong ease-out */
+const FLIP_FROM_DEG = 90;
+const FLIP_EASING = Easing.bezier(0.23, 1, 0.32, 1);
+const FLIP_START = { transform: [{ perspective: 800 }, { rotateX: `${FLIP_FROM_DEG}deg` }] };
 /** The "What's Up Next" header's move (list coordinates) while a row grows in above it */
 type HeaderMove = { from: number; to: number; token: number };
 /** Card moves right after a mark glide (the list's own layout transition: positions change
@@ -111,6 +119,8 @@ type HeaderMove = { from: number; to: number; token: number };
  *  every row (LegendList swaps its row container for one without transitions) */
 const CARD_LAYOUT = LinearTransition.duration(CARD_MOVE_MS).easing(CARD_MOVE_EASING);
 const CARD_LAYOUT_INSTANT = LinearTransition.duration(0);
+/** Longest a mark / unwatch keeps the glide armed waiting for its list change */
+const ARM_MS = 6000;
 /** A row joining Previously Watched grows from this scale — never from nothing */
 const ROW_GROW_FROM = 0.6;
 
@@ -258,7 +268,7 @@ function LeavingGhost({
 	children,
 }: Readonly<{ card: LeavingRow; onDone: (key: string) => void; children: ReactNode }>) {
 	const t = useSharedValue(0);
-	useEffect(() => {
+	useLayoutEffect(() => {
 		t.value = withTiming(1, { duration: CARD_MOVE_MS, easing: CARD_MOVE_EASING }, (finished) => {
 			if (finished) runOnJS(onDone)(card.key);
 		});
@@ -310,7 +320,7 @@ function HeaderGlide({
 	onDone,
 }: Readonly<{ glide: HeaderMove; onDone: (token: number) => void }>) {
 	const t = useSharedValue(0);
-	useEffect(() => {
+	useLayoutEffect(() => {
 		t.value = withTiming(1, { duration: CARD_MOVE_MS, easing: CARD_MOVE_EASING }, (finished) => {
 			if (finished) runOnJS(onDone)(glide.token);
 		});
@@ -343,6 +353,22 @@ function GrowIn({
 			{children}
 		</Reanimated.View>
 	);
+}
+
+/**
+ * Card wrapper for the unwatch flip (a card whose episode an unwatch moved back stays where it
+ * is, so nothing else showed it changed). Hook-free like GrowIn: the animation lives once in
+ * WatchlistTab and only the flipping card gets its style
+ */
+function FlipIn({
+	style,
+	waiting,
+	children,
+}: Readonly<{ style?: object; waiting?: boolean; children: ReactNode }>) {
+	// Waiting = the flip's first pose (edge-on), not hidden: the animation runs on the UI thread
+	// and takes over at once, while unhiding waited on the JS thread — busy for a second or more
+	// right after an unwatch, which left the card blank that long
+	return <Reanimated.View style={[style, waiting && FLIP_START]}>{children}</Reanimated.View>;
 }
 
 export default function WatchlistTab() {
@@ -408,6 +434,7 @@ export default function WatchlistTab() {
 		handleUnmarkEpisode,
 		handleCarouselMarkWatched,
 		isSwipedOff,
+		listChangeArm,
 	} = useWatchlistScreen(handleNavigateToShow);
 	// Episode sheet's logo / name (catalog cache — 0 reads)
 	const sheetShow = sheetEpisode
@@ -470,6 +497,61 @@ export default function WatchlistTab() {
 	// Rows compared by their keys (order included): the list's array is rebuilt on every render
 	const listKeys = useMemo(() => listData.map(keyOf).join("|"), [listData]);
 	const [seenList, setSeenList] = useState(listKeys);
+	const droppedSwipes = useRef<string[]>([]);
+	useEffect(() => {
+		const keys = droppedSwipes.current;
+		if (keys.length === 0) return;
+		droppedSwipes.current = [];
+		for (const k of keys) releaseHeldSwipe(k);
+	}, [listKeys]);
+	// Each card's episode ("key:season-episode"), to spot one an unwatch moved back
+	const cardEpisodes = useMemo(
+		() =>
+			listData
+				.flatMap((i) =>
+					i.type === "show"
+						? [`${keyOf(i)}:${i.item.nextEpisode?.season ?? 0}-${i.item.nextEpisode?.episode ?? 0}`]
+						: [],
+				)
+				.join("|"),
+		[listData],
+	);
+	const [seenEpisodes, setSeenEpisodes] = useState(cardEpisodes);
+	const [flipping, setFlipping] = useState<{ keys: ReadonlySet<string>; token: number } | null>(
+		null,
+	);
+	const flipToken = useRef(0);
+	if (seenEpisodes !== cardEpisodes) {
+		const before = new Map(
+			seenEpisodes
+				.split("|")
+				.filter(Boolean)
+				.map((p) => {
+					const at = p.lastIndexOf(":");
+					return [p.slice(0, at), p.slice(at + 1)] as const;
+				}),
+		);
+		setSeenEpisodes(cardEpisodes);
+		const back = new Set<string>();
+		for (const p of cardEpisodes.split("|").filter(Boolean)) {
+			const at = p.lastIndexOf(":");
+			const key = p.slice(0, at);
+			const was = before.get(key);
+			if (!was) continue;
+			const [ps, pe] = was.split("-").map(Number);
+			const [cs, ce] = p
+				.slice(at + 1)
+				.split("-")
+				.map(Number);
+			const item = listData.find((i) => keyOf(i) === key);
+			if (item?.type !== "show" || !wasJustMarked(item.item.tmdbId)) continue;
+			if (cs < ps || (cs === ps && ce < pe)) back.add(key);
+		}
+		if (back.size > 0) {
+			flipToken.current += 1;
+			setFlipping({ keys: back, token: flipToken.current });
+		}
+	}
 	const [leaving, setLeaving] = useState<LeavingRow[]>([]);
 	const [layoutMoving, setLayoutMoving] = useState(false);
 	const [growing, setGrowing] = useState<{ keys: ReadonlySet<string>; token: number } | null>(null);
@@ -495,10 +577,31 @@ export default function WatchlistTab() {
 			if (motion.header) setHeaderGlide({ ...motion.header, token: growToken.current });
 		}
 		if (motion.leaving.length > 0) setLeaving((prev) => [...prev, ...motion.leaving]);
+		// Rows the list dropped: a swipe banner one was held on clears (after this commit)
+		const nextKeySet = new Set(listKeys.split("|"));
+		for (const r of drawnRows.current) {
+			if (nextKeySet.has(keyOf(r))) continue;
+			if (r.type === "watchedEpisode") droppedSwipes.current.push(r.episode.id);
+			else if (r.type === "watchedMovie")
+				droppedSwipes.current.push(`${MediaType.MOVIE}_${r.movie.tmdbId}`);
+		}
 	}
+	// A mark / unwatch just started: the glide is armed before its list change arrives (a few
+	// frames for a mark, a network round trip for an unwatch), so the commit that moves the
+	// cards already has it. Disarmed once the change has animated (layoutMoving) or after ARM_MS
+	const [armed, setArmed] = useState(false);
+	useEffect(() => {
+		if (listChangeArm === 0) return;
+		setArmed(true);
+		const t = setTimeout(() => setArmed(false), ARM_MS);
+		return () => clearTimeout(t);
+	}, [listChangeArm]);
 	useEffect(() => {
 		if (!layoutMoving) return;
-		const t = setTimeout(() => setLayoutMoving(false), CARD_MOVE_MS + 200);
+		const t = setTimeout(() => {
+			setLayoutMoving(false);
+			setArmed(false);
+		}, CARD_MOVE_MS + 200);
 		return () => clearTimeout(t);
 	}, [layoutMoving, listKeys]);
 	const leftList = useCallback(
@@ -540,6 +643,20 @@ export default function WatchlistTab() {
 			{ scale: ROW_GROW_FROM + (1 - ROW_GROW_FROM) * growP.value },
 		],
 	}));
+	// The unwatch flip, shared like the grow-in
+	const flipDeg = useSharedValue(0);
+	const [flipStarted, setFlipStarted] = useState<number | undefined>(undefined);
+	const activeFlip = flipping?.token;
+	useLayoutEffect(() => {
+		if (activeFlip === undefined) return;
+		flipDeg.value = FLIP_FROM_DEG;
+		flipDeg.value = withTiming(0, { duration: CARD_MOVE_MS, easing: FLIP_EASING });
+		const frame = requestAnimationFrame(() => setFlipStarted(activeFlip));
+		return () => cancelAnimationFrame(frame);
+	}, [activeFlip, flipDeg]);
+	const flipStyle = useAnimatedStyle(() => ({
+		transform: [{ perspective: 800 }, { rotateX: `${flipDeg.value}deg` }],
+	}));
 	// Only rows growing now carry an animated style; the rest are plain views
 	const growStyleOf = useCallback(
 		(item: ListRow) =>
@@ -547,10 +664,12 @@ export default function WatchlistTab() {
 		[growStyle, growShiftStyle],
 	);
 	const rows = useMemo<ListRow[]>(() => {
-		if (!growing && !headerGlide) return listData;
+		if (!growing && !headerGlide && !flipping) return listData;
 		const growWaiting = growing !== null && growStarted !== growing.token;
+		const flipWaiting = flipping !== null && flipStarted !== flipping.token;
 		return listData.map((i) => {
 			const key = keyOf(i);
+			if (flipping?.keys.has(key)) return { ...i, flipping: true, flipWaiting };
 			if (growing?.keys.has(key)) {
 				// Under a header gliding by: start where the header still is (growShiftStyle)
 				const growShift = i.type === "show" && headerGlide?.token === growing.token;
@@ -559,7 +678,7 @@ export default function WatchlistTab() {
 			if (headerGlide && key === UP_NEXT_KEY) return { ...i, hideHeader: true };
 			return i;
 		});
-	}, [listData, growing, headerGlide, growStarted]);
+	}, [listData, growing, headerGlide, growStarted, flipping, flipStarted]);
 	// Failsafe: the header copy / leaving rows never outlast their animation (a finish callback
 	// that never comes — the view torn down mid-way — must not leave the real header hidden)
 	useEffect(() => {
@@ -703,19 +822,21 @@ export default function WatchlistTab() {
 			// All fields pre-computed in useWatchlistData — no catalog lookup needed
 			return (
 				// Grows in when an unwatch brings the card back (listMotion)
-				<GrowIn style={growStyleOf(item)} waiting={item.growWaiting}>
-					<ShowCard
-						item={item.item}
-						isUpdating={updatingShows.has(item.item.tmdbId)}
-						remainingEpisodes={(item.item as any).remaining ?? null}
-						onSwipeLeft={handleMarkWatched}
-						// Pausing is a long press + confirm (no swipe — too easy to trigger by accident)
-						onLongPress={setPauseTarget}
-						onPress={handleCardPress}
-						onTitlePress={handleTitlePress}
-						onCheckmark={handleMarkWatched}
-					/>
-				</GrowIn>
+				<FlipIn style={item.flipping ? flipStyle : undefined} waiting={item.flipWaiting}>
+					<GrowIn style={growStyleOf(item)} waiting={item.growWaiting}>
+						<ShowCard
+							item={item.item}
+							isUpdating={updatingShows.has(item.item.tmdbId)}
+							remainingEpisodes={(item.item as any).remaining ?? null}
+							onSwipeLeft={handleMarkWatched}
+							// Pausing is a long press + confirm (no swipe — too easy to trigger by accident)
+							onLongPress={setPauseTarget}
+							onPress={handleCardPress}
+							onTitlePress={handleTitlePress}
+							onCheckmark={handleMarkWatched}
+						/>
+					</GrowIn>
+				</FlipIn>
 			);
 		},
 		[
@@ -733,6 +854,7 @@ export default function WatchlistTab() {
 			handleMovieSwipeRight,
 			renderCaughtUp,
 			growStyleOf,
+			flipStyle,
 			listH,
 		],
 	);
@@ -788,7 +910,7 @@ export default function WatchlistTab() {
 				renderItem={renderItem}
 				recycleItems
 				getFixedItemSize={rememberedRowSize}
-				itemLayoutAnimation={layoutMoving ? CARD_LAYOUT : CARD_LAYOUT_INSTANT}
+				itemLayoutAnimation={layoutMoving || armed ? CARD_LAYOUT : CARD_LAYOUT_INSTANT}
 				drawDistance={SCREEN_HEIGHT * 2}
 				estimatedItemSize={110}
 				stickyHeaderIndices={stickyIndices}

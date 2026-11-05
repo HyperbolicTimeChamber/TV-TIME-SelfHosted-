@@ -106,6 +106,7 @@ export function useWatchlistScreen(
 		promotions,
 		wasJustMarked,
 		noteListChange,
+		listChangeArm,
 		loading,
 		listSettled,
 		loadMoreTracking,
@@ -700,5 +701,6 @@ export function useWatchlistScreen(
 		handleCarouselMarkWatched,
 		handleSkipEpisode,
 		isSwipedOff,
+		listChangeArm,
 	};
 }

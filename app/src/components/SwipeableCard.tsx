@@ -48,6 +48,15 @@ interface Props {
 	resetKey?: string;
 }
 
+/** Rows held on their banner (see HOLD_MS), by resetKey → called once the list has dropped
+ *  the row. A list doesn't tear a dropped row down — its container keeps drawing the last thing
+ *  it showed until it's reused — so the banner has to clear itself */
+const heldRows = new Map<string, () => void>();
+/** The list dropped this row (its resetKey): a banner it was held on goes */
+export function releaseHeldSwipe(resetKey: string) {
+	heldRows.get(resetKey)?.();
+}
+
 /** The swipe's in-progress banner (action colour, spinner, label) — also drawn by the watchlist
  *  as a leaving row's copy, so the banner a row ended on is what shrinks away */
 export function SwipeActionBanner({
@@ -106,8 +115,11 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 	const [persistingLoad, setPersistingLoad] = React.useState(false);
 	// Recycled into another item → start clean
 	const firstKey = useRef(resetKey);
+	const resetKeyRef = useRef(resetKey);
+	resetKeyRef.current = resetKey;
 	useLayoutEffect(() => {
 		if (resetKey === firstKey.current) return;
+		if (firstKey.current) heldRows.delete(firstKey.current);
 		firstKey.current = resetKey;
 		if (restoreTimer.current) clearTimeout(restoreTimer.current);
 		translateX.value = 0;
@@ -174,7 +186,16 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				// the list drops it — the list then shrinks that banner away (WatchlistTab). Coming
 				// back to the row in between read as the unwatch undoing itself. Still here after
 				// HOLD_MS (the list kept it) → show it again rather than a stuck banner
+				const key = resetKeyRef.current;
+				if (key) {
+					heldRows.set(key, () => {
+						heldRows.delete(key);
+						if (restoreTimer.current) clearTimeout(restoreTimer.current);
+						setSwipeState("done");
+					});
+				}
 				restoreTimer.current = setTimeout(() => {
+					if (key) heldRows.delete(key);
 					translateX.value = 0;
 					setShowReveal(false);
 					setSwipeState("idle");

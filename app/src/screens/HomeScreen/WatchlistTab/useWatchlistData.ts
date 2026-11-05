@@ -298,8 +298,12 @@ export function useWatchlistData(userId: string | undefined) {
 	// Titles just marked / unwatched from the list (tmdbId → when): a card or row that leaves or
 	// joins the list soon after is that change's doing, and the list animates it (grow / shrink)
 	const justMarked = useRef(new Map<number, number>());
+	// Bumped by each noted change, before the list data moves: the list arms its card glide on
+	// it (a transition switched on in the same commit as the move didn't animate it)
+	const [listChangeArm, setListChangeArm] = useState(0);
 	const noteListChange = useCallback((tmdbId: number) => {
 		justMarked.current.set(tmdbId, Date.now());
+		setListChangeArm((n) => n + 1);
 	}, []);
 	const wasJustMarked = useCallback(
 		(tmdbId: number) => Date.now() - (justMarked.current.get(tmdbId) ?? 0) < JUST_MARKED_MS,
@@ -843,6 +847,8 @@ export function useWatchlistData(userId: string | undefined) {
 		async (item: EnrichedTrackingItem) => {
 			if (!userId) return;
 			noteListChange(item.tmdbId);
+			// One frame for the list to arm its glide before this mark moves the cards
+			await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 			const card = item as any as CardItem;
 
 			if (item.mediaType === MediaType.MOVIE) {
@@ -1424,6 +1430,7 @@ export function useWatchlistData(userId: string | undefined) {
 		promotions,
 		wasJustMarked,
 		noteListChange,
+		listChangeArm,
 		loading: effectiveLoading,
 		// Everything fetched (confirmed now, or by the last session while this one still loads):
 		// only then can an empty "What's Up Next" really mean "all caught up". Until then the
