@@ -96,25 +96,19 @@ const skeletonStyles = StyleSheet.create({
 const CARD_MOVE_MS = 400;
 const CARD_MOVE_EASING = Easing.bezier(0.77, 0, 0.175, 1);
 
-/** `grow`: a row joining Previously Watched on screen — grows in (GrowIn). `growShift`: rides
- *  the header glide while it grows; `growWaiting`: hidden until its grow has started */
 type ListRow = WatchlistListItem & {
+	/** A card coming back on screen zooms in (CardMotion); the run's token */
 	grow?: number;
-	growShift?: boolean;
-	growWaiting?: boolean;
 	hideHeader?: boolean;
 	/** A Previously Watched row a mark just added: it zooms in (RowZoom) while the rows under it
 	 *  glide down; `headerSlot` = draw the "What's Up Next" header gliding along under it */
 	zoomIn?: { token: number; headerSlot?: number };
-	/** An unwatch just moved this card's episode back: it flips over (FlipIn); hidden until
-	 *  the flip has started */
-	flipping?: boolean;
-	flipWaiting?: boolean;
+	/** An unwatch just moved this card's episode back: it flips over (CardMotion); the run's token */
+	flipping?: number;
 };
 /** Unwatch flip: from edge-on (rotateX 90°) to flat, strong ease-out */
 const FLIP_FROM_DEG = 90;
 const FLIP_EASING = Easing.bezier(0.23, 1, 0.32, 1);
-const FLIP_START = { transform: [{ perspective: 800 }, { rotateX: `${FLIP_FROM_DEG}deg` }] };
 /** The "What's Up Next" header's move (list coordinates) while a row grows in above it */
 type HeaderMove = { from: number; to: number; token: number };
 /** Every row move glides (the list's own layout transition: positions change natively in the
@@ -321,26 +315,6 @@ function HeaderGlide({
 }
 
 /**
- * Row wrapper for the grow-in of a row joining Previously Watched (or a card coming back). No
- * hooks: every mounted row has one, so the animation (shared values + the animated styles) lives
- * once in WatchlistTab and only rows that are growing get its style. Always the same view type,
- * so a row starting / finishing a grow never remounts its card. `waiting` hides the row by a
- * plain style in the commit that places it — the animated values only reach the screen a frame
- * later, and the row showed full size for that frame — until its grow has started
- */
-function GrowIn({
-	style,
-	waiting,
-	children,
-}: Readonly<{ style?: object; waiting?: boolean; children: ReactNode }>) {
-	return (
-		<Reanimated.View style={[styles.growIn, style, waiting && styles.growWaiting]}>
-			{children}
-		</Reanimated.View>
-	);
-}
-
-/**
  * A Previously Watched row a mark just added. It takes its full slot at once and the rows under it
  * glide down by the list's layout transition (CARD_LAYOUT); its card zooms in by an entering
  * animation with the same timing — evenly (its shape kept), scaled to the room opened so far and
@@ -404,21 +378,50 @@ function RowZoom({
 	);
 }
 
+/** Card coming back: zooms in from its centre as it fades in */
+const cardGrowIn = () => {
+	"worklet";
+	const cfg = { duration: CARD_MOVE_MS, easing: CARD_MOVE_EASING };
+	return {
+		initialValues: { opacity: 0, transform: [{ scale: ROW_GROW_FROM }] },
+		animations: { opacity: withTiming(1, cfg), transform: [{ scale: withTiming(1, cfg) }] },
+	};
+};
+/** Card whose episode an unwatch moved back: flips over from edge-on (rotateX 90° → 0) */
+const cardFlipIn = () => {
+	"worklet";
+	const cfg = { duration: CARD_MOVE_MS, easing: FLIP_EASING };
+	return {
+		initialValues: { transform: [{ perspective: 800 }, { rotateX: `${FLIP_FROM_DEG}deg` }] },
+		animations: { transform: [{ perspective: 800 }, { rotateX: withTiming("0deg", cfg) }] },
+	};
+};
+
 /**
- * Card wrapper for the unwatch flip (a card whose episode an unwatch moved back stays where it
- * is, so nothing else showed it changed). Hook-free like GrowIn: the animation lives once in
- * WatchlistTab and only the flipping card gets its style
+ * Card wrapper for a card coming back (grow) or flipping over (an unwatch moved its episode back,
+ * so nothing else showed it changed). Entering animations on a view keyed by the run (cardMotionKey):
+ * they start natively in the commit that places the card, and a run that ends gets a fresh view.
+ * Shared animated styles started from JS before: one dropped mid-run left its last pose on the
+ * view — a card stuck edge-on, zero high, a blank slot in the list
  */
-function FlipIn({
-	style,
-	waiting,
-	children,
-}: Readonly<{ style?: object; waiting?: boolean; children: ReactNode }>) {
-	// Waiting = the flip's first pose (edge-on), not hidden: the animation runs on the UI thread
-	// and takes over at once, while unhiding waited on the JS thread — busy for a second or more
-	// right after an unwatch, which left the card blank that long
-	return <Reanimated.View style={[style, waiting && FLIP_START]}>{children}</Reanimated.View>;
+function CardMotion({ item, children }: Readonly<{ item: ListRow; children: ReactNode }>) {
+	return (
+		<Reanimated.View
+			style={styles.zoomCentre}
+			entering={
+				item.flipping !== undefined ? cardFlipIn : item.grow !== undefined ? cardGrowIn : undefined
+			}
+		>
+			{children}
+		</Reanimated.View>
+	);
 }
+const cardMotionKey = (item: ListRow) =>
+	item.flipping !== undefined
+		? `flip${item.flipping}`
+		: item.grow !== undefined
+			? `grow${item.grow}`
+			: "card";
 
 /** Remembered row heights (rowSizes) */
 const fixedRowSize = (item: ListRow) => rememberedRowSize(item);
@@ -726,72 +729,33 @@ export default function WatchlistTab() {
 			),
 		[onCardsVisible],
 	);
-	// The grow-in, shared by every growing row (they all start in the same commit): progress 0 → 1,
-	// and the offset a card coming back under a header gliding up starts at (it rides along)
-	const growP = useSharedValue(1);
-	const growOffset = useSharedValue(0);
-	const [growStarted, setGrowStarted] = useState<number | undefined>(undefined);
-	const activeGrow = growing?.token;
-	useLayoutEffect(() => {
-		if (activeGrow === undefined) return;
-		growP.value = 0;
-		growP.value = withTiming(1, { duration: CARD_MOVE_MS, easing: CARD_MOVE_EASING });
-		growOffset.value = headerGlide?.token === activeGrow ? headerGlide.from - headerGlide.to : 0;
-		const frame = requestAnimationFrame(() => setGrowStarted(activeGrow));
-		return () => cancelAnimationFrame(frame);
-		// The header glide belongs to the token it came with
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [activeGrow, growP, growOffset]);
-	const growStyle = useAnimatedStyle(() => ({
-		opacity: growP.value,
-		transform: [{ scale: ROW_GROW_FROM + (1 - ROW_GROW_FROM) * growP.value }],
-	}));
-	const growShiftStyle = useAnimatedStyle(() => ({
-		opacity: growP.value,
-		transform: [
-			{ translateY: growOffset.value * (1 - growP.value) },
-			{ scale: ROW_GROW_FROM + (1 - ROW_GROW_FROM) * growP.value },
-		],
-	}));
-	// The unwatch flip, shared like the grow-in
-	const flipDeg = useSharedValue(0);
-	const [flipStarted, setFlipStarted] = useState<number | undefined>(undefined);
-	const activeFlip = flipping?.token;
-	useLayoutEffect(() => {
-		if (activeFlip === undefined) return;
-		flipDeg.value = FLIP_FROM_DEG;
-		flipDeg.value = withTiming(0, { duration: CARD_MOVE_MS, easing: FLIP_EASING });
-		const frame = requestAnimationFrame(() => setFlipStarted(activeFlip));
-		return () => cancelAnimationFrame(frame);
-	}, [activeFlip, flipDeg]);
-	const flipStyle = useAnimatedStyle(() => ({
-		transform: [{ perspective: 800 }, { rotateX: `${flipDeg.value}deg` }],
-	}));
-	// Only rows growing now carry an animated style; the rest are plain views
-	const growStyleOf = useCallback(
-		(item: ListRow) =>
-			item.grow === undefined ? undefined : item.growShift ? growShiftStyle : growStyle,
-		[growStyle, growShiftStyle],
-	);
+	// A card's grow / flip runs once: its flag clears after (the card gets a plain view again —
+	// cardMotionKey), so scrolling back to it doesn't replay it
+	useEffect(() => {
+		if (!growing) return;
+		const t = setTimeout(() => setGrowing(null), CARD_MOVE_MS + 200);
+		return () => clearTimeout(t);
+	}, [growing]);
+	useEffect(() => {
+		if (!flipping) return;
+		const t = setTimeout(() => setFlipping(null), CARD_MOVE_MS + 200);
+		return () => clearTimeout(t);
+	}, [flipping]);
 	const rows = useMemo<ListRow[]>(() => {
 		if (!growing && !headerGlide && !flipping && !opening) return listData;
 		// The row the header copy rides under (the newest of the rows zooming in)
 		const lastOpened = opening
 			? listData.reduce((at, r, k) => (opening.keys.has(keyOf(r)) ? k : at), -1)
 			: -1;
-		const growWaiting = growing !== null && growStarted !== growing.token;
-		const flipWaiting = flipping !== null && flipStarted !== flipping.token;
 		return listData.map((i) => {
 			const key = keyOf(i);
-			if (flipping?.keys.has(key)) return { ...i, flipping: true, flipWaiting };
+			if (flipping?.keys.has(key)) return { ...i, flipping: flipping.token };
 			if (opening?.keys.has(key)) {
 				const headerSlot = listData[lastOpened] === i ? opening.headerSlot : undefined;
 				return { ...i, zoomIn: { token: opening.token, headerSlot } };
 			}
 			if (growing?.keys.has(key)) {
-				// Under a header gliding by: start where the header still is (growShiftStyle)
-				const growShift = i.type === "show" && headerGlide?.token === growing.token;
-				return { ...i, grow: growing.token, growShift, growWaiting };
+				return { ...i, grow: growing.token };
 			}
 			// Hidden while a copy glides in its place (HeaderGlide, or riding under a zooming row)
 			if (key === UP_NEXT_KEY && (headerGlide || opening?.headerSlot !== undefined)) {
@@ -799,15 +763,7 @@ export default function WatchlistTab() {
 			}
 			return i;
 		});
-	}, [
-		listData,
-		growing,
-		headerGlide,
-		growStarted,
-		flipping,
-		flipStarted,
-		opening,
-	]);
+	}, [listData, growing, headerGlide, flipping, opening]);
 	// Failsafe: the header copy / leaving rows never outlast their animation (a finish callback
 	// that never comes — the view torn down mid-way — must not leave the real header hidden)
 	useEffect(() => {
@@ -905,26 +861,24 @@ export default function WatchlistTab() {
 			if (item.type === "watchedMovie") {
 				return (
 					<RowZoom key={keyOf(item)} zoomIn={item.zoomIn}>
-						<GrowIn style={growStyleOf(item)} waiting={item.growWaiting}>
-							<ShowCard
-								item={
-									{
-										...item.show,
-										nextEpisode: null,
-										mediaType: MediaType.MOVIE,
-										rewatchCount: item.show.rewatchCount ?? 0,
-										director: item.show.catalogShow?.credits?.directors?.[0] ?? null,
-									} as any
-								}
-								isWatched
-								watchCount={item.movie.watchCount ?? 0}
-								onSwipeLeft={() => handleMovieSwipeLeft(item.movie)}
-								onSwipeRight={() => handleMovieSwipeRight(item.movie)}
-								onLongPress={canPause(item.show) ? () => setPauseTarget(item.show) : undefined}
-								onPress={(id) => handleNavigateToShow(id, MediaType.MOVIE)}
-								onCheckmark={async () => handleMovieCheckmark(item.movie, item.show.title)}
-							/>
-						</GrowIn>
+						<ShowCard
+							item={
+								{
+									...item.show,
+									nextEpisode: null,
+									mediaType: MediaType.MOVIE,
+									rewatchCount: item.show.rewatchCount ?? 0,
+									director: item.show.catalogShow?.credits?.directors?.[0] ?? null,
+								} as any
+							}
+							isWatched
+							watchCount={item.movie.watchCount ?? 0}
+							onSwipeLeft={() => handleMovieSwipeLeft(item.movie)}
+							onSwipeRight={() => handleMovieSwipeRight(item.movie)}
+							onLongPress={canPause(item.show) ? () => setPauseTarget(item.show) : undefined}
+							onPress={(id) => handleNavigateToShow(id, MediaType.MOVIE)}
+							onCheckmark={async () => handleMovieCheckmark(item.movie, item.show.title)}
+						/>
 					</RowZoom>
 				);
 			}
@@ -932,17 +886,15 @@ export default function WatchlistTab() {
 			if (item.type === "watchedEpisode") {
 				return (
 					<RowZoom key={keyOf(item)} zoomIn={item.zoomIn}>
-						<GrowIn style={growStyleOf(item)} waiting={item.growWaiting}>
-							<WatchedEpisodeRow
-								episode={item.episode}
-								show={item.show}
-								onPress={handleWatchedRowPress}
-								onCheckmarkPress={handleWatchedCheckmark}
-								onSwipeLeft={handleWatchedSwipeLeft}
-								onSwipeRight={handleWatchedSwipeRight}
-								onLongPress={canPause(item.show) ? setPauseTarget : undefined}
-							/>
-						</GrowIn>
+						<WatchedEpisodeRow
+							episode={item.episode}
+							show={item.show}
+							onPress={handleWatchedRowPress}
+							onCheckmarkPress={handleWatchedCheckmark}
+							onSwipeLeft={handleWatchedSwipeLeft}
+							onSwipeRight={handleWatchedSwipeRight}
+							onLongPress={canPause(item.show) ? setPauseTarget : undefined}
+						/>
 					</RowZoom>
 				);
 			}
@@ -954,22 +906,20 @@ export default function WatchlistTab() {
 
 			// All fields pre-computed in useWatchlistData — no catalog lookup needed
 			return (
-				// Grows in when an unwatch brings the card back (listMotion)
-				<FlipIn style={item.flipping ? flipStyle : undefined} waiting={item.flipWaiting}>
-					<GrowIn style={growStyleOf(item)} waiting={item.growWaiting}>
-						<ShowCard
-							item={item.item}
-							isUpdating={updatingShows.has(item.item.tmdbId)}
-							remainingEpisodes={(item.item as any).remaining ?? null}
-							onSwipeLeft={handleMarkWatched}
-							// Pausing is a long press + confirm (no swipe — too easy to trigger by accident)
-							onLongPress={setPauseTarget}
-							onPress={handleCardPress}
-							onTitlePress={handleTitlePress}
-							onCheckmark={handleMarkWatched}
-						/>
-					</GrowIn>
-				</FlipIn>
+				// Grows in when an unwatch brings the card back, flips when it moved its episode back
+				<CardMotion key={cardMotionKey(item)} item={item}>
+					<ShowCard
+						item={item.item}
+						isUpdating={updatingShows.has(item.item.tmdbId)}
+						remainingEpisodes={(item.item as any).remaining ?? null}
+						onSwipeLeft={handleMarkWatched}
+						// Pausing is a long press + confirm (no swipe — too easy to trigger by accident)
+						onLongPress={setPauseTarget}
+						onPress={handleCardPress}
+						onTitlePress={handleTitlePress}
+						onCheckmark={handleMarkWatched}
+					/>
+				</CardMotion>
 			);
 		},
 		[
@@ -986,8 +936,6 @@ export default function WatchlistTab() {
 			handleMovieSwipeLeft,
 			handleMovieSwipeRight,
 			renderCaughtUp,
-			growStyleOf,
-			flipStyle,
 			listH,
 		],
 	);
