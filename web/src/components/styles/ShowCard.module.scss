@@ -120,7 +120,24 @@
 .movieMetaRow {
 	display: flex;
 	align-items: center;
-	margin-top: 4px;
+}
+
+/* Movie: title, tags and director equally spaced (app MOVIE_LINE_GAP) — 13px (web type) puts the director
+   as far below the title as an episode card's episode name */
+.movieTitlePill {
+	margin-bottom: 13px;
+}
+
+/* From the top, like an episode card filled by its lines: title and director at the same height
+   as an episode card's title and episode name (centred, the shorter movie block moved down) */
+.movieInfo {
+	justify-content: flex-start;
+}
+
+/* Tight line height and 2px under the gap: the name's capitals sit ~2px below its line top */
+.movieDirector {
+	margin-top: 11px;
+	line-height: 16px;
 }
 
 .movieBadge {

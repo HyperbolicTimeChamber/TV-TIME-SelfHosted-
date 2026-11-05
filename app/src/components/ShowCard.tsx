@@ -140,8 +140,15 @@ export default memo(function ShowCard({
 						mediaType={item.mediaType}
 						style={[styles.poster, styles.watchedPoster]}
 					/>
-					<View style={styles.info}>
-						<View style={[styles.titlePill, styles.watchedTitlePill, styles.watchedFade]}>
+					<View style={[styles.info, item.mediaType === MediaType.MOVIE && styles.movieInfo]}>
+						<View
+							style={[
+								styles.titlePill,
+								item.mediaType === MediaType.MOVIE && styles.movieTitlePill,
+								styles.watchedTitlePill,
+								styles.watchedFade,
+							]}
+						>
 							<Text style={[styles.titleText, styles.watchedMuted]} numberOfLines={1}>
 								{item.title.toUpperCase()}
 							</Text>
@@ -171,7 +178,12 @@ export default memo(function ShowCard({
 								</View>
 								{item.director && (
 									<Text
-										style={[styles.episodeName, styles.watchedMuted, styles.watchedFade]}
+										style={[
+											styles.episodeName,
+											styles.movieDirector,
+											styles.watchedMuted,
+											styles.watchedFade,
+										]}
 										numberOfLines={1}
 									>
 										{item.director}
@@ -234,9 +246,9 @@ export default memo(function ShowCard({
 					mediaType={item.mediaType}
 					style={styles.poster}
 				/>
-				<View style={styles.info}>
+				<View style={[styles.info, item.mediaType === MediaType.MOVIE && styles.movieInfo]}>
 					<TouchableOpacity
-						style={styles.titlePill}
+						style={[styles.titlePill, item.mediaType === MediaType.MOVIE && styles.movieTitlePill]}
 						onPress={handleTitlePress}
 						disabled={!onTitlePress}
 					>
@@ -263,7 +275,7 @@ export default memo(function ShowCard({
 								</View>
 							</View>
 							{item.director && (
-								<Text style={styles.episodeName} numberOfLines={1}>
+								<Text style={[styles.episodeName, styles.movieDirector]} numberOfLines={1}>
 									{item.director}
 								</Text>
 							)}
@@ -325,6 +337,10 @@ export default memo(function ShowCard({
 });
 
 const POSTER_WIDTH = 100;
+
+/** Gap between a movie card's title, tags and director — 11 puts the director as far below the
+ *  title as an episode card's episode name (measured on a Pixel 9 Pro) */
+const MOVIE_LINE_GAP = 11;
 
 const styles = StyleSheet.create({
 	container: {
@@ -498,11 +514,19 @@ const styles = StyleSheet.create({
 	latestBadgeText: {
 		color: colors.accent,
 	},
+	// Movie: title, tags and director equally spaced (MOVIE_LINE_GAP between each)
 	movieMetaRow: {
 		flexDirection: "row",
 		alignItems: "center",
-		marginTop: spacing.xs,
 	},
+	movieTitlePill: { marginBottom: MOVIE_LINE_GAP },
+	// From the top, like an episode card filled by its lines: the title and director sit at the
+	// same height as an episode card's title and episode name (centred, a shorter movie block
+	// moved them down)
+	movieInfo: { justifyContent: "flex-start" },
+	// Tight line height, and 2 less than the gap: the name's capitals sit ~2pt below its line
+	// top, so the visible gap matches the title → tags one
+	movieDirector: { marginTop: MOVIE_LINE_GAP - 2, lineHeight: 16 },
 	checkmarkWrap: {
 		alignSelf: "center",
 		paddingRight: spacing.md,

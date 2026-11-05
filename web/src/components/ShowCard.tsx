@@ -90,7 +90,7 @@ export default memo(function ShowCard({
 
 	const titlePill = (muted = false) => (
 		<button
-			className={`${styles.titlePill} ${muted ? styles.mutedPill : ""}`}
+			className={`${styles.titlePill} ${item.mediaType === MediaType.MOVIE ? styles.movieTitlePill : ""} ${muted ? styles.mutedPill : ""}`}
 			onClick={(e) => {
 				e.stopPropagation();
 				onTitlePress?.(item);
@@ -120,7 +120,7 @@ export default memo(function ShowCard({
 			</div>
 			{item.director && (
 				<span
-					className={`${styles.episodeName} ${muted ? `${styles.muted} ${styles.watchedFade}` : ""}`}
+					className={`${styles.episodeName} ${styles.movieDirector} ${muted ? `${styles.muted} ${styles.watchedFade}` : ""}`}
 				>
 					{item.director}
 				</span>
@@ -145,7 +145,9 @@ export default memo(function ShowCard({
 						mediaType={item.mediaType}
 						className={`${styles.poster} ${styles.watchedPoster}`}
 					/>
-					<div className={styles.info}>
+					<div
+						className={`${styles.info} ${item.mediaType === MediaType.MOVIE ? styles.movieInfo : ""}`}
+					>
 						<span className={styles.watchedFade}>{titlePill(true)}</span>
 						{item.mediaType === MediaType.MOVIE ? (
 							movieMeta(item.releaseDate?.substring(0, 4) ?? "", true)
@@ -200,7 +202,9 @@ export default memo(function ShowCard({
 					mediaType={item.mediaType}
 					className={styles.poster}
 				/>
-				<div className={styles.info}>
+				<div
+					className={`${styles.info} ${item.mediaType === MediaType.MOVIE ? styles.movieInfo : ""}`}
+				>
 					{titlePill()}
 					{item.mediaType === MediaType.MOVIE ? (
 						movieMeta(isJustAired ? FreshTag.JUST_AIRED : (item.releaseDate?.substring(0, 4) ?? ""))
