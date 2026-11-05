@@ -26,6 +26,7 @@ On a fresh system, before real work, check whether the tools below exist (`claud
 - **Emulator safety:** the emulator is signed into a REAL account with real data. Screenshot-confirm the screen before any `adb` swipe/tap that could mark something; use back-key to dismiss confirm modals instead of confirming; avoid card swipes (a fast swipe can become a tap → opens carousel with Mark buttons).
 - **Typecheck:** `npx tsc --noEmit` from `app/`, `functions/`, and `web` (`npx tsc -p tsconfig.app.json --noEmit`) — root has no TypeScript. Pre-existing TS error list may be empty now; don't add new ones.
 - **LegendList** does not re-render on `extraData` — embed state in data items.
+- **Subagent models:** give simple subagents a cheaper model via the Agent `model` param — `haiku` for lookups/greps/file location (Explore), `sonnet` for routine edits/mechanical refactors/test runs. Keep the default (Opus) only for design, debugging, review, or anything needing judgment. Saves context + cost.
 
 ## Architecture
 - **Shared catalog:** `shows/{docId}` — metadata, seasons/episodes, `trackedBy[]`, `genres[]`.
@@ -62,6 +63,9 @@ On a fresh system, before real work, check whether the tools below exist (`claud
 - Web: `cd web && npx vite --port 5199 --strictPort --host 127.0.0.1`; on emulator Chrome use `adb reverse tcp:5199 tcp:5199`. Web taps can lag ~10s — never re-tap Mark. Use the checkmark, not swipe.
 - Emulator: AVD `Pixel_9_Pro`; screens at 1280x2856. Prefer mobile-mcp element listing over screenshots; `adb exec-out screencap -p > file.png` otherwise.
 - User-provided videos: `ffmpeg -i video.mp4 -vf "fps=1,scale=240:-1,tile=7x2" -frames:v 1 sheet.png` to read them.
+
+## Patched dependencies (`app/patches/`, applied by `postinstall: patch-package`)
+- **`@legendapp/list` 3.3.5** (`patches/@legendapp+list+3.3.5.patch`): on Android the list turned on the ScrollView's native `maintainVisibleContentPosition` (`minIndexForVisible: 0`). Native MVCP anchors on the first visible *child view*, and LegendList's children are recycled, absolutely-positioned containers in arbitrary order — so after a row was added/removed the scroll followed a random container (the watchlist jumped rows, late, after unwatches / on cold start). The patch turns native MVCP off on Android and makes LegendList apply its own JS anchor adjustments with `scrollTo` (its old-architecture path), and never queues a "pending native adjust" there. **When updating `@legendapp/list`:** check the changelog / source for Android MVCP changes (`minIndexForVisible`, `requestAdjust`, `shouldQueueNativeMVCPAdjust`); if upstream fixed it, drop the patch, else regenerate it with `npx patch-package @legendapp/list` (look for `PATCH(watchloom)` markers). Then re-test: cold start (no late scroll), unwatch a Previously Watched row (no jump), mark with "What's Up Next" pinned.
 
 ## Misc gotchas
 - **TVMaze air times:** an empty `airtime` means TVMaze's `airstamp` is a 12:00 UTC filler. `hooks/tvmaze.ts` replaces it with the streaming service's release pattern (`STREAMING_RELEASE_TIMES`, e.g. Disney+ 6pm PT) or noon in the studio timezone (`COUNTRY_TIMEZONES`); keep that table current when a service changes its drop time.

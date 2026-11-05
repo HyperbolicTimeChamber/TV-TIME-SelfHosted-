@@ -29,9 +29,8 @@ export function rowSizeType(item: WatchlistListItem): RowSizeType {
 }
 
 /** Types whose remembered height is used up front */
-// Not the section headers: they're sticky, and a fixed size on one threw LegendList's sticky
-// placement off (the header vanished / the list re-anchored by a header's height after a change)
 const FIXED_TYPES: ReadonlySet<RowSizeType> = new Set([
+	RowSizeType.HEADER,
 	RowSizeType.WATCHED_EPISODE,
 	RowSizeType.WATCHED_MOVIE,
 ]);

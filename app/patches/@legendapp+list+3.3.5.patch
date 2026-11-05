@@ -1,0 +1,62 @@
+diff --git a/node_modules/@legendapp/list/react-native.js b/node_modules/@legendapp/list/react-native.js
+index b3c5a30..84d491a 100644
+--- a/node_modules/@legendapp/list/react-native.js
++++ b/node_modules/@legendapp/list/react-native.js
+@@ -1624,7 +1624,7 @@ function doMaintainScrollAtEnd(ctx) {
+ function requestAdjust(ctx, positionDiff, dataChanged) {
+   const state = ctx.state;
+   if (Math.abs(positionDiff) > 0.1) {
+-    const needsScrollWorkaround = Platform.OS === "android" && !IsNewArchitecture && dataChanged && state.scroll <= positionDiff;
++    const needsScrollWorkaround = Platform.OS === "android"; /* PATCH(watchloom): native MVCP off on Android — adjust by scrolling */
+     const doit = () => {
+       if (needsScrollWorkaround) {
+         doScrollTo(ctx, { horizontal: state.props.horizontal, offset: state.scroll });
+@@ -1718,7 +1718,7 @@ function updateAnchorLock(state, params) {
+   }
+ }
+ function shouldQueueNativeMVCPAdjust(dataChanged, state, positionDiff, prevTotalSize, prevScroll, scrollTarget) {
+-  if (!dataChanged || Platform.OS === "web" || !state.props.maintainVisibleContentPosition.data || scrollTarget !== void 0 || positionDiff >= -MVCP_POSITION_EPSILON) {
++  if (!dataChanged || Platform.OS === "web" || Platform.OS === "android" || !state.props.maintainVisibleContentPosition.data || scrollTarget !== void 0 || positionDiff >= -MVCP_POSITION_EPSILON) {
+     return false;
+   }
+   const distanceFromEnd = prevTotalSize - prevScroll - state.scrollLength;
+@@ -6010,7 +6010,7 @@ var ListComponent = typedMemo(function ListComponent2({
+       ],
+       contentOffset: initialContentOffset !== void 0 ? horizontal ? { x: initialContentOffset, y: 0 } : { x: 0, y: initialContentOffset } : void 0,
+       horizontal,
+-      maintainVisibleContentPosition: maintainVisibleContentPosition.size || maintainVisibleContentPosition.data ? { minIndexForVisible: 0 } : void 0,
++      maintainVisibleContentPosition: Platform.OS !== "android" && (maintainVisibleContentPosition.size || maintainVisibleContentPosition.data) ? { minIndexForVisible: 0 } : void 0, /* PATCH(watchloom): Android native MVCP anchors a random recycled container */
+       onLayout,
+       onScroll: onScroll2,
+       ref: refScrollView,
+diff --git a/node_modules/@legendapp/list/react-native.mjs b/node_modules/@legendapp/list/react-native.mjs
+index 40e87cd..d9ad60e 100644
+--- a/node_modules/@legendapp/list/react-native.mjs
++++ b/node_modules/@legendapp/list/react-native.mjs
+@@ -1603,7 +1603,7 @@ function doMaintainScrollAtEnd(ctx) {
+ function requestAdjust(ctx, positionDiff, dataChanged) {
+   const state = ctx.state;
+   if (Math.abs(positionDiff) > 0.1) {
+-    const needsScrollWorkaround = Platform.OS === "android" && !IsNewArchitecture && dataChanged && state.scroll <= positionDiff;
++    const needsScrollWorkaround = Platform.OS === "android"; /* PATCH(watchloom): native MVCP off on Android — adjust by scrolling */
+     const doit = () => {
+       if (needsScrollWorkaround) {
+         doScrollTo(ctx, { horizontal: state.props.horizontal, offset: state.scroll });
+@@ -1697,7 +1697,7 @@ function updateAnchorLock(state, params) {
+   }
+ }
+ function shouldQueueNativeMVCPAdjust(dataChanged, state, positionDiff, prevTotalSize, prevScroll, scrollTarget) {
+-  if (!dataChanged || Platform.OS === "web" || !state.props.maintainVisibleContentPosition.data || scrollTarget !== void 0 || positionDiff >= -MVCP_POSITION_EPSILON) {
++  if (!dataChanged || Platform.OS === "web" || Platform.OS === "android" || !state.props.maintainVisibleContentPosition.data || scrollTarget !== void 0 || positionDiff >= -MVCP_POSITION_EPSILON) {
+     return false;
+   }
+   const distanceFromEnd = prevTotalSize - prevScroll - state.scrollLength;
+@@ -5989,7 +5989,7 @@ var ListComponent = typedMemo(function ListComponent2({
+       ],
+       contentOffset: initialContentOffset !== void 0 ? horizontal ? { x: initialContentOffset, y: 0 } : { x: 0, y: initialContentOffset } : void 0,
+       horizontal,
+-      maintainVisibleContentPosition: maintainVisibleContentPosition.size || maintainVisibleContentPosition.data ? { minIndexForVisible: 0 } : void 0,
++      maintainVisibleContentPosition: Platform.OS !== "android" && (maintainVisibleContentPosition.size || maintainVisibleContentPosition.data) ? { minIndexForVisible: 0 } : void 0, /* PATCH(watchloom): Android native MVCP anchors a random recycled container */
+       onLayout,
+       onScroll: onScroll2,
+       ref: refScrollView,
