@@ -1,6 +1,6 @@
 import { useMemo, useEffect, useCallback, useState, useRef } from "react";
 import { Alert } from "react-native";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { Timestamp } from "@react-native-firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -145,6 +145,14 @@ function buildCardItem(item: EnrichedTrackingItem, today: string) {
 
 /** A mark's client time vs the priority Firestore stores for it (a server timestamp may lag) */
 const PROMOTE_CLOCK_SKEW_MS = 5000;
+
+/** Puts a query's data back as it was before an optimistic insert. Empty before → the insert's
+ *  seeded page is dropped (setQueryData(key, undefined) would be a no-op and leave it) */
+function restoreQuery(queryClient: QueryClient, key: readonly unknown[], before: unknown) {
+	if (before === undefined) queryClient.removeQueries({ queryKey: key, exact: true });
+	else queryClient.setQueryData(key, before);
+}
+
 export type CardItem = ReturnType<typeof buildCardItem>;
 
 /**
@@ -769,25 +777,13 @@ export function useWatchlistData(userId: string | undefined) {
 
 			if (item.mediaType === MediaType.MOVIE) {
 				setUpdatingShows((prev) => new Map(prev).set(item.tmdbId, MediaType.MOVIE));
-				try {
-					await markMovieWatched(userId, item.tmdbId, card.nextEpisodeRuntime ?? 0);
-				} catch (err: any) {
-					// Clear on failure so movie reappears in What's Up Next
-					setUpdatingShows((prev) => {
-						const next = new Map(prev);
-						next.delete(item.tmdbId);
-						return next;
-					});
-					console.error("markMovieWatched failed:", err);
-					Alert.alert("Error", err.message || "Failed to mark as watched.");
-					return;
-				}
-				// Spinner stays until the listener confirms COMPLETED (effect below clears it).
+				// Previously Watched row first (optimistic, like the watch count sheet), not after
+				// the write's server ack: the row used to land a round trip after the tap.
 				// Cancel an in-flight fetch only if data is already loaded — a first load
-				// includes this movie anyway (the write has committed).
-				if (queryClient.getQueryData([QueryKey.WATCHED_MOVIES, userId])) {
-					queryClient.cancelQueries({ queryKey: [QueryKey.WATCHED_MOVIES, userId] });
-				}
+				// includes this movie anyway.
+				const moviesKey = [QueryKey.WATCHED_MOVIES, userId];
+				const moviesBefore = queryClient.getQueryData(moviesKey);
+				if (moviesBefore) queryClient.cancelQueries({ queryKey: moviesKey });
 				const movieNow = Timestamp.now();
 				insertWatchedMovieCache(queryClient, userId, {
 					id: `${item.tmdbId}_watched`,
@@ -799,6 +795,21 @@ export function useWatchlistData(userId: string | undefined) {
 					title: item.title,
 					posterPath: item.posterPath,
 				} as any);
+				try {
+					await markMovieWatched(userId, item.tmdbId, card.nextEpisodeRuntime ?? 0);
+				} catch (err: any) {
+					// Clear on failure so movie reappears in What's Up Next, and its row goes
+					restoreQuery(queryClient, moviesKey, moviesBefore);
+					setUpdatingShows((prev) => {
+						const next = new Map(prev);
+						next.delete(item.tmdbId);
+						return next;
+					});
+					console.error("markMovieWatched failed:", err);
+					Alert.alert("Error", err.message || "Failed to mark as watched.");
+					return;
+				}
+				// Spinner stays until the listener confirms COMPLETED (effect below clears it).
 				incrementDailyWatch("movie");
 				emitShowCompleted({
 					tmdbId: item.tmdbId,
@@ -862,6 +873,26 @@ export function useWatchlistData(userId: string | undefined) {
 			);
 
 			promote(item.tmdbId);
+			// Previously Watched row now, with the Upcoming removal above — not after the write's
+			// server ack (the card left Upcoming at once and its row landed a round trip later).
+			// A failed write restores both caches as they were.
+			const allEpsKey = [QueryKey.WATCHED_EPISODES, userId, undefined];
+			const showEpsKey = [QueryKey.WATCHED_EPISODES, userId, item.tmdbId];
+			const allEpsBefore = queryClient.getQueryData(allEpsKey);
+			const showEpsBefore = queryClient.getQueryData(showEpsKey);
+			if (allEpsBefore) queryClient.cancelQueries({ queryKey: allEpsKey });
+			const epNow = Timestamp.now();
+			insertWatchedEpisodeCache(queryClient, userId, {
+				id: `${item.tmdbId}_S${String(currentEp.season).padStart(2, "0")}E${String(currentEp.episode).padStart(2, "0")}`,
+				tmdbShowId: item.tmdbId,
+				season: currentEp.season,
+				episode: currentEp.episode,
+				episodeTitle: epTitle,
+				runtime: epRuntime,
+				lastWatchedAt: epNow,
+				watchedAt: epNow,
+				watchCount: markedCount(item.tmdbId),
+			});
 			try {
 				await markEpisodeWatched(
 					userId,
@@ -901,23 +932,6 @@ export function useWatchlistData(userId: string | undefined) {
 				}
 
 				// Spinner cleared by useEffect when listener confirms nextEpisode changed
-
-				// Post-success: insert into query cache directly (no refetch)
-				if (queryClient.getQueryData([QueryKey.WATCHED_EPISODES, userId, undefined])) {
-					queryClient.cancelQueries({ queryKey: [QueryKey.WATCHED_EPISODES, userId, undefined] });
-				}
-				const epNow = Timestamp.now();
-				insertWatchedEpisodeCache(queryClient, userId, {
-					id: `${item.tmdbId}_S${String(currentEp.season).padStart(2, "0")}E${String(currentEp.episode).padStart(2, "0")}`,
-					tmdbShowId: item.tmdbId,
-					season: currentEp.season,
-					episode: currentEp.episode,
-					episodeTitle: epTitle,
-					runtime: epRuntime,
-					lastWatchedAt: epNow,
-					watchedAt: epNow,
-					watchCount: markedCount(item.tmdbId),
-				});
 				incrementDailyWatch("episode");
 				removeWatchedFromPast(item.tmdbId, currentEp.season, currentEp.episode);
 				if (isComplete) {
@@ -932,6 +946,8 @@ export function useWatchlistData(userId: string | undefined) {
 			} catch (err: any) {
 				unpromote(item.tmdbId);
 				rollbackUpcoming(upcomingSnapshot);
+				restoreQuery(queryClient, allEpsKey, allEpsBefore);
+				restoreQuery(queryClient, showEpsKey, showEpsBefore);
 				setUpdatingShows((prev) => {
 					const next = new Map(prev);
 					next.delete(item.tmdbId);

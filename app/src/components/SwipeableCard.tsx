@@ -5,9 +5,6 @@ import {
 	StyleSheet,
 	ActivityIndicator,
 	Dimensions,
-	LayoutAnimation,
-	Platform,
-	UIManager,
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -20,10 +17,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { colors, spacing, typography } from "../theme";
 import { RxCheck, RxCross2 } from "./RxIcons";
-
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-	UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.35;
@@ -161,7 +154,9 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 					await onSwipeRightRef.current?.();
 				}
 				setSwipeState("done");
-				LayoutAnimation.configureNext(LayoutAnimation.create(300, "easeInEaseOut", "opacity"));
+				// No LayoutAnimation here: on Android it runs over the whole next commit, and a poster
+				// the list swapped out during it (mark / unwatch re-render, recycled rows) stayed on
+				// screen over another card until restart. The list's own updates are enough
 				// Row still here once the list has updated (Rewatch / −1 keep it) → show it again
 				// rather than leave a blank gap
 				restoreTimer.current = setTimeout(() => {
@@ -187,8 +182,11 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 			triggerSwipeLeft: () => {
 				if (swipeState !== "idle" || isProcessing.current) return;
 				setShowReveal(true);
-				swipeSeq.value += 1;
-				const seq = swipeSeq.value;
+				// Next number worked out here: a shared value written from JS lands on the UI thread
+				// later, so reading it back right after `+= 1` gave the old number — the completion
+				// then looked already handled and the checkmark's mark never ran
+				const seq = swipeSeq.value + 1;
+				swipeSeq.value = seq;
 				translateX.value = withTiming(SCREEN_WIDTH, { duration: 300 }, (finished) => {
 					if (finished) runOnJS(handleSwipeComplete)("left", seq);
 				});
