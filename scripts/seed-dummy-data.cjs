@@ -48,6 +48,23 @@ const SHOWS = [
 	{ title: "The Kelly Clarkson Show", upToDate: true },
 	{ title: "Tamron Hall", upToDate: true },
 	{ title: "Sherri", upToDate: true },
+	// More cards for the watchlist (long lists to scroll, several with a backlog to mark through)
+	{ title: "The Bear", watched: 1 },
+	{ title: "Abbott Elementary", watched: 1 },
+	{ title: "Only Murders in the Building", watched: 1 },
+	{ title: "Ted Lasso", watched: 1 },
+	{ title: "Stranger Things", watched: 1 },
+	{ title: "The Last of Us", watched: 0 },
+	{ title: "House of the Dragon", watched: 1 },
+	{ title: "Andor", watched: 0 },
+	{ title: "Shogun", watched: 0 },
+	{ title: "Fallout", watched: 0 },
+	{ title: "Brooklyn Nine-Nine", watched: 2 },
+	{ title: "Parks and Recreation", watched: 2 },
+	{ title: "Friends", watched: 3 },
+	{ title: "Community", watched: 1 },
+	{ title: "One Piece", watched: 0 },
+	{ title: "Jujutsu Kaisen", watched: 1 },
 ];
 const MOVIES = ["Dune: Part Two", "Avengers: Doomsday", "Spider-Man: Beyond the Spider-Verse"];
 // Upcoming movies sharing one release date (the busiest upcoming day) → movie "+n more" chip
@@ -138,7 +155,10 @@ async function main() {
 		}
 	};
 
+	// SEED_ONLY="Friends,Community" → just those titles (a re-run marks seasons again otherwise)
+	const only = process.env.SEED_ONLY?.split(",").map((t) => t.trim().toLowerCase());
 	for (const { title, watched = 0, upToDate = false } of SHOWS) {
+		if (only && !only.includes(title.toLowerCase())) continue;
 		const hit = await search(apiKey, "tv", title);
 		if (!hit) {
 			console.warn(`  ? no TMDB match for "${title}"`);
@@ -174,25 +194,30 @@ async function main() {
 		for (const [i, season] of marked.entries()) {
 			const next = seasons[seasons.indexOf(season) + 1]?.episodes?.[0];
 			const last = i === marked.length - 1;
+			try {
 			await call("markSeasonWatched", {
-				tmdbId: hit.id,
-				seasonNumber: season.seasonNumber,
-				episodes: season.episodes.slice(0, 100).map((e) => ({
-					episodeNumber: e.episodeNumber,
-					name: e.title ?? "",
-					runtime: e.runtime ?? 0,
-				})),
-				nextEpisode: next ? { season: season.seasonNumber + 1, episode: next.episodeNumber } : null,
-				nextEpisodeName: next?.title ?? null,
-				nextEpisodeAirDate: next?.airDate ?? null,
-				isShowComplete: last && !next,
-				...(last && !next ? { status: WatchStatus.COMPLETED } : {}),
-			});
+					tmdbId: hit.id,
+					seasonNumber: season.seasonNumber,
+					episodes: season.episodes.slice(0, 100).map((e) => ({
+						episodeNumber: e.episodeNumber,
+						name: e.title ?? "",
+						runtime: e.runtime ?? 0,
+					})),
+					nextEpisode: next ? { season: season.seasonNumber + 1, episode: next.episodeNumber } : null,
+					nextEpisodeName: next?.title ?? null,
+					nextEpisodeAirDate: next?.airDate ?? null,
+					isShowComplete: last && !next,
+					...(last && !next ? { status: WatchStatus.COMPLETED } : {}),
+				});
+			} catch (err) {
+				console.warn(`  ! markSeasonWatched failed for ${hit.name} S${season.seasonNumber}: ${err.message.slice(0, 100)}`);
+				break;
+			}
 		}
 		console.log(`  tv    ${hit.name} (${hit.id}) — ${marked.length} season(s) watched`);
 	}
 
-	for (const title of MOVIES) {
+	for (const title of only ? [] : MOVIES) {
 		const hit = await search(apiKey, "movie", title);
 		if (!hit) {
 			console.warn(`  ? no TMDB match for "${title}"`);
