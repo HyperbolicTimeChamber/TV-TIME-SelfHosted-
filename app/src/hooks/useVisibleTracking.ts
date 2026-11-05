@@ -81,20 +81,32 @@ function localDayStartMs(day: string): number {
 	return new Date(y, m - 1, d).getTime();
 }
 
+/** UTC midnight of a `YYYY-MM-DD` day */
+function utcDayStartMs(day: string): number {
+	const [y, m, d] = day.split("-").map(Number);
+	if (!y || !m || !d) return 0;
+	return Date.UTC(y, m - 1, d);
+}
+
 /**
  * Sort timestamp: max(priorityDate, next episode air date or movie release date). The content
  * date never counts past now: a date still ahead (catalog and tracking disagreeing on a movie's
  * release) sat above every fresh mark, so each marked card landed under it
  */
 export function getEffectivePriority(item: EnrichedTrackingItem, nowMs = Date.now()): number {
-	const priorityMs = item.priorityDate?.toMillis?.() ?? 0;
-
 	const isMovie = (item.mediaType ?? item.catalogShow?.mediaType) === MediaType.MOVIE;
 	// Same release date the visibility check uses
 	const contentDay = isMovie
 		? (item.releaseDate ?? item.catalogShow?.releaseDate ?? null)
 		: getNextEpisodeAirDate(item);
 	const contentDateMs = contentDay ? Math.min(localDayStartMs(contentDay), nowMs) : 0;
+
+	// A priorityDate stamped from the content date (an unaired title's: that day's UTC midnight)
+	// is the content date, not a mark — counted at local midnight above. Read as is, east of UTC
+	// it was still ahead of now on release day, and every card marked meanwhile landed under it
+	const rawPriorityMs = item.priorityDate?.toMillis?.() ?? 0;
+	const stampedFromContent = !!contentDay && rawPriorityMs === utcDayStartMs(contentDay);
+	const priorityMs = stampedFromContent ? 0 : rawPriorityMs;
 
 	return Math.max(priorityMs, contentDateMs);
 }

@@ -34,3 +34,13 @@ test("a later priorityDate wins over the content date", () => {
 	const now = new Date(2026, 10, 5, 12).getTime();
 	assert.equal(getEffectivePriority(movie("2026-01-01", "2026-01-01", now - 5), now), now - 5);
 });
+
+test("a priorityDate stamped at the release day's UTC midnight counts as the release day", () => {
+	// Release day, a few minutes in locally — UTC midnight may still be ahead (east of UTC)
+	const midnight = new Date(2026, 10, 6).getTime();
+	const markedAt = midnight + 10 * 60_000;
+	const released = movie("2026-11-06", "2026-11-06", Date.UTC(2026, 10, 6));
+	assert.equal(getEffectivePriority(released, markedAt), midnight);
+	const show = { mediaType: MediaType.TV, priorityDate: ts(markedAt), nextEpisodeAirDate: "2026-10-01" } as any;
+	assert.ok(getEffectivePriority(show, markedAt) > getEffectivePriority(released, markedAt));
+});
