@@ -253,6 +253,11 @@ export default function SearchScreen() {
 			navigation.navigate(Route.SEARCH_INPUT, { currentQuery: undefined });
 		}
 	}, [navigation, submittedQuery]);
+	// ✕ on a results page: drop the search and reopen the suggestions page empty (replaces the
+	// results, like openSearchInput)
+	const clearSearch = useCallback(() => {
+		navigation.replace(Route.SEARCH_INPUT, { currentQuery: undefined });
+	}, [navigation]);
 
 	const {
 		trackedIds,
@@ -439,6 +444,16 @@ export default function SearchScreen() {
 									{submittedQuery || "Search Shows & Movies"}
 								</Text>
 							</TouchableOpacity>
+							{submittedQuery ? (
+								<TouchableOpacity
+									style={styles.clearButton}
+									onPress={clearSearch}
+									hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+									accessibilityLabel="Clear search"
+								>
+									<Text style={styles.clearButtonText}>✕</Text>
+								</TouchableOpacity>
+							) : null}
 						</View>
 
 						<SlidingTabs

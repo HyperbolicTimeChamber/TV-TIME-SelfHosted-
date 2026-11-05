@@ -53,6 +53,16 @@ export const styles = StyleSheet.create({
 		paddingLeft: spacing.md,
 		justifyContent: "center",
 	},
+	// Same ✕ as the suggestions page's search bar (SearchInputScreen)
+	clearButton: {
+		paddingHorizontal: spacing.md,
+		justifyContent: "center",
+	},
+	clearButtonText: {
+		color: colors.textMuted,
+		fontSize: 16,
+		fontWeight: "600",
+	},
 	searchIconWrap: {
 		width: 44,
 		justifyContent: "center",

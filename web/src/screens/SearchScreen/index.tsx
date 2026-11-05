@@ -202,6 +202,17 @@ export default function SearchScreen() {
 							<button className={styles.searchRow} onClick={openInput}>
 								{submittedQuery || "Search Shows & Movies"}
 							</button>
+							{/* Same ✕ as the suggestions page: drops the search and reopens it empty */}
+							{submittedQuery && (
+								<button
+									type="button"
+									className={styles.clearButton}
+									onClick={() => navigate(Paths.SEARCH_INPUT, { replace: true })}
+									aria-label="Clear search"
+								>
+									✕
+								</button>
+							)}
 							{showSort && (
 								<span className={styles.sortSlot}>
 									<SortButton
