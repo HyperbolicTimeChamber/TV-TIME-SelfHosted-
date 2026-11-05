@@ -307,7 +307,9 @@ function upNextOnScreen(list: LegendListRef | null): boolean {
 function upNextTopOnScreen(list: LegendListRef | null): boolean {
 	const state = list?.getState();
 	const top = state?.positionByKey(UP_NEXT_KEY);
-	return !!state && top !== undefined && state.scroll <= top + 1;
+	// Up to a header's height past it: the list opens a few px past the header's own spot
+	// (content padding), and the first card is still in view right under the pinned header
+	return !!state && top !== undefined && state.scroll <= top + SECTION_HEADER_H;
 }
 
 /** The list with a pinned card put back before the row it was above (see `pinned`) */
