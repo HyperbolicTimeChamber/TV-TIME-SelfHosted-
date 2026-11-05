@@ -312,19 +312,9 @@ function upNextTopOnScreen(list: LegendListRef | null): boolean {
 	return !!state && top !== undefined && state.scroll <= top + SECTION_HEADER_H;
 }
 
-/** The list with a pinned card put back before the row it was above (see `pinned`) */
-function withPinned(
-	data: WatchlistListItem[],
-	pin: { key: string; beforeKey: string | null } | null,
-): WatchlistListItem[] {
-	if (!pin) return data;
-	const i = data.findIndex((r) => keyOf(r) === pin.key);
-	if (i === -1) return data;
-	const rest = [...data.slice(0, i), ...data.slice(i + 1)];
-	const j = pin.beforeKey ? rest.findIndex((r) => keyOf(r) === pin.beforeKey) : rest.length;
-	if (j === -1) return data;
-	rest.splice(j, 0, data[i]);
-	return rest;
+/** The list without a lifted card that's waiting to be added at the top (see `pinned`) */
+function withPinned(data: WatchlistListItem[], pin: { key: string } | null): WatchlistListItem[] {
+	return pin ? data.filter((r) => keyOf(r) !== pin.key) : data;
 }
 
 /** The list without the held rows; a section they leave empty goes too */
@@ -494,12 +484,13 @@ export default function WatchlistTab() {
 		setHeld((prev) => (prev.size === 0 ? prev : new Set()));
 	}, []);
 	useFocusEffect(useCallback(() => releaseHeld, [releaseHeld]));
-	// A mark scrolled past the top of "What's Up Next": the card stays where it was (its new
-	// episode shows there) until the next drag, then takes its place at the top. Moved at once,
-	// it landed above the view — the list shifted its scroll a frame after the rows moved, and
-	// every row jumped and snapped back
+	// A mark scrolled past the top of "What's Up Next": the card leaves its slot (it shrinks
+	// away, the cards under it glide up — like a card leaving the list) and is added at the top
+	// on the next drag. Added at once it landed above the view, and the list's scroll shift for
+	// that came a frame after the rows moved: every row jumped and snapped back. During a drag
+	// that shift isn't seen
 	const drawnRows = useRef<readonly WatchlistListItem[]>([]);
-	const [pinned, setPinned] = useState<{ key: string; beforeKey: string | null } | null>(null);
+	const [pinned, setPinned] = useState<{ key: string } | null>(null);
 	const [pinSeen, setPinSeen] = useState(promotions);
 	let pin = pinned;
 	if (pinSeen !== promotions) {
@@ -516,7 +507,7 @@ export default function WatchlistTab() {
 			keyOf(wasFirst) !== keyOf(lifted) &&
 			!upNextTopOnScreen(listRef.current)
 		) {
-			pin = { key: keyOf(lifted), beforeKey: prev[at + 1] ? keyOf(prev[at + 1]) : null };
+			pin = { key: keyOf(lifted) };
 		}
 		setPinned(pin);
 	}
@@ -653,7 +644,13 @@ export default function WatchlistTab() {
 			if (motion.grow.size > 0) setGrowing({ keys: motion.grow, token: growToken.current });
 			if (motion.header) setHeaderGlide({ ...motion.header, token: growToken.current });
 		}
-		if (motion.leaving.length > 0) setLeaving((prev) => [...prev, ...motion.leaving]);
+		// Two renders can see the same departure before drawnRows catches up: one copy per row
+		if (motion.leaving.length > 0) {
+			setLeaving((prev) => [
+				...prev,
+				...motion.leaving.filter((l) => !prev.some((p) => p.key === l.key)),
+			]);
+		}
 		// Rows the list dropped: a swipe banner one was held on clears (after this commit)
 		const nextKeySet = new Set(listKeys.split("|"));
 		for (const r of drawnRows.current) {
