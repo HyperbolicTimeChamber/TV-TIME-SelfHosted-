@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
+// Gesture-handler Pressable: BottomSheet's drag is a gesture-handler pan (first-tap fix there)
+import { Pressable } from "react-native-gesture-handler";
 import { FontAwesome6 } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import BottomSheet, {

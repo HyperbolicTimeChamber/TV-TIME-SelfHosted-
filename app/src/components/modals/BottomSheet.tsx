@@ -13,15 +13,23 @@ import React, {
 import {
 	View,
 	Text,
-	Pressable,
 	Modal,
 	Animated,
 	Easing,
 	Keyboard,
-	PanResponder,
 	StyleSheet,
 	Dimensions,
 } from "react-native";
+// Gesture-handler drag + Pressables (Add to List / filter sheets' fix): a tap while the sheet was
+// still settling (its spring runs ~0.6s) got React Native's press-in but never its press — its
+// press area is measured once at touch-down and the sheet had moved since. Measured on a Pixel 9
+// Pro: tap 0.5s after opening → no press with RN's Pressable, press with gesture-handler's
+import {
+	Gesture,
+	GestureDetector,
+	GestureHandlerRootView,
+	Pressable,
+} from "react-native-gesture-handler";
 import Reanimated, {
 	Easing as REasing,
 	runOnJS,
@@ -66,6 +74,8 @@ const SHEET_EXIT = {
 /** Drag past this (or flick) → dismiss */
 const DISMISS_DISTANCE = 80;
 const DISMISS_VELOCITY = 0.5;
+/** Finger travel (vertical) before a touch on the sheet becomes a drag instead of a tap */
+const DRAG_SLOP = 8;
 
 /** Logo box: at least MIN_W wide / MIN_H tall so wide or tiny logos stay legible, within MAX_*
  *  (a centred logo has the whole width; next to the count pill it has less) */
@@ -100,6 +110,8 @@ interface Props {
 	background?: ReactNode;
 	/** The title the sheet is about: its art behind the content (SheetArt), cards go translucent */
 	art?: SheetArtSource | null;
+	/** Can't be dismissed (drag, outside tap, back) — e.g. while its action runs */
+	locked?: boolean;
 }
 
 /** Which title a sheet's art comes from — backdrop / poster looked up when not given */
@@ -179,7 +191,14 @@ export function SheetArt({ tmdbId, mediaType, backdropPath, posterPath, episode 
 }
 
 /** Bottom sheet shell: dimmed backdrop that fades with the sheet, drag down / tap outside to close */
-export default function BottomSheet({ visible, onClose, children, background, art }: Props) {
+export default function BottomSheet({
+	visible,
+	onClose,
+	children,
+	background,
+	art,
+	locked = false,
+}: Props) {
 	const behind = background ?? (art ? <SheetArt {...art} /> : null);
 	const insets = useSafeAreaInsets();
 	// Parked off-screen until measured; every slide then travels exactly the sheet's height
@@ -198,22 +217,43 @@ export default function BottomSheet({ visible, onClose, children, background, ar
 		[translateY, hiddenY],
 	);
 
+	// Mounted while visible and while sliding out after the parent hid it (a confirm's action
+	// clears its target): the sheet leaves the way it came instead of vanishing
+	const [shown, setShown] = useState(visible);
+	// Already slid out by close(): nothing left to animate when the parent then hides it
+	const slidOut = useRef(false);
 	// Slide in once open and measured (first open waits a frame for its layout)
 	const entered = useRef(false);
 	useEffect(() => {
-		if (!visible) {
+		if (visible) {
+			slidOut.current = false;
+			setShown(true);
+			if (entered.current || sheetH == null) return;
+			entered.current = true;
+			translateY.setValue(liveH.current ?? sheetH);
+			Animated.spring(translateY, SHEET_SPRING).start();
+			return;
+		}
+		if (!entered.current || slidOut.current) {
 			entered.current = false;
+			setShown(false);
 			translateY.setValue(SCREEN_HEIGHT);
 			return;
 		}
-		if (entered.current || sheetH == null) return;
-		entered.current = true;
-		translateY.setValue(liveH.current ?? sheetH);
-		Animated.spring(translateY, SHEET_SPRING).start();
-	}, [visible, sheetH, translateY]);
+		entered.current = false;
+		Animated.timing(translateY, { ...SHEET_EXIT, toValue: liveH.current ?? hiddenY }).start(
+			({ finished }) => {
+				// Reopened mid-exit: the new slide-in interrupted this one, stay mounted
+				if (!finished) return;
+				setShown(false);
+				translateY.setValue(SCREEN_HEIGHT);
+			},
+		);
+	}, [visible, sheetH, translateY, hiddenY]);
 
 	const close = useCallback<CloseSheet>(
 		(after) => {
+			slidOut.current = true;
 			Animated.timing(translateY, {
 				...SHEET_EXIT,
 				toValue: liveH.current ?? hiddenY,
@@ -224,73 +264,76 @@ export default function BottomSheet({ visible, onClose, children, background, ar
 		},
 		[translateY, hiddenY, onClose],
 	);
-	// The pan responder is made once — it reads the latest close through this
-	const closeRef = useRef(close);
-	closeRef.current = close;
-
-	const panResponder = useRef(
-		PanResponder.create({
-			// Claim touches no child claims (labels, gaps, the handle): asked last, after the rows /
-			// chips (they keep their taps). Unclaimed, a drag from there never reached the sheet —
-			// on Android the Modal sent its moves nowhere, so only drags that began on a pressable
-			// moved the drawer. A plain tap just springs back to where it was
-			onStartShouldSetPanResponder: () => true,
-			onMoveShouldSetPanResponder: (_, gs) => gs.dy > 8 && Math.abs(gs.dy) > Math.abs(gs.dx),
-			onPanResponderMove: (_, gs) => {
-				// Upward drag gets resistance instead of a hard stop
-				translateY.setValue(gs.dy > 0 ? gs.dy : -Math.sqrt(-gs.dy) * 2);
-			},
-			onPanResponderRelease: (_, gs) => {
-				// A touch the sheet took (outside any field / row) leaves a focused field, like a
-				// tap outside an input anywhere else
-				Keyboard.dismiss();
-				if (gs.dy > DISMISS_DISTANCE || gs.vy > DISMISS_VELOCITY) closeRef.current();
-				else Animated.spring(translateY, SHEET_SPRING).start();
-			},
-		}),
-	).current;
+	const dismiss = useCallback(() => {
+		if (!locked) close();
+	}, [locked, close]);
+	// Drag from anywhere on the sheet (rows included): a gesture-handler pan only takes over once
+	// the finger has really moved, and then cancels the row's press — a tap stays a tap
+	const drag = useMemo(
+		() =>
+			Gesture.Pan()
+				.runOnJS(true)
+				.enabled(!locked)
+				.activeOffsetY([-DRAG_SLOP, DRAG_SLOP])
+				.failOffsetX([-DRAG_SLOP * 2, DRAG_SLOP * 2])
+				.onUpdate((e) => {
+					// Upward drag gets resistance instead of a hard stop
+					const dy = e.translationY;
+					translateY.setValue(dy > 0 ? dy : -Math.sqrt(-dy) * 2);
+				})
+				.onEnd((e) => {
+					// A drag leaves a focused field, like a touch outside an input anywhere else
+					Keyboard.dismiss();
+					// velocityY is px/s; the old pan responder's threshold was px/ms
+					if (e.translationY > DISMISS_DISTANCE || e.velocityY > DISMISS_VELOCITY * 1000) close();
+					else Animated.spring(translateY, SHEET_SPRING).start();
+				}),
+		[locked, translateY, close],
+	);
 
 	return (
 		<Modal
-			visible={visible}
+			visible={shown}
 			transparent
 			animationType="none"
 			statusBarTranslucent
 			// Draw under the nav bar too: the sheet's fill runs to the screen edge and the
 			// padding above keeps its rows clear of the bar
 			navigationBarTranslucent
-			onRequestClose={() => close()}
+			onRequestClose={dismiss}
 		>
-			<View style={styles.root}>
+			{/* A Modal is its own native window: gesture-handler needs a root inside it */}
+			<GestureHandlerRootView style={styles.root}>
 				<Animated.View
 					style={[StyleSheet.absoluteFill, styles.backdrop, { opacity: backdropOpacity }]}
 				>
-					<Pressable style={StyleSheet.absoluteFill} onPress={() => close()} />
+					<Pressable style={StyleSheet.absoluteFill} onPress={dismiss} />
 				</Animated.View>
-				<Animated.View
-					style={[
-						styles.sheet,
-						// Clear of the system nav bar (3-button bar ≈ 48dp, gesture pill less) + a gap
-						{ paddingBottom: insets.bottom + spacing.lg },
-						{ transform: [{ translateY }] },
-					]}
-					onLayout={(e) => {
-						// Live height in a ref (closing reads it); state only for the first measure —
-						// a row folding in / out resizes the sheet every frame, and a re-render per
-						// frame made that animation stutter
-						liveH.current = Math.round(e.nativeEvent.layout.height);
-						if (sheetH == null) setSheetH(liveH.current);
-					}}
-					{...panResponder.panHandlers}
-				>
-					{behind ? <View style={styles.background}>{behind}</View> : null}
-					{/* Hangs below the bottom edge, off-screen: pulling the sheet up past its resting
+				<GestureDetector gesture={drag}>
+					<Animated.View
+						style={[
+							styles.sheet,
+							// Clear of the system nav bar (3-button bar ≈ 48dp, gesture pill less) + a gap
+							{ paddingBottom: insets.bottom + spacing.lg },
+							{ transform: [{ translateY }] },
+						]}
+						onLayout={(e) => {
+							// Live height in a ref (closing reads it); state only for the first measure —
+							// a row folding in / out resizes the sheet every frame, and a re-render per
+							// frame made that animation stutter
+							liveH.current = Math.round(e.nativeEvent.layout.height);
+							if (sheetH == null) setSheetH(liveH.current);
+						}}
+					>
+						{behind ? <View style={styles.background}>{behind}</View> : null}
+						{/* Hangs below the bottom edge, off-screen: pulling the sheet up past its resting
 					    place shows more sheet, not the page under it */}
-					<View style={styles.overpull} pointerEvents="none" />
-					<View style={styles.handle} />
-					<SheetArtContext.Provider value={!!behind}>{children(close)}</SheetArtContext.Provider>
-				</Animated.View>
-			</View>
+						<View style={styles.overpull} pointerEvents="none" />
+						<View style={styles.handle} />
+						<SheetArtContext.Provider value={!!behind}>{children(close)}</SheetArtContext.Provider>
+					</Animated.View>
+				</GestureDetector>
+			</GestureHandlerRootView>
 		</Modal>
 	);
 }
