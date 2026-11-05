@@ -12,6 +12,7 @@ import type { LegendListRef } from "@legendapp/list/react-native";
 import { AnimatedLegendList } from "@legendapp/list/reanimated";
 import Reanimated, {
 	Easing,
+	type EntryAnimationsValues,
 	LinearTransition,
 	runOnJS,
 	useAnimatedStyle,
@@ -92,7 +93,7 @@ const skeletonStyles = StyleSheet.create({
 });
 
 /** On-screen movement → ease-in-out; quick enough to read as a response to the tap */
-const CARD_MOVE_MS = 300;
+const CARD_MOVE_MS = 400;
 const CARD_MOVE_EASING = Easing.bezier(0.77, 0, 0.175, 1);
 
 /** `grow`: a row joining Previously Watched on screen — grows in (GrowIn). `growShift`: rides
@@ -102,9 +103,9 @@ type ListRow = WatchlistListItem & {
 	growShift?: boolean;
 	growWaiting?: boolean;
 	hideHeader?: boolean;
-	/** A Previously Watched row opening (height 0 → full) or closing (→ 0, then dropped):
-	 *  RowHeight. The token restarts it once */
-	height?: { mode: RowHeightMode; token?: number };
+	/** A Previously Watched row a mark just added: it zooms in (RowZoom) while the rows under it
+	 *  glide down; `headerSlot` = draw the "What's Up Next" header gliding along under it */
+	zoomIn?: { token: number; headerSlot?: number };
 	/** An unwatch just moved this card's episode back: it flips over (FlipIn); hidden until
 	 *  the flip has started */
 	flipping?: boolean;
@@ -116,16 +117,13 @@ const FLIP_EASING = Easing.bezier(0.23, 1, 0.32, 1);
 const FLIP_START = { transform: [{ perspective: 800 }, { rotateX: `${FLIP_FROM_DEG}deg` }] };
 /** The "What's Up Next" header's move (list coordinates) while a row grows in above it */
 type HeaderMove = { from: number; to: number; token: number };
-/** Card moves right after a mark glide (the list's own layout transition: positions change
- *  natively in the same frame, so nothing is drawn in its new place first). Any other time
- *  positions change at once — an instant transition rather than none, which would remount
- *  every row (LegendList swaps its row container for one without transitions) */
+/** Every row move glides (the list's own layout transition: positions change natively in the
+ *  same frame, so nothing is drawn in its new place first). Always this one transition: swapped
+ *  for an instant one between marks, the swap only reached rows whose container re-rendered —
+ *  most moved rows jumped (LegendList hands the transition over on a container's render) */
 const CARD_LAYOUT = LinearTransition.duration(CARD_MOVE_MS).easing(CARD_MOVE_EASING);
-const CARD_LAYOUT_INSTANT = LinearTransition.duration(0);
 /** When the pinned headers re-read the list's scroll after it may have moved (stickyScroll) */
 const STICKY_SYNC_MS = [0, 150, 500];
-/** Longest a mark / unwatch keeps the glide armed waiting for its list change */
-const ARM_MS = 6000;
 /** A row joining Previously Watched grows from this scale — never from nothing */
 const ROW_GROW_FROM = 0.6;
 
@@ -217,8 +215,7 @@ function listMotion(
 		const h = state.sizeAtIndex(prev.indexOf(d));
 		const y = pos - state.scroll;
 		if (y + h <= clipTop || y >= listH) continue;
-		// Previously Watched rows close in place (RowHeight), no copy
-		if (!isWatchedRow(d)) leaving.push({ key, row: d, y, h, clipTop });
+		leaving.push({ key, row: d, y, h, clipTop });
 	}
 
 	for (const a of next) {
@@ -231,7 +228,8 @@ function listMotion(
 		const belowPos = below ? state.positionByKey(keyOf(below)) : undefined;
 		const belowY = belowPos === undefined ? -1 : belowPos - state.scroll;
 		if (!(belowY > 0 && belowY < listH)) continue;
-		// Shown: it also grows in (scale / fade) as it opens (RowHeight)
+		// A Previously Watched row zooms in in RowZoom instead
+		if (isWatchedRow(a)) continue;
 		grow.add(key);
 	}
 	return {
@@ -242,8 +240,8 @@ function listMotion(
 	};
 }
 
-/** A leaving row (LeavingRow): shrinks to ROW_GROW_FROM toward its top edge as it fades — the
- *  grow-in reversed. Its backing closes with it (height → 0, same time and curve as the rows
+/** A leaving row (LeavingRow): zooms out to nothing at the centre of its closing slot — the
+ *  zoom-in reversed. Its backing closes with it (height → 0, same time and curve as the rows
  *  under it gliding up), so what the list left in the slot never shows and the rows coming up
  *  are never covered */
 function LeavingGhost({
@@ -258,14 +256,15 @@ function LeavingGhost({
 		});
 	}, [t, card.key, onDone]);
 	const close = useAnimatedStyle(() => ({ height: card.h * (1 - t.value) }));
+	// Zooms out evenly (its shape kept), scaled to the closing room and centred in it
 	const shrink = useAnimatedStyle(() => ({
 		opacity: 1 - t.value,
-		transform: [{ scale: 1 - (1 - ROW_GROW_FROM) * t.value }],
+		transform: [{ translateY: (-card.h * t.value) / 2 }, { scale: 1 - t.value }],
 	}));
 	return (
 		<View style={[styles.leavingClip, { top: card.clipTop }]} pointerEvents="none">
 			<Reanimated.View style={[styles.leavingCard, { top: card.y - card.clipTop }, close]}>
-				<Reanimated.View style={[styles.growIn, shrink]}>{children}</Reanimated.View>
+				<Reanimated.View style={[styles.zoomCentre, shrink]}>{children}</Reanimated.View>
 			</Reanimated.View>
 		</View>
 	);
@@ -292,22 +291,6 @@ function upNextTopOnScreen(list: LegendListRef | null): boolean {
 	// Up to a header's height past it: the list opens a few px past the header's own spot
 	// (content padding), and the first card is still in view right under the pinned header
 	return !!state && top !== undefined && state.scroll <= top + SECTION_HEADER_H;
-}
-
-/** The list with closing Previously Watched rows put back after the row they followed */
-function withClosing(
-	data: WatchlistListItem[],
-	closing: readonly { row: WatchlistListItem; afterKey: string | null }[],
-): WatchlistListItem[] {
-	if (closing.length === 0) return data;
-	const out = [...data];
-	for (const c of closing) {
-		if (out.some((r) => keyOf(r) === keyOf(c.row))) continue;
-		const at = c.afterKey === null ? -1 : out.findIndex((r) => keyOf(r) === c.afterKey);
-		if (c.afterKey !== null && at === -1) continue;
-		out.splice(at + 1, 0, c.row);
-	}
-	return out;
 }
 
 /**
@@ -357,84 +340,67 @@ function GrowIn({
 	);
 }
 
-enum RowHeightMode {
-	OPEN = "open",
-	CLOSE = "close",
+/**
+ * A Previously Watched row a mark just added. It takes its full slot at once and the rows under it
+ * glide down by the list's layout transition (CARD_LAYOUT); its card zooms in by an entering
+ * animation with the same timing — evenly (its shape kept), scaled to the room opened so far and
+ * centred in it, so it never covers the rows under it. Both start natively in the commit that
+ * places the row: driven from JS (a per-frame height the list re-measured) the open stepped with
+ * the JS thread, stalled right after a mark, and the row covered the cards that hadn't moved yet.
+ * `headerSlot`: the "What's Up Next" header (hidden meanwhile) is drawn under it, gliding from the
+ * row's top — where it was — to its new place with the cards
+ */
+const rowZoomIn = (values: EntryAnimationsValues) => {
+	"worklet";
+	const cfg = { duration: CARD_MOVE_MS, easing: CARD_MOVE_EASING };
+	return {
+		initialValues: {
+			opacity: 0,
+			transform: [{ translateY: -values.targetHeight / 2 }, { scale: 0 }],
+		},
+		animations: {
+			opacity: withTiming(1, cfg),
+			transform: [{ translateY: withTiming(0, cfg) }, { scale: withTiming(1, cfg) }],
+		},
+	};
+};
+function headerRideIn(slot: number) {
+	return () => {
+		"worklet";
+		const cfg = { duration: CARD_MOVE_MS, easing: CARD_MOVE_EASING };
+		return {
+			initialValues: { transform: [{ translateY: -slot }] },
+			animations: { transform: [{ translateY: withTiming(0, cfg) }] },
+		};
+	};
 }
 
-/**
- * Previously Watched row whose height animates — opening from 0 (joined by a mark) or closing to
- * 0 (unwatched; dropped once closed). Rows joining / leaving there sit above "What's Up Next",
- * often above the view: added or removed at once, the list moved its scroll to keep the view
- * still, a frame after the rows moved — a one-row jump. Grown over CARD_MOVE_MS instead, it's
- * many small steps the list follows smoothly, on screen or off. Keyed by row, so a recycled
- * container never carries one row's height into another
- */
-/** Row open / close: slow on purpose — the list's scroll correction for a row growing above
- *  the view lands a few frames behind the rows, so the faster the row grows the further the
- *  view drifts (and comes back). Spread out, each step is a pixel or two */
-const ROW_HEIGHT_MS = 900;
-/** Ease-in-out (CARD_MOVE_EASING's shape) for the JS-driven row height */
-const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-
-function RowHeight({
-	mode,
-	token,
+function RowZoom({
+	zoomIn,
 	children,
-}: Readonly<{ mode?: RowHeightMode; token?: number; children: ReactNode }>) {
-	// -1 = natural height (no clip)
-	const h = useSharedValue(mode === RowHeightMode.OPEN ? 0 : -1);
-	// While animating the content is laid out on its own (absolute) at its natural height —
-	// in flow, inside a 0-high box, it measured 0 and the row never opened
-	const [animating, setAnimating] = useState(mode === RowHeightMode.OPEN);
-	const natural = useRef(0);
-	const started = useRef<number | undefined>(undefined);
-	const frame = useRef<number | null>(null);
-	useEffect(
-		() => () => {
-			if (frame.current !== null) cancelAnimationFrame(frame.current);
-		},
-		[],
-	);
-	const run = useCallback(() => {
-		if (!mode || token === undefined || started.current === token || natural.current <= 0) return;
-		started.current = token;
-		setAnimating(true);
-		const full = natural.current;
-		const [from, to] = mode === RowHeightMode.OPEN ? [0, full] : [full, 0];
-		const t0 = performance.now();
-		const step = () => {
-			const p = Math.min(1, (performance.now() - t0) / ROW_HEIGHT_MS);
-			const cur = from + (to - from) * easeInOut(p);
-			h.value = cur;
-			if (p < 1) {
-				frame.current = requestAnimationFrame(step);
-				return;
-			}
-			frame.current = null;
-			if (mode === RowHeightMode.OPEN) {
-				h.value = -1;
-				setAnimating(false);
-			}
-		};
-		step();
-	}, [mode, token, h]);
-	useLayoutEffect(run, [run]);
-	const style = useAnimatedStyle(() =>
-		h.value < 0 ? {} : { height: h.value, overflow: "hidden" as const },
+}: Readonly<{ zoomIn?: ListRow["zoomIn"]; children: ReactNode }>) {
+	// Only a row mounted by its mark zooms (an entering animation runs at mount)
+	const [zooming] = useState(zoomIn !== undefined);
+	const headerSlot = zoomIn?.headerSlot;
+	const headerEntering = useMemo(
+		() => (headerSlot ? headerRideIn(headerSlot) : undefined),
+		[headerSlot],
 	);
 	return (
-		<Reanimated.View style={style}>
-			<View
-				style={animating ? styles.rowHeightContent : undefined}
-				onLayout={(e) => {
-					natural.current = e.nativeEvent.layout.height;
-					run();
-				}}
-			>
+		<View collapsable={false}>
+			<Reanimated.View style={styles.zoomCentre} entering={zooming ? rowZoomIn : undefined}>
 				{children}
-			</View>
-		</Reanimated.View>
+			</Reanimated.View>
+			{headerSlot !== undefined && (
+				<Reanimated.View
+					style={[styles.headerRide, { top: headerSlot }]}
+					entering={headerEntering}
+					pointerEvents="none"
+				>
+					<SectionHeader title={UP_NEXT_TITLE} />
+				</Reanimated.View>
+			)}
+		</View>
 	);
 }
 
@@ -454,20 +420,8 @@ function FlipIn({
 	return <Reanimated.View style={[style, waiting && FLIP_START]}>{children}</Reanimated.View>;
 }
 
-/** RowHeight's key: the row, plus whether it's animating. A row whose open / close ended or was
- *  called off gets a fresh RowHeight — an animated height left behind (an open cancelled before
- *  it started kept the row at 0, drawn nowhere) can't outlive its animation */
-const rowHeightKey = (item: ListRow) => `${keyOf(item)}|${item.height?.mode ?? ""}`;
-
-/** Remembered row heights (rowSizes) — but not for a row opening / closing: its height is the
- *  animation, the list must follow its measured size */
-const fixedRowSize = (item: ListRow) => {
-	// Opening: starts at exactly 0 (its separator) — left to the estimate (a row's height) it was
-	// placed a row tall for a frame and the list jumped. Its animated height is then measured
-	// as it changes (patched LegendList: a measured size that differs from the fixed one counts)
-	if (item.height?.mode === RowHeightMode.OPEN) return spacing.sm;
-	return item.height ? undefined : rememberedRowSize(item);
-};
+/** Remembered row heights (rowSizes) */
+const fixedRowSize = (item: ListRow) => rememberedRowSize(item);
 
 export default function WatchlistTab() {
 	const navigation = useNavigation<NavProp>();
@@ -532,7 +486,6 @@ export default function WatchlistTab() {
 		handleUnmarkEpisode,
 		handleCarouselMarkWatched,
 		isSwipedOff,
-		listChangeArm,
 	} = useWatchlistScreen(handleNavigateToShow);
 	// Episode sheet's logo / name (catalog cache — 0 reads)
 	const sheetShow = sheetEpisode
@@ -545,12 +498,7 @@ export default function WatchlistTab() {
 	const listRef = useRef<LegendListRef | null>(null);
 
 	const drawnRows = useRef<readonly WatchlistListItem[]>([]);
-	// Previously Watched rows closing (RowHeight): kept in the list, after the row they followed,
-	// until they've closed to nothing
-	const [closing, setClosing] = useState<
-		{ row: WatchlistListItem; afterKey: string | null; token: number }[]
-	>([]);
-	const listData = useMemo(() => withClosing(fullData, closing), [fullData, closing]);
+	const listData = fullData;
 
 	// The rows as last drawn: a reorder's glide starts from their layout
 	useEffect(() => {
@@ -656,14 +604,23 @@ export default function WatchlistTab() {
 	const [layoutMoving, setLayoutMoving] = useState(false);
 	// This reorder's rows keep their positions (no scroll compensation): see listMotion
 	const [noAnchor, setNoAnchor] = useState(false);
-	const mvcp = useMemo(() => ({ data: !noAnchor, size: true }), [noAnchor]);
+
 	const [growing, setGrowing] = useState<{ keys: ReadonlySet<string>; token: number } | null>(null);
 	const growToken = useRef(0);
 	const [headerGlide, setHeaderGlide] = useState<HeaderMove | null>(null);
-	const [opening, setOpening] = useState<{ keys: ReadonlySet<string>; token: number } | null>(null);
-	const heightToken = useRef(0);
-	// Rows that finished closing and were dropped (see `closed`)
-	const closedDone = useRef(new Set<string>());
+	const [opening, setOpening] = useState<{
+		keys: ReadonlySet<string>;
+		token: number;
+		headerSlot?: number;
+	} | null>(null);
+	const zoomToken = useRef(0);
+	// While a row zooms in / out the list doesn't hold the view still: its correction trailed the
+	// rows (they drifted, then were pulled back — a shake). The view drifts with them and stays
+	const rowsMoving = opening !== null || leaving.length > 0;
+	const mvcp = useMemo(
+		() => ({ data: !noAnchor && !rowsMoving, size: !rowsMoving }),
+		[noAnchor, rowsMoving],
+	);
 	if (seenPromotions !== promotions || seenList !== listKeys) {
 		const promoted = seenPromotions !== promotions;
 		setSeenPromotions(promotions);
@@ -693,74 +650,57 @@ export default function WatchlistTab() {
 				...motion.leaving.filter((l) => !prev.some((p) => p.key === l.key)),
 			]);
 		}
-		// Previously Watched rows: one just marked opens, one just unwatched closes (RowHeight)
+		// A Previously Watched row a mark just added zooms in (RowZoom); one an unwatch took off
+		// leaves as a LeavingGhost (listMotion)
 		const prevRows = drawnRows.current;
 		const nextKeySet = new Set(listKeys.split("|"));
 		const prevKeySet = new Set(prevRows.map(keyOf));
-		const changedRow = (r: WatchlistListItem) => {
+		const opened = listData.filter((r) => {
 			const id = rowTmdbId(r);
-			return id !== null && wasJustMarked(id);
-		};
-		const closingKeys = new Set(closing.map((c) => keyOf(c.row)));
-		const opened = listData.filter(
-			(r) =>
+			return (
 				isWatchedRow(r) &&
 				!prevKeySet.has(keyOf(r)) &&
-				!closingKeys.has(keyOf(r)) &&
-				changedRow(r) &&
-				prevRows.length > 0,
-		);
-		// Not a row that already closed and was dropped: seen leaving again then, it looped
-		// (closed → dropped → "removed" → closed …) and the list kept re-anchoring
-		const closed = prevRows.filter(
-			(r) =>
-				isWatchedRow(r) &&
-				!nextKeySet.has(keyOf(r)) &&
-				changedRow(r) &&
-				!closedDone.current.has(keyOf(r)),
-		);
-		for (const r of listData) closedDone.current.delete(keyOf(r));
-		if (opened.length > 0 || closed.length > 0) {
-			heightToken.current += 1;
-			const token = heightToken.current;
-			if (opened.length > 0) setOpening({ keys: new Set(opened.map(keyOf)), token });
-			if (closed.length > 0) {
-				setClosing((prev) => [
-					...prev,
-					...closed
-						.filter((r) => !prev.some((c) => keyOf(c.row) === keyOf(r)))
-						.map((r) => {
-							const at = prevRows.indexOf(r);
-							return { row: r, afterKey: at > 0 ? keyOf(prevRows[at - 1]) : null, token };
-						}),
-				]);
-			}
+				id !== null &&
+				wasJustMarked(id) &&
+				prevRows.length > 0
+			);
+		});
+		if (opened.length > 0) {
+			zoomToken.current += 1;
+			setLayoutMoving(true);
+			// "What's Up Next" sits under the newest row: when it shows at its own place (not
+			// pinned), a copy rides under the zooming row (the real one is placed outside the
+			// cards' transition and would jump)
+			const state = listRef.current?.getState();
+			const top = state?.positionByKey(UP_NEXT_KEY);
+			const last = opened[opened.length - 1];
+			const lastSlot = (rememberedRowSize(last) ?? 0) + spacing.sm;
+			const headerShows =
+				!!state &&
+				top !== undefined &&
+				top - state.scroll >= 0 &&
+				top - state.scroll < listH &&
+				listData[listData.indexOf(last) + 1] !== undefined &&
+				keyOf(listData[listData.indexOf(last) + 1]) === UP_NEXT_KEY;
+			setOpening({
+				keys: new Set(opened.map(keyOf)),
+				token: zoomToken.current,
+				headerSlot: headerShows ? lastSlot : undefined,
+			});
 		}
 		// Rows the list dropped: a swipe banner one was held on clears (after this commit)
 		for (const r of prevRows) {
 			if (nextKeySet.has(keyOf(r))) continue;
-			// Closing in place: it keeps its banner while it closes
-			if (isWatchedRow(r) && changedRow(r)) continue;
 			if (r.type === "watchedEpisode") droppedSwipes.current.push(r.episode.id);
 			else if (r.type === "watchedMovie")
 				droppedSwipes.current.push(`${MediaType.MOVIE}_${r.movie.tmdbId}`);
 		}
 	}
-	// A mark / unwatch just started: the glide is armed before its list change arrives (a few
-	// frames for a mark, a network round trip for an unwatch), so the commit that moves the
-	// cards already has it. Disarmed once the change has animated (layoutMoving) or after ARM_MS
-	const [armed, setArmed] = useState(false);
-	useEffect(() => {
-		if (listChangeArm === 0) return;
-		setArmed(true);
-		const t = setTimeout(() => setArmed(false), ARM_MS);
-		return () => clearTimeout(t);
-	}, [listChangeArm]);
+	// A reorder's no-anchor holds until its glide is over
 	useEffect(() => {
 		if (!layoutMoving) return;
 		const t = setTimeout(() => {
 			setLayoutMoving(false);
-			setArmed(false);
 			setNoAnchor(false);
 		}, CARD_MOVE_MS + 200);
 		return () => clearTimeout(t);
@@ -768,21 +708,12 @@ export default function WatchlistTab() {
 	// Rows open / close only once card glides are over: a height changing under the glide's
 	// layout transition left the rows trailing the list's scroll steps — the cards drifted, then
 	// snapped. So a mark moves its card first, then its Previously Watched row opens
-	const cardsGliding = layoutMoving || armed;
-	// Closed rows leave the list (at height 0, so nothing moves); opening flags clear
+	// The zoom-in flags clear once the zoom is over (its header copy goes, the real one returns)
 	useEffect(() => {
-		if (closing.length === 0 || cardsGliding) return;
-		const t = setTimeout(() => {
-			for (const c of closing) closedDone.current.add(keyOf(c.row));
-			setClosing([]);
-		}, ROW_HEIGHT_MS + 100);
+		if (!opening) return;
+		const t = setTimeout(() => setOpening(null), CARD_MOVE_MS + 200);
 		return () => clearTimeout(t);
-	}, [closing, cardsGliding]);
-	useEffect(() => {
-		if (!opening || cardsGliding) return;
-		const t = setTimeout(() => setOpening(null), ROW_HEIGHT_MS + 100);
-		return () => clearTimeout(t);
-	}, [opening, cardsGliding]);
+	}, [opening]);
 	const leftList = useCallback(
 		(key: string) => setLeaving((prev) => prev.filter((c) => c.key !== key)),
 		[],
@@ -843,35 +774,29 @@ export default function WatchlistTab() {
 		[growStyle, growShiftStyle],
 	);
 	const rows = useMemo<ListRow[]>(() => {
-		if (!growing && !headerGlide && !flipping && !opening && closing.length === 0) return listData;
-		const closingTokens = new Map(closing.map((c) => [keyOf(c.row), c.token]));
+		if (!growing && !headerGlide && !flipping && !opening) return listData;
+		// The row the header copy rides under (the newest of the rows zooming in)
+		const lastOpened = opening
+			? listData.reduce((at, r, k) => (opening.keys.has(keyOf(r)) ? k : at), -1)
+			: -1;
 		const growWaiting = growing !== null && growStarted !== growing.token;
 		const flipWaiting = flipping !== null && flipStarted !== flipping.token;
 		return listData.map((i) => {
 			const key = keyOf(i);
 			if (flipping?.keys.has(key)) return { ...i, flipping: true, flipWaiting };
-			const closeToken = closingTokens.get(key);
-			if (closeToken !== undefined) {
-				return {
-					...i,
-					height: { mode: RowHeightMode.CLOSE, token: cardsGliding ? undefined : closeToken },
-				};
-			}
 			if (opening?.keys.has(key)) {
-				const height = {
-					mode: RowHeightMode.OPEN,
-					token: cardsGliding ? undefined : opening.token,
-				};
-				return growing?.keys.has(key)
-					? { ...i, height, grow: growing.token, growShift: false, growWaiting }
-					: { ...i, height };
+				const headerSlot = listData[lastOpened] === i ? opening.headerSlot : undefined;
+				return { ...i, zoomIn: { token: opening.token, headerSlot } };
 			}
 			if (growing?.keys.has(key)) {
 				// Under a header gliding by: start where the header still is (growShiftStyle)
 				const growShift = i.type === "show" && headerGlide?.token === growing.token;
 				return { ...i, grow: growing.token, growShift, growWaiting };
 			}
-			if (headerGlide && key === UP_NEXT_KEY) return { ...i, hideHeader: true };
+			// Hidden while a copy glides in its place (HeaderGlide, or riding under a zooming row)
+			if (key === UP_NEXT_KEY && (headerGlide || opening?.headerSlot !== undefined)) {
+				return { ...i, hideHeader: true };
+			}
 			return i;
 		});
 	}, [
@@ -882,8 +807,6 @@ export default function WatchlistTab() {
 		flipping,
 		flipStarted,
 		opening,
-		closing,
-		cardsGliding,
 	]);
 	// Failsafe: the header copy / leaving rows never outlast their animation (a finish callback
 	// that never comes — the view torn down mid-way — must not leave the real header hidden)
@@ -981,7 +904,7 @@ export default function WatchlistTab() {
 
 			if (item.type === "watchedMovie") {
 				return (
-					<RowHeight key={rowHeightKey(item)} mode={item.height?.mode} token={item.height?.token}>
+					<RowZoom key={keyOf(item)} zoomIn={item.zoomIn}>
 						<GrowIn style={growStyleOf(item)} waiting={item.growWaiting}>
 							<ShowCard
 								item={
@@ -1002,13 +925,13 @@ export default function WatchlistTab() {
 								onCheckmark={async () => handleMovieCheckmark(item.movie, item.show.title)}
 							/>
 						</GrowIn>
-					</RowHeight>
+					</RowZoom>
 				);
 			}
 
 			if (item.type === "watchedEpisode") {
 				return (
-					<RowHeight key={rowHeightKey(item)} mode={item.height?.mode} token={item.height?.token}>
+					<RowZoom key={keyOf(item)} zoomIn={item.zoomIn}>
 						<GrowIn style={growStyleOf(item)} waiting={item.growWaiting}>
 							<WatchedEpisodeRow
 								episode={item.episode}
@@ -1020,7 +943,7 @@ export default function WatchlistTab() {
 								onLongPress={canPause(item.show) ? setPauseTarget : undefined}
 							/>
 						</GrowIn>
-					</RowHeight>
+					</RowZoom>
 				);
 			}
 
@@ -1121,13 +1044,10 @@ export default function WatchlistTab() {
 				recycleItems
 				sharedValues={sharedValues}
 				getFixedItemSize={fixedRowSize}
-				itemLayoutAnimation={layoutMoving || armed ? CARD_LAYOUT : CARD_LAYOUT_INSTANT}
+				itemLayoutAnimation={CARD_LAYOUT}
 				drawDistance={SCREEN_HEIGHT * 2}
 				estimatedItemSize={110}
 				stickyHeaderIndices={stickyIndices}
-				onScrollBeginDrag={() => {
-					setArmed(false);
-				}}
 				// Heals (missing poster / episode name…) run only for cards kept on screen
 				onViewableItemsChanged={onViewableItemsChanged}
 				viewabilityConfig={CARD_VIEWABILITY}

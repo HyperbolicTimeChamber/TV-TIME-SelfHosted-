@@ -39,7 +39,10 @@ export const styles = StyleSheet.create({
 		overflow: "hidden",
 	},
 	// RowHeight content while its height animates: laid out at its own height
-	rowHeightContent: { position: "absolute", top: 0, left: 0, right: 0 },
+	// Zoom about the centre (a row zooming in / out of its slot)
+	zoomCentre: { transformOrigin: "center" },
+	// The "What's Up Next" copy riding under a row zooming in: at the row's slot end
+	headerRide: { position: "absolute", left: 0, right: 0 },
 	headerGlide: { position: "absolute", left: 0, right: 0 },
 	leavingCard: { position: "absolute", left: 0, right: 0, backgroundColor: colors.background },
 });
