@@ -14,6 +14,7 @@ import { CircleBackButton, CircleButtonSpacer } from "../../components/CircleBut
 import ConfirmModal from "../../components/ConfirmModal";
 import ExportingModal from "../../components/ExportingModal";
 import { FAREWELL_ART, LOGOUT_ART, ModalArt } from "../../components/ModalArt";
+import PoweredByTmdb from "../../components/PoweredByTmdb";
 import styles from "./styles/SettingsScreen.module.scss";
 
 /** Swipe right farther than this to go back (as on the app) */
@@ -119,6 +120,8 @@ export default function SettingsScreen() {
 					Delete Account & Data
 				</button>
 			</section>
+
+			<PoweredByTmdb className={styles.credit} />
 
 			<ConfirmModal
 				visible={logoutVisible}
