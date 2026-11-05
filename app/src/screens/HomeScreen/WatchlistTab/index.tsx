@@ -119,6 +119,8 @@ type HeaderMove = { from: number; to: number; token: number };
  *  every row (LegendList swaps its row container for one without transitions) */
 const CARD_LAYOUT = LinearTransition.duration(CARD_MOVE_MS).easing(CARD_MOVE_EASING);
 const CARD_LAYOUT_INSTANT = LinearTransition.duration(0);
+/** When the pinned headers re-read the list's scroll after it may have moved (stickyScroll) */
+const STICKY_SYNC_MS = [0, 150, 500];
 /** Longest a mark / unwatch keeps the glide armed waiting for its list change */
 const ARM_MS = 6000;
 /** A row joining Previously Watched grows from this scale — never from nothing */
@@ -299,6 +301,30 @@ function upNextOnScreen(list: LegendListRef | null): boolean {
 	return !!state && top !== undefined && state.scroll >= top - 1;
 }
 
+/** The top of "What's Up Next" (where a marked card goes) is on screen — scrolled no further
+ *  than the pinned header's own spot. Scrolled past it, the card would land above the view:
+ *  see `pinned` */
+function upNextTopOnScreen(list: LegendListRef | null): boolean {
+	const state = list?.getState();
+	const top = state?.positionByKey(UP_NEXT_KEY);
+	return !!state && top !== undefined && state.scroll <= top + 1;
+}
+
+/** The list with a pinned card put back before the row it was above (see `pinned`) */
+function withPinned(
+	data: WatchlistListItem[],
+	pin: { key: string; beforeKey: string | null } | null,
+): WatchlistListItem[] {
+	if (!pin) return data;
+	const i = data.findIndex((r) => keyOf(r) === pin.key);
+	if (i === -1) return data;
+	const rest = [...data.slice(0, i), ...data.slice(i + 1)];
+	const j = pin.beforeKey ? rest.findIndex((r) => keyOf(r) === pin.beforeKey) : rest.length;
+	if (j === -1) return data;
+	rest.splice(j, 0, data[i]);
+	return rest;
+}
+
 /** The list without the held rows; a section they leave empty goes too */
 function withoutHeld(data: WatchlistListItem[], held: ReadonlySet<string>): WatchlistListItem[] {
 	if (held.size === 0) return data;
@@ -466,16 +492,59 @@ export default function WatchlistTab() {
 		setHeld((prev) => (prev.size === 0 ? prev : new Set()));
 	}, []);
 	useFocusEffect(useCallback(() => releaseHeld, [releaseHeld]));
-	const listData = useMemo(() => withoutHeld(fullData, held), [fullData, held]);
+	// A mark scrolled past the top of "What's Up Next": the card stays where it was (its new
+	// episode shows there) until the next drag, then takes its place at the top. Moved at once,
+	// it landed above the view — the list shifted its scroll a frame after the rows moved, and
+	// every row jumped and snapped back
+	const drawnRows = useRef<readonly WatchlistListItem[]>([]);
+	const [pinned, setPinned] = useState<{ key: string; beforeKey: string | null } | null>(null);
+	const [pinSeen, setPinSeen] = useState(promotions);
+	let pin = pinned;
+	if (pinSeen !== promotions) {
+		setPinSeen(promotions);
+		pin = null;
+		const lifted = fullData.find((r) => r.type === "show");
+		const prev = drawnRows.current;
+		const at = lifted ? prev.findIndex((r) => keyOf(r) === keyOf(lifted)) : -1;
+		const wasFirst = prev.find((r) => r.type === "show");
+		if (
+			lifted &&
+			at !== -1 &&
+			wasFirst &&
+			keyOf(wasFirst) !== keyOf(lifted) &&
+			!upNextTopOnScreen(listRef.current)
+		) {
+			pin = { key: keyOf(lifted), beforeKey: prev[at + 1] ? keyOf(prev[at + 1]) : null };
+		}
+		setPinned(pin);
+	}
+	const releasePinned = useCallback(() => {
+		setPinned((prev) => (prev ? null : prev));
+	}, []);
+	useFocusEffect(useCallback(() => releasePinned, [releasePinned]));
+	const listData = useMemo(
+		() => withPinned(withoutHeld(fullData, held), pin),
+		[fullData, held, pin],
+	);
 
 	// The rows as last drawn: a reorder's glide starts from their layout
-	const drawnRows = useRef<readonly WatchlistListItem[]>(listData);
 	useEffect(() => {
 		drawnRows.current = listData;
 	}, [listData]);
 	// A mark lifting a card: each moved card glides from where it was drawn. Read during render —
 	// the list still holds the old layout until this render commits
 	const [listH, setListH] = useState(0);
+	// The scroll the pinned headers follow. Fed by scroll events — but the list's opening scroll
+	// to "What's Up Next" sent none, so "What's Up Next" sat at its unpinned spot (above the
+	// view) until the first drag. Synced from the list's own scroll whenever it may have moved
+	const stickyScroll = useSharedValue(0);
+	const sharedValues = useMemo(() => ({ scrollOffset: stickyScroll }), [stickyScroll]);
+	const syncStickyScroll = useCallback(() => {
+		const scroll = listRef.current?.getState().scroll;
+		if (scroll !== undefined && Math.abs(scroll - stickyScroll.value) > 0.5) {
+			stickyScroll.value = scroll;
+		}
+	}, [stickyScroll]);
 	// Remembered row heights (rowSizes) read before the first layout
 	const [sizesReady, setSizesReady] = useState(false);
 	useEffect(() => {
@@ -496,6 +565,12 @@ export default function WatchlistTab() {
 	const [seenPromotions, setSeenPromotions] = useState(promotions);
 	// Rows compared by their keys (order included): the list's array is rebuilt on every render
 	const listKeys = useMemo(() => listData.map(keyOf).join("|"), [listData]);
+	// After the opening scroll / a reorder the list may have moved its scroll without an event
+	useEffect(() => {
+		if (isLoading) return;
+		const timers = STICKY_SYNC_MS.map((ms) => setTimeout(syncStickyScroll, ms));
+		return () => timers.forEach(clearTimeout);
+	}, [isLoading, listKeys, syncStickyScroll]);
 	const [seenList, setSeenList] = useState(listKeys);
 	const droppedSwipes = useRef<string[]>([]);
 	useEffect(() => {
@@ -909,12 +984,17 @@ export default function WatchlistTab() {
 				keyExtractor={keyOf}
 				renderItem={renderItem}
 				recycleItems
+				sharedValues={sharedValues}
 				getFixedItemSize={rememberedRowSize}
 				itemLayoutAnimation={layoutMoving || armed ? CARD_LAYOUT : CARD_LAYOUT_INSTANT}
 				drawDistance={SCREEN_HEIGHT * 2}
 				estimatedItemSize={110}
 				stickyHeaderIndices={stickyIndices}
-				onScrollBeginDrag={releaseHeld}
+				onScrollBeginDrag={() => {
+					releaseHeld();
+					releasePinned();
+					setArmed(false);
+				}}
 				// Heals (missing poster / episode name…) run only for cards kept on screen
 				onViewableItemsChanged={onViewableItemsChanged}
 				viewabilityConfig={CARD_VIEWABILITY}
