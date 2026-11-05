@@ -278,6 +278,19 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		transform: [{ translateX: translateX.value }],
 	}));
 
+	// Always mounted, coloured on the UI thread: the card slides with the finger at once, but the
+	// detailed reveal below waits on the JS thread (setShowReveal) — under load (marks saving) the
+	// slot was blank for a second behind a swiped card. This shows the action colour at once
+	const backdropStyle = useAnimatedStyle(() => ({
+		backgroundColor: translateX.value < 0 ? rightColor : leftColor,
+		opacity: interpolate(
+			Math.abs(translateX.value),
+			[0, SWIPE_THRESHOLD / 2],
+			[0, 1],
+			Extrapolation.CLAMP,
+		),
+	}));
+
 	const leftRevealOpacity = useAnimatedStyle(() => ({
 		opacity: interpolate(translateX.value, [0, SWIPE_THRESHOLD], [0, 1], Extrapolation.CLAMP),
 	}));
@@ -316,6 +329,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				if (h > 0) cardHeight.current = h;
 			}}
 		>
+			<Animated.View style={[styles.revealBackdrop, backdropStyle]} pointerEvents="none" />
 			{reveal && (
 				<>
 					<Animated.View
@@ -396,6 +410,7 @@ const styles = StyleSheet.create({
 		gap: spacing.sm,
 		paddingHorizontal: spacing.xl,
 	},
+	revealBackdrop: { ...(StyleSheet.absoluteFill as object) },
 	revealCard: {
 		...(StyleSheet.absoluteFill as object),
 		flexDirection: "row",
