@@ -57,6 +57,8 @@ export enum CacheKey {
 	WATCHLIST_ACTIVE = "watchlist_active_cache_v2",
 	/** Confirmed: every tracking page is loaded (nothing more to page in) — skips the skeleton footer */
 	WATCHLIST_EXHAUSTED = "watchlist_exhausted_v1",
+	/** Measured watchlist row heights by row type (WatchlistTab rowSizes) */
+	WATCHLIST_ROW_SIZES = "watchlist_row_sizes_v2",
 	UPCOMING_EPISODES = "upcoming_episodes_cache_v2",
 	UPCOMING_BUILT = "upcoming_subcollection_built",
 	USER_STATS = "profile_stats_cache",
@@ -263,6 +265,8 @@ export enum ListTagKind {
 	NOT_STARTED = "notStarted",
 	/** On the watchlist, never watched (movies) */
 	NOT_WATCHED = "notWatched",
+	/** Ongoing / Ended (grid cards: a pill under the others, so the title gets the full width) */
+	AIR_STATE = "airState",
 }
 
 export enum DocChangeType {
@@ -757,3 +761,6 @@ export const COUNTRY_NAMES: Record<string, string> = {
 	PE: "Peru",
 	VE: "Venezuela",
 };
+
+/** Corner radius of list cards — watchlist rows match the calendar cards */
+export const CARD_RADIUS = 16;

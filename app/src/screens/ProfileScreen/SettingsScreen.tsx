@@ -21,6 +21,7 @@ import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import { CircleBackButton, CIRCLE_BUTTON_SIZE } from "../../components/CircleButton";
 import { ConfirmModal } from "../../components";
 import { ExportingModal } from "../../components/modals";
+import PoweredByTmdb from "../../components/PoweredByTmdb";
 import {
 	FAREWELL_ART,
 	FAREWELL_RATIO,
@@ -32,7 +33,7 @@ import { fetchAccountExport, shareAccountExport } from "../../services/accountEx
 import { CloudFunction, ProfileStackParamList, Route } from "../../types";
 
 export default function SettingsScreen() {
-	const { top } = useSafeAreaInsets();
+	const { top, bottom } = useSafeAreaInsets();
 	const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
 	const swipeBack = useSwipeBackPop(navigation);
 	const hasCompletedImport = useAuthStore((s) => s.hasCompletedImport);
@@ -115,7 +116,12 @@ export default function SettingsScreen() {
 	return (
 		// Swipe right from anywhere slides the page off, back to the profile
 		<SwipeBackView onBack={() => navigation.goBack()} {...swipeBack} style={styles.container}>
-			<ScrollView style={{ paddingTop: top }}>
+			<ScrollView
+				style={{ paddingTop: top }}
+				// Fills the screen so the TMDB credit sits at the bottom (below the rows when they
+				// run longer); the scroll view's top padding isn't part of its content height
+				contentContainerStyle={[styles.content, { paddingBottom: top + bottom + spacing.lg }]}
+			>
 				<View style={styles.headerRow}>
 					<CircleBackButton onPress={() => navigation.goBack()} />
 					<Text style={styles.headerTitle}>Settings</Text>
@@ -123,7 +129,10 @@ export default function SettingsScreen() {
 				</View>
 				<View style={styles.section}>
 					<Text style={styles.sectionTitle}>Data</Text>
-					<TouchableOpacity style={styles.row} onPress={() => navigation.navigate(Route.IMPORT_DATA)}>
+					<TouchableOpacity
+						style={styles.row}
+						onPress={() => navigation.navigate(Route.IMPORT_DATA)}
+					>
 						<Text style={styles.rowText}>
 							{hasCompletedImport ? "Re-sync TV Time Data" : "Import TV Time Data"}
 						</Text>
@@ -171,6 +180,10 @@ export default function SettingsScreen() {
 					</TouchableOpacity>
 				</View>
 
+				<View style={styles.credit}>
+					<PoweredByTmdb />
+				</View>
+
 				<ConfirmModal
 					visible={logoutVisible}
 					title="Until Next Time"
@@ -210,6 +223,9 @@ const styles = StyleSheet.create({
 		flex: 1,
 		backgroundColor: colors.background,
 	},
+	content: { flexGrow: 1 },
+	// Pushed to the bottom of the page by its auto top margin
+	credit: { marginTop: "auto", paddingTop: spacing.xl },
 	headerRow: {
 		flexDirection: "row",
 		alignItems: "center",

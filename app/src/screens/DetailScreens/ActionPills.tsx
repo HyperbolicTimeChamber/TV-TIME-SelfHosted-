@@ -5,7 +5,7 @@ import { colors, spacing, typography } from "../../theme";
 import { WatchStatus, MediaType } from "../../types";
 import { CircleButtonTone } from "../../enums";
 import CircleButton from "../../components/CircleButton";
-import { RxCheck } from "../../components/RxIcons";
+import { HiCheck } from "../../components/HiIcons";
 
 interface Props {
 	mediaType: MediaType;
@@ -80,7 +80,7 @@ export default function ActionPills({
 								<ActivityIndicator size="small" color={colors.text} />
 							) : (
 								<View style={styles.pillInline}>
-									<RxCheck size={20} />
+									<HiCheck size={20} />
 									<Text style={styles.pillText}>Mark as Watched</Text>
 								</View>
 							)}
@@ -99,7 +99,7 @@ export default function ActionPills({
 								<ActivityIndicator size="small" color={colors.text} />
 							) : (
 								<View style={styles.pillInline}>
-									<RxCheck size={20} />
+									<HiCheck size={20} />
 									<Text style={styles.pillText}>Mark as Watched</Text>
 								</View>
 							)}

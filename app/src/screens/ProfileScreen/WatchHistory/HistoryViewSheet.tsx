@@ -33,6 +33,7 @@ import {
 import { colors } from "../../../theme";
 import { titleCase } from "../../../utils/format";
 import { styles } from "./styles";
+import { HiCheck } from "../../../components/HiIcons";
 
 const SORT_OPTIONS: SortOption<HistorySort>[] = HISTORY_SORTS.map((value) => ({
 	value,
@@ -109,7 +110,11 @@ function Chip({
 			>
 				{(on || icon) && (
 					<Animated.View entering={CHECK_IN} exiting={CHECK_OUT}>
-						<Ionicons name={on ? "checkmark" : icon!} size={16} color={colors.text} />
+						{on ? (
+							<HiCheck size={16} color={colors.text} />
+						) : (
+							<Ionicons name={icon!} size={16} color={colors.text} />
+						)}
 					</Animated.View>
 				)}
 				{!!flag && <Text style={styles.filterChipFlag}>{flag}</Text>}
@@ -348,18 +353,21 @@ export default function HistoryViewSheet({
 							onPress={applyRegion}
 						/>
 					)}
-					{keywordChips.picked.map((k) => (
-						<Chip key={k} label={titleCase(k)} on onPress={() => onToggleKeyword(k)} />
-					))}
-					{keywordChips.rest.map((k) => (
-						<Chip
-							key={k}
-							label={titleCase(k)}
-							on={false}
-							disabled={keywordsFull}
-							onPress={() => onToggleKeyword(k)}
-						/>
-					))}
+					{/* One list, not picked + rest maps: a toggled keyword stays the same chip that
+					    recolours, instead of a remount where the old red pill lingered (its check's
+					    exit) over the new grey one */}
+					{[...keywordChips.picked, ...keywordChips.rest].map((k) => {
+						const on = facets.keywords.has(k);
+						return (
+							<Chip
+								key={k}
+								label={titleCase(k)}
+								on={on}
+								disabled={!on && keywordsFull}
+								onPress={() => onToggleKeyword(k)}
+							/>
+						);
+					})}
 				</ChipLine>
 			)}
 		</SortSheet>

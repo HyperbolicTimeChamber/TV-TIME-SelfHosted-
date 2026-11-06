@@ -116,7 +116,6 @@ export const styles = StyleSheet.create({
 	// "+n more": a quieter chip in its kind's colour (tinted fill, coloured text) — reads as
 	// "more of these", not as one more title
 	chipMore: {
-		alignSelf: "flex-start",
 		fontSize: 9,
 		lineHeight: 12,
 		fontWeight: "700",

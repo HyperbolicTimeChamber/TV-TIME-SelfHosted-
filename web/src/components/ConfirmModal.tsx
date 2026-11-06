@@ -1,6 +1,7 @@
 import { cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { Spin } from "antd";
 import AnimatedModal from "./AnimatedModal";
+import BottomSheet from "./BottomSheet";
 import { ModalBackdrop } from "./ModalArt";
 import styles from "./styles/ui.module.scss";
 import { cssVars } from "../utils/cssVars";
@@ -36,6 +37,8 @@ interface Props {
 	hideTitle?: boolean;
 	/** No Cancel button (tapping outside still closes) */
 	hideCancel?: boolean;
+	/** A bottom drawer instead of a centred popup (the banner confirms: backdrop art on top) */
+	drawer?: boolean;
 	onClose: () => void;
 }
 
@@ -62,30 +65,14 @@ export default function ConfirmModal({
 	imageAtTop = false,
 	hideTitle = false,
 	hideCancel = false,
+	drawer = false,
 	onClose,
 }: Props) {
 	// Photo art: up to the popup's top edge, the title on its own top shade
 	const photo = isValidElement(image) && image.type === ModalBackdrop;
 	const atTop = (imageAtTop || photo) && image != null;
-	return (
-		<AnimatedModal visible={visible} onClose={() => !loading && onClose()}>
-			{atTop ? (
-				<div className={`${styles.modalImage} ${styles.modalImageTop}`}>
-					{photo && !hideTitle
-						? cloneElement(image as ReactElement<{ heading?: string }>, { heading: title })
-						: image}
-					{!photo && !hideTitle && (
-						<p className={`${styles.modalTitle} ${styles.modalTitleOnImage}`}>{title}</p>
-					)}
-				</div>
-			) : (
-				<>
-					{!hideTitle && <p className={styles.modalTitle}>{title}</p>}
-					{image != null && <div className={styles.modalImage}>{image}</div>}
-				</>
-			)}
-			{hint && <p className={styles.modalHint}>{hint}</p>}
-			{error && <p className={styles.modalError}>{error}</p>}
+	const buttons = (
+		<>
 			{leadLabel && onLead && (
 				<button
 					className={`${styles.button} ${styles.danger} bg-(--lead)!`}
@@ -123,6 +110,63 @@ export default function ConfirmModal({
 					{tertiaryLabel}
 				</button>
 			)}
+		</>
+	);
+	if (drawer) {
+		// App ConfirmDrawer: the banner as a rounded card (title over its top), hint, the same
+		// buttons. Pressing a button never starts the sheet's drag (Add to List's first-tap fix);
+		// Cancel stays (dimmed) while the action runs so the drawer keeps its height
+		return (
+			<BottomSheet visible={visible} label={title} onClose={onClose} locked={!!loading}>
+				{photo ? (
+					<div className={styles.drawerBanner}>
+						{cloneElement(image as ReactElement<{ heading?: string }>, {
+							heading: hideTitle ? undefined : title,
+						})}
+					</div>
+				) : (
+					<>
+						{!hideTitle && <p className={styles.modalTitle}>{title}</p>}
+						{image != null && <div className={styles.modalImage}>{image}</div>}
+					</>
+				)}
+				{hint && <p className={styles.modalHint}>{hint}</p>}
+				{error && <p className={styles.modalError}>{error}</p>}
+				<div onPointerDownCapture={(e) => e.stopPropagation()}>
+					{buttons}
+					{!hideCancel && (
+						<button
+							className={`${styles.button} ${styles.cancelOutline}`}
+							onClick={onClose}
+							disabled={!!loading}
+						>
+							{cancelLabel}
+						</button>
+					)}
+				</div>
+			</BottomSheet>
+		);
+	}
+	return (
+		<AnimatedModal visible={visible} onClose={() => !loading && onClose()}>
+			{atTop ? (
+				<div className={`${styles.modalImage} ${styles.modalImageTop}`}>
+					{photo && !hideTitle
+						? cloneElement(image as ReactElement<{ heading?: string }>, { heading: title })
+						: image}
+					{!photo && !hideTitle && (
+						<p className={`${styles.modalTitle} ${styles.modalTitleOnImage}`}>{title}</p>
+					)}
+				</div>
+			) : (
+				<>
+					{!hideTitle && <p className={styles.modalTitle}>{title}</p>}
+					{image != null && <div className={styles.modalImage}>{image}</div>}
+				</>
+			)}
+			{hint && <p className={styles.modalHint}>{hint}</p>}
+			{error && <p className={styles.modalError}>{error}</p>}
+			{buttons}
 			{!loading && !hideCancel && (
 				<button className={`${styles.button} ${styles.cancelOutline}`} onClick={onClose}>
 					{cancelLabel}

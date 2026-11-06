@@ -9,6 +9,8 @@ export const colors = {
 	text: "#FFFFFF",
 	textSecondary: "#A0A0A0",
 	textMuted: "#666666",
+	/** Unwatched checkmark tick on the white circle */
+	checkTick: "#A0A0A0",
 	watchedGreen: "#00A800",
 	stopBlue: "#3498DB",
 	destructiveRed: "#E74C3C",

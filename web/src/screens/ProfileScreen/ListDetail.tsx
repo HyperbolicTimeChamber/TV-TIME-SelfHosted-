@@ -1,10 +1,10 @@
+import { HiCheck } from "react-icons/hi";
 import { useEffect, useState } from "react";
 import { App as AntApp } from "antd";
 import { Reorder } from "motion/react";
 import {
 	IoBookmarkOutline,
 	IoBookmarksOutline,
-	IoCheckmark,
 	IoClose,
 	IoEllipsisVertical,
 	IoGrid,
@@ -172,7 +172,7 @@ export default function ListDetailScreen() {
 						disabled={!dirty || saving}
 						aria-label="Save order"
 					>
-						<IoCheckmark size={28} />
+						<HiCheck size={28} />
 					</button>
 				</div>
 			) : (

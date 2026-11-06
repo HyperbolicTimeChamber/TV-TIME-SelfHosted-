@@ -29,6 +29,10 @@ export default function PosterImage({
 	if (posterPath) {
 		return (
 			<Image
+				// Keyed by poster: a card whose title moved away and back within a moment (a mark's
+				// reorder, then the listener's) kept the other card's picture — expo-image dropped
+				// the change back. A new image view per poster can't
+				key={posterPath}
 				source={{ uri: tmdbPosterUri(posterPath, POSTER_WIDTH) }}
 				style={style as any}
 				contentFit={contentFit}

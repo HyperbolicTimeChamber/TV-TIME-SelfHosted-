@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
+// Gesture-handler Pressable: BottomSheet's drag is a gesture-handler pan (first-tap fix there)
+import { Pressable } from "react-native-gesture-handler";
 import { FontAwesome6 } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import BottomSheet, {
@@ -13,6 +15,7 @@ import BottomSheet, {
 } from "./BottomSheet";
 import { colors, spacing, typography } from "../../theme";
 import type { MediaType } from "../../types";
+import { HiCheck } from "../HiIcons";
 
 /** Taps settle this long before the count is written — quick +/+/+ is one write, not three */
 const COMMIT_DELAY_MS = 700;
@@ -187,7 +190,7 @@ export default function WatchCountSheet({
 						{/* At 2, − already lands on 1 */}
 						<SheetCollapse open={allowWatchedOnce && count > 2}>
 							<SheetOption
-								icon="checkmark-circle-outline"
+								icon={HiCheck}
 								color={colors.watchedGreen}
 								title="Watched Once"
 								hint="Reset to 1x"

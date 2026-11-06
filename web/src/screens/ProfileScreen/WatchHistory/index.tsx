@@ -214,10 +214,8 @@ function HistoryGridCard({
 			))}
 			footer={
 				<div className={styles.gridFooter}>
-					<div className={styles.gridTitleRow}>
-						<span className={styles.gridTitle}>{card.title}</span>
-						{card.tag && <span className={styles.gridTag}>{card.tag}</span>}
-					</div>
+					{/* Ongoing / Ended sits in the pill stack (deriveHistoryGridTags): full-width title */}
+					<span className={styles.gridTitle}>{card.title}</span>
 					{stats.length > 0 && (
 						<div className={styles.gridStats}>
 							{stats.map((s) => (

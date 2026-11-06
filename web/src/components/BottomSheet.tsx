@@ -88,6 +88,7 @@ export default function BottomSheet({
 	children,
 	background,
 	art,
+	locked = false,
 }: {
 	visible: boolean;
 	/** Dialog's accessible name */
@@ -98,6 +99,8 @@ export default function BottomSheet({
 	background?: ReactNode;
 	/** The title the sheet is about: its art behind the content, cards go translucent (app art) */
 	art?: SheetArtSource | null;
+	/** Can't be dismissed (drag, outside click) — e.g. while its action runs (app locked) */
+	locked?: boolean;
 }) {
 	const behind = background ?? (art ? <SheetArt {...art} /> : null);
 	return createPortal(
@@ -112,7 +115,7 @@ export default function BottomSheet({
 						initial={{ opacity: 0 }}
 						animate={{ opacity: 1 }}
 						exit={{ opacity: 0, transition: SHEET_EXIT }}
-						onClick={onClose}
+						onClick={locked ? undefined : onClose}
 					/>
 					<motion.div
 						className={styles.sheet}
@@ -121,7 +124,7 @@ export default function BottomSheet({
 						initial={{ y: "100%" }}
 						animate={{ y: 0, transition: SHEET_SPRING }}
 						exit={{ y: "100%", transition: SHEET_EXIT }}
-						drag="y"
+						drag={locked ? false : "y"}
 						dragConstraints={{ top: 0, bottom: 0 }}
 						dragElastic={{ top: 0.05, bottom: 1 }}
 						onDragEnd={(_, info) => {

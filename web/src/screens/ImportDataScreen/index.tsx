@@ -1,3 +1,4 @@
+import { HiCheck } from "react-icons/hi";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Progress } from "antd";
 import { animate } from "motion/react";
@@ -321,7 +322,7 @@ export default function ImportDataScreen() {
 					onClick={() => imp.toggleSelected(key)}
 				>
 					<span className={`${styles.checkbox} ${checked ? styles.checkboxChecked : ""}`}>
-						{checked && "✓"}
+						{checked && <HiCheck size={14} />}
 					</span>
 					{m.posterPath ? (
 						<img src={tmdbPosterUri(m.posterPath, 40)} alt="" className={styles.posterSmall} />

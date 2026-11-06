@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { Freeze } from "react-freeze";
 import { StyleSheet } from "react-native";
 import Animated, {
 	Easing,
@@ -91,31 +92,70 @@ function TabBar({
 	);
 }
 
+/** The focused tab's index (TAB_ORDER) */
+const FocusedTabContext = createContext(0);
+const TAB_ORDER = [Route.HOME, Route.CALENDAR, Route.SEARCH, Route.PROFILE] as const;
+
+/**
+ * A tab that isn't the focused one or right next to it is frozen (react-freeze): it keeps its
+ * state but skips React updates until it comes back into reach. Every tab stays mounted once
+ * opened and re-rendered on every change to the data it reads — a mark re-rendered the off-screen
+ * Profile tab for ~300ms each time, stalling the watchlist's animations. Neighbours stay live:
+ * the pager shows them while a swipe is in progress (a frozen tab is hidden). Home is never
+ * frozen: thawed, its watchlist's pinned header came back out of step with the list's scroll
+ */
+function reachableTab(name: (typeof TAB_ORDER)[number], Screen: React.ComponentType<any>) {
+	const at = TAB_ORDER.indexOf(name);
+	const freezable = name !== Route.HOME;
+	function ReachableTab(props: object) {
+		const focused = useContext(FocusedTabContext);
+		return (
+			<Freeze freeze={freezable && Math.abs(focused - at) > 1}>
+				<Screen {...props} />
+			</Freeze>
+		);
+	}
+	return ReachableTab;
+}
+const HomeTab = reachableTab(Route.HOME, HomeStackScreen);
+const CalendarTab = reachableTab(Route.CALENDAR, CalendarStackScreen);
+const SearchTab = reachableTab(Route.SEARCH, SearchStackScreen);
+const ProfileTab = reachableTab(Route.PROFILE, ProfileStackScreen);
+
 export default function SwipeTabsScreen() {
 	// The overlaid bar's height: tab screens keep it clear, detail screens use it
 	const [barHeight, setBarHeight] = useState(0);
+	const [focusedTab, setFocusedTab] = useState(0);
 	return (
-		<SwipeTab.Navigator
-			initialRouteName={Route.HOME}
-			tabBarPosition="bottom"
-			tabBar={({ state }) => <TabBar state={state} onHeight={setBarHeight} />}
-			screenOptions={({ route }) => {
-				const onDetail = isDetail(route);
-				return {
-					lazy: true,
-					sceneStyle: { paddingBottom: onDetail ? 0 : barHeight },
-					// Home's pager swipe is off: its Watch List / Upcoming tabs swipe themselves (RNGH,
-					// after the cards' own swipes). HomeScreen turns it on while Upcoming shows, so
-					// the left swipe on to Calendar follows the finger
-					swipeEnabled: !onDetail && route.name !== Route.HOME,
-				};
-			}}
-		>
-			<SwipeTab.Screen name={Route.HOME} component={HomeStackScreen} />
-			<SwipeTab.Screen name={Route.CALENDAR} component={CalendarStackScreen} />
-			<SwipeTab.Screen name={Route.SEARCH} component={SearchStackScreen} />
-			<SwipeTab.Screen name={Route.PROFILE} component={ProfileStackScreen} />
-		</SwipeTab.Navigator>
+		<FocusedTabContext.Provider value={focusedTab}>
+			<SwipeTab.Navigator
+				screenListeners={{
+					state: (e) => {
+						const index = (e.data as { state?: { index?: number } }).state?.index;
+						if (index !== undefined) setFocusedTab(index);
+					},
+				}}
+				initialRouteName={Route.HOME}
+				tabBarPosition="bottom"
+				tabBar={({ state }) => <TabBar state={state} onHeight={setBarHeight} />}
+				screenOptions={({ route }) => {
+					const onDetail = isDetail(route);
+					return {
+						lazy: true,
+						sceneStyle: { paddingBottom: onDetail ? 0 : barHeight },
+						// Home's pager swipe is off: its Watch List / Upcoming tabs swipe themselves (RNGH,
+						// after the cards' own swipes). HomeScreen turns it on while Upcoming shows, so
+						// the left swipe on to Calendar follows the finger
+						swipeEnabled: !onDetail && route.name !== Route.HOME,
+					};
+				}}
+			>
+				<SwipeTab.Screen name={Route.HOME} component={HomeTab} />
+				<SwipeTab.Screen name={Route.CALENDAR} component={CalendarTab} />
+				<SwipeTab.Screen name={Route.SEARCH} component={SearchTab} />
+				<SwipeTab.Screen name={Route.PROFILE} component={ProfileTab} />
+			</SwipeTab.Navigator>
+		</FocusedTabContext.Provider>
 	);
 }
 

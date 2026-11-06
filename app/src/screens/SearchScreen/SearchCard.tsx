@@ -5,6 +5,7 @@ import { colors } from "../../theme";
 import { TMDBShow, MediaType } from "../../types";
 import PosterImage from "../../components/PosterImage";
 import { styles } from "./styles";
+import { HiCheck } from "../../components/HiIcons";
 
 interface Props {
 	item: TMDBShow;
@@ -74,7 +75,11 @@ function SearchCard({
 						<ActivityIndicator size="small" color={colors.text} />
 					) : (
 						// Vector glyphs sit in the middle of their box — a text "+" rode high and off centre
-						<Ionicons name={isInWatchlist ? "checkmark" : "add"} size={18} color={colors.text} />
+						isInWatchlist ? (
+							<HiCheck size={18} color={colors.text} />
+						) : (
+							<Ionicons name="add" size={18} color={colors.text} />
+						)
 					)}
 				</TouchableOpacity>
 			)}

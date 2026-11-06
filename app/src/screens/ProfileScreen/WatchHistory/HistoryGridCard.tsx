@@ -15,8 +15,8 @@ const SCRIM_STOPS = [0, 0.38, 1] as const;
 
 /**
  * Hall of Shame's grid card: the poster (Search's card, no watchlist badge — everything here is
- * tracked) with everything its list card says. Pills top-left (status, progress or watch count);
- * at the bottom, over a scrim, the title, Ongoing / Ended / year, and the two numbers — Last
+ * tracked) with everything its list card says. Pills top-left (status, progress or watch count,
+ * then Ongoing / Ended); at the bottom, over a scrim, the title (full width) and the two numbers — Last
  * Watched and Total Time — as a label over a value, the way the list card sets them. Static: it
  * sits in a scrolling grid, so no motion beyond the card's own press feedback.
  */
@@ -69,12 +69,9 @@ function HistoryGridCard({
 						locations={SCRIM_STOPS}
 						style={StyleSheet.absoluteFill}
 					/>
-					<View style={styles.titleRow}>
-						<Text style={styles.title} numberOfLines={1}>
-							{card.title}
-						</Text>
-						{card.tag && <Text style={styles.tag}>{card.tag}</Text>}
-					</View>
+					<Text style={styles.title} numberOfLines={2}>
+						{card.title}
+					</Text>
 					{stats.length > 0 && (
 						<View style={styles.stats}>
 							{stats.map((s, i) => (
@@ -112,9 +109,7 @@ const styles = StyleSheet.create({
 		paddingBottom: spacing.sm + 2,
 		gap: spacing.sm,
 	},
-	titleRow: { flexDirection: "row", alignItems: "baseline", gap: spacing.sm },
-	title: { flexShrink: 1, color: colors.text, fontSize: 14, fontWeight: "700" },
-	tag: { color: colors.textSecondary, fontSize: 11, fontWeight: "600" },
+	title: { color: colors.text, fontSize: 14, fontWeight: "700" },
 	// Two numbers, left and right — one each when only one is known
 	stats: { flexDirection: "row", justifyContent: "space-between", gap: spacing.sm },
 	stat: { flexShrink: 1 },

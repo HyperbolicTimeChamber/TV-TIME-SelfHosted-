@@ -1,10 +1,5 @@
-import {
-	IoCheckmarkCircleOutline,
-	IoEyeOffOutline,
-	IoRefresh,
-	IoRemove,
-	IoTrashOutline,
-} from "react-icons/io5";
+import { HiCheck } from "react-icons/hi";
+import { IoEyeOffOutline, IoRefresh, IoRemove, IoTrashOutline } from "react-icons/io5";
 import type { MediaType } from "@app/enums";
 import { WatchAction } from "@app/enums";
 import BottomSheet, { SheetGroup, SheetHeader, SheetOption, WatchCountSquare } from "./BottomSheet";
@@ -79,7 +74,7 @@ export default function WatchActionSheet({
 				{/* At 2, "Watched Once Less" already lands on 1 */}
 				{showWatchedOnce && watchCount > 2 && (
 					<SheetOption
-						icon={IoCheckmarkCircleOutline}
+						icon={HiCheck}
 						color={colors.watchedGreen}
 						title="Watched Once"
 						hint="Reset to 1x"

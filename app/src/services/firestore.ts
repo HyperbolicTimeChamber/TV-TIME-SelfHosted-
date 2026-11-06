@@ -650,6 +650,10 @@ export async function writeEpisodeWatchCount(
 	to: number,
 	known?: KnownTracking,
 	pointer?: { season: number; episode: number; name: string | null; airDate: string | null } | null,
+	/** Down to this many watches or fewer (its first watch; mid-rewatch, the rewatch floor), the
+	 *  episode's last watch is its first again (lastWatchedAt ← watchedAt): its Previously Watched
+	 *  row goes back to that watch's place instead of staying where the undone watch put it */
+	restoreAtOrBelow = 1,
 ): Promise<number> {
 	if (to === from) return to;
 	const runtime = ep.runtime || 0;
@@ -735,7 +739,11 @@ export async function writeEpisodeWatchCount(
 		const removed = actual - final;
 		if (removed <= 0) return { final: actual, removed: 0, legacyBack: false };
 		if (final <= 0) tx.delete(epRef);
-		else tx.update(epRef, { watchCount: final });
+		else {
+			const first = snap.data()?.watchedAt;
+			const back = final <= restoreAtOrBelow && first ? { lastWatchedAt: first } : {};
+			tx.update(epRef, { watchCount: final, ...back });
+		}
 		tx.set(
 			userRef(userId),
 			{

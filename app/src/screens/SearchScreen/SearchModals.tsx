@@ -10,6 +10,7 @@ import { colors } from "../../theme";
 import { MediaType, TMDBShow, type AddFailure } from "../../types";
 import { WatchProgress } from "../../enums";
 import { searchMediaType as mediaTypeOf } from "../../utils";
+import { HiCheck } from "../../components/HiIcons";
 
 const pad = (n?: number) => String(n).padStart(2, "0");
 /** Title logo when the catalog has the title cached (name otherwise) */
@@ -103,7 +104,7 @@ export default function SearchModals({
 								onPress={() => close(onMovieAddOnly)}
 							/>
 							<SheetOption
-								icon="checkmark"
+								icon={HiCheck}
 								color={colors.watchedGreen}
 								title="Add & Mark as Watched"
 								hint="Already seen it"
@@ -138,6 +139,7 @@ export default function SearchModals({
 			<ConfirmModal
 				visible={!!blocked}
 				title={started ? "Already Started" : "Already Watched"}
+				drawer
 				image={
 					blocked?.backdrop_path ? (
 						<ModalBackdrop

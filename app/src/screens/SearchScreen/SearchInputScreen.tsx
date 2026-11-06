@@ -15,6 +15,8 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSearchInput } from "./useSearchInput";
 import { colors, spacing, typography } from "../../theme";
 import { SearchStackParamList, Route } from "../../types";
+import { IoIosCloseCircle } from "../../components/HiIcons";
+import { CLEAR_ICON_SIZE } from "./styles";
 
 type NavProp = NativeStackNavigationProp<SearchStackParamList, Route.SEARCH_INPUT>;
 type RoutePropType = RouteProp<SearchStackParamList, Route.SEARCH_INPUT>;
@@ -103,7 +105,7 @@ export default function SearchInputScreen() {
 							onPress={() => setQuery("")}
 							hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
 						>
-							<Text style={styles.clearButtonText}>✕</Text>
+							<IoIosCloseCircle size={CLEAR_ICON_SIZE} color={colors.textMuted} />
 						</TouchableOpacity>
 					)}
 				</View>
@@ -193,11 +195,6 @@ const styles = StyleSheet.create({
 	clearButton: {
 		paddingHorizontal: spacing.md,
 		paddingVertical: spacing.sm,
-	},
-	clearButtonText: {
-		color: colors.textMuted,
-		fontSize: 16,
-		fontWeight: "600",
 	},
 	scrollArea: {
 		flex: 1,

@@ -1,5 +1,6 @@
+import { HiCheck } from "react-icons/hi";
 import { useMemo, useState } from "react";
-import { IoCheckmark, IoChevronDown, IoCloseCircle, IoSearch, IoSparkles } from "react-icons/io5";
+import { IoChevronDown, IoCloseCircle, IoSearch, IoSparkles } from "react-icons/io5";
 import { HISTORY_FACET_MAX, HistoryFilter, HistorySort } from "@app/enums";
 import type { HistoryFacets } from "@app/types";
 import { titleCase } from "@app/utils/format";
@@ -72,7 +73,7 @@ function Chip({
 			onClick={onClick}
 		>
 			{on ? (
-				<IoCheckmark size={15} className={styles.chipIcon} />
+				<HiCheck size={15} className={styles.chipIcon} />
 			) : add === "region" ? (
 				<IoSparkles size={15} className={styles.chipIcon} />
 			) : add === "more" ? (
@@ -277,18 +278,19 @@ export default function HistoryViewPanel({
 							onClick={addTyped}
 						/>
 					)}
-					{keywordChips.picked.map((k) => (
-						<Chip key={k} label={titleCase(k)} on onClick={() => onToggleKeyword(k)} />
-					))}
-					{keywordChips.rest.map((k) => (
-						<Chip
-							key={k}
-							label={titleCase(k)}
-							on={false}
-							disabled={keywordsFull}
-							onClick={() => onToggleKeyword(k)}
-						/>
-					))}
+					{/* One list (app parity): a toggled keyword keeps its chip and recolours */}
+					{[...keywordChips.picked, ...keywordChips.rest].map((k) => {
+						const on = facets.keywords.has(k);
+						return (
+							<Chip
+								key={k}
+								label={titleCase(k)}
+								on={on}
+								disabled={!on && keywordsFull}
+								onClick={() => onToggleKeyword(k)}
+							/>
+						);
+					})}
 				</div>
 			)}
 			{/* Each pick already applied; Done just closes (app sheet's floating Done) */}

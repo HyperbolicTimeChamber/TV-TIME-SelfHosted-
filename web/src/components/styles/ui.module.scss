@@ -118,6 +118,18 @@
 }
 
 /* Edge to edge across the popup: bleeds over modalCard's 16px side padding */
+/* ConfirmModal drawer: the banner as a rounded card filling the sheet's content width */
+.drawerBanner {
+	border-radius: 14px;
+	overflow: hidden;
+	margin-bottom: 12px;
+}
+
+.drawerBanner > .modalBackdrop {
+	width: 100%;
+	margin: 0;
+}
+
 .modalBackdrop {
 	position: relative;
 	flex-shrink: 0;

@@ -1,6 +1,7 @@
+import { HiCheck } from "react-icons/hi";
 import { useEffect, useMemo, useState } from "react";
 import { Reorder, useDragControls } from "motion/react";
-import { IoAdd, IoCheckmarkCircleOutline, IoPlay, IoReorderThree } from "react-icons/io5";
+import { IoAdd, IoPlay, IoReorderThree } from "react-icons/io5";
 import { Spin } from "antd";
 import { MediaType } from "@app/enums";
 import type { CustomListItem, TMDBShow } from "@app/types";
@@ -305,7 +306,7 @@ export function ListRow({
 						</span>
 					) : tracked ? (
 						<span className={styles.trackingTag}>
-							<IoCheckmarkCircleOutline size={14} />
+							<HiCheck size={14} />
 							Watchlist
 						</span>
 					) : (

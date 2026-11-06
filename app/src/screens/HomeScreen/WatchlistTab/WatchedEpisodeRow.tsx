@@ -1,9 +1,12 @@
 import { memo } from "react";
+import { similarProps } from "../../../utils/similarProps";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { CheckmarkButton, SwipeableCard } from "../../../components";
+import { WATCHLIST_CHECK_CIRCLE, WATCHLIST_CHECK_TICK } from "../../../components/CheckmarkButton";
 import { withHaptic } from "../../../utils/haptics";
 import PosterImage from "../../../components/PosterImage";
 import { colors, spacing, typography } from "../../../theme";
+import { CARD_RADIUS } from "../../../enums";
 import { WatchedEpisode } from "../../../types";
 import { EnrichedTrackingItem } from "../../../hooks";
 
@@ -14,7 +17,9 @@ interface Props {
 	onPress: (episode: WatchedEpisode, show: EnrichedTrackingItem) => void;
 	onCheckmarkPress: (episode: WatchedEpisode) => void;
 	onSwipeLeft: (episode: WatchedEpisode) => Promise<void>;
-	onSwipeRight: (episode: WatchedEpisode) => Promise<void>;
+	/** `false` = nothing changed (the swipe snaps back). Left out: no Unwatch swipe (a rewatch's
+	 *  floor — the watch belongs to an earlier run) */
+	onSwipeRight?: (episode: WatchedEpisode) => Promise<boolean | void>;
 	/** Long press on the card (haptic included) — omit to turn it off */
 	onLongPress?: (show: EnrichedTrackingItem) => void;
 }
@@ -28,6 +33,9 @@ export default memo(function WatchedEpisodeRow({
 	onSwipeRight,
 	onLongPress,
 }: Props) {
+	// An unwatch takes the row off (its last watch): no "−1", and the swipe holds its banner
+	// until the row goes
+	const leaves = episode.watchCount <= 1;
 	const label = `S${String(episode.season).padStart(2, "0")} | E${String(episode.episode).padStart(2, "0")}`;
 
 	return (
@@ -35,11 +43,11 @@ export default memo(function WatchedEpisodeRow({
 			// Recycled list row → fresh swipe state for the new episode
 			resetKey={episode.id}
 			onSwipeLeft={() => onSwipeLeft(episode)}
-			onSwipeRight={() => onSwipeRight(episode)}
+			onSwipeRight={onSwipeRight ? () => onSwipeRight(episode) : undefined}
 			leftLabel="Rewatch"
 			rightLabel="Unwatch"
-			rightIcon={episode.watchCount > 1 ? "−1" : undefined}
-			persistAfterSwipe={{ left: true, right: episode.watchCount > 1 }}
+			rightIcon={leaves ? undefined : "−1"}
+			persistAfterSwipe={{ left: true, right: !leaves }}
 		>
 			<TouchableOpacity
 				style={styles.container}
@@ -63,7 +71,8 @@ export default memo(function WatchedEpisodeRow({
 				</View>
 				<View style={styles.checkmarkWrap}>
 					<CheckmarkButton
-						size={38}
+						size={WATCHLIST_CHECK_CIRCLE}
+						checkSize={WATCHLIST_CHECK_TICK}
 						watched
 						label={episode.watchCount > 1 ? `${episode.watchCount}` : undefined}
 						onPress={() => onCheckmarkPress(episode)}
@@ -74,7 +83,7 @@ export default memo(function WatchedEpisodeRow({
 			</TouchableOpacity>
 		</SwipeableCard>
 	);
-});
+}, similarProps);
 
 const POSTER_WIDTH = 100;
 
@@ -82,7 +91,7 @@ const styles = StyleSheet.create({
 	container: {
 		flexDirection: "row",
 		backgroundColor: colors.surface,
-		borderRadius: 8,
+		borderRadius: CARD_RADIUS,
 		overflow: "hidden",
 		opacity: 0.5,
 		minHeight: POSTER_WIDTH,

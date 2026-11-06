@@ -1,3 +1,4 @@
+import { IoIosCloseCircle } from "react-icons/io";
 import { useEffect, useRef } from "react";
 import { IoChevronBackCircleOutline } from "react-icons/io5";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -60,7 +61,7 @@ export default function SearchInputScreen() {
 							onClick={() => setQuery("")}
 							aria-label="Clear"
 						>
-							✕
+							<IoIosCloseCircle size={20} />
 						</button>
 					)}
 				</div>

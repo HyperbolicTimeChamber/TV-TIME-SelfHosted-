@@ -1,6 +1,7 @@
+import { HiCheck } from "react-icons/hi";
 import { memo, type ReactNode } from "react";
 import { Spin } from "antd";
-import { IoAdd, IoBookmark, IoBookmarkOutline, IoCheckmark } from "react-icons/io5";
+import { IoAdd, IoBookmark, IoBookmarkOutline } from "react-icons/io5";
 import { motion } from "motion/react";
 import { MediaType } from "@app/enums";
 import { useLongPress } from "../../hooks/useLongPress";
@@ -81,7 +82,7 @@ function SearchCard({
 					{isAdding ? (
 						<Spin size="small" />
 					) : isInWatchlist ? (
-						<IoCheckmark size={18} />
+						<HiCheck size={18} />
 					) : (
 						<IoAdd size={18} />
 					)}

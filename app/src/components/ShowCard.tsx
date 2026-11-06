@@ -1,10 +1,12 @@
 import React, { memo, useRef, useCallback, useMemo } from "react";
+import { similarProps } from "../utils/similarProps";
 import { withHaptic } from "../utils/haptics";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS, WatchStatus } from "../types";
 import { colors, spacing, typography } from "../theme";
+import { CARD_RADIUS } from "../enums";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
-import CheckmarkButton from "./CheckmarkButton";
+import CheckmarkButton, { WATCHLIST_CHECK_CIRCLE, WATCHLIST_CHECK_TICK } from "./CheckmarkButton";
 
 import PosterImage from "./PosterImage";
 import { todayStr } from "../utils";
@@ -69,6 +71,9 @@ export default memo(function ShowCard({
 
 	const remainingLabel =
 		remainingEpisodes != null && remainingEpisodes > 0 ? `+${remainingEpisodes}` : null;
+
+	// Only while actually rewatching — a count left over from a dropped rewatch isn't one
+	const rewatching = item.status === WatchStatus.REWATCHING && item.rewatchCount > 0;
 
 	// "NEW" tag: TV episode aired today
 	const isNewEpisode =
@@ -140,8 +145,15 @@ export default memo(function ShowCard({
 						mediaType={item.mediaType}
 						style={[styles.poster, styles.watchedPoster]}
 					/>
-					<View style={styles.info}>
-						<View style={[styles.titlePill, styles.watchedTitlePill, styles.watchedFade]}>
+					<View style={[styles.info, item.mediaType === MediaType.MOVIE && styles.movieInfo]}>
+						<View
+							style={[
+								styles.titlePill,
+								item.mediaType === MediaType.MOVIE && styles.movieTitlePill,
+								styles.watchedTitlePill,
+								styles.watchedFade,
+							]}
+						>
 							<Text style={[styles.titleText, styles.watchedMuted]} numberOfLines={1}>
 								{item.title.toUpperCase()}
 							</Text>
@@ -168,10 +180,29 @@ export default memo(function ShowCard({
 											</>
 										)}
 									</View>
+									{item.rewatchCount > 0 && (
+										<View
+											style={[
+												styles.tagBadge,
+												styles.inlineTag,
+												styles.latestBadge,
+												styles.mutedTag,
+											]}
+										>
+											<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
+												REWATCH {item.rewatchCount}
+											</Text>
+										</View>
+									)}
 								</View>
 								{item.director && (
 									<Text
-										style={[styles.episodeName, styles.watchedMuted, styles.watchedFade]}
+										style={[
+											styles.episodeName,
+											styles.movieDirector,
+											styles.watchedMuted,
+											styles.watchedFade,
+										]}
 										numberOfLines={1}
 									>
 										{item.director}
@@ -179,21 +210,27 @@ export default memo(function ShowCard({
 								)}
 							</>
 						) : (
-							<Text style={[styles.episode, styles.watchedMuted, styles.watchedFade]}>
-								{episodeLabel}
-							</Text>
-						)}
-						{item.rewatchCount > 0 && (
-							<View style={[styles.tagBadge, styles.latestBadge, styles.mutedTag]}>
-								<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
-									REWATCH {item.rewatchCount}
+							// The REWATCH tag on the episode's line (as on an active card)
+							<View style={styles.episodeRow}>
+								<Text style={[styles.episode, styles.watchedMuted, styles.watchedFade]}>
+									{episodeLabel}
 								</Text>
+								{item.rewatchCount > 0 && (
+									<View
+										style={[styles.tagBadge, styles.inlineTag, styles.latestBadge, styles.mutedTag]}
+									>
+										<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
+											REWATCH {item.rewatchCount}
+										</Text>
+									</View>
+								)}
 							</View>
 						)}
 					</View>
 					<View style={[styles.checkmarkWrap, styles.watchedFade]}>
 						<CheckmarkButton
-							size={38}
+							size={WATCHLIST_CHECK_CIRCLE}
+							checkSize={WATCHLIST_CHECK_TICK}
 							watched
 							label={wc > 1 ? `${wc}` : undefined}
 							onPress={() => _onCheckmark(item)}
@@ -234,9 +271,9 @@ export default memo(function ShowCard({
 					mediaType={item.mediaType}
 					style={styles.poster}
 				/>
-				<View style={styles.info}>
+				<View style={[styles.info, item.mediaType === MediaType.MOVIE && styles.movieInfo]}>
 					<TouchableOpacity
-						style={styles.titlePill}
+						style={[styles.titlePill, item.mediaType === MediaType.MOVIE && styles.movieTitlePill]}
 						onPress={handleTitlePress}
 						disabled={!onTitlePress}
 					>
@@ -261,54 +298,66 @@ export default memo(function ShowCard({
 										</Text>
 									</View>
 								</View>
+								{rewatching && (
+									<View style={[styles.tagBadge, styles.inlineTag, styles.latestBadge]}>
+										<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
+											REWATCH {item.rewatchCount}
+										</Text>
+									</View>
+								)}
 							</View>
 							{item.director && (
-								<Text style={styles.episodeName} numberOfLines={1}>
+								<Text style={[styles.episodeName, styles.movieDirector]} numberOfLines={1}>
 									{item.director}
 								</Text>
 							)}
 						</>
 					) : (
 						<>
-							<Text style={styles.episode}>
-								{episodeLabel}
-								{remainingLabel ? <Text style={styles.remaining}> {remainingLabel}</Text> : null}
-							</Text>
+							{/* The episode's tag sits on its line, so a tagged card is no taller than the
+							    rest; LATEST already says nothing's left, so no +N beside it. A rewatch
+							    shows only its REWATCH tag there (and its +N) */}
+							<View style={styles.episodeRow}>
+								<Text style={styles.episode}>
+									{episodeLabel}
+									{remainingLabel && (rewatching || !(isLatest && !isFinale && !isNewEpisode)) ? (
+										<Text style={styles.remaining}> {remainingLabel}</Text>
+									) : null}
+								</Text>
+								{rewatching ? (
+									<View style={[styles.tagBadge, styles.inlineTag, styles.latestBadge]}>
+										<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
+											REWATCH {item.rewatchCount}
+										</Text>
+									</View>
+								) : isFinale ? (
+									<View style={[styles.tagBadge, styles.inlineTag]}>
+										<Text style={styles.tagBadgeText}>{FreshTag.FINALE}</Text>
+									</View>
+								) : isNewEpisode ? (
+									<View style={[styles.tagBadge, styles.inlineTag]}>
+										<Text style={styles.tagBadgeText}>{FreshTag.NEW}</Text>
+									</View>
+								) : isLatest ? (
+									<View style={[styles.tagBadge, styles.inlineTag, styles.latestBadge]}>
+										<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
+											{FreshTag.LATEST}
+										</Text>
+									</View>
+								) : null}
+							</View>
 							{item.nextEpisodeName ? (
 								<Text style={styles.episodeName} numberOfLines={1}>
 									{item.nextEpisodeName}
 								</Text>
 							) : null}
-							{isFinale ? (
-								<View style={styles.tagBadge}>
-									<Text style={styles.tagBadgeText}>{FreshTag.FINALE}</Text>
-								</View>
-							) : isNewEpisode ? (
-								<View style={styles.tagBadge}>
-									<Text style={styles.tagBadgeText}>{FreshTag.NEW}</Text>
-								</View>
-							) : isLatest ? (
-								<View style={[styles.tagBadge, styles.latestBadge]}>
-									<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
-										{FreshTag.LATEST}
-									</Text>
-								</View>
-							) : null}
 						</>
-					)}
-					{/* Only while actually rewatching — a count left over from a dropped rewatch isn't one */}
-					{item.status === WatchStatus.REWATCHING && item.rewatchCount > 0 && (
-						// Same outlined tag as LATEST
-						<View style={[styles.tagBadge, styles.latestBadge]}>
-							<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
-								REWATCH {item.rewatchCount}
-							</Text>
-						</View>
 					)}
 				</View>
 				<View style={styles.checkmarkWrap}>
 					<CheckmarkButton
-						size={38}
+						size={WATCHLIST_CHECK_CIRCLE}
+						checkSize={WATCHLIST_CHECK_TICK}
 						onPress={() => swipeRef.current?.triggerSwipeLeft()}
 						onLongPress={onCheckmarkLongPress}
 					/>
@@ -316,15 +365,19 @@ export default memo(function ShowCard({
 			</TouchableOpacity>
 		</SwipeableCard>
 	);
-});
+}, similarProps);
 
 const POSTER_WIDTH = 100;
+
+/** Gap between a movie card's title, tags and director — 11 puts the director as far below the
+ *  title as an episode card's episode name (measured on a Pixel 9 Pro) */
+const MOVIE_LINE_GAP = 11;
 
 const styles = StyleSheet.create({
 	container: {
 		flexDirection: "row",
 		backgroundColor: colors.surface,
-		borderRadius: 8,
+		borderRadius: CARD_RADIUS,
 		overflow: "hidden",
 		minHeight: POSTER_WIDTH,
 	},
@@ -425,7 +478,7 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		gap: spacing.sm,
 		backgroundColor: colors.watchedGreen,
-		borderRadius: 8,
+		borderRadius: CARD_RADIUS,
 		marginHorizontal: spacing.md,
 	},
 	updatingText: {
@@ -477,6 +530,13 @@ const styles = StyleSheet.create({
 		color: colors.surface,
 		letterSpacing: 0.5,
 	},
+	// Episode line: "S02 | E10" and its tag, centred on each other, 8 apart
+	episodeRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.sm,
+	},
+	inlineTag: { marginTop: 0, alignSelf: "center" },
 	latestBadge: {
 		backgroundColor: "transparent",
 		borderWidth: 1,
@@ -485,11 +545,21 @@ const styles = StyleSheet.create({
 	latestBadgeText: {
 		color: colors.accent,
 	},
+	// Movie: title, tags and director equally spaced (MOVIE_LINE_GAP between each)
 	movieMetaRow: {
 		flexDirection: "row",
 		alignItems: "center",
-		marginTop: spacing.xs,
+		// Room before a REWATCH tag
+		gap: spacing.sm,
 	},
+	movieTitlePill: { marginBottom: MOVIE_LINE_GAP },
+	// From the top, like an episode card filled by its lines: the title and director sit at the
+	// same height as an episode card's title and episode name (centred, a shorter movie block
+	// moved them down)
+	movieInfo: { justifyContent: "flex-start" },
+	// Tight line height, and 2 less than the gap: the name's capitals sit ~2pt below its line
+	// top, so the visible gap matches the title → tags one
+	movieDirector: { marginTop: MOVIE_LINE_GAP - 2, lineHeight: 16 },
 	checkmarkWrap: {
 		alignSelf: "center",
 		paddingRight: spacing.md,

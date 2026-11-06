@@ -3,7 +3,7 @@
 .container {
 	display: flex;
 	background: var(--surface);
-	border-radius: 8px;
+	border-radius: $card-radius;
 	overflow: hidden;
 	min-height: 100px;
 	cursor: pointer;
@@ -86,6 +86,17 @@
 	letter-spacing: 1px;
 }
 
+/* Episode line: "S02 | E10" and its tag, centred on each other, 8 apart (app episodeRow) */
+.episodeRow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.inlineTag {
+	margin-top: 0;
+}
+
 .remaining {
 	color: var(--text-muted);
 	font-size: 12px;
@@ -109,7 +120,26 @@
 .movieMetaRow {
 	display: flex;
 	align-items: center;
-	margin-top: 4px;
+	/* Room before a REWATCH tag (app parity) */
+	gap: 8px;
+}
+
+/* Movie: title, tags and director equally spaced (app MOVIE_LINE_GAP) — 13px (web type) puts the director
+   as far below the title as an episode card's episode name */
+.movieTitlePill {
+	margin-bottom: 13px;
+}
+
+/* From the top, like an episode card filled by its lines: title and director at the same height
+   as an episode card's title and episode name (centred, the shorter movie block moved down) */
+.movieInfo {
+	justify-content: flex-start;
+}
+
+/* Tight line height and 2px under the gap: the name's capitals sit ~2px below its line top */
+.movieDirector {
+	margin-top: 11px;
+	line-height: 16px;
 }
 
 .movieBadge {
@@ -175,7 +205,7 @@
 	justify-content: center;
 	gap: 8px;
 	background: $watched-green;
-	border-radius: 8px;
+	border-radius: $card-radius;
 	margin: 0 12px;
 	font-size: 16px;
 	font-weight: 600;

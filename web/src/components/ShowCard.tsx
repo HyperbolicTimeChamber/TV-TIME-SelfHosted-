@@ -1,10 +1,10 @@
-import { memo, useCallback, useRef } from "react";
+import { memo, useCallback, useRef, type ReactNode } from "react";
 import { Spin } from "antd";
 import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS, WatchStatus } from "@app/enums";
 import { todayStr } from "@app/utils/todayStr";
 import SwipeableCard, { type SwipeableCardRef } from "./SwipeableCard";
 import { useLongPress } from "../hooks/useLongPress";
-import CheckmarkButton from "./CheckmarkButton";
+import CheckmarkButton, { WATCHLIST_CHECK_CIRCLE, WATCHLIST_CHECK_TICK } from "./CheckmarkButton";
 import PosterImage from "./PosterImage";
 import styles from "./styles/ShowCard.module.scss";
 
@@ -81,6 +81,20 @@ export default memo(function ShowCard({
 		(!item.nextNextEpisodeAirDate || item.nextNextEpisodeAirDate > TODAY);
 	const isFinale = item.isSeasonFinale && isLastAired;
 	const isLatest = isLastAired && !isNewEpisode && !isFinale;
+	// Only while actually rewatching — a count left over from a dropped rewatch isn't one
+	const rewatching = item.status === WatchStatus.REWATCHING && item.rewatchCount > 0;
+	// Same outlined tag as LATEST, on the episode's / movie's line
+	const rewatchTag = (
+		<span className={`${styles.tagBadge} ${styles.inlineTag} ${styles.latestBadge}`}>
+			REWATCH {item.rewatchCount}
+		</span>
+	);
+	const watchedRewatchTag =
+		item.rewatchCount > 0 ? (
+			<span className={`${styles.tagBadge} ${styles.inlineTag} ${styles.latestBadge} opacity-50`}>
+				REWATCH {item.rewatchCount}
+			</span>
+		) : null;
 
 	const handlePress = useCallback(() => {
 		if (item.mediaType === MediaType.MOVIE && onTitlePress) onTitlePress(item);
@@ -90,7 +104,7 @@ export default memo(function ShowCard({
 
 	const titlePill = (muted = false) => (
 		<button
-			className={`${styles.titlePill} ${muted ? styles.mutedPill : ""}`}
+			className={`${styles.titlePill} ${item.mediaType === MediaType.MOVIE ? styles.movieTitlePill : ""} ${muted ? styles.mutedPill : ""}`}
 			onClick={(e) => {
 				e.stopPropagation();
 				onTitlePress?.(item);
@@ -102,7 +116,7 @@ export default memo(function ShowCard({
 		</button>
 	);
 
-	const movieMeta = (label: string, muted = false) => (
+	const movieMeta = (label: string, muted = false, tag?: ReactNode) => (
 		<>
 			{/* The card fades its own parts rather than the whole subtree, so the year number
 			    alone can stay at full strength. The amber behind it is faded through a
@@ -117,10 +131,11 @@ export default memo(function ShowCard({
 						</span>
 					</>
 				)}
+				{tag}
 			</div>
 			{item.director && (
 				<span
-					className={`${styles.episodeName} ${muted ? `${styles.muted} ${styles.watchedFade}` : ""}`}
+					className={`${styles.episodeName} ${styles.movieDirector} ${muted ? `${styles.muted} ${styles.watchedFade}` : ""}`}
 				>
 					{item.director}
 				</span>
@@ -145,18 +160,19 @@ export default memo(function ShowCard({
 						mediaType={item.mediaType}
 						className={`${styles.poster} ${styles.watchedPoster}`}
 					/>
-					<div className={styles.info}>
+					<div
+						className={`${styles.info} ${item.mediaType === MediaType.MOVIE ? styles.movieInfo : ""}`}
+					>
 						<span className={styles.watchedFade}>{titlePill(true)}</span>
+						{/* The REWATCH tag on the episode's / movie's line (app parity) */}
 						{item.mediaType === MediaType.MOVIE ? (
-							movieMeta(item.releaseDate?.substring(0, 4) ?? "", true)
+							movieMeta(item.releaseDate?.substring(0, 4) ?? "", true, watchedRewatchTag)
 						) : (
-							<span className={`${styles.episode} ${styles.muted} ${styles.watchedFade}`}>
-								{episodeLabel}
-							</span>
-						)}
-						{item.rewatchCount > 0 && (
-							<span className={`${styles.tagBadge} ${styles.latestBadge} opacity-50`}>
-								REWATCH {item.rewatchCount}
+							<span className={styles.episodeRow}>
+								<span className={`${styles.episode} ${styles.muted} ${styles.watchedFade}`}>
+									{episodeLabel}
+								</span>
+								{watchedRewatchTag}
 							</span>
 						)}
 					</div>
@@ -165,7 +181,8 @@ export default memo(function ShowCard({
 						onClick={(e) => e.stopPropagation()}
 					>
 						<CheckmarkButton
-							size={38}
+							size={WATCHLIST_CHECK_CIRCLE}
+							checkSize={WATCHLIST_CHECK_TICK}
 							watched
 							label={wc > 1 ? `${wc}` : undefined}
 							onPress={() => onCheckmark(item)}
@@ -200,40 +217,52 @@ export default memo(function ShowCard({
 					mediaType={item.mediaType}
 					className={styles.poster}
 				/>
-				<div className={styles.info}>
+				<div
+					className={`${styles.info} ${item.mediaType === MediaType.MOVIE ? styles.movieInfo : ""}`}
+				>
 					{titlePill()}
 					{item.mediaType === MediaType.MOVIE ? (
-						movieMeta(isJustAired ? FreshTag.JUST_AIRED : (item.releaseDate?.substring(0, 4) ?? ""))
+						movieMeta(
+							isJustAired ? FreshTag.JUST_AIRED : (item.releaseDate?.substring(0, 4) ?? ""),
+							false,
+							rewatchTag,
+						)
 					) : (
 						<>
-							<span className={styles.episode}>
-								{episodeLabel}
-								{remainingLabel && <span className={styles.remaining}> {remainingLabel}</span>}
+							{/* The episode's tag sits on its line, so a tagged card is no taller than the
+							    rest; LATEST already says nothing's left, so no +N beside it. A rewatch
+							    shows only its REWATCH tag there (and its +N) (app parity) */}
+							<span className={styles.episodeRow}>
+								<span className={styles.episode}>
+									{episodeLabel}
+									{remainingLabel && (rewatching || !(isLatest && !isFinale && !isNewEpisode)) && (
+										<span className={styles.remaining}> {remainingLabel}</span>
+									)}
+								</span>
+								{rewatching ? (
+									rewatchTag
+								) : isFinale ? (
+									<span className={`${styles.tagBadge} ${styles.inlineTag}`}>
+										{FreshTag.FINALE}
+									</span>
+								) : isNewEpisode ? (
+									<span className={`${styles.tagBadge} ${styles.inlineTag}`}>{FreshTag.NEW}</span>
+								) : isLatest ? (
+									<span className={`${styles.tagBadge} ${styles.inlineTag} ${styles.latestBadge}`}>
+										{FreshTag.LATEST}
+									</span>
+								) : null}
 							</span>
 							{item.nextEpisodeName && (
 								<span className={styles.episodeName}>{item.nextEpisodeName}</span>
 							)}
-							{isFinale ? (
-								<span className={styles.tagBadge}>{FreshTag.FINALE}</span>
-							) : isNewEpisode ? (
-								<span className={styles.tagBadge}>{FreshTag.NEW}</span>
-							) : isLatest ? (
-								<span className={`${styles.tagBadge} ${styles.latestBadge}`}>
-									{FreshTag.LATEST}
-								</span>
-							) : null}
 						</>
-					)}
-					{/* Same outlined tag as LATEST; only while actually rewatching */}
-					{item.status === WatchStatus.REWATCHING && item.rewatchCount > 0 && (
-						<span className={`${styles.tagBadge} ${styles.latestBadge}`}>
-							REWATCH {item.rewatchCount}
-						</span>
 					)}
 				</div>
 				<div className={styles.checkmarkWrap} onClick={(e) => e.stopPropagation()}>
 					<CheckmarkButton
-						size={38}
+						size={WATCHLIST_CHECK_CIRCLE}
+						checkSize={WATCHLIST_CHECK_TICK}
 						onPress={() => swipeRef.current?.triggerSwipeLeft()}
 						onLongPress={onCheckmarkLongPress}
 					/>

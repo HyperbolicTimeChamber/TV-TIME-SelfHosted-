@@ -11,12 +11,12 @@ import GorhomSheet, {
 	type BottomSheetBackdropProps,
 	type BottomSheetFooterProps,
 } from "@gorhom/bottom-sheet";
-import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SheetGroup, sheetStyles } from "./modals/BottomSheet";
 import SheetDoneFooter, { DONE_FOOTER_HEIGHT } from "./modals/SheetDoneFooter";
 import SegmentedControl from "./SegmentedControl";
 import { colors, spacing } from "../theme";
+import { HiCheck } from "./HiIcons";
 
 export interface SortOption<T> {
 	value: T;
@@ -99,7 +99,13 @@ export default function SortSheet<T>({
 	const renderFooter = useCallback(
 		(props: BottomSheetFooterProps) => (
 			<BottomSheetFooter {...props} bottomInset={insets.bottom}>
-				<SheetDoneFooter lowestSnap={lowestSnap} onPress={() => sheetRef.current?.close()} />
+				{/* The filter search's keyboard covers Done instead of lifting it over the chips */}
+				<SheetDoneFooter
+					lowestSnap={lowestSnap}
+					onPress={() => sheetRef.current?.close()}
+					stayBehindKeyboard
+					bottomInset={insets.bottom}
+				/>
 			</BottomSheetFooter>
 		),
 		[insets.bottom, lowestSnap],
@@ -181,7 +187,7 @@ export default function SortSheet<T>({
 												>
 													{option.label}
 												</Text>
-												{active && <Ionicons name="checkmark" size={20} color={colors.text} />}
+												{active && <HiCheck size={20} color={colors.text} />}
 											</Pressable>
 										);
 									})}

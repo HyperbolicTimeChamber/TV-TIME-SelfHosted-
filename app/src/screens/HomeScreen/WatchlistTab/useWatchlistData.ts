@@ -1,6 +1,6 @@
 import { useMemo, useEffect, useCallback, useState, useRef } from "react";
 import { Alert } from "react-native";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { Timestamp } from "@react-native-firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -53,6 +53,9 @@ import { batchEndOffsets, staggerFinishTimes } from "../../../utils/stagger";
 
 /** Only schedule the air-time re-check for episodes airing within a day */
 const AIR_RECHECK_MAX_MS = 86_400_000;
+/** Between arming the card glide for cards reaching their air time and showing them: armed in
+ *  the same commit as the move, the glide didn't run (the rows jumped) */
+const AIR_ARM_LEAD_MS = 120;
 
 const ACTIVE_CACHE_LIMIT = 100;
 
@@ -143,8 +146,20 @@ function buildCardItem(item: EnrichedTrackingItem, today: string) {
 	};
 }
 
+/** A card leaving "What's Up Next" this soon after its mark left because of it (the listener
+ *  confirming the write takes a round trip; generous for a slow network) */
+const JUST_MARKED_MS = 20_000;
+
 /** A mark's client time vs the priority Firestore stores for it (a server timestamp may lag) */
 const PROMOTE_CLOCK_SKEW_MS = 5000;
+
+/** Puts a query's data back as it was before an optimistic insert. Empty before → the insert's
+ *  seeded page is dropped (setQueryData(key, undefined) would be a no-op and leave it) */
+function restoreQuery(queryClient: QueryClient, key: readonly unknown[], before: unknown) {
+	if (before === undefined) queryClient.removeQueries({ queryKey: key, exact: true });
+	else queryClient.setQueryData(key, before);
+}
+
 export type CardItem = ReturnType<typeof buildCardItem>;
 
 /**
@@ -271,6 +286,32 @@ export function useWatchlistData(userId: string | undefined) {
 			return next;
 		});
 	}, []);
+	// Cards a mark just took off "What's Up Next" (nothing aired left to watch): hidden at once,
+	// so the card leaves from where it is — lifted to the top until Firestore confirmed, it sat
+	// there a round trip before going. Cleared once the live list drops it too, or the write fails
+	const [leftUpNext, setLeftUpNext] = useState<ReadonlySet<number>>(new Set());
+	const keepInUpNext = useCallback((tmdbId: number) => {
+		setLeftUpNext((prev) => {
+			if (!prev.has(tmdbId)) return prev;
+			const next = new Set(prev);
+			next.delete(tmdbId);
+			return next;
+		});
+	}, []);
+	// Titles just marked / unwatched from the list (tmdbId → when): a card or row that leaves or
+	// joins the list soon after is that change's doing, and the list animates it (grow / shrink)
+	const justMarked = useRef(new Map<number, number>());
+	// Bumped by each noted change, before the list data moves: the list arms its card glide on
+	// it (a transition switched on in the same commit as the move didn't animate it)
+	const [listChangeArm, setListChangeArm] = useState(0);
+	const noteListChange = useCallback((tmdbId: number) => {
+		justMarked.current.set(tmdbId, Date.now());
+		setListChangeArm((n) => n + 1);
+	}, []);
+	const wasJustMarked = useCallback(
+		(tmdbId: number) => Date.now() - (justMarked.current.get(tmdbId) ?? 0) < JUST_MARKED_MS,
+		[],
+	);
 	// Pointer (`season-episode`) each patch was made from — the listener moving it anywhere else
 	// (an unwatch, another screen) means the patch is stale
 	const optimisticFrom = useRef(new Map<number, string>());
@@ -409,15 +450,32 @@ export function useWatchlistData(userId: string | undefined) {
 	useEffect(() => {
 		const now = Date.now();
 		let next = Infinity;
+		let showTimer: ReturnType<typeof setTimeout> | undefined;
 		for (const item of items) {
 			const stamp = nextEpisodeAirStamp(item.nextEpisode, item.catalogShow);
 			const t = stamp ? Date.parse(stamp) : NaN;
 			if (t > now && t < next) next = t;
 		}
 		if (next - now > AIR_RECHECK_MAX_MS) return;
-		const timer = setTimeout(() => setAirClock((c) => c + 1), next - now + 1000);
-		return () => clearTimeout(timer);
-	}, [items, airClock]);
+		const timer = setTimeout(
+			() => {
+				// Cards this re-check brings into "What's Up Next" grow in (noted before the list sees
+				// them — it picks its animations while rendering the new rows)
+				for (const item of items) {
+					if (!isShowVisible(item)) continue;
+					const stamp = nextEpisodeAirStamp(item.nextEpisode, item.catalogShow);
+					const t = stamp ? Date.parse(stamp) : NaN;
+					if (t > now) noteListChange(item.tmdbId);
+				}
+				showTimer = setTimeout(() => setAirClock((c) => c + 1), AIR_ARM_LEAD_MS);
+			},
+			next - now + 1000,
+		);
+		return () => {
+			clearTimeout(timer);
+			clearTimeout(showTimer);
+		};
+	}, [items, airClock, noteListChange]);
 
 	const sortedActive = useMemo(() => {
 		const visible = items.filter((item) => isShowVisible(item));
@@ -507,13 +565,25 @@ export function useWatchlistData(userId: string | undefined) {
 		return all.length > MAX_VOLATILE ? all.slice(-MAX_VOLATILE) : all;
 	}, [safePrevItems]);
 
-	// Already ascending — volatile (older) then cached (newer), newest at bottom
-	const prevWatchedItems = useMemo(
-		() => [...volatilePrevWatched, ...cachedPrevWatched],
-		[volatilePrevWatched, cachedPrevWatched],
-	);
-
 	const allLoading = loading || watchedEpsLoading || watchedMoviesLoading;
+
+	// The oldest row shown stays the oldest: the section is a window of the newest rows, so
+	// an unwatched row used to pull the next-older one in at the top (and a mark pushed the top
+	// one out) — a row appearing / going above the view, which the list answered by scrolling.
+	// Rows newer than the boundary all show (marks just add at the bottom); it moves only when
+	// more are pulled in (pull to refresh → volatileCap)
+	const shownFrom = useRef<{ time: number; cap: number } | null>(null);
+	// Already ascending — volatile (older) then cached (newer), newest at bottom
+	const prevWatchedItems = useMemo(() => {
+		const windowed = [...volatilePrevWatched, ...cachedPrevWatched];
+		if (allLoading || windowed.length === 0) return windowed;
+		const from = shownFrom.current;
+		if (!from || from.cap !== volatileCap) {
+			shownFrom.current = { time: windowed[0].time, cap: volatileCap };
+			return windowed;
+		}
+		return safePrevItems.filter((i) => i.time >= from.time);
+	}, [volatilePrevWatched, cachedPrevWatched, safePrevItems, allLoading, volatileCap]);
 
 	// Previously Watched rows of a title that's neither on a loaded watchlist page nor in the
 	// catalog cache drew a blank card (e.g. marked from its page, its tracking page not loaded).
@@ -645,16 +715,34 @@ export function useWatchlistData(userId: string | undefined) {
 	}, [cachedList, orderedLive]);
 	const effectiveLoading = reordering || (allLoading && !cachedList);
 
-	// Apply optimistic card patches
+	// Apply optimistic card patches (and hide cards a mark just took off — leftUpNext)
 	const displayList = useMemo(() => {
-		if (optimisticCards.size === 0) return rawDisplayList;
-		return rawDisplayList.map((item) => {
+		const shown =
+			leftUpNext.size === 0
+				? rawDisplayList
+				: rawDisplayList.filter((i) => i.type !== "show" || !leftUpNext.has(i.card.tmdbId));
+		if (optimisticCards.size === 0) return shown;
+		return shown.map((item) => {
 			if (item.type !== "show") return item;
 			const patch = optimisticCards.get(item.card.tmdbId);
 			if (!patch) return item;
 			return { ...item, card: { ...item.card, ...patch } };
 		});
-	}, [rawDisplayList, optimisticCards]);
+	}, [rawDisplayList, optimisticCards, leftUpNext]);
+
+	// The live list caught up (the card's gone from it too) → stop hiding it, so a later unwatch
+	// brings it back
+	useEffect(() => {
+		if (leftUpNext.size === 0) return;
+		const live = new Set(sortedActive.map((i) => i.tmdbId));
+		const confirmed = [...leftUpNext].filter((id) => !live.has(id));
+		if (confirmed.length === 0) return;
+		setLeftUpNext((prev) => {
+			const next = new Set(prev);
+			for (const id of confirmed) next.delete(id);
+			return next;
+		});
+	}, [sortedActive, leftUpNext]);
 
 	// Clear optimistic patches when listener provides matching data
 	useEffect(() => {
@@ -765,29 +853,22 @@ export function useWatchlistData(userId: string | undefined) {
 	const handleMarkWatched = useCallback(
 		async (item: EnrichedTrackingItem) => {
 			if (!userId) return;
+			noteListChange(item.tmdbId);
+			// One frame for the list to arm its glide before this mark moves the cards
+			await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 			const card = item as any as CardItem;
 
 			if (item.mediaType === MediaType.MOVIE) {
 				setUpdatingShows((prev) => new Map(prev).set(item.tmdbId, MediaType.MOVIE));
-				try {
-					await markMovieWatched(userId, item.tmdbId, card.nextEpisodeRuntime ?? 0);
-				} catch (err: any) {
-					// Clear on failure so movie reappears in What's Up Next
-					setUpdatingShows((prev) => {
-						const next = new Map(prev);
-						next.delete(item.tmdbId);
-						return next;
-					});
-					console.error("markMovieWatched failed:", err);
-					Alert.alert("Error", err.message || "Failed to mark as watched.");
-					return;
-				}
-				// Spinner stays until the listener confirms COMPLETED (effect below clears it).
+				// Watched → off "What's Up Next" now (see leftUpNext)
+				setLeftUpNext((prev) => new Set(prev).add(item.tmdbId));
+				// Previously Watched row first (optimistic, like the watch count sheet), not after
+				// the write's server ack: the row used to land a round trip after the tap.
 				// Cancel an in-flight fetch only if data is already loaded — a first load
-				// includes this movie anyway (the write has committed).
-				if (queryClient.getQueryData([QueryKey.WATCHED_MOVIES, userId])) {
-					queryClient.cancelQueries({ queryKey: [QueryKey.WATCHED_MOVIES, userId] });
-				}
+				// includes this movie anyway.
+				const moviesKey = [QueryKey.WATCHED_MOVIES, userId];
+				const moviesBefore = queryClient.getQueryData(moviesKey);
+				if (moviesBefore) queryClient.cancelQueries({ queryKey: moviesKey });
 				const movieNow = Timestamp.now();
 				insertWatchedMovieCache(queryClient, userId, {
 					id: `${item.tmdbId}_watched`,
@@ -799,6 +880,22 @@ export function useWatchlistData(userId: string | undefined) {
 					title: item.title,
 					posterPath: item.posterPath,
 				} as any);
+				try {
+					await markMovieWatched(userId, item.tmdbId, card.nextEpisodeRuntime ?? 0);
+				} catch (err: any) {
+					// Clear on failure so movie reappears in What's Up Next, and its row goes
+					restoreQuery(queryClient, moviesKey, moviesBefore);
+					keepInUpNext(item.tmdbId);
+					setUpdatingShows((prev) => {
+						const next = new Map(prev);
+						next.delete(item.tmdbId);
+						return next;
+					});
+					console.error("markMovieWatched failed:", err);
+					Alert.alert("Error", err.message || "Failed to mark as watched.");
+					return;
+				}
+				// Spinner stays until the listener confirms COMPLETED (effect below clears it).
 				incrementDailyWatch("movie");
 				emitShowCompleted({
 					tmdbId: item.tmdbId,
@@ -861,7 +958,36 @@ export function useWatchlistData(userId: string | undefined) {
 				),
 			);
 
-			promote(item.tmdbId);
+			// Nothing aired left after this one (finale, next not out yet) → the card leaves from
+			// where it is; otherwise it goes to the top with its next episode
+			const leaves = !isShowVisible({
+				...item,
+				nextEpisode,
+				nextEpisodeAirDate,
+				status: isComplete ? WatchStatus.COMPLETED : item.status,
+			});
+			if (leaves) setLeftUpNext((prev) => new Set(prev).add(item.tmdbId));
+			else promote(item.tmdbId);
+			// Previously Watched row now, with the Upcoming removal above — not after the write's
+			// server ack (the card left Upcoming at once and its row landed a round trip later).
+			// A failed write restores both caches as they were.
+			const allEpsKey = [QueryKey.WATCHED_EPISODES, userId, undefined];
+			const showEpsKey = [QueryKey.WATCHED_EPISODES, userId, item.tmdbId];
+			const allEpsBefore = queryClient.getQueryData(allEpsKey);
+			const showEpsBefore = queryClient.getQueryData(showEpsKey);
+			if (allEpsBefore) queryClient.cancelQueries({ queryKey: allEpsKey });
+			const epNow = Timestamp.now();
+			insertWatchedEpisodeCache(queryClient, userId, {
+				id: `${item.tmdbId}_S${String(currentEp.season).padStart(2, "0")}E${String(currentEp.episode).padStart(2, "0")}`,
+				tmdbShowId: item.tmdbId,
+				season: currentEp.season,
+				episode: currentEp.episode,
+				episodeTitle: epTitle,
+				runtime: epRuntime,
+				lastWatchedAt: epNow,
+				watchedAt: epNow,
+				watchCount: markedCount(item.tmdbId),
+			});
 			try {
 				await markEpisodeWatched(
 					userId,
@@ -901,23 +1027,6 @@ export function useWatchlistData(userId: string | undefined) {
 				}
 
 				// Spinner cleared by useEffect when listener confirms nextEpisode changed
-
-				// Post-success: insert into query cache directly (no refetch)
-				if (queryClient.getQueryData([QueryKey.WATCHED_EPISODES, userId, undefined])) {
-					queryClient.cancelQueries({ queryKey: [QueryKey.WATCHED_EPISODES, userId, undefined] });
-				}
-				const epNow = Timestamp.now();
-				insertWatchedEpisodeCache(queryClient, userId, {
-					id: `${item.tmdbId}_S${String(currentEp.season).padStart(2, "0")}E${String(currentEp.episode).padStart(2, "0")}`,
-					tmdbShowId: item.tmdbId,
-					season: currentEp.season,
-					episode: currentEp.episode,
-					episodeTitle: epTitle,
-					runtime: epRuntime,
-					lastWatchedAt: epNow,
-					watchedAt: epNow,
-					watchCount: markedCount(item.tmdbId),
-				});
 				incrementDailyWatch("episode");
 				removeWatchedFromPast(item.tmdbId, currentEp.season, currentEp.episode);
 				if (isComplete) {
@@ -931,7 +1040,10 @@ export function useWatchlistData(userId: string | undefined) {
 				}
 			} catch (err: any) {
 				unpromote(item.tmdbId);
+				keepInUpNext(item.tmdbId);
 				rollbackUpcoming(upcomingSnapshot);
+				restoreQuery(queryClient, allEpsKey, allEpsBefore);
+				restoreQuery(queryClient, showEpsKey, showEpsBefore);
 				setUpdatingShows((prev) => {
 					const next = new Map(prev);
 					next.delete(item.tmdbId);
@@ -942,6 +1054,8 @@ export function useWatchlistData(userId: string | undefined) {
 			}
 		},
 		[
+			noteListChange,
+			keepInUpNext,
 			userId,
 			promote,
 			unpromote,
@@ -1066,6 +1180,7 @@ export function useWatchlistData(userId: string | undefined) {
 	const handleUnmarkEpisode = useCallback(
 		async (tmdbId: number, season: number, episode: number) => {
 			if (!userId) return;
+			noteListChange(tmdbId);
 			const item = items.find((i) => i.tmdbId === tmdbId);
 			const catalog = item?.catalogShow;
 			const catalogSeason = catalog?.seasons?.find((s) => s.seasonNumber === season);
@@ -1142,7 +1257,7 @@ export function useWatchlistData(userId: string | undefined) {
 				);
 			}
 		},
-		[userId, items, queryClient, rewatchFloor, pointerFor],
+		[noteListChange, userId, items, queryClient, rewatchFloor, pointerFor],
 	);
 
 	const handleCarouselMarkWatched = useCallback(
@@ -1320,6 +1435,9 @@ export function useWatchlistData(userId: string | undefined) {
 		healShown,
 		listData,
 		promotions,
+		wasJustMarked,
+		noteListChange,
+		listChangeArm,
 		loading: effectiveLoading,
 		// Everything fetched (confirmed now, or by the last session while this one still loads):
 		// only then can an empty "What's Up Next" really mean "all caught up". Until then the
