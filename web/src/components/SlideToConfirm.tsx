@@ -152,14 +152,14 @@ export default function SlideToConfirm({ label, color, onConfirm, loading = fals
 			aria-disabled={loading}
 			onKeyDown={onKeyDown}
 		>
-			<div ref={fillRef} className={styles.fill} style={{ background: color, width: KNOB + KNOB_INSET * 2 }} />
+			<div ref={fillRef} className={styles.fill} style={{ background: color, opacity: 0.35, width: KNOB + KNOB_INSET * 2 }} />
 			<span ref={labelRef} className={styles.label}>
 				{label}
 			</span>
 			<div
 				ref={knobRef}
 				className={`${styles.knob} ${dragging ? styles.dragging : ""}`}
-				style={{ color }}
+				style={{ background: color }}
 				onPointerDown={onPointerDown}
 				onPointerMove={onPointerMove}
 				onPointerUp={onPointerUp}

@@ -159,11 +159,6 @@
 	transform: scale(0.97);
 }
 
-.drawerCancel {
-	background: var(--surface-light);
-	color: var(--text-secondary);
-}
-
 /* The grab handle again, over the art — light so it reads on any backdrop */
 .drawerBanner::after {
 	content: "";

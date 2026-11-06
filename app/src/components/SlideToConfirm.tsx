@@ -18,6 +18,11 @@ import { colors, typography } from "../theme";
 const TRACK_H = 56;
 const KNOB_INSET = 4;
 const KNOB = TRACK_H - KNOB_INSET * 2;
+/** Room either side of the label: the knob's slot plus a gap, the same on both sides so the
+ *  label sits in the middle of a track only as wide as it needs */
+const SIDE = KNOB + KNOB_INSET * 2 + 12;
+/** The fill trails the knob, lighter (the knob carries the full colour) */
+const FILL_OPACITY = 0.35;
 /** Past this share of the travel a release confirms */
 const CONFIRM_AT = 0.85;
 /** A flick this fast (px/s) confirms from half way — a quick swipe is enough (Emil) */
@@ -106,15 +111,17 @@ export default function SlideToConfirm({ label, color, onConfirm, loading = fals
 				accessibilityActions={[{ name: "activate" }]}
 				onAccessibilityAction={() => !loading && confirm()}
 			>
-				<Reanimated.View style={[styles.fill, { backgroundColor: color }, fillStyle]} />
+				<Reanimated.View
+					style={[styles.fill, { backgroundColor: color, opacity: FILL_OPACITY }, fillStyle]}
+				/>
 				<Reanimated.Text style={[styles.label, labelStyle]} numberOfLines={1}>
 					{label}
 				</Reanimated.Text>
-				<Reanimated.View style={[styles.knob, knobStyle]}>
+				<Reanimated.View style={[styles.knob, { backgroundColor: color }, knobStyle]}>
 					{loading ? (
-						<ActivityIndicator size="small" color={color} />
+						<ActivityIndicator size="small" color={colors.text} />
 					) : (
-						<Ionicons name="chevron-forward" size={24} color={color} />
+						<Ionicons name="chevron-forward" size={24} color={colors.text} />
 					)}
 				</Reanimated.View>
 			</View>
@@ -123,7 +130,10 @@ export default function SlideToConfirm({ label, color, onConfirm, loading = fals
 }
 
 const styles = StyleSheet.create({
+	// As wide as its label (+ the knob's room each side), centred in the drawer
 	track: {
+		alignSelf: "center",
+		paddingHorizontal: SIDE,
 		height: TRACK_H,
 		borderRadius: TRACK_H / 2,
 		backgroundColor: colors.surfaceLight,
@@ -142,8 +152,6 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		color: colors.textSecondary,
 		textAlign: "center",
-		// Centred in the room right of the knob
-		paddingLeft: KNOB + KNOB_INSET,
 	},
 	knob: {
 		position: "absolute",
@@ -152,7 +160,6 @@ const styles = StyleSheet.create({
 		width: KNOB,
 		height: KNOB,
 		borderRadius: KNOB / 2,
-		backgroundColor: colors.text,
 		alignItems: "center",
 		justifyContent: "center",
 	},

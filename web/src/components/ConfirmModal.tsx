@@ -42,7 +42,7 @@ interface Props {
 	drawer?: boolean;
 	/** Drawer only: the question under the art ("Do you want to pause this show?") */
 	question?: string;
-	/** Drawer only: one slide-to-confirm bar replaces every button, Cancel included (pull the drawer down / tap outside to cancel) */
+	/** Drawer only: one slide-to-confirm bar replaces the buttons (pull the drawer down / tap outside to cancel) */
 	slideLabel?: string;
 	onClose: () => void;
 }
@@ -122,8 +122,8 @@ export default function ConfirmModal({
 	if (drawer) {
 		// App ConfirmDrawer: the banner full bleed at the top, the question under the art (the title when
 		// there is none), hint, then the buttons — or one slide-to-confirm bar. Pressing a button never
-		// starts the sheet's drag (Add to List's first-tap fix); Cancel stays (dimmed) while the action
-		// runs so the drawer keeps its height
+		// starts the sheet's drag (Add to List's first-tap fix). No Cancel button: pulling the drawer down
+		// or tapping outside cancels
 		const line = question ?? (hideTitle ? undefined : title);
 		return (
 			<BottomSheet visible={visible} label={title} onClose={onClose} locked={!!loading}>
@@ -144,18 +144,7 @@ export default function ConfirmModal({
 							loading={!!loading}
 						/>
 					) : (
-						<>
-							{buttons}
-							{!hideCancel && (
-								<button
-									className={`${styles.button} ${styles.drawerCancel}`}
-									onClick={onClose}
-									disabled={!!loading}
-								>
-									{cancelLabel}
-								</button>
-							)}
-						</>
+						buttons
 					)}
 				</div>
 			</BottomSheet>

@@ -12,6 +12,11 @@ $knob: $track-h - $inset * 2;
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	/* Only as wide as the label (+ the knob's room each side) */
+	width: fit-content;
+	margin: 0 auto;
+	padding: 0 ($knob + $inset * 2 + 12px);
+	box-sizing: border-box;
 	user-select: none;
 	-webkit-user-select: none;
 	outline: none;
@@ -39,8 +44,6 @@ $knob: $track-h - $inset * 2;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	/* Centred in the room right of the knob */
-	padding-left: $knob + $inset;
 	pointer-events: none;
 }
 
@@ -51,7 +54,7 @@ $knob: $track-h - $inset * 2;
 	width: $knob;
 	height: $knob;
 	border-radius: $knob / 2;
-	background: var(--text);
+	color: #fff;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -61,6 +64,15 @@ $knob: $track-h - $inset * 2;
 
 	svg {
 		display: block;
+	}
+
+	/* White spinner */
+	:global(.ant-spin) {
+		color: #fff;
+	}
+
+	:global(.ant-spin-dot-item) {
+		background-color: #fff;
 	}
 }
 

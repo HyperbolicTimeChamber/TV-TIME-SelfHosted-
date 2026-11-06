@@ -44,7 +44,8 @@ interface Props {
 	imageAtTop?: boolean;
 	/** No title (the image / hint say it all) */
 	hideTitle?: boolean;
-	/** No Cancel button (tapping outside still closes) */
+	/** No Cancel button (tapping outside still closes). Drawers never have one: pulling them down
+	 *  or tapping outside cancels */
 	hideCancel?: boolean;
 	/** A bottom drawer instead of a centred popup (the banner confirms: backdrop art on top) */
 	drawer?: boolean;
@@ -306,13 +307,6 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 	},
 	drawerButtonText: { fontSize: 16 },
-	// Cancel: a quiet filled button (no outline competing with the action)
-	drawerCancel: {
-		backgroundColor: colors.surfaceLight,
-		alignItems: "center",
-		marginTop: spacing.sm,
-	},
-	drawerCancelText: { color: colors.textSecondary },
 	cancelButton: {
 		paddingVertical: spacing.md,
 		borderRadius: 8,
@@ -351,9 +345,7 @@ function ConfirmDrawer({
 	onSecondary,
 	tertiaryLabel,
 	onTertiary,
-	cancelLabel,
 	hideTitle = false,
-	hideCancel = false,
 	onClose,
 	question,
 	slideLabel,
@@ -390,7 +382,7 @@ function ConfirmDrawer({
 	);
 	return (
 		<BottomSheet visible={visible} onClose={onClose} locked={loading}>
-			{(close) => (
+			{() => (
 				<View>
 					{banner ? (
 						<View style={styles.drawerBanner}>
@@ -454,18 +446,6 @@ function ConfirmDrawer({
 									styles.secondary,
 									loading ? { opacity: 0.6 } : {},
 								])}
-							{/* Kept (dimmed) while the action runs: the drawer doesn't change height */}
-							{!hideCancel &&
-								button(
-									cancelLabel,
-									() => close(),
-									[styles.drawerButton, styles.drawerCancel, loading ? { opacity: 0.4 } : {}],
-									<Text
-										style={[styles.buttonText, styles.drawerButtonText, styles.drawerCancelText]}
-									>
-										{cancelLabel}
-									</Text>,
-								)}
 						</>
 					)}
 				</View>
