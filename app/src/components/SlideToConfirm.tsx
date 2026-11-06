@@ -15,8 +15,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, typography } from "../theme";
 
 /** Track height; the knob sits inside it with KNOB_INSET all round */
-const TRACK_H = 56;
-const KNOB_INSET = 4;
+/** Thumb-sized (a 56pt bar read thin under a thumb) */
+const TRACK_H = 64;
+const KNOB_INSET = 5;
 const KNOB = TRACK_H - KNOB_INSET * 2;
 /** Room either side of the label: the knob's slot plus a gap, the same on both sides so the
  *  label sits in the middle of the track */
@@ -30,6 +31,9 @@ const FLICK_VELOCITY = 800;
 const FLICK_FROM = 0.5;
 /** Released short: springs home, no bounce */
 const SPRING_BACK = { damping: 22, stiffness: 260, mass: 0.8 };
+/** Picked up: the knob answers the touch at once (Emil: press feedback, subtle) */
+const KNOB_PRESSED = 0.94;
+const PRESS = { duration: 120, easing: Easing.out(Easing.quad) };
 /** Released past the line: the rest of the way, quick ease-out */
 const FINISH = { duration: 160, easing: Easing.bezier(0.23, 1, 0.32, 1) };
 
@@ -52,6 +56,10 @@ export default function SlideToConfirm({ label, color, onConfirm, loading = fals
 	const x = useSharedValue(0);
 	const done = useSharedValue(false);
 	const start = useSharedValue(0);
+	const pressed = useSharedValue(1);
+	// Past the confirm line while dragging: one tick when crossing it, so the thumb knows a release
+	// there counts
+	const armed = useSharedValue(false);
 
 	// The action finished without closing the drawer (it failed): back to the start
 	useEffect(() => {
@@ -60,6 +68,7 @@ export default function SlideToConfirm({ label, color, onConfirm, loading = fals
 		x.value = withSpring(0, SPRING_BACK);
 	}, [loading, done, x]);
 
+	const tick = () => Haptics.selectionAsync().catch(() => {});
 	const confirm = () => {
 		Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
 		onConfirm();
@@ -70,14 +79,26 @@ export default function SlideToConfirm({ label, color, onConfirm, loading = fals
 		// Sideways only: a downward pull still drags the drawer closed
 		.activeOffsetX([-8, 8])
 		.failOffsetY([-12, 12])
+		.onBegin(() => {
+			pressed.value = withTiming(KNOB_PRESSED, PRESS);
+		})
 		.onStart(() => {
 			start.value = x.value;
+			armed.value = false;
 		})
 		// From the touch-down (translation includes the slop before activation): the knob stays
 		// under the finger instead of trailing it
 		.onUpdate((e) => {
 			if (done.value) return;
 			x.value = Math.min(max, Math.max(0, start.value + e.translationX));
+			const past = x.value >= max * CONFIRM_AT;
+			if (past !== armed.value) {
+				armed.value = past;
+				if (past) runOnJS(tick)();
+			}
+		})
+		.onFinalize(() => {
+			pressed.value = withTiming(1, PRESS);
 		})
 		.onEnd((e) => {
 			if (done.value) return;
@@ -92,9 +113,15 @@ export default function SlideToConfirm({ label, color, onConfirm, loading = fals
 			}
 		});
 
-	const knobStyle = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
-	// The colour follows the knob: the track fills behind it
-	const fillStyle = useAnimatedStyle(() => ({ width: x.value + KNOB + KNOB_INSET * 2 }));
+	const knobStyle = useAnimatedStyle(() => ({
+		transform: [{ translateX: x.value }, { scale: pressed.value }],
+	}));
+	// The colour follows the knob: the track fills behind it, fading in as it moves (at rest it
+	// read as a ring around the knob)
+	const fillStyle = useAnimatedStyle(() => ({
+		width: x.value + KNOB + KNOB_INSET * 2,
+		opacity: max > 0 ? interpolate(x.value, [0, KNOB], [0, FILL_OPACITY], "clamp") : 0,
+	}));
 	// The words give way as the knob covers them
 	const labelStyle = useAnimatedStyle(() => ({
 		opacity: max > 0 ? interpolate(x.value, [0, max * 0.6], [1, 0], "clamp") : 1,
@@ -111,9 +138,7 @@ export default function SlideToConfirm({ label, color, onConfirm, loading = fals
 				accessibilityActions={[{ name: "activate" }]}
 				onAccessibilityAction={() => !loading && confirm()}
 			>
-				<Reanimated.View
-					style={[styles.fill, { backgroundColor: color, opacity: FILL_OPACITY }, fillStyle]}
-				/>
+				<Reanimated.View style={[styles.fill, { backgroundColor: color }, fillStyle]} />
 				<Reanimated.Text style={[styles.label, labelStyle]} numberOfLines={1}>
 					{label}
 				</Reanimated.Text>
@@ -121,7 +146,7 @@ export default function SlideToConfirm({ label, color, onConfirm, loading = fals
 					{loading ? (
 						<ActivityIndicator size="small" color={colors.text} />
 					) : (
-						<Ionicons name="chevron-forward" size={24} color={colors.text} />
+						<Ionicons name="chevron-forward" size={26} color={colors.text} />
 					)}
 				</Reanimated.View>
 			</View>

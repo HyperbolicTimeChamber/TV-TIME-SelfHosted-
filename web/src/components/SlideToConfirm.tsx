@@ -1,17 +1,26 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent, type KeyboardEvent } from "react";
+import {
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+	type PointerEvent,
+	type KeyboardEvent,
+} from "react";
 import { Spin } from "antd";
 import { IoChevronForward } from "react-icons/io5";
 import styles from "./styles/SlideToConfirm.module.scss";
 
-/** Track height; the knob sits inside it with KNOB_INSET all round */
-const TRACK_H = 56;
-const KNOB_INSET = 4;
+/** Track height, thumb-sized; the knob sits inside it with KNOB_INSET all round */
+const TRACK_H = 64;
+const KNOB_INSET = 5;
 const KNOB = TRACK_H - KNOB_INSET * 2;
 /** Past this share of the travel a release confirms */
 const CONFIRM_AT = 0.85;
 /** A flick this fast (px/s) confirms from half way — a quick swipe is enough */
 const FLICK_VELOCITY = 800;
 const FLICK_FROM = 0.5;
+/** The fill trails the knob, lighter, fading in as it moves (at rest it read as a ring) */
+const FILL_OPACITY = 0.35;
 /** Only the last moves count for the release speed */
 const VELOCITY_WINDOW_MS = 100;
 
@@ -35,7 +44,7 @@ export default function SlideToConfirm({ label, color, onConfirm, loading = fals
 	const fillRef = useRef<HTMLDivElement>(null);
 	const labelRef = useRef<HTMLSpanElement>(null);
 	const [dragging, setDragging] = useState(false);
-	const drag = useRef({ active: false, startX: 0, startPos: 0, pos: 0, done: false });
+	const drag = useRef({ active: false, startX: 0, startPos: 0, pos: 0, done: false, armed: false });
 	const moves = useRef<{ x: number; t: number }[]>([]);
 
 	const maxTravel = () => {
@@ -48,7 +57,10 @@ export default function SlideToConfirm({ label, color, onConfirm, loading = fals
 		const max = maxTravel();
 		drag.current.pos = pos;
 		if (knobRef.current) knobRef.current.style.transform = `translateX(${pos}px)`;
-		if (fillRef.current) fillRef.current.style.width = `${pos + KNOB + KNOB_INSET * 2}px`;
+		if (fillRef.current) {
+			fillRef.current.style.width = `${pos + KNOB + KNOB_INSET * 2}px`;
+			fillRef.current.style.opacity = String(Math.min(1, pos / KNOB) * FILL_OPACITY);
+		}
 		if (labelRef.current) {
 			// The words give way as the knob covers them (gone at 60% of the travel)
 			labelRef.current.style.opacity = max > 0 ? String(Math.max(0, 1 - pos / (max * 0.6))) : "1";
@@ -95,6 +107,7 @@ export default function SlideToConfirm({ label, color, onConfirm, loading = fals
 		d.active = true;
 		d.startX = e.clientX;
 		d.startPos = d.pos;
+		d.armed = false;
 		moves.current = [{ x: e.clientX, t: e.timeStamp }];
 		setMode("drag");
 		setDragging(true);
@@ -103,7 +116,14 @@ export default function SlideToConfirm({ label, color, onConfirm, loading = fals
 	const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
 		const d = drag.current;
 		if (!d.active) return;
-		place(Math.min(maxTravel(), Math.max(0, d.startPos + e.clientX - d.startX)));
+		const max = maxTravel();
+		place(Math.min(max, Math.max(0, d.startPos + e.clientX - d.startX)));
+		// One tick when crossing the confirm line: a release there counts (app parity)
+		const past = d.pos >= max * CONFIRM_AT;
+		if (past !== d.armed) {
+			d.armed = past;
+			if (past && navigator.vibrate) navigator.vibrate(5);
+		}
 		const list = moves.current;
 		list.push({ x: e.clientX, t: e.timeStamp });
 		while (list.length > 2 && e.timeStamp - list[0].t > VELOCITY_WINDOW_MS) list.shift();
@@ -152,20 +172,26 @@ export default function SlideToConfirm({ label, color, onConfirm, loading = fals
 			aria-disabled={loading}
 			onKeyDown={onKeyDown}
 		>
-			<div ref={fillRef} className={styles.fill} style={{ background: color, opacity: 0.35, width: KNOB + KNOB_INSET * 2 }} />
+			<div
+				ref={fillRef}
+				className={styles.fill}
+				style={{ background: color, opacity: 0, width: KNOB + KNOB_INSET * 2 }}
+			/>
 			<span ref={labelRef} className={styles.label}>
 				{label}
 			</span>
 			<div
 				ref={knobRef}
 				className={`${styles.knob} ${dragging ? styles.dragging : ""}`}
-				style={{ background: color }}
 				onPointerDown={onPointerDown}
 				onPointerMove={onPointerMove}
 				onPointerUp={onPointerUp}
 				onPointerCancel={onPointerUp}
 			>
-				{loading ? <Spin size="small" /> : <IoChevronForward size={24} />}
+				{/* The face scales a touch while held (press feedback); the knob itself only travels */}
+				<span className={styles.face} style={{ background: color }}>
+					{loading ? <Spin size="small" /> : <IoChevronForward size={26} />}
+				</span>
 			</div>
 		</div>
 	);
