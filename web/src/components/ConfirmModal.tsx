@@ -113,7 +113,7 @@ export default function ConfirmModal({
 		</>
 	);
 	if (drawer) {
-		// App ConfirmDrawer: the banner as a rounded card (title over its top), hint, the same
+		// App ConfirmDrawer: the banner full bleed at the top (title over it), hint, the same
 		// buttons. Pressing a button never starts the sheet's drag (Add to List's first-tap fix);
 		// Cancel stays (dimmed) while the action runs so the drawer keeps its height
 		return (

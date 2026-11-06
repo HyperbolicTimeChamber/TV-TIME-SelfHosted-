@@ -119,10 +119,27 @@
 
 /* Edge to edge across the popup: bleeds over modalCard's 16px side padding */
 /* ConfirmModal drawer: the banner as a rounded card filling the sheet's content width */
+/* Full bleed, as the info drawer's art (app drawerBanner): up to the sheet's edges and top, over
+   the grab handle (BottomSheet .sheet padding 16px, .handle 8 + 4 + 12), rounding with its top */
 .drawerBanner {
-	border-radius: 14px;
+	position: relative;
+	margin: -24px -16px 16px;
+	border-radius: 20px 20px 0 0;
 	overflow: hidden;
-	margin-bottom: 12px;
+}
+
+/* The grab handle again, over the art — light so it reads on any backdrop */
+.drawerBanner::after {
+	content: "";
+	position: absolute;
+	top: 8px;
+	left: 50%;
+	width: 36px;
+	height: 4px;
+	margin-left: -18px;
+	border-radius: 2px;
+	background: rgb(255 255 255 / 70%);
+	pointer-events: none;
 }
 
 .drawerBanner > .modalBackdrop {

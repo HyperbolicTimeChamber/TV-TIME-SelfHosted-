@@ -10,7 +10,7 @@ import {
 // Drawer buttons: gesture-handler Pressables (BottomSheet's first-tap fix)
 import { Pressable } from "react-native-gesture-handler";
 import AnimatedModal from "./AnimatedModal";
-import BottomSheet from "./BottomSheet";
+import BottomSheet, { SHEET_HANDLE_BLOCK, SHEET_RADIUS } from "./BottomSheet";
 import { ModalBackdrop } from "./ModalArt";
 import { colors, spacing, typography } from "../../theme";
 
@@ -101,7 +101,7 @@ export default function ConfirmModal({
 				hideTitle={hideTitle}
 				hideCancel={hideCancel}
 				onClose={onClose}
-				bannerWidth={screenW - spacing.lg * 2}
+				bannerWidth={screenW}
 			/>
 		);
 	}
@@ -258,11 +258,25 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		color: colors.text,
 	},
-	// Rounded like the drawer's cards; clips the banner's corners
+	// Full bleed, as the info drawer's art: up to the sheet's edges and top (over the grab
+	// handle), its top corners rounding with the sheet's
 	drawerBanner: {
-		borderRadius: 14,
+		marginHorizontal: -spacing.lg,
+		marginTop: -SHEET_HANDLE_BLOCK,
+		marginBottom: spacing.lg,
+		borderTopLeftRadius: SHEET_RADIUS,
+		borderTopRightRadius: SHEET_RADIUS,
 		overflow: "hidden",
-		marginBottom: spacing.md,
+	},
+	// The grab handle, drawn again over the art (light, so it reads on any backdrop)
+	drawerBannerHandle: {
+		position: "absolute",
+		top: spacing.sm,
+		alignSelf: "center",
+		width: 36,
+		height: 4,
+		borderRadius: 2,
+		backgroundColor: "rgba(255,255,255,0.7)",
 	},
 	drawerPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
 	cancelButton: {
@@ -282,9 +296,9 @@ type DrawerProps = Omit<Props, "drawer" | "imageAtTop"> & {
 	bannerWidth: number;
 };
 
-/** ConfirmModal as a bottom drawer: the banner (backdrop + logo, title over its top) as a rounded
- *  card, the hint, then the same buttons. Dismissed by Cancel, pulling it down or tapping outside
- *  (all locked while the action runs) */
+/** ConfirmModal as a bottom drawer: the banner (backdrop + logo, title over its top) full bleed
+ *  at the top (as the info drawer's art), the hint, then the same buttons. Dismissed by Cancel,
+ *  pulling it down or tapping outside (all locked while the action runs) */
 function ConfirmDrawer({
 	visible,
 	title,
@@ -337,7 +351,10 @@ function ConfirmDrawer({
 			{(close) => (
 				<View>
 					{banner ? (
-						<View style={styles.drawerBanner}>{banner}</View>
+						<View style={styles.drawerBanner}>
+							{banner}
+							<View style={styles.drawerBannerHandle} pointerEvents="none" />
+						</View>
 					) : (
 						<>
 							{!hideTitle && <Text style={styles.title}>{title}</Text>}
