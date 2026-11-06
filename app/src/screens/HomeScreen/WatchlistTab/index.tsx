@@ -29,7 +29,7 @@ import {
 	ShowDrawer,
 } from "../../../components";
 import { colors, spacing } from "../../../theme";
-import { CARD_RADIUS } from "../../../enums";
+import { CARD_RADIUS, WatchlistRemountKind } from "../../../enums";
 import {
 	HomeStackParamList,
 	MainStackParamList,
@@ -50,6 +50,7 @@ import HomeEmpty, { CAUGHT_UP_ART, WELCOME_ART } from "../HomeEmpty";
 import { withCaughtUp } from "../../../utils";
 import { UP_NEXT_TITLE } from "../../../utils/watchlistList";
 import { rememberedRowSize, rowSizesReady, saveRowSizes } from "./rowSizes";
+import { noteLaunchStep, noteWatchlistMount } from "../../../utils/remountDiagnostics";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 /** Height of a pinned section header pill row */
@@ -974,6 +975,15 @@ export default function WatchlistTab() {
 			}, []),
 		[listData],
 	);
+
+	// TEMPORARY (utils/remountDiagnostics): this tab's mounts, and its view (loading / empty /
+	// list) as it changes — the list mounting again means it was rebuilt
+	useEffect(() => noteWatchlistMount(WatchlistRemountKind.TAB), []);
+	const view = isLoading || !sizesReady ? "loading" : listData.length === 0 ? "empty" : "list";
+	useEffect(() => {
+		noteLaunchStep(`watchlist:${view}`);
+		if (view === "list") noteWatchlistMount(WatchlistRemountKind.LIST);
+	}, [view]);
 
 	if (isLoading || !sizesReady) {
 		return (

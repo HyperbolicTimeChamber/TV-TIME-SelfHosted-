@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import {
 	View,
 	StyleSheet,
@@ -76,6 +76,7 @@ import {
 	flushAnalytics,
 } from "./src/services/mixpanel";
 import appConfig from "./app.json";
+import { noteLaunchStep } from "./src/utils/remountDiagnostics";
 
 // Keep native splash visible until auth resolves
 SplashScreen.preventAutoHideAsync();
@@ -170,6 +171,24 @@ function AppContent() {
 		}
 	}, [loading]);
 
+	// TEMPORARY (utils/remountDiagnostics): which gate the app shows, as it changes
+	const gate = loading
+		? "splash"
+		: !user
+			? "login"
+			: appTmdbApiKeyLoading || userFlagsLoading
+				? `spinner(key:${appTmdbApiKeyLoading},flags:${userFlagsLoading})`
+				: updateRequired
+					? "forceUpdate"
+					: !hasCompletedImport
+						? "import"
+						: "app";
+	const shownGate = useRef("");
+	if (shownGate.current !== gate) {
+		shownGate.current = gate;
+		noteLaunchStep(`gate:${gate}`);
+	}
+
 	if (loading) {
 		return <SplashView />;
 	}
@@ -197,6 +216,7 @@ function AppContent() {
 		};
 		return (
 			<ImportDataScreen
+				onboarding
 				navigation={{
 					navigate: markImportDone,
 					goBack: markImportDone,
@@ -289,6 +309,7 @@ export default function App() {
 	useEffect(() => {
 		let signedInUid: string | null = null;
 		const unsubscribeAuth = onAuthStateChanged(getAuth(), (firebaseUser) => {
+			noteLaunchStep(`auth:${firebaseUser ? "user" : "none"}`);
 			// Persisted session is enough to enter (and hide the splash) — never wait on the network
 			setUser(firebaseUser);
 			if (firebaseUser) {

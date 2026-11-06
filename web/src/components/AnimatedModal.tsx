@@ -10,16 +10,18 @@ interface Props {
 	children: ReactNode;
 	/** Card width (mobile app uses 80% of screen) */
 	width?: number | string;
+	/** false: an outside click / Escape does nothing (a running export / import) */
+	dismissable?: boolean;
 }
 
 /** Centered card modal — fade backdrop + spring scale, like the app's AnimatedModal */
-export default function AnimatedModal({ visible, onClose, children, width }: Props) {
+export default function AnimatedModal({ visible, onClose, children, width, dismissable = true }: Props) {
 	useEffect(() => {
-		if (!visible) return;
+		if (!visible || !dismissable) return;
 		const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
-	}, [visible, onClose]);
+	}, [visible, onClose, dismissable]);
 
 	return createPortal(
 		<AnimatePresence>
@@ -29,7 +31,7 @@ export default function AnimatedModal({ visible, onClose, children, width }: Pro
 					initial={{ opacity: 0 }}
 					animate={{ opacity: 1 }}
 					exit={{ opacity: 0, transition: { duration: 0.18 } }}
-					onClick={onClose}
+					onClick={dismissable ? onClose : undefined}
 				>
 					<motion.div
 						role="dialog"

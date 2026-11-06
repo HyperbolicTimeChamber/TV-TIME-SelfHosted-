@@ -14,6 +14,16 @@ export const SPEEDSTER_ART = "/speedster.webp";
 export const HIT_A_WALL_ART = "/hit-a-wall.webp";
 /** Log Out — Straw Hats, fists up */
 export const LOGOUT_ART = "/logout.webp";
+/** Import this file? — Luffy, dreaming of meat */
+export const IMPORT_CONFIRM_ART = "/import-confirm.webp";
+/** Import had nothing new / was cancelled — Luffy, unimpressed */
+export const IMPORT_NOTHING_ART = "/import-nothing.webp";
+/** Before an import — Luffy, not so sure about this */
+export const IMPORT_WARNING_ART = "/import-warning.webp";
+/** Import cancelled, all put back — Luffy, sulking */
+export const IMPORT_CANCELLED_ART = "/import-cancelled.webp";
+/** Import complete — Luffy, stuffed after a feast */
+export const IMPORT_DONE_ART = "/import-done.webp";
 /** Delete Account — crying Pikachu */
 export const FAREWELL_ART = "/farewell.webp";
 /** New List — Light Yagami, Death Note in hand */

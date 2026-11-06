@@ -12,3 +12,4 @@ export { default as OptionsSheet } from "./OptionsSheet";
 export type { SheetOption } from "./OptionsSheet";
 export * from "./ModalArt";
 export { default as ExportingModal } from "./ExportingModal";
+export { default as ExportSheet } from "./ExportSheet";

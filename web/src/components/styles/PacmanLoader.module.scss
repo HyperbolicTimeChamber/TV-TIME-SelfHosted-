@@ -1,0 +1,128 @@
+/* Importing loader: a chomping Pac-Man eating dots (codepen.io/poziomq/pen/ozaYKK; the app's
+   PacmanLoader mirrors it with Reanimated). The eye takes the popup's surface colour */
+.stage {
+	position: relative;
+	width: 160px;
+	height: 60px;
+	margin: 24px auto;
+}
+
+.circles {
+	position: absolute;
+	left: -5px;
+	top: 0;
+	height: 60px;
+	width: 180px;
+	animation: animcircles 0.5s infinite linear;
+
+	span {
+		position: absolute;
+		top: 25px;
+		height: 12px;
+		width: 12px;
+		border-radius: 12px;
+		background-color: #efefef;
+	}
+	.one {
+		right: 80px;
+	}
+	.two {
+		right: 40px;
+	}
+	.three {
+		right: 0;
+	}
+}
+
+@keyframes animcircles {
+	from {
+		transform: translateX(0);
+	}
+	to {
+		transform: translateX(-40px);
+	}
+}
+
+.pacman {
+	position: absolute;
+	left: 0;
+	top: 0;
+	height: 60px;
+	width: 60px;
+
+	span {
+		position: absolute;
+		top: 0;
+		left: 0;
+		height: 60px;
+		width: 60px;
+
+		&::before {
+			content: "";
+			position: absolute;
+			left: 0;
+			height: 30px;
+			width: 60px;
+			background-color: #fffb16;
+		}
+	}
+	.top::before {
+		top: 0;
+		border-radius: 60px 60px 0 0;
+	}
+	.bottom::before {
+		bottom: 0;
+		border-radius: 0 0 60px 60px;
+	}
+	.left::before {
+		bottom: 0;
+		height: 60px;
+		width: 30px;
+		border-radius: 60px 0 0 60px;
+	}
+	.top {
+		animation: animtop 0.5s infinite;
+	}
+	.bottom {
+		animation: animbottom 0.5s infinite;
+	}
+}
+
+.eye {
+	position: absolute;
+	top: 10px;
+	left: 30px;
+	height: 7px;
+	width: 7px;
+	border-radius: 7px;
+	background-color: var(--surface);
+}
+
+@keyframes animtop {
+	0%,
+	100% {
+		transform: rotate(0deg);
+	}
+	50% {
+		transform: rotate(-45deg);
+	}
+}
+
+@keyframes animbottom {
+	0%,
+	100% {
+		transform: rotate(0deg);
+	}
+	50% {
+		transform: rotate(45deg);
+	}
+}
+
+/* Reduced motion: the chomp and the dots hold still */
+@media (prefers-reduced-motion: reduce) {
+	.circles,
+	.pacman .top,
+	.pacman .bottom {
+		animation: none;
+	}
+}
