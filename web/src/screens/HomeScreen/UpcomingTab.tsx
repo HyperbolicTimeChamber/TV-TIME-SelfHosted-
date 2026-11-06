@@ -10,6 +10,8 @@ import type { UpcomingEpisode } from "@app/types";
 import { todayStr } from "@app/utils/todayStr";
 import { formatAirTime } from "@app/utils/airTime";
 import PosterImage from "../../components/PosterImage";
+import CardInfo from "../../components/CardInfo";
+import { upcomingDirector } from "@app/hooks/useUpcomingEpisodes";
 import EpisodeDetailModal from "../../components/EpisodeDetailModal";
 import ShowDrawer from "../../components/ShowDrawer";
 import LoadingScreen from "../../components/LoadingScreen";
@@ -60,34 +62,35 @@ function UpcomingRow({
 				mediaType={episode.mediaType}
 				className={card.poster}
 			/>
-			<div className={`${card.info} pr-4!`}>
-				<button
-					className={card.titlePill}
-					onClick={(e) => {
-						e.stopPropagation();
-						onTitlePress(episode);
-					}}
-				>
-					<span className={card.titleText}>{episode.showTitle.toUpperCase()}</span>
-					<span className={card.titleArrow}>›</span>
-				</button>
+			<CardInfo
+				className="pr-4!"
+				pill={
+					<button
+						className={card.titlePill}
+						onClick={(e) => {
+							e.stopPropagation();
+							onTitlePress(episode);
+						}}
+					>
+						<span className={card.titleText}>{episode.showTitle.toUpperCase()}</span>
+						<span className={card.titleArrow}>›</span>
+					</button>
+				}
+				subline={isMovie ? upcomingDirector(episode) : episode.episodeTitle}
+				twoLineSubline={!isMovie}
+			>
 				{isMovie ? (
-					<span className={`${card.movieBadge} rounded-sm!`}>MOVIE</span>
+					<span className={`${card.movieBadge} rounded-sm! w-fit!`}>MOVIE</span>
 				) : (
-					<>
-						{/* Time on the SxxExx line → the episode name gets the card's full width */}
-						<div className={styles.upcomingEpRow}>
-							<span className={card.episode}>
-								S{pad(episode.season)} | E{pad(episode.episode)}
-							</span>
-							{airTime && <span className={styles.upcomingTime}>{airTime}</span>}
-						</div>
-						{episode.episodeTitle && (
-							<span className={card.episodeName}>{episode.episodeTitle}</span>
-						)}
-					</>
+					// Time on the SxxExx line → the episode name gets the card's full width
+					<div className={styles.upcomingEpRow}>
+						<span className={card.episode}>
+							S{pad(episode.season)} | E{pad(episode.episode)}
+						</span>
+						{airTime && <span className={styles.upcomingTime}>{airTime}</span>}
+					</div>
 				)}
-			</div>
+			</CardInfo>
 		</div>
 	);
 }

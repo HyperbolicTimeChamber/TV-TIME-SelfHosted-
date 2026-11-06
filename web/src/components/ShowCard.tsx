@@ -6,6 +6,7 @@ import SwipeableCard, { type SwipeableCardRef } from "./SwipeableCard";
 import { useLongPress } from "../hooks/useLongPress";
 import CheckmarkButton, { WATCHLIST_CHECK_CIRCLE, WATCHLIST_CHECK_TICK } from "./CheckmarkButton";
 import PosterImage from "./PosterImage";
+import CardInfo from "./CardInfo";
 import styles from "./styles/ShowCard.module.scss";
 
 const TODAY = todayStr();
@@ -104,7 +105,7 @@ export default memo(function ShowCard({
 
 	const titlePill = (muted = false) => (
 		<button
-			className={`${styles.titlePill} ${item.mediaType === MediaType.MOVIE ? styles.movieTitlePill : ""} ${muted ? styles.mutedPill : ""}`}
+			className={`${styles.titlePill} ${muted ? styles.mutedPill : ""}`}
 			onClick={(e) => {
 				e.stopPropagation();
 				onTitlePress?.(item);
@@ -133,13 +134,6 @@ export default memo(function ShowCard({
 				)}
 				{tag}
 			</div>
-			{item.director && (
-				<span
-					className={`${styles.episodeName} ${styles.movieDirector} ${muted ? `${styles.muted} ${styles.watchedFade}` : ""}`}
-				>
-					{item.director}
-				</span>
-			)}
 		</>
 	);
 
@@ -160,10 +154,11 @@ export default memo(function ShowCard({
 						mediaType={item.mediaType}
 						className={`${styles.poster} ${styles.watchedPoster}`}
 					/>
-					<div
-						className={`${styles.info} ${item.mediaType === MediaType.MOVIE ? styles.movieInfo : ""}`}
+					<CardInfo
+						pill={<span className={styles.watchedFade}>{titlePill(true)}</span>}
+						subline={item.mediaType === MediaType.MOVIE ? item.director : null}
+						sublineClassName={`${styles.muted} ${styles.watchedFade}`}
 					>
-						<span className={styles.watchedFade}>{titlePill(true)}</span>
 						{/* The REWATCH tag on the episode's / movie's line (app parity) */}
 						{item.mediaType === MediaType.MOVIE ? (
 							movieMeta(item.releaseDate?.substring(0, 4) ?? "", true, watchedRewatchTag)
@@ -175,7 +170,7 @@ export default memo(function ShowCard({
 								{watchedRewatchTag}
 							</span>
 						)}
-					</div>
+					</CardInfo>
 					<div
 						className={`${styles.checkmarkWrap} ${styles.watchedFade}`}
 						onClick={(e) => e.stopPropagation()}
@@ -217,10 +212,11 @@ export default memo(function ShowCard({
 					mediaType={item.mediaType}
 					className={styles.poster}
 				/>
-				<div
-					className={`${styles.info} ${item.mediaType === MediaType.MOVIE ? styles.movieInfo : ""}`}
+				<CardInfo
+					pill={titlePill()}
+					subline={item.mediaType === MediaType.MOVIE ? item.director : item.nextEpisodeName}
+					twoLineSubline={item.mediaType !== MediaType.MOVIE}
 				>
-					{titlePill()}
 					{item.mediaType === MediaType.MOVIE ? (
 						movieMeta(
 							isJustAired ? FreshTag.JUST_AIRED : (item.releaseDate?.substring(0, 4) ?? ""),
@@ -253,12 +249,9 @@ export default memo(function ShowCard({
 									</span>
 								) : null}
 							</span>
-							{item.nextEpisodeName && (
-								<span className={styles.episodeName}>{item.nextEpisodeName}</span>
-							)}
 						</>
 					)}
-				</div>
+				</CardInfo>
 				<div className={styles.checkmarkWrap} onClick={(e) => e.stopPropagation()}>
 					<CheckmarkButton
 						size={WATCHLIST_CHECK_CIRCLE}

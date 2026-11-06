@@ -74,6 +74,17 @@ function persistCache(userId: string, episodes: UpcomingEpisode[], syncDate: str
 	).catch(() => {});
 }
 
+/** A movie's director — saved on the entry, or from the catalog cache for lists cached before
+ *  entries carried it (0 reads) */
+export function upcomingDirector(ep: UpcomingEpisode): string | null {
+	if (ep.mediaType !== MediaType.MOVIE) return null;
+	return (
+		ep.director ??
+		getCachedCatalogShow(ep.tmdbShowId, MediaType.MOVIE)?.credits?.directors?.[0] ??
+		null
+	);
+}
+
 export function useUpcomingEpisodes(userId: string | undefined) {
 	const [episodes, setEpisodes] = useState<UpcomingEpisode[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
@@ -254,6 +265,7 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 						airDate: data.releaseDate,
 						runtime: null,
 						mediaType: MediaType.MOVIE,
+						director: catalog?.credits?.directors?.[0] ?? null,
 					});
 				}
 
