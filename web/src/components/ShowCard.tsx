@@ -84,12 +84,17 @@ export default memo(function ShowCard({
 	const isLatest = isLastAired && !isNewEpisode && !isFinale;
 	// Only while actually rewatching — a count left over from a dropped rewatch isn't one
 	const rewatching = item.status === WatchStatus.REWATCHING && item.rewatchCount > 0;
-	// Same outlined tag as LATEST, on the episode's / movie's line
-	const rewatchTag = (
-		<span className={`${styles.tagBadge} ${styles.inlineTag} ${styles.latestBadge}`}>
-			REWATCH {item.rewatchCount}
-		</span>
-	);
+	// The poster's corner tag: REWATCH N on a rewatch (episode or movie), else the episode's tag
+	const cornerTag = rewatching
+		? `REWATCH ${item.rewatchCount}`
+		: isFinale
+			? FreshTag.FINALE
+			: isNewEpisode
+				? FreshTag.NEW
+				: isLatest
+					? FreshTag.LATEST
+					: null;
+	const blueCornerTag = rewatching || cornerTag === FreshTag.LATEST;
 	const watchedRewatchTag =
 		item.rewatchCount > 0 ? (
 			<span className={`${styles.tagBadge} ${styles.inlineTag} ${styles.latestBadge} opacity-50`}>
@@ -212,6 +217,13 @@ export default memo(function ShowCard({
 					mediaType={item.mediaType}
 					className={styles.poster}
 				/>
+				{/* The card's REWATCH / FINALE / NEW / LATEST tag: a tab in the poster's bottom-left
+				    corner (the card's rounded corner clips it); REWATCH and LATEST blue (app parity) */}
+				{cornerTag && (
+					<span className={`${styles.cornerTag} ${blueCornerTag ? styles.cornerTagLatest : ""}`}>
+						{cornerTag}
+					</span>
+				)}
 				<CardInfo
 					pill={titlePill()}
 					subline={item.mediaType === MediaType.MOVIE ? item.director : item.nextEpisodeName}
@@ -220,14 +232,11 @@ export default memo(function ShowCard({
 					{item.mediaType === MediaType.MOVIE ? (
 						movieMeta(
 							isJustAired ? FreshTag.JUST_AIRED : (item.releaseDate?.substring(0, 4) ?? ""),
-							false,
-							rewatchTag,
 						)
 					) : (
 						<>
-							{/* The episode's tag sits on its line, so a tagged card is no taller than the
-							    rest; LATEST already says nothing's left, so no +N beside it. A rewatch
-							    shows only its REWATCH tag there (and its +N) (app parity) */}
+							{/* LATEST (the poster's corner tag) already says nothing's left, so no +N here;
+							    a rewatch keeps its +N (app parity) */}
 							<span className={styles.episodeRow}>
 								<span className={styles.episode}>
 									{episodeLabel}
@@ -235,19 +244,6 @@ export default memo(function ShowCard({
 										<span className={styles.remaining}> {remainingLabel}</span>
 									)}
 								</span>
-								{rewatching ? (
-									rewatchTag
-								) : isFinale ? (
-									<span className={`${styles.tagBadge} ${styles.inlineTag}`}>
-										{FreshTag.FINALE}
-									</span>
-								) : isNewEpisode ? (
-									<span className={`${styles.tagBadge} ${styles.inlineTag}`}>{FreshTag.NEW}</span>
-								) : isLatest ? (
-									<span className={`${styles.tagBadge} ${styles.inlineTag} ${styles.latestBadge}`}>
-										{FreshTag.LATEST}
-									</span>
-								) : null}
 							</span>
 						</>
 					)}

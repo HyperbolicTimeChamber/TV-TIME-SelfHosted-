@@ -10,6 +10,28 @@
 	height: 100px;
 	cursor: pointer;
 	user-select: none;
+	/* Holds the poster's corner tag */
+	position: relative;
+}
+
+/* The episode's FINALE / NEW / LATEST tag in the poster's bottom-left corner (app parity) */
+.cornerTag {
+	position: absolute;
+	left: 0;
+	bottom: 0;
+	background: $warning-amber;
+	padding: 3px 12px;
+	border-top-right-radius: $card-radius;
+	font-size: 12px;
+	font-weight: 700;
+	color: $surface;
+	letter-spacing: 0.5px;
+	line-height: 1.2;
+}
+
+.cornerTagLatest {
+	background: $accent;
+	color: var(--text);
 }
 
 .poster {

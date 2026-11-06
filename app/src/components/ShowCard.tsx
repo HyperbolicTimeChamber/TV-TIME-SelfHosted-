@@ -102,6 +102,18 @@ export default memo(function ShowCard({
 	// "LATEST" tag: last aired episode, not NEW, not FINALE
 	const isLatest = isLastAired && !isNewEpisode && !isFinale;
 
+	// The poster's corner tag: REWATCH N on a rewatch (episode or movie), else the episode's tag
+	const cornerTag = rewatching
+		? `REWATCH ${item.rewatchCount}`
+		: isFinale
+			? FreshTag.FINALE
+			: isNewEpisode
+				? FreshTag.NEW
+				: isLatest
+					? FreshTag.LATEST
+					: null;
+	const blueCornerTag = rewatching || cornerTag === FreshTag.LATEST;
+
 	const swipeRef = useRef<SwipeableCardRef>(null);
 
 	const handlePress = useCallback(() => {
@@ -253,6 +265,15 @@ export default memo(function ShowCard({
 					mediaType={item.mediaType}
 					style={cardStyles.poster}
 				/>
+				{/* The card's REWATCH / FINALE / NEW / LATEST tag: a tab in the poster's bottom-left
+				    corner (the card's rounded corner clips it); REWATCH and LATEST blue */}
+				{cornerTag && (
+					<View style={[styles.cornerTag, blueCornerTag && styles.cornerTagLatest]}>
+						<Text style={[styles.cornerTagText, blueCornerTag && styles.cornerTagLatestText]}>
+							{cornerTag}
+						</Text>
+					</View>
+				)}
 				<CardInfo
 					title={item.title}
 					onTitlePress={onTitlePress ? handleTitlePress : undefined}
@@ -275,20 +296,12 @@ export default memo(function ShowCard({
 										</Text>
 									</View>
 								</View>
-								{rewatching && (
-									<View style={[styles.tagBadge, styles.inlineTag, styles.latestBadge]}>
-										<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
-											REWATCH {item.rewatchCount}
-										</Text>
-									</View>
-								)}
 							</View>
 						</>
 					) : (
 						<>
-							{/* The episode's tag sits on its line, so a tagged card is no taller than the
-							    rest; LATEST already says nothing's left, so no +N beside it. A rewatch
-							    shows only its REWATCH tag there (and its +N) */}
+							{/* LATEST (the poster's corner tag) already says nothing's left, so no +N here;
+							    a rewatch keeps its +N */}
 							<View style={styles.episodeRow}>
 								<Text style={cardStyles.episode}>
 									{episodeLabel}
@@ -296,27 +309,6 @@ export default memo(function ShowCard({
 										<Text style={styles.remaining}> {remainingLabel}</Text>
 									) : null}
 								</Text>
-								{rewatching ? (
-									<View style={[styles.tagBadge, styles.inlineTag, styles.latestBadge]}>
-										<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
-											REWATCH {item.rewatchCount}
-										</Text>
-									</View>
-								) : isFinale ? (
-									<View style={[styles.tagBadge, styles.inlineTag]}>
-										<Text style={styles.tagBadgeText}>{FreshTag.FINALE}</Text>
-									</View>
-								) : isNewEpisode ? (
-									<View style={[styles.tagBadge, styles.inlineTag]}>
-										<Text style={styles.tagBadgeText}>{FreshTag.NEW}</Text>
-									</View>
-								) : isLatest ? (
-									<View style={[styles.tagBadge, styles.inlineTag, styles.latestBadge]}>
-										<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
-											{FreshTag.LATEST}
-										</Text>
-									</View>
-								) : null}
 							</View>
 						</>
 					)}
@@ -442,6 +434,27 @@ const styles = StyleSheet.create({
 		gap: spacing.sm,
 	},
 	inlineTag: { marginTop: 0, alignSelf: "center" },
+	cornerTag: {
+		position: "absolute",
+		left: 0,
+		bottom: 0,
+		backgroundColor: colors.warningAmber,
+		paddingHorizontal: spacing.md,
+		paddingVertical: 3,
+		borderTopRightRadius: CARD_RADIUS,
+	},
+	cornerTagText: {
+		fontSize: 12,
+		fontWeight: "700",
+		color: colors.surface,
+		letterSpacing: 0.5,
+	},
+	cornerTagLatest: {
+		backgroundColor: colors.accent,
+	},
+	cornerTagLatestText: {
+		color: colors.text,
+	},
 	latestBadge: {
 		backgroundColor: "transparent",
 		borderWidth: 1,
