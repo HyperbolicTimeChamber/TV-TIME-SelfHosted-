@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { colors, fonts, spacing, typography } from "../../../theme";
+import { CARD_RADIUS } from "../../../enums";
 import { formatAirTime } from "../../../utils/airTime";
 import PosterImage from "../../../components/PosterImage";
 import { UpcomingEpisode, MediaType } from "../../../types";
@@ -80,7 +81,7 @@ const styles = StyleSheet.create({
 	row: {
 		flexDirection: "row",
 		backgroundColor: colors.surface,
-		borderRadius: 8,
+		borderRadius: CARD_RADIUS,
 		overflow: "hidden",
 		marginHorizontal: spacing.md,
 		marginBottom: spacing.sm,
