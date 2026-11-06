@@ -512,13 +512,21 @@ export default function WatchlistTab() {
 	const [listH, setListH] = useState(0);
 	// The scroll the pinned headers follow. Fed by scroll events — but the list's opening scroll
 	// to "What's Up Next" sent none, so "What's Up Next" sat at its unpinned spot (above the
-	// view) until the first drag. Synced from the list's own scroll whenever it may have moved
+	// view) until the first drag. Synced from the list's own scroll whenever it may have moved —
+	// only while no scroll event has come in since: the list's own scroll trails the real one
+	// while it moves, and written over a newer event's value it pinned the header too high (gone
+	// or half under the tabs) until the next scroll
 	const stickyScroll = useSharedValue(0);
 	const sharedValues = useMemo(() => ({ scrollOffset: stickyScroll }), [stickyScroll]);
+	/** stickyScroll as of the list change being synced (or our last write): a scroll event since
+	 *  changed it */
+	const stickySeen = useRef(0);
 	const syncStickyScroll = useCallback(() => {
+		if (stickyScroll.value !== stickySeen.current) return;
 		const scroll = listRef.current?.getState().scroll;
 		if (scroll !== undefined && Math.abs(scroll - stickyScroll.value) > 0.5) {
 			stickyScroll.value = scroll;
+			stickySeen.current = scroll;
 		}
 	}, [stickyScroll]);
 	// Remembered row heights (rowSizes) read before the first layout
@@ -544,9 +552,10 @@ export default function WatchlistTab() {
 	// After the opening scroll / a reorder the list may have moved its scroll without an event
 	useEffect(() => {
 		if (isLoading) return;
+		stickySeen.current = stickyScroll.value;
 		const timers = STICKY_SYNC_MS.map((ms) => setTimeout(syncStickyScroll, ms));
 		return () => timers.forEach(clearTimeout);
-	}, [isLoading, listKeys, syncStickyScroll]);
+	}, [isLoading, listKeys, syncStickyScroll, stickyScroll]);
 	const [seenList, setSeenList] = useState(listKeys);
 	const droppedSwipes = useRef<string[]>([]);
 	useEffect(() => {
