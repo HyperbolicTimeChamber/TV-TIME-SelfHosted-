@@ -808,16 +808,27 @@ export default function WatchlistTab() {
 		}
 	}, [upNextIndex]);
 
-	// Re-scroll on every tab focus
+	// Re-scroll when the user comes back to the Home tab. Only after a blur: the tab's first focus
+	// lands seconds after launch (initialScrollIndex already placed the list) and yanked a list
+	// the user was already scrolling back to "What's Up Next"
+	const leftTab = useRef(false);
 	useEffect(() => {
 		const parent = navigation.getParent();
 		if (!parent) return;
-		const unsub = parent.addListener("focus", () => {
+		const unsubBlur = parent.addListener("blur", () => {
+			leftTab.current = true;
+		});
+		const unsubFocus = parent.addListener("focus", () => {
+			if (!leftTab.current) return;
+			leftTab.current = false;
 			if (prevWatchedOffset > 0) {
 				setTimeout(scrollToUpNext, 100);
 			}
 		});
-		return unsub;
+		return () => {
+			unsubBlur();
+			unsubFocus();
+		};
 	}, [navigation, prevWatchedOffset, scrollToUpNext]);
 
 	const renderCaughtUp = useCallback(
