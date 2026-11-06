@@ -102,17 +102,6 @@ export default memo(function ShowCard({
 	// "LATEST" tag: last aired episode, not NEW, not FINALE
 	const isLatest = isLastAired && !isNewEpisode && !isFinale;
 
-	// The poster's corner tag: REWATCH N on a rewatch (episode or movie), else the episode's tag
-	const cornerTag = rewatching
-		? `REWATCH ${item.rewatchCount}`
-		: isFinale
-			? FreshTag.FINALE
-			: isNewEpisode
-				? FreshTag.NEW
-				: isLatest
-					? FreshTag.LATEST
-					: null;
-	const blueCornerTag = rewatching || cornerTag === FreshTag.LATEST;
 
 	const swipeRef = useRef<SwipeableCardRef>(null);
 
@@ -265,13 +254,11 @@ export default memo(function ShowCard({
 					mediaType={item.mediaType}
 					style={cardStyles.poster}
 				/>
-				{/* The card's REWATCH / FINALE / NEW / LATEST tag: a tab in the poster's bottom-left
-				    corner (the card's rounded corner clips it); REWATCH and LATEST blue */}
-				{cornerTag && (
-					<View style={[styles.cornerTag, blueCornerTag && styles.cornerTagLatest]}>
-						<Text style={[styles.cornerTagText, blueCornerTag && styles.cornerTagLatestText]}>
-							{cornerTag}
-						</Text>
+				{/* A rewatch's REWATCH N: a tab in the poster's bottom-left corner (the card's rounded
+				    corner clips it) */}
+				{rewatching && (
+					<View style={styles.cornerTag}>
+						<Text style={styles.cornerTagText}>REWATCH {item.rewatchCount}</Text>
 					</View>
 				)}
 				<CardInfo
@@ -300,8 +287,9 @@ export default memo(function ShowCard({
 						</>
 					) : (
 						<>
-							{/* LATEST (the poster's corner tag) already says nothing's left, so no +N here;
-							    a rewatch keeps its +N */}
+							{/* The episode's tag sits on its line, so a tagged card is no taller than the
+							    rest; LATEST already says nothing's left, so no +N beside it. A rewatch shows
+							    only FINALE here, and its +N (its REWATCH tag is the poster's corner tab) */}
 							<View style={styles.episodeRow}>
 								<Text style={cardStyles.episode}>
 									{episodeLabel}
@@ -309,6 +297,21 @@ export default memo(function ShowCard({
 										<Text style={styles.remaining}> {remainingLabel}</Text>
 									) : null}
 								</Text>
+								{isFinale ? (
+									<View style={[styles.tagBadge, styles.inlineTag]}>
+										<Text style={styles.tagBadgeText}>{FreshTag.FINALE}</Text>
+									</View>
+								) : rewatching ? null : isNewEpisode ? (
+									<View style={[styles.tagBadge, styles.inlineTag, styles.newBadge]}>
+										<Text style={[styles.tagBadgeText, styles.newBadgeText]}>{FreshTag.NEW}</Text>
+									</View>
+								) : isLatest ? (
+									<View style={[styles.tagBadge, styles.inlineTag, styles.latestBadge]}>
+										<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
+											{FreshTag.LATEST}
+										</Text>
+									</View>
+								) : null}
 							</View>
 						</>
 					)}
@@ -438,7 +441,7 @@ const styles = StyleSheet.create({
 		position: "absolute",
 		left: 0,
 		bottom: 0,
-		backgroundColor: colors.warningAmber,
+		backgroundColor: colors.accent,
 		paddingHorizontal: spacing.md,
 		paddingVertical: 3,
 		borderTopRightRadius: CARD_RADIUS,
@@ -446,13 +449,13 @@ const styles = StyleSheet.create({
 	cornerTagText: {
 		fontSize: 12,
 		fontWeight: "700",
-		color: colors.surface,
+		color: colors.text,
 		letterSpacing: 0.5,
 	},
-	cornerTagLatest: {
+	newBadge: {
 		backgroundColor: colors.accent,
 	},
-	cornerTagLatestText: {
+	newBadgeText: {
 		color: colors.text,
 	},
 	latestBadge: {
