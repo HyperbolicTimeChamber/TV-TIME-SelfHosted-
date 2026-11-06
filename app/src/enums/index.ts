@@ -761,3 +761,6 @@ export const COUNTRY_NAMES: Record<string, string> = {
 	PE: "Peru",
 	VE: "Venezuela",
 };
+
+/** Corner radius of list cards — watchlist rows match the calendar cards */
+export const CARD_RADIUS = 16;

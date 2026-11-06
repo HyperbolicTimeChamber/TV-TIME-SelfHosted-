@@ -6,6 +6,7 @@ import { WATCHLIST_CHECK_CIRCLE, WATCHLIST_CHECK_TICK } from "../../../component
 import { withHaptic } from "../../../utils/haptics";
 import PosterImage from "../../../components/PosterImage";
 import { colors, spacing, typography } from "../../../theme";
+import { CARD_RADIUS } from "../../../enums";
 import { WatchedEpisode } from "../../../types";
 import { EnrichedTrackingItem } from "../../../hooks";
 
@@ -90,7 +91,7 @@ const styles = StyleSheet.create({
 	container: {
 		flexDirection: "row",
 		backgroundColor: colors.surface,
-		borderRadius: 8,
+		borderRadius: CARD_RADIUS,
 		overflow: "hidden",
 		opacity: 0.5,
 		minHeight: POSTER_WIDTH,

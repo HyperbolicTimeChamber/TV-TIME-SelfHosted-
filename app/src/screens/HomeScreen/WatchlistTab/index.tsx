@@ -29,6 +29,7 @@ import {
 	ShowDrawer,
 } from "../../../components";
 import { colors, spacing } from "../../../theme";
+import { CARD_RADIUS } from "../../../enums";
 import {
 	HomeStackParamList,
 	MainStackParamList,
@@ -86,7 +87,7 @@ const skeletonStyles = StyleSheet.create({
 	},
 	card: {
 		minHeight: POSTER_WIDTH,
-		borderRadius: 8,
+		borderRadius: CARD_RADIUS,
 		backgroundColor: colors.border,
 	},
 });

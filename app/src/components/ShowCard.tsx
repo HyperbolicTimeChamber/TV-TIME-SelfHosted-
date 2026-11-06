@@ -4,6 +4,7 @@ import { withHaptic } from "../utils/haptics";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS, WatchStatus } from "../types";
 import { colors, spacing, typography } from "../theme";
+import { CARD_RADIUS } from "../enums";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton, { WATCHLIST_CHECK_CIRCLE, WATCHLIST_CHECK_TICK } from "./CheckmarkButton";
 
@@ -376,7 +377,7 @@ const styles = StyleSheet.create({
 	container: {
 		flexDirection: "row",
 		backgroundColor: colors.surface,
-		borderRadius: 8,
+		borderRadius: CARD_RADIUS,
 		overflow: "hidden",
 		minHeight: POSTER_WIDTH,
 	},
@@ -477,7 +478,7 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		gap: spacing.sm,
 		backgroundColor: colors.watchedGreen,
-		borderRadius: 8,
+		borderRadius: CARD_RADIUS,
 		marginHorizontal: spacing.md,
 	},
 	updatingText: {

@@ -3,7 +3,7 @@
 .container {
 	display: flex;
 	background: var(--surface);
-	border-radius: 8px;
+	border-radius: $card-radius;
 	overflow: hidden;
 	min-height: 100px;
 	cursor: pointer;
@@ -205,7 +205,7 @@
 	justify-content: center;
 	gap: 8px;
 	background: $watched-green;
-	border-radius: 8px;
+	border-radius: $card-radius;
 	margin: 0 12px;
 	font-size: 16px;
 	font-weight: 600;

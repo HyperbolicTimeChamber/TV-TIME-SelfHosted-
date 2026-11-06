@@ -18,6 +18,7 @@ import Animated, {
 	Easing,
 } from "react-native-reanimated";
 import { colors, spacing, typography } from "../theme";
+import { CARD_RADIUS } from "../enums";
 import { RxCross2 } from "./RxIcons";
 import { HiCheck } from "./HiIcons";
 
@@ -445,7 +446,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 const styles = StyleSheet.create({
 	wrapper: {
 		overflow: "hidden",
-		borderRadius: 8,
+		borderRadius: CARD_RADIUS,
 		marginHorizontal: spacing.md,
 	},
 	card: {
