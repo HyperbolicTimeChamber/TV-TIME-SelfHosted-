@@ -35,7 +35,16 @@
 	color: var(--text-secondary);
 }
 
-.topTabActive {
+/* :hover too — antd's global a:hover blue outranks a plain class, and on touch the hover sticks
+   to the tab just tapped */
+.topTab:hover,
+.topTab:focus-visible {
+	color: var(--text-secondary);
+}
+
+.topTabActive,
+.topTabActive:hover,
+.topTabActive:focus-visible {
 	color: var(--primary);
 }
 
