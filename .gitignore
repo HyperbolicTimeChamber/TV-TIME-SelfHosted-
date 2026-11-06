@@ -34,6 +34,8 @@ app/fastlane/README.md
 
 # Environment
 *.local
+*.env
+
 
 # TypeScript
 *.tsbuildinfo
@@ -69,3 +71,4 @@ lerna-debug.log*
 
 # Local Firebase Emulator Suite data (npm run emulators)
 .emulator-data/
+

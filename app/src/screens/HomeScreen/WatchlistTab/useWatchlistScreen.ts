@@ -471,10 +471,9 @@ export function useWatchlistScreen(
 					);
 				}
 			};
-			// Optimistic: the row takes its new count now — the last watch leaves at once. The
-			// write reads the real count in a transaction (two round trips); waiting on it left
-			// the swipe's banner spinning for seconds
-			showCount(count - 1, count);
+			// The row takes its new count once the write is in: the swipe's banner spins meanwhile,
+			// and the row leaves together with the card's flip (its pointer moves in the same
+			// transaction) — taken off at once, the row went well before the card changed
 			let final: number;
 			try {
 				// Off the real count (read first): a stale cached count can't delete watches. Only a
@@ -496,13 +495,12 @@ export function useWatchlistScreen(
 				);
 			} catch (err: any) {
 				swipedOff.current.delete(`watched_${episode.id}`);
-				showCount(count, count - 1);
 				console.error("Unwatch failed:", err);
 				Alert.alert("Error", err.message || "Couldn't unwatch it.");
 				return false;
 			}
-			// Firestore's real count differed (a stale cached count) → the row follows it
-			if (final !== count - 1) showCount(final, count - 1);
+			// Off Firestore's real count (a stale cached count can differ)
+			if (final !== count) showCount(final, count);
 			decrementDailyWatch("episode");
 		},
 		[noteListChange, user?.uid, queryClient, rewatchFloor, watchlistPointer],
