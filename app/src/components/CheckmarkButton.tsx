@@ -7,6 +7,8 @@ interface Props {
 	watched?: boolean;
 	loading?: boolean;
 	size?: number;
+	/** Tick size override (default size * 0.72) */
+	checkSize?: number;
 	label?: string;
 	labelColor?: string;
 	backgroundColor?: string;
@@ -15,10 +17,15 @@ interface Props {
 	disabled?: boolean;
 }
 
+/** Watchlist cards' checkmark: circle + tick (3px under the default tick) */
+export const WATCHLIST_CHECK_CIRCLE = 38;
+export const WATCHLIST_CHECK_TICK = WATCHLIST_CHECK_CIRCLE * 0.72 - 3;
+
 export default function CheckmarkButton({
 	watched,
 	loading,
 	size = 30,
+	checkSize,
 	label,
 	labelColor,
 	backgroundColor,
@@ -28,9 +35,9 @@ export default function CheckmarkButton({
 }: Props) {
 	const iconSize = size * 0.55;
 	// HiCheck's glyph fills ~2/3 of its box (Ionicons' filled more): drawn larger to read as big
-	const checkSize = size * 0.72;
+	const tickSize = checkSize ?? size * 0.72;
 	const bg = backgroundColor ?? (watched ? colors.watchedGreen : colors.text);
-	const iconColor = watched ? colors.text : colors.textMuted;
+	const iconColor = watched ? colors.text : colors.checkTick;
 	const textColor = labelColor ?? (watched ? colors.text : colors.background);
 
 	return (
@@ -55,7 +62,7 @@ export default function CheckmarkButton({
 			) : label ? (
 				<Text style={[styles.label, { fontSize: size * 0.38, color: textColor }]}>{label}</Text>
 			) : (
-				<HiCheck size={checkSize} color={iconColor} />
+				<HiCheck size={tickSize} color={iconColor} />
 			)}
 		</TouchableOpacity>
 	);

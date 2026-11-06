@@ -4,7 +4,7 @@ import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS, WatchStatus } from "@app/e
 import { todayStr } from "@app/utils/todayStr";
 import SwipeableCard, { type SwipeableCardRef } from "./SwipeableCard";
 import { useLongPress } from "../hooks/useLongPress";
-import CheckmarkButton from "./CheckmarkButton";
+import CheckmarkButton, { WATCHLIST_CHECK_CIRCLE, WATCHLIST_CHECK_TICK } from "./CheckmarkButton";
 import PosterImage from "./PosterImage";
 import styles from "./styles/ShowCard.module.scss";
 
@@ -181,7 +181,8 @@ export default memo(function ShowCard({
 						onClick={(e) => e.stopPropagation()}
 					>
 						<CheckmarkButton
-							size={38}
+							size={WATCHLIST_CHECK_CIRCLE}
+							checkSize={WATCHLIST_CHECK_TICK}
 							watched
 							label={wc > 1 ? `${wc}` : undefined}
 							onPress={() => onCheckmark(item)}
@@ -260,7 +261,8 @@ export default memo(function ShowCard({
 				</div>
 				<div className={styles.checkmarkWrap} onClick={(e) => e.stopPropagation()}>
 					<CheckmarkButton
-						size={38}
+						size={WATCHLIST_CHECK_CIRCLE}
+						checkSize={WATCHLIST_CHECK_TICK}
 						onPress={() => swipeRef.current?.triggerSwipeLeft()}
 						onLongPress={onCheckmarkLongPress}
 					/>

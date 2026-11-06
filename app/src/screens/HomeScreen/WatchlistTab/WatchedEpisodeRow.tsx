@@ -2,6 +2,7 @@ import { memo } from "react";
 import { similarProps } from "../../../utils/similarProps";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { CheckmarkButton, SwipeableCard } from "../../../components";
+import { WATCHLIST_CHECK_CIRCLE, WATCHLIST_CHECK_TICK } from "../../../components/CheckmarkButton";
 import { withHaptic } from "../../../utils/haptics";
 import PosterImage from "../../../components/PosterImage";
 import { colors, spacing, typography } from "../../../theme";
@@ -71,7 +72,8 @@ export default memo(function WatchedEpisodeRow({
 				</View>
 				<View style={styles.checkmarkWrap}>
 					<CheckmarkButton
-						size={38}
+						size={WATCHLIST_CHECK_CIRCLE}
+						checkSize={WATCHLIST_CHECK_TICK}
 						watched
 						label={episode.watchCount > 1 ? `${episode.watchCount}` : undefined}
 						onPress={() => onCheckmarkPress(episode)}

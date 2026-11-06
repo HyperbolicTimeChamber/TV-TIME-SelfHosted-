@@ -5,7 +5,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "rea
 import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS, WatchStatus } from "../types";
 import { colors, spacing, typography } from "../theme";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
-import CheckmarkButton from "./CheckmarkButton";
+import CheckmarkButton, { WATCHLIST_CHECK_CIRCLE, WATCHLIST_CHECK_TICK } from "./CheckmarkButton";
 
 import PosterImage from "./PosterImage";
 import { todayStr } from "../utils";
@@ -228,7 +228,8 @@ export default memo(function ShowCard({
 					</View>
 					<View style={[styles.checkmarkWrap, styles.watchedFade]}>
 						<CheckmarkButton
-							size={38}
+							size={WATCHLIST_CHECK_CIRCLE}
+							checkSize={WATCHLIST_CHECK_TICK}
 							watched
 							label={wc > 1 ? `${wc}` : undefined}
 							onPress={() => _onCheckmark(item)}
@@ -354,7 +355,8 @@ export default memo(function ShowCard({
 				</View>
 				<View style={styles.checkmarkWrap}>
 					<CheckmarkButton
-						size={38}
+						size={WATCHLIST_CHECK_CIRCLE}
+						checkSize={WATCHLIST_CHECK_TICK}
 						onPress={() => swipeRef.current?.triggerSwipeLeft()}
 						onLongPress={onCheckmarkLongPress}
 					/>
