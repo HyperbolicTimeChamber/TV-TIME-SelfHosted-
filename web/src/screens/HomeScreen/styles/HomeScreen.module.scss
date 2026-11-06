@@ -213,6 +213,7 @@
 
 /* Upcoming row: local air time on the right, vertically centred */
 .upcomingEpRow {
+	position: relative;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -220,8 +221,14 @@
 	gap: 8px;
 }
 
+/* Laid over the line's right end: the big time text would make the line taller than the badge /
+   SxxExx and unbalance the card's even gaps (app parity) */
 .upcomingTime {
-	flex-shrink: 0;
+	position: absolute;
+	right: 0;
+	top: 50%;
+	transform: translateY(-50%);
+	white-space: nowrap;
 	font-family: "Smooch Sans", sans-serif;
 	font-size: 20px;
 	font-weight: 500;

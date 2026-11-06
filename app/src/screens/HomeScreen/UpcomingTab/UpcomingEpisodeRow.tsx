@@ -2,7 +2,8 @@ import { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { colors, fonts, spacing } from "../../../theme";
 import CardInfo, { cardStyles } from "../../../components/CardInfo";
-import { upcomingDirector } from "../../../hooks/useUpcomingEpisodes";
+import { upcomingDirector, upcomingRuntime } from "../../../hooks/useUpcomingEpisodes";
+import { formatRuntime } from "../../../utils/customLists";
 import { formatAirTime } from "../../../utils/airTime";
 import PosterImage from "../../../components/PosterImage";
 import { UpcomingEpisode, MediaType } from "../../../types";
@@ -24,8 +25,11 @@ export default memo(function UpcomingEpisodeRow({
 	const label = isMovie
 		? "MOVIE"
 		: `S${String(episode.season).padStart(2, "0")} | E${String(episode.episode).padStart(2, "0")}`;
-	// Local air time (TVMaze) — only when the exact time is known
-	const airTime = isMovie ? null : formatAirTime(episode.airStamp);
+	// Right end of the middle line: local air time (TVMaze, only when the exact time is known),
+	// or a movie's runtime
+	const sideText = isMovie
+		? formatRuntime(upcomingRuntime(episode))
+		: formatAirTime(episode.airStamp);
 
 	return (
 		<TouchableOpacity
@@ -47,21 +51,23 @@ export default memo(function UpcomingEpisodeRow({
 				sublineLines={isMovie ? 1 : 2}
 				style={styles.info}
 			>
-				{isMovie ? (
-					<View style={styles.movieBadge}>
-						<Text style={styles.movieBadgeText}>MOVIE</Text>
-					</View>
-				) : (
-					// Time on the SxxExx line → the episode name gets the card's full width
-					<View style={styles.epRow}>
+				{/* Time on the middle line → the episode name / director gets the card's full width */}
+				<View style={styles.epRow}>
+					{isMovie ? (
+						<View style={styles.movieBadge}>
+							<Text style={styles.movieBadgeText}>MOVIE</Text>
+						</View>
+					) : (
 						<Text style={cardStyles.episode}>{label}</Text>
-						{airTime && (
+					)}
+					{sideText && (
+						<View style={styles.side} pointerEvents="none">
 							<Text style={styles.airTime} numberOfLines={1}>
-								{airTime}
+								{sideText}
 							</Text>
-						)}
-					</View>
-				)}
+						</View>
+					)}
+				</View>
 			</CardInfo>
 		</TouchableOpacity>
 	);
@@ -80,9 +86,17 @@ const styles = StyleSheet.create({
 		justifyContent: "space-between",
 		alignSelf: "stretch",
 	},
-	// Right end of the SxxExx line
-	// Wide enough for any "hh:mm AM": Android measures some times in this font a hair narrow and
-	// cut the "AM" / "PM" off
+	// Right end of the middle line, laid over it: the big time text would make the line taller
+	// than the badge / SxxExx and unbalance the card's even gaps
+	side: {
+		position: "absolute",
+		right: 0,
+		top: -20,
+		bottom: -20,
+		justifyContent: "center",
+	},
+	// Air time / runtime. Wide enough for any "hh:mm AM": Android measures some times in this
+	// font a hair narrow and cut the "AM" / "PM" off
 	airTime: {
 		flexShrink: 0,
 		minWidth: 88,

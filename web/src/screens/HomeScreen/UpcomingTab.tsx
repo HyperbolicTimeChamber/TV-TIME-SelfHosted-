@@ -11,7 +11,8 @@ import { todayStr } from "@app/utils/todayStr";
 import { formatAirTime } from "@app/utils/airTime";
 import PosterImage from "../../components/PosterImage";
 import CardInfo from "../../components/CardInfo";
-import { upcomingDirector } from "@app/hooks/useUpcomingEpisodes";
+import { upcomingDirector, upcomingRuntime } from "@app/hooks/useUpcomingEpisodes";
+import { formatRuntime } from "@app/utils/customLists";
 import EpisodeDetailModal from "../../components/EpisodeDetailModal";
 import ShowDrawer from "../../components/ShowDrawer";
 import LoadingScreen from "../../components/LoadingScreen";
@@ -49,8 +50,11 @@ function UpcomingRow({
 	onTitlePress: (ep: UpcomingEpisode) => void;
 }) {
 	const isMovie = episode.mediaType === MediaType.MOVIE;
-	// Local air time (TVMaze) — only when the exact time is known
-	const airTime = isMovie ? null : formatAirTime(episode.airStamp);
+	// Right end of the middle line: local air time (TVMaze, only when the exact time is known),
+	// or a movie's runtime
+	const sideText = isMovie
+		? formatRuntime(upcomingRuntime(episode))
+		: formatAirTime(episode.airStamp);
 	return (
 		<div
 			className={`${card.container} ${styles.upcomingRow}`}
@@ -79,17 +83,17 @@ function UpcomingRow({
 				subline={isMovie ? upcomingDirector(episode) : episode.episodeTitle}
 				twoLineSubline={!isMovie}
 			>
-				{isMovie ? (
-					<span className={`${card.movieBadge} rounded-sm! w-fit!`}>MOVIE</span>
-				) : (
-					// Time on the SxxExx line → the episode name gets the card's full width
-					<div className={styles.upcomingEpRow}>
+				{/* Time on the middle line → the episode name / director gets the card's full width */}
+				<div className={styles.upcomingEpRow}>
+					{isMovie ? (
+						<span className={`${card.movieBadge} rounded-sm!`}>MOVIE</span>
+					) : (
 						<span className={card.episode}>
 							S{pad(episode.season)} | E{pad(episode.episode)}
 						</span>
-						{airTime && <span className={styles.upcomingTime}>{airTime}</span>}
-					</div>
-				)}
+					)}
+					{sideText && <span className={styles.upcomingTime}>{sideText}</span>}
+				</div>
 			</CardInfo>
 		</div>
 	);
