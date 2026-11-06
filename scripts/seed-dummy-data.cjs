@@ -71,6 +71,16 @@ const SHOWS = [
 	{ title: "The Queen's Gambit", watched: 1, rewatch: 0 },
 	{ title: "Fleabag", watched: 2, rewatch: 4 },
 	{ title: "Mare of Easttown", watched: 1, rewatch: 1 },
+	{ title: "Band of Brothers", watched: 1, rewatch: 3 },
+	{ title: "Normal People", watched: 1, rewatch: 5 },
+	{ title: "Baby Reindeer", watched: 1, rewatch: 0 },
+	{ title: "Sherlock", watched: 4, rewatch: 2 },
+	// Releasing soon: `releaseInMin` = the next episode airs that many minutes after seeding
+	// (today, exact time in the catalog) — the card appears in "What's Up Next" when it airs
+	{ title: "The Daily Show", upToDate: true, releaseInMin: 2 },
+	{ title: "The Late Show with Stephen Colbert", upToDate: true, releaseInMin: 3 },
+	{ title: "Last Week Tonight with John Oliver", upToDate: true, releaseInMin: 4 },
+	{ title: "The View", upToDate: true, releaseInMin: 5 },
 ];
 const MOVIES = ["Dune: Part Two", "Avengers: Doomsday", "Spider-Man: Beyond the Spider-Verse"];
 // Upcoming movies sharing one release date (the busiest upcoming day) → movie "+n more" chip
@@ -163,7 +173,7 @@ async function main() {
 
 	// SEED_ONLY="Friends,Community" → just those titles (a re-run marks seasons again otherwise)
 	const only = process.env.SEED_ONLY?.split(",").map((t) => t.trim().toLowerCase());
-	for (const { title, watched = 0, upToDate = false, rewatch } of SHOWS) {
+	for (const { title, watched = 0, upToDate = false, rewatch, releaseInMin } of SHOWS) {
 		if (only && !only.includes(title.toLowerCase())) continue;
 		const hit = await search(apiKey, "tv", title);
 		if (!hit) {
@@ -179,6 +189,27 @@ async function main() {
 			const next = seasons
 				.flatMap((s) => (s.episodes ?? []).map((e) => ({ ...e, season: s.seasonNumber })))
 				.find((e) => e.airDate && e.airDate > today);
+			if (next && releaseInMin !== undefined) {
+				// Pull that episode forward to today, airing `releaseInMin` minutes from now
+				const airAt = new Date(Date.now() + releaseInMin * 60_000);
+				const airStamp = airAt.toISOString();
+				// The day it airs on this machine's clock (the emulator's, for the app)
+				const airDay = airAt.toLocaleDateString("en-CA");
+				const showRef = db.doc(`shows/${MediaType.TV}_${hit.id}`);
+				const show = (await showRef.get()).data();
+				const seasonsOut = (show?.seasons ?? []).map((sn) =>
+					sn.seasonNumber !== next.season
+						? sn
+						: {
+								...sn,
+								episodes: (sn.episodes ?? []).map((e) =>
+									e.episodeNumber === next.episodeNumber ? { ...e, airDate: airDay, airStamp } : e,
+								),
+							},
+				);
+				await showRef.update({ seasons: seasonsOut });
+				next.airDate = airDay;
+			}
 			if (next) {
 				await userRef.collection("tracking").doc(`${MediaType.TV}_${hit.id}`).update({
 					nextEpisode: { season: next.season, episode: next.episodeNumber },
@@ -187,7 +218,10 @@ async function main() {
 					updatedAt: FieldValue.serverTimestamp(),
 				});
 			}
-			console.log(`  tv    ${hit.name} (${hit.id}) — up to date, next ${next?.airDate ?? "none"}`);
+			console.log(
+				`  tv    ${hit.name} (${hit.id}) — up to date, next ${next?.airDate ?? "none"}` +
+					(releaseInMin !== undefined && next ? ` (airs in ${releaseInMin} min)` : ""),
+			);
 			continue;
 		}
 		// Mark whole aired seasons; tracking then points at the next episode
@@ -287,7 +321,8 @@ async function main() {
 		}
 	}
 	const busiest = [...byDate.values()].sort((a, b) => b.length - a.length)[0] ?? [];
-	for (const hit of busiest.slice(0, SAME_DAY_MOVIES)) {
+	// SEED_ONLY runs leave these alone (re-tracking them would undo marks made since)
+	for (const hit of only ? [] : busiest.slice(0, SAME_DAY_MOVIES)) {
 		await track(hit.id, MediaType.MOVIE, {
 			title: hit.title,
 			posterPath: hit.poster_path,
