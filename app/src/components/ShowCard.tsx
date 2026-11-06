@@ -9,6 +9,7 @@ import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton, { WATCHLIST_CHECK_CIRCLE, WATCHLIST_CHECK_TICK } from "./CheckmarkButton";
 
 import PosterImage from "./PosterImage";
+import CardInfo, { cardStyles, CARD_POSTER_WIDTH } from "./CardInfo";
 import { todayStr } from "../utils";
 
 // Computed once per app session — avoids Date allocation per card per render
@@ -135,7 +136,7 @@ export default memo(function ShowCard({
 				persistAfterSwipe={{ left: true, right: wc > 1 }}
 			>
 				<TouchableOpacity
-					style={styles.container}
+					style={cardStyles.container}
 					onPress={handlePress}
 					onLongPress={handleLongPress}
 					activeOpacity={0.8}
@@ -143,21 +144,15 @@ export default memo(function ShowCard({
 					<PosterImage
 						posterPath={item.posterPath}
 						mediaType={item.mediaType}
-						style={[styles.poster, styles.watchedPoster]}
+						style={[cardStyles.poster, styles.watchedPoster]}
 					/>
-					<View style={[styles.info, item.mediaType === MediaType.MOVIE && styles.movieInfo]}>
-						<View
-							style={[
-								styles.titlePill,
-								item.mediaType === MediaType.MOVIE && styles.movieTitlePill,
-								styles.watchedTitlePill,
-								styles.watchedFade,
-							]}
-						>
-							<Text style={[styles.titleText, styles.watchedMuted]} numberOfLines={1}>
-								{item.title.toUpperCase()}
-							</Text>
-						</View>
+					<CardInfo
+						title={item.title}
+						titlePillStyle={[styles.watchedTitlePill, styles.watchedFade]}
+						titleTextStyle={styles.watchedMuted}
+						subline={item.mediaType === MediaType.MOVIE ? item.director : null}
+						sublineStyle={[styles.watchedMuted, styles.watchedFade]}
+					>
 						{item.mediaType === MediaType.MOVIE ? (
 							<>
 								{/* The card fades its own parts rather than the whole subtree, so the year
@@ -195,24 +190,11 @@ export default memo(function ShowCard({
 										</View>
 									)}
 								</View>
-								{item.director && (
-									<Text
-										style={[
-											styles.episodeName,
-											styles.movieDirector,
-											styles.watchedMuted,
-											styles.watchedFade,
-										]}
-										numberOfLines={1}
-									>
-										{item.director}
-									</Text>
-								)}
 							</>
 						) : (
 							// The REWATCH tag on the episode's line (as on an active card)
 							<View style={styles.episodeRow}>
-								<Text style={[styles.episode, styles.watchedMuted, styles.watchedFade]}>
+								<Text style={[cardStyles.episode, styles.watchedMuted, styles.watchedFade]}>
 									{episodeLabel}
 								</Text>
 								{item.rewatchCount > 0 && (
@@ -226,7 +208,7 @@ export default memo(function ShowCard({
 								)}
 							</View>
 						)}
-					</View>
+					</CardInfo>
 					<View style={[styles.checkmarkWrap, styles.watchedFade]}>
 						<CheckmarkButton
 							size={WATCHLIST_CHECK_CIRCLE}
@@ -261,7 +243,7 @@ export default memo(function ShowCard({
 			persistAfterSwipe
 		>
 			<TouchableOpacity
-				style={styles.container}
+				style={cardStyles.container}
 				onPress={handlePress}
 				onLongPress={handleLongPress}
 				activeOpacity={0.8}
@@ -269,19 +251,14 @@ export default memo(function ShowCard({
 				<PosterImage
 					posterPath={item.posterPath}
 					mediaType={item.mediaType}
-					style={styles.poster}
+					style={cardStyles.poster}
 				/>
-				<View style={[styles.info, item.mediaType === MediaType.MOVIE && styles.movieInfo]}>
-					<TouchableOpacity
-						style={[styles.titlePill, item.mediaType === MediaType.MOVIE && styles.movieTitlePill]}
-						onPress={handleTitlePress}
-						disabled={!onTitlePress}
-					>
-						<Text style={styles.titleText} numberOfLines={1}>
-							{item.title.toUpperCase()}
-						</Text>
-						{onTitlePress && <Text style={styles.titleArrow}>›</Text>}
-					</TouchableOpacity>
+				<CardInfo
+					title={item.title}
+					onTitlePress={onTitlePress ? handleTitlePress : undefined}
+					subline={item.mediaType === MediaType.MOVIE ? item.director : item.nextEpisodeName}
+					sublineLines={item.mediaType === MediaType.MOVIE ? 1 : 2}
+				>
 					{item.mediaType === MediaType.MOVIE ? (
 						<>
 							<View style={styles.movieMetaRow}>
@@ -306,11 +283,6 @@ export default memo(function ShowCard({
 									</View>
 								)}
 							</View>
-							{item.director && (
-								<Text style={[styles.episodeName, styles.movieDirector]} numberOfLines={1}>
-									{item.director}
-								</Text>
-							)}
 						</>
 					) : (
 						<>
@@ -318,7 +290,7 @@ export default memo(function ShowCard({
 							    rest; LATEST already says nothing's left, so no +N beside it. A rewatch
 							    shows only its REWATCH tag there (and its +N) */}
 							<View style={styles.episodeRow}>
-								<Text style={styles.episode}>
+								<Text style={cardStyles.episode}>
 									{episodeLabel}
 									{remainingLabel && (rewatching || !(isLatest && !isFinale && !isNewEpisode)) ? (
 										<Text style={styles.remaining}> {remainingLabel}</Text>
@@ -346,14 +318,9 @@ export default memo(function ShowCard({
 									</View>
 								) : null}
 							</View>
-							{item.nextEpisodeName ? (
-								<Text style={styles.episodeName} numberOfLines={1}>
-									{item.nextEpisodeName}
-								</Text>
-							) : null}
 						</>
 					)}
-				</View>
+				</CardInfo>
 				<View style={styles.checkmarkWrap}>
 					<CheckmarkButton
 						size={WATCHLIST_CHECK_CIRCLE}
@@ -367,24 +334,7 @@ export default memo(function ShowCard({
 	);
 }, similarProps);
 
-const POSTER_WIDTH = 100;
-
-/** Gap between a movie card's title, tags and director — 11 puts the director as far below the
- *  title as an episode card's episode name (measured on a Pixel 9 Pro) */
-const MOVIE_LINE_GAP = 11;
-
 const styles = StyleSheet.create({
-	container: {
-		flexDirection: "row",
-		backgroundColor: colors.surface,
-		borderRadius: CARD_RADIUS,
-		overflow: "hidden",
-		minHeight: POSTER_WIDTH,
-	},
-	poster: {
-		width: POSTER_WIDTH,
-		alignSelf: "stretch",
-	},
 	// Same fade as WatchedEpisodeRow, but per element instead of over the whole card: a
 	// container opacity also dims the movie year, which has to stay readable. The card keeps
 	// `container`'s surface — SwipeableCard paints the same surface behind it, so the old
@@ -395,53 +345,8 @@ const styles = StyleSheet.create({
 	watchedPoster: {
 		opacity: 0.3,
 	},
-	info: {
-		flex: 1,
-		justifyContent: "center",
-		paddingVertical: spacing.sm,
-		paddingLeft: spacing.md,
-		paddingRight: spacing.xs,
-	},
-	titlePill: {
-		flexDirection: "row",
-		alignItems: "center",
-		alignSelf: "flex-start",
-		borderWidth: 1.5,
-		borderColor: colors.text,
-		borderRadius: 14,
-		paddingHorizontal: spacing.sm,
-		paddingVertical: 2,
-		marginBottom: spacing.md,
-		maxWidth: "90%",
-	},
 	watchedTitlePill: {
 		borderColor: colors.textMuted,
-	},
-	titleText: {
-		fontSize: 11,
-		fontWeight: "600",
-		color: colors.text,
-		flexShrink: 1,
-		letterSpacing: 0.5,
-	},
-	titleArrow: {
-		fontSize: 11,
-		color: colors.text,
-		marginLeft: spacing.xs,
-		lineHeight: 13,
-	},
-	episode: {
-		...typography.subtitle,
-		fontSize: 16,
-		fontWeight: "700",
-		color: colors.text,
-		letterSpacing: 1,
-	},
-	episodeName: {
-		...typography.body,
-		color: colors.textSecondary,
-		marginTop: 2,
-		fontSize: 13,
 	},
 	movieBadgeGroup: {
 		flexDirection: "row",
@@ -472,7 +377,7 @@ const styles = StyleSheet.create({
 	},
 	mutedTag: { opacity: 0.5 },
 	updatingContainer: {
-		minHeight: POSTER_WIDTH,
+		minHeight: CARD_POSTER_WIDTH,
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "center",
@@ -545,21 +450,13 @@ const styles = StyleSheet.create({
 	latestBadgeText: {
 		color: colors.accent,
 	},
-	// Movie: title, tags and director equally spaced (MOVIE_LINE_GAP between each)
+	// Movie: MOVIE / year tags, and a REWATCH tag beside them
 	movieMetaRow: {
 		flexDirection: "row",
 		alignItems: "center",
 		// Room before a REWATCH tag
 		gap: spacing.sm,
 	},
-	movieTitlePill: { marginBottom: MOVIE_LINE_GAP },
-	// From the top, like an episode card filled by its lines: the title and director sit at the
-	// same height as an episode card's title and episode name (centred, a shorter movie block
-	// moved them down)
-	movieInfo: { justifyContent: "flex-start" },
-	// Tight line height, and 2 less than the gap: the name's capitals sit ~2pt below its line
-	// top, so the visible gap matches the title → tags one
-	movieDirector: { marginTop: MOVIE_LINE_GAP - 2, lineHeight: 16 },
 	checkmarkWrap: {
 		alignSelf: "center",
 		paddingRight: spacing.md,

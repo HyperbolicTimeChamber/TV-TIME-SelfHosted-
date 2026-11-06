@@ -5,8 +5,8 @@ import { CheckmarkButton, SwipeableCard } from "../../../components";
 import { WATCHLIST_CHECK_CIRCLE, WATCHLIST_CHECK_TICK } from "../../../components/CheckmarkButton";
 import { withHaptic } from "../../../utils/haptics";
 import PosterImage from "../../../components/PosterImage";
-import { colors, spacing, typography } from "../../../theme";
-import { CARD_RADIUS } from "../../../enums";
+import { colors, spacing } from "../../../theme";
+import CardInfo, { cardStyles } from "../../../components/CardInfo";
 import { WatchedEpisode } from "../../../types";
 import { EnrichedTrackingItem } from "../../../hooks";
 
@@ -50,25 +50,22 @@ export default memo(function WatchedEpisodeRow({
 			persistAfterSwipe={{ left: true, right: !leaves }}
 		>
 			<TouchableOpacity
-				style={styles.container}
+				style={[cardStyles.container, styles.container]}
 				onPress={() => onPress(episode, show)}
 				onLongPress={withHaptic(onLongPress && (() => onLongPress(show)))}
 				activeOpacity={0.8}
 			>
-				<PosterImage posterPath={show.posterPath} mediaType="tv" style={styles.poster} />
-				<View style={styles.info}>
-					<View style={styles.titlePill}>
-						<Text style={styles.titleText} numberOfLines={1}>
-							{show.title.toUpperCase()}
-						</Text>
-					</View>
-					<Text style={styles.episodeLabel}>{label}</Text>
-					{episode.episodeTitle ? (
-						<Text style={styles.episodeTitle} numberOfLines={1}>
-							{episode.episodeTitle}
-						</Text>
-					) : null}
-				</View>
+				<PosterImage posterPath={show.posterPath} mediaType="tv" style={[cardStyles.poster, styles.poster]} />
+				<CardInfo
+					title={show.title}
+					titlePillStyle={styles.mutedPill}
+					titleTextStyle={styles.muted}
+					subline={episode.episodeTitle}
+					sublineLines={2}
+					sublineStyle={styles.muted}
+				>
+					<Text style={[cardStyles.episode, styles.muted]}>{label}</Text>
+				</CardInfo>
 				<View style={styles.checkmarkWrap}>
 					<CheckmarkButton
 						size={WATCHLIST_CHECK_CIRCLE}
@@ -85,61 +82,12 @@ export default memo(function WatchedEpisodeRow({
 	);
 }, similarProps);
 
-const POSTER_WIDTH = 100;
-
+// Previously Watched: the whole card at half strength, the poster dimmer still
 const styles = StyleSheet.create({
-	container: {
-		flexDirection: "row",
-		backgroundColor: colors.surface,
-		borderRadius: CARD_RADIUS,
-		overflow: "hidden",
-		opacity: 0.5,
-		minHeight: POSTER_WIDTH,
-	},
-	poster: {
-		width: POSTER_WIDTH,
-		alignSelf: "stretch",
-		opacity: 0.6,
-	},
-	info: {
-		flex: 1,
-		justifyContent: "center",
-		paddingVertical: spacing.sm,
-		paddingLeft: spacing.md,
-		paddingRight: spacing.xs,
-	},
-	titlePill: {
-		flexDirection: "row",
-		alignItems: "center",
-		alignSelf: "flex-start",
-		borderWidth: 1.5,
-		borderColor: colors.textMuted,
-		borderRadius: 14,
-		paddingHorizontal: spacing.sm,
-		paddingVertical: 2,
-		marginBottom: spacing.sm,
-		maxWidth: "90%",
-	},
-	titleText: {
-		fontSize: 11,
-		fontWeight: "600",
-		color: colors.textMuted,
-		flexShrink: 1,
-		letterSpacing: 0.5,
-	},
-	episodeLabel: {
-		...typography.subtitle,
-		fontSize: 16,
-		fontWeight: "700",
-		color: colors.textMuted,
-		letterSpacing: 1,
-	},
-	episodeTitle: {
-		...typography.body,
-		color: colors.textMuted,
-		fontSize: 13,
-		marginTop: 2,
-	},
+	container: { opacity: 0.5 },
+	poster: { opacity: 0.6 },
+	mutedPill: { borderColor: colors.textMuted },
+	muted: { color: colors.textMuted },
 	checkmarkWrap: {
 		alignSelf: "center",
 		paddingRight: spacing.md,
