@@ -69,3 +69,6 @@ lerna-debug.log*
 
 # Local Firebase Emulator Suite data (npm run emulators)
 .emulator-data/
+
+# Telegram channel bot token (per-repo)
+.telegram.env
