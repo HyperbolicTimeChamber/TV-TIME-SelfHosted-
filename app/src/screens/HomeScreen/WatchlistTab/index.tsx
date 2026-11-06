@@ -29,7 +29,7 @@ import {
 	ShowDrawer,
 } from "../../../components";
 import { colors, spacing } from "../../../theme";
-import { CARD_RADIUS, WatchlistRemountKind } from "../../../enums";
+import { CARD_RADIUS } from "../../../enums";
 import {
 	HomeStackParamList,
 	MainStackParamList,
@@ -50,14 +50,6 @@ import HomeEmpty, { CAUGHT_UP_ART, WELCOME_ART } from "../HomeEmpty";
 import { withCaughtUp } from "../../../utils";
 import { UP_NEXT_TITLE } from "../../../utils/watchlistList";
 import { rememberedRowSize, rowSizesReady, saveRowSizes } from "./rowSizes";
-import {
-	noteDragEnd,
-	noteLaunchStep,
-	noteRowsChange,
-	noteScrollOffset,
-	noteUserScroll,
-	noteWatchlistMount,
-} from "../../../utils/remountDiagnostics";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 /** Height of a pinned section header pill row */
@@ -825,7 +817,6 @@ export default function WatchlistTab() {
 	// list until it's scrolled again (cards stopped opening their info modal)
 	const scrollToUpNext = useCallback(() => {
 		if (upNextIndex > 0) {
-			noteLaunchStep(`scrollToUpNext:${upNextIndex}`);
 			listRef.current?.scrollToIndex({ index: upNextIndex, animated: false, viewOffset: 0 });
 		}
 	}, [upNextIndex]);
@@ -838,11 +829,9 @@ export default function WatchlistTab() {
 		const parent = navigation.getParent();
 		if (!parent) return;
 		const unsubBlur = parent.addListener("blur", () => {
-			noteLaunchStep("nav:blur");
 			leftTab.current = true;
 		});
 		const unsubFocus = parent.addListener("focus", () => {
-			noteLaunchStep(`nav:focus${leftTab.current ? " (after blur)" : ""}`);
 			if (!leftTab.current) return;
 			leftTab.current = false;
 			if (prevWatchedOffset > 0) {
@@ -990,19 +979,6 @@ export default function WatchlistTab() {
 		[listData],
 	);
 
-	// TEMPORARY (utils/remountDiagnostics): this tab's mounts, and its view (loading / empty /
-	// list) as it changes — the list mounting again means it was rebuilt
-	useEffect(() => noteWatchlistMount(WatchlistRemountKind.TAB), []);
-	const view = isLoading || !sizesReady ? "loading" : listData.length === 0 ? "empty" : "list";
-	useEffect(() => {
-		noteLaunchStep(`watchlist:${view}`);
-		if (view === "list") noteWatchlistMount(WatchlistRemountKind.LIST);
-	}, [view]);
-	// TEMPORARY: the rows as they change (a jump right after one points at it)
-	useEffect(() => {
-		noteRowsChange(`${listData.length} first:${listData[0] ? keyOf(listData[0]) : "-"}`);
-	}, [listKeys, listData]);
-
 	if (isLoading || !sizesReady) {
 		return (
 			<View style={styles.center}>
@@ -1043,16 +1019,19 @@ export default function WatchlistTab() {
 				// Heals (missing poster / episode name…) run only for cards kept on screen
 				onViewableItemsChanged={onViewableItemsChanged}
 				viewabilityConfig={CARD_VIEWABILITY}
+				// Always the same RefreshControl, switched off when there's nothing older to pull: on
+				// Android a RefreshControl wraps the native ScrollView, so adding / dropping it swapped
+				// the ScrollView for a new one — which opened at the list's initial offset ("What's Up
+				// Next", every poster reloading) while the user was scrolling elsewhere
 				refreshControl={
-					hasMorePrevWatched ? (
-						<RefreshControl
-							refreshing={loadingMorePrevWatched}
-							onRefresh={loadMorePrevWatched}
-							tintColor={colors.primary}
-							colors={[colors.primary]}
-							progressBackgroundColor={colors.surface}
-						/>
-					) : undefined
+					<RefreshControl
+						enabled={hasMorePrevWatched}
+						refreshing={loadingMorePrevWatched}
+						onRefresh={loadMorePrevWatched}
+						tintColor={colors.primary}
+						colors={[colors.primary]}
+						progressBackgroundColor={colors.surface}
+					/>
 				}
 				// Caught up: nothing more to page in (scrolling the empty state kept refetching)
 				onEndReached={caughtUp ? undefined : () => loadMoreTracking()}
@@ -1067,12 +1046,6 @@ export default function WatchlistTab() {
 				}
 				ItemSeparatorComponent={SeparatorComponent}
 				maintainVisibleContentPosition={mvcp}
-				// TEMPORARY (utils/remountDiagnostics): scroll moves the finger didn't make
-				onScroll={(e) => noteScrollOffset(e.nativeEvent.contentOffset.y)}
-				onScrollBeginDrag={() => noteUserScroll(true)}
-				onScrollEndDrag={noteDragEnd}
-				onMomentumScrollBegin={() => noteUserScroll(true)}
-				onMomentumScrollEnd={() => noteUserScroll(false)}
 				style={styles.list}
 				onLayout={(e) => setListH(e.nativeEvent.layout.height)}
 				contentContainerStyle={contentStyle}
