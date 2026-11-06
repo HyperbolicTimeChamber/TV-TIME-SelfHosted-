@@ -219,6 +219,8 @@
 	color: var(--text-secondary);
 	text-align: center;
 	margin: 0 0 16px;
+	/* Import result lines break where the text does */
+	white-space: pre-line;
 }
 
 /* Text field in a popup (list name) — app ListNameModal */
@@ -301,4 +303,32 @@
 	font-size: 12px;
 	color: var(--text-muted);
 	cursor: pointer;
+}
+
+/* Cancel on the exporting / importing popup (app ExportingModal) */
+.exportCancel {
+	margin: 16px 0 0;
+	background: var(--surface-light);
+	color: $destructive-red;
+	transition:
+		transform 120ms ease-out,
+		opacity 0.15s;
+
+	&:active {
+		transform: scale(0.97);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		transition: opacity 0.15s;
+
+		&:active {
+			transform: none;
+		}
+	}
+}
+
+/* ExportingModal: what's being exported, under its hint */
+.modalDetail {
+	color: var(--text-muted);
+	margin-top: 4px;
 }

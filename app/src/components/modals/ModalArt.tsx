@@ -26,6 +26,21 @@ export const FAREWELL_RATIO = 666 / 420;
 /** New List — Light Yagami, Death Note in hand */
 export const NEW_LIST_ART = require("../../../assets/new-list.webp");
 export const NEW_LIST_RATIO = 600 / 499;
+/** Import this file? — Luffy, dreaming of meat */
+export const IMPORT_CONFIRM_ART = require("../../../assets/import-confirm.webp");
+export const IMPORT_CONFIRM_RATIO = 423 / 447;
+/** Import complete — Luffy, stuffed after a feast */
+export const IMPORT_DONE_ART = require("../../../assets/import-done.webp");
+export const IMPORT_DONE_RATIO = 652 / 501;
+/** Import had nothing new — Luffy, unimpressed */
+export const IMPORT_NOTHING_ART = require("../../../assets/import-nothing.webp");
+export const IMPORT_NOTHING_RATIO = 682 / 763;
+/** Before an import — Luffy, not so sure about this */
+export const IMPORT_WARNING_ART = require("../../../assets/import-warning.webp");
+export const IMPORT_WARNING_RATIO = 467 / 537;
+/** Import cancelled, all put back — Luffy, sulking */
+export const IMPORT_CANCELLED_ART = require("../../../assets/import-cancelled.webp");
+export const IMPORT_CANCELLED_RATIO = 700 / 744;
 /** Couldn't add — Yamcha, down for the count */
 export const DEFEATED_ART = require("../../../assets/defeated.webp");
 export const DEFEATED_RATIO = 557 / 709;

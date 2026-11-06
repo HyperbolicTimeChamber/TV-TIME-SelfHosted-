@@ -328,7 +328,7 @@ export default function ListsScreen() {
 			message.error(IMPORT_ERRORS[parsed.reason]);
 			return;
 		}
-		const plan = planImport(parsed.lists);
+		const plan = await planImport(parsed.lists);
 		if (plan.titlesAdded === 0 && plan.listsCreated === 0) {
 			message.info("Everything in that file is already in your lists.");
 			return;

@@ -216,6 +216,7 @@ function AppContent() {
 		};
 		return (
 			<ImportDataScreen
+				onboarding
 				navigation={{
 					navigate: markImportDone,
 					goBack: markImportDone,

@@ -151,6 +151,10 @@ export interface ImportMatch {
 
 export interface ImportRequest {
   matches: ImportMatch[];
+  /** Settings → Import: titles already tracked are skipped entirely (nothing overwritten) */
+  keepExisting?: boolean;
+  /** Settings → Import: cancelAccountJob by this id stops it and takes back what it added */
+  jobId?: string;
 }
 
 export interface ImportStats {
@@ -158,6 +162,8 @@ export interface ImportStats {
   moviesImported: number;
   episodesImported: number;
   minutesImported: number;
+  /** keepExisting: titles left alone because they were already tracked */
+  titlesSkipped?: number;
   /** The user's filter choices as rebuilt by the import (tv / movie) — the client keeps them */
   facets?: Record<MediaType, UserFacets>;
 }

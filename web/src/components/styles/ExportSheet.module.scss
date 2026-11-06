@@ -1,0 +1,97 @@
+@use "../../theme/tokens" as *;
+
+/* Settings → Export sheet (app ExportSheet): two steps of radio / checkbox rows */
+.stepLabel {
+	margin: 0 0 4px;
+	font-size: 11px;
+	letter-spacing: 1.2px;
+	color: var(--text-muted);
+}
+
+.title {
+	margin: 0 0 16px;
+	font-size: 20px;
+	font-weight: 700;
+}
+
+/* Sub-options line up under their parent's text (past the 36px icon tile) */
+.subRow {
+	padding: 10px 12px 10px 60px;
+}
+
+.subText {
+	font-size: 14px;
+	font-weight: 500;
+}
+
+/* Radio ring / checkbox square: ring when off, filled with a tick when on */
+.mark {
+	flex-shrink: 0;
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	border: 2px solid var(--text-muted);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--text);
+	transition:
+		background-color 120ms ease-out,
+		border-color 120ms ease-out;
+}
+
+.markSquare {
+	border-radius: 6px;
+}
+
+.markOn {
+	background: $primary;
+	border-color: $primary;
+}
+
+.footer {
+	display: flex;
+	gap: 12px;
+	margin-top: 16px;
+}
+
+.button {
+	flex: 1;
+	padding: 14px;
+	border: none;
+	border-radius: 12px;
+	font-size: 15px;
+	font-weight: 600;
+	color: var(--text);
+	cursor: pointer;
+	transition:
+		transform 120ms ease-out,
+		opacity 160ms ease;
+
+	/* A press answers at once — a touch smaller */
+	&:active:not(:disabled) {
+		transform: scale(0.97);
+	}
+
+	&:disabled {
+		opacity: 0.4;
+		cursor: default;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		transition: opacity 160ms ease;
+
+		&:active:not(:disabled) {
+			transform: none;
+		}
+	}
+}
+
+.buttonPrimary {
+	background: $primary;
+}
+
+.buttonSecondary {
+	background: var(--surface-light);
+	color: var(--text-secondary);
+}

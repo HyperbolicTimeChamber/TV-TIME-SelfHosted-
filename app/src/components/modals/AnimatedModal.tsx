@@ -17,13 +17,23 @@ interface Props extends Pick<ModalProps, "onRequestClose"> {
 	children: React.ReactNode;
 	/** Near full width (e.g. a day's cards) instead of the 320px dialog */
 	wide?: boolean;
+	/** false: a tap outside / back does nothing (e.g. while an export runs) — it closes only by
+	 *  `visible` going false. An outside tap used to fade it out while it stayed open */
+	dismissable?: boolean;
 }
 
 const DURATION = 250;
 /** How long the popup takes to rise above / settle back from the keyboard */
 const KEYBOARD_SHIFT_MS = 200;
 
-export default function AnimatedModal({ visible, onClose, onRequestClose, children, wide }: Props) {
+export default function AnimatedModal({
+	visible,
+	onClose,
+	onRequestClose,
+	children,
+	wide,
+	dismissable = true,
+}: Props) {
 	const opacity = useRef(new Animated.Value(0)).current;
 	const scale = useRef(new Animated.Value(0.85)).current;
 	// Touches only count once the open animation is done: a popup opened by a long press
@@ -102,13 +112,16 @@ export default function AnimatedModal({ visible, onClose, onRequestClose, childr
 			visible={visible}
 			transparent
 			animationType="none"
-			onRequestClose={onRequestClose ?? handleClose}
+			onRequestClose={dismissable ? (onRequestClose ?? handleClose) : () => {}}
 		>
 			<View style={styles.overlay}>
 				{/* Tap-outside-to-close sits behind the box, not around it: a touch responder around the
 				    content (it had a Pressable to swallow inner taps) took blank-space touches and
 				    cancelled gesture-handler gestures inside — the Calendar popup's day swipe */}
-				<Pressable style={StyleSheet.absoluteFill} onPress={armed ? handleClose : undefined} />
+				<Pressable
+					style={StyleSheet.absoluteFill}
+					onPress={armed && dismissable ? handleClose : undefined}
+				/>
 				<Animated.View
 					pointerEvents={armed ? "auto" : "none"}
 					style={[
