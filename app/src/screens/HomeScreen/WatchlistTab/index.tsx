@@ -1110,7 +1110,16 @@ export default function WatchlistTab() {
 			/>
 			{leaving.map((card) => (
 				<LeavingGhost key={card.key} card={card} onDone={leftList}>
-					{card.row.type === "show" ? (
+					{card.row.type === "show" && wasJustMarked(card.row.item.tmdbId) ? (
+						// Marked off "What's Up Next" (finale / nothing aired next): the green banner it
+						// waited on is what shrinks away — a dimmed "watched" copy of the card in between
+						// read as a Previously Watched row sitting in the wrong section
+						<SwipeActionBanner
+							color={colors.watchedGreen}
+							label="Watched"
+							minHeight={Math.max(0, card.h - spacing.sm)}
+						/>
+					) : card.row.type === "show" ? (
 						// A card leaving for Previously Watched: already in its watched look
 						<ShowCard
 							item={card.row.item}
