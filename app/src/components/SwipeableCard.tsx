@@ -15,6 +15,7 @@ import Animated, {
 	runOnJS,
 	interpolate,
 	Extrapolation,
+	Easing,
 } from "react-native-reanimated";
 import { colors, spacing, typography } from "../theme";
 import { RxCross2 } from "./RxIcons";
@@ -25,6 +26,13 @@ const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.35;
 /** A swiped-away row that is still in the list after this long comes back */
 /** A row whose action should have taken it off the list, still there after this → shown again */
 const HOLD_MS = 15000;
+
+/** The reveal's label / icon gliding from the side to the centre once the swipe lands (and the
+ *  icon handing over to the spinner): strong ease-out — it answers the swipe */
+const LABEL_MS = 320;
+const LABEL_EASING = Easing.bezier(0.23, 1, 0.32, 1);
+/** The reveal's side padding: where the label sits while swiping */
+const REVEAL_PAD = spacing.xl;
 
 type SwipeState = "idle" | "swiped_left" | "swiped_right" | "loading" | "done";
 
@@ -89,6 +97,15 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 	ref,
 ) {
 	const translateX = useSharedValue(0);
+	// The reveal's label: 0 = at its side (while swiping), 1 = centred (the action saving). A
+	// transform on the UI thread — layout animations inside list rows clashed with the list's
+	// own row transitions
+	const centred = useSharedValue(0);
+	// Which side's action is running (its icon fades out)
+	const actionLeft = useSharedValue(true);
+	const rowW = useSharedValue(0);
+	const leftGroupW = useSharedValue(0);
+	const rightGroupW = useSharedValue(0);
 	// Height for the loading placeholder — a ref, not state (no extra render per row mount)
 	const cardHeight = useRef(0);
 	const [swipeState, setSwipeState] = React.useState<SwipeState>("idle");
@@ -113,7 +130,6 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		},
 		[],
 	);
-	const [persistingLoad, setPersistingLoad] = React.useState(false);
 	// Recycled into another item → start clean
 	const firstKey = useRef(resetKey);
 	const resetKeyRef = useRef(resetKey);
@@ -124,11 +140,11 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		firstKey.current = resetKey;
 		if (restoreTimer.current) clearTimeout(restoreTimer.current);
 		translateX.value = 0;
+		centred.value = 0;
 		isProcessing.current = false;
 		setShowReveal(false);
-		setPersistingLoad(false);
 		setSwipeState("idle");
-	}, [resetKey, translateX]);
+	}, [resetKey, translateX, centred]);
 	const onSwipeLeftRef = useRef(onSwipeLeft);
 	onSwipeLeftRef.current = onSwipeLeft;
 	const onSwipeRightRef = useRef(onSwipeRight);
@@ -152,9 +168,10 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 			if (shouldPersist) {
 				// Keep card off-screen, show colored reveal underneath while loading
 				const color = direction === "left" ? leftColorRef.current : rightColorRef.current;
+				actionLeft.value = direction === "left";
 				setActionColor(color);
-				setPersistingLoad(true);
 				setSwipeState("loading");
+				centred.value = withTiming(1, { duration: LABEL_MS, easing: LABEL_EASING });
 				try {
 					if (direction === "left") {
 						await onSwipeLeftRef.current();
@@ -166,7 +183,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				}
 				// Reset silently without animation — list re-render handles the update
 				translateX.value = 0;
-				setPersistingLoad(false);
+				centred.value = 0;
 				setShowReveal(false);
 				setSwipeState("idle");
 				isProcessing.current = false;
@@ -174,8 +191,10 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 			}
 
 			const color = direction === "left" ? leftColorRef.current : rightColorRef.current;
+			actionLeft.value = direction === "left";
 			setActionColor(color);
 			setSwipeState("loading");
+			centred.value = withTiming(1, { duration: LABEL_MS, easing: LABEL_EASING });
 
 			try {
 				if (direction === "left") {
@@ -198,6 +217,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				restoreTimer.current = setTimeout(() => {
 					if (key) heldRows.delete(key);
 					translateX.value = 0;
+					centred.value = 0;
 					setShowReveal(false);
 					setSwipeState("idle");
 					isProcessing.current = false;
@@ -205,12 +225,13 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 			} catch (err) {
 				console.error("SwipeableCard action failed:", err);
 				translateX.value = withTiming(0, { duration: 300 });
+				centred.value = 0;
 				setSwipeState("idle");
 				setShowReveal(false);
 				isProcessing.current = false;
 			}
 		},
-		[translateX],
+		[translateX, centred, actionLeft],
 	);
 
 	useImperativeHandle(
@@ -299,6 +320,25 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		opacity: interpolate(translateX.value, [-SWIPE_THRESHOLD, 0], [1, 0], Extrapolation.CLAMP),
 	}));
 
+	// Label group: centred in its reveal, slid out to its side while swiping (left / right of the
+	// row, inside its padding) and gliding to the centre once the swipe lands (centred → 1)
+	const leftGroupSlide = useAnimatedStyle(() => {
+		const side = -(rowW.value / 2 - leftGroupW.value / 2 - REVEAL_PAD);
+		return { transform: [{ translateX: side * (1 - centred.value) }] };
+	});
+	const rightGroupSlide = useAnimatedStyle(() => {
+		const side = rowW.value / 2 - rightGroupW.value / 2 - REVEAL_PAD;
+		return { transform: [{ translateX: side * (1 - centred.value) }] };
+	});
+	// The icon hands over to the spinner as the label centres
+	const leftIconFade = useAnimatedStyle(() => ({
+		opacity: actionLeft.value ? 1 - centred.value : 1,
+	}));
+	const rightIconFade = useAnimatedStyle(() => ({
+		opacity: actionLeft.value ? 1 : 1 - centred.value,
+	}));
+	const spinnerFade = useAnimatedStyle(() => ({ opacity: centred.value }));
+
 	// A recycled list row shows its new item from the first render: the reset below runs after
 	// it, and a row drawn one frame in the old item's swipe state (blank / banner) was measured
 	// at that size — the list placed every row under it by that and corrected it a moment later
@@ -311,15 +351,65 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		return null;
 	}
 
-	if (state === "loading" && !persistingLoad) {
-		return (
-			<SwipeActionBanner
-				color={actionColor}
-				label={actionColor === leftColor ? leftLabel : rightLabel}
-				minHeight={cardHeight.current || 100}
-			/>
+	// While the action saves, the card stays swiped off (still in layout, so the row keeps its
+	// height) over its reveal, whose label glides to the centre (revealSide). A separate banner
+	// element here swapped in at once — the label jumped from the side to the middle
+	const revealSide = (side: "left" | "right") => {
+		const color = side === "left" ? leftColor : rightColor;
+		const label = side === "left" ? leftLabel : rightLabel;
+		const loadingHere = state === "loading" && actionColor === color;
+		const marker = (
+			<View style={styles.markerSlot}>
+				<Animated.View style={[styles.revealIcon, side === "left" ? leftIconFade : rightIconFade]}>
+					{side === "left" ? (
+						<HiCheck size={26} />
+					) : rightIcon ? (
+						<Text style={styles.revealIconText}>{rightIcon}</Text>
+					) : (
+						<RxCross2 size={26} />
+					)}
+				</Animated.View>
+				{loadingHere && (
+					<Animated.View style={[styles.markerSpinner, spinnerFade]}>
+						<ActivityIndicator color={colors.text} />
+					</Animated.View>
+				)}
+			</View>
 		);
-	}
+		const text = <Text style={styles.revealText}>{label}</Text>;
+		return (
+			<Animated.View
+				style={[
+					styles.revealCard,
+					loadingHere
+						? styles.revealShown
+						: side === "left"
+							? leftRevealOpacity
+							: rightRevealOpacity,
+					{ backgroundColor: color },
+				]}
+			>
+				<Animated.View
+					style={[styles.revealGroup, side === "left" ? leftGroupSlide : rightGroupSlide]}
+					onLayout={(e) => {
+						(side === "left" ? leftGroupW : rightGroupW).value = e.nativeEvent.layout.width;
+					}}
+				>
+					{side === "left" ? (
+						<>
+							{marker}
+							{text}
+						</>
+					) : (
+						<>
+							{text}
+							{marker}
+						</>
+					)}
+				</Animated.View>
+			</Animated.View>
+		);
+	};
 
 	return (
 		<View
@@ -327,62 +417,14 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 			onLayout={(e) => {
 				const h = e.nativeEvent.layout.height;
 				if (h > 0) cardHeight.current = h;
+				rowW.value = e.nativeEvent.layout.width;
 			}}
 		>
 			<Animated.View style={[styles.revealBackdrop, backdropStyle]} pointerEvents="none" />
-			{reveal && (
+			{(reveal || state === "loading") && (
 				<>
-					<Animated.View
-						style={[
-							styles.revealCard,
-							state === "loading" && actionColor === leftColor
-								? { opacity: 1, justifyContent: "center" as const }
-								: [styles.revealLeft, leftRevealOpacity],
-							{ backgroundColor: leftColor },
-						]}
-					>
-						{state === "loading" && actionColor === leftColor ? (
-							<>
-								<ActivityIndicator color={colors.text} />
-								<Text style={styles.revealText}>{leftLabel}</Text>
-							</>
-						) : (
-							<>
-								<View style={styles.revealIcon}>
-									<HiCheck size={26} />
-								</View>
-								<Text style={styles.revealText}>{leftLabel}</Text>
-							</>
-						)}
-					</Animated.View>
-
-					<Animated.View
-						style={[
-							styles.revealCard,
-							state === "loading" && actionColor === rightColor
-								? { opacity: 1, justifyContent: "center" as const }
-								: [styles.revealRight, rightRevealOpacity],
-							{ backgroundColor: rightColor },
-						]}
-					>
-						{state === "loading" && actionColor === rightColor ? (
-							<>
-								<ActivityIndicator color={colors.text} />
-								<Text style={styles.revealText}>{rightLabel}</Text>
-							</>
-						) : (
-							<>
-								<Text style={styles.revealText}>{rightLabel}</Text>
-								<View style={styles.revealIcon}>
-									{rightIcon ? (
-										<Text style={styles.revealIconText}>{rightIcon}</Text>
-									) : (
-										<RxCross2 size={26} />
-									)}
-								</View>
-							</>
-						)}
-					</Animated.View>
+					{revealSide("left")}
+					{revealSide("right")}
 				</>
 			)}
 
@@ -413,17 +455,21 @@ const styles = StyleSheet.create({
 	revealBackdrop: { ...(StyleSheet.absoluteFill as object) },
 	revealCard: {
 		...(StyleSheet.absoluteFill as object),
+		alignItems: "center",
+		justifyContent: "center",
+		zIndex: 0,
+	},
+	revealShown: { opacity: 1 },
+	revealGroup: {
 		flexDirection: "row",
 		alignItems: "center",
 		gap: spacing.sm,
-		paddingHorizontal: spacing.xl,
-		zIndex: 0,
 	},
-	revealLeft: {
-		justifyContent: "flex-start",
-	},
-	revealRight: {
-		justifyContent: "flex-end",
+	markerSlot: { width: 36, height: 36 },
+	markerSpinner: {
+		...(StyleSheet.absoluteFill as object),
+		justifyContent: "center",
+		alignItems: "center",
 	},
 	revealIcon: {
 		width: 36,

@@ -130,7 +130,12 @@ type LeavingRow = {
 	y: number;
 	h: number;
 	clipTop: number;
+	/** It sat right above "What's Up Next" (shown at its own place): a copy of the header rides
+	 *  up under it as it closes — the real one is placed outside the cards' transition */
+	header?: boolean;
 };
+/** The list's top padding (styles.listContent): LegendList positions start under it */
+const LIST_PAD_TOP = spacing.sm;
 
 /** A card counts as seen once half of it is on screen */
 const CARD_VIEWABILITY = { itemVisiblePercentThreshold: 50 };
@@ -207,9 +212,13 @@ function listMotion(
 		const pos = state.positionByKey(key);
 		if (pos === undefined) continue;
 		const h = state.sizeAtIndex(prev.indexOf(d));
-		const y = pos - state.scroll;
+		// On screen: under the list's top padding (left out, the copy sat a gap too high and
+		// touched the row above)
+		const y = pos - state.scroll + LIST_PAD_TOP;
 		if (y + h <= clipTop || y >= listH) continue;
-		leaving.push({ key, row: d, y, h, clipTop });
+		const below = prev[prev.indexOf(d) + 1];
+		const header = below !== undefined && keyOf(below) === UP_NEXT_KEY && !upNextOnScreen(list);
+		leaving.push({ key, row: d, y, h, clipTop, header });
 	}
 
 	for (const a of next) {
@@ -255,8 +264,17 @@ function LeavingGhost({
 		opacity: 1 - t.value,
 		transform: [{ translateY: (-card.h * t.value) / 2 }, { scale: 1 - t.value }],
 	}));
+	// The header copy follows the closing slot's bottom edge
+	const headerRise = useAnimatedStyle(() => ({ transform: [{ translateY: -card.h * t.value }] }));
 	return (
 		<View style={[styles.leavingClip, { top: card.clipTop }]} pointerEvents="none">
+			{card.header && (
+				<Reanimated.View
+					style={[styles.headerRide, { top: card.y - card.clipTop + card.h }, headerRise]}
+				>
+					<SectionHeader title={UP_NEXT_TITLE} />
+				</Reanimated.View>
+			)}
 			<Reanimated.View style={[styles.leavingCard, { top: card.y - card.clipTop }, close]}>
 				<Reanimated.View style={[styles.zoomCentre, shrink]}>{children}</Reanimated.View>
 			</Reanimated.View>
@@ -742,7 +760,8 @@ export default function WatchlistTab() {
 		return () => clearTimeout(t);
 	}, [flipping]);
 	const rows = useMemo<ListRow[]>(() => {
-		if (!growing && !headerGlide && !flipping && !opening) return listData;
+		const headerRiding = leaving.some((l) => l.header);
+		if (!growing && !headerGlide && !flipping && !opening && !headerRiding) return listData;
 		// The row the header copy rides under (the newest of the rows zooming in)
 		const lastOpened = opening
 			? listData.reduce((at, r, k) => (opening.keys.has(keyOf(r)) ? k : at), -1)
@@ -758,12 +777,15 @@ export default function WatchlistTab() {
 				return { ...i, grow: growing.token };
 			}
 			// Hidden while a copy glides in its place (HeaderGlide, or riding under a zooming row)
-			if (key === UP_NEXT_KEY && (headerGlide || opening?.headerSlot !== undefined)) {
+			if (
+				key === UP_NEXT_KEY &&
+				(headerGlide || opening?.headerSlot !== undefined || headerRiding)
+			) {
 				return { ...i, hideHeader: true };
 			}
 			return i;
 		});
-	}, [listData, growing, headerGlide, flipping, opening]);
+	}, [listData, growing, headerGlide, flipping, opening, leaving]);
 	// Failsafe: the header copy / leaving rows never outlast their animation (a finish callback
 	// that never comes — the view torn down mid-way — must not leave the real header hidden)
 	useEffect(() => {
