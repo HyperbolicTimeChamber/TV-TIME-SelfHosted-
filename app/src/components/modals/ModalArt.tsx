@@ -59,6 +59,13 @@ const PAUSE_INSET = 12;
 const PAUSE_OPACITY = 0.6;
 /** Gray wash over the whole backdrop when it's paused */
 const PAUSE_MASK = "rgba(160, 160, 160, 0.45)";
+/** Red wash over the whole backdrop when it's being removed */
+const REMOVE_MASK = "rgba(229, 9, 20, 0.45)";
+/** The cross is bulkier than the pause bars: it takes this share of the free height */
+const REMOVE_ICON_SCALE = 0.6;
+/** IcoMoon's ImCross (react-icons/im), 16×16 */
+const IM_CROSS_PATH =
+	"M15.854 12.854c-0-0-0-0-0-0l-4.854-4.854 4.854-4.854c0-0 0-0 0-0 0.052-0.052 0.090-0.113 0.114-0.178 0.066-0.178 0.028-0.386-0.114-0.529l-2.293-2.293c-0.143-0.143-0.351-0.181-0.529-0.114-0.065 0.024-0.126 0.062-0.178 0.114 0 0-0 0-0 0l-4.854 4.854-4.854-4.854c-0-0-0-0-0-0-0.052-0.052-0.113-0.090-0.178-0.114-0.178-0.066-0.386-0.029-0.529 0.114l-2.293 2.293c-0.143 0.143-0.181 0.351-0.114 0.529 0.024 0.065 0.062 0.126 0.114 0.178 0 0 0 0 0 0l4.854 4.854-4.854 4.854c-0 0-0 0-0 0-0.052 0.052-0.090 0.113-0.114 0.178-0.066 0.178-0.029 0.386 0.114 0.529l2.293 2.293c0.143 0.143 0.351 0.181 0.529 0.114 0.065-0.024 0.126-0.062 0.178-0.114 0-0 0-0 0-0l4.854-4.854 4.854 4.854c0 0 0 0 0 0 0.052 0.052 0.113 0.090 0.178 0.114 0.178 0.066 0.386 0.029 0.529-0.114l2.293-2.293c0.143-0.143 0.181-0.351 0.114-0.529-0.024-0.065-0.062-0.126-0.114-0.178z";
 /** Dark shade behind a title laid over the top of a backdrop */
 const BACKDROP_HEADING_SHADE = "45%";
 /** Logo strip at the bottom of a backdrop (logo height + bottom inset) */
@@ -105,6 +112,15 @@ function PauseBars({ size }: { size: number }) {
 				fill={colors.background}
 				opacity={PAUSE_OPACITY}
 			/>
+		</Svg>
+	);
+}
+
+/** ImCross in the pause bars' colour — the big icon on a backdrop being removed */
+function RemoveCross({ size }: { size: number }) {
+	return (
+		<Svg width={size} height={size} viewBox="0 0 16 16">
+			<Path d={IM_CROSS_PATH} fill={colors.background} opacity={PAUSE_OPACITY} />
 		</Svg>
 	);
 }
@@ -200,7 +216,8 @@ export function ModalLogo({
 }
 
 /** Show backdrop with its title logo (name as the fallback) over the bottom, edge to edge across
- *  the popup (no side padding); `paused` lays a big translucent pause icon over all of it.
+ *  the popup (no side padding); `paused` lays a big translucent pause icon over all of it,
+ *  `removed` a red wash with a cross (removing it from tracking).
  *  ConfirmModal pulls it up to the popup's top edge and passes its title as `heading` */
 export function ModalBackdrop({
 	backdropPath,
@@ -209,6 +226,7 @@ export function ModalBackdrop({
 	mediaType,
 	title,
 	paused = false,
+	removed = false,
 	nameDelay = 0,
 	heading,
 	width,
@@ -219,6 +237,7 @@ export function ModalBackdrop({
 	mediaType?: MediaType;
 	title: string;
 	paused?: boolean;
+	removed?: boolean;
 	/** Wait this long (ms) for the logo before showing the name — 0: name right away */
 	nameDelay?: number;
 	/** Popup title over the top (set by ConfirmModal) */
@@ -280,6 +299,11 @@ export function ModalBackdrop({
 					{paused && (
 						<View style={styles.backdropPause} pointerEvents="none">
 							<PauseBars size={h - PAUSE_INSET * 2} />
+						</View>
+					)}
+					{removed && (
+						<View style={[styles.backdropPause, styles.backdropRemove]} pointerEvents="none">
+							<RemoveCross size={(h - PAUSE_INSET * 2) * REMOVE_ICON_SCALE} />
 						</View>
 					)}
 				</>
@@ -387,6 +411,7 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		backgroundColor: PAUSE_MASK,
 	},
+	backdropRemove: { backgroundColor: REMOVE_MASK },
 	backdropName: {
 		...typography.title,
 		fontSize: 20,

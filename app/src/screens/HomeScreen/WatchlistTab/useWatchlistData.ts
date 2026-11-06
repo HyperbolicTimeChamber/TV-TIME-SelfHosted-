@@ -26,11 +26,13 @@ import {
 	markSeasonWatchedCF,
 	writeEpisodeWatchCount,
 	stopWatching,
+	removeFromTracking,
 	skipRewatchEpisode,
 } from "../../../services";
 import { removeShowFromCalendarGlobal } from "../../../hooks/useCalendarEpisodes";
 import {
 	emitShowCompleted,
+	emitShowRemoved,
 	todayStr,
 	pickEpisodeTitle,
 	isFinaleEpisode,
@@ -1417,6 +1419,20 @@ export function useWatchlistData(userId: string | undefined) {
 		[userId, removeItem, removeShowFromUpcoming],
 	);
 
+	// A movie on "What's Up Next" (not watched yet) can't be paused — it has no episodes to
+	// come back to. Its long press removes it from tracking instead (as its page's Remove)
+	const handleRemoveFromWatchlist = useCallback(
+		async (item: EnrichedTrackingItem) => {
+			if (!userId) return;
+			await removeFromTracking(userId, item.tmdbId, item.mediaType);
+			removeItem(item.tmdbId);
+			removeShowFromUpcoming(item.tmdbId);
+			removeShowFromCalendarGlobal(item.tmdbId);
+			emitShowRemoved(item.tmdbId);
+		},
+		[userId, removeItem, removeShowFromUpcoming],
+	);
+
 	// Pull-to-refresh: load the next page of both lists
 	const hasMorePrevWatched = hasMoreEps || hasMoreMovies || volatileOverflow;
 	const loadingMorePrevWatched = loadingMoreEps || loadingMoreMovies;
@@ -1442,6 +1458,7 @@ export function useWatchlistData(userId: string | undefined) {
 
 	return {
 		removeItem,
+		handleRemoveFromWatchlist,
 		/** Cards that stayed on screen → heal their missing data (see useWatchlist) */
 		healShown,
 		listData,
