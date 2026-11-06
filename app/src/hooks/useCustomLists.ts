@@ -252,13 +252,15 @@ export function useCustomLists(userId: string | undefined) {
 		[userId, loadedLists, mutate],
 	);
 
-	/** What importing would do — nothing written yet (the caller shows the outcome, then applies) */
+	/** What importing would do — nothing written yet (the caller shows the outcome, then applies).
+	 *  Against the loaded lists: planned before they had loaded (an import from Settings right
+	 *  after launch), every list in the file looked new and was created a second time */
 	const planImport = useCallback(
-		(imported: ImportedList[]): ImportPlan => {
-			const current = queryClient.getQueryData<CustomList[]>(queryKey) ?? [];
+		async (imported: ImportedList[]): Promise<ImportPlan> => {
+			const current = await loadedLists();
 			return planListsImport(current, imported, Date.now(), () => newCustomListId(userId ?? ""));
 		},
-		[userId, queryClient, queryKey],
+		[userId, loadedLists],
 	);
 
 	const applyImport = useCallback(

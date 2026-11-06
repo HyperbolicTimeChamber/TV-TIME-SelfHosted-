@@ -26,11 +26,13 @@ import {
 	markSeasonWatchedCF,
 	writeEpisodeWatchCount,
 	stopWatching,
+	removeFromTracking,
 	skipRewatchEpisode,
 } from "../../../services";
 import { removeShowFromCalendarGlobal } from "../../../hooks/useCalendarEpisodes";
 import {
 	emitShowCompleted,
+	emitShowRemoved,
 	todayStr,
 	pickEpisodeTitle,
 	isFinaleEpisode,
@@ -563,7 +565,9 @@ export function useWatchlistData(userId: string | undefined) {
 		const all = safePrevItems.slice(0, safePrevItems.length - PREV_WATCHED_CACHE_SIZE);
 		// Keep only the most recent MAX_VOLATILE volatile items (tail = newest)
 		return all.length > MAX_VOLATILE ? all.slice(-MAX_VOLATILE) : all;
-	}, [safePrevItems]);
+	}, [safePrevItems, MAX_VOLATILE]);
+	// Older rows already loaded but past the cap: a pull shows them without a fetch
+	const volatileOverflow = safePrevItems.length - PREV_WATCHED_CACHE_SIZE > volatileCap;
 
 	const allLoading = loading || watchedEpsLoading || watchedMoviesLoading;
 
@@ -573,12 +577,16 @@ export function useWatchlistData(userId: string | undefined) {
 	// Rows newer than the boundary all show (marks just add at the bottom); it moves only when
 	// more are pulled in (pull to refresh → volatileCap)
 	const shownFrom = useRef<{ time: number; cap: number } | null>(null);
+	// A pull is waiting for its page: when the page lands the boundary moves up to take it in
+	// (it was set when the pull bumped the cap, before the page arrived — the older rows stayed
+	// hidden behind it and pull to refresh showed nothing)
+	const pullOpen = useRef(false);
 	// Already ascending — volatile (older) then cached (newer), newest at bottom
 	const prevWatchedItems = useMemo(() => {
 		const windowed = [...volatilePrevWatched, ...cachedPrevWatched];
 		if (allLoading || windowed.length === 0) return windowed;
 		const from = shownFrom.current;
-		if (!from || from.cap !== volatileCap) {
+		if (!from || from.cap !== volatileCap || (pullOpen.current && windowed[0].time < from.time)) {
 			shownFrom.current = { time: windowed[0].time, cap: volatileCap };
 			return windowed;
 		}
@@ -1411,10 +1419,29 @@ export function useWatchlistData(userId: string | undefined) {
 		[userId, removeItem, removeShowFromUpcoming],
 	);
 
+	// A movie on "What's Up Next" (not watched yet) can't be paused — it has no episodes to
+	// come back to. Its long press removes it from tracking instead (as its page's Remove)
+	const handleRemoveFromWatchlist = useCallback(
+		async (item: EnrichedTrackingItem) => {
+			if (!userId) return;
+			await removeFromTracking(userId, item.tmdbId, item.mediaType);
+			removeItem(item.tmdbId);
+			removeShowFromUpcoming(item.tmdbId);
+			removeShowFromCalendarGlobal(item.tmdbId);
+			emitShowRemoved(item.tmdbId);
+		},
+		[userId, removeItem, removeShowFromUpcoming],
+	);
+
 	// Pull-to-refresh: load the next page of both lists
-	const hasMorePrevWatched = hasMoreEps || hasMoreMovies;
+	const hasMorePrevWatched = hasMoreEps || hasMoreMovies || volatileOverflow;
 	const loadingMorePrevWatched = loadingMoreEps || loadingMoreMovies;
+	// The pull's page is in (or there was none to fetch): the boundary holds again
+	useEffect(() => {
+		if (!loadingMorePrevWatched) pullOpen.current = false;
+	}, [loadingMorePrevWatched]);
 	const loadMorePrevWatched = useCallback(() => {
+		pullOpen.current = true;
 		if (volatilePrevWatched.length >= volatileCap) {
 			setVolatileCap((c) => c + VOLATILE_PAGE);
 		}
@@ -1431,6 +1458,7 @@ export function useWatchlistData(userId: string | undefined) {
 
 	return {
 		removeItem,
+		handleRemoveFromWatchlist,
 		/** Cards that stayed on screen → heal their missing data (see useWatchlist) */
 		healShown,
 		listData,

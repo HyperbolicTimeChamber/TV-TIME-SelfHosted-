@@ -78,6 +78,7 @@ export enum Callable {
   TEST_FCM = "testFCM",
   SEARCH_TITLES = "searchTitles",
   EXPORT_ACCOUNT_DATA = "exportAccountData",
+  CANCEL_ACCOUNT_JOB = "cancelAccountJob",
 }
 
 const MINUTE_MS = 60 * 1000;
@@ -102,8 +103,11 @@ export const CALLABLE_RATE_LIMITS: Record<
   // A search + a few "load more" batches; typing doesn't call it (suggestions stay client-side).
   // Per uid, or per IP for logged-out visitors
   [Callable.SEARCH_TITLES]: { limit: 30, windowMs: MINUTE_MS },
-  // Reads every watched episode (tens of thousands of docs) — a few per window is plenty
-  [Callable.EXPORT_ACCOUNT_DATA]: { limit: 3, windowMs: 10 * MINUTE_MS },
+  // A full export reads every watched episode (tens of thousands of docs); narrowed exports
+  // (Settings → Export's options) read far less — room for a few of those, or a cancel + retry
+  [Callable.EXPORT_ACCOUNT_DATA]: { limit: 6, windowMs: 10 * MINUTE_MS },
+  // One per cancelled export (each export is rate limited above)
+  [Callable.CANCEL_ACCOUNT_JOB]: { limit: 10, windowMs: 10 * MINUTE_MS },
 };
 
 /** Guest TMDB proxy: uncached requests one IP may make per minute (CDN hits don't count) */
@@ -153,7 +157,64 @@ export enum FunctionName {
   BUDGET_GUARD = "budgetGuard",
   SEARCH_TITLES = "searchTitles",
   EXPORT_ACCOUNT_DATA = "exportAccountData",
+  CANCEL_ACCOUNT_JOB = "cancelAccountJob",
+  ROLLBACK_CANCELLED_IMPORT = "rollbackCancelledImport",
   TRACKING_SYNC_STAMP = "trackingSyncStamp",
+}
+
+/** Account export (Settings → Export My Data): which titles (mirrors the app's ExportScope) */
+export enum ExportScope {
+  ALL = "all",
+  MOVIES = "movies",
+  TV = "tv",
+  /** Custom lists only — no titles, progress or history */
+  LISTS = "lists",
+}
+
+/** Narrows an ExportScope (mirrors the app's ExportFilter) */
+export enum ExportFilter {
+  ALL = "all",
+  /** Movies on the watchlist, released, not watched yet */
+  MOVIES_TO_WATCH = "moviesToWatch",
+  /** Movies not released yet */
+  MOVIES_UPCOMING = "moviesUpcoming",
+  /** Shows that ended or were cancelled */
+  TV_ENDED = "tvEnded",
+  /** Shows still running */
+  TV_ONGOING = "tvOngoing",
+}
+
+/** What an export carries per title, beyond its id / type / name (mirrors the app's ExportPart) */
+export enum ExportPart {
+  /** Status, next episode, rewatch count, dates */
+  PROGRESS = "progress",
+  /** Every watched episode / movie with its count and dates */
+  HISTORY = "history",
+  /** Custom lists */
+  LISTS = "lists",
+}
+
+/** Account export file: format tag + version (the app's ACCOUNT_EXPORT_*) */
+export const ACCOUNT_EXPORT_FORMAT = "watchloom-account";
+export const ACCOUNT_EXPORT_VERSION = 2;
+/** Watched episodes read per page (a cancel is checked between pages) */
+export const EXPORT_EPISODE_PAGE = 2000;
+/** Firestore `in` query limit */
+export const FIRESTORE_IN_LIMIT = 30;
+/** Admin-only markers a cancelled export / import leaves for the running job to find (jobCancels/{uid}_{jobId}) */
+export const JOB_CANCELS_COLLECTION = "jobCancels";
+/** Admin-only record of a Settings → Import run (importJobs/{uid}_{jobId}): what it added, so a
+ *  cancel can take it all back — even once the import has finished */
+export const IMPORT_JOBS_COLLECTION = "importJobs";
+/** Field an import's tracking / history docs carry (its job id) — the rollback finds them by it */
+export const IMPORT_JOB_FIELD = "importJob";
+
+/** importJobs status */
+export enum ImportJobStatus {
+  RUNNING = "running",
+  DONE = "done",
+  ROLLING_BACK = "rollingBack",
+  ROLLED_BACK = "rolledBack",
 }
 
 /** searchTitles scope: TMDB's /search/multi, /search/tv or /search/movie */

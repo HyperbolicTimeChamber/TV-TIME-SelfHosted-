@@ -185,9 +185,53 @@ export enum CustomListView {
 export const LISTS_EXPORT_FORMAT = "watchloom-lists";
 export const LISTS_EXPORT_VERSION = 1;
 
-/** Whole-account export (Settings → Export My Data): tracking, watch history and lists */
+/** Whole-account export (Settings → Export My Data): tracking, watch history and lists.
+ *  v2: an export can be narrowed (scope, filter) and carry only some parts (functions mirror) */
 export const ACCOUNT_EXPORT_FORMAT = "watchloom-account";
-export const ACCOUNT_EXPORT_VERSION = 1;
+export const ACCOUNT_EXPORT_VERSION = 2;
+/** An account export file is ~1 MB per 10k watched episodes; this only stops a wrong file */
+export const ACCOUNT_IMPORT_MAX_BYTES = 30 * 1024 * 1024;
+
+/** Account export: which titles (functions ExportScope) */
+export enum ExportScope {
+	ALL = "all",
+	MOVIES = "movies",
+	TV = "tv",
+	/** Custom lists only — no titles, progress or history (no second step) */
+	LISTS = "lists",
+}
+
+/** Narrows an ExportScope (functions ExportFilter) */
+export enum ExportFilter {
+	ALL = "all",
+	/** Movies on the watchlist, released, not watched yet */
+	MOVIES_TO_WATCH = "moviesToWatch",
+	/** Movies not released yet */
+	MOVIES_UPCOMING = "moviesUpcoming",
+	/** Shows that ended or were cancelled */
+	TV_ENDED = "tvEnded",
+	/** Shows still running */
+	TV_ONGOING = "tvOngoing",
+}
+
+/** What an export carries per title beyond its id / type / name (functions ExportPart) */
+export enum ExportPart {
+	/** Status, next episode, rewatch count, dates */
+	PROGRESS = "progress",
+	/** Every watched episode / movie with its count and dates */
+	HISTORY = "history",
+	/** Custom lists */
+	LISTS = "lists",
+}
+
+/** The export sheet's second step: how much of each title goes in */
+export enum ExportContent {
+	EVERYTHING = "everything",
+	/** The ExportParts ticked */
+	CHOSEN = "chosen",
+	/** Titles only (id, type, name) */
+	TITLES = "titles",
+}
 
 /** Fill of the shared 44px circular icon buttons (back, share) */
 export enum CircleButtonTone {
@@ -285,6 +329,7 @@ export enum CloudFunction {
 	DELETE_ACCOUNT = "deleteAccount",
 	SEARCH_TITLES = "searchTitles",
 	EXPORT_ACCOUNT_DATA = "exportAccountData",
+	CANCEL_ACCOUNT_JOB = "cancelAccountJob",
 }
 
 /** Callable error codes (web SDK prefixes them with "functions/") */
@@ -292,6 +337,7 @@ export enum CallableErrorCode {
 	DEADLINE_EXCEEDED = "deadline-exceeded",
 	UNAVAILABLE = "unavailable",
 	ALREADY_EXISTS = "already-exists",
+	CANCELLED = "cancelled",
 }
 
 /**

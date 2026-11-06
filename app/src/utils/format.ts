@@ -104,7 +104,14 @@ export function seasonMarkCopy(o: {
 	toMark: number;
 	allWatched: boolean;
 	inRewatch: boolean;
-}): { title: string; hint: string; confirmLabel: string; secondaryLabel?: string } {
+}): {
+	title: string;
+	hint: string;
+	confirmLabel: string;
+	secondaryLabel?: string;
+	/** One slide-to-confirm bar instead of the button (a whole-season rewatch) */
+	slideLabel?: string;
+} {
 	const { seasonNumber: n, seasonName, total, toMark, allWatched, inRewatch } = o;
 	const eps = (c: number) => `${c} episode${c === 1 ? "" : "s"}`;
 	if (toMark < total && inRewatch) {
@@ -128,6 +135,7 @@ export function seasonMarkCopy(o: {
 			title: `Rewatch Season ${n}`,
 			hint: `Mark every episode of ${seasonName} as watched again?`,
 			confirmLabel: "Rewatch Season",
+			slideLabel: "Slide to Rewatch",
 		};
 	}
 	return {

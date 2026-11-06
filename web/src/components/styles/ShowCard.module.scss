@@ -10,6 +10,23 @@
 	height: 100px;
 	cursor: pointer;
 	user-select: none;
+	/* Holds the poster's corner tag */
+	position: relative;
+}
+
+/* A rewatch's REWATCH N in the poster's bottom-left corner (app parity) */
+.cornerTag {
+	position: absolute;
+	left: 0;
+	bottom: 0;
+	background: $accent;
+	padding: 3px 12px;
+	border-top-right-radius: $card-radius;
+	font-size: 12px;
+	font-weight: 700;
+	color: var(--text);
+	letter-spacing: 0.5px;
+	line-height: 1.2;
 }
 
 .poster {
@@ -201,6 +218,11 @@
 	font-weight: 700;
 	color: var(--surface);
 	letter-spacing: 0.5px;
+}
+
+.newBadge {
+	background: $accent;
+	color: var(--text);
 }
 
 .latestBadge {

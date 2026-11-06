@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import {
 	View,
 	StyleSheet,
@@ -197,6 +197,7 @@ function AppContent() {
 		};
 		return (
 			<ImportDataScreen
+				onboarding
 				navigation={{
 					navigate: markImportDone,
 					goBack: markImportDone,

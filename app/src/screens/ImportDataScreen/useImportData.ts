@@ -399,7 +399,7 @@ export function useImportData(onComplete: () => void) {
 			importDoneRef.current = false;
 			setPhase("importing");
 			if (parsed.lists.length > 0) {
-				const plan = planImport(parsed.lists);
+				const plan = await planImport(parsed.lists);
 				const saved = await applyImport(plan).catch(() => false);
 				if (saved) Alert.alert("Lists restored", describeImport(plan));
 			}

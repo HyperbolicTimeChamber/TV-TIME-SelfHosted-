@@ -454,7 +454,7 @@ export default function ListsScreen() {
 			Alert.alert("Import failed", IMPORT_ERRORS[parsed.reason]);
 			return;
 		}
-		const plan = planImport(parsed.lists);
+		const plan = await planImport(parsed.lists);
 		if (plan.titlesAdded === 0 && plan.listsCreated === 0) {
 			Alert.alert("Nothing to import", "Everything in that file is already in your lists.");
 			return;

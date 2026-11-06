@@ -51,7 +51,7 @@ interface AuthState {
 	signOut: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
 	user: null,
 	loading: true,
 	appTmdbApiKey: null,
@@ -64,6 +64,14 @@ export const useAuthStore = create<AuthState>((set) => ({
 	changedShowIds: null,
 
 	setUser: (user) => {
+		// The same user reported again (Firebase can fire its auth listener more than once at
+		// launch, e.g. after the session check): keep the flags. Resetting userFlagsLoading
+		// swapped the whole navigator for a spinner — the watchlist remounted mid-scroll, back at
+		// "What's Up Next" with its pinned header gone
+		if (user && get().user?.uid === user.uid) {
+			set({ user, loading: false });
+			return;
+		}
 		set({ user, loading: false, userFlagsLoading: !!user });
 		if (user) {
 			const store = useAuthStore.getState();
