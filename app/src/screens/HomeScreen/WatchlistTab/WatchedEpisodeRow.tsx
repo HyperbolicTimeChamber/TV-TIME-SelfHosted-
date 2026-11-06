@@ -15,8 +15,12 @@ interface Props {
 	onPress: (episode: WatchedEpisode, show: EnrichedTrackingItem) => void;
 	onCheckmarkPress: (episode: WatchedEpisode) => void;
 	onSwipeLeft: (episode: WatchedEpisode) => Promise<void>;
-	/** `false` = nothing changed (the swipe snaps back) */
-	onSwipeRight: (episode: WatchedEpisode) => Promise<boolean | void>;
+	/** `false` = nothing changed (the swipe snaps back). Left out: no Unwatch swipe (a rewatch's
+	 *  floor — the watch belongs to an earlier run) */
+	onSwipeRight?: (episode: WatchedEpisode) => Promise<boolean | void>;
+	/** An unwatch takes the row off (its last watch, or a rewatch's floor): no "−1" on the swipe,
+	 *  and the swipe holds its banner until the row goes */
+	unwatchRemoves?: boolean;
 	/** Long press on the card (haptic included) — omit to turn it off */
 	onLongPress?: (show: EnrichedTrackingItem) => void;
 }
@@ -29,7 +33,9 @@ export default memo(function WatchedEpisodeRow({
 	onSwipeLeft,
 	onSwipeRight,
 	onLongPress,
+	unwatchRemoves,
 }: Props) {
+	const leaves = unwatchRemoves ?? episode.watchCount <= 1;
 	const label = `S${String(episode.season).padStart(2, "0")} | E${String(episode.episode).padStart(2, "0")}`;
 
 	return (
@@ -37,11 +43,11 @@ export default memo(function WatchedEpisodeRow({
 			// Recycled list row → fresh swipe state for the new episode
 			resetKey={episode.id}
 			onSwipeLeft={() => onSwipeLeft(episode)}
-			onSwipeRight={() => onSwipeRight(episode)}
+			onSwipeRight={onSwipeRight ? () => onSwipeRight(episode) : undefined}
 			leftLabel="Rewatch"
 			rightLabel="Unwatch"
-			rightIcon={episode.watchCount > 1 ? "−1" : undefined}
-			persistAfterSwipe={{ left: true, right: episode.watchCount > 1 }}
+			rightIcon={leaves ? undefined : "−1"}
+			persistAfterSwipe={{ left: true, right: !leaves }}
 		>
 			<TouchableOpacity
 				style={styles.container}

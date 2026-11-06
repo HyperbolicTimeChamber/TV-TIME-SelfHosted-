@@ -457,6 +457,7 @@ export default function WatchlistTab() {
 		handleWatchedCheckmark,
 		handleWatchedSwipeLeft,
 		handleWatchedSwipeRight,
+		rewatchFloor,
 		handleEpisodeCountCommit,
 		sheetInRewatch,
 		sheetMinCount,
@@ -889,7 +890,16 @@ export default function WatchlistTab() {
 							onPress={handleWatchedRowPress}
 							onCheckmarkPress={handleWatchedCheckmark}
 							onSwipeLeft={handleWatchedSwipeLeft}
-							onSwipeRight={handleWatchedSwipeRight}
+							// At its rewatch floor (the watch belongs to an earlier run) a row can't be
+							// unwatched: no Unwatch swipe at all — it goes when the count reaches the floor
+							onSwipeRight={
+								(item.episode.watchCount || 0) > rewatchFloor(item.episode.tmdbShowId)
+									? handleWatchedSwipeRight
+									: undefined
+							}
+							unwatchRemoves={
+								(item.episode.watchCount || 0) - 1 <= rewatchFloor(item.episode.tmdbShowId)
+							}
 							onLongPress={canPause(item.show) ? setPauseTarget : undefined}
 						/>
 					</RowZoom>
@@ -929,6 +939,7 @@ export default function WatchlistTab() {
 			handleWatchedCheckmark,
 			handleWatchedSwipeLeft,
 			handleWatchedSwipeRight,
+			rewatchFloor,
 			handleMovieCheckmark,
 			handleMovieSwipeLeft,
 			handleMovieSwipeRight,

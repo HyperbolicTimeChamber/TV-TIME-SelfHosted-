@@ -445,7 +445,9 @@ export function useWatchlistScreen(
 			const count = episode.watchCount || 0;
 			if (count <= floor) return false;
 			noteListChange(episode.tmdbShowId);
-			if (count <= 1) swipedOff.current.add(`watched_${episode.id}`);
+			// The row leaves: its last watch, or mid-rewatch down to the floor (useWatchlistData
+			// leaves floor rows out of Previously Watched)
+			if (count - 1 <= floor) swipedOff.current.add(`watched_${episode.id}`);
 			const key = `${episode.season}_${episode.episode}`;
 			/** Row at `n` watches (0 = gone); a row that's gone comes back via insert */
 			const showCount = (n: number, prevN: number) => {
@@ -668,6 +670,7 @@ export function useWatchlistScreen(
 	const sheetMinCount = sheetEpisode ? rewatchFloor(sheetEpisode.tmdbShowId) : 0;
 
 	return {
+		rewatchFloor,
 		onCardsVisible,
 		sheetInRewatch,
 		sheetMinCount,
