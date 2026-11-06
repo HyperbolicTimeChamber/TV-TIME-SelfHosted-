@@ -12,7 +12,6 @@ import {
 	JUMP_DIAG_DRAG_SETTLE_MS,
 	JUMP_DIAG_MAX_REPORTS,
 	JUMP_DIAG_MIN_PX,
-	JUMP_DIAG_ROWS_RECENT_MS,
 	JUMP_DIAG_WINDOW_MS,
 	REMOUNT_DIAG_MAX_STEPS,
 	REMOUNT_DIAG_WINDOW_MS,
@@ -45,7 +44,7 @@ export function noteWatchlistMount(kind: WatchlistRemountKind) {
 		kind,
 		ms_since_launch: sinceLaunch(),
 		mount_count: mounts[kind],
-		steps: steps.join(" | "),
+		steps: [...steps].reverse().join(" | "),
 	});
 }
 
@@ -89,8 +88,8 @@ export function noteScrollOffset(offset: number) {
 	const delta = Math.round(offset - prev);
 	if (Math.abs(delta) < JUMP_DIAG_MIN_PX) return;
 	const sinceRows = Date.now() - lastRowsChange;
-	if (userScrolling && sinceRows > JUMP_DIAG_ROWS_RECENT_MS && Math.abs(delta) < JUMP_DIAG_BIG_PX)
-		return;
+	// Mid-drag / fling only a step no finger makes (a janky fling moved ~1000px in one event)
+	if (userScrolling && Math.abs(delta) < JUMP_DIAG_BIG_PX) return;
 	jumpReports += 1;
 	noteLaunchStep(`jump:${delta}@${Math.round(offset)}${userScrolling ? " (dragging)" : ""}`);
 	trackWatchlistJump({
@@ -99,6 +98,7 @@ export function noteScrollOffset(offset: number) {
 		user_scrolling: userScrolling,
 		ms_since_rows_change: sinceRows,
 		ms_since_launch: sinceLaunch(),
-		steps: steps.join(" | "),
+		// Newest first: Mixpanel shows a property's first 255 characters
+		steps: [...steps].reverse().join(" | "),
 	});
 }

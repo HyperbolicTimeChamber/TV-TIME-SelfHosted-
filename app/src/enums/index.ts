@@ -497,11 +497,9 @@ export const JUMP_DIAG_WINDOW_MS = 3 * 60 * 1000;
 /** TEMPORARY (utils/remountDiagnostics): a scroll step this big that the finger didn't make */
 export const JUMP_DIAG_MIN_PX = 40;
 /** TEMPORARY (utils/remountDiagnostics): a step this big is no finger or fling, even mid-scroll */
-export const JUMP_DIAG_BIG_PX = 400;
-/** TEMPORARY (utils/remountDiagnostics): a row change this recent counts as the jump's cause */
-export const JUMP_DIAG_ROWS_RECENT_MS = 1000;
+export const JUMP_DIAG_BIG_PX = 1500;
 /** TEMPORARY (utils/remountDiagnostics): jumps reported per launch */
-export const JUMP_DIAG_MAX_REPORTS = 3;
+export const JUMP_DIAG_MAX_REPORTS = 5;
 /** TEMPORARY (utils/remountDiagnostics): a drag with no fling stops counting as the finger's */
 export const JUMP_DIAG_DRAG_SETTLE_MS = 300;
 
