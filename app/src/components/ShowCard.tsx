@@ -71,6 +71,9 @@ export default memo(function ShowCard({
 	const remainingLabel =
 		remainingEpisodes != null && remainingEpisodes > 0 ? `+${remainingEpisodes}` : null;
 
+	// Only while actually rewatching — a count left over from a dropped rewatch isn't one
+	const rewatching = item.status === WatchStatus.REWATCHING && item.rewatchCount > 0;
+
 	// "NEW" tag: TV episode aired today
 	const isNewEpisode =
 		item.mediaType === MediaType.TV && item.nextEpisodeAirDate && item.nextEpisodeAirDate === TODAY;
@@ -176,6 +179,20 @@ export default memo(function ShowCard({
 											</>
 										)}
 									</View>
+									{item.rewatchCount > 0 && (
+										<View
+											style={[
+												styles.tagBadge,
+												styles.inlineTag,
+												styles.latestBadge,
+												styles.mutedTag,
+											]}
+										>
+											<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
+												REWATCH {item.rewatchCount}
+											</Text>
+										</View>
+									)}
 								</View>
 								{item.director && (
 									<Text
@@ -192,15 +209,20 @@ export default memo(function ShowCard({
 								)}
 							</>
 						) : (
-							<Text style={[styles.episode, styles.watchedMuted, styles.watchedFade]}>
-								{episodeLabel}
-							</Text>
-						)}
-						{item.rewatchCount > 0 && (
-							<View style={[styles.tagBadge, styles.latestBadge, styles.mutedTag]}>
-								<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
-									REWATCH {item.rewatchCount}
+							// The REWATCH tag on the episode's line (as on an active card)
+							<View style={styles.episodeRow}>
+								<Text style={[styles.episode, styles.watchedMuted, styles.watchedFade]}>
+									{episodeLabel}
 								</Text>
+								{item.rewatchCount > 0 && (
+									<View
+										style={[styles.tagBadge, styles.inlineTag, styles.latestBadge, styles.mutedTag]}
+									>
+										<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
+											REWATCH {item.rewatchCount}
+										</Text>
+									</View>
+								)}
 							</View>
 						)}
 					</View>
@@ -274,6 +296,13 @@ export default memo(function ShowCard({
 										</Text>
 									</View>
 								</View>
+								{rewatching && (
+									<View style={[styles.tagBadge, styles.inlineTag, styles.latestBadge]}>
+										<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
+											REWATCH {item.rewatchCount}
+										</Text>
+									</View>
+								)}
 							</View>
 							{item.director && (
 								<Text style={[styles.episodeName, styles.movieDirector]} numberOfLines={1}>
@@ -284,15 +313,22 @@ export default memo(function ShowCard({
 					) : (
 						<>
 							{/* The episode's tag sits on its line, so a tagged card is no taller than the
-							    rest; LATEST already says nothing's left, so no +N beside it */}
+							    rest; LATEST already says nothing's left, so no +N beside it. A rewatch
+							    shows only its REWATCH tag there (and its +N) */}
 							<View style={styles.episodeRow}>
 								<Text style={styles.episode}>
 									{episodeLabel}
-									{remainingLabel && !(isLatest && !isFinale && !isNewEpisode) ? (
+									{remainingLabel && (rewatching || !(isLatest && !isFinale && !isNewEpisode)) ? (
 										<Text style={styles.remaining}> {remainingLabel}</Text>
 									) : null}
 								</Text>
-								{isFinale ? (
+								{rewatching ? (
+									<View style={[styles.tagBadge, styles.inlineTag, styles.latestBadge]}>
+										<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
+											REWATCH {item.rewatchCount}
+										</Text>
+									</View>
+								) : isFinale ? (
 									<View style={[styles.tagBadge, styles.inlineTag]}>
 										<Text style={styles.tagBadgeText}>{FreshTag.FINALE}</Text>
 									</View>
@@ -314,15 +350,6 @@ export default memo(function ShowCard({
 								</Text>
 							) : null}
 						</>
-					)}
-					{/* Only while actually rewatching — a count left over from a dropped rewatch isn't one */}
-					{item.status === WatchStatus.REWATCHING && item.rewatchCount > 0 && (
-						// Same outlined tag as LATEST
-						<View style={[styles.tagBadge, styles.latestBadge]}>
-							<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
-								REWATCH {item.rewatchCount}
-							</Text>
-						</View>
 					)}
 				</View>
 				<View style={styles.checkmarkWrap}>
@@ -519,6 +546,8 @@ const styles = StyleSheet.create({
 	movieMetaRow: {
 		flexDirection: "row",
 		alignItems: "center",
+		// Room before a REWATCH tag
+		gap: spacing.sm,
 	},
 	movieTitlePill: { marginBottom: MOVIE_LINE_GAP },
 	// From the top, like an episode card filled by its lines: the title and director sit at the

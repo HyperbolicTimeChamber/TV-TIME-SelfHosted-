@@ -12,8 +12,6 @@ import type { LegendListRef } from "@legendapp/list/react-native";
 import { AnimatedLegendList } from "@legendapp/list/reanimated";
 import Reanimated, {
 	Easing,
-	type EntryAnimationsValues,
-	LinearTransition,
 	runOnJS,
 	useAnimatedStyle,
 	useSharedValue,
@@ -111,11 +109,13 @@ const FLIP_FROM_DEG = 90;
 const FLIP_EASING = Easing.bezier(0.23, 1, 0.32, 1);
 /** The "What's Up Next" header's move (list coordinates) while a row grows in above it */
 type HeaderMove = { from: number; to: number; token: number };
-/** Every row move glides (the list's own layout transition: positions change natively in the
- *  same frame, so nothing is drawn in its new place first). Always this one transition: swapped
- *  for an instant one between marks, the swap only reached rows whose container re-rendered —
- *  most moved rows jumped (LegendList hands the transition over on a container's render) */
-const CARD_LAYOUT = LinearTransition.duration(CARD_MOVE_MS).easing(CARD_MOVE_EASING);
+/*
+ * No itemLayoutAnimation on the list: Reanimated layout transitions on LegendList's recycled
+ * containers (timed or instant) intermittently left a row's view at a stale position — rows on
+ * top of each other, blank slots, the header over a card — though the list's own positions were
+ * right. Rows move to their new places at once; motion comes from the rows themselves (RowZoom,
+ * LeavingGhost, CardMotion)
+ */
 /** When the pinned headers re-read the list's scroll after it may have moved (stickyScroll) */
 const STICKY_SYNC_MS = [0, 150, 500];
 /** A row joining Previously Watched grows from this scale — never from nothing */
@@ -333,60 +333,37 @@ function HeaderGlide({
 }
 
 /**
- * A Previously Watched row a mark just added. It takes its full slot at once and the rows under it
- * glide down by the list's layout transition (CARD_LAYOUT); its card zooms in by an entering
- * animation with the same timing — evenly (its shape kept), scaled to the room opened so far and
- * centred in it, so it never covers the rows under it. Both start natively in the commit that
- * places the row: driven from JS (a per-frame height the list re-measured) the open stepped with
- * the JS thread, stalled right after a mark, and the row covered the cards that hadn't moved yet.
+ * A Previously Watched row a mark just added. It takes its full slot at once (the rows under it
+ * move down with it) and its card zooms in from the slot's centre — evenly, its shape kept.
  * `headerSlot`: the "What's Up Next" header (hidden meanwhile) is drawn under it, gliding from the
- * row's top — where it was — to its new place with the cards
+ * row's top — where it was — to its new place, so it doesn't jump past the row.
+ * Animated styles that stay attached for the row's whole life, from a value set at mount: entering
+ * (layout) animations inside the list froze part-way — a row left shrunk, rows on top of each other
  */
-const rowZoomIn = (values: EntryAnimationsValues) => {
-	"worklet";
-	const cfg = { duration: CARD_MOVE_MS, easing: CARD_MOVE_EASING };
-	return {
-		initialValues: {
-			opacity: 0,
-			transform: [{ translateY: -values.targetHeight / 2 }, { scale: 0 }],
-		},
-		animations: {
-			opacity: withTiming(1, cfg),
-			transform: [{ translateY: withTiming(0, cfg) }, { scale: withTiming(1, cfg) }],
-		},
-	};
-};
-function headerRideIn(slot: number) {
-	return () => {
-		"worklet";
-		const cfg = { duration: CARD_MOVE_MS, easing: CARD_MOVE_EASING };
-		return {
-			initialValues: { transform: [{ translateY: -slot }] },
-			animations: { transform: [{ translateY: withTiming(0, cfg) }] },
-		};
-	};
-}
-
 function RowZoom({
 	zoomIn,
 	children,
 }: Readonly<{ zoomIn?: ListRow["zoomIn"]; children: ReactNode }>) {
-	// Only a row mounted by its mark zooms (an entering animation runs at mount)
+	// Only a row mounted by its mark zooms
 	const [zooming] = useState(zoomIn !== undefined);
-	const headerSlot = zoomIn?.headerSlot;
-	const headerEntering = useMemo(
-		() => (headerSlot ? headerRideIn(headerSlot) : undefined),
-		[headerSlot],
-	);
+	const [headerSlot] = useState(zoomIn?.headerSlot);
+	const v = useSharedValue(zooming ? 0 : 1);
+	useLayoutEffect(() => {
+		if (zooming) v.value = withTiming(1, { duration: CARD_MOVE_MS, easing: CARD_MOVE_EASING });
+	}, [zooming, v]);
+	const zoom = useAnimatedStyle(() => ({
+		opacity: v.value,
+		transform: [{ scale: ROW_GROW_FROM + (1 - ROW_GROW_FROM) * v.value }],
+	}));
+	const ride = useAnimatedStyle(() => ({
+		transform: [{ translateY: -(headerSlot ?? 0) * (1 - v.value) }],
+	}));
 	return (
 		<View collapsable={false}>
-			<Reanimated.View style={styles.zoomCentre} entering={zooming ? rowZoomIn : undefined}>
-				{children}
-			</Reanimated.View>
-			{headerSlot !== undefined && (
+			<Reanimated.View style={[styles.zoomCentre, zoom]}>{children}</Reanimated.View>
+			{headerSlot !== undefined && zoomIn?.headerSlot !== undefined && (
 				<Reanimated.View
-					style={[styles.headerRide, { top: headerSlot }]}
-					entering={headerEntering}
+					style={[styles.headerRide, { top: headerSlot }, ride]}
 					pointerEvents="none"
 				>
 					<SectionHeader title={UP_NEXT_TITLE} />
@@ -396,43 +373,41 @@ function RowZoom({
 	);
 }
 
-/** Card coming back: zooms in from its centre as it fades in */
-const cardGrowIn = () => {
-	"worklet";
-	const cfg = { duration: CARD_MOVE_MS, easing: CARD_MOVE_EASING };
-	return {
-		initialValues: { opacity: 0, transform: [{ scale: ROW_GROW_FROM }] },
-		animations: { opacity: withTiming(1, cfg), transform: [{ scale: withTiming(1, cfg) }] },
-	};
-};
-/** Card whose episode an unwatch moved back: flips over from edge-on (rotateX 90° → 0) */
-const cardFlipIn = () => {
-	"worklet";
-	const cfg = { duration: CARD_MOVE_MS, easing: FLIP_EASING };
-	return {
-		initialValues: { transform: [{ perspective: 800 }, { rotateX: `${FLIP_FROM_DEG}deg` }] },
-		animations: { transform: [{ perspective: 800 }, { rotateX: withTiming("0deg", cfg) }] },
-	};
-};
-
 /**
- * Card wrapper for a card coming back (grow) or flipping over (an unwatch moved its episode back,
- * so nothing else showed it changed). Entering animations on a view keyed by the run (cardMotionKey):
- * they start natively in the commit that places the card, and a run that ends gets a fresh view.
- * Shared animated styles started from JS before: one dropped mid-run left its last pose on the
- * view — a card stuck edge-on, zero high, a blank slot in the list
+ * Card wrapper for a card coming back (grows in) or flipping over (an unwatch moved its episode
+ * back, so nothing else showed it changed). Keyed by the run (cardMotionKey), with an animated
+ * style attached for the view's whole life from a value set at mount — a style dropped mid-run
+ * left its pose (a card stuck edge-on, a blank slot), and entering animations froze in the list
  */
 function CardMotion({ item, children }: Readonly<{ item: ListRow; children: ReactNode }>) {
-	return (
-		<Reanimated.View
-			style={styles.zoomCentre}
-			entering={
-				item.flipping !== undefined ? cardFlipIn : item.grow !== undefined ? cardGrowIn : undefined
-			}
-		>
-			{children}
-		</Reanimated.View>
+	const [mode] = useState(
+		item.flipping !== undefined
+			? CardMotionMode.FLIP
+			: item.grow !== undefined
+				? CardMotionMode.GROW
+				: null,
 	);
+	const v = useSharedValue(mode ? 0 : 1);
+	useLayoutEffect(() => {
+		if (!mode) return;
+		const easing = mode === CardMotionMode.FLIP ? FLIP_EASING : CARD_MOVE_EASING;
+		v.value = withTiming(1, { duration: CARD_MOVE_MS, easing });
+	}, [mode, v]);
+	const style = useAnimatedStyle(() =>
+		mode === CardMotionMode.FLIP
+			? {
+					transform: [{ perspective: 800 }, { rotateX: `${FLIP_FROM_DEG * (1 - v.value)}deg` }],
+				}
+			: {
+					opacity: v.value,
+					transform: [{ scale: ROW_GROW_FROM + (1 - ROW_GROW_FROM) * v.value }],
+				},
+	);
+	return <Reanimated.View style={[styles.zoomCentre, style]}>{children}</Reanimated.View>;
+}
+enum CardMotionMode {
+	GROW = "grow",
+	FLIP = "flip",
 }
 const cardMotionKey = (item: ListRow) =>
 	item.flipping !== undefined
@@ -1004,7 +979,7 @@ export default function WatchlistTab() {
 	return (
 		<>
 			{/* Reanimated variant for its sticky headers: the plain list's don't pin on the new
-			    architecture. Its itemLayoutAnimation glides card moves after a mark (CARD_LAYOUT) */}
+			    architecture. No itemLayoutAnimation (rows move at once; see the note by CARD_MOVE_MS) */}
 			<AnimatedLegendList
 				ref={listRef}
 				data={rows}
@@ -1014,7 +989,6 @@ export default function WatchlistTab() {
 				recycleItems
 				sharedValues={sharedValues}
 				getFixedItemSize={fixedRowSize}
-				itemLayoutAnimation={CARD_LAYOUT}
 				drawDistance={SCREEN_HEIGHT * 2}
 				estimatedItemSize={110}
 				stickyHeaderIndices={stickyIndices}

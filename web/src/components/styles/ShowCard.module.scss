@@ -120,6 +120,8 @@
 .movieMetaRow {
 	display: flex;
 	align-items: center;
+	/* Room before a REWATCH tag (app parity) */
+	gap: 8px;
 }
 
 /* Movie: title, tags and director equally spaced (app MOVIE_LINE_GAP) — 13px (web type) puts the director
