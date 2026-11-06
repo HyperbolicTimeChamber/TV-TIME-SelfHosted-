@@ -363,9 +363,10 @@ export default function ShowDetailScreen() {
 				drawer
 				question={
 					watchlistItem?.status === WatchStatus.REWATCHING
-						? "Do you want to pause this rewatch?"
-						: "Do you want to pause this show?"
+						? "Do You Want to Pause This Rewatch?"
+						: "Do You Want to Pause This Show?"
 				}
+				slideLabel="Slide to Pause"
 				imageAtTop={!!show?.backdrop_path}
 				hideTitle
 				image={

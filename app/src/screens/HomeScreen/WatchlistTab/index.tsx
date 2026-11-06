@@ -1136,11 +1136,12 @@ export default function WatchlistTab() {
 				drawer
 				question={
 					removingMovie
-						? "Do you want to remove this movie?"
+						? "Do You Want to Remove This Movie?"
 						: pauseTarget?.status === WatchStatus.REWATCHING
-							? "Do you want to pause this rewatch?"
-							: "Do you want to pause this show?"
+							? "Do You Want to Pause This Rewatch?"
+							: "Do You Want to Pause This Show?"
 				}
+				slideLabel={removingMovie ? "Slide to Remove" : "Slide to Pause"}
 				imageAtTop={!!pauseTarget?.catalogShow?.backdropPath}
 				hideTitle
 				image={

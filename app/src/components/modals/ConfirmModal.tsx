@@ -10,6 +10,7 @@ import {
 // Drawer buttons: gesture-handler Pressables (BottomSheet's first-tap fix)
 import { Pressable } from "react-native-gesture-handler";
 import AnimatedModal from "./AnimatedModal";
+import SlideToConfirm from "../SlideToConfirm";
 import BottomSheet, { SHEET_HANDLE_BLOCK, SHEET_RADIUS } from "./BottomSheet";
 import { ModalBackdrop } from "./ModalArt";
 import { colors, spacing, typography } from "../../theme";
@@ -47,8 +48,11 @@ interface Props {
 	hideCancel?: boolean;
 	/** A bottom drawer instead of a centred popup (the banner confirms: backdrop art on top) */
 	drawer?: boolean;
-	/** Drawer only: the question under the art ("Do you want to pause this show?") */
+	/** Drawer only: the question under the art ("Do You Want to Pause This Show?"); default: the
+	 *  title (a drawer shows its title there, not over the art) */
 	question?: string;
+	/** Drawer only: one slide-to-confirm bar ("Slide to Pause") in place of the buttons */
+	slideLabel?: string;
 	onClose: () => void;
 }
 
@@ -77,6 +81,7 @@ export default function ConfirmModal({
 	hideCancel = false,
 	drawer = false,
 	question,
+	slideLabel,
 	onClose,
 }: Props) {
 	const { width: screenW } = useWindowDimensions();
@@ -105,6 +110,7 @@ export default function ConfirmModal({
 				hideCancel={hideCancel}
 				onClose={onClose}
 				question={question}
+				slideLabel={slideLabel}
 				bannerWidth={screenW}
 			/>
 		);
@@ -350,14 +356,16 @@ function ConfirmDrawer({
 	hideCancel = false,
 	onClose,
 	question,
+	slideLabel,
 	bannerWidth,
 }: DrawerProps) {
+	// Under the art, as the pause / remove drawers ask theirs
+	const ask = question ?? (hideTitle ? undefined : title);
 	const photo = isValidElement(image) && image.type === ModalBackdrop;
 	const banner = photo
 		? cloneElement(
 				image as React.ReactElement<{ heading?: string; width?: number; fadeTo?: string }>,
 				{
-					heading: hideTitle ? undefined : title,
 					width: bannerWidth,
 					// Fades into the sheet, as the info drawer's art
 					fadeTo: colors.surface,
@@ -390,65 +398,76 @@ function ConfirmDrawer({
 							<View style={styles.drawerBannerHandle} pointerEvents="none" />
 						</View>
 					) : (
-						<>
-							{!hideTitle && <Text style={styles.title}>{title}</Text>}
-							{image != null && <View style={styles.image}>{image}</View>}
-						</>
+						<>{image != null && <View style={styles.image}>{image}</View>}</>
 					)}
-					{question ? <Text style={styles.drawerQuestion}>{question}</Text> : null}
+					{ask ? <Text style={styles.drawerQuestion}>{ask}</Text> : null}
 					{hint ? <Text style={[styles.hint, styles.drawerHint]}>{hint}</Text> : null}
 					{error ? <Text style={styles.error}>{error}</Text> : null}
-					{leadLabel &&
-						onLead &&
-						button(leadLabel, onLead, [
-							styles.button,
-							styles.drawerButton,
-							leadColor ? { backgroundColor: leadColor } : {},
-							loading ? { opacity: 0.6 } : {},
-						])}
-					{button(
-						confirmLabel,
-						onConfirm,
-						[
-							styles.button,
-							styles.drawerButton,
-							leadLabel && onLead ? { marginTop: spacing.sm } : {},
-							confirmColor ? { backgroundColor: confirmColor } : {},
-							loading ? { opacity: 0.6 } : {},
-						],
-						loading ? (
-							<ActivityIndicator size="small" color={colors.text} />
-						) : (
-							<Text style={[styles.buttonText, styles.drawerButtonText]}>{confirmLabel}</Text>
-						),
+					{slideLabel ? (
+						// One bar instead of the buttons: pulling the drawer down / tapping outside cancels
+						<SlideToConfirm
+							label={slideLabel}
+							color={confirmColor ?? colors.destructiveRed}
+							onConfirm={onConfirm}
+							loading={loading}
+						/>
+					) : (
+						<>
+							{leadLabel &&
+								onLead &&
+								button(leadLabel, onLead, [
+									styles.button,
+									styles.drawerButton,
+									leadColor ? { backgroundColor: leadColor } : {},
+									loading ? { opacity: 0.6 } : {},
+								])}
+							{button(
+								confirmLabel,
+								onConfirm,
+								[
+									styles.button,
+									styles.drawerButton,
+									leadLabel && onLead ? { marginTop: spacing.sm } : {},
+									confirmColor ? { backgroundColor: confirmColor } : {},
+									loading ? { opacity: 0.6 } : {},
+								],
+								loading ? (
+									<ActivityIndicator size="small" color={colors.text} />
+								) : (
+									<Text style={[styles.buttonText, styles.drawerButtonText]}>{confirmLabel}</Text>
+								),
+							)}
+							{secondaryLabel &&
+								onSecondary &&
+								button(secondaryLabel, onSecondary, [
+									styles.button,
+									styles.drawerButton,
+									styles.secondary,
+									secondaryColor ? { backgroundColor: secondaryColor } : {},
+									loading ? { opacity: 0.6 } : {},
+								])}
+							{tertiaryLabel &&
+								onTertiary &&
+								button(tertiaryLabel, onTertiary, [
+									styles.button,
+									styles.drawerButton,
+									styles.secondary,
+									loading ? { opacity: 0.6 } : {},
+								])}
+							{/* Kept (dimmed) while the action runs: the drawer doesn't change height */}
+							{!hideCancel &&
+								button(
+									cancelLabel,
+									() => close(),
+									[styles.drawerButton, styles.drawerCancel, loading ? { opacity: 0.4 } : {}],
+									<Text
+										style={[styles.buttonText, styles.drawerButtonText, styles.drawerCancelText]}
+									>
+										{cancelLabel}
+									</Text>,
+								)}
+						</>
 					)}
-					{secondaryLabel &&
-						onSecondary &&
-						button(secondaryLabel, onSecondary, [
-							styles.button,
-							styles.drawerButton,
-							styles.secondary,
-							secondaryColor ? { backgroundColor: secondaryColor } : {},
-							loading ? { opacity: 0.6 } : {},
-						])}
-					{tertiaryLabel &&
-						onTertiary &&
-						button(tertiaryLabel, onTertiary, [
-							styles.button,
-							styles.drawerButton,
-							styles.secondary,
-							loading ? { opacity: 0.6 } : {},
-						])}
-					{/* Kept (dimmed) while the action runs: the drawer doesn't change height */}
-					{!hideCancel &&
-						button(
-							cancelLabel,
-							() => close(),
-							[styles.drawerButton, styles.drawerCancel, loading ? { opacity: 0.4 } : {}],
-							<Text style={[styles.buttonText, styles.drawerButtonText, styles.drawerCancelText]}>
-								{cancelLabel}
-							</Text>,
-						)}
 				</View>
 			)}
 		</BottomSheet>
