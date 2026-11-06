@@ -130,10 +130,10 @@ export default function SlideToConfirm({ label, color, onConfirm, loading = fals
 }
 
 const styles = StyleSheet.create({
-	// 80% of the drawer, centred; the label sits in the middle (the knob's room each side)
+	// 90% of the drawer, centred; the label sits in the middle (the knob's room each side)
 	track: {
 		alignSelf: "center",
-		width: "80%",
+		width: "90%",
 		paddingHorizontal: SIDE,
 		height: TRACK_H,
 		borderRadius: TRACK_H / 2,
