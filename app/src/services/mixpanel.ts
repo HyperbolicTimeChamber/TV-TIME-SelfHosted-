@@ -219,7 +219,6 @@ export function trackEpisodeMarked(
 	recordTrackedEpisodes(tmdbShowId, 1);
 }
 
-/** Episode unwatched (`watchCountAfter` 0) or its watch count lowered by one */
 /** TEMPORARY (utils/remountDiagnostics): the watchlist mounted again soon after launch */
 export function trackWatchlistRemount(props: {
 	kind: string;
@@ -230,6 +229,19 @@ export function trackWatchlistRemount(props: {
 	track(AnalyticsEvent.DEBUG_WATCHLIST_REMOUNT, props);
 }
 
+/** TEMPORARY (utils/remountDiagnostics): the watchlist's scroll moved without the finger */
+export function trackWatchlistJump(props: {
+	delta: number;
+	offset: number;
+	user_scrolling: boolean;
+	ms_since_rows_change: number;
+	ms_since_launch: number;
+	steps: string;
+}) {
+	track(AnalyticsEvent.DEBUG_WATCHLIST_JUMP, props);
+}
+
+/** Episode unwatched (`watchCountAfter` 0) or its watch count lowered by one */
 export function trackEpisodeUnwatched(
 	showId: string,
 	episodeId: string,
