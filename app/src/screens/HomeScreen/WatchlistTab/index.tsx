@@ -897,9 +897,6 @@ export default function WatchlistTab() {
 									? handleWatchedSwipeRight
 									: undefined
 							}
-							unwatchRemoves={
-								(item.episode.watchCount || 0) - 1 <= rewatchFloor(item.episode.tmdbShowId)
-							}
 							onLongPress={canPause(item.show) ? setPauseTarget : undefined}
 						/>
 					</RowZoom>

@@ -493,13 +493,6 @@ export function useWatchlistData(userId: string | undefined) {
 	const safePrevItems = useMemo(() => {
 		const epItems: PrevItem[] = [];
 		for (const ep of watchedEps) {
-			// Mid-rewatch, an episode only at the rewatch floor (its watches all from earlier runs)
-			// isn't watched in this run: not in Previously Watched — an unwatch down to the floor
-			// takes its row off, as any unwatch does
-			const show = showMap.get(ep.tmdbShowId);
-			const inRewatch =
-				show?.status === WatchStatus.REWATCHING || show?.status === WatchStatus.PAUSED_REWATCH;
-			if (inRewatch && (ep.watchCount || 0) <= (show?.rewatchCount ?? 0)) continue;
 			epItems.push({
 				kind: MediaType.TV,
 				ep,

@@ -19,9 +19,6 @@ interface Props {
 	/** `false` = nothing changed (the swipe snaps back). Left out: no Unwatch swipe (a rewatch's
 	 *  floor — the watch belongs to an earlier run) */
 	onSwipeRight?: (episode: WatchedEpisode) => Promise<boolean | void>;
-	/** An unwatch takes the row off (its last watch, or a rewatch's floor): no "−1" on the swipe,
-	 *  and the swipe holds its banner until the row goes */
-	unwatchRemoves?: boolean;
 	/** Long press on the card (haptic included) — omit to turn it off */
 	onLongPress?: (show: EnrichedTrackingItem) => void;
 }
@@ -34,9 +31,10 @@ export default memo(function WatchedEpisodeRow({
 	onSwipeLeft,
 	onSwipeRight,
 	onLongPress,
-	unwatchRemoves,
 }: Props) {
-	const leaves = unwatchRemoves ?? episode.watchCount <= 1;
+	// An unwatch takes the row off (its last watch): no "−1", and the swipe holds its banner
+	// until the row goes
+	const leaves = episode.watchCount <= 1;
 	const label = `S${String(episode.season).padStart(2, "0")} | E${String(episode.episode).padStart(2, "0")}`;
 
 	return (

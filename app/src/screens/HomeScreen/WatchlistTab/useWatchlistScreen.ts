@@ -445,16 +445,30 @@ export function useWatchlistScreen(
 			const count = episode.watchCount || 0;
 			if (count <= floor) return false;
 			noteListChange(episode.tmdbShowId);
-			// The row leaves: its last watch, or mid-rewatch down to the floor (useWatchlistData
-			// leaves floor rows out of Previously Watched)
-			if (count - 1 <= floor) swipedOff.current.add(`watched_${episode.id}`);
+			if (count <= 1) swipedOff.current.add(`watched_${episode.id}`);
+			// Down to its first watch (or the floor): the row goes back to that watch's place
+			const restoreAt = Math.max(floor, 1);
 			const key = `${episode.season}_${episode.episode}`;
 			/** Row at `n` watches (0 = gone); a row that's gone comes back via insert */
 			const showCount = (n: number, prevN: number) => {
 				if (prevN <= 0 && n > 0) {
 					insertWatchedEpisodeCache(queryClient, uid, { ...episode, watchCount: n });
 				} else {
-					setWatchedEpisodeCountsCache(queryClient, uid, episode.tmdbShowId, new Map([[key, n]]));
+					// Down to its first watch (or the floor): back to that watch's place, as the write
+					// does; back up (a failed write): its own last watch again
+					const at =
+						n < prevN
+							? n > 0 && n <= restoreAt
+								? episode.watchedAt
+								: undefined
+							: episode.lastWatchedAt;
+					setWatchedEpisodeCountsCache(
+						queryClient,
+						uid,
+						episode.tmdbShowId,
+						new Map([[key, n]]),
+						at,
+					);
 				}
 			};
 			// Optimistic: the row takes its new count now — the last watch leaves at once. The
@@ -478,6 +492,7 @@ export function useWatchlistScreen(
 					count - 1,
 					undefined,
 					watchlistPointer(episode, count, count - 1),
+					restoreAt,
 				);
 			} catch (err: any) {
 				swipedOff.current.delete(`watched_${episode.id}`);
@@ -523,7 +538,14 @@ export function useWatchlistScreen(
 					);
 				}
 			};
-			showCount(to, from, to > from ? Timestamp.now() : ep.lastWatchedAt);
+			// Down to its first watch (or the rewatch floor): back to that watch's place (as the
+			// write does)
+			const restoreAt = Math.max(rewatchFloor(ep.tmdbShowId), 1);
+			showCount(
+				to,
+				from,
+				to > from ? Timestamp.now() : to > 0 && to <= restoreAt ? ep.watchedAt : ep.lastWatchedAt,
+			);
 			let final: number;
 			try {
 				final = await writeEpisodeWatchCount(
@@ -534,6 +556,7 @@ export function useWatchlistScreen(
 					to,
 					undefined,
 					watchlistPointer(ep, from, to),
+					restoreAt,
 				);
 			} catch (err: any) {
 				showCount(from, to, ep.lastWatchedAt);
@@ -549,7 +572,7 @@ export function useWatchlistScreen(
 			}
 			return final;
 		},
-		[noteListChange, user?.uid, sheetEpisode, queryClient, watchlistPointer],
+		[noteListChange, user?.uid, sheetEpisode, queryClient, watchlistPointer, rewatchFloor],
 	);
 
 	// --- Watched movie handlers ---
