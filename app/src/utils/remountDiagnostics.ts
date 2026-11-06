@@ -32,6 +32,8 @@ const sinceLaunch = () => Date.now() - LAUNCH_MS;
 export function noteLaunchStep(step: string) {
 	if (sinceLaunch() > JUMP_DIAG_WINDOW_MS) return;
 	steps.push(`${sinceLaunch()}ms ${step}`);
+	// TEMPORARY: read live over adb (logcat ReactNativeJS [JUMPDIAG])
+	console.log("[JUMPDIAG]", Date.now() % 100000, "step", step);
 	if (steps.length > REMOUNT_DIAG_MAX_STEPS) steps.shift();
 }
 
@@ -83,9 +85,20 @@ export function noteRowsChange(summary: string) {
 export function noteScrollOffset(offset: number) {
 	const prev = lastOffset;
 	lastOffset = offset;
-	if (prev === null || jumpReports >= JUMP_DIAG_MAX_REPORTS) return;
-	if (sinceLaunch() > JUMP_DIAG_WINDOW_MS) return;
+	if (prev === null) return;
 	const delta = Math.round(offset - prev);
+	if (Math.abs(delta) >= 150) {
+		console.log(
+			"[JUMPDIAG]",
+			Date.now() % 100000,
+			"scroll",
+			delta,
+			"to",
+			Math.round(offset),
+			userScrolling ? "finger" : "no-finger",
+		);
+	}
+	if (jumpReports >= JUMP_DIAG_MAX_REPORTS || sinceLaunch() > JUMP_DIAG_WINDOW_MS) return;
 	if (Math.abs(delta) < JUMP_DIAG_MIN_PX) return;
 	const sinceRows = Date.now() - lastRowsChange;
 	// Mid-drag / fling only a step no finger makes (a janky fling moved ~1000px in one event)
