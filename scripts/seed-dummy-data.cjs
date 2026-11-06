@@ -77,10 +77,14 @@ const SHOWS = [
 	{ title: "Sherlock", watched: 4, rewatch: 2 },
 	// Releasing soon: `releaseInMin` = the next episode airs that many minutes after seeding
 	// (today, exact time in the catalog) — the card appears in "What's Up Next" when it airs
-	{ title: "The Daily Show", upToDate: true, releaseInMin: 2 },
+	{ title: "The Graham Norton Show", upToDate: true, releaseInMin: 2 },
 	{ title: "The Late Show with Stephen Colbert", upToDate: true, releaseInMin: 3 },
 	{ title: "Last Week Tonight with John Oliver", upToDate: true, releaseInMin: 4 },
 	{ title: "The View", upToDate: true, releaseInMin: 5 },
+	{ title: "Saturday Night Live", upToDate: true, releaseInMin: 3 },
+	{ title: "Real Time with Bill Maher", upToDate: true, releaseInMin: 4 },
+	{ title: "Jeopardy!", upToDate: true, releaseInMin: 5 },
+	{ title: "Wheel of Fortune", upToDate: true, releaseInMin: 6 },
 ];
 const MOVIES = ["Dune: Part Two", "Avengers: Doomsday", "Spider-Man: Beyond the Spider-Verse"];
 // Upcoming movies sharing one release date (the busiest upcoming day) → movie "+n more" chip
@@ -186,9 +190,13 @@ async function main() {
 			.filter((s) => s.seasonNumber > 0)
 			.sort((a, b) => a.seasonNumber - b.seasonNumber);
 		if (upToDate) {
-			const next = seasons
-				.flatMap((s) => (s.episodes ?? []).map((e) => ({ ...e, season: s.seasonNumber })))
-				.find((e) => e.airDate && e.airDate > today);
+			const all = seasons.flatMap((s) =>
+				(s.episodes ?? []).map((e) => ({ ...e, season: s.seasonNumber })),
+			);
+			// Releasing soon with nothing announced yet: its latest episode is pulled forward
+			const next =
+				all.find((e) => e.airDate && e.airDate > today) ??
+				(releaseInMin !== undefined ? all[all.length - 1] : undefined);
 			if (next && releaseInMin !== undefined) {
 				// Pull that episode forward to today, airing `releaseInMin` minutes from now
 				const airAt = new Date(Date.now() + releaseInMin * 60_000);
