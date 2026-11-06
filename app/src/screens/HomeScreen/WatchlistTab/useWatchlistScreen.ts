@@ -451,7 +451,11 @@ export function useWatchlistScreen(
 			const restoreAt = Math.max(floor, 1);
 			const key = `${episode.season}_${episode.episode}`;
 			/** Row at `n` watches (0 = gone); a row that's gone comes back via insert */
-			const showCount = (n: number, prevN: number) => {
+			const showCount = (
+				n: number,
+				prevN: number,
+				first: WatchedEpisode["watchedAt"] | null = null,
+			) => {
 				if (prevN <= 0 && n > 0) {
 					insertWatchedEpisodeCache(queryClient, uid, { ...episode, watchCount: n });
 				} else {
@@ -460,7 +464,7 @@ export function useWatchlistScreen(
 					const at =
 						n < prevN
 							? n > 0 && n <= restoreAt
-								? episode.watchedAt
+								? (first ?? episode.watchedAt)
 								: undefined
 							: episode.lastWatchedAt;
 					setWatchedEpisodeCountsCache(
@@ -476,6 +480,8 @@ export function useWatchlistScreen(
 			// and the row leaves together with the card's flip (its pointer moves in the same
 			// transaction) — taken off at once, the row went well before the card changed
 			let final: number;
+			/** The episode's real first watch, when the write put its row back there */
+			let firstWatch: WatchedEpisode["watchedAt"] | null = null;
 			try {
 				// Off the real count (read first): a stale cached count can't delete watches. Only a
 				// real 0 points the watchlist back to this episode
@@ -493,6 +499,9 @@ export function useWatchlistScreen(
 					undefined,
 					watchlistPointer(episode, count, count - 1),
 					restoreAt,
+					(first) => {
+						firstWatch = first;
+					},
 				);
 			} catch (err: any) {
 				swipedOff.current.delete(`watched_${episode.id}`);
@@ -501,7 +510,7 @@ export function useWatchlistScreen(
 				return false;
 			}
 			// Off Firestore's real count (a stale cached count can differ)
-			if (final !== count) showCount(final, count);
+			if (final !== count) showCount(final, count, firstWatch);
 			decrementDailyWatch("episode");
 		},
 		[noteListChange, user?.uid, queryClient, rewatchFloor, watchlistPointer],

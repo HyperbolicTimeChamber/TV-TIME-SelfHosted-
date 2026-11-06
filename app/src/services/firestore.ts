@@ -654,6 +654,9 @@ export async function writeEpisodeWatchCount(
 	 *  episode's last watch is its first again (lastWatchedAt ← watchedAt): its Previously Watched
 	 *  row goes back to that watch's place instead of staying where the undone watch put it */
 	restoreAtOrBelow = 1,
+	/** Called with the episode's real first watch when its last watch went back to it — a cached
+	 *  row's own watchedAt can be a mark's optimistic "now" (it wasn't on a loaded page) */
+	onRestored?: (firstWatchedAt: Timestamp) => void,
 ): Promise<number> {
 	if (to === from) return to;
 	const runtime = ep.runtime || 0;
@@ -732,6 +735,7 @@ export async function writeEpisodeWatchCount(
 			data?.status === WatchStatus.REWATCHING || data?.status === WatchStatus.PAUSED_REWATCH;
 		if (!inRewatch) resetFields = { status: WatchStatus.WATCHING };
 	}
+	let restoredTo: Timestamp | null = null;
 	const result = await runTransaction(db, async (tx) => {
 		const snap = await tx.get(epRef);
 		const actual = (snap.data()?.watchCount as number | undefined) ?? 0;
@@ -743,6 +747,7 @@ export async function writeEpisodeWatchCount(
 			const first = snap.data()?.watchedAt;
 			const back = final <= restoreAtOrBelow && first ? { lastWatchedAt: first } : {};
 			tx.update(epRef, { watchCount: final, ...back });
+			if (back.lastWatchedAt) restoredTo = back.lastWatchedAt as Timestamp;
 		}
 		tx.set(
 			userRef(userId),
@@ -788,6 +793,7 @@ export async function writeEpisodeWatchCount(
 			...(result.legacyBack && resetFields.status ? { status: WatchStatus.WATCHING } : {}),
 		});
 	}
+	if (restoredTo && result.removed > 0) onRestored?.(restoredTo);
 	return result.final;
 }
 

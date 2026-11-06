@@ -111,7 +111,13 @@ export function insertWatchedEpisodeCache(
 		if (found) return { ...old, pages: updatedPages };
 		// Not on a loaded page — prepend it, at its real count when known
 		const firstPage = old.pages[0];
-		const row = { ...ep, watchCount: insertCount };
+		// Its first watch stays its own (the caller's is the mark's "now"): an unwatch back to it
+		// returns the row to that watch's place
+		const row = {
+			...ep,
+			watchCount: insertCount,
+			...(known?.watchedAt ? { watchedAt: known.watchedAt } : {}),
+		};
 		return {
 			...old,
 			pages: [{ ...firstPage, episodes: [row, ...firstPage.episodes] }, ...old.pages.slice(1)],

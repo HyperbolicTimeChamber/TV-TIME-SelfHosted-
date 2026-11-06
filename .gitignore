@@ -71,4 +71,5 @@ lerna-debug.log*
 
 # Local Firebase Emulator Suite data (npm run emulators)
 .emulator-data/
+firebase-export-*/
 
