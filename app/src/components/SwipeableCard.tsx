@@ -42,9 +42,10 @@ export interface SwipeableCardRef {
 
 interface Props {
 	children: React.ReactNode;
-	onSwipeLeft: () => Promise<void>;
+	/** Resolving `false` = nothing changed: the card snaps back at once (no held banner) */
+	onSwipeLeft: () => Promise<boolean | void>;
 	/** Omit to turn the right action (drag toward the left edge) off */
-	onSwipeRight?: () => Promise<void>;
+	onSwipeRight?: () => Promise<boolean | void>;
 	persistAfterSwipe?: boolean | { left: boolean; right: boolean };
 	leftLabel?: string;
 	rightLabel?: string;
@@ -197,10 +198,16 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 			centred.value = withTiming(1, { duration: LABEL_MS, easing: LABEL_EASING });
 
 			try {
-				if (direction === "left") {
-					await onSwipeLeftRef.current();
-				} else {
-					await onSwipeRightRef.current?.();
+				const result =
+					direction === "left" ? await onSwipeLeftRef.current() : await onSwipeRightRef.current?.();
+				// Nothing changed: back to the card now, not a banner held for HOLD_MS
+				if (result === false) {
+					translateX.value = withTiming(0, { duration: 300 });
+					centred.value = 0;
+					setSwipeState("idle");
+					setShowReveal(false);
+					isProcessing.current = false;
+					return;
 				}
 				// The action takes the row off the list (an unwatch to 0): stay on its banner until
 				// the list drops it — the list then shrinks that banner away (WatchlistTab). Coming

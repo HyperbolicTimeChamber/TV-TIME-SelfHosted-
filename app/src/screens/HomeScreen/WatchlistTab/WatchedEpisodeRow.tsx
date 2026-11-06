@@ -15,7 +15,8 @@ interface Props {
 	onPress: (episode: WatchedEpisode, show: EnrichedTrackingItem) => void;
 	onCheckmarkPress: (episode: WatchedEpisode) => void;
 	onSwipeLeft: (episode: WatchedEpisode) => Promise<void>;
-	onSwipeRight: (episode: WatchedEpisode) => Promise<void>;
+	/** `false` = nothing changed (the swipe snaps back) */
+	onSwipeRight: (episode: WatchedEpisode) => Promise<boolean | void>;
 	/** Long press on the card (haptic included) — omit to turn it off */
 	onLongPress?: (show: EnrichedTrackingItem) => void;
 }

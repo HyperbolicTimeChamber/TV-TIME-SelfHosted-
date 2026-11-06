@@ -21,9 +21,10 @@ export interface SwipeableCardRef {
 interface Props {
 	children: ReactNode;
 	/** Swipe RIGHT (card moves right) — "watched" action, named as in the app */
-	onSwipeLeft: () => Promise<void>;
+	/** Resolving `false` = nothing changed: the card slides back (app parity) */
+	onSwipeLeft: () => Promise<boolean | void>;
 	/** Swipe LEFT — stop / unwatch action; omit to turn that direction off */
-	onSwipeRight?: () => Promise<void>;
+	onSwipeRight?: () => Promise<boolean | void>;
 	persistAfterSwipe?: boolean | { left: boolean; right: boolean };
 	leftLabel?: string;
 	rightLabel?: string;
@@ -84,8 +85,12 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 			const persist =
 				typeof persistAfterSwipe === "object" ? persistAfterSwipe[direction] : persistAfterSwipe;
 			try {
-				await (direction === "left" ? onSwipeLeft() : onSwipeRight?.());
-				if (persist) {
+				const result = await (direction === "left" ? onSwipeLeft() : onSwipeRight?.());
+				if (result === false) {
+					// Nothing changed (e.g. a rewatch's floor): back to the card, not hidden
+					animate(x, 0, { duration: 0.3 });
+					setState("idle");
+				} else if (persist) {
 					// List re-render replaces the card; reset quietly
 					x.set(0);
 					setState("idle");

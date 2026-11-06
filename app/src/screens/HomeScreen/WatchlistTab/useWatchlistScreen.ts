@@ -436,37 +436,56 @@ export function useWatchlistScreen(
 	const swipedOff = useRef(new Set<string>());
 	const isSwipedOff = useCallback((rowKey: string) => swipedOff.current.has(rowKey), []);
 	const handleWatchedSwipeRight = useCallback(
-		async (episode: WatchedEpisode) => {
-			if (!user?.uid) return;
-			noteListChange(episode.tmdbShowId);
-			if ((episode.watchCount || 0) <= 1) swipedOff.current.add(`watched_${episode.id}`);
+		async (episode: WatchedEpisode): Promise<boolean | void> => {
+			if (!user?.uid) return false;
 			const uid = user.uid;
-			// Mid-rewatch: not below the rewatch number (as the sheet's −) — earlier runs stay
+			// Mid-rewatch: not below the rewatch number (as the sheet's −) — earlier runs stay. No
+			// change: the swipe snaps back at once (returning nothing, its banner sat for 15s)
 			const floor = rewatchFloor(episode.tmdbShowId);
 			const count = episode.watchCount || 0;
-			if (count <= floor) return;
-			// Off the real count (read first): a stale cached count can't delete watches. Only a
-			// real 0 points the watchlist back to this episode
-			const final = await writeEpisodeWatchCount(
-				uid,
-				episode.tmdbShowId,
-				{
-					season: episode.season,
-					episode: episode.episode,
-					title: episode.episodeTitle,
-					runtime: episode.runtime,
-				},
-				count,
-				count - 1,
-				undefined,
-				watchlistPointer(episode, count, count - 1),
-			);
-			setWatchedEpisodeCountsCache(
-				queryClient,
-				uid,
-				episode.tmdbShowId,
-				new Map([[`${episode.season}_${episode.episode}`, final]]),
-			);
+			if (count <= floor) return false;
+			noteListChange(episode.tmdbShowId);
+			if (count <= 1) swipedOff.current.add(`watched_${episode.id}`);
+			const key = `${episode.season}_${episode.episode}`;
+			/** Row at `n` watches (0 = gone); a row that's gone comes back via insert */
+			const showCount = (n: number, prevN: number) => {
+				if (prevN <= 0 && n > 0) {
+					insertWatchedEpisodeCache(queryClient, uid, { ...episode, watchCount: n });
+				} else {
+					setWatchedEpisodeCountsCache(queryClient, uid, episode.tmdbShowId, new Map([[key, n]]));
+				}
+			};
+			// Optimistic: the row takes its new count now — the last watch leaves at once. The
+			// write reads the real count in a transaction (two round trips); waiting on it left
+			// the swipe's banner spinning for seconds
+			showCount(count - 1, count);
+			let final: number;
+			try {
+				// Off the real count (read first): a stale cached count can't delete watches. Only a
+				// real 0 points the watchlist back to this episode
+				final = await writeEpisodeWatchCount(
+					uid,
+					episode.tmdbShowId,
+					{
+						season: episode.season,
+						episode: episode.episode,
+						title: episode.episodeTitle,
+						runtime: episode.runtime,
+					},
+					count,
+					count - 1,
+					undefined,
+					watchlistPointer(episode, count, count - 1),
+				);
+			} catch (err: any) {
+				swipedOff.current.delete(`watched_${episode.id}`);
+				showCount(count, count - 1);
+				console.error("Unwatch failed:", err);
+				Alert.alert("Error", err.message || "Couldn't unwatch it.");
+				return false;
+			}
+			// Firestore's real count differed (a stale cached count) → the row follows it
+			if (final !== count - 1) showCount(final, count - 1);
 			decrementDailyWatch("episode");
 		},
 		[noteListChange, user?.uid, queryClient, rewatchFloor, watchlistPointer],
