@@ -53,6 +53,9 @@ import { batchEndOffsets, staggerFinishTimes } from "../../../utils/stagger";
 
 /** Only schedule the air-time re-check for episodes airing within a day */
 const AIR_RECHECK_MAX_MS = 86_400_000;
+/** Between arming the card glide for cards reaching their air time and showing them: armed in
+ *  the same commit as the move, the glide didn't run (the rows jumped) */
+const AIR_ARM_LEAD_MS = 120;
 
 const ACTIVE_CACHE_LIMIT = 100;
 
@@ -447,6 +450,7 @@ export function useWatchlistData(userId: string | undefined) {
 	useEffect(() => {
 		const now = Date.now();
 		let next = Infinity;
+		let showTimer: ReturnType<typeof setTimeout> | undefined;
 		for (const item of items) {
 			const stamp = nextEpisodeAirStamp(item.nextEpisode, item.catalogShow);
 			const t = stamp ? Date.parse(stamp) : NaN;
@@ -463,11 +467,14 @@ export function useWatchlistData(userId: string | undefined) {
 					const t = stamp ? Date.parse(stamp) : NaN;
 					if (t > now) noteListChange(item.tmdbId);
 				}
-				setAirClock((c) => c + 1);
+				showTimer = setTimeout(() => setAirClock((c) => c + 1), AIR_ARM_LEAD_MS);
 			},
 			next - now + 1000,
 		);
-		return () => clearTimeout(timer);
+		return () => {
+			clearTimeout(timer);
+			clearTimeout(showTimer);
+		};
 	}, [items, airClock, noteListChange]);
 
 	const sortedActive = useMemo(() => {
