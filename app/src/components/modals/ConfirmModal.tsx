@@ -47,6 +47,8 @@ interface Props {
 	hideCancel?: boolean;
 	/** A bottom drawer instead of a centred popup (the banner confirms: backdrop art on top) */
 	drawer?: boolean;
+	/** Drawer only: the question under the art ("Do you want to pause this show?") */
+	question?: string;
 	onClose: () => void;
 }
 
@@ -74,6 +76,7 @@ export default function ConfirmModal({
 	hideTitle = false,
 	hideCancel = false,
 	drawer = false,
+	question,
 	onClose,
 }: Props) {
 	const { width: screenW } = useWindowDimensions();
@@ -101,6 +104,7 @@ export default function ConfirmModal({
 				hideTitle={hideTitle}
 				hideCancel={hideCancel}
 				onClose={onClose}
+				question={question}
 				bannerWidth={screenW}
 			/>
 		);
@@ -278,7 +282,31 @@ const styles = StyleSheet.create({
 		borderRadius: 2,
 		backgroundColor: "rgba(255,255,255,0.7)",
 	},
-	drawerPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
+	// Emil: a pressed button answers at once — a touch smaller, not a fade
+	drawerPressed: { transform: [{ scale: 0.97 }] },
+	drawerQuestion: {
+		...typography.title,
+		fontSize: 20,
+		textAlign: "center",
+		marginBottom: spacing.xs,
+	},
+	// Secondary to the question: lighter, a little tighter
+	drawerHint: { lineHeight: 19, paddingHorizontal: spacing.sm },
+	// Taller, softer buttons: one clear action, the way out quieter beside it
+	drawerButton: {
+		height: 52,
+		paddingVertical: 0,
+		borderRadius: 14,
+		justifyContent: "center",
+	},
+	drawerButtonText: { fontSize: 16 },
+	// Cancel: a quiet filled button (no outline competing with the action)
+	drawerCancel: {
+		backgroundColor: colors.surfaceLight,
+		alignItems: "center",
+		marginTop: spacing.sm,
+	},
+	drawerCancelText: { color: colors.textSecondary },
 	cancelButton: {
 		paddingVertical: spacing.md,
 		borderRadius: 8,
@@ -321,14 +349,20 @@ function ConfirmDrawer({
 	hideTitle = false,
 	hideCancel = false,
 	onClose,
+	question,
 	bannerWidth,
 }: DrawerProps) {
 	const photo = isValidElement(image) && image.type === ModalBackdrop;
 	const banner = photo
-		? cloneElement(image as React.ReactElement<{ heading?: string; width?: number }>, {
-				heading: hideTitle ? undefined : title,
-				width: bannerWidth,
-			})
+		? cloneElement(
+				image as React.ReactElement<{ heading?: string; width?: number; fadeTo?: string }>,
+				{
+					heading: hideTitle ? undefined : title,
+					width: bannerWidth,
+					// Fades into the sheet, as the info drawer's art
+					fadeTo: colors.surface,
+				},
+			)
 		: null;
 	const button = (
 		label: string,
@@ -361,12 +395,14 @@ function ConfirmDrawer({
 							{image != null && <View style={styles.image}>{image}</View>}
 						</>
 					)}
-					{hint ? <Text style={styles.hint}>{hint}</Text> : null}
+					{question ? <Text style={styles.drawerQuestion}>{question}</Text> : null}
+					{hint ? <Text style={[styles.hint, styles.drawerHint]}>{hint}</Text> : null}
 					{error ? <Text style={styles.error}>{error}</Text> : null}
 					{leadLabel &&
 						onLead &&
 						button(leadLabel, onLead, [
 							styles.button,
+							styles.drawerButton,
 							leadColor ? { backgroundColor: leadColor } : {},
 							loading ? { opacity: 0.6 } : {},
 						])}
@@ -375,6 +411,7 @@ function ConfirmDrawer({
 						onConfirm,
 						[
 							styles.button,
+							styles.drawerButton,
 							leadLabel && onLead ? { marginTop: spacing.sm } : {},
 							confirmColor ? { backgroundColor: confirmColor } : {},
 							loading ? { opacity: 0.6 } : {},
@@ -382,13 +419,14 @@ function ConfirmDrawer({
 						loading ? (
 							<ActivityIndicator size="small" color={colors.text} />
 						) : (
-							<Text style={styles.buttonText}>{confirmLabel}</Text>
+							<Text style={[styles.buttonText, styles.drawerButtonText]}>{confirmLabel}</Text>
 						),
 					)}
 					{secondaryLabel &&
 						onSecondary &&
 						button(secondaryLabel, onSecondary, [
 							styles.button,
+							styles.drawerButton,
 							styles.secondary,
 							secondaryColor ? { backgroundColor: secondaryColor } : {},
 							loading ? { opacity: 0.6 } : {},
@@ -397,15 +435,20 @@ function ConfirmDrawer({
 						onTertiary &&
 						button(tertiaryLabel, onTertiary, [
 							styles.button,
+							styles.drawerButton,
 							styles.secondary,
 							loading ? { opacity: 0.6 } : {},
 						])}
 					{/* Kept (dimmed) while the action runs: the drawer doesn't change height */}
 					{!hideCancel &&
-						button(cancelLabel, () => close(), [
-							styles.cancelButton,
-							loading ? { opacity: 0.4 } : {},
-						])}
+						button(
+							cancelLabel,
+							() => close(),
+							[styles.drawerButton, styles.drawerCancel, loading ? { opacity: 0.4 } : {}],
+							<Text style={[styles.buttonText, styles.drawerButtonText, styles.drawerCancelText]}>
+								{cancelLabel}
+							</Text>,
+						)}
 				</View>
 			)}
 		</BottomSheet>

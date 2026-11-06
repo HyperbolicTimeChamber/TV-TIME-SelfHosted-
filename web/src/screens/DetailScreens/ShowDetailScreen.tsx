@@ -345,6 +345,11 @@ export default function ShowDetailScreen() {
 						title={
 							d.watchlistItem?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"
 						}
+						question={
+							d.watchlistItem?.status === WatchStatus.REWATCHING
+								? "Do you want to pause this rewatch?"
+								: "Do you want to pause this show?"
+						}
 						imageAtTop={!!show.backdrop_path}
 						hideTitle
 						image={

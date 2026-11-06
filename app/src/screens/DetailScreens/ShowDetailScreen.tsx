@@ -361,6 +361,11 @@ export default function ShowDetailScreen() {
 				visible={pauseModalVisible}
 				title={watchlistItem?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"}
 				drawer
+				question={
+					watchlistItem?.status === WatchStatus.REWATCHING
+						? "Do you want to pause this rewatch?"
+						: "Do you want to pause this show?"
+				}
 				imageAtTop={!!show?.backdrop_path}
 				hideTitle
 				image={

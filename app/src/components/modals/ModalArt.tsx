@@ -227,6 +227,7 @@ export function ModalBackdrop({
 	title,
 	paused = false,
 	removed = false,
+	fadeTo,
 	nameDelay = 0,
 	heading,
 	width,
@@ -238,6 +239,9 @@ export function ModalBackdrop({
 	title: string;
 	paused?: boolean;
 	removed?: boolean;
+	/** Fade the bottom into this colour (a drawer's surface, as the info drawer's art) instead of
+	 *  a dark shade */
+	fadeTo?: string;
 	/** Wait this long (ms) for the logo before showing the name — 0: name right away */
 	nameDelay?: number;
 	/** Popup title over the top (set by ConfirmModal) */
@@ -262,6 +266,21 @@ export function ModalBackdrop({
 	const h = (w * 9) / 16;
 	// Skeleton until the banner image is in; its overlays come in with it
 	const [loaded, setLoaded] = useState(false);
+	// Pause bars on a gray wash / a cross on a red one, over the whole banner
+	const overlay = (
+		<>
+			{paused && (
+				<View style={styles.backdropPause} pointerEvents="none">
+					<PauseBars size={h - PAUSE_INSET * 2} />
+				</View>
+			)}
+			{removed && (
+				<View style={[styles.backdropPause, styles.backdropRemove]} pointerEvents="none">
+					<RemoveCross size={(h - PAUSE_INSET * 2) * REMOVE_ICON_SCALE} />
+				</View>
+			)}
+		</>
+	);
 	return (
 		<View style={[styles.backdrop, { width: w, height: h }]}>
 			<Image
@@ -274,10 +293,12 @@ export function ModalBackdrop({
 			{!loaded && <SkeletonLine width={w} height={h} style={styles.backdropSkeleton} />}
 			{loaded && (
 				<>
-					{/* Darkens the bottom so the logo reads on any backdrop */}
+					{/* In a drawer the wash goes under the fade: the art still melts into the sheet */}
+					{fadeTo && overlay}
+					{/* Darkens the bottom so the logo reads on any backdrop — or fades it into the drawer */}
 					<LinearGradient
-						colors={["transparent", "rgba(0,0,0,0.85)"]}
-						style={styles.backdropShade}
+						colors={["transparent", fadeTo ?? "rgba(0,0,0,0.85)"]}
+						style={fadeTo ? styles.backdropFade : styles.backdropShade}
 					/>
 					<View style={styles.backdropLogo}>
 						{/* Name until the logo image is in (or when there's none) */}
@@ -296,16 +317,7 @@ export function ModalBackdrop({
 							/>
 						)}
 					</View>
-					{paused && (
-						<View style={styles.backdropPause} pointerEvents="none">
-							<PauseBars size={h - PAUSE_INSET * 2} />
-						</View>
-					)}
-					{removed && (
-						<View style={[styles.backdropPause, styles.backdropRemove]} pointerEvents="none">
-							<RemoveCross size={(h - PAUSE_INSET * 2) * REMOVE_ICON_SCALE} />
-						</View>
-					)}
+					{!fadeTo && overlay}
 				</>
 			)}
 			{/* Title on a top shade (mirrors the logo's bottom one), there from the skeleton on */}
@@ -363,6 +375,14 @@ const styles = StyleSheet.create({
 		top: 0,
 		left: 0,
 		borderRadius: 0,
+	},
+	// Into the drawer's surface (info drawer imageGradient): a touch past the edge, no seam
+	backdropFade: {
+		position: "absolute",
+		left: 0,
+		right: 0,
+		bottom: -1,
+		height: "70%",
 	},
 	backdropShade: {
 		position: "absolute",

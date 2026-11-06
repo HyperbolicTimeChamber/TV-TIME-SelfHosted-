@@ -39,6 +39,8 @@ interface Props {
 	hideCancel?: boolean;
 	/** A bottom drawer instead of a centred popup (the banner confirms: backdrop art on top) */
 	drawer?: boolean;
+	/** Drawer only: the question under the art ("Do you want to pause this show?") */
+	question?: string;
 	onClose: () => void;
 }
 
@@ -66,6 +68,7 @@ export default function ConfirmModal({
 	hideTitle = false,
 	hideCancel = false,
 	drawer = false,
+	question,
 	onClose,
 }: Props) {
 	// Photo art: up to the popup's top edge, the title on its own top shade
@@ -113,8 +116,8 @@ export default function ConfirmModal({
 		</>
 	);
 	if (drawer) {
-		// App ConfirmDrawer: the banner full bleed at the top (title over it), hint, the same
-		// buttons. Pressing a button never starts the sheet's drag (Add to List's first-tap fix);
+		// App ConfirmDrawer: the banner full bleed at the top (title over it), the question, hint, the
+		// same buttons. Pressing a button never starts the sheet's drag (Add to List's first-tap fix);
 		// Cancel stays (dimmed) while the action runs so the drawer keeps its height
 		return (
 			<BottomSheet visible={visible} label={title} onClose={onClose} locked={!!loading}>
@@ -130,13 +133,14 @@ export default function ConfirmModal({
 						{image != null && <div className={styles.modalImage}>{image}</div>}
 					</>
 				)}
+				{question && <p className={styles.drawerQuestion}>{question}</p>}
 				{hint && <p className={styles.modalHint}>{hint}</p>}
 				{error && <p className={styles.modalError}>{error}</p>}
-				<div onPointerDownCapture={(e) => e.stopPropagation()}>
+				<div className={styles.drawerButtons} onPointerDownCapture={(e) => e.stopPropagation()}>
 					{buttons}
 					{!hideCancel && (
 						<button
-							className={`${styles.button} ${styles.cancelOutline}`}
+							className={`${styles.button} ${styles.drawerCancel}`}
 							onClick={onClose}
 							disabled={!!loading}
 						>
