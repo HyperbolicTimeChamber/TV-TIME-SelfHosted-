@@ -1,5 +1,5 @@
 diff --git a/node_modules/@legendapp/list/react-native.js b/node_modules/@legendapp/list/react-native.js
-index b3c5a30..ebda8d3 100644
+index b3c5a30..10ab8c8 100644
 --- a/node_modules/@legendapp/list/react-native.js
 +++ b/node_modules/@legendapp/list/react-native.js
 @@ -1624,10 +1624,13 @@ function doMaintainScrollAtEnd(ctx) {
@@ -61,20 +61,8 @@ index b3c5a30..ebda8d3 100644
        onLayout,
        onScroll: onScroll2,
        ref: refScrollView,
-@@ -7651,6 +7659,11 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
-       onScroll: (event) => onScroll(ctx, event),
-       onScrollBeginDrag: (event) => {
-         var _a4, _b2;
-+        /* PATCH(watchloom): the user took over — drop a still-running initial scroll (as an
-+           imperative scroll does). On a slow phone its fallback checks run for seconds while rows
-+           measure; a user scroll in that time read as "not at target yet" and the list was
-+           scrolled back to initialScrollIndex mid-drag (the cold-open jump) */
-+        supersedeInitialScroll(ctx);
-         prepareReachedEdgeForNextUserScroll(ctx);
-         (_b2 = (_a4 = state.props).onScrollBeginDrag) == null ? void 0 : _b2.call(_a4, event);
-       },
 diff --git a/node_modules/@legendapp/list/react-native.mjs b/node_modules/@legendapp/list/react-native.mjs
-index 40e87cd..95a0b52 100644
+index 40e87cd..f690148 100644
 --- a/node_modules/@legendapp/list/react-native.mjs
 +++ b/node_modules/@legendapp/list/react-native.mjs
 @@ -1603,10 +1603,13 @@ function doMaintainScrollAtEnd(ctx) {
@@ -136,18 +124,6 @@ index 40e87cd..95a0b52 100644
        onLayout,
        onScroll: onScroll2,
        ref: refScrollView,
-@@ -7630,6 +7638,11 @@ var LegendListInner = typedForwardRef(function LegendListInner2(props, forwarded
-       onScroll: (event) => onScroll(ctx, event),
-       onScrollBeginDrag: (event) => {
-         var _a4, _b2;
-+        /* PATCH(watchloom): the user took over — drop a still-running initial scroll (as an
-+           imperative scroll does). On a slow phone its fallback checks run for seconds while rows
-+           measure; a user scroll in that time read as "not at target yet" and the list was
-+           scrolled back to initialScrollIndex mid-drag (the cold-open jump) */
-+        supersedeInitialScroll(ctx);
-         prepareReachedEdgeForNextUserScroll(ctx);
-         (_b2 = (_a4 = state.props).onScrollBeginDrag) == null ? void 0 : _b2.call(_a4, event);
-       },
 diff --git a/node_modules/@legendapp/list/reanimated.js b/node_modules/@legendapp/list/reanimated.js
 index f1265fa..7baec90 100644
 --- a/node_modules/@legendapp/list/reanimated.js

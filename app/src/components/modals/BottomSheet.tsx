@@ -192,6 +192,13 @@ export function SheetArt({ tmdbId, mediaType, backdropPath, posterPath, episode 
 }
 
 /** Bottom sheet shell: dimmed backdrop that fades with the sheet, drag down / tap outside to close */
+const SHEET_HANDLE_H = 4;
+/** The sheet's top corner radius — full-bleed art at the top rounds with it */
+export const SHEET_RADIUS = 20;
+/** Height of the grab handle with its margins: full-bleed art pulls up by this to meet the
+ *  sheet's top edge (and draws its own handle over itself) */
+export const SHEET_HANDLE_BLOCK = spacing.sm + SHEET_HANDLE_H + spacing.md;
+
 export default function BottomSheet({
 	visible,
 	onClose,
@@ -668,8 +675,8 @@ const styles = StyleSheet.create({
 	backdrop: { backgroundColor: colors.overlayLight },
 	sheet: {
 		backgroundColor: colors.surface,
-		borderTopLeftRadius: 20,
-		borderTopRightRadius: 20,
+		borderTopLeftRadius: SHEET_RADIUS,
+		borderTopRightRadius: SHEET_RADIUS,
 		paddingHorizontal: spacing.lg,
 	},
 	// Taller than any upward pull gets (it's damped: √distance × 2)
@@ -693,7 +700,7 @@ const styles = StyleSheet.create({
 	},
 	handle: {
 		width: 36,
-		height: 4,
+		height: SHEET_HANDLE_H,
 		borderRadius: 2,
 		backgroundColor: colors.textMuted,
 		alignSelf: "center",

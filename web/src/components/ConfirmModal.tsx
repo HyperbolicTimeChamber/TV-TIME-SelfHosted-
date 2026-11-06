@@ -3,6 +3,7 @@ import { Spin } from "antd";
 import AnimatedModal from "./AnimatedModal";
 import BottomSheet from "./BottomSheet";
 import { ModalBackdrop } from "./ModalArt";
+import SlideToConfirm from "./SlideToConfirm";
 import styles from "./styles/ui.module.scss";
 import { cssVars } from "../utils/cssVars";
 
@@ -39,6 +40,10 @@ interface Props {
 	hideCancel?: boolean;
 	/** A bottom drawer instead of a centred popup (the banner confirms: backdrop art on top) */
 	drawer?: boolean;
+	/** Drawer only: the question under the art ("Do you want to pause this show?") */
+	question?: string;
+	/** Drawer only: one slide-to-confirm bar replaces the buttons (pull the drawer down / tap outside to cancel) */
+	slideLabel?: string;
 	onClose: () => void;
 }
 
@@ -66,6 +71,8 @@ export default function ConfirmModal({
 	hideTitle = false,
 	hideCancel = false,
 	drawer = false,
+	question,
+	slideLabel,
 	onClose,
 }: Props) {
 	// Photo art: up to the popup's top edge, the title on its own top shade
@@ -113,35 +120,31 @@ export default function ConfirmModal({
 		</>
 	);
 	if (drawer) {
-		// App ConfirmDrawer: the banner as a rounded card (title over its top), hint, the same
-		// buttons. Pressing a button never starts the sheet's drag (Add to List's first-tap fix);
-		// Cancel stays (dimmed) while the action runs so the drawer keeps its height
+		// App ConfirmDrawer: the banner full bleed at the top, the question under the art (the title when
+		// there is none), hint, then the buttons — or one slide-to-confirm bar. Pressing a button never
+		// starts the sheet's drag (Add to List's first-tap fix). No Cancel button: pulling the drawer down
+		// or tapping outside cancels
+		const line = question ?? (hideTitle ? undefined : title);
 		return (
 			<BottomSheet visible={visible} label={title} onClose={onClose} locked={!!loading}>
 				{photo ? (
-					<div className={styles.drawerBanner}>
-						{cloneElement(image as ReactElement<{ heading?: string }>, {
-							heading: hideTitle ? undefined : title,
-						})}
-					</div>
+					<div className={styles.drawerBanner}>{image}</div>
 				) : (
-					<>
-						{!hideTitle && <p className={styles.modalTitle}>{title}</p>}
-						{image != null && <div className={styles.modalImage}>{image}</div>}
-					</>
+					image != null && <div className={styles.modalImage}>{image}</div>
 				)}
+				{line && <p className={styles.drawerQuestion}>{line}</p>}
 				{hint && <p className={styles.modalHint}>{hint}</p>}
 				{error && <p className={styles.modalError}>{error}</p>}
-				<div onPointerDownCapture={(e) => e.stopPropagation()}>
-					{buttons}
-					{!hideCancel && (
-						<button
-							className={`${styles.button} ${styles.cancelOutline}`}
-							onClick={onClose}
-							disabled={!!loading}
-						>
-							{cancelLabel}
-						</button>
+				<div className={styles.drawerButtons} onPointerDownCapture={(e) => e.stopPropagation()}>
+					{slideLabel ? (
+						<SlideToConfirm
+							label={slideLabel}
+							color={confirmColor ?? "#e74c3c"}
+							onConfirm={onConfirm}
+							loading={!!loading}
+						/>
+					) : (
+						buttons
 					)}
 				</div>
 			</BottomSheet>

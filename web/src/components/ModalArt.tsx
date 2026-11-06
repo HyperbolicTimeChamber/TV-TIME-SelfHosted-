@@ -1,3 +1,4 @@
+import { ImCross } from "react-icons/im";
 import { useEffect, useState } from "react";
 import { tmdbBackdropUri, tmdbLogoUri } from "@app/hooks/useTmdbImage";
 import { useTitleLogo } from "@app/hooks/useTitleLogo";
@@ -119,8 +120,8 @@ export function ModalLogo({
 }
 
 /** Show backdrop with its title logo (name as the fallback) over the bottom, edge to edge across
- *  the popup (no side padding); `paused` lays a big translucent pause icon over all of it.
- *  ConfirmModal pulls it up to the popup's top edge and passes its title as `heading` */
+ *  the popup (no side padding); `paused` lays a big translucent pause icon over all of it,
+ *  `removed` a red wash with a cross (removing it from tracking). ConfirmModal pulls it up to the popup's top edge and passes its title as `heading` */
 export function ModalBackdrop({
 	backdropPath,
 	logoPath: givenLogo,
@@ -128,6 +129,7 @@ export function ModalBackdrop({
 	mediaType,
 	title,
 	paused = false,
+	removed = false,
 	nameDelay = 0,
 	heading,
 }: {
@@ -137,6 +139,7 @@ export function ModalBackdrop({
 	mediaType?: MediaType;
 	title: string;
 	paused?: boolean;
+	removed?: boolean;
 	/** Wait this long (ms) for the logo before showing the name — 0: name right away */
 	nameDelay?: number;
 	/** Popup title over the top (set by ConfirmModal) */
@@ -181,6 +184,11 @@ export function ModalBackdrop({
 			{paused && (
 				<div className={styles.modalBackdropPause}>
 					<PauseBars />
+				</div>
+			)}
+			{removed && (
+				<div className={`${styles.modalBackdropPause} ${styles.modalBackdropRemove}`}>
+					<ImCross className={styles.removeCenter} color={colors.background} aria-hidden />
 				</div>
 			)}
 			{/* Title on a top shade (mirrors the logo's bottom one), there from the skeleton on */}

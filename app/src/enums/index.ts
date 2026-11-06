@@ -475,35 +475,7 @@ export enum AnalyticsEvent {
 	FIRESTORE_OPS = "firestore_ops",
 	PAGE_VIEWED = "page_viewed",
 	SIGN_UP_COMPLETED = "sign_up_completed",
-	/** TEMPORARY: the watchlist (tab or list) mounted again soon after launch — finds what
-	 *  rebuilds it on cold open (utils/remountDiagnostics). Remove with that module */
-	DEBUG_WATCHLIST_REMOUNT = "debug_watchlist_remount",
-	DEBUG_WATCHLIST_JUMP = "debug_watchlist_jump",
 }
-
-/** TEMPORARY (utils/remountDiagnostics): what mounted again */
-export enum WatchlistRemountKind {
-	/** The whole Watchlist tab (something above it swapped it out) */
-	TAB = "tab",
-	/** Only its list (the tab showed its loading / empty view in between) */
-	LIST = "list",
-}
-/** TEMPORARY (utils/remountDiagnostics): remounts this soon after launch are reported */
-export const REMOUNT_DIAG_WINDOW_MS = 60 * 1000;
-/** TEMPORARY (utils/remountDiagnostics): launch steps kept for the report */
-export const REMOUNT_DIAG_MAX_STEPS = 30;
-/** TEMPORARY (utils/remountDiagnostics): how long after launch a list jump is reported */
-export const JUMP_DIAG_WINDOW_MS = 3 * 60 * 1000;
-/** TEMPORARY (utils/remountDiagnostics): a scroll step this big that the finger didn't make */
-export const JUMP_DIAG_MIN_PX = 40;
-/** TEMPORARY (utils/remountDiagnostics): a step this big is no finger or fling, even mid-scroll */
-export const JUMP_DIAG_BIG_PX = 400;
-/** TEMPORARY (utils/remountDiagnostics): a row change this recent counts as the jump's cause */
-export const JUMP_DIAG_ROWS_RECENT_MS = 1000;
-/** TEMPORARY (utils/remountDiagnostics): jumps reported per launch */
-export const JUMP_DIAG_MAX_REPORTS = 3;
-/** TEMPORARY (utils/remountDiagnostics): a drag with no fling stops counting as the finger's */
-export const JUMP_DIAG_DRAG_SETTLE_MS = 300;
 
 /** Mixpanel `client_platform` super property (backend adds cloud_function / script) */
 export enum ClientPlatform {

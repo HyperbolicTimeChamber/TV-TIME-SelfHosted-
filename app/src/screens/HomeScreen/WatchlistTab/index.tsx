@@ -29,7 +29,7 @@ import {
 	ShowDrawer,
 } from "../../../components";
 import { colors, spacing } from "../../../theme";
-import { CARD_RADIUS, WatchlistRemountKind } from "../../../enums";
+import { CARD_RADIUS } from "../../../enums";
 import {
 	HomeStackParamList,
 	MainStackParamList,
@@ -50,14 +50,6 @@ import HomeEmpty, { CAUGHT_UP_ART, WELCOME_ART } from "../HomeEmpty";
 import { withCaughtUp } from "../../../utils";
 import { UP_NEXT_TITLE } from "../../../utils/watchlistList";
 import { rememberedRowSize, rowSizesReady, saveRowSizes } from "./rowSizes";
-import {
-	noteDragEnd,
-	noteLaunchStep,
-	noteRowsChange,
-	noteScrollOffset,
-	noteUserScroll,
-	noteWatchlistMount,
-} from "../../../utils/remountDiagnostics";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 /** Height of a pinned section header pill row */
@@ -493,6 +485,7 @@ export default function WatchlistTab() {
 		updatingShows,
 		handleMarkWatched,
 		handleStopWatching,
+		handleRemoveFromWatchlist,
 		handleMarkWatchedThrough,
 		handleUnmarkEpisode,
 		handleCarouselMarkWatched,
@@ -792,19 +785,22 @@ export default function WatchlistTab() {
 	const caughtUpFooter = listSettled && !caughtUp && listData.some((i) => i.type === "show");
 	// Up-next / previously watched card long-pressed → confirm pausing it
 	const [pauseTarget, setPauseTarget] = useState<EnrichedTrackingItem | null>(null);
+	// A movie up next (first watch) has nothing to pause: its long press removes it instead
+	const removingMovie = pauseTarget?.mediaType === MediaType.MOVIE;
 	const [pausing, setPausing] = useState(false);
 	const confirmPause = useCallback(async () => {
 		if (!pauseTarget) return;
 		setPausing(true);
 		try {
-			await handleStopWatching(pauseTarget);
+			if (removingMovie) await handleRemoveFromWatchlist(pauseTarget);
+			else await handleStopWatching(pauseTarget);
 			setPauseTarget(null);
 		} catch (err) {
 			console.error("pause failed:", err);
 		} finally {
 			setPausing(false);
 		}
-	}, [pauseTarget, handleStopWatching]);
+	}, [pauseTarget, removingMovie, handleStopWatching, handleRemoveFromWatchlist]);
 
 	// Open at "What's Up Next" (previously watched sits above it, reached by scrolling up).
 	// initialScrollIndex positions the list as it mounts (a timed scrollToIndex races the first layout).
@@ -821,7 +817,6 @@ export default function WatchlistTab() {
 	// list until it's scrolled again (cards stopped opening their info modal)
 	const scrollToUpNext = useCallback(() => {
 		if (upNextIndex > 0) {
-			noteLaunchStep(`scrollToUpNext:${upNextIndex}`);
 			listRef.current?.scrollToIndex({ index: upNextIndex, animated: false, viewOffset: 0 });
 		}
 	}, [upNextIndex]);
@@ -834,11 +829,9 @@ export default function WatchlistTab() {
 		const parent = navigation.getParent();
 		if (!parent) return;
 		const unsubBlur = parent.addListener("blur", () => {
-			noteLaunchStep("nav:blur");
 			leftTab.current = true;
 		});
 		const unsubFocus = parent.addListener("focus", () => {
-			noteLaunchStep(`nav:focus${leftTab.current ? " (after blur)" : ""}`);
 			if (!leftTab.current) return;
 			leftTab.current = false;
 			if (prevWatchedOffset > 0) {
@@ -986,19 +979,6 @@ export default function WatchlistTab() {
 		[listData],
 	);
 
-	// TEMPORARY (utils/remountDiagnostics): this tab's mounts, and its view (loading / empty /
-	// list) as it changes — the list mounting again means it was rebuilt
-	useEffect(() => noteWatchlistMount(WatchlistRemountKind.TAB), []);
-	const view = isLoading || !sizesReady ? "loading" : listData.length === 0 ? "empty" : "list";
-	useEffect(() => {
-		noteLaunchStep(`watchlist:${view}`);
-		if (view === "list") noteWatchlistMount(WatchlistRemountKind.LIST);
-	}, [view]);
-	// TEMPORARY: the rows as they change (a jump right after one points at it)
-	useEffect(() => {
-		noteRowsChange(`${listData.length} first:${listData[0] ? keyOf(listData[0]) : "-"}`);
-	}, [listKeys, listData]);
-
 	if (isLoading || !sizesReady) {
 		return (
 			<View style={styles.center}>
@@ -1039,16 +1019,19 @@ export default function WatchlistTab() {
 				// Heals (missing poster / episode name…) run only for cards kept on screen
 				onViewableItemsChanged={onViewableItemsChanged}
 				viewabilityConfig={CARD_VIEWABILITY}
+				// Always the same RefreshControl, switched off when there's nothing older to pull: on
+				// Android a RefreshControl wraps the native ScrollView, so adding / dropping it swapped
+				// the ScrollView for a new one — which opened at the list's initial offset ("What's Up
+				// Next", every poster reloading) while the user was scrolling elsewhere
 				refreshControl={
-					hasMorePrevWatched ? (
-						<RefreshControl
-							refreshing={loadingMorePrevWatched}
-							onRefresh={loadMorePrevWatched}
-							tintColor={colors.primary}
-							colors={[colors.primary]}
-							progressBackgroundColor={colors.surface}
-						/>
-					) : undefined
+					<RefreshControl
+						enabled={hasMorePrevWatched}
+						refreshing={loadingMorePrevWatched}
+						onRefresh={loadMorePrevWatched}
+						tintColor={colors.primary}
+						colors={[colors.primary]}
+						progressBackgroundColor={colors.surface}
+					/>
 				}
 				// Caught up: nothing more to page in (scrolling the empty state kept refetching)
 				onEndReached={caughtUp ? undefined : () => loadMoreTracking()}
@@ -1063,12 +1046,6 @@ export default function WatchlistTab() {
 				}
 				ItemSeparatorComponent={SeparatorComponent}
 				maintainVisibleContentPosition={mvcp}
-				// TEMPORARY (utils/remountDiagnostics): scroll moves the finger didn't make
-				onScroll={(e) => noteScrollOffset(e.nativeEvent.contentOffset.y)}
-				onScrollBeginDrag={() => noteUserScroll(true)}
-				onScrollEndDrag={noteDragEnd}
-				onMomentumScrollBegin={() => noteUserScroll(true)}
-				onMomentumScrollEnd={() => noteUserScroll(false)}
 				style={styles.list}
 				onLayout={(e) => setListH(e.nativeEvent.layout.height)}
 				contentContainerStyle={contentStyle}
@@ -1122,8 +1099,22 @@ export default function WatchlistTab() {
 			/>
 			<ConfirmModal
 				visible={!!pauseTarget}
-				title={pauseTarget?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"}
+				title={
+					removingMovie
+						? "Remove Movie?"
+						: pauseTarget?.status === WatchStatus.REWATCHING
+							? "Pause Rewatch?"
+							: "Pause Show?"
+				}
 				drawer
+				question={
+					removingMovie
+						? "Do You Want to Remove This Movie?"
+						: pauseTarget?.status === WatchStatus.REWATCHING
+							? "Do You Want to Pause This Rewatch?"
+							: "Do You Want to Pause This Show?"
+				}
+				slideLabel={removingMovie ? "Slide to Remove" : "Slide to Pause"}
 				imageAtTop={!!pauseTarget?.catalogShow?.backdropPath}
 				hideTitle
 				image={
@@ -1134,7 +1125,8 @@ export default function WatchlistTab() {
 							tmdbId={pauseTarget.tmdbId}
 							mediaType={pauseTarget.mediaType}
 							title={pauseTarget.title}
-							paused
+							paused={!removingMovie}
+							removed={removingMovie}
 							nameDelay={2000}
 						/>
 					) : (
@@ -1143,18 +1135,20 @@ export default function WatchlistTab() {
 							tmdbId={pauseTarget.tmdbId}
 							mediaType={pauseTarget.mediaType}
 							title={pauseTarget.title}
-							paused
+							paused={!removingMovie}
 							nameDelay={2000}
 						/>
 					)
 				}
 				hint={
-					pauseTarget?.status === WatchStatus.REWATCHING
-						? "Pausing this rewatch will take it off your watchlist. You can resume it any time from its page."
-						: "Pausing this show will take it off your watchlist. You can resume it any time from its page."
+					removingMovie
+						? "This will remove it from your watchlist. Your watch history will be kept."
+						: pauseTarget?.status === WatchStatus.REWATCHING
+							? "Pausing this rewatch will take it off your watchlist. You can resume it any time from its page."
+							: "Pausing this show will take it off your watchlist. You can resume it any time from its page."
 				}
-				confirmLabel="Pause"
-				confirmColor={colors.stopBlue}
+				confirmLabel={removingMovie ? "Remove" : "Pause"}
+				confirmColor={removingMovie ? colors.primary : colors.stopBlue}
 				loading={pausing}
 				onConfirm={confirmPause}
 				onClose={() => setPauseTarget(null)}

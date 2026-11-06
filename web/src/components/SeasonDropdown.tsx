@@ -323,6 +323,7 @@ export default memo(function SeasonDropdown({ readOnly, isFirst, isLast, ...prop
 						}
 						hint={s.seasonConfirmCopy.hint}
 						confirmLabel={s.seasonConfirmCopy.confirmLabel}
+						slideLabel={s.seasonConfirmCopy.slideLabel}
 						confirmColor={colors.watchedGreen}
 						onConfirm={s.confirmSeasonMark}
 						secondaryLabel={s.seasonConfirmCopy.secondaryLabel}

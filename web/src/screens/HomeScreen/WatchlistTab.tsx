@@ -85,12 +85,15 @@ export default function WatchlistTab() {
 		: null;
 	// Long press / right-click on a card → confirm pausing it (no swipe — too easy by accident)
 	const [pauseTarget, setPauseTarget] = useState<EnrichedTrackingItem | null>(null);
+	// A movie up next (first watch) has nothing to pause: its long press removes it instead
+	const removingMovie = pauseTarget?.mediaType === MediaType.MOVIE;
 	const [pausing, setPausing] = useState(false);
 	const confirmPause = async () => {
 		if (!pauseTarget) return;
 		setPausing(true);
 		try {
-			await w.handleStopWatching(pauseTarget);
+			if (removingMovie) await w.handleRemoveFromWatchlist(pauseTarget);
+			else await w.handleStopWatching(pauseTarget);
 			setPauseTarget(null);
 		} catch (err) {
 			console.error("pause failed:", err);
@@ -201,8 +204,22 @@ export default function WatchlistTab() {
 
 			<ConfirmModal
 				visible={!!pauseTarget}
-				title={pauseTarget?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"}
+				title={
+					removingMovie
+						? "Remove Movie?"
+						: pauseTarget?.status === WatchStatus.REWATCHING
+							? "Pause Rewatch?"
+							: "Pause Show?"
+				}
 				drawer
+				question={
+					removingMovie
+						? "Do You Want to Remove This Movie?"
+						: pauseTarget?.status === WatchStatus.REWATCHING
+							? "Do You Want to Pause This Rewatch?"
+							: "Do You Want to Pause This Show?"
+				}
+				slideLabel={removingMovie ? "Slide to Remove" : "Slide to Pause"}
 				imageAtTop={!!pauseTarget?.catalogShow?.backdropPath}
 				hideTitle
 				image={
@@ -213,7 +230,8 @@ export default function WatchlistTab() {
 							tmdbId={pauseTarget.tmdbId}
 							mediaType={pauseTarget.mediaType}
 							title={pauseTarget.title}
-							paused
+							paused={!removingMovie}
+							removed={removingMovie}
 							nameDelay={2000}
 						/>
 					) : (
@@ -222,18 +240,20 @@ export default function WatchlistTab() {
 							tmdbId={pauseTarget.tmdbId}
 							mediaType={pauseTarget.mediaType}
 							title={pauseTarget.title}
-							paused
+							paused={!removingMovie}
 							nameDelay={2000}
 						/>
 					)
 				}
 				hint={
-					pauseTarget?.status === WatchStatus.REWATCHING
-						? "Pausing this rewatch will take it off your watchlist. You can resume it any time from its page."
-						: "Pausing this show will take it off your watchlist. You can resume it any time from its page."
+					removingMovie
+						? "This will remove it from your watchlist. Your watch history will be kept."
+						: pauseTarget?.status === WatchStatus.REWATCHING
+							? "Pausing this rewatch will take it off your watchlist. You can resume it any time from its page."
+							: "Pausing this show will take it off your watchlist. You can resume it any time from its page."
 				}
-				confirmLabel="Pause"
-				confirmColor={colors.stopBlue}
+				confirmLabel={removingMovie ? "Remove" : "Pause"}
+				confirmColor={removingMovie ? colors.primary : colors.stopBlue}
 				loading={pausing}
 				onConfirm={confirmPause}
 				onClose={() => setPauseTarget(null)}

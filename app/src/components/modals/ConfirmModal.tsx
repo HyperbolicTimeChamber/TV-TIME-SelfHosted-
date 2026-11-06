@@ -10,7 +10,8 @@ import {
 // Drawer buttons: gesture-handler Pressables (BottomSheet's first-tap fix)
 import { Pressable } from "react-native-gesture-handler";
 import AnimatedModal from "./AnimatedModal";
-import BottomSheet from "./BottomSheet";
+import SlideToConfirm from "../SlideToConfirm";
+import BottomSheet, { SHEET_HANDLE_BLOCK, SHEET_RADIUS } from "./BottomSheet";
 import { ModalBackdrop } from "./ModalArt";
 import { colors, spacing, typography } from "../../theme";
 
@@ -43,10 +44,16 @@ interface Props {
 	imageAtTop?: boolean;
 	/** No title (the image / hint say it all) */
 	hideTitle?: boolean;
-	/** No Cancel button (tapping outside still closes) */
+	/** No Cancel button (tapping outside still closes). Drawers never have one: pulling them down
+	 *  or tapping outside cancels */
 	hideCancel?: boolean;
 	/** A bottom drawer instead of a centred popup (the banner confirms: backdrop art on top) */
 	drawer?: boolean;
+	/** Drawer only: the question under the art ("Do You Want to Pause This Show?"); default: the
+	 *  title (a drawer shows its title there, not over the art) */
+	question?: string;
+	/** Drawer only: one slide-to-confirm bar ("Slide to Pause") in place of the buttons */
+	slideLabel?: string;
 	onClose: () => void;
 }
 
@@ -74,6 +81,8 @@ export default function ConfirmModal({
 	hideTitle = false,
 	hideCancel = false,
 	drawer = false,
+	question,
+	slideLabel,
 	onClose,
 }: Props) {
 	const { width: screenW } = useWindowDimensions();
@@ -101,7 +110,9 @@ export default function ConfirmModal({
 				hideTitle={hideTitle}
 				hideCancel={hideCancel}
 				onClose={onClose}
-				bannerWidth={screenW - spacing.lg * 2}
+				question={question}
+				slideLabel={slideLabel}
+				bannerWidth={screenW}
 			/>
 		);
 	}
@@ -258,13 +269,44 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		color: colors.text,
 	},
-	// Rounded like the drawer's cards; clips the banner's corners
+	// Full bleed, as the info drawer's art: up to the sheet's edges and top (over the grab
+	// handle), its top corners rounding with the sheet's
 	drawerBanner: {
-		borderRadius: 14,
+		marginHorizontal: -spacing.lg,
+		marginTop: -SHEET_HANDLE_BLOCK,
+		marginBottom: spacing.lg,
+		borderTopLeftRadius: SHEET_RADIUS,
+		borderTopRightRadius: SHEET_RADIUS,
 		overflow: "hidden",
-		marginBottom: spacing.md,
 	},
-	drawerPressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
+	// The grab handle, drawn again over the art (light, so it reads on any backdrop)
+	drawerBannerHandle: {
+		position: "absolute",
+		top: spacing.sm,
+		alignSelf: "center",
+		width: 36,
+		height: 4,
+		borderRadius: 2,
+		backgroundColor: "rgba(255,255,255,0.7)",
+	},
+	// Emil: a pressed button answers at once — a touch smaller, not a fade
+	drawerPressed: { transform: [{ scale: 0.97 }] },
+	drawerQuestion: {
+		...typography.title,
+		fontSize: 20,
+		textAlign: "center",
+		marginBottom: spacing.xs,
+	},
+	// Secondary to the question: lighter, a little tighter
+	drawerHint: { lineHeight: 19, paddingHorizontal: spacing.sm },
+	// Taller, softer buttons: one clear action, the way out quieter beside it
+	drawerButton: {
+		height: 52,
+		paddingVertical: 0,
+		borderRadius: 14,
+		justifyContent: "center",
+	},
+	drawerButtonText: { fontSize: 16 },
 	cancelButton: {
 		paddingVertical: spacing.md,
 		borderRadius: 8,
@@ -282,9 +324,9 @@ type DrawerProps = Omit<Props, "drawer" | "imageAtTop"> & {
 	bannerWidth: number;
 };
 
-/** ConfirmModal as a bottom drawer: the banner (backdrop + logo, title over its top) as a rounded
- *  card, the hint, then the same buttons. Dismissed by Cancel, pulling it down or tapping outside
- *  (all locked while the action runs) */
+/** ConfirmModal as a bottom drawer: the banner (backdrop + logo, title over its top) full bleed
+ *  at the top (as the info drawer's art), the hint, then the same buttons. Dismissed by Cancel,
+ *  pulling it down or tapping outside (all locked while the action runs) */
 function ConfirmDrawer({
 	visible,
 	title,
@@ -303,18 +345,24 @@ function ConfirmDrawer({
 	onSecondary,
 	tertiaryLabel,
 	onTertiary,
-	cancelLabel,
 	hideTitle = false,
-	hideCancel = false,
 	onClose,
+	question,
+	slideLabel,
 	bannerWidth,
 }: DrawerProps) {
+	// Under the art, as the pause / remove drawers ask theirs
+	const ask = question ?? (hideTitle ? undefined : title);
 	const photo = isValidElement(image) && image.type === ModalBackdrop;
 	const banner = photo
-		? cloneElement(image as React.ReactElement<{ heading?: string; width?: number }>, {
-				heading: hideTitle ? undefined : title,
-				width: bannerWidth,
-			})
+		? cloneElement(
+				image as React.ReactElement<{ heading?: string; width?: number; fadeTo?: string }>,
+				{
+					width: bannerWidth,
+					// Fades into the sheet, as the info drawer's art
+					fadeTo: colors.surface,
+				},
+			)
 		: null;
 	const button = (
 		label: string,
@@ -334,61 +382,72 @@ function ConfirmDrawer({
 	);
 	return (
 		<BottomSheet visible={visible} onClose={onClose} locked={loading}>
-			{(close) => (
+			{() => (
 				<View>
 					{banner ? (
-						<View style={styles.drawerBanner}>{banner}</View>
+						<View style={styles.drawerBanner}>
+							{banner}
+							<View style={styles.drawerBannerHandle} pointerEvents="none" />
+						</View>
+					) : (
+						<>{image != null && <View style={styles.image}>{image}</View>}</>
+					)}
+					{ask ? <Text style={styles.drawerQuestion}>{ask}</Text> : null}
+					{hint ? <Text style={[styles.hint, styles.drawerHint]}>{hint}</Text> : null}
+					{error ? <Text style={styles.error}>{error}</Text> : null}
+					{slideLabel ? (
+						// One bar instead of the buttons: pulling the drawer down / tapping outside cancels
+						<SlideToConfirm
+							label={slideLabel}
+							color={confirmColor ?? colors.destructiveRed}
+							onConfirm={onConfirm}
+							loading={loading}
+						/>
 					) : (
 						<>
-							{!hideTitle && <Text style={styles.title}>{title}</Text>}
-							{image != null && <View style={styles.image}>{image}</View>}
+							{leadLabel &&
+								onLead &&
+								button(leadLabel, onLead, [
+									styles.button,
+									styles.drawerButton,
+									leadColor ? { backgroundColor: leadColor } : {},
+									loading ? { opacity: 0.6 } : {},
+								])}
+							{button(
+								confirmLabel,
+								onConfirm,
+								[
+									styles.button,
+									styles.drawerButton,
+									leadLabel && onLead ? { marginTop: spacing.sm } : {},
+									confirmColor ? { backgroundColor: confirmColor } : {},
+									loading ? { opacity: 0.6 } : {},
+								],
+								loading ? (
+									<ActivityIndicator size="small" color={colors.text} />
+								) : (
+									<Text style={[styles.buttonText, styles.drawerButtonText]}>{confirmLabel}</Text>
+								),
+							)}
+							{secondaryLabel &&
+								onSecondary &&
+								button(secondaryLabel, onSecondary, [
+									styles.button,
+									styles.drawerButton,
+									styles.secondary,
+									secondaryColor ? { backgroundColor: secondaryColor } : {},
+									loading ? { opacity: 0.6 } : {},
+								])}
+							{tertiaryLabel &&
+								onTertiary &&
+								button(tertiaryLabel, onTertiary, [
+									styles.button,
+									styles.drawerButton,
+									styles.secondary,
+									loading ? { opacity: 0.6 } : {},
+								])}
 						</>
 					)}
-					{hint ? <Text style={styles.hint}>{hint}</Text> : null}
-					{error ? <Text style={styles.error}>{error}</Text> : null}
-					{leadLabel &&
-						onLead &&
-						button(leadLabel, onLead, [
-							styles.button,
-							leadColor ? { backgroundColor: leadColor } : {},
-							loading ? { opacity: 0.6 } : {},
-						])}
-					{button(
-						confirmLabel,
-						onConfirm,
-						[
-							styles.button,
-							leadLabel && onLead ? { marginTop: spacing.sm } : {},
-							confirmColor ? { backgroundColor: confirmColor } : {},
-							loading ? { opacity: 0.6 } : {},
-						],
-						loading ? (
-							<ActivityIndicator size="small" color={colors.text} />
-						) : (
-							<Text style={styles.buttonText}>{confirmLabel}</Text>
-						),
-					)}
-					{secondaryLabel &&
-						onSecondary &&
-						button(secondaryLabel, onSecondary, [
-							styles.button,
-							styles.secondary,
-							secondaryColor ? { backgroundColor: secondaryColor } : {},
-							loading ? { opacity: 0.6 } : {},
-						])}
-					{tertiaryLabel &&
-						onTertiary &&
-						button(tertiaryLabel, onTertiary, [
-							styles.button,
-							styles.secondary,
-							loading ? { opacity: 0.6 } : {},
-						])}
-					{/* Kept (dimmed) while the action runs: the drawer doesn't change height */}
-					{!hideCancel &&
-						button(cancelLabel, () => close(), [
-							styles.cancelButton,
-							loading ? { opacity: 0.4 } : {},
-						])}
 				</View>
 			)}
 		</BottomSheet>

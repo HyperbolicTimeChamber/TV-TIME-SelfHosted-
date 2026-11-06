@@ -345,6 +345,12 @@ export default function ShowDetailScreen() {
 						title={
 							d.watchlistItem?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"
 						}
+						question={
+							d.watchlistItem?.status === WatchStatus.REWATCHING
+								? "Do You Want to Pause This Rewatch?"
+								: "Do You Want to Pause This Show?"
+						}
+						slideLabel="Slide to Pause"
 						imageAtTop={!!show.backdrop_path}
 						hideTitle
 						image={
