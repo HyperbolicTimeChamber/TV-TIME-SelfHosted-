@@ -8,11 +8,17 @@
  * tab or its list mounts again within REMOUNT_DIAG_WINDOW_MS of launch.
  */
 import {
+	JUMP_DIAG_BIG_PX,
+	JUMP_DIAG_DRAG_SETTLE_MS,
+	JUMP_DIAG_MAX_REPORTS,
+	JUMP_DIAG_MIN_PX,
+	JUMP_DIAG_ROWS_RECENT_MS,
+	JUMP_DIAG_WINDOW_MS,
 	REMOUNT_DIAG_MAX_STEPS,
 	REMOUNT_DIAG_WINDOW_MS,
 	WatchlistRemountKind,
 } from "../enums";
-import { trackWatchlistRemount } from "../services/mixpanel";
+import { trackWatchlistJump, trackWatchlistRemount } from "../services/mixpanel";
 
 const LAUNCH_MS = Date.now();
 const steps: string[] = [];
@@ -25,7 +31,7 @@ const sinceLaunch = () => Date.now() - LAUNCH_MS;
 
 /** A launch step (gate change, auth event, watchlist view change), with its time */
 export function noteLaunchStep(step: string) {
-	if (sinceLaunch() > REMOUNT_DIAG_WINDOW_MS) return;
+	if (sinceLaunch() > JUMP_DIAG_WINDOW_MS) return;
 	steps.push(`${sinceLaunch()}ms ${step}`);
 	if (steps.length > REMOUNT_DIAG_MAX_STEPS) steps.shift();
 }
@@ -39,6 +45,60 @@ export function noteWatchlistMount(kind: WatchlistRemountKind) {
 		kind,
 		ms_since_launch: sinceLaunch(),
 		mount_count: mounts[kind],
+		steps: steps.join(" | "),
+	});
+}
+
+// --- Jumps: the list didn't remount on the phone that jumps, so the view moves inside the list.
+// Every scroll step is checked: one the finger didn't make (no drag / fling running), or a big one
+// right after the rows changed, is reported with the recent steps (row changes, view changes)
+let userScrolling = false;
+let settleTimer: ReturnType<typeof setTimeout> | null = null;
+let lastOffset: number | null = null;
+let lastRowsChange = 0;
+let jumpReports = 0;
+
+/** Drag started / fling started (true) or fling ended (false) */
+export function noteUserScroll(active: boolean) {
+	if (settleTimer) clearTimeout(settleTimer);
+	settleTimer = null;
+	userScrolling = active;
+}
+
+/** Drag released: still the finger's until a fling starts or it settles */
+export function noteDragEnd() {
+	if (settleTimer) clearTimeout(settleTimer);
+	settleTimer = setTimeout(() => {
+		userScrolling = false;
+		settleTimer = null;
+	}, JUMP_DIAG_DRAG_SETTLE_MS);
+}
+
+/** The list's rows changed (count, first key, top section) */
+export function noteRowsChange(summary: string) {
+	lastRowsChange = Date.now();
+	noteLaunchStep(`rows:${summary}`);
+}
+
+/** The list's scroll offset, every scroll event */
+export function noteScrollOffset(offset: number) {
+	const prev = lastOffset;
+	lastOffset = offset;
+	if (prev === null || jumpReports >= JUMP_DIAG_MAX_REPORTS) return;
+	if (sinceLaunch() > JUMP_DIAG_WINDOW_MS) return;
+	const delta = Math.round(offset - prev);
+	if (Math.abs(delta) < JUMP_DIAG_MIN_PX) return;
+	const sinceRows = Date.now() - lastRowsChange;
+	if (userScrolling && sinceRows > JUMP_DIAG_ROWS_RECENT_MS && Math.abs(delta) < JUMP_DIAG_BIG_PX)
+		return;
+	jumpReports += 1;
+	noteLaunchStep(`jump:${delta}@${Math.round(offset)}${userScrolling ? " (dragging)" : ""}`);
+	trackWatchlistJump({
+		delta,
+		offset: Math.round(offset),
+		user_scrolling: userScrolling,
+		ms_since_rows_change: sinceRows,
+		ms_since_launch: sinceLaunch(),
 		steps: steps.join(" | "),
 	});
 }

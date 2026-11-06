@@ -50,7 +50,14 @@ import HomeEmpty, { CAUGHT_UP_ART, WELCOME_ART } from "../HomeEmpty";
 import { withCaughtUp } from "../../../utils";
 import { UP_NEXT_TITLE } from "../../../utils/watchlistList";
 import { rememberedRowSize, rowSizesReady, saveRowSizes } from "./rowSizes";
-import { noteLaunchStep, noteWatchlistMount } from "../../../utils/remountDiagnostics";
+import {
+	noteDragEnd,
+	noteLaunchStep,
+	noteRowsChange,
+	noteScrollOffset,
+	noteUserScroll,
+	noteWatchlistMount,
+} from "../../../utils/remountDiagnostics";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 /** Height of a pinned section header pill row */
@@ -814,6 +821,7 @@ export default function WatchlistTab() {
 	// list until it's scrolled again (cards stopped opening their info modal)
 	const scrollToUpNext = useCallback(() => {
 		if (upNextIndex > 0) {
+			noteLaunchStep(`scrollToUpNext:${upNextIndex}`);
 			listRef.current?.scrollToIndex({ index: upNextIndex, animated: false, viewOffset: 0 });
 		}
 	}, [upNextIndex]);
@@ -826,9 +834,11 @@ export default function WatchlistTab() {
 		const parent = navigation.getParent();
 		if (!parent) return;
 		const unsubBlur = parent.addListener("blur", () => {
+			noteLaunchStep("nav:blur");
 			leftTab.current = true;
 		});
 		const unsubFocus = parent.addListener("focus", () => {
+			noteLaunchStep(`nav:focus${leftTab.current ? " (after blur)" : ""}`);
 			if (!leftTab.current) return;
 			leftTab.current = false;
 			if (prevWatchedOffset > 0) {
@@ -984,6 +994,10 @@ export default function WatchlistTab() {
 		noteLaunchStep(`watchlist:${view}`);
 		if (view === "list") noteWatchlistMount(WatchlistRemountKind.LIST);
 	}, [view]);
+	// TEMPORARY: the rows as they change (a jump right after one points at it)
+	useEffect(() => {
+		noteRowsChange(`${listData.length} first:${listData[0] ? keyOf(listData[0]) : "-"}`);
+	}, [listKeys, listData]);
 
 	if (isLoading || !sizesReady) {
 		return (
@@ -1049,6 +1063,12 @@ export default function WatchlistTab() {
 				}
 				ItemSeparatorComponent={SeparatorComponent}
 				maintainVisibleContentPosition={mvcp}
+				// TEMPORARY (utils/remountDiagnostics): scroll moves the finger didn't make
+				onScroll={(e) => noteScrollOffset(e.nativeEvent.contentOffset.y)}
+				onScrollBeginDrag={() => noteUserScroll(true)}
+				onScrollEndDrag={noteDragEnd}
+				onMomentumScrollBegin={() => noteUserScroll(true)}
+				onMomentumScrollEnd={() => noteUserScroll(false)}
 				style={styles.list}
 				onLayout={(e) => setListH(e.nativeEvent.layout.height)}
 				contentContainerStyle={contentStyle}
