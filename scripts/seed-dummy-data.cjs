@@ -85,6 +85,8 @@ const SHOWS = [
 	{ title: "Real Time with Bill Maher", upToDate: true, releaseInMin: 4 },
 	{ title: "Jeopardy!", upToDate: true, releaseInMin: 5 },
 	{ title: "Wheel of Fortune", upToDate: true, releaseInMin: 6 },
+	{ title: "Hot Ones", upToDate: true, releaseInMin: 3 },
+	{ title: "Watch What Happens Live with Andy Cohen", upToDate: true, releaseInMin: 4 },
 ];
 const MOVIES = ["Dune: Part Two", "Avengers: Doomsday", "Spider-Man: Beyond the Spider-Verse"];
 // Upcoming movies sharing one release date (the busiest upcoming day) → movie "+n more" chip
