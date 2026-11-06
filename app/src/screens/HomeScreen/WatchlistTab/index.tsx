@@ -121,6 +121,8 @@ type HeaderMove = { from: number; to: number; token: number };
  */
 const CARD_LAYOUT = LinearTransition.duration(CARD_MOVE_MS).easing(CARD_MOVE_EASING);
 const CARD_LAYOUT_INSTANT = LinearTransition.duration(0);
+/** Rows held off the list during a mark's move join this long after the move is idle */
+const HELD_ROWS_SETTLE_MS = 100;
 /** How long a mark / unwatch keeps the glide on while its list change is on the way */
 const GLIDE_ARM_MS = 6000;
 /** When the pinned headers re-read the list's scroll after it may have moved (stickyScroll) */
@@ -501,7 +503,41 @@ export default function WatchlistTab() {
 	const listRef = useRef<LegendListRef | null>(null);
 
 	const drawnRows = useRef<readonly WatchlistListItem[]>([]);
-	const listData = fullData;
+	const [seenPromotions, setSeenPromotions] = useState(promotions);
+	// Rows a mark adds above "What's Up Next" while the list is scrolled into it (its header
+	// pinned, Previously Watched above the view) wait off the list while the marked card moves:
+	// it leaves / lifts, the rows under it glide, the pinned header stays. Then they join at once,
+	// above the view — the list holds its first card still, so its scroll moves with them and the
+	// header stays pinned. Added with the card's move, the new row zoomed in at the pinned
+	// header's spot over the shrinking card (slices) and the header came unpinned. Not when a
+	// lifted card lands above the view (listMotion's noAnchor): the rows above its slot glide down
+	const [held, setHeld] = useState<ReadonlySet<string> | null>(null);
+	/** Held rows just let in: they join without a zoom */
+	const quietRows = useRef<ReadonlySet<string>>(new Set());
+	// Compared by keys: the hook's list is rebuilt on every render
+	const fullKeys = useMemo(() => fullData.map(keyOf).join("|"), [fullData]);
+	const [seenFullKeys, setSeenFullKeys] = useState(fullKeys);
+	let hold = held;
+	if (seenFullKeys !== fullKeys) {
+		setSeenFullKeys(fullKeys);
+		const prev = drawnRows.current;
+		const upNextAt = fullData.findIndex((i) => keyOf(i) === UP_NEXT_KEY);
+		const liftedAboveView = promotions !== seenPromotions && !upNextTopOnScreen(listRef.current);
+		if (prev.length > 0 && upNextAt > 0 && !liftedAboveView && upNextOnScreen(listRef.current)) {
+			const prevKeys = new Set(prev.map(keyOf));
+			const added = fullData.slice(0, upNextAt).filter((i) => !prevKeys.has(keyOf(i)));
+			const byMark = added.some((i) => {
+				const id = rowTmdbId(i);
+				return isWatchedRow(i) && id !== null && wasJustMarked(id);
+			});
+			if (byMark) hold = new Set([...(held ?? []), ...added.map(keyOf)]);
+		}
+		if (hold !== held) setHeld(hold);
+	}
+	const listData = useMemo(
+		() => (hold ? fullData.filter((i) => !hold.has(keyOf(i))) : fullData),
+		[fullData, hold],
+	);
 
 	// The rows as last drawn: a reorder's glide starts from their layout
 	useEffect(() => {
@@ -538,7 +574,6 @@ export default function WatchlistTab() {
 		}, 3000);
 		return () => clearTimeout(t);
 	}, [listData.length]);
-	const [seenPromotions, setSeenPromotions] = useState(promotions);
 	// Rows compared by their keys (order included): the list's array is rebuilt on every render
 	const listKeys = useMemo(() => listData.map(keyOf).join("|"), [listData]);
 	// After the opening scroll / a reorder the list may have moved its scroll without an event
@@ -662,6 +697,7 @@ export default function WatchlistTab() {
 			return (
 				isWatchedRow(r) &&
 				!prevKeySet.has(keyOf(r)) &&
+				!quietRows.current.has(keyOf(r)) &&
 				id !== null &&
 				wasJustMarked(id) &&
 				prevRows.length > 0
@@ -717,6 +753,28 @@ export default function WatchlistTab() {
 		(key: string) => setLeaving((prev) => prev.filter((c) => c.key !== key)),
 		[],
 	);
+	// Held rows join once the card's move is over (the list anchors again): in one instant
+	// commit — a glide would slide every row by the scroll the list adds for them — and without
+	// a zoom (they land above the view)
+	const [releasing, setReleasing] = useState(false);
+	const moveIdle = leaving.length === 0 && !layoutMoving && opening === null && !noAnchor;
+	useEffect(() => {
+		if (!held || !moveIdle) return;
+		const t = setTimeout(() => {
+			quietRows.current = held;
+			setReleasing(true);
+			setHeld(null);
+		}, HELD_ROWS_SETTLE_MS);
+		return () => clearTimeout(t);
+	}, [held, moveIdle]);
+	useEffect(() => {
+		if (!releasing) return;
+		const t = setTimeout(() => {
+			setReleasing(false);
+			quietRows.current = new Set();
+		}, CARD_MOVE_MS);
+		return () => clearTimeout(t);
+	}, [releasing]);
 	// LegendList re-renders rows only when their data changes, so the glide rides in the rows
 	const onViewableItemsChanged = useCallback(
 		({ viewableItems }: { viewableItems: Array<{ item: ListRow }> }) =>
@@ -999,7 +1057,7 @@ export default function WatchlistTab() {
 				recycleItems
 				sharedValues={sharedValues}
 				getFixedItemSize={fixedRowSize}
-				itemLayoutAnimation={glideOn ? CARD_LAYOUT : CARD_LAYOUT_INSTANT}
+				itemLayoutAnimation={glideOn && !releasing ? CARD_LAYOUT : CARD_LAYOUT_INSTANT}
 				drawDistance={SCREEN_HEIGHT * 2}
 				estimatedItemSize={110}
 				stickyHeaderIndices={stickyIndices}
