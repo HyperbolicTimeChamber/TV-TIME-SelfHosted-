@@ -19,7 +19,7 @@ const TRACK_H = 56;
 const KNOB_INSET = 4;
 const KNOB = TRACK_H - KNOB_INSET * 2;
 /** Room either side of the label: the knob's slot plus a gap, the same on both sides so the
- *  label sits in the middle of a track only as wide as it needs */
+ *  label sits in the middle of the track */
 const SIDE = KNOB + KNOB_INSET * 2 + 12;
 /** The fill trails the knob, lighter (the knob carries the full colour) */
 const FILL_OPACITY = 0.35;
@@ -130,9 +130,10 @@ export default function SlideToConfirm({ label, color, onConfirm, loading = fals
 }
 
 const styles = StyleSheet.create({
-	// As wide as its label (+ the knob's room each side), centred in the drawer
+	// 80% of the drawer, centred; the label sits in the middle (the knob's room each side)
 	track: {
 		alignSelf: "center",
+		width: "80%",
 		paddingHorizontal: SIDE,
 		height: TRACK_H,
 		borderRadius: TRACK_H / 2,

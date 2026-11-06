@@ -12,8 +12,8 @@ $knob: $track-h - $inset * 2;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	/* Only as wide as the label (+ the knob's room each side) */
-	width: fit-content;
+	/* 80% of the drawer, centred; the label in the middle (the knob's room each side) */
+	width: 80%;
 	margin: 0 auto;
 	padding: 0 ($knob + $inset * 2 + 12px);
 	box-sizing: border-box;
