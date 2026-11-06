@@ -429,7 +429,22 @@ export enum AnalyticsEvent {
 	FIRESTORE_OPS = "firestore_ops",
 	PAGE_VIEWED = "page_viewed",
 	SIGN_UP_COMPLETED = "sign_up_completed",
+	/** TEMPORARY: the watchlist (tab or list) mounted again soon after launch — finds what
+	 *  rebuilds it on cold open (utils/remountDiagnostics). Remove with that module */
+	DEBUG_WATCHLIST_REMOUNT = "debug_watchlist_remount",
 }
+
+/** TEMPORARY (utils/remountDiagnostics): what mounted again */
+export enum WatchlistRemountKind {
+	/** The whole Watchlist tab (something above it swapped it out) */
+	TAB = "tab",
+	/** Only its list (the tab showed its loading / empty view in between) */
+	LIST = "list",
+}
+/** TEMPORARY (utils/remountDiagnostics): remounts this soon after launch are reported */
+export const REMOUNT_DIAG_WINDOW_MS = 60 * 1000;
+/** TEMPORARY (utils/remountDiagnostics): launch steps kept for the report */
+export const REMOUNT_DIAG_MAX_STEPS = 30;
 
 /** Mixpanel `client_platform` super property (backend adds cloud_function / script) */
 export enum ClientPlatform {

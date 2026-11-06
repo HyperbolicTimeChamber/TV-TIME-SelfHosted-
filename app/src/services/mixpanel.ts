@@ -220,6 +220,16 @@ export function trackEpisodeMarked(
 }
 
 /** Episode unwatched (`watchCountAfter` 0) or its watch count lowered by one */
+/** TEMPORARY (utils/remountDiagnostics): the watchlist mounted again soon after launch */
+export function trackWatchlistRemount(props: {
+	kind: string;
+	ms_since_launch: number;
+	mount_count: number;
+	steps: string;
+}) {
+	track(AnalyticsEvent.DEBUG_WATCHLIST_REMOUNT, props);
+}
+
 export function trackEpisodeUnwatched(
 	showId: string,
 	episodeId: string,
