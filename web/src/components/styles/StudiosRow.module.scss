@@ -49,8 +49,7 @@
 }
 
 /* Frosted glass behind each logo: mostly white (TMDB's logos are black on transparent — glass
-   that let the black page through would hide them), lighter at the top, a diagonal sheen and a
-   bright rim */
+   that let the black page through would hide them), lighter at the top, a diagonal sheen; no rim */
 .logoChip {
 	display: flex;
 	align-items: center;
@@ -60,7 +59,6 @@
 	background:
 		linear-gradient(135deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 60%),
 		linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.74));
-	border: 1px solid rgba(255, 255, 255, 0.8);
 	backdrop-filter: blur(12px) saturate(160%);
 	animation: chipIn 220ms cubic-bezier(0.23, 1, 0.32, 1) both;
 	animation-delay: calc(min(var(--i, 0), 6) * 40ms);

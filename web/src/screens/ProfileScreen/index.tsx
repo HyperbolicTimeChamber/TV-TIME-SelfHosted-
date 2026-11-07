@@ -129,7 +129,7 @@ export default function ProfileScreen() {
 			) : (
 				sections.length > 0 && (
 					<section className={styles.section}>
-						<h3 className={styles.sectionTitle}>Recently Completed</h3>
+						{/* No section title: the rows' own labels say what they are */}
 						{sections.map((section, row) => (
 							<div key={section.title} className={styles.genreSection}>
 								<span className={styles.genreTitle}>{section.title}</span>
@@ -166,7 +166,7 @@ export default function ProfileScreen() {
 				)
 			)}
 
-			<CustomLists />
+			<CustomLists standalone={!completedLoading && sections.length === 0} />
 		</div>
 	);
 }

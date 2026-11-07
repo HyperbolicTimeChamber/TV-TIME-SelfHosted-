@@ -252,6 +252,12 @@
 }
 
 /* Lists section (CustomLists) — app CustomLists.tsx */
+/* Continues Recently Completed: its side padding, no gap or title above */
+.listsSection {
+	padding: 0 16px;
+}
+
+/* Recently Completed's rows (genreSection) */
 .listRow {
 	margin-bottom: 16px;
 }
@@ -324,10 +330,10 @@
 	color: var(--text-secondary);
 }
 
+/* Recently Completed's row labels (genreTitle: Movies Watched / TV Shows Completed) */
 .listRowName {
 	min-width: 0;
-	font-size: 15px;
-	font-weight: 600;
+	font-size: 12px;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
