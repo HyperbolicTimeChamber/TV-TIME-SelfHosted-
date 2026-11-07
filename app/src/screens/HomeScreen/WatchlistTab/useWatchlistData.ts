@@ -306,13 +306,28 @@ export function useWatchlistData(userId: string | undefined) {
 	// Bumped by each noted change, before the list data moves: the list arms its card glide on
 	// it (a transition switched on in the same commit as the move didn't animate it)
 	const [listChangeArm, setListChangeArm] = useState(0);
+	// Titles just paused / removed from the list (a long press): the card itself shrinks away,
+	// not a mark's green "Watched" banner
+	const justLeft = useRef(new Set<number>());
 	const noteListChange = useCallback((tmdbId: number) => {
 		justMarked.current.set(tmdbId, Date.now());
+		justLeft.current.delete(tmdbId);
 		setListChangeArm((n) => n + 1);
 	}, []);
 	const wasJustMarked = useCallback(
 		(tmdbId: number) => Date.now() - (justMarked.current.get(tmdbId) ?? 0) < JUST_MARKED_MS,
 		[],
+	);
+	const noteLeftList = useCallback(
+		(tmdbId: number) => {
+			noteListChange(tmdbId);
+			justLeft.current.add(tmdbId);
+		},
+		[noteListChange],
+	);
+	const wasJustLeft = useCallback(
+		(tmdbId: number) => justLeft.current.has(tmdbId) && wasJustMarked(tmdbId),
+		[wasJustMarked],
 	);
 	// Pointer (`season-episode`) each patch was made from — the listener moving it anywhere else
 	// (an unwatch, another screen) means the patch is stale
@@ -1417,13 +1432,16 @@ export function useWatchlistData(userId: string | undefined) {
 	const handleStopWatching = useCallback(
 		async (item: EnrichedTrackingItem) => {
 			if (!userId) return;
+			// Noted before the write, in a render of its own: the card then leaves shrinking (app
+			// listMotion; web reads its exit animation from the card's last render before removal)
+			noteLeftList(item.tmdbId);
 			await stopWatching(userId, item.tmdbId, item.status, item.mediaType);
 			removeItem(item.tmdbId);
 			// Clean upcoming + calendar caches
 			removeShowFromUpcoming(item.tmdbId);
 			removeShowFromCalendarGlobal(item.tmdbId);
 		},
-		[userId, removeItem, removeShowFromUpcoming],
+		[userId, removeItem, removeShowFromUpcoming, noteLeftList],
 	);
 
 	// A movie on "What's Up Next" (not watched yet) can't be paused — it has no episodes to
@@ -1431,13 +1449,14 @@ export function useWatchlistData(userId: string | undefined) {
 	const handleRemoveFromWatchlist = useCallback(
 		async (item: EnrichedTrackingItem) => {
 			if (!userId) return;
+			noteLeftList(item.tmdbId);
 			await removeFromTracking(userId, item.tmdbId, item.mediaType);
 			removeItem(item.tmdbId);
 			removeShowFromUpcoming(item.tmdbId);
 			removeShowFromCalendarGlobal(item.tmdbId);
 			emitShowRemoved(item.tmdbId);
 		},
-		[userId, removeItem, removeShowFromUpcoming],
+		[userId, removeItem, removeShowFromUpcoming, noteLeftList],
 	);
 
 	// Pull-to-refresh: load the next page of both lists
@@ -1471,6 +1490,7 @@ export function useWatchlistData(userId: string | undefined) {
 		listData,
 		promotions,
 		wasJustMarked,
+		wasJustLeft,
 		noteListChange,
 		listChangeArm,
 		loading: effectiveLoading,

@@ -8,6 +8,10 @@ export const CLEAR_ICON_SIZE = 20;
 /** Poster card corners: the same 16 as a list card, so the pills and badges sit in matching curves */
 const CARD_RADIUS = 16;
 
+/** List view: poster width, and a row's height (poster 2:3 + the row's padding) */
+const ROW_POSTER_W = 64;
+export const ROW_HEIGHT = Math.round(ROW_POSTER_W * 1.5) + 2 * spacing.sm;
+
 export const styles = StyleSheet.create({
 	container: {
 		flex: 1,
@@ -59,6 +63,12 @@ export const styles = StyleSheet.create({
 	// Same ✕ as the suggestions page's search bar (SearchInputScreen)
 	clearButton: {
 		paddingHorizontal: spacing.md,
+		justifyContent: "center",
+	},
+	// Grid / List toggle — right end of the search bar (rides along with the collapsing header)
+	viewToggle: {
+		paddingLeft: spacing.xs,
+		paddingRight: spacing.md,
 		justifyContent: "center",
 	},
 	searchIconWrap: {
@@ -119,10 +129,10 @@ export const styles = StyleSheet.create({
 		bottom: 0,
 		left: 0,
 		right: 0,
-		backgroundColor: colors.overlayLight,
-		// Side and bottom room so the title and year clear the rounded corners
+		// Gradient drawn by the card (fades up into the poster). Top room for the fade; side and
+		// bottom room so the text clears the rounded corners
 		paddingHorizontal: spacing.md,
-		paddingTop: spacing.xs,
+		paddingTop: spacing.xl,
 		paddingBottom: spacing.sm + 2,
 	},
 	cardTitle: {
@@ -184,9 +194,53 @@ export const styles = StyleSheet.create({
 		backgroundColor: colors.warningAmber,
 		borderColor: colors.warningAmber,
 	},
-	bannerTop: {
+	// List view: one title per row — blurred backdrop, poster, title / meta / overview, badges
+	rowCard: {
 		flexDirection: "row" as const,
 		alignItems: "center" as const,
+		marginBottom: spacing.sm,
+		padding: spacing.sm,
+		gap: spacing.md,
+		borderRadius: CARD_RADIUS,
+		overflow: "hidden" as const,
+		backgroundColor: colors.surface,
+	},
+	// Darker than the list page's 0.55: the overview is small text over the backdrop
+	rowOverlay: { backgroundColor: "rgba(0, 0, 0, 0.7)" },
+	rowPoster: {
+		width: ROW_POSTER_W,
+		aspectRatio: 2 / 3,
+		borderRadius: 10,
+		backgroundColor: colors.surface,
+	},
+	rowInfo: { flex: 1, gap: spacing.xs },
+	rowTitle: { ...typography.subtitle, fontSize: 15 },
+	rowMeta: {
+		flexDirection: "row" as const,
+		alignItems: "center" as const,
+		gap: spacing.sm,
+	},
+	rowMetaText: { ...typography.caption, fontSize: 11 },
+	rowOverview: typography.caption,
+	rowBadges: { gap: 10, alignSelf: "center" as const },
+	// In the row's badge column, not floating over a poster
+	rowBadge: { position: "relative" as const, top: 0, right: 0 },
+	// SearchSkeleton list variant: the row's box
+	rowSkeleton: {
+		height: ROW_HEIGHT,
+		marginBottom: spacing.sm,
+		borderRadius: CARD_RADIUS,
+		backgroundColor: colors.border,
+	},
+	// TV / MOVIE pill with the year under it
+	bannerSide: {
+		alignItems: "flex-end" as const,
+		gap: 2,
+		flexShrink: 0,
+	},
+	bannerTop: {
+		flexDirection: "row" as const,
+		alignItems: "flex-start" as const,
 		justifyContent: "space-between" as const,
 		gap: 4,
 	},

@@ -18,8 +18,8 @@ export const DEFAULT_SEARCH_SORT: SearchSortView = {
 
 export const SEARCH_SORT_OPTIONS: SearchSortOption[] = [
 	{ ...DEFAULT_SEARCH_SORT, label: "Relevance" },
-	{ sort: SearchSort.DATE, direction: SortDirection.DESC, label: "Newest first" },
-	{ sort: SearchSort.DATE, direction: SortDirection.ASC, label: "Oldest first" },
+	{ sort: SearchSort.DATE, direction: SortDirection.DESC, label: "Newest First" },
+	{ sort: SearchSort.DATE, direction: SortDirection.ASC, label: "Oldest First" },
 	{ sort: SearchSort.NAME, direction: SortDirection.ASC, label: "A → Z" },
 ];
 

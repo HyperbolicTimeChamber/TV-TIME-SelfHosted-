@@ -3,7 +3,8 @@ import { memo, type ReactNode } from "react";
 import { Spin } from "antd";
 import { IoAdd, IoBookmark, IoBookmarkOutline } from "react-icons/io5";
 import { motion } from "motion/react";
-import { MediaType } from "@app/enums";
+import { CustomListView, MediaType } from "@app/enums";
+import { tmdbBlurredBackdropUri } from "@app/hooks/useTmdbImage";
 import { useLongPress } from "../../hooks/useLongPress";
 import type { TMDBShow } from "@app/types";
 import PosterImage from "../../components/PosterImage";
@@ -18,6 +19,8 @@ interface Props {
 	isAdding: boolean;
 	/** In at least one custom list */
 	isListed?: boolean;
+	/** Grid (poster card, default) or List (a row: poster, title, meta, overview) */
+	layout?: CustomListView;
 	onPress: (item: TMDBShow) => void;
 	/** Without these the card has no watchlist badge (Hall of Shame: everything there is tracked) */
 	onAdd?: (item: TMDBShow) => void;
@@ -37,6 +40,7 @@ function SearchCard({
 	isInWatchlist,
 	isAdding,
 	isListed = false,
+	layout = CustomListView.GRID,
 	onPress,
 	onAdd,
 	onRemove,
@@ -51,6 +55,90 @@ function SearchCard({
 	const press = useLongPress(onLongPress ? () => onLongPress(item) : undefined, () =>
 		onPress(item),
 	);
+	const isList = layout === CustomListView.LIST;
+	const typeBadge = (
+		<span
+			className={`${styles.typeBadge} ${mediaType === MediaType.MOVIE ? styles.typeBadgeMovie : ""}`}
+		>
+			{mediaType === MediaType.TV ? "TV" : "MOVIE"}
+		</span>
+	);
+	const watchlistBadge = canTrack && onAdd && onRemove && (
+		<button
+			className={`${styles.badge} ${isList ? styles.rowBadge : ""} ${isInWatchlist ? styles.badgeActive : ""}`}
+			aria-label={isInWatchlist ? "Remove from watchlist" : "Add to watchlist"}
+			disabled={isAdding}
+			onClick={(e) => {
+				e.stopPropagation();
+				if (isAdding) return;
+				if (isInWatchlist) onRemove(item);
+				else onAdd(item);
+			}}
+		>
+			{/* Vector glyphs sit in the middle of their box — a text "+" rode high and off centre */}
+			{isAdding ? (
+				<Spin size="small" />
+			) : isInWatchlist ? (
+				<HiCheck size={18} />
+			) : (
+				<IoAdd size={18} />
+			)}
+		</button>
+	);
+	const listBadge = canTrack && onAddToList && (
+		<button
+			className={`${styles.listBadge} ${onAdd ? "" : styles.listBadgeTop} ${isList ? styles.rowBadge : ""} ${isListed ? styles.listBadgeActive : ""}`}
+			aria-label="Add to List"
+			onClick={(e) => {
+				e.stopPropagation();
+				onAddToList(item);
+			}}
+		>
+			{isListed ? <IoBookmark size={14} /> : <IoBookmarkOutline size={14} />}
+		</button>
+	);
+
+	if (isList) {
+		return (
+			<motion.div
+				className={styles.rowCard}
+				{...press}
+				whileTap={{ opacity: 0.7 }}
+				role="link"
+				aria-label={title}
+			>
+				{item.backdrop_path && (
+					<img
+						src={tmdbBlurredBackdropUri(item.backdrop_path)}
+						alt=""
+						className={styles.rowBackdrop}
+						loading="lazy"
+					/>
+				)}
+				<PosterImage
+					posterPath={item.poster_path}
+					mediaType={mediaType}
+					className={styles.rowPoster}
+					width={92}
+				/>
+				<div className={styles.rowInfo}>
+					<span className={styles.rowTitle}>{title}</span>
+					<div className={styles.rowMeta}>
+						{typeBadge}
+						{year && <span>{year}</span>}
+						{item.vote_average > 0 && <span>★ {item.vote_average.toFixed(1)}</span>}
+					</div>
+					{item.overview && <span className={styles.rowOverview}>{item.overview}</span>}
+				</div>
+				{(watchlistBadge || listBadge) && (
+					<div className={styles.rowBadges}>
+						{watchlistBadge}
+						{listBadge}
+					</div>
+				)}
+			</motion.div>
+		);
+	}
 
 	return (
 		<motion.div
@@ -66,52 +154,18 @@ function SearchCard({
 				className={styles.poster}
 				width={180}
 			/>
-			{canTrack && onAdd && onRemove && (
-				<button
-					className={`${styles.badge} ${isInWatchlist ? styles.badgeActive : ""}`}
-					aria-label={isInWatchlist ? "Remove from watchlist" : "Add to watchlist"}
-					disabled={isAdding}
-					onClick={(e) => {
-						e.stopPropagation();
-						if (isAdding) return;
-						if (isInWatchlist) onRemove(item);
-						else onAdd(item);
-					}}
-				>
-					{/* Vector glyphs sit in the middle of their box — a text "+" rode high and off centre */}
-					{isAdding ? (
-						<Spin size="small" />
-					) : isInWatchlist ? (
-						<HiCheck size={18} />
-					) : (
-						<IoAdd size={18} />
-					)}
-				</button>
-			)}
-			{canTrack && onAddToList && (
-				<button
-					className={`${styles.listBadge} ${onAdd ? "" : styles.listBadgeTop} ${isListed ? styles.listBadgeActive : ""}`}
-					aria-label="Add to List"
-					onClick={(e) => {
-						e.stopPropagation();
-						onAddToList(item);
-					}}
-				>
-					{isListed ? <IoBookmark size={14} /> : <IoBookmarkOutline size={14} />}
-				</button>
-			)}
+			{watchlistBadge}
+			{listBadge}
 			{overlay && <div className={styles.overlayTags}>{overlay}</div>}
 			{footer ?? (
 				<div className={styles.banner}>
 					<div className={styles.bannerTop}>
 						<span className={styles.cardTitle}>{title}</span>
-						<span
-							className={`${styles.typeBadge} ${mediaType === MediaType.MOVIE ? styles.typeBadgeMovie : ""}`}
-						>
-							{mediaType === MediaType.TV ? "TV" : "MOVIE"}
-						</span>
+						<div className={styles.bannerSide}>
+							{typeBadge}
+							{year && <span className={styles.cardYear}>{year}</span>}
+						</div>
 					</div>
-					{year && <span className={styles.cardYear}>{year}</span>}
 				</div>
 			)}
 		</motion.div>

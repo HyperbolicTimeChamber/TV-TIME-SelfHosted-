@@ -2,6 +2,8 @@ import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing } from "../theme";
 
+const FAB_SIZE = 56;
+
 interface Props {
 	/** Distance from the bottom of the parent (include the safe-area inset where needed) */
 	bottom: number;
@@ -32,9 +34,9 @@ const styles = StyleSheet.create({
 	fab: {
 		position: "absolute",
 		right: spacing.lg,
-		width: 56,
-		height: 56,
-		borderRadius: 28,
+		width: FAB_SIZE,
+		height: FAB_SIZE,
+		borderRadius: FAB_SIZE / 2,
 		backgroundColor: colors.primary,
 		alignItems: "center",
 		justifyContent: "center",

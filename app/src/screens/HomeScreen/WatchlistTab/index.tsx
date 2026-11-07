@@ -490,6 +490,7 @@ export default function WatchlistTab() {
 		listData: liveListData,
 		promotions,
 		wasJustMarked,
+		wasJustLeft,
 		listChangeArm,
 		listSettled,
 		loadMoreTracking,
@@ -1069,7 +1070,15 @@ export default function WatchlistTab() {
 			/>
 			{leaving.map((card) => (
 				<LeavingGhost key={card.key} card={card} onDone={leftList}>
-					{card.row.type === "show" && wasJustMarked(card.row.item.tmdbId) ? (
+					{card.row.type === "show" && wasJustLeft(card.row.item.tmdbId) ? (
+						// Paused / removed with a long press: the card itself shrinks away
+						<ShowCard
+							item={card.row.item}
+							onSwipeLeft={noopAsync}
+							onPress={noop}
+							onCheckmark={noopAsync}
+						/>
+					) : card.row.type === "show" && wasJustMarked(card.row.item.tmdbId) ? (
 						// Marked off "What's Up Next" (finale / nothing aired next): the green banner it
 						// waited on is what shrinks away — a dimmed "watched" copy of the card in between
 						// read as a Previously Watched row sitting in the wrong section
