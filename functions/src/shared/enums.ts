@@ -79,6 +79,7 @@ export enum Callable {
   SEARCH_TITLES = "searchTitles",
   EXPORT_ACCOUNT_DATA = "exportAccountData",
   CANCEL_ACCOUNT_JOB = "cancelAccountJob",
+  WATCH_PROVIDERS = "watchProviders",
 }
 
 const MINUTE_MS = 60 * 1000;
@@ -108,6 +109,8 @@ export const CALLABLE_RATE_LIMITS: Record<
   [Callable.EXPORT_ACCOUNT_DATA]: { limit: 6, windowMs: 10 * MINUTE_MS },
   // One per cancelled export (each export is rate limited above)
   [Callable.CANCEL_ACCOUNT_JOB]: { limit: 10, windowMs: 10 * MINUTE_MS },
+  // One per info page opened (titles already stored never call it). Per uid, or per IP for guests
+  [Callable.WATCH_PROVIDERS]: { limit: 60, windowMs: MINUTE_MS },
 };
 
 /** Guest TMDB proxy: uncached requests one IP may make per minute (CDN hits don't count) */
@@ -160,7 +163,20 @@ export enum FunctionName {
   CANCEL_ACCOUNT_JOB = "cancelAccountJob",
   ROLLBACK_CANCELLED_IMPORT = "rollbackCancelledImport",
   TRACKING_SYNC_STAMP = "trackingSyncStamp",
+  WATCH_PROVIDERS = "watchProviders",
 }
+
+/**
+ * Where to Watch store for titles without a catalog doc (catalog titles keep theirs on the doc,
+ * so the info page gets it with the catalog read). Same doc ids as shows/
+ */
+export const WATCH_PROVIDERS_COLLECTION = "watchProviders";
+/** TMDB requests/second the watchProviders callable may make (one instance → global) */
+export const WATCH_PROVIDERS_TMDB_RATE_LIMIT = 10;
+/** Longest a watchProviders TMDB request may queue before the call fails as busy */
+export const WATCH_PROVIDERS_MAX_QUEUE_WAIT_MS = 8000;
+/** ISO 3166-1 country code (the region a title's services are stored under) */
+export const COUNTRY_CODE = /^[A-Z]{2}$/;
 
 /** Account export (Settings → Export My Data): which titles (mirrors the app's ExportScope) */
 export enum ExportScope {

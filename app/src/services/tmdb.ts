@@ -115,6 +115,14 @@ export async function getShowDetails(apiKey: string, tmdbId: number, mediaType: 
 	return res.data as TMDBShow;
 }
 
+/** Country code → English name ("DE" → "Germany") — for runtimes without Intl.DisplayNames */
+export async function getCountryNames(apiKey: string): Promise<Record<string, string>> {
+	const res = await tmdb(apiKey).get("/configuration/countries");
+	const names: Record<string, string> = {};
+	for (const c of res.data ?? []) names[c.iso_3166_1] = c.english_name;
+	return names;
+}
+
 type TmdbLogo = { file_path: string; iso_639_1: string | null };
 
 /** Best title logo — English, else language-neutral (same pick as the catalog's logoPath) */

@@ -1,9 +1,62 @@
 import { HiCheck } from "react-icons/hi";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Spin } from "antd";
 import { IoBookmark, IoBookmarkOutline, IoEllipsisVertical } from "react-icons/io5";
-import { CircleButtonTone, MediaType, WatchStatus } from "@app/enums";
+import {
+	ADD_TO_WATCHLIST_LABELS,
+	CircleButtonTone,
+	MARK_WATCHED_LABELS,
+	MediaType,
+	WatchStatus,
+} from "@app/enums";
 import CircleButton from "../../components/CircleButton";
 import styles from "./styles/ShowDetailScreen.module.scss";
+
+const TICK_PX = 20;
+const TICK_GAP_PX = 8;
+
+/**
+ * A pill's label, shortened to fit ("Mark as Watched" → "Mark Watched" → "Watched") instead of
+ * wrapping onto two lines when the row is narrow. App: ActionPills FitLabel
+ */
+function FitLabel({ labels, icon }: { labels: readonly string[]; icon?: ReactNode }) {
+	const box = useRef<HTMLSpanElement>(null);
+	const measured = useRef<(HTMLSpanElement | null)[]>([]);
+	const [label, setLabel] = useState<string>(labels[0]);
+	const iconPx = icon ? TICK_PX + TICK_GAP_PX : 0;
+	useLayoutEffect(() => {
+		const el = box.current;
+		if (!el) return;
+		const fit = () => {
+			const room = el.clientWidth;
+			// Not laid out (yet): the full label
+			if (room === 0) return setLabel(labels[0]);
+			const i = labels.findIndex(
+				(_, j) => (measured.current[j]?.offsetWidth ?? Infinity) + iconPx <= room,
+			);
+			setLabel(labels[i === -1 ? labels.length - 1 : i]);
+		};
+		fit();
+		if (typeof ResizeObserver === "undefined") return;
+		const observer = new ResizeObserver(fit);
+		observer.observe(el);
+		return () => observer.disconnect();
+	}, [labels, iconPx]);
+	return (
+		<span ref={box} className={styles.fitLabel}>
+			{/* Every label measured off screen, never shown */}
+			<span className={styles.fitMeasure} aria-hidden>
+				{labels.map((l, i) => (
+					<span key={l} ref={(n) => void (measured.current[i] = n)}>
+						{l}
+					</span>
+				))}
+			</span>
+			{icon}
+			{label}
+		</span>
+	);
+}
 
 interface Props {
 	mediaType: MediaType;
@@ -60,7 +113,7 @@ export default function ActionPills(p: Props) {
 					onClick={p.onAddToWatchlist}
 					disabled={p.adding}
 				>
-					{p.adding ? <Spin size="small" /> : "+ Add to Watchlist"}
+					{p.adding ? <Spin size="small" /> : <FitLabel labels={ADD_TO_WATCHLIST_LABELS} />}
 				</button>
 				{isMovie && (
 					<button
@@ -71,10 +124,7 @@ export default function ActionPills(p: Props) {
 						{p.adding ? (
 							<Spin size="small" />
 						) : (
-							<>
-								<HiCheck size={20} />
-								Mark as Watched
-							</>
+							<FitLabel labels={MARK_WATCHED_LABELS} icon={<HiCheck size={TICK_PX} />} />
 						)}
 					</button>
 				)}
@@ -99,10 +149,7 @@ export default function ActionPills(p: Props) {
 					{p.adding ? (
 						<Spin size="small" />
 					) : (
-						<>
-							<HiCheck size={20} />
-							Mark as Watched
-						</>
+						<FitLabel labels={MARK_WATCHED_LABELS} icon={<HiCheck size={TICK_PX} />} />
 					)}
 				</button>
 			)}

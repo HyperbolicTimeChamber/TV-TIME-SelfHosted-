@@ -89,6 +89,40 @@ export interface CatalogSeason {
   episodes: CatalogEpisode[];
 }
 
+/** A streaming service offering a title (TMDB watch providers, data by JustWatch) */
+export interface StoredWatchProvider {
+  id: number;
+  name: string;
+  /** TMDB image path of the service's logo */
+  logo: string;
+}
+
+/** A title's streaming services in one country — an empty list is stored too (no refetch) */
+export interface RegionWatchProviders {
+  /** Subscription, free and ad-supported services (not rent / buy), TMDB's order */
+  providers: StoredWatchProvider[];
+  /** TMDB's watch page for the title there (links on to each service) */
+  link: string | null;
+  /** ms epoch */
+  updatedAt: number;
+}
+
+/**
+ * Where to Watch on a catalog doc (or a watchProviders/ doc): only countries someone opened the
+ * info page from — the weekly sync refreshes just these
+ */
+export interface WatchProvidersFields {
+  watchProviders?: Record<string, RegionWatchProviders>;
+  /** The countries in watchProviders (queryable: the weekly sync finds titles by it) */
+  watchRegions?: string[];
+}
+
+export interface WatchProvidersRequest {
+  tmdbId: number;
+  mediaType: MediaType;
+  region: string;
+}
+
 export interface CatalogShow {
   tmdbId: number;
   mediaType: MediaType;

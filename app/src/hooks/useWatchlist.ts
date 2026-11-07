@@ -28,6 +28,7 @@ import {
 	CacheKey,
 	MediaType,
 	QueryKey,
+	type RegionWatchProviders,
 	type TMDBEpisode,
 } from "../types";
 import { EpisodeType, RefreshReason } from "../enums";
@@ -274,6 +275,27 @@ export function prefillCatalog(tmdbId: number, mediaType: MediaType): Promise<Ca
 		.finally(() => catalogFills.delete(key));
 	catalogFills.set(key, fill);
 	return fill;
+}
+
+/**
+ * A country's Where to Watch the watchProviders CF just stored → onto the cached catalog doc too,
+ * so the next visit reads it from the cache (no CF call). Nothing else on the doc changed, so
+ * the watchlist isn't told
+ */
+export function cacheWatchProviders(
+	tmdbId: number,
+	mediaType: MediaType,
+	region: string,
+	value: RegionWatchProviders,
+) {
+	const key = showDocId(tmdbId, mediaType);
+	const cached = sharedCatalogCache.get(key);
+	if (!cached) return;
+	sharedCatalogCache.set(key, {
+		...cached,
+		watchProviders: { ...cached.watchProviders, [region]: value },
+	});
+	persistCatalogCache(sharedCatalogCache);
 }
 
 type CatalogPatchListener = (catalog: CatalogShow) => void;
