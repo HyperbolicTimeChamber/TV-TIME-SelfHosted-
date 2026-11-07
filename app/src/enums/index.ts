@@ -53,6 +53,10 @@ export enum FreshTag {
 export const JUST_AIRED_WINDOW_DAYS = 7;
 
 export enum CacheKey {
+	/** In-app update: the build "Not now" was tapped on (its drawer stays away until a newer one) */
+	UPDATE_SKIPPED_BUILD = "update_skipped_build",
+	/** Debug (dev / staging builds): a simulated update / force update for the test flow (JSON) */
+	UPDATE_SIMULATION = "update_simulation",
 	WATCHLIST_PROFILE = "profile_watchlist_cache",
 	WATCHLIST_ACTIVE = "watchlist_active_cache_v2",
 	/** Confirmed: every tracking page is loaded (nothing more to page in) — skips the skeleton footer */
@@ -527,6 +531,37 @@ export const MIN_BUILD_FIELD: Record<ReleaseChannel, string> = {
 	[ReleaseChannel.DEV]: "minBuildDev",
 	[ReleaseChannel.PROD]: "minBuildProd",
 };
+
+/** config/release: each channel's latest APK + minimum build (CI writes it; public read — no
+ *  secrets, and the login screen checks for updates too) */
+export const RELEASE_CONFIG_DOC = ["config", "release"] as const;
+
+/** The channel this build checks for updates: CI's, or dev in a local dev build (test flow) */
+export const UPDATE_CHANNEL: ReleaseChannel | null =
+	(Object.values(ReleaseChannel) as string[]).includes(RELEASE_CHANNEL)
+		? (RELEASE_CHANNEL as ReleaseChannel)
+		: // Web has no __DEV__ (and no updates)
+			(globalThis as { __DEV__?: boolean }).__DEV__
+			? ReleaseChannel.DEV
+			: null;
+
+/** FCM topic a channel's new-version pushes go to (CI sends `{ type: APP_UPDATE_MESSAGE }`) */
+export const UPDATE_TOPIC: Record<ReleaseChannel, string> = {
+	[ReleaseChannel.DEV]: "app-updates-dev",
+	[ReleaseChannel.PROD]: "app-updates-prod",
+};
+/** Message of the callables' refusal of a build below the minimum (functions UPDATE_REQUIRED_MESSAGE) */
+export const UPDATE_REQUIRED_MESSAGE = "update-required";
+/** FCM data `type` of a new-version push */
+export const APP_UPDATE_MESSAGE = "app_update";
+
+
+/** The APK a download is saved as (cache dir; replaced by each download) */
+export const UPDATE_APK_FILE = "watchloom-update.apk";
+/** Progress events are coalesced to this often (the notification can't redraw faster) */
+export const UPDATE_PROGRESS_INTERVAL_MS = 500;
+/** The release doc is re-read at most this often when the app comes back to the foreground */
+export const UPDATE_RECHECK_MS = 60 * 60 * 1000;
 
 /** A watchlist card heals (Firestore re-read / refreshShow) only after staying on screen this
  *  long — cards scrolled past aren't worth a read or a call */

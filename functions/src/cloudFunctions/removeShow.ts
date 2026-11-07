@@ -17,7 +17,7 @@ export const removeShow = trackedOnCall(
     memory: "256MiB",
   },
   async (request): Promise<{ success: boolean; facetDelta?: FacetDelta | null }> => {
-    const uid = requireCaller(request, Callable.REMOVE_SHOW);
+    const uid = await requireCaller(request, Callable.REMOVE_SHOW);
     if (request.data?.warmup) return { success: true };
 
     const { tmdbId, mediaType } = request.data as RemoveShowRequest;

@@ -29,7 +29,7 @@ export const importMatches = trackedOnCall(
     memory: "1GiB",
   },
   async (request): Promise<ImportStats> => {
-    const uid = requireCaller(request, Callable.IMPORT_MATCHES);
+    const uid = await requireCaller(request, Callable.IMPORT_MATCHES);
     if (request.data?.warmup)
       return {
         showsImported: 0,

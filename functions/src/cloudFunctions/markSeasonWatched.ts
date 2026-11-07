@@ -22,7 +22,7 @@ export const markSeasonWatched = trackedOnCall(
     memory: "256MiB",
   },
   async (request) => {
-    const uid = requireCaller(request, Callable.MARK_SEASON_WATCHED);
+    const uid = await requireCaller(request, Callable.MARK_SEASON_WATCHED);
     if (request.data?.warmup) return { markedCount: 0 };
 
     const data = request.data as MarkSeasonRequest;

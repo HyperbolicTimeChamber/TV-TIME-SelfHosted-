@@ -12,7 +12,7 @@ export const rebuildUpcoming = trackedOnCall(
     memory: "512MiB",
   },
   async (request) => {
-    const uid = requireCaller(request, Callable.REBUILD_UPCOMING);
+    const uid = await requireCaller(request, Callable.REBUILD_UPCOMING);
 
     const db = getFirestore();
     await rebuildUserUpcoming(db, uid);
