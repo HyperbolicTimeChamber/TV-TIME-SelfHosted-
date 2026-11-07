@@ -28,6 +28,7 @@ import { Paths } from "../../routes/paths";
 import { appDeepLink, isAndroidBrowser } from "../../utils/deepLink";
 import styles from "./styles/ShowDetailScreen.module.scss";
 import { cssVars, px } from "../../utils/cssVars";
+import WhereToWatch from "../../components/WhereToWatch";
 
 /** Space kept between the sticky back button and the pills pushing it off */
 const BACK_PUSH_GAP = 8;
@@ -288,6 +289,9 @@ export default function ShowDetailScreen() {
 						)}
 					</div>
 				)}
+
+				{/* Movies: last on the page; shows: above the seasons */}
+				<WhereToWatch tmdbId={tmdbId} mediaType={mediaType} title={d.title ?? ""} />
 
 				{mediaType === MediaType.TV && show.seasons && (
 					<section className={styles.seasonsSection}>

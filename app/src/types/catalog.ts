@@ -24,7 +24,24 @@ export interface CatalogSeason {
 	episodes: CatalogEpisode[];
 }
 
+/** A streaming service offering a title (functions StoredWatchProvider) */
+export interface WatchProvider {
+	id: number;
+	name: string;
+	/** TMDB image path of the service's logo */
+	logo: string;
+}
+
+/** A title's streaming services in one country — an empty list means none (functions type) */
+export interface RegionWatchProviders {
+	providers: WatchProvider[];
+	link: string | null;
+	updatedAt: number;
+}
+
 export interface CatalogShow {
+	/** Where to Watch, for the countries someone opened the info page from (watchProviders CF) */
+	watchProviders?: Record<string, RegionWatchProviders>;
 	tmdbId: number;
 	mediaType: MediaType;
 	title: string;

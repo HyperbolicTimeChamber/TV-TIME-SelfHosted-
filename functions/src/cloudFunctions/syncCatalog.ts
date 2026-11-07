@@ -10,6 +10,7 @@ import { trackedOnSchedule } from "../hooks/trackedTriggers";
 import { movieCatalogFields } from "../hooks/catalogFields";
 import { propagateTitleFacets } from "../hooks/titleFacets";
 import { sameFacets, titleFacets } from "../shared/titleFacets";
+import { syncWatchProviders } from "../hooks/watchProviders";
 
 export const syncCatalog = trackedOnSchedule(
   FunctionName.SYNC_CATALOG,
@@ -124,6 +125,11 @@ export const syncCatalog = trackedOnSchedule(
     if (facetChanges.length > 0) {
       console.log(`Genres / keywords changed on ${facetChanges.length} titles; ${facetTrackers} trackers updated`);
     }
+
+    // Phase 4d: Where to Watch — only the countries already stored on each title
+    await syncWatchProviders(db, apiKey).catch((err) =>
+      console.error("Where to Watch sync failed:", err),
+    );
 
     // Phase 5: Build active shows index
     const activeShowIds: string[] = [];

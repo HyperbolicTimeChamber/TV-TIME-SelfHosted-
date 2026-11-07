@@ -97,6 +97,29 @@
 	margin-top: 16px;
 }
 
+/* Mark as Watched's label: spans the pill's inner width (the room it gets), centred in it */
+.fitLabel {
+	position: relative;
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	white-space: nowrap;
+}
+
+.fitMeasure {
+	position: absolute;
+	left: 0;
+	top: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	visibility: hidden;
+	pointer-events: none;
+}
+
 .pill {
 	flex: 1;
 	min-width: 100px;
@@ -166,9 +189,12 @@
 	padding: 0 12px;
 }
 
+/* The metric font of the Upcoming / calendar cards (values only; labels stay as they are) */
 .statValue {
-	font-size: 18px;
-	font-weight: 700;
+	font-family: "Smooch Sans", sans-serif;
+	font-size: 24px;
+	font-weight: 500;
+	letter-spacing: 0.5px;
 }
 
 .statLabel {

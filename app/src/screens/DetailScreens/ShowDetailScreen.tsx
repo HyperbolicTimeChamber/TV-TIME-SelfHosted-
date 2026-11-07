@@ -12,6 +12,7 @@ import Reanimated, {
 import DetailBackdrop from "./DetailBackdrop";
 import ActionPills from "./ActionPills";
 import DetailCredits from "./DetailCredits";
+import WhereToWatch from "../../components/WhereToWatch";
 import WatchCountPill from "../../components/WatchCountPill";
 import { useShowDetailActions } from "./useShowDetailActions";
 import { useAuthStore } from "../../stores";
@@ -29,7 +30,7 @@ import { showShareUrl, describeLoadError, titleListCount } from "../../utils";
 import ErrorState from "../../components/ErrorState";
 import CircleButton, { CIRCLE_BUTTON_SIZE, CircleBackButton } from "../../components/CircleButton";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
-import { colors, spacing, typography } from "../../theme";
+import { colors, fonts, spacing, typography } from "../../theme";
 import { HomeStackParamList, MediaType, Route, WatchStatus } from "../../types";
 import { CircleButtonTone } from "../../enums";
 import { ModalBackdrop, ModalLogo } from "../../components/modals/ModalArt";
@@ -282,6 +283,14 @@ export default function ShowDetailScreen() {
 							<DetailCredits directors={directors} writers={writers} producers={producers} />
 						)}
 
+						{/* Movies: last on the page; shows: above the seasons */}
+						<WhereToWatch
+							tmdbId={tmdbId}
+							mediaType={mediaType}
+							title={title ?? ""}
+							bleed={spacing.lg}
+						/>
+
 						{mediaType === MediaType.TV && show.seasons && (
 							<View style={styles.seasonsSection}>
 								<Text style={styles.sectionTitle}>Seasons</Text>
@@ -484,10 +493,11 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		paddingHorizontal: spacing.md,
 	},
+	// The metric font of the Upcoming / calendar cards (values only; labels stay as they are)
 	statValue: {
-		...typography.subtitle,
-		fontSize: 18,
-		fontWeight: "700",
+		fontFamily: fonts.smoochMedium,
+		fontSize: 24,
+		letterSpacing: 0.5,
 		color: colors.text,
 	},
 	statLabel: {

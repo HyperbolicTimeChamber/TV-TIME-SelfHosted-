@@ -99,6 +99,8 @@ export enum CacheKey {
 	CUSTOM_LIST_VIEW = "custom_list_view_v1",
 	/** Hall of Shame: Grid / List */
 	HISTORY_VIEW = "history_view_v1",
+	/** The viewer's country + when it was looked up (Where to Watch) */
+	USER_REGION = "user_region_v1",
 	/** Search (Trending + results): Grid / List */
 	SEARCH_VIEW = "search_view_v1",
 	/** + uid — tracking delta sync state: lastSync, saved page count, hasMore, last full fetch day */
@@ -127,7 +129,72 @@ export enum QueryKey {
 	TITLE_LOGO = "titleLogo",
 	CUSTOM_LISTS = "customLists",
 	TITLE_INFO = "titleInfo",
+	/** + tmdbId, mediaType, region — a title's streaming services (info page Where to Watch) */
+	WATCH_PROVIDERS = "watchProviders",
+	/** The viewer's country (IP lookup, else the device locale) */
+	USER_REGION = "userRegion",
+	/** TMDB's country list (code → English name) */
+	COUNTRY_NAMES = "countryNames",
 }
+
+/** Info page pills, longest first — a pill shows the first that fits on one line */
+export const MARK_WATCHED_LABELS = ["Mark as Watched", "Mark Watched", "Watched"] as const;
+export const ADD_TO_WATCHLIST_LABELS = ["+ Add to Watchlist", "+ Watchlist", "+ Add"] as const;
+
+/**
+ * Where to Watch: where a service's button goes, by its short display name (lowercase). `search`
+ * opens the service's search for the title (`{q}` = the title) where it takes one from a link;
+ * otherwise `home` opens the service. Plain https links: on a phone the service's app opens them
+ * when installed. Not listed → TMDB's watch page for the title (it links on to each service).
+ * TMDB doesn't expose services' own title ids, so a title page can't be linked directly.
+ */
+export const PROVIDER_LINKS: Record<string, { search?: string; home: string }> = {
+	netflix: { search: "https://www.netflix.com/search?q={q}", home: "https://www.netflix.com/" },
+	"prime video": {
+		search: "https://www.primevideo.com/search/ref=atv_nb_sr?phrase={q}",
+		home: "https://www.primevideo.com/",
+	},
+	"disney+": { home: "https://www.disneyplus.com/" },
+	"hbo max": { search: "https://play.hbomax.com/search?q={q}", home: "https://play.hbomax.com/" },
+	"apple tv+": { search: "https://tv.apple.com/search?term={q}", home: "https://tv.apple.com/" },
+	"apple tv": { search: "https://tv.apple.com/search?term={q}", home: "https://tv.apple.com/" },
+	"paramount+": { home: "https://www.paramountplus.com/" },
+	hulu: { search: "https://www.hulu.com/search?q={q}", home: "https://www.hulu.com/" },
+	peacock: { home: "https://www.peacocktv.com/" },
+	"peacock premium": { home: "https://www.peacocktv.com/" },
+	crunchyroll: {
+		search: "https://www.crunchyroll.com/search?q={q}",
+		home: "https://www.crunchyroll.com/",
+	},
+	youtube: {
+		search: "https://www.youtube.com/results?search_query={q}",
+		home: "https://www.youtube.com/",
+	},
+	"youtube premium": {
+		search: "https://www.youtube.com/results?search_query={q}",
+		home: "https://www.youtube.com/",
+	},
+	mubi: { search: "https://mubi.com/search/films?query={q}", home: "https://mubi.com/" },
+	"rtl+": { search: "https://plus.rtl.de/suche?q={q}", home: "https://plus.rtl.de/" },
+	"rtl+ max": { search: "https://plus.rtl.de/suche?q={q}", home: "https://plus.rtl.de/" },
+	joyn: { search: "https://www.joyn.de/suche?q={q}", home: "https://www.joyn.de/" },
+	"joyn plus": { search: "https://www.joyn.de/suche?q={q}", home: "https://www.joyn.de/" },
+	wow: { home: "https://www.wowtv.de/" },
+	"wow fiction": { home: "https://www.wowtv.de/" },
+	"sky go": { home: "https://www.sky.de/sky-go" },
+	"pluto tv": { home: "https://pluto.tv/" },
+	plex: { home: "https://watch.plex.tv/" },
+	"animation digital network": { home: "https://animationdigitalnetwork.com/" },
+};
+
+/** Where the viewer's country comes from: an IP lookup (no key, no permission prompt) */
+export const COUNTRY_LOOKUP_URL = "https://api.country.is/";
+/** The IP lookup is given this long before the device locale's region stands in */
+export const COUNTRY_LOOKUP_TIMEOUT_MS = 3000;
+/** The looked-up country is reused this long (a trip abroad updates it next day) */
+export const USER_REGION_TTL_MS = 24 * 60 * 60 * 1000;
+/** A title's streaming services change rarely: refetched at most once a day */
+export const WATCH_PROVIDERS_STALE_MS = 24 * 60 * 60 * 1000;
 
 /** Watch count sheet actions (episode / season / movie) */
 export enum WatchAction {
@@ -332,6 +399,7 @@ export enum CloudFunction {
 	SEARCH_TITLES = "searchTitles",
 	EXPORT_ACCOUNT_DATA = "exportAccountData",
 	CANCEL_ACCOUNT_JOB = "cancelAccountJob",
+	WATCH_PROVIDERS = "watchProviders",
 }
 
 /** Callable error codes (web SDK prefixes them with "functions/") */
