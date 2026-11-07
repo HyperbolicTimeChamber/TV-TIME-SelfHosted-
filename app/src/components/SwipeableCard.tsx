@@ -57,6 +57,9 @@ interface Props {
 	/** Identity of what the card shows — a recycled list row resets its swipe state when it
 	 *  changes (a remounting `key` would throw away the recycled views) */
 	resetKey?: string;
+	/** What the row shows of its item (e.g. its watch count): a change while the card is held on
+	 *  its banner (the action moved the row, or changed it in place) lets the banner go */
+	contentKey?: string;
 }
 
 /** Rows held on their banner (see HOLD_MS), by resetKey → called once the list has dropped
@@ -95,6 +98,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		leftColor = colors.watchedGreen,
 		rightColor = colors.stopBlue,
 		resetKey,
+		contentKey,
 	},
 	ref,
 ) {
@@ -147,6 +151,18 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		setShowReveal(false);
 		setSwipeState("idle");
 	}, [resetKey, translateX, centred]);
+	// The row took the action's result in place (same item, new content — e.g. its count): a
+	// banner held for it goes, back to the row (a row the list drops ends on releaseHeldSwipe)
+	const shownContent = useRef(contentKey);
+	const contentChanged = useRef(false);
+	const backToRow = useRef<() => void>(() => {});
+	useEffect(() => {
+		if (contentKey === shownContent.current) return;
+		shownContent.current = contentKey;
+		if (!isProcessing.current) return;
+		contentChanged.current = true;
+		if (resetKey && heldRows.has(resetKey)) backToRow.current();
+	}, [contentKey, resetKey]);
 	const onSwipeLeftRef = useRef(onSwipeLeft);
 	onSwipeLeftRef.current = onSwipeLeft;
 	const onSwipeRightRef = useRef(onSwipeRight);
@@ -163,6 +179,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 			if (seq <= handledSeq.current || isProcessing.current) return;
 			handledSeq.current = seq;
 			isProcessing.current = true;
+			contentChanged.current = false;
 
 			const persist = persistRef.current;
 			const shouldPersist = typeof persist === "object" ? persist[direction] : !!persist;
@@ -210,11 +227,27 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 					isProcessing.current = false;
 					return;
 				}
-				// The action takes the row off the list (an unwatch to 0): stay on its banner until
-				// the list drops it — the list then shrinks that banner away (WatchlistTab). Coming
-				// back to the row in between read as the unwatch undoing itself. Still here after
-				// HOLD_MS (the list kept it) → show it again rather than a stuck banner
+				// The action takes the row off the list (an unwatch to 0) or changes it (contentKey):
+				// stay on its banner until the list drops it — the list then shrinks that banner away
+				// (WatchlistTab) — or the row shows the change. Coming back to the row in between read
+				// as the unwatch undoing itself. Still here after HOLD_MS (the list kept it, unchanged)
+				// → show it again rather than a stuck banner
 				const key = resetKeyRef.current;
+				const release = () => {
+					if (key) heldRows.delete(key);
+					if (restoreTimer.current) clearTimeout(restoreTimer.current);
+					translateX.value = 0;
+					centred.value = 0;
+					setShowReveal(false);
+					setSwipeState("idle");
+					isProcessing.current = false;
+				};
+				backToRow.current = release;
+				// Already changed in place while it saved: back to the row now
+				if (contentChanged.current) {
+					release();
+					return;
+				}
 				if (key) {
 					heldRows.set(key, () => {
 						heldRows.delete(key);
@@ -222,14 +255,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 						setSwipeState("done");
 					});
 				}
-				restoreTimer.current = setTimeout(() => {
-					if (key) heldRows.delete(key);
-					translateX.value = 0;
-					centred.value = 0;
-					setShowReveal(false);
-					setSwipeState("idle");
-					isProcessing.current = false;
-				}, HOLD_MS);
+				restoreTimer.current = setTimeout(release, HOLD_MS);
 			} catch (err) {
 				console.error("SwipeableCard action failed:", err);
 				translateX.value = withTiming(0, { duration: 300 });

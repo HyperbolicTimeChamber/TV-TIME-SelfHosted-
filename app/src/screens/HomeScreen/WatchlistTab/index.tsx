@@ -135,6 +135,8 @@ type LeavingRow = {
 	y: number;
 	h: number;
 	clipTop: number;
+	/** Taken off by an unwatch swipe: its blue banner is what shrinks away */
+	swiped: boolean;
 };
 /** The list's top padding (styles.listContent): LegendList positions start under it */
 const LIST_PAD_TOP = spacing.sm;
@@ -179,6 +181,7 @@ function listMotion(
 	promoted: boolean,
 	wasJustChanged: (tmdbId: number) => boolean,
 	listH: number,
+	isSwipedOff: (rowKey: string) => boolean,
 ): {
 	move: boolean;
 	grow: Set<string>;
@@ -208,9 +211,22 @@ function listMotion(
 	};
 	const clipTop = upNextOnScreen(list) ? SECTION_HEADER_H : 0;
 
+	const nextIndex = new Map(next.map((n, i) => [keyOf(n), i]));
+	/** An unwatch swipe sent this row back to its first watch: it stays in the list, elsewhere */
+	const swipedAway = (d: WatchlistListItem, key: string) => {
+		const j = nextIndex.get(key);
+		if (j === undefined || !isSwipedOff(key)) return false;
+		const i = prev.indexOf(d);
+		const neighbour = (rows: readonly WatchlistListItem[], at: number) =>
+			rows[at] ? keyOf(rows[at]) : null;
+		return (
+			neighbour(prev, i - 1) !== neighbour(next, j - 1) &&
+			neighbour(prev, i + 1) !== neighbour(next, j + 1)
+		);
+	};
 	for (const d of prev) {
 		const key = keyOf(d);
-		if (nextKeys.has(key) || !changed(d)) continue;
+		if (!changed(d) || (nextKeys.has(key) && !swipedAway(d, key))) continue;
 		const pos = state.positionByKey(key);
 		if (pos === undefined) continue;
 		const h = state.sizeAtIndex(prev.indexOf(d));
@@ -218,7 +234,7 @@ function listMotion(
 		// touched the row above)
 		const y = pos - state.scroll + LIST_PAD_TOP;
 		if (y + h <= clipTop || y >= listH) continue;
-		leaving.push({ key, row: d, y, h, clipTop });
+		leaving.push({ key, row: d, y, h, clipTop, swiped: isSwipedOff(key) });
 	}
 
 	for (const a of next) {
@@ -644,6 +660,7 @@ export default function WatchlistTab() {
 			promoted,
 			wasJustMarked,
 			listH,
+			isSwipedOff,
 		);
 		// On only: the list change right behind it (the card's patch) mustn't switch it off before
 		// the list has applied the reorder; it clears with the glide
@@ -1071,7 +1088,7 @@ export default function WatchlistTab() {
 							onPress={noop}
 							onCheckmark={noopAsync}
 						/>
-					) : isSwipedOff(card.key) ? (
+					) : card.swiped ? (
 						// Swiped off (unwatched): the blue banner it waited on is what shrinks away
 						<SwipeActionBanner
 							color={colors.stopBlue}

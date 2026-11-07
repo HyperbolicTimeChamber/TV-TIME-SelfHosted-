@@ -33,8 +33,9 @@ export default memo(function WatchedEpisodeRow({
 	onSwipeRight,
 	onLongPress,
 }: Props) {
-	// An unwatch takes the row off (its last watch): no "−1", and the swipe holds its banner
-	// until the row goes
+	// An unwatch takes the row off (its last watch): no "−1". The swipe holds its banner until
+	// the row goes or shows its new count — a rewatch's row going back to its first watch leaves
+	// its slot too, and the row coming back for a moment before it went read as an undo
 	const leaves = episode.watchCount <= 1;
 	const label = `S${String(episode.season).padStart(2, "0")} | E${String(episode.episode).padStart(2, "0")}`;
 
@@ -42,12 +43,13 @@ export default memo(function WatchedEpisodeRow({
 		<SwipeableCard
 			// Recycled list row → fresh swipe state for the new episode
 			resetKey={episode.id}
+			contentKey={String(episode.watchCount)}
 			onSwipeLeft={() => onSwipeLeft(episode)}
 			onSwipeRight={onSwipeRight ? () => onSwipeRight(episode) : undefined}
 			leftLabel="Rewatch"
 			rightLabel="Unwatch"
 			rightIcon={leaves ? undefined : "−1"}
-			persistAfterSwipe={{ left: true, right: !leaves }}
+			persistAfterSwipe={{ left: true, right: false }}
 		>
 			<TouchableOpacity
 				style={[cardStyles.container, styles.container]}

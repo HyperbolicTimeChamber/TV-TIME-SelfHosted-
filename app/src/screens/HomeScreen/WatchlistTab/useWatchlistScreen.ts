@@ -46,6 +46,9 @@ import { useWatchlistData } from "./useWatchlistData";
 import { useHealOnView } from "../../../hooks/useHealOnView";
 import { todayStr } from "../../../utils";
 
+/** How long an unwatch swipe's row stays flagged as swiped off (isSwipedOff) after its write */
+const SWIPED_OFF_MS = 2000;
+
 /**
  * Watchlist tab state + actions (episode modal, show drawer, previously-watched
  * sheets/swipes). Shared by the mobile WatchlistTab and the web watchlist.
@@ -446,9 +449,10 @@ export function useWatchlistScreen(
 			const count = episode.watchCount || 0;
 			if (count <= floor) return false;
 			noteListChange(episode.tmdbShowId);
-			if (count <= 1) swipedOff.current.add(`watched_${episode.id}`);
 			// Down to its first watch (or the floor): the row goes back to that watch's place
 			const restoreAt = Math.max(floor, 1);
+			// Gone (its last watch) or back at its first watch: either way it leaves its slot
+			if (count - 1 <= restoreAt) swipedOff.current.add(`watched_${episode.id}`);
 			const key = `${episode.season}_${episode.episode}`;
 			/** Row at `n` watches (0 = gone); a row that's gone comes back via insert */
 			const showCount = (
@@ -507,12 +511,21 @@ export function useWatchlistScreen(
 				Alert.alert("Error", err.message || "Couldn't unwatch it.");
 				return false;
 			}
-			// Off Firestore's real count (a stale cached count can differ)
-			if (final !== count) {
-				// Put back to an earlier watch above the floor (the play before it): it leaves its slot too
-				if (firstWatch) swipedOff.current.add(`watched_${episode.id}`);
-				showCount(final, count, firstWatch);
+			// Off Firestore's real count (a stale cached count can differ). Unchanged: the swipe
+			// snaps back (it holds its banner until the row changes)
+			if (final === count) {
+				swipedOff.current.delete(`watched_${episode.id}`);
+				return false;
 			}
+			// Noted again as the row changes: a slow write outlasted the "just changed" window, and
+			// the row then left without its banner shrinking away
+			noteListChange(episode.tmdbShowId);
+			// Put back to an earlier watch above the floor (the play before it): it leaves its slot too
+			if (firstWatch) swipedOff.current.add(`watched_${episode.id}`);
+			showCount(final, count, firstWatch);
+			// Read by the list as it takes the change; a later move of the row (a rewatch) isn't one
+			const off = `watched_${episode.id}`;
+			setTimeout(() => swipedOff.current.delete(off), SWIPED_OFF_MS);
 			decrementDailyWatch("episode");
 		},
 		[noteListChange, user?.uid, queryClient, rewatchFloor, watchlistPointer],
