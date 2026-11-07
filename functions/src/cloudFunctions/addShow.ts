@@ -24,7 +24,7 @@ export const addShow = trackedOnCall(
     memory: "256MiB",
   },
   async (request): Promise<CatalogShow & { facetDelta?: FacetDelta }> => {
-    const uid = requireCaller(request, Callable.ADD_SHOW);
+    const uid = await requireCaller(request, Callable.ADD_SHOW);
     if (request.data?.warmup) return {} as CatalogShow;
 
     const { tmdbId, mediaType } = request.data as AddShowRequest;

@@ -17,7 +17,7 @@ export const deleteAccount = trackedOnCall(
     memory: "256MiB",
   },
   async (request): Promise<{ success: boolean }> => {
-    const uid = requireCaller(request, Callable.DELETE_ACCOUNT);
+    const uid = await requireCaller(request, Callable.DELETE_ACCOUNT);
 
     // Queue first: if the auth delete fails the data still goes and the client can retry
     await getFirestore()

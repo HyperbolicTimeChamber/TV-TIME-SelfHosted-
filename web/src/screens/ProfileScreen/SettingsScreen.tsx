@@ -45,6 +45,7 @@ import {
 	ModalArt,
 } from "../../components/ModalArt";
 import PoweredByTmdb from "../../components/PoweredByTmdb";
+import { APP_VERSION_LABEL } from "@app/utils/appVersion";
 import styles from "./styles/SettingsScreen.module.scss";
 
 /** Swipe right farther than this to go back (as on the app) */
@@ -330,7 +331,11 @@ export default function SettingsScreen() {
 				</button>
 			</section>
 
-			<PoweredByTmdb className={styles.credit} />
+			<div className={styles.credit}>
+				<PoweredByTmdb />
+				{/* The very bottom, dim: which build this is (support / bug reports) */}
+				<p className={styles.version}>{APP_VERSION_LABEL}</p>
+			</div>
 
 			<ConfirmModal
 				visible={logoutVisible}

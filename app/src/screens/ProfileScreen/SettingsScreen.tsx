@@ -23,6 +23,7 @@ import { CircleBackButton, CIRCLE_BUTTON_SIZE } from "../../components/CircleBut
 import { ConfirmModal } from "../../components";
 import { ExportingModal, ExportSheet } from "../../components/modals";
 import PoweredByTmdb from "../../components/PoweredByTmdb";
+import { APP_VERSION_LABEL } from "../../utils/appVersion";
 import PacmanLoader from "../../components/PacmanLoader";
 import ImportingScreen from "../../components/ImportingScreen";
 import {
@@ -49,7 +50,10 @@ import {
 } from "../../services/accountExport";
 import { pickJsonFile } from "../../services/customListsFiles";
 import { CloudFunction, ProfileStackParamList, Route } from "../../types";
-import { ACCOUNT_IMPORT_MAX_BYTES } from "../../enums";
+import { ACCOUNT_IMPORT_MAX_BYTES, ReleaseChannel, UPDATE_CHANNEL } from "../../enums";
+import { INSTALLED_BUILD, UPDATES_SUPPORTED } from "../../services/appUpdate";
+import { showUpdateNotification } from "../../services/updateNotifications";
+import { offeredRelease, useUpdateStore } from "../../stores/updateStore";
 import {
 	describeAccountExport,
 	describeAccountImport,
@@ -356,6 +360,9 @@ export default function SettingsScreen() {
 					</View>
 				)}
 
+				{/* Staging / dev builds: the in-app update test flow (docs/testing/in-app-update.md) */}
+				{UPDATES_SUPPORTED && UPDATE_CHANNEL === ReleaseChannel.DEV && <UpdateTestSection />}
+
 				<View style={styles.section}>
 					<Text style={styles.sectionTitle}>Account</Text>
 					{isEmailUser && (
@@ -379,6 +386,8 @@ export default function SettingsScreen() {
 
 				<View style={styles.credit}>
 					<PoweredByTmdb />
+					{/* The very bottom, dim: which build this is (support / bug reports) */}
+					<Text style={styles.version}>{APP_VERSION_LABEL}</Text>
 				</View>
 
 				<ConfirmModal
@@ -487,6 +496,35 @@ export default function SettingsScreen() {
 	);
 }
 
+/**
+ * Update test flow: pretend the channel's latest build is newer than this one (optionally forced),
+ * reset "Not now", or show the new-version notification — all against the real latest staging APK
+ */
+function UpdateTestSection() {
+	const { release, simulation, simulate, clearSkip } = useUpdateStore();
+	const offered = offeredRelease({ release, simulation });
+	const row = (label: string, onPress: () => void, disabled = false) => (
+		<TouchableOpacity style={styles.row} onPress={onPress} disabled={disabled}>
+			<Text style={[styles.rowText, disabled && { opacity: 0.4 }]}>{label}</Text>
+		</TouchableOpacity>
+	);
+	return (
+		<View style={styles.section}>
+			<Text style={styles.sectionTitle}>Updates (test)</Text>
+			<Text style={styles.updateStatus}>
+				{`Installed build ${INSTALLED_BUILD} · channel ${UPDATE_CHANNEL}: ${
+					release ? `V ${release.version} (${release.build})` : "no release yet"
+				}${simulation ? ` · simulating${simulation.force ? " force" : ""}` : ""}`}
+			</Text>
+			{row("Simulate Update", () => simulate({ force: false }), !release)}
+			{row("Simulate Force Update", () => simulate({ force: true }), !release)}
+			{row("Stop Simulation", () => simulate(null), !simulation)}
+			{row("Reset \"Not Now\"", clearSkip)}
+			{row("Show Update Notification", () => offered && showUpdateNotification(offered), !offered)}
+		</View>
+	);
+}
+
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
@@ -495,6 +533,8 @@ const styles = StyleSheet.create({
 	content: { flexGrow: 1 },
 	// Pushed to the bottom of the page by its auto top margin
 	credit: { marginTop: "auto", paddingTop: spacing.xl },
+	updateStatus: { ...typography.caption, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
+	version: { ...typography.caption, color: colors.textMuted, textAlign: "center", marginTop: spacing.md },
 	headerRow: {
 		flexDirection: "row",
 		alignItems: "center",

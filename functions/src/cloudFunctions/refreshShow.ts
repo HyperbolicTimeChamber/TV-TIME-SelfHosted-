@@ -44,7 +44,7 @@ export const refreshShow = trackedOnCall(
     memory: "256MiB",
   },
   async (request): Promise<RefreshShowResponse> => {
-    requireCaller(request, Callable.REFRESH_SHOW);
+    await requireCaller(request, Callable.REFRESH_SHOW);
     if (request.data?.warmup) return { refreshed: false, catalog: null };
 
     const { tmdbId, mediaType, reason, seasons } =

@@ -8,6 +8,7 @@ export { importMatches } from "./cloudFunctions/importMatches";
 export { syncCatalog } from "./cloudFunctions/syncCatalog";
 export { markSeasonWatched } from "./cloudFunctions/markSeasonWatched";
 export { testFCM } from "./cloudFunctions/testFCM";
+export { sendTestPush } from "./cloudFunctions/sendTestPush";
 export { deleteAccount } from "./cloudFunctions/deleteAccount";
 export { purgeUserData } from "./cloudFunctions/purgeUserData";
 export { rebuildUpcoming } from "./cloudFunctions/rebuildUpcoming";

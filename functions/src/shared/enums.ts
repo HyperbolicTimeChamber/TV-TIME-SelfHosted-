@@ -172,6 +172,7 @@ export enum FunctionName {
   WATCH_PROVIDERS = "watchProviders",
   TITLE_EXTRAS = "titleExtras",
   TITLE_CAST_PAGE = "titleCastPage",
+  SEND_TEST_PUSH = "sendTestPush",
 }
 
 /**
@@ -505,3 +506,27 @@ export enum TrackingWriteAction {
   /** Deleted → make sure the deletion log has it */
   LOG_DELETION = "log_deletion",
 }
+
+/** config/release: each release channel's latest APK + minimum build (CI's publish-release) */
+export const RELEASE_CONFIG_PATH = "config/release";
+
+/** App release channels (the app's ReleaseChannel) */
+export enum ReleaseChannel {
+  DEV = "dev",
+  PROD = "prod",
+}
+
+/** HttpsError message a callable rejects an app build below its channel's minimum with */
+export const UPDATE_REQUIRED_MESSAGE = "update-required";
+/** The cached minimum builds are re-read this often per instance */
+export const RELEASE_MINS_TTL_MS = 60_000;
+
+/** FCM topic per release channel for new-version pushes (app enums UPDATE_TOPIC) */
+export const UPDATE_TOPIC: Record<ReleaseChannel, string> = {
+  [ReleaseChannel.DEV]: "app-updates-dev",
+  [ReleaseChannel.PROD]: "app-updates-prod",
+};
+/** FCM data `type` of a new-version push (app enums APP_UPDATE_MESSAGE) */
+export const APP_UPDATE_MESSAGE = "app_update";
+/** Header carrying sendTestPush's key */
+export const TEST_PUSH_KEY_HEADER = "x-test-push-key";

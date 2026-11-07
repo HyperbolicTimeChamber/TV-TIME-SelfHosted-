@@ -73,7 +73,7 @@ export const watchProviders = trackedOnCall(
     timeoutSeconds: 20,
   },
   async (request): Promise<RegionWatchProviders> => {
-    requireCallerOrGuest(request, Callable.WATCH_PROVIDERS);
+    await requireCallerOrGuest(request, Callable.WATCH_PROVIDERS);
     const { tmdbId, mediaType, region } = (request.data ??
       {}) as WatchProvidersRequest;
     if (

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Collapsed update card: title + one line, the red action on the right (offer / downloaded) -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="match_parent"
+  android:layout_height="wrap_content"
+  android:gravity="center_vertical"
+  android:orientation="horizontal">
+
+  <LinearLayout
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:layout_weight="1"
+    android:orientation="vertical">
+
+    <TextView
+      android:id="@+id/update_title"
+      style="@style/TextAppearance.Compat.Notification.Title"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:ellipsize="end"
+      android:maxLines="1" />
+
+    <TextView
+      android:id="@+id/update_body"
+      style="@style/TextAppearance.Compat.Notification.Line2"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:ellipsize="end"
+      android:maxLines="1" />
+  </LinearLayout>
+
+  <TextView
+    android:id="@+id/update_action"
+    android:layout_width="wrap_content"
+    android:layout_height="36dp"
+    android:layout_marginStart="12dp"
+    android:background="@drawable/update_button_red"
+    android:gravity="center"
+    android:paddingStart="18dp"
+    android:paddingEnd="18dp"
+    android:textColor="#FFFFFF"
+    android:textSize="14sp"
+    android:textStyle="bold" />
+</LinearLayout>

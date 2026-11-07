@@ -73,3 +73,6 @@ lerna-debug.log*
 .emulator-data/
 firebase-export-*/
 
+
+# Local Expo modules: Gradle output
+app/modules/*/android/build/

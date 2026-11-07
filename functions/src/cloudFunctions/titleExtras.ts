@@ -57,7 +57,7 @@ export const titleExtras = trackedOnCall(
   FunctionName.TITLE_EXTRAS,
   { maxInstances: 1, concurrency: 80, cpu: 1, memory: "256MiB", timeoutSeconds: 20 },
   async (request): Promise<TitleExtras> => {
-    requireCallerOrGuest(request, Callable.TITLE_EXTRAS);
+    await requireCallerOrGuest(request, Callable.TITLE_EXTRAS);
     const { tmdbId, mediaType, region } = (request.data ?? {}) as TitleExtrasRequest;
     if (
       !Number.isInteger(tmdbId) ||

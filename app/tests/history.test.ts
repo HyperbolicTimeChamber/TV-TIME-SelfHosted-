@@ -158,7 +158,7 @@ test("deriveHistoryCard: paused, rewatching, completed, movie", () => {
 
 import { buildCompletedSections } from "../src/utils";
 
-test("buildCompletedSections: one Movies row and one TV Shows row, newest first, capped at 10", () => {
+test("buildCompletedSections: one Movies Watched row and one TV Shows Completed row, newest first, capped at 10", () => {
 	const show = (id: number, genres: string[]) => ({
 		tmdbId: id,
 		mediaType: MediaType.TV,
@@ -179,8 +179,8 @@ test("buildCompletedSections: one Movies row and one TV Shows row, newest first,
 	assert.deepEqual(
 		sections.map((s) => [s.title, s.items.map((i) => i.tmdbId)]),
 		[
-			["Movies", [7]],
-			["TV Shows", [6, 5, 4, 3, 2, 1]],
+			["Movies Watched", [7]],
+			["TV Shows Completed", [6, 5, 4, 3, 2, 1]],
 		],
 	);
 	const many = buildCompletedSections(Array.from({ length: 15 }, (_, n) => show(n + 1, ["Drama"])));

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { formatIsoDate } from "../utils/format";
 import {
 	View,
 	Text,
@@ -135,7 +136,9 @@ export default function ShowDrawer({
 	if (!visible) return null;
 
 	const metaParts: string[] = [];
-	if (show?.year) metaParts.push(show.year);
+	// A movie's full release date ("16 Jul 2024"); a show's first-air year
+	if (show?.releaseDate) metaParts.push(formatIsoDate(show.releaseDate));
+	else if (show?.year) metaParts.push(show.year);
 	if (show?.totalSeasons)
 		metaParts.push(`${show.totalSeasons} season${show.totalSeasons !== 1 ? "s" : ""}`);
 	if (show?.totalEpisodes) metaParts.push(`${show.totalEpisodes} episodes`);
