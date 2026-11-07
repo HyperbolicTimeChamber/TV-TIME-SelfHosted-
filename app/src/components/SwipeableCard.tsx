@@ -16,6 +16,8 @@ import Animated, {
 	interpolate,
 	Extrapolation,
 	Easing,
+	withDelay,
+	withSequence,
 } from "react-native-reanimated";
 import { colors, spacing, typography } from "../theme";
 import { CARD_RADIUS } from "../enums";
@@ -32,6 +34,8 @@ const HOLD_MS = 15000;
  *  icon handing over to the spinner): strong ease-out — it answers the swipe */
 const LABEL_MS = 320;
 const LABEL_EASING = Easing.bezier(0.23, 1, 0.32, 1);
+/** flipBack: banner → row flip (each half: turning edge-on, then flat) */
+const FLIP_HALF_MS = 260;
 /** The reveal's side padding: where the label sits while swiping */
 const REVEAL_PAD = spacing.xl;
 
@@ -60,6 +64,9 @@ interface Props {
 	/** What the row shows of its item (e.g. its watch count): a change while the card is held on
 	 *  its banner (the action moved the row, or changed it in place) lets the banner go */
 	contentKey?: string;
+	/** The action done and the row staying: its banner flips over into the row (edge-on halfway,
+	 *  where the banner goes) instead of the row coming back at once — that blinked */
+	flipBack?: boolean;
 }
 
 /** Rows held on their banner (see HOLD_MS), by resetKey → called once the list has dropped
@@ -99,10 +106,13 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		rightColor = colors.stopBlue,
 		resetKey,
 		contentKey,
+		flipBack = false,
 	},
 	ref,
 ) {
 	const translateX = useSharedValue(0);
+	// flipBack's turn: 0 → ½ the banner turns edge-on, ½ → 1 the row turns flat (0 / 1 = flat)
+	const flip = useSharedValue(0);
 	// The reveal's label: 0 = at its side (while swiping), 1 = centred (the action saving). A
 	// transform on the UI thread — layout animations inside list rows clashed with the list's
 	// own row transitions
@@ -136,6 +146,14 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		},
 		[],
 	);
+	// flipBack's halfway point (the row back to idle under its turn)
+	const flipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	useEffect(
+		() => () => {
+			if (flipTimer.current) clearTimeout(flipTimer.current);
+		},
+		[],
+	);
 	// Recycled into another item → start clean
 	const firstKey = useRef(resetKey);
 	const resetKeyRef = useRef(resetKey);
@@ -147,10 +165,12 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		if (restoreTimer.current) clearTimeout(restoreTimer.current);
 		translateX.value = 0;
 		centred.value = 0;
+		flip.value = 0;
+		if (flipTimer.current) clearTimeout(flipTimer.current);
 		isProcessing.current = false;
 		setShowReveal(false);
 		setSwipeState("idle");
-	}, [resetKey, translateX, centred]);
+	}, [resetKey, translateX, centred, flip]);
 	// The row took the action's result in place (same item, new content — e.g. its count): a
 	// banner held for it goes, back to the row (a row the list drops ends on releaseHeldSwipe)
 	const shownContent = useRef(contentKey);
@@ -173,6 +193,47 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 	leftColorRef.current = leftColor;
 	const rightColorRef = useRef(rightColor);
 	rightColorRef.current = rightColor;
+	const flipBackRef = useRef(flipBack);
+	flipBackRef.current = flipBack;
+
+	/** The flip is over: flat, set from JS too (what a later re-render applies) */
+	const flipDone = useCallback(() => {
+		flip.value = 0;
+	}, [flip]);
+	const toIdleState = useCallback(() => {
+		setShowReveal(false);
+		setSwipeState("idle");
+		isProcessing.current = false;
+	}, []);
+	/** The action is done and the row stays: back to the row — flipped over from its banner
+	 *  (flipBack: edge-on halfway, where the row takes the banner's place) or at once. Every
+	 *  value is set from JS in one go: a row re-render re-applies the values JS last set, and one
+	 *  set only on the UI thread came back stale on the row's next render (its new count) —
+	 *  swiped off (a blank banner) or edge-on (a blank slot); a handoff to JS at the halfway
+	 *  point left the slot blank while JS was busy */
+	const backToCard = useCallback(() => {
+		if (!flipBackRef.current) {
+			translateX.value = 0;
+			centred.value = 0;
+			toIdleState();
+			return;
+		}
+		flip.value = 0;
+		flip.value = withSequence(
+			withTiming(0.5, { duration: FLIP_HALF_MS, easing: Easing.in(Easing.cubic) }),
+			withTiming(1, { duration: FLIP_HALF_MS, easing: Easing.out(Easing.cubic) }, (finished) => {
+				if (finished) runOnJS(flipDone)();
+			}),
+		);
+		translateX.value = withDelay(FLIP_HALF_MS, withTiming(0, { duration: 0 }));
+		centred.value = withDelay(FLIP_HALF_MS, withTiming(0, { duration: 0 }));
+		if (flipTimer.current) clearTimeout(flipTimer.current);
+		flipTimer.current = setTimeout(() => {
+			translateX.value = 0;
+			centred.value = 0;
+			toIdleState();
+		}, FLIP_HALF_MS);
+	}, [translateX, centred, flip, toIdleState, flipDone]);
 
 	const handleSwipeComplete = useCallback(
 		async (direction: "left" | "right", seq: number) => {
@@ -200,12 +261,8 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				} catch (err) {
 					console.error("SwipeableCard action failed:", err);
 				}
-				// Reset silently without animation — list re-render handles the update
-				translateX.value = 0;
-				centred.value = 0;
-				setShowReveal(false);
-				setSwipeState("idle");
-				isProcessing.current = false;
+				// The list re-render shows the update
+				backToCard();
 				return;
 			}
 
@@ -236,11 +293,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				const release = () => {
 					if (key) heldRows.delete(key);
 					if (restoreTimer.current) clearTimeout(restoreTimer.current);
-					translateX.value = 0;
-					centred.value = 0;
-					setShowReveal(false);
-					setSwipeState("idle");
-					isProcessing.current = false;
+					backToCard();
 				};
 				backToRow.current = release;
 				// Already changed in place while it saved: back to the row now
@@ -265,7 +318,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				isProcessing.current = false;
 			}
 		},
-		[translateX, centred, actionLeft],
+		[translateX, centred, actionLeft, backToCard],
 	);
 
 	useImperativeHandle(
@@ -445,9 +498,16 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		);
 	};
 
+	const flipStyle = useAnimatedStyle(() => ({
+		transform: [
+			{ perspective: 800 },
+			{ rotateX: `${flip.value < 0.5 ? 180 * flip.value : 180 * flip.value - 180}deg` },
+		],
+	}));
+
 	return (
-		<View
-			style={styles.wrapper}
+		<Animated.View
+			style={[styles.wrapper, flipStyle]}
 			onLayout={(e) => {
 				const h = e.nativeEvent.layout.height;
 				if (h > 0) cardHeight.current = h;
@@ -465,7 +525,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 			<GestureDetector gesture={panGesture}>
 				<Animated.View style={[styles.card, cardStyle]}>{children}</Animated.View>
 			</GestureDetector>
-		</View>
+		</Animated.View>
 	);
 });
 

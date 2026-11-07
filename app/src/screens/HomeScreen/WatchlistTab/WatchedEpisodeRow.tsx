@@ -50,6 +50,8 @@ export default memo(function WatchedEpisodeRow({
 			rightLabel="Unwatch"
 			rightIcon={leaves ? undefined : "−1"}
 			persistAfterSwipe={{ left: true, right: false }}
+			// A rewatch / a −1 that keeps the row: its banner flips over into the updated row
+			flipBack
 		>
 			<TouchableOpacity
 				style={[cardStyles.container, styles.container]}

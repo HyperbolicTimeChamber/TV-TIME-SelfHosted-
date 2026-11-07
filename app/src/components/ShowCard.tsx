@@ -1,4 +1,11 @@
-import React, { memo, useRef, useCallback, useMemo } from "react";
+import React, { memo, useRef, useCallback, useMemo, useLayoutEffect, useState } from "react";
+import Animated, {
+	Easing,
+	runOnJS,
+	useAnimatedStyle,
+	useSharedValue,
+	withTiming,
+} from "react-native-reanimated";
 import { similarProps } from "../utils/similarProps";
 import { withHaptic } from "../utils/haptics";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
@@ -15,6 +22,12 @@ import { todayStr } from "../utils";
 // Computed once per app session — avoids Date allocation per card per render
 const TODAY = todayStr();
 const TODAY_MS = new Date(TODAY).getTime();
+/** A mark is in and the card stays (its next episode up): the green "Watched" banner it waited on
+ *  flips over into the updated card — edge-on halfway, where the banner goes, and the card turns
+ *  the rest of the way flat (as an unwatched card flips). Swapped at once, it blinked away. A
+ *  card with nothing next leaves the list instead (the watchlist shrinks its banner away) */
+const MARK_FLIP_MS = 520;
+const MARK_FLIP_EASING = Easing.inOut(Easing.cubic);
 
 interface ShowCardItem {
 	tmdbId: number;
@@ -102,8 +115,44 @@ export default memo(function ShowCard({
 	// "LATEST" tag: last aired episode, not NEW, not FINALE
 	const isLatest = isLastAired && !isNewEpisode && !isFinale;
 
-
 	const swipeRef = useRef<SwipeableCardRef>(null);
+
+	// Updating → updated, same title (not a recycled row taking another one): the banner flips
+	// over into the card. The flip's value sits at its start while the banner shows, so the card
+	// takes over from it with the banner on top, unturned — no frame of the card alone
+	const cardKey = `${item.mediaType}_${item.tmdbId}`;
+	const updatingFor = useRef<string | null>(isUpdating ? cardKey : null);
+	const flipFor = useRef<string | null>(null);
+	const [flipping, setFlipping] = useState(false);
+	const flip = useSharedValue(1);
+	const flipDone = useCallback(() => setFlipping(false), []);
+	useLayoutEffect(() => {
+		if (isUpdating) {
+			updatingFor.current = cardKey;
+			flip.value = 0;
+			return;
+		}
+		if (updatingFor.current === cardKey && !isWatched) {
+			flipFor.current = cardKey;
+			setFlipping(true);
+			flip.value = withTiming(1, { duration: MARK_FLIP_MS, easing: MARK_FLIP_EASING }, (done) => {
+				if (done) runOnJS(flipDone)();
+			});
+		} else {
+			flip.value = 1;
+		}
+		updatingFor.current = null;
+	}, [isUpdating, cardKey, isWatched, flip, flipDone]);
+	// 0 → ½: the banner turns edge-on; ½ → 1: the card turns from edge-on to flat
+	const flipStyle = useAnimatedStyle(() => ({
+		transform: [
+			{ perspective: 800 },
+			{ rotateX: `${flip.value < 0.5 ? 180 * flip.value : 180 * flip.value - 180}deg` },
+		],
+	}));
+	const bannerHalf = useAnimatedStyle(() => ({ opacity: flip.value < 0.5 ? 1 : 0 }));
+	// Recycled into another title meanwhile: that flip was the old title's
+	const showBanner = flipping && flipFor.current === cardKey;
 
 	const handlePress = useCallback(() => {
 		if (item.mediaType === MediaType.MOVIE && onTitlePress) {
@@ -135,6 +184,8 @@ export default memo(function ShowCard({
 				rightLabel="Unwatch"
 				rightIcon={wc > 1 ? "−1" : undefined}
 				persistAfterSwipe={{ left: true, right: wc > 1 }}
+				// A rewatch / a −1 that keeps the row: its banner flips over into the updated row
+				flipBack
 			>
 				<TouchableOpacity
 					style={cardStyles.container}
@@ -235,97 +286,109 @@ export default memo(function ShowCard({
 		);
 	}
 
+	// Always in the flip's view (a wrapper added only for the flip would remount the card)
 	return (
-		<SwipeableCard
-			resetKey={`${item.mediaType}_${item.tmdbId}`}
-			ref={swipeRef}
-			onSwipeLeft={handleSwipeLeft}
-			onSwipeRight={onSwipeRight ? handleSwipeRight : undefined}
-			persistAfterSwipe
-		>
-			<TouchableOpacity
-				style={cardStyles.container}
-				onPress={handlePress}
-				onLongPress={handleLongPress}
-				activeOpacity={0.8}
+		<Animated.View style={flipStyle}>
+			<SwipeableCard
+				resetKey={`${item.mediaType}_${item.tmdbId}`}
+				ref={swipeRef}
+				onSwipeLeft={handleSwipeLeft}
+				onSwipeRight={onSwipeRight ? handleSwipeRight : undefined}
+				persistAfterSwipe
 			>
-				<PosterImage
-					posterPath={item.posterPath}
-					mediaType={item.mediaType}
-					style={cardStyles.poster}
-				/>
-				{/* A rewatch's REWATCH N: a tab in the poster's bottom-left corner (the card's rounded
-				    corner clips it) */}
-				{rewatching && (
-					<View style={styles.cornerTag}>
-						<Text style={styles.cornerTagText}>REWATCH {item.rewatchCount}</Text>
-					</View>
-				)}
-				<CardInfo
-					title={item.title}
-					onTitlePress={onTitlePress ? handleTitlePress : undefined}
-					subline={item.mediaType === MediaType.MOVIE ? item.director : item.nextEpisodeName}
-					sublineLines={item.mediaType === MediaType.MOVIE ? 1 : 2}
+				<TouchableOpacity
+					style={cardStyles.container}
+					onPress={handlePress}
+					onLongPress={handleLongPress}
+					activeOpacity={0.8}
 				>
-					{item.mediaType === MediaType.MOVIE ? (
-						<>
-							<View style={styles.movieMetaRow}>
-								<View style={styles.movieBadgeGroup}>
-									<View style={styles.movieBadgeMerged}>
-										<Text style={styles.movieBadgeText}>MOVIE</Text>
-									</View>
-									<View style={styles.slantArrow} />
-									<View style={styles.freshTag}>
-										<Text style={styles.freshTagText}>
-											{isJustAired
-												? FreshTag.JUST_AIRED
-												: (item.releaseDate?.substring(0, 4) ?? "")}
-										</Text>
+					<PosterImage
+						posterPath={item.posterPath}
+						mediaType={item.mediaType}
+						style={cardStyles.poster}
+					/>
+					{/* A rewatch's REWATCH N: a tab in the poster's bottom-left corner (the card's rounded
+					    corner clips it) */}
+					{rewatching && (
+						<View style={styles.cornerTag}>
+							<Text style={styles.cornerTagText}>REWATCH {item.rewatchCount}</Text>
+						</View>
+					)}
+					<CardInfo
+						title={item.title}
+						onTitlePress={onTitlePress ? handleTitlePress : undefined}
+						subline={item.mediaType === MediaType.MOVIE ? item.director : item.nextEpisodeName}
+						sublineLines={item.mediaType === MediaType.MOVIE ? 1 : 2}
+					>
+						{item.mediaType === MediaType.MOVIE ? (
+							<>
+								<View style={styles.movieMetaRow}>
+									<View style={styles.movieBadgeGroup}>
+										<View style={styles.movieBadgeMerged}>
+											<Text style={styles.movieBadgeText}>MOVIE</Text>
+										</View>
+										<View style={styles.slantArrow} />
+										<View style={styles.freshTag}>
+											<Text style={styles.freshTagText}>
+												{isJustAired
+													? FreshTag.JUST_AIRED
+													: (item.releaseDate?.substring(0, 4) ?? "")}
+											</Text>
+										</View>
 									</View>
 								</View>
-							</View>
-						</>
-					) : (
-						<>
-							{/* The episode's tag sits on its line, so a tagged card is no taller than the
-							    rest; LATEST already says nothing's left, so no +N beside it. A rewatch shows
-							    only FINALE here, and its +N (its REWATCH tag is the poster's corner tab) */}
-							<View style={styles.episodeRow}>
-								<Text style={cardStyles.episode}>
-									{episodeLabel}
-									{remainingLabel && (rewatching || !(isLatest && !isFinale && !isNewEpisode)) ? (
-										<Text style={styles.remaining}> {remainingLabel}</Text>
+							</>
+						) : (
+							<>
+								{/* The episode's tag sits on its line, so a tagged card is no taller than the
+								    rest; LATEST already says nothing's left, so no +N beside it. A rewatch shows
+								    only FINALE here, and its +N (its REWATCH tag is the poster's corner tab) */}
+								<View style={styles.episodeRow}>
+									<Text style={cardStyles.episode}>
+										{episodeLabel}
+										{remainingLabel && (rewatching || !(isLatest && !isFinale && !isNewEpisode)) ? (
+											<Text style={styles.remaining}> {remainingLabel}</Text>
+										) : null}
+									</Text>
+									{isFinale ? (
+										<View style={[styles.tagBadge, styles.inlineTag]}>
+											<Text style={styles.tagBadgeText}>{FreshTag.FINALE}</Text>
+										</View>
+									) : rewatching ? null : isNewEpisode ? (
+										<View style={[styles.tagBadge, styles.inlineTag, styles.newBadge]}>
+											<Text style={[styles.tagBadgeText, styles.newBadgeText]}>{FreshTag.NEW}</Text>
+										</View>
+									) : isLatest ? (
+										<View style={[styles.tagBadge, styles.inlineTag, styles.latestBadge]}>
+											<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
+												{FreshTag.LATEST}
+											</Text>
+										</View>
 									) : null}
-								</Text>
-								{isFinale ? (
-									<View style={[styles.tagBadge, styles.inlineTag]}>
-										<Text style={styles.tagBadgeText}>{FreshTag.FINALE}</Text>
-									</View>
-								) : rewatching ? null : isNewEpisode ? (
-									<View style={[styles.tagBadge, styles.inlineTag, styles.newBadge]}>
-										<Text style={[styles.tagBadgeText, styles.newBadgeText]}>{FreshTag.NEW}</Text>
-									</View>
-								) : isLatest ? (
-									<View style={[styles.tagBadge, styles.inlineTag, styles.latestBadge]}>
-										<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
-											{FreshTag.LATEST}
-										</Text>
-									</View>
-								) : null}
-							</View>
-						</>
-					)}
-				</CardInfo>
-				<View style={styles.checkmarkWrap}>
-					<CheckmarkButton
-						size={WATCHLIST_CHECK_CIRCLE}
-						checkSize={WATCHLIST_CHECK_TICK}
-						onPress={() => swipeRef.current?.triggerSwipeLeft()}
-						onLongPress={onCheckmarkLongPress}
-					/>
-				</View>
-			</TouchableOpacity>
-		</SwipeableCard>
+								</View>
+							</>
+						)}
+					</CardInfo>
+					<View style={styles.checkmarkWrap}>
+						<CheckmarkButton
+							size={WATCHLIST_CHECK_CIRCLE}
+							checkSize={WATCHLIST_CHECK_TICK}
+							onPress={() => swipeRef.current?.triggerSwipeLeft()}
+							onLongPress={onCheckmarkLongPress}
+						/>
+					</View>
+				</TouchableOpacity>
+			</SwipeableCard>
+			{showBanner && (
+				<Animated.View
+					style={[styles.updatingContainer, styles.flipBanner, bannerHalf]}
+					pointerEvents="none"
+				>
+					<ActivityIndicator color={colors.text} size="small" />
+					<Text style={styles.updatingText}>Watched</Text>
+				</Animated.View>
+			)}
+		</Animated.View>
 	);
 }, similarProps);
 
@@ -380,6 +443,14 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.watchedGreen,
 		borderRadius: CARD_RADIUS,
 		marginHorizontal: spacing.md,
+	},
+	flipBanner: {
+		...(StyleSheet.absoluteFill as object),
+		left: spacing.md,
+		right: spacing.md,
+		marginHorizontal: 0,
+		minHeight: 0,
+		zIndex: 2,
 	},
 	updatingText: {
 		...typography.subtitle,

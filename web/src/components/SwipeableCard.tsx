@@ -32,10 +32,15 @@ interface Props {
 	rightIcon?: string;
 	leftColor?: string;
 	rightColor?: string;
+	/** The action done and the row staying: its banner flips over into the row (edge-on halfway,
+	 *  where the banner goes) instead of the row coming back at once (app parity) */
+	flipBack?: boolean;
 }
 
 type SwipeState = "idle" | "loading" | "done";
 const THRESHOLD_RATIO = 0.35;
+/** flipBack: banner → row flip (each half: turning edge-on, then flat) */
+const FLIP_HALF_S = 0.26;
 
 /** Swipe-to-act card (app SwipeableCard): drag past 35% to trigger, coloured reveal underneath */
 export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
@@ -49,11 +54,13 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		rightIcon,
 		leftColor = colors.watchedGreen,
 		rightColor = colors.stopBlue,
+		flipBack = false,
 	},
 	ref,
 ) {
 	const wrapperRef = useRef<HTMLDivElement>(null);
 	const x = useMotionValue(0);
+	const rotateX = useMotionValue(0);
 	const [state, setState] = useState<SwipeState>("idle");
 	const [action, setAction] = useState<"left" | "right" | null>(null);
 	const processing = useRef(false);
@@ -90,6 +97,13 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 					// Nothing changed (e.g. a rewatch's floor): back to the card, not hidden
 					animate(x, 0, { duration: 0.3 });
 					setState("idle");
+				} else if (persist && flipBack) {
+					// The banner turns edge-on, the row takes its place and turns flat
+					await animate(rotateX, 90, { duration: FLIP_HALF_S, ease: "easeIn" });
+					x.set(0);
+					rotateX.set(-90);
+					setState("idle");
+					animate(rotateX, 0, { duration: FLIP_HALF_S, ease: "easeOut" });
 				} else if (persist) {
 					// List re-render replaces the card; reset quietly
 					x.set(0);
@@ -106,7 +120,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 				processing.current = false;
 			}
 		},
-		[onSwipeLeft, onSwipeRight, persistAfterSwipe, x],
+		[onSwipeLeft, onSwipeRight, persistAfterSwipe, flipBack, x, rotateX],
 	);
 
 	useImperativeHandle(
@@ -126,7 +140,11 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 	const busyLabel = action === "left" ? leftLabel : rightLabel;
 
 	return (
-		<div className={styles.wrapper} ref={wrapperRef}>
+		<motion.div
+			className={styles.wrapper}
+			ref={wrapperRef}
+			style={{ rotateX, transformPerspective: 800 }}
+		>
 			{state === "loading" ? (
 				<div className={`${styles.loading} bg-(--busy)!`} style={cssVars({ "--busy": busyColor })}>
 					<Spin size="small" />
@@ -171,6 +189,6 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 			>
 				{children}
 			</motion.div>
-		</div>
+		</motion.div>
 	);
 });
