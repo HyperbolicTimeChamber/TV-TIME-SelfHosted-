@@ -25,7 +25,7 @@ export default function CompletedSections({ sections, loading, onItemPress }: Re
 
 	return (
 		<View style={styles.section}>
-			<Text style={styles.sectionTitle}>Recently Completed</Text>
+			{/* No section title: the rows' own labels say what they are */}
 			{sections.map((section) => (
 				<View key={section.title} style={styles.genreSection}>
 					<Text style={styles.genreTitle}>{section.title}</Text>
