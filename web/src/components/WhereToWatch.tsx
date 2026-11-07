@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { useCountryName, useWatchProviders } from "@app/hooks/useWatchProviders";
 import { tmdbPosterUri } from "@app/hooks/useTmdbImage";
-import { displayProviders, providerLink, shortProviderName } from "@app/utils/providerNames";
+import { displayProviders, providerLink } from "@app/utils/providerNames";
 import type { MediaType } from "@app/enums";
 import SkeletonBlock from "./SkeletonBlock";
 import styles from "./styles/WhereToWatch.module.scss";
@@ -33,7 +33,11 @@ export default function WhereToWatch({
 	return (
 		<section className={styles.section}>
 			{country ? (
-				<h2 className={styles.title}>Where to Watch in {country}</h2>
+				<header className={styles.header}>
+					<h2 className={styles.title}>Where to Watch in {country}</h2>
+					{/* TMDB's terms: the availability data is JustWatch's */}
+					{shown.length > 0 && <p className={styles.attribution}>Streaming data by JustWatch</p>}
+				</header>
 			) : (
 				// The title waits for the country: a bar its size, so nothing moves when it lands
 				<SkeletonBlock className={styles.skeletonTitle} />
@@ -41,10 +45,7 @@ export default function WhereToWatch({
 			{isPending || !data ? (
 				<div className={styles.row} aria-busy aria-label="Loading where to watch">
 					{SKELETONS.map((i) => (
-						<div key={i} className={styles.tileSkeleton}>
-							<SkeletonBlock className={styles.skeletonLogo} />
-							<SkeletonBlock className={styles.skeletonName} />
-						</div>
+						<SkeletonBlock key={i} className={styles.skeletonLogo} />
 					))}
 				</div>
 			) : shown.length === 0 ? (
@@ -52,7 +53,7 @@ export default function WhereToWatch({
 					<img className={styles.emptyArt} src="/high-seas.webp" alt="" />
 					<div>
 						<p className={styles.emptyTitle}>Not Available to Stream</p>
-						<p className={styles.emptyHint}>Try the high seas</p>
+						<p className={styles.emptyHint}>Try the High Seas</p>
 					</div>
 				</div>
 			) : (
@@ -74,12 +75,9 @@ export default function WhereToWatch({
 									alt=""
 									loading="lazy"
 								/>
-								<span className={styles.name}>{shortProviderName(p.name)}</span>
 							</a>
 						))}
 					</div>
-					{/* TMDB's terms: the availability data is JustWatch's */}
-					<p className={styles.attribution}>Streaming data by JustWatch</p>
 				</>
 			)}
 		</section>

@@ -3,7 +3,7 @@ import Reanimated, { Easing, FadeIn } from "react-native-reanimated";
 import { Image } from "expo-image";
 import { useCountryName, useWatchProviders } from "../hooks/useWatchProviders";
 import { tmdbPosterUri } from "../hooks/useTmdbImage";
-import { displayProviders, providerLink, shortProviderName } from "../utils/providerNames";
+import { displayProviders, providerLink } from "../utils/providerNames";
 import { useSharedShimmer } from "./SkeletonLine";
 import { colors, spacing, typography } from "../theme";
 import type { MediaType } from "../enums";
@@ -15,6 +15,8 @@ const LOGO = 60;
 const SKELETONS = [0, 1, 2, 3, 4];
 /** Logos settle in one after another (nearest first), quick enough never to hold anything up */
 const STAGGER_MS = 40;
+/** The stagger stops growing after this many: a long row's tail never waits on the rest */
+const STAGGER_CAP = 6;
 const ENTER_MS = 220;
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 
@@ -49,9 +51,13 @@ export default function WhereToWatch({ tmdbId, mediaType, title, bleed }: Readon
 	return (
 		<View style={styles.section}>
 			{country ? (
-				<Text style={styles.title} numberOfLines={1}>
-					Where to Watch in {country}
-				</Text>
+				<View style={styles.header}>
+					<Text style={styles.title} numberOfLines={1}>
+						Where to Watch in {country}
+					</Text>
+					{/* TMDB's terms: the availability data is JustWatch's */}
+					{shown.length > 0 && <Text style={styles.attribution}>Streaming data by JustWatch</Text>}
+				</View>
 			) : (
 				// The title waits for the country: a bar its size, so nothing moves when it lands
 				<Animated.View style={[styles.skeletonTitle, { opacity: shimmer }]} />
@@ -59,10 +65,7 @@ export default function WhereToWatch({ tmdbId, mediaType, title, bleed }: Readon
 			{isPending || !data ? (
 				<View style={styles.row} accessibilityLabel="Loading where to watch">
 					{SKELETONS.map((i) => (
-						<View key={i} style={styles.tile}>
-							<Animated.View style={[styles.logo, styles.skeleton, { opacity: shimmer }]} />
-							<Animated.View style={[styles.skeletonName, { opacity: shimmer }]} />
-						</View>
+						<Animated.View key={i} style={[styles.logo, styles.skeleton, { opacity: shimmer }]} />
 					))}
 				</View>
 			) : shown.length === 0 ? (
@@ -75,7 +78,7 @@ export default function WhereToWatch({ tmdbId, mediaType, title, bleed }: Readon
 					/>
 					<View style={styles.emptyText}>
 						<Text style={styles.emptyTitle}>Not Available to Stream</Text>
-						<Text style={styles.emptyHint}>Try the high seas</Text>
+						<Text style={styles.emptyHint}>Try the High Seas</Text>
 					</View>
 				</View>
 			) : (
@@ -89,7 +92,7 @@ export default function WhereToWatch({ tmdbId, mediaType, title, bleed }: Readon
 						{shown.map((p, i) => (
 							<Reanimated.View
 								key={p.id}
-								entering={FadeIn.delay(i * STAGGER_MS).duration(ENTER_MS).easing(EASE_OUT)}
+								entering={FadeIn.delay(Math.min(i, STAGGER_CAP) * STAGGER_MS).duration(ENTER_MS).easing(EASE_OUT)}
 							>
 								<Pressable
 									onPress={() => open(p.name)}
@@ -104,15 +107,10 @@ export default function WhereToWatch({ tmdbId, mediaType, title, bleed }: Readon
 										transition={ENTER_MS}
 										recyclingKey={String(p.id)}
 									/>
-									<Text style={styles.name} numberOfLines={2}>
-										{shortProviderName(p.name)}
-									</Text>
 								</Pressable>
 							</Reanimated.View>
 						))}
 					</ScrollView>
-					{/* TMDB's terms: the availability data is JustWatch's */}
-					<Text style={styles.attribution}>Streaming data by JustWatch</Text>
 				</>
 			)}
 		</View>
@@ -121,8 +119,9 @@ export default function WhereToWatch({ tmdbId, mediaType, title, bleed }: Readon
 
 const styles = StyleSheet.create({
 	section: { marginTop: spacing.xl },
+	header: { marginBottom: spacing.md, gap: 2 },
 	// The page's section title (Seasons)
-	title: { ...typography.title, fontSize: 18, marginBottom: spacing.md },
+	title: { ...typography.title, fontSize: 18 },
 	skeletonTitle: {
 		width: 220,
 		height: 18,
@@ -132,7 +131,8 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.border,
 	},
 	row: { flexDirection: "row", gap: spacing.md },
-	tile: { width: LOGO, alignItems: "center", gap: spacing.xs },
+	// Logos only (the name is the accessibility label)
+	tile: { width: LOGO, alignItems: "center" },
 	// Press feedback: the logo gives a little under the finger
 	tilePressed: { transform: [{ scale: 0.96 }], opacity: 0.85 },
 	logo: {
@@ -144,21 +144,6 @@ const styles = StyleSheet.create({
 		borderColor: colors.border,
 	},
 	skeleton: { backgroundColor: colors.border, borderWidth: 0 },
-	// One line of a service name
-	skeletonName: {
-		width: 44,
-		height: 9,
-		borderRadius: 4,
-		marginTop: 3,
-		backgroundColor: colors.border,
-	},
-	name: {
-		...typography.caption,
-		fontSize: 11,
-		lineHeight: 13,
-		color: colors.textSecondary,
-		textAlign: "center",
-	},
 	empty: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -172,10 +157,5 @@ const styles = StyleSheet.create({
 	emptyText: { flex: 1, gap: 2 },
 	emptyTitle: { ...typography.body, fontWeight: "600", color: colors.text },
 	emptyHint: { ...typography.caption, color: colors.textMuted },
-	attribution: {
-		...typography.caption,
-		fontSize: 10,
-		color: colors.textMuted,
-		marginTop: spacing.sm,
-	},
+	attribution: { ...typography.caption, fontSize: 11, color: colors.textMuted },
 });

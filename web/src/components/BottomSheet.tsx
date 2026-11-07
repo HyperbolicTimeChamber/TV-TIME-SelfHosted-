@@ -19,7 +19,8 @@ import { useTitleInfo } from "@app/hooks/useTitleInfo";
 import { useTitleLogo } from "@app/hooks/useTitleLogo";
 import { MediaType } from "@app/enums";
 import styles from "./styles/BottomSheet.module.scss";
-import { cssVars } from "../utils/cssVars";
+import { cssVars, px } from "../utils/cssVars";
+import { useKeyboardInset } from "../hooks/useKeyboardInset";
 
 /** Slide-in: critically damped (damping ≥ 2·√stiffness), never past its resting place — an
  *  overshoot lifted the sheet off the bottom edge and showed the page under it (app SHEET_SPRING) */
@@ -103,13 +104,24 @@ export default function BottomSheet({
 	locked?: boolean;
 }) {
 	const behind = background ?? (art ? <SheetArt {...art} /> : null);
+	// A field in the sheet raised the keyboard: the sheet sits on top of it (the page is laid out
+	// under it), and --sheet-room tells the content how much height is left above it
+	const keyboard = useKeyboardInset(visible);
 	return createPortal(
 		<AnimatePresence>
 			{visible && (
 				// Backdrop and sheet are siblings: the backdrop fades, the sheet only slides (as a
 				// child of the fading backdrop it faded out too and read as a blink)
 				// motion.div (no animation of its own) so AnimatePresence waits for both exits
-				<motion.div key="sheet" className={styles.overlay}>
+				<motion.div
+					key="sheet"
+					className={styles.overlay}
+					style={
+						keyboard.inset
+							? { bottom: keyboard.inset, ...cssVars({ "--sheet-room": px(keyboard.room) }) }
+							: undefined
+					}
+				>
 					<motion.div
 						className={styles.backdrop}
 						initial={{ opacity: 0 }}

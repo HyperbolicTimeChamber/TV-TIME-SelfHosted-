@@ -13,6 +13,9 @@ import DetailBackdrop from "./DetailBackdrop";
 import ActionPills from "./ActionPills";
 import DetailCredits from "./DetailCredits";
 import WhereToWatch from "../../components/WhereToWatch";
+import CastRow from "../../components/CastRow";
+import { useTitleExtras } from "../../hooks/useTitleExtras";
+import StudiosRow from "../../components/StudiosRow";
 import WatchCountPill from "../../components/WatchCountPill";
 import { useShowDetailActions } from "./useShowDetailActions";
 import { useAuthStore } from "../../stores";
@@ -81,7 +84,6 @@ export default function ShowDetailScreen() {
 		year,
 		directors,
 		writers,
-		producers,
 		handleAddToWatchlist,
 		handleRemove,
 		handleConfirmRemove,
@@ -108,6 +110,8 @@ export default function ShowDetailScreen() {
 		else (navigation as any).navigate(Route.HOME, { screen: Route.HOME_TABS });
 	}, [navigation]);
 	const swipeBack = useSwipeBackPop(navigation as never);
+	// The directors' photos for the credits (every extras section reads the same query)
+	const { data: extras } = useTitleExtras(tmdbId, mediaType);
 	const insets = useSafeAreaInsets();
 	// "Add to List" button (next to Share): blue once the title is in any list
 	const userId = useAuthStore((s) => s.user?.uid);
@@ -280,10 +284,19 @@ export default function ShowDetailScreen() {
 						<Text style={styles.overview}>{show.overview}</Text>
 
 						{mediaType === MediaType.MOVIE && (
-							<DetailCredits directors={directors} writers={writers} producers={producers} />
+							<>
+								<DetailCredits
+									directors={directors}
+									writers={writers}
+									directorPeople={extras?.directors}
+									writerPeople={extras?.writers}
+								/>
+								{/* Under the credits: the studios' logos */}
+								<StudiosRow tmdbId={tmdbId} mediaType={mediaType} bleed={spacing.lg} compact />
+							</>
 						)}
 
-						{/* Movies: last on the page; shows: above the seasons */}
+						{/* Movies: after the credits; shows: above the seasons */}
 						<WhereToWatch
 							tmdbId={tmdbId}
 							mediaType={mediaType}
@@ -315,6 +328,18 @@ export default function ShowDetailScreen() {
 									))}
 							</View>
 						)}
+
+						{/* Shows: the studios under the seasons */}
+						{mediaType === MediaType.TV && (
+							<StudiosRow tmdbId={tmdbId} mediaType={mediaType} bleed={spacing.lg} />
+						)}
+						{/* Last on the page: movies' in place of Production, shows' under the studios */}
+						<CastRow
+							tmdbId={tmdbId}
+							mediaType={mediaType}
+							title={title ?? ""}
+							bleed={spacing.lg}
+						/>
 					</View>
 				</View>
 				{/* Back sticks to the top until the pills push it off; share rides at the top of the

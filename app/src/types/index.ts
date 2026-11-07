@@ -16,6 +16,11 @@ export type {
 	CatalogEpisode,
 	CatalogSeason,
 	CatalogShow,
+	CastMember,
+	CrewMember,
+	Studio,
+	TitleCastPage,
+	TitleExtras,
 	RegionWatchProviders,
 	WatchProvider,
 } from "./catalog";

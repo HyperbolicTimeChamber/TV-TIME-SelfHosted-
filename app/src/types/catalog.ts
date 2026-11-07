@@ -39,7 +39,62 @@ export interface RegionWatchProviders {
 	updatedAt: number;
 }
 
+/** One cast member (functions StoredCastMember) */
+export interface CastMember {
+	id: number;
+	name: string;
+	character: string | null;
+	/** TMDB image path of their photo */
+	profile: string | null;
+	/** Shows: episodes they're in */
+	episodes?: number;
+}
+
+/** A studio with a logo — the info page Studios row (functions StoredStudio) */
+export interface Studio {
+	id: number;
+	name: string;
+	/** TMDB image path of its logo */
+	logo: string;
+}
+
+/** A movie's director with their photo (functions StoredCrewMember) */
+export interface CrewMember {
+	id: number;
+	name: string;
+	profile: string | null;
+}
+
+/** What the titleExtras CF answers (functions TitleExtras) */
+export interface TitleExtras {
+	/** Featured: a movie's leads / a show's regulars */
+	cast: CastMember[];
+	castTotal: number;
+	directors: CrewMember[];
+	/** Movies' writers — screenplay, story, novel */
+	writers: CrewMember[];
+	studios: Studio[];
+	providers: RegionWatchProviders;
+}
+
+/** One page of the full cast (functions TitleCastPage) */
+export interface TitleCastPage {
+	members: CastMember[];
+	total: number;
+	hasMore: boolean;
+}
+
 export interface CatalogShow {
+	/** Info page extras (titleExtras CF) — empty lists mean TMDB has none. Featured cast: */
+	cast?: CastMember[];
+	/** Everyone in the full cast (paged in the View All sheet) */
+	castTotal?: number;
+	/** A movie's directors with photos */
+	directors?: CrewMember[];
+	/** A movie's writers with photos */
+	writers?: CrewMember[];
+	/** Studios with logos (the info page row) — `studios` holds the names the Studio filter uses */
+	studioLogos?: Studio[];
 	/** Where to Watch, for the countries someone opened the info page from (watchProviders CF) */
 	watchProviders?: Record<string, RegionWatchProviders>;
 	tmdbId: number;
