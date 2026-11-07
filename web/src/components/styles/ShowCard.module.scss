@@ -220,15 +220,11 @@
 	letter-spacing: 0.5px;
 }
 
-.newBadge {
+/* NEW uses the default tag look (yellow, dark text); FINALE and LATEST are solid blue */
+.finaleBadge,
+.latestBadge {
 	background: $accent;
 	color: var(--text);
-}
-
-.latestBadge {
-	background: transparent;
-	border: 1px solid $accent;
-	color: $accent;
 }
 
 .checkmarkWrap {

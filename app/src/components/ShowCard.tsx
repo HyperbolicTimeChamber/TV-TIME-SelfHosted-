@@ -351,12 +351,12 @@ export default memo(function ShowCard({
 										) : null}
 									</Text>
 									{isFinale ? (
-										<View style={[styles.tagBadge, styles.inlineTag]}>
-											<Text style={styles.tagBadgeText}>{FreshTag.FINALE}</Text>
+										<View style={[styles.tagBadge, styles.inlineTag, styles.finaleBadge]}>
+											<Text style={[styles.tagBadgeText, styles.finaleBadgeText]}>{FreshTag.FINALE}</Text>
 										</View>
 									) : rewatching ? null : isNewEpisode ? (
-										<View style={[styles.tagBadge, styles.inlineTag, styles.newBadge]}>
-											<Text style={[styles.tagBadgeText, styles.newBadgeText]}>{FreshTag.NEW}</Text>
+										<View style={[styles.tagBadge, styles.inlineTag]}>
+											<Text style={styles.tagBadgeText}>{FreshTag.NEW}</Text>
 										</View>
 									) : isLatest ? (
 										<View style={[styles.tagBadge, styles.inlineTag, styles.latestBadge]}>
@@ -523,19 +523,18 @@ const styles = StyleSheet.create({
 		color: colors.text,
 		letterSpacing: 0.5,
 	},
-	newBadge: {
+	// NEW uses the default tag look (yellow, dark text); FINALE and LATEST are solid blue
+	finaleBadge: {
 		backgroundColor: colors.accent,
 	},
-	newBadgeText: {
+	finaleBadgeText: {
 		color: colors.text,
 	},
 	latestBadge: {
-		backgroundColor: "transparent",
-		borderWidth: 1,
-		borderColor: colors.accent,
+		backgroundColor: colors.accent,
 	},
 	latestBadgeText: {
-		color: colors.accent,
+		color: colors.text,
 	},
 	// Movie: MOVIE / year tags, and a REWATCH tag beside them
 	movieMetaRow: {

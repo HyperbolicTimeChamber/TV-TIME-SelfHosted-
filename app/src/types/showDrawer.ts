@@ -9,6 +9,8 @@ export interface ShowDrawerData {
 	overview: string | null;
 	mediaType?: MediaType;
 	year?: string | null;
+	/** Movies: the full release date (ISO), shown instead of the year */
+	releaseDate?: string | null;
 	totalSeasons?: number | null;
 	totalEpisodes?: number | null;
 	runtime?: number | null;

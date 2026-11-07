@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { formatIsoDate } from "@app/utils/format";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { Spin } from "antd";
@@ -96,7 +97,8 @@ export default function ShowDrawer({
 	);
 	const isListed = !!listEntry && isTitleListed(lists, listEntry.tmdbId, listEntry.mediaType);
 	const meta = [
-		show?.year,
+		// A movie's full release date ("16 Jul 2024"); a show's first-air year
+		show?.releaseDate ? formatIsoDate(show.releaseDate) : show?.year,
 		show?.totalSeasons ? `${show.totalSeasons} season${show.totalSeasons !== 1 ? "s" : ""}` : null,
 		show?.totalEpisodes ? `${show.totalEpisodes} episodes` : null,
 		show?.runtime ? `${show.runtime} min` : null,
