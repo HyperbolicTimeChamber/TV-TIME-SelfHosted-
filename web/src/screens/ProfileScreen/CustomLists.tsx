@@ -25,16 +25,7 @@ export default function CustomLists() {
 
 	return (
 		<section className={styles.section}>
-			<button
-				className={styles.listsBanner}
-				onClick={() => navigate(Paths.LISTS)}
-				aria-label="Open Lists"
-			>
-				<h3 className={`${styles.sectionTitle} ${styles.noMargin}`}>Lists</h3>
-				{lists.length > 0 && <span className={styles.countPill}>{lists.length}</span>}
-				<span className={styles.seeAll}>See all</span>
-				<IoChevronForward size={16} color="var(--text-muted)" />
-			</button>
+			<h3 className={styles.sectionTitle}>Lists</h3>
 
 			{loading && lists.length === 0 ? (
 				<div className={styles.completedLoader}>
@@ -49,15 +40,24 @@ export default function CustomLists() {
 					</span>
 				</button>
 			) : (
-				shown.map((list) => (
-					<Row
-						key={list.id}
-						name={list.name}
-						count={list.items.length}
-						onOpen={() => navigate(listPath(list.id))}
-						items={list.items}
-					/>
-				))
+				<>
+					{shown.map((list) => (
+						<Row
+							key={list.id}
+							name={list.name}
+							count={list.items.length}
+							onOpen={() => navigate(listPath(list.id))}
+							items={list.items}
+						/>
+					))}
+					{/* Under the top lists: every list, on the Lists page */}
+					<button className={styles.viewAllLists} onClick={() => navigate(Paths.LISTS)}>
+						View All Lists
+						<span className={styles.viewAllArrow}>
+							<IoChevronForward size={24} />
+						</span>
+					</button>
+				</>
 			)}
 		</section>
 	);
