@@ -4,14 +4,27 @@
 	flex-shrink: 0;
 	width: 40px;
 	height: 40px;
-	border-radius: 999px;
+	padding: 0;
 	border: none;
-	background: var(--color-primary);
+	/* Shape and colour: the Squircle drawn inside, like the floating sort button */
+	background: none;
 	color: var(--color-fg);
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	cursor: pointer;
+
+	/* The icon over the Squircle (the first child, absolutely placed) */
+	> svg:not(:first-child) {
+		position: relative;
+	}
+}
+
+/* "A → Z" with an icon arrow */
+.arrowLabel {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
 }
 
 /* Sort (or filters) not at default */

@@ -31,6 +31,7 @@ import { useColumnCount } from "../../hooks/useColumnCount";
 import { Paths, showPath } from "../../routes/paths";
 import { SortButton, SortPanel, type SortOption } from "../../components/SortPanel";
 import AddToListSheet from "../../components/AddToListSheet";
+import SortFabMenu from "../../components/SortFabMenu";
 import SearchCard from "./SearchCard";
 import { mediaTypeOf } from "./mediaTypeOf";
 import SearchModals from "./SearchModals";
@@ -123,7 +124,7 @@ export default function SearchScreen() {
 	}, [submittedQuery, sortedResults, trending, mediaFilter]);
 	const isLoading = submittedQuery ? searchLoading : trendingLoading;
 	const showSort = !!submittedQuery && !isLoading && items.length > 0;
-	// Phones: the sort button floats bottom-right like the app's SortFab; wider: in the search bar
+	// Phones: a floating sort menu like the app's SortFabMenu; wider: a popover in the search bar
 	const floatingSort = useColumnCount() === 1;
 
 	const loadMore = useCallback(() => {
@@ -176,6 +177,7 @@ export default function SearchScreen() {
 	const sortButton = (
 		<SortButton
 			label="Sort results"
+			sortOnly
 			open={sortOpen}
 			onOpenChange={setSortOpen}
 			customised={!sameSearchSort(sortView, DEFAULT_SEARCH_SORT)}
@@ -312,7 +314,20 @@ export default function SearchScreen() {
 			)}
 			<div ref={sentinel} />
 
-			{showSort && floatingSort && <div className={styles.sortFab}>{sortButton}</div>}
+			{showSort && floatingSort && (
+				<SortFabMenu
+					label="Sort results"
+					options={SORT_OPTIONS}
+					selected={sortView}
+					isSame={sameSearchSort}
+					customised={!sameSearchSort(sortView, DEFAULT_SEARCH_SORT)}
+					onSelect={(next) => {
+						setSortView(next);
+						// New order starts from the top
+						window.scrollTo({ top: 0 });
+					}}
+				/>
+			)}
 
 			{signedIn && <AddToListSheet entry={listEntry} onClose={() => setListTarget(null)} />}
 

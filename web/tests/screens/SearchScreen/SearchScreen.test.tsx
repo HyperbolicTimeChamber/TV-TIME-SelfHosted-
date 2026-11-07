@@ -80,15 +80,15 @@ describe("SearchScreen", () => {
 		expect(resultTitles()).toEqual(["heat", "Undated", "Arrow"]);
 
 		fireEvent.click(screen.getByLabelText("Sort results"));
-		fireEvent.click(await screen.findByText("Newest first"));
+		fireEvent.click(await screen.findByText("Newest First"));
 		await waitFor(() => expect(resultTitles()).toEqual(["Arrow", "heat", "Undated"]));
 
 		fireEvent.click(screen.getByLabelText("Sort results"));
-		fireEvent.click(await screen.findByText("Oldest first"));
+		fireEvent.click(await screen.findByText("Oldest First"));
 		await waitFor(() => expect(resultTitles()).toEqual(["heat", "Arrow", "Undated"]));
 
 		fireEvent.click(screen.getByLabelText("Sort results"));
-		fireEvent.click(await screen.findByText("A → Z"));
+		fireEvent.click(await screen.findByRole("button", { name: "A → Z" }));
 		await waitFor(() => expect(resultTitles()).toEqual(["Arrow", "heat", "Undated"]));
 	});
 });

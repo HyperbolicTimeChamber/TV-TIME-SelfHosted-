@@ -37,9 +37,10 @@ import { listedTitleKeys, listItemKey, searchMediaType, entryFromSearchResult } 
 import { colors, spacing } from "../../theme";
 import { TMDBShow, SearchStackParamList, MediaType, MediaFilter, Route } from "../../types";
 import { CacheKey, CustomListView } from "../../enums";
-import SortFab, { SORT_FAB_CLEARANCE } from "../../components/SortFab";
+import { SORT_FAB_CLEARANCE } from "../../components/SortFab";
+import SortFabMenu from "../../components/SortFabMenu";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
-import SortSheet, { type SortOption } from "../../components/SortSheet";
+import type { SortOption } from "../../components/SortSheet";
 import {
 	SEARCH_SORT_OPTIONS,
 	sameSearchSort,
@@ -115,7 +116,6 @@ export default function SearchScreen() {
 	const [mediaFilter, setMediaFilter] = useState<MediaFilter>(MediaFilter.ALL);
 	// Results only (Trending keeps its own order); remembered for the session
 	const [sortView, setSortView] = useSearchSort();
-	const [sortOpen, setSortOpen] = useState(false);
 	// Grid / List, remembered across launches (Trending and results share it)
 	const [view, setView] = useCustomListView(CacheKey.SEARCH_VIEW, CustomListView.GRID);
 	const isGrid = view === CustomListView.GRID;
@@ -543,22 +543,16 @@ export default function SearchScreen() {
 			</Animated.View>
 
 			{showSort && (
-				<SortFab
+				<SortFabMenu
 					bottom={FAB_BOTTOM}
-					onPress={() => setSortOpen(true)}
+					options={SORT_OPTIONS}
+					selected={sortView}
+					isSame={sameSearchSort}
+					onSelect={chooseSort}
 					customised={!sameSearchSort(sortView, DEFAULT_SEARCH_SORT)}
 					accessibilityLabel="Sort results"
 				/>
 			)}
-			<SortSheet
-				visible={sortOpen}
-				onClose={() => setSortOpen(false)}
-				options={SORT_OPTIONS}
-				selected={sortView}
-				isSame={sameSearchSort}
-				closeOnSelect
-				onSelect={chooseSort}
-			/>
 
 			<AddToListSheet entry={listEntry} onClose={() => setListTarget(null)} />
 

@@ -139,25 +139,6 @@
 	padding-right: 6px;
 }
 
-/* Phones: the sort button floats bottom-right over the results, the size of the app's SortFab */
-.sortFab {
-	position: fixed;
-	right: 16px;
-	bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 20px);
-	z-index: 15;
-
-	> button {
-		width: 56px;
-		height: 56px;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-
-		> span {
-			top: 12px;
-			right: 12px;
-		}
-	}
-}
-
 /* Grid / List toggle — right end of the search bar, after the ✕ / sort */
 .viewToggle {
 	flex-shrink: 0;
