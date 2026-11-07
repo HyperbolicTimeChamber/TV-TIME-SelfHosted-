@@ -794,6 +794,7 @@ export function useSeasonActions({
 			}
 			try {
 				// Off the real count (read first): a stale cached count can't delete watches
+				let restoredTo: Timestamp | null = null;
 				const final = await writeEpisodeWatchCount(
 					user.uid,
 					tmdbId,
@@ -802,8 +803,21 @@ export function useSeasonActions({
 					target,
 					knownTracking,
 					pointer,
+					undefined,
+					(at) => {
+						restoredTo = at;
+					},
 				);
-				if (final !== target) {
+				// Put back to the watch before the undone play → its row goes back to that place
+				if (restoredTo && final > 0)
+					setWatchedEpisodeCountsCache(
+						queryClient,
+						user.uid,
+						tmdbId,
+						new Map([[cacheKey, final]]),
+						restoredTo,
+					);
+				else if (final !== target) {
 					// Firestore had a different count → the rows follow it
 					if (target <= 0 && final > 0) {
 						const now = Timestamp.now();
@@ -1197,6 +1211,7 @@ export function useSeasonActions({
 			};
 			showCount(to, from, to > from ? Timestamp.now() : before);
 			let final: number;
+			let restoredTo: Timestamp | null = null;
 			try {
 				final = await writeEpisodeWatchCount(
 					uid,
@@ -1206,6 +1221,10 @@ export function useSeasonActions({
 					to,
 					knownTracking,
 					pointer,
+					undefined,
+					(at) => {
+						restoredTo = at;
+					},
 				);
 			} catch (err: any) {
 				showCount(from, to, before);
@@ -1213,8 +1232,10 @@ export function useSeasonActions({
 				Alert.alert("Error", err.message || "Couldn't update the watch count.");
 				return from;
 			}
+			// Put back to an earlier watch (the one before the undone play): the row takes its place
+			if (restoredTo && final > 0) showCount(final, to, restoredTo);
 			// Firestore's real count differed (a stale cached count) → the row follows it
-			if (final !== to) showCount(final, to, before);
+			else if (final !== to) showCount(final, to, before);
 			for (let i = 0; i < Math.abs(final - from); i++) {
 				if (final > from) incrementDailyWatch("episode");
 				else decrementDailyWatch("episode");

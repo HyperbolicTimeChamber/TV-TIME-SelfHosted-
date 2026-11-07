@@ -123,7 +123,7 @@ service cloud.firestore {
       return episodeId.matches('^[0-9]{1,10}_S[0-9]{2,4}E[0-9]{2,5}$')
         && onlyWrites([
           'tmdbShowId', 'season', 'episode', 'episodeTitle', 'runtime', 'watchCount',
-          'lastWatchedAt', 'watchedAt'
+          'lastWatchedAt', 'watchedAt', 'prevWatchedAt', 'prevWatchedFor'
         ])
         && optNumber('tmdbShowId')
         && optNumber('season')
@@ -132,7 +132,10 @@ service cloud.firestore {
         && optNumber('runtime')
         && optNumber('watchCount')
         && optTimestamp('lastWatchedAt')
-        && optTimestamp('watchedAt');
+        && optTimestamp('watchedAt')
+        // The watch before the last one, paired with that last one (undo of one play)
+        && optTimestamp('prevWatchedAt')
+        && optTimestamp('prevWatchedFor');
     }
 
     function validWatchedMovie(movieId) {

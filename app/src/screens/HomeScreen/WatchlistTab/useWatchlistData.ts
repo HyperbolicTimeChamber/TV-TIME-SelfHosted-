@@ -1207,6 +1207,7 @@ export function useWatchlistData(userId: string | undefined) {
 			const pointer = pointerFor(tmdbId, season, episode, count, count - 1);
 
 			// Off the real count (read first): a stale cached count can't delete watches
+			let restoredTo: Timestamp | null = null;
 			const final = await writeEpisodeWatchCount(
 				userId,
 				tmdbId,
@@ -1221,14 +1222,20 @@ export function useWatchlistData(userId: string | undefined) {
 				count - 1,
 				known,
 				pointer,
+				undefined,
+				(at) => {
+					restoredTo = at;
+				},
 			);
 			decrementDailyWatch("episode");
 			if (final > 0) {
+				// Put back to the watch before the undone play → its row goes back to that place
 				setWatchedEpisodeCountsCache(
 					queryClient,
 					userId,
 					tmdbId,
 					new Map([[`${season}_${episode}`, final]]),
+					restoredTo ?? undefined,
 				);
 			} else {
 				removeWatchedEpisodeCache(queryClient, userId, tmdbId, season, episode);

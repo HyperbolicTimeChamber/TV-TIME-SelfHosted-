@@ -46,6 +46,9 @@ import { useWatchlistData } from "./useWatchlistData";
 import { useHealOnView } from "../../../hooks/useHealOnView";
 import { todayStr } from "../../../utils";
 
+/** How long an unwatch swipe's row stays flagged as swiped off (isSwipedOff) after its write */
+const SWIPED_OFF_MS = 2000;
+
 /**
  * Watchlist tab state + actions (episode modal, show drawer, previously-watched
  * sheets/swipes). Shared by the mobile WatchlistTab and the web watchlist.
@@ -446,9 +449,10 @@ export function useWatchlistScreen(
 			const count = episode.watchCount || 0;
 			if (count <= floor) return false;
 			noteListChange(episode.tmdbShowId);
-			if (count <= 1) swipedOff.current.add(`watched_${episode.id}`);
 			// Down to its first watch (or the floor): the row goes back to that watch's place
 			const restoreAt = Math.max(floor, 1);
+			// Gone (its last watch) or back at its first watch: either way it leaves its slot
+			if (count - 1 <= restoreAt) swipedOff.current.add(`watched_${episode.id}`);
 			const key = `${episode.season}_${episode.episode}`;
 			/** Row at `n` watches (0 = gone); a row that's gone comes back via insert */
 			const showCount = (
@@ -459,13 +463,11 @@ export function useWatchlistScreen(
 				if (prevN <= 0 && n > 0) {
 					insertWatchedEpisodeCache(queryClient, uid, { ...episode, watchCount: n });
 				} else {
-					// Down to its first watch (or the floor): back to that watch's place, as the write
-					// does; back up (a failed write): its own last watch again
+					// Down: to the watch the write put it back to (the one before the undone play, or
+					// its first at the floor); back up (a failed write): its own last watch again
 					const at =
 						n < prevN
-							? n > 0 && n <= restoreAt
-								? (first ?? episode.watchedAt)
-								: undefined
+							? (first ?? (n > 0 && n <= restoreAt ? episode.watchedAt : undefined))
 							: episode.lastWatchedAt;
 					setWatchedEpisodeCountsCache(
 						queryClient,
@@ -480,7 +482,7 @@ export function useWatchlistScreen(
 			// and the row leaves together with the card's flip (its pointer moves in the same
 			// transaction) — taken off at once, the row went well before the card changed
 			let final: number;
-			/** The episode's real first watch, when the write put its row back there */
+			/** The watch the write put the row back to (the one before the undone play, or its first) */
 			let firstWatch: WatchedEpisode["watchedAt"] | null = null;
 			try {
 				// Off the real count (read first): a stale cached count can't delete watches. Only a
@@ -509,8 +511,21 @@ export function useWatchlistScreen(
 				Alert.alert("Error", err.message || "Couldn't unwatch it.");
 				return false;
 			}
-			// Off Firestore's real count (a stale cached count can differ)
-			if (final !== count) showCount(final, count, firstWatch);
+			// Off Firestore's real count (a stale cached count can differ). Unchanged: the swipe
+			// snaps back (it holds its banner until the row changes)
+			if (final === count) {
+				swipedOff.current.delete(`watched_${episode.id}`);
+				return false;
+			}
+			// Noted again as the row changes: a slow write outlasted the "just changed" window, and
+			// the row then left without its banner shrinking away
+			noteListChange(episode.tmdbShowId);
+			// Put back to an earlier watch above the floor (the play before it): it leaves its slot too
+			if (firstWatch) swipedOff.current.add(`watched_${episode.id}`);
+			showCount(final, count, firstWatch);
+			// Read by the list as it takes the change; a later move of the row (a rewatch) isn't one
+			const off = `watched_${episode.id}`;
+			setTimeout(() => swipedOff.current.delete(off), SWIPED_OFF_MS);
 			decrementDailyWatch("episode");
 		},
 		[noteListChange, user?.uid, queryClient, rewatchFloor, watchlistPointer],
@@ -555,6 +570,7 @@ export function useWatchlistScreen(
 				to > from ? Timestamp.now() : to > 0 && to <= restoreAt ? ep.watchedAt : ep.lastWatchedAt,
 			);
 			let final: number;
+			let restoredTo: Timestamp | null = null;
 			try {
 				final = await writeEpisodeWatchCount(
 					uid,
@@ -565,6 +581,9 @@ export function useWatchlistScreen(
 					undefined,
 					watchlistPointer(ep, from, to),
 					restoreAt,
+					(at) => {
+						restoredTo = at;
+					},
 				);
 			} catch (err: any) {
 				showCount(from, to, ep.lastWatchedAt);
@@ -572,8 +591,10 @@ export function useWatchlistScreen(
 				Alert.alert("Error", err.message || "Couldn't update the watch count.");
 				return;
 			}
+			// Put back to an earlier watch (the one before the undone play): the row takes its place
+			if (restoredTo && final > 0) showCount(final, to, restoredTo);
 			// Firestore's real count differed (a stale cached count) → the row follows it
-			if (final !== to) showCount(final, to, ep.lastWatchedAt);
+			else if (final !== to) showCount(final, to, ep.lastWatchedAt);
 			for (let i = 0; i < Math.abs(final - from); i++) {
 				if (final > from) incrementDailyWatch("episode");
 				else decrementDailyWatch("episode");

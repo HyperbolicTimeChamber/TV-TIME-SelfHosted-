@@ -27,6 +27,7 @@ import { foregroundCall } from "./callQueue";
 import { takeFacetDelta, trackFacetWrite } from "./userFacets";
 import { batchEndOffsets, staggerFinishTimes } from "../utils/stagger";
 import { epKey, rewatchHeal, type EpisodeRef } from "../utils/trackingAdvance";
+import { watchTimesOnMark, watchTimeOnUnwatch, type EpisodeWatchTimes } from "../utils/watchTimes";
 
 /** Tracked Cloud Function call */
 /** A user-triggered callable: queued background heals wait while it runs */
@@ -325,8 +326,11 @@ export async function markEpisodeWatched(
 	const docId = episodeDocId(tmdbShowId, season, episode);
 	const epRef = doc(watchedEpisodesRef(userId), docId);
 
-	// Every write here is an increment or a merge, so no read is needed to stay correct
+	// Every write here is an increment or a merge; the one read keeps the episode's watch times
+	// (its first watch, and the watch this one replaces as its last — see watchTimesOnMark)
 	await runTransaction(db, async (tx) => {
+		const before = await tx.get(epRef);
+		const watchedNow = Timestamp.now();
 		tx.set(
 			epRef,
 			{
@@ -334,9 +338,9 @@ export async function markEpisodeWatched(
 				season,
 				episode,
 				episodeTitle,
-				lastWatchedAt: serverTimestamp(),
 				runtime,
 				watchCount: increment(1),
+				...watchTimesOnMark(before.data() as EpisodeWatchTimes<Timestamp> | undefined, watchedNow),
 			},
 			{ merge: true },
 		);
@@ -634,7 +638,8 @@ export async function setNextEpisode(
 /**
  * Watch count sheet: set one episode's plays from → to (the sheet debounces taps, so +3 is one
  * write). Resolves with the count the episode ends up at.
- * - Up: one batch, no read; lastWatchedAt now (the row moves to the top of Previously Watched).
+ * - Up: one transaction (reads only the episode's watch times, see watchTimesOnMark);
+ *   lastWatchedAt now (the row moves to the top of Previously Watched).
  * - Down: a transaction that reads the episode's real count first — a cached count can be stale
  *   (a mark from elsewhere), and trusting it deleted a record that still had watches. Only a
  *   real 0 deletes it; the rest is taken off what's actually there.
@@ -654,9 +659,10 @@ export async function writeEpisodeWatchCount(
 	 *  episode's last watch is its first again (lastWatchedAt ← watchedAt): its Previously Watched
 	 *  row goes back to that watch's place instead of staying where the undone watch put it */
 	restoreAtOrBelow = 1,
-	/** Called with the episode's real first watch when its last watch went back to it — a cached
-	 *  row's own watchedAt can be a mark's optimistic "now" (it wasn't on a loaded page) */
-	onRestored?: (firstWatchedAt: Timestamp) => void,
+	/** Called with the watch the episode's last watch went back to (the one before the undone
+	 *  play, or its first — watchTimeOnUnwatch): a cached row can't know it (its own watchedAt can
+	 *  be a mark's optimistic "now", and earlier watches aren't cached) */
+	onRestored?: (restoredTo: Timestamp) => void,
 ): Promise<number> {
 	if (to === from) return to;
 	const runtime = ep.runtime || 0;
@@ -679,36 +685,43 @@ export async function writeEpisodeWatchCount(
 	if (to > from) {
 		const delta = to - from;
 		const minutes = runtime * delta;
-		const batch = writeBatch(db);
-		batch.set(
-			epRef,
-			{
-				tmdbShowId,
-				season: ep.season,
-				episode: ep.episode,
-				episodeTitle: ep.title,
-				runtime,
-				watchCount: increment(delta),
-				lastWatchedAt: now,
-				// Back from 0 within one edit: the doc was deleted — give it its first watch time
-				...(from <= 0 ? { watchedAt: now } : {}),
-			},
-			{ merge: true },
-		);
-		batch.set(
-			userRef(userId),
-			{ stats: { episodesWatched: increment(delta), totalMinutes: increment(minutes) } },
-			{ merge: true },
-		);
-		batch.set(
-			tRef,
-			{
-				...historyOnWatch(minutes, delta, now, { season: ep.season, episode: ep.episode }),
-				...(pointer ? { ...moveFields(pointer), lastWatchedAt: now } : {}),
-			},
-			{ merge: true },
-		);
-		await batch.commit();
+		await runTransaction(db, async (tx) => {
+			// Read for its watch times only (counts are increments): its first watch when it has no
+			// record yet, and the watch a single +1 replaces (watchTimesOnMark)
+			const before = (await tx.get(epRef)).data() as EpisodeWatchTimes<Timestamp> | undefined;
+			const times = watchTimesOnMark(before, now);
+			tx.set(
+				epRef,
+				{
+					tmdbShowId,
+					season: ep.season,
+					episode: ep.episode,
+					episodeTitle: ep.title,
+					runtime,
+					watchCount: increment(delta),
+					lastWatchedAt: now,
+					...(times.watchedAt ? { watchedAt: now } : {}),
+					// Only one play is undone back to the watch before it; +3 at once keeps none
+					...(delta === 1 && times.prevWatchedAt
+						? { prevWatchedAt: times.prevWatchedAt, prevWatchedFor: now }
+						: {}),
+				},
+				{ merge: true },
+			);
+			tx.set(
+				userRef(userId),
+				{ stats: { episodesWatched: increment(delta), totalMinutes: increment(minutes) } },
+				{ merge: true },
+			);
+			tx.set(
+				tRef,
+				{
+					...historyOnWatch(minutes, delta, now, { season: ep.season, episode: ep.episode }),
+					...(pointer ? { ...moveFields(pointer), lastWatchedAt: now } : {}),
+				},
+				{ merge: true },
+			);
+		});
 		emitHistoryChange({
 			userId,
 			tmdbId: tmdbShowId,
@@ -744,10 +757,14 @@ export async function writeEpisodeWatchCount(
 		if (removed <= 0) return { final: actual, removed: 0, legacyBack: false };
 		if (final <= 0) tx.delete(epRef);
 		else {
-			const first = snap.data()?.watchedAt;
-			const back = final <= restoreAtOrBelow && first ? { lastWatchedAt: first } : {};
-			tx.update(epRef, { watchCount: final, ...back });
-			if (back.lastWatchedAt) restoredTo = back.lastWatchedAt as Timestamp;
+			const back = watchTimeOnUnwatch(
+				snap.data() as EpisodeWatchTimes<Timestamp> | undefined,
+				removed,
+				final,
+				restoreAtOrBelow,
+			);
+			tx.update(epRef, { watchCount: final, ...(back ? { lastWatchedAt: back } : {}) });
+			if (back) restoredTo = back;
 		}
 		tx.set(
 			userRef(userId),
