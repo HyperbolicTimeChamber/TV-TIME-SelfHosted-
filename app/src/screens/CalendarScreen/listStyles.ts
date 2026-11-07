@@ -1,5 +1,5 @@
 import { Dimensions, StyleSheet } from "react-native";
-import { colors, fonts, spacing, typography } from "../../theme";
+import { colors, fonts, spacing, typography, themedStyles } from "../../theme";
 
 export const CARD_WIDTH = Dimensions.get("window").width - 32;
 export const CARD_MIN_HEIGHT = 120;
@@ -7,7 +7,7 @@ export const CARD_MIN_HEIGHT = 120;
 const EP_SQUARE = CARD_MIN_HEIGHT - spacing.md * 2;
 
 /** Day list cards */
-export const listStyles = StyleSheet.create({
+export const listStyles = themedStyles(() => StyleSheet.create({
 	listContent: { paddingBottom: spacing.xl },
 	episodeCard: {
 		minHeight: CARD_MIN_HEIGHT,
@@ -18,7 +18,7 @@ export const listStyles = StyleSheet.create({
 		padding: spacing.md,
 		borderRadius: 16,
 		overflow: "hidden",
-		backgroundColor: colors.surface,
+		backgroundColor: colors.cardDark,
 	},
 	// Episode under an opened show card: plain one-line strip (no backdrop)
 	childCard: {
@@ -32,7 +32,7 @@ export const listStyles = StyleSheet.create({
 		paddingRight: spacing.md,
 		borderRadius: 12,
 		overflow: "hidden",
-		backgroundColor: colors.surface,
+		backgroundColor: colors.cardDark,
 	},
 	// Exx in a translucent square (pill background), inset 6px like top/bottom
 	childEpBox: {
@@ -48,11 +48,11 @@ export const listStyles = StyleSheet.create({
 	childEp: {
 		fontFamily: fonts.smoochMedium,
 		fontSize: 22,
-		color: colors.text,
+		color: colors.onImage,
 		letterSpacing: 0.5,
 		includeFontPadding: false,
 	},
-	childTitle: { ...typography.body, flex: 1, fontSize: 15, fontWeight: "500", color: colors.text },
+	childTitle: { ...typography.body, flex: 1, fontSize: 15, fontWeight: "500", color: colors.onImage },
 	cardOverlay: { backgroundColor: "rgba(0, 0, 0, 0.55)" },
 	epInfo: { flex: 1 },
 	logo: { height: 36, width: "60%", marginBottom: spacing.sm },
@@ -77,18 +77,18 @@ export const listStyles = StyleSheet.create({
 		fontFamily: fonts.smoochMedium,
 		fontSize: 16,
 		letterSpacing: 1.5,
-		color: colors.text,
+		color: colors.onImage,
 	},
 	epSquareRule: {
 		alignSelf: "stretch",
 		height: 1,
-		backgroundColor: colors.text,
+		backgroundColor: colors.onImage,
 		marginVertical: 6,
 	},
 	epSquareValue: {
 		fontFamily: fonts.smoochRegular,
 		fontSize: 56,
-		color: colors.text,
+		color: colors.onImage,
 		lineHeight: 58,
 	},
 	// Arrow fills rule → bottom edge (cancelling the rule's bottom margin) and centres in it
@@ -109,7 +109,7 @@ export const listStyles = StyleSheet.create({
 		fontSize: 14,
 		lineHeight: 14,
 		letterSpacing: 0.5,
-		color: colors.text,
+		color: colors.onImage,
 	},
 	epSquareYear: { fontSize: 40, lineHeight: 44 },
 	movieBadge: {
@@ -123,14 +123,14 @@ export const listStyles = StyleSheet.create({
 	movieBadgeText: {
 		fontSize: 10,
 		fontWeight: "700",
-		color: colors.text,
+		color: colors.onImage,
 		letterSpacing: 0.5,
 	},
 	epTitle: {
 		...typography.body,
-		color: colors.text,
+		color: colors.onImage,
 		marginTop: spacing.xs,
 		fontSize: 15,
 		fontWeight: "500",
 	},
-});
+}));

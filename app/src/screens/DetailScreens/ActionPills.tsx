@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import type { LayoutChangeEvent } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 import { WatchStatus, MediaType } from "../../types";
 import { ADD_TO_WATCHLIST_LABELS, CircleButtonTone, MARK_WATCHED_LABELS } from "../../enums";
 import CircleButton from "../../components/CircleButton";
@@ -220,7 +220,7 @@ export default function ActionPills({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	pillRow: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -264,11 +264,11 @@ const styles = StyleSheet.create({
 	pillText: {
 		...typography.subtitle,
 		fontSize: 13,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 	pillRemoveText: {
 		...typography.subtitle,
 		fontSize: 13,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
-});
+}));

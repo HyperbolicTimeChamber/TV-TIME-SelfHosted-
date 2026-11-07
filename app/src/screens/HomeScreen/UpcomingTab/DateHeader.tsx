@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { colors, spacing, typography } from "../../../theme";
+import { colors, spacing, typography, themedStyles } from "../../../theme";
 import { todayStr } from "../../../utils";
 
 interface Props {
@@ -40,7 +40,7 @@ export default memo(function DateHeader({ date }: Props) {
 	);
 });
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		paddingTop: spacing.xs,
 		paddingBottom: spacing.md,
@@ -57,9 +57,9 @@ const styles = StyleSheet.create({
 	},
 	text: {
 		...typography.subtitle,
-		color: colors.text,
+		color: colors.onPrimary,
 		textTransform: "uppercase",
 		fontSize: 12,
 		letterSpacing: 1,
 	},
-});
+}));

@@ -2,6 +2,7 @@ import React from "react";
 import {
 	CommonActions,
 	NavigationContainer,
+	NavigationState,
 	LinkingOptions,
 	PathConfig,
 	createNavigationContainerRef,
@@ -9,7 +10,7 @@ import {
 	getStateFromPath,
 } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { colors } from "../theme";
+import { colors, isLightTheme } from "../theme";
 import { MainStackParamList, Route, SwipeTabParamList } from "../types";
 import { MediaType, WEB_BASE_URL } from "../enums";
 import SwipeTabsScreen from "./SwipeTabsScreen";
@@ -17,8 +18,8 @@ import { trackPageViewed } from "../services/mixpanel";
 
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
-const navTheme = {
-	dark: true,
+const getNavTheme = () => ({
+	dark: !isLightTheme(),
 	colors: {
 		primary: colors.primary,
 		background: colors.background,
@@ -33,7 +34,7 @@ const navTheme = {
 		bold: { fontFamily: "System", fontWeight: "700" as const },
 		heavy: { fontFamily: "System", fontWeight: "900" as const },
 	},
-};
+});
 
 const navigationRef = createNavigationContainerRef<MainStackParamList>();
 
@@ -123,6 +124,9 @@ const linking: LinkingOptions<MainStackParamList> = {
 	},
 };
 
+/** Last navigation state: the tree remounts on a theme change and picks up where it was */
+let savedNavState: NavigationState | undefined;
+
 let lastPage: string | undefined;
 /** page_viewed for the focused (deepest) screen, once per change */
 function trackFocusedScreen() {
@@ -132,14 +136,44 @@ function trackFocusedScreen() {
 	trackPageViewed(page);
 }
 
+/**
+ * A nested route keeps the `screen` it was navigated with in its params, and a navigator prefers that
+ * over its own saved state: restoring as is would jump back to the tab's first screen. The saved
+ * `state` says where each navigator is, so those hints go.
+ */
+function withoutNavigateHints(state: NavigationState): NavigationState {
+	return {
+		...state,
+		routes: state.routes.map((route) => {
+			if (!route.state) return route;
+			const { screen, params, initial, state: _s, path, ...rest } = (route.params ?? {}) as Record<
+				string,
+				unknown
+			>;
+			return {
+				...route,
+				params: Object.keys(rest).length ? rest : undefined,
+				state: withoutNavigateHints(route.state as NavigationState),
+			};
+		}),
+	};
+}
+
+function onNavStateChange(state?: NavigationState) {
+	savedNavState = state && withoutNavigateHints(state);
+	trackFocusedScreen();
+}
 export default function AppNavigator() {
+	// After a remount (theme change) the saved state is the truth: don't re-run the launch deep link
+	const remounted = savedNavState !== undefined;
 	return (
 		<NavigationContainer
 			ref={navigationRef}
-			theme={navTheme}
-			linking={linking}
+			theme={getNavTheme()}
+			initialState={savedNavState}
+			linking={remounted ? { ...linking, getInitialURL: async () => null } : linking}
 			onReady={trackFocusedScreen}
-			onStateChange={trackFocusedScreen}
+			onStateChange={onNavStateChange}
 		>
 			<Stack.Navigator
 				screenOptions={{

@@ -26,7 +26,7 @@ import ShowDrawer, {
 	type ShowDrawerAction,
 	type ShowDrawerData,
 } from "../../components/ShowDrawer";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 import { deriveHistoryCard, deriveListTags, formatRuntime, todayStr } from "../../utils";
 import ListCardTags from "./ListCardTags";
 import SearchCard from "../SearchScreen/SearchCard";
@@ -454,7 +454,7 @@ const JOINED_BUTTON = {
 	borderBottomRightRadius: SQUARE_RADIUS,
 } as const;
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	gridTagBacking: { borderRadius: 999, backgroundColor: colors.background },
 	// The calendar card sits in the list's own padding (no side margin of its own)
 	// Taller than the calendar's card: the square has the add button / Tracking tag under it
@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
 		paddingVertical: 2,
 	},
 	typeBadgeMovie: { backgroundColor: colors.moviePurple },
-	typeBadgeText: { color: colors.text, fontSize: 10, fontWeight: "700" },
+	typeBadgeText: { color: colors.onPrimary, fontSize: 10, fontWeight: "700" },
 	reorderRow: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -565,4 +565,4 @@ const styles = StyleSheet.create({
 	},
 	reorderPoster: { width: 40, height: 60, borderRadius: 4 },
 	reorderTitle: { flex: 1 },
-});
+}));

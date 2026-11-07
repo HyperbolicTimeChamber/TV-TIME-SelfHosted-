@@ -17,7 +17,7 @@ import { getCrashlytics, recordError } from "@react-native-firebase/crashlytics"
 import { getAuth, sendPasswordResetEmail } from "@react-native-firebase/auth";
 import { useAuthStore } from "../../stores";
 import { foregroundCall } from "../../services/callQueue";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import { CircleBackButton, CIRCLE_BUTTON_SIZE } from "../../components/CircleButton";
 import { ConfirmModal } from "../../components";
@@ -322,6 +322,19 @@ export default function SettingsScreen() {
 					<View style={styles.headerSpacer} />
 				</View>
 				<View style={styles.section}>
+					<Text style={styles.sectionTitle}>Preferences</Text>
+					<TouchableOpacity style={styles.row} onPress={() => navigation.navigate(Route.APPEARANCE)}>
+						<Text style={styles.rowText}>Appearance</Text>
+					</TouchableOpacity>
+					<TouchableOpacity
+						style={styles.row}
+						onPress={() => navigation.navigate(Route.NOTIFICATIONS)}
+					>
+						<Text style={styles.rowText}>Notifications</Text>
+					</TouchableOpacity>
+				</View>
+
+				<View style={styles.section}>
 					<Text style={styles.sectionTitle}>Data</Text>
 					<TouchableOpacity
 						style={styles.row}
@@ -487,7 +500,7 @@ export default function SettingsScreen() {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		flex: 1,
 		backgroundColor: colors.background,
@@ -538,4 +551,4 @@ const styles = StyleSheet.create({
 		fontSize: 15,
 		color: colors.destructiveRed,
 	},
-});
+}));

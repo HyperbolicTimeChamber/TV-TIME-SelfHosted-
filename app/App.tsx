@@ -66,7 +66,7 @@ import LoginScreen from "./src/screens/LoginScreen";
 import ImportDataScreen from "./src/screens/ImportDataScreen";
 import AppNavigator from "./src/navigation/AppNavigator";
 import { OfflineOverlay } from "./src/components";
-import { colors } from "./src/theme";
+import { colors, themedStyles, useThemeVersion } from "./src/theme";
 import { AppOpenSource, FATAL_AUTH_ERRORS, QueryKey } from "./src/enums";
 import {
 	initMixpanel,
@@ -238,6 +238,9 @@ function SplashView() {
 }
 
 export default function App() {
+	// Remounts the app content on a theme change (styles and inline colors are read again); auth, queries
+	// and the navigation state live outside it
+	const themeVersion = useThemeVersion();
 	// Non-blocking: text falls back to the system font until these load
 	useFonts({ SmoochSans_400Regular, SmoochSans_500Medium, Handjet_800ExtraBold });
 	const setUser = useAuthStore((s) => s.setUser);
@@ -334,14 +337,14 @@ export default function App() {
 						},
 					}}
 				>
-					<AppContent />
+					<AppContent key={themeVersion} />
 				</PersistQueryClientProvider>
 			</SafeAreaProvider>
 		</GestureHandlerRootView>
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	loading: {
 		flex: 1,
 		backgroundColor: colors.background,
@@ -359,4 +362,4 @@ const styles = StyleSheet.create({
 		height: 120,
 	},
 	splashCredit: { position: "absolute", left: 0, right: 0 },
-});
+}));

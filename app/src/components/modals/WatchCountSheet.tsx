@@ -13,7 +13,7 @@ import BottomSheet, {
 	SheetOption,
 	sheetStyles,
 } from "./BottomSheet";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 import type { MediaType } from "../../types";
 import { HiCheck } from "../HiIcons";
 
@@ -249,7 +249,7 @@ function StepButton({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	stepper: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
 	// Font Awesome's filled circle +/− glyphs are the whole button; only a real limit (0) dims it
 	step: { alignItems: "center", justifyContent: "center" },
@@ -263,4 +263,4 @@ const styles = StyleSheet.create({
 		textAlign: "center",
 		fontVariant: ["tabular-nums"],
 	},
-});
+}));

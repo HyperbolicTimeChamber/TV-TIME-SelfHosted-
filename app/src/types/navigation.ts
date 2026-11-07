@@ -47,6 +47,8 @@ export type CalendarStackParamList = {
 export type ProfileStackParamList = {
 	ProfileMain: undefined;
 	Settings: undefined;
+	Appearance: undefined;
+	Notifications: undefined;
 	ImportData: undefined;
 	WatchHistory: undefined;
 	Lists: undefined;

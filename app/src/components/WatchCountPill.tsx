@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { colors } from "../theme";
+import { colors, themedStyles } from "../theme";
 
 interface Props {
 	count: number;
@@ -33,7 +33,7 @@ export default function WatchCountPill({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	pill: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
 		// Lighter grey than the pill (textSecondary 70% vs 35%)
 		backgroundColor: `${colors.textSecondary}B3`,
 	},
-});
+}));
 
 const fullStyles = StyleSheet.create({
 	pill: { gap: 6, paddingLeft: 10, paddingRight: 5, paddingVertical: 5 },

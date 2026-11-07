@@ -11,6 +11,8 @@ export const Paths = {
 	SEARCH_INPUT: "/search/input",
 	PROFILE: "/profile",
 	SETTINGS: "/profile/settings",
+	APPEARANCE: "/profile/settings/appearance",
+	NOTIFICATIONS: "/profile/settings/notifications",
 	WATCH_HISTORY: "/profile/history",
 	IMPORT: "/profile/import",
 	LISTS: "/profile/lists",

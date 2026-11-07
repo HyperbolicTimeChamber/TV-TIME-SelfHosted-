@@ -15,6 +15,8 @@ const HomeScreen = lazy(() => import("../screens/HomeScreen"));
 const CalendarScreen = lazy(() => import("../screens/CalendarScreen"));
 const ProfileScreen = lazy(() => import("../screens/ProfileScreen"));
 const SettingsScreen = lazy(() => import("../screens/ProfileScreen/SettingsScreen"));
+const AppearanceScreen = lazy(() => import("../screens/ProfileScreen/AppearanceScreen"));
+const NotificationsScreen = lazy(() => import("../screens/ProfileScreen/NotificationsScreen"));
 const WatchHistoryScreen = lazy(() => import("../screens/ProfileScreen/WatchHistory"));
 const ListDetailScreen = lazy(() => import("../screens/ProfileScreen/ListDetail"));
 const ListsScreen = lazy(() => import("../screens/ProfileScreen/ListsScreen"));
@@ -45,7 +47,9 @@ export default function AppRoutes() {
 						<Route path={Paths.CALENDAR} element={<CalendarScreen />} />
 						<Route path={Paths.PROFILE} element={<ProfileScreen />} />
 						<Route path={Paths.SETTINGS} element={<SettingsScreen />} />
-						<Route path={Paths.WATCH_HISTORY} element={<WatchHistoryScreen />} />
+						<Route path={Paths.APPEARANCE} element={<AppearanceScreen />} />
+						<Route path={Paths.NOTIFICATIONS} element={<NotificationsScreen />} />
+						<Route path={Paths.WATCH_HISTORY}element={<WatchHistoryScreen />} />
 						<Route path={Paths.LISTS} element={<ListsScreen />} />
 						<Route path={Paths.LIST} element={<ListDetailScreen />} />
 						<Route path={Paths.IMPORT} element={<ImportDataScreen />} />

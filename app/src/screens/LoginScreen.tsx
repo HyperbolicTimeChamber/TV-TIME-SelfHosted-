@@ -11,7 +11,7 @@ import {
 	Alert,
 } from "react-native";
 import { Image } from "expo-image";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 import { getAuth, sendPasswordResetEmail } from "@react-native-firebase/auth";
 import { useAuthStore } from "../stores";
 import GoogleLogo from "../../assets/GoogleLogo";
@@ -179,7 +179,7 @@ export default function LoginScreen() {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		flex: 1,
 		backgroundColor: colors.background,
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
 	},
 	emailButtonText: {
 		...typography.subtitle,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 	buttonDisabled: {
 		opacity: 0.6,
@@ -293,4 +293,4 @@ const styles = StyleSheet.create({
 		marginTop: spacing.lg,
 		textAlign: "center",
 	},
-});
+}));

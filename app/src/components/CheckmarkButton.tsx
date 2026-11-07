@@ -1,5 +1,5 @@
 import { TouchableOpacity, Text, ActivityIndicator, StyleSheet } from "react-native";
-import { colors } from "../theme";
+import { colors, themedStyles } from "../theme";
 import { withHaptic } from "../utils/haptics";
 import { HiCheck } from "./HiIcons";
 
@@ -68,7 +68,7 @@ export default function CheckmarkButton({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	base: {
 		justifyContent: "center",
 		alignItems: "center",
@@ -76,4 +76,4 @@ const styles = StyleSheet.create({
 	label: {
 		fontWeight: "700",
 	},
-});
+}));

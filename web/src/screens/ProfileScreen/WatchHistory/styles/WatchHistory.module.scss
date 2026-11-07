@@ -107,9 +107,9 @@
 	min-width: 0;
 	border-radius: 16px;
 	padding: 16px;
-	background: var(--surface);
+	background: var(--card-dark);
 	border: none;
-	color: var(--text);
+	color: var(--on-image);
 	text-align: left;
 	cursor: pointer;
 
@@ -338,7 +338,7 @@
 	/* Reads as round as the (larger) stat cards */
 	border-radius: 16px;
 	background: var(--color-primary);
-	color: var(--text);
+	color: var(--on-primary);
 	font-size: 17px;
 	font-weight: 600;
 	cursor: pointer;

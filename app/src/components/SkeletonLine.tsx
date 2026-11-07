@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Animated, StyleSheet, ViewStyle } from "react-native";
-import { colors } from "../theme";
+import { colors, themedStyles } from "../theme";
 
 const PERIOD_MS = 1200;
 
@@ -54,9 +54,9 @@ export default function SkeletonLine({ width = "60%", height = 12, style }: Prop
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	base: {
 		borderRadius: 4,
 		backgroundColor: colors.border,
 	},
-});
+}));

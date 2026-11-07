@@ -8,7 +8,18 @@
 	--surface: #1a1a1a;
 	--surface-light: #252525;
 	--primary: #e50914;
-	--movie-purple: #{$movie-purple};
+	--primary-dark: #5c0a10;
+	--accent: #4a90d9;
+	--watched-green: #00a800;
+	--stop-blue: #3498db;
+	--destructive-red: #e74c3c;
+	--movie-purple: #8b5cf6;
+	--warning-amber: #f59e0b;
+	/* Text on a primary fill / on photos and dark scrims (same in every theme) */
+	--on-primary: #ffffff;
+	--on-image: #ffffff;
+	--on-image-secondary: rgba(255, 255, 255, 0.75);
+	--card-dark: #1a1a1a;
 	--text: #ffffff;
 	--text-secondary: #a0a0a0;
 	--text-muted: #666666;

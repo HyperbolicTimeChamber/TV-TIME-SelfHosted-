@@ -10,7 +10,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import AnimatedModal from "./AnimatedModal";
 import { CUSTOM_LIST_NAME_MAX } from "../../enums";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 
 interface Props {
 	visible: boolean;
@@ -181,7 +181,7 @@ export default function ListNameModal({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	content: {
 		backgroundColor: colors.surface,
 		borderRadius: 12,
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
 	buttonText: {
 		...typography.subtitle,
 		fontSize: 14,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 	cancelButton: {
 		paddingVertical: spacing.md,
@@ -243,4 +243,4 @@ const styles = StyleSheet.create({
 		borderWidth: 1.5,
 		borderColor: colors.text,
 	},
-});
+}));

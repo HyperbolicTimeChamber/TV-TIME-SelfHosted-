@@ -150,10 +150,11 @@
 	margin-bottom: 12px;
 	padding: 12px;
 	border-radius: 16px;
-	background: var(--surface);
+	background: var(--card-dark);
 	list-style: none;
 	user-select: none;
 	-webkit-touch-callout: none;
+	color: var(--on-image);
 }
 
 .cardBg {

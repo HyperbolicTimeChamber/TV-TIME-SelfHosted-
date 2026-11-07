@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { colors, fonts, spacing } from "../../../theme";
+import { colors, fonts, spacing, themedStyles } from "../../../theme";
 import CardInfo, { cardStyles } from "../../../components/CardInfo";
 import { upcomingDirector, upcomingRuntime } from "../../../hooks/useUpcomingEpisodes";
 import { formatRuntime } from "../../../utils/customLists";
@@ -73,7 +73,7 @@ export default memo(function UpcomingEpisodeRow({
 	);
 });
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	row: {
 		marginHorizontal: spacing.md,
 		marginBottom: spacing.sm,
@@ -119,4 +119,4 @@ const styles = StyleSheet.create({
 		color: colors.text,
 		letterSpacing: 0.5,
 	},
-});
+}));

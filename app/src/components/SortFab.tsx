@@ -1,6 +1,6 @@
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing } from "../theme";
+import { colors, spacing, themedStyles } from "../theme";
 
 const FAB_SIZE = 56;
 
@@ -30,7 +30,7 @@ export default function SortFab({ bottom, onPress, customised, accessibilityLabe
 /** Height + gap a list should leave at its end so the last row clears the button */
 export const SORT_FAB_CLEARANCE = 72;
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	fab: {
 		position: "absolute",
 		right: spacing.lg,
@@ -51,4 +51,4 @@ const styles = StyleSheet.create({
 		borderRadius: 5,
 		backgroundColor: colors.text,
 	},
-});
+}));

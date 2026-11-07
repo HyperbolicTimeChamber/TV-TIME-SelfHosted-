@@ -135,8 +135,8 @@
 	padding: 12px;
 	border: none;
 	border-radius: 16px;
-	background: var(--surface);
-	color: var(--text);
+	background: var(--card-dark);
+	color: var(--on-image);
 	text-align: left;
 	cursor: pointer;
 	user-select: none;
@@ -393,7 +393,7 @@
 	padding: 2px 6px;
 	font-size: 10px;
 	font-weight: 700;
-	color: var(--text);
+	color: var(--on-primary);
 }
 
 .typeBadgeMovie {

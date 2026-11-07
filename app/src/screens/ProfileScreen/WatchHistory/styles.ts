@@ -1,7 +1,7 @@
 import { StyleSheet } from "react-native";
-import { colors, spacing, tint } from "../../../theme";
+import { colors, spacing, tint, themedStyles } from "../../../theme";
 
-const TIME_TEXT = tint(colors.text, 0.95);
+const timeText = () => tint(colors.onImage, 0.95);
 
 /** Shared with the web card (same numbers → identical at phone width) */
 export const CARD_RADIUS = 16;
@@ -10,7 +10,7 @@ export const LOGO_HEIGHT = 56;
 export const RING_SIZE = 20;
 export const RING_STROKE = 3;
 
-export const styles = StyleSheet.create({
+export const styles = themedStyles(() => StyleSheet.create({
 	pagerClip: { flex: 1, overflow: "hidden" },
 	pages: { flex: 1, flexDirection: "row" },
 	container: { flex: 1, backgroundColor: colors.background },
@@ -119,7 +119,7 @@ export const styles = StyleSheet.create({
 		width: "100%",
 		gap: spacing.md,
 		borderRadius: CARD_RADIUS,
-		backgroundColor: colors.surface,
+		backgroundColor: colors.cardDark,
 		padding: spacing.lg,
 		overflow: "hidden",
 		justifyContent: "space-between",
@@ -143,11 +143,11 @@ export const styles = StyleSheet.create({
 	// Upper stat (Last Watched): normal spacing instead of the baseline pull-down
 	statGap: { marginBottom: spacing.md },
 	// Last Watched / Total Time Spent: white softened a touch, full white read too strong
-	timeLabel: { color: TIME_TEXT, fontSize: 13, fontWeight: "500", marginBottom: 2 },
+	timeLabel: { color: timeText(), fontSize: 13, fontWeight: "500", marginBottom: 2 },
 	// lineHeight = fontSize, pulled down by the font's descent so the digits' baseline
 	// lines up with the bottom of the progress pill on the left
 	timeSpent: {
-		color: TIME_TEXT,
+		color: timeText(),
 		fontSize: 30,
 		lineHeight: 30,
 		fontWeight: "600",
@@ -185,5 +185,5 @@ export const styles = StyleSheet.create({
 		// Shares the row with the Settings circle
 		flex: 1,
 	},
-	historyButtonText: { color: colors.text, fontSize: 17, fontWeight: "600" },
-});
+	historyButtonText: { color: colors.onPrimary, fontSize: 17, fontWeight: "600" },
+}));

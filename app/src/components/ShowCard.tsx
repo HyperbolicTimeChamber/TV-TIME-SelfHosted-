@@ -10,7 +10,7 @@ import { similarProps } from "../utils/similarProps";
 import { withHaptic } from "../utils/haptics";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS, WatchStatus } from "../types";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 import { CARD_RADIUS } from "../enums";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton, { WATCHLIST_CHECK_CIRCLE, WATCHLIST_CHECK_TICK } from "./CheckmarkButton";
@@ -392,7 +392,7 @@ export default memo(function ShowCard({
 	);
 }, similarProps);
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	// Same fade as WatchedEpisodeRow, but per element instead of over the whole card: a
 	// container opacity also dims the movie year, which has to stay readable. The card keeps
 	// `container`'s surface — SwipeableCard paints the same surface behind it, so the old
@@ -548,4 +548,4 @@ const styles = StyleSheet.create({
 		alignSelf: "center",
 		paddingRight: spacing.md,
 	},
-});
+}));

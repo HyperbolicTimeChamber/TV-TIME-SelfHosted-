@@ -13,7 +13,7 @@ import AnimatedModal from "./AnimatedModal";
 import SlideToConfirm from "../SlideToConfirm";
 import BottomSheet, { SHEET_HANDLE_BLOCK, SHEET_RADIUS } from "./BottomSheet";
 import { ModalBackdrop } from "./ModalArt";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 
 interface Props {
 	visible: boolean;
@@ -208,7 +208,7 @@ export default function ConfirmModal({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	content: {
 		backgroundColor: colors.surface,
 		borderRadius: 12,
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
 		borderColor: colors.text,
 		marginTop: spacing.sm,
 	},
-});
+}));
 
 type DrawerProps = Omit<Props, "drawer" | "imageAtTop"> & {
 	confirmLabel: string;

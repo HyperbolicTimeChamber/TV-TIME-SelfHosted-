@@ -52,7 +52,7 @@ import { useTitleInfo } from "../../hooks/useTitleInfo";
 import { useTitleLogo } from "../../hooks/useTitleLogo";
 import { MediaType } from "../../types";
 import type { HiIconProps } from "../HiIcons";
-import { colors, fonts, spacing, tint, typography } from "../../theme";
+import { colors, fonts, spacing, tint, typography, themedStyles } from "../../theme";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
@@ -141,7 +141,7 @@ function cachedStill(
 const SheetArtContext = createContext(false);
 
 /** Top of the art stays visible; it darkens downward so the cards and text read on it */
-const ART_FADE = ["rgba(26, 26, 26, 0.35)", "rgba(26, 26, 26, 0.85)", colors.surface] as const;
+const artFade = () => [tint(colors.surface, 0.35), tint(colors.surface, 0.85), colors.surface] as const;
 /** A poster standing in for a missing backdrop: blurred to a wash of its colours */
 const ART_POSTER_BLUR = 30;
 const ART_BLUR = 0.5;
@@ -186,7 +186,7 @@ export function SheetArt({ tmdbId, mediaType, backdropPath, posterPath, episode 
 					transition={ART_FADE_MS}
 				/>
 			) : null}
-			<LinearGradient colors={ART_FADE} style={StyleSheet.absoluteFill} />
+			<LinearGradient colors={artFade()} style={StyleSheet.absoluteFill} />
 		</>
 	);
 }
@@ -656,7 +656,7 @@ export function SheetIcon({ icon, color }: { icon: SheetIconName; color: `#${str
 	);
 }
 
-export const sheetStyles = StyleSheet.create({
+export const sheetStyles = themedStyles(() => StyleSheet.create({
 	/** Row layout for custom rows inside a SheetGroup (same metrics as SheetOption) */
 	row: {
 		flexDirection: "row",
@@ -668,9 +668,9 @@ export const sheetStyles = StyleSheet.create({
 	rowContent: { flex: 1 },
 	rowText: { ...typography.subtitle, fontSize: 15 },
 	rowHint: { ...typography.caption, fontSize: 12, marginTop: 2 },
-});
+}));
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	root: { flex: 1, justifyContent: "flex-end" },
 	backdrop: { backgroundColor: colors.overlayLight },
 	sheet: {
@@ -769,7 +769,7 @@ const styles = StyleSheet.create({
 	collapse: { overflow: "hidden" },
 	collapseContent: { position: "absolute", top: 0, left: 0, right: 0 },
 	// surfaceLight (#252525) at 80%: the art reads through, the text stays on a solid enough ground
-	groupTranslucent: { backgroundColor: "rgba(37, 37, 37, 0.8)" },
+	groupTranslucent: { backgroundColor: tint(colors.surfaceLight, 0.8) },
 	group: {
 		backgroundColor: colors.surfaceLight,
 		borderRadius: 14,
@@ -795,4 +795,4 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 	},
-});
+}));

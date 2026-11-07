@@ -26,7 +26,7 @@ import ListMenuSheet from "./ListMenuSheet";
 import { shareListsExport } from "../../services/customListsFiles";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import { moveElement, sameItemOrder, titleCount } from "../../utils";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 import { ListGridCard, ListItemPreview, ListRow, ReorderRow } from "./ListItemViews";
 import { useSearchActions } from "../SearchScreen/useSearchActions";
 import SearchModals from "../SearchScreen/SearchModals";
@@ -417,7 +417,7 @@ export default function ListDetailScreen() {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: { flex: 1, backgroundColor: colors.background },
 	topBar: {
 		flexDirection: "row",
@@ -469,4 +469,4 @@ const styles = StyleSheet.create({
 		fontStyle: "italic",
 		textAlign: "center",
 	},
-});
+}));

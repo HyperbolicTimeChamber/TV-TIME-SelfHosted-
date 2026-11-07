@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, FlatList, ActivityIndicator, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 import type { CustomListEntry, MediaType } from "../../types";
 import { useCustomLists } from "../../hooks";
 import PosterImage from "../../components/PosterImage";
@@ -194,7 +194,7 @@ function PosterRow({
 
 const POSTER = profileStyles.completedPoster;
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	// Continues Recently Completed: its side padding, no gap or title above
 	section: { paddingHorizontal: spacing.lg },
 	// Recently Completed's rows (genreSection)
@@ -265,4 +265,4 @@ const styles = StyleSheet.create({
 	},
 	emptyTitle: { ...typography.subtitle, fontSize: 15, marginTop: spacing.xs },
 	emptyHint: { ...typography.caption, textAlign: "center" },
-});
+}));
