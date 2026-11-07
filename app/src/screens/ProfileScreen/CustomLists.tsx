@@ -19,23 +19,26 @@ interface Props {
 	onOpenLists: () => void;
 	onOpenList: (listId: string) => void;
 	onOpenTitle: (tmdbId: number, mediaType: MediaType) => void;
+	/** Nothing Recently Completed above to continue: the lists get their own "Lists" title */
+	standalone: boolean;
 }
 
-/** "Lists" on the profile, under Recently Completed: a Recently Watched row first, then the
- *  biggest custom lists — a row of posters each. New lists are made on the Lists page */
+/** The biggest custom lists on the profile, right under Recently Completed — no title of their
+ *  own: each list's row reads as one more of its rows (Movies Watched, TV Shows Completed); with nothing completed,
+ *  a "Lists" section of their own. New lists are made on the Lists page */
 export default function CustomLists({
 	userId,
 	onOpenLists,
 	onOpenList,
 	onOpenTitle,
+	standalone,
 }: Readonly<Props>) {
 	const { lists, loading } = useCustomLists(userId);
 	const shown = profileLists(lists);
 
 	return (
-		<View style={profileStyles.section}>
-			<Text style={profileStyles.sectionTitle}>Lists</Text>
-
+		<View style={standalone ? profileStyles.section : styles.section}>
+			{standalone && <Text style={profileStyles.sectionTitle}>Lists</Text>}
 			{loading && lists.length === 0 ? (
 				<ActivityIndicator style={styles.loader} size="small" color={colors.primary} />
 			) : lists.length === 0 ? (
@@ -192,6 +195,9 @@ function PosterRow({
 const POSTER = profileStyles.completedPoster;
 
 const styles = StyleSheet.create({
+	// Continues Recently Completed: its side padding, no gap or title above
+	section: { paddingHorizontal: spacing.lg },
+	// Recently Completed's rows (genreSection)
 	row: { marginBottom: spacing.lg },
 	// Full width, red: label left, an arrow in a circle on the right
 	viewAll: {
@@ -222,7 +228,8 @@ const styles = StyleSheet.create({
 		gap: spacing.sm,
 		marginBottom: spacing.sm,
 	},
-	rowName: { ...typography.subtitle, fontSize: 15, flexShrink: 1 },
+	// Recently Completed's row labels (Movies Watched / TV Shows Completed)
+	rowName: { ...profileStyles.genreTitle, marginBottom: 0, flexShrink: 1 },
 	countPill: {
 		backgroundColor: colors.surfaceLight,
 		borderRadius: 8,

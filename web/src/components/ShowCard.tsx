@@ -270,11 +270,11 @@ export default memo(function ShowCard({
 											)}
 									</span>
 									{isFinale ? (
-										<span className={`${styles.tagBadge} ${styles.inlineTag}`}>
+										<span className={`${styles.tagBadge} ${styles.inlineTag} ${styles.finaleBadge}`}>
 											{FreshTag.FINALE}
 										</span>
 									) : rewatching ? null : isNewEpisode ? (
-										<span className={`${styles.tagBadge} ${styles.inlineTag} ${styles.newBadge}`}>
+										<span className={`${styles.tagBadge} ${styles.inlineTag}`}>
 											{FreshTag.NEW}
 										</span>
 									) : isLatest ? (

@@ -17,7 +17,7 @@ export interface CompletedSection {
 
 const SECTION_LIMIT = 10;
 
-/** Movies + TV Shows rows for Recently Completed (pure — shared by app and web) */
+/** "Movies Watched" + "TV Shows Completed" rows on the profile (pure — shared by app and web) */
 export function buildCompletedSections(items: CompletedItem[]): CompletedSection[] {
 	const sections: CompletedSection[] = [];
 
@@ -27,7 +27,7 @@ export function buildCompletedSections(items: CompletedItem[]): CompletedSection
 		.sort((a, b) => b.completedAt - a.completedAt)
 		.slice(0, SECTION_LIMIT);
 	if (movies.length > 0) {
-		sections.push({ title: "Movies", items: movies });
+		sections.push({ title: "Movies Watched", items: movies });
 	}
 
 	// TV shows — one row
@@ -36,7 +36,7 @@ export function buildCompletedSections(items: CompletedItem[]): CompletedSection
 		.sort((a, b) => b.completedAt - a.completedAt)
 		.slice(0, SECTION_LIMIT);
 	if (tvShows.length > 0) {
-		sections.push({ title: "TV Shows", items: tvShows });
+		sections.push({ title: "TV Shows Completed", items: tvShows });
 	}
 
 	return sections;

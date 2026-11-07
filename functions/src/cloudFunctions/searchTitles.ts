@@ -33,7 +33,7 @@ export const searchTitles = trackedOnCall(
   },
   async (request): Promise<SearchTitlesResponse | null> => {
     // Logged-out web visitors search too (limited per IP)
-    requireCallerOrGuest(request, Callable.SEARCH_TITLES);
+    await requireCallerOrGuest(request, Callable.SEARCH_TITLES);
     if (request.data?.warmup) {
       await primeSearch();
       return null;

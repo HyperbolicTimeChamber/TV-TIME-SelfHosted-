@@ -12,6 +12,7 @@ import {
 } from "../../services/auth";
 import { useAppSelector } from "../../store";
 import { Paths } from "../../routes/paths";
+import { APP_VERSION_LABEL } from "@app/utils/appVersion";
 import styles from "./styles/LoginScreen.module.scss";
 
 const codeOf = (e: unknown) => (e as { code?: string }).code ?? "";
@@ -122,7 +123,7 @@ export default function LoginScreen() {
 							disabled={busy}
 							className={styles.input}
 						/>
-						<Button type="primary" size="large" block htmlType="submit" disabled={busy}>
+						<Button type="primary" size="large" block htmlType="submit" disabled={busy} className={styles.submit}>
 							{isSignUp ? "Sign Up" : "Sign In"}
 						</Button>
 						<button
@@ -168,6 +169,8 @@ export default function LoginScreen() {
 					{error && <p className={styles.error}>{error}</p>}
 				</>
 			)}
+			{/* The very bottom, dim: which build this is (as on Settings) */}
+			<p className={styles.version}>{APP_VERSION_LABEL}</p>
 		</div>
 	);
 }

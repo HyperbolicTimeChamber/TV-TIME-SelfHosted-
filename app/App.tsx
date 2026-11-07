@@ -57,11 +57,12 @@ import {
 	requestPermission,
 	getInitialNotification,
 	onNotificationOpenedApp,
+	onMessage,
 } from "@react-native-firebase/messaging";
 import { getFirestore, doc, setDoc } from "@react-native-firebase/firestore";
 import { useAuthStore, useUiStore } from "./src/stores";
-import { useForceUpdate } from "./src/hooks";
-import ForceUpdateScreen from "./src/components/ForceUpdateScreen";
+import { handleUpdateMessage, subscribeToUpdates } from "./src/services/updateNotifications";
+import UpdatePrompt, { useReleaseWatch, useUpdateForced } from "./src/components/UpdateGate";
 import LoginScreen from "./src/screens/LoginScreen";
 import ImportDataScreen from "./src/screens/ImportDataScreen";
 import AppNavigator from "./src/navigation/AppNavigator";
@@ -118,6 +119,7 @@ async function registerFCMToken(userId: string) {
 		}
 		const msg = getMessaging();
 		await requestPermission(msg);
+		subscribeToUpdates();
 		const token = await getToken(msg);
 		const db = getFirestore();
 		await setDoc(doc(db, "users", userId), { fcmToken: token }, { merge: true });
@@ -145,8 +147,34 @@ async function verifySession(user: User) {
 	}
 }
 
+/**
+ * In-app updates around the app: the update drawer shows over login or the app when a newer build
+ * is out. Forced: the app stays behind it with what it has cached (nothing is cleared, nobody is
+ * signed out — refused callables just fail) but takes no touches, and the drawer can't be put off
+ */
 function AppContent() {
-	const updateRequired = useForceUpdate();
+	useReleaseWatch();
+	// A test update push (functions sendTestPush) while the app is open: show it here too (the
+	// background handler in index.ts only runs with the app in the background / closed)
+	useEffect(
+		() =>
+			onMessage(getMessaging(), (message) => {
+				if (message.data?.test === "1") handleUpdateMessage(message);
+			}),
+		[],
+	);
+	const forced = useUpdateForced();
+	return (
+		<>
+			<View style={styles.fill} pointerEvents={forced ? "none" : "auto"}>
+				<AppScreens />
+			</View>
+			<UpdatePrompt />
+		</>
+	);
+}
+
+function AppScreens() {
 	const {
 		user,
 		loading,
@@ -184,10 +212,6 @@ function AppContent() {
 				<LoadingSpinner />
 			</View>
 		);
-	}
-
-	if (updateRequired) {
-		return <ForceUpdateScreen />;
 	}
 
 	if (!hasCompletedImport) {
@@ -342,6 +366,7 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+	fill: { flex: 1 },
 	loading: {
 		flex: 1,
 		backgroundColor: colors.background,

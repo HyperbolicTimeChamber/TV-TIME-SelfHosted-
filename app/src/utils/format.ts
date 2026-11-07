@@ -178,3 +178,11 @@ export function titleCase(text: string) {
 		)
 		.join(" ");
 }
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "2024-07-16" → "16 Jul 2024" (the season / episode date format) */
+export function formatIsoDate(dateStr: string): string {
+	const [y, m, d] = dateStr.split("-");
+	return `${Number.parseInt(d, 10)} ${MONTHS[Number.parseInt(m, 10) - 1]} ${y}`;
+}

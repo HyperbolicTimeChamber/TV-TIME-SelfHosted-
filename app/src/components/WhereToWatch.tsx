@@ -1,12 +1,20 @@
 import { Animated, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import Reanimated, { Easing, FadeIn } from "react-native-reanimated";
+import Reanimated, {
+	Easing,
+	FadeIn,
+	useAnimatedStyle,
+	useSharedValue,
+	withSequence,
+	withTiming,
+} from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { useCountryName, useWatchProviders } from "../hooks/useWatchProviders";
 import { tmdbPosterUri } from "../hooks/useTmdbImage";
 import { displayProviders, providerLink } from "../utils/providerNames";
 import { useSharedShimmer } from "./SkeletonLine";
 import { colors, spacing, typography } from "../theme";
-import type { MediaType } from "../enums";
+import { PROVIDER_OPEN_GUARD_MS, type MediaType } from "../enums";
 
 const HIGH_SEAS_ART = require("../../assets/high-seas.webp");
 const HIGH_SEAS_RATIO = 240 / 253;
@@ -19,6 +27,12 @@ const STAGGER_MS = 40;
 const STAGGER_CAP = 6;
 const ENTER_MS = 220;
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
+/** Press: the logo sinks quickly, then settles back a little slower on release */
+const PRESS_SCALE = 0.9;
+const PRESS_IN_MS = 90;
+const PRESS_OUT_MS = 220;
+/** When a service was last opened: a double tap (or a tap on a second logo) opens one */
+let lastOpenAt = 0;
 
 interface Props {
 	tmdbId: number;
@@ -41,10 +55,10 @@ export default function WhereToWatch({ tmdbId, mediaType, title, bleed }: Readon
 	// A failed request says nothing about availability: no section rather than a wrong "none"
 	if (isError) return null;
 	const shown = data ? displayProviders(data.providers) : [];
-	// The service's app (or site) at its search for the title, or just the service; TMDB's watch
-	// page for a service it doesn't know
+	// The service's app (or site): at its search for the title when the app fills it in, else its
+	// home; TMDB's watch page for a service it doesn't know
 	const open = (name: string) => {
-		const url = providerLink(name, title, data?.link ?? null);
+		const url = providerLink(name, title, data?.link ?? null, true);
 		if (url) Linking.openURL(url).catch(() => {});
 	};
 
@@ -94,26 +108,68 @@ export default function WhereToWatch({ tmdbId, mediaType, title, bleed }: Readon
 								key={p.id}
 								entering={FadeIn.delay(Math.min(i, STAGGER_CAP) * STAGGER_MS).duration(ENTER_MS).easing(EASE_OUT)}
 							>
-								<Pressable
-									onPress={() => open(p.name)}
-									accessibilityRole="link"
-									accessibilityLabel={`Watch on ${p.name}`}
-									style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
-								>
-									<Image
-										source={{ uri: tmdbPosterUri(p.logo, LOGO) }}
-										style={styles.logo}
-										contentFit="cover"
-										transition={ENTER_MS}
-										recyclingKey={String(p.id)}
-									/>
-								</Pressable>
+								<ProviderLogo id={p.id} name={p.name} logo={p.logo} onOpen={open} />
 							</Reanimated.View>
 						))}
 					</ScrollView>
 				</>
 			)}
 		</View>
+	);
+}
+
+/**
+ * One service's logo button: sinks under the finger with a light tick and opens the service at once
+ * (the switch never waits on the animation; the dip covers a slow one). A quick tap (released
+ * before the sink ends) still plays the full dip
+ */
+function ProviderLogo({
+	id,
+	name,
+	logo,
+	onOpen,
+}: Readonly<{ id: number; name: string; logo: string; onOpen: (name: string) => void }>) {
+	const scale = useSharedValue(1);
+	const pressed = useAnimatedStyle(() => ({
+		transform: [{ scale: scale.value }],
+		opacity: 0.8 + ((scale.value - PRESS_SCALE) / (1 - PRESS_SCALE)) * 0.2,
+	}));
+	const sink = () => {
+		scale.value = withTiming(PRESS_SCALE, { duration: PRESS_IN_MS, easing: EASE_OUT });
+	};
+	const release = () => {
+		scale.value = withSequence(
+			withTiming(PRESS_SCALE, { duration: PRESS_IN_MS, easing: EASE_OUT }),
+			withTiming(1, { duration: PRESS_OUT_MS, easing: EASE_OUT }),
+		);
+	};
+	const press = () => {
+		const now = Date.now();
+		if (now - lastOpenAt < PROVIDER_OPEN_GUARD_MS) return;
+		lastOpenAt = now;
+		Haptics.selectionAsync().catch(() => {});
+		onOpen(name);
+	};
+
+	return (
+		<Pressable
+			onPressIn={sink}
+			onPressOut={release}
+			onPress={press}
+			accessibilityRole="link"
+			accessibilityLabel={`Watch on ${name}`}
+			style={styles.tile}
+		>
+			<Reanimated.View style={pressed}>
+				<Image
+					source={{ uri: tmdbPosterUri(logo, LOGO) }}
+					style={styles.logo}
+					contentFit="cover"
+					transition={ENTER_MS}
+					recyclingKey={String(id)}
+				/>
+			</Reanimated.View>
+		</Pressable>
 	);
 }
 
@@ -133,17 +189,13 @@ const styles = StyleSheet.create({
 	row: { flexDirection: "row", gap: spacing.md },
 	// Logos only (the name is the accessibility label)
 	tile: { width: LOGO, alignItems: "center" },
-	// Press feedback: the logo gives a little under the finger
-	tilePressed: { transform: [{ scale: 0.96 }], opacity: 0.85 },
 	logo: {
 		width: LOGO,
 		height: LOGO,
+		// No border / backdrop: either showed as a fine ring at the anti-aliased edge (dark logos)
 		borderRadius: LOGO / 2,
-		backgroundColor: colors.surface,
-		borderWidth: StyleSheet.hairlineWidth,
-		borderColor: colors.border,
 	},
-	skeleton: { backgroundColor: colors.border, borderWidth: 0 },
+	skeleton: { backgroundColor: colors.border },
 	empty: {
 		flexDirection: "row",
 		alignItems: "center",

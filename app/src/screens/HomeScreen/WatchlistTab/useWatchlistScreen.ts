@@ -357,6 +357,7 @@ export function useWatchlistScreen(
 			overview: cat.overview,
 			mediaType: cat.mediaType,
 			year: (cat.firstAirDate || cat.releaseDate || "")?.substring(0, 4) || null,
+			releaseDate: cat.mediaType === MediaType.MOVIE ? cat.releaseDate || null : null,
 			totalSeasons: cat.totalSeasons,
 			totalEpisodes: cat.totalEpisodes,
 			runtime: cat.runtime,

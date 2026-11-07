@@ -185,6 +185,10 @@ export default function ShowDetailScreen() {
 		);
 	}
 
+	const whereToWatch = (
+		<WhereToWatch tmdbId={tmdbId} mediaType={mediaType} title={title ?? ""} bleed={spacing.lg} />
+	);
+
 	return (
 		// Right swipe anywhere → back, the screen underneath showing through (transparent modal route)
 		<SwipeBackView onBack={handleBack} {...swipeBack} style={styles.container}>
@@ -296,13 +300,8 @@ export default function ShowDetailScreen() {
 							</>
 						)}
 
-						{/* Movies: after the credits; shows: above the seasons */}
-						<WhereToWatch
-							tmdbId={tmdbId}
-							mediaType={mediaType}
-							title={title ?? ""}
-							bleed={spacing.lg}
-						/>
+						{/* Movies: after the credits; shows: under the seasons (below) */}
+						{mediaType === MediaType.MOVIE && whereToWatch}
 
 						{mediaType === MediaType.TV && show.seasons && (
 							<View style={styles.seasonsSection}>
@@ -329,9 +328,12 @@ export default function ShowDetailScreen() {
 							</View>
 						)}
 
-						{/* Shows: the studios under the seasons */}
+						{/* Shows: where to watch, then the studios, under the seasons */}
 						{mediaType === MediaType.TV && (
-							<StudiosRow tmdbId={tmdbId} mediaType={mediaType} bleed={spacing.lg} />
+							<>
+								{whereToWatch}
+								<StudiosRow tmdbId={tmdbId} mediaType={mediaType} bleed={spacing.lg} />
+							</>
 						)}
 						{/* Last on the page: movies' in place of Production, shows' under the studios */}
 						<CastRow

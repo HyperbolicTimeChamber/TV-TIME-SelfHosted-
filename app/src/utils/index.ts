@@ -22,4 +22,6 @@ export * from "./searchSort";
 export * from "./customLists";
 export * from "./accountExport";
 export * from "./customListsIO";
+export * from "./studioNames";
+export * from "./appVersion";
 export * from "./snapshotSequencer";

@@ -2,6 +2,7 @@ import { HttpsError, type CallableRequest } from "firebase-functions/v2/https";
 import { defineBoolean } from "firebase-functions/params";
 import { KeyedRateLimiter } from "./keyedRateLimit";
 import { Callable, CALLABLE_RATE_LIMITS } from "../shared/enums";
+import { checkAppVersion } from "./appVersionGate";
 
 /**
  * true → callables reject requests without a valid App Check token. Only flip once the app
@@ -52,14 +53,16 @@ export function callerIp(request: CallableRequest): string {
 }
 
 /**
- * Every callable's first line: signed in, App Check (when enforced), per-user rate limit.
+ * Every callable's first line: signed in, App Check (when enforced), app build not below its
+ * channel's minimum (force update), per-user rate limit.
  * @returns the caller's uid
  */
-export function requireCaller(request: CallableRequest, fn: Callable): string {
+export async function requireCaller(request: CallableRequest, fn: Callable): Promise<string> {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Must be signed in");
   }
   checkAppCheck(request);
+  await checkAppVersion(request);
   checkRate(fn, request.auth.uid);
   return request.auth.uid;
 }
@@ -69,11 +72,12 @@ export function requireCaller(request: CallableRequest, fn: Callable): string {
  * uid, guests per IP (same limit, separate keys)
  * @returns the caller's uid, or null for a guest
  */
-export function requireCallerOrGuest(
+export async function requireCallerOrGuest(
   request: CallableRequest,
   fn: Callable,
-): string | null {
+): Promise<string | null> {
   checkAppCheck(request);
+  await checkAppVersion(request);
   const uid = request.auth?.uid ?? null;
   checkRate(fn, uid ?? `ip:${callerIp(request)}`);
   return uid;

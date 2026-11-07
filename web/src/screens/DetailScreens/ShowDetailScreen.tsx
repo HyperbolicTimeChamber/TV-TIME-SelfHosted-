@@ -149,6 +149,8 @@ export default function ShowDetailScreen() {
 			? tmdbPosterUri(show.poster_path, 780)
 			: null;
 
+	const whereToWatch = <WhereToWatch tmdbId={tmdbId} mediaType={mediaType} title={d.title ?? ""} />;
+
 	return (
 		<div ref={containerRef} className={styles.container}>
 			<div
@@ -318,8 +320,8 @@ export default function ShowDetailScreen() {
 					</>
 				)}
 
-				{/* Movies: after the credits; shows: above the seasons */}
-				<WhereToWatch tmdbId={tmdbId} mediaType={mediaType} title={d.title ?? ""} />
+				{/* Movies: after the credits; shows: under the seasons (below) */}
+				{mediaType === MediaType.MOVIE && whereToWatch}
 
 				{mediaType === MediaType.TV && show.seasons && (
 					<section className={styles.seasonsSection}>
@@ -347,8 +349,13 @@ export default function ShowDetailScreen() {
 					</section>
 				)}
 
-				{/* Shows: the studios under the seasons */}
-				{mediaType === MediaType.TV && <StudiosRow tmdbId={tmdbId} mediaType={mediaType} />}
+				{/* Shows: where to watch, then the studios, under the seasons */}
+				{mediaType === MediaType.TV && (
+					<>
+						{whereToWatch}
+						<StudiosRow tmdbId={tmdbId} mediaType={mediaType} />
+					</>
+				)}
 				{/* Last on the page: movies' in place of Production, shows' under the studios */}
 				<CastRow tmdbId={tmdbId} mediaType={mediaType} title={d.title ?? ""} />
 			</div>

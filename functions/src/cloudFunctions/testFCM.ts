@@ -13,7 +13,7 @@ export const testFCM = trackedOnCall(
     memory: "256MiB",
   },
   async (request): Promise<{ success: boolean }> => {
-    const uid = requireCaller(request, Callable.TEST_FCM);
+    const uid = await requireCaller(request, Callable.TEST_FCM);
 
     const db = getFirestore();
 

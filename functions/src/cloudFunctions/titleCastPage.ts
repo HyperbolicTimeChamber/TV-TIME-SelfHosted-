@@ -65,7 +65,7 @@ export const titleCastPage = trackedOnCall(
   FunctionName.TITLE_CAST_PAGE,
   { maxInstances: 1, concurrency: 80, cpu: 1, memory: "256MiB", timeoutSeconds: 20 },
   async (request): Promise<TitleCastPage> => {
-    requireCallerOrGuest(request, Callable.TITLE_CAST_PAGE);
+    await requireCallerOrGuest(request, Callable.TITLE_CAST_PAGE);
     const { tmdbId, mediaType, page, query = "" } = (request.data ?? {}) as TitleCastPageRequest;
     if (
       !Number.isInteger(tmdbId) ||

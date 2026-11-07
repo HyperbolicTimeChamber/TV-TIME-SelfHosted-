@@ -17,7 +17,7 @@ import {
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { WatchStatus, MediaType, CloudFunction, CatalogShow } from "../types";
-import { WatchProgress } from "../enums";
+import { UPDATE_REQUIRED_MESSAGE, WatchProgress } from "../enums";
 import { showDocId, emitHistoryChange, localizeCatalog } from "../utils";
 import { trackApi } from "./analytics";
 import { recordTrackedEpisodes, trackEpisodeMarked, trackEpisodeUnwatched } from "./mixpanel";
@@ -106,6 +106,9 @@ function getCallableErrorMessage(err: any): string {
 	const code = err?.code;
 	const msg = err?.message;
 	if (code === "functions/not-found") return "Show not found on TMDB.";
+	// Force update (functions appVersionGate): the update drawer is already up — never a sign-out
+	if (code === "functions/failed-precondition" && msg === UPDATE_REQUIRED_MESSAGE)
+		return "Update the app to keep using it.";
 	if (code === "functions/failed-precondition") return msg || "Service misconfigured.";
 	if (code === "functions/unavailable") return "Could not reach TMDB. Try again later.";
 	if (code === "functions/unauthenticated") return "You must be signed in.";
