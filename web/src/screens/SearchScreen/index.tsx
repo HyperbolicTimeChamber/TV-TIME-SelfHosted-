@@ -2,12 +2,13 @@ import { IoIosCloseCircle } from "react-icons/io";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Button } from "antd";
-import { IoChevronBackCircleOutline, IoSearch } from "react-icons/io5";
+import { IoChevronBackCircleOutline, IoGrid, IoList, IoSearch } from "react-icons/io5";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSearch } from "@app/hooks/useSearch";
 import { useTrending } from "@app/hooks/useTrending";
 import { useSearchSort, useSortedSearchResults } from "@app/hooks/useSearchSort";
 import { useCustomLists } from "@app/hooks/useCustomLists";
+import { useCustomListView } from "@app/hooks/useCustomListView";
 import { entryFromSearchResult, listedTitleKeys, listItemKey } from "@app/utils/customLists";
 import { useSearchActions } from "@app/screens/SearchScreen/useSearchActions";
 import {
@@ -16,7 +17,7 @@ import {
 	sameSearchSort,
 	type SearchSortView,
 } from "@app/utils/searchSort";
-import { MediaFilter } from "@app/enums";
+import { CacheKey, CustomListView, MediaFilter } from "@app/enums";
 import type { TMDBShow } from "@app/types";
 import SlidingTabs from "../../components/SlidingTabs";
 import NotFoundArt from "../../components/NotFoundArt";
@@ -26,6 +27,7 @@ import { describeSearchError } from "@app/utils/loadError";
 import { useCollapsingHeader } from "../../hooks/useCollapsingHeader";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
 import { useElementHeight } from "../../hooks/useElementHeight";
+import { useColumnCount } from "../../hooks/useColumnCount";
 import { Paths, showPath } from "../../routes/paths";
 import { SortButton, SortPanel, type SortOption } from "../../components/SortPanel";
 import AddToListSheet from "../../components/AddToListSheet";
@@ -39,9 +41,12 @@ import { cssVars, px } from "../../utils/cssVars";
  *  batches are to come — the searchTitles CF takes longer than one TMDB page did */
 const LOADING_CARDS = 10;
 const MORE_CARDS = 6;
-const skeletons = (count: number) =>
+const skeletons = (count: number, view: CustomListView) =>
 	Array.from({ length: count }, (_, i) => (
-		<SkeletonBlock key={`skeleton-${i}`} className={styles.skeletonCard} />
+		<SkeletonBlock
+			key={`skeleton-${i}`}
+			className={view === CustomListView.GRID ? styles.skeletonCard : styles.skeletonRow}
+		/>
 	));
 
 const FILTER_TABS = [
@@ -75,6 +80,10 @@ export default function SearchScreen() {
 	const sortChanged = useRef(false);
 	if (firstSort.current !== sortView) sortChanged.current = true;
 	const [sortOpen, setSortOpen] = useState(false);
+	// Grid / List, remembered across visits (Trending and results share it)
+	const [view, setView] = useCustomListView(CacheKey.SEARCH_VIEW, CustomListView.GRID);
+	const isGrid = view === CustomListView.GRID;
+	const layoutClass = isGrid ? styles.grid : styles.rows;
 	const [headerRef, headerHeight] = useElementHeight<HTMLElement>();
 	// Follows the scroll continuously; held open while the sort popover (anchored in it) is up
 	const headerY = useCollapsingHeader(headerHeight, sortOpen);
@@ -114,6 +123,8 @@ export default function SearchScreen() {
 	}, [submittedQuery, sortedResults, trending, mediaFilter]);
 	const isLoading = submittedQuery ? searchLoading : trendingLoading;
 	const showSort = !!submittedQuery && !isLoading && items.length > 0;
+	// Phones: the sort button floats bottom-right like the app's SortFab; wider: in the search bar
+	const floatingSort = useColumnCount() === 1;
 
 	const loadMore = useCallback(() => {
 		if (submittedQuery && hasNextPage) fetchNextPage();
@@ -142,6 +153,7 @@ export default function SearchScreen() {
 					isInWatchlist={actions.trackedIds.has(item.id)}
 					isAdding={actions.addingIds.has(item.id)}
 					isListed={listedKeys.has(listItemKey(item.id, mediaTypeOf(item)))}
+					layout={view}
 					onPress={handlePress}
 					onAdd={actions.handleAddToWatchlist}
 					onRemove={actions.handleRemoveFromWatchlist}
@@ -152,12 +164,35 @@ export default function SearchScreen() {
 			items,
 			signedIn,
 			listedKeys,
+			view,
 			actions.trackedIds,
 			actions.addingIds,
 			actions.handleAddToWatchlist,
 			actions.handleRemoveFromWatchlist,
 			handlePress,
 		],
+	);
+
+	const sortButton = (
+		<SortButton
+			label="Sort results"
+			open={sortOpen}
+			onOpenChange={setSortOpen}
+			customised={!sameSearchSort(sortView, DEFAULT_SEARCH_SORT)}
+			content={
+				<SortPanel
+					options={SORT_OPTIONS}
+					selected={sortView}
+					isSame={sameSearchSort}
+					onSelect={(next) => {
+						setSortView(next);
+						setSortOpen(false);
+						// New order starts from the top
+						window.scrollTo({ top: 0 });
+					}}
+				/>
+			}
+		/>
 	);
 
 	return (
@@ -214,29 +249,15 @@ export default function SearchScreen() {
 									<IoIosCloseCircle size={20} />
 								</button>
 							)}
-							{showSort && (
-								<span className={styles.sortSlot}>
-									<SortButton
-										label="Sort results"
-										open={sortOpen}
-										onOpenChange={setSortOpen}
-										customised={!sameSearchSort(sortView, DEFAULT_SEARCH_SORT)}
-										content={
-											<SortPanel
-												options={SORT_OPTIONS}
-												selected={sortView}
-												isSame={sameSearchSort}
-												onSelect={(next) => {
-													setSortView(next);
-													setSortOpen(false);
-													// New order starts from the top
-													window.scrollTo({ top: 0 });
-												}}
-											/>
-										}
-									/>
-								</span>
-							)}
+							{showSort && !floatingSort && <span className={styles.sortSlot}>{sortButton}</span>}
+							<button
+								type="button"
+								className={styles.viewToggle}
+								onClick={() => setView(isGrid ? CustomListView.LIST : CustomListView.GRID)}
+								aria-label={isGrid ? "Show as list" : "Show as grid"}
+							>
+								{isGrid ? <IoList size={20} /> : <IoGrid size={18} />}
+							</button>
 						</div>
 						<SlidingTabs
 							id="search-filter"
@@ -251,7 +272,7 @@ export default function SearchScreen() {
 			{!submittedQuery && <h2 className={styles.sectionTitle}>Trending</h2>}
 
 			{isLoading ? (
-				<div className={styles.grid}>{skeletons(LOADING_CARDS)}</div>
+				<div className={layoutClass}>{skeletons(LOADING_CARDS, view)}</div>
 			) : submittedQuery && searchError && items.length === 0 ? (
 				// Failed (busy / offline), not empty: say so, with a retry
 				<ErrorState
@@ -278,18 +299,20 @@ export default function SearchScreen() {
 					dragDirectionLock
 					dragConstraints={{ left: 0, right: 0 }}
 					dragElastic={0.2}
-					className={`${styles.grid} touch-pan-y`}
+					className={`${layoutClass} touch-pan-y`}
 					onDragEnd={(_, info) => {
 						if (info.offset.x > SWIPE_BACK_PX) navigate(Paths.SEARCH);
 					}}
 				>
 					{cards}
-					{hasNextPage && skeletons(MORE_CARDS)}
+					{hasNextPage && skeletons(MORE_CARDS, view)}
 				</motion.div>
 			) : (
-				<div className={styles.grid}>{cards}</div>
+				<div className={layoutClass}>{cards}</div>
 			)}
 			<div ref={sentinel} />
+
+			{showSort && floatingSort && <div className={styles.sortFab}>{sortButton}</div>}
 
 			{signedIn && <AddToListSheet entry={listEntry} onClose={() => setListTarget(null)} />}
 

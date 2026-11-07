@@ -29,12 +29,14 @@ import {
 	useSortedSearchResults,
 	useTrending,
 	useCustomLists,
+	useCustomListView,
 } from "../../hooks";
 import { useAuthStore } from "../../stores";
 import { AddToListSheet } from "../../components";
 import { listedTitleKeys, listItemKey, searchMediaType, entryFromSearchResult } from "../../utils";
 import { colors, spacing } from "../../theme";
 import { TMDBShow, SearchStackParamList, MediaType, MediaFilter, Route } from "../../types";
+import { CacheKey, CustomListView } from "../../enums";
 import SortFab, { SORT_FAB_CLEARANCE } from "../../components/SortFab";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import SortSheet, { type SortOption } from "../../components/SortSheet";
@@ -50,7 +52,7 @@ import SearchSkeleton from "./SearchSkeleton";
 import ErrorState from "../../components/ErrorState";
 import { describeSearchError } from "../../utils";
 import SearchModals from "./SearchModals";
-import { CLEAR_ICON_SIZE, styles } from "./styles";
+import { CLEAR_ICON_SIZE, ROW_HEIGHT, styles } from "./styles";
 import { IoIosCloseCircle } from "../../components/HiIcons";
 
 const SORT_OPTIONS: SortOption<SearchSortView>[] = SEARCH_SORT_OPTIONS.map(
@@ -90,6 +92,8 @@ const skeletonItems = (count: number): SearchItem[] =>
 const LOADING_ITEMS = skeletonItems(LOADING_CARDS);
 // Fills an odd last row, then one full row
 const MORE_ITEMS = [skeletonItems(COLUMNS), skeletonItems(COLUMNS + 1)];
+// List view: two placeholder rows
+const MORE_ROWS = skeletonItems(2);
 
 type NavProp = NativeStackNavigationProp<SearchStackParamList, Route.SEARCH_MAIN>;
 
@@ -112,6 +116,9 @@ export default function SearchScreen() {
 	// Results only (Trending keeps its own order); remembered for the session
 	const [sortView, setSortView] = useSearchSort();
 	const [sortOpen, setSortOpen] = useState(false);
+	// Grid / List, remembered across launches (Trending and results share it)
+	const [view, setView] = useCustomListView(CacheKey.SEARCH_VIEW, CustomListView.GRID);
+	const isGrid = view === CustomListView.GRID;
 	const listRef = useRef<any>(null);
 	const reducedMotion = useReducedMotion();
 	// 1 = results shown; fades to 0 as a new sort is chosen, back to 1 once it has been applied
@@ -343,16 +350,17 @@ export default function SearchScreen() {
 	const displayData = useMemo(() => {
 		if (isLoading) return LOADING_ITEMS;
 		if (!resultItems || !moreToLoad) return resultItems;
-		return [...resultItems, ...MORE_ITEMS[resultItems.length % COLUMNS]];
-	}, [isLoading, resultItems, moreToLoad]);
+		return [...resultItems, ...(isGrid ? MORE_ITEMS[resultItems.length % COLUMNS] : MORE_ROWS)];
+	}, [isLoading, resultItems, moreToLoad, isGrid]);
 
 	// Posters are 2:3 and fill the column — a close estimate keeps LegendList from
 	// re-positioning rows as real sizes come in (was 140, about half the real height)
 	const { width: windowWidth } = useWindowDimensions();
 	const estimatedItemSize = useMemo(() => {
+		if (!isGrid) return ROW_HEIGHT + spacing.sm;
 		const cardWidth = (windowWidth - 2 * spacing.lg - 3 * spacing.sm) / 2;
 		return Math.round(cardWidth * 1.5 + spacing.xs);
-	}, [windowWidth]);
+	}, [windowWidth, isGrid]);
 
 	const onEndReached = useCallback(() => {
 		if (submittedQuery && hasNextPage) fetchNextPage();
@@ -373,10 +381,11 @@ export default function SearchScreen() {
 	const renderItem = useCallback(
 		({ item }: { item: SearchItem }) =>
 			item._skeleton ? (
-				<SearchSkeleton />
+				<SearchSkeleton layout={view} />
 			) : (
 				<SearchCard
 					item={item}
+					layout={view}
 					isInWatchlist={item._tracked}
 					isAdding={item._adding}
 					isListed={item._listed}
@@ -386,8 +395,14 @@ export default function SearchScreen() {
 					onAddToList={setListTarget}
 				/>
 			),
-		[handlePress, handleAddToWatchlist, handleRemoveFromWatchlist],
+		[handlePress, handleAddToWatchlist, handleRemoveFromWatchlist, view],
 	);
+
+	// The other layout mounts fresh at the top, so the header comes back with it
+	const toggleView = useCallback(() => {
+		setView(isGrid ? CustomListView.LIST : CustomListView.GRID);
+		headerY.value = 0;
+	}, [isGrid, setView, headerY]);
 
 	// The floating header's height is a spacer at the top of the scrolling content, not top
 	// padding: Android clips a scroll view's children to its padding, so cards vanished at the
@@ -450,6 +465,14 @@ export default function SearchScreen() {
 									<IoIosCloseCircle size={CLEAR_ICON_SIZE} color={colors.textMuted} />
 								</TouchableOpacity>
 							) : null}
+							<TouchableOpacity
+								style={styles.viewToggle}
+								onPress={toggleView}
+								hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+								accessibilityLabel={isGrid ? "Show as list" : "Show as grid"}
+							>
+								<Ionicons name={isGrid ? "list" : "grid"} size={20} color={colors.text} />
+							</TouchableOpacity>
 						</View>
 
 						<SlidingTabs
@@ -491,12 +514,14 @@ export default function SearchScreen() {
 				) : (
 					<AnimatedLegendList
 						ref={listRef}
+						// Columns can't change on a mounted list: each layout is its own list
+						key={view}
 						data={displayData || []}
 						keyExtractor={keyExtractor}
 						renderItem={renderItem}
-						numColumns={COLUMNS}
+						numColumns={isGrid ? COLUMNS : 1}
 						estimatedItemSize={estimatedItemSize}
-						columnWrapperStyle={styles.row}
+						columnWrapperStyle={isGrid ? styles.row : undefined}
 						sharedValues={listSharedValues}
 						onScrollEndDrag={onScrollEndDrag}
 						onMomentumScrollEnd={snapHeader}

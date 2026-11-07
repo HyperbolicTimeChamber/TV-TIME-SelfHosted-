@@ -99,6 +99,8 @@ export enum CacheKey {
 	CUSTOM_LIST_VIEW = "custom_list_view_v1",
 	/** Hall of Shame: Grid / List */
 	HISTORY_VIEW = "history_view_v1",
+	/** Search (Trending + results): Grid / List */
+	SEARCH_VIEW = "search_view_v1",
 	/** + uid — tracking delta sync state: lastSync, saved page count, hasMore, last full fetch day */
 	TRACKING_SYNC = "tracking_sync_v1:",
 	/** + uid + "_" + page index — one saved page of tracking docs (Firestore page order) */
