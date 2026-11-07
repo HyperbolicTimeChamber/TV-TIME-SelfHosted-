@@ -498,10 +498,13 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 		);
 	};
 
+	// An unwatch (the right action) turns the other way round: as a card an unwatch flips back
 	const flipStyle = useAnimatedStyle(() => ({
 		transform: [
 			{ perspective: 800 },
-			{ rotateX: `${flip.value < 0.5 ? 180 * flip.value : 180 * flip.value - 180}deg` },
+			{
+				rotateX: `${(actionLeft.value ? 1 : -1) * (flip.value < 0.5 ? 180 * flip.value : 180 * flip.value - 180)}deg`,
+			},
 		],
 	}));
 

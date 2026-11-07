@@ -99,9 +99,11 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 					setState("idle");
 				} else if (persist && flipBack) {
 					// The banner turns edge-on, the row takes its place and turns flat
-					await animate(rotateX, 90, { duration: FLIP_HALF_S, ease: "easeIn" });
+					// An unwatch (the right action) turns the other way round (app parity)
+					const turn = direction === "left" ? 90 : -90;
+					await animate(rotateX, turn, { duration: FLIP_HALF_S, ease: "easeIn" });
 					x.set(0);
-					rotateX.set(-90);
+					rotateX.set(-turn);
 					setState("idle");
 					animate(rotateX, 0, { duration: FLIP_HALF_S, ease: "easeOut" });
 				} else if (persist) {
