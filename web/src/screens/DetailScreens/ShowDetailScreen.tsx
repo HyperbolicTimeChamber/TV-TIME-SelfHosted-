@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { App as AntApp } from "antd";
-import { IoShareSocialOutline } from "react-icons/io5";
+import { IoPerson, IoShareSocialOutline } from "react-icons/io5";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useShowDetailActions } from "@app/screens/DetailScreens/useShowDetailActions";
 import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
@@ -29,6 +29,11 @@ import { appDeepLink, isAndroidBrowser } from "../../utils/deepLink";
 import styles from "./styles/ShowDetailScreen.module.scss";
 import { cssVars, px } from "../../utils/cssVars";
 import WhereToWatch from "../../components/WhereToWatch";
+import CastRow from "../../components/CastRow";
+import { useTitleExtras } from "@app/hooks/useTitleExtras";
+import StudiosRow from "../../components/StudiosRow";
+
+const CREDIT_AVATAR_PX = 44;
 
 /** Space kept between the sticky back button and the pills pushing it off */
 const BACK_PUSH_GAP = 8;
@@ -48,6 +53,8 @@ export default function ShowDetailScreen() {
 	const location = useLocation();
 	const { message } = AntApp.useApp();
 	const d = useShowDetailActions(tmdbId, mediaType);
+	// The directors' / writers' photos for the credits (every extras section reads the same query)
+	const { data: extras } = useTitleExtras(tmdbId, mediaType);
 	// Catalog's logo, else the one that came with the details (same request as the page data)
 	const logoPath =
 		getCachedCatalogShow(tmdbId, mediaType)?.logoPath ??
@@ -272,25 +279,46 @@ export default function ShowDetailScreen() {
 				<p className={styles.overview}>{show.overview}</p>
 
 				{mediaType === MediaType.MOVIE && (
-					<div className={styles.creditsSection}>
-						{(
-							[
-								["Director", d.directors],
-								["Screenplay", d.writers],
-								["Production", d.producers],
-							] as const
-						).map(([label, names]) =>
-							names.length > 0 ? (
-								<div key={label} className={styles.creditBlock}>
-									<span className={styles.creditLabel}>{label}</span>
-									<span className={styles.creditNames}>{names.join(", ")}</span>
-								</div>
-							) : null,
-						)}
-					</div>
+					<>
+						<div className={styles.creditsSection}>
+							{(
+								[
+									[d.directors.length === 1 ? "Director" : "Directors", d.directors, extras?.directors],
+									["Screenplay", d.writers, extras?.writers],
+								] as const
+							).map(([label, names, withPhotos]) => {
+								// With photos once the extras are here; the names (person icon) until then
+								const people =
+									withPhotos && withPhotos.length > 0
+										? withPhotos.map((p) => ({ key: String(p.id), name: p.name, profile: p.profile }))
+										: names.map((name) => ({ key: name, name, profile: null as string | null }));
+								return people.length > 0 ? (
+									<div key={label} className={styles.creditBlock}>
+										<span className={styles.creditLabel}>{label}</span>
+										<div className={styles.creditGrid}>
+											{people.map((m) => (
+												<div key={m.key} className={styles.creditPerson}>
+													<span className={styles.creditAvatar}>
+														{m.profile ? (
+															<img src={tmdbPosterUri(m.profile, CREDIT_AVATAR_PX)} alt="" />
+														) : (
+															<IoPerson size={22} />
+														)}
+													</span>
+													<span className={styles.creditNames}>{m.name}</span>
+												</div>
+											))}
+										</div>
+									</div>
+								) : null;
+							})}
+						</div>
+						{/* Under the credits: the studios' logos */}
+						<StudiosRow tmdbId={tmdbId} mediaType={mediaType} compact />
+					</>
 				)}
 
-				{/* Movies: last on the page; shows: above the seasons */}
+				{/* Movies: after the credits; shows: above the seasons */}
 				<WhereToWatch tmdbId={tmdbId} mediaType={mediaType} title={d.title ?? ""} />
 
 				{mediaType === MediaType.TV && show.seasons && (
@@ -318,6 +346,11 @@ export default function ShowDetailScreen() {
 							))}
 					</section>
 				)}
+
+				{/* Shows: the studios under the seasons */}
+				{mediaType === MediaType.TV && <StudiosRow tmdbId={tmdbId} mediaType={mediaType} />}
+				{/* Last on the page: movies' in place of Production, shows' under the studios */}
+				<CastRow tmdbId={tmdbId} mediaType={mediaType} title={d.title ?? ""} />
 			</div>
 
 			{signedIn && (

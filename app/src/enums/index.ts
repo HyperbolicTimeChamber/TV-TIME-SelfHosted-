@@ -129,12 +129,14 @@ export enum QueryKey {
 	TITLE_LOGO = "titleLogo",
 	CUSTOM_LISTS = "customLists",
 	TITLE_INFO = "titleInfo",
-	/** + tmdbId, mediaType, region — a title's streaming services (info page Where to Watch) */
-	WATCH_PROVIDERS = "watchProviders",
+	/** + tmdbId, mediaType, region — a title's info page extras (titleExtras CF) */
+	TITLE_EXTRAS = "titleExtras",
 	/** The viewer's country (IP lookup, else the device locale) */
 	USER_REGION = "userRegion",
 	/** TMDB's country list (code → English name) */
 	COUNTRY_NAMES = "countryNames",
+	/** + tmdbId, mediaType — a title's full cast, paged (View All sheet, titleCastPage CF) */
+	TITLE_CAST_PAGE = "titleCastPage",
 }
 
 /** Info page pills, longest first — a pill shows the first that fits on one line */
@@ -193,8 +195,12 @@ export const COUNTRY_LOOKUP_URL = "https://api.country.is/";
 export const COUNTRY_LOOKUP_TIMEOUT_MS = 3000;
 /** The looked-up country is reused this long (a trip abroad updates it next day) */
 export const USER_REGION_TTL_MS = 24 * 60 * 60 * 1000;
-/** A title's streaming services change rarely: refetched at most once a day */
-export const WATCH_PROVIDERS_STALE_MS = 24 * 60 * 60 * 1000;
+/** A title's extras change rarely: a CF answer is reused this long in a session */
+export const TITLE_EXTRAS_STALE_MS = 24 * 60 * 60 * 1000;
+/** Cast cards on the info page before View All (functions FEATURED_CAST_MAX) */
+export const FEATURED_CAST_MAX = 10;
+/** The cast sheet's search waits this long after the last keystroke */
+export const CAST_SEARCH_DEBOUNCE_MS = 250;
 
 /** Watch count sheet actions (episode / season / movie) */
 export enum WatchAction {
@@ -399,7 +405,8 @@ export enum CloudFunction {
 	SEARCH_TITLES = "searchTitles",
 	EXPORT_ACCOUNT_DATA = "exportAccountData",
 	CANCEL_ACCOUNT_JOB = "cancelAccountJob",
-	WATCH_PROVIDERS = "watchProviders",
+	TITLE_EXTRAS = "titleExtras",
+	TITLE_CAST_PAGE = "titleCastPage",
 }
 
 /** Callable error codes (web SDK prefixes them with "functions/") */

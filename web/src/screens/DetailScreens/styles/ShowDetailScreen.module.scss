@@ -226,7 +226,7 @@
 .creditsSection {
 	margin-top: 24px;
 	display: flex;
-	flex-wrap: wrap;
+	flex-direction: column;
 	gap: 16px;
 	padding: 0 8px;
 }
@@ -247,6 +247,40 @@
 .creditNames {
 	font-size: 14px;
 	color: var(--text-secondary);
+}
+
+/* Two columns: each person takes half the row */
+.creditGrid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 12px 8px;
+	margin-top: 4px;
+}
+
+.creditPerson {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-width: 0;
+}
+
+.creditAvatar {
+	flex-shrink: 0;
+	width: 44px;
+	height: 44px;
+	border-radius: 50%;
+	overflow: hidden;
+	background: var(--surface);
+	color: var(--text-muted);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
 }
 
 .seasonsSection {

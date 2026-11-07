@@ -34,22 +34,7 @@ export default function CustomLists({
 
 	return (
 		<View style={profileStyles.section}>
-			<Pressable
-				style={({ pressed }) => [styles.banner, pressed && styles.pressedCard]}
-				onPress={onOpenLists}
-				accessibilityRole="button"
-				accessibilityLabel="Open Lists"
-			>
-				<Text style={[profileStyles.sectionTitle, styles.bannerText]}>Lists</Text>
-				{lists.length > 0 && (
-					<View style={[styles.countPill, styles.bannerPill]}>
-						<Text style={styles.countText}>{lists.length}</Text>
-					</View>
-				)}
-				<View style={styles.spacer} />
-				<Text style={styles.seeAll}>See all</Text>
-				<Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-			</Pressable>
+			<Text style={profileStyles.sectionTitle}>Lists</Text>
 
 			{loading && lists.length === 0 ? (
 				<ActivityIndicator style={styles.loader} size="small" color={colors.primary} />
@@ -66,16 +51,30 @@ export default function CustomLists({
 					</Text>
 				</Pressable>
 			) : (
-				shown.map((list) => (
-					<Row
-						key={list.id}
-						name={list.name}
-						count={list.items.length}
-						onOpen={() => onOpenList(list.id)}
-						items={list.items}
-						onOpenTitle={onOpenTitle}
-					/>
-				))
+				<>
+					{shown.map((list) => (
+						<Row
+							key={list.id}
+							name={list.name}
+							count={list.items.length}
+							onOpen={() => onOpenList(list.id)}
+							items={list.items}
+							onOpenTitle={onOpenTitle}
+						/>
+					))}
+					{/* Under the top lists: every list, on the Lists page */}
+					<Pressable
+						style={({ pressed }) => [styles.viewAll, pressed && styles.pressedCard]}
+						onPress={onOpenLists}
+						accessibilityRole="button"
+						accessibilityLabel="View all lists"
+					>
+						<Text style={styles.viewAllText}>View All Lists</Text>
+						<View style={styles.viewAllArrow}>
+							<Ionicons name="chevron-forward" size={24} color={colors.text} style={styles.viewAllChevron} />
+						</View>
+					</Pressable>
+				</>
 			)}
 		</View>
 	);
@@ -193,24 +192,30 @@ function PosterRow({
 const POSTER = profileStyles.completedPoster;
 
 const styles = StyleSheet.create({
-	// Long grey button, Hall of Shame's shape (56 tall, radius 16) — laid out like each row's
-	// header (count pill left, chevron right), one size up
-	banner: {
+	row: { marginBottom: spacing.lg },
+	// Full width, red: label left, an arrow in a circle on the right
+	viewAll: {
 		flexDirection: "row",
 		alignItems: "center",
-		gap: spacing.sm,
-		height: 56,
+		justifyContent: "space-between",
+		height: 52,
 		borderRadius: 16,
-		paddingHorizontal: spacing.lg,
-		backgroundColor: colors.surfaceLight,
-		marginBottom: spacing.lg,
+		paddingLeft: spacing.lg,
+		paddingRight: spacing.sm,
+		backgroundColor: colors.primary,
 	},
-	// One step lighter than the button, so it still reads as a pill on it
-	bannerPill: { backgroundColor: colors.border },
-	seeAll: { color: colors.textSecondary, fontSize: 13, marginRight: -spacing.xs },
-	// The section title's own bottom margin would double up inside the banner
-	bannerText: { marginBottom: 0 },
-	row: { marginBottom: spacing.lg },
+	viewAllText: { ...typography.subtitle, fontSize: 15 },
+	// The back button's chevron, mirrored: its glyph sits 2px off centre the other way
+	viewAllChevron: { marginLeft: 2 },
+	viewAllArrow: {
+		width: 36,
+		height: 36,
+		borderRadius: 18,
+		// A lighter disc on the red
+		backgroundColor: "rgba(255, 255, 255, 0.2)",
+		alignItems: "center",
+		justifyContent: "center",
+	},
 	rowHeader: {
 		flexDirection: "row",
 		alignItems: "center",
