@@ -28,7 +28,7 @@ import {
 	CacheKey,
 	MediaType,
 	QueryKey,
-	type RegionWatchProviders,
+	type TitleExtras,
 	type TMDBEpisode,
 } from "../types";
 import { EpisodeType, RefreshReason } from "../enums";
@@ -278,22 +278,27 @@ export function prefillCatalog(tmdbId: number, mediaType: MediaType): Promise<Ca
 }
 
 /**
- * A country's Where to Watch the watchProviders CF just stored → onto the cached catalog doc too,
- * so the next visit reads it from the cache (no CF call). Nothing else on the doc changed, so
- * the watchlist isn't told
+ * Info page extras the titleExtras CF just stored → onto the cached catalog doc too, so the next
+ * visit reads them from the cache (no CF call). Nothing the watchlist shows changed, so it isn't
+ * told
  */
-export function cacheWatchProviders(
+export function cacheTitleExtras(
 	tmdbId: number,
 	mediaType: MediaType,
 	region: string,
-	value: RegionWatchProviders,
+	extras: TitleExtras,
 ) {
 	const key = showDocId(tmdbId, mediaType);
 	const cached = sharedCatalogCache.get(key);
 	if (!cached) return;
 	sharedCatalogCache.set(key, {
 		...cached,
-		watchProviders: { ...cached.watchProviders, [region]: value },
+		cast: extras.cast,
+		castTotal: extras.castTotal,
+		directors: extras.directors,
+		writers: extras.writers,
+		studioLogos: extras.studios,
+		watchProviders: { ...cached.watchProviders, [region]: extras.providers },
 	});
 	persistCatalogCache(sharedCatalogCache);
 }

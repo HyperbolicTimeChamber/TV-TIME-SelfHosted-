@@ -11,6 +11,7 @@ import { movieCatalogFields } from "../hooks/catalogFields";
 import { propagateTitleFacets } from "../hooks/titleFacets";
 import { sameFacets, titleFacets } from "../shared/titleFacets";
 import { syncWatchProviders } from "../hooks/watchProviders";
+import { moveLooseExtras, syncTitleExtras } from "../hooks/titleExtras";
 
 export const syncCatalog = trackedOnSchedule(
   FunctionName.SYNC_CATALOG,
@@ -126,9 +127,17 @@ export const syncCatalog = trackedOnSchedule(
       console.log(`Genres / keywords changed on ${facetChanges.length} titles; ${facetTrackers} trackers updated`);
     }
 
+    // Phase 4c2: extras of titles tracked since (titleExtras/ → their catalog doc)
+    await moveLooseExtras(db).catch((err) => console.error("Moving loose extras failed:", err));
+
     // Phase 4d: Where to Watch — only the countries already stored on each title
     await syncWatchProviders(db, apiKey).catch((err) =>
       console.error("Where to Watch sync failed:", err),
+    );
+
+    // Phase 4e: Cast + studios of the shows that changed (only ones with them stored)
+    await syncTitleExtras(db, apiKey, changedShowIds).catch((err) =>
+      console.error("Info page extras sync failed:", err),
     );
 
     // Phase 5: Build active shows index

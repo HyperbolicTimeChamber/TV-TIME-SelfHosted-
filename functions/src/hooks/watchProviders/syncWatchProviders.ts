@@ -1,7 +1,10 @@
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { pooled } from "../tmdb";
 import { parseTmdbId } from "../../shared/docId";
-import { WATCH_PROVIDERS_COLLECTION } from "../../shared/enums";
+import {
+  LEGACY_WATCH_PROVIDERS_COLLECTION,
+  TITLE_EXTRAS_COLLECTION,
+} from "../../shared/enums";
 import type {
   RegionWatchProviders,
   WatchProvidersFields,
@@ -39,15 +42,41 @@ async function refreshDoc(
  * that have since been added to it move onto their catalog doc.
  */
 export async function syncWatchProviders(db: Firestore, apiKey: string) {
+  // Docs still in the old collection: into titleExtras/ (a catalog title's are handled below)
+  let moved = 0;
+  const legacy = await db.collection(LEGACY_WATCH_PROVIDERS_COLLECTION).get();
+  if (!legacy.empty) {
+    const shows = await db.getAll(...legacy.docs.map((d) => db.collection("shows").doc(d.id)));
+    for (const [i, d] of legacy.docs.entries()) {
+      const target = shows[i]?.exists
+        ? shows[i].ref
+        : db.collection(TITLE_EXTRAS_COLLECTION).doc(d.id);
+      const fields = d.data() as WatchProvidersFields;
+      const has = shows[i]?.exists
+        ? ((shows[i].data() as WatchProvidersFields).watchProviders ?? {})
+        : {};
+      const add = Object.fromEntries(
+        Object.entries(fields.watchProviders ?? {}).filter(([region]) => !has[region]),
+      );
+      if (Object.keys(add).length > 0) {
+        await target.set(
+          { watchProviders: add, watchRegions: FieldValue.arrayUnion(...Object.keys(add)) },
+          { merge: true },
+        );
+      }
+      await d.ref.delete();
+      moved++;
+    }
+  }
+
   const [catalog, loose] = await Promise.all([
     db.collection("shows").where("watchRegions", "!=", null).get(),
-    db.collection(WATCH_PROVIDERS_COLLECTION).get(),
+    db.collection(TITLE_EXTRAS_COLLECTION).where("watchRegions", "!=", null).get(),
   ]);
   let updated = 0;
-  let moved = 0;
 
   // A loose doc whose title now has a catalog doc: its countries move there (any the catalog doc
-  // already has stay as they are), then it's dropped
+  // already has stay as they are), then they're dropped from it
   const looseShowRefs = loose.docs.map((d) => db.collection("shows").doc(d.id));
   const looseShows = looseShowRefs.length ? await db.getAll(...looseShowRefs) : [];
   const looseOnly: Doc[] = [];

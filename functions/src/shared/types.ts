@@ -117,6 +117,84 @@ export interface WatchProvidersFields {
   watchRegions?: string[];
 }
 
+/** One cast member (TMDB credits: movies / aggregate_credits: shows) */
+export interface StoredCastMember {
+  id: number;
+  name: string;
+  /** Their part (a show's most-played one) */
+  character: string | null;
+  /** TMDB image path of their photo */
+  profile: string | null;
+  /** Shows: episodes they're in */
+  episodes?: number;
+}
+
+/** A studio (TV network / production company) with a logo — the info page Studios row */
+export interface StoredStudio {
+  id: number;
+  name: string;
+  /** TMDB image path of its logo */
+  logo: string;
+}
+
+/** A movie's director with their photo (info page credits) */
+export interface StoredCrewMember {
+  id: number;
+  name: string;
+  profile: string | null;
+}
+
+/**
+ * Info page extras on a catalog doc (or a titleExtras/ doc), with WatchProvidersFields. Empty
+ * lists are stored too, so nothing is asked of TMDB twice
+ */
+export interface TitleExtrasFields extends WatchProvidersFields {
+  /** Featured: a movie's leads / a show's regulars */
+  cast?: StoredCastMember[];
+  /** Everyone in the full cast (titleCredits/) */
+  castTotal?: number;
+  /** Movies' directors (empty for shows) */
+  directors?: StoredCrewMember[];
+  /** Movies' writers — screenplay, story, novel (empty for shows) */
+  writers?: StoredCrewMember[];
+  /** With logos (the info page row) — not `studios`, which holds the names the Studio filter uses */
+  studioLogos?: StoredStudio[];
+  /** ms epoch */
+  creditsUpdatedAt?: number;
+}
+
+/** What the titleExtras callable answers */
+export interface TitleExtras {
+  cast: StoredCastMember[];
+  castTotal: number;
+  directors: StoredCrewMember[];
+  writers: StoredCrewMember[];
+  studios: StoredStudio[];
+  providers: RegionWatchProviders;
+}
+
+export interface TitleExtrasRequest {
+  tmdbId: number;
+  mediaType: MediaType;
+  /** The viewer's country (its Where to Watch) */
+  region: string;
+}
+
+export interface TitleCastPageRequest {
+  tmdbId: number;
+  mediaType: MediaType;
+  /** 0-based */
+  page: number;
+  /** Only cast members whose name or character contains this (case / accent-insensitive) */
+  query?: string;
+}
+
+export interface TitleCastPage {
+  members: StoredCastMember[];
+  total: number;
+  hasMore: boolean;
+}
+
 export interface WatchProvidersRequest {
   tmdbId: number;
   mediaType: MediaType;

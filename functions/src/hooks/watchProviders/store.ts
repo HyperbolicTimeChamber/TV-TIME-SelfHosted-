@@ -1,5 +1,5 @@
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
-import { WATCH_PROVIDERS_COLLECTION } from "../../shared/enums";
+import { TITLE_EXTRAS_COLLECTION } from "../../shared/enums";
 import type {
   RegionWatchProviders,
   WatchProvidersFields,
@@ -7,7 +7,7 @@ import type {
 
 /**
  * Where a title's Where to Watch data lives: its catalog doc when it has one (the info page reads
- * that anyway), else its watchProviders/ doc. One read; the catalog doc is checked first
+ * that anyway), else its titleExtras/ doc. One read; the catalog doc is checked first
  */
 export async function readStoredProviders(db: Firestore, docId: string) {
   const showRef = db.collection("shows").doc(docId);
@@ -15,7 +15,7 @@ export async function readStoredProviders(db: Firestore, docId: string) {
   if (show.exists) {
     return { ref: showRef, data: show.data() as WatchProvidersFields };
   }
-  const ref = db.collection(WATCH_PROVIDERS_COLLECTION).doc(docId);
+  const ref = db.collection(TITLE_EXTRAS_COLLECTION).doc(docId);
   const doc = await ref.get();
   return { ref, data: (doc.data() ?? {}) as WatchProvidersFields };
 }

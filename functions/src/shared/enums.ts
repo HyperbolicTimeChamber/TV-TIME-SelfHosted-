@@ -80,6 +80,8 @@ export enum Callable {
   EXPORT_ACCOUNT_DATA = "exportAccountData",
   CANCEL_ACCOUNT_JOB = "cancelAccountJob",
   WATCH_PROVIDERS = "watchProviders",
+  TITLE_EXTRAS = "titleExtras",
+  TITLE_CAST_PAGE = "titleCastPage",
 }
 
 const MINUTE_MS = 60 * 1000;
@@ -111,6 +113,10 @@ export const CALLABLE_RATE_LIMITS: Record<
   [Callable.CANCEL_ACCOUNT_JOB]: { limit: 10, windowMs: 10 * MINUTE_MS },
   // One per info page opened (titles already stored never call it). Per uid, or per IP for guests
   [Callable.WATCH_PROVIDERS]: { limit: 60, windowMs: MINUTE_MS },
+  // One per info page missing any of its extras (titles with everything stored never call it)
+  [Callable.TITLE_EXTRAS]: { limit: 60, windowMs: MINUTE_MS },
+  // The full cast sheet, a page at a time as it scrolls
+  [Callable.TITLE_CAST_PAGE]: { limit: 120, windowMs: MINUTE_MS },
 };
 
 /** Guest TMDB proxy: uncached requests one IP may make per minute (CDN hits don't count) */
@@ -164,13 +170,43 @@ export enum FunctionName {
   ROLLBACK_CANCELLED_IMPORT = "rollbackCancelledImport",
   TRACKING_SYNC_STAMP = "trackingSyncStamp",
   WATCH_PROVIDERS = "watchProviders",
+  TITLE_EXTRAS = "titleExtras",
+  TITLE_CAST_PAGE = "titleCastPage",
 }
 
 /**
- * Where to Watch store for titles without a catalog doc (catalog titles keep theirs on the doc,
- * so the info page gets it with the catalog read). Same doc ids as shows/
+ * Info page extras (featured cast, directors, studios, Where to Watch) for titles without a
+ * catalog doc — catalog titles keep them on the doc, so the page gets them with its catalog read.
+ * Same doc ids as shows/
  */
-export const WATCH_PROVIDERS_COLLECTION = "watchProviders";
+export const TITLE_EXTRAS_COLLECTION = "titleExtras";
+/** A title's full cast (the View All sheet, paged) — kept off the catalog doc, which every
+ *  watchlist read carries. Same doc ids as shows/ */
+export const TITLE_CREDITS_COLLECTION = "titleCredits";
+/** TMDB requests/second the extras callables may make (each one instance → global) */
+export const TITLE_EXTRAS_TMDB_RATE_LIMIT = 10;
+/** Featured cast on the info page row: a movie's leads (top billed)… */
+export const MOVIE_LEADS = 6;
+/** …a show's regulars: in at least this share of its episodes (and MIN episodes) */
+export const TV_REGULAR_SHARE = 0.4;
+export const TV_REGULAR_MIN_EPISODES = 3;
+/** Never more featured than this; a show with no clear regulars shows its top billed this many */
+export const FEATURED_CAST_MAX = 10;
+export const FEATURED_CAST_FALLBACK = 6;
+/** Full cast kept per title (long-running shows list hundreds) */
+export const FULL_CAST_MAX = 400;
+/** Cast members per page in the View All sheet */
+export const CAST_PAGE_SIZE = 30;
+/** Longest cast search (by name or character) the sheet may send */
+export const CAST_SEARCH_MAX_LENGTH = 50;
+/** A movie's writers kept for its credits */
+export const WRITERS_MAX = 8;
+
+/**
+ * Where to Watch's first home for titles without a catalog doc — now kept in titleExtras/ with
+ * the other extras; syncCatalog moves any doc still here over (then this can go)
+ */
+export const LEGACY_WATCH_PROVIDERS_COLLECTION = "watchProviders";
 /** TMDB requests/second the watchProviders callable may make (one instance → global) */
 export const WATCH_PROVIDERS_TMDB_RATE_LIMIT = 10;
 /** Longest a watchProviders TMDB request may queue before the call fails as busy */
