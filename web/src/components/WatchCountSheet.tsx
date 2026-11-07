@@ -1,5 +1,6 @@
+import { HiCheck } from "react-icons/hi";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { IoCheckmarkCircleOutline, IoRepeat, IoTrashOutline } from "react-icons/io5";
+import { IoRepeat, IoTrashOutline } from "react-icons/io5";
 import { FaCircleMinus, FaCirclePlus } from "react-icons/fa6";
 import type { MediaType } from "@app/enums";
 import BottomSheet, {
@@ -193,7 +194,7 @@ export default function WatchCountSheet({
 				{/* At 2, − already lands on 1 */}
 				<SheetCollapse open={allowWatchedOnce && count > 2}>
 					<SheetOption
-						icon={IoCheckmarkCircleOutline}
+						icon={HiCheck}
 						color={colors.watchedGreen}
 						title="Watched Once"
 						hint="Reset to 1x"

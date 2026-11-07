@@ -82,7 +82,7 @@ describe("ShowDetailScreen", () => {
 
 	it("signed-in users get add + check buttons", () => {
 		renderShow(true);
-		expect(screen.getByText("+ Add to Watchlist")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "+ Add to Watchlist" })).toBeInTheDocument();
 		expect(screen.getByLabelText("Mark season watched")).toBeInTheDocument();
 		expect(screen.getByLabelText("Mark watched")).toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: "Sign in to track" })).not.toBeInTheDocument();

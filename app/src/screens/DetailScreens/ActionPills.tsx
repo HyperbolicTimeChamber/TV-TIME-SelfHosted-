@@ -1,10 +1,62 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import type { LayoutChangeEvent } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, typography, themedStyles } from "../../theme";
 import { WatchStatus, MediaType } from "../../types";
-import { CircleButtonTone } from "../../enums";
+import { ADD_TO_WATCHLIST_LABELS, CircleButtonTone, MARK_WATCHED_LABELS } from "../../enums";
 import CircleButton from "../../components/CircleButton";
+import { HiCheck } from "../../components/HiIcons";
+
+const TICK = 20;
+
+/**
+ * A pill's label, shortened to fit ("Mark as Watched" → "Mark Watched" → "Watched") instead of
+ * wrapping onto two lines when the row is narrow. Every label is measured off screen once; the
+ * pill's own width picks the longest that fits beside its icon
+ */
+function FitLabel({ labels, icon }: Readonly<{ labels: readonly string[]; icon?: React.ReactNode }>) {
+	const [room, setRoom] = useState(0);
+	const [widths, setWidths] = useState<number[]>([]);
+	const iconW = icon ? TICK + spacing.xs : 0;
+	const pick =
+		room > 0 && widths.filter((w) => w !== undefined).length === labels.length
+			? (labels.find((_, i) => widths[i] + iconW <= room) ?? labels[labels.length - 1])
+			: null;
+	return (
+		<View
+			style={styles.fitLabel}
+			onLayout={(e: LayoutChangeEvent) => setRoom(e.nativeEvent.layout.width)}
+		>
+			{/* Measured off screen, never shown */}
+			<View style={styles.measure} pointerEvents="none">
+				{labels.map((label, i) => (
+					<Text
+						key={label}
+						style={styles.pillText}
+						numberOfLines={1}
+						onLayout={(e) => {
+							const w = e.nativeEvent.layout.width;
+							setWidths((prev) => {
+								const next = [...prev];
+								next[i] = w;
+								return next;
+							});
+						}}
+					>
+						{label}
+					</Text>
+				))}
+			</View>
+			<View style={[styles.pillInline, !pick && styles.hidden]}>
+				{icon}
+				<Text style={styles.pillText} numberOfLines={1}>
+					{pick ?? labels[0]}
+				</Text>
+			</View>
+		</View>
+	);
+}
 
 interface Props {
 	mediaType: MediaType;
@@ -24,6 +76,10 @@ interface Props {
 	onRemove: () => void;
 	/** Movie ⋯ beside Rewatch: watch count sheet */
 	onWatchSheetOpen: () => void;
+	/** How many custom lists hold the title (bookmark filled, count on it, when above 0) */
+	listCount: number;
+	/** Add to List: the row's last button, whichever other buttons are showing */
+	onAddToList: () => void;
 }
 
 export default function ActionPills({
@@ -40,6 +96,8 @@ export default function ActionPills({
 	onPause,
 	onRemove,
 	onWatchSheetOpen,
+	listCount,
+	onAddToList,
 }: Readonly<Props>) {
 	const isTv = mediaType === MediaType.TV;
 	const completed = watchlistItem?.status === WatchStatus.COMPLETED;
@@ -60,7 +118,7 @@ export default function ActionPills({
 						{adding ? (
 							<ActivityIndicator size="small" color={colors.text} />
 						) : (
-							<Text style={styles.pillText}>+ Add to Watchlist</Text>
+							<FitLabel labels={ADD_TO_WATCHLIST_LABELS} />
 						)}
 					</TouchableOpacity>
 					{mediaType === MediaType.MOVIE && (
@@ -72,7 +130,7 @@ export default function ActionPills({
 							{adding ? (
 								<ActivityIndicator size="small" color={colors.text} />
 							) : (
-								<Text style={styles.pillText}>Watched</Text>
+								<FitLabel labels={MARK_WATCHED_LABELS} icon={<HiCheck size={TICK} />} />
 							)}
 						</TouchableOpacity>
 					)}
@@ -88,7 +146,7 @@ export default function ActionPills({
 							{adding ? (
 								<ActivityIndicator size="small" color={colors.text} />
 							) : (
-								<Text style={styles.pillText}>Mark as Watched</Text>
+								<FitLabel labels={MARK_WATCHED_LABELS} icon={<HiCheck size={TICK} />} />
 							)}
 						</TouchableOpacity>
 					)}
@@ -108,15 +166,6 @@ export default function ActionPills({
 												: "Rewatch"}
 							</Text>
 						</TouchableOpacity>
-					)}
-					{hasSheet && (
-						<CircleButton
-							tone={CircleButtonTone.RAISED}
-							onPress={onWatchSheetOpen}
-							accessibilityLabel="Watch count options"
-						>
-							<Ionicons name="ellipsis-horizontal" size={24} color={colors.text} />
-						</CircleButton>
 					)}
 					{mediaType === MediaType.TV &&
 						(watchlistItem.status === WatchStatus.WATCHING ||
@@ -141,6 +190,31 @@ export default function ActionPills({
 						</TouchableOpacity>
 					)}
 				</>
+			)}
+			<CircleButton
+				tone={listCount > 0 ? CircleButtonTone.ACCENT : CircleButtonTone.RAISED}
+				onPress={onAddToList}
+				accessibilityLabel={
+					listCount > 0
+						? `Add to List, in ${listCount} ${listCount === 1 ? "list" : "lists"}`
+						: "Add to List"
+				}
+			>
+				<Ionicons
+					name={listCount > 0 ? "bookmark" : "bookmark-outline"}
+					size={28}
+					color={colors.text}
+				/>
+			</CircleButton>
+			{/* Watch count ⋯ stays the row's right-most button */}
+			{watchlistItem && hasSheet && (
+				<CircleButton
+					tone={CircleButtonTone.RAISED}
+					onPress={onWatchSheetOpen}
+					accessibilityLabel="Watch count options"
+				>
+					<Ionicons name="ellipsis-vertical" size={24} color={colors.text} />
+				</CircleButton>
 			)}
 		</View>
 	);
@@ -178,6 +252,12 @@ const styles = themedStyles(() => StyleSheet.create({
 	pillRemove: {
 		backgroundColor: colors.destructiveRed,
 	},
+	pillInline: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+	// Spans the pill's inner width (the room the label gets), the label centred in it
+	fitLabel: { alignSelf: "stretch", alignItems: "center" },
+	// Wide enough that no label is cut to the pill's width while it's measured
+	measure: { position: "absolute", opacity: 0, left: -9999, width: 9999, alignItems: "flex-start" },
+	hidden: { opacity: 0 },
 	pillDisabled: {
 		opacity: 0.6,
 	},

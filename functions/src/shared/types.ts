@@ -1,3 +1,4 @@
+import type { UserFacets } from "./titleFacets";
 import { EpisodeType, MediaType, RefreshReason, WatchStatus, SearchScope } from "./enums";
 
 export interface TMDBEpisode {
@@ -43,7 +44,19 @@ export interface TMDBShowDetail {
     crew: Array<{ job: string; department: string; name: string }>;
   };
   images?: { logos?: TMDBLogo[] };
+  /** append_to_response=keywords — TV lists them under results, movies under keywords */
+  keywords?: { results?: TMDBKeyword[]; keywords?: TMDBKeyword[] };
   external_ids?: { tvdb_id?: number | null; imdb_id?: string | null };
+  /** ISO 3166-1 codes; the first sets the studio timezone of untimed episodes */
+  origin_country?: string[];
+  /** Studios: TV networks (HBO, Disney+) and production companies — the Studio filter */
+  networks?: Array<{ id: number; name: string }>;
+  production_companies?: Array<{ id: number; name: string }>;
+}
+
+export interface TMDBKeyword {
+  id: number;
+  name: string;
 }
 
 export interface TMDBLogo {
@@ -76,6 +89,118 @@ export interface CatalogSeason {
   episodes: CatalogEpisode[];
 }
 
+/** A streaming service offering a title (TMDB watch providers, data by JustWatch) */
+export interface StoredWatchProvider {
+  id: number;
+  name: string;
+  /** TMDB image path of the service's logo */
+  logo: string;
+}
+
+/** A title's streaming services in one country — an empty list is stored too (no refetch) */
+export interface RegionWatchProviders {
+  /** Subscription, free and ad-supported services (not rent / buy), TMDB's order */
+  providers: StoredWatchProvider[];
+  /** TMDB's watch page for the title there (links on to each service) */
+  link: string | null;
+  /** ms epoch */
+  updatedAt: number;
+}
+
+/**
+ * Where to Watch on a catalog doc (or a watchProviders/ doc): only countries someone opened the
+ * info page from — the weekly sync refreshes just these
+ */
+export interface WatchProvidersFields {
+  watchProviders?: Record<string, RegionWatchProviders>;
+  /** The countries in watchProviders (queryable: the weekly sync finds titles by it) */
+  watchRegions?: string[];
+}
+
+/** One cast member (TMDB credits: movies / aggregate_credits: shows) */
+export interface StoredCastMember {
+  id: number;
+  name: string;
+  /** Their part (a show's most-played one) */
+  character: string | null;
+  /** TMDB image path of their photo */
+  profile: string | null;
+  /** Shows: episodes they're in */
+  episodes?: number;
+}
+
+/** A studio (TV network / production company) with a logo — the info page Studios row */
+export interface StoredStudio {
+  id: number;
+  name: string;
+  /** TMDB image path of its logo */
+  logo: string;
+}
+
+/** A movie's director with their photo (info page credits) */
+export interface StoredCrewMember {
+  id: number;
+  name: string;
+  profile: string | null;
+}
+
+/**
+ * Info page extras on a catalog doc (or a titleExtras/ doc), with WatchProvidersFields. Empty
+ * lists are stored too, so nothing is asked of TMDB twice
+ */
+export interface TitleExtrasFields extends WatchProvidersFields {
+  /** Featured: a movie's leads / a show's regulars */
+  cast?: StoredCastMember[];
+  /** Everyone in the full cast (titleCredits/) */
+  castTotal?: number;
+  /** Movies' directors (empty for shows) */
+  directors?: StoredCrewMember[];
+  /** Movies' writers — screenplay, story, novel (empty for shows) */
+  writers?: StoredCrewMember[];
+  /** With logos (the info page row) — not `studios`, which holds the names the Studio filter uses */
+  studioLogos?: StoredStudio[];
+  /** ms epoch */
+  creditsUpdatedAt?: number;
+}
+
+/** What the titleExtras callable answers */
+export interface TitleExtras {
+  cast: StoredCastMember[];
+  castTotal: number;
+  directors: StoredCrewMember[];
+  writers: StoredCrewMember[];
+  studios: StoredStudio[];
+  providers: RegionWatchProviders;
+}
+
+export interface TitleExtrasRequest {
+  tmdbId: number;
+  mediaType: MediaType;
+  /** The viewer's country (its Where to Watch) */
+  region: string;
+}
+
+export interface TitleCastPageRequest {
+  tmdbId: number;
+  mediaType: MediaType;
+  /** 0-based */
+  page: number;
+  /** Only cast members whose name or character contains this (case / accent-insensitive) */
+  query?: string;
+}
+
+export interface TitleCastPage {
+  members: StoredCastMember[];
+  total: number;
+  hasMore: boolean;
+}
+
+export interface WatchProvidersRequest {
+  tmdbId: number;
+  mediaType: MediaType;
+  region: string;
+}
+
 export interface CatalogShow {
   tmdbId: number;
   mediaType: MediaType;
@@ -92,6 +217,12 @@ export interface CatalogShow {
   releaseDate: string | null;
   seasons: CatalogSeason[];
   genres: string[];
+  /** TMDB keyword names (lowercase), at most TITLE_KEYWORD_MAX — Watch History filters on them */
+  keywords?: string[];
+  /** TMDB origin_country codes ("KR") — the Watch History Country filter */
+  countries?: string[];
+  /** TMDB networks (TV) + production companies, by name — the Watch History Studio filter */
+  studios?: string[];
   /** TMDB title logo (English, else language-neutral); null = TMDB has none */
   logoPath?: string | null;
   /** TVMaze show id (cached so later syncs skip the lookup); null = not on TVMaze */
@@ -132,6 +263,10 @@ export interface ImportMatch {
 
 export interface ImportRequest {
   matches: ImportMatch[];
+  /** Settings → Import: titles already tracked are skipped entirely (nothing overwritten) */
+  keepExisting?: boolean;
+  /** Settings → Import: cancelAccountJob by this id stops it and takes back what it added */
+  jobId?: string;
 }
 
 export interface ImportStats {
@@ -139,6 +274,10 @@ export interface ImportStats {
   moviesImported: number;
   episodesImported: number;
   minutesImported: number;
+  /** keepExisting: titles left alone because they were already tracked */
+  titlesSkipped?: number;
+  /** The user's filter choices as rebuilt by the import (tv / movie) — the client keeps them */
+  facets?: Record<MediaType, UserFacets>;
 }
 
 // removeShow types
@@ -172,6 +311,8 @@ export interface MarkSeasonRequest {
    *  catch-up spans several calls (seasons / chunks), so they lay end to end, not on top of
    *  each other. 0 / missing = now */
   endOffsetMs?: number;
+  /** Episodes PACKED_MARK_GAP_MS apart instead of a runtime apart (Speedster backfill) */
+  packed?: boolean;
 }
 
 // refreshShow types

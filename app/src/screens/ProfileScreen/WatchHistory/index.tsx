@@ -13,17 +13,38 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LegendList } from "@legendapp/list/react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import SlidingTabs from "../../../components/SlidingTabs";
-import { CircleBackButton } from "../../../components/CircleButton";
+import CircleButton, { CircleBackButton } from "../../../components/CircleButton";
+import { Ionicons } from "@expo/vector-icons";
+import { styles as searchStyles } from "../../SearchScreen/styles";
 import { slideOffAndBack } from "../../../components/SwipeBackView";
-import { useWatchHistory } from "../../../hooks";
-import { useHistorySort } from "../../../hooks/useWatchHistory";
-import { CircleButtonTone, HistoryFilter, HistorySort, MediaType, Route } from "../../../enums";
+import { useWatchHistory, useCustomLists, useCustomListView } from "../../../hooks";
+import { useAuthStore } from "../../../stores";
+import AddToListSheet from "../../../components/modals/AddToListSheet";
+import { getCachedCatalogShow } from "../../../hooks/useWatchlist";
+import { titleListCount } from "../../../utils";
+import {
+	useHistoryFacetIndex,
+	useHistoryFacetOptions,
+	useHistorySort,
+} from "../../../hooks/useWatchHistory";
+import { hasFacets, NO_FACETS } from "../../../utils/historyView";
+import type { HistoryFacets } from "../../../types";
+import {
+	CacheKey,
+	CircleButtonTone,
+	CustomListView,
+	HistoryFilter,
+	HistorySort,
+	MediaType,
+	Route,
+} from "../../../enums";
 import type { ProfileStackParamList } from "../../../types";
 import type { HistoryCard } from "../../../utils";
 import SortFab, { SORT_FAB_CLEARANCE } from "../../../components/SortFab";
 import HistoryViewSheet from "./HistoryViewSheet";
 import { colors } from "../../../theme";
 import HistoryCardView from "./HistoryCardView";
+import HistoryGridCard from "./HistoryGridCard";
 import HistoryCardSkeleton from "./HistoryCardSkeleton";
 import HistoryEmpty from "./HistoryEmpty";
 import { styles } from "./styles";
@@ -35,6 +56,10 @@ const TABS = [
 	{ key: MediaType.MOVIE, label: "Movies" },
 ];
 const SKELETONS = [0, 1, 2];
+/** Grid view: posters two across, like a list's own grid */
+const GRID_COLUMNS = 2;
+/** Search's grid spacing (its row gap / margin) */
+const GRID_GAPS = { columnGap: 8, rowGap: 4 };
 // Tab pager — same feel as Home's Watch List / Upcoming swipe
 const SLIDE_MS = 250;
 const START_PX = 25;
@@ -46,11 +71,15 @@ function HistoryList({
 	mediaType,
 	sort,
 	filters,
+	facets,
+	view,
 	bottomInset,
 }: {
 	mediaType: MediaType;
 	sort: HistorySort;
 	filters: ReadonlySet<HistoryFilter>;
+	facets: HistoryFacets;
+	view: CustomListView;
 	/** Room for the floating sort/filter button */
 	bottomInset: number;
 }) {
@@ -60,14 +89,26 @@ function HistoryList({
 		mediaType,
 		sort,
 		filters,
+		facets,
+	);
+
+	// Add to List: the title the sheet is open for, and how many lists hold each card's title —
+	// embedded in the card data (the list doesn't re-render a row on an outside change)
+	const user = useAuthStore((s) => s.user);
+	const { lists } = useCustomLists(user?.uid);
+	const [listTarget, setListTarget] = useState<HistoryCard | null>(null);
+	const data = useMemo(
+		() => cards.map((c) => ({ ...c, listCount: titleListCount(lists, c.tmdbId, c.mediaType) })),
+		[cards, lists],
 	);
 
 	const renderItem = useCallback(
-		({ item }: { item: HistoryCard }) =>
+		({ item }: { item: HistoryCard & { listCount?: number } }) =>
 			// Title / art not here yet → skeleton until both the row and its show are
 			item.ready ? (
 				<HistoryCardView
 					card={item}
+					onAddToList={() => setListTarget(item)}
 					onPress={() =>
 						navigation.navigate(Route.SHOW_DETAIL, {
 							tmdbId: item.tmdbId,
@@ -77,6 +118,25 @@ function HistoryList({
 				/>
 			) : (
 				<HistoryCardSkeleton />
+			),
+		[navigation],
+	);
+
+	const renderGridItem = useCallback(
+		({ item }: { item: HistoryCard & { listCount?: number } }) =>
+			item.ready ? (
+				<HistoryGridCard
+					card={item}
+					onAddToList={() => setListTarget(item)}
+					onPress={() =>
+						navigation.navigate(Route.SHOW_DETAIL, {
+							tmdbId: item.tmdbId,
+							mediaType: item.mediaType,
+						})
+					}
+				/>
+			) : (
+				<View style={searchStyles.card} />
 			),
 		[navigation],
 	);
@@ -95,26 +155,64 @@ function HistoryList({
 
 	if (cards.length === 0) {
 		if (error) return <Text style={styles.empty}>{error}</Text>;
-		return <HistoryEmpty mediaType={mediaType} filtered={filters.size > 0} />;
+		return <HistoryEmpty mediaType={mediaType} filtered={filters.size > 0 || hasFacets(facets)} />;
 	}
 
 	return (
-		<LegendList
-			data={cards}
-			keyExtractor={(c) => c.id}
-			renderItem={renderItem}
-			estimatedItemSize={210}
-			contentContainerStyle={[styles.list, { paddingBottom: bottomInset }]}
-			ItemSeparatorComponent={() => <View style={styles.separator} />}
-			onEndReached={hasMore ? loadMore : undefined}
-			onEndReachedThreshold={0.6}
-			recycleItems
-			ListFooterComponent={
-				<View style={styles.footer}>
-					{loadingMore && <ActivityIndicator color={colors.primary} />}
-				</View>
-			}
-		/>
+		<>
+			{view === CustomListView.GRID ? (
+				<LegendList
+					key="grid"
+					data={data}
+					keyExtractor={(c) => c.id}
+					renderItem={renderGridItem}
+					numColumns={GRID_COLUMNS}
+					columnWrapperStyle={GRID_GAPS}
+					estimatedItemSize={300}
+					contentContainerStyle={[styles.grid, { paddingBottom: bottomInset }]}
+					onEndReached={hasMore ? loadMore : undefined}
+					onEndReachedThreshold={0.6}
+					recycleItems
+					ListFooterComponent={
+						<View style={styles.footer}>
+							{loadingMore && <ActivityIndicator color={colors.primary} />}
+						</View>
+					}
+				/>
+			) : (
+				<LegendList
+					key="list"
+					data={data}
+					keyExtractor={(c) => c.id}
+					renderItem={renderItem}
+					estimatedItemSize={210}
+					contentContainerStyle={[styles.list, { paddingBottom: bottomInset }]}
+					ItemSeparatorComponent={() => <View style={styles.separator} />}
+					onEndReached={hasMore ? loadMore : undefined}
+					onEndReachedThreshold={0.6}
+					recycleItems
+					ListFooterComponent={
+						<View style={styles.footer}>
+							{loadingMore && <ActivityIndicator color={colors.primary} />}
+						</View>
+					}
+				/>
+			)}
+			<AddToListSheet
+				entry={
+					listTarget
+						? {
+								tmdbId: listTarget.tmdbId,
+								mediaType: listTarget.mediaType,
+								title: listTarget.title,
+								posterPath:
+									getCachedCatalogShow(listTarget.tmdbId, listTarget.mediaType)?.posterPath ?? null,
+							}
+						: null
+				}
+				onClose={() => setListTarget(null)}
+			/>
+		</>
 	);
 }
 
@@ -130,10 +228,31 @@ export default function WatchHistoryScreen() {
 	const [sort, setSort] = useHistorySort();
 	const [filters, setFilters] = useState<Set<HistoryFilter>>(() => new Set());
 	const [sheetOpen, setSheetOpen] = useState(false);
+	// Genre / Keyword filters: both tabs, also only while this page is open
+	const [facets, setFacets] = useState<HistoryFacets>(NO_FACETS);
+	const facetOptions = useHistoryFacetOptions(tab, sheetOpen);
+	const facetIndex = useHistoryFacetIndex(tab, sheetOpen);
+	const toggleFacet = (key: keyof HistoryFacets, value: string) =>
+		setFacets((prev) => {
+			const next = new Set(prev[key]);
+			if (next.has(value)) next.delete(value);
+			else next.add(value);
+			return { ...prev, [key]: next };
+		});
+	// A regional genre (k drama → Korea + Drama): all turned on, never toggled off by it
+	const applyRegion = (countries: string[], genres: string[]) =>
+		setFacets((prev) => ({
+			...prev,
+			countries: new Set([...prev.countries, ...countries]),
+			genres: new Set([...prev.genres, ...genres]),
+		}));
+	// Grid / List, remembered (List: the cards this page always had)
+	const [view, setView] = useCustomListView(CacheKey.HISTORY_VIEW, CustomListView.LIST);
 	const isMovieTab = tab === MediaType.MOVIE;
 	const NO_FILTERS = useMemo(() => new Set<HistoryFilter>(), []);
 	const tabFilters = (mt: MediaType) => (mt === MediaType.MOVIE ? NO_FILTERS : filters);
-	const customised = sort !== HistorySort.LAST_WATCHED || tabFilters(tab).size > 0;
+	const customised =
+		sort !== HistorySort.LAST_WATCHED || tabFilters(tab).size > 0 || hasFacets(facets);
 	const toggleFilter = (f: HistoryFilter) =>
 		setFilters((prev) => {
 			const next = new Set(prev);
@@ -233,8 +352,20 @@ export default function WatchHistoryScreen() {
 				<View style={styles.titleRow}>
 					<CircleBackButton tone={CircleButtonTone.SURFACE_LIGHT} onPress={goBack} />
 					<Text style={styles.title}>Hall of Shame</Text>
-					{/* Mirrors the back button so the title is centred on the bar */}
-					<View style={styles.backSpacer} />
+					{/* Same size as the back button, so the title stays centred on the bar */}
+					<CircleButton
+						tone={CircleButtonTone.SURFACE_LIGHT}
+						onPress={() =>
+							setView(view === CustomListView.GRID ? CustomListView.LIST : CustomListView.GRID)
+						}
+						accessibilityLabel={view === CustomListView.GRID ? "Show as list" : "Show as grid"}
+					>
+						<Ionicons
+							name={view === CustomListView.GRID ? "list" : "grid"}
+							size={20}
+							color={colors.text}
+						/>
+					</CircleButton>
 				</View>
 				<SlidingTabs
 					tabs={TABS}
@@ -254,6 +385,8 @@ export default function WatchHistoryScreen() {
 											mediaType={t.key}
 											sort={sort}
 											filters={tabFilters(t.key)}
+											facets={facets}
+											view={view}
 											bottomInset={fabBottom + SORT_FAB_CLEARANCE}
 										/>
 									)}
@@ -281,13 +414,23 @@ export default function WatchHistoryScreen() {
 				onClose={() => setSheetOpen(false)}
 				isMovie={isMovieTab}
 				sort={sort}
-				onSort={(next) => {
-					setSort(next);
-					setSheetOpen(false);
-				}}
+				// Stays open like the filters under it — the segment's slide is the feedback, and a
+				// sort is often followed by a filter
+				onSort={setSort}
 				filters={tabFilters(tab)}
 				onToggleFilter={toggleFilter}
-				onClearFilters={() => setFilters(new Set())}
+				onClearFilters={() => {
+					setFilters(new Set());
+					setFacets(NO_FACETS);
+				}}
+				facets={facets}
+				facetOptions={facetOptions}
+				onToggleGenre={(g) => toggleFacet("genres", g)}
+				onToggleKeyword={(k) => toggleFacet("keywords", k)}
+				onToggleCountry={(c) => toggleFacet("countries", c)}
+				onToggleStudio={(st) => toggleFacet("studios", st)}
+				onApplyRegion={applyRegion}
+				facetIndex={facetIndex}
 			/>
 		</Animated.View>
 	);

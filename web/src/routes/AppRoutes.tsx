@@ -26,7 +26,7 @@ const NotFoundScreen = lazy(() => import("../screens/NotFoundScreen"));
 /** Guests land on search; signed-in users on their watchlist */
 function RootRedirect() {
 	const { user, loading } = useAppSelector((s) => s.auth);
-	if (loading) return <LoadingScreen />;
+	if (loading) return <LoadingScreen splash />;
 	return <Navigate to={user ? Paths.HOME : Paths.SEARCH} replace />;
 }
 

@@ -14,6 +14,8 @@ interface Props {
 	style?: StyleProp<ViewStyle>;
 	contentFit?: "cover" | "contain";
 	title?: string;
+	/** The placeholder icon's size, for tiles too small for the default (it was clipped in a 28px tile) */
+	iconSize?: number;
 }
 
 export default function PosterImage({
@@ -22,14 +24,22 @@ export default function PosterImage({
 	style,
 	contentFit = "cover",
 	title,
+	iconSize,
 }: Props) {
 	if (posterPath) {
 		return (
 			<Image
+				// Keyed by poster: a card whose title moved away and back within a moment (a mark's
+				// reorder, then the listener's) kept the other card's picture — expo-image dropped
+				// the change back. A new image view per poster can't
+				key={posterPath}
 				source={{ uri: tmdbPosterUri(posterPath, POSTER_WIDTH) }}
 				style={style as any}
 				contentFit={contentFit}
 				recyclingKey={posterPath}
+				// Small (w100) and shown everywhere: kept decoded in memory, so a re-mounted card (a
+				// list reorder re-keys the cards it moves past) shows it at once instead of flashing
+				cachePolicy="memory-disk"
 			/>
 		);
 	}
@@ -40,7 +50,7 @@ export default function PosterImage({
 		<View style={[style, styles.placeholder]}>
 			<Ionicons
 				name={isMovie ? "film-outline" : "tv-outline"}
-				size={title ? 22 : 28}
+				size={iconSize ?? (title ? 22 : 28)}
 				color={colors.textMuted}
 			/>
 			{title && (

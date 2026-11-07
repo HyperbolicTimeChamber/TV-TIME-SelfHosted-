@@ -10,14 +10,16 @@ export interface SearchSortOption extends SearchSortView {
 	label: string;
 }
 
+/** Relevance has no direction of its own: it is TMDB's order as returned */
 export const DEFAULT_SEARCH_SORT: SearchSortView = {
-	sort: SearchSort.DATE,
+	sort: SearchSort.RELEVANCE,
 	direction: SortDirection.DESC,
 };
 
 export const SEARCH_SORT_OPTIONS: SearchSortOption[] = [
-	{ sort: SearchSort.DATE, direction: SortDirection.DESC, label: "Newest first" },
-	{ sort: SearchSort.DATE, direction: SortDirection.ASC, label: "Oldest first" },
+	{ ...DEFAULT_SEARCH_SORT, label: "Relevance" },
+	{ sort: SearchSort.DATE, direction: SortDirection.DESC, label: "Newest First" },
+	{ sort: SearchSort.DATE, direction: SortDirection.ASC, label: "Oldest First" },
 	{ sort: SearchSort.NAME, direction: SortDirection.ASC, label: "A → Z" },
 ];
 
@@ -33,6 +35,7 @@ const titleOf = (item: TMDBShow): string => (item.title || item.name || "").trim
 
 /** Comparator for a sort view — items missing the key (no date / no title) go last either way */
 export function compareSearchResults(view: SearchSortView): (a: TMDBShow, b: TMDBShow) => number {
+	if (view.sort === SearchSort.RELEVANCE) return () => 0;
 	const sign = view.direction === SortDirection.ASC ? 1 : -1;
 	const key = view.sort === SearchSort.DATE ? releaseOf : titleOf;
 	const compare =
@@ -47,7 +50,7 @@ export function compareSearchResults(view: SearchSortView): (a: TMDBShow, b: TMD
 	};
 }
 
-/** Sorted copy — stable, so ties keep TMDB's relevance order */
+/** Sorted copy — stable, so ties (and Relevance, which compares everything equal) keep TMDB's order */
 export function sortSearchResults<T extends TMDBShow>(
 	items: readonly T[],
 	view: SearchSortView,

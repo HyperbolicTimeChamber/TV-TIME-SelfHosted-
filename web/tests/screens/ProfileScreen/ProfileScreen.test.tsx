@@ -44,7 +44,8 @@ describe("ProfileScreen", () => {
 		expect(screen.getByText("Daily Watch Rate")).toBeInTheDocument();
 		vi.unstubAllGlobals();
 		expect(screen.getByRole("button", { name: "Hall of Shame" })).toBeInTheDocument();
-		expect(screen.getByText("Recently Completed")).toBeInTheDocument();
+		expect(screen.queryByText("Recently Completed")).not.toBeInTheDocument();
+		expect(screen.getByText("Drama")).toBeInTheDocument();
 		expect(screen.getByText("Drama")).toBeInTheDocument();
 		// Log Out lives in Settings now
 		expect(screen.queryByRole("button", { name: "Log Out" })).not.toBeInTheDocument();

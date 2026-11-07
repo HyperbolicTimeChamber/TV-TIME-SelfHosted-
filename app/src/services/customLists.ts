@@ -209,9 +209,27 @@ async function seedDefaultLists(userId: string, lists: CustomList[]): Promise<Cu
  * (2 reads), else a full fetch (one read per list) — seeded with Favorites the first time — and
  * saved. Offline with a saved copy: the saved copy
  */
-export async function loadCustomListsWithDefaults(userId: string): Promise<CustomList[]> {
+export async function loadCustomListsWithDefaults(
+	userId: string,
+	/** With a saved copy: it is returned at once, and this gets the server's lists if they differ */
+	onFresher?: (lists: CustomList[], saved: CustomList[]) => void,
+): Promise<CustomList[]> {
 	const cached = await readListsCache(userId);
 	if (cached) {
+		// Saved copy first (the page shows it with no loader); the freshness check follows behind
+		if (onFresher) {
+			void (async () => {
+				try {
+					if (await cacheIsCurrent(userId, cached)) return;
+					const lists = await seedDefaultLists(userId, await fetchCustomLists(userId));
+					await saveListsCache(userId, lists);
+					onFresher(lists, cached);
+				} catch (err) {
+					console.warn("[customLists] freshness check failed, keeping saved lists:", err);
+				}
+			})();
+			return cached;
+		}
 		try {
 			if (await cacheIsCurrent(userId, cached)) return cached;
 		} catch (err) {

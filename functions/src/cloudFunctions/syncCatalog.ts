@@ -8,6 +8,10 @@ import { healUserShowRuntimes } from "../hooks/runtimeHeal/healRuntimes";
 import { MediaType, ENDED_STATUSES, FunctionName } from "../shared/enums";
 import { trackedOnSchedule } from "../hooks/trackedTriggers";
 import { movieCatalogFields } from "../hooks/catalogFields";
+import { propagateTitleFacets } from "../hooks/titleFacets";
+import { sameFacets, titleFacets } from "../shared/titleFacets";
+import { syncWatchProviders } from "../hooks/watchProviders";
+import { moveLooseExtras, syncTitleExtras } from "../hooks/titleExtras";
 
 export const syncCatalog = trackedOnSchedule(
   FunctionName.SYNC_CATALOG,
@@ -43,6 +47,7 @@ export const syncCatalog = trackedOnSchedule(
       skippedEnded,
       changedShowIds,
       runtimeFills,
+      facetChanges,
     } = await fetchCatalogUpdates(apiKey, showsSnap);
     console.log(`${changedShowIds.length} shows changed`);
     console.log(`Skipped ${skippedEnded} ended/canceled shows`);
@@ -92,6 +97,9 @@ export const syncCatalog = trackedOnSchedule(
             movieCatalogFields(fresh),
             { merge: true },
           );
+          if (!sameFacets(oldData, titleFacets(fresh))) {
+            facetChanges.push({ showId: movieDoc.id, old: oldData, fresh: titleFacets(fresh) });
+          }
         } catch (err) {
           console.error(
             `Failed to sync movie ${oldData.tmdbId} (${oldData.title}):`,
@@ -102,6 +110,35 @@ export const syncCatalog = trackedOnSchedule(
       await pooled(movieTasks, 5);
       console.log(`Movie sync complete: ${moviesSnap.size} movies`);
     }
+
+    // Phase 4c: Genres / keywords that changed (TV + movies) → every tracker's tracking doc and
+    // filter-choice counts (users/{uid}/facets) follow, by the same diff addShow uses
+    let facetTrackers = 0;
+    await pooled(
+      facetChanges.map((c) => async () => {
+        facetTrackers += await propagateTitleFacets(db, c.showId, c.old, c.fresh).catch((err) => {
+          console.error(`Facet propagation failed for ${c.showId}:`, err);
+          return 0;
+        });
+      }),
+      5,
+    );
+    if (facetChanges.length > 0) {
+      console.log(`Genres / keywords changed on ${facetChanges.length} titles; ${facetTrackers} trackers updated`);
+    }
+
+    // Phase 4c2: extras of titles tracked since (titleExtras/ → their catalog doc)
+    await moveLooseExtras(db).catch((err) => console.error("Moving loose extras failed:", err));
+
+    // Phase 4d: Where to Watch — only the countries already stored on each title
+    await syncWatchProviders(db, apiKey).catch((err) =>
+      console.error("Where to Watch sync failed:", err),
+    );
+
+    // Phase 4e: Cast + studios of the shows that changed (only ones with them stored)
+    await syncTitleExtras(db, apiKey, changedShowIds).catch((err) =>
+      console.error("Info page extras sync failed:", err),
+    );
 
     // Phase 5: Build active shows index
     const activeShowIds: string[] = [];

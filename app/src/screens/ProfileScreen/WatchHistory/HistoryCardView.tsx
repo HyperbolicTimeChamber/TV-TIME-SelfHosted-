@@ -3,12 +3,14 @@ import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from "react-nati
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, themedStyles } from "../../../theme";
-import { HistoryPill, HistoryProgress } from "../../../enums";
+import { HistoryPill } from "../../../enums";
 import { tmdbBlurredBackdropUri, tmdbLogoUri } from "../../../hooks/useTmdbImage";
 import type { HistoryCard } from "../../../utils";
 import { BLUR_RADIUS } from "../styles";
-import ProgressRing from "./ProgressRing";
-import { CARD_ASPECT, RING_SIZE, styles } from "./styles";
+import ProgressPill from "./ProgressPill";
+import WatchCountPill from "../../../components/WatchCountPill";
+import StatusPill from "../../../components/StatusPill";
+import { CARD_ASPECT, styles } from "./styles";
 
 const CARD_WIDTH = Dimensions.get("window").width - 32;
 const CARD_MIN_HEIGHT = CARD_WIDTH / CARD_ASPECT;
@@ -21,39 +23,18 @@ export const PILL_COLOR = themedStyles<Record<HistoryPill, string>>(() => ({
 	[HistoryPill.PAUSED]: `${colors.destructiveRed}99`,
 }));
 
-function ProgressModule({ progress }: { progress: NonNullable<HistoryCard["progress"]> }) {
-	if (progress.kind === HistoryProgress.UP_TO_DATE || progress.kind === HistoryProgress.PAUSED) {
-		const upToDate = progress.kind === HistoryProgress.UP_TO_DATE;
-		return (
-			<View
-				style={[
-					styles.progressPill,
-					{ backgroundColor: upToDate ? colors.watchedGreen : colors.moviePurple },
-				]}
-			>
-				{/* Ionicons glyphs carry ~1px inner padding: +2 / −1 margin → visually RING_SIZE */}
-				<Ionicons
-					name={upToDate ? "checkmark-circle-outline" : "pause-circle-outline"}
-					size={RING_SIZE + 2}
-					color={colors.onImage}
-					style={styles.progressIcon}
-				/>
-				<Text style={[styles.progressText, { color: colors.onImage }]}>
-					{upToDate ? "Up To Date" : "Paused"}
-				</Text>
-			</View>
-		);
-	}
-	return (
-		<View style={[styles.progressPill, { backgroundColor: colors.warningAmber }]}>
-			<ProgressRing percent={progress.percent ?? 0} />
-			<Text style={[styles.progressText, { color: colors.surface }]}>{progress.percent ?? 0}%</Text>
-		</View>
-	);
-}
-
 /** Watch History card (16:9): logo + title + status, time spent, progress, Ongoing/Ended */
-function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => void }) {
+function HistoryCardView({
+	card,
+	onPress,
+	onAddToList,
+}: {
+	card: HistoryCard & { listCount?: number };
+	onPress: () => void;
+	/** Opens the Add to List sheet for this title */
+	onAddToList?: () => void;
+}) {
+	const listCount = card.listCount ?? 0;
 	return (
 		<TouchableOpacity
 			style={[styles.card, { minHeight: CARD_MIN_HEIGHT }]}
@@ -90,10 +71,27 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 							{card.title}
 						</Text>
 					)}
-					{card.tag && (
-						<View style={styles.tagPill}>
-							<Text style={styles.tag}>{card.tag}</Text>
-						</View>
+					{/* Where the Ongoing / Ended pill was: Add to List, bookmark filled when the title is
+					    in a list */}
+					{onAddToList && (
+						<TouchableOpacity
+							onPress={onAddToList}
+							activeOpacity={0.7}
+							hitSlop={8}
+							style={[styles.listButton, listCount > 0 && styles.listButtonActive]}
+							accessibilityRole="button"
+							accessibilityLabel={
+								listCount > 0
+									? `Add to List, in ${listCount} ${listCount === 1 ? "list" : "lists"}`
+									: "Add to List"
+							}
+						>
+							<Ionicons
+								name={listCount > 0 ? "bookmark" : "bookmark-outline"}
+								size={20}
+								color={colors.text}
+							/>
+						</TouchableOpacity>
 					)}
 				</View>
 			</View>
@@ -102,31 +100,23 @@ function HistoryCardView({ card, onPress }: { card: HistoryCard; onPress: () => 
 				{/* Bottom-left: status pill above one slot — progress / up to date / paused,
 				    else the watch count */}
 				<View style={styles.leftBlock}>
-					{card.pill && (
-						<View
-							style={[
-								styles.pill,
-								card.pillCount != null && styles.pillWithCount,
-								{ backgroundColor: PILL_COLOR[card.pill] },
-							]}
-						>
-							<Text style={styles.pillText}>{card.pillLabel}</Text>
-							{card.pillCount != null && (
-								<View style={styles.pillCountCircle}>
-									<Text style={styles.pillCountText}>{card.pillCount}</Text>
-								</View>
-							)}
+					{/* Ongoing / Ended / year, over the status pill */}
+					{card.tag && (
+						<View style={styles.tagPill}>
+							<Text style={styles.tag}>{card.tag}</Text>
 						</View>
 					)}
+					{card.pill && card.pillLabel && (
+						<StatusPill
+							label={card.pillLabel}
+							color={PILL_COLOR[card.pill]}
+							count={card.pillCount}
+						/>
+					)}
 					{card.progress ? (
-						<ProgressModule progress={card.progress} />
+						<ProgressPill kind={card.progress.kind} percent={card.progress.percent} />
 					) : card.watchCount != null ? (
-						<View style={[styles.progressPill, styles.watchCountPill]}>
-							<Text style={[styles.progressText, { color: colors.onImage }]}>Watch Count</Text>
-							<View style={styles.countCircle}>
-								<Text style={[styles.progressText, { color: colors.onImage }]}>{card.watchCount}</Text>
-							</View>
-						</View>
+						<WatchCountPill count={card.watchCount} />
 					) : null}
 				</View>
 				{(card.lastWatched || card.timeSpent) && (

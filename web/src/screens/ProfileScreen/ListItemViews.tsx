@@ -1,16 +1,28 @@
-import { useEffect, useState } from "react";
+import { HiCheck } from "react-icons/hi";
+import { useEffect, useMemo, useState } from "react";
 import { Reorder, useDragControls } from "motion/react";
-import { IoReorderThree } from "react-icons/io5";
+import { IoAdd, IoPlay, IoReorderThree } from "react-icons/io5";
+import { Spin } from "antd";
 import { MediaType } from "@app/enums";
-import type { CustomListItem } from "@app/types";
+import type { CustomListItem, TMDBShow } from "@app/types";
 import { useShowDetails } from "@app/hooks/useShowDetails";
 import { useTitleInfo } from "@app/hooks/useTitleInfo";
 import { useTitleLogo } from "@app/hooks/useTitleLogo";
+import { useTrackingEntry } from "@app/hooks/useTrackingEntry";
+import { isPausedStatus, useResumeTitle } from "@app/hooks/useResumeTitle";
+import { useAuthStore } from "@app/stores";
+import { catalogSettled, ensureFreshCatalogs } from "@app/hooks/catalogRefresh";
+import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
+import { deriveHistoryCard } from "@app/utils/historyCard";
+import { deriveListTags } from "@app/utils/listCardTags";
+import { todayStr } from "@app/utils/todayStr";
 import { tmdbBackdropUri, tmdbLogoUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
 import { formatRuntime } from "@app/utils/customLists";
 import { useLongPress } from "../../hooks/useLongPress";
 import PosterImage from "../../components/PosterImage";
 import SkeletonBlock from "../../components/SkeletonBlock";
+import ListCardTags from "./ListCardTags";
+import SearchCard from "../SearchScreen/SearchCard";
 import ShowDrawer from "../../components/ShowDrawer";
 import type { ShowDrawerAction } from "../../components/ShowDrawer";
 import styles from "./styles/ListDetail.module.scss";
@@ -31,6 +43,77 @@ interface ItemProps {
 	onPress: () => void;
 	/** Long press (hold 0.5s) or right-click */
 	onLongPress: () => void;
+}
+
+interface RowProps extends ItemProps {
+	/** On the watchlist already (a green Tracking tag instead of the add button) */
+	tracked: boolean;
+	adding: boolean;
+	onAddToWatchlist: (show: TMDBShow) => void;
+}
+
+/** What the shared add flow takes (Search's): a movie's release date decides whether it is added
+ *  as unreleased (app addShow) */
+function toShow(item: CustomListItem, info: ReturnType<typeof useTitleInfo>["data"]): TMDBShow {
+	const isMovie = item.mediaType === MediaType.MOVIE;
+	return {
+		id: item.tmdbId,
+		media_type: item.mediaType,
+		...(isMovie ? { title: item.title } : { name: item.title }),
+		poster_path: item.posterPath ?? info?.posterPath ?? null,
+		backdrop_path: info?.backdropPath ?? null,
+		overview: "",
+		vote_average: 0,
+		genre_ids: [],
+		...(isMovie
+			? { release_date: info?.releaseDate ?? undefined }
+			: { first_air_date: info?.releaseDate ?? undefined }),
+	};
+}
+
+/**
+ * Grid view (app ListGridCard): Search's own result card for a saved title, minus the Add to List
+ * button (it is in a list already). Year and release date come from the title's info.
+ */
+export function ListGridCard({
+	item,
+	tracked,
+	adding,
+	onPress,
+	onLongPress,
+	onAdd,
+	onRemove,
+}: {
+	item: CustomListItem;
+	tracked: boolean;
+	adding: boolean;
+	onPress: (item: CustomListItem) => void;
+	onLongPress: (item: CustomListItem) => void;
+	onAdd: (show: TMDBShow) => void;
+	onRemove: (show: TMDBShow) => void;
+}) {
+	const { data: info } = useTitleInfo(item.tmdbId, item.mediaType);
+	// The same state pills as a list card, one per row over the poster's top-left
+	const { tags } = useListTags(item.tmdbId, item.mediaType);
+	const show = useMemo(() => toShow(item, info), [item, info]);
+	return (
+		<SearchCard
+			item={show}
+			canTrack
+			isInWatchlist={tracked}
+			isAdding={adding}
+			overlay={tags?.map((t) => (
+				// Solid backing: the pills are translucent, which lost them on a busy poster
+				<span key={t.kind} className={styles.gridTagBacking}>
+					<ListCardTags tags={[t]} flush />
+				</span>
+			))}
+			onPress={() => onPress(item)}
+			onLongPress={() => onLongPress(item)}
+			onAdd={onAdd}
+			onRemove={onRemove}
+		/>
+	);
 }
 
 /** Grid view: just the poster */
@@ -55,11 +138,50 @@ const CARD_MAX_WIDTH = 440;
 const NAME_DELAY_MS = 2000;
 
 /**
+ * The list-card tags for a title (Currently Watching / Rewatching, Paused, Watch Count — none when untracked),
+ * from its own tracking doc; null until that is known (app useListTags). A tracked show's progress
+ * needs its episode list: one batched catalog read, then cached.
+ */
+function useListTags(tmdbId: number, mediaType: MediaType) {
+	const isMovie = mediaType === MediaType.MOVIE;
+	const userId = useAuthStore((st) => st.user?.uid);
+	const entry = useTrackingEntry(userId, tmdbId, mediaType);
+	const [catalogVersion, setCatalogVersion] = useState(0);
+	useEffect(() => {
+		if (!entry || isMovie) return;
+		ensureFreshCatalogs([entry])
+			.catch(() => false)
+			.then((fetched) => fetched && setCatalogVersion((v) => v + 1));
+	}, [entry, isMovie]);
+	const tags = useMemo(() => {
+		if (entry === undefined) return null;
+		const card = entry
+			? deriveHistoryCard(
+					entry,
+					getCachedCatalogShow(tmdbId, mediaType),
+					todayStr(),
+					catalogSettled(tmdbId, mediaType),
+				)
+			: null;
+		return deriveListTags(card);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [entry, catalogVersion, tmdbId, mediaType, isMovie]);
+	return { tags, entry };
+}
+
+/**
  * List view (app ListRow): a calendar card for a saved title — blurred backdrop, logo (name when
  * there's none) over its TV / MOVIE pill and runtime, and the square holding a show's episode count /
  * a movie's year.
  */
-export function ListRow({ item, onPress, onLongPress }: ItemProps) {
+export function ListRow({
+	item,
+	onPress,
+	onLongPress,
+	tracked,
+	adding,
+	onAddToWatchlist,
+}: RowProps) {
 	const { data: info, isPending: infoLoading } = useTitleInfo(item.tmdbId, item.mediaType);
 	const logoPath = useTitleLogo(undefined, item.tmdbId, item.mediaType);
 	const [waited, setWaited] = useState(false);
@@ -70,9 +192,25 @@ export function ListRow({ item, onPress, onLongPress }: ItemProps) {
 	const press = useLongPress(onLongPress, onPress);
 	const isMovie = item.mediaType === MediaType.MOVIE;
 	const runtime = formatRuntime(info?.runtime);
+	const seasons = info?.totalSeasons;
+	// A show: its season count beside the TV tag, its episode count in the square (app ListRow)
 	const square = isMovie
 		? { label: "YEAR", value: info?.year ?? null }
 		: { label: "EPISODES", value: info?.totalEpisodes ? String(info.totalEpisodes) : null };
+	// Tags: Watch History's, from the title's own tracking doc (none → no tags)
+	const { tags, entry } = useListTags(item.tmdbId, item.mediaType);
+	// Paused: Resume (blue) in place of the Watchlist tag (app ListRow)
+	const paused = !!entry && isPausedStatus(entry.status);
+	const { resume, resuming } = useResumeTitle();
+	const doResume = () => {
+		if (entry && !resuming) resume(entry, item.title, item.posterPath ?? info?.posterPath ?? null);
+	};
+	// A show: its season count; a movie: its runtime (the year is in the square), in a translucent black pill
+	const metaText = isMovie
+		? runtime
+		: seasons
+			? `${seasons} ${seasons === 1 ? "Season" : "Seasons"}`
+			: "";
 	const showName = logoPath === null || (!logoPath && waited);
 	// Still looking for the logo (and not yet time for the name): shimmer where it will sit
 	const logoLoading = logoPath === undefined && !waited;
@@ -112,25 +250,92 @@ export function ListRow({ item, onPress, onLongPress }: ItemProps) {
 						<SkeletonBlock className={styles.skeletonLogo} />
 					) : null}
 				</span>
-				<span className={styles.rowMetaLine}>
-					<TypeBadge mediaType={item.mediaType} />
-					{infoLoading ? (
-						<SkeletonBlock className={styles.skeletonMeta} />
+				{/* Centred between the logo and the tags, so it is equidistant from both */}
+				<span className={styles.metaArea}>
+					<span className={styles.rowMetaLine}>
+						<TypeBadge mediaType={item.mediaType} />
+						{infoLoading ? (
+							<SkeletonBlock className={styles.skeletonMeta} />
+						) : metaText ? (
+							<span className={styles.metaPill}>{metaText}</span>
+						) : null}
+					</span>
+				</span>
+				{/* Level with the add button / Tracking tag under the square */}
+				<span className={styles.tagsRow}>
+					{tags ? (
+						<ListCardTags tags={tags} flush />
 					) : (
-						runtime && (
-							<span className={styles.rowMeta}>{isMovie ? runtime : `${runtime} / ep`}</span>
-						)
+						<SkeletonBlock className={styles.skeletonTags} />
 					)}
 				</span>
 			</span>
-			<span className={styles.square}>
-				<span className={styles.squareTitle}>{square.label}</span>
-				<span className={styles.squareRule} />
-				{infoLoading ? (
-					<SkeletonBlock className={styles.skeletonValue} />
-				) : (
-					<span className={styles.squareValue}>{square.value ?? "—"}</span>
-				)}
+			<span className={styles.rightCol}>
+				<span className={styles.square}>
+					<span className={styles.squareTitle}>{square.label}</span>
+					<span className={styles.squareRule} />
+					{infoLoading ? (
+						<SkeletonBlock className={styles.skeletonValue} />
+					) : (
+						<span className={styles.squareValue}>{square.value ?? "—"}</span>
+					)}
+				</span>
+				<span className={styles.bottomRow}>
+					{paused ? (
+						// A span, not a button: the card itself is one
+						<span
+							role="button"
+							tabIndex={0}
+							aria-label={`Resume ${item.title}`}
+							aria-disabled={resuming}
+							className={`${styles.addButton} ${styles.resumeButton} ${resuming ? styles.addButtonBusy : ""}`}
+							onPointerDown={(e) => e.stopPropagation()}
+							onClick={(e) => {
+								e.stopPropagation();
+								doResume();
+							}}
+							onKeyDown={(e) => {
+								if (e.key !== "Enter" && e.key !== " ") return;
+								e.preventDefault();
+								e.stopPropagation();
+								doResume();
+							}}
+						>
+							{resuming ? <Spin size="small" /> : <IoPlay size={12} />}
+							{!resuming && "Resume"}
+						</span>
+					) : tracked ? (
+						<span className={styles.trackingTag}>
+							<HiCheck size={14} />
+							Watchlist
+						</span>
+					) : (
+						// A span, not a button: the card itself is one
+						<span
+							role="button"
+							tabIndex={0}
+							aria-label={`Add ${item.title} to watchlist`}
+							aria-disabled={adding || infoLoading}
+							className={`${styles.addButton} ${adding || infoLoading ? styles.addButtonBusy : ""}`}
+							onPointerDown={(e) => e.stopPropagation()}
+							onClick={(e) => {
+								e.stopPropagation();
+								if (adding || infoLoading) return;
+								onAddToWatchlist(toShow(item, info));
+							}}
+							onKeyDown={(e) => {
+								if (e.key !== "Enter" && e.key !== " ") return;
+								e.preventDefault();
+								e.stopPropagation();
+								if (adding || infoLoading) return;
+								onAddToWatchlist(toShow(item, info));
+							}}
+						>
+							{adding ? <Spin size="small" /> : <IoAdd size={14} />}
+							{!adding && "Watchlist"}
+						</span>
+					)}
+				</span>
 			</span>
 		</button>
 	);

@@ -1,20 +1,29 @@
 import styles from "./styles/WatchCountPill.module.scss";
 
-/** "Watched (n)" — the number in a white circle (app WatchCountPill) */
+interface Props {
+	count: number;
+	label?: string;
+	/** The smaller size on a list card's tag line (Watch History's cards use the full size) */
+	compact?: boolean;
+	/** Over a backdrop beside the back / share buttons: their dark overlay fill */
+	overlay?: boolean;
+}
+
+/**
+ * "Watch Count" + the count in a lighter grey circle on the pill's right end (app WatchCountPill) —
+ * the one pill Watch History's cards and a list card's tag line both show.
+ */
 export default function WatchCountPill({
 	count,
-	className = "",
-}: {
-	count: number;
-	className?: string;
-}) {
+	label = "Watch Count",
+	compact = false,
+	overlay = false,
+}: Props) {
 	return (
 		<span
-			className={`${styles.pill} ${className}`}
-			aria-label={`Watched ${count} ${count === 1 ? "time" : "times"}`}
+			className={`${styles.pill} ${compact ? styles.compact : ""} ${overlay ? styles.overlay : ""}`}
 		>
-			Watched
-			<span className={styles.circle}>{count}</span>
+			{label} <span className={styles.circle}>{count}</span>
 		</span>
 	);
 }

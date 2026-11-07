@@ -14,9 +14,9 @@ import { CacheKey, WatchStatus } from "../types";
 const ACTIVE = [WatchStatus.WATCHING, WatchStatus.REWATCHING];
 
 /**
- * How many shows are on the go. `stats.showsTracking` can't answer this: it's a counter bumped
- * on add and remove, so it includes paused and completed ones. A count aggregate is one read
- * per 1000 matching docs rather than a read per doc, so asking the server is cheap.
+ * How many shows are on the go. There is no stored counter for it (a counter bumped by every
+ * add / remove / import drifted badly). A count aggregate is one read per 1000 matching docs
+ * rather than a read per doc, so asking the server is cheap.
  */
 export function useWatchingCount(userId: string | undefined) {
 	const [count, setCount] = useState<number | null>(null);

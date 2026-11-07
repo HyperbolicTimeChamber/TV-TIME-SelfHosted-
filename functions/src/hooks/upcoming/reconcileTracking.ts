@@ -2,6 +2,8 @@ import { Timestamp } from "firebase-admin/firestore";
 import { WatchStatus, ENDED_STATUSES } from "../../shared/enums";
 import { CatalogShow } from "../../shared/types";
 import { historyOnChange } from "../../shared/history";
+import { stampTracking } from "../../shared/trackingSync";
+import { isUnfinishedCompleted } from "../completedStatus";
 
 const POINTER_STATUSES: string[] = [
   WatchStatus.WATCHING,
@@ -106,6 +108,16 @@ export async function reconcileTracking(
     const next = data.nextEpisode as
       { season: number; episode: number } | null | undefined;
     const order = flatten(catalog);
+
+    // 00. "Completed" with an aired episode still ahead (old TV Time imports): watching
+    if (isUnfinishedCompleted(status, next, catalog, today)) {
+      writes.push({
+        ref: td.ref,
+        data: { status: WatchStatus.WATCHING, ...historyOnChange() },
+      });
+      overrides.set(td.id, WatchStatus.WATCHING);
+      continue;
+    }
 
     // 0. Ended show: only "finished but still watching" needs fixing. No reads.
     if (ENDED_STATUSES.includes(catalog.status)) {
@@ -230,7 +242,7 @@ export async function reconcileTracking(
   for (let i = 0; i < writes.length; i += 400) {
     const batch = db.batch();
     for (const { ref, data } of writes.slice(i, i + 400))
-      batch.set(ref, data, { merge: true });
+      batch.set(ref, stampTracking(data), { merge: true });
     await batch.commit();
   }
   if (overrides.size > 0) {

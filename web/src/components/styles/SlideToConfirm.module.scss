@@ -1,0 +1,119 @@
+/* Slide to confirm (app SlideToConfirm): 64px pill (thumb-sized), a round knob inset 5px, the action colour fills behind it */
+$track-h: 64px;
+$inset: 5px;
+$knob: $track-h - $inset * 2;
+
+.track {
+	position: relative;
+	height: $track-h;
+	border-radius: $track-h / 2;
+	background: var(--surface-light);
+	overflow: hidden;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	/* 95% of the drawer, centred; the label in the middle (the knob's room each side) */
+	width: 95%;
+	margin: 0 auto;
+	padding: 0 ($knob + $inset * 2 + 12px);
+	box-sizing: border-box;
+	user-select: none;
+	-webkit-user-select: none;
+	outline: none;
+
+	&:focus-visible {
+		box-shadow: 0 0 0 2px var(--text);
+	}
+}
+
+.fill {
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 0;
+	border-radius: $track-h / 2;
+	pointer-events: none;
+}
+
+.label {
+	position: relative;
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--text-secondary, var(--text));
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	pointer-events: none;
+}
+
+.knob {
+	position: absolute;
+	left: $inset;
+	top: $inset;
+	width: $knob;
+	height: $knob;
+	border-radius: $knob / 2;
+	color: #fff;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: grab;
+	touch-action: none;
+	will-change: transform;
+
+	svg {
+		display: block;
+	}
+
+	/* White spinner */
+	:global(.ant-spin) {
+		color: #fff;
+	}
+
+	:global(.ant-spin-dot-item) {
+		background-color: #fff;
+	}
+}
+
+.face {
+	width: 100%;
+	height: 100%;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: transform 120ms ease-out;
+}
+
+/* Held: a touch smaller, at once (Emil: press feedback) */
+.dragging {
+	cursor: grabbing;
+
+	.face {
+		transform: scale(0.94);
+	}
+}
+
+/* Snap home: ease-out; no transition while the finger drags */
+.snap {
+	transition: transform 300ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.snapFill {
+	transition:
+		width 300ms cubic-bezier(0.23, 1, 0.32, 1),
+		opacity 300ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.finish {
+	transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.finishFill {
+	transition: width 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.labelSnap {
+	transition: opacity 300ms cubic-bezier(0.23, 1, 0.32, 1);
+}

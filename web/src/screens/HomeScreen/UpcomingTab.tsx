@@ -10,6 +10,9 @@ import type { UpcomingEpisode } from "@app/types";
 import { todayStr } from "@app/utils/todayStr";
 import { formatAirTime } from "@app/utils/airTime";
 import PosterImage from "../../components/PosterImage";
+import CardInfo from "../../components/CardInfo";
+import { upcomingDirector, upcomingRuntime } from "@app/hooks/useUpcomingEpisodes";
+import { formatRuntime } from "@app/utils/customLists";
 import EpisodeDetailModal from "../../components/EpisodeDetailModal";
 import ShowDrawer from "../../components/ShowDrawer";
 import LoadingScreen from "../../components/LoadingScreen";
@@ -47,8 +50,11 @@ function UpcomingRow({
 	onTitlePress: (ep: UpcomingEpisode) => void;
 }) {
 	const isMovie = episode.mediaType === MediaType.MOVIE;
-	// Local air time (TVMaze) — only when the exact time is known
-	const airTime = isMovie ? null : formatAirTime(episode.airStamp);
+	// Right end of the middle line: local air time (TVMaze, only when the exact time is known),
+	// or a movie's runtime
+	const sideText = isMovie
+		? formatRuntime(upcomingRuntime(episode))
+		: formatAirTime(episode.airStamp);
 	return (
 		<div
 			className={`${card.container} ${styles.upcomingRow}`}
@@ -60,34 +66,35 @@ function UpcomingRow({
 				mediaType={episode.mediaType}
 				className={card.poster}
 			/>
-			<div className={`${card.info} pr-4!`}>
-				<button
-					className={card.titlePill}
-					onClick={(e) => {
-						e.stopPropagation();
-						onTitlePress(episode);
-					}}
-				>
-					<span className={card.titleText}>{episode.showTitle.toUpperCase()}</span>
-					<span className={card.titleArrow}>›</span>
-				</button>
-				{isMovie ? (
-					<span className={`${card.movieBadge} rounded-sm!`}>MOVIE</span>
-				) : (
-					<>
-						{/* Time on the SxxExx line → the episode name gets the card's full width */}
-						<div className={styles.upcomingEpRow}>
-							<span className={card.episode}>
-								S{pad(episode.season)} | E{pad(episode.episode)}
-							</span>
-							{airTime && <span className={styles.upcomingTime}>{airTime}</span>}
-						</div>
-						{episode.episodeTitle && (
-							<span className={card.episodeName}>{episode.episodeTitle}</span>
-						)}
-					</>
-				)}
-			</div>
+			<CardInfo
+				className="pr-4!"
+				pill={
+					<button
+						className={card.titlePill}
+						onClick={(e) => {
+							e.stopPropagation();
+							onTitlePress(episode);
+						}}
+					>
+						<span className={card.titleText}>{episode.showTitle.toUpperCase()}</span>
+						<span className={card.titleArrow}>›</span>
+					</button>
+				}
+				subline={isMovie ? upcomingDirector(episode) : episode.episodeTitle}
+				twoLineSubline={!isMovie}
+			>
+				{/* Time on the middle line → the episode name / director gets the card's full width */}
+				<div className={styles.upcomingEpRow}>
+					{isMovie ? (
+						<span className={`${card.movieBadge} rounded-sm!`}>MOVIE</span>
+					) : (
+						<span className={card.episode}>
+							S{pad(episode.season)} | E{pad(episode.episode)}
+						</span>
+					)}
+					{sideText && <span className={styles.upcomingTime}>{sideText}</span>}
+				</div>
+			</CardInfo>
 		</div>
 	);
 }

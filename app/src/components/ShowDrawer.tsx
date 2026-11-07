@@ -9,7 +9,9 @@ import {
 	ActivityIndicator,
 	Dimensions,
 } from "react-native";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+// Buttons inside the gorhom sheet: gesture-handler's Pressable (React Native's touchables dropped a
+// tap whose finger drifted a pixel or two inside the sheet)
+import { GestureHandlerRootView, Pressable } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
@@ -185,10 +187,13 @@ export default function ShowDrawer({
 								/>
 								{/* With list actions below ("Add to another list"), the corner button would say it twice */}
 								{userId && listEntry && !actions?.length ? (
-									<TouchableOpacity
-										style={[styles.listButton, isListed && styles.listButtonActive]}
+									<Pressable
+										style={({ pressed }) => [
+											styles.listButton,
+											isListed && styles.listButtonActive,
+											pressed && styles.pressed,
+										]}
 										onPress={() => setListSheetOpen(true)}
-										activeOpacity={0.7}
 										hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
 										accessibilityLabel="Add to List"
 									>
@@ -197,7 +202,7 @@ export default function ShowDrawer({
 											size={20}
 											color={colors.text}
 										/>
-									</TouchableOpacity>
+									</Pressable>
 								) : null}
 							</View>
 							<View style={styles.content}>
@@ -233,20 +238,21 @@ export default function ShowDrawer({
 								) : null}
 							</View>
 							{onGoToShow && (
-								<TouchableOpacity
-									style={[
+								<Pressable
+									style={({ pressed }) => [
 										styles.goToShowButton,
 										// Last thing in the drawer → clear of the nav bar; actions follow → they take that
 										actions?.length
 											? { marginBottom: spacing.lg }
 											: { marginBottom: Math.max(spacing.xl, insets.bottom + 8) },
+										pressed && styles.pressed,
 									]}
 									onPress={onGoToShow}
 								>
 									<Text style={styles.goToShowText}>
 										{show.mediaType === "movie" ? "Go to Movie" : "Go to Show"}
 									</Text>
-								</TouchableOpacity>
+								</Pressable>
 							)}
 							{actions?.length ? (
 								// The app's sheet style: everyday actions in one card, destructive ones in their own
@@ -385,6 +391,7 @@ const styles = themedStyles(() => StyleSheet.create({
 		marginTop: spacing.md,
 		lineHeight: 22,
 	},
+	pressed: { opacity: 0.7 },
 	goToShowButton: {
 		alignItems: "center",
 		paddingVertical: spacing.md,
@@ -413,8 +420,8 @@ const styles = themedStyles(() => StyleSheet.create({
 		alignItems: "center",
 	},
 	listButtonActive: {
-		backgroundColor: colors.accent,
-		borderColor: colors.accent,
+		backgroundColor: colors.warningAmber,
+		borderColor: colors.warningAmber,
 	},
 	actions: { marginHorizontal: spacing.lg },
 	actionGap: { marginTop: spacing.md },

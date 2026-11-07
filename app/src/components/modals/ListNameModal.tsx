@@ -7,6 +7,7 @@ import {
 	ActivityIndicator,
 	StyleSheet,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import AnimatedModal from "./AnimatedModal";
 import { CUSTOM_LIST_NAME_MAX } from "../../enums";
 import { colors, spacing, typography, themedStyles } from "../../theme";
@@ -17,6 +18,9 @@ interface Props {
 	title: string;
 	/** Text the field starts with (rename) */
 	initialName?: string;
+	/** Text the field starts with when creating (a list searched for that doesn't exist yet):
+	 *  submittable as is, cursor at its end — unlike initialName, the rename's old name */
+	suggestedName?: string;
 	confirmLabel?: string;
 	/** Why the last try was refused (name taken, write failed…) */
 	error?: string | null;
@@ -29,6 +33,12 @@ interface Props {
 	hint?: string | readonly string[];
 }
 
+/** Past this many characters the field shows how many are left */
+const COUNTER_FROM = Math.floor(CUSTOM_LIST_NAME_MAX * 0.8);
+
+/** The selected old name (rename): a translucent red, not the solid brand colour */
+const SELECTION = `${colors.primary}66`;
+
 const pickHint = (hint: Props["hint"]) =>
 	typeof hint === "string" || hint === undefined
 		? hint
@@ -39,6 +49,7 @@ export default function ListNameModal({
 	visible,
 	title,
 	initialName = "",
+	suggestedName = "",
 	confirmLabel = "Save",
 	error,
 	loading = false,
@@ -47,12 +58,13 @@ export default function ListNameModal({
 	image,
 	hint,
 }: Props) {
-	const [name, setName] = useState(initialName);
+	const [name, setName] = useState(initialName || suggestedName);
 	const [shownHint, setShownHint] = useState(() => pickHint(hint));
 	const inputRef = useRef<TextInput>(null);
+	const [focused, setFocused] = useState(false);
 	useEffect(() => {
-		if (visible) setName(initialName);
-	}, [visible, initialName]);
+		if (visible) setName(initialName || suggestedName);
+	}, [visible, initialName, suggestedName]);
 	// A fresh line per opening, not per render (it'd change as the user types)
 	useEffect(() => {
 		if (visible) setShownHint(pickHint(hint));
@@ -67,9 +79,14 @@ export default function ListNameModal({
 		return () => clearTimeout(t);
 	}, [visible]);
 
+	const showCounter = name.length >= COUNTER_FROM;
+	const showUnder = !!error || showCounter;
 	const blank = name.trim().length === 0;
+	// Rename with the name untouched: nothing to save
+	const unchanged = initialName.length > 0 && name.trim() === initialName.trim();
+	const disabled = blank || unchanged || loading;
 	const submit = () => {
-		if (!blank && !loading) onSubmit(name);
+		if (!disabled) onSubmit(name);
 	};
 
 	return (
@@ -83,37 +100,82 @@ export default function ListNameModal({
 				<Text style={[styles.title, image != null && styles.titleOverImage]}>{title}</Text>
 				{image != null && <View style={styles.image}>{image}</View>}
 				{shownHint ? <Text style={styles.hint}>{shownHint}</Text> : null}
-				<TextInput
-					ref={inputRef}
-					style={styles.input}
-					value={name}
-					onChangeText={setName}
-					placeholder="List name"
-					placeholderTextColor={colors.textMuted}
-					maxLength={CUSTOM_LIST_NAME_MAX}
-					// Rename: the old name is selected, so typing replaces it
-					selectTextOnFocus={initialName.length > 0}
-					returnKeyType="done"
-					onSubmitEditing={submit}
-					selectionColor={colors.primary}
-				/>
-				{error ? <Text style={styles.error}>{error}</Text> : null}
-				<TouchableOpacity
-					style={[styles.button, (blank || loading) && { opacity: 0.5 }]}
-					onPress={submit}
-					disabled={blank || loading}
+				<View
+					style={[
+						styles.field,
+						// 12 to the buttons — or 4 to the error / count line that sits between them
+						{ marginBottom: showUnder ? spacing.xs : spacing.md },
+						focused && styles.fieldFocused,
+						!!error && styles.fieldError,
+					]}
 				>
-					{loading ? (
-						<ActivityIndicator size="small" color={colors.text} />
-					) : (
-						<Text style={styles.buttonText}>{confirmLabel}</Text>
+					<TextInput
+						ref={inputRef}
+						style={styles.input}
+						value={name}
+						onChangeText={setName}
+						onFocus={() => setFocused(true)}
+						onBlur={() => setFocused(false)}
+						placeholder="List name"
+						placeholderTextColor={colors.textMuted}
+						maxLength={CUSTOM_LIST_NAME_MAX}
+						// Rename: the old name is selected, so typing replaces it (a soft highlight —
+						// the brand red read as a solid block behind the text)
+						selectTextOnFocus={initialName.length > 0}
+						returnKeyType="done"
+						onSubmitEditing={submit}
+						selectionColor={SELECTION}
+						cursorColor={colors.primary}
+						accessibilityLabel="List name"
+					/>
+					{name.length > 0 && !loading && (
+						<TouchableOpacity
+							onPress={() => {
+								setName("");
+								inputRef.current?.focus();
+							}}
+							hitSlop={10}
+							accessibilityRole="button"
+							accessibilityLabel="Clear name"
+						>
+							<Ionicons name="close-circle" size={20} color={colors.textMuted} />
+						</TouchableOpacity>
 					)}
-				</TouchableOpacity>
-				{!loading && (
-					<TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-						<Text style={styles.buttonText}>Cancel</Text>
-					</TouchableOpacity>
+				</View>
+				{/* Error and the character count share a line under the field — only when there is one */}
+				{showUnder && (
+					<View style={styles.under}>
+						{error ? <Text style={styles.error}>{error}</Text> : <View style={styles.flex} />}
+						{showCounter && (
+							<Text style={styles.counter}>
+								{name.length}/{CUSTOM_LIST_NAME_MAX}
+							</Text>
+						)}
+					</View>
 				)}
+				<View style={styles.buttons}>
+					{!loading && (
+						<TouchableOpacity
+							style={[styles.cancelButton, styles.flex]}
+							onPress={onClose}
+							accessibilityRole="button"
+						>
+							<Text style={styles.buttonText}>Cancel</Text>
+						</TouchableOpacity>
+					)}
+					<TouchableOpacity
+						style={[styles.button, styles.flex, disabled && { opacity: 0.5 }]}
+						onPress={submit}
+						disabled={disabled}
+						accessibilityRole="button"
+					>
+						{loading ? (
+							<ActivityIndicator size="small" color={colors.text} />
+						) : (
+							<Text style={styles.buttonText}>{confirmLabel}</Text>
+						)}
+					</TouchableOpacity>
+				</View>
 			</View>
 		</AnimatedModal>
 	);
@@ -140,20 +202,29 @@ const styles = themedStyles(() => StyleSheet.create({
 		textAlign: "center",
 		marginBottom: spacing.md,
 	},
-	input: {
-		...typography.body,
+	field: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.sm,
 		backgroundColor: colors.surfaceLight,
 		borderRadius: 8,
+		borderWidth: 1.5,
+		borderColor: "transparent",
 		paddingHorizontal: spacing.md,
-		paddingVertical: spacing.md,
+	},
+	fieldFocused: { borderColor: colors.textSecondary },
+	fieldError: { borderColor: colors.destructiveRed },
+	input: { ...typography.body, flex: 1, paddingVertical: spacing.md },
+	flex: { flex: 1 },
+	under: {
+		flexDirection: "row",
+		alignItems: "flex-start",
+		gap: spacing.sm,
 		marginBottom: spacing.md,
 	},
-	error: {
-		...typography.caption,
-		color: colors.destructiveRed,
-		textAlign: "center",
-		marginBottom: spacing.md,
-	},
+	error: { ...typography.caption, flex: 1, color: colors.destructiveRed },
+	counter: { ...typography.caption, color: colors.textSecondary },
+	buttons: { flexDirection: "row", gap: spacing.sm },
 	button: {
 		backgroundColor: colors.primary,
 		paddingVertical: spacing.md,
@@ -171,6 +242,5 @@ const styles = themedStyles(() => StyleSheet.create({
 		alignItems: "center",
 		borderWidth: 1.5,
 		borderColor: colors.text,
-		marginTop: spacing.sm,
 	},
 }));

@@ -12,6 +12,10 @@ import Reanimated, {
 import DetailBackdrop from "./DetailBackdrop";
 import ActionPills from "./ActionPills";
 import DetailCredits from "./DetailCredits";
+import WhereToWatch from "../../components/WhereToWatch";
+import CastRow from "../../components/CastRow";
+import { useTitleExtras } from "../../hooks/useTitleExtras";
+import StudiosRow from "../../components/StudiosRow";
 import WatchCountPill from "../../components/WatchCountPill";
 import { useShowDetailActions } from "./useShowDetailActions";
 import { useAuthStore } from "../../stores";
@@ -25,11 +29,11 @@ import {
 	UnreleasedMovieModal,
 	WatchCountSheet,
 } from "../../components";
-import { showShareUrl, describeLoadError, isTitleListed } from "../../utils";
+import { showShareUrl, describeLoadError, titleListCount } from "../../utils";
 import ErrorState from "../../components/ErrorState";
 import CircleButton, { CIRCLE_BUTTON_SIZE, CircleBackButton } from "../../components/CircleButton";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
-import { colors, isLightTheme, spacing, typography, themedStyles } from "../../theme";
+import { colors, fonts, isLightTheme, spacing, typography, themedStyles } from "../../theme";
 import { StatusBar } from "expo-status-bar";
 import { HomeStackParamList, MediaType, Route, WatchStatus } from "../../types";
 import { CircleButtonTone } from "../../enums";
@@ -81,7 +85,6 @@ export default function ShowDetailScreen() {
 		year,
 		directors,
 		writers,
-		producers,
 		handleAddToWatchlist,
 		handleRemove,
 		handleConfirmRemove,
@@ -108,12 +111,14 @@ export default function ShowDetailScreen() {
 		else (navigation as any).navigate(Route.HOME, { screen: Route.HOME_TABS });
 	}, [navigation]);
 	const swipeBack = useSwipeBackPop(navigation as never);
+	// The directors' photos for the credits (every extras section reads the same query)
+	const { data: extras } = useTitleExtras(tmdbId, mediaType);
 	const insets = useSafeAreaInsets();
 	// "Add to List" button (next to Share): blue once the title is in any list
 	const userId = useAuthStore((s) => s.user?.uid);
 	const { lists } = useCustomLists(userId);
 	const [listSheetOpen, setListSheetOpen] = useState(false);
-	const isListed = isTitleListed(lists, tmdbId, mediaType);
+	const listCount = titleListCount(lists, tmdbId, mediaType);
 	const listEntry = useMemo(
 		() => ({ tmdbId, mediaType, title: title ?? "", posterPath: show?.poster_path ?? null }),
 		[tmdbId, mediaType, title, show?.poster_path],
@@ -181,6 +186,10 @@ export default function ShowDetailScreen() {
 		);
 	}
 
+	const whereToWatch = (
+		<WhereToWatch tmdbId={tmdbId} mediaType={mediaType} title={title ?? ""} bleed={spacing.lg} />
+	);
+
 	return (
 		// Right swipe anywhere → back, the screen underneath showing through (transparent modal route)
 		<SwipeBackView onBack={handleBack} {...swipeBack} style={styles.container}>
@@ -225,6 +234,8 @@ export default function ShowDetailScreen() {
 								onPause={() => setPauseModalVisible(true)}
 								onRemove={handleRemove}
 								onWatchSheetOpen={() => setMovieSheetVisible(true)}
+								listCount={listCount}
+								onAddToList={() => setListSheetOpen(true)}
 							/>
 						</View>
 					</DetailBackdrop>
@@ -281,8 +292,20 @@ export default function ShowDetailScreen() {
 						<Text style={styles.overview}>{show.overview}</Text>
 
 						{mediaType === MediaType.MOVIE && (
-							<DetailCredits directors={directors} writers={writers} producers={producers} />
+							<>
+								<DetailCredits
+									directors={directors}
+									writers={writers}
+									directorPeople={extras?.directors}
+									writerPeople={extras?.writers}
+								/>
+								{/* Under the credits: the studios' logos */}
+								<StudiosRow tmdbId={tmdbId} mediaType={mediaType} bleed={spacing.lg} compact />
+							</>
 						)}
+
+						{/* Movies: after the credits; shows: under the seasons (below) */}
+						{mediaType === MediaType.MOVIE && whereToWatch}
 
 						{mediaType === MediaType.TV && show.seasons && (
 							<View style={styles.seasonsSection}>
@@ -308,6 +331,21 @@ export default function ShowDetailScreen() {
 									))}
 							</View>
 						)}
+
+						{/* Shows: where to watch, then the studios, under the seasons */}
+						{mediaType === MediaType.TV && (
+							<>
+								{whereToWatch}
+								<StudiosRow tmdbId={tmdbId} mediaType={mediaType} bleed={spacing.lg} />
+							</>
+						)}
+						{/* Last on the page: movies' in place of Production, shows' under the studios */}
+						<CastRow
+							tmdbId={tmdbId}
+							mediaType={mediaType}
+							title={title ?? ""}
+							bleed={spacing.lg}
+						/>
 					</View>
 				</View>
 				{/* Back sticks to the top until the pills push it off; share rides at the top of the
@@ -318,21 +356,9 @@ export default function ShowDetailScreen() {
 				{watchCount > 0 && (
 					// Top edge level with back / share (not centred on them)
 					<View style={[styles.watchCountRow, { top: buttonTop }]} pointerEvents="none">
-						<WatchCountPill count={watchCount} />
+						<WatchCountPill count={watchCount} overlay />
 					</View>
 				)}
-				<CircleButton
-					tone={isListed ? CircleButtonTone.ACCENT : CircleButtonTone.OVERLAY}
-					style={[styles.listButton, { top: insets.top + 8 }]}
-					accessibilityLabel="Add to List"
-					onPress={() => setListSheetOpen(true)}
-				>
-					<Ionicons
-						name={isListed ? "bookmark" : "bookmark-outline"}
-						size={24}
-						color={colors.onImage}
-					/>
-				</CircleButton>
 				<CircleButton
 					tone={CircleButtonTone.OVERLAY}
 					style={[styles.shareButton, { top: insets.top + 8 }]}
@@ -351,6 +377,7 @@ export default function ShowDetailScreen() {
 			<AddToListSheet
 				entry={listSheetOpen ? listEntry : null}
 				onClose={() => setListSheetOpen(false)}
+				hideCounts
 			/>
 
 			<ConfirmModal
@@ -373,6 +400,13 @@ export default function ShowDetailScreen() {
 			<ConfirmModal
 				visible={pauseModalVisible}
 				title={watchlistItem?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"}
+				drawer
+				question={
+					watchlistItem?.status === WatchStatus.REWATCHING
+						? "Do You Want to Pause This Rewatch?"
+						: "Do You Want to Pause This Show?"
+				}
+				slideLabel="Slide to Pause"
 				imageAtTop={!!show?.backdrop_path}
 				hideTitle
 				image={
@@ -470,7 +504,6 @@ const styles = themedStyles(() => StyleSheet.create({
 	backButton: { position: "absolute", left: 16, zIndex: 10 },
 	shareButton: { position: "absolute", right: 16, zIndex: 10 },
 	// Left of Share (44px button + 8px gap)
-	listButton: { position: "absolute", right: 16 + CIRCLE_BUTTON_SIZE + 8, zIndex: 10 },
 	// Centred between back and share
 	watchCountRow: { position: "absolute", left: 0, right: 0, alignItems: "center", zIndex: 10 },
 	islandLogo: {
@@ -491,10 +524,11 @@ const styles = themedStyles(() => StyleSheet.create({
 		justifyContent: "center",
 		paddingHorizontal: spacing.md,
 	},
+	// The metric font of the Upcoming / calendar cards (values only; labels stay as they are)
 	statValue: {
-		...typography.subtitle,
-		fontSize: 18,
-		fontWeight: "700",
+		fontFamily: fonts.smoochMedium,
+		fontSize: 24,
+		letterSpacing: 0.5,
 		color: colors.text,
 	},
 	statLabel: {

@@ -1,5 +1,7 @@
 import { HttpsError } from "firebase-functions/v2/https";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { uncountTitleFacets } from "../hooks/titleFacets";
+import { FacetDelta } from "../shared/titleFacets";
+import { getFirestore } from "firebase-admin/firestore";
 import { removeFromTrackedBy } from "../hooks/trackedBy";
 import { showDocId } from "../shared/docId";
 import { RemoveShowRequest } from "../shared/types";
@@ -14,7 +16,7 @@ export const removeShow = trackedOnCall(
     timeoutSeconds: 60,
     memory: "256MiB",
   },
-  async (request): Promise<{ success: boolean }> => {
+  async (request): Promise<{ success: boolean; facetDelta?: FacetDelta | null }> => {
     const uid = requireCaller(request, Callable.REMOVE_SHOW);
     if (request.data?.warmup) return { success: true };
 
@@ -26,17 +28,8 @@ export const removeShow = trackedOnCall(
     const db = getFirestore();
     const showId = showDocId(tmdbId, mediaType);
 
-    // Remove tracking doc + decrement stats in one batch
-    const trackingRef = db.doc(`users/${uid}/tracking/${showId}`);
-    const userRef = db.doc(`users/${uid}`);
-    const userBatch = db.batch();
-    userBatch.delete(trackingRef);
-    userBatch.set(
-      userRef,
-      { stats: { showsTracking: FieldValue.increment(-1) } },
-      { merge: true },
-    );
-    await userBatch.commit();
+    // The client already deleted the tracking doc (+ its deletion log entry). This only cleans
+    // up what the client can't write: upcoming, trackedBy, the catalog
 
     const upcomingSnap = await db
       .collection(`users/${uid}/upcoming`)
@@ -47,6 +40,11 @@ export const removeShow = trackedOnCall(
       for (const d of upcomingSnap.docs) batch.delete(d.ref);
       await batch.commit();
     }
+
+    // Its facets (genres / keywords / countries / studios) out of the user's filter choices — read from the catalog before
+    // the doc can go below (the tracking doc that carried them is already deleted)
+    const catalog = (await db.doc(`shows/${showId}`).get()).data();
+    const facetDelta = await uncountTitleFacets(db, uid, showId, catalog);
 
     // Remove from trackedBy, get remaining count
     const remainingCount = await removeFromTrackedBy(showId, uid);
@@ -63,6 +61,7 @@ export const removeShow = trackedOnCall(
       await batch.commit();
     }
 
-    return { success: true };
+    // What left the user's filter choices — the client patches its copy (no re-read)
+    return { success: true, facetDelta };
   },
 );

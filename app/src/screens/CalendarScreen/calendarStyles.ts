@@ -12,6 +12,9 @@ export enum CalendarMode {
 /** Height of one week row in week / month view */
 export const ROW_MONTH = 52;
 export const WEEKDAY_ROW = 22;
+/** Today button (header, top right): wide enough for "TODAY" at 9px, short enough for the 52px header */
+const TODAY_BOX_W = 46;
+const TODAY_BOX_H = 42;
 
 export const styles = themedStyles(() => StyleSheet.create({
 	container: { flex: 1, backgroundColor: colors.background },
@@ -24,18 +27,33 @@ export const styles = themedStyles(() => StyleSheet.create({
 		paddingHorizontal: spacing.lg,
 	},
 	monthTitle: { ...typography.title, fontSize: 20, letterSpacing: 1 },
+	// Today: the date over a small TODAY label, in a box that fits the 52px header
 	todayButton: {
 		position: "absolute",
 		right: spacing.lg,
-		width: 28,
-		height: 28,
-		borderRadius: 7,
+		width: TODAY_BOX_W,
+		height: TODAY_BOX_H,
+		borderRadius: 9,
 		borderWidth: 1.5,
 		borderColor: colors.text,
 		alignItems: "center",
 		justifyContent: "center",
 	},
-	todayButtonText: { color: colors.text, fontSize: 12, fontWeight: "700" },
+	todayButtonNumber: {
+		color: colors.text,
+		fontSize: 18,
+		lineHeight: 20,
+		fontWeight: "700",
+		includeFontPadding: false,
+	},
+	todayButtonLabel: {
+		color: colors.text,
+		fontSize: 9,
+		lineHeight: 10,
+		fontWeight: "800",
+		letterSpacing: 0.6,
+		includeFontPadding: false,
+	},
 	weekdays: { flexDirection: "row", height: WEEKDAY_ROW, paddingHorizontal: 4 },
 	weekday: { flex: 1, textAlign: "center", fontSize: 11, color: colors.textSecondary },
 	body: { flex: 1 },
@@ -95,7 +113,18 @@ export const styles = themedStyles(() => StyleSheet.create({
 		paddingHorizontal: 2,
 		overflow: "hidden",
 	},
-	chipMore: { fontSize: 9, lineHeight: 12, color: colors.textSecondary, paddingHorizontal: 2 },
+	// "+n more": a quieter chip in its kind's colour (tinted fill, coloured text) — reads as
+	// "more of these", not as one more title
+	chipMore: {
+		fontSize: 9,
+		lineHeight: 12,
+		fontWeight: "700",
+		borderRadius: 3,
+		paddingHorizontal: 3,
+		overflow: "hidden",
+	},
+	chipMoreShow: { color: colors.text, backgroundColor: `${colors.primary}59` },
+	chipMoreMovie: { color: colors.text, backgroundColor: `${colors.moviePurple}59` },
 	// Opaque layer over the calendar; its top edge is the calendar's visible bottom
 	listArea: {
 		position: "absolute",

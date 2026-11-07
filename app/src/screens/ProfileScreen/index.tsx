@@ -206,6 +206,7 @@ export default function ProfileScreen() {
 				onOpenLists={() => navigation.navigate(Route.LISTS)}
 				onOpenList={(listId) => navigation.navigate(Route.LIST_DETAIL, { listId })}
 				onOpenTitle={handleCompletedItemPress}
+				standalone={!completedLoading && completedSections.length === 0}
 			/>
 		</ScrollView>
 	);

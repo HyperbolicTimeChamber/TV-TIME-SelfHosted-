@@ -2,10 +2,37 @@ import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import InfiniteScroll from "react-infinite-scroll-component";
-import { useHistorySort, useWatchHistory } from "@app/hooks/useWatchHistory";
-import { CircleButtonTone, HistoryFilter, HistorySort, MediaType } from "@app/enums";
+import {
+	useHistoryFacetIndex,
+	useHistoryFacetOptions,
+	useHistorySort,
+	useWatchHistory,
+} from "@app/hooks/useWatchHistory";
+import { hasFacets, NO_FACETS } from "@app/utils/historyView";
+import type { HistoryFacets } from "@app/types";
+import { useCustomLists } from "@app/hooks/useCustomLists";
+import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
+import { titleListCount } from "@app/utils/customLists";
+import type { HistoryCard as HistoryCardData } from "@app/utils";
+import { deriveHistoryGridTags } from "@app/utils/listCardTags";
+import { useCustomListView } from "@app/hooks/useCustomListView";
+import type { TMDBShow } from "@app/types";
+import { IoGrid, IoList } from "react-icons/io5";
+import { useAppSelector } from "../../../store";
+import AddToListSheet from "../../../components/AddToListSheet";
+import {
+	CacheKey,
+	CircleButtonTone,
+	CustomListView,
+	HistoryFilter,
+	HistorySort,
+	MediaType,
+} from "@app/enums";
 import SlidingTabs from "../../../components/SlidingTabs";
-import { CircleBackButton, CircleButtonSpacer } from "../../../components/CircleButton";
+import CircleButton, { CircleBackButton } from "../../../components/CircleButton";
+import SearchCard from "../../SearchScreen/SearchCard";
+import searchStyles from "../../SearchScreen/styles/SearchScreen.module.scss";
+import ListCardTags from "../ListCardTags";
 import LoadingSpinner from "../../../components/LoadingSpinner";
 import { useHideTabBar } from "../../../hooks/useHideTabBar";
 import { Paths, showPath } from "../../../routes/paths";
@@ -31,15 +58,32 @@ function HistoryList({
 	mediaType,
 	sort,
 	filters,
+	facets,
+	view,
 }: {
 	mediaType: MediaType;
 	sort: HistorySort;
 	filters: ReadonlySet<HistoryFilter>;
+	facets: HistoryFacets;
+	view: CustomListView;
 }) {
 	const navigate = useNavigate();
 	// Sort / filters run in the Firestore query — still 20 a page
-	const { cards, loading, hasMore, error, loadMore } = useWatchHistory(mediaType, sort, filters);
+	const { cards, loading, hasMore, error, loadMore } = useWatchHistory(
+		mediaType,
+		sort,
+		filters,
+		facets,
+	);
 	const columns = useColumnCount();
+	// Add to List: the title the sheet is open for, and how many lists hold each card's title
+	const user = useAppSelector((s) => s.auth.user);
+	const { lists } = useCustomLists(user?.uid);
+	const [listTarget, setListTarget] = useState<HistoryCardData | null>(null);
+	const items = useMemo(
+		() => cards.map((c) => ({ ...c, listCount: titleListCount(lists, c.tmdbId, c.mediaType) })),
+		[cards, lists],
+	);
 
 	if (loading) {
 		return (
@@ -52,7 +96,7 @@ function HistoryList({
 	}
 	if (cards.length === 0) {
 		if (error) return <p className={styles.empty}>{error}</p>;
-		return <HistoryEmpty mediaType={mediaType} filtered={filters.size > 0} />;
+		return <HistoryEmpty mediaType={mediaType} filtered={filters.size > 0 || hasFacets(facets)} />;
 	}
 
 	return (
@@ -68,25 +112,125 @@ function HistoryList({
 			scrollThreshold={0.8}
 			className="overflow-visible!"
 		>
-			<Masonry
-				items={cards}
-				columns={columns}
-				getKey={(card) => card.id}
-				renderItem={(card) =>
-					// Title / art not here yet → skeleton until both the row and its show are
-					card.ready ? (
-						<HistoryCard
-							card={card}
-							onClick={() => navigate(showPath(card.mediaType, card.tmdbId))}
-						/>
-					) : (
-						<SkeletonBlock className={styles.skeleton} />
-					)
+			{view === CustomListView.GRID ? (
+				// Search's result grid
+				<div className={searchStyles.grid}>
+					{items.map((card) =>
+						card.ready ? (
+							<HistoryGridCard
+								key={card.id}
+								card={card}
+								onClick={() => navigate(showPath(card.mediaType, card.tmdbId))}
+								onAddToList={() => setListTarget(card)}
+							/>
+						) : (
+							<SkeletonBlock key={card.id} className={styles.gridSkeleton} />
+						),
+					)}
+				</div>
+			) : (
+				<Masonry
+					items={items}
+					columns={columns}
+					getKey={(card) => card.id}
+					renderItem={(card) =>
+						// Title / art not here yet → skeleton until both the row and its show are
+						card.ready ? (
+							<HistoryCard
+								card={card}
+								onClick={() => navigate(showPath(card.mediaType, card.tmdbId))}
+								onAddToList={() => setListTarget(card)}
+							/>
+						) : (
+							<SkeletonBlock className={styles.skeleton} />
+						)
+					}
+					className={styles.masonry}
+					columnClassName={styles.masonryColumn}
+				/>
+			)}
+			<AddToListSheet
+				entry={
+					listTarget
+						? {
+								tmdbId: listTarget.tmdbId,
+								mediaType: listTarget.mediaType,
+								title: listTarget.title,
+								posterPath:
+									getCachedCatalogShow(listTarget.tmdbId, listTarget.mediaType)?.posterPath ?? null,
+							}
+						: null
 				}
-				className={styles.masonry}
-				columnClassName={styles.masonryColumn}
+				onClose={() => setListTarget(null)}
 			/>
 		</InfiniteScroll>
+	);
+}
+
+/** Grid view's card (app HistoryGridCard): Search's poster card, no watchlist badge, every pill
+ *  the list card has, and the title + Ongoing/Ended + Last Watched / Time Spent over a scrim */
+function HistoryGridCard({
+	card,
+	onClick,
+	onAddToList,
+}: {
+	card: HistoryCardData & { listCount?: number };
+	onClick: () => void;
+	onAddToList: () => void;
+}) {
+	const isMovie = card.mediaType === MediaType.MOVIE;
+	const show = useMemo((): TMDBShow => {
+		const catalog = getCachedCatalogShow(card.tmdbId, card.mediaType);
+		const date = (isMovie ? catalog?.releaseDate : catalog?.firstAirDate) ?? undefined;
+		return {
+			id: card.tmdbId,
+			media_type: card.mediaType,
+			...(isMovie ? { title: card.title } : { name: card.title }),
+			poster_path: catalog?.posterPath ?? null,
+			backdrop_path: card.backdropPath,
+			overview: "",
+			vote_average: 0,
+			genre_ids: [],
+			...(isMovie ? { release_date: date } : { first_air_date: date }),
+		};
+	}, [card, isMovie]);
+	const tags = useMemo(() => deriveHistoryGridTags(card), [card]);
+	const stats = [
+		card.lastWatched ? { label: "Last watched", value: card.lastWatched } : null,
+		card.timeSpent ? { label: "Time spent", value: card.timeSpent } : null,
+	].filter((s): s is { label: string; value: string } => s !== null);
+	return (
+		<SearchCard
+			item={show}
+			canTrack
+			isInWatchlist
+			isAdding={false}
+			isListed={(card.listCount ?? 0) > 0}
+			overlay={tags.map((t) => (
+				// Solid backing: the pills are translucent, which lost them on a busy poster
+				<span key={t.kind} className={styles.gridTagBacking}>
+					<ListCardTags tags={[t]} flush />
+				</span>
+			))}
+			footer={
+				<div className={styles.gridFooter}>
+					{/* Ongoing / Ended sits in the pill stack (deriveHistoryGridTags): full-width title */}
+					<span className={styles.gridTitle}>{card.title}</span>
+					{stats.length > 0 && (
+						<div className={styles.gridStats}>
+							{stats.map((s) => (
+								<div key={s.label} className={styles.gridStat}>
+									<span className={styles.gridStatLabel}>{s.label}</span>
+									<span className={styles.gridStatValue}>{s.value}</span>
+								</div>
+							))}
+						</div>
+					)}
+				</div>
+			}
+			onPress={onClick}
+			onAddToList={onAddToList}
+		/>
 	);
 }
 
@@ -101,10 +245,23 @@ export default function WatchHistoryScreen() {
 	const [sort, setSort] = useHistorySort();
 	const [filters, setFilters] = useState<Set<HistoryFilter>>(() => new Set());
 	const [panelOpen, setPanelOpen] = useState(false);
+	// Genre / Keyword filters: both tabs, also only while this page is open
+	const [facets, setFacets] = useState<HistoryFacets>(NO_FACETS);
+	const facetOptions = useHistoryFacetOptions(tab, panelOpen);
+	const facetIndex = useHistoryFacetIndex(tab, panelOpen);
+	const toggleFacet = (key: keyof HistoryFacets, value: string) =>
+		setFacets((prev) => {
+			const next = new Set(prev[key]);
+			if (next.has(value)) next.delete(value);
+			else next.add(value);
+			return { ...prev, [key]: next };
+		});
+	// Grid / List, remembered (List: the cards this page always had)
+	const [view, setView] = useCustomListView(CacheKey.HISTORY_VIEW, CustomListView.LIST);
 	const noFilters = useMemo(() => new Set<HistoryFilter>(), []);
 	// Filters are TV-only (every movie in history is simply watched)
 	const tabFilters = tab === MediaType.MOVIE ? noFilters : filters;
-	const customised = sort !== HistorySort.LAST_WATCHED || tabFilters.size > 0;
+	const customised = sort !== HistorySort.LAST_WATCHED || tabFilters.size > 0 || hasFacets(facets);
 	const toggleFilter = (f: HistoryFilter) =>
 		setFilters((prev) => {
 			const next = new Set(prev);
@@ -131,8 +288,16 @@ export default function WatchHistoryScreen() {
 				<div className={styles.titleRow}>
 					<CircleBackButton tone={CircleButtonTone.SURFACE_LIGHT} onClick={goBack} />
 					<h1 className={styles.title}>Hall of Shame</h1>
-					{/* Mirrors the back button so the title is centred on the bar */}
-					<CircleButtonSpacer />
+					{/* Same size as the back button, so the title stays centred on the bar */}
+					<CircleButton
+						tone={CircleButtonTone.SURFACE_LIGHT}
+						onClick={() =>
+							setView(view === CustomListView.GRID ? CustomListView.LIST : CustomListView.GRID)
+						}
+						ariaLabel={view === CustomListView.GRID ? "Show as list" : "Show as grid"}
+					>
+						{view === CustomListView.GRID ? <IoList size={20} /> : <IoGrid size={18} />}
+					</CircleButton>
 				</div>
 				<div className={styles.tabsRow}>
 					<SlidingTabs
@@ -152,13 +317,30 @@ export default function WatchHistoryScreen() {
 							<HistoryViewPanel
 								isMovie={tab === MediaType.MOVIE}
 								sort={sort}
-								onSort={(next) => {
-									setSort(next);
-									setPanelOpen(false);
-								}}
+								// Stays open like the filters under it (app HistoryViewSheet)
+								onSort={setSort}
 								filters={tabFilters}
 								onToggleFilter={toggleFilter}
-								onClearFilters={() => setFilters(new Set())}
+								onClearFilters={() => {
+									setFilters(new Set());
+									setFacets(NO_FACETS);
+								}}
+								facets={facets}
+								facetOptions={facetOptions}
+								onToggleGenre={(g) => toggleFacet("genres", g)}
+								onToggleKeyword={(k) => toggleFacet("keywords", k)}
+								onToggleCountry={(c) => toggleFacet("countries", c)}
+								onToggleStudio={(st) => toggleFacet("studios", st)}
+								onApplyRegion={(countries, genres) =>
+									// k drama → Korea + Drama: all on, never toggled off by it (app)
+									setFacets((prev) => ({
+										...prev,
+										countries: new Set([...prev.countries, ...countries]),
+										genres: new Set([...prev.genres, ...genres]),
+									}))
+								}
+								facetIndex={facetIndex}
+								onDone={() => setPanelOpen(false)}
 							/>
 						}
 					/>
@@ -187,7 +369,13 @@ export default function WatchHistoryScreen() {
 						}
 					}}
 				>
-					<HistoryList mediaType={tab} sort={sort} filters={tabFilters} />
+					<HistoryList
+						mediaType={tab}
+						sort={sort}
+						filters={tabFilters}
+						facets={facets}
+						view={view}
+					/>
 				</motion.div>
 			</AnimatePresence>
 		</div>

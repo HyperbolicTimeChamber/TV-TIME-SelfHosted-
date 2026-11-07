@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { View, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { StackActions, useNavigation } from "@react-navigation/native";
 import { colors, themedStyles } from "../theme";
 import { Route } from "../types";
 
@@ -37,6 +37,17 @@ export function useTabPress(handler: (route: string) => void) {
 	}, []);
 }
 
+/** Back to the Profile stack's first screen (no-op when it's already there or never opened) */
+function popProfileStack(navigation: any) {
+	let root = navigation;
+	while (root.getParent?.()) root = root.getParent();
+	const tabs = root.getState?.()?.routes.find((r: any) => r.name === Route.SWIPE_TABS)?.state;
+	const profile = tabs?.routes?.find((r: any) => r.name === Route.PROFILE)?.state;
+	if (profile?.key && (profile.index ?? 0) > 0) {
+		navigation.dispatch({ ...StackActions.popToTop(), target: profile.key });
+	}
+}
+
 const TAB_WIDTH = SCREEN_WIDTH / TABS.length;
 const BAR_WIDTH = TAB_WIDTH;
 const BAR_HEIGHT = 3;
@@ -61,6 +72,9 @@ export default function CustomTabBar({ activeTab }: Props) {
 						style={styles.tab}
 						onPress={() => {
 							tabPressListeners.forEach((fn) => fn(tab.route));
+							// Profile keeps its stack (Lists, Hall of Shame, a list…) when left by swiping —
+							// its tab button always opens Profile itself
+							if (tab.route === Route.PROFILE) popProfileStack(navigation);
 							navigation.navigate(
 								Route.SWIPE_TABS,
 								tab.route === Route.HOME

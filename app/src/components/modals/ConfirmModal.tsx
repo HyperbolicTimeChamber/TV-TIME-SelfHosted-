@@ -1,6 +1,17 @@
 import React, { cloneElement, isValidElement, type ReactNode } from "react";
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from "react-native";
+import {
+	View,
+	Text,
+	TouchableOpacity,
+	ActivityIndicator,
+	StyleSheet,
+	useWindowDimensions,
+} from "react-native";
+// Drawer buttons: gesture-handler Pressables (BottomSheet's first-tap fix)
+import { Pressable } from "react-native-gesture-handler";
 import AnimatedModal from "./AnimatedModal";
+import SlideToConfirm from "../SlideToConfirm";
+import BottomSheet, { SHEET_HANDLE_BLOCK, SHEET_RADIUS } from "./BottomSheet";
 import { ModalBackdrop } from "./ModalArt";
 import { colors, spacing, typography, themedStyles } from "../../theme";
 
@@ -33,8 +44,16 @@ interface Props {
 	imageAtTop?: boolean;
 	/** No title (the image / hint say it all) */
 	hideTitle?: boolean;
-	/** No Cancel button (tapping outside still closes) */
+	/** No Cancel button (tapping outside still closes). Drawers never have one: pulling them down
+	 *  or tapping outside cancels */
 	hideCancel?: boolean;
+	/** A bottom drawer instead of a centred popup (the banner confirms: backdrop art on top) */
+	drawer?: boolean;
+	/** Drawer only: the question under the art ("Do You Want to Pause This Show?"); default: the
+	 *  title (a drawer shows its title there, not over the art) */
+	question?: string;
+	/** Drawer only: one slide-to-confirm bar ("Slide to Pause") in place of the buttons */
+	slideLabel?: string;
 	onClose: () => void;
 }
 
@@ -61,8 +80,42 @@ export default function ConfirmModal({
 	imageAtTop = false,
 	hideTitle = false,
 	hideCancel = false,
+	drawer = false,
+	question,
+	slideLabel,
 	onClose,
 }: Props) {
+	const { width: screenW } = useWindowDimensions();
+	if (drawer) {
+		return (
+			<ConfirmDrawer
+				visible={visible}
+				title={title}
+				image={image}
+				hint={hint}
+				error={error}
+				confirmLabel={confirmLabel}
+				confirmColor={confirmColor}
+				loading={loading}
+				onConfirm={onConfirm}
+				leadLabel={leadLabel}
+				leadColor={leadColor}
+				onLead={onLead}
+				secondaryLabel={secondaryLabel}
+				secondaryColor={secondaryColor}
+				onSecondary={onSecondary}
+				tertiaryLabel={tertiaryLabel}
+				onTertiary={onTertiary}
+				cancelLabel={cancelLabel}
+				hideTitle={hideTitle}
+				hideCancel={hideCancel}
+				onClose={onClose}
+				question={question}
+				slideLabel={slideLabel}
+				bannerWidth={screenW}
+			/>
+		);
+	}
 	// Photo art: up to the popup's top edge, the title on its own top shade
 	const photo = isValidElement(image) && image.type === ModalBackdrop;
 	const atTop = (imageAtTop || photo) && image != null;
@@ -216,6 +269,44 @@ const styles = themedStyles(() => StyleSheet.create({
 		fontSize: 14,
 		color: colors.text,
 	},
+	// Full bleed, as the info drawer's art: up to the sheet's edges and top (over the grab
+	// handle), its top corners rounding with the sheet's
+	drawerBanner: {
+		marginHorizontal: -spacing.lg,
+		marginTop: -SHEET_HANDLE_BLOCK,
+		marginBottom: spacing.lg,
+		borderTopLeftRadius: SHEET_RADIUS,
+		borderTopRightRadius: SHEET_RADIUS,
+		overflow: "hidden",
+	},
+	// The grab handle, drawn again over the art (light, so it reads on any backdrop)
+	drawerBannerHandle: {
+		position: "absolute",
+		top: spacing.sm,
+		alignSelf: "center",
+		width: 36,
+		height: 4,
+		borderRadius: 2,
+		backgroundColor: "rgba(255,255,255,0.7)",
+	},
+	// Emil: a pressed button answers at once — a touch smaller, not a fade
+	drawerPressed: { transform: [{ scale: 0.97 }] },
+	drawerQuestion: {
+		...typography.title,
+		fontSize: 20,
+		textAlign: "center",
+		marginBottom: spacing.xs,
+	},
+	// Secondary to the question: lighter, a little tighter
+	drawerHint: { lineHeight: 19, paddingHorizontal: spacing.sm },
+	// Taller, softer buttons: one clear action, the way out quieter beside it
+	drawerButton: {
+		height: 52,
+		paddingVertical: 0,
+		borderRadius: 14,
+		justifyContent: "center",
+	},
+	drawerButtonText: { fontSize: 16 },
 	cancelButton: {
 		paddingVertical: spacing.md,
 		borderRadius: 8,
@@ -225,3 +316,140 @@ const styles = themedStyles(() => StyleSheet.create({
 		marginTop: spacing.sm,
 	},
 }));
+
+type DrawerProps = Omit<Props, "drawer" | "imageAtTop"> & {
+	confirmLabel: string;
+	cancelLabel: string;
+	/** The drawer's content width — a banner fills it */
+	bannerWidth: number;
+};
+
+/** ConfirmModal as a bottom drawer: the banner (backdrop + logo, title over its top) full bleed
+ *  at the top (as the info drawer's art), the hint, then the same buttons. Dismissed by Cancel,
+ *  pulling it down or tapping outside (all locked while the action runs) */
+function ConfirmDrawer({
+	visible,
+	title,
+	image,
+	hint,
+	error,
+	confirmLabel,
+	confirmColor,
+	loading = false,
+	onConfirm,
+	leadLabel,
+	leadColor,
+	onLead,
+	secondaryLabel,
+	secondaryColor,
+	onSecondary,
+	tertiaryLabel,
+	onTertiary,
+	hideTitle = false,
+	onClose,
+	question,
+	slideLabel,
+	bannerWidth,
+}: DrawerProps) {
+	// Under the art, as the pause / remove drawers ask theirs
+	const ask = question ?? (hideTitle ? undefined : title);
+	const photo = isValidElement(image) && image.type === ModalBackdrop;
+	const banner = photo
+		? cloneElement(
+				image as React.ReactElement<{ heading?: string; width?: number; fadeTo?: string }>,
+				{
+					width: bannerWidth,
+					// Fades into the sheet, as the info drawer's art
+					fadeTo: colors.surface,
+				},
+			)
+		: null;
+	const button = (
+		label: string,
+		onPress: () => void,
+		style: object[],
+		content: ReactNode = <Text style={styles.buttonText}>{label}</Text>,
+	) => (
+		<Pressable
+			onPress={onPress}
+			disabled={loading}
+			accessibilityRole="button"
+			accessibilityLabel={label}
+			style={({ pressed }) => [...style, pressed && !loading && styles.drawerPressed]}
+		>
+			{content}
+		</Pressable>
+	);
+	return (
+		<BottomSheet visible={visible} onClose={onClose} locked={loading}>
+			{() => (
+				<View>
+					{banner ? (
+						<View style={styles.drawerBanner}>
+							{banner}
+							<View style={styles.drawerBannerHandle} pointerEvents="none" />
+						</View>
+					) : (
+						<>{image != null && <View style={styles.image}>{image}</View>}</>
+					)}
+					{ask ? <Text style={styles.drawerQuestion}>{ask}</Text> : null}
+					{hint ? <Text style={[styles.hint, styles.drawerHint]}>{hint}</Text> : null}
+					{error ? <Text style={styles.error}>{error}</Text> : null}
+					{slideLabel ? (
+						// One bar instead of the buttons: pulling the drawer down / tapping outside cancels
+						<SlideToConfirm
+							label={slideLabel}
+							color={confirmColor ?? colors.destructiveRed}
+							onConfirm={onConfirm}
+							loading={loading}
+						/>
+					) : (
+						<>
+							{leadLabel &&
+								onLead &&
+								button(leadLabel, onLead, [
+									styles.button,
+									styles.drawerButton,
+									leadColor ? { backgroundColor: leadColor } : {},
+									loading ? { opacity: 0.6 } : {},
+								])}
+							{button(
+								confirmLabel,
+								onConfirm,
+								[
+									styles.button,
+									styles.drawerButton,
+									leadLabel && onLead ? { marginTop: spacing.sm } : {},
+									confirmColor ? { backgroundColor: confirmColor } : {},
+									loading ? { opacity: 0.6 } : {},
+								],
+								loading ? (
+									<ActivityIndicator size="small" color={colors.text} />
+								) : (
+									<Text style={[styles.buttonText, styles.drawerButtonText]}>{confirmLabel}</Text>
+								),
+							)}
+							{secondaryLabel &&
+								onSecondary &&
+								button(secondaryLabel, onSecondary, [
+									styles.button,
+									styles.drawerButton,
+									styles.secondary,
+									secondaryColor ? { backgroundColor: secondaryColor } : {},
+									loading ? { opacity: 0.6 } : {},
+								])}
+							{tertiaryLabel &&
+								onTertiary &&
+								button(tertiaryLabel, onTertiary, [
+									styles.button,
+									styles.drawerButton,
+									styles.secondary,
+									loading ? { opacity: 0.6 } : {},
+								])}
+						</>
+					)}
+				</View>
+			)}
+		</BottomSheet>
+	);
+}

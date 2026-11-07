@@ -1,7 +1,11 @@
 @use "../../../theme/tokens" as *;
 
 .container {
-	min-height: 100dvh;
+	/* The visible page: the shell already pads its bottom for the tab bar */
+	min-height: calc(100dvh - var(--tabbar-height) - env(safe-area-inset-bottom));
+	/* Column so the TMDB credit can sit at the bottom */
+	display: flex;
+	flex-direction: column;
 	padding-top: env(safe-area-inset-top);
 	max-width: 640px;
 	margin: 0 auto;
@@ -52,4 +56,10 @@
 
 .deleteText {
 	color: $destructive-red;
+}
+
+/* TMDB credit: pushed to the bottom of the page, just above the tab bar */
+.credit {
+	margin-top: auto;
+	padding: 32px 0 24px;
 }

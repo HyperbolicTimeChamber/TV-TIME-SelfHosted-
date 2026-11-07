@@ -1,3 +1,4 @@
+import { ImCross } from "react-icons/im";
 import { useEffect, useState } from "react";
 import { tmdbBackdropUri, tmdbLogoUri } from "@app/hooks/useTmdbImage";
 import { useTitleLogo } from "@app/hooks/useTitleLogo";
@@ -14,6 +15,16 @@ export const SPEEDSTER_ART = "/speedster.webp";
 export const HIT_A_WALL_ART = "/hit-a-wall.webp";
 /** Log Out — Straw Hats, fists up */
 export const LOGOUT_ART = "/logout.webp";
+/** Import this file? — Luffy, dreaming of meat */
+export const IMPORT_CONFIRM_ART = "/import-confirm.webp";
+/** Import had nothing new / was cancelled — Luffy, unimpressed */
+export const IMPORT_NOTHING_ART = "/import-nothing.webp";
+/** Before an import — Luffy, not so sure about this */
+export const IMPORT_WARNING_ART = "/import-warning.webp";
+/** Import cancelled, all put back — Luffy, sulking */
+export const IMPORT_CANCELLED_ART = "/import-cancelled.webp";
+/** Import complete — Luffy, stuffed after a feast */
+export const IMPORT_DONE_ART = "/import-done.webp";
 /** Delete Account — crying Pikachu */
 export const FAREWELL_ART = "/farewell.webp";
 /** New List — Light Yagami, Death Note in hand */
@@ -109,8 +120,8 @@ export function ModalLogo({
 }
 
 /** Show backdrop with its title logo (name as the fallback) over the bottom, edge to edge across
- *  the popup (no side padding); `paused` lays a big translucent pause icon over all of it.
- *  ConfirmModal pulls it up to the popup's top edge and passes its title as `heading` */
+ *  the popup (no side padding); `paused` lays a big translucent pause icon over all of it,
+ *  `removed` a red wash with a cross (removing it from tracking). ConfirmModal pulls it up to the popup's top edge and passes its title as `heading` */
 export function ModalBackdrop({
 	backdropPath,
 	logoPath: givenLogo,
@@ -118,6 +129,7 @@ export function ModalBackdrop({
 	mediaType,
 	title,
 	paused = false,
+	removed = false,
 	nameDelay = 0,
 	heading,
 }: {
@@ -127,6 +139,7 @@ export function ModalBackdrop({
 	mediaType?: MediaType;
 	title: string;
 	paused?: boolean;
+	removed?: boolean;
 	/** Wait this long (ms) for the logo before showing the name — 0: name right away */
 	nameDelay?: number;
 	/** Popup title over the top (set by ConfirmModal) */
@@ -171,6 +184,11 @@ export function ModalBackdrop({
 			{paused && (
 				<div className={styles.modalBackdropPause}>
 					<PauseBars />
+				</div>
+			)}
+			{removed && (
+				<div className={`${styles.modalBackdropPause} ${styles.modalBackdropRemove}`}>
+					<ImCross className={styles.removeCenter} color={colors.background} aria-hidden />
 				</div>
 			)}
 			{/* Title on a top shade (mirrors the logo's bottom one), there from the skeleton on */}

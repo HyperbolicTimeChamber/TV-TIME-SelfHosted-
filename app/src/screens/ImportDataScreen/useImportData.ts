@@ -1,4 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { setUserFacets } from "../../services/userFacets";
+import type { UserFacetsDoc } from "../../utils/historyView";
 import { Alert } from "react-native";
 import { getFirestore, collection, doc, getDocs, onSnapshot } from "@react-native-firebase/firestore";
 import { getCrashlytics, recordError } from "@react-native-firebase/crashlytics";
@@ -283,7 +285,11 @@ export function useImportData(onComplete: () => void) {
 				timeout: 3600000,
 			});
 			try {
-				await importFn({ matches: cfMatches });
+				const res = await importFn({ matches: cfMatches });
+				// The import rebuilt the filter choices — keep them (no read)
+				const facets = (res.data as { facets?: Partial<Record<MediaType, UserFacetsDoc>> })
+					?.facets;
+				if (facets) setUserFacets(user!.uid, facets);
 			} catch (err: any) {
 				recordError(
 					getCrashlytics(),
@@ -393,7 +399,7 @@ export function useImportData(onComplete: () => void) {
 			importDoneRef.current = false;
 			setPhase("importing");
 			if (parsed.lists.length > 0) {
-				const plan = planImport(parsed.lists);
+				const plan = await planImport(parsed.lists);
 				const saved = await applyImport(plan).catch(() => false);
 				if (saved) Alert.alert("Lists restored", describeImport(plan));
 			}

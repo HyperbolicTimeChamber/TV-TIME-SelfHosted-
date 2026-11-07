@@ -1,0 +1,76 @@
+@use "../../theme/tokens" as *;
+
+.screen {
+	position: fixed;
+	inset: 0;
+	z-index: 2000;
+	display: flex;
+	flex-direction: column;
+	padding: env(safe-area-inset-top) 24px env(safe-area-inset-bottom);
+	background: var(--bg);
+	/* The Pac-Man's eye takes the surface colour: here the page's */
+	--surface: var(--bg);
+	overflow: hidden;
+}
+
+.body {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	max-width: 520px;
+	width: 100%;
+	margin: 0 auto;
+}
+
+.title {
+	font-size: 22px;
+	font-weight: 600;
+	margin: 0 0 4px;
+}
+
+.hint {
+	font-size: 14px;
+	color: var(--text-secondary);
+	margin: 0;
+}
+
+.loader {
+	margin: 16px 0;
+}
+
+.desc {
+	font-size: 14px;
+	color: var(--text-secondary);
+	margin: 8px 0 0;
+}
+
+.cancel {
+	margin-top: 32px;
+	padding: 12px 40px;
+	border: 0;
+	border-radius: 12px;
+	background: var(--surface-light);
+	color: $destructive-red;
+	font-size: 15px;
+	font-weight: 600;
+	cursor: pointer;
+	transition:
+		transform 120ms ease-out,
+		opacity 0.15s;
+
+	&:active {
+		transform: scale(0.97);
+		opacity: 0.85;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		transition: none;
+	}
+}
+
+.credit {
+	padding: 16px 0 24px;
+}

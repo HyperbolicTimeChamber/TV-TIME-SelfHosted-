@@ -16,6 +16,9 @@ $border: #333333;
 $movie-purple: var(--movie-purple);
 $warning-amber: var(--warning-amber);
 
+// Corner radius of list cards — watchlist rows match the calendar cards
+$card-radius: 16px;
+
 // Breakpoints
 $bp-tablet: 600px;
 $bp-desktop: 900px;

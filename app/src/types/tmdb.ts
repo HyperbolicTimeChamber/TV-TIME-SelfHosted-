@@ -58,4 +58,6 @@ export interface UpcomingEpisode {
 	mediaType?: MediaType;
 	/** Exact UTC air time (TVMaze) when known */
 	airStamp?: string;
+	/** Movies: first credited director (catalog credits) */
+	director?: string | null;
 }

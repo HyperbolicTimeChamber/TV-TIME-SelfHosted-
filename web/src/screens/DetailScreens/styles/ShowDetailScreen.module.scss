@@ -24,11 +24,6 @@
 	right: 16px;
 }
 
-/* Left of Share (44px button + 8px gap) */
-.listButton {
-	right: 68px;
-}
-
 /* Watch count pill, centred between back and share */
 .watchCount {
 	left: 50%;
@@ -102,6 +97,29 @@
 	margin-top: 16px;
 }
 
+/* Mark as Watched's label: spans the pill's inner width (the room it gets), centred in it */
+.fitLabel {
+	position: relative;
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	white-space: nowrap;
+}
+
+.fitMeasure {
+	position: absolute;
+	left: 0;
+	top: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	visibility: hidden;
+	pointer-events: none;
+}
+
 .pill {
 	flex: 1;
 	min-width: 100px;
@@ -171,9 +189,12 @@
 	padding: 0 12px;
 }
 
+/* The metric font of the Upcoming / calendar cards (values only; labels stay as they are) */
 .statValue {
-	font-size: 18px;
-	font-weight: 700;
+	font-family: "Smooch Sans", sans-serif;
+	font-size: 24px;
+	font-weight: 500;
+	letter-spacing: 0.5px;
 }
 
 .statLabel {
@@ -205,7 +226,7 @@
 .creditsSection {
 	margin-top: 24px;
 	display: flex;
-	flex-wrap: wrap;
+	flex-direction: column;
 	gap: 16px;
 	padding: 0 8px;
 }
@@ -226,6 +247,40 @@
 .creditNames {
 	font-size: 14px;
 	color: var(--text-secondary);
+}
+
+/* Two columns: each person takes half the row */
+.creditGrid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 12px 8px;
+	margin-top: 4px;
+}
+
+.creditPerson {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-width: 0;
+}
+
+.creditAvatar {
+	flex-shrink: 0;
+	width: 44px;
+	height: 44px;
+	border-radius: 50%;
+	overflow: hidden;
+	background: var(--surface);
+	color: var(--text-muted);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
 }
 
 .seasonsSection {

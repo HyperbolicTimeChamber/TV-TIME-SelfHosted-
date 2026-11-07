@@ -1,9 +1,11 @@
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { titleFacets } from "../../shared/titleFacets";
 import { CatalogShow } from "../tmdb";
 import { showDocId } from "../../shared/docId";
 import { MediaType, WatchStatus } from "../../shared/enums";
 import { ImportMatch, ImportStats } from "../../shared/types";
 import { lookupEpisode } from "./lookupEpisode";
+import { isUnfinishedCompleted } from "../completedStatus";
 import { DocWrite } from "../batchWrites";
 
 const STATUSES = Object.values(WatchStatus) as string[];
@@ -54,7 +56,7 @@ export function buildImportOps(
   };
 
   for (const match of matches) {
-    const status = STATUSES.includes(match.status)
+    let status = STATUSES.includes(match.status)
       ? match.status
       : WatchStatus.WATCHING;
     const rewatchCount = Number.isInteger(match.rewatchCount)
@@ -122,6 +124,14 @@ export function buildImportOps(
           nextEpisodeAirDate = ep?.airDate ?? null;
         }
 
+        // TV Time "archived" comes in as completed even after 2 of 16 episodes — an aired
+        // episode still ahead means it's being watched, not finished
+        if (
+          isUnfinishedCompleted(status, nextEpisode, catalog, new Date().toISOString().slice(0, 10))
+        ) {
+          status = WatchStatus.WATCHING;
+        }
+
         const latestDate = new Date(latest.watchedAt);
         if (!isNaN(latestDate.getTime())) {
           lastWatchedAt = Timestamp.fromDate(latestDate);
@@ -169,6 +179,7 @@ export function buildImportOps(
         addedAt: now,
         lastWatchedAt,
         priorityDate: lastWatchedAt,
+        ...titleFacets(catalog),
         ...(plays > 0
           ? {
               historyAt: lastWatchedAt,

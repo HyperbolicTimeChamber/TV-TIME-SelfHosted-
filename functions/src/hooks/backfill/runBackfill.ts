@@ -4,6 +4,7 @@ import { MediaType, TMDB_BASE } from "../../shared/enums";
 import { TMDBLogo } from "../../shared/types";
 import { pickLogo, pooled } from "../tmdb";
 import { aggregateHistory, historyPatch } from "./aggregateHistory";
+import { stampTracking } from "../../shared/trackingSync";
 
 export interface BackfillOptions {
   dryRun: boolean;
@@ -43,11 +44,11 @@ export async function backfillHistory(
       if (dryRun) continue;
       writer.set(
         t.ref,
-        {
+        stampTracking({
           ...patch,
           ...(patch.historyAt === null ? { historyAt: FieldValue.delete() } : {}),
           historyUpdatedAt: FieldValue.serverTimestamp(),
-        },
+        }),
         { merge: true },
       );
     }

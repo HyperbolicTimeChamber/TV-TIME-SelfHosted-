@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { Animated, View } from "react-native";
 import { useSharedShimmer } from "../../components/SkeletonLine";
+import { CustomListView } from "../../enums";
 import { styles } from "./styles";
 
 /**
@@ -8,8 +9,11 @@ import { styles } from "./styles";
  * a card will: while a search runs (the searchTitles CF takes longer than one TMDB page did)
  * and as a row under the list while more batches are still to load
  */
-function SearchSkeleton() {
+function SearchSkeleton({ layout = CustomListView.GRID }: Readonly<{ layout?: CustomListView }>) {
 	const shimmer = useSharedShimmer();
+	if (layout === CustomListView.LIST) {
+		return <Animated.View style={[styles.rowSkeleton, { opacity: shimmer }]} />;
+	}
 	return (
 		<View style={styles.card}>
 			<Animated.View style={[styles.poster, styles.skeletonPoster, { opacity: shimmer }]} />

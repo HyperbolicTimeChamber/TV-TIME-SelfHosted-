@@ -15,27 +15,19 @@ const PREVIEW_COUNT = 15;
 
 type PosterItem = Pick<CustomListEntry, "tmdbId" | "mediaType" | "title" | "posterPath">;
 
-/** "Lists" on the profile, under Recently Completed (app CustomLists): a Recently Watched row
- *  first, then the biggest custom lists — a row of posters each. New lists are made on the Lists page */
-export default function CustomLists() {
+/** The biggest custom lists on the profile, right under Recently Completed (app CustomLists) — no
+ *  title of their own: each list's row reads as one more of its rows (Movies Watched, TV Shows Completed); with
+ *  nothing completed (`standalone`), a "Lists" section of their own. New lists are made on the
+ *  Lists page */
+export default function CustomLists({ standalone }: Readonly<{ standalone: boolean }>) {
 	const navigate = useNavigate();
 	const user = useAppSelector((s) => s.auth.user);
 	const { lists, loading } = useCustomLists(user?.uid);
 	const shown = profileLists(lists);
 
 	return (
-		<section className={styles.section}>
-			<button
-				className={styles.listsBanner}
-				onClick={() => navigate(Paths.LISTS)}
-				aria-label="Open Lists"
-			>
-				<h3 className={`${styles.sectionTitle} ${styles.noMargin}`}>Lists</h3>
-				{lists.length > 0 && <span className={styles.countPill}>{lists.length}</span>}
-				<span className={styles.seeAll}>See all</span>
-				<IoChevronForward size={16} color="var(--text-muted)" />
-			</button>
-
+		<section className={standalone ? styles.section : styles.listsSection}>
+			{standalone && <h3 className={styles.sectionTitle}>Lists</h3>}
 			{loading && lists.length === 0 ? (
 				<div className={styles.completedLoader}>
 					<Spin size="small" />
@@ -49,15 +41,24 @@ export default function CustomLists() {
 					</span>
 				</button>
 			) : (
-				shown.map((list) => (
-					<Row
-						key={list.id}
-						name={list.name}
-						count={list.items.length}
-						onOpen={() => navigate(listPath(list.id))}
-						items={list.items}
-					/>
-				))
+				<>
+					{shown.map((list) => (
+						<Row
+							key={list.id}
+							name={list.name}
+							count={list.items.length}
+							onOpen={() => navigate(listPath(list.id))}
+							items={list.items}
+						/>
+					))}
+					{/* Under the top lists: every list, on the Lists page */}
+					<button className={styles.viewAllLists} onClick={() => navigate(Paths.LISTS)}>
+						View All Lists
+						<span className={styles.viewAllArrow}>
+							<IoChevronForward size={24} />
+						</span>
+					</button>
+				</>
 			)}
 		</section>
 	);

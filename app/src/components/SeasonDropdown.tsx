@@ -371,6 +371,7 @@ export default memo(function SeasonDropdown({
 			<ConfirmModal
 				visible={seasonConfirmVisible}
 				title={seasonConfirmCopy.title}
+				drawer
 				image={
 					showBackdropPath ? (
 						<ModalBackdrop
@@ -391,6 +392,7 @@ export default memo(function SeasonDropdown({
 				}
 				hint={seasonConfirmCopy.hint}
 				confirmLabel={seasonConfirmCopy.confirmLabel}
+				slideLabel={seasonConfirmCopy.slideLabel}
 				confirmColor={colors.watchedGreen}
 				onConfirm={confirmSeasonMark}
 				secondaryLabel={seasonConfirmCopy.secondaryLabel}

@@ -1,9 +1,11 @@
 import { memo } from "react";
-import { FaRegCheckCircle, FaRegPauseCircle } from "react-icons/fa";
-import { HistoryPill, HistoryProgress } from "@app/enums";
+import { IoBookmark, IoBookmarkOutline } from "react-icons/io5";
+import { HistoryPill } from "@app/enums";
 import type { HistoryCard as Card } from "@app/utils";
 import { tmdbBackdropUri, tmdbLogoUri } from "@app/hooks/useTmdbImage";
-import ProgressRing from "./ProgressRing";
+import WatchCountPill from "../../../components/WatchCountPill";
+import StatusPill from "../../../components/StatusPill";
+import ProgressPill from "./ProgressPill";
 import styles from "./styles/WatchHistory.module.scss";
 
 /** Status colours at 60% — translucent over the backdrop */
@@ -17,35 +19,19 @@ const PILL_BG: Record<HistoryPill, string> = {
 	[HistoryPill.PAUSED]: "bg-danger/60",
 };
 /** Icons match the progress ring's 20px so all three pills line up */
-const ICON_SIZE = 20;
-
-function ProgressModule({ progress }: { progress: NonNullable<Card["progress"]> }) {
-	if (progress.kind === HistoryProgress.UP_TO_DATE) {
-		return (
-			<span className={`${styles.progressPill} bg-watched`}>
-				<FaRegCheckCircle size={ICON_SIZE} className="block shrink-0" />
-				Up To Date
-			</span>
-		);
-	}
-	if (progress.kind === HistoryProgress.PAUSED) {
-		return (
-			<span className={`${styles.progressPill} bg-movie`}>
-				<FaRegPauseCircle size={ICON_SIZE} className="block shrink-0" />
-				Paused
-			</span>
-		);
-	}
-	return (
-		<span className={`${styles.progressPill} bg-warning text-surface`}>
-			<ProgressRing percent={progress.percent ?? 0} />
-			{progress.percent ?? 0}%
-		</span>
-	);
-}
 
 /** Watch History card (app HistoryCardView) */
-function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
+function HistoryCard({
+	card,
+	onClick,
+	onAddToList,
+}: {
+	card: Card & { listCount?: number };
+	onClick: () => void;
+	/** Opens the Add to List sheet for this title */
+	onAddToList?: () => void;
+}) {
+	const listCount = card.listCount ?? 0;
 	return (
 		<button className={styles.card} onClick={onClick} aria-label={card.title}>
 			{card.backdropPath && (
@@ -72,7 +58,33 @@ function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
 							<span className={styles.cardTitle}>{card.title}</span>
 						)}
 					</span>
-					{card.tag && <span className={styles.tagPill}>{card.tag}</span>}
+					{/* Where the Ongoing / Ended pill was: Add to List, bookmark filled when the title is
+					    in a list */}
+					{onAddToList && (
+						// A span, not a button: the card itself is one
+						<span
+							role="button"
+							tabIndex={0}
+							className={`${styles.listButton} ${listCount > 0 ? styles.listButtonActive : ""}`}
+							aria-label={
+								listCount > 0
+									? `Add to List, in ${listCount} ${listCount === 1 ? "list" : "lists"}`
+									: "Add to List"
+							}
+							onClick={(e) => {
+								e.stopPropagation();
+								onAddToList();
+							}}
+							onKeyDown={(e) => {
+								if (e.key !== "Enter" && e.key !== " ") return;
+								e.preventDefault();
+								e.stopPropagation();
+								onAddToList();
+							}}
+						>
+							{listCount > 0 ? <IoBookmark size={20} /> : <IoBookmarkOutline size={20} />}
+						</span>
+					)}
 				</span>
 			</span>
 
@@ -80,22 +92,19 @@ function HistoryCard({ card, onClick }: { card: Card; onClick: () => void }) {
 				{/* Bottom-left: status pill above one slot — progress / up to date / paused,
 				    else the watch count */}
 				<span className={styles.leftBlock}>
-					{card.pill && (
-						<span
-							className={`${styles.pill} ${card.pillCount != null ? styles.pillWithCount : ""} ${PILL_BG[card.pill]}`}
-						>
-							{card.pillLabel}
-							{card.pillCount != null && (
-								<span className={styles.pillCountCircle}>{card.pillCount}</span>
-							)}
-						</span>
+					{/* Ongoing / Ended / year, over the status pill */}
+					{card.tag && <span className={styles.tagPill}>{card.tag}</span>}
+					{card.pill && card.pillLabel && (
+						<StatusPill
+							label={card.pillLabel}
+							bgClass={PILL_BG[card.pill]}
+							count={card.pillCount}
+						/>
 					)}
 					{card.progress ? (
-						<ProgressModule progress={card.progress} />
+						<ProgressPill kind={card.progress.kind} percent={card.progress.percent} />
 					) : card.watchCount != null ? (
-						<span className={`${styles.progressPill} ${styles.watchCountPill}`}>
-							Watch Count <span className={styles.countCircle}>{card.watchCount}</span>
-						</span>
+						<WatchCountPill count={card.watchCount} />
 					) : null}
 				</span>
 				{(card.lastWatched || card.timeSpent) && (

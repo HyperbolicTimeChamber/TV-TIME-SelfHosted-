@@ -8,7 +8,7 @@ interface Props {
 
 export default memo(function SectionHeader({ title }: Props) {
 	return (
-		<View style={styles.container}>
+		<View style={styles.container} pointerEvents="box-none">
 			<View style={styles.pill}>
 				<Text style={styles.text}>{title}</Text>
 			</View>

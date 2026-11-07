@@ -794,6 +794,7 @@ export function useSeasonActions({
 			}
 			try {
 				// Off the real count (read first): a stale cached count can't delete watches
+				let restoredTo: Timestamp | null = null;
 				const final = await writeEpisodeWatchCount(
 					user.uid,
 					tmdbId,
@@ -802,8 +803,21 @@ export function useSeasonActions({
 					target,
 					knownTracking,
 					pointer,
+					undefined,
+					(at) => {
+						restoredTo = at;
+					},
 				);
-				if (final !== target) {
+				// Put back to the watch before the undone play → its row goes back to that place
+				if (restoredTo && final > 0)
+					setWatchedEpisodeCountsCache(
+						queryClient,
+						user.uid,
+						tmdbId,
+						new Map([[cacheKey, final]]),
+						restoredTo,
+					);
+				else if (final !== target) {
 					// Firestore had a different count → the rows follow it
 					if (target <= 0 && final > 0) {
 						const now = Timestamp.now();
@@ -1041,10 +1055,11 @@ export function useSeasonActions({
 
 	/**
 	 * Mark fromEp–toEp; only episodes below `level` (1 = unwatched, >1 = not yet rewatched).
+	 * `packed` (Speedster backfill): a second apart ending now instead of a runtime apart.
 	 * Resolves with the episodes marked (empty on failure).
 	 */
 	const doMarkEpisodeRange = useCallback(
-		async (fromEp: number, toEp: number, level = 1): Promise<EpisodeRef[]> => {
+		async (fromEp: number, toEp: number, level = 1, packed = false): Promise<EpisodeRef[]> => {
 			if (!user?.uid) return [];
 			const eps = episodes;
 			const epsToMark = eps.filter(
@@ -1080,6 +1095,7 @@ export function useSeasonActions({
 						status: tw.status,
 						incrementRewatch: tw.incrementRewatch,
 						rewatchCount: tw.rewatchCount,
+						packed,
 					},
 				);
 
@@ -1090,6 +1106,7 @@ export function useSeasonActions({
 				const finished = staggerFinishTimes(
 					ordered.map((ep: TMDBEpisode) => ep.runtime || 0),
 					Date.now(),
+					packed,
 				);
 				ordered.forEach((ep: TMDBEpisode, k: number) => {
 					const at = Timestamp.fromMillis(finished[k]);
@@ -1130,12 +1147,13 @@ export function useSeasonActions({
 		[guardTracking, doMarkEpisodeRange],
 	);
 
-	/** Carousel backfill: pointer (or E1 of this season) through `episode`, up to the level */
+	/** Carousel (Speedster) backfill: pointer (or E1 of this season) through `episode`, up to the
+	 *  level — packed, so the catch-up reads as just watched */
 	const handleCarouselMarkThrough = useCallback(
 		async (_tmdbId: number, _season: number, episode: number): Promise<EpisodeRef[]> => {
 			const ne = trackingItem?.nextEpisode;
 			const from = ne && ne.season === season.season_number ? ne.episode : 1;
-			return doMarkEpisodeRange(from, episode, currentRewatchLevel ?? 1);
+			return doMarkEpisodeRange(from, episode, currentRewatchLevel ?? 1, true);
 		},
 		[trackingItem, season.season_number, currentRewatchLevel, doMarkEpisodeRange],
 	);
@@ -1193,6 +1211,7 @@ export function useSeasonActions({
 			};
 			showCount(to, from, to > from ? Timestamp.now() : before);
 			let final: number;
+			let restoredTo: Timestamp | null = null;
 			try {
 				final = await writeEpisodeWatchCount(
 					uid,
@@ -1202,6 +1221,10 @@ export function useSeasonActions({
 					to,
 					knownTracking,
 					pointer,
+					undefined,
+					(at) => {
+						restoredTo = at;
+					},
 				);
 			} catch (err: any) {
 				showCount(from, to, before);
@@ -1209,8 +1232,10 @@ export function useSeasonActions({
 				Alert.alert("Error", err.message || "Couldn't update the watch count.");
 				return from;
 			}
+			// Put back to an earlier watch (the one before the undone play): the row takes its place
+			if (restoredTo && final > 0) showCount(final, to, restoredTo);
 			// Firestore's real count differed (a stale cached count) → the row follows it
-			if (final !== to) showCount(final, to, before);
+			else if (final !== to) showCount(final, to, before);
 			for (let i = 0; i < Math.abs(final - from); i++) {
 				if (final > from) incrementDailyWatch("episode");
 				else decrementDailyWatch("episode");

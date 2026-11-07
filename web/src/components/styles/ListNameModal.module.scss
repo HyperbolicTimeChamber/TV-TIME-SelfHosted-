@@ -1,0 +1,92 @@
+@use "../../theme/tokens" as *;
+
+/* Field row: the input, with a clear button inside it (app ListNameModal) */
+.field {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	background: var(--surface-light);
+	border: 1.5px solid transparent;
+	border-radius: 8px;
+	padding: 0 12px;
+	/* 12 to the buttons — or 4 to the error / count line that sits between them */
+	margin-bottom: 12px;
+	transition: border-color 140ms ease-out;
+
+	&:focus-within {
+		border-color: var(--text-secondary);
+	}
+}
+
+.fieldTight {
+	margin-bottom: 4px;
+}
+
+.fieldError,
+.fieldError:focus-within {
+	border-color: $destructive-red;
+}
+
+.input {
+	flex: 1;
+	min-width: 0;
+	padding: 12px 0;
+	border: none;
+	outline: none;
+	background: transparent;
+	color: var(--text);
+	font-size: 14px;
+
+	&::placeholder {
+		color: var(--text-muted);
+	}
+
+	/* The selected old name (rename): a translucent red, not the solid brand colour */
+	&::selection {
+		background: color-mix(in srgb, var(--primary) 40%, transparent);
+		color: var(--text);
+	}
+}
+
+.clear {
+	flex-shrink: 0;
+	display: inline-flex;
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--text-muted);
+	cursor: pointer;
+}
+
+/* Error and the character count share the line under the field */
+.under {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	margin: 0 0 12px;
+	font-size: 12px;
+}
+
+.error {
+	flex: 1;
+	margin: 0;
+	color: $destructive-red;
+}
+
+.spacer {
+	flex: 1;
+}
+
+.counter {
+	color: var(--text-secondary);
+}
+
+.buttons {
+	display: flex;
+	gap: 8px;
+
+	> button {
+		flex: 1;
+		margin-bottom: 0;
+	}
+}

@@ -1,12 +1,15 @@
-import { useState, useCallback, useRef, useMemo } from "react";
-import { View, Text, TouchableOpacity, useWindowDimensions } from "react-native";
+import { useState, useCallback, useRef, useMemo, useLayoutEffect } from "react";
+import { View, Text, TouchableOpacity, useWindowDimensions, Keyboard } from "react-native";
 import type { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import Animated, {
+	Easing,
 	useAnimatedReaction,
 	useAnimatedStyle,
+	useReducedMotion,
 	useSharedValue,
 	withTiming,
 } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import SlidingTabs from "../../components/SlidingTabs";
@@ -18,7 +21,7 @@ import NotFoundArt, {
 
 const artReserve = artHeight(NO_RESULTS_RATIO) + 24;
 import { AnimatedLegendList } from "@legendapp/list/reanimated";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import {
 	useSearch,
@@ -26,15 +29,18 @@ import {
 	useSortedSearchResults,
 	useTrending,
 	useCustomLists,
+	useCustomListView,
 } from "../../hooks";
 import { useAuthStore } from "../../stores";
 import { AddToListSheet } from "../../components";
 import { listedTitleKeys, listItemKey, searchMediaType, entryFromSearchResult } from "../../utils";
 import { colors, spacing } from "../../theme";
 import { TMDBShow, SearchStackParamList, MediaType, MediaFilter, Route } from "../../types";
-import SortFab, { SORT_FAB_CLEARANCE } from "../../components/SortFab";
+import { CacheKey, CustomListView } from "../../enums";
+import { SORT_FAB_CLEARANCE } from "../../components/SortFab";
+import SortFabMenu from "../../components/SortFabMenu";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
-import SortSheet, { type SortOption } from "../../components/SortSheet";
+import type { SortOption } from "../../components/SortSheet";
 import {
 	SEARCH_SORT_OPTIONS,
 	sameSearchSort,
@@ -47,12 +53,19 @@ import SearchSkeleton from "./SearchSkeleton";
 import ErrorState from "../../components/ErrorState";
 import { describeSearchError } from "../../utils";
 import SearchModals from "./SearchModals";
-import { styles } from "./styles";
+import { CLEAR_ICON_SIZE, ROW_HEIGHT, styles } from "./styles";
+import { IoIosCloseCircle } from "../../components/HiIcons";
 
 const SORT_OPTIONS: SortOption<SearchSortView>[] = SEARCH_SORT_OPTIONS.map(
 	({ label, ...value }) => ({ value, label }),
 );
 const FAB_BOTTOM = 20;
+/** Re-sorting swaps the whole order, and a virtualized grid can't glide cards to new slots:
+ *  the results fade down, swap, and settle back in (occasional action, so both halves stay short) */
+const SORT_OUT_MS = 100;
+const SORT_IN_MS = 220;
+const SORT_SETTLE_OFFSET = 10;
+const SORT_EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 /** Placeholder cards while results load (enough to fill the screen) / under the list while
  *  more batches are to come (one row) */
 const LOADING_CARDS = 6;
@@ -80,6 +93,8 @@ const skeletonItems = (count: number): SearchItem[] =>
 const LOADING_ITEMS = skeletonItems(LOADING_CARDS);
 // Fills an odd last row, then one full row
 const MORE_ITEMS = [skeletonItems(COLUMNS), skeletonItems(COLUMNS + 1)];
+// List view: two placeholder rows
+const MORE_ROWS = skeletonItems(2);
 
 type NavProp = NativeStackNavigationProp<SearchStackParamList, Route.SEARCH_MAIN>;
 
@@ -101,8 +116,17 @@ export default function SearchScreen() {
 	const [mediaFilter, setMediaFilter] = useState<MediaFilter>(MediaFilter.ALL);
 	// Results only (Trending keeps its own order); remembered for the session
 	const [sortView, setSortView] = useSearchSort();
-	const [sortOpen, setSortOpen] = useState(false);
+	// Grid / List, remembered across launches (Trending and results share it)
+	const [view, setView] = useCustomListView(CacheKey.SEARCH_VIEW, CustomListView.GRID);
+	const isGrid = view === CustomListView.GRID;
 	const listRef = useRef<any>(null);
+	const reducedMotion = useReducedMotion();
+	// 1 = results shown; fades to 0 as a new sort is chosen, back to 1 once it has been applied
+	const sortFade = useSharedValue(1);
+	const sortFadeStyle = useAnimatedStyle(() => ({
+		opacity: sortFade.get(),
+		transform: [{ translateY: (1 - sortFade.get()) * SORT_SETTLE_OFFSET }],
+	}));
 	// Custom lists: which results are already in one, and the title the "Add to List" sheet is open for
 	const user = useAuthStore((s) => s.user);
 	const { lists } = useCustomLists(user?.uid);
@@ -121,6 +145,41 @@ export default function SearchScreen() {
 	const [headerH, setHeaderH] = useState(0);
 	const headerHeight = useSharedValue(0);
 	const headerY = useSharedValue(0);
+
+	const applySort = useCallback(
+		(next: SearchSortView) => {
+			setSortView(next);
+			// New order starts from the top, header shown
+			listRef.current?.scrollToOffset({ offset: 0, animated: false });
+			headerY.value = 0;
+		},
+		[setSortView, headerY],
+	);
+	const chooseSort = useCallback(
+		(next: SearchSortView) => {
+			// Same sort again changes nothing, so nothing would fade the results back in
+			if (sameSearchSort(next, sortView)) return;
+			if (reducedMotion) {
+				applySort(next);
+				return;
+			}
+			sortFade.set(
+				withTiming(0, { duration: SORT_OUT_MS, easing: SORT_EASE_OUT }, (finished) => {
+					"worklet";
+					// Not finished = something else took over the fade (a newer pick): that one applies its own
+					if (finished) scheduleOnRN(applySort, next);
+				}),
+			);
+		},
+		[reducedMotion, sortView, applySort, sortFade],
+	);
+	// The new order is in: settle the results back in (not on first mount)
+	const shownSort = useRef(sortView);
+	useLayoutEffect(() => {
+		if (shownSort.current === sortView) return;
+		shownSort.current = sortView;
+		sortFade.set(withTiming(1, { duration: SORT_IN_MS, easing: SORT_EASE_OUT }));
+	}, [sortView, sortFade]);
 	const scrollY = useSharedValue(0);
 	// Stable object — AnimatedLegendList re-subscribes when it changes
 	const listSharedValues = useMemo(() => ({ scrollOffset: scrollY }), [scrollY]);
@@ -181,6 +240,17 @@ export default function SearchScreen() {
 		else navigation.navigate(Route.SEARCH_MAIN);
 	}, [navigation]);
 	const swipeBack = useSwipeBackPop(navigation);
+	// The input screen is replaced by this one while its keyboard is up; on Android the replace can
+	// leave the keyboard showing over the results, so close it once the results page is in front
+	// Once on focus and again when the screen transition ends: a dismiss that lands mid-replace is
+	// lost on some runs (keyboard stayed up over the results)
+	useFocusEffect(
+		useCallback(() => {
+			if (!submittedQuery) return;
+			Keyboard.dismiss();
+			return navigation.addListener("transitionEnd", () => Keyboard.dismiss());
+		}, [submittedQuery, navigation]),
+	);
 
 	// From a results page the input replaces it, so the next search replaces these results rather
 	// than stacking on them: only ever one results page above Trending, and back goes to Trending
@@ -191,6 +261,11 @@ export default function SearchScreen() {
 			navigation.navigate(Route.SEARCH_INPUT, { currentQuery: undefined });
 		}
 	}, [navigation, submittedQuery]);
+	// ✕ on a results page: drop the search and reopen the suggestions page empty (replaces the
+	// results, like openSearchInput)
+	const clearSearch = useCallback(() => {
+		navigation.replace(Route.SEARCH_INPUT, { currentQuery: undefined });
+	}, [navigation]);
 
 	const {
 		trackedIds,
@@ -264,12 +339,7 @@ export default function SearchScreen() {
 			const adding = addingIds.has(item.id);
 			const listed = listedKeys.has(listItemKey(item.id, searchMediaType(item)));
 			const prev = cache.get(item);
-			if (
-				prev &&
-				prev._tracked === tracked &&
-				prev._adding === adding &&
-				prev._listed === listed
-			)
+			if (prev && prev._tracked === tracked && prev._adding === adding && prev._listed === listed)
 				return prev;
 			const next: SearchItem = { ...item, _tracked: tracked, _adding: adding, _listed: listed };
 			cache.set(item, next);
@@ -280,16 +350,17 @@ export default function SearchScreen() {
 	const displayData = useMemo(() => {
 		if (isLoading) return LOADING_ITEMS;
 		if (!resultItems || !moreToLoad) return resultItems;
-		return [...resultItems, ...MORE_ITEMS[resultItems.length % COLUMNS]];
-	}, [isLoading, resultItems, moreToLoad]);
+		return [...resultItems, ...(isGrid ? MORE_ITEMS[resultItems.length % COLUMNS] : MORE_ROWS)];
+	}, [isLoading, resultItems, moreToLoad, isGrid]);
 
 	// Posters are 2:3 and fill the column — a close estimate keeps LegendList from
 	// re-positioning rows as real sizes come in (was 140, about half the real height)
 	const { width: windowWidth } = useWindowDimensions();
 	const estimatedItemSize = useMemo(() => {
+		if (!isGrid) return ROW_HEIGHT + spacing.sm;
 		const cardWidth = (windowWidth - 2 * spacing.lg - 3 * spacing.sm) / 2;
 		return Math.round(cardWidth * 1.5 + spacing.xs);
-	}, [windowWidth]);
+	}, [windowWidth, isGrid]);
 
 	const onEndReached = useCallback(() => {
 		if (submittedQuery && hasNextPage) fetchNextPage();
@@ -310,10 +381,11 @@ export default function SearchScreen() {
 	const renderItem = useCallback(
 		({ item }: { item: SearchItem }) =>
 			item._skeleton ? (
-				<SearchSkeleton />
+				<SearchSkeleton layout={view} />
 			) : (
 				<SearchCard
 					item={item}
+					layout={view}
 					isInWatchlist={item._tracked}
 					isAdding={item._adding}
 					isListed={item._listed}
@@ -323,8 +395,14 @@ export default function SearchScreen() {
 					onAddToList={setListTarget}
 				/>
 			),
-		[handlePress, handleAddToWatchlist, handleRemoveFromWatchlist],
+		[handlePress, handleAddToWatchlist, handleRemoveFromWatchlist, view],
 	);
+
+	// The other layout mounts fresh at the top, so the header comes back with it
+	const toggleView = useCallback(() => {
+		setView(isGrid ? CustomListView.LIST : CustomListView.GRID);
+		headerY.value = 0;
+	}, [isGrid, setView, headerY]);
 
 	// The floating header's height is a spacer at the top of the scrolling content, not top
 	// padding: Android clips a scroll view's children to its padding, so cards vanished at the
@@ -377,6 +455,24 @@ export default function SearchScreen() {
 									{submittedQuery || "Search Shows & Movies"}
 								</Text>
 							</TouchableOpacity>
+							{submittedQuery ? (
+								<TouchableOpacity
+									style={styles.clearButton}
+									onPress={clearSearch}
+									hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+									accessibilityLabel="Clear search"
+								>
+									<IoIosCloseCircle size={CLEAR_ICON_SIZE} color={colors.textMuted} />
+								</TouchableOpacity>
+							) : null}
+							<TouchableOpacity
+								style={styles.viewToggle}
+								onPress={toggleView}
+								hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+								accessibilityLabel={isGrid ? "Show as list" : "Show as grid"}
+							>
+								<Ionicons name={isGrid ? "list" : "grid"} size={20} color={colors.text} />
+							</TouchableOpacity>
 						</View>
 
 						<SlidingTabs
@@ -388,7 +484,7 @@ export default function SearchScreen() {
 				</View>
 			</Animated.View>
 
-			<View style={styles.content}>
+			<Animated.View style={[styles.content, sortFadeStyle]}>
 				{!isLoading && submittedQuery.length > 0 && searchError && !resultItems?.length ? (
 					// Failed (busy / offline), not empty: say so, with a retry
 					<View style={[styles.errorWrap, { paddingTop: headerH }]}>
@@ -418,12 +514,14 @@ export default function SearchScreen() {
 				) : (
 					<AnimatedLegendList
 						ref={listRef}
+						// Columns can't change on a mounted list: each layout is its own list
+						key={view}
 						data={displayData || []}
 						keyExtractor={keyExtractor}
 						renderItem={renderItem}
-						numColumns={COLUMNS}
+						numColumns={isGrid ? COLUMNS : 1}
 						estimatedItemSize={estimatedItemSize}
-						columnWrapperStyle={styles.row}
+						columnWrapperStyle={isGrid ? styles.row : undefined}
 						sharedValues={listSharedValues}
 						onScrollEndDrag={onScrollEndDrag}
 						onMomentumScrollEnd={snapHeader}
@@ -442,30 +540,19 @@ export default function SearchScreen() {
 						recycleItems
 					/>
 				)}
-			</View>
+			</Animated.View>
 
 			{showSort && (
-				<SortFab
+				<SortFabMenu
 					bottom={FAB_BOTTOM}
-					onPress={() => setSortOpen(true)}
+					options={SORT_OPTIONS}
+					selected={sortView}
+					isSame={sameSearchSort}
+					onSelect={chooseSort}
 					customised={!sameSearchSort(sortView, DEFAULT_SEARCH_SORT)}
 					accessibilityLabel="Sort results"
 				/>
 			)}
-			<SortSheet
-				visible={sortOpen}
-				onClose={() => setSortOpen(false)}
-				options={SORT_OPTIONS}
-				selected={sortView}
-				isSame={sameSearchSort}
-				closeOnSelect
-				onSelect={(next) => {
-					setSortView(next);
-					// New order starts from the top, header shown
-					listRef.current?.scrollToOffset({ offset: 0, animated: false });
-					headerY.value = 0;
-				}}
-			/>
 
 			<AddToListSheet entry={listEntry} onClose={() => setListTarget(null)} />
 

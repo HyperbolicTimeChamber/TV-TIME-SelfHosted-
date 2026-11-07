@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import {
 	View,
 	StyleSheet,
@@ -40,8 +40,9 @@ if (RNErrorUtils) {
 	});
 }
 import LoadingSpinner from "./src/components/LoadingSpinner";
+import PoweredByTmdb from "./src/components/PoweredByTmdb";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
@@ -157,8 +158,8 @@ function AppContent() {
 
 	// Listen for background add failures (CF rollback)
 	useEffect(() => {
-		const { onAddTrackingError } = require("./src/services/firestore");
-		return onAddTrackingError((_tmdbId: number, title: string) => {
+		const { onAddTrackingErrorFallback } = require("./src/services/firestore");
+		return onAddTrackingErrorFallback((_tmdbId: number, title: string) => {
 			Alert.alert("Failed to Add", `"${title}" could not be added. Please try again.`);
 		});
 	}, []);
@@ -170,7 +171,7 @@ function AppContent() {
 	}, [loading]);
 
 	if (loading) {
-		return null;
+		return <SplashView />;
 	}
 
 	if (!user) {
@@ -191,17 +192,12 @@ function AppContent() {
 
 	if (!hasCompletedImport) {
 		const markImportDone = () => {
-			useAuthStore.setState({ hasCompletedImport: true });
 			const uid = useAuthStore.getState().user?.uid;
-			if (uid) {
-				const db = getFirestore();
-				setDoc(doc(db, "users", uid), { hasCompletedImport: true }, { merge: true }).catch(
-					() => {},
-				);
-			}
+			if (uid) useAuthStore.getState().markImportDone(uid);
 		};
 		return (
 			<ImportDataScreen
+				onboarding
 				navigation={{
 					navigate: markImportDone,
 					goBack: markImportDone,
@@ -215,6 +211,29 @@ function AppContent() {
 			<AppNavigator />
 			<OfflineOverlay />
 		</>
+	);
+}
+
+/** Native splash colour / logo size (app.json expo-splash-screen) — the JS splash matches them */
+const SPLASH_BG = "#0D0D0D";
+/** TMDB credit's gap above the nav bar */
+const SPLASH_CREDIT_GAP = 32;
+const SPLASH_LOGO = require("./assets/icon-foreground.original.png");
+
+/**
+ * The splash, continued in JS so it can carry the TMDB credit at the bottom (the native splash
+ * only takes one centred image): same colour and logo in the same place, so the hand-off from the
+ * native splash (hidden once this is laid out) doesn't show
+ */
+function SplashView() {
+	const { bottom } = useSafeAreaInsets();
+	return (
+		<View style={styles.splash} onLayout={() => SplashScreen.hideAsync()}>
+			<Image source={SPLASH_LOGO} style={styles.splashLogo} contentFit="contain" />
+			<View style={[styles.splashCredit, { bottom: bottom + SPLASH_CREDIT_GAP }]}>
+				<PoweredByTmdb />
+			</View>
+		</View>
 	);
 }
 
@@ -332,8 +351,15 @@ const styles = themedStyles(() => StyleSheet.create({
 		justifyContent: "center",
 		alignItems: "center",
 	},
+	splash: {
+		...StyleSheet.absoluteFill,
+		backgroundColor: SPLASH_BG,
+		justifyContent: "center",
+		alignItems: "center",
+	},
 	splashLogo: {
 		width: 120,
 		height: 120,
 	},
+	splashCredit: { position: "absolute", left: 0, right: 0 },
 }));

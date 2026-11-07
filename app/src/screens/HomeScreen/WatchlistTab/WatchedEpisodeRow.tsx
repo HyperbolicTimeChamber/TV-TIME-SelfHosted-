@@ -1,19 +1,25 @@
 import { memo } from "react";
+import { similarProps } from "../../../utils/similarProps";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { CheckmarkButton, SwipeableCard } from "../../../components";
+import { WATCHLIST_CHECK_CIRCLE, WATCHLIST_CHECK_TICK } from "../../../components/CheckmarkButton";
 import { withHaptic } from "../../../utils/haptics";
 import PosterImage from "../../../components/PosterImage";
-import { colors, spacing, typography, themedStyles } from "../../../theme";
+import { colors, spacing, themedStyles } from "../../../theme";
+import CardInfo, { cardStyles } from "../../../components/CardInfo";
 import { WatchedEpisode } from "../../../types";
 import { EnrichedTrackingItem } from "../../../hooks";
 
 interface Props {
 	episode: WatchedEpisode;
 	show: EnrichedTrackingItem;
-	onPress: (tmdbShowId: number) => void;
+	/** Row body → the episode popup on this row's episode */
+	onPress: (episode: WatchedEpisode, show: EnrichedTrackingItem) => void;
 	onCheckmarkPress: (episode: WatchedEpisode) => void;
 	onSwipeLeft: (episode: WatchedEpisode) => Promise<void>;
-	onSwipeRight: (episode: WatchedEpisode) => Promise<void>;
+	/** `false` = nothing changed (the swipe snaps back). Left out: no Unwatch swipe (a rewatch's
+	 *  floor — the watch belongs to an earlier run) */
+	onSwipeRight?: (episode: WatchedEpisode) => Promise<boolean | void>;
 	/** Long press on the card (haptic included) — omit to turn it off */
 	onLongPress?: (show: EnrichedTrackingItem) => void;
 }
@@ -27,42 +33,47 @@ export default memo(function WatchedEpisodeRow({
 	onSwipeRight,
 	onLongPress,
 }: Props) {
+	// An unwatch takes the row off (its last watch): no "−1". The swipe holds its banner until
+	// the row goes or shows its new count — a rewatch's row going back to its first watch leaves
+	// its slot too, and the row coming back for a moment before it went read as an undo
+	const leaves = episode.watchCount <= 1;
 	const label = `S${String(episode.season).padStart(2, "0")} | E${String(episode.episode).padStart(2, "0")}`;
 
 	return (
 		<SwipeableCard
 			// Recycled list row → fresh swipe state for the new episode
 			resetKey={episode.id}
+			contentKey={String(episode.watchCount)}
 			onSwipeLeft={() => onSwipeLeft(episode)}
-			onSwipeRight={() => onSwipeRight(episode)}
+			onSwipeRight={onSwipeRight ? () => onSwipeRight(episode) : undefined}
 			leftLabel="Rewatch"
 			rightLabel="Unwatch"
-			rightIcon={episode.watchCount > 1 ? "−1" : undefined}
-			persistAfterSwipe={{ left: true, right: episode.watchCount > 1 }}
+			rightIcon={leaves ? undefined : "−1"}
+			persistAfterSwipe={{ left: true, right: false }}
+			// A rewatch / a −1 that keeps the row: its banner flips over into the updated row
+			flipBack
 		>
 			<TouchableOpacity
-				style={styles.container}
-				onPress={() => onPress(episode.tmdbShowId)}
+				style={[cardStyles.container, styles.container]}
+				onPress={() => onPress(episode, show)}
 				onLongPress={withHaptic(onLongPress && (() => onLongPress(show)))}
 				activeOpacity={0.8}
 			>
-				<PosterImage posterPath={show.posterPath} mediaType="tv" style={styles.poster} />
-				<View style={styles.info}>
-					<View style={styles.titlePill}>
-						<Text style={styles.titleText} numberOfLines={1}>
-							{show.title.toUpperCase()}
-						</Text>
-					</View>
-					<Text style={styles.episodeLabel}>{label}</Text>
-					{episode.episodeTitle ? (
-						<Text style={styles.episodeTitle} numberOfLines={1}>
-							{episode.episodeTitle}
-						</Text>
-					) : null}
-				</View>
+				<PosterImage posterPath={show.posterPath} mediaType="tv" style={[cardStyles.poster, styles.poster]} />
+				<CardInfo
+					title={show.title}
+					titlePillStyle={styles.mutedPill}
+					titleTextStyle={styles.muted}
+					subline={episode.episodeTitle}
+					sublineLines={2}
+					sublineStyle={styles.muted}
+				>
+					<Text style={[cardStyles.episode, styles.muted]}>{label}</Text>
+				</CardInfo>
 				<View style={styles.checkmarkWrap}>
 					<CheckmarkButton
-						size={38}
+						size={WATCHLIST_CHECK_CIRCLE}
+						checkSize={WATCHLIST_CHECK_TICK}
 						watched
 						label={episode.watchCount > 1 ? `${episode.watchCount}` : undefined}
 						onPress={() => onCheckmarkPress(episode)}
@@ -73,63 +84,14 @@ export default memo(function WatchedEpisodeRow({
 			</TouchableOpacity>
 		</SwipeableCard>
 	);
-});
+}, similarProps);
 
-const POSTER_WIDTH = 100;
-
+// Previously Watched: the whole card at half strength, the poster dimmer still
 const styles = themedStyles(() => StyleSheet.create({
-	container: {
-		flexDirection: "row",
-		backgroundColor: colors.surface,
-		borderRadius: 8,
-		overflow: "hidden",
-		opacity: 0.5,
-		minHeight: POSTER_WIDTH,
-	},
-	poster: {
-		width: POSTER_WIDTH,
-		alignSelf: "stretch",
-		opacity: 0.6,
-	},
-	info: {
-		flex: 1,
-		justifyContent: "center",
-		paddingVertical: spacing.sm,
-		paddingLeft: spacing.md,
-		paddingRight: spacing.xs,
-	},
-	titlePill: {
-		flexDirection: "row",
-		alignItems: "center",
-		alignSelf: "flex-start",
-		borderWidth: 1.5,
-		borderColor: colors.textMuted,
-		borderRadius: 14,
-		paddingHorizontal: spacing.sm,
-		paddingVertical: 2,
-		marginBottom: spacing.sm,
-		maxWidth: "90%",
-	},
-	titleText: {
-		fontSize: 11,
-		fontWeight: "600",
-		color: colors.textMuted,
-		flexShrink: 1,
-		letterSpacing: 0.5,
-	},
-	episodeLabel: {
-		...typography.subtitle,
-		fontSize: 16,
-		fontWeight: "700",
-		color: colors.textMuted,
-		letterSpacing: 1,
-	},
-	episodeTitle: {
-		...typography.body,
-		color: colors.textMuted,
-		fontSize: 13,
-		marginTop: 2,
-	},
+	container: { opacity: 0.5 },
+	poster: { opacity: 0.6 },
+	mutedPill: { borderColor: colors.textMuted },
+	muted: { color: colors.textMuted },
 	checkmarkWrap: {
 		alignSelf: "center",
 		paddingRight: spacing.md,

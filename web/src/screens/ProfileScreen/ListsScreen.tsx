@@ -26,6 +26,7 @@ import SkeletonBlock from "../../components/SkeletonBlock";
 import { useTitleInfo } from "@app/hooks/useTitleInfo";
 import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
 import { useHideTabBar } from "../../hooks/useHideTabBar";
+import SwipeBackPage from "../../components/SwipeBackPage";
 import { downloadListsExport, readListsFile } from "../../platform/customListsFiles";
 import { Paths, listPath } from "../../routes/paths";
 import { colors } from "../../theme";
@@ -56,6 +57,29 @@ const STRIP_SLOTS = 5;
 /** "+N" for the strip's last tile; capped so it always fits (app moreLabel) */
 const moreLabel = (n: number) => (n > 99 ? "99+" : `+${n}`);
 
+/** A strip tile is 28 × 42: the placeholder icon has to fit inside it (app STRIP_ICON_SIZE) */
+const STRIP_ICON_SIZE = 16;
+
+/** One strip tile: the poster saved with the entry, else the title's own (app StripPoster) */
+function StripPoster({
+	item,
+	className,
+}: {
+	item: CustomList["items"][number];
+	className: string;
+}) {
+	const { data: info } = useTitleInfo(item.tmdbId, item.mediaType, !item.posterPath);
+	return (
+		<PosterImage
+			posterPath={item.posterPath ?? info?.posterPath}
+			mediaType={item.mediaType}
+			className={className}
+			width={56}
+			iconSize={STRIP_ICON_SIZE}
+		/>
+	);
+}
+
 /**
  * A list's first posters (app PosterStrip). Up to STRIP_SLOTS fit as they are; more → the last slot
  * becomes "+N", the next poster dimmed under it (a "+1" would waste the slot)
@@ -68,22 +92,15 @@ function PosterStrip({ items }: { items: CustomList["items"] }) {
 	return (
 		<span className={styles.strip}>
 			{shown.map((item) => (
-				<PosterImage
+				<StripPoster
 					key={`${item.mediaType}_${item.tmdbId}`}
-					posterPath={item.posterPath}
-					mediaType={item.mediaType}
+					item={item}
 					className={styles.stripPoster}
-					width={56}
 				/>
 			))}
 			{next && (
 				<span className={styles.moreTile} aria-label={`${more} more`}>
-					<PosterImage
-						posterPath={next.posterPath}
-						mediaType={next.mediaType}
-						className={styles.morePoster}
-						width={56}
-					/>
+					<StripPoster item={next} className={styles.morePoster} />
 					<span
 						className={`${styles.moreText} ${more >= 100 ? styles.moreTextXs : more >= 10 ? styles.moreTextSm : ""}`}
 					>
@@ -311,7 +328,7 @@ export default function ListsScreen() {
 			message.error(IMPORT_ERRORS[parsed.reason]);
 			return;
 		}
-		const plan = planImport(parsed.lists);
+		const plan = await planImport(parsed.lists);
 		if (plan.titlesAdded === 0 && plan.listsCreated === 0) {
 			message.info("Everything in that file is already in your lists.");
 			return;
@@ -331,7 +348,7 @@ export default function ListsScreen() {
 	};
 
 	return (
-		<div className={styles.page}>
+		<SwipeBackPage onBack={goBack} className={styles.page}>
 			<header className={styles.topBar}>
 				<div className={styles.titleRow}>
 					<CircleBackButton tone={CircleButtonTone.SURFACE_LIGHT} onClick={goBack} />
@@ -490,6 +507,6 @@ export default function ListsScreen() {
 				onConfirm={confirmImport}
 				onClose={() => setImportPlan(null)}
 			/>
-		</div>
+		</SwipeBackPage>
 	);
 }

@@ -2,21 +2,27 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
 	View,
 	Text,
-	Pressable,
 	Modal,
 	ActivityIndicator,
 	StyleSheet,
 	useWindowDimensions,
 } from "react-native";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+// Gesture-handler Pressable: inside the sheet, React Native's lost a tap whose finger drifted a
+// pixel or two (the sheet's gestures took the touch), so a quick first tap often did nothing
+import { GestureHandlerRootView, Pressable } from "react-native-gesture-handler";
 import GorhomSheet, {
 	BottomSheetBackdrop,
+	BottomSheetFooter,
 	BottomSheetScrollView,
+	BottomSheetTextInput,
 	useBottomSheetSpringConfigs,
 	type BottomSheetBackdropProps,
+	type BottomSheetFooterProps,
 } from "@gorhom/bottom-sheet";
 import Reanimated, {
 	Easing,
+	FadeOut,
+	Keyframe,
 	useAnimatedStyle,
 	useSharedValue,
 	withSequence,
@@ -27,19 +33,27 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useAuthStore } from "../../stores";
 import { useCustomLists } from "../../hooks/useCustomLists";
-import { CUSTOM_LIST_ITEM_MAX, NEW_LIST_HINTS, NEW_LIST_TITLE } from "../../enums";
+import {
+	ADD_TO_LIST_SEARCH_MIN_LISTS,
+	CUSTOM_LIST_ITEM_MAX,
+	NEW_LIST_HINTS,
+	NEW_LIST_TITLE,
+} from "../../enums";
 import type { CustomList, CustomListEntry } from "../../types";
 import { listCoverItem, listHasItem, sheetListOrder, titleCount } from "../../utils";
 import { colors, spacing, typography, themedStyles } from "../../theme";
 import PosterImage from "../PosterImage";
 import { SheetHeader } from "./BottomSheet";
 import ListNameModal from "./ListNameModal";
+import SheetDoneFooter, { DONE_FOOTER_HEIGHT } from "./SheetDoneFooter";
 import { ModalArt, NEW_LIST_ART, NEW_LIST_RATIO } from "./ModalArt";
 
 interface Props {
 	/** The title being listed; null = closed */
 	entry: CustomListEntry | null;
 	onClose: () => void;
+	/** No "N titles" under each list (the show info page) */
+	hideCounts?: boolean;
 }
 
 /** Opens at most this share of the screen; scrolling the lists first grows it to fit them */
@@ -50,9 +64,21 @@ const HANDLE_HEIGHT = 24;
 const SHEET_SPRING = { damping: 30, stiffness: 220, overshootClamping: true } as const;
 /** Strong ease-out: the badge answers the tap at once */
 const TAP_EASE = Easing.bezier(0.23, 1, 0.32, 1);
+/** "Create “…”" row: rises 6px into place as the search finds nothing, leaves faster than it came */
+const CREATE_IN = new Keyframe({
+	0: { opacity: 0, transform: [{ translateY: 6 }] },
+	100: { opacity: 1, transform: [{ translateY: 0 }], easing: TAP_EASE },
+}).duration(180);
+const CREATE_OUT = FadeOut.duration(110);
 const COVER_SIZE = 52;
 /** Same badge as the search cards' Add to List button */
 const BADGE_SIZE = 30;
+const SEARCH_HEIGHT = 40;
+
+enum ListSort {
+	RECENT = "Recent",
+	NAME = "A–Z",
+}
 
 const NAME_ERRORS = {
 	taken: "You already have a list with that name.",
@@ -64,10 +90,11 @@ const NAME_ERRORS = {
 /**
  * "Add to List": tap the lists a title belongs to (each tap saves at once), or make a new one with
  * it inside. A list is a bookmark — this never starts tracking the title. Laid out like a "save to
- * collection" sheet: the title's logo on top, a Lists heading with New list, then the lists
- * (cover, name, count) with the search cards' bookmark badge.
+ * playlist" sheet: the title's logo on top, "In Lists" (the lists holding it when the sheet opened)
+ * with New list, a Find list search + Sort, the other lists, a New list row and a Done button. Rows
+ * stay where they are when ticked; the bookmark badge (not a plus) is the toggle.
  */
-export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
+export default function AddToListSheet({ entry, onClose, hideCounts = false }: Readonly<Props>) {
 	const insets = useSafeAreaInsets();
 	const sheetRef = useRef<GorhomSheet>(null);
 	const { height: screenHeight } = useWindowDimensions();
@@ -81,7 +108,7 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 		if (!topHeight || !listHeight) return [partWay];
 		const full = Math.min(Math.ceil(HANDLE_HEIGHT + topHeight + listHeight), maxHeight);
 		return full > partWay ? [partWay, full] : [full];
-	}, [screenHeight, insets.top, topHeight, listHeight]);
+	}, [screenHeight, insets.top, insets.bottom, topHeight, listHeight]);
 	const animationConfigs = useBottomSheetSpringConfigs(SHEET_SPRING);
 	const renderBackdrop = useCallback(
 		(props: BottomSheetBackdropProps) => (
@@ -95,9 +122,22 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 		),
 		[],
 	);
+	// Done floats over the lists (the sheet's footer: transparent, always at the visible bottom,
+	// whichever snap point the sheet is at); each tap already saved, Done just closes
+	const lowestSnap = snapPoints[0];
+	const renderFooter = useCallback(
+		(props: BottomSheetFooterProps) => (
+			<BottomSheetFooter {...props} bottomInset={insets.bottom}>
+				<SheetDoneFooter lowestSnap={lowestSnap} onPress={() => sheetRef.current?.close()} />
+			</BottomSheetFooter>
+		),
+		[insets.bottom, lowestSnap],
+	);
 	const user = useAuthStore((s) => s.user);
 	const { lists, loading, createList, addToList, removeFromList } = useCustomLists(user?.uid);
 	const [naming, setNaming] = useState(false);
+	// Name the popup opens with: the search text when made from "Create “…”", else empty
+	const [draftName, setDraftName] = useState("");
 	// Swapping to the name popup unmounts the sheet, which reports a close — that one isn't the
 	// user closing it (it cleared the entry and the popup never showed)
 	const namingRef = useRef(false);
@@ -106,6 +146,10 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 	const [nameError, setNameError] = useState<string | null>(null);
 	// Order the sheet opened with (lists holding the title, then newest) — held while it is open
 	const [pinned, setPinned] = useState<string[] | null>(null);
+	// Lists that held the title when the sheet opened: the "In Lists" section, fixed while open
+	const [openSaved, setOpenSaved] = useState<ReadonlySet<string>>(new Set());
+	const [search, setSearch] = useState("");
+	const [sort, setSort] = useState(ListSort.RECENT);
 	const ordered = useMemo(
 		() => sheetListOrder(lists, pinned, entry ?? undefined),
 		[lists, pinned, entry],
@@ -120,9 +164,32 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 	}, [entry]);
 
 	useEffect(() => {
-		if (entry && !loading && !pinned)
+		if (entry && !loading && !pinned) {
 			setPinned(sheetListOrder(lists, null, entry).map((l) => l.id));
+			const holding = lists.filter((l) => listHasItem(l, entry.tmdbId, entry.mediaType));
+			setOpenSaved(new Set(holding.map((l) => l.id)));
+		}
 	}, [entry, loading, lists, pinned]);
+
+	// "In Lists": held the title at open (a list made from here joins it). The rest: filtered by
+	// the search, in the chosen order
+	const saved = useMemo(
+		() => ordered.filter((l) => openSaved.has(l.id) || !pinned?.includes(l.id)),
+		[ordered, openSaved, pinned],
+	);
+	const others = useMemo(() => {
+		const term = search.trim().toLowerCase();
+		const rest = ordered.filter(
+			(l) => !saved.includes(l) && (!term || l.name.toLowerCase().includes(term)),
+		);
+		return sort === ListSort.NAME ? [...rest].sort((a, b) => a.name.localeCompare(b.name)) : rest;
+	}, [ordered, saved, search, sort]);
+	// Find list + Sort only earn their room with a few lists left to look through (the lists
+	// already holding the title sit above); counted before the search filter so typing never hides them
+	const searchable = useMemo(
+		() => ordered.filter((l) => !saved.includes(l)).length >= ADD_TO_LIST_SEARCH_MIN_LISTS,
+		[ordered, saved],
+	);
 
 	const handleCreate = async (name: string) => {
 		if (!entry) return;
@@ -130,8 +197,11 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 		const result = await createList(name, entry);
 		setCreating(false);
 		// Back to the sheet: the new list shows on top, bookmarked, confirming the add
-		if (result.ok) setNaming(false);
-		else setNameError(NAME_ERRORS[result.reason]);
+		if (result.ok) {
+			setNaming(false);
+			// The search found nothing by this name — the new list now sits under In Lists
+			setSearch("");
+		} else setNameError(NAME_ERRORS[result.reason]);
 	};
 
 	const toggle = (list: CustomList, has: boolean) => {
@@ -139,6 +209,32 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 		Haptics.selectionAsync().catch(() => {});
 		if (has) removeFromList(list.id, entry.tmdbId, entry.mediaType);
 		else addToList(list.id, entry);
+	};
+
+	const startNaming = (prefill = "") => {
+		setNameError(null);
+		setDraftName(prefill);
+		setNaming(true);
+	};
+	// Searched for a list that doesn't exist → offer to make it, named as typed
+	const typedName = search.trim();
+	const canCreateTyped =
+		typedName !== "" && !lists.some((l) => l.name.trim().toLowerCase() === typedName.toLowerCase());
+
+	const renderRow = (list: CustomList) => {
+		if (!entry) return null;
+		const has = listHasItem(list, entry.tmdbId, entry.mediaType);
+		const full = !has && list.items.length >= CUSTOM_LIST_ITEM_MAX;
+		return (
+			<ListRow
+				key={list.id}
+				list={list}
+				hint={full ? "List is full" : hideCounts ? null : titleCount(list.items.length)}
+				listed={has}
+				disabled={full}
+				onPress={() => toggle(list, has)}
+			/>
+		);
 	};
 
 	return (
@@ -162,6 +258,7 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 							enablePanDownToClose
 							animationConfigs={animationConfigs}
 							backdropComponent={renderBackdrop}
+							footerComponent={renderFooter}
 							backgroundStyle={styles.sheet}
 							handleStyle={styles.handleArea}
 							handleIndicatorStyle={styles.handle}
@@ -180,50 +277,115 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 								</View>
 								<View style={styles.divider} />
 							</View>
-							{/* The heading scrolls away with the lists; they run under the nav bar and,
-							    scrolled to the end, a nav-bar-high gap closes them */}
 							<BottomSheetScrollView
 								contentContainerStyle={[
 									styles.scrollContent,
-									{ paddingBottom: insets.bottom + spacing.lg },
+									{ paddingBottom: DONE_FOOTER_HEIGHT + insets.bottom },
 								]}
 								keyboardShouldPersistTaps="handled"
 								onContentSizeChange={(_, h) => setListHeight(h)}
 							>
-								<View style={styles.heading}>
-									<Text style={styles.headingText}>Lists</Text>
-									<Pressable
-										onPress={() => {
-											setNameError(null);
-											setNaming(true);
-										}}
-										hitSlop={10}
-										accessibilityRole="button"
-										style={({ pressed }) => pressed && styles.newListPressed}
-									>
-										<Text style={styles.newList}>New list</Text>
-									</Pressable>
-								</View>
-
 								{loading ? (
 									<ActivityIndicator style={styles.loader} color={colors.primary} />
-								) : ordered.length === 0 ? (
-									<Text style={styles.empty}>No lists yet — make one with New list.</Text>
 								) : (
-									ordered.map((list) => {
-										const has = listHasItem(list, entry.tmdbId, entry.mediaType);
-										const full = !has && list.items.length >= CUSTOM_LIST_ITEM_MAX;
-										return (
-											<ListRow
-												key={list.id}
-												list={list}
-												hint={full ? "List is full" : titleCount(list.items.length)}
-												listed={has}
-												disabled={full}
-												onPress={() => toggle(list, has)}
-											/>
-										);
-									})
+									<>
+										{/* Only when it holds the title already: nothing to show for a title in no list */}
+										{saved.length > 0 && (
+											<>
+												<View style={styles.heading}>
+													<Text style={styles.headingText}>In Lists</Text>
+													<Pressable
+														onPress={() => startNaming()}
+														hitSlop={10}
+														accessibilityRole="button"
+														style={({ pressed }) => pressed && styles.newListPressed}
+													>
+														<Text style={styles.newList}>New List</Text>
+													</Pressable>
+												</View>
+												{saved.map(renderRow)}
+											</>
+										)}
+
+										{searchable && (
+											<View style={styles.searchRow}>
+												<View style={styles.searchField}>
+													<Ionicons name="search" size={16} color={colors.textSecondary} />
+													<BottomSheetTextInput
+														style={styles.searchInput}
+														value={search}
+														onChangeText={setSearch}
+														placeholder="Find list"
+														placeholderTextColor={colors.textSecondary}
+														autoCorrect={false}
+														returnKeyType="search"
+														accessibilityLabel="Find list"
+													/>
+												</View>
+												<Pressable
+													onPress={() =>
+														setSort((v) =>
+															v === ListSort.RECENT ? ListSort.NAME : ListSort.RECENT,
+														)
+													}
+													accessibilityRole="button"
+													accessibilityLabel={`Sort: ${sort}`}
+													style={({ pressed }) => [
+														styles.sortButton,
+														pressed && styles.newListPressed,
+													]}
+												>
+													<Text style={styles.sortText}>
+														{sort === ListSort.RECENT ? "Sort" : sort}
+													</Text>
+												</Pressable>
+											</View>
+										)}
+
+										{/* No list by that name: make it, the popup opens named as typed */}
+										{canCreateTyped && (
+											<Reanimated.View entering={CREATE_IN} exiting={CREATE_OUT}>
+												<Pressable
+													onPress={() => startNaming(typedName)}
+													accessibilityRole="button"
+													accessibilityLabel={`Create list ${typedName}`}
+													style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+												>
+													<View style={[styles.cover, styles.coverCreate]}>
+														<Ionicons name="add" size={26} color={colors.background} />
+													</View>
+													<View style={styles.rowContent}>
+														<Text style={styles.rowText} numberOfLines={1}>
+															Create “{typedName}”
+														</Text>
+														<Text style={styles.rowHint}>
+															{others.length === 0
+																? "No list by that name yet"
+																: "New list, this title in it"}
+														</Text>
+													</View>
+												</Pressable>
+											</Reanimated.View>
+										)}
+										{others.map(renderRow)}
+
+										{/* The Create “…” suggestion already is the new-list row */}
+										{!canCreateTyped && (
+											<Pressable
+												onPress={() => startNaming()}
+												accessibilityRole="button"
+												style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+											>
+												<View style={[styles.cover, styles.coverCreate]}>
+													<Ionicons name="add" size={26} color={colors.background} />
+												</View>
+												<View style={styles.rowContent}>
+													<Text style={styles.rowText}>New List</Text>
+													<Text style={styles.rowHint}>Start one with this title in it</Text>
+												</View>
+											</Pressable>
+										)}
+									</>
 								)}
 							</BottomSheetScrollView>
 						</GorhomSheet>
@@ -234,6 +396,7 @@ export default function AddToListSheet({ entry, onClose }: Readonly<Props>) {
 			<ListNameModal
 				visible={!!entry && naming}
 				title={NEW_LIST_TITLE}
+				suggestedName={draftName}
 				image={<ModalArt source={NEW_LIST_ART} ratio={NEW_LIST_RATIO} />}
 				hint={NEW_LIST_HINTS}
 				confirmLabel="Create & Add"
@@ -258,7 +421,7 @@ function ListRow({
 	onPress,
 }: {
 	list: CustomList;
-	hint: string;
+	hint: string | null;
 	listed: boolean;
 	disabled: boolean;
 	onPress: () => void;
@@ -292,7 +455,7 @@ function ListRow({
 				<Text style={styles.rowText} numberOfLines={1}>
 					{list.name}
 				</Text>
-				<Text style={styles.rowHint}>{hint}</Text>
+				{hint && <Text style={styles.rowHint}>{hint}</Text>}
 			</View>
 			<Badge listed={listed} />
 		</Pressable>
@@ -329,7 +492,33 @@ const styles = themedStyles(() => StyleSheet.create({
 	handleArea: { paddingVertical: 10 },
 	handle: { width: 36, height: 4, backgroundColor: colors.textMuted },
 	top: { paddingHorizontal: spacing.lg },
-	scrollContent: { paddingHorizontal: spacing.lg },
+	scrollContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
+	searchRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.sm,
+		marginVertical: spacing.md,
+	},
+	searchField: {
+		flex: 1,
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.sm,
+		height: SEARCH_HEIGHT,
+		paddingHorizontal: spacing.md,
+		borderRadius: 8,
+		backgroundColor: colors.surfaceLight,
+	},
+	searchInput: { flex: 1, ...typography.body, padding: 0 },
+	sortButton: {
+		height: SEARCH_HEIGHT,
+		paddingHorizontal: spacing.md,
+		borderRadius: 8,
+		backgroundColor: colors.surfaceLight,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	sortText: { ...typography.subtitle, fontSize: 13 },
 	divider: { height: StyleSheet.hairlineWidth * 2, backgroundColor: colors.border },
 	heading: {
 		flexDirection: "row",
@@ -339,7 +528,7 @@ const styles = themedStyles(() => StyleSheet.create({
 		paddingBottom: spacing.sm,
 	},
 	headingText: { ...typography.subtitle, fontSize: 18 },
-	newList: { color: colors.accent, fontSize: 15, fontWeight: "600" },
+	newList: { color: colors.warningAmber, fontSize: 15, fontWeight: "600" },
 	newListPressed: { opacity: 0.6 },
 	row: {
 		flexDirection: "row",
@@ -350,6 +539,11 @@ const styles = themedStyles(() => StyleSheet.create({
 	rowPressed: { opacity: 0.6, transform: [{ scale: 0.98 }] },
 	rowDisabled: { opacity: 0.4 },
 	cover: { width: COVER_SIZE, height: COVER_SIZE, borderRadius: 10, overflow: "hidden" },
+	coverCreate: {
+		backgroundColor: colors.warningAmber,
+		alignItems: "center",
+		justifyContent: "center",
+	},
 	coverEmpty: {
 		backgroundColor: colors.surfaceLight,
 		alignItems: "center",
@@ -368,7 +562,7 @@ const styles = themedStyles(() => StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 	},
-	badgeActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+	badgeActive: { backgroundColor: colors.warningAmber, borderColor: colors.warningAmber },
 	loader: { paddingVertical: spacing.xl },
 	empty: {
 		color: colors.textSecondary,
