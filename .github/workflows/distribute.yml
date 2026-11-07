@@ -182,53 +182,64 @@ jobs:
           RELEASE_NOTES: ${{ steps.notes.outputs.release_notes }}
           FIREBASE_TESTER_GROUPS: alpha-channel
 
-      # ── GitHub Release with APK ──
-      - name: Find APK
+      # ── GitHub Release with the APK (the in-app updater downloads it from here) ──
+      - name: Prepare APK
         id: apk
-        run: |
-          APK_PATH=$(find app/android/app/build/outputs/apk -name "*.apk" | head -1)
-          echo "path=$APK_PATH" >> "$GITHUB_OUTPUT"
-          echo "Found APK: $APK_PATH"
-
-      - name: Get version
-        id: app_version
         run: |
           VERSION=$(node -p "require('./app/app.json').expo.version")
           BUILD=$(node -p "require('./app/app.json').expo.android.versionCode")
-          echo "tag=v${VERSION}+${BUILD}" >> "$GITHUB_OUTPUT"
-          echo "name=v${VERSION} (build ${BUILD})" >> "$GITHUB_OUTPUT"
+          SRC=$(find app/android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          NAME="watchloom-v${VERSION}-${BUILD}-staging.apk"
+          cp "$SRC" "/tmp/$NAME"
+          {
+            echo "version=$VERSION"
+            echo "build=$BUILD"
+            echo "path=/tmp/$NAME"
+            echo "name=$NAME"
+            echo "size=$(stat -c %s "/tmp/$NAME")"
+            echo "tag=v${VERSION}+${BUILD}-staging"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.app_version.outputs.tag }}
-          name: ${{ steps.app_version.outputs.name }}
+          tag_name: ${{ steps.apk.outputs.tag }}
+          name: V${{ steps.apk.outputs.version }} (build ${{ steps.apk.outputs.build }}) staging
           body: ${{ steps.notes.outputs.release_notes }}
           files: ${{ steps.apk.outputs.path }}
           draft: false
-          prerelease: false
+          prerelease: true
+          make_latest: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── Force update ([force-update] in the commit message) ──
-      # Builds below config/app.minBuildDev show the blocking "Update required" screen
-      - name: Force update (dev)
-        if: github.event_name == 'push' && contains(github.event.head_commit.message, '[force-update]')
+      # Only the newest build of each version stays on GitHub (per channel): older builds of the
+      # same x.y.z are deleted with their tags
+      - name: Prune older builds of this version
         run: |
-          export BUILD=$(node -p "require('./app/app.json').expo.android.versionCode")
-          echo "$FIREBASE_SERVICE_ACCOUNT_JSON" > /tmp/firebase-sa.json
-          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa.json
-          npm install -g firebase-admin@13
-          NODE_PATH=$(npm root -g) node -e "
-            const admin = require('firebase-admin');
-            admin.initializeApp();
-            admin.firestore().doc('config/app')
-              .set({ minBuildDev: Number(process.env.BUILD) }, { merge: true })
-              .then(() => { console.log('minBuildDev = ' + process.env.BUILD); process.exit(0); })
-              .catch((e) => { console.error(e); process.exit(1); });
-          "
+          VERSION_RE=$(echo "${{ steps.apk.outputs.version }}" | sed 's/\./\\./g')
+          gh release list --limit 200 --json tagName -q '.[].tagName' \
+            | grep -E "^v${VERSION_RE}\+[0-9]+-staging$" \
+            | grep -vx "${{ steps.apk.outputs.tag }}" \
+            | while read -r TAG; do
+                echo "Deleting $TAG"
+                gh release delete "$TAG" --cleanup-tag -y
+              done
         env:
-          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # config/release.dev (drawer + force gate), [force-update] → minBuild, FCM push
+      - name: Publish release to the apps
+        run: node scripts/publish-release.cjs
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa.json
+          CHANNEL: dev
+          VERSION: ${{ steps.apk.outputs.version }}
+          BUILD: ${{ steps.apk.outputs.build }}
+          SIZE: ${{ steps.apk.outputs.size }}
+          APK_URL: https://github.com/${{ github.repository }}/releases/download/${{ steps.apk.outputs.tag }}/${{ steps.apk.outputs.name }}
+          NOTES: ${{ steps.notes.outputs.release_notes }}
+          FORCE: ${{ contains(github.event.head_commit.message, '[force-update]') }}
 
       # ── Commit version bump (only after successful build) ──
       - name: Commit version bump
