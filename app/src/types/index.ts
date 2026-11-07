@@ -12,7 +12,13 @@ export {
 	HistoryProgress,
 	CloudFunction,
 } from "../enums";
-export type { CatalogEpisode, CatalogSeason, CatalogShow } from "./catalog";
+export type {
+	CatalogEpisode,
+	CatalogSeason,
+	CatalogShow,
+	RegionWatchProviders,
+	WatchProvider,
+} from "./catalog";
 export type {
 	TrackingItem,
 	WatchlistItem,

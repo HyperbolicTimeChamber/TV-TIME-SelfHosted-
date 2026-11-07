@@ -18,6 +18,9 @@ const ROUTES: Route[] = [
   { pattern: /^\/trending\/(all|tv|movie)\/(day|week)$/, sMaxAge: 6 * HOUR },
   { pattern: /^\/(tv|movie)\/\d+$/, sMaxAge: DAY },
   { pattern: /^\/tv\/\d+\/season\/\d+$/, sMaxAge: DAY },
+  // Info page Where to Watch: country names for its title (the services come from the
+  // watchProviders callable)
+  { pattern: /^\/configuration\/countries$/, sMaxAge: 7 * DAY },
 ];
 
 const ALLOWED_PARAMS: Record<string, (v: string) => boolean> = {

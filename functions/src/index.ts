@@ -20,3 +20,4 @@ export { exportAccountData } from "./cloudFunctions/exportAccountData";
 export { cancelAccountJob } from "./cloudFunctions/cancelAccountJob";
 export { rollbackCancelledImport } from "./cloudFunctions/rollbackCancelledImport";
 export { trackingSyncStamp } from "./cloudFunctions/trackingSyncStamp";
+export { watchProviders } from "./cloudFunctions/watchProviders";
