@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { useTitleExtras } from "@app/hooks/useTitleExtras";
 import { tmdbLogoUri } from "@app/hooks/useTmdbImage";
+import { mainStudios } from "@app/utils/studioNames";
 import type { MediaType } from "@app/enums";
 import SkeletonBlock from "./SkeletonBlock";
 import styles from "./styles/StudiosRow.module.scss";
@@ -24,7 +25,8 @@ export default function StudiosRow({
 	compact?: boolean;
 }) {
 	const { data, isPending, isError } = useTitleExtras(tmdbId, mediaType);
-	const studios = data?.studios;
+	// Each company once: a division drops out next to its parent (OLM Digital beside OLM)
+	const studios = data?.studios && mainStudios(data.studios);
 	if (isError || (studios && studios.length === 0)) return null;
 
 	return (

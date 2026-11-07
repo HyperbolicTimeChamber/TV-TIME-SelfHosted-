@@ -5,6 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useTitleExtras } from "../hooks/useTitleExtras";
 import { tmdbLogoUri } from "../hooks/useTmdbImage";
 import { useSharedShimmer } from "./SkeletonLine";
+import { mainStudios } from "../utils/studioNames";
 import { colors, spacing, typography } from "../theme";
 import type { MediaType } from "../enums";
 
@@ -39,7 +40,8 @@ interface Props {
 export default function StudiosRow({ tmdbId, mediaType, bleed, compact = false }: Readonly<Props>) {
 	const { data, isPending, isError } = useTitleExtras(tmdbId, mediaType);
 	const shimmer = useSharedShimmer();
-	const studios = data?.studios;
+	// Each company once: a division drops out next to its parent (OLM Digital beside OLM)
+	const studios = data?.studios && mainStudios(data.studios);
 	if (isError || (studios && studios.length === 0)) return null;
 
 	return (
@@ -103,19 +105,16 @@ const styles = StyleSheet.create({
 		paddingVertical: spacing.sm,
 		alignItems: "center",
 		justifyContent: "center",
-		// Glass edge: one even bright rim (per-side colours drew stepped corners on Android)
-		borderWidth: 1,
-		borderColor: "rgba(255, 255, 255, 0.8)",
 	},
-	// Fills the chip inside its rim, with its own (inner) rounding
+	// Fills the whole chip (no rim: the gradient's shading is the glass)
 	glass: {
 		position: "absolute",
 		top: 0,
 		left: 0,
 		right: 0,
 		bottom: 0,
-		borderRadius: CHIP_RADIUS - 1,
+		borderRadius: CHIP_RADIUS,
 	},
 	logo: { width: "100%", height: "100%" },
-	skeleton: { backgroundColor: colors.border, borderWidth: 0 },
+	skeleton: { backgroundColor: colors.border },
 });

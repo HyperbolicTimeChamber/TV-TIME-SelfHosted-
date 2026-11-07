@@ -1,18 +1,28 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, MouseEvent } from "react";
 import { useCountryName, useWatchProviders } from "@app/hooks/useWatchProviders";
 import { tmdbPosterUri } from "@app/hooks/useTmdbImage";
 import { displayProviders, providerLink } from "@app/utils/providerNames";
-import type { MediaType } from "@app/enums";
+import { PROVIDER_OPEN_GUARD_MS, type MediaType } from "@app/enums";
 import SkeletonBlock from "./SkeletonBlock";
 import styles from "./styles/WhereToWatch.module.scss";
 
 const LOGO_PX = 60;
+/** A touch screen: a service's link opens its app there (which mostly drops a search query) */
+const inApp = () => globalThis.matchMedia?.("(pointer: coarse)").matches ?? false;
 const SKELETONS = [0, 1, 2, 3, 4];
+/** When a service was last opened: a double tap (or a tap on a second logo) opens one tab */
+let lastOpenAt = 0;
+const guardOpen = (e: MouseEvent) => {
+	const now = Date.now();
+	if (now - lastOpenAt < PROVIDER_OPEN_GUARD_MS) e.preventDefault();
+	else lastOpenAt = now;
+};
 
 /**
  * Info page "Where to Watch in {country}": the services streaming the title in the viewer's
  * country (IP, else the browser locale) as a sideways-scrolling row of round logos, each opening
- * that service at its search for the title where it allows it, else the service itself. None → "Not Available to Stream". App: components/WhereToWatch
+ * that service at its search for the title where it allows it (on a touch screen only when its
+ * app fills the search in), else the service itself. None → "Not Available to Stream". App: components/WhereToWatch
  */
 export default function WhereToWatch({
 	tmdbId,
@@ -29,6 +39,7 @@ export default function WhereToWatch({
 	// A failed request says nothing about availability: no section rather than a wrong "none"
 	if (isError) return null;
 	const shown = data ? displayProviders(data.providers) : [];
+	const touch = inApp();
 
 	return (
 		<section className={styles.section}>
@@ -63,10 +74,11 @@ export default function WhereToWatch({
 							<a
 								key={p.id}
 								className={styles.tile}
-								href={providerLink(p.name, title, data.link) ?? undefined}
+								href={providerLink(p.name, title, data.link, touch) ?? undefined}
 								target="_blank"
 								rel="noopener noreferrer"
 								aria-label={`Watch on ${p.name}`}
+								onClick={guardOpen}
 								style={{ "--i": i } as CSSProperties}
 							>
 								<img

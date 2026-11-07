@@ -147,10 +147,12 @@ export const ADD_TO_WATCHLIST_LABELS = ["+ Add to Watchlist", "+ Watchlist", "+ 
  * Where to Watch: where a service's button goes, by its short display name (lowercase). `search`
  * opens the service's search for the title (`{q}` = the title) where it takes one from a link;
  * otherwise `home` opens the service. Plain https links: on a phone the service's app opens them
- * when installed. Not listed → TMDB's watch page for the title (it links on to each service).
+ * when installed. Most apps open such a search link on an empty search page (the query is
+ * dropped), so a phone opens `home` instead unless `appSearch` says the app fills the search in.
+ * Not listed → TMDB's watch page for the title (it links on to each service).
  * TMDB doesn't expose services' own title ids, so a title page can't be linked directly.
  */
-export const PROVIDER_LINKS: Record<string, { search?: string; home: string }> = {
+export const PROVIDER_LINKS: Record<string, { search?: string; home: string; appSearch?: boolean }> = {
 	netflix: { search: "https://www.netflix.com/search?q={q}", home: "https://www.netflix.com/" },
 	"prime video": {
 		search: "https://www.primevideo.com/search/ref=atv_nb_sr?phrase={q}",
@@ -171,10 +173,12 @@ export const PROVIDER_LINKS: Record<string, { search?: string; home: string }> =
 	youtube: {
 		search: "https://www.youtube.com/results?search_query={q}",
 		home: "https://www.youtube.com/",
+		appSearch: true,
 	},
 	"youtube premium": {
 		search: "https://www.youtube.com/results?search_query={q}",
 		home: "https://www.youtube.com/",
+		appSearch: true,
 	},
 	mubi: { search: "https://mubi.com/search/films?query={q}", home: "https://mubi.com/" },
 	"rtl+": { search: "https://plus.rtl.de/suche?q={q}", home: "https://plus.rtl.de/" },
@@ -188,6 +192,9 @@ export const PROVIDER_LINKS: Record<string, { search?: string; home: string }> =
 	plex: { home: "https://watch.plex.tv/" },
 	"animation digital network": { home: "https://animationdigitalnetwork.com/" },
 };
+
+/** Where to Watch: taps within this long of opening a service are ignored (no double open) */
+export const PROVIDER_OPEN_GUARD_MS = 1000;
 
 /** Where the viewer's country comes from: an IP lookup (no key, no permission prompt) */
 export const COUNTRY_LOOKUP_URL = "https://api.country.is/";
