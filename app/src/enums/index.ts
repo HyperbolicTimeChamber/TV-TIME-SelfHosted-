@@ -160,49 +160,102 @@ export const ADD_TO_WATCHLIST_LABELS = ["+ Add to Watchlist", "+ Watchlist", "+ 
  * Not listed → TMDB's watch page for the title (it links on to each service).
  * TMDB doesn't expose services' own title ids, so a title page can't be linked directly.
  */
-export const PROVIDER_LINKS: Record<string, { search?: string; home: string; appSearch?: boolean }> = {
-	netflix: { search: "https://www.netflix.com/search?q={q}", home: "https://www.netflix.com/" },
+/**
+ * `androidPackage`: the service's Android app — opened directly (the link in it, else its home
+ * screen) instead of the browser first; listed in modules/service-apps' manifest <queries> too
+ */
+export const PROVIDER_LINKS: Record<
+	string,
+	{ search?: string; home: string; appSearch?: boolean; androidPackage?: string }
+> = {
+	netflix: {
+		search: "https://www.netflix.com/search?q={q}",
+		home: "https://www.netflix.com/",
+		androidPackage: "com.netflix.mediaclient",
+	},
 	"prime video": {
 		search: "https://www.primevideo.com/search/ref=atv_nb_sr?phrase={q}",
 		home: "https://www.primevideo.com/",
+		androidPackage: "com.amazon.avod.thirdpartyclient",
 	},
-	"disney+": { home: "https://www.disneyplus.com/" },
-	"hbo max": { search: "https://play.hbomax.com/search?q={q}", home: "https://play.hbomax.com/" },
-	"apple tv+": { search: "https://tv.apple.com/search?term={q}", home: "https://tv.apple.com/" },
-	"apple tv": { search: "https://tv.apple.com/search?term={q}", home: "https://tv.apple.com/" },
-	"paramount+": { home: "https://www.paramountplus.com/" },
-	hulu: { search: "https://www.hulu.com/search?q={q}", home: "https://www.hulu.com/" },
-	peacock: { home: "https://www.peacocktv.com/" },
-	"peacock premium": { home: "https://www.peacocktv.com/" },
+	"disney+": { home: "https://www.disneyplus.com/", androidPackage: "com.disney.disneyplus" },
+	"hbo max": {
+		search: "https://play.hbomax.com/search?q={q}",
+		home: "https://play.hbomax.com/",
+		androidPackage: "com.wbd.stream",
+	},
+	"apple tv+": {
+		search: "https://tv.apple.com/search?term={q}",
+		home: "https://tv.apple.com/",
+		androidPackage: "com.apple.atve.androidtv.appletv",
+	},
+	"apple tv": {
+		search: "https://tv.apple.com/search?term={q}",
+		home: "https://tv.apple.com/",
+		androidPackage: "com.apple.atve.androidtv.appletv",
+	},
+	"paramount+": { home: "https://www.paramountplus.com/", androidPackage: "com.cbs.app" },
+	hulu: {
+		search: "https://www.hulu.com/search?q={q}",
+		home: "https://www.hulu.com/",
+		androidPackage: "com.hulu.plus",
+	},
+	peacock: { home: "https://www.peacocktv.com/", androidPackage: "com.peacocktv.peacockandroid" },
+	"peacock premium": { home: "https://www.peacocktv.com/", androidPackage: "com.peacocktv.peacockandroid" },
 	crunchyroll: {
 		search: "https://www.crunchyroll.com/search?q={q}",
 		home: "https://www.crunchyroll.com/",
+		androidPackage: "com.crunchyroll.crunchyroid",
 	},
 	youtube: {
 		search: "https://www.youtube.com/results?search_query={q}",
 		home: "https://www.youtube.com/",
 		appSearch: true,
+		androidPackage: "com.google.android.youtube",
 	},
 	"youtube premium": {
 		search: "https://www.youtube.com/results?search_query={q}",
 		home: "https://www.youtube.com/",
 		appSearch: true,
+		androidPackage: "com.google.android.youtube",
 	},
-	mubi: { search: "https://mubi.com/search/films?query={q}", home: "https://mubi.com/" },
+	mubi: {
+		search: "https://mubi.com/search/films?query={q}",
+		home: "https://mubi.com/",
+		androidPackage: "com.mubi",
+	},
 	"rtl+": { search: "https://plus.rtl.de/suche?q={q}", home: "https://plus.rtl.de/" },
 	"rtl+ max": { search: "https://plus.rtl.de/suche?q={q}", home: "https://plus.rtl.de/" },
-	joyn: { search: "https://www.joyn.de/suche?q={q}", home: "https://www.joyn.de/" },
-	"joyn plus": { search: "https://www.joyn.de/suche?q={q}", home: "https://www.joyn.de/" },
+	joyn: {
+		search: "https://www.joyn.de/suche?q={q}",
+		home: "https://www.joyn.de/",
+		androidPackage: "de.prosiebensat1digital.seventv",
+	},
+	"joyn plus": {
+		search: "https://www.joyn.de/suche?q={q}",
+		home: "https://www.joyn.de/",
+		androidPackage: "de.prosiebensat1digital.seventv",
+	},
 	wow: { home: "https://www.wowtv.de/" },
 	"wow fiction": { home: "https://www.wowtv.de/" },
 	"sky go": { home: "https://www.sky.de/sky-go" },
-	"pluto tv": { home: "https://pluto.tv/" },
-	plex: { home: "https://watch.plex.tv/" },
+	"pluto tv": { home: "https://pluto.tv/", androidPackage: "tv.pluto.android" },
+	plex: { home: "https://watch.plex.tv/", androidPackage: "com.plexapp.android" },
 	"animation digital network": { home: "https://animationdigitalnetwork.com/" },
 };
 
 /** Where to Watch: taps within this long of opening a service are ignored (no double open) */
 export const PROVIDER_OPEN_GUARD_MS = 1000;
+
+/** Update drawer, before the download: one of these (Upgrade's voice) beside the download size */
+export const UPGRADE_LINES = [
+	"Time to merge with some new tech",
+	"Your phone's due for an alien tune-up",
+	"The latest tech is waiting for me",
+	"Every gadget deserves an upgrade",
+	"New code, same Upgrade",
+	"Let me give this app a little boost",
+] as const;
 
 /** Where the viewer's country comes from: an IP lookup (no key, no permission prompt) */
 export const COUNTRY_LOOKUP_URL = "https://api.country.is/";
@@ -539,6 +592,15 @@ export const MIN_BUILD_FIELD: Record<ReleaseChannel, string> = {
 /** config/release: each channel's latest APK + minimum build (CI writes it; public read — no
  *  secrets, and the login screen checks for updates too) */
 export const RELEASE_CONFIG_DOC = ["config", "release"] as const;
+
+/** Android package id (app.json) — the web's "Open in app" intent targets it */
+export const ANDROID_APP_PACKAGE = "com.tvtimerevived.app";
+/** GitHub's newest production release (public repo, no key): the web downloads its APK */
+export const LATEST_RELEASE_API =
+	"https://api.github.com/repos/HyperbolicTimeChamber/TV-TIME-SelfHosted-/releases/latest";
+/** Its page — the fallback while the APK's address isn't known yet */
+export const LATEST_RELEASE_PAGE =
+	"https://github.com/HyperbolicTimeChamber/TV-TIME-SelfHosted-/releases/latest";
 
 /** The channel this build checks for updates: CI's, or dev in a local dev build (test flow) */
 export const UPDATE_CHANNEL: ReleaseChannel | null =

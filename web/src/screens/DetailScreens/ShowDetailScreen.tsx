@@ -25,7 +25,7 @@ import WatchCountPill from "../../components/WatchCountPill";
 import SeasonDropdown from "../../components/SeasonDropdown";
 import ActionPills from "./ActionPills";
 import { Paths } from "../../routes/paths";
-import { appDeepLink, isAndroidBrowser } from "../../utils/deepLink";
+import { appIntentLink, isAndroidBrowser, useLatestApkUrl } from "../../utils/deepLink";
 import styles from "./styles/ShowDetailScreen.module.scss";
 import { cssVars, px } from "../../utils/cssVars";
 import WhereToWatch from "../../components/WhereToWatch";
@@ -60,6 +60,8 @@ export default function ShowDetailScreen() {
 		getCachedCatalogShow(tmdbId, mediaType)?.logoPath ??
 		(d.show?.images ? pickTitleLogo(d.show.images.logos) : undefined);
 	const signedIn = !!d.user;
+	// Signed-out Android visitors: "Open in app" opens the app, or downloads the latest APK
+	const latestApk = useLatestApkUrl(!signedIn && isAndroidBrowser());
 	// "Add to List" button (next to Share): signed-in only (lists belong to an account), blue once listed
 	const { lists } = useCustomLists(d.user?.uid);
 	const [listSheetOpen, setListSheetOpen] = useState(false);
@@ -247,7 +249,7 @@ export default function ShowDetailScreen() {
 								{isAndroidBrowser() && (
 									<a
 										className={`${styles.pill} ${styles.pillAccent}`}
-										href={appDeepLink(mediaType, tmdbId)}
+										href={appIntentLink(mediaType, tmdbId, latestApk)}
 									>
 										Open in app
 									</a>

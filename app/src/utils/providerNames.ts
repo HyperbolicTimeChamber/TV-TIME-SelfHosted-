@@ -81,3 +81,9 @@ export function providerLink(
 	const search = known.search && (!inApp || known.appSearch) ? known.search : null;
 	return search ? search.replace("{q}", encodeURIComponent(title)) : known.home;
 }
+
+/** The service's Android app package (PROVIDER_LINKS androidPackage), add-on channels → their store's */
+export function providerApp(name: string): string | null {
+	const store = CHANNEL_STORES.find(([suffix]) => suffix.test(name.trim()))?.[1];
+	return PROVIDER_LINKS[store ?? shortProviderName(name).toLowerCase()]?.androidPackage ?? null;
+}
