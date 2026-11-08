@@ -20,5 +20,31 @@ class UpdateNotificationModule : Module() {
     Function("cancel") {
       UpdateNotifications.cancel(context)
     }
+
+    // The drawer's Update: the same foreground-service download as the notification's Install, so
+    // it carries on (with its progress card) when the app is closed or swiped away
+    Events("onDownload")
+
+    Function("startDownload") { version: String, notes: String, apkUrl: String, size: Double ->
+      UpdateNotifications.startDownload(context, version, notes, apkUrl, size.toLong())
+    }
+
+    Function("cancelDownload") {
+      UpdateNotifications.cancelDownload(context)
+    }
+
+    Function("cleanupInstalledApk") {
+      UpdateNotifications.cleanupInstalledApk(context)
+    }
+
+    OnCreate {
+      UpdateDownloadService.listener = { event, data ->
+        sendEvent("onDownload", data + ("type" to event))
+      }
+    }
+
+    OnDestroy {
+      UpdateDownloadService.listener = null
+    }
   }
 }
