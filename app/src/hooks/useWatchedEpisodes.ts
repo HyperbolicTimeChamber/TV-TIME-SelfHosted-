@@ -15,7 +15,7 @@ import {
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { WatchedEpisode, QueryKey } from "../types";
 
-const PAGE_SIZE = 5;
+export const WATCHED_EPISODES_PAGE_SIZE = 5;
 
 interface WatchedEpisodesPage {
 	episodes: WatchedEpisode[];
@@ -44,7 +44,7 @@ export function useWatchedEpisodes(userId: string | undefined, tmdbShowId?: numb
 			if (pageParam) {
 				constraints.push(startAfter(pageParam));
 			}
-			constraints.push(limit(PAGE_SIZE));
+			constraints.push(limit(WATCHED_EPISODES_PAGE_SIZE));
 
 			const snapshot = await getDocs(query(colRef, ...constraints));
 
@@ -60,7 +60,7 @@ export function useWatchedEpisodes(userId: string | undefined, tmdbShowId?: numb
 		},
 		initialPageParam: null as QueryDocumentSnapshot | null,
 		getNextPageParam: (lastPage) =>
-			lastPage.episodes.length >= PAGE_SIZE ? lastPage.lastDoc : undefined,
+			lastPage.episodes.length >= WATCHED_EPISODES_PAGE_SIZE ? lastPage.lastDoc : undefined,
 		enabled: !!userId,
 		staleTime: 5 * 60 * 1000,
 	});

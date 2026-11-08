@@ -13,7 +13,7 @@ import {
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { WatchedMovie, QueryKey } from "../types";
 
-const PAGE_SIZE = 5;
+export const WATCHED_MOVIES_PAGE_SIZE = 5;
 
 interface WatchedMoviesPage {
 	movies: WatchedMovie[];
@@ -39,7 +39,7 @@ export function useWatchedMovies(userId?: string) {
 			if (pageParam) {
 				constraints.push(startAfter(pageParam));
 			}
-			constraints.push(limit(PAGE_SIZE));
+			constraints.push(limit(WATCHED_MOVIES_PAGE_SIZE));
 
 			const snapshot = await getDocs(query(colRef, ...constraints));
 
@@ -55,7 +55,7 @@ export function useWatchedMovies(userId?: string) {
 		},
 		initialPageParam: null as QueryDocumentSnapshot | null,
 		getNextPageParam: (lastPage) =>
-			lastPage.movies.length >= PAGE_SIZE ? lastPage.lastDoc : undefined,
+			lastPage.movies.length >= WATCHED_MOVIES_PAGE_SIZE ? lastPage.lastDoc : undefined,
 		enabled: !!userId,
 		staleTime: 5 * 60 * 1000,
 	});
