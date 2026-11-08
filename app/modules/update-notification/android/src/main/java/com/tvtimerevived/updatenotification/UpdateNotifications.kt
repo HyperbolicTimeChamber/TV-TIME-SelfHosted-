@@ -161,6 +161,41 @@ object UpdateNotifications {
     notify(context, builder)
   }
 
+  /** Starts the background download (the drawer's Update and the notification's Install alike) */
+  fun startDownload(context: Context, version: String, notes: String, apkUrl: String, size: Long) {
+    val intent = Intent(context, UpdateDownloadService::class.java)
+      .setAction(UpdateDownloadService.ACTION_DOWNLOAD)
+      .putExtra(UpdateDownloadService.EXTRA_URL, apkUrl)
+      .putExtra(UpdateDownloadService.EXTRA_VERSION, version)
+      .putExtra(UpdateDownloadService.EXTRA_SIZE, size)
+      .putExtra(UpdateDownloadService.EXTRA_NOTES, notes)
+    androidx.core.content.ContextCompat.startForegroundService(context, intent)
+  }
+
+  fun cancelDownload(context: Context) {
+    val intent = Intent(context, UpdateDownloadService::class.java).setAction(UpdateDownloadService.ACTION_CANCEL)
+    androidx.core.content.ContextCompat.startForegroundService(context, intent)
+  }
+
+  /**
+   * After an update: the downloaded APK is deleted once the app runs that build (or a newer one) —
+   * a download not installed yet is kept. Leftover partial downloads go too
+   */
+  fun cleanupInstalledApk(context: Context) {
+    if (UpdateDownloadService.downloading) return
+    File(context.cacheDir, "$APK_FILE.part").delete()
+    val apk = apkFile(context)
+    if (!apk.exists()) return
+    val pm = context.packageManager
+    @Suppress("DEPRECATION")
+    val archive = pm.getPackageArchiveInfo(apk.path, 0)
+    @Suppress("DEPRECATION")
+    val installed = pm.getPackageInfo(context.packageName, 0)
+    val archiveCode = archive?.let { androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(it) } ?: -1L
+    val installedCode = androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(installed)
+    if (archive == null || archiveCode <= installedCode) apk.delete()
+  }
+
   fun cancel(context: Context) {
     NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
   }

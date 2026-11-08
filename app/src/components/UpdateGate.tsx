@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { AppState } from "react-native";
 import UpdateSheet from "./modals/UpdateSheet";
+import UpdateNotification from "../../modules/update-notification";
 import { UPDATES_SUPPORTED, subscribeRelease } from "../services/appUpdate";
 import { isForced, offeredRelease, shouldOffer, useUpdateStore } from "../stores/updateStore";
 
@@ -10,6 +11,8 @@ export function useReleaseWatch(): void {
 	useEffect(() => {
 		if (!UPDATES_SUPPORTED || started.current) return;
 		started.current = true;
+		// The APK of an update that's now installed: deleted (one not installed yet is kept)
+		UpdateNotification?.cleanupInstalledApk();
 		useUpdateStore.getState().loadLocal();
 		const unsubscribe = subscribeRelease((release) => useUpdateStore.getState().setRelease(release));
 		return unsubscribe;
