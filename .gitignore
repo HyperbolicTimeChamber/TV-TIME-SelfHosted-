@@ -34,7 +34,6 @@ app/fastlane/README.md
 
 # Environment
 *.local
-*.env
 
 
 # TypeScript
@@ -76,3 +75,5 @@ firebase-export-*/
 
 # Local Expo modules: Gradle output
 app/modules/*/android/build/
+app/modules/*/android/.gradle/
+.telegram.env

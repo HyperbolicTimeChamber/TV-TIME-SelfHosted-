@@ -8,6 +8,7 @@
 		"app:ios": "cd app && npx expo run:ios",
 		"emulators": "bash scripts/emulators.sh",
 		"emulators:seed": "bash scripts/seed-emulator.sh",
-		"emulators:dummy": "node scripts/seed-dummy-data.cjs"
+		"emulators:dummy": "node scripts/seed-dummy-data.cjs",
+		"telegram": "node scripts/claude-telegram.cjs"
 	}
 }
