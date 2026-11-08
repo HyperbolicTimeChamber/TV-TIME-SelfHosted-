@@ -28,6 +28,10 @@ export async function moveLooseExtras(db: Firestore) {
       add.watchProviders = Object.fromEntries(regions);
       add.watchRegions = FieldValue.arrayUnion(...regions.map(([r]) => r));
     }
+    const releases = Object.entries(from.localReleases ?? {}).filter(
+      ([region]) => has.localReleases?.[region] === undefined,
+    );
+    if (releases.length > 0) add.localReleases = Object.fromEntries(releases);
     if (Object.keys(add).length > 0) await show.ref.set(add, { merge: true });
     await d.ref.delete();
     moved++;

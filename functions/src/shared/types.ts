@@ -153,6 +153,8 @@ export interface TitleExtrasFields extends WatchProvidersFields {
   cast?: StoredCastMember[];
   /** Everyone in the full cast (titleCredits/) */
   castTotal?: number;
+  /** Movies: release date per country ("YYYY-MM-DD"), null when TMDB has none for it */
+  localReleases?: Record<string, string | null>;
   /** Movies' directors (empty for shows) */
   directors?: StoredCrewMember[];
   /** Movies' writers — screenplay, story, novel (empty for shows) */
@@ -167,6 +169,8 @@ export interface TitleExtrasFields extends WatchProvidersFields {
 export interface TitleExtras {
   cast: StoredCastMember[];
   castTotal: number;
+  /** A movie's release date in the viewer's country ("YYYY-MM-DD") */
+  localRelease: string | null;
   directors: StoredCrewMember[];
   writers: StoredCrewMember[];
   studios: StoredStudio[];

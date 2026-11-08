@@ -186,6 +186,23 @@ export const TITLE_EXTRAS_COLLECTION = "titleExtras";
 export const TITLE_CREDITS_COLLECTION = "titleCredits";
 /** TMDB requests/second the extras callables may make (each one instance → global) */
 export const TITLE_EXTRAS_TMDB_RATE_LIMIT = 10;
+/** TMDB's release types (a movie's release_dates, per country) */
+export enum TmdbReleaseType {
+  PREMIERE = 1,
+  THEATRICAL_LIMITED = 2,
+  THEATRICAL = 3,
+  DIGITAL = 4,
+  PHYSICAL = 5,
+  TV = 6,
+}
+/** Which release counts as a movie's local one, best first (a festival premiere doesn't) */
+export const LOCAL_RELEASE_TYPES = [
+  TmdbReleaseType.THEATRICAL,
+  TmdbReleaseType.THEATRICAL_LIMITED,
+  TmdbReleaseType.DIGITAL,
+  TmdbReleaseType.PHYSICAL,
+  TmdbReleaseType.TV,
+];
 /** Featured cast on the info page row: a movie's leads (top billed)… */
 export const MOVIE_LEADS = 6;
 /** …a show's regulars: in at least this share of its episodes (and MIN episodes) */
