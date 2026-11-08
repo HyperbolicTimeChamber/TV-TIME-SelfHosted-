@@ -76,3 +76,4 @@ firebase-export-*/
 # Local Expo modules: Gradle output
 app/modules/*/android/build/
 app/modules/*/android/.gradle/
+.telegram.env
