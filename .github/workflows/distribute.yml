@@ -189,7 +189,9 @@ jobs:
           VERSION=$(node -p "require('./app/app.json').expo.version")
           BUILD=$(node -p "require('./app/app.json').expo.android.versionCode")
           SRC=$(find app/android/app/build/outputs/apk/release -name "*.apk" | head -1)
-          NAME="watchloom-v${VERSION}-${BUILD}-staging.apk"
+          # One name for every release (staging and main): each sits under its own tag, and main's
+          # newest is always at releases/latest/download/watchloom.apk
+          NAME="watchloom.apk"
           cp "$SRC" "/tmp/$NAME"
           {
             echo "version=$VERSION"

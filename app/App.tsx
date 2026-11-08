@@ -16,6 +16,7 @@ import {
 	SmoochSans_500Medium,
 } from "@expo-google-fonts/smooch-sans";
 import { Handjet_800ExtraBold } from "@expo-google-fonts/handjet";
+import { VT323_400Regular } from "@expo-google-fonts/vt323";
 import crashlytics from "@react-native-firebase/crashlytics";
 import { initAppCheck } from "./src/services/appCheck";
 import { connectEmulators } from "./src/services/emulators";
@@ -263,7 +264,7 @@ function SplashView() {
 
 export default function App() {
 	// Non-blocking: text falls back to the system font until these load
-	useFonts({ SmoochSans_400Regular, SmoochSans_500Medium, Handjet_800ExtraBold });
+	useFonts({ SmoochSans_400Regular, SmoochSans_500Medium, Handjet_800ExtraBold, VT323_400Regular });
 	const setUser = useAuthStore((s) => s.setUser);
 	const setConnected = useUiStore((s) => s.setConnected);
 

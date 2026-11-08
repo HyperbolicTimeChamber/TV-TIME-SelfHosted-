@@ -12,7 +12,8 @@ import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { useCountryName, useWatchProviders } from "../hooks/useWatchProviders";
 import { tmdbPosterUri } from "../hooks/useTmdbImage";
-import { displayProviders, providerLink, shortProviderName } from "../utils/providerNames";
+import { displayProviders, providerApp, providerLink, shortProviderName } from "../utils/providerNames";
+import ServiceApps from "../../modules/service-apps";
 import BottomSheet, { SheetGroup, sheetStyles } from "./modals/BottomSheet";
 import { useSharedShimmer } from "./SkeletonLine";
 import { colors, spacing, typography } from "../theme";
@@ -61,7 +62,7 @@ export default function WhereToWatch({ tmdbId, mediaType, title, bleed }: Readon
 	// home; TMDB's watch page for a service it doesn't know
 	const open = (name: string) => {
 		const url = providerLink(name, title, data?.link ?? null, true);
-		if (url) Linking.openURL(url).catch(() => {});
+		if (url) openService(url, providerApp(name));
 	};
 
 	return (
@@ -190,6 +191,14 @@ const COMPACT_GAP: Record<WhereToWatchPlacement, number> = {
 };
 
 
+/** The service's own app when it's installed (the link, else its home screen), else the browser */
+function openService(url: string, androidPackage: string | null) {
+	try {
+		if (ServiceApps?.openInApp(url, androidPackage)) return;
+	} catch {}
+	Linking.openURL(url).catch(() => {});
+}
+
 /**
  * Where to Watch for a drawer / modal: one row that never scrolls or overflows — as many logos as
  * fit the width, and when there are more the last slot is a "+N" tile that opens every service
@@ -216,7 +225,7 @@ export function WhereToWatchCompact({
 	const visible = overflow ? shown.slice(0, Math.max(0, fit - 1)) : shown;
 	const open = (name: string) => {
 		const url = providerLink(name, title, data?.link ?? null, true);
-		if (url) Linking.openURL(url).catch(() => {});
+		if (url) openService(url, providerApp(name));
 	};
 	const heading =
 		placement === WhereToWatchPlacement.MODAL ? "Watch on" : `Where to Watch${country ? ` in ${country}` : ""}`;
