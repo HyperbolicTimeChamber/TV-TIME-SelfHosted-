@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The dial's outer ring, turned by an indeterminate ProgressBar: a notification can't run the
+     app's animations, but the system animates this one itself while the card is on screen -->
+<rotate xmlns:android="http://schemas.android.com/apk/res/android"
+  android:drawable="@drawable/update_dial_ring"
+  android:fromDegrees="0"
+  android:pivotX="50%"
+  android:pivotY="50%"
+  android:toDegrees="360" />

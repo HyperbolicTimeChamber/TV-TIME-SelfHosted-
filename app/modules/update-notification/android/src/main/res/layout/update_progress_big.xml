@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Expanded download card (dark, colorized): title + size, a small red Cancel at the right end,
-     the red bar below -->
+<!-- Expanded download card (dark, colorized): title + version, a small red Cancel at the right end,
+     the spinning dial, the progress numbers at the right above the red bar -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
   android:layout_width="match_parent"
   android:layout_height="wrap_content"
@@ -28,7 +28,7 @@
         android:textSize="16sp" />
 
       <TextView
-        android:id="@+id/update_percent"
+        android:id="@+id/update_version"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
@@ -51,24 +51,50 @@
       android:textStyle="bold" />
   </LinearLayout>
 
+  <!-- The drawer's dial: the still core, its ring turning on top (2400ms a turn, like the drawer) -->
+  <FrameLayout
+    android:layout_width="120dp"
+    android:layout_height="120dp"
+    android:layout_gravity="center_horizontal"
+    android:layout_marginTop="10dp"
+    android:translationX="@dimen/update_dial_center_offset">
+
+    <ImageView
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:importantForAccessibility="no"
+      android:src="@drawable/update_dial_core" />
+
+    <ProgressBar
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:indeterminate="true"
+      android:indeterminateBehavior="repeat"
+      android:indeterminateDrawable="@drawable/update_dial_ring_spin"
+      android:indeterminateDuration="2400"
+      android:indeterminateOnly="true"
+      android:interpolator="@android:anim/linear_interpolator"
+      android:maxHeight="120dp"
+      android:maxWidth="120dp"
+      android:minHeight="120dp"
+      android:minWidth="120dp" />
+  </FrameLayout>
+
+  <TextView
+    android:id="@+id/update_percent"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="4dp"
+    android:gravity="end"
+    android:textColor="#B3FFFFFF"
+    android:textSize="13sp" />
+
   <ProgressBar
     android:id="@+id/update_progress"
     style="@android:style/Widget.ProgressBar.Horizontal"
     android:layout_width="match_parent"
     android:layout_height="6dp"
-    android:layout_marginTop="12dp"
+    android:layout_marginTop="4dp"
     android:max="100"
     android:progressDrawable="@drawable/update_progress_red" />
-
-  <!-- Release notes: as many lines as Android's 256dp expanded card leaves room for -->
-  <TextView
-    android:id="@+id/update_notes"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_marginTop="12dp"
-    android:ellipsize="end"
-    android:lineSpacingExtra="2dp"
-    android:maxLines="6"
-    android:textColor="#B3FFFFFF"
-    android:textSize="13sp" />
 </LinearLayout>

@@ -16,7 +16,8 @@ import java.io.File
  * The app's own update notifications, drawn with custom layouts so they wear its theme (Android
  * picks every colour itself in the standard templates):
  *  - offer: "V x.y.z is available" + notes, a red Install button (starts UpdateDownloadService)
- *  - progress (the service's foreground card): dark, white text, red bar, red Cancel
+ *  - progress (the service's foreground card): dark, white text, red bar, red Cancel; expanded,
+ *    the drawer's dial spins above the bar
  *  - downloaded: "Tap to install" + a red Install button, straight to Android's installer
  */
 object UpdateNotifications {
@@ -82,7 +83,7 @@ object UpdateNotifications {
 
   fun showOffer(context: Context, version: String, notes: String, apkUrl: String, size: Long) {
     ensureChannel(context)
-    val title = "V $version is available"
+    val title = "v$version is available"
     val body = notes.lineSequence().firstOrNull { it.isNotBlank() } ?: "Tap Install to download the update."
     val install = serviceIntent(context, UpdateDownloadService.ACTION_DOWNLOAD) {
       putExtra(UpdateDownloadService.EXTRA_URL, apkUrl)
@@ -104,28 +105,29 @@ object UpdateNotifications {
   }
 
   /** The download service's foreground card (dark: colorized foreground-service notification) */
-  fun progress(context: Context, version: String, percent: Int, detail: String, notes: String): android.app.Notification {
+  fun progress(context: Context, version: String, percent: Int, detail: String): android.app.Notification {
     ensureChannel(context)
     val cancel = serviceIntent(context, UpdateDownloadService.ACTION_CANCEL)
     fun views(layout: Int) = RemoteViews(context.packageName, layout).apply {
-      setTextViewText(R.id.update_title, "Downloading V $version")
+      setTextViewText(R.id.update_title, "Upgrading")
       setTextViewText(R.id.update_percent, detail)
       setProgressBar(R.id.update_progress, 100, percent, false)
       if (layout == R.layout.update_progress_big) {
+        setTextViewText(R.id.update_version, "Downloading v$version")
         setOnClickPendingIntent(R.id.update_action, cancel)
-        setTextViewText(R.id.update_notes, notes.trim())
-        setViewVisibility(R.id.update_notes, if (notes.isBlank()) android.view.View.GONE else android.view.View.VISIBLE)
       }
     }
     return NotificationCompat.Builder(context, CHANNEL_ID)
       .setSmallIcon(smallIcon(context))
       .setColor(CARD_DARK)
       .setColorized(true)
-      .setContentTitle("Downloading V $version")
+      .setContentTitle("Upgrading")
       .setStyle(NotificationCompat.DecoratedCustomViewStyle())
       .setCustomContentView(views(R.layout.update_progress_small))
       .setCustomBigContentView(views(R.layout.update_progress_big))
       .setContentIntent(openApp(context))
+      // Android otherwise holds a foreground service's card back for up to 10 seconds
+      .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
       .setOngoing(true)
       .setOnlyAlertOnce(true)
       .build()
@@ -145,7 +147,7 @@ object UpdateNotifications {
       context, 11, installIntent(context, apkFile(context)),
       PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
-    val title = "V $version downloaded"
+    val title = "v$version downloaded"
     // The red Install says what to do: the card shows the release notes, no "Tap to install"
     val firstLine = notes.lineSequence().firstOrNull { it.isNotBlank() } ?: ""
     val builder = NotificationCompat.Builder(context, CHANNEL_ID)

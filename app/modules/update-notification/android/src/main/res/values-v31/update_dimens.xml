@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Android 12+ indents custom content for the icon column, so its centre sits right of the card's -->
+  <dimen name="update_dial_center_offset">-18dp</dimen>
+</resources>

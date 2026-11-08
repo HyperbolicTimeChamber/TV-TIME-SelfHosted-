@@ -43,7 +43,7 @@ class UpdateDownloadService : Service() {
 
   @Volatile private var cancelled = false
   @Volatile private var running = false
-  /** Release notes shown on the expanded download card */
+  /** Release notes, for the expanded "downloaded" card */
   private var notes = ""
 
   override fun onBind(intent: Intent?): IBinder? = null
@@ -75,7 +75,7 @@ class UpdateDownloadService : Service() {
   }
 
   private fun startInForeground(version: String, percent: Int, detail: String) {
-    val notification = UpdateNotifications.progress(this, version, percent, detail, notes)
+    val notification = UpdateNotifications.progress(this, version, percent, detail)
     val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC else 0
     ServiceCompat.startForeground(this, UpdateNotifications.NOTIFICATION_ID, notification, type)
   }
