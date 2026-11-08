@@ -9,6 +9,7 @@ import Reanimated, {
 } from "react-native-reanimated";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
+import { FontAwesome5 } from "@expo/vector-icons";
 import BottomSheet from "./BottomSheet";
 import { colors, fonts, spacing, typography } from "../../theme";
 import { APP_VERSION } from "../../utils/appVersion";
@@ -16,9 +17,14 @@ import { exitApp, type ChannelRelease } from "../../services/appUpdate";
 import { UpdatePhase, useUpdateStore } from "../../stores/updateStore";
 import { UPGRADE_LINES } from "../../enums";
 
+/** Downloaded ("Upgrade Ready"): Upgrade reaching down onto the notes */
 const UPGRADE = require("../../../assets/upgrade.webp");
 /** upgrade.webp's own proportions (1734 × 1486) */
 const UPGRADE_RATIO = 1734 / 1486;
+/** Before the download: Upgrade's body (black on black — its edges fade into the drawer) */
+const UPGRADE_DOWNLOAD = require("../../../assets/upgrade-download.webp");
+/** upgrade-download.webp's own proportions (1144 × 824) */
+const UPGRADE_DOWNLOAD_RATIO = 1144 / 824;
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 /** Progress bar catches up with each (coalesced) progress event over this long */
 const BAR_MS = 400;
@@ -28,6 +34,8 @@ const SWAP_MS = 160;
 const PRESS_SCALE = 0.97;
 const PRESS_IN_MS = 100;
 const PRESS_OUT_MS = 180;
+/** How far Upgrade's hand reaches down onto the notes box */
+const HAND_OVERLAP = 44;
 
 interface Props {
 	visible: boolean;
@@ -79,24 +87,40 @@ export default function UpdateSheet({ visible, release, forced }: Readonly<Props
 					? `${line} · ${mb(release.size)} MB`
 					: line;
 
+	const versionPill = (
+		<View style={styles.versionPill}>
+			<Text style={styles.versionOld}>V {APP_VERSION}</Text>
+			{/* The sort menu's "A → Z" arrow (a text arrow sat off the pixel font's centre) */}
+			<FontAwesome5 name="long-arrow-alt-right" size={12} color={colors.textMuted} />
+			<Text style={styles.versionNew}>V {release.version}</Text>
+		</View>
+	);
+
 	return (
 		<BottomSheet visible={visible} onClose={dismiss}>
 			{() => (
 				<View style={styles.body}>
-					<View style={styles.header}>
+					<View style={[styles.header, ready && release.notes ? styles.headerOverNotes : null]}>
 						<Text style={styles.title}>{ready ? "Upgrade Ready" : "It's Time for an Upgrade"}</Text>
-						<Image source={UPGRADE} style={styles.hero} contentFit="contain" />
-						<View style={styles.versionPill}>
-							<Text style={styles.versionOld}>V {APP_VERSION}</Text>
-							<Text style={styles.versionArrow}>→</Text>
-							<Text style={styles.versionNew}>V {release.version}</Text>
-						</View>
+						<Image
+							source={ready ? UPGRADE : UPGRADE_DOWNLOAD}
+							style={[
+								styles.hero,
+								{ aspectRatio: ready ? UPGRADE_RATIO : UPGRADE_DOWNLOAD_RATIO },
+								ready && release.notes ? styles.heroOverNotes : null,
+							]}
+							contentFit="contain"
+						/>
+						{ready ? null : versionPill}
 					</View>
 
 					{/* The notes once it's downloaded: what the Install brings */}
 					{release.notes && ready ? (
 						<View style={styles.notes}>
-							<Text style={styles.notesLabel}>WHAT'S NEW</Text>
+							<View style={styles.notesLabelRow}>
+								<Text style={styles.notesLabel}>WHAT'S NEW</Text>
+								<Text style={styles.notesVersion}>V {release.version}</Text>
+							</View>
 							<Text style={styles.notesText} numberOfLines={5}>
 								{release.notes}
 							</Text>
@@ -178,10 +202,23 @@ function SheetButton({
 	);
 }
 
+const PIXEL_LINE = {
+	fontFamily: fonts.vt323,
+	fontSize: 18,
+	lineHeight: 18,
+	includeFontPadding: false,
+	textAlignVertical: "center",
+	// The pixel glyphs still sit a hair low in their box
+	transform: [{ translateY: -1 }],
+} as const;
+
 const styles = StyleSheet.create({
 	body: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.md },
 	header: { alignItems: "center", gap: spacing.sm },
-	hero: { height: 150, aspectRatio: UPGRADE_RATIO },
+	hero: { height: 150 },
+	// Downloaded: the hand reaches down over the notes box's top edge
+	headerOverNotes: { zIndex: 1, elevation: 1 },
+	heroOverNotes: { marginBottom: -HAND_OVERLAP },
 	title: { ...typography.title, fontSize: 22, textAlign: "center" },
 	versionPill: {
 		flexDirection: "row",
@@ -193,9 +230,10 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.background,
 	},
 	// Pixel font like the notes (custom family: no fontWeight on Android)
-	versionOld: { fontFamily: fonts.vt323, fontSize: 18, color: colors.textSecondary },
-	versionArrow: { fontFamily: fonts.vt323, fontSize: 18, color: colors.textMuted },
-	versionNew: { fontFamily: fonts.vt323, fontSize: 18, color: colors.primary },
+	// VT323's line box carries extra room below the glyphs: a tight line height (no Android font
+	// padding) centres the text in the pill
+	versionOld: { ...PIXEL_LINE, color: colors.textSecondary },
+	versionNew: { ...PIXEL_LINE, color: colors.primary },
 	// 95% of the screen's width: wider than the drawer's padded column, centred on it
 	notes: {
 		width: Dimensions.get("window").width * 0.95,
@@ -203,9 +241,12 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.background,
 		borderRadius: 14,
 		padding: spacing.md,
+		paddingTop: spacing.md + HAND_OVERLAP / 2,
 		marginTop: spacing.lg,
 		gap: 6,
 	},
+	notesLabelRow: { flexDirection: "row", alignItems: "baseline", gap: spacing.sm },
+	notesVersion: { fontFamily: fonts.vt323, fontSize: 18, color: colors.primary },
 	notesLabel: { fontFamily: fonts.vt323, fontSize: 18, letterSpacing: 1, color: colors.primary, opacity: 0.75 },
 	notesText: { fontFamily: fonts.vt323, fontSize: 20, lineHeight: 22, color: colors.primary },
 	statusArea: { height: 44, justifyContent: "center", marginTop: spacing.md, gap: spacing.sm },
