@@ -155,12 +155,12 @@ async function verifySession(user: User) {
  */
 function AppContent() {
 	useReleaseWatch();
-	// A test update push (functions sendTestPush) while the app is open: show it here too (the
-	// background handler in index.ts only runs with the app in the background / closed)
+	// An update push while the app is open: notify here too (the background handler in index.ts only
+	// runs with the app in the background / closed, and the drawer only comes up on launch)
 	useEffect(
 		() =>
 			onMessage(getMessaging(), (message) => {
-				if (message.data?.test === "1") handleUpdateMessage(message);
+				handleUpdateMessage(message);
 			}),
 		[],
 	);
