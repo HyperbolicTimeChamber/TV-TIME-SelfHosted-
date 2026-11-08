@@ -108,7 +108,7 @@ export default function UpdateSheet({ visible, release, forced }: Readonly<Props
 			? "The download failed. Check your connection and try again."
 			: forced
 				? "This version no longer works with Watchloom's servers, so syncing and marking " +
-					"episodes are paused. Upgrade to keep tracking; your watchlist and history are safe."
+					"episodes are paused. Upgrade to keep tracking.\nYour watchlist and history are safe."
 				: release.size
 					? `${line} · ${mb(release.size)} MB`
 					: line;
