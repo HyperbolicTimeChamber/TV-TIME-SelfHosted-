@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
 	statusArea: { height: 32, justifyContent: "center", marginTop: spacing.sm },
 	statusAreaReady: { height: spacing.md },
 	// Forced: the explanation needs a few lines
-	statusAreaLong: { height: undefined, minHeight: 32, paddingVertical: spacing.xs },
+	statusAreaLong: { height: undefined, minHeight: 32, paddingVertical: spacing.xs, marginBottom: spacing.md },
 	// Same height and margin as the button it stands in for
 	barSlot: { height: 52, justifyContent: "center", marginTop: spacing.sm },
 	track: { height: 8, borderRadius: 4, backgroundColor: colors.surfaceLight, overflow: "hidden" },
