@@ -7,6 +7,10 @@ export const SNAP_INTERVAL = CARD_WIDTH + CARD_GAP;
 export const SIDE_PADDING = Math.round((SCREEN_WIDTH - CARD_WIDTH) / 2);
 export const CARD_HEIGHT = Math.min(Dimensions.get("window").height * 0.55, 460);
 export const IMAGE_HEIGHT = 180;
+/** The text block rides up over the image's fade by this much */
+export const META_OVERLAP = -65;
+/** Cards grow to fit the longest description, up to this (then the description scrolls) */
+export const MAX_CARD_HEIGHT = Math.round(Dimensions.get("window").height * 0.82);
 /** Wait this long (ms) for a still / backdrop before the show's poster stands in (same wait as title logos → name) */
 export const POSTER_FALLBACK_DELAY_MS = 2000;
 

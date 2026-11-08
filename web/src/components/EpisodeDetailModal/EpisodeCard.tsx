@@ -5,8 +5,12 @@ import { tmdbBackdropUri, tmdbPosterUri, tmdbStillUri } from "@app/hooks/useTmdb
 import { formatDate } from "./helpers";
 import styles from "./styles/EpisodeDetailModal.module.scss";
 import SkeletonBlock from "../SkeletonBlock";
+import { WhereToWatchCompact, WhereToWatchPlacement } from "../WhereToWatch";
+import { MediaType } from "@app/enums";
 
 interface Props {
+	/** The show's TMDB id: its "Watch on" row above the buttons */
+	tmdbId?: number;
 	ep: CarouselEpisode;
 	showTitle: string;
 	showPosterPath: string | null;
@@ -114,6 +118,19 @@ function EpisodeCard(p: Props) {
 					</p>
 				)}
 			</div>
+
+			{/* "Watch on": the show's services, small, right under the description (nothing when none) */}
+			{p.tmdbId != null && (
+				<div className={styles.watchOn}>
+					<WhereToWatchCompact
+						tmdbId={p.tmdbId}
+						mediaType={MediaType.TV}
+						title={p.showTitle}
+						placement={WhereToWatchPlacement.MODAL}
+					/>
+				</div>
+			)}
+			<div className={styles.cardSpacer} />
 
 			{!p.readOnly &&
 				(p.isWatched ? (
