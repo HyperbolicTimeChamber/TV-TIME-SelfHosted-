@@ -103,7 +103,8 @@ function UpcomingRow({
 export default function UpcomingTab() {
 	const navigate = useNavigate();
 	const goToShow = useCallback(
-		(tmdbShowId: number) => navigate(showPath(MediaType.TV, tmdbShowId)),
+		(tmdbShowId: number, mediaType: MediaType = MediaType.TV) =>
+			navigate(showPath(mediaType, tmdbShowId)),
 		[navigate],
 	);
 	const u = useUpcomingScreen(goToShow);
@@ -209,9 +210,10 @@ export default function UpcomingTab() {
 					u.drawerShow?.tmdbId
 						? () => {
 								const id = u.drawerShow!.tmdbId!;
+								const mediaType = u.drawerShow!.mediaType;
 								u.setDrawerVisible(false);
 								u.setDrawerShow(null);
-								goToShow(id);
+								goToShow(id, mediaType);
 							}
 						: undefined
 				}
