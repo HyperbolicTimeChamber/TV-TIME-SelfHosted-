@@ -593,6 +593,15 @@ export const MIN_BUILD_FIELD: Record<ReleaseChannel, string> = {
  *  secrets, and the login screen checks for updates too) */
 export const RELEASE_CONFIG_DOC = ["config", "release"] as const;
 
+/** Android package id (app.json) — the web's "Open in app" intent targets it */
+export const ANDROID_APP_PACKAGE = "com.tvtimerevived.app";
+/** GitHub's newest production release (public repo, no key): the web downloads its APK */
+export const LATEST_RELEASE_API =
+	"https://api.github.com/repos/HyperbolicTimeChamber/TV-TIME-SelfHosted-/releases/latest";
+/** Its page — the fallback while the APK's address isn't known yet */
+export const LATEST_RELEASE_PAGE =
+	"https://github.com/HyperbolicTimeChamber/TV-TIME-SelfHosted-/releases/latest";
+
 /** The channel this build checks for updates: CI's, or dev in a local dev build (test flow) */
 export const UPDATE_CHANNEL: ReleaseChannel | null =
 	(Object.values(ReleaseChannel) as string[]).includes(RELEASE_CHANNEL)
