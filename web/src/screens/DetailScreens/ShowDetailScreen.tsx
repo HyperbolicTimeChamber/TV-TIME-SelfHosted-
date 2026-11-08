@@ -34,6 +34,7 @@ import LocalReleaseLine from "../../components/LocalReleaseLine";
 import { releaseStatLabel } from "@app/utils/localRelease";
 import { useTitleExtras } from "@app/hooks/useTitleExtras";
 import StudiosRow from "../../components/StudiosRow";
+import SkeletonBlock from "../../components/SkeletonBlock";
 
 const CREDIT_AVATAR_PX = 44;
 
@@ -56,7 +57,7 @@ export default function ShowDetailScreen() {
 	const { message } = AntApp.useApp();
 	const d = useShowDetailActions(tmdbId, mediaType);
 	// The directors' / writers' photos for the credits (every extras section reads the same query)
-	const { data: extras } = useTitleExtras(tmdbId, mediaType);
+	const { data: extras, isPending: extrasPending } = useTitleExtras(tmdbId, mediaType);
 	// Catalog's logo, else the one that came with the details (same request as the page data)
 	const logoPath =
 		getCachedCatalogShow(tmdbId, mediaType)?.logoPath ??
@@ -285,10 +286,10 @@ export default function ShowDetailScreen() {
 					) : null}
 					{show.vote_average ? <Stat value={show.vote_average.toFixed(1)} label="RATING" /> : null}
 				</div>
+				<p className={styles.overview}>{show.overview}</p>
 				{mediaType === MediaType.MOVIE && (
 					<LocalReleaseLine tmdbId={tmdbId} className={styles.localRelease} />
 				)}
-				<p className={styles.overview}>{show.overview}</p>
 
 				{mediaType === MediaType.MOVIE && (
 					<>
@@ -310,13 +311,7 @@ export default function ShowDetailScreen() {
 										<div className={styles.creditGrid}>
 											{people.map((m) => (
 												<div key={m.key} className={styles.creditPerson}>
-													<span className={styles.creditAvatar}>
-														{m.profile ? (
-															<img src={tmdbPosterUri(m.profile, CREDIT_AVATAR_PX)} alt="" />
-														) : (
-															<IoPerson size={22} />
-														)}
-													</span>
+													<CreditAvatar profile={m.profile} pending={extrasPending} />
 													<span className={styles.creditNames}>{m.name}</span>
 												</div>
 											))}
@@ -488,6 +483,31 @@ export default function ShowDetailScreen() {
 				</>
 			)}
 		</div>
+	);
+}
+
+/** Shimmers until there's something to show; a person icon only when they really have no photo */
+function CreditAvatar({ profile, pending }: { profile: string | null; pending: boolean }) {
+	const [loaded, setLoaded] = useState(false);
+	const shimmering = pending || (!!profile && !loaded);
+	return (
+		<span className={styles.creditAvatar}>
+			{shimmering && <SkeletonBlock className={styles.creditAvatarShimmer} />}
+			{profile ? (
+				<img
+					src={tmdbPosterUri(profile, CREDIT_AVATAR_PX)}
+					alt=""
+					// Already in the browser's cache: onLoad may have fired before React attached it
+					ref={(img) => {
+						if (img?.complete) setLoaded(true);
+					}}
+					onLoad={() => setLoaded(true)}
+					onError={() => setLoaded(true)}
+				/>
+			) : shimmering ? null : (
+				<IoPerson size={22} />
+			)}
+		</span>
 	);
 }
 
