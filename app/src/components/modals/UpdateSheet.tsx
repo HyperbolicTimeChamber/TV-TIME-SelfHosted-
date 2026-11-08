@@ -119,7 +119,7 @@ export default function UpdateSheet({ visible, release, forced }: Readonly<Props
 						<View style={styles.notes}>
 							<View style={styles.notesLabelRow}>
 								<Text style={styles.notesLabel}>WHAT'S NEW</Text>
-								<Text style={styles.notesVersion}>V {release.version}</Text>
+								<Text style={styles.notesVersion}>V{release.version}</Text>
 							</View>
 							<Text style={styles.notesText} numberOfLines={5}>
 								{release.notes}
@@ -240,8 +240,8 @@ const styles = StyleSheet.create({
 		alignSelf: "center",
 		backgroundColor: colors.background,
 		borderRadius: 14,
+		// The hand overlaps the top padding; the text keeps its usual place
 		padding: spacing.md,
-		paddingTop: spacing.md + HAND_OVERLAP / 2,
 		marginTop: spacing.lg,
 		gap: 6,
 	},
