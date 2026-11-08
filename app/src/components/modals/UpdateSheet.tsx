@@ -16,8 +16,8 @@ import { exitApp, type ChannelRelease } from "../../services/appUpdate";
 import { UpdatePhase, useUpdateStore } from "../../stores/updateStore";
 
 const UPGRADE = require("../../../assets/upgrade.webp");
-/** upgrade.webp's own proportions (640 × 548) */
-const UPGRADE_RATIO = 640 / 548;
+/** upgrade.webp's own proportions (1734 × 1486) */
+const UPGRADE_RATIO = 1734 / 1486;
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 /** Progress bar catches up with each (coalesced) progress event over this long */
 const BAR_MS = 400;
@@ -38,10 +38,10 @@ interface Props {
 const mb = (bytes: number) => (bytes / 1_048_576).toFixed(1);
 
 /**
- * "Update available" drawer: the version step as a pill (V old → V new), the notes, then one red
- * Update button (download with a progress bar in the same spot → Android's installer) and a
- * quieter Not Now. The status area keeps its height through every state, so the drawer never
- * resizes. Forced: Not Now becomes Close App, and back / drag down / tapping outside close the app
+ * "It's Time for an Upgrade" drawer: the Upgrade art, the version step as a pill (V old → V new),
+ * then one red Update button (download with a progress bar in the same spot → Android's
+ * installer) and a quieter Not Now. Once downloaded (Install) it shows the release notes too.
+ * Forced: Not Now becomes Close App, and back / drag down / tapping outside close the app
  */
 export default function UpdateSheet({ visible, release, forced }: Readonly<Props>) {
 	const { phase, progress, skip, startDownload, cancelDownload, install } = useUpdateStore();
@@ -82,8 +82,8 @@ export default function UpdateSheet({ visible, release, forced }: Readonly<Props
 			{() => (
 				<View style={styles.body}>
 					<View style={styles.header}>
-						<Image source={UPGRADE} style={styles.hero} contentFit="contain" />
 						<Text style={styles.title}>It's Time for an Upgrade</Text>
+						<Image source={UPGRADE} style={styles.hero} contentFit="contain" />
 						<View style={styles.versionPill}>
 							<Text style={styles.versionOld}>V {APP_VERSION}</Text>
 							<Text style={styles.versionArrow}>→</Text>
@@ -91,7 +91,8 @@ export default function UpdateSheet({ visible, release, forced }: Readonly<Props
 						</View>
 					</View>
 
-					{release.notes ? (
+					{/* The notes once it's downloaded: what the Install brings */}
+					{release.notes && phase === UpdatePhase.READY ? (
 						<View style={styles.notes}>
 							<Text style={styles.notesLabel}>WHAT'S NEW</Text>
 							<Text style={styles.notesText} numberOfLines={5}>
@@ -195,14 +196,14 @@ const styles = StyleSheet.create({
 	notes: {
 		width: Dimensions.get("window").width * 0.95,
 		alignSelf: "center",
-		backgroundColor: colors.surfaceLight,
+		backgroundColor: tint(colors.primary, 0.14),
 		borderRadius: 14,
 		padding: spacing.md,
 		marginTop: spacing.lg,
 		gap: 6,
 	},
-	notesLabel: { ...typography.caption, fontSize: 11, fontWeight: "700", letterSpacing: 1, color: colors.textMuted },
-	notesText: { fontFamily: fonts.vt323, fontSize: 20, lineHeight: 22, color: colors.textSecondary },
+	notesLabel: { fontFamily: fonts.vt323, fontSize: 18, letterSpacing: 1, color: colors.primary, opacity: 0.75 },
+	notesText: { fontFamily: fonts.vt323, fontSize: 20, lineHeight: 22, color: colors.primary },
 	statusArea: { height: 44, justifyContent: "center", marginTop: spacing.md, gap: spacing.sm },
 	track: { height: 6, borderRadius: 3, backgroundColor: colors.surfaceLight, overflow: "hidden" },
 	// Idle: the track keeps its space but isn't drawn (no reflow when the download starts)
@@ -212,7 +213,7 @@ const styles = StyleSheet.create({
 	statusError: { color: colors.destructiveRed },
 	button: {
 		height: 52,
-		borderRadius: 14,
+		borderRadius: 26,
 		backgroundColor: colors.primary,
 		alignItems: "center",
 		justifyContent: "center",
