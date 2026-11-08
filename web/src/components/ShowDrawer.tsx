@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { WhereToWatchCompact, WhereToWatchPlacement } from "./WhereToWatch";
 import { formatIsoDate } from "@app/utils/format";
+import { MediaType } from "@app/enums";
+import LocalReleaseLine from "./LocalReleaseLine";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { Spin } from "antd";
@@ -183,6 +185,9 @@ export default function ShowDrawer({
 													</span>
 												)}
 											</div>
+											{show.mediaType === MediaType.MOVIE && show.tmdbId ? (
+												<LocalReleaseLine tmdbId={show.tmdbId} className={styles.localRelease} />
+											) : null}
 											{show.overview === null ? (
 												<div className={styles.overviewSkeleton}>
 													<SkeletonBlock className={styles.skeleton} />

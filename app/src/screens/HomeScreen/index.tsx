@@ -1,13 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import {
-	AppState,
-	View,
-	Text,
-	TouchableOpacity,
-	StyleSheet,
-	useWindowDimensions,
-} from "react-native";
+import { AppState, View, StyleSheet, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
 	CommonActions,
@@ -17,10 +10,12 @@ import {
 	type RouteProp,
 } from "@react-navigation/native";
 import Animated, {
+	interpolateColor,
 	runOnJS,
 	useAnimatedStyle,
 	useSharedValue,
 	withTiming,
+	type SharedValue,
 } from "react-native-reanimated";
 import { colors } from "../../theme";
 import { HomeStackParamList, Route } from "../../types";
@@ -45,6 +40,57 @@ const PRELOAD_START_MS = 4000;
 const PRELOAD_GAP_MS = 1500;
 /** Upcoming pre-mounts this long after Home, once JS is idle — mounting it mid-drag janked the slide */
 const UPCOMING_MOUNT_MS = 1500;
+
+const REPAINT_AFTER_SLIDE_MS = 100;
+const REPAINT_NUDGE_PX = 0.5;
+const REPAINT_MS = 50;
+
+/**
+ * Sends the row's position to its views again. The page and underline's transforms go through
+ * Reanimated's synchronous update, and one can be lost (seen after a resume and on Home's first
+ * mount: the label, updated by the commit path, moved while they stayed). Assigning the same value
+ * writes nothing, so the position steps off by half a pixel and eases back over a few frames
+ */
+function repaintRow(pos: SharedValue<number>, to: number) {
+	pos.value = to + REPAINT_NUDGE_PX;
+	pos.value = withTiming(to, { duration: REPAINT_MS });
+}
+
+/** The tab being pressed (its label dims), NO_TAB otherwise */
+const NO_TAB = -1;
+const PRESSED_OPACITY = 0.7;
+
+/**
+ * A tab's label: active colour from the row's position, on the UI thread like the row and the
+ * underline. Read from React state it stayed on the old tab for as long as JS was busy, under an
+ * underline and page that had already moved
+ */
+function TabLabel({
+	label,
+	tabIndex,
+	pos,
+	width,
+	pressedTab,
+}: Readonly<{
+	label: string;
+	tabIndex: number;
+	pos: SharedValue<number>;
+	width: number;
+	pressedTab: SharedValue<number>;
+}>) {
+	const animated = useAnimatedStyle(() => ({
+		color: interpolateColor(
+			pos.value,
+			// A zero width would divide by zero and crash the worklet
+			[0, Math.max(1, width)],
+			tabIndex === 0
+				? [colors.primary, colors.textSecondary]
+				: [colors.textSecondary, colors.primary],
+		),
+		opacity: pressedTab.value === tabIndex ? PRESSED_OPACITY : 1,
+	}));
+	return <Animated.Text style={[styles.tabLabel, animated]}>{label}</Animated.Text>;
+}
 
 export default function HomeScreen() {
 	const { top } = useSafeAreaInsets();
@@ -119,10 +165,19 @@ export default function HomeScreen() {
 			dragging.value = false;
 			indexSV.value = target.current / Math.max(1, width);
 			settle.value = target.current;
-			pos.value = target.current;
+			repaintRow(pos, target.current);
 		});
 		return () => sub.remove();
 	}, [pos, dragging, settle, indexSV, width]);
+
+	// Once a tab change has settled, send its position again (see repaintRow)
+	useEffect(() => {
+		const timer = setTimeout(() => {
+			const to = index * width;
+			if (!dragging.value && settle.value === to) repaintRow(pos, to);
+		}, SLIDE_MS + REPAINT_AFTER_SLIDE_MS);
+		return () => clearTimeout(timer);
+	}, [index, width, pos, dragging, settle]);
 
 	useEffect(() => {
 		const parent = navigation.getParent();
@@ -148,18 +203,36 @@ export default function HomeScreen() {
 		parent.setOptions({ swipeEnabled: focused && tab === Route.UPCOMING });
 	}, [navigation, focused, tab]);
 
-	// Tab tap: start the slide on the UI thread now — the state change (labels, swipe options)
-	// follows without holding up the animation
-	const goTo = useCallback(
-		(key: HomeTab) => {
-			const i = TABS.findIndex((t) => t.key === key);
-			indexSV.value = i;
-			settle.value = i * width;
-			pos.value = withTiming(i * width, { duration: SLIDE_MS });
-			if (key === Route.UPCOMING) setUpcomingOpened(true);
-			setTab(key);
-		},
-		[pos, settle, width, indexSV],
+	// What a tab change needs from React; the slide itself never waits for it
+	const applyTab = useCallback((key: HomeTab) => {
+		if (key === Route.UPCOMING) setUpcomingOpened(true);
+		setTab(key);
+	}, []);
+
+	// Tab taps are recognised on the UI thread: with touchables a busy JS thread swallowed them
+	const pressedTab = useSharedValue(NO_TAB);
+	const tabTaps = useMemo(
+		() =>
+			TABS.map((t, i) =>
+				Gesture.Tap()
+					.onBegin(() => {
+						"worklet";
+						pressedTab.value = i;
+					})
+					.onEnd((_e, success) => {
+						"worklet";
+						if (!success) return;
+						indexSV.value = i;
+						settle.value = i * width;
+						pos.value = withTiming(i * width, { duration: SLIDE_MS });
+						runOnJS(applyTab)(t.key);
+					})
+					.onFinalize(() => {
+						"worklet";
+						pressedTab.value = NO_TAB;
+					}),
+			),
+		[applyTab, indexSV, pos, pressedTab, settle, width],
 	);
 
 	// Built once. Rebuilding a gesture the moment a drag ends (which `index` in the deps did)
@@ -259,15 +332,25 @@ export default function HomeScreen() {
 	return (
 		<View style={styles.container}>
 			<View style={[styles.tabBar, { paddingTop: top }]}>
-				{TABS.map((t) => (
-					<TouchableOpacity
-						key={t.key}
-						style={styles.tab}
-						onPress={() => goTo(t.key)}
-						activeOpacity={0.7}
-					>
-						<Text style={[styles.tabLabel, t.key === tab && styles.tabLabelActive]}>{t.label}</Text>
-					</TouchableOpacity>
+				{TABS.map((t, i) => (
+					<GestureDetector key={t.key} gesture={tabTaps[i]}>
+						<View
+							style={styles.tab}
+							accessible
+							accessibilityRole="tab"
+							accessibilityLabel={t.label}
+							accessibilityState={{ selected: t.key === tab }}
+							onAccessibilityTap={() => applyTab(t.key)}
+						>
+							<TabLabel
+								label={t.label}
+								tabIndex={i}
+								pos={pos}
+								width={width}
+								pressedTab={pressedTab}
+							/>
+						</View>
+					</GestureDetector>
 				))}
 				<Animated.View style={[styles.indicator, { width: width / TABS.length }, indicator]} />
 			</View>
@@ -294,7 +377,6 @@ const styles = StyleSheet.create({
 		letterSpacing: 1,
 		color: colors.textSecondary,
 	},
-	tabLabelActive: { color: colors.primary },
 	indicator: {
 		position: "absolute",
 		bottom: 0,

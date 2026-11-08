@@ -5,8 +5,8 @@ import { trackApi } from "./analytics";
 import { foregroundCall } from "./callQueue";
 
 /**
- * A title's info page extras (featured cast, directors, studios, the country's Where to Watch)
- * from the titleExtras CF: Firestore first; whatever's missing comes from TMDB in one request and
+ * A title's info page extras (featured cast, directors, studios, the country's Where to Watch,
+ * a movie's release date there) from the titleExtras CF: Firestore first; whatever's missing comes from TMDB in one request and
  * is stored. Works signed in or not
  */
 export function fetchTitleExtras(

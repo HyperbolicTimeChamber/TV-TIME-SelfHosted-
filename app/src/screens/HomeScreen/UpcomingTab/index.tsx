@@ -23,10 +23,10 @@ export default function UpcomingTab() {
 	const navigation = useNavigation<NavProp>();
 
 	const handleNavigateToShow = useCallback(
-		(tmdbShowId: number) => {
+		(tmdbShowId: number, mediaType: MediaType = MediaType.TV) => {
 			navigation.navigate(Route.SHOW_DETAIL, {
 				tmdbId: tmdbShowId,
-				mediaType: MediaType.TV,
+				mediaType,
 			});
 		},
 		[navigation],
@@ -165,9 +165,10 @@ export default function UpcomingTab() {
 					drawerShow?.tmdbId
 						? () => {
 								const id = drawerShow.tmdbId!;
+								const mediaType = drawerShow.mediaType;
 								setDrawerVisible(false);
 								setDrawerShow(null);
-								handleNavigateToShow(id);
+								handleNavigateToShow(id, mediaType);
 							}
 						: undefined
 				}

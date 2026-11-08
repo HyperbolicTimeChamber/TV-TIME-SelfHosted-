@@ -29,7 +29,7 @@ async function lookup(tmdbId: number, mediaType: MediaType, region: string): Pro
   const db = getFirestore();
   const { ref, data } = await readStoredExtras(db, showDocId(tmdbId, mediaType));
   const missing = missingExtras(data, mediaType, region);
-  if (!missing.credits && !missing.studios && !missing.providers) {
+  if (!missing.credits && !missing.studios && !missing.providers && !missing.release) {
     return toTitleExtras(data, region);
   }
   await limiter.acquire();
@@ -47,7 +47,7 @@ async function lookup(tmdbId: number, mediaType: MediaType, region: string): Pro
 
 /**
  * Info page extras in one call: featured cast (a movie's leads / a show's regulars), directors,
- * studios and the viewer's country's Where to Watch.
+ * studios, the viewer's country's Where to Watch and a movie's release date there.
  * - Public (info pages are): guests rate limited per IP, users per uid
  * - Firestore first (catalog doc, else titleExtras/); whatever's missing comes from one TMDB
  *   request and is written in one batch (empty answers too — never asked twice); the full cast

@@ -6,6 +6,7 @@ import { fetchTitleBundle, type TmdbTitleBundle } from "./fetch";
 import { writeExtras } from "./store";
 import {
   featuredCast,
+  localReleaseDate,
   normalizeCast,
   normalizeDirectors,
   normalizeStudios,
@@ -21,10 +22,11 @@ export function missingExtras(data: TitleExtrasFields, mediaType: MediaType, reg
       (mediaType === MediaType.MOVIE && (!data.directors || !data.writers)),
     studios: !data.studioLogos,
     providers: !data.watchProviders?.[region],
+    release: mediaType === MediaType.MOVIE && data.localReleases?.[region] === undefined,
   };
 }
 
-/** The extras fields a TMDB bundle gives (credits / studios / one country's providers) */
+/** The extras fields a TMDB bundle gives (credits / studios / one country's providers + release) */
 export function extrasFromBundle(
   bundle: TmdbTitleBundle,
   mediaType: MediaType,
@@ -47,6 +49,9 @@ export function extrasFromBundle(
   if (region && bundle["watch/providers"]) {
     fields.watchProviders = { [region]: normalizeRegion(bundle["watch/providers"].results?.[region]) };
   }
+  if (region && bundle.release_dates) {
+    fields.localReleases = { [region]: localReleaseDate(bundle.release_dates.results, region) };
+  }
   return { fields, fullCast };
 }
 
@@ -65,7 +70,11 @@ export async function fillExtras(
 ): Promise<TitleExtrasFields> {
   const missing = missingExtras(data, mediaType, region);
   const bundle = await fetchTitleBundle(apiKey, tmdbId, mediaType, missing);
-  const { fields, fullCast } = extrasFromBundle(bundle, mediaType, missing.providers ? region : null);
+  const { fields, fullCast } = extrasFromBundle(
+    bundle,
+    mediaType,
+    missing.providers || missing.release ? region : null,
+  );
   // Only what was missing is written (studios come with every bundle — kept if already stored)
   const write: TitleExtrasFields & Record<string, unknown> = {};
   if (missing.credits) {
@@ -80,11 +89,13 @@ export async function fillExtras(
     write.watchProviders = fields.watchProviders;
     write.watchRegions = FieldValue.arrayUnion(region) as unknown as string[];
   }
+  if (missing.release && fields.localReleases) write.localReleases = fields.localReleases;
   await writeExtras(db, ref, write, missing.credits ? fullCast : undefined);
   return {
     ...data,
     ...write,
     watchProviders: { ...data.watchProviders, ...fields.watchProviders },
+    localReleases: { ...data.localReleases, ...fields.localReleases },
   };
 }
 
@@ -93,6 +104,7 @@ export function toTitleExtras(data: TitleExtrasFields, region: string): TitleExt
   return {
     cast: data.cast ?? [],
     castTotal: data.castTotal ?? data.cast?.length ?? 0,
+    localRelease: data.localReleases?.[region] ?? null,
     directors: data.directors ?? [],
     writers: data.writers ?? [],
     studios: data.studioLogos ?? [],
