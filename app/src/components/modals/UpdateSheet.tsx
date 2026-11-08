@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
 import Reanimated, {
 	Easing,
@@ -14,6 +14,7 @@ import { colors, fonts, spacing, tint, typography } from "../../theme";
 import { APP_VERSION } from "../../utils/appVersion";
 import { exitApp, type ChannelRelease } from "../../services/appUpdate";
 import { UpdatePhase, useUpdateStore } from "../../stores/updateStore";
+import { UPGRADE_LINES } from "../../enums";
 
 const UPGRADE = require("../../../assets/upgrade.webp");
 /** upgrade.webp's own proportions (1734 × 1486) */
@@ -46,6 +47,9 @@ const mb = (bytes: number) => (bytes / 1_048_576).toFixed(1);
 export default function UpdateSheet({ visible, release, forced }: Readonly<Props>) {
 	const { phase, progress, skip, startDownload, cancelDownload, install } = useUpdateStore();
 	const downloading = phase === UpdatePhase.DOWNLOADING;
+	const ready = phase === UpdatePhase.READY;
+	// One line per opening, kept while it's open
+	const [line] = useState(() => UPGRADE_LINES[Math.floor(Math.random() * UPGRADE_LINES.length)]);
 	const bar = useSharedValue(0);
 	useEffect(() => {
 		bar.value = withTiming(progress, { duration: BAR_MS, easing: EASE_OUT });
@@ -67,22 +71,20 @@ export default function UpdateSheet({ visible, release, forced }: Readonly<Props
 		? release.size
 			? `${mb(progress * release.size)} of ${mb(release.size)} MB`
 			: `${Math.round(progress * 100)}%`
-		: phase === UpdatePhase.READY
-			? "Downloaded — ready to install"
-			: phase === UpdatePhase.FAILED
-				? "The download failed. Check your connection and try again."
-				: forced
-					? "This version is no longer supported."
-					: release.size
-						? `${mb(release.size)} MB download`
-						: "A new version is ready.";
+		: phase === UpdatePhase.FAILED
+			? "The download failed. Check your connection and try again."
+			: forced
+				? "This version is no longer supported."
+				: release.size
+					? `${line} · ${mb(release.size)} MB`
+					: line;
 
 	return (
 		<BottomSheet visible={visible} onClose={dismiss}>
 			{() => (
 				<View style={styles.body}>
 					<View style={styles.header}>
-						<Text style={styles.title}>It's Time for an Upgrade</Text>
+						<Text style={styles.title}>{ready ? "Upgrade Ready" : "It's Time for an Upgrade"}</Text>
 						<Image source={UPGRADE} style={styles.hero} contentFit="contain" />
 						<View style={styles.versionPill}>
 							<Text style={styles.versionOld}>V {APP_VERSION}</Text>
@@ -92,7 +94,7 @@ export default function UpdateSheet({ visible, release, forced }: Readonly<Props
 					</View>
 
 					{/* The notes once it's downloaded: what the Install brings */}
-					{release.notes && phase === UpdatePhase.READY ? (
+					{release.notes && ready ? (
 						<View style={styles.notes}>
 							<Text style={styles.notesLabel}>WHAT'S NEW</Text>
 							<Text style={styles.notesText} numberOfLines={5}>
@@ -101,18 +103,21 @@ export default function UpdateSheet({ visible, release, forced }: Readonly<Props
 						</View>
 					) : null}
 
-					{/* Fixed-height status: a track while downloading, one line otherwise */}
-					<View style={styles.statusArea}>
+					{/* Fixed-height status: a track while downloading, one line otherwise; none once
+					    downloaded (the notes and Install say it) */}
+					<View style={[styles.statusArea, ready && styles.statusAreaReady]}>
 						<View style={[styles.track, !downloading && styles.trackIdle]}>
 							<Reanimated.View style={[styles.fill, barStyle]} />
 						</View>
-						<Reanimated.Text
-							key={downloading ? "progress" : phase}
-							entering={FadeIn.duration(SWAP_MS)}
-							style={[styles.status, phase === UpdatePhase.FAILED && styles.statusError]}
-						>
-							{status}
-						</Reanimated.Text>
+						{ready ? null : (
+							<Reanimated.Text
+								key={downloading ? "progress" : phase}
+								entering={FadeIn.duration(SWAP_MS)}
+								style={[styles.status, phase === UpdatePhase.FAILED && styles.statusError]}
+							>
+								{status}
+							</Reanimated.Text>
+						)}
 					</View>
 
 					{/* Same two slots in every state, so the drawer never changes height */}
@@ -196,7 +201,7 @@ const styles = StyleSheet.create({
 	notes: {
 		width: Dimensions.get("window").width * 0.95,
 		alignSelf: "center",
-		backgroundColor: tint(colors.primary, 0.14),
+		backgroundColor: colors.background,
 		borderRadius: 14,
 		padding: spacing.md,
 		marginTop: spacing.lg,
@@ -205,6 +210,7 @@ const styles = StyleSheet.create({
 	notesLabel: { fontFamily: fonts.vt323, fontSize: 18, letterSpacing: 1, color: colors.primary, opacity: 0.75 },
 	notesText: { fontFamily: fonts.vt323, fontSize: 20, lineHeight: 22, color: colors.primary },
 	statusArea: { height: 44, justifyContent: "center", marginTop: spacing.md, gap: spacing.sm },
+	statusAreaReady: { height: spacing.md },
 	track: { height: 6, borderRadius: 3, backgroundColor: colors.surfaceLight, overflow: "hidden" },
 	// Idle: the track keeps its space but isn't drawn (no reflow when the download starts)
 	trackIdle: { opacity: 0 },

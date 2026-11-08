@@ -247,6 +247,16 @@ export const PROVIDER_LINKS: Record<
 /** Where to Watch: taps within this long of opening a service are ignored (no double open) */
 export const PROVIDER_OPEN_GUARD_MS = 1000;
 
+/** Update drawer, before the download: one of these (Upgrade's voice) beside the download size */
+export const UPGRADE_LINES = [
+	"Time to merge with some new tech",
+	"Your phone's due for an alien tune-up",
+	"The latest tech is waiting for me",
+	"Every gadget deserves an upgrade",
+	"New code, same Upgrade",
+	"Let me give this app a little boost",
+] as const;
+
 /** Where the viewer's country comes from: an IP lookup (no key, no permission prompt) */
 export const COUNTRY_LOOKUP_URL = "https://api.country.is/";
 /** The IP lookup is given this long before the device locale's region stands in */
