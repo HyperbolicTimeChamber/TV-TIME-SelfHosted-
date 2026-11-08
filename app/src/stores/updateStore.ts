@@ -2,7 +2,14 @@ import { AppState } from "react-native";
 import { create } from "zustand";
 import UpdateNotification from "../../modules/update-notification";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { CacheKey } from "../enums";
+import { CacheKey, UpdateDownloadResult, UpdateDrawerAction } from "../enums";
+import {
+	rememberDrawerDownload,
+	trackUpdateDownloadFinished,
+	trackUpdateDrawerAction,
+	type UpdateEventProps,
+} from "../services/mixpanel";
+import { APP_VERSION } from "../utils/appVersion";
 import {
 	INSTALLED_BUILD,
 	downloadApk,
@@ -67,6 +74,31 @@ export function isForced(s: Pick<UpdateState, "release" | "simulation">): boolea
 	return !!r?.minBuild && INSTALLED_BUILD > 0 && INSTALLED_BUILD < r.minBuild;
 }
 
+/** Mixpanel's properties for the build on offer */
+export function updateEventProps(
+	s: Pick<UpdateState, "release" | "simulation">,
+): UpdateEventProps | null {
+	const r = offeredRelease(s);
+	if (!r) return null;
+	return {
+		from_version: APP_VERSION,
+		from_build: INSTALLED_BUILD,
+		to_version: r.version,
+		to_build: r.build,
+		forced: isForced(s),
+	};
+}
+
+function trackAction(action: UpdateDrawerAction, s: Pick<UpdateState, "release" | "simulation">) {
+	const props = updateEventProps(s);
+	if (props) trackUpdateDrawerAction(action, props);
+}
+
+function trackFinished(result: UpdateDownloadResult, s: Pick<UpdateState, "release" | "simulation">) {
+	const props = updateEventProps(s);
+	if (props) trackUpdateDownloadFinished(result, props);
+}
+
 /** A newer build is out and wasn't put off ("Not now") — or it's forced */
 export function shouldOffer(s: UpdateState): boolean {
 	if (isForced(s)) return true;
@@ -99,6 +131,7 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
 
 	skip: () => {
 		const build = offeredRelease(get())?.build;
+		trackAction(UpdateDrawerAction.LATER, get());
 		set({ dismissed: true, skippedBuild: build ?? null });
 		if (build) AsyncStorage.setItem(CacheKey.UPDATE_SKIPPED_BUILD, String(build)).catch(() => {});
 	},
@@ -106,6 +139,11 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
 	startDownload: () => {
 		const release = offeredRelease(get());
 		if (!release || get().phase === UpdatePhase.DOWNLOADING) return;
+		trackAction(
+			get().phase === UpdatePhase.FAILED ? UpdateDrawerAction.RETRY : UpdateDrawerAction.UPGRADE_NOW,
+			get(),
+		);
+		rememberDrawerDownload(release.build);
 		set({ phase: UpdatePhase.DOWNLOADING, progress: 0, apkUri: null });
 		// Android build with the native module: its foreground service downloads (its card replaces
 		// the "available" notification and keeps going if the app is closed or swiped away); the
@@ -117,10 +155,15 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
 		handle = downloadApk(release, (progress) => set({ progress }));
 		handle.done
 			.then((apkUri) => {
+				trackFinished(UpdateDownloadResult.DONE, get());
 				set({ phase: UpdatePhase.READY, progress: 1, apkUri });
 				return installApk(apkUri);
 			})
 			.catch((err: Error) => {
+				trackFinished(
+					err.message === "cancelled" ? UpdateDownloadResult.CANCELLED : UpdateDownloadResult.FAILED,
+					get(),
+				);
 				// Cancelled: back to the offer; anything else: a retry button
 				set({ phase: err.message === "cancelled" ? UpdatePhase.IDLE : UpdatePhase.FAILED, progress: 0 });
 			})
@@ -130,6 +173,7 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
 	},
 
 	cancelDownload: () => {
+		trackAction(UpdateDrawerAction.CANCEL_DOWNLOAD, get());
 		if (UpdateNotification) UpdateNotification.cancelDownload();
 		handle?.cancel();
 		set({ phase: UpdatePhase.IDLE, progress: 0 });
@@ -137,6 +181,7 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
 
 	install: () => {
 		const { apkUri } = get();
+		if (apkUri) trackAction(UpdateDrawerAction.INSTALL, get());
 		if (apkUri) installApk(apkUri).catch(() => set({ phase: UpdatePhase.FAILED }));
 	},
 
@@ -160,13 +205,16 @@ UpdateNotification?.addListener("onDownload", (event) => {
 			store.setState({ phase: UpdatePhase.DOWNLOADING, progress: event.fraction });
 			break;
 		case "done":
+			trackFinished(UpdateDownloadResult.DONE, store.getState());
 			store.setState({ phase: UpdatePhase.READY, progress: 1, apkUri: event.uri });
 			if (AppState.currentState === "active") store.getState().install();
 			break;
 		case "failed":
+			trackFinished(UpdateDownloadResult.FAILED, store.getState());
 			store.setState({ phase: UpdatePhase.FAILED, progress: 0 });
 			break;
 		case "cancelled":
+			trackFinished(UpdateDownloadResult.CANCELLED, store.getState());
 			store.setState({ phase: UpdatePhase.IDLE, progress: 0 });
 			break;
 	}

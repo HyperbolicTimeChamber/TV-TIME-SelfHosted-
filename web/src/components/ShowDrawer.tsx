@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { WhereToWatchCompact, WhereToWatchPlacement } from "./WhereToWatch";
 import { formatIsoDate } from "@app/utils/format";
 import { MediaType } from "@app/enums";
-import LocalReleaseLine from "./LocalReleaseLine";
+import { LocalReleaseInline } from "./LocalReleaseLine";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { Spin } from "antd";
@@ -170,7 +170,15 @@ export default function ShowDrawer({
 										</div>
 										<div className={styles.content}>
 											<DrawerTitle key={`${show.mediaType}_${show.tmdbId}`} show={show} />
-											{meta && <p className={styles.meta}>{meta}</p>}
+											<div className={styles.metaRow}>
+												{meta && <p className={styles.meta}>{meta}</p>}
+												{show.mediaType === MediaType.MOVIE && show.tmdbId ? (
+													<LocalReleaseInline
+														tmdbId={show.tmdbId}
+														className={`${styles.meta} ${styles.metaRelease}`}
+													/>
+												) : null}
+											</div>
 											<div className={styles.genreRow}>
 												{show.genres == null ? (
 													<SkeletonBlock className={`${styles.skeleton} ${styles.skeletonShort}`} />
@@ -185,9 +193,6 @@ export default function ShowDrawer({
 													</span>
 												)}
 											</div>
-											{show.mediaType === MediaType.MOVIE && show.tmdbId ? (
-												<LocalReleaseLine tmdbId={show.tmdbId} className={styles.localRelease} />
-											) : null}
 											{show.overview === null ? (
 												<div className={styles.overviewSkeleton}>
 													<SkeletonBlock className={styles.skeleton} />

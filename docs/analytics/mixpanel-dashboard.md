@@ -51,6 +51,10 @@ clients send `clientPlatform` with every call), `system` (schedules, triggers, b
 | `episode_marked_tracked` | app, web | `show_id`, `episode_id`, `episode_number`, `month_utc` |
 | `episode_unwatched` | app, web | `show_id`, `episode_id`, `episode_number`, `watch_count_after`, `fully_unwatched`, `month_utc` |
 | `episode_tracking_session_completed` | app, web | `items_tracked_count`, `duration_seconds`, `show_count_covered`, `month_utc` |
+| `update_drawer_shown` | app (Android) | `from_version`, `from_build`, `to_version`, `to_build`, `forced` — once per build per run |
+| `update_drawer_action` | app (Android) | `action` (upgrade_now / retry / later / cancel_download / install / close_app) + the `update_drawer_shown` properties |
+| `update_download_finished` | app (Android) | `result` (done / failed / cancelled) + the same properties — only while the app's JS is running |
+| `app_updated` | app (Android) | `from_build`, `to_build`, `to_version`, `source` (drawer / notification_or_other) — first launch on a newer build |
 
 `firestore_ops` is aggregated to save event quota: clients send one event per minute of activity
 (and on background / tab hide); the backend sends one per function run or script. **Always chart

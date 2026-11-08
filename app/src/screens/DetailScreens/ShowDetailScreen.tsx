@@ -113,7 +113,7 @@ export default function ShowDetailScreen() {
 	}, [navigation]);
 	const swipeBack = useSwipeBackPop(navigation as never);
 	// The directors' photos for the credits (every extras section reads the same query)
-	const { data: extras } = useTitleExtras(tmdbId, mediaType);
+	const { data: extras, isPending: extrasPending } = useTitleExtras(tmdbId, mediaType);
 	const insets = useSafeAreaInsets();
 	// "Add to List" button (next to Share): blue once the title is in any list
 	const userId = useAuthStore((s) => s.user?.uid);
@@ -287,10 +287,10 @@ export default function ShowDetailScreen() {
 								</>
 							) : null}
 						</View>
+						<Text style={styles.overview}>{show.overview}</Text>
 						{mediaType === MediaType.MOVIE && (
 							<LocalReleaseLine tmdbId={tmdbId} style={styles.localRelease} />
 						)}
-						<Text style={styles.overview}>{show.overview}</Text>
 
 						{mediaType === MediaType.MOVIE && (
 							<>
@@ -299,6 +299,7 @@ export default function ShowDetailScreen() {
 									writers={writers}
 									directorPeople={extras?.directors}
 									writerPeople={extras?.writers}
+									photosPending={extrasPending}
 								/>
 								{/* Under the credits: the studios' logos */}
 								<StudiosRow tmdbId={tmdbId} mediaType={mediaType} bleed={spacing.lg} compact />
@@ -549,8 +550,8 @@ const styles = StyleSheet.create({
 		paddingHorizontal: spacing.lg,
 		paddingTop: spacing.xs,
 	},
-	// Lines up with the description below it
-	localRelease: { paddingHorizontal: spacing.sm, marginBottom: spacing.sm },
+	// Lines up with the description above it
+	localRelease: { paddingHorizontal: spacing.sm, marginTop: spacing.md },
 	overview: {
 		...typography.body,
 		color: colors.textSecondary,

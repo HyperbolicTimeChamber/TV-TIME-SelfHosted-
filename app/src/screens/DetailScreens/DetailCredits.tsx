@@ -1,8 +1,9 @@
-import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import React, { useState } from "react";
+import { Animated, View, Text, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { tmdbPosterUri } from "../../hooks/useTmdbImage";
+import { useSharedShimmer } from "../../components/SkeletonLine";
 import type { CrewMember } from "../../types";
 import { colors, spacing, typography } from "../../theme";
 
@@ -16,6 +17,8 @@ interface Props {
 	/** With photos (titleExtras CF); replace the names once here */
 	directorPeople?: CrewMember[];
 	writerPeople?: CrewMember[];
+	/** The photos are still being fetched (shimmer, not a person icon that looks final) */
+	photosPending?: boolean;
 }
 
 type Person = { key: string; name: string; profile: string | null };
@@ -25,27 +28,46 @@ const people = (names: string[], withPhotos?: CrewMember[]): Person[] =>
 		? withPhotos.map((p) => ({ key: String(p.id), name: p.name, profile: p.profile }))
 		: names.map((name) => ({ key: name, name, profile: null }));
 
+/** Shimmers until there's something to show; a person icon only when they really have no photo */
+function Avatar({ profile, pending }: Readonly<{ profile: string | null; pending: boolean }>) {
+	const shimmer = useSharedShimmer();
+	const [loaded, setLoaded] = useState(false);
+	const shimmering = pending || (!!profile && !loaded);
+	return (
+		<View style={styles.avatar}>
+			{shimmering ? (
+				<Animated.View style={[StyleSheet.absoluteFill, styles.avatarShimmer, { opacity: shimmer }]} />
+			) : null}
+			{profile ? (
+				<Image
+					source={{ uri: tmdbPosterUri(profile, AVATAR) }}
+					style={styles.avatarPhoto}
+					contentFit="cover"
+					transition={PHOTO_FADE_MS}
+					onLoad={() => setLoaded(true)}
+					onError={() => setLoaded(true)}
+					accessibilityIgnoresInvertColors
+				/>
+			) : shimmering ? null : (
+				<Ionicons name="person" size={22} color={colors.textMuted} />
+			)}
+		</View>
+	);
+}
+
 /** One credit: its red label over its people — photo + name each, two to a row */
-function CreditGroup({ label, members }: Readonly<{ label: string; members: Person[] }>) {
+function CreditGroup({
+	label,
+	members,
+	pending,
+}: Readonly<{ label: string; members: Person[]; pending: boolean }>) {
 	return (
 		<View>
 			<Text style={styles.creditLabel}>{label}</Text>
 			<View style={styles.grid}>
 				{members.map((m) => (
 					<View key={m.key} style={styles.person}>
-						<View style={styles.avatar}>
-							{m.profile ? (
-								<Image
-									source={{ uri: tmdbPosterUri(m.profile, AVATAR) }}
-									style={styles.avatarPhoto}
-									contentFit="cover"
-									transition={PHOTO_FADE_MS}
-									accessibilityIgnoresInvertColors
-								/>
-							) : (
-								<Ionicons name="person" size={22} color={colors.textMuted} />
-							)}
-						</View>
+						<Avatar profile={m.profile} pending={pending} />
 						<Text style={styles.name} numberOfLines={2}>
 							{m.name}
 						</Text>
@@ -62,6 +84,7 @@ export default function DetailCredits({
 	writers,
 	directorPeople,
 	writerPeople,
+	photosPending = false,
 }: Readonly<Props>) {
 	const directing = people(directors, directorPeople);
 	const writing = people(writers, writerPeople);
@@ -70,9 +93,15 @@ export default function DetailCredits({
 	return (
 		<View style={styles.creditsSection}>
 			{directing.length > 0 && (
-				<CreditGroup label={directing.length === 1 ? "Director" : "Directors"} members={directing} />
+				<CreditGroup
+					label={directing.length === 1 ? "Director" : "Directors"}
+					members={directing}
+					pending={photosPending}
+				/>
 			)}
-			{writing.length > 0 && <CreditGroup label="Screenplay" members={writing} />}
+			{writing.length > 0 && (
+				<CreditGroup label="Screenplay" members={writing} pending={photosPending} />
+			)}
 		</View>
 	);
 }
@@ -102,5 +131,6 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 	},
 	avatarPhoto: { width: AVATAR, height: AVATAR },
+	avatarShimmer: { backgroundColor: colors.border },
 	name: { ...typography.body, color: colors.textSecondary, flexShrink: 1 },
 });
