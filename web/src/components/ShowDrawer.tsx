@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { WhereToWatchCompact, WhereToWatchPlacement } from "./WhereToWatch";
 import { formatIsoDate } from "@app/utils/format";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
@@ -190,6 +191,15 @@ export default function ShowDrawer({
 												</div>
 											) : (
 												show.overview && <p className={styles.overview}>{show.overview}</p>
+											)}
+											{/* The info page's Where to Watch, fitted to the drawer (nothing when none) */}
+											{show.tmdbId != null && show.mediaType && (
+												<WhereToWatchCompact
+													tmdbId={show.tmdbId}
+													mediaType={show.mediaType}
+													title={show.title}
+													placement={WhereToWatchPlacement.DRAWER}
+												/>
 											)}
 										</div>
 										{onGoToShow && (

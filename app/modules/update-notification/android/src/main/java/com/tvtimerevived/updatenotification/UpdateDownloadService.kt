@@ -27,6 +27,18 @@ class UpdateDownloadService : Service() {
     const val EXTRA_NOTES = "notes"
     /** Progress repaints at most this often (the notification can't redraw faster) */
     private const val PROGRESS_INTERVAL_MS = 500L
+
+    /** The app's update drawer, while it's open: progress / done / failed / cancelled (module events) */
+    @Volatile var listener: ((event: String, data: Map<String, Any?>) -> Unit)? = null
+    /** A download is in progress (cleanup leaves its files alone) */
+    @Volatile var downloading = false
+    private fun emit(event: String, data: Map<String, Any?> = emptyMap()) {
+      try {
+        listener?.invoke(event, data)
+      } catch (_: Exception) {
+        // The JS side went away (reload): the download carries on regardless
+      }
+    }
   }
 
   @Volatile private var cancelled = false
@@ -40,6 +52,7 @@ class UpdateDownloadService : Service() {
     when (intent?.action) {
       ACTION_CANCEL -> {
         cancelled = true
+        emit("cancelled")
         // Started (as a foreground service) only to cancel: it must go foreground before stopping
         if (!running) startInForeground("", 0, "")
         finish(removeCard = true)
@@ -52,6 +65,7 @@ class UpdateDownloadService : Service() {
         startInForeground(version, 0, "Starting…")
         if (url == null || running) return START_NOT_STICKY
         running = true
+        downloading = true
         cancelled = false
         thread(name = "update-download") { download(url, version, size) }
       }
@@ -94,6 +108,7 @@ class UpdateDownloadService : Service() {
               lastPaint = now
               val percent = ((written * 100) / total).toInt().coerceIn(0, 99)
               startInForeground(version, percent, "${mb(written)} of ${mb(total)} MB")
+              emit("progress", mapOf("fraction" to (written.toDouble() / total).coerceAtMost(0.99)))
             }
           }
         }
@@ -106,11 +121,14 @@ class UpdateDownloadService : Service() {
       partial.renameTo(target)
       finish(removeCard = true)
       UpdateNotifications.showDownloaded(this, version, notes)
+      emit("done", mapOf("uri" to android.net.Uri.fromFile(target).toString()))
     } catch (_: Exception) {
       partial.delete()
       finish(removeCard = true)
+      emit("failed")
     } finally {
       running = false
+      downloading = false
     }
   }
 

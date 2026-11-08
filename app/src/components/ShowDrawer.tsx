@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { WhereToWatchCompact, WhereToWatchPlacement } from "./WhereToWatch";
 import { formatIsoDate } from "../utils/format";
 import {
 	View,
@@ -238,6 +239,15 @@ export default function ShowDrawer({
 									</View>
 								) : show.overview ? (
 									<Text style={styles.overview}>{show.overview}</Text>
+								) : null}
+								{/* The info page's Where to Watch, fitted to the drawer (nothing when none) */}
+								{show.tmdbId != null && show.mediaType ? (
+									<WhereToWatchCompact
+										tmdbId={show.tmdbId}
+										mediaType={show.mediaType}
+										title={show.title}
+										placement={WhereToWatchPlacement.DRAWER}
+									/>
 								) : null}
 							</View>
 							{onGoToShow && (

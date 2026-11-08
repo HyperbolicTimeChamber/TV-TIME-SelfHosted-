@@ -283,6 +283,7 @@ export default function EpisodeDetailModal({
 											})}
 										>
 											<EpisodeCard
+												tmdbId={tmdbId}
 												ep={ep}
 												showTitle={showTitle}
 												showPosterPath={showPosterPath}

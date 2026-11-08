@@ -1,4 +1,6 @@
+import { AppState } from "react-native";
 import { create } from "zustand";
+import UpdateNotification from "../../modules/update-notification";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CacheKey } from "../enums";
 import {
@@ -105,6 +107,13 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
 		const release = offeredRelease(get());
 		if (!release || get().phase === UpdatePhase.DOWNLOADING) return;
 		set({ phase: UpdatePhase.DOWNLOADING, progress: 0, apkUri: null });
+		// Android build with the native module: its foreground service downloads (its card replaces
+		// the "available" notification and keeps going if the app is closed or swiped away); the
+		// drawer follows it through onDownload events (listenToNativeDownload)
+		if (UpdateNotification) {
+			UpdateNotification.startDownload(release.version, release.notes ?? "", release.apkUrl, release.size ?? 0);
+			return;
+		}
 		handle = downloadApk(release, (progress) => set({ progress }));
 		handle.done
 			.then((apkUri) => {
@@ -121,6 +130,7 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
 	},
 
 	cancelDownload: () => {
+		if (UpdateNotification) UpdateNotification.cancelDownload();
 		handle?.cancel();
 		set({ phase: UpdatePhase.IDLE, progress: 0 });
 	},
@@ -141,3 +151,23 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
 		AsyncStorage.removeItem(CacheKey.UPDATE_SKIPPED_BUILD).catch(() => {});
 	},
 }));
+
+/** The native download's progress → the drawer; done → Android's installer when the app is open */
+UpdateNotification?.addListener("onDownload", (event) => {
+	const store = useUpdateStore;
+	switch (event.type) {
+		case "progress":
+			store.setState({ phase: UpdatePhase.DOWNLOADING, progress: event.fraction });
+			break;
+		case "done":
+			store.setState({ phase: UpdatePhase.READY, progress: 1, apkUri: event.uri });
+			if (AppState.currentState === "active") store.getState().install();
+			break;
+		case "failed":
+			store.setState({ phase: UpdatePhase.FAILED, progress: 0 });
+			break;
+		case "cancelled":
+			store.setState({ phase: UpdatePhase.IDLE, progress: 0 });
+			break;
+	}
+});
