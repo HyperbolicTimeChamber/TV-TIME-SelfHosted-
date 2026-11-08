@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
+// gesture-handler's: scrolls inside the sheet's drag gesture (BottomSheet pans with gesture-handler)
+import { ScrollView } from "react-native-gesture-handler";
 import Reanimated, {
 	Easing,
 	FadeIn,
@@ -21,10 +23,10 @@ import { UPGRADE_LINES } from "../../enums";
 const UPGRADE = require("../../../assets/upgrade.webp");
 /** upgrade.webp's own proportions (1734 × 1486) */
 const UPGRADE_RATIO = 1734 / 1486;
-/** Before the download: Upgrade's body (black on black — its edges fade into the drawer) */
+/** Before the download: the Omnitrix dial on Upgrade (cut out, gems and all) */
 const UPGRADE_DOWNLOAD = require("../../../assets/upgrade-download.webp");
-/** upgrade-download.webp's own proportions (1144 × 824) */
-const UPGRADE_DOWNLOAD_RATIO = 1144 / 824;
+/** upgrade-download.webp is square */
+const UPGRADE_DOWNLOAD_RATIO = 1;
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 /** Progress bar catches up with each (coalesced) progress event over this long */
 const BAR_MS = 400;
@@ -107,7 +109,7 @@ export default function UpdateSheet({ visible, release, forced }: Readonly<Props
 							style={[
 								styles.hero,
 								{ aspectRatio: ready ? UPGRADE_RATIO : UPGRADE_DOWNLOAD_RATIO },
-								ready && release.notes ? styles.heroOverNotes : null,
+								ready ? (release.notes ? styles.heroOverNotes : null) : styles.heroDial,
 							]}
 							contentFit="contain"
 						/>
@@ -121,9 +123,10 @@ export default function UpdateSheet({ visible, release, forced }: Readonly<Props
 								<Text style={styles.notesLabel}>WHAT'S NEW</Text>
 								<Text style={styles.notesVersion}>V{release.version}</Text>
 							</View>
-							<Text style={styles.notesText} numberOfLines={5}>
-								{release.notes}
-							</Text>
+							{/* All of it: long notes scroll inside the box instead of being cut off */}
+							<ScrollView style={styles.notesScroll} showsVerticalScrollIndicator={false}>
+								<Text style={styles.notesText}>{release.notes}</Text>
+							</ScrollView>
 						</View>
 					) : null}
 
@@ -219,6 +222,8 @@ const styles = StyleSheet.create({
 	// Downloaded: the hand reaches down over the notes box's top edge
 	headerOverNotes: { zIndex: 1, elevation: 1 },
 	heroOverNotes: { marginBottom: -HAND_OVERLAP },
+	// The dial's bottom gem clears the version pill
+	heroDial: { marginBottom: spacing.xs },
 	title: { ...typography.title, fontSize: 22, textAlign: "center" },
 	versionPill: {
 		flexDirection: "row",
@@ -245,6 +250,7 @@ const styles = StyleSheet.create({
 		marginTop: spacing.lg,
 		gap: 6,
 	},
+	notesScroll: { maxHeight: Dimensions.get("window").height * 0.32, flexGrow: 0 },
 	notesLabelRow: { flexDirection: "row", alignItems: "baseline", gap: spacing.sm },
 	notesVersion: { fontFamily: fonts.vt323, fontSize: 18, color: colors.primary },
 	notesLabel: { fontFamily: fonts.vt323, fontSize: 18, letterSpacing: 1, color: colors.primary, opacity: 0.75 },
