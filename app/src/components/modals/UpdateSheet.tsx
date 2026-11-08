@@ -38,6 +38,8 @@ const PRESS_IN_MS = 100;
 const PRESS_OUT_MS = 180;
 /** How far Upgrade's hand reaches down onto the notes box */
 const HAND_OVERLAP = 44;
+/** upgrade.webp: his body's centre is ~35% across — shift the art right to centre it */
+const BODY_OFFSET = Math.round(150 * UPGRADE_RATIO * 0.15);
 
 interface Props {
 	visible: boolean;
@@ -221,9 +223,14 @@ const styles = StyleSheet.create({
 	hero: { height: 150 },
 	// Downloaded: the hand reaches down over the notes box's top edge
 	headerOverNotes: { zIndex: 1, elevation: 1 },
-	heroOverNotes: { marginBottom: -HAND_OVERLAP },
+	// …and sits off-centre so his body (left third of the art) is centred, the hand reaching right
+	heroOverNotes: {
+		marginTop: spacing.sm,
+		marginBottom: -HAND_OVERLAP,
+		transform: [{ translateX: BODY_OFFSET }],
+	},
 	// The dial's bottom gem clears the version pill
-	heroDial: { marginBottom: spacing.xs },
+	heroDial: { marginVertical: spacing.sm },
 	title: { ...typography.title, fontSize: 22, textAlign: "center" },
 	versionPill: {
 		flexDirection: "row",
@@ -255,7 +262,7 @@ const styles = StyleSheet.create({
 	notesVersion: { fontFamily: fonts.vt323, fontSize: 18, color: colors.primary },
 	notesLabel: { fontFamily: fonts.vt323, fontSize: 18, letterSpacing: 1, color: colors.primary, opacity: 0.75 },
 	notesText: { fontFamily: fonts.vt323, fontSize: 20, lineHeight: 22, color: colors.primary },
-	statusArea: { height: 44, justifyContent: "center", marginTop: spacing.md, gap: spacing.sm },
+	statusArea: { height: 44, justifyContent: "center", marginTop: spacing.xs, gap: spacing.sm },
 	statusAreaReady: { height: spacing.md },
 	track: { height: 6, borderRadius: 3, backgroundColor: colors.surfaceLight, overflow: "hidden" },
 	// Idle: the track keeps its space but isn't drawn (no reflow when the download starts)
