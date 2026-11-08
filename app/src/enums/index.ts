@@ -57,6 +57,10 @@ export enum CacheKey {
 	UPDATE_SKIPPED_BUILD = "update_skipped_build",
 	/** Debug (dev / staging builds): a simulated update / force update for the test flow (JSON) */
 	UPDATE_SIMULATION = "update_simulation",
+	/** The build the last launch ran (app_updated) */
+	LAST_RUN_BUILD = "last_run_build",
+	/** The build the update drawer last started downloading (app_updated source) */
+	UPDATE_DRAWER_BUILD = "update_drawer_build",
 	WATCHLIST_PROFILE = "profile_watchlist_cache",
 	WATCHLIST_ACTIVE = "watchlist_active_cache_v2",
 	/** Confirmed: every tracking page is loaded (nothing more to page in) — skips the skeleton footer */
@@ -660,6 +664,34 @@ export enum AnalyticsEvent {
 	FIRESTORE_OPS = "firestore_ops",
 	PAGE_VIEWED = "page_viewed",
 	SIGN_UP_COMPLETED = "sign_up_completed",
+	UPDATE_DRAWER_SHOWN = "update_drawer_shown",
+	UPDATE_DRAWER_ACTION = "update_drawer_action",
+	UPDATE_DOWNLOAD_FINISHED = "update_download_finished",
+	/** First launch on a newer build */
+	APP_UPDATED = "app_updated",
+}
+
+/** update_drawer_action `action` */
+export enum UpdateDrawerAction {
+	UPGRADE_NOW = "upgrade_now",
+	RETRY = "retry",
+	LATER = "later",
+	CANCEL_DOWNLOAD = "cancel_download",
+	INSTALL = "install",
+	CLOSE_APP = "close_app",
+}
+
+/** update_download_finished `result` */
+export enum UpdateDownloadResult {
+	DONE = "done",
+	FAILED = "failed",
+	CANCELLED = "cancelled",
+}
+
+/** app_updated `source` */
+export enum UpdateSource {
+	DRAWER = "drawer",
+	NOTIFICATION_OR_OTHER = "notification_or_other",
 }
 
 /** Mixpanel `client_platform` super property (backend adds cloud_function / script) */

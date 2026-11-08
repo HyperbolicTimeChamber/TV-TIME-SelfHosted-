@@ -18,8 +18,9 @@ import BottomSheet from "./BottomSheet";
 import { colors, fonts, spacing, typography } from "../../theme";
 import { APP_VERSION } from "../../utils/appVersion";
 import { exitApp, type ChannelRelease } from "../../services/appUpdate";
-import { UpdatePhase, useUpdateStore } from "../../stores/updateStore";
-import { UPGRADE_LINES } from "../../enums";
+import { UpdatePhase, updateEventProps, useUpdateStore } from "../../stores/updateStore";
+import { trackUpdateDrawerAction } from "../../services/mixpanel";
+import { UPGRADE_LINES, UpdateDrawerAction } from "../../enums";
 
 /** Downloaded ("Upgrade Ready"): Upgrade reaching down onto the notes */
 const UPGRADE = require("../../../assets/upgrade.webp");
@@ -97,7 +98,11 @@ export default function UpdateSheet({ visible, release, forced }: Readonly<Props
 
 	// Forced: leaving the drawer leaves the app; otherwise it's "Not now" (cancelling a download)
 	const dismiss = () => {
-		if (forced) return exitApp();
+		if (forced) {
+			const props = updateEventProps(useUpdateStore.getState());
+			if (props) trackUpdateDrawerAction(UpdateDrawerAction.CLOSE_APP, props);
+			return exitApp();
+		}
 		if (downloading) cancelDownload();
 		skip();
 	};
