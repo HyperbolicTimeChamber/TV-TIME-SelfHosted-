@@ -14,6 +14,8 @@ import ActionPills from "./ActionPills";
 import DetailCredits from "./DetailCredits";
 import WhereToWatch from "../../components/WhereToWatch";
 import CastRow from "../../components/CastRow";
+import LocalReleaseLine from "../../components/LocalReleaseLine";
+import { releaseStatLabel } from "../../utils/localRelease";
 import { useTitleExtras } from "../../hooks/useTitleExtras";
 import StudiosRow from "../../components/StudiosRow";
 import WatchCountPill from "../../components/WatchCountPill";
@@ -252,7 +254,7 @@ export default function ShowDetailScreen() {
 							<View style={styles.statItem}>
 								<Text style={styles.statValue}>{year || "—"}</Text>
 								<Text style={styles.statLabel}>
-									{mediaType === MediaType.MOVIE ? "RELEASED" : "YEAR"}
+									{mediaType === MediaType.MOVIE ? releaseStatLabel(show.release_date) : "YEAR"}
 								</Text>
 							</View>
 							{mediaType === MediaType.TV && show.number_of_seasons ? (
@@ -285,6 +287,9 @@ export default function ShowDetailScreen() {
 								</>
 							) : null}
 						</View>
+						{mediaType === MediaType.MOVIE && (
+							<LocalReleaseLine tmdbId={tmdbId} style={styles.localRelease} />
+						)}
 						<Text style={styles.overview}>{show.overview}</Text>
 
 						{mediaType === MediaType.MOVIE && (
@@ -544,6 +549,8 @@ const styles = StyleSheet.create({
 		paddingHorizontal: spacing.lg,
 		paddingTop: spacing.xs,
 	},
+	// Lines up with the description below it
+	localRelease: { paddingHorizontal: spacing.sm, marginBottom: spacing.sm },
 	overview: {
 		...typography.body,
 		color: colors.textSecondary,

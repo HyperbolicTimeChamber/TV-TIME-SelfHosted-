@@ -299,6 +299,10 @@ export function cacheTitleExtras(
 		writers: extras.writers,
 		studioLogos: extras.studios,
 		watchProviders: { ...cached.watchProviders, [region]: extras.providers },
+		// Only a real answer is kept: a server older than this field must not look like "none"
+		...(mediaType === MediaType.MOVIE && extras.localRelease !== undefined
+			? { localReleases: { ...cached.localReleases, [region]: extras.localRelease } }
+			: {}),
 	});
 	persistCatalogCache(sharedCatalogCache);
 }

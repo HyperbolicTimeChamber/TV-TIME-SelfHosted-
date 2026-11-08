@@ -70,6 +70,9 @@ export interface TitleExtras {
 	/** Featured: a movie's leads / a show's regulars */
 	cast: CastMember[];
 	castTotal: number;
+	/** A movie's release date in the viewer's country ("YYYY-MM-DD"); absent from a server
+	 *  older than this field */
+	localRelease?: string | null;
 	directors: CrewMember[];
 	/** Movies' writers — screenplay, story, novel */
 	writers: CrewMember[];
@@ -89,6 +92,8 @@ export interface CatalogShow {
 	cast?: CastMember[];
 	/** Everyone in the full cast (paged in the View All sheet) */
 	castTotal?: number;
+	/** Movies: release date per country ("YYYY-MM-DD"), null when TMDB has none for it */
+	localReleases?: Record<string, string | null>;
 	/** A movie's directors with photos */
 	directors?: CrewMember[];
 	/** A movie's writers with photos */

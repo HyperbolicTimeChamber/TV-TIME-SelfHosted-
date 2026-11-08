@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { WhereToWatchCompact, WhereToWatchPlacement } from "./WhereToWatch";
 import { formatIsoDate } from "../utils/format";
+import LocalReleaseLine from "./LocalReleaseLine";
+import { MediaType } from "../enums";
 import {
 	View,
 	Text,
@@ -231,6 +233,9 @@ export default function ShowDrawer({
 										</View>
 									)}
 								</View>
+								{show.mediaType === MediaType.MOVIE && show.tmdbId ? (
+									<LocalReleaseLine tmdbId={show.tmdbId} style={styles.localRelease} />
+								) : null}
 								{show.overview === null ? (
 									<View style={styles.overviewSkeleton}>
 										<SkeletonLine width="100%" height={14} />
@@ -395,6 +400,7 @@ const styles = StyleSheet.create({
 		color: colors.text,
 		marginTop: spacing.xs,
 	},
+	localRelease: { marginTop: spacing.md },
 	overviewSkeleton: {
 		marginTop: spacing.md,
 	},

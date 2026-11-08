@@ -30,6 +30,8 @@ import styles from "./styles/ShowDetailScreen.module.scss";
 import { cssVars, px } from "../../utils/cssVars";
 import WhereToWatch from "../../components/WhereToWatch";
 import CastRow from "../../components/CastRow";
+import LocalReleaseLine from "../../components/LocalReleaseLine";
+import { releaseStatLabel } from "@app/utils/localRelease";
 import { useTitleExtras } from "@app/hooks/useTitleExtras";
 import StudiosRow from "../../components/StudiosRow";
 
@@ -268,7 +270,10 @@ export default function ShowDetailScreen() {
 							label="RUNTIME"
 						/>
 					) : null}
-					<Stat value={d.year || "—"} label={mediaType === MediaType.MOVIE ? "RELEASED" : "YEAR"} />
+					<Stat
+						value={d.year || "—"}
+						label={mediaType === MediaType.MOVIE ? releaseStatLabel(show.release_date) : "YEAR"}
+					/>
 					{mediaType === MediaType.TV && show.number_of_seasons ? (
 						<Stat
 							value={show.number_of_seasons}
@@ -280,6 +285,9 @@ export default function ShowDetailScreen() {
 					) : null}
 					{show.vote_average ? <Stat value={show.vote_average.toFixed(1)} label="RATING" /> : null}
 				</div>
+				{mediaType === MediaType.MOVIE && (
+					<LocalReleaseLine tmdbId={tmdbId} className={styles.localRelease} />
+				)}
 				<p className={styles.overview}>{show.overview}</p>
 
 				{mediaType === MediaType.MOVIE && (
