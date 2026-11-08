@@ -8,4 +8,4 @@ export const APP_VERSION: string = appConfig.expo.version;
 export const APP_BUILD: number = Number(appConfig.expo.android?.versionCode ?? 0) || 0;
 
 /** "V 1.2.0": the dim label at the bottom of Login and Settings */
-export const APP_VERSION_LABEL = `V ${APP_VERSION}`;
+export const APP_VERSION_LABEL = `v${APP_VERSION}`;

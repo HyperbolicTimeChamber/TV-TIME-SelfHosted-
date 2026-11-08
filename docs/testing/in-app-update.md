@@ -19,7 +19,7 @@ Nothing here touches prod.
    The first time, Android asks to allow installs from Watchloom (toggle, then back, then Update →
    Install again). After installing, the installer's **Open** button starts the new version
    (Android doesn't let an updated app relaunch itself).
-4. The push shows **V x.y.z is available** with a red **Install**: the download runs from the
+4. The push shows **vx.y.z is available** with a red **Install**: the download runs from the
    notification (dark card, red progress bar, red Cancel), then **Tap to install** opens Android's
    installer directly (native module `app/modules/update-notification`).
 
@@ -36,7 +36,7 @@ Get two staging builds: install the older one (or keep the current), push anothe
 | 4 | Settings → Updates (test) → Reset "Not Now", reopen | Drawer is back |
 | 5 | Update | Progress bar fills; Cancel stops it and returns to Update |
 | 6 | Update again → finish | Android installer (first time: allow installs from this source) |
-| 7 | Install → Open | New version runs; Settings / Login show the new `V x.y.z` |
+| 7 | Install → Open | New version runs; Settings / Login show the new `vx.y.z` |
 | 8 | Notification → Install (app in background) | Progress on the notification, then Tap to install → installer |
 | 9 | `node scripts/release-test.cjs force` | Older build: Update Required over the cached app, no Not Now; back / Close App exit; still signed in |
 | 10 | `node scripts/release-test.cjs unforce` | Older build usable again |

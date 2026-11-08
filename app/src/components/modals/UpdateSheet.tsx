@@ -62,7 +62,7 @@ interface Props {
 const mb = (bytes: number) => (bytes / 1_048_576).toFixed(1);
 
 /**
- * "It's Time for an Upgrade" drawer: the Omnitrix dial, the version step as a pill (V old → V new),
+ * "It's Time for an Upgrade" drawer: the Omnitrix dial, the version step as a pill (v old → v new),
  * an Upgrade line, then one red Upgrade Now and a quieter Later. Downloading ("Upgrading"): the
  * dial's ring spins and a progress bar takes the button's place. Downloaded ("Upgrade Ready"):
  * Upgrade reaching onto the release notes, Install only. Forced ("App Outdated, Upgrade
@@ -173,7 +173,7 @@ export default function UpdateSheet({ visible, release, forced }: Readonly<Props
 						<View style={styles.notes}>
 							<View style={styles.notesLabelRow}>
 								<Text style={styles.notesLabel}>WHAT'S NEW</Text>
-								<Text style={styles.notesVersion}>V{release.version}</Text>
+								<Text style={styles.notesVersion}>v{release.version}</Text>
 							</View>
 							{/* All of it: long notes scroll inside the box instead of being cut off */}
 							<ScrollView style={styles.notesScroll} showsVerticalScrollIndicator={false}>

@@ -513,7 +513,7 @@ function UpdateTestSection() {
 			<Text style={styles.sectionTitle}>Updates (test)</Text>
 			<Text style={styles.updateStatus}>
 				{`Installed build ${INSTALLED_BUILD} · channel ${UPDATE_CHANNEL}: ${
-					release ? `V ${release.version} (${release.build})` : "no release yet"
+					release ? `v${release.version} (${release.build})` : "no release yet"
 				}${simulation ? ` · simulating${simulation.force ? " force" : ""}` : ""}`}
 			</Text>
 			{row("Simulate Update", () => simulate({ force: false }), !release)}
