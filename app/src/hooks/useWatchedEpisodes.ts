@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import {
 	getFirestore,
 	collection,
@@ -12,7 +12,9 @@ import {
 	QueryDocumentSnapshot,
 	type Timestamp,
 } from "@react-native-firebase/firestore";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { CacheKey } from "../enums";
+import { useRestoredHistory, useSaveHistory, type HistoryPage } from "./watchedHistoryCache";
 import { WatchedEpisode, QueryKey } from "../types";
 
 export const WATCHED_EPISODES_PAGE_SIZE = 5;
@@ -25,6 +27,18 @@ interface WatchedEpisodesPage {
 export function useWatchedEpisodes(userId: string | undefined, tmdbShowId?: number) {
 	const queryKey = [QueryKey.WATCHED_EPISODES, userId, tmdbShowId] as const;
 
+	const queryClient = useQueryClient();
+	// The all-titles history (Previously Watched) comes from the saved page all day; a title's
+	// own history (its page) still fetches
+	const allTitles = tmdbShowId === undefined;
+	const restoredReady = useRestoredHistory(
+		queryClient,
+		queryKey,
+		CacheKey.WATCHED_EPISODES_HISTORY,
+		userId,
+		allTitles,
+		(page: HistoryPage<WatchedEpisode>) => ({ episodes: page.rows, lastDoc: page.lastDoc as QueryDocumentSnapshot | null }),
+	);
 	const {
 		data,
 		isLoading: loading,
@@ -61,11 +75,14 @@ export function useWatchedEpisodes(userId: string | undefined, tmdbShowId?: numb
 		initialPageParam: null as QueryDocumentSnapshot | null,
 		getNextPageParam: (lastPage) =>
 			lastPage.episodes.length >= WATCHED_EPISODES_PAGE_SIZE ? lastPage.lastDoc : undefined,
-		enabled: !!userId,
-		staleTime: 5 * 60 * 1000,
+		enabled: !!userId && restoredReady,
+		// All titles: today's page is kept (marks update it locally); a new day's launch refetches
+		staleTime: allTitles ? Infinity : 5 * 60 * 1000,
 	});
 
-	const episodes = data?.pages.flatMap((p) => p.episodes) ?? [];
+	const loaded = useMemo(() => data?.pages.flatMap((p) => p.episodes), [data]);
+	const episodes = loaded ?? [];
+	useSaveHistory(CacheKey.WATCHED_EPISODES_HISTORY, userId, allTitles, loaded, !!hasNextPage, WATCHED_EPISODES_PAGE_SIZE);
 
 	const loadMore = useCallback(() => {
 		if (hasNextPage && !loadingMore) {

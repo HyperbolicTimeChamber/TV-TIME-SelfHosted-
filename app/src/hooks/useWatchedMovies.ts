@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import {
 	getFirestore,
 	collection,
@@ -10,7 +10,9 @@ import {
 	getDocs,
 	QueryDocumentSnapshot,
 } from "@react-native-firebase/firestore";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { CacheKey } from "../enums";
+import { useRestoredHistory, useSaveHistory, type HistoryPage } from "./watchedHistoryCache";
 import { WatchedMovie, QueryKey } from "../types";
 
 export const WATCHED_MOVIES_PAGE_SIZE = 5;
@@ -23,6 +25,16 @@ interface WatchedMoviesPage {
 export function useWatchedMovies(userId?: string) {
 	const queryKey = [QueryKey.WATCHED_MOVIES, userId] as const;
 
+	const queryClient = useQueryClient();
+	// Previously Watched's movie history: from the saved page all day
+	const restoredReady = useRestoredHistory(
+		queryClient,
+		queryKey,
+		CacheKey.WATCHED_MOVIES_HISTORY,
+		userId,
+		true,
+		(page: HistoryPage<WatchedMovie>) => ({ movies: page.rows, lastDoc: page.lastDoc as QueryDocumentSnapshot | null }),
+	);
 	const {
 		data,
 		isLoading: loading,
@@ -56,11 +68,14 @@ export function useWatchedMovies(userId?: string) {
 		initialPageParam: null as QueryDocumentSnapshot | null,
 		getNextPageParam: (lastPage) =>
 			lastPage.movies.length >= WATCHED_MOVIES_PAGE_SIZE ? lastPage.lastDoc : undefined,
-		enabled: !!userId,
-		staleTime: 5 * 60 * 1000,
+		enabled: !!userId && restoredReady,
+		// Today's page is kept (marks update it locally); a new day's launch refetches
+		staleTime: Infinity,
 	});
 
-	const movies = data?.pages.flatMap((p) => p.movies) ?? [];
+	const loaded = useMemo(() => data?.pages.flatMap((p) => p.movies), [data]);
+	const movies = loaded ?? [];
+	useSaveHistory(CacheKey.WATCHED_MOVIES_HISTORY, userId, true, loaded, !!hasNextPage, WATCHED_MOVIES_PAGE_SIZE);
 
 	const loadMore = useCallback(() => {
 		if (hasNextPage && !loadingMore) {
