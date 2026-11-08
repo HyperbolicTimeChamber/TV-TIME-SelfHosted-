@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { localReleaseLine, releaseStatLabel } from "../src/utils/localRelease";
+import {
+	localReleaseSentence,
+	localReleaseText,
+	releaseStatLabel,
+} from "../src/utils/localRelease";
 
 const NOW = new Date(2026, 10, 8);
 
@@ -12,16 +16,26 @@ test("the release stat says RELEASING only while the date is ahead", () => {
 });
 
 test("no local date or no country: nothing to show", () => {
-	assert.equal(localReleaseLine(null, "India", NOW), null);
-	assert.equal(localReleaseLine(undefined, "India", NOW), null);
-	assert.equal(localReleaseLine("2025-07-24", undefined, NOW), null);
+	assert.equal(localReleaseText(null, "India", NOW), null);
+	assert.equal(localReleaseText(undefined, "India", NOW), null);
+	assert.equal(localReleaseText("2025-07-24", undefined, NOW), null);
 });
 
-test("a local date: the country and the full date", () => {
-	assert.equal(localReleaseLine("2025-07-24", "India", NOW), "Released in India on 24 Jul 2025");
+test("a local date: the country as the label, the full date", () => {
+	assert.deepEqual(localReleaseText("2025-07-24", "India", NOW), {
+		label: "Released in India",
+		date: "24 Jul 2025",
+	});
+});
+
+test("the drawer's one line", () => {
+	assert.equal(
+		localReleaseSentence({ label: "Released in India", date: "24 Jul 2025" }),
+		"Released in India on 24 Jul 2025",
+	);
 });
 
 test("today counts as released, tomorrow doesn't", () => {
-	assert.equal(localReleaseLine("2026-11-08", "Japan", NOW), "Released in Japan on 8 Nov 2026");
-	assert.equal(localReleaseLine("2026-11-09", "Japan", NOW), "Releasing in Japan on 9 Nov 2026");
+	assert.equal(localReleaseText("2026-11-08", "Japan", NOW)?.label, "Released in Japan");
+	assert.equal(localReleaseText("2026-11-09", "Japan", NOW)?.label, "Releasing in Japan");
 });

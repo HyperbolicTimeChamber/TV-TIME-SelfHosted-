@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { WhereToWatchCompact, WhereToWatchPlacement } from "./WhereToWatch";
 import { formatIsoDate } from "../utils/format";
-import LocalReleaseLine from "./LocalReleaseLine";
+import { LocalReleaseInline } from "./LocalReleaseLine";
 import { MediaType } from "../enums";
 import {
 	View,
@@ -213,7 +213,15 @@ export default function ShowDrawer({
 							</View>
 							<View style={styles.content}>
 								<DrawerTitle key={`${show.mediaType}_${show.tmdbId}`} show={show} />
-								{metaLine ? <Text style={styles.meta}>{metaLine}</Text> : null}
+								<View style={styles.metaRow}>
+									{metaLine ? <Text style={styles.meta}>{metaLine}</Text> : null}
+									{show.mediaType === MediaType.MOVIE && show.tmdbId ? (
+										<LocalReleaseInline
+											tmdbId={show.tmdbId}
+											style={[styles.meta, styles.metaRelease]}
+										/>
+									) : null}
+								</View>
 								<View style={styles.genreRow}>
 									{show.genres == null ? (
 										<SkeletonLine width="45%" height={11} style={{ marginTop: spacing.xs }} />
@@ -233,9 +241,6 @@ export default function ShowDrawer({
 										</View>
 									)}
 								</View>
-								{show.mediaType === MediaType.MOVIE && show.tmdbId ? (
-									<LocalReleaseLine tmdbId={show.tmdbId} style={styles.localRelease} />
-								) : null}
 								{show.overview === null ? (
 									<View style={styles.overviewSkeleton}>
 										<SkeletonLine width="100%" height={14} />
@@ -400,7 +405,9 @@ const styles = StyleSheet.create({
 		color: colors.text,
 		marginTop: spacing.xs,
 	},
-	localRelease: { marginTop: spacing.md },
+	metaRow: { flexDirection: "row", gap: spacing.md },
+	// Right end of the row, however long the left side is; long country names wrap
+	metaRelease: { marginLeft: "auto", flexShrink: 1, textAlign: "right" },
 	overviewSkeleton: {
 		marginTop: spacing.md,
 	},

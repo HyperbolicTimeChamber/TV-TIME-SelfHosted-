@@ -11,16 +11,21 @@ export function releaseStatLabel(releaseDate: string | null | undefined, now = n
 	return releaseDate && isAhead(releaseDate, now) ? "RELEASING" : "RELEASED";
 }
 
+/** The one-line form (info drawer): "Released in Germany on 24 Jul 2025" */
+export function localReleaseSentence(text: { label: string; date: string }): string {
+	return `${text.label} on ${text.date}`;
+}
+
 /**
- * A movie's local release line: "Released in Germany on 24 Jul 2025" (Releasing while it's still
- * ahead). Null when there's no date for the viewer's country — nothing is shown then
+ * A movie's local release: label "Released in Germany" (Releasing while it's still ahead) and date
+ * "24 Jul 2025". Null when there's no date for the viewer's country — nothing is shown then
  */
-export function localReleaseLine(
+export function localReleaseText(
 	localRelease: string | null | undefined,
 	country: string | undefined,
 	now = new Date(),
-): string | null {
+): { label: string; date: string } | null {
 	if (!localRelease || !country) return null;
 	const verb = isAhead(localRelease, now) ? "Releasing" : "Released";
-	return `${verb} in ${country} on ${formatIsoDate(localRelease)}`;
+	return { label: `${verb} in ${country}`, date: formatIsoDate(localRelease) };
 }

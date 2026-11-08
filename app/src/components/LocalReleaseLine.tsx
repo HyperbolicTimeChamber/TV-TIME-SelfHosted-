@@ -1,37 +1,61 @@
 import React, { useRef } from "react";
-import { StyleSheet, type StyleProp, type TextStyle } from "react-native";
+import { StyleSheet, Text, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import Reanimated, { FadeIn } from "react-native-reanimated";
 import { useTitleExtras } from "../hooks/useTitleExtras";
 import { useCountryName } from "../hooks/useWatchProviders";
-import { localReleaseLine } from "../utils/localRelease";
+import { localReleaseSentence, localReleaseText } from "../utils/localRelease";
 import { MediaType } from "../enums";
-import { colors, typography } from "../theme";
+import { colors, fonts, typography } from "../theme";
 
-/** The line arriving after it opened: quick, so it never reads as a pop */
+/** Arriving after it opened: quick, so it never reads as a pop */
 const FADE_MS = 160;
 
-interface Props {
-	tmdbId: number;
-	style?: StyleProp<TextStyle>;
-}
-
-/** A movie's release in the viewer's country (info page, info drawer). Nothing when there's no date */
-export default function LocalReleaseLine({ tmdbId, style }: Readonly<Props>) {
+function useLocalRelease(tmdbId: number) {
 	const { data, region } = useTitleExtras(tmdbId, MediaType.MOVIE);
 	const country = useCountryName(region);
-	const line = localReleaseLine(data?.localRelease, country);
-	const hadLineAtOpen = useRef(line !== null).current;
-	if (!line) return null;
+	const text = localReleaseText(data?.localRelease, country);
+	const hadTextAtOpen = useRef(text !== null).current;
+	return { text, entering: hadTextAtOpen ? undefined : FadeIn.duration(FADE_MS) };
+}
+
+/**
+ * Info page: a movie's release in the viewer's country, as a red label like the credits' over the
+ * date in the stats' big numeral face. Nothing when there's no date
+ */
+export default function LocalReleaseLine({
+	tmdbId,
+	style,
+}: Readonly<{ tmdbId: number; style?: StyleProp<ViewStyle> }>) {
+	const { text, entering } = useLocalRelease(tmdbId);
+	if (!text) return null;
 	return (
-		<Reanimated.Text
-			entering={hadLineAtOpen ? undefined : FadeIn.duration(FADE_MS)}
-			style={[styles.line, style]}
+		<Reanimated.View
+			entering={entering}
+			style={style}
+			accessible
+			accessibilityLabel={`${text.label}, ${text.date}`}
 		>
-			{line}
+			<Text style={styles.label}>{text.label}</Text>
+			<Text style={styles.date}>{text.date}</Text>
+		</Reanimated.View>
+	);
+}
+
+/** Info drawer: the same, as one line of text beside the runtime */
+export function LocalReleaseInline({
+	tmdbId,
+	style,
+}: Readonly<{ tmdbId: number; style?: StyleProp<TextStyle> }>) {
+	const { text, entering } = useLocalRelease(tmdbId);
+	if (!text) return null;
+	return (
+		<Reanimated.Text entering={entering} style={style} numberOfLines={2}>
+			{localReleaseSentence(text)}
 		</Reanimated.Text>
 	);
 }
 
 const styles = StyleSheet.create({
-	line: { ...typography.caption, color: colors.text },
+	label: { ...typography.subtitle, fontSize: 14, color: colors.primary },
+	date: { fontFamily: fonts.smoochMedium, fontSize: 24, letterSpacing: 0.5, color: colors.text },
 });
