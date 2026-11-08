@@ -109,7 +109,7 @@ object UpdateNotifications {
     ensureChannel(context)
     val cancel = serviceIntent(context, UpdateDownloadService.ACTION_CANCEL)
     fun views(layout: Int) = RemoteViews(context.packageName, layout).apply {
-      setTextViewText(R.id.update_title, "Upgrading")
+      setTextViewText(R.id.update_title, if (layout == R.layout.update_progress_big) "Upgrading" else "Downloading v$version")
       setTextViewText(R.id.update_percent, detail)
       setProgressBar(R.id.update_progress, 100, percent, false)
       if (layout == R.layout.update_progress_big) {
