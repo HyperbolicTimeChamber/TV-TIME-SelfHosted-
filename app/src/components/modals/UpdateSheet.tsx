@@ -10,7 +10,7 @@ import Reanimated, {
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import BottomSheet from "./BottomSheet";
-import { colors, fonts, spacing, tint, typography } from "../../theme";
+import { colors, fonts, spacing, typography } from "../../theme";
 import { APP_VERSION } from "../../utils/appVersion";
 import { exitApp, type ChannelRelease } from "../../services/appUpdate";
 import { UpdatePhase, useUpdateStore } from "../../stores/updateStore";
@@ -41,8 +41,8 @@ const mb = (bytes: number) => (bytes / 1_048_576).toFixed(1);
 /**
  * "It's Time for an Upgrade" drawer: the Upgrade art, the version step as a pill (V old → V new),
  * then one red Update button (download with a progress bar in the same spot → Android's
- * installer) and a quieter Not Now. Once downloaded (Install) it shows the release notes too.
- * Forced: Not Now becomes Close App, and back / drag down / tapping outside close the app
+ * installer) and a quieter Later. Once downloaded ("Upgrade Ready") it shows the release notes and
+ * Install only. Forced: Later becomes Close App, and back / drag down / tapping outside close the app
  */
 export default function UpdateSheet({ visible, release, forced }: Readonly<Props>) {
 	const { phase, progress, skip, startDownload, cancelDownload, install } = useUpdateStore();
@@ -134,11 +134,14 @@ export default function UpdateSheet({ visible, release, forced }: Readonly<Props
 						onPress={phase === UpdatePhase.READY ? install : update}
 						disabled={downloading}
 					/>
-					<SheetButton
-						label={downloading ? "Cancel Download" : forced ? "Close App" : "Not Now"}
-						onPress={downloading ? cancelDownload : dismiss}
-						quiet
-					/>
+					{/* Downloaded: Install is the only way on (forced still offers Close App) */}
+					{ready && !forced ? null : (
+						<SheetButton
+							label={downloading ? "Cancel Download" : forced ? "Close App" : "Later"}
+							onPress={downloading ? cancelDownload : dismiss}
+							quiet
+						/>
+					)}
 				</View>
 			)}
 		</BottomSheet>
@@ -185,18 +188,14 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		gap: 6,
 		paddingHorizontal: 10,
-		paddingVertical: 3,
+		paddingVertical: 2,
 		borderRadius: 999,
-		backgroundColor: tint(colors.primary, 0.14),
+		backgroundColor: colors.background,
 	},
-	versionOld: { ...typography.caption, color: colors.textSecondary, fontVariant: ["tabular-nums"] },
-	versionArrow: { ...typography.caption, color: colors.textMuted },
-	versionNew: {
-		...typography.caption,
-		fontWeight: "700",
-		color: colors.primary,
-		fontVariant: ["tabular-nums"],
-	},
+	// Pixel font like the notes (custom family: no fontWeight on Android)
+	versionOld: { fontFamily: fonts.vt323, fontSize: 18, color: colors.textSecondary },
+	versionArrow: { fontFamily: fonts.vt323, fontSize: 18, color: colors.textMuted },
+	versionNew: { fontFamily: fonts.vt323, fontSize: 18, color: colors.primary },
 	// 95% of the screen's width: wider than the drawer's padded column, centred on it
 	notes: {
 		width: Dimensions.get("window").width * 0.95,
