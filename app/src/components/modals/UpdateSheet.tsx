@@ -132,12 +132,9 @@ export default function UpdateSheet({ visible, release, forced }: Readonly<Props
 						</View>
 					) : null}
 
-					{/* Fixed-height status: a track while downloading, one line otherwise; none once
+					{/* Fixed-height status: one line, then the track while downloading; no line once
 					    downloaded (the notes and Install say it) */}
 					<View style={[styles.statusArea, ready && styles.statusAreaReady]}>
-						<View style={[styles.track, !downloading && styles.trackIdle]}>
-							<Reanimated.View style={[styles.fill, barStyle]} />
-						</View>
 						{ready ? null : (
 							<Reanimated.Text
 								key={downloading ? "progress" : phase}
@@ -147,6 +144,9 @@ export default function UpdateSheet({ visible, release, forced }: Readonly<Props
 								{status}
 							</Reanimated.Text>
 						)}
+						<View style={[styles.track, !downloading && styles.trackIdle]}>
+							<Reanimated.View style={[styles.fill, barStyle]} />
+						</View>
 					</View>
 
 					{/* Same two slots in every state, so the drawer never changes height */}
@@ -262,7 +262,9 @@ const styles = StyleSheet.create({
 	notesVersion: { fontFamily: fonts.vt323, fontSize: 18, color: colors.primary },
 	notesLabel: { fontFamily: fonts.vt323, fontSize: 18, letterSpacing: 1, color: colors.primary, opacity: 0.75 },
 	notesText: { fontFamily: fonts.vt323, fontSize: 20, lineHeight: 22, color: colors.primary },
-	statusArea: { height: 44, justifyContent: "center", marginTop: spacing.xs, gap: spacing.sm },
+	// The line sits as far under the pill as the dial sits above it; the track (below it) keeps
+	// its room when idle, so starting the download moves nothing
+	statusArea: { height: 44, justifyContent: "center", marginTop: spacing.sm, gap: spacing.sm },
 	statusAreaReady: { height: spacing.md },
 	track: { height: 6, borderRadius: 3, backgroundColor: colors.surfaceLight, overflow: "hidden" },
 	// Idle: the track keeps its space but isn't drawn (no reflow when the download starts)
