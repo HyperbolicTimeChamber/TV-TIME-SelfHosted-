@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
 import Reanimated, {
 	Easing,
 	FadeIn,
@@ -10,12 +10,14 @@ import Reanimated, {
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import BottomSheet from "./BottomSheet";
-import { colors, spacing, tint, typography } from "../../theme";
+import { colors, fonts, spacing, tint, typography } from "../../theme";
 import { APP_VERSION } from "../../utils/appVersion";
 import { exitApp, type ChannelRelease } from "../../services/appUpdate";
 import { UpdatePhase, useUpdateStore } from "../../stores/updateStore";
 
-const LOGO = require("../../../assets/icon-foreground.original.png");
+const UPGRADE = require("../../../assets/upgrade.webp");
+/** upgrade.webp's own proportions (640 × 548) */
+const UPGRADE_RATIO = 640 / 548;
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 /** Progress bar catches up with each (coalesced) progress event over this long */
 const BAR_MS = 400;
@@ -80,14 +82,12 @@ export default function UpdateSheet({ visible, release, forced }: Readonly<Props
 			{() => (
 				<View style={styles.body}>
 					<View style={styles.header}>
-						<Image source={LOGO} style={styles.logo} contentFit="contain" />
-						<View style={styles.headerText}>
-							<Text style={styles.title}>{forced ? "Update Required" : "Update Available"}</Text>
-							<View style={styles.versionPill}>
-								<Text style={styles.versionOld}>V {APP_VERSION}</Text>
-								<Text style={styles.versionArrow}>→</Text>
-								<Text style={styles.versionNew}>V {release.version}</Text>
-							</View>
+						<Image source={UPGRADE} style={styles.hero} contentFit="contain" />
+						<Text style={styles.title}>It's Time for an Upgrade</Text>
+						<View style={styles.versionPill}>
+							<Text style={styles.versionOld}>V {APP_VERSION}</Text>
+							<Text style={styles.versionArrow}>→</Text>
+							<Text style={styles.versionNew}>V {release.version}</Text>
 						</View>
 					</View>
 
@@ -171,12 +171,10 @@ function SheetButton({
 
 const styles = StyleSheet.create({
 	body: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.md },
-	header: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-	logo: { width: 56, height: 56 },
-	headerText: { flex: 1, gap: 6 },
-	title: { ...typography.title, fontSize: 20 },
+	header: { alignItems: "center", gap: spacing.sm },
+	hero: { height: 150, aspectRatio: UPGRADE_RATIO },
+	title: { ...typography.title, fontSize: 22, textAlign: "center" },
 	versionPill: {
-		alignSelf: "flex-start",
 		flexDirection: "row",
 		alignItems: "center",
 		gap: 6,
@@ -193,7 +191,10 @@ const styles = StyleSheet.create({
 		color: colors.primary,
 		fontVariant: ["tabular-nums"],
 	},
+	// 95% of the screen's width: wider than the drawer's padded column, centred on it
 	notes: {
+		width: Dimensions.get("window").width * 0.95,
+		alignSelf: "center",
 		backgroundColor: colors.surfaceLight,
 		borderRadius: 14,
 		padding: spacing.md,
@@ -201,7 +202,7 @@ const styles = StyleSheet.create({
 		gap: 6,
 	},
 	notesLabel: { ...typography.caption, fontSize: 11, fontWeight: "700", letterSpacing: 1, color: colors.textMuted },
-	notesText: { ...typography.body, color: colors.textSecondary, lineHeight: 20 },
+	notesText: { fontFamily: fonts.vt323, fontSize: 20, lineHeight: 22, color: colors.textSecondary },
 	statusArea: { height: 44, justifyContent: "center", marginTop: spacing.md, gap: spacing.sm },
 	track: { height: 6, borderRadius: 3, backgroundColor: colors.surfaceLight, overflow: "hidden" },
 	// Idle: the track keeps its space but isn't drawn (no reflow when the download starts)
