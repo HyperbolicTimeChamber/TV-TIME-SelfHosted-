@@ -34,7 +34,6 @@ app/fastlane/README.md
 
 # Environment
 *.local
-*.env
 
 
 # TypeScript
