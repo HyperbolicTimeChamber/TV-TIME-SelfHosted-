@@ -10,6 +10,8 @@ import {
 	prefillCatalog,
 	useWatchedEpisodes,
 	useWatchedMovies,
+	WATCHED_EPISODES_PAGE_SIZE,
+	WATCHED_MOVIES_PAGE_SIZE,
 	insertWatchedEpisodeCache,
 	insertWatchedMovieCache,
 	isShowVisible,
@@ -39,6 +41,7 @@ import {
 	adjacentPointer,
 } from "../../../utils";
 import { mergeCachedShows, promoteShows } from "../../../utils/watchlistOrder";
+import { coldStartHistory, safeHistory } from "../../../utils/watchedHistory";
 import {
 	MediaType,
 	CacheKey,
@@ -510,60 +513,24 @@ export function useWatchlistData(userId: string | undefined) {
 		| { kind: MediaType.TV; ep: WatchedEpisode; time: number }
 		| { kind: MediaType.MOVIE; movie: WatchedMovie; time: number };
 
-	// Merge-sort display: only show items whose chronological position is
-	// confirmed. An item is safe to show if the OTHER type has a fetched item
-	// older than it (proving nothing is missing in the gap), or if that type's
-	// pages are exhausted.
-	const safePrevItems = useMemo(() => {
-		const epItems: PrevItem[] = [];
-		for (const ep of watchedEps) {
-			epItems.push({
-				kind: MediaType.TV,
-				ep,
-				time: ep.lastWatchedAt?.toMillis?.() || 0,
-			});
-		}
-		const movieItems: PrevItem[] = [];
-		for (const movie of watchedMovies) {
-			movieItems.push({
+	const epHistory = useMemo<PrevItem[]>(
+		() => watchedEps.map((ep) => ({ kind: MediaType.TV, ep, time: ep.lastWatchedAt?.toMillis?.() || 0 })),
+		[watchedEps],
+	);
+	const movieHistory = useMemo<PrevItem[]>(
+		() =>
+			watchedMovies.map((movie) => ({
 				kind: MediaType.MOVIE,
 				movie,
 				time: movie.lastWatchedAt?.toMillis?.() || 0,
-			});
-		}
-
-		// If one type is empty and fully loaded, show all of the other — ascending like the merge
-		// below (the queries come newest first; unsorted, the cached tier kept the oldest rows
-		// and a fresh mark never showed)
-		const ascending = (list: PrevItem[]) => [...list].sort((a, b) => a.time - b.time);
-		if (epItems.length === 0 && !hasMoreEps) return ascending(movieItems);
-		if (movieItems.length === 0 && !hasMoreMovies) return ascending(epItems);
-		// If one type is empty but has more pages, can't show anything from the other
-		// (gaps might exist) — show nothing until pull loads data
-		if (epItems.length === 0 || movieItems.length === 0) return [];
-
-		const oldestEpTime = epItems[epItems.length - 1].time;
-		const oldestMovieTime = movieItems[movieItems.length - 1].time;
-
-		// Safe cutoff: items newer than max(oldestEp, oldestMovie) are guaranteed
-		// correct. Beyond that, the lagging type might have unfetched items.
-		// Exception: if the lagging type has no more pages, no cutoff needed.
-		let cutoff = -Infinity;
-		if (hasMoreEps && hasMoreMovies) {
-			cutoff = Math.max(oldestEpTime, oldestMovieTime);
-		} else if (hasMoreEps) {
-			// All movies loaded — eps are the constraint
-			cutoff = oldestEpTime;
-		} else if (hasMoreMovies) {
-			// All eps loaded — movies are the constraint
-			cutoff = oldestMovieTime;
-		}
-		// else: both fully loaded, no cutoff
-
-		return [...epItems, ...movieItems]
-			.filter((item) => item.time >= cutoff)
-			.sort((a, b) => a.time - b.time); // ascending: oldest first, newest last
-	}, [watchedEps, watchedMovies, showMap, hasMoreEps, hasMoreMovies]);
+			})),
+		[watchedMovies],
+	);
+	// Only rows whose chronological place is confirmed (see safeHistory), oldest first
+	const safePrevItems = useMemo(
+		() => safeHistory(epHistory, movieHistory, hasMoreEps, hasMoreMovies),
+		[epHistory, movieHistory, hasMoreEps, hasMoreMovies],
+	);
 
 	// Cached tier: newest PREV_WATCHED_CACHE_SIZE (persisted). Volatile tier: older pulled items
 	// (cleared on restart), capped so marks made outside this tab don't grow the list unbounded;
@@ -690,8 +657,23 @@ export function useWatchlistData(userId: string | undefined) {
 
 		// Cache: newest PREV_WATCHED_CACHE_SIZE watched items + the show cards
 		const cacheList: CacheableWatchlistListItem[] = [];
+		// Only rows a cold start loads too: this session's history pages can hold more than a
+		// fresh first page (a mark adds its row), and a saved row the live list then lacked
+		// vanished above the view a moment after launch — the list jumped by a row
+		const freshRows = new Set<WatchedEpisode | WatchedMovie>(
+			coldStartHistory(
+				epHistory,
+				movieHistory,
+				hasMoreEps,
+				hasMoreMovies,
+				WATCHED_EPISODES_PAGE_SIZE,
+				WATCHED_MOVIES_PAGE_SIZE,
+			).map((i) => (i.kind === MediaType.TV ? i.ep : i.movie)),
+		);
 		const cachedWatchedItems = orderedLive.filter(
-			(i) => i.type === "watchedEpisode" || i.type === "watchedMovie",
+			(i) =>
+				(i.type === "watchedEpisode" && freshRows.has(i.episode)) ||
+				(i.type === "watchedMovie" && freshRows.has(i.movie)),
 		);
 		const cachedOnly = cachedWatchedItems.slice(-PREV_WATCHED_CACHE_SIZE);
 		if (cachedOnly.length > 0) {
@@ -715,7 +697,7 @@ export function useWatchlistData(userId: string | undefined) {
 			JSON.stringify({ userId, date: todayStr(), list: cacheList }),
 		).catch(() => {});
 		if (cachedList) setCachedList(null);
-	}, [userId, allLoading, orderedLive, cachedList, liveCaughtUp]);
+	}, [userId, allLoading, orderedLive, cachedList, liveCaughtUp, epHistory, movieHistory, hasMoreEps, hasMoreMovies]);
 
 	// Confirmed by the live listeners: first load done, no page pending, none left
 	const liveExhausted = !allLoading && !loadingMoreTracking && !hasMoreTracking;

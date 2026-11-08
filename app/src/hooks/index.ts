@@ -18,11 +18,12 @@ export { useTrackedIds } from "./useTrackedIds";
 export { useShowWatchedEpisodes } from "./useShowWatchedEpisodes";
 export {
 	useWatchedEpisodes,
+	WATCHED_EPISODES_PAGE_SIZE,
 	insertWatchedEpisodeCache,
 	removeWatchedEpisodeCache,
 	setWatchedEpisodeCountsCache,
 } from "./useWatchedEpisodes";
-export { useWatchedMovies, insertWatchedMovieCache } from "./useWatchedMovies";
+export { useWatchedMovies, insertWatchedMovieCache, WATCHED_MOVIES_PAGE_SIZE } from "./useWatchedMovies";
 export type { EnrichedTrackingItem } from "./useWatchlist";
 export {
 	useWatchlist,
