@@ -13,7 +13,7 @@ import Reanimated, {
 } from "react-native-reanimated";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
-import { FontAwesome5 } from "@expo/vector-icons";
+import Svg, { Polygon } from "react-native-svg";
 import BottomSheet from "./BottomSheet";
 import { colors, fonts, spacing, typography } from "../../theme";
 import { APP_VERSION } from "../../utils/appVersion";
@@ -45,6 +45,12 @@ const PRESS_OUT_MS = 180;
 const HAND_OVERLAP = 44;
 /** upgrade.webp: his body's centre is ~35% across — shift the art right to centre it */
 const BODY_OFFSET = Math.round(150 * UPGRADE_RATIO * 0.15);
+/** Version pill: the old version's segment ends in an arrow this wide */
+const PILL_HEIGHT = 28;
+const PILL_BORDER = 1;
+const PILL_INNER_HEIGHT = PILL_HEIGHT - PILL_BORDER * 2;
+const PILL_ARROW_WIDTH = 10;
+const PILL_TEXT_GAP = 10;
 
 interface Props {
 	visible: boolean;
@@ -115,10 +121,19 @@ export default function UpdateSheet({ visible, release, forced }: Readonly<Props
 
 	const versionPill = (
 		<View style={styles.versionPill}>
-			<Text style={styles.versionOld}>V {APP_VERSION}</Text>
-			{/* The sort menu's "A → Z" arrow (a text arrow sat off the pixel font's centre) */}
-			<FontAwesome5 name="long-arrow-alt-right" size={12} color={colors.textMuted} />
-			<Text style={styles.versionNew}>V {release.version}</Text>
+			<View style={styles.versionOldSegment}>
+				<Text style={styles.versionOld}>v{APP_VERSION}</Text>
+			</View>
+			<View style={styles.versionNewSegment}>
+				{/* The old version's grey runs on into the new one's segment as an arrow */}
+				<Svg width={PILL_ARROW_WIDTH} height={PILL_INNER_HEIGHT}>
+					<Polygon
+						points={`0,0 ${PILL_ARROW_WIDTH},${PILL_INNER_HEIGHT / 2} 0,${PILL_INNER_HEIGHT}`}
+						fill={colors.border}
+					/>
+				</Svg>
+				<Text style={[styles.versionNew, styles.versionNewText]}>v{release.version}</Text>
+			</View>
 		</View>
 	);
 
@@ -271,12 +286,23 @@ const styles = StyleSheet.create({
 	versionPill: {
 		flexDirection: "row",
 		alignItems: "center",
-		gap: 6,
-		paddingHorizontal: 10,
-		paddingVertical: 2,
-		borderRadius: 999,
+		height: PILL_HEIGHT,
+		borderRadius: PILL_HEIGHT / 2,
+		// A solid grey pill with the black side inset: its outline is the grey showing around the black.
+		// A real border around a clipped grey segment left a dark arc inside the curve on Android
+		padding: PILL_BORDER,
+		backgroundColor: colors.border,
+	},
+	versionOldSegment: { paddingLeft: PILL_TEXT_GAP + 2, paddingRight: PILL_TEXT_GAP },
+	versionNewSegment: {
+		flexDirection: "row",
+		alignItems: "center",
+		height: PILL_INNER_HEIGHT,
+		borderTopRightRadius: PILL_INNER_HEIGHT / 2,
+		borderBottomRightRadius: PILL_INNER_HEIGHT / 2,
 		backgroundColor: colors.background,
 	},
+	versionNewText: { marginLeft: PILL_TEXT_GAP, marginRight: PILL_TEXT_GAP + 2 },
 	// Pixel font like the notes (custom family: no fontWeight on Android)
 	// VT323's line box carries extra room below the glyphs: a tight line height (no Android font
 	// padding) centres the text in the pill
