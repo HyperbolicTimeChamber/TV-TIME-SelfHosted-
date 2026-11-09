@@ -132,14 +132,7 @@
 	text-overflow: ellipsis;
 }
 
-/* Results sort button — right end of the search bar, so it rides along with the collapsing header */
-.sortSlot {
-	display: flex;
-	align-items: center;
-	padding-right: 6px;
-}
-
-/* Grid / List toggle — right end of the search bar, after the ✕ / sort */
+/* Grid / List toggle — right end of the search bar, after the ✕ */
 .viewToggle {
 	flex-shrink: 0;
 	background: none;

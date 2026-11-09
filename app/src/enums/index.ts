@@ -425,21 +425,6 @@ export enum HistorySort {
 	TIME_SPENT = "timeSpent",
 }
 
-/** Search results sort — client-side over the pages already loaded */
-export enum SearchSort {
-	/** TMDB's own order (best match first) */
-	RELEVANCE = "relevance",
-	/** Release date (movie) / first air date (TV) */
-	DATE = "date",
-	/** Displayed title, dictionary order */
-	NAME = "name",
-}
-
-export enum SortDirection {
-	ASC = "asc",
-	DESC = "desc",
-}
-
 /** Watch History status filters (TV) — OR together, applied in the Firestore query */
 /** Watch History: values pickable at once per facet (genres / keywords / countries / studios — the
  *  query's array-contains-any facet takes them all, and Firestore caps that list) */

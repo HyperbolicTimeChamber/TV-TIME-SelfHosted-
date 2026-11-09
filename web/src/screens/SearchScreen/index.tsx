@@ -1,6 +1,6 @@
 import { IoIosCloseCircle } from "react-icons/io";
-import { useCallback, useMemo, useRef, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { useCallback, useMemo, useState } from "react";
+import { motion } from "motion/react";
 import { Button } from "antd";
 import { IoChevronBackCircleOutline, IoGrid, IoList, IoSearch } from "react-icons/io5";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -8,17 +8,10 @@ import { encodeText } from "@app/utils/subjectLink";
 import { SEARCH_MAX_QUERY_LENGTH } from "@app/enums";
 import { useSearch } from "@app/hooks/useSearch";
 import { useTrending } from "@app/hooks/useTrending";
-import { useSearchSort, useSortedSearchResults } from "@app/hooks/useSearchSort";
 import { useCustomLists } from "@app/hooks/useCustomLists";
 import { useCustomListView } from "@app/hooks/useCustomListView";
 import { entryFromSearchResult, listedTitleKeys, listItemKey } from "@app/utils/customLists";
 import { useSearchActions } from "@app/screens/SearchScreen/useSearchActions";
-import {
-	DEFAULT_SEARCH_SORT,
-	SEARCH_SORT_OPTIONS,
-	sameSearchSort,
-	type SearchSortView,
-} from "@app/utils/searchSort";
 import { CacheKey, CustomListView, MediaFilter } from "@app/enums";
 import type { TMDBShow } from "@app/types";
 import SlidingTabs from "../../components/SlidingTabs";
@@ -29,11 +22,8 @@ import { describeSearchError } from "@app/utils/loadError";
 import { useCollapsingHeader } from "../../hooks/useCollapsingHeader";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
 import { useElementHeight } from "../../hooks/useElementHeight";
-import { useColumnCount } from "../../hooks/useColumnCount";
 import { Paths, showPath, SEARCH_TYPE_PARAM } from "../../routes/paths";
-import { SortButton, SortPanel, type SortOption } from "../../components/SortPanel";
 import AddToListSheet from "../../components/AddToListSheet";
-import SortFabMenu from "../../components/SortFabMenu";
 import SearchCard from "./SearchCard";
 import { mediaTypeOf } from "./mediaTypeOf";
 import SearchModals from "./SearchModals";
@@ -60,15 +50,6 @@ const FILTER_TABS = [
 
 // Horizontal drag (px) on the results that goes back to Trending — same as Watch History's tabs
 const SWIPE_BACK_PX = 60;
-/** A re-sort swaps the whole order: the grid settles in (same curve/offset as the app) */
-const SORT_IN_S = 0.22;
-const SORT_SETTLE_PX = 10;
-const SORT_EASE_OUT = [0.23, 1, 0.32, 1] as const;
-
-const SORT_OPTIONS: SortOption<SearchSortView>[] = SEARCH_SORT_OPTIONS.map(
-	({ label, ...value }) => ({ value, label }),
-);
-
 /** Landing page for guests; same trending/search + add flows as the app's SearchScreen */
 export default function SearchScreen() {
 	const navigate = useNavigate();
@@ -87,21 +68,13 @@ export default function SearchScreen() {
 			},
 			{ replace: true },
 		);
-	// Results only (Trending keeps its own order); remembered for the session
-	const [sortView, setSortView] = useSearchSort();
-	const reduceMotion = useReducedMotion();
-	// Only a sort change animates the grid in, not the first load of a query
-	const firstSort = useRef(sortView);
-	const sortChanged = useRef(false);
-	if (firstSort.current !== sortView) sortChanged.current = true;
-	const [sortOpen, setSortOpen] = useState(false);
 	// Grid / List, remembered across visits (Trending and results share it)
 	const [view, setView] = useCustomListView(CacheKey.SEARCH_VIEW, CustomListView.GRID);
 	const isGrid = view === CustomListView.GRID;
 	const layoutClass = isGrid ? styles.grid : styles.rows;
 	const [headerRef, headerHeight] = useElementHeight<HTMLElement>();
-	// Follows the scroll continuously; held open while the sort popover (anchored in it) is up
-	const headerY = useCollapsingHeader(headerHeight, sortOpen);
+	// Follows the scroll continuously
+	const headerY = useCollapsingHeader(headerHeight);
 
 	const actions = useSearchActions();
 	const signedIn = !!actions.user;
@@ -124,22 +97,13 @@ export default function SearchScreen() {
 	} = useSearch(submittedQuery, mediaFilter);
 	const { data: trending, isLoading: trendingLoading } = useTrending("all");
 
-	// A page loaded while scrolling is appended in order, not merged in above the scroll position
-	const sortedResults = useSortedSearchResults(
-		searchData?.results,
-		sortView,
-		`${submittedQuery}|${mediaFilter}`,
-	);
 	const items = useMemo(() => {
-		if (submittedQuery) return sortedResults ?? [];
+		if (submittedQuery) return searchData?.results ?? [];
 		return (trending ?? []).filter(
 			(item) => mediaFilter === MediaFilter.ALL || (mediaTypeOf(item) as string) === mediaFilter,
 		);
-	}, [submittedQuery, sortedResults, trending, mediaFilter]);
+	}, [submittedQuery, searchData?.results, trending, mediaFilter]);
 	const isLoading = submittedQuery ? searchLoading : trendingLoading;
-	const showSort = !!submittedQuery && !isLoading && items.length > 0;
-	// Phones: a floating sort menu like the app's SortFabMenu; wider: a popover in the search bar
-	const floatingSort = useColumnCount() === 1;
 
 	const loadMore = useCallback(() => {
 		if (submittedQuery && hasNextPage) fetchNextPage();
@@ -186,29 +150,6 @@ export default function SearchScreen() {
 			actions.handleRemoveFromWatchlist,
 			handlePress,
 		],
-	);
-
-	const sortButton = (
-		<SortButton
-			label="Sort results"
-			sortOnly
-			open={sortOpen}
-			onOpenChange={setSortOpen}
-			customised={!sameSearchSort(sortView, DEFAULT_SEARCH_SORT)}
-			content={
-				<SortPanel
-					options={SORT_OPTIONS}
-					selected={sortView}
-					isSame={sameSearchSort}
-					onSelect={(next) => {
-						setSortView(next);
-						setSortOpen(false);
-						// New order starts from the top
-						window.scrollTo({ top: 0 });
-					}}
-				/>
-			}
-		/>
 	);
 
 	return (
@@ -265,7 +206,6 @@ export default function SearchScreen() {
 									<IoIosCloseCircle size={20} />
 								</button>
 							)}
-							{showSort && !floatingSort && <span className={styles.sortSlot}>{sortButton}</span>}
 							<button
 								type="button"
 								className={styles.viewToggle}
@@ -306,11 +246,6 @@ export default function SearchScreen() {
 			) : submittedQuery ? (
 				// Results: swipe right goes back to Trending (vertical scroll stays native)
 				<motion.div
-					// A new sort remounts the grid and it settles in (the app fades out, swaps, fades in)
-					key={`${sortView.sort}_${sortView.direction}`}
-					initial={reduceMotion || !sortChanged.current ? false : { opacity: 0, y: SORT_SETTLE_PX }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: SORT_IN_S, ease: SORT_EASE_OUT }}
 					drag="x"
 					dragDirectionLock
 					dragConstraints={{ left: 0, right: 0 }}
@@ -327,21 +262,6 @@ export default function SearchScreen() {
 				<div className={layoutClass}>{cards}</div>
 			)}
 			<div ref={sentinel} />
-
-			{showSort && floatingSort && (
-				<SortFabMenu
-					label="Sort results"
-					options={SORT_OPTIONS}
-					selected={sortView}
-					isSame={sameSearchSort}
-					customised={!sameSearchSort(sortView, DEFAULT_SEARCH_SORT)}
-					onSelect={(next) => {
-						setSortView(next);
-						// New order starts from the top
-						window.scrollTo({ top: 0 });
-					}}
-				/>
-			)}
 
 			{signedIn && <AddToListSheet entry={listEntry} onClose={() => setListTarget(null)} />}
 

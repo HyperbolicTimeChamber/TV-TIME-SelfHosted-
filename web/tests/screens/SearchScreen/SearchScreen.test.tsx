@@ -68,27 +68,10 @@ describe("SearchScreen", () => {
 		expect(screen.getByText("MOVIE")).toBeInTheDocument();
 	});
 
-	it("trending has no sort button", () => {
-		signedIn = false;
-		renderWithProviders(<SearchScreen />);
-		expect(screen.queryByLabelText("Sort results")).not.toBeInTheDocument();
-	});
-
-	it("results sort: relevance by default; newest first, undated last; oldest first; name A → Z", async () => {
+	it("results render in the server's order", () => {
 		signedIn = false;
 		renderWithProviders(<SearchScreen />, { path: "/?q=x" });
 		expect(resultTitles()).toEqual(["heat", "Undated", "Arrow"]);
-
-		fireEvent.click(screen.getByLabelText("Sort results"));
-		fireEvent.click(await screen.findByText("Newest First"));
-		await waitFor(() => expect(resultTitles()).toEqual(["Arrow", "heat", "Undated"]));
-
-		fireEvent.click(screen.getByLabelText("Sort results"));
-		fireEvent.click(await screen.findByText("Oldest First"));
-		await waitFor(() => expect(resultTitles()).toEqual(["heat", "Arrow", "Undated"]));
-
-		fireEvent.click(screen.getByLabelText("Sort results"));
-		fireEvent.click(await screen.findByRole("button", { name: "A → Z" }));
-		await waitFor(() => expect(resultTitles()).toEqual(["Arrow", "heat", "Undated"]));
+		expect(screen.queryByLabelText("Sort results")).not.toBeInTheDocument();
 	});
 });
