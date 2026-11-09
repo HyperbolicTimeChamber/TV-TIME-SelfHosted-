@@ -132,12 +132,12 @@ export default function SearchScreen() {
 	}, [submittedQuery, hasNextPage, fetchNextPage]);
 	const sentinel = useInfiniteScroll(loadMore, !!submittedQuery && !!hasNextPage);
 
-	// From a results page the input replaces it in history (as the app's stack), so the next search
-	// replaces these results rather than stacking on them: back goes to Trending
+	// The input opens over this page, so backing out of it returns here, whatever was typed. A new
+	// search replaces these results (SearchInputScreen): back from it goes to Trending
 	const openInput = () =>
 		navigate(
 			`${Paths.SEARCH_INPUT}${submittedQuery ? `?q=${encodeURIComponent(submittedQuery)}` : ""}`,
-			{ replace: !!submittedQuery },
+			{ state: { overResults: !!submittedQuery } },
 		);
 	const handlePress = useCallback(
 		(item: TMDBShow) => navigate(showPath(mediaTypeOf(item), item.id)),
@@ -245,7 +245,7 @@ export default function SearchScreen() {
 								<button
 									type="button"
 									className={styles.clearButton}
-									onClick={() => navigate(Paths.SEARCH_INPUT, { replace: true })}
+									onClick={() => navigate(Paths.SEARCH_INPUT, { state: { overResults: true } })}
 									aria-label="Clear search"
 								>
 									<IoIosCloseCircle size={20} />

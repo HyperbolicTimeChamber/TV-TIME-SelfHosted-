@@ -252,19 +252,14 @@ export default function SearchScreen() {
 		}, [submittedQuery, navigation]),
 	);
 
-	// From a results page the input replaces it, so the next search replaces these results rather
-	// than stacking on them: only ever one results page above Trending, and back goes to Trending
+	// The input opens over this page, so backing out of it returns here, whatever was typed. A new
+	// search replaces these results (SearchInputScreen): only ever one results page above Trending
 	const openSearchInput = useCallback(() => {
-		if (submittedQuery) {
-			navigation.replace(Route.SEARCH_INPUT, { currentQuery: submittedQuery });
-		} else {
-			navigation.navigate(Route.SEARCH_INPUT, { currentQuery: undefined });
-		}
+		navigation.push(Route.SEARCH_INPUT, { currentQuery: submittedQuery || undefined });
 	}, [navigation, submittedQuery]);
-	// ✕ on a results page: drop the search and reopen the suggestions page empty (replaces the
-	// results, like openSearchInput)
+	// ✕ on a results page: the suggestions page opens empty, over these results like openSearchInput
 	const clearSearch = useCallback(() => {
-		navigation.replace(Route.SEARCH_INPUT, { currentQuery: undefined });
+		navigation.push(Route.SEARCH_INPUT, { currentQuery: undefined });
 	}, [navigation]);
 
 	const {

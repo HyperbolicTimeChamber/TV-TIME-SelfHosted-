@@ -1,7 +1,7 @@
 import { IoIosCloseCircle } from "react-icons/io";
 import { useEffect, useRef } from "react";
 import { IoChevronBackCircleOutline } from "react-icons/io5";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useSearchInput } from "@app/screens/SearchScreen/useSearchInput";
 import { Paths } from "../../routes/paths";
 import styles from "./styles/SearchInputScreen.module.scss";
@@ -10,6 +10,8 @@ import styles from "./styles/SearchInputScreen.module.scss";
 export default function SearchInputScreen() {
 	const navigate = useNavigate();
 	const [params] = useSearchParams();
+	// Opened from a results page, which sits under this one in history
+	const overResults = !!(useLocation().state as { overResults?: boolean } | null)?.overResults;
 	const inputRef = useRef<HTMLInputElement>(null);
 	const { query, setQuery, addToHistory, clearHistory, filteredHistory, suggestionItems } =
 		useSearchInput(params.get("q") ?? "");
@@ -22,7 +24,15 @@ export default function SearchInputScreen() {
 		const trimmed = term.trim();
 		if (!trimmed) return;
 		addToHistory(trimmed);
-		navigate(`${Paths.SEARCH}?q=${encodeURIComponent(trimmed)}`, { replace: true });
+		const results = `${Paths.SEARCH}?q=${encodeURIComponent(trimmed)}`;
+		if (!overResults) {
+			navigate(results, { replace: true });
+			return;
+		}
+		// Over a results page: step back onto it, then replace it, so one results page stays above
+		// Trending and back from a second search goes there
+		window.addEventListener("popstate", () => navigate(results, { replace: true }), { once: true });
+		window.history.back();
 	};
 
 	return (
@@ -37,7 +47,7 @@ export default function SearchInputScreen() {
 				<button
 					type="button"
 					className={styles.backButton}
-					onClick={() => navigate(Paths.SEARCH)}
+					onClick={() => (overResults ? navigate(-1) : navigate(Paths.SEARCH))}
 					aria-label="Back"
 				>
 					<IoChevronBackCircleOutline size={30} />
