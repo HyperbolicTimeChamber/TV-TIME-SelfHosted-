@@ -8,6 +8,7 @@ import {
 	UPDATE_CHANNEL,
 	UPDATE_PROGRESS_INTERVAL_MS,
 } from "../enums";
+import UpdateNotification from "../../modules/update-notification";
 import { APP_BUILD } from "../utils/appVersion";
 
 /** One channel's entry in config/release (CI's publish-release script writes it) */
@@ -91,10 +92,12 @@ export function downloadApk(
 	};
 }
 
-/** The APK a previous download left, if it's still there (a notification's "Tap to install") */
-export async function downloadedApk(): Promise<string | null> {
-	const info = await FileSystem.getInfoAsync(apkPath()).catch(() => null);
-	return info?.exists ? info.uri : null;
+/**
+ * A release is on offer: a leftover APK of an older build (and its "downloaded" notification) is
+ * deleted, so nothing can open Android's installer on it. All builds share one file
+ */
+export function discardStaleDownload(offeredBuild: number): void {
+	UpdateNotification?.discardStaleDownload(offeredBuild);
 }
 
 /** FLAG_GRANT_READ_URI_PERMISSION: the installer may read our content:// uri */

@@ -37,6 +37,10 @@ class UpdateNotificationModule : Module() {
       UpdateNotifications.cleanupInstalledApk(context)
     }
 
+    Function("discardStaleDownload") { offeredBuild: Double ->
+      UpdateNotifications.discardStaleDownload(context, offeredBuild.toLong())
+    }
+
     OnCreate {
       UpdateDownloadService.listener = { event, data ->
         sendEvent("onDownload", data + ("type" to event))

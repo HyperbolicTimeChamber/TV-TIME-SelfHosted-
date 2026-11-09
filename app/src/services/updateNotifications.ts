@@ -3,7 +3,7 @@ import { getMessaging, subscribeToTopic } from "@react-native-firebase/messaging
 import type { FirebaseMessagingTypes } from "@react-native-firebase/messaging";
 import UpdateNotification from "../../modules/update-notification";
 import { APP_UPDATE_MESSAGE, RELEASE_CONFIG_DOC, UPDATE_CHANNEL, UPDATE_TOPIC } from "../enums";
-import { INSTALLED_BUILD, UPDATES_SUPPORTED, type ChannelRelease } from "./appUpdate";
+import { INSTALLED_BUILD, UPDATES_SUPPORTED, discardStaleDownload, type ChannelRelease } from "./appUpdate";
 
 /**
  * New version out: the app's own notification (native module, custom layouts in the app's theme)
@@ -13,6 +13,7 @@ import { INSTALLED_BUILD, UPDATES_SUPPORTED, type ChannelRelease } from "./appUp
  */
 export async function showUpdateNotification(release: ChannelRelease): Promise<void> {
 	if (!UPDATES_SUPPORTED || release.build <= INSTALLED_BUILD) return;
+	discardStaleDownload(release.build);
 	UpdateNotification?.showOffer(release.version, release.notes ?? "", release.apkUrl, release.size ?? 0);
 }
 

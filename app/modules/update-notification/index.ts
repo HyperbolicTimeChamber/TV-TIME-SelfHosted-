@@ -20,6 +20,8 @@ interface UpdateNotificationModule {
 	cancelDownload(): void;
 	/** Deletes the downloaded APK once this build is the one it held (or newer) */
 	cleanupInstalledApk(): void;
+	/** A release with this versionCode is out: deletes a downloaded APK (and its card) of an older build */
+	discardStaleDownload(offeredBuild: number): void;
 	addListener(event: "onDownload", listener: (event: DownloadEvent) => void): EventSubscription;
 }
 
