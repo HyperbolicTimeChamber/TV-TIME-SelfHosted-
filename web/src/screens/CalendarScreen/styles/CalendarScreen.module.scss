@@ -202,12 +202,10 @@
 	margin: 0;
 }
 
+/* Plain label, no red fill — reads like the other day headers */
 .todayTag {
 	display: inline-block;
 	margin-right: 8px;
-	padding: 1px 10px;
-	border-radius: 6px;
-	background: var(--primary, #e50914);
 	color: #fff;
 	font-size: 14px;
 	font-weight: 700;

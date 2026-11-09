@@ -1,0 +1,525 @@
+@use "../../../theme/tokens" as *;
+
+/* Numbers match app/src/screens/ProfileScreen/ListDetail.tsx → identical at phone width */
+.page {
+	min-height: 100dvh;
+	max-width: 900px;
+	margin: 0 auto;
+	padding-bottom: 64px;
+}
+
+.topBar {
+	position: sticky;
+	top: 0;
+	z-index: 10;
+	background: var(--bg);
+	padding: calc(env(safe-area-inset-top) + 8px) 16px 12px;
+
+	/* Cards fade out under the bar instead of being cut at its edge (app topFade, like the Lists page) */
+	&::after {
+		content: "";
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: 100%;
+		height: 16px;
+		background: linear-gradient(var(--bg), transparent);
+		pointer-events: none;
+	}
+}
+
+.titleRow {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.title {
+	flex: 1;
+	min-width: 0;
+	margin: 0;
+	font-size: 20px;
+	font-weight: 700;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* "N titles · hold for options" + reorder / view buttons */
+.subBar {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	padding: 0 16px 12px;
+}
+
+.count {
+	flex: 1;
+	min-width: 0;
+	margin: 0;
+	font-size: 12px;
+	color: var(--text-secondary);
+}
+
+.iconButton {
+	display: flex;
+	background: none;
+	border: none;
+	padding: 0;
+	color: var(--text);
+	cursor: pointer;
+
+	&:disabled {
+		color: var(--text-muted);
+		cursor: default;
+	}
+}
+
+.iconButtonAccent:not(:disabled) {
+	color: $accent;
+}
+
+/* 3 columns like the app; wider screens add columns */
+.grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 8px;
+	padding: 0 16px;
+
+	@include tablet {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: 12px;
+	}
+
+	@include desktop {
+		grid-template-columns: repeat(6, minmax(0, 1fr));
+	}
+}
+
+.posterButton {
+	display: block;
+	width: 100%;
+	background: none;
+	border: none;
+	padding: 0;
+	cursor: pointer;
+	user-select: none;
+	-webkit-touch-callout: none;
+}
+
+.poster {
+	width: 100%;
+	aspect-ratio: 2 / 3;
+	border-radius: 6px;
+	background: var(--surface);
+}
+
+/* List view */
+.listView {
+	padding: 0 16px;
+}
+
+/* Calendar card (CalendarScreen .card*): blurred backdrop under a dark overlay, info left,
+   square right */
+.card {
+	position: relative;
+	overflow: hidden;
+	width: 100%;
+	/* Exactly the right block (80 square + 32 button) plus the card's padding: the left column fits
+	   inside it, the logo giving way */
+	height: 136px;
+	box-sizing: border-box;
+	display: flex;
+	align-items: stretch;
+	margin-bottom: 12px;
+	padding: 12px;
+	border: none;
+	border-radius: 16px;
+	background: var(--surface);
+	color: var(--text);
+	text-align: left;
+	cursor: pointer;
+	user-select: none;
+	-webkit-touch-callout: none;
+	transition: transform 160ms ease-out;
+
+	&:active {
+		transform: scale(0.98);
+	}
+}
+
+.cardBg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	/* Wide, short card: show the top of the backdrop (faces / titles sit there) */
+	object-position: top;
+	filter: blur(0.5px);
+	animation: fadeIn 200ms ease-out;
+}
+
+/* A poster standing in for a missing backdrop: blurred to a wash of its colours */
+.cardBgPoster {
+	filter: blur(30px);
+	transform: scale(1.2);
+}
+
+/* Loading: the whole card shimmers behind the overlay */
+.cardBgSkeleton {
+	position: absolute;
+	inset: 0;
+	border-radius: 0;
+}
+
+.cardOverlay {
+	position: absolute;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.55);
+}
+
+.skeletonLogo {
+	width: 60%;
+	height: 28px;
+	border-radius: 6px;
+}
+
+.skeletonMeta {
+	width: 60px;
+	height: 10px;
+	border-radius: 4px;
+}
+
+.skeletonValue {
+	width: 52px;
+	height: 36px;
+	margin-top: 6px;
+	border-radius: 6px;
+}
+
+.cardInfo {
+	position: relative;
+	min-height: 0;
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	/* Logo on top, the tags at the bottom, the meta pill centred in the space between */
+	justify-content: flex-start;
+	align-items: flex-start;
+}
+
+/* Square on top, the add button / Tracking tag at the bottom edge, level with the tags */
+.rightCol {
+	position: relative;
+	flex-shrink: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	/* One block: the square with the button / Tracking tag joined to its bottom edge, level with
+	   the tags */
+	justify-content: flex-end;
+	margin-left: 12px;
+}
+
+.bottomRow {
+	display: flex;
+	align-items: center;
+	height: 32px;
+}
+
+.addButton,
+.trackingTag {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	height: 32px;
+	/* As wide as the square, flat top (joined to it), bottom corners matching its top (14px) */
+	width: 96px;
+	padding: 0 8px;
+	box-sizing: border-box;
+	border-radius: 0 0 14px 14px;
+	color: var(--text);
+	font-size: 12px;
+	font-weight: 700;
+	line-height: 1;
+}
+
+.addButton {
+	background: var(--primary);
+	cursor: pointer;
+	transition: transform 120ms ease-out;
+
+	&:active {
+		transform: scale(0.97);
+	}
+}
+
+/* The info page's Resume blue */
+.resumeButton {
+	background: $accent;
+}
+
+.addButtonBusy {
+	opacity: 0.6;
+}
+
+.trackingTag {
+	background: $watched-green;
+}
+
+/* The meta pill centred in the space between the logo and the tags */
+.metaArea {
+	flex: 1;
+	min-height: 0;
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+}
+
+/* The tag pills are 26 tall, centred on the 32 button beside them: 3 up from the bottom edge */
+.tagsRow {
+	display: flex;
+	align-items: center;
+	min-height: 26px;
+	margin-bottom: 3px;
+}
+
+.logoSlot {
+	flex: 0 1 44px;
+	min-height: 24px;
+	width: 100%;
+	display: flex;
+	align-items: center;
+}
+
+.cardLogo {
+	height: 100%;
+	max-height: 44px;
+	width: 75%;
+	object-fit: contain;
+	object-position: left center;
+	animation: fadeIn 200ms ease-out;
+}
+
+.cardName {
+	font-size: 16px;
+	font-weight: 600;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+/* Calendar's epSquare: label, rule, big value */
+.square {
+	position: relative;
+	flex-shrink: 0;
+	width: 96px;
+	height: 80px;
+	padding: 6px 8px 0;
+	/* Flat bottom: the add button / Tracking tag continues it */
+	border-radius: 14px 14px 0 0;
+	background: rgba(0, 0, 0, 0.5);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+}
+
+.squareTitle {
+	font-family: "Smooch Sans", sans-serif;
+	font-size: 16px;
+	font-weight: 500;
+	letter-spacing: 1.5px;
+	white-space: nowrap;
+}
+
+.squareRule {
+	align-self: stretch;
+	height: 1px;
+	margin: 6px 0;
+	background: var(--color-fg);
+}
+
+/* Year / episode counts are wider than Exx — a step down so 4 digits fit */
+.squareValue {
+	font-family: "Smooch Sans", sans-serif;
+	font-size: 36px;
+	font-weight: 400;
+	line-height: 40px;
+}
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+	}
+}
+
+.rowMetaLine {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+/* Season count / year over the backdrop: a translucent black pill, like the card's square */
+.metaPill {
+	padding: 3px 8px;
+	border-radius: 999px;
+	background: rgba(0, 0, 0, 0.5);
+	color: var(--text);
+	font-size: 11px;
+	font-weight: 700;
+	white-space: nowrap;
+}
+
+.rowMeta {
+	font-size: 12px;
+	color: var(--text-secondary);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* TV / MOVIE pill — Search card's typeBadge */
+.typeBadge {
+	flex-shrink: 0;
+	background: var(--primary);
+	border-radius: 4px;
+	padding: 2px 6px;
+	font-size: 10px;
+	font-weight: 700;
+	color: var(--text);
+}
+
+.typeBadgeMovie {
+	background: $movie-purple;
+}
+
+/* Reorder mode */
+.reorderList {
+	list-style: none;
+	margin: 0;
+	padding: 0 16px;
+}
+
+.reorderRow {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 12px;
+	margin-bottom: 8px;
+	background: var(--surface);
+	border-radius: 10px;
+	list-style: none;
+}
+
+.reorderPoster {
+	width: 40px;
+	height: 60px;
+	flex-shrink: 0;
+	border-radius: 4px;
+}
+
+.reorderTitle {
+	flex: 1;
+	min-width: 0;
+	font-size: 15px;
+	font-weight: 600;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.dragHandle {
+	display: flex;
+	color: var(--text-muted);
+	cursor: grab;
+	touch-action: none;
+}
+
+/* The whole empty area is one big button to Search */
+.empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+	width: 100%;
+	min-height: calc(100dvh - 160px);
+	padding: 0 32px 64px;
+	background: none;
+	border: none;
+	color: var(--text);
+	text-align: center;
+	cursor: pointer;
+}
+
+.emptyArt {
+	width: min(60vw, 260px);
+	aspect-ratio: 1300 / 1500;
+	object-fit: contain;
+}
+
+.emptyText {
+	margin: 0;
+	max-width: 320px;
+	font-size: 14px;
+	font-style: italic;
+	color: var(--text-secondary);
+}
+
+/* Tag line under the meta line (app ListCardTags): Watch History's tags at a small size, one row */
+.tagLine {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-top: 8px;
+	max-width: 100%;
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+/* After .tagLine so it wins: the caller lines the row up itself */
+.tagLineFlush {
+	margin-top: 0;
+}
+
+.tag {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	flex-shrink: 0;
+	border-radius: 999px;
+	/* 26 tall, like the status / progress / count pills on the line */
+	padding: 5px 8px;
+	font-size: 11px;
+	line-height: 16px;
+	font-weight: 700;
+	color: var(--text);
+}
+
+.tagGrey {
+	background: color-mix(in srgb, var(--text-secondary) 35%, transparent);
+}
+
+/* The 20px ring scaled to the tag line's 14px icon */
+.skeletonTags {
+	width: 150px;
+	height: 20px;
+	margin-top: 8px;
+	border-radius: 999px;
+}
+
+/* A list grid card's state pills sit on a solid backing: they are translucent, which lost them on a
+   busy poster */
+.gridTagBacking {
+	display: inline-flex;
+	border-radius: 999px;
+	background: var(--bg);
+}

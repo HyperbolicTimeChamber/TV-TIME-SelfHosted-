@@ -11,6 +11,7 @@ vi.mock("@app/screens/HomeScreen/WatchlistTab/useWatchlistScreen", () => ({
 		listData,
 		prevWatchedOffset: 0,
 		updatingShows: new Map(),
+		wasJustMarked: () => false,
 		hasMorePrevWatched: false,
 		loadMoreTracking: vi.fn(),
 		loadingMoreTracking: false,
@@ -91,7 +92,7 @@ describe("HomeScreen", () => {
 		renderWithProviders(<Home />, { user: testUser, path: "/home" });
 		fireEvent.contextMenu(screen.getByText("The Real Name"));
 		expect(await screen.findByText(/^Pausing this show will/)).toBeInTheDocument();
-		fireEvent.click(screen.getByRole("button", { name: "Pause" }));
+		fireEvent.keyDown(screen.getByRole("button", { name: "Slide to Pause" }), { key: "Enter" });
 		await waitFor(() => expect(handleStopWatching).toHaveBeenCalledWith(show));
 	});
 

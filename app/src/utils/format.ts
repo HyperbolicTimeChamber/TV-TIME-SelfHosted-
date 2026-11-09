@@ -104,7 +104,14 @@ export function seasonMarkCopy(o: {
 	toMark: number;
 	allWatched: boolean;
 	inRewatch: boolean;
-}): { title: string; hint: string; confirmLabel: string; secondaryLabel?: string } {
+}): {
+	title: string;
+	hint: string;
+	confirmLabel: string;
+	secondaryLabel?: string;
+	/** One slide-to-confirm bar instead of the button (a whole-season rewatch) */
+	slideLabel?: string;
+} {
 	const { seasonNumber: n, seasonName, total, toMark, allWatched, inRewatch } = o;
 	const eps = (c: number) => `${c} episode${c === 1 ? "" : "s"}`;
 	if (toMark < total && inRewatch) {
@@ -128,6 +135,7 @@ export function seasonMarkCopy(o: {
 			title: `Rewatch Season ${n}`,
 			hint: `Mark every episode of ${seasonName} as watched again?`,
 			confirmLabel: "Rewatch Season",
+			slideLabel: "Slide to Rewatch",
 		};
 	}
 	return {
@@ -135,4 +143,46 @@ export function seasonMarkCopy(o: {
 		hint: `Mark all ${total} episodes of ${seasonName} as watched?`,
 		confirmLabel: "Mark Season",
 	};
+}
+
+/** Short words kept lower-case inside a title-cased label (never as its first word) */
+const TITLE_MINOR_WORDS = new Set([
+	"a",
+	"an",
+	"and",
+	"as",
+	"at",
+	"but",
+	"by",
+	"for",
+	"in",
+	"of",
+	"on",
+	"or",
+	"the",
+	"to",
+	"vs",
+]);
+
+/**
+ * Display label in Title Case ("based on novel or book" → "Based on Novel or Book"). Keywords are
+ * stored / matched lower-case — this is only how a chip shows them.
+ */
+export function titleCase(text: string) {
+	return text
+		.split(" ")
+		.map((word, i) =>
+			i > 0 && TITLE_MINOR_WORDS.has(word.toLowerCase())
+				? word.toLowerCase()
+				: word.charAt(0).toUpperCase() + word.slice(1),
+		)
+		.join(" ");
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "2024-07-16" → "16 Jul 2024" (the season / episode date format) */
+export function formatIsoDate(dateStr: string): string {
+	const [y, m, d] = dateStr.split("-");
+	return `${Number.parseInt(d, 10)} ${MONTHS[Number.parseInt(m, 10) - 1]} ${y}`;
 }

@@ -1,0 +1,28 @@
+/* Same as the credits' labels */
+.label {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--primary);
+}
+
+/* Same face as the stats' values */
+.date {
+	margin: 0;
+	font-family: "Smooch Sans", sans-serif;
+	font-size: 24px;
+	font-weight: 500;
+	letter-spacing: 0.5px;
+	color: var(--text);
+}
+
+/* It arrived after the page / drawer opened */
+.fadeIn {
+	animation: localReleaseIn 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@keyframes localReleaseIn {
+	from {
+		opacity: 0;
+	}
+}

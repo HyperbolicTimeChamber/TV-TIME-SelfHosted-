@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "../../stores";
 import { searchSuggestions } from "../../services/tmdb";
+import { warmupSearchTitles } from "../../services/searchTitles";
 import { getCachedCatalogTitles } from "../../hooks/useWatchlist";
 import {
 	cleanedQuery,
@@ -67,9 +68,19 @@ export function useSearchInput(initialQuery = "") {
 	const [query, setQuery] = useState(initialQuery);
 	const [searchHistory, setSearchHistory] = useState<string[]>([]);
 	const [tmdbSuggestions, setTmdbSuggestions] = useState<string[]>([]);
+	const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 	// Each keystroke's suggestions, reused when a later one finds nothing. Lives with the page
 	const suggestionMemory = useRef<SuggestionMemory>(new Map());
 	const apiKey = useAuthStore((s) => s.appTmdbApiKey);
+
+	// The results page's search runs in a CF: start it when the search box opens…
+	useEffect(() => warmupSearchTitles(), []);
+	// …and on the first keystroke, in case the box sat open past the idle window (warmups inside
+	// it are skipped, so this costs nothing otherwise)
+	const typing = query.trim().length > 0;
+	useEffect(() => {
+		if (typing) warmupSearchTitles();
+	}, [typing]);
 
 	useEffect(() => {
 		AsyncStorage.getItem(HISTORY_KEY)
@@ -79,19 +90,32 @@ export function useSearchInput(initialQuery = "") {
 			.catch(() => {});
 	}, []);
 
-	// Debounced TMDB suggestions
+	// Debounced TMDB suggestions. An answer to an older query is dropped
 	useEffect(() => {
 		const trimmed = query.trim();
 		if (trimmed.length < 2 || !apiKey) {
 			setTmdbSuggestions([]);
+			setLoadingSuggestions(false);
 			return;
 		}
+		setLoadingSuggestions(true);
+		let current = true;
 		const timer = setTimeout(() => {
 			suggestionsWithFallback(apiKey, trimmed, suggestionMemory.current)
-				.then(setTmdbSuggestions)
-				.catch(() => setTmdbSuggestions([]));
+				.then((found) => {
+					if (current) setTmdbSuggestions(found);
+				})
+				.catch(() => {
+					if (current) setTmdbSuggestions([]);
+				})
+				.finally(() => {
+					if (current) setLoadingSuggestions(false);
+				});
 		}, 200);
-		return () => clearTimeout(timer);
+		return () => {
+			current = false;
+			clearTimeout(timer);
+		};
 	}, [query, apiKey]);
 
 	const addToHistory = useCallback((term: string) => {
@@ -148,5 +172,6 @@ export function useSearchInput(initialQuery = "") {
 		clearHistory,
 		filteredHistory,
 		suggestionItems,
+		loadingSuggestions,
 	};
 }

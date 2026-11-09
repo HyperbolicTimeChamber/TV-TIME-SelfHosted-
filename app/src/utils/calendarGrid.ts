@@ -89,26 +89,36 @@ export function pickBars<T extends { mediaType: MediaType }>(marks: T[], max: nu
 
 /**
  * Which event chips fit a full-view day cell. Titles wrap to at most 2 lines (estimated from
- * charsPerLine); when they don't all fit, the last slot becomes "+n more".
+ * charsPerLine); what doesn't fit is summed up in "+n more" lines at the bottom — one per kind
+ * (`kindOf`, e.g. episodes vs movies) so a hidden movie is still told apart from hidden episodes.
+ * `moreByKind` lists those lines in first-hidden order; `more` is their total.
  */
-export function planChips<T extends { title: string }>(
+export function planChips<T extends { title: string }, K = string>(
 	marks: T[],
 	space: number,
 	charsPerLine: number,
 	lineH: number,
 	gap: number,
-): { shown: T[]; more: number } {
+	kindOf?: (mark: T) => K,
+): { shown: T[]; more: number; moreByKind: { kind: K | undefined; count: number }[] } {
 	const height = (t: string) => (t.length > charsPerLine ? 2 : 1) * lineH + gap;
+	const kinds = (rest: T[]) => new Set(rest.map((m) => kindOf?.(m))).size;
 	const shown: T[] = [];
 	let used = 0;
 	for (let i = 0; i < marks.length; i++) {
 		const need = height(marks[i].title);
-		const left = marks.length - i - 1;
-		// Keep a one-line slot for "+n more" while anything would be left over
-		const reserve = left > 0 ? lineH + gap : 0;
+		// Keep a one-line slot per kind of "+n more" while anything would be left over
+		const reserve = kinds(marks.slice(i + 1)) * (lineH + gap);
 		if (used + need + reserve > space) break;
 		shown.push(marks[i]);
 		used += need;
 	}
-	return { shown, more: marks.length - shown.length };
+	const moreByKind: { kind: K | undefined; count: number }[] = [];
+	for (const m of marks.slice(shown.length)) {
+		const kind = kindOf?.(m);
+		const line = moreByKind.find((l) => l.kind === kind);
+		if (line) line.count++;
+		else moreByKind.push({ kind, count: 1 });
+	}
+	return { shown, more: marks.length - shown.length, moreByKind };
 }

@@ -12,9 +12,10 @@ import {
 	documentId,
 	Timestamp,
 } from "@react-native-firebase/firestore";
-import type { CatalogShow, HistoryEntry } from "../types";
-import { HistorySort, MediaType, WatchStatus } from "../enums";
+import type { CatalogShow, HistoryEntry, HistoryFacets } from "../types";
+import { FACET_INDEX_SUFFIX, HistorySort, MediaType, UserCollection, WatchStatus } from "../enums";
 import { localizeCatalog } from "../utils/airTime";
+import { matchesHistoryView, type FacetIndex, type UserFacetsDoc } from "../utils/historyView";
 
 export const HISTORY_PAGE_SIZE = 20;
 /** Firestore `in` filter limit */
@@ -22,7 +23,10 @@ const IN_LIMIT = 30;
 
 const ms = (t: unknown) => (t as Timestamp | undefined)?.toMillis?.() ?? 0;
 
-function toEntry(id: string, d: Record<string, any>): HistoryEntry {
+/** `withFacets`: keep the facets (genres / keywords / countries / studios) — a filtered view's
+ *  page (checked on the phone, kept in memory). The cached default list leaves them out: it's one
+ *  saved value per tab */
+export function toEntry(id: string, d: Record<string, any>, withFacets = false): HistoryEntry {
 	return {
 		id,
 		tmdbId: d.tmdbId,
@@ -35,6 +39,14 @@ function toEntry(id: string, d: Record<string, any>): HistoryEntry {
 		minutesWatched: d.minutesWatched ?? 0,
 		plays: d.plays ?? 0,
 		lastEpisode: d.lastEpisode ?? null,
+		...(withFacets
+			? {
+					genres: d.genres ?? [],
+					keywords: d.keywords ?? [],
+					countries: d.countries ?? [],
+					studios: d.studios ?? [],
+				}
+			: {}),
 	};
 }
 
@@ -66,15 +78,20 @@ export async function fetchHistoryPage(
 
 /**
  * One page of a sorted / filtered view (Firestore does the work, so it stays paginated):
- * newest watch or most time spent first, optionally only some statuses.
+ * newest watch or most time spent first, optionally only some statuses / genres / keywords /
+ * countries / studios.
+ * Firestore takes one array-contains-any per query: the most selective picked facet runs there
+ * (studios, then countries, then genres, then keywords); the rest (statuses with it, the other facets) are
+ * checked here — so a page can come back short. `cursor` is the page's last doc either way, for the next page.
  */
 export async function fetchHistoryViewPage(
 	userId: string,
 	mediaType: MediaType,
 	sort: HistorySort,
 	statuses: WatchStatus[],
+	facets: HistoryFacets,
 	after: Pick<HistoryEntry, "historyAt" | "minutesWatched" | "id"> | null,
-): Promise<{ entries: HistoryEntry[]; hasMore: boolean }> {
+): Promise<{ entries: HistoryEntry[]; hasMore: boolean; cursor: HistoryEntry | null }> {
 	const bySpent = sort === HistorySort.TIME_SPENT;
 	const field = bySpent ? "minutesWatched" : "historyAt";
 	const cursor = after
@@ -82,21 +99,33 @@ export async function fetchHistoryViewPage(
 			? after.minutesWatched
 			: Timestamp.fromMillis(after.historyAt)
 		: null;
+	const facet =
+		facets.studios.size > 0
+			? where("studios", "array-contains-any", [...facets.studios])
+			: facets.countries.size > 0
+				? where("countries", "array-contains-any", [...facets.countries])
+				: facets.genres.size > 0
+					? where("genres", "array-contains-any", [...facets.genres])
+					: facets.keywords.size > 0
+						? where("keywords", "array-contains-any", [...facets.keywords])
+						: null;
 	const snap = await getDocs(
 		query(
 			trackingCol(userId),
 			where("mediaType", "==", mediaType),
-			...(statuses.length > 0 ? [where("status", "in", statuses)] : []),
+			...(facet ? [facet] : statuses.length > 0 ? [where("status", "in", statuses)] : []),
 			orderBy(field, "desc"),
 			orderBy(documentId(), "desc"),
 			...(after ? [startAfter(cursor, after.id)] : []),
 			limit(HISTORY_PAGE_SIZE),
 		),
 	);
+	const all = snap.docs.map((d) => toEntry(d.id, d.data(), true));
 	return {
 		// Never-watched titles (plays 0) can carry minutesWatched 0 — not history
-		entries: snap.docs.map((d) => toEntry(d.id, d.data())).filter((e) => e.plays > 0),
+		entries: all.filter((e) => e.plays > 0 && matchesHistoryView(e, statuses, facets)),
 		hasMore: snap.docs.length === HISTORY_PAGE_SIZE,
+		cursor: all[all.length - 1] ?? null,
 	};
 }
 
@@ -125,13 +154,58 @@ export async function fetchHistoryEntry(
 	return snap.exists() ? toEntry(snap.id, snap.data() as Record<string, any>) : null;
 }
 
-/** Catalog docs by id in `in` batches (1 round trip per 30) */
-export async function fetchCatalogShows(docIds: string[]): Promise<CatalogShow[]> {
+/** Catalog doc snapshots by id in `in` batches (1 round trip per 30). Use this rather than a
+ *  getDoc per show: on Android every getDoc holds a native Firestore thread until the server
+ *  answers, and past the pool size they spill onto the single thread that also runs every write */
+async function getCatalogSnaps(docIds: string[]) {
 	const showsCol = collection(getFirestore(), "shows");
+	const unique = [...new Set(docIds)];
 	const chunks: string[][] = [];
-	for (let i = 0; i < docIds.length; i += IN_LIMIT) chunks.push(docIds.slice(i, i + IN_LIMIT));
+	for (let i = 0; i < unique.length; i += IN_LIMIT) chunks.push(unique.slice(i, i + IN_LIMIT));
 	const snaps = await Promise.all(
 		chunks.map((ids) => getDocs(query(showsCol, where(documentId(), "in", ids)))),
 	);
-	return snaps.flatMap((s) => s.docs.map((d) => localizeCatalog(d.data() as CatalogShow)));
+	return snaps.flatMap((s) => s.docs);
+}
+
+/** Catalog docs by id in `in` batches (1 round trip per 30) */
+export async function fetchCatalogShows(docIds: string[]): Promise<CatalogShow[]> {
+	return (await getCatalogSnaps(docIds)).map((d) => localizeCatalog(d.data() as CatalogShow));
+}
+
+/** Catalog docs by id, keyed by doc id (with `id` set); ids with no doc are absent */
+export async function fetchCatalogDocs(docIds: string[]): Promise<Map<string, CatalogShow>> {
+	const out = new Map<string, CatalogShow>();
+	if (docIds.length === 0) return out;
+	for (const d of await getCatalogSnaps(docIds)) {
+		out.set(d.id, localizeCatalog({ id: d.id, ...d.data() } as unknown as CatalogShow));
+	}
+	return out;
+}
+
+/** The user's filter choices for a tab (one doc, kept by the Cloud Functions) */
+export async function fetchUserFacets(
+	userId: string,
+	mediaType: MediaType,
+): Promise<UserFacetsDoc | null> {
+	const snap = await getDoc(doc(getFirestore(), "users", userId, UserCollection.FACETS, mediaType));
+	return snap.exists() ? (snap.data() as UserFacetsDoc) : null;
+}
+
+/** The tab's facet index (title → its facet codes) — null until a Cloud Function first writes
+ *  it (an older account: its next add / import / facets backfill) */
+export async function fetchUserFacetIndex(
+	userId: string,
+	mediaType: MediaType,
+): Promise<FacetIndex | null> {
+	const snap = await getDoc(
+		doc(
+			getFirestore(),
+			"users",
+			userId,
+			UserCollection.FACETS,
+			`${mediaType}${FACET_INDEX_SUFFIX}`,
+		),
+	);
+	return snap.exists() ? ((snap.data() as { titles?: FacetIndex }).titles ?? {}) : null;
 }

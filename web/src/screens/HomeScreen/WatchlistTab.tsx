@@ -1,21 +1,23 @@
-import { Fragment, useCallback, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Spin } from "antd";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useNavigate } from "react-router-dom";
 import { useWatchlistScreen } from "@app/screens/HomeScreen/WatchlistTab/useWatchlistScreen";
 import { MediaType, WatchStatus } from "@app/enums";
 import type { WatchlistListItem } from "@app/types/watchlist";
 import ShowCard from "../../components/ShowCard";
-import WatchActionSheet from "../../components/WatchActionSheet";
+import WatchCountSheet from "../../components/WatchCountSheet";
 import EpisodeDetailModal from "../../components/EpisodeDetailModal";
 import ShowDrawer from "../../components/ShowDrawer";
 import ConfirmModal from "../../components/ConfirmModal";
 import HomeEmpty, { CAUGHT_UP_ART, WELCOME_ART } from "./HomeEmpty";
 import { UP_NEXT_TITLE, withCaughtUp } from "@app/utils/watchlistList";
 import { ModalBackdrop, ModalLogo } from "../../components/ModalArt";
-import type { EnrichedTrackingItem } from "@app/hooks/useWatchlist";
+import { getCachedCatalogShow, type EnrichedTrackingItem } from "@app/hooks/useWatchlist";
 import { colors } from "../../theme/index";
 import LoadingScreen from "../../components/LoadingScreen";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
+import { useVisibleCards } from "../../hooks/useVisibleCards";
 import { showPath } from "../../routes/paths";
 import styles from "./styles/HomeScreen.module.scss";
 
@@ -28,6 +30,19 @@ const keyOf = (item: WatchlistListItem) =>
 			? `show_${item.item.id}`
 			: item.type;
 
+/** On-screen movement → ease-in-out, 300ms (app CARD_MOVE) */
+const CARD_MOVE = { duration: 0.3, ease: [0.77, 0, 0.175, 1] } as const;
+/** Any other position change (a card resized as its patch lands, a row added) snaps — animated,
+ *  those read as the list shaking (app CARD_SNAP) */
+const CARD_SNAP = { duration: 0 } as const;
+/** How long after a mark lifts a card its move animates (app CARD_MOVE_WINDOW_MS) */
+const CARD_MOVE_WINDOW_MS = 500;
+/** A card a mark / unwatch takes off or brings back: shrinks away / grows in from 60% toward
+ *  its top edge while the cards around it glide (app: the same grow-in and its reverse) */
+const CARD_LEAVE = { opacity: 0, scale: 0.6, transition: CARD_MOVE } as const;
+const CARD_ENTER = { opacity: 0, scale: 0.6 } as const;
+const CARD_SHOWN = { opacity: 1, scale: 1 } as const;
+
 /** Watch List tab — same data/actions as the app via useWatchlistScreen */
 export default function WatchlistTab() {
 	const navigate = useNavigate();
@@ -36,14 +51,49 @@ export default function WatchlistTab() {
 		[navigate],
 	);
 	const w = useWatchlistScreen(goToShow);
+	// Heals (missing poster / episode name…) run only for cards kept on screen (app list)
+	const observeCard = useVisibleCards(w.onCardsVisible);
+	const reduceMotion = useReducedMotion();
+	// A mark lifting a card opens a short window where card moves glide; set during render so the
+	// reordering commit already has it (app WatchlistTab)
+	const [seenPromotions, setSeenPromotions] = useState(w.promotions);
+	const [cardsMoving, setCardsMoving] = useState(false);
+	if (seenPromotions !== w.promotions) {
+		setSeenPromotions(w.promotions);
+		setCardsMoving(true);
+	}
+	// A card a mark / unwatch took off or brought back → the cards around it glide
+	const showIds = w.listData.flatMap((i) => (i.type === "show" ? [i.item.tmdbId] : []));
+	const showIdsKey = showIds.join(",");
+	const [seenShowIds, setSeenShowIds] = useState(showIdsKey);
+	if (seenShowIds !== showIdsKey) {
+		setSeenShowIds(showIdsKey);
+		const now = new Set(showIds);
+		const before = new Set(seenShowIds.split(",").filter(Boolean).map(Number));
+		const left = [...before].some((id) => !now.has(id) && w.wasJustMarked(id));
+		const back = showIds.some((id) => !before.has(id) && w.wasJustMarked(id));
+		if (left || back) setCardsMoving(true);
+	}
+	useEffect(() => {
+		if (!cardsMoving) return;
+		const t = setTimeout(() => setCardsMoving(false), CARD_MOVE_WINDOW_MS);
+		return () => clearTimeout(t);
+	}, [cardsMoving, w.promotions]);
+	// Episode sheet's logo / name (catalog cache — 0 reads)
+	const sheetShow = w.sheetEpisode
+		? getCachedCatalogShow(w.sheetEpisode.tmdbShowId, MediaType.TV)
+		: null;
 	// Long press / right-click on a card → confirm pausing it (no swipe — too easy by accident)
 	const [pauseTarget, setPauseTarget] = useState<EnrichedTrackingItem | null>(null);
+	// A movie up next (first watch) has nothing to pause: its long press removes it instead
+	const removingMovie = pauseTarget?.mediaType === MediaType.MOVIE;
 	const [pausing, setPausing] = useState(false);
 	const confirmPause = async () => {
 		if (!pauseTarget) return;
 		setPausing(true);
 		try {
-			await w.handleStopWatching(pauseTarget);
+			if (removingMovie) await w.handleRemoveFromWatchlist(pauseTarget);
+			else await w.handleStopWatching(pauseTarget);
 			setPauseTarget(null);
 		} catch (err) {
 			console.error("pause failed:", err);
@@ -117,10 +167,30 @@ export default function WatchlistTab() {
 	return (
 		<>
 			<div className={styles.list}>
-				{/* No wrapper per item: a sticky section header can only stick within its parent */}
-				{items.map((item) => (
-					<Fragment key={keyOf(item)}>{render(item)}</Fragment>
-				))}
+				{/* No wrapper per item: a sticky section header can only stick within its parent. Show
+				    cards get one: a card changing places (a mark lifts it to the top) glides there
+				    (app CARD_MOVE) */}
+				<AnimatePresence initial={false}>
+					{items.map((item) =>
+						item.type === "show" ? (
+							<motion.div
+								key={keyOf(item)}
+								ref={observeCard(item.item.tmdbId)}
+								layout={reduceMotion ? false : "position"}
+								transition={cardsMoving ? CARD_MOVE : CARD_SNAP}
+								// Only a card its own mark / unwatch took off or brought back animates
+								style={{ transformOrigin: "top" }}
+								initial={!reduceMotion && w.wasJustMarked(item.item.tmdbId) ? CARD_ENTER : false}
+								animate={CARD_SHOWN}
+								exit={!reduceMotion && w.wasJustMarked(item.item.tmdbId) ? CARD_LEAVE : undefined}
+							>
+								{render(item)}
+							</motion.div>
+						) : (
+							<Fragment key={keyOf(item)}>{render(item)}</Fragment>
+						),
+					)}
+				</AnimatePresence>
 			</div>
 			<div ref={sentinel} />
 			{!w.listSettled ? (
@@ -134,7 +204,22 @@ export default function WatchlistTab() {
 
 			<ConfirmModal
 				visible={!!pauseTarget}
-				title={pauseTarget?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"}
+				title={
+					removingMovie
+						? "Remove Movie?"
+						: pauseTarget?.status === WatchStatus.REWATCHING
+							? "Pause Rewatch?"
+							: "Pause Show?"
+				}
+				drawer
+				question={
+					removingMovie
+						? "Do You Want to Remove This Movie?"
+						: pauseTarget?.status === WatchStatus.REWATCHING
+							? "Do You Want to Pause This Rewatch?"
+							: "Do You Want to Pause This Show?"
+				}
+				slideLabel={removingMovie ? "Slide to Remove" : "Slide to Pause"}
 				imageAtTop={!!pauseTarget?.catalogShow?.backdropPath}
 				hideTitle
 				image={
@@ -145,7 +230,8 @@ export default function WatchlistTab() {
 							tmdbId={pauseTarget.tmdbId}
 							mediaType={pauseTarget.mediaType}
 							title={pauseTarget.title}
-							paused
+							paused={!removingMovie}
+							removed={removingMovie}
 							nameDelay={2000}
 						/>
 					) : (
@@ -154,37 +240,55 @@ export default function WatchlistTab() {
 							tmdbId={pauseTarget.tmdbId}
 							mediaType={pauseTarget.mediaType}
 							title={pauseTarget.title}
-							paused
+							paused={!removingMovie}
 							nameDelay={2000}
 						/>
 					)
 				}
 				hint={
-					pauseTarget?.status === WatchStatus.REWATCHING
-						? "Pausing this rewatch will take it off your watchlist. You can resume it any time from its page."
-						: "Pausing this show will take it off your watchlist. You can resume it any time from its page."
+					removingMovie
+						? "This will remove it from your watchlist. Your watch history will be kept."
+						: pauseTarget?.status === WatchStatus.REWATCHING
+							? "Pausing this rewatch will take it off your watchlist. You can resume it any time from its page."
+							: "Pausing this show will take it off your watchlist. You can resume it any time from its page."
 				}
-				confirmLabel="Pause"
-				confirmColor={colors.stopBlue}
+				confirmLabel={removingMovie ? "Remove" : "Pause"}
+				confirmColor={removingMovie ? colors.primary : colors.stopBlue}
 				loading={pausing}
 				onConfirm={confirmPause}
 				onClose={() => setPauseTarget(null)}
 			/>
-			<WatchActionSheet
+			<WatchCountSheet
 				visible={w.sheetVisible}
-				label={w.sheetLabel}
+				title={sheetShow?.title || ""}
+				// SEASON / Exx sit in the square beside the logo; the name stays under it
+				subtitle={w.sheetEpisode?.episodeTitle}
+				episode={
+					w.sheetEpisode
+						? { season: w.sheetEpisode.season, episode: w.sheetEpisode.episode }
+						: undefined
+				}
+				centered={false}
+				tmdbId={w.sheetEpisode?.tmdbShowId}
+				mediaType={MediaType.TV}
+				logoPath={sheetShow?.logoPath}
 				watchCount={w.sheetEpisode?.watchCount || 0}
-				onSelect={w.handleSheetAction}
+				allowWatchedOnce={!w.sheetInRewatch}
+				minCount={w.sheetMinCount}
+				onCommit={w.handleEpisodeCountCommit}
 				onClose={() => {
 					w.setSheetVisible(false);
 					w.setSheetEpisode(null);
 				}}
 			/>
-			<WatchActionSheet
+			<WatchCountSheet
 				visible={w.movieSheetVisible}
-				label={w.sheetMovieTitle || "Movie"}
+				title={w.sheetMovieTitle || "Movie"}
+				// No episode square → logo alone, centred (as on the info page)
+				tmdbId={w.sheetMovie?.tmdbId}
+				mediaType={MediaType.MOVIE}
 				watchCount={w.sheetMovie?.watchCount || 0}
-				onSelect={w.handleMovieSheetAction}
+				onCommit={w.handleMovieCountCommit}
 				onClose={() => {
 					w.setMovieSheetVisible(false);
 					w.setSheetMovie(null);

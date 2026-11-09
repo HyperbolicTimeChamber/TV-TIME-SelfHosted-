@@ -1,5 +1,14 @@
 {
 	"projects": {
 		"default": "tv-time-returns"
+	},
+	"targets": {
+		"tv-time-returns": {
+			"hosting": {
+				"web": [
+					"watchloom-app"
+				]
+			}
+		}
 	}
 }

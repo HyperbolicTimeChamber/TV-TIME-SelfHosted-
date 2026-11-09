@@ -5,30 +5,46 @@ import {
 	TextInput,
 	TouchableOpacity,
 	StyleSheet,
+	ActivityIndicator,
 	ScrollView,
 	Keyboard,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { CommonActions, useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSearchInput } from "./useSearchInput";
 import { colors, spacing, typography } from "../../theme";
 import { SearchStackParamList, Route } from "../../types";
+import { SEARCH_MAX_QUERY_LENGTH } from "../../enums";
+import { IoIosCloseCircle } from "../../components/HiIcons";
+import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
+import { CLEAR_ICON_SIZE } from "./styles";
 
 type NavProp = NativeStackNavigationProp<SearchStackParamList, Route.SEARCH_INPUT>;
 type RoutePropType = RouteProp<SearchStackParamList, Route.SEARCH_INPUT>;
+
+/** Longest the search waits for the keyboard to finish hiding before it opens the results */
+const KEYBOARD_HIDE_WAIT_MS = 400;
 
 export default function SearchInputScreen() {
 	const { top } = useSafeAreaInsets();
 	const navigation = useNavigation<NavProp>();
 	const route = useRoute<RoutePropType>();
 	const inputRef = useRef<TextInput>(null);
-	const { query, setQuery, addToHistory, clearHistory, filteredHistory, suggestionItems } =
-		useSearchInput(route.params?.currentQuery || "");
+	const {
+		query,
+		setQuery,
+		addToHistory,
+		clearHistory,
+		filteredHistory,
+		suggestionItems,
+		loadingSuggestions,
+	} = useSearchInput(route.params?.currentQuery || "");
 
 	useEffect(() => {
-		setTimeout(() => inputRef.current?.focus(), 100);
+		const t = setTimeout(() => inputRef.current?.focus(), 100);
+		return () => clearTimeout(t);
 	}, []);
 
 	useEffect(() => {
@@ -40,22 +56,58 @@ export default function SearchInputScreen() {
 		(term: string) => {
 			const trimmed = term.trim();
 			if (!trimmed) return;
-			Keyboard.dismiss();
 			addToHistory(trimmed);
-			navigation.replace(Route.SEARCH_RESULTS, { query: trimmed });
+			let went = false;
+			const go = () => {
+				if (went) return;
+				went = true;
+				// Takes the place of this page and of any results page it was opened from: only ever
+				// one results page above Trending, so back from a second search goes to Trending
+				navigation.dispatch((state) => {
+					const routes = [
+						...state.routes.slice(0, -1).filter((r) => r.name !== Route.SEARCH_RESULTS),
+						{ name: Route.SEARCH_RESULTS, params: { query: trimmed } },
+					];
+					return CommonActions.reset({ ...state, index: routes.length - 1, routes });
+				});
+			};
+			// Replacing the screen while the keyboard is still closing left it up over the results
+			// (dismiss() lost to the screen swap): close it first, go once it has hidden
+			inputRef.current?.blur();
+			if (Keyboard.isVisible()) {
+				const sub = Keyboard.addListener("keyboardDidHide", () => {
+					sub.remove();
+					go();
+				});
+				// Never strand the search if the hide event doesn't come
+				setTimeout(() => {
+					sub.remove();
+					go();
+				}, KEYBOARD_HIDE_WAIT_MS);
+			}
+			Keyboard.dismiss();
+			if (!Keyboard.isVisible()) go();
 		},
 		[navigation, addToHistory],
 	);
 
+	// Back to the page it opened over: Trending, or the results as they were before any typing here
+	const goBack = useCallback(() => {
+		Keyboard.dismiss();
+		navigation.goBack();
+	}, [navigation]);
+	const swipeBack = useSwipeBackPop(navigation);
+
 	return (
-		<View style={[styles.container, { paddingTop: top }]}>
+		<SwipeBackView
+			onBack={goBack}
+			{...swipeBack}
+			style={[styles.container, { paddingTop: top }]}
+		>
 			<View style={styles.searchBarRow}>
 				<TouchableOpacity
 					style={styles.backButton}
-					onPress={() => {
-						Keyboard.dismiss();
-						navigation.navigate(Route.SEARCH_MAIN);
-					}}
+					onPress={goBack}
 					hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
 				>
 					<Ionicons name="chevron-back-circle-outline" size={30} color={colors.text} />
@@ -65,6 +117,7 @@ export default function SearchInputScreen() {
 						ref={inputRef}
 						style={styles.searchInput}
 						placeholder="Search Shows & Movies..."
+						maxLength={SEARCH_MAX_QUERY_LENGTH}
 						placeholderTextColor={colors.textMuted}
 						value={query}
 						onChangeText={setQuery}
@@ -73,13 +126,20 @@ export default function SearchInputScreen() {
 						autoCorrect={false}
 						returnKeyType="search"
 					/>
+					{loadingSuggestions && (
+						<ActivityIndicator
+							size="small"
+							color={colors.textMuted}
+							accessibilityLabel="Loading suggestions"
+						/>
+					)}
 					{query.length > 0 && (
 						<TouchableOpacity
 							style={styles.clearButton}
 							onPress={() => setQuery("")}
 							hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
 						>
-							<Text style={styles.clearButtonText}>✕</Text>
+							<IoIosCloseCircle size={CLEAR_ICON_SIZE} color={colors.textMuted} />
 						</TouchableOpacity>
 					)}
 				</View>
@@ -128,7 +188,7 @@ export default function SearchInputScreen() {
 					</View>
 				)}
 			</ScrollView>
-		</View>
+		</SwipeBackView>
 	);
 }
 
@@ -169,11 +229,6 @@ const styles = StyleSheet.create({
 	clearButton: {
 		paddingHorizontal: spacing.md,
 		paddingVertical: spacing.sm,
-	},
-	clearButtonText: {
-		color: colors.textMuted,
-		fontSize: 16,
-		fontWeight: "600",
 	},
 	scrollArea: {
 		flex: 1,

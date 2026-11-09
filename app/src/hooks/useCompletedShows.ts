@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CacheKey, WatchStatus, MediaType, HistorySort } from "../enums";
 import type { HistoryEntry } from "../types";
+import { NO_FACETS } from "../utils/historyView";
 import { cacheCatalogShows, getCachedCatalogShow } from "./useWatchlist";
 import { fetchCatalogShows, fetchHistoryDelta, fetchHistoryViewPage } from "../services/historyApi";
 import {
@@ -89,13 +90,14 @@ async function fetchNewestCompleted(
 			mediaType,
 			HistorySort.LAST_WATCHED,
 			[WatchStatus.COMPLETED],
+			NO_FACETS,
 			after,
 		);
 		rows.push(...page.entries);
 		if (rows.length >= limit) return { rows, exhausted: false };
 		if (!page.hasMore) return { rows, exhausted: true };
-		// Cursor = last kept row; plays-0 rows after it come back again and are re-filtered
-		after = page.entries[page.entries.length - 1] ?? null;
+		// Cursor = the page's last doc (kept or a filtered-out plays-0 row)
+		after = page.cursor;
 		if (!after) return { rows, exhausted: true };
 	}
 }

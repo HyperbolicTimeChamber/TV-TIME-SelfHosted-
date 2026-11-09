@@ -11,6 +11,7 @@ import {
 	catalogNextEpisodeTitle,
 	trimPastQueue,
 	placeholderTargets,
+	recentTitleChecks,
 	titlesFromCatalog,
 	applyTitles,
 	todayStr,
@@ -46,8 +47,10 @@ const cat = (o: Partial<CatalogShow> = {}) =>
 			{
 				seasonNumber: 1,
 				episodes: [
-					{ episodeNumber: 1, title: "Pilot" },
-					{ episodeNumber: 2, title: "Episode 2" },
+					{ episodeNumber: 1, title: "Pilot", airDate: "2025-01-01" },
+					{ episodeNumber: 2, title: "Episode 2", airDate: "2025-01-08" },
+					{ episodeNumber: 3, title: "Episode 3", airDate: "2099-01-01" },
+					{ episodeNumber: 4, title: "Episode 4" },
 				],
 			},
 		],
@@ -76,9 +79,21 @@ test("missing poster → Firestore first; TMDB only after Firestore was tried", 
 	assert.equal(needsTmdbHeal(i, true), true);
 });
 
-test("placeholder next-episode name triggers refresh", () => {
+test("placeholder next-episode name triggers refresh once the episode has aired", () => {
 	const i = item({ nextEpisode: { season: 1, episode: 2 }, nextEpisodeName: "Episode 2" });
 	assert.equal(hasMissingDisplayData(i, i.catalogShow!), true);
+});
+
+test("placeholder name on an episode still to come (or undated) is TMDB's real name: no heal", () => {
+	const future = item({ nextEpisode: { season: 1, episode: 3 }, nextEpisodeName: "Episode 3" });
+	assert.equal(hasMissingDisplayData(future, future.catalogShow!), false);
+	const undated = item({ nextEpisode: { season: 1, episode: 4 }, nextEpisodeName: "Episode 4" });
+	assert.equal(hasMissingDisplayData(undated, undated.catalogShow!), false);
+});
+
+test("doc refreshed by anyone inside the cooldown: no refreshShow call", () => {
+	const i = item({ catalogShow: cat({ posterPath: null, lastTmdbCheckAt: Date.now() - 60_000 }) });
+	assert.equal(needsTmdbHeal(i, true), false);
 });
 
 // ---------- season heal from fresh TMDB data ----------
@@ -307,8 +322,8 @@ test("unreleased show without catalog or air date stays off the watchlist", () =
 
 test("share URLs point at the web show page", async () => {
 	const { showShareUrl } = await import("../src/utils");
-	assert.equal(showShareUrl(MediaType.TV, 1399), "https://watchloom-app.web.app/show/tv/1399");
-	assert.equal(showShareUrl(MediaType.MOVIE, 550), "https://watchloom-app.web.app/show/movie/550");
+	assert.equal(showShareUrl(MediaType.TV, 1399), "https://example.web.app/show/tv/1399");
+	assert.equal(showShareUrl(MediaType.MOVIE, 550), "https://example.web.app/show/movie/550");
 });
 
 test("profile formatters", async () => {
@@ -383,4 +398,26 @@ test("groupCalendarDay: one card per show, episodes sorted; movies stay single",
 	const { seasonRangeLabel } = await import("../src/utils/calendarGroups");
 	assert.equal(seasonRangeLabel(groups[0].episodes), "Season 01");
 	assert.equal(seasonRangeLabel([ep(1, 1, 10), ep(1, 2, 2)]), "Season 01–02");
+});
+
+test("titleCase: capitalised words, short joining words kept lower-case unless first", async () => {
+	const { titleCase } = await import("../src/utils/format");
+	assert.equal(titleCase("based on novel or book"), "Based on Novel or Book");
+	assert.equal(titleCase("the office"), "The Office");
+	assert.equal(titleCase("mentor protégé relationship"), "Mentor Protégé Relationship");
+	assert.equal(titleCase("1990s"), "1990s");
+	assert.equal(titleCase("time travel"), "Time Travel");
+});
+
+test("recentTitleChecks: seasons asked inside the window stay skipped across launches", () => {
+	const now = 1_000_000_000;
+	const hour = 60 * 60 * 1000;
+	const { recent, kept } = recentTitleChecks(
+		{ "5_1": now - hour, "6_2": now - 13 * hour, "7_1": now + hour, bad: "x" as unknown as number },
+		now,
+		12 * hour,
+	);
+	assert.deepEqual([...recent], ["5_1"]);
+	assert.deepEqual(kept, { "5_1": now - hour });
+	assert.equal(recentTitleChecks(null, now, 12 * hour).recent.size, 0);
 });

@@ -14,12 +14,36 @@ import { colors, spacing, typography } from "../../theme";
 /** "Whoa there Speedster!" — skipped-ahead popups */
 export const SPEEDSTER_ART = require("../../../assets/speedster.webp");
 export const SPEEDSTER_RATIO = 568 / 480;
+/** Rewatch floor hit — Mr. Mime, palms on the invisible wall */
+export const HIT_A_WALL_ART = require("../../../assets/hit-a-wall.webp");
+export const HIT_A_WALL_RATIO = 1;
 /** Log Out — Straw Hats, fists up */
 export const LOGOUT_ART = require("../../../assets/logout.webp");
 export const LOGOUT_RATIO = 900 / 397;
 /** Delete Account — crying Pikachu */
 export const FAREWELL_ART = require("../../../assets/farewell.webp");
 export const FAREWELL_RATIO = 666 / 420;
+/** New List — Light Yagami, Death Note in hand */
+export const NEW_LIST_ART = require("../../../assets/new-list.webp");
+export const NEW_LIST_RATIO = 600 / 499;
+/** Import this file? — Luffy, dreaming of meat */
+export const IMPORT_CONFIRM_ART = require("../../../assets/import-confirm.webp");
+export const IMPORT_CONFIRM_RATIO = 423 / 447;
+/** Import complete — Luffy, stuffed after a feast */
+export const IMPORT_DONE_ART = require("../../../assets/import-done.webp");
+export const IMPORT_DONE_RATIO = 652 / 501;
+/** Import had nothing new — Luffy, unimpressed */
+export const IMPORT_NOTHING_ART = require("../../../assets/import-nothing.webp");
+export const IMPORT_NOTHING_RATIO = 682 / 763;
+/** Before an import — Luffy, not so sure about this */
+export const IMPORT_WARNING_ART = require("../../../assets/import-warning.webp");
+export const IMPORT_WARNING_RATIO = 467 / 537;
+/** Import cancelled, all put back — Luffy, sulking */
+export const IMPORT_CANCELLED_ART = require("../../../assets/import-cancelled.webp");
+export const IMPORT_CANCELLED_RATIO = 700 / 744;
+/** Couldn't add — Yamcha, down for the count */
+export const DEFEATED_ART = require("../../../assets/defeated.webp");
+export const DEFEATED_RATIO = 557 / 709;
 
 const ART_H = 140;
 const LOGO_MAX_W = 240;
@@ -35,6 +59,13 @@ const PAUSE_INSET = 12;
 const PAUSE_OPACITY = 0.6;
 /** Gray wash over the whole backdrop when it's paused */
 const PAUSE_MASK = "rgba(160, 160, 160, 0.45)";
+/** Red wash over the whole backdrop when it's being removed */
+const REMOVE_MASK = "rgba(229, 9, 20, 0.45)";
+/** The cross is bulkier than the pause bars: it takes this share of the free height */
+const REMOVE_ICON_SCALE = 0.6;
+/** IcoMoon's ImCross (react-icons/im), 16×16 */
+const IM_CROSS_PATH =
+	"M15.854 12.854c-0-0-0-0-0-0l-4.854-4.854 4.854-4.854c0-0 0-0 0-0 0.052-0.052 0.090-0.113 0.114-0.178 0.066-0.178 0.028-0.386-0.114-0.529l-2.293-2.293c-0.143-0.143-0.351-0.181-0.529-0.114-0.065 0.024-0.126 0.062-0.178 0.114 0 0-0 0-0 0l-4.854 4.854-4.854-4.854c-0-0-0-0-0-0-0.052-0.052-0.113-0.090-0.178-0.114-0.178-0.066-0.386-0.029-0.529 0.114l-2.293 2.293c-0.143 0.143-0.181 0.351-0.114 0.529 0.024 0.065 0.062 0.126 0.114 0.178 0 0 0 0 0 0l4.854 4.854-4.854 4.854c-0 0-0 0-0 0-0.052 0.052-0.090 0.113-0.114 0.178-0.066 0.178-0.029 0.386 0.114 0.529l2.293 2.293c0.143 0.143 0.351 0.181 0.529 0.114 0.065-0.024 0.126-0.062 0.178-0.114 0-0 0-0 0-0l4.854-4.854 4.854 4.854c0 0 0 0 0 0 0.052 0.052 0.113 0.090 0.178 0.114 0.178 0.066 0.386 0.029 0.529-0.114l2.293-2.293c0.143-0.143 0.181-0.351 0.114-0.529-0.024-0.065-0.062-0.126-0.114-0.178z";
 /** Dark shade behind a title laid over the top of a backdrop */
 const BACKDROP_HEADING_SHADE = "45%";
 /** Logo strip at the bottom of a backdrop (logo height + bottom inset) */
@@ -81,6 +112,15 @@ function PauseBars({ size }: { size: number }) {
 				fill={colors.background}
 				opacity={PAUSE_OPACITY}
 			/>
+		</Svg>
+	);
+}
+
+/** ImCross in the pause bars' colour — the big icon on a backdrop being removed */
+function RemoveCross({ size }: { size: number }) {
+	return (
+		<Svg width={size} height={size} viewBox="0 0 16 16">
+			<Path d={IM_CROSS_PATH} fill={colors.background} opacity={PAUSE_OPACITY} />
 		</Svg>
 	);
 }
@@ -176,7 +216,8 @@ export function ModalLogo({
 }
 
 /** Show backdrop with its title logo (name as the fallback) over the bottom, edge to edge across
- *  the popup (no side padding); `paused` lays a big translucent pause icon over all of it.
+ *  the popup (no side padding); `paused` lays a big translucent pause icon over all of it,
+ *  `removed` a red wash with a cross (removing it from tracking).
  *  ConfirmModal pulls it up to the popup's top edge and passes its title as `heading` */
 export function ModalBackdrop({
 	backdropPath,
@@ -185,8 +226,11 @@ export function ModalBackdrop({
 	mediaType,
 	title,
 	paused = false,
+	removed = false,
+	fadeTo,
 	nameDelay = 0,
 	heading,
+	width,
 }: {
 	backdropPath: string;
 	logoPath?: string | null;
@@ -194,10 +238,16 @@ export function ModalBackdrop({
 	mediaType?: MediaType;
 	title: string;
 	paused?: boolean;
+	removed?: boolean;
+	/** Fade the bottom into this colour (a drawer's surface, as the info drawer's art) instead of
+	 *  a dark shade */
+	fadeTo?: string;
 	/** Wait this long (ms) for the logo before showing the name — 0: name right away */
 	nameDelay?: number;
 	/** Popup title over the top (set by ConfirmModal) */
 	heading?: string;
+	/** Banner width (a drawer's content width); default: the popup's full width */
+	width?: number;
 }) {
 	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	const [logoFailed, setLogoFailed] = useState(false);
@@ -211,14 +261,30 @@ export function ModalBackdrop({
 	// Known to have no logo (or it failed): the name straight away; still coming: after nameDelay
 	const showName = logoPath === null || logoFailed || (!logoLoaded && waited);
 	// Bleeds over ConfirmModal's side padding
-	const w = useContentWidth() + spacing.lg * 2;
+	const popupW = useContentWidth() + spacing.lg * 2;
+	const w = width ?? popupW;
 	const h = (w * 9) / 16;
 	// Skeleton until the banner image is in; its overlays come in with it
 	const [loaded, setLoaded] = useState(false);
+	// Pause bars on a gray wash / a cross on a red one, over the whole banner
+	const overlay = (
+		<>
+			{paused && (
+				<View style={styles.backdropPause} pointerEvents="none">
+					<PauseBars size={h - PAUSE_INSET * 2} />
+				</View>
+			)}
+			{removed && (
+				<View style={[styles.backdropPause, styles.backdropRemove]} pointerEvents="none">
+					<RemoveCross size={(h - PAUSE_INSET * 2) * REMOVE_ICON_SCALE} />
+				</View>
+			)}
+		</>
+	);
 	return (
 		<View style={[styles.backdrop, { width: w, height: h }]}>
 			<Image
-				source={{ uri: tmdbBackdropUri(backdropPath, CONTENT_W) }}
+				source={{ uri: tmdbBackdropUri(backdropPath, w) }}
 				style={StyleSheet.absoluteFill}
 				contentFit="cover"
 				onLoad={() => setLoaded(true)}
@@ -227,10 +293,12 @@ export function ModalBackdrop({
 			{!loaded && <SkeletonLine width={w} height={h} style={styles.backdropSkeleton} />}
 			{loaded && (
 				<>
-					{/* Darkens the bottom so the logo reads on any backdrop */}
+					{/* In a drawer the wash goes under the fade: the art still melts into the sheet */}
+					{fadeTo && overlay}
+					{/* Darkens the bottom so the logo reads on any backdrop — or fades it into the drawer */}
 					<LinearGradient
-						colors={["transparent", "rgba(0,0,0,0.85)"]}
-						style={styles.backdropShade}
+						colors={["transparent", fadeTo ?? "rgba(0,0,0,0.85)"]}
+						style={fadeTo ? styles.backdropFade : styles.backdropShade}
 					/>
 					<View style={styles.backdropLogo}>
 						{/* Name until the logo image is in (or when there's none) */}
@@ -249,11 +317,7 @@ export function ModalBackdrop({
 							/>
 						)}
 					</View>
-					{paused && (
-						<View style={styles.backdropPause} pointerEvents="none">
-							<PauseBars size={h - PAUSE_INSET * 2} />
-						</View>
-					)}
+					{!fadeTo && overlay}
 				</>
 			)}
 			{/* Title on a top shade (mirrors the logo's bottom one), there from the skeleton on */}
@@ -312,6 +376,14 @@ const styles = StyleSheet.create({
 		left: 0,
 		borderRadius: 0,
 	},
+	// Into the drawer's surface (info drawer imageGradient): a touch past the edge, no seam
+	backdropFade: {
+		position: "absolute",
+		left: 0,
+		right: 0,
+		bottom: -1,
+		height: "70%",
+	},
 	backdropShade: {
 		position: "absolute",
 		left: 0,
@@ -359,6 +431,7 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		backgroundColor: PAUSE_MASK,
 	},
+	backdropRemove: { backgroundColor: REMOVE_MASK },
 	backdropName: {
 		...typography.title,
 		fontSize: 20,

@@ -27,7 +27,8 @@ describe("ImportDataScreen", () => {
 		state = { ...base, phase: "pick" };
 		globalThis.URL.createObjectURL = vi.fn(() => "blob:zip");
 		const { container } = renderWithProviders(<ImportDataScreen />, { user: testUser });
-		expect(screen.getByText("Import TV Time Data")).toBeInTheDocument();
+		expect(screen.getByRole("heading", { name: "Import Data" })).toBeInTheDocument();
+		expect(screen.queryByText("Skip")).not.toBeInTheDocument();
 		const input = container.ownerDocument.querySelector('input[type="file"]') as HTMLInputElement;
 		fireEvent.change(input, { target: { files: [new File(["x"], "export.zip", { type: "application/zip" })] } });
 		expect(processFile).toHaveBeenCalledWith("blob:zip");

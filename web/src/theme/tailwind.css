@@ -17,6 +17,8 @@
 	--color-surface: #1a1a1a;
 	--color-surface-light: #252525;
 	--color-primary: #e50914;
+	/* Deep red fill for a selected row (sort panel) */
+	--color-primary-dark: #5c0a10;
 	--color-accent: #4a90d9;
 	--color-fg: #ffffff;
 	--color-fg-secondary: #a0a0a0;

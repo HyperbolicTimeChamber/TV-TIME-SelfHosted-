@@ -13,6 +13,13 @@ import HomeEmpty, { UPCOMING_EMPTY_ART } from "../HomeEmpty";
 import { todayStr } from "../../../utils";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
+/** A date header's and an episode card's height (card + its gap). Guessed at the one estimated size,
+ *  the past days above today were re-measured after the list opened and its scroll corrected —
+ *  hidden while Upcoming pre-mounts, a visible jump when it's opened right after launch. Cards stay
+ *  estimated, not fixed: a list with nothing to measure never finished opening (blank until touched) */
+const HEADER_ROW_H = 40.25;
+const EPISODE_ROW_H = 100 + spacing.sm;
+const fixedRowSize = (item: ListItem) => (item.type === "header" ? HEADER_ROW_H : undefined);
 
 type NavProp = CompositeNavigationProp<
 	NativeStackNavigationProp<HomeStackParamList, Route.HOME_TABS>,
@@ -23,10 +30,10 @@ export default function UpcomingTab() {
 	const navigation = useNavigation<NavProp>();
 
 	const handleNavigateToShow = useCallback(
-		(tmdbShowId: number) => {
+		(tmdbShowId: number, mediaType: MediaType = MediaType.TV) => {
 			navigation.navigate(Route.SHOW_DETAIL, {
 				tmdbId: tmdbShowId,
-				mediaType: MediaType.TV,
+				mediaType,
 			});
 		},
 		[navigation],
@@ -127,9 +134,10 @@ export default function UpcomingTab() {
 				renderItem={renderItem}
 				recycleItems
 				drawDistance={SCREEN_HEIGHT * 2}
-				estimatedItemSize={100}
+				estimatedItemSize={EPISODE_ROW_H}
 				stickyHeaderIndices={stickyIndices}
 				initialScrollIndex={firstUpcomingIndex}
+				getFixedItemSize={fixedRowSize}
 				ListFooterComponent={nothingUpcoming ? emptyState : null}
 				style={styles.list}
 				contentContainerStyle={styles.listContent}
@@ -165,9 +173,10 @@ export default function UpcomingTab() {
 					drawerShow?.tmdbId
 						? () => {
 								const id = drawerShow.tmdbId!;
+								const mediaType = drawerShow.mediaType;
 								setDrawerVisible(false);
 								setDrawerShow(null);
-								handleNavigateToShow(id);
+								handleNavigateToShow(id, mediaType);
 							}
 						: undefined
 				}

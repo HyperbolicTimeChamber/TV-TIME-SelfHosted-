@@ -1,5 +1,13 @@
-import React, { useEffect } from "react";
-import { View, StyleSheet, Platform, PermissionsAndroid, Alert } from "react-native";
+import React, { useEffect, useRef } from "react";
+import {
+	View,
+	StyleSheet,
+	Platform,
+	PermissionsAndroid,
+	Alert,
+	AppState,
+	Linking,
+} from "react-native";
 import { Image } from "expo-image";
 import * as SplashScreen from "expo-splash-screen";
 import {
@@ -8,7 +16,15 @@ import {
 	SmoochSans_500Medium,
 } from "@expo-google-fonts/smooch-sans";
 import { Handjet_800ExtraBold } from "@expo-google-fonts/handjet";
+import { VT323_400Regular } from "@expo-google-fonts/vt323";
 import crashlytics from "@react-native-firebase/crashlytics";
+import { initAppCheck } from "./src/services/appCheck";
+import { connectEmulators } from "./src/services/emulators";
+
+// Before any Firestore / callable request, so they all carry an App Check token
+initAppCheck();
+// Dev opt-in: local Emulator Suite instead of production (EXPO_PUBLIC_USE_EMULATORS)
+connectEmulators();
 
 // Explicit: native crashes (sent on the next launch) and JS errors always report
 crashlytics()
@@ -25,8 +41,9 @@ if (RNErrorUtils) {
 	});
 }
 import LoadingSpinner from "./src/components/LoadingSpinner";
+import PoweredByTmdb from "./src/components/PoweredByTmdb";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
@@ -35,17 +52,32 @@ import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import NetInfo from "@react-native-community/netinfo";
 import { getAuth, onAuthStateChanged, reload } from "@react-native-firebase/auth";
 import type { User } from "@react-native-firebase/auth";
-import { getMessaging, getToken, requestPermission } from "@react-native-firebase/messaging";
+import {
+	getMessaging,
+	getToken,
+	requestPermission,
+	getInitialNotification,
+	onNotificationOpenedApp,
+	onMessage,
+} from "@react-native-firebase/messaging";
 import { getFirestore, doc, setDoc } from "@react-native-firebase/firestore";
 import { useAuthStore, useUiStore } from "./src/stores";
-import { useForceUpdate } from "./src/hooks";
-import ForceUpdateScreen from "./src/components/ForceUpdateScreen";
+import { handleUpdateMessage, subscribeToUpdates } from "./src/services/updateNotifications";
+import UpdatePrompt, { useReleaseWatch, useUpdateForced } from "./src/components/UpdateGate";
 import LoginScreen from "./src/screens/LoginScreen";
 import ImportDataScreen from "./src/screens/ImportDataScreen";
 import AppNavigator from "./src/navigation/AppNavigator";
 import { OfflineOverlay } from "./src/components";
 import { colors } from "./src/theme";
-import { FATAL_AUTH_ERRORS, QueryKey } from "./src/enums";
+import { AppOpenSource, FATAL_AUTH_ERRORS, QueryKey } from "./src/enums";
+import {
+	initMixpanel,
+	identifyUser,
+	resetUser,
+	trackAppOpened,
+	flushAnalytics,
+} from "./src/services/mixpanel";
+import appConfig from "./app.json";
 
 // Keep native splash visible until auth resolves
 SplashScreen.preventAutoHideAsync();
@@ -88,6 +120,7 @@ async function registerFCMToken(userId: string) {
 		}
 		const msg = getMessaging();
 		await requestPermission(msg);
+		subscribeToUpdates();
 		const token = await getToken(msg);
 		const db = getFirestore();
 		await setDoc(doc(db, "users", userId), { fcmToken: token }, { merge: true });
@@ -115,8 +148,34 @@ async function verifySession(user: User) {
 	}
 }
 
+/**
+ * In-app updates around the app: the update drawer shows over login or the app when a newer build
+ * is out. Forced: the app stays behind it with what it has cached (nothing is cleared, nobody is
+ * signed out — refused callables just fail) but takes no touches, and the drawer can't be put off
+ */
 function AppContent() {
-	const updateRequired = useForceUpdate();
+	useReleaseWatch();
+	// An update push while the app is open: notify here too (the background handler in index.ts only
+	// runs with the app in the background / closed, and the drawer only comes up on launch)
+	useEffect(
+		() =>
+			onMessage(getMessaging(), (message) => {
+				handleUpdateMessage(message);
+			}),
+		[],
+	);
+	const forced = useUpdateForced();
+	return (
+		<>
+			<View style={styles.fill} pointerEvents={forced ? "none" : "auto"}>
+				<AppScreens />
+			</View>
+			<UpdatePrompt />
+		</>
+	);
+}
+
+function AppScreens() {
 	const {
 		user,
 		loading,
@@ -128,8 +187,8 @@ function AppContent() {
 
 	// Listen for background add failures (CF rollback)
 	useEffect(() => {
-		const { onAddTrackingError } = require("./src/services/firestore");
-		return onAddTrackingError((_tmdbId: number, title: string) => {
+		const { onAddTrackingErrorFallback } = require("./src/services/firestore");
+		return onAddTrackingErrorFallback((_tmdbId: number, title: string) => {
 			Alert.alert("Failed to Add", `"${title}" could not be added. Please try again.`);
 		});
 	}, []);
@@ -141,7 +200,7 @@ function AppContent() {
 	}, [loading]);
 
 	if (loading) {
-		return null;
+		return <SplashView />;
 	}
 
 	if (!user) {
@@ -156,23 +215,14 @@ function AppContent() {
 		);
 	}
 
-	if (updateRequired) {
-		return <ForceUpdateScreen />;
-	}
-
 	if (!hasCompletedImport) {
 		const markImportDone = () => {
-			useAuthStore.setState({ hasCompletedImport: true });
 			const uid = useAuthStore.getState().user?.uid;
-			if (uid) {
-				const db = getFirestore();
-				setDoc(doc(db, "users", uid), { hasCompletedImport: true }, { merge: true }).catch(
-					() => {},
-				);
-			}
+			if (uid) useAuthStore.getState().markImportDone(uid);
 		};
 		return (
 			<ImportDataScreen
+				onboarding
 				navigation={{
 					navigate: markImportDone,
 					goBack: markImportDone,
@@ -189,22 +239,98 @@ function AppContent() {
 	);
 }
 
+/** Native splash colour / logo size (app.json expo-splash-screen) — the JS splash matches them */
+const SPLASH_BG = "#0D0D0D";
+/** TMDB credit's gap above the nav bar */
+const SPLASH_CREDIT_GAP = 32;
+const SPLASH_LOGO = require("./assets/icon-foreground.original.png");
+
+/**
+ * The splash, continued in JS so it can carry the TMDB credit at the bottom (the native splash
+ * only takes one centred image): same colour and logo in the same place, so the hand-off from the
+ * native splash (hidden once this is laid out) doesn't show
+ */
+function SplashView() {
+	const { bottom } = useSafeAreaInsets();
+	return (
+		<View style={styles.splash} onLayout={() => SplashScreen.hideAsync()}>
+			<Image source={SPLASH_LOGO} style={styles.splashLogo} contentFit="contain" />
+			<View style={[styles.splashCredit, { bottom: bottom + SPLASH_CREDIT_GAP }]}>
+				<PoweredByTmdb />
+			</View>
+		</View>
+	);
+}
+
 export default function App() {
 	// Non-blocking: text falls back to the system font until these load
-	useFonts({ SmoochSans_400Regular, SmoochSans_500Medium, Handjet_800ExtraBold });
+	useFonts({ SmoochSans_400Regular, SmoochSans_500Medium, Handjet_800ExtraBold, VT323_400Regular });
 	const setUser = useAuthStore((s) => s.setUser);
 	const setConnected = useUiStore((s) => s.setConnected);
 
 	useEffect(() => {
+		initMixpanel();
+		const appVersion = appConfig.expo.version;
+		const msg = getMessaging();
+
+		// Cold start: opened from a notification, a share link, or plainly
+		Promise.all([
+			getInitialNotification(msg).catch(() => null),
+			Linking.getInitialURL().catch(() => null),
+		]).then(([notification, url]) => {
+			const source = notification
+				? AppOpenSource.PUSH
+				: url
+					? AppOpenSource.DEEP_LINK
+					: AppOpenSource.ORGANIC;
+			trackAppOpened(source, appVersion);
+		});
+
+		// Resume: the push / link handlers fire around the same moment as the foreground change
+		let resumeSource: AppOpenSource | null = null;
+		const unsubscribePushOpen = onNotificationOpenedApp(msg, () => {
+			resumeSource = AppOpenSource.PUSH;
+		});
+		const linkSub = Linking.addEventListener("url", () => {
+			resumeSource ??= AppOpenSource.DEEP_LINK;
+		});
+		let appState = AppState.currentState;
+		const appStateSub = AppState.addEventListener("change", (next) => {
+			if (next === "background") flushAnalytics();
+			if (appState === "background" && next === "active") {
+				setTimeout(() => {
+					trackAppOpened(resumeSource ?? AppOpenSource.ORGANIC, appVersion);
+					resumeSource = null;
+				}, 1000);
+			}
+			appState = next;
+		});
+		return () => {
+			unsubscribePushOpen();
+			linkSub.remove();
+			appStateSub.remove();
+		};
+	}, []);
+
+	useEffect(() => {
+		let signedInUid: string | null = null;
 		const unsubscribeAuth = onAuthStateChanged(getAuth(), (firebaseUser) => {
 			// Persisted session is enough to enter (and hide the splash) — never wait on the network
 			setUser(firebaseUser);
 			if (firebaseUser) {
 				crashlytics().setUserId(firebaseUser.uid);
+				identifyUser(firebaseUser.uid, Date.parse(firebaseUser.metadata.creationTime ?? ""), {
+					email: firebaseUser.email,
+					name: firebaseUser.displayName,
+				});
+				signedInUid = firebaseUser.uid;
 				registerFCMToken(firebaseUser.uid);
 				verifySession(firebaseUser);
 			} else {
 				crashlytics().setUserId("");
+				// Only a real sign-out resets — a signed-out cold start keeps its anonymous id
+				if (signedInUid) resetUser();
+				signedInUid = null;
 			}
 		});
 		return unsubscribeAuth;
@@ -241,9 +367,16 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+	fill: { flex: 1 },
 	loading: {
 		flex: 1,
 		backgroundColor: colors.background,
+		justifyContent: "center",
+		alignItems: "center",
+	},
+	splash: {
+		...StyleSheet.absoluteFill,
+		backgroundColor: SPLASH_BG,
 		justifyContent: "center",
 		alignItems: "center",
 	},
@@ -251,4 +384,5 @@ const styles = StyleSheet.create({
 		width: 120,
 		height: 120,
 	},
+	splashCredit: { position: "absolute", left: 0, right: 0 },
 });

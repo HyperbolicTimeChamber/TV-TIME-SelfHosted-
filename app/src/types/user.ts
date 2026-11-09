@@ -41,7 +41,6 @@ export interface WatchedMovie {
 
 export interface UserStats {
 	episodesWatched: number;
-	showsTracking: number;
 	moviesWatched: number;
 	totalMinutes: number;
 }

@@ -24,6 +24,13 @@
 	right: 16px;
 }
 
+/* Watch count pill, centred between back and share */
+.watchCount {
+	left: 50%;
+	transform: translateX(-50%);
+	pointer-events: none;
+}
+
 .backdrop {
 	height: 350px;
 	overflow: hidden;
@@ -85,8 +92,32 @@
 .pillRow {
 	display: flex;
 	flex-wrap: wrap;
+	align-items: center;
 	gap: 8px;
 	margin-top: 16px;
+}
+
+/* Mark as Watched's label: spans the pill's inner width (the room it gets), centred in it */
+.fitLabel {
+	position: relative;
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	white-space: nowrap;
+}
+
+.fitMeasure {
+	position: absolute;
+	left: 0;
+	top: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	visibility: hidden;
+	pointer-events: none;
 }
 
 .pill {
@@ -130,18 +161,6 @@
 	background: $destructive-red;
 }
 
-.pillBadge {
-	width: 20px;
-	height: 20px;
-	border-radius: 10px;
-	background: var(--text);
-	color: $watched-green;
-	font-size: 11px;
-	font-weight: 700;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-}
 
 @include desktop {
 	.pillRow {
@@ -170,9 +189,12 @@
 	padding: 0 12px;
 }
 
+/* The metric font of the Upcoming / calendar cards (values only; labels stay as they are) */
 .statValue {
-	font-size: 18px;
-	font-weight: 700;
+	font-family: "Smooch Sans", sans-serif;
+	font-size: 24px;
+	font-weight: 500;
+	letter-spacing: 0.5px;
 }
 
 .statLabel {
@@ -192,6 +214,14 @@
 	display: none;
 }
 
+/* Lines up with the description above it */
+.localRelease {
+	padding: 0 8px;
+	margin-top: 24px;
+	/* The big date's line box already leaves room under it */
+	margin-bottom: -8px;
+}
+
 .overview {
 	font-size: 14px;
 	line-height: 22px;
@@ -204,7 +234,7 @@
 .creditsSection {
 	margin-top: 24px;
 	display: flex;
-	flex-wrap: wrap;
+	flex-direction: column;
 	gap: 16px;
 	padding: 0 8px;
 }
@@ -227,6 +257,51 @@
 	color: var(--text-secondary);
 }
 
+/* Two columns: each person takes half the row */
+.creditGrid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 12px 8px;
+	margin-top: 4px;
+}
+
+.creditPerson {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-width: 0;
+}
+
+.creditAvatarTrigger {
+	flex-shrink: 0;
+	border-radius: 50%;
+}
+
+.creditAvatarShimmer {
+	position: absolute;
+	inset: 0;
+}
+
+.creditAvatar {
+	position: relative;
+	flex-shrink: 0;
+	width: 44px;
+	height: 44px;
+	border-radius: 50%;
+	overflow: hidden;
+	background: var(--surface);
+	color: var(--text-muted);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+}
+
 .seasonsSection {
 	margin-top: 24px;
 }
@@ -235,4 +310,5 @@
 	font-size: 18px;
 	font-weight: 600;
 	margin: 0 0 12px;
+	padding: 0 8px; /* In line with the page's text */
 }

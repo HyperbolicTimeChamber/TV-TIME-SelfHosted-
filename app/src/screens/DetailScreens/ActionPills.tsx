@@ -1,8 +1,62 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import type { LayoutChangeEvent } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, typography } from "../../theme";
 import { WatchStatus, MediaType } from "../../types";
-import { withHaptic } from "../../utils/haptics";
+import { ADD_TO_WATCHLIST_LABELS, CircleButtonTone, MARK_WATCHED_LABELS } from "../../enums";
+import CircleButton from "../../components/CircleButton";
+import { HiCheck } from "../../components/HiIcons";
+
+const TICK = 20;
+
+/**
+ * A pill's label, shortened to fit ("Mark as Watched" → "Mark Watched" → "Watched") instead of
+ * wrapping onto two lines when the row is narrow. Every label is measured off screen once; the
+ * pill's own width picks the longest that fits beside its icon
+ */
+function FitLabel({ labels, icon }: Readonly<{ labels: readonly string[]; icon?: React.ReactNode }>) {
+	const [room, setRoom] = useState(0);
+	const [widths, setWidths] = useState<number[]>([]);
+	const iconW = icon ? TICK + spacing.xs : 0;
+	const pick =
+		room > 0 && widths.filter((w) => w !== undefined).length === labels.length
+			? (labels.find((_, i) => widths[i] + iconW <= room) ?? labels[labels.length - 1])
+			: null;
+	return (
+		<View
+			style={styles.fitLabel}
+			onLayout={(e: LayoutChangeEvent) => setRoom(e.nativeEvent.layout.width)}
+		>
+			{/* Measured off screen, never shown */}
+			<View style={styles.measure} pointerEvents="none">
+				{labels.map((label, i) => (
+					<Text
+						key={label}
+						style={styles.pillText}
+						numberOfLines={1}
+						onLayout={(e) => {
+							const w = e.nativeEvent.layout.width;
+							setWidths((prev) => {
+								const next = [...prev];
+								next[i] = w;
+								return next;
+							});
+						}}
+					>
+						{label}
+					</Text>
+				))}
+			</View>
+			<View style={[styles.pillInline, !pick && styles.hidden]}>
+				{icon}
+				<Text style={styles.pillText} numberOfLines={1}>
+					{pick ?? labels[0]}
+				</Text>
+			</View>
+		</View>
+	);
+}
 
 interface Props {
 	mediaType: MediaType;
@@ -19,11 +73,13 @@ interface Props {
 	onResumeOrRewatch: () => void;
 	/** TV watching / rewatching: pause it (asks first) */
 	onPause: () => void;
-	/** Completed TV: queue the next rewatch without starting it */
-	onPauseRewatch: () => void;
 	onRemove: () => void;
-	/** Long-press on Rewatch: watch count sheet */
+	/** Movie ⋯ beside Rewatch: watch count sheet */
 	onWatchSheetOpen: () => void;
+	/** How many custom lists hold the title (bookmark filled, count on it, when above 0) */
+	listCount: number;
+	/** Add to List: the row's last button, whichever other buttons are showing */
+	onAddToList: () => void;
 }
 
 export default function ActionPills({
@@ -38,16 +94,18 @@ export default function ActionPills({
 	onMarkMovieWatched,
 	onResumeOrRewatch,
 	onPause,
-	onPauseRewatch,
 	onRemove,
 	onWatchSheetOpen,
+	listCount,
+	onAddToList,
 }: Readonly<Props>) {
 	const isTv = mediaType === MediaType.TV;
 	const completed = watchlistItem?.status === WatchStatus.COMPLETED;
 	const neverWatched = isTv && completed && !hasWatchedEpisodes;
-	// Completed show: two ways into the next run instead of Rewatch + Remove
+	// Completed show: "Start a Rewatch" (it reads "Pause a Rewatch" once the run is under way)
 	const rewatchChoice = isTv && completed && !neverWatched;
-	const hasSheet = isTv ? rewatchChoice : movieWatchCount > 0;
+	// Watch count sheet (⋯ at the row's end, like Settings beside Hall of Shame)
+	const hasSheet = !isTv && completed && movieWatchCount > 0;
 	return (
 		<View style={styles.pillRow}>
 			{!watchlistItem ? (
@@ -60,7 +118,7 @@ export default function ActionPills({
 						{adding ? (
 							<ActivityIndicator size="small" color={colors.text} />
 						) : (
-							<Text style={styles.pillText}>+ Add to Watchlist</Text>
+							<FitLabel labels={ADD_TO_WATCHLIST_LABELS} />
 						)}
 					</TouchableOpacity>
 					{mediaType === MediaType.MOVIE && (
@@ -72,7 +130,7 @@ export default function ActionPills({
 							{adding ? (
 								<ActivityIndicator size="small" color={colors.text} />
 							) : (
-								<Text style={styles.pillText}>Watched</Text>
+								<FitLabel labels={MARK_WATCHED_LABELS} icon={<HiCheck size={TICK} />} />
 							)}
 						</TouchableOpacity>
 					)}
@@ -88,18 +146,14 @@ export default function ActionPills({
 							{adding ? (
 								<ActivityIndicator size="small" color={colors.text} />
 							) : (
-								<Text style={styles.pillText}>Mark as Watched</Text>
+								<FitLabel labels={MARK_WATCHED_LABELS} icon={<HiCheck size={TICK} />} />
 							)}
 						</TouchableOpacity>
 					)}
 					{(watchlistItem.status === WatchStatus.COMPLETED ||
 						watchlistItem.status === WatchStatus.PAUSED ||
 						watchlistItem.status === WatchStatus.PAUSED_REWATCH) && (
-						<TouchableOpacity
-							style={[styles.pill, styles.pillAccent]}
-							onPress={onResumeOrRewatch}
-							onLongPress={withHaptic(hasSheet ? onWatchSheetOpen : undefined)}
-						>
+						<TouchableOpacity style={[styles.pill, styles.pillAccent]} onPress={onResumeOrRewatch}>
 							<Text style={styles.pillText}>
 								{watchlistItem.status === WatchStatus.PAUSED
 									? "Resume"
@@ -108,14 +162,9 @@ export default function ActionPills({
 										: neverWatched
 											? "Start Watching"
 											: rewatchChoice
-												? "Start Rewatch"
+												? "Start a Rewatch"
 												: "Rewatch"}
 							</Text>
-						</TouchableOpacity>
-					)}
-					{rewatchChoice && (
-						<TouchableOpacity style={[styles.pill, styles.pillPause]} onPress={onPauseRewatch}>
-							<Text style={styles.pillText}>Pause Rewatch</Text>
 						</TouchableOpacity>
 					)}
 					{mediaType === MediaType.TV &&
@@ -123,7 +172,7 @@ export default function ActionPills({
 							watchlistItem.status === WatchStatus.REWATCHING) && (
 							<TouchableOpacity style={[styles.pill, styles.pillPause]} onPress={onPause}>
 								<Text style={styles.pillText}>
-									{watchlistItem.status === WatchStatus.REWATCHING ? "Pause Rewatch" : "Pause"}
+									{watchlistItem.status === WatchStatus.REWATCHING ? "Pause a Rewatch" : "Pause"}
 								</Text>
 							</TouchableOpacity>
 						)}
@@ -142,6 +191,31 @@ export default function ActionPills({
 					)}
 				</>
 			)}
+			<CircleButton
+				tone={listCount > 0 ? CircleButtonTone.ACCENT : CircleButtonTone.RAISED}
+				onPress={onAddToList}
+				accessibilityLabel={
+					listCount > 0
+						? `Add to List, in ${listCount} ${listCount === 1 ? "list" : "lists"}`
+						: "Add to List"
+				}
+			>
+				<Ionicons
+					name={listCount > 0 ? "bookmark" : "bookmark-outline"}
+					size={28}
+					color={colors.text}
+				/>
+			</CircleButton>
+			{/* Watch count ⋯ stays the row's right-most button */}
+			{watchlistItem && hasSheet && (
+				<CircleButton
+					tone={CircleButtonTone.RAISED}
+					onPress={onWatchSheetOpen}
+					accessibilityLabel="Watch count options"
+				>
+					<Ionicons name="ellipsis-vertical" size={24} color={colors.text} />
+				</CircleButton>
+			)}
 		</View>
 	);
 }
@@ -149,6 +223,7 @@ export default function ActionPills({
 const styles = StyleSheet.create({
 	pillRow: {
 		flexDirection: "row",
+		alignItems: "center",
 		flexWrap: "wrap",
 		gap: spacing.sm,
 		marginTop: spacing.lg,
@@ -177,6 +252,12 @@ const styles = StyleSheet.create({
 	pillRemove: {
 		backgroundColor: colors.destructiveRed,
 	},
+	pillInline: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+	// Spans the pill's inner width (the room the label gets), the label centred in it
+	fitLabel: { alignSelf: "stretch", alignItems: "center" },
+	// Wide enough that no label is cut to the pill's width while it's measured
+	measure: { position: "absolute", opacity: 0, left: -9999, width: 9999, alignItems: "flex-start" },
+	hidden: { opacity: 0 },
 	pillDisabled: {
 		opacity: 0.6,
 	},

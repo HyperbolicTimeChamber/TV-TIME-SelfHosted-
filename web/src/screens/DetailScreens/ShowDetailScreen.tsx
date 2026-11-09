@@ -1,33 +1,55 @@
 import { useEffect, useRef, useState } from "react";
 import { App as AntApp } from "antd";
-import { IoShareSocialOutline } from "react-icons/io5";
+import { IoPerson, IoShareSocialOutline } from "react-icons/io5";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useShowDetailActions } from "@app/screens/DetailScreens/useShowDetailActions";
 import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
+import { personSubject } from "@app/utils/subjectLink";
 import { CircleButtonTone, MediaType, WatchStatus } from "@app/enums";
 import { showShareUrl } from "@app/utils/shareUrl";
+import { useCustomLists } from "@app/hooks/useCustomLists";
+import { titleListCount } from "@app/utils/customLists";
+import AddToListSheet from "../../components/AddToListSheet";
 import LoadingScreen from "../../components/LoadingScreen";
 import CircleButton, { CircleBackButton } from "../../components/CircleButton";
 import ErrorState from "../../components/ErrorState";
 import { describeLoadError } from "@app/utils/loadError";
 import ConfirmModal from "../../components/ConfirmModal";
+import AddFailedModal from "../../components/AddFailedModal";
 import { colors } from "../../theme/index";
 import { ModalBackdrop, ModalLogo } from "../../components/ModalArt";
 import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
 import { pickTitleLogo } from "@app/services/tmdb";
 import UnreleasedMovieModal from "../../components/UnreleasedMovieModal";
-import WatchActionSheet from "../../components/WatchActionSheet";
+import WatchCountSheet from "../../components/WatchCountSheet";
+import WatchCountPill from "../../components/WatchCountPill";
 import SeasonDropdown from "../../components/SeasonDropdown";
 import ActionPills from "./ActionPills";
 import { Paths } from "../../routes/paths";
-import { appDeepLink, isAndroidBrowser } from "../../utils/deepLink";
+import { appIntentLink, isAndroidBrowser, useLatestApkUrl } from "../../utils/deepLink";
 import styles from "./styles/ShowDetailScreen.module.scss";
 import { cssVars, px } from "../../utils/cssVars";
+import WhereToWatch from "../../components/WhereToWatch";
+import CastRow from "../../components/CastRow";
+import LocalReleaseLine from "../../components/LocalReleaseLine";
+import PhotoTrigger from "../../components/PhotoViewer";
+import { releaseStatLabel } from "@app/utils/localRelease";
+import { useTitleExtras } from "@app/hooks/useTitleExtras";
+import StudiosRow from "../../components/StudiosRow";
+import SkeletonBlock from "../../components/SkeletonBlock";
+
+const CREDIT_AVATAR_PX = 44;
 
 /** Space kept between the sticky back button and the pills pushing it off */
 const BACK_PUSH_GAP = 8;
 
 /** Show / movie page — public (read-only for guests) and the target of share links */
+/** "S03E04 – My Lucky Night" for the rewatch gate (app) */
+function rewatchBlockedLabel(b: { season: number; episode: number; name: string | null }) {
+	const pad = (n: number) => String(n).padStart(2, "0");
+	return `S${pad(b.season)}E${pad(b.episode)}${b.name ? ` – ${b.name}` : ""}`;
+}
+
 export default function ShowDetailScreen() {
 	const params = useParams();
 	const tmdbId = Number(params.tmdbId);
@@ -36,11 +58,19 @@ export default function ShowDetailScreen() {
 	const location = useLocation();
 	const { message } = AntApp.useApp();
 	const d = useShowDetailActions(tmdbId, mediaType);
+	// The directors' / writers' photos for the credits (every extras section reads the same query)
+	const { data: extras, isPending: extrasPending } = useTitleExtras(tmdbId, mediaType);
 	// Catalog's logo, else the one that came with the details (same request as the page data)
 	const logoPath =
 		getCachedCatalogShow(tmdbId, mediaType)?.logoPath ??
 		(d.show?.images ? pickTitleLogo(d.show.images.logos) : undefined);
 	const signedIn = !!d.user;
+	// Signed-out Android visitors: "Open in app" opens the app, or downloads the latest APK
+	const latestApk = useLatestApkUrl(!signedIn && isAndroidBrowser());
+	// "Add to List" button (next to Share): signed-in only (lists belong to an account), blue once listed
+	const { lists } = useCustomLists(d.user?.uid);
+	const [listSheetOpen, setListSheetOpen] = useState(false);
+	const listCount = titleListCount(lists, tmdbId, mediaType);
 
 	// Opened directly (share link / new tab): no in-app history, so go to the watchlist
 	// (or search for guests) instead of leaving the site
@@ -126,6 +156,8 @@ export default function ShowDetailScreen() {
 			? tmdbPosterUri(show.poster_path, 780)
 			: null;
 
+	const whereToWatch = <WhereToWatch tmdbId={tmdbId} mediaType={mediaType} title={d.title ?? ""} />;
+
 	return (
 		<div ref={containerRef} className={styles.container}>
 			<div
@@ -135,6 +167,30 @@ export default function ShowDetailScreen() {
 			>
 				<CircleBackButton tone={CircleButtonTone.OVERLAY} onClick={handleBack} />
 			</div>
+			{signedIn && d.watchCount > 0 && (
+				// Top edge level with back / share (not centred on them)
+				<div className={`${styles.floatButton} ${styles.watchCount}`}>
+					<WatchCountPill count={d.watchCount} overlay />
+				</div>
+			)}
+			{signedIn && (
+				<>
+					<AddToListSheet
+						entry={
+							listSheetOpen
+								? {
+										tmdbId,
+										mediaType,
+										title: d.title ?? "",
+										posterPath: d.show?.poster_path ?? null,
+									}
+								: null
+						}
+						onClose={() => setListSheetOpen(false)}
+						hideCounts
+					/>
+				</>
+			)}
 			<CircleButton
 				tone={CircleButtonTone.OVERLAY}
 				className={`${styles.floatButton} ${styles.shareButton}`}
@@ -175,12 +231,15 @@ export default function ShowDetailScreen() {
 								removing={d.removing}
 								movieWatchCount={d.movieWatchCount}
 								hasWatchedEpisodes={d.showWatchedEps.length > 0}
+								hasStarted={d.hasStarted}
 								onAddToWatchlist={d.handleAddToWatchlist}
 								onMarkMovieWatched={d.handleMarkMovieWatched}
 								onResumeOrRewatch={d.handleResumeOrRewatch}
 								onPause={() => d.setPauseModalVisible(true)}
 								onRemove={d.handleRemove}
-								onMovieSheetOpen={() => d.setMovieSheetVisible(true)}
+								onWatchSheetOpen={() => d.setMovieSheetVisible(true)}
+								listCount={listCount}
+								onAddToList={() => setListSheetOpen(true)}
 							/>
 						) : (
 							<div className={styles.pillRow}>
@@ -195,7 +254,7 @@ export default function ShowDetailScreen() {
 								{isAndroidBrowser() && (
 									<a
 										className={`${styles.pill} ${styles.pillAccent}`}
-										href={appDeepLink(mediaType, tmdbId)}
+										href={appIntentLink(mediaType, tmdbId, latestApk)}
 									>
 										Open in app
 									</a>
@@ -214,7 +273,10 @@ export default function ShowDetailScreen() {
 							label="RUNTIME"
 						/>
 					) : null}
-					<Stat value={d.year || "—"} label={mediaType === MediaType.MOVIE ? "RELEASED" : "YEAR"} />
+					<Stat
+						value={d.year || "—"}
+						label={mediaType === MediaType.MOVIE ? releaseStatLabel(show.release_date) : "YEAR"}
+					/>
 					{mediaType === MediaType.TV && show.number_of_seasons ? (
 						<Stat
 							value={show.number_of_seasons}
@@ -227,23 +289,51 @@ export default function ShowDetailScreen() {
 					{show.vote_average ? <Stat value={show.vote_average.toFixed(1)} label="RATING" /> : null}
 				</div>
 				<p className={styles.overview}>{show.overview}</p>
+				{/* Under the description: above a movie's local release, a show's seasons */}
+				{whereToWatch}
+
+				{mediaType === MediaType.MOVIE && (
+					<LocalReleaseLine
+						tmdbId={tmdbId}
+						globalRelease={show.release_date}
+						className={styles.localRelease}
+					/>
+				)}
 
 				{mediaType === MediaType.MOVIE && (
 					<div className={styles.creditsSection}>
-						{(
-							[
-								["Director", d.directors],
-								["Screenplay", d.writers],
-								["Production", d.producers],
-							] as const
-						).map(([label, names]) =>
-							names.length > 0 ? (
-								<div key={label} className={styles.creditBlock}>
-									<span className={styles.creditLabel}>{label}</span>
-									<span className={styles.creditNames}>{names.join(", ")}</span>
-								</div>
-							) : null,
-						)}
+							{(
+								[
+									[d.directors.length === 1 ? "Director" : "Directors", d.directors, extras?.directors],
+									["Screenplay", d.writers, extras?.writers],
+								] as const
+							).map(([label, names, withPhotos]) => {
+								// With photos once the extras are here; the names (person icon) until then
+								const people =
+									withPhotos && withPhotos.length > 0
+										? withPhotos.map((p) => ({ ...p, key: String(p.id) }))
+										: names.map((name) => ({ id: 0, key: name, name, profile: null as string | null, imdbId: undefined }));
+								return people.length > 0 ? (
+									<div key={label} className={styles.creditBlock}>
+										<span className={styles.creditLabel}>{label}</span>
+										<div className={styles.creditGrid}>
+											{people.map((m) => (
+												<div key={m.key} className={styles.creditPerson}>
+													<PhotoTrigger
+														subject={m.profile ? personSubject(m, { tmdbId, mediaType }) : null}
+														radius={CREDIT_AVATAR_PX / 2}
+														thumbWidth={CREDIT_AVATAR_PX}
+														className={styles.creditAvatarTrigger}
+													>
+														<CreditAvatar profile={m.profile} pending={extrasPending} />
+													</PhotoTrigger>
+													<span className={styles.creditNames}>{m.name}</span>
+												</div>
+											))}
+										</div>
+									</div>
+								) : null;
+							})}
 					</div>
 				)}
 
@@ -272,6 +362,9 @@ export default function ShowDetailScreen() {
 							))}
 					</section>
 				)}
+
+				<CastRow tmdbId={tmdbId} mediaType={mediaType} title={d.title ?? ""} />
+				<StudiosRow tmdbId={tmdbId} mediaType={mediaType} />
 			</div>
 
 			{signedIn && (
@@ -299,9 +392,16 @@ export default function ShowDetailScreen() {
 					/>
 					<ConfirmModal
 						visible={d.pauseModalVisible}
+						drawer
 						title={
 							d.watchlistItem?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"
 						}
+						question={
+							d.watchlistItem?.status === WatchStatus.REWATCHING
+								? "Do You Want to Pause This Rewatch?"
+								: "Do You Want to Pause This Show?"
+						}
+						slideLabel="Slide to Pause"
 						imageAtTop={!!show.backdrop_path}
 						hideTitle
 						image={
@@ -337,45 +437,79 @@ export default function ShowDetailScreen() {
 						onConfirm={d.handleConfirmPause}
 						onClose={() => d.setPauseModalVisible(false)}
 					/>
-					{/* A failed add reports here, as it does in the app (app AddFailedModal) */}
+					{/* A failed add reports here, as it does in the app */}
+					<AddFailedModal
+						failure={d.addFailure}
+						retrying={d.adding}
+						onRetry={d.retryAdd}
+						onClose={() => d.setAddFailure(null)}
+					/>
+					{/* Next rewatch only once every aired episode is at the current run (app) */}
 					<ConfirmModal
-						visible={!!d.addFailure}
-						title="Couldn't add that one"
+						visible={!!d.rewatchBlocked}
+						title="Finish Watching First"
 						image={
-							d.addFailure?.backdropPath ? (
-								<ModalBackdrop
-									backdropPath={d.addFailure.backdropPath}
-									logoPath={d.addFailure.logoPath}
-									tmdbId={d.addFailure.tmdbId}
-									mediaType={d.addFailure.mediaType}
-									title={d.addFailure.title}
-								/>
-							) : undefined
+							<ModalLogo
+								logoPath={logoPath}
+								tmdbId={tmdbId}
+								mediaType={mediaType}
+								title={d.title}
+							/>
 						}
 						hint={
-							d.addFailure ? `${d.addFailure.title} is still not on your watch list.` : undefined
+							d.rewatchBlocked
+								? `${rewatchBlockedLabel(d.rewatchBlocked)} isn't at x${d.rewatchBlocked.count} yet. Every aired episode needs x${d.rewatchBlocked.count} before rewatch ${d.rewatchBlocked.count} can start.`
+								: undefined
 						}
-						error={d.addFailure?.message ?? null}
-						confirmLabel="Retry"
-						loading={d.adding}
-						onConfirm={d.handleAddToWatchlist}
-						onClose={() => d.setAddFailure(null)}
+						confirmLabel="OK"
+						confirmColor={colors.primary}
+						hideCancel
+						onConfirm={() => d.setRewatchBlocked(null)}
+						onClose={() => d.setRewatchBlocked(null)}
 					/>
 					<UnreleasedMovieModal
 						visible={!!d.unreleasedModal}
 						onClose={() => d.setUnreleasedModal(null)}
 						movieTitle={d.unreleasedModal?.title ?? ""}
 					/>
-					<WatchActionSheet
+					<WatchCountSheet
 						visible={d.movieSheetVisible}
-						label={show.title || show.name || "Movie"}
+						title={d.title || "Movie"}
+						tmdbId={tmdbId}
+						mediaType={mediaType}
+						logoPath={logoPath}
 						watchCount={d.movieWatchCount}
-						onSelect={d.handleMovieSheetAction}
+						onCommit={d.handleMovieWatchCountChange}
 						onClose={() => d.setMovieSheetVisible(false)}
 					/>
 				</>
 			)}
 		</div>
+	);
+}
+
+/** Shimmers until there's something to show; a person icon only when they really have no photo */
+function CreditAvatar({ profile, pending }: { profile: string | null; pending: boolean }) {
+	const [loaded, setLoaded] = useState(false);
+	const shimmering = pending || (!!profile && !loaded);
+	return (
+		<span className={styles.creditAvatar}>
+			{shimmering && <SkeletonBlock className={styles.creditAvatarShimmer} />}
+			{profile ? (
+				<img
+					src={tmdbPosterUri(profile, CREDIT_AVATAR_PX)}
+					alt=""
+					// Already in the browser's cache: onLoad may have fired before React attached it
+					ref={(img) => {
+						if (img?.complete) setLoaded(true);
+					}}
+					onLoad={() => setLoaded(true)}
+					onError={() => setLoaded(true)}
+				/>
+			) : shimmering ? null : (
+				<IoPerson size={22} />
+			)}
+		</span>
 	);
 }
 

@@ -1,0 +1,235 @@
+/* The sheet's handle + this header + the bottom padding, above the list */
+$chrome-h: calc(156px + env(safe-area-inset-bottom));
+
+.header {
+	padding: 0 0 12px;
+	border-bottom: 1px solid var(--border);
+}
+
+.title {
+	margin: 0;
+	font-size: 20px;
+	font-weight: 600;
+}
+
+.subtitle {
+	margin: 2px 0 0;
+	font-size: 12px;
+	color: var(--text-secondary);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* Scrolls inside the sheet; the sentinel at its end loads the next page. A fixed height: the sheet
+   doesn't jump between a list, a short result and Nothing Found */
+.list {
+	/* Keyboard up: only what's left above it, less the sheet's handle + header (BottomSheet --sheet-room) */
+	--list-h: min(62dvh, 600px, calc(var(--sheet-room, 100dvh) - #{$chrome-h}));
+	height: var(--list-h);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+.row {
+	height: 76px;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.avatar {
+	flex-shrink: 0;
+	width: 52px;
+	height: 52px;
+	border-radius: 50%;
+	overflow: hidden;
+	background: var(--surface-light);
+	color: var(--text-muted);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+}
+
+.rowText {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.name,
+.character {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.name {
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.character {
+	font-size: 12px;
+	color: var(--text-secondary);
+}
+
+.rowEnd {
+	flex-shrink: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 2px;
+}
+
+.imdbLink {
+	padding: 0;
+	border: 0;
+	background: none;
+	font: inherit;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--primary);
+	cursor: pointer;
+}
+
+.stat {
+	flex-shrink: 0;
+	font-size: 12px;
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.skeletonLine {
+	height: 10px;
+	width: 60%;
+	border-radius: 4px;
+}
+
+.skeletonShort {
+	width: 35%;
+	margin-top: 6px;
+}
+
+.more {
+	display: flex;
+	justify-content: center;
+	padding: 16px 0;
+}
+
+.search {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 12px;
+	padding: 0 12px;
+	height: 40px;
+	border-radius: 12px;
+	background: var(--surface-light);
+	color: var(--text-muted);
+
+	input {
+		flex: 1;
+		min-width: 0;
+		border: none;
+		outline: none;
+		background: none;
+		color: var(--text);
+		font: inherit;
+		font-size: 14px;
+
+		&::-webkit-search-cancel-button {
+			display: none;
+		}
+	}
+
+	button {
+		display: flex;
+		padding: 0;
+		border: none;
+		background: none;
+		color: var(--text-muted);
+		cursor: pointer;
+	}
+}
+
+/* While a new search loads, the last results stay — dimmed, so it reads as "updating" */
+.stale {
+	opacity: 0.45;
+	transition: opacity 150ms ease;
+}
+
+/* The list (and a search's results) settle in instead of popping */
+.list {
+	animation: listIn 180ms ease-out;
+}
+
+@keyframes listIn {
+	from {
+		opacity: 0;
+	}
+}
+
+/* Nothing Found runs under the sheet's bottom padding (same height overall), so Zoro's feet touch
+   the screen's edge */
+.listEmpty {
+	height: calc(var(--list-h) + 16px + env(safe-area-inset-bottom));
+	margin-bottom: calc(-16px - env(safe-area-inset-bottom));
+}
+
+/* Fills the list's height: Zoro stands on the sheet's bottom edge, the message just over his head */
+.empty {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: flex-end;
+	padding: 0 32px;
+	text-align: center;
+	overflow: hidden;
+}
+
+/* Search's empty-results type */
+.emptyTitle {
+	margin: 0;
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--text-secondary);
+}
+
+.emptyHint {
+	margin: 4px 0 8px;
+	font-size: 13px;
+	color: var(--text-muted);
+}
+
+.emptyArt {
+	flex: 0 1 auto;
+	min-height: 0;
+	height: min(44dvh, 420px);
+	width: auto;
+	pointer-events: none;
+	user-select: none;
+	animation: climb 350ms cubic-bezier(0.23, 1, 0.32, 1) 120ms both;
+}
+
+@keyframes climb {
+	from {
+		opacity: 0;
+		transform: translateY(100%);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.emptyArt {
+		animation: none;
+	}
+}

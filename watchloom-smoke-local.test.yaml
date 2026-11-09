@@ -1,0 +1,41 @@
+fileType: momentic/mobile-test/v2
+id: nineteen-lanky-its-vibe-always
+description: ""
+platform: android
+steps:
+  - openApp: com.tvtimerevived.app
+  - tap: the Upcoming tab label at top
+  - tap: the Watch List tab label at top
+  - tap: calendar tab icon in bottom bar
+  - tap: search tab icon in bottom bar
+  - tap: profile tab icon in bottom bar
+  - tap: Hall of Shame button
+  - tap: Movies tab
+  - tap: red filter button at bottom right
+  - press: back
+  - press: back
+  - tap: back arrow at top left
+  - tap: search tab icon in bottom bar
+  - tap: search input field
+  - type:
+      text: Breaking
+      into: search input field
+  - tap: TV filter chip
+  - tap: Movies filter chip
+  - tap: All filter chip
+  - adb:
+      command: shell
+      args: '["am","start","-a","android.intent.action.VIEW","-d","watchloom://show/movie/550"]'
+  - wait: 10000
+  - scrollTo:
+      on: Where to Watch section
+      in: app
+  - scrollTo:
+      on: cast section with photos
+      in: app
+  - tap: first cast member photo
+  - checkElementVisible: round photo viewer with a link pill
+  - press: back
+  - tap: View All cast button
+  - checkElementVisible: cast list sheet
+  - press: back

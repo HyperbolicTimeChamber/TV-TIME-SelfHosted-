@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "web/src/components/styles/ShowCard.module.scss"
+        ],
+        "createdAt": "2026-11-06T09:29:36.695Z",
+        "reason": "Claude: .slantArrow is a zero-size CSS triangle (border trick) joining the MOVIE and year tags, not a card side border"
+      }
+    ]
+  }
+}

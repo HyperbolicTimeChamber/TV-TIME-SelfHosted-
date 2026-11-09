@@ -12,7 +12,20 @@ export {
 	HistoryProgress,
 	CloudFunction,
 } from "../enums";
-export type { CatalogEpisode, CatalogSeason, CatalogShow } from "./catalog";
+export type {
+	CatalogEpisode,
+	CatalogSeason,
+	CatalogShow,
+	CastMember,
+	CrewMember,
+	Studio,
+	TitleCastPage,
+	TitleExtras,
+	RegionWatchProviders,
+	WatchProvider,
+	PhotoSubject,
+	SubjectLinkResult,
+} from "./catalog";
 export type {
 	TrackingItem,
 	WatchlistItem,
@@ -22,6 +35,7 @@ export type {
 	UserProfile,
 } from "./user";
 export type { TMDBShow, TMDBSeason, TMDBEpisode, UpcomingEpisode } from "./tmdb";
+export type { CustomList, CustomListItem, CustomListEntry } from "./customList";
 export type {
 	RootStackParamList,
 	MainTabParamList,
@@ -34,7 +48,13 @@ export type {
 } from "./navigation";
 export type { CarouselEpisode, EnrichedEpisode, EpisodeDetailModalProps } from "./episodeCarousel";
 export type { WatchlistListItem } from "./watchlist";
-export type { WatchAction } from "./watchAction";
+export { WatchAction } from "./watchAction";
 export type { AddFailure } from "./addFailure";
 export type { ShowDrawerData } from "./showDrawer";
-export type { HistoryEntry, HistoryState, HistoryChange, HistoryCatalog } from "./history";
+export type {
+	HistoryEntry,
+	HistoryState,
+	HistoryChange,
+	HistoryCatalog,
+	HistoryFacets,
+} from "./history";

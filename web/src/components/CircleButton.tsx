@@ -8,6 +8,7 @@ const FILL: Record<CircleButtonTone, string> = {
 	[CircleButtonTone.SURFACE]: styles.surface,
 	[CircleButtonTone.SURFACE_LIGHT]: styles.surfaceLight,
 	[CircleButtonTone.RAISED]: styles.raised,
+	[CircleButtonTone.ACCENT]: styles.accent,
 };
 
 interface Props {

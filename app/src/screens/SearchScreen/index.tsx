@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useMemo } from "react";
-import { View, Text, TouchableOpacity, useWindowDimensions } from "react-native";
+import { View, Text, TouchableOpacity, useWindowDimensions, Keyboard } from "react-native";
 import type { LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import Animated, {
 	useAnimatedReaction,
@@ -9,7 +9,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { LoadingSpinner } from "../../components";
 import SlidingTabs from "../../components/SlidingTabs";
 import NotFoundArt, {
 	NO_RESULTS_ART,
@@ -19,35 +18,59 @@ import NotFoundArt, {
 
 const artReserve = artHeight(NO_RESULTS_RATIO) + 24;
 import { AnimatedLegendList } from "@legendapp/list/reanimated";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useSearch, useSearchSort, useTrending } from "../../hooks";
+import {
+	useSearch,
+	useTrending,
+	useCustomLists,
+	useCustomListView,
+} from "../../hooks";
+import { useAuthStore } from "../../stores";
+import { AddToListSheet } from "../../components";
+import { listedTitleKeys, listItemKey, searchMediaType, entryFromSearchResult } from "../../utils";
 import { colors, spacing } from "../../theme";
 import { TMDBShow, SearchStackParamList, MediaType, MediaFilter, Route } from "../../types";
-import SortFab, { SORT_FAB_CLEARANCE } from "../../components/SortFab";
+import { CacheKey, CustomListView } from "../../enums";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
-import SortSheet, { type SortOption } from "../../components/SortSheet";
-import {
-	SEARCH_SORT_OPTIONS,
-	sameSearchSort,
-	sortSearchResults,
-	DEFAULT_SEARCH_SORT,
-	type SearchSortView,
-} from "../../utils/searchSort";
 import { useSearchActions } from "./useSearchActions";
 import SearchCard from "./SearchCard";
+import SearchSkeleton from "./SearchSkeleton";
+import ErrorState from "../../components/ErrorState";
+import { describeSearchError } from "../../utils";
 import SearchModals from "./SearchModals";
-import { styles } from "./styles";
+import { CLEAR_ICON_SIZE, ROW_HEIGHT, styles } from "./styles";
+import { IoIosCloseCircle } from "../../components/HiIcons";
 
-const SORT_OPTIONS: SortOption<SearchSortView>[] = SEARCH_SORT_OPTIONS.map(
-	({ label, ...value }) => ({ value, label }),
-);
-const FAB_BOTTOM = 20;
+/** Placeholder cards while results load (enough to fill the screen) / under the list while
+ *  more batches are to come (one row) */
+const LOADING_CARDS = 6;
+const COLUMNS = 2;
 const HEADER_SNAP_MS = 180;
 
-type SearchItem = TMDBShow & { _tracked: boolean; _adding: boolean };
+type SearchItem = TMDBShow & {
+	_tracked: boolean;
+	_adding: boolean;
+	_listed: boolean;
+	_skeleton?: boolean;
+};
 
-const keyExtractor = (item: SearchItem) => `${item.media_type || "x"}_${item.id}`;
+const keyExtractor = (item: SearchItem) =>
+	item._skeleton ? `skeleton_${item.id}` : `${item.media_type || "x"}_${item.id}`;
+
+/** Placeholder list items: drawn as SearchSkeleton cards, in the same grid as the results */
+const skeletonItems = (count: number): SearchItem[] =>
+	Array.from({ length: count }, (_, id) => ({
+		id,
+		_skeleton: true,
+		_tracked: false,
+		_adding: false,
+	})) as SearchItem[];
+const LOADING_ITEMS = skeletonItems(LOADING_CARDS);
+// Fills an odd last row, then one full row
+const MORE_ITEMS = [skeletonItems(COLUMNS), skeletonItems(COLUMNS + 1)];
+// List view: two placeholder rows
+const MORE_ROWS = skeletonItems(2);
 
 type NavProp = NativeStackNavigationProp<SearchStackParamList, Route.SEARCH_MAIN>;
 
@@ -67,10 +90,19 @@ export default function SearchScreen() {
 		useRoute<RouteProp<SearchStackParamList, Route.SEARCH_MAIN | Route.SEARCH_RESULTS>>();
 	const submittedQuery = (route.params as any)?.query || "";
 	const [mediaFilter, setMediaFilter] = useState<MediaFilter>(MediaFilter.ALL);
-	// Results only (Trending keeps its own order); remembered for the session
-	const [sortView, setSortView] = useSearchSort();
-	const [sortOpen, setSortOpen] = useState(false);
+	// Grid / List, remembered across launches (Trending and results share it)
+	const [view, setView] = useCustomListView(CacheKey.SEARCH_VIEW, CustomListView.GRID);
+	const isGrid = view === CustomListView.GRID;
 	const listRef = useRef<any>(null);
+	// Custom lists: which results are already in one, and the title the "Add to List" sheet is open for
+	const user = useAuthStore((s) => s.user);
+	const { lists } = useCustomLists(user?.uid);
+	const listedKeys = useMemo(() => listedTitleKeys(lists), [lists]);
+	const [listTarget, setListTarget] = useState<TMDBShow | null>(null);
+	const listEntry = useMemo(
+		() => (listTarget ? entryFromSearchResult(listTarget) : null),
+		[listTarget],
+	);
 	// No-results art sits at the visible bottom; the message stays above it
 	const [artOverhang, setArtOverhang] = useState(0);
 
@@ -80,6 +112,7 @@ export default function SearchScreen() {
 	const [headerH, setHeaderH] = useState(0);
 	const headerHeight = useSharedValue(0);
 	const headerY = useSharedValue(0);
+
 	const scrollY = useSharedValue(0);
 	// Stable object — AnimatedLegendList re-subscribes when it changes
 	const listSharedValues = useMemo(() => ({ scrollOffset: scrollY }), [scrollY]);
@@ -140,12 +173,27 @@ export default function SearchScreen() {
 		else navigation.navigate(Route.SEARCH_MAIN);
 	}, [navigation]);
 	const swipeBack = useSwipeBackPop(navigation);
+	// The input screen is replaced by this one while its keyboard is up; on Android the replace can
+	// leave the keyboard showing over the results, so close it once the results page is in front
+	// Once on focus and again when the screen transition ends: a dismiss that lands mid-replace is
+	// lost on some runs (keyboard stayed up over the results)
+	useFocusEffect(
+		useCallback(() => {
+			if (!submittedQuery) return;
+			Keyboard.dismiss();
+			return navigation.addListener("transitionEnd", () => Keyboard.dismiss());
+		}, [submittedQuery, navigation]),
+	);
 
+	// The input opens over this page, so backing out of it returns here, whatever was typed. A new
+	// search replaces these results (SearchInputScreen): only ever one results page above Trending
 	const openSearchInput = useCallback(() => {
-		navigation.navigate(Route.SEARCH_INPUT, {
-			currentQuery: submittedQuery || undefined,
-		});
+		navigation.push(Route.SEARCH_INPUT, { currentQuery: submittedQuery || undefined });
 	}, [navigation, submittedQuery]);
+	// ✕ on a results page: the suggestions page opens empty, over these results like openSearchInput
+	const clearSearch = useCallback(() => {
+		navigation.push(Route.SEARCH_INPUT, { currentQuery: undefined });
+	}, [navigation]);
 
 	const {
 		trackedIds,
@@ -178,6 +226,8 @@ export default function SearchScreen() {
 	const {
 		data: searchData,
 		isLoading: searchLoading,
+		error: searchError,
+		refetch: retrySearch,
 		fetchNextPage,
 		hasNextPage,
 	} = useSearch(submittedQuery, mediaFilter);
@@ -195,46 +245,47 @@ export default function SearchScreen() {
 		[trending, mediaFilter],
 	);
 
-	// Sorts every loaded page — a new page merges into the sorted order
-	const sortedResults = useMemo(
-		() => searchData?.results && sortSearchResults(searchData.results, sortView),
-		[searchData?.results, sortView],
-	);
-
-	const rawDisplayData = submittedQuery.length > 0 ? sortedResults : filteredTrending;
+	const rawDisplayData = submittedQuery.length > 0 ? searchData?.results : filteredTrending;
 	const isLoading = submittedQuery.length > 0 ? searchLoading : trendingLoading;
 
 	// Augment data with tracked/adding state so LegendList re-renders items when these change.
 	// Augmented items are reused per source item while their flags are unchanged — a fresh
-	// object per item would re-render every card on each page append, re-sort or add/remove
+	// object per item would re-render every card on each page append, or add/remove
 	const augmented = useRef(new WeakMap<TMDBShow, SearchItem>());
-	const displayData = useMemo(() => {
+	const resultItems = useMemo(() => {
 		if (!rawDisplayData) return rawDisplayData;
 		const cache = augmented.current;
 		return rawDisplayData.map((item) => {
 			const tracked = trackedIds.has(item.id);
 			const adding = addingIds.has(item.id);
+			const listed = listedKeys.has(listItemKey(item.id, searchMediaType(item)));
 			const prev = cache.get(item);
-			if (prev && prev._tracked === tracked && prev._adding === adding) return prev;
-			const next: SearchItem = { ...item, _tracked: tracked, _adding: adding };
+			if (prev && prev._tracked === tracked && prev._adding === adding && prev._listed === listed)
+				return prev;
+			const next: SearchItem = { ...item, _tracked: tracked, _adding: adding, _listed: listed };
 			cache.set(item, next);
 			return next;
 		});
-	}, [rawDisplayData, trackedIds, addingIds]);
+	}, [rawDisplayData, trackedIds, addingIds, listedKeys]);
+	const moreToLoad = !!submittedQuery && !!hasNextPage;
+	const displayData = useMemo(() => {
+		if (isLoading) return LOADING_ITEMS;
+		if (!resultItems || !moreToLoad) return resultItems;
+		return [...resultItems, ...(isGrid ? MORE_ITEMS[resultItems.length % COLUMNS] : MORE_ROWS)];
+	}, [isLoading, resultItems, moreToLoad, isGrid]);
 
 	// Posters are 2:3 and fill the column — a close estimate keeps LegendList from
 	// re-positioning rows as real sizes come in (was 140, about half the real height)
 	const { width: windowWidth } = useWindowDimensions();
 	const estimatedItemSize = useMemo(() => {
+		if (!isGrid) return ROW_HEIGHT + spacing.sm;
 		const cardWidth = (windowWidth - 2 * spacing.lg - 3 * spacing.sm) / 2;
 		return Math.round(cardWidth * 1.5 + spacing.xs);
-	}, [windowWidth]);
+	}, [windowWidth, isGrid]);
 
 	const onEndReached = useCallback(() => {
 		if (submittedQuery && hasNextPage) fetchNextPage();
 	}, [submittedQuery, hasNextPage, fetchNextPage]);
-
-	const showSort = submittedQuery.length > 0 && !isLoading && !!displayData?.length;
 
 	const handlePress = useCallback(
 		(item: TMDBShow) => {
@@ -247,18 +298,30 @@ export default function SearchScreen() {
 	);
 
 	const renderItem = useCallback(
-		({ item }: { item: SearchItem }) => (
-			<SearchCard
-				item={item}
-				isInWatchlist={item._tracked}
-				isAdding={item._adding}
-				onPress={handlePress}
-				onAdd={handleAddToWatchlist}
-				onRemove={handleRemoveFromWatchlist}
-			/>
-		),
-		[handlePress, handleAddToWatchlist, handleRemoveFromWatchlist],
+		({ item }: { item: SearchItem }) =>
+			item._skeleton ? (
+				<SearchSkeleton layout={view} />
+			) : (
+				<SearchCard
+					item={item}
+					layout={view}
+					isInWatchlist={item._tracked}
+					isAdding={item._adding}
+					isListed={item._listed}
+					onPress={handlePress}
+					onAdd={handleAddToWatchlist}
+					onRemove={handleRemoveFromWatchlist}
+					onAddToList={setListTarget}
+				/>
+			),
+		[handlePress, handleAddToWatchlist, handleRemoveFromWatchlist, view],
 	);
+
+	// The other layout mounts fresh at the top, so the header comes back with it
+	const toggleView = useCallback(() => {
+		setView(isGrid ? CustomListView.LIST : CustomListView.GRID);
+		headerY.value = 0;
+	}, [isGrid, setView, headerY]);
 
 	// The floating header's height is a spacer at the top of the scrolling content, not top
 	// padding: Android clips a scroll view's children to its padding, so cards vanished at the
@@ -311,6 +374,24 @@ export default function SearchScreen() {
 									{submittedQuery || "Search Shows & Movies"}
 								</Text>
 							</TouchableOpacity>
+							{submittedQuery ? (
+								<TouchableOpacity
+									style={styles.clearButton}
+									onPress={clearSearch}
+									hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+									accessibilityLabel="Clear search"
+								>
+									<IoIosCloseCircle size={CLEAR_ICON_SIZE} color={colors.textMuted} />
+								</TouchableOpacity>
+							) : null}
+							<TouchableOpacity
+								style={styles.viewToggle}
+								onPress={toggleView}
+								hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+								accessibilityLabel={isGrid ? "Show as list" : "Show as grid"}
+							>
+								<Ionicons name={isGrid ? "list" : "grid"} size={20} color={colors.text} />
+							</TouchableOpacity>
 						</View>
 
 						<SlidingTabs
@@ -322,14 +403,17 @@ export default function SearchScreen() {
 				</View>
 			</Animated.View>
 
-			<View style={styles.content}>
-				{isLoading ? (
-					<View style={[styles.center, { paddingTop: headerH }]}>
-						<LoadingSpinner />
+			<Animated.View style={styles.content}>
+				{!isLoading && submittedQuery.length > 0 && searchError && !resultItems?.length ? (
+					// Failed (busy / offline), not empty: say so, with a retry
+					<View style={[styles.errorWrap, { paddingTop: headerH }]}>
+						<ErrorState
+							info={describeSearchError(searchError)}
+							mediaType={MediaType.TV}
+							primary={{ label: "Try Again", onPress: () => retrySearch() }}
+						/>
 					</View>
-				) : !isLoading &&
-				  submittedQuery.length > 0 &&
-				  (!displayData || displayData.length === 0) ? (
+				) : !isLoading && submittedQuery.length > 0 && !resultItems?.length ? (
 					<View
 						style={[
 							styles.emptyWrap,
@@ -349,12 +433,14 @@ export default function SearchScreen() {
 				) : (
 					<AnimatedLegendList
 						ref={listRef}
+						// Columns can't change on a mounted list: each layout is its own list
+						key={view}
 						data={displayData || []}
 						keyExtractor={keyExtractor}
 						renderItem={renderItem}
-						numColumns={2}
+						numColumns={isGrid ? COLUMNS : 1}
 						estimatedItemSize={estimatedItemSize}
-						columnWrapperStyle={styles.row}
+						columnWrapperStyle={isGrid ? styles.row : undefined}
 						sharedValues={listSharedValues}
 						onScrollEndDrag={onScrollEndDrag}
 						onMomentumScrollEnd={snapHeader}
@@ -363,7 +449,7 @@ export default function SearchScreen() {
 							styles.grid,
 							{
 								paddingTop: 0,
-								paddingBottom: showSort ? FAB_BOTTOM + SORT_FAB_CLEARANCE : 0,
+								paddingBottom: 0,
 							},
 						]}
 						onEndReached={onEndReached}
@@ -373,30 +459,9 @@ export default function SearchScreen() {
 						recycleItems
 					/>
 				)}
-			</View>
+			</Animated.View>
 
-			{showSort && (
-				<SortFab
-					bottom={FAB_BOTTOM}
-					onPress={() => setSortOpen(true)}
-					customised={!sameSearchSort(sortView, DEFAULT_SEARCH_SORT)}
-					accessibilityLabel="Sort results"
-				/>
-			)}
-			<SortSheet
-				visible={sortOpen}
-				onClose={() => setSortOpen(false)}
-				options={SORT_OPTIONS}
-				selected={sortView}
-				isSame={sameSearchSort}
-				onSelect={(next) => {
-					setSortView(next);
-					setSortOpen(false);
-					// New order starts from the top, header shown
-					listRef.current?.scrollToOffset({ offset: 0, animated: false });
-					headerY.value = 0;
-				}}
-			/>
+			<AddToListSheet entry={listEntry} onClose={() => setListTarget(null)} />
 
 			<SearchModals
 				movieModal={movieModal}

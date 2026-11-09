@@ -1,5 +1,6 @@
 import { pooled } from "./tmdb";
 import { GRPC_ALREADY_EXISTS, WRITE_BATCH_SIZE } from "../shared/enums";
+import { isTrackingRef, stampTracking } from "../shared/trackingSync";
 
 export interface DocWrite {
   ref: FirebaseFirestore.DocumentReference;
@@ -34,7 +35,8 @@ export async function createMissing(
   return created;
 }
 
-/** Commits set() writes as full WriteBatches, `concurrency` commits in flight */
+/** Commits set() writes as full WriteBatches, `concurrency` commits in flight. Tracking docs get
+ *  their delta sync `updatedAt` here */
 export async function commitInBatches(
   db: FirebaseFirestore.Firestore,
   writes: DocWrite[],
@@ -46,8 +48,10 @@ export async function commitInBatches(
     tasks.push(async () => {
       const batch = db.batch();
       for (const w of chunk) {
-        if (w.merge) batch.set(w.ref, w.data, { merge: true });
-        else batch.set(w.ref, w.data);
+        // Tracking docs (import) carry the delta sync stamp
+        const data = isTrackingRef(w.ref) ? stampTracking(w.data) : w.data;
+        if (w.merge) batch.set(w.ref, data, { merge: true });
+        else batch.set(w.ref, data);
       }
       await batch.commit();
     });

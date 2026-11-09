@@ -3,10 +3,14 @@ export const colors = {
 	surface: "#1A1A1A",
 	surfaceLight: "#252525",
 	primary: "#E50914",
+	/** Deep red fill for a selected row (sort sheet) — white text stays readable on it */
+	primaryDark: "#5C0A10",
 	accent: "#4A90D9",
 	text: "#FFFFFF",
 	textSecondary: "#A0A0A0",
 	textMuted: "#666666",
+	/** Unwatched checkmark tick on the white circle */
+	checkTick: "#A0A0A0",
 	watchedGreen: "#00A800",
 	stopBlue: "#3498DB",
 	destructiveRed: "#E74C3C",
@@ -21,8 +25,6 @@ export const colors = {
 	overlayLight: "rgba(0, 0, 0, 0.6)",
 	overlayMedium: "rgba(0, 0, 0, 0.7)",
 	badgeOverlay: "rgba(0, 0, 0, 0.5)",
-	/** Frosted gray pill over artwork (detail page watch count) */
-	glassGray: "rgba(90, 90, 90, 0.55)",
 } as const;
 
 /** Custom font families (loaded in App via useFonts). Android: never pair with fontWeight. */
@@ -32,6 +34,8 @@ export const fonts = {
 	smoochMedium: "SmoochSans_500Medium",
 	/** Handjet — pixel-style display (watchlist welcome title) */
 	handjetExtraBold: "Handjet_800ExtraBold",
+	/** VT323 — terminal pixel font (update drawer release notes) */
+	vt323: "VT323_400Regular",
 } as const;
 
 /** `#RRGGBB` + alpha → rgba(), for translucent fills and glow shadows */

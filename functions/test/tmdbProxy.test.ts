@@ -29,6 +29,12 @@ test("allows search, trending, details and season endpoints", () => {
   ok("/api/tmdb/tv/1399/season/3");
 });
 
+test("allows country names (Where to Watch); its services go through the callable", () => {
+  ok("/api/tmdb/configuration/countries");
+  assert.equal(fail("/api/tmdb/movie/120/watch/providers").status, 404);
+  assert.equal(fail("/api/tmdb/configuration/languages").status, 404);
+});
+
 test("rejects anything else", () => {
   assert.equal(fail("/api/tmdb/account/1").status, 404);
   assert.equal(fail("/api/tmdb/discover/tv").status, 404);
@@ -40,13 +46,13 @@ test("rejects anything else", () => {
   );
 });
 
-test("drops unknown params, never forwards a caller api_key", () => {
-  const r = ok("/api/tmdb/tv/1", {
-    api_key: "stolen",
-    foo: "bar",
+test("rejects unknown and repeated params (cache-busting), never forwards a caller api_key", () => {
+  assert.equal(fail("/api/tmdb/tv/1", { api_key: "stolen" }).status, 400);
+  assert.equal(fail("/api/tmdb/tv/1", { foo: "bar" }).status, 400);
+  assert.equal(fail("/api/tmdb/tv/1", { language: ["en-US", "fr-FR"] }).status, 400);
+  assert.deepEqual(ok("/api/tmdb/tv/1", { language: "en-US" }).params, {
     language: "en-US",
   });
-  assert.deepEqual(r.params, { language: "en-US" });
 });
 
 test("validates params", () => {

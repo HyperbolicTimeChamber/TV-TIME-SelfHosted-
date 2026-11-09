@@ -170,17 +170,18 @@ const FULL_GLOW_HEIGHT = 80;
 /** A bar's colour from base (last) to tip (first), fully faded */
 const FADE_STOPS = [0, 0.1, 0.32, 0.7, 1];
 const FADE_LOCATIONS = [0, 0.12, 0.4, 0.75, 1];
-/** The front bar starts fading once it's this share of the back one's height */
-const FRONT_FADE_FROM = 0.4;
+/** Share of a short front bar kept solid from its base, so it reads over the back one's body */
+const FRONT_SOLID = 0.4;
 
 /**
- * How much the shorter, front bar fades (0 solid … 1 like the back one). Well below the back
- * bar's tip it sits over that bar's bright body, and a fade there washed it out into a smudge
- * (1 movie in front of 182 episodes); it only fades as its tip nears the back one's
+ * The shorter, front bar fades out to its tip like the back one. Well below the back bar's tip
+ * it sits over that bar's bright body, where a fade from the very base washed it out into a
+ * smudge (1 movie in front of 182 episodes): its lower part stays solid, shrinking to none as
+ * its tip nears the back one's
  */
-function frontFade(front: number, back: number) {
-	if (back <= 0) return 1;
-	return Math.min(1, Math.max(0, (front / back - FRONT_FADE_FROM) / (1 - FRONT_FADE_FROM)));
+function frontSolid(front: number, back: number) {
+	if (back <= 0) return 0;
+	return FRONT_SOLID * Math.min(1, Math.max(0, 1 - front / back) / (1 - FRONT_SOLID));
 }
 
 /**
@@ -192,13 +193,11 @@ function GlowBar({
 	color,
 	height,
 	part,
-	fade = 1,
 	solidTo = 0,
 }: Readonly<{
 	color: string;
 	height: number;
 	part: "glow" | "fill";
-	fade?: number;
 	/** Share of the bar (from its base) kept solid, the fade fitted above it — the back bar,
 	 *  up to the front one's top, so the part that peeks out isn't already faded away */
 	solidTo?: number;
@@ -210,7 +209,7 @@ function GlowBar({
 				<LinearGradient
 					// Out to nothing at the tip, as the web's: an 8% tip still read as a cap
 					colors={
-						[...FADE_STOPS.map((a) => tint(color, 1 - fade * (1 - a))), color] as [string, string]
+						[...FADE_STOPS.map((a) => tint(color, a)), color] as [string, string]
 					}
 					locations={[...FADE_LOCATIONS.map((l) => l * (1 - solidTo)), 1] as [number, number]}
 					style={styles.barFill}
@@ -341,7 +340,7 @@ export default function WeeklyChart({
 													part={part}
 													color={epBehind ? colors.moviePurple : colors.primary}
 													height={epBehind ? movH : epH}
-													fade={frontFade(Math.min(epH, movH), Math.max(epH, movH))}
+													solidTo={frontSolid(Math.min(epH, movH), Math.max(epH, movH))}
 												/>
 											</React.Fragment>
 										))}

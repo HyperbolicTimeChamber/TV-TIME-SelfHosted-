@@ -1,0 +1,6 @@
+.env* filter=git-crypt diff=git-crypt
+*.env* filter=git-crypt diff=git-crypt
+google-services.json filter=git-crypt diff=git-crypt
+GoogleService-Info.plist filter=git-crypt diff=git-crypt
+
+.env.example !filter !diff

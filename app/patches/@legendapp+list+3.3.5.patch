@@ -1,0 +1,439 @@
+diff --git a/node_modules/@legendapp/list/react-native.js b/node_modules/@legendapp/list/react-native.js
+index b3c5a30..10ab8c8 100644
+--- a/node_modules/@legendapp/list/react-native.js
++++ b/node_modules/@legendapp/list/react-native.js
+@@ -1624,10 +1624,13 @@ function doMaintainScrollAtEnd(ctx) {
+ function requestAdjust(ctx, positionDiff, dataChanged) {
+   const state = ctx.state;
+   if (Math.abs(positionDiff) > 0.1) {
+-    const needsScrollWorkaround = Platform.OS === "android" && !IsNewArchitecture && dataChanged && state.scroll <= positionDiff;
++    const needsScrollWorkaround = Platform.OS === "android"; /* PATCH(watchloom): native MVCP off on Android — adjust by scrolling */
+     const doit = () => {
+       if (needsScrollWorkaround) {
+-        doScrollTo(ctx, { horizontal: state.props.horizontal, offset: state.scroll });
++        /* PATCH(watchloom): after React has committed the rows' new positions (two microtasks:
++           behind its flush of this same update). Sent at once, the native scroll landed a frame
++           before the rows moved — the list flashed a few rows off for one frame */
++        Promise.resolve().then(() => queueMicrotask(() => doScrollTo(ctx, { horizontal: state.props.horizontal, offset: state.scroll })));
+       } else {
+         state.scrollAdjustHandler.requestAdjust(positionDiff);
+         if (state.adjustingFromInitialMount) {
+@@ -1718,7 +1721,7 @@ function updateAnchorLock(state, params) {
+   }
+ }
+ function shouldQueueNativeMVCPAdjust(dataChanged, state, positionDiff, prevTotalSize, prevScroll, scrollTarget) {
+-  if (!dataChanged || Platform.OS === "web" || !state.props.maintainVisibleContentPosition.data || scrollTarget !== void 0 || positionDiff >= -MVCP_POSITION_EPSILON) {
++  if (!dataChanged || Platform.OS === "web" || Platform.OS === "android" || !state.props.maintainVisibleContentPosition.data || scrollTarget !== void 0 || positionDiff >= -MVCP_POSITION_EPSILON) {
+     return false;
+   }
+   const distanceFromEnd = prevTotalSize - prevScroll - state.scrollLength;
+@@ -4609,8 +4612,12 @@ function calculateItemsInView(ctx, params = {}) {
+     if (changedContainerIds && (IsNewArchitecture || Platform.OS === "web")) {
+       scheduleContainerLayout(ctx, changedContainerIds);
+     }
+-    if (Platform.OS === "web" && didChangePositions) {
+-      set$(ctx, "lastPositionUpdate", Date.now());
++    if (didChangePositions) {
++      /* PATCH(watchloom): on every platform, as a counter (two updates in one ms were one value) —
++         the pinned headers' push limit depends on it: a row moving between sections with the
++         total size unchanged (all rows one height) left the limit stale and a pushed header
++         pinned over the rows */
++      set$(ctx, "lastPositionUpdate", (peek$(ctx, "lastPositionUpdate") || 0) + 1);
+     }
+     if (suppressInitialScrollSideEffects) {
+       evaluateBootstrapInitialScroll(ctx);
+@@ -4832,7 +4839,8 @@ function applyItemSize(ctx, itemKey, sizeObj, resolvedMeasurementItem) {
+       };
+     }
+     const size2 = resolvedMeasurementItem.fixedItemSize;
+-    if (size2 !== void 0 && size2 === sizesKnown.get(itemKey)) {
++    /* PATCH(watchloom): a measured size that differs from the fixed one still counts (rows animating their height) */
++    if (size2 !== void 0 && size2 === sizesKnown.get(itemKey) && Math.abs((horizontal ? sizeObj.width : sizeObj.height) - size2) < 0.5) {
+       updateOtherAxisSizeIfNeeded(ctx, sizeObj, horizontal);
+       return { didMeasureUserScrollAnchorResetItem };
+     }
+@@ -6010,7 +6018,7 @@ var ListComponent = typedMemo(function ListComponent2({
+       ],
+       contentOffset: initialContentOffset !== void 0 ? horizontal ? { x: initialContentOffset, y: 0 } : { x: 0, y: initialContentOffset } : void 0,
+       horizontal,
+-      maintainVisibleContentPosition: maintainVisibleContentPosition.size || maintainVisibleContentPosition.data ? { minIndexForVisible: 0 } : void 0,
++      maintainVisibleContentPosition: Platform.OS !== "android" && (maintainVisibleContentPosition.size || maintainVisibleContentPosition.data) ? { minIndexForVisible: 0 } : void 0, /* PATCH(watchloom): Android native MVCP anchors a random recycled container */
+       onLayout,
+       onScroll: onScroll2,
+       ref: refScrollView,
+diff --git a/node_modules/@legendapp/list/react-native.mjs b/node_modules/@legendapp/list/react-native.mjs
+index 40e87cd..f690148 100644
+--- a/node_modules/@legendapp/list/react-native.mjs
++++ b/node_modules/@legendapp/list/react-native.mjs
+@@ -1603,10 +1603,13 @@ function doMaintainScrollAtEnd(ctx) {
+ function requestAdjust(ctx, positionDiff, dataChanged) {
+   const state = ctx.state;
+   if (Math.abs(positionDiff) > 0.1) {
+-    const needsScrollWorkaround = Platform.OS === "android" && !IsNewArchitecture && dataChanged && state.scroll <= positionDiff;
++    const needsScrollWorkaround = Platform.OS === "android"; /* PATCH(watchloom): native MVCP off on Android — adjust by scrolling */
+     const doit = () => {
+       if (needsScrollWorkaround) {
+-        doScrollTo(ctx, { horizontal: state.props.horizontal, offset: state.scroll });
++        /* PATCH(watchloom): after React has committed the rows' new positions (two microtasks:
++           behind its flush of this same update). Sent at once, the native scroll landed a frame
++           before the rows moved — the list flashed a few rows off for one frame */
++        Promise.resolve().then(() => queueMicrotask(() => doScrollTo(ctx, { horizontal: state.props.horizontal, offset: state.scroll })));
+       } else {
+         state.scrollAdjustHandler.requestAdjust(positionDiff);
+         if (state.adjustingFromInitialMount) {
+@@ -1697,7 +1700,7 @@ function updateAnchorLock(state, params) {
+   }
+ }
+ function shouldQueueNativeMVCPAdjust(dataChanged, state, positionDiff, prevTotalSize, prevScroll, scrollTarget) {
+-  if (!dataChanged || Platform.OS === "web" || !state.props.maintainVisibleContentPosition.data || scrollTarget !== void 0 || positionDiff >= -MVCP_POSITION_EPSILON) {
++  if (!dataChanged || Platform.OS === "web" || Platform.OS === "android" || !state.props.maintainVisibleContentPosition.data || scrollTarget !== void 0 || positionDiff >= -MVCP_POSITION_EPSILON) {
+     return false;
+   }
+   const distanceFromEnd = prevTotalSize - prevScroll - state.scrollLength;
+@@ -4588,8 +4591,12 @@ function calculateItemsInView(ctx, params = {}) {
+     if (changedContainerIds && (IsNewArchitecture || Platform.OS === "web")) {
+       scheduleContainerLayout(ctx, changedContainerIds);
+     }
+-    if (Platform.OS === "web" && didChangePositions) {
+-      set$(ctx, "lastPositionUpdate", Date.now());
++    if (didChangePositions) {
++      /* PATCH(watchloom): on every platform, as a counter (two updates in one ms were one value) —
++         the pinned headers' push limit depends on it: a row moving between sections with the
++         total size unchanged (all rows one height) left the limit stale and a pushed header
++         pinned over the rows */
++      set$(ctx, "lastPositionUpdate", (peek$(ctx, "lastPositionUpdate") || 0) + 1);
+     }
+     if (suppressInitialScrollSideEffects) {
+       evaluateBootstrapInitialScroll(ctx);
+@@ -4811,7 +4818,8 @@ function applyItemSize(ctx, itemKey, sizeObj, resolvedMeasurementItem) {
+       };
+     }
+     const size2 = resolvedMeasurementItem.fixedItemSize;
+-    if (size2 !== void 0 && size2 === sizesKnown.get(itemKey)) {
++    /* PATCH(watchloom): a measured size that differs from the fixed one still counts (rows animating their height) */
++    if (size2 !== void 0 && size2 === sizesKnown.get(itemKey) && Math.abs((horizontal ? sizeObj.width : sizeObj.height) - size2) < 0.5) {
+       updateOtherAxisSizeIfNeeded(ctx, sizeObj, horizontal);
+       return { didMeasureUserScrollAnchorResetItem };
+     }
+@@ -5989,7 +5997,7 @@ var ListComponent = typedMemo(function ListComponent2({
+       ],
+       contentOffset: initialContentOffset !== void 0 ? horizontal ? { x: initialContentOffset, y: 0 } : { x: 0, y: initialContentOffset } : void 0,
+       horizontal,
+-      maintainVisibleContentPosition: maintainVisibleContentPosition.size || maintainVisibleContentPosition.data ? { minIndexForVisible: 0 } : void 0,
++      maintainVisibleContentPosition: Platform.OS !== "android" && (maintainVisibleContentPosition.size || maintainVisibleContentPosition.data) ? { minIndexForVisible: 0 } : void 0, /* PATCH(watchloom): Android native MVCP anchors a random recycled container */
+       onLayout,
+       onScroll: onScroll2,
+       ref: refScrollView,
+diff --git a/node_modules/@legendapp/list/reanimated.js b/node_modules/@legendapp/list/reanimated.js
+index f1265fa..7baec90 100644
+--- a/node_modules/@legendapp/list/reanimated.js
++++ b/node_modules/@legendapp/list/reanimated.js
+@@ -83,57 +83,103 @@ var StickyOverlay = typedMemo(function StickyOverlayComponent({ stickyHeaderConf
+ var ReanimatedPositionViewSticky = typedMemo(function ReanimatedPositionViewStickyComponent(props) {
+   var _a;
+   const ctx = useStateContext();
+-  const { id, horizontal, style, refView, stickyScrollOffset, stickyHeaderConfig, children, ...rest } = props;
+-  const [position = POSITION_OUT_OF_VIEW, headerSize = 0, stylePaddingTop = 0, itemKey, itemIndex, _totalSize = 0] = useArr$([
++  const { id, horizontal, style, refView, stickyScrollOffset, stickyHeaderConfig, children, layoutTransitionRef, ...rest } = props;
++  const [position = POSITION_OUT_OF_VIEW, headerSize = 0, stylePaddingTop = 0, itemKey, itemIndex, _totalSize = 0, _positionsVersion = 0] = useArr$([
+     `containerPosition${id}`,
+     "headerSize",
+     "stylePaddingTop",
+     `containerItemKey${id}`,
+     `containerItemIndex${id}`,
+-    "totalSize"
++    "totalSize",
++    "lastPositionUpdate" /* PATCH(watchloom): recompute the push limit when rows move */
+   ]);
+   const pushLimit = React__namespace.useMemo(
+     () => getStickyPushLimit(ctx.state, itemIndex, itemKey),
+-    [ctx.state, itemIndex, itemKey, _totalSize]
++    [ctx.state, itemIndex, itemKey, _totalSize, _positionsVersion]
+   );
+   const stickyOffset = (_a = stickyHeaderConfig == null ? void 0 : stickyHeaderConfig.offset) != null ? _a : 0;
+   const stickyStart = position + headerSize + stylePaddingTop - stickyOffset;
++  /* PATCH(watchloom): a header glides with the rows (FLIP, as ReanimatedPositionView) while a
++     glide is on — it jumped to its new place ahead of the gliding rows. Not while pinned */
++  const transition = layoutTransitionRef ? layoutTransitionRef.current : void 0;
++  const glideMs = transition && transition.durationV ? transition.durationV : 0;
++  const glide = Reanimated.useSharedValue(0);
++  const prevGlideRef = React__namespace.useRef({ pos: position, key: itemKey });
++  let jump = 0;
++  const prevGlide = prevGlideRef.current;
++  if (prevGlide.pos !== position || prevGlide.key !== itemKey) {
++    if (glideMs > 0 && prevGlide.key === itemKey && prevGlide.pos !== POSITION_OUT_OF_VIEW && position !== POSITION_OUT_OF_VIEW) jump = prevGlide.pos - position;
++    prevGlideRef.current = { pos: position, key: itemKey };
++  }
++  React__namespace.useLayoutEffect(() => {
++    if (jump !== 0) {
++      glide.value = jump + glide.value;
++      glide.value = Reanimated.withTiming(0, { duration: glideMs, easing: transition.easingV });
++    }
++  }, [position, itemKey]);
++  /* PATCH(watchloom): the inputs reach the UI thread as a shared value — a header whose push
++     limit changed with nothing else (no scroll) kept its old pose: a pushed-off header stayed
++     pinned over the rows */
++  const stickyInputs = Reanimated.useSharedValue({ position, pushLimit, stickyStart });
++  React__namespace.useLayoutEffect(() => {
++    stickyInputs.value = { position, pushLimit, stickyStart };
++  }, [position, pushLimit, stickyStart]);
+   const stickyPositionStyle = Reanimated.useAnimatedStyle(() => {
+-    const delta = Math.max(0, stickyScrollOffset.value - stickyStart);
+-    const stickyPosition = position + delta;
+-    const resolvedPosition = pushLimit !== void 0 ? Math.min(stickyPosition, pushLimit) : stickyPosition;
++    const { position: p, pushLimit: limit, stickyStart: start } = stickyInputs.value;
++    const delta = Math.max(0, stickyScrollOffset.value - start);
++    const stickyPosition = p + delta + (delta > 0 ? 0 : glide.value);
++    const resolvedPosition = limit !== void 0 ? Math.min(stickyPosition, limit) : stickyPosition;
+     return horizontal ? { transform: [{ translateX: resolvedPosition }] } : { transform: [{ translateY: resolvedPosition }] };
+-  }, [horizontal, position, pushLimit, stickyStart]);
++  }, [horizontal, glide, stickyInputs]);
+   const viewStyle = React__namespace.useMemo(
+     () => [style, { zIndex: itemIndex + 1e3 }, stickyPositionStyle],
+     [itemIndex, stickyPositionStyle, style]
+   );
+-  return /* @__PURE__ */ React__namespace.createElement(Reanimated__default.default.View, { ref: refView, style: viewStyle, ...rest }, /* @__PURE__ */ React__namespace.createElement(StickyOverlay, { stickyHeaderConfig }), children);
++  return /* @__PURE__ */ React__namespace.createElement(Reanimated__default.default.View, { ref: refView, style: viewStyle, pointerEvents: "box-none" /* PATCH(watchloom): a pinned header row blocked taps on the card under its empty sides */, ...rest }, /* @__PURE__ */ React__namespace.createElement(StickyOverlay, { stickyHeaderConfig }), children);
+ });
+ var ReanimatedPositionView = typedMemo(function ReanimatedPositionViewComponent(props) {
++  /* PATCH(watchloom): rows glide by a translate (FLIP), not a Reanimated layout transition —
++     layout transitions on these recycled containers left views at stale positions (rows drawn
++     on top of each other). The container takes its new `top` at once; while a glide is on
++     (the itemLayoutAnimation has a duration), a translateY from its old place animates to 0 on
++     the UI thread. A container handed to another item (recycling) never glides. The
++     transition is read through a ref at this render (a position change re-renders this view),
++     so switching it reaches every row */
+   const ctx = useStateContext();
+-  const { id, horizontal, style, refView, children, recycleItems, layoutTransition, ...rest } = props;
++  const { id, horizontal, style, refView, children, recycleItems, layoutTransition: layoutTransitionProp, layoutTransitionRef, ...rest } = props;
+   const [positionValue = POSITION_OUT_OF_VIEW] = useArr$([`containerPosition${id}`]);
+-  const prevItemKeyRef = React__namespace.useRef(void 0);
+-  let shouldSkipTransitionForRecycleReuse = false;
+-  if (recycleItems && layoutTransition) {
+-    const itemKeySignal = `containerItemKey${id}`;
+-    const itemKey = peek$(ctx, itemKeySignal);
+-    shouldSkipTransitionForRecycleReuse = itemKey !== void 0 && prevItemKeyRef.current !== void 0 && prevItemKeyRef.current !== itemKey;
+-    if (itemKey !== void 0) {
+-      prevItemKeyRef.current = itemKey;
+-    }
+-  } else {
+-    prevItemKeyRef.current = void 0;
++  const itemKey = peek$(ctx, `containerItemKey${id}`);
++  const transition = layoutTransitionRef ? layoutTransitionRef.current : layoutTransitionProp;
++  const glideMs = transition && transition.durationV ? transition.durationV : 0;
++  const prevRef = React__namespace.useRef({ pos: positionValue, key: itemKey });
++  const offset = Reanimated.useSharedValue(0);
++  let jump = 0;
++  const prev = prevRef.current;
++  if (prev.pos !== positionValue || prev.key !== itemKey) {
++    const moved = prev.key === itemKey && prev.key !== void 0 && prev.pos !== POSITION_OUT_OF_VIEW && positionValue !== POSITION_OUT_OF_VIEW;
++    if (glideMs > 0 && moved) jump = prev.pos - positionValue;
++    prevRef.current = { pos: positionValue, key: itemKey };
+   }
++  React__namespace.useLayoutEffect(() => {
++    if (jump !== 0) {
++      // From where it's drawn now (a glide still running included) to its new place
++      offset.value = jump + offset.value;
++      offset.value = Reanimated.withTiming(0, { duration: glideMs, easing: transition.easingV });
++    } else if (prev.key !== itemKey) {
++      offset.value = 0;
++    }
++  }, [positionValue, itemKey]);
++  const glideStyle = Reanimated.useAnimatedStyle(
++    () => (horizontal ? { transform: [{ translateX: offset.value }] } : { transform: [{ translateY: offset.value }] }),
++    [horizontal]
++  );
+   const viewStyle = React__namespace.useMemo(
+-    () => [style, horizontal ? { left: positionValue } : { top: positionValue }],
+-    [horizontal, positionValue, style]
++    () => [style, horizontal ? { left: positionValue } : { top: positionValue }, glideStyle],
++    [horizontal, positionValue, style, glideStyle]
+   );
+   return /* @__PURE__ */ React__namespace.createElement(
+     Reanimated__default.default.View,
+     {
+-      layout: shouldSkipTransitionForRecycleReuse ? void 0 : layoutTransition,
+       ref: refView,
+       style: viewStyle,
+       ...rest
+@@ -222,9 +268,10 @@ var LegendListForwardedRef = typedMemo(
+       },
+       [renderScrollComponentForBridge, trackedScrollOffset]
+     );
++    const stickyGlideRef = useLatestRef(itemLayoutAnimation); /* PATCH(watchloom) */
+     const stickyPositionComponentInternal = React__namespace.useMemo(
+       () => function StickyPositionComponent(stickyProps) {
+-        return /* @__PURE__ */ React__namespace.createElement(ReanimatedPositionViewSticky, { ...stickyProps, stickyScrollOffset: scrollOffset });
++        return /* @__PURE__ */ React__namespace.createElement(ReanimatedPositionViewSticky, { ...stickyProps, stickyScrollOffset: scrollOffset, layoutTransitionRef: stickyGlideRef });
+       },
+       [scrollOffset]
+     );
+@@ -240,6 +287,7 @@ var LegendListForwardedRef = typedMemo(
+           {
+             ...positionProps,
+             layoutTransition: itemLayoutAnimationRef.current,
++            layoutTransitionRef: itemLayoutAnimationRef, /* PATCH(watchloom) */
+             recycleItems
+           }
+         );
+diff --git a/node_modules/@legendapp/list/reanimated.mjs b/node_modules/@legendapp/list/reanimated.mjs
+index 29a00d5..6b9d14f 100644
+--- a/node_modules/@legendapp/list/reanimated.mjs
++++ b/node_modules/@legendapp/list/reanimated.mjs
+@@ -1,7 +1,7 @@
+ import * as React from 'react';
+ import { useCallback } from 'react';
+ import { View } from 'react-native';
+-import Reanimated, { useAnimatedRef, useAnimatedStyle, useSharedValue, useScrollViewOffset } from 'react-native-reanimated';
++import Reanimated, { useAnimatedRef, useAnimatedStyle, useSharedValue, useScrollViewOffset, withTiming } from 'react-native-reanimated';
+ import { internal, LegendList } from '@legendapp/list/react-native';
+ 
+ // src/integrations/reanimated.tsx
+@@ -59,57 +59,103 @@ var StickyOverlay = typedMemo(function StickyOverlayComponent({ stickyHeaderConf
+ var ReanimatedPositionViewSticky = typedMemo(function ReanimatedPositionViewStickyComponent(props) {
+   var _a;
+   const ctx = useStateContext();
+-  const { id, horizontal, style, refView, stickyScrollOffset, stickyHeaderConfig, children, ...rest } = props;
+-  const [position = POSITION_OUT_OF_VIEW, headerSize = 0, stylePaddingTop = 0, itemKey, itemIndex, _totalSize = 0] = useArr$([
++  const { id, horizontal, style, refView, stickyScrollOffset, stickyHeaderConfig, children, layoutTransitionRef, ...rest } = props;
++  const [position = POSITION_OUT_OF_VIEW, headerSize = 0, stylePaddingTop = 0, itemKey, itemIndex, _totalSize = 0, _positionsVersion = 0] = useArr$([
+     `containerPosition${id}`,
+     "headerSize",
+     "stylePaddingTop",
+     `containerItemKey${id}`,
+     `containerItemIndex${id}`,
+-    "totalSize"
++    "totalSize",
++    "lastPositionUpdate" /* PATCH(watchloom): recompute the push limit when rows move */
+   ]);
+   const pushLimit = React.useMemo(
+     () => getStickyPushLimit(ctx.state, itemIndex, itemKey),
+-    [ctx.state, itemIndex, itemKey, _totalSize]
++    [ctx.state, itemIndex, itemKey, _totalSize, _positionsVersion]
+   );
+   const stickyOffset = (_a = stickyHeaderConfig == null ? void 0 : stickyHeaderConfig.offset) != null ? _a : 0;
+   const stickyStart = position + headerSize + stylePaddingTop - stickyOffset;
++  /* PATCH(watchloom): a header glides with the rows (FLIP, as ReanimatedPositionView) while a
++     glide is on — it jumped to its new place ahead of the gliding rows. Not while pinned */
++  const transition = layoutTransitionRef ? layoutTransitionRef.current : void 0;
++  const glideMs = transition && transition.durationV ? transition.durationV : 0;
++  const glide = useSharedValue(0);
++  const prevGlideRef = React.useRef({ pos: position, key: itemKey });
++  let jump = 0;
++  const prevGlide = prevGlideRef.current;
++  if (prevGlide.pos !== position || prevGlide.key !== itemKey) {
++    if (glideMs > 0 && prevGlide.key === itemKey && prevGlide.pos !== POSITION_OUT_OF_VIEW && position !== POSITION_OUT_OF_VIEW) jump = prevGlide.pos - position;
++    prevGlideRef.current = { pos: position, key: itemKey };
++  }
++  React.useLayoutEffect(() => {
++    if (jump !== 0) {
++      glide.value = jump + glide.value;
++      glide.value = withTiming(0, { duration: glideMs, easing: transition.easingV });
++    }
++  }, [position, itemKey]);
++  /* PATCH(watchloom): the inputs reach the UI thread as a shared value — a header whose push
++     limit changed with nothing else (no scroll) kept its old pose: a pushed-off header stayed
++     pinned over the rows */
++  const stickyInputs = useSharedValue({ position, pushLimit, stickyStart });
++  React.useLayoutEffect(() => {
++    stickyInputs.value = { position, pushLimit, stickyStart };
++  }, [position, pushLimit, stickyStart]);
+   const stickyPositionStyle = useAnimatedStyle(() => {
+-    const delta = Math.max(0, stickyScrollOffset.value - stickyStart);
+-    const stickyPosition = position + delta;
+-    const resolvedPosition = pushLimit !== void 0 ? Math.min(stickyPosition, pushLimit) : stickyPosition;
++    const { position: p, pushLimit: limit, stickyStart: start } = stickyInputs.value;
++    const delta = Math.max(0, stickyScrollOffset.value - start);
++    const stickyPosition = p + delta + (delta > 0 ? 0 : glide.value);
++    const resolvedPosition = limit !== void 0 ? Math.min(stickyPosition, limit) : stickyPosition;
+     return horizontal ? { transform: [{ translateX: resolvedPosition }] } : { transform: [{ translateY: resolvedPosition }] };
+-  }, [horizontal, position, pushLimit, stickyStart]);
++  }, [horizontal, glide, stickyInputs]);
+   const viewStyle = React.useMemo(
+     () => [style, { zIndex: itemIndex + 1e3 }, stickyPositionStyle],
+     [itemIndex, stickyPositionStyle, style]
+   );
+-  return /* @__PURE__ */ React.createElement(Reanimated.View, { ref: refView, style: viewStyle, ...rest }, /* @__PURE__ */ React.createElement(StickyOverlay, { stickyHeaderConfig }), children);
++  return /* @__PURE__ */ React.createElement(Reanimated.View, { ref: refView, style: viewStyle, pointerEvents: "box-none" /* PATCH(watchloom): a pinned header row blocked taps on the card under its empty sides */, ...rest }, /* @__PURE__ */ React.createElement(StickyOverlay, { stickyHeaderConfig }), children);
+ });
+ var ReanimatedPositionView = typedMemo(function ReanimatedPositionViewComponent(props) {
++  /* PATCH(watchloom): rows glide by a translate (FLIP), not a Reanimated layout transition —
++     layout transitions on these recycled containers left views at stale positions (rows drawn
++     on top of each other). The container takes its new `top` at once; while a glide is on
++     (the itemLayoutAnimation has a duration), a translateY from its old place animates to 0 on
++     the UI thread. A container handed to another item (recycling) never glides. The
++     transition is read through a ref at this render (a position change re-renders this view),
++     so switching it reaches every row */
+   const ctx = useStateContext();
+-  const { id, horizontal, style, refView, children, recycleItems, layoutTransition, ...rest } = props;
++  const { id, horizontal, style, refView, children, recycleItems, layoutTransition: layoutTransitionProp, layoutTransitionRef, ...rest } = props;
+   const [positionValue = POSITION_OUT_OF_VIEW] = useArr$([`containerPosition${id}`]);
+-  const prevItemKeyRef = React.useRef(void 0);
+-  let shouldSkipTransitionForRecycleReuse = false;
+-  if (recycleItems && layoutTransition) {
+-    const itemKeySignal = `containerItemKey${id}`;
+-    const itemKey = peek$(ctx, itemKeySignal);
+-    shouldSkipTransitionForRecycleReuse = itemKey !== void 0 && prevItemKeyRef.current !== void 0 && prevItemKeyRef.current !== itemKey;
+-    if (itemKey !== void 0) {
+-      prevItemKeyRef.current = itemKey;
+-    }
+-  } else {
+-    prevItemKeyRef.current = void 0;
++  const itemKey = peek$(ctx, `containerItemKey${id}`);
++  const transition = layoutTransitionRef ? layoutTransitionRef.current : layoutTransitionProp;
++  const glideMs = transition && transition.durationV ? transition.durationV : 0;
++  const prevRef = React.useRef({ pos: positionValue, key: itemKey });
++  const offset = useSharedValue(0);
++  let jump = 0;
++  const prev = prevRef.current;
++  if (prev.pos !== positionValue || prev.key !== itemKey) {
++    const moved = prev.key === itemKey && prev.key !== void 0 && prev.pos !== POSITION_OUT_OF_VIEW && positionValue !== POSITION_OUT_OF_VIEW;
++    if (glideMs > 0 && moved) jump = prev.pos - positionValue;
++    prevRef.current = { pos: positionValue, key: itemKey };
+   }
++  React.useLayoutEffect(() => {
++    if (jump !== 0) {
++      // From where it's drawn now (a glide still running included) to its new place
++      offset.value = jump + offset.value;
++      offset.value = withTiming(0, { duration: glideMs, easing: transition.easingV });
++    } else if (prev.key !== itemKey) {
++      offset.value = 0;
++    }
++  }, [positionValue, itemKey]);
++  const glideStyle = useAnimatedStyle(
++    () => (horizontal ? { transform: [{ translateX: offset.value }] } : { transform: [{ translateY: offset.value }] }),
++    [horizontal]
++  );
+   const viewStyle = React.useMemo(
+-    () => [style, horizontal ? { left: positionValue } : { top: positionValue }],
+-    [horizontal, positionValue, style]
++    () => [style, horizontal ? { left: positionValue } : { top: positionValue }, glideStyle],
++    [horizontal, positionValue, style, glideStyle]
+   );
+   return /* @__PURE__ */ React.createElement(
+     Reanimated.View,
+     {
+-      layout: shouldSkipTransitionForRecycleReuse ? void 0 : layoutTransition,
+       ref: refView,
+       style: viewStyle,
+       ...rest
+@@ -198,9 +244,10 @@ var LegendListForwardedRef = typedMemo(
+       },
+       [renderScrollComponentForBridge, trackedScrollOffset]
+     );
++    const stickyGlideRef = useLatestRef(itemLayoutAnimation); /* PATCH(watchloom) */
+     const stickyPositionComponentInternal = React.useMemo(
+       () => function StickyPositionComponent(stickyProps) {
+-        return /* @__PURE__ */ React.createElement(ReanimatedPositionViewSticky, { ...stickyProps, stickyScrollOffset: scrollOffset });
++        return /* @__PURE__ */ React.createElement(ReanimatedPositionViewSticky, { ...stickyProps, stickyScrollOffset: scrollOffset, layoutTransitionRef: stickyGlideRef });
+       },
+       [scrollOffset]
+     );
+@@ -216,6 +263,7 @@ var LegendListForwardedRef = typedMemo(
+           {
+             ...positionProps,
+             layoutTransition: itemLayoutAnimationRef.current,
++            layoutTransitionRef: itemLayoutAnimationRef, /* PATCH(watchloom) */
+             recycleItems
+           }
+         );

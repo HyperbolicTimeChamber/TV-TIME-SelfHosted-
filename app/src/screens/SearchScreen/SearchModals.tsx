@@ -1,18 +1,22 @@
 import { AddFailedModal, ConfirmModal, UnreleasedMovieModal } from "../../components";
+import BottomSheet, {
+	SheetGroup,
+	SheetHeader,
+	SheetOption,
+} from "../../components/modals/BottomSheet";
 import { ModalBackdrop, ModalLogo } from "../../components/modals/ModalArt";
 import { getCachedCatalogShow } from "../../hooks/useWatchlist";
 import { colors } from "../../theme";
 import { MediaType, TMDBShow, type AddFailure } from "../../types";
+import { WatchProgress } from "../../enums";
+import { searchMediaType as mediaTypeOf } from "../../utils";
+import { HiCheck } from "../../components/HiIcons";
 
 const pad = (n?: number) => String(n).padStart(2, "0");
 /** Title logo when the catalog has the title cached (name otherwise) */
 const logoOf = (item: TMDBShow | null | undefined, mediaType: MediaType) =>
 	item ? (getCachedCatalogShow(item.id, mediaType)?.logoPath ?? null) : null;
 const nameOf = (item: TMDBShow | null | undefined) => item?.name || item?.title || "";
-
-const mediaTypeOf = (item: TMDBShow | null | undefined): MediaType =>
-	item?.media_type ||
-	(item?.first_air_date || (item?.name && !item?.title) ? MediaType.TV : MediaType.MOVIE);
 
 const epCode = (ep?: { season: number; episode: number }) =>
 	`S${pad(ep?.season)}E${pad(ep?.episode)}`;
@@ -28,7 +32,7 @@ interface Props {
 	onConfirmRemove: () => void;
 	onRemoveModalClose: () => void;
 	/** Remove refused — already watched */
-	watchedBlock: TMDBShow | null;
+	watchedBlock: { item: TMDBShow; progress: WatchProgress } | null;
 	onGoToShow: (item: TMDBShow) => void;
 	onWatchedBlockClose: () => void;
 	unreleasedModal: { title: string } | null;
@@ -70,31 +74,46 @@ export default function SearchModals({
 	onAddFailureClose,
 }: Props) {
 	const removeMediaType = mediaTypeOf(removeModal);
-	const blockedMediaType = mediaTypeOf(watchedBlock);
+	const blocked = watchedBlock?.item ?? null;
+	const blockedMediaType = mediaTypeOf(blocked);
+	const started = watchedBlock?.progress === WatchProgress.STARTED;
+	const noun = blockedMediaType === MediaType.MOVIE ? "movie" : "show";
 	return (
 		<>
-			<ConfirmModal
+			{/* A drawer, not a popup: the two ways to add, dismissed by pulling it down or tapping outside */}
+			<BottomSheet
 				visible={!!movieModal}
-				title="Add This Movie?"
-				image={
-					movieModal ? (
-						<ModalLogo
-							logoPath={logoOf(movieModal, MediaType.MOVIE)}
-							tmdbId={movieModal.id}
-							mediaType={MediaType.MOVIE}
-							title={nameOf(movieModal)}
-						/>
-					) : undefined
-				}
-				hint={`Add "${movieModal?.title || movieModal?.name}" to your watchlist, or mark it as already watched.`}
-				confirmLabel="Add to Watchlist"
-				confirmColor={colors.primary}
-				onConfirm={onMovieAddOnly}
-				secondaryLabel="Add & Mark as Watched"
-				secondaryColor={colors.watchedGreen}
-				onSecondary={onMovieAddAndWatch}
 				onClose={onMovieModalClose}
-			/>
+				art={movieModal ? { tmdbId: movieModal.id, mediaType: MediaType.MOVIE } : null}
+			>
+				{(close) => (
+					<>
+						<SheetHeader
+							title={nameOf(movieModal)}
+							tmdbId={movieModal?.id}
+							mediaType={MediaType.MOVIE}
+							logoPath={logoOf(movieModal, MediaType.MOVIE)}
+							centered
+						/>
+						<SheetGroup>
+							<SheetOption
+								icon="add"
+								color={colors.primary}
+								title="Add to Watchlist"
+								hint="Track it, not watched yet"
+								onPress={() => close(onMovieAddOnly)}
+							/>
+							<SheetOption
+								icon={HiCheck}
+								color={colors.watchedGreen}
+								title="Add & Mark as Watched"
+								hint="Already seen it"
+								onPress={() => close(onMovieAddAndWatch)}
+							/>
+						</SheetGroup>
+					</>
+				)}
+			</BottomSheet>
 
 			<ConfirmModal
 				visible={!!removeModal}
@@ -118,30 +137,31 @@ export default function SearchModals({
 			/>
 
 			<ConfirmModal
-				visible={!!watchedBlock}
-				title="Already Watched"
+				visible={!!blocked}
+				title={started ? "Already Started" : "Already Watched"}
+				drawer
 				image={
-					watchedBlock?.backdrop_path ? (
+					blocked?.backdrop_path ? (
 						<ModalBackdrop
-							backdropPath={watchedBlock.backdrop_path}
-							logoPath={logoOf(watchedBlock, blockedMediaType)}
-							tmdbId={watchedBlock.id}
+							backdropPath={blocked.backdrop_path}
+							logoPath={logoOf(blocked, blockedMediaType)}
+							tmdbId={blocked.id}
 							mediaType={blockedMediaType}
-							title={nameOf(watchedBlock)}
+							title={nameOf(blocked)}
 						/>
-					) : watchedBlock ? (
+					) : blocked ? (
 						<ModalLogo
-							logoPath={logoOf(watchedBlock, blockedMediaType)}
-							tmdbId={watchedBlock.id}
+							logoPath={logoOf(blocked, blockedMediaType)}
+							tmdbId={blocked.id}
 							mediaType={blockedMediaType}
-							title={nameOf(watchedBlock)}
+							title={nameOf(blocked)}
 						/>
 					) : undefined
 				}
-				hint={`You have already watched this ${blockedMediaType === MediaType.MOVIE ? "movie" : "show"}. To remove it, clear the watch history first.`}
+				hint={`You have already ${started ? "started watching" : "watched"} this ${noun}. To remove it, clear the watch history first.`}
 				confirmLabel={blockedMediaType === MediaType.MOVIE ? "Go to Movie" : "Go to Show"}
 				confirmColor={colors.primary}
-				onConfirm={() => watchedBlock && onGoToShow(watchedBlock)}
+				onConfirm={() => blocked && onGoToShow(blocked)}
 				onClose={onWatchedBlockClose}
 			/>
 

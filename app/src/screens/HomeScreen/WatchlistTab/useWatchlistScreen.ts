@@ -3,13 +3,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Alert } from "react-native";
 import { useAuthStore, useUiStore } from "../../../stores";
 import {
-	markEpisodeWatched,
-	unmarkEpisodeWatched,
-	decrementEpisodeWatchCount,
 	markMovieWatched,
-	unmarkMovieWatched,
-	decrementMovieWatchCount,
-	getCatalogShow,
+	writeMovieWatchCount,
+	writeEpisodeWatchCount,
 	getShowDetails,
 } from "../../../services";
 import {
@@ -18,7 +14,6 @@ import {
 	MediaType,
 	QueryKey,
 	WatchStatus,
-	WatchAction,
 	CarouselEpisode,
 	ShowDrawerData,
 } from "../../../types";
@@ -35,14 +30,24 @@ import {
 } from "@react-native-firebase/firestore";
 import {
 	insertWatchedEpisodeCache,
-	removeWatchedEpisodeCache,
+	setWatchedEpisodeCountsCache,
 	insertWatchedMovieCache,
 	incrementDailyWatch,
 	decrementDailyWatch,
 	loadSeasonEpisodes,
+	EnrichedTrackingItem,
 } from "../../../hooks";
+import {
+	getCachedCatalogShow,
+	prefillCatalog,
+	whenCatalogRestored,
+} from "../../../hooks/useWatchlist";
 import { useWatchlistData } from "./useWatchlistData";
+import { useHealOnView } from "../../../hooks/useHealOnView";
 import { todayStr } from "../../../utils";
+
+/** How long an unwatch swipe's row stays flagged as swiped off (isSwipedOff) after its write */
+const SWIPED_OFF_MS = 2000;
 
 /**
  * Watchlist tab state + actions (episode modal, show drawer, previously-watched
@@ -62,6 +67,21 @@ function watchedKeysBefore(
 		keys.set(`S${String(e.season).padStart(2, "0")}E${String(e.episode).padStart(2, "0")}`, 1);
 	}
 	return keys;
+}
+
+/** No pointer: the released episode after the furthest watched one (null → none watched known) */
+function afterLastWatched(
+	eps: CarouselEpisode[],
+	rows: WatchedEpisode[] | undefined,
+): { season: number; episode: number } | null {
+	if (!rows?.length) return null;
+	const watched = new Set(rows.map((r) => `${r.season}_${r.episode}`));
+	let last = -1;
+	eps.forEach((e, i) => {
+		if (watched.has(`${e.season}_${e.episode}`)) last = i;
+	});
+	const e = eps[Math.min(last + 1, eps.length - 1)];
+	return last < 0 ? null : { season: e.season, episode: e.episode };
 }
 
 function watchedKeysOf(rows: WatchedEpisode[]): Map<string, number> {
@@ -86,6 +106,11 @@ export function useWatchlistScreen(
 
 	const {
 		listData,
+		promotions,
+		wasJustMarked,
+		wasJustLeft,
+		noteListChange,
+		listChangeArm,
 		loading,
 		listSettled,
 		loadMoreTracking,
@@ -98,11 +123,18 @@ export function useWatchlistScreen(
 		updatingShows,
 		handleMarkWatched,
 		handleStopWatching,
+		handleRemoveFromWatchlist,
 		handleMarkWatchedThrough,
 		handleUnmarkEpisode,
 		handleCarouselMarkWatched,
 		handleSkipEpisode,
+		showMap,
+		rewatchFloor,
+		pointerFor,
+		healShown,
 	} = useWatchlistData(user?.uid);
+	// Only cards the user keeps on screen get healed
+	const onCardsVisible = useHealOnView(healShown);
 
 	const isLoading = loading;
 	const setWatchlistLoading = useUiStore((s) => s.setWatchlistLoading);
@@ -141,15 +173,27 @@ export function useWatchlistScreen(
 		setWatchlistLoading(isLoading);
 	}, [isLoading, setWatchlistLoading]);
 
-	const handleCardPress = useCallback(
-		async (tmdbId: number, _mediaType: MediaType) => {
-			const listItem = listData.find((li) => li.type === "show" && li.item.tmdbId === tmdbId);
-			if (!listItem || listItem.type !== "show") return;
-			const item = listItem.item;
-			const ep = item.nextEpisode;
-			if (!ep) return;
+	/**
+	 * Episode popup for one show, opened on `focus` (a Previously Watched row's episode) or the
+	 * show's next episode. A show without a pointer (cleared by an old double mark) still opens:
+	 * on the episode after the last watched one, else the latest aired.
+	 */
+	const openEpisodeModal = useCallback(
+		async (item: EnrichedTrackingItem, focus?: { season: number; episode: number } | null) => {
+			const tmdbId = item.tmdbId;
+			const pointer = item.nextEpisode ?? null;
 
-			const catalog = item.catalogShow;
+			// Fresh launch: the saved card can render before the persisted catalog cache is
+			// restored — wait for it (on-device, quick), then fill from the server only if the
+			// show was never cached. The popup always opens; never the show page instead.
+			let catalog = item.catalogShow;
+			if (!catalog?.seasons?.length) {
+				await whenCatalogRestored();
+				catalog =
+					getCachedCatalogShow(tmdbId, MediaType.TV) ??
+					(await prefillCatalog(tmdbId, MediaType.TV)) ??
+					catalog;
+			}
 			const today = todayStr();
 
 			// Build flat episode list from catalog — all released episodes
@@ -175,10 +219,16 @@ export function useWatchlistScreen(
 
 			if (allEps.length === 0) return;
 
-			const rawIdx = Math.max(
-				0,
-				allEps.findIndex((e) => e.season === ep.season && e.episode === ep.episode),
-			);
+			const watchedKey = [QueryKey.WATCHED_EPISODES, user?.uid, tmdbId];
+			const cachedWatched = queryClient.getQueryData<WatchedEpisode[]>(watchedKey);
+			const ep = focus ?? pointer ?? afterLastWatched(allEps, cachedWatched);
+
+			const rawIdx = ep
+				? Math.max(
+						0,
+						allEps.findIndex((e) => e.season === ep.season && e.episode === ep.episode),
+					)
+				: allEps.length - 1;
 
 			// Window to max 50 episodes around current
 			const MAX_WINDOW = 50;
@@ -196,11 +246,11 @@ export function useWatchlistScreen(
 			// tells us — every released episode before `nextEpisode` has been watched. Awaiting
 			// Firestore here held the popup shut for the whole round trip; the real counts patch
 			// in below the moment they land.
-			const watchedKey = [QueryKey.WATCHED_EPISODES, user?.uid, tmdbId];
-			const cachedWatched = queryClient.getQueryData<WatchedEpisode[]>(watchedKey);
 			const wKeys = cachedWatched
 				? watchedKeysOf(cachedWatched)
-				: watchedKeysBefore(carouselEps, ep);
+				: pointer
+					? watchedKeysBefore(carouselEps, pointer)
+					: new Map<string, number>();
 
 			epModalTmdbIdRef.current = tmdbId;
 			setEpModalData({
@@ -211,7 +261,7 @@ export function useWatchlistScreen(
 				episodes: carouselEps,
 				initialIndex: initialIdx,
 				watchedKeys: wKeys,
-				currentNextEpisode: ep,
+				currentNextEpisode: pointer,
 				isRewatching: item.status === WatchStatus.REWATCHING,
 				rewatchCount: item.status === WatchStatus.REWATCHING ? (item.rewatchCount ?? 0) : 0,
 			});
@@ -239,7 +289,32 @@ export function useWatchlistScreen(
 				.then((snap) => patch(rowsOf(snap)))
 				.catch(() => {});
 		},
-		[listData, user?.uid, queryClient],
+		[user?.uid, queryClient],
+	);
+
+	// Reads the list through a ref: depending on listData made it a new function on every list
+	// change, and every card re-rendered with it
+	const listDataRef = useRef(listData);
+	useEffect(() => {
+		listDataRef.current = listData;
+	}, [listData]);
+	const handleCardPress = useCallback(
+		(tmdbId: number, _mediaType: MediaType) => {
+			const listItem = listDataRef.current.find(
+				(li) => li.type === "show" && li.item.tmdbId === tmdbId,
+			);
+			if (!listItem || listItem.type !== "show") return;
+			return openEpisodeModal(listItem.item);
+		},
+		[openEpisodeModal],
+	);
+
+	/** Previously Watched row body → the episode popup on that row's episode (its green circle
+	 *  opens the watch count sheet instead) */
+	const handleWatchedRowPress = useCallback(
+		(episode: WatchedEpisode, show: EnrichedTrackingItem) =>
+			openEpisodeModal(show, { season: episode.season, episode: episode.episode }),
+		[openEpisodeModal],
 	);
 
 	// Skip in modal → move the modal's "current" episode along with the watchlist pointer
@@ -282,6 +357,7 @@ export function useWatchlistScreen(
 			overview: cat.overview,
 			mediaType: cat.mediaType,
 			year: (cat.firstAirDate || cat.releaseDate || "")?.substring(0, 4) || null,
+			releaseDate: cat.mediaType === MediaType.MOVIE ? cat.releaseDate || null : null,
 			totalSeasons: cat.totalSeasons,
 			totalEpisodes: cat.totalEpisodes,
 			runtime: cat.runtime,
@@ -308,198 +384,226 @@ export function useWatchlistScreen(
 		setSheetVisible(true);
 	}, []);
 
+	/** Run-rule pointer for a Previously Watched row's count change (useWatchlistData.pointerFor) */
+	const watchlistPointer = useCallback(
+		(episode: WatchedEpisode, from: number, to: number) =>
+			pointerFor(episode.tmdbShowId, episode.season, episode.episode, from, to),
+		[pointerFor],
+	);
+	/** Row swipe +1: one more watch, through the watch count write; the pointer moves only by the
+	 *  run rule (finishing the pointer episode in this run) — never for an extra watch */
 	const handleWatchedSwipeLeft = useCallback(
 		async (episode: WatchedEpisode) => {
 			if (!user?.uid) return;
-			const catalog = await getCatalogShow(episode.tmdbShowId, MediaType.TV);
-			const catalogSeason = catalog?.seasons?.find((s) => s.seasonNumber === episode.season);
-			const catalogEp = catalogSeason?.episodes?.find((e) => e.episodeNumber === episode.episode);
-			const nextEpInSeason = catalogSeason?.episodes?.find(
-				(e) => e.episodeNumber === episode.episode + 1,
-			);
-
-			let nextEpisode: { season: number; episode: number } | null = null;
-			let isComplete = false;
-
-			if (nextEpInSeason) {
-				nextEpisode = {
-					season: episode.season,
-					episode: nextEpInSeason.episodeNumber,
-				};
-			} else {
-				const nextCatalogSeason = catalog?.seasons?.find(
-					(s) => s.seasonNumber === episode.season + 1,
-				);
-				if (nextCatalogSeason && nextCatalogSeason.episodes.length > 0) {
-					nextEpisode = { season: episode.season + 1, episode: 1 };
-				} else {
-					isComplete = true;
-				}
-			}
-
-			await markEpisodeWatched(
-				user.uid,
-				episode.tmdbShowId,
-				episode.season,
-				episode.episode,
-				catalogEp?.title || episode.episodeTitle,
-				catalogEp?.runtime || episode.runtime,
-				nextEpisode,
-				isComplete,
-			);
+			const uid = user.uid;
+			const count = episode.watchCount || 0;
+			const key = `${episode.season}_${episode.episode}`;
 			const now = Timestamp.now();
-			insertWatchedEpisodeCache(queryClient, user.uid, {
-				id: `${episode.tmdbShowId}_S${String(episode.season).padStart(2, "0")}E${String(episode.episode).padStart(2, "0")}`,
-				tmdbShowId: episode.tmdbShowId,
-				season: episode.season,
-				episode: episode.episode,
-				episodeTitle: catalogEp?.title || episode.episodeTitle,
-				runtime: catalogEp?.runtime || episode.runtime,
-				lastWatchedAt: now,
-				watchedAt: now,
-				watchCount: (episode.watchCount || 0) + 1,
-			});
+			setWatchedEpisodeCountsCache(
+				queryClient,
+				uid,
+				episode.tmdbShowId,
+				new Map([[key, count + 1]]),
+				now,
+			);
+			try {
+				await writeEpisodeWatchCount(
+					uid,
+					episode.tmdbShowId,
+					{
+						season: episode.season,
+						episode: episode.episode,
+						title: episode.episodeTitle,
+						runtime: episode.runtime,
+					},
+					count,
+					count + 1,
+					undefined,
+					watchlistPointer(episode, count, count + 1) ?? null,
+				);
+			} catch (err: any) {
+				setWatchedEpisodeCountsCache(
+					queryClient,
+					uid,
+					episode.tmdbShowId,
+					new Map([[key, count]]),
+					episode.lastWatchedAt,
+				);
+				Alert.alert("Error", err.message || "Couldn't mark it watched again.");
+				return;
+			}
 			incrementDailyWatch("episode");
 		},
-		[user?.uid, queryClient],
+		[user?.uid, queryClient, watchlistPointer],
 	);
 
+	// Rows a swipe is taking off the list (their last watch unwatched): they wait on the swipe's
+	// blue banner, and the list shrinks that banner away when they go (isSwipedOff)
+	const swipedOff = useRef(new Set<string>());
+	const isSwipedOff = useCallback((rowKey: string) => swipedOff.current.has(rowKey), []);
 	const handleWatchedSwipeRight = useCallback(
-		async (episode: WatchedEpisode) => {
-			if (!user?.uid) return;
-			if (episode.watchCount > 1) {
-				await decrementEpisodeWatchCount(
-					user.uid,
+		async (episode: WatchedEpisode): Promise<boolean | void> => {
+			if (!user?.uid) return false;
+			const uid = user.uid;
+			// Mid-rewatch: not below the rewatch number (as the sheet's −) — earlier runs stay. No
+			// change: the swipe snaps back at once (returning nothing, its banner sat for 15s)
+			const floor = rewatchFloor(episode.tmdbShowId);
+			const count = episode.watchCount || 0;
+			if (count <= floor) return false;
+			noteListChange(episode.tmdbShowId);
+			// Down to its first watch (or the floor): the row goes back to that watch's place
+			const restoreAt = Math.max(floor, 1);
+			// Gone (its last watch) or back at its first watch: either way it leaves its slot
+			if (count - 1 <= restoreAt) swipedOff.current.add(`watched_${episode.id}`);
+			const key = `${episode.season}_${episode.episode}`;
+			/** Row at `n` watches (0 = gone); a row that's gone comes back via insert */
+			const showCount = (
+				n: number,
+				prevN: number,
+				first: WatchedEpisode["watchedAt"] | null = null,
+			) => {
+				if (prevN <= 0 && n > 0) {
+					insertWatchedEpisodeCache(queryClient, uid, { ...episode, watchCount: n });
+				} else {
+					// Down: to the watch the write put it back to (the one before the undone play, or
+					// its first at the floor); back up (a failed write): its own last watch again
+					const at =
+						n < prevN
+							? (first ?? (n > 0 && n <= restoreAt ? episode.watchedAt : undefined))
+							: episode.lastWatchedAt;
+					setWatchedEpisodeCountsCache(
+						queryClient,
+						uid,
+						episode.tmdbShowId,
+						new Map([[key, n]]),
+						at,
+					);
+				}
+			};
+			// The row takes its new count once the write is in: the swipe's banner spins meanwhile,
+			// and the row leaves together with the card's flip (its pointer moves in the same
+			// transaction) — taken off at once, the row went well before the card changed
+			let final: number;
+			/** The watch the write put the row back to (the one before the undone play, or its first) */
+			let firstWatch: WatchedEpisode["watchedAt"] | null = null;
+			try {
+				// Off the real count (read first): a stale cached count can't delete watches. Only a
+				// real 0 points the watchlist back to this episode
+				final = await writeEpisodeWatchCount(
+					uid,
 					episode.tmdbShowId,
-					episode.season,
-					episode.episode,
-					episode.runtime,
-					episode.watchCount,
-					episode.episodeTitle,
+					{
+						season: episode.season,
+						episode: episode.episode,
+						title: episode.episodeTitle,
+						runtime: episode.runtime,
+					},
+					count,
+					count - 1,
+					undefined,
+					watchlistPointer(episode, count, count - 1),
+					restoreAt,
+					(first) => {
+						firstWatch = first;
+					},
 				);
-			} else {
-				await unmarkEpisodeWatched(
-					user.uid,
-					episode.tmdbShowId,
-					episode.season,
-					episode.episode,
-					episode.runtime,
-					episode.episodeTitle,
-				);
+			} catch (err: any) {
+				swipedOff.current.delete(`watched_${episode.id}`);
+				console.error("Unwatch failed:", err);
+				Alert.alert("Error", err.message || "Couldn't unwatch it.");
+				return false;
 			}
-			removeWatchedEpisodeCache(
-				queryClient,
-				user.uid,
-				episode.tmdbShowId,
-				episode.season,
-				episode.episode,
-				episode.watchCount > 1,
-			);
+			// Off Firestore's real count (a stale cached count can differ). Unchanged: the swipe
+			// snaps back (it holds its banner until the row changes)
+			if (final === count) {
+				swipedOff.current.delete(`watched_${episode.id}`);
+				return false;
+			}
+			// Noted again as the row changes: a slow write outlasted the "just changed" window, and
+			// the row then left without its banner shrinking away
+			noteListChange(episode.tmdbShowId);
+			// Put back to an earlier watch above the floor (the play before it): it leaves its slot too
+			if (firstWatch) swipedOff.current.add(`watched_${episode.id}`);
+			showCount(final, count, firstWatch);
+			// Read by the list as it takes the change; a later move of the row (a rewatch) isn't one
+			const off = `watched_${episode.id}`;
+			setTimeout(() => swipedOff.current.delete(off), SWIPED_OFF_MS);
 			decrementDailyWatch("episode");
 		},
-		[user?.uid, queryClient],
+		[noteListChange, user?.uid, queryClient, rewatchFloor, watchlistPointer],
 	);
 
-	const handleSheetAction = useCallback(
-		async (action: WatchAction) => {
-			if (!user?.uid || !sheetEpisode) return;
-
-			try {
-				if (action === "rewatch") {
-					const catalog = await getCatalogShow(sheetEpisode.tmdbShowId, MediaType.TV);
-					const catalogSeason = catalog?.seasons?.find(
-						(s) => s.seasonNumber === sheetEpisode.season,
-					);
-					const catalogEp = catalogSeason?.episodes?.find(
-						(e) => e.episodeNumber === sheetEpisode.episode,
-					);
-					const nextEpInSeason = catalogSeason?.episodes?.find(
-						(e) => e.episodeNumber === sheetEpisode.episode + 1,
-					);
-
-					let nextEpisode: { season: number; episode: number } | null = null;
-					let isComplete = false;
-
-					if (nextEpInSeason) {
-						nextEpisode = {
-							season: sheetEpisode.season,
-							episode: nextEpInSeason.episodeNumber,
-						};
-					} else {
-						const nextCatalogSeason = catalog?.seasons?.find(
-							(s) => s.seasonNumber === sheetEpisode.season + 1,
-						);
-						if (nextCatalogSeason && nextCatalogSeason.episodes.length > 0) {
-							nextEpisode = { season: sheetEpisode.season + 1, episode: 1 };
-						} else {
-							isComplete = true;
-						}
-					}
-
-					await markEpisodeWatched(
-						user.uid,
-						sheetEpisode.tmdbShowId,
-						sheetEpisode.season,
-						sheetEpisode.episode,
-						catalogEp?.title || sheetEpisode.episodeTitle,
-						catalogEp?.runtime || sheetEpisode.runtime,
-						nextEpisode,
-						isComplete,
-					);
-					incrementDailyWatch("episode");
-				} else if (action === "not_watched") {
-					await unmarkEpisodeWatched(
-						user.uid,
-						sheetEpisode.tmdbShowId,
-						sheetEpisode.season,
-						sheetEpisode.episode,
-						sheetEpisode.runtime,
-						sheetEpisode.episodeTitle,
-					);
-					decrementDailyWatch("episode");
-				} else if (action === "watched_once_less") {
-					await decrementEpisodeWatchCount(
-						user.uid,
-						sheetEpisode.tmdbShowId,
-						sheetEpisode.season,
-						sheetEpisode.episode,
-						sheetEpisode.runtime,
-						sheetEpisode.watchCount,
-						sheetEpisode.episodeTitle,
-					);
-					decrementDailyWatch("episode");
-				}
-				if (action === "rewatch") {
-					const now = Timestamp.now();
-					insertWatchedEpisodeCache(queryClient, user.uid, {
-						id: `${sheetEpisode.tmdbShowId}_S${String(sheetEpisode.season).padStart(2, "0")}E${String(sheetEpisode.episode).padStart(2, "0")}`,
-						tmdbShowId: sheetEpisode.tmdbShowId,
-						season: sheetEpisode.season,
-						episode: sheetEpisode.episode,
-						episodeTitle: sheetEpisode.episodeTitle,
-						runtime: sheetEpisode.runtime,
-						lastWatchedAt: now,
-						watchedAt: now,
-						watchCount: (sheetEpisode.watchCount || 0) + 1,
+	/**
+	 * Watch count sheet settled on a new count for the sheet's episode. Optimistic: both cached
+	 * lists take the exact count first (up also moves the row to the top — watched now), then one
+	 * batch write (writeEpisodeWatchCount); a failed write puts the row back as it was.
+	 */
+	const handleEpisodeCountCommit = useCallback(
+		async (from: number, to: number): Promise<number | void> => {
+			const ep = sheetEpisode;
+			if (!user?.uid || !ep || from === to) return;
+			noteListChange(ep.tmdbShowId);
+			const uid = user.uid;
+			const key = `${ep.season}_${ep.episode}`;
+			/** Row at `n` watches (0 = gone); a row that's gone comes back via insert */
+			const showCount = (n: number, prevN: number, watchedAt: Timestamp) => {
+				if (prevN <= 0 && n > 0) {
+					insertWatchedEpisodeCache(queryClient, uid, {
+						...ep,
+						lastWatchedAt: watchedAt,
+						watchCount: n,
 					});
 				} else {
-					removeWatchedEpisodeCache(
+					setWatchedEpisodeCountsCache(
 						queryClient,
-						user.uid,
-						sheetEpisode.tmdbShowId,
-						sheetEpisode.season,
-						sheetEpisode.episode,
-						action === "watched_once_less",
+						uid,
+						ep.tmdbShowId,
+						new Map([[key, n]]),
+						watchedAt,
 					);
 				}
+			};
+			// Down to its first watch (or the rewatch floor): back to that watch's place (as the
+			// write does)
+			const restoreAt = Math.max(rewatchFloor(ep.tmdbShowId), 1);
+			showCount(
+				to,
+				from,
+				to > from ? Timestamp.now() : to > 0 && to <= restoreAt ? ep.watchedAt : ep.lastWatchedAt,
+			);
+			let final: number;
+			let restoredTo: Timestamp | null = null;
+			try {
+				final = await writeEpisodeWatchCount(
+					uid,
+					ep.tmdbShowId,
+					{ season: ep.season, episode: ep.episode, title: ep.episodeTitle, runtime: ep.runtime },
+					from,
+					to,
+					undefined,
+					watchlistPointer(ep, from, to),
+					restoreAt,
+					(at) => {
+						restoredTo = at;
+					},
+				);
 			} catch (err: any) {
-				console.error("Watch action failed:", err);
-				Alert.alert("Error", err.message || "Action failed.");
+				showCount(from, to, ep.lastWatchedAt);
+				console.error("Watch count change failed:", err);
+				Alert.alert("Error", err.message || "Couldn't update the watch count.");
+				return;
 			}
-
-			setSheetEpisode(null);
+			// Put back to an earlier watch (the one before the undone play): the row takes its place
+			if (restoredTo && final > 0) showCount(final, to, restoredTo);
+			// Firestore's real count differed (a stale cached count) → the row follows it
+			else if (final !== to) showCount(final, to, ep.lastWatchedAt);
+			for (let i = 0; i < Math.abs(final - from); i++) {
+				if (final > from) incrementDailyWatch("episode");
+				else decrementDailyWatch("episode");
+			}
+			return final;
 		},
-		[user?.uid, sheetEpisode, queryClient],
+		[noteListChange, user?.uid, sheetEpisode, queryClient, watchlistPointer, rewatchFloor],
 	);
 
 	// --- Watched movie handlers ---
@@ -526,124 +630,104 @@ export function useWatchlistScreen(
 	const handleMovieSwipeRight = useCallback(
 		async (movie: WatchedMovie) => {
 			if (!user?.uid) return;
-			if (movie.watchCount > 1) {
-				await decrementMovieWatchCount(
-					user.uid,
-					movie.tmdbId,
-					movie.runtime ?? 0,
-					movie.watchCount,
-				);
-				queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
+			noteListChange(movie.tmdbId);
+			if ((movie.watchCount || 0) <= 1) swipedOff.current.add(`movie_${movie.id}`);
+			const count = movie.watchCount || 0;
+			if (count <= 0) return;
+			// Off the real count (read first): a stale cached count can't delete watches
+			const final = await writeMovieWatchCount(
+				user.uid,
+				movie.tmdbId,
+				movie.runtime ?? 0,
+				count,
+				count - 1,
+			);
+			queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
+				if (!old?.pages) return old;
+				return {
+					...old,
+					pages: old.pages.map((p: any) => ({
+						...p,
+						movies: p.movies.flatMap((m: any) =>
+							m.tmdbId !== movie.tmdbId ? [m] : final > 0 ? [{ ...m, watchCount: final }] : [],
+						),
+					})),
+				};
+			});
+			decrementDailyWatch("movie");
+		},
+		[noteListChange, user?.uid, queryClient],
+	);
+
+	/** Movie row's watch count sheet settled: optimistic like the episode one, then one batch write */
+	const handleMovieCountCommit = useCallback(
+		async (from: number, to: number): Promise<number | void> => {
+			const movie = sheetMovie;
+			if (!user?.uid || !movie || from === to) return;
+			noteListChange(movie.tmdbId);
+			const uid = user.uid;
+			/** Row at `n` watches (0 = gone); a row that's gone comes back via insert */
+			const showCount = (n: number, prevN: number, watchedAt: Timestamp) => {
+				if (prevN <= 0 && n > 0) {
+					insertWatchedMovieCache(queryClient, uid, {
+						...movie,
+						lastWatchedAt: watchedAt,
+						watchCount: n,
+					});
+					return;
+				}
+				queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, uid], (old: any) => {
 					if (!old?.pages) return old;
 					return {
 						...old,
 						pages: old.pages.map((p: any) => ({
 							...p,
-							movies: p.movies.map((m: any) =>
-								m.tmdbId === movie.tmdbId ? { ...m, watchCount: (m.watchCount || 1) - 1 } : m,
+							movies: p.movies.flatMap((m: any) =>
+								m.tmdbId !== movie.tmdbId
+									? [m]
+									: n > 0
+										? [{ ...m, watchCount: n, lastWatchedAt: watchedAt }]
+										: [],
 							),
 						})),
 					};
 				});
-			} else {
-				await unmarkMovieWatched(user.uid, movie.tmdbId, movie.runtime ?? 0);
-				queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
-					if (!old?.pages) return old;
-					return {
-						...old,
-						pages: old.pages.map((p: any) => ({
-							...p,
-							movies: p.movies.filter((m: any) => m.tmdbId !== movie.tmdbId),
-						})),
-					};
-				});
-			}
-			decrementDailyWatch("movie");
-		},
-		[user?.uid, queryClient],
-	);
-
-	const handleMovieSheetAction = useCallback(
-		async (action: WatchAction) => {
-			if (!user?.uid || !sheetMovie) return;
+			};
+			showCount(to, from, to > from ? Timestamp.now() : movie.lastWatchedAt);
+			let final: number;
 			try {
-				if (action === "rewatch") {
-					await markMovieWatched(user.uid, sheetMovie.tmdbId, sheetMovie.runtime ?? 0);
-					insertWatchedMovieCache(queryClient, user.uid, {
-						...sheetMovie,
-						watchCount: (sheetMovie.watchCount || 0) + 1,
-						lastWatchedAt: Timestamp.now(),
-					});
-					incrementDailyWatch("movie");
-				} else if (action === "watched_once_less") {
-					if (sheetMovie.watchCount <= 1) {
-						await unmarkMovieWatched(user.uid, sheetMovie.tmdbId, sheetMovie.runtime ?? 0);
-						queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
-							if (!old?.pages) return old;
-							return {
-								...old,
-								pages: old.pages.map((p: any) => ({
-									...p,
-									movies: p.movies.filter((m: any) => m.tmdbId !== sheetMovie.tmdbId),
-								})),
-							};
-						});
-					} else {
-						await decrementMovieWatchCount(
-							user.uid,
-							sheetMovie.tmdbId,
-							sheetMovie.runtime ?? 0,
-							sheetMovie.watchCount,
-						);
-						queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
-							if (!old?.pages) return old;
-							return {
-								...old,
-								pages: old.pages.map((p: any) => ({
-									...p,
-									movies: p.movies.map((m: any) =>
-										m.tmdbId === sheetMovie.tmdbId
-											? { ...m, watchCount: (m.watchCount || 1) - 1 }
-											: m,
-									),
-								})),
-							};
-						});
-					}
-					decrementDailyWatch("movie");
-				} else if (action === "not_watched") {
-					await unmarkMovieWatched(user.uid, sheetMovie.tmdbId, sheetMovie.runtime ?? 0);
-					queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
-						if (!old?.pages) return old;
-						return {
-							...old,
-							pages: old.pages.map((p: any) => ({
-								...p,
-								movies: p.movies.filter((m: any) => m.tmdbId !== sheetMovie.tmdbId),
-							})),
-						};
-					});
-					decrementDailyWatch("movie");
-				}
+				final = await writeMovieWatchCount(uid, movie.tmdbId, movie.runtime ?? 0, from, to);
 			} catch (err: any) {
-				console.error("Movie action failed:", err);
-				Alert.alert("Error", err.message || "Action failed.");
+				showCount(from, to, movie.lastWatchedAt);
+				console.error("Watch count change failed:", err);
+				Alert.alert("Error", err.message || "Couldn't update the watch count.");
+				return;
 			}
-			setSheetMovie(null);
+			// Firestore's real count differed (a stale cached count) → the row follows it
+			if (final !== to) showCount(final, to, movie.lastWatchedAt);
+			for (let i = 0; i < Math.abs(final - from); i++) {
+				if (final > from) incrementDailyWatch("movie");
+				else decrementDailyWatch("movie");
+			}
+			return final;
 		},
-		[user?.uid, sheetMovie, queryClient],
+		[noteListChange, user?.uid, sheetMovie, queryClient],
 	);
 
-	const handleTvPress = useCallback(
-		(id: number) => handleNavigateToShow(id, MediaType.TV),
-		[handleNavigateToShow],
-	);
-
-	const sheetLabel = sheetEpisode
-		? `S${String(sheetEpisode.season).padStart(2, "0")}E${String(sheetEpisode.episode).padStart(2, "0")} - ${sheetEpisode.episodeTitle}`
-		: "";
+	// Sheet's show is rewatching (or has one paused) → no "Watched Once": it would wipe earlier
+	// runs' watches. A show off the loaded watchlist pages counts as not rewatching
+	const sheetStatus = sheetEpisode ? showMap.get(sheetEpisode.tmdbShowId)?.status : undefined;
+	const sheetInRewatch =
+		sheetStatus === WatchStatus.REWATCHING || sheetStatus === WatchStatus.PAUSED_REWATCH;
+	// Mid-rewatch the sheet's − stops at the rewatch number (run x − 1): only this run's watch
+	// (and extras) can come off — earlier runs' watches stay
+	const sheetMinCount = sheetEpisode ? rewatchFloor(sheetEpisode.tmdbShowId) : 0;
 
 	return {
+		rewatchFloor,
+		onCardsVisible,
+		sheetInRewatch,
+		sheetMinCount,
 		user,
 		queryClient,
 		isLoading,
@@ -675,14 +759,16 @@ export function useWatchlistScreen(
 		handleWatchedCheckmark,
 		handleWatchedSwipeLeft,
 		handleWatchedSwipeRight,
-		handleSheetAction,
+		handleEpisodeCountCommit,
 		handleMovieCheckmark,
 		handleMovieSwipeLeft,
 		handleMovieSwipeRight,
-		handleMovieSheetAction,
-		handleTvPress,
-		sheetLabel,
+		handleMovieCountCommit,
+		handleWatchedRowPress,
 		listData,
+		promotions,
+		wasJustMarked,
+		wasJustLeft,
 		loading,
 		listSettled,
 		loadMoreTracking,
@@ -695,9 +781,12 @@ export function useWatchlistScreen(
 		updatingShows,
 		handleMarkWatched,
 		handleStopWatching,
+		handleRemoveFromWatchlist,
 		handleMarkWatchedThrough,
 		handleUnmarkEpisode,
 		handleCarouselMarkWatched,
 		handleSkipEpisode,
+		isSwipedOff,
+		listChangeArm,
 	};
 }

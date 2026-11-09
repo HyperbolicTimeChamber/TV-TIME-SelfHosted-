@@ -17,6 +17,7 @@ import historyStyles from "./WatchHistory/styles/WatchHistory.module.scss";
 import CircleButton from "../../components/CircleButton";
 import { CircleButtonTone } from "@app/enums";
 import Marquee from "../../components/Marquee";
+import CustomLists from "./CustomLists";
 import styles from "./styles/ProfileScreen.module.scss";
 
 /** Profile tab — stats, weekly chart, recently completed (same hooks as the app) */
@@ -120,6 +121,7 @@ export default function ProfileScreen() {
 
 			<WatchRate data={chartData} loading={chartLoading} />
 
+
 			{completedLoading ? (
 				<div className={styles.completedLoader}>
 					<Spin size="small" />
@@ -127,7 +129,7 @@ export default function ProfileScreen() {
 			) : (
 				sections.length > 0 && (
 					<section className={styles.section}>
-						<h3 className={styles.sectionTitle}>Recently Completed</h3>
+						{/* No section title: the rows' own labels say what they are */}
 						{sections.map((section, row) => (
 							<div key={section.title} className={styles.genreSection}>
 								<span className={styles.genreTitle}>{section.title}</span>
@@ -163,6 +165,8 @@ export default function ProfileScreen() {
 					</section>
 				)
 			)}
+
+			<CustomLists standalone={!completedLoading && sections.length === 0} />
 		</div>
 	);
 }

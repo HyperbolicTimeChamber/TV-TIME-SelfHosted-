@@ -1,5 +1,5 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { doc, getDoc, getFirestore } from "firebase/firestore";
+import { doc, getDoc, getFirestore } from "../platform/firestore";
 import { TMDB_PROXY_KEY } from "@app/enums";
 import "../firebase";
 

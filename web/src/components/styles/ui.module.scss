@@ -51,6 +51,10 @@
 	pointer-events: none;
 }
 
+.defeatedArt {
+	padding-top: 12px;
+}
+
 .modalArt {
 	display: block;
 	max-height: 140px;
@@ -114,6 +118,66 @@
 }
 
 /* Edge to edge across the popup: bleeds over modalCard's 16px side padding */
+/* ConfirmModal drawer: the banner as a rounded card filling the sheet's content width */
+/* Full bleed, as the info drawer's art (app drawerBanner): up to the sheet's edges and top, over
+   the grab handle (BottomSheet .sheet padding 16px, .handle 8 + 4 + 12), rounding with its top */
+.drawerBanner {
+	position: relative;
+	margin: -24px -16px 16px;
+	border-radius: 20px 20px 0 0;
+	overflow: hidden;
+}
+
+/* The art fades into the sheet, as the info drawer's: the logo strip's shade ends in the surface
+   colour and sits over the pause / remove wash (app ModalBackdrop fadeTo) */
+.drawerBanner .modalBackdropLogo {
+	z-index: 1;
+	inset: 30% 0 -1px;
+	background: linear-gradient(transparent, var(--surface));
+}
+
+.drawerQuestion {
+	margin: 0 0 4px;
+	font-size: 20px;
+	font-weight: 700;
+	text-align: center;
+	color: var(--text);
+}
+
+/* Emil: taller, softer buttons that answer the press with a small scale; the way out is a quiet
+   filled button rather than an outline competing with the action */
+.drawerButtons .button {
+	height: 52px;
+	padding: 0 12px;
+	border-radius: 14px;
+	font-size: 16px;
+	transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.drawerButtons .button:active:not(:disabled) {
+	opacity: 1;
+	transform: scale(0.97);
+}
+
+/* The grab handle again, over the art — light so it reads on any backdrop */
+.drawerBanner::after {
+	content: "";
+	position: absolute;
+	top: 8px;
+	left: 50%;
+	width: 36px;
+	height: 4px;
+	margin-left: -18px;
+	border-radius: 2px;
+	background: rgb(255 255 255 / 70%);
+	pointer-events: none;
+}
+
+.drawerBanner > .modalBackdrop {
+	width: 100%;
+	margin: 0;
+}
+
 .modalBackdrop {
 	position: relative;
 	flex-shrink: 0;
@@ -156,6 +220,18 @@
 
 .pauseCenter {
 	height: 100%;
+	aspect-ratio: 1;
+	opacity: 0.6;
+}
+
+/* Removing from tracking: a red wash, a cross in place of the pause bars (app ModalBackdrop) */
+.modalBackdropRemove {
+	background: rgb(229 9 20 / 45%);
+}
+
+.removeCenter {
+	height: 60%;
+	width: auto;
 	aspect-ratio: 1;
 	opacity: 0.6;
 }
@@ -203,6 +279,26 @@
 	color: var(--text-secondary);
 	text-align: center;
 	margin: 0 0 16px;
+	/* Import result lines break where the text does */
+	white-space: pre-line;
+}
+
+/* Text field in a popup (list name) — app ListNameModal */
+.textInput {
+	width: 100%;
+	box-sizing: border-box;
+	background: var(--surface-light);
+	border: none;
+	border-radius: 8px;
+	padding: 12px;
+	margin-bottom: 12px;
+	font-size: 14px;
+	color: var(--text);
+	outline: none;
+}
+
+.textInput::placeholder {
+	color: var(--text-muted);
 }
 
 .modalError {
@@ -267,4 +363,32 @@
 	font-size: 12px;
 	color: var(--text-muted);
 	cursor: pointer;
+}
+
+/* Cancel on the exporting / importing popup (app ExportingModal) */
+.exportCancel {
+	margin: 16px 0 0;
+	background: var(--surface-light);
+	color: $destructive-red;
+	transition:
+		transform 120ms ease-out,
+		opacity 0.15s;
+
+	&:active {
+		transform: scale(0.97);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		transition: opacity 0.15s;
+
+		&:active {
+			transform: none;
+		}
+	}
+}
+
+/* ExportingModal: what's being exported, under its hint */
+.modalDetail {
+	color: var(--text-muted);
+	margin-top: 4px;
 }

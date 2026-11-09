@@ -1,0 +1,233 @@
+@use "../../theme/tokens" as *;
+
+/* The sheet's own bottom padding (BottomSheet .sheet) — the lists run through it to the screen
+   edge, and the same space closes the scroll so the last row clears the nav bar */
+$bleed: calc(env(safe-area-inset-bottom) + 16px);
+/* The Done button floats over the end of the lists (fade 28 + pill 44 + gap 12); the lists run
+   under it and end this far above the bottom so the last row can scroll clear of it */
+$footer: 84px;
+/* Same badge as the search cards' Add to List button */
+$badge: 30px;
+
+/* Edge to edge under the logo (cancels the sheet's 16px side padding) */
+.divider {
+	height: 1px;
+	background: var(--border);
+	margin: 0 -16px;
+}
+
+.heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 16px 0 8px;
+}
+
+.headingText {
+	font-size: 18px;
+	font-weight: 600;
+}
+
+.newList {
+	background: none;
+	border: none;
+	padding: 4px 0;
+	color: $warning-amber;
+	font-size: 15px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: opacity 160ms ease;
+
+	&:active {
+		opacity: 0.6;
+	}
+}
+
+/* Part way open: no scrolling yet — the first scroll grows the sheet (drawer curve) */
+.listScroll {
+	box-sizing: border-box;
+	max-height: 55vh;
+	overflow-y: hidden;
+	transition: height 300ms cubic-bezier(0.32, 0.72, 0, 1);
+	overscroll-behavior: contain;
+	touch-action: pan-y;
+	margin-bottom: calc(-1 * #{$bleed});
+	padding-bottom: calc(#{$bleed} + #{$footer});
+}
+
+.listScrollExpanded {
+	overflow-y: auto;
+}
+
+.row {
+	width: 100%;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 0;
+	background: none;
+	border: none;
+	color: var(--text);
+	text-align: left;
+	cursor: pointer;
+	transition:
+		transform 160ms ease-out,
+		opacity 160ms ease;
+
+	&:active:not(:disabled) {
+		transform: scale(0.98);
+		opacity: 0.6;
+	}
+
+	&:disabled {
+		opacity: 0.4;
+		cursor: default;
+	}
+}
+
+.cover {
+	flex-shrink: 0;
+	width: 52px;
+	height: 52px;
+	border-radius: 10px;
+	overflow: hidden;
+	object-fit: cover;
+}
+
+.coverCreate {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: $warning-amber;
+	color: #000;
+}
+
+.coverEmpty {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--surface-light);
+	color: var(--text-muted);
+}
+
+.rowContent {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.rowText {
+	font-size: 16px;
+	font-weight: 600;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.rowHint {
+	font-size: 13px;
+	color: var(--text-secondary);
+}
+
+.badge {
+	flex-shrink: 0;
+	width: $badge;
+	height: $badge;
+	border-radius: 50%;
+	border: 2px solid var(--text);
+	background: rgba(0, 0, 0, 0.5);
+	color: var(--text);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.badgeActive {
+	background: $warning-amber;
+	border-color: $warning-amber;
+}
+
+.loader {
+	display: flex;
+	justify-content: center;
+	padding: 24px 0;
+}
+
+.empty {
+	font-size: 13px;
+	color: var(--text-secondary);
+	text-align: center;
+	padding: 16px 0;
+	margin: 0;
+}
+
+/* Find list + Sort (app AddToListSheet searchRow) */
+.searchRow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 12px 0;
+}
+
+.searchField {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	height: 40px;
+	padding: 0 12px;
+	border-radius: 8px;
+	background: var(--surface-light);
+	color: var(--text-secondary);
+}
+
+.searchInput {
+	flex: 1;
+	min-width: 0;
+	border: none;
+	outline: none;
+	background: transparent;
+	color: var(--text);
+	font-size: 14px;
+}
+
+.sortButton {
+	height: 40px;
+	padding: 0 12px;
+	border: none;
+	border-radius: 8px;
+	background: var(--surface-light);
+	color: var(--text);
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+/* Transparent: the Done button hovers over the end of the lists, no bar behind it */
+.footer {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	justify-content: center;
+	margin: calc(-1 * #{$footer}) -16px 0;
+	padding: 28px 0 12px;
+	pointer-events: none;
+
+	.done {
+		pointer-events: auto;
+	}
+}
+
+.done {
+	min-width: 120px;
+	padding: 12px 24px;
+	border: none;
+	border-radius: 999px;
+	background: $warning-amber;
+	color: #000;
+	font-size: 15px;
+	font-weight: 700;
+	cursor: pointer;
+}

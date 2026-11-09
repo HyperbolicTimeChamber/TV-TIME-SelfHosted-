@@ -1,21 +1,30 @@
+import { HiCheck } from "react-icons/hi";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Progress } from "antd";
 import { animate } from "motion/react";
-import { useNavigate } from "react-router-dom";
 import { useImportData } from "@app/screens/ImportDataScreen/useImportData";
 import { getShowDetails } from "@app/services/tmdb";
 import { tmdbPosterUri } from "@app/hooks/useTmdbImage";
-import type { MediaType } from "@app/enums";
+import { ACCOUNT_IMPORT_MAX_BYTES, type MediaType } from "@app/enums";
 import type { ShowDrawerData } from "@app/types";
 import type { TMDBMatch } from "@app/services/tvtimeImport";
+import { readJsonFile } from "../../platform/accountExport";
 import { useAppDispatch } from "../../store";
 import { importCompleted } from "../../store/authSlice";
 import AnimatedModal from "../../components/AnimatedModal";
+import ConfirmModal from "../../components/ConfirmModal";
+import { IMPORT_WARNING_ART, ModalArt } from "../../components/ModalArt";
+import ImportingScreen from "../../components/ImportingScreen";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import ShowDrawer from "../../components/ShowDrawer";
 import ui from "../../components/styles/ui.module.scss";
 import { useLongPress } from "../../hooks/useLongPress";
 import styles from "./styles/ImportDataScreen.module.scss";
+
+/** The heads-up before an import starts: the app is held until it's done (app parity) */
+const IMPORT_BLOCKS_TITLE = "Before You Import";
+const IMPORT_BLOCKS_HINT =
+	"You won't be able to use the app while the import runs — it can take a few minutes for big libraries. We'll let you know when it's done.";
 
 function Counter({ target, total }: { target: number; total: number }) {
 	const [display, setDisplay] = useState(0);
@@ -128,11 +137,37 @@ function CandidateRow({
 
 /** TV Time import (app ImportDataScreen) — same flow via useImportData */
 export default function ImportDataScreen() {
-	const navigate = useNavigate();
 	const dispatch = useAppDispatch();
 	const fileInput = useRef<HTMLInputElement>(null);
 	const imp = useImportData(() => dispatch(importCompleted()));
 	const [showInfo, setShowInfo] = useState(true);
+	// Any import (TV Time file, re-sync, a backup) holds the app until it's done: say so first
+	const pendingImport = useRef<(() => void) | null>(null);
+	const [warningVisible, setWarningVisible] = useState(false);
+	const confirmImport = (start: () => void) => {
+		pendingImport.current = start;
+		setWarningVisible(true);
+	};
+	const closeWarning = () => {
+		pendingImport.current = null;
+		setWarningVisible(false);
+	};
+	const warningModal = (
+		<ConfirmModal
+			visible={warningVisible}
+			title={IMPORT_BLOCKS_TITLE}
+			image={<ModalArt src={IMPORT_WARNING_ART} />}
+			hint={IMPORT_BLOCKS_HINT}
+			confirmLabel="Import"
+			confirmColor="var(--primary)"
+			onConfirm={() => {
+				const start = pendingImport.current;
+				closeWarning();
+				start?.();
+			}}
+			onClose={closeWarning}
+		/>
+	);
 
 	const review = useMemo(() => {
 		const seen = new Set<string>();
@@ -162,27 +197,36 @@ export default function ImportDataScreen() {
 	if (imp.phase === "pick") {
 		return (
 			<div className={styles.centered}>
-				<h1 className={styles.title}>Import TV Time Data</h1>
+				<h1 className={styles.title}>Import Data</h1>
 				<p className={styles.desc}>
-					Select your TV Time GDPR export (.zip) to import your watch history.
+					Pick your TV Time GDPR export (.zip) to bring over your watch history, or a Watchloom
+					backup (.json) made with Export My Data to restore it.
 				</p>
+				{/* One button for both: a .zip goes through matching, a .json backup is restored as is.
+				    Only reached from Settings on web, so no Skip (the tab bar / browser back leave) */}
 				<input
 					ref={fileInput}
 					type="file"
-					accept=".zip,application/zip"
+					accept=".zip,.json,application/zip,application/json"
 					hidden
-					onChange={(e) => {
+					onChange={async (e) => {
 						const file = e.target.files?.[0];
-						if (file) imp.processFile(URL.createObjectURL(file));
 						e.target.value = "";
+						if (!file) return;
+						if (file.name.toLowerCase().endsWith(".zip") || file.type.includes("zip")) {
+							imp.processFile(URL.createObjectURL(file));
+							return;
+						}
+						const picked = await readJsonFile(file, ACCOUNT_IMPORT_MAX_BYTES);
+						if (!picked.ok) {
+							if (picked.reason !== "canceled") window.alert("Couldn't read that file.");
+						} else confirmImport(() => imp.restoreAccount(picked.text));
 					}}
 				/>
 				<button className={styles.primaryButton} onClick={() => fileInput.current?.click()}>
-					Select ZIP File
+					Import Data
 				</button>
-				<button className={styles.skipButton} onClick={() => navigate(-1)}>
-					Skip
-				</button>
+				{warningModal}
 			</div>
 		);
 	}
@@ -204,17 +248,14 @@ export default function ImportDataScreen() {
 
 	if (imp.phase === "importing") {
 		return (
-			<div className={styles.centered}>
-				<h1 className={styles.title}>Importing from TV Time</h1>
-				<div className="mt-3">
-					<LoadingSpinner />
-				</div>
-				<p className={`${styles.desc} mt-6!`}>
-					This may take several minutes depending on how many shows you have. You can leave this
-					page now.
-				</p>
-				<p className={styles.desc}>Your watchlist fills in as the import finishes.</p>
-			</div>
+			<ImportingScreen
+				title="Importing from TV Time"
+				loader={<LoadingSpinner />}
+				lines={[
+					"This may take several minutes depending on how many shows you have. You can leave this page now.",
+					"Your watchlist fills in as the import finishes.",
+				]}
+			/>
 		);
 	}
 
@@ -300,7 +341,7 @@ export default function ImportDataScreen() {
 					onClick={() => imp.toggleSelected(key)}
 				>
 					<span className={`${styles.checkbox} ${checked ? styles.checkboxChecked : ""}`}>
-						{checked && "✓"}
+						{checked && <HiCheck size={14} />}
 					</span>
 					{m.posterPath ? (
 						<img src={tmdbPosterUri(m.posterPath, 40)} alt="" className={styles.posterSmall} />
@@ -348,12 +389,15 @@ export default function ImportDataScreen() {
 					</button>
 					<button
 						className={`${styles.primaryButton} m-0! flex-1`}
-						onClick={imp.handleImport}
+						onClick={() => {
+							confirmImport(imp.handleImport);
+						}}
 						disabled={imp.selected.size === 0}
 					>
 						Import {review.showCount} shows, {review.movieCount} movies, {review.episodes} episodes
 					</button>
 				</div>
+				{warningModal}
 			</div>
 		);
 	}

@@ -28,6 +28,7 @@ const ACTION_HEIGHT = 56;
 const SETTINGS_ICON = Math.round(ACTION_HEIGHT * 0.55);
 import CollageCard from "./CollageCard";
 import CompletedSections from "./CompletedSections";
+import CustomLists from "./CustomLists";
 import { styles } from "./styles";
 import { formatCount, formatTime, scaledPhotoURL } from "../../utils";
 
@@ -198,6 +199,14 @@ export default function ProfileScreen() {
 				sections={completedSections}
 				loading={completedLoading}
 				onItemPress={handleCompletedItemPress}
+			/>
+
+			<CustomLists
+				userId={user?.uid}
+				onOpenLists={() => navigation.navigate(Route.LISTS)}
+				onOpenList={(listId) => navigation.navigate(Route.LIST_DETAIL, { listId })}
+				onOpenTitle={handleCompletedItemPress}
+				standalone={!completedLoading && completedSections.length === 0}
 			/>
 		</ScrollView>
 	);

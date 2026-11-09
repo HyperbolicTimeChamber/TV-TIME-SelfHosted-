@@ -1,0 +1,19 @@
+{
+  "enabledPlugins": {
+    "telegram@claude-plugins-official": true
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/ui-change-reminder.cjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

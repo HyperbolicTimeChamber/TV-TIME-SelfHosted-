@@ -1,4 +1,4 @@
-import { EpisodeType, MediaType } from "../enums";
+import { EpisodeType, MediaType, PhotoSubjectKind, TmdbStudioType } from "../enums";
 
 export interface CatalogEpisode {
 	episodeNumber: number;
@@ -24,7 +24,116 @@ export interface CatalogSeason {
 	episodes: CatalogEpisode[];
 }
 
+/** A streaming service offering a title (functions StoredWatchProvider) */
+export interface WatchProvider {
+	id: number;
+	name: string;
+	/** TMDB image path of the service's logo */
+	logo: string;
+}
+
+/** A title's streaming services in one country — an empty list means none (functions type) */
+export interface RegionWatchProviders {
+	providers: WatchProvider[];
+	link: string | null;
+	updatedAt: number;
+}
+
+/** One cast member (functions StoredCastMember) */
+export interface CastMember {
+	id: number;
+	name: string;
+	character: string | null;
+	/** TMDB image path of their photo */
+	profile: string | null;
+	/** Shows: episodes they're in */
+	episodes?: number;
+	/** IMDb id, null when TMDB has none; absent until first looked up (subjectLink CF) */
+	imdbId?: string | null;
+}
+
+/** A studio with a logo — the info page Studios row (functions StoredStudio) */
+export interface Studio {
+	id: number;
+	name: string;
+	/** TMDB image path of its logo */
+	logo: string;
+	/** Absent until first looked up (subjectLink CF) */
+	studioType?: TmdbStudioType;
+	/** Its own website, null when TMDB has none */
+	homepage?: string | null;
+}
+
+/** A cast / crew member or studio open in the photo viewer */
+export interface PhotoSubject {
+	kind: PhotoSubjectKind;
+	/** TMDB person / company id */
+	id: number;
+	name: string;
+	/** TMDB image path of their photo / logo (empty for a person without a photo) */
+	path: string;
+	/** The title they were opened from: their stored link lives on it */
+	tmdbId: number;
+	mediaType: MediaType;
+	/** Their stored link, when already looked up */
+	imdbId?: string | null;
+	studioType?: TmdbStudioType;
+	homepage?: string | null;
+}
+
+/** What the subjectLink CF answers: a person's imdbId, or a studio's type + homepage */
+export interface SubjectLinkResult {
+	imdbId?: string | null;
+	studioType?: TmdbStudioType;
+	homepage?: string | null;
+}
+
+/** A movie's director with their photo (functions StoredCrewMember) */
+export interface CrewMember {
+	id: number;
+	name: string;
+	profile: string | null;
+	/** As CastMember's */
+	imdbId?: string | null;
+}
+
+/** What the titleExtras CF answers (functions TitleExtras) */
+export interface TitleExtras {
+	/** Featured: a movie's leads / a show's regulars */
+	cast: CastMember[];
+	castTotal: number;
+	/** A movie's release date in the viewer's country ("YYYY-MM-DD"); absent from a server
+	 *  older than this field */
+	localRelease?: string | null;
+	directors: CrewMember[];
+	/** Movies' writers — screenplay, story, novel */
+	writers: CrewMember[];
+	studios: Studio[];
+	providers: RegionWatchProviders;
+}
+
+/** One page of the full cast (functions TitleCastPage) */
+export interface TitleCastPage {
+	members: CastMember[];
+	total: number;
+	hasMore: boolean;
+}
+
 export interface CatalogShow {
+	/** Info page extras (titleExtras CF) — empty lists mean TMDB has none. Featured cast: */
+	cast?: CastMember[];
+	/** Everyone in the full cast (paged in the View All sheet) */
+	castTotal?: number;
+	/** Movies: release date per country ("YYYY-MM-DD"), null when TMDB has none for it */
+	localReleases?: Record<string, string | null>;
+	/** A movie's directors with photos */
+	directors?: CrewMember[];
+	/** A movie's writers with photos */
+	writers?: CrewMember[];
+	/** Studios with logos (the info page row) — `studios` holds the names the Studio filter uses */
+	studioLogos?: Studio[];
+	/** Where to Watch, for the countries someone opened the info page from (watchProviders CF) */
+	watchProviders?: Record<string, RegionWatchProviders>;
 	tmdbId: number;
 	mediaType: MediaType;
 	title: string;

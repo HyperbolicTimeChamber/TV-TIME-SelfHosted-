@@ -22,12 +22,17 @@ const TABS = [
 ];
 
 /** Bottom tab bar (mobile) / side rail (desktop) — mirrors app CustomTabBar */
-export default function TabBar() {
+export default function TabBar({ hidden = false }: { hidden?: boolean }) {
 	const { pathname } = useLocation();
 	const activePath = TABS.find((t) => pathname.startsWith(t.path))?.path;
 
 	return (
-		<nav className={styles.bar} aria-label="Main">
+		<nav
+			className={`${styles.bar} ${hidden ? styles.barHidden : ""}`}
+			aria-label="Main"
+			aria-hidden={hidden || undefined}
+			inert={hidden || undefined}
+		>
 			{TABS.map((tab) => {
 				const active = tab.path === activePath;
 				const Icon = active ? tab.icon : tab.iconOutline;

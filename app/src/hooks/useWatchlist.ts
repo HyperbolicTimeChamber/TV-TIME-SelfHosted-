@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import {
 	onShowRemoved,
+	onShowPaused,
 	onShowAdded,
 	showDocId,
 	isGenericEpisodeTitle,
@@ -16,44 +17,36 @@ import {
 	freshSeasonAddsEpisodes,
 	isNewerServerCatalog,
 	todayStr,
-	createSnapshotSequencer,
 	type FreshSeasonEpisode,
 } from "../utils";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {
-	getFirestore,
-	collection,
-	doc,
-	getDoc,
-	getDocs,
-	updateDoc,
-	onSnapshot,
-	query,
-	orderBy,
-	limit,
-	startAfter,
-	QueryDocumentSnapshot,
-} from "@react-native-firebase/firestore";
+import { getFirestore, doc, getDoc, updateDoc } from "@react-native-firebase/firestore";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import {
 	TrackingItem,
 	CatalogShow,
 	CacheKey,
-	DocChangeType,
 	MediaType,
 	QueryKey,
+	type TitleExtras,
 	type TMDBEpisode,
 } from "../types";
 import { EpisodeType, RefreshReason } from "../enums";
+import {
+	subscribeTracking,
+	loadMoreTracking,
+	removeTrackingLocal,
+	upsertTrackingLocal,
+	type TrackingDoc,
+} from "./trackingStore";
 import { useAuthStore } from "../stores";
+import { fetchCatalogDocs } from "../services/historyApi";
 import { getShowDetails, getSeasonDetails } from "../services/tmdb";
 import {
 	requestShowRefresh,
 	requestCatalogCreate,
 	awaitCatalogCreate,
 } from "../services/refreshShow";
-
-const PAGE_SIZE = 50;
 
 export interface EnrichedTrackingItem extends TrackingItem {
 	title: string;
@@ -130,69 +123,62 @@ async function enrichItems(
 	trackingItems: TrackingItem[],
 	cache: Map<string, CatalogShow | null>,
 ): Promise<EnrichedTrackingItem[]> {
-	const db = getFirestore();
 	let cacheUpdated = false;
-	const enriched = await Promise.all(
-		trackingItems.map(async (item): Promise<EnrichedTrackingItem> => {
+	// Pass 1: cache + add-time fills; collect the docs still missing / stand-in
+	const resolved = await Promise.all(
+		trackingItems.map(async (item) => {
 			const mt = (item as any).mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV;
 			const key = showDocId(item.tmdbId, mt);
 			let catalogShow: CatalogShow | null = cache.get(key) ?? null;
-
-			const readFromFirestore = async () => {
-				try {
-					const showDoc = await getDoc(doc(db, "shows", key));
-					if (showDoc?.exists?.()) {
-						catalogShow = localizeCatalog({
-							id: showDoc.id,
-							...showDoc.data(),
-						} as unknown as CatalogShow);
-						cache.set(key, catalogShow);
-						cacheUpdated = true;
-					} else if (!catalogShow) {
-						cache.set(key, null);
-					}
-				} catch {}
-			};
-
 			// Background fill started at add time (search) → use its result instead of a doc read
 			const filling = catalogFills.get(key);
 			if (filling && (!catalogShow || isIncompleteCatalog(catalogShow))) {
 				catalogShow = (await filling) ?? catalogShow;
 			}
-
-			if (!catalogShow || isIncompleteCatalog(catalogShow)) {
-				// Missing / stand-in → Firestore (CF may still be creating it; capped retries,
-				// then the server heal takes over)
-				const attempts = missingAttempts.get(key) ?? 0;
-				if (attempts < MAX_MISSING_ATTEMPTS) {
-					missingAttempts.set(key, attempts + 1);
-					await readFromFirestore();
-				}
-			} else if (
-				!rereadThisSession.has(key) &&
-				hasMissingDisplayData({ ...item, mediaType: mt, catalogShow }, catalogShow)
-			) {
-				// Cache lacks poster / next-ep title / credits → Firestore once per session
-				// (weekly sync may have it). TMDB heal only runs after this.
-				rereadThisSession.add(key);
-				await readFromFirestore();
-			}
-
-			return {
-				...item,
-				title: catalogShow?.title ?? (item as any).title ?? `Show #${item.tmdbId}`,
-				posterPath: catalogShow?.posterPath ?? (item as any).posterPath ?? null,
-				totalEpisodes: catalogShow?.totalEpisodes ?? 0,
-				catalogShow: catalogShow ?? null,
-				// Tracking docs hold the US air date; the catalog's TVMaze time gives the local day
-				nextEpisodeAirDate: nextEpisodeLocalAirDate(
-					item.nextEpisode,
-					catalogShow,
-					item.nextEpisodeAirDate,
-				),
-			};
+			return { item, key, catalogShow };
 		}),
 	);
+
+	// Missing / stand-in → Firestore (CF may still be creating it; capped retries, then the
+	// server heal takes over). One `in` query per 30 shows, not a getDoc each (see fetchCatalogDocs)
+	const toRead = resolved.filter(({ key, catalogShow }) => {
+		if (catalogShow && !isIncompleteCatalog(catalogShow)) return false;
+		const attempts = missingAttempts.get(key) ?? 0;
+		if (attempts >= MAX_MISSING_ATTEMPTS) return false;
+		missingAttempts.set(key, attempts + 1);
+		return true;
+	});
+	if (toRead.length > 0) {
+		try {
+			const fetched = await fetchCatalogDocs(toRead.map((r) => r.key));
+			for (const r of toRead) {
+				const fresh = fetched.get(r.key);
+				if (fresh) {
+					r.catalogShow = fresh;
+					cache.set(r.key, fresh);
+					cacheUpdated = true;
+				} else if (!r.catalogShow) {
+					cache.set(r.key, null);
+				}
+			}
+		} catch {}
+	}
+	// Poster / next-ep title / credits missing: not here — healShown fixes a card once the
+	// user actually sees it (a re-read for every list card cost reads nobody looked at)
+
+	const enriched = resolved.map(({ item, catalogShow }): EnrichedTrackingItem => ({
+		...item,
+		title: catalogShow?.title ?? (item as any).title ?? `Show #${item.tmdbId}`,
+		posterPath: catalogShow?.posterPath ?? (item as any).posterPath ?? null,
+		totalEpisodes: catalogShow?.totalEpisodes ?? 0,
+		catalogShow: catalogShow ?? null,
+		// Tracking docs hold the US air date; the catalog's TVMaze time gives the local day
+		nextEpisodeAirDate: nextEpisodeLocalAirDate(
+			item.nextEpisode,
+			catalogShow,
+			item.nextEpisodeAirDate,
+		),
+	}));
 
 	if (cacheUpdated) persistCatalogCache(cache);
 	return enriched;
@@ -289,6 +275,36 @@ export function prefillCatalog(tmdbId: number, mediaType: MediaType): Promise<Ca
 		.finally(() => catalogFills.delete(key));
 	catalogFills.set(key, fill);
 	return fill;
+}
+
+/**
+ * Info page extras the titleExtras CF just stored → onto the cached catalog doc too, so the next
+ * visit reads them from the cache (no CF call). Nothing the watchlist shows changed, so it isn't
+ * told
+ */
+export function cacheTitleExtras(
+	tmdbId: number,
+	mediaType: MediaType,
+	region: string,
+	extras: TitleExtras,
+) {
+	const key = showDocId(tmdbId, mediaType);
+	const cached = sharedCatalogCache.get(key);
+	if (!cached) return;
+	sharedCatalogCache.set(key, {
+		...cached,
+		cast: extras.cast,
+		castTotal: extras.castTotal,
+		directors: extras.directors,
+		writers: extras.writers,
+		studioLogos: extras.studios,
+		watchProviders: { ...cached.watchProviders, [region]: extras.providers },
+		// Only a real answer is kept: a server older than this field must not look like "none"
+		...(mediaType === MediaType.MOVIE && extras.localRelease !== undefined
+			? { localReleases: { ...cached.localReleases, [region]: extras.localRelease } }
+			: {}),
+	});
+	persistCatalogCache(sharedCatalogCache);
 }
 
 type CatalogPatchListener = (catalog: CatalogShow) => void;
@@ -512,10 +528,7 @@ export function useWatchlist(userId: string | undefined) {
 	const [hasMore, setHasMore] = useState(true);
 	const catalogCache = useRef<Map<string, CatalogShow | null>>(sharedCatalogCache);
 	const catalogCacheRestored = useRef(false);
-	const paginationCursor = useRef<QueryDocumentSnapshot | null>(null);
-	const firstPageLastDoc = useRef<QueryDocumentSnapshot | null>(null);
-	const paginatedItems = useRef<EnrichedTrackingItem[]>([]);
-	// Queue snapshots received before catalog cache is restored
+	// Queue a store update received before catalog cache is restored
 	const pendingSnapshot = useRef<any>(null);
 	// Track current items for optimistic field preservation
 	const itemsRef = useRef<Map<string, EnrichedTrackingItem>>(new Map());
@@ -539,7 +552,9 @@ export function useWatchlist(userId: string | undefined) {
 		});
 	}, []);
 
-	// First page with real-time listener
+	// Tracking docs from the delta-synced store (saved pages, then only what changed). Each
+	// store update re-enriches only the docs that changed; the rest keep their displayed item —
+	// it carries local catalog patches (TMDB heal, season heal, sync re-read)
 	useEffect(() => {
 		if (!userId) {
 			setItems([]);
@@ -547,190 +562,98 @@ export function useWatchlist(userId: string | undefined) {
 			setHasMore(false);
 			return;
 		}
+		// Docs of the last applied update — only the ones that differ get enriched again
+		let prevDocs = new Map<string, TrackingDoc>();
+		// Only the newest store state may apply (enrichment is async)
+		let version = 0;
 
-		const db = getFirestore();
-		const colRef = collection(doc(db, "users", userId), "tracking");
-		const q = query(colRef, orderBy("priorityDate", "desc"), limit(PAGE_SIZE));
-
-		paginatedItems.current = [];
-		paginationCursor.current = null;
-
-		let prevEnrichedMap = new Map<string, EnrichedTrackingItem>();
-		const sequencer = createSnapshotSequencer();
-
-		const unsubscribe = onSnapshot(
-			q,
-			async (snapshot) => {
-				sequencer.receive(
-					snapshot.docChanges().map((c: any) => ({ id: c.doc.id, type: c.type as DocChangeType })),
-				);
-				// Wait for catalog cache restoration before processing
-				if (!catalogCacheRestored.current) {
-					pendingSnapshot.current = () => processSnapshot(snapshot);
-					return;
-				}
-				await processSnapshot(snapshot);
-			},
-			(error) => {
-				console.error("Tracking listener error:", error);
+		const unsubscribe = subscribeTracking(userId, (state) => {
+			setHasMore(state.hasMore);
+			setLoadingMore(state.loadingMore);
+			if (state.loading) return;
+			const v = ++version;
+			const process = async () => {
+				const changed = state.docs.filter((d) => prevDocs.get(d.id) !== d);
+				const fresh = changed.length > 0 ? await enrichItems(changed, catalogCache.current) : [];
+				if (v !== version) return;
+				const freshMap = new Map(fresh.map((e) => [e.id, e]));
+				prevDocs = new Map(state.docs.map((d) => [d.id, d]));
+				// Merged against the latest applied items (not itemsRef — it only follows once React
+				// runs this updater, so an update right behind another put the older item back)
+				setItems((prev) => {
+					const current = new Map(prev.map((p) => [p.id, p]));
+					return state.docs.map((d): EnrichedTrackingItem => {
+						const cur = current.get(d.id);
+						const e = freshMap.get(d.id) ?? cur;
+						if (!e) {
+							return {
+								...d,
+								title: `Show #${d.tmdbId}`,
+								posterPath: null,
+								totalEpisodes: 0,
+								catalogShow: null,
+							};
+						}
+						// Preserve optimistic catalogShow from emitShowAdded when the doc arrives
+						// before the CF creates the catalog doc
+						if (e.catalogShow || !cur?.catalogShow) return e;
+						return {
+							...e,
+							catalogShow: cur.catalogShow,
+							title: cur.title || e.title,
+							posterPath: cur.posterPath ?? e.posterPath,
+							totalEpisodes: cur.totalEpisodes || e.totalEpisodes,
+						};
+					});
+				});
 				setLoading(false);
-			},
-		);
-
-		async function processSnapshot(snapshot: any) {
-			const trackingItems = snapshot.docs.map((d: any) => ({
-				id: d.id,
-				...d.data(),
-			})) as TrackingItem[];
-
-			// Only enrich changed/added items — reuse previous for unchanged. Changes of snapshots
-			// superseded before they applied are included
-			const ticket = sequencer.begin();
-			const changedIds = ticket.changed;
-			const isInitial = prevEnrichedMap.size === 0;
-
-			let enriched: EnrichedTrackingItem[];
-			if (isInitial || changedIds.size === trackingItems.length) {
-				// Initial load or full refresh
-				enriched = await enrichItems(trackingItems, catalogCache.current);
-			} else {
-				// Incremental: only enrich changed items
-				const toEnrich = trackingItems.filter((t) => changedIds.has(t.id));
-				const freshlyEnriched = await enrichItems(toEnrich, catalogCache.current);
-				const freshMap = new Map(freshlyEnriched.map((e) => [e.id, e]));
-
-				// Unchanged docs keep the displayed item — it carries local catalog patches (TMDB heal,
-				// season heal, sync re-read) the previous snapshot's copy doesn't
-				enriched = trackingItems.map(
-					(t) =>
-						freshMap.get(t.id) ??
-						itemsRef.current.get(t.id) ??
-						prevEnrichedMap.get(t.id) ?? {
-							...t,
-							title: `Show #${t.tmdbId}`,
-							posterPath: null,
-							totalEpisodes: 0,
-							catalogShow: null,
-						},
-				);
-			}
-
-			// Preserve optimistic catalogShow from emitShowAdded when listener
-			// fires before CF creates the catalog doc
-			for (let idx = 0; idx < enriched.length; idx++) {
-				const e = enriched[idx];
-				if (e.catalogShow) continue;
-				const cur = itemsRef.current.get(e.id);
-				if (!cur?.catalogShow) continue;
-				enriched[idx] = {
-					...e,
-					catalogShow: cur.catalogShow,
-					title: cur.title || e.title,
-					posterPath: cur.posterPath ?? e.posterPath,
-					totalEpisodes: cur.totalEpisodes || e.totalEpisodes,
-				};
-			}
-
-			// A newer snapshot arrived while this one was enriching: it applies instead (a cold
-			// start's offline-cache pass finishing after the server's would undo it)
-			if (!sequencer.commit(ticket)) return;
-
-			// Update prev map for next snapshot
-			prevEnrichedMap = new Map(enriched.map((e) => [e.id, e]));
-
-			firstPageLastDoc.current = snapshot.docs[snapshot.docs.length - 1] || null;
-			if (!paginationCursor.current) {
-				paginationCursor.current = firstPageLastDoc.current;
-			}
-
-			const firstPageIds = new Set(enriched.map((e) => e.id));
-			paginatedItems.current = paginatedItems.current.filter((p) => !firstPageIds.has(p.id));
-
-			// Removals in first page: filter paginated items locally (no Firestore reads)
-			const removedIds = ticket.removed;
-			if (removedIds.size > 0) {
-				paginatedItems.current = paginatedItems.current.filter((p) => !removedIds.has(p.id));
-			}
-
-			const merged = [...enriched, ...paginatedItems.current];
-			setItems(merged);
-			setHasMore(snapshot.docs.length >= PAGE_SIZE);
-			setLoading(false);
-		}
-
+			};
+			// Wait for catalog cache restoration before enriching
+			if (!catalogCacheRestored.current) pendingSnapshot.current = process;
+			else process();
+		});
 		return unsubscribe;
-	}, [userId]);
+	}, [userId, setItems]);
 
 	const loadMore = useCallback(async () => {
-		if (!userId || !hasMore || loadingMore || !paginationCursor.current) return;
-		setLoadingMore(true);
+		if (!userId) return;
+		await loadMoreTracking(userId);
+	}, [userId]);
 
-		try {
-			const db = getFirestore();
-			const colRef = collection(doc(db, "users", userId), "tracking");
-			const q = query(
-				colRef,
-				orderBy("priorityDate", "desc"),
-				startAfter(paginationCursor.current),
-				limit(PAGE_SIZE),
-			);
+	const removeItem = useCallback(
+		(tmdbId: number) => {
+			// Keep catalog cache — shared metadata used by previously watched items
+			setItems((prev) => prev.filter((p) => p.tmdbId !== tmdbId));
+			if (userId) removeTrackingLocal(userId, tmdbId);
+		},
+		[userId, setItems],
+	);
 
-			const snapshot = await getDocs(q);
-			if (snapshot.docs.length === 0) {
-				setHasMore(false);
-				return;
+	const insertItem = useCallback(
+		(added: EnrichedTrackingItem) => {
+			let item = added;
+			const mt = item.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV;
+			const key = showDocId(item.tmdbId, mt);
+			const cached = catalogCache.current.get(key);
+			if (
+				(!item.catalogShow || isIncompleteCatalog(item.catalogShow)) &&
+				isCompleteCatalog(cached, mt)
+			) {
+				// Background fill already landed — a stand-in / missing catalog mustn't replace it
+				item = { ...item, catalogShow: cached };
+			} else if (item.catalogShow) {
+				catalogCache.current.set(key, item.catalogShow);
+				persistCatalogCache(catalogCache.current);
 			}
-
-			const trackingItems = snapshot.docs.map((d) => ({
-				id: d.id,
-				...d.data(),
-			})) as TrackingItem[];
-
-			const enriched = await enrichItems(trackingItems, catalogCache.current);
-
-			paginationCursor.current = snapshot.docs[snapshot.docs.length - 1];
-
-			const existingIds = new Set(paginatedItems.current.map((p) => p.id));
-			const newItems = enriched.filter((e) => !existingIds.has(e.id));
-			paginatedItems.current = [...paginatedItems.current, ...newItems];
-
-			setItems((prev) => {
-				const prevIds = new Set(prev.map((p) => p.id));
-				const toAdd = newItems.filter((e) => !prevIds.has(e.id));
-				return [...prev, ...toAdd];
-			});
-
-			setHasMore(snapshot.docs.length >= PAGE_SIZE);
-		} catch (error) {
-			console.error("Load more tracking error:", error);
-		} finally {
-			setLoadingMore(false);
-		}
-	}, [userId, hasMore, loadingMore]);
-
-	const removeItem = useCallback((tmdbId: number) => {
-		paginatedItems.current = paginatedItems.current.filter((p) => p.tmdbId !== tmdbId);
-		// Keep catalog cache — shared metadata used by previously watched items
-		setItems((prev) => prev.filter((p) => p.tmdbId !== tmdbId));
-	}, []);
-
-	const insertItem = useCallback((added: EnrichedTrackingItem) => {
-		let item = added;
-		const mt = item.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV;
-		const key = showDocId(item.tmdbId, mt);
-		const cached = catalogCache.current.get(key);
-		if (
-			(!item.catalogShow || isIncompleteCatalog(item.catalogShow)) &&
-			isCompleteCatalog(cached, mt)
-		) {
-			// Background fill already landed — a stand-in / missing catalog mustn't replace it
-			item = { ...item, catalogShow: cached };
-		} else if (item.catalogShow) {
-			catalogCache.current.set(key, item.catalogShow);
-			persistCatalogCache(catalogCache.current);
-		}
-		setItems((prev) => [item, ...prev.filter((p) => p.tmdbId !== item.tmdbId)]);
-	}, []);
+			setItems((prev) => [item, ...prev.filter((p) => p.tmdbId !== item.tmdbId)]);
+			// Saved docs hold the tracking fields only (the catalog has its own cache)
+			if (userId) {
+				const { catalogShow: _catalogShow, totalEpisodes: _totalEpisodes, ...tracking } = item;
+				upsertTrackingLocal(userId, tracking as TrackingDoc);
+			}
+		},
+		[userId, setItems],
+	);
 
 	// Fresh TMDB season loaded anywhere (info modal / show page) → cards follow the healed catalog
 	const queryClient = useQueryClient();
@@ -743,7 +666,6 @@ export function useWatchlist(userId: string | undefined) {
 				p.tmdbId === tmdbId && (p.mediaType === MediaType.MOVIE) === isMovie
 					? withCatalog(p, catalog)
 					: p;
-			paginatedItems.current = paginatedItems.current.map(patch);
 			// Tracking doc's stored name is stale too → one write per item (0 reads)
 			if (userId && !isMovie) {
 				for (const item of itemsRef.current.values()) {
@@ -767,6 +689,8 @@ export function useWatchlist(userId: string | undefined) {
 
 	// Listen for external removal events (e.g. from ShowDetailScreen)
 	useEffect(() => onShowRemoved(removeItem), [removeItem]);
+	// Paused elsewhere (ShowDetailScreen): off the watchlist, still tracked
+	useEffect(() => onShowPaused(removeItem), [removeItem]);
 	// Listen for external add events (e.g. from SearchScreen)
 	useEffect(() => onShowAdded(insertItem), [insertItem]);
 	// Background catalog fill landed → cards still on no / stand-in catalog follow it
@@ -784,7 +708,6 @@ export function useWatchlist(userId: string | undefined) {
 					totalEpisodes: catalog.totalEpisodes || p.totalEpisodes,
 				};
 			};
-			paginatedItems.current = paginatedItems.current.map(patch);
 			setItems((prev) => prev.map(patch));
 		};
 		catalogFillListeners.add(listener);
@@ -811,7 +734,6 @@ export function useWatchlist(userId: string | undefined) {
 			const persistStamp = () =>
 				AsyncStorage.setItem(CacheKey.CATALOG_SYNC_STAMP, lastCatalogSync).catch(() => {});
 			// No stamp yet (first run / pre-existing install) → refresh once too
-			const db = getFirestore();
 			const { previousCatalogSync, changedShowIds } = useAuthStore.getState();
 			const stale = selectStaleCatalogItems(
 				[...itemsRef.current.values()],
@@ -820,21 +742,20 @@ export function useWatchlist(userId: string | undefined) {
 				changedShowIds,
 			);
 			const updates = new Map<number, CatalogShow>();
-			await Promise.all(
-				stale.map(async (item) => {
-					const key = showDocId(item.tmdbId, MediaType.TV);
-					try {
-						const snap = await getDoc(doc(db, "shows", key));
-						if (!snap?.exists?.()) return;
-						const fresh = localizeCatalog({
-							id: snap.id,
-							...snap.data(),
-						} as unknown as CatalogShow);
+			if (stale.length > 0) {
+				// One `in` query per 30 shows, not a getDoc each (see fetchCatalogDocs)
+				const keyOf = (tmdbId: number) => showDocId(tmdbId, MediaType.TV);
+				try {
+					const fetched = await fetchCatalogDocs(stale.map((s) => keyOf(s.tmdbId)));
+					for (const item of stale) {
+						const key = keyOf(item.tmdbId);
+						const fresh = fetched.get(key);
+						if (!fresh) continue;
 						catalogCache.current.set(key, fresh);
 						updates.set(item.tmdbId, fresh);
-					} catch {}
-				}),
-			);
+					}
+				} catch {}
+			}
 			if (updates.size > 0) {
 				persistCatalogCache(catalogCache.current);
 				setItems((prev) =>
@@ -861,78 +782,66 @@ export function useWatchlist(userId: string | undefined) {
 		})();
 	}, [lastCatalogSync, loading, items.length, setItems]);
 
-	// Self-heal through the server so every user gets the fix (0 Firestore reads here):
+	// Self-heal, only for cards the user has on screen (healShown — the list calls it once a card
+	// has stayed in view): nothing is fixed for titles nobody is looking at. Per show, at most
+	// once a session, cheapest first:
 	// - no catalog doc after the Firestore retries → addShow builds it from TMDB
-	// - movie without credits / TV missing poster or with a placeholder next-episode name →
-	//   refreshShow (shared TMDB refresh of the doc, next episode's season included)
-	// Only after this session's Firestore re-read came back still lacking data (backendTried).
-	// Each show heals at most once per session; results arrive via publishCatalog → listener.
-	const healingRef = useRef(new Set<number>());
-	const healedRef = useRef(new Set<number>());
-	useEffect(() => {
-		if (loading || items.length === 0) return;
-		const needsHeal = (i: EnrichedTrackingItem) => {
-			if (healingRef.current.has(i.tmdbId) || healedRef.current.has(i.tmdbId)) return false;
-			const mt = i.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV;
-			return needsTmdbHeal(i, backendTried(showDocId(i.tmdbId, mt)));
-		};
-		const missing = items.filter(needsHeal);
-		if (missing.length === 0) return;
+	// - poster / aired next-episode name / movie credits missing → one Firestore re-read (the
+	//   weekly sync may have it), then refreshShow (shared TMDB refresh, next season included)
+	// - last listed episode aired without TMDB's finale marker → refreshShow (TMDB may list
+	//   the next episodes already); server cooldowns answer repeats with the doc
+	// Results arrive via publishCatalog → listener.
+	const shownItemsRef = useRef(items);
+	shownItemsRef.current = items;
+	const shownRef = useRef(new Set<string>());
+	const healShown = useCallback((tmdbIds: number[]) => {
+		for (const tmdbId of tmdbIds) {
+			const item = shownItemsRef.current.find((i) => i.tmdbId === tmdbId);
+			if (!item) continue;
+			const mt = item.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV;
+			const key = showDocId(item.tmdbId, mt);
+			if (shownRef.current.has(key)) continue;
+			shownRef.current.add(key);
+			healCard(item, mt, key).catch(() => {});
+		}
+	}, []);
 
-		// Mark as healing to avoid duplicate calls
-		for (const m of missing) healingRef.current.add(m.tmdbId);
+	return { items, loading, loadMore, loadingMore, hasMore, removeItem, healShown };
+}
 
-		const timer = setTimeout(() => {
-			for (const item of missing) {
-				const mt = item.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV;
-				healingRef.current.delete(item.tmdbId);
-				healedRef.current.add(item.tmdbId);
-				if (!item.catalogShow || isIncompleteCatalog(item.catalogShow)) {
-					requestCatalogCreate(item.tmdbId, mt).then((catalog) => {
-						if (catalog) publishCatalog(localizeCatalog(catalog));
-					});
-					continue;
-				}
-				const seasons =
-					mt === MediaType.TV && item.nextEpisode ? [item.nextEpisode.season] : undefined;
-				refreshShared(item.tmdbId, mt, RefreshReason.MISSING_DATA, seasons);
+/** One on-screen card's heal (see healShown) */
+async function healCard(item: EnrichedTrackingItem, mt: MediaType, key: string) {
+	let catalog = sharedCatalogCache.get(key) ?? item.catalogShow;
+	if (!catalog || isIncompleteCatalog(catalog)) {
+		if (!backendTried(key)) return;
+		const created = await requestCatalogCreate(item.tmdbId, mt);
+		if (created) publishCatalog(localizeCatalog(created));
+		return;
+	}
+	const display = { ...item, mediaType: mt, catalogShow: catalog };
+	if (hasMissingDisplayData(display, catalog)) {
+		if (!rereadThisSession.has(key)) {
+			rereadThisSession.add(key);
+			const snap = await getDoc(doc(getFirestore(), "shows", key)).catch(() => null);
+			if (snap?.exists?.()) {
+				const fresh = localizeCatalog({ id: snap.id, ...snap.data() } as unknown as CatalogShow);
+				publishCatalog(fresh);
+				catalog = fresh;
 			}
-		}, 3000);
-
-		const healing = healingRef.current;
-		return () => {
-			clearTimeout(timer);
-			for (const m of missing) healing.delete(m.tmdbId);
-		};
-	}, [loading, items]);
-
-	// Last listed episode aired without TMDB's finale marker → the season likely continues and
-	// TMDB may already list the next episodes. First user to see it triggers the shared refresh;
-	// the server cooldown answers the rest with the (already fresh) doc. Pure check on the cached
-	// catalog — 0 reads; one call per show per session.
-	useEffect(() => {
-		if (loading || items.length === 0) return;
-		const today = todayStr();
-		const now = Date.now();
-		const due = items.filter((i) => {
-			if (i.mediaType === MediaType.MOVIE) return false;
-			if (airedRefreshAsked.has(showDocId(i.tmdbId, MediaType.TV))) return false;
-			return needsServerRefresh(i.catalogShow, today, now);
-		});
-		if (due.length === 0) return;
-		const keys = due.map((i) => showDocId(i.tmdbId, MediaType.TV));
-		for (const key of keys) airedRefreshAsked.add(key);
-		const timer = setTimeout(() => {
-			for (const item of due) {
-				refreshShared(item.tmdbId, MediaType.TV, RefreshReason.AIRED_NO_FINALE);
-			}
-		}, 3000);
-		return () => {
-			clearTimeout(timer);
-			// Not sent yet → the next run may ask again
-			for (const key of keys) airedRefreshAsked.delete(key);
-		};
-	}, [loading, items]);
-
-	return { items, loading, loadMore, loadingMore, hasMore, removeItem };
+		}
+		if (needsTmdbHeal({ ...display, catalogShow: catalog }, true)) {
+			const seasons =
+				mt === MediaType.TV && item.nextEpisode ? [item.nextEpisode.season] : undefined;
+			refreshShared(item.tmdbId, mt, RefreshReason.MISSING_DATA, seasons);
+			return;
+		}
+	}
+	if (
+		mt === MediaType.TV &&
+		!airedRefreshAsked.has(key) &&
+		needsServerRefresh(catalog, todayStr(), Date.now())
+	) {
+		airedRefreshAsked.add(key);
+		refreshShared(item.tmdbId, MediaType.TV, RefreshReason.AIRED_NO_FINALE);
+	}
 }

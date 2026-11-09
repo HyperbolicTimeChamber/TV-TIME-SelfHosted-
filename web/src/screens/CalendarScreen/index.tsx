@@ -100,10 +100,10 @@ function DayCard({ ep, groupEps, expanded, child, onClick }: DayCardProps) {
 	const airTime = isMovie ? null : formatAirTime(ep.airStamp);
 	const backdrop = (
 		<>
-			{/* Same backdrop treatment as the Watch History cards */}
-			{ep.backdropPath && (
+			{/* Same backdrop treatment as the Watch History cards; no backdrop → the poster */}
+			{(ep.backdropPath || ep.posterPath) && (
 				<img
-					src={tmdbBackdropUri(ep.backdropPath, CARD_MAX_WIDTH)}
+					src={tmdbBackdropUri((ep.backdropPath || ep.posterPath)!, CARD_MAX_WIDTH)}
 					alt=""
 					className={styles.cardBg}
 					loading="lazy"

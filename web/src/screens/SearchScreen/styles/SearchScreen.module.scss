@@ -107,6 +107,17 @@
 	cursor: pointer;
 }
 
+.clearButton {
+	flex-shrink: 0;
+	background: none;
+	border: none;
+	color: var(--text-muted);
+	display: flex;
+	align-items: center;
+	padding: 8px 12px;
+	cursor: pointer;
+}
+
 .searchRow {
 	flex: 1;
 	text-align: left;
@@ -121,11 +132,128 @@
 	text-overflow: ellipsis;
 }
 
-/* Results sort button — right end of the search bar, so it rides along with the collapsing header */
-.sortSlot {
+/* Grid / List toggle — right end of the search bar, after the ✕ */
+.viewToggle {
+	flex-shrink: 0;
+	background: none;
+	border: none;
+	color: var(--text);
 	display: flex;
 	align-items: center;
-	padding-right: 6px;
+	padding: 8px 14px 8px 6px;
+	cursor: pointer;
+}
+
+/* List view: one column of rows (wider screens: two) */
+.rows {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 8px;
+	padding: 8px 12px;
+}
+
+@include desktop {
+	.rows {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 12px;
+	}
+}
+
+.rowCard {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 8px;
+	border-radius: 16px;
+	overflow: hidden;
+	background: var(--surface);
+	cursor: pointer;
+	isolation: isolate;
+}
+
+/* Blurred backdrop under a dark wash, as on the list page's cards */
+.rowBackdrop {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	filter: blur(2px);
+	transform: scale(1.05);
+	z-index: -2;
+}
+
+.rowCard::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	/* Darker than the list page's 0.55: the overview is small text over the backdrop */
+	background: rgba(0, 0, 0, 0.7);
+	z-index: -1;
+	pointer-events: none;
+}
+
+.rowPoster {
+	width: 64px;
+	flex-shrink: 0;
+	aspect-ratio: 2 / 3;
+	border-radius: 10px;
+	background: var(--surface);
+	object-fit: cover;
+}
+
+.rowInfo {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.rowTitle {
+	font-size: 15px;
+	font-weight: 600;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.rowMeta {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 11px;
+	color: var(--text-secondary);
+}
+
+.rowOverview {
+	font-size: 12px;
+	color: var(--text-secondary);
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.rowBadges {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	flex-shrink: 0;
+}
+
+/* In the row's badge column, not floating over a poster (beats .badge / .listBadge below) */
+.rowBadges .rowBadge {
+	position: relative;
+	top: 0;
+	right: 0;
+}
+
+.skeletonRow {
+	height: 112px;
+	border-radius: 16px;
 }
 
 .sectionTitle {
@@ -174,8 +302,15 @@
 .card {
 	position: relative;
 	overflow: hidden;
-	border-radius: 6px;
+	/* The same 16 as a list card, so the pills and badges sit in matching curves */
+	border-radius: 16px;
 	cursor: pointer;
+}
+
+/* Placeholder the size of a card's poster */
+.skeletonCard {
+	aspect-ratio: 2 / 3;
+	border-radius: 16px;
 }
 
 .poster {
@@ -190,25 +325,36 @@
 	left: 0;
 	right: 0;
 	bottom: 0;
-	background: rgba(0, 0, 0, 0.6);
-	padding: 4px 8px;
-	display: flex;
-	flex-direction: column;
+	/* Fades up into the poster instead of a hard-edged bar */
+	background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.6) 60%, transparent);
+	/* Top room for the fade; side and bottom room so the text clears the rounded corners */
+	padding: 24px 12px 10px;
 }
 
 .bannerTop {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	justify-content: space-between;
-	gap: 4px;
+	gap: 6px;
+}
+
+/* TV / MOVIE pill with the year under it — beside the title, so the year takes no line of its own */
+.bannerSide {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 2px;
+	flex-shrink: 0;
 }
 
 .cardTitle {
 	font-size: 12px;
 	flex-shrink: 1;
-	white-space: nowrap;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
 	overflow: hidden;
-	text-overflow: ellipsis;
+	overflow-wrap: anywhere;
 }
 
 .cardYear {
@@ -217,6 +363,7 @@
 }
 
 .typeBadge {
+	color: var(--text);
 	background: var(--primary);
 	border-radius: 4px;
 	padding: 2px 6px;
@@ -227,6 +374,20 @@
 
 .typeBadgeMovie {
 	background: $movie-purple;
+}
+
+/* The title's state pills (Currently Watching, Watch Count…), stacked top-left over the poster —
+   the badges are top-right */
+.overlayTags {
+	position: absolute;
+	top: 8px;
+	left: 6px;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 4px;
+	pointer-events: none;
 }
 
 .badge {
@@ -240,9 +401,6 @@
 	border: 2px solid var(--text);
 	background: rgba(0, 0, 0, 0.5);
 	color: var(--text);
-	font-size: 16px;
-	font-weight: 700;
-	line-height: 18px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -253,5 +411,34 @@
 .badgeActive {
 	background: $watched-green;
 	border-color: $watched-green;
-	font-size: 14px;
+}
+
+/* "Add to List" — sits right under the watchlist badge; amber = already in a list */
+.listBadge {
+	position: absolute;
+	/* Under the watchlist badge: 6 + 26 + a 10 gap */
+	top: 42px;
+	right: 6px;
+	z-index: 1;
+	width: 26px;
+	height: 26px;
+	border-radius: 13px;
+	border: 2px solid var(--text);
+	background: rgba(0, 0, 0, 0.5);
+	color: var(--text);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	padding: 0;
+}
+
+/* No watchlist badge above it: takes its place */
+.listBadgeTop {
+	top: 6px;
+}
+
+.listBadgeActive {
+	background: $warning-amber;
+	border-color: $warning-amber;
 }

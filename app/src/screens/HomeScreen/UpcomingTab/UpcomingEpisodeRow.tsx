@@ -1,11 +1,12 @@
 import { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { colors, fonts, spacing, typography } from "../../../theme";
+import { colors, fonts, spacing } from "../../../theme";
+import CardInfo, { CARD_MAX_FONT_SCALE, cardStyles } from "../../../components/CardInfo";
+import { upcomingDirector, upcomingRuntime } from "../../../hooks/useUpcomingEpisodes";
+import { formatRuntime } from "../../../utils/customLists";
 import { formatAirTime } from "../../../utils/airTime";
 import PosterImage from "../../../components/PosterImage";
 import { UpcomingEpisode, MediaType } from "../../../types";
-
-const POSTER_WIDTH = 100;
 
 interface Props {
 	episode: UpcomingEpisode;
@@ -24,127 +25,84 @@ export default memo(function UpcomingEpisodeRow({
 	const label = isMovie
 		? "MOVIE"
 		: `S${String(episode.season).padStart(2, "0")} | E${String(episode.episode).padStart(2, "0")}`;
-	// Local air time (TVMaze) — only when the exact time is known
-	const airTime = isMovie ? null : formatAirTime(episode.airStamp);
+	// Right end of the middle line: local air time (TVMaze, only when the exact time is known),
+	// or a movie's runtime
+	const sideText = isMovie
+		? formatRuntime(upcomingRuntime(episode))
+		: formatAirTime(episode.airStamp);
 
 	return (
 		<TouchableOpacity
-			style={styles.row}
+			style={[cardStyles.container, styles.row]}
 			onPress={() => (onEpisodePress ? onEpisodePress(episode) : onPress(episode.tmdbShowId))}
 			activeOpacity={0.7}
 		>
 			<PosterImage
 				posterPath={episode.posterPath}
 				mediaType={episode.mediaType}
-				style={styles.poster}
+				style={cardStyles.poster}
 			/>
-			<View style={styles.info}>
-				<TouchableOpacity
-					style={styles.titlePill}
-					onPress={() => (onTitlePress ? onTitlePress(episode) : onPress(episode.tmdbShowId))}
-					activeOpacity={0.7}
-				>
-					<Text style={styles.titleText} numberOfLines={1}>
-						{episode.showTitle.toUpperCase()}
-					</Text>
-					<Text style={styles.titleArrow}>›</Text>
-				</TouchableOpacity>
-				{isMovie ? (
-					<View style={styles.movieBadge}>
-						<Text style={styles.movieBadgeText}>MOVIE</Text>
-					</View>
-				) : (
-					<>
-						{/* Time on the SxxExx line → the episode name gets the card's full width */}
-						<View style={styles.epRow}>
-							<Text style={styles.epLabel}>{label}</Text>
-							{airTime && (
-								<Text style={styles.airTime} numberOfLines={1}>
-									{airTime}
-								</Text>
-							)}
-						</View>
-						{episode.episodeTitle ? (
-							<Text style={styles.epTitle} numberOfLines={1}>
-								{episode.episodeTitle}
+			<CardInfo
+				title={episode.showTitle}
+				onTitlePress={() => (onTitlePress ? onTitlePress(episode) : onPress(episode.tmdbShowId))}
+				subline={isMovie ? upcomingDirector(episode) : episode.episodeTitle}
+				sublineLines={isMovie ? 1 : 2}
+				style={styles.info}
+			>
+				{/* Time on the middle line → the episode name / director gets the card's full width */}
+				<View style={styles.epRow}>
+					{isMovie ? (
+						<View style={styles.movieBadge}>
+							<Text maxFontSizeMultiplier={CARD_MAX_FONT_SCALE} style={styles.movieBadgeText}>
+								MOVIE
 							</Text>
-						) : null}
-					</>
-				)}
-			</View>
+						</View>
+					) : (
+						<Text maxFontSizeMultiplier={CARD_MAX_FONT_SCALE} style={cardStyles.episode}>
+							{label}
+						</Text>
+					)}
+					{sideText && (
+						<View style={styles.side} pointerEvents="none">
+							<Text
+								maxFontSizeMultiplier={CARD_MAX_FONT_SCALE}
+								style={styles.airTime}
+								numberOfLines={1}
+							>
+								{sideText}
+							</Text>
+						</View>
+					)}
+				</View>
+			</CardInfo>
 		</TouchableOpacity>
 	);
 });
 
 const styles = StyleSheet.create({
 	row: {
-		flexDirection: "row",
-		backgroundColor: colors.surface,
-		borderRadius: 8,
-		overflow: "hidden",
 		marginHorizontal: spacing.md,
 		marginBottom: spacing.sm,
-		minHeight: POSTER_WIDTH,
 	},
-	poster: {
-		width: POSTER_WIDTH,
-		minHeight: POSTER_WIDTH,
-		alignSelf: "stretch",
-	},
-	info: {
-		flex: 1,
-		justifyContent: "center",
-		paddingVertical: spacing.sm,
-		paddingLeft: spacing.md,
-		paddingRight: spacing.md,
-	},
-	titlePill: {
-		flexDirection: "row",
-		alignItems: "center",
-		alignSelf: "flex-start",
-		borderWidth: 1.5,
-		borderColor: colors.text,
-		borderRadius: 14,
-		paddingHorizontal: spacing.sm,
-		paddingVertical: 2,
-		marginBottom: spacing.md,
-		maxWidth: "90%",
-	},
-	titleText: {
-		fontSize: 11,
-		fontWeight: "600",
-		color: colors.text,
-		flexShrink: 1,
-		letterSpacing: 0.5,
-	},
-	titleArrow: {
-		fontSize: 11,
-		color: colors.text,
-		marginLeft: spacing.xs,
-		lineHeight: 13,
-	},
+	// No checkmark on the right: the text gets the padding instead
+	info: { paddingRight: spacing.md },
 	epRow: {
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "space-between",
 		alignSelf: "stretch",
 	},
-	epLabel: {
-		...typography.subtitle,
-		fontSize: 16,
-		fontWeight: "700",
-		color: colors.text,
-		letterSpacing: 1,
+	// Right end of the middle line, laid over it: the big time text would make the line taller
+	// than the badge / SxxExx and unbalance the card's even gaps
+	side: {
+		position: "absolute",
+		right: 0,
+		top: -20,
+		bottom: -20,
+		justifyContent: "center",
 	},
-	epTitle: {
-		...typography.body,
-		color: colors.textSecondary,
-		marginTop: 2,
-		fontSize: 13,
-	},
-	// Right end of the SxxExx line
-	// Wide enough for any "hh:mm AM": Android measures some times in this font a hair narrow and
-	// cut the "AM" / "PM" off
+	// Air time / runtime. Wide enough for any "hh:mm AM": Android measures some times in this
+	// font a hair narrow and cut the "AM" / "PM" off
 	airTime: {
 		flexShrink: 0,
 		minWidth: 88,

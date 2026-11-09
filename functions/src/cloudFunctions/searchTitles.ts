@@ -1,0 +1,72 @@
+import { HttpsError } from "firebase-functions/v2/https";
+import { fetchSearchBatch, primeSearch } from "../hooks/searchTitles";
+import { RateLimitError } from "../hooks/tmdbProxy";
+import { requireCallerOrGuest } from "../hooks/requireCaller";
+import { trackedOnCall } from "../hooks/trackedTriggers";
+import {
+  Callable,
+  FunctionName,
+  SearchScope,
+  SEARCH_MAX_QUERY_LENGTH,
+} from "../shared/enums";
+import type {
+  SearchTitlesRequest,
+  SearchTitlesResponse,
+} from "../shared/types";
+
+/**
+ * Title search in batches of several TMDB pages. A query that also names a year or a person
+ * ("batman 2006", "batman christian bale") is read as such when no title has all its words.
+ * - Signed in or not: guests are rate limited per IP, users per uid
+ * - One instance: its queueing TMDB rate limit, result cache and in-flight dedupe are global
+ * - Busy (a TMDB request would queue too long) → resource-exhausted, the client retries later
+ */
+export const searchTitles = trackedOnCall(
+  FunctionName.SEARCH_TITLES,
+  {
+    maxInstances: 1,
+    concurrency: 80,
+    cpu: 1,
+    memory: "512MiB",
+    timeoutSeconds: 30,
+  },
+  async (request): Promise<SearchTitlesResponse | null> => {
+    // Logged-out web visitors search too (limited per IP)
+    await requireCallerOrGuest(request, Callable.SEARCH_TITLES);
+    if (request.data?.warmup) {
+      await primeSearch();
+      return null;
+    }
+
+    const { query, scope, batch } = (request.data ?? {}) as SearchTitlesRequest;
+    if (
+      typeof query !== "string" ||
+      !query.trim() ||
+      query.length > SEARCH_MAX_QUERY_LENGTH ||
+      !Object.values(SearchScope).includes(scope) ||
+      !Number.isInteger(batch) ||
+      batch < 1
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "query, scope and batch required",
+      );
+    }
+
+    try {
+      return await fetchSearchBatch(scope, query, batch);
+    } catch (err) {
+      if (err instanceof RateLimitError) {
+        throw new HttpsError(
+          "resource-exhausted",
+          "Search is busy, try again shortly",
+        );
+      }
+      console.error("[searchTitles] TMDB search failed:", err);
+      throw new HttpsError(
+        "unavailable",
+        "Could not reach TMDB. Try again later.",
+      );
+    }
+  },
+);

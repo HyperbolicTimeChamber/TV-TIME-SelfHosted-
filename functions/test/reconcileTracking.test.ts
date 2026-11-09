@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Timestamp } from "firebase-admin/firestore";
+import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { reconcileTracking } from "../src/hooks/upcoming/reconcileTracking";
 import {
   CatalogShow,
@@ -8,6 +8,9 @@ import {
   CatalogEpisode,
 } from "../src/shared/types";
 import { fakeDb, trackingDoc } from "./helpers";
+
+// Every tracking write carries the delta sync stamp
+const stamp = { updatedAt: FieldValue.serverTimestamp() };
 
 const ep = (
   n: number,
@@ -113,7 +116,7 @@ test("archived show: old unwatched episodes don't bring it back", async () => {
     new Map([["tv_1", catalog([s1])]]),
   );
   assert.equal(ov.size, 0);
-  assert.deepEqual(db.state.writes[0].data, { reconciledEpisodeCount: 2 });
+  assert.deepEqual(db.state.writes[0].data, { reconciledEpisodeCount: 2, ...stamp });
 });
 
 test("unchanged episode count → zero watchedEpisodes reads and no writes", async () => {
@@ -155,6 +158,7 @@ test("active pointer: placeholder name and missing air date refreshed without re
   assert.deepEqual(db.state.writes[0].data, {
     nextEpisodeName: "Real Name",
     nextEpisodeAirDate: "2026-10-12",
+    ...stamp,
   });
 });
 
@@ -236,4 +240,32 @@ test("future first-new episode sets priorityDate to its air date", async () => {
   );
   const pd = db.state.writes[0].data.priorityDate as Timestamp;
   assert.equal(pd.toDate().toISOString().slice(0, 10), "2099-01-01");
+});
+
+test("completed with an aired episode still ahead (TV Time archived import) → watching", async () => {
+  const cat = catalog(
+    [season(1, [ep(1, "Pilot", "2024-06-15"), ep(2, "Two", "2024-06-16"), ep(3, "Three", "2024-06-22")])],
+    { status: "Ended" },
+  );
+  const db = fakeDb(watched([1, 1], [1, 2]));
+  const ov = await reconcileTracking(
+    db,
+    "u",
+    [trackingDoc("tv_1", { status: "completed", nextEpisode: { season: 1, episode: 3 } })],
+    new Map([["tv_1", cat]]),
+  );
+  assert.equal(ov.get("tv_1"), "watching");
+  assert.equal(db.state.writes[0].data.status, "watching");
+});
+
+test("completed with no pointer stays completed", async () => {
+  const cat = catalog([s1], { status: "Ended" });
+  const db = fakeDb(watched([1, 1], [1, 2]));
+  const ov = await reconcileTracking(
+    db,
+    "u",
+    [trackingDoc("tv_1", { status: "completed", nextEpisode: null })],
+    new Map([["tv_1", cat]]),
+  );
+  assert.equal(ov.get("tv_1"), undefined);
 });

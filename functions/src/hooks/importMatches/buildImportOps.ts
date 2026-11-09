@@ -1,10 +1,34 @@
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { titleFacets } from "../../shared/titleFacets";
 import { CatalogShow } from "../tmdb";
 import { showDocId } from "../../shared/docId";
-import { MediaType } from "../../shared/enums";
+import { MediaType, WatchStatus } from "../../shared/enums";
 import { ImportMatch, ImportStats } from "../../shared/types";
 import { lookupEpisode } from "./lookupEpisode";
+import { isUnfinishedCompleted } from "../completedStatus";
 import { DocWrite } from "../batchWrites";
+
+const STATUSES = Object.values(WatchStatus) as string[];
+const MAX_WATCH_COUNT = 1000;
+
+/** A restored count: a whole number from 1 to MAX_WATCH_COUNT, 1 when absent or nonsense */
+function watchCountOf(value: unknown): number {
+  return Number.isInteger(value) && (value as number) >= 1
+    ? Math.min(value as number, MAX_WATCH_COUNT)
+    : 1;
+}
+
+function validEpisodeRef(
+  ref: unknown,
+): ref is { season: number; episode: number } {
+  const r = ref as { season?: unknown; episode?: unknown } | null;
+  return (
+    Number.isInteger(r?.season) &&
+    Number.isInteger(r?.episode) &&
+    (r!.season as number) >= 0 &&
+    (r!.episode as number) >= 0
+  );
+}
 
 interface BuildResult {
   /** Tracking docs — set(), a re-sync rewrites them */
@@ -32,6 +56,12 @@ export function buildImportOps(
   };
 
   for (const match of matches) {
+    let status = STATUSES.includes(match.status)
+      ? match.status
+      : WatchStatus.WATCHING;
+    const rewatchCount = Number.isInteger(match.rewatchCount)
+      ? Math.max(0, Math.min(match.rewatchCount!, MAX_WATCH_COUNT))
+      : 0;
     const showId = showDocId(match.tmdbId, match.mediaType);
     const now = Timestamp.now();
     const catalog = catalogMap.get(match.tmdbId);
@@ -75,6 +105,15 @@ export function buildImportOps(
           }
         }
 
+        // A restored export knows where the user was (rewatch pointer, caught-up) — keep it
+        if (match.nextEpisode === null) nextEpisode = null;
+        else if (validEpisodeRef(match.nextEpisode)) {
+          nextEpisode = {
+            season: match.nextEpisode.season,
+            episode: match.nextEpisode.episode,
+          };
+        }
+
         // Without these the watchlist can't tell when the next episode airs
         if (nextEpisode && catalog?.seasons) {
           const ne = nextEpisode;
@@ -83,6 +122,14 @@ export function buildImportOps(
             ?.episodes?.find((e) => e.episodeNumber === ne.episode);
           nextEpisodeName = ep?.title ?? null;
           nextEpisodeAirDate = ep?.airDate ?? null;
+        }
+
+        // TV Time "archived" comes in as completed even after 2 of 16 episodes — an aired
+        // episode still ahead means it's being watched, not finished
+        if (
+          isUnfinishedCompleted(status, nextEpisode, catalog, new Date().toISOString().slice(0, 10))
+        ) {
+          status = WatchStatus.WATCHING;
         }
 
         const latestDate = new Date(latest.watchedAt);
@@ -104,7 +151,12 @@ export function buildImportOps(
           b.season - a.season || b.episode - a.episode,
       )[0];
       const tvEps = match.mediaType === MediaType.TV ? (match.watchedEpisodes ?? []) : [];
-      const plays = match.mediaType === MediaType.MOVIE ? 1 : tvEps.length;
+      const plays =
+        match.mediaType === MediaType.MOVIE
+          ? status === WatchStatus.COMPLETED
+            ? 1
+            : 0
+          : tvEps.length;
       const minutesWatched =
         match.mediaType === MediaType.MOVIE
           ? match.movieRuntime || catalog?.runtime || 0
@@ -119,14 +171,15 @@ export function buildImportOps(
         data: {
         tmdbId: match.tmdbId,
         mediaType: match.mediaType,
-        status: match.status,
+        status,
         nextEpisode,
         nextEpisodeName,
         nextEpisodeAirDate,
-        rewatchCount: 0,
+        rewatchCount,
         addedAt: now,
         lastWatchedAt,
         priorityDate: lastWatchedAt,
+        ...titleFacets(catalog),
         ...(plays > 0
           ? {
               historyAt: lastWatchedAt,
@@ -162,7 +215,7 @@ export function buildImportOps(
             season: ep.season,
             episode: ep.episode,
             episodeTitle: info.title,
-            watchCount: 1,
+            watchCount: watchCountOf(ep.watchCount),
             watchedAt: Timestamp.fromDate(new Date(ep.watchedAt)),
             lastWatchedAt: Timestamp.fromDate(new Date(ep.watchedAt)),
             runtime: info.runtime,
@@ -172,13 +225,14 @@ export function buildImportOps(
     }
 
     // Create watched movie doc
-    if (match.mediaType === MediaType.MOVIE) {
+    // A movie only on the watchlist (restored plan-to-watch) has not been watched
+    if (match.mediaType === MediaType.MOVIE && status === WatchStatus.COMPLETED) {
       const movieRuntime = match.movieRuntime || catalog?.runtime || 0;
       history.push({
         ref: db.doc(`users/${uid}/watchedMovies/${showId}`),
         data: {
           tmdbId: match.tmdbId,
-          watchCount: 1,
+          watchCount: watchCountOf(match.movieWatchCount),
           watchedAt: match.movieWatchedAt
             ? Timestamp.fromDate(new Date(match.movieWatchedAt))
             : now,

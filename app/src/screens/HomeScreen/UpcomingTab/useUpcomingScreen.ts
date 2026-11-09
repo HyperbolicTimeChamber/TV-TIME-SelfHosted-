@@ -68,42 +68,6 @@ export function useUpcomingScreen(handleNavigateToShow: (tmdbShowId: number) => 
 
 	const epModalTmdbIdRef = useRef<number | null>(null);
 
-	const handleEpisodePress = useCallback((ep: UpcomingEpisode) => {
-		const catalog = getCachedCatalogShow(
-			ep.tmdbShowId,
-			ep.mediaType === MediaType.MOVIE ? MediaType.MOVIE : MediaType.TV,
-		);
-
-		const carouselEp: CarouselEpisode = {
-			season: ep.season,
-			episode: ep.episode,
-			title: ep.episodeTitle,
-			airDate: ep.airDate,
-			runtime: ep.runtime,
-			stillPath: null,
-			overview: null,
-		};
-
-		epModalTmdbIdRef.current = ep.tmdbShowId;
-		setEpModalData({
-			tmdbId: ep.tmdbShowId,
-			showTitle: ep.showTitle,
-			showPosterPath: ep.posterPath ?? null,
-			showBackdropPath: catalog?.backdropPath ?? null,
-			episodes: [carouselEp],
-			initialIndex: 0,
-			watchedKeys: new Map(),
-			currentNextEpisode: null,
-		});
-		setEpModalVisible(true);
-	}, []);
-
-	// Shared with Calendar: TMDB season via the query cache, no Firestore fallback read
-	const handleLoadEpisodeDetails = useCallback(
-		(season: number) => loadSeasonEpisodes(queryClient, epModalTmdbIdRef.current, season),
-		[queryClient],
-	);
-
 	const handleTitlePress = useCallback(async (ep: UpcomingEpisode) => {
 		const catalog = await getCatalogShow(
 			ep.tmdbShowId,
@@ -148,6 +112,48 @@ export function useUpcomingScreen(handleNavigateToShow: (tmdbShowId: number) => 
 			}
 		}
 	}, []);
+
+	// Shared with Calendar: TMDB season via the query cache, no Firestore fallback read
+	const handleLoadEpisodeDetails = useCallback(
+		(season: number) => loadSeasonEpisodes(queryClient, epModalTmdbIdRef.current, season),
+		[queryClient],
+	);
+
+	// A movie has no episode to show (the popup sat loading a "season 0"): its drawer instead,
+	// as on the watchlist
+	const handleEpisodePress = useCallback(
+		(ep: UpcomingEpisode) => {
+			if (ep.mediaType === MediaType.MOVIE) {
+				void handleTitlePress(ep);
+				return;
+			}
+			const catalog = getCachedCatalogShow(ep.tmdbShowId, MediaType.TV);
+
+			const carouselEp: CarouselEpisode = {
+				season: ep.season,
+				episode: ep.episode,
+				title: ep.episodeTitle,
+				airDate: ep.airDate,
+				runtime: ep.runtime,
+				stillPath: null,
+				overview: null,
+			};
+
+			epModalTmdbIdRef.current = ep.tmdbShowId;
+			setEpModalData({
+				tmdbId: ep.tmdbShowId,
+				showTitle: ep.showTitle,
+				showPosterPath: ep.posterPath ?? null,
+				showBackdropPath: catalog?.backdropPath ?? null,
+				episodes: [carouselEp],
+				initialIndex: 0,
+				watchedKeys: new Map(),
+				currentNextEpisode: null,
+			});
+			setEpModalVisible(true);
+		},
+		[handleTitlePress],
+	);
 
 	const handleEpModalShowPress = useCallback(() => {
 		if (!epModalData || !epModalData.episodes[0]) return;

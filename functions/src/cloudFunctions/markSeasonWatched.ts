@@ -1,24 +1,30 @@
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 import { historyOnWatch } from "../shared/history";
 import { showDocId, episodeDocId } from "../shared/docId";
-import { WatchStatus, MediaType } from "../shared/enums";
+import {
+  WatchStatus,
+  MediaType,
+  FunctionName,
+  Callable,
+} from "../shared/enums";
+import { requireCaller } from "../hooks/requireCaller";
 import { MarkSeasonRequest } from "../shared/types";
 import { MAX_END_OFFSET_MS, staggerFinishTimes } from "../shared/stagger";
+import { trackedOnCall } from "../hooks/trackedTriggers";
+import { stampTracking } from "../shared/trackingSync";
 
-export const markSeasonWatched = onCall(
+export const markSeasonWatched = trackedOnCall(
+  FunctionName.MARK_SEASON_WATCHED,
   {
     maxInstances: 10,
     timeoutSeconds: 30,
     memory: "256MiB",
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Must be signed in.");
-    }
+    const uid = await requireCaller(request, Callable.MARK_SEASON_WATCHED);
     if (request.data?.warmup) return { markedCount: 0 };
 
-    const uid = request.auth.uid;
     const data = request.data as MarkSeasonRequest;
     const {
       tmdbId,
@@ -33,6 +39,7 @@ export const markSeasonWatched = onCall(
       incrementRewatch,
       rewatchCount,
       endOffsetMs,
+      packed,
     } = data;
 
     if (!tmdbId || !seasonNumber || !episodes?.length) {
@@ -71,6 +78,7 @@ export const markSeasonWatched = onCall(
     const finishTimes = staggerFinishTimes(
       order.map(({ ep }) => ep.runtime),
       now.toMillis() - offset,
+      packed === true,
     );
     const finishedAt = new Array<Timestamp>(episodes.length);
     order.forEach(({ i }, k) => {
@@ -154,8 +162,10 @@ export const markSeasonWatched = onCall(
     });
     batch.set(
       trackingDoc,
-      skipTracking ? history : { ...trackingUpdate, ...history },
-      { merge: true },
+      stampTracking(skipTracking ? history : { ...trackingUpdate, ...history }),
+      {
+        merge: true,
+      },
     );
 
     await batch.commit();

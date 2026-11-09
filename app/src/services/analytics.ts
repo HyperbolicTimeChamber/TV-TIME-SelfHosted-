@@ -1,4 +1,5 @@
 import { getAnalytics, logEvent as firebaseLogEvent } from "@react-native-firebase/analytics";
+import { trackApiCalled } from "./mixpanel";
 
 type ApiType = "tmdb" | "cloud_function" | "firestore";
 
@@ -10,8 +11,15 @@ interface ApiCallEvent {
 	error?: string;
 }
 
-/** Log an API call event to Firebase Analytics */
+/** Log an API call event to Firebase Analytics and Mixpanel */
 export function logApiCall(event: ApiCallEvent) {
+	trackApiCalled({
+		api_type: event.api_type,
+		endpoint: event.method,
+		success: event.success,
+		duration_ms: event.duration_ms,
+		...(event.error ? { error: event.error.substring(0, 100) } : {}),
+	});
 	firebaseLogEvent(getAnalytics(), "api_call" as any, {
 		api_type: event.api_type,
 		method: event.method,

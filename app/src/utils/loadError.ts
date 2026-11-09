@@ -54,3 +54,26 @@ export function describeLoadError(error: unknown, mediaType: MediaType): LoadErr
 		code: status ? String(status) : (e.code ?? null),
 	};
 }
+
+/** A failed search (searchTitles CF) as user-facing copy — busy, offline or a server error */
+export function describeSearchError(error: unknown): LoadErrorInfo {
+	const e = error as { code?: string; message?: string } | null;
+	// Native SDK codes are bare ("resource-exhausted"), the web SDK's are "functions/…"
+	const code = e?.code?.replace(/^functions\//, "") ?? null;
+	if (code === "resource-exhausted") {
+		return {
+			kind: LoadErrorKind.SERVER,
+			title: "Search is busy",
+			message: "Lots of people are searching right now. Give it a few seconds and try again.",
+			canRetry: true,
+			code: "BUSY",
+		};
+	}
+	const info = describeLoadError(error ?? { code: "unknown" }, MediaType.TV);
+	return info.kind === LoadErrorKind.OFFLINE
+		? {
+				...info,
+				message: "We couldn't reach the server to search. Check your connection and try again.",
+			}
+		: { ...info, message: "We couldn't search right now. Please try again in a moment." };
+}

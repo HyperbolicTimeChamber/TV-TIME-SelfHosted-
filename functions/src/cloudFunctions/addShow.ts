@@ -1,27 +1,30 @@
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { HttpsError } from "firebase-functions/v2/https";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { fetchShowFromTMDB, CatalogShow } from "../hooks/tmdb";
 import { addToTrackedBy } from "../hooks/trackedBy";
+import { fetchFacetFields, stampTrackingFacets } from "../hooks/titleFacets";
+import { FacetDelta } from "../shared/titleFacets";
 import { getTmdbApiKey, invalidateApiKeyCache } from "../hooks/apiKey";
 import { addShowToUpcoming } from "../hooks/upcoming";
 import { showDocId } from "../shared/docId";
-import { MediaType } from "../shared/enums";
+import { MediaType, FunctionName, Callable } from "../shared/enums";
+import { requireCaller } from "../hooks/requireCaller";
+import { trackedOnCall } from "../hooks/trackedTriggers";
 
 interface AddShowRequest {
   tmdbId: number;
   mediaType: MediaType;
 }
 
-export const addShow = onCall(
+export const addShow = trackedOnCall(
+  FunctionName.ADD_SHOW,
   {
     maxInstances: 5,
     timeoutSeconds: 120,
     memory: "256MiB",
   },
-  async (request): Promise<CatalogShow> => {
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Must be signed in");
-    }
+  async (request): Promise<CatalogShow & { facetDelta?: FacetDelta }> => {
+    const uid = await requireCaller(request, Callable.ADD_SHOW);
     if (request.data?.warmup) return {} as CatalogShow;
 
     const { tmdbId, mediaType } = request.data as AddShowRequest;
@@ -32,12 +35,26 @@ export const addShow = onCall(
     const db = getFirestore();
     const showId = showDocId(tmdbId, mediaType);
     const showRef = db.doc(`shows/${showId}`);
-    const uid = request.auth.uid;
 
     // Fast path: if catalog doc already exists, just add to trackedBy
     const existingDoc = await showRef.get();
     if (existingDoc.exists) {
-      await addToTrackedBy(showId, uid);
+      const catalog = existingDoc.data() as CatalogShow;
+      // Written before keywords / countries / studios were stored: fetch them once (one TMDB
+      // request) for every tracker
+      if (!("keywords" in catalog) || !("countries" in catalog) || !("studios" in catalog)) {
+        try {
+          const fields = await fetchFacetFields(await getTmdbApiKey(), tmdbId, mediaType);
+          Object.assign(catalog, fields);
+          await showRef.update(fields);
+        } catch (err) {
+          console.warn(`[addShow] facets for ${showId} failed:`, (err as Error).message);
+        }
+      }
+      const [, facetDelta] = await Promise.all([
+        addToTrackedBy(showId, uid),
+        stampTrackingFacets(db, uid, showId, catalog),
+      ]);
 
       // Update upcoming subcollection (fire-and-forget)
       if (mediaType === MediaType.TV) {
@@ -46,7 +63,8 @@ export const addShow = onCall(
         );
       }
 
-      return existingDoc.data() as CatalogShow;
+      // What the user's filter choices gained — the client patches its copy (no re-read)
+      return facetDelta ? { ...catalog, facetDelta } : catalog;
     }
 
     // Slow path: fetch from TMDB and create catalog doc
@@ -88,9 +106,10 @@ export const addShow = onCall(
     });
 
     // Only need addToTrackedBy if we lost the race (another call created the doc)
-    if (!created) {
-      await addToTrackedBy(showId, uid);
-    }
+    const [, facetDelta] = await Promise.all([
+      created ? null : addToTrackedBy(showId, uid),
+      stampTrackingFacets(db, uid, showId, showData),
+    ]);
 
     // Update upcoming subcollection (fire-and-forget, don't block response)
     if (mediaType === MediaType.TV) {
@@ -99,6 +118,6 @@ export const addShow = onCall(
       );
     }
 
-    return showData;
+    return facetDelta ? { ...showData, facetDelta } : showData;
   },
 );

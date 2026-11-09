@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, Alert, Share } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -12,20 +12,30 @@ import Reanimated, {
 import DetailBackdrop from "./DetailBackdrop";
 import ActionPills from "./ActionPills";
 import DetailCredits from "./DetailCredits";
+import WhereToWatch from "../../components/WhereToWatch";
+import CastRow from "../../components/CastRow";
+import LocalReleaseLine from "../../components/LocalReleaseLine";
+import { releaseStatLabel } from "../../utils/localRelease";
+import { useTitleExtras } from "../../hooks/useTitleExtras";
+import StudiosRow from "../../components/StudiosRow";
+import WatchCountPill from "../../components/WatchCountPill";
 import { useShowDetailActions } from "./useShowDetailActions";
+import { useAuthStore } from "../../stores";
+import { useCustomLists } from "../../hooks/useCustomLists";
 import {
 	AddFailedModal,
+	AddToListSheet,
 	ConfirmModal,
 	LoadingSpinner,
 	SeasonDropdown,
 	UnreleasedMovieModal,
-	WatchActionSheet,
+	WatchCountSheet,
 } from "../../components";
-import { showShareUrl, describeLoadError } from "../../utils";
+import { showShareUrl, describeLoadError, titleListCount } from "../../utils";
 import ErrorState from "../../components/ErrorState";
 import CircleButton, { CIRCLE_BUTTON_SIZE, CircleBackButton } from "../../components/CircleButton";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
-import { colors, spacing, typography } from "../../theme";
+import { colors, fonts, spacing, typography } from "../../theme";
 import { HomeStackParamList, MediaType, Route, WatchStatus } from "../../types";
 import { CircleButtonTone } from "../../enums";
 import { ModalBackdrop, ModalLogo } from "../../components/modals/ModalArt";
@@ -36,6 +46,12 @@ type RouteParams = RouteProp<HomeStackParamList, "ShowDetail">;
 
 /** Space kept between the sticky back button and the pills pushing it off */
 const BACK_PUSH_GAP = 8;
+
+/** "S03E04 – My Lucky Night" for the rewatch gate */
+function rewatchBlockedLabel(b: { season: number; episode: number; name: string | null }) {
+	const pad = (n: number) => String(n).padStart(2, "0");
+	return `S${pad(b.season)}E${pad(b.episode)}${b.name ? ` – ${b.name}` : ""}`;
+}
 
 export default function ShowDetailScreen() {
 	const route = useRoute<RouteParams>();
@@ -57,21 +73,19 @@ export default function ShowDetailScreen() {
 		hasStarted,
 		movieSheetVisible,
 		setMovieSheetVisible,
-		showSheetVisible,
-		setShowSheetVisible,
 		removeModalVisible,
 		setRemoveModalVisible,
 		removeError,
 		setRemoveError,
 		unreleasedModal,
 		addFailure,
+		retryAdd,
 		setAddFailure,
 		setUnreleasedModal,
 		title,
 		year,
 		directors,
 		writers,
-		producers,
 		handleAddToWatchlist,
 		handleRemove,
 		handleConfirmRemove,
@@ -81,9 +95,9 @@ export default function ShowDetailScreen() {
 		setPauseModalVisible,
 		pausing,
 		handleConfirmPause,
-		handleMovieSheetAction,
-		handlePauseRewatch,
-		handleShowSheetAction,
+		handleMovieWatchCountChange,
+		rewatchBlocked,
+		setRewatchBlocked,
 		seasonLayout,
 	} = useShowDetailActions(tmdbId, mediaType);
 	// Catalog's logo, else the one that came with the details (same request as the page data)
@@ -98,10 +112,27 @@ export default function ShowDetailScreen() {
 		else (navigation as any).navigate(Route.HOME, { screen: Route.HOME_TABS });
 	}, [navigation]);
 	const swipeBack = useSwipeBackPop(navigation as never);
+	// The directors' photos for the credits (every extras section reads the same query)
+	const { data: extras, isPending: extrasPending } = useTitleExtras(tmdbId, mediaType);
 	const insets = useSafeAreaInsets();
+	// "Add to List" button (next to Share): blue once the title is in any list
+	const userId = useAuthStore((s) => s.user?.uid);
+	const { lists } = useCustomLists(userId);
+	const [listSheetOpen, setListSheetOpen] = useState(false);
+	const listCount = titleListCount(lists, tmdbId, mediaType);
+	const listEntry = useMemo(
+		() => ({ tmdbId, mediaType, title: title ?? "", posterPath: show?.poster_path ?? null }),
+		[tmdbId, mediaType, title, show?.poster_path],
+	);
 	const BACKDROP_HEIGHT = 350;
 	// Parallax runs on the UI thread — a setState per scroll event would re-render the whole screen
 	const scrollY = useSharedValue(0);
+	// A deep link reuses this screen: the loading state swaps the ScrollView for a new one at the
+	// top without a scroll event, which left the backdrop and back button where the old page was
+	const pageLoading = isLoading || trackingLoading;
+	useEffect(() => {
+		if (pageLoading) scrollY.value = 0;
+	}, [pageLoading, scrollY]);
 	const handleScroll = useAnimatedScrollHandler((e) => {
 		scrollY.value = e.contentOffset.y;
 	});
@@ -162,6 +193,10 @@ export default function ShowDetailScreen() {
 		);
 	}
 
+	const whereToWatch = (
+		<WhereToWatch tmdbId={tmdbId} mediaType={mediaType} title={title ?? ""} bleed={spacing.lg} />
+	);
+
 	return (
 		// Right swipe anywhere → back, the screen underneath showing through (transparent modal route)
 		<SwipeBackView onBack={handleBack} {...swipeBack} style={styles.container}>
@@ -201,13 +236,10 @@ export default function ShowDetailScreen() {
 								onMarkMovieWatched={handleMarkMovieWatched}
 								onResumeOrRewatch={handleResumeOrRewatch}
 								onPause={() => setPauseModalVisible(true)}
-								onPauseRewatch={handlePauseRewatch}
 								onRemove={handleRemove}
-								onWatchSheetOpen={() =>
-									mediaType === MediaType.MOVIE
-										? setMovieSheetVisible(true)
-										: setShowSheetVisible(true)
-								}
+								onWatchSheetOpen={() => setMovieSheetVisible(true)}
+								listCount={listCount}
+								onAddToList={() => setListSheetOpen(true)}
 							/>
 						</View>
 					</DetailBackdrop>
@@ -228,7 +260,7 @@ export default function ShowDetailScreen() {
 							<View style={styles.statItem}>
 								<Text style={styles.statValue}>{year || "—"}</Text>
 								<Text style={styles.statLabel}>
-									{mediaType === MediaType.MOVIE ? "RELEASED" : "YEAR"}
+									{mediaType === MediaType.MOVIE ? releaseStatLabel(show.release_date) : "YEAR"}
 								</Text>
 							</View>
 							{mediaType === MediaType.TV && show.number_of_seasons ? (
@@ -262,9 +294,27 @@ export default function ShowDetailScreen() {
 							) : null}
 						</View>
 						<Text style={styles.overview}>{show.overview}</Text>
+						{/* Under the description: above a movie's local release, a show's seasons */}
+						{whereToWatch}
 
 						{mediaType === MediaType.MOVIE && (
-							<DetailCredits directors={directors} writers={writers} producers={producers} />
+							<LocalReleaseLine
+								tmdbId={tmdbId}
+								globalRelease={show.release_date}
+								style={styles.localRelease}
+							/>
+						)}
+
+						{mediaType === MediaType.MOVIE && (
+							<DetailCredits
+								tmdbId={tmdbId}
+								mediaType={mediaType}
+								directors={directors}
+								writers={writers}
+								directorPeople={extras?.directors}
+								writerPeople={extras?.writers}
+								photosPending={extrasPending}
+							/>
 						)}
 
 						{mediaType === MediaType.TV && show.seasons && (
@@ -291,6 +341,14 @@ export default function ShowDetailScreen() {
 									))}
 							</View>
 						)}
+
+						<CastRow
+							tmdbId={tmdbId}
+							mediaType={mediaType}
+							title={title ?? ""}
+							bleed={spacing.lg}
+						/>
+						<StudiosRow tmdbId={tmdbId} mediaType={mediaType} bleed={spacing.lg} />
 					</View>
 				</View>
 				{/* Back sticks to the top until the pills push it off; share rides at the top of the
@@ -299,17 +357,9 @@ export default function ShowDetailScreen() {
 					<CircleBackButton tone={CircleButtonTone.OVERLAY} onPress={handleBack} />
 				</Reanimated.View>
 				{watchCount > 0 && (
-					<View style={[styles.watchCountRow, { top: insets.top + 8 }]} pointerEvents="none">
-						<View
-							style={styles.watchCountPill}
-							accessible
-							accessibilityLabel={`Watched ${watchCount} ${watchCount === 1 ? "time" : "times"}`}
-						>
-							<Text style={styles.watchCountLabel}>Watched</Text>
-							<View style={styles.watchCountCircle}>
-								<Text style={styles.watchCountNumber}>{watchCount}</Text>
-							</View>
-						</View>
+					// Top edge level with back / share (not centred on them)
+					<View style={[styles.watchCountRow, { top: buttonTop }]} pointerEvents="none">
+						<WatchCountPill count={watchCount} overlay />
 					</View>
 				)}
 				<CircleButton
@@ -326,6 +376,12 @@ export default function ShowDetailScreen() {
 					<Ionicons name="share-social-outline" size={26} color={colors.text} />
 				</CircleButton>
 			</Reanimated.ScrollView>
+
+			<AddToListSheet
+				entry={listSheetOpen ? listEntry : null}
+				onClose={() => setListSheetOpen(false)}
+				hideCounts
+			/>
 
 			<ConfirmModal
 				visible={removeModalVisible}
@@ -347,6 +403,13 @@ export default function ShowDetailScreen() {
 			<ConfirmModal
 				visible={pauseModalVisible}
 				title={watchlistItem?.status === WatchStatus.REWATCHING ? "Pause Rewatch?" : "Pause Show?"}
+				drawer
+				question={
+					watchlistItem?.status === WatchStatus.REWATCHING
+						? "Do You Want to Pause This Rewatch?"
+						: "Do You Want to Pause This Show?"
+				}
+				slideLabel="Slide to Pause"
 				imageAtTop={!!show?.backdrop_path}
 				hideTitle
 				image={
@@ -383,10 +446,29 @@ export default function ShowDetailScreen() {
 				onClose={() => setPauseModalVisible(false)}
 			/>
 
+			{/* Next rewatch only once every aired episode is at the current run */}
+			<ConfirmModal
+				visible={!!rewatchBlocked}
+				title="Finish Watching First"
+				image={
+					<ModalLogo logoPath={logoPath} tmdbId={tmdbId} mediaType={mediaType} title={title} />
+				}
+				hint={
+					rewatchBlocked
+						? `${rewatchBlockedLabel(rewatchBlocked)} isn't at x${rewatchBlocked.count} yet. Every aired episode needs x${rewatchBlocked.count} before rewatch ${rewatchBlocked.count} can start.`
+						: undefined
+				}
+				confirmLabel="OK"
+				confirmColor={colors.primary}
+				hideCancel
+				onConfirm={() => setRewatchBlocked(null)}
+				onClose={() => setRewatchBlocked(null)}
+			/>
+
 			<AddFailedModal
 				failure={addFailure}
 				retrying={adding}
-				onRetry={handleAddToWatchlist}
+				onRetry={retryAdd}
 				onClose={() => setAddFailure(null)}
 			/>
 
@@ -396,21 +478,15 @@ export default function ShowDetailScreen() {
 				movieTitle={unreleasedModal?.title ?? ""}
 			/>
 
-			<WatchActionSheet
+			<WatchCountSheet
 				visible={movieSheetVisible}
-				label={show?.title || show?.name || "Movie"}
+				title={title || "Movie"}
+				tmdbId={tmdbId}
+				mediaType={mediaType}
+				logoPath={logoPath}
 				watchCount={movieWatchCount}
-				onSelect={handleMovieSheetAction}
+				onCommit={handleMovieWatchCountChange}
 				onClose={() => setMovieSheetVisible(false)}
-			/>
-
-			<WatchActionSheet
-				visible={showSheetVisible}
-				label={title || "Show"}
-				watchCount={watchCount}
-				rewatchHint="Start watching again from S01E01"
-				onSelect={handleShowSheetAction}
-				onClose={() => setShowSheetVisible(false)}
 			/>
 		</SwipeBackView>
 	);
@@ -430,38 +506,9 @@ const styles = StyleSheet.create({
 	// Position only — the circle itself is components/CircleButton
 	backButton: { position: "absolute", left: 16, zIndex: 10 },
 	shareButton: { position: "absolute", right: 16, zIndex: 10 },
-	// Centred between back and share, same height as them
+	// Left of Share (44px button + 8px gap)
+	// Centred between back and share
 	watchCountRow: { position: "absolute", left: 0, right: 0, alignItems: "center", zIndex: 10 },
-	watchCountPill: {
-		height: CIRCLE_BUTTON_SIZE,
-		flexDirection: "row",
-		alignItems: "center",
-		gap: spacing.sm,
-		paddingLeft: spacing.lg,
-		paddingRight: 6,
-		borderRadius: CIRCLE_BUTTON_SIZE / 2,
-		backgroundColor: colors.glassGray,
-	},
-	watchCountLabel: {
-		...typography.subtitle,
-		fontSize: 14,
-		color: colors.text,
-	},
-	watchCountCircle: {
-		minWidth: 32,
-		height: 32,
-		paddingHorizontal: 6,
-		borderRadius: 16,
-		backgroundColor: colors.text,
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	watchCountNumber: {
-		...typography.subtitle,
-		fontSize: 15,
-		fontWeight: "700",
-		color: colors.background,
-	},
 	islandLogo: {
 		alignItems: "center",
 	},
@@ -480,10 +527,11 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		paddingHorizontal: spacing.md,
 	},
+	// The metric font of the Upcoming / calendar cards (values only; labels stay as they are)
 	statValue: {
-		...typography.subtitle,
-		fontSize: 18,
-		fontWeight: "700",
+		fontFamily: fonts.smoochMedium,
+		fontSize: 24,
+		letterSpacing: 0.5,
 		color: colors.text,
 	},
 	statLabel: {
@@ -503,6 +551,9 @@ const styles = StyleSheet.create({
 		paddingHorizontal: spacing.lg,
 		paddingTop: spacing.xs,
 	},
+	// Lines up with the description above it
+	// The big date's line box already leaves room under it
+	localRelease: { paddingHorizontal: spacing.sm, marginTop: spacing.xl, marginBottom: -spacing.sm },
 	overview: {
 		...typography.body,
 		color: colors.textSecondary,
@@ -517,5 +568,7 @@ const styles = StyleSheet.create({
 		...typography.title,
 		fontSize: 18,
 		marginBottom: spacing.md,
+		// In line with the page's text
+		paddingHorizontal: spacing.sm,
 	},
 });

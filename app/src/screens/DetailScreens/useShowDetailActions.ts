@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getFirestore, doc, onSnapshot, Timestamp } from "@react-native-firebase/firestore";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -13,31 +13,34 @@ import {
 	cacheCatalogShows,
 	catalogFromShowDetails,
 	insertWatchedMovieCache,
-	reduceShowWatchedCache,
 } from "../../hooks";
 import { useAuthStore } from "../../stores";
 import {
 	addToTracking,
 	removeFromTracking,
 	startRewatch,
-	reduceShowWatches,
 	resumeWatching,
 	resumeRewatch,
 	restartWatching,
 	stopWatching,
 	markMovieWatched,
-	decrementMovieWatchCount,
-	unmarkMovieWatched,
+	writeMovieWatchCount,
+	healRewatch,
 	addAndMarkMovieWatched,
 } from "../../services";
 import { shouldShowUnreleasedModal } from "../../services/unreleasedModalPref";
 import {
 	emitShowAdded,
 	emitShowRemoved,
+	emitShowPaused,
 	emitShowCompleted,
 	showDocId,
 	todayStr,
 	isIncompleteCatalog,
+	epKey,
+	rewatchHeal,
+	rewatchBlocker,
+	type EpisodeRef,
 } from "../../utils";
 import {
 	WatchStatus,
@@ -45,7 +48,6 @@ import {
 	UpcomingEpisode,
 	QueryKey,
 	WatchedMovie,
-	WatchAction,
 	CatalogShow,
 	type AddFailure,
 } from "../../types";
@@ -61,6 +63,9 @@ import { Alert } from "react-native";
  */
 const lastTracking = new Map<string, any | null>();
 
+/** Shows whose rewatch count was checked / healed this session (one server check each) */
+const healedShows = new Set<number>();
+
 /**
  * Show detail state + actions (tracking doc listener, add/remove, movie
  * watch counts, rewatch/resume). Shared by the mobile ShowDetailScreen and the
@@ -74,13 +79,14 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		isError,
 		error,
 		episodesBySeason,
+		catalog: pageCatalog,
 		refetch,
 	} = useShowDetails(tmdbId, mediaType);
 	const trackingKey = user?.uid ? `${user.uid}/${showDocId(tmdbId, mediaType)}` : null;
 	const [watchlistItem, setWatchlistItem] = useState<any>(() =>
 		trackingKey ? (lastTracking.get(trackingKey) ?? null) : null,
 	);
-	const { episodes: showWatchedEps } = useShowWatchedEpisodes(
+	const { episodes: showWatchedEps, loading: showWatchedLoading } = useShowWatchedEpisodes(
 		mediaType === MediaType.TV ? user?.uid : undefined,
 		tmdbId,
 	);
@@ -89,6 +95,8 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	);
 	const [adding, setAdding] = useState(false);
 	const [addFailure, setAddFailure] = useState<AddFailure | null>(null);
+	// The failed add was "mark watched" on a movie not yet on the list → Retry redoes that
+	const failedWithWatch = useRef(false);
 	const [removing, setRemoving] = useState(false);
 	const { addShowToUpcoming, removeShowFromUpcoming } = useUpcomingMutations();
 	const queryClient = useQueryClient();
@@ -126,13 +134,12 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		}
 	}, [mediaType, watchlistItem, showWatchedEps.length]);
 	const watchCount = mediaType === MediaType.MOVIE ? movieWatchCount : showWatchCount;
-	// Anything watched → no Remove (the history would be orphaned); clear it via the sheet first
+	// Anything watched → no Remove (clear the watch history first)
 	const hasStarted =
 		mediaType === MediaType.MOVIE
 			? movieWatchCount > 0
 			: showWatchedEps.length > 0 || (watchlistItem?.plays ?? 0) > 0;
 	const [movieSheetVisible, setMovieSheetVisible] = useState(false);
-	const [showSheetVisible, setShowSheetVisible] = useState(false);
 	const [removeModalVisible, setRemoveModalVisible] = useState(false);
 	const [pauseModalVisible, setPauseModalVisible] = useState(false);
 	const [pausing, setPausing] = useState(false);
@@ -172,6 +179,20 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	}, [user?.uid, tmdbId, mediaType]);
 
 	const title = show?.name || show?.title || "";
+	// Tracked title: share the catalog doc this page already read with the watchlist cache (0
+	// extra reads). Without it, a show whose tracking page isn't loaded drew blank Previously
+	// Watched rows after a mark from here — the rows look the show up there, not on this page
+	const tracked = !!watchlistItem;
+	useEffect(() => {
+		if (!tracked || !pageCatalog) return;
+		const cached = getCachedCatalogShow(tmdbId, mediaType);
+		// Keep a complete cached copy; replace a missing / stand-in / seasonless one
+		const complete =
+			cached &&
+			!isIncompleteCatalog(cached) &&
+			(mediaType === MediaType.MOVIE || (cached.seasons?.length ?? 0) > 0);
+		if (!complete) cacheCatalogShows([pageCatalog]);
+	}, [tracked, pageCatalog, tmdbId, mediaType]);
 	// TMDB sometimes has no first_air_date for a new show — fall back to the earliest season's
 	// air date (the date the season rows show), else the Year stat reads "—"
 	const firstSeasonDate =
@@ -191,8 +212,12 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 
 	const directors =
 		show?.credits?.crew?.filter((c) => c.job === "Director").map((c) => c.name) ?? [];
-	const writers =
-		show?.credits?.crew?.filter((c) => c.department === "Writing").map((c) => c.name) ?? [];
+	// Each once: someone credited for both story and screenplay is listed twice by TMDB
+	const writers = [
+		...new Set(
+			show?.credits?.crew?.filter((c) => c.department === "Writing").map((c) => c.name) ?? [],
+		),
+	];
 	const producers =
 		show?.credits?.crew?.filter((c) => c.job === "Producer").map((c) => c.name) ?? [];
 
@@ -310,6 +335,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 			console.error("addToTracking failed:", err);
 			// In-app popup, not a native Alert: an Alert raised while the app is backgrounded
 			// only surfaces the next time it's opened, with no idea what it refers to
+			failedWithWatch.current = false;
 			setAddFailure({
 				title: show.title || show.name || "",
 				tmdbId,
@@ -372,7 +398,8 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 			await stopWatching(user.uid, tmdbId, status, mediaType);
 			removeShowFromUpcoming(tmdbId);
 			removeShowFromCalendarGlobal(tmdbId);
-			emitShowRemoved(tmdbId);
+			// Off the watchlist but still tracked — not emitShowRemoved (that untracks it everywhere)
+			emitShowPaused(tmdbId);
 			setPauseModalVisible(false);
 		} catch (err: any) {
 			Alert.alert("Error", err.message || "Failed to pause.");
@@ -439,12 +466,86 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 				posterPath: moviePoster,
 				genres: movieCatalog?.genres ?? [],
 			});
+			setAddFailure(null);
 		} catch (err: any) {
-			Alert.alert("Error", err.message || "Failed to mark movie as watched.");
+			if (watchlistItem) {
+				Alert.alert("Error", err.message || "Failed to mark movie as watched.");
+			} else {
+				// Not on the list yet, so this was an add: same in-app popup as a failed add
+				failedWithWatch.current = true;
+				setAddFailure({
+					title: show.title || show.name || "",
+					tmdbId,
+					mediaType: MediaType.MOVIE,
+					backdropPath: show.backdrop_path ?? null,
+					logoPath: null,
+					message: err.message || "Failed to mark movie as watched.",
+				});
+			}
 		} finally {
 			setAdding(false);
 		}
 	}, [user?.uid, show, tmdbId, watchlistItem, adding, queryClient, seedMovieCatalog]);
+
+	/** Retry from the "couldn't add" popup: whichever add failed */
+	const retryAdd = useCallback(
+		() => (failedWithWatch.current ? handleMarkMovieWatched() : handleAddToWatchlist()),
+		[handleMarkMovieWatched, handleAddToWatchlist],
+	);
+
+	/** Whole show in order (specials skipped) with air dates, and the watch count per episode */
+	const showOrder = useMemo<EpisodeRef[]>(
+		() =>
+			[...episodesBySeason.entries()]
+				.filter(([sn]) => sn > 0)
+				.sort(([a], [b]) => a - b)
+				.flatMap(([sn, eps]) =>
+					eps.map((e) => ({ season: sn, episode: e.episode_number, airDate: e.air_date ?? null })),
+				),
+		[episodesBySeason],
+	);
+	const showCounts = useMemo(() => {
+		const counts = new Map<string, number>();
+		for (const w of showWatchedEps) counts.set(epKey(w.season, w.episode), w.watchCount || 0);
+		return counts;
+	}, [showWatchedEps]);
+	const episodeInfo = useCallback(
+		(ref: EpisodeRef) => {
+			const e = episodesBySeason.get(ref.season)?.find((x) => x.episode_number === ref.episode);
+			return { name: e?.name || null, airDate: e?.air_date || null };
+		},
+		[episodesBySeason],
+	);
+
+	// Rewatch floor auto-heal: the rewatch count above an aired episode's watches (data from
+	// before the rule) → bring it down. The local list only raises the suspicion; healRewatch
+	// re-reads the server before writing. Once per show per session
+	useEffect(() => {
+		if (!user?.uid || mediaType !== MediaType.TV || !watchlistItem || showWatchedLoading) return;
+		if (showOrder.length === 0 || healedShows.has(tmdbId)) return;
+		if (!rewatchHeal(showOrder, showCounts, watchlistItem, todayStr())) return;
+		healedShows.add(tmdbId);
+		healRewatch(user.uid, tmdbId, showOrder, watchlistItem, episodeInfo, todayStr()).catch((err) =>
+			console.error("Rewatch heal failed:", err),
+		);
+	}, [
+		user?.uid,
+		mediaType,
+		watchlistItem,
+		showWatchedLoading,
+		showOrder,
+		showCounts,
+		tmdbId,
+		episodeInfo,
+	]);
+
+	// "Start a Rewatch" refused: an aired episode isn't at the current run yet
+	const [rewatchBlocked, setRewatchBlocked] = useState<{
+		season: number;
+		episode: number;
+		name: string | null;
+		count: number;
+	} | null>(null);
 
 	const handleResumeOrRewatch = useCallback(async () => {
 		if (!user?.uid) return;
@@ -476,6 +577,23 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 			// COMPLETED without a single watched episode — bad state, start fresh instead of rewatch
 			await restartWatching(user.uid, tmdbId);
 		} else {
+			// Next rewatch only once every aired episode is at the current run
+			if (mediaType === MediaType.TV) {
+				const blocker = rewatchBlocker(
+					showOrder,
+					showCounts,
+					watchlistItem?.rewatchCount ?? 0,
+					todayStr(),
+				);
+				if (blocker) {
+					setRewatchBlocked({
+						...blocker,
+						name: episodeInfo(blocker).name,
+						count: (watchlistItem?.rewatchCount ?? 0) + 1,
+					});
+					return;
+				}
+			}
 			await startRewatch(user.uid, tmdbId, mediaType);
 		}
 	}, [
@@ -487,162 +605,68 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		showWatchedEps.length,
 		show,
 		addFutureEpisodesLocally,
+		showOrder,
+		showCounts,
+		episodeInfo,
 	]);
 
-	/** Completed show → rewatch queued for later (PAUSED_REWATCH, button reads "Resume Rewatch") */
-	const handlePauseRewatch = useCallback(async () => {
-		if (!user?.uid || mediaType !== MediaType.TV) return;
-		try {
-			await startRewatch(user.uid, tmdbId, mediaType, true);
-			removeShowFromUpcoming(tmdbId);
-			removeShowFromCalendarGlobal(tmdbId);
-		} catch (err: any) {
-			Alert.alert("Error", err.message || "Failed to pause rewatch.");
-		}
-	}, [user?.uid, tmdbId, mediaType, removeShowFromUpcoming]);
-
-	/**
-	 * Completed show's long-press sheet. "Watched once less" takes one watch off every episode
-	 * of the latest full watch (episodes skipped in a rewatch keep their earlier watches);
-	 * at 1 — or "not watched" — every watched episode is cleared and the show goes back to a
-	 * first watch from S1E1 (Pause / Remove come back).
-	 */
-	const handleShowSheetAction = useCallback(
-		async (action: WatchAction) => {
-			if (!user?.uid || !show || mediaType !== MediaType.TV) return;
-			if (action === "rewatch") {
-				await handleResumeOrRewatch();
-				return;
-			}
-			const clearAll = action === "not_watched" || showWatchCount <= 1;
-			const top = Math.max(0, ...showWatchedEps.map((e) => e.watchCount || 0));
-			const level = Math.min(showWatchCount, top);
-			const targets = clearAll
-				? showWatchedEps
-				: showWatchedEps.filter((e) => (e.watchCount || 0) >= level);
-			const first = episodesBySeason.get(1)?.[0];
-			const firstEp = {
-				season: 1,
-				episode: first?.episode_number ?? 1,
-				name: first?.name || null,
-				airDate: first?.air_date || null,
-			};
+	/** Watch count sheet settled on a new count — one write, caches set to the new number */
+	const handleMovieWatchCountChange = useCallback(
+		async (from: number, to: number) => {
+			if (!user?.uid || !show || from === to) return;
+			const uid = user.uid;
+			const movieTitle = show.title || show.name || "";
+			const moviePoster = show.poster_path || null;
+			const movieCatalog = from === 0 ? seedMovieCatalog() : null;
+			setMovieWatchCount(to);
 			try {
-				await reduceShowWatches(
-					user.uid,
-					tmdbId,
-					targets.map((e) => ({
-						season: e.season,
-						episode: e.episode,
-						runtime: e.runtime || 0,
-						watchCount: e.watchCount || 1,
-					})),
-					clearAll,
-					showWatchCount - 1,
-					firstEp,
-				);
+				await writeMovieWatchCount(uid, tmdbId, show.runtime ?? 0, from, to);
 			} catch (err: any) {
+				setMovieWatchCount(from);
 				Alert.alert("Error", err.message || "Failed to update watch count.");
 				return;
 			}
-			reduceShowWatchedCache(
-				queryClient,
-				user.uid,
-				tmdbId,
-				clearAll ? null : new Set(targets.map((e) => `${e.season}_${e.episode}`)),
-			);
-			if (clearAll) {
-				// Back on the watchlist as a first watch (completed shows aren't listed there)
-				const title = show.title || show.name || "";
-				const poster = show.poster_path || null;
-				emitShowAdded({
-					...watchlistItem,
-					id: showDocId(tmdbId, mediaType),
+			// Rows already listed take the new count (dropped at 0)
+			queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, uid], (old: any) => {
+				if (!old?.pages) return old;
+				return {
+					...old,
+					pages: old.pages.map((p: any) => ({
+						...p,
+						movies: p.movies.flatMap((m: any) =>
+							m.tmdbId !== tmdbId ? [m] : to > 0 ? [{ ...m, watchCount: to }] : [],
+						),
+					})),
+				};
+			});
+			if (from === 0 && to > 0) {
+				const now = Timestamp.now();
+				// First watch → the row isn't listed yet; insert it at the requested count
+				insertWatchedMovieCache(queryClient, uid, {
+					id: String(tmdbId),
 					tmdbId,
-					mediaType,
-					status: WatchStatus.WATCHING,
-					nextEpisode: { season: firstEp.season, episode: firstEp.episode },
-					nextEpisodeName: firstEp.name,
-					nextEpisodeAirDate: firstEp.airDate,
-					rewatchCount: 0,
-					priorityDate: Timestamp.now(),
-					title,
-					posterPath: poster,
-					totalEpisodes: 0,
-					catalogShow: getCachedCatalogShow(tmdbId, mediaType),
+					watchedAt: now,
+					lastWatchedAt: now,
+					runtime: show.runtime ?? 0,
+					watchCount: to,
+					title: movieTitle,
+					posterPath: moviePoster,
+					releaseDate: movieCatalog?.releaseDate ?? show.release_date ?? null,
+				} as WatchedMovie);
+				emitShowCompleted({
+					tmdbId,
+					mediaType: MediaType.MOVIE,
+					title: movieTitle,
+					posterPath: moviePoster,
+					genres: movieCatalog?.genres ?? [],
 				});
-				addFutureEpisodesLocally(title, poster);
+			}
+			for (let i = 0; i < Math.abs(to - from); i++) {
+				if (to > from) incrementDailyWatch("movie");
+				else decrementDailyWatch("movie");
 			}
 		},
-		[
-			user?.uid,
-			show,
-			mediaType,
-			tmdbId,
-			showWatchCount,
-			showWatchedEps,
-			episodesBySeason,
-			watchlistItem,
-			queryClient,
-			handleResumeOrRewatch,
-			addFutureEpisodesLocally,
-		],
-	);
-
-	const handleMovieSheetAction = useCallback(
-		async (action: WatchAction) => {
-			if (!user?.uid || !show) return;
-			const runtime = show.runtime ?? 0;
-			if (action === "rewatch") {
-				await handleMarkMovieWatched();
-			} else if (action === "watched_once_less") {
-				await decrementMovieWatchCount(user.uid, tmdbId, runtime, movieWatchCount);
-				if (movieWatchCount <= 1) {
-					// Fully unwatched — remove from cache
-					queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
-						if (!old?.pages) return old;
-						return {
-							...old,
-							pages: old.pages.map((p: any) => ({
-								...p,
-								movies: p.movies.filter((m: any) => m.tmdbId !== tmdbId),
-							})),
-						};
-					});
-					setMovieWatchCount(0);
-				} else {
-					queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
-						if (!old?.pages) return old;
-						return {
-							...old,
-							pages: old.pages.map((p: any) => ({
-								...p,
-								movies: p.movies.map((m: any) =>
-									m.tmdbId === tmdbId ? { ...m, watchCount: (m.watchCount || 1) - 1 } : m,
-								),
-							})),
-						};
-					});
-					setMovieWatchCount((c: number) => c - 1);
-				}
-				decrementDailyWatch("movie");
-			} else if (action === "not_watched") {
-				await unmarkMovieWatched(user.uid, tmdbId, runtime);
-				queryClient.setQueryData<any>([QueryKey.WATCHED_MOVIES, user.uid], (old: any) => {
-					if (!old?.pages) return old;
-					return {
-						...old,
-						pages: old.pages.map((p: any) => ({
-							...p,
-							movies: p.movies.filter((m: any) => m.tmdbId !== tmdbId),
-						})),
-					};
-				});
-				setMovieWatchCount(0);
-				decrementDailyWatch("movie");
-			}
-		},
-		[user?.uid, show, tmdbId, movieWatchCount, queryClient, handleMarkMovieWatched],
+		[user?.uid, show, tmdbId, queryClient, seedMovieCatalog],
 	);
 
 	const seasonLayout = useMemo(
@@ -670,6 +694,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		adding,
 		addFailure,
 		setAddFailure,
+		retryAdd,
 		removing,
 		movieWatchCount,
 		showWatchCount,
@@ -677,8 +702,6 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		hasStarted,
 		movieSheetVisible,
 		setMovieSheetVisible,
-		showSheetVisible,
-		setShowSheetVisible,
 		removeModalVisible,
 		setRemoveModalVisible,
 		pauseModalVisible,
@@ -699,9 +722,9 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 		handleConfirmRemove,
 		handleMarkMovieWatched,
 		handleResumeOrRewatch,
-		handleMovieSheetAction,
-		handlePauseRewatch,
-		handleShowSheetAction,
+		handleMovieWatchCountChange,
+		rewatchBlocked,
+		setRewatchBlocked,
 		seasonLayout,
 	};
 }

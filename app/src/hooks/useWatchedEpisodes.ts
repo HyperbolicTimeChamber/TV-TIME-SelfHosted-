@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import {
 	getFirestore,
 	collection,
@@ -10,11 +10,14 @@ import {
 	startAfter,
 	getDocs,
 	QueryDocumentSnapshot,
+	type Timestamp,
 } from "@react-native-firebase/firestore";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { CacheKey } from "../enums";
+import { useRestoredHistory, useSaveHistory, type HistoryPage } from "./watchedHistoryCache";
 import { WatchedEpisode, QueryKey } from "../types";
 
-const PAGE_SIZE = 5;
+export const WATCHED_EPISODES_PAGE_SIZE = 5;
 
 interface WatchedEpisodesPage {
 	episodes: WatchedEpisode[];
@@ -24,6 +27,18 @@ interface WatchedEpisodesPage {
 export function useWatchedEpisodes(userId: string | undefined, tmdbShowId?: number) {
 	const queryKey = [QueryKey.WATCHED_EPISODES, userId, tmdbShowId] as const;
 
+	const queryClient = useQueryClient();
+	// The all-titles history (Previously Watched) comes from the saved page all day; a title's
+	// own history (its page) still fetches
+	const allTitles = tmdbShowId === undefined;
+	const restoredReady = useRestoredHistory(
+		queryClient,
+		queryKey,
+		CacheKey.WATCHED_EPISODES_HISTORY,
+		userId,
+		allTitles,
+		(page: HistoryPage<WatchedEpisode>) => ({ episodes: page.rows, lastDoc: page.lastDoc as QueryDocumentSnapshot | null }),
+	);
 	const {
 		data,
 		isLoading: loading,
@@ -43,7 +58,7 @@ export function useWatchedEpisodes(userId: string | undefined, tmdbShowId?: numb
 			if (pageParam) {
 				constraints.push(startAfter(pageParam));
 			}
-			constraints.push(limit(PAGE_SIZE));
+			constraints.push(limit(WATCHED_EPISODES_PAGE_SIZE));
 
 			const snapshot = await getDocs(query(colRef, ...constraints));
 
@@ -59,12 +74,15 @@ export function useWatchedEpisodes(userId: string | undefined, tmdbShowId?: numb
 		},
 		initialPageParam: null as QueryDocumentSnapshot | null,
 		getNextPageParam: (lastPage) =>
-			lastPage.episodes.length >= PAGE_SIZE ? lastPage.lastDoc : undefined,
-		enabled: !!userId,
-		staleTime: 5 * 60 * 1000,
+			lastPage.episodes.length >= WATCHED_EPISODES_PAGE_SIZE ? lastPage.lastDoc : undefined,
+		enabled: !!userId && restoredReady,
+		// All titles: today's page is kept (marks update it locally); a new day's launch refetches
+		staleTime: allTitles ? Infinity : 5 * 60 * 1000,
 	});
 
-	const episodes = data?.pages.flatMap((p) => p.episodes) ?? [];
+	const loaded = useMemo(() => data?.pages.flatMap((p) => p.episodes), [data]);
+	const episodes = loaded ?? [];
+	useSaveHistory(CacheKey.WATCHED_EPISODES_HISTORY, userId, allTitles, loaded, !!hasNextPage, WATCHED_EPISODES_PAGE_SIZE);
 
 	const loadMore = useCallback(() => {
 		if (hasNextPage && !loadingMore) {
@@ -77,10 +95,19 @@ export function useWatchedEpisodes(userId: string | undefined, tmdbShowId?: numb
 
 /** Insert a watched episode into the query cache (no Firestore refetch). */
 export function insertWatchedEpisodeCache(
-	queryClient: { setQueryData: (key: any, updater: any) => void },
+	queryClient: { setQueryData: (key: any, updater: any) => void; getQueryData?: (key: any) => any },
 	userId: string,
 	ep: WatchedEpisode,
 ) {
+	// The show's full list (if loaded) knows the episode's real count — a row added to the
+	// paged list (episode watched long ago, not on a loaded page) must carry that + 1, not the
+	// caller's guess: a rewatch mark added it at 1, and the watch count sheet then took 1 → 0
+	// as "unwatched" and deleted a record that still had watches
+	const showList = queryClient.getQueryData?.([QueryKey.WATCHED_EPISODES, userId, ep.tmdbShowId]);
+	const known = Array.isArray(showList)
+		? (showList as WatchedEpisode[]).find((e) => e.season === ep.season && e.episode === ep.episode)
+		: undefined;
+	const insertCount = known ? (known.watchCount || 0) + 1 : ep.watchCount;
 	// Update paginated "all episodes" cache
 	queryClient.setQueryData([QueryKey.WATCHED_EPISODES, userId, undefined], (old: any) => {
 		if (!old?.pages) {
@@ -99,11 +126,18 @@ export function insertWatchedEpisodeCache(
 			}),
 		}));
 		if (found) return { ...old, pages: updatedPages };
-		// New episode — prepend to first page
+		// Not on a loaded page — prepend it, at its real count when known
 		const firstPage = old.pages[0];
+		// Its first watch stays its own (the caller's is the mark's "now"): an unwatch back to it
+		// returns the row to that watch's place
+		const row = {
+			...ep,
+			watchCount: insertCount,
+			...(known?.watchedAt ? { watchedAt: known.watchedAt } : {}),
+		};
 		return {
 			...old,
-			pages: [{ ...firstPage, episodes: [ep, ...firstPage.episodes] }, ...old.pages.slice(1)],
+			pages: [{ ...firstPage, episodes: [row, ...firstPage.episodes] }, ...old.pages.slice(1)],
 		};
 	});
 	// Update show-specific flat cache (used by useShowWatchedEpisodes)
@@ -167,22 +201,24 @@ export function removeWatchedEpisodeCache(
 }
 
 /**
- * Whole-show version of removeWatchedEpisodeCache, one cache write per list: `keys`
- * ("season_episode") lose one watch each (dropped at 0); null drops every episode of the show.
+ * Set absolute watch counts ("season_episode" → n; 0 removes the row) in both cached lists —
+ * the paged list the watchlist's rows read and the show's flat list. Absolute, not ±1: a list
+ * that drifted (marks from elsewhere) is corrected instead of carrying the drift forward.
  */
-export function reduceShowWatchedCache(
+export function setWatchedEpisodeCountsCache(
 	queryClient: { setQueryData: (key: any, updater: any) => void },
 	userId: string,
 	tmdbShowId: number,
-	keys: Set<string> | null,
+	counts: Map<string, number>,
+	/** Watched again just now → these rows also take this lastWatchedAt (move to the top) */
+	watchedAt?: Timestamp,
 ) {
-	const reduce = (eps: WatchedEpisode[], ofShow: (ep: WatchedEpisode) => boolean) =>
+	const apply = (eps: WatchedEpisode[], ofShow: (ep: WatchedEpisode) => boolean) =>
 		eps.flatMap((ep) => {
-			if (!ofShow(ep)) return [ep];
-			if (!keys) return [];
-			if (!keys.has(`${ep.season}_${ep.episode}`)) return [ep];
-			const watchCount = (ep.watchCount || 1) - 1;
-			return watchCount > 0 ? [{ ...ep, watchCount }] : [];
+			const n = ofShow(ep) ? counts.get(`${ep.season}_${ep.episode}`) : undefined;
+			if (n === undefined) return [ep];
+			if (n <= 0) return [];
+			return [{ ...ep, watchCount: n, ...(watchedAt ? { lastWatchedAt: watchedAt } : {}) }];
 		});
 	queryClient.setQueryData([QueryKey.WATCHED_EPISODES, userId, undefined], (old: any) => {
 		if (!old?.pages) return old;
@@ -190,11 +226,11 @@ export function reduceShowWatchedCache(
 			...old,
 			pages: old.pages.map((page: any) => ({
 				...page,
-				episodes: reduce(page.episodes, (ep) => ep.tmdbShowId === tmdbShowId),
+				episodes: apply(page.episodes, (ep) => ep.tmdbShowId === tmdbShowId),
 			})),
 		};
 	});
 	queryClient.setQueryData([QueryKey.WATCHED_EPISODES, userId, tmdbShowId], (old: any) =>
-		Array.isArray(old) ? reduce(old, () => true) : old,
+		Array.isArray(old) ? apply(old, () => true) : old,
 	);
 }

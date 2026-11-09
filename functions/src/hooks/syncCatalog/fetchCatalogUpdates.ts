@@ -10,6 +10,8 @@ import { MediaType, ENDED_STATUSES } from "../../shared/enums";
 import { hasCatalogChanged } from "./hasCatalogChanged";
 import { filledRuntimes } from "../runtimeHeal/healRuntimes";
 import { tvCatalogFields } from "../catalogFields";
+import { fetchFacetFields } from "../titleFacets";
+import { sameFacets, titleFacets, TitleFacets } from "../../shared/titleFacets";
 
 export interface FetchResult {
   freshCatalogMap: Map<string, CatalogShow>;
@@ -18,20 +20,31 @@ export interface FetchResult {
 
     data: Record<string, any>;
   }>;
-  hasEpisodeRemovals: boolean;
+  /** Show doc ids that lost episodes this sync — only their watched docs get the orphan scan */
+  removedEpisodeShowIds: string[];
   skippedEnded: number;
   /** Show doc ids whose displayed data changed this sync */
   changedShowIds: string[];
   /** Shows where TMDB filled in episode runtimes it didn't have (users' 0-minute watches heal) */
   runtimeFills: Array<{ showId: string; tmdbId: number; runtimes: Map<string, number> }>;
+  /** Shows whose facets (genres / keywords / countries / studios) changed — trackers' tracking
+   *  docs + facet counts follow */
+  facetChanges: FacetChange[];
+}
+
+export interface FacetChange {
+  showId: string;
+  old: Partial<TitleFacets>;
+  fresh: TitleFacets;
 }
 
 export async function fetchCatalogUpdates(
   apiKey: string,
   showsSnap: FirebaseFirestore.QuerySnapshot,
 ): Promise<FetchResult> {
+  const facetChanges: FacetChange[] = [];
   const freshCatalogMap = new Map<string, CatalogShow>();
-  let hasEpisodeRemovals = false;
+  const removedEpisodeShowIds: string[] = [];
   let skippedEnded = 0;
   const changedShowIds: string[] = [];
   const runtimeFills: FetchResult["runtimeFills"] = [];
@@ -59,6 +72,23 @@ export async function fetchCatalogUpdates(
       if (!oldData.refreshedSinceSync) changedShowIds.push(showDoc.id);
     };
 
+    // Ended shows skip the full fetch: one written before keywords / countries / studios were stored
+    // gets them alone (one TMDB request)
+    const healKeywords = async () => {
+      if ("keywords" in oldData && "countries" in oldData && "studios" in oldData) return;
+      try {
+        const fields = await fetchFacetFields(apiKey, oldData.tmdbId, MediaType.TV);
+        pendingWrites.push({ ref: showDoc.ref, data: fields });
+        facetChanges.push({
+          showId: showDoc.id,
+          old: oldData,
+          fresh: titleFacets({ ...oldData, ...fields }),
+        });
+      } catch {
+        // Next sync (or the backfill) retries
+      }
+    };
+
     // Ended/canceled: lightweight status check only (1 API call vs ~6)
     if (ENDED_STATUSES.includes(oldData.status)) {
       try {
@@ -67,6 +97,7 @@ export async function fetchCatalogUpdates(
           freshCatalogMap.set(showDoc.id, oldData);
           skippedEnded++;
           healPremiere();
+          await healKeywords();
           return;
         }
         console.log(
@@ -76,6 +107,7 @@ export async function fetchCatalogUpdates(
         freshCatalogMap.set(showDoc.id, oldData);
         skippedEnded++;
         healPremiere();
+        await healKeywords();
         return;
       }
     }
@@ -90,10 +122,13 @@ export async function fetchCatalogUpdates(
 
       const oldEpCount = oldData.totalEpisodes ?? 0;
       const newEpCount = freshData.totalEpisodes ?? 0;
-      if (newEpCount < oldEpCount) hasEpisodeRemovals = true;
+      if (newEpCount < oldEpCount) removedEpisodeShowIds.push(showDoc.id);
       // refreshShow wrote fresh seasons mid-week (old vs fresh looks equal now) → still changed
       if (oldData.refreshedSinceSync || hasCatalogChanged(oldData, freshData))
         changedShowIds.push(showDoc.id);
+      if (!sameFacets(oldData, titleFacets(freshData))) {
+        facetChanges.push({ showId: showDoc.id, old: oldData, fresh: titleFacets(freshData) });
+      }
       const filled = filledRuntimes(oldData, freshData);
       if (filled.size > 0) {
         runtimeFills.push({ showId: showDoc.id, tmdbId: oldData.tmdbId, runtimes: filled });
@@ -138,8 +173,9 @@ export async function fetchCatalogUpdates(
     freshCatalogMap,
     pendingWrites,
     runtimeFills,
-    hasEpisodeRemovals,
+    removedEpisodeShowIds,
     skippedEnded,
     changedShowIds,
+    facetChanges,
   };
 }

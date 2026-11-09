@@ -4,6 +4,7 @@ import { hideUnreleasedModal, shouldShowUnreleasedModal } from "../services/unre
 import { AnimatedModal } from "./modals";
 import { colors, spacing, typography } from "../theme";
 import { useAuthStore } from "../stores";
+import { HiCheck } from "./HiIcons";
 
 interface Props {
 	visible: boolean;
@@ -31,7 +32,7 @@ export function UnreleasedMovieModal({ visible, onClose, movieTitle }: Props) {
 				</Text>
 				<TouchableOpacity style={styles.checkbox} onPress={() => setDontShowAgain(!dontShowAgain)}>
 					<View style={[styles.box, dontShowAgain && styles.boxChecked]}>
-						{dontShowAgain && <Text style={styles.check}>✓</Text>}
+						{dontShowAgain && <HiCheck size={14} color={colors.text} />}
 					</View>
 					<Text style={styles.checkLabel}>Don't show this again</Text>
 				</TouchableOpacity>

@@ -12,6 +12,21 @@ export function emitShowRemoved(tmdbId: number) {
 	for (const listener of listeners) listener(tmdbId);
 }
 
+// --- Show paused event: leaves the watchlist but stays tracked (not a removal — the list cards
+// and tracked ids must keep it, or a paused title reads as untracked with an Add button) ---
+const pausedListeners = new Set<Listener>();
+
+export function onShowPaused(listener: Listener) {
+	pausedListeners.add(listener);
+	return () => {
+		pausedListeners.delete(listener);
+	};
+}
+
+export function emitShowPaused(tmdbId: number) {
+	for (const listener of pausedListeners) listener(tmdbId);
+}
+
 // --- Show added event (optimistic insert into watchlist) ---
 import type { EnrichedTrackingItem } from "../hooks/useWatchlist";
 

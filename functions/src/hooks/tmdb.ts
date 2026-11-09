@@ -1,4 +1,5 @@
 import axios from "axios";
+import { countryCodes, keywordNames, studioNames } from "../shared/titleFacets";
 import {
   EpisodeType,
   MediaType,
@@ -166,8 +167,8 @@ export async function fetchShowFromTMDB(
       api_key: apiKey,
       append_to_response:
         mediaType === MediaType.MOVIE
-          ? "credits,images"
-          : "images,external_ids",
+          ? "credits,images,keywords"
+          : "images,external_ids,keywords",
       include_image_language: "en,null",
     },
   });
@@ -224,7 +225,10 @@ export async function fetchShowFromTMDB(
         ? await lookupTvmazeId(data.external_ids)
         : null;
       if (tvmazeId)
-        applyAirStamps(seasons, await fetchTvmazeAirStamps(tvmazeId));
+        applyAirStamps(
+          seasons,
+          await fetchTvmazeAirStamps(tvmazeId, data.origin_country?.[0]),
+        );
     } catch (err) {
       console.warn(
         `TVMaze air times failed for tmdb ${tmdbId}:`,
@@ -257,6 +261,9 @@ export async function fetchShowFromTMDB(
     releaseDate: data.release_date ?? null,
     seasons,
     genres: (data.genres ?? []).map((g) => g.name),
+    keywords: keywordNames(data.keywords?.results ?? data.keywords?.keywords),
+    countries: countryCodes(data.origin_country),
+    studios: studioNames(data.networks, data.production_companies),
     logoPath: pickLogo(data.images?.logos),
     ...(mediaType === MediaType.TV ? { tvmazeId } : {}),
     ...(mediaType === MediaType.MOVIE && data.credits?.crew

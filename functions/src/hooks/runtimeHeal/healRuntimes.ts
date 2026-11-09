@@ -3,6 +3,7 @@ import { CatalogShow } from "../../shared/types";
 import { MediaType } from "../../shared/enums";
 import { showDocId } from "../../shared/docId";
 import { historyOnChange } from "../../shared/history";
+import { stampTracking } from "../../shared/trackingSync";
 
 const key = (season: number, episode: number) => `${season}_${episode}`;
 
@@ -79,7 +80,7 @@ export async function healUserShowRuntimes(
   }
   batch.set(
     db.doc(`users/${uid}/tracking/${showDocId(tmdbId, MediaType.TV)}`),
-    { minutesWatched: FieldValue.increment(minutes), ...historyOnChange() },
+    stampTracking({ minutesWatched: FieldValue.increment(minutes), ...historyOnChange() }),
     { merge: true },
   );
   batch.set(

@@ -27,8 +27,10 @@ export const styles = StyleSheet.create({
 		paddingBottom: spacing.xs,
 	},
 	title: { flex: 1, textAlign: "center", fontSize: 20, fontWeight: "700", color: colors.text },
-	backSpacer: { width: 44 },
 	list: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
+	// A list's own grid's side margin (ListDetail gridContent + Search's row)
+	grid: { paddingHorizontal: spacing.xs + spacing.sm, paddingTop: spacing.lg },
+	gridTagBacking: { borderRadius: 999, backgroundColor: colors.background },
 	separator: { height: spacing.lg },
 	empty: {
 		textAlign: "center",
@@ -40,23 +42,74 @@ export const styles = StyleSheet.create({
 	footer: { paddingVertical: spacing.xl },
 
 	// Sort sheet (components/SortSheet) — filter section
+	// Filter section: its own block under the sort card, label and Clear on one line
 	sheetFilterHead: {
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "space-between",
-		marginTop: spacing.md,
+		marginTop: spacing.lg,
+		marginBottom: spacing.sm,
+		minHeight: 28,
 	},
-	sheetClear: { color: colors.primary, fontWeight: "600" },
-	chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, paddingBottom: spacing.sm },
-	filterChip: {
+	sheetFilterTitle: { marginBottom: 0 },
+	sheetClear: {
 		paddingHorizontal: spacing.md,
-		paddingVertical: spacing.sm,
+		paddingVertical: 4,
+		borderRadius: 999,
+		backgroundColor: colors.surfaceLight,
+	},
+	sheetClearText: { color: colors.primary, fontWeight: "700", fontSize: 13 },
+	chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, paddingBottom: spacing.xs },
+	// Same height on or off: the check takes room from the padding, not the row
+	filterChip: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 4,
+		minHeight: 38,
+		paddingHorizontal: spacing.md,
+		borderRadius: 999,
+		backgroundColor: colors.surfaceLight,
+		borderWidth: 1,
+		borderColor: colors.surfaceLight,
+	},
+	filterChipOn: {
+		backgroundColor: colors.primary,
+		borderColor: colors.primary,
+		paddingLeft: spacing.sm + 2,
+	},
+	// Press feedback: a touch smaller, never from nothing
+	chipPressed: { transform: [{ scale: 0.97 }], opacity: 0.85 },
+	filterChipDisabled: { opacity: 0.4 },
+	filterChipText: { color: colors.textSecondary, fontWeight: "600", fontSize: 14 },
+	filterChipFlag: { fontSize: 14 },
+	// Status / Genre / Keyword: the sheet's section label voice (SORT BY, FILTERS), one step
+	// quieter — one label style for the whole sheet
+	facetTitle: {
+		color: colors.textMuted,
+		fontSize: 11,
+		fontWeight: "700",
+		letterSpacing: 1.1,
+		marginTop: spacing.md,
+		marginBottom: spacing.sm,
+		marginLeft: spacing.xs,
+	},
+	keywordField: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.sm,
+		height: 42,
+		paddingHorizontal: spacing.md,
+		marginBottom: spacing.sm,
+		// Pill like the chips under it; the border is there off-focus too (same colour as the
+		// fill) so focusing never shifts the text
 		borderRadius: 999,
 		borderWidth: 1,
+		// A step lighter than the chips under it: reads as the field, not one more pill
 		borderColor: colors.border,
+		backgroundColor: colors.border,
 	},
-	filterChipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-	filterChipText: { color: colors.textSecondary, fontWeight: "600" },
+	keywordFieldFocused: { borderColor: colors.textMuted },
+	keywordInput: { flex: 1, color: colors.text, fontSize: 15, padding: 0 },
 	filterChipTextOn: { color: colors.text },
 
 	// Card
@@ -84,26 +137,6 @@ export const styles = StyleSheet.create({
 	},
 	logo: { flex: 1, height: LOGO_HEIGHT },
 	cardTitle: { flex: 1, color: colors.text, fontSize: 20, fontWeight: "600" },
-	pill: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 },
-	// Rewatch count: white circle at the pill's end, concentric (right = vertical padding)
-	pillWithCount: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: 6,
-		paddingVertical: 4,
-		paddingRight: 4,
-	},
-	pillCountCircle: {
-		minWidth: 20,
-		height: 20,
-		borderRadius: 10,
-		paddingHorizontal: 5,
-		backgroundColor: colors.text,
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	pillCountText: { color: colors.surface, fontSize: 12, fontWeight: "700" },
-	pillText: { color: colors.text, fontSize: 13, fontWeight: "700" },
 	bottomRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
 	leftBlock: { alignItems: "flex-start", gap: spacing.sm + 2 },
 	timeBlock: { alignItems: "flex-end" },
@@ -121,34 +154,6 @@ export const styles = StyleSheet.create({
 		letterSpacing: -0.5,
 		marginBottom: -6,
 	},
-	// Same size as the progress pills, mirrored: circle on the right, concentric with that end
-	watchCountPill: {
-		paddingLeft: 10,
-		paddingRight: 5,
-		backgroundColor: `${colors.textSecondary}59`,
-	},
-	countCircle: {
-		minWidth: 20,
-		height: 20,
-		borderRadius: 10,
-		paddingHorizontal: 6,
-		alignItems: "center",
-		justifyContent: "center",
-		// Lighter grey than the pill (textSecondary 70% vs 35%)
-		backgroundColor: `${colors.textSecondary}B3`,
-	},
-	progressPill: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: 6,
-		borderRadius: 999,
-		// Left = vertical padding → icon/ring sits concentric with the rounded end
-		paddingLeft: 5,
-		paddingRight: 10,
-		paddingVertical: 5,
-	},
-	progressText: { fontSize: 14, fontWeight: "700" },
-	progressIcon: { margin: -1 },
 	// Light grey (textSecondary) at 35% — translucent over the backdrop
 	tagPill: {
 		borderRadius: 999,
@@ -157,6 +162,16 @@ export const styles = StyleSheet.create({
 		backgroundColor: `${colors.textSecondary}59`,
 	},
 	tag: { color: colors.text, fontSize: 12, fontWeight: "600" },
+	// Add to List, top-right: a 36 circle, amber with a filled bookmark when the title is in a list
+	listButton: {
+		width: 36,
+		height: 36,
+		borderRadius: 18,
+		backgroundColor: colors.badgeOverlay,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	listButtonActive: { backgroundColor: colors.warningAmber },
 
 	// Profile entry button
 	historyButton: {

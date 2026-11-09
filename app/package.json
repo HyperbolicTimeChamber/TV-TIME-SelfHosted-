@@ -1,10 +1,11 @@
 {
   "name": "app",
-  "version": "1.0.1",
+  "version": "1.2.0",
   "main": "index.ts",
   "dependencies": {
     "@expo-google-fonts/handjet": "0.4.3",
     "@expo-google-fonts/smooch-sans": "0.4.2",
+    "@expo-google-fonts/vt323": "0.4.1",
     "@expo/vector-icons": "^15.0.2",
     "@gorhom/bottom-sheet": "^5.2.14",
     "@legendapp/list": "^3.3.2",
@@ -12,6 +13,7 @@
     "@react-native-community/netinfo": "12.0.1",
     "@react-native-firebase/analytics": "^25.1.0",
     "@react-native-firebase/app": "^25.1.0",
+    "@react-native-firebase/app-check": "^25.1.0",
     "@react-native-firebase/auth": "^25.1.0",
     "@react-native-firebase/crashlytics": "^25.1.0",
     "@react-native-firebase/firestore": "^25.1.0",
@@ -33,17 +35,22 @@
     "expo-file-system": "~57.0.0",
     "expo-haptics": "~57.0.3",
     "expo-image": "~57.0.0",
+    "expo-intent-launcher": "~57.0.1",
     "expo-linear-gradient": "~57.0.1",
     "expo-notifications": "~57.0.10",
+    "expo-sharing": "~57.0.24",
     "expo-splash-screen": "~57.0.2",
     "expo-status-bar": "~57.0.0",
     "jszip": "^3.10.1",
+    "mixpanel-react-native": "^4.0.0",
     "papaparse": "^5.5.4",
     "react": "19.2.3",
+    "react-freeze": "^1.0.4",
     "react-native": "0.86.0",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-pager-view": "8.0.2",
     "react-native-reanimated": "4.5.0",
+    "react-native-reorderable-list": "^0.18.2",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "4.25.2",
     "react-native-svg": "15.15.4",
@@ -57,6 +64,7 @@
     "@types/react": "~19.2.2",
     "eslint": "^10.7.0",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "patch-package": "^8.0.1",
     "prettier": "^3.9.6",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.65.0"
@@ -68,13 +76,19 @@
     "web": "expo start --web",
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"App.tsx\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"App.tsx\"",
-    "test": "rm -rf .test-build && tsc -p tsconfig.test.json && EXPO_PUBLIC_WEB_BASE_URL=https://watchloom-app.web.app EXPO_PUBLIC_TMDB_API_BASE=https://api.themoviedb.org/3 node --test .test-build/tests/*.test.js"
+    "test": "rm -rf .test-build && tsc -p tsconfig.test.json && EXPO_PUBLIC_WEB_BASE_URL=https://example.web.app EXPO_PUBLIC_TMDB_API_BASE=https://api.themoviedb.org/3 node --test .test-build/tests/*.test.js",
+    "postinstall": "patch-package"
   },
   "private": true,
   "reanimated": {
     "staticFeatureFlags": {
       "ANDROID_SYNCHRONOUSLY_UPDATE_UI_PROPS": true,
       "IOS_SYNCHRONOUSLY_UPDATE_UI_PROPS": true
+    }
+  },
+  "overrides": {
+    "mixpanel-react-native": {
+      "@react-native-async-storage/async-storage": "$@react-native-async-storage/async-storage"
     }
   }
 }

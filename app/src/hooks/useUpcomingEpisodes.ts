@@ -10,12 +10,14 @@ import {
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { UpcomingEpisode, CacheKey, CloudFunction, MediaType } from "../types";
-import { getCachedCatalogShow } from "./useWatchlist";
+import { getCachedCatalogShow, whenCatalogRestored, cacheCatalogShows } from "./useWatchlist";
+import { getCatalogShow } from "../services/firestore";
 import {
 	todayStr,
 	trimPastQueue,
 	upcomingEpKey as epKey,
 	placeholderTargets,
+	recentTitleChecks,
 	titlesFromCatalog,
 	applyTitles,
 	isGenericEpisodeTitle,
@@ -24,6 +26,8 @@ import {
 } from "../utils";
 import { useAuthStore } from "../stores";
 import { getSeasonDetails, pooled } from "../services/tmdb";
+import { foregroundCall } from "../services/callQueue";
+import { UPCOMING_TITLE_RECHECK_MS } from "../enums";
 
 type MutateCallback = (fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[]) => void;
 const mutateListeners = new Set<MutateCallback>();
@@ -69,6 +73,23 @@ function persistCache(userId: string, episodes: UpcomingEpisode[], syncDate: str
 		CacheKey.UPCOMING_EPISODES,
 		JSON.stringify({ userId, syncDate, episodes }),
 	).catch(() => {});
+}
+
+/** A movie's director — saved on the entry, or from the catalog cache for lists cached before
+ *  entries carried it (0 reads) */
+export function upcomingDirector(ep: UpcomingEpisode): string | null {
+	if (ep.mediaType !== MediaType.MOVIE) return null;
+	return (
+		ep.director ??
+		getCachedCatalogShow(ep.tmdbShowId, MediaType.MOVIE)?.credits?.directors?.[0] ??
+		null
+	);
+}
+
+/** A movie's runtime in minutes — same fallback as `upcomingDirector` */
+export function upcomingRuntime(ep: UpcomingEpisode): number | null {
+	if (ep.mediaType !== MediaType.MOVIE) return null;
+	return ep.runtime ?? getCachedCatalogShow(ep.tmdbShowId, MediaType.MOVIE)?.runtime ?? null;
 }
 
 export function useUpcomingEpisodes(userId: string | undefined) {
@@ -150,6 +171,9 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 				}
 				try {
 					const cached = JSON.parse(raw);
+					// Sync stamp counts even with nothing upcoming: otherwise an empty list re-fetches
+					// (and re-runs the rebuildUpcoming CF) on every launch
+					if (cached.userId === userId) cachedSyncDate.current = cached.syncDate || null;
 					if (cached.userId === userId && cached.episodes?.length > 0) {
 						const today = todayStr();
 						// Aired since last open → push into past queue instead of dropping
@@ -157,7 +181,6 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 						const pruned = (cached.episodes as UpcomingEpisode[]).filter(
 							(ep) => ep.airDate >= today,
 						);
-						cachedSyncDate.current = cached.syncDate || null;
 						if (pruned.length > 0) {
 							setEpisodes(pruned);
 							setIsLoading(false);
@@ -211,7 +234,9 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 				// If empty, rebuild upcoming subcollection via CF
 				if (snap.size === 0) {
 					try {
-						await httpsCallable(getFunctions(), CloudFunction.REBUILD_UPCOMING)({});
+						await foregroundCall(() =>
+							httpsCallable(getFunctions(), CloudFunction.REBUILD_UPCOMING)({}),
+						);
 						snap = await getDocs(query(upcomingCol, where("airDate", ">=", fromDate)));
 					} catch (err) {
 						console.error("rebuildUpcoming CF failed:", err);
@@ -230,10 +255,25 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 				const trackingCol = collection(doc(db, "users", userId), "tracking");
 				const movieSnap = await getDocs(query(trackingCol, where("releaseDate", ">", today)));
 				const movieEps: UpcomingEpisode[] = [];
-				for (const d of movieSnap.docs) {
-					const data = d.data() as any;
-					if (data.mediaType !== "movie") continue; // skip TV shows that somehow have releaseDate
-					// Use shared catalog cache — no Firestore read
+				const movieDocs = movieSnap.docs
+					.map((d) => d.data() as any)
+					.filter((data) => data.mediaType === MediaType.MOVIE); // skip TV shows that somehow have releaseDate
+				// Shared catalog cache first (no reads) — once it's back in memory: built before that,
+				// the entries were saved as "Movie #id" with no runtime / director. Only movies still
+				// missing are read (one doc each) and kept in the cache
+				await whenCatalogRestored();
+				const missing = movieDocs.filter(
+					(data) => !getCachedCatalogShow(data.tmdbId, MediaType.MOVIE),
+				);
+				if (missing.length) {
+					const fetchedCatalogs = await Promise.all(
+						missing.map((data) =>
+							getCatalogShow(data.tmdbId, MediaType.MOVIE).catch(() => null),
+						),
+					);
+					cacheCatalogShows(fetchedCatalogs.filter((c): c is NonNullable<typeof c> => !!c));
+				}
+				for (const data of movieDocs) {
 					const catalog = getCachedCatalogShow(data.tmdbId, MediaType.MOVIE);
 					const title = catalog?.title ?? `Movie #${data.tmdbId}`;
 					const posterPath = catalog?.posterPath ?? null;
@@ -245,8 +285,9 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 						episode: 0,
 						episodeTitle: title,
 						airDate: data.releaseDate,
-						runtime: null,
+						runtime: catalog?.runtime ?? null,
 						mediaType: MediaType.MOVIE,
+						director: catalog?.credits?.directors?.[0] ?? null,
 					});
 				}
 
@@ -313,6 +354,22 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 
 // Show+season pairs already refreshed this session
 const titleRefreshDone = new Set<string>();
+// Seasons TMDB was asked within UPCOMING_TITLE_RECHECK_MS, across launches (key → ms)
+let titleChecks: Promise<Record<string, number>> | null = null;
+function loadTitleChecks(): Promise<Record<string, number>> {
+	titleChecks ??= AsyncStorage.getItem(CacheKey.UPCOMING_TITLE_CHECKS)
+		.then((raw) => {
+			const { recent, kept } = recentTitleChecks(
+				raw ? JSON.parse(raw) : null,
+				Date.now(),
+				UPCOMING_TITLE_RECHECK_MS,
+			);
+			for (const k of recent) titleRefreshDone.add(k);
+			return kept;
+		})
+		.catch(() => ({}));
+	return titleChecks;
+}
 
 /**
  * Upcoming docs are built weekly from the catalog, so episodes often carry TMDB
@@ -327,6 +384,7 @@ async function refreshPlaceholderTitles(
 	syncDate: string | null,
 ) {
 	if (!userId) return;
+	const checks = await loadTitleChecks();
 	const targets = placeholderTargets(episodes, titleRefreshDone);
 	if (targets.size === 0) return;
 	for (const k of targets.keys()) titleRefreshDone.add(k);
@@ -351,6 +409,10 @@ async function refreshPlaceholderTitles(
 
 	const apiKey = useAuthStore.getState().appTmdbApiKey;
 	if (apiKey && needTmdb.length > 0) {
+		// Stamped before the fetch: a launch soon after doesn't ask again for names TMDB lacks
+		const now = Date.now();
+		for (const { tmdbId, season } of needTmdb) checks[`${tmdbId}_${season}`] = now;
+		AsyncStorage.setItem(CacheKey.UPCOMING_TITLE_CHECKS, JSON.stringify(checks)).catch(() => {});
 		await pooled(
 			needTmdb.map(({ tmdbId, season }) => async () => {
 				try {

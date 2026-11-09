@@ -1,15 +1,14 @@
-import { onRequest } from "firebase-functions/v2/https";
 import { defineString } from "firebase-functions/params";
 import { getFirestore } from "firebase-admin/firestore";
 import axios from "axios";
 import { getTmdbApiKey } from "../hooks/apiKey";
 import { buildPreviewHtml, previewMetaFor } from "../hooks/sharePreview";
 import { showDocId } from "../shared/docId";
-import { MediaType, TMDB_BASE } from "../shared/enums";
+import { MediaType, TMDB_BASE, FunctionName, ClientPlatform } from "../shared/enums";
+import { trackedOnRequest } from "../hooks/trackedTriggers";
 
-const WEB_BASE_URL = defineString("WEB_BASE_URL", {
-  default: "https://watchloom-app.web.app",
-});
+// Project-specific: functions/.env.<projectId> (gitignored)
+const WEB_BASE_URL = defineString("WEB_BASE_URL");
 const SHARE_TAGLINE = defineString("SHARE_TAGLINE", {
   default: "Track What You Watch",
 });
@@ -64,7 +63,9 @@ async function loadShow(mediaType: MediaType, tmdbId: number) {
  * shared links unfurl with the show's image, name and description (or the
  * Watchloom card when the show can't be loaded). Cached by the CDN for a day.
  */
-export const sharePreview = onRequest(
+export const sharePreview = trackedOnRequest(
+  FunctionName.SHARE_PREVIEW,
+  ClientPlatform.WEB,
   { maxInstances: 3, timeoutSeconds: 15, memory: "256MiB" },
   async (req, res) => {
     const base = WEB_BASE_URL.value();

@@ -1,19 +1,34 @@
-import { useCallback } from "react";
-import { View, Text } from "react-native";
+import { useCallback, useRef, useState } from "react";
+import { View, Text, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as DocumentPicker from "expo-document-picker";
 import { getMessaging, requestPermission } from "@react-native-firebase/messaging";
+import { File } from "expo-file-system";
+import { ACCOUNT_IMPORT_MAX_BYTES } from "../../enums";
 import { useAuthStore } from "../../stores/authStore";
 import LoadingSpinner from "../../components/LoadingSpinner";
-import { spacing } from "../../theme";
+import { colors } from "../../theme";
+import { ConfirmModal } from "../../components/modals";
+import {
+	IMPORT_WARNING_ART,
+	IMPORT_WARNING_RATIO,
+	ModalArt,
+} from "../../components/modals/ModalArt";
 import { importStyles as styles } from "./styles";
 import PickPhase from "./PickPhase";
 import { useImportData } from "./useImportData";
 import ProgressPhase from "./ProgressPhase";
 import DisambiguatePhase from "./DisambiguatePhase";
+import ImportingScreen from "../../components/ImportingScreen";
 import ReviewPhase from "./ReviewPhase";
 
-export default function ImportDataScreen({ navigation }: any) {
+/** The heads-up before an import starts: the app is held until it's done */
+const IMPORT_BLOCKS_TITLE = "Before You Import";
+const IMPORT_BLOCKS_HINT =
+	"You won't be able to use the app while the import runs — it can take a few minutes for big libraries. We'll let you know when it's done.";
+
+/** `onboarding`: shown on first launch (App.tsx) — it offers Skip; from Settings it doesn't */
+export default function ImportDataScreen({ navigation, onboarding = false }: any) {
 	const insets = useSafeAreaInsets();
 	const {
 		phase,
@@ -38,34 +53,95 @@ export default function ImportDataScreen({ navigation }: any) {
 		handleBackDisambig,
 		toggleSelected,
 		handleImport,
-	} = useImportData(() => useAuthStore.setState({ hasCompletedImport: true }));
+		restoreAccount,
+	} = useImportData(() => {
+		const uid = useAuthStore.getState().user?.uid;
+		if (uid) useAuthStore.getState().markImportDone(uid);
+	});
 
-	// --- Phase 1: Pick file ---
-	const handlePickFile = useCallback(async () => {
+	// Any import (TV Time file, re-sync, a backup) holds the app until it's done: say so first
+	const pendingImport = useRef<(() => void) | null>(null);
+	const [warningVisible, setWarningVisible] = useState(false);
+	const confirmImport = useCallback((start: () => void) => {
+		pendingImport.current = start;
+		setWarningVisible(true);
+	}, []);
+	const closeWarning = useCallback(() => {
+		pendingImport.current = null;
+		setWarningVisible(false);
+	}, []);
+	const startImport = useCallback(() => {
+		const start = pendingImport.current;
+		closeWarning();
+		start?.();
+	}, [closeWarning]);
+	const warningModal = (
+		<ConfirmModal
+			visible={warningVisible}
+			title={IMPORT_BLOCKS_TITLE}
+			image={<ModalArt source={IMPORT_WARNING_ART} ratio={IMPORT_WARNING_RATIO} />}
+			hint={IMPORT_BLOCKS_HINT}
+			confirmLabel="Import"
+			confirmColor={colors.primary}
+			onConfirm={startImport}
+			onClose={closeWarning}
+		/>
+	);
+
+	// --- Phase 1: Pick file --- a TV Time GDPR export (.zip) goes through matching; a Watchloom
+	// backup (.json) is restored directly, no matching step
+	const handlePick = useCallback(async () => {
 		const result = await DocumentPicker.getDocumentAsync({
-			type: "application/zip",
+			// Shared files arrive under many types depending on the app they came through
+			type: [
+				"application/zip",
+				"application/json",
+				"text/plain",
+				"application/octet-stream",
+				"*/*",
+			],
 			copyToCacheDirectory: true,
 		});
-		if (result.canceled || !result.assets?.[0]) return;
-
-		// Request notification permission upfront (needed for import completion notification)
+		const asset = result.canceled ? undefined : result.assets?.[0];
+		if (!asset) return;
+		const isZip =
+			asset.name?.toLowerCase().endsWith(".zip") || asset.mimeType?.includes("zip") === true;
+		if (!isZip && asset.size && asset.size > ACCOUNT_IMPORT_MAX_BYTES) {
+			Alert.alert("Import Error", "That file is too big to import.");
+			return;
+		}
+		let backup: string | null = null;
+		if (!isZip) {
+			try {
+				backup = await new File(asset.uri).text();
+			} catch {
+				Alert.alert("Import Error", "Couldn't read that file.");
+				return;
+			}
+		}
+		// Notification permission upfront (the import completion notification)
 		try {
 			await requestPermission(getMessaging());
 		} catch {}
-
-		await processFile(result.assets[0].uri);
-	}, [processFile]);
+		if (isZip) await processFile(asset.uri);
+		else confirmImport(() => restoreAccount(backup!));
+	}, [processFile, restoreAccount, confirmImport]);
 
 	// --- Render ---
 	const insetTop = insets.top;
 
 	if (phase === "pick") {
 		return (
-			<PickPhase
-				insetTop={insetTop}
-				onPickFile={handlePickFile}
-				onSkip={() => navigation.goBack?.() || navigation.navigate?.("Main")}
-			/>
+			<>
+				<PickPhase
+					insetTop={insetTop}
+					onPick={handlePick}
+					onSkip={
+						onboarding ? () => navigation.goBack?.() || navigation.navigate?.("Main") : undefined
+					}
+				/>
+				{warningModal}
+			</>
 		);
 	}
 
@@ -75,19 +151,14 @@ export default function ImportDataScreen({ navigation }: any) {
 
 	if (phase === "importing") {
 		return (
-			<View style={[styles.centered, { paddingTop: insetTop }]}>
-				<Text style={styles.title}>Importing from TV Time</Text>
-				<View style={{ marginTop: spacing.md }}>
-					<LoadingSpinner />
-				</View>
-				<Text style={[styles.desc, { marginTop: spacing.xl }]}>
-					This may take several minutes depending on how many shows you have. You can leave the app
-					now.
-				</Text>
-				<Text style={[styles.desc, { marginTop: spacing.sm }]}>
-					You'll be notified once the import is complete.
-				</Text>
-			</View>
+			<ImportingScreen
+				title="Importing from TV Time"
+				loader={<LoadingSpinner />}
+				lines={[
+					"This may take several minutes depending on how many shows you have. You can leave the app now.",
+					"You'll be notified once the import is complete.",
+				]}
+			/>
 		);
 	}
 
@@ -111,24 +182,27 @@ export default function ImportDataScreen({ navigation }: any) {
 
 	if (phase === "review" && parsedRef.current) {
 		return (
-			<ReviewPhase
-				insetTop={insetTop}
-				matched={matched}
-				selected={selected}
-				existingIds={existingIdsRef.current}
-				unmatchedNames={unmatchedNames}
-				parsed={parsedRef.current}
-				onToggle={toggleSelected}
-				onImport={handleImport}
-				onBack={() => {
-					if (ambiguous.length > 0) {
-						setDisambigIndex(ambiguous.length - 1);
-						setPhase("disambiguate");
-					} else {
-						setPhase("pick");
-					}
-				}}
-			/>
+			<>
+				<ReviewPhase
+					insetTop={insetTop}
+					matched={matched}
+					selected={selected}
+					existingIds={existingIdsRef.current}
+					unmatchedNames={unmatchedNames}
+					parsed={parsedRef.current}
+					onToggle={toggleSelected}
+					onImport={() => confirmImport(handleImport)}
+					onBack={() => {
+						if (ambiguous.length > 0) {
+							setDisambigIndex(ambiguous.length - 1);
+							setPhase("disambiguate");
+						} else {
+							setPhase("pick");
+						}
+					}}
+				/>
+				{warningModal}
+			</>
 		);
 	}
 

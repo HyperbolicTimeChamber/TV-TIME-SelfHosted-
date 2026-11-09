@@ -18,6 +18,9 @@ const ROUTES: Route[] = [
   { pattern: /^\/trending\/(all|tv|movie)\/(day|week)$/, sMaxAge: 6 * HOUR },
   { pattern: /^\/(tv|movie)\/\d+$/, sMaxAge: DAY },
   { pattern: /^\/tv\/\d+\/season\/\d+$/, sMaxAge: DAY },
+  // Info page Where to Watch: country names for its title (the services come from the
+  // watchProviders callable)
+  { pattern: /^\/configuration\/countries$/, sMaxAge: 7 * DAY },
 ];
 
 const ALLOWED_PARAMS: Record<string, (v: string) => boolean> = {
@@ -57,10 +60,11 @@ export function resolveProxyRequest(
 
   const params: Record<string, string> = {};
   for (const [key, value] of Object.entries(query)) {
-    if (typeof value !== "string") continue;
     const valid = ALLOWED_PARAMS[key];
-    if (!valid) continue; // drop unknown params (incl. any api_key)
-    if (!valid(value))
+    // Reject unknown / repeated params (incl. any api_key) rather than drop them: the CDN caches
+    // by full URL, so `?x=<random>` would otherwise miss the cache and reach TMDB every time
+    if (!valid) return { ok: false, status: 400, error: `Unsupported param ${key}` };
+    if (typeof value !== "string" || !valid(value))
       return { ok: false, status: 400, error: `Invalid ${key}` };
     params[key] = value;
   }

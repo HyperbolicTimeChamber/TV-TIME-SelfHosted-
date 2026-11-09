@@ -1,34 +1,46 @@
+import { IoIosCloseCircle } from "react-icons/io";
 import { useCallback, useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { Button } from "antd";
-import { IoChevronBackCircleOutline, IoSearch } from "react-icons/io5";
+import { IoChevronBackCircleOutline, IoGrid, IoList, IoSearch } from "react-icons/io5";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { encodeText } from "@app/utils/subjectLink";
+import { SEARCH_MAX_QUERY_LENGTH } from "@app/enums";
 import { useSearch } from "@app/hooks/useSearch";
 import { useTrending } from "@app/hooks/useTrending";
-import { useSearchSort } from "@app/hooks/useSearchSort";
+import { useCustomLists } from "@app/hooks/useCustomLists";
+import { useCustomListView } from "@app/hooks/useCustomListView";
+import { entryFromSearchResult, listedTitleKeys, listItemKey } from "@app/utils/customLists";
 import { useSearchActions } from "@app/screens/SearchScreen/useSearchActions";
-import {
-	DEFAULT_SEARCH_SORT,
-	SEARCH_SORT_OPTIONS,
-	sameSearchSort,
-	sortSearchResults,
-	type SearchSortView,
-} from "@app/utils/searchSort";
-import { MediaFilter } from "@app/enums";
+import { CacheKey, CustomListView, MediaFilter } from "@app/enums";
 import type { TMDBShow } from "@app/types";
 import SlidingTabs from "../../components/SlidingTabs";
 import NotFoundArt from "../../components/NotFoundArt";
-import LoadingScreen from "../../components/LoadingScreen";
+import SkeletonBlock from "../../components/SkeletonBlock";
+import ErrorState from "../../components/ErrorState";
+import { describeSearchError } from "@app/utils/loadError";
 import { useCollapsingHeader } from "../../hooks/useCollapsingHeader";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
 import { useElementHeight } from "../../hooks/useElementHeight";
-import { Paths, showPath } from "../../routes/paths";
-import { SortButton, SortPanel, type SortOption } from "../../components/SortPanel";
+import { Paths, showPath, SEARCH_TYPE_PARAM } from "../../routes/paths";
+import AddToListSheet from "../../components/AddToListSheet";
 import SearchCard from "./SearchCard";
 import { mediaTypeOf } from "./mediaTypeOf";
 import SearchModals from "./SearchModals";
 import styles from "./styles/SearchScreen.module.scss";
 import { cssVars, px } from "../../utils/cssVars";
+
+/** Placeholder cards while results load (fills 2-5 columns) and under the list while more
+ *  batches are to come — the searchTitles CF takes longer than one TMDB page did */
+const LOADING_CARDS = 10;
+const MORE_CARDS = 6;
+const skeletons = (count: number, view: CustomListView) =>
+	Array.from({ length: count }, (_, i) => (
+		<SkeletonBlock
+			key={`skeleton-${i}`}
+			className={view === CustomListView.GRID ? styles.skeletonCard : styles.skeletonRow}
+		/>
+	));
 
 const FILTER_TABS = [
 	{ key: MediaFilter.ALL, label: "All" },
@@ -38,53 +50,72 @@ const FILTER_TABS = [
 
 // Horizontal drag (px) on the results that goes back to Trending — same as Watch History's tabs
 const SWIPE_BACK_PX = 60;
-
-const SORT_OPTIONS: SortOption<SearchSortView>[] = SEARCH_SORT_OPTIONS.map(
-	({ label, ...value }) => ({ value, label }),
-);
-
 /** Landing page for guests; same trending/search + add flows as the app's SearchScreen */
 export default function SearchScreen() {
 	const navigate = useNavigate();
-	const [params] = useSearchParams();
-	const submittedQuery = params.get("q") ?? "";
-	const [mediaFilter, setMediaFilter] = useState<MediaFilter>(MediaFilter.ALL);
-	// Results only (Trending keeps its own order); remembered for the session
-	const [sortView, setSortView] = useSearchSort();
-	const [sortOpen, setSortOpen] = useState(false);
+	const [params, setParams] = useSearchParams();
+	// A longer one from a shared or hand-typed URL would only get an error from the search
+	const submittedQuery = (params.get("q") ?? "").slice(0, SEARCH_MAX_QUERY_LENGTH);
+	const mediaFilter =
+		Object.values(MediaFilter).find((f) => f === params.get(SEARCH_TYPE_PARAM)) ?? MediaFilter.ALL;
+	const setMediaFilter = (filter: MediaFilter) =>
+		setParams(
+			(prev) => {
+				const next = new URLSearchParams(prev);
+				if (filter === MediaFilter.ALL) next.delete(SEARCH_TYPE_PARAM);
+				else next.set(SEARCH_TYPE_PARAM, filter);
+				return next;
+			},
+			{ replace: true },
+		);
+	// Grid / List, remembered across visits (Trending and results share it)
+	const [view, setView] = useCustomListView(CacheKey.SEARCH_VIEW, CustomListView.GRID);
+	const isGrid = view === CustomListView.GRID;
+	const layoutClass = isGrid ? styles.grid : styles.rows;
 	const [headerRef, headerHeight] = useElementHeight<HTMLElement>();
-	// Follows the scroll continuously; held open while the sort popover (anchored in it) is up
-	const headerY = useCollapsingHeader(headerHeight, sortOpen);
+	// Follows the scroll continuously
+	const headerY = useCollapsingHeader(headerHeight);
 
 	const actions = useSearchActions();
 	const signedIn = !!actions.user;
+	// Custom lists: which results are already in one, and the title the "Add to List" sheet is open for
+	const { lists } = useCustomLists(actions.user?.uid);
+	const listedKeys = useMemo(() => listedTitleKeys(lists), [lists]);
+	const [listTarget, setListTarget] = useState<TMDBShow | null>(null);
+	const listEntry = useMemo(
+		() => (listTarget ? entryFromSearchResult(listTarget) : null),
+		[listTarget],
+	);
 
 	const {
 		data: searchData,
 		isLoading: searchLoading,
+		error: searchError,
+		refetch: retrySearch,
 		fetchNextPage,
 		hasNextPage,
 	} = useSearch(submittedQuery, mediaFilter);
 	const { data: trending, isLoading: trendingLoading } = useTrending("all");
 
 	const items = useMemo(() => {
-		// Sorts every loaded page — a new page merges into the sorted order
-		if (submittedQuery) return sortSearchResults(searchData?.results ?? [], sortView);
+		if (submittedQuery) return searchData?.results ?? [];
 		return (trending ?? []).filter(
 			(item) => mediaFilter === MediaFilter.ALL || (mediaTypeOf(item) as string) === mediaFilter,
 		);
-	}, [submittedQuery, searchData, trending, mediaFilter, sortView]);
+	}, [submittedQuery, searchData?.results, trending, mediaFilter]);
 	const isLoading = submittedQuery ? searchLoading : trendingLoading;
-	const showSort = !!submittedQuery && !isLoading && items.length > 0;
 
 	const loadMore = useCallback(() => {
 		if (submittedQuery && hasNextPage) fetchNextPage();
 	}, [submittedQuery, hasNextPage, fetchNextPage]);
 	const sentinel = useInfiniteScroll(loadMore, !!submittedQuery && !!hasNextPage);
 
+	// The input opens over this page, so backing out of it returns here, whatever was typed. A new
+	// search replaces these results (SearchInputScreen): back from it goes to Trending
 	const openInput = () =>
 		navigate(
-			`${Paths.SEARCH_INPUT}${submittedQuery ? `?q=${encodeURIComponent(submittedQuery)}` : ""}`,
+			`${Paths.SEARCH_INPUT}${submittedQuery ? `?q=${encodeText(submittedQuery)}` : ""}`,
+			{ state: { overResults: !!submittedQuery } },
 		);
 	const handlePress = useCallback(
 		(item: TMDBShow) => navigate(showPath(mediaTypeOf(item), item.id)),
@@ -100,14 +131,19 @@ export default function SearchScreen() {
 					canTrack={signedIn}
 					isInWatchlist={actions.trackedIds.has(item.id)}
 					isAdding={actions.addingIds.has(item.id)}
+					isListed={listedKeys.has(listItemKey(item.id, mediaTypeOf(item)))}
+					layout={view}
 					onPress={handlePress}
 					onAdd={actions.handleAddToWatchlist}
 					onRemove={actions.handleRemoveFromWatchlist}
+					onAddToList={setListTarget}
 				/>
 			)),
 		[
 			items,
 			signedIn,
+			listedKeys,
+			view,
 			actions.trackedIds,
 			actions.addingIds,
 			actions.handleAddToWatchlist,
@@ -159,29 +195,25 @@ export default function SearchScreen() {
 							<button className={styles.searchRow} onClick={openInput}>
 								{submittedQuery || "Search Shows & Movies"}
 							</button>
-							{showSort && (
-								<span className={styles.sortSlot}>
-									<SortButton
-										label="Sort results"
-										open={sortOpen}
-										onOpenChange={setSortOpen}
-										customised={!sameSearchSort(sortView, DEFAULT_SEARCH_SORT)}
-										content={
-											<SortPanel
-												options={SORT_OPTIONS}
-												selected={sortView}
-												isSame={sameSearchSort}
-												onSelect={(next) => {
-													setSortView(next);
-													setSortOpen(false);
-													// New order starts from the top
-													window.scrollTo({ top: 0 });
-												}}
-											/>
-										}
-									/>
-								</span>
+							{/* Same ✕ as the suggestions page: drops the search and reopens it empty */}
+							{submittedQuery && (
+								<button
+									type="button"
+									className={styles.clearButton}
+									onClick={() => navigate(Paths.SEARCH_INPUT, { state: { overResults: true } })}
+									aria-label="Clear search"
+								>
+									<IoIosCloseCircle size={20} />
+								</button>
 							)}
+							<button
+								type="button"
+								className={styles.viewToggle}
+								onClick={() => setView(isGrid ? CustomListView.LIST : CustomListView.GRID)}
+								aria-label={isGrid ? "Show as list" : "Show as grid"}
+							>
+								{isGrid ? <IoList size={20} /> : <IoGrid size={18} />}
+							</button>
 						</div>
 						<SlidingTabs
 							id="search-filter"
@@ -196,7 +228,13 @@ export default function SearchScreen() {
 			{!submittedQuery && <h2 className={styles.sectionTitle}>Trending</h2>}
 
 			{isLoading ? (
-				<LoadingScreen />
+				<div className={layoutClass}>{skeletons(LOADING_CARDS, view)}</div>
+			) : submittedQuery && searchError && items.length === 0 ? (
+				// Failed (busy / offline), not empty: say so, with a retry
+				<ErrorState
+					info={describeSearchError(searchError)}
+					primary={{ label: "Try Again", onPress: () => retrySearch() }}
+				/>
 			) : submittedQuery && items.length === 0 ? (
 				<div className="relative z-1 flex min-h-[calc(100dvh-var(--header-h))] flex-col items-center justify-end px-8 pb-[calc(var(--art-h)+24px)] text-center [--art-h:max(0px,min(50dvh,560px,calc(90dvh-280px)))]">
 					<NotFoundArt src="/no-results.webp" />
@@ -212,17 +250,20 @@ export default function SearchScreen() {
 					dragDirectionLock
 					dragConstraints={{ left: 0, right: 0 }}
 					dragElastic={0.2}
-					className={`${styles.grid} touch-pan-y`}
+					className={`${layoutClass} touch-pan-y`}
 					onDragEnd={(_, info) => {
 						if (info.offset.x > SWIPE_BACK_PX) navigate(Paths.SEARCH);
 					}}
 				>
 					{cards}
+					{hasNextPage && skeletons(MORE_CARDS, view)}
 				</motion.div>
 			) : (
-				<div className={styles.grid}>{cards}</div>
+				<div className={layoutClass}>{cards}</div>
 			)}
 			<div ref={sentinel} />
+
+			{signedIn && <AddToListSheet entry={listEntry} onClose={() => setListTarget(null)} />}
 
 			{signedIn && (
 				<SearchModals
@@ -232,6 +273,12 @@ export default function SearchScreen() {
 					onMovieAddAndWatch={actions.handleMovieAddAndWatch}
 					removeModal={actions.removeModal}
 					removeError={actions.removeError}
+					watchedBlock={actions.watchedBlock}
+					onGoToShow={(item) => {
+						actions.setWatchedBlock(null);
+						handlePress(item);
+					}}
+					onWatchedBlockClose={() => actions.setWatchedBlock(null)}
 					removing={actions.removing}
 					onConfirmRemove={actions.handleConfirmRemove}
 					onRemoveModalClose={() => {

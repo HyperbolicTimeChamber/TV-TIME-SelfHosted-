@@ -12,6 +12,7 @@
 	align-items: center;
 	justify-content: center;
 	cursor: pointer;
+	position: relative;
 
 	svg {
 		display: block;
@@ -36,6 +37,10 @@
 
 .raised {
 	background: var(--border);
+}
+
+.accent {
+	background: $warning-amber;
 }
 
 .spacer {
