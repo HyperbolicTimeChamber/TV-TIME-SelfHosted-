@@ -50,3 +50,20 @@ export function mergeCachedShows<T extends ListItem>(cached: T[], live: T[]): T[
 	flushTo(saved.length);
 	return out;
 }
+
+/** The tmdb ids of a list's show cards */
+export function showCardIds<T extends ListItem>(list: readonly T[]): Set<number> {
+	const ids = new Set<number>();
+	for (const i of list) if (i.type === "show" && i.card) ids.add(i.card.tmdbId);
+	return ids;
+}
+
+/** Live cards the saved list didn't have and that haven't been let through yet */
+export function unseenCardIds<T extends ListItem>(
+	saved: ReadonlySet<number> | null,
+	released: ReadonlySet<number>,
+	live: readonly T[],
+): ReadonlySet<number> {
+	if (!saved) return new Set();
+	return new Set([...showCardIds(live)].filter((id) => !saved.has(id) && !released.has(id)));
+}

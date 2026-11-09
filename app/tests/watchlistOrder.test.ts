@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mergeCachedShows, promoteShows } from "../src/utils/watchlistOrder";
+import {
+	mergeCachedShows,
+	promoteShows,
+	unseenCardIds,
+} from "../src/utils/watchlistOrder";
 
 type Item = { type: "sectionHeader"; title: string } | { type: "show"; card: { tmdbId: number } } | { type: "watchedEpisode"; id: string };
 const show = (tmdbId: number): Item => ({ type: "show", card: { tmdbId } });
@@ -47,4 +51,15 @@ test("mergeCachedShows with no live shows uses the active section's header, not 
 	];
 	const out = mergeCachedShows(cached, [{ type: "watchedEpisode", id: "b" }]);
 	assert.deepEqual(out[1], { type: "sectionHeader", title: "What's Up Next" });
+});
+
+test("unseenCardIds: live cards the saved list lacked, until let through", () => {
+	const live = [
+		{ type: "sectionHeader" },
+		{ type: "show", card: { tmdbId: 1 } },
+		{ type: "show", card: { tmdbId: 2 } },
+	];
+	assert.deepEqual([...unseenCardIds(new Set([1]), new Set(), live)], [2]);
+	assert.deepEqual([...unseenCardIds(new Set([1]), new Set([2]), live)], []);
+	assert.deepEqual([...unseenCardIds(null, new Set(), live)], []);
 });

@@ -111,6 +111,7 @@ export function useWatchlistScreen(
 		wasJustLeft,
 		noteListChange,
 		listChangeArm,
+		cardsHeld,
 		loading,
 		listSettled,
 		loadMoreTracking,
@@ -788,5 +789,6 @@ export function useWatchlistScreen(
 		handleSkipEpisode,
 		isSwipedOff,
 		listChangeArm,
+		cardsHeld,
 	};
 }
