@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, Alert, Share } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -127,6 +127,12 @@ export default function ShowDetailScreen() {
 	const BACKDROP_HEIGHT = 350;
 	// Parallax runs on the UI thread — a setState per scroll event would re-render the whole screen
 	const scrollY = useSharedValue(0);
+	// A deep link reuses this screen: the loading state swaps the ScrollView for a new one at the
+	// top without a scroll event, which left the backdrop and back button where the old page was
+	const pageLoading = isLoading || trackingLoading;
+	useEffect(() => {
+		if (pageLoading) scrollY.value = 0;
+	}, [pageLoading, scrollY]);
 	const handleScroll = useAnimatedScrollHandler((e) => {
 		scrollY.value = e.contentOffset.y;
 	});
