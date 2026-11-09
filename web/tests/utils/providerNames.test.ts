@@ -22,6 +22,13 @@ describe("Where to Watch provider names", () => {
 		expect(shown).toEqual(["Netflix", "HBO Max", "RTL+", "RTL+ Max Amazon Channel"]);
 	});
 
+	it("drops Netflix Kids beside Netflix, keeps it when it's the only one", () => {
+		const both = displayProviders([p(1, "Netflix Kids"), p(2, "Netflix")]).map((x) => x.name);
+		expect(both).toEqual(["Netflix"]);
+		const alone = displayProviders([p(1, "Netflix Kids")]).map((x) => x.name);
+		expect(alone).toEqual(["Netflix Kids"]);
+	});
+
 	it("matches a channel to its service listed under the full name", () => {
 		const shown = displayProviders([
 			p(3, "Animation Digital Network"),
