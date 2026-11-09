@@ -40,6 +40,7 @@ export enum RefreshReason {
 }
 
 const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
 
 /** One TMDB refresh per show per window, across all users (shows/{id}.lastTmdbCheckAt) */
 export const REFRESH_COOLDOWN_MS: Record<RefreshReason, number> = {
@@ -336,6 +337,20 @@ export const SEARCH_CACHE_MAX_ENTRIES = 500;
 export const SEARCH_KEYWORD_FALLBACK_BELOW = 10;
 /** Best-matching TMDB keywords used for that fallback */
 export const SEARCH_KEYWORD_MAX = 3;
+/** Answers to title + year / person searches, so a repeat needs no TMDB requests (CF-only) */
+export const SEARCH_INDEX_COLLECTION = "searchIndex";
+/** A filed answer is searched afresh after this (Firestore TTL on `expireAt`) */
+export const SEARCH_INDEX_TTL_MS = 7 * DAY_MS;
+/** Longest person's name tried when a search also names someone ("batman christian bale") */
+export const SEARCH_PERSON_NAME_MAX_WORDS = 3;
+/** People whose credits are fetched for one such search, at most */
+export const SEARCH_PERSON_MAX_CHECKS = 3;
+/** Most popular matches whose collections are looked up, to add their sequels */
+export const SEARCH_FRANCHISE_SEEDS = 3;
+/** The first film's year: a smaller 4-digit word in a search is not a year */
+export const SEARCH_YEAR_MIN = 1888;
+/** How far past this year a word still reads as a release year */
+export const SEARCH_YEAR_AHEAD = 5;
 /** TMDB genre ids the search aliases use (same id for TV and movies) */
 export enum TmdbGenre {
   ANIMATION = 16,

@@ -22,6 +22,8 @@ import {
 } from "../../shared/enums";
 import type { SearchTitle, SearchTitlesResponse } from "../../shared/types";
 import { keywordMatches, regionAlias, studioAlias } from "./keywordMatch";
+import { refineSearch, titleMatches } from "./refineSearch";
+import { readSearchIndex, writeSearchIndex } from "./searchIndex";
 
 const SEARCH_PATH: Record<SearchScope, string> = {
   [SearchScope.ALL]: "/search/multi",
@@ -187,6 +189,10 @@ async function fetchBatch(
   if (first === undefined) {
     return { results: [], batch, totalBatches: 0, totalResults: 0 };
   }
+  if (batch === 1) {
+    const indexed = await readSearchIndex(scope, query);
+    if (indexed) return indexed;
+  }
   // The first page says how many there are, so a short result list costs one request
   const head = await fetchPage(scope, query, first);
   const more = rest.filter((page) => page <= head.total_pages);
@@ -206,6 +212,17 @@ async function fetchBatch(
       totalBatches: batchCount(head.total_pages),
       totalResults: head.total_results + named.length,
     };
+  }
+  // No title has all the words: they may also name a year or a person. Best effort
+  if (batch === 1 && named === null && !results.some((r) => titleMatches(r, query))) {
+    const refined = await refineSearch(scope, query, {
+      tmdbGet,
+      search: (s, q) => fetchSearchBatch(s, q, 1),
+    }).catch(() => null);
+    if (refined) {
+      await writeSearchIndex(scope, query, refined);
+      return refined;
+    }
   }
   // A short list (one batch, few matches): titles tagged with the query's keywords go after it
   if (batch === 1 && named === null && results.length < SEARCH_KEYWORD_FALLBACK_BELOW) {
