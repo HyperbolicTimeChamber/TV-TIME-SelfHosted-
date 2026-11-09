@@ -13,6 +13,9 @@ import { CARD_RADIUS } from "../enums";
 
 /** Poster width (and card height) of the watchlist / Upcoming cards */
 export const CARD_POSTER_WIDTH = 100;
+/** Largest system font scale the fixed-height cards and calendar cells follow: at the maximum
+ *  (2×) their lines no longer fit and were clipped */
+export const CARD_MAX_FONT_SCALE = 1.15;
 
 /** Gap between a card's three lines (title pill, episode / tags line, episode name / director);
  *  both gaps shrink evenly when a two-line episode name needs the room */
@@ -54,10 +57,18 @@ export default memo(function CardInfo({
 }: Props) {
 	const titleContent = (
 		<>
-			<Text style={[cardStyles.titleText, titleTextStyle]} numberOfLines={1}>
+			<Text
+				maxFontSizeMultiplier={CARD_MAX_FONT_SCALE}
+				style={[cardStyles.titleText, titleTextStyle]}
+				numberOfLines={1}
+			>
 				{title.toUpperCase()}
 			</Text>
-			{onTitlePress && <Text style={cardStyles.titleArrow}>›</Text>}
+			{onTitlePress && (
+				<Text maxFontSizeMultiplier={CARD_MAX_FONT_SCALE} style={cardStyles.titleArrow}>
+					›
+				</Text>
+			)}
 		</>
 	);
 	return (
@@ -78,7 +89,11 @@ export default memo(function CardInfo({
 			{subline ? (
 				<>
 					<View style={[cardStyles.gap, cardStyles.sublineGap]} />
-					<Text style={[cardStyles.subline, sublineStyle]} numberOfLines={sublineLines}>
+					<Text
+						maxFontSizeMultiplier={CARD_MAX_FONT_SCALE}
+						style={[cardStyles.subline, sublineStyle]}
+						numberOfLines={sublineLines}
+					>
 						{subline}
 					</Text>
 				</>

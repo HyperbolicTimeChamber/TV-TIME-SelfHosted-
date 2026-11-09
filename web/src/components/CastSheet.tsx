@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Spin } from "antd";
 import { IoCloseCircle, IoPerson, IoSearch } from "react-icons/io5";
 import { useCastPages } from "@app/hooks/useTitleExtras";
+import { useResolveSubjectLink } from "@app/hooks/useSubjectLink";
 import { tmdbPosterUri } from "@app/hooks/useTmdbImage";
-import { CAST_SEARCH_DEBOUNCE_MS, MediaType } from "@app/enums";
+import { personSubject } from "@app/utils/subjectLink";
+import { CAST_SEARCH_DEBOUNCE_MS, CAST_SEARCH_MAX_LENGTH, MediaType } from "@app/enums";
 import type { CastMember } from "@app/types";
 import BottomSheet from "./BottomSheet";
 import SkeletonBlock from "./SkeletonBlock";
@@ -42,6 +44,7 @@ export default function CastSheet({
 	/** Everyone in the cast (the header's count, whatever the search shows) */
 	castTotal: number;
 }) {
+	const resolveLink = useResolveSubjectLink();
 	const [input, setInput] = useState("");
 	const [query, setQuery] = useState("");
 	useEffect(() => {
@@ -76,6 +79,7 @@ export default function CastSheet({
 						value={input}
 						onChange={(e) => setInput(e.target.value)}
 						placeholder="Search by name or character"
+						maxLength={CAST_SEARCH_MAX_LENGTH}
 						aria-label="Search the cast"
 						autoComplete="off"
 					/>
@@ -123,9 +127,27 @@ export default function CastSheet({
 									<span className={styles.name}>{m.name}</span>
 									{m.character && <span className={styles.character}>{m.character}</span>}
 								</span>
-								{castStat(m, mediaType) && (
-									<span className={styles.stat}>{castStat(m, mediaType)}</span>
-								)}
+								<span className={styles.rowEnd}>
+									{castStat(m, mediaType) && (
+										<span className={styles.stat}>{castStat(m, mediaType)}</span>
+									)}
+									<button
+										type="button"
+										className={styles.imdbLink}
+										aria-label={`${m.name}, view on IMDb`}
+										onClick={() => {
+											// Opened before the wait: a tab opened after it counts as a popup and is blocked
+											const tab = window.open("", "_blank");
+											if (!tab) return;
+											tab.opener = null;
+											void resolveLink(personSubject(m, { tmdbId, mediaType })).then((url) => {
+												tab.location.href = url;
+											});
+										}}
+									>
+										IMDb
+									</button>
+								</span>
 							</div>
 						))}
 				{isFetchingNextPage && (

@@ -20,6 +20,7 @@ import { getFirebaseAuthErrorMessage } from "../hooks";
 import { LoadingSpinner } from "../components";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { APP_VERSION_LABEL } from "../utils/appVersion";
+import { isValidEmail } from "../utils/email";
 
 export default function LoginScreen() {
 	const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuthStore();
@@ -34,6 +35,10 @@ export default function LoginScreen() {
 	const handleEmailAuth = async () => {
 		if (!email.trim() || !password.trim()) {
 			setError("Please enter email and password.");
+			return;
+		}
+		if (isSignUp && !isValidEmail(email.trim())) {
+			setError("Enter a valid email address");
 			return;
 		}
 		setLoading(true);

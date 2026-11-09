@@ -22,6 +22,7 @@ import {
 import { formatAirTime } from "../../utils/airTime";
 import { CARD_WIDTH, listStyles as styles } from "./listStyles";
 import EmptyDay from "./EmptyDay";
+import { CARD_MAX_FONT_SCALE } from "../../components/CardInfo";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
@@ -107,9 +108,15 @@ export default function DayList({
 			return (
 				<TouchableOpacity style={styles.childCard} activeOpacity={0.85} onPress={openShow}>
 					<View style={styles.childEpBox}>
-						<Text style={styles.childEp}>E{pad2(item.episode)}</Text>
+						<Text maxFontSizeMultiplier={CARD_MAX_FONT_SCALE} style={styles.childEp}>
+							E{pad2(item.episode)}
+						</Text>
 					</View>
-					<Text style={styles.childTitle} numberOfLines={1}>
+					<Text
+						maxFontSizeMultiplier={CARD_MAX_FONT_SCALE}
+						style={styles.childTitle}
+						numberOfLines={1}
+					>
 						{item.episodeTitle}
 					</Text>
 				</TouchableOpacity>
@@ -149,17 +156,27 @@ export default function DayList({
 							accessibilityLabel={item.showTitle}
 						/>
 					) : (
-						<Text style={styles.showTitle} numberOfLines={1}>
+						<Text
+							maxFontSizeMultiplier={CARD_MAX_FONT_SCALE}
+							style={styles.showTitle}
+							numberOfLines={1}
+						>
 							{item.showTitle}
 						</Text>
 					)}
 					{isMovie ? (
 						<View style={styles.movieBadge}>
-							<Text style={styles.movieBadgeText}>MOVIE</Text>
+							<Text maxFontSizeMultiplier={CARD_MAX_FONT_SCALE} style={styles.movieBadgeText}>
+								MOVIE
+							</Text>
 						</View>
 					) : (
 						// Collapsed show: its season(s) where an episode name would be; count is in the square
-						<Text style={styles.epTitle} numberOfLines={2}>
+						<Text
+							maxFontSizeMultiplier={CARD_MAX_FONT_SCALE}
+							style={styles.epTitle}
+							numberOfLines={2}
+						>
 							{isGroup ? seasonRangeLabel(groupEps) : item.episodeTitle}
 						</Text>
 					)}
@@ -167,21 +184,28 @@ export default function DayList({
 				{isGroup ? (
 					// Collapsed show: same square, a dropdown arrow (flips when open) in place of Exx
 					<View style={styles.epSquare}>
-						<Text style={styles.epSquareTitle}>{episodeCountLabel(groupEps).toUpperCase()}</Text>
+						<Text maxFontSizeMultiplier={CARD_MAX_FONT_SCALE} style={styles.epSquareTitle}>
+							{episodeCountLabel(groupEps).toUpperCase()}
+						</Text>
 						<View style={styles.epSquareRule} />
 						<View style={styles.epSquareArrow}>
-							{airTime && <Text style={styles.epSquareTime}>{airTime}</Text>}
+							{airTime && (
+								<Text maxFontSizeMultiplier={CARD_MAX_FONT_SCALE} style={styles.epSquareTime}>
+									{airTime}
+								</Text>
+							)}
 							<AccordionArrow open={row.expanded} size={40} />
 						</View>
 					</View>
 				) : (
 					// Right square: SEASON xx over a big Exx; movies their release year
 					<View style={[styles.epSquare, airTime && styles.epSquareTimed]}>
-						<Text style={styles.epSquareTitle}>
+						<Text maxFontSizeMultiplier={CARD_MAX_FONT_SCALE} style={styles.epSquareTitle}>
 							{isMovie ? "YEAR" : `SEASON ${pad2(item.season)}`}
 						</Text>
 						<View style={[styles.epSquareRule, airTime && styles.epSquareRuleTimed]} />
 						<Text
+							maxFontSizeMultiplier={CARD_MAX_FONT_SCALE}
 							style={[
 								styles.epSquareValue,
 								isMovie && styles.epSquareYear,
@@ -190,7 +214,11 @@ export default function DayList({
 						>
 							{isMovie ? item.airDate.slice(0, 4) : `E${pad2(item.episode)}`}
 						</Text>
-						{airTime && <Text style={styles.epSquareTime}>{airTime}</Text>}
+						{airTime && (
+							<Text maxFontSizeMultiplier={CARD_MAX_FONT_SCALE} style={styles.epSquareTime}>
+								{airTime}
+							</Text>
+						)}
 					</View>
 				)}
 			</TouchableOpacity>

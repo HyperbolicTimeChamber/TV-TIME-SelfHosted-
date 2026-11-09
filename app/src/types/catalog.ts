@@ -1,4 +1,4 @@
-import { EpisodeType, MediaType } from "../enums";
+import { EpisodeType, MediaType, PhotoSubjectKind, TmdbStudioType } from "../enums";
 
 export interface CatalogEpisode {
 	episodeNumber: number;
@@ -48,6 +48,8 @@ export interface CastMember {
 	profile: string | null;
 	/** Shows: episodes they're in */
 	episodes?: number;
+	/** IMDb id, null when TMDB has none; absent until first looked up (subjectLink CF) */
+	imdbId?: string | null;
 }
 
 /** A studio with a logo — the info page Studios row (functions StoredStudio) */
@@ -56,6 +58,34 @@ export interface Studio {
 	name: string;
 	/** TMDB image path of its logo */
 	logo: string;
+	/** Absent until first looked up (subjectLink CF) */
+	studioType?: TmdbStudioType;
+	/** Its own website, null when TMDB has none */
+	homepage?: string | null;
+}
+
+/** A cast / crew member or studio open in the photo viewer */
+export interface PhotoSubject {
+	kind: PhotoSubjectKind;
+	/** TMDB person / company id */
+	id: number;
+	name: string;
+	/** TMDB image path of their photo / logo (empty for a person without a photo) */
+	path: string;
+	/** The title they were opened from: their stored link lives on it */
+	tmdbId: number;
+	mediaType: MediaType;
+	/** Their stored link, when already looked up */
+	imdbId?: string | null;
+	studioType?: TmdbStudioType;
+	homepage?: string | null;
+}
+
+/** What the subjectLink CF answers: a person's imdbId, or a studio's type + homepage */
+export interface SubjectLinkResult {
+	imdbId?: string | null;
+	studioType?: TmdbStudioType;
+	homepage?: string | null;
 }
 
 /** A movie's director with their photo (functions StoredCrewMember) */
@@ -63,6 +93,8 @@ export interface CrewMember {
 	id: number;
 	name: string;
 	profile: string | null;
+	/** As CastMember's */
+	imdbId?: string | null;
 }
 
 /** What the titleExtras CF answers (functions TitleExtras) */

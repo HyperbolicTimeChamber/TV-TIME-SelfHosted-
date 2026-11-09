@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "momentic-mobile": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "momentic-mobile",
+        "mcp",
+        "--config",
+        "momentic.config.yaml"
+      ]
+    }
+  }
+}

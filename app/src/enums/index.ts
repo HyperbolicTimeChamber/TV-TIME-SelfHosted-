@@ -149,6 +149,20 @@ export enum QueryKey {
 	COUNTRY_NAMES = "countryNames",
 	/** + tmdbId, mediaType — a title's full cast, paged (View All sheet, titleCastPage CF) */
 	TITLE_CAST_PAGE = "titleCastPage",
+	/** + kind, TMDB id — where the photo viewer's pill links to */
+	SUBJECT_LINK = "subjectLink",
+}
+
+/** What the photo viewer is showing: a cast / crew member's photo or a studio's logo */
+export enum PhotoSubjectKind {
+	PERSON = "person",
+	STUDIO = "studio",
+}
+
+/** A studio is one of these on TMDB — each has its own ids, pages and homepage */
+export enum TmdbStudioType {
+	COMPANY = "company",
+	NETWORK = "network",
 }
 
 /** Info page pills, longest first — a pill shows the first that fits on one line */
@@ -269,6 +283,10 @@ export const COUNTRY_LOOKUP_TIMEOUT_MS = 3000;
 export const USER_REGION_TTL_MS = 24 * 60 * 60 * 1000;
 /** A title's extras change rarely: a CF answer is reused this long in a session */
 export const TITLE_EXTRAS_STALE_MS = 24 * 60 * 60 * 1000;
+/** Longest search the searchTitles CF takes (functions SEARCH_MAX_QUERY_LENGTH) */
+export const SEARCH_MAX_QUERY_LENGTH = 100;
+/** Longest cast search the titleCastPage CF takes (functions CAST_SEARCH_MAX_LENGTH) */
+export const CAST_SEARCH_MAX_LENGTH = 50;
 /** Cast cards on the info page before View All (functions FEATURED_CAST_MAX) */
 export const FEATURED_CAST_MAX = 10;
 /** The cast sheet's search waits this long after the last keystroke */
@@ -407,21 +425,6 @@ export enum HistorySort {
 	TIME_SPENT = "timeSpent",
 }
 
-/** Search results sort — client-side over the pages already loaded */
-export enum SearchSort {
-	/** TMDB's own order (best match first) */
-	RELEVANCE = "relevance",
-	/** Release date (movie) / first air date (TV) */
-	DATE = "date",
-	/** Displayed title, dictionary order */
-	NAME = "name",
-}
-
-export enum SortDirection {
-	ASC = "asc",
-	DESC = "desc",
-}
-
 /** Watch History status filters (TV) — OR together, applied in the Firestore query */
 /** Watch History: values pickable at once per facet (genres / keywords / countries / studios — the
  *  query's array-contains-any facet takes them all, and Firestore caps that list) */
@@ -479,6 +482,7 @@ export enum CloudFunction {
 	CANCEL_ACCOUNT_JOB = "cancelAccountJob",
 	TITLE_EXTRAS = "titleExtras",
 	TITLE_CAST_PAGE = "titleCastPage",
+	SUBJECT_LINK = "subjectLink",
 }
 
 /** Callable error codes (web SDK prefixes them with "functions/") */

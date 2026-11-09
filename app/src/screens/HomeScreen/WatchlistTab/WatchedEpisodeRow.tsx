@@ -6,7 +6,7 @@ import { WATCHLIST_CHECK_CIRCLE, WATCHLIST_CHECK_TICK } from "../../../component
 import { withHaptic } from "../../../utils/haptics";
 import PosterImage from "../../../components/PosterImage";
 import { colors, spacing } from "../../../theme";
-import CardInfo, { cardStyles } from "../../../components/CardInfo";
+import CardInfo, { CARD_MAX_FONT_SCALE, cardStyles } from "../../../components/CardInfo";
 import { WatchedEpisode } from "../../../types";
 import { EnrichedTrackingItem } from "../../../hooks";
 
@@ -59,7 +59,11 @@ export default memo(function WatchedEpisodeRow({
 				onLongPress={withHaptic(onLongPress && (() => onLongPress(show)))}
 				activeOpacity={0.8}
 			>
-				<PosterImage posterPath={show.posterPath} mediaType="tv" style={[cardStyles.poster, styles.poster]} />
+				<PosterImage
+					posterPath={show.posterPath}
+					mediaType="tv"
+					style={[cardStyles.poster, styles.poster]}
+				/>
 				<CardInfo
 					title={show.title}
 					titlePillStyle={styles.mutedPill}
@@ -68,7 +72,12 @@ export default memo(function WatchedEpisodeRow({
 					sublineLines={2}
 					sublineStyle={styles.muted}
 				>
-					<Text style={[cardStyles.episode, styles.muted]}>{label}</Text>
+					<Text
+						maxFontSizeMultiplier={CARD_MAX_FONT_SCALE}
+						style={[cardStyles.episode, styles.muted]}
+					>
+						{label}
+					</Text>
 				</CardInfo>
 				<View style={styles.checkmarkWrap}>
 					<CheckmarkButton

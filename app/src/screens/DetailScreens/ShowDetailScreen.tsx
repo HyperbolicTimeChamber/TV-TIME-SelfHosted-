@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, Alert, Share } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -127,6 +127,12 @@ export default function ShowDetailScreen() {
 	const BACKDROP_HEIGHT = 350;
 	// Parallax runs on the UI thread — a setState per scroll event would re-render the whole screen
 	const scrollY = useSharedValue(0);
+	// A deep link reuses this screen: the loading state swaps the ScrollView for a new one at the
+	// top without a scroll event, which left the backdrop and back button where the old page was
+	const pageLoading = isLoading || trackingLoading;
+	useEffect(() => {
+		if (pageLoading) scrollY.value = 0;
+	}, [pageLoading, scrollY]);
 	const handleScroll = useAnimatedScrollHandler((e) => {
 		scrollY.value = e.contentOffset.y;
 	});
@@ -288,26 +294,28 @@ export default function ShowDetailScreen() {
 							) : null}
 						</View>
 						<Text style={styles.overview}>{show.overview}</Text>
+						{/* Under the description: above a movie's local release, a show's seasons */}
+						{whereToWatch}
+
 						{mediaType === MediaType.MOVIE && (
-							<LocalReleaseLine tmdbId={tmdbId} style={styles.localRelease} />
+							<LocalReleaseLine
+								tmdbId={tmdbId}
+								globalRelease={show.release_date}
+								style={styles.localRelease}
+							/>
 						)}
 
 						{mediaType === MediaType.MOVIE && (
-							<>
-								<DetailCredits
-									directors={directors}
-									writers={writers}
-									directorPeople={extras?.directors}
-									writerPeople={extras?.writers}
-									photosPending={extrasPending}
-								/>
-								{/* Under the credits: the studios' logos */}
-								<StudiosRow tmdbId={tmdbId} mediaType={mediaType} bleed={spacing.lg} compact />
-							</>
+							<DetailCredits
+								tmdbId={tmdbId}
+								mediaType={mediaType}
+								directors={directors}
+								writers={writers}
+								directorPeople={extras?.directors}
+								writerPeople={extras?.writers}
+								photosPending={extrasPending}
+							/>
 						)}
-
-						{/* Movies: after the credits; shows: under the seasons (below) */}
-						{mediaType === MediaType.MOVIE && whereToWatch}
 
 						{mediaType === MediaType.TV && show.seasons && (
 							<View style={styles.seasonsSection}>
@@ -334,20 +342,13 @@ export default function ShowDetailScreen() {
 							</View>
 						)}
 
-						{/* Shows: where to watch, then the studios, under the seasons */}
-						{mediaType === MediaType.TV && (
-							<>
-								{whereToWatch}
-								<StudiosRow tmdbId={tmdbId} mediaType={mediaType} bleed={spacing.lg} />
-							</>
-						)}
-						{/* Last on the page: movies' in place of Production, shows' under the studios */}
 						<CastRow
 							tmdbId={tmdbId}
 							mediaType={mediaType}
 							title={title ?? ""}
 							bleed={spacing.lg}
 						/>
+						<StudiosRow tmdbId={tmdbId} mediaType={mediaType} bleed={spacing.lg} />
 					</View>
 				</View>
 				{/* Back sticks to the top until the pills push it off; share rides at the top of the
@@ -551,7 +552,8 @@ const styles = StyleSheet.create({
 		paddingTop: spacing.xs,
 	},
 	// Lines up with the description above it
-	localRelease: { paddingHorizontal: spacing.sm, marginTop: spacing.md },
+	// The big date's line box already leaves room under it
+	localRelease: { paddingHorizontal: spacing.sm, marginTop: spacing.xl, marginBottom: -spacing.sm },
 	overview: {
 		...typography.body,
 		color: colors.textSecondary,
@@ -566,5 +568,7 @@ const styles = StyleSheet.create({
 		...typography.title,
 		fontSize: 18,
 		marginBottom: spacing.md,
+		// In line with the page's text
+		paddingHorizontal: spacing.sm,
 	},
 });

@@ -4,6 +4,7 @@ import { parseTmdbId } from "../../shared/docId";
 import type { TitleExtrasFields } from "../../shared/types";
 import { fetchTitleBundle } from "./fetch";
 import { extrasFromBundle } from "./resolve";
+import { carryLinks } from "./subjectLinks";
 import { writeExtras } from "./store";
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
@@ -28,7 +29,8 @@ export async function syncTitleExtras(db: Firestore, apiKey: string, changedShow
             credits: true,
             providers: false,
           });
-          const { fields, fullCast } = extrasFromBundle(bundle, mediaType, null);
+          const fresh = extrasFromBundle(bundle, mediaType, null);
+          const { fields, fullCast } = carryLinks(old, fresh.fields, fresh.fullCast);
           const castChanged =
             !same(old.cast, fields.cast) || old.castTotal !== fields.castTotal;
           const studiosChanged = !same(old.studioLogos, fields.studioLogos);

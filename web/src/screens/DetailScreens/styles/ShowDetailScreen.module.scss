@@ -217,7 +217,9 @@
 /* Lines up with the description above it */
 .localRelease {
 	padding: 0 8px;
-	margin-top: 12px;
+	margin-top: 24px;
+	/* The big date's line box already leaves room under it */
+	margin-bottom: -8px;
 }
 
 .overview {
@@ -270,6 +272,11 @@
 	min-width: 0;
 }
 
+.creditAvatarTrigger {
+	flex-shrink: 0;
+	border-radius: 50%;
+}
+
 .creditAvatarShimmer {
 	position: absolute;
 	inset: 0;
@@ -303,4 +310,5 @@
 	font-size: 18px;
 	font-weight: 600;
 	margin: 0 0 12px;
+	padding: 0 8px; /* In line with the page's text */
 }

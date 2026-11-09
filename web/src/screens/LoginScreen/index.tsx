@@ -13,6 +13,7 @@ import {
 import { useAppSelector } from "../../store";
 import { Paths } from "../../routes/paths";
 import { APP_VERSION_LABEL } from "@app/utils/appVersion";
+import { isValidEmail } from "@app/utils/email";
 import styles from "./styles/LoginScreen.module.scss";
 
 const codeOf = (e: unknown) => (e as { code?: string }).code ?? "";
@@ -40,6 +41,10 @@ export default function LoginScreen() {
 	const handleEmailAuth = async () => {
 		if (!email.trim() || !password.trim()) {
 			setError("Please enter email and password.");
+			return;
+		}
+		if (isSignUp && !isValidEmail(email.trim())) {
+			setError("Enter a valid email address");
 			return;
 		}
 		setLoading(true);
