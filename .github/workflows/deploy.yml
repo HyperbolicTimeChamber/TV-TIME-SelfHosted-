@@ -1,5 +1,5 @@
-# Play Store / App Store releases are off for now — production builds go to the
-# current Firebase App Distribution group instead (development → alpha-channel)
+# Play Store / App Store releases are off for now — production APKs are published as GitHub
+# Releases and the apps update themselves from there (in-app updater)
 name: Build & Distribute (Production)
 
 on:
@@ -37,10 +37,12 @@ jobs:
 
     steps:
       # ── Checkout ──
+      # RELEASE_PUSH_TOKEN: a token of an account allowed past the branch protection on main and
+      # development — the workflow's own token can't push the version bump there
       - name: Checkout
         uses: actions/checkout@v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PUSH_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       # ── Version Bump (push only) ──
@@ -196,40 +198,88 @@ jobs:
             echo "NOTES_EOF"
           } >> "$GITHUB_OUTPUT"
 
-      # ── Build + Distribute (Play Store upload disabled: `fastlane android deploy`) ──
-      # PRs to main distribute too, so testers can try them before merge
-      - name: Fastlane distribute
-        run: bundle exec fastlane android distribute
+      # ── Build (Play Store upload disabled: `fastlane android deploy`) ──
+      # Production APKs go to GitHub Releases (no more Firebase App Distribution); PRs to main
+      # build too and attach the APK to the run, so it can be tried before merge
+      - name: Fastlane build APK
+        run: bundle exec fastlane android build_apk
         working-directory: app
         env:
           KEYSTORE_PATH: /tmp/release.keystore
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
-          FIREBASE_SERVICE_ACCOUNT_JSON_PATH: /tmp/firebase-sa.json
-          RELEASE_NOTES: ${{ steps.notes.outputs.release_notes }}
-          FIREBASE_TESTER_GROUPS: ${{ vars.FIREBASE_TESTER_GROUPS || 'testers' }}
 
-      # ── Force update ([force-update] in the commit message) ──
-      # Builds below config/app.minBuildProd show the blocking "Update required" screen
-      - name: Force update (prod)
-        if: github.event_name == 'push' && contains(github.event.head_commit.message, '[force-update]')
+      - name: Upload PR APK
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: watchloom-pr-${{ github.event.number }}
+          path: app/android/app/build/outputs/apk/release/*.apk
+          retention-days: 14
+
+      # ── GitHub Release with the APK (the in-app updater downloads it from here) ──
+      - name: Prepare APK
+        if: github.event_name == 'push'
+        id: apk
         run: |
-          export BUILD=$(node -p "require('./app/app.json').expo.android.versionCode")
-          echo "$FIREBASE_SERVICE_ACCOUNT_JSON" > /tmp/firebase-sa.json
-          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa.json
-          npm install -g firebase-admin@13
-          NODE_PATH=$(npm root -g) node -e "
-            const admin = require('firebase-admin');
-            admin.initializeApp();
-            admin.firestore().doc('config/app')
-              .set({ minBuildProd: Number(process.env.BUILD) }, { merge: true })
-              .then(() => { console.log('minBuildProd = ' + process.env.BUILD); process.exit(0); })
-              .catch((e) => { console.error(e); process.exit(1); });
-          "
+          VERSION=$(node -p "require('./app/app.json').expo.version")
+          BUILD=$(node -p "require('./app/app.json').expo.android.versionCode")
+          SRC=$(find app/android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          NAME="watchloom.apk"
+          cp "$SRC" "/tmp/$NAME"
+          {
+            echo "version=$VERSION"
+            echo "build=$BUILD"
+            echo "path=/tmp/$NAME"
+            echo "name=$NAME"
+            echo "size=$(stat -c %s "/tmp/$NAME")"
+            echo "tag=v${VERSION}+${BUILD}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.apk.outputs.tag }}
+          name: V${{ steps.apk.outputs.version }} (build ${{ steps.apk.outputs.build }})
+          body: ${{ steps.notes.outputs.release_notes }}
+          files: ${{ steps.apk.outputs.path }}
+          draft: false
+          prerelease: false
+          make_latest: true
         env:
-          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Only the newest build of each version stays on GitHub (per channel): older builds of the
+      # same x.y.z are deleted with their tags
+      - name: Prune older builds of this version
+        if: github.event_name == 'push'
+        run: |
+          VERSION_RE=$(echo "${{ steps.apk.outputs.version }}" | sed 's/\./\\./g')
+          gh release list --limit 200 --json tagName -q '.[].tagName' \
+            | grep -E "^v${VERSION_RE}\+[0-9]+$" \
+            | grep -vx "${{ steps.apk.outputs.tag }}" \
+            | while read -r TAG; do
+                echo "Deleting $TAG"
+                gh release delete "$TAG" --cleanup-tag -y
+              done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # config/release.prod (drawer + force gate), [force-update] → minBuild, FCM push
+      - name: Publish release to the apps
+        if: github.event_name == 'push'
+        run: node scripts/publish-release.cjs
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa.json
+          CHANNEL: prod
+          VERSION: ${{ steps.apk.outputs.version }}
+          BUILD: ${{ steps.apk.outputs.build }}
+          SIZE: ${{ steps.apk.outputs.size }}
+          APK_URL: https://github.com/${{ github.repository }}/releases/download/${{ steps.apk.outputs.tag }}/${{ steps.apk.outputs.name }}
+          NOTES: ${{ steps.notes.outputs.release_notes }}
+          FORCE: ${{ contains(github.event.head_commit.message, '[force-update]') }}
 
       # ── Commit version bump (only after successful build) ──
       - name: Commit version bump
@@ -268,5 +318,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `Build distributed via Firebase App Distribution. Version: **${version}**`
+              body: `APK attached to the workflow run. Version: **${version}**`
             });
