@@ -15,6 +15,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSearchInput } from "./useSearchInput";
 import { colors, spacing, typography } from "../../theme";
 import { SearchStackParamList, Route } from "../../types";
+import { SEARCH_MAX_QUERY_LENGTH } from "../../enums";
 import { IoIosCloseCircle } from "../../components/HiIcons";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import { CLEAR_ICON_SIZE } from "./styles";
@@ -108,6 +109,7 @@ export default function SearchInputScreen() {
 						ref={inputRef}
 						style={styles.searchInput}
 						placeholder="Search Shows & Movies..."
+						maxLength={SEARCH_MAX_QUERY_LENGTH}
 						placeholderTextColor={colors.textMuted}
 						value={query}
 						onChangeText={setQuery}

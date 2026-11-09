@@ -4,6 +4,7 @@ import { IoChevronBackCircleOutline } from "react-icons/io5";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useSearchInput } from "@app/screens/SearchScreen/useSearchInput";
 import { encodeText } from "@app/utils/subjectLink";
+import { SEARCH_MAX_QUERY_LENGTH } from "@app/enums";
 import { Paths } from "../../routes/paths";
 import styles from "./styles/SearchInputScreen.module.scss";
 
@@ -60,6 +61,7 @@ export default function SearchInputScreen() {
 						type="search"
 						enterKeyHint="search"
 						placeholder="Search Shows & Movies..."
+						maxLength={SEARCH_MAX_QUERY_LENGTH}
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}
 						autoCapitalize="none"

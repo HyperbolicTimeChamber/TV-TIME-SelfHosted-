@@ -5,6 +5,7 @@ import { Button } from "antd";
 import { IoChevronBackCircleOutline, IoGrid, IoList, IoSearch } from "react-icons/io5";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { encodeText } from "@app/utils/subjectLink";
+import { SEARCH_MAX_QUERY_LENGTH } from "@app/enums";
 import { useSearch } from "@app/hooks/useSearch";
 import { useTrending } from "@app/hooks/useTrending";
 import { useSearchSort, useSortedSearchResults } from "@app/hooks/useSearchSort";
@@ -72,7 +73,8 @@ const SORT_OPTIONS: SortOption<SearchSortView>[] = SEARCH_SORT_OPTIONS.map(
 export default function SearchScreen() {
 	const navigate = useNavigate();
 	const [params] = useSearchParams();
-	const submittedQuery = params.get("q") ?? "";
+	// A longer one from a shared or hand-typed URL would only get an error from the search
+	const submittedQuery = (params.get("q") ?? "").slice(0, SEARCH_MAX_QUERY_LENGTH);
 	const [mediaFilter, setMediaFilter] = useState<MediaFilter>(MediaFilter.ALL);
 	// Results only (Trending keeps its own order); remembered for the session
 	const [sortView, setSortView] = useSearchSort();

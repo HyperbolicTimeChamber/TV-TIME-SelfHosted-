@@ -283,6 +283,8 @@ export const COUNTRY_LOOKUP_TIMEOUT_MS = 3000;
 export const USER_REGION_TTL_MS = 24 * 60 * 60 * 1000;
 /** A title's extras change rarely: a CF answer is reused this long in a session */
 export const TITLE_EXTRAS_STALE_MS = 24 * 60 * 60 * 1000;
+/** Longest search the searchTitles CF takes (functions SEARCH_MAX_QUERY_LENGTH) */
+export const SEARCH_MAX_QUERY_LENGTH = 100;
 /** Longest cast search the titleCastPage CF takes (functions CAST_SEARCH_MAX_LENGTH) */
 export const CAST_SEARCH_MAX_LENGTH = 50;
 /** Cast cards on the info page before View All (functions FEATURED_CAST_MAX) */
