@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
-import { Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+	Dimensions,
+	Modal,
+	Pressable,
+	ScrollView as PageScroll,
+	StyleSheet,
+	Text,
+	View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 // gesture-handler's: scrolls inside the sheet's drag gesture (BottomSheet pans with gesture-handler)
-import { ScrollView } from "react-native-gesture-handler";
+import { GestureHandlerRootView, ScrollView } from "react-native-gesture-handler";
 import Reanimated, {
 	Easing,
 	FadeIn,
@@ -142,94 +151,127 @@ export default function UpdateSheet({ visible, release, forced }: Readonly<Props
 		</View>
 	);
 
+	const insets = useSafeAreaInsets();
+
+	const body = (
+		<View style={styles.body}>
+			<View style={[styles.header, ready && release.notes ? styles.headerOverNotes : null]}>
+				<Text style={styles.title}>
+					{ready
+						? "Upgrade Ready"
+						: downloading
+							? "Upgrading"
+							: forced
+								? "App Outdated, Upgrade Required"
+								: "It's Time for an Upgrade"}
+				</Text>
+				{ready ? (
+					<Image
+						source={UPGRADE}
+						style={[
+							styles.hero,
+							{ aspectRatio: UPGRADE_RATIO },
+							release.notes ? styles.heroOverNotes : null,
+						]}
+						contentFit="contain"
+					/>
+				) : (
+					<View style={styles.dial}>
+						<Image source={DIAL_CORE} style={StyleSheet.absoluteFill} contentFit="contain" />
+						<Reanimated.View style={[StyleSheet.absoluteFill, ringStyle]}>
+							<Image source={DIAL_RING} style={StyleSheet.absoluteFill} contentFit="contain" />
+						</Reanimated.View>
+					</View>
+				)}
+				{ready ? null : versionPill}
+			</View>
+
+			{/* The notes once it's downloaded: what the Install brings */}
+			{release.notes && ready ? (
+				<View style={styles.notes}>
+					<View style={styles.notesLabelRow}>
+						<Text style={styles.notesLabel}>WHAT'S NEW</Text>
+						<Text style={styles.notesVersion}>v{release.version}</Text>
+					</View>
+					{/* All of it: long notes scroll inside the box instead of being cut off */}
+					<ScrollView style={styles.notesScroll} showsVerticalScrollIndicator={false}>
+						<Text style={styles.notesText}>{release.notes}</Text>
+					</ScrollView>
+				</View>
+			) : null}
+
+			{/* Status line (a forced update explains itself in a few lines); none once downloaded
+					    (the notes and Install say it) */}
+			<View
+				style={[
+					styles.statusArea,
+					forced && !downloading && !ready && styles.statusAreaLong,
+					ready && styles.statusAreaReady,
+				]}
+			>
+				{ready ? null : (
+					<Reanimated.Text
+						key={downloading ? "progress" : phase}
+						entering={FadeIn.duration(SWAP_MS)}
+						style={[styles.status, phase === UpdatePhase.FAILED && styles.statusError]}
+					>
+						{status}
+					</Reanimated.Text>
+				)}
+			</View>
+
+			{/* Downloading: the progress bar takes the button's slot (same height — nothing moves) */}
+			{downloading ? (
+				<View style={styles.barSlot}>
+					<View style={styles.track}>
+						<Reanimated.View style={[styles.fill, barStyle]} />
+					</View>
+				</View>
+			) : (
+				<SheetButton
+					label={ready ? "Install" : phase === UpdatePhase.FAILED ? "Try Again" : "Upgrade Now"}
+					onPress={ready ? install : update}
+				/>
+			)}
+			{/* Downloaded: Install is the only way on (forced still offers Close App) */}
+			{ready && !forced ? null : (
+				<SheetButton
+					label={downloading ? "Cancel Download" : forced ? "Close App" : "Later"}
+					onPress={downloading ? cancelDownload : dismiss}
+					quiet
+				/>
+			)}
+		</View>
+	);
+
+	// Forced: a full page over the whole app (login included), edge to edge. Nothing to drag away:
+	// back / Close App leave the app. The app below stays mounted (cache and sign-in untouched)
+	if (forced) {
+		return (
+			<Modal
+				visible={visible}
+				animationType="fade"
+				statusBarTranslucent
+				navigationBarTranslucent
+				onRequestClose={dismiss}
+			>
+				<GestureHandlerRootView style={styles.page}>
+					<PageScroll
+						contentContainerStyle={[
+							styles.pageContent,
+							{ paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.lg },
+						]}
+						showsVerticalScrollIndicator={false}
+					>
+						{body}
+					</PageScroll>
+				</GestureHandlerRootView>
+			</Modal>
+		);
+	}
 	return (
 		<BottomSheet visible={visible} onClose={dismiss}>
-			{() => (
-				<View style={styles.body}>
-					<View style={[styles.header, ready && release.notes ? styles.headerOverNotes : null]}>
-						<Text style={styles.title}>
-							{ready
-								? "Upgrade Ready"
-								: downloading
-									? "Upgrading"
-									: forced
-										? "App Outdated, Upgrade Required"
-										: "It's Time for an Upgrade"}
-						</Text>
-						{ready ? (
-							<Image
-								source={UPGRADE}
-								style={[styles.hero, { aspectRatio: UPGRADE_RATIO }, release.notes ? styles.heroOverNotes : null]}
-								contentFit="contain"
-							/>
-						) : (
-							<View style={styles.dial}>
-								<Image source={DIAL_CORE} style={StyleSheet.absoluteFill} contentFit="contain" />
-								<Reanimated.View style={[StyleSheet.absoluteFill, ringStyle]}>
-									<Image source={DIAL_RING} style={StyleSheet.absoluteFill} contentFit="contain" />
-								</Reanimated.View>
-							</View>
-						)}
-						{ready ? null : versionPill}
-					</View>
-
-					{/* The notes once it's downloaded: what the Install brings */}
-					{release.notes && ready ? (
-						<View style={styles.notes}>
-							<View style={styles.notesLabelRow}>
-								<Text style={styles.notesLabel}>WHAT'S NEW</Text>
-								<Text style={styles.notesVersion}>v{release.version}</Text>
-							</View>
-							{/* All of it: long notes scroll inside the box instead of being cut off */}
-							<ScrollView style={styles.notesScroll} showsVerticalScrollIndicator={false}>
-								<Text style={styles.notesText}>{release.notes}</Text>
-							</ScrollView>
-						</View>
-					) : null}
-
-					{/* Status line (a forced update explains itself in a few lines); none once downloaded
-					    (the notes and Install say it) */}
-					<View
-						style={[
-							styles.statusArea,
-							forced && !downloading && !ready && styles.statusAreaLong,
-							ready && styles.statusAreaReady,
-						]}
-					>
-						{ready ? null : (
-							<Reanimated.Text
-								key={downloading ? "progress" : phase}
-								entering={FadeIn.duration(SWAP_MS)}
-								style={[styles.status, phase === UpdatePhase.FAILED && styles.statusError]}
-							>
-								{status}
-							</Reanimated.Text>
-						)}
-					</View>
-
-					{/* Downloading: the progress bar takes the button's slot (same height — nothing moves) */}
-					{downloading ? (
-						<View style={styles.barSlot}>
-							<View style={styles.track}>
-								<Reanimated.View style={[styles.fill, barStyle]} />
-							</View>
-						</View>
-					) : (
-						<SheetButton
-							label={ready ? "Install" : phase === UpdatePhase.FAILED ? "Try Again" : "Upgrade Now"}
-							onPress={ready ? install : update}
-						/>
-					)}
-					{/* Downloaded: Install is the only way on (forced still offers Close App) */}
-					{ready && !forced ? null : (
-						<SheetButton
-							label={downloading ? "Cancel Download" : forced ? "Close App" : "Later"}
-							onPress={downloading ? cancelDownload : dismiss}
-							quiet
-						/>
-					)}
-				</View>
-			)}
+			{() => body}
 		</BottomSheet>
 	);
 }
@@ -257,7 +299,9 @@ function SheetButton({
 			accessibilityLabel={label}
 			accessibilityState={{ disabled }}
 		>
-			<Reanimated.View style={[styles.button, quiet && styles.buttonQuiet, disabled && styles.buttonBusy, pressed]}>
+			<Reanimated.View
+				style={[styles.button, quiet && styles.buttonQuiet, disabled && styles.buttonBusy, pressed]}
+			>
 				<Text style={[styles.buttonText, quiet && styles.buttonTextQuiet]}>{label}</Text>
 			</Reanimated.View>
 		</Pressable>
@@ -275,6 +319,9 @@ const PIXEL_LINE = {
 } as const;
 
 const styles = StyleSheet.create({
+	page: { flex: 1, backgroundColor: colors.surface },
+	// Content centred in the screen; taller than it (large system font) → scrolls
+	pageContent: { flexGrow: 1, justifyContent: "center" },
 	body: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.md },
 	header: { alignItems: "center", gap: spacing.sm },
 	hero: { height: 150 },
@@ -327,13 +374,24 @@ const styles = StyleSheet.create({
 	notesScroll: { maxHeight: Dimensions.get("window").height * 0.32, flexGrow: 0 },
 	notesLabelRow: { flexDirection: "row", alignItems: "baseline", gap: spacing.sm },
 	notesVersion: { fontFamily: fonts.vt323, fontSize: 18, color: colors.primary },
-	notesLabel: { fontFamily: fonts.vt323, fontSize: 18, letterSpacing: 1, color: colors.primary, opacity: 0.75 },
+	notesLabel: {
+		fontFamily: fonts.vt323,
+		fontSize: 18,
+		letterSpacing: 1,
+		color: colors.primary,
+		opacity: 0.75,
+	},
 	notesText: { fontFamily: fonts.vt323, fontSize: 20, lineHeight: 22, color: colors.primary },
 	// The line sits as far under the pill as the dial sits above it
 	statusArea: { height: 32, justifyContent: "center", marginTop: spacing.sm },
 	statusAreaReady: { height: spacing.md },
 	// Forced: the explanation needs a few lines
-	statusAreaLong: { height: undefined, minHeight: 32, paddingVertical: spacing.xs, marginBottom: spacing.md },
+	statusAreaLong: {
+		height: undefined,
+		minHeight: 32,
+		paddingVertical: spacing.xs,
+		marginBottom: spacing.md,
+	},
 	// Same height and margin as the button it stands in for
 	barSlot: { height: 52, justifyContent: "center", marginTop: spacing.sm },
 	track: { height: 8, borderRadius: 4, backgroundColor: colors.surfaceLight, overflow: "hidden" },

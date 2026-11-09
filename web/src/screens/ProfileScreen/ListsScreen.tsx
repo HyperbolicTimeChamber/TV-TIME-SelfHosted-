@@ -11,7 +11,7 @@ import {
 } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import { useCustomLists } from "@app/hooks/useCustomLists";
-import { CircleButtonTone, MediaType, NEW_LIST_HINTS, NEW_LIST_TITLE } from "@app/enums";
+import { CircleButtonTone, MediaType, NEW_LIST_HINTS, NEW_LIST_SUBTITLE, NEW_LIST_TITLE } from "@app/enums";
 import type { CustomList } from "@app/types";
 import { listCoverItem, titleCount } from "@app/utils/customLists";
 import { describeImport, parseListsExport, type ImportPlan } from "@app/utils/customListsIO";
@@ -472,6 +472,7 @@ export default function ListsScreen() {
 				title={naming === "new" ? NEW_LIST_TITLE : "Rename List"}
 				image={naming === "new" ? <ModalArt src={NEW_LIST_ART} /> : undefined}
 				hint={naming === "new" ? NEW_LIST_HINTS : undefined}
+				subtitle={naming === "new" ? NEW_LIST_SUBTITLE : undefined}
 				initialName={naming && naming !== "new" ? naming.name : ""}
 				confirmLabel={naming === "new" ? "Create" : "Save"}
 				error={nameError}
