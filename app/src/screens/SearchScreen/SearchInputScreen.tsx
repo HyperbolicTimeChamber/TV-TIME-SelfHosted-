@@ -5,6 +5,7 @@ import {
 	TextInput,
 	TouchableOpacity,
 	StyleSheet,
+	ActivityIndicator,
 	ScrollView,
 	Keyboard,
 } from "react-native";
@@ -31,8 +32,15 @@ export default function SearchInputScreen() {
 	const navigation = useNavigation<NavProp>();
 	const route = useRoute<RoutePropType>();
 	const inputRef = useRef<TextInput>(null);
-	const { query, setQuery, addToHistory, clearHistory, filteredHistory, suggestionItems } =
-		useSearchInput(route.params?.currentQuery || "");
+	const {
+		query,
+		setQuery,
+		addToHistory,
+		clearHistory,
+		filteredHistory,
+		suggestionItems,
+		loadingSuggestions,
+	} = useSearchInput(route.params?.currentQuery || "");
 
 	useEffect(() => {
 		const t = setTimeout(() => inputRef.current?.focus(), 100);
@@ -118,6 +126,13 @@ export default function SearchInputScreen() {
 						autoCorrect={false}
 						returnKeyType="search"
 					/>
+					{loadingSuggestions && (
+						<ActivityIndicator
+							size="small"
+							color={colors.textMuted}
+							accessibilityLabel="Loading suggestions"
+						/>
+					)}
 					{query.length > 0 && (
 						<TouchableOpacity
 							style={styles.clearButton}

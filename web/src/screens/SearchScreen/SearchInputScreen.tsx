@@ -15,8 +15,15 @@ export default function SearchInputScreen() {
 	// Opened from a results page, which sits under this one in history
 	const overResults = !!(useLocation().state as { overResults?: boolean } | null)?.overResults;
 	const inputRef = useRef<HTMLInputElement>(null);
-	const { query, setQuery, addToHistory, clearHistory, filteredHistory, suggestionItems } =
-		useSearchInput(params.get("q") ?? "");
+	const {
+		query,
+		setQuery,
+		addToHistory,
+		clearHistory,
+		filteredHistory,
+		suggestionItems,
+		loadingSuggestions,
+	} = useSearchInput(params.get("q") ?? "");
 
 	useEffect(() => {
 		inputRef.current?.focus();
@@ -67,6 +74,9 @@ export default function SearchInputScreen() {
 						autoCapitalize="none"
 						autoCorrect="off"
 					/>
+					{loadingSuggestions && (
+						<span className={styles.loading} role="progressbar" aria-label="Loading suggestions" />
+					)}
 					{query.length > 0 && (
 						<button
 							type="button"
