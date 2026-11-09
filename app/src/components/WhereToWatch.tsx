@@ -23,6 +23,8 @@ const HIGH_SEAS_ART = require("../../assets/high-seas.webp");
 const HIGH_SEAS_RATIO = 240 / 253;
 
 const LOGO = 60;
+/** Lines the section up with the page's text, which sits this far inside its padding */
+const TEXT_INSET = spacing.sm;
 const SKELETONS = [0, 1, 2, 3, 4];
 /** Logos settle in one after another (nearest first), quick enough never to hold anything up */
 const STAGGER_MS = 40;
@@ -100,8 +102,8 @@ export default function WhereToWatch({ tmdbId, mediaType, title, bleed }: Readon
 					<ScrollView
 						horizontal
 						showsHorizontalScrollIndicator={false}
-						style={{ marginHorizontal: -bleed }}
-						contentContainerStyle={[styles.row, { paddingHorizontal: bleed }]}
+						style={{ marginHorizontal: -(bleed + TEXT_INSET) }}
+						contentContainerStyle={[styles.row, { paddingHorizontal: bleed + TEXT_INSET }]}
 					>
 						{shown.map((p, i) => (
 							<Reanimated.View
@@ -333,7 +335,7 @@ function ProvidersSheet({
 }
 
 const styles = StyleSheet.create({
-	section: { marginTop: spacing.xl },
+	section: { marginTop: spacing.xl, paddingHorizontal: TEXT_INSET },
 	header: { marginBottom: spacing.md, gap: 2 },
 	// The page's section title (Seasons)
 	title: { ...typography.title, fontSize: 18 },

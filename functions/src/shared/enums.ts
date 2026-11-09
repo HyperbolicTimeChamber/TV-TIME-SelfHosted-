@@ -82,6 +82,7 @@ export enum Callable {
   WATCH_PROVIDERS = "watchProviders",
   TITLE_EXTRAS = "titleExtras",
   TITLE_CAST_PAGE = "titleCastPage",
+  SUBJECT_LINK = "subjectLink",
 }
 
 const MINUTE_MS = 60 * 1000;
@@ -117,6 +118,8 @@ export const CALLABLE_RATE_LIMITS: Record<
   [Callable.TITLE_EXTRAS]: { limit: 60, windowMs: MINUTE_MS },
   // The full cast sheet, a page at a time as it scrolls
   [Callable.TITLE_CAST_PAGE]: { limit: 120, windowMs: MINUTE_MS },
+  // One per person / studio opened whose link isn't stored with them yet
+  [Callable.SUBJECT_LINK]: { limit: 120, windowMs: MINUTE_MS },
 };
 
 /** Guest TMDB proxy: uncached requests one IP may make per minute (CDN hits don't count) */
@@ -172,6 +175,7 @@ export enum FunctionName {
   WATCH_PROVIDERS = "watchProviders",
   TITLE_EXTRAS = "titleExtras",
   TITLE_CAST_PAGE = "titleCastPage",
+  SUBJECT_LINK = "subjectLink",
   SEND_TEST_PUSH = "sendTestPush",
 }
 
@@ -180,6 +184,18 @@ export enum FunctionName {
  * catalog doc — catalog titles keep them on the doc, so the page gets them with its catalog read.
  * Same doc ids as shows/
  */
+/** Who a subjectLink call is about: a cast / crew member or a studio */
+export enum SubjectKind {
+  PERSON = "person",
+  STUDIO = "studio",
+}
+
+/** A studio is one of these on TMDB — each has its own ids, pages and homepage */
+export enum TmdbStudioType {
+  COMPANY = "company",
+  NETWORK = "network",
+}
+
 export const TITLE_EXTRAS_COLLECTION = "titleExtras";
 /** A title's full cast (the View All sheet, paged) — kept off the catalog doc, which every
  *  watchlist read carries. Same doc ids as shows/ */

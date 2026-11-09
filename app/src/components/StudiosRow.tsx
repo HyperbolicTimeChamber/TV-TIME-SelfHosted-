@@ -5,14 +5,18 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useTitleExtras } from "../hooks/useTitleExtras";
 import { tmdbLogoUri } from "../hooks/useTmdbImage";
 import { useSharedShimmer } from "./SkeletonLine";
+import PhotoTrigger from "./PhotoViewer";
 import { mainStudios } from "../utils/studioNames";
 import { colors, spacing, typography } from "../theme";
+import { studioSubject } from "../utils/subjectLink";
 import type { MediaType } from "../enums";
 
 const CHIP_W = 112;
 const CHIP_H = 56;
 const CHIP_RADIUS = 12;
 const SKELETONS = [0, 1, 2, 3];
+/** Lines the section up with the page's text, which sits this far inside its padding */
+const TEXT_INSET = spacing.sm;
 const STAGGER_MS = 40;
 /** The stagger stops growing after this many: a long row's tail never waits on the rest */
 const STAGGER_CAP = 6;
@@ -28,8 +32,6 @@ interface Props {
 	mediaType: MediaType;
 	/** Cancels the info page's side padding so the row scrolls off the screen edge */
 	bleed: number;
-	/** Movies: sits in the credits (Screenplay's old place) — a smaller gap above */
-	compact?: boolean;
 }
 
 /**
@@ -37,7 +39,7 @@ interface Props {
  * chip (TMDB's logos are black on transparent — it has no light versions), in a row that scrolls off the screen edge. Stored with the
  * title's extras (titleExtras CF). None with a logo → no section
  */
-export default function StudiosRow({ tmdbId, mediaType, bleed, compact = false }: Readonly<Props>) {
+export default function StudiosRow({ tmdbId, mediaType, bleed }: Readonly<Props>) {
 	const { data, isPending, isError } = useTitleExtras(tmdbId, mediaType);
 	const shimmer = useSharedShimmer();
 	// Each company once: a division drops out next to its parent (OLM Digital beside OLM)
@@ -45,13 +47,13 @@ export default function StudiosRow({ tmdbId, mediaType, bleed, compact = false }
 	if (isError || (studios && studios.length === 0)) return null;
 
 	return (
-		<View style={compact ? styles.sectionCompact : styles.section}>
-			<Text style={compact ? styles.label : styles.title}>Studios</Text>
+		<View style={styles.section}>
+			<Text style={styles.label}>Studios</Text>
 			<ScrollView
 				horizontal
 				showsHorizontalScrollIndicator={false}
-				style={{ marginHorizontal: -bleed }}
-				contentContainerStyle={[styles.row, { paddingHorizontal: bleed }]}
+				style={{ marginHorizontal: -(bleed + TEXT_INSET) }}
+				contentContainerStyle={[styles.row, { paddingHorizontal: bleed + TEXT_INSET }]}
 				scrollEnabled={!isPending}
 			>
 				{isPending || !studios
@@ -63,25 +65,32 @@ export default function StudiosRow({ tmdbId, mediaType, bleed, compact = false }
 								key={s.id}
 								entering={FadeIn.delay(Math.min(i, STAGGER_CAP) * STAGGER_MS).duration(ENTER_MS).easing(EASE_OUT)}
 								style={styles.chip}
-								accessible
-								accessibilityLabel={s.name}
 							>
-								{/* Rounded themselves: clipping them with the chip's overflow left jagged corners
-								    (Android doesn't anti-alias that clip) */}
-								<LinearGradient colors={GLASS_BODY} style={styles.glass} />
-								<LinearGradient
-									colors={GLASS_SHEEN}
-									start={{ x: 0, y: 0 }}
-									end={{ x: 0.7, y: 0.6 }}
-									style={styles.glass}
-								/>
-								<Image
-									source={{ uri: tmdbLogoUri(s.logo, CHIP_W) }}
-									style={styles.logo}
-									contentFit="contain"
-									transition={ENTER_MS}
-									recyclingKey={String(s.id)}
-								/>
+								<PhotoTrigger
+									subject={studioSubject(s, { tmdbId, mediaType })}
+									radius={CHIP_RADIUS}
+									thumbWidth={CHIP_W}
+									style={styles.chipBody}
+								>
+									{/* Rounded themselves: clipping them with the chip's overflow left jagged corners
+									    (Android doesn't anti-alias that clip) */}
+									<LinearGradient colors={GLASS_BODY} style={styles.glass} />
+									<LinearGradient
+										colors={GLASS_SHEEN}
+										start={{ x: 0, y: 0 }}
+										end={{ x: 0.7, y: 0.6 }}
+										style={styles.glass}
+									/>
+									<View style={styles.logoSlot}>
+										<Image
+											source={{ uri: tmdbLogoUri(s.logo, CHIP_W) }}
+											style={styles.logo}
+											contentFit="contain"
+											transition={ENTER_MS}
+											recyclingKey={String(s.id)}
+										/>
+									</View>
+								</PhotoTrigger>
 							</Reanimated.View>
 						))}
 			</ScrollView>
@@ -90,21 +99,20 @@ export default function StudiosRow({ tmdbId, mediaType, bleed, compact = false }
 }
 
 const styles = StyleSheet.create({
-	section: { marginTop: spacing.xl },
-	sectionCompact: { marginTop: spacing.lg, paddingHorizontal: spacing.sm },
-	// The page's section title (Seasons)
-	title: { ...typography.title, fontSize: 18, marginBottom: spacing.md },
-	// In the credits: their red label (Director)
+	section: { marginTop: spacing.lg, paddingHorizontal: TEXT_INSET },
+	// The credits' red label (Director)
 	label: { ...typography.subtitle, fontSize: 14, color: colors.primary, marginBottom: spacing.sm },
 	row: { flexDirection: "row", gap: spacing.sm },
 	chip: {
 		width: CHIP_W,
 		height: CHIP_H,
 		borderRadius: CHIP_RADIUS,
+	},
+	chipBody: { width: "100%", height: "100%" },
+	logoSlot: {
+		flex: 1,
 		paddingHorizontal: spacing.md,
 		paddingVertical: spacing.sm,
-		alignItems: "center",
-		justifyContent: "center",
 	},
 	// Fills the whole chip (no rim: the gradient's shading is the glass)
 	glass: {

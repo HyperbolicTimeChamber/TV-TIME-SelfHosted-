@@ -35,6 +35,18 @@ test("allows country names (Where to Watch); its services go through the callabl
   assert.equal(fail("/api/tmdb/configuration/languages").status, 404);
 });
 
+test("allows a person's external ids (photo viewer's IMDb link), nothing else of theirs", () => {
+  ok("/api/tmdb/person/287/external_ids");
+  assert.equal(fail("/api/tmdb/person/287").status, 404);
+  assert.equal(fail("/api/tmdb/person/287/images").status, 404);
+});
+
+test("allows a studio's details (photo viewer's website link)", () => {
+  ok("/api/tmdb/company/420");
+  ok("/api/tmdb/network/49");
+  assert.equal(fail("/api/tmdb/company/420/images").status, 404);
+});
+
 test("rejects anything else", () => {
   assert.equal(fail("/api/tmdb/account/1").status, 404);
   assert.equal(fail("/api/tmdb/discover/tv").status, 404);

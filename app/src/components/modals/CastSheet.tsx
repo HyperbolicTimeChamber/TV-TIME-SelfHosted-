@@ -3,6 +3,7 @@ import {
 	ActivityIndicator,
 	Animated,
 	Keyboard,
+	Linking,
 	Modal,
 	StyleSheet,
 	Text,
@@ -32,7 +33,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCastPages } from "../../hooks/useTitleExtras";
 import { tmdbPosterUri } from "../../hooks/useTmdbImage";
 import { useSharedShimmer } from "../SkeletonLine";
+import { useResolveSubjectLink } from "../../hooks/useSubjectLink";
 import { artHeight, NO_RESULTS_ART, NO_RESULTS_RATIO } from "../NotFoundArt";
+import { personSubject } from "../../utils/subjectLink";
 import { CAST_SEARCH_DEBOUNCE_MS, MediaType } from "../../enums";
 import type { CastMember } from "../../types";
 import { colors, spacing, typography } from "../../theme";
@@ -94,6 +97,7 @@ export default function CastSheet({
 	);
 	const animationConfigs = useBottomSheetSpringConfigs(SHEET_SPRING);
 	const shimmer = useSharedShimmer();
+	const resolveLink = useResolveSubjectLink();
 	const [input, setInput] = useState("");
 	const [query, setQuery] = useState("");
 	useEffect(() => {
@@ -275,9 +279,23 @@ export default function CastSheet({
 											</Text>
 										) : null}
 									</View>
-									{castStat(item, mediaType) && (
-										<Text style={styles.stat}>{castStat(item, mediaType)}</Text>
-									)}
+									<View style={styles.rowEnd}>
+										{castStat(item, mediaType) && (
+											<Text style={styles.stat}>{castStat(item, mediaType)}</Text>
+										)}
+										<Pressable
+											hitSlop={10}
+											onPress={() => {
+												resolveLink(personSubject(item, { tmdbId, mediaType }))
+													.then((url) => Linking.openURL(url))
+													.catch(() => {});
+											}}
+											accessibilityRole="link"
+											accessibilityLabel={`${item.name}, view on IMDb`}
+										>
+											<Text style={styles.imdbLink}>IMDb</Text>
+										</Pressable>
+									</View>
 								</View>
 							)}
 						/>
@@ -389,7 +407,9 @@ const styles = StyleSheet.create({
 	rowText: { flex: 1, gap: 2 },
 	name: { ...typography.body, fontWeight: "600", color: colors.text },
 	character: { ...typography.caption, color: colors.textSecondary },
+	rowEnd: { alignItems: "flex-end", gap: 2 },
 	stat: { ...typography.caption, color: colors.textMuted, fontVariant: ["tabular-nums"] },
+	imdbLink: { ...typography.caption, fontWeight: "600", color: colors.primary },
 	skeleton: { backgroundColor: colors.border },
 	skeletonLine: { height: 10, width: "60%", borderRadius: 4, backgroundColor: colors.border },
 	skeletonShort: { width: "35%", marginTop: 6 },

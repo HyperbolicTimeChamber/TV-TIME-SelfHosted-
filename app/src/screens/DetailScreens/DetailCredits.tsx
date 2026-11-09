@@ -4,6 +4,9 @@ import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { tmdbPosterUri } from "../../hooks/useTmdbImage";
 import { useSharedShimmer } from "../../components/SkeletonLine";
+import PhotoTrigger from "../../components/PhotoViewer";
+import { personSubject } from "../../utils/subjectLink";
+import type { MediaType } from "../../enums";
 import type { CrewMember } from "../../types";
 import { colors, spacing, typography } from "../../theme";
 
@@ -11,6 +14,8 @@ const AVATAR = 44;
 const PHOTO_FADE_MS = 200;
 
 interface Props {
+	tmdbId: number;
+	mediaType: MediaType;
 	/** Names from the page's details — shown (with a person icon) until the photos arrive */
 	directors: string[];
 	writers: string[];
@@ -21,12 +26,12 @@ interface Props {
 	photosPending?: boolean;
 }
 
-type Person = { key: string; name: string; profile: string | null };
+type Person = CrewMember & { key: string };
 
 const people = (names: string[], withPhotos?: CrewMember[]): Person[] =>
 	withPhotos && withPhotos.length > 0
-		? withPhotos.map((p) => ({ key: String(p.id), name: p.name, profile: p.profile }))
-		: names.map((name) => ({ key: name, name, profile: null }));
+		? withPhotos.map((p) => ({ ...p, key: String(p.id) }))
+		: names.map((name) => ({ id: 0, key: name, name, profile: null }));
 
 /** Shimmers until there's something to show; a person icon only when they really have no photo */
 function Avatar({ profile, pending }: Readonly<{ profile: string | null; pending: boolean }>) {
@@ -60,14 +65,27 @@ function CreditGroup({
 	label,
 	members,
 	pending,
-}: Readonly<{ label: string; members: Person[]; pending: boolean }>) {
+	title,
+}: Readonly<{
+	label: string;
+	members: Person[];
+	pending: boolean;
+	title: { tmdbId: number; mediaType: MediaType };
+}>) {
 	return (
 		<View>
 			<Text style={styles.creditLabel}>{label}</Text>
 			<View style={styles.grid}>
 				{members.map((m) => (
 					<View key={m.key} style={styles.person}>
-						<Avatar profile={m.profile} pending={pending} />
+						<PhotoTrigger
+							subject={m.profile ? personSubject(m, title) : null}
+							radius={AVATAR / 2}
+							thumbWidth={AVATAR}
+							style={styles.avatarSlot}
+						>
+							<Avatar profile={m.profile} pending={pending} />
+						</PhotoTrigger>
 						<Text style={styles.name} numberOfLines={2}>
 							{m.name}
 						</Text>
@@ -80,6 +98,8 @@ function CreditGroup({
 
 /** Movie credits: directors and writers, each with their photo, in a two-column grid */
 export default function DetailCredits({
+	tmdbId,
+	mediaType,
 	directors,
 	writers,
 	directorPeople,
@@ -97,10 +117,16 @@ export default function DetailCredits({
 					label={directing.length === 1 ? "Director" : "Directors"}
 					members={directing}
 					pending={photosPending}
+					title={{ tmdbId, mediaType }}
 				/>
 			)}
 			{writing.length > 0 && (
-				<CreditGroup label="Screenplay" members={writing} pending={photosPending} />
+				<CreditGroup
+					label="Screenplay"
+					members={writing}
+					pending={photosPending}
+					title={{ tmdbId, mediaType }}
+				/>
 			)}
 		</View>
 	);
@@ -121,6 +147,7 @@ const styles = StyleSheet.create({
 	// Two columns: each person takes half the row
 	grid: { flexDirection: "row", flexWrap: "wrap", rowGap: spacing.md },
 	person: { width: "50%", flexDirection: "row", alignItems: "center", gap: spacing.md, paddingRight: spacing.sm },
+	avatarSlot: { width: AVATAR, height: AVATAR },
 	avatar: {
 		width: AVATAR,
 		height: AVATAR,

@@ -23,6 +23,8 @@ export type {
 	TitleExtras,
 	RegionWatchProviders,
 	WatchProvider,
+	PhotoSubject,
+	SubjectLinkResult,
 } from "./catalog";
 export type {
 	TrackingItem,

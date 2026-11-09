@@ -21,6 +21,10 @@ const ROUTES: Route[] = [
   // Info page Where to Watch: country names for its title (the services come from the
   // watchProviders callable)
   { pattern: /^\/configuration\/countries$/, sMaxAge: 7 * DAY },
+  // Photo viewer's "View on IMDb": a person's IMDb id
+  { pattern: /^\/person\/\d+\/external_ids$/, sMaxAge: 7 * DAY },
+  // ...and its link for a studio: the company's / network's homepage
+  { pattern: /^\/(company|network)\/\d+$/, sMaxAge: 7 * DAY },
 ];
 
 const ALLOWED_PARAMS: Record<string, (v: string) => boolean> = {

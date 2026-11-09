@@ -2,12 +2,15 @@ import { useState, type CSSProperties } from "react";
 import { IoChevronForward, IoPerson } from "react-icons/io5";
 import { useTitleExtras } from "@app/hooks/useTitleExtras";
 import CastSheet from "./CastSheet";
+import PhotoTrigger from "./PhotoViewer";
 import { tmdbPosterUri } from "@app/hooks/useTmdbImage";
+import { personSubject } from "@app/utils/subjectLink";
 import { FEATURED_CAST_MAX, type MediaType } from "@app/enums";
 import SkeletonBlock from "./SkeletonBlock";
 import styles from "./styles/CastRow.module.scss";
 
 const CARD_PX = 104;
+const CARD_RADIUS = 14;
 const SKELETONS = [0, 1, 2, 3, 4];
 
 /**
@@ -45,12 +48,19 @@ export default function CastRow({
 								aria-label={m.character ? `${m.name} as ${m.character}` : m.name}
 							>
 								{m.profile ? (
-									<img
-										className={styles.photo}
-										src={tmdbPosterUri(m.profile, CARD_PX)}
-										alt=""
-										loading="lazy"
-									/>
+									<PhotoTrigger
+										subject={personSubject(m, { tmdbId, mediaType })}
+										radius={CARD_RADIUS}
+										thumbWidth={CARD_PX}
+										className={styles.photoTrigger}
+									>
+										<img
+											className={styles.photo}
+											src={tmdbPosterUri(m.profile, CARD_PX)}
+											alt=""
+											loading="lazy"
+										/>
+									</PhotoTrigger>
 								) : (
 									<span className={styles.noPhoto}>
 										<IoPerson size={40} />

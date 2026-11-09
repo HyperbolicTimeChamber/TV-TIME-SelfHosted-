@@ -149,6 +149,20 @@ export enum QueryKey {
 	COUNTRY_NAMES = "countryNames",
 	/** + tmdbId, mediaType — a title's full cast, paged (View All sheet, titleCastPage CF) */
 	TITLE_CAST_PAGE = "titleCastPage",
+	/** + kind, TMDB id — where the photo viewer's pill links to */
+	SUBJECT_LINK = "subjectLink",
+}
+
+/** What the photo viewer is showing: a cast / crew member's photo or a studio's logo */
+export enum PhotoSubjectKind {
+	PERSON = "person",
+	STUDIO = "studio",
+}
+
+/** A studio is one of these on TMDB — each has its own ids, pages and homepage */
+export enum TmdbStudioType {
+	COMPANY = "company",
+	NETWORK = "network",
 }
 
 /** Info page pills, longest first — a pill shows the first that fits on one line */
@@ -479,6 +493,7 @@ export enum CloudFunction {
 	CANCEL_ACCOUNT_JOB = "cancelAccountJob",
 	TITLE_EXTRAS = "titleExtras",
 	TITLE_CAST_PAGE = "titleCastPage",
+	SUBJECT_LINK = "subjectLink",
 }
 
 /** Callable error codes (web SDK prefixes them with "functions/") */

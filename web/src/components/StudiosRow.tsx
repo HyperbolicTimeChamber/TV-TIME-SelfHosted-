@@ -1,12 +1,15 @@
 import type { CSSProperties } from "react";
+import PhotoTrigger from "./PhotoViewer";
 import { useTitleExtras } from "@app/hooks/useTitleExtras";
 import { tmdbLogoUri } from "@app/hooks/useTmdbImage";
 import { mainStudios } from "@app/utils/studioNames";
+import { studioSubject } from "@app/utils/subjectLink";
 import type { MediaType } from "@app/enums";
 import SkeletonBlock from "./SkeletonBlock";
 import styles from "./styles/StudiosRow.module.scss";
 
 const CHIP_PX = 112;
+const CHIP_RADIUS = 12;
 const SKELETONS = [0, 1, 2, 3];
 
 /**
@@ -17,12 +20,9 @@ const SKELETONS = [0, 1, 2, 3];
 export default function StudiosRow({
 	tmdbId,
 	mediaType,
-	compact = false,
 }: {
 	tmdbId: number;
 	mediaType: MediaType;
-	/** Movies: sits under the credits — their red label, a smaller gap above */
-	compact?: boolean;
 }) {
 	const { data, isPending, isError } = useTitleExtras(tmdbId, mediaType);
 	// Each company once: a division drops out next to its parent (OLM Digital beside OLM)
@@ -30,21 +30,22 @@ export default function StudiosRow({
 	if (isError || (studios && studios.length === 0)) return null;
 
 	return (
-		<section className={compact ? styles.sectionCompact : styles.section}>
-			<h2 className={compact ? styles.label : styles.title}>Studios</h2>
+		<section className={styles.section}>
+			<h2 className={styles.label}>Studios</h2>
 			<div className={styles.row}>
 				{isPending || !studios
 					? SKELETONS.map((i) => <SkeletonBlock key={i} className={styles.chip} />)
 					: studios.map((s, i) => (
-							<span
+							<PhotoTrigger
 								key={s.id}
+								subject={studioSubject(s, { tmdbId, mediaType })}
+								radius={CHIP_RADIUS}
+								thumbWidth={CHIP_PX}
 								className={`${styles.chip} ${styles.logoChip}`}
 								style={{ "--i": i } as CSSProperties}
-								role="img"
-								aria-label={s.name}
 							>
 								<img src={tmdbLogoUri(s.logo, CHIP_PX)} alt="" loading="lazy" />
-							</span>
+							</PhotoTrigger>
 						))}
 			</div>
 		</section>
