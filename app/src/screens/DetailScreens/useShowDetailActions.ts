@@ -212,8 +212,12 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 
 	const directors =
 		show?.credits?.crew?.filter((c) => c.job === "Director").map((c) => c.name) ?? [];
-	const writers =
-		show?.credits?.crew?.filter((c) => c.department === "Writing").map((c) => c.name) ?? [];
+	// Each once: someone credited for both story and screenplay is listed twice by TMDB
+	const writers = [
+		...new Set(
+			show?.credits?.crew?.filter((c) => c.department === "Writing").map((c) => c.name) ?? [],
+		),
+	];
 	const producers =
 		show?.credits?.crew?.filter((c) => c.job === "Producer").map((c) => c.name) ?? [];
 

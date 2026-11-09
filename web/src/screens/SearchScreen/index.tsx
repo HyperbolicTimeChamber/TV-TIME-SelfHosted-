@@ -30,7 +30,7 @@ import { useCollapsingHeader } from "../../hooks/useCollapsingHeader";
 import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
 import { useElementHeight } from "../../hooks/useElementHeight";
 import { useColumnCount } from "../../hooks/useColumnCount";
-import { Paths, showPath } from "../../routes/paths";
+import { Paths, showPath, SEARCH_TYPE_PARAM } from "../../routes/paths";
 import { SortButton, SortPanel, type SortOption } from "../../components/SortPanel";
 import AddToListSheet from "../../components/AddToListSheet";
 import SortFabMenu from "../../components/SortFabMenu";
@@ -72,10 +72,21 @@ const SORT_OPTIONS: SortOption<SearchSortView>[] = SEARCH_SORT_OPTIONS.map(
 /** Landing page for guests; same trending/search + add flows as the app's SearchScreen */
 export default function SearchScreen() {
 	const navigate = useNavigate();
-	const [params] = useSearchParams();
+	const [params, setParams] = useSearchParams();
 	// A longer one from a shared or hand-typed URL would only get an error from the search
 	const submittedQuery = (params.get("q") ?? "").slice(0, SEARCH_MAX_QUERY_LENGTH);
-	const [mediaFilter, setMediaFilter] = useState<MediaFilter>(MediaFilter.ALL);
+	const mediaFilter =
+		Object.values(MediaFilter).find((f) => f === params.get(SEARCH_TYPE_PARAM)) ?? MediaFilter.ALL;
+	const setMediaFilter = (filter: MediaFilter) =>
+		setParams(
+			(prev) => {
+				const next = new URLSearchParams(prev);
+				if (filter === MediaFilter.ALL) next.delete(SEARCH_TYPE_PARAM);
+				else next.set(SEARCH_TYPE_PARAM, filter);
+				return next;
+			},
+			{ replace: true },
+		);
 	// Results only (Trending keeps its own order); remembered for the session
 	const [sortView, setSortView] = useSearchSort();
 	const reduceMotion = useReducedMotion();
