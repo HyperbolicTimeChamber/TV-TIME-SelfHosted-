@@ -23,6 +23,7 @@ test("no local date or no country: nothing to show", () => {
 
 test("a local date: the country as the label, the full date", () => {
 	assert.deepEqual(localReleaseText("2025-07-24", "India", NOW), {
+		title: "Released locally on",
 		label: "Released in India",
 		date: "24 Jul 2025",
 	});
