@@ -24,7 +24,7 @@ import ReorderableList, {
 } from "react-native-reorderable-list";
 import { useAuthStore } from "../../stores";
 import { useCustomLists } from "../../hooks";
-import { CircleButtonTone, MediaType, NEW_LIST_HINTS, NEW_LIST_TITLE, Route } from "../../enums";
+import { CircleButtonTone, MediaType, NEW_LIST_HINTS, NEW_LIST_SUBTITLE, NEW_LIST_TITLE, Route } from "../../enums";
 import type { CustomList, ProfileStackParamList } from "../../types";
 import { ConfirmModal, ListNameModal } from "../../components";
 import BottomSheet, { SheetGroup, SheetOption } from "../../components/modals/BottomSheet";
@@ -585,6 +585,7 @@ export default function ListsScreen() {
 					naming === "new" ? <ModalArt source={NEW_LIST_ART} ratio={NEW_LIST_RATIO} /> : undefined
 				}
 				hint={naming === "new" ? NEW_LIST_HINTS : undefined}
+				subtitle={naming === "new" ? NEW_LIST_SUBTITLE : undefined}
 				initialName={naming && naming !== "new" ? naming.name : ""}
 				confirmLabel={naming === "new" ? "Create" : "Save"}
 				error={nameError}

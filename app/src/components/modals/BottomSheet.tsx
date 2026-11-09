@@ -470,6 +470,7 @@ export function WatchCountSquare({ count, label = "WATCHED" }: { count: number; 
  */
 export function SheetHeader({
 	title,
+	heading,
 	subtitle,
 	tmdbId,
 	mediaType,
@@ -478,6 +479,8 @@ export function SheetHeader({
 	centered = false,
 }: {
 	title: string;
+	/** A sheet title above the logo (Add to List) */
+	heading?: string;
 	subtitle?: string;
 	tmdbId?: number;
 	mediaType?: MediaType;
@@ -492,6 +495,11 @@ export function SheetHeader({
 			{/* A square beside it: one fixed height (logo + line), so the square is the same size
 			    with or without a line and the logo / logo + line block centres against it */}
 			<View style={[styles.headerText, !!aside && !centered && styles.headerTextFixed]}>
+				{heading ? (
+					<Text style={styles.heading} accessibilityRole="header">
+						{heading}
+					</Text>
+				) : null}
 				<SheetLogo
 					title={title}
 					tmdbId={tmdbId}
@@ -756,6 +764,8 @@ const styles = StyleSheet.create({
 	logoSlotCentered: { alignItems: "center" },
 	logoSlotFit: { justifyContent: "flex-end" },
 	nameCentered: { textAlign: "center" },
+	// Sheet title above the logo, like the app's other titles (ConfirmModal / popups)
+	heading: { ...typography.subtitle, fontSize: 16, textAlign: "center", marginBottom: spacing.sm },
 	// Full size while loading (so it decodes and reports its true shape), invisible, out of flow
 	logoLoading: { position: "absolute", width: LOGO_MAX_W, height: LOGO_MIN_H, opacity: 0 },
 	name: { ...typography.subtitle, fontSize: 18 },
