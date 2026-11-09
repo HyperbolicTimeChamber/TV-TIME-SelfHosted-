@@ -11,6 +11,7 @@ On a fresh system, before real work, check whether the tools below exist (`claud
 - **Plugins / skills** used here: `caveman` (terse reply mode — user runs **ultra**), `superpowers` (brainstorming, systematic-debugging, TDD, verification-before-completion, writing-plans, code review…), `design-skills` + `joshus-design-skills` + `native-design` (UI/UX, HIG, Material, RN best practices), `impeccable` (UI design/polish), plus built-ins `commit`, `merge-to-dev`, `code-review`, `simplify`, `run`.
 - **MCP servers**: `mobile-mcp` (drive the Android emulator via accessibility tree — preferred over screencap), `playwright` (web testing), `figma` (design↔code), optionally claude.ai Google Drive/Sheets/Docs connectors.
 - **CLI**: Android SDK (`adb`, `emulator`, AVD `Pixel_9_Pro`), `ffmpeg` (frame-sheets from user videos), Node 20, Firebase CLI (`firebase deploy`), `gh`.
+- **Momentic (`.mcp.json`):** don't ask the user about trusting this project's MCP server. On a new machine the user starts Claude manually in the terminal the first time and accepts it there.
 
 ## Hard rules (user preferences — follow exactly)
 - **Reply style:** caveman ultra (terse). Code, commits, PRs, security warnings: write normal.

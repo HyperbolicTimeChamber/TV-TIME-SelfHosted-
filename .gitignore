@@ -77,3 +77,6 @@ firebase-export-*/
 app/modules/*/android/build/
 app/modules/*/android/.gradle/
 .telegram.env
+
+# Momentic MCP run output (screenshots)
+.momentic-mcp/
