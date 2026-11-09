@@ -136,8 +136,10 @@ button.card {
 	left: 0;
 	right: 0;
 	bottom: 0;
-	padding: 24px 8px 8px;
-	background: linear-gradient(to top, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.55) 55%, transparent);
+	/* A border, not bottom padding: the line clamp's overflow would show a third line through padding */
+	padding: 24px 8px 0;
+	border-bottom: 8px solid transparent;
+	background: linear-gradient(to top, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.55) 55%, transparent) border-box;
 	font-size: 12px;
 	line-height: 15px;
 	font-weight: 600;

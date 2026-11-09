@@ -27,7 +27,7 @@ On a fresh system, before real work, check whether the tools below exist (`claud
 - **Emulator safety:** the emulator is signed into a REAL account with real data. Screenshot-confirm the screen before any `adb` swipe/tap that could mark something; use back-key to dismiss confirm modals instead of confirming; avoid card swipes (a fast swipe can become a tap → opens carousel with Mark buttons).
 - **Typecheck:** `npx tsc --noEmit` from `app/`, `functions/`, and `web` (`npx tsc -p tsconfig.app.json --noEmit`) — root has no TypeScript. Pre-existing TS error list may be empty now; don't add new ones.
 - **LegendList** does not re-render on `extraData` — embed state in data items.
-- **Subagent models:** give simple subagents a cheaper model via the Agent `model` param — `haiku` for lookups/greps/file location (Explore), `sonnet` for routine edits/mechanical refactors/test runs. Keep the default (Opus) only for design, debugging, review, or anything needing judgment. Saves context + cost.
+- **Subagent models:** give simple subagents a cheaper model via the Agent `model` param — `haiku` for lookups/greps/file location (Explore), `sonnet` for routine edits/mechanical refactors/test runs. Keep the default (Opus) only for design, debugging, review, or anything needing judgment. Saves context + cost. This holds even for linear work that can't run in parallel (e.g. device tests sharing one emulator): if it doesn't need Opus, one lower-model subagent does it and reports back.
 
 ## Architecture
 - **Shared catalog:** `shows/{docId}` — metadata, seasons/episodes, `trackedBy[]`, `genres[]`.
