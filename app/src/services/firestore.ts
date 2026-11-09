@@ -410,15 +410,6 @@ export async function markEpisodeWatched(
 						: { rewatchDelta: opts.incrementRewatch ? 1 : 0 }),
 				}),
 	});
-
-	// Watched → out of the server upcoming list too (doc id from the upcoming CFs), so a
-	// later upcoming refetch doesn't bring it back. Fire-and-forget: missing doc is fine
-	deleteDoc(
-		doc(
-			collection(doc(db, "users", userId), "upcoming"),
-			`${showDocId(tmdbShowId, MediaType.TV)}_${docId.slice(docId.indexOf("_") + 1)}`,
-		),
-	).catch(() => {});
 }
 
 /** Unwatching back to a hole in the first watch ends any rewatch (a show can't be rewatched
@@ -1481,15 +1472,6 @@ async function markEpisodesBatch(
 		batch.set(trackingDoc, { ...trackingUpdate, ...history }, { merge: true });
 	}
 	await batch.commit();
-
-	// Watched → out of the server upcoming list too (fire-and-forget, like markEpisodeWatched)
-	const upcoming = collection(doc(db, "users", userId), "upcoming");
-	for (const ep of ordered) {
-		const id = episodeDocId(tmdbId, seasonNumber, ep.episodeNumber);
-		deleteDoc(
-			doc(upcoming, `${showDocId(tmdbId, MediaType.TV)}_${id.slice(id.indexOf("_") + 1)}`),
-		).catch(() => {});
-	}
 }
 
 export async function markSeasonWatchedCF(

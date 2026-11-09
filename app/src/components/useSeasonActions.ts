@@ -5,7 +5,6 @@ import { Timestamp } from "@react-native-firebase/firestore";
 import {
 	useSeasonDetails,
 	useShowWatchedEpisodes,
-	useUpcomingMutations,
 	insertWatchedEpisodeCache,
 	setWatchedEpisodeCountsCache,
 	incrementDailyWatch,
@@ -126,7 +125,6 @@ export function useSeasonActions({
 	const markedFromElsewhere = useSeasonMarking(tmdbId, season.season_number);
 	const user = useAuthStore((s) => s.user);
 	const queryClient = useQueryClient();
-	const { mutateCachedUpcoming, rollbackUpcoming, removeWatchedFromPast } = useUpcomingMutations();
 	const apiKey = useAuthStore((s) => s.appTmdbApiKey)!;
 	const {
 		data: seasonData,
@@ -621,18 +619,6 @@ export function useSeasonActions({
 			if (!user?.uid || markingEps.size > 0) return;
 			setMarkingEps(new Set([ep.episode_number]));
 
-			// Optimistic upcoming update
-			const snapshot = mutateCachedUpcoming((prev) =>
-				prev.filter(
-					(e) =>
-						!(
-							e.tmdbShowId === tmdbId &&
-							e.season === season.season_number &&
-							e.episode === ep.episode_number
-						),
-				),
-			);
-
 			try {
 				const tw = await resolveTrackingWrite([ep.episode_number], jump);
 
@@ -667,9 +653,7 @@ export function useSeasonActions({
 					watchCount: 1,
 				});
 				incrementDailyWatch("episode");
-				removeWatchedFromPast(tmdbId, season.season_number, ep.episode_number);
 			} catch (err: any) {
-				rollbackUpcoming(snapshot);
 				console.error("markEpisodeWatched failed:", err);
 				Alert.alert("Error", err.message || "Failed to mark episode as watched.");
 			} finally {
@@ -683,9 +667,6 @@ export function useSeasonActions({
 			season.season_number,
 			resolveTrackingWrite,
 			queryClient,
-			mutateCachedUpcoming,
-			rollbackUpcoming,
-			removeWatchedFromPast,
 		],
 	);
 
@@ -1647,8 +1628,6 @@ export function useSeasonActions({
 		sheetLabel,
 		sheetSquareLabel,
 		handleEpisodeCountCommit,
-		mutateCachedUpcoming,
-		rollbackUpcoming,
 		seasonData,
 		isLoading,
 		imagesLoading,
