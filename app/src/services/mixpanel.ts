@@ -164,6 +164,21 @@ export async function trackAppUpdated(currentBuild: number, currentVersion: stri
 	} catch {}
 }
 
+export interface TabDesyncProps {
+	expected_index: number;
+	/** Pager position in tabs (1 = one full page) */
+	actual_position: number;
+	/** actual_position × width, px */
+	offset: number;
+	width: number;
+	app_state: string;
+}
+
+/** Diagnostic: the swipe pager and the tab state disagreed after a resume */
+export function trackTabDesync(props: TabDesyncProps) {
+	track(AnalyticsEvent.TAB_DESYNC, { ...props });
+}
+
 /** Screen (app) / route (web) shown */
 export function trackPageViewed(page: string) {
 	track(AnalyticsEvent.PAGE_VIEWED, { page });

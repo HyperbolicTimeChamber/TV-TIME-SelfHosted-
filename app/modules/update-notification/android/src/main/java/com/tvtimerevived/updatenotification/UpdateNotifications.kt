@@ -28,6 +28,8 @@ object UpdateNotifications {
   private const val BRAND_RED = 0xFFE50914.toInt()
   /** Same file the in-app drawer downloads to (app enums UPDATE_APK_FILE) */
   const val APK_FILE = "watchloom-update.apk"
+  /** Marks the "downloaded" card, so a stale one can be told from an offer / progress card */
+  private const val EXTRA_DOWNLOADED_BUILD = "downloadedBuild"
 
   fun apkFile(context: Context) = File(context.cacheDir, APK_FILE)
 
@@ -143,6 +145,7 @@ object UpdateNotifications {
   /** Download finished: tapping the card or Install opens Android's installer directly */
   fun showDownloaded(context: Context, version: String, notes: String) {
     ensureChannel(context)
+    val downloadedBuild = archiveCode(context, apkFile(context))
     val install = PendingIntent.getActivity(
       context, 11, installIntent(context, apkFile(context)),
       PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
@@ -159,8 +162,34 @@ object UpdateNotifications {
       .setCustomContentView(card(context, R.layout.update_card_small, title, firstLine, "Install", install))
       .setCustomBigContentView(card(context, R.layout.update_card_big, title, notes.trim(), "Install", install))
       .setContentIntent(install)
+      .addExtras(android.os.Bundle().apply { putLong(EXTRA_DOWNLOADED_BUILD, downloadedBuild) })
       .setAutoCancel(true)
     notify(context, builder)
+  }
+
+  /** versionCode of the APK file (-1: missing / unreadable) */
+  private fun archiveCode(context: Context, apk: File): Long {
+    if (!apk.exists()) return -1L
+    @Suppress("DEPRECATION")
+    val archive = context.packageManager.getPackageArchiveInfo(apk.path, 0) ?: return -1L
+    return androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(archive)
+  }
+
+  /**
+   * A release newer than the downloaded APK is out: the leftover file is deleted and its
+   * "downloaded" card removed, so neither can open the installer on the older build. A download in
+   * progress and an APK that is the offered build (or newer) are left alone
+   */
+  fun discardStaleDownload(context: Context, offeredBuild: Long) {
+    if (UpdateDownloadService.downloading) return
+    val apk = apkFile(context)
+    // An unreadable file (-1) counts as stale too
+    if (apk.exists() && archiveCode(context, apk) < offeredBuild) apk.delete()
+    val manager = context.getSystemService(NotificationManager::class.java)
+    val card = manager.activeNotifications.firstOrNull {
+      it.id == NOTIFICATION_ID && it.notification.extras.containsKey(EXTRA_DOWNLOADED_BUILD)
+    } ?: return
+    if (card.notification.extras.getLong(EXTRA_DOWNLOADED_BUILD) < offeredBuild) cancel(context)
   }
 
   /** Starts the background download (the drawer's Update and the notification's Install alike) */

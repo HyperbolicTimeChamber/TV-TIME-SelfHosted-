@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Freeze } from "react-freeze";
-import { StyleSheet } from "react-native";
+import { StyleSheet, type Animated as RNAnimated } from "react-native";
 import Animated, {
 	Easing,
 	useAnimatedStyle,
@@ -16,6 +16,7 @@ import SearchStackScreen from "./SearchStackScreen";
 import ProfileStackScreen from "./ProfileStackScreen";
 import CustomTabBar from "./CustomTabBar";
 import { useSwipingBack } from "../components/SwipeBackView";
+import { useTabDesyncCheck } from "./useTabDesyncCheck";
 
 const SwipeTab = createMaterialTopTabNavigator<SwipeTabParamList>();
 
@@ -52,11 +53,16 @@ const isDetail = (route: Parameters<typeof getFocusedRouteNameFromRoute>[0]) => 
  */
 function TabBar({
 	state,
+	position,
+	layout,
 	onHeight,
 }: {
 	state: { routes: { name: string }[]; index: number };
+	position: RNAnimated.AnimatedInterpolation<number>;
+	layout: { width: number };
 	onHeight: (height: number) => void;
 }) {
+	useTabDesyncCheck(position, layout.width, state.index);
 	const swipingBack = useSwipingBack();
 	const activeRoute = state.routes[state.index];
 	const hidden = !swipingBack && isDetail(activeRoute as never);
@@ -137,7 +143,9 @@ export default function SwipeTabsScreen() {
 				}}
 				initialRouteName={Route.HOME}
 				tabBarPosition="bottom"
-				tabBar={({ state }) => <TabBar state={state} onHeight={setBarHeight} />}
+				tabBar={({ state, position, layout }) => (
+					<TabBar state={state} position={position} layout={layout} onHeight={setBarHeight} />
+				)}
 				screenOptions={({ route }) => {
 					const onDetail = isDetail(route);
 					return {

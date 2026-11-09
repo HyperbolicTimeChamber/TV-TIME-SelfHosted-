@@ -12,6 +12,7 @@ import {
 import { APP_VERSION } from "../utils/appVersion";
 import {
 	INSTALLED_BUILD,
+	discardStaleDownload,
 	downloadApk,
 	installApk,
 	type ChannelRelease,
@@ -116,7 +117,14 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
 	progress: 0,
 	apkUri: null,
 
-	setRelease: (release) => set({ release }),
+	setRelease: (release) => {
+		if (release) discardStaleDownload(release.build);
+		const { release: prev, phase } = get();
+		// A newer build than the one downloaded: its Install would open the older APK
+		if (release && prev && release.build > prev.build && phase === UpdatePhase.READY) {
+			set({ release, phase: UpdatePhase.IDLE, progress: 0, apkUri: null });
+		} else set({ release });
+	},
 
 	loadLocal: async () => {
 		const [skipped, simulation] = await Promise.all([
