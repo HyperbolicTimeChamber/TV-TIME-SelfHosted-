@@ -1,22 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isBeforePointer } from "../src/hooks/upcoming/watchedPointer";
 
-test("episodes before the pointer count as watched", () => {
-  const p = { season: 2, episode: 3 };
-  assert.equal(isBeforePointer(1, 9, p), true);
-  assert.equal(isBeforePointer(2, 2, p), true);
-  assert.equal(isBeforePointer(2, 3, p), false); // next to watch
-  assert.equal(isBeforePointer(2, 4, p), false);
-  assert.equal(isBeforePointer(3, 1, p), false);
-});
-
-test("no pointer → nothing treated as watched", () => {
-  assert.equal(isBeforePointer(1, 1, null), false);
-  assert.equal(isBeforePointer(5, 5, undefined), false);
-});
-
-test("addShowToUpcoming skips watched episodes airing today", async () => {
+test("addShowToUpcoming keeps watched episodes (marking leaves Upcoming alone)", async () => {
   const { addShowToUpcoming } = await import(
     "../src/hooks/upcoming/addShowToUpcoming"
   );
@@ -37,7 +22,7 @@ test("addShowToUpcoming skips watched episodes airing today", async () => {
       posterPath: null,
       seasons: [{ seasonNumber: 1, episodes: [ep(1, today), ep(2, later)] }],
     },
-    // E1 (airs today) already watched → pointer on E2
+    // E1 (airs today) already watched → pointer on E2, still listed
     "users/u/tracking/tv_1": { nextEpisode: { season: 1, episode: 2 } },
   };
   const writes: string[] = [];
@@ -55,5 +40,17 @@ test("addShowToUpcoming skips watched episodes airing today", async () => {
   } as unknown as FirebaseFirestore.Firestore;
 
   await addShowToUpcoming(db, "u", 1);
-  assert.deepEqual(writes, ["users/u/upcoming/tv_1_S01E02"]);
+  assert.deepEqual(writes, [
+    "users/u/upcoming/tv_1_S01E01",
+    "users/u/upcoming/tv_1_S01E02",
+  ]);
+});
+
+test("upcomingFromDate keeps yesterday's UTC date (late US evening airs)", async () => {
+  const { upcomingFromDate } = await import(
+    "../src/hooks/upcoming/upcomingFromDate"
+  );
+  // Sunday 03:00 UTC: Saturday's 23:30 ET episode must still be kept
+  assert.equal(upcomingFromDate(new Date("2026-11-08T03:00:00Z")), "2026-11-07");
+  assert.equal(upcomingFromDate(new Date("2026-03-01T00:00:00Z")), "2026-02-28");
 });
