@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { Button } from "antd";
 import { IoChevronBackCircleOutline, IoGrid, IoList, IoSearch } from "react-icons/io5";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { encodeText } from "@app/utils/subjectLink";
 import { useSearch } from "@app/hooks/useSearch";
 import { useTrending } from "@app/hooks/useTrending";
 import { useSearchSort, useSortedSearchResults } from "@app/hooks/useSearchSort";
@@ -136,7 +137,7 @@ export default function SearchScreen() {
 	// search replaces these results (SearchInputScreen): back from it goes to Trending
 	const openInput = () =>
 		navigate(
-			`${Paths.SEARCH_INPUT}${submittedQuery ? `?q=${encodeURIComponent(submittedQuery)}` : ""}`,
+			`${Paths.SEARCH_INPUT}${submittedQuery ? `?q=${encodeText(submittedQuery)}` : ""}`,
 			{ state: { overResults: !!submittedQuery } },
 		);
 	const handlePress = useCallback(

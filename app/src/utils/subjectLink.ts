@@ -10,11 +10,17 @@ const IMDB_LABEL = "View on IMDb";
 const WEBSITE_LABEL = "Visit Website";
 const TMDB_LABEL = "View on TMDB";
 
+/** encodeURIComponent, minus its URIError on half an emoji (a lone surrogate, from cut-off text) */
+export function encodeText(text: string): string {
+	const whole = Array.from(text).filter((c) => c.length > 1 || c < "\uD800" || c > "\uDFFF");
+	return encodeURIComponent(whole.join(""));
+}
+
 /** A person's IMDb page when TMDB knows their IMDb id, else IMDb's search for the name */
 export function personLink(name: string, imdbId?: string | null): SubjectLink {
 	const url = imdbId
 		? `https://www.imdb.com/name/${imdbId}/`
-		: `https://www.imdb.com/find/?q=${encodeURIComponent(name)}&s=nm`;
+		: `https://www.imdb.com/find/?q=${encodeText(name)}&s=nm`;
 	return { url, label: IMDB_LABEL };
 }
 

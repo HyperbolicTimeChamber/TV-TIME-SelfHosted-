@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { IoChevronBackCircleOutline } from "react-icons/io5";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useSearchInput } from "@app/screens/SearchScreen/useSearchInput";
+import { encodeText } from "@app/utils/subjectLink";
 import { Paths } from "../../routes/paths";
 import styles from "./styles/SearchInputScreen.module.scss";
 
@@ -24,7 +25,7 @@ export default function SearchInputScreen() {
 		const trimmed = term.trim();
 		if (!trimmed) return;
 		addToHistory(trimmed);
-		const results = `${Paths.SEARCH}?q=${encodeURIComponent(trimmed)}`;
+		const results = `${Paths.SEARCH}?q=${encodeText(trimmed)}`;
 		if (!overResults) {
 			navigate(results, { replace: true });
 			return;

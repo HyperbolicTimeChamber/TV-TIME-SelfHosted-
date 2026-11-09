@@ -5,7 +5,7 @@ import { useCastPages } from "@app/hooks/useTitleExtras";
 import { useResolveSubjectLink } from "@app/hooks/useSubjectLink";
 import { tmdbPosterUri } from "@app/hooks/useTmdbImage";
 import { personSubject } from "@app/utils/subjectLink";
-import { CAST_SEARCH_DEBOUNCE_MS, MediaType } from "@app/enums";
+import { CAST_SEARCH_DEBOUNCE_MS, CAST_SEARCH_MAX_LENGTH, MediaType } from "@app/enums";
 import type { CastMember } from "@app/types";
 import BottomSheet from "./BottomSheet";
 import SkeletonBlock from "./SkeletonBlock";
@@ -79,6 +79,7 @@ export default function CastSheet({
 						value={input}
 						onChange={(e) => setInput(e.target.value)}
 						placeholder="Search by name or character"
+						maxLength={CAST_SEARCH_MAX_LENGTH}
 						aria-label="Search the cast"
 						autoComplete="off"
 					/>

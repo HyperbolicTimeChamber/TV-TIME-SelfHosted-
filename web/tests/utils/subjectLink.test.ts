@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { personLink, studioLink } from "@app/utils/subjectLink";
+import { encodeText, personLink, studioLink } from "@app/utils/subjectLink";
 import { isSameRelease, localReleaseText } from "@app/utils/localRelease";
 import { TmdbStudioType } from "@app/enums";
 
@@ -10,6 +10,17 @@ describe("personLink", () => {
 
 	it("falls back to IMDb's name search without an id", () => {
 		expect(personLink("Brad Pitt", null).url).toBe("https://www.imdb.com/find/?q=Brad%20Pitt&s=nm");
+	});
+});
+
+describe("encodeText", () => {
+	it("encodes like encodeURIComponent, keeping whole emoji", () => {
+		expect(encodeText("a b&😀")).toBe(encodeURIComponent("a b&😀"));
+	});
+
+	it("drops half an emoji instead of throwing", () => {
+		expect(encodeText("a\uD83D")).toBe("a");
+		expect(encodeText("\uDC00b")).toBe("b");
 	});
 });
 

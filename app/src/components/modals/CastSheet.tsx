@@ -36,7 +36,7 @@ import { useSharedShimmer } from "../SkeletonLine";
 import { useResolveSubjectLink } from "../../hooks/useSubjectLink";
 import { artHeight, NO_RESULTS_ART, NO_RESULTS_RATIO } from "../NotFoundArt";
 import { personSubject } from "../../utils/subjectLink";
-import { CAST_SEARCH_DEBOUNCE_MS, MediaType } from "../../enums";
+import { CAST_SEARCH_DEBOUNCE_MS, CAST_SEARCH_MAX_LENGTH, MediaType } from "../../enums";
 import type { CastMember } from "../../types";
 import { colors, spacing, typography } from "../../theme";
 
@@ -190,6 +190,7 @@ export default function CastSheet({
 								value={input}
 								onChangeText={setInput}
 								placeholder="Search by name or character"
+								maxLength={CAST_SEARCH_MAX_LENGTH}
 								placeholderTextColor={colors.textMuted}
 								style={styles.searchInput}
 								autoCorrect={false}
