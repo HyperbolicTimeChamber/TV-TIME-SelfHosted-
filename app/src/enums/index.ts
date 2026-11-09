@@ -636,6 +636,10 @@ export const UPDATE_APK_FILE = "watchloom-update.apk";
 export const UPDATE_PROGRESS_INTERVAL_MS = 500;
 /** The release doc is re-read at most this often when the app comes back to the foreground */
 export const UPDATE_RECHECK_MS = 60 * 60 * 1000;
+/** After the app resumes, the swipe pager is compared with the tab state once this has passed */
+export const TAB_DESYNC_SETTLE_MS = 1000;
+/** Pager position (in tabs: 1 = one full page) the tab state may differ by before it counts */
+export const TAB_DESYNC_TOLERANCE = 0.05;
 
 /** A watchlist card heals (Firestore re-read / refreshShow) only after staying on screen this
  *  long — cards scrolled past aren't worth a read or a call */
@@ -673,6 +677,8 @@ export enum AnalyticsEvent {
 	UPDATE_DOWNLOAD_FINISHED = "update_download_finished",
 	/** First launch on a newer build */
 	APP_UPDATED = "app_updated",
+	/** The swipe pager's position disagreed with the tab state after the app resumed (diagnostic) */
+	TAB_DESYNC = "tab_desync",
 }
 
 /** update_drawer_action `action` */
