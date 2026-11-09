@@ -221,6 +221,7 @@ export function WatchCountSquare({ count, label = "WATCHED" }: { count: number; 
  */
 export function SheetHeader({
 	title,
+	heading,
 	subtitle,
 	tmdbId,
 	mediaType,
@@ -229,6 +230,8 @@ export function SheetHeader({
 	centered = false,
 }: {
 	title: string;
+	/** A sheet title above the logo (Add to List) */
+	heading?: string;
 	subtitle?: string;
 	tmdbId?: number;
 	mediaType?: MediaType;
@@ -256,6 +259,7 @@ export function SheetHeader({
 			<div
 				className={`${styles.headerText} ${centered ? styles.centered : ""} ${aside && !centered ? styles.headerTextFixed : ""}`}
 			>
+				{heading && <h2 className={styles.heading}>{heading}</h2>}
 				<div className={`${styles.logoSlot} ${subtitle && !centered ? styles.logoSlotFit : ""}`}>
 					{showName && <span className={styles.name}>{title}</span>}
 					{showLogo && (

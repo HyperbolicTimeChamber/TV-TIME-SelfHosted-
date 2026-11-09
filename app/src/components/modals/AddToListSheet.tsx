@@ -4,6 +4,7 @@ import {
 	Text,
 	Modal,
 	ActivityIndicator,
+	Keyboard,
 	StyleSheet,
 	useWindowDimensions,
 } from "react-native";
@@ -35,8 +36,11 @@ import { useAuthStore } from "../../stores";
 import { useCustomLists } from "../../hooks/useCustomLists";
 import {
 	ADD_TO_LIST_SEARCH_MIN_LISTS,
+	ADD_TO_LIST_HEADING,
+	ADD_TO_LIST_SUBTITLE,
 	CUSTOM_LIST_ITEM_MAX,
 	NEW_LIST_HINTS,
+	NEW_LIST_SUBTITLE,
 	NEW_LIST_TITLE,
 } from "../../enums";
 import type { CustomList, CustomListEntry } from "../../types";
@@ -142,6 +146,16 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: R
 	// user closing it (it cleared the entry and the popup never showed)
 	const namingRef = useRef(false);
 	namingRef.current = naming;
+	// Done stays out of the way while typing
+	const [keyboardShown, setKeyboardShown] = useState(false);
+	useEffect(() => {
+		const show = Keyboard.addListener("keyboardDidShow", () => setKeyboardShown(true));
+		const hide = Keyboard.addListener("keyboardDidHide", () => setKeyboardShown(false));
+		return () => {
+			show.remove();
+			hide.remove();
+		};
+	}, []);
 	const [creating, setCreating] = useState(false);
 	const [nameError, setNameError] = useState<string | null>(null);
 	// Order the sheet opened with (lists holding the title, then newest) — held while it is open
@@ -258,7 +272,7 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: R
 							enablePanDownToClose
 							animationConfigs={animationConfigs}
 							backdropComponent={renderBackdrop}
-							footerComponent={renderFooter}
+							footerComponent={keyboardShown ? undefined : renderFooter}
 							backgroundStyle={styles.sheet}
 							handleStyle={styles.handleArea}
 							handleIndicatorStyle={styles.handle}
@@ -270,6 +284,8 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: R
 								<View style={styles.top}>
 									<SheetHeader
 										title={entry.title}
+										heading={ADD_TO_LIST_HEADING}
+										subtitle={ADD_TO_LIST_SUBTITLE}
 										tmdbId={entry.tmdbId}
 										mediaType={entry.mediaType}
 										centered
@@ -283,7 +299,10 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: R
 									{ paddingBottom: DONE_FOOTER_HEIGHT + insets.bottom },
 								]}
 								keyboardShouldPersistTaps="handled"
-								onContentSizeChange={(_, h) => setListHeight(h)}
+								// Not while searching: the height followed the results and the sheet danced
+								onContentSizeChange={(_, h) => {
+									if (!search) setListHeight(h);
+								}}
 							>
 								{loading ? (
 									<ActivityIndicator style={styles.loader} color={colors.primary} />
@@ -399,6 +418,7 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: R
 				suggestedName={draftName}
 				image={<ModalArt source={NEW_LIST_ART} ratio={NEW_LIST_RATIO} />}
 				hint={NEW_LIST_HINTS}
+				subtitle={NEW_LIST_SUBTITLE}
 				confirmLabel="Create & Add"
 				error={nameError}
 				loading={creating}

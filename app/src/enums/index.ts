@@ -317,6 +317,9 @@ export const CUSTOM_LIST_NAME_MAX = 50;
 export const CUSTOM_LIST_ITEM_MAX = 500;
 /** Add to List sheet: Find list + Sort show once this many lists don't hold the title yet */
 export const ADD_TO_LIST_SEARCH_MIN_LISTS = 3;
+/** Add to List sheet: heading above the title's logo, and the line under it */
+export const ADD_TO_LIST_HEADING = "Add Title to a List";
+export const ADD_TO_LIST_SUBTITLE = "Organise titles into custom lists.";
 export const CUSTOM_LIST_MAX = 50;
 /** Custom lists the profile shows under Lists (the biggest), after the Recently Watched row */
 export const PROFILE_LIST_COUNT = 5;
@@ -331,6 +334,8 @@ export const FAVORITES_LIST_ID = "favorites";
 export const CUSTOM_LISTS_SEEDED_FIELD = "customListsSeeded";
 /** New List popup (Light Yagami art): the title, and the lines under it — one picked each open */
 export const NEW_LIST_TITLE = "A New List for a New World";
+/** New List popup: the line under the title (create only; renaming has none) */
+export const NEW_LIST_SUBTITLE = "Create custom lists to organise titles the way you want.";
 export const NEW_LIST_HINTS = [
 	"Let's list down some new ways to kill time.",
 	"I'll take a potato chip… and list it!",
