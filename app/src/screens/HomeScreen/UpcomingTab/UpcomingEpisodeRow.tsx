@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { colors, fonts, spacing } from "../../../theme";
-import CardInfo, { cardStyles } from "../../../components/CardInfo";
+import CardInfo, { CARD_MAX_FONT_SCALE, cardStyles } from "../../../components/CardInfo";
 import { upcomingDirector, upcomingRuntime } from "../../../hooks/useUpcomingEpisodes";
 import { formatRuntime } from "../../../utils/customLists";
 import { formatAirTime } from "../../../utils/airTime";
@@ -44,9 +44,7 @@ export default memo(function UpcomingEpisodeRow({
 			/>
 			<CardInfo
 				title={episode.showTitle}
-				onTitlePress={() =>
-					onTitlePress ? onTitlePress(episode) : onPress(episode.tmdbShowId)
-				}
+				onTitlePress={() => (onTitlePress ? onTitlePress(episode) : onPress(episode.tmdbShowId))}
 				subline={isMovie ? upcomingDirector(episode) : episode.episodeTitle}
 				sublineLines={isMovie ? 1 : 2}
 				style={styles.info}
@@ -55,14 +53,22 @@ export default memo(function UpcomingEpisodeRow({
 				<View style={styles.epRow}>
 					{isMovie ? (
 						<View style={styles.movieBadge}>
-							<Text style={styles.movieBadgeText}>MOVIE</Text>
+							<Text maxFontSizeMultiplier={CARD_MAX_FONT_SCALE} style={styles.movieBadgeText}>
+								MOVIE
+							</Text>
 						</View>
 					) : (
-						<Text style={cardStyles.episode}>{label}</Text>
+						<Text maxFontSizeMultiplier={CARD_MAX_FONT_SCALE} style={cardStyles.episode}>
+							{label}
+						</Text>
 					)}
 					{sideText && (
 						<View style={styles.side} pointerEvents="none">
-							<Text style={styles.airTime} numberOfLines={1}>
+							<Text
+								maxFontSizeMultiplier={CARD_MAX_FONT_SCALE}
+								style={styles.airTime}
+								numberOfLines={1}
+							>
 								{sideText}
 							</Text>
 						</View>
