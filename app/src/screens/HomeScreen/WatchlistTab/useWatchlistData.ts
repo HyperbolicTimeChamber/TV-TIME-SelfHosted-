@@ -268,8 +268,7 @@ export function useWatchlistData(userId: string | undefined) {
 	} = useWatchedMovies(userId);
 
 	const queryClient = useQueryClient();
-	const { mutateCachedUpcoming, rollbackUpcoming, removeShowFromUpcoming, removeWatchedFromPast } =
-		useUpcomingMutations();
+	const { removeShowFromUpcoming } = useUpcomingMutations();
 	const [updatingShows, setUpdatingShows] = useState<Map<number, string>>(new Map());
 	// Optimistic card patches applied after Firestore write, before listener re-enriches
 	const [optimisticCards, setOptimisticCards] = useState<Map<number, Partial<CardItem>>>(new Map());
@@ -951,18 +950,6 @@ export function useWatchlistData(userId: string | undefined) {
 					? findNextEpisodeInCatalog(catalog, nextEpisode.season, nextEpisode.episode)
 					: null;
 
-			// Optimistic upcoming update
-			const upcomingSnapshot = mutateCachedUpcoming((prev) =>
-				prev.filter(
-					(ep) =>
-						!(
-							ep.tmdbShowId === item.tmdbId &&
-							ep.season === currentEp.season &&
-							ep.episode === currentEp.episode
-						),
-				),
-			);
-
 			// Nothing aired left after this one (finale, next not out yet) → the card leaves from
 			// where it is; otherwise it goes to the top with its next episode
 			const leaves = !isShowVisible({
@@ -1033,7 +1020,6 @@ export function useWatchlistData(userId: string | undefined) {
 
 				// Spinner cleared by useEffect when listener confirms nextEpisode changed
 				incrementDailyWatch("episode");
-				removeWatchedFromPast(item.tmdbId, currentEp.season, currentEp.episode);
 				if (isComplete) {
 					emitShowCompleted({
 						tmdbId: item.tmdbId,
@@ -1046,7 +1032,6 @@ export function useWatchlistData(userId: string | undefined) {
 			} catch (err: any) {
 				unpromote(item.tmdbId);
 				keepInUpNext(item.tmdbId);
-				rollbackUpcoming(upcomingSnapshot);
 				restoreQuery(queryClient, allEpsKey, allEpsBefore);
 				restoreQuery(queryClient, showEpsKey, showEpsBefore);
 				setUpdatingShows((prev) => {
@@ -1065,9 +1050,6 @@ export function useWatchlistData(userId: string | undefined) {
 			promote,
 			unpromote,
 			queryClient,
-			mutateCachedUpcoming,
-			rollbackUpcoming,
-			removeWatchedFromPast,
 			markedCount,
 		],
 	);
