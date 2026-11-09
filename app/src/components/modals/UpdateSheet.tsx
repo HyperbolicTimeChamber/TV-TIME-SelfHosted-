@@ -191,7 +191,10 @@ export default function UpdateSheet({ visible, release, forced }: Readonly<Props
 				<View style={styles.notes}>
 					<View style={styles.notesLabelRow}>
 						<Text style={styles.notesLabel}>WHAT'S NEW</Text>
-						<Text style={styles.notesVersion}>v{release.version}</Text>
+						{/* Notes that already name the version don't need it twice */}
+						{release.notes.includes(release.version) ? null : (
+							<Text style={styles.notesVersion}>v{release.version}</Text>
+						)}
 					</View>
 					{/* All of it: long notes scroll inside the box instead of being cut off */}
 					<ScrollView style={styles.notesScroll} showsVerticalScrollIndicator={false}>
