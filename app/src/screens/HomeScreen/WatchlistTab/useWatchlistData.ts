@@ -40,7 +40,12 @@ import {
 	isFinaleEpisode,
 	adjacentPointer,
 } from "../../../utils";
-import { mergeCachedShows, promoteShows } from "../../../utils/watchlistOrder";
+import {
+	mergeCachedShows,
+	promoteShows,
+	showCardIds,
+	unseenCardIds,
+} from "../../../utils/watchlistOrder";
 import { coldStartHistory, safeHistory } from "../../../utils/watchedHistory";
 import {
 	MediaType,
@@ -61,6 +66,13 @@ const AIR_RECHECK_MAX_MS = 86_400_000;
 /** Between arming the card glide for cards reaching their air time and showing them: armed in
  *  the same commit as the move, the glide didn't run (the rows jumped) */
 const AIR_ARM_LEAD_MS = 120;
+/** A card that joined at launch is held until the first load is over, then this long: with the
+ *  launch's work still running, the rows took their new place frames before their glide started */
+const CARD_RELEASE_QUIET_MS = 500;
+/** Longest it's held if the first load never reports finished */
+const CARD_RELEASE_MAX_HOLD_MS = 8000;
+/** Longest it then waits for the JS thread to go idle */
+const CARD_RELEASE_MAX_WAIT_MS = 2000;
 
 const ACTIVE_CACHE_LIMIT = 100;
 
@@ -341,6 +353,8 @@ export function useWatchlistData(userId: string | undefined) {
 	const [reordering, setReordering] = useState(false);
 	const cacheRestored = useRef(false);
 	const cachedActiveCount = useRef(0);
+	// The saved list's cards, until the live pages have caught up with it (null after)
+	const [savedCardIds, setSavedCardIds] = useState<ReadonlySet<number> | null>(null);
 
 	useEffect(() => {
 		if (!userId || cacheRestored.current) return;
@@ -360,12 +374,14 @@ export function useWatchlistData(userId: string | undefined) {
 				if (cached.date === today) {
 					// Same day — use cache as-is
 					setCachedList(cached.list);
+					setSavedCardIds(showCardIds(cached.list));
 					cachedActiveCount.current = cached.list.filter((i: any) => i.type === "show").length;
 				} else {
 					// Different day — reorder: promote newly-airable shows to top
 					setReordering(true);
 					const reordered = reorderCachedList(cached.list, today);
 					setCachedList(reordered);
+					setSavedCardIds(showCardIds(reordered));
 					cachedActiveCount.current = reordered.filter((i: any) => i.type === "show").length;
 					// Persist with today's date
 					AsyncStorage.setItem(
@@ -709,15 +725,60 @@ export function useWatchlistData(userId: string | undefined) {
 		).catch(() => {});
 	}, [userId, allLoading, loadingMoreTracking, hasMoreTracking]);
 
+	// A card the saved list didn't have (its episode aired while the app was closed) grows in like
+	// one reaching its air time. While it's held the list has its glide on (cardsHeld), so the rows
+	// can move with it when it's let through a moment later; shown at once, they jumped (AIR_ARM_LEAD_MS)
+	const [releasedCards, setReleasedCards] = useState<ReadonlySet<number>>(new Set());
+	const heldCards = useMemo(
+		() => unseenCardIds(savedCardIds, releasedCards, orderedLive),
+		[savedCardIds, releasedCards, orderedLive],
+	);
+	// By id: a live update during the launch mustn't restart the wait
+	const heldKey = [...heldCards].join();
+	const firstLoadDone = !allLoading && liveCaughtUp;
+	useEffect(() => {
+		if (!heldKey) return;
+		const ids = heldKey.split(",").map(Number);
+		const release = () => setReleasedCards((prev) => new Set([...prev, ...ids]));
+		// Once the launch's work is done: let through on a busy JS thread, the card's view came
+		// about a second after the rows had moved, over a blank gap
+		let idle: number | undefined;
+		let armed: ReturnType<typeof setTimeout> | undefined;
+		const quiet = setTimeout(
+			() => {
+				for (const id of ids) noteListChange(id);
+				armed = setTimeout(() => {
+					if (typeof requestIdleCallback === "function") {
+						idle = requestIdleCallback(release, { timeout: CARD_RELEASE_MAX_WAIT_MS });
+					} else release();
+				}, AIR_ARM_LEAD_MS);
+			},
+			firstLoadDone ? CARD_RELEASE_QUIET_MS : CARD_RELEASE_MAX_HOLD_MS,
+		);
+		return () => {
+			clearTimeout(quiet);
+			if (armed !== undefined) clearTimeout(armed);
+			if (idle !== undefined) cancelIdleCallback(idle);
+		};
+	}, [heldKey, firstLoadDone, noteListChange]);
+	// A card added later in the session isn't one of these
+	useEffect(() => {
+		if (savedCardIds && !allLoading && liveCaughtUp && heldCards.size === 0) setSavedCardIds(null);
+	}, [savedCardIds, allLoading, liveCaughtUp, heldCards]);
+
 	// --- Effective display: blend cached shows + live previously watched ---
 	const rawDisplayList = useMemo(() => {
-		if (!cachedList) return orderedLive;
-		if (orderedLive.length === 0) return cachedList;
+		const live =
+			heldCards.size === 0
+				? orderedLive
+				: orderedLive.filter((i) => i.type !== "show" || !heldCards.has(i.card.tmdbId));
+		if (!cachedList) return live;
+		if (live.length === 0) return cachedList;
 		// Live pages arrive a few at a time: the saved cards they haven't reached yet keep their
 		// saved spot, so the list doesn't shrink to the first page and grow back (cards vanishing,
 		// then returning). They drop out as the live ones take over (liveCaughtUp)
-		return mergeCachedShows(cachedList, orderedLive);
-	}, [cachedList, orderedLive]);
+		return mergeCachedShows(cachedList, live);
+	}, [cachedList, orderedLive, heldCards]);
 	const effectiveLoading = reordering || (allLoading && !cachedList);
 
 	// Apply optimistic card patches (and hide cards a mark just took off — leftUpNext)
@@ -1475,6 +1536,7 @@ export function useWatchlistData(userId: string | undefined) {
 		wasJustLeft,
 		noteListChange,
 		listChangeArm,
+		cardsHeld: heldCards.size > 0,
 		loading: effectiveLoading,
 		// Everything fetched (confirmed now, or by the last session while this one still loads):
 		// only then can an empty "What's Up Next" really mean "all caught up". Until then the

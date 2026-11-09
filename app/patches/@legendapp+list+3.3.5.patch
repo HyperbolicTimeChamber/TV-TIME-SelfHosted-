@@ -125,10 +125,10 @@ index 40e87cd..f690148 100644
        onScroll: onScroll2,
        ref: refScrollView,
 diff --git a/node_modules/@legendapp/list/reanimated.js b/node_modules/@legendapp/list/reanimated.js
-index f1265fa..7baec90 100644
+index f1265fa..10da175 100644
 --- a/node_modules/@legendapp/list/reanimated.js
 +++ b/node_modules/@legendapp/list/reanimated.js
-@@ -83,57 +83,103 @@ var StickyOverlay = typedMemo(function StickyOverlayComponent({ stickyHeaderConf
+@@ -83,57 +83,114 @@ var StickyOverlay = typedMemo(function StickyOverlayComponent({ stickyHeaderConf
  var ReanimatedPositionViewSticky = typedMemo(function ReanimatedPositionViewStickyComponent(props) {
    var _a;
    const ctx = useStateContext();
@@ -198,9 +198,9 @@ index f1265fa..7baec90 100644
  var ReanimatedPositionView = typedMemo(function ReanimatedPositionViewComponent(props) {
 +  /* PATCH(watchloom): rows glide by a translate (FLIP), not a Reanimated layout transition —
 +     layout transitions on these recycled containers left views at stale positions (rows drawn
-+     on top of each other). The container takes its new `top` at once; while a glide is on
-+     (the itemLayoutAnimation has a duration), a translateY from its old place animates to 0 on
-+     the UI thread. A container handed to another item (recycling) never glides. The
++     on top of each other). While a glide is on (the itemLayoutAnimation has a duration), a
++     translateY animates the container to its new place on the UI thread and its `top` stays
++     (drawnTopRef). A container handed to another item (recycling) never glides. The
 +     transition is read through a ref at this render (a position change re-renders this view),
 +     so switching it reaches every row */
    const ctx = useStateContext();
@@ -215,29 +215,39 @@ index f1265fa..7baec90 100644
 -    shouldSkipTransitionForRecycleReuse = itemKey !== void 0 && prevItemKeyRef.current !== void 0 && prevItemKeyRef.current !== itemKey;
 -    if (itemKey !== void 0) {
 -      prevItemKeyRef.current = itemKey;
--    }
--  } else {
--    prevItemKeyRef.current = void 0;
 +  const itemKey = peek$(ctx, `containerItemKey${id}`);
 +  const transition = layoutTransitionRef ? layoutTransitionRef.current : layoutTransitionProp;
 +  const glideMs = transition && transition.durationV ? transition.durationV : 0;
 +  const prevRef = React__namespace.useRef({ pos: positionValue, key: itemKey });
++  /* PATCH(watchloom): the `top` React has committed. A glide leaves it and moves the row by the
++     translate alone: a new `top` (React commit) reached the screen frames before its translate
++     (UI thread), so rows flashed at their new place first. It's caught up when the row leaves */
++  const drawnTopRef = React__namespace.useRef(positionValue);
 +  const offset = Reanimated.useSharedValue(0);
-+  let jump = 0;
++  let offsetTarget;
++  let animateOffset = false;
 +  const prev = prevRef.current;
 +  if (prev.pos !== positionValue || prev.key !== itemKey) {
 +    const moved = prev.key === itemKey && prev.key !== void 0 && prev.pos !== POSITION_OUT_OF_VIEW && positionValue !== POSITION_OUT_OF_VIEW;
-+    if (glideMs > 0 && moved) jump = prev.pos - positionValue;
++    const translated = drawnTopRef.current !== prev.pos;
++    if (moved && (glideMs > 0 || translated)) {
++      // Under a pixel is a measuring correction: restarting the glide for it froze the rows
++      if (Math.abs(prev.pos - positionValue) >= 1) {
++        offsetTarget = positionValue - drawnTopRef.current;
++        animateOffset = glideMs > 0;
++      }
++    } else {
++      drawnTopRef.current = positionValue;
++      if (prev.key !== itemKey || translated) offsetTarget = 0;
+     }
+-  } else {
+-    prevItemKeyRef.current = void 0;
 +    prevRef.current = { pos: positionValue, key: itemKey };
    }
++  const drawnTop = drawnTopRef.current;
 +  React__namespace.useLayoutEffect(() => {
-+    if (jump !== 0) {
-+      // From where it's drawn now (a glide still running included) to its new place
-+      offset.value = jump + offset.value;
-+      offset.value = Reanimated.withTiming(0, { duration: glideMs, easing: transition.easingV });
-+    } else if (prev.key !== itemKey) {
-+      offset.value = 0;
-+    }
++    if (offsetTarget === void 0) return;
++    offset.value = animateOffset ? Reanimated.withTiming(offsetTarget, { duration: glideMs, easing: transition.easingV }) : offsetTarget;
 +  }, [positionValue, itemKey]);
 +  const glideStyle = Reanimated.useAnimatedStyle(
 +    () => (horizontal ? { transform: [{ translateX: offset.value }] } : { transform: [{ translateY: offset.value }] }),
@@ -246,8 +256,8 @@ index f1265fa..7baec90 100644
    const viewStyle = React__namespace.useMemo(
 -    () => [style, horizontal ? { left: positionValue } : { top: positionValue }],
 -    [horizontal, positionValue, style]
-+    () => [style, horizontal ? { left: positionValue } : { top: positionValue }, glideStyle],
-+    [horizontal, positionValue, style, glideStyle]
++    () => [style, horizontal ? { left: drawnTop } : { top: drawnTop }, glideStyle],
++    [horizontal, drawnTop, style, glideStyle]
    );
    return /* @__PURE__ */ React__namespace.createElement(
      Reanimated__default.default.View,
@@ -256,7 +266,7 @@ index f1265fa..7baec90 100644
        ref: refView,
        style: viewStyle,
        ...rest
-@@ -222,9 +268,10 @@ var LegendListForwardedRef = typedMemo(
+@@ -222,9 +279,10 @@ var LegendListForwardedRef = typedMemo(
        },
        [renderScrollComponentForBridge, trackedScrollOffset]
      );
@@ -268,7 +278,7 @@ index f1265fa..7baec90 100644
        },
        [scrollOffset]
      );
-@@ -240,6 +287,7 @@ var LegendListForwardedRef = typedMemo(
+@@ -240,6 +298,7 @@ var LegendListForwardedRef = typedMemo(
            {
              ...positionProps,
              layoutTransition: itemLayoutAnimationRef.current,
@@ -277,7 +287,7 @@ index f1265fa..7baec90 100644
            }
          );
 diff --git a/node_modules/@legendapp/list/reanimated.mjs b/node_modules/@legendapp/list/reanimated.mjs
-index 29a00d5..6b9d14f 100644
+index 29a00d5..41d41d3 100644
 --- a/node_modules/@legendapp/list/reanimated.mjs
 +++ b/node_modules/@legendapp/list/reanimated.mjs
 @@ -1,7 +1,7 @@
@@ -289,7 +299,7 @@ index 29a00d5..6b9d14f 100644
  import { internal, LegendList } from '@legendapp/list/react-native';
  
  // src/integrations/reanimated.tsx
-@@ -59,57 +59,103 @@ var StickyOverlay = typedMemo(function StickyOverlayComponent({ stickyHeaderConf
+@@ -59,57 +59,114 @@ var StickyOverlay = typedMemo(function StickyOverlayComponent({ stickyHeaderConf
  var ReanimatedPositionViewSticky = typedMemo(function ReanimatedPositionViewStickyComponent(props) {
    var _a;
    const ctx = useStateContext();
@@ -359,9 +369,9 @@ index 29a00d5..6b9d14f 100644
  var ReanimatedPositionView = typedMemo(function ReanimatedPositionViewComponent(props) {
 +  /* PATCH(watchloom): rows glide by a translate (FLIP), not a Reanimated layout transition —
 +     layout transitions on these recycled containers left views at stale positions (rows drawn
-+     on top of each other). The container takes its new `top` at once; while a glide is on
-+     (the itemLayoutAnimation has a duration), a translateY from its old place animates to 0 on
-+     the UI thread. A container handed to another item (recycling) never glides. The
++     on top of each other). While a glide is on (the itemLayoutAnimation has a duration), a
++     translateY animates the container to its new place on the UI thread and its `top` stays
++     (drawnTopRef). A container handed to another item (recycling) never glides. The
 +     transition is read through a ref at this render (a position change re-renders this view),
 +     so switching it reaches every row */
    const ctx = useStateContext();
@@ -376,29 +386,39 @@ index 29a00d5..6b9d14f 100644
 -    shouldSkipTransitionForRecycleReuse = itemKey !== void 0 && prevItemKeyRef.current !== void 0 && prevItemKeyRef.current !== itemKey;
 -    if (itemKey !== void 0) {
 -      prevItemKeyRef.current = itemKey;
--    }
--  } else {
--    prevItemKeyRef.current = void 0;
 +  const itemKey = peek$(ctx, `containerItemKey${id}`);
 +  const transition = layoutTransitionRef ? layoutTransitionRef.current : layoutTransitionProp;
 +  const glideMs = transition && transition.durationV ? transition.durationV : 0;
 +  const prevRef = React.useRef({ pos: positionValue, key: itemKey });
++  /* PATCH(watchloom): the `top` React has committed. A glide leaves it and moves the row by the
++     translate alone: a new `top` (React commit) reached the screen frames before its translate
++     (UI thread), so rows flashed at their new place first. It's caught up when the row leaves */
++  const drawnTopRef = React.useRef(positionValue);
 +  const offset = useSharedValue(0);
-+  let jump = 0;
++  let offsetTarget;
++  let animateOffset = false;
 +  const prev = prevRef.current;
 +  if (prev.pos !== positionValue || prev.key !== itemKey) {
 +    const moved = prev.key === itemKey && prev.key !== void 0 && prev.pos !== POSITION_OUT_OF_VIEW && positionValue !== POSITION_OUT_OF_VIEW;
-+    if (glideMs > 0 && moved) jump = prev.pos - positionValue;
++    const translated = drawnTopRef.current !== prev.pos;
++    if (moved && (glideMs > 0 || translated)) {
++      // Under a pixel is a measuring correction: restarting the glide for it froze the rows
++      if (Math.abs(prev.pos - positionValue) >= 1) {
++        offsetTarget = positionValue - drawnTopRef.current;
++        animateOffset = glideMs > 0;
++      }
++    } else {
++      drawnTopRef.current = positionValue;
++      if (prev.key !== itemKey || translated) offsetTarget = 0;
+     }
+-  } else {
+-    prevItemKeyRef.current = void 0;
 +    prevRef.current = { pos: positionValue, key: itemKey };
    }
++  const drawnTop = drawnTopRef.current;
 +  React.useLayoutEffect(() => {
-+    if (jump !== 0) {
-+      // From where it's drawn now (a glide still running included) to its new place
-+      offset.value = jump + offset.value;
-+      offset.value = withTiming(0, { duration: glideMs, easing: transition.easingV });
-+    } else if (prev.key !== itemKey) {
-+      offset.value = 0;
-+    }
++    if (offsetTarget === void 0) return;
++    offset.value = animateOffset ? withTiming(offsetTarget, { duration: glideMs, easing: transition.easingV }) : offsetTarget;
 +  }, [positionValue, itemKey]);
 +  const glideStyle = useAnimatedStyle(
 +    () => (horizontal ? { transform: [{ translateX: offset.value }] } : { transform: [{ translateY: offset.value }] }),
@@ -407,8 +427,8 @@ index 29a00d5..6b9d14f 100644
    const viewStyle = React.useMemo(
 -    () => [style, horizontal ? { left: positionValue } : { top: positionValue }],
 -    [horizontal, positionValue, style]
-+    () => [style, horizontal ? { left: positionValue } : { top: positionValue }, glideStyle],
-+    [horizontal, positionValue, style, glideStyle]
++    () => [style, horizontal ? { left: drawnTop } : { top: drawnTop }, glideStyle],
++    [horizontal, drawnTop, style, glideStyle]
    );
    return /* @__PURE__ */ React.createElement(
      Reanimated.View,
@@ -417,7 +437,7 @@ index 29a00d5..6b9d14f 100644
        ref: refView,
        style: viewStyle,
        ...rest
-@@ -198,9 +244,10 @@ var LegendListForwardedRef = typedMemo(
+@@ -198,9 +255,10 @@ var LegendListForwardedRef = typedMemo(
        },
        [renderScrollComponentForBridge, trackedScrollOffset]
      );
@@ -429,7 +449,7 @@ index 29a00d5..6b9d14f 100644
        },
        [scrollOffset]
      );
-@@ -216,6 +263,7 @@ var LegendListForwardedRef = typedMemo(
+@@ -216,6 +274,7 @@ var LegendListForwardedRef = typedMemo(
            {
              ...positionProps,
              layoutTransition: itemLayoutAnimationRef.current,

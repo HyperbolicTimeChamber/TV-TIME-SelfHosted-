@@ -243,7 +243,8 @@ function listMotion(
 		// Only rows / cards of a title just marked or unwatched: rows and cards also arrive with
 		// pages and the first load, and those must not animate
 		if (!changed(a)) continue;
-		const below = next[next.indexOf(a) + 1];
+		// The next row already drawn: several can join together (episodes aired overnight)
+		const below = next.slice(next.indexOf(a) + 1).find((n) => prevKeys.has(keyOf(n)));
 		const belowPos = below ? state.positionByKey(keyOf(below)) : undefined;
 		const belowY = belowPos === undefined ? -1 : belowPos - state.scroll;
 		if (!(belowY > 0 && belowY < listH)) continue;
@@ -492,6 +493,7 @@ export default function WatchlistTab() {
 		wasJustMarked,
 		wasJustLeft,
 		listChangeArm,
+		cardsHeld,
 		listSettled,
 		loadMoreTracking,
 		loadMorePrevWatched,
@@ -718,6 +720,7 @@ export default function WatchlistTab() {
 	}, [listChangeArm]);
 	const glideOn =
 		armed ||
+		cardsHeld ||
 		layoutMoving ||
 		opening !== null ||
 		leaving.length > 0 ||
