@@ -15,7 +15,7 @@ import java.io.File
 /**
  * The app's own update notifications, drawn with custom layouts so they wear its theme (Android
  * picks every colour itself in the standard templates):
- *  - offer: "V x.y.z is available" + notes, a red Upgrade button (starts UpdateDownloadService)
+ *  - offer: "Upgrade Available (vx.y.z)" + notes, a red Upgrade button (starts UpdateDownloadService)
  *  - progress (the service's foreground card): dark, white text, red bar, red Cancel; expanded,
  *    the drawer's dial spins above the bar
  *  - downloaded: "Tap to install" + a red Install button, straight to Android's installer
@@ -85,7 +85,7 @@ object UpdateNotifications {
 
   fun showOffer(context: Context, version: String, notes: String, apkUrl: String, size: Long) {
     ensureChannel(context)
-    val title = "v$version is available"
+    val title = "Upgrade Available (v$version)"
     val body = notes.lineSequence().firstOrNull { it.isNotBlank() } ?: "Tap Upgrade to download the update."
     val install = serviceIntent(context, UpdateDownloadService.ACTION_DOWNLOAD) {
       putExtra(UpdateDownloadService.EXTRA_URL, apkUrl)

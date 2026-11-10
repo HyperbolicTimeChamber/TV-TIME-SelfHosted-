@@ -19,7 +19,7 @@ Nothing here touches prod.
    The first time, Android asks to allow installs from Watchloom (toggle, then back, then Update →
    Install again). After installing, the installer's **Open** button starts the new version
    (Android doesn't let an updated app relaunch itself).
-4. The push shows **vx.y.z is available** with a red **Upgrade**: the download runs from the
+4. The push shows **Upgrade Available (vx.y.z)** with a red **Upgrade**: the download runs from the
    notification (dark card, red progress bar, red Cancel), then **Tap to install** opens Android's
    installer directly (native module `app/modules/update-notification`).
 
