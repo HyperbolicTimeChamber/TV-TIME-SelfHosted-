@@ -12,6 +12,9 @@ export const queryClient = new QueryClient({
 			// React Native never refetches on "focus"; browsers would, flashing the loader
 			// every time you return to the tab
 			refetchOnWindowFocus: false,
+			// Nor on reconnect: queries that have data keep it (no extra reads). Only failed ones
+			// load again (reconnectRetry, NoInternetModal); paused ones resume on their own
+			refetchOnReconnect: false,
 		},
 	},
 });
