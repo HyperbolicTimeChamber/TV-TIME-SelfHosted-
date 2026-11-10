@@ -69,7 +69,8 @@ import ImportDataScreen from "./src/screens/ImportDataScreen";
 import AppNavigator from "./src/navigation/AppNavigator";
 import { OfflineOverlay } from "./src/components";
 import { colors } from "./src/theme";
-import { AppOpenSource, FATAL_AUTH_ERRORS, QueryKey } from "./src/enums";
+import { AppOpenSource, FATAL_AUTH_ERRORS, OFFLINE_OVERLAY_DELAY_MS, QueryKey } from "./src/enums";
+import { createConnectivityGate } from "./src/utils/connectivityGate";
 import {
 	initMixpanel,
 	identifyUser,
@@ -337,10 +338,14 @@ export default function App() {
 	}, [setUser]);
 
 	useEffect(() => {
-		const unsubscribeNet = NetInfo.addEventListener((state) => {
-			setConnected(state.isConnected ?? false);
-		});
-		return unsubscribeNet;
+		// Offline only after OFFLINE_OVERLAY_DELAY_MS without a break (handovers drop for ~0.6 s);
+		// null = not known yet, not offline
+		const gate = createConnectivityGate(setConnected, OFFLINE_OVERLAY_DELAY_MS);
+		const unsubscribeNet = NetInfo.addEventListener((state) => gate.update(state.isConnected));
+		return () => {
+			unsubscribeNet();
+			gate.dispose();
+		};
 	}, [setConnected]);
 
 	return (

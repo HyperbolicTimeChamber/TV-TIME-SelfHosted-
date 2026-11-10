@@ -2,13 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { AppState, View, StyleSheet, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-	CommonActions,
-	useIsFocused,
-	useNavigation,
-	useRoute,
-	type RouteProp,
-} from "@react-navigation/native";
+import { CommonActions, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import Animated, {
 	interpolateColor,
 	runOnJS,
@@ -29,10 +23,13 @@ const TABS: { key: HomeTab; label: string }[] = [
 	{ key: Route.UPCOMING, label: "Upcoming" },
 ];
 const SLIDE_MS = 250;
-const START_PX = 25;
-/** On Upcoming a rightward drag is claimed this early, inside the bottom pager's ~8dp touch slop —
+/** On Upcoming a rightward drag is claimed this early, inside the bottom pager's 16dp paging slop —
  *  any later and the pager (swipeable there, for Calendar) intercepts it first */
 const UPCOMING_BACK_PX = 6;
+/** On Watch List every horizontal drag is claimed at this distance: past the cards' own swipes
+ *  (10dp, so a card swipe always wins) and inside the bottom pager's paging slop (ViewPager2:
+ *  2 × touch slop = 16dp) — the pager stays swipeable on all of Home, so it must never get one */
+const WATCHLIST_CLAIM_PX = 12;
 const TURN_SHARE = 0.3;
 const FLICK_VELOCITY = 500;
 const PRELOAD_TABS = [Route.CALENDAR, Route.SEARCH, Route.PROFILE];
@@ -146,7 +143,7 @@ export default function HomeScreen() {
 	// Where the row is sliding to — a swipe / tap sets it with its slide, so the `tab` re-render
 	// that follows doesn't restart the slide mid-flight (the hitch at the end of a swipe)
 	const settle = useSharedValue(index * width);
-	// translationX at activation — the pan only starts after START_PX, without this the row jumps
+	// translationX at activation — the pan only starts after its claim distance, else the row jumps
 	const grab = useSharedValue(0);
 	useEffect(() => {
 		const to = index * width;
@@ -192,16 +189,13 @@ export default function HomeScreen() {
 	}, [navigation]);
 
 	// Upcoming → Calendar belongs to the bottom pager, the one thing that can slide Calendar in
-	// under the finger (this pan, clamped at Upcoming, moved nothing and jumped on release). So
-	// the pager's swipe is on for Home while Upcoming shows. It intercepts at its own ~8dp slop,
-	// which used to swallow slow swipes back to Watch List (1 in 3) — the pan below now claims
-	// rightward drags on Upcoming at UPCOMING_BACK_PX, before the pager can.
-	const focused = useIsFocused();
-	useEffect(() => {
-		const parent = navigation.getParent();
-		if (!parent) return;
-		parent.setOptions({ swipeEnabled: focused && tab === Route.UPCOMING });
-	}, [navigation, focused, tab]);
+	// under the finger (this pan, clamped at Upcoming, moved nothing and jumped on release). The
+	// pager's swipe is on for all of Home (SwipeTabsScreen): switching it on from here once
+	// Upcoming showed waited on a React render, so a quick swipe on to Calendar right after
+	// landing found it still off. Which drags it gets is decided on the UI thread instead — the
+	// pan below claims every horizontal drag on Watch List (WATCHLIST_CLAIM_PX) and rightward
+	// ones on Upcoming (UPCOMING_BACK_PX) before the pager's slop, so it only ever gets leftward
+	// drags on Upcoming.
 
 	// What a tab change needs from React; the slide itself never waits for it
 	const applyTab = useCallback((key: HomeTab) => {
@@ -259,17 +253,15 @@ export default function HomeScreen() {
 						return;
 					}
 					// Upcoming: rightward → Watch List, claimed early (see UPCOMING_BACK_PX); leftward
-					// is the bottom pager's, on to Calendar. Watch List claims leftward only; a
-					// rightward drag there is the system back gesture's.
+					// is the bottom pager's, on to Calendar. Watch List claims both ways before the
+					// pager can (see WATCHLIST_CLAIM_PX): leftward slides to Upcoming, rightward is
+					// held so the pager doesn't overscroll Home (the row stays clamped at 0).
 					if (indexSV.value === 1) {
 						if (dx < -UPCOMING_BACK_PX) state.fail();
 						else if (dx > UPCOMING_BACK_PX && dx > Math.abs(dy) * 2) state.activate();
 						return;
 					}
-					if (Math.abs(dx) > START_PX) {
-						if (dx < 0) state.activate();
-						else state.fail();
-					}
+					if (Math.abs(dx) > WATCHLIST_CLAIM_PX) state.activate();
 				})
 				.onStart((e) => {
 					"worklet";

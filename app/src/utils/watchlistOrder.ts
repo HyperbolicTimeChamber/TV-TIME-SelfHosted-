@@ -1,4 +1,4 @@
-import { WATCHLIST_BULK_CHANGE_CARDS } from "../enums";
+import { CardEntryMode, WATCHLIST_BULK_CHANGE_CARDS } from "../enums";
 
 type ListItem = { type: string; card?: { tmdbId: number } };
 
@@ -96,6 +96,27 @@ export function changedCardCount(
 /** Whether this many card changes are applied as one list swap instead of animated */
 export function isBulkCardChange(changes: number): boolean {
 	return changes >= WATCHLIST_BULK_CHANGE_CARDS;
+}
+
+/** How cards joining together come in: none, one at a time, or (a catch-up) one list swap */
+export function cardEntryMode(joining: number): CardEntryMode {
+	if (joining <= 0) return CardEntryMode.NONE;
+	return isBulkCardChange(joining) ? CardEntryMode.SWAP : CardEntryMode.STAGED;
+}
+
+/**
+ * The order cards waiting to come in are let through: as they sit in the list, top first (the
+ * top of "What's Up Next" is where the eye is). Ones the list no longer has (marked, removed,
+ * paused elsewhere) are dropped, so they can't hold the queue
+ */
+export function cardEntryOrder<T extends ListItem>(
+	pending: ReadonlySet<number>,
+	list: readonly T[],
+): number[] {
+	if (pending.size === 0) return [];
+	const out: number[] = [];
+	for (const i of list) if (i.type === "show" && i.card && pending.has(i.card.tmdbId)) out.push(i.card.tmdbId);
+	return out;
 }
 
 /** Live cards the saved list didn't have and that haven't been let through yet */

@@ -2,12 +2,15 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
 	addAiredCards,
+	cardEntryMode,
+	cardEntryOrder,
 	changedCardCount,
 	isBulkCardChange,
 	mergeCachedShows,
 	promoteShows,
 	unseenCardIds,
 } from "../src/utils/watchlistOrder";
+import { CardEntryMode } from "../src/enums";
 
 test("addAiredCards puts cards that aired at the top of the shows and skips ones already there", () => {
 	const header = { type: "sectionHeader" as const, title: "What's Up Next" };
@@ -107,4 +110,20 @@ test("isBulkCardChange: a small number of changes animates, many are one swap", 
 	assert.equal(isBulkCardChange(4), false);
 	assert.equal(isBulkCardChange(5), true);
 	assert.equal(isBulkCardChange(25), true);
+});
+
+
+test("cardEntryMode: none, one at a time for a few cards, one swap for a catch-up", () => {
+	assert.equal(cardEntryMode(0), CardEntryMode.NONE);
+	assert.equal(cardEntryMode(1), CardEntryMode.STAGED);
+	assert.equal(cardEntryMode(4), CardEntryMode.STAGED);
+	assert.equal(cardEntryMode(5), CardEntryMode.SWAP);
+	assert.equal(cardEntryMode(30), CardEntryMode.SWAP);
+});
+
+test("cardEntryOrder: waiting cards top first, ones the list lost dropped", () => {
+	const card = (tmdbId: number) => ({ type: "show" as const, card: { tmdbId } });
+	const list = [{ type: "sectionHeader" as const }, card(7), card(3), card(9), card(1)];
+	assert.deepEqual(cardEntryOrder(new Set([1, 3, 42]), list), [3, 1]);
+	assert.deepEqual(cardEntryOrder(new Set(), list), []);
 });
