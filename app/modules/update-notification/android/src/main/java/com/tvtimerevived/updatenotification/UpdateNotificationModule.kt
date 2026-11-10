@@ -21,7 +21,7 @@ class UpdateNotificationModule : Module() {
       UpdateNotifications.cancel(context)
     }
 
-    // The drawer's Update: the same foreground-service download as the notification's Install, so
+    // The drawer's Update: the same foreground-service download as the notification's Upgrade, so
     // it carries on (with its progress card) when the app is closed or swiped away
     Events("onDownload")
 
