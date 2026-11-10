@@ -16,14 +16,14 @@
 		"ios": {
 			"supportsTablet": true,
 			"bundleIdentifier": "com.tvtimerevived.app",
-			"buildNumber": "95",
+			"buildNumber": "96",
 			"googleServicesFile": "./GoogleService-Info.plist",
 			"infoPlist": {
 				"UIBackgroundModes": ["remote-notification"]
 			}
 		},
 		"android": {
-			"versionCode": 95,
+			"versionCode": 96,
 			"googleServicesFile": "./google-services.json",
 			"adaptiveIcon": {
 				"backgroundColor": "#0D0D0D",
