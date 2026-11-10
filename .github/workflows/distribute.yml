@@ -19,7 +19,8 @@ jobs:
     permissions:
       contents: write
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04 (newer default JDK) and broke the native CMake configure steps.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g"
@@ -41,6 +42,13 @@ jobs:
           cache-dependency-path: |
             app/package-lock.json
             functions/package-lock.json
+
+      # ── Java (Gradle / Android build) ──
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
       - name: Install dependencies
         run: npm ci
