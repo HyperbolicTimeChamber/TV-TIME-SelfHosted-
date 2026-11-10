@@ -31,3 +31,163 @@ index 48e3771..5d1eebb 100644
                  }
              } else {
                  mFabricUIManager.synchronouslyUpdateViewOnUIThread(viewTag, props)
+diff --git a/node_modules/react-native-reanimated/Common/cpp/reanimated/Fabric/updates/AnimatedPropsRegistry.cpp b/node_modules/react-native-reanimated/Common/cpp/reanimated/Fabric/updates/AnimatedPropsRegistry.cpp
+index 2db064c..4c4abef 100644
+--- a/node_modules/react-native-reanimated/Common/cpp/reanimated/Fabric/updates/AnimatedPropsRegistry.cpp
++++ b/node_modules/react-native-reanimated/Common/cpp/reanimated/Fabric/updates/AnimatedPropsRegistry.cpp
+@@ -5,8 +5,10 @@
+ 
+ #include <react/debug/react_native_assert.h>
+ 
++#include <functional>
+ #include <memory>
+ #include <utility>
++#include <vector>
+ 
+ namespace reanimated {
+ 
+@@ -35,26 +37,61 @@ void AnimatedPropsRegistry::update(jsi::Runtime &rt, const jsi::Value &operation
+       addUpdatesToBatch(shadowNode->getFamilyShared(), jsi::dynamicFromValue(rt, updates));
+     }
+ 
+-    if constexpr (StaticFeatureFlags::getFlag("FORCE_REACT_RENDER_FOR_SETTLED_ANIMATIONS")) {
+-      timestampMap_[shadowNode->getTag()] = timestamp;
++    // PATCH(watchloom): backport of 4.6's settled-updates tracking. The old aging (entries older
++    // than 2s erased on the JS tick, before the settled list was read) lost a settled value when
++    // the JS thread stalled over that window; React's `settledProps` then kept the previous
++    // value (a swiped card left off screen).
++    if constexpr (
++        StaticFeatureFlags::getFlag("FORCE_REACT_RENDER_FOR_SETTLED_ANIMATIONS") &&
++        !StaticFeatureFlags::getFlag("USE_ANIMATION_BACKEND")) {
++      const auto tag = shadowNode->getTag();
++      timestampMap_[tag] = timestamp;
++      // If JS already has a `settledProps` snapshot for this tag, it is now stale: schedule a
++      // refresh on the next `collectSettledUpdates`
++      if (syncedTags_.erase(tag) > 0) {
++        invalidatedTags_.insert(tag);
++      }
+     }
+   }
+ }
+ 
+-jsi::Value AnimatedPropsRegistry::getUpdatesOlderThanTimestamp(
+-    jsi::Runtime &rt,
+-    const double timestamp,
+-    const double cleanupTimestamp) {
++jsi::Value AnimatedPropsRegistry::collectSettledUpdates(jsi::Runtime &rt, const double settledTimestamp) {
+   react_native_assert(UpdatesRegistryManager::isLockedByCurrentThread());
+-  removeUpdatesOlderThanTimestamp(cleanupTimestamp);
+ 
+   std::vector<std::pair<Tag, std::reference_wrapper<const folly::dynamic>>> updates;
+ 
+-  for (const auto &[viewTag, pair] : updatesRegistry_) {
+-    auto it = timestampMap_.find(viewTag);
+-    if (it != timestampMap_.end() && it->second < timestamp) {
+-      updates.emplace_back(viewTag, std::cref(pair.second));
++  for (auto it = updatesRegistry_.begin(); it != updatesRegistry_.end();) {
++    const auto viewTag = it->first;
++
++    if (syncedTags_.contains(viewTag)) {
++      // React already has the latest value for this tag (synced on a previous call, so the
++      // `settledProps` state is committed by now): the registry entry is redundant.
++      // `syncedTags_` is intentionally retained to detect re-animation staleness
++      timestampMap_.erase(viewTag);
++      it = updatesRegistry_.erase(it);
++      continue;
++    }
++
++    const auto timestampIt = timestampMap_.find(viewTag);
++    if (timestampIt == timestampMap_.end()) {
++      ++it;
++      continue;
++    }
++    const bool isSettled = timestampIt->second < settledTimestamp;
++    const auto invalidatedIt = invalidatedTags_.find(viewTag);
++    const bool isInvalidated = invalidatedIt != invalidatedTags_.end();
++    if (isSettled || isInvalidated) {
++      updates.emplace_back(viewTag, std::cref(it->second.second));
++      if (isSettled) {
++        // Only settled-path tags are tracked as "synced", so an ongoing animation doesn't
++        // re-trigger an invalidation / sync on every GC tick
++        syncedTags_.insert(viewTag);
++      }
++      if (isInvalidated) {
++        invalidatedTags_.erase(invalidatedIt);
++      }
+     }
++    ++it;
+   }
+ 
+   const jsi::Array array(rt, updates.size());
+@@ -69,22 +106,11 @@ jsi::Value AnimatedPropsRegistry::getUpdatesOlderThanTimestamp(
+   return jsi::Value(rt, array);
+ }
+ 
+-void AnimatedPropsRegistry::removeUpdatesOlderThanTimestamp(const double timestamp) {
+-  for (auto it = timestampMap_.begin(); it != timestampMap_.end();) {
+-    const auto viewTag = it->first;
+-    const auto viewTimestamp = it->second;
+-    if (viewTimestamp < timestamp) {
+-      it = timestampMap_.erase(it);
+-      updatesRegistry_.erase(viewTag);
+-    } else {
+-      it++;
+-    }
+-  }
+-}
+-
+ void AnimatedPropsRegistry::removeTag(const Tag tag) {
+   updatesRegistry_.erase(tag);
+   timestampMap_.erase(tag);
++  syncedTags_.erase(tag);
++  invalidatedTags_.erase(tag);
+ }
+ 
+ } // namespace reanimated
+diff --git a/node_modules/react-native-reanimated/Common/cpp/reanimated/Fabric/updates/AnimatedPropsRegistry.h b/node_modules/react-native-reanimated/Common/cpp/reanimated/Fabric/updates/AnimatedPropsRegistry.h
+index 2197eec..26e88e8 100644
+--- a/node_modules/react-native-reanimated/Common/cpp/reanimated/Fabric/updates/AnimatedPropsRegistry.h
++++ b/node_modules/react-native-reanimated/Common/cpp/reanimated/Fabric/updates/AnimatedPropsRegistry.h
+@@ -7,6 +7,7 @@
+ #include <memory>
+ #include <string>
+ #include <unordered_map>
++#include <unordered_set>
+ #include <vector>
+ 
+ namespace reanimated {
+@@ -15,13 +16,17 @@ class AnimatedPropsRegistry : public UpdatesRegistry {
+  public:
+   void update(jsi::Runtime &rt, const jsi::Value &operations, double timestamp);
+ 
+-  /// Also removes updates older than `cleanupTimestamp` from the registry.
+-  jsi::Value getUpdatesOlderThanTimestamp(jsi::Runtime &rt, double timestamp, double cleanupTimestamp);
++  /// Returns updates that settled (received no update since `settledTimestamp`) or whose synced
++  /// `settledProps` snapshot was invalidated by a fresh update. Also evicts entries already synced.
++  jsi::Value collectSettledUpdates(jsi::Runtime &rt, double settledTimestamp);
+ 
+  private:
+   std::unordered_map<Tag, double> timestampMap_;
++  // Tags whose latest values have already been pushed to React `settledProps`
++  std::unordered_set<Tag> syncedTags_;
++  // Tags synced to React that received a fresh update since: `settledProps` needs a refresh
++  std::unordered_set<Tag> invalidatedTags_;
+ 
+-  void removeUpdatesOlderThanTimestamp(double timestamp);
+   void removeTag(Tag tag) override;
+ };
+ 
+diff --git a/node_modules/react-native-reanimated/Common/cpp/reanimated/NativeModules/ReanimatedModuleProxy.cpp b/node_modules/react-native-reanimated/Common/cpp/reanimated/NativeModules/ReanimatedModuleProxy.cpp
+index cf531e8..5090c02 100644
+--- a/node_modules/react-native-reanimated/Common/cpp/reanimated/NativeModules/ReanimatedModuleProxy.cpp
++++ b/node_modules/react-native-reanimated/Common/cpp/reanimated/NativeModules/ReanimatedModuleProxy.cpp
+@@ -659,8 +659,7 @@ jsi::Value ReanimatedModuleProxy::getSettledUpdates(jsi::Runtime &rt) {
+   // TODO(future): find a better way to obtain timestamp for removing updates
+   // TODO(future): move removing old updates to separate method
+   auto lock = updatesRegistryManager_->lock();
+-  return animatedPropsRegistry_->getUpdatesOlderThanTimestamp(
+-      rt, currentTimestamp - 1000 /* 1 second */, currentTimestamp - 2000 /* 2 seconds */);
++  return animatedPropsRegistry_->collectSettledUpdates(rt, currentTimestamp - 1000 /* 1 second */);
+ }
+ 
+ bool ReanimatedModuleProxy::handleEvent(
