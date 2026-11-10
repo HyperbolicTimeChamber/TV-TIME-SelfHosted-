@@ -53,8 +53,11 @@ class UpdateDownloadService : Service() {
       ACTION_CANCEL -> {
         cancelled = true
         emit("cancelled")
-        // Started (as a foreground service) only to cancel: it must go foreground before stopping
-        if (!running) startInForeground("", 0, "")
+        // Every start comes from startForegroundService, so it must go foreground before stopping —
+        // always, not only when idle: a download finishing at the same moment has already left the
+        // foreground while `running` is still true, and stopping then crashes the app
+        // (ForegroundServiceDidNotStartInTimeException)
+        startInForeground("", 0, "")
         finish(removeCard = true)
       }
       ACTION_DOWNLOAD -> {
@@ -69,7 +72,10 @@ class UpdateDownloadService : Service() {
         cancelled = false
         thread(name = "update-download") { download(url, version, size) }
       }
-      else -> stopSelf()
+      else -> {
+        startInForeground("", 0, "")
+        finish(removeCard = true)
+      }
     }
     return START_NOT_STICKY
   }
@@ -100,7 +106,8 @@ class UpdateDownloadService : Service() {
           val buffer = ByteArray(64 * 1024)
           while (!cancelled) {
             val read = input.read(buffer)
-            if (read < 0) break
+            // Cancelled during the read: don't repaint the card the cancel just removed
+            if (read < 0 || cancelled) break
             output.write(buffer, 0, read)
             written += read
             val now = System.currentTimeMillis()
