@@ -151,10 +151,10 @@ export default function SwipeTabsScreen() {
 					return {
 						lazy: true,
 						sceneStyle: { paddingBottom: onDetail ? 0 : barHeight },
-						// Home's pager swipe is off: its Watch List / Upcoming tabs swipe themselves (RNGH,
-						// after the cards' own swipes). HomeScreen turns it on while Upcoming shows, so
-						// the left swipe on to Calendar follows the finger
-						swipeEnabled: !onDetail && route.name !== Route.HOME,
+						// On for Home too, so the left swipe from Upcoming on to Calendar follows the
+						// finger the moment Upcoming shows. Home's own pan (RNGH, after the cards' own
+						// swipes) claims every other horizontal drag before the pager's slop
+						swipeEnabled: !onDetail,
 					};
 				}}
 			>
