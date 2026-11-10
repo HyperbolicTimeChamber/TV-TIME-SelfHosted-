@@ -35,6 +35,7 @@ import LocalReleaseLine from "../../components/LocalReleaseLine";
 import PhotoTrigger from "../../components/PhotoViewer";
 import { releaseStatLabel } from "@app/utils/localRelease";
 import { useTitleExtras } from "@app/hooks/useTitleExtras";
+import { requireOnline } from "@app/utils/requireOnline";
 import StudiosRow from "../../components/StudiosRow";
 import SkeletonBlock from "../../components/SkeletonBlock";
 
@@ -235,7 +236,7 @@ export default function ShowDetailScreen() {
 								onAddToWatchlist={d.handleAddToWatchlist}
 								onMarkMovieWatched={d.handleMarkMovieWatched}
 								onResumeOrRewatch={d.handleResumeOrRewatch}
-								onPause={() => d.setPauseModalVisible(true)}
+								onPause={() => requireOnline() && d.setPauseModalVisible(true)}
 								onRemove={d.handleRemove}
 								onWatchSheetOpen={() => d.setMovieSheetVisible(true)}
 								listCount={listCount}

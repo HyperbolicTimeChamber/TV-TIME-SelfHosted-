@@ -32,6 +32,7 @@ import { useSearchActions } from "../SearchScreen/useSearchActions";
 import SearchModals from "../SearchScreen/SearchModals";
 import { styles as searchStyles } from "../SearchScreen/styles";
 import { HiCheck } from "../../components/HiIcons";
+import { requireOnline } from "../../utils/requireOnline";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, Route.LIST_DETAIL>;
 
@@ -106,6 +107,7 @@ export default function ListDetailScreen() {
 	const afterModalClose = (fn: () => void) => setTimeout(fn, MODAL_HANDOFF_MS);
 
 	const handleRename = async (name: string) => {
+		if (!requireOnline()) return;
 		const result = await renameList(listId, name);
 		if (result === "ok") {
 			setRenaming(false);
@@ -116,11 +118,12 @@ export default function ListDetailScreen() {
 	};
 
 	const startReorder = () => {
+		if (!requireOnline()) return;
 		setDraft(list.items);
 		setReordering(true);
 	};
 	const saveReorder = async () => {
-		if (!dirty || saving) return;
+		if (!dirty || saving || !requireOnline()) return;
 		setSaving(true);
 		const ok = await reorderItems(listId, draft);
 		setSaving(false);
@@ -396,6 +399,7 @@ export default function ListDetailScreen() {
 				hint={`"${list.name}" will be deleted. The shows and movies in it aren't affected — your watchlist and history stay as they are.`}
 				confirmLabel="Delete"
 				onConfirm={() => {
+					if (!requireOnline()) return;
 					setConfirmDelete(false);
 					deleteList(listId);
 				}}
@@ -408,7 +412,9 @@ export default function ListDetailScreen() {
 				hint={`Remove "${removeTarget?.title ?? ""}" from "${list.name}"? It stays in your watchlist if it's there.`}
 				confirmLabel="Remove"
 				onConfirm={() => {
-					if (removeTarget) removeFromList(listId, removeTarget.tmdbId, removeTarget.mediaType);
+					if (!requireOnline()) return;
+					if (removeTarget) removeFromList(
+listId, removeTarget.tmdbId, removeTarget.mediaType);
 					setRemoveTarget(null);
 				}}
 				onClose={() => setRemoveTarget(null)}

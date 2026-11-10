@@ -1,6 +1,8 @@
 import { useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CUSTOM_LIST_MAX, QueryKey } from "../enums";
+import { requireOnline } from "../utils/requireOnline";
+
 import type { CustomList, CustomListEntry, CustomListItem, MediaType } from "../types";
 import {
 	addCustomListItem,
@@ -94,6 +96,8 @@ export function useCustomLists(userId: string | undefined) {
 	 *  there and report false */
 	const mutate = useCallback(
 		async (patch: (lists: CustomList[]) => CustomList[], write: () => Promise<Settle>) => {
+			// Safety net (the screens ask first): offline nothing is patched or written
+			if (!requireOnline()) return false;
 			const previous = await loadedLists();
 			store(patch(previous));
 			try {

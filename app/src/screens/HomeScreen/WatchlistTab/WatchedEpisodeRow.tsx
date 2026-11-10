@@ -16,7 +16,7 @@ interface Props {
 	/** Row body → the episode popup on this row's episode */
 	onPress: (episode: WatchedEpisode, show: EnrichedTrackingItem) => void;
 	onCheckmarkPress: (episode: WatchedEpisode) => void;
-	onSwipeLeft: (episode: WatchedEpisode) => Promise<void>;
+	onSwipeLeft: (episode: WatchedEpisode) => Promise<boolean | void>;
 	/** `false` = nothing changed (the swipe snaps back). Left out: no Unwatch swipe (a rewatch's
 	 *  floor — the watch belongs to an earlier run) */
 	onSwipeRight?: (episode: WatchedEpisode) => Promise<boolean | void>;

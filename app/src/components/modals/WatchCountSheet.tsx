@@ -16,6 +16,7 @@ import BottomSheet, {
 import { colors, spacing, typography } from "../../theme";
 import type { MediaType } from "../../types";
 import { HiCheck } from "../HiIcons";
+import { requireOnline } from "../../utils/requireOnline";
 
 /** Taps settle this long before the count is written — quick +/+/+ is one write, not three */
 const COMMIT_DELAY_MS = 700;
@@ -120,16 +121,20 @@ export default function WatchCountSheet({
 	};
 
 	const setNow = (n: number) => {
+		// Offline: the count doesn't move (popup from requireOnline); the sheet stays open
+		if (!requireOnline()) return false;
 		if (n < pending.current && n < confirmBelow) {
 			askBelow(n);
-			return;
+			return true;
 		}
 		pending.current = n;
 		setCount(n);
 		flush();
+		return true;
 	};
 
 	const step = (delta: number) => {
+		if (!requireOnline()) return;
 		const next = Math.max(minCount, pending.current + delta);
 		if (next === pending.current) return;
 		if (delta < 0 && next < confirmBelow) {
@@ -195,8 +200,7 @@ export default function WatchCountSheet({
 								title="Watched Once"
 								hint="Reset to 1x"
 								onPress={() => {
-									setNow(1);
-									close();
+									if (setNow(1)) close();
 								}}
 							/>
 						</SheetCollapse>
@@ -208,8 +212,7 @@ export default function WatchCountSheet({
 								hint="Remove all watch history"
 								destructive
 								onPress={() => {
-									setNow(0);
-									close();
+									if (setNow(0)) close();
 								}}
 							/>
 						</SheetCollapse>

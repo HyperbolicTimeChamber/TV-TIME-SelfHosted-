@@ -67,9 +67,9 @@ import UpdatePrompt, { useReleaseWatch, useUpdateForced } from "./src/components
 import LoginScreen from "./src/screens/LoginScreen";
 import ImportDataScreen from "./src/screens/ImportDataScreen";
 import AppNavigator from "./src/navigation/AppNavigator";
-import { OfflineOverlay } from "./src/components";
+import { NoInternetModal } from "./src/components/modals";
 import { colors } from "./src/theme";
-import { AppOpenSource, FATAL_AUTH_ERRORS, OFFLINE_OVERLAY_DELAY_MS, QueryKey } from "./src/enums";
+import { AppOpenSource, FATAL_AUTH_ERRORS, OFFLINE_DELAY_MS, QueryKey } from "./src/enums";
 import { createConnectivityGate } from "./src/utils/connectivityGate";
 import {
 	initMixpanel,
@@ -101,7 +101,8 @@ const queryClient = new QueryClient({
 // server before it could open
 queryClient.setQueryDefaults([QueryKey.WATCHED_EPISODES], { gcTime: Infinity });
 
-const PERSIST_PREFIXES = ["upcomingEpisodes", "catalog"];
+// Trending too: the Search page has something to show offline (cold start without a network)
+const PERSIST_PREFIXES: string[] = ["upcomingEpisodes", "catalog", QueryKey.TRENDING];
 
 const asyncStoragePersister = createAsyncStoragePersister({
 	storage: AsyncStorage,
@@ -172,6 +173,8 @@ function AppContent() {
 				<AppScreens />
 			</View>
 			<UpdatePrompt />
+			{/* Offline actions (requireOnline) — browsing cached screens is never blocked */}
+			<NoInternetModal />
 		</>
 	);
 }
@@ -233,10 +236,7 @@ function AppScreens() {
 	}
 
 	return (
-		<>
-			<AppNavigator />
-			<OfflineOverlay />
-		</>
+		<AppNavigator />
 	);
 }
 
@@ -338,9 +338,9 @@ export default function App() {
 	}, [setUser]);
 
 	useEffect(() => {
-		// Offline only after OFFLINE_OVERLAY_DELAY_MS without a break (handovers drop for ~0.6 s);
-		// null = not known yet, not offline
-		const gate = createConnectivityGate(setConnected, OFFLINE_OVERLAY_DELAY_MS);
+		// Offline only after OFFLINE_DELAY_MS without a break (handovers drop for ~0.6 s);
+		// null = not known yet, not offline. Read by requireOnline (actions only, never browsing)
+		const gate = createConnectivityGate(setConnected, OFFLINE_DELAY_MS);
 		const unsubscribeNet = NetInfo.addEventListener((state) => gate.update(state.isConnected));
 		return () => {
 			unsubscribeNet();

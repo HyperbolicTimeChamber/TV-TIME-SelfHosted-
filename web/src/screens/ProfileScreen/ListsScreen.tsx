@@ -32,6 +32,7 @@ import { Paths, listPath } from "../../routes/paths";
 import { colors } from "../../theme";
 import ListMenuSheet from "./ListMenuSheet";
 import styles from "./styles/ListsScreen.module.scss";
+import { requireOnline } from "@app/utils/requireOnline";
 
 const NAME_ERRORS = {
 	taken: "You already have a list with that name.",
@@ -282,6 +283,12 @@ export default function ListsScreen() {
 		saveTimer.current = null;
 		const ids = draftRef.current;
 		if (!ids) return;
+		// Offline: the drag is put back (nothing saved), popup from requireOnline
+		if (!requireOnline()) {
+			draftRef.current = null;
+			setDraftIds(null);
+			return;
+		}
 		const ok = await reorderLists(ids);
 		// A newer drag since → that one saves next; keep showing it
 		if (draftRef.current !== ids) return;
@@ -299,7 +306,7 @@ export default function ListsScreen() {
 	};
 
 	const submitName = async (name: string) => {
-		if (!naming) return;
+		if (!naming || !requireOnline()) return;
 		setNameBusy(true);
 		let error: string | null = null;
 		if (naming === "new") {
@@ -337,7 +344,7 @@ export default function ListsScreen() {
 	};
 
 	const confirmImport = async () => {
-		if (!importPlan) return;
+		if (!importPlan || !requireOnline()) return;
 		setImporting(true);
 		const ok = await applyImport(importPlan);
 		setImporting(false);
@@ -490,7 +497,9 @@ export default function ListsScreen() {
 				hint={`"${deleteTarget?.name ?? ""}" will be deleted. The shows and movies in it aren't affected — your watchlist and history stay as they are.`}
 				confirmLabel="Delete"
 				onConfirm={() => {
+					if (!requireOnline()) return;
 					if (deleteTarget) deleteList(deleteTarget.id);
+
 					setDeleteTarget(null);
 				}}
 				onClose={() => setDeleteTarget(null)}

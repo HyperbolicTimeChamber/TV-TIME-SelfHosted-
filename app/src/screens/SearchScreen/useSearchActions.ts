@@ -12,6 +12,7 @@ import {
 	prefillCatalog,
 } from "../../hooks";
 import { useAuthStore } from "../../stores";
+import { requireOnline } from "../../utils/requireOnline";
 import {
 	addToTracking,
 	removeFromTracking,
@@ -145,6 +146,7 @@ export function useSearchActions() {
 
 	const handleAddToWatchlist = useCallback(
 		async (item: TMDBShow) => {
+			if (!requireOnline()) return;
 			if (!user?.uid) return;
 			const mediaType: MediaType =
 				item.media_type ||
@@ -305,6 +307,7 @@ export function useSearchActions() {
 
 	/** Retry the add the failure popup is about */
 	const retryAdd = useCallback(() => {
+		if (!requireOnline()) return;
 		const item = retryItem.current;
 		setAddFailure(null);
 		// A background failure can be about an earlier add than the last one started
@@ -314,6 +317,7 @@ export function useSearchActions() {
 
 	const handleRemoveFromWatchlist = useCallback(
 		async (item: TMDBShow) => {
+			if (!requireOnline()) return;
 			if (!user?.uid) return;
 			const mediaType: MediaType =
 				item.media_type ||
@@ -333,6 +337,7 @@ export function useSearchActions() {
 	);
 
 	const handleConfirmRemove = useCallback(async () => {
+		if (!requireOnline()) return;
 		if (!user?.uid || !removeModal || removing) return;
 		setRemoving(true);
 		setRemoveError(null);
@@ -355,6 +360,7 @@ export function useSearchActions() {
 	}, [user?.uid, removeModal, removing]);
 
 	const handleMovieAddOnly = useCallback(async () => {
+		if (!requireOnline()) return;
 		if (!user?.uid || !movieModal) return;
 		const item = movieModal;
 		setMovieModal(null);
@@ -388,6 +394,7 @@ export function useSearchActions() {
 	}, [user?.uid, movieModal, withLoadingId, failureFor]);
 
 	const handleMovieAddAndWatch = useCallback(async () => {
+		if (!requireOnline()) return;
 		if (!user?.uid || !movieModal) return;
 		const item = movieModal;
 		setMovieModal(null);
@@ -447,6 +454,7 @@ export function useSearchActions() {
 	}, [user?.uid, movieModal, withLoadingId, queryClient, failureFor]);
 
 	const handleResumeFromWhere = useCallback(async () => {
+		if (!requireOnline()) return;
 		if (!user?.uid || !resumeModal) return;
 		const { item, nextEp, nextEpName, nextEpAirDate } = resumeModal;
 		setResumeModal(null);
@@ -500,6 +508,7 @@ export function useSearchActions() {
 	}, [user?.uid, resumeModal, withLoadingId, addShowToUpcoming, failureFor]);
 
 	const handleStartFresh = useCallback(async () => {
+		if (!requireOnline()) return;
 		if (!user?.uid || !resumeModal) return;
 		const item = resumeModal.item;
 		setResumeModal(null);

@@ -20,6 +20,7 @@ import { SEARCH_MAX_QUERY_LENGTH } from "../../enums";
 import { IoIosCloseCircle } from "../../components/HiIcons";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import { CLEAR_ICON_SIZE } from "./styles";
+import { requireOnline } from "../../utils/requireOnline";
 
 type NavProp = NativeStackNavigationProp<SearchStackParamList, Route.SEARCH_INPUT>;
 type RoutePropType = RouteProp<SearchStackParamList, Route.SEARCH_INPUT>;
@@ -55,7 +56,9 @@ export default function SearchInputScreen() {
 	const submitSearch = useCallback(
 		(term: string) => {
 			const trimmed = term.trim();
-			if (!trimmed) return;
+			// Offline: stay on the box (no empty results page), popup from requireOnline
+			if (!trimmed || !requireOnline()) return;
+
 			addToHistory(trimmed);
 			let went = false;
 			const go = () => {

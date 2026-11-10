@@ -29,6 +29,7 @@ import { ModalArt, NEW_LIST_ART } from "./ModalArt";
 import PosterImage from "./PosterImage";
 import { useKeyboardInset } from "../hooks/useKeyboardInset";
 import styles from "./styles/AddToList.module.scss";
+import { requireOnline } from "@app/utils/requireOnline";
 
 interface Props {
 	/** The title being listed; null = closed */
@@ -180,7 +181,7 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: P
 	);
 
 	const handleCreate = async (name: string) => {
-		if (!entry) return;
+		if (!entry || !requireOnline()) return;
 		setCreating(true);
 		const result = await createList(name, entry);
 		setCreating(false);
@@ -192,7 +193,8 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: P
 	};
 
 	const toggle = (list: CustomList, has: boolean) => {
-		if (!entry) return;
+		if (!entry || !requireOnline()) return;
+
 		if (has) removeFromList(list.id, entry.tmdbId, entry.mediaType);
 		else addToList(list.id, entry);
 	};

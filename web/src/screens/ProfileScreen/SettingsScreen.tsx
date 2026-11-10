@@ -46,6 +46,7 @@ import {
 } from "../../components/ModalArt";
 import PoweredByTmdb from "../../components/PoweredByTmdb";
 import { APP_VERSION_LABEL } from "@app/utils/appVersion";
+import { requireOnline } from "@app/utils/requireOnline";
 import styles from "./styles/SettingsScreen.module.scss";
 
 /** Swipe right farther than this to go back (as on the app) */
@@ -114,7 +115,7 @@ export default function SettingsScreen() {
 	const isEmailUser = user?.providerData.some((p) => p.providerId === "password") ?? false;
 
 	const changePassword = async () => {
-		if (!user?.email) return;
+		if (!user?.email || !requireOnline()) return;
 		try {
 			await resetPassword(user.email);
 			message.success("Reset email sent — check your inbox.");
@@ -124,7 +125,7 @@ export default function SettingsScreen() {
 	};
 
 	const runExport = async (options: AccountExportOptions) => {
-		if (exportJob.current) return;
+		if (exportJob.current || !requireOnline()) return;
 		const jobId = newJobId();
 		exportJob.current = jobId;
 		setExporting(options);
@@ -177,7 +178,7 @@ export default function SettingsScreen() {
 
 	const runImport = async () => {
 		const file = importFile;
-		if (!file || !user) return;
+		if (!file || !user || !requireOnline()) return;
 		setImportFile(null);
 		setImporting(true);
 		const jobId = newJobId();
@@ -244,6 +245,7 @@ export default function SettingsScreen() {
 	const [deleteError, setDeleteError] = useState<string | null>(null);
 
 	const deleteAccount = async () => {
+		if (!requireOnline()) return;
 		setDeleting(true);
 		setDeleteError(null);
 		try {
@@ -281,14 +283,14 @@ export default function SettingsScreen() {
 				</button>
 				<button
 					className={styles.row}
-					onClick={() => setExportSheetVisible(true)}
+					onClick={() => requireOnline() && setExportSheetVisible(true)}
 					disabled={!!exporting}
 				>
 					Export My Data
 				</button>
 				<button
 					className={styles.row}
-					onClick={() => fileInput.current?.click()}
+					onClick={() => requireOnline() && fileInput.current?.click()}
 					disabled={importing}
 				>
 					Import Data
@@ -323,6 +325,7 @@ export default function SettingsScreen() {
 				<button
 					className={`${styles.row} ${styles.deleteText}`}
 					onClick={() => {
+						if (!requireOnline()) return;
 						setDeleteError(null);
 						setDeleteVisible(true);
 					}}
@@ -344,8 +347,11 @@ export default function SettingsScreen() {
 				hint="You can sign back in any time — your watchlist and history stay saved."
 				confirmLabel="Log Out"
 				onConfirm={async () => {
+					// Signing back in needs a connection (app parity)
+					if (!requireOnline()) return;
 					setLogoutVisible(false);
 					await signOut();
+
 					navigate(Paths.SEARCH, { replace: true });
 				}}
 				onClose={() => setLogoutVisible(false)}

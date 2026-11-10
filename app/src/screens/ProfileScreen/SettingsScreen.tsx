@@ -67,6 +67,7 @@ import { useCustomLists } from "../../hooks/useCustomLists";
 import { trackedIdsQuery } from "../../hooks/useTrackedIds";
 import { emitShowRemoved } from "../../utils";
 import { useQueryClient } from "@tanstack/react-query";
+import { requireOnline } from "../../utils/requireOnline";
 
 /** Why a picked import file can't be read */
 const IMPORT_FILE_ERRORS = {
@@ -135,7 +136,7 @@ export default function SettingsScreen() {
 
 	const handleChangePassword = useCallback(async () => {
 		const email = user?.email;
-		if (!email) return;
+		if (!email || !requireOnline()) return;
 		try {
 			await sendPasswordResetEmail(getAuth(), email);
 			Alert.alert("Reset Email Sent", "Check your inbox for a password reset link.");
@@ -145,7 +146,7 @@ export default function SettingsScreen() {
 	}, [user?.email]);
 
 	const handleTestFCM = useCallback(async () => {
-		if (testingFCM) return;
+		if (testingFCM || !requireOnline()) return;
 		setTestingFCM(true);
 		try {
 			const functions = getFunctions();
@@ -159,7 +160,7 @@ export default function SettingsScreen() {
 	}, [testingFCM]);
 
 	const runExport = useCallback(async (options: AccountExportOptions) => {
-		if (exportJob.current) return;
+		if (exportJob.current || !requireOnline()) return;
 		const jobId = newJobId();
 		exportJob.current = jobId;
 		setExporting(options);
@@ -196,6 +197,7 @@ export default function SettingsScreen() {
 	}, []);
 
 	const pickImportFile = useCallback(async () => {
+		if (!requireOnline()) return;
 		const picked = await pickJsonFile(ACCOUNT_IMPORT_MAX_BYTES);
 		if (!picked.ok) {
 			if (picked.reason !== "canceled")
@@ -216,7 +218,7 @@ export default function SettingsScreen() {
 
 	const runImport = useCallback(async () => {
 		const file = importFile;
-		if (!file || !user) return;
+		if (!file || !user || !requireOnline()) return;
 		setImportFile(null);
 		setImporting(true);
 		const jobId = newJobId();
@@ -293,6 +295,7 @@ export default function SettingsScreen() {
 	const [deleteError, setDeleteError] = useState<string | null>(null);
 
 	const handleDeleteAccount = useCallback(async () => {
+		if (!requireOnline()) return;
 		setDeletingAccount(true);
 		setDeleteError(null);
 		try {
@@ -337,7 +340,7 @@ export default function SettingsScreen() {
 					</TouchableOpacity>
 					<TouchableOpacity
 						style={styles.row}
-						onPress={() => setExportSheetVisible(true)}
+						onPress={() => requireOnline() && setExportSheetVisible(true)}
 						disabled={!!exporting}
 					>
 						<Text style={styles.rowText}>Export My Data</Text>
@@ -376,6 +379,7 @@ export default function SettingsScreen() {
 					<TouchableOpacity
 						style={styles.row}
 						onPress={() => {
+							if (!requireOnline()) return;
 							setDeleteError(null);
 							setDeleteVisible(true);
 						}}
@@ -397,8 +401,12 @@ export default function SettingsScreen() {
 					hint="You can sign back in any time — your watchlist and history stay saved."
 					confirmLabel="Log Out"
 					onConfirm={() => {
+						// Signing back in needs a connection: offline it would lock the user out of
+						// the cached app until they're online again
+						if (!requireOnline()) return;
 						setLogoutVisible(false);
 						signOut();
+
 					}}
 					onClose={() => setLogoutVisible(false)}
 				/>

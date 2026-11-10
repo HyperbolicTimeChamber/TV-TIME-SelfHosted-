@@ -7,6 +7,7 @@ import { getCrashlytics, recordError } from "@react-native-firebase/crashlytics"
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuthStore } from "../../stores";
+import { requireOnline } from "../../utils/requireOnline";
 import { useCustomLists } from "../../hooks/useCustomLists";
 import { parseAccountExport } from "../../utils/accountExport";
 import { describeImport } from "../../utils/customListsIO";
@@ -138,6 +139,8 @@ export function useImportData(onComplete: () => void) {
 	// --- Phase 1: parse + match a TV Time GDPR zip (uri: file:// on mobile, blob: on web) ---
 	const processFile = useCallback(
 		async (uri: string) => {
+			// Matching looks every title up on TMDB: offline the page stays as it is
+			if (!requireOnline()) return;
 			try {
 				setPhase("matching");
 				setStatusText("Extracting data...");
@@ -309,7 +312,7 @@ export function useImportData(onComplete: () => void) {
 
 	// --- Import via Cloud Function ---
 	const handleImport = useCallback(() => {
-		if (!user || !parsedRef.current) return;
+		if (!user || !parsedRef.current || !requireOnline()) return;
 		importStartedAtRef.current = Date.now();
 		importDoneRef.current = false;
 		setPhase("importing");
@@ -389,8 +392,9 @@ export function useImportData(onComplete: () => void) {
 	const { planImport, applyImport } = useCustomLists(user?.uid);
 	const restoreAccount = useCallback(
 		async (text: string) => {
-			if (!user) return;
+			if (!user || !requireOnline()) return;
 			const parsed = parseAccountExport(text);
+
 			if (!parsed.ok) {
 				Alert.alert("Import Error", RESTORE_ERRORS[parsed.reason]);
 				return;

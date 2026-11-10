@@ -41,6 +41,7 @@ import { CircleButtonTone } from "../../enums";
 import { ModalBackdrop, ModalLogo } from "../../components/modals/ModalArt";
 import { getCachedCatalogShow } from "../../hooks/useWatchlist";
 import { pickTitleLogo } from "../../services/tmdb";
+import { requireOnline } from "../../utils/requireOnline";
 
 type RouteParams = RouteProp<HomeStackParamList, "ShowDetail">;
 
@@ -235,7 +236,7 @@ export default function ShowDetailScreen() {
 								onAddToWatchlist={handleAddToWatchlist}
 								onMarkMovieWatched={handleMarkMovieWatched}
 								onResumeOrRewatch={handleResumeOrRewatch}
-								onPause={() => setPauseModalVisible(true)}
+								onPause={() => requireOnline() && setPauseModalVisible(true)}
 								onRemove={handleRemove}
 								onWatchSheetOpen={() => setMovieSheetVisible(true)}
 								listCount={listCount}
