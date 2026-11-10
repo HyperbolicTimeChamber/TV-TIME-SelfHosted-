@@ -749,6 +749,10 @@ export enum AppOpenSource {
 	DEEP_LINK = "deep_link",
 }
 
+/** The offline overlay shows only after this long offline without a break: Android's Wi-Fi ↔
+ *  cellular handover reports "not connected" for ~0.6 s, which flashed it on real phones */
+export const OFFLINE_OVERLAY_DELAY_MS = 2000;
+
 /** Marks this far apart start a new episode_tracking_session */
 export const TRACKING_SESSION_IDLE_MS = 5 * 60 * 1000;
 

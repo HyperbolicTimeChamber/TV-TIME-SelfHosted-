@@ -9,7 +9,8 @@ export default function OfflineOverlay() {
 
 	const handleRetry = async () => {
 		const state = await NetInfo.fetch();
-		useUiStore.getState().setConnected(state.isConnected ?? false);
+		// Shown = already offline; only a confirmed connection hides it
+		if (state.isConnected) useUiStore.getState().setConnected(true);
 	};
 
 	if (isConnected) return null;
