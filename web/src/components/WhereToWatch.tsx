@@ -64,7 +64,6 @@ export default function WhereToWatch({
 					<img className={styles.emptyArt} src="/high-seas.webp" alt="" />
 					<div>
 						<p className={styles.emptyTitle}>Not Available to Stream</p>
-						<p className={styles.emptyHint}>Try the High Seas</p>
 					</div>
 				</div>
 			) : (
