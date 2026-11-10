@@ -7,7 +7,7 @@ import { INSTALLED_BUILD, UPDATES_SUPPORTED, discardStaleDownload, type ChannelR
 
 /**
  * New version out: the app's own notification (native module, custom layouts in the app's theme)
- * — "V x.y.z is available" with a red Upgrade. Upgrade downloads in the background (a dark card
+ * — "Upgrade Available (vx.y.z)" with a red Upgrade. Upgrade downloads in the background (a dark card
  * with a red progress bar and Cancel), then "Tap to install" opens Android's installer — all
  * native, so it works with the app closed
  */
