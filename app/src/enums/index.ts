@@ -647,6 +647,22 @@ export const PENDING_CARD_LIMIT = 40;
  *  one list swap — no hold, grow-in or glide: animated, the catch-up's rows moved over a big
  *  distance and the screen shuffled for seconds */
 export const WATCHLIST_BULK_CHANGE_CARDS = 5;
+/** How cards joining the watchlist together come in (cardEntryMode) */
+export enum CardEntryMode {
+	/** Nothing joining */
+	NONE = "none",
+	/** One at a time: each grows in while the rows glide, the next only after that run is over */
+	STAGED = "staged",
+	/** A catch-up (WATCHLIST_BULK_CHANGE_CARDS or more): one list swap, no animation */
+	SWAP = "swap",
+}
+/** One staged card's run: its grow-in and the rows' glide (400 ms) plus the list's flags clearing
+ *  after them (200 ms), with a margin. The list is held still for this long — nothing else lands
+ *  during the run */
+export const CARD_ENTRY_RUN_MS = 800;
+/** Cards still waiting to come in after this long all come in at once — a queue that keeps being
+ *  restarted (live updates) can't leave cards hidden */
+export const CARD_ENTRY_MAX_PENDING_MS = 20_000;
 /** After the app resumes, the swipe pager is compared with the tab state once this has passed */
 export const TAB_DESYNC_SETTLE_MS = 1000;
 /** Pager position (in tabs: 1 = one full page) the tab state may differ by before it counts */

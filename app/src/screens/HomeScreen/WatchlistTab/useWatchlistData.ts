@@ -49,9 +49,16 @@ import {
 	unseenCardIds,
 	changedCardCount,
 	isBulkCardChange,
+	cardEntryMode,
+	cardEntryOrder,
 	type CardRelease,
 } from "../../../utils/watchlistOrder";
-import { PENDING_CARD_LIMIT } from "../../../enums";
+import {
+	CARD_ENTRY_MAX_PENDING_MS,
+	CARD_ENTRY_RUN_MS,
+	CardEntryMode,
+	PENDING_CARD_LIMIT,
+} from "../../../enums";
 import { coldStartHistory, safeHistory } from "../../../utils/watchedHistory";
 import {
 	MediaType,
@@ -260,6 +267,21 @@ export type CacheableWatchlistListItem =
 			posterPath: string | null;
 			tmdbId: number;
 	  };
+
+/** Rows and what they show that a change can animate (order, cards' episodes, watch counts) */
+function listShapeKey(list: readonly CacheableWatchlistListItem[]): string {
+	return list
+		.map((i) =>
+			i.type === "sectionHeader"
+				? `h${i.title}`
+				: i.type === "show"
+					? `s${i.card.tmdbId}:${i.card.nextEpisode?.season ?? 0}-${i.card.nextEpisode?.episode ?? 0}`
+					: i.type === "watchedEpisode"
+						? `e${i.episode.id}:${i.episode.watchCount ?? 0}`
+						: `m${i.movie.id}:${i.movie.watchCount ?? 0}`,
+		)
+		.join("|");
+}
 
 export function useWatchlistData(userId: string | undefined) {
 	const {
@@ -507,6 +529,9 @@ export function useWatchlistData(userId: string | undefined) {
 
 	// Re-check visibility when the next not-yet-aired episode reaches its air time (within a day)
 	const [airClock, setAirClock] = useState(0);
+	// Cards that reached their air time together, waiting to come in one at a time (the entry
+	// queue below); a catch-up of WATCHLIST_BULK_CHANGE_CARDS or more comes in as one swap instead
+	const [airQueue, setAirQueue] = useState<ReadonlySet<number>>(new Set());
 	useEffect(() => {
 		const now = Date.now();
 		let next = Infinity;
@@ -519,13 +544,18 @@ export function useWatchlistData(userId: string | undefined) {
 		if (next - now > AIR_RECHECK_MAX_MS) return;
 		const timer = setTimeout(
 			() => {
-				// Cards this re-check brings into "What's Up Next" grow in (noted before the list sees
-				// them — it picks its animations while rendering the new rows)
-				for (const item of items) {
-					if (!isShowVisible(item)) continue;
-					const stamp = nextEpisodeAirStamp(item.nextEpisode, item.catalogShow);
-					const t = stamp ? Date.parse(stamp) : NaN;
-					if (t > now) noteListChange(item.tmdbId);
+				// Cards this re-check brings into "What's Up Next" wait in the entry queue, which lets
+				// them in one at a time (each grows in); a catch-up comes in as one swap
+				const joining = items
+					.filter((item) => {
+						if (!isShowVisible(item)) return false;
+						const stamp = nextEpisodeAirStamp(item.nextEpisode, item.catalogShow);
+						const t = stamp ? Date.parse(stamp) : NaN;
+						return t > now;
+					})
+					.map((item) => item.tmdbId);
+				if (cardEntryMode(joining.length) === CardEntryMode.STAGED) {
+					setAirQueue((prev) => new Set([...prev, ...joining]));
 				}
 				showTimer = setTimeout(() => setAirClock((c) => c + 1), AIR_ARM_LEAD_MS);
 			},
@@ -771,34 +801,101 @@ export function useWatchlistData(userId: string | undefined) {
 		const changes = changedCardCount(savedCardIds, showCardIds(orderedLive), liveCaughtUp);
 		return isBulkCardChange(changes) ? new Set<number>() : unseen;
 	}, [savedCardIds, releasedCards, orderedLive, liveCaughtUp]);
-	// By id: a live update during the launch mustn't restart the wait
-	const heldKey = [...heldCards].join();
 	const firstLoadDone = !allLoading && liveCaughtUp;
+
+	// --- Entry queue: cards joining together come in one at a time ---
+	// Waiting: the launch's held cards and the ones that reached their air time together, in list
+	// order (cardEntryOrder: top first; ones the live list lost are dropped). Each is let through
+	// alone: noted (its grow-in + the rows' glide arm), shown, then the list is held still for its
+	// run (CARD_ENTRY_RUN_MS, `entryRun`) — anything that changes meanwhile (a live update, the
+	// user's own mark / unwatch) is shown when the run is over, and the next card waits a further
+	// run if that changed the list. Five or more waiting come in at once (one swap). A queue that
+	// keeps restarting lets everything in after CARD_ENTRY_MAX_PENDING_MS
+	const liveCardIds = useMemo(() => showCardIds(orderedLive), [orderedLive]);
+	const pendingEntry = useMemo(() => {
+		const all = new Set(heldCards);
+		for (const id of airQueue) if (liveCardIds.has(id)) all.add(id);
+		return all;
+	}, [heldCards, airQueue, liveCardIds]);
+	const entryOrder = useMemo(() => cardEntryOrder(pendingEntry, orderedLive), [pendingEntry, orderedLive]);
+	const entryKey = entryOrder.join();
+	const [entryRun, setEntryRun] = useState<number | null>(null);
+	const entryToken = useRef(0);
+	/** The list changed while the last run held it still: the next card waits a run */
+	const changedDuringRun = useRef(false);
+	/** When the list last changed shape (set below, where the shown list is worked out) */
+	const shapeChangedAt = useRef(0);
+	/** Launch held cards wait for the first load before the first one comes in */
+	const launchStarted = useRef(false);
+	// Read in the effect below through a ref: the set is rebuilt on every live update, and as a
+	// dependency it restarted the wait each time
+	const heldRef = useRef(heldCards);
+	heldRef.current = heldCards;
+	const letIn = useCallback((ids: readonly number[]) => {
+		setAirQueue((prev) => {
+			if (!ids.some((id) => prev.has(id))) return prev;
+			const next = new Set(prev);
+			for (const id of ids) next.delete(id);
+			return next;
+		});
+		setReleasedCards((prev) => new Set([...prev, ...ids]));
+	}, []);
 	useEffect(() => {
-		if (!heldKey) return;
-		const ids = heldKey.split(",").map(Number);
-		const release = () => setReleasedCards((prev) => new Set([...prev, ...ids]));
-		// Once the launch's work is done: let through on a busy JS thread, the card's view came
-		// about a second after the rows had moved, over a blank gap
+		if (!entryKey || entryRun !== null) return;
+		const ids = entryKey.split(",").map(Number);
+		const launchWait = !launchStarted.current && ids.some((id) => heldRef.current.has(id));
+		const delay = launchWait
+			? firstLoadDone
+				? CARD_RELEASE_QUIET_MS
+				: CARD_RELEASE_MAX_HOLD_MS
+			: changedDuringRun.current
+				? CARD_ENTRY_RUN_MS
+				: 0;
 		let idle: number | undefined;
 		let armed: ReturnType<typeof setTimeout> | undefined;
-		const quiet = setTimeout(
-			() => {
-				for (const id of ids) noteListChange(id);
-				armed = setTimeout(() => {
-					if (typeof requestIdleCallback === "function") {
-						idle = requestIdleCallback(release, { timeout: CARD_RELEASE_MAX_WAIT_MS });
-					} else release();
-				}, AIR_ARM_LEAD_MS);
-			},
-			firstLoadDone ? CARD_RELEASE_QUIET_MS : CARD_RELEASE_MAX_HOLD_MS,
-		);
+		const start = setTimeout(() => {
+			launchStarted.current = true;
+			changedDuringRun.current = false;
+			// A catch-up: all at once, no animation (the list sees a bulk change)
+			if (cardEntryMode(ids.length) === CardEntryMode.SWAP) {
+				letIn(ids);
+				return;
+			}
+			const id = ids[0];
+			noteListChange(id);
+			// Shown once the JS thread is free: on a busy one the card's view came about a second
+			// after the rows had moved, over a blank gap
+			const show = () => {
+				// Not on top of another change: one the list just took (a mark, a live update) gets
+				// its run first
+				const since = Date.now() - shapeChangedAt.current;
+				if (since < CARD_ENTRY_RUN_MS) {
+					armed = setTimeout(show, CARD_ENTRY_RUN_MS - since);
+					return;
+				}
+				entryToken.current += 1;
+				setEntryRun(entryToken.current);
+				letIn([id]);
+			};
+			armed = setTimeout(() => {
+				if (typeof requestIdleCallback === "function") {
+					idle = requestIdleCallback(show, { timeout: CARD_RELEASE_MAX_WAIT_MS });
+				} else show();
+			}, AIR_ARM_LEAD_MS);
+		}, delay);
 		return () => {
-			clearTimeout(quiet);
+			clearTimeout(start);
 			if (armed !== undefined) clearTimeout(armed);
 			if (idle !== undefined) cancelIdleCallback(idle);
 		};
-	}, [heldKey, firstLoadDone, noteListChange]);
+	}, [entryKey, entryRun, firstLoadDone, noteListChange, letIn]);
+	// Failsafe: nothing waits forever
+	useEffect(() => {
+		if (!entryKey) return;
+		const ids = entryKey.split(",").map(Number);
+		const t = setTimeout(() => letIn(ids), CARD_ENTRY_MAX_PENDING_MS);
+		return () => clearTimeout(t);
+	}, [entryKey, letIn]);
 	// A card added later in the session isn't one of these
 	useEffect(() => {
 		if (savedCardIds && !allLoading && liveCaughtUp && heldCards.size === 0) setSavedCardIds(null);
@@ -807,16 +904,16 @@ export function useWatchlistData(userId: string | undefined) {
 	// --- Effective display: blend cached shows + live previously watched ---
 	const rawDisplayList = useMemo(() => {
 		const live =
-			heldCards.size === 0
+			pendingEntry.size === 0
 				? orderedLive
-				: orderedLive.filter((i) => i.type !== "show" || !heldCards.has(i.card.tmdbId));
+				: orderedLive.filter((i) => i.type !== "show" || !pendingEntry.has(i.card.tmdbId));
 		if (!cachedList) return live;
 		if (live.length === 0) return cachedList;
 		// Live pages arrive a few at a time: the saved cards they haven't reached yet keep their
 		// saved spot, so the list doesn't shrink to the first page and grow back (cards vanishing,
 		// then returning). They drop out as the live ones take over (liveCaughtUp)
 		return mergeCachedShows(cachedList, live);
-	}, [cachedList, orderedLive, heldCards]);
+	}, [cachedList, orderedLive, pendingEntry]);
 	const effectiveLoading = reordering || (allLoading && !cachedList);
 
 	// Apply optimistic card patches (and hide cards a mark just took off — leftUpNext)
@@ -877,9 +974,44 @@ export function useWatchlistData(userId: string | undefined) {
 		});
 	}, [items, optimisticCards, loading]);
 
+	// A staged card's run: the list shown stays as it was when the card came in (with the
+	// promotions count the list animates marks by), so nothing lands mid-run; what changed
+	// meanwhile is shown when the run ends
+	const frozenRun = useRef<{ token: number; list: typeof displayList; promotions: number } | null>(
+		null,
+	);
+	if (entryRun === null) frozenRun.current = null;
+	else if (frozenRun.current?.token !== entryRun) {
+		frozenRun.current = { token: entryRun, list: displayList, promotions };
+	}
+	const shownList = frozenRun.current?.list ?? displayList;
+	const shownPromotions = frozenRun.current?.promotions ?? promotions;
+	const latestDisplay = useRef({ list: displayList, promotions });
+	latestDisplay.current = { list: displayList, promotions };
+	// When the list last changed shape (a staged card waits for a quiet list: see the entry queue)
+	const shownShape = `${promotions}|${listShapeKey(displayList)}`;
+	const lastShape = useRef(shownShape);
+	if (lastShape.current !== shownShape) {
+		lastShape.current = shownShape;
+		shapeChangedAt.current = Date.now();
+	}
+	useEffect(() => {
+		if (entryRun === null) return;
+		const t = setTimeout(() => {
+			const held = frozenRun.current;
+			changedDuringRun.current =
+				!!held &&
+				(held.promotions !== latestDisplay.current.promotions ||
+					listShapeKey(held.list) !== listShapeKey(latestDisplay.current.list));
+			setEntryRun(null);
+		}, CARD_ENTRY_RUN_MS);
+		return () => clearTimeout(t);
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- the run's own timer
+	}, [entryRun]);
+
 	// --- Convert to WatchlistListItem for renderItem ---
 	const listData: WatchlistListItem[] = useMemo(() => {
-		return displayList.map((item) => {
+		return shownList.map((item) => {
 			if (item.type === "sectionHeader") return item;
 			if (item.type === "watchedMovie") {
 				const show =
@@ -921,7 +1053,7 @@ export function useWatchlistData(userId: string | undefined) {
 				item: item.card as unknown as EnrichedTrackingItem,
 			};
 		});
-	}, [displayList, showMap]);
+	}, [shownList, showMap]);
 
 	// --- Auto-load more if fewer visible items than cached ---
 	useEffect(() => {
@@ -1552,12 +1684,12 @@ export function useWatchlistData(userId: string | undefined) {
 		/** Cards that stayed on screen → heal their missing data (see useWatchlist) */
 		healShown,
 		listData,
-		promotions,
+		promotions: shownPromotions,
 		wasJustMarked,
 		wasJustLeft,
 		noteListChange,
 		listChangeArm,
-		cardsHeld: heldCards.size > 0,
+		cardsHeld: pendingEntry.size > 0 || entryRun !== null,
 		loading: effectiveLoading,
 		// Everything fetched (confirmed now, or by the last session while this one still loads):
 		// only then can an empty "What's Up Next" really mean "all caught up". Until then the
