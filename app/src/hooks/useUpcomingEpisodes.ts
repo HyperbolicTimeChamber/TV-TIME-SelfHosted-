@@ -12,6 +12,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { UpcomingEpisode, CacheKey, CloudFunction, MediaType } from "../types";
 import { getCachedCatalogShow, whenCatalogRestored, cacheCatalogShows } from "./useWatchlist";
 import { getCatalogShow } from "../services/firestore";
+import { useRetryOnReconnect } from "./useRetryOnReconnect";
 import {
 	todayStr,
 	trimPastQueue,
@@ -315,6 +316,8 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 	}, [userId, cacheReady, configLoading, lastCatalogSync, forceRefetch, archivePast]);
 
 	const retry = useCallback(() => setForceRefetch((t) => t + 1), []);
+	// Failed offline → load again once the connection is back (a loaded list is left alone)
+	useRetryOnReconnect(error !== null, retry);
 
 	// App left open across midnight → move yesterday's episodes into the past queue
 	const [today, setToday] = useState(todayStr);

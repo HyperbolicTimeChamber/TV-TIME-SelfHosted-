@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRetryOnReconnect } from "./useRetryOnReconnect";
 import { useAuthStore } from "../stores";
 import {
 	CacheKey,
@@ -202,6 +203,8 @@ function useHistoryView(
 	useEffect(() => {
 		if (enabled) fetchPage(null);
 	}, [enabled, fetchPage]);
+	// First page failed (offline) → ask again once the connection is back
+	useRetryOnReconnect(enabled && !!error && !current, () => fetchPage(null));
 
 	const loadMore = useCallback(() => {
 		if (!current?.hasMore || busy) return;
@@ -243,6 +246,8 @@ export function useWatchHistory(
 	const [error, setError] = useState<string | null>(null);
 	// Catalog cache isn't reactive — bump to re-derive cards after a batch fetch
 	const [catalogVersion, setCatalogVersion] = useState(0);
+	// Bumped to load again after a failed first load (reconnect)
+	const [reload, setReload] = useState(0);
 
 	// Open: cache → quiet delta; no cache → first page
 	useEffect(() => {
@@ -270,7 +275,14 @@ export function useWatchHistory(
 		return () => {
 			cancelled = true;
 		};
-	}, [userId, mediaType]);
+	}, [userId, mediaType, reload]);
+	// Nothing loaded and the load failed (offline) → load again once the connection is back.
+	// A cached list whose quiet refresh failed is left alone
+	useRetryOnReconnect(!!error && !state, () => {
+		setError(null);
+		setLoading(true);
+		setReload((n) => n + 1);
+	});
 
 	// Persisted catalog cache restores in the background — re-derive once it's in
 	useEffect(() => {

@@ -7,6 +7,7 @@ import { cacheCatalogShows, getCachedCatalogShow, whenCatalogRestored } from "./
 import { fetchCatalogShows } from "../services/historyApi";
 import { showDocId } from "../utils/docId";
 import { trackedIdsQuery } from "./useTrackedIds";
+import { useRetryOnReconnect } from "./useRetryOnReconnect";
 import { useQueryClient } from "@tanstack/react-query";
 import { calendarCacheForUser, isCalendarCacheStale } from "../utils/calendarCache";
 
@@ -129,6 +130,8 @@ export function useCalendarEpisodes(userId: string | undefined) {
 	// Months asked for this session — re-checked when the sync stamp / API key arrives
 	const requested = useRef(new Set<string>());
 	const building = useRef(new Set<string>());
+	// Months whose build failed (offline: TMDB / Firestore unreachable) — built again on reconnect
+	const [failedMonths, setFailedMonths] = useState<ReadonlySet<string>>(new Set());
 	const apiKey = useAuthStore((s) => s.appTmdbApiKey);
 	// From authStore's config/app read — no extra read here
 	const lastCatalogSync = useAuthStore((s) => s.lastCatalogSync);
@@ -286,6 +289,15 @@ export function useCalendarEpisodes(userId: string | undefined) {
 				target.months[monthKey] = episodes;
 				target.monthSyncs = { ...target.monthSyncs, [monthKey]: syncNow };
 				queueCalendarSave(target);
+				setFailedMonths((prev) => {
+					if (!prev.has(monthKey)) return prev;
+					const next = new Set(prev);
+					next.delete(monthKey);
+					return next;
+				});
+			} catch (err) {
+				console.warn("[calendar] month build failed:", monthKey, err);
+				setFailedMonths((prev) => (prev.has(monthKey) ? prev : new Set(prev).add(monthKey)));
 			} finally {
 				building.current.delete(monthKey);
 				setSettled((prev) => (prev.has(monthKey) ? prev : new Set(prev).add(monthKey)));
@@ -293,6 +305,14 @@ export function useCalendarEpisodes(userId: string | undefined) {
 		},
 		[userId, apiKey, queryClient, restore],
 	);
+
+	// Back online: build again the months that failed (built ones are left alone)
+	useRetryOnReconnect(failedMonths.size > 0, () => {
+		for (const key of failedMonths) {
+			const [y, m] = key.split("-").map(Number);
+			loadMonthEpisodes(y, m);
+		}
+	});
 
 	// Sync stamp / API key arrived (or changed): rebuild the asked-for months now stale or unbuilt
 	useEffect(() => {

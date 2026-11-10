@@ -71,6 +71,7 @@ import { NoInternetModal } from "./src/components/modals";
 import { colors } from "./src/theme";
 import { AppOpenSource, FATAL_AUTH_ERRORS, OFFLINE_DELAY_MS, QueryKey } from "./src/enums";
 import { createConnectivityGate } from "./src/utils/connectivityGate";
+import { onReconnect, reportConnectivity, retryFailedQueries } from "./src/utils/reconnectRetry";
 import {
 	initMixpanel,
 	identifyUser,
@@ -341,9 +342,15 @@ export default function App() {
 		// Offline only after OFFLINE_DELAY_MS without a break (handovers drop for ~0.6 s);
 		// null = not known yet, not offline. Read by requireOnline (actions only, never browsing)
 		const gate = createConnectivityGate(setConnected, OFFLINE_DELAY_MS);
-		const unsubscribeNet = NetInfo.addEventListener((state) => gate.update(state.isConnected));
+		const unsubscribeNet = NetInfo.addEventListener((state) => {
+			gate.update(state.isConnected);
+			reportConnectivity(state.isConnected);
+		});
+		// Back online: queries that failed with nothing to show load again (never ones with data)
+		const unsubscribeReconnect = onReconnect(() => void retryFailedQueries(queryClient));
 		return () => {
 			unsubscribeNet();
+			unsubscribeReconnect();
 			gate.dispose();
 		};
 	}, [setConnected]);

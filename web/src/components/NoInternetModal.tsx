@@ -3,6 +3,8 @@ import { useAppDispatch, useAppSelector } from "../store";
 import { setConnected, setNoInternetVisible } from "../store/uiSlice";
 import { OFFLINE_DELAY_MS } from "@app/enums";
 import { createConnectivityGate } from "@app/utils/connectivityGate";
+import { onReconnect, reportConnectivity, retryFailedQueries } from "@app/utils/reconnectRetry";
+import { queryClient } from "../queryClient";
 import ConfirmModal from "./ConfirmModal";
 import { ModalArt, NO_INTERNET_ART } from "./ModalArt";
 
@@ -41,11 +43,17 @@ export default function NoInternetModal() {
 			(connected) => dispatch(setConnected(connected)),
 			OFFLINE_DELAY_MS,
 		);
-		const update = () => gate.update(navigator.onLine);
+		const update = () => {
+			gate.update(navigator.onLine);
+			reportConnectivity(navigator.onLine);
+		};
 		update();
 		window.addEventListener("online", update);
 		window.addEventListener("offline", update);
+		// Back online: queries that failed with nothing to show load again (never ones with data)
+		const unsubscribeReconnect = onReconnect(() => void retryFailedQueries(queryClient));
 		return () => {
+			unsubscribeReconnect();
 			window.removeEventListener("online", update);
 			window.removeEventListener("offline", update);
 			gate.dispose();
