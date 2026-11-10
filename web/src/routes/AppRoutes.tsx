@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import AppShell from "../layout/AppShell";
 import LoadingScreen from "../components/LoadingScreen";
@@ -7,19 +7,59 @@ import { Paths } from "./paths";
 import { useAppSelector } from "../store";
 
 // Screens are code-split: guests landing on search never download the watchlist bundle
+const loadSearch = () => import("../screens/SearchScreen");
+const loadSearchInput = () => import("../screens/SearchScreen/SearchInputScreen");
+const loadShowDetail = () => import("../screens/DetailScreens/ShowDetailScreen");
+const loadHome = () => import("../screens/HomeScreen");
+const loadCalendar = () => import("../screens/CalendarScreen");
+const loadProfile = () => import("../screens/ProfileScreen");
+const loadSettings = () => import("../screens/ProfileScreen/SettingsScreen");
+const loadWatchHistory = () => import("../screens/ProfileScreen/WatchHistory");
+const loadListDetail = () => import("../screens/ProfileScreen/ListDetail");
+const loadLists = () => import("../screens/ProfileScreen/ListsScreen");
+
 const LoginScreen = lazy(() => import("../screens/LoginScreen"));
-const SearchScreen = lazy(() => import("../screens/SearchScreen"));
-const SearchInputScreen = lazy(() => import("../screens/SearchScreen/SearchInputScreen"));
-const ShowDetailScreen = lazy(() => import("../screens/DetailScreens/ShowDetailScreen"));
-const HomeScreen = lazy(() => import("../screens/HomeScreen"));
-const CalendarScreen = lazy(() => import("../screens/CalendarScreen"));
-const ProfileScreen = lazy(() => import("../screens/ProfileScreen"));
-const SettingsScreen = lazy(() => import("../screens/ProfileScreen/SettingsScreen"));
-const WatchHistoryScreen = lazy(() => import("../screens/ProfileScreen/WatchHistory"));
-const ListDetailScreen = lazy(() => import("../screens/ProfileScreen/ListDetail"));
-const ListsScreen = lazy(() => import("../screens/ProfileScreen/ListsScreen"));
+const SearchScreen = lazy(loadSearch);
+const SearchInputScreen = lazy(loadSearchInput);
+const ShowDetailScreen = lazy(loadShowDetail);
+const HomeScreen = lazy(loadHome);
+const CalendarScreen = lazy(loadCalendar);
+const ProfileScreen = lazy(loadProfile);
+const SettingsScreen = lazy(loadSettings);
+const WatchHistoryScreen = lazy(loadWatchHistory);
+const ListDetailScreen = lazy(loadListDetail);
+const ListsScreen = lazy(loadLists);
 const ImportDataScreen = lazy(() => import("../screens/ImportDataScreen"));
 const NotFoundScreen = lazy(() => import("../screens/NotFoundScreen"));
+
+/** Pages a guest can browse; signed in, every tab / page that shows saved data too */
+const GUEST_PAGES = [loadSearch, loadSearchInput, loadShowDetail];
+const SIGNED_IN_PAGES = [
+	...GUEST_PAGES,
+	loadHome,
+	loadCalendar,
+	loadProfile,
+	loadSettings,
+	loadWatchHistory,
+	loadLists,
+	loadListDetail,
+];
+/** After launch has settled: fetching the other pages' code earlier would compete with it */
+const PRELOAD_PAGES_DELAY_MS = 3000;
+
+/**
+ * Loads the browsable pages' code once the app is up, while it's online: a page whose chunk was
+ * never fetched can't open offline (a failed dynamic import left a blank screen), and browsing
+ * what's saved must work without a connection
+ */
+function usePreloadPages(signedIn: boolean) {
+	useEffect(() => {
+		const t = window.setTimeout(() => {
+			for (const load of signedIn ? SIGNED_IN_PAGES : GUEST_PAGES) load().catch(() => {});
+		}, PRELOAD_PAGES_DELAY_MS);
+		return () => window.clearTimeout(t);
+	}, [signedIn]);
+}
 
 /** Guests land on search; signed-in users on their watchlist */
 function RootRedirect() {
@@ -29,6 +69,7 @@ function RootRedirect() {
 }
 
 export default function AppRoutes() {
+	usePreloadPages(useAppSelector((s) => !!s.auth.user));
 	return (
 		<Suspense fallback={<LoadingScreen />}>
 			<Routes>

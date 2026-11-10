@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useAuthStore } from "../../stores";
+import { useAuthStore, useUiStore } from "../../stores";
 import { searchSuggestions } from "../../services/tmdb";
 import { warmupSearchTitles } from "../../services/searchTitles";
 import { getCachedCatalogTitles } from "../../hooks/useWatchlist";
@@ -72,6 +72,9 @@ export function useSearchInput(initialQuery = "") {
 	// Each keystroke's suggestions, reused when a later one finds nothing. Lives with the page
 	const suggestionMemory = useRef<SuggestionMemory>(new Map());
 	const apiKey = useAuthStore((s) => s.appTmdbApiKey);
+	// Offline: no TMDB suggestions (your own shows' matches still show); no popup per keystroke —
+	// submitting asks requireOnline
+	const online = useUiStore((s) => s.isConnected);
 
 	// The results page's search runs in a CF: start it when the search box opens…
 	useEffect(() => warmupSearchTitles(), []);
@@ -93,7 +96,7 @@ export function useSearchInput(initialQuery = "") {
 	// Debounced TMDB suggestions. An answer to an older query is dropped
 	useEffect(() => {
 		const trimmed = query.trim();
-		if (trimmed.length < 2 || !apiKey) {
+		if (trimmed.length < 2 || !apiKey || !online) {
 			setTmdbSuggestions([]);
 			setLoadingSuggestions(false);
 			return;
@@ -116,7 +119,8 @@ export function useSearchInput(initialQuery = "") {
 			current = false;
 			clearTimeout(timer);
 		};
-	}, [query, apiKey]);
+	}, [query, apiKey, online]);
+
 
 	const addToHistory = useCallback((term: string) => {
 		const trimmed = term.trim().toLowerCase();

@@ -5,6 +5,8 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useSearchInput } from "@app/screens/SearchScreen/useSearchInput";
 import { encodeText } from "@app/utils/subjectLink";
 import { SEARCH_MAX_QUERY_LENGTH } from "@app/enums";
+import { requireOnline } from "@app/utils/requireOnline";
+
 import { Paths } from "../../routes/paths";
 import styles from "./styles/SearchInputScreen.module.scss";
 
@@ -31,7 +33,8 @@ export default function SearchInputScreen() {
 
 	const submitSearch = (term: string) => {
 		const trimmed = term.trim();
-		if (!trimmed) return;
+		// Offline: stay on the box (no empty results page), popup from requireOnline
+		if (!trimmed || !requireOnline()) return;
 		addToHistory(trimmed);
 		const results = `${Paths.SEARCH}?q=${encodeText(trimmed)}`;
 		if (!overResults) {

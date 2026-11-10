@@ -21,6 +21,7 @@ import { BackfillModal } from "./BackfillModal";
 import { markWatchedLabel } from "../../../utils/format";
 import { todayStr } from "../../../utils/todayStr";
 import { carouselRunBase } from "../../../utils/trackingAdvance";
+import { requireOnline } from "../../../utils/requireOnline";
 import type {
 	CarouselEpisode,
 	EnrichedEpisode,
@@ -186,6 +187,8 @@ export default function EpisodeDetailModal({
 
 	const handleMark = useCallback(
 		(ep: CarouselEpisode) => {
+			// Offline: nothing is marked, the card stays as it is (popup from requireOnline)
+			if (!requireOnline()) return;
 			const key = epKey(ep.season, ep.episode);
 			if (!currentNextEpisode) {
 				setMarkingKey(key);
@@ -235,7 +238,7 @@ export default function EpisodeDetailModal({
 	);
 
 	const handleConfirmBackfill = useCallback(async () => {
-		if (!confirmTarget) return;
+		if (!confirmTarget || !requireOnline()) return;
 		setConfirmLoading(true);
 		const key = epKey(confirmTarget.season, confirmTarget.episode);
 		setMarkingKey(key);
@@ -297,7 +300,7 @@ export default function EpisodeDetailModal({
 	]);
 
 	const handleDeclineBackfill = useCallback(async () => {
-		if (!confirmTarget) return;
+		if (!confirmTarget || !requireOnline()) return;
 		setConfirmVisible(false);
 		const key = epKey(confirmTarget.season, confirmTarget.episode);
 		setMarkingKey(key);
@@ -344,6 +347,7 @@ export default function EpisodeDetailModal({
 			const onSkip =
 				onSkipEpisode && isCurrentNext
 					? () => {
+							if (!requireOnline()) return;
 							setMarkingKey(key);
 							onSkipEpisode(tmdbId, item.season, item.episode).finally(() => setMarkingKey(null));
 						}
@@ -369,6 +373,7 @@ export default function EpisodeDetailModal({
 							markLabel={markWatchedLabel(runBase)}
 							onMarkWatched={() => handleMark(item)}
 							onUnwatch={() => {
+								if (!requireOnline()) return;
 								setMarkingKey(key);
 								onUnmarkWatched(tmdbId, item.season, item.episode).finally(() => {
 									setLocalWatched((prev) => {
@@ -385,6 +390,7 @@ export default function EpisodeDetailModal({
 								});
 							}}
 							onRewatch={() => {
+								if (!requireOnline()) return;
 								setMarkingKey(key);
 								onMarkWatched(tmdbId, item.season, item.episode, item.runtime).finally(() => {
 									setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));

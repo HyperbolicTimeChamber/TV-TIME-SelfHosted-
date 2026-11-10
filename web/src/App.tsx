@@ -8,7 +8,7 @@ import { store } from "./store";
 import { queryClient, persistOptions } from "./queryClient";
 import { antdThemeConfig } from "./theme/index";
 import AuthListener from "./AuthListener";
-import OfflineBanner from "./components/OfflineBanner";
+import NoInternetModal from "./components/NoInternetModal";
 import AppRoutes from "./routes/AppRoutes";
 
 export default function App() {
@@ -21,7 +21,7 @@ export default function App() {
 							<ScrollToTop />
 							<PageViewTracker />
 							<AuthListener />
-							<OfflineBanner />
+							<NoInternetModal />
 							<AppRoutes />
 						</BrowserRouter>
 					</AntApp>

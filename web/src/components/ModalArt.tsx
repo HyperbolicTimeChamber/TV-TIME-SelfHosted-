@@ -31,6 +31,8 @@ export const FAREWELL_ART = "/farewell.webp";
 export const NEW_LIST_ART = "/new-list.webp";
 /** Couldn't add — Yamcha, down for the count */
 export const DEFEATED_ART = "/defeated.webp";
+/** No Internet — Zoro, lost again */
+export const NO_INTERNET_ART = "/not-found.webp";
 
 const LOGO_MAX_W = 240;
 /** Popup content width — image request size */

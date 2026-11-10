@@ -44,6 +44,9 @@ export const IMPORT_CANCELLED_RATIO = 700 / 744;
 /** Couldn't add — Yamcha, down for the count */
 export const DEFEATED_ART = require("../../../assets/defeated.webp");
 export const DEFEATED_RATIO = 557 / 709;
+/** No Internet — Zoro, lost again */
+export const NO_INTERNET_ART = require("../../../assets/not-found.webp");
+export const NO_INTERNET_RATIO = 600 / 587;
 
 const ART_H = 140;
 const LOGO_MAX_W = 240;

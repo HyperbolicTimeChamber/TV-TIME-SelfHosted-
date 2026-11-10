@@ -51,6 +51,7 @@ import { SheetHeader } from "./BottomSheet";
 import ListNameModal from "./ListNameModal";
 import SheetDoneFooter, { DONE_FOOTER_HEIGHT } from "./SheetDoneFooter";
 import { ModalArt, NEW_LIST_ART, NEW_LIST_RATIO } from "./ModalArt";
+import { requireOnline } from "../../utils/requireOnline";
 
 interface Props {
 	/** The title being listed; null = closed */
@@ -206,7 +207,7 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: R
 	);
 
 	const handleCreate = async (name: string) => {
-		if (!entry) return;
+		if (!entry || !requireOnline()) return;
 		setCreating(true);
 		const result = await createList(name, entry);
 		setCreating(false);
@@ -219,7 +220,8 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: R
 	};
 
 	const toggle = (list: CustomList, has: boolean) => {
-		if (!entry) return;
+		if (!entry || !requireOnline()) return;
+
 		Haptics.selectionAsync().catch(() => {});
 		if (has) removeFromList(list.id, entry.tmdbId, entry.mediaType);
 		else addToList(list.id, entry);

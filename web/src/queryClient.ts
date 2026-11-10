@@ -21,7 +21,8 @@ export const queryClient = new QueryClient({
 queryClient.setQueryDefaults([QueryKey.WATCHED_EPISODES], { gcTime: Infinity });
 
 const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
-const PERSIST_PREFIXES = ["upcomingEpisodes", "catalog"];
+// Trending too: the Search page has something to show offline (cold start without a network)
+const PERSIST_PREFIXES: string[] = ["upcomingEpisodes", "catalog", QueryKey.TRENDING];
 
 export const persistOptions: Omit<PersistQueryClientOptions, "queryClient"> = {
 	persister: createSyncStoragePersister({

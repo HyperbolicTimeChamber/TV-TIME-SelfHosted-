@@ -72,6 +72,7 @@ import type { WatchlistListItem } from "../../../types/watchlist";
 import { hasAired, nextEpisodeAirStamp } from "../../../utils/airTime";
 import { fetchEpisodeRuntime } from "../../../services/tmdb";
 import { useAuthStore } from "../../../stores";
+import { requireOnline } from "../../../utils/requireOnline";
 import { batchEndOffsets, staggerFinishTimes } from "../../../utils/stagger";
 
 /** Only schedule the air-time re-check for episodes airing within a day */
@@ -1088,6 +1089,7 @@ export function useWatchlistData(userId: string | undefined) {
 
 	const handleMarkWatched = useCallback(
 		async (item: EnrichedTrackingItem) => {
+			if (!requireOnline()) return;
 			if (!userId) return;
 			noteListChange(item.tmdbId);
 			// One frame for the list to arm its glide before this mark moves the cards
@@ -1288,6 +1290,7 @@ export function useWatchlistData(userId: string | undefined) {
 
 	const handleMarkWatchedThrough = useCallback(
 		async (tmdbId: number, targetSeason: number, targetEpisode: number) => {
+			if (!requireOnline()) return;
 			if (!userId) return;
 			const item = items.find((i) => i.tmdbId === tmdbId);
 			if (!item || !item.catalogShow) return;
@@ -1398,6 +1401,7 @@ export function useWatchlistData(userId: string | undefined) {
 
 	const handleUnmarkEpisode = useCallback(
 		async (tmdbId: number, season: number, episode: number) => {
+			if (!requireOnline()) return;
 			if (!userId) return;
 			noteListChange(tmdbId);
 			const item = items.find((i) => i.tmdbId === tmdbId);
@@ -1488,6 +1492,7 @@ export function useWatchlistData(userId: string | undefined) {
 
 	const handleCarouselMarkWatched = useCallback(
 		async (tmdbId: number, season: number, episode: number, cardRuntime?: number | null) => {
+			if (!requireOnline()) return;
 			if (!userId) return;
 			const item = items.find((i) => i.tmdbId === tmdbId);
 			if (!item) return;
@@ -1550,6 +1555,7 @@ export function useWatchlistData(userId: string | undefined) {
 	/** Rewatch only: skip the current episode — pointer moves on, nothing marked watched */
 	const handleSkipEpisode = useCallback(
 		async (tmdbId: number, season: number, episode: number) => {
+			if (!requireOnline()) return;
 			if (!userId) return;
 			const item = items.find((i) => i.tmdbId === tmdbId);
 			if (!item || item.status !== WatchStatus.REWATCHING) return;
@@ -1627,6 +1633,7 @@ export function useWatchlistData(userId: string | undefined) {
 
 	const handleStopWatching = useCallback(
 		async (item: EnrichedTrackingItem) => {
+			if (!requireOnline()) return;
 			if (!userId) return;
 			// Noted before the write, in a render of its own: the card then leaves shrinking (app
 			// listMotion; web reads its exit animation from the card's last render before removal)
@@ -1644,6 +1651,7 @@ export function useWatchlistData(userId: string | undefined) {
 	// come back to. Its long press removes it from tracking instead (as its page's Remove)
 	const handleRemoveFromWatchlist = useCallback(
 		async (item: EnrichedTrackingItem) => {
+			if (!requireOnline()) return;
 			if (!userId) return;
 			noteLeftList(item.tmdbId);
 			await removeFromTracking(userId, item.tmdbId, item.mediaType);

@@ -3,7 +3,12 @@
 import { useSelector } from "react-redux";
 import { store, type RootState } from "../store";
 import type { AuthState } from "../store/authSlice";
-import { setConnected, setWatchlistLoading, type UiState } from "../store/uiSlice";
+import {
+	setConnected,
+	setNoInternetVisible,
+	setWatchlistLoading,
+	type UiState,
+} from "../store/uiSlice";
 
 type Selector<S, T> = (state: S) => T;
 
@@ -28,7 +33,11 @@ export const useUiStore = makeCompatStore((r) => r.ui as UiState, {
 	setConnected: (v: boolean) => {
 		store.dispatch(setConnected(v));
 	},
+	setNoInternetVisible: (v: boolean) => {
+		store.dispatch(setNoInternetVisible(v));
+	},
 	setWatchlistLoading: (v: boolean) => {
+
 		store.dispatch(setWatchlistLoading(v));
 	},
 });

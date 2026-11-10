@@ -2,6 +2,7 @@ import { useCallback, useRef, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Alert } from "react-native";
 import { useAuthStore, useUiStore } from "../../../stores";
+import { requireOnline } from "../../../utils/requireOnline";
 import {
 	markMovieWatched,
 	writeMovieWatchCount,
@@ -395,6 +396,7 @@ export function useWatchlistScreen(
 	 *  run rule (finishing the pointer episode in this run) — never for an extra watch */
 	const handleWatchedSwipeLeft = useCallback(
 		async (episode: WatchedEpisode) => {
+			if (!requireOnline()) return false;
 			if (!user?.uid) return;
 			const uid = user.uid;
 			const count = episode.watchCount || 0;
@@ -444,6 +446,7 @@ export function useWatchlistScreen(
 	const isSwipedOff = useCallback((rowKey: string) => swipedOff.current.has(rowKey), []);
 	const handleWatchedSwipeRight = useCallback(
 		async (episode: WatchedEpisode): Promise<boolean | void> => {
+			if (!requireOnline()) return false;
 			if (!user?.uid) return false;
 			const uid = user.uid;
 			// Mid-rewatch: not below the rewatch number (as the sheet's −) — earlier runs stay. No
@@ -541,6 +544,7 @@ export function useWatchlistScreen(
 	 */
 	const handleEpisodeCountCommit = useCallback(
 		async (from: number, to: number): Promise<number | void> => {
+			if (!requireOnline()) return;
 			const ep = sheetEpisode;
 			if (!user?.uid || !ep || from === to) return;
 			noteListChange(ep.tmdbShowId);
@@ -616,6 +620,7 @@ export function useWatchlistScreen(
 
 	const handleMovieSwipeLeft = useCallback(
 		async (movie: WatchedMovie) => {
+			if (!requireOnline()) return false;
 			if (!user?.uid) return;
 			await markMovieWatched(user.uid, movie.tmdbId, movie.runtime ?? 0);
 			insertWatchedMovieCache(queryClient, user.uid, {
@@ -630,6 +635,7 @@ export function useWatchlistScreen(
 
 	const handleMovieSwipeRight = useCallback(
 		async (movie: WatchedMovie) => {
+			if (!requireOnline()) return false;
 			if (!user?.uid) return;
 			noteListChange(movie.tmdbId);
 			if ((movie.watchCount || 0) <= 1) swipedOff.current.add(`movie_${movie.id}`);
@@ -663,6 +669,7 @@ export function useWatchlistScreen(
 	/** Movie row's watch count sheet settled: optimistic like the episode one, then one batch write */
 	const handleMovieCountCommit = useCallback(
 		async (from: number, to: number): Promise<number | void> => {
+			if (!requireOnline()) return;
 			const movie = sheetMovie;
 			if (!user?.uid || !movie || from === to) return;
 			noteListChange(movie.tmdbId);
