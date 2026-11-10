@@ -12,7 +12,7 @@ export { useShowDetails, catalogFromShowDetails } from "./useShowDetails";
 export { useTrending } from "./useTrending";
 export { useUpcomingEpisodes, useUpcomingMutations } from "./useUpcomingEpisodes";
 export { useUserStats } from "./useUserStats";
-export { isShowVisible, sortByPriority } from "./useVisibleTracking";
+export { isShowVisible, pendingRelease, sortByPriority } from "./useVisibleTracking";
 export { useTrackedIds } from "./useTrackedIds";
 export { useShowWatchedEpisodes } from "./useShowWatchedEpisodes";
 export {

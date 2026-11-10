@@ -1,10 +1,39 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+	addAiredCards,
+	changedCardCount,
+	isBulkCardChange,
 	mergeCachedShows,
 	promoteShows,
 	unseenCardIds,
 } from "../src/utils/watchlistOrder";
+
+test("addAiredCards puts cards that aired at the top of the shows and skips ones already there", () => {
+	const header = { type: "sectionHeader" as const, title: "What's Up Next" };
+	const card = (tmdbId: number) => ({ type: "show" as const, card: { tmdbId } });
+	const list = [{ type: "watchedEpisode" as const }, header, card(1), card(2)];
+	const out = addAiredCards<{ type: string; card?: { tmdbId: number } }>(list, [card(9), card(2)], header);
+	assert.deepEqual(
+		out.map((i) => i.card?.tmdbId ?? i.type),
+		["watchedEpisode", "sectionHeader", 9, 1, 2],
+	);
+});
+
+test("addAiredCards opens the section when the list has no shows", () => {
+	const header = { type: "sectionHeader" as const, title: "What's Up Next" };
+	const out = addAiredCards<{ type: string; card?: { tmdbId: number } }>(
+		[{ type: "watchedEpisode" }],
+		[{ type: "show", card: { tmdbId: 9 } }],
+		header,
+	);
+	assert.deepEqual(out.map((i) => i.card?.tmdbId ?? i.type), ["watchedEpisode", "sectionHeader", 9]);
+});
+
+test("addAiredCards returns the same list when nothing is new", () => {
+	const list: { type: string; card?: { tmdbId: number } }[] = [{ type: "show", card: { tmdbId: 1 } }];
+	assert.equal(addAiredCards(list, [], { type: "sectionHeader" }), list);
+});
 
 type Item = { type: "sectionHeader"; title: string } | { type: "show"; card: { tmdbId: number } } | { type: "watchedEpisode"; id: string };
 const show = (tmdbId: number): Item => ({ type: "show", card: { tmdbId } });
@@ -62,4 +91,20 @@ test("unseenCardIds: live cards the saved list lacked, until let through", () =>
 	assert.deepEqual([...unseenCardIds(new Set([1]), new Set(), live)], [2]);
 	assert.deepEqual([...unseenCardIds(new Set([1]), new Set([2]), live)], []);
 	assert.deepEqual([...unseenCardIds(null, new Set(), live)], []);
+});
+
+test("changedCardCount counts cards that joined and left, not ones that stayed", () => {
+	assert.equal(changedCardCount(new Set([1, 2, 3]), new Set([2, 3, 4, 5])), 3);
+	assert.equal(changedCardCount(new Set([1, 2]), new Set([1, 2])), 0);
+});
+
+test("changedCardCount ignores missing cards while the next list is still loading", () => {
+	assert.equal(changedCardCount(new Set([1, 2, 3]), new Set([3, 9]), false), 1);
+});
+
+test("isBulkCardChange: a small number of changes animates, many are one swap", () => {
+	assert.equal(isBulkCardChange(1), false);
+	assert.equal(isBulkCardChange(4), false);
+	assert.equal(isBulkCardChange(5), true);
+	assert.equal(isBulkCardChange(25), true);
 });
