@@ -12,7 +12,7 @@ export type DownloadEvent =
  * android/.../UpdateNotifications.kt). Missing (web, an older build) → null: no notification
  */
 interface UpdateNotificationModule {
-	/** "V x is available" + notes, a red Install that downloads in the background (progress card) */
+	/** "V x is available" + notes, a red Upgrade that downloads in the background (progress card) */
 	showOffer(version: string, notes: string, apkUrl: string, size: number): void;
 	cancel(): void;
 	/** The drawer's Update: the same foreground-service download (survives the app closing) */

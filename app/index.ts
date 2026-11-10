@@ -5,7 +5,7 @@ import { handleUpdateMessage } from './src/services/updateNotifications';
 import App from './App';
 
 // In-app updates while the app is closed / in the background: the new-version push shows the
-// app's update notification (native: its Install downloads and installs without the app)
+// app's update notification (native: its Upgrade downloads and installs without the app)
 setBackgroundMessageHandler(getMessaging(), async (message) => {
 	await handleUpdateMessage(message);
 });

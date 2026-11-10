@@ -15,7 +15,7 @@ import java.io.File
 /**
  * The app's own update notifications, drawn with custom layouts so they wear its theme (Android
  * picks every colour itself in the standard templates):
- *  - offer: "V x.y.z is available" + notes, a red Install button (starts UpdateDownloadService)
+ *  - offer: "V x.y.z is available" + notes, a red Upgrade button (starts UpdateDownloadService)
  *  - progress (the service's foreground card): dark, white text, red bar, red Cancel; expanded,
  *    the drawer's dial spins above the bar
  *  - downloaded: "Tap to install" + a red Install button, straight to Android's installer
@@ -86,7 +86,7 @@ object UpdateNotifications {
   fun showOffer(context: Context, version: String, notes: String, apkUrl: String, size: Long) {
     ensureChannel(context)
     val title = "v$version is available"
-    val body = notes.lineSequence().firstOrNull { it.isNotBlank() } ?: "Tap Install to download the update."
+    val body = notes.lineSequence().firstOrNull { it.isNotBlank() } ?: "Tap Upgrade to download the update."
     val install = serviceIntent(context, UpdateDownloadService.ACTION_DOWNLOAD) {
       putExtra(UpdateDownloadService.EXTRA_URL, apkUrl)
       putExtra(UpdateDownloadService.EXTRA_VERSION, version)
@@ -99,8 +99,8 @@ object UpdateNotifications {
       .setContentTitle(title)
       .setContentText(body)
       .setStyle(NotificationCompat.DecoratedCustomViewStyle())
-      .setCustomContentView(card(context, R.layout.update_card_small, title, body, "Install", install))
-      .setCustomBigContentView(card(context, R.layout.update_card_big, title, notes.trim().ifEmpty { body }, "Install", install))
+      .setCustomContentView(card(context, R.layout.update_card_small, title, body, "Upgrade", install))
+      .setCustomBigContentView(card(context, R.layout.update_card_big, title, notes.trim().ifEmpty { body }, "Upgrade", install))
       .setContentIntent(openApp(context))
       .setAutoCancel(true)
     notify(context, builder)
