@@ -1,3 +1,5 @@
+import { WATCHLIST_BULK_CHANGE_CARDS } from "../enums";
+
 type ListItem = { type: string; card?: { tmdbId: number } };
 
 /**
@@ -56,6 +58,44 @@ export function showCardIds<T extends ListItem>(list: readonly T[]): Set<number>
 	const ids = new Set<number>();
 	for (const i of list) if (i.type === "show" && i.card) ids.add(i.card.tmdbId);
 	return ids;
+}
+
+/** When a saved card that wasn't out yet at save time comes out */
+export interface CardRelease {
+	airStamp?: string;
+	airDate: string | null;
+}
+
+/**
+ * Cards whose episode came out while the app was closed, at the top of the active section (a new
+ * section when there's none), so the launch draws them with the first frame. Ones the list has
+ * already are left alone
+ */
+export function addAiredCards<T extends ListItem>(list: T[], aired: readonly T[], header: T): T[] {
+	const have = showCardIds(list);
+	const fresh = aired.filter((i) => i.card && !have.has(i.card.tmdbId));
+	if (fresh.length === 0) return list;
+	const firstShow = list.findIndex((i) => i.type === "show");
+	if (firstShow < 0) return [...list, header, ...fresh];
+	return [...list.slice(0, firstShow), ...fresh, ...list.slice(firstShow)];
+}
+
+/** Cards that joined + left between two lists of card ids. `countLeft: false` for a `next` list
+ *  that may still be loading (its missing cards aren't gone yet) */
+export function changedCardCount(
+	prev: ReadonlySet<number>,
+	next: ReadonlySet<number>,
+	countLeft = true,
+): number {
+	let count = 0;
+	for (const id of next) if (!prev.has(id)) count += 1;
+	if (countLeft) for (const id of prev) if (!next.has(id)) count += 1;
+	return count;
+}
+
+/** Whether this many card changes are applied as one list swap instead of animated */
+export function isBulkCardChange(changes: number): boolean {
+	return changes >= WATCHLIST_BULK_CHANGE_CARDS;
 }
 
 /** Live cards the saved list didn't have and that haven't been let through yet */

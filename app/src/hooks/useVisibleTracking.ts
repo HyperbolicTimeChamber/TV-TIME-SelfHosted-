@@ -9,13 +9,29 @@ import { hasAired, nextEpisodeAirStamp } from "../utils/airTime";
  * a known, past release date. Statuses other than watching / rewatching / plan to watch
  * are always hidden.
  */
+const ACTIVE_STATUSES: WatchStatus[] = [
+	WatchStatus.WATCHING,
+	WatchStatus.REWATCHING,
+	WatchStatus.PLAN_TO_WATCH,
+];
+
+/** When a title hidden only because it isn't out yet comes out; null for anything else */
+export function pendingRelease(
+	item: EnrichedTrackingItem,
+): { airStamp?: string; airDate: string | null } | null {
+	if (!ACTIVE_STATUSES.includes(item.status) || isShowVisible(item)) return null;
+	if (item.mediaType === MediaType.MOVIE) {
+		const airDate = item.releaseDate ?? item.catalogShow?.releaseDate;
+		return airDate ? { airDate } : null;
+	}
+	if (!item.nextEpisode) return null;
+	const airStamp = nextEpisodeAirStamp(item.nextEpisode, item.catalogShow);
+	const airDate = item.nextEpisodeAirDate ?? null;
+	return airStamp || airDate ? { airStamp, airDate } : null;
+}
+
 export function isShowVisible(item: EnrichedTrackingItem): boolean {
-	const activeStatuses: WatchStatus[] = [
-		WatchStatus.WATCHING,
-		WatchStatus.REWATCHING,
-		WatchStatus.PLAN_TO_WATCH,
-	];
-	if (!activeStatuses.includes(item.status)) return false;
+	if (!ACTIVE_STATUSES.includes(item.status)) return false;
 
 	const today = todayStr();
 

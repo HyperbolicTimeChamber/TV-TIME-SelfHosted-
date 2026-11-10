@@ -15,6 +15,7 @@ import {
 	insertWatchedEpisodeCache,
 	insertWatchedMovieCache,
 	isShowVisible,
+	pendingRelease,
 	sortByPriority,
 	useUpcomingMutations,
 	incrementDailyWatch,
@@ -41,11 +42,16 @@ import {
 	adjacentPointer,
 } from "../../../utils";
 import {
+	addAiredCards,
 	mergeCachedShows,
 	promoteShows,
 	showCardIds,
 	unseenCardIds,
+	changedCardCount,
+	isBulkCardChange,
+	type CardRelease,
 } from "../../../utils/watchlistOrder";
+import { PENDING_CARD_LIMIT } from "../../../enums";
 import { coldStartHistory, safeHistory } from "../../../utils/watchedHistory";
 import {
 	MediaType,
@@ -56,7 +62,7 @@ import {
 	WatchedMovie,
 } from "../../../types";
 import type { WatchlistListItem } from "../../../types/watchlist";
-import { nextEpisodeAirStamp } from "../../../utils/airTime";
+import { hasAired, nextEpisodeAirStamp } from "../../../utils/airTime";
 import { fetchEpisodeRuntime } from "../../../services/tmdb";
 import { useAuthStore } from "../../../stores";
 import { batchEndOffsets, staggerFinishTimes } from "../../../utils/stagger";
@@ -178,6 +184,8 @@ function restoreQuery(queryClient: QueryClient, key: readonly unknown[], before:
 }
 
 export type CardItem = ReturnType<typeof buildCardItem>;
+/** A card saved with the watchlist before its episode was out */
+type PendingCard = CardRelease & { card: CardItem };
 
 /**
  * Daily reorder: cached cards whose next episode has aired since the cache was
@@ -370,22 +378,39 @@ export function useWatchlistData(userId: string | undefined) {
 				}
 
 				const today = todayStr();
+				// Episodes that came out while the app was closed: drawn with the first frame
+				const pending: PendingCard[] = cached.pending ?? [];
+				const isOut = (p: PendingCard) => hasAired(p.airStamp, p.airDate, today);
+				const aired = pending
+					.filter(isOut)
+					.sort((a, b) => (b.airDate ?? "").localeCompare(a.airDate ?? ""))
+					.map((p) => ({ type: "show" as const, card: { ...p.card, remaining: null } }));
+				const savedList: CacheableWatchlistListItem[] = addAiredCards<CacheableWatchlistListItem>(
+					cached.list,
+					aired,
+					{ type: "sectionHeader", title: "What's Up Next" },
+				);
 				if (cached.date === today) {
 					// Same day — use cache as-is
-					setCachedList(cached.list);
-					setSavedCardIds(showCardIds(cached.list));
-					cachedActiveCount.current = cached.list.filter((i: any) => i.type === "show").length;
+					setCachedList(savedList);
+					setSavedCardIds(showCardIds(savedList));
+					cachedActiveCount.current = savedList.filter((i) => i.type === "show").length;
 				} else {
 					// Different day — reorder: promote newly-airable shows to top
 					setReordering(true);
-					const reordered = reorderCachedList(cached.list, today);
+					const reordered = reorderCachedList(savedList, today);
 					setCachedList(reordered);
 					setSavedCardIds(showCardIds(reordered));
 					cachedActiveCount.current = reordered.filter((i: any) => i.type === "show").length;
 					// Persist with today's date
 					AsyncStorage.setItem(
 						CacheKey.WATCHLIST_ACTIVE,
-						JSON.stringify({ userId, date: today, list: reordered }),
+						JSON.stringify({
+							userId,
+							date: today,
+							list: reordered,
+							pending: pending.filter((p) => !isOut(p)),
+						}),
 					).catch(() => {});
 					setReordering(false);
 				}
@@ -707,12 +732,23 @@ export function useWatchlistData(userId: string | undefined) {
 			}
 		}
 
+		// Cards not out yet, ready for a launch after they air
+		const pending: PendingCard[] = items
+			.flatMap((item) => {
+				const release = pendingRelease(item);
+				if (!release) return [];
+				const { catalogShow: _catalogShow, ...card } = buildCardItem(item, todayStr());
+				return [{ ...release, card: card as CardItem }];
+			})
+			.sort((a, b) => (a.airDate ?? "~").localeCompare(b.airDate ?? "~"))
+			.slice(0, PENDING_CARD_LIMIT);
+
 		AsyncStorage.setItem(
 			CacheKey.WATCHLIST_ACTIVE,
-			JSON.stringify({ userId, date: todayStr(), list: cacheList }),
+			JSON.stringify({ userId, date: todayStr(), list: cacheList, pending }),
 		).catch(() => {});
 		if (cachedList) setCachedList(null);
-	}, [userId, allLoading, orderedLive, cachedList, liveCaughtUp, epHistory, movieHistory, hasMoreEps, hasMoreMovies]);
+	}, [userId, allLoading, orderedLive, items, cachedList, liveCaughtUp, epHistory, movieHistory, hasMoreEps, hasMoreMovies]);
 
 	// Confirmed by the live listeners: first load done, no page pending, none left
 	const liveExhausted = !allLoading && !loadingMoreTracking && !hasMoreTracking;
@@ -728,10 +764,13 @@ export function useWatchlistData(userId: string | undefined) {
 	// one reaching its air time. While it's held the list has its glide on (cardsHeld), so the rows
 	// can move with it when it's let through a moment later; shown at once, they jumped (AIR_ARM_LEAD_MS)
 	const [releasedCards, setReleasedCards] = useState<ReadonlySet<number>>(new Set());
-	const heldCards = useMemo(
-		() => unseenCardIds(savedCardIds, releasedCards, orderedLive),
-		[savedCardIds, releasedCards, orderedLive],
-	);
+	const heldCards = useMemo(() => {
+		const unseen = unseenCardIds(savedCardIds, releasedCards, orderedLive);
+		if (unseen.size === 0 || !savedCardIds) return unseen;
+		// A big catch-up isn't held: the whole change lands as one list swap (WATCHLIST_BULK_CHANGE_CARDS)
+		const changes = changedCardCount(savedCardIds, showCardIds(orderedLive), liveCaughtUp);
+		return isBulkCardChange(changes) ? new Set<number>() : unseen;
+	}, [savedCardIds, releasedCards, orderedLive, liveCaughtUp]);
 	// By id: a live update during the launch mustn't restart the wait
 	const heldKey = [...heldCards].join();
 	const firstLoadDone = !allLoading && liveCaughtUp;

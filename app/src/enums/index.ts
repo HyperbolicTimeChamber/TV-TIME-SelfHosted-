@@ -641,6 +641,12 @@ export const UPDATE_APK_FILE = "watchloom-update.apk";
 export const UPDATE_PROGRESS_INTERVAL_MS = 500;
 /** The release doc is re-read at most this often when the app comes back to the foreground */
 export const UPDATE_RECHECK_MS = 60 * 60 * 1000;
+/** Cards not out yet saved with the watchlist (soonest first), ready for a launch after they air */
+export const PENDING_CARD_LIMIT = 40;
+/** This many watchlist cards joining / leaving at once (a catch-up, launch or live) are applied as
+ *  one list swap — no hold, grow-in or glide: animated, the catch-up's rows moved over a big
+ *  distance and the screen shuffled for seconds */
+export const WATCHLIST_BULK_CHANGE_CARDS = 5;
 /** After the app resumes, the swipe pager is compared with the tab state once this has passed */
 export const TAB_DESYNC_SETTLE_MS = 1000;
 /** Pager position (in tabs: 1 = one full page) the tab state may differ by before it counts */
