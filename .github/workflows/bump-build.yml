@@ -17,7 +17,7 @@ jobs:
     # Staging only: production's deploy.yml sets its own version + build (prev + 1) and commits it;
     # bumping again would double-bump main and GITHUB_TOKEN can't push to protected main
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'staging'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
 
     steps:
