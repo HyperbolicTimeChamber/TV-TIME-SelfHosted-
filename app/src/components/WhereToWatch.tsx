@@ -94,7 +94,6 @@ export default function WhereToWatch({ tmdbId, mediaType, title, bleed }: Readon
 					/>
 					<View style={styles.emptyText}>
 						<Text style={styles.emptyTitle}>Not Available to Stream</Text>
-						<Text style={styles.emptyHint}>Try the High Seas</Text>
 					</View>
 				</View>
 			) : (
@@ -387,7 +386,6 @@ const styles = StyleSheet.create({
 	emptyArt: { width: 44, height: 44 / HIGH_SEAS_RATIO },
 	emptyText: { flex: 1, gap: 2 },
 	emptyTitle: { ...typography.body, fontWeight: "600", color: colors.text },
-	emptyHint: { ...typography.caption, color: colors.textMuted },
 	// TMDB's terms: the availability data is JustWatch's — credited on every heading that shows it:
 	// at the row's right end (page, drawer, sheet), after the label in the small modal
 	creditRow: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: spacing.sm },
