@@ -26,6 +26,7 @@ const CSS_VARS: Record<string, string[]> = {
 	onAmber: ["--on-amber"],
 	onImage: ["--on-image"],
 	onImageSecondary: ["--on-image-secondary"],
+	spinnerWhite: ["--color-spinner-white"],
 };
 
 const systemQuery = () =>
