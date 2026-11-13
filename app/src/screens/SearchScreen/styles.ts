@@ -116,12 +116,12 @@ export const styles = themedStyles(() => StyleSheet.create({
 	},
 	// SearchSkeleton: the poster's box, in the skeleton colour (shimmer set inline)
 	skeletonPoster: {
-		backgroundColor: colors.border,
+		backgroundColor: colors.skeleton,
 	},
 	poster: {
 		aspectRatio: 2 / 3,
 		borderRadius: CARD_RADIUS,
-		backgroundColor: colors.surface,
+		backgroundColor: colors.skeletonCard,
 		width: "100%",
 	},
 	banner: {

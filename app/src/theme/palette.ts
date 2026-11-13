@@ -79,6 +79,10 @@ const DARK = {
 	onPrimary: "#FFFFFF",
 	/** Text on a warningAmber fill: dark in every theme */
 	onAmber: "#111114",
+	/** Placeholder fills (SkeletonLine / loading tiles): clearly darker than page and card in light */
+	skeleton: "#333333",
+	skeletonCard: "#1A1A1A",
+	skeletonShine: "#333333",
 } as const;
 
 const LIGHT = {
@@ -111,6 +115,9 @@ const LIGHT = {
 	onPrimary: "#FFFFFF",
 	onAmber: "#111114",
 	cardDark: "#26262B",
+	skeleton: "#E2E2E8",
+	skeletonCard: "#E2E2E8",
+	skeletonShine: "#ECECF1",
 } as const satisfies Record<keyof typeof DARK, string>;
 
 export type ColorKey = keyof typeof DARK | "primary" | "primaryDark" | "accent";

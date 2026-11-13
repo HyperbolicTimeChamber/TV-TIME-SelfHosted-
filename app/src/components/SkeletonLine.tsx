@@ -57,6 +57,6 @@ export default function SkeletonLine({ width = "60%", height = 12, style }: Prop
 const styles = themedStyles(() => StyleSheet.create({
 	base: {
 		borderRadius: 4,
-		backgroundColor: colors.border,
+		backgroundColor: colors.skeleton,
 	},
 }));

@@ -56,6 +56,7 @@ export default function SlidingTabs({ tabs, activeKey, onTabPress, style }: Prop
 
 	return (
 		<View style={[styles.container, style]}>
+			<View style={styles.track}>
 			<Animated.View
 				style={[
 					styles.pill,
@@ -78,6 +79,7 @@ export default function SlidingTabs({ tabs, activeKey, onTabPress, style }: Prop
 					</Text>
 				</TouchableOpacity>
 			))}
+			</View>
 		</View>
 	);
 }
@@ -92,25 +94,33 @@ const styles = themedStyles(() => StyleSheet.create({
 		borderTopColor: colors.border,
 		paddingHorizontal: spacing.sm,
 		paddingVertical: spacing.sm,
+	},
+	// Same look as SegmentedControl: grey rounded track, red pill on the pick
+	track: {
+		flexDirection: "row",
 		position: "relative",
+		padding: 3,
+		borderRadius: 14,
+		backgroundColor: colors.surfaceLight,
 	},
 	pill: {
 		position: "absolute",
-		top: spacing.sm,
-		bottom: spacing.sm,
-		borderRadius: 6,
+		top: 3,
+		bottom: 3,
+		borderRadius: 11,
 		backgroundColor: colors.primary,
 	},
 	tab: {
 		flex: 1,
 		alignItems: "center",
-		paddingVertical: spacing.sm,
-		borderRadius: 8,
+		justifyContent: "center",
+		minHeight: 34,
+		borderRadius: 11,
 	},
 	tabText: {
 		...typography.caption,
 		fontWeight: "600",
-		color: colors.textMuted,
+		color: colors.textSecondary,
 	},
 	tabTextActive: {
 		color: colors.onPrimary,
