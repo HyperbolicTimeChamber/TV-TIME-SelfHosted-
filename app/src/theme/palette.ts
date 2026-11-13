@@ -95,7 +95,8 @@ const LIGHT = {
 	moviePurple: "#7C4DE8",
 	warningAmber: "#D98200",
 	warningAmberFaded: "rgba(217, 130, 0, 0.45)",
-	spinnerWhite: "#111114",
+	/** Loader ball + hat: grey on the light theme (black read too heavy) */
+	spinnerWhite: "#8A8A96",
 	spinnerOrange: "#FF3D00",
 	overlay: "rgba(0, 0, 0, 0.6)",
 	overlayLight: "rgba(0, 0, 0, 0.6)",
