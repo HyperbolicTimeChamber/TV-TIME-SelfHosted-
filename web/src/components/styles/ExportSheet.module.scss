@@ -47,6 +47,7 @@
 .markOn {
 	background: $primary;
 	border-color: $primary;
+	color: var(--on-primary);
 }
 
 .footer {
@@ -62,7 +63,7 @@
 	border-radius: 12px;
 	font-size: 15px;
 	font-weight: 600;
-	color: var(--text);
+	color: var(--on-primary);
 	cursor: pointer;
 	transition:
 		transform 120ms ease-out,

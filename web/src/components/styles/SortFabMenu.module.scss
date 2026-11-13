@@ -50,6 +50,7 @@
 
 .pillActive {
 	background: var(--primary);
+	color: var(--on-primary);
 	/* The tick leads, close to the pill's start */
 	padding-left: 10px;
 	gap: 4px;
@@ -64,7 +65,7 @@
 	/* Round on phones; the desktop header sort button is the squircle */
 	border-radius: 50%;
 	background: var(--primary);
-	color: var(--text);
+	color: var(--on-primary);
 	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 	cursor: pointer;
 	-webkit-tap-highlight-color: transparent;

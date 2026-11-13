@@ -23,6 +23,7 @@ const CSS_VARS: Record<string, string[]> = {
 	moviePurple: ["--movie-purple", "--color-movie"],
 	warningAmber: ["--warning-amber", "--color-warning"],
 	onPrimary: ["--on-primary"],
+	onAmber: ["--on-amber"],
 	onImage: ["--on-image"],
 	onImageSecondary: ["--on-image-secondary"],
 };

@@ -519,7 +519,7 @@ const styles = themedStyles(() => StyleSheet.create({
 	freshTagText: {
 		fontSize: 10,
 		fontWeight: "700",
-		color: colors.surface,
+		color: colors.onAmber,
 		letterSpacing: 0.5,
 	},
 	// Previously watched: half-strength amber, so only the year number reads at full strength
@@ -528,7 +528,7 @@ const styles = themedStyles(() => StyleSheet.create({
 	},
 	// …and black on that muted amber, where the surface-grey went brownish
 	watchedYear: {
-		color: colors.background,
+		color: colors.onAmber,
 	},
 	tagBadge: {
 		alignSelf: "flex-start",
@@ -541,7 +541,7 @@ const styles = themedStyles(() => StyleSheet.create({
 	tagBadgeText: {
 		fontSize: 10,
 		fontWeight: "700",
-		color: colors.surface,
+		color: colors.onAmber,
 		letterSpacing: 0.5,
 	},
 	// Episode line: "S02 | E10" and its tag, centred on each other, 8 apart
