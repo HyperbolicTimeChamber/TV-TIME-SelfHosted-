@@ -587,7 +587,7 @@
 	-webkit-box-orient: vertical;
 	-webkit-line-clamp: 2;
 	line-clamp: 2;
-	color: var(--color-fg);
+	color: var(--on-image);
 	font-size: 14px;
 	font-weight: 700;
 }
@@ -609,7 +609,7 @@
 }
 
 .gridStatLabel {
-	color: var(--color-fg-secondary);
+	color: var(--on-image-secondary);
 	font-size: 9px;
 	font-weight: 700;
 	letter-spacing: 0.08em;
