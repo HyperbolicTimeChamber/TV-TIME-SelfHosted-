@@ -48,6 +48,7 @@ import WatchedEpisodeRow from "./WatchedEpisodeRow";
 import SectionHeader from "./SectionHeader";
 import HomeEmpty, { CAUGHT_UP_ART, WELCOME_ART } from "../HomeEmpty";
 import { withCaughtUp } from "../../../utils";
+import { changedCardCount, isBulkCardChange } from "../../../utils/watchlistOrder";
 import { UP_NEXT_TITLE } from "../../../utils/watchlistList";
 import { rememberedRowSize, rowSizesReady, saveRowSizes } from "./rowSizes";
 
@@ -143,6 +144,10 @@ const LIST_PAD_TOP = spacing.sm;
 
 /** A card counts as seen once half of it is on screen */
 const CARD_VIEWABILITY = { itemVisiblePercentThreshold: 50 };
+
+/** The tmdb ids of a list's "What's Up Next" cards */
+const cardIdsOf = (rows: readonly WatchlistListItem[]) =>
+	new Set(rows.flatMap((r) => (r.type === "show" ? [r.item.tmdbId] : [])));
 
 const keyOf = (item: WatchlistListItem) => {
 	if (item.type === "sectionHeader") return `section_${item.title}`;
@@ -243,7 +248,8 @@ function listMotion(
 		// Only rows / cards of a title just marked or unwatched: rows and cards also arrive with
 		// pages and the first load, and those must not animate
 		if (!changed(a)) continue;
-		const below = next[next.indexOf(a) + 1];
+		// The next row already drawn: several can join together (episodes aired overnight)
+		const below = next.slice(next.indexOf(a) + 1).find((n) => prevKeys.has(keyOf(n)));
 		const belowPos = below ? state.positionByKey(keyOf(below)) : undefined;
 		const belowY = belowPos === undefined ? -1 : belowPos - state.scroll;
 		if (!(belowY > 0 && belowY < listH)) continue;
@@ -492,6 +498,7 @@ export default function WatchlistTab() {
 		wasJustMarked,
 		wasJustLeft,
 		listChangeArm,
+		cardsHeld,
 		listSettled,
 		loadMoreTracking,
 		loadMorePrevWatched,
@@ -635,6 +642,7 @@ export default function WatchlistTab() {
 	// This reorder's rows keep their positions (no scroll compensation): see listMotion
 	const [noAnchor, setNoAnchor] = useState(false);
 
+	const [bulkSwap, setBulkSwap] = useState(false);
 	const [growing, setGrowing] = useState<{ keys: ReadonlySet<string>; token: number } | null>(null);
 	const growToken = useRef(0);
 	const [headerGlide, setHeaderGlide] = useState<HeaderMove | null>(null);
@@ -654,15 +662,23 @@ export default function WatchlistTab() {
 		const promoted = seenPromotions !== promotions;
 		setSeenPromotions(promotions);
 		setSeenList(listKeys);
-		const motion = listMotion(
-			listRef.current,
-			drawnRows.current,
-			listData,
-			promoted,
-			wasJustMarked,
-			listH,
-			isSwipedOff,
-		);
+		// Many cards at once (a catch-up, at launch or live) land as one list swap, no animation
+		const bulk =
+			!promoted &&
+			drawnRows.current.length > 0 &&
+			isBulkCardChange(changedCardCount(cardIdsOf(drawnRows.current), cardIdsOf(listData)));
+		if (bulk) setBulkSwap(true);
+		const motion = bulk
+			? { move: false, grow: new Set<string>(), leaving: [], header: null }
+			: listMotion(
+					listRef.current,
+					drawnRows.current,
+					listData,
+					promoted,
+					wasJustMarked,
+					listH,
+					isSwipedOff,
+				);
 		// On only: the list change right behind it (the card's patch) mustn't switch it off before
 		// the list has applied the reorder; it clears with the glide
 		if (motion.noAnchor) setNoAnchor(true);
@@ -688,6 +704,7 @@ export default function WatchlistTab() {
 		const opened = listData.filter((r) => {
 			const id = rowTmdbId(r);
 			return (
+				!bulk &&
 				isWatchedRow(r) &&
 				!prevKeySet.has(keyOf(r)) &&
 				id !== null &&
@@ -716,13 +733,21 @@ export default function WatchlistTab() {
 		const t = setTimeout(() => setArmed(false), GLIDE_ARM_MS);
 		return () => clearTimeout(t);
 	}, [listChangeArm]);
+	// A bulk change's list swap applies at once
+	useEffect(() => {
+		if (!bulkSwap) return;
+		const t = setTimeout(() => setBulkSwap(false), CARD_MOVE_MS + 200);
+		return () => clearTimeout(t);
+	}, [bulkSwap, listKeys]);
 	const glideOn =
-		armed ||
-		layoutMoving ||
-		opening !== null ||
-		leaving.length > 0 ||
-		growing !== null ||
-		flipping !== null;
+		!bulkSwap &&
+		(armed ||
+			cardsHeld ||
+			layoutMoving ||
+			opening !== null ||
+			leaving.length > 0 ||
+			growing !== null ||
+			flipping !== null);
 	// A reorder's no-anchor holds until its glide is over
 	useEffect(() => {
 		if (!layoutMoving) return;

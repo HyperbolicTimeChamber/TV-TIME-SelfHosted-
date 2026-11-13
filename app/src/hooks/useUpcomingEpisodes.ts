@@ -12,6 +12,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { UpcomingEpisode, CacheKey, CloudFunction, MediaType } from "../types";
 import { getCachedCatalogShow, whenCatalogRestored, cacheCatalogShows } from "./useWatchlist";
 import { getCatalogShow } from "../services/firestore";
+import { useRetryOnReconnect } from "./useRetryOnReconnect";
 import {
 	todayStr,
 	trimPastQueue,
@@ -34,7 +35,7 @@ const mutateListeners = new Set<MutateCallback>();
 const invalidateListeners = new Set<() => void>();
 const pastRemoveListeners = new Set<(drop: (ep: UpcomingEpisode) => boolean) => void>();
 // Mutations made while a Firestore fetch is in flight — replayed onto its result,
-// otherwise the fetch (read before the mutation) puts e.g. a just-watched ep back
+// otherwise the fetch (read before the mutation) puts e.g. a just-removed show back
 const inflightMutations = new Set<Array<(prev: UpcomingEpisode[]) => UpcomingEpisode[]>>();
 
 function mutateCachedEpisodes(fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[]) {
@@ -128,7 +129,7 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 		};
 	}, []);
 
-	// Removed show / watched episode → drop it from the past queue too
+	// Removed / paused show → drop it from the past queue too
 	useEffect(() => {
 		const cb = (drop: (ep: UpcomingEpisode) => boolean) => {
 			const next = pastRef.current.filter((ep) => !drop(ep));
@@ -315,6 +316,8 @@ export function useUpcomingEpisodes(userId: string | undefined) {
 	}, [userId, cacheReady, configLoading, lastCatalogSync, forceRefetch, archivePast]);
 
 	const retry = useCallback(() => setForceRefetch((t) => t + 1), []);
+	// Failed offline → load again once the connection is back (a loaded list is left alone)
+	useRetryOnReconnect(error !== null, retry);
 
 	// App left open across midnight → move yesterday's episodes into the past queue
 	const [today, setToday] = useState(todayStr);
@@ -436,9 +439,6 @@ async function refreshPlaceholderTitles(
 	mutatePast((prev) => applyTitles(prev, titles));
 }
 
-// Snapshot holder for optimistic rollbacks
-let _lastSnapshot: UpcomingEpisode[] | null = null;
-
 export function useUpcomingMutations() {
 	/** Add items to upcoming cache locally. Accepts single item or array. */
 	const addShowToUpcoming = useCallback(
@@ -464,42 +464,13 @@ export function useUpcomingMutations() {
 		pastRemoveListeners.forEach((fn) => fn((ep) => ep.tmdbShowId === tmdbId));
 	}, []);
 
-	/** Watched episode → out of the past-days queue (upcoming list is filtered optimistically) */
-	const removeWatchedFromPast = useCallback((tmdbId: number, season: number, episode: number) => {
-		pastRemoveListeners.forEach((fn) =>
-			fn((ep) => ep.tmdbShowId === tmdbId && ep.season === season && ep.episode === episode),
-		);
-	}, []);
-
 	const invalidateUpcoming = useCallback(() => {
 		triggerInvalidate();
-	}, []);
-
-	/** Optimistic mutation with snapshot for rollback. Returns prev state. */
-	const mutateCachedUpcoming = useCallback(
-		(fn: (prev: UpcomingEpisode[]) => UpcomingEpisode[]): UpcomingEpisode[] => {
-			let snapshot: UpcomingEpisode[] = [];
-			mutateCachedEpisodes((prev) => {
-				snapshot = prev;
-				_lastSnapshot = prev;
-				return fn(prev);
-			});
-			return snapshot;
-		},
-		[],
-	);
-
-	/** Rollback to a previous snapshot */
-	const rollbackUpcoming = useCallback((snapshot: UpcomingEpisode[]) => {
-		mutateCachedEpisodes(() => snapshot);
 	}, []);
 
 	return {
 		addShowToUpcoming,
 		removeShowFromUpcoming,
-		removeWatchedFromPast,
 		invalidateUpcoming,
-		mutateCachedUpcoming,
-		rollbackUpcoming,
 	};
 }

@@ -11,7 +11,10 @@ import {
 	MIXPANEL_TOKEN,
 	SIGN_UP_WINDOW_MS,
 	TRACKING_SESSION_IDLE_MS,
+	type UpdateDownloadResult,
+	type UpdateDrawerAction,
 } from "../enums";
+import { detectAppUpdate } from "../utils/updateAnalytics";
 
 // Web swaps mixpanel-react-native for a mixpanel-browser shim (web/src/platform/mixpanel.ts).
 // No token configured (fork / local build without .env) → everything below is a no-op
@@ -112,6 +115,68 @@ export async function trackAppOpened(source: AppOpenSource, appVersion: string) 
 		device_platform: DEVICE_PLATFORM,
 		app_version: appVersion,
 	});
+}
+
+// --- In-app updates: how people get a new build (Android) ---
+
+export interface UpdateEventProps {
+	from_version: string;
+	from_build: number;
+	to_version: string;
+	to_build: number;
+	forced: boolean;
+}
+
+export function trackUpdateDrawerShown(props: UpdateEventProps) {
+	track(AnalyticsEvent.UPDATE_DRAWER_SHOWN, { ...props });
+}
+
+export function trackUpdateDrawerAction(action: UpdateDrawerAction, props: UpdateEventProps) {
+	track(AnalyticsEvent.UPDATE_DRAWER_ACTION, { action, ...props });
+}
+
+export function trackUpdateDownloadFinished(result: UpdateDownloadResult, props: UpdateEventProps) {
+	track(AnalyticsEvent.UPDATE_DOWNLOAD_FINISHED, { result, ...props });
+}
+
+/** Remembers that the drawer started downloading this build (app_updated `source`) */
+export function rememberDrawerDownload(build: number) {
+	AsyncStorage.setItem(CacheKey.UPDATE_DRAWER_BUILD, String(build)).catch(() => {});
+}
+
+/** Each launch: sends app_updated when this is the first launch on a newer build */
+export async function trackAppUpdated(currentBuild: number, currentVersion: string) {
+	if (currentBuild <= 0) return;
+	try {
+		const [last, drawer] = await Promise.all([
+			AsyncStorage.getItem(CacheKey.LAST_RUN_BUILD),
+			AsyncStorage.getItem(CacheKey.UPDATE_DRAWER_BUILD),
+		]);
+		await AsyncStorage.setItem(CacheKey.LAST_RUN_BUILD, String(currentBuild));
+		const update = detectAppUpdate(Number(last) || 0, currentBuild, Number(drawer) || 0);
+		if (!update) return;
+		track(AnalyticsEvent.APP_UPDATED, {
+			from_build: update.fromBuild,
+			to_build: currentBuild,
+			to_version: currentVersion,
+			source: update.source,
+		});
+	} catch {}
+}
+
+export interface TabDesyncProps {
+	expected_index: number;
+	/** Pager position in tabs (1 = one full page) */
+	actual_position: number;
+	/** actual_position × width, px */
+	offset: number;
+	width: number;
+	app_state: string;
+}
+
+/** Diagnostic: the swipe pager and the tab state disagreed after a resume */
+export function trackTabDesync(props: TabDesyncProps) {
+	track(AnalyticsEvent.TAB_DESYNC, { ...props });
 }
 
 /** Screen (app) / route (web) shown */

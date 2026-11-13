@@ -1,6 +1,9 @@
 import { MediaType } from "@app/enums";
 
 /** Web routes — mirror the app's screens; /show/... also matches share links */
+/** Search page URL param: the All / TV / Movies filter, so coming back from a title keeps it */
+export const SEARCH_TYPE_PARAM = "type";
+
 export const Paths = {
 	ROOT: "/",
 	LOGIN: "/login",

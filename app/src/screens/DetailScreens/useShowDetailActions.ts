@@ -15,6 +15,7 @@ import {
 	insertWatchedMovieCache,
 } from "../../hooks";
 import { useAuthStore } from "../../stores";
+import { requireOnline } from "../../utils/requireOnline";
 import {
 	addToTracking,
 	removeFromTracking,
@@ -212,8 +213,12 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 
 	const directors =
 		show?.credits?.crew?.filter((c) => c.job === "Director").map((c) => c.name) ?? [];
-	const writers =
-		show?.credits?.crew?.filter((c) => c.department === "Writing").map((c) => c.name) ?? [];
+	// Each once: someone credited for both story and screenplay is listed twice by TMDB
+	const writers = [
+		...new Set(
+			show?.credits?.crew?.filter((c) => c.department === "Writing").map((c) => c.name) ?? [],
+		),
+	];
 	const producers =
 		show?.credits?.crew?.filter((c) => c.job === "Producer").map((c) => c.name) ?? [];
 
@@ -264,6 +269,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	);
 
 	const handleAddToWatchlist = useCallback(async () => {
+		if (!requireOnline()) return;
 		if (!user?.uid || !show || adding) return;
 		setAdding(true);
 		try {
@@ -356,12 +362,14 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	]);
 
 	const handleRemove = useCallback(() => {
+		if (!requireOnline()) return;
 		if (!user?.uid || removing) return;
 		setRemoveError(null);
 		setRemoveModalVisible(true);
 	}, [user?.uid, removing]);
 
 	const handleConfirmRemove = useCallback(async () => {
+		if (!requireOnline()) return;
 		if (!user?.uid || removing) return;
 		setRemoving(true);
 		setRemoveError(null);
@@ -382,6 +390,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	// Watching → paused, rewatching → paused rewatch (same as the watchlist's Pause); the
 	// button then reads "Resume" / "Resume Rewatch"
 	const handleConfirmPause = useCallback(async () => {
+		if (!requireOnline()) return;
 		const status = watchlistItem?.status;
 		if (
 			!user?.uid ||
@@ -405,6 +414,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	}, [user?.uid, pausing, watchlistItem?.status, tmdbId, mediaType, removeShowFromUpcoming]);
 
 	const handleMarkMovieWatched = useCallback(async () => {
+		if (!requireOnline()) return;
 		if (!user?.uid || !show || adding) return;
 		setAdding(true);
 		try {
@@ -544,6 +554,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	} | null>(null);
 
 	const handleResumeOrRewatch = useCallback(async () => {
+		if (!requireOnline()) return;
 		if (!user?.uid) return;
 		if (mediaType === MediaType.MOVIE && watchlistItem?.status === WatchStatus.COMPLETED) {
 			await handleMarkMovieWatched();
@@ -609,6 +620,7 @@ export function useShowDetailActions(tmdbId: number, mediaType: MediaType) {
 	/** Watch count sheet settled on a new count — one write, caches set to the new number */
 	const handleMovieWatchCountChange = useCallback(
 		async (from: number, to: number) => {
+			if (!requireOnline()) return false;
 			if (!user?.uid || !show || from === to) return;
 			const uid = user.uid;
 			const movieTitle = show.title || show.name || "";

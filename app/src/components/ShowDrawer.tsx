@@ -1,4 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { WhereToWatchCompact, WhereToWatchPlacement } from "./WhereToWatch";
+import { formatIsoDate } from "../utils/format";
+import { LocalReleaseInline } from "./LocalReleaseLine";
+import { MediaType } from "../enums";
 import {
 	View,
 	Text,
@@ -135,7 +139,9 @@ export default function ShowDrawer({
 	if (!visible) return null;
 
 	const metaParts: string[] = [];
-	if (show?.year) metaParts.push(show.year);
+	// A movie's full release date ("16 Jul 2024"); a show's first-air year
+	if (show?.releaseDate) metaParts.push(formatIsoDate(show.releaseDate));
+	else if (show?.year) metaParts.push(show.year);
 	if (show?.totalSeasons)
 		metaParts.push(`${show.totalSeasons} season${show.totalSeasons !== 1 ? "s" : ""}`);
 	if (show?.totalEpisodes) metaParts.push(`${show.totalEpisodes} episodes`);
@@ -207,7 +213,15 @@ export default function ShowDrawer({
 							</View>
 							<View style={styles.content}>
 								<DrawerTitle key={`${show.mediaType}_${show.tmdbId}`} show={show} />
-								{metaLine ? <Text style={styles.meta}>{metaLine}</Text> : null}
+								<View style={styles.metaRow}>
+									{metaLine ? <Text style={styles.meta}>{metaLine}</Text> : null}
+									{show.mediaType === MediaType.MOVIE && show.tmdbId ? (
+										<LocalReleaseInline
+											tmdbId={show.tmdbId}
+											style={[styles.meta, styles.metaRelease]}
+										/>
+									) : null}
+								</View>
 								<View style={styles.genreRow}>
 									{show.genres == null ? (
 										<SkeletonLine width="45%" height={11} style={{ marginTop: spacing.xs }} />
@@ -235,6 +249,15 @@ export default function ShowDrawer({
 									</View>
 								) : show.overview ? (
 									<Text style={styles.overview}>{show.overview}</Text>
+								) : null}
+								{/* The info page's Where to Watch, fitted to the drawer (nothing when none) */}
+								{show.tmdbId != null && show.mediaType ? (
+									<WhereToWatchCompact
+										tmdbId={show.tmdbId}
+										mediaType={show.mediaType}
+										title={show.title}
+										placement={WhereToWatchPlacement.DRAWER}
+									/>
 								) : null}
 							</View>
 							{onGoToShow && (
@@ -382,6 +405,9 @@ const styles = themedStyles(() => StyleSheet.create({
 		color: colors.text,
 		marginTop: spacing.xs,
 	},
+	metaRow: { flexDirection: "row", gap: spacing.md },
+	// Right end of the row, however long the left side is; long country names wrap
+	metaRelease: { marginLeft: "auto", flexShrink: 1, textAlign: "right" },
 	overviewSkeleton: {
 		marginTop: spacing.md,
 	},

@@ -1,6 +1,6 @@
 import { StyleSheet } from "react-native";
 import { colors, spacing, typography, themedStyles } from "../../../theme";
-import { CARD_WIDTH, CARD_HEIGHT, CARD_GAP, IMAGE_HEIGHT } from "./constants";
+import { CARD_WIDTH, CARD_HEIGHT, CARD_GAP, IMAGE_HEIGHT, META_OVERLAP } from "./constants";
 
 export const styles = themedStyles(() => StyleSheet.create({
 	modalOverlay: {
@@ -55,13 +55,19 @@ export const styles = themedStyles(() => StyleSheet.create({
 	},
 	metaSection: {
 		paddingHorizontal: spacing.lg,
-		marginTop: -65,
+		marginTop: META_OVERLAP,
 	},
+	// CardMeasure's copy of metaSection: the same text, without the pull-up over the image
+	measureMeta: {
+		paddingHorizontal: spacing.lg,
+	},
+	// Natural height (Watch on follows right under it); shrinks — and scrolls — only when the card
+	// is capped
 	overviewContainer: {
-		flexGrow: 1,
 		flexShrink: 1,
 		marginHorizontal: spacing.lg,
 	},
+	cardSpacer: { flexGrow: 1 },
 	titlePill: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -121,6 +127,8 @@ export const styles = themedStyles(() => StyleSheet.create({
 		textAlign: "left",
 		opacity: 0.7,
 	},
+	// "Watch on" row under the description: the text's side margins, room above the buttons
+	watchOn: { marginHorizontal: spacing.lg, marginTop: spacing.xs, marginBottom: spacing.md },
 	watchButton: {
 		backgroundColor: colors.watchedGreen,
 		paddingVertical: spacing.md,

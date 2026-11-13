@@ -4,6 +4,7 @@ import { IoPerson, IoShareSocialOutline } from "react-icons/io5";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useShowDetailActions } from "@app/screens/DetailScreens/useShowDetailActions";
 import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
+import { personSubject } from "@app/utils/subjectLink";
 import { CircleButtonTone, MediaType, WatchStatus } from "@app/enums";
 import { showShareUrl } from "@app/utils/shareUrl";
 import { useCustomLists } from "@app/hooks/useCustomLists";
@@ -25,13 +26,18 @@ import WatchCountPill from "../../components/WatchCountPill";
 import SeasonDropdown from "../../components/SeasonDropdown";
 import ActionPills from "./ActionPills";
 import { Paths } from "../../routes/paths";
-import { appDeepLink, isAndroidBrowser } from "../../utils/deepLink";
+import { appIntentLink, isAndroidBrowser, useLatestApkUrl } from "../../utils/deepLink";
 import styles from "./styles/ShowDetailScreen.module.scss";
 import { cssVars, px } from "../../utils/cssVars";
 import WhereToWatch from "../../components/WhereToWatch";
 import CastRow from "../../components/CastRow";
+import LocalReleaseLine from "../../components/LocalReleaseLine";
+import PhotoTrigger from "../../components/PhotoViewer";
+import { releaseStatLabel } from "@app/utils/localRelease";
 import { useTitleExtras } from "@app/hooks/useTitleExtras";
+import { requireOnline } from "@app/utils/requireOnline";
 import StudiosRow from "../../components/StudiosRow";
+import SkeletonBlock from "../../components/SkeletonBlock";
 
 const CREDIT_AVATAR_PX = 44;
 
@@ -54,12 +60,14 @@ export default function ShowDetailScreen() {
 	const { message } = AntApp.useApp();
 	const d = useShowDetailActions(tmdbId, mediaType);
 	// The directors' / writers' photos for the credits (every extras section reads the same query)
-	const { data: extras } = useTitleExtras(tmdbId, mediaType);
+	const { data: extras, isPending: extrasPending } = useTitleExtras(tmdbId, mediaType);
 	// Catalog's logo, else the one that came with the details (same request as the page data)
 	const logoPath =
 		getCachedCatalogShow(tmdbId, mediaType)?.logoPath ??
 		(d.show?.images ? pickTitleLogo(d.show.images.logos) : undefined);
 	const signedIn = !!d.user;
+	// Signed-out Android visitors: "Open in app" opens the app, or downloads the latest APK
+	const latestApk = useLatestApkUrl(!signedIn && isAndroidBrowser());
 	// "Add to List" button (next to Share): signed-in only (lists belong to an account), blue once listed
 	const { lists } = useCustomLists(d.user?.uid);
 	const [listSheetOpen, setListSheetOpen] = useState(false);
@@ -228,7 +236,7 @@ export default function ShowDetailScreen() {
 								onAddToWatchlist={d.handleAddToWatchlist}
 								onMarkMovieWatched={d.handleMarkMovieWatched}
 								onResumeOrRewatch={d.handleResumeOrRewatch}
-								onPause={() => d.setPauseModalVisible(true)}
+								onPause={() => requireOnline() && d.setPauseModalVisible(true)}
 								onRemove={d.handleRemove}
 								onWatchSheetOpen={() => d.setMovieSheetVisible(true)}
 								listCount={listCount}
@@ -247,7 +255,7 @@ export default function ShowDetailScreen() {
 								{isAndroidBrowser() && (
 									<a
 										className={`${styles.pill} ${styles.pillAccent}`}
-										href={appDeepLink(mediaType, tmdbId)}
+										href={appIntentLink(mediaType, tmdbId, latestApk)}
 									>
 										Open in app
 									</a>
@@ -266,7 +274,10 @@ export default function ShowDetailScreen() {
 							label="RUNTIME"
 						/>
 					) : null}
-					<Stat value={d.year || "—"} label={mediaType === MediaType.MOVIE ? "RELEASED" : "YEAR"} />
+					<Stat
+						value={d.year || "—"}
+						label={mediaType === MediaType.MOVIE ? releaseStatLabel(show.release_date) : "YEAR"}
+					/>
 					{mediaType === MediaType.TV && show.number_of_seasons ? (
 						<Stat
 							value={show.number_of_seasons}
@@ -279,10 +290,19 @@ export default function ShowDetailScreen() {
 					{show.vote_average ? <Stat value={show.vote_average.toFixed(1)} label="RATING" /> : null}
 				</div>
 				<p className={styles.overview}>{show.overview}</p>
+				{/* Under the description: above a movie's local release, a show's seasons */}
+				{whereToWatch}
 
 				{mediaType === MediaType.MOVIE && (
-					<>
-						<div className={styles.creditsSection}>
+					<LocalReleaseLine
+						tmdbId={tmdbId}
+						globalRelease={show.release_date}
+						className={styles.localRelease}
+					/>
+				)}
+
+				{mediaType === MediaType.MOVIE && (
+					<div className={styles.creditsSection}>
 							{(
 								[
 									[d.directors.length === 1 ? "Director" : "Directors", d.directors, extras?.directors],
@@ -292,21 +312,22 @@ export default function ShowDetailScreen() {
 								// With photos once the extras are here; the names (person icon) until then
 								const people =
 									withPhotos && withPhotos.length > 0
-										? withPhotos.map((p) => ({ key: String(p.id), name: p.name, profile: p.profile }))
-										: names.map((name) => ({ key: name, name, profile: null as string | null }));
+										? withPhotos.map((p) => ({ ...p, key: String(p.id) }))
+										: names.map((name) => ({ id: 0, key: name, name, profile: null as string | null, imdbId: undefined }));
 								return people.length > 0 ? (
 									<div key={label} className={styles.creditBlock}>
 										<span className={styles.creditLabel}>{label}</span>
 										<div className={styles.creditGrid}>
 											{people.map((m) => (
 												<div key={m.key} className={styles.creditPerson}>
-													<span className={styles.creditAvatar}>
-														{m.profile ? (
-															<img src={tmdbPosterUri(m.profile, CREDIT_AVATAR_PX)} alt="" />
-														) : (
-															<IoPerson size={22} />
-														)}
-													</span>
+													<PhotoTrigger
+														subject={m.profile ? personSubject(m, { tmdbId, mediaType }) : null}
+														radius={CREDIT_AVATAR_PX / 2}
+														thumbWidth={CREDIT_AVATAR_PX}
+														className={styles.creditAvatarTrigger}
+													>
+														<CreditAvatar profile={m.profile} pending={extrasPending} />
+													</PhotoTrigger>
 													<span className={styles.creditNames}>{m.name}</span>
 												</div>
 											))}
@@ -314,14 +335,8 @@ export default function ShowDetailScreen() {
 									</div>
 								) : null;
 							})}
-						</div>
-						{/* Under the credits: the studios' logos */}
-						<StudiosRow tmdbId={tmdbId} mediaType={mediaType} compact />
-					</>
+					</div>
 				)}
-
-				{/* Movies: after the credits; shows: under the seasons (below) */}
-				{mediaType === MediaType.MOVIE && whereToWatch}
 
 				{mediaType === MediaType.TV && show.seasons && (
 					<section className={styles.seasonsSection}>
@@ -349,15 +364,8 @@ export default function ShowDetailScreen() {
 					</section>
 				)}
 
-				{/* Shows: where to watch, then the studios, under the seasons */}
-				{mediaType === MediaType.TV && (
-					<>
-						{whereToWatch}
-						<StudiosRow tmdbId={tmdbId} mediaType={mediaType} />
-					</>
-				)}
-				{/* Last on the page: movies' in place of Production, shows' under the studios */}
 				<CastRow tmdbId={tmdbId} mediaType={mediaType} title={d.title ?? ""} />
+				<StudiosRow tmdbId={tmdbId} mediaType={mediaType} />
 			</div>
 
 			{signedIn && (
@@ -478,6 +486,31 @@ export default function ShowDetailScreen() {
 				</>
 			)}
 		</div>
+	);
+}
+
+/** Shimmers until there's something to show; a person icon only when they really have no photo */
+function CreditAvatar({ profile, pending }: { profile: string | null; pending: boolean }) {
+	const [loaded, setLoaded] = useState(false);
+	const shimmering = pending || (!!profile && !loaded);
+	return (
+		<span className={styles.creditAvatar}>
+			{shimmering && <SkeletonBlock className={styles.creditAvatarShimmer} />}
+			{profile ? (
+				<img
+					src={tmdbPosterUri(profile, CREDIT_AVATAR_PX)}
+					alt=""
+					// Already in the browser's cache: onLoad may have fired before React attached it
+					ref={(img) => {
+						if (img?.complete) setLoaded(true);
+					}}
+					onLoad={() => setLoaded(true)}
+					onError={() => setLoaded(true)}
+				/>
+			) : shimmering ? null : (
+				<IoPerson size={22} />
+			)}
+		</span>
 	);
 }
 

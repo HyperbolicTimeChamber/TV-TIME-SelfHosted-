@@ -25,6 +25,8 @@ interface Props {
 	image?: ReactNode;
 	/** Line under the art; a list → one of them, picked each time the popup opens */
 	hint?: string | readonly string[];
+	/** Fixed line right under the title (create only) */
+	subtitle?: string;
 }
 
 /** Past this many characters the field shows how many are left */
@@ -48,6 +50,7 @@ export default function ListNameModal({
 	onClose,
 	image,
 	hint,
+	subtitle,
 }: Props) {
 	const [name, setName] = useState(initialName || suggestedName);
 	const [shownHint, setShownHint] = useState(() => pickHint(hint));
@@ -85,6 +88,7 @@ export default function ListNameModal({
 	return (
 		<AnimatedModal visible={visible} onClose={() => !loading && onClose()}>
 			<p className={styles.modalTitle}>{title}</p>
+			{subtitle && <p className={styles.modalHint}>{subtitle}</p>}
 			{image != null && <div className={styles.modalImage}>{image}</div>}
 			{shownHint && <p className={styles.modalHint}>{shownHint}</p>}
 			<form

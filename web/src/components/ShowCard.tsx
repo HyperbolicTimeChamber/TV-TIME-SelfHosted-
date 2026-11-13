@@ -9,6 +9,7 @@ import CheckmarkButton, { WATCHLIST_CHECK_CIRCLE, WATCHLIST_CHECK_TICK } from ".
 import PosterImage from "./PosterImage";
 import CardInfo from "./CardInfo";
 import styles from "./styles/ShowCard.module.scss";
+import { requireOnline } from "@app/utils/requireOnline";
 
 const TODAY = todayStr();
 const TODAY_MS = new Date(TODAY).getTime();
@@ -39,9 +40,9 @@ interface Props {
 	watchCount?: number;
 	isUpdating?: boolean;
 	remainingEpisodes?: number | null;
-	onSwipeLeft: (item: any) => Promise<void>;
+	onSwipeLeft: (item: any) => Promise<boolean | void>;
 	/** Omit to turn that swipe off */
-	onSwipeRight?: (item: any) => Promise<void>;
+	onSwipeRight?: (item: any) => Promise<boolean | void>;
 	/** Long press / right-click on the card */
 	onLongPress?: (item: any) => void;
 	onPress: (tmdbId: number, mediaType: MediaType) => void;
@@ -270,11 +271,11 @@ export default memo(function ShowCard({
 											)}
 									</span>
 									{isFinale ? (
-										<span className={`${styles.tagBadge} ${styles.inlineTag}`}>
+										<span className={`${styles.tagBadge} ${styles.inlineTag} ${styles.finaleBadge}`}>
 											{FreshTag.FINALE}
 										</span>
 									) : rewatching ? null : isNewEpisode ? (
-										<span className={`${styles.tagBadge} ${styles.inlineTag} ${styles.newBadge}`}>
+										<span className={`${styles.tagBadge} ${styles.inlineTag}`}>
 											{FreshTag.NEW}
 										</span>
 									) : isLatest ? (
@@ -292,7 +293,7 @@ export default memo(function ShowCard({
 						<CheckmarkButton
 							size={WATCHLIST_CHECK_CIRCLE}
 							checkSize={WATCHLIST_CHECK_TICK}
-							onPress={() => swipeRef.current?.triggerSwipeLeft()}
+							onPress={() => requireOnline() && swipeRef.current?.triggerSwipeLeft()}
 							onLongPress={onCheckmarkLongPress}
 						/>
 					</div>

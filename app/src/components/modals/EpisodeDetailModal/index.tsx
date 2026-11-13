@@ -1,7 +1,19 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { View, FlatList, Pressable, Animated, Modal } from "react-native";
 
-import { SNAP_INTERVAL, CARD_GAP, SIDE_PADDING, AnimatedFlatList, epKey } from "./constants";
+import {
+	SNAP_INTERVAL,
+	CARD_GAP,
+	SIDE_PADDING,
+	AnimatedFlatList,
+	epKey,
+	CARD_HEIGHT,
+	IMAGE_HEIGHT,
+	MAX_CARD_HEIGHT,
+	META_OVERLAP,
+} from "./constants";
+import { spacing } from "../../../theme";
+import { CardMeasure } from "./CardMeasure";
 import { styles } from "./styles";
 import { Card3DWrapper } from "./Card3DWrapper";
 import { EpisodeCard } from "./EpisodeCard";
@@ -9,6 +21,7 @@ import { BackfillModal } from "./BackfillModal";
 import { markWatchedLabel } from "../../../utils/format";
 import { todayStr } from "../../../utils/todayStr";
 import { carouselRunBase } from "../../../utils/trackingAdvance";
+import { requireOnline } from "../../../utils/requireOnline";
 import type {
 	CarouselEpisode,
 	EnrichedEpisode,
@@ -174,6 +187,8 @@ export default function EpisodeDetailModal({
 
 	const handleMark = useCallback(
 		(ep: CarouselEpisode) => {
+			// Offline: nothing is marked, the card stays as it is (popup from requireOnline)
+			if (!requireOnline()) return;
 			const key = epKey(ep.season, ep.episode);
 			if (!currentNextEpisode) {
 				setMarkingKey(key);
@@ -223,7 +238,7 @@ export default function EpisodeDetailModal({
 	);
 
 	const handleConfirmBackfill = useCallback(async () => {
-		if (!confirmTarget) return;
+		if (!confirmTarget || !requireOnline()) return;
 		setConfirmLoading(true);
 		const key = epKey(confirmTarget.season, confirmTarget.episode);
 		setMarkingKey(key);
@@ -285,7 +300,7 @@ export default function EpisodeDetailModal({
 	]);
 
 	const handleDeclineBackfill = useCallback(async () => {
-		if (!confirmTarget) return;
+		if (!confirmTarget || !requireOnline()) return;
 		setConfirmVisible(false);
 		const key = epKey(confirmTarget.season, confirmTarget.episode);
 		setMarkingKey(key);
@@ -302,6 +317,25 @@ export default function EpisodeDetailModal({
 		}
 	}, [confirmTarget, tmdbId, onMarkWatched]);
 
+	// One height for every card: the longest text block + the tallest bottom block, never below the
+	// old fixed size, capped near the screen (then the description scrolls)
+	const [textHeights, setTextHeights] = useState<Record<string, number>>({});
+	const [bottomHeight, setBottomHeight] = useState(0);
+	const onMeasureText = useCallback((key: string, h: number) => {
+		setTextHeights((prev) => (Math.abs((prev[key] ?? 0) - h) < 1 ? prev : { ...prev, [key]: h }));
+	}, []);
+	const onBottomLayout = useCallback((h: number) => {
+		setBottomHeight((prev) => (h > prev + 0.5 ? h : prev));
+	}, []);
+	const maxText = Math.max(0, ...Object.values(textHeights));
+	const cardHeight = Math.round(
+		Math.min(
+			MAX_CARD_HEIGHT,
+			// + a little slack: a description must never end up a line short
+			Math.max(CARD_HEIGHT, IMAGE_HEIGHT + META_OVERLAP + maxText + bottomHeight + spacing.lg),
+		),
+	);
+
 	const renderItem = useCallback(
 		({ item, index }: { item: EnrichedEpisode; index: number }) => {
 			const key = epKey(item.season, item.episode);
@@ -313,6 +347,7 @@ export default function EpisodeDetailModal({
 			const onSkip =
 				onSkipEpisode && isCurrentNext
 					? () => {
+							if (!requireOnline()) return;
 							setMarkingKey(key);
 							onSkipEpisode(tmdbId, item.season, item.episode).finally(() => setMarkingKey(null));
 						}
@@ -322,6 +357,9 @@ export default function EpisodeDetailModal({
 				<Card3DWrapper index={index} scrollX={scrollX}>
 					<Pressable onPress={() => {}}>
 						<EpisodeCard
+							cardHeight={cardHeight}
+							onBottomLayout={onBottomLayout}
+							tmdbId={tmdbId}
 							ep={item}
 							showTitle={showTitle}
 							showPosterPath={showPosterPath}
@@ -335,6 +373,7 @@ export default function EpisodeDetailModal({
 							markLabel={markWatchedLabel(runBase)}
 							onMarkWatched={() => handleMark(item)}
 							onUnwatch={() => {
+								if (!requireOnline()) return;
 								setMarkingKey(key);
 								onUnmarkWatched(tmdbId, item.season, item.episode).finally(() => {
 									setLocalWatched((prev) => {
@@ -351,6 +390,7 @@ export default function EpisodeDetailModal({
 								});
 							}}
 							onRewatch={() => {
+								if (!requireOnline()) return;
 								setMarkingKey(key);
 								onMarkWatched(tmdbId, item.season, item.episode, item.runtime).finally(() => {
 									setLocalWatched((prev) => new Map(prev).set(key, (prev.get(key) ?? 0) + 1));
@@ -380,6 +420,8 @@ export default function EpisodeDetailModal({
 			runBase,
 			onShowPress,
 			scrollX,
+			cardHeight,
+			onBottomLayout,
 		],
 	);
 
@@ -409,6 +451,11 @@ export default function EpisodeDetailModal({
 	return (
 		<Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
 			<Pressable style={styles.modalOverlay} onPress={onClose}>
+				<CardMeasure
+					episodes={enrichedEps.filter((e) => e.loaded)}
+					showTitle={showTitle}
+					onMeasure={onMeasureText}
+				/>
 				<AnimatedFlatList
 					ref={carouselRef}
 					data={enrichedEps}
@@ -434,6 +481,7 @@ export default function EpisodeDetailModal({
 					}}
 					windowSize={5}
 					maxToRenderPerBatch={3}
+					extraData={cardHeight}
 					style={{ flexGrow: 0 }}
 				/>
 				{enrichedEps.length > 1 && (

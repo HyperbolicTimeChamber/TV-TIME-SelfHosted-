@@ -5,13 +5,13 @@ import { Timestamp } from "@react-native-firebase/firestore";
 import {
 	useSeasonDetails,
 	useShowWatchedEpisodes,
-	useUpcomingMutations,
 	insertWatchedEpisodeCache,
 	setWatchedEpisodeCountsCache,
 	incrementDailyWatch,
 	decrementDailyWatch,
 } from "../hooks";
 import { useAuthStore } from "../stores";
+import { requireOnline } from "../utils/requireOnline";
 import {
 	markEpisodeWatched,
 	markSeasonWatchedCF,
@@ -126,7 +126,6 @@ export function useSeasonActions({
 	const markedFromElsewhere = useSeasonMarking(tmdbId, season.season_number);
 	const user = useAuthStore((s) => s.user);
 	const queryClient = useQueryClient();
-	const { mutateCachedUpcoming, rollbackUpcoming, removeWatchedFromPast } = useUpcomingMutations();
 	const apiKey = useAuthStore((s) => s.appTmdbApiKey)!;
 	const {
 		data: seasonData,
@@ -190,6 +189,7 @@ export function useSeasonActions({
 	);
 
 	const handleAddAndMark = useCallback(async () => {
+		if (!requireOnline()) return;
 		if (!user?.uid) return;
 		setAddModalLoading(true);
 		setAddModalError(null);
@@ -429,6 +429,7 @@ export function useSeasonActions({
 	 */
 	const doMarkSeasonWatched = useCallback(
 		async (all = false) => {
+			if (!requireOnline()) return;
 			if (!user?.uid || markingSeason) return;
 			const eps = all ? episodes : seasonMarkEps;
 			if (eps.length === 0) return;
@@ -502,6 +503,7 @@ export function useSeasonActions({
 
 	const handleMarkSeasonWatched = useCallback(
 		async (all = false) => {
+			if (!requireOnline()) return;
 			const run = () => doMarkSeasonWatched(all);
 			if (guardTracking(run)) {
 				await run();
@@ -533,6 +535,7 @@ export function useSeasonActions({
 	 */
 	const doMarkRefs = useCallback(
 		async (refs: EpisodeRef[], jump = false): Promise<EpisodeRef[]> => {
+			if (!requireOnline()) return [];
 			if (!user?.uid || refs.length === 0) return [];
 			const sn = season.season_number;
 			const here = refs.filter((r) => r.season === sn).map((r) => r.episode);
@@ -618,20 +621,9 @@ export function useSeasonActions({
 
 	const doMarkEpisodeWatched = useCallback(
 		async (ep: TMDBEpisode, jump = false) => {
+			if (!requireOnline()) return;
 			if (!user?.uid || markingEps.size > 0) return;
 			setMarkingEps(new Set([ep.episode_number]));
-
-			// Optimistic upcoming update
-			const snapshot = mutateCachedUpcoming((prev) =>
-				prev.filter(
-					(e) =>
-						!(
-							e.tmdbShowId === tmdbId &&
-							e.season === season.season_number &&
-							e.episode === ep.episode_number
-						),
-				),
-			);
 
 			try {
 				const tw = await resolveTrackingWrite([ep.episode_number], jump);
@@ -667,9 +659,7 @@ export function useSeasonActions({
 					watchCount: 1,
 				});
 				incrementDailyWatch("episode");
-				removeWatchedFromPast(tmdbId, season.season_number, ep.episode_number);
 			} catch (err: any) {
-				rollbackUpcoming(snapshot);
 				console.error("markEpisodeWatched failed:", err);
 				Alert.alert("Error", err.message || "Failed to mark episode as watched.");
 			} finally {
@@ -683,14 +673,12 @@ export function useSeasonActions({
 			season.season_number,
 			resolveTrackingWrite,
 			queryClient,
-			mutateCachedUpcoming,
-			rollbackUpcoming,
-			removeWatchedFromPast,
 		],
 	);
 
 	const handleMarkWatched = useCallback(
 		async (ep: TMDBEpisode, jump = false) => {
+			if (!requireOnline()) return;
 			if (guardTracking(() => doMarkEpisodeWatched(ep, jump))) {
 				await doMarkEpisodeWatched(ep, jump);
 			}
@@ -707,6 +695,7 @@ export function useSeasonActions({
 	/** Mark directly if it continues the watch flow, else ask whether to jump the watchlist here */
 	const markOrAskJump = useCallback(
 		(ep: TMDBEpisode) => {
+			if (!requireOnline()) return;
 			if (!isTracked || willAdvance(ep.episode_number)) {
 				handleMarkWatched(ep);
 				return;
@@ -758,6 +747,7 @@ export function useSeasonActions({
 	 */
 	const unwatchEpisode = useCallback(
 		async (episode: number, oneWatch: boolean) => {
+			if (!requireOnline()) return;
 			if (!user?.uid) return;
 			const sn = season.season_number;
 			const watched = watchedMap.get(episode);
@@ -920,6 +910,7 @@ export function useSeasonActions({
 
 	const handleSheetAction = useCallback(
 		async (action: WatchAction, confirmedTarget?: NonNullable<typeof sheetTarget>) => {
+			if (!requireOnline()) return;
 			// A confirmed "Reduce Rewatch" replays with the target it was asked about (the sheet
 			// has closed and cleared its own by then)
 			const target = confirmedTarget ?? sheetTarget;
@@ -1060,6 +1051,7 @@ export function useSeasonActions({
 	 */
 	const doMarkEpisodeRange = useCallback(
 		async (fromEp: number, toEp: number, level = 1, packed = false): Promise<EpisodeRef[]> => {
+			if (!requireOnline()) return [];
 			if (!user?.uid) return [];
 			const eps = episodes;
 			const epsToMark = eps.filter(
@@ -1139,6 +1131,7 @@ export function useSeasonActions({
 
 	const markEpisodeRange = useCallback(
 		async (fromEp: number, toEp: number, level = 1) => {
+			if (!requireOnline()) return;
 			const run = async () => {
 				await doMarkEpisodeRange(fromEp, toEp, level);
 			};
@@ -1182,6 +1175,7 @@ export function useSeasonActions({
 			to: number,
 			pointer: PointerTarget | null,
 		): Promise<number> => {
+			if (!requireOnline()) return from;
 			if (!user?.uid || from === to) return to;
 			const uid = user.uid;
 			const sn = season.season_number;
@@ -1261,6 +1255,7 @@ export function useSeasonActions({
 
 	const handleEpisodeCountCommit = useCallback(
 		async (from: number, to: number): Promise<boolean | number> => {
+			if (!requireOnline()) return false;
 			if (!user?.uid || sheetTarget?.type !== "episode" || from === to) return true;
 			const ep = sheetTarget.ep;
 			// Under the rewatch floor → ask first; nothing is written unless confirmed
@@ -1305,6 +1300,7 @@ export function useSeasonActions({
 	 *  The range includes the target, so a held sheet change is covered by it; watches past the
 	 *  run level the sheet asked for on top are added after */
 	const confirmSkipAll = useCallback(async () => {
+		if (!requireOnline()) return;
 		const d = skipModalData;
 		setSkipModalVisible(false);
 		setSkipModalData(null);
@@ -1318,6 +1314,7 @@ export function useSeasonActions({
 	/** "Just This One": a held count sheet change is applied with the pointer move; from the list
 	 *  it falls through to the jump question */
 	const confirmSkipJustThis = useCallback(async () => {
+		if (!requireOnline()) return;
 		const d = skipModalData;
 		setSkipModalVisible(false);
 		setSkipModalData(null);
@@ -1393,6 +1390,7 @@ export function useSeasonActions({
 	 * server first) — 0 makes it a first watch again, with the pointer on that episode
 	 */
 	const confirmReduceRewatch = useCallback(async () => {
+		if (!requireOnline()) return;
 		const r = reduceRewatch;
 		setReduceRewatch(null);
 		if (!r || !user?.uid || !trackingItem) return;
@@ -1437,6 +1435,7 @@ export function useSeasonActions({
 
 	const handleCheckmarkPress = useCallback(
 		(ep: TMDBEpisode) => {
+			if (!requireOnline()) return;
 			if (!isTracked) {
 				handleMarkWatched(ep);
 				return;
@@ -1469,6 +1468,7 @@ export function useSeasonActions({
 		refs: EpisodeRef[];
 	} | null>(null);
 	const handleSeasonPress = useCallback(() => {
+		if (!requireOnline()) return;
 		if (isTracked && !watchedLoading) {
 			const { order, counts, tracking } = buildAdvanceInputs([]);
 			const skipped = firstSkippedSeason(order, counts, tracking, season.season_number, todayStr());
@@ -1480,16 +1480,19 @@ export function useSeasonActions({
 		setSeasonConfirmVisible(true);
 	}, [isTracked, watchedLoading, buildAdvanceInputs, season.season_number]);
 	const confirmSeasonMark = useCallback(() => {
+		if (!requireOnline()) return;
 		setSeasonConfirmVisible(false);
 		handleMarkSeasonWatched();
 	}, [handleMarkSeasonWatched]);
 	/** "Mark All Again": one more watch for every episode of the season */
 	const confirmSeasonMarkAll = useCallback(() => {
+		if (!requireOnline()) return;
 		setSeasonConfirmVisible(false);
 		handleMarkSeasonWatched(true);
 	}, [handleMarkSeasonWatched]);
 	/** Season speedster "Mark S1–Sn Watched": the skipped earlier episodes + this season */
 	const confirmSeasonSkipAll = useCallback(() => {
+		if (!requireOnline()) return;
 		const d = seasonSkip;
 		setSeasonSkip(null);
 		if (!d) return;
@@ -1503,6 +1506,7 @@ export function useSeasonActions({
 	}, [seasonSkip, doMarkRefs, seasonMarkEps, season.season_number]);
 	/** Season speedster "Just This Season" */
 	const confirmSeasonSkipJustThis = useCallback(() => {
+		if (!requireOnline()) return;
 		setSeasonSkip(null);
 		handleMarkSeasonWatched();
 	}, [handleMarkSeasonWatched]);
@@ -1647,8 +1651,6 @@ export function useSeasonActions({
 		sheetLabel,
 		sheetSquareLabel,
 		handleEpisodeCountCommit,
-		mutateCachedUpcoming,
-		rollbackUpcoming,
 		seasonData,
 		isLoading,
 		imagesLoading,

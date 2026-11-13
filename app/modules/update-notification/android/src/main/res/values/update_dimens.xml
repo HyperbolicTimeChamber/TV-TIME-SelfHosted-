@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Moves the download card's dial onto the card's centre (no icon column to offset before Android 12) -->
+  <dimen name="update_dial_center_offset">0dp</dimen>
+</resources>

@@ -36,12 +36,6 @@ platform :android do
       task: "assemble",
       build_type: "Release",
       properties: {
-        # Phones only: x86 / x86_64 libs are for emulators and add ~50 MB to the universal APK.
-        # Overrides reactNativeArchitectures in the prebuilt gradle.properties (Play's AAB splits itself)
-        "reactNativeArchitectures" => "arm64-v8a,armeabi-v7a",
-        # Compress the .so files in the APK (~42 MB -> ~16 MB); installs extract them, so the
-        # installed app is bigger. Only the sideloaded APK — the Play AAB is compressed by Play anyway
-        "expo.useLegacyPackaging" => "true",
         "android.injected.signing.store.file" => ENV["KEYSTORE_PATH"],
         "android.injected.signing.store.password" => ENV["KEYSTORE_PASSWORD"],
         "android.injected.signing.key.alias" => ENV["KEY_ALIAS"],

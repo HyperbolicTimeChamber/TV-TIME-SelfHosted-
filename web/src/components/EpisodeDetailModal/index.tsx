@@ -11,6 +11,7 @@ import EpisodeCard from "./EpisodeCard";
 import { markWatchedLabel } from "@app/utils/format";
 import { carouselRunBase } from "@app/utils/trackingAdvance";
 import { todayStr } from "@app/utils/todayStr";
+import { requireOnline } from "@app/utils/requireOnline";
 import { epKey } from "./helpers";
 import styles from "./styles/EpisodeDetailModal.module.scss";
 import { cssVars } from "../../utils/cssVars";
@@ -169,6 +170,7 @@ export default function EpisodeDetailModal({
 		});
 
 	const markOne = (ep: CarouselEpisode) => {
+		if (!requireOnline()) return;
 		const key = epKey(ep.season, ep.episode);
 		setMarkingKey(key);
 		onMarkWatched(tmdbId, ep.season, ep.episode, ep.runtime).finally(() => {
@@ -179,6 +181,8 @@ export default function EpisodeDetailModal({
 
 	// Same gap rule as the app: marking past the next episode offers to backfill
 	const handleMark = (ep: CarouselEpisode) => {
+		// Offline: nothing is marked, the card stays as it is (popup from requireOnline)
+		if (!requireOnline()) return;
 		if (!currentNextEpisode) return markOne(ep);
 		const isAhead =
 			ep.season > currentNextEpisode.season ||
@@ -196,7 +200,7 @@ export default function EpisodeDetailModal({
 	};
 
 	const confirmBackfill = async () => {
-		if (!confirmTarget) return;
+		if (!confirmTarget || !requireOnline()) return;
 		setConfirmLoading(true);
 		setMarkingKey(epKey(confirmTarget.season, confirmTarget.episode));
 		let marked = false;
@@ -283,6 +287,7 @@ export default function EpisodeDetailModal({
 											})}
 										>
 											<EpisodeCard
+												tmdbId={tmdbId}
 												ep={ep}
 												showTitle={showTitle}
 												showPosterPath={showPosterPath}
@@ -297,6 +302,7 @@ export default function EpisodeDetailModal({
 												readOnly={readOnly || (!!ep.airDate && ep.airDate > todayStr())}
 												onMarkWatched={() => handleMark(ep)}
 												onUnwatch={() => {
+													if (!requireOnline()) return;
 													setMarkingKey(key);
 													onUnmarkWatched(tmdbId, ep.season, ep.episode).finally(() => {
 														bump(key, -1);
@@ -307,7 +313,9 @@ export default function EpisodeDetailModal({
 												onSkip={
 													onSkipEpisode && isCurrentNext && !readOnly
 														? () => {
+																if (!requireOnline()) return;
 																setMarkingKey(key);
+
 																onSkipEpisode(tmdbId, ep.season, ep.episode).finally(() =>
 																	setMarkingKey(null),
 																);
@@ -369,7 +377,9 @@ export default function EpisodeDetailModal({
 				onConfirm={confirmBackfill}
 				secondaryLabel="Just This One"
 				onSecondary={() => {
+					if (!requireOnline()) return;
 					const t = confirmTarget!;
+
 					setConfirmTarget(null);
 					markOne({ season: t.season, episode: t.episode } as CarouselEpisode);
 				}}

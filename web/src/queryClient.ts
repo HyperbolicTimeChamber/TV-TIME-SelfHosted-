@@ -12,6 +12,9 @@ export const queryClient = new QueryClient({
 			// React Native never refetches on "focus"; browsers would, flashing the loader
 			// every time you return to the tab
 			refetchOnWindowFocus: false,
+			// Nor on reconnect: queries that have data keep it (no extra reads). Only failed ones
+			// load again (reconnectRetry, NoInternetModal); paused ones resume on their own
+			refetchOnReconnect: false,
 		},
 	},
 });
@@ -21,7 +24,8 @@ export const queryClient = new QueryClient({
 queryClient.setQueryDefaults([QueryKey.WATCHED_EPISODES], { gcTime: Infinity });
 
 const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
-const PERSIST_PREFIXES = ["upcomingEpisodes", "catalog"];
+// Trending too: the Search page has something to show offline (cold start without a network)
+const PERSIST_PREFIXES: string[] = ["upcomingEpisodes", "catalog", QueryKey.TRENDING];
 
 export const persistOptions: Omit<PersistQueryClientOptions, "queryClient"> = {
 	persister: createSyncStoragePersister({

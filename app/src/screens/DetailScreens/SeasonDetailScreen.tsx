@@ -11,6 +11,7 @@ import {
 	incrementDailyWatch,
 } from "../../hooks";
 import { useAuthStore } from "../../stores";
+import { requireOnline } from "../../utils/requireOnline";
 import { useQueryClient } from "@tanstack/react-query";
 import { Timestamp } from "@react-native-firebase/firestore";
 import { markEpisodeWatched, addToTracking, getSeasonDetails as fetchSeason } from "../../services";
@@ -49,6 +50,7 @@ export default function SeasonDetailScreen() {
 	const pendingAction = useRef<(() => Promise<void>) | null>(null);
 
 	const handleAddAndMark = useCallback(async () => {
+		if (!requireOnline()) return;
 		if (!user?.uid) return;
 		setAddModalLoading(true);
 		setAddModalError(null);
@@ -77,6 +79,7 @@ export default function SeasonDetailScreen() {
 
 	const doMarkWatched = useCallback(
 		async (ep: TMDBEpisode) => {
+			if (!requireOnline()) return;
 			if (!user?.uid || marking !== null) return;
 
 			setMarking(ep.episode_number);
@@ -171,6 +174,7 @@ export default function SeasonDetailScreen() {
 
 	const handleMarkWatched = useCallback(
 		(ep: TMDBEpisode) => {
+			if (!requireOnline()) return;
 			if (!watchlistItem) {
 				pendingAction.current = () => doMarkWatched(ep);
 				setAddModalError(null);

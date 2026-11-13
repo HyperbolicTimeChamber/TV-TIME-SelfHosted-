@@ -9,7 +9,7 @@ import { queryClient, persistOptions } from "./queryClient";
 import { getAntdThemeConfig } from "./theme/index";
 import { isLightScheme, useThemeVersion } from "./theme/applyTheme";
 import AuthListener from "./AuthListener";
-import OfflineBanner from "./components/OfflineBanner";
+import NoInternetModal from "./components/NoInternetModal";
 import AppRoutes from "./routes/AppRoutes";
 
 export default function App() {
@@ -23,9 +23,9 @@ export default function App() {
 							<ScrollToTop />
 							<PageViewTracker />
 							<AuthListener />
-							<OfflineBanner />
+							<NoInternetModal />
 							{/* Keyed on the theme: inline colors read the new palette */}
-								<AppRoutes key={themeVersion} />
+							<AppRoutes key={themeVersion} />
 						</BrowserRouter>
 					</AntApp>
 				</ConfigProvider>

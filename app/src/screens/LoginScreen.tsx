@@ -3,6 +3,7 @@ import {
 	View,
 	Text,
 	TouchableOpacity,
+	Pressable,
 	StyleSheet,
 	TextInput,
 	KeyboardAvoidingView,
@@ -17,6 +18,9 @@ import { useAuthStore } from "../stores";
 import GoogleLogo from "../../assets/GoogleLogo";
 import { getFirebaseAuthErrorMessage } from "../hooks";
 import { LoadingSpinner } from "../components";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { APP_VERSION_LABEL } from "../utils/appVersion";
+import { isValidEmail } from "../utils/email";
 
 export default function LoginScreen() {
 	const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuthStore();
@@ -31,6 +35,10 @@ export default function LoginScreen() {
 	const handleEmailAuth = async () => {
 		if (!email.trim() || !password.trim()) {
 			setError("Please enter email and password.");
+			return;
+		}
+		if (isSignUp && !isValidEmail(email.trim())) {
+			setError("Enter a valid email address");
 			return;
 		}
 		setLoading(true);
@@ -81,6 +89,9 @@ export default function LoginScreen() {
 	// Signing in / up: the form gives way to a loader until the app swaps this screen out
 	const signingIn = loading || googleLoading;
 	const busy = signingIn || resetting;
+	const { bottom } = useSafeAreaInsets();
+	// The field being typed in gets the app's focus ring (as the list-name field)
+	const [focused, setFocused] = useState<"email" | "password" | null>(null);
 
 	return (
 		<KeyboardAvoidingView
@@ -106,7 +117,9 @@ export default function LoginScreen() {
 					<>
 						<View style={styles.form}>
 							<TextInput
-								style={styles.input}
+								style={[styles.input, focused === "email" && styles.inputFocused]}
+								onFocus={() => setFocused("email")}
+								onBlur={() => setFocused(null)}
 								placeholder="Email"
 								placeholderTextColor={colors.textMuted}
 								keyboardType="email-address"
@@ -117,7 +130,9 @@ export default function LoginScreen() {
 								editable={!busy}
 							/>
 							<TextInput
-								style={styles.input}
+								style={[styles.input, focused === "password" && styles.inputFocused]}
+								onFocus={() => setFocused("password")}
+								onBlur={() => setFocused(null)}
 								placeholder="Password"
 								placeholderTextColor={colors.textMuted}
 								secureTextEntry
@@ -127,13 +142,18 @@ export default function LoginScreen() {
 								onSubmitEditing={handleEmailAuth}
 							/>
 
-							<TouchableOpacity
-								style={[styles.emailButton, busy && styles.buttonDisabled]}
+							<Pressable
+								style={({ pressed }) => [
+									styles.emailButton,
+									pressed && styles.pressed,
+									busy && styles.buttonDisabled,
+								]}
 								onPress={handleEmailAuth}
 								disabled={busy}
+								accessibilityRole="button"
 							>
 								<Text style={styles.emailButtonText}>{isSignUp ? "Sign Up" : "Sign In"}</Text>
-							</TouchableOpacity>
+							</Pressable>
 
 							<TouchableOpacity
 								onPress={() => {
@@ -160,26 +180,34 @@ export default function LoginScreen() {
 							<View style={styles.dividerLine} />
 						</View>
 
-						<TouchableOpacity
-							style={[styles.googleButton, busy && styles.buttonDisabled]}
+						<Pressable
+							style={({ pressed }) => [
+								styles.googleButton,
+								pressed && styles.pressed,
+								busy && styles.buttonDisabled,
+							]}
 							onPress={handleGoogleSignIn}
 							disabled={busy}
+							accessibilityRole="button"
 						>
 							<View style={styles.googleButtonInner}>
 								<GoogleLogo size={20} />
 								<Text style={styles.googleButtonText}>Sign in with Google</Text>
 							</View>
-						</TouchableOpacity>
+						</Pressable>
 
 						{error && <Text style={styles.error}>{error}</Text>}
 					</>
 				)}
 			</ScrollView>
+			{/* The very bottom, dim: which build this is (as on Settings) */}
+			<Text style={[styles.version, { paddingBottom: bottom + spacing.md }]}>{APP_VERSION_LABEL}</Text>
 		</KeyboardAvoidingView>
 	);
 }
 
 const styles = themedStyles(() => StyleSheet.create({
+	version: { ...typography.caption, color: colors.textMuted, textAlign: "center" },
 	container: {
 		flex: 1,
 		backgroundColor: colors.background,
@@ -205,26 +233,31 @@ const styles = themedStyles(() => StyleSheet.create({
 		maxWidth: 320,
 		alignItems: "center",
 	},
+	// The app's fields and buttons: 52 tall, 14 corners, borderless surfaces
 	input: {
 		width: "100%",
+		height: 52,
 		backgroundColor: colors.surface,
-		borderWidth: 1,
-		borderColor: colors.border,
-		borderRadius: 8,
-		paddingVertical: spacing.md,
+		borderWidth: 1.5,
+		borderColor: "transparent",
+		borderRadius: 14,
 		paddingHorizontal: spacing.lg,
 		color: colors.text,
 		fontSize: 16,
 		marginBottom: spacing.md,
 	},
+	inputFocused: { borderColor: colors.textSecondary },
 	emailButton: {
 		width: "100%",
+		height: 52,
 		backgroundColor: colors.primary,
-		paddingVertical: spacing.lg,
-		borderRadius: 8,
+		borderRadius: 14,
 		alignItems: "center",
+		justifyContent: "center",
 		marginTop: spacing.xs,
 	},
+	// Buttons answer the press: a touch smaller
+	pressed: { transform: [{ scale: 0.97 }], opacity: 0.9 },
 	emailButtonText: {
 		...typography.subtitle,
 		color: colors.onPrimary,
@@ -262,12 +295,11 @@ const styles = themedStyles(() => StyleSheet.create({
 	googleButton: {
 		width: "100%",
 		maxWidth: 320,
+		height: 52,
 		backgroundColor: colors.surface,
-		paddingVertical: spacing.lg,
-		borderRadius: 8,
+		borderRadius: 14,
 		alignItems: "center",
-		borderWidth: 1,
-		borderColor: colors.border,
+		justifyContent: "center",
 	},
 	googleButtonInner: {
 		flexDirection: "row",

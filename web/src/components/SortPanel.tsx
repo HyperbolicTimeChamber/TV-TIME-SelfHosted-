@@ -124,8 +124,6 @@ interface ButtonProps {
 	/** Sort (or filters) changed from the default — shows a dot */
 	customised: boolean;
 	label: string;
-	/** Sort only: the sort icon; default the sliders (sort + filters) */
-	sortOnly?: boolean;
 }
 
 /** Red squircle (sliders icon) opening the sort popover — app SortFab */
@@ -135,7 +133,6 @@ export function SortButton({
 	content,
 	customised,
 	label,
-	sortOnly = false,
 }: ButtonProps) {
 	return (
 		<Popover
@@ -148,7 +145,7 @@ export function SortButton({
 		>
 			<button className={styles.button} aria-label={label}>
 				<Squircle size={40} />
-				{sortOnly ? <SortIcon size={22} /> : <IoOptionsOutline size={20} />}
+				<IoOptionsOutline size={20} />
 				{customised && <span className={styles.buttonDot} />}
 			</button>
 		</Popover>

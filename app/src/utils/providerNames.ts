@@ -23,6 +23,9 @@ const CHANNEL_STORES: [RegExp, string][] = [
 	[/\s+apple tv channel$/i, "apple tv"],
 ];
 
+/** A cut of a service that opens the same service: not listed beside it */
+const SAME_SERVICE: Record<string, string> = { "netflix kids": "netflix" };
+
 const isChannel = (name: string) => CHANNEL_SUFFIXES.some((s) => s.test(name.trim()));
 
 /** "RTL+ Max Amazon Channel" → "RTL+ Max", "Disney Plus" → "Disney+" */
@@ -44,7 +47,7 @@ const initials = (name: string) =>
  * The services to show, in order: an add-on channel ("HBO Max Amazon Channel") is left out when
  * the service itself ("HBO Max", or its spelled-out name: "ADN Amazon Channel" next to
  * "Animation Digital Network") or the store it plays in (Prime Video) is listed too — kept only
- * when it's the only way to get it
+ * when it's the only way to get it. Netflix Kids goes the same way next to Netflix
  */
 export function displayProviders(providers: readonly WatchProvider[]): WatchProvider[] {
 	const direct = new Set<string>();
@@ -55,7 +58,10 @@ export function displayProviders(providers: readonly WatchProvider[]): WatchProv
 	}
 	const store = (name: string) => CHANNEL_STORES.find(([suffix]) => suffix.test(name.trim()))?.[1];
 	return providers.filter((p) => {
-		if (!isChannel(p.name)) return true;
+		if (!isChannel(p.name)) {
+			const main = SAME_SERVICE[p.name.trim().toLowerCase()];
+			return !(main && direct.has(main));
+		}
 		const via = store(p.name);
 		return !direct.has(shortProviderName(p.name).toLowerCase()) && !(via && direct.has(via));
 	});
@@ -80,4 +86,10 @@ export function providerLink(
 	if (!known) return tmdbLink;
 	const search = known.search && (!inApp || known.appSearch) ? known.search : null;
 	return search ? search.replace("{q}", encodeURIComponent(title)) : known.home;
+}
+
+/** The service's Android app package (PROVIDER_LINKS androidPackage), add-on channels → their store's */
+export function providerApp(name: string): string | null {
+	const store = CHANNEL_STORES.find(([suffix]) => suffix.test(name.trim()))?.[1];
+	return PROVIDER_LINKS[store ?? shortProviderName(name).toLowerCase()]?.androidPackage ?? null;
 }

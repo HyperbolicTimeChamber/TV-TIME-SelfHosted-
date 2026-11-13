@@ -2,6 +2,7 @@ import {
   FEATURED_CAST_FALLBACK,
   FEATURED_CAST_MAX,
   FULL_CAST_MAX,
+  LOCAL_RELEASE_TYPES,
   MediaType,
   MOVIE_LEADS,
   TV_REGULAR_MIN_EPISODES,
@@ -13,6 +14,27 @@ import type {
   StoredCrewMember,
   StoredStudio,
 } from "../../shared/types";
+
+export interface TmdbReleaseDates {
+  iso_3166_1: string;
+  release_dates: { release_date: string; type: number }[];
+}
+
+/** A movie's release date in one country: its earliest of the best release type TMDB lists */
+export function localReleaseDate(
+  results: TmdbReleaseDates[] | undefined,
+  region: string,
+): string | null {
+  const dates = results?.find((r) => r.iso_3166_1 === region)?.release_dates ?? [];
+  for (const type of LOCAL_RELEASE_TYPES) {
+    const days = dates
+      .filter((d) => d.type === type && d.release_date)
+      .map((d) => d.release_date.slice(0, 10))
+      .sort();
+    if (days.length > 0) return days[0];
+  }
+  return null;
+}
 
 export interface TmdbCastMember {
   id: number;

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, Alert, Share } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -14,6 +14,8 @@ import ActionPills from "./ActionPills";
 import DetailCredits from "./DetailCredits";
 import WhereToWatch from "../../components/WhereToWatch";
 import CastRow from "../../components/CastRow";
+import LocalReleaseLine from "../../components/LocalReleaseLine";
+import { releaseStatLabel } from "../../utils/localRelease";
 import { useTitleExtras } from "../../hooks/useTitleExtras";
 import StudiosRow from "../../components/StudiosRow";
 import WatchCountPill from "../../components/WatchCountPill";
@@ -40,6 +42,7 @@ import { CircleButtonTone } from "../../enums";
 import { ModalBackdrop, ModalLogo } from "../../components/modals/ModalArt";
 import { getCachedCatalogShow } from "../../hooks/useWatchlist";
 import { pickTitleLogo } from "../../services/tmdb";
+import { requireOnline } from "../../utils/requireOnline";
 
 type RouteParams = RouteProp<HomeStackParamList, "ShowDetail">;
 
@@ -112,7 +115,7 @@ export default function ShowDetailScreen() {
 	}, [navigation]);
 	const swipeBack = useSwipeBackPop(navigation as never);
 	// The directors' photos for the credits (every extras section reads the same query)
-	const { data: extras } = useTitleExtras(tmdbId, mediaType);
+	const { data: extras, isPending: extrasPending } = useTitleExtras(tmdbId, mediaType);
 	const insets = useSafeAreaInsets();
 	// "Add to List" button (next to Share): blue once the title is in any list
 	const userId = useAuthStore((s) => s.user?.uid);
@@ -126,6 +129,12 @@ export default function ShowDetailScreen() {
 	const BACKDROP_HEIGHT = 350;
 	// Parallax runs on the UI thread — a setState per scroll event would re-render the whole screen
 	const scrollY = useSharedValue(0);
+	// A deep link reuses this screen: the loading state swaps the ScrollView for a new one at the
+	// top without a scroll event, which left the backdrop and back button where the old page was
+	const pageLoading = isLoading || trackingLoading;
+	useEffect(() => {
+		if (pageLoading) scrollY.value = 0;
+	}, [pageLoading, scrollY]);
 	const handleScroll = useAnimatedScrollHandler((e) => {
 		scrollY.value = e.contentOffset.y;
 	});
@@ -231,7 +240,7 @@ export default function ShowDetailScreen() {
 								onAddToWatchlist={handleAddToWatchlist}
 								onMarkMovieWatched={handleMarkMovieWatched}
 								onResumeOrRewatch={handleResumeOrRewatch}
-								onPause={() => setPauseModalVisible(true)}
+								onPause={() => requireOnline() && setPauseModalVisible(true)}
 								onRemove={handleRemove}
 								onWatchSheetOpen={() => setMovieSheetVisible(true)}
 								listCount={listCount}
@@ -256,7 +265,7 @@ export default function ShowDetailScreen() {
 							<View style={styles.statItem}>
 								<Text style={styles.statValue}>{year || "—"}</Text>
 								<Text style={styles.statLabel}>
-									{mediaType === MediaType.MOVIE ? "RELEASED" : "YEAR"}
+									{mediaType === MediaType.MOVIE ? releaseStatLabel(show.release_date) : "YEAR"}
 								</Text>
 							</View>
 							{mediaType === MediaType.TV && show.number_of_seasons ? (
@@ -290,22 +299,28 @@ export default function ShowDetailScreen() {
 							) : null}
 						</View>
 						<Text style={styles.overview}>{show.overview}</Text>
+						{/* Under the description: above a movie's local release, a show's seasons */}
+						{whereToWatch}
 
 						{mediaType === MediaType.MOVIE && (
-							<>
-								<DetailCredits
-									directors={directors}
-									writers={writers}
-									directorPeople={extras?.directors}
-									writerPeople={extras?.writers}
-								/>
-								{/* Under the credits: the studios' logos */}
-								<StudiosRow tmdbId={tmdbId} mediaType={mediaType} bleed={spacing.lg} compact />
-							</>
+							<LocalReleaseLine
+								tmdbId={tmdbId}
+								globalRelease={show.release_date}
+								style={styles.localRelease}
+							/>
 						)}
 
-						{/* Movies: after the credits; shows: under the seasons (below) */}
-						{mediaType === MediaType.MOVIE && whereToWatch}
+						{mediaType === MediaType.MOVIE && (
+							<DetailCredits
+								tmdbId={tmdbId}
+								mediaType={mediaType}
+								directors={directors}
+								writers={writers}
+								directorPeople={extras?.directors}
+								writerPeople={extras?.writers}
+								photosPending={extrasPending}
+							/>
+						)}
 
 						{mediaType === MediaType.TV && show.seasons && (
 							<View style={styles.seasonsSection}>
@@ -332,20 +347,13 @@ export default function ShowDetailScreen() {
 							</View>
 						)}
 
-						{/* Shows: where to watch, then the studios, under the seasons */}
-						{mediaType === MediaType.TV && (
-							<>
-								{whereToWatch}
-								<StudiosRow tmdbId={tmdbId} mediaType={mediaType} bleed={spacing.lg} />
-							</>
-						)}
-						{/* Last on the page: movies' in place of Production, shows' under the studios */}
 						<CastRow
 							tmdbId={tmdbId}
 							mediaType={mediaType}
 							title={title ?? ""}
 							bleed={spacing.lg}
 						/>
+						<StudiosRow tmdbId={tmdbId} mediaType={mediaType} bleed={spacing.lg} />
 					</View>
 				</View>
 				{/* Back sticks to the top until the pills push it off; share rides at the top of the
@@ -548,6 +556,9 @@ const styles = themedStyles(() => StyleSheet.create({
 		paddingHorizontal: spacing.lg,
 		paddingTop: spacing.xs,
 	},
+	// Lines up with the description above it
+	// The big date's line box already leaves room under it
+	localRelease: { paddingHorizontal: spacing.sm, marginTop: spacing.xl, marginBottom: -spacing.sm },
 	overview: {
 		...typography.body,
 		color: colors.textSecondary,
@@ -562,5 +573,7 @@ const styles = themedStyles(() => StyleSheet.create({
 		...typography.title,
 		fontSize: 18,
 		marginBottom: spacing.md,
+		// In line with the page's text
+		paddingHorizontal: spacing.sm,
 	},
 }));

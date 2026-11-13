@@ -133,6 +133,17 @@
 	background: $movie-purple;
 }
 
+.metaRow {
+	display: flex;
+	gap: 12px;
+}
+
+/* Right end of the row, however long the left side is; long country names wrap */
+.metaRelease {
+	margin-left: auto;
+	text-align: right;
+}
+
 .overview {
 	font-size: 14px;
 	line-height: 22px;

@@ -11,7 +11,7 @@ import {
 } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import { useCustomLists } from "@app/hooks/useCustomLists";
-import { CircleButtonTone, MediaType, NEW_LIST_HINTS, NEW_LIST_TITLE } from "@app/enums";
+import { CircleButtonTone, MediaType, NEW_LIST_HINTS, NEW_LIST_SUBTITLE, NEW_LIST_TITLE } from "@app/enums";
 import type { CustomList } from "@app/types";
 import { listCoverItem, titleCount } from "@app/utils/customLists";
 import { describeImport, parseListsExport, type ImportPlan } from "@app/utils/customListsIO";
@@ -32,6 +32,7 @@ import { Paths, listPath } from "../../routes/paths";
 import { colors } from "../../theme";
 import ListMenuSheet from "./ListMenuSheet";
 import styles from "./styles/ListsScreen.module.scss";
+import { requireOnline } from "@app/utils/requireOnline";
 
 const NAME_ERRORS = {
 	taken: "You already have a list with that name.",
@@ -282,6 +283,12 @@ export default function ListsScreen() {
 		saveTimer.current = null;
 		const ids = draftRef.current;
 		if (!ids) return;
+		// Offline: the drag is put back (nothing saved), popup from requireOnline
+		if (!requireOnline()) {
+			draftRef.current = null;
+			setDraftIds(null);
+			return;
+		}
 		const ok = await reorderLists(ids);
 		// A newer drag since → that one saves next; keep showing it
 		if (draftRef.current !== ids) return;
@@ -299,7 +306,7 @@ export default function ListsScreen() {
 	};
 
 	const submitName = async (name: string) => {
-		if (!naming) return;
+		if (!naming || !requireOnline()) return;
 		setNameBusy(true);
 		let error: string | null = null;
 		if (naming === "new") {
@@ -337,7 +344,7 @@ export default function ListsScreen() {
 	};
 
 	const confirmImport = async () => {
-		if (!importPlan) return;
+		if (!importPlan || !requireOnline()) return;
 		setImporting(true);
 		const ok = await applyImport(importPlan);
 		setImporting(false);
@@ -472,6 +479,7 @@ export default function ListsScreen() {
 				title={naming === "new" ? NEW_LIST_TITLE : "Rename List"}
 				image={naming === "new" ? <ModalArt src={NEW_LIST_ART} /> : undefined}
 				hint={naming === "new" ? NEW_LIST_HINTS : undefined}
+				subtitle={naming === "new" ? NEW_LIST_SUBTITLE : undefined}
 				initialName={naming && naming !== "new" ? naming.name : ""}
 				confirmLabel={naming === "new" ? "Create" : "Save"}
 				error={nameError}
@@ -489,7 +497,9 @@ export default function ListsScreen() {
 				hint={`"${deleteTarget?.name ?? ""}" will be deleted. The shows and movies in it aren't affected — your watchlist and history stay as they are.`}
 				confirmLabel="Delete"
 				onConfirm={() => {
+					if (!requireOnline()) return;
 					if (deleteTarget) deleteList(deleteTarget.id);
+
 					setDeleteTarget(null);
 				}}
 				onClose={() => setDeleteTarget(null)}

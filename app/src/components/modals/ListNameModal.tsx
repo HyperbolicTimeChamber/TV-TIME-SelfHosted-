@@ -31,6 +31,8 @@ interface Props {
 	image?: ReactNode;
 	/** Line under the art; a list → one of them, picked each time the popup opens */
 	hint?: string | readonly string[];
+	/** Fixed line right under the title (create only) */
+	subtitle?: string;
 }
 
 /** Past this many characters the field shows how many are left */
@@ -57,6 +59,7 @@ export default function ListNameModal({
 	onClose,
 	image,
 	hint,
+	subtitle,
 }: Props) {
 	const [name, setName] = useState(initialName || suggestedName);
 	const [shownHint, setShownHint] = useState(() => pickHint(hint));
@@ -97,7 +100,8 @@ export default function ListNameModal({
 			}}
 		>
 			<View style={styles.content}>
-				<Text style={[styles.title, image != null && styles.titleOverImage]}>{title}</Text>
+				<Text style={[styles.title, (image != null || !!subtitle) && styles.titleOverImage]}>{title}</Text>
+				{subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
 				{image != null && <View style={styles.image}>{image}</View>}
 				{shownHint ? <Text style={styles.hint}>{shownHint}</Text> : null}
 				<View
@@ -195,6 +199,12 @@ const styles = themedStyles(() => StyleSheet.create({
 	},
 	// ConfirmModal's spacing: the title's gap above the art matches the art's gap below
 	titleOverImage: { marginBottom: spacing.sm },
+	subtitle: {
+		...typography.caption,
+		color: colors.textSecondary,
+		textAlign: "center",
+		marginBottom: spacing.sm,
+	},
 	image: { alignItems: "center", marginBottom: spacing.sm },
 	hint: {
 		...typography.caption,

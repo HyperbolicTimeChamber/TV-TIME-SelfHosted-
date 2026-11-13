@@ -13,6 +13,7 @@ import BottomSheet, {
 	sheetStyles as styles,
 } from "./BottomSheet";
 import { colors } from "../theme/index";
+import { requireOnline } from "@app/utils/requireOnline";
 
 /** Taps settle this long before the count is written — quick +/+/+ is one write, not three */
 const COMMIT_DELAY_MS = 700;
@@ -116,16 +117,20 @@ export default function WatchCountSheet({
 	};
 
 	const setNow = (n: number) => {
+		// Offline: the count doesn't move (popup from requireOnline); the sheet stays open
+		if (!requireOnline()) return false;
 		if (n < pending.current && n < confirmBelow) {
 			askBelow(n);
-			return;
+			return true;
 		}
 		pending.current = n;
 		setCount(n);
 		flush();
+		return true;
 	};
 
 	const step = (delta: number) => {
+		if (!requireOnline()) return;
 		const next = Math.max(minCount, pending.current + delta);
 		if (next === pending.current) return;
 		if (delta < 0 && next < confirmBelow) {
@@ -199,8 +204,7 @@ export default function WatchCountSheet({
 						title="Watched Once"
 						hint="Reset to 1x"
 						onClick={() => {
-							setNow(1);
-							onClose();
+							if (setNow(1)) onClose();
 						}}
 					/>
 				</SheetCollapse>
@@ -212,9 +216,9 @@ export default function WatchCountSheet({
 						hint="Remove all watch history"
 						destructive
 						onClick={() => {
-							setNow(0);
-							onClose();
+							if (setNow(0)) onClose();
 						}}
+
 					/>
 				</SheetCollapse>
 			</SheetGroup>

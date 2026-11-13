@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Expanded download card (dark, colorized): title + version, a small red Cancel at the right end,
+     the spinning dial, the progress numbers at the right above the red bar -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="match_parent"
+  android:layout_height="wrap_content"
+  android:orientation="vertical">
+
+  <LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal">
+
+    <LinearLayout
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_weight="1"
+      android:orientation="vertical">
+
+      <TextView
+        android:id="@+id/update_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp" />
+
+      <TextView
+        android:id="@+id/update_version"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textColor="#B3FFFFFF"
+        android:textSize="14sp" />
+    </LinearLayout>
+
+    <TextView
+      android:id="@+id/update_action"
+      android:layout_width="wrap_content"
+      android:layout_height="32dp"
+      android:layout_marginStart="12dp"
+      android:background="@drawable/update_button_red"
+      android:gravity="center"
+      android:paddingStart="14dp"
+      android:paddingEnd="14dp"
+      android:text="Cancel"
+      android:textColor="#FFFFFF"
+      android:textSize="13sp"
+      android:textStyle="bold" />
+  </LinearLayout>
+
+  <!-- The drawer's dial: the still core, its ring turning on top (2400ms a turn, like the drawer) -->
+  <FrameLayout
+    android:layout_width="120dp"
+    android:layout_height="120dp"
+    android:layout_gravity="center_horizontal"
+    android:layout_marginTop="10dp"
+    android:translationX="@dimen/update_dial_center_offset">
+
+    <ImageView
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:importantForAccessibility="no"
+      android:src="@drawable/update_dial_core" />
+
+    <ProgressBar
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:indeterminate="true"
+      android:indeterminateBehavior="repeat"
+      android:indeterminateDrawable="@drawable/update_dial_ring_spin"
+      android:indeterminateDuration="2400"
+      android:indeterminateOnly="true"
+      android:interpolator="@android:anim/linear_interpolator"
+      android:maxHeight="120dp"
+      android:maxWidth="120dp"
+      android:minHeight="120dp"
+      android:minWidth="120dp" />
+  </FrameLayout>
+
+  <TextView
+    android:id="@+id/update_percent"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="4dp"
+    android:gravity="end"
+    android:textColor="#B3FFFFFF"
+    android:textSize="13sp" />
+
+  <ProgressBar
+    android:id="@+id/update_progress"
+    style="@android:style/Widget.ProgressBar.Horizontal"
+    android:layout_width="match_parent"
+    android:layout_height="6dp"
+    android:layout_marginTop="4dp"
+    android:max="100"
+    android:progressDrawable="@drawable/update_progress_red" />
+</LinearLayout>

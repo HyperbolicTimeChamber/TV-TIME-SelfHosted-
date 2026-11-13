@@ -6,7 +6,7 @@ import { WATCHLIST_CHECK_CIRCLE, WATCHLIST_CHECK_TICK } from "../../../component
 import { withHaptic } from "../../../utils/haptics";
 import PosterImage from "../../../components/PosterImage";
 import { colors, spacing, themedStyles } from "../../../theme";
-import CardInfo, { cardStyles } from "../../../components/CardInfo";
+import CardInfo, { CARD_MAX_FONT_SCALE, cardStyles } from "../../../components/CardInfo";
 import { WatchedEpisode } from "../../../types";
 import { EnrichedTrackingItem } from "../../../hooks";
 
@@ -16,7 +16,7 @@ interface Props {
 	/** Row body → the episode popup on this row's episode */
 	onPress: (episode: WatchedEpisode, show: EnrichedTrackingItem) => void;
 	onCheckmarkPress: (episode: WatchedEpisode) => void;
-	onSwipeLeft: (episode: WatchedEpisode) => Promise<void>;
+	onSwipeLeft: (episode: WatchedEpisode) => Promise<boolean | void>;
 	/** `false` = nothing changed (the swipe snaps back). Left out: no Unwatch swipe (a rewatch's
 	 *  floor — the watch belongs to an earlier run) */
 	onSwipeRight?: (episode: WatchedEpisode) => Promise<boolean | void>;
@@ -59,7 +59,11 @@ export default memo(function WatchedEpisodeRow({
 				onLongPress={withHaptic(onLongPress && (() => onLongPress(show)))}
 				activeOpacity={0.8}
 			>
-				<PosterImage posterPath={show.posterPath} mediaType="tv" style={[cardStyles.poster, styles.poster]} />
+				<PosterImage
+					posterPath={show.posterPath}
+					mediaType="tv"
+					style={[cardStyles.poster, styles.poster]}
+				/>
 				<CardInfo
 					title={show.title}
 					titlePillStyle={styles.mutedPill}
@@ -68,7 +72,12 @@ export default memo(function WatchedEpisodeRow({
 					sublineLines={2}
 					sublineStyle={styles.muted}
 				>
-					<Text style={[cardStyles.episode, styles.muted]}>{label}</Text>
+					<Text
+						maxFontSizeMultiplier={CARD_MAX_FONT_SCALE}
+						style={[cardStyles.episode, styles.muted]}
+					>
+						{label}
+					</Text>
 				</CardInfo>
 				<View style={styles.checkmarkWrap}>
 					<CheckmarkButton

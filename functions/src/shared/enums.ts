@@ -40,6 +40,7 @@ export enum RefreshReason {
 }
 
 const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
 
 /** One TMDB refresh per show per window, across all users (shows/{id}.lastTmdbCheckAt) */
 export const REFRESH_COOLDOWN_MS: Record<RefreshReason, number> = {
@@ -82,6 +83,7 @@ export enum Callable {
   WATCH_PROVIDERS = "watchProviders",
   TITLE_EXTRAS = "titleExtras",
   TITLE_CAST_PAGE = "titleCastPage",
+  SUBJECT_LINK = "subjectLink",
 }
 
 const MINUTE_MS = 60 * 1000;
@@ -117,6 +119,8 @@ export const CALLABLE_RATE_LIMITS: Record<
   [Callable.TITLE_EXTRAS]: { limit: 60, windowMs: MINUTE_MS },
   // The full cast sheet, a page at a time as it scrolls
   [Callable.TITLE_CAST_PAGE]: { limit: 120, windowMs: MINUTE_MS },
+  // One per person / studio opened whose link isn't stored with them yet
+  [Callable.SUBJECT_LINK]: { limit: 120, windowMs: MINUTE_MS },
 };
 
 /** Guest TMDB proxy: uncached requests one IP may make per minute (CDN hits don't count) */
@@ -172,6 +176,8 @@ export enum FunctionName {
   WATCH_PROVIDERS = "watchProviders",
   TITLE_EXTRAS = "titleExtras",
   TITLE_CAST_PAGE = "titleCastPage",
+  SUBJECT_LINK = "subjectLink",
+  SEND_TEST_PUSH = "sendTestPush",
 }
 
 /**
@@ -179,12 +185,41 @@ export enum FunctionName {
  * catalog doc — catalog titles keep them on the doc, so the page gets them with its catalog read.
  * Same doc ids as shows/
  */
+/** Who a subjectLink call is about: a cast / crew member or a studio */
+export enum SubjectKind {
+  PERSON = "person",
+  STUDIO = "studio",
+}
+
+/** A studio is one of these on TMDB — each has its own ids, pages and homepage */
+export enum TmdbStudioType {
+  COMPANY = "company",
+  NETWORK = "network",
+}
+
 export const TITLE_EXTRAS_COLLECTION = "titleExtras";
 /** A title's full cast (the View All sheet, paged) — kept off the catalog doc, which every
  *  watchlist read carries. Same doc ids as shows/ */
 export const TITLE_CREDITS_COLLECTION = "titleCredits";
 /** TMDB requests/second the extras callables may make (each one instance → global) */
 export const TITLE_EXTRAS_TMDB_RATE_LIMIT = 10;
+/** TMDB's release types (a movie's release_dates, per country) */
+export enum TmdbReleaseType {
+  PREMIERE = 1,
+  THEATRICAL_LIMITED = 2,
+  THEATRICAL = 3,
+  DIGITAL = 4,
+  PHYSICAL = 5,
+  TV = 6,
+}
+/** Which release counts as a movie's local one, best first (a festival premiere doesn't) */
+export const LOCAL_RELEASE_TYPES = [
+  TmdbReleaseType.THEATRICAL,
+  TmdbReleaseType.THEATRICAL_LIMITED,
+  TmdbReleaseType.DIGITAL,
+  TmdbReleaseType.PHYSICAL,
+  TmdbReleaseType.TV,
+];
 /** Featured cast on the info page row: a movie's leads (top billed)… */
 export const MOVIE_LEADS = 6;
 /** …a show's regulars: in at least this share of its episodes (and MIN episodes) */
@@ -302,6 +337,20 @@ export const SEARCH_CACHE_MAX_ENTRIES = 500;
 export const SEARCH_KEYWORD_FALLBACK_BELOW = 10;
 /** Best-matching TMDB keywords used for that fallback */
 export const SEARCH_KEYWORD_MAX = 3;
+/** Answers to title + year / person searches, so a repeat needs no TMDB requests (CF-only) */
+export const SEARCH_INDEX_COLLECTION = "searchIndex";
+/** A filed answer is searched afresh after this (Firestore TTL on `expireAt`) */
+export const SEARCH_INDEX_TTL_MS = 7 * DAY_MS;
+/** Longest person's name tried when a search also names someone ("batman christian bale") */
+export const SEARCH_PERSON_NAME_MAX_WORDS = 3;
+/** People whose credits are fetched for one such search, at most */
+export const SEARCH_PERSON_MAX_CHECKS = 3;
+/** Most popular matches whose collections are looked up, to add their sequels */
+export const SEARCH_FRANCHISE_SEEDS = 3;
+/** The first film's year: a smaller 4-digit word in a search is not a year */
+export const SEARCH_YEAR_MIN = 1888;
+/** How far past this year a word still reads as a release year */
+export const SEARCH_YEAR_AHEAD = 5;
 /** TMDB genre ids the search aliases use (same id for TV and movies) */
 export enum TmdbGenre {
   ANIMATION = 16,
@@ -505,3 +554,27 @@ export enum TrackingWriteAction {
   /** Deleted → make sure the deletion log has it */
   LOG_DELETION = "log_deletion",
 }
+
+/** config/release: each release channel's latest APK + minimum build (CI's publish-release) */
+export const RELEASE_CONFIG_PATH = "config/release";
+
+/** App release channels (the app's ReleaseChannel) */
+export enum ReleaseChannel {
+  DEV = "dev",
+  PROD = "prod",
+}
+
+/** HttpsError message a callable rejects an app build below its channel's minimum with */
+export const UPDATE_REQUIRED_MESSAGE = "update-required";
+/** The cached minimum builds are re-read this often per instance */
+export const RELEASE_MINS_TTL_MS = 60_000;
+
+/** FCM topic per release channel for new-version pushes (app enums UPDATE_TOPIC) */
+export const UPDATE_TOPIC: Record<ReleaseChannel, string> = {
+  [ReleaseChannel.DEV]: "app-updates-dev",
+  [ReleaseChannel.PROD]: "app-updates-prod",
+};
+/** FCM data `type` of a new-version push (app enums APP_UPDATE_MESSAGE) */
+export const APP_UPDATE_MESSAGE = "app_update";
+/** Header carrying sendTestPush's key */
+export const TEST_PUSH_KEY_HEADER = "x-test-push-key";

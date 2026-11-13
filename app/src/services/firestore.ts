@@ -17,7 +17,7 @@ import {
 } from "@react-native-firebase/firestore";
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { WatchStatus, MediaType, CloudFunction, CatalogShow } from "../types";
-import { WatchProgress } from "../enums";
+import { UPDATE_REQUIRED_MESSAGE, WatchProgress } from "../enums";
 import { showDocId, emitHistoryChange, localizeCatalog } from "../utils";
 import { trackApi } from "./analytics";
 import { recordTrackedEpisodes, trackEpisodeMarked, trackEpisodeUnwatched } from "./mixpanel";
@@ -106,6 +106,9 @@ function getCallableErrorMessage(err: any): string {
 	const code = err?.code;
 	const msg = err?.message;
 	if (code === "functions/not-found") return "Show not found on TMDB.";
+	// Force update (functions appVersionGate): the update drawer is already up — never a sign-out
+	if (code === "functions/failed-precondition" && msg === UPDATE_REQUIRED_MESSAGE)
+		return "Update the app to keep using it.";
 	if (code === "functions/failed-precondition") return msg || "Service misconfigured.";
 	if (code === "functions/unavailable") return "Could not reach TMDB. Try again later.";
 	if (code === "functions/unauthenticated") return "You must be signed in.";
@@ -407,15 +410,6 @@ export async function markEpisodeWatched(
 						: { rewatchDelta: opts.incrementRewatch ? 1 : 0 }),
 				}),
 	});
-
-	// Watched → out of the server upcoming list too (doc id from the upcoming CFs), so a
-	// later upcoming refetch doesn't bring it back. Fire-and-forget: missing doc is fine
-	deleteDoc(
-		doc(
-			collection(doc(db, "users", userId), "upcoming"),
-			`${showDocId(tmdbShowId, MediaType.TV)}_${docId.slice(docId.indexOf("_") + 1)}`,
-		),
-	).catch(() => {});
 }
 
 /** Unwatching back to a hole in the first watch ends any rewatch (a show can't be rewatched
@@ -1478,15 +1472,6 @@ async function markEpisodesBatch(
 		batch.set(trackingDoc, { ...trackingUpdate, ...history }, { merge: true });
 	}
 	await batch.commit();
-
-	// Watched → out of the server upcoming list too (fire-and-forget, like markEpisodeWatched)
-	const upcoming = collection(doc(db, "users", userId), "upcoming");
-	for (const ep of ordered) {
-		const id = episodeDocId(tmdbId, seasonNumber, ep.episodeNumber);
-		deleteDoc(
-			doc(upcoming, `${showDocId(tmdbId, MediaType.TV)}_${id.slice(id.indexOf("_") + 1)}`),
-		).catch(() => {});
-	}
 }
 
 export async function markSeasonWatchedCF(

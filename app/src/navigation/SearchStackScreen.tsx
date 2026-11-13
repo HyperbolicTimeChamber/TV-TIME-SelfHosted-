@@ -19,7 +19,8 @@ export default function SearchStackScreen() {
 			<SearchStack.Screen
 				name={Route.SEARCH_INPUT}
 				component={SearchInputScreen}
-				options={{ headerShown: false, animation: "fade" }}
+				// Swipe-back reveals the page it opened over
+				options={{ ...swipeBackScreenOptions, animation: "fade" }}
 			/>
 			<SearchStack.Screen
 				name={Route.SEARCH_RESULTS}

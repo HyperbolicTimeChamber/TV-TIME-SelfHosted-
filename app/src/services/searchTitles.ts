@@ -23,8 +23,8 @@ export function warmupSearchTitles() {
 }
 
 /**
- * One batch of title search results from the searchTitles CF — several TMDB pages at once, so a
- * sort covers all of them. Works signed in or not (guests are rate limited per IP)
+ * One batch of title search results from the searchTitles CF — several TMDB pages at once. Works
+ * signed in or not (guests are rate limited per IP)
  */
 export function searchTitles(
 	query: string,

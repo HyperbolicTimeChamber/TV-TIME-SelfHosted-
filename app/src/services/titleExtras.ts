@@ -1,12 +1,12 @@
 import { getFunctions, httpsCallable } from "@react-native-firebase/functions";
 import { CloudFunction, MediaType } from "../enums";
-import type { TitleCastPage, TitleExtras } from "../types";
+import type { PhotoSubject, SubjectLinkResult, TitleCastPage, TitleExtras } from "../types";
 import { trackApi } from "./analytics";
 import { foregroundCall } from "./callQueue";
 
 /**
- * A title's info page extras (featured cast, directors, studios, the country's Where to Watch)
- * from the titleExtras CF: Firestore first; whatever's missing comes from TMDB in one request and
+ * A title's info page extras (featured cast, directors, studios, the country's Where to Watch,
+ * a movie's release date there) from the titleExtras CF: Firestore first; whatever's missing comes from TMDB in one request and
  * is stored. Works signed in or not
  */
 export function fetchTitleExtras(
@@ -22,6 +22,21 @@ export function fetchTitleExtras(
 				region,
 			});
 			return res.data as TitleExtras;
+		}),
+	);
+}
+
+/** A person's / studio's link from the subjectLink CF (stored on the title after the first ask) */
+export function fetchSubjectLink(subject: PhotoSubject): Promise<SubjectLinkResult> {
+	return foregroundCall(() =>
+		trackApi("cloud_function", CloudFunction.SUBJECT_LINK, async () => {
+			const res = await httpsCallable(getFunctions(), CloudFunction.SUBJECT_LINK)({
+				tmdbId: subject.tmdbId,
+				mediaType: subject.mediaType,
+				kind: subject.kind,
+				id: subject.id,
+			});
+			return res.data as SubjectLinkResult;
 		}),
 	);
 }

@@ -1,8 +1,12 @@
-import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import React, { useState } from "react";
+import { Animated, View, Text, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { tmdbPosterUri } from "../../hooks/useTmdbImage";
+import { useSharedShimmer } from "../../components/SkeletonLine";
+import PhotoTrigger from "../../components/PhotoViewer";
+import { personSubject } from "../../utils/subjectLink";
+import type { MediaType } from "../../enums";
 import type { CrewMember } from "../../types";
 import { colors, spacing, typography, themedStyles } from "../../theme";
 
@@ -10,42 +14,78 @@ const AVATAR = 44;
 const PHOTO_FADE_MS = 200;
 
 interface Props {
+	tmdbId: number;
+	mediaType: MediaType;
 	/** Names from the page's details — shown (with a person icon) until the photos arrive */
 	directors: string[];
 	writers: string[];
 	/** With photos (titleExtras CF); replace the names once here */
 	directorPeople?: CrewMember[];
 	writerPeople?: CrewMember[];
+	/** The photos are still being fetched (shimmer, not a person icon that looks final) */
+	photosPending?: boolean;
 }
 
-type Person = { key: string; name: string; profile: string | null };
+type Person = CrewMember & { key: string };
 
 const people = (names: string[], withPhotos?: CrewMember[]): Person[] =>
 	withPhotos && withPhotos.length > 0
-		? withPhotos.map((p) => ({ key: String(p.id), name: p.name, profile: p.profile }))
-		: names.map((name) => ({ key: name, name, profile: null }));
+		? withPhotos.map((p) => ({ ...p, key: String(p.id) }))
+		: names.map((name) => ({ id: 0, key: name, name, profile: null }));
+
+/** Shimmers until there's something to show; a person icon only when they really have no photo */
+function Avatar({ profile, pending }: Readonly<{ profile: string | null; pending: boolean }>) {
+	const shimmer = useSharedShimmer();
+	const [loaded, setLoaded] = useState(false);
+	const shimmering = pending || (!!profile && !loaded);
+	return (
+		<View style={styles.avatar}>
+			{shimmering ? (
+				<Animated.View style={[StyleSheet.absoluteFill, styles.avatarShimmer, { opacity: shimmer }]} />
+			) : null}
+			{profile ? (
+				<Image
+					source={{ uri: tmdbPosterUri(profile, AVATAR) }}
+					style={styles.avatarPhoto}
+					contentFit="cover"
+					transition={PHOTO_FADE_MS}
+					onLoad={() => setLoaded(true)}
+					onError={() => setLoaded(true)}
+					accessibilityIgnoresInvertColors
+				/>
+			) : shimmering ? null : (
+				<Ionicons name="person" size={22} color={colors.textMuted} />
+			)}
+		</View>
+	);
+}
 
 /** One credit: its red label over its people — photo + name each, two to a row */
-function CreditGroup({ label, members }: Readonly<{ label: string; members: Person[] }>) {
+function CreditGroup({
+	label,
+	members,
+	pending,
+	title,
+}: Readonly<{
+	label: string;
+	members: Person[];
+	pending: boolean;
+	title: { tmdbId: number; mediaType: MediaType };
+}>) {
 	return (
 		<View>
 			<Text style={styles.creditLabel}>{label}</Text>
 			<View style={styles.grid}>
 				{members.map((m) => (
 					<View key={m.key} style={styles.person}>
-						<View style={styles.avatar}>
-							{m.profile ? (
-								<Image
-									source={{ uri: tmdbPosterUri(m.profile, AVATAR) }}
-									style={styles.avatarPhoto}
-									contentFit="cover"
-									transition={PHOTO_FADE_MS}
-									accessibilityIgnoresInvertColors
-								/>
-							) : (
-								<Ionicons name="person" size={22} color={colors.textMuted} />
-							)}
-						</View>
+						<PhotoTrigger
+							subject={m.profile ? personSubject(m, title) : null}
+							radius={AVATAR / 2}
+							thumbWidth={AVATAR}
+							style={styles.avatarSlot}
+						>
+							<Avatar profile={m.profile} pending={pending} />
+						</PhotoTrigger>
 						<Text style={styles.name} numberOfLines={2}>
 							{m.name}
 						</Text>
@@ -58,10 +98,13 @@ function CreditGroup({ label, members }: Readonly<{ label: string; members: Pers
 
 /** Movie credits: directors and writers, each with their photo, in a two-column grid */
 export default function DetailCredits({
+	tmdbId,
+	mediaType,
 	directors,
 	writers,
 	directorPeople,
 	writerPeople,
+	photosPending = false,
 }: Readonly<Props>) {
 	const directing = people(directors, directorPeople);
 	const writing = people(writers, writerPeople);
@@ -70,9 +113,21 @@ export default function DetailCredits({
 	return (
 		<View style={styles.creditsSection}>
 			{directing.length > 0 && (
-				<CreditGroup label={directing.length === 1 ? "Director" : "Directors"} members={directing} />
+				<CreditGroup
+					label={directing.length === 1 ? "Director" : "Directors"}
+					members={directing}
+					pending={photosPending}
+					title={{ tmdbId, mediaType }}
+				/>
 			)}
-			{writing.length > 0 && <CreditGroup label="Screenplay" members={writing} />}
+			{writing.length > 0 && (
+				<CreditGroup
+					label="Screenplay"
+					members={writing}
+					pending={photosPending}
+					title={{ tmdbId, mediaType }}
+				/>
+			)}
 		</View>
 	);
 }
@@ -92,6 +147,7 @@ const styles = themedStyles(() => StyleSheet.create({
 	// Two columns: each person takes half the row
 	grid: { flexDirection: "row", flexWrap: "wrap", rowGap: spacing.md },
 	person: { width: "50%", flexDirection: "row", alignItems: "center", gap: spacing.md, paddingRight: spacing.sm },
+	avatarSlot: { width: AVATAR, height: AVATAR },
 	avatar: {
 		width: AVATAR,
 		height: AVATAR,
@@ -102,5 +158,6 @@ const styles = themedStyles(() => StyleSheet.create({
 		justifyContent: "center",
 	},
 	avatarPhoto: { width: AVATAR, height: AVATAR },
+	avatarShimmer: { backgroundColor: colors.border },
 	name: { ...typography.body, color: colors.textSecondary, flexShrink: 1 },
 }));

@@ -34,7 +34,6 @@ app/fastlane/README.md
 
 # Environment
 *.local
-*.env
 
 
 # TypeScript
@@ -73,3 +72,11 @@ lerna-debug.log*
 .emulator-data/
 firebase-export-*/
 
+
+# Local Expo modules: Gradle output
+app/modules/*/android/build/
+app/modules/*/android/.gradle/
+.telegram.env
+
+# Momentic MCP run output (screenshots)
+.momentic-mcp/

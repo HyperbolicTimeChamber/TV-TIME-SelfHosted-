@@ -9,13 +9,29 @@ import { hasAired, nextEpisodeAirStamp } from "../utils/airTime";
  * a known, past release date. Statuses other than watching / rewatching / plan to watch
  * are always hidden.
  */
+const ACTIVE_STATUSES: WatchStatus[] = [
+	WatchStatus.WATCHING,
+	WatchStatus.REWATCHING,
+	WatchStatus.PLAN_TO_WATCH,
+];
+
+/** When a title hidden only because it isn't out yet comes out; null for anything else */
+export function pendingRelease(
+	item: EnrichedTrackingItem,
+): { airStamp?: string; airDate: string | null } | null {
+	if (!ACTIVE_STATUSES.includes(item.status) || isShowVisible(item)) return null;
+	if (item.mediaType === MediaType.MOVIE) {
+		const airDate = item.releaseDate ?? item.catalogShow?.releaseDate;
+		return airDate ? { airDate } : null;
+	}
+	if (!item.nextEpisode) return null;
+	const airStamp = nextEpisodeAirStamp(item.nextEpisode, item.catalogShow);
+	const airDate = item.nextEpisodeAirDate ?? null;
+	return airStamp || airDate ? { airStamp, airDate } : null;
+}
+
 export function isShowVisible(item: EnrichedTrackingItem): boolean {
-	const activeStatuses: WatchStatus[] = [
-		WatchStatus.WATCHING,
-		WatchStatus.REWATCHING,
-		WatchStatus.PLAN_TO_WATCH,
-	];
-	if (!activeStatuses.includes(item.status)) return false;
+	if (!ACTIVE_STATUSES.includes(item.status)) return false;
 
 	const today = todayStr();
 
@@ -89,9 +105,12 @@ function utcDayStartMs(day: string): number {
 }
 
 /**
- * Sort timestamp: max(priorityDate, next episode air date or movie release date). The content
- * date never counts past now: a date still ahead (catalog and tracking disagreeing on a movie's
- * release) sat above every fresh mark, so each marked card landed under it
+ * Sort timestamp: max(priorityDate, when the next episode aired / the movie was released). An
+ * episode with an exact air time (TVMaze airStamp) counts from that moment — counted from the
+ * day's local midnight, an episode out at 13:50 ranked under everything marked that morning and
+ * never reached the top. Date-only: local midnight. The content time never counts past now: a
+ * date still ahead (catalog and tracking disagreeing on a movie's release) sat above every fresh
+ * mark, so each marked card landed under it
  */
 export function getEffectivePriority(item: EnrichedTrackingItem, nowMs = Date.now()): number {
 	const isMovie = (item.mediaType ?? item.catalogShow?.mediaType) === MediaType.MOVIE;
@@ -99,7 +118,14 @@ export function getEffectivePriority(item: EnrichedTrackingItem, nowMs = Date.no
 	const contentDay = isMovie
 		? (item.releaseDate ?? item.catalogShow?.releaseDate ?? null)
 		: getNextEpisodeAirDate(item);
-	const contentDateMs = contentDay ? Math.min(localDayStartMs(contentDay), nowMs) : 0;
+	const airStamp = isMovie ? undefined : nextEpisodeAirStamp(item.nextEpisode, item.catalogShow);
+	const airStampMs = airStamp ? Date.parse(airStamp) : NaN;
+	const contentStartMs = Number.isFinite(airStampMs)
+		? airStampMs
+		: contentDay
+			? localDayStartMs(contentDay)
+			: 0;
+	const contentDateMs = contentStartMs ? Math.min(contentStartMs, nowMs) : 0;
 
 	// A priorityDate stamped from the content date (an unaired title's: that day's UTC midnight)
 	// is the content date, not a mark — counted at local midnight above. Read as is, east of UTC

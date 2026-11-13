@@ -32,6 +32,8 @@ export const fonts = {
 	smoochMedium: "SmoochSans_500Medium",
 	/** Handjet — pixel-style display (watchlist welcome title) */
 	handjetExtraBold: "Handjet_800ExtraBold",
+	/** VT323 — terminal pixel font (update drawer release notes) */
+	vt323: "VT323_400Regular",
 } as const;
 
 /** `#RRGGBB` + alpha → rgba(), for translucent fills and glow shadows */

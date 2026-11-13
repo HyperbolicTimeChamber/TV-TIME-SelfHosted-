@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { WhereToWatchCompact, WhereToWatchPlacement } from "./WhereToWatch";
+import { formatIsoDate } from "@app/utils/format";
+import { MediaType } from "@app/enums";
+import { LocalReleaseInline } from "./LocalReleaseLine";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { Spin } from "antd";
@@ -96,7 +100,8 @@ export default function ShowDrawer({
 	);
 	const isListed = !!listEntry && isTitleListed(lists, listEntry.tmdbId, listEntry.mediaType);
 	const meta = [
-		show?.year,
+		// A movie's full release date ("16 Jul 2024"); a show's first-air year
+		show?.releaseDate ? formatIsoDate(show.releaseDate) : show?.year,
 		show?.totalSeasons ? `${show.totalSeasons} season${show.totalSeasons !== 1 ? "s" : ""}` : null,
 		show?.totalEpisodes ? `${show.totalEpisodes} episodes` : null,
 		show?.runtime ? `${show.runtime} min` : null,
@@ -165,7 +170,15 @@ export default function ShowDrawer({
 										</div>
 										<div className={styles.content}>
 											<DrawerTitle key={`${show.mediaType}_${show.tmdbId}`} show={show} />
-											{meta && <p className={styles.meta}>{meta}</p>}
+											<div className={styles.metaRow}>
+												{meta && <p className={styles.meta}>{meta}</p>}
+												{show.mediaType === MediaType.MOVIE && show.tmdbId ? (
+													<LocalReleaseInline
+														tmdbId={show.tmdbId}
+														className={`${styles.meta} ${styles.metaRelease}`}
+													/>
+												) : null}
+											</div>
 											<div className={styles.genreRow}>
 												{show.genres == null ? (
 													<SkeletonBlock className={`${styles.skeleton} ${styles.skeletonShort}`} />
@@ -188,6 +201,15 @@ export default function ShowDrawer({
 												</div>
 											) : (
 												show.overview && <p className={styles.overview}>{show.overview}</p>
+											)}
+											{/* The info page's Where to Watch, fitted to the drawer (nothing when none) */}
+											{show.tmdbId != null && show.mediaType && (
+												<WhereToWatchCompact
+													tmdbId={show.tmdbId}
+													mediaType={show.mediaType}
+													title={show.title}
+													placement={WhereToWatchPlacement.DRAWER}
+												/>
 											)}
 										</div>
 										{onGoToShow && (

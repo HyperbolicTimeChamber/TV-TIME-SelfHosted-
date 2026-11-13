@@ -3,36 +3,66 @@ import { pooled } from "../tmdb";
 import { parseTmdbId } from "../../shared/docId";
 import {
   LEGACY_WATCH_PROVIDERS_COLLECTION,
+  MediaType,
   TITLE_EXTRAS_COLLECTION,
 } from "../../shared/enums";
 import type {
   RegionWatchProviders,
+  TitleExtrasFields,
   WatchProvidersFields,
 } from "../../shared/types";
+import { fetchTitleBundle } from "../titleExtras/fetch";
+import { localReleaseDate } from "../titleExtras/normalize";
 import { fetchTmdbWatchProviders } from "./fetch";
 import { normalizeRegion, sameRegionProviders } from "./normalize";
 
 type Doc = FirebaseFirestore.QueryDocumentSnapshot;
 
-/** Refreshes one title's stored countries (one TMDB request); writes only what changed */
+/** Refreshes one title's stored countries, a movie's release dates too (one TMDB request); writes
+ *  only what changed */
 async function refreshDoc(
   apiKey: string,
   doc: Doc,
   extra: WatchProvidersFields = {},
 ): Promise<boolean> {
-  const data = doc.data() as WatchProvidersFields;
+  const data = doc.data() as TitleExtrasFields;
   const stored = { ...(extra.watchProviders ?? {}), ...(data.watchProviders ?? {}) };
   const regions = [...new Set([...(data.watchRegions ?? []), ...(extra.watchRegions ?? [])])];
   if (regions.length === 0) return false;
   const { tmdbId, mediaType } = parseTmdbId(doc.id);
-  const all = await fetchTmdbWatchProviders(apiKey, tmdbId, mediaType);
+  const releaseRegions = mediaType === MediaType.MOVIE ? Object.keys(data.localReleases ?? {}) : [];
+  const bundle = releaseRegions.length
+    ? await fetchTitleBundle(apiKey, tmdbId, mediaType, {
+        credits: false,
+        providers: true,
+        release: true,
+      })
+    : null;
+  const all = bundle
+    ? (bundle["watch/providers"]?.results ?? {})
+    : await fetchTmdbWatchProviders(apiKey, tmdbId, mediaType);
   const changed: Record<string, RegionWatchProviders> = {};
   for (const region of regions) {
     const fresh = normalizeRegion(all[region]);
     if (!sameRegionProviders(stored[region], fresh)) changed[region] = fresh;
   }
-  if (Object.keys(changed).length === 0) return false;
-  await doc.ref.set({ watchProviders: changed }, { merge: true });
+  const changedReleases: Record<string, string | null> = {};
+  if (bundle?.release_dates) {
+    for (const region of releaseRegions) {
+      const fresh = localReleaseDate(bundle.release_dates.results, region);
+      if (data.localReleases?.[region] !== fresh) changedReleases[region] = fresh;
+    }
+  }
+  const hasProviders = Object.keys(changed).length > 0;
+  const hasReleases = Object.keys(changedReleases).length > 0;
+  if (!hasProviders && !hasReleases) return false;
+  await doc.ref.set(
+    {
+      ...(hasProviders ? { watchProviders: changed } : {}),
+      ...(hasReleases ? { localReleases: changedReleases } : {}),
+    },
+    { merge: true },
+  );
   return true;
 }
 

@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   featuredCast,
+  localReleaseDate,
   normalizeCast,
   normalizeDirectors,
   normalizeStudios,
@@ -69,12 +70,14 @@ test("missingExtras / extrasFromBundle", () => {
     credits: true,
     studios: true,
     providers: true,
+    release: true,
   });
   const out = extrasFromBundle(
     {
       production_companies: [{ id: 2, name: "S", logo_path: "/s.png" }],
       credits: { cast: [actor(1, 0, { character: "X" })], crew: [] },
       "watch/providers": { results: {} },
+      release_dates: { results: [] },
     },
     MediaType.MOVIE,
     "DE",
@@ -83,8 +86,32 @@ test("missingExtras / extrasFromBundle", () => {
   assert.deepEqual(out.fields.watchProviders?.DE?.providers, []);
   assert.deepEqual(
     missingExtras(out.fields, MediaType.MOVIE, "DE"),
-    { credits: false, studios: false, providers: false },
+    { credits: false, studios: false, providers: false, release: false },
   );
+});
+
+test("local release: theatrical first, earliest of that type; none is stored as null", () => {
+  const results = [
+    {
+      iso_3166_1: "IN",
+      release_dates: [
+        { release_date: "2025-05-01T00:00:00.000Z", type: 1 },
+        { release_date: "2025-09-01T00:00:00.000Z", type: 4 },
+        { release_date: "2025-07-24T00:00:00.000Z", type: 3 },
+        { release_date: "2025-07-20T00:00:00.000Z", type: 3 },
+      ],
+    },
+    { iso_3166_1: "DE", release_dates: [{ release_date: "2025-05-01T00:00:00.000Z", type: 1 }] },
+  ];
+  assert.equal(localReleaseDate(results, "IN"), "2025-07-20");
+  assert.equal(localReleaseDate(results, "DE"), null);
+  assert.equal(localReleaseDate(results, "FR"), null);
+});
+
+test("shows never need a local release; a country's null still counts as stored", () => {
+  assert.equal(missingExtras({}, MediaType.TV, "DE").release, false);
+  assert.equal(missingExtras({ localReleases: { DE: null } }, MediaType.MOVIE, "DE").release, false);
+  assert.equal(missingExtras({ localReleases: { DE: null } }, MediaType.MOVIE, "IN").release, true);
 });
 
 test("a movie's writers (Writing department), each once", () => {

@@ -1,8 +1,12 @@
 import { IoIosCloseCircle } from "react-icons/io";
 import { useEffect, useRef } from "react";
 import { IoChevronBackCircleOutline } from "react-icons/io5";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useSearchInput } from "@app/screens/SearchScreen/useSearchInput";
+import { encodeText } from "@app/utils/subjectLink";
+import { SEARCH_MAX_QUERY_LENGTH } from "@app/enums";
+import { requireOnline } from "@app/utils/requireOnline";
+
 import { Paths } from "../../routes/paths";
 import styles from "./styles/SearchInputScreen.module.scss";
 
@@ -10,9 +14,18 @@ import styles from "./styles/SearchInputScreen.module.scss";
 export default function SearchInputScreen() {
 	const navigate = useNavigate();
 	const [params] = useSearchParams();
+	// Opened from a results page, which sits under this one in history
+	const overResults = !!(useLocation().state as { overResults?: boolean } | null)?.overResults;
 	const inputRef = useRef<HTMLInputElement>(null);
-	const { query, setQuery, addToHistory, clearHistory, filteredHistory, suggestionItems } =
-		useSearchInput(params.get("q") ?? "");
+	const {
+		query,
+		setQuery,
+		addToHistory,
+		clearHistory,
+		filteredHistory,
+		suggestionItems,
+		loadingSuggestions,
+	} = useSearchInput(params.get("q") ?? "");
 
 	useEffect(() => {
 		inputRef.current?.focus();
@@ -20,9 +33,18 @@ export default function SearchInputScreen() {
 
 	const submitSearch = (term: string) => {
 		const trimmed = term.trim();
-		if (!trimmed) return;
+		// Offline: stay on the box (no empty results page), popup from requireOnline
+		if (!trimmed || !requireOnline()) return;
 		addToHistory(trimmed);
-		navigate(`${Paths.SEARCH}?q=${encodeURIComponent(trimmed)}`, { replace: true });
+		const results = `${Paths.SEARCH}?q=${encodeText(trimmed)}`;
+		if (!overResults) {
+			navigate(results, { replace: true });
+			return;
+		}
+		// Over a results page: step back onto it, then replace it, so one results page stays above
+		// Trending and back from a second search goes there
+		window.addEventListener("popstate", () => navigate(results, { replace: true }), { once: true });
+		window.history.back();
 	};
 
 	return (
@@ -37,7 +59,7 @@ export default function SearchInputScreen() {
 				<button
 					type="button"
 					className={styles.backButton}
-					onClick={() => navigate(Paths.SEARCH)}
+					onClick={() => (overResults ? navigate(-1) : navigate(Paths.SEARCH))}
 					aria-label="Back"
 				>
 					<IoChevronBackCircleOutline size={30} />
@@ -49,11 +71,15 @@ export default function SearchInputScreen() {
 						type="search"
 						enterKeyHint="search"
 						placeholder="Search Shows & Movies..."
+						maxLength={SEARCH_MAX_QUERY_LENGTH}
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}
 						autoCapitalize="none"
 						autoCorrect="off"
 					/>
+					{loadingSuggestions && (
+						<span className={styles.loading} role="progressbar" aria-label="Loading suggestions" />
+					)}
 					{query.length > 0 && (
 						<button
 							type="button"

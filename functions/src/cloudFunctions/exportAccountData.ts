@@ -62,7 +62,7 @@ export const exportAccountData = trackedOnCall(
     memory: "1GiB",
   },
   async (request) => {
-    const uid = requireCaller(request, Callable.EXPORT_ACCOUNT_DATA);
+    const uid = await requireCaller(request, Callable.EXPORT_ACCOUNT_DATA);
     const { scope, filter, parts, jobId } = exportOptions(request.data);
     const db = getFirestore();
     const user = db.doc(`users/${uid}`);

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Freeze } from "react-freeze";
-import { StyleSheet } from "react-native";
+import { StyleSheet, type Animated as RNAnimated } from "react-native";
 import Animated, {
 	Easing,
 	useAnimatedStyle,
@@ -16,6 +16,7 @@ import SearchStackScreen from "./SearchStackScreen";
 import ProfileStackScreen from "./ProfileStackScreen";
 import CustomTabBar from "./CustomTabBar";
 import { useSwipingBack } from "../components/SwipeBackView";
+import { useTabDesyncCheck } from "./useTabDesyncCheck";
 
 const SwipeTab = createMaterialTopTabNavigator<SwipeTabParamList>();
 
@@ -54,11 +55,16 @@ const isDetail = (route: Parameters<typeof getFocusedRouteNameFromRoute>[0]) => 
  */
 function TabBar({
 	state,
+	position,
+	layout,
 	onHeight,
 }: {
 	state: { routes: { name: string }[]; index: number };
+	position: RNAnimated.AnimatedInterpolation<number>;
+	layout: { width: number };
 	onHeight: (height: number) => void;
 }) {
+	useTabDesyncCheck(position, layout.width, state.index);
 	const swipingBack = useSwipingBack();
 	const activeRoute = state.routes[state.index];
 	const hidden = !swipingBack && isDetail(activeRoute as never);
@@ -139,16 +145,18 @@ export default function SwipeTabsScreen() {
 				}}
 				initialRouteName={Route.HOME}
 				tabBarPosition="bottom"
-				tabBar={({ state }) => <TabBar state={state} onHeight={setBarHeight} />}
+				tabBar={({ state, position, layout }) => (
+					<TabBar state={state} position={position} layout={layout} onHeight={setBarHeight} />
+				)}
 				screenOptions={({ route }) => {
 					const onDetail = isDetail(route);
 					return {
 						lazy: true,
 						sceneStyle: { paddingBottom: onDetail ? 0 : barHeight },
-						// Home's pager swipe is off: its Watch List / Upcoming tabs swipe themselves (RNGH,
-						// after the cards' own swipes). HomeScreen turns it on while Upcoming shows, so
-						// the left swipe on to Calendar follows the finger
-						swipeEnabled: !onDetail && route.name !== Route.HOME,
+						// On for Home too, so the left swipe from Upcoming on to Calendar follows the
+						// finger the moment Upcoming shows. Home's own pan (RNGH, after the cards' own
+						// swipes) claims every other horizontal drag before the pager's slop
+						swipeEnabled: !onDetail,
 					};
 				}}
 			>

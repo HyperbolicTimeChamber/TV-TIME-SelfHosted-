@@ -6,6 +6,7 @@ import { colors } from "../../theme";
 import { SUNDAY_COLUMN, pickBars, planChips } from "../../utils/calendarGrid";
 import type { DayMark } from "../../utils/calendarGroups";
 import { CalendarMode, ROW_MONTH, styles } from "./calendarStyles";
+import { CARD_MAX_FONT_SCALE } from "../../components/CardInfo";
 
 /** Month view shows this many event bars per day */
 const MAX_BARS = 3;
@@ -78,7 +79,10 @@ const DayCell = memo(function DayCell({
 				]}
 			>
 				<Animated.View style={[styles.dayNumberBox, numberStyle]}>
-					<Text style={[styles.dayNumber, column === SUNDAY_COLUMN && !isToday && styles.sunday]}>
+					<Text
+						maxFontSizeMultiplier={CARD_MAX_FONT_SCALE}
+						style={[styles.dayNumber, column === SUNDAY_COLUMN && !isToday && styles.sunday]}
+					>
 						{day}
 					</Text>
 				</Animated.View>
@@ -93,6 +97,7 @@ const DayCell = memo(function DayCell({
 							<Animated.View style={[styles.chips, chipsStyle]} pointerEvents="none">
 								{chipPlan.shown.map((m) => (
 									<Text
+										maxFontSizeMultiplier={CARD_MAX_FONT_SCALE}
 										key={m.key}
 										numberOfLines={2}
 										style={[styles.chip, { backgroundColor: markColor(m) }]}
@@ -103,6 +108,7 @@ const DayCell = memo(function DayCell({
 								{/* Hidden ones, per kind: red episodes, purple movies */}
 								{chipPlan.moreByKind.map(({ kind, count }) => (
 									<Text
+										maxFontSizeMultiplier={CARD_MAX_FONT_SCALE}
 										key={kind}
 										numberOfLines={1}
 										style={[

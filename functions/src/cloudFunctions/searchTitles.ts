@@ -15,9 +15,8 @@ import type {
 } from "../shared/types";
 
 /**
- * Title search in batches of several TMDB pages, so the client can sort a whole batch (TMDB
- * only orders search results by relevance; sorting page by page reshuffled the list as pages
- * came in).
+ * Title search in batches of several TMDB pages. A query that also names a year or a person
+ * ("batman 2006", "batman christian bale") is read as such when no title has all its words.
  * - Signed in or not: guests are rate limited per IP, users per uid
  * - One instance: its queueing TMDB rate limit, result cache and in-flight dedupe are global
  * - Busy (a TMDB request would queue too long) → resource-exhausted, the client retries later
@@ -33,7 +32,7 @@ export const searchTitles = trackedOnCall(
   },
   async (request): Promise<SearchTitlesResponse | null> => {
     // Logged-out web visitors search too (limited per IP)
-    requireCallerOrGuest(request, Callable.SEARCH_TITLES);
+    await requireCallerOrGuest(request, Callable.SEARCH_TITLES);
     if (request.data?.warmup) {
       await primeSearch();
       return null;

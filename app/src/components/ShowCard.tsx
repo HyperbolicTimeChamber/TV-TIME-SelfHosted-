@@ -16,8 +16,9 @@ import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton, { WATCHLIST_CHECK_CIRCLE, WATCHLIST_CHECK_TICK } from "./CheckmarkButton";
 
 import PosterImage from "./PosterImage";
-import CardInfo, { cardStyles, CARD_POSTER_WIDTH } from "./CardInfo";
+import CardInfo, { CARD_MAX_FONT_SCALE, cardStyles, CARD_POSTER_WIDTH } from "./CardInfo";
 import { todayStr } from "../utils";
+import { requireOnline } from "../utils/requireOnline";
 
 // Computed once per app session — avoids Date allocation per card per render
 const TODAY = todayStr();
@@ -52,9 +53,10 @@ interface Props {
 	watchCount?: number;
 	isUpdating?: boolean;
 	remainingEpisodes?: number | null;
-	onSwipeLeft: (item: any) => Promise<void>;
+	/** Resolving false = nothing happened (offline): the card snaps straight back */
+	onSwipeLeft: (item: any) => Promise<boolean | void>;
 	/** Omit to turn that swipe off */
-	onSwipeRight?: (item: any) => Promise<void>;
+	onSwipeRight?: (item: any) => Promise<boolean | void>;
 	/** Long press on the card (haptic included) */
 	onLongPress?: (item: any) => void;
 	onPress: (tmdbId: number, mediaType: MediaType) => void;
@@ -214,13 +216,21 @@ export default memo(function ShowCard({
 								<View style={styles.movieMetaRow}>
 									<View style={styles.movieBadgeGroup}>
 										<View style={[styles.movieBadgeMerged, styles.watchedFade]}>
-											<Text style={styles.movieBadgeText}>MOVIE</Text>
+											<Text
+												maxFontSizeMultiplier={CARD_MAX_FONT_SCALE}
+												style={styles.movieBadgeText}
+											>
+												MOVIE
+											</Text>
 										</View>
 										{item.releaseDate && (
 											<>
 												<View style={[styles.slantArrow, styles.watchedFade]} />
 												<View style={[styles.freshTag, styles.watchedFreshTag]}>
-													<Text style={[styles.freshTagText, styles.watchedYear]}>
+													<Text
+														maxFontSizeMultiplier={CARD_MAX_FONT_SCALE}
+														style={[styles.freshTagText, styles.watchedYear]}
+													>
 														{item.releaseDate.substring(0, 4)}
 													</Text>
 												</View>
@@ -236,7 +246,10 @@ export default memo(function ShowCard({
 												styles.mutedTag,
 											]}
 										>
-											<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
+											<Text
+												maxFontSizeMultiplier={CARD_MAX_FONT_SCALE}
+												style={[styles.tagBadgeText, styles.latestBadgeText]}
+											>
 												REWATCH {item.rewatchCount}
 											</Text>
 										</View>
@@ -246,14 +259,20 @@ export default memo(function ShowCard({
 						) : (
 							// The REWATCH tag on the episode's line (as on an active card)
 							<View style={styles.episodeRow}>
-								<Text style={[cardStyles.episode, styles.watchedMuted, styles.watchedFade]}>
+								<Text
+									maxFontSizeMultiplier={CARD_MAX_FONT_SCALE}
+									style={[cardStyles.episode, styles.watchedMuted, styles.watchedFade]}
+								>
 									{episodeLabel}
 								</Text>
 								{item.rewatchCount > 0 && (
 									<View
 										style={[styles.tagBadge, styles.inlineTag, styles.latestBadge, styles.mutedTag]}
 									>
-										<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
+										<Text
+											maxFontSizeMultiplier={CARD_MAX_FONT_SCALE}
+											style={[styles.tagBadgeText, styles.latestBadgeText]}
+										>
 											REWATCH {item.rewatchCount}
 										</Text>
 									</View>
@@ -281,7 +300,9 @@ export default memo(function ShowCard({
 		return (
 			<View style={styles.updatingContainer}>
 				<ActivityIndicator color={colors.text} size="small" />
-				<Text style={styles.updatingText}>Watched</Text>
+				<Text maxFontSizeMultiplier={CARD_MAX_FONT_SCALE} style={styles.updatingText}>
+					Watched
+				</Text>
 			</View>
 		);
 	}
@@ -311,7 +332,9 @@ export default memo(function ShowCard({
 					    corner clips it) */}
 					{rewatching && (
 						<View style={styles.cornerTag}>
-							<Text style={styles.cornerTagText}>REWATCH {item.rewatchCount}</Text>
+							<Text maxFontSizeMultiplier={CARD_MAX_FONT_SCALE} style={styles.cornerTagText}>
+								REWATCH {item.rewatchCount}
+							</Text>
 						</View>
 					)}
 					<CardInfo
@@ -325,11 +348,16 @@ export default memo(function ShowCard({
 								<View style={styles.movieMetaRow}>
 									<View style={styles.movieBadgeGroup}>
 										<View style={styles.movieBadgeMerged}>
-											<Text style={styles.movieBadgeText}>MOVIE</Text>
+											<Text
+												maxFontSizeMultiplier={CARD_MAX_FONT_SCALE}
+												style={styles.movieBadgeText}
+											>
+												MOVIE
+											</Text>
 										</View>
 										<View style={styles.slantArrow} />
 										<View style={styles.freshTag}>
-											<Text style={styles.freshTagText}>
+											<Text maxFontSizeMultiplier={CARD_MAX_FONT_SCALE} style={styles.freshTagText}>
 												{isJustAired
 													? FreshTag.JUST_AIRED
 													: (item.releaseDate?.substring(0, 4) ?? "")}
@@ -344,23 +372,36 @@ export default memo(function ShowCard({
 								    rest; LATEST already says nothing's left, so no +N beside it. A rewatch shows
 								    only FINALE here, and its +N (its REWATCH tag is the poster's corner tab) */}
 								<View style={styles.episodeRow}>
-									<Text style={cardStyles.episode}>
+									<Text maxFontSizeMultiplier={CARD_MAX_FONT_SCALE} style={cardStyles.episode}>
 										{episodeLabel}
 										{remainingLabel && (rewatching || !(isLatest && !isFinale && !isNewEpisode)) ? (
-											<Text style={styles.remaining}> {remainingLabel}</Text>
+											<Text maxFontSizeMultiplier={CARD_MAX_FONT_SCALE} style={styles.remaining}>
+												{" "}
+												{remainingLabel}
+											</Text>
 										) : null}
 									</Text>
 									{isFinale ? (
-										<View style={[styles.tagBadge, styles.inlineTag]}>
-											<Text style={styles.tagBadgeText}>{FreshTag.FINALE}</Text>
+										<View style={[styles.tagBadge, styles.inlineTag, styles.finaleBadge]}>
+											<Text
+												maxFontSizeMultiplier={CARD_MAX_FONT_SCALE}
+												style={[styles.tagBadgeText, styles.finaleBadgeText]}
+											>
+												{FreshTag.FINALE}
+											</Text>
 										</View>
 									) : rewatching ? null : isNewEpisode ? (
-										<View style={[styles.tagBadge, styles.inlineTag, styles.newBadge]}>
-											<Text style={[styles.tagBadgeText, styles.newBadgeText]}>{FreshTag.NEW}</Text>
+										<View style={[styles.tagBadge, styles.inlineTag]}>
+											<Text maxFontSizeMultiplier={CARD_MAX_FONT_SCALE} style={styles.tagBadgeText}>
+												{FreshTag.NEW}
+											</Text>
 										</View>
 									) : isLatest ? (
 										<View style={[styles.tagBadge, styles.inlineTag, styles.latestBadge]}>
-											<Text style={[styles.tagBadgeText, styles.latestBadgeText]}>
+											<Text
+												maxFontSizeMultiplier={CARD_MAX_FONT_SCALE}
+												style={[styles.tagBadgeText, styles.latestBadgeText]}
+											>
 												{FreshTag.LATEST}
 											</Text>
 										</View>
@@ -373,7 +414,7 @@ export default memo(function ShowCard({
 						<CheckmarkButton
 							size={WATCHLIST_CHECK_CIRCLE}
 							checkSize={WATCHLIST_CHECK_TICK}
-							onPress={() => swipeRef.current?.triggerSwipeLeft()}
+							onPress={() => requireOnline() && swipeRef.current?.triggerSwipeLeft()}
 							onLongPress={onCheckmarkLongPress}
 						/>
 					</View>
@@ -385,7 +426,9 @@ export default memo(function ShowCard({
 					pointerEvents="none"
 				>
 					<ActivityIndicator color={colors.text} size="small" />
-					<Text style={styles.updatingText}>Watched</Text>
+					<Text maxFontSizeMultiplier={CARD_MAX_FONT_SCALE} style={styles.updatingText}>
+						Watched
+					</Text>
 				</Animated.View>
 			)}
 		</Animated.View>
@@ -523,19 +566,18 @@ const styles = themedStyles(() => StyleSheet.create({
 		color: colors.text,
 		letterSpacing: 0.5,
 	},
-	newBadge: {
+	// NEW uses the default tag look (yellow, dark text); FINALE and LATEST are solid blue
+	finaleBadge: {
 		backgroundColor: colors.accent,
 	},
-	newBadgeText: {
+	finaleBadgeText: {
 		color: colors.text,
 	},
 	latestBadge: {
-		backgroundColor: "transparent",
-		borderWidth: 1,
-		borderColor: colors.accent,
+		backgroundColor: colors.accent,
 	},
 	latestBadgeText: {
-		color: colors.accent,
+		color: colors.text,
 	},
 	// Movie: MOVIE / year tags, and a REWATCH tag beside them
 	movieMetaRow: {

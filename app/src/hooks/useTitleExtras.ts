@@ -12,8 +12,8 @@ import { MediaType, QueryKey, TITLE_EXTRAS_STALE_MS } from "../enums";
 import type { TitleExtras } from "../types";
 
 /**
- * A title's info page extras: featured cast, directors, studios and the viewer's country's Where
- * to Watch. From its catalog doc when everything's there (cached, or read with the page — no
+ * A title's info page extras: featured cast, directors, studios, the viewer's country's Where
+ * to Watch and a movie's release date there. From its catalog doc when everything's there (cached, or read with the page — no
  * call); otherwise one titleExtras CF call fills the gaps, and its answer goes onto the cached
  * catalog for next time. Every section reads this one query
  */
@@ -27,15 +27,18 @@ export function useTitleExtras(tmdbId: number, mediaType: MediaType) {
 	])?.catalog;
 	const catalog = getCachedCatalogShow(tmdbId, mediaType) ?? pageCatalog;
 	const providers = region ? catalog?.watchProviders?.[region] : undefined;
+	const localRelease = region ? catalog?.localReleases?.[region] : undefined;
 	const stored: TitleExtras | undefined =
 		catalog?.cast &&
 		catalog.castTotal !== undefined &&
 		catalog.studioLogos &&
-		(mediaType !== MediaType.MOVIE || (catalog.directors && catalog.writers)) &&
+		(mediaType !== MediaType.MOVIE ||
+			(catalog.directors && catalog.writers && localRelease !== undefined)) &&
 		providers
 			? {
 					cast: catalog.cast,
 					castTotal: catalog.castTotal,
+					localRelease,
 					directors: catalog.directors ?? [],
 					writers: catalog.writers ?? [],
 					studios: catalog.studioLogos,

@@ -6,23 +6,23 @@ export {
 } from "./useCalendarEpisodes";
 export { useForceUpdate } from "./useForceUpdate";
 export { useSearch } from "./useSearch";
-export { useSearchSort, useSortedSearchResults } from "./useSearchSort";
 export { useSeasonDetails } from "./useSeasonDetails";
 export { useEpisodeInfoLoader, loadSeasonEpisodes } from "./useEpisodeInfoLoader";
 export { useShowDetails, catalogFromShowDetails } from "./useShowDetails";
 export { useTrending } from "./useTrending";
 export { useUpcomingEpisodes, useUpcomingMutations } from "./useUpcomingEpisodes";
 export { useUserStats } from "./useUserStats";
-export { isShowVisible, sortByPriority } from "./useVisibleTracking";
+export { isShowVisible, pendingRelease, sortByPriority } from "./useVisibleTracking";
 export { useTrackedIds } from "./useTrackedIds";
 export { useShowWatchedEpisodes } from "./useShowWatchedEpisodes";
 export {
 	useWatchedEpisodes,
+	WATCHED_EPISODES_PAGE_SIZE,
 	insertWatchedEpisodeCache,
 	removeWatchedEpisodeCache,
 	setWatchedEpisodeCountsCache,
 } from "./useWatchedEpisodes";
-export { useWatchedMovies, insertWatchedMovieCache } from "./useWatchedMovies";
+export { useWatchedMovies, insertWatchedMovieCache, WATCHED_MOVIES_PAGE_SIZE } from "./useWatchedMovies";
 export type { EnrichedTrackingItem } from "./useWatchlist";
 export {
 	useWatchlist,

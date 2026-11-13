@@ -1,26 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import {
-	AppState,
-	View,
-	Text,
-	TouchableOpacity,
-	StyleSheet,
-	useWindowDimensions,
-} from "react-native";
+import { AppState, View, StyleSheet, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-	CommonActions,
-	useIsFocused,
-	useNavigation,
-	useRoute,
-	type RouteProp,
-} from "@react-navigation/native";
+import { CommonActions, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import Animated, {
+	interpolateColor,
 	runOnJS,
 	useAnimatedStyle,
 	useSharedValue,
 	withTiming,
+	type SharedValue,
 } from "react-native-reanimated";
 import { colors, themedStyles } from "../../theme";
 import { HomeStackParamList, Route } from "../../types";
@@ -34,10 +23,13 @@ const TABS: { key: HomeTab; label: string }[] = [
 	{ key: Route.UPCOMING, label: "Upcoming" },
 ];
 const SLIDE_MS = 250;
-const START_PX = 25;
-/** On Upcoming a rightward drag is claimed this early, inside the bottom pager's ~8dp touch slop —
+/** On Upcoming a rightward drag is claimed this early, inside the bottom pager's 16dp paging slop —
  *  any later and the pager (swipeable there, for Calendar) intercepts it first */
 const UPCOMING_BACK_PX = 6;
+/** On Watch List every horizontal drag is claimed at this distance: past the cards' own swipes
+ *  (10dp, so a card swipe always wins) and inside the bottom pager's paging slop (ViewPager2:
+ *  2 × touch slop = 16dp) — the pager stays swipeable on all of Home, so it must never get one */
+const WATCHLIST_CLAIM_PX = 12;
 const TURN_SHARE = 0.3;
 const FLICK_VELOCITY = 500;
 const PRELOAD_TABS = [Route.CALENDAR, Route.SEARCH, Route.PROFILE];
@@ -45,6 +37,57 @@ const PRELOAD_START_MS = 4000;
 const PRELOAD_GAP_MS = 1500;
 /** Upcoming pre-mounts this long after Home, once JS is idle — mounting it mid-drag janked the slide */
 const UPCOMING_MOUNT_MS = 1500;
+
+const REPAINT_AFTER_SLIDE_MS = 100;
+const REPAINT_NUDGE_PX = 0.5;
+const REPAINT_MS = 50;
+
+/**
+ * Sends the row's position to its views again. The page and underline's transforms go through
+ * Reanimated's synchronous update, and one can be lost (seen after a resume and on Home's first
+ * mount: the label, updated by the commit path, moved while they stayed). Assigning the same value
+ * writes nothing, so the position steps off by half a pixel and eases back over a few frames
+ */
+function repaintRow(pos: SharedValue<number>, to: number) {
+	pos.value = to + REPAINT_NUDGE_PX;
+	pos.value = withTiming(to, { duration: REPAINT_MS });
+}
+
+/** The tab being pressed (its label dims), NO_TAB otherwise */
+const NO_TAB = -1;
+const PRESSED_OPACITY = 0.7;
+
+/**
+ * A tab's label: active colour from the row's position, on the UI thread like the row and the
+ * underline. Read from React state it stayed on the old tab for as long as JS was busy, under an
+ * underline and page that had already moved
+ */
+function TabLabel({
+	label,
+	tabIndex,
+	pos,
+	width,
+	pressedTab,
+}: Readonly<{
+	label: string;
+	tabIndex: number;
+	pos: SharedValue<number>;
+	width: number;
+	pressedTab: SharedValue<number>;
+}>) {
+	const animated = useAnimatedStyle(() => ({
+		color: interpolateColor(
+			pos.value,
+			// A zero width would divide by zero and crash the worklet
+			[0, Math.max(1, width)],
+			tabIndex === 0
+				? [colors.primary, colors.textSecondary]
+				: [colors.textSecondary, colors.primary],
+		),
+		opacity: pressedTab.value === tabIndex ? PRESSED_OPACITY : 1,
+	}));
+	return <Animated.Text style={[styles.tabLabel, animated]}>{label}</Animated.Text>;
+}
 
 export default function HomeScreen() {
 	const { top } = useSafeAreaInsets();
@@ -100,7 +143,7 @@ export default function HomeScreen() {
 	// Where the row is sliding to — a swipe / tap sets it with its slide, so the `tab` re-render
 	// that follows doesn't restart the slide mid-flight (the hitch at the end of a swipe)
 	const settle = useSharedValue(index * width);
-	// translationX at activation — the pan only starts after START_PX, without this the row jumps
+	// translationX at activation — the pan only starts after its claim distance, else the row jumps
 	const grab = useSharedValue(0);
 	useEffect(() => {
 		const to = index * width;
@@ -119,10 +162,19 @@ export default function HomeScreen() {
 			dragging.value = false;
 			indexSV.value = target.current / Math.max(1, width);
 			settle.value = target.current;
-			pos.value = target.current;
+			repaintRow(pos, target.current);
 		});
 		return () => sub.remove();
 	}, [pos, dragging, settle, indexSV, width]);
+
+	// Once a tab change has settled, send its position again (see repaintRow)
+	useEffect(() => {
+		const timer = setTimeout(() => {
+			const to = index * width;
+			if (!dragging.value && settle.value === to) repaintRow(pos, to);
+		}, SLIDE_MS + REPAINT_AFTER_SLIDE_MS);
+		return () => clearTimeout(timer);
+	}, [index, width, pos, dragging, settle]);
 
 	useEffect(() => {
 		const parent = navigation.getParent();
@@ -137,29 +189,44 @@ export default function HomeScreen() {
 	}, [navigation]);
 
 	// Upcoming → Calendar belongs to the bottom pager, the one thing that can slide Calendar in
-	// under the finger (this pan, clamped at Upcoming, moved nothing and jumped on release). So
-	// the pager's swipe is on for Home while Upcoming shows. It intercepts at its own ~8dp slop,
-	// which used to swallow slow swipes back to Watch List (1 in 3) — the pan below now claims
-	// rightward drags on Upcoming at UPCOMING_BACK_PX, before the pager can.
-	const focused = useIsFocused();
-	useEffect(() => {
-		const parent = navigation.getParent();
-		if (!parent) return;
-		parent.setOptions({ swipeEnabled: focused && tab === Route.UPCOMING });
-	}, [navigation, focused, tab]);
+	// under the finger (this pan, clamped at Upcoming, moved nothing and jumped on release). The
+	// pager's swipe is on for all of Home (SwipeTabsScreen): switching it on from here once
+	// Upcoming showed waited on a React render, so a quick swipe on to Calendar right after
+	// landing found it still off. Which drags it gets is decided on the UI thread instead — the
+	// pan below claims every horizontal drag on Watch List (WATCHLIST_CLAIM_PX) and rightward
+	// ones on Upcoming (UPCOMING_BACK_PX) before the pager's slop, so it only ever gets leftward
+	// drags on Upcoming.
 
-	// Tab tap: start the slide on the UI thread now — the state change (labels, swipe options)
-	// follows without holding up the animation
-	const goTo = useCallback(
-		(key: HomeTab) => {
-			const i = TABS.findIndex((t) => t.key === key);
-			indexSV.value = i;
-			settle.value = i * width;
-			pos.value = withTiming(i * width, { duration: SLIDE_MS });
-			if (key === Route.UPCOMING) setUpcomingOpened(true);
-			setTab(key);
-		},
-		[pos, settle, width, indexSV],
+	// What a tab change needs from React; the slide itself never waits for it
+	const applyTab = useCallback((key: HomeTab) => {
+		if (key === Route.UPCOMING) setUpcomingOpened(true);
+		setTab(key);
+	}, []);
+
+	// Tab taps are recognised on the UI thread: with touchables a busy JS thread swallowed them
+	const pressedTab = useSharedValue(NO_TAB);
+	const tabTaps = useMemo(
+		() =>
+			TABS.map((t, i) =>
+				Gesture.Tap()
+					.onBegin(() => {
+						"worklet";
+						pressedTab.value = i;
+					})
+					.onEnd((_e, success) => {
+						"worklet";
+						if (!success) return;
+						indexSV.value = i;
+						settle.value = i * width;
+						pos.value = withTiming(i * width, { duration: SLIDE_MS });
+						runOnJS(applyTab)(t.key);
+					})
+					.onFinalize(() => {
+						"worklet";
+						pressedTab.value = NO_TAB;
+					}),
+			),
+		[applyTab, indexSV, pos, pressedTab, settle, width],
 	);
 
 	// Built once. Rebuilding a gesture the moment a drag ends (which `index` in the deps did)
@@ -186,17 +253,15 @@ export default function HomeScreen() {
 						return;
 					}
 					// Upcoming: rightward → Watch List, claimed early (see UPCOMING_BACK_PX); leftward
-					// is the bottom pager's, on to Calendar. Watch List claims leftward only; a
-					// rightward drag there is the system back gesture's.
+					// is the bottom pager's, on to Calendar. Watch List claims both ways before the
+					// pager can (see WATCHLIST_CLAIM_PX): leftward slides to Upcoming, rightward is
+					// held so the pager doesn't overscroll Home (the row stays clamped at 0).
 					if (indexSV.value === 1) {
 						if (dx < -UPCOMING_BACK_PX) state.fail();
 						else if (dx > UPCOMING_BACK_PX && dx > Math.abs(dy) * 2) state.activate();
 						return;
 					}
-					if (Math.abs(dx) > START_PX) {
-						if (dx < 0) state.activate();
-						else state.fail();
-					}
+					if (Math.abs(dx) > WATCHLIST_CLAIM_PX) state.activate();
 				})
 				.onStart((e) => {
 					"worklet";
@@ -259,15 +324,25 @@ export default function HomeScreen() {
 	return (
 		<View style={styles.container}>
 			<View style={[styles.tabBar, { paddingTop: top }]}>
-				{TABS.map((t) => (
-					<TouchableOpacity
-						key={t.key}
-						style={styles.tab}
-						onPress={() => goTo(t.key)}
-						activeOpacity={0.7}
-					>
-						<Text style={[styles.tabLabel, t.key === tab && styles.tabLabelActive]}>{t.label}</Text>
-					</TouchableOpacity>
+				{TABS.map((t, i) => (
+					<GestureDetector key={t.key} gesture={tabTaps[i]}>
+						<View
+							style={styles.tab}
+							accessible
+							accessibilityRole="tab"
+							accessibilityLabel={t.label}
+							accessibilityState={{ selected: t.key === tab }}
+							onAccessibilityTap={() => applyTab(t.key)}
+						>
+							<TabLabel
+								label={t.label}
+								tabIndex={i}
+								pos={pos}
+								width={width}
+								pressedTab={pressedTab}
+							/>
+						</View>
+					</GestureDetector>
 				))}
 				<Animated.View style={[styles.indicator, { width: width / TABS.length }, indicator]} />
 			</View>
@@ -294,7 +369,6 @@ const styles = themedStyles(() => StyleSheet.create({
 		letterSpacing: 1,
 		color: colors.textSecondary,
 	},
-	tabLabelActive: { color: colors.primary },
 	indicator: {
 		position: "absolute",
 		bottom: 0,

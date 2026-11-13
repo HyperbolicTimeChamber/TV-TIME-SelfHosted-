@@ -214,6 +214,14 @@
 	display: none;
 }
 
+/* Lines up with the description above it */
+.localRelease {
+	padding: 0 8px;
+	margin-top: 24px;
+	/* The big date's line box already leaves room under it */
+	margin-bottom: -8px;
+}
+
 .overview {
 	font-size: 14px;
 	line-height: 22px;
@@ -264,7 +272,18 @@
 	min-width: 0;
 }
 
+.creditAvatarTrigger {
+	flex-shrink: 0;
+	border-radius: 50%;
+}
+
+.creditAvatarShimmer {
+	position: absolute;
+	inset: 0;
+}
+
 .creditAvatar {
+	position: relative;
 	flex-shrink: 0;
 	width: 44px;
 	height: 44px;
@@ -291,4 +310,5 @@
 	font-size: 18px;
 	font-weight: 600;
 	margin: 0 0 12px;
+	padding: 0 8px; /* In line with the page's text */
 }

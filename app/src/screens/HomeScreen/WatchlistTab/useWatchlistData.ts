@@ -10,9 +10,12 @@ import {
 	prefillCatalog,
 	useWatchedEpisodes,
 	useWatchedMovies,
+	WATCHED_EPISODES_PAGE_SIZE,
+	WATCHED_MOVIES_PAGE_SIZE,
 	insertWatchedEpisodeCache,
 	insertWatchedMovieCache,
 	isShowVisible,
+	pendingRelease,
 	sortByPriority,
 	useUpcomingMutations,
 	incrementDailyWatch,
@@ -38,7 +41,25 @@ import {
 	isFinaleEpisode,
 	adjacentPointer,
 } from "../../../utils";
-import { mergeCachedShows, promoteShows } from "../../../utils/watchlistOrder";
+import {
+	addAiredCards,
+	mergeCachedShows,
+	promoteShows,
+	showCardIds,
+	unseenCardIds,
+	changedCardCount,
+	isBulkCardChange,
+	cardEntryMode,
+	cardEntryOrder,
+	type CardRelease,
+} from "../../../utils/watchlistOrder";
+import {
+	CARD_ENTRY_MAX_PENDING_MS,
+	CARD_ENTRY_RUN_MS,
+	CardEntryMode,
+	PENDING_CARD_LIMIT,
+} from "../../../enums";
+import { coldStartHistory, safeHistory } from "../../../utils/watchedHistory";
 import {
 	MediaType,
 	CacheKey,
@@ -48,9 +69,10 @@ import {
 	WatchedMovie,
 } from "../../../types";
 import type { WatchlistListItem } from "../../../types/watchlist";
-import { nextEpisodeAirStamp } from "../../../utils/airTime";
+import { hasAired, nextEpisodeAirStamp } from "../../../utils/airTime";
 import { fetchEpisodeRuntime } from "../../../services/tmdb";
 import { useAuthStore } from "../../../stores";
+import { requireOnline } from "../../../utils/requireOnline";
 import { batchEndOffsets, staggerFinishTimes } from "../../../utils/stagger";
 
 /** Only schedule the air-time re-check for episodes airing within a day */
@@ -58,6 +80,13 @@ const AIR_RECHECK_MAX_MS = 86_400_000;
 /** Between arming the card glide for cards reaching their air time and showing them: armed in
  *  the same commit as the move, the glide didn't run (the rows jumped) */
 const AIR_ARM_LEAD_MS = 120;
+/** A card that joined at launch is held until the first load is over, then this long: with the
+ *  launch's work still running, the rows took their new place frames before their glide started */
+const CARD_RELEASE_QUIET_MS = 500;
+/** Longest it's held if the first load never reports finished */
+const CARD_RELEASE_MAX_HOLD_MS = 8000;
+/** Longest it then waits for the JS thread to go idle */
+const CARD_RELEASE_MAX_WAIT_MS = 2000;
 
 const ACTIVE_CACHE_LIMIT = 100;
 
@@ -163,6 +192,8 @@ function restoreQuery(queryClient: QueryClient, key: readonly unknown[], before:
 }
 
 export type CardItem = ReturnType<typeof buildCardItem>;
+/** A card saved with the watchlist before its episode was out */
+type PendingCard = CardRelease & { card: CardItem };
 
 /**
  * Daily reorder: cached cards whose next episode has aired since the cache was
@@ -238,6 +269,21 @@ export type CacheableWatchlistListItem =
 			tmdbId: number;
 	  };
 
+/** Rows and what they show that a change can animate (order, cards' episodes, watch counts) */
+function listShapeKey(list: readonly CacheableWatchlistListItem[]): string {
+	return list
+		.map((i) =>
+			i.type === "sectionHeader"
+				? `h${i.title}`
+				: i.type === "show"
+					? `s${i.card.tmdbId}:${i.card.nextEpisode?.season ?? 0}-${i.card.nextEpisode?.episode ?? 0}`
+					: i.type === "watchedEpisode"
+						? `e${i.episode.id}:${i.episode.watchCount ?? 0}`
+						: `m${i.movie.id}:${i.movie.watchCount ?? 0}`,
+		)
+		.join("|");
+}
+
 export function useWatchlistData(userId: string | undefined) {
 	const {
 		items,
@@ -265,8 +311,7 @@ export function useWatchlistData(userId: string | undefined) {
 	} = useWatchedMovies(userId);
 
 	const queryClient = useQueryClient();
-	const { mutateCachedUpcoming, rollbackUpcoming, removeShowFromUpcoming, removeWatchedFromPast } =
-		useUpcomingMutations();
+	const { removeShowFromUpcoming } = useUpcomingMutations();
 	const [updatingShows, setUpdatingShows] = useState<Map<number, string>>(new Map());
 	// Optimistic card patches applied after Firestore write, before listener re-enriches
 	const [optimisticCards, setOptimisticCards] = useState<Map<number, Partial<CardItem>>>(new Map());
@@ -338,6 +383,8 @@ export function useWatchlistData(userId: string | undefined) {
 	const [reordering, setReordering] = useState(false);
 	const cacheRestored = useRef(false);
 	const cachedActiveCount = useRef(0);
+	// The saved list's cards, until the live pages have caught up with it (null after)
+	const [savedCardIds, setSavedCardIds] = useState<ReadonlySet<number> | null>(null);
 
 	useEffect(() => {
 		if (!userId || cacheRestored.current) return;
@@ -354,20 +401,39 @@ export function useWatchlistData(userId: string | undefined) {
 				}
 
 				const today = todayStr();
+				// Episodes that came out while the app was closed: drawn with the first frame
+				const pending: PendingCard[] = cached.pending ?? [];
+				const isOut = (p: PendingCard) => hasAired(p.airStamp, p.airDate, today);
+				const aired = pending
+					.filter(isOut)
+					.sort((a, b) => (b.airDate ?? "").localeCompare(a.airDate ?? ""))
+					.map((p) => ({ type: "show" as const, card: { ...p.card, remaining: null } }));
+				const savedList: CacheableWatchlistListItem[] = addAiredCards<CacheableWatchlistListItem>(
+					cached.list,
+					aired,
+					{ type: "sectionHeader", title: "What's Up Next" },
+				);
 				if (cached.date === today) {
 					// Same day — use cache as-is
-					setCachedList(cached.list);
-					cachedActiveCount.current = cached.list.filter((i: any) => i.type === "show").length;
+					setCachedList(savedList);
+					setSavedCardIds(showCardIds(savedList));
+					cachedActiveCount.current = savedList.filter((i) => i.type === "show").length;
 				} else {
 					// Different day — reorder: promote newly-airable shows to top
 					setReordering(true);
-					const reordered = reorderCachedList(cached.list, today);
+					const reordered = reorderCachedList(savedList, today);
 					setCachedList(reordered);
+					setSavedCardIds(showCardIds(reordered));
 					cachedActiveCount.current = reordered.filter((i: any) => i.type === "show").length;
 					// Persist with today's date
 					AsyncStorage.setItem(
 						CacheKey.WATCHLIST_ACTIVE,
-						JSON.stringify({ userId, date: today, list: reordered }),
+						JSON.stringify({
+							userId,
+							date: today,
+							list: reordered,
+							pending: pending.filter((p) => !isOut(p)),
+						}),
 					).catch(() => {});
 					setReordering(false);
 				}
@@ -464,6 +530,9 @@ export function useWatchlistData(userId: string | undefined) {
 
 	// Re-check visibility when the next not-yet-aired episode reaches its air time (within a day)
 	const [airClock, setAirClock] = useState(0);
+	// Cards that reached their air time together, waiting to come in one at a time (the entry
+	// queue below); a catch-up of WATCHLIST_BULK_CHANGE_CARDS or more comes in as one swap instead
+	const [airQueue, setAirQueue] = useState<ReadonlySet<number>>(new Set());
 	useEffect(() => {
 		const now = Date.now();
 		let next = Infinity;
@@ -476,13 +545,18 @@ export function useWatchlistData(userId: string | undefined) {
 		if (next - now > AIR_RECHECK_MAX_MS) return;
 		const timer = setTimeout(
 			() => {
-				// Cards this re-check brings into "What's Up Next" grow in (noted before the list sees
-				// them — it picks its animations while rendering the new rows)
-				for (const item of items) {
-					if (!isShowVisible(item)) continue;
-					const stamp = nextEpisodeAirStamp(item.nextEpisode, item.catalogShow);
-					const t = stamp ? Date.parse(stamp) : NaN;
-					if (t > now) noteListChange(item.tmdbId);
+				// Cards this re-check brings into "What's Up Next" wait in the entry queue, which lets
+				// them in one at a time (each grows in); a catch-up comes in as one swap
+				const joining = items
+					.filter((item) => {
+						if (!isShowVisible(item)) return false;
+						const stamp = nextEpisodeAirStamp(item.nextEpisode, item.catalogShow);
+						const t = stamp ? Date.parse(stamp) : NaN;
+						return t > now;
+					})
+					.map((item) => item.tmdbId);
+				if (cardEntryMode(joining.length) === CardEntryMode.STAGED) {
+					setAirQueue((prev) => new Set([...prev, ...joining]));
 				}
 				showTimer = setTimeout(() => setAirClock((c) => c + 1), AIR_ARM_LEAD_MS);
 			},
@@ -510,60 +584,24 @@ export function useWatchlistData(userId: string | undefined) {
 		| { kind: MediaType.TV; ep: WatchedEpisode; time: number }
 		| { kind: MediaType.MOVIE; movie: WatchedMovie; time: number };
 
-	// Merge-sort display: only show items whose chronological position is
-	// confirmed. An item is safe to show if the OTHER type has a fetched item
-	// older than it (proving nothing is missing in the gap), or if that type's
-	// pages are exhausted.
-	const safePrevItems = useMemo(() => {
-		const epItems: PrevItem[] = [];
-		for (const ep of watchedEps) {
-			epItems.push({
-				kind: MediaType.TV,
-				ep,
-				time: ep.lastWatchedAt?.toMillis?.() || 0,
-			});
-		}
-		const movieItems: PrevItem[] = [];
-		for (const movie of watchedMovies) {
-			movieItems.push({
+	const epHistory = useMemo<PrevItem[]>(
+		() => watchedEps.map((ep) => ({ kind: MediaType.TV, ep, time: ep.lastWatchedAt?.toMillis?.() || 0 })),
+		[watchedEps],
+	);
+	const movieHistory = useMemo<PrevItem[]>(
+		() =>
+			watchedMovies.map((movie) => ({
 				kind: MediaType.MOVIE,
 				movie,
 				time: movie.lastWatchedAt?.toMillis?.() || 0,
-			});
-		}
-
-		// If one type is empty and fully loaded, show all of the other — ascending like the merge
-		// below (the queries come newest first; unsorted, the cached tier kept the oldest rows
-		// and a fresh mark never showed)
-		const ascending = (list: PrevItem[]) => [...list].sort((a, b) => a.time - b.time);
-		if (epItems.length === 0 && !hasMoreEps) return ascending(movieItems);
-		if (movieItems.length === 0 && !hasMoreMovies) return ascending(epItems);
-		// If one type is empty but has more pages, can't show anything from the other
-		// (gaps might exist) — show nothing until pull loads data
-		if (epItems.length === 0 || movieItems.length === 0) return [];
-
-		const oldestEpTime = epItems[epItems.length - 1].time;
-		const oldestMovieTime = movieItems[movieItems.length - 1].time;
-
-		// Safe cutoff: items newer than max(oldestEp, oldestMovie) are guaranteed
-		// correct. Beyond that, the lagging type might have unfetched items.
-		// Exception: if the lagging type has no more pages, no cutoff needed.
-		let cutoff = -Infinity;
-		if (hasMoreEps && hasMoreMovies) {
-			cutoff = Math.max(oldestEpTime, oldestMovieTime);
-		} else if (hasMoreEps) {
-			// All movies loaded — eps are the constraint
-			cutoff = oldestEpTime;
-		} else if (hasMoreMovies) {
-			// All eps loaded — movies are the constraint
-			cutoff = oldestMovieTime;
-		}
-		// else: both fully loaded, no cutoff
-
-		return [...epItems, ...movieItems]
-			.filter((item) => item.time >= cutoff)
-			.sort((a, b) => a.time - b.time); // ascending: oldest first, newest last
-	}, [watchedEps, watchedMovies, showMap, hasMoreEps, hasMoreMovies]);
+			})),
+		[watchedMovies],
+	);
+	// Only rows whose chronological place is confirmed (see safeHistory), oldest first
+	const safePrevItems = useMemo(
+		() => safeHistory(epHistory, movieHistory, hasMoreEps, hasMoreMovies),
+		[epHistory, movieHistory, hasMoreEps, hasMoreMovies],
+	);
 
 	// Cached tier: newest PREV_WATCHED_CACHE_SIZE (persisted). Volatile tier: older pulled items
 	// (cleared on restart), capped so marks made outside this tab don't grow the list unbounded;
@@ -690,8 +728,23 @@ export function useWatchlistData(userId: string | undefined) {
 
 		// Cache: newest PREV_WATCHED_CACHE_SIZE watched items + the show cards
 		const cacheList: CacheableWatchlistListItem[] = [];
+		// Only rows a cold start loads too: this session's history pages can hold more than a
+		// fresh first page (a mark adds its row), and a saved row the live list then lacked
+		// vanished above the view a moment after launch — the list jumped by a row
+		const freshRows = new Set<WatchedEpisode | WatchedMovie>(
+			coldStartHistory(
+				epHistory,
+				movieHistory,
+				hasMoreEps,
+				hasMoreMovies,
+				WATCHED_EPISODES_PAGE_SIZE,
+				WATCHED_MOVIES_PAGE_SIZE,
+			).map((i) => (i.kind === MediaType.TV ? i.ep : i.movie)),
+		);
 		const cachedWatchedItems = orderedLive.filter(
-			(i) => i.type === "watchedEpisode" || i.type === "watchedMovie",
+			(i) =>
+				(i.type === "watchedEpisode" && freshRows.has(i.episode)) ||
+				(i.type === "watchedMovie" && freshRows.has(i.movie)),
 		);
 		const cachedOnly = cachedWatchedItems.slice(-PREV_WATCHED_CACHE_SIZE);
 		if (cachedOnly.length > 0) {
@@ -710,12 +763,23 @@ export function useWatchlistData(userId: string | undefined) {
 			}
 		}
 
+		// Cards not out yet, ready for a launch after they air
+		const pending: PendingCard[] = items
+			.flatMap((item) => {
+				const release = pendingRelease(item);
+				if (!release) return [];
+				const { catalogShow: _catalogShow, ...card } = buildCardItem(item, todayStr());
+				return [{ ...release, card: card as CardItem }];
+			})
+			.sort((a, b) => (a.airDate ?? "~").localeCompare(b.airDate ?? "~"))
+			.slice(0, PENDING_CARD_LIMIT);
+
 		AsyncStorage.setItem(
 			CacheKey.WATCHLIST_ACTIVE,
-			JSON.stringify({ userId, date: todayStr(), list: cacheList }),
+			JSON.stringify({ userId, date: todayStr(), list: cacheList, pending }),
 		).catch(() => {});
 		if (cachedList) setCachedList(null);
-	}, [userId, allLoading, orderedLive, cachedList, liveCaughtUp]);
+	}, [userId, allLoading, orderedLive, items, cachedList, liveCaughtUp, epHistory, movieHistory, hasMoreEps, hasMoreMovies]);
 
 	// Confirmed by the live listeners: first load done, no page pending, none left
 	const liveExhausted = !allLoading && !loadingMoreTracking && !hasMoreTracking;
@@ -727,15 +791,130 @@ export function useWatchlistData(userId: string | undefined) {
 		).catch(() => {});
 	}, [userId, allLoading, loadingMoreTracking, hasMoreTracking]);
 
+	// A card the saved list didn't have (its episode aired while the app was closed) grows in like
+	// one reaching its air time. While it's held the list has its glide on (cardsHeld), so the rows
+	// can move with it when it's let through a moment later; shown at once, they jumped (AIR_ARM_LEAD_MS)
+	const [releasedCards, setReleasedCards] = useState<ReadonlySet<number>>(new Set());
+	const heldCards = useMemo(() => {
+		const unseen = unseenCardIds(savedCardIds, releasedCards, orderedLive);
+		if (unseen.size === 0 || !savedCardIds) return unseen;
+		// A big catch-up isn't held: the whole change lands as one list swap (WATCHLIST_BULK_CHANGE_CARDS)
+		const changes = changedCardCount(savedCardIds, showCardIds(orderedLive), liveCaughtUp);
+		return isBulkCardChange(changes) ? new Set<number>() : unseen;
+	}, [savedCardIds, releasedCards, orderedLive, liveCaughtUp]);
+	const firstLoadDone = !allLoading && liveCaughtUp;
+
+	// --- Entry queue: cards joining together come in one at a time ---
+	// Waiting: the launch's held cards and the ones that reached their air time together, in list
+	// order (cardEntryOrder: top first; ones the live list lost are dropped). Each is let through
+	// alone: noted (its grow-in + the rows' glide arm), shown, then the list is held still for its
+	// run (CARD_ENTRY_RUN_MS, `entryRun`) — anything that changes meanwhile (a live update, the
+	// user's own mark / unwatch) is shown when the run is over, and the next card waits a further
+	// run if that changed the list. Five or more waiting come in at once (one swap). A queue that
+	// keeps restarting lets everything in after CARD_ENTRY_MAX_PENDING_MS
+	const liveCardIds = useMemo(() => showCardIds(orderedLive), [orderedLive]);
+	const pendingEntry = useMemo(() => {
+		const all = new Set(heldCards);
+		for (const id of airQueue) if (liveCardIds.has(id)) all.add(id);
+		return all;
+	}, [heldCards, airQueue, liveCardIds]);
+	const entryOrder = useMemo(() => cardEntryOrder(pendingEntry, orderedLive), [pendingEntry, orderedLive]);
+	const entryKey = entryOrder.join();
+	const [entryRun, setEntryRun] = useState<number | null>(null);
+	const entryToken = useRef(0);
+	/** The list changed while the last run held it still: the next card waits a run */
+	const changedDuringRun = useRef(false);
+	/** When the list last changed shape (set below, where the shown list is worked out) */
+	const shapeChangedAt = useRef(0);
+	/** Launch held cards wait for the first load before the first one comes in */
+	const launchStarted = useRef(false);
+	// Read in the effect below through a ref: the set is rebuilt on every live update, and as a
+	// dependency it restarted the wait each time
+	const heldRef = useRef(heldCards);
+	heldRef.current = heldCards;
+	const letIn = useCallback((ids: readonly number[]) => {
+		setAirQueue((prev) => {
+			if (!ids.some((id) => prev.has(id))) return prev;
+			const next = new Set(prev);
+			for (const id of ids) next.delete(id);
+			return next;
+		});
+		setReleasedCards((prev) => new Set([...prev, ...ids]));
+	}, []);
+	useEffect(() => {
+		if (!entryKey || entryRun !== null) return;
+		const ids = entryKey.split(",").map(Number);
+		const launchWait = !launchStarted.current && ids.some((id) => heldRef.current.has(id));
+		const delay = launchWait
+			? firstLoadDone
+				? CARD_RELEASE_QUIET_MS
+				: CARD_RELEASE_MAX_HOLD_MS
+			: changedDuringRun.current
+				? CARD_ENTRY_RUN_MS
+				: 0;
+		let idle: number | undefined;
+		let armed: ReturnType<typeof setTimeout> | undefined;
+		const start = setTimeout(() => {
+			launchStarted.current = true;
+			changedDuringRun.current = false;
+			// A catch-up: all at once, no animation (the list sees a bulk change)
+			if (cardEntryMode(ids.length) === CardEntryMode.SWAP) {
+				letIn(ids);
+				return;
+			}
+			const id = ids[0];
+			noteListChange(id);
+			// Shown once the JS thread is free: on a busy one the card's view came about a second
+			// after the rows had moved, over a blank gap
+			const show = () => {
+				// Not on top of another change: one the list just took (a mark, a live update) gets
+				// its run first
+				const since = Date.now() - shapeChangedAt.current;
+				if (since < CARD_ENTRY_RUN_MS) {
+					armed = setTimeout(show, CARD_ENTRY_RUN_MS - since);
+					return;
+				}
+				entryToken.current += 1;
+				setEntryRun(entryToken.current);
+				letIn([id]);
+			};
+			armed = setTimeout(() => {
+				if (typeof requestIdleCallback === "function") {
+					idle = requestIdleCallback(show, { timeout: CARD_RELEASE_MAX_WAIT_MS });
+				} else show();
+			}, AIR_ARM_LEAD_MS);
+		}, delay);
+		return () => {
+			clearTimeout(start);
+			if (armed !== undefined) clearTimeout(armed);
+			if (idle !== undefined) cancelIdleCallback(idle);
+		};
+	}, [entryKey, entryRun, firstLoadDone, noteListChange, letIn]);
+	// Failsafe: nothing waits forever
+	useEffect(() => {
+		if (!entryKey) return;
+		const ids = entryKey.split(",").map(Number);
+		const t = setTimeout(() => letIn(ids), CARD_ENTRY_MAX_PENDING_MS);
+		return () => clearTimeout(t);
+	}, [entryKey, letIn]);
+	// A card added later in the session isn't one of these
+	useEffect(() => {
+		if (savedCardIds && !allLoading && liveCaughtUp && heldCards.size === 0) setSavedCardIds(null);
+	}, [savedCardIds, allLoading, liveCaughtUp, heldCards]);
+
 	// --- Effective display: blend cached shows + live previously watched ---
 	const rawDisplayList = useMemo(() => {
-		if (!cachedList) return orderedLive;
-		if (orderedLive.length === 0) return cachedList;
+		const live =
+			pendingEntry.size === 0
+				? orderedLive
+				: orderedLive.filter((i) => i.type !== "show" || !pendingEntry.has(i.card.tmdbId));
+		if (!cachedList) return live;
+		if (live.length === 0) return cachedList;
 		// Live pages arrive a few at a time: the saved cards they haven't reached yet keep their
 		// saved spot, so the list doesn't shrink to the first page and grow back (cards vanishing,
 		// then returning). They drop out as the live ones take over (liveCaughtUp)
-		return mergeCachedShows(cachedList, orderedLive);
-	}, [cachedList, orderedLive]);
+		return mergeCachedShows(cachedList, live);
+	}, [cachedList, orderedLive, pendingEntry]);
 	const effectiveLoading = reordering || (allLoading && !cachedList);
 
 	// Apply optimistic card patches (and hide cards a mark just took off — leftUpNext)
@@ -796,9 +975,44 @@ export function useWatchlistData(userId: string | undefined) {
 		});
 	}, [items, optimisticCards, loading]);
 
+	// A staged card's run: the list shown stays as it was when the card came in (with the
+	// promotions count the list animates marks by), so nothing lands mid-run; what changed
+	// meanwhile is shown when the run ends
+	const frozenRun = useRef<{ token: number; list: typeof displayList; promotions: number } | null>(
+		null,
+	);
+	if (entryRun === null) frozenRun.current = null;
+	else if (frozenRun.current?.token !== entryRun) {
+		frozenRun.current = { token: entryRun, list: displayList, promotions };
+	}
+	const shownList = frozenRun.current?.list ?? displayList;
+	const shownPromotions = frozenRun.current?.promotions ?? promotions;
+	const latestDisplay = useRef({ list: displayList, promotions });
+	latestDisplay.current = { list: displayList, promotions };
+	// When the list last changed shape (a staged card waits for a quiet list: see the entry queue)
+	const shownShape = `${promotions}|${listShapeKey(displayList)}`;
+	const lastShape = useRef(shownShape);
+	if (lastShape.current !== shownShape) {
+		lastShape.current = shownShape;
+		shapeChangedAt.current = Date.now();
+	}
+	useEffect(() => {
+		if (entryRun === null) return;
+		const t = setTimeout(() => {
+			const held = frozenRun.current;
+			changedDuringRun.current =
+				!!held &&
+				(held.promotions !== latestDisplay.current.promotions ||
+					listShapeKey(held.list) !== listShapeKey(latestDisplay.current.list));
+			setEntryRun(null);
+		}, CARD_ENTRY_RUN_MS);
+		return () => clearTimeout(t);
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- the run's own timer
+	}, [entryRun]);
+
 	// --- Convert to WatchlistListItem for renderItem ---
 	const listData: WatchlistListItem[] = useMemo(() => {
-		return displayList.map((item) => {
+		return shownList.map((item) => {
 			if (item.type === "sectionHeader") return item;
 			if (item.type === "watchedMovie") {
 				const show =
@@ -840,7 +1054,7 @@ export function useWatchlistData(userId: string | undefined) {
 				item: item.card as unknown as EnrichedTrackingItem,
 			};
 		});
-	}, [displayList, showMap]);
+	}, [shownList, showMap]);
 
 	// --- Auto-load more if fewer visible items than cached ---
 	useEffect(() => {
@@ -875,6 +1089,7 @@ export function useWatchlistData(userId: string | undefined) {
 
 	const handleMarkWatched = useCallback(
 		async (item: EnrichedTrackingItem) => {
+			if (!requireOnline()) return;
 			if (!userId) return;
 			noteListChange(item.tmdbId);
 			// One frame for the list to arm its glide before this mark moves the cards
@@ -969,18 +1184,6 @@ export function useWatchlistData(userId: string | undefined) {
 					? findNextEpisodeInCatalog(catalog, nextEpisode.season, nextEpisode.episode)
 					: null;
 
-			// Optimistic upcoming update
-			const upcomingSnapshot = mutateCachedUpcoming((prev) =>
-				prev.filter(
-					(ep) =>
-						!(
-							ep.tmdbShowId === item.tmdbId &&
-							ep.season === currentEp.season &&
-							ep.episode === currentEp.episode
-						),
-				),
-			);
-
 			// Nothing aired left after this one (finale, next not out yet) → the card leaves from
 			// where it is; otherwise it goes to the top with its next episode
 			const leaves = !isShowVisible({
@@ -1051,7 +1254,6 @@ export function useWatchlistData(userId: string | undefined) {
 
 				// Spinner cleared by useEffect when listener confirms nextEpisode changed
 				incrementDailyWatch("episode");
-				removeWatchedFromPast(item.tmdbId, currentEp.season, currentEp.episode);
 				if (isComplete) {
 					emitShowCompleted({
 						tmdbId: item.tmdbId,
@@ -1064,7 +1266,6 @@ export function useWatchlistData(userId: string | undefined) {
 			} catch (err: any) {
 				unpromote(item.tmdbId);
 				keepInUpNext(item.tmdbId);
-				rollbackUpcoming(upcomingSnapshot);
 				restoreQuery(queryClient, allEpsKey, allEpsBefore);
 				restoreQuery(queryClient, showEpsKey, showEpsBefore);
 				setUpdatingShows((prev) => {
@@ -1083,15 +1284,13 @@ export function useWatchlistData(userId: string | undefined) {
 			promote,
 			unpromote,
 			queryClient,
-			mutateCachedUpcoming,
-			rollbackUpcoming,
-			removeWatchedFromPast,
 			markedCount,
 		],
 	);
 
 	const handleMarkWatchedThrough = useCallback(
 		async (tmdbId: number, targetSeason: number, targetEpisode: number) => {
+			if (!requireOnline()) return;
 			if (!userId) return;
 			const item = items.find((i) => i.tmdbId === tmdbId);
 			if (!item || !item.catalogShow) return;
@@ -1202,6 +1401,7 @@ export function useWatchlistData(userId: string | undefined) {
 
 	const handleUnmarkEpisode = useCallback(
 		async (tmdbId: number, season: number, episode: number) => {
+			if (!requireOnline()) return;
 			if (!userId) return;
 			noteListChange(tmdbId);
 			const item = items.find((i) => i.tmdbId === tmdbId);
@@ -1292,6 +1492,7 @@ export function useWatchlistData(userId: string | undefined) {
 
 	const handleCarouselMarkWatched = useCallback(
 		async (tmdbId: number, season: number, episode: number, cardRuntime?: number | null) => {
+			if (!requireOnline()) return;
 			if (!userId) return;
 			const item = items.find((i) => i.tmdbId === tmdbId);
 			if (!item) return;
@@ -1354,6 +1555,7 @@ export function useWatchlistData(userId: string | undefined) {
 	/** Rewatch only: skip the current episode — pointer moves on, nothing marked watched */
 	const handleSkipEpisode = useCallback(
 		async (tmdbId: number, season: number, episode: number) => {
+			if (!requireOnline()) return;
 			if (!userId) return;
 			const item = items.find((i) => i.tmdbId === tmdbId);
 			if (!item || item.status !== WatchStatus.REWATCHING) return;
@@ -1431,6 +1633,7 @@ export function useWatchlistData(userId: string | undefined) {
 
 	const handleStopWatching = useCallback(
 		async (item: EnrichedTrackingItem) => {
+			if (!requireOnline()) return;
 			if (!userId) return;
 			// Noted before the write, in a render of its own: the card then leaves shrinking (app
 			// listMotion; web reads its exit animation from the card's last render before removal)
@@ -1448,6 +1651,7 @@ export function useWatchlistData(userId: string | undefined) {
 	// come back to. Its long press removes it from tracking instead (as its page's Remove)
 	const handleRemoveFromWatchlist = useCallback(
 		async (item: EnrichedTrackingItem) => {
+			if (!requireOnline()) return;
 			if (!userId) return;
 			noteLeftList(item.tmdbId);
 			await removeFromTracking(userId, item.tmdbId, item.mediaType);
@@ -1488,11 +1692,12 @@ export function useWatchlistData(userId: string | undefined) {
 		/** Cards that stayed on screen → heal their missing data (see useWatchlist) */
 		healShown,
 		listData,
-		promotions,
+		promotions: shownPromotions,
 		wasJustMarked,
 		wasJustLeft,
 		noteListChange,
 		listChangeArm,
+		cardsHeld: pendingEntry.size > 0 || entryRun !== null,
 		loading: effectiveLoading,
 		// Everything fetched (confirmed now, or by the last session while this one still loads):
 		// only then can an empty "What's Up Next" really mean "all caught up". Until then the

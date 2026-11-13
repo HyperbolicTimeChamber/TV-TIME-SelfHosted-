@@ -1,5 +1,5 @@
-# Play Store / App Store releases are off for now — production builds go to the
-# current Firebase App Distribution group instead (development → alpha-channel)
+# Play Store / App Store releases are off for now — production APKs are published as GitHub
+# Releases and the apps update themselves from there (in-app updater)
 name: Build & Distribute (Production)
 
 on:
@@ -30,17 +30,20 @@ jobs:
       contents: write
       pull-requests: write
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04 (newer default JDK) and broke the native CMake configure steps.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g"
 
     steps:
       # ── Checkout ──
+      # RELEASE_PUSH_TOKEN: a token of an account allowed past the branch protection on main and
+      # development — the workflow's own token can't push the version bump there
       - name: Checkout
         uses: actions/checkout@v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PUSH_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       # ── Version Bump (push only) ──
@@ -56,31 +59,37 @@ jobs:
           if [ -n "$PR_NUMBER" ]; then
             LABELS=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' 2>/dev/null || true)
             if echo "$LABELS" | grep -q "bump:major"; then
-              BUMP_FLAG="--major"
+              BUMP_FLAG="major"
             elif echo "$LABELS" | grep -q "bump:minor"; then
-              BUMP_FLAG="--minor"
+              BUMP_FLAG="minor"
             fi
           fi
           # Fallback to commit message flags
           if [ -z "$BUMP_FLAG" ]; then
             if grep -qi '\[major\]' /tmp/commit_msg.txt; then
-              BUMP_FLAG="--major"
+              BUMP_FLAG="major"
             elif grep -qi '\[minor\]' /tmp/commit_msg.txt; then
-              BUMP_FLAG="--minor"
+              BUMP_FLAG="minor"
             fi
           fi
           echo "flag=$BUMP_FLAG" >> "$GITHUB_OUTPUT"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Version policy (scripts/release-version.cjs): the merge brings staging's number (staging is
+      # always main + 1 patch) -> main inherits it; [minor]/[major] bump the previous main version;
+      # a hotfix straight on main (version unchanged) gets a patch bump. versionCode/buildNumber =
+      # previous main build + 1 (bump-build.yml does not run after production).
       - name: Bump version (local only)
         if: github.event_name == 'push'
         id: version
         run: |
-          chmod +x scripts/bump-version.sh
-          NEW_VERSION=$(./scripts/bump-version.sh ${{ steps.bump.outputs.flag }})
+          NEW_VERSION=$(node scripts/release-version.cjs main --before "$BEFORE_SHA" --flag "$BUMP_FLAG")
           echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "Bumped to $NEW_VERSION (will commit after successful build)"
+          echo "Version $NEW_VERSION (will commit after successful build)"
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          BUMP_FLAG: ${{ steps.bump.outputs.flag }}
 
       # ── Node Setup + Cache ──
       - name: Setup Node
@@ -91,6 +100,13 @@ jobs:
           cache-dependency-path: |
             app/package-lock.json
             functions/package-lock.json
+
+      # ── Java (Gradle / Android build) ──
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
       - name: Install dependencies
         run: npm ci
@@ -196,63 +212,158 @@ jobs:
             echo "NOTES_EOF"
           } >> "$GITHUB_OUTPUT"
 
-      # ── Build + Distribute (Play Store upload disabled: `fastlane android deploy`) ──
-      # PRs to main distribute too, so testers can try them before merge
-      - name: Fastlane distribute
-        run: bundle exec fastlane android distribute
+      # ── Build (Play Store upload disabled: `fastlane android deploy`) ──
+      # Production APKs go to GitHub Releases (no more Firebase App Distribution); PRs to main
+      # build too and attach the APK to the run, so it can be tried before merge
+      - name: Fastlane build APK
+        run: bundle exec fastlane android build_apk
         working-directory: app
         env:
           KEYSTORE_PATH: /tmp/release.keystore
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
-          FIREBASE_SERVICE_ACCOUNT_JSON_PATH: /tmp/firebase-sa.json
-          RELEASE_NOTES: ${{ steps.notes.outputs.release_notes }}
-          FIREBASE_TESTER_GROUPS: ${{ vars.FIREBASE_TESTER_GROUPS || 'testers' }}
 
-      # ── Force update ([force-update] in the commit message) ──
-      # Builds below config/app.minBuildProd show the blocking "Update required" screen
-      - name: Force update (prod)
-        if: github.event_name == 'push' && contains(github.event.head_commit.message, '[force-update]')
+      - name: Upload PR APK
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: watchloom-pr-${{ github.event.number }}
+          path: app/android/app/build/outputs/apk/release/*.apk
+          retention-days: 14
+
+      # ── GitHub Release with the APK (the in-app updater downloads it from here) ──
+      - name: Prepare APK
+        if: github.event_name == 'push'
+        id: apk
         run: |
-          export BUILD=$(node -p "require('./app/app.json').expo.android.versionCode")
-          echo "$FIREBASE_SERVICE_ACCOUNT_JSON" > /tmp/firebase-sa.json
-          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/firebase-sa.json
-          npm install -g firebase-admin@13
-          NODE_PATH=$(npm root -g) node -e "
-            const admin = require('firebase-admin');
-            admin.initializeApp();
-            admin.firestore().doc('config/app')
-              .set({ minBuildProd: Number(process.env.BUILD) }, { merge: true })
-              .then(() => { console.log('minBuildProd = ' + process.env.BUILD); process.exit(0); })
-              .catch((e) => { console.error(e); process.exit(1); });
-          "
-        env:
-          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          VERSION=$(node -p "require('./app/app.json').expo.version")
+          BUILD=$(node -p "require('./app/app.json').expo.android.versionCode")
+          SRC=$(find app/android/app/build/outputs/apk/release -name "*.apk" | head -1)
+          NAME="watchloom.apk"
+          cp "$SRC" "/tmp/$NAME"
+          {
+            echo "version=$VERSION"
+            echo "build=$BUILD"
+            echo "path=/tmp/$NAME"
+            echo "name=$NAME"
+            echo "size=$(stat -c %s "/tmp/$NAME")"
+            echo "tag=v${VERSION}+${BUILD}"
+          } >> "$GITHUB_OUTPUT"
 
-      # ── Commit version bump (only after successful build) ──
-      - name: Commit version bump
+      - name: Create GitHub Release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.apk.outputs.tag }}
+          name: V${{ steps.apk.outputs.version }} (build ${{ steps.apk.outputs.build }})
+          body: ${{ steps.notes.outputs.release_notes }}
+          files: ${{ steps.apk.outputs.path }}
+          draft: false
+          prerelease: false
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Only the newest build of each version stays on GitHub (per channel): older builds of the
+      # same x.y.z are deleted with their tags
+      - name: Prune older builds of this version
+        if: github.event_name == 'push'
+        run: |
+          VERSION_RE=$(echo "${{ steps.apk.outputs.version }}" | sed 's/\./\\./g')
+          gh release list --limit 200 --json tagName -q '.[].tagName' \
+            | grep -E "^v${VERSION_RE}\+[0-9]+$" \
+            | grep -vx "${{ steps.apk.outputs.tag }}" \
+            | while read -r TAG; do
+                echo "Deleting $TAG"
+                gh release delete "$TAG" --cleanup-tag -y
+              done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # config/release.prod (drawer + force gate), [force-update] → minBuild, FCM push
+      - name: Publish release to the apps
+        if: github.event_name == 'push'
+        run: node scripts/publish-release.cjs
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa.json
+          CHANNEL: prod
+          VERSION: ${{ steps.apk.outputs.version }}
+          BUILD: ${{ steps.apk.outputs.build }}
+          SIZE: ${{ steps.apk.outputs.size }}
+          APK_URL: https://github.com/${{ github.repository }}/releases/download/${{ steps.apk.outputs.tag }}/${{ steps.apk.outputs.name }}
+          NOTES: ${{ steps.notes.outputs.release_notes }}
+          FORCE: ${{ contains(github.event.head_commit.message, '[force-update]') }}
+
+      # ── Version bump commit + staging one version ahead (only after the release went out) ──
+      # Committed locally first so the merge into staging carries it: the next staging -> main
+      # merge then has main's version / build lines in its merge base (no conflicts there)
+      - name: Commit version bump locally
         if: github.event_name == 'push'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add app/app.json app/package.json
-          git diff --cached --quiet && exit 0
+          git add app/app.json app/package.json app/package-lock.json
+          git diff --cached --quiet && { echo "No version change to commit"; exit 0; }
           git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }} [skip ci]"
-          git push
 
-      - name: Sync version bump to development
+      # Runs before the push to main (which can fail on branch protection). Separate worktree: this
+      # job's working tree is dirty (generated files). Staging gets main's commits (hotfixes too)
+      # with its own version lines kept (-X ours), then main + 1 patch (never lower than staging's)
+      - name: Move staging one version ahead
+        id: staging
+        if: github.event_name == 'push' && success()
+        run: |
+          # No git-crypt key in CI: pass the filtered files through untouched
+          git config filter.git-crypt.smudge cat
+          git config filter.git-crypt.clean cat
+          git config filter.git-crypt.required false
+          git config diff.git-crypt.textconv cat
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          MAIN_SHA=$(git rev-parse HEAD)
+          WT="$RUNNER_TEMP/staging-wt"
+          git fetch origin staging
+          git worktree add -B staging-bump "$WT" origin/staging
+          if ! git -C "$WT" merge -X ours --no-edit -m "chore: merge main into staging [skip ci]" "$MAIN_SHA"; then
+            git -C "$WT" merge --abort || true
+            echo "::error::Merging main into staging conflicted beyond -X ours (delete/modify or binary). Merge main into staging by hand."
+            exit 1
+          fi
+          STAGING_VERSION=$(node scripts/release-version.cjs staging --main "$MAIN_VERSION" --dir "$WT")
+          git -C "$WT" add app/app.json app/package.json app/package-lock.json
+          git -C "$WT" diff --cached --quiet || git -C "$WT" commit -m "chore: staging moves to $STAGING_VERSION [skip ci]"
+          if ! git -C "$WT" push origin HEAD:staging; then
+            echo "::error::Push to staging was rejected (staging moved or is protected). Not forcing."
+            exit 1
+          fi
+          echo "Staging is now $STAGING_VERSION"
+        env:
+          MAIN_VERSION: ${{ steps.version.outputs.new_version }}
+
+      - name: Commit version bump
         if: github.event_name == 'push'
         run: |
-          git fetch origin development
+          git fetch origin main
+          if [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ]; then
+            echo "Nothing to push"
+            exit 0
+          fi
+          git push origin HEAD:main
+
+      # development gets the new staging's version files (development -> staging merges stay
+      # conflict-free). Independent of the push to main, so it also runs when that failed.
+      - name: Sync version bump to development
+        if: ${{ !cancelled() && github.event_name == 'push' && steps.staging.outcome == 'success' }}
+        run: |
+          git fetch origin staging development
           git checkout development
-          git checkout main -- app/app.json app/package.json
-          git add app/app.json app/package.json
+          git checkout origin/staging -- app/app.json app/package.json app/package-lock.json
+          git add app/app.json app/package.json app/package-lock.json
           if git diff --cached --quiet; then
             echo "development already up to date"
           else
-            git commit -m "chore: sync version ${{ steps.version.outputs.new_version }} from main [skip ci]"
+            git commit -m "chore: sync version files from staging (main released ${{ steps.version.outputs.new_version }}) [skip ci]"
             git push origin development
           fi
           git checkout main
@@ -268,5 +379,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `Build distributed via Firebase App Distribution. Version: **${version}**`
+              body: `APK attached to the workflow run. Version: **${version}**`
             });

@@ -6,9 +6,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useTitleExtras } from "../hooks/useTitleExtras";
 import CastSheet from "./modals/CastSheet";
+import PhotoTrigger from "./PhotoViewer";
 import { tmdbPosterUri } from "../hooks/useTmdbImage";
 import { useSharedShimmer } from "./SkeletonLine";
 import { colors, spacing, typography } from "../theme";
+import { personSubject } from "../utils/subjectLink";
 import { FEATURED_CAST_MAX, type MediaType } from "../enums";
 
 /** Portrait photo card (TMDB profiles are 2:3) */
@@ -16,6 +18,8 @@ const CARD_W = 104;
 const CARD_H = 156;
 const CARD_RADIUS = 14;
 const SKELETONS = [0, 1, 2, 3, 4];
+/** Lines the section up with the page's text, which sits this far inside its padding */
+const TEXT_INSET = spacing.sm;
 /** Cards settle in one after another (nearest first), quick enough never to hold anything up */
 const STAGGER_MS = 40;
 /** The stagger stops growing after this many: a long row's tail never waits on the rest */
@@ -54,8 +58,8 @@ export default function CastRow({ tmdbId, mediaType, title, bleed }: Readonly<Pr
 			<ScrollView
 				horizontal
 				showsHorizontalScrollIndicator={false}
-				style={{ marginHorizontal: -bleed }}
-				contentContainerStyle={[styles.row, { paddingHorizontal: bleed }]}
+				style={{ marginHorizontal: -(bleed + TEXT_INSET) }}
+				contentContainerStyle={[styles.row, { paddingHorizontal: bleed + TEXT_INSET }]}
 				scrollEnabled={!isPending}
 			>
 				{isPending || !data
@@ -67,31 +71,38 @@ export default function CastRow({ tmdbId, mediaType, title, bleed }: Readonly<Pr
 								key={m.id}
 								entering={FadeIn.delay(Math.min(i, STAGGER_CAP) * STAGGER_MS).duration(ENTER_MS).easing(EASE_OUT)}
 								style={styles.card}
-								accessible
+								accessible={!m.profile}
 								accessibilityLabel={m.character ? `${m.name} as ${m.character}` : m.name}
 							>
-								{m.profile ? (
-									<Image
-										source={{ uri: tmdbPosterUri(m.profile, CARD_W) }}
-										style={StyleSheet.absoluteFill}
-										contentFit="cover"
-										transition={ENTER_MS}
-										recyclingKey={String(m.id)}
-									/>
-								) : (
-									<View style={styles.noPhoto}>
-										<Ionicons name="person" size={40} color={colors.textMuted} />
-									</View>
-								)}
-								<LinearGradient
-									colors={NAME_FADE}
-									locations={NAME_FADE_STOPS}
-									style={styles.nameBar}
+								<PhotoTrigger
+									subject={m.profile ? personSubject(m, { tmdbId, mediaType }) : null}
+									radius={CARD_RADIUS}
+									thumbWidth={CARD_W}
+									style={StyleSheet.absoluteFill}
 								>
-									<Text style={styles.name} numberOfLines={2}>
-										{m.name}
-									</Text>
-								</LinearGradient>
+									{m.profile ? (
+										<Image
+											source={{ uri: tmdbPosterUri(m.profile, CARD_W) }}
+											style={StyleSheet.absoluteFill}
+											contentFit="cover"
+											transition={ENTER_MS}
+											recyclingKey={String(m.id)}
+										/>
+									) : (
+										<View style={styles.noPhoto}>
+											<Ionicons name="person" size={40} color={colors.textMuted} />
+										</View>
+									)}
+									<LinearGradient
+										colors={NAME_FADE}
+										locations={NAME_FADE_STOPS}
+										style={styles.nameBar}
+									>
+										<Text style={styles.name} numberOfLines={2}>
+											{m.name}
+										</Text>
+									</LinearGradient>
+								</PhotoTrigger>
 							</Reanimated.View>
 						))}
 				{data && (extras?.castTotal ?? 0) > 0 ? (
@@ -126,9 +137,9 @@ export default function CastRow({ tmdbId, mediaType, title, bleed }: Readonly<Pr
 }
 
 const styles = StyleSheet.create({
-	section: { marginTop: spacing.xl },
-	// The page's section title (Seasons)
-	title: { ...typography.title, fontSize: 18, marginBottom: spacing.md },
+	section: { marginTop: spacing.xl, paddingHorizontal: TEXT_INSET },
+	// The credits' red label (Director)
+	title: { ...typography.subtitle, fontSize: 14, color: colors.primary, marginBottom: spacing.sm },
 	row: { flexDirection: "row", gap: spacing.sm + 2 },
 	card: {
 		width: CARD_W,

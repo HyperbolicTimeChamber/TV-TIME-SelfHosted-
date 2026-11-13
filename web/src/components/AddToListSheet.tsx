@@ -12,8 +12,11 @@ import { Spin } from "antd";
 import { IoAdd, IoBookmark, IoBookmarkOutline, IoList, IoSearch } from "react-icons/io5";
 import {
 	ADD_TO_LIST_SEARCH_MIN_LISTS,
+	ADD_TO_LIST_HEADING,
+	ADD_TO_LIST_SUBTITLE,
 	CUSTOM_LIST_ITEM_MAX,
 	NEW_LIST_HINTS,
+	NEW_LIST_SUBTITLE,
 	NEW_LIST_TITLE,
 } from "@app/enums";
 import type { CustomList, CustomListEntry } from "@app/types";
@@ -24,7 +27,9 @@ import BottomSheet, { SheetHeader } from "./BottomSheet";
 import ListNameModal from "./ListNameModal";
 import { ModalArt, NEW_LIST_ART } from "./ModalArt";
 import PosterImage from "./PosterImage";
+import { useKeyboardInset } from "../hooks/useKeyboardInset";
 import styles from "./styles/AddToList.module.scss";
+import { requireOnline } from "@app/utils/requireOnline";
 
 interface Props {
 	/** The title being listed; null = closed */
@@ -67,6 +72,8 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: P
 	const user = useAppSelector((s) => s.auth.user);
 	const { lists, loading, createList, addToList, removeFromList } = useCustomLists(user?.uid);
 	const [naming, setNaming] = useState(false);
+	// Done stays out of the way while typing
+	const keyboard = useKeyboardInset(!!entry && !naming);
 	// Name the popup opens with: the search text when made from "Create “…”" (app AddToListSheet)
 	const [draftName, setDraftName] = useState("");
 	const [creating, setCreating] = useState(false);
@@ -174,7 +181,7 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: P
 	);
 
 	const handleCreate = async (name: string) => {
-		if (!entry) return;
+		if (!entry || !requireOnline()) return;
 		setCreating(true);
 		const result = await createList(name, entry);
 		setCreating(false);
@@ -186,7 +193,8 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: P
 	};
 
 	const toggle = (list: CustomList, has: boolean) => {
-		if (!entry) return;
+		if (!entry || !requireOnline()) return;
+
 		if (has) removeFromList(list.id, entry.tmdbId, entry.mediaType);
 		else addToList(list.id, entry);
 	};
@@ -250,6 +258,8 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: P
 					<>
 						<SheetHeader
 							title={entry.title}
+							heading={ADD_TO_LIST_HEADING}
+							subtitle={ADD_TO_LIST_SUBTITLE}
 							tmdbId={entry.tmdbId}
 							mediaType={entry.mediaType}
 							centered
@@ -358,11 +368,13 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: P
 							)}
 						</div>
 						{/* Each click already saved; Done just closes */}
-						<div className={styles.footer}>
-							<button type="button" className={styles.done} onClick={onClose}>
-								Done
-							</button>
-						</div>
+						{keyboard.inset === 0 && (
+							<div className={styles.footer}>
+								<button type="button" className={styles.done} onClick={onClose}>
+									Done
+								</button>
+							</div>
+						)}
 					</>
 				)}
 			</BottomSheet>
@@ -373,6 +385,7 @@ export default function AddToListSheet({ entry, onClose, hideCounts = false }: P
 				suggestedName={draftName}
 				image={<ModalArt src={NEW_LIST_ART} />}
 				hint={NEW_LIST_HINTS}
+				subtitle={NEW_LIST_SUBTITLE}
 				confirmLabel="Create & Add"
 				error={nameError}
 				loading={creating}

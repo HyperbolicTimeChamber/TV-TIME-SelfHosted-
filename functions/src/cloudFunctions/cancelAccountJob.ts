@@ -17,7 +17,7 @@ export const cancelAccountJob = trackedOnCall(
     memory: "256MiB",
   },
   async (request): Promise<{ cancelled: boolean }> => {
-    const uid = requireCaller(request, Callable.CANCEL_ACCOUNT_JOB);
+    const uid = await requireCaller(request, Callable.CANCEL_ACCOUNT_JOB);
     const jobId = accountJobId((request.data as { jobId?: unknown } | undefined)?.jobId);
     if (!jobId) throw new HttpsError("invalid-argument", "jobId required");
     // Returns at once: the running job stops at its next step; an import that had already

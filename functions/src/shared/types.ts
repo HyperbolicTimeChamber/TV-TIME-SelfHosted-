@@ -1,5 +1,13 @@
 import type { UserFacets } from "./titleFacets";
-import { EpisodeType, MediaType, RefreshReason, WatchStatus, SearchScope } from "./enums";
+import {
+  EpisodeType,
+  MediaType,
+  RefreshReason,
+  SearchScope,
+  SubjectKind,
+  TmdbStudioType,
+  WatchStatus,
+} from "./enums";
 
 export interface TMDBEpisode {
   episode_number: number;
@@ -127,6 +135,8 @@ export interface StoredCastMember {
   profile: string | null;
   /** Shows: episodes they're in */
   episodes?: number;
+  /** IMDb id ("nm0000093"), null when TMDB has none; absent until first looked up (subjectLink) */
+  imdbId?: string | null;
 }
 
 /** A studio (TV network / production company) with a logo — the info page Studios row */
@@ -135,6 +145,10 @@ export interface StoredStudio {
   name: string;
   /** TMDB image path of its logo */
   logo: string;
+  /** Which of TMDB's two lists it's in; absent until first looked up (subjectLink) */
+  studioType?: TmdbStudioType;
+  /** Its own website, null when TMDB has none */
+  homepage?: string | null;
 }
 
 /** A movie's director with their photo (info page credits) */
@@ -142,6 +156,22 @@ export interface StoredCrewMember {
   id: number;
   name: string;
   profile: string | null;
+  /** As StoredCastMember's */
+  imdbId?: string | null;
+}
+
+export interface SubjectLinkRequest {
+  tmdbId: number;
+  mediaType: MediaType;
+  kind: SubjectKind;
+  id: number;
+}
+
+/** What the subjectLink callable answers: a person's imdbId, or a studio's type + homepage */
+export interface SubjectLink {
+  imdbId?: string | null;
+  studioType?: TmdbStudioType;
+  homepage?: string | null;
 }
 
 /**
@@ -153,6 +183,8 @@ export interface TitleExtrasFields extends WatchProvidersFields {
   cast?: StoredCastMember[];
   /** Everyone in the full cast (titleCredits/) */
   castTotal?: number;
+  /** Movies: release date per country ("YYYY-MM-DD"), null when TMDB has none for it */
+  localReleases?: Record<string, string | null>;
   /** Movies' directors (empty for shows) */
   directors?: StoredCrewMember[];
   /** Movies' writers — screenplay, story, novel (empty for shows) */
@@ -167,6 +199,8 @@ export interface TitleExtrasFields extends WatchProvidersFields {
 export interface TitleExtras {
   cast: StoredCastMember[];
   castTotal: number;
+  /** A movie's release date in the viewer's country ("YYYY-MM-DD") */
+  localRelease: string | null;
   directors: StoredCrewMember[];
   writers: StoredCrewMember[];
   studios: StoredStudio[];

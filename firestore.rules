@@ -159,6 +159,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Release info (latest APK + minimum build per channel) — public: no secrets, and the login
+    // screen checks for updates too. CI writes it with the admin SDK
+    match /config/release {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Shared catalog — read for authenticated; trackedBy is maintained by addShow / removeShow
     match /shows/{showId} {
       allow read: if request.auth != null;

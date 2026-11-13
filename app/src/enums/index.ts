@@ -53,6 +53,14 @@ export enum FreshTag {
 export const JUST_AIRED_WINDOW_DAYS = 7;
 
 export enum CacheKey {
+	/** In-app update: the build "Not now" was tapped on (its drawer stays away until a newer one) */
+	UPDATE_SKIPPED_BUILD = "update_skipped_build",
+	/** Debug (dev / staging builds): a simulated update / force update for the test flow (JSON) */
+	UPDATE_SIMULATION = "update_simulation",
+	/** The build the last launch ran (app_updated) */
+	LAST_RUN_BUILD = "last_run_build",
+	/** The build the update drawer last started downloading (app_updated source) */
+	UPDATE_DRAWER_BUILD = "update_drawer_build",
 	WATCHLIST_PROFILE = "profile_watchlist_cache",
 	WATCHLIST_ACTIVE = "watchlist_active_cache_v2",
 	/** Confirmed: every tracking page is loaded (nothing more to page in) — skips the skeleton footer */
@@ -105,6 +113,10 @@ export enum CacheKey {
 	USER_REGION = "user_region_v1",
 	/** Search (Trending + results): Grid / List */
 	SEARCH_VIEW = "search_view_v1",
+	/** + uid — Previously Watched episodes: the first history page, reused all day */
+	WATCHED_EPISODES_HISTORY = "watched_episodes_history_v1:",
+	/** + uid — Previously Watched movies: the first history page, reused all day */
+	WATCHED_MOVIES_HISTORY = "watched_movies_history_v1:",
 	/** + uid — tracking delta sync state: lastSync, saved page count, hasMore, last full fetch day */
 	TRACKING_SYNC = "tracking_sync_v1:",
 	/** + uid + "_" + page index — one saved page of tracking docs (Firestore page order) */
@@ -139,6 +151,20 @@ export enum QueryKey {
 	COUNTRY_NAMES = "countryNames",
 	/** + tmdbId, mediaType — a title's full cast, paged (View All sheet, titleCastPage CF) */
 	TITLE_CAST_PAGE = "titleCastPage",
+	/** + kind, TMDB id — where the photo viewer's pill links to */
+	SUBJECT_LINK = "subjectLink",
+}
+
+/** What the photo viewer is showing: a cast / crew member's photo or a studio's logo */
+export enum PhotoSubjectKind {
+	PERSON = "person",
+	STUDIO = "studio",
+}
+
+/** A studio is one of these on TMDB — each has its own ids, pages and homepage */
+export enum TmdbStudioType {
+	COMPANY = "company",
+	NETWORK = "network",
 }
 
 /** Info page pills, longest first — a pill shows the first that fits on one line */
@@ -154,49 +180,102 @@ export const ADD_TO_WATCHLIST_LABELS = ["+ Add to Watchlist", "+ Watchlist", "+ 
  * Not listed → TMDB's watch page for the title (it links on to each service).
  * TMDB doesn't expose services' own title ids, so a title page can't be linked directly.
  */
-export const PROVIDER_LINKS: Record<string, { search?: string; home: string; appSearch?: boolean }> = {
-	netflix: { search: "https://www.netflix.com/search?q={q}", home: "https://www.netflix.com/" },
+/**
+ * `androidPackage`: the service's Android app — opened directly (the link in it, else its home
+ * screen) instead of the browser first; listed in modules/service-apps' manifest <queries> too
+ */
+export const PROVIDER_LINKS: Record<
+	string,
+	{ search?: string; home: string; appSearch?: boolean; androidPackage?: string }
+> = {
+	netflix: {
+		search: "https://www.netflix.com/search?q={q}",
+		home: "https://www.netflix.com/",
+		androidPackage: "com.netflix.mediaclient",
+	},
 	"prime video": {
 		search: "https://www.primevideo.com/search/ref=atv_nb_sr?phrase={q}",
 		home: "https://www.primevideo.com/",
+		androidPackage: "com.amazon.avod.thirdpartyclient",
 	},
-	"disney+": { home: "https://www.disneyplus.com/" },
-	"hbo max": { search: "https://play.hbomax.com/search?q={q}", home: "https://play.hbomax.com/" },
-	"apple tv+": { search: "https://tv.apple.com/search?term={q}", home: "https://tv.apple.com/" },
-	"apple tv": { search: "https://tv.apple.com/search?term={q}", home: "https://tv.apple.com/" },
-	"paramount+": { home: "https://www.paramountplus.com/" },
-	hulu: { search: "https://www.hulu.com/search?q={q}", home: "https://www.hulu.com/" },
-	peacock: { home: "https://www.peacocktv.com/" },
-	"peacock premium": { home: "https://www.peacocktv.com/" },
+	"disney+": { home: "https://www.disneyplus.com/", androidPackage: "com.disney.disneyplus" },
+	"hbo max": {
+		search: "https://play.hbomax.com/search?q={q}",
+		home: "https://play.hbomax.com/",
+		androidPackage: "com.wbd.stream",
+	},
+	"apple tv+": {
+		search: "https://tv.apple.com/search?term={q}",
+		home: "https://tv.apple.com/",
+		androidPackage: "com.apple.atve.androidtv.appletv",
+	},
+	"apple tv": {
+		search: "https://tv.apple.com/search?term={q}",
+		home: "https://tv.apple.com/",
+		androidPackage: "com.apple.atve.androidtv.appletv",
+	},
+	"paramount+": { home: "https://www.paramountplus.com/", androidPackage: "com.cbs.app" },
+	hulu: {
+		search: "https://www.hulu.com/search?q={q}",
+		home: "https://www.hulu.com/",
+		androidPackage: "com.hulu.plus",
+	},
+	peacock: { home: "https://www.peacocktv.com/", androidPackage: "com.peacocktv.peacockandroid" },
+	"peacock premium": { home: "https://www.peacocktv.com/", androidPackage: "com.peacocktv.peacockandroid" },
 	crunchyroll: {
 		search: "https://www.crunchyroll.com/search?q={q}",
 		home: "https://www.crunchyroll.com/",
+		androidPackage: "com.crunchyroll.crunchyroid",
 	},
 	youtube: {
 		search: "https://www.youtube.com/results?search_query={q}",
 		home: "https://www.youtube.com/",
 		appSearch: true,
+		androidPackage: "com.google.android.youtube",
 	},
 	"youtube premium": {
 		search: "https://www.youtube.com/results?search_query={q}",
 		home: "https://www.youtube.com/",
 		appSearch: true,
+		androidPackage: "com.google.android.youtube",
 	},
-	mubi: { search: "https://mubi.com/search/films?query={q}", home: "https://mubi.com/" },
+	mubi: {
+		search: "https://mubi.com/search/films?query={q}",
+		home: "https://mubi.com/",
+		androidPackage: "com.mubi",
+	},
 	"rtl+": { search: "https://plus.rtl.de/suche?q={q}", home: "https://plus.rtl.de/" },
 	"rtl+ max": { search: "https://plus.rtl.de/suche?q={q}", home: "https://plus.rtl.de/" },
-	joyn: { search: "https://www.joyn.de/suche?q={q}", home: "https://www.joyn.de/" },
-	"joyn plus": { search: "https://www.joyn.de/suche?q={q}", home: "https://www.joyn.de/" },
+	joyn: {
+		search: "https://www.joyn.de/suche?q={q}",
+		home: "https://www.joyn.de/",
+		androidPackage: "de.prosiebensat1digital.seventv",
+	},
+	"joyn plus": {
+		search: "https://www.joyn.de/suche?q={q}",
+		home: "https://www.joyn.de/",
+		androidPackage: "de.prosiebensat1digital.seventv",
+	},
 	wow: { home: "https://www.wowtv.de/" },
 	"wow fiction": { home: "https://www.wowtv.de/" },
 	"sky go": { home: "https://www.sky.de/sky-go" },
-	"pluto tv": { home: "https://pluto.tv/" },
-	plex: { home: "https://watch.plex.tv/" },
+	"pluto tv": { home: "https://pluto.tv/", androidPackage: "tv.pluto.android" },
+	plex: { home: "https://watch.plex.tv/", androidPackage: "com.plexapp.android" },
 	"animation digital network": { home: "https://animationdigitalnetwork.com/" },
 };
 
 /** Where to Watch: taps within this long of opening a service are ignored (no double open) */
 export const PROVIDER_OPEN_GUARD_MS = 1000;
+
+/** Update drawer, before the download: one of these (Upgrade's voice) beside the download size */
+export const UPGRADE_LINES = [
+	"Time to merge with some new tech",
+	"Your phone's due for an alien tune-up",
+	"The latest tech is waiting for me",
+	"Every gadget deserves an upgrade",
+	"New code, same Upgrade",
+	"Let me give this app a little boost",
+] as const;
 
 /** Where the viewer's country comes from: an IP lookup (no key, no permission prompt) */
 export const COUNTRY_LOOKUP_URL = "https://api.country.is/";
@@ -206,6 +285,10 @@ export const COUNTRY_LOOKUP_TIMEOUT_MS = 3000;
 export const USER_REGION_TTL_MS = 24 * 60 * 60 * 1000;
 /** A title's extras change rarely: a CF answer is reused this long in a session */
 export const TITLE_EXTRAS_STALE_MS = 24 * 60 * 60 * 1000;
+/** Longest search the searchTitles CF takes (functions SEARCH_MAX_QUERY_LENGTH) */
+export const SEARCH_MAX_QUERY_LENGTH = 100;
+/** Longest cast search the titleCastPage CF takes (functions CAST_SEARCH_MAX_LENGTH) */
+export const CAST_SEARCH_MAX_LENGTH = 50;
 /** Cast cards on the info page before View All (functions FEATURED_CAST_MAX) */
 export const FEATURED_CAST_MAX = 10;
 /** The cast sheet's search waits this long after the last keystroke */
@@ -236,6 +319,9 @@ export const CUSTOM_LIST_NAME_MAX = 50;
 export const CUSTOM_LIST_ITEM_MAX = 500;
 /** Add to List sheet: Find list + Sort show once this many lists don't hold the title yet */
 export const ADD_TO_LIST_SEARCH_MIN_LISTS = 3;
+/** Add to List sheet: heading above the title's logo, and the line under it */
+export const ADD_TO_LIST_HEADING = "Add Title to a List";
+export const ADD_TO_LIST_SUBTITLE = "Organise titles into custom lists.";
 export const CUSTOM_LIST_MAX = 50;
 /** Custom lists the profile shows under Lists (the biggest), after the Recently Watched row */
 export const PROFILE_LIST_COUNT = 5;
@@ -250,6 +336,8 @@ export const FAVORITES_LIST_ID = "favorites";
 export const CUSTOM_LISTS_SEEDED_FIELD = "customListsSeeded";
 /** New List popup (Light Yagami art): the title, and the lines under it — one picked each open */
 export const NEW_LIST_TITLE = "A New List for a New World";
+/** New List popup: the line under the title (create only; renaming has none) */
+export const NEW_LIST_SUBTITLE = "Create custom lists to organise titles the way you want.";
 export const NEW_LIST_HINTS = [
 	"Let's list down some new ways to kill time.",
 	"I'll take a potato chip… and list it!",
@@ -344,21 +432,6 @@ export enum HistorySort {
 	TIME_SPENT = "timeSpent",
 }
 
-/** Search results sort — client-side over the pages already loaded */
-export enum SearchSort {
-	/** TMDB's own order (best match first) */
-	RELEVANCE = "relevance",
-	/** Release date (movie) / first air date (TV) */
-	DATE = "date",
-	/** Displayed title, dictionary order */
-	NAME = "name",
-}
-
-export enum SortDirection {
-	ASC = "asc",
-	DESC = "desc",
-}
-
 /** Watch History status filters (TV) — OR together, applied in the Firestore query */
 /** Watch History: values pickable at once per facet (genres / keywords / countries / studios — the
  *  query's array-contains-any facet takes them all, and Firestore caps that list) */
@@ -416,6 +489,7 @@ export enum CloudFunction {
 	CANCEL_ACCOUNT_JOB = "cancelAccountJob",
 	TITLE_EXTRAS = "titleExtras",
 	TITLE_CAST_PAGE = "titleCastPage",
+	SUBJECT_LINK = "subjectLink",
 }
 
 /** Callable error codes (web SDK prefixes them with "functions/") */
@@ -532,6 +606,72 @@ export const MIN_BUILD_FIELD: Record<ReleaseChannel, string> = {
 	[ReleaseChannel.PROD]: "minBuildProd",
 };
 
+/** config/release: each channel's latest APK + minimum build (CI writes it; public read — no
+ *  secrets, and the login screen checks for updates too) */
+export const RELEASE_CONFIG_DOC = ["config", "release"] as const;
+
+/** Android package id (app.json) — the web's "Open in app" intent targets it */
+export const ANDROID_APP_PACKAGE = "com.tvtimerevived.app";
+/** GitHub's newest production release (public repo, no key): the web downloads its APK */
+export const LATEST_RELEASE_API =
+	"https://api.github.com/repos/HyperbolicTimeChamber/TV-TIME-SelfHosted-/releases/latest";
+/** Its page — the fallback while the APK's address isn't known yet */
+export const LATEST_RELEASE_PAGE =
+	"https://github.com/HyperbolicTimeChamber/TV-TIME-SelfHosted-/releases/latest";
+
+/** The channel this build checks for updates: CI's, or dev in a local dev build (test flow) */
+export const UPDATE_CHANNEL: ReleaseChannel | null =
+	(Object.values(ReleaseChannel) as string[]).includes(RELEASE_CHANNEL)
+		? (RELEASE_CHANNEL as ReleaseChannel)
+		: // Web has no __DEV__ (and no updates)
+			(globalThis as { __DEV__?: boolean }).__DEV__
+			? ReleaseChannel.DEV
+			: null;
+
+/** FCM topic a channel's new-version pushes go to (CI sends `{ type: APP_UPDATE_MESSAGE }`) */
+export const UPDATE_TOPIC: Record<ReleaseChannel, string> = {
+	[ReleaseChannel.DEV]: "app-updates-dev",
+	[ReleaseChannel.PROD]: "app-updates-prod",
+};
+/** Message of the callables' refusal of a build below the minimum (functions UPDATE_REQUIRED_MESSAGE) */
+export const UPDATE_REQUIRED_MESSAGE = "update-required";
+/** FCM data `type` of a new-version push */
+export const APP_UPDATE_MESSAGE = "app_update";
+
+
+/** The APK a download is saved as (cache dir; replaced by each download) */
+export const UPDATE_APK_FILE = "watchloom-update.apk";
+/** Progress events are coalesced to this often (the notification can't redraw faster) */
+export const UPDATE_PROGRESS_INTERVAL_MS = 500;
+/** The release doc is re-read at most this often when the app comes back to the foreground */
+export const UPDATE_RECHECK_MS = 60 * 60 * 1000;
+/** Cards not out yet saved with the watchlist (soonest first), ready for a launch after they air */
+export const PENDING_CARD_LIMIT = 40;
+/** This many watchlist cards joining / leaving at once (a catch-up, launch or live) are applied as
+ *  one list swap — no hold, grow-in or glide: animated, the catch-up's rows moved over a big
+ *  distance and the screen shuffled for seconds */
+export const WATCHLIST_BULK_CHANGE_CARDS = 5;
+/** How cards joining the watchlist together come in (cardEntryMode) */
+export enum CardEntryMode {
+	/** Nothing joining */
+	NONE = "none",
+	/** One at a time: each grows in while the rows glide, the next only after that run is over */
+	STAGED = "staged",
+	/** A catch-up (WATCHLIST_BULK_CHANGE_CARDS or more): one list swap, no animation */
+	SWAP = "swap",
+}
+/** One staged card's run: its grow-in and the rows' glide (400 ms) plus the list's flags clearing
+ *  after them (200 ms), with a margin. The list is held still for this long — nothing else lands
+ *  during the run */
+export const CARD_ENTRY_RUN_MS = 800;
+/** Cards still waiting to come in after this long all come in at once — a queue that keeps being
+ *  restarted (live updates) can't leave cards hidden */
+export const CARD_ENTRY_MAX_PENDING_MS = 20_000;
+/** After the app resumes, the swipe pager is compared with the tab state once this has passed */
+export const TAB_DESYNC_SETTLE_MS = 1000;
+/** Pager position (in tabs: 1 = one full page) the tab state may differ by before it counts */
+export const TAB_DESYNC_TOLERANCE = 0.05;
+
 /** A watchlist card heals (Firestore re-read / refreshShow) only after staying on screen this
  *  long — cards scrolled past aren't worth a read or a call */
 export const HEAL_VIEW_DWELL_MS = 600;
@@ -563,6 +703,36 @@ export enum AnalyticsEvent {
 	FIRESTORE_OPS = "firestore_ops",
 	PAGE_VIEWED = "page_viewed",
 	SIGN_UP_COMPLETED = "sign_up_completed",
+	UPDATE_DRAWER_SHOWN = "update_drawer_shown",
+	UPDATE_DRAWER_ACTION = "update_drawer_action",
+	UPDATE_DOWNLOAD_FINISHED = "update_download_finished",
+	/** First launch on a newer build */
+	APP_UPDATED = "app_updated",
+	/** The swipe pager's position disagreed with the tab state after the app resumed (diagnostic) */
+	TAB_DESYNC = "tab_desync",
+}
+
+/** update_drawer_action `action` */
+export enum UpdateDrawerAction {
+	UPGRADE_NOW = "upgrade_now",
+	RETRY = "retry",
+	LATER = "later",
+	CANCEL_DOWNLOAD = "cancel_download",
+	INSTALL = "install",
+	CLOSE_APP = "close_app",
+}
+
+/** update_download_finished `result` */
+export enum UpdateDownloadResult {
+	DONE = "done",
+	FAILED = "failed",
+	CANCELLED = "cancelled",
+}
+
+/** app_updated `source` */
+export enum UpdateSource {
+	DRAWER = "drawer",
+	NOTIFICATION_OR_OTHER = "notification_or_other",
 }
 
 /** Mixpanel `client_platform` super property (backend adds cloud_function / script) */
@@ -582,6 +752,10 @@ export enum AppOpenSource {
 	PUSH = "push",
 	DEEP_LINK = "deep_link",
 }
+
+/** Offline (requireOnline refuses actions) only after this long offline without a break: Android's
+ *  Wi-Fi ↔ cellular handover reports "not connected" for ~0.6 s */
+export const OFFLINE_DELAY_MS = 2000;
 
 /** Marks this far apart start a new episode_tracking_session */
 export const TRACKING_SESSION_IDLE_MS = 5 * 60 * 1000;

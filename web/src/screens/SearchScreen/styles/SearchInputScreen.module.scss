@@ -46,6 +46,22 @@
 	display: none;
 }
 
+.loading {
+	flex: none;
+	width: 16px;
+	height: 16px;
+	border: 2px solid var(--text-muted);
+	border-top-color: transparent;
+	border-radius: 50%;
+	animation: loadingSpin 0.7s linear infinite;
+}
+
+@keyframes loadingSpin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
 .clearButton {
 	background: none;
 	border: none;
