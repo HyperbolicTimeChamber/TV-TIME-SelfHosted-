@@ -136,7 +136,7 @@ export const styles = themedStyles(() => StyleSheet.create({
 		gap: spacing.md,
 	},
 	logo: { flex: 1, height: LOGO_HEIGHT },
-	cardTitle: { flex: 1, color: colors.text, fontSize: 20, fontWeight: "600" },
+	cardTitle: { flex: 1, color: colors.onImage, fontSize: 20, fontWeight: "600" },
 	bottomRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
 	leftBlock: { alignItems: "flex-start", gap: spacing.sm + 2 },
 	timeBlock: { alignItems: "flex-end" },
@@ -154,14 +154,14 @@ export const styles = themedStyles(() => StyleSheet.create({
 		letterSpacing: -0.5,
 		marginBottom: -6,
 	},
-	// Light grey (textSecondary) at 35% — translucent over the backdrop
+	// Image glass (white at 22%) — translucent over the backdrop in every theme
 	tagPill: {
 		borderRadius: 999,
 		paddingHorizontal: 10,
 		paddingVertical: 3,
-		backgroundColor: `${colors.textSecondary}59`,
+		backgroundColor: tint(colors.onImage, 0.22),
 	},
-	tag: { color: colors.text, fontSize: 12, fontWeight: "600" },
+	tag: { color: colors.onImage, fontSize: 12, fontWeight: "600" },
 	// Add to List, top-right: a 36 circle, amber with a filled bookmark when the title is in a list
 	listButton: {
 		width: 36,

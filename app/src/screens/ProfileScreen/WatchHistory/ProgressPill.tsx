@@ -32,7 +32,7 @@ export default function ProgressPill({ kind, percent = 0, compact = false }: Rea
 				<View style={compact ? styles.compactRing : undefined}>
 					<ProgressRing percent={percent} />
 				</View>
-				<Text style={[styles.text, size.text, { color: colors.surface }]}>{percent}%</Text>
+				<Text style={[styles.text, size.text, { color: colors.onAmber }]}>{percent}%</Text>
 			</View>
 		);
 	}
@@ -47,12 +47,12 @@ export default function ProgressPill({ kind, percent = 0, compact = false }: Rea
 		>
 			{/* Ionicons glyphs carry ~1px inner padding: +2 / −1 margin → visually the ring's size */}
 			{upToDate ? (
-				<HiCheck size={compact ? COMPACT_ICON : RING_SIZE} color={colors.text} />
+				<HiCheck size={compact ? COMPACT_ICON : RING_SIZE} color={colors.onImage} />
 			) : (
 				<Ionicons
 					name="pause-circle-outline"
 					size={(compact ? COMPACT_ICON : RING_SIZE) + 2}
-					color={colors.text}
+					color={colors.onImage}
 					style={styles.icon}
 				/>
 			)}
@@ -63,7 +63,7 @@ export default function ProgressPill({ kind, percent = 0, compact = false }: Rea
 
 const styles = themedStyles(() => StyleSheet.create({
 	pill: { flexDirection: "row", alignItems: "center", borderRadius: 999 },
-	text: { color: colors.text, fontWeight: "700", includeFontPadding: false },
+	text: { color: colors.onImage, fontWeight: "700", includeFontPadding: false },
 	icon: { margin: -1 },
 	// Scaled box: layout stays COMPACT_ICON wide, the 20px ring draws inside it shrunk to fit
 	compactRing: {

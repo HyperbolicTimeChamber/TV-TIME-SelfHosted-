@@ -43,9 +43,10 @@ const styles = themedStyles(() => StyleSheet.create({
 	pill: { borderRadius: 999 },
 	withCount: { flexDirection: "row", alignItems: "center" },
 	// No extra font padding: Android adds it above the digits, which pushed the count off-centre
-	text: { color: colors.text, fontWeight: "700", includeFontPadding: false },
-	circle: { backgroundColor: colors.text, alignItems: "center", justifyContent: "center" },
-	countText: { color: colors.surface, fontWeight: "700", includeFontPadding: false },
+	// Over photos in every theme: white text, white count disc
+	text: { color: colors.onImage, fontWeight: "700", includeFontPadding: false },
+	circle: { backgroundColor: colors.onImage, alignItems: "center", justifyContent: "center" },
+	countText: { color: colors.cardDark, fontWeight: "700", includeFontPadding: false },
 }));
 
 const fullStyles = themedStyles(() => StyleSheet.create({

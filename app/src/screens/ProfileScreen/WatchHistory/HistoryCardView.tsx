@@ -89,7 +89,7 @@ function HistoryCardView({
 							<Ionicons
 								name={listCount > 0 ? "bookmark" : "bookmark-outline"}
 								size={20}
-								color={colors.text}
+								color={colors.onImage}
 							/>
 						</TouchableOpacity>
 					)}

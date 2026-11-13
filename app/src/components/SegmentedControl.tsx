@@ -110,5 +110,5 @@ const styles = themedStyles(() => StyleSheet.create({
 	// Press feedback on the idle side: a touch smaller, never from nothing
 	pressed: { transform: [{ scale: 0.97 }], opacity: 0.8 },
 	label: { fontSize: 15, fontWeight: "600", color: colors.textSecondary },
-	labelActive: { color: colors.text },
+	labelActive: { color: colors.onPrimary },
 }));

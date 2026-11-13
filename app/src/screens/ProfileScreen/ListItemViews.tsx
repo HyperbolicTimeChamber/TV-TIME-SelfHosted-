@@ -281,7 +281,7 @@ export function ListRow({
 						</Pressable>
 					) : tracked ? (
 						<View style={styles.trackingTag}>
-							<HiCheck size={14} color={colors.text} />
+							<HiCheck size={14} color={colors.onPrimary} />
 							<Text style={styles.trackingText}>Watchlist</Text>
 						</View>
 					) : (
@@ -516,7 +516,7 @@ const styles = themedStyles(() => StyleSheet.create({
 		justifyContent: "center",
 	},
 	logo: { height: "100%", width: "75%" },
-	name: { ...typography.subtitle, fontSize: 16 },
+	name: { ...typography.subtitle, fontSize: 16, color: colors.onImage },
 	metaLine: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: spacing.sm },
 	// Season count / year over the backdrop: a translucent black pill, like the card's square
 	metaPill: {
@@ -525,8 +525,8 @@ const styles = themedStyles(() => StyleSheet.create({
 		paddingHorizontal: 8,
 		paddingVertical: 3,
 	},
-	metaPillText: { color: colors.text, fontSize: 11, fontWeight: "700" },
-	meta: { ...typography.caption, color: colors.textSecondary, flexShrink: 1 },
+	metaPillText: { color: colors.onImage, fontSize: 11, fontWeight: "700" },
+	meta: { ...typography.caption, color: colors.onImageSecondary, flexShrink: 1 },
 	// Year / episode counts are wider than Exx — a step down so 4 digits fit the square
 	squareValue: { fontSize: 36, lineHeight: 40 },
 	skeletonCard: { position: "absolute", top: 0, left: 0, borderRadius: 0 },

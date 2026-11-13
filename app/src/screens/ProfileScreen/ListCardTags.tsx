@@ -2,13 +2,14 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { HistoryPill, HistoryProgress, ListTagKind } from "../../enums";
 import type { ListTag } from "../../utils";
-import { colors, spacing, themedStyles } from "../../theme";
+import { colors, spacing, tint, themedStyles } from "../../theme";
 import ProgressPill from "./WatchHistory/ProgressPill";
 import WatchCountPill from "../../components/WatchCountPill";
 import StatusPill from "../../components/StatusPill";
 import { PILL_COLOR } from "./WatchHistory/HistoryCardView";
 
-const grey = () => `${colors.textSecondary}59`;
+/** Image glass: white at 22% over the card photo, in every theme */
+const grey = () => tint(colors.onImage, 0.22);
 
 /** The tag line under a list card's meta line: Watch History's tags, small, always one row */
 export default function ListCardTags({
@@ -77,15 +78,15 @@ const styles = themedStyles(() => StyleSheet.create({
 		// 26 tall, like the status / progress / count pills on the line
 		paddingVertical: 5,
 	},
-	text: { color: colors.text, fontSize: 11, lineHeight: 16, fontWeight: "700" },
+	text: { color: colors.onImage, fontSize: 11, lineHeight: 16, fontWeight: "700" },
 	countCircle: {
 		minWidth: 14,
 		height: 14,
 		borderRadius: 7,
 		paddingHorizontal: 3,
-		backgroundColor: colors.text,
+		backgroundColor: colors.onImage,
 		alignItems: "center",
 		justifyContent: "center",
 	},
-	countText: { color: colors.surface, fontSize: 10, fontWeight: "700" },
+	countText: { color: colors.cardDark, fontSize: 10, fontWeight: "700" },
 }));

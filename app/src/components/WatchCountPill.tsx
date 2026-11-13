@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { colors, themedStyles } from "../theme";
+import { colors, tint, themedStyles } from "../theme";
 
 interface Props {
 	count: number;
@@ -38,17 +38,17 @@ const styles = themedStyles(() => StyleSheet.create({
 		flexDirection: "row",
 		alignItems: "center",
 		borderRadius: 999,
-		// textSecondary at 35% — translucent over the backdrop
-		backgroundColor: `${colors.textSecondary}59`,
+		// Image glass: white at 22% — translucent over the photo, in every theme
+		backgroundColor: tint(colors.onImage, 0.22),
 	},
 	overlay: { backgroundColor: colors.badgeOverlay },
 	// No extra font padding: Android adds it above the digits, which pushed the count off-centre
-	text: { color: colors.text, fontWeight: "700", includeFontPadding: false },
+	text: { color: colors.onImage, fontWeight: "700", includeFontPadding: false },
 	circle: {
 		alignItems: "center",
 		justifyContent: "center",
-		// Lighter grey than the pill (textSecondary 70% vs 35%)
-		backgroundColor: `${colors.textSecondary}B3`,
+		// Lighter than the pill (white 40% vs 22%)
+		backgroundColor: tint(colors.onImage, 0.4),
 	},
 }));
 

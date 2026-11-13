@@ -60,3 +60,10 @@ test("parseThemePrefs falls back on anything invalid", () => {
 		accent: AccentId.PURPLE,
 	});
 });
+
+test("buildPalette: classic accent is darkened on the light theme only (white text contrast)", () => {
+	const light = buildPalette({ mode: ThemeMode.LIGHT, accent: AccentId.CLASSIC });
+	const dark = buildPalette({ mode: ThemeMode.DARK, accent: AccentId.CLASSIC });
+	assert.equal(dark.accent, "#4A90D9");
+	assert.notEqual(light.accent, "#4A90D9");
+});

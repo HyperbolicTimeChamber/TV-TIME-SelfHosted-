@@ -97,7 +97,7 @@ function HistoryGridCard({
 export default memo(HistoryGridCard);
 
 const styles = themedStyles(() => StyleSheet.create({
-	tagBacking: { borderRadius: 999, backgroundColor: colors.background },
+	tagBacking: { borderRadius: 999, backgroundColor: colors.cardDark },
 	footer: {
 		position: "absolute",
 		left: 0,

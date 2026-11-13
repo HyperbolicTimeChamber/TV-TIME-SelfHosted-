@@ -147,7 +147,11 @@ export function buildPalette(prefs: ThemePrefs, system?: "light" | "dark" | null
 	return {
 		...base,
 		primary: option.primary,
-		accent: option.accent,
+		// Classic's light blue is ~3:1 under white text (Rewatch pill); on the light theme it's pulled darker
+		accent:
+			scheme === ThemeMode.LIGHT && option.accent !== option.primary
+				? mixHex(option.accent, "#000000", 0.25)
+				: option.accent,
 		// Selected-row fill: the brand color pulled toward the page (white text / dark text stays readable)
 		primaryDark:
 			scheme === ThemeMode.LIGHT
