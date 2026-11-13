@@ -351,6 +351,7 @@
 
 .cardTitle {
 	font-size: 12px;
+	color: var(--on-image);
 	flex-shrink: 1;
 	display: -webkit-box;
 	-webkit-line-clamp: 2;
@@ -361,7 +362,7 @@
 
 .cardYear {
 	font-size: 11px;
-	color: var(--text-secondary);
+	color: var(--on-image-secondary);
 }
 
 .typeBadge {
