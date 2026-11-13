@@ -70,5 +70,5 @@ const styles = themedStyles(() => StyleSheet.create({
 		backgroundColor: colors.warningAmber,
 	},
 	donePressed: { opacity: 0.8, transform: [{ scale: 0.97 }] },
-	doneText: { ...typography.subtitle, fontSize: 15, color: colors.background },
+	doneText: { ...typography.subtitle, fontSize: 15, color: colors.onAmber },
 }));

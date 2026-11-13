@@ -215,14 +215,15 @@ export const styles = themedStyles(() => StyleSheet.create({
 		backgroundColor: colors.surface,
 	},
 	rowInfo: { flex: 1, gap: spacing.xs },
-	rowTitle: { ...typography.subtitle, fontSize: 15 },
+	// Over the row's dark backdrop scrim, in every theme
+	rowTitle: { ...typography.subtitle, fontSize: 15, color: colors.onImage },
 	rowMeta: {
 		flexDirection: "row" as const,
 		alignItems: "center" as const,
 		gap: spacing.sm,
 	},
-	rowMetaText: { ...typography.caption, fontSize: 11 },
-	rowOverview: typography.caption,
+	rowMetaText: { ...typography.caption, fontSize: 11, color: colors.onImageSecondary },
+	rowOverview: { ...typography.caption, color: colors.onImageSecondary },
 	rowBadges: { gap: 10, alignSelf: "center" as const },
 	// In the row's badge column, not floating over a poster
 	rowBadge: { position: "relative" as const, top: 0, right: 0 },

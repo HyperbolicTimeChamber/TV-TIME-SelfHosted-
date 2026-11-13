@@ -168,7 +168,7 @@ const styles = themedStyles(() => StyleSheet.create({
 		paddingHorizontal: spacing.sm,
 		paddingBottom: spacing.sm,
 	},
-	name: { ...typography.caption, fontSize: 12, lineHeight: 15, fontWeight: "600", color: colors.text },
+	name: { ...typography.caption, fontSize: 12, lineHeight: 15, fontWeight: "600", color: colors.onImage },
 	// The last card: the whole cast in a sheet
 	viewAll: {
 		alignItems: "center",

@@ -271,10 +271,10 @@ export function ListRow({
 							]}
 						>
 							{resuming ? (
-								<ActivityIndicator size="small" color={colors.text} />
+								<ActivityIndicator size="small" color={colors.onPrimary} />
 							) : (
 								<>
-									<Ionicons name="play" size={12} color={colors.text} />
+									<Ionicons name="play" size={12} color={colors.onPrimary} />
 									<Text style={styles.addText}>Resume</Text>
 								</>
 							)}
@@ -298,10 +298,10 @@ export function ListRow({
 							]}
 						>
 							{adding ? (
-								<ActivityIndicator size="small" color={colors.text} />
+								<ActivityIndicator size="small" color={colors.onPrimary} />
 							) : (
 								<>
-									<Ionicons name="add" size={14} color={colors.text} />
+									<Ionicons name="add" size={14} color={colors.onPrimary} />
 									<Text style={styles.addText}>Watchlist</Text>
 								</>
 							)}
@@ -495,7 +495,7 @@ const styles = themedStyles(() => StyleSheet.create({
 	// The info page's Resume blue
 	resumeButton: { gap: 4, backgroundColor: colors.accent },
 	addButtonPressed: { transform: [{ scale: 0.97 }] },
-	addText: { color: colors.text, fontSize: 12, fontWeight: "700" },
+	addText: { color: colors.onPrimary, fontSize: 12, fontWeight: "700" },
 	// The same joined block, in green
 	trackingTag: {
 		flexDirection: "row",
@@ -506,7 +506,7 @@ const styles = themedStyles(() => StyleSheet.create({
 		...JOINED_BUTTON,
 		backgroundColor: colors.watchedGreen,
 	},
-	trackingText: { color: colors.text, fontSize: 12, fontWeight: "700" },
+	trackingText: { color: colors.onPrimary, fontSize: 12, fontWeight: "700" },
 	cardPressed: { transform: [{ scale: 0.98 }] },
 	logoSlot: {
 		flexShrink: 1,

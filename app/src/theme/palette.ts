@@ -75,6 +75,8 @@ const DARK = {
 	onImageSecondary: "rgba(255, 255, 255, 0.75)",
 	/** Text on a primary/accent fill */
 	onPrimary: "#FFFFFF",
+	/** Text on a warningAmber fill: dark in every theme */
+	onAmber: "#111114",
 } as const;
 
 const LIGHT = {
@@ -102,6 +104,7 @@ const LIGHT = {
 	onImage: "#FFFFFF",
 	onImageSecondary: "rgba(255, 255, 255, 0.75)",
 	onPrimary: "#FFFFFF",
+	onAmber: "#111114",
 	cardDark: "#26262B",
 } as const satisfies Record<keyof typeof DARK, string>;
 

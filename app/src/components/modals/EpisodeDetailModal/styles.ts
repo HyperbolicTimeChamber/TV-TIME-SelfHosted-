@@ -140,8 +140,10 @@ export const styles = themedStyles(() => StyleSheet.create({
 	actionButtonText: {
 		...typography.subtitle,
 		fontSize: 14,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
+	// Skip sits on the neutral grey, not a colored fill
+	skipButtonText: { color: colors.text },
 	watchedButtonRow: {
 		flexDirection: "row",
 		gap: spacing.sm,

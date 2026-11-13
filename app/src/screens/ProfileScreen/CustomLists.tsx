@@ -74,7 +74,7 @@ export default function CustomLists({
 					>
 						<Text style={styles.viewAllText}>View All Lists</Text>
 						<View style={styles.viewAllArrow}>
-							<Ionicons name="chevron-forward" size={24} color={colors.text} style={styles.viewAllChevron} />
+							<Ionicons name="chevron-forward" size={24} color={colors.onPrimary} style={styles.viewAllChevron} />
 						</View>
 					</Pressable>
 				</>
@@ -210,7 +210,7 @@ const styles = themedStyles(() => StyleSheet.create({
 		paddingRight: spacing.sm,
 		backgroundColor: colors.primary,
 	},
-	viewAllText: { ...typography.subtitle, fontSize: 15 },
+	viewAllText: { ...typography.subtitle, fontSize: 15, color: colors.onPrimary },
 	// The back button's chevron, mirrored: its glyph sits 2px off centre the other way
 	viewAllChevron: { marginLeft: 2 },
 	viewAllArrow: {

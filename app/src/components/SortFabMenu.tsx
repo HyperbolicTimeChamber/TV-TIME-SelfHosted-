@@ -35,7 +35,7 @@ function BoldTick() {
 		<Svg width={TICK_SIZE} height={TICK_SIZE} viewBox="0 0 24 24" fill="none">
 			<Path
 				d="M5 12.5l4.5 4.5L19 7.5"
-				stroke={colors.text}
+				stroke={colors.onPrimary}
 				strokeWidth={2.75}
 				strokeLinecap="round"
 				strokeLinejoin="round"
@@ -50,7 +50,7 @@ export function SortIcon({ size = 26 }: Readonly<{ size?: number }>) {
 		<Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
 			<Path
 				d="M3 6h11M5.5 10h8.5M8 14h6M10.5 18H14M19 5v13M16 15l3 3 3-3"
-				stroke={colors.text}
+				stroke={colors.onPrimary}
 				strokeWidth={2}
 				strokeLinecap="round"
 				strokeLinejoin="round"
@@ -60,14 +60,15 @@ export function SortIcon({ size = 26 }: Readonly<{ size?: number }>) {
 }
 
 /** "A → Z": the arrow as an icon, centred on the letters (the text glyph sat low) */
-function PillLabel({ label }: Readonly<{ label: string }>) {
+function PillLabel({ label, active }: Readonly<{ label: string; active: boolean }>) {
+	const textStyle = [styles.pillText, active && styles.pillTextActive];
 	const parts = label.split(" → ");
-	if (parts.length !== 2) return <Text style={styles.pillText}>{label}</Text>;
+	if (parts.length !== 2) return <Text style={textStyle}>{label}</Text>;
 	return (
 		<View style={styles.arrowLabel} accessible accessibilityLabel={label}>
-			<Text style={styles.pillText}>{parts[0]}</Text>
-			<FontAwesome5 name="long-arrow-alt-right" size={14} color={colors.text} />
-			<Text style={styles.pillText}>{parts[1]}</Text>
+			<Text style={textStyle}>{parts[0]}</Text>
+			<FontAwesome5 name="long-arrow-alt-right" size={14} color={active ? colors.onPrimary : colors.text} />
+			<Text style={textStyle}>{parts[1]}</Text>
 		</View>
 	);
 }
@@ -119,7 +120,7 @@ function Pill<T>({
 				accessibilityState={{ selected: active }}
 			>
 				{active && <BoldTick />}
-				<PillLabel label={option.label} />
+				<PillLabel label={option.label} active={active} />
 			</Pressable>
 		</Animated.View>
 	);
@@ -221,7 +222,7 @@ export default function SortFabMenu<T>({
 						<SortIcon />
 					</Animated.View>
 					<Animated.View style={[styles.icon, closeIcon]}>
-						<Ionicons name="close" size={26} color={colors.text} />
+						<Ionicons name="close" size={26} color={colors.onPrimary} />
 					</Animated.View>
 					{customised && !open && <View style={styles.dot} />}
 				</Pressable>
@@ -257,6 +258,7 @@ const styles = themedStyles(() => StyleSheet.create({
 	pillActive: { backgroundColor: colors.primary, paddingLeft: spacing.sm + 2, gap: spacing.xs },
 	pillPressed: { backgroundColor: colors.surfaceLight },
 	pillText: { color: colors.text, fontSize: 15, fontWeight: "600" },
+	pillTextActive: { color: colors.onPrimary },
 	arrowLabel: { flexDirection: "row", alignItems: "center", gap: 6 },
 	fab: {
 		position: "absolute",
@@ -277,6 +279,6 @@ const styles = themedStyles(() => StyleSheet.create({
 		width: 9,
 		height: 9,
 		borderRadius: 5,
-		backgroundColor: colors.text,
+		backgroundColor: colors.onPrimary,
 	},
 }));

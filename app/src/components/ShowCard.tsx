@@ -563,7 +563,7 @@ const styles = themedStyles(() => StyleSheet.create({
 	cornerTagText: {
 		fontSize: 12,
 		fontWeight: "700",
-		color: colors.text,
+		color: colors.onPrimary,
 		letterSpacing: 0.5,
 	},
 	// NEW uses the default tag look (yellow, dark text); FINALE and LATEST are solid blue
@@ -571,13 +571,13 @@ const styles = themedStyles(() => StyleSheet.create({
 		backgroundColor: colors.accent,
 	},
 	finaleBadgeText: {
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 	latestBadge: {
 		backgroundColor: colors.accent,
 	},
 	latestBadgeText: {
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 	// Movie: MOVIE / year tags, and a REWATCH tag beside them
 	movieMetaRow: {

@@ -21,7 +21,7 @@ export default function SortFab({ bottom, onPress, customised, accessibilityLabe
 			onPress={onPress}
 			accessibilityLabel={accessibilityLabel}
 		>
-			<Ionicons name="options-outline" size={24} color={colors.text} />
+			<Ionicons name="options-outline" size={24} color={colors.onPrimary} />
 			{customised && <View style={styles.dot} />}
 		</TouchableOpacity>
 	);
@@ -49,6 +49,6 @@ const styles = themedStyles(() => StyleSheet.create({
 		width: 9,
 		height: 9,
 		borderRadius: 5,
-		backgroundColor: colors.text,
+		backgroundColor: colors.onPrimary,
 	},
 }));

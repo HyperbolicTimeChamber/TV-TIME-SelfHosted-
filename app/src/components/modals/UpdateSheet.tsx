@@ -413,6 +413,6 @@ const styles = themedStyles(() => StyleSheet.create({
 	buttonQuiet: { backgroundColor: "transparent", height: 48, marginTop: 2 },
 	// Downloading: the primary stays in place, dimmed, until the download ends
 	buttonBusy: { opacity: 0.45 },
-	buttonText: { ...typography.subtitle, fontSize: 16 },
+	buttonText: { ...typography.subtitle, fontSize: 16, color: colors.onPrimary },
 	buttonTextQuiet: { color: colors.textSecondary, fontWeight: "600" },
 }));

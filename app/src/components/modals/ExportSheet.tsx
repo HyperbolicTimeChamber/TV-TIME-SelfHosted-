@@ -170,7 +170,7 @@ function StepIn({ from, children }: Readonly<{ from: 1 | -1; children: React.Rea
 function Mark({ on, square = false }: Readonly<{ on: boolean; square?: boolean }>) {
 	return (
 		<View style={[styles.mark, square && styles.markSquare, on && styles.markOn]}>
-			{on && <HiCheck size={14} color={colors.text} />}
+			{on && <HiCheck size={14} color={colors.onPrimary} />}
 		</View>
 	);
 }
@@ -429,6 +429,6 @@ const styles = themedStyles(() => StyleSheet.create({
 	buttonDisabled: { opacity: 0.4 },
 	// Emil: a press answers at once — a touch smaller
 	buttonPressed: { transform: [{ scale: 0.97 }] },
-	buttonText: { ...typography.subtitle, fontSize: 15 },
+	buttonText: { ...typography.subtitle, fontSize: 15, color: colors.onPrimary },
 	buttonTextSecondary: { color: colors.textSecondary },
 }));

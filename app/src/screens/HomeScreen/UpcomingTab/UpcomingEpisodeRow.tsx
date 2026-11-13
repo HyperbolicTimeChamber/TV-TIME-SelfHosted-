@@ -122,7 +122,7 @@ const styles = themedStyles(() => StyleSheet.create({
 	movieBadgeText: {
 		fontSize: 10,
 		fontWeight: "700",
-		color: colors.text,
+		color: colors.onPrimary,
 		letterSpacing: 0.5,
 	},
 }));

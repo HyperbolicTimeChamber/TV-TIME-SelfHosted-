@@ -34,7 +34,7 @@ export default memo(function DateHeader({ date }: Props) {
 	return (
 		<View style={styles.container}>
 			<View style={[styles.pill, isPast && styles.pillPast]}>
-				<Text style={styles.text}>{formatDate(date)}</Text>
+				<Text style={[styles.text, isPast && styles.textPast]}>{formatDate(date)}</Text>
 			</View>
 		</View>
 	);
@@ -62,4 +62,6 @@ const styles = themedStyles(() => StyleSheet.create({
 		fontSize: 12,
 		letterSpacing: 1,
 	},
+	// The past pill is the neutral grey: white-on-light-grey vanishes in the light theme
+	textPast: { color: colors.text },
 }));
