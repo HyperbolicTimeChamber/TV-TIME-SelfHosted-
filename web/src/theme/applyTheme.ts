@@ -27,6 +27,7 @@ const CSS_VARS: Record<string, string[]> = {
 	onImage: ["--on-image"],
 	onImageSecondary: ["--on-image-secondary"],
 	spinnerWhite: ["--color-spinner-white"],
+	skeletonCard: ["--skeleton-card"],
 };
 
 const systemQuery = () =>

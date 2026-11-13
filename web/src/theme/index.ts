@@ -28,7 +28,10 @@ export function getAntdThemeConfig(light: boolean): ThemeConfig {
 		},
 		components: {
 			// Shimmer in the app palette (surfaceLight → border), as the old CSS pulse used
-			Skeleton: { gradientFromColor: colors.surfaceLight, gradientToColor: colors.border },
+			Skeleton: {
+				gradientFromColor: light ? colors.skeletonCard : colors.surfaceLight,
+				gradientToColor: light ? colors.skeletonShine : colors.border,
+			},
 		},
 	};
 }
