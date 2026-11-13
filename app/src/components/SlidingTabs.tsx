@@ -97,6 +97,8 @@ const styles = themedStyles(() => StyleSheet.create({
 	},
 	// Same look as SegmentedControl: grey rounded track, red pill on the pick
 	track: {
+		// Fills the row: its tabs are flex: 1, so a content-sized track collapsed them to nothing
+		flex: 1,
 		flexDirection: "row",
 		position: "relative",
 		padding: 3,
@@ -105,6 +107,8 @@ const styles = themedStyles(() => StyleSheet.create({
 	},
 	pill: {
 		position: "absolute",
+		// Tab offsets include the track's padding: start the pill at the track edge
+		left: 0,
 		top: 3,
 		bottom: 3,
 		borderRadius: 11,
