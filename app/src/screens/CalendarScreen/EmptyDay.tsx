@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet } from "react-native";
 import { Image } from "expo-image";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 
 /** Shikamaru, sighing (transparent WebP, width / height) */
 const DRAG_ART = require("../../../assets/empty-day.webp");
@@ -24,7 +24,7 @@ export default function EmptyDay() {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	// Fills the rest of the day page (or the popup) and centres in it
 	container: {
 		flexGrow: 1,
@@ -47,4 +47,4 @@ const styles = StyleSheet.create({
 		fontStyle: "italic",
 		textAlign: "center",
 	},
-});
+}));

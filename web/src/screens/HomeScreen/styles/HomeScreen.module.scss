@@ -76,6 +76,7 @@
 
 .sectionPill {
 	background: var(--primary);
+	color: var(--on-primary);
 	padding: 4px 16px;
 	border-radius: 16px;
 	font-size: 12px;
@@ -86,6 +87,7 @@
 
 .sectionPillPast {
 	background: var(--border);
+	color: var(--text);
 }
 
 .upcomingRow {

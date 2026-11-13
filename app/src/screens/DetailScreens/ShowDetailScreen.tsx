@@ -4,6 +4,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import Reanimated, {
+	runOnJS,
+	useAnimatedReaction,
 	useAnimatedScrollHandler,
 	useAnimatedStyle,
 	useDerivedValue,
@@ -35,7 +37,8 @@ import { showShareUrl, describeLoadError, titleListCount } from "../../utils";
 import ErrorState from "../../components/ErrorState";
 import CircleButton, { CIRCLE_BUTTON_SIZE, CircleBackButton } from "../../components/CircleButton";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
-import { colors, fonts, spacing, typography } from "../../theme";
+import { colors, fonts, isLightTheme, spacing, typography, themedStyles } from "../../theme";
+import { StatusBar } from "expo-status-bar";
 import { HomeStackParamList, MediaType, Route, WatchStatus } from "../../types";
 import { CircleButtonTone } from "../../enums";
 import { ModalBackdrop, ModalLogo } from "../../components/modals/ModalArt";
@@ -137,6 +140,16 @@ export default function ShowDetailScreen() {
 	const handleScroll = useAnimatedScrollHandler((e) => {
 		scrollY.value = e.contentOffset.y;
 	});
+	// Light icons over the poster; on the light theme they switch to dark once the page scrolls
+	// past it (white icons vanished on the light page background)
+	const [pastPoster, setPastPoster] = useState(false);
+	const statusBarFlip = BACKDROP_HEIGHT - insets.top;
+	useAnimatedReaction(
+		() => scrollY.value > statusBarFlip,
+		(past, prev) => {
+			if (past !== prev) runOnJS(setPastPoster)(past);
+		},
+	);
 	const imageTranslateY = useDerivedValue(() =>
 		Math.min(scrollY.value * 0.4, BACKDROP_HEIGHT * 0.5),
 	);
@@ -201,6 +214,8 @@ export default function ShowDetailScreen() {
 	return (
 		// Right swipe anywhere → back, the screen underneath showing through (transparent modal route)
 		<SwipeBackView onBack={handleBack} {...swipeBack} style={styles.container}>
+			{/* The poster runs under the status bar: light icons on it, whatever the theme */}
+			<StatusBar style={pastPoster && isLightTheme() ? "dark" : "light"} />
 			<Reanimated.ScrollView
 				contentContainerStyle={{ paddingBottom: spacing.xxl + Math.max(insets.bottom, 48) }}
 				onScroll={handleScroll}
@@ -221,6 +236,7 @@ export default function ShowDetailScreen() {
 								mediaType={mediaType}
 								title={title}
 								nameDelay={2000}
+								tint={isLightTheme() ? colors.text : undefined}
 							/>
 						</View>
 
@@ -374,7 +390,7 @@ export default function ShowDetailScreen() {
 						}).catch((e: any) => Alert.alert("Share failed", e.message));
 					}}
 				>
-					<Ionicons name="share-social-outline" size={26} color={colors.text} />
+					<Ionicons name="share-social-outline" size={26} color={colors.onImage} />
 				</CircleButton>
 			</Reanimated.ScrollView>
 
@@ -493,7 +509,7 @@ export default function ShowDetailScreen() {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		flex: 1,
 		backgroundColor: colors.background,
@@ -572,4 +588,4 @@ const styles = StyleSheet.create({
 		// In line with the page's text
 		paddingHorizontal: spacing.sm,
 	},
-});
+}));

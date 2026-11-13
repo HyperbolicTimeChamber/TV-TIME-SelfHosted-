@@ -26,7 +26,7 @@ import ListMenuSheet from "./ListMenuSheet";
 import { shareListsExport } from "../../services/customListsFiles";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import { moveElement, sameItemOrder, titleCount } from "../../utils";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles, tint } from "../../theme";
 import { ListGridCard, ListItemPreview, ListRow, ReorderRow } from "./ListItemViews";
 import { useSearchActions } from "../SearchScreen/useSearchActions";
 import SearchModals from "../SearchScreen/SearchModals";
@@ -38,7 +38,7 @@ type Nav = NativeStackNavigationProp<ProfileStackParamList, Route.LIST_DETAIL>;
 
 /** Height of the fade under the header (the Lists page's FADE_HEIGHT) */
 const FADE_HEIGHT = spacing.lg;
-const TOP_FADE = [colors.background, "rgba(0, 0, 0, 0)"] as const;
+const topFade = () => [colors.background, tint(colors.background, 0)] as const;
 /** Grid view is Search's result grid */
 const COLUMNS = 2;
 
@@ -306,7 +306,7 @@ export default function ListDetailScreen() {
 							)}
 						/>
 					)}
-					<LinearGradient colors={TOP_FADE} style={styles.topFade} pointerEvents="none" />
+					<LinearGradient colors={topFade()} style={styles.topFade} pointerEvents="none" />
 				</View>
 			)}
 
@@ -423,7 +423,7 @@ listId, removeTarget.tmdbId, removeTarget.mediaType);
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: { flex: 1, backgroundColor: colors.background },
 	topBar: {
 		flexDirection: "row",
@@ -475,4 +475,4 @@ const styles = StyleSheet.create({
 		fontStyle: "italic",
 		textAlign: "center",
 	},
-});
+}));

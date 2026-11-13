@@ -38,7 +38,7 @@ import { artHeight, NO_RESULTS_ART, NO_RESULTS_RATIO } from "../NotFoundArt";
 import { personSubject } from "../../utils/subjectLink";
 import { CAST_SEARCH_DEBOUNCE_MS, CAST_SEARCH_MAX_LENGTH, MediaType } from "../../enums";
 import type { CastMember } from "../../types";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 
 /** Same feel as the app's other sheets: critically damped, no overshoot */
 const SHEET_SPRING = { damping: 30, stiffness: 220, overshootClamping: true } as const;
@@ -355,7 +355,7 @@ function NothingFound({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	root: { flex: 1 },
 	sheet: { backgroundColor: colors.surface, borderRadius: 20 },
 	handleArea: { paddingVertical: 10 },
@@ -415,4 +415,4 @@ const styles = StyleSheet.create({
 	skeletonLine: { height: 10, width: "60%", borderRadius: 4, backgroundColor: colors.border },
 	skeletonShort: { width: "35%", marginTop: 6 },
 	more: { marginVertical: spacing.lg },
-});
+}));

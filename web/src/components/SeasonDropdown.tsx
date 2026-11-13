@@ -180,8 +180,8 @@ export default memo(function SeasonDropdown({ readOnly, isFirst, isLast, ...prop
 										? `${s.watchedCount}`
 										: undefined
 							}
-							labelColor={s.partiallyWatched ? colors.background : undefined}
-							backgroundColor={s.partiallyWatched ? colors.text : undefined}
+							labelColor={s.partiallyWatched ? colors.checkCount : undefined}
+							backgroundColor={s.partiallyWatched ? colors.checkUnwatched : undefined}
 							onPress={s.handleSeasonPress}
 							onLongPress={s.handleSeasonLongPress}
 							disabled={s.markingEps.size > 0 || s.watchedLoading}

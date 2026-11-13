@@ -1,8 +1,8 @@
 import { StyleSheet } from "react-native";
-import { colors, spacing, typography } from "../../../theme";
+import { colors, spacing, typography, themedStyles } from "../../../theme";
 import { CARD_WIDTH, CARD_HEIGHT, CARD_GAP, IMAGE_HEIGHT, META_OVERLAP } from "./constants";
 
-export const styles = StyleSheet.create({
+export const styles = themedStyles(() => StyleSheet.create({
 	modalOverlay: {
 		flex: 1,
 		backgroundColor: colors.overlayMedium,
@@ -140,8 +140,10 @@ export const styles = StyleSheet.create({
 	actionButtonText: {
 		...typography.subtitle,
 		fontSize: 14,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
+	// Skip sits on the neutral grey, not a colored fill
+	skipButtonText: { color: colors.text },
 	watchedButtonRow: {
 		flexDirection: "row",
 		gap: spacing.sm,
@@ -237,4 +239,4 @@ export const styles = StyleSheet.create({
 		borderRadius: 4,
 		backgroundColor: colors.border,
 	},
-});
+}));

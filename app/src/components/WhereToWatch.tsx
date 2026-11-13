@@ -16,7 +16,7 @@ import { displayProviders, providerApp, providerLink, shortProviderName } from "
 import ServiceApps from "../../modules/service-apps";
 import BottomSheet, { SheetGroup, sheetStyles } from "./modals/BottomSheet";
 import { useSharedShimmer } from "./SkeletonLine";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 import { PROVIDER_OPEN_GUARD_MS, type MediaType } from "../enums";
 
 const HIGH_SEAS_ART = require("../../assets/high-seas.webp");
@@ -333,7 +333,7 @@ function ProvidersSheet({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	section: { marginTop: spacing.xl, paddingHorizontal: TEXT_INSET },
 	header: { marginBottom: spacing.md, gap: 2 },
 	// The page's section title (Seasons)
@@ -392,4 +392,4 @@ const styles = StyleSheet.create({
 	creditRowTitle: { flexShrink: 1 },
 	endCredit: { ...typography.caption, fontSize: 11, color: colors.textMuted },
 	inlineCredit: { ...typography.caption, fontSize: 11, fontWeight: "400", color: colors.textMuted },
-});
+}));

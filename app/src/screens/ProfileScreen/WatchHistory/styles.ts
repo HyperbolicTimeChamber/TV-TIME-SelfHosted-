@@ -1,7 +1,7 @@
 import { StyleSheet } from "react-native";
-import { colors, spacing, tint } from "../../../theme";
+import { colors, spacing, tint, themedStyles } from "../../../theme";
 
-const TIME_TEXT = tint(colors.text, 0.95);
+const timeText = () => tint(colors.onImage, 0.95);
 
 /** Shared with the web card (same numbers → identical at phone width) */
 export const CARD_RADIUS = 16;
@@ -10,7 +10,7 @@ export const LOGO_HEIGHT = 56;
 export const RING_SIZE = 20;
 export const RING_STROKE = 3;
 
-export const styles = StyleSheet.create({
+export const styles = themedStyles(() => StyleSheet.create({
 	pagerClip: { flex: 1, overflow: "hidden" },
 	pages: { flex: 1, flexDirection: "row" },
 	container: { flex: 1, backgroundColor: colors.background },
@@ -30,7 +30,7 @@ export const styles = StyleSheet.create({
 	list: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
 	// A list's own grid's side margin (ListDetail gridContent + Search's row)
 	grid: { paddingHorizontal: spacing.xs + spacing.sm, paddingTop: spacing.lg },
-	gridTagBacking: { borderRadius: 999, backgroundColor: colors.background },
+	gridTagBacking: { borderRadius: 999, backgroundColor: colors.cardDark },
 	separator: { height: spacing.lg },
 	empty: {
 		textAlign: "center",
@@ -110,7 +110,7 @@ export const styles = StyleSheet.create({
 	},
 	keywordFieldFocused: { borderColor: colors.textMuted },
 	keywordInput: { flex: 1, color: colors.text, fontSize: 15, padding: 0 },
-	filterChipTextOn: { color: colors.text },
+	filterChipTextOn: { color: colors.onPrimary },
 
 	// Card
 	// 16:9 is the minimum (minHeight set from the card width in HistoryCardView) — the card
@@ -119,7 +119,7 @@ export const styles = StyleSheet.create({
 		width: "100%",
 		gap: spacing.md,
 		borderRadius: CARD_RADIUS,
-		backgroundColor: colors.surface,
+		backgroundColor: colors.cardDark,
 		padding: spacing.lg,
 		overflow: "hidden",
 		justifyContent: "space-between",
@@ -136,32 +136,32 @@ export const styles = StyleSheet.create({
 		gap: spacing.md,
 	},
 	logo: { flex: 1, height: LOGO_HEIGHT },
-	cardTitle: { flex: 1, color: colors.text, fontSize: 20, fontWeight: "600" },
+	cardTitle: { flex: 1, color: colors.onImage, fontSize: 20, fontWeight: "600" },
 	bottomRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
 	leftBlock: { alignItems: "flex-start", gap: spacing.sm + 2 },
 	timeBlock: { alignItems: "flex-end" },
 	// Upper stat (Last Watched): normal spacing instead of the baseline pull-down
 	statGap: { marginBottom: spacing.md },
 	// Last Watched / Total Time Spent: white softened a touch, full white read too strong
-	timeLabel: { color: TIME_TEXT, fontSize: 13, fontWeight: "500", marginBottom: 2 },
+	timeLabel: { color: timeText(), fontSize: 13, fontWeight: "500", marginBottom: 2 },
 	// lineHeight = fontSize, pulled down by the font's descent so the digits' baseline
 	// lines up with the bottom of the progress pill on the left
 	timeSpent: {
-		color: TIME_TEXT,
+		color: timeText(),
 		fontSize: 30,
 		lineHeight: 30,
 		fontWeight: "600",
 		letterSpacing: -0.5,
 		marginBottom: -6,
 	},
-	// Light grey (textSecondary) at 35% — translucent over the backdrop
+	// Image glass (white at 22%) — translucent over the backdrop in every theme
 	tagPill: {
 		borderRadius: 999,
 		paddingHorizontal: 10,
 		paddingVertical: 3,
-		backgroundColor: `${colors.textSecondary}59`,
+		backgroundColor: tint(colors.onImage, 0.22),
 	},
-	tag: { color: colors.text, fontSize: 12, fontWeight: "600" },
+	tag: { color: colors.onImage, fontSize: 12, fontWeight: "600" },
 	// Add to List, top-right: a 36 circle, amber with a filled bookmark when the title is in a list
 	listButton: {
 		width: 36,
@@ -185,5 +185,5 @@ export const styles = StyleSheet.create({
 		// Shares the row with the Settings circle
 		flex: 1,
 	},
-	historyButtonText: { color: colors.text, fontSize: 17, fontWeight: "600" },
-});
+	historyButtonText: { color: colors.onPrimary, fontSize: 17, fontWeight: "600" },
+}));

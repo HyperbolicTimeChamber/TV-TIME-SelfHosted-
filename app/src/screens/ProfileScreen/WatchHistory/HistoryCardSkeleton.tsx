@@ -1,6 +1,7 @@
 import React from "react";
 import { Animated } from "react-native";
 import { useSharedShimmer } from "../../../components/SkeletonLine";
+import { colors } from "../../../theme";
 import { CARD_ASPECT, styles } from "./styles";
 
 /** Placeholder card. It runs its own shimmer rather than taking one from the screen: the grid
@@ -8,5 +9,5 @@ import { CARD_ASPECT, styles } from "./styles";
  *  late and never animate (see useSharedShimmer). */
 export default function HistoryCardSkeleton() {
 	const shimmer = useSharedShimmer();
-	return <Animated.View style={[styles.card, { aspectRatio: CARD_ASPECT, opacity: shimmer }]} />;
+	return <Animated.View style={[styles.card, { aspectRatio: CARD_ASPECT, opacity: shimmer, backgroundColor: colors.skeletonCard }]} />;
 }

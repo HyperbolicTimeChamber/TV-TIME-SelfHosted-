@@ -9,7 +9,7 @@ import {
 	StyleProp,
 	ViewStyle,
 } from "react-native";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 
 interface Tab {
 	key: string;
@@ -56,6 +56,7 @@ export default function SlidingTabs({ tabs, activeKey, onTabPress, style }: Prop
 
 	return (
 		<View style={[styles.container, style]}>
+			<View style={styles.track}>
 			<Animated.View
 				style={[
 					styles.pill,
@@ -78,11 +79,12 @@ export default function SlidingTabs({ tabs, activeKey, onTabPress, style }: Prop
 					</Text>
 				</TouchableOpacity>
 			))}
+			</View>
 		</View>
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		flexDirection: "row",
 		backgroundColor: colors.surface,
@@ -92,27 +94,39 @@ const styles = StyleSheet.create({
 		borderTopColor: colors.border,
 		paddingHorizontal: spacing.sm,
 		paddingVertical: spacing.sm,
+	},
+	// Same look as SegmentedControl: grey rounded track, red pill on the pick
+	track: {
+		// Fills the row: its tabs are flex: 1, so a content-sized track collapsed them to nothing
+		flex: 1,
+		flexDirection: "row",
 		position: "relative",
+		padding: 3,
+		borderRadius: 14,
+		backgroundColor: colors.surfaceLight,
 	},
 	pill: {
 		position: "absolute",
-		top: spacing.sm,
-		bottom: spacing.sm,
-		borderRadius: 6,
+		// Tab offsets include the track's padding: start the pill at the track edge
+		left: 0,
+		top: 3,
+		bottom: 3,
+		borderRadius: 11,
 		backgroundColor: colors.primary,
 	},
 	tab: {
 		flex: 1,
 		alignItems: "center",
-		paddingVertical: spacing.sm,
-		borderRadius: 8,
+		justifyContent: "center",
+		minHeight: 34,
+		borderRadius: 11,
 	},
 	tabText: {
 		...typography.caption,
 		fontWeight: "600",
-		color: colors.textMuted,
+		color: colors.textSecondary,
 	},
 	tabTextActive: {
-		color: colors.text,
+		color: colors.onPrimary,
 	},
-});
+}));

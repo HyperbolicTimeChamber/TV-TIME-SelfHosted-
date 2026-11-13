@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SheetGroup, sheetStyles } from "./modals/BottomSheet";
 import SheetDoneFooter, { DONE_FOOTER_HEIGHT } from "./modals/SheetDoneFooter";
 import SegmentedControl from "./SegmentedControl";
-import { colors, spacing } from "../theme";
+import { colors, spacing, themedStyles } from "../theme";
 import { HiCheck } from "./HiIcons";
 
 export interface SortOption<T> {
@@ -202,7 +202,7 @@ export default function SortSheet<T>({
 	);
 }
 
-export const sortSheetStyles = StyleSheet.create({
+export const sortSheetStyles = themedStyles(() => StyleSheet.create({
 	root: { flex: 1 },
 	sheet: { backgroundColor: colors.surface, borderRadius: 20 },
 	handleArea: { paddingVertical: 10 },
@@ -222,4 +222,4 @@ export const sortSheetStyles = StyleSheet.create({
 	rowPressed: { backgroundColor: colors.border },
 	rowText: { fontSize: 16, color: colors.textSecondary },
 	rowActive: { color: colors.text, fontWeight: "700" },
-});
+}));

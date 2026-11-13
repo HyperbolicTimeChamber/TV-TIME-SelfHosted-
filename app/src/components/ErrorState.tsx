@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 import { LoadErrorKind, MediaType } from "../enums";
 import type { LoadErrorInfo } from "../utils";
 import NotFoundArt, { artHeight } from "./NotFoundArt";
@@ -79,7 +79,7 @@ export default function ErrorState({ info, mediaType, primary, secondary }: Prop
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	root: {
 		flex: 1,
 		backgroundColor: colors.background,
@@ -131,6 +131,7 @@ const styles = StyleSheet.create({
 	primaryText: {
 		...typography.subtitle,
 		fontSize: 15,
+		color: colors.onPrimary,
 	},
 	secondaryButton: {
 		alignSelf: "stretch",
@@ -150,4 +151,4 @@ const styles = StyleSheet.create({
 		color: colors.textMuted,
 		marginTop: spacing.xl,
 	},
-});
+}));

@@ -68,7 +68,7 @@ import LoginScreen from "./src/screens/LoginScreen";
 import ImportDataScreen from "./src/screens/ImportDataScreen";
 import AppNavigator from "./src/navigation/AppNavigator";
 import { NoInternetModal } from "./src/components/modals";
-import { colors } from "./src/theme";
+import { colors, themedStyles, useThemeVersion } from "./src/theme";
 import { AppOpenSource, FATAL_AUTH_ERRORS, OFFLINE_DELAY_MS, QueryKey } from "./src/enums";
 import { createConnectivityGate } from "./src/utils/connectivityGate";
 import { onReconnect, reportConnectivity, retryFailedQueries } from "./src/utils/reconnectRetry";
@@ -265,6 +265,9 @@ function SplashView() {
 }
 
 export default function App() {
+	// Remounts the app content on a theme change (styles and inline colors are read again); auth, queries
+	// and the navigation state live outside it
+	const themeVersion = useThemeVersion();
 	// Non-blocking: text falls back to the system font until these load
 	useFonts({ SmoochSans_400Regular, SmoochSans_500Medium, Handjet_800ExtraBold, VT323_400Regular });
 	const setUser = useAuthStore((s) => s.setUser);
@@ -371,14 +374,14 @@ export default function App() {
 						},
 					}}
 				>
-					<AppContent />
+					<AppContent key={themeVersion} />
 				</PersistQueryClientProvider>
 			</SafeAreaProvider>
 		</GestureHandlerRootView>
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	fill: { flex: 1 },
 	loading: {
 		flex: 1,
@@ -397,4 +400,4 @@ const styles = StyleSheet.create({
 		height: 120,
 	},
 	splashCredit: { position: "absolute", left: 0, right: 0 },
-});
+}));

@@ -72,6 +72,8 @@ export enum CacheKey {
 	USER_STATS = "profile_stats_cache",
 	HIDE_UNRELEASED_MODAL = "hideUnreleasedMovieModal",
 	IMPORT_IN_PROGRESS = "import_in_progress",
+	/** Saved theme + accent choice (JSON) */
+	THEME_PREFS = "theme_prefs_v1",
 	/** Prefix; the uid is appended. Import screen done/skipped, kept on the device in case the Firestore write fails */
 	IMPORT_DONE = "import_done_",
 	/** Legacy: the whole catalog as one ~2MB value — Android couldn't read it back. Deleted on start */
@@ -573,6 +575,8 @@ export enum Route {
 	CALENDAR_MAIN = "CalendarMain",
 	PROFILE_MAIN = "ProfileMain",
 	SETTINGS = "Settings",
+	APPEARANCE = "Appearance",
+	NOTIFICATIONS = "Notifications",
 	WATCH_HISTORY = "WatchHistory",
 	IMPORT_DATA = "ImportData",
 	LIST_DETAIL = "ListDetail",

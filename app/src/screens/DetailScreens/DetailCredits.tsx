@@ -8,7 +8,7 @@ import PhotoTrigger from "../../components/PhotoViewer";
 import { personSubject } from "../../utils/subjectLink";
 import type { MediaType } from "../../enums";
 import type { CrewMember } from "../../types";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 
 const AVATAR = 44;
 const PHOTO_FADE_MS = 200;
@@ -132,7 +132,7 @@ export default function DetailCredits({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	creditsSection: {
 		marginTop: spacing.xl,
 		gap: spacing.lg,
@@ -160,4 +160,4 @@ const styles = StyleSheet.create({
 	avatarPhoto: { width: AVATAR, height: AVATAR },
 	avatarShimmer: { backgroundColor: colors.border },
 	name: { ...typography.body, color: colors.textSecondary, flexShrink: 1 },
-});
+}));

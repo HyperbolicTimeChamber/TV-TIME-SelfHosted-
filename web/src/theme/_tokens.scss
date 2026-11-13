@@ -1,20 +1,20 @@
 // Design tokens — mirror app/src/theme (colors) so web + app stay in sync.
-// Runtime CSS variables (--bg, --surface, …) live in global.scss :root.
+// Runtime CSS variables (--bg, --surface, …) live in global.scss :root and are set by applyTheme.ts (theme + accent).
 
 $background: #000000;
 $surface: #1a1a1a;
 $surface-light: #252525;
-$primary: #e50914;
-$accent: #4a90d9;
+$primary: var(--primary);
+$accent: var(--accent);
 $text: #ffffff;
 $text-secondary: #a0a0a0;
 $text-muted: #666666;
-$watched-green: #00a800;
-$stop-blue: #3498db;
-$destructive-red: #e74c3c;
+$watched-green: var(--watched-green);
+$stop-blue: var(--stop-blue);
+$destructive-red: var(--destructive-red);
 $border: #333333;
-$movie-purple: #8b5cf6;
-$warning-amber: #f59e0b;
+$movie-purple: var(--movie-purple);
+$warning-amber: var(--warning-amber);
 
 // Corner radius of list cards — watchlist rows match the calendar cards
 $card-radius: 16px;

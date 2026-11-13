@@ -7,7 +7,7 @@ import { tmdbLogoUri } from "../hooks/useTmdbImage";
 import { useSharedShimmer } from "./SkeletonLine";
 import PhotoTrigger from "./PhotoViewer";
 import { mainStudios } from "../utils/studioNames";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 import { studioSubject } from "../utils/subjectLink";
 import type { MediaType } from "../enums";
 
@@ -98,7 +98,7 @@ export default function StudiosRow({ tmdbId, mediaType, bleed }: Readonly<Props>
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	section: { marginTop: spacing.lg, paddingHorizontal: TEXT_INSET },
 	// The credits' red label (Director)
 	label: { ...typography.subtitle, fontSize: 14, color: colors.primary, marginBottom: spacing.sm },
@@ -125,4 +125,4 @@ const styles = StyleSheet.create({
 	},
 	logo: { width: "100%", height: "100%" },
 	skeleton: { backgroundColor: colors.border },
-});
+}));

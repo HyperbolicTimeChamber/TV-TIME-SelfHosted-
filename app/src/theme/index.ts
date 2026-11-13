@@ -1,31 +1,29 @@
-export const colors = {
-	background: "#000000",
-	surface: "#1A1A1A",
-	surfaceLight: "#252525",
-	primary: "#E50914",
-	/** Deep red fill for a selected row (sort sheet) — white text stays readable on it */
-	primaryDark: "#5C0A10",
-	accent: "#4A90D9",
-	text: "#FFFFFF",
-	textSecondary: "#A0A0A0",
-	textMuted: "#666666",
-	/** Unwatched checkmark tick on the white circle */
-	checkTick: "#A0A0A0",
-	watchedGreen: "#00A800",
-	stopBlue: "#3498DB",
-	destructiveRed: "#E74C3C",
-	border: "#333333",
-	moviePurple: "#8B5CF6",
-	warningAmber: "#F59E0B",
-	/** warningAmber at 50% — a faded fill that leaves the text on it untouched (opacity would not) */
-	warningAmberFaded: "rgba(245, 158, 11, 0.5)",
-	spinnerWhite: "#FFFFFF",
-	spinnerOrange: "#FF3D00",
-	overlay: "rgba(0, 0, 0, 0.85)",
-	overlayLight: "rgba(0, 0, 0, 0.6)",
-	overlayMedium: "rgba(0, 0, 0, 0.7)",
-	badgeOverlay: "rgba(0, 0, 0, 0.5)",
-} as const;
+import { DEFAULT_THEME_PREFS, ThemeMode, buildPalette, resolveScheme, tint as tintHex } from "./palette";
+import type { ColorPalette, ThemePrefs } from "./palette";
+import { bumpThemeVersion } from "./themeStore";
+
+export * from "./palette";
+export { themedStyles } from "./themedStyles";
+export { getThemeVersion, useThemeVersion } from "./themeStore";
+
+/**
+ * Live palette. Styles built at module load (StyleSheet.create) copy these values, so the theme is
+ * applied once at startup (applyThemePrefs, before the app's modules load) and changing it means
+ * restarting the app (see the theme store / reloadAppAsync).
+ */
+export const colors: ColorPalette = buildPalette(DEFAULT_THEME_PREFS);
+
+let lightTheme = false;
+
+/** Light palette in use (status bar icons, navigation theme) */
+export const isLightTheme = (): boolean => lightTheme;
+
+/** Swap the palette in place — call before any styled module is imported */
+export function applyThemePrefs(prefs: ThemePrefs, system?: "light" | "dark" | null): void {
+	Object.assign(colors, buildPalette(prefs, system));
+	lightTheme = resolveScheme(prefs.mode, system) === ThemeMode.LIGHT;
+	bumpThemeVersion();
+}
 
 /** Custom font families (loaded in App via useFonts). Android: never pair with fontWeight. */
 export const fonts = {
@@ -39,8 +37,7 @@ export const fonts = {
 } as const;
 
 /** `#RRGGBB` + alpha → rgba(), for translucent fills and glow shadows */
-export const tint = (hex: string, alpha: number) =>
-	`rgba(${parseInt(hex.slice(1, 3), 16)}, ${parseInt(hex.slice(3, 5), 16)}, ${parseInt(hex.slice(5, 7), 16)}, ${alpha})`;
+export const tint = tintHex;
 
 export const spacing = {
 	xs: 4,
@@ -51,16 +48,37 @@ export const spacing = {
 	xxl: 32,
 } as const;
 
+/** Colors are getters: spreading one into a style reads the live palette at that moment */
 export const typography = {
-	title: { fontSize: 22, fontWeight: "600" as const, color: colors.text },
-	subtitle: { fontSize: 16, fontWeight: "600" as const, color: colors.text },
-	body: { fontSize: 14, fontWeight: "400" as const, color: colors.text },
+	title: {
+		fontSize: 22,
+		fontWeight: "600" as const,
+		get color() {
+			return colors.text;
+		},
+	},
+	subtitle: {
+		fontSize: 16,
+		fontWeight: "600" as const,
+		get color() {
+			return colors.text;
+		},
+	},
+	body: {
+		fontSize: 14,
+		fontWeight: "400" as const,
+		get color() {
+			return colors.text;
+		},
+	},
 	caption: {
 		fontSize: 12,
 		fontWeight: "400" as const,
-		color: colors.textSecondary,
+		get color() {
+			return colors.textSecondary;
+		},
 	},
-} as const;
+};
 
 export const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
 export const posterSize = {

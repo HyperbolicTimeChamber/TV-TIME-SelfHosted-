@@ -49,7 +49,7 @@ import {
 	titleCount,
 	type ImportPlan,
 } from "../../utils";
-import { colors, fonts, spacing, typography } from "../../theme";
+import { colors, fonts, spacing, tint, typography, themedStyles } from "../../theme";
 import { requireOnline } from "../../utils/requireOnline";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, Route.LISTS>;
@@ -60,7 +60,7 @@ const HOLD_TO_DRAG_MS = 250;
 /** The fade under the title bar — and the space above the first card */
 const FADE_HEIGHT = spacing.lg;
 /** Page colour → transparent: the fade under the title bar */
-const TOP_FADE = [colors.background, "rgba(0, 0, 0, 0)"] as const;
+const topFade = () => [colors.background, tint(colors.background, 0)] as const;
 /** The drag pan wakes this long after the row's long press has fired */
 const PAN_WAKE_AFTER_MS = 50;
 /** After the finger lets go, wait this long for the drag to report its own end */
@@ -274,7 +274,7 @@ function ListRow({ list, onOpen, onMenu, dragging }: Readonly<RowProps>) {
 						accessibilityRole="button"
 						accessibilityLabel={`Options for ${list.name}`}
 					>
-						<Ionicons name="ellipsis-vertical" size={20} color={colors.text} />
+						<Ionicons name="ellipsis-vertical" size={20} color={colors.onImage} />
 					</Pressable>
 				</View>
 				{list.items.length > 0 ? (
@@ -544,7 +544,7 @@ export default function ListsScreen() {
 						}
 					/>
 					{/* Cards fade out under the title bar instead of being cut at its edge */}
-					<LinearGradient colors={TOP_FADE} style={styles.topFade} pointerEvents="none" />
+					<LinearGradient colors={topFade()} style={styles.topFade} pointerEvents="none" />
 				</View>
 			)}
 
@@ -634,7 +634,7 @@ export default function ListsScreen() {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: { flex: 1, backgroundColor: colors.background },
 	topBar: {
 		flexDirection: "row",
@@ -693,7 +693,7 @@ const styles = StyleSheet.create({
 		alignSelf: "stretch",
 		marginBottom: spacing.sm,
 	},
-	cardName: { ...typography.subtitle, fontSize: 18, flex: 1 },
+	cardName: { ...typography.subtitle, fontSize: 18, flex: 1, color: colors.onImage },
 	strip: { flexDirection: "row", gap: spacing.xs },
 	stripPoster: { width: 28, height: 42, borderRadius: 4, overflow: "hidden" },
 	// Dims the poster under "+N"; a hairline keeps the tile's edge against dark posters
@@ -709,11 +709,11 @@ const styles = StyleSheet.create({
 	// The count square's face, so the number reads as part of the same card
 	moreText: {
 		fontFamily: fonts.smoochMedium,
-		color: colors.text,
+		color: colors.onImage,
 		letterSpacing: 0.5,
 		includeFontPadding: false,
 	},
-	emptyLine: { ...typography.caption, color: colors.textSecondary },
+	emptyLine: { ...typography.caption, color: colors.onImageSecondary },
 	squareValue: { fontSize: 44, lineHeight: 48 },
 	rowText: { flex: 1, minWidth: 0 },
 	rowName: { ...typography.subtitle, fontSize: 16 },
@@ -736,4 +736,4 @@ const styles = StyleSheet.create({
 	},
 	emptyTitle: { ...typography.subtitle, fontSize: 18 },
 	emptyHint: { ...typography.caption, textAlign: "center" },
-});
+}));

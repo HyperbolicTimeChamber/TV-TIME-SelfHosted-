@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, FlatList, ActivityIndicator, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 import type { CustomListEntry, MediaType } from "../../types";
 import { useCustomLists } from "../../hooks";
 import PosterImage from "../../components/PosterImage";
@@ -74,7 +74,7 @@ export default function CustomLists({
 					>
 						<Text style={styles.viewAllText}>View All Lists</Text>
 						<View style={styles.viewAllArrow}>
-							<Ionicons name="chevron-forward" size={24} color={colors.text} style={styles.viewAllChevron} />
+							<Ionicons name="chevron-forward" size={24} color={colors.onPrimary} style={styles.viewAllChevron} />
 						</View>
 					</Pressable>
 				</>
@@ -194,7 +194,7 @@ function PosterRow({
 
 const POSTER = profileStyles.completedPoster;
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	// Continues Recently Completed: its side padding, no gap or title above
 	section: { paddingHorizontal: spacing.lg },
 	// Recently Completed's rows (genreSection)
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
 		paddingRight: spacing.sm,
 		backgroundColor: colors.primary,
 	},
-	viewAllText: { ...typography.subtitle, fontSize: 15 },
+	viewAllText: { ...typography.subtitle, fontSize: 15, color: colors.onPrimary },
 	// The back button's chevron, mirrored: its glyph sits 2px off centre the other way
 	viewAllChevron: { marginLeft: 2 },
 	viewAllArrow: {
@@ -265,4 +265,4 @@ const styles = StyleSheet.create({
 	},
 	emptyTitle: { ...typography.subtitle, fontSize: 15, marginTop: spacing.xs },
 	emptyHint: { ...typography.caption, textAlign: "center" },
-});
+}));

@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { MediaType } from "../../../enums";
-import { colors, spacing, typography } from "../../../theme";
+import { colors, spacing, typography, themedStyles } from "../../../theme";
 
 /** Squidward, gesturing at nothing (transparent WebP, width / height) */
 const SQUIDWARD_ART = require("../../../../assets/history-empty.webp");
@@ -39,7 +39,7 @@ export default function HistoryEmpty({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	// Fills the page under the tabs, the pair centred in it — nudged up (true centre reads low)
 	row: {
 		flex: 1,
@@ -63,4 +63,4 @@ const styles = StyleSheet.create({
 		color: colors.textSecondary,
 		fontStyle: "italic",
 	},
-});
+}));

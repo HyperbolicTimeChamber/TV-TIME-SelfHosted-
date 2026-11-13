@@ -12,7 +12,7 @@ import Reanimated, {
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, typography } from "../theme";
+import { colors, typography, themedStyles } from "../theme";
 
 /** Track height; the knob sits inside it with KNOB_INSET all round */
 /** Thumb-sized (a 56pt bar read thin under a thumb) */
@@ -154,7 +154,7 @@ export default function SlideToConfirm({ label, color, onConfirm, loading = fals
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	// 95% of the drawer, centred; the label sits in the middle (the knob's room each side)
 	track: {
 		alignSelf: "center",
@@ -189,4 +189,4 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 	},
-});
+}));

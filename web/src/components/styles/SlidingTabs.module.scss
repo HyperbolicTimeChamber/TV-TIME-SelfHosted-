@@ -4,7 +4,15 @@
 	display: flex;
 	background: var(--surface);
 	padding: 8px;
-	gap: 4px;
+}
+
+/* Same look as SortPanel's segmented control: grey rounded track, red pill on the pick */
+.track {
+	display: flex;
+	flex: 1;
+	padding: 3px;
+	border-radius: 14px;
+	background: var(--surface-light);
 }
 
 .tab {
@@ -12,15 +20,16 @@
 	flex: 1;
 	border: none;
 	background: none;
+	min-height: 34px;
 	padding: 8px 0;
-	border-radius: 8px;
+	border-radius: 11px;
 	cursor: pointer;
 }
 
 .pill {
 	position: absolute;
 	inset: 0;
-	border-radius: 6px;
+	border-radius: 11px;
 	background: var(--primary);
 }
 
@@ -36,5 +45,5 @@
 }
 
 .labelActive {
-	color: var(--text);
+	color: var(--on-primary);
 }

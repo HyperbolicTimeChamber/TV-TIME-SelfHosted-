@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { colors, spacing, typography } from "../../../theme";
+import { colors, spacing, typography, themedStyles } from "../../../theme";
 import { todayStr } from "../../../utils";
 
 interface Props {
@@ -34,13 +34,13 @@ export default memo(function DateHeader({ date }: Props) {
 	return (
 		<View style={styles.container}>
 			<View style={[styles.pill, isPast && styles.pillPast]}>
-				<Text style={styles.text}>{formatDate(date)}</Text>
+				<Text style={[styles.text, isPast && styles.textPast]}>{formatDate(date)}</Text>
 			</View>
 		</View>
 	);
 });
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		paddingTop: spacing.xs,
 		paddingBottom: spacing.md,
@@ -57,9 +57,11 @@ const styles = StyleSheet.create({
 	},
 	text: {
 		...typography.subtitle,
-		color: colors.text,
+		color: colors.onPrimary,
 		textTransform: "uppercase",
 		fontSize: 12,
 		letterSpacing: 1,
 	},
-});
+	// The past pill is the neutral grey: white-on-light-grey vanishes in the light theme
+	textPast: { color: colors.text },
+}));

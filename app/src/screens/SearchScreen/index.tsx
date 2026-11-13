@@ -80,9 +80,6 @@ const FILTER_TABS = [
 	{ key: MediaFilter.MOVIE, label: "Movies" },
 ];
 
-// Scrolls with the grid (header block floats over the list's top spacer)
-const TRENDING_TITLE = <Text style={styles.listTitle}>Trending</Text>;
-
 export default function SearchScreen() {
 	const { top } = useSafeAreaInsets();
 	const navigation = useNavigation<NavProp>();
@@ -329,7 +326,7 @@ export default function SearchScreen() {
 	const listHeader = useMemo(
 		() => (
 			<View style={{ paddingTop: headerH + (submittedQuery ? spacing.sm : 0) }}>
-				{!submittedQuery && TRENDING_TITLE}
+				{!submittedQuery && <Text style={styles.listTitle}>Trending</Text>}
 			</View>
 		),
 		[headerH, submittedQuery],

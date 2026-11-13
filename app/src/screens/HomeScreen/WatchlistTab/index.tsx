@@ -28,7 +28,7 @@ import {
 	EpisodeDetailModal,
 	ShowDrawer,
 } from "../../../components";
-import { colors, spacing } from "../../../theme";
+import { colors, spacing, themedStyles } from "../../../theme";
 import { CARD_RADIUS } from "../../../enums";
 import {
 	HomeStackParamList,
@@ -80,7 +80,7 @@ function SkeletonFooter() {
 	);
 }
 
-const skeletonStyles = StyleSheet.create({
+const skeletonStyles = themedStyles(() => StyleSheet.create({
 	container: {
 		gap: spacing.sm,
 		paddingTop: spacing.sm,
@@ -91,7 +91,7 @@ const skeletonStyles = StyleSheet.create({
 		borderRadius: CARD_RADIUS,
 		backgroundColor: colors.border,
 	},
-});
+}));
 
 /** On-screen movement → ease-in-out; quick enough to read as a response to the tap */
 const CARD_MOVE_MS = 400;
