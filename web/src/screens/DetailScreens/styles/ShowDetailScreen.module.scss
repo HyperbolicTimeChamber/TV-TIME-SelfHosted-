@@ -65,11 +65,12 @@
 		pointer-events: none;
 		background: linear-gradient(
 			to bottom,
-			rgb(0 0 0 / 0%) 0%,
-			rgb(0 0 0 / 8%) 15%,
-			rgb(0 0 0 / 25%) 32%,
-			rgb(0 0 0 / 50%) 52%,
-			rgb(0 0 0 / 75%) 75%,
+			/* Fades into the page colour itself: black on dark (unchanged), white on light */
+			color-mix(in srgb, var(--bg) 0%, transparent) 0%,
+			color-mix(in srgb, var(--bg) 8%, transparent) 15%,
+			color-mix(in srgb, var(--bg) 25%, transparent) 32%,
+			color-mix(in srgb, var(--bg) 50%, transparent) 52%,
+			color-mix(in srgb, var(--bg) 75%, transparent) 75%,
 			var(--bg) 100%
 		);
 	}
