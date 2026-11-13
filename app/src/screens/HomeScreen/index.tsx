@@ -75,14 +75,17 @@ function TabLabel({
 	width: number;
 	pressedTab: SharedValue<number>;
 }>) {
+	// Plain strings: a worklet must not capture the mutable `colors` palette (Reanimated freezes
+	// captured objects in dev, and the next theme switch then fails to assign into it)
+	const { primary, textSecondary } = colors;
 	const animated = useAnimatedStyle(() => ({
 		color: interpolateColor(
 			pos.value,
 			// A zero width would divide by zero and crash the worklet
 			[0, Math.max(1, width)],
 			tabIndex === 0
-				? [colors.primary, colors.textSecondary]
-				: [colors.textSecondary, colors.primary],
+				? [primary, textSecondary]
+				: [textSecondary, primary],
 		),
 		opacity: pressedTab.value === tabIndex ? PRESSED_OPACITY : 1,
 	}));
