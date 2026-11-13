@@ -30,7 +30,7 @@ export const styles = themedStyles(() => StyleSheet.create({
 	list: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
 	// A list's own grid's side margin (ListDetail gridContent + Search's row)
 	grid: { paddingHorizontal: spacing.xs + spacing.sm, paddingTop: spacing.lg },
-	gridTagBacking: { borderRadius: 999, backgroundColor: colors.background },
+	gridTagBacking: { borderRadius: 999, backgroundColor: colors.cardDark },
 	separator: { height: spacing.lg },
 	empty: {
 		textAlign: "center",

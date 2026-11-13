@@ -455,7 +455,7 @@ const JOINED_BUTTON = {
 } as const;
 
 const styles = themedStyles(() => StyleSheet.create({
-	gridTagBacking: { borderRadius: 999, backgroundColor: colors.background },
+	gridTagBacking: { borderRadius: 999, backgroundColor: colors.cardDark },
 	// The calendar card sits in the list's own padding (no side margin of its own)
 	// Taller than the calendar's card: the square has the add button / Tracking tag under it
 	// Exactly the right block (square + button) plus the card's padding: the left column fits inside
