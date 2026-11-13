@@ -40,7 +40,7 @@ export default function ProgressPill({ kind, percent = 0, compact = false }: Pro
 		);
 	}
 	return (
-		<span className={`${cls} bg-warning text-surface`}>
+		<span className={`${cls} bg-warning`} style={{ color: "var(--on-amber)" }}>
 			<span className={styles.ring}>
 				<ProgressRing percent={percent} />
 			</span>
