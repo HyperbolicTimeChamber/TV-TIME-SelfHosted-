@@ -53,8 +53,8 @@ const DARK = {
 	text: "#FFFFFF",
 	textSecondary: "#A0A0A0",
 	textMuted: "#666666",
-	/** Unwatched checkmark tick on the white circle */
-	checkTick: "#A0A0A0",
+	/** Unwatched checkmark circle: faded watchedGreen (watched = solid), white tick */
+	checkUnwatched: "#005C00",
 	border: "#333333",
 	watchedGreen: "#00A800",
 	stopBlue: "#3498DB",
@@ -86,8 +86,8 @@ const LIGHT = {
 	text: "#111114",
 	textSecondary: "#55555F",
 	textMuted: "#8A8A96",
-	/** Unwatched checkmark tick on the white circle */
-	checkTick: "#A0A0A0",
+	/** Unwatched checkmark circle: faded watchedGreen (watched = solid), white tick */
+	checkUnwatched: "#5FB877",
 	border: "#D9D9E0",
 	watchedGreen: "#0A9A2E",
 	stopBlue: "#2A7FC0",

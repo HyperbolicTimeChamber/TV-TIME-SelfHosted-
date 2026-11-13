@@ -36,9 +36,10 @@ export default function CheckmarkButton({
 	const iconSize = size * 0.55;
 	// HiCheck's glyph fills ~2/3 of its box (Ionicons' filled more): drawn larger to read as big
 	const tickSize = checkSize ?? size * 0.72;
-	const bg = backgroundColor ?? (watched ? colors.watchedGreen : colors.text);
-	const iconColor = watched ? colors.text : colors.checkTick;
-	const textColor = labelColor ?? (watched ? colors.text : colors.background);
+	// Green in every theme, like the swipe card behind it: faded until watched, white tick
+	const bg = backgroundColor ?? (watched ? colors.watchedGreen : colors.checkUnwatched);
+	const iconColor = labelColor ?? colors.onPrimary;
+	const textColor = labelColor ?? colors.onPrimary;
 
 	return (
 		<TouchableOpacity
