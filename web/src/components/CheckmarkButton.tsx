@@ -38,10 +38,10 @@ export default function CheckmarkButton({
 	ariaLabel,
 }: Props) {
 	const iconSize = size * 0.55;
-	// Green in every theme, like the swipe card behind it: faded until watched, white tick
+	// Unwatched: neutral circle (white in dark, grey in light) + checkTick; watched: green + white
 	const bg = backgroundColor ?? (watched ? colors.watchedGreen : colors.checkUnwatched);
-	const iconColor = labelColor ?? colors.onPrimary;
-	const textColor = labelColor ?? colors.onPrimary;
+	const iconColor = labelColor ?? (watched ? colors.onPrimary : colors.checkTick);
+	const textColor = labelColor ?? (watched ? colors.onPrimary : colors.checkCount);
 	const press = useLongPress(
 		disabled || loading ? undefined : onLongPress,
 		disabled || loading ? undefined : onPress,
