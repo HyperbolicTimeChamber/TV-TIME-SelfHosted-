@@ -27,7 +27,7 @@ import { useSubjectLink } from "../hooks/useSubjectLink";
 import { tmdbLogoUri, tmdbPosterUri } from "../hooks/useTmdbImage";
 import { PhotoSubjectKind } from "../enums";
 import type { PhotoSubject } from "../types";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 
 const OPEN_MS = 280;
 const CLOSE_MS = 220;
@@ -211,7 +211,7 @@ export default function PhotoTrigger({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	fill: { width: "100%", height: "100%" },
 	backdrop: { backgroundColor: colors.overlay },
 	frame: { position: "absolute", overflow: "hidden", backgroundColor: colors.surface },
@@ -242,4 +242,4 @@ const styles = StyleSheet.create({
 	pillName: { ...typography.body, fontWeight: "600", color: colors.text, flexShrink: 1 },
 	pillDivider: { width: 1, height: 16, backgroundColor: colors.border },
 	pillLink: { ...typography.caption, fontWeight: "600", color: colors.primary },
-});
+}));

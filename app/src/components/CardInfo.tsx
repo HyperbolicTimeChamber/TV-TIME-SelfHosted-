@@ -8,7 +8,7 @@ import {
 	ViewStyle,
 	TextStyle,
 } from "react-native";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 import { CARD_RADIUS } from "../enums";
 
 /** Poster width (and card height) of the watchlist / Upcoming cards */
@@ -102,7 +102,7 @@ export default memo(function CardInfo({
 	);
 });
 
-export const cardStyles = StyleSheet.create({
+export const cardStyles = themedStyles(() => StyleSheet.create({
 	container: {
 		flexDirection: "row",
 		backgroundColor: colors.surface,
@@ -162,4 +162,4 @@ export const cardStyles = StyleSheet.create({
 		fontSize: 13,
 		lineHeight: 16,
 	},
-});
+}));

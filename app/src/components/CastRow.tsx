@@ -9,7 +9,7 @@ import CastSheet from "./modals/CastSheet";
 import PhotoTrigger from "./PhotoViewer";
 import { tmdbPosterUri } from "../hooks/useTmdbImage";
 import { useSharedShimmer } from "./SkeletonLine";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 import { personSubject } from "../utils/subjectLink";
 import { FEATURED_CAST_MAX, type MediaType } from "../enums";
 
@@ -136,7 +136,7 @@ export default function CastRow({ tmdbId, mediaType, title, bleed }: Readonly<Pr
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	section: { marginTop: spacing.xl, paddingHorizontal: TEXT_INSET },
 	// The credits' red label (Director)
 	title: { ...typography.subtitle, fontSize: 14, color: colors.primary, marginBottom: spacing.sm },
@@ -188,4 +188,4 @@ const styles = StyleSheet.create({
 	viewAllText: { ...typography.body, fontWeight: "600", color: colors.text },
 	viewAllCount: { ...typography.caption, fontSize: 11, color: colors.textMuted },
 	pressed: { transform: [{ scale: 0.96 }] },
-});
+}));

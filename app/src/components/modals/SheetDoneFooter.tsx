@@ -4,7 +4,7 @@ import { StyleSheet, Text } from "react-native";
 import { Pressable } from "react-native-gesture-handler";
 import { KEYBOARD_STATUS, useBottomSheet, useBottomSheetInternal } from "@gorhom/bottom-sheet";
 import Reanimated, { useAnimatedStyle } from "react-native-reanimated";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 
 /** The Done pill's height + the gap under it — a sheet's scroll content ends this far (plus the
  *  nav-bar inset) above the bottom so its last row can scroll clear of the pill */
@@ -59,7 +59,7 @@ export default function SheetDoneFooter({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	footer: { alignItems: "center", paddingBottom: spacing.md },
 	done: {
 		minWidth: 120,
@@ -71,4 +71,4 @@ const styles = StyleSheet.create({
 	},
 	donePressed: { opacity: 0.8, transform: [{ scale: 0.97 }] },
 	doneText: { ...typography.subtitle, fontSize: 15, color: colors.background },
-});
+}));

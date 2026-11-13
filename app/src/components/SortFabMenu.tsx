@@ -11,7 +11,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { FontAwesome5, Ionicons } from "@expo/vector-icons";
-import { colors, spacing } from "../theme";
+import { colors, spacing, themedStyles } from "../theme";
 import type { SortOption } from "./SortSheet";
 import Svg, { Path } from "react-native-svg";
 
@@ -230,7 +230,7 @@ export default function SortFabMenu<T>({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	backdrop: { backgroundColor: "rgba(0, 0, 0, 0.55)" },
 	pills: {
 		position: "absolute",
@@ -279,4 +279,4 @@ const styles = StyleSheet.create({
 		borderRadius: 5,
 		backgroundColor: colors.text,
 	},
-});
+}));

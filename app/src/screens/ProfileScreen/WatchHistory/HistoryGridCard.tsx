@@ -7,10 +7,10 @@ import { getCachedCatalogShow } from "../../../hooks/useWatchlist";
 import { deriveHistoryGridTags, type HistoryCard } from "../../../utils";
 import { MediaType } from "../../../enums";
 import type { TMDBShow } from "../../../types";
-import { colors, spacing, tint } from "../../../theme";
+import { colors, spacing, tint, themedStyles } from "../../../theme";
 
 /** Poster bottom → clear: the stats read on any poster without a hard-edged bar */
-const SCRIM = [tint(colors.background, 0), tint(colors.background, 0.78), colors.background] as const;
+const scrim = () => [tint(colors.background, 0), tint(colors.background, 0.78), colors.background] as const;
 const SCRIM_STOPS = [0, 0.38, 1] as const;
 
 /**
@@ -65,7 +65,7 @@ function HistoryGridCard({
 			footer={
 				<View style={styles.footer} pointerEvents="none">
 					<LinearGradient
-						colors={SCRIM}
+						colors={scrim()}
 						locations={SCRIM_STOPS}
 						style={StyleSheet.absoluteFill}
 					/>
@@ -96,7 +96,7 @@ function HistoryGridCard({
 
 export default memo(HistoryGridCard);
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	tagBacking: { borderRadius: 999, backgroundColor: colors.background },
 	footer: {
 		position: "absolute",
@@ -129,4 +129,4 @@ const styles = StyleSheet.create({
 		letterSpacing: -0.3,
 		fontVariant: ["tabular-nums"],
 	},
-});
+}));

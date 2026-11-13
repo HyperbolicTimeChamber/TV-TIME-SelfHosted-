@@ -39,7 +39,7 @@ interface Props {
 const COUNTER_FROM = Math.floor(CUSTOM_LIST_NAME_MAX * 0.8);
 
 /** The selected old name (rename): a translucent red, not the solid brand colour */
-const SELECTION = `${colors.primary}66`;
+const selection = () => `${colors.primary}66`;
 
 const pickHint = (hint: Props["hint"]) =>
 	typeof hint === "string" || hint === undefined
@@ -128,7 +128,7 @@ export default function ListNameModal({
 						selectTextOnFocus={initialName.length > 0}
 						returnKeyType="done"
 						onSubmitEditing={submit}
-						selectionColor={SELECTION}
+						selectionColor={selection()}
 						cursorColor={colors.primary}
 						accessibilityLabel="List name"
 					/>

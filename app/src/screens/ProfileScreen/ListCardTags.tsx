@@ -2,13 +2,13 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { HistoryPill, HistoryProgress, ListTagKind } from "../../enums";
 import type { ListTag } from "../../utils";
-import { colors, spacing } from "../../theme";
+import { colors, spacing, themedStyles } from "../../theme";
 import ProgressPill from "./WatchHistory/ProgressPill";
 import WatchCountPill from "../../components/WatchCountPill";
 import StatusPill from "../../components/StatusPill";
 import { PILL_COLOR } from "./WatchHistory/HistoryCardView";
 
-const GREY = `${colors.textSecondary}59`;
+const grey = () => `${colors.textSecondary}59`;
 
 /** The tag line under a list card's meta line: Watch History's tags, small, always one row */
 export default function ListCardTags({
@@ -52,14 +52,14 @@ function Tag({ tag }: Readonly<{ tag: ListTag }>) {
 		default:
 			// Ongoing / Ended / Not Watched: plain grey
 			return (
-				<View style={[styles.tag, { backgroundColor: GREY }]}>
+				<View style={[styles.tag, { backgroundColor: grey() }]}>
 					<Text style={styles.text}>{tag.label}</Text>
 				</View>
 			);
 	}
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	line: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -88,4 +88,4 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 	},
 	countText: { color: colors.surface, fontSize: 10, fontWeight: "700" },
-});
+}));

@@ -22,7 +22,7 @@ import {
 	accountExportOptions,
 	type AccountExportOptions,
 } from "../../utils/accountExport";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 
 interface Props {
 	visible: boolean;
@@ -41,28 +41,36 @@ const SCOPES: Array<{
 	{
 		scope: ExportScope.ALL,
 		icon: "albums-outline",
-		color: colors.primary as `#${string}`,
+		get color() {
+			return colors.primary as `#${string}`;
+		},
 		title: "All",
 		hint: "Every show and movie you track",
 	},
 	{
 		scope: ExportScope.MOVIES,
 		icon: "film-outline",
-		color: colors.moviePurple as `#${string}`,
+		get color() {
+			return colors.moviePurple as `#${string}`;
+		},
 		title: "Movies",
 		hint: "Only your movies",
 	},
 	{
 		scope: ExportScope.TV,
 		icon: "tv-outline",
-		color: colors.watchedGreen as `#${string}`,
+		get color() {
+			return colors.watchedGreen as `#${string}`;
+		},
 		title: "TV Shows",
 		hint: "Only your shows",
 	},
 	{
 		scope: ExportScope.LISTS,
 		icon: "bookmarks-outline",
-		color: colors.warningAmber as `#${string}`,
+		get color() {
+			return colors.warningAmber as `#${string}`;
+		},
 		title: "Custom lists",
 		hint: "Just your lists and the titles in them — no tracking data",
 	},
@@ -102,7 +110,9 @@ const CONTENTS: Array<{
 	{
 		content: ExportContent.EVERYTHING,
 		icon: "cube-outline",
-		color: colors.primary as `#${string}`,
+		get color() {
+			return colors.primary as `#${string}`;
+		},
 		title: "All the data",
 		// Replaced for everything (a full backup takes the lists too) — see contentHint
 		hint: "Progress and watch history of these titles",
@@ -110,14 +120,18 @@ const CONTENTS: Array<{
 	{
 		content: ExportContent.CHOSEN,
 		icon: "options-outline",
-		color: colors.warningAmber as `#${string}`,
+		get color() {
+			return colors.warningAmber as `#${string}`;
+		},
 		title: "Certain data",
 		hint: "Pick which parts go in the file",
 	},
 	{
 		content: ExportContent.TITLES,
 		icon: "list-outline",
-		color: colors.moviePurple as `#${string}`,
+		get color() {
+			return colors.moviePurple as `#${string}`;
+		},
 		title: "Titles only",
 		hint: "Just the names of the shows and movies — no progress or history",
 	},
@@ -369,7 +383,7 @@ export default function ExportSheet({ visible, onClose, onExport }: Readonly<Pro
 
 const MARK = 22;
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	step: {
 		...typography.caption,
 		fontSize: 11,
@@ -417,4 +431,4 @@ const styles = StyleSheet.create({
 	buttonPressed: { transform: [{ scale: 0.97 }] },
 	buttonText: { ...typography.subtitle, fontSize: 15 },
 	buttonTextSecondary: { color: colors.textSecondary },
-});
+}));
