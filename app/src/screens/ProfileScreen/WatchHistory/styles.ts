@@ -110,7 +110,7 @@ export const styles = themedStyles(() => StyleSheet.create({
 	},
 	keywordFieldFocused: { borderColor: colors.textMuted },
 	keywordInput: { flex: 1, color: colors.text, fontSize: 15, padding: 0 },
-	filterChipTextOn: { color: colors.text },
+	filterChipTextOn: { color: colors.onPrimary },
 
 	// Card
 	// 16:9 is the minimum (minHeight set from the card width in HistoryCardView) — the card

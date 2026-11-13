@@ -4,6 +4,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import Reanimated, {
+	runOnJS,
+	useAnimatedReaction,
 	useAnimatedScrollHandler,
 	useAnimatedStyle,
 	useDerivedValue,
@@ -138,6 +140,16 @@ export default function ShowDetailScreen() {
 	const handleScroll = useAnimatedScrollHandler((e) => {
 		scrollY.value = e.contentOffset.y;
 	});
+	// Light icons over the poster; on the light theme they switch to dark once the page scrolls
+	// past it (white icons vanished on the light page background)
+	const [pastPoster, setPastPoster] = useState(false);
+	const statusBarFlip = BACKDROP_HEIGHT - insets.top;
+	useAnimatedReaction(
+		() => scrollY.value > statusBarFlip,
+		(past, prev) => {
+			if (past !== prev) runOnJS(setPastPoster)(past);
+		},
+	);
 	const imageTranslateY = useDerivedValue(() =>
 		Math.min(scrollY.value * 0.4, BACKDROP_HEIGHT * 0.5),
 	);
@@ -203,7 +215,7 @@ export default function ShowDetailScreen() {
 		// Right swipe anywhere → back, the screen underneath showing through (transparent modal route)
 		<SwipeBackView onBack={handleBack} {...swipeBack} style={styles.container}>
 			{/* The poster runs under the status bar: light icons on it, whatever the theme */}
-			<StatusBar style="light" />
+			<StatusBar style={pastPoster && isLightTheme() ? "dark" : "light"} />
 			<Reanimated.ScrollView
 				contentContainerStyle={{ paddingBottom: spacing.xxl + Math.max(insets.bottom, 48) }}
 				onScroll={handleScroll}
