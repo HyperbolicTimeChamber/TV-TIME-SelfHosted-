@@ -4,7 +4,7 @@ import { Image } from "expo-image";
 import Reanimated, { useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSharedShimmer } from "../../components/SkeletonLine";
-import { colors, spacing, themedStyles } from "../../theme";
+import { colors, spacing, themedStyles, tint } from "../../theme";
 import { tmdbBackdropUri, tmdbPosterUri } from "../../hooks/useTmdbImage";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -54,17 +54,12 @@ export default function DetailBackdrop({
 			</View>
 
 			<View style={[styles.gradientIsland, { marginTop: -ISLAND_OVERLAP }]}>
-				{/* Fixed-height fade that turns fully black exactly at the image's bottom edge, however
-				    tall the island (logo) is — eased, so there's no visible start line */}
+				{/* Fixed-height fade into the page colour, ending exactly at the image's bottom edge however
+				    tall the island (logo) is — eased, so there's no visible start line. Built from the
+				    background itself: black on dark (unchanged), white on light (a black scrim ending in
+				    white left a dark band with a hard edge) */}
 				<LinearGradient
-					colors={[
-						"rgba(0,0,0,0)",
-						"rgba(0,0,0,0.08)",
-						"rgba(0,0,0,0.25)",
-						"rgba(0,0,0,0.5)",
-						"rgba(0,0,0,0.75)",
-						colors.background,
-					]}
+					colors={FADE_ALPHAS.map((a) => tint(colors.background, a)) as [string, string, ...string[]]}
 					locations={[0, 0.15, 0.32, 0.52, 0.75, 1]}
 					style={styles.fade}
 					pointerEvents="none"
@@ -74,6 +69,9 @@ export default function DetailBackdrop({
 		</>
 	);
 }
+
+/** Eased fade stops (alpha of the page colour) — matches `locations` */
+const FADE_ALPHAS = [0, 0.08, 0.25, 0.5, 0.75, 1];
 
 const styles = themedStyles(() => StyleSheet.create({
 	backdrop: {
