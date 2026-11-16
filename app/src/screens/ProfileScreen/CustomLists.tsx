@@ -6,6 +6,7 @@ import type { CustomListEntry, MediaType } from "../../types";
 import { useCustomLists } from "../../hooks";
 import PosterImage from "../../components/PosterImage";
 import { profileLists } from "../../utils";
+import { useAuthStore } from "../../stores";
 import { styles as profileStyles } from "./styles";
 
 /** Posters shown per row on the profile; a "+N" tile after them opens the rest */
@@ -34,7 +35,8 @@ export default function CustomLists({
 	standalone,
 }: Readonly<Props>) {
 	const { lists, loading } = useCustomLists(userId);
-	const shown = profileLists(lists);
+	const listCount = useAuthStore((s) => s.profilePrefs.listCount);
+	const shown = profileLists(lists, listCount);
 
 	return (
 		<View style={standalone ? profileStyles.section : styles.section}>

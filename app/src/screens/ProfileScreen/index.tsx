@@ -48,6 +48,7 @@ export default function ProfileScreen() {
 	const { top } = useSafeAreaInsets();
 	const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
 	const user = useAuthStore((s) => s.user);
+	const profilePrefs = useAuthStore((s) => s.profilePrefs);
 	const { stats, loading: statsLoading } = useUserStats(user?.uid);
 	const { items: watchlist } = useWatchlist(user?.uid);
 	// Lifetime watched count, already live from useUserStats' snapshot — the chart uses it to
@@ -195,18 +196,20 @@ export default function ProfileScreen() {
 				</>
 			)}
 
-			<CompletedSections
-				sections={completedSections}
-				loading={completedLoading}
-				onItemPress={handleCompletedItemPress}
-			/>
+			{profilePrefs.showCompleted && (
+				<CompletedSections
+					sections={completedSections}
+					loading={completedLoading}
+					onItemPress={handleCompletedItemPress}
+				/>
+			)}
 
 			<CustomLists
 				userId={user?.uid}
 				onOpenLists={() => navigation.navigate(Route.LISTS)}
 				onOpenList={(listId) => navigation.navigate(Route.LIST_DETAIL, { listId })}
 				onOpenTitle={handleCompletedItemPress}
-				standalone={!completedLoading && completedSections.length === 0}
+				standalone={!profilePrefs.showCompleted || (!completedLoading && completedSections.length === 0)}
 			/>
 		</ScrollView>
 	);
