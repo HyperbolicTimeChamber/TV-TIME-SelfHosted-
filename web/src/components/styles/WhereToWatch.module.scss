@@ -294,3 +294,8 @@
 	flex-shrink: 0;
 	color: var(--text-muted);
 }
+
+/* The emoji flag rendered flush against the name in Chrome: its own gap */
+.otherFlag {
+	margin-right: 6px;
+}

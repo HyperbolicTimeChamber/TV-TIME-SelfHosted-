@@ -104,7 +104,8 @@ export default function WhereToWatch({
 				>
 					<span className={styles.otherLabel}>Other Countries</span>
 					<span className={styles.otherValue}>
-						{regionFlag(region)} {country ?? region}
+						<span className={styles.otherFlag}>{regionFlag(region)}</span>
+						{country ?? region}
 					</span>
 					<IoChevronForward size={16} className={styles.otherChevron} />
 				</button>
