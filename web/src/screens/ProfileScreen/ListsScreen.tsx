@@ -3,6 +3,7 @@ import { App as AntApp } from "antd";
 import { Reorder, useDragControls } from "motion/react";
 import {
 	IoAddCircleOutline,
+	IoArrowUp,
 	IoBookmarksOutline,
 	IoDownloadOutline,
 	IoEllipsisVertical,
@@ -14,6 +15,7 @@ import { useCustomLists } from "@app/hooks/useCustomLists";
 import { CircleButtonTone, MediaType, NEW_LIST_HINTS, NEW_LIST_SUBTITLE, NEW_LIST_TITLE } from "@app/enums";
 import type { CustomList } from "@app/types";
 import { listCoverItem, titleCount } from "@app/utils/customLists";
+import { cutoffPlacement } from "@app/utils/profileCutoff";
 import { describeImport, parseListsExport, type ImportPlan } from "@app/utils/customListsIO";
 import { useAppSelector } from "../../store";
 import { CircleBackButton } from "../../components/CircleButton";
@@ -123,13 +125,19 @@ interface RowProps {
 	onMenu: () => void;
 	/** Dropped after a drag: the order is ready to save */
 	onDropped: () => void;
+	/** A drag of this card began */
+	onDragStart: () => void;
+	/** The profile doesn't show this list: faded (150 ms, none with reduce-motion) */
+	dimmed: boolean;
+	/** The profile cutoff line sits on this card's top or bottom edge (in the gap) */
+	line: "top" | "bottom" | null;
 }
 
 /**
  * One list, laid out like the Add to List drawer's rows (app ListRow): cover (the title added last),
  * name + count, ⋯ for its menu (right-click too). Click opens it; hold to pick it up and drag.
  */
-function ListRow({ list, onOpen, onMenu, onDropped }: RowProps) {
+function ListRow({ list, onOpen, onMenu, onDropped, onDragStart, dimmed, line }: RowProps) {
 	const controls = useDragControls();
 	const cover = listCoverItem(list);
 	const { data: info, isPending } = useTitleInfo(
@@ -151,8 +159,9 @@ function ListRow({ list, onOpen, onMenu, onDropped }: RowProps) {
 			value={list}
 			dragListener={false}
 			dragControls={controls}
-			className={styles.card}
+			className={styles.item}
 			whileDrag={{ scale: 1.02, boxShadow: "0 8px 24px rgba(0,0,0,0.6)" }}
+			onDragStart={onDragStart}
 			onDragEnd={onDropped}
 			onPointerDown={(e) => {
 				if (e.button !== 0) return;
@@ -179,6 +188,7 @@ function ListRow({ list, onOpen, onMenu, onDropped }: RowProps) {
 				onMenu();
 			}}
 		>
+			<div className={`${styles.card} ${dimmed ? styles.cardDimmed : ""}`}>
 			{info?.backdropPath ? (
 				<img
 					src={tmdbBackdropUri(info.backdropPath, CARD_MAX_WIDTH)}
@@ -228,6 +238,19 @@ function ListRow({ list, onOpen, onMenu, onDropped }: RowProps) {
 				<span className={styles.squareRule} />
 				<span className={styles.squareValue}>{list.items.length}</span>
 			</span>
+			</div>
+			{line && (
+				<div
+					className={`${styles.cutoff} ${line === "top" ? styles.cutoffTop : styles.cutoffBottom}`}
+					role="separator"
+					aria-label="Shown on Profile"
+				>
+					<span className={styles.cutoffRule} />
+					<IoArrowUp size={11} />
+					<span>Shown on Profile</span>
+					<span className={styles.cutoffRule} />
+				</div>
+			)}
 		</Reorder.Item>
 	);
 }
@@ -261,6 +284,16 @@ export default function ListsScreen() {
 		// A list made meanwhile (not in the draft) goes last
 		return [...ordered, ...lists.filter((l) => !draftIds.includes(l.id))];
 	}, [lists, draftIds]);
+
+	// Profile cutoff: `shown` is already the live order while a card is dragged (draftIds follows
+	// every move), so the line and the dimming come straight from it. The line never rides the
+	// dragged card (it goes on its neighbour's edge)
+	const listCount = useAppSelector((s) => s.auth.profilePrefs.listCount);
+	const [draggingId, setDraggingId] = useState<string | null>(null);
+	const placement = useMemo(
+		() => cutoffPlacement(shown, listCount, draggingId),
+		[shown, listCount, draggingId],
+	);
 
 	const [naming, setNaming] = useState<"new" | CustomList | null>(null);
 	const [nameError, setNameError] = useState<string | null>(null);
@@ -425,7 +458,19 @@ export default function ListsScreen() {
 								list={list}
 								onOpen={() => navigate(listPath(list.id))}
 								onMenu={() => setMenuList(list)}
-								onDropped={scheduleSave}
+								onDragStart={() => setDraggingId(list.id)}
+								onDropped={() => {
+									setDraggingId(null);
+									scheduleSave();
+								}}
+								dimmed={placement.dimmedIds.has(list.id)}
+								line={
+									placement.lineTopId === list.id
+										? "top"
+										: placement.lineBottomId === list.id
+											? "bottom"
+											: null
+								}
 							/>
 						))}
 					</Reorder.Group>
