@@ -19,6 +19,8 @@ import CastRow from "../../components/CastRow";
 import LocalReleaseLine from "../../components/LocalReleaseLine";
 import { releaseStatLabel } from "../../utils/localRelease";
 import { useTitleExtras } from "../../hooks/useTitleExtras";
+import { useSlowPending } from "../../hooks/useSlowPending";
+import SlowLoadNote from "../../components/SlowLoadNote";
 import StudiosRow from "../../components/StudiosRow";
 import WatchCountPill from "../../components/WatchCountPill";
 import { useShowDetailActions } from "./useShowDetailActions";
@@ -118,6 +120,7 @@ export default function ShowDetailScreen() {
 	const swipeBack = useSwipeBackPop(navigation as never);
 	// The directors' photos for the credits (every extras section reads the same query)
 	const { data: extras, isPending: extrasPending } = useTitleExtras(tmdbId, mediaType);
+	const extrasSlow = useSlowPending(extrasPending && tmdbId > 0);
 	const insets = useSafeAreaInsets();
 	// "Add to List" button (next to Share): blue once the title is in any list
 	const userId = useAuthStore((s) => s.user?.uid);
@@ -313,6 +316,8 @@ export default function ShowDetailScreen() {
 						<Text style={styles.overview}>{show.overview}</Text>
 						{/* Under the description: above a movie's local release, a show's seasons */}
 						{whereToWatch}
+						{/* One note for every extras section (they share one query), under the first: Where to Watch */}
+						{extrasSlow && <SlowLoadNote />}
 
 						{mediaType === MediaType.MOVIE && (
 							<LocalReleaseLine

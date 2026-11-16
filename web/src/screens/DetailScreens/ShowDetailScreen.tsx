@@ -35,8 +35,10 @@ import LocalReleaseLine from "../../components/LocalReleaseLine";
 import PhotoTrigger from "../../components/PhotoViewer";
 import { releaseStatLabel } from "@app/utils/localRelease";
 import { useTitleExtras } from "@app/hooks/useTitleExtras";
+import { useSlowPending } from "@app/hooks/useSlowPending";
 import { requireOnline } from "@app/utils/requireOnline";
 import StudiosRow from "../../components/StudiosRow";
+import SlowLoadNote from "../../components/SlowLoadNote";
 import SkeletonBlock from "../../components/SkeletonBlock";
 
 const CREDIT_AVATAR_PX = 44;
@@ -61,6 +63,7 @@ export default function ShowDetailScreen() {
 	const d = useShowDetailActions(tmdbId, mediaType);
 	// The directors' / writers' photos for the credits (every extras section reads the same query)
 	const { data: extras, isPending: extrasPending } = useTitleExtras(tmdbId, mediaType);
+	const extrasSlow = useSlowPending(extrasPending && tmdbId > 0);
 	// A just-added movie's credits arrive in the background; placeholders until then, given up after a while
 	const creditsPending = mediaType === MediaType.MOVIE && !!d.show && !d.show.credits;
 	const [creditsGaveUp, setCreditsGaveUp] = useState(false);
@@ -300,6 +303,8 @@ export default function ShowDetailScreen() {
 				<p className={styles.overview}>{show.overview}</p>
 				{/* Under the description: above a movie's local release, a show's seasons */}
 				{whereToWatch}
+				{/* One note for every extras section (they share one query), under the first: Where to Watch */}
+				{extrasSlow && <SlowLoadNote />}
 
 				{mediaType === MediaType.MOVIE && (
 					<LocalReleaseLine

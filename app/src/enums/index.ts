@@ -292,6 +292,8 @@ export const USER_REGION_TTL_MS = 24 * 60 * 60 * 1000;
 export const TITLE_EXTRAS_STALE_MS = 24 * 60 * 60 * 1000;
 /** A just-added movie's credits are fetched in the background; after this the info page stops showing credit placeholders */
 export const CREDITS_GIVE_UP_MS = 10000;
+/** An info page's extras still loading after this long: one "taking longer than usual" note appears (the call is never aborted) */
+export const SLOW_LOAD_MS = 6000;
 /** TMDB crew job of a movie's director */
 export enum CrewJob {
 	DIRECTOR = "Director",
