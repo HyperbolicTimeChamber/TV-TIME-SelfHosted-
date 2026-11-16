@@ -74,7 +74,7 @@ export default function CustomLists({
 					>
 						<Text style={styles.viewAllText}>View All Lists</Text>
 						<View style={styles.viewAllArrow}>
-							<Ionicons name="chevron-forward" size={24} color={colors.onPrimary} style={styles.viewAllChevron} />
+							<Ionicons name="chevron-forward" size={24} color={colors.text} style={styles.viewAllChevron} />
 						</View>
 					</Pressable>
 				</>
@@ -199,7 +199,7 @@ const styles = themedStyles(() => StyleSheet.create({
 	section: { paddingHorizontal: spacing.lg },
 	// Recently Completed's rows (genreSection)
 	row: { marginBottom: spacing.lg },
-	// Full width, red: label left, an arrow in a circle on the right
+	// Full width, neutral grey: label left, an arrow in a circle on the right
 	viewAll: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -208,17 +208,17 @@ const styles = themedStyles(() => StyleSheet.create({
 		borderRadius: 16,
 		paddingLeft: spacing.lg,
 		paddingRight: spacing.sm,
-		backgroundColor: colors.primary,
+		backgroundColor: colors.surfaceLight,
 	},
-	viewAllText: { ...typography.subtitle, fontSize: 15, color: colors.onPrimary },
+	viewAllText: { ...typography.subtitle, fontSize: 15, color: colors.text },
 	// The back button's chevron, mirrored: its glyph sits 2px off centre the other way
 	viewAllChevron: { marginLeft: 2 },
 	viewAllArrow: {
 		width: 36,
 		height: 36,
 		borderRadius: 18,
-		// A lighter disc on the red
-		backgroundColor: "rgba(255, 255, 255, 0.2)",
+		// One step off the grey fill in both themes
+		backgroundColor: colors.border,
 		alignItems: "center",
 		justifyContent: "center",
 	},
