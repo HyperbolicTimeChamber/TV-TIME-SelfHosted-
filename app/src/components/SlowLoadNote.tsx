@@ -41,6 +41,7 @@ export default function SlowLoadNote() {
 
 const styles = themedStyles(() =>
 	StyleSheet.create({
-		note: { ...typography.caption, marginTop: spacing.sm },
+		// Inset like the sections around it (their text sits spacing.sm inside the page padding)
+		note: { ...typography.caption, marginTop: spacing.sm, paddingHorizontal: spacing.sm },
 	}),
 );
