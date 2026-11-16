@@ -1,6 +1,16 @@
 import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { doc, getDoc, getFirestore } from "../platform/firestore";
+import { doc, getDoc, getFirestore, setDoc } from "../platform/firestore";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { TMDB_PROXY_KEY } from "@app/enums";
+import {
+	DEFAULT_PROFILE_PREFS,
+	mergeProfilePrefs,
+	parseCachedPrefs,
+	prefsFromDoc,
+	profilePrefsDocFields,
+	profilePrefsKey,
+	type ProfilePrefs,
+} from "@app/utils/profilePrefs";
 import "../firebase";
 
 /** Serializable subset of the Firebase user (Redux state must be plain data) */
@@ -20,6 +30,8 @@ export interface AuthState {
 	appTmdbApiKeyLoading: boolean;
 	hasCompletedImport: boolean;
 	userFlagsLoading: boolean;
+	/** Settings -> Profile (users/{uid} doc, kept in localStorage for an instant first render) */
+	profilePrefs: ProfilePrefs;
 	minVersion: string | null;
 	lastCatalogSync: string | null;
 	previousCatalogSync: string | null;
@@ -40,6 +52,7 @@ export const initialAuthState: AuthState = {
 	loading: true,
 	hasCompletedImport: false,
 	userFlagsLoading: false,
+	profilePrefs: DEFAULT_PROFILE_PREFS,
 	...guestConfig,
 };
 
@@ -58,16 +71,43 @@ export const loadAppConfig = createAsyncThunk("auth/loadAppConfig", async () => 
 	};
 });
 
+/** The saved Profile settings (localStorage): dispatched with loadUserFlags so the profile draws at once */
+export const loadCachedProfilePrefs = createAsyncThunk(
+	"auth/loadCachedProfilePrefs",
+	async (uid: string) => parseCachedPrefs(await AsyncStorage.getItem(profilePrefsKey(uid)).catch(() => null)),
+);
+
 export const loadUserFlags = createAsyncThunk("auth/loadUserFlags", async (uid: string) => {
 	const snap = await getDoc(doc(getFirestore(), "users", uid));
-	return { hasCompletedImport: Boolean(snap.exists() && snap.data()?.hasCompletedImport) };
+	// Profile settings ride on the same doc read (no extra read); kept for the next visit
+	const profilePrefs = prefsFromDoc(snap.exists() ? snap.data() : undefined);
+	AsyncStorage.setItem(profilePrefsKey(uid), JSON.stringify(profilePrefs)).catch(() => {});
+	return {
+		hasCompletedImport: Boolean(snap.exists() && snap.data()?.hasCompletedImport),
+		profilePrefs,
+	};
 });
+
+/** Settings -> Profile change: the optimistic update is the pending case below (callers run
+ *  requireOnline first); this keeps it on the device and saves it on the user doc */
+export const saveProfilePrefs = createAsyncThunk(
+	"auth/saveProfilePrefs",
+	async (arg: { uid: string; patch: Partial<ProfilePrefs> }, { getState }) => {
+		const { profilePrefs } = (getState() as { auth: AuthState }).auth;
+		AsyncStorage.setItem(profilePrefsKey(arg.uid), JSON.stringify(profilePrefs)).catch(() => {});
+		await setDoc(doc(getFirestore(), "users", arg.uid), profilePrefsDocFields(arg.patch), {
+			merge: true,
+		});
+	},
+);
 
 const authSlice = createSlice({
 	name: "auth",
 	initialState: initialAuthState,
 	reducers: {
 		userChanged(state, action: PayloadAction<AuthUser | null>) {
+			// Another account (or none): its own settings, not the previous one's
+			if (state.user?.uid !== action.payload?.uid) state.profilePrefs = DEFAULT_PROFILE_PREFS;
 			state.user = action.payload;
 			state.loading = false;
 			if (action.payload) {
@@ -92,7 +132,15 @@ const authSlice = createSlice({
 		});
 		b.addCase(loadUserFlags.fulfilled, (state, { payload }) => {
 			state.hasCompletedImport = payload.hasCompletedImport;
+			state.profilePrefs = payload.profilePrefs;
 			state.userFlagsLoading = false;
+		});
+		b.addCase(loadCachedProfilePrefs.fulfilled, (state, { payload }) => {
+			state.profilePrefs = payload;
+		});
+		// Optimistic: applied the moment the change is made
+		b.addCase(saveProfilePrefs.pending, (state, { meta }) => {
+			state.profilePrefs = mergeProfilePrefs(state.profilePrefs, meta.arg.patch);
 		});
 		b.addCase(loadUserFlags.rejected, (state) => {
 			state.userFlagsLoading = false;

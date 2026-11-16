@@ -16,6 +16,7 @@ const loadProfile = () => import("../screens/ProfileScreen");
 const loadSettings = () => import("../screens/ProfileScreen/SettingsScreen");
 const loadAppearance = () => import("../screens/ProfileScreen/AppearanceScreen");
 const loadNotifications = () => import("../screens/ProfileScreen/NotificationsScreen");
+const loadProfilePrefs = () => import("../screens/ProfileScreen/ProfilePrefsScreen");
 const loadWatchHistory = () => import("../screens/ProfileScreen/WatchHistory");
 const loadListDetail = () => import("../screens/ProfileScreen/ListDetail");
 const loadLists = () => import("../screens/ProfileScreen/ListsScreen");
@@ -30,6 +31,7 @@ const ProfileScreen = lazy(loadProfile);
 const SettingsScreen = lazy(loadSettings);
 const AppearanceScreen = lazy(loadAppearance);
 const NotificationsScreen = lazy(loadNotifications);
+const ProfilePrefsScreen = lazy(loadProfilePrefs);
 const WatchHistoryScreen = lazy(loadWatchHistory);
 const ListDetailScreen = lazy(loadListDetail);
 const ListsScreen = lazy(loadLists);
@@ -46,6 +48,7 @@ const SIGNED_IN_PAGES = [
 	loadSettings,
 	loadAppearance,
 	loadNotifications,
+	loadProfilePrefs,
 	loadWatchHistory,
 	loadLists,
 	loadListDetail,
@@ -94,6 +97,7 @@ export default function AppRoutes() {
 						<Route path={Paths.SETTINGS} element={<SettingsScreen />} />
 						<Route path={Paths.APPEARANCE} element={<AppearanceScreen />} />
 						<Route path={Paths.NOTIFICATIONS} element={<NotificationsScreen />} />
+						<Route path={Paths.PROFILE_PREFS} element={<ProfilePrefsScreen />} />
 						<Route path={Paths.WATCH_HISTORY}element={<WatchHistoryScreen />} />
 						<Route path={Paths.LISTS} element={<ListsScreen />} />
 						<Route path={Paths.LIST} element={<ListDetailScreen />} />

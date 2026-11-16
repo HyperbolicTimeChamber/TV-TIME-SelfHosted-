@@ -174,3 +174,35 @@
 		animation-duration: 1400ms;
 	}
 }
+
+/* Profile settings (app ProfilePrefsScreen): the lists stepper */
+.stepper {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.stepButton {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	border: none;
+	background: var(--surface-light);
+	color: var(--text);
+	cursor: pointer;
+
+	&:disabled {
+		opacity: 0.4;
+		cursor: default;
+	}
+}
+
+.stepValue {
+	min-width: 24px;
+	text-align: center;
+	font-size: 17px;
+	font-weight: 600;
+}
