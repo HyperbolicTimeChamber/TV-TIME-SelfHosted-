@@ -361,6 +361,7 @@ function SheetLogo({
 	centered,
 	maxW,
 	fit,
+	nameNow,
 }: {
 	title: string;
 	tmdbId?: number;
@@ -372,6 +373,8 @@ function SheetLogo({
 	 *  slot keeps its full height, so the line never moves when the logo arrives (a slot that
 	 *  grew to the loaded logo re-centred the header and read as a shake) */
 	fit: boolean;
+	/** Show the title text at once while the logo loads (replaced by the logo when it arrives) */
+	nameNow?: boolean;
 }) {
 	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	const [ratio, setRatio] = useState<number | null>(null);
@@ -383,7 +386,7 @@ function SheetLogo({
 	}, []);
 	const showLogo = !!logoPath && !failed;
 	// Known to have no logo (or it failed): the name at once; still loading: after the delay
-	const showName = logoPath === null || failed || (!ratio && waited);
+	const showName = logoPath === null || failed || (!ratio && (waited || !!nameNow));
 	const size = ratio ? logoSize(ratio, maxW) : null;
 	return (
 		<View style={[styles.logoSlot, centered && styles.logoSlotCentered, fit && styles.logoSlotFit]}>
@@ -477,6 +480,7 @@ export function SheetHeader({
 	logoPath,
 	aside,
 	centered = false,
+	nameNow = false,
 }: {
 	title: string;
 	/** A sheet title above the logo (Add to List) */
@@ -487,6 +491,8 @@ export function SheetHeader({
 	logoPath?: string | null;
 	aside?: ReactNode;
 	centered?: boolean;
+	/** Show the title text at once while the logo loads (replaced by the logo when it arrives) */
+	nameNow?: boolean;
 }) {
 	const right = aside ?? null;
 	return (
@@ -508,6 +514,7 @@ export function SheetHeader({
 					centered={centered}
 					maxW={centered || !right ? LOGO_MAX_W : LOGO_MAX_W_BESIDE_PILL}
 					fit={!!subtitle && !centered}
+					nameNow={nameNow}
 				/>
 				{subtitle ? (
 					<Text style={[styles.subtitle, centered && styles.nameCentered]} numberOfLines={1}>
