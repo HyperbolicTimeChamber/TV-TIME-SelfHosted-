@@ -25,3 +25,4 @@ export * from "./studioNames";
 export * from "./appVersion";
 export * from "./snapshotSequencer";
 export * from "./movieSheet";
+export * from "./watchRegions";
