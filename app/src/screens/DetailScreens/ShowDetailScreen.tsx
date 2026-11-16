@@ -331,6 +331,7 @@ export default function ShowDetailScreen() {
 								directorPeople={extras?.directors}
 								writerPeople={extras?.writers}
 								photosPending={extrasPending}
+								namesPending={!show.credits}
 							/>
 						)}
 
