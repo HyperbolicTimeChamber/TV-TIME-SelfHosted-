@@ -335,6 +335,12 @@ export default function SettingsScreen() {
 					</TouchableOpacity>
 					<TouchableOpacity
 						style={styles.row}
+						onPress={() => navigation.navigate(Route.PROFILE_PREFS)}
+					>
+						<Text style={styles.rowText}>Profile</Text>
+					</TouchableOpacity>
+					<TouchableOpacity
+						style={styles.row}
 						onPress={() => navigation.navigate(Route.NOTIFICATIONS)}
 					>
 						<Text style={styles.rowText}>Notifications</Text>
