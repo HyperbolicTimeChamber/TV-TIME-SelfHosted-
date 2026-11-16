@@ -298,6 +298,9 @@ export interface TrackingWriteOpts {
 	incrementRewatch?: boolean;
 	/** Absolute rewatch run number to store (wins over incrementRewatch) */
 	rewatchCount?: number;
+	/** A first watch (watchlist card, show not rewatching): an episode already watched only moves
+	 *  the pointer. A stale card's tap (an old saved card) counted it twice and read as a rewatch */
+	firstWatchOnly?: boolean;
 	/** markSeasonWatchedCF only: how long before now this batch's last episode counts as
 	 *  finished, when one catch-up spans several calls (see batchEndOffsets) */
 	endOffsetMs?: number;
@@ -325,43 +328,54 @@ export async function markEpisodeWatched(
 	nextEpisodeName: string | null = null,
 	nextEpisodeAirDate: string | null = null,
 	opts: TrackingWriteOpts = {},
-) {
+): Promise<boolean> {
 	const docId = episodeDocId(tmdbShowId, season, episode);
 	const epRef = doc(watchedEpisodesRef(userId), docId);
+	/** False when firstWatchOnly found the episode already watched (nothing counted) */
+	let counted = true;
 
 	// Every write here is an increment or a merge; the one read keeps the episode's watch times
 	// (its first watch, and the watch this one replaces as its last — see watchTimesOnMark)
 	await runTransaction(db, async (tx) => {
 		const before = await tx.get(epRef);
+		counted = !(
+			opts.firstWatchOnly && ((before.data()?.watchCount as number | undefined) ?? 0) >= 1
+		);
 		const watchedNow = Timestamp.now();
-		tx.set(
-			epRef,
-			{
-				tmdbShowId,
-				season,
-				episode,
-				episodeTitle,
-				runtime,
-				watchCount: increment(1),
-				...watchTimesOnMark(before.data() as EpisodeWatchTimes<Timestamp> | undefined, watchedNow),
-			},
-			{ merge: true },
-		);
-
-		// Episodes and Watch Time both count every watch, rewatches included. Counting only
-		// unique episodes here made the stat drift: unwatching one play of a rewatched episode
-		// still decrements it (see unwatch below), so a rewatch + unwatch left it one short.
-		// The bulk season mark and the movie paths already count every play.
-		tx.set(
-			userRef(userId),
-			{
-				stats: {
-					episodesWatched: increment(1),
-					totalMinutes: increment(runtime),
+		if (counted)
+			tx.set(
+				epRef,
+				{
+					tmdbShowId,
+					season,
+					episode,
+					episodeTitle,
+					runtime,
+					watchCount: increment(1),
+					...watchTimesOnMark(
+						before.data() as EpisodeWatchTimes<Timestamp> | undefined,
+						watchedNow,
+					),
 				},
-			},
-			{ merge: true },
-		);
+				{ merge: true },
+			);
+
+		if (counted) {
+			// Episodes and Watch Time both count every watch, rewatches included. Counting only
+			// unique episodes here made the stat drift: unwatching one play of a rewatched episode
+			// still decrements it (see unwatch below), so a rewatch + unwatch left it one short.
+			// The bulk season mark and the movie paths already count every play.
+			tx.set(
+				userRef(userId),
+				{
+					stats: {
+						episodesWatched: increment(1),
+						totalMinutes: increment(runtime),
+					},
+				},
+				{ merge: true },
+			);
+		}
 
 		if (!skipTrackingUpdate) {
 			const now = Timestamp.now();
@@ -380,9 +394,9 @@ export async function markEpisodeWatched(
 			else if (opts.incrementRewatch) trackingUpdate.rewatchCount = increment(1);
 			tx.update(doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)), {
 				...trackingUpdate,
-				...historyOnWatch(runtime, 1, now, { season, episode }),
+				...(counted ? historyOnWatch(runtime, 1, now, { season, episode }) : {}),
 			});
-		} else {
+		} else if (counted) {
 			// Pointer stays put, but the watch still counts for Watch History
 			tx.set(
 				doc(trackingRef(userId), showDocId(tmdbShowId, MediaType.TV)),
@@ -391,6 +405,7 @@ export async function markEpisodeWatched(
 			);
 		}
 	});
+	if (!counted) return false;
 	trackEpisodeMarked(tmdbShowId, showDocId(tmdbShowId, MediaType.TV), docId, episode);
 	emitHistoryChange({
 		userId,
@@ -410,6 +425,7 @@ export async function markEpisodeWatched(
 						: { rewatchDelta: opts.incrementRewatch ? 1 : 0 }),
 				}),
 	});
+	return true;
 }
 
 /** Unwatching back to a hole in the first watch ends any rewatch (a show can't be rewatched
