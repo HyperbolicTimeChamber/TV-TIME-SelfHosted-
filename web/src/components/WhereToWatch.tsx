@@ -2,7 +2,10 @@ import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from
 import { useCountryName, useWatchProviders } from "@app/hooks/useWatchProviders";
 import { tmdbPosterUri } from "@app/hooks/useTmdbImage";
 import { displayProviders, providerLink, shortProviderName } from "@app/utils/providerNames";
+import { IoChevronForward } from "react-icons/io5";
+import { regionFlag } from "@app/utils/watchRegions";
 import BottomSheet, { SheetGroup } from "./BottomSheet";
+import CountrySheet from "./CountrySheet";
 import { PROVIDER_OPEN_GUARD_MS, type MediaType } from "@app/enums";
 import SkeletonBlock from "./SkeletonBlock";
 import styles from "./styles/WhereToWatch.module.scss";
@@ -37,6 +40,7 @@ export default function WhereToWatch({
 }) {
 	const { region, data, isPending, isError } = useWatchProviders(tmdbId, mediaType);
 	const country = useCountryName(region);
+	const [countriesOpen, setCountriesOpen] = useState(false);
 	// A failed request says nothing about availability: no section rather than a wrong "none"
 	if (isError) return null;
 	const shown = data ? displayProviders(data.providers) : [];
@@ -91,6 +95,29 @@ export default function WhereToWatch({
 					</div>
 				</>
 			)}
+			{region && (
+				<button
+					type="button"
+					className={styles.otherRow}
+					onClick={() => setCountriesOpen(true)}
+					aria-label={`Other countries, now ${country ?? region}`}
+				>
+					<span className={styles.otherLabel}>Other Countries</span>
+					<span className={styles.otherValue}>
+						{regionFlag(region)} {country ?? region}
+					</span>
+					<IoChevronForward size={16} className={styles.otherChevron} />
+				</button>
+			)}
+			<CountrySheet
+				visible={countriesOpen}
+				onClose={() => setCountriesOpen(false)}
+				tmdbId={tmdbId}
+				mediaType={mediaType}
+				currentRegion={region}
+				hrefFor={(name, link) => providerLink(name, title, link, touch) ?? undefined}
+				onLinkClick={guardOpen}
+			/>
 		</section>
 	);
 }
