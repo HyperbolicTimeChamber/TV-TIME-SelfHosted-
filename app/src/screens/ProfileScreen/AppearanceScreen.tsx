@@ -1,5 +1,12 @@
-import React from "react";
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useState } from "react";
+import {
+	ActivityIndicator,
+	View,
+	Text,
+	ScrollView,
+	StyleSheet,
+	TouchableOpacity,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -12,6 +19,7 @@ import {
 	THEME_OPTIONS,
 } from "../../theme";
 import { getActiveThemePrefs, setThemePrefs } from "../../theme/prefs";
+import type { ThemePrefs } from "../../theme";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import { CircleBackButton, CIRCLE_BUTTON_SIZE } from "../../components/CircleButton";
 import { ProfileStackParamList } from "../../types";
@@ -23,6 +31,17 @@ export default function AppearanceScreen() {
 	const swipeBack = useSwipeBackPop(navigation);
 	// This screen remounts with the rest of the tree, so reading the live prefs is enough
 	const prefs = getActiveThemePrefs();
+	// The option being applied: the whole app remounts on the change, which holds the JS thread
+	// for a moment. Its spinner (native, keeps turning meanwhile) shows the tap landed, and every
+	// other tap waits — repeated taps queued one remount after another
+	const [pending, setPending] = useState<string | null>(null);
+	const apply = (key: string, next: ThemePrefs) => {
+		if (pending) return;
+		if (next.mode === prefs.mode && next.accent === prefs.accent) return;
+		setPending(key);
+		// Two frames: the spinner is on screen before the remount starts
+		requestAnimationFrame(() => requestAnimationFrame(() => setThemePrefs(next)));
+	};
 
 	return (
 		<SwipeBackView onBack={() => navigation.goBack()} {...swipeBack} style={styles.container}>
@@ -39,10 +58,15 @@ export default function AppearanceScreen() {
 						<TouchableOpacity
 							key={option.mode}
 							style={styles.row}
-							onPress={() => setThemePrefs({ ...prefs, mode: option.mode })}
+							disabled={!!pending}
+							onPress={() => apply(option.mode, { ...prefs, mode: option.mode })}
 						>
 							<Text style={styles.rowText}>{option.label}</Text>
-							<View style={[styles.radio, option.mode === prefs.mode && styles.radioOn]} />
+							{pending === option.mode ? (
+								<ActivityIndicator size="small" color={colors.accent} style={styles.radioSpinner} />
+							) : (
+								<View style={[styles.radio, option.mode === prefs.mode && styles.radioOn]} />
+							)}
 						</TouchableOpacity>
 					))}
 				</View>
@@ -54,12 +78,18 @@ export default function AppearanceScreen() {
 							<TouchableOpacity
 								key={option.id}
 								style={styles.swatchWrap}
-								onPress={() => setThemePrefs({ ...prefs, accent: option.id })}
+								disabled={!!pending}
+								onPress={() => apply(option.id, { ...prefs, accent: option.id })}
 							>
 								<View style={[styles.swatch, option.id === prefs.accent && styles.swatchOn]}>
 									<View style={[styles.swatchFill, { backgroundColor: option.primary }]} />
 									{option.accent !== option.primary && (
 										<View style={[styles.swatchHalf, { backgroundColor: option.accent }]} />
+									)}
+									{pending === option.id && (
+										<View style={styles.swatchBusy}>
+											<ActivityIndicator size="small" color={colors.onImage} />
+										</View>
 									)}
 								</View>
 								<Text style={styles.swatchLabel}>{option.label}</Text>
@@ -117,6 +147,8 @@ const styles = themedStyles(() =>
 			borderColor: colors.textMuted,
 		},
 		radioOn: { borderColor: colors.accent, backgroundColor: colors.accent },
+		// Same footprint as the radio it replaces: the row doesn't shift
+		radioSpinner: { width: 20, height: 20 },
 		swatches: {
 			flexDirection: "row",
 			flexWrap: "wrap",
@@ -143,6 +175,12 @@ const styles = themedStyles(() =>
 			right: 0,
 			bottom: 0,
 			height: "50%",
+		},
+		swatchBusy: {
+			...StyleSheet.absoluteFill,
+			alignItems: "center",
+			justifyContent: "center",
+			backgroundColor: colors.badgeOverlay,
 		},
 		swatchLabel: { ...typography.caption, color: colors.textSecondary },
 	}),

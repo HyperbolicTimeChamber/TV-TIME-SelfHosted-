@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { motion } from "motion/react";
 import { useNavigate } from "react-router-dom";
-import { ACCENT_OPTIONS, THEME_OPTIONS } from "@app/theme";
+import { ACCENT_OPTIONS, THEME_OPTIONS, type ThemePrefs } from "@app/theme";
 import { CircleBackButton, CircleButtonSpacer } from "../../components/CircleButton";
 import { setThemePrefs, useThemePrefs } from "../../theme/applyTheme";
 import styles from "./styles/SettingsPlaceholder.module.scss";
@@ -12,6 +13,16 @@ const SWIPE_BACK_PX = 60;
 export default function AppearanceScreen() {
 	const navigate = useNavigate();
 	const prefs = useThemePrefs();
+	// The option being applied (as the app): the routes remount on the change; its spinner shows the
+	// tap landed and other taps wait until it has
+	const [pending, setPending] = useState<string | null>(null);
+	const apply = (key: string, next: ThemePrefs) => {
+		if (pending) return;
+		if (next.mode === prefs.mode && next.accent === prefs.accent) return;
+		setPending(key);
+		// Two frames: the spinner is painted before the remount starts
+		requestAnimationFrame(() => requestAnimationFrame(() => setThemePrefs(next)));
+	};
 
 	return (
 		<motion.div
@@ -36,12 +47,18 @@ export default function AppearanceScreen() {
 					<button
 						key={option.mode}
 						className={styles.row}
-						onClick={() => setThemePrefs({ ...prefs, mode: option.mode })}
+						disabled={!!pending}
+						aria-busy={pending === option.mode}
+						onClick={() => apply(option.mode, { ...prefs, mode: option.mode })}
 					>
 						<span className={styles.rowText}>{option.label}</span>
-						<span
-							className={`${styles.radio} ${option.mode === prefs.mode ? styles.radioOn : ""}`}
-						/>
+						{pending === option.mode ? (
+							<span className={styles.spinner} aria-hidden />
+						) : (
+							<span
+								className={`${styles.radio} ${option.mode === prefs.mode ? styles.radioOn : ""}`}
+							/>
+						)}
 					</button>
 				))}
 			</section>
@@ -53,7 +70,9 @@ export default function AppearanceScreen() {
 						<button
 							key={option.id}
 							className={styles.swatchWrap}
-							onClick={() => setThemePrefs({ ...prefs, accent: option.id })}
+							disabled={!!pending}
+							aria-busy={pending === option.id}
+							onClick={() => apply(option.id, { ...prefs, accent: option.id })}
 						>
 							<span
 								className={`${styles.swatch} ${option.id === prefs.accent ? styles.swatchOn : ""}`}
@@ -63,7 +82,13 @@ export default function AppearanceScreen() {
 											? option.primary
 											: `linear-gradient(${option.primary} 50%, ${option.accent} 50%)`,
 								}}
-							/>
+							>
+								{pending === option.id && (
+									<span className={styles.swatchBusy}>
+										<span className={styles.spinner} aria-hidden />
+									</span>
+								)}
+							</span>
 							{option.label}
 						</button>
 					))}
