@@ -43,6 +43,7 @@ import {
 } from "../../../utils";
 import {
 	addAiredCards,
+	unreachedCount,
 	mergeCachedShows,
 	promoteShows,
 	showCardIds,
@@ -89,6 +90,8 @@ const CARD_RELEASE_MAX_HOLD_MS = 8000;
 const CARD_RELEASE_MAX_WAIT_MS = 2000;
 
 const ACTIVE_CACHE_LIMIT = 100;
+/** Fewer cards than this on "What's Up Next" → load the next tracking page */
+const AUTO_LOAD_MIN_CARDS = 10;
 
 /** Compute remaining aired episodes after nextEp */
 function computeRemaining(item: EnrichedTrackingItem, today: string): number | null {
@@ -382,7 +385,8 @@ export function useWatchlistData(userId: string | undefined) {
 	const [cachedList, setCachedList] = useState<CacheableWatchlistListItem[] | null>(null);
 	const [reordering, setReordering] = useState(false);
 	const cacheRestored = useRef(false);
-	const cachedActiveCount = useRef(0);
+	// The saved list's show cards (tmdb ids), set once at restore
+	const savedShowIds = useRef<ReadonlySet<number>>(new Set());
 	// The saved list's cards, until the live pages have caught up with it (null after)
 	const [savedCardIds, setSavedCardIds] = useState<ReadonlySet<number> | null>(null);
 
@@ -416,15 +420,15 @@ export function useWatchlistData(userId: string | undefined) {
 				if (cached.date === today) {
 					// Same day — use cache as-is
 					setCachedList(savedList);
-					setSavedCardIds(showCardIds(savedList));
-					cachedActiveCount.current = savedList.filter((i) => i.type === "show").length;
+					savedShowIds.current = showCardIds(savedList);
+					setSavedCardIds(savedShowIds.current);
 				} else {
 					// Different day — reorder: promote newly-airable shows to top
 					setReordering(true);
 					const reordered = reorderCachedList(savedList, today);
 					setCachedList(reordered);
-					setSavedCardIds(showCardIds(reordered));
-					cachedActiveCount.current = reordered.filter((i: any) => i.type === "show").length;
+					savedShowIds.current = showCardIds(reordered);
+					setSavedCardIds(savedShowIds.current);
 					// Persist with today's date
 					AsyncStorage.setItem(
 						CacheKey.WATCHLIST_ACTIVE,
@@ -718,7 +722,22 @@ export function useWatchlistData(userId: string | undefined) {
 
 	// The live pages have caught up with last session's list (or there are no more pages): the
 	// saved cards can stop holding the bottom of the list
-	const liveCaughtUp = !hasMoreTracking || sortedActive.length >= cachedActiveCount.current;
+	// Titles whose tracking doc has loaded this session (kept after a removal: it was reached)
+	const reachedIds = useRef(new Set<number>());
+	const reachedCount = useMemo(() => {
+		for (const i of items) reachedIds.current.add(i.tmdbId);
+		return reachedIds.current.size;
+	}, [items]);
+	// Saved cards whose page hasn't loaded yet. Counted by id, not by how many cards are shown: a
+	// card marked off made the live list one short of the saved one for good, the session never
+	// "caught up", the saved copy came back with its old episode and the list was never saved
+	// again (a restart showed it too, and its tap counted the episode twice)
+	const unreachedSaved = useMemo(
+		() => unreachedCount(savedShowIds.current, reachedIds.current),
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- refs, versioned by these
+		[reachedCount, cachedList],
+	);
+	const liveCaughtUp = !hasMoreTracking || unreachedSaved === 0;
 
 	// --- Persist list cache when live data updates (only cached tier, not volatile) ---
 	useEffect(() => {
@@ -913,8 +932,9 @@ export function useWatchlistData(userId: string | undefined) {
 		// Live pages arrive a few at a time: the saved cards they haven't reached yet keep their
 		// saved spot, so the list doesn't shrink to the first page and grow back (cards vanishing,
 		// then returning). They drop out as the live ones take over (liveCaughtUp)
-		return mergeCachedShows(cachedList, live);
-	}, [cachedList, orderedLive, pendingEntry]);
+		return mergeCachedShows(cachedList, live, reachedIds.current);
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- reachedIds is versioned by reachedCount
+	}, [cachedList, orderedLive, pendingEntry, reachedCount]);
 	const effectiveLoading = reordering || (allLoading && !cachedList);
 
 	// Apply optimistic card patches (and hide cards a mark just took off — leftUpNext)
@@ -1058,12 +1078,11 @@ export function useWatchlistData(userId: string | undefined) {
 
 	// --- Auto-load more if fewer visible items than cached ---
 	useEffect(() => {
-		const target = Math.max(10, cachedActiveCount.current);
 		if (
 			!loading &&
 			hasMoreTracking &&
 			!loadingMoreTracking &&
-			sortedActive.length < target &&
+			(sortedActive.length < AUTO_LOAD_MIN_CARDS || unreachedSaved > 0) &&
 			items.length > 0
 		) {
 			loadMoreTracking();
@@ -1073,6 +1092,7 @@ export function useWatchlistData(userId: string | undefined) {
 		hasMoreTracking,
 		loadingMoreTracking,
 		sortedActive.length,
+		unreachedSaved,
 		items.length,
 		loadMoreTracking,
 	]);
@@ -1215,7 +1235,7 @@ export function useWatchlistData(userId: string | undefined) {
 				watchCount: markedCount(item.tmdbId),
 			});
 			try {
-				await markEpisodeWatched(
+				const counted = await markEpisodeWatched(
 					userId,
 					item.tmdbId,
 					currentEp.season,
@@ -1227,7 +1247,16 @@ export function useWatchlistData(userId: string | undefined) {
 					false,
 					nextEpisodeName,
 					nextEpisodeAirDate,
+					{
+						firstWatchOnly:
+							item.status !== WatchStatus.REWATCHING && item.status !== WatchStatus.PAUSED_REWATCH,
+					},
 				);
+				// Already watched (a stale card): the pointer moved on, the row it has stays as it was
+				if (!counted) {
+					restoreQuery(queryClient, allEpsKey, allEpsBefore);
+					restoreQuery(queryClient, showEpsKey, showEpsBefore);
+				}
 
 				// Optimistic UI: apply nextNext as new next immediately
 				if (nextEpisode) {
