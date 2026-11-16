@@ -8,13 +8,17 @@ import {
 	ClientPlatform,
 	FIRESTORE_OPS_FLUSH_MS,
 	MIXPANEL_SERVER_URL,
+	LOCAL_RELEASE_CHANNEL,
 	MIXPANEL_TOKEN,
+	RELEASE_CHANNEL,
 	SIGN_UP_WINDOW_MS,
 	TRACKING_SESSION_IDLE_MS,
 	type UpdateDownloadResult,
 	type UpdateDrawerAction,
+	VersionProperty,
 } from "../enums";
 import { detectAppUpdate } from "../utils/updateAnalytics";
+import { APP_BUILD, APP_VERSION } from "../utils/appVersion";
 
 // Web swaps mixpanel-react-native for a mixpanel-browser shim (web/src/platform/mixpanel.ts).
 // No token configured (fork / local build without .env) → everything below is a no-op
@@ -28,6 +32,17 @@ const DEVICE_PLATFORM = PLATFORM_NAMES[Platform.OS] ?? Platform.OS;
 /** app vs web — on every event, and sent with Cloud Function calls (backend caller_platform) */
 export const CLIENT_PLATFORM = Platform.OS === "web" ? ClientPlatform.WEB : ClientPlatform.APP;
 
+/** Version on every event: Mixpanel can break any report down by build (version adoption).
+ *  Web ships the app's version name; build + channel only exist in native builds */
+const VERSION_PROPS: Record<string, string | number> =
+	CLIENT_PLATFORM === ClientPlatform.APP
+		? {
+				[VersionProperty.APP_VERSION]: APP_VERSION,
+				[VersionProperty.APP_BUILD]: APP_BUILD,
+				[VersionProperty.RELEASE_CHANNEL]: RELEASE_CHANNEL || LOCAL_RELEASE_CHANNEL,
+			}
+		: { [VersionProperty.APP_VERSION]: APP_VERSION };
+
 /** Start the SDK once, on boot. Resolves to the SDK, or null when tracking is off */
 export function initMixpanel() {
 	ready ??= mixpanel
@@ -37,6 +52,7 @@ export function initMixpanel() {
 					mixpanel.registerSuperProperties({
 						client_platform: CLIENT_PLATFORM,
 						device_platform: DEVICE_PLATFORM,
+						...VERSION_PROPS,
 					});
 					return mixpanel;
 				})

@@ -600,6 +600,16 @@ export enum ReleaseChannel {
 	PROD = "prod",
 }
 
+/** Analytics label for a build with no release channel (local / dev build, never published) */
+export const LOCAL_RELEASE_CHANNEL = "local";
+
+/** Version fields on analytics: Mixpanel super properties + Firebase Analytics user properties */
+export enum VersionProperty {
+	APP_VERSION = "app_version",
+	APP_BUILD = "app_build",
+	RELEASE_CHANNEL = "release_channel",
+}
+
 /** config/app field holding the minimum build number per channel (set by CI on [force-update]) */
 export const MIN_BUILD_FIELD: Record<ReleaseChannel, string> = {
 	[ReleaseChannel.DEV]: "minBuildDev",

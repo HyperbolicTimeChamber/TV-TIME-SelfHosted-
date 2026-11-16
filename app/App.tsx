@@ -79,6 +79,7 @@ import {
 	trackAppOpened,
 	flushAnalytics,
 } from "./src/services/mixpanel";
+import { setVersionUserProperties } from "./src/services/analytics";
 import appConfig from "./app.json";
 
 // Keep native splash visible until auth resolves
@@ -275,6 +276,7 @@ export default function App() {
 
 	useEffect(() => {
 		initMixpanel();
+		setVersionUserProperties();
 		const appVersion = appConfig.expo.version;
 		const msg = getMessaging();
 
