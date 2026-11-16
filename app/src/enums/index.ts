@@ -74,6 +74,8 @@ export enum CacheKey {
 	IMPORT_IN_PROGRESS = "import_in_progress",
 	/** Saved theme + accent choice (JSON) */
 	THEME_PREFS = "theme_prefs_v1",
+	/** + uid — Profile settings (lists on the profile, completed rows) as JSON; read from the user doc, kept for an instant first render */
+	PROFILE_PREFS = "profile_prefs_v1:",
 	/** Prefix; the uid is appended. Import screen done/skipped, kept on the device in case the Firestore write fails */
 	IMPORT_DONE = "import_done_",
 	/** Legacy: the whole catalog as one ~2MB value — Android couldn't read it back. Deleted on start */
@@ -338,6 +340,12 @@ export const ADD_TO_LIST_SUBTITLE = "Organise titles into custom lists.";
 export const CUSTOM_LIST_MAX = 50;
 /** Custom lists the profile shows under Lists (the biggest), after the Recently Watched row */
 export const PROFILE_LIST_COUNT = 5;
+/** Range of the Profile settings stepper (0 = no lists under Recently Watched) */
+export const PROFILE_LIST_COUNT_MIN = 0;
+export const PROFILE_LIST_COUNT_MAX = 10;
+/** users/{uid} fields behind the Profile settings (mirrored in firestore.rules) */
+export const PROFILE_LIST_COUNT_FIELD = "profileListCount";
+export const PROFILE_SHOW_COMPLETED_FIELD = "profileShowCompleted";
 /** Posters in the profile's Recently Watched row */
 export const RECENTLY_WATCHED_COUNT = 15;
 /** The list every user starts with — a normal list, renamable and deletable */
@@ -590,6 +598,7 @@ export enum Route {
 	SETTINGS = "Settings",
 	APPEARANCE = "Appearance",
 	NOTIFICATIONS = "Notifications",
+	PROFILE_PREFS = "ProfilePrefs",
 	WATCH_HISTORY = "WatchHistory",
 	IMPORT_DATA = "ImportData",
 	LIST_DETAIL = "ListDetail",

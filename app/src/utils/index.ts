@@ -14,6 +14,8 @@ export * from "./historyCache";
 export * from "./historyCard";
 export * from "./listCardTags";
 export * from "./completedSections";
+export * from "./profilePrefs";
+export * from "./profileCutoff";
 export * from "./calendarGrid";
 export * from "./historyView";
 export * from "./watchlistList";
