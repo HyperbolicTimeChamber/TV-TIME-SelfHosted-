@@ -89,6 +89,9 @@ export default function ProfilePrefsScreen() {
 						<Switch
 							value={prefs.showCompleted}
 							onValueChange={(value) => change({ showCompleted: value })}
+							// Accent track, as the app's other controls (Android's default teal is off-palette)
+							trackColor={{ true: colors.accent, false: colors.border }}
+							thumbColor={colors.onPrimary}
 							accessibilityLabel="Show completed rows"
 						/>
 					</View>
