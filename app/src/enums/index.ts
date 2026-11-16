@@ -143,6 +143,8 @@ export enum QueryKey {
 	TITLE_LOGO = "titleLogo",
 	CUSTOM_LISTS = "customLists",
 	TITLE_INFO = "titleInfo",
+	/** + tmdbId — a movie's runtime / director / overview for the add sheet */
+	MOVIE_SHEET = "movieSheet",
 	/** + tmdbId, mediaType, region — a title's info page extras (titleExtras CF) */
 	TITLE_EXTRAS = "titleExtras",
 	/** The viewer's country (IP lookup, else the device locale) */
@@ -221,7 +223,10 @@ export const PROVIDER_LINKS: Record<
 		androidPackage: "com.hulu.plus",
 	},
 	peacock: { home: "https://www.peacocktv.com/", androidPackage: "com.peacocktv.peacockandroid" },
-	"peacock premium": { home: "https://www.peacocktv.com/", androidPackage: "com.peacocktv.peacockandroid" },
+	"peacock premium": {
+		home: "https://www.peacocktv.com/",
+		androidPackage: "com.peacocktv.peacockandroid",
+	},
 	crunchyroll: {
 		search: "https://www.crunchyroll.com/search?q={q}",
 		home: "https://www.crunchyroll.com/",
@@ -285,6 +290,12 @@ export const COUNTRY_LOOKUP_TIMEOUT_MS = 3000;
 export const USER_REGION_TTL_MS = 24 * 60 * 60 * 1000;
 /** A title's extras change rarely: a CF answer is reused this long in a session */
 export const TITLE_EXTRAS_STALE_MS = 24 * 60 * 60 * 1000;
+/** A just-added movie's credits are fetched in the background; after this the info page stops showing credit placeholders */
+export const CREDITS_GIVE_UP_MS = 10000;
+/** TMDB crew job of a movie's director */
+export enum CrewJob {
+	DIRECTOR = "Director",
+}
 /** Longest search the searchTitles CF takes (functions SEARCH_MAX_QUERY_LENGTH) */
 export const SEARCH_MAX_QUERY_LENGTH = 100;
 /** Longest cast search the titleCastPage CF takes (functions CAST_SEARCH_MAX_LENGTH) */
@@ -630,13 +641,14 @@ export const LATEST_RELEASE_PAGE =
 	"https://github.com/HyperbolicTimeChamber/TV-TIME-SelfHosted-/releases/latest";
 
 /** The channel this build checks for updates: CI's, or dev in a local dev build (test flow) */
-export const UPDATE_CHANNEL: ReleaseChannel | null =
-	(Object.values(ReleaseChannel) as string[]).includes(RELEASE_CHANNEL)
-		? (RELEASE_CHANNEL as ReleaseChannel)
-		: // Web has no __DEV__ (and no updates)
-			(globalThis as { __DEV__?: boolean }).__DEV__
-			? ReleaseChannel.DEV
-			: null;
+export const UPDATE_CHANNEL: ReleaseChannel | null = (
+	Object.values(ReleaseChannel) as string[]
+).includes(RELEASE_CHANNEL)
+	? (RELEASE_CHANNEL as ReleaseChannel)
+	: // Web has no __DEV__ (and no updates)
+		(globalThis as { __DEV__?: boolean }).__DEV__
+		? ReleaseChannel.DEV
+		: null;
 
 /** FCM topic a channel's new-version pushes go to (CI sends `{ type: APP_UPDATE_MESSAGE }`) */
 export const UPDATE_TOPIC: Record<ReleaseChannel, string> = {
@@ -647,7 +659,6 @@ export const UPDATE_TOPIC: Record<ReleaseChannel, string> = {
 export const UPDATE_REQUIRED_MESSAGE = "update-required";
 /** FCM data `type` of a new-version push */
 export const APP_UPDATE_MESSAGE = "app_update";
-
 
 /** The APK a download is saved as (cache dir; replaced by each download) */
 export const UPDATE_APK_FILE = "watchloom-update.apk";
