@@ -64,7 +64,8 @@
 					"color": "#E50914"
 				}
 			],
-			"./plugins/withNotificationColorFix"
+			"./plugins/withNotificationColorFix",
+			"expo-background-task"
 		]
 	}
 }
