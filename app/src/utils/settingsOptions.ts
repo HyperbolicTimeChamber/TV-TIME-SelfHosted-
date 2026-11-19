@@ -39,6 +39,3 @@ export const NOTIFICATION_OPTIONS: { kind: NotificationKind; label: string; hint
 
 export const NOTIFICATIONS_FOOTER = "Alerts arrive when episodes land. Settings apply to this device.";
 export const WEB_NOTIFICATIONS_NOTICE = "Notifications are available in the Android app";
-
-/** Kept: the old placeholder export (nothing imports it after A08 / W01, delete then — see A08) */
-export const COMING_SOON = "Coming soon";
