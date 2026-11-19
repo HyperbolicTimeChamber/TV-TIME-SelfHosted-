@@ -131,6 +131,14 @@ export enum CacheKey {
 	MIXPANEL_PROFILE = "mixpanel_profile_v1:",
 	/** `${tmdbId}_${season}` → ms TMDB was last asked for Upcoming's placeholder titles */
 	UPCOMING_TITLE_CHECKS = "upcoming_title_checks_v1",
+	/** Per-device alert switches (JSON, notifyPrefs) — premieres, new episodes, movie reminders, digest, quiet hours */
+	NOTIFY_PREFS = "notify_prefs_v1",
+	/** Doc ids of the titles this device follows as FCM topics `title-{docId}` (JSON string[]) */
+	TITLE_TOPICS = "title_topics_v1",
+	/** Air-time corrections pushed by notifyAirings (JSON AiringOverride[]), dropped once past */
+	AIRING_OVERRIDES = "airing_overrides_v1",
+	/** The signed-in uid the alerts are planned for — the background task has no auth session yet */
+	AIRING_UID = "airing_uid_v1",
 }
 
 export enum QueryKey {
@@ -671,6 +679,71 @@ export const UPDATE_REQUIRED_MESSAGE = "update-required";
 /** FCM data `type` of a new-version push */
 export const APP_UPDATE_MESSAGE = "app_update";
 
+/** FCM data `type` of notifyAirings' day-ahead correction push (functions NotificationType.AIRING) */
+export const AIRING_MESSAGE = "airing";
+/** FCM topic prefix: this device follows `title-{docId}` for every title it tracks (functions TITLE_TOPIC_PREFIX) */
+export const TITLE_TOPIC_PREFIX = "title-";
+/** One FCM instance may follow this many topics */
+export const TITLE_TOPIC_MAX = 2000;
+/** Topic (un)subscribes run this many at a time */
+export const TITLE_TOPIC_BATCH = 5;
+/** Android notification channel of the airing alerts */
+export const AIRING_CHANNEL = "airings";
+/** expo-background-task task that re-plans the alerts once a day */
+export const AIRING_TASK = "airing-replan";
+/** The daily task's minimum interval, in minutes (WorkManager; a minimum, not a schedule) */
+export const AIRING_TASK_MINUTES = 24 * 60;
+/** Alerts are planned this many days ahead */
+export const AIRING_HORIZON_DAYS = 30;
+/** At most this many scheduled notifications (the reopen nudge included) */
+export const AIRING_CAP = 60;
+/** Quiet hours: alerts landing from this local hour … */
+export const AIRING_QUIET_START_HOUR = 22;
+/** … until this one wait for AIRING_MORNING_HOUR */
+export const AIRING_QUIET_END_HOUR = 8;
+/** Deferred, movie, reminder, digest and untimed-episode alerts fire at this local hour */
+export const AIRING_MORNING_HOUR = 9;
+/** Reopen nudge: this many days after the last app open */
+export const AIRING_NUDGE_DAYS = 25;
+/** Re-plan waits this long after the last change (a mark burst plans once) */
+export const AIRING_REPLAN_DEBOUNCE_MS = 3000;
+/** First plan of a launch waits this long (the launch is busy) */
+export const AIRING_LAUNCH_DELAY_MS = 5000;
+
+/** What a scheduled alert is (notification `data.alert`; tap routing + notification_opened category) */
+export enum AlertType {
+	EPISODE = "episode",
+	PREMIERE = "premiere",
+	MOVIE = "movie",
+	MOVIE_REMINDER = "movie_reminder",
+	/** Overnight alerts of several titles, grouped at 9 am */
+	MORNING = "morning",
+	DIGEST = "digest",
+	NUDGE = "nudge",
+}
+
+/** Stable notification ids: re-planning cancels / schedules by id, so it is idempotent */
+export const ALERT_ID = {
+	/** + docId + "-" + fire time (ms) */
+	AIR: "air-",
+	/** + local date YYYY-MM-DD */
+	MORNING: "morning-",
+	/** + local date of the Sunday */
+	DIGEST: "digest-",
+	/** + docId + "-" + release date */
+	MOVIE: "movie-",
+	/** + docId + "-" + release date */
+	REMINDER: "reminder-",
+	NUDGE: "reopen-nudge",
+} as const;
+
+/** Why the alerts are being planned */
+export enum ReplanSource {
+	FOREGROUND = "foreground",
+	BACKGROUND = "background",
+	PUSH = "push",
+}
+
 /** The APK a download is saved as (cache dir; replaced by each download) */
 export const UPDATE_APK_FILE = "watchloom-update.apk";
 /** Progress events are coalesced to this often (the notification can't redraw faster) */
@@ -742,6 +815,10 @@ export enum AnalyticsEvent {
 	APP_UPDATED = "app_updated",
 	/** The swipe pager's position disagreed with the tab state after the app resumed (diagnostic) */
 	TAB_DESYNC = "tab_desync",
+	/** The alert plan changed on this device (count scheduled / cancelled) */
+	NOTIFICATION_SCHEDULED = "notification_scheduled",
+	/** A local alert was tapped (category = AlertType) */
+	NOTIFICATION_OPENED = "notification_opened",
 }
 
 /** update_drawer_action `action` */
