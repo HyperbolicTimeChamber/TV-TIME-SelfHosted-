@@ -25,3 +25,4 @@ export { watchProviders } from "./cloudFunctions/watchProviders";
 export { titleExtras } from "./cloudFunctions/titleExtras";
 export { titleCastPage } from "./cloudFunctions/titleCastPage";
 export { subjectLink } from "./cloudFunctions/subjectLink";
+export { notifyAirings } from "./cloudFunctions/notifyAirings";

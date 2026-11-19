@@ -281,6 +281,9 @@ export default function SettingsScreen() {
 				<button className={styles.row} onClick={() => navigate(Paths.APPEARANCE)}>
 					Appearance
 				</button>
+				<button className={styles.row} onClick={() => navigate(Paths.PROFILE_PREFS)}>
+					Profile
+				</button>
 				<button className={styles.row} onClick={() => navigate(Paths.NOTIFICATIONS)}>
 					Notifications
 				</button>

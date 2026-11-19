@@ -3,6 +3,7 @@ import { fetchShowFromTMDB, CatalogShow, pooled } from "../tmdb";
 import { addToTrackedBy, TRACKED_BY_LIMIT } from "../trackedBy";
 import { commitInBatches, DocWrite } from "../batchWrites";
 import { showDocId } from "../../shared/docId";
+import { airDates14 } from "../../shared/airDates";
 import { ImportMatch } from "../../shared/types";
 
 export async function ensureCatalog(
@@ -67,6 +68,7 @@ export async function ensureCatalog(
       if (showDoc.exists) return;
       tx.set(showRef, {
         ...showData,
+        airDates14: airDates14(showData),
         trackedBy: [uid],
         trackedByCount: 1,
         lastSyncedAt: FieldValue.serverTimestamp(),

@@ -1,4 +1,10 @@
-import { getAnalytics, logEvent as firebaseLogEvent } from "@react-native-firebase/analytics";
+import {
+	getAnalytics,
+	logEvent as firebaseLogEvent,
+	setUserProperty,
+} from "@react-native-firebase/analytics";
+import { LOCAL_RELEASE_CHANNEL, RELEASE_CHANNEL, VersionProperty } from "../enums";
+import { APP_BUILD, APP_VERSION } from "../utils/appVersion";
 import { trackApiCalled } from "./mixpanel";
 
 type ApiType = "tmdb" | "cloud_function" | "firestore";
@@ -9,6 +15,18 @@ interface ApiCallEvent {
 	success: boolean;
 	duration_ms: number;
 	error?: string;
+}
+
+/** Version as Firebase Analytics user properties: Console → Audiences / reports by build (free).
+ *  Call once per launch (native app only) */
+export function setVersionUserProperties() {
+	const analytics = getAnalytics();
+	const props: [VersionProperty, string][] = [
+		[VersionProperty.APP_VERSION, APP_VERSION],
+		[VersionProperty.APP_BUILD, String(APP_BUILD)],
+		[VersionProperty.RELEASE_CHANNEL, RELEASE_CHANNEL || LOCAL_RELEASE_CHANNEL],
+	];
+	for (const [name, value] of props) setUserProperty(analytics, name, value).catch(() => {});
 }
 
 /** Log an API call event to Firebase Analytics and Mixpanel */

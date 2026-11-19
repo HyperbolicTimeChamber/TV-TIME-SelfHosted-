@@ -28,6 +28,7 @@ const DETAIL_ROUTES = new Set([
 	Route.SETTINGS,
 	Route.APPEARANCE,
 	Route.NOTIFICATIONS,
+	Route.PROFILE_PREFS,
 	Route.WATCH_HISTORY,
 	Route.LISTS,
 	Route.LIST_DETAIL,

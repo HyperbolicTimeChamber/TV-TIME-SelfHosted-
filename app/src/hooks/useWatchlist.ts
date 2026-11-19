@@ -47,6 +47,7 @@ import {
 	requestCatalogCreate,
 	awaitCatalogCreate,
 } from "../services/refreshShow";
+import { requestAiringReplan } from "../utils/airingReplanSignal";
 
 export interface EnrichedTrackingItem extends TrackingItem {
 	title: string;
@@ -79,7 +80,9 @@ function persistCatalogCache(cache: Map<string, CatalogShow | null>) {
 	for (const key of dropped) persistedCatalog.delete(key);
 	if (Object.keys(changed).length === 0 && dropped.length === 0) return;
 	changed[CacheKey.CATALOG_INDEX] = JSON.stringify([...kept]);
-	AsyncStorage.setMany(changed).catch(() => {});
+	AsyncStorage.setMany(changed)
+		.then(requestAiringReplan)
+		.catch(() => {});
 	if (dropped.length)
 		AsyncStorage.removeMany(dropped.map((key) => CacheKey.CATALOG_SHOW + key)).catch(() => {});
 }

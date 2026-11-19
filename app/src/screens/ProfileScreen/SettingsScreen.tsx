@@ -53,6 +53,7 @@ import { CloudFunction, ProfileStackParamList, Route } from "../../types";
 import { ACCOUNT_IMPORT_MAX_BYTES, ReleaseChannel, UPDATE_CHANNEL } from "../../enums";
 import { INSTALLED_BUILD, UPDATES_SUPPORTED } from "../../services/appUpdate";
 import { showUpdateNotification } from "../../services/updateNotifications";
+import { scheduleFakeAiring } from "../../services/airingScheduler";
 import { offeredRelease, useUpdateStore } from "../../stores/updateStore";
 import {
 	describeAccountExport,
@@ -335,6 +336,12 @@ export default function SettingsScreen() {
 					</TouchableOpacity>
 					<TouchableOpacity
 						style={styles.row}
+						onPress={() => navigation.navigate(Route.PROFILE_PREFS)}
+					>
+						<Text style={styles.rowText}>Profile</Text>
+					</TouchableOpacity>
+					<TouchableOpacity
+						style={styles.row}
 						onPress={() => navigation.navigate(Route.NOTIFICATIONS)}
 					>
 						<Text style={styles.rowText}>Notifications</Text>
@@ -542,6 +549,7 @@ function UpdateTestSection() {
 			{row("Stop Simulation", () => simulate(null), !simulation)}
 			{row("Reset \"Not Now\"", clearSkip)}
 			{row("Show Update Notification", () => offered && showUpdateNotification(offered), !offered)}
+			{row("Schedule Fake Airing In 2 Min", () => scheduleFakeAiring().catch(() => {}))}
 		</View>
 	);
 }

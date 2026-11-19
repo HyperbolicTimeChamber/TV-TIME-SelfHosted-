@@ -1,4 +1,5 @@
 import { FieldValue } from "firebase-admin/firestore";
+import { airDates14 } from "../shared/airDates";
 import { CatalogShow } from "../shared/types";
 
 /** Fields a TMDB refresh rewrites on a TV catalog doc (syncCatalog + refreshShow, merge) */
@@ -22,6 +23,7 @@ export function tvCatalogFields(fresh: CatalogShow): Record<string, unknown> {
     studios: fresh.studios ?? [],
     logoPath: fresh.logoPath ?? null,
     tvmazeId: fresh.tvmazeId ?? null,
+    airDates14: airDates14(fresh),
     ...(fresh.credits ? { credits: fresh.credits } : {}),
     lastSyncedAt: FieldValue.serverTimestamp(),
   };
@@ -38,6 +40,7 @@ export function movieCatalogFields(fresh: CatalogShow): Record<string, unknown> 
     runtime: fresh.runtime,
     voteAverage: fresh.voteAverage,
     releaseDate: fresh.releaseDate,
+    airDates14: airDates14(fresh),
     genres: fresh.genres,
     keywords: fresh.keywords ?? [],
     countries: fresh.countries ?? [],

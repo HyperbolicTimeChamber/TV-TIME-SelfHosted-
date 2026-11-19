@@ -1,0 +1,244 @@
+/* The sheet's handle + this header + the bottom padding, above the list */
+$chrome-h: calc(112px + env(safe-area-inset-bottom));
+
+.header {
+	padding: 0 0 12px;
+	border-bottom: 1px solid var(--border);
+}
+
+.title {
+	margin: 0;
+	font-size: 20px;
+	font-weight: 600;
+}
+
+.detailHead {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+
+	.title {
+		flex: 1;
+		min-width: 0;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+}
+
+.back {
+	display: flex;
+	margin-left: -4px;
+	padding: 4px;
+	border: none;
+	background: none;
+	color: var(--text);
+	cursor: pointer;
+}
+
+.credit {
+	flex-shrink: 0;
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+.search {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 12px;
+	padding: 0 12px;
+	height: 40px;
+	border-radius: 12px;
+	background: var(--surface-light);
+	color: var(--text-muted);
+
+	input {
+		flex: 1;
+		min-width: 0;
+		border: none;
+		outline: none;
+		background: none;
+		color: var(--text);
+		font: inherit;
+		font-size: 14px;
+
+		&::-webkit-search-cancel-button {
+			display: none;
+		}
+	}
+
+	button {
+		display: flex;
+		padding: 0;
+		border: none;
+		background: none;
+		color: var(--text-muted);
+		cursor: pointer;
+	}
+}
+
+/* Scrolls inside the sheet. A fixed height (list, detail, Nothing Found alike): the sheet never
+   jumps; keyboard up: only what's left above it (BottomSheet --sheet-room) */
+.list {
+	--list-h: min(62dvh, 600px, calc(var(--sheet-room, 100dvh) - #{$chrome-h}));
+	height: var(--list-h);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	animation: listIn 180ms ease-out;
+}
+
+@keyframes listIn {
+	from {
+		opacity: 0;
+	}
+}
+
+/* Nothing Found runs under the sheet's bottom padding (same height overall), so Zoro's feet touch
+   the screen's edge */
+.listEmpty {
+	height: calc(var(--list-h) + 16px + env(safe-area-inset-bottom));
+	margin-bottom: calc(-16px - env(safe-area-inset-bottom));
+}
+
+.row {
+	width: 100%;
+	height: 52px;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--text);
+	font: inherit;
+	font-size: 15px;
+	text-align: left;
+	text-decoration: none;
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+
+	&:active {
+		opacity: 0.6;
+	}
+}
+
+.flag {
+	flex: 0 0 32px;
+	font-size: 22px;
+	text-align: center;
+}
+
+.name {
+	flex: 1;
+	min-width: 0;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.chevron {
+	flex-shrink: 0;
+	color: var(--text-muted);
+}
+
+.logo {
+	flex: 0 0 36px;
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	object-fit: cover;
+}
+
+.skeletonLogo {
+	flex: 0 0 36px;
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+}
+
+.skeletonLine {
+	height: 10px;
+	width: 40%;
+	border-radius: 4px;
+}
+
+.note {
+	padding: 16px 0;
+}
+
+.noteTitle {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.noteHint {
+	margin: 2px 0 0;
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.none {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-top: 16px;
+	background: var(--surface-light);
+	border-radius: 14px;
+	padding: 12px 16px;
+}
+
+.noneArt {
+	width: 44px;
+	height: auto;
+	flex-shrink: 0;
+}
+
+/* Fills the list's height: Zoro stands on the sheet's bottom edge, the message just over his head */
+.empty {
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: flex-end;
+	padding: 0 32px;
+	text-align: center;
+	overflow: hidden;
+}
+
+.emptyTitle {
+	margin: 0;
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--text-secondary);
+}
+
+.emptyHint {
+	margin: 4px 0 8px;
+	font-size: 13px;
+	color: var(--text-muted);
+}
+
+.emptyArt {
+	flex: 0 1 auto;
+	min-height: 0;
+	height: min(44dvh, 420px);
+	width: auto;
+	pointer-events: none;
+	user-select: none;
+	animation: climb 350ms cubic-bezier(0.23, 1, 0.32, 1) 120ms both;
+}
+
+@keyframes climb {
+	from {
+		opacity: 0;
+		transform: translateY(100%);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.emptyArt {
+		animation: none;
+	}
+}

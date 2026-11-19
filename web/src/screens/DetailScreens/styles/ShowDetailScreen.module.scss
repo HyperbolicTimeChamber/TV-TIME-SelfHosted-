@@ -258,6 +258,13 @@
 	color: var(--text-secondary);
 }
 
+/* A just-added movie's name placeholder while its credits arrive */
+.creditNameSkeleton {
+	width: 60%;
+	height: 14px;
+	border-radius: 4px;
+}
+
 /* Two columns: each person takes half the row */
 .creditGrid {
 	display: grid;

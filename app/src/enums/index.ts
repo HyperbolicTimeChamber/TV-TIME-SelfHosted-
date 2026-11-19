@@ -74,6 +74,8 @@ export enum CacheKey {
 	IMPORT_IN_PROGRESS = "import_in_progress",
 	/** Saved theme + accent choice (JSON) */
 	THEME_PREFS = "theme_prefs_v1",
+	/** + uid — Profile settings (lists on the profile, completed rows) as JSON; read from the user doc, kept for an instant first render */
+	PROFILE_PREFS = "profile_prefs_v1:",
 	/** Prefix; the uid is appended. Import screen done/skipped, kept on the device in case the Firestore write fails */
 	IMPORT_DONE = "import_done_",
 	/** Legacy: the whole catalog as one ~2MB value — Android couldn't read it back. Deleted on start */
@@ -129,6 +131,14 @@ export enum CacheKey {
 	MIXPANEL_PROFILE = "mixpanel_profile_v1:",
 	/** `${tmdbId}_${season}` → ms TMDB was last asked for Upcoming's placeholder titles */
 	UPCOMING_TITLE_CHECKS = "upcoming_title_checks_v1",
+	/** Per-device alert switches (JSON, notifyPrefs) — premieres, new episodes, movie reminders, digest, quiet hours */
+	NOTIFY_PREFS = "notify_prefs_v1",
+	/** Doc ids of the titles this device follows as FCM topics `title-{docId}` (JSON string[]) */
+	TITLE_TOPICS = "title_topics_v1",
+	/** Air-time corrections pushed by notifyAirings (JSON AiringOverride[]), dropped once past */
+	AIRING_OVERRIDES = "airing_overrides_v1",
+	/** The signed-in uid the alerts are planned for — the background task has no auth session yet */
+	AIRING_UID = "airing_uid_v1",
 }
 
 export enum QueryKey {
@@ -143,6 +153,8 @@ export enum QueryKey {
 	TITLE_LOGO = "titleLogo",
 	CUSTOM_LISTS = "customLists",
 	TITLE_INFO = "titleInfo",
+	/** + tmdbId — a movie's runtime / director / overview for the add sheet */
+	MOVIE_SHEET = "movieSheet",
 	/** + tmdbId, mediaType, region — a title's info page extras (titleExtras CF) */
 	TITLE_EXTRAS = "titleExtras",
 	/** The viewer's country (IP lookup, else the device locale) */
@@ -221,7 +233,10 @@ export const PROVIDER_LINKS: Record<
 		androidPackage: "com.hulu.plus",
 	},
 	peacock: { home: "https://www.peacocktv.com/", androidPackage: "com.peacocktv.peacockandroid" },
-	"peacock premium": { home: "https://www.peacocktv.com/", androidPackage: "com.peacocktv.peacockandroid" },
+	"peacock premium": {
+		home: "https://www.peacocktv.com/",
+		androidPackage: "com.peacocktv.peacockandroid",
+	},
 	crunchyroll: {
 		search: "https://www.crunchyroll.com/search?q={q}",
 		home: "https://www.crunchyroll.com/",
@@ -285,6 +300,14 @@ export const COUNTRY_LOOKUP_TIMEOUT_MS = 3000;
 export const USER_REGION_TTL_MS = 24 * 60 * 60 * 1000;
 /** A title's extras change rarely: a CF answer is reused this long in a session */
 export const TITLE_EXTRAS_STALE_MS = 24 * 60 * 60 * 1000;
+/** A just-added movie's credits are fetched in the background; after this the info page stops showing credit placeholders */
+export const CREDITS_GIVE_UP_MS = 10000;
+/** An info page's extras still loading after this long: one "taking longer than usual" note appears (the call is never aborted) */
+export const SLOW_LOAD_MS = 6000;
+/** TMDB crew job of a movie's director */
+export enum CrewJob {
+	DIRECTOR = "Director",
+}
 /** Longest search the searchTitles CF takes (functions SEARCH_MAX_QUERY_LENGTH) */
 export const SEARCH_MAX_QUERY_LENGTH = 100;
 /** Longest cast search the titleCastPage CF takes (functions CAST_SEARCH_MAX_LENGTH) */
@@ -325,6 +348,12 @@ export const ADD_TO_LIST_SUBTITLE = "Organise titles into custom lists.";
 export const CUSTOM_LIST_MAX = 50;
 /** Custom lists the profile shows under Lists (the biggest), after the Recently Watched row */
 export const PROFILE_LIST_COUNT = 5;
+/** Range of the Profile settings stepper (0 = no lists under Recently Watched) */
+export const PROFILE_LIST_COUNT_MIN = 0;
+export const PROFILE_LIST_COUNT_MAX = 10;
+/** users/{uid} fields behind the Profile settings (mirrored in firestore.rules) */
+export const PROFILE_LIST_COUNT_FIELD = "profileListCount";
+export const PROFILE_SHOW_COMPLETED_FIELD = "profileShowCompleted";
 /** Posters in the profile's Recently Watched row */
 export const RECENTLY_WATCHED_COUNT = 15;
 /** The list every user starts with — a normal list, renamable and deletable */
@@ -577,6 +606,7 @@ export enum Route {
 	SETTINGS = "Settings",
 	APPEARANCE = "Appearance",
 	NOTIFICATIONS = "Notifications",
+	PROFILE_PREFS = "ProfilePrefs",
 	WATCH_HISTORY = "WatchHistory",
 	IMPORT_DATA = "ImportData",
 	LIST_DETAIL = "ListDetail",
@@ -600,6 +630,16 @@ export enum ReleaseChannel {
 	PROD = "prod",
 }
 
+/** Analytics label for a build with no release channel (local / dev build, never published) */
+export const LOCAL_RELEASE_CHANNEL = "local";
+
+/** Version fields on analytics: Mixpanel super properties + Firebase Analytics user properties */
+export enum VersionProperty {
+	APP_VERSION = "app_version",
+	APP_BUILD = "app_build",
+	RELEASE_CHANNEL = "release_channel",
+}
+
 /** config/app field holding the minimum build number per channel (set by CI on [force-update]) */
 export const MIN_BUILD_FIELD: Record<ReleaseChannel, string> = {
 	[ReleaseChannel.DEV]: "minBuildDev",
@@ -620,13 +660,14 @@ export const LATEST_RELEASE_PAGE =
 	"https://github.com/HyperbolicTimeChamber/TV-TIME-SelfHosted-/releases/latest";
 
 /** The channel this build checks for updates: CI's, or dev in a local dev build (test flow) */
-export const UPDATE_CHANNEL: ReleaseChannel | null =
-	(Object.values(ReleaseChannel) as string[]).includes(RELEASE_CHANNEL)
-		? (RELEASE_CHANNEL as ReleaseChannel)
-		: // Web has no __DEV__ (and no updates)
-			(globalThis as { __DEV__?: boolean }).__DEV__
-			? ReleaseChannel.DEV
-			: null;
+export const UPDATE_CHANNEL: ReleaseChannel | null = (
+	Object.values(ReleaseChannel) as string[]
+).includes(RELEASE_CHANNEL)
+	? (RELEASE_CHANNEL as ReleaseChannel)
+	: // Web has no __DEV__ (and no updates)
+		(globalThis as { __DEV__?: boolean }).__DEV__
+		? ReleaseChannel.DEV
+		: null;
 
 /** FCM topic a channel's new-version pushes go to (CI sends `{ type: APP_UPDATE_MESSAGE }`) */
 export const UPDATE_TOPIC: Record<ReleaseChannel, string> = {
@@ -638,6 +679,70 @@ export const UPDATE_REQUIRED_MESSAGE = "update-required";
 /** FCM data `type` of a new-version push */
 export const APP_UPDATE_MESSAGE = "app_update";
 
+/** FCM data `type` of notifyAirings' day-ahead correction push (functions NotificationType.AIRING) */
+export const AIRING_MESSAGE = "airing";
+/** FCM topic prefix: this device follows `title-{docId}` for every title it tracks (functions TITLE_TOPIC_PREFIX) */
+export const TITLE_TOPIC_PREFIX = "title-";
+/** One FCM instance may follow this many topics */
+export const TITLE_TOPIC_MAX = 2000;
+/** Topic (un)subscribes run this many at a time */
+export const TITLE_TOPIC_BATCH = 5;
+/** Android notification channel of the airing alerts */
+export const AIRING_CHANNEL = "airings";
+/** expo-background-task task that re-plans the alerts once a day */
+export const AIRING_TASK = "airing-replan";
+/** The daily task's minimum interval, in minutes (WorkManager; a minimum, not a schedule) */
+export const AIRING_TASK_MINUTES = 24 * 60;
+/** Alerts are planned this many days ahead */
+export const AIRING_HORIZON_DAYS = 30;
+/** At most this many scheduled notifications (the reopen nudge included) */
+export const AIRING_CAP = 60;
+/** Quiet hours: alerts landing from this local hour … */
+export const AIRING_QUIET_START_HOUR = 22;
+/** … until this one wait for AIRING_MORNING_HOUR */
+export const AIRING_QUIET_END_HOUR = 8;
+/** Deferred, movie, reminder, digest and untimed-episode alerts fire at this local hour */
+export const AIRING_MORNING_HOUR = 9;
+/** Reopen nudge: this many days after the last app open */
+export const AIRING_NUDGE_DAYS = 25;
+/** Re-plan waits this long after the last change (a mark burst plans once) */
+export const AIRING_REPLAN_DEBOUNCE_MS = 3000;
+/** First plan of a launch waits this long (the launch is busy) */
+export const AIRING_LAUNCH_DELAY_MS = 5000;
+
+/** What a scheduled alert is (notification `data.alert`; tap routing + notification_opened category) */
+export enum AlertType {
+	EPISODE = "episode",
+	PREMIERE = "premiere",
+	MOVIE = "movie",
+	MOVIE_REMINDER = "movie_reminder",
+	/** Overnight alerts of several titles, grouped at 9 am */
+	MORNING = "morning",
+	DIGEST = "digest",
+	NUDGE = "nudge",
+}
+
+/** Stable notification ids: re-planning cancels / schedules by id, so it is idempotent */
+export const ALERT_ID = {
+	/** + docId + "-" + fire time (ms) */
+	AIR: "air-",
+	/** + local date YYYY-MM-DD */
+	MORNING: "morning-",
+	/** + local date of the Sunday */
+	DIGEST: "digest-",
+	/** + docId + "-" + release date */
+	MOVIE: "movie-",
+	/** + docId + "-" + release date */
+	REMINDER: "reminder-",
+	NUDGE: "reopen-nudge",
+} as const;
+
+/** Why the alerts are being planned */
+export enum ReplanSource {
+	FOREGROUND = "foreground",
+	BACKGROUND = "background",
+	PUSH = "push",
+}
 
 /** The APK a download is saved as (cache dir; replaced by each download) */
 export const UPDATE_APK_FILE = "watchloom-update.apk";
@@ -710,6 +815,10 @@ export enum AnalyticsEvent {
 	APP_UPDATED = "app_updated",
 	/** The swipe pager's position disagreed with the tab state after the app resumed (diagnostic) */
 	TAB_DESYNC = "tab_desync",
+	/** The alert plan changed on this device (count scheduled / cancelled) */
+	NOTIFICATION_SCHEDULED = "notification_scheduled",
+	/** A local alert was tapped (category = AlertType) */
+	NOTIFICATION_OPENED = "notification_opened",
 }
 
 /** update_drawer_action `action` */
@@ -1068,6 +1177,143 @@ export const COUNTRY_NAMES: Record<string, string> = {
 	CL: "Chile",
 	PE: "Peru",
 	VE: "Venezuela",
+};
+
+/** Longest search the "Other Countries" sheet takes */
+export const COUNTRY_SEARCH_MAX_LENGTH = 40;
+
+/** Where to Watch countries (TMDB's /watch/providers/regions list): ISO 3166-1 code -> English
+ *  name. Static because Hermes has no reliable Intl.DisplayNames. A code not listed falls back to
+ *  COUNTRY_NAMES, then shows as the code */
+export const WATCH_REGION_NAMES: Record<string, string> = {
+	AE: "United Arab Emirates",
+	AG: "Antigua and Barbuda",
+	AL: "Albania",
+	AR: "Argentina",
+	AT: "Austria",
+	AU: "Australia",
+	AZ: "Azerbaijan",
+	BA: "Bosnia and Herzegovina",
+	BB: "Barbados",
+	BE: "Belgium",
+	BG: "Bulgaria",
+	BH: "Bahrain",
+	BM: "Bermuda",
+	BO: "Bolivia",
+	BR: "Brazil",
+	BS: "Bahamas",
+	BY: "Belarus",
+	BZ: "Belize",
+	CA: "Canada",
+	CH: "Switzerland",
+	CL: "Chile",
+	CO: "Colombia",
+	CR: "Costa Rica",
+	CV: "Cape Verde",
+	CY: "Cyprus",
+	CZ: "Czechia",
+	DE: "Germany",
+	DK: "Denmark",
+	DO: "Dominican Republic",
+	DZ: "Algeria",
+	EC: "Ecuador",
+	EE: "Estonia",
+	EG: "Egypt",
+	ES: "Spain",
+	FI: "Finland",
+	FJ: "Fiji",
+	FR: "France",
+	GB: "United Kingdom",
+	GF: "French Guiana",
+	GG: "Guernsey",
+	GH: "Ghana",
+	GI: "Gibraltar",
+	GQ: "Equatorial Guinea",
+	GR: "Greece",
+	GT: "Guatemala",
+	HK: "Hong Kong",
+	HN: "Honduras",
+	HR: "Croatia",
+	HU: "Hungary",
+	ID: "Indonesia",
+	IE: "Ireland",
+	IL: "Israel",
+	IN: "India",
+	IQ: "Iraq",
+	IS: "Iceland",
+	IT: "Italy",
+	JM: "Jamaica",
+	JO: "Jordan",
+	JP: "Japan",
+	KE: "Kenya",
+	KR: "South Korea",
+	KW: "Kuwait",
+	LB: "Lebanon",
+	LC: "Saint Lucia",
+	LI: "Liechtenstein",
+	LT: "Lithuania",
+	LU: "Luxembourg",
+	LV: "Latvia",
+	LY: "Libya",
+	MA: "Morocco",
+	MC: "Monaco",
+	MD: "Moldova",
+	ME: "Montenegro",
+	MK: "North Macedonia",
+	MT: "Malta",
+	MU: "Mauritius",
+	MX: "Mexico",
+	MY: "Malaysia",
+	MZ: "Mozambique",
+	NE: "Niger",
+	NG: "Nigeria",
+	NI: "Nicaragua",
+	NL: "Netherlands",
+	NO: "Norway",
+	NP: "Nepal",
+	NZ: "New Zealand",
+	OM: "Oman",
+	PA: "Panama",
+	PE: "Peru",
+	PF: "French Polynesia",
+	PG: "Papua New Guinea",
+	PH: "Philippines",
+	PK: "Pakistan",
+	PL: "Poland",
+	PS: "Palestine",
+	PT: "Portugal",
+	PY: "Paraguay",
+	QA: "Qatar",
+	RO: "Romania",
+	RS: "Serbia",
+	RU: "Russia",
+	SA: "Saudi Arabia",
+	SC: "Seychelles",
+	SE: "Sweden",
+	SG: "Singapore",
+	SI: "Slovenia",
+	SK: "Slovakia",
+	SM: "San Marino",
+	SN: "Senegal",
+	SV: "El Salvador",
+	TC: "Turks and Caicos Islands",
+	TH: "Thailand",
+	TN: "Tunisia",
+	TR: "Turkey",
+	TT: "Trinidad and Tobago",
+	TW: "Taiwan",
+	TZ: "Tanzania",
+	UA: "Ukraine",
+	UG: "Uganda",
+	US: "United States",
+	UY: "Uruguay",
+	VA: "Vatican City",
+	VE: "Venezuela",
+	XK: "Kosovo",
+	YE: "Yemen",
+	ZA: "South Africa",
+	ZM: "Zambia",
+	ZW: "Zimbabwe",
 };
 
 /** Corner radius of list cards — watchlist rows match the calendar cards */

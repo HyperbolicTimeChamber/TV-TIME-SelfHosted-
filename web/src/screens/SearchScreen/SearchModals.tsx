@@ -10,11 +10,13 @@ import { ModalBackdrop, ModalLogo } from "../../components/ModalArt";
 import { getCachedCatalogShow } from "@app/hooks/useWatchlist";
 import { MediaType, WatchProgress } from "@app/enums";
 import { searchMediaType as mediaTypeOf } from "@app/utils/customLists";
+import MovieSheetInfo from "./MovieSheetInfo";
 
 /** Title logo when the catalog has the title cached (name otherwise) */
 const logoOf = (item: TMDBShow, mediaType: MediaType) =>
 	getCachedCatalogShow(item.id, mediaType)?.logoPath ?? null;
 const nameOf = (item: TMDBShow) => item.name || item.title || "";
+const yearOf = (item: TMDBShow) => item.release_date?.slice(0, 4) || null;
 
 const pad = (n?: number) => String(n).padStart(2, "0");
 
@@ -60,7 +62,17 @@ export default function SearchModals(p: Props) {
 				visible={!!p.movieModal}
 				label="Add this movie"
 				onClose={p.onMovieModalClose}
-				art={p.movieModal ? { tmdbId: p.movieModal.id, mediaType: MediaType.MOVIE } : null}
+				art={
+					p.movieModal
+						? {
+								tmdbId: p.movieModal.id,
+								mediaType: MediaType.MOVIE,
+								// What the search result already has: art at once, no TMDB lookup first
+								backdropPath: p.movieModal.backdrop_path ?? null,
+								posterPath: p.movieModal.poster_path ?? null,
+							}
+						: null
+				}
 			>
 				<SheetHeader
 					title={p.movieModal ? nameOf(p.movieModal) : ""}
@@ -68,7 +80,9 @@ export default function SearchModals(p: Props) {
 					mediaType={MediaType.MOVIE}
 					logoPath={p.movieModal ? logoOf(p.movieModal, MediaType.MOVIE) : null}
 					centered
+					nameNow
 				/>
+				{p.movieModal && <MovieSheetInfo tmdbId={p.movieModal.id} year={yearOf(p.movieModal)} />}
 				<SheetGroup>
 					<SheetOption
 						icon={IoAdd}

@@ -115,12 +115,94 @@
 }
 
 .swatch {
+	position: relative;
 	width: 44px;
 	height: 44px;
 	border-radius: 50%;
 	border: 2px solid transparent;
 }
 
+/* Appearance while an option applies: buttons stay as they look, only the cursor says wait */
+.row:disabled,
+.swatchWrap:disabled {
+	cursor: progress;
+	color: inherit;
+}
+
+.swatchWrap:disabled {
+	color: var(--text-muted);
+}
+
 .swatchOn {
 	border-color: var(--text);
+}
+
+/* Appearance: the option being applied (the app remounts on the change) — replaces the radio, or
+   sits on the swatch, at the same size so nothing shifts */
+.spinner {
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	border: 2px solid var(--border);
+	border-top-color: $accent;
+	animation: themeSpin 700ms linear infinite;
+}
+
+.swatchBusy {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+	background: rgba(0, 0, 0, 0.5);
+
+	.spinner {
+		border-color: rgba(255, 255, 255, 0.35);
+		border-top-color: #fff;
+	}
+}
+
+@keyframes themeSpin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.spinner {
+		animation-duration: 1400ms;
+	}
+}
+
+/* Profile settings (app ProfilePrefsScreen): the lists stepper */
+.stepper {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.stepButton {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	border: none;
+	background: var(--surface-light);
+	color: var(--text);
+	cursor: pointer;
+
+	&:disabled {
+		opacity: 0.4;
+		cursor: default;
+	}
+}
+
+.stepValue {
+	min-width: 24px;
+	text-align: center;
+	font-size: 17px;
+	font-weight: 600;
 }

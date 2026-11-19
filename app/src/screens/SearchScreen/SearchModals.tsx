@@ -11,12 +11,14 @@ import { MediaType, TMDBShow, type AddFailure } from "../../types";
 import { WatchProgress } from "../../enums";
 import { searchMediaType as mediaTypeOf } from "../../utils";
 import { HiCheck } from "../../components/HiIcons";
+import MovieSheetInfo from "./MovieSheetInfo";
 
 const pad = (n?: number) => String(n).padStart(2, "0");
 /** Title logo when the catalog has the title cached (name otherwise) */
 const logoOf = (item: TMDBShow | null | undefined, mediaType: MediaType) =>
 	item ? (getCachedCatalogShow(item.id, mediaType)?.logoPath ?? null) : null;
 const nameOf = (item: TMDBShow | null | undefined) => item?.name || item?.title || "";
+const yearOf = (item: TMDBShow | null | undefined) => item?.release_date?.slice(0, 4) || null;
 
 const epCode = (ep?: { season: number; episode: number }) =>
 	`S${pad(ep?.season)}E${pad(ep?.episode)}`;
@@ -84,7 +86,17 @@ export default function SearchModals({
 			<BottomSheet
 				visible={!!movieModal}
 				onClose={onMovieModalClose}
-				art={movieModal ? { tmdbId: movieModal.id, mediaType: MediaType.MOVIE } : null}
+				art={
+					movieModal
+						? {
+								tmdbId: movieModal.id,
+								mediaType: MediaType.MOVIE,
+								// What the search result already has: art at once, no TMDB lookup first
+								backdropPath: movieModal.backdrop_path ?? null,
+								posterPath: movieModal.poster_path ?? null,
+							}
+						: null
+				}
 			>
 				{(close) => (
 					<>
@@ -94,7 +106,11 @@ export default function SearchModals({
 							mediaType={MediaType.MOVIE}
 							logoPath={logoOf(movieModal, MediaType.MOVIE)}
 							centered
+							nameNow
 						/>
+						{movieModal ? (
+							<MovieSheetInfo tmdbId={movieModal.id} year={yearOf(movieModal)} />
+						) : null}
 						<SheetGroup>
 							<SheetOption
 								icon="add"

@@ -27,10 +27,22 @@ export function promoteShows<T extends ListItem>(list: T[], promoted: ReadonlyMa
  * between the live ones (appended at the end, they vanished from the top and jumped back once
  * their page loaded). All saved cards live → the live list as-is.
  */
-export function mergeCachedShows<T extends ListItem>(cached: T[], live: T[]): T[] {
+export function mergeCachedShows<T extends ListItem>(
+	cached: T[],
+	live: T[],
+	reached: ReadonlySet<number> = new Set(),
+): T[] {
 	const liveIds = new Set<number>();
 	for (const i of live) if (i.type === "show" && i.card) liveIds.add(i.card.tmdbId);
-	const saved = cached.filter((i) => i.type === "show" && i.card);
+	// A saved card whose tracking doc has loaded and isn't on the live list is hidden for a
+	// reason (marked off, paused, removed — here or on another device): never put its old copy
+	// back. Only cards on pages not loaded yet keep their saved spot
+	const saved = cached.filter(
+		(i) =>
+			i.type === "show" &&
+			i.card &&
+			(liveIds.has(i.card.tmdbId) || !reached.has(i.card.tmdbId)),
+	);
 	if (saved.every((i) => liveIds.has(i.card!.tmdbId))) return live;
 	const savedAt = new Map(saved.map((i, k) => [i.card!.tmdbId, k]));
 	const out: T[] = [];
@@ -51,6 +63,13 @@ export function mergeCachedShows<T extends ListItem>(cached: T[], live: T[]): T[
 	}
 	flushTo(saved.length);
 	return out;
+}
+
+/** Saved cards whose tracking doc hasn't loaded yet (pages still to come) */
+export function unreachedCount(saved: ReadonlySet<number>, reached: ReadonlySet<number>): number {
+	let n = 0;
+	for (const id of saved) if (!reached.has(id)) n++;
+	return n;
 }
 
 /** The tmdb ids of a list's show cards */

@@ -20,6 +20,15 @@ import type { DocumentSnapshot } from "@react-native-firebase/firestore";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { MIN_BUILD_FIELD, RELEASE_CHANNEL, ReleaseChannel } from "../enums";
 import { importDoneKey, mergeImportFlag } from "../utils/importFlag";
+import {
+	DEFAULT_PROFILE_PREFS,
+	mergeProfilePrefs,
+	parseCachedPrefs,
+	prefsFromDoc,
+	profilePrefsDocFields,
+	profilePrefsKey,
+	type ProfilePrefs,
+} from "../utils/profilePrefs";
 
 /** Max wait on a startup server read when nothing is cached (then fall back; a late answer still applies) */
 const STARTUP_READ_TIMEOUT = 10_000;
@@ -31,6 +40,8 @@ interface AuthState {
 	appTmdbApiKeyLoading: boolean;
 	hasCompletedImport: boolean;
 	userFlagsLoading: boolean;
+	/** Settings -> Profile (users/{uid} doc, kept on the device for an instant first render) */
+	profilePrefs: ProfilePrefs;
 	/** Minimum build number for this build's release channel (config/app) */
 	minBuild: number | null;
 	/** ISO string of config/app.lastCatalogSync (weekly server catalog refresh) */
@@ -45,6 +56,8 @@ interface AuthState {
 	loadUserFlags: (userId: string) => Promise<void>;
 	/** Import screen finished or skipped: flag on now, kept on the device, saved on the user doc */
 	markImportDone: (userId: string) => void;
+	/** Profile settings changed: applied now, kept on the device, saved on the user doc (callers run requireOnline first) */
+	setProfilePrefs: (userId: string, patch: Partial<ProfilePrefs>) => void;
 	signInWithGoogle: () => Promise<void>;
 	signInWithEmail: (email: string, password: string) => Promise<void>;
 	signUpWithEmail: (email: string, password: string) => Promise<void>;
@@ -58,6 +71,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 	appTmdbApiKeyLoading: true,
 	hasCompletedImport: false,
 	userFlagsLoading: true,
+	profilePrefs: DEFAULT_PROFILE_PREFS,
 	minBuild: null,
 	lastCatalogSync: null,
 	previousCatalogSync: null,
@@ -125,12 +139,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 		);
 	},
 
+	setProfilePrefs: (userId: string, patch: Partial<ProfilePrefs>) => {
+		const next = mergeProfilePrefs(get().profilePrefs, patch);
+		set({ profilePrefs: next });
+		AsyncStorage.setItem(profilePrefsKey(userId), JSON.stringify(next)).catch(() => {});
+		setDoc(doc(getFirestore(), "users", userId), profilePrefsDocFields(patch), {
+			merge: true,
+		}).catch((error: unknown) => console.warn("Failed to save profile settings:", error));
+	},
+
 	loadUserFlags: async (userId: string) => {
 		const ref = doc(getFirestore(), "users", userId);
 		const isCurrentUser = () => useAuthStore.getState().user?.uid === userId;
 		const localDone =
 			(await AsyncStorage.getItem(importDoneKey(userId)).catch(() => null)) === "true";
 		if (localDone && isCurrentUser()) set({ hasCompletedImport: true });
+		// The saved Profile settings first: the profile tab draws with them at once
+		const savedPrefs = await AsyncStorage.getItem(profilePrefsKey(userId)).catch(() => null);
+		if (savedPrefs && isCurrentUser()) set({ profilePrefs: parseCachedPrefs(savedPrefs) });
 		const apply = (snap: DocumentSnapshot): boolean => {
 			// Signed out / switched account meanwhile → drop the stale result
 			if (!isCurrentUser()) return false;
@@ -142,6 +168,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 					snap.data()?.hasCompletedImport === true,
 				),
 			});
+			// Profile settings ride on the same doc read (no extra read); kept for the next launch
+			const prefs = prefsFromDoc(snap.data());
+			set({ profilePrefs: prefs });
+			AsyncStorage.setItem(profilePrefsKey(userId), JSON.stringify(prefs)).catch(() => {});
 			return true;
 		};
 		const cached = await getDocFromCache(ref)
@@ -215,6 +245,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 				appTmdbApiKey: null,
 				appTmdbApiKeyLoading: true,
 				hasCompletedImport: false,
+				profilePrefs: DEFAULT_PROFILE_PREFS,
 				minBuild: null,
 				lastCatalogSync: null,
 				previousCatalogSync: null,

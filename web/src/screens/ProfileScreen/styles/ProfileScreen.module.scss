@@ -264,7 +264,7 @@
 	margin-bottom: 16px;
 }
 
-/* Under the top lists: full width, red — label left, an arrow in a circle right */
+/* Under the top lists: full width, neutral grey — label left, an arrow in a circle right */
 .viewAllLists {
 	width: 100%;
 	height: 52px;
@@ -274,8 +274,8 @@
 	padding: 0 8px 0 16px;
 	border: none;
 	border-radius: 16px;
-	background: var(--primary);
-	color: var(--on-primary);
+	background: var(--surface-light);
+	color: var(--text);
 	font-size: 15px;
 	font-weight: 600;
 	cursor: pointer;
@@ -291,8 +291,8 @@
 	width: 36px;
 	height: 36px;
 	border-radius: 50%;
-	/* A lighter disc on the red */
-	background: rgba(255, 255, 255, 0.2);
+	/* One step off the grey fill in both themes */
+	background: var(--border);
 	display: flex;
 	align-items: center;
 	justify-content: center;

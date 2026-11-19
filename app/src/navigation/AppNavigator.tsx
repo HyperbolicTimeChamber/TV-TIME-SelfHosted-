@@ -38,6 +38,36 @@ const getNavTheme = () => ({
 
 const navigationRef = createNavigationContainerRef<MainStackParamList>();
 
+type AlertDestination = { tmdbId: number; mediaType: MediaType } | null;
+/** A tapped alert that arrived before the navigator was ready (cold start) */
+let pendingAlert: { show: AlertDestination } | null = null;
+
+function goToAlert(show: AlertDestination) {
+	navigationRef.dispatch(
+		CommonActions.navigate(Route.SWIPE_TABS, {
+			screen: Route.HOME,
+			params: show
+				? { screen: Route.SHOW_DETAIL, params: show }
+				: { screen: Route.HOME_TABS, params: { screen: Route.UPCOMING } },
+		}),
+	);
+}
+
+/** A tapped alert: the title's page, or the Upcoming tab for grouped alerts */
+export function openFromAlert(show: AlertDestination) {
+	if (navigationRef.isReady()) goToAlert(show);
+	else pendingAlert = { show };
+}
+
+function onNavigatorReady() {
+	trackFocusedScreen();
+	if (pendingAlert) {
+		const { show } = pendingAlert;
+		pendingAlert = null;
+		goToAlert(show);
+	}
+}
+
 const isValidTmdbId = (id: unknown): id is number => Number.isInteger(id) && (id as number) > 0;
 
 /** Show page state on top of the watchlist; tmdbId 0 renders the not-found page */
@@ -172,7 +202,7 @@ export default function AppNavigator() {
 			theme={getNavTheme()}
 			initialState={savedNavState}
 			linking={remounted ? { ...linking, getInitialURL: async () => null } : linking}
-			onReady={trackFocusedScreen}
+			onReady={onNavigatorReady}
 			onStateChange={onNavStateChange}
 		>
 			<Stack.Navigator

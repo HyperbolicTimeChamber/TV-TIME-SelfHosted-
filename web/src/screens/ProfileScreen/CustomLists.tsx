@@ -22,8 +22,9 @@ type PosterItem = Pick<CustomListEntry, "tmdbId" | "mediaType" | "title" | "post
 export default function CustomLists({ standalone }: Readonly<{ standalone: boolean }>) {
 	const navigate = useNavigate();
 	const user = useAppSelector((s) => s.auth.user);
+	const listCount = useAppSelector((s) => s.auth.profilePrefs.listCount);
 	const { lists, loading } = useCustomLists(user?.uid);
-	const shown = profileLists(lists);
+	const shown = profileLists(lists, listCount);
 
 	return (
 		<section className={standalone ? styles.section : styles.listsSection}>

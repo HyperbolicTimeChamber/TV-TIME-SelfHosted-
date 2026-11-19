@@ -7,6 +7,7 @@ import { FacetDelta } from "../shared/titleFacets";
 import { getTmdbApiKey, invalidateApiKeyCache } from "../hooks/apiKey";
 import { addShowToUpcoming } from "../hooks/upcoming";
 import { showDocId } from "../shared/docId";
+import { airDates14 } from "../shared/airDates";
 import { MediaType, FunctionName, Callable } from "../shared/enums";
 import { requireCaller } from "../hooks/requireCaller";
 import { trackedOnCall } from "../hooks/trackedTriggers";
@@ -98,6 +99,7 @@ export const addShow = trackedOnCall(
 
       tx.set(showRef, {
         ...showData,
+        airDates14: airDates14(showData),
         trackedBy: [uid],
         trackedByCount: 1,
         lastSyncedAt: FieldValue.serverTimestamp(),

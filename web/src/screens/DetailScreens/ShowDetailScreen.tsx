@@ -5,7 +5,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useShowDetailActions } from "@app/screens/DetailScreens/useShowDetailActions";
 import { tmdbBackdropUri, tmdbPosterUri } from "@app/hooks/useTmdbImage";
 import { personSubject } from "@app/utils/subjectLink";
-import { CircleButtonTone, MediaType, WatchStatus } from "@app/enums";
+import { CircleButtonTone, CREDITS_GIVE_UP_MS, MediaType, WatchStatus } from "@app/enums";
 import { showShareUrl } from "@app/utils/shareUrl";
 import { useCustomLists } from "@app/hooks/useCustomLists";
 import { titleListCount } from "@app/utils/customLists";
@@ -35,8 +35,10 @@ import LocalReleaseLine from "../../components/LocalReleaseLine";
 import PhotoTrigger from "../../components/PhotoViewer";
 import { releaseStatLabel } from "@app/utils/localRelease";
 import { useTitleExtras } from "@app/hooks/useTitleExtras";
+import { useSlowPending } from "@app/hooks/useSlowPending";
 import { requireOnline } from "@app/utils/requireOnline";
 import StudiosRow from "../../components/StudiosRow";
+import SlowLoadNote from "../../components/SlowLoadNote";
 import SkeletonBlock from "../../components/SkeletonBlock";
 
 const CREDIT_AVATAR_PX = 44;
@@ -61,6 +63,15 @@ export default function ShowDetailScreen() {
 	const d = useShowDetailActions(tmdbId, mediaType);
 	// The directors' / writers' photos for the credits (every extras section reads the same query)
 	const { data: extras, isPending: extrasPending } = useTitleExtras(tmdbId, mediaType);
+	const extrasSlow = useSlowPending(extrasPending && tmdbId > 0);
+	// A just-added movie's credits arrive in the background; placeholders until then, given up after a while
+	const creditsPending = mediaType === MediaType.MOVIE && !!d.show && !d.show.credits;
+	const [creditsGaveUp, setCreditsGaveUp] = useState(false);
+	useEffect(() => {
+		if (!creditsPending) return;
+		const t = window.setTimeout(() => setCreditsGaveUp(true), CREDITS_GIVE_UP_MS);
+		return () => window.clearTimeout(t);
+	}, [creditsPending]);
 	// Catalog's logo, else the one that came with the details (same request as the page data)
 	const logoPath =
 		getCachedCatalogShow(tmdbId, mediaType)?.logoPath ??
@@ -292,6 +303,8 @@ export default function ShowDetailScreen() {
 				<p className={styles.overview}>{show.overview}</p>
 				{/* Under the description: above a movie's local release, a show's seasons */}
 				{whereToWatch}
+				{/* One note for every extras section (they share one query), under the first: Where to Watch */}
+				{extrasSlow && <SlowLoadNote />}
 
 				{mediaType === MediaType.MOVIE && (
 					<LocalReleaseLine
@@ -335,6 +348,19 @@ export default function ShowDetailScreen() {
 									</div>
 								) : null;
 							})}
+						{creditsPending && !creditsGaveUp && d.directors.length === 0 && d.writers.length === 0 && (
+							<div className={styles.creditBlock} role="status" aria-label="Loading credits">
+								<span className={styles.creditLabel}>Director</span>
+								<div className={styles.creditGrid}>
+									<div className={styles.creditPerson}>
+										<span className={styles.creditAvatar}>
+											<SkeletonBlock className={styles.creditAvatarShimmer} />
+										</span>
+										<SkeletonBlock className={styles.creditNameSkeleton} />
+									</div>
+								</div>
+							</div>
+						)}
 					</div>
 				)}
 
