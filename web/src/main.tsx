@@ -17,7 +17,9 @@ import "@fontsource/handjet/latin-800.css";
 import "./theme/tailwind.css";
 import "./theme/global.scss";
 import App from "./App";
+import { initTheme } from "./theme/applyTheme";
 
+initTheme();
 initAppCheck();
 connectEmulators();
 

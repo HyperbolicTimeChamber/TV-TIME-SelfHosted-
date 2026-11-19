@@ -17,7 +17,7 @@ import { getCrashlytics, recordError } from "@react-native-firebase/crashlytics"
 import { getAuth, sendPasswordResetEmail } from "@react-native-firebase/auth";
 import { useAuthStore } from "../../stores";
 import { foregroundCall } from "../../services/callQueue";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 import SwipeBackView, { useSwipeBackPop } from "../../components/SwipeBackView";
 import { CircleBackButton, CIRCLE_BUTTON_SIZE } from "../../components/CircleButton";
 import { ConfirmModal } from "../../components";
@@ -53,6 +53,7 @@ import { CloudFunction, ProfileStackParamList, Route } from "../../types";
 import { ACCOUNT_IMPORT_MAX_BYTES, ReleaseChannel, UPDATE_CHANNEL } from "../../enums";
 import { INSTALLED_BUILD, UPDATES_SUPPORTED } from "../../services/appUpdate";
 import { showUpdateNotification } from "../../services/updateNotifications";
+import { scheduleFakeAiring } from "../../services/airingScheduler";
 import { offeredRelease, useUpdateStore } from "../../stores/updateStore";
 import {
 	describeAccountExport,
@@ -329,6 +330,25 @@ export default function SettingsScreen() {
 					<View style={styles.headerSpacer} />
 				</View>
 				<View style={styles.section}>
+					<Text style={styles.sectionTitle}>Preferences</Text>
+					<TouchableOpacity style={styles.row} onPress={() => navigation.navigate(Route.APPEARANCE)}>
+						<Text style={styles.rowText}>Appearance</Text>
+					</TouchableOpacity>
+					<TouchableOpacity
+						style={styles.row}
+						onPress={() => navigation.navigate(Route.PROFILE_PREFS)}
+					>
+						<Text style={styles.rowText}>Profile</Text>
+					</TouchableOpacity>
+					<TouchableOpacity
+						style={styles.row}
+						onPress={() => navigation.navigate(Route.NOTIFICATIONS)}
+					>
+						<Text style={styles.rowText}>Notifications</Text>
+					</TouchableOpacity>
+				</View>
+
+				<View style={styles.section}>
 					<Text style={styles.sectionTitle}>Data</Text>
 					<TouchableOpacity
 						style={styles.row}
@@ -529,11 +549,12 @@ function UpdateTestSection() {
 			{row("Stop Simulation", () => simulate(null), !simulation)}
 			{row("Reset \"Not Now\"", clearSkip)}
 			{row("Show Update Notification", () => offered && showUpdateNotification(offered), !offered)}
+			{row("Schedule Fake Airing In 2 Min", () => scheduleFakeAiring().catch(() => {}))}
 		</View>
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		flex: 1,
 		backgroundColor: colors.background,
@@ -586,4 +607,4 @@ const styles = StyleSheet.create({
 		fontSize: 15,
 		color: colors.destructiveRed,
 	},
-});
+}));

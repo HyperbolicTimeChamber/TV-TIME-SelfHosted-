@@ -1,12 +1,12 @@
-import { colors } from "../theme";
+import { colors, themedStyles } from "../theme";
 
-export const stackScreenOptions = {
+export const stackScreenOptions = themedStyles(() => ({
 	headerStyle: { backgroundColor: colors.background },
 	headerTintColor: colors.text,
 	headerTitleStyle: { fontWeight: "600" as const },
 	headerBackTitle: "",
 	contentStyle: { backgroundColor: colors.background },
-};
+}));
 
 /**
  * Screens with a swipe-back (SwipeBackView / Watch History's pager): a transparent modal keeps the

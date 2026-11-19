@@ -24,7 +24,7 @@ import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import Svg, { Polygon } from "react-native-svg";
 import BottomSheet from "./BottomSheet";
-import { colors, fonts, spacing, typography } from "../../theme";
+import { colors, fonts, spacing, typography, themedStyles } from "../../theme";
 import { APP_VERSION } from "../../utils/appVersion";
 import { exitApp, type ChannelRelease } from "../../services/appUpdate";
 import { UpdatePhase, updateEventProps, useUpdateStore } from "../../stores/updateStore";
@@ -321,7 +321,7 @@ const PIXEL_LINE = {
 	transform: [{ translateY: -1 }],
 } as const;
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	page: { flex: 1, backgroundColor: colors.surface },
 	// Content centred in the screen; taller than it (large system font) → scrolls
 	pageContent: { flexGrow: 1, justifyContent: "center" },
@@ -413,6 +413,6 @@ const styles = StyleSheet.create({
 	buttonQuiet: { backgroundColor: "transparent", height: 48, marginTop: 2 },
 	// Downloading: the primary stays in place, dimmed, until the download ends
 	buttonBusy: { opacity: 0.45 },
-	buttonText: { ...typography.subtitle, fontSize: 16 },
+	buttonText: { ...typography.subtitle, fontSize: 16, color: colors.onPrimary },
 	buttonTextQuiet: { color: colors.textSecondary, fontWeight: "600" },
-});
+}));

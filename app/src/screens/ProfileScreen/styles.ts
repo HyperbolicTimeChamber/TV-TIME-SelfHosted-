@@ -1,9 +1,9 @@
 import { StyleSheet } from "react-native";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 
 export const BLUR_RADIUS = 0.5;
 
-export const styles = StyleSheet.create({
+export const styles = themedStyles(() => StyleSheet.create({
 	scrollContent: { paddingBottom: spacing.xxl * 2 },
 	container: {
 		flex: 1,
@@ -63,9 +63,11 @@ export const styles = StyleSheet.create({
 	},
 	name: {
 		...typography.title,
+		color: colors.onImage,
 	},
 	email: {
 		...typography.caption,
+		color: colors.onImageSecondary,
 		marginTop: 2,
 	},
 	statsGrid: {
@@ -76,7 +78,7 @@ export const styles = StyleSheet.create({
 		gap: spacing.sm,
 	},
 	statCard: {
-		backgroundColor: colors.surface,
+		backgroundColor: colors.cardDark,
 		borderRadius: 12,
 		padding: spacing.lg,
 		minHeight: 110,
@@ -87,6 +89,7 @@ export const styles = StyleSheet.create({
 	},
 	statNumber: {
 		...typography.title,
+		color: colors.onImage,
 		fontSize: 32,
 		marginTop: spacing.xs,
 	},
@@ -96,7 +99,7 @@ export const styles = StyleSheet.create({
 	},
 	statLabel: {
 		...typography.caption,
-		color: colors.text,
+		color: colors.onImage,
 		backgroundColor: "rgba(0, 0, 0, 0.5)",
 		paddingHorizontal: spacing.sm,
 		paddingVertical: spacing.xs / 2,
@@ -128,4 +131,4 @@ export const styles = StyleSheet.create({
 		marginTop: spacing.xl,
 		alignItems: "center",
 	},
-});
+}));

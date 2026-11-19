@@ -194,7 +194,7 @@
 	border-radius: 8px;
 	font-size: 14px;
 	font-weight: 600;
-	color: var(--text);
+	color: var(--on-primary);
 	cursor: pointer;
 	display: flex;
 	align-items: center;
@@ -221,6 +221,7 @@
 
 .skipButton {
 	background: var(--surface-light);
+	color: var(--text);
 }
 
 .buttonBadge {
@@ -299,7 +300,7 @@
 		border-radius: 22px;
 		border: none;
 		background: rgba(0, 0, 0, 0.5);
-		color: var(--text);
+		color: var(--on-image);
 		display: flex;
 		align-items: center;
 		justify-content: center;

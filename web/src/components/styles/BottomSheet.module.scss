@@ -55,7 +55,11 @@
 .artFade {
 	position: absolute;
 	inset: 0;
-	background: linear-gradient(rgba(26, 26, 26, 0.35), rgba(26, 26, 26, 0.85), var(--surface));
+	background: linear-gradient(
+		color-mix(in srgb, var(--surface) 35%, transparent),
+		color-mix(in srgb, var(--surface) 85%, transparent),
+		var(--surface)
+	);
 }
 
 @keyframes artFade {
@@ -227,7 +231,7 @@
 
 /* surface-light at 80% over sheet art (app groupTranslucent) */
 .groupTranslucent {
-	background: rgba(37, 37, 37, 0.8);
+	background: color-mix(in srgb, var(--surface-light) 80%, transparent);
 }
 
 /* Starts under the text, not the icon tile */

@@ -175,9 +175,10 @@ test("listCoverItem is the most recently added title, null for an empty list", (
 	assert.equal(listCoverItem(list("b")), null);
 });
 
-test("profileLists keeps the five biggest lists, biggest first", () => {
-	const sized = (id: string, n: number, updatedAt = 1) => ({
-		...touched(id, 1, updatedAt),
+test("profileLists follows the user's order, skips empty lists and keeps the first N", () => {
+	const sized = (id: string, n: number, order?: number) => ({
+		...touched(id, 1, 1),
+		order,
 		items: Array.from({ length: n }, (_, i) => ({
 			tmdbId: i,
 			mediaType: MediaType.TV,
@@ -186,14 +187,31 @@ test("profileLists keeps the five biggest lists, biggest first", () => {
 			addedAt: i,
 		})),
 	});
-	const lists = [sized("a", 1), sized("b", 7), sized("c", 3), sized("d", 3, 9), sized("e", 0), sized("f", 2), sized("g", 5)];
-	// Ties: the more recently changed first (d over c)
+	// Saved order: c, a, e, b, d, f, g (sizes don't matter); e is empty
+	const lists = [
+		sized("a", 1, 1),
+		sized("b", 9, 3),
+		sized("c", 2, 0),
+		sized("d", 3, 4),
+		sized("e", 0, 2),
+		sized("f", 4, 5),
+		sized("g", 5, 6),
+	];
 	assert.deepEqual(
 		profileLists(lists).map((l) => l.id),
-		["b", "g", "d", "c", "f"],
+		["c", "a", "b", "d", "f"],
 	);
+	// A count: the empty list does not use a slot
+	assert.deepEqual(
+		profileLists(lists, 2).map((l) => l.id),
+		["c", "a"],
+	);
+	assert.deepEqual(
+		profileLists(lists, 10).map((l) => l.id),
+		["c", "a", "b", "d", "f", "g"],
+	);
+	assert.deepEqual(profileLists(lists, 0), []);
 	assert.deepEqual(profileLists([]), []);
-	// Empty lists never show on the profile, even with room to spare
 	assert.deepEqual(
 		profileLists([sized("x", 0), sized("y", 2)]).map((l) => l.id),
 		["y"],

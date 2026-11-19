@@ -21,6 +21,7 @@ export default function SlidingTabs<K extends string>({
 }: Props<K>) {
 	return (
 		<div className={`${styles.container} ${className}`} role="tablist">
+			<div className={styles.track}>
 			{tabs.map((tab) => {
 				const active = tab.key === activeKey;
 				return (
@@ -42,6 +43,7 @@ export default function SlidingTabs<K extends string>({
 					</button>
 				);
 			})}
+			</div>
 		</div>
 	);
 }

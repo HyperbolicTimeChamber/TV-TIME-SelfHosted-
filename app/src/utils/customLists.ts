@@ -127,13 +127,13 @@ export function sheetListOrder(
 	return [...fresh, ...kept];
 }
 
-/** Profile Lists section: the PROFILE_LIST_COUNT lists with the most titles (equal sizes → the
- *  more recently changed first). Empty lists never show there */
-export function profileLists(lists: CustomList[]): CustomList[] {
-	return lists
+/** Profile Lists section: the first `count` lists in the user's own order (the Lists page order,
+ *  `sortLists`). Empty lists never show there and do not use up a slot. `count` is the Profile
+ *  setting (0-10); the default is PROFILE_LIST_COUNT */
+export function profileLists(lists: CustomList[], count: number = PROFILE_LIST_COUNT): CustomList[] {
+	return sortLists(lists)
 		.filter((l) => l.items.length > 0)
-		.sort((a, b) => b.items.length - a.items.length || byRecent(a, b))
-		.slice(0, PROFILE_LIST_COUNT);
+		.slice(0, Math.max(0, count));
 }
 
 /** The title a list shows as its cover: the one added last (null when empty) */

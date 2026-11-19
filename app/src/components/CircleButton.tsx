@@ -1,16 +1,16 @@
 import React, { type ReactNode } from "react";
 import { TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors } from "../theme";
+import { colors, themedStyles } from "../theme";
 import { CircleButtonTone } from "../enums";
 
-const FILL: Record<CircleButtonTone, string> = {
+const FILL = themedStyles<Record<CircleButtonTone, string>>(() => ({
 	[CircleButtonTone.OVERLAY]: colors.badgeOverlay,
 	[CircleButtonTone.SURFACE]: colors.surface,
 	[CircleButtonTone.SURFACE_LIGHT]: colors.surfaceLight,
 	[CircleButtonTone.RAISED]: colors.border,
 	[CircleButtonTone.ACCENT]: colors.warningAmber,
-};
+}));
 
 interface Props {
 	onPress: () => void;
@@ -43,11 +43,18 @@ export default function CircleButton({
 	);
 }
 
+/** Icon color that reads on each tone: dark scrim -> white, accent fill -> onPrimary, else the text color */
+function iconColor(tone: CircleButtonTone = CircleButtonTone.SURFACE): string {
+	if (tone === CircleButtonTone.OVERLAY) return colors.onImage;
+	if (tone === CircleButtonTone.ACCENT) return colors.onPrimary;
+	return colors.text;
+}
+
 /** Circular back button (Ionicons' chevron sits 2px left of centre — corrected here, once) */
 export function CircleBackButton(props: Omit<Props, "children" | "accessibilityLabel">) {
 	return (
 		<CircleButton {...props} accessibilityLabel="Back">
-			<Ionicons name="chevron-back" size={26} color={colors.text} style={styles.chevron} />
+			<Ionicons name="chevron-back" size={26} color={iconColor(props.tone)} style={styles.chevron} />
 		</CircleButton>
 	);
 }
@@ -55,7 +62,7 @@ export function CircleBackButton(props: Omit<Props, "children" | "accessibilityL
 /** Same footprint as a CircleButton — balances a header so its title stays centred */
 export const CIRCLE_BUTTON_SIZE = 44;
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	circle: {
 		width: CIRCLE_BUTTON_SIZE,
 		height: CIRCLE_BUTTON_SIZE,
@@ -64,4 +71,4 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 	},
 	chevron: { marginRight: 2 },
-});
+}));

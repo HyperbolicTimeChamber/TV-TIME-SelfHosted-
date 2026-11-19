@@ -2,6 +2,7 @@ import type { UserFacets } from "./titleFacets";
 import {
   EpisodeType,
   MediaType,
+  NotificationType,
   RefreshReason,
   SearchScope,
   SubjectKind,
@@ -270,6 +271,8 @@ export interface CatalogShow {
   lastTmdbCheckAt?: number;
   /** refreshShow wrote this doc since the last syncCatalog → sync lists it as changed */
   refreshedSinceSync?: boolean;
+  /** Dates (UTC, YYYY-MM-DD) in the next 14 days an episode airs / the movie releases — notifyAirings queries it */
+  airDates14?: string[];
 }
 
 // Import types
@@ -385,4 +388,28 @@ export interface SearchTitlesResponse {
   batch: number;
   totalBatches: number;
   totalResults: number;
+}
+
+/** One episode in an airing push */
+export interface AiringPushItem {
+  season: number;
+  episode: number;
+  name: string;
+  airDate: string | null;
+  /** Exact UTC air time (TVMaze); absent → only the date is known */
+  airStamp?: string;
+}
+
+/** FCM data of the airing push — every value is a string (the app's AiringPush parses it) */
+export interface AiringPushData {
+  type: NotificationType;
+  docId: string;
+  mediaType: MediaType;
+  title: string;
+  /** JSON of AiringPushItem[] (at most AIRING_PUSH_MAX_ITEMS) */
+  items: string;
+  /** Real number of episodes airing, even when `items` was cut */
+  count: string;
+  /** Movies: the release date */
+  releaseDate?: string;
 }

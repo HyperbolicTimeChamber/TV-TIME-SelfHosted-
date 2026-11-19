@@ -1,7 +1,7 @@
 import { StyleSheet } from "react-native";
-import { colors, spacing } from "../../../theme";
+import { colors, spacing, themedStyles } from "../../../theme";
 
-export const styles = StyleSheet.create({
+export const styles = themedStyles(() => StyleSheet.create({
 	list: {
 		flex: 1,
 		backgroundColor: colors.background,
@@ -45,4 +45,4 @@ export const styles = StyleSheet.create({
 	headerRide: { position: "absolute", left: 0, right: 0 },
 	headerGlide: { position: "absolute", left: 0, right: 0 },
 	leavingCard: { position: "absolute", left: 0, right: 0, backgroundColor: colors.background },
-});
+}));

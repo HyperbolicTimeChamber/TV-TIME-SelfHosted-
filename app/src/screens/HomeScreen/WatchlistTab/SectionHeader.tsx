@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { colors, spacing, typography } from "../../../theme";
+import { colors, spacing, typography, themedStyles } from "../../../theme";
 
 interface Props {
 	title: string;
@@ -16,7 +16,7 @@ export default memo(function SectionHeader({ title }: Props) {
 	);
 });
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		paddingTop: spacing.sm,
 		paddingBottom: spacing.sm,
@@ -30,9 +30,9 @@ const styles = StyleSheet.create({
 	},
 	text: {
 		...typography.subtitle,
-		color: colors.text,
+		color: colors.onPrimary,
 		textTransform: "uppercase",
 		fontSize: 12,
 		letterSpacing: 1,
 	},
-});
+}));

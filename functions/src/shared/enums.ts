@@ -178,6 +178,7 @@ export enum FunctionName {
   TITLE_CAST_PAGE = "titleCastPage",
   SUBJECT_LINK = "subjectLink",
   SEND_TEST_PUSH = "sendTestPush",
+  NOTIFY_AIRINGS = "notifyAirings",
 }
 
 /**
@@ -576,5 +577,20 @@ export const UPDATE_TOPIC: Record<ReleaseChannel, string> = {
 };
 /** FCM data `type` of a new-version push (app enums APP_UPDATE_MESSAGE) */
 export const APP_UPDATE_MESSAGE = "app_update";
+
+/** FCM data `type` of the day-ahead push notifyAirings sends per title (app AIRING_MESSAGE) */
+export enum NotificationType {
+  AIRING = "airing",
+}
+/** Devices follow `title-{docId}` for every title they track (app TITLE_TOPIC_PREFIX) */
+export const TITLE_TOPIC_PREFIX = "title-";
+/** airDates14 covers today through today + this many days */
+export const AIRING_WINDOW_DAYS = 14;
+/** The push is useless after this long (36 h) */
+export const AIRING_PUSH_TTL_MS = 36 * 60 * 60 * 1000;
+/** Episodes listed in one push (a batch drop of more is cut; `count` carries the real number) */
+export const AIRING_PUSH_MAX_ITEMS = 20;
+/** One doc per UTC day notifyAirings has run for (idempotency) */
+export const NOTIFY_RUNS_COLLECTION = "notifyRuns";
 /** Header carrying sendTestPush's key */
 export const TEST_PUSH_KEY_HEADER = "x-test-push-key";

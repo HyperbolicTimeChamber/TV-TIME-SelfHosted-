@@ -63,12 +63,17 @@ import {
 import { getFirestore, doc, setDoc } from "@react-native-firebase/firestore";
 import { useAuthStore, useUiStore } from "./src/stores";
 import { handleUpdateMessage, subscribeToUpdates } from "./src/services/updateNotifications";
+import * as Notifications from "expo-notifications";
+import { handleAiringMessage } from "./src/services/airingScheduler";
+import { trackNotificationOpened } from "./src/services/mixpanel";
+import { useAiringReplan } from "./src/hooks/useAiringReplan";
+import { alertTarget } from "./src/utils/airingPush";
 import UpdatePrompt, { useReleaseWatch, useUpdateForced } from "./src/components/UpdateGate";
 import LoginScreen from "./src/screens/LoginScreen";
 import ImportDataScreen from "./src/screens/ImportDataScreen";
-import AppNavigator from "./src/navigation/AppNavigator";
+import AppNavigator, { openFromAlert } from "./src/navigation/AppNavigator";
 import { NoInternetModal } from "./src/components/modals";
-import { colors } from "./src/theme";
+import { colors, themedStyles, useThemeVersion } from "./src/theme";
 import { AppOpenSource, FATAL_AUTH_ERRORS, OFFLINE_DELAY_MS, QueryKey } from "./src/enums";
 import { createConnectivityGate } from "./src/utils/connectivityGate";
 import { onReconnect, reportConnectivity, retryFailedQueries } from "./src/utils/reconnectRetry";
@@ -79,6 +84,7 @@ import {
 	trackAppOpened,
 	flushAnalytics,
 } from "./src/services/mixpanel";
+import { setVersionUserProperties } from "./src/services/analytics";
 import appConfig from "./app.json";
 
 // Keep native splash visible until auth resolves
@@ -158,12 +164,34 @@ async function verifySession(user: User) {
  */
 function AppContent() {
 	useReleaseWatch();
+	const alertUid = useAuthStore((s) => s.user?.uid ?? null);
+	useAiringReplan(alertUid);
+	// A tapped alert → its title's page (or Upcoming); a cold start from one is handled once
+	useEffect(() => {
+		const open = (response: Notifications.NotificationResponse) => {
+			const target = alertTarget(response.notification.request.content.data);
+			if (!target) return;
+			trackNotificationOpened(target.alert);
+			openFromAlert(target.show);
+		};
+		const initial = Notifications.getLastNotificationResponse();
+		if (initial) {
+			open(initial);
+			Notifications.clearLastNotificationResponse();
+		}
+		const subscription = Notifications.addNotificationResponseReceivedListener(open);
+		return () => subscription.remove();
+	}, []);
 	// An update push while the app is open: notify here too (the background handler in index.ts only
 	// runs with the app in the background / closed, and the drawer only comes up on launch)
 	useEffect(
 		() =>
 			onMessage(getMessaging(), (message) => {
-				handleUpdateMessage(message);
+				handleAiringMessage(message)
+					.then((handled) => {
+						if (!handled) handleUpdateMessage(message);
+					})
+					.catch(() => {});
 			}),
 		[],
 	);
@@ -265,6 +293,9 @@ function SplashView() {
 }
 
 export default function App() {
+	// Remounts the app content on a theme change (styles and inline colors are read again); auth, queries
+	// and the navigation state live outside it
+	const themeVersion = useThemeVersion();
 	// Non-blocking: text falls back to the system font until these load
 	useFonts({ SmoochSans_400Regular, SmoochSans_500Medium, Handjet_800ExtraBold, VT323_400Regular });
 	const setUser = useAuthStore((s) => s.setUser);
@@ -272,6 +303,7 @@ export default function App() {
 
 	useEffect(() => {
 		initMixpanel();
+		setVersionUserProperties();
 		const appVersion = appConfig.expo.version;
 		const msg = getMessaging();
 
@@ -371,14 +403,14 @@ export default function App() {
 						},
 					}}
 				>
-					<AppContent />
+					<AppContent key={themeVersion} />
 				</PersistQueryClientProvider>
 			</SafeAreaProvider>
 		</GestureHandlerRootView>
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	fill: { flex: 1 },
 	loading: {
 		flex: 1,
@@ -397,4 +429,4 @@ const styles = StyleSheet.create({
 		height: 120,
 	},
 	splashCredit: { position: "absolute", left: 0, right: 0 },
-});
+}));

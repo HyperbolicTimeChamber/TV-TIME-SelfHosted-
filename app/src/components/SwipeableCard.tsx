@@ -19,7 +19,7 @@ import Animated, {
 	withDelay,
 	withSequence,
 } from "react-native-reanimated";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 import { CARD_RADIUS } from "../enums";
 import { RxCross2 } from "./RxIcons";
 import { HiCheck } from "./HiIcons";
@@ -532,7 +532,7 @@ export default forwardRef<SwipeableCardRef, Props>(function SwipeableCard(
 	);
 });
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	wrapper: {
 		overflow: "hidden",
 		borderRadius: CARD_RADIUS,
@@ -590,4 +590,4 @@ const styles = StyleSheet.create({
 		...typography.subtitle,
 		color: colors.text,
 	},
-});
+}));

@@ -6,9 +6,9 @@
 	flex-shrink: 0;
 	border-radius: 999px;
 	padding: 5px 5px 5px 10px;
-	/* textSecondary at 35% — translucent over the backdrop */
-	background: color-mix(in srgb, var(--text-secondary) 35%, transparent);
-	color: var(--text);
+	/* Image glass: white at 22% — translucent over the photo in every theme */
+	background: rgba(255, 255, 255, 0.22);
+	color: var(--on-image);
 	font-size: 14px;
 	font-weight: 700;
 	white-space: nowrap;
@@ -23,8 +23,8 @@
 	padding: 0 6px;
 	box-sizing: border-box;
 	border-radius: 10px;
-	/* Lighter grey than the pill (textSecondary 70% vs 35%) */
-	background: color-mix(in srgb, var(--text-secondary) 70%, transparent);
+	/* Lighter than the pill (white 40% vs 22%) */
+	background: rgba(255, 255, 255, 0.4);
 }
 
 /* Over a backdrop beside the back / share buttons: their overlay fill */

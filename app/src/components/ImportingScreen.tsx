@@ -2,7 +2,7 @@ import React, { type ReactNode } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import PoweredByTmdb from "./PoweredByTmdb";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 
 interface Props {
 	title: string;
@@ -47,7 +47,7 @@ export default function ImportingScreen({ title, hint, loader, lines, onCancel }
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	screen: { flex: 1, backgroundColor: colors.background, paddingHorizontal: spacing.xl },
 	body: { flex: 1, justifyContent: "center", alignItems: "center" },
 	title: { ...typography.title, textAlign: "center", marginBottom: spacing.xs },
@@ -69,4 +69,4 @@ const styles = StyleSheet.create({
 	// Pressed: a touch smaller (Emil: buttons answer the press)
 	cancelPressed: { transform: [{ scale: 0.97 }], opacity: 0.85 },
 	cancelText: { ...typography.subtitle, fontSize: 15, color: colors.destructiveRed },
-});
+}));

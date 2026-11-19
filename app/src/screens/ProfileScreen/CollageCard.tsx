@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
-import { colors } from "../../theme";
+import { colors, themedStyles } from "../../theme";
 import { tmdbPosterUri } from "../../hooks/useTmdbImage";
 import { useCountUp } from "../../hooks/useCountUp";
 import { styles, BLUR_RADIUS } from "./styles";
@@ -95,7 +95,7 @@ export default function CollageCard({
 			{posters.length > 0 && <View style={[StyleSheet.absoluteFill, styles.statCardOverlay]} />}
 			<StatLabel label={label} />
 			{loading ? (
-				<ActivityIndicator size="small" color={colors.text} style={styles.statLoader} />
+				<ActivityIndicator size="small" color={colors.onImage} style={styles.statLoader} />
 			) : (
 				<Text style={styles.statNumber}>{format(shown)}</Text>
 			)}
@@ -103,7 +103,7 @@ export default function CollageCard({
 	);
 }
 
-const local = StyleSheet.create({
+const local = themedStyles(() => StyleSheet.create({
 	container: {
 		overflow: "hidden",
 	},
@@ -124,4 +124,4 @@ const local = StyleSheet.create({
 		width: "33.33%",
 		height: "50%",
 	},
-});
+}));

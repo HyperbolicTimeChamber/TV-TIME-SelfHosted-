@@ -4,6 +4,7 @@ import {
 	getAnalytics as getAnalyticsWeb,
 	isSupported,
 	logEvent as logEventWeb,
+	setUserProperties,
 } from "firebase/analytics";
 import type { Analytics } from "firebase/analytics";
 import { firebaseApp } from "../firebase";
@@ -23,4 +24,9 @@ export function logEvent(
 	params?: Record<string, unknown>,
 ) {
 	if (instance) logEventWeb(instance, name, params);
+}
+
+/** Same shape as the native call; web has no builds, so only app_version is meaningful */
+export async function setUserProperty(instance: Analytics | null, name: string, value: string | null) {
+	if (instance) setUserProperties(instance, { [name]: value });
 }

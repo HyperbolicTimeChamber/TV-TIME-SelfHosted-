@@ -1,7 +1,7 @@
 import { StyleSheet } from "react-native";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 
-export const importStyles = StyleSheet.create({
+export const importStyles = themedStyles(() => StyleSheet.create({
 	container: {
 		flex: 1,
 		backgroundColor: colors.background,
@@ -58,7 +58,7 @@ export const importStyles = StyleSheet.create({
 	},
 	buttonText: {
 		...typography.subtitle,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 	skipButton: {
 		marginTop: spacing.lg,
@@ -147,7 +147,7 @@ export const importStyles = StyleSheet.create({
 		backgroundColor: colors.moviePurple,
 	},
 	typeBadgeText: {
-		color: colors.text,
+		color: colors.onPrimary,
 		fontSize: 10,
 		fontWeight: "700",
 	},
@@ -177,7 +177,7 @@ export const importStyles = StyleSheet.create({
 		borderColor: colors.primary,
 	},
 	checkmark: {
-		color: colors.text,
+		color: colors.onPrimary,
 		fontSize: 14,
 		fontWeight: "700",
 	},
@@ -311,7 +311,7 @@ export const importStyles = StyleSheet.create({
 	},
 	modalButtonText: {
 		...typography.subtitle,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 	disambigSkipBtn: {
 		backgroundColor: colors.surface,
@@ -339,4 +339,4 @@ export const importStyles = StyleSheet.create({
 		color: colors.primary,
 		fontWeight: "600",
 	},
-});
+}));

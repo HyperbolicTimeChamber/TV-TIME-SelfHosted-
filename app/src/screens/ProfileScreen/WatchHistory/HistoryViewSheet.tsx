@@ -111,7 +111,7 @@ function Chip({
 				{(on || icon) && (
 					<Animated.View entering={CHECK_IN} exiting={CHECK_OUT}>
 						{on ? (
-							<HiCheck size={16} color={colors.text} />
+							<HiCheck size={16} color={colors.onPrimary} />
 						) : (
 							<Ionicons name={icon!} size={16} color={colors.text} />
 						)}

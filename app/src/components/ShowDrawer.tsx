@@ -23,7 +23,7 @@ import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { SheetGroup, SheetOption } from "./modals/BottomSheet";
 import SkeletonLine, { useSharedShimmer } from "./SkeletonLine";
 import { LinearGradient } from "expo-linear-gradient";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 import { tmdbBackdropUri, tmdbLogoUri, tmdbPosterUri } from "../hooks/useTmdbImage";
 import { useTitleLogo } from "../hooks/useTitleLogo";
 import { useCustomLists } from "../hooks/useCustomLists";
@@ -314,7 +314,7 @@ export default function ShowDrawer({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	overlay: {
 		flex: 1,
 	},
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
 	typeBadgeText: {
 		fontSize: 10,
 		fontWeight: "700",
-		color: colors.text,
+		color: colors.onPrimary,
 		letterSpacing: 0.5,
 	},
 	meta: {
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
 	goToShowText: {
 		...typography.subtitle,
 		fontSize: 14,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 	// Over the backdrop's top-right corner, below the sheet's grab handle
 	listButton: {
@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
 		height: 36,
 		borderRadius: 18,
 		borderWidth: 2,
-		borderColor: colors.text,
+		borderColor: colors.onImage,
 		backgroundColor: colors.badgeOverlay,
 		justifyContent: "center",
 		alignItems: "center",
@@ -451,4 +451,4 @@ const styles = StyleSheet.create({
 	},
 	actions: { marginHorizontal: spacing.lg },
 	actionGap: { marginTop: spacing.md },
-});
+}));

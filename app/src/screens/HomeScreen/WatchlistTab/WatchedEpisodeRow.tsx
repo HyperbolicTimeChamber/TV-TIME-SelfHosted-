@@ -5,7 +5,7 @@ import { CheckmarkButton, SwipeableCard } from "../../../components";
 import { WATCHLIST_CHECK_CIRCLE, WATCHLIST_CHECK_TICK } from "../../../components/CheckmarkButton";
 import { withHaptic } from "../../../utils/haptics";
 import PosterImage from "../../../components/PosterImage";
-import { colors, spacing } from "../../../theme";
+import { colors, spacing, themedStyles } from "../../../theme";
 import CardInfo, { CARD_MAX_FONT_SCALE, cardStyles } from "../../../components/CardInfo";
 import { WatchedEpisode } from "../../../types";
 import { EnrichedTrackingItem } from "../../../hooks";
@@ -96,7 +96,7 @@ export default memo(function WatchedEpisodeRow({
 }, similarProps);
 
 // Previously Watched: the whole card at half strength, the poster dimmer still
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: { opacity: 0.5 },
 	poster: { opacity: 0.6 },
 	mutedPill: { borderColor: colors.textMuted },
@@ -105,4 +105,4 @@ const styles = StyleSheet.create({
 		alignSelf: "center",
 		paddingRight: spacing.md,
 	},
-});
+}));

@@ -123,6 +123,7 @@
 .typeBadge {
 	margin-left: auto;
 	background: var(--primary);
+	color: var(--on-primary);
 	border-radius: 4px;
 	padding: 2px 6px;
 	font-size: 10px;
@@ -185,7 +186,7 @@
 	border-radius: 18px;
 	border: 2px solid var(--text);
 	background: rgba(0, 0, 0, 0.5);
-	color: var(--text);
+	color: var(--on-image);
 	cursor: pointer;
 }
 
@@ -233,7 +234,7 @@
 	border: none;
 	border-radius: 8px;
 	background: var(--primary);
-	color: var(--text);
+	color: var(--on-primary);
 	font-size: 14px;
 	font-weight: 600;
 	cursor: pointer;

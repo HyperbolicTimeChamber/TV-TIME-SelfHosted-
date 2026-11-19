@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { AccessibilityInfo, Animated, Easing, View, Text, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { colors, spacing, tint, typography } from "../theme";
+import { colors, spacing, tint, typography, themedStyles } from "../theme";
 
 interface DayData {
 	label: string;
@@ -372,7 +372,7 @@ export default function WeeklyChart({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		backgroundColor: "transparent",
 		borderRadius: 12,
@@ -460,4 +460,4 @@ const styles = StyleSheet.create({
 		textAlign: "center",
 		textShadowOffset: { width: 0, height: 0 },
 	},
-});
+}));

@@ -10,7 +10,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import AnimatedModal from "./AnimatedModal";
 import { CUSTOM_LIST_NAME_MAX } from "../../enums";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 
 interface Props {
 	visible: boolean;
@@ -39,7 +39,7 @@ interface Props {
 const COUNTER_FROM = Math.floor(CUSTOM_LIST_NAME_MAX * 0.8);
 
 /** The selected old name (rename): a translucent red, not the solid brand colour */
-const SELECTION = `${colors.primary}66`;
+const selection = () => `${colors.primary}66`;
 
 const pickHint = (hint: Props["hint"]) =>
 	typeof hint === "string" || hint === undefined
@@ -128,7 +128,7 @@ export default function ListNameModal({
 						selectTextOnFocus={initialName.length > 0}
 						returnKeyType="done"
 						onSubmitEditing={submit}
-						selectionColor={SELECTION}
+						selectionColor={selection()}
 						cursorColor={colors.primary}
 						accessibilityLabel="List name"
 					/>
@@ -185,7 +185,7 @@ export default function ListNameModal({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	content: {
 		backgroundColor: colors.surface,
 		borderRadius: 12,
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
 	buttonText: {
 		...typography.subtitle,
 		fontSize: 14,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 	cancelButton: {
 		paddingVertical: spacing.md,
@@ -253,4 +253,4 @@ const styles = StyleSheet.create({
 		borderWidth: 1.5,
 		borderColor: colors.text,
 	},
-});
+}));

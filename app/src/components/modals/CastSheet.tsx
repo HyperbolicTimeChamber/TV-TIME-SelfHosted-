@@ -38,7 +38,7 @@ import { artHeight, NO_RESULTS_ART, NO_RESULTS_RATIO } from "../NotFoundArt";
 import { personSubject } from "../../utils/subjectLink";
 import { CAST_SEARCH_DEBOUNCE_MS, CAST_SEARCH_MAX_LENGTH, MediaType } from "../../enums";
 import type { CastMember } from "../../types";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 
 /** Same feel as the app's other sheets: critically damped, no overshoot */
 const SHEET_SPRING = { damping: 30, stiffness: 220, overshootClamping: true } as const;
@@ -220,7 +220,11 @@ export default function CastSheet({
 							))}
 						</View>
 					) : members.length === 0 ? (
-						<NothingFound query={query} headerH={headerH} keyboardH={keyboardH} />
+						<NothingFound
+							hint={`Searched the whole cast for "${query}", but nothing happened. Have you lost the way?`}
+							headerH={headerH}
+							keyboardH={keyboardH}
+						/>
 					) : (
 						<BottomSheetFlatList
 							key={query}
@@ -312,11 +316,11 @@ export default function CastSheet({
  * keyboard's top while it's up — sized to the room under the header, the message just over his
  * head. Placed on the UI thread from the sheet's live position, so he stays put through a drag
  */
-function NothingFound({
-	query,
+export function NothingFound({
+	hint,
 	headerH,
 	keyboardH,
-}: Readonly<{ query: string; headerH: number; keyboardH: SharedValue<number> }>) {
+}: Readonly<{ hint: string; headerH: number; keyboardH: SharedValue<number> }>) {
 	const { animatedPosition, animatedLayoutState } = useBottomSheetInternal();
 	const messageH = useSharedValue(0);
 	const emptyH = useSharedValue(0);
@@ -340,7 +344,7 @@ function NothingFound({
 				>
 					<Text style={styles.emptyTitle}>NOTHING FOUND</Text>
 					<Text style={styles.emptyHint}>
-						Searched the whole cast for "{query}", but nothing happened. Have you lost the way?
+						{hint}
 					</Text>
 				</Reanimated.View>
 				<Reanimated.Image
@@ -355,7 +359,7 @@ function NothingFound({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	root: { flex: 1 },
 	sheet: { backgroundColor: colors.surface, borderRadius: 20 },
 	handleArea: { paddingVertical: 10 },
@@ -415,4 +419,4 @@ const styles = StyleSheet.create({
 	skeletonLine: { height: 10, width: "60%", borderRadius: 4, backgroundColor: colors.border },
 	skeletonShort: { width: "35%", marginTop: 6 },
 	more: { marginVertical: spacing.lg },
-});
+}));

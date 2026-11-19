@@ -75,7 +75,7 @@ export const EpisodeCard = memo(function EpisodeCard({
 			onPress={onSkip}
 			disabled={isMarking}
 		>
-			<Text style={styles.actionButtonText}>Skip</Text>
+			<Text style={[styles.actionButtonText, styles.skipButtonText]}>Skip</Text>
 		</TouchableOpacity>
 	) : null;
 	const shimmer = useSharedShimmer();
@@ -222,7 +222,7 @@ export const EpisodeCard = memo(function EpisodeCard({
 							disabled={isMarking}
 						>
 							{isMarking ? (
-								<ActivityIndicator size="small" color={colors.text} />
+								<ActivityIndicator size="small" color={colors.onPrimary} />
 							) : (
 								<View style={styles.buttonInner}>
 									<Text style={styles.actionButtonText}>Rewatch</Text>
@@ -248,7 +248,7 @@ export const EpisodeCard = memo(function EpisodeCard({
 							disabled={isMarking}
 						>
 							{isMarking ? (
-								<ActivityIndicator size="small" color={colors.text} />
+								<ActivityIndicator size="small" color={colors.onPrimary} />
 							) : (
 								<Text style={styles.actionButtonText}>{markLabel}</Text>
 							)}
@@ -261,7 +261,7 @@ export const EpisodeCard = memo(function EpisodeCard({
 						disabled={isMarking}
 					>
 						{isMarking ? (
-							<ActivityIndicator size="small" color={colors.text} />
+							<ActivityIndicator size="small" color={colors.onPrimary} />
 						) : (
 							<Text style={styles.actionButtonText}>{markLabel}</Text>
 						)}

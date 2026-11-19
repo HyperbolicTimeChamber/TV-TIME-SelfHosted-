@@ -11,7 +11,7 @@ import Animated, {
 	withTiming,
 	type SharedValue,
 } from "react-native-reanimated";
-import { colors } from "../../theme";
+import { colors, themedStyles } from "../../theme";
 import { HomeStackParamList, Route } from "../../types";
 import WatchlistTab from "./WatchlistTab";
 import UpcomingTab from "./UpcomingTab";
@@ -75,14 +75,17 @@ function TabLabel({
 	width: number;
 	pressedTab: SharedValue<number>;
 }>) {
+	// Plain strings: a worklet must not capture the mutable `colors` palette (Reanimated freezes
+	// captured objects in dev, and the next theme switch then fails to assign into it)
+	const { primary, textSecondary } = colors;
 	const animated = useAnimatedStyle(() => ({
 		color: interpolateColor(
 			pos.value,
 			// A zero width would divide by zero and crash the worklet
 			[0, Math.max(1, width)],
 			tabIndex === 0
-				? [colors.primary, colors.textSecondary]
-				: [colors.textSecondary, colors.primary],
+				? [primary, textSecondary]
+				: [textSecondary, primary],
 		),
 		opacity: pressedTab.value === tabIndex ? PRESSED_OPACITY : 1,
 	}));
@@ -358,7 +361,7 @@ export default function HomeScreen() {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: { flex: 1, backgroundColor: colors.background },
 	tabBar: { flexDirection: "row", backgroundColor: colors.background },
 	tab: { flex: 1, alignItems: "center", paddingVertical: 14 },
@@ -378,4 +381,4 @@ const styles = StyleSheet.create({
 	},
 	clip: { flex: 1, overflow: "hidden" },
 	pages: { flex: 1, flexDirection: "row" },
-});
+}));

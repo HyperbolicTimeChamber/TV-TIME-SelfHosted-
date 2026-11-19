@@ -5,7 +5,7 @@ import { useTitleExtras } from "../hooks/useTitleExtras";
 import { useCountryName } from "../hooks/useWatchProviders";
 import { isSameRelease, localReleaseSentence, localReleaseText } from "../utils/localRelease";
 import { MediaType } from "../enums";
-import { colors, fonts, typography } from "../theme";
+import { colors, fonts, typography, themedStyles } from "../theme";
 
 /** Arriving after it opened: quick, so it never reads as a pop */
 const FADE_MS = 160;
@@ -56,7 +56,7 @@ export function LocalReleaseInline({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	label: { ...typography.subtitle, fontSize: 14, color: colors.primary },
 	date: { fontFamily: fonts.smoochMedium, fontSize: 24, letterSpacing: 0.5, color: colors.text },
-});
+}));

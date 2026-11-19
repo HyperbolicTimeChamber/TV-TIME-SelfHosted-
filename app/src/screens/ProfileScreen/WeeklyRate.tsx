@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { AccessibilityInfo, Animated, Easing, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { colors, spacing, tint, typography } from "../../theme";
+import { colors, spacing, tint, typography, themedStyles } from "../../theme";
 
 const GROW_MS = 500;
 const GROW_STAGGER_MS = 80;
@@ -183,7 +183,7 @@ export default function WeeklyRate({ episodes, movies, animate = false }: Readon
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	// Same inset as WeeklyChart below it, which pads inside its own horizontal margin
 	container: {
 		marginHorizontal: spacing.lg,
@@ -253,4 +253,4 @@ const styles = StyleSheet.create({
 		borderRadius: 2,
 		backgroundColor: colors.surfaceLight,
 	},
-});
+}));

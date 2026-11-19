@@ -1,5 +1,5 @@
 import { TouchableOpacity, Text, ActivityIndicator, StyleSheet } from "react-native";
-import { colors } from "../theme";
+import { colors, themedStyles } from "../theme";
 import { withHaptic } from "../utils/haptics";
 import { HiCheck } from "./HiIcons";
 
@@ -36,9 +36,10 @@ export default function CheckmarkButton({
 	const iconSize = size * 0.55;
 	// HiCheck's glyph fills ~2/3 of its box (Ionicons' filled more): drawn larger to read as big
 	const tickSize = checkSize ?? size * 0.72;
-	const bg = backgroundColor ?? (watched ? colors.watchedGreen : colors.text);
-	const iconColor = watched ? colors.text : colors.checkTick;
-	const textColor = labelColor ?? (watched ? colors.text : colors.background);
+	// Unwatched: neutral circle (white in dark, grey in light) + checkTick; watched: green + white
+	const bg = backgroundColor ?? (watched ? colors.watchedGreen : colors.checkUnwatched);
+	const iconColor = labelColor ?? (watched ? colors.onPrimary : colors.checkTick);
+	const textColor = labelColor ?? (watched ? colors.onPrimary : colors.checkCount);
 
 	return (
 		<TouchableOpacity
@@ -68,7 +69,7 @@ export default function CheckmarkButton({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	base: {
 		justifyContent: "center",
 		alignItems: "center",
@@ -76,4 +77,4 @@ const styles = StyleSheet.create({
 	label: {
 		fontWeight: "700",
 	},
-});
+}));

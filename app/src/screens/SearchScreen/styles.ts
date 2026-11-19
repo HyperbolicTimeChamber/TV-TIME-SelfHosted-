@@ -1,5 +1,5 @@
 import { StyleSheet } from "react-native";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 import { artHeight, NO_RESULTS_RATIO } from "../../components/NotFoundArt";
 
 /** Search bar clear button (IoIosCloseCircle) — results and suggestions pages */
@@ -12,7 +12,7 @@ const CARD_RADIUS = 16;
 const ROW_POSTER_W = 64;
 export const ROW_HEIGHT = Math.round(ROW_POSTER_W * 1.5) + 2 * spacing.sm;
 
-export const styles = StyleSheet.create({
+export const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		flex: 1,
 		backgroundColor: colors.background,
@@ -116,12 +116,12 @@ export const styles = StyleSheet.create({
 	},
 	// SearchSkeleton: the poster's box, in the skeleton colour (shimmer set inline)
 	skeletonPoster: {
-		backgroundColor: colors.border,
+		backgroundColor: colors.skeleton,
 	},
 	poster: {
 		aspectRatio: 2 / 3,
 		borderRadius: CARD_RADIUS,
-		backgroundColor: colors.surface,
+		backgroundColor: colors.skeletonCard,
 		width: "100%",
 	},
 	banner: {
@@ -137,11 +137,12 @@ export const styles = StyleSheet.create({
 	},
 	cardTitle: {
 		...typography.caption,
-		color: colors.text,
+		color: colors.onImage,
 		flexShrink: 1,
 	},
 	cardYear: {
 		...typography.caption,
+		color: colors.onImageSecondary,
 		fontSize: 11,
 	},
 	// The title's state pills (Currently Watching, Watch Count…), stacked top-left over the poster —
@@ -162,7 +163,7 @@ export const styles = StyleSheet.create({
 		height: 26,
 		borderRadius: 13,
 		borderWidth: 2,
-		borderColor: colors.text,
+		borderColor: colors.onImage,
 		backgroundColor: colors.badgeOverlay,
 		justifyContent: "center" as const,
 		alignItems: "center" as const,
@@ -182,7 +183,7 @@ export const styles = StyleSheet.create({
 		height: 26,
 		borderRadius: 13,
 		borderWidth: 2,
-		borderColor: colors.text,
+		borderColor: colors.onImage,
 		backgroundColor: colors.badgeOverlay,
 		justifyContent: "center" as const,
 		alignItems: "center" as const,
@@ -214,14 +215,15 @@ export const styles = StyleSheet.create({
 		backgroundColor: colors.surface,
 	},
 	rowInfo: { flex: 1, gap: spacing.xs },
-	rowTitle: { ...typography.subtitle, fontSize: 15 },
+	// Over the row's dark backdrop scrim, in every theme
+	rowTitle: { ...typography.subtitle, fontSize: 15, color: colors.onImage },
 	rowMeta: {
 		flexDirection: "row" as const,
 		alignItems: "center" as const,
 		gap: spacing.sm,
 	},
-	rowMetaText: { ...typography.caption, fontSize: 11 },
-	rowOverview: typography.caption,
+	rowMetaText: { ...typography.caption, fontSize: 11, color: colors.onImageSecondary },
+	rowOverview: { ...typography.caption, color: colors.onImageSecondary },
 	rowBadges: { gap: 10, alignSelf: "center" as const },
 	// In the row's badge column, not floating over a poster
 	rowBadge: { position: "relative" as const, top: 0, right: 0 },
@@ -255,7 +257,7 @@ export const styles = StyleSheet.create({
 		backgroundColor: colors.moviePurple,
 	},
 	typeBadgeText: {
-		color: colors.text,
+		color: colors.onPrimary,
 		fontSize: 10,
 		fontWeight: "700" as const,
 	},
@@ -278,4 +280,4 @@ export const styles = StyleSheet.create({
 		textAlign: "center" as const,
 		marginTop: spacing.xs,
 	},
-});
+}));

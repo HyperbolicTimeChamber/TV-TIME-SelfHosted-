@@ -135,8 +135,8 @@
 	padding: 12px;
 	border: none;
 	border-radius: 16px;
-	background: var(--surface);
-	color: var(--text);
+	background: var(--card-dark);
+	color: var(--on-image);
 	text-align: left;
 	cursor: pointer;
 	user-select: none;
@@ -241,7 +241,7 @@
 	padding: 0 8px;
 	box-sizing: border-box;
 	border-radius: 0 0 14px 14px;
-	color: var(--text);
+	color: var(--on-primary);
 	font-size: 12px;
 	font-weight: 700;
 	line-height: 1;
@@ -371,7 +371,7 @@
 	padding: 3px 8px;
 	border-radius: 999px;
 	background: rgba(0, 0, 0, 0.5);
-	color: var(--text);
+	color: var(--on-image);
 	font-size: 11px;
 	font-weight: 700;
 	white-space: nowrap;
@@ -393,7 +393,7 @@
 	padding: 2px 6px;
 	font-size: 10px;
 	font-weight: 700;
-	color: var(--text);
+	color: var(--on-primary);
 }
 
 .typeBadgeMovie {
@@ -501,11 +501,11 @@
 	font-size: 11px;
 	line-height: 16px;
 	font-weight: 700;
-	color: var(--text);
+	color: var(--on-image);
 }
 
 .tagGrey {
-	background: color-mix(in srgb, var(--text-secondary) 35%, transparent);
+	background: rgba(255, 255, 255, 0.22);
 }
 
 /* The 20px ring scaled to the tag line's 14px icon */
@@ -521,5 +521,5 @@
 .gridTagBacking {
 	display: inline-flex;
 	border-radius: 999px;
-	background: var(--bg);
+	background: var(--card-dark);
 }

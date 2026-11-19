@@ -8,7 +8,7 @@ import Animated, {
 	withSequence,
 	withTiming,
 } from "react-native-reanimated";
-import { colors } from "../theme";
+import { colors, themedStyles } from "../theme";
 
 // Sizes and timing mirror the web PacmanLoader.module.scss (codepen.io/poziomq/pen/ozaYKK)
 const SIZE = 60;
@@ -70,7 +70,7 @@ export default function PacmanLoader({ background = colors.surface }: { backgrou
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	stage: { width: STAGE_W, height: SIZE, alignSelf: "center", marginVertical: 24 },
 	dots: { position: "absolute", left: -5, top: 0, height: SIZE, width: 180 },
 	dot: {
@@ -111,4 +111,4 @@ const styles = StyleSheet.create({
 		backgroundColor: PAC_YELLOW,
 	},
 	eye: { position: "absolute", top: 10, left: 30, width: 7, height: 7, borderRadius: 3.5 },
-});
+}));

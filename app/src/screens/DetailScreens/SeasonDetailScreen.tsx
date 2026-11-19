@@ -15,7 +15,7 @@ import { requireOnline } from "../../utils/requireOnline";
 import { useQueryClient } from "@tanstack/react-query";
 import { Timestamp } from "@react-native-firebase/firestore";
 import { markEpisodeWatched, addToTracking, getSeasonDetails as fetchSeason } from "../../services";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 import { HomeStackParamList, TMDBEpisode, MediaType } from "../../types";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -260,7 +260,7 @@ export default function SeasonDetailScreen() {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	list: {
 		flex: 1,
 		backgroundColor: colors.background,
@@ -311,4 +311,4 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.border,
 		marginLeft: spacing.lg,
 	},
-});
+}));

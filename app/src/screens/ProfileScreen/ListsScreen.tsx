@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
 	View,
 	Text,
@@ -15,11 +15,21 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Gesture } from "react-native-gesture-handler";
-import { runOnJS, useSharedValue, type SharedValue } from "react-native-reanimated";
+import Reanimated, {
+	runOnJS,
+	useAnimatedStyle,
+	useReducedMotion,
+	useSharedValue,
+	withTiming,
+	type SharedValue,
+} from "react-native-reanimated";
 import ReorderableList, {
 	useReorderableDrag,
 	useReorderableDragEnd,
 	useReorderableDragStart,
+	type ReorderableListDragEndEvent,
+	type ReorderableListDragStartEvent,
+	type ReorderableListIndexChangeEvent,
 	type ReorderableListReorderEvent,
 } from "react-native-reorderable-list";
 import { useAuthStore } from "../../stores";
@@ -42,14 +52,20 @@ import { BLUR_RADIUS } from "./styles";
 import { listStyles as card } from "../CalendarScreen/listStyles";
 import { pickListsFile, shareListsExport } from "../../services/customListsFiles";
 import {
+	NO_CUTOFF,
+	crossesCutoff,
+	cutoffPlacement,
 	describeImport,
 	listCoverItem,
 	moveElement,
 	parseListsExport,
+	previewOrder,
 	titleCount,
+	type ActiveDrag,
+	type CutoffPlacement,
 	type ImportPlan,
 } from "../../utils";
-import { colors, fonts, spacing, typography } from "../../theme";
+import { colors, fonts, spacing, tint, typography, themedStyles } from "../../theme";
 import { requireOnline } from "../../utils/requireOnline";
 
 type Nav = NativeStackNavigationProp<ProfileStackParamList, Route.LISTS>;
@@ -60,7 +76,7 @@ const HOLD_TO_DRAG_MS = 250;
 /** The fade under the title bar — and the space above the first card */
 const FADE_HEIGHT = spacing.lg;
 /** Page colour → transparent: the fade under the title bar */
-const TOP_FADE = [colors.background, "rgba(0, 0, 0, 0)"] as const;
+const topFade = () => [colors.background, tint(colors.background, 0)] as const;
 /** The drag pan wakes this long after the row's long press has fired */
 const PAN_WAKE_AFTER_MS = 50;
 /** After the finger lets go, wait this long for the drag to report its own end */
@@ -69,6 +85,16 @@ const RELEASE_SETTLE_MS = 120;
 const AUTOSAVE_MS = 800;
 /** Same row metrics as the Add to List drawer */
 const MENU_SIZE = 30;
+/** Lists the profile doesn't show fade to this, over DIM_MS (no duration with reduce-motion) */
+const DIM_OPACITY = 0.6;
+const DIM_MS = 150;
+/** The profile cutoff's label, and its box: it sits centred in the gap between two cards
+ *  (a card's marginBottom is spacing.md) */
+const CUTOFF_LABEL = "Shown on Profile";
+const CUTOFF_HEIGHT = 16;
+
+/** What the page draws for the cutoff, from the preview order (see utils/profileCutoff) */
+const CutoffContext = createContext<CutoffPlacement>(NO_CUTOFF);
 
 const NAME_ERRORS = {
 	taken: "You already have a list with that name.",
@@ -176,6 +202,44 @@ function PosterStrip({ items }: { items: CustomList["items"] }) {
 	);
 }
 
+/** The profile cutoff: a rule with "Shown on Profile" in the gap on a card's edge. Not part of the
+ *  list's data (so the library never moves it as a card): the page moves it with the preview order */
+function CutoffLine({ edge }: Readonly<{ edge: "top" | "bottom" }>) {
+	return (
+		<View
+			pointerEvents="none"
+			style={[styles.cutoff, edge === "top" ? styles.cutoffTop : styles.cutoffBottom]}
+			accessible
+			accessibilityLabel={CUTOFF_LABEL}
+		>
+			<View style={styles.cutoffRule} />
+			<Ionicons name="arrow-up" size={11} color={colors.accent} />
+			<Text style={styles.cutoffLabel}>{CUTOFF_LABEL}</Text>
+			<View style={styles.cutoffRule} />
+		</View>
+	);
+}
+
+/** Around one card: fades it to DIM_OPACITY when the profile doesn't show its list, and draws the
+ *  cutoff line when the line sits on its edge. Opacity only — no layout animation on list rows */
+function CutoffCell({ id, children }: Readonly<{ id: string; children: React.ReactNode }>) {
+	const { dimmedIds, lineTopId, lineBottomId } = useContext(CutoffContext);
+	const dimmed = dimmedIds.has(id);
+	const reduceMotion = useReducedMotion();
+	const opacity = useSharedValue(dimmed ? DIM_OPACITY : 1);
+	useEffect(() => {
+		opacity.value = withTiming(dimmed ? DIM_OPACITY : 1, { duration: reduceMotion ? 0 : DIM_MS });
+	}, [dimmed, reduceMotion, opacity]);
+	const dimStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+	return (
+		<View>
+			<Reanimated.View style={dimStyle}>{children}</Reanimated.View>
+			{lineTopId === id && <CutoffLine edge="top" />}
+			{lineBottomId === id && <CutoffLine edge="bottom" />}
+		</View>
+	);
+}
+
 /**
  * One list as a calendar card (like a list's own List view): its cover title's backdrop blurred
  * under the dark overlay, the name over a strip of its first posters, the calendar square holding
@@ -274,7 +338,7 @@ function ListRow({ list, onOpen, onMenu, dragging }: Readonly<RowProps>) {
 						accessibilityRole="button"
 						accessibilityLabel={`Options for ${list.name}`}
 					>
-						<Ionicons name="ellipsis-vertical" size={20} color={colors.text} />
+						<Ionicons name="ellipsis-vertical" size={20} color={colors.onImage} />
 					</Pressable>
 				</View>
 				{list.items.length > 0 ? (
@@ -357,6 +421,71 @@ export default function ListsScreen() {
 	if (shownRef.current?.key !== shownKey) shownRef.current = { key: shownKey, lists: ordered };
 	const shown = shownRef.current.lists;
 
+	// Profile cutoff: the library moves its cards live while one is dragged but reports the new
+	// order only on the drop, and the data must not change mid-drag. `drag` mirrors the live move
+	// (from onDragStart / onIndexChange) so the line and the dimming follow the finger
+	const listCount = useAuthStore((s) => s.profilePrefs.listCount);
+	const [drag, setDrag] = useState<ActiveDrag | null>(null);
+	const dragRef = useRef<ActiveDrag | null>(null);
+	const updateDrag = useCallback((next: ActiveDrag | null) => {
+		dragRef.current = next;
+		setDrag(next);
+	}, []);
+	const cutoffRef = useRef({ ordered: shown, count: listCount });
+	cutoffRef.current = { ordered: shown, count: listCount };
+	const placement = useMemo(
+		() => cutoffPlacement(previewOrder(shown, drag), listCount, drag?.id ?? null),
+		[shown, drag, listCount],
+	);
+	const onCutoffDragStart = useCallback(
+		(index: number) => {
+			const list = cutoffRef.current.ordered[index];
+			if (list) updateDrag({ id: list.id, from: index, to: index });
+		},
+		[updateDrag],
+	);
+	const onCutoffIndexChange = useCallback(
+		(index: number) => {
+			const current = dragRef.current;
+			if (!current || current.to === index) return;
+			const { ordered, count } = cutoffRef.current;
+			// The dragged list crossed the cutoff: a tick
+			if (crossesCutoff(ordered, current, index, count)) Haptics.selectionAsync().catch(() => {});
+			updateDrag({ ...current, to: index });
+		},
+		[updateDrag],
+	);
+	// A hold released without moving: no reorder follows, so the preview ends here. A real move
+	// ends in onReorder (the new order lands in the same render as the end of the preview)
+	const onCutoffDragEnd = useCallback(
+		(from: number, to: number) => {
+			if (from === to) updateDrag(null);
+		},
+		[updateDrag],
+	);
+	// The library calls these on the UI thread (worklets): hop to JS with stable callbacks
+	const onDragStartWorklet = useCallback(
+		(e: ReorderableListDragStartEvent) => {
+			"worklet";
+			runOnJS(onCutoffDragStart)(e.index);
+		},
+		[onCutoffDragStart],
+	);
+	const onIndexChangeWorklet = useCallback(
+		(e: ReorderableListIndexChangeEvent) => {
+			"worklet";
+			runOnJS(onCutoffIndexChange)(e.index);
+		},
+		[onCutoffIndexChange],
+	);
+	const onDragEndWorklet = useCallback(
+		(e: ReorderableListDragEndEvent) => {
+			"worklet";
+			runOnJS(onCutoffDragEnd)(e.from, e.to);
+		},
+		[onCutoffDragEnd],
+	);
+
 	const [naming, setNaming] = useState<"new" | CustomList | null>(null);
 	const [nameError, setNameError] = useState<string | null>(null);
 	const [nameBusy, setNameBusy] = useState(false);
@@ -418,6 +547,8 @@ export default function ListsScreen() {
 	// Works from the latest draft (not this render's `shown`): the library follows a drop with a second
 	// event (from -1) that must not undo it — moveElement ignores indexes outside the list
 	const onReorder = ({ from, to }: ReorderableListReorderEvent) => {
+		// The drop: the new order lands in this render, so the live preview ends with it
+		updateDrag(null);
 		const prev = draftRef.current ?? shown.map((l) => l.id);
 		const next = moveElement(prev, from, to);
 		if (next === prev) return;
@@ -525,26 +656,33 @@ export default function ListsScreen() {
 				</View>
 			) : (
 				<View style={styles.listArea}>
+					<CutoffContext.Provider value={placement}>
 					<ReorderableList
 						data={shown}
 						panGesture={dragPan}
 						// The library also asks about the slot just past the end while a drag settles: no list there
 						keyExtractor={(l, index) => (l ? l.id : `slot_${index}`)}
 						onReorder={onReorder}
+						onDragStart={onDragStartWorklet}
+						onIndexChange={onIndexChangeWorklet}
+						onDragEnd={onDragEndWorklet}
 						contentContainerStyle={styles.listContent}
 						renderItem={({ item }) =>
 							item ? (
-								<ListRow
-									list={item}
-									onOpen={() => navigation.navigate(Route.LIST_DETAIL, { listId: item.id })}
-									onMenu={() => setMenuList(item)}
-									dragging={dragging}
-								/>
+								<CutoffCell id={item.id}>
+									<ListRow
+										list={item}
+										onOpen={() => navigation.navigate(Route.LIST_DETAIL, { listId: item.id })}
+										onMenu={() => setMenuList(item)}
+										dragging={dragging}
+									/>
+								</CutoffCell>
 							) : null
 						}
 					/>
+					</CutoffContext.Provider>
 					{/* Cards fade out under the title bar instead of being cut at its edge */}
-					<LinearGradient colors={TOP_FADE} style={styles.topFade} pointerEvents="none" />
+					<LinearGradient colors={topFade()} style={styles.topFade} pointerEvents="none" />
 				</View>
 			)}
 
@@ -634,7 +772,7 @@ export default function ListsScreen() {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: { flex: 1, backgroundColor: colors.background },
 	topBar: {
 		flexDirection: "row",
@@ -686,6 +824,26 @@ const styles = StyleSheet.create({
 	},
 	// The calendar card sits in the list's own padding
 	card: { marginHorizontal: 0 },
+	// Profile cutoff line: centred in the gap (a card's marginBottom is spacing.md) on a card's
+	// top edge (the gap above it) or bottom edge (the gap under it)
+	cutoff: {
+		position: "absolute",
+		left: 0,
+		right: 0,
+		height: CUTOFF_HEIGHT,
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.xs,
+	},
+	cutoffTop: { top: -(CUTOFF_HEIGHT + spacing.md) / 2 },
+	cutoffBottom: { bottom: -(CUTOFF_HEIGHT - spacing.md) / 2 },
+	cutoffRule: {
+		flex: 1,
+		height: StyleSheet.hairlineWidth * 2,
+		borderRadius: 1,
+		backgroundColor: colors.accent,
+	},
+	cutoffLabel: { ...typography.caption, fontSize: 11, lineHeight: 13, color: colors.accent },
 	skeletonCard: { position: "absolute", top: 0, left: 0, borderRadius: 0 },
 	nameRow: {
 		flexDirection: "row",
@@ -693,7 +851,7 @@ const styles = StyleSheet.create({
 		alignSelf: "stretch",
 		marginBottom: spacing.sm,
 	},
-	cardName: { ...typography.subtitle, fontSize: 18, flex: 1 },
+	cardName: { ...typography.subtitle, fontSize: 18, flex: 1, color: colors.onImage },
 	strip: { flexDirection: "row", gap: spacing.xs },
 	stripPoster: { width: 28, height: 42, borderRadius: 4, overflow: "hidden" },
 	// Dims the poster under "+N"; a hairline keeps the tile's edge against dark posters
@@ -709,11 +867,11 @@ const styles = StyleSheet.create({
 	// The count square's face, so the number reads as part of the same card
 	moreText: {
 		fontFamily: fonts.smoochMedium,
-		color: colors.text,
+		color: colors.onImage,
 		letterSpacing: 0.5,
 		includeFontPadding: false,
 	},
-	emptyLine: { ...typography.caption, color: colors.textSecondary },
+	emptyLine: { ...typography.caption, color: colors.onImageSecondary },
 	squareValue: { fontSize: 44, lineHeight: 48 },
 	rowText: { flex: 1, minWidth: 0 },
 	rowName: { ...typography.subtitle, fontSize: 16 },
@@ -736,4 +894,4 @@ const styles = StyleSheet.create({
 	},
 	emptyTitle: { ...typography.subtitle, fontSize: 18 },
 	emptyHint: { ...typography.caption, textAlign: "center" },
-});
+}));

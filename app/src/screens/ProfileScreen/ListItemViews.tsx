@@ -26,7 +26,7 @@ import ShowDrawer, {
 	type ShowDrawerAction,
 	type ShowDrawerData,
 } from "../../components/ShowDrawer";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 import { deriveHistoryCard, deriveListTags, formatRuntime, todayStr } from "../../utils";
 import ListCardTags from "./ListCardTags";
 import SearchCard from "../SearchScreen/SearchCard";
@@ -271,17 +271,17 @@ export function ListRow({
 							]}
 						>
 							{resuming ? (
-								<ActivityIndicator size="small" color={colors.text} />
+								<ActivityIndicator size="small" color={colors.onPrimary} />
 							) : (
 								<>
-									<Ionicons name="play" size={12} color={colors.text} />
+									<Ionicons name="play" size={12} color={colors.onPrimary} />
 									<Text style={styles.addText}>Resume</Text>
 								</>
 							)}
 						</Pressable>
 					) : tracked ? (
 						<View style={styles.trackingTag}>
-							<HiCheck size={14} color={colors.text} />
+							<HiCheck size={14} color={colors.onPrimary} />
 							<Text style={styles.trackingText}>Watchlist</Text>
 						</View>
 					) : (
@@ -298,10 +298,10 @@ export function ListRow({
 							]}
 						>
 							{adding ? (
-								<ActivityIndicator size="small" color={colors.text} />
+								<ActivityIndicator size="small" color={colors.onPrimary} />
 							) : (
 								<>
-									<Ionicons name="add" size={14} color={colors.text} />
+									<Ionicons name="add" size={14} color={colors.onPrimary} />
 									<Text style={styles.addText}>Watchlist</Text>
 								</>
 							)}
@@ -454,8 +454,8 @@ const JOINED_BUTTON = {
 	borderBottomRightRadius: SQUARE_RADIUS,
 } as const;
 
-const styles = StyleSheet.create({
-	gridTagBacking: { borderRadius: 999, backgroundColor: colors.background },
+const styles = themedStyles(() => StyleSheet.create({
+	gridTagBacking: { borderRadius: 999, backgroundColor: colors.cardDark },
 	// The calendar card sits in the list's own padding (no side margin of its own)
 	// Taller than the calendar's card: the square has the add button / Tracking tag under it
 	// Exactly the right block (square + button) plus the card's padding: the left column fits inside
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
 	// The info page's Resume blue
 	resumeButton: { gap: 4, backgroundColor: colors.accent },
 	addButtonPressed: { transform: [{ scale: 0.97 }] },
-	addText: { color: colors.text, fontSize: 12, fontWeight: "700" },
+	addText: { color: colors.onPrimary, fontSize: 12, fontWeight: "700" },
 	// The same joined block, in green
 	trackingTag: {
 		flexDirection: "row",
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
 		...JOINED_BUTTON,
 		backgroundColor: colors.watchedGreen,
 	},
-	trackingText: { color: colors.text, fontSize: 12, fontWeight: "700" },
+	trackingText: { color: colors.onPrimary, fontSize: 12, fontWeight: "700" },
 	cardPressed: { transform: [{ scale: 0.98 }] },
 	logoSlot: {
 		flexShrink: 1,
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 	},
 	logo: { height: "100%", width: "75%" },
-	name: { ...typography.subtitle, fontSize: 16 },
+	name: { ...typography.subtitle, fontSize: 16, color: colors.onImage },
 	metaLine: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: spacing.sm },
 	// Season count / year over the backdrop: a translucent black pill, like the card's square
 	metaPill: {
@@ -525,8 +525,8 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 8,
 		paddingVertical: 3,
 	},
-	metaPillText: { color: colors.text, fontSize: 11, fontWeight: "700" },
-	meta: { ...typography.caption, color: colors.textSecondary, flexShrink: 1 },
+	metaPillText: { color: colors.onImage, fontSize: 11, fontWeight: "700" },
+	meta: { ...typography.caption, color: colors.onImageSecondary, flexShrink: 1 },
 	// Year / episode counts are wider than Exx — a step down so 4 digits fit the square
 	squareValue: { fontSize: 36, lineHeight: 40 },
 	skeletonCard: { position: "absolute", top: 0, left: 0, borderRadius: 0 },
@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
 		paddingVertical: 2,
 	},
 	typeBadgeMovie: { backgroundColor: colors.moviePurple },
-	typeBadgeText: { color: colors.text, fontSize: 10, fontWeight: "700" },
+	typeBadgeText: { color: colors.onPrimary, fontSize: 10, fontWeight: "700" },
 	reorderRow: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -565,4 +565,4 @@ const styles = StyleSheet.create({
 	},
 	reorderPoster: { width: 40, height: 60, borderRadius: 4 },
 	reorderTitle: { flex: 1 },
-});
+}));

@@ -8,7 +8,7 @@ import {
 	type TextLayoutEvent,
 } from "react-native";
 import { Image } from "expo-image";
-import { colors, fonts, spacing, typography } from "../../theme";
+import { colors, fonts, spacing, typography, themedStyles } from "../../theme";
 
 export const WELCOME_ART = { source: require("../../../assets/welcome.webp"), ratio: 1080 / 647 };
 export const UPCOMING_EMPTY_ART = {
@@ -142,7 +142,7 @@ export default function HomeEmpty({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		flex: 1,
 		backgroundColor: colors.background,
@@ -208,6 +208,6 @@ const styles = StyleSheet.create({
 	buttonText: {
 		...typography.subtitle,
 		fontSize: 14,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
-});
+}));

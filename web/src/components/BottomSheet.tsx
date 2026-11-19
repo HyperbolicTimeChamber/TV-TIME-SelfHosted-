@@ -228,6 +228,7 @@ export function SheetHeader({
 	logoPath: givenLogo,
 	aside,
 	centered = false,
+	nameNow = false,
 }: {
 	title: string;
 	/** A sheet title above the logo (Add to List) */
@@ -238,6 +239,8 @@ export function SheetHeader({
 	logoPath?: string | null;
 	aside?: ReactNode;
 	centered?: boolean;
+	/** Show the title text at once while the logo loads (replaced by the logo when it arrives) */
+	nameNow?: boolean;
 }) {
 	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	const [loaded, setLoaded] = useState(false);
@@ -249,7 +252,7 @@ export function SheetHeader({
 	}, []);
 	const showLogo = !!logoPath && !failed;
 	// Known to have no logo (or it failed): the name at once; still loading: after the delay
-	const showName = logoPath === null || failed || (!loaded && waited);
+	const showName = logoPath === null || failed || (!loaded && (waited || nameNow));
 	const right = aside ?? null;
 	return (
 		// With an aside the row stretches: the square takes the logo + name column's height

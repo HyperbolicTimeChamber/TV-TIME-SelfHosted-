@@ -7,7 +7,7 @@ import { tmdbBackdropUri, tmdbLogoUri } from "../../hooks/useTmdbImage";
 import { useTitleLogo } from "../../hooks/useTitleLogo";
 import SkeletonLine from "../SkeletonLine";
 import type { MediaType } from "../../types";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 
 /** Art for ConfirmModal's image slot (between the title and the hint) */
 
@@ -151,6 +151,7 @@ export function ModalLogo({
 	title,
 	paused = false,
 	nameDelay = 0,
+	tint,
 }: {
 	logoPath?: string | null;
 	/** Lets a title with no cached logo (not in the library) fetch it from TMDB */
@@ -160,6 +161,8 @@ export function ModalLogo({
 	paused?: boolean;
 	/** Wait this long (ms) for the logo before showing the name — 0: name right away */
 	nameDelay?: number;
+	/** Recolors the logo (a white title logo vanishes on the light theme's page) */
+	tint?: string;
 }) {
 	const logoPath = useTitleLogo(givenLogo, tmdbId, mediaType);
 	// Logo's own width / height, so the box (and the badge's corner) hugs the visible logo
@@ -210,6 +213,7 @@ export function ModalLogo({
 				<Image
 					source={{ uri: tmdbLogoUri(logoPath, LOGO_MAX_W) }}
 					style={{ width: w, height: h }}
+					tintColor={tint}
 					contentFit="contain"
 				/>
 				{paused && <PauseBadge style={badgeCorner} />}
@@ -340,7 +344,7 @@ export function ModalBackdrop({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	logoSlot: {
 		justifyContent: "center",
 		alignItems: "center",
@@ -442,4 +446,4 @@ const styles = StyleSheet.create({
 		textAlign: "center",
 		color: colors.text,
 	},
-});
+}));

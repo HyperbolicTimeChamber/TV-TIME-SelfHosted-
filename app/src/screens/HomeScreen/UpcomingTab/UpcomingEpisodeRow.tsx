@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { colors, fonts, spacing } from "../../../theme";
+import { colors, fonts, spacing, themedStyles } from "../../../theme";
 import CardInfo, { CARD_MAX_FONT_SCALE, cardStyles } from "../../../components/CardInfo";
 import { upcomingDirector, upcomingRuntime } from "../../../hooks/useUpcomingEpisodes";
 import { formatRuntime } from "../../../utils/customLists";
@@ -79,7 +79,7 @@ export default memo(function UpcomingEpisodeRow({
 	);
 });
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	row: {
 		marginHorizontal: spacing.md,
 		marginBottom: spacing.sm,
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
 	movieBadgeText: {
 		fontSize: 10,
 		fontWeight: "700",
-		color: colors.text,
+		color: colors.onPrimary,
 		letterSpacing: 0.5,
 	},
-});
+}));

@@ -26,6 +26,12 @@ update the Secrets and `.env` files.
 
 Every event carries `client_platform`, so any report can be split **app vs web vs backend**.
 
+Client events also carry the build they came from (super properties, `app/src/services/mixpanel.ts`):
+`app_version` (app + web), and in the native app `app_build` (versionCode) and `release_channel`
+(`prod` / `dev`, `local` for an unpublished dev build). The app sets the same three as Firebase
+Analytics user properties (`setVersionUserProperties`), so Firebase Console → Audiences can slice by
+build too.
+
 | `client_platform` | Sender | Code |
 | --- | --- | --- |
 | `app` | React Native app (iOS / Android) | `app/src/services/mixpanel.ts` |
@@ -87,6 +93,18 @@ direct client ops.
 
 **Billable but not tracked here:** Firestore storage, network egress, Hosting bandwidth, Auth. Check
 those in the GCP billing console.
+
+## Board: "App Versions"
+
+Separate board (the cost board is at the Free plan's 5-report cap). Answers "who is still on an old
+build?" before forcing an update or dropping support for old data shapes.
+
+| Tile | Report setup | Chart |
+| --- | --- | --- |
+| Builds in use (7d) | `app_opened` · Unique users · filter `client_platform` = app · breakdown `app_build` × `release_channel` · Last 7 days · show % of total | Bar |
+
+Users who haven't opened since this instrumentation shipped have no `app_build` — they show as
+`(not set)` and are by definition on an older build.
 
 ### Ad-hoc reports (not on the board)
 

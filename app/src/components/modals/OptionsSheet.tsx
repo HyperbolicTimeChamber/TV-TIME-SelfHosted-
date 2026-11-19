@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 
 export interface SheetOption {
 	key: string;
@@ -125,7 +125,7 @@ export default function OptionsSheet({ visible, title, subtitle, options, onClos
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	overlay: {
 		flex: 1,
 		backgroundColor: colors.overlayLight,
@@ -162,4 +162,4 @@ const styles = StyleSheet.create({
 	},
 	icon: { width: 36 },
 	optionText: { ...typography.subtitle, fontSize: 15 },
-});
+}));

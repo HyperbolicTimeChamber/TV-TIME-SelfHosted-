@@ -143,6 +143,11 @@ async function restore(uid: string): Promise<{ sync: SavedSync; docs: TrackingDo
 	}
 }
 
+/** The saved tracking pages without starting the sync — for code that runs with the app closed (alert scheduler) */
+export async function readSavedTracking(uid: string): Promise<TrackingDoc[]> {
+	return (await restore(uid))?.docs ?? [];
+}
+
 /** A tracking doc as the store keeps (and saves) it — without its facets (genres / keywords /
  *  countries / studios): only Watch History's filters read those (in its own query), and ~40
  *  keywords a title would bloat the saved pages */

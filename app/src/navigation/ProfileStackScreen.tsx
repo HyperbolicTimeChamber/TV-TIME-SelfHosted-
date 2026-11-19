@@ -4,6 +4,9 @@ import { ProfileStackParamList, Route } from "../types";
 import { stackScreenOptions, swipeBackScreenOptions } from "./screenOptions";
 import ProfileScreen from "../screens/ProfileScreen";
 import SettingsScreen from "../screens/ProfileScreen/SettingsScreen";
+import AppearanceScreen from "../screens/ProfileScreen/AppearanceScreen";
+import NotificationsScreen from "../screens/ProfileScreen/NotificationsScreen";
+import ProfilePrefsScreen from "../screens/ProfileScreen/ProfilePrefsScreen";
 import WatchHistoryScreen from "../screens/ProfileScreen/WatchHistory";
 import ListDetailScreen from "../screens/ProfileScreen/ListDetail";
 import ListsScreen from "../screens/ProfileScreen/ListsScreen";
@@ -23,6 +26,21 @@ export default function ProfileStackScreen() {
 			<ProfileStack.Screen
 				name={Route.SETTINGS}
 				component={SettingsScreen}
+				options={swipeBackScreenOptions}
+			/>
+			<ProfileStack.Screen
+				name={Route.APPEARANCE}
+				component={AppearanceScreen}
+				options={swipeBackScreenOptions}
+			/>
+			<ProfileStack.Screen
+				name={Route.NOTIFICATIONS}
+				component={NotificationsScreen}
+				options={swipeBackScreenOptions}
+			/>
+			<ProfileStack.Screen
+				name={Route.PROFILE_PREFS}
+				component={ProfilePrefsScreen}
 				options={swipeBackScreenOptions}
 			/>
 			<ProfileStack.Screen

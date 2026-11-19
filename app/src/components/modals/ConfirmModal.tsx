@@ -13,7 +13,7 @@ import AnimatedModal from "./AnimatedModal";
 import SlideToConfirm from "../SlideToConfirm";
 import BottomSheet, { SHEET_HANDLE_BLOCK, SHEET_RADIUS } from "./BottomSheet";
 import { ModalBackdrop } from "./ModalArt";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 
 interface Props {
 	visible: boolean;
@@ -170,7 +170,7 @@ export default function ConfirmModal({
 					disabled={loading}
 				>
 					{loading ? (
-						<ActivityIndicator size="small" color={colors.text} />
+						<ActivityIndicator size="small" color={colors.onPrimary} />
 					) : (
 						<Text style={styles.buttonText}>{confirmLabel}</Text>
 					)}
@@ -186,7 +186,9 @@ export default function ConfirmModal({
 						onPress={onSecondary}
 						disabled={loading}
 					>
-						<Text style={styles.buttonText}>{secondaryLabel}</Text>
+						<Text style={[styles.buttonText, !secondaryColor && styles.buttonTextNeutral]}>
+							{secondaryLabel}
+						</Text>
 					</TouchableOpacity>
 				)}
 				{tertiaryLabel && onTertiary && (
@@ -195,12 +197,12 @@ export default function ConfirmModal({
 						onPress={onTertiary}
 						disabled={loading}
 					>
-						<Text style={styles.buttonText}>{tertiaryLabel}</Text>
+						<Text style={[styles.buttonText, styles.buttonTextNeutral]}>{tertiaryLabel}</Text>
 					</TouchableOpacity>
 				)}
 				{!loading && !hideCancel && (
 					<TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-						<Text style={styles.buttonText}>{cancelLabel}</Text>
+						<Text style={[styles.buttonText, styles.buttonTextNeutral]}>{cancelLabel}</Text>
 					</TouchableOpacity>
 				)}
 			</View>
@@ -208,7 +210,7 @@ export default function ConfirmModal({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	content: {
 		backgroundColor: colors.surface,
 		borderRadius: 12,
@@ -264,11 +266,13 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.surfaceLight,
 		marginTop: spacing.sm,
 	},
+	// On the red / colored fill; the neutral and outlined buttons use buttonTextNeutral
 	buttonText: {
 		...typography.subtitle,
 		fontSize: 14,
-		color: colors.text,
+		color: colors.onPrimary,
 	},
+	buttonTextNeutral: { color: colors.text },
 	// Full bleed, as the info drawer's art: up to the sheet's edges and top (over the grab
 	// handle), its top corners rounding with the sheet's
 	drawerBanner: {
@@ -315,7 +319,7 @@ const styles = StyleSheet.create({
 		borderColor: colors.text,
 		marginTop: spacing.sm,
 	},
-});
+}));
 
 type DrawerProps = Omit<Props, "drawer" | "imageAtTop"> & {
 	confirmLabel: string;
@@ -424,7 +428,7 @@ function ConfirmDrawer({
 									loading ? { opacity: 0.6 } : {},
 								],
 								loading ? (
-									<ActivityIndicator size="small" color={colors.text} />
+									<ActivityIndicator size="small" color={colors.onPrimary} />
 								) : (
 									<Text style={[styles.buttonText, styles.drawerButtonText]}>{confirmLabel}</Text>
 								),
@@ -437,15 +441,27 @@ function ConfirmDrawer({
 									styles.secondary,
 									secondaryColor ? { backgroundColor: secondaryColor } : {},
 									loading ? { opacity: 0.6 } : {},
-								])}
+								],
+								<Text
+									style={[
+										styles.buttonText,
+										styles.drawerButtonText,
+										!secondaryColor && styles.buttonTextNeutral,
+									]}
+								>
+									{secondaryLabel}
+								</Text>,
+							)}
 							{tertiaryLabel &&
 								onTertiary &&
-								button(tertiaryLabel, onTertiary, [
-									styles.button,
-									styles.drawerButton,
-									styles.secondary,
-									loading ? { opacity: 0.6 } : {},
-								])}
+								button(
+									tertiaryLabel,
+									onTertiary,
+									[styles.button, styles.drawerButton, styles.secondary, loading ? { opacity: 0.6 } : {}],
+									<Text style={[styles.buttonText, styles.drawerButtonText, styles.buttonTextNeutral]}>
+										{tertiaryLabel}
+									</Text>,
+								)}
 						</>
 					)}
 				</View>

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { View, Animated, Easing, StyleSheet } from "react-native";
-import { colors, spinnerShape } from "../theme";
+import { colors, spinnerShape, themedStyles } from "../theme";
 
 const SIZE = spinnerShape.size;
 const DOTS = spinnerShape.dots;
@@ -100,7 +100,7 @@ export default function LoadingSpinner() {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	container: {
 		padding: 8,
 		justifyContent: "center",
@@ -128,4 +128,4 @@ const styles = StyleSheet.create({
 		alignSelf: "center",
 		marginBottom: -1,
 	},
-});
+}));

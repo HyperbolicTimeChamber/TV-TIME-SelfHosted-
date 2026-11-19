@@ -24,6 +24,7 @@ import styles from "./styles/ProfileScreen.module.scss";
 export default function ProfileScreen() {
 	const navigate = useNavigate();
 	const user = useAppSelector((s) => s.auth.user);
+	const showCompleted = useAppSelector((s) => s.auth.profilePrefs.showCompleted);
 	const { stats, loading: statsLoading } = useUserStats(user?.uid);
 	const { items: watchlist } = useWatchlist(user?.uid);
 	const cardImages = useProfileCardImages(watchlist);
@@ -122,7 +123,7 @@ export default function ProfileScreen() {
 			<WatchRate data={chartData} loading={chartLoading} />
 
 
-			{completedLoading ? (
+			{!showCompleted ? null : completedLoading ? (
 				<div className={styles.completedLoader}>
 					<Spin size="small" />
 				</div>
@@ -166,7 +167,7 @@ export default function ProfileScreen() {
 				)
 			)}
 
-			<CustomLists standalone={!completedLoading && sections.length === 0} />
+			<CustomLists standalone={!showCompleted || (!completedLoading && sections.length === 0)} />
 		</div>
 	);
 }

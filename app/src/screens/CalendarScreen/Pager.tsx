@@ -7,6 +7,7 @@ import Animated, {
 	useSharedValue,
 	withTiming,
 } from "react-native-reanimated";
+import { themedStyles } from "../../theme";
 
 /** Drag past this share of the width (or flick) to turn the page */
 const TURN_SHARE = 0.22;
@@ -128,7 +129,7 @@ export default function Pager({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	clip: { overflow: "hidden" },
 	page: { position: "absolute", top: 0, bottom: 0 },
-});
+}));

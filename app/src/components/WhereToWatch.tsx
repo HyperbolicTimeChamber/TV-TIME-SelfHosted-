@@ -15,8 +15,11 @@ import { tmdbPosterUri } from "../hooks/useTmdbImage";
 import { displayProviders, providerApp, providerLink, shortProviderName } from "../utils/providerNames";
 import ServiceApps from "../../modules/service-apps";
 import BottomSheet, { SheetGroup, sheetStyles } from "./modals/BottomSheet";
+import CountrySheet from "./modals/CountrySheet";
+import { Ionicons } from "@expo/vector-icons";
+import { regionFlag } from "../utils/watchRegions";
 import { useSharedShimmer } from "./SkeletonLine";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 import { PROVIDER_OPEN_GUARD_MS, type MediaType } from "../enums";
 
 const HIGH_SEAS_ART = require("../../assets/high-seas.webp");
@@ -57,6 +60,7 @@ export default function WhereToWatch({ tmdbId, mediaType, title, bleed }: Readon
 	const { region, data, isPending, isError } = useWatchProviders(tmdbId, mediaType);
 	const shimmer = useSharedShimmer();
 	const country = useCountryName(region);
+	const [countriesOpen, setCountriesOpen] = useState(false);
 	// A failed request says nothing about availability: no section rather than a wrong "none"
 	if (isError) return null;
 	const shown = data ? displayProviders(data.providers) : [];
@@ -64,6 +68,12 @@ export default function WhereToWatch({ tmdbId, mediaType, title, bleed }: Readon
 	// home; TMDB's watch page for a service it doesn't know
 	const open = (name: string) => {
 		const url = providerLink(name, title, data?.link ?? null, true);
+		if (url) openService(url, providerApp(name));
+	};
+
+	// A service picked in another country: that country's TMDB watch page is its link
+	const openIn = (name: string, link: string | null) => {
+		const url = providerLink(name, title, link, true);
 		if (url) openService(url, providerApp(name));
 	};
 
@@ -115,6 +125,28 @@ export default function WhereToWatch({ tmdbId, mediaType, title, bleed }: Readon
 					</ScrollView>
 				</>
 			)}
+			{region ? (
+				<Pressable
+					onPress={() => setCountriesOpen(true)}
+					accessibilityRole="button"
+					accessibilityLabel={`Other countries, now ${country ?? region}`}
+					style={({ pressed }) => [styles.otherRow, pressed && styles.sheetRowPressed]}
+				>
+					<Text style={styles.otherLabel}>Other Countries</Text>
+					<Text style={styles.otherValue} numberOfLines={1}>
+						{`${regionFlag(region)} ${country ?? region}`}
+					</Text>
+					<Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+				</Pressable>
+			) : null}
+			<CountrySheet
+				visible={countriesOpen}
+				onClose={() => setCountriesOpen(false)}
+				tmdbId={tmdbId}
+				mediaType={mediaType}
+				currentRegion={region}
+				onOpen={openIn}
+			/>
 		</View>
 	);
 }
@@ -333,7 +365,7 @@ function ProvidersSheet({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	section: { marginTop: spacing.xl, paddingHorizontal: TEXT_INSET },
 	header: { marginBottom: spacing.md, gap: 2 },
 	// The page's section title (Seasons)
@@ -374,6 +406,18 @@ const styles = StyleSheet.create({
 	sheetLogo: { width: 36, height: 36, borderRadius: 18 },
 	sheetName: { ...typography.body, fontSize: 15, flex: 1 },
 	sheetRowPressed: { opacity: 0.6 },
+	// Footer: "Other Countries" on the left, the current country + chevron on the right
+	otherRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: spacing.sm,
+		marginTop: spacing.lg,
+		paddingTop: spacing.md,
+		borderTopWidth: StyleSheet.hairlineWidth,
+		borderTopColor: colors.border,
+	},
+	otherLabel: { ...typography.body, fontSize: 15, fontWeight: "600", color: colors.text },
+	otherValue: { ...typography.caption, flex: 1, textAlign: "right", color: colors.textSecondary },
 	empty: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -392,4 +436,4 @@ const styles = StyleSheet.create({
 	creditRowTitle: { flexShrink: 1 },
 	endCredit: { ...typography.caption, fontSize: 11, color: colors.textMuted },
 	inlineCredit: { ...typography.caption, fontSize: 11, fontWeight: "400", color: colors.textMuted },
-});
+}));

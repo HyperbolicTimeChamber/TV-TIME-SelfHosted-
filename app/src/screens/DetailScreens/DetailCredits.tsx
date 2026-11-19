@@ -1,14 +1,15 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Animated, View, Text, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { tmdbPosterUri } from "../../hooks/useTmdbImage";
-import { useSharedShimmer } from "../../components/SkeletonLine";
+import SkeletonLine, { useSharedShimmer } from "../../components/SkeletonLine";
 import PhotoTrigger from "../../components/PhotoViewer";
 import { personSubject } from "../../utils/subjectLink";
 import type { MediaType } from "../../enums";
+import { CREDITS_GIVE_UP_MS } from "../../enums";
 import type { CrewMember } from "../../types";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 
 const AVATAR = 44;
 const PHOTO_FADE_MS = 200;
@@ -24,6 +25,8 @@ interface Props {
 	writerPeople?: CrewMember[];
 	/** The photos are still being fetched (shimmer, not a person icon that looks final) */
 	photosPending?: boolean;
+	/** The movie's credits aren't here yet (just added, fetched in the background): placeholder pills, not nothing */
+	namesPending?: boolean;
 }
 
 type Person = CrewMember & { key: string };
@@ -96,6 +99,18 @@ function CreditGroup({
 	);
 }
 
+/** Stand-in for a person while the credits load: shimmering photo + a name line */
+function PersonPlaceholder() {
+	return (
+		<View style={styles.person} accessibilityLabel="Loading credits">
+			<View style={styles.avatarSlot}>
+				<Avatar profile={null} pending />
+			</View>
+			<SkeletonLine width="60%" height={14} />
+		</View>
+	);
+}
+
 /** Movie credits: directors and writers, each with their photo, in a two-column grid */
 export default function DetailCredits({
 	tmdbId,
@@ -105,10 +120,30 @@ export default function DetailCredits({
 	directorPeople,
 	writerPeople,
 	photosPending = false,
+	namesPending = false,
 }: Readonly<Props>) {
 	const directing = people(directors, directorPeople);
 	const writing = people(writers, writerPeople);
-	if (directing.length === 0 && writing.length === 0) return null;
+	// Gives up after a while (the background fetch failed): then nothing, as before
+	const [gaveUp, setGaveUp] = useState(false);
+	useEffect(() => {
+		if (!namesPending) return;
+		const t = setTimeout(() => setGaveUp(true), CREDITS_GIVE_UP_MS);
+		return () => clearTimeout(t);
+	}, [namesPending]);
+	if (directing.length === 0 && writing.length === 0) {
+		if (!namesPending || gaveUp) return null;
+		return (
+			<View style={styles.creditsSection}>
+				<View>
+					<Text style={styles.creditLabel}>Director</Text>
+					<View style={styles.grid}>
+						<PersonPlaceholder />
+					</View>
+				</View>
+			</View>
+		);
+	}
 
 	return (
 		<View style={styles.creditsSection}>
@@ -132,7 +167,7 @@ export default function DetailCredits({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	creditsSection: {
 		marginTop: spacing.xl,
 		gap: spacing.lg,
@@ -160,4 +195,4 @@ const styles = StyleSheet.create({
 	avatarPhoto: { width: AVATAR, height: AVATAR },
 	avatarShimmer: { backgroundColor: colors.border },
 	name: { ...typography.body, color: colors.textSecondary, flexShrink: 1 },
-});
+}));

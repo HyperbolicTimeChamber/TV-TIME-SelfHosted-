@@ -1,6 +1,6 @@
 import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
 import { View, Text, StyleSheet } from "react-native";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 
 /** TMDB's attribution logo (blue_short), as TMDB ships it — transparent, its own gradient */
 const TMDB_LOGO_PATH =
@@ -35,7 +35,7 @@ export default function PoweredByTmdb() {
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	wrap: { alignItems: "center", gap: spacing.sm },
 	label: { ...typography.caption, fontSize: 12, color: colors.textMuted },
-});
+}));

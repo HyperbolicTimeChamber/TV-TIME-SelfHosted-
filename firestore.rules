@@ -63,10 +63,12 @@ service cloud.firestore {
     // fcmToken: push token (App.tsx registerForPush); hasCompletedImport: the import screen's
     // Skip / Done. Both were missing, so those writes were refused and the import screen came
     // back on every launch. customListsSeeded: the default Favorites list was offered
-    // (services/customLists seedDefaultLists)
+    // (services/customLists seedDefaultLists). profileListCount (0-10, whole) / profileShowCompleted:
+    // Settings -> Profile (lists under Recently Watched, the completed rows)
     function validUserDoc() {
       return onlyWrites(['stats', 'lastAppOpen', 'hideUnreleasedMovieModal', 'fcmToken',
-                         'hasCompletedImport', 'customListsSeeded'])
+                         'hasCompletedImport', 'customListsSeeded',
+                         'profileListCount', 'profileShowCompleted'])
         && (!('stats' in writtenKeys()) || validStats())
         && optTimestamp('lastAppOpen')
         && (!('hideUnreleasedMovieModal' in request.resource.data)
@@ -77,7 +79,14 @@ service cloud.firestore {
         && (!('hasCompletedImport' in request.resource.data)
             || request.resource.data.hasCompletedImport is bool)
         && (!('customListsSeeded' in request.resource.data)
-            || request.resource.data.customListsSeeded is bool);
+            || request.resource.data.customListsSeeded is bool)
+        && (!('profileListCount' in request.resource.data)
+            || (request.resource.data.profileListCount is number
+                && request.resource.data.profileListCount >= 0
+                && request.resource.data.profileListCount <= 10
+                && math.floor(request.resource.data.profileListCount) == request.resource.data.profileListCount))
+        && (!('profileShowCompleted' in request.resource.data)
+            || request.resource.data.profileShowCompleted is bool);
     }
 
     function validTracking(showId) {

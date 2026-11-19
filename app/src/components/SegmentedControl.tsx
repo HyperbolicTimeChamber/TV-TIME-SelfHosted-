@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import * as Haptics from "expo-haptics";
-import { colors, spacing } from "../theme";
+import { colors, spacing, themedStyles } from "../theme";
 
 interface Option<T> {
 	value: T;
@@ -85,7 +85,7 @@ export default function SegmentedControl<T>({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	track: {
 		flexDirection: "row",
 		padding: INSET,
@@ -110,5 +110,5 @@ const styles = StyleSheet.create({
 	// Press feedback on the idle side: a touch smaller, never from nothing
 	pressed: { transform: [{ scale: 0.97 }], opacity: 0.8 },
 	label: { fontSize: 15, fontWeight: "600", color: colors.textSecondary },
-	labelActive: { color: colors.text },
-});
+	labelActive: { color: colors.onPrimary },
+}));

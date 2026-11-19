@@ -5,6 +5,7 @@ import {
 	cardEntryMode,
 	cardEntryOrder,
 	changedCardCount,
+	unreachedCount,
 	isBulkCardChange,
 	mergeCachedShows,
 	promoteShows,
@@ -126,4 +127,20 @@ test("cardEntryOrder: waiting cards top first, ones the list lost dropped", () =
 	const list = [{ type: "sectionHeader" as const }, card(7), card(3), card(9), card(1)];
 	assert.deepEqual(cardEntryOrder(new Set([1, 3, 42]), list), [3, 1]);
 	assert.deepEqual(cardEntryOrder(new Set(), list), []);
+});
+
+test("a saved card whose tracking doc is loaded but hidden (marked off) doesn't come back", () => {
+	const header = { type: "sectionHeader" as const, title: "What's Up Next" };
+	const card = (tmdbId: number) => ({ type: "show" as const, card: { tmdbId } });
+	type Item = { type: string; title?: string; card?: { tmdbId: number } };
+	const saved: Item[] = [header, card(1), card(2), card(3)];
+	// After the mark: card 1 is hidden (its doc is loaded), card 3 sits on a page not loaded yet
+	const live: Item[] = [header, card(2)];
+	const out = mergeCachedShows(saved, live, new Set([1, 2]));
+	assert.deepEqual(out.map((i) => i.card?.tmdbId ?? i.type), ["sectionHeader", 2, 3]);
+});
+
+test("unreachedCount counts saved cards whose tracking doc hasn't loaded yet", () => {
+	assert.equal(unreachedCount(new Set([1, 2, 3]), new Set([1, 2])), 1);
+	assert.equal(unreachedCount(new Set([1, 2]), new Set([1, 2, 9])), 0);
 });

@@ -10,7 +10,7 @@ import { similarProps } from "../utils/similarProps";
 import { withHaptic } from "../utils/haptics";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { MediaType, FreshTag, JUST_AIRED_WINDOW_DAYS, WatchStatus } from "../types";
-import { colors, spacing, typography } from "../theme";
+import { colors, spacing, typography, themedStyles } from "../theme";
 import { CARD_RADIUS } from "../enums";
 import SwipeableCard, { SwipeableCardRef } from "./SwipeableCard";
 import CheckmarkButton, { WATCHLIST_CHECK_CIRCLE, WATCHLIST_CHECK_TICK } from "./CheckmarkButton";
@@ -435,7 +435,7 @@ export default memo(function ShowCard({
 	);
 }, similarProps);
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	// Same fade as WatchedEpisodeRow, but per element instead of over the whole card: a
 	// container opacity also dims the movie year, which has to stay readable. The card keeps
 	// `container`'s surface — SwipeableCard paints the same surface behind it, so the old
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
 	freshTagText: {
 		fontSize: 10,
 		fontWeight: "700",
-		color: colors.surface,
+		color: colors.onAmber,
 		letterSpacing: 0.5,
 	},
 	// Previously watched: half-strength amber, so only the year number reads at full strength
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
 	},
 	// …and black on that muted amber, where the surface-grey went brownish
 	watchedYear: {
-		color: colors.background,
+		color: colors.onAmber,
 	},
 	tagBadge: {
 		alignSelf: "flex-start",
@@ -541,7 +541,7 @@ const styles = StyleSheet.create({
 	tagBadgeText: {
 		fontSize: 10,
 		fontWeight: "700",
-		color: colors.surface,
+		color: colors.onAmber,
 		letterSpacing: 0.5,
 	},
 	// Episode line: "S02 | E10" and its tag, centred on each other, 8 apart
@@ -563,7 +563,7 @@ const styles = StyleSheet.create({
 	cornerTagText: {
 		fontSize: 12,
 		fontWeight: "700",
-		color: colors.text,
+		color: colors.onPrimary,
 		letterSpacing: 0.5,
 	},
 	// NEW uses the default tag look (yellow, dark text); FINALE and LATEST are solid blue
@@ -571,13 +571,13 @@ const styles = StyleSheet.create({
 		backgroundColor: colors.accent,
 	},
 	finaleBadgeText: {
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 	latestBadge: {
 		backgroundColor: colors.accent,
 	},
 	latestBadgeText: {
-		color: colors.text,
+		color: colors.onPrimary,
 	},
 	// Movie: MOVIE / year tags, and a REWATCH tag beside them
 	movieMetaRow: {
@@ -590,4 +590,4 @@ const styles = StyleSheet.create({
 		alignSelf: "center",
 		paddingRight: spacing.md,
 	},
-});
+}));

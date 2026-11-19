@@ -31,7 +31,7 @@ export default function PosterImage({
 				src={tmdbPosterUri(posterPath, width ?? POSTER_WIDTH)}
 				alt={title ?? ""}
 				loading="lazy"
-				className={`block object-cover ${className}`}
+				className={`block bg-[var(--skeleton-card)] object-cover ${className}`}
 			/>
 		);
 	}

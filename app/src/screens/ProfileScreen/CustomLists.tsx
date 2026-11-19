@@ -1,11 +1,12 @@
 import React from "react";
 import { View, Text, FlatList, ActivityIndicator, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 import type { CustomListEntry, MediaType } from "../../types";
 import { useCustomLists } from "../../hooks";
 import PosterImage from "../../components/PosterImage";
 import { profileLists } from "../../utils";
+import { useAuthStore } from "../../stores";
 import { styles as profileStyles } from "./styles";
 
 /** Posters shown per row on the profile; a "+N" tile after them opens the rest */
@@ -34,7 +35,8 @@ export default function CustomLists({
 	standalone,
 }: Readonly<Props>) {
 	const { lists, loading } = useCustomLists(userId);
-	const shown = profileLists(lists);
+	const listCount = useAuthStore((s) => s.profilePrefs.listCount);
+	const shown = profileLists(lists, listCount);
 
 	return (
 		<View style={standalone ? profileStyles.section : styles.section}>
@@ -194,12 +196,12 @@ function PosterRow({
 
 const POSTER = profileStyles.completedPoster;
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	// Continues Recently Completed: its side padding, no gap or title above
 	section: { paddingHorizontal: spacing.lg },
 	// Recently Completed's rows (genreSection)
 	row: { marginBottom: spacing.lg },
-	// Full width, red: label left, an arrow in a circle on the right
+	// Full width, neutral grey: label left, an arrow in a circle on the right
 	viewAll: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -208,17 +210,17 @@ const styles = StyleSheet.create({
 		borderRadius: 16,
 		paddingLeft: spacing.lg,
 		paddingRight: spacing.sm,
-		backgroundColor: colors.primary,
+		backgroundColor: colors.surfaceLight,
 	},
-	viewAllText: { ...typography.subtitle, fontSize: 15 },
+	viewAllText: { ...typography.subtitle, fontSize: 15, color: colors.text },
 	// The back button's chevron, mirrored: its glyph sits 2px off centre the other way
 	viewAllChevron: { marginLeft: 2 },
 	viewAllArrow: {
 		width: 36,
 		height: 36,
 		borderRadius: 18,
-		// A lighter disc on the red
-		backgroundColor: "rgba(255, 255, 255, 0.2)",
+		// One step off the grey fill in both themes
+		backgroundColor: colors.border,
 		alignItems: "center",
 		justifyContent: "center",
 	},
@@ -265,4 +267,4 @@ const styles = StyleSheet.create({
 	},
 	emptyTitle: { ...typography.subtitle, fontSize: 15, marginTop: spacing.xs },
 	emptyHint: { ...typography.caption, textAlign: "center" },
-});
+}));

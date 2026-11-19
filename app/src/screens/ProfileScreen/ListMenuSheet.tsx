@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from "react-native";
 import BottomSheet, { SheetGroup, SheetOption } from "../../components/modals/BottomSheet";
 import type { CustomList } from "../../types";
 import { listCoverItem, titleCount } from "../../utils";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 
 /**
  * A list's menu (Lists page ⋮ on a card, and a list's own page ⋮): the list's art behind, its name
@@ -68,7 +68,7 @@ export default function ListMenuSheet({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	header: { marginBottom: spacing.lg },
 	name: { ...typography.subtitle, fontSize: 20 },
 	count: {
@@ -79,4 +79,4 @@ const styles = StyleSheet.create({
 		marginTop: 2,
 	},
 	gap: { height: spacing.md },
-});
+}));

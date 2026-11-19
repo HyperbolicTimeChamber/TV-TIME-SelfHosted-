@@ -2,7 +2,7 @@ import React, { type ReactNode } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import AnimatedModal from "./AnimatedModal";
 import PanLoader from "../PanLoader";
-import { colors, spacing, typography } from "../../theme";
+import { colors, spacing, typography, themedStyles } from "../../theme";
 
 interface Props {
 	visible: boolean;
@@ -51,7 +51,7 @@ export default function ExportingModal({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	content: {
 		backgroundColor: colors.surface,
 		borderRadius: 12,
@@ -79,4 +79,4 @@ const styles = StyleSheet.create({
 	// Pressed: a touch smaller (Emil: buttons answer the press)
 	cancelPressed: { transform: [{ scale: 0.97 }], opacity: 0.85 },
 	cancelText: { ...typography.subtitle, fontSize: 15, color: colors.destructiveRed },
-});
+}));

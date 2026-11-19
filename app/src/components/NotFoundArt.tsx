@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, Dimensions, Easing, StyleSheet, View } from "react-native";
+import { themedStyles } from "../theme";
 
 const NOT_FOUND_ART = require("../../assets/not-found.webp");
 const NOT_FOUND_RATIO = 600 / 587;
@@ -86,10 +87,10 @@ export default function NotFoundArt({
 	);
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles(() => StyleSheet.create({
 	art: {
 		position: "absolute",
 		bottom: 0,
 		alignSelf: "center",
 	},
-});
+}));
