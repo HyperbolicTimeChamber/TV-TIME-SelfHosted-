@@ -45,7 +45,7 @@ On a fresh system check for the tools below (`claude plugin list`, `/mcp`, `adb`
 - **Config:** `config/app` — `tmdbApiKey` (server-only), `minVersion`, `lastCatalogSync`.
 - Functions layout: `shared/` (enums, types/, docId), `hooks/` (subfoldered by calling CF; shared → hooks root), `cloudFunctions/`.
 - App screens: `app/src/screens/{HomeScreen(WatchlistTab,UpcomingTab),CalendarScreen,SearchScreen,ProfileScreen,DetailScreens,ImportDataScreen}`; web mirrors under `web/src/screens`.
-- Cloud Functions: addShow, removeShow, importMatches, syncCatalog, markSeasonWatched, rebuildUpcoming, deleteAccount, purgeUserData, testFCM, migrateDocIds, tmdbProxy, searchTitles, sharePreview, exportAccountData, cancelAccountJob, budgetGuard, trackingSyncStamp, watchProviders, titleExtras, subjectLink, sendTestPush. Details: docs/claude/cloud-functions.md.
+- Cloud Functions: addShow, removeShow, importMatches, syncCatalog, markSeasonWatched, rebuildUpcoming, deleteAccount, purgeUserData, testFCM, migrateDocIds, tmdbProxy, searchTitles, sharePreview, exportAccountData, cancelAccountJob, budgetGuard, trackingSyncStamp, watchProviders, titleExtras, subjectLink, sendTestPush, notifyAirings. Details: docs/claude/cloud-functions.md.
 
 ## Topic docs — read before touching
 - docs/claude/cloud-functions.md — CF / callable / TMDB / Mixpanel / rules
@@ -55,6 +55,7 @@ On a fresh system check for the tools below (`claude plugin list`, `/mcp`, `adb`
 - docs/claude/releases.md — versions, CI, in-app update, merge to main
 - docs/claude/patches.md — upgrading patched deps
 - docs/claude/debugging.md — crashes, emulator/Telegram setup, gotchas, condensed rules
+- docs/claude/notifications.md — airing alerts, title topics, notifyAirings, quiet hours
 
 ## Build / run / test essentials
 - App: `cd app && npx expo start --dev-client`, `adb reverse tcp:8081 tcp:8081`, open `exp+watchloom://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081`.
