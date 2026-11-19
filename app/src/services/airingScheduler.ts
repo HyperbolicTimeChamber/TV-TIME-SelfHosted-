@@ -33,6 +33,14 @@ export interface ReplanResult {
 	cancelled: number;
 }
 
+/** Fire time (ms) of a scheduled date trigger; null when this OS / version doesn't expose it */
+function firesAt(trigger: unknown): number | null {
+	const t = trigger as { value?: unknown; date?: unknown } | null;
+	const v = t?.value ?? t?.date;
+	if (typeof v === "number") return v;
+	return v instanceof Date ? v.getTime() : null;
+}
+
 const isOurs = (id: string) => OUR_PREFIXES.some((p) => id.startsWith(p));
 
 /** Foreground notifications show as a banner too */
@@ -114,7 +122,12 @@ async function applyPlan(plan: PlannedAlert[]): Promise<{ scheduled: number; can
 	}
 	for (const a of plan) {
 		const current = byId.get(a.id);
-		if (current && current.content.title === a.title && current.content.body === a.body) continue;
+		if (current && current.content.title === a.title && current.content.body === a.body) {
+			// The id carries the fire time for every alert but the reopen nudge, whose time moves with each app open
+			const at = firesAt(current.trigger);
+			const moved = at === null ? a.id === ALERT_ID.NUDGE : Math.abs(at - a.fireAt) > 1000;
+			if (!moved) continue;
+		}
 		await Notifications.scheduleNotificationAsync({
 			identifier: a.id,
 			content: { title: a.title, body: a.body, data: alertData(a) },

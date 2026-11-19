@@ -187,9 +187,11 @@ function AppContent() {
 	useEffect(
 		() =>
 			onMessage(getMessaging(), (message) => {
-				handleAiringMessage(message).then((handled) => {
-					if (!handled) handleUpdateMessage(message);
-				});
+				handleAiringMessage(message)
+					.then((handled) => {
+						if (!handled) handleUpdateMessage(message);
+					})
+					.catch(() => {});
 			}),
 		[],
 	);

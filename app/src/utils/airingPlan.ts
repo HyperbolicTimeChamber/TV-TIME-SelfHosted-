@@ -279,12 +279,15 @@ function groupAlert(group: Entry[]): PlannedAlert {
 function episodeAlerts(episodes: AirEpisode[], prefs: NotifyPrefs, now: number, horizon: number): PlannedAlert[] {
 	const entries: Entry[] = [];
 	for (const ep of episodes) {
-		if (ep.at <= now || ep.at > horizon) continue;
+		if (ep.at > horizon) continue;
 		const premiere = ep.episode === 1 && prefs[NotificationKind.PREMIERES];
 		// A premiere with its switch off is a plain new episode
 		if (!premiere && !prefs[NotificationKind.NEW_EPISODES]) continue;
 		const quiet = prefs[NotificationKind.QUIET_HOURS] && isQuiet(ep.at);
-		entries.push({ ep, fireAt: quiet ? nextMorning(ep.at) : ep.at, premiere, deferred: quiet });
+		const fireAt = quiet ? nextMorning(ep.at) : ep.at;
+		// Aired already: only a quiet-hours alert still waiting for its 9 am stays planned
+		if (fireAt <= now) continue;
+		entries.push({ ep, fireAt, premiere, deferred: quiet });
 	}
 	// Same title, same minute → one alert ("Scrubs: 8 new episodes")
 	const groups = new Map<string, Entry[]>();
@@ -405,13 +408,16 @@ function nudgeAlert(lastOpenMs: number, now: number): PlannedAlert | null {
  * Caught up: the tracking nextEpisode exists in the catalog and has NOT aired yet. A title whose next
  * episode already aired is a backlog and gets no episode alerts
  */
-function isCaughtUp(t: PlanTitle, overrides: AiringOverride[], now: number): boolean {
+function isCaughtUp(t: PlanTitle, overrides: AiringOverride[], now: number, quietOn: boolean): boolean {
 	const next = t.nextEpisode;
 	if (!next) return false;
 	const e = t.seasons.find((s) => s.seasonNumber === next.season)?.episodes.find((x) => x.episodeNumber === next.episode);
 	const o = overrides.find((x) => x.docId === t.docId && x.season === next.season && x.episode === next.episode);
 	if (!e && !o) return false;
-	return !hasAired(o?.airStamp ?? e?.airStamp, e?.airDate, localDateStr(new Date(now)), now);
+	if (!hasAired(o?.airStamp ?? e?.airStamp, e?.airDate, localDateStr(new Date(now)), now)) return true;
+	// Aired overnight and its 9 am alert hasn't fired yet: still caught up (a replan must not cancel it)
+	const at = o ? Date.parse(o.airStamp) : e ? episodeTime(e) : NaN;
+	return quietOn && !Number.isNaN(at) && isQuiet(at) && nextMorning(at) > now;
 }
 
 /** Only episodes from the tracking nextEpisode onward are alerted */
@@ -437,7 +443,7 @@ export function buildAiringPlan(input: PlanInput): PlannedAlert[] {
 		(t) =>
 			t.mediaType === MediaType.TV &&
 			(t.status === WatchStatus.WATCHING || t.status === WatchStatus.REWATCHING) &&
-			isCaughtUp(t, overrides, now),
+			isCaughtUp(t, overrides, now, prefs[NotificationKind.QUIET_HOURS]),
 	);
 	const movies = active.filter((t) => t.mediaType === MediaType.MOVIE && t.status !== WatchStatus.COMPLETED);
 	const episodes = shows.flatMap((t) => titleEpisodes(t, overrides).filter((e) => fromNext(e, t.nextEpisode)));

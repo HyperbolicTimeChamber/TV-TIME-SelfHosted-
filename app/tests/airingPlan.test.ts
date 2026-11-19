@@ -295,3 +295,14 @@ test("toPlanTitle needs a cached title; topicDocIds skips paused and watched mov
 		["tv_5", "movie_8"],
 	);
 });
+
+test("an overnight episode that has aired keeps its 9 am alert until it fires (replan at 2 am)", () => {
+	const t = show(1, "Scrubs", [ep(3, "2026-11-16", 23)]);
+	const out = plan([t], { now: at("2026-11-17", 2), prefs: prefs(noDigest) });
+	assert.equal(out.length, 1);
+	assert.equal(out[0].fireAt, at("2026-11-17", 9));
+	// after 9 am it is a backlog episode: nothing
+	assert.deepEqual(plan([t], { now: at("2026-11-17", 9, 30), prefs: prefs(noDigest) }), []);
+	// quiet hours off: aired at 11 pm, nothing left to fire
+	assert.deepEqual(plan([t], { now: at("2026-11-17", 2), prefs: prefs({ ...noDigest, [NotificationKind.QUIET_HOURS]: false }) }), []);
+});
