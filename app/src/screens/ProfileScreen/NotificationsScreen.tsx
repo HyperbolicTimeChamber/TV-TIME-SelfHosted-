@@ -65,7 +65,7 @@ export default function NotificationsScreen() {
 								onPress={() => IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.APP_NOTIFICATION_SETTINGS)}
 							>
 								<View style={styles.rowTextWrap}>
-									<Text style={styles.rowText}>Notifications are off for Watchloom</Text>
+									<Text style={[styles.rowText, styles.rowTextDanger]}>Notifications are off for Watchloom</Text>
 									<Text style={styles.rowHint}>Tap to open the system settings</Text>
 								</View>
 							</TouchableOpacity>
@@ -145,6 +145,7 @@ const styles = themedStyles(() => StyleSheet.create({
 	rowDivider: { borderTopWidth: 1, borderTopColor: colors.border },
 	rowTextWrap: { flex: 1 },
 	rowText: { ...typography.subtitle, fontSize: 15, color: colors.text },
+	rowTextDanger: { color: colors.destructiveRed },
 	rowHint: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
 	footer: {
 		...typography.caption,
