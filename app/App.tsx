@@ -63,10 +63,15 @@ import {
 import { getFirestore, doc, setDoc } from "@react-native-firebase/firestore";
 import { useAuthStore, useUiStore } from "./src/stores";
 import { handleUpdateMessage, subscribeToUpdates } from "./src/services/updateNotifications";
+import * as Notifications from "expo-notifications";
+import { handleAiringMessage } from "./src/services/airingScheduler";
+import { trackNotificationOpened } from "./src/services/mixpanel";
+import { useAiringReplan } from "./src/hooks/useAiringReplan";
+import { alertTarget } from "./src/utils/airingPush";
 import UpdatePrompt, { useReleaseWatch, useUpdateForced } from "./src/components/UpdateGate";
 import LoginScreen from "./src/screens/LoginScreen";
 import ImportDataScreen from "./src/screens/ImportDataScreen";
-import AppNavigator from "./src/navigation/AppNavigator";
+import AppNavigator, { openFromAlert } from "./src/navigation/AppNavigator";
 import { NoInternetModal } from "./src/components/modals";
 import { colors, themedStyles, useThemeVersion } from "./src/theme";
 import { AppOpenSource, FATAL_AUTH_ERRORS, OFFLINE_DELAY_MS, QueryKey } from "./src/enums";
@@ -159,12 +164,32 @@ async function verifySession(user: User) {
  */
 function AppContent() {
 	useReleaseWatch();
+	const alertUid = useAuthStore((s) => s.user?.uid ?? null);
+	useAiringReplan(alertUid);
+	// A tapped alert → its title's page (or Upcoming); a cold start from one is handled once
+	useEffect(() => {
+		const open = (response: Notifications.NotificationResponse) => {
+			const target = alertTarget(response.notification.request.content.data);
+			if (!target) return;
+			trackNotificationOpened(target.alert);
+			openFromAlert(target.show);
+		};
+		const initial = Notifications.getLastNotificationResponse();
+		if (initial) {
+			open(initial);
+			Notifications.clearLastNotificationResponse();
+		}
+		const subscription = Notifications.addNotificationResponseReceivedListener(open);
+		return () => subscription.remove();
+	}, []);
 	// An update push while the app is open: notify here too (the background handler in index.ts only
 	// runs with the app in the background / closed, and the drawer only comes up on launch)
 	useEffect(
 		() =>
 			onMessage(getMessaging(), (message) => {
-				handleUpdateMessage(message);
+				handleAiringMessage(message).then((handled) => {
+					if (!handled) handleUpdateMessage(message);
+				});
 			}),
 		[],
 	);

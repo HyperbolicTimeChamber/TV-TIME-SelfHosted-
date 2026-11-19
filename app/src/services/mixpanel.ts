@@ -195,6 +195,23 @@ export function trackTabDesync(props: TabDesyncProps) {
 	track(AnalyticsEvent.TAB_DESYNC, { ...props });
 }
 
+export interface NotificationScheduledProps {
+	/** Alerts in the plan */
+	count: number;
+	scheduled: number;
+	cancelled: number;
+}
+
+/** The alert plan changed on this device */
+export function trackNotificationScheduled(props: NotificationScheduledProps & { planned?: number }) {
+	track(AnalyticsEvent.NOTIFICATION_SCHEDULED, { count: props.count, scheduled: props.scheduled, cancelled: props.cancelled });
+}
+
+/** A local alert was tapped (`alert` = AlertType) */
+export function trackNotificationOpened(alert: string) {
+	track(AnalyticsEvent.NOTIFICATION_OPENED, { category: alert });
+}
+
 /** Screen (app) / route (web) shown */
 export function trackPageViewed(page: string) {
 	track(AnalyticsEvent.PAGE_VIEWED, { page });
