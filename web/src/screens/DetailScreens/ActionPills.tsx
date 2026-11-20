@@ -1,5 +1,5 @@
 import { HiCheck } from "react-icons/hi";
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Spin } from "antd";
 import { IoBookmark, IoBookmarkOutline, IoEllipsisVertical } from "react-icons/io5";
 import {
@@ -9,6 +9,7 @@ import {
 	MediaType,
 	WatchStatus,
 } from "@app/enums";
+import { resumeRewatchLabels, rewatchLabels } from "@app/utils/format";
 import CircleButton from "../../components/CircleButton";
 import styles from "./styles/ShowDetailScreen.module.scss";
 
@@ -60,7 +61,7 @@ function FitLabel({ labels, icon }: { labels: readonly string[]; icon?: ReactNod
 
 interface Props {
 	mediaType: MediaType;
-	watchlistItem: { status?: WatchStatus } | null;
+	watchlistItem: { status?: WatchStatus; rewatchCount?: number } | null;
 	adding: boolean;
 	removing: boolean;
 	movieWatchCount: number;
@@ -86,10 +87,14 @@ export default function ActionPills(p: Props) {
 	const isMovie = p.mediaType === MediaType.MOVIE;
 	const completed = status === WatchStatus.COMPLETED;
 	const neverWatched = !isMovie && completed && p.hasWatchedEpisodes === false;
-	// Completed show: "Start a Rewatch" (it reads "Pause a Rewatch" once the run is under way)
-	const rewatchChoice = !isMovie && completed && !neverWatched;
 	// Watch count sheet (⋯ at the row's end, like Settings beside Hall of Shame)
 	const hasSheet = isMovie && completed && p.movieWatchCount > 0;
+	// The run the button starts / resumes: show = runs so far + 1 (paused = the run under way),
+	// movie = plays so far (1 play → its 1st rewatch). App: ActionPills
+	const runs = p.watchlistItem?.rewatchCount ?? 0;
+	const rewatchNth = isMovie ? p.movieWatchCount : runs + 1;
+	const startLabels = useMemo(() => rewatchLabels(rewatchNth), [rewatchNth]);
+	const resumeLabels = useMemo(() => resumeRewatchLabels(runs), [runs]);
 
 	const listButton = (
 		<CircleButton
@@ -155,15 +160,15 @@ export default function ActionPills(p: Props) {
 			)}
 			{showResume && (
 				<button className={`${styles.pill} ${styles.pillAccent}`} onClick={p.onResumeOrRewatch}>
-					{status === WatchStatus.PAUSED
-						? "Resume"
-						: status === WatchStatus.PAUSED_REWATCH
-							? "Resume Rewatch"
-							: neverWatched
-								? "Start Watching"
-								: rewatchChoice
-									? "Start a Rewatch"
-									: "Rewatch"}
+					{status === WatchStatus.PAUSED ? (
+						"Resume"
+					) : status === WatchStatus.PAUSED_REWATCH ? (
+						<FitLabel labels={resumeLabels} />
+					) : neverWatched ? (
+						"Start Watching"
+					) : (
+						<FitLabel labels={startLabels} />
+					)}
 				</button>
 			)}
 			{!isMovie && (status === WatchStatus.WATCHING || status === WatchStatus.REWATCHING) && (

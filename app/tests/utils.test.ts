@@ -421,3 +421,33 @@ test("recentTitleChecks: seasons asked inside the window stay skipped across lau
 	assert.deepEqual(kept, { "5_1": now - hour });
 	assert.equal(recentTitleChecks(null, now, 12 * hour).recent.size, 0);
 });
+
+test("rewatchLabels / resumeRewatchLabels: the run's ordinal, shortening to fit", async () => {
+	const { rewatchLabels, resumeRewatchLabels } = await import("../src/utils/format");
+	assert.deepEqual(rewatchLabels(2), ["Rewatch 2nd Time", "2nd Rewatch", "Rewatch"]);
+	assert.deepEqual(rewatchLabels(11), ["Rewatch 11th Time", "11th Rewatch", "Rewatch"]);
+	assert.deepEqual(rewatchLabels(0), ["Rewatch"]);
+	assert.deepEqual(resumeRewatchLabels(3), ["Resume 3rd Rewatch", "Resume Rewatch", "Resume"]);
+});
+
+test("withOriginalServices: a Netflix / Amazon original lists its service in every region", async () => {
+	const { withOriginalServices } = await import("../src/utils/providerNames");
+	const region = (...names: string[]) => ({
+		providers: names.map((name, id) => ({ id, name, logo: "" })),
+		link: null,
+		updatedAt: 0,
+	});
+	const names = (r: any) => r?.providers.map((p: any) => p.name);
+	// Missing in the region → first
+	assert.deepEqual(names(withOriginalServices(region("Hulu"), [{ name: "Netflix" }])), ["Netflix", "Hulu"]);
+	assert.deepEqual(names(withOriginalServices(region(), [{ name: "Amazon MGM Studios" }])), [
+		"Amazon Prime Video",
+	]);
+	assert.deepEqual(names(withOriginalServices(region(), [{ name: "Prime Video" }])), ["Amazon Prime Video"]);
+	// Already listed (any spelling) or no matching studio → same answer back
+	const listed = region("Amazon Prime Video");
+	assert.equal(withOriginalServices(listed, [{ name: "Amazon Studios" }]), listed);
+	const other = region("Max");
+	assert.equal(withOriginalServices(other, [{ name: "Warner Bros. Pictures" }, { name: "Amazonas Films" }]), other);
+	assert.equal(withOriginalServices(undefined, [{ name: "Netflix" }]), undefined);
+});
