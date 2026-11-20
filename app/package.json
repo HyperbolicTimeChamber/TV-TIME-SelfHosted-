@@ -93,5 +93,14 @@
     "mixpanel-react-native": {
       "@react-native-async-storage/async-storage": "$@react-native-async-storage/async-storage"
     }
+  },
+  "expo": {
+    "autolinking": {
+      "android": {
+        "buildFromSource": [
+          "expo-notifications"
+        ]
+      }
+    }
   }
 }

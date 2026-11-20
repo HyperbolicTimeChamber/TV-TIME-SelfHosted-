@@ -115,12 +115,15 @@ test("several titles overnight become one grouped alert; one title keeps its own
 	assert.equal(out.length, 1);
 	assert.equal(out[0].id, `${ALERT_ID.MORNING}2026-11-18`);
 	assert.equal(out[0].type, AlertType.MORNING);
-	assert.equal(out[0].body, "3 new episodes landed overnight");
+	assert.equal(out[0].title, "3 Episodes to Watch Today");
+	assert.equal(out[0].body, "A, B");
+	assert.deepEqual(out[0].lines, ["A · S1 E2 · Name 2", "A · S1 E3 · Name 3", "B · S1 E5 · Name 5"]);
 	assert.equal(out[0].fireAt, at("2026-11-18", 9));
 	const single = plan([a], { prefs: prefs(noDigest) });
 	assert.equal(single.length, 1);
 	assert.equal(single[0].body, "2 new episodes");
 	assert.equal(single[0].title, "A");
+	assert.deepEqual(single[0].lines, ["S1 E2 · Name 2", "S1 E3 · Name 3"]);
 });
 
 test("a batch drop of one title at one time is one alert", () => {
@@ -130,6 +133,47 @@ test("a batch drop of one title at one time is one alert", () => {
 	assert.equal(out[0].title, "Scrubs");
 	assert.equal(out[0].body, "8 new episodes");
 	assert.equal(out[0].type, AlertType.PREMIERE); // contains E1, premieres on
+	// Expanded list caps at 6 rows, the rest fold into "+N more"
+	assert.equal(out[0].lines?.length, 6);
+	assert.equal(out[0].lines?.[0], "Season 1 premiere · Name 1");
+	assert.equal(out[0].lines?.[5], "+3 more");
+});
+
+test("episode alerts: still + S01E04, premiere: backdrop + Season N Premiere, several add N episodes", () => {
+	const withArt = (t: ReturnType<typeof show>) => ({
+		...t,
+		backdropPath: "/bd.jpg",
+		logoPath: "/logo.png",
+		seasons: t.seasons.map((s) => ({ ...s, episodes: s.episodes.map((e) => ({ ...e, stillPath: `/still${e.episodeNumber}.jpg` })) })),
+	});
+	const one = plan([withArt(show(1, "A", [ep(4, "2026-11-20", 18)]))], { prefs: prefs(noDigest) })[0];
+	assert.deepEqual(one.image, {
+		picturePath: "/still4.jpg",
+		still: true,
+		logoPath: "/logo.png",
+		caption: ["S01E04 · Name 4"],
+		heading: "Airing today",
+	});
+	const two = plan([withArt(show(1, "A", [ep(4, "2026-11-20", 18), ep(5, "2026-11-20", 18)]))], { prefs: prefs(noDigest) })[0];
+	assert.deepEqual(two.image?.caption, ["S01E04 · Name 4", "1 more episode"]);
+	assert.equal(two.lines?.length, 2); // fallback when the picture can't be downloaded
+	const prem = plan([withArt(show(1, "A", [ep(1, "2026-11-20", 18), ep(2, "2026-11-20", 18)]))], { prefs: prefs(noDigest) })[0];
+	assert.deepEqual(prem.image, {
+		picturePath: "/bd.jpg",
+		logoPath: "/logo.png",
+		caption: ["Season 1 Premiere", "1 more episode"],
+		heading: "Airing today",
+	});
+	// No art cached → no picture
+	assert.equal(plan([show(1, "A", [ep(4, "2026-11-20", 18)])], { prefs: prefs(noDigest) })[0].image, undefined);
+});
+
+test("a movie release alert carries its backdrop and logo; the reminder doesn't", () => {
+	const film = { ...movie(9, "Film", "2026-11-26"), backdropPath: "/bd.jpg", logoPath: "/logo.png" };
+	const out = plan([film], { prefs: prefs(noDigest) });
+	assert.deepEqual(out.find((a) => a.type === AlertType.MOVIE)?.image, { picturePath: "/bd.jpg", logoPath: "/logo.png" });
+	assert.equal(out.find((a) => a.type === AlertType.MOVIE_REMINDER)?.image, undefined);
+	assert.equal(plan([movie(9, "Film", "2026-11-26")], { prefs: prefs(noDigest) })[0].image, undefined);
 });
 
 test("premieres / new episodes switches decide E1 and the rest", () => {

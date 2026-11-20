@@ -18,6 +18,10 @@ import { localDateStr } from "./todayStr";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const NUDGE_BODY = "Open Watchloom to keep your episode alerts coming.";
+/** Expanded episode / premiere alert: the line above the picture */
+export const AIRING_TODAY = "Airing today";
+/** Android's expanded list shows about this many rows; the rest fold into "+N more" */
+const MAX_LINES = 6;
 
 // ---- switches -------------------------------------------------------------------------------
 
@@ -63,6 +67,8 @@ export interface PlanEpisode {
 	airDate: string | null;
 	/** Exact UTC air time (TVMaze); absent → the day only */
 	airStamp?: string;
+	/** TMDB still (episode alert picture) */
+	stillPath?: string | null;
 }
 
 export interface PlanTitle {
@@ -75,6 +81,9 @@ export interface PlanTitle {
 	nextEpisode: { season: number; episode: number } | null;
 	/** Movies: release day (YYYY-MM-DD) */
 	releaseDate: string | null;
+	/** TMDB image paths for the expanded alert picture (backdrop + title logo) */
+	backdropPath?: string | null;
+	logoPath?: string | null;
 	seasons: { seasonNumber: number; episodes: PlanEpisode[] }[];
 }
 
@@ -106,14 +115,39 @@ export interface PlannedAlert {
 	docId?: string;
 	tmdbId?: number;
 	mediaType?: MediaType;
+	/** Expanded view: one row per episode (Android InboxStyle) */
+	lines?: string[];
+	/**
+	 * Expanded view: a picture (TMDB path; an episode still or the backdrop) with the title logo on top and
+	 * `caption` rows along its bottom. Falls back to `lines` / the body when it can't be downloaded
+	 */
+	image?: AlertImage;
+}
+
+export interface AlertImage {
+	picturePath: string;
+	/** The picture is an episode still (sized differently from a backdrop) */
+	still?: boolean;
+	logoPath?: string;
+	caption?: string[];
+	/** Expanded view: the line above the picture (in place of the title) */
+	heading?: string;
 }
 
 type CatalogLike = {
 	title: string;
 	releaseDate?: string | null;
+	backdropPath?: string | null;
+	logoPath?: string | null;
 	seasons?: {
 		seasonNumber: number;
-		episodes?: { episodeNumber: number; title: string; airDate: string | null; airStamp?: string }[];
+		episodes?: {
+			episodeNumber: number;
+			title: string;
+			airDate: string | null;
+			airStamp?: string;
+			stillPath?: string | null;
+		}[];
 	}[];
 };
 
@@ -137,6 +171,8 @@ export function toPlanTitle(
 		status: doc.status,
 		nextEpisode: doc.nextEpisode ?? null,
 		releaseDate: doc.releaseDate ?? catalog.releaseDate ?? null,
+		backdropPath: catalog.backdropPath ?? null,
+		logoPath: catalog.logoPath ?? null,
 		seasons: (catalog.seasons ?? []).map((s) => ({
 			seasonNumber: s.seasonNumber,
 			episodes: (s.episodes ?? []).map((e) => ({
@@ -144,6 +180,7 @@ export function toPlanTitle(
 				title: e.title,
 				airDate: e.airDate,
 				...(e.airStamp ? { airStamp: e.airStamp } : {}),
+				...(e.stillPath ? { stillPath: e.stillPath } : {}),
 			})),
 		})),
 	};
@@ -211,6 +248,9 @@ interface AirEpisode {
 	name: string;
 	/** The moment it airs (exact stamp, else 9 am local of its day) */
 	at: number;
+	stillPath?: string;
+	backdropPath?: string;
+	logoPath?: string;
 }
 
 function episodeTime(e: PlanEpisode): number {
@@ -223,7 +263,14 @@ function titleEpisodes(t: PlanTitle, overrides: AiringOverride[]): AirEpisode[] 
 	const pushed = new Map(
 		overrides.filter((o) => o.docId === t.docId).map((o) => [`${o.season}x${o.episode}`, o]),
 	);
-	const base = { docId: t.docId, tmdbId: t.tmdbId, mediaType: t.mediaType, show: t.title };
+	const base = {
+		docId: t.docId,
+		tmdbId: t.tmdbId,
+		mediaType: t.mediaType,
+		show: t.title,
+		...(t.backdropPath ? { backdropPath: t.backdropPath } : {}),
+		...(t.logoPath ? { logoPath: t.logoPath } : {}),
+	};
 	const out: AirEpisode[] = [];
 	const seen = new Set<string>();
 	for (const season of t.seasons) {
@@ -233,7 +280,14 @@ function titleEpisodes(t: PlanTitle, overrides: AiringOverride[]): AirEpisode[] 
 			const o = pushed.get(key);
 			const at = o ? Date.parse(o.airStamp) : episodeTime(e);
 			if (Number.isNaN(at)) continue;
-			out.push({ ...base, season: season.seasonNumber, episode: e.episodeNumber, name: o?.name || e.title, at });
+			out.push({
+				...base,
+				season: season.seasonNumber,
+				episode: e.episodeNumber,
+				name: o?.name || e.title,
+				at,
+				...(e.stillPath ? { stillPath: e.stillPath } : {}),
+			});
 		}
 	}
 	// A pushed episode the cached catalog doesn't know yet
@@ -261,14 +315,60 @@ function episodeBody(e: AirEpisode, premiere: boolean): string {
 	return premiere ? `Season ${e.season} premiere${name}` : `S${e.season} E${e.episode}${name}`;
 }
 
+/** At most MAX_LINES rows; the overflow becomes a "+N more" row */
+function capLines(lines: string[]): string[] {
+	if (lines.length <= MAX_LINES) return lines;
+	return [...lines.slice(0, MAX_LINES - 1), `+${lines.length - MAX_LINES + 1} more`];
+}
+
+const byEpisode = (a: Entry, b: Entry) => a.ep.season - b.ep.season || a.ep.episode - b.ep.episode;
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** The caption row under the first episode: "1 more episode", "7 more episodes" */
+export function moreEpisodes(more: number): string {
+	return `${more} more episode${more === 1 ? "" : "s"}`;
+}
+
+/** "S01E04" */
+export function episodeCode(season: number, episode: number): string {
+	return `S${pad2(season)}E${pad2(episode)}`;
+}
+
+/**
+ * One title's alert picture: a premiere shows the backdrop ("Season 2 Premiere"), an episode its still
+ * (backdrop when it has none) with "S01E04"; several episodes add an "N more episodes" row. Null without a picture
+ */
+function titleImage(sorted: Entry[]): AlertImage | null {
+	const { ep, premiere } = sorted[0];
+	const picturePath = premiere ? (ep.backdropPath ?? ep.stillPath) : (ep.stillPath ?? ep.backdropPath);
+	if (!picturePath) return null;
+	const name = ep.name && !GENERIC_NAME.test(ep.name) ? ep.name : "";
+	const code = episodeCode(ep.season, ep.episode);
+	const caption = [premiere ? `Season ${ep.season} Premiere` : name ? `${code} · ${name}` : code];
+	if (sorted.length > 1) caption.push(moreEpisodes(sorted.length - 1));
+	return {
+		picturePath,
+		...(picturePath === ep.stillPath ? { still: true } : {}),
+		...(ep.logoPath ? { logoPath: ep.logoPath } : {}),
+		caption,
+		heading: AIRING_TODAY,
+	};
+}
+
 function groupAlert(group: Entry[]): PlannedAlert {
-	const first = group[0];
+	const sorted = [...group].sort(byEpisode);
+	const first = sorted[0];
 	const { ep, fireAt } = first;
+	const many = sorted.length > 1;
+	const image = titleImage(sorted);
 	return {
 		id: `${ALERT_ID.AIR}${ep.docId}-${fireAt}`,
 		fireAt,
 		title: ep.show,
-		body: group.length === 1 ? episodeBody(ep, first.premiere) : `${group.length} new episodes`,
+		body: many ? `${sorted.length} new episodes` : episodeBody(ep, first.premiere),
+		...(many ? { lines: capLines(sorted.map((g) => episodeBody(g.ep, g.premiere))) } : {}),
+		...(image ? { image } : {}),
 		type: group.some((g) => g.premiere) ? AlertType.PREMIERE : AlertType.EPISODE,
 		docId: ep.docId,
 		tmdbId: ep.tmdbId,
@@ -315,12 +415,15 @@ function episodeAlerts(episodes: AirEpisode[], prefs: NotifyPrefs, now: number, 
 			continue;
 		}
 		const total = titles.reduce((n, g) => n + g.length, 0);
+		const ordered = titles.map((g) => [...g].sort(byEpisode)).sort((a, b) => a[0].ep.show.localeCompare(b[0].ep.show));
+		const rows = ordered.flatMap((g) => g.map((e) => `${e.ep.show} · ${episodeBody(e.ep, e.premiere)}`));
 		out.push({
 			id: `${ALERT_ID.MORNING}${localDateStr(new Date(fireAt))}`,
 			fireAt,
-			title: "New Episodes",
-			body: `${total} new episodes landed overnight`,
+			title: `${total} Episodes to Watch Today`,
+			body: ordered.map((g) => g[0].ep.show).join(", "),
 			type: AlertType.MORNING,
+			lines: capLines(rows),
 		});
 	}
 	return out;
@@ -343,6 +446,11 @@ function movieAlerts(movies: PlanTitle[], prefs: NotifyPrefs, now: number, horiz
 				body: "Out today",
 				type: AlertType.MOVIE,
 				...ref,
+				...(t.backdropPath
+					? {
+							image: { picturePath: t.backdropPath, ...(t.logoPath ? { logoPath: t.logoPath } : {}) },
+						}
+					: {}),
 			});
 		}
 		const remind = localAt(date, AIRING_MORNING_HOUR, -7);
