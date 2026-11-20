@@ -1,5 +1,5 @@
-import type { WatchProvider } from "../types";
-import { PROVIDER_LINKS } from "../enums";
+import type { RegionWatchProviders, WatchProvider } from "../types";
+import { ORIGINAL_SERVICES, PROVIDER_LINKS } from "../enums";
 
 /** Where to Watch: a service's shorter display name (TMDB has only the full one) */
 const RENAMES: Record<string, string> = {
@@ -92,4 +92,26 @@ export function providerLink(
 export function providerApp(name: string): string | null {
 	const store = CHANNEL_STORES.find(([suffix]) => suffix.test(name.trim()))?.[1];
 	return PROVIDER_LINKS[store ?? shortProviderName(name).toLowerCase()]?.androidPackage ?? null;
+}
+
+/**
+ * A Netflix / Amazon original streams on its service in every country, but TMDB lists the service
+ * only where it reports it — so a studio or network of the title's matching ORIGINAL_SERVICES adds
+ * that service first when the region's list lacks it. A region with nothing else stops reading
+ * "Not Available to Stream"; the answer is kept as is when nothing matches (same reference)
+ */
+export function withOriginalServices(
+	region: RegionWatchProviders | undefined,
+	studios: readonly { name: string }[] | undefined,
+): RegionWatchProviders | undefined {
+	if (!region || !studios?.length) return region;
+	const listed = new Set(region.providers.map((p) => shortProviderName(p.name).toLowerCase()));
+	const added: WatchProvider[] = [];
+	for (const { studio, provider } of ORIGINAL_SERVICES) {
+		const short = shortProviderName(provider.name).toLowerCase();
+		if (listed.has(short) || !studios.some((s) => studio.test(s.name.trim()))) continue;
+		added.push(provider);
+		listed.add(short);
+	}
+	return added.length ? { ...region, providers: [...added, ...region.providers] } : region;
 }

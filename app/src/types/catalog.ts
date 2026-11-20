@@ -130,6 +130,8 @@ export interface CatalogShow {
 	directors?: CrewMember[];
 	/** A movie's writers with photos */
 	writers?: CrewMember[];
+	/** Studio + network names (the Studio filter) */
+	studios?: string[];
 	/** Studios with logos (the info page row) — `studios` holds the names the Studio filter uses */
 	studioLogos?: Studio[];
 	/** Where to Watch, for the countries someone opened the info page from (watchProviders CF) */
