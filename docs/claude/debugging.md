@@ -16,7 +16,7 @@ Moved from CLAUDE.md; loaded on demand.
 - **Telegram channel:** one bot per machine (a token can only be polled from one place; a shared one gives 409 Conflict). Each machine has its own token in the gitignored repo-root `.telegram.env` (`TELEGRAM_BOT_TOKEN=…`, optional `TELEGRAM_STATE_DIR`); `npm run telegram` copies it to the machine's state dir and starts Claude on the channel. Pair from that session with `/telegram:access pair <code>`.
 
 ## Misc gotchas
-- **TVMaze air times:** an empty `airtime` means TVMaze's `airstamp` is a 12:00 UTC filler. `hooks/tvmaze.ts` replaces it with the streaming service's release pattern (`STREAMING_RELEASE_TIMES`, e.g. Disney+ 6pm PT) or noon in the studio timezone (`COUNTRY_TIMEZONES`); keep that table current when a service changes its drop time.
+- **TVMaze air times:** an empty `airtime` means TVMaze's `airstamp` is a 12:00 UTC filler. `hooks/tvmaze.ts` replaces it with the streaming service's release pattern (`STREAMING_RELEASE_TIMES`, e.g. Disney+ 6pm PT) or noon in the studio timezone (`COUNTRY_TIMEZONES`); keep that table current when a service changes its drop time. `applyAirStamps` also gives an unstamped episode the stamp of a same-season episode TMDB dates the same day (TVMaze numbers double bills as one episode) — without it the second episode kept TMDB's day, missed the watchlist "+1" and the card vanished after the first mark until the day turned.
 - ESLint config uses `tseslint.config()` (v8 API). App icon foreground scaled to 66% safe zone.
 - `.claude/settings.local.json` holds local permissions; per-user memory lives outside the repo.
 

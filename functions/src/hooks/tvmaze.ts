@@ -134,6 +134,21 @@ export function applyAirStamps(seasons: CatalogSeason[], stamps: Map<string, str
       }
       ep.airStamp = stamp;
     }
+    // Episodes TMDB dates the same day as a stamped one came out with it: TVMaze often numbers
+    // a double bill as one episode (anime, two-part premieres), so the second had no stamp and
+    // kept TMDB's day — tomorrow for viewers ahead of the studio. The app then showed no "+1"
+    // and hid the card after the first was marked until the day turned
+    const dayStamp = new Map<string, string>();
+    for (const ep of season.episodes) {
+      if (ep.airDate && ep.airStamp && !dayStamp.has(ep.airDate)) {
+        dayStamp.set(ep.airDate, ep.airStamp);
+      }
+    }
+    for (const ep of season.episodes) {
+      if (ep.airStamp || !ep.airDate) continue;
+      const stamp = dayStamp.get(ep.airDate);
+      if (stamp) ep.airStamp = stamp;
+    }
   }
 }
 

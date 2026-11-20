@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { episodeAirStamp, type TvmazeEpisode, type TvmazeShow } from "../src/hooks/tvmaze";
+import { applyAirStamps, episodeAirStamp, type TvmazeEpisode, type TvmazeShow } from "../src/hooks/tvmaze";
 import { zonedTimeToUtc } from "../src/shared/zonedTime";
 
 const untimed = (airdate: string): TvmazeEpisode => ({
@@ -49,4 +49,27 @@ test("no known service: noon in the studio's timezone, else TVMaze's value", () 
   assert.equal(episodeAirStamp(untimed("2026-11-03"), web("Some New Streamer")), "2026-11-03T12:00:00+00:00");
   // No airstamp at all → none
   assert.equal(episodeAirStamp({ ...untimed("2026-11-03"), airstamp: null }, web("Disney+")), null);
+});
+
+test("applyAirStamps: an unstamped episode TMDB dates the same day shares its sibling's stamp", () => {
+  const ep = (episodeNumber: number, airDate: string) => ({ episodeNumber, airDate }) as any;
+  const seasons = [
+    {
+      seasonNumber: 1,
+      // E2 + E3: a double bill TVMaze lists as one episode (only E2 stamped); E4 a week later
+      episodes: [ep(1, "2026-11-14"), ep(2, "2026-11-21"), ep(3, "2026-11-21"), ep(4, "2026-11-28")],
+    },
+  ] as any;
+  const stamps = new Map([
+    ["1_1", "2026-11-13T15:30:00+00:00"],
+    ["1_2", "2026-11-20T15:30:00+00:00"],
+  ]);
+  applyAirStamps(seasons, stamps);
+  const got = seasons[0].episodes.map((e: any) => e.airStamp);
+  assert.deepEqual(got, [
+    "2026-11-13T15:30:00+00:00",
+    "2026-11-20T15:30:00+00:00",
+    "2026-11-20T15:30:00+00:00",
+    undefined,
+  ]);
 });
