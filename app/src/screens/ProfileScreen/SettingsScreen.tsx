@@ -53,7 +53,7 @@ import { CloudFunction, ProfileStackParamList, Route } from "../../types";
 import { ACCOUNT_IMPORT_MAX_BYTES, ReleaseChannel, UPDATE_CHANNEL } from "../../enums";
 import { INSTALLED_BUILD, UPDATES_SUPPORTED } from "../../services/appUpdate";
 import { showUpdateNotification } from "../../services/updateNotifications";
-import { scheduleFakeAiring } from "../../services/airingScheduler";
+import { scheduleFakeAiring, sendSampleAlerts } from "../../services/airingScheduler";
 import { offeredRelease, useUpdateStore } from "../../stores/updateStore";
 import {
 	describeAccountExport,
@@ -550,6 +550,7 @@ function UpdateTestSection() {
 			{row("Reset \"Not Now\"", clearSkip)}
 			{row("Show Update Notification", () => offered && showUpdateNotification(offered), !offered)}
 			{row("Schedule Fake Airing In 2 Min", () => scheduleFakeAiring().catch(() => {}))}
+			{row("Send Sample Alerts", () => sendSampleAlerts().catch(() => {}))}
 		</View>
 	);
 }

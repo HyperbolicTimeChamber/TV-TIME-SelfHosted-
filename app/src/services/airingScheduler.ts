@@ -2,11 +2,14 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getAuth } from "@react-native-firebase/auth";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import { AIRING_CHANNEL, ALERT_ID, AlertType, CacheKey, ReplanSource } from "../enums";
+import { AIRING_CHANNEL, ALERT_ID, AlertType, CacheKey, MediaType, ReplanSource } from "../enums";
 import { readSavedTracking } from "../hooks/trackingStore";
 import {
 	anyAlertOn,
 	buildAiringPlan,
+	episodeCode,
+	AIRING_TODAY,
+	moreEpisodes,
 	mergeOverrides,
 	pruneOverrides,
 	toPlanTitle,
@@ -19,6 +22,7 @@ import { parseAiringPush } from "../utils/airingPush";
 import { showDocId } from "../utils/docId";
 import { loadNotifyPrefs } from "./notifyPrefs";
 import { syncTitleTopics } from "./titleTopics";
+import { TMDB_IMAGE_BASE } from "../theme";
 import type { FirebaseMessagingTypes } from "@react-native-firebase/messaging";
 
 /** Notification id of the dev-only "fake airing" (never planned, so a re-plan leaves it alone) */
@@ -99,13 +103,28 @@ async function planTitles(uid: string) {
 	return { docs, titles };
 }
 
+/** Notification data; `lines` / `bigPicture` / `bigPictureLogo` / `bigPictureCaption` / `bigPictureHeading` drive the patched Android styles (expo-notifications patch) */
 function alertData(a: PlannedAlert): Record<string, string | number> {
 	return {
 		alert: a.type,
 		...(a.docId ? { docId: a.docId } : {}),
 		...(a.tmdbId ? { tmdbId: a.tmdbId } : {}),
 		...(a.mediaType ? { mediaType: a.mediaType } : {}),
+		...(a.lines?.length ? { lines: JSON.stringify(a.lines) } : {}),
+		...(a.image
+			? { bigPicture: `${TMDB_IMAGE_BASE}/${a.image.still ? "original" : "w1280"}${a.image.picturePath}` }
+			: {}),
+		...(a.image?.logoPath ? { bigPictureLogo: `${TMDB_IMAGE_BASE}/w500${a.image.logoPath}` } : {}),
+		...(a.image?.caption?.length ? { bigPictureCaption: a.image.caption.join("\n") } : {}),
+		...(a.image?.heading ? { bigPictureHeading: a.image.heading } : {}),
 	};
+}
+
+/** Same data → no reschedule (the episode list or picture can change while the title and body stay) */
+function sameData(current: Record<string, unknown> | undefined, wanted: Record<string, string | number>): boolean {
+	const keys = new Set([...Object.keys(current ?? {}), ...Object.keys(wanted)]);
+	for (const k of keys) if (String(current?.[k] ?? "") !== String(wanted[k] ?? "")) return false;
+	return true;
 }
 
 async function applyPlan(plan: PlannedAlert[]): Promise<{ scheduled: number; cancelled: number }> {
@@ -122,7 +141,13 @@ async function applyPlan(plan: PlannedAlert[]): Promise<{ scheduled: number; can
 	}
 	for (const a of plan) {
 		const current = byId.get(a.id);
-		if (current && current.content.title === a.title && current.content.body === a.body) {
+		const data = alertData(a);
+		if (
+			current &&
+			current.content.title === a.title &&
+			current.content.body === a.body &&
+			sameData(current.content.data as Record<string, unknown> | undefined, data)
+		) {
 			// The id carries the fire time for every alert but the reopen nudge, whose time moves with each app open
 			const at = firesAt(current.trigger);
 			const moved = at === null ? a.id === ALERT_ID.NUDGE : Math.abs(at - a.fireAt) > 1000;
@@ -130,7 +155,7 @@ async function applyPlan(plan: PlannedAlert[]): Promise<{ scheduled: number; can
 		}
 		await Notifications.scheduleNotificationAsync({
 			identifier: a.id,
-			content: { title: a.title, body: a.body, data: alertData(a) },
+			content: { title: a.title, body: a.body, data },
 			trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: a.fireAt, channelId: AIRING_CHANNEL },
 		});
 		scheduled++;
@@ -215,4 +240,124 @@ export async function scheduleFakeAiring(): Promise<void> {
 			channelId: AIRING_CHANNEL,
 		},
 	});
+}
+
+/**
+ * Dev only (Settings → Updates (test)): one alert of every kind right now, built from the saved titles, to see how
+ * each one looks (expanded lists, the movie picture). Ids are outside OUR_PREFIXES, so a re-plan leaves them alone
+ */
+export async function sendSampleAlerts(): Promise<number> {
+	if (Platform.OS !== "android") return 0;
+	await ensureChannel();
+	const uid = await planUid();
+	const { titles } = uid ? await planTitles(uid) : { titles: [] as PlanTitle[] };
+	const shows = titles.filter((t) => t.mediaType === MediaType.TV);
+	const movie =
+		titles.find((t) => t.mediaType === MediaType.MOVIE && t.backdropPath && t.logoPath) ??
+		titles.find((t) => t.mediaType === MediaType.MOVIE && t.backdropPath);
+	const name = (i: number, fallback: string) => shows[i]?.title ?? fallback;
+	const epName = (t: PlanTitle | undefined, s: number, e: number) => {
+		const n = t?.seasons.find((x) => x.seasonNumber === s)?.episodes.find((x) => x.episodeNumber === e)?.title;
+		return n && !/^Episode \d+$/i.test(n) ? ` · ${n}` : "";
+	};
+	const row = (t: PlanTitle | undefined, s: number, e: number) => `S${s} E${e}${epName(t, s, e)}`;
+	const still = (t: PlanTitle | undefined, s: number, e: number) =>
+		t?.seasons.find((x) => x.seasonNumber === s)?.episodes.find((x) => x.episodeNumber === e)?.stillPath ?? undefined;
+	/** The picture the planner would give: still (episode) or backdrop (premiere), logo, caption */
+	const art = (t: PlanTitle | undefined, s: number, e: number, premiere: boolean, count = 1): Partial<PlannedAlert> => {
+		const st = still(t, s, e);
+		const picturePath = premiere ? (t?.backdropPath ?? st) : (st ?? t?.backdropPath);
+		if (!picturePath) return {};
+		const n = epName(t, s, e).replace(/^ · /, "");
+		const code = episodeCode(s, e);
+		const caption = [premiere ? `Season ${s} Premiere` : n ? `${code} · ${n}` : code, ...(count > 1 ? [moreEpisodes(count - 1)] : [])];
+		return {
+			image: {
+				picturePath,
+				...(picturePath === st ? { still: true } : {}),
+				...(t?.logoPath ? { logoPath: t.logoPath } : {}),
+				caption,
+				heading: AIRING_TODAY,
+			},
+		};
+	};
+	// Episodes with a still make the best samples
+	const epWithStill = (t: PlanTitle | undefined) => {
+		for (const season of [...(t?.seasons ?? [])].reverse())
+			for (const e of season.episodes) if (e.stillPath && season.seasonNumber > 0) return { s: season.seasonNumber, e: e.episodeNumber };
+		return { s: 1, e: 4 };
+	};
+	const a0 = epWithStill(shows[0]);
+	const b0 = epWithStill(shows[4]);
+	const batch = Array.from({ length: 8 }, (_, i) => (i === 0 ? `Season 1 premiere${epName(shows[2], 1, 1)}` : row(shows[2], 1, i + 1)));
+	const morning = [
+		`${name(0, "Show A")} · ${row(shows[0], 1, 4)}`,
+		`${name(1, "Show B")} · ${row(shows[1], 2, 6)}`,
+		`${name(1, "Show B")} · ${row(shows[1], 2, 7)}`,
+		`${name(3, "Show D")} · Season 2 premiere${epName(shows[3], 2, 1)}`,
+	];
+	const samples: PlannedAlert[] = [
+		{ id: "", fireAt: 0, type: AlertType.EPISODE, title: name(0, "Show A"), body: row(shows[0], a0.s, a0.e), ...art(shows[0], a0.s, a0.e, false) },
+		{
+			id: "",
+			fireAt: 0,
+			type: AlertType.EPISODE,
+			title: name(4, "Show E"),
+			body: "3 new episodes",
+			lines: [row(shows[4], b0.s, b0.e), row(shows[4], b0.s, b0.e + 1), row(shows[4], b0.s, b0.e + 2)],
+			...art(shows[4], b0.s, b0.e, false, 3),
+		},
+		{
+			id: "",
+			fireAt: 0,
+			type: AlertType.PREMIERE,
+			title: name(1, "Show B"),
+			body: `Season 2 premiere${epName(shows[1], 2, 1)}`,
+			...art(shows[1], 2, 1, true),
+		},
+		{
+			id: "",
+			fireAt: 0,
+			type: AlertType.PREMIERE,
+			title: name(2, "Show C"),
+			body: "8 new episodes",
+			lines: [...batch.slice(0, 5), "+3 more"],
+			...art(shows[2], 1, 1, true, 8),
+		},
+		{
+			id: "",
+			fireAt: 0,
+			type: AlertType.MORNING,
+			title: `${morning.length} Episodes to Watch Today`,
+			body: [name(0, "Show A"), name(1, "Show B"), name(3, "Show D")].join(", "),
+			lines: morning,
+		},
+		{
+			id: "",
+			fireAt: 0,
+			type: AlertType.MOVIE,
+			title: movie?.title ?? "Movie",
+			body: "Out today",
+			...(movie?.backdropPath
+				? { image: { picturePath: movie.backdropPath, ...(movie.logoPath ? { logoPath: movie.logoPath } : {}) } }
+				: {}),
+		},
+		{ id: "", fireAt: 0, type: AlertType.MOVIE_REMINDER, title: movie?.title ?? "Movie", body: "Out in 7 days" },
+		{
+			id: "",
+			fireAt: 0,
+			type: AlertType.DIGEST,
+			title: "Your Week Ahead",
+			body: `${[name(0, "Show A"), name(1, "Show B"), name(2, "Show C")].join(", ")}, +2 more`,
+		},
+		{ id: "", fireAt: 0, type: AlertType.NUDGE, title: "Watchloom", body: "Open Watchloom to keep your episode alerts coming." },
+	];
+	for (const [i, a] of samples.entries()) {
+		await Notifications.scheduleNotificationAsync({
+			identifier: `${DEBUG_ALERT_ID}-sample-${i}`,
+			content: { title: a.title, body: a.body, data: alertData(a) },
+			trigger: { channelId: AIRING_CHANNEL },
+		});
+	}
+	return samples.length;
 }

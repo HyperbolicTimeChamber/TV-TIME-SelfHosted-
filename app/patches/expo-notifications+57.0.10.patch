@@ -1,0 +1,273 @@
+diff --git a/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/notifications/presentation/builders/ExpoNotificationBuilder.kt b/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/notifications/presentation/builders/ExpoNotificationBuilder.kt
+index 610d303..c7e7735 100644
+--- a/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/notifications/presentation/builders/ExpoNotificationBuilder.kt
++++ b/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/notifications/presentation/builders/ExpoNotificationBuilder.kt
+@@ -5,11 +5,17 @@ import android.content.Context
+ import android.content.pm.PackageManager
+ import android.graphics.Bitmap
+ import android.graphics.BitmapFactory
++import android.graphics.Canvas
++import android.graphics.Paint
++import android.graphics.RectF
++import android.net.Uri
+ import android.os.Build
+ import android.os.Bundle
+ import android.os.Parcel
+ import android.provider.Settings
+ import android.util.Log
++import android.widget.RemoteViews
++import expo.modules.notifications.R
+ import androidx.core.app.NotificationCompat
+ import androidx.core.app.RemoteInput
+ import expo.modules.notifications.notifications.SoundResolver
+@@ -24,6 +30,7 @@ import expo.modules.notifications.service.NotificationsService
+ import expo.modules.notifications.service.NotificationsService.Companion.createNotificationResponseIntent
+ import expo.modules.notifications.service.delegates.SharedPreferencesNotificationCategoriesStore
+ import java.io.IOException
++import org.json.JSONArray
+ import kotlin.math.max
+ import kotlin.math.min
+ 
+@@ -106,7 +113,10 @@ open class ExpoNotificationBuilder(
+     builder.setSubText(content.subText)
+     // Sets the text/contentText as the bigText to allow the notification to be expanded and the
+     // entire text to be viewed.
+-    builder.setStyle(NotificationCompat.BigTextStyle().bigText(content.text))
++    // PATCH(watchloom): airing alerts carry `lines` (an expanded episode list) or `bigPicture` (+ `bigPictureLogo`)
++    if (!applyWatchloomStyle(builder, content)) {
++      builder.setStyle(NotificationCompat.BigTextStyle().bigText(content.text))
++    }
+ 
+     color?.let { builder.color = it.toInt() }
+     notificationContent.badgeCount?.toInt()?.let { builder.setNumber(it) }
+@@ -147,7 +157,10 @@ open class ExpoNotificationBuilder(
+       )
+     )
+ 
+-    if (notificationContent.containsImage()) {
++    // PATCH(watchloom): a bigPicture alert already set its large icon
++    if (notificationContent.body?.optString("bigPicture", "").isNullOrEmpty().not()) {
++      // keep it
++    } else if (notificationContent.containsImage()) {
+       val bitmap = notificationContent.getImage(context)
+       bitmap?.let { builder.setLargeIcon(it) }
+     } else {
+@@ -156,6 +169,137 @@ open class ExpoNotificationBuilder(
+     return builder.build()
+   }
+ 
++  // PATCH(watchloom): rich styles for airing alerts; false → the default BigText style
++  private suspend fun applyWatchloomStyle(builder: NotificationCompat.Builder, content: INotificationContent): Boolean {
++    val data = content.body ?: return false
++    // The picture first; offline at fire time → the episode list, else plain text
++    val pictureUrl = data.optString("bigPicture", "")
++    val backdrop = if (pictureUrl.isNotEmpty()) downloadImage(Uri.parse(pictureUrl)) else null
++    if (backdrop != null) {
++      val logoUrl = data.optString("bigPictureLogo", "")
++      val logo = if (logoUrl.isNotEmpty()) downloadImage(Uri.parse(logoUrl)) else null
++      val caption = data.optString("bigPictureCaption", "").split("\n").filter { it.isNotBlank() }
++      val picture = composePicture(backdrop, logo, caption)
++      // Custom views inside the system frame: the header keeps the app icon on the left on every
++      // Android version (a large icon moves there on Android 16), the thumbnail sits on the right
++      val density = context.resources.displayMetrics.density
++      // Circular thumbnail: a square crop with a radius of half its side
++      val side = (40 * density).toInt()
++      val thumb = roundedThumb(backdrop, side, side, side / 2f)
++      val collapsed = RemoteViews(context.packageName, R.layout.watchloom_alert_collapsed).apply {
++        setTextViewText(R.id.watchloom_title, content.title)
++        setTextViewText(R.id.watchloom_text, content.text)
++        setImageViewBitmap(R.id.watchloom_thumb, thumb)
++      }
++      // Expanded: just the picture when the episode is drawn on it; else the body above it
++      val expanded = RemoteViews(context.packageName, R.layout.watchloom_alert_expanded).apply {
++        setTextViewText(R.id.watchloom_title, content.title)
++        setTextViewText(R.id.watchloom_text, content.text)
++        if (caption.isNotEmpty()) setViewVisibility(R.id.watchloom_text, android.view.View.GONE)
++        // The title row holds the heading ("Airing today"); without one it's hidden — the logo names the title
++        val heading = data.optString("bigPictureHeading", "")
++        if (heading.isNotEmpty()) setTextViewText(R.id.watchloom_title, heading)
++        else setViewVisibility(R.id.watchloom_title, android.view.View.GONE)
++        setImageViewBitmap(R.id.watchloom_picture, roundedThumb(picture, picture.width, picture.height, picture.width * 0.025f))
++      }
++      builder.setCustomContentView(collapsed)
++      builder.setCustomHeadsUpContentView(collapsed)
++      builder.setCustomBigContentView(expanded)
++      builder.setStyle(NotificationCompat.DecoratedCustomViewStyle())
++      return true
++    }
++    val lines = data.optString("lines", "")
++    if (lines.isNotEmpty()) {
++      val list = runCatching { JSONArray(lines) }.getOrNull()
++      if (list != null && list.length() > 0) {
++        val style = NotificationCompat.InboxStyle().setBigContentTitle(content.title)
++        for (i in 0 until list.length()) style.addLine(list.optString(i))
++        builder.setStyle(style)
++        return true
++      }
++    }
++    return false
++  }
++
++  // PATCH(watchloom): `source` center-cropped to w x h with rounded corners
++  private fun roundedThumb(source: Bitmap, w: Int, h: Int, radius: Float): Bitmap {
++    val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
++    val canvas = Canvas(out)
++    val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
++    val scale = max(w.toFloat() / source.width, h.toFloat() / source.height)
++    val sw = source.width * scale
++    val sh = source.height * scale
++    val matrix = android.graphics.Matrix().apply {
++      setScale(scale, scale)
++      postTranslate((w - sw) / 2, (h - sh) / 2)
++    }
++    paint.shader = android.graphics.BitmapShader(source, android.graphics.Shader.TileMode.CLAMP, android.graphics.Shader.TileMode.CLAMP).apply {
++      setLocalMatrix(matrix)
++    }
++    canvas.drawRoundRect(RectF(0f, 0f, w.toFloat(), h.toFloat()), radius, radius, paint)
++    return out
++  }
++
++  // PATCH(watchloom): the picture center-cropped to 2:1 (max 1024 wide), the title logo centred above the
++  // caption rows, which sit on a dark fade along the bottom
++  private fun composePicture(source: Bitmap, logo: Bitmap?, caption: List<String>): Bitmap {
++    val w = min(source.width, 1024)
++    val h = w / 2
++    val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
++    val canvas = Canvas(out)
++    val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
++    val scale = max(w.toFloat() / source.width, h.toFloat() / source.height)
++    val bw = source.width * scale
++    val bh = source.height * scale
++    canvas.drawBitmap(source, null, RectF((w - bw) / 2, (h - bh) / 2, (w + bw) / 2, (h + bh) / 2), paint)
++    if (logo != null || caption.isNotEmpty()) canvas.drawColor(0x40000000)
++
++    val mainSize = h * 0.095f
++    val subSize = h * 0.07f
++    val gap = h * 0.025f
++    val bottomPad = h * 0.07f
++    var captionHeight = 0f
++    caption.forEachIndexed { i, _ -> captionHeight += (if (i == 0) mainSize else subSize) + (if (i > 0) gap else 0f) }
++    if (caption.isNotEmpty()) {
++      val fadeTop = h - captionHeight - bottomPad * 2.5f
++      val fade = Paint().apply {
++        shader = android.graphics.LinearGradient(
++          0f, fadeTop, 0f, h.toFloat(), 0x00000000, 0xCC000000.toInt(), android.graphics.Shader.TileMode.CLAMP
++        )
++      }
++      canvas.drawRect(0f, fadeTop, w.toFloat(), h.toFloat(), fade)
++    }
++
++    // Logo in the space above the caption
++    val logoArea = h - (if (caption.isNotEmpty()) captionHeight + bottomPad * 1.6f else 0f)
++    if (logo != null && logo.width > 0 && logo.height > 0) {
++      val s = min(w * 0.55f / logo.width, logoArea * 0.62f / logo.height)
++      val lw = logo.width * s
++      val lh = logo.height * s
++      val top = (logoArea - lh) / 2 + (if (caption.isNotEmpty()) h * 0.03f else 0f)
++      canvas.drawBitmap(logo, null, RectF((w - lw) / 2, top, (w + lw) / 2, top + lh), paint)
++    }
++
++    // Caption rows, bottom-centred: the first bold and larger
++    var y = h - bottomPad - captionHeight
++    caption.forEachIndexed { i, text ->
++      val size = if (i == 0) mainSize else subSize
++      val tp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
++        color = if (i == 0) 0xFFFFFFFF.toInt() else 0xDDFFFFFF.toInt()
++        textSize = size
++        textAlign = Paint.Align.CENTER
++        typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, if (i == 0) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
++        setShadowLayer(size * 0.15f, 0f, size * 0.05f, 0x99000000.toInt())
++        letterSpacing = if (i == 0) 0.04f else 0.02f
++      }
++      if (i > 0) y += gap
++      y += size
++      val fitted = android.text.TextUtils.ellipsize(text, android.text.TextPaint(tp), w * 0.88f, android.text.TextUtils.TruncateAt.END).toString()
++      canvas.drawText(fitted, w / 2f, y - size * 0.18f, tp)
++    }
++    return out
++  }
++
+   private fun applySoundsAndVibrations(content: INotificationContent, builder: NotificationCompat.Builder) {
+     val shouldPlaySound = shouldPlaySound()
+     val shouldVibrate = shouldVibrate()
+diff --git a/node_modules/expo-notifications/android/src/main/res/layout/watchloom_alert_collapsed.xml b/node_modules/expo-notifications/android/src/main/res/layout/watchloom_alert_collapsed.xml
+new file mode 100644
+index 0000000..c95cc13
+--- /dev/null
++++ b/node_modules/expo-notifications/android/src/main/res/layout/watchloom_alert_collapsed.xml
+@@ -0,0 +1,38 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- PATCH(watchloom): collapsed airing alert, texts left, circular picture thumbnail right -->
++<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    android:layout_width="match_parent"
++    android:layout_height="wrap_content"
++    android:gravity="center_vertical"
++    android:orientation="horizontal">
++
++    <LinearLayout
++        android:layout_width="0dp"
++        android:layout_height="wrap_content"
++        android:layout_weight="1"
++        android:orientation="vertical">
++
++        <TextView
++            android:id="@+id/watchloom_title"
++            style="@style/TextAppearance.Compat.Notification.Title"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:ellipsize="end"
++            android:maxLines="1" />
++
++        <TextView
++            android:id="@+id/watchloom_text"
++            style="@style/TextAppearance.Compat.Notification"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:ellipsize="end"
++            android:maxLines="1" />
++    </LinearLayout>
++
++    <ImageView
++        android:id="@+id/watchloom_thumb"
++        android:layout_width="40dp"
++        android:layout_height="40dp"
++        android:layout_marginStart="12dp"
++        android:scaleType="centerCrop" />
++</LinearLayout>
+diff --git a/node_modules/expo-notifications/android/src/main/res/layout/watchloom_alert_expanded.xml b/node_modules/expo-notifications/android/src/main/res/layout/watchloom_alert_expanded.xml
+new file mode 100644
+index 0000000..47262e5
+--- /dev/null
++++ b/node_modules/expo-notifications/android/src/main/res/layout/watchloom_alert_expanded.xml
+@@ -0,0 +1,31 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- PATCH(watchloom): expanded airing alert, texts over the composed picture -->
++<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    android:layout_width="match_parent"
++    android:layout_height="wrap_content"
++    android:orientation="vertical">
++
++    <TextView
++        android:id="@+id/watchloom_title"
++        style="@style/TextAppearance.Compat.Notification.Title"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:ellipsize="end"
++        android:maxLines="1" />
++
++    <TextView
++        android:id="@+id/watchloom_text"
++        style="@style/TextAppearance.Compat.Notification"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:ellipsize="end"
++        android:maxLines="1" />
++
++    <ImageView
++        android:id="@+id/watchloom_picture"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:layout_marginTop="8dp"
++        android:adjustViewBounds="true"
++        android:scaleType="fitCenter" />
++</LinearLayout>
