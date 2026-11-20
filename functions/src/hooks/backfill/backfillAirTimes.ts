@@ -42,7 +42,7 @@ export async function backfillAirTimes(
       if (!tvmazeId) continue;
       matched++;
       const before = JSON.stringify(show.seasons);
-      applyAirStamps(show.seasons, await fetchTvmazeAirStamps(tvmazeId));
+      applyAirStamps(show.seasons, await fetchTvmazeAirStamps(tvmazeId, show.countries?.[0]));
       stamped += show.seasons.reduce((n, s) => n + s.episodes.filter((e) => e.airStamp).length, 0);
       if (JSON.stringify(show.seasons) === before && show.tvmazeId === tvmazeId) continue;
       changed++;

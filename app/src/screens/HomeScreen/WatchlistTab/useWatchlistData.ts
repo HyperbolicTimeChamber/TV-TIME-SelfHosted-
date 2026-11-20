@@ -955,19 +955,22 @@ export function useWatchlistData(userId: string | undefined) {
 		});
 	}, [rawDisplayList, optimisticCards, leftUpNext]);
 
-	// The live list caught up (the card's gone from it too) → stop hiding it, so a later unwatch
-	// brings it back
+	// The list caught up (the card's gone from what it would draw) → stop hiding it, so a later
+	// unwatch brings it back. Checked against the drawn list, not the live one: a card still drawn
+	// from the saved list (its live page not loaded yet) was never live, so the hide was dropped
+	// at once and the saved copy came back until the live doc arrived and took it off again
 	useEffect(() => {
 		if (leftUpNext.size === 0) return;
-		const live = new Set(sortedActive.map((i) => i.tmdbId));
-		const confirmed = [...leftUpNext].filter((id) => !live.has(id));
+		const drawn = new Set<number>();
+		for (const i of rawDisplayList) if (i.type === "show") drawn.add(i.card.tmdbId);
+		const confirmed = [...leftUpNext].filter((id) => !drawn.has(id));
 		if (confirmed.length === 0) return;
 		setLeftUpNext((prev) => {
 			const next = new Set(prev);
 			for (const id of confirmed) next.delete(id);
 			return next;
 		});
-	}, [sortedActive, leftUpNext]);
+	}, [rawDisplayList, leftUpNext]);
 
 	// Clear optimistic patches when listener provides matching data
 	useEffect(() => {
