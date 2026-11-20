@@ -215,6 +215,15 @@ jobs:
       # ── Build (Play Store upload disabled: `fastlane android deploy`) ──
       # Production APKs go to GitHub Releases (no more Firebase App Distribution); PRs to main
       # build too and attach the APK to the run, so it can be tried before merge
+      # expo-notifications ships as a prebuilt AAR; a build that ignores our patch still succeeds and
+      # airing alerts silently lose their pictures / lists. Compile the module from source and check it.
+      - name: Check expo-notifications patch is compiled
+        run: |
+          rm -rf node_modules/expo-notifications/android/build
+          (cd android && ./gradlew :expo-notifications:compileReleaseKotlin -q)
+          node ../scripts/check-notification-patch.cjs
+        working-directory: app
+
       - name: Fastlane build APK
         run: bundle exec fastlane android build_apk
         working-directory: app

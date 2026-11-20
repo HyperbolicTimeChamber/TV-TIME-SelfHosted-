@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import type { LayoutChangeEvent } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -6,6 +6,7 @@ import { colors, spacing, typography, themedStyles } from "../../theme";
 import { WatchStatus, MediaType } from "../../types";
 import { ADD_TO_WATCHLIST_LABELS, CircleButtonTone, MARK_WATCHED_LABELS } from "../../enums";
 import CircleButton from "../../components/CircleButton";
+import { resumeRewatchLabels, rewatchLabels } from "../../utils/format";
 import { HiCheck } from "../../components/HiIcons";
 
 const TICK = 20;
@@ -102,10 +103,14 @@ export default function ActionPills({
 	const isTv = mediaType === MediaType.TV;
 	const completed = watchlistItem?.status === WatchStatus.COMPLETED;
 	const neverWatched = isTv && completed && !hasWatchedEpisodes;
-	// Completed show: "Start a Rewatch" (it reads "Pause a Rewatch" once the run is under way)
-	const rewatchChoice = isTv && completed && !neverWatched;
 	// Watch count sheet (⋯ at the row's end, like Settings beside Hall of Shame)
 	const hasSheet = !isTv && completed && movieWatchCount > 0;
+	// The run the button starts / resumes: show = runs so far + 1 (paused = the run under way),
+	// movie = plays so far (1 play → its 1st rewatch)
+	const runs = watchlistItem?.rewatchCount ?? 0;
+	const rewatchNth = isTv ? runs + 1 : movieWatchCount;
+	const startLabels = useMemo(() => rewatchLabels(rewatchNth), [rewatchNth]);
+	const resumeLabels = useMemo(() => resumeRewatchLabels(runs), [runs]);
 	return (
 		<View style={styles.pillRow}>
 			{!watchlistItem ? (
@@ -154,17 +159,15 @@ export default function ActionPills({
 						watchlistItem.status === WatchStatus.PAUSED ||
 						watchlistItem.status === WatchStatus.PAUSED_REWATCH) && (
 						<TouchableOpacity style={[styles.pill, styles.pillAccent]} onPress={onResumeOrRewatch}>
-							<Text style={styles.pillText}>
-								{watchlistItem.status === WatchStatus.PAUSED
-									? "Resume"
-									: watchlistItem.status === WatchStatus.PAUSED_REWATCH
-										? "Resume Rewatch"
-										: neverWatched
-											? "Start Watching"
-											: rewatchChoice
-												? "Start a Rewatch"
-												: "Rewatch"}
-							</Text>
+							{watchlistItem.status === WatchStatus.PAUSED ? (
+								<Text style={styles.pillText}>Resume</Text>
+							) : watchlistItem.status === WatchStatus.PAUSED_REWATCH ? (
+								<FitLabel labels={resumeLabels} />
+							) : neverWatched ? (
+								<Text style={styles.pillText}>Start Watching</Text>
+							) : (
+								<FitLabel labels={startLabels} />
+							)}
 						</TouchableOpacity>
 					)}
 					{mediaType === MediaType.TV &&

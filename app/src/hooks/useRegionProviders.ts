@@ -5,6 +5,7 @@ import { cacheTitleExtras, getCachedCatalogShow } from "./useWatchlist";
 import type { ShowDetailsResult } from "./useShowDetails";
 import { MediaType, QueryKey, TITLE_EXTRAS_STALE_MS } from "../enums";
 import type { RegionWatchProviders, TitleExtras } from "../types";
+import { withOriginalServices } from "../utils/providerNames";
 
 /** The title's catalog as the app holds it right now (kept copy, else the info page's) */
 function useCachedCatalog(tmdbId: number, mediaType: MediaType) {
@@ -68,8 +69,17 @@ export function useRegionProviders(
 		staleTime: TITLE_EXTRAS_STALE_MS,
 	});
 	const waiting = !!region && !stored;
+	// A Netflix / Amazon original lists its service in every country (studio names: the catalog's
+	// Studio filter list, else the extras' logo row)
+	const answer = stored ?? fetched.data?.providers;
+	const names = catalog?.studios;
+	const logos = catalog?.studioLogos ?? fetched.data?.studios;
+	const data = useMemo(
+		() => withOriginalServices(answer, names?.length ? names.map((name) => ({ name })) : logos),
+		[answer, names, logos],
+	);
 	return {
-		data: stored ?? fetched.data?.providers,
+		data,
 		isPending: waiting && fetched.isPending,
 		isError: waiting && fetched.isError,
 	};

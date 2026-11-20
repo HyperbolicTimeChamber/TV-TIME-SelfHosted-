@@ -184,6 +184,20 @@ export const MARK_WATCHED_LABELS = ["Mark as Watched", "Mark Watched", "Watched"
 export const ADD_TO_WATCHLIST_LABELS = ["+ Add to Watchlist", "+ Watchlist", "+ Add"] as const;
 
 /**
+ * Services whose own titles stream on them in every country: a studio / network name matching
+ * `studio` puts `provider` (TMDB's watch provider: id, name, logo) into Where to Watch even where
+ * TMDB doesn't list it for the viewer's region
+ */
+export const ORIGINAL_SERVICES: readonly { studio: RegExp; provider: { id: number; name: string; logo: string } }[] = [
+	{ studio: /^netflix\b/i, provider: { id: 8, name: "Netflix", logo: "/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg" } },
+	{
+		// Amazon Studios, Amazon MGM Studios, the Prime Video / Amazon Prime Video networks
+		studio: /^(amazon (mgm )?studios|(amazon )?prime video)$/i,
+		provider: { id: 9, name: "Amazon Prime Video", logo: "/pvske1MyAoymrs5bguRfVqYiM9a.jpg" },
+	},
+];
+
+/**
  * Where to Watch: where a service's button goes, by its short display name (lowercase). `search`
  * opens the service's search for the title (`{q}` = the title) where it takes one from a link;
  * otherwise `home` opens the service. Plain https links: on a phone the service's app opens them

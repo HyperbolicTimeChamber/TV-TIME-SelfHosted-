@@ -17,6 +17,23 @@ export function markWatchedLabel(rewatchCount: number) {
 	return rewatchCount > 0 ? `Mark ${ordinal(rewatchCount)} Rewatch` : "Mark as Watched";
 }
 
+/**
+ * Rewatch button text, longest first so the pill can shorten instead of wrapping:
+ * "Rewatch 2nd Time" → "2nd Rewatch" → "Rewatch". n is the rewatch run the button starts
+ * (same numbering as "Mark 2nd Rewatch"); below 1 it's plain "Rewatch"
+ */
+export function rewatchLabels(n: number): readonly string[] {
+	if (n < 1) return ["Rewatch"];
+	const nth = ordinal(n);
+	return [`Rewatch ${nth} Time`, `${nth} Rewatch`, "Rewatch"];
+}
+
+/** Paused rewatch run n: "Resume 2nd Rewatch" → "Resume Rewatch" → "Resume" */
+export function resumeRewatchLabels(n: number): readonly string[] {
+	if (n < 1) return ["Resume Rewatch", "Resume"];
+	return [`Resume ${ordinal(n)} Rewatch`, "Resume Rewatch", "Resume"];
+}
+
 /** 1234 → 1.2K, 2_500_000 → 2.5M */
 export function formatCount(n: number) {
 	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;

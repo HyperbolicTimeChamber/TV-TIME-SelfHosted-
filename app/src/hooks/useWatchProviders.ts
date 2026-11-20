@@ -1,8 +1,10 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getCountryNames } from "../services/tmdb";
 import { getUserRegion, intlCountryName } from "../services/userRegion";
 import { useAuthStore } from "../stores";
 import { useTitleExtras } from "./useTitleExtras";
+import { withOriginalServices } from "../utils/providerNames";
 import {
 	COUNTRY_NAMES,
 	MediaType,
@@ -39,5 +41,10 @@ export function useCountryName(region: string | undefined): string | undefined {
 /** Where a title streams in the viewer's country (info page Where to Watch) — its extras' part */
 export function useWatchProviders(tmdbId: number, mediaType: MediaType) {
 	const { region, data, isPending, isError } = useTitleExtras(tmdbId, mediaType);
-	return { region, data: data?.providers, isPending, isError };
+	// A Netflix / Amazon original lists its service in every country
+	const providers = useMemo(
+		() => withOriginalServices(data?.providers, data?.studios),
+		[data?.providers, data?.studios],
+	);
+	return { region, data: providers, isPending, isError };
 }

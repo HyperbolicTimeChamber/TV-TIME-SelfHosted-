@@ -99,11 +99,14 @@ function computeRemaining(item: EnrichedTrackingItem, today: string): number | n
 	const catalog = item.catalogShow;
 	if (!nextEp || !catalog?.seasons) return null;
 	let count = 0;
+	const now = Date.now();
 	for (const s of catalog.seasons) {
 		if (s.seasonNumber < nextEp.season) continue;
 		for (const e of s.episodes) {
 			if (s.seasonNumber === nextEp.season && e.episodeNumber <= nextEp.episode) continue;
-			if (e.airDate && e.airDate <= today) count++;
+			// Same aired test as the card's own visibility (exact time first, else the day): a
+			// sibling released with the next episode counts the moment that one shows
+			if (hasAired(e.airStamp, e.airDate, today, now)) count++;
 		}
 	}
 	return count > 0 ? count : null;
