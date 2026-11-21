@@ -341,6 +341,13 @@ export function observedRewatchRun(
 	if (pointerIdx > 0) {
 		const prev = countOf(counts, order[pointerIdx - 1]);
 		if (prev !== c && prev !== c + 1) return null;
+		// prev === c: skipped in this run — or the pointer episode was just marked and the
+		// counts caught up before the tracking doc did (reads as run + 1). Only trusted once
+		// the run brought an earlier episode above it
+		if (prev === c && !order.slice(0, pointerIdx).some((e) => countOf(counts, e) > c)) return null;
+	} else if (order.length > 1 && countOf(counts, order[1]) !== c) {
+		// Run start: the rest sits at the pointer's count; E1 above it = E1 just marked
+		return null;
 	}
 	return c;
 }
@@ -535,6 +542,12 @@ export function rewatchHeal(
 		scope = order.slice(0, last + 1);
 	}
 	const low = lowestAiredCount(scope, counts, today);
+	// Completed: every aired episode reached the last run → rewatch count = lowest count − 1
+	// (a count left one too high blocked "Rewatch" until the next run's count, forever)
+	if (tracking.status === WatchStatus.COMPLETED) {
+		if (low.count < 1 || stored <= low.count - 1) return null;
+		return { rewatchCount: low.count - 1, status: WatchStatus.COMPLETED, nextEpisode: null };
+	}
 	if (stored <= low.count) return null;
 	const paused =
 		tracking.status === WatchStatus.PAUSED || tracking.status === WatchStatus.PAUSED_REWATCH;
