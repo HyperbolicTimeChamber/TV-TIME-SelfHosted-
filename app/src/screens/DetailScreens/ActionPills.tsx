@@ -105,10 +105,10 @@ export default function ActionPills({
 	const neverWatched = isTv && completed && !hasWatchedEpisodes;
 	// Watch count sheet (⋯ at the row's end, like Settings beside Hall of Shame)
 	const hasSheet = !isTv && completed && movieWatchCount > 0;
-	// The run the button starts / resumes: show = runs so far + 1 (paused = the run under way),
-	// movie = plays so far (1 play → its 1st rewatch)
+	// Start: the watch the button starts — show = full watches so far (runs + the first) + 1,
+	// movie = plays + 1 (watched 5× → "Rewatch 6th Time"). Resume: the rewatch run under way
 	const runs = watchlistItem?.rewatchCount ?? 0;
-	const rewatchNth = isTv ? runs + 1 : movieWatchCount;
+	const rewatchNth = isTv ? runs + 2 : movieWatchCount + 1;
 	const startLabels = useMemo(() => rewatchLabels(rewatchNth), [rewatchNth]);
 	const resumeLabels = useMemo(() => resumeRewatchLabels(runs), [runs]);
 	return (
