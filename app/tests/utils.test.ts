@@ -424,9 +424,9 @@ test("recentTitleChecks: seasons asked inside the window stay skipped across lau
 
 test("rewatchLabels / resumeRewatchLabels: the run's ordinal, shortening to fit", async () => {
 	const { rewatchLabels, resumeRewatchLabels } = await import("../src/utils/format");
-	assert.deepEqual(rewatchLabels(2), ["Rewatch 2nd Time", "2nd Rewatch", "Rewatch"]);
-	assert.deepEqual(rewatchLabels(11), ["Rewatch 11th Time", "11th Rewatch", "Rewatch"]);
-	assert.deepEqual(rewatchLabels(0), ["Rewatch"]);
+	assert.deepEqual(rewatchLabels(2), ["Rewatch 2nd Time", "2nd Watch", "Rewatch"]);
+	assert.deepEqual(rewatchLabels(11), ["Rewatch 11th Time", "11th Watch", "Rewatch"]);
+	assert.deepEqual(rewatchLabels(1), ["Rewatch"]);
 	assert.deepEqual(resumeRewatchLabels(3), ["Resume 3rd Rewatch", "Resume Rewatch", "Resume"]);
 });
 
