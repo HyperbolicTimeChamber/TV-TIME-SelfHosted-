@@ -11,6 +11,7 @@ import {
 	seasonSkipAheadCopy,
 	startRewatchCopy,
 	observedRewatchRun,
+	rewatchHeal,
 	carouselRunBase,
 	firstSkippedSeason,
 	rewatchUpToRefs,
@@ -429,6 +430,32 @@ test("observed rewatch run: only trusted when the pointer and the episode before
 	assert.equal(observedRewatchRun(order, counts([2, 5, 1, ...Array(9).fill(1)]), tr(R, 1, 3)), null);
 	assert.equal(observedRewatchRun(order, counts(all(2)), tr(C, 1, 3)), null);
 	assert.equal(observedRewatchRun(order, counts(all(2)), { status: R, nextEpisode: null }), null);
+});
+
+test("observed rewatch run: a mark seen before the tracking update never reads as the next run", () => {
+	// HIMYM: run 4 under way, last episode (pointer) just marked to ×5 — the counts caught up,
+	// the tracking doc still points at it. Every episode at ×5 is the run finishing, not run 5
+	assert.equal(observedRewatchRun(order, counts(all(5)), tr(R, 2, 6)), null);
+	// Mid-run: pointer episode just marked to the run's level, nothing above it yet
+	assert.equal(observedRewatchRun(order, counts([5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4, 4]), tr(R, 1, 3)), null);
+	// Run start: E1 just marked (×4) while the rest sits at ×3 — still run 3
+	assert.equal(observedRewatchRun(order, counts([4, ...Array(11).fill(3)]), tr(R, 1, 1)), null);
+	// Episode before skipped, but the run already brought one episode higher → trusted
+	assert.equal(observedRewatchRun(order, counts([5, 4, 4, ...Array(9).fill(4)]), tr(R, 1, 3)), 4);
+});
+
+test("rewatch heal: a completed show's rewatch count sits one below its lowest watch count", () => {
+	// HIMYM: watched ×5 everywhere (one episode ×6), stored rewatch 5 → 4 watches + 1 = 5
+	const c = [6, ...Array(11).fill(5)];
+	assert.deepEqual(rewatchHeal(order, counts(c), { status: C, rewatchCount: 5, nextEpisode: null }, TODAY), {
+		rewatchCount: 4,
+		status: C,
+		nextEpisode: null,
+	});
+	// Consistent: completed run 4 with every episode ×5 → nothing to write
+	assert.equal(rewatchHeal(order, counts(all(5)), { status: C, rewatchCount: 4, nextEpisode: null }, TODAY), null);
+	// Rewatch under way keeps the old floor (pointer episode sits at the run number)
+	assert.equal(rewatchHeal(order, counts([6, ...Array(11).fill(5)]), { status: R, rewatchCount: 5, nextEpisode: ep(1, 2) }, TODAY), null);
 });
 
 test("carousel run base: from the pointer's count, not a stale stored number", () => {
