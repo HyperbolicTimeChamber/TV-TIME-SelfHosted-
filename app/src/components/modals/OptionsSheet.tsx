@@ -3,6 +3,7 @@ import {
 	View,
 	Text,
 	Pressable,
+	ScrollView,
 	Modal,
 	Animated,
 	PanResponder,
@@ -16,6 +17,8 @@ import { colors, spacing, typography, themedStyles } from "../../theme";
 export interface SheetOption {
 	key: string;
 	label: string;
+	/** A smaller line under the label */
+	hint?: string;
 	icon: React.ComponentProps<typeof Ionicons>["name"];
 	destructive?: boolean;
 	onPress: () => void;
@@ -101,24 +104,30 @@ export default function OptionsSheet({ visible, title, subtitle, options, onClos
 							<View style={{ height: spacing.md }} />
 						)}
 					</View>
-					{options.map((o) => (
-						<Pressable
-							key={o.key}
-							style={({ pressed }) => [styles.option, pressed && { opacity: 0.6 }]}
-							// Closes first, then runs: an option that opens another modal needs this one gone
-							onPress={() => slideOut(o.onPress)}
-						>
-							<Ionicons
-								name={o.icon}
-								size={22}
-								color={o.destructive ? colors.destructiveRed : colors.text}
-								style={styles.icon}
-							/>
-							<Text style={[styles.optionText, o.destructive && { color: colors.destructiveRed }]}>
-								{o.label}
-							</Text>
-						</Pressable>
-					))}
+					{/* A long list scrolls inside the sheet (a short one just fits) */}
+					<ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+						{options.map((o) => (
+							<Pressable
+								key={o.key}
+								style={({ pressed }) => [styles.option, pressed && { opacity: 0.6 }]}
+								// Closes first, then runs: an option that opens another modal needs this one gone
+								onPress={() => slideOut(o.onPress)}
+							>
+								<Ionicons
+									name={o.icon}
+									size={22}
+									color={o.destructive ? colors.destructiveRed : colors.text}
+									style={styles.icon}
+								/>
+								<View style={styles.optionTextWrap}>
+									<Text style={[styles.optionText, o.destructive && { color: colors.destructiveRed }]}>
+										{o.label}
+									</Text>
+									{o.hint ? <Text style={styles.optionHint}>{o.hint}</Text> : null}
+								</View>
+							</Pressable>
+						))}
+					</ScrollView>
 				</Animated.View>
 			</View>
 		</Modal>
@@ -161,5 +170,8 @@ const styles = themedStyles(() => StyleSheet.create({
 		borderTopColor: colors.border,
 	},
 	icon: { width: 36 },
+	list: { maxHeight: SCREEN_HEIGHT * 0.55 },
+	optionTextWrap: { flex: 1 },
 	optionText: { ...typography.subtitle, fontSize: 15 },
+	optionHint: { ...typography.caption, color: colors.textMuted, marginTop: 2 },
 }));

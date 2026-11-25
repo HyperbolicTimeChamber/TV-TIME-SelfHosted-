@@ -15,7 +15,14 @@ import {
 	type PlanInput,
 } from "../src/utils/airingPlan";
 import { AIRING_CAP, AlertType, ALERT_ID, MediaType, WatchStatus } from "../src/enums";
-import { NotificationKind } from "../src/utils/settingsOptions";
+/** The old five-switch names: `prefs()` migrates them (the saved format before the detailed settings) */
+const NotificationKind = {
+	PREMIERES: "premieres",
+	NEW_EPISODES: "newEpisodes",
+	MOVIE_REMINDERS: "movieReminders",
+	WEEKLY_DIGEST: "weeklyDigest",
+	QUIET_HOURS: "quietHours",
+} as const;
 
 /** local ms of "YYYY-MM-DD" at h:m */
 const at = (date: string, h = 0, m = 0) => {
@@ -66,7 +73,7 @@ const movie = (n: number, title: string, releaseDate: string | null, status = Wa
 
 const plan = (titles: PlanTitle[], over: Partial<PlanInput> = {}) =>
 	buildAiringPlan({ now: NOW, titles, prefs: { ...DEFAULT_NOTIFY_PREFS }, overrides: [], lastOpenMs: 0, ...over });
-const prefs = (p: Partial<Record<NotificationKind, boolean>>) => ({ ...DEFAULT_NOTIFY_PREFS, ...p });
+const prefs = (p: Record<string, boolean>) => parseNotifyPrefs(JSON.stringify(p));
 const noDigest = { [NotificationKind.WEEKLY_DIGEST]: false };
 
 test("an episode alerts at its exact air time with a stable id", () => {
@@ -291,8 +298,8 @@ test("reopen nudge: 9 am, 25 days after the last open, never in the past", () =>
 
 test("parseNotifyPrefs: defaults on, saved booleans win, junk ignored", () => {
 	assert.deepEqual(parseNotifyPrefs(null), DEFAULT_NOTIFY_PREFS);
-	assert.equal(parseNotifyPrefs(JSON.stringify({ premieres: false, newEpisodes: "no" })).premieres, false);
-	assert.equal(parseNotifyPrefs(JSON.stringify({ premieres: false, newEpisodes: "no" })).newEpisodes, true);
+	assert.equal(parseNotifyPrefs(JSON.stringify({ premieres: false, newEpisodes: "no" })).premieres.on, false);
+	assert.equal(parseNotifyPrefs(JSON.stringify({ premieres: false, newEpisodes: "no" })).episodes.on, true);
 	assert.deepEqual(parseNotifyPrefs("not json"), DEFAULT_NOTIFY_PREFS);
 	assert.deepEqual(parseNotifyPrefs("5"), DEFAULT_NOTIFY_PREFS);
 });

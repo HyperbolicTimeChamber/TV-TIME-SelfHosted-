@@ -6,6 +6,7 @@ import ProfileScreen from "../screens/ProfileScreen";
 import SettingsScreen from "../screens/ProfileScreen/SettingsScreen";
 import AppearanceScreen from "../screens/ProfileScreen/AppearanceScreen";
 import NotificationsScreen from "../screens/ProfileScreen/NotificationsScreen";
+import NotificationTitlesScreen from "../screens/ProfileScreen/NotificationTitlesScreen";
 import ProfilePrefsScreen from "../screens/ProfileScreen/ProfilePrefsScreen";
 import WatchHistoryScreen from "../screens/ProfileScreen/WatchHistory";
 import ListDetailScreen from "../screens/ProfileScreen/ListDetail";
@@ -36,6 +37,11 @@ export default function ProfileStackScreen() {
 			<ProfileStack.Screen
 				name={Route.NOTIFICATIONS}
 				component={NotificationsScreen}
+				options={swipeBackScreenOptions}
+			/>
+			<ProfileStack.Screen
+				name={Route.NOTIFICATION_TITLES}
+				component={NotificationTitlesScreen}
 				options={swipeBackScreenOptions}
 			/>
 			<ProfileStack.Screen
