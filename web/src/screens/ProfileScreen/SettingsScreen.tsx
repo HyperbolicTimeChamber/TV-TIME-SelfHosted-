@@ -47,6 +47,7 @@ import {
 import PoweredByTmdb from "../../components/PoweredByTmdb";
 import { APP_VERSION_LABEL } from "@app/utils/appVersion";
 import { requireOnline } from "@app/utils/requireOnline";
+import { useLocalProfileStore } from "@app/stores/localProfileStore";
 import styles from "./styles/SettingsScreen.module.scss";
 
 /** Swipe right farther than this to go back (as on the app) */
@@ -250,6 +251,8 @@ export default function SettingsScreen() {
 		setDeleteError(null);
 		try {
 			await foregroundCall(() => httpsCallable(getFunctions(), CloudFunction.DELETE_ACCOUNT)({}));
+			// The name and photo kept in this browser go with the account
+			if (user) await useLocalProfileStore.getState().clear(user.uid);
 			await signOut();
 			navigate(Paths.SEARCH, { replace: true });
 		} catch (err) {
@@ -283,6 +286,12 @@ export default function SettingsScreen() {
 				</button>
 				<button className={styles.row} onClick={() => navigate(Paths.PROFILE_PREFS)}>
 					Profile
+				</button>
+				<button className={styles.row} onClick={() => navigate(Paths.HOME_PREFS)}>
+					Home
+				</button>
+				<button className={styles.row} onClick={() => navigate(Paths.CALENDAR_PREFS)}>
+					Calendar
 				</button>
 				<button className={styles.row} onClick={() => navigate(Paths.NOTIFICATIONS)}>
 					Notifications

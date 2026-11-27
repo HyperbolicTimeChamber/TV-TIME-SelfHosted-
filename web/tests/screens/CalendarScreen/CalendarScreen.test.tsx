@@ -27,6 +27,8 @@ vi.mock("@app/screens/useCalendarScreen", () => ({
 		],
 		handleDayPress,
 		handleMonthChange,
+		dayLoad: () => ({ action: "none", loading: false }),
+		loadDate: vi.fn(),
 		selectYear: vi.fn(),
 		monthLabel: "October 2026",
 	}),

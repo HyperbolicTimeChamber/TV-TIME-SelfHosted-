@@ -5,20 +5,21 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StackActions, useNavigation } from "@react-navigation/native";
 import { colors, themedStyles } from "../theme";
 import { Route } from "../types";
+import { useAppPrefsStore } from "../stores/appPrefsStore";
+import { mainTabs, type MainTab } from "./tabs";
 
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
-const TABS: {
-	route: string;
-	icon: keyof typeof Ionicons.glyphMap;
-	iconOutline: keyof typeof Ionicons.glyphMap;
-}[] = [
-	{ route: Route.HOME, icon: "home", iconOutline: "home-outline" },
-	{ route: Route.CALENDAR, icon: "calendar", iconOutline: "calendar-outline" },
-	{ route: Route.SEARCH, icon: "search", iconOutline: "search-outline" },
-	{ route: Route.PROFILE, icon: "person", iconOutline: "person-outline" },
-];
+const ICONS: Record<
+	MainTab,
+	{ icon: keyof typeof Ionicons.glyphMap; iconOutline: keyof typeof Ionicons.glyphMap }
+> = {
+	[Route.HOME]: { icon: "home", iconOutline: "home-outline" },
+	[Route.CALENDAR]: { icon: "calendar", iconOutline: "calendar-outline" },
+	[Route.SEARCH]: { icon: "search", iconOutline: "search-outline" },
+	[Route.PROFILE]: { icon: "person", iconOutline: "person-outline" },
+};
 
 // A custom tabBar emits no `tabPress`, so screens that want to know a tab *button* was pressed
 // (as opposed to the tab being reached by swiping) subscribe here instead
@@ -48,8 +49,6 @@ function popProfileStack(navigation: any) {
 	}
 }
 
-const TAB_WIDTH = SCREEN_WIDTH / TABS.length;
-const BAR_WIDTH = TAB_WIDTH;
 const BAR_HEIGHT = 3;
 
 interface Props {
@@ -59,12 +58,15 @@ interface Props {
 export default function CustomTabBar({ activeTab }: Props) {
 	const { bottom } = useSafeAreaInsets();
 	const navigation = useNavigation<any>();
-	const activeIndex = TABS.findIndex((t) => t.route === activeTab);
+	const calendarEnabled = useAppPrefsStore((s) => s.prefs.calendarEnabled);
+	const tabs = mainTabs(calendarEnabled).map((route) => ({ route, ...ICONS[route] }));
+	const activeIndex = tabs.findIndex((t) => t.route === activeTab);
+	const tabWidth = SCREEN_WIDTH / tabs.length;
 
 	return (
 		<View style={[styles.container, { paddingBottom: bottom }]}>
-			<View style={[styles.bar, { left: activeIndex * TAB_WIDTH }]} />
-			{TABS.map((tab) => {
+			<View style={[styles.bar, { left: activeIndex * tabWidth, width: tabWidth }]} />
+			{tabs.map((tab) => {
 				const isActive = tab.route === activeTab;
 				return (
 					<TouchableOpacity
@@ -109,7 +111,6 @@ const styles = themedStyles(() => StyleSheet.create({
 	bar: {
 		position: "absolute",
 		top: 0,
-		width: BAR_WIDTH,
 		height: BAR_HEIGHT,
 		borderRadius: BAR_HEIGHT / 2,
 		backgroundColor: colors.primary,

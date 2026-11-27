@@ -206,3 +206,69 @@
 	font-size: 17px;
 	font-weight: 600;
 }
+
+/* Settings -> Calendar: the load-ahead slider */
+.slider {
+	padding: 12px;
+	border-top: 1px solid var(--border);
+}
+
+.sliderHead {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.sliderValue {
+	font-size: 12px;
+	color: var(--text);
+}
+
+/* Settings -> Profile: the name */
+.nameBody {
+	padding: 0 12px 12px;
+}
+
+.nameRow {
+	display: flex;
+	gap: 8px;
+}
+
+.nameInput {
+	flex: 1;
+	min-width: 0;
+	padding: 8px 12px;
+	border: 0;
+	border-radius: 8px;
+	background: var(--border);
+	color: var(--text);
+	font-size: 15px;
+}
+
+.saveButton {
+	height: 40px;
+	padding: 0 16px;
+	border: 0;
+	border-radius: 20px;
+	background: var(--primary);
+	color: #fff;
+	font-size: 15px;
+	font-weight: 600;
+	cursor: pointer;
+
+	&:disabled {
+		opacity: 0.4;
+		cursor: default;
+	}
+}
+
+.linkButton {
+	display: block;
+	margin-top: 12px;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: $accent;
+	font-size: 12px;
+	cursor: pointer;
+}

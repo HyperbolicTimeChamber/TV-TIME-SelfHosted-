@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Freeze } from "react-freeze";
 import { StyleSheet, type Animated as RNAnimated } from "react-native";
 import Animated, {
@@ -17,6 +17,8 @@ import ProfileStackScreen from "./ProfileStackScreen";
 import CustomTabBar from "./CustomTabBar";
 import { useSwipingBack } from "../components/SwipeBackView";
 import { useTabDesyncCheck } from "./useTabDesyncCheck";
+import { mainTabs, type MainTab } from "./tabs";
+import { useAppPrefsStore } from "../stores/appPrefsStore";
 
 const SwipeTab = createMaterialTopTabNavigator<SwipeTabParamList>();
 
@@ -28,7 +30,10 @@ const DETAIL_ROUTES = new Set([
 	Route.SETTINGS,
 	Route.APPEARANCE,
 	Route.NOTIFICATIONS,
+	Route.NOTIFICATION_TITLES,
 	Route.PROFILE_PREFS,
+	Route.HOME_PREFS,
+	Route.CALENDAR_PREFS,
 	Route.WATCH_HISTORY,
 	Route.LISTS,
 	Route.LIST_DETAIL,
@@ -101,9 +106,11 @@ function TabBar({
 	);
 }
 
-/** The focused tab's index (TAB_ORDER) */
-const FocusedTabContext = createContext(0);
-const TAB_ORDER = [Route.HOME, Route.CALENDAR, Route.SEARCH, Route.PROFILE] as const;
+/** The tabs shown, and the focused one's index among them */
+const FocusedTabContext = createContext<{ focused: number; order: MainTab[] }>({
+	focused: 0,
+	order: mainTabs(true),
+});
 
 /**
  * A tab that isn't the focused one or right next to it is frozen (react-freeze): it keeps its
@@ -113,13 +120,12 @@ const TAB_ORDER = [Route.HOME, Route.CALENDAR, Route.SEARCH, Route.PROFILE] as c
  * the pager shows them while a swipe is in progress (a frozen tab is hidden). Home is never
  * frozen: thawed, its watchlist's pinned header came back out of step with the list's scroll
  */
-function reachableTab(name: (typeof TAB_ORDER)[number], Screen: React.ComponentType<any>) {
-	const at = TAB_ORDER.indexOf(name);
+function reachableTab(name: MainTab, Screen: React.ComponentType<any>) {
 	const freezable = name !== Route.HOME;
 	function ReachableTab(props: object) {
-		const focused = useContext(FocusedTabContext);
+		const { focused, order } = useContext(FocusedTabContext);
 		return (
-			<Freeze freeze={freezable && Math.abs(focused - at) > 1}>
+			<Freeze freeze={freezable && Math.abs(focused - order.indexOf(name)) > 1}>
 				<Screen {...props} />
 			</Freeze>
 		);
@@ -135,8 +141,13 @@ export default function SwipeTabsScreen() {
 	// The overlaid bar's height: tab screens keep it clear, detail screens use it
 	const [barHeight, setBarHeight] = useState(0);
 	const [focusedTab, setFocusedTab] = useState(0);
+	const calendarEnabled = useAppPrefsStore((s) => s.prefs.calendarEnabled);
+	const tabs = useMemo(
+		() => ({ focused: focusedTab, order: mainTabs(calendarEnabled) }),
+		[focusedTab, calendarEnabled],
+	);
 	return (
-		<FocusedTabContext.Provider value={focusedTab}>
+		<FocusedTabContext.Provider value={tabs}>
 			<SwipeTab.Navigator
 				screenListeners={{
 					state: (e) => {
@@ -162,7 +173,7 @@ export default function SwipeTabsScreen() {
 				}}
 			>
 				<SwipeTab.Screen name={Route.HOME} component={HomeTab} />
-				<SwipeTab.Screen name={Route.CALENDAR} component={CalendarTab} />
+				{calendarEnabled && <SwipeTab.Screen name={Route.CALENDAR} component={CalendarTab} />}
 				<SwipeTab.Screen name={Route.SEARCH} component={SearchTab} />
 				<SwipeTab.Screen name={Route.PROFILE} component={ProfileTab} />
 			</SwipeTab.Navigator>

@@ -125,6 +125,18 @@
 	pointer-events: none;
 }
 
+/* The photo is a button (opens it full screen); the overlay around it passes clicks through */
+.avatarButton {
+	position: relative;
+	display: flex;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: none;
+	pointer-events: auto;
+	cursor: zoom-in;
+}
+
 .avatar {
 	width: 100px;
 	height: 100px;

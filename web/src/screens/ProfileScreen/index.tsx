@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Spin } from "antd";
 import { IoPerson, IoSettingsSharp } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
@@ -18,13 +19,27 @@ import CircleButton from "../../components/CircleButton";
 import { CircleButtonTone } from "@app/enums";
 import Marquee from "../../components/Marquee";
 import CustomLists from "./CustomLists";
+import ProfilePhotoViewer from "./ProfilePhotoViewer";
+import { useLocalProfile } from "@app/stores/localProfileStore";
+import { displayNameOf } from "@app/utils/localProfile";
 import styles from "./styles/ProfileScreen.module.scss";
+
+/** Widest the full-screen photo gets */
+const PHOTO_VIEW_PX = 480;
 
 /** Profile tab — stats, weekly chart, recently completed (same hooks as the app) */
 export default function ProfileScreen() {
 	const navigate = useNavigate();
 	const user = useAppSelector((s) => s.auth.user);
 	const showCompleted = useAppSelector((s) => s.auth.profilePrefs.showCompleted);
+	// This browser's own name / photo win over the account's
+	const local = useLocalProfile(user?.uid);
+	const name = displayNameOf(local, user?.displayName);
+	const accountPhoto = (size: number) =>
+		user?.photoURL ? scaledPhotoURL(user.photoURL, size, window.devicePixelRatio || 1) : null;
+	const avatarSrc = local.photo ?? accountPhoto(100);
+	// Set while the full-screen photo is open: where the avatar sits, for it to grow from
+	const [photoOrigin, setPhotoOrigin] = useState<DOMRect | null>(null);
 	const { stats, loading: statsLoading } = useUserStats(user?.uid);
 	const { items: watchlist } = useWatchlist(user?.uid);
 	const cardImages = useProfileCardImages(watchlist);
@@ -82,21 +97,28 @@ export default function ProfileScreen() {
 						/>
 					</div>
 					<div className={styles.avatarOverlay}>
-						<div className={`${styles.avatar} ${styles.avatarPlaceholder}`}>
-							<IoPerson size={40} color="var(--text-muted)" />
-						</div>
-						{user?.photoURL && (
-							<img
-								src={scaledPhotoURL(user.photoURL, 100, window.devicePixelRatio || 1)}
-								alt=""
-								className={`${styles.avatar} absolute`}
-								referrerPolicy="no-referrer"
-							/>
-						)}
+						<button
+							type="button"
+							className={styles.avatarButton}
+							aria-label="View profile photo"
+							onClick={(e) => setPhotoOrigin(e.currentTarget.getBoundingClientRect())}
+						>
+							<span className={`${styles.avatar} ${styles.avatarPlaceholder}`}>
+								<IoPerson size={40} color="var(--text-muted)" />
+							</span>
+							{avatarSrc && (
+								<img
+									src={avatarSrc}
+									alt=""
+									className={`${styles.avatar} absolute inset-0 object-cover`}
+									referrerPolicy="no-referrer"
+								/>
+							)}
+						</button>
 					</div>
 				</div>
 				<div className={styles.header}>
-					<span className={styles.name}>{user?.displayName || "User"}</span>
+					<span className={styles.name}>{name}</span>
 					<span className={styles.email}>{user?.email}</span>
 				</div>
 			</div>
@@ -168,6 +190,17 @@ export default function ProfileScreen() {
 			)}
 
 			<CustomLists standalone={!showCompleted || (!completedLoading && sections.length === 0)} />
+
+			{user && (
+				<ProfilePhotoViewer
+					uid={user.uid}
+					name={name}
+					src={local.photo ?? accountPhoto(PHOTO_VIEW_PX)}
+					canRemove={!!local.photo}
+					origin={photoOrigin}
+					onClose={() => setPhotoOrigin(null)}
+				/>
+			)}
 		</div>
 	);
 }

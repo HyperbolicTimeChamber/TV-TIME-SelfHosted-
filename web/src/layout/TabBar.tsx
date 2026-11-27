@@ -10,6 +10,7 @@ import {
 	IoSearch,
 	IoSearchOutline,
 } from "react-icons/io5";
+import { useAppPrefsStore } from "@app/stores/appPrefsStore";
 import { colors } from "../theme/index";
 import { Paths } from "../routes/paths";
 import styles from "./styles/TabBar.module.scss";
@@ -24,7 +25,10 @@ const TABS = [
 /** Bottom tab bar (mobile) / side rail (desktop) — mirrors app CustomTabBar */
 export default function TabBar({ hidden = false }: { hidden?: boolean }) {
 	const { pathname } = useLocation();
-	const activePath = TABS.find((t) => pathname.startsWith(t.path))?.path;
+	// Calendar is optional (Settings -> Calendar)
+	const calendarEnabled = useAppPrefsStore((s) => s.prefs.calendarEnabled);
+	const tabs = TABS.filter((t) => calendarEnabled || t.path !== Paths.CALENDAR);
+	const activePath = tabs.find((t) => pathname.startsWith(t.path))?.path;
 
 	return (
 		<nav
@@ -33,7 +37,7 @@ export default function TabBar({ hidden = false }: { hidden?: boolean }) {
 			aria-hidden={hidden || undefined}
 			inert={hidden || undefined}
 		>
-			{TABS.map((tab) => {
+			{tabs.map((tab) => {
 				const active = tab.path === activePath;
 				const Icon = active ? tab.icon : tab.iconOutline;
 				return (

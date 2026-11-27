@@ -43,7 +43,8 @@ export const styles = themedStyles(() => StyleSheet.create({
 		justifyContent: "center",
 		alignItems: "center",
 		zIndex: 3,
-		pointerEvents: "none",
+		// Only the avatar takes touches; the stat cards around it keep theirs
+		pointerEvents: "box-none",
 	},
 	avatar: {
 		width: 100,

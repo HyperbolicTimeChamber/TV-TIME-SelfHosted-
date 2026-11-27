@@ -20,6 +20,9 @@ export type CalendarEpisode = UpcomingEpisode & {
 import { colors } from "../theme";
 import { todayStr, inMonth, shiftMonth, sameDayIn, parseDay } from "../utils";
 import { buildDayMarks } from "../utils/calendarGroups";
+import { loadWindow, windowMonths } from "../utils/calendarRange";
+import { useAppPrefsStore } from "../stores/appPrefsStore";
+import { requireOnline } from "../utils/requireOnline";
 
 /** A month stays on screen this long before its episodes are built (flicked-past months
  *  are never built) */
@@ -53,7 +56,9 @@ export function useCalendarScreen(initial?: CalendarPosition | null) {
 	const [currentYear, setCurrentYear] = useState(initial?.year ?? now.getFullYear());
 	const [currentMonth, setCurrentMonth] = useState(initial?.month ?? now.getMonth() + 1);
 
-	const { episodes, isMonthLoading, loadMonthEpisodes } = useCalendarEpisodes(user?.uid);
+	const { episodes, isMonthLoading, loadMonthEpisodes, loadAskedMonth, dayLoad } =
+		useCalendarEpisodes(user?.uid);
+	const loadDays = useAppPrefsStore((s) => s.prefs.calendarLoadDays);
 	// Skeleton only while the shown month has nothing to render — cached months show at once
 	const loading = isMonthLoading(currentYear, currentMonth);
 
@@ -82,11 +87,29 @@ export function useCalendarScreen(initial?: CalendarPosition | null) {
 	);
 	useEffect(() => () => void (loadTimer.current && clearTimeout(loadTimer.current)), []);
 
-	// Load current month's episodes on mount
+	/** Every month the load setting reaches, loaded (and cached) ahead of being browsed to */
+	const loadAhead = useCallback(() => {
+		for (const m of windowMonths(loadWindow(todayStr(), loadDays))) {
+			loadMonthEpisodes(m.year, m.month);
+		}
+	}, [loadDays, loadMonthEpisodes]);
+
+	// Load on mount, and again when the load setting changes
 	useEffect(() => {
 		loadAroundNow(currentYear, currentMonth);
+		loadAhead();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [user?.uid]);
+	}, [user?.uid, loadDays]);
+
+	/** The Load button under a date outside what's loaded */
+	const loadDate = useCallback(
+		(date: string) => {
+			if (!requireOnline()) return;
+			const d = parseDay(date);
+			loadAskedMonth(d.getFullYear(), d.getMonth() + 1);
+		},
+		[loadAskedMonth],
+	);
 
 	/** Back to today (app: on tab focus) */
 	const resetToToday = useCallback(() => {
@@ -95,7 +118,9 @@ export function useCalendarScreen(initial?: CalendarPosition | null) {
 		setCurrentMonth(today.getMonth() + 1);
 		setSelectedDate(todayStr());
 		loadAroundNow(today.getFullYear(), today.getMonth() + 1);
-	}, [loadAroundNow]);
+		// A new day moves the window on
+		loadAhead();
+	}, [loadAroundNow, loadAhead]);
 
 	const markedDates = useMemo(() => {
 		const marks: Record<string, DayMark> = {};
@@ -235,6 +260,8 @@ export function useCalendarScreen(initial?: CalendarPosition | null) {
 		selectedEpisodes,
 		episodesForDate,
 		dayMarks,
+		dayLoad,
+		loadDate,
 		selectDate,
 		handleDayPress,
 		handleMonthChange,

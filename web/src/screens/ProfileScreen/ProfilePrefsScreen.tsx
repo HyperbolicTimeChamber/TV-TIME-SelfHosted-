@@ -8,12 +8,13 @@ import type { ProfilePrefs } from "@app/utils/profilePrefs";
 import { CircleBackButton, CircleButtonSpacer } from "../../components/CircleButton";
 import { useAppDispatch, useAppSelector } from "../../store";
 import { saveProfilePrefs } from "../../store/authSlice";
+import NameSection from "./NameSection";
 import styles from "./styles/SettingsPlaceholder.module.scss";
 
 /** Swipe right farther than this to go back (as on the app) */
 const SWIPE_BACK_PX = 60;
 
-/** Settings -> Profile (app ProfilePrefsScreen): lists on the profile (0-10) and the completed rows */
+/** Settings -> Profile (app ProfilePrefsScreen): the name, lists on the profile and the completed rows */
 export default function ProfilePrefsScreen() {
 	const navigate = useNavigate();
 	const dispatch = useAppDispatch();
@@ -44,6 +45,8 @@ export default function ProfilePrefsScreen() {
 				<h1 className={styles.headerTitle}>Profile</h1>
 				<CircleButtonSpacer />
 			</div>
+
+			<NameSection />
 
 			<section className={styles.section}>
 				<h2 className={styles.sectionTitle}>Lists</h2>

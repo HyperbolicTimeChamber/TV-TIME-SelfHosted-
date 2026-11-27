@@ -10,6 +10,17 @@ import { trackedIdsQuery } from "./useTrackedIds";
 import { useRetryOnReconnect } from "./useRetryOnReconnect";
 import { useQueryClient } from "@tanstack/react-query";
 import { calendarCacheForUser, isCalendarCacheStale } from "../utils/calendarCache";
+import {
+	CalendarDayAction,
+	dayAction,
+	monthSpan,
+	neededSpan,
+	planMonthLoad,
+	spanCovers,
+	type DateSpan,
+} from "../utils/calendarRange";
+import { todayStr } from "../utils/todayStr";
+import { useAppPrefsStore } from "../stores/appPrefsStore";
 
 const MAX_CACHED_MONTHS = 12;
 /** Months kept in memory. Every loaded month is flattened into one array (and indexed by day)
@@ -43,6 +54,8 @@ interface CalendarCache {
 	syncDate?: string | null;
 	/** Month → lastCatalogSync it was built under */
 	monthSyncs?: Record<string, string | null>;
+	/** Month → the days it was built for, when not the whole month */
+	spans?: Record<string, DateSpan>;
 }
 
 const monthSync = (cache: CalendarCache, key: string) =>
@@ -69,6 +82,7 @@ async function saveCalendarCache(cache: CalendarCache) {
 			if (key === currentKey) continue;
 			delete cache.months[key];
 			delete cache.monthSyncs?.[key];
+			delete cache.spans?.[key];
 		}
 	}
 	await AsyncStorage.setItem(CacheKey.CALENDAR_MONTHS, JSON.stringify(cache)).catch(() => {});
@@ -136,6 +150,14 @@ export function useCalendarEpisodes(userId: string | undefined) {
 	// From authStore's config/app read — no extra read here
 	const lastCatalogSync = useAuthStore((s) => s.lastCatalogSync);
 	const queryClient = useQueryClient();
+	// Settings -> Calendar: what loads by itself
+	const loadDays = useAppPrefsStore((s) => s.prefs.calendarLoadDays);
+	// Months the user asked for with the Load button this session
+	const [asked, setAsked] = useState<ReadonlySet<string>>(new Set());
+	const askedRef = useRef(new Set<string>());
+	// Asked for while already building — run again once that build ends
+	const queued = useRef(new Set<string>());
+	const loadRef = useRef<(year: number, month: number) => void>(() => {});
 
 	// AsyncStorage only: cached months render at once, whatever the network does. Staleness
 	// (backend synced since a month was built) is checked per month in loadMonthEpisodes
@@ -168,11 +190,33 @@ export function useCalendarEpisodes(userId: string | undefined) {
 			await restore(userId);
 			const cache = calendarCacheRef.current;
 			const cached = monthKey in cache.months;
-			// Cached + built under the current sync → done. Sync not known yet → trust the cache
+			// Dropped from memory to save space, still saved → show it again
+			if (cached) {
+				setEpisodesByMonth((prev) =>
+					prev.has(monthKey)
+						? prev
+						: pruneMonths(new Map(prev).set(monthKey, cache.months[monthKey]), monthKey),
+				);
+			}
+			// Sync not known yet → trust the cache
 			const syncNow = useAuthStore.getState().lastCatalogSync;
-			if (cached && !isCalendarCacheStale(monthSync(cache, monthKey), syncNow)) return;
+			// The days to build: those the load setting covers (or the whole month when asked for)
+			const span = planMonthLoad({
+				monthKey,
+				today: todayStr(),
+				days: loadDays,
+				cached,
+				coverage: cache.spans?.[monthKey],
+				stale: cached && isCalendarCacheStale(monthSync(cache, monthKey), syncNow),
+				asked: askedRef.current.has(monthKey),
+			});
+			if (!span) return;
 			// Stale months rebuild in the background (still shown); retried once the key arrives
-			if (!apiKey || building.current.has(monthKey)) return;
+			if (!apiKey) return;
+			if (building.current.has(monthKey)) {
+				queued.current.add(monthKey);
+				return;
+			}
 
 			building.current.add(monthKey);
 			try {
@@ -183,9 +227,7 @@ export function useCalendarEpisodes(userId: string | undefined) {
 					whenCatalogRestored(),
 				]);
 
-				const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
-				const lastDay = new Date(year, month, 0).getDate();
-				const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+				const { from: startDate, to: endDate } = span;
 				const inMonth = (date: string | null | undefined): date is string =>
 					!!date && date >= startDate && date <= endDate;
 
@@ -277,7 +319,13 @@ export function useCalendarEpisodes(userId: string | undefined) {
 
 				// Tracked shows but no catalogs in memory yet → show nothing for now, but don't
 				// save the month, so the next visit loads it again
-				if (tracked.size > 0 && tvCatalogs.length + movieCatalogs.length === 0) return;
+				if (tracked.size > 0 && tvCatalogs.length + movieCatalogs.length === 0) {
+					// Asked for with the button: offer it again rather than spin
+					if (askedRef.current.has(monthKey)) {
+						setFailedMonths((prev) => new Set(prev).add(monthKey));
+					}
+					return;
+				}
 
 				// Update state + persist to cache, stamped with the sync it was built under
 				setEpisodesByMonth((prev) => {
@@ -288,6 +336,10 @@ export function useCalendarEpisodes(userId: string | undefined) {
 				const target = calendarCacheRef.current;
 				target.months[monthKey] = episodes;
 				target.monthSyncs = { ...target.monthSyncs, [monthKey]: syncNow };
+				const spans = { ...target.spans };
+				if (spanCovers(span, monthSpan(monthKey))) delete spans[monthKey];
+				else spans[monthKey] = span;
+				target.spans = spans;
 				queueCalendarSave(target);
 				setFailedMonths((prev) => {
 					if (!prev.has(monthKey)) return prev;
@@ -301,10 +353,27 @@ export function useCalendarEpisodes(userId: string | undefined) {
 			} finally {
 				building.current.delete(monthKey);
 				setSettled((prev) => (prev.has(monthKey) ? prev : new Set(prev).add(monthKey)));
+				if (queued.current.delete(monthKey)) loadRef.current(year, month);
 			}
 		},
-		[userId, apiKey, queryClient, restore],
+		[userId, apiKey, queryClient, restore, loadDays],
 	);
+	loadRef.current = loadMonthEpisodes;
+
+	/** The Load button: build this month whatever the load setting says */
+	const loadAskedMonth = useCallback((year: number, month: number) => {
+		const key = `${year}-${String(month).padStart(2, "0")}`;
+		askedRef.current.add(key);
+		setAsked((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
+		// A retry after a failed build shows as loading again
+		setFailedMonths((prev) => {
+			if (!prev.has(key)) return prev;
+			const next = new Set(prev);
+			next.delete(key);
+			return next;
+		});
+		loadRef.current(year, month);
+	}, []);
 
 	// Back online: build again the months that failed (built ones are left alone)
 	useRetryOnReconnect(failedMonths.size > 0, () => {
@@ -326,9 +395,34 @@ export function useCalendarEpisodes(userId: string | undefined) {
 	const isMonthLoading = useCallback(
 		(year: number, month: number) => {
 			const key = `${year}-${String(month).padStart(2, "0")}`;
-			return !episodesByMonth.has(key) && !settled.has(key);
+			// A month nothing will load (outside the load setting, not asked for) has no skeleton
+			const coming = asked.has(key) || neededSpan(key, todayStr(), loadDays) !== null;
+			return coming && !episodesByMonth.has(key) && !settled.has(key);
 		},
-		[episodesByMonth, settled],
+		[episodesByMonth, settled, asked, loadDays],
+	);
+
+	/** What to offer under a date: nothing, load its month, or update it — and whether that's running */
+	const dayLoad = useCallback(
+		(date: string) => {
+			const key = date.slice(0, 7);
+			const cache = calendarCacheRef.current;
+			const cached = episodesByMonth.has(key);
+			const action = dayAction({
+				date,
+				today: todayStr(),
+				days: loadDays,
+				cached,
+				coverage: cache.spans?.[key],
+				stale: cached && isCalendarCacheStale(monthSync(cache, key), lastCatalogSync),
+			});
+			return {
+				action,
+				loading:
+					action !== CalendarDayAction.NONE && asked.has(key) && !failedMonths.has(key),
+			};
+		},
+		[episodesByMonth, loadDays, lastCatalogSync, asked, failedMonths],
 	);
 
 	const removeShowFromCalendar = useCallback((tmdbId: number) => {
@@ -369,6 +463,7 @@ export function useCalendarEpisodes(userId: string | undefined) {
 			const next = new Map(prev);
 			next.delete(monthKey);
 			delete calendarCacheRef.current.months[monthKey];
+			delete calendarCacheRef.current.spans?.[monthKey];
 			queueCalendarSave(calendarCacheRef.current);
 			return next;
 		});
@@ -394,6 +489,8 @@ export function useCalendarEpisodes(userId: string | undefined) {
 		episodes: allEpisodes,
 		isMonthLoading,
 		loadMonthEpisodes,
+		loadAskedMonth,
+		dayLoad,
 		removeShowFromCalendar,
 		addMovieToCalendar,
 		invalidateMonth,

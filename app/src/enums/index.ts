@@ -133,13 +133,27 @@ export enum CacheKey {
 	UPCOMING_TITLE_CHECKS = "upcoming_title_checks_v1",
 	/** Per-device alert switches (JSON, notifyPrefs) — premieres, new episodes, movie reminders, digest, quiet hours */
 	NOTIFY_PREFS = "notify_prefs_v1",
+	/** Per title the status + seasons the alert scheduler last saw (JSON; diffed for ended / new-season alerts) */
+	NOTIFY_SEEN = "notify_seen_v1",
 	/** Doc ids of the titles this device follows as FCM topics `title-{docId}` (JSON string[]) */
 	TITLE_TOPICS = "title_topics_v1",
 	/** Air-time corrections pushed by notifyAirings (JSON AiringOverride[]), dropped once past */
 	AIRING_OVERRIDES = "airing_overrides_v1",
 	/** The signed-in uid the alerts are planned for — the background task has no auth session yet */
 	AIRING_UID = "airing_uid_v1",
+	/** Per-device Home / Calendar settings (JSON AppPrefs) */
+	APP_PREFS = "app_prefs_v1",
+	/** + uid — the name and profile photo chosen on this device (JSON LocalProfile), never uploaded */
+	LOCAL_PROFILE = "local_profile_v1:",
 }
+
+/** Settings -> Calendar "load ahead": 0 = the current month, else this many days from today, in steps */
+export const CALENDAR_LOAD_STEP = 10;
+export const CALENDAR_LOAD_MAX = 100;
+/** Name / photo kept on this device (Settings -> Profile, profile photo viewer) */
+export const DISPLAY_NAME_MAX = 40;
+export const PROFILE_NAME_FALLBACK = "User";
+export const PROFILE_PHOTO_MAX_BYTES = 15 * 1024 * 1024;
 
 export enum QueryKey {
 	WATCHED_EPISODES = "watchedEpisodes",
@@ -620,7 +634,10 @@ export enum Route {
 	SETTINGS = "Settings",
 	APPEARANCE = "Appearance",
 	NOTIFICATIONS = "Notifications",
+	NOTIFICATION_TITLES = "NotificationTitles",
 	PROFILE_PREFS = "ProfilePrefs",
+	HOME_PREFS = "HomePrefs",
+	CALENDAR_PREFS = "CalendarPrefs",
 	WATCH_HISTORY = "WatchHistory",
 	IMPORT_DATA = "ImportData",
 	LIST_DETAIL = "ListDetail",
@@ -734,6 +751,17 @@ export enum AlertType {
 	MORNING = "morning",
 	DIGEST = "digest",
 	NUDGE = "nudge",
+	/** Day before a season premiere */
+	HEADSUP = "headsup",
+	FINALE = "finale",
+	SERIES_FINALE = "series_finale",
+	SERIES_ENDED = "series_ended",
+	NEW_SEASON = "new_season",
+	DATE_CHANGED = "date_changed",
+	DAILY = "daily",
+	BACKLOG = "backlog",
+	/** Alerts past the per-day cap, rolled into one */
+	OVERFLOW = "overflow",
 }
 
 /** Stable notification ids: re-planning cancels / schedules by id, so it is idempotent */
@@ -749,6 +777,12 @@ export const ALERT_ID = {
 	/** + docId + "-" + release date */
 	REMINDER: "reminder-",
 	NUDGE: "reopen-nudge",
+	HEADSUP: "headsup-",
+	DAILY: "daily-",
+	BACKLOG: "backlog-",
+	OVERFLOW: "overflow-",
+	/** + a key: one-off alerts (title ended, new season, moved air time) */
+	EVENT: "evt-",
 } as const;
 
 /** Why the alerts are being planned */
@@ -1332,3 +1366,49 @@ export const WATCH_REGION_NAMES: Record<string, string> = {
 
 /** Corner radius of list cards — watchlist rows match the calendar cards */
 export const CARD_RADIUS = 16;
+
+
+/** Which tracked titles get episode alerts */
+export enum EpisodeScope {
+	/** Watching / rewatching and caught up (the default) */
+	CAUGHT_UP = "caughtUp",
+	/** Watching / rewatching, caught up or not */
+	WATCHING = "watching",
+	/** Every tracked, unpaused show */
+	TRACKED = "tracked",
+}
+
+/** What quiet hours do with an alert that lands inside them */
+export enum QuietMode {
+	/** Wait for the morning hour (several titles arrive as one) */
+	DEFER = "defer",
+	/** Drop it */
+	DROP = "drop",
+	/** Premieres, finales and movie releases still arrive; the rest wait */
+	IMPORTANT = "important",
+}
+
+export enum PictureStyle {
+	RICH = "rich",
+	PLAIN = "plain",
+}
+
+export enum AlertPriority {
+	HIGH = "high",
+	DEFAULT = "default",
+	LOW = "low",
+}
+
+export enum LockVisibility {
+	PUBLIC = "public",
+	PRIVATE = "private",
+	SECRET = "secret",
+}
+
+/** The one-tap alert bundles of Settings → Notifications; CUSTOM = switches no bundle matches */
+export enum NotifyPreset {
+	ESSENTIAL = "essential",
+	BALANCED = "balanced",
+	EVERYTHING = "everything",
+	CUSTOM = "custom",
+}

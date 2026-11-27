@@ -122,7 +122,15 @@ export default function CalendarScreen() {
 		currentYear,
 		currentMonth,
 		resetToToday,
+		dayLoad,
+		loadDate,
 	} = c;
+	/** The Load / Update button's state for a date */
+	const loadFor = (date: string) => ({
+		...dayLoad(date),
+		month: parseDay(date).toLocaleDateString("en-US", { month: "long" }),
+		onLoad: () => loadDate(date),
+	});
 	const selected = c.selectedDate ?? todayStr();
 	const today = todayStr();
 
@@ -541,6 +549,7 @@ export default function CalendarScreen() {
 					onOpenMovie={openMovie}
 					collapseSignal={collapseSignal}
 					lite={offset !== 0}
+					load={loadFor(date)}
 				/>
 			</View>
 		);
@@ -562,6 +571,7 @@ export default function CalendarScreen() {
 				onOpenMovie={openMovie}
 				collapseSignal={collapseSignal}
 				externalScroll
+				load={loadFor(selected)}
 			/>
 		</Animated.View>
 	);

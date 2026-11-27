@@ -6,6 +6,7 @@ import { connectEmulators } from "./emulators";
 import { AppOpenSource } from "@app/enums";
 import { initMixpanel, trackAppOpened, flushAnalytics } from "@app/services/mixpanel";
 import { Paths } from "./routes/paths";
+import { useAppPrefsStore } from "@app/stores/appPrefsStore";
 // Poppins, self-hosted (latin subset, the weights the UI uses)
 import "@fontsource/poppins/latin-400.css";
 import "@fontsource/poppins/latin-500.css";
@@ -36,8 +37,14 @@ document.addEventListener("visibilitychange", () => {
 	if (document.visibilityState === "hidden") flushAnalytics();
 });
 
-createRoot(document.getElementById("root")!).render(
-	<StrictMode>
-		<App />
-	</StrictMode>,
-);
+// This browser's Home / Calendar settings first (localStorage): the first page is then already right
+void useAppPrefsStore
+	.getState()
+	.load()
+	.finally(() =>
+		createRoot(document.getElementById("root")!).render(
+			<StrictMode>
+				<App />
+			</StrictMode>,
+		),
+	);
