@@ -22,6 +22,8 @@ import {
 import { formatAirTime } from "../../utils/airTime";
 import { CARD_WIDTH, listStyles as styles } from "./listStyles";
 import EmptyDay from "./EmptyDay";
+import DayLoad, { type DayLoadState } from "./DayLoad";
+import { CalendarDayAction } from "../../utils/calendarRange";
 import { CARD_MAX_FONT_SCALE } from "../../components/CardInfo";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -53,6 +55,8 @@ interface Props {
 	externalScroll?: boolean;
 	/** Off-screen neighbour day: skip the backdrop blur (the costly part) */
 	lite?: boolean;
+	/** The date is outside what's loaded: the Load / Update button */
+	load?: DayLoadState;
 }
 
 /** One day's cards: show/movie cards, several episodes of a show collapse into one */
@@ -63,6 +67,7 @@ export default function DayList({
 	collapseSignal,
 	externalScroll,
 	lite,
+	load,
 }: Props) {
 	// Shows with several episodes that day collapse into one card; tap to open
 	const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -94,7 +99,17 @@ export default function DayList({
 		return out;
 	}, [episodes, expanded]);
 
-	if (episodes.length === 0) return <EmptyDay />;
+	// Not loaded: say so, rather than "nothing to watch"
+	if (load?.action === CalendarDayAction.LOAD) return <DayLoad {...load} />;
+	const refresh = load?.action === CalendarDayAction.REFRESH ? <DayLoad {...load} /> : null;
+	if (episodes.length === 0) {
+		return (
+			<>
+				<EmptyDay />
+				{refresh}
+			</>
+		);
+	}
 
 	const renderRow = (row: CalendarRow) => {
 		const isChild = row.kind === CalendarRowKind.CHILD;
@@ -239,8 +254,20 @@ export default function DayList({
 		);
 	});
 
-	if (externalScroll) return <View style={styles.listContent}>{content}</View>;
+	if (externalScroll) {
+		return (
+			<View style={styles.listContent}>
+				{content}
+				{refresh}
+			</View>
+		);
+	}
 	// Short list (one day) → plain scroll view, so rows can animate in/out and reflow.
 	// Gesture-handler ScrollView: vertical scroll here, horizontal swipes go to the day pager.
-	return <ScrollView contentContainerStyle={styles.listContent}>{content}</ScrollView>;
+	return (
+		<ScrollView contentContainerStyle={styles.listContent}>
+			{content}
+			{refresh}
+		</ScrollView>
+	);
 }

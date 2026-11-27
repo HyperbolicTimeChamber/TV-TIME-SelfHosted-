@@ -51,6 +51,8 @@ export type ProfileStackParamList = {
 	Notifications: undefined;
 	NotificationTitles: undefined;
 	ProfilePrefs: undefined;
+	HomePrefs: undefined;
+	CalendarPrefs: undefined;
 	ImportData: undefined;
 	WatchHistory: undefined;
 	Lists: undefined;

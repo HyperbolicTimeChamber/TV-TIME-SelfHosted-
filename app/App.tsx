@@ -62,6 +62,7 @@ import {
 } from "@react-native-firebase/messaging";
 import { getFirestore, doc, setDoc } from "@react-native-firebase/firestore";
 import { useAuthStore, useUiStore } from "./src/stores";
+import { useAppPrefsStore } from "./src/stores/appPrefsStore";
 import { handleUpdateMessage, subscribeToUpdates } from "./src/services/updateNotifications";
 import * as Notifications from "expo-notifications";
 import { handleAiringMessage } from "./src/services/airingScheduler";
@@ -217,6 +218,12 @@ function AppScreens() {
 		userFlagsLoading,
 		hasCompletedImport,
 	} = useAuthStore();
+	// Which Home tab opens first and whether Calendar is on — read before the navigator mounts
+	const appPrefsLoaded = useAppPrefsStore((s) => s.loaded);
+	const calendarEnabled = useAppPrefsStore((s) => s.prefs.calendarEnabled);
+	useEffect(() => {
+		useAppPrefsStore.getState().load();
+	}, []);
 
 	// Listen for background add failures (CF rollback)
 	useEffect(() => {
@@ -240,7 +247,7 @@ function AppScreens() {
 		return <LoginScreen />;
 	}
 
-	if (appTmdbApiKeyLoading || userFlagsLoading) {
+	if (appTmdbApiKeyLoading || userFlagsLoading || !appPrefsLoaded) {
 		return (
 			<View style={styles.loading}>
 				<LoadingSpinner />
@@ -265,7 +272,10 @@ function AppScreens() {
 	}
 
 	return (
-		<AppNavigator />
+		// Calendar on / off changes the number of tabs: the native pager can't take a page added or
+		// removed under it (its position fell out of step with the tab bar), so the navigator is
+		// rebuilt — it picks up its saved state, as on a theme change
+		<AppNavigator key={String(calendarEnabled)} />
 	);
 }
 

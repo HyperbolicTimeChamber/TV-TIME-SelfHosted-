@@ -1,5 +1,12 @@
-import React, { useLayoutEffect, useCallback, useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, ScrollView, PixelRatio } from "react-native";
+import React, { useLayoutEffect, useCallback, useState, useEffect, useRef } from "react";
+import {
+	View,
+	Text,
+	TouchableOpacity,
+	ScrollView,
+	PixelRatio,
+	useWindowDimensions,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { useNavigation, useFocusEffect, useIsFocused } from "@react-navigation/native";
@@ -31,6 +38,12 @@ import CompletedSections from "./CompletedSections";
 import CustomLists from "./CustomLists";
 import { styles } from "./styles";
 import { formatCount, formatTime, scaledPhotoURL } from "../../utils";
+import ProfilePhotoViewer, { type ThumbRect } from "./ProfilePhotoViewer";
+import { useLocalProfile } from "../../stores/localProfileStore";
+import { profilePhotoUri } from "../../services/profilePhoto";
+import { displayNameOf } from "../../utils/localProfile";
+
+const AVATAR_SIZE = 100;
 
 // Reset when the app process restarts, so the intro plays once per launch
 let introPlayed = false;
@@ -49,6 +62,21 @@ export default function ProfileScreen() {
 	const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
 	const user = useAuthStore((s) => s.user);
 	const profilePrefs = useAuthStore((s) => s.profilePrefs);
+	// This device's own name / photo win over the account's
+	const local = useLocalProfile(user?.uid);
+	const name = displayNameOf(local, user?.displayName);
+	const accountPhoto = (size: number) =>
+		user?.photoURL ? scaledPhotoURL(user.photoURL, size, PixelRatio.get()) : null;
+	const localPhoto = local.photo ? profilePhotoUri(local.photo) : null;
+	const avatarUri = localPhoto ?? accountPhoto(AVATAR_SIZE);
+	const { width: windowWidth } = useWindowDimensions();
+	const avatarRef = useRef<View>(null);
+	// Set while the full-screen photo is open: where the avatar sits, for it to grow from
+	const [photoOrigin, setPhotoOrigin] = useState<ThumbRect | null>(null);
+	const openPhoto = () =>
+		avatarRef.current?.measureInWindow((x, y, width, height) =>
+			setPhotoOrigin({ x, y, width, height }),
+		);
 	const { stats, loading: statsLoading } = useUserStats(user?.uid);
 	const { items: watchlist } = useWatchlist(user?.uid);
 	// Lifetime watched count, already live from useUserStats' snapshot — the chart uses it to
@@ -149,20 +177,31 @@ export default function ProfileScreen() {
 						/>
 					</View>
 					<View style={styles.avatarOverlay}>
-						<View style={[styles.avatar, styles.avatarPlaceholder]}>
-							<Ionicons name="person" size={40} color={colors.textMuted} />
+						<View ref={avatarRef} collapsable={false}>
+							<TouchableOpacity
+								activeOpacity={0.85}
+								onPress={openPhoto}
+								accessibilityRole="imagebutton"
+								accessibilityLabel="View profile photo"
+							>
+								<View style={[styles.avatar, styles.avatarPlaceholder]}>
+									<Ionicons name="person" size={40} color={colors.textMuted} />
+								</View>
+								{avatarUri && (
+									<Image
+										source={{ uri: avatarUri }}
+										style={[styles.avatar, { position: "absolute" }]}
+										contentFit="cover"
+									/>
+								)}
+							</TouchableOpacity>
 						</View>
-						{user?.photoURL && (
-							<Image
-								source={{ uri: scaledPhotoURL(user.photoURL, 100, PixelRatio.get()) }}
-								style={[styles.avatar, { position: "absolute" }]}
-								contentFit="cover"
-							/>
-						)}
 					</View>
 				</View>
 				<View style={styles.header}>
-					<Text style={styles.name}>{user?.displayName || "User"}</Text>
+					<Text style={styles.name} numberOfLines={1}>
+						{name}
+					</Text>
 					<Text style={styles.email} numberOfLines={1}>
 						{user?.email}
 					</Text>
@@ -211,6 +250,17 @@ export default function ProfileScreen() {
 				onOpenTitle={handleCompletedItemPress}
 				standalone={!profilePrefs.showCompleted || (!completedLoading && completedSections.length === 0)}
 			/>
+
+			{user && photoOrigin && (
+				<ProfilePhotoViewer
+					uid={user.uid}
+					name={name}
+					uri={localPhoto ?? accountPhoto(windowWidth)}
+					canRemove={!!local.photo}
+					origin={photoOrigin}
+					onClose={() => setPhotoOrigin(null)}
+				/>
+			)}
 		</ScrollView>
 	);
 }

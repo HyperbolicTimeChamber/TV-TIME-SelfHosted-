@@ -49,6 +49,7 @@ import {
 	type AccountImportResult,
 } from "../../services/accountExport";
 import { pickJsonFile } from "../../services/customListsFiles";
+import { clearLocalProfile } from "../../services/profilePhoto";
 import { CloudFunction, ProfileStackParamList, Route } from "../../types";
 import { ACCOUNT_IMPORT_MAX_BYTES, ReleaseChannel, UPDATE_CHANNEL } from "../../enums";
 import { INSTALLED_BUILD, UPDATES_SUPPORTED } from "../../services/appUpdate";
@@ -303,6 +304,7 @@ export default function SettingsScreen() {
 			const functions = getFunctions();
 			// Returns once the auth user is gone; the data purge carries on server-side
 			await foregroundCall(() => httpsCallable(functions, CloudFunction.DELETE_ACCOUNT)({}));
+			if (user) await clearLocalProfile(user.uid);
 			await signOut();
 		} catch (err: any) {
 			recordError(
@@ -313,7 +315,7 @@ export default function SettingsScreen() {
 			setDeleteError(err.message || "Failed to delete account.");
 			setDeletingAccount(false);
 		}
-	}, [signOut]);
+	}, [signOut, user]);
 
 	return (
 		// Swipe right from anywhere slides the page off, back to the profile
@@ -339,6 +341,18 @@ export default function SettingsScreen() {
 						onPress={() => navigation.navigate(Route.PROFILE_PREFS)}
 					>
 						<Text style={styles.rowText}>Profile</Text>
+					</TouchableOpacity>
+					<TouchableOpacity
+						style={styles.row}
+						onPress={() => navigation.navigate(Route.HOME_PREFS)}
+					>
+						<Text style={styles.rowText}>Home</Text>
+					</TouchableOpacity>
+					<TouchableOpacity
+						style={styles.row}
+						onPress={() => navigation.navigate(Route.CALENDAR_PREFS)}
+					>
+						<Text style={styles.rowText}>Calendar</Text>
 					</TouchableOpacity>
 					<TouchableOpacity
 						style={styles.row}

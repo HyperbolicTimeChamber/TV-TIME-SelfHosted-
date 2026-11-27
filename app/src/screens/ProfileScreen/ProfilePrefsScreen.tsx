@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, ScrollView, StyleSheet, Switch, TouchableOpacity } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -12,8 +12,9 @@ import { PROFILE_LIST_COUNT_MAX, PROFILE_LIST_COUNT_MIN } from "../../enums";
 import { useAuthStore } from "../../stores";
 import { requireOnline } from "../../utils/requireOnline";
 import type { ProfilePrefs } from "../../utils/profilePrefs";
+import NameSection from "./NameSection";
 
-/** Settings -> Profile: how many lists the profile shows, and whether the completed rows do */
+/** Settings -> Profile: the name shown, how many lists the profile shows, and the completed rows */
 export default function ProfilePrefsScreen() {
 	const { top } = useSafeAreaInsets();
 	const navigation = useNavigation<NativeStackNavigationProp<ProfileStackParamList>>();
@@ -32,12 +33,14 @@ export default function ProfilePrefsScreen() {
 
 	return (
 		<SwipeBackView onBack={() => navigation.goBack()} {...swipeBack} style={styles.container}>
-			<ScrollView style={{ paddingTop: top }}>
+			<ScrollView style={{ paddingTop: top }} keyboardShouldPersistTaps="handled">
 				<View style={styles.headerRow}>
 					<CircleBackButton onPress={() => navigation.goBack()} />
 					<Text style={styles.headerTitle}>Profile</Text>
 					<View style={styles.headerSpacer} />
 				</View>
+
+				<NameSection />
 
 				<View style={styles.section}>
 					<Text style={styles.sectionTitle}>Lists</Text>

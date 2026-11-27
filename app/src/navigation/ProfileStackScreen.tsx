@@ -8,6 +8,8 @@ import AppearanceScreen from "../screens/ProfileScreen/AppearanceScreen";
 import NotificationsScreen from "../screens/ProfileScreen/NotificationsScreen";
 import NotificationTitlesScreen from "../screens/ProfileScreen/NotificationTitlesScreen";
 import ProfilePrefsScreen from "../screens/ProfileScreen/ProfilePrefsScreen";
+import HomePrefsScreen from "../screens/ProfileScreen/HomePrefsScreen";
+import CalendarPrefsScreen from "../screens/ProfileScreen/CalendarPrefsScreen";
 import WatchHistoryScreen from "../screens/ProfileScreen/WatchHistory";
 import ListDetailScreen from "../screens/ProfileScreen/ListDetail";
 import ListsScreen from "../screens/ProfileScreen/ListsScreen";
@@ -47,6 +49,16 @@ export default function ProfileStackScreen() {
 			<ProfileStack.Screen
 				name={Route.PROFILE_PREFS}
 				component={ProfilePrefsScreen}
+				options={swipeBackScreenOptions}
+			/>
+			<ProfileStack.Screen
+				name={Route.HOME_PREFS}
+				component={HomePrefsScreen}
+				options={swipeBackScreenOptions}
+			/>
+			<ProfileStack.Screen
+				name={Route.CALENDAR_PREFS}
+				component={CalendarPrefsScreen}
 				options={swipeBackScreenOptions}
 			/>
 			<ProfileStack.Screen

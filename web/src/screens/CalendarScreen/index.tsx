@@ -21,6 +21,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { loadSeasonEpisodes, useEpisodeInfoLoader } from "@app/hooks/useEpisodeInfoLoader";
 import EpisodeDetailModal from "../../components/EpisodeDetailModal";
 import TrackedEpisodeInfo from "./TrackedEpisodeInfo";
+import DayLoad from "./DayLoad";
+import { CalendarDayAction } from "@app/utils/calendarRange";
 import { MediaType } from "@app/enums";
 import { todayStr } from "@app/utils/todayStr";
 import { tmdbBackdropUri, tmdbLogoUri, tmdbStillUri } from "@app/hooks/useTmdbImage";
@@ -260,6 +262,15 @@ export default function CalendarScreen() {
 			? navigate(showPath(MediaType.MOVIE, ep.tmdbShowId))
 			: openInfo(ep);
 	const today = todayStr();
+	// A date outside what Settings -> Calendar loads: the Load / Update button
+	const selected = c.selectedDate;
+	const load = selected
+		? {
+				...c.dayLoad(selected),
+				month: new Date(`${selected}T00:00:00`).toLocaleDateString("en-US", { month: "long" }),
+				onLoad: () => c.loadDate(selected),
+			}
+		: null;
 	const yearListRef = useRef<HTMLDivElement>(null);
 	const grid = useMemo(
 		() => monthGrid(c.currentYear, c.currentMonth),
@@ -399,7 +410,7 @@ export default function CalendarScreen() {
 									})
 								)}
 							</h3>
-							{c.selectedEpisodes.length === 0 ? (
+							{load?.action === CalendarDayAction.LOAD ? null : c.selectedEpisodes.length === 0 ? (
 								// Nothing on: Shikamaru, sighing (app EmptyDay)
 								<div className={styles.emptyDay}>
 									<img className={styles.emptyDayArt} src="/empty-day.webp" alt="" />
@@ -447,6 +458,7 @@ export default function CalendarScreen() {
 									);
 								})
 							)}
+							{load && load.action !== CalendarDayAction.NONE && <DayLoad {...load} />}
 						</section>
 					)
 				)}

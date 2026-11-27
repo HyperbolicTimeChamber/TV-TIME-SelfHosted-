@@ -17,6 +17,8 @@ export const Paths = {
 	APPEARANCE: "/profile/settings/appearance",
 	NOTIFICATIONS: "/profile/settings/notifications",
 	PROFILE_PREFS: "/profile/settings/profile",
+	HOME_PREFS: "/profile/settings/home",
+	CALENDAR_PREFS: "/profile/settings/calendar",
 	WATCH_HISTORY: "/profile/history",
 	IMPORT: "/profile/import",
 	LISTS: "/profile/lists",

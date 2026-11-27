@@ -141,7 +141,19 @@ export enum CacheKey {
 	AIRING_OVERRIDES = "airing_overrides_v1",
 	/** The signed-in uid the alerts are planned for — the background task has no auth session yet */
 	AIRING_UID = "airing_uid_v1",
+	/** Per-device Home / Calendar settings (JSON AppPrefs) */
+	APP_PREFS = "app_prefs_v1",
+	/** + uid — the name and profile photo chosen on this device (JSON LocalProfile), never uploaded */
+	LOCAL_PROFILE = "local_profile_v1:",
 }
+
+/** Settings -> Calendar "load ahead": 0 = the current month, else this many days from today, in steps */
+export const CALENDAR_LOAD_STEP = 10;
+export const CALENDAR_LOAD_MAX = 100;
+/** Name / photo kept on this device (Settings -> Profile, profile photo viewer) */
+export const DISPLAY_NAME_MAX = 40;
+export const PROFILE_NAME_FALLBACK = "User";
+export const PROFILE_PHOTO_MAX_BYTES = 15 * 1024 * 1024;
 
 export enum QueryKey {
 	WATCHED_EPISODES = "watchedEpisodes",
@@ -624,6 +636,8 @@ export enum Route {
 	NOTIFICATIONS = "Notifications",
 	NOTIFICATION_TITLES = "NotificationTitles",
 	PROFILE_PREFS = "ProfilePrefs",
+	HOME_PREFS = "HomePrefs",
+	CALENDAR_PREFS = "CalendarPrefs",
 	WATCH_HISTORY = "WatchHistory",
 	IMPORT_DATA = "ImportData",
 	LIST_DETAIL = "ListDetail",

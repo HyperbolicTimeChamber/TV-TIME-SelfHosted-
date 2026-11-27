@@ -4,7 +4,7 @@ import { colors, spacing, typography, themedStyles } from "../../theme";
 import { DAY_NAMES, type NumberLimit } from "../../utils/notifyConfig";
 import { fractionToValue, parseTyped, touchToFraction, unitLabel, valueToFraction } from "../../utils/sliderMath";
 
-/** Building blocks of Settings → Notifications: a card, switch rows, chip pickers, an hour stepper */
+/** Building blocks of the settings pages: a card, switch rows, chip pickers, sliders, an hour stepper */
 
 /** "9 am", "12 pm", "midnight" */
 export function hourLabel(hour: number): string {
@@ -74,10 +74,23 @@ export function SwitchRow({
 	);
 }
 
-/** A detail under a switch: label on top, its control below, indented as a child of the row above */
-export function Detail({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+/**
+ * A detail under a switch: label on top, its control below, indented as a child of the row above.
+ * `flush`: it stands on its own, in line with the card's title
+ */
+export function Detail({
+	label,
+	hint,
+	flush,
+	children,
+}: {
+	label: string;
+	hint?: string;
+	flush?: boolean;
+	children: React.ReactNode;
+}) {
 	return (
-		<View style={styles.detail}>
+		<View style={[styles.detail, flush && styles.detailFlush]}>
 			<Text style={styles.detailLabel}>{label}</Text>
 			{hint ? <Text style={styles.hint}>{hint}</Text> : null}
 			<View style={styles.detailControl}>{children}</View>
@@ -165,31 +178,24 @@ export function WeekdaysChips({ value, onChange }: { value: number[]; onChange: 
 
 const THUMB = 26;
 
-/**
- * A whole-number slider over `limit.min`–`limit.max` with a box beside it for a typed value: the box accepts digits
- * only (no negatives) up to `limit.custom`, so a value past the slider's end is possible. Past the end the thumb
- * sits at the end. `unit` words the value ("day" → "1 day", "5 days"); `zero` words 0 ("No limit")
- */
-export function NumberSlider({
+/** The draggable track shared by the sliders; `words` is what a screen reader says for the value */
+function SliderTrack({
 	value,
 	limit,
 	onChange,
-	unit,
-	plural,
-	zero,
 	label,
+	words,
+	max = limit.custom,
 }: {
 	value: number;
 	limit: NumberLimit;
 	onChange: (value: number) => void;
-	unit: string;
-	plural?: string;
-	zero?: string;
 	label: string;
+	words: string;
+	/** The largest value the accessibility actions step to */
+	max?: number;
 }) {
 	const [width, setWidth] = useState(0);
-	// What is being typed while the box has focus (null = show the value)
-	const [draft, setDraft] = useState<string | null>(null);
 	const live = useRef({ limit, onChange, width: 0 });
 	live.current = { limit, onChange, width };
 	const startX = useRef(0);
@@ -213,36 +219,97 @@ export function NumberSlider({
 		}),
 	).current;
 
+	const fraction = valueToFraction(value, limit);
+	const thumbLeft = fraction * Math.max(0, width - THUMB);
+	const step = (d: number) => onChange(Math.min(max, Math.max(limit.min, value + d)));
+
+	return (
+		<View
+			style={styles.sliderArea}
+			onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
+			accessible
+			accessibilityRole="adjustable"
+			accessibilityLabel={label}
+			accessibilityValue={{ min: limit.min, max, now: value, text: words }}
+			accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
+			onAccessibilityAction={(e) => step(e.nativeEvent.actionName === "increment" ? 1 : -1)}
+			{...pan.panHandlers}
+		>
+			{/* Children ignore touches so locationX is the track's */}
+			<View pointerEvents="none" style={styles.sliderTrackWrap}>
+				<View style={styles.sliderTrack} />
+				<View style={[styles.sliderFill, { width: thumbLeft + THUMB / 2 }]} />
+				<View style={[styles.sliderThumb, { left: thumbLeft }]} />
+			</View>
+		</View>
+	);
+}
+
+/** A slider over a fixed set of positions, 0 – `steps`, with the chosen position's name beside it */
+export function StepSlider({
+	index,
+	steps,
+	onChange,
+	label,
+	text,
+}: {
+	index: number;
+	steps: number;
+	onChange: (index: number) => void;
+	label: string;
+	text: string;
+}) {
+	return (
+		<View style={styles.sliderRow}>
+			<SliderTrack
+				value={index}
+				limit={{ min: 0, max: steps, custom: steps }}
+				onChange={onChange}
+				label={label}
+				words={text}
+			/>
+			<Text style={styles.stepName} numberOfLines={1}>
+				{text}
+			</Text>
+		</View>
+	);
+}
+
+/**
+ * A whole-number slider over `limit.min`–`limit.max` with a box beside it for a typed value: the box accepts digits
+ * only (no negatives) up to `limit.custom`, so a value past the slider's end is possible. Past the end the thumb
+ * sits at the end. `unit` words the value ("day" → "1 day", "5 days"); `zero` words 0 ("No limit")
+ */
+export function NumberSlider({
+	value,
+	limit,
+	onChange,
+	unit,
+	plural,
+	zero,
+	label,
+}: {
+	value: number;
+	limit: NumberLimit;
+	onChange: (value: number) => void;
+	unit: string;
+	plural?: string;
+	zero?: string;
+	label: string;
+}) {
+	// What is being typed while the box has focus (null = show the value)
+	const [draft, setDraft] = useState<string | null>(null);
+
 	// A value changed from outside (reset, preset) replaces what was typed
 	useEffect(() => {
 		setDraft(null);
 	}, [value]);
 
-	const fraction = valueToFraction(value, limit);
-	const thumbLeft = fraction * Math.max(0, width - THUMB);
-	const step = (d: number) => onChange(Math.min(limit.custom, Math.max(limit.min, value + d)));
 	const words = `${value === 0 && zero ? "" : `${value} `}${unitLabel(value, unit, plural, zero)}`;
 
 	return (
 		<View style={styles.sliderRow}>
-			<View
-				style={styles.sliderArea}
-				onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
-				accessible
-				accessibilityRole="adjustable"
-				accessibilityLabel={label}
-				accessibilityValue={{ min: limit.min, max: limit.custom, now: value, text: words }}
-				accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
-				onAccessibilityAction={(e) => step(e.nativeEvent.actionName === "increment" ? 1 : -1)}
-				{...pan.panHandlers}
-			>
-				{/* Children ignore touches so locationX is the track's */}
-				<View pointerEvents="none" style={styles.sliderTrackWrap}>
-					<View style={styles.sliderTrack} />
-					<View style={[styles.sliderFill, { width: thumbLeft + THUMB / 2 }]} />
-					<View style={[styles.sliderThumb, { left: thumbLeft }]} />
-				</View>
-			</View>
+			<SliderTrack value={value} limit={limit} onChange={onChange} label={label} words={words} />
 			<TextInput
 				style={styles.sliderInput}
 				value={draft ?? String(value)}
@@ -327,6 +394,7 @@ const styles = themedStyles(() =>
 			paddingBottom: spacing.md,
 			paddingLeft: spacing.xl,
 		},
+		detailFlush: { paddingLeft: spacing.md, paddingTop: spacing.xs },
 		detailLabel: { ...typography.caption, color: colors.text },
 		detailControl: { marginTop: spacing.xs },
 		chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, paddingRight: spacing.md },
@@ -366,6 +434,7 @@ const styles = themedStyles(() =>
 			textAlign: "center",
 		},
 		sliderUnit: { ...typography.caption, color: colors.textMuted, minWidth: 52 },
+		stepName: { ...typography.caption, color: colors.text, minWidth: 90, textAlign: "right" },
 		stepper: { flexDirection: "row", alignItems: "center", gap: spacing.md },
 		stepButton: {
 			width: 34,

@@ -13,6 +13,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { colors, themedStyles } from "../../theme";
 import { HomeStackParamList, Route } from "../../types";
+import { useAppPrefsStore } from "../../stores/appPrefsStore";
 import WatchlistTab from "./WatchlistTab";
 import UpcomingTab from "./UpcomingTab";
 
@@ -97,7 +98,10 @@ export default function HomeScreen() {
 	const { width } = useWindowDimensions();
 	const navigation = useNavigation();
 	const route = useRoute<RouteProp<HomeStackParamList, Route.HOME_TABS>>();
-	const [tab, setTab] = useState<HomeTab>(route.params?.screen ?? Route.WATCHLIST);
+	// A cold start opens on the tab chosen in Settings -> Home, unless a link / alert asks for one
+	const [tab, setTab] = useState<HomeTab>(
+		() => route.params?.screen ?? useAppPrefsStore.getState().prefs.homeTab,
+	);
 	// Upcoming mounts once Home has settled (it fetches), or the first time it's shown if sooner
 	const [upcomingOpened, setUpcomingOpened] = useState(tab === Route.UPCOMING);
 
@@ -161,6 +165,15 @@ export default function HomeScreen() {
 	target.current = index * width;
 	useEffect(() => {
 		const sub = AppState.addEventListener("change", (state) => {
+			// Leaving the app puts Home back on its start tab (Settings -> Home). Done on the way out,
+			// so it's already there on return and a tapped alert / link arriving then still wins
+			if (state === "background") {
+				const start = useAppPrefsStore.getState().prefs.homeTab;
+				if (start === Route.UPCOMING) setUpcomingOpened(true);
+				target.current = TABS.findIndex((t) => t.key === start) * width;
+				setTab(start);
+				return;
+			}
 			if (state !== "active") return;
 			dragging.value = false;
 			indexSV.value = target.current / Math.max(1, width);
@@ -179,17 +192,19 @@ export default function HomeScreen() {
 		return () => clearTimeout(timer);
 	}, [index, width, pos, dragging, settle]);
 
+	const calendarEnabled = useAppPrefsStore((s) => s.prefs.calendarEnabled);
 	useEffect(() => {
 		const parent = navigation.getParent();
 		if (!parent) return;
-		const timers = PRELOAD_TABS.map((name, i) =>
+		const tabs = PRELOAD_TABS.filter((name) => calendarEnabled || name !== Route.CALENDAR);
+		const timers = tabs.map((name, i) =>
 			setTimeout(
 				() => parent.dispatch(CommonActions.preload(name)),
 				PRELOAD_START_MS + i * PRELOAD_GAP_MS,
 			),
 		);
 		return () => timers.forEach(clearTimeout);
-	}, [navigation]);
+	}, [navigation, calendarEnabled]);
 
 	// Upcoming → Calendar belongs to the bottom pager, the one thing that can slide Calendar in
 	// under the finger (this pan, clamped at Upcoming, moved nothing and jumped on release). The

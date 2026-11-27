@@ -5,6 +5,7 @@ import LoadingScreen from "../components/LoadingScreen";
 import RequireAuth from "./RequireAuth";
 import { Paths } from "./paths";
 import { useAppSelector } from "../store";
+import { useAppPrefsStore } from "@app/stores/appPrefsStore";
 
 // Screens are code-split: guests landing on search never download the watchlist bundle
 const loadSearch = () => import("../screens/SearchScreen");
@@ -17,6 +18,8 @@ const loadSettings = () => import("../screens/ProfileScreen/SettingsScreen");
 const loadAppearance = () => import("../screens/ProfileScreen/AppearanceScreen");
 const loadNotifications = () => import("../screens/ProfileScreen/NotificationsScreen");
 const loadProfilePrefs = () => import("../screens/ProfileScreen/ProfilePrefsScreen");
+const loadHomePrefs = () => import("../screens/ProfileScreen/HomePrefsScreen");
+const loadCalendarPrefs = () => import("../screens/ProfileScreen/CalendarPrefsScreen");
 const loadWatchHistory = () => import("../screens/ProfileScreen/WatchHistory");
 const loadListDetail = () => import("../screens/ProfileScreen/ListDetail");
 const loadLists = () => import("../screens/ProfileScreen/ListsScreen");
@@ -32,6 +35,8 @@ const SettingsScreen = lazy(loadSettings);
 const AppearanceScreen = lazy(loadAppearance);
 const NotificationsScreen = lazy(loadNotifications);
 const ProfilePrefsScreen = lazy(loadProfilePrefs);
+const HomePrefsScreen = lazy(loadHomePrefs);
+const CalendarPrefsScreen = lazy(loadCalendarPrefs);
 const WatchHistoryScreen = lazy(loadWatchHistory);
 const ListDetailScreen = lazy(loadListDetail);
 const ListsScreen = lazy(loadLists);
@@ -49,6 +54,8 @@ const SIGNED_IN_PAGES = [
 	loadAppearance,
 	loadNotifications,
 	loadProfilePrefs,
+	loadHomePrefs,
+	loadCalendarPrefs,
 	loadWatchHistory,
 	loadLists,
 	loadListDetail,
@@ -61,13 +68,16 @@ const PRELOAD_PAGES_DELAY_MS = 3000;
  * never fetched can't open offline (a failed dynamic import left a blank screen), and browsing
  * what's saved must work without a connection
  */
-function usePreloadPages(signedIn: boolean) {
+function usePreloadPages(signedIn: boolean, calendarEnabled: boolean) {
 	useEffect(() => {
 		const t = window.setTimeout(() => {
-			for (const load of signedIn ? SIGNED_IN_PAGES : GUEST_PAGES) load().catch(() => {});
+			for (const load of signedIn ? SIGNED_IN_PAGES : GUEST_PAGES) {
+				// Calendar off: its code isn't fetched either
+				if (load !== loadCalendar || calendarEnabled) load().catch(() => {});
+			}
 		}, PRELOAD_PAGES_DELAY_MS);
 		return () => window.clearTimeout(t);
-	}, [signedIn]);
+	}, [signedIn, calendarEnabled]);
 }
 
 /** Guests land on search; signed-in users on their watchlist */
@@ -78,7 +88,11 @@ function RootRedirect() {
 }
 
 export default function AppRoutes() {
-	usePreloadPages(useAppSelector((s) => !!s.auth.user));
+	const calendarEnabled = useAppPrefsStore((s) => s.prefs.calendarEnabled);
+	usePreloadPages(
+		useAppSelector((s) => !!s.auth.user),
+		calendarEnabled,
+	);
 	return (
 		<Suspense fallback={<LoadingScreen />}>
 			<Routes>
@@ -92,12 +106,17 @@ export default function AppRoutes() {
 					{/* Signed-in only */}
 					<Route element={<RequireAuth />}>
 						<Route path={`${Paths.HOME}/*`} element={<HomeScreen />} />
-						<Route path={Paths.CALENDAR} element={<CalendarScreen />} />
+						<Route
+							path={Paths.CALENDAR}
+							element={calendarEnabled ? <CalendarScreen /> : <Navigate to={Paths.HOME} replace />}
+						/>
 						<Route path={Paths.PROFILE} element={<ProfileScreen />} />
 						<Route path={Paths.SETTINGS} element={<SettingsScreen />} />
 						<Route path={Paths.APPEARANCE} element={<AppearanceScreen />} />
 						<Route path={Paths.NOTIFICATIONS} element={<NotificationsScreen />} />
 						<Route path={Paths.PROFILE_PREFS} element={<ProfilePrefsScreen />} />
+						<Route path={Paths.HOME_PREFS} element={<HomePrefsScreen />} />
+						<Route path={Paths.CALENDAR_PREFS} element={<CalendarPrefsScreen />} />
 						<Route path={Paths.WATCH_HISTORY}element={<WatchHistoryScreen />} />
 						<Route path={Paths.LISTS} element={<ListsScreen />} />
 						<Route path={Paths.LIST} element={<ListDetailScreen />} />
